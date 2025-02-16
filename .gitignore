@@ -1,0 +1,29 @@
+# macOS files
+.DS_Store
+
+# Build output directories (compiled binaries, builds, etc.)
+bin/
+build/
+dist/
+
+# Go build artifacts
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+
+# Vendored dependencies (if you use Go modules, this folder is optional)
+vendor/
+
+# Log files (ignore logs if they are generated during runtime)
+*.log
+
+# Temporary files created by editors
+*~
+*.swp
+*.swo
+
+# Test data
+testdata/
