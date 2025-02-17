@@ -26,6 +26,7 @@ func (p *StderrParser) Parse(filename string, out chan<- LogEntry) error {
 
 	var currentEntry string
 
+	// Orphan lines
 	for scanner.Scan() {
 		line := scanner.Text()
 

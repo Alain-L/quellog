@@ -28,32 +28,6 @@ func ParseAllFiles(files []string, out chan<- LogEntry) {
 	}
 }
 
-/*/ ParseAllFiles détecte le format pour chaque fichier et appelle le parser en streaming.
-// Version parallélisée
-func ParseAllFiles(files []string, out chan<- LogEntry) {
-	var wg sync.WaitGroup
-
-	for _, file := range files {
-		wg.Add(1)
-		go func(f string) {
-			defer wg.Done()
-
-			lp := detectParser(f)
-			if lp == nil {
-				log.Printf("[WARN] Format inconnu pour %s", f)
-				return
-			}
-
-			if err := lp.Parse(f, out); err != nil {
-				log.Printf("[ERROR] Erreur sur %s: %v", f, err)
-			}
-		}(file)
-	}
-
-	wg.Wait()
-}
-*/
-
 // detectParser lit un petit bout du fichier pour identifier le format
 func detectParser(filename string) LogParser {
 	// 1) Vérifier si le fichier existe et n'est pas vide

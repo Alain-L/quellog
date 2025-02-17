@@ -25,5 +25,8 @@ vendor/
 *.swp
 *.swo
 
+# Commodity files
+_*
+
 # Test data
 testdata/
