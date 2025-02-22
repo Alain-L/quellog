@@ -63,6 +63,17 @@
 
 
 ## Other
+- refactor
+    - déplacement des fonctions print au bon endroit
+    - étude déplacement du reste
+    - respecter les conventions de nommage (et renommer)
+    - tous les commentaires, et tous en anglais
+- docs 
+    - dossier docs pour les utilisateurs
+    - travailler la godoc
+- autodetect pgbadger
+- parser pgbadger
+- dossier test
 - travail étienne : https://github.com/dalibo/pgtoolkit/tree/master/pgtoolkit/log
 - aotodetect format (end CLI flag) => test for remote files - log type vs log format
 - autodetact format (bis) cf search_log_format from pgBadger
