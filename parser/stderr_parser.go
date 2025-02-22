@@ -1,77 +1,128 @@
+// parser/stderr_parser.go
 package parser
 
 import (
 	"bufio"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
 
-// StderrParser parse les logs PostgreSQL au format stderr
+// StderrParser parses PostgreSQL logs in stderr format.
 type StderrParser struct{}
 
-// Parse prend un fichier et renvoie un canal de LogEntry en streaming.
+// Parse reads a file and streams LogEntry objects through the provided channel.
 func (p *StderrParser) Parse(filename string, out chan<- LogEntry) error {
-	f, err := os.Open(filename)
+	// Open the file.
+	file, err := os.Open(filename)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to open file %s: %w", filename, err)
 	}
-	defer f.Close()
+	defer file.Close()
 
-	scanner := bufio.NewScanner(f)
-	// Optionnel : augmenter le buffer si nécessaire
+	scanner := bufio.NewScanner(file)
+	// Optionally increase the buffer size if needed.
 	buf := make([]byte, 1024*1024)    // 1 MB
-	scanner.Buffer(buf, 10*1024*1024) // jusqu'à 10 MB
+	scanner.Buffer(buf, 10*1024*1024) // up to 10 MB
 
 	var currentEntry string
 
-	// Orphan lines
+	// Process the file line by line, handling multi-line log entries.
 	for scanner.Scan() {
 		line := scanner.Text()
 
-		// Si la ligne commence par un espace ou une tabulation, c'est une continuation
+		// If the line starts with a space or a tab, it's a continuation of the previous entry.
 		if strings.HasPrefix(line, " ") || strings.HasPrefix(line, "\t") {
-			// On concatène avec un espace pour séparer proprement
+			// Concatenate with a space for proper separation.
 			currentEntry += " " + strings.TrimSpace(line)
 		} else {
-			// Si currentEntry n'est pas vide, on la traite comme une entrée complète
+			// If there is an accumulated entry, parse and send it to the output channel.
 			if currentEntry != "" {
-				ts, msg := parseStderrLine(currentEntry)
-				out <- LogEntry{Timestamp: ts, Message: msg}
+				timestamp, message := parseStderrLine(currentEntry)
+				out <- LogEntry{Timestamp: timestamp, Message: message}
 			}
-			// On démarre une nouvelle entrée avec la ligne actuelle
+			// Start a new entry with the current line.
 			currentEntry = line
 		}
 	}
-	// Traiter la dernière entrée accumulée, s'il y en a une
+	// Process the last accumulated entry, if any.
 	if currentEntry != "" {
-		ts, msg := parseStderrLine(currentEntry)
-		out <- LogEntry{Timestamp: ts, Message: msg}
+		timestamp, message := parseStderrLine(currentEntry)
+		out <- LogEntry{Timestamp: timestamp, Message: message}
 	}
 
 	return scanner.Err()
 }
 
-// parseStderrLine extrait le timestamp et le message d’une ligne de log stderr.
+// parseStderrLine extracts the timestamp and message from a stderr log line.
+// It assumes the line starts with a timestamp, e.g. "2024-06-05 00:00:01 CET ..."
 func parseStderrLine(line string) (time.Time, string) {
-	// On suppose que la ligne commence par : "2024-06-05 00:00:01 CET ..."
-	// On utilise strings.Fields pour découper par espaces (en supprimant les espaces multiples)
+	// Split the line by whitespace.
 	parts := strings.Fields(line)
 	if len(parts) < 4 {
-		// Si la ligne n'a pas assez de champs, on retourne le line entier et un time.Time vide.
+		// Not enough fields to parse the timestamp, return an empty time and the original line.
 		return time.Time{}, line
 	}
-	// Combiner les trois premiers champs pour obtenir le timestamp complet.
-	// Par exemple : "2024-06-05", "00:00:01", "CET"
-	tsStr := fmt.Sprintf("%s %s %s", parts[0], parts[1], parts[2])
-	// Utiliser le format correct avec fuseau horaire
-	t, err := time.Parse("2006-01-02 15:04:05 MST", tsStr)
+	// Combine the first three fields to form the complete timestamp string.
+	// Example: "2024-06-05", "00:00:01", "CET"
+	timestampStr := fmt.Sprintf("%s %s %s", parts[0], parts[1], parts[2])
+	// Parse the timestamp with timezone.
+	timestamp, err := time.Parse("2006-01-02 15:04:05 MST", timestampStr)
 	if err != nil {
-		// En cas d'erreur, on logge et on retourne un time.Time vide.
+		// On error, return an empty timestamp and the original line.
 		return time.Time{}, line
 	}
-	// Le message est la suite de la ligne (à partir du 4e champ)
-	msg := strings.Join(parts[3:], " ")
-	return t, msg
+	// The message is the rest of the line (starting from the 4th field).
+	message := strings.Join(parts[3:], " ")
+	return timestamp, message
+}
+
+// ParseSessionTime converts a string in the format "HH:MM:SS.mmm" into a time.Duration.
+func ParseSessionTime(s string) (time.Duration, error) {
+	// Example: "0:00:00.004" → hours, minutes, seconds, milliseconds.
+	parts := strings.Split(s, ":")
+	if len(parts) != 3 {
+		return 0, fmt.Errorf("invalid format for session time: %s", s)
+	}
+	hours, err := strconv.Atoi(parts[0])
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse hours: %w", err)
+	}
+	minutes, err := strconv.Atoi(parts[1])
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse minutes: %w", err)
+	}
+	// The seconds part can include milliseconds, e.g. "00.004"
+	seconds, err := strconv.ParseFloat(parts[2], 64)
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse seconds: %w", err)
+	}
+	totalSeconds := float64(hours*3600+minutes*60) + seconds
+	return time.Duration(totalSeconds * float64(time.Second)), nil
+}
+
+// ExtractKeyValue extracts a value associated with a key from a log line.
+// It returns the value and a boolean indicating whether the key was found.
+func ExtractKeyValue(line, key string) (string, bool) {
+	idx := strings.Index(line, key)
+	if idx == -1 {
+		return "", false
+	}
+	rest := line[idx+len(key):]
+
+	// Define a set of separators based on the log format.
+	separators := []rune{' ', ',', '[', ')'}
+	minIndex := len(rest)
+	for _, sep := range separators {
+		if pos := strings.IndexRune(rest, sep); pos != -1 && pos < minIndex {
+			minIndex = pos
+		}
+	}
+	value := strings.TrimSpace(rest[:minIndex])
+	if value == "" || strings.EqualFold(value, "unknown") || strings.EqualFold(value, "[unknown]") {
+		value = "UNKNOWN"
+	}
+	return value, true
 }

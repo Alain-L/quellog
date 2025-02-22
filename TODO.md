@@ -86,6 +86,7 @@
 - [PERF] evaluate string functions instead of regex wherever suitable
 - [SQL] hint
 - [SQL] autoexplain
+- **verbose mode**
 - add test suite
 - add nice doc
 - wal reporting ? 
@@ -95,4 +96,4 @@
 - flags validation
 - pgBouncer
 - support fichiers compressés
-- **verbose mode**
+- config package for root flags ?

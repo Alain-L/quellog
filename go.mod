@@ -3,7 +3,7 @@ module dalibo/quellog
 go 1.24.0
 
 require (
-	github.com/spf13/cobra v1.8.1
+	github.com/spf13/cobra v1.9.1
 	golang.org/x/term v0.29.0
 )
 

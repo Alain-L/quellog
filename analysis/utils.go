@@ -6,109 +6,69 @@ import (
 	"encoding/base64"
 	"fmt"
 	"strings"
-	"time"
 )
 
-// truncateQuery tronque la chaîne query à la largeur spécifiée, ajoutant "..." si nécessaire.
-func truncateQuery(query string, length int) string {
-	if len(query) > length {
-		return query[:length-3] + "..."
-	}
-	return query
-}
-
-// Normalisation de la requête SQL (remplace valeurs dynamiques)
+// normalizeQuery standardizes the SQL query by replacing dynamic values.
+// It converts newlines to spaces, converts to lower case, and replaces PostgreSQL variable symbols.
 func normalizeQuery(query string) string {
-	query = strings.ReplaceAll(query, "\n", " ") // Unifier sur une ligne
-	query = strings.ToLower(query)               // Uniformisation
-	query = strings.ReplaceAll(query, "$", "?")  // Remplacer les variables PostgreSQL
+	query = strings.ReplaceAll(query, "\n", " ") // Convert newlines to a space.
+	query = strings.ToLower(query)               // Convert to lower case.
+	query = strings.ReplaceAll(query, "$", "?")  // Replace PostgreSQL variable symbols.
 	return query
 }
 
-func formatQueryDuration(ms float64) string {
-	// Convertir la durée en time.Duration
-	d := time.Duration(ms * float64(time.Millisecond))
-
-	// Si moins d'une seconde, afficher en millisecondes
-	if d < time.Second {
-		return fmt.Sprintf("%d ms", d/time.Millisecond)
-	}
-
-	// Si moins d'une minute, afficher en secondes avec 2 décimales
-	if d < time.Minute {
-		return fmt.Sprintf("%.2f s", d.Seconds())
-	}
-
-	// Si moins d'une heure, afficher en minutes et secondes
-	if d < time.Hour {
-		minutes := int(d / time.Minute)
-		seconds := int((d % time.Minute) / time.Second)
-		return fmt.Sprintf("%dm %02ds", minutes, seconds)
-	}
-
-	// Si moins de 24 heures, afficher en heures, minutes, secondes
-	if d < 24*time.Hour {
-		hours := int(d / time.Hour)
-		minutes := int((d % time.Hour) / time.Minute)
-		seconds := int((d % time.Minute) / time.Second)
-		return fmt.Sprintf("%dh %02dm %02ds", hours, minutes, seconds)
-	}
-
-	// Sinon, afficher en jours, heures, minutes
-	days := int(d / (24 * time.Hour))
-	hours := int((d % (24 * time.Hour)) / time.Hour)
-	minutes := int((d % time.Hour) / time.Minute)
-	return fmt.Sprintf("%dd %dh %02dm", days, hours, minutes)
-}
-
-// generateQueryID génère un identifiant court à partir de la requête brute et normalisée.
-func generateQueryID(rawQuery, normalizedQuery string) (id, fullHash string) {
-	// Déterminer le préfixe en fonction du type de requête.
-	lower := strings.ToLower(strings.TrimSpace(rawQuery))
-	prefix := "xx-" // valeur par défaut
-	if strings.HasPrefix(lower, "select") {
+// GenerateQueryID generates a short identifier from the raw and normalized query.
+// It determines a prefix based on the query type and computes an MD5 hash from the normalized query.
+func GenerateQueryID(rawQuery, normalizedQuery string) (id, fullHash string) {
+	lowerQuery := strings.ToLower(strings.TrimSpace(rawQuery))
+	prefix := "xx-" // Default prefix.
+	if strings.HasPrefix(lowerQuery, "select") {
 		prefix = "se-"
-	} else if strings.HasPrefix(lower, "insert") {
+	} else if strings.HasPrefix(lowerQuery, "insert") {
 		prefix = "in-"
-	} else if strings.HasPrefix(lower, "update") {
+	} else if strings.HasPrefix(lowerQuery, "update") {
 		prefix = "up-"
-	} else if strings.HasPrefix(lower, "delete") {
+	} else if strings.HasPrefix(lowerQuery, "delete") {
 		prefix = "de-"
-	} else if strings.HasPrefix(lower, "copy") {
+	} else if strings.HasPrefix(lowerQuery, "copy") {
 		prefix = "co-"
-	} else if strings.HasPrefix(lower, "refresh") {
+	} else if strings.HasPrefix(lowerQuery, "refresh") {
 		prefix = "mv-"
 	}
 
-	// Calculer le hash MD5 complet de la requête normalisée.
+	// Compute the MD5 hash of the normalized query.
 	hashBytes := md5.Sum([]byte(normalizedQuery))
-	fullHash = strings.ToLower(fmt.Sprintf("%x", hashBytes)) // 32 hex chars
+	fullHash = strings.ToLower(fmt.Sprintf("%x", hashBytes)) // 32 hex characters.
 
-	// Convertir le hash en base64 pour obtenir une version plus compacte.
+	// Convert the hash to base64 for a more compact representation.
 	b64 := base64.StdEncoding.EncodeToString(hashBytes[:])
-	// Remplacer les caractères spéciaux pour obtenir une chaîne alphanumérique.
+	// Remove special characters to obtain an alphanumeric string.
 	b64 = strings.NewReplacer("+", "", "/", "", "=", "").Replace(b64)
-	// Extraire, par exemple, les 6 premiers caractères.
 	shortHash := b64
 	if len(b64) > 6 {
 		shortHash = b64[:6]
 	}
 
-	// Assembler l'ID.
 	id = prefix + shortHash
 	return
 }
 
-func formatAverageLoad(load float64) string {
-	// load est en queries/s
-	if load >= 1.0 {
-		return fmt.Sprintf("%.2f queries/s", load)
+// QueryTypeFromID returns the query type based on the identifier prefix.
+func QueryTypeFromID(id string) string {
+	switch {
+	case strings.HasPrefix(id, "se-"):
+		return "select"
+	case strings.HasPrefix(id, "in-"):
+		return "insert"
+	case strings.HasPrefix(id, "up-"):
+		return "update"
+	case strings.HasPrefix(id, "de-"):
+		return "delete"
+	case strings.HasPrefix(id, "co-"):
+		return "copy"
+	case strings.HasPrefix(id, "mv-"):
+		return "refresh"
+	default:
+		return "other"
 	}
-	perMin := load * 60.0
-	if perMin >= 1.0 {
-		// Afficher en queries/min sans décimales
-		return fmt.Sprintf("%.0f queries/min", perMin)
-	}
-	perHour := load * 3600.0
-	return fmt.Sprintf("%.0f queries/h", perHour)
 }

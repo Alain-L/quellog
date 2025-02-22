@@ -9,49 +9,52 @@ import (
 	"time"
 )
 
-const timeLayout = "2006-01-02 15:04:05" // adapter le layout si nécessaire
+const timeLayout = "2006-01-02 15:04:05" // Adjust the layout if needed
 
-// ParseLine tente d'extraire le timestamp et le message d'une ligne de log.
+// ParseLine attempts to extract the timestamp and message from a log line.
 func ParseLine(line string) (LogEntry, error) {
 	parts := strings.SplitN(line, " ", 3)
 	if len(parts) < 2 {
-		return LogEntry{}, fmt.Errorf("ligne trop courte : %s", line)
+		return LogEntry{}, fmt.Errorf("line too short: %s", line)
 	}
-	tsStr := parts[0] + " " + parts[1]
-	t, err := time.Parse(timeLayout, tsStr)
+
+	// Combine the first two fields to form the timestamp string.
+	timestampStr := parts[0] + " " + parts[1]
+	timestamp, err := time.Parse(timeLayout, timestampStr)
 	if err != nil {
-		return LogEntry{}, err
+		return LogEntry{}, fmt.Errorf("failed to parse timestamp '%s': %w", timestampStr, err)
 	}
-	// Le reste de la ligne est considéré comme message
+
+	// The rest of the line is considered the message.
 	message := ""
 	if len(parts) == 3 {
 		message = parts[2]
 	}
-	return LogEntry{Timestamp: t, Message: message}, nil
+	return LogEntry{Timestamp: timestamp, Message: message}, nil
 }
 
-// ParseLogFile lit un fichier et retourne la liste des entrées valides.
+// ParseLogFile reads a file and returns a slice of valid log entries.
 func ParseLogFile(filename string) ([]LogEntry, error) {
-	var entries []LogEntry
-
 	file, err := os.Open(filename)
 	if err != nil {
-		return nil, fmt.Errorf("ouverture du fichier %s échouée : %w", filename, err)
+		return nil, fmt.Errorf("failed to open file %s: %w", filename, err)
 	}
 	defer file.Close()
 
+	var entries []LogEntry
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		line := scanner.Text()
 		entry, err := ParseLine(line)
 		if err != nil {
-			// On peut choisir d'ignorer ou de logger l'erreur de parsing
+			// Optionally log the error; for now, we skip malformed lines.
 			continue
 		}
 		entries = append(entries, entry)
 	}
+
 	if err := scanner.Err(); err != nil {
-		return nil, fmt.Errorf("erreur de lecture du fichier %s : %w", filename, err)
+		return nil, fmt.Errorf("error reading file %s: %w", filename, err)
 	}
 	return entries, nil
 }
