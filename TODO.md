@@ -63,15 +63,21 @@
 
 
 ## Other
-- aotodetect format (end CLI flag) => test for remote files
+- travail étienne : https://github.com/dalibo/pgtoolkit/tree/master/pgtoolkit/log
+- aotodetect format (end CLI flag) => test for remote files - log type vs log format
 - autodetact format (bis) cf search_log_format from pgBadger
 - add normalization functions in parser/normalization.go (to be created) or keep it in analysis
 - parse log_line_prefix cf parse_log_prefix from pgBadger
 - improve sql parsing cf parse_query from pgBadger (the SQL part of it)
 - edge case orphan lines
+- [EVENT] * was not reloaded + erreurs au dessus
+- [EVENT] parameter changed
 - [PERF] evaluate string functions instead of regex wherever suitable
+- [SQL] hint
+- [SQL] autoexplain
 - add test suite
 - add nice doc
+- wal reporting ? 
 - package debian
 - docker
 - security
