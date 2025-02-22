@@ -1,99 +1,53 @@
 # TODO
 
-## General Enhancements
+## Core Features
+- Detect parameter changes in logs (e.g., `ALTER SYSTEM`, config reload).
+- Improve query hashing, use PostgreSQL query ID if available.
+- Add security checks (password changes, plain-text password detection).
+- Implement benchmark mode (`--benchmark` flag).
 
-- **Events Report:**  
-  - Check for parameter changes in logs (e.g., ALTER SYSTEM, configuration reload, etc.) and include these in the "events" report.
-- **Query Hashing:**  
-  - Implement a robust hash mechanism for queries.
-  - Use the PostgreSQL query ID if available.
-- **Security Tab:**  
-  - Detect password changes.
-  - Alert when plain-text passwords are detected.
-- **Benchmark Mode:**  
-  - Implement a benchmark mode (e.g., using a `--benchmark` flag) to measure performance.
+## Log Parsing & Detection
+- Improve autodetection of log formats (stderr, syslog, CSV, JSON).
+- Handle edge cases from pgBadger (orphan lines, remote files, log format distinctions).
+- Parse `log_line_prefix` like `parse_log_prefix` in pgBadger.
+- Enhance SQL parsing (`parse_query` from pgBadger).
+- Normalize log parsing functions (`parser/normalization.go`?).
+- Improve performance by reducing regex usage.
 
-## Data Structures
+## SQL Analysis & Reporting
+- Report top queries by percentile (80/90/99).
+- Differentiate slowest individual, normalized, and parameterized queries.
+- Identify busiest query windows.
+- Group similar queries together.
+- Implement query duration histogram.
+- Add `--sql-detail` for in-depth query analysis.
+- Include SQL hints and `auto_explain` insights.
 
-- **LogEntry:**  
-  - Review and possibly refine the LogEntry structure.
-- **Query/SQLStatement:**  
-  - Define a clear structure to represent individual SQL queries/statements.
+## Checkpoints & WAL
+- Distinguish ideal vs. non-ideal checkpoints (`timeout` vs. `max_wal_size`).
+- Explore WAL reporting.
 
-## Terminal User Interface (TUI)
+## API & Integration
+- Evaluate REST or gRPC API for internal data access.
+- Consider packaging (Debian, Docker).
+- Investigate compressed file support.
 
-- Evaluate and possibly integrate libraries such as:
-  - [tview](https://github.com/rivo/tview)
-  - [Bubble Tea](https://github.com/charmbracelet/bubbletea)
-- autocompletion
+## Terminal UI (TUI)
+- Explore `tview` or `Bubble Tea` for interactive usage.
+- Add autocompletion.
+- explicit format flag
 
-## Reporting Improvements
+## Housekeeping & Refactoring
+- Finalize refactoring, standardize comments (English).
+- Improve documentation (user docs, `godoc`).
+- Organize test suite and add structured tests.
+- Validate CLI flags.
+- Add verbose / debug infos
+- Errors handling
 
-- **Query ID:**  
-  - Use the PostgreSQL-provided query ID if it exists.
-- **Top Queries Reporting:**  
-  - Instead of a fixed TOP 10, consider reporting the top 80/90/99 percentiles.
-  - Do not display all columns in every top list.
-  - Different categories:
-    - Slowest individual queries
-    - Slowest normalized queries (taking case sensitivity into account)
-    - Slowest individual queries with parameters
-  - Create a synthetic header that summarizes total queries, total SELECT, total INSERT, total UPDATE, etc.
-  - Verify labels and text for consistency.
-  - Implement a `--sql-detail` report to show detailed information for a given query ID.
-- **Checkpoints**  
-  - clearly show ideal (timeout) and non ideal checkpoints (max_wal_size)
-
-## API Considerations
-
-- Evaluate API options for internal data access:
-  - REST
-  - gRPC with Protocol Buffers
-
-## SQL-Specific Analysis
-
-- **Busiest Windows:**  
-  - Identify the window(s) with the highest query time (peak windows).
-- **Similar Queries:**  
-  - Group similar queries together.
-- **Time-Consuming Queries:**  
-  - Currently, time-consuming queries are based on individual metrics (similar to pgBadger); consider using normalized queries for this metric.
-- **Duration Histogram:**  
-  - Implement a histogram for query durations.
-
-
-## Other
-- refactor
-    - déplacement des fonctions print au bon endroit
-    - étude déplacement du reste
-    - respecter les conventions de nommage (et renommer)
-    - tous les commentaires, et tous en anglais
-- docs 
-    - dossier docs pour les utilisateurs
-    - travailler la godoc
-- autodetect pgbadger
-- parser pgbadger
-- dossier test
-- travail étienne : https://github.com/dalibo/pgtoolkit/tree/master/pgtoolkit/log
-- aotodetect format (end CLI flag) => test for remote files - log type vs log format
-- autodetact format (bis) cf search_log_format from pgBadger
-- add normalization functions in parser/normalization.go (to be created) or keep it in analysis
-- parse log_line_prefix cf parse_log_prefix from pgBadger
-- improve sql parsing cf parse_query from pgBadger (the SQL part of it)
-- edge case orphan lines
-- [EVENT] * was not reloaded + erreurs au dessus
-- [EVENT] parameter changed
-- [PERF] evaluate string functions instead of regex wherever suitable
-- [SQL] hint
-- [SQL] autoexplain
-- **verbose mode**
-- add test suite
-- add nice doc
-- wal reporting ? 
-- package debian
-- docker
-- security
-- flags validation
+## Additional Format Support
 - pgBouncer
-- support fichiers compressés
-- config package for root flags ?
+- CNPG
+- Redshift
+- RDS
+- Logplex
