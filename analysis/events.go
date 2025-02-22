@@ -1,23 +1,18 @@
-// analysis/events.go
 package analysis
 
 import (
-	"strings"
-
 	"dalibo/quellog/parser"
+	"strings"
 )
 
 // EventSummary represents the summary information for a specific event type.
 type EventSummary struct {
-	// Type of the event (e.g., ERROR, FATAL, LOG, etc.)
-	Type string
-	// Count of occurrences for this event type.
-	Count int
-	// Percentage of this event type relative to total events.
-	Percentage float64
+	Type       string  // Event type (e.g., ERROR, WARNING, etc.)
+	Count      int     // Number of occurrences
+	Percentage float64 // Percentage relative to total events
 }
 
-// predefinedEventTypes lists the event types we are interested in.
+// Predefined event types to track.
 var predefinedEventTypes = []string{
 	"PANIC",
 	"FATAL",
@@ -29,29 +24,23 @@ var predefinedEventTypes = []string{
 	"DEBUG",
 }
 
-// SummarizeEvents analyzes the provided log entries and returns a slice of EventSummary.
-// It searches for each predefined event type in the log message (case-insensitive).
+// SummarizeEvents analyzes log entries and returns a summary of predefined event types.
 func SummarizeEvents(entries []parser.LogEntry) []EventSummary {
-	// Map to count events per type.
 	counts := make(map[string]int)
-	// Total count for events that match one of the predefined types.
 	total := 0
 
-	// Loop through each log entry.
 	for _, entry := range entries {
 		upperMsg := strings.ToUpper(entry.Message)
-		// Check for each predefined type in the message.
 		for _, eventType := range predefinedEventTypes {
 			if strings.Contains(upperMsg, eventType) {
 				counts[eventType]++
 				total++
-				// Stop at first match to avoid double counting if a message contains multiple keywords.
-				break
+				break // Prevent counting multiple event types in one entry
 			}
 		}
 	}
 
-	// Build the summary slice.
+	// Build the summary list.
 	var summary []EventSummary
 	for _, eventType := range predefinedEventTypes {
 		count := counts[eventType]

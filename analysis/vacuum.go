@@ -7,13 +7,22 @@ import (
 	"dalibo/quellog/parser"
 )
 
-// AnalyzeVacuum retourne les entrées de log liées aux opérations VACUUM.
+// VacuumMetrics aggregates statistics related to vacuum and analyze operations.
+type VacuumMetrics struct {
+	VacuumCount          int              // Total automatic vacuum operations
+	AnalyzeCount         int              // Total automatic analyze operations
+	VacuumTableCounts    map[string]int   // Vacuum operations per table
+	AnalyzeTableCounts   map[string]int   // Analyze operations per table
+	VacuumSpaceRecovered map[string]int64 // Space recovered by vacuum (in bytes)
+}
+
+// AnalyzeVacuum filters log entries related to vacuum operations.
 func AnalyzeVacuum(entries []parser.LogEntry) []parser.LogEntry {
-	var results []parser.LogEntry
+	var vacuumEntries []parser.LogEntry
 	for _, entry := range entries {
 		if strings.Contains(strings.ToLower(entry.Message), "vacuum") {
-			results = append(results, entry)
+			vacuumEntries = append(vacuumEntries, entry)
 		}
 	}
-	return results
+	return vacuumEntries
 }

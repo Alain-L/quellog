@@ -15,88 +15,89 @@ import (
 type TextFormatter struct{}
 
 // PrintMetrics displays the aggregated metrics.
-func PrintMetrics(m analysis.Metrics) {
+func PrintMetrics(m analysis.AggregatedMetrics) {
 	// Calculate total duration from min and max timestamps.
-	duration := m.MaxTimestamp.Sub(m.MinTimestamp)
+	duration := m.Global.MaxTimestamp.Sub(m.Global.MinTimestamp)
 
 	// ANSI style for bold text.
 	bold := "\033[1m"
 	reset := "\033[0m"
 
 	// General summary header.
-	fmt.Println(bold + "\nSUMMARY" + reset)
-	fmt.Printf("\n  %-25s : %s\n", "Start date", m.MinTimestamp.Format("2006-01-02 15:04:05 MST"))
-	fmt.Printf("  %-25s : %s\n", "End date", m.MaxTimestamp.Format("2006-01-02 15:04:05 MST"))
+	fmt.Println(bold + "\nSUMMARY\n" + reset)
+	fmt.Printf("  %-25s : %s\n", "Start date", m.Global.MinTimestamp.Format("2006-01-02 15:04:05 MST"))
+	fmt.Printf("  %-25s : %s\n", "End date", m.Global.MaxTimestamp.Format("2006-01-02 15:04:05 MST"))
 	fmt.Printf("  %-25s : %s\n", "Duration", duration)
-	fmt.Printf("  %-25s : %d\n", "Total entries", m.Count)
+	fmt.Printf("  %-25s : %d\n", "Total entries", m.Global.Count)
 	if duration > 0 {
-		rate := float64(m.Count) / duration.Seconds()
+		rate := float64(m.Global.Count) / duration.Seconds()
 		fmt.Printf("  %-25s : %.2f entries/s\n", "Throughput", rate)
 	}
-	fmt.Printf("  %-25s : %d\n", "Entries with 'ERROR'", m.ErrorCount)
-	fmt.Printf("  %-25s : %d\n", "Entries with 'FATAL'", m.FatalCount)
-	fmt.Printf("  %-25s : %d\n", "Entries with 'PANIC'", m.PanicCount)
-	fmt.Printf("  %-25s : %d\n", "Entries with 'WARNING'", m.WarningCount)
-	fmt.Printf("  %-25s : %d\n", "Log entries ('LOG:')", m.LogCount)
+
+	// SQL performance section
+	PrintSQLSummary(m.SQL, true)
+
+	// Events
+	PrintEventSummary(m.EventSummaries)
 
 	// Temp Files section.
-	fmt.Println(bold + "\nTemp files" + reset)
-	fmt.Printf("  %-25s : %d\n", "Temp file messages", m.TempFileCount)
-	fmt.Printf("  %-25s : %s\n", "Cumulative temp file size", formatBytes(m.TempFileTotalSize))
+	fmt.Println(bold + "\nTEMP FILES\n" + reset)
+	fmt.Printf("  %-25s : %d\n", "Temp file messages", m.TempFiles.Count)
+	fmt.Printf("  %-25s : %s\n", "Cumulative temp file size", formatBytes(m.TempFiles.TotalSize))
 	avgSize := int64(0)
-	if m.TempFileCount > 0 {
-		avgSize = m.TempFileTotalSize / int64(m.TempFileCount)
+	if m.TempFiles.Count > 0 {
+		avgSize = m.TempFiles.TotalSize / int64(m.TempFiles.Count)
 	}
 	fmt.Printf("  %-25s : %s\n", "Average temp file size", formatBytes(avgSize))
 
 	// Maintenance Metrics section.
-	fmt.Println(bold + "\nMaintenance" + reset)
-	fmt.Printf("  %-25s : %d\n", "Automatic vacuum count", m.VacuumCount)
-	fmt.Printf("  %-25s : %d\n", "Automatic analyze count", m.AnalyzeCount)
+	fmt.Println(bold + "\nMAINTENANCE\n" + reset)
+	fmt.Printf("  %-25s : %d\n", "Automatic vacuum count", m.Vacuum.VacuumCount)
+	fmt.Printf("  %-25s : %d\n", "Automatic analyze count", m.Vacuum.AnalyzeCount)
 	fmt.Println("  Top automatic vacuum operations per table:")
-	printTopTables(m.VacuumTableCounts, m.VacuumCount, m.VacuumSpaceRecovered)
+	printTopTables(m.Vacuum.VacuumTableCounts, m.Vacuum.VacuumCount, m.Vacuum.VacuumSpaceRecovered)
 	fmt.Println("  Top automatic analyze operations per table:")
-	printTopTables(m.AnalyzeTableCounts, m.AnalyzeCount, nil)
+	printTopTables(m.Vacuum.AnalyzeTableCounts, m.Vacuum.AnalyzeCount, nil)
 
 	// Checkpoints section (if available).
-	if m.CheckpointCompleteCount > 0 {
-		avgWriteSeconds := m.TotalCheckpointWriteSeconds / float64(m.CheckpointCompleteCount)
+	if m.Checkpoints.CompleteCount > 0 {
+		avgWriteSeconds := m.Checkpoints.TotalWriteTimeSeconds / float64(m.Checkpoints.CompleteCount)
 		avgDuration := time.Duration(avgWriteSeconds * float64(time.Second)).Truncate(time.Second)
-		fmt.Println(bold + "\nCHECKPOINTS" + reset)
-		fmt.Printf("  %-25s : %d\n", "Checkpoint count", m.CheckpointCompleteCount)
+		fmt.Println(bold + "\nCHECKPOINTS\n" + reset)
+		fmt.Printf("  %-25s : %d\n", "Checkpoint count", m.Checkpoints.CompleteCount)
 		fmt.Printf("  %-25s : %s\n", "Avg checkpoint write time", avgDuration)
 	}
 
 	// Connections & Sessions Metrics section.
-	fmt.Println(bold + "\nConnections & Sessions" + reset)
-	fmt.Printf("  %-25s : %d\n", "Connection count", m.ConnectionReceivedCount)
+	fmt.Println(bold + "\nCONNECTIONS & SESSIONS\n" + reset)
+	fmt.Printf("  %-25s : %d\n", "Connection count", m.Connections.ConnectionReceivedCount)
 	if duration.Hours() > 0 {
-		avgConnPerHour := float64(m.ConnectionReceivedCount) / duration.Hours()
+		avgConnPerHour := float64(m.Connections.ConnectionReceivedCount) / duration.Hours()
 		fmt.Printf("  %-25s : %d\n", "Avg connections per hour", int(avgConnPerHour))
 	}
-	fmt.Printf("  %-25s : %d\n", "Disconnection count", m.DisconnectionCount)
-	if m.DisconnectionCount > 0 {
-		avgSessionTime := m.TotalSessionTime / time.Duration(m.DisconnectionCount)
+	fmt.Printf("  %-25s : %d\n", "Disconnection count", m.Connections.DisconnectionCount)
+	if m.Connections.DisconnectionCount > 0 {
+		avgSessionTime := m.Connections.TotalSessionTime / time.Duration(m.Connections.DisconnectionCount)
 		fmt.Printf("  %-25s : %s\n", "Avg session time", avgSessionTime.Truncate(time.Second))
 	}
 
 	// Unique Clients section.
-	fmt.Println(bold + "\nCLIENTS" + reset)
-	fmt.Printf("  %-25s : %d\n", "Unique DBs", m.UniqueDbs)
-	fmt.Printf("  %-25s : %d\n", "Unique Users", m.UniqueUsers)
-	fmt.Printf("  %-25s : %d\n", "Unique Apps", m.UniqueApps)
+	fmt.Println(bold + "\nCLIENTS\n" + reset)
+	fmt.Printf("  %-25s : %d\n", "Unique DBs", m.UniqueEntities.UniqueDbs)
+	fmt.Printf("  %-25s : %d\n", "Unique Users", m.UniqueEntities.UniqueUsers)
+	fmt.Printf("  %-25s : %d\n", "Unique Apps", m.UniqueEntities.UniqueApps)
 
 	// Display lists.
-	fmt.Println(bold + "\nDATABASES" + reset)
-	for _, db := range m.DBs {
+	fmt.Println(bold + "\nDATABASES\n" + reset)
+	for _, db := range m.UniqueEntities.DBs {
 		fmt.Printf("    %s\n", db)
 	}
-	fmt.Println(bold + "\nUSERS" + reset)
-	for _, user := range m.Users {
+	fmt.Println(bold + "\nUSERS\n" + reset)
+	for _, user := range m.UniqueEntities.Users {
 		fmt.Printf("    %s\n", user)
 	}
-	fmt.Println(bold + "\nAPPS" + reset)
-	for _, app := range m.Apps {
+	fmt.Println(bold + "\nAPPS\n" + reset)
+	for _, app := range m.UniqueEntities.Apps {
 		fmt.Printf("    %s\n", app)
 	}
 }
@@ -165,7 +166,7 @@ func printTopTables(tableCounts map[string]int, total int, spaceRecovered map[st
 
 // PrintSQLSummary displays an SQL performance report in the CLI.
 // The report uses ANSI bold formatting for better readability. The query text is truncated based on terminal width.
-func PrintSQLSummary(m analysis.SqlMetrics) {
+func PrintSQLSummary(m analysis.SqlMetrics, indicatorsOnly bool) {
 	// Get terminal width, defaulting to 80.
 	width := 80
 	if w, _, err := term.GetSize(int(os.Stdout.Fd())); err == nil {
@@ -181,13 +182,19 @@ func PrintSQLSummary(m analysis.SqlMetrics) {
 	bold := "\033[1m"
 	reset := "\033[0m"
 
-	// Calculate total duration and average load.
-	totalDuration := m.EndTimestamp.Sub(m.StartTimestamp)
-	avgLoad := float64(m.TotalQueries) / totalDuration.Seconds()
+	// Count queries in the top 1% slowest
+	top1Slow := 0
+	if len(m.Durations) > 0 {
+		threshold := m.P99QueryDuration
+		for _, d := range m.Durations {
+			if d >= threshold {
+				top1Slow++
+			}
+		}
+	}
 
 	// General header.
-	fmt.Println("Total log duration: ", formatQueryDuration(float64(totalDuration.Milliseconds())))
-	fmt.Println(bold + "\nSQL PERFORMANCE REPORT" + reset)
+	fmt.Println(bold + "\nSQL PERFORMANCE" + reset)
 	fmt.Println()
 	fmt.Printf("  %-25s : %-20s  %-25s : %s\n",
 		"Total query duration", formatQueryDuration(m.SumQueryDuration),
@@ -198,23 +205,26 @@ func PrintSQLSummary(m analysis.SqlMetrics) {
 	fmt.Printf("  %-25s : %-20d  %-25s : %s\n",
 		"Total individual query", m.UniqueQueries,
 		"Query median duration", formatQueryDuration(m.MedianQueryDuration))
-	fmt.Printf("  %-25s : %-20s  %-25s : %s\n",
-		"Average load", formatAverageLoad(avgLoad),
+	fmt.Printf("  %-25s : %-20d  %-25s : %s\n",
+		"Top 1% slow queries", top1Slow,
 		"Query 99th percentile", formatQueryDuration(m.P99QueryDuration))
 	fmt.Println()
 
-	// Display various SQL query reports.
-	fmt.Println(bold + "Slowest individual queries:" + reset)
-	PrintSlowestQueries(m.QueryStats)
-	fmt.Println()
+	if !indicatorsOnly {
+		// Display various SQL query reports.
+		fmt.Println(bold + "Slowest individual queries:" + reset)
+		PrintSlowestQueries(m.QueryStats)
+		fmt.Println()
 
-	fmt.Println(bold + "Most Frequent Individual Queries:" + reset)
-	PrintMostFrequentQueries(m.QueryStats)
-	fmt.Println()
+		fmt.Println(bold + "Most Frequent Individual Queries:" + reset)
+		PrintMostFrequentQueries(m.QueryStats)
+		fmt.Println()
 
-	fmt.Println(bold + "Most time consuming queries:" + reset)
-	PrintTimeConsumingQueries(m.QueryStats)
-	fmt.Println()
+		fmt.Println(bold + "Most time consuming queries:" + reset)
+		PrintTimeConsumingQueries(m.QueryStats)
+		fmt.Println()
+	}
+
 }
 
 // PrintTimeConsumingQueries sorts and displays the top 10 queries based on total execution time.
@@ -472,18 +482,6 @@ func formatQueryDuration(ms float64) string {
 	return fmt.Sprintf("%dd %dh %02dm", days, hours, minutes)
 }
 
-func formatAverageLoad(load float64) string {
-	if load >= 1.0 {
-		return fmt.Sprintf("%.2f queries/s", load)
-	}
-	perMin := load * 60.0
-	if perMin >= 1.0 {
-		return fmt.Sprintf("%.0f queries/min", perMin)
-	}
-	perHour := load * 3600.0
-	return fmt.Sprintf("%.0f queries/h", perHour)
-}
-
 // NewTextFormatter returns a new instance of TextFormatter.
 func NewTextFormatter() *TextFormatter {
 	return &TextFormatter{}
@@ -512,101 +510,26 @@ Number of SQL queries: %d`,
 	)
 }
 
-// FormatEventSummary returns a formatted string representing the event summary as an elegant table.
-// It includes a merged, centered bold title row and a TOTAL row at the end.
-func (tf *TextFormatter) FormatEventSummary(summaries []analysis.EventSummary) string {
-	// Define column headers.
-	headers := []string{"Type", "Count", "Percentage"}
+// PrintEventSummary prints a clean, simple event summary with aligned labels.
+func PrintEventSummary(summaries []analysis.EventSummary) {
+	// ANSI style for bold text.
+	bold := "\033[1m"
+	reset := "\033[0m"
 
-	// Determine maximum widths for each column.
-	widthType := len(headers[0])
-	widthCount := len(headers[1])
-	widthPercentage := len(headers[2])
+	// Print title in bold.
+	fmt.Println(bold + "EVENTS" + reset)
+	fmt.Println()
+
+	// Determine the longest event type for alignment.
+	maxTypeLength := 0
 	for _, summary := range summaries {
-		if len(summary.Type) > widthType {
-			widthType = len(summary.Type)
-		}
-		countStr := fmt.Sprintf("%d", summary.Count)
-		if len(countStr) > widthCount {
-			widthCount = len(countStr)
-		}
-		percStr := fmt.Sprintf("%.2f%%", summary.Percentage)
-		if len(percStr) > widthPercentage {
-			widthPercentage = len(percStr)
+		if len(summary.Type) > maxTypeLength {
+			maxTypeLength = len(summary.Type)
 		}
 	}
 
-	totalTableWidth := (widthType + 2) + (widthCount + 2) + (widthPercentage + 2) + 4
-
-	topLine := fmt.Sprintf("┌%s┐", strings.Repeat("─", totalTableWidth-2))
-	mergedTitleBorder := fmt.Sprintf("├%s┤", strings.Repeat("─", totalTableWidth-2))
-	upperBottomLine := fmt.Sprintf("├%s┘", strings.Repeat("─", totalTableWidth-2))
-
-	headerSep := fmt.Sprintf("├%s┼%s┼%s┤",
-		strings.Repeat("─", widthType+2),
-		strings.Repeat("─", widthCount+2),
-		strings.Repeat("─", widthPercentage+2),
-	)
-
-	// Build the merged title row.
-	titleText := "EVENTS SUMMARY"
-	boldTitle := "\033[1m" + titleText + "\033[0m"
-	availWidth := totalTableWidth - 2
-	padTotal := availWidth - len(titleText)
-	if padTotal < 0 {
-		padTotal = 0
-	}
-	leftPad := padTotal / 2
-	rightPad := padTotal - leftPad
-	titleRow := fmt.Sprintf("│%s%s%s│", strings.Repeat(" ", leftPad), boldTitle, strings.Repeat(" ", rightPad))
-
-	// Build the header row.
-	headerRow := fmt.Sprintf("│ %-*s │ %-*s │ %-*s │",
-		widthType, headers[0],
-		widthCount, headers[1],
-		widthPercentage, headers[2],
-	)
-
-	var dataRows strings.Builder
+	// Print event counts with aligned labels.
 	for _, summary := range summaries {
-		dataRows.WriteString(fmt.Sprintf("│ %-*s │ %*d │ %*s │\n",
-			widthType, summary.Type,
-			widthCount, summary.Count,
-			widthPercentage, fmt.Sprintf("%.2f%%", summary.Percentage),
-		))
+		fmt.Printf("  %-*s : %d\n", maxTypeLength, summary.Type, summary.Count)
 	}
-
-	totalCount := 0
-	for _, summary := range summaries {
-		totalCount += summary.Count
-	}
-
-	totalCountStr := fmt.Sprintf("%d", totalCount)
-	rightCellWidth := widthCount
-	if len(totalCountStr) > rightCellWidth {
-		rightCellWidth = len(totalCountStr)
-	}
-	totalTwoColWidth := (widthType + 2) + (rightCellWidth + 2) + 1
-
-	totalRow := fmt.Sprintf("│ \033[1m%-*s\033[0m │ \033[1m%*s\033[0m │",
-		widthType, "TOTAL",
-		rightCellWidth, totalCountStr,
-	)
-
-	finalLine := fmt.Sprintf("└%s┘", strings.Repeat("─", totalTwoColWidth))
-
-	var sb strings.Builder
-	sb.WriteString("\n")
-	sb.WriteString(topLine + "\n")
-	sb.WriteString(titleRow + "\n")
-	sb.WriteString(mergedTitleBorder + "\n")
-	sb.WriteString(headerRow + "\n")
-	sb.WriteString(headerSep + "\n")
-	sb.WriteString(dataRows.String())
-	sb.WriteString(upperBottomLine + "\n")
-	sb.WriteString(totalRow + "\n")
-	sb.WriteString(finalLine)
-	sb.WriteString("\n")
-
-	return sb.String()
 }

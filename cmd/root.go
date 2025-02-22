@@ -151,13 +151,13 @@ func executeParsing(cmd *cobra.Command, args []string) {
 	if sqlSummaryFlag {
 		// SQL summary processing: consume the channel for SQL reporting.
 		sqlMetrics := analysis.RunSQLSummary(filteredLogs)
-		output.PrintSQLSummary(sqlMetrics)
+		output.PrintSQLSummary(sqlMetrics, false)
 		return
 	} else if summaryFlag {
 		// General aggregation reporting.
 		metrics := analysis.AggregateMetrics(filteredLogs)
-		if metrics.MaxTimestamp.IsZero() || !metrics.MaxTimestamp.After(metrics.MinTimestamp) {
-			log.Fatalf("Error: the computed duration is 0 (MinTimestamp: %v, MaxTimestamp: %v)", metrics.MinTimestamp, metrics.MaxTimestamp)
+		if metrics.Global.MaxTimestamp.IsZero() || !metrics.Global.MaxTimestamp.After(metrics.Global.MinTimestamp) {
+			log.Fatalf("Error: the computed duration is 0 (MinTimestamp: %v, MaxTimestamp: %v)", metrics.Global.MinTimestamp, metrics.Global.MaxTimestamp)
 		}
 		output.PrintMetrics(metrics)
 	} else {
