@@ -57,22 +57,6 @@ func AggregateMetrics(in <-chan parser.LogEntry) AggregatedMetrics {
 		if metrics.Global.MaxTimestamp.IsZero() || entry.Timestamp.After(metrics.Global.MaxTimestamp) {
 			metrics.Global.MaxTimestamp = entry.Timestamp
 		}
-		lowerMsg := strings.ToLower(entry.Message)
-		if strings.Contains(lowerMsg, "error") {
-			metrics.Global.ErrorCount++
-		}
-		if strings.Contains(lowerMsg, "fatal") {
-			metrics.Global.FatalCount++
-		}
-		if strings.Contains(lowerMsg, "panic") {
-			metrics.Global.PanicCount++
-		}
-		if strings.Contains(lowerMsg, "warning") {
-			metrics.Global.WarningCount++
-		}
-		if strings.Contains(lowerMsg, "log:") {
-			metrics.Global.LogCount++
-		}
 	}
 
 	// Delegate specialized metrics calculations.
@@ -88,13 +72,13 @@ func AggregateMetrics(in <-chan parser.LogEntry) AggregatedMetrics {
 	metrics.Checkpoints = AnalyzeCheckpoints(&allEntries)
 
 	// events
-	metrics.EventSummaries = SummarizeEvents(allEntries)
+	metrics.EventSummaries = SummarizeEvents(&allEntries)
 
 	// Connection/session metrics can be analyzed separately if needed.
 	metrics.Connections = AnalyzeConnections(&allEntries)
 
 	// Unique entities metrics (DBs, Users, Apps) could also be processed separately.
-	metrics.UniqueEntities = AnalyzeUniqueEntities(allEntries)
+	metrics.UniqueEntities = AnalyzeUniqueEntities(&allEntries)
 
 	// Analyze SQL metrics
 	sqlLogs := make(chan parser.LogEntry, len(allEntries))
@@ -109,7 +93,7 @@ func AggregateMetrics(in <-chan parser.LogEntry) AggregatedMetrics {
 }
 
 // AnalyzeUniqueEntities scans log entries and extracts unique databases, users, and applications.
-func AnalyzeUniqueEntities(entries []parser.LogEntry) UniqueEntityMetrics {
+func AnalyzeUniqueEntities(entries *[]parser.LogEntry) UniqueEntityMetrics {
 	var metrics UniqueEntityMetrics
 
 	// Use maps to store unique values
@@ -117,7 +101,9 @@ func AnalyzeUniqueEntities(entries []parser.LogEntry) UniqueEntityMetrics {
 	userSet := make(map[string]struct{})
 	appSet := make(map[string]struct{})
 
-	for _, entry := range entries {
+	for i := range *entries {
+		entry := &(*entries)[i] // Direct reference to avoid unnecessary copies
+
 		// Extract database name
 		if dbName, found := extractKeyValue(entry.Message, "db="); found {
 			dbSet[dbName] = struct{}{}
