@@ -84,7 +84,10 @@ func AggregateMetrics(in <-chan parser.LogEntry) AggregatedMetrics {
 	// autovacuum
 	AnalyzeVacuum(&metrics.Vacuum, &allEntries)
 
-	metrics.Checkpoints = AnalyzeCheckpoints(allEntries)
+	// checkpoints
+	metrics.Checkpoints = AnalyzeCheckpoints(&allEntries)
+
+	// events
 	metrics.EventSummaries = SummarizeEvents(allEntries)
 
 	// Connection/session metrics can be analyzed separately if needed.
