@@ -91,7 +91,7 @@ func AggregateMetrics(in <-chan parser.LogEntry) AggregatedMetrics {
 	metrics.EventSummaries = SummarizeEvents(allEntries)
 
 	// Connection/session metrics can be analyzed separately if needed.
-	metrics.Connections = AnalyzeConnections(allEntries)
+	metrics.Connections = AnalyzeConnections(&allEntries)
 
 	// Unique entities metrics (DBs, Users, Apps) could also be processed separately.
 	metrics.UniqueEntities = AnalyzeUniqueEntities(allEntries)

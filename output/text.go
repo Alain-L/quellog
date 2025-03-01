@@ -73,12 +73,14 @@ func PrintMetrics(m analysis.AggregatedMetrics) {
 	fmt.Printf("  %-25s : %d\n", "Connection count", m.Connections.ConnectionReceivedCount)
 	if duration.Hours() > 0 {
 		avgConnPerHour := float64(m.Connections.ConnectionReceivedCount) / duration.Hours()
-		fmt.Printf("  %-25s : %d\n", "Avg connections per hour", int(avgConnPerHour))
+		fmt.Printf("  %-25s : %.2f\n", "Avg connections per hour", avgConnPerHour) // Ensure float formatting
 	}
 	fmt.Printf("  %-25s : %d\n", "Disconnection count", m.Connections.DisconnectionCount)
 	if m.Connections.DisconnectionCount > 0 {
-		avgSessionTime := m.Connections.TotalSessionTime / time.Duration(m.Connections.DisconnectionCount)
-		fmt.Printf("  %-25s : %s\n", "Avg session time", avgSessionTime.Truncate(time.Second))
+		avgSessionTime := time.Duration(float64(m.Connections.TotalSessionTime) / float64(m.Connections.DisconnectionCount))
+		fmt.Printf("  %-25s : %s\n", "Avg session time", avgSessionTime.Round(time.Second))
+	} else {
+		fmt.Printf("  %-25s : %s\n", "Avg session time", "N/A")
 	}
 
 	// Unique Clients section.
