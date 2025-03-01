@@ -24,13 +24,15 @@ var predefinedEventTypes = []string{
 	"DEBUG",
 }
 
-// SummarizeEvents analyzes log entries and returns a summary of predefined event types.
-func SummarizeEvents(entries []parser.LogEntry) []EventSummary {
+// SummarizeEvents analyzes log entries and updates the summary of predefined event types.
+func SummarizeEvents(entries *[]parser.LogEntry) []EventSummary {
 	counts := make(map[string]int)
 	total := 0
 
-	for _, entry := range entries {
+	for i := range *entries {
+		entry := &(*entries)[i] // Direct reference to avoid unnecessary copies
 		upperMsg := strings.ToUpper(entry.Message)
+
 		for _, eventType := range predefinedEventTypes {
 			if strings.Contains(upperMsg, eventType) {
 				counts[eventType]++
@@ -41,7 +43,7 @@ func SummarizeEvents(entries []parser.LogEntry) []EventSummary {
 	}
 
 	// Build the summary list.
-	var summary []EventSummary
+	summary := make([]EventSummary, 0, len(predefinedEventTypes))
 	for _, eventType := range predefinedEventTypes {
 		count := counts[eventType]
 		percentage := 0.0
