@@ -3,6 +3,7 @@ package analysis
 
 import (
 	"dalibo/quellog/parser"
+	"strconv"
 	"strings"
 )
 
@@ -12,28 +13,20 @@ type TempFileMetrics struct {
 	TotalSize int64 // Cumulative temp file size in bytes
 }
 
-// CalculateTotalTemporaryFileSize returns the cumulative size (in bytes) of temporary file messages.
-func CalculateTotalTemporaryFileSize(entries []parser.LogEntry) int64 {
-	var totalSize int64
-	for _, entry := range entries {
-		// Exemple : on recherche dans le message un indice indiquant la taille d'un fichier temporaire.
-		// Vous devrez adapter l'extraction en fonction du format de vos logs.
-		if strings.Contains(strings.ToLower(entry.Message), "temp file") {
-			// Ici, vous pouvez extraire la taille réelle.
-			// Pour l'exemple, on suppose une taille fictive de 1000 octets par entrée.
-			totalSize += 1000
-		}
-	}
-	return totalSize
-}
-
-// CalculateTotalTemporaryFileCount returns the number of temporary file-related log entries.
-func CalculateTotalTemporaryFileCount(entries []parser.LogEntry) int {
-	count := 0
-	for _, entry := range entries {
-		if strings.Contains(strings.ToLower(entry.Message), "temp file") {
+func CalculateTemporaryFileMetrics(entries *[]parser.LogEntry) (count int, totalSize int64) {
+	for _, entry := range *entries {
+		if strings.Contains(entry.Message, "temporary file") {
 			count++
+			// Récupérer le dernier mot de la ligne qui est la taille du fichier
+			words := strings.Fields(entry.Message)
+			if len(words) > 0 {
+				sizeStr := words[len(words)-1]
+				size, err := strconv.ParseInt(sizeStr, 10, 64)
+				if err == nil {
+					totalSize += size
+				}
+			}
 		}
 	}
-	return count
+	return count, totalSize
 }
