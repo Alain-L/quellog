@@ -22,6 +22,13 @@ type QueryStat struct {
 	FullHash        string  // Full hash in hexadecimal (e.g., 32-character MD5).
 }
 
+// For Histogram
+// QueryExecution stores the timestamp and duration of a single SQL query.
+type QueryExecution struct {
+	Timestamp time.Time
+	Duration  float64 // in milliseconds
+}
+
 // SqlMetrics aggregates overall SQL metrics from parsed log entries.
 type SqlMetrics struct {
 	QueryStats          map[string]*QueryStat // Aggregation by normalized query.
@@ -32,7 +39,7 @@ type SqlMetrics struct {
 	SumQueryDuration    float64               // Sum of all query durations in ms.
 	StartTimestamp      time.Time             // Timestamp of the first SQL query.
 	EndTimestamp        time.Time             // Timestamp of the last SQL query.
-	Durations           []float64             // Individual query durations in ms.
+	Executions          []QueryExecution      // List of individual query executions.
 	MedianQueryDuration float64               // Median (50th percentile) of query durations.
 	P99QueryDuration    float64               // 99th percentile of query durations.
 }
@@ -72,7 +79,10 @@ func RunSQLSummary(in <-chan parser.LogEntry) SqlMetrics {
 
 		// Update global metrics.
 		metrics.TotalQueries++
-		metrics.Durations = append(metrics.Durations, duration)
+		metrics.Executions = append(metrics.Executions, QueryExecution{
+			Timestamp: entry.Timestamp,
+			Duration:  duration,
+		})
 		if metrics.StartTimestamp.IsZero() || entry.Timestamp.Before(metrics.StartTimestamp) {
 			metrics.StartTimestamp = entry.Timestamp
 		}
@@ -117,20 +127,25 @@ func RunSQLSummary(in <-chan parser.LogEntry) SqlMetrics {
 		metrics.SumQueryDuration += duration
 	}
 
-	// Compute median and 99th percentile durations.
-	if len(metrics.Durations) > 0 {
-		sort.Float64s(metrics.Durations)
-		n := len(metrics.Durations)
+	// Compute median and 99th percentile durations based on Executions.
+	if len(metrics.Executions) > 0 {
+		// Extraire toutes les durées dans un slice pour le calcul.
+		durations := make([]float64, len(metrics.Executions))
+		for i, exec := range metrics.Executions {
+			durations[i] = exec.Duration
+		}
+		sort.Float64s(durations)
+		n := len(durations)
 		if n%2 == 1 {
-			metrics.MedianQueryDuration = metrics.Durations[n/2]
+			metrics.MedianQueryDuration = durations[n/2]
 		} else {
-			metrics.MedianQueryDuration = (metrics.Durations[n/2-1] + metrics.Durations[n/2]) / 2.0
+			metrics.MedianQueryDuration = (durations[n/2-1] + durations[n/2]) / 2.0
 		}
 		index := int(0.99 * float64(n))
 		if index >= n {
 			index = n - 1
 		}
-		metrics.P99QueryDuration = metrics.Durations[index]
+		metrics.P99QueryDuration = durations[index]
 	}
 
 	// Set the count of unique queries.

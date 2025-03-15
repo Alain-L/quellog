@@ -25,11 +25,9 @@ var (
 	userFilter  []string // --dbuser
 	excludeUser []string // --exclude-user
 
-	summaryFlag    bool     // --summary
 	sqlSummaryFlag bool     // --sql-summary
-	sqlDetailFlag  []string // --sql-detail
-	// Removed explodeFlag as the option has been deprecated.
-	grepExpr []string // --grep
+	sqlDetailFlag  []string // --query-detail
+	grepExpr       []string // --grep
 )
 
 // rootCmd is the main command.
@@ -76,19 +74,29 @@ func init() {
 		"Show details for specific SQL IDs (repeat the flag for multiple IDs)")
 
 	// General Output Options
-	rootCmd.PersistentFlags().BoolVarP(&summaryFlag, "summary", "S", false,
-		"Display a global summary instead of printing individual log lines")
 	rootCmd.PersistentFlags().StringSliceVarP(&grepExpr, "grep", "g", nil,
 		"Filter the final lines by a substring match (can be specified multiple times)")
 }
 
 // executeParsing is the main run function (streaming version).
 func executeParsing(cmd *cobra.Command, args []string) {
+	// 0) Record the start time.
+	startTime := time.Now()
+
 	// 1) Collect files.
 	allFiles := collectFiles(args)
 	if len(allFiles) == 0 {
 		fmt.Println("[INFO] No log files found. Exiting.")
 		os.Exit(0)
+	}
+
+	// Calculate total file size.
+	var totalFileSize int64 = 0
+	for _, file := range allFiles {
+		fi, err := os.Stat(file)
+		if err == nil {
+			totalFileSize += fi.Size()
+		}
 	}
 
 	// 2) Check compatibility of --begin/--end/--window.
@@ -117,7 +125,7 @@ func executeParsing(cmd *cobra.Command, args []string) {
 	// 4) Create the channel for raw logs (unfiltered).
 	rawLogs := make(chan parser.LogEntry, 100)
 
-	// 5) Launch file reading and streaming parsing (autodetect + parse).
+	// 5) Launch file reading and streaming parsing.
 	go func() {
 		parser.ParseAllFiles(allFiles, rawLogs)
 		close(rawLogs) // Close the channel once parsing is finished.
@@ -143,29 +151,29 @@ func executeParsing(cmd *cobra.Command, args []string) {
 	// 9) Process SQL query details if specified.
 	if len(sqlDetailFlag) > 0 {
 		sqlMetrics := analysis.RunSQLSummary(filteredLogs)
+		processingDuration := time.Since(startTime)
+		PrintProcessingSummary(sqlMetrics.TotalQueries, processingDuration, totalFileSize)
 		output.PrintSqlDetails(sqlMetrics, sqlDetailFlag)
 		return
 	}
 
-	// 10) Process the filtered logs based on activated options.
+	// 10) Process SQL summary if specified.
 	if sqlSummaryFlag {
-		// SQL summary processing: consume the channel for SQL reporting.
 		sqlMetrics := analysis.RunSQLSummary(filteredLogs)
+		processingDuration := time.Since(startTime)
+		PrintProcessingSummary(sqlMetrics.TotalQueries, processingDuration, totalFileSize)
 		output.PrintSQLSummary(sqlMetrics, false)
 		return
-	} else if summaryFlag {
-		// General aggregation reporting.
-		metrics := analysis.AggregateMetrics(filteredLogs)
-		if metrics.Global.MaxTimestamp.IsZero() || !metrics.Global.MaxTimestamp.After(metrics.Global.MinTimestamp) {
-			log.Fatalf("Error: the computed duration is 0 (MinTimestamp: %v, MaxTimestamp: %v)", metrics.Global.MinTimestamp, metrics.Global.MaxTimestamp)
-		}
-		output.PrintMetrics(metrics)
-	} else {
-		// Print each log line.
-		for e := range filteredLogs {
-			fmt.Println(e.Message)
-		}
 	}
+
+	// 11) Default output: global aggregated metrics.
+	metrics := analysis.AggregateMetrics(filteredLogs)
+	processingDuration := time.Since(startTime)
+	PrintProcessingSummary(metrics.Global.Count, processingDuration, totalFileSize)
+	if metrics.Global.MaxTimestamp.IsZero() || !metrics.Global.MaxTimestamp.After(metrics.Global.MinTimestamp) {
+		log.Fatalf("Error: the computed duration is 0 (MinTimestamp: %v, MaxTimestamp: %v)", metrics.Global.MinTimestamp, metrics.Global.MaxTimestamp)
+	}
+	output.PrintMetrics(metrics)
 }
 
 // HELPERS
@@ -244,4 +252,23 @@ func parseWindow(wStr string) time.Duration {
 		log.Fatalf("Invalid --window duration: %v\n", err)
 	}
 	return d
+}
+
+// PrintProcessingSummary displays the summary line after processing logs.
+func PrintProcessingSummary(numEntries int, duration time.Duration, fileSize int64) {
+	fmt.Printf("quellog – %d entries processed in %.2f s (%s)\n",
+		numEntries, duration.Seconds(), formatBytes(fileSize))
+}
+
+func formatBytes(b int64) string {
+	const unit = 1024
+	if b < unit {
+		return fmt.Sprintf("%dB", b)
+	}
+	div, exp := int64(unit), 0
+	for n := b / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f%cB", float64(b)/float64(div), "kMGTPE"[exp])
 }

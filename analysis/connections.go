@@ -13,6 +13,7 @@ type ConnectionMetrics struct {
 	ConnectionReceivedCount int           // Number of received connections
 	DisconnectionCount      int           // Number of disconnections
 	TotalSessionTime        time.Duration // Total accumulated session duration
+	Connections             []time.Time   // every checkpoints
 }
 
 // AnalyzeConnections scans log entries to count connection and disconnection events.
@@ -25,6 +26,8 @@ func AnalyzeConnections(entries *[]parser.LogEntry) ConnectionMetrics {
 		// Detect connection events
 		if strings.Contains(entry.Message, "connection received") {
 			metrics.ConnectionReceivedCount++
+			// Ajouter le timestamp de la connexion
+			metrics.Connections = append(metrics.Connections, entry.Timestamp)
 		}
 
 		// Detect disconnection events
