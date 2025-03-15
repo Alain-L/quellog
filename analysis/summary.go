@@ -62,8 +62,7 @@ func AggregateMetrics(in <-chan parser.LogEntry) AggregatedMetrics {
 	// Delegate specialized metrics calculations.
 
 	// Temp files
-	metrics.TempFiles.Count, metrics.TempFiles.TotalSize =
-		CalculateTemporaryFileMetrics(&allEntries)
+	metrics.TempFiles = CalculateTemporaryFileMetrics(&allEntries)
 
 	// autovacuum
 	AnalyzeVacuum(&metrics.Vacuum, &allEntries)

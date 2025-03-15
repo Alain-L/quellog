@@ -3,6 +3,7 @@ package output
 import (
 	"dalibo/quellog/analysis"
 	"fmt"
+	"math"
 	"os"
 	"sort"
 	"strings"
@@ -41,7 +42,13 @@ func PrintMetrics(m analysis.AggregatedMetrics) {
 	PrintEventSummary(m.EventSummaries)
 
 	// Temp Files section.
+
 	fmt.Println(bold + "\nTEMP FILES\n" + reset)
+
+	// Histogram
+	hist, unit, scaleFactor := computeTempFileHistogram(m.TempFiles)
+	PrintHistogram(hist, "Temp file distribution", unit, scaleFactor)
+
 	fmt.Printf("  %-25s : %d\n", "Temp file messages", m.TempFiles.Count)
 	fmt.Printf("  %-25s : %s\n", "Cumulative temp file size", formatBytes(m.TempFiles.TotalSize))
 	avgSize := int64(0)
@@ -63,24 +70,39 @@ func PrintMetrics(m analysis.AggregatedMetrics) {
 	if m.Checkpoints.CompleteCount > 0 {
 		avgWriteSeconds := m.Checkpoints.TotalWriteTimeSeconds / float64(m.Checkpoints.CompleteCount)
 		avgDuration := time.Duration(avgWriteSeconds * float64(time.Second)).Truncate(time.Second)
+		maxDuration := time.Duration(m.Checkpoints.MaxWriteTimeSeconds * float64(time.Second)).Truncate(time.Second)
+
 		fmt.Println(bold + "\nCHECKPOINTS\n" + reset)
+
+		// Histogram
+		hist, _, scaleFactor := computeCheckpointHistogram(m.Checkpoints)
+		PrintHistogram(hist, "Checkpoints", "", scaleFactor)
+
 		fmt.Printf("  %-25s : %d\n", "Checkpoint count", m.Checkpoints.CompleteCount)
 		fmt.Printf("  %-25s : %s\n", "Avg checkpoint write time", avgDuration)
+		fmt.Printf("  %-25s : %s\n", "Max checkpoint write time", maxDuration)
 	}
 
 	// Connections & Sessions Metrics section.
-	fmt.Println(bold + "\nCONNECTIONS & SESSIONS\n" + reset)
-	fmt.Printf("  %-25s : %d\n", "Connection count", m.Connections.ConnectionReceivedCount)
-	if duration.Hours() > 0 {
-		avgConnPerHour := float64(m.Connections.ConnectionReceivedCount) / duration.Hours()
-		fmt.Printf("  %-25s : %.2f\n", "Avg connections per hour", avgConnPerHour) // Ensure float formatting
-	}
-	fmt.Printf("  %-25s : %d\n", "Disconnection count", m.Connections.DisconnectionCount)
-	if m.Connections.DisconnectionCount > 0 {
-		avgSessionTime := time.Duration(float64(m.Connections.TotalSessionTime) / float64(m.Connections.DisconnectionCount))
-		fmt.Printf("  %-25s : %s\n", "Avg session time", avgSessionTime.Round(time.Second))
-	} else {
-		fmt.Printf("  %-25s : %s\n", "Avg session time", "N/A")
+	if m.Connections.ConnectionReceivedCount > 0 {
+		fmt.Println(bold + "\nCONNECTIONS & SESSIONS\n" + reset)
+
+		// Histogram
+		hist, _, scaleFactor := computeConnectionsHistogram(m.Connections.Connections)
+		PrintHistogram(hist, "Connection distribution", "", scaleFactor)
+
+		fmt.Printf("  %-25s : %d\n", "Connection count", m.Connections.ConnectionReceivedCount)
+		if duration.Hours() > 0 {
+			avgConnPerHour := float64(m.Connections.ConnectionReceivedCount) / duration.Hours()
+			fmt.Printf("  %-25s : %.2f\n", "Avg connections per hour", avgConnPerHour) // Ensure float formatting
+		}
+		fmt.Printf("  %-25s : %d\n", "Disconnection count", m.Connections.DisconnectionCount)
+		if m.Connections.DisconnectionCount > 0 {
+			avgSessionTime := time.Duration(float64(m.Connections.TotalSessionTime) / float64(m.Connections.DisconnectionCount))
+			fmt.Printf("  %-25s : %s\n", "Avg session time", avgSessionTime.Round(time.Second))
+		} else {
+			fmt.Printf("  %-25s : %s\n", "Avg session time", "N/A")
+		}
 	}
 
 	// Unique Clients section.
@@ -90,18 +112,25 @@ func PrintMetrics(m analysis.AggregatedMetrics) {
 	fmt.Printf("  %-25s : %d\n", "Unique Apps", m.UniqueEntities.UniqueApps)
 
 	// Display lists.
-	fmt.Println(bold + "\nDATABASES\n" + reset)
-	for _, db := range m.UniqueEntities.DBs {
-		fmt.Printf("    %s\n", db)
+	if m.UniqueEntities.UniqueUsers > 0 {
+		fmt.Println(bold + "\nUSERS\n" + reset)
+		for _, user := range m.UniqueEntities.Users {
+			fmt.Printf("    %s\n", user)
+		}
 	}
-	fmt.Println(bold + "\nUSERS\n" + reset)
-	for _, user := range m.UniqueEntities.Users {
-		fmt.Printf("    %s\n", user)
+	if m.UniqueEntities.UniqueApps > 0 {
+		fmt.Println(bold + "\nAPPS\n" + reset)
+		for _, app := range m.UniqueEntities.Apps {
+			fmt.Printf("    %s\n", app)
+		}
 	}
-	fmt.Println(bold + "\nAPPS\n" + reset)
-	for _, app := range m.UniqueEntities.Apps {
-		fmt.Printf("    %s\n", app)
+	if m.UniqueEntities.UniqueDbs > 0 {
+		fmt.Println(bold + "\nDATABASES\n" + reset)
+		for _, db := range m.UniqueEntities.DBs {
+			fmt.Printf("    %s\n", db)
+		}
 	}
+	fmt.Println()
 }
 
 // printTopTables prints the top tables for a given operation (vacuum or analyze).
@@ -174,46 +203,50 @@ func PrintSQLSummary(m analysis.SqlMetrics, indicatorsOnly bool) {
 	if w, _, err := term.GetSize(int(os.Stdout.Fd())); err == nil {
 		width = w
 	}
-	// Allocate approximately 60% of the terminal width for the query.
-	queryWidth := int(float64(width) * 0.6)
-	if queryWidth < 40 {
-		queryWidth = 40
+
+	// Define histogram width dynamically
+	histogramWidth := width / 2 // Reserve space for labels (e.g., "00:00 - 04:00  ")
+	if histogramWidth < 20 {
+		histogramWidth = 20 // Ensure it is readable
 	}
 
 	// ANSI styles.
 	bold := "\033[1m"
 	reset := "\033[0m"
 
-	// Count queries in the top 1% slowest
+	// Compute top 1% slowest queries.
 	top1Slow := 0
-	if len(m.Durations) > 0 {
+	if len(m.Executions) > 0 {
 		threshold := m.P99QueryDuration
-		for _, d := range m.Durations {
-			if d >= threshold {
+		for _, exec := range m.Executions {
+			if exec.Duration >= threshold {
 				top1Slow++
 			}
 		}
 	}
 
-	// General header.
+	// ** SQL Summary Header **
 	fmt.Println(bold + "\nSQL PERFORMANCE" + reset)
 	fmt.Println()
-	fmt.Printf("  %-25s : %-20s  %-25s : %s\n",
-		"Total query duration", formatQueryDuration(m.SumQueryDuration),
-		"Query max duration", formatQueryDuration(m.MaxQueryDuration))
-	fmt.Printf("  %-25s : %-20d  %-25s : %s\n",
-		"Total query parsed", m.TotalQueries,
-		"Query min duration", formatQueryDuration(m.MinQueryDuration))
-	fmt.Printf("  %-25s : %-20d  %-25s : %s\n",
-		"Total individual query", m.UniqueQueries,
-		"Query median duration", formatQueryDuration(m.MedianQueryDuration))
-	fmt.Printf("  %-25s : %-20d  %-25s : %s\n",
-		"Top 1% slow queries", top1Slow,
-		"Query 99th percentile", formatQueryDuration(m.P99QueryDuration))
+
+	// ** Query Load Histogram **
+	if !m.StartTimestamp.IsZero() && !m.EndTimestamp.IsZero() {
+		queryLoad, unit, scale := computeQueryLoadHistogram(m)
+		PrintHistogram(queryLoad, "Query load distribution", unit, scale)
+	}
+
+	fmt.Printf("  %-25s : %-20s\n", "Total query duration", formatQueryDuration(m.SumQueryDuration))
+	fmt.Printf("  %-25s : %-20d\n", "Total queries parsed", m.TotalQueries)
+	fmt.Printf("  %-25s : %-20d\n", "Total unique query", m.UniqueQueries)
+	fmt.Printf("  %-25s : %-20d\n", "Top 1% slow queries", top1Slow)
+	fmt.Println()
+	fmt.Printf("  %-25s : %-20s\n", "Query max duration", formatQueryDuration(m.MaxQueryDuration))
+	fmt.Printf("  %-25s : %-20s\n", "Query min duration", formatQueryDuration(m.MinQueryDuration))
+	fmt.Printf("  %-25s : %-20s\n", "Query median duration", formatQueryDuration(m.MedianQueryDuration))
+	fmt.Printf("  %-25s : %-20s\n", "Query 99% max duration", formatQueryDuration(m.P99QueryDuration))
 	fmt.Println()
 
 	if !indicatorsOnly {
-		// Display various SQL query reports.
 		fmt.Println(bold + "Slowest individual queries:" + reset)
 		PrintSlowestQueries(m.QueryStats)
 		fmt.Println()
@@ -226,7 +259,6 @@ func PrintSQLSummary(m analysis.SqlMetrics, indicatorsOnly bool) {
 		PrintTimeConsumingQueries(m.QueryStats)
 		fmt.Println()
 	}
-
 }
 
 // PrintTimeConsumingQueries sorts and displays the top 10 queries based on total execution time.
@@ -534,4 +566,362 @@ func PrintEventSummary(summaries []analysis.EventSummary) {
 	for _, summary := range summaries {
 		fmt.Printf("  %-*s : %d\n", maxTypeLength, summary.Type, summary.Count)
 	}
+}
+
+// PrintHistogram affiche l'histogramme en triant les plages horaires par ordre chronologique.
+// La largeur du terminal est récupérée automatiquement pour adapter la largeur de la barre.
+func PrintHistogram(data map[string]int, title string, unit string, scaleFactor int) {
+	if len(data) == 0 {
+		fmt.Printf("\n  (No data available)\n")
+		return
+	}
+
+	// Récupération de la largeur du terminal.
+	termWidth, _, err := term.GetSize(int(os.Stdout.Fd()))
+	if err != nil || termWidth <= 0 {
+		termWidth = 80 // valeur par défaut
+	}
+
+	// Définition des largeurs réservées : 20 pour l'étiquette et 5 pour la valeur.
+	labelWidth := 20
+	valueWidth := 5
+	spacing := 4 // espaces supplémentaires (ex: deux espaces après l'étiquette et un avant la valeur)
+	barWidth := termWidth - labelWidth - spacing - valueWidth
+	if barWidth < 10 {
+		barWidth = 10
+	}
+
+	// Extraction et tri des labels basés sur l'heure de début (format "HH:MM - HH:MM").
+	labels := make([]string, 0, len(data))
+	for label := range data {
+		labels = append(labels, label)
+	}
+	sort.Slice(labels, func(i, j int) bool {
+		partsI := strings.Split(labels[i], " - ")
+		partsJ := strings.Split(labels[j], " - ")
+		t1, _ := time.Parse("15:04", partsI[0])
+		t2, _ := time.Parse("15:04", partsJ[0])
+		return t1.Before(t2)
+	})
+
+	// Détermination de la valeur maximale pour normaliser l'affichage.
+	maxValue := 0
+	for _, value := range data {
+		if value > maxValue {
+			maxValue = value
+		}
+	}
+
+	// Calcul dynamique du scale factor si non fourni.
+	if scaleFactor <= 0 {
+		scaleFactor = int(math.Ceil(float64(maxValue) / float64(barWidth)))
+		if scaleFactor < 1 {
+			scaleFactor = 1
+		}
+	}
+
+	// Affichage de l'en-tête.
+	fmt.Printf("  %s | ■ = %d %s\n\n", title, scaleFactor, unit)
+
+	// Affichage des lignes de l'histogramme.
+	for _, label := range labels {
+		value := data[label]
+		barLength := value / scaleFactor
+		if barLength > barWidth {
+			barLength = barWidth
+		}
+		bar := strings.Repeat("■", barLength)
+		fmt.Printf("  %-13s  %-s %d %s\n", label, bar, value, unit)
+	}
+	fmt.Println()
+}
+
+// computeQueryLoadHistogram répartit les durées des requêtes SQL en 6 intervalles égaux,
+// et retourne l'histogramme, l'unité (ms, s ou min) et le scale factor.
+// La durée de chaque tranche est convertie pour être au moins d'une unité d'échelle.
+func computeQueryLoadHistogram(m analysis.SqlMetrics) (map[string]int, string, int) {
+	if m.StartTimestamp.IsZero() || m.EndTimestamp.IsZero() || len(m.Executions) == 0 {
+		return nil, "", 0
+	}
+
+	// Division de l'intervalle total en 6 buckets égaux.
+	totalDuration := m.EndTimestamp.Sub(m.StartTimestamp)
+	numBuckets := 6
+	bucketDuration := totalDuration / time.Duration(numBuckets)
+
+	// Préparation des buckets avec accumulation en millisecondes.
+	histogramMs := make([]int, numBuckets)
+	bucketLabels := make([]string, numBuckets)
+	for i := 0; i < numBuckets; i++ {
+		start := m.StartTimestamp.Add(time.Duration(i) * bucketDuration)
+		end := m.StartTimestamp.Add(time.Duration(i+1) * bucketDuration)
+		bucketLabels[i] = fmt.Sprintf("%s - %s", start.Format("15:04"), end.Format("15:04"))
+	}
+
+	// Répartition des durées (en ms) dans les buckets en fonction du timestamp de chaque exécution.
+	for _, exec := range m.Executions {
+		elapsed := exec.Timestamp.Sub(m.StartTimestamp)
+		bucketIndex := int(elapsed / bucketDuration)
+		if bucketIndex >= numBuckets {
+			bucketIndex = numBuckets - 1
+		}
+		histogramMs[bucketIndex] += int(exec.Duration)
+	}
+
+	// Détermination de l'unité et du facteur de conversion en fonction de la charge maximale.
+	maxBucketLoad := 0
+	for _, load := range histogramMs {
+		if load > maxBucketLoad {
+			maxBucketLoad = load
+		}
+	}
+
+	var unit string
+	var conversion int
+	if maxBucketLoad < 1000 {
+		unit = "ms"
+		conversion = 1
+	} else if maxBucketLoad < 60000 {
+		unit = "s"
+		conversion = 1000
+	} else {
+		unit = "m"
+		conversion = 60000
+	}
+
+	// Conversion et arrondi vers le haut pour que toute charge non nulle soit affichée au moins 1 unité.
+	histogram := make(map[string]int, numBuckets)
+	for i, load := range histogramMs {
+		var value int
+		if load > 0 {
+			value = (load + conversion - 1) / conversion
+		} else {
+			value = 0
+		}
+		histogram[bucketLabels[i]] = value
+	}
+
+	// Calcul automatique du scale factor pour l'affichage.
+	maxValue := 0
+	for _, v := range histogram {
+		if v > maxValue {
+			maxValue = v
+		}
+	}
+	histogramWidth := 40
+	scaleFactor := int(math.Ceil(float64(maxValue) / float64(histogramWidth)))
+	if scaleFactor < 1 {
+		scaleFactor = 1
+	}
+
+	return histogram, unit, scaleFactor
+}
+
+func computeTempFileHistogram(m analysis.TempFileMetrics) (map[string]int, string, int) {
+	// Si aucun événement, on ne peut pas construire l'histogramme.
+	if len(m.Events) == 0 {
+		return nil, "", 0
+	}
+
+	// Déterminer le début et la fin de la période à partir des événements.
+	start := m.Events[0].Timestamp
+	end := m.Events[0].Timestamp
+	for _, event := range m.Events {
+		if event.Timestamp.Before(start) {
+			start = event.Timestamp
+		}
+		if event.Timestamp.After(end) {
+			end = event.Timestamp
+		}
+	}
+	totalDuration := end.Sub(start)
+
+	// On divise l'intervalle en 6 buckets égaux.
+	numBuckets := 6
+	bucketDuration := totalDuration / time.Duration(numBuckets)
+
+	// Préparation des buckets.
+	histogramSizes := make([]float64, numBuckets) // cumul des tailles en octets pour chaque bucket
+	bucketLabels := make([]string, numBuckets)
+	for i := 0; i < numBuckets; i++ {
+		bucketStart := start.Add(time.Duration(i) * bucketDuration)
+		bucketEnd := bucketStart.Add(bucketDuration)
+		bucketLabels[i] = fmt.Sprintf("%s - %s", bucketStart.Format("15:04"), bucketEnd.Format("15:04"))
+		histogramSizes[i] = 0
+	}
+
+	// Répartition des événements dans les buckets.
+	for _, event := range m.Events {
+		elapsed := event.Timestamp.Sub(start)
+		bucketIndex := int(elapsed / bucketDuration)
+		if bucketIndex >= numBuckets {
+			bucketIndex = numBuckets - 1
+		}
+		histogramSizes[bucketIndex] += event.Size
+	}
+
+	// Détermination de la charge maximale.
+	maxBucketLoad := 0.0
+	for _, size := range histogramSizes {
+		if size > maxBucketLoad {
+			maxBucketLoad = size
+		}
+	}
+
+	// Choix de l'unité et du facteur de conversion en fonction de la charge maximale.
+	var unit string
+	var conversion float64
+	if maxBucketLoad < 1024 {
+		unit = "B"
+		conversion = 1
+	} else if maxBucketLoad < 1024*1024 {
+		unit = "KB"
+		conversion = 1024
+	} else if maxBucketLoad < 1024*1024*1024 {
+		unit = "MB"
+		conversion = 1024 * 1024
+	} else {
+		unit = "GB"
+		conversion = 1024 * 1024 * 1024
+	}
+
+	// Conversion des valeurs en arrondissant vers le haut pour afficher au moins 1 unité.
+	histogram := make(map[string]int, numBuckets)
+	for i, raw := range histogramSizes {
+		var value int
+		if raw > 0 {
+			value = int((raw + conversion - 1) / conversion)
+		} else {
+			value = 0
+		}
+		histogram[bucketLabels[i]] = value
+	}
+
+	// On renvoie un scaleFactor par défaut à 1 (la fonction d'affichage pourra l'ajuster si besoin).
+	scaleFactor := 1
+
+	return histogram, unit, scaleFactor
+}
+
+// computeCheckpointHistogram agrège les événements de checkpoints en 6 tranches d'une journée complète.
+// On considère que tous les événements se situent dans la même journée.
+// Le résultat est un histogramme (map label -> nombre de checkpoints),
+// l'unité ("checkpoints") et un scale factor calculé pour limiter la largeur à 35 caractères.
+func computeCheckpointHistogram(m analysis.CheckpointMetrics) (map[string]int, string, int) {
+	if len(m.Events) == 0 {
+		return nil, "", 0
+	}
+
+	// On utilise le jour de la première occurrence pour fixer le début de la journée.
+	day := m.Events[0]
+	start := time.Date(day.Year(), day.Month(), day.Day(), 0, 0, 0, 0, day.Location())
+	end := start.Add(24 * time.Hour)
+	numBuckets := 6
+	bucketDuration := end.Sub(start) / time.Duration(numBuckets)
+
+	histogram := make(map[string]int, numBuckets)
+	bucketLabels := make([]string, numBuckets)
+	for i := 0; i < numBuckets; i++ {
+		bucketStart := start.Add(time.Duration(i) * bucketDuration)
+		bucketEnd := bucketStart.Add(bucketDuration)
+		label := fmt.Sprintf("%s - %s", bucketStart.Format("15:04"), bucketEnd.Format("15:04"))
+		histogram[label] = 0
+		bucketLabels[i] = label
+	}
+
+	// Répartition des événements dans les buckets, en se basant sur l'heure de l'événement.
+	for _, t := range m.Events {
+		// Si l'événement n'est pas dans la journée, on le ramène dans l'intervalle [start, end).
+		// On utilise l'heure uniquement.
+		hour := t.Hour()
+		bucketIndex := hour / 4 // 24h/6 = 4 heures par bucket.
+		if bucketIndex >= numBuckets {
+			bucketIndex = numBuckets - 1
+		}
+		histogram[bucketLabels[bucketIndex]]++
+	}
+
+	// Calcul du scale factor pour limiter la barre à 35 caractères.
+	maxValue := 0
+	for _, count := range histogram {
+		if count > maxValue {
+			maxValue = count
+		}
+	}
+	histogramWidth := 35
+	scaleFactor := int(math.Ceil(float64(maxValue) / float64(histogramWidth)))
+	if scaleFactor < 1 {
+		scaleFactor = 1
+	}
+
+	return histogram, "checkpoints", scaleFactor
+}
+
+// computeConnectionsHistogram agrège les timestamps d'événements dans un histogramme réparti sur numBuckets.
+// Les buckets sont calculés sur la journée complète (00:00 - 24:00) basée sur la première occurrence.
+func computeConnectionsHistogram(events []time.Time) (map[string]int, string, int) {
+	if len(events) == 0 {
+		return nil, "", 0
+	}
+
+	// Déterminer le début et la fin de la période à partir des événements.
+	start := events[0]
+	end := events[0]
+	for _, t := range events {
+		if t.Before(start) {
+			start = t
+		}
+		if t.After(end) {
+			end = t
+		}
+	}
+
+	// On fixe le nombre de buckets à 6.
+	numBuckets := 6
+	totalDuration := end.Sub(start)
+	if totalDuration <= 0 {
+		totalDuration = time.Second // Durée minimale pour éviter la division par zéro.
+	}
+	bucketDuration := totalDuration / time.Duration(numBuckets)
+
+	// Création des buckets avec leurs labels.
+	histogram := make(map[string]int, numBuckets)
+	bucketLabels := make([]string, numBuckets)
+	for i := 0; i < numBuckets; i++ {
+		bucketStart := start.Add(time.Duration(i) * bucketDuration)
+		bucketEnd := bucketStart.Add(bucketDuration)
+		label := fmt.Sprintf("%s - %s", bucketStart.Format("15:04"), bucketEnd.Format("15:04"))
+		histogram[label] = 0
+		bucketLabels[i] = label
+	}
+
+	// Répartition des événements dans les buckets.
+	for _, t := range events {
+		// On s'assure que l'événement se situe dans l'intervalle [start, end].
+		if t.Before(start) || t.After(end) {
+			continue
+		}
+		elapsed := t.Sub(start)
+		bucketIndex := int(elapsed / bucketDuration)
+		if bucketIndex >= numBuckets {
+			bucketIndex = numBuckets - 1
+		}
+		histogram[bucketLabels[bucketIndex]]++
+	}
+
+	// Calcul du scale factor pour limiter la largeur de la barre à 35 caractères.
+	maxValue := 0
+	for _, count := range histogram {
+		if count > maxValue {
+			maxValue = count
+		}
+	}
+	histogramWidth := 35
+	scaleFactor := int(math.Ceil(float64(maxValue) / float64(histogramWidth)))
+	if scaleFactor < 1 {
+		scaleFactor = 1
+	}
+
+	// L'unité ici est "connections".
+	return histogram, "connections", scaleFactor
 }
