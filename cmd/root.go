@@ -28,6 +28,7 @@ var (
 	sqlSummaryFlag bool     // --sql-summary
 	sqlDetailFlag  []string // --query-detail
 	grepExpr       []string // --grep
+	jsonFlag       bool     // --json
 )
 
 // rootCmd is the main command.
@@ -76,6 +77,7 @@ func init() {
 	// General Output Options
 	rootCmd.PersistentFlags().StringSliceVarP(&grepExpr, "grep", "g", nil,
 		"Filter the final lines by a substring match (can be specified multiple times)")
+	rootCmd.PersistentFlags().BoolVarP(&jsonFlag, "json", "J", false, "Export results in JSON format")
 }
 
 // executeParsing is the main run function (streaming version).
@@ -168,11 +170,21 @@ func executeParsing(cmd *cobra.Command, args []string) {
 
 	// 11) Default output: global aggregated metrics.
 	metrics := analysis.AggregateMetrics(filteredLogs)
+
 	processingDuration := time.Since(startTime)
-	PrintProcessingSummary(metrics.Global.Count, processingDuration, totalFileSize)
+
 	if metrics.Global.MaxTimestamp.IsZero() || !metrics.Global.MaxTimestamp.After(metrics.Global.MinTimestamp) {
 		log.Fatalf("Error: the computed duration is 0 (MinTimestamp: %v, MaxTimestamp: %v)", metrics.Global.MinTimestamp, metrics.Global.MaxTimestamp)
 	}
+
+	// Export JSON if requested
+	if jsonFlag {
+		output.ExportJSON(metrics)
+		return
+	}
+
+	PrintProcessingSummary(metrics.Global.Count, processingDuration, totalFileSize)
+
 	output.PrintMetrics(metrics)
 }
 
