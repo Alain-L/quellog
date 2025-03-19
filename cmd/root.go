@@ -134,7 +134,7 @@ func executeParsing(cmd *cobra.Command, args []string) {
 	}()
 
 	// 6) Create the channel for filtered logs.
-	filteredLogs := make(chan parser.LogEntry)
+	filteredLogs := make(chan parser.LogEntry, 100)
 
 	// 7) Build the filter structure.
 	filters := parser.LogFilters{

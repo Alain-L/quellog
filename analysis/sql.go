@@ -3,7 +3,6 @@ package analysis
 
 import (
 	"dalibo/quellog/parser"
-	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -53,27 +52,20 @@ func RunSQLSummary(in <-chan parser.LogEntry) SqlMetrics {
 
 	// Regex to capture the duration (in ms) of an SQL query.
 	// Example: "duration: 123.45 ms"
-	durationRegex := regexp.MustCompile(`duration:\s+(\d+\.?\d*)\s+ms\b`)
+	//durationRegex := regexp.MustCompile(`duration:\s+(\d+\.?\d*)\s+ms\b`)
 
 	// Regex to capture the SQL statement.
 	// Example: "STATEMENT: SELECT * FROM table WHERE id = 1"
-	statementRegex := regexp.MustCompile(`(?i)(?:statement|execute(?:\s+\S+)?):\s+(.+)`)
+	//statementRegex := regexp.MustCompile(`(?i)(?:statement|execute(?:\s+\S+)?):\s+(.+)`)
 
 	// Loop over SQL entries.
 	for entry := range in {
 		message := entry.Message
 
-		// Find duration and statement within the log message.
-		durationMatch := durationRegex.FindStringSubmatch(message)
-		statementMatch := statementRegex.FindStringSubmatch(message)
-		if len(durationMatch) < 2 || len(statementMatch) < 2 {
-			// Not an SQL log with both duration and statement; skip.
-			continue
-		}
-
-		// Parse the duration.
-		duration, err := strconv.ParseFloat(durationMatch[1], 64)
-		if err != nil {
+		// Extraire la durée et la requête sans regex
+		duration, query, ok := extractDurationAndQuery(message)
+		if !ok {
+			// La ligne n'a pas le format attendu ; passer à l'entrée suivante.
 			continue
 		}
 
@@ -91,7 +83,7 @@ func RunSQLSummary(in <-chan parser.LogEntry) SqlMetrics {
 		}
 
 		// Extract and normalize the SQL query.
-		rawQuery := strings.TrimSpace(statementMatch[1])
+		rawQuery := strings.TrimSpace(query)
 		normalizedQuery := normalizeQuery(rawQuery)
 
 		// Generate a user-friendly ID and full hash from the query.
@@ -151,4 +143,50 @@ func RunSQLSummary(in <-chan parser.LogEntry) SqlMetrics {
 	// Set the count of unique queries.
 	metrics.UniqueQueries = len(metrics.QueryStats)
 	return metrics
+}
+
+func extractDurationAndQuery(message string) (duration float64, query string, ok bool) {
+	// Trouver la position de "duration:"
+	durIdx := strings.Index(message, "duration:")
+	if durIdx == -1 {
+		return 0, "", false
+	}
+	// Extraire la partie après "duration:"
+	afterDur := message[durIdx+len("duration:"):]
+	afterDur = strings.TrimSpace(afterDur)
+	// La durée est le premier token (jusqu'au premier espace)
+	tokens := strings.SplitN(afterDur, " ", 2)
+	if len(tokens) < 2 {
+		return 0, "", false
+	}
+	// Convertir la durée
+	dur, err := strconv.ParseFloat(tokens[0], 64)
+	if err != nil {
+		return 0, "", false
+	}
+
+	// Rechercher "execute" ou "statement"
+	execIdx := strings.Index(message, "execute")
+	stmtIdx := strings.Index(message, "statement")
+
+	var markerIdx int
+	var marker string
+	if execIdx != -1 && (stmtIdx == -1 || execIdx < stmtIdx) {
+		markerIdx = execIdx
+		marker = "execute"
+	} else if stmtIdx != -1 {
+		markerIdx = stmtIdx
+		marker = "statement"
+	} else {
+		return dur, "", false
+	}
+
+	// Après le marqueur, chercher le deux-points qui sépare le libellé du SQL
+	queryStart := markerIdx + len(marker)
+	colonIdx := strings.Index(message[queryStart:], ":")
+	if colonIdx != -1 {
+		queryStart += colonIdx + 1
+	}
+	query = strings.TrimSpace(message[queryStart:])
+	return dur, query, true
 }

@@ -30,3 +30,6 @@ _*
 
 # Test data
 testdata/
+retroengineering/
+out.html
+cpu.prof
