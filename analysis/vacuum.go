@@ -62,13 +62,11 @@ func AnalyzeVacuum(metrics *VacuumMetrics, entries *[]parser.LogEntry) {
 
 // extractTableName retrieves the table name from a log entry.
 func extractTableName(logMsg string) string {
-	startIdx := strings.Index(logMsg, `"`)
-	endIdx := strings.LastIndex(logMsg, `"`)
-
-	if startIdx != -1 && endIdx != -1 && endIdx > startIdx {
-		return logMsg[startIdx+1 : endIdx]
+	parts := strings.SplitN(logMsg, `"`, 3) // Découpe en 3 morceaux max
+	if len(parts) < 3 {
+		return "UNKNOWN" // Retourne UNKNOXN si pas assez de `"`
 	}
-	return "UNKNOWN"
+	return parts[1] // Retourne ce qu'il y a entre les deux premiers `"`
 }
 
 // extractRemovedPages retrieves the number of removed pages from a log entry.

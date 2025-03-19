@@ -33,7 +33,11 @@ func (p *StderrParser) Parse(filename string, out chan<- LogEntry) error {
 	for scanner.Scan() {
 		line := scanner.Text()
 
-		// If the line starts with a space or a tab, it's a continuation of the previous entry.
+		// syslog
+		if idx := strings.Index(line, "#011"); idx != -1 {
+			line = " " + line[idx+4:] // On coupe avant le premier "#011"
+		}
+		// // Multi-line entry, if the line starts with a space or a tab, it's a continuation of the previous entry.
 		if strings.HasPrefix(line, " ") || strings.HasPrefix(line, "\t") {
 			// Concatenate with a space for proper separation.
 			currentEntry += " " + strings.TrimSpace(line)
