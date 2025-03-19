@@ -59,24 +59,35 @@ func (p *StderrParser) Parse(filename string, out chan<- LogEntry) error {
 // parseStderrLine extracts the timestamp and message from a stderr log line.
 // It assumes the line starts with a timestamp, e.g. "2024-06-05 00:00:01 CET ..."
 func parseStderrLine(line string) (time.Time, string) {
-	// Split the line by whitespace.
 	parts := strings.Fields(line)
 	if len(parts) < 4 {
-		// Not enough fields to parse the timestamp, return an empty time and the original line.
 		return time.Time{}, line
 	}
-	// Combine the first three fields to form the complete timestamp string.
-	// Example: "2024-06-05", "00:00:01", "CET"
-	timestampStr := fmt.Sprintf("%s %s %s", parts[0], parts[1], parts[2])
-	// Parse the timestamp with timezone.
-	timestamp, err := time.Parse("2006-01-02 15:04:05 MST", timestampStr)
-	if err != nil {
-		// On error, return an empty timestamp and the original line.
-		return time.Time{}, line
+
+	// Essayer d'abord le format standard : "2006-01-02 15:04:05 MST"
+	if len(parts[0]) == 10 && strings.Contains(parts[0], "-") {
+		timestampStr := fmt.Sprintf("%s %s %s", parts[0], parts[1], parts[2])
+		if t, err := time.Parse("2006-01-02 15:04:05 MST", timestampStr); err == nil {
+			return t, strings.Join(parts[3:], " ")
+		}
 	}
-	// The message is the rest of the line (starting from the 4th field).
-	message := strings.Join(parts[3:], " ")
-	return timestamp, message
+
+	// Sinon, on tente le format syslog : "Jan _2 15:04:05"
+	// On préfixe avec l'année courante pour obtenir "2006 Jan _2 15:04:05"
+	currentTime := time.Now()
+	currentYear := currentTime.Year()
+	timestampStr := fmt.Sprintf("%d %s %s %s", currentYear, parts[0], parts[1], parts[2])
+	t, err := time.Parse("2006 Jan _2 15:04:05", timestampStr)
+	if err == nil {
+		// Si le mois extrait est après le mois courant, supposer que c'est l'année précédente.
+		if int(t.Month()) > int(currentTime.Month()) {
+			t = t.AddDate(-1, 0, 0)
+		}
+		return t, strings.Join(parts[3:], " ")
+	}
+
+	// En cas d'échec, retourner un timestamp vide et la ligne d'origine
+	return time.Time{}, line
 }
 
 // ParseSessionTime converts a string in the format "HH:MM:SS.mmm" into a time.Duration.
