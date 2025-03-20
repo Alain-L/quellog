@@ -47,7 +47,7 @@ func PrintMetrics(m analysis.AggregatedMetrics) {
 
 	// Histogram
 	hist, unit, scaleFactor := computeTempFileHistogram(m.TempFiles)
-	PrintHistogram(hist, "Temp file distribution", unit, scaleFactor)
+	PrintHistogram(hist, "Temp file distribution", unit, scaleFactor, nil)
 
 	fmt.Printf("  %-25s : %d\n", "Temp file messages", m.TempFiles.Count)
 	fmt.Printf("  %-25s : %s\n", "Cumulative temp file size", formatBytes(m.TempFiles.TotalSize))
@@ -76,7 +76,7 @@ func PrintMetrics(m analysis.AggregatedMetrics) {
 
 		// Histogram
 		hist, _, scaleFactor := computeCheckpointHistogram(m.Checkpoints)
-		PrintHistogram(hist, "Checkpoints", "", scaleFactor)
+		PrintHistogram(hist, "Checkpoints", "", scaleFactor, nil)
 
 		fmt.Printf("  %-25s : %d\n", "Checkpoint count", m.Checkpoints.CompleteCount)
 		fmt.Printf("  %-25s : %s\n", "Avg checkpoint write time", avgDuration)
@@ -89,7 +89,7 @@ func PrintMetrics(m analysis.AggregatedMetrics) {
 
 		// Histogram
 		hist, _, scaleFactor := computeConnectionsHistogram(m.Connections.Connections)
-		PrintHistogram(hist, "Connection distribution", "", scaleFactor)
+		PrintHistogram(hist, "Connection distribution", "", scaleFactor, nil)
 
 		fmt.Printf("  %-25s : %d\n", "Connection count", m.Connections.ConnectionReceivedCount)
 		if duration.Hours() > 0 {
@@ -232,7 +232,7 @@ func PrintSQLSummary(m analysis.SqlMetrics, indicatorsOnly bool) {
 	// ** Query Load Histogram **
 	if !m.StartTimestamp.IsZero() && !m.EndTimestamp.IsZero() {
 		queryLoad, unit, scale := computeQueryLoadHistogram(m)
-		PrintHistogram(queryLoad, "Query load distribution", unit, scale)
+		PrintHistogram(queryLoad, "Query load distribution", unit, scale, nil)
 	}
 
 	fmt.Printf("  %-25s : %-20s\n", "Total query duration", formatQueryDuration(m.SumQueryDuration))
@@ -247,6 +247,23 @@ func PrintSQLSummary(m analysis.SqlMetrics, indicatorsOnly bool) {
 	fmt.Println()
 
 	if !indicatorsOnly {
+
+		// Définition de l'ordre des labels pour l'histogramme des durées de requêtes.
+		queryDurationOrder := []string{
+			"< 1 ms",
+			"< 10 ms",
+			"< 100 ms",
+			"< 1 s",
+			"< 10 s",
+			">= 10 s",
+		}
+
+		// ** Query Time Histogram **
+		if !m.StartTimestamp.IsZero() && !m.EndTimestamp.IsZero() {
+			hist, unit, scale := computeQueryDurationHistogram(m)
+			PrintHistogram(hist, "Query duration distribution", unit, scale, queryDurationOrder)
+		}
+
 		fmt.Println(bold + "Slowest individual queries:" + reset)
 		PrintSlowestQueries(m.QueryStats)
 		fmt.Println()
@@ -570,7 +587,7 @@ func PrintEventSummary(summaries []analysis.EventSummary) {
 
 // PrintHistogram affiche l'histogramme en triant les plages horaires par ordre chronologique.
 // La largeur du terminal est récupérée automatiquement pour adapter la largeur de la barre.
-func PrintHistogram(data map[string]int, title string, unit string, scaleFactor int) {
+func PrintHistogram(data map[string]int, title string, unit string, scaleFactor int, orderedLabels []string) {
 	if len(data) == 0 {
 		fmt.Printf("\n  (No data available)\n")
 		return
@@ -585,24 +602,30 @@ func PrintHistogram(data map[string]int, title string, unit string, scaleFactor 
 	// Définition des largeurs réservées : 20 pour l'étiquette et 5 pour la valeur.
 	labelWidth := 20
 	valueWidth := 5
-	spacing := 4 // espaces supplémentaires (ex: deux espaces après l'étiquette et un avant la valeur)
+	spacing := 4 // Espaces entre le label et la valeur.
 	barWidth := termWidth - labelWidth - spacing - valueWidth
 	if barWidth < 10 {
 		barWidth = 10
 	}
 
-	// Extraction et tri des labels basés sur l'heure de début (format "HH:MM - HH:MM").
+	// Gestion des labels (ordre fixe ou tri automatique basé sur l'heure).
 	labels := make([]string, 0, len(data))
-	for label := range data {
-		labels = append(labels, label)
+	if len(orderedLabels) > 0 {
+		// Utilisation de l'ordre défini explicitement.
+		labels = orderedLabels
+	} else {
+		// Tri automatique basé sur l'heure "HH:MM - HH:MM".
+		for label := range data {
+			labels = append(labels, label)
+		}
+		sort.Slice(labels, func(i, j int) bool {
+			partsI := strings.Split(labels[i], " - ")
+			partsJ := strings.Split(labels[j], " - ")
+			t1, _ := time.Parse("15:04", partsI[0])
+			t2, _ := time.Parse("15:04", partsJ[0])
+			return t1.Before(t2)
+		})
 	}
-	sort.Slice(labels, func(i, j int) bool {
-		partsI := strings.Split(labels[i], " - ")
-		partsJ := strings.Split(labels[j], " - ")
-		t1, _ := time.Parse("15:04", partsI[0])
-		t2, _ := time.Parse("15:04", partsJ[0])
-		return t1.Before(t2)
-	})
 
 	// Détermination de la valeur maximale pour normaliser l'affichage.
 	maxValue := 0
@@ -631,7 +654,19 @@ func PrintHistogram(data map[string]int, title string, unit string, scaleFactor 
 			barLength = barWidth
 		}
 		bar := strings.Repeat("■", barLength)
-		fmt.Printf("  %-13s  %-s %d %s\n", label, bar, value, unit)
+
+		// Déterminer si on affiche la valeur ou un `-`
+		valueStr := fmt.Sprintf("%d %s", value, unit)
+		if value == 0 {
+			valueStr = " -"
+		}
+
+		// Ajustement du formatage : si pas de barres, on aligne à gauche sans indentation.
+		if barLength > 0 {
+			fmt.Printf("  %-13s  %-s %s\n", label, bar, valueStr)
+		} else {
+			fmt.Printf("  %-14s %s\n", label, valueStr)
+		}
 	}
 	fmt.Println()
 }
@@ -710,6 +745,64 @@ func computeQueryLoadHistogram(m analysis.SqlMetrics) (map[string]int, string, i
 	}
 	histogramWidth := 40
 	scaleFactor := int(math.Ceil(float64(maxValue) / float64(histogramWidth)))
+	if scaleFactor < 1 {
+		scaleFactor = 1
+	}
+
+	return histogram, unit, scaleFactor
+}
+
+// computeQueryDurationHistogram renvoie un histogramme sous forme de map associant des étiquettes de buckets à leur nombre de requêtes.
+// computeQueryDurationHistogram calcule un histogramme basé sur la durée des requêtes (exprimée en millisecondes)
+// et retourne :
+// - une map associant une étiquette de bucket au nombre de requêtes
+// - une chaîne "req" indiquant que les valeurs sont en nombre de requêtes,
+// - un scaleFactor permettant d’afficher des barres proportionnelles sur une largeur maximale de 40 caractères.
+func computeQueryDurationHistogram(m analysis.SqlMetrics) (map[string]int, string, int) {
+	// Définition des buckets fixes dans l'ordre souhaité.
+	bucketDefinitions := []struct {
+		label string
+		lower float64 // Borne inférieure en ms (inclusive)
+		upper float64 // Borne supérieure en ms (exclusive)
+	}{
+		{"< 1 ms", 0, 1},
+		{"< 10 ms", 1, 10},
+		{"< 100 ms", 10, 100},
+		{"< 1 s", 100, 1000},
+		{"< 10 s", 1000, 10000},
+		{">= 10 s", 10000, math.Inf(1)},
+	}
+
+	// Initialisation de l'histogramme avec des valeurs à zéro pour garantir l'ordre d'affichage.
+	histogram := make(map[string]int)
+	for _, bucket := range bucketDefinitions {
+		histogram[bucket.label] = 0
+	}
+
+	// Parcours des requêtes et répartition dans les buckets.
+	for _, exec := range m.Executions {
+		d := exec.Duration
+		for _, bucket := range bucketDefinitions {
+			if d >= bucket.lower && d < bucket.upper {
+				histogram[bucket.label]++
+				break
+			}
+		}
+	}
+
+	// Détermination du nombre maximal de requêtes dans un bucket.
+	maxCount := 0
+	for _, count := range histogram {
+		if count > maxCount {
+			maxCount = count
+		}
+	}
+
+	// L'unité est "req" (nombre de requêtes).
+	unit := "req"
+
+	// Calcul du scale factor pour limiter la barre la plus longue à 40 caractères.
+	scaleFactor := int(math.Ceil(float64(maxCount) / 40.0))
 	if scaleFactor < 1 {
 		scaleFactor = 1
 	}
