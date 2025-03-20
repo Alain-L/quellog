@@ -797,8 +797,19 @@ func computeTempFileHistogram(m analysis.TempFileMetrics) (map[string]int, strin
 		histogram[bucketLabels[i]] = value
 	}
 
-	// On renvoie un scaleFactor par défaut à 1 (la fonction d'affichage pourra l'ajuster si besoin).
-	scaleFactor := 1
+	// Calcul automatique du scale factor pour l'affichage (limite à 40 blocs max).
+	histogramWidth := 40
+	maxValue := 0
+	for _, v := range histogram {
+		if v > maxValue {
+			maxValue = v
+		}
+	}
+
+	scaleFactor := int(math.Ceil(float64(maxValue) / float64(histogramWidth)))
+	if scaleFactor < 1 {
+		scaleFactor = 1
+	}
 
 	return histogram, unit, scaleFactor
 }
@@ -848,7 +859,7 @@ func computeCheckpointHistogram(m analysis.CheckpointMetrics) (map[string]int, s
 			maxValue = count
 		}
 	}
-	histogramWidth := 35
+	histogramWidth := 40
 	scaleFactor := int(math.Ceil(float64(maxValue) / float64(histogramWidth)))
 	if scaleFactor < 1 {
 		scaleFactor = 1
@@ -916,7 +927,7 @@ func computeConnectionsHistogram(events []time.Time) (map[string]int, string, in
 			maxValue = count
 		}
 	}
-	histogramWidth := 35
+	histogramWidth := 40
 	scaleFactor := int(math.Ceil(float64(maxValue) / float64(histogramWidth)))
 	if scaleFactor < 1 {
 		scaleFactor = 1
