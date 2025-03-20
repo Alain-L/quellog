@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"dalibo/quellog/analysis"
@@ -127,10 +128,22 @@ func executeParsing(cmd *cobra.Command, args []string) {
 	// 4) Create the channel for raw logs (unfiltered).
 	rawLogs := make(chan parser.LogEntry, 100)
 
-	// 5) Launch file reading and streaming parsing.
+	// 5) Launch file reading and streaming parsing concurrently.
 	go func() {
-		parser.ParseAllFiles(allFiles, rawLogs)
-		close(rawLogs) // Close the channel once parsing is finished.
+		var wg sync.WaitGroup
+		for _, file := range allFiles {
+			wg.Add(1)
+			go func(f string) {
+				defer wg.Done()
+				// Ici, on suppose que la fonction ParseFile traite un fichier unique
+				// et envoie ses LogEntry dans le canal rawLogs.
+				if err := parser.ParseFile(f, rawLogs); err != nil {
+					log.Printf("Error parsing file %s: %v", f, err)
+				}
+			}(file)
+		}
+		wg.Wait()
+		close(rawLogs)
 	}()
 
 	// 6) Create the channel for filtered logs.

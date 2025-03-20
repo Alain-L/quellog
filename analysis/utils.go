@@ -4,7 +4,7 @@ package analysis
 import (
 	"crypto/md5"
 	"encoding/base64"
-	"fmt"
+	"encoding/hex"
 	"strings"
 )
 
@@ -20,30 +20,35 @@ func normalizeQuery(query string) string {
 // GenerateQueryID generates a short identifier from the raw and normalized query.
 // It determines a prefix based on the query type and computes an MD5 hash from the normalized query.
 func GenerateQueryID(rawQuery, normalizedQuery string) (id, fullHash string) {
-	lowerQuery := strings.ToLower(strings.TrimSpace(rawQuery))
-	prefix := "xx-" // Default prefix.
-	if strings.HasPrefix(lowerQuery, "select") {
-		prefix = "se-"
-	} else if strings.HasPrefix(lowerQuery, "insert") {
-		prefix = "in-"
-	} else if strings.HasPrefix(lowerQuery, "update") {
-		prefix = "up-"
-	} else if strings.HasPrefix(lowerQuery, "delete") {
-		prefix = "de-"
-	} else if strings.HasPrefix(lowerQuery, "copy") {
-		prefix = "co-"
-	} else if strings.HasPrefix(lowerQuery, "refresh") {
-		prefix = "mv-"
+	// Préfixes SQL typiques
+	queryPrefixes := map[string]string{
+		"SELECT":  "se-",
+		"INSERT":  "in-",
+		"UPDATE":  "up-",
+		"DELETE":  "de-",
+		"COPY":    "co-",
+		"REFRESH": "mv-",
+	}
+
+	// Trim et détecte le préfixe sans ToLower.
+	rawQuery = strings.TrimSpace(rawQuery)
+	prefix := "xx-" // Default
+	for keyword, short := range queryPrefixes {
+		if strings.HasPrefix(rawQuery, keyword) || strings.HasPrefix(rawQuery, strings.ToLower(keyword)) {
+			prefix = short
+			break
+		}
 	}
 
 	// Compute the MD5 hash of the normalized query.
 	hashBytes := md5.Sum([]byte(normalizedQuery))
-	fullHash = strings.ToLower(fmt.Sprintf("%x", hashBytes)) // 32 hex characters.
+	fullHash = hex.EncodeToString(hashBytes[:]) // 32 hex characters.
 
-	// Convert the hash to base64 for a more compact representation.
+	// Convert to base64 and sanitize output.
 	b64 := base64.StdEncoding.EncodeToString(hashBytes[:])
-	// Remove special characters to obtain an alphanumeric string.
 	b64 = strings.NewReplacer("+", "", "/", "", "=", "").Replace(b64)
+
+	// Truncate for shorter hash ID.
 	shortHash := b64
 	if len(b64) > 6 {
 		shortHash = b64[:6]

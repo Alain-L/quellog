@@ -33,3 +33,4 @@ testdata/
 retroengineering/
 out.html
 cpu.prof
+trace.out

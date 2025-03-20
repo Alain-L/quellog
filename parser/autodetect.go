@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/csv"
 	"encoding/json"
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -11,21 +12,14 @@ import (
 	"strings"
 )
 
-// ParseAllFiles détecte le format pour chaque fichier et appelle le parser en streaming.
-func ParseAllFiles(files []string, out chan<- LogEntry) {
-	//defer close(out) // On ferme le canal après avoir traité tous les fichiers
-
-	for _, file := range files {
-		lp := detectParser(file)
-		if lp == nil {
-			log.Printf("[WARN] Unknown log format for file: %s\n", file)
-			continue
-		}
-		err := lp.Parse(file, out)
-		if err != nil {
-			log.Printf("[ERROR] parse error for file %s: %v\n", file, err)
-		}
+// ParseFile détecte le parser pour le fichier donné et le traite en streaming.
+// Elle renvoie une erreur si le format du log est inconnu ou si le parsing échoue.
+func ParseFile(filename string, out chan<- LogEntry) error {
+	lp := detectParser(filename)
+	if lp == nil {
+		return fmt.Errorf("unknown log format for file: %s", filename)
 	}
+	return lp.Parse(filename, out)
 }
 
 // detectParser lit un petit bout du fichier pour identifier le format
