@@ -26,10 +26,20 @@ var (
 	userFilter  []string // --dbuser
 	excludeUser []string // --exclude-user
 
-	sqlSummaryFlag bool     // --sql-summary
-	sqlDetailFlag  []string // --query-detail
-	grepExpr       []string // --grep
-	jsonFlag       bool     // --json
+	sqlSummaryFlag  bool     // --sql-summary
+	queryDetailFlag []string // --query-detail
+
+	summaryFlag        bool // --summary
+	eventsFlag         bool // --events
+	sqlPerformanceFlag bool // --sql-performance
+	tempfilesFlag      bool // --tempfiles
+	maintenanceFlag    bool // --maintenance
+	checkpointsFlag    bool // --checkpoints
+	connectionsFlag    bool // --connections
+	clientsFlag        bool // --clients
+
+	grepExpr []string // --grep
+	jsonFlag bool     // --json
 )
 
 // rootCmd is the main command.
@@ -72,10 +82,18 @@ func init() {
 	// SQL Query Options
 	rootCmd.PersistentFlags().BoolVarP(&sqlSummaryFlag, "sql-summary", "", false,
 		"Display a global SQL summary including performance metrics and percentiles")
-	rootCmd.PersistentFlags().StringSliceVarP(&sqlDetailFlag, "query-detail", "Q", nil,
+	rootCmd.PersistentFlags().StringSliceVarP(&queryDetailFlag, "query-detail", "Q", nil,
 		"Show details for specific SQL IDs (repeat the flag for multiple IDs)")
 
 	// General Output Options
+	rootCmd.Flags().BoolVar(&summaryFlag, "summary", false, "print only summary section")
+	rootCmd.Flags().BoolVar(&eventsFlag, "events", false, "print only events section")
+	rootCmd.Flags().BoolVar(&sqlPerformanceFlag, "sql-performance", false, "print only sql performance section")
+	rootCmd.Flags().BoolVar(&tempfilesFlag, "tempfiles", false, "print only temporary files section")
+	rootCmd.Flags().BoolVar(&maintenanceFlag, "maintenance", false, "print only maintenance files section")
+	rootCmd.Flags().BoolVar(&checkpointsFlag, "checkpoints", false, "print only checkpoints section")
+	rootCmd.Flags().BoolVar(&connectionsFlag, "connections", false, "print only connections section")
+	rootCmd.Flags().BoolVar(&clientsFlag, "clients", false, "print only clients section")
 	rootCmd.PersistentFlags().StringSliceVarP(&grepExpr, "grep", "g", nil,
 		"Filter the final lines by a substring match (can be specified multiple times)")
 	rootCmd.PersistentFlags().BoolVarP(&jsonFlag, "json", "J", false, "Export results in JSON format")
@@ -164,11 +182,11 @@ func executeParsing(cmd *cobra.Command, args []string) {
 	go parser.FilterStream(rawLogs, filteredLogs, filters)
 
 	// 9) Process SQL query details if specified.
-	if len(sqlDetailFlag) > 0 {
+	if len(queryDetailFlag) > 0 {
 		sqlMetrics := analysis.RunSQLSummary(filteredLogs)
 		processingDuration := time.Since(startTime)
 		PrintProcessingSummary(sqlMetrics.TotalQueries, processingDuration, totalFileSize)
-		output.PrintSqlDetails(sqlMetrics, sqlDetailFlag)
+		output.PrintSqlDetails(sqlMetrics, queryDetailFlag)
 		return
 	}
 
@@ -190,15 +208,46 @@ func executeParsing(cmd *cobra.Command, args []string) {
 		log.Fatalf("Error: the computed duration is 0 (MinTimestamp: %v, MaxTimestamp: %v)", metrics.Global.MinTimestamp, metrics.Global.MaxTimestamp)
 	}
 
+	// Build list of sections to report
+	sections := []string{}
+	if summaryFlag {
+		sections = append(sections, "summary")
+	}
+	if checkpointsFlag {
+		sections = append(sections, "checkpoints")
+	}
+	if eventsFlag {
+		sections = append(sections, "events")
+	}
+	if sqlPerformanceFlag {
+		sections = append(sections, "sql_performance")
+	}
+	if tempfilesFlag {
+		sections = append(sections, "tempfiles")
+	}
+	if maintenanceFlag {
+		sections = append(sections, "maintenance")
+	}
+	if connectionsFlag {
+		sections = append(sections, "connections")
+	}
+	if clientsFlag {
+		sections = append(sections, "clients")
+	}
+
+	if len(sections) == 0 {
+		sections = []string{"all"}
+	}
+
 	// Export JSON if requested
 	if jsonFlag {
-		output.ExportJSON(metrics)
+		output.ExportJSON(metrics, sections)
 		return
 	}
 
 	PrintProcessingSummary(metrics.Global.Count, processingDuration, totalFileSize)
 
-	output.PrintMetrics(metrics)
+	output.PrintMetrics(metrics, sections)
 }
 
 // HELPERS

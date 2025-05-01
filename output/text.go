@@ -16,7 +16,18 @@ import (
 type TextFormatter struct{}
 
 // PrintMetrics displays the aggregated metrics.
-func PrintMetrics(m analysis.AggregatedMetrics) {
+func PrintMetrics(m analysis.AggregatedMetrics, sections []string) {
+
+	// Check flags
+	has := func(name string) bool {
+		for _, s := range sections {
+			if s == name || s == "all" {
+				return true
+			}
+		}
+		return false
+	}
+
 	// Calculate total duration from min and max timestamps.
 	duration := m.Global.MaxTimestamp.Sub(m.Global.MinTimestamp)
 
@@ -25,26 +36,30 @@ func PrintMetrics(m analysis.AggregatedMetrics) {
 	reset := "\033[0m"
 
 	// General summary header.
-	fmt.Println(bold + "\nSUMMARY\n" + reset)
-	fmt.Printf("  %-25s : %s\n", "Start date", m.Global.MinTimestamp.Format("2006-01-02 15:04:05 MST"))
-	fmt.Printf("  %-25s : %s\n", "End date", m.Global.MaxTimestamp.Format("2006-01-02 15:04:05 MST"))
-	fmt.Printf("  %-25s : %s\n", "Duration", duration)
-	fmt.Printf("  %-25s : %d\n", "Total entries", m.Global.Count)
-	if duration > 0 {
-		rate := float64(m.Global.Count) / duration.Seconds()
-		fmt.Printf("  %-25s : %.2f entries/s\n", "Throughput", rate)
+	if has("summary") {
+		fmt.Println(bold + "\nSUMMARY\n" + reset)
+		fmt.Printf("  %-25s : %s\n", "Start date", m.Global.MinTimestamp.Format("2006-01-02 15:04:05 MST"))
+		fmt.Printf("  %-25s : %s\n", "End date", m.Global.MaxTimestamp.Format("2006-01-02 15:04:05 MST"))
+		fmt.Printf("  %-25s : %s\n", "Duration", duration)
+		fmt.Printf("  %-25s : %d\n", "Total entries", m.Global.Count)
+		if duration > 0 {
+			rate := float64(m.Global.Count) / duration.Seconds()
+			fmt.Printf("  %-25s : %.2f entries/s\n", "Throughput", rate)
+		}
 	}
 
 	// SQL performance section
-	if m.SQL.TotalQueries > 0 {
+	if has("sql_performance") && m.SQL.TotalQueries > 0 {
 		PrintSQLSummary(m.SQL, true)
 	}
 
 	// Events
-	PrintEventsReport(m.EventSummaries)
+	if has("events") && len(m.EventSummaries) > 0 {
+		PrintEventsReport(m.EventSummaries)
+	}
 
 	// Temp Files section.
-	if m.TempFiles.Count > 0 {
+	if has("tempfiles") && m.TempFiles.Count > 0 {
 
 		fmt.Println(bold + "\nTEMP FILES\n" + reset)
 
@@ -62,7 +77,7 @@ func PrintMetrics(m analysis.AggregatedMetrics) {
 	}
 
 	// Maintenance Metrics section.
-	if m.Vacuum.VacuumCount > 0 || m.Vacuum.AnalyzeCount > 0 {
+	if has("maintenance") && (m.Vacuum.VacuumCount > 0 || m.Vacuum.AnalyzeCount > 0) {
 		fmt.Println(bold + "\nMAINTENANCE\n" + reset)
 		fmt.Printf("  %-25s : %d\n", "Automatic vacuum count", m.Vacuum.VacuumCount)
 		fmt.Printf("  %-25s : %d\n", "Automatic analyze count", m.Vacuum.AnalyzeCount)
@@ -73,7 +88,7 @@ func PrintMetrics(m analysis.AggregatedMetrics) {
 	}
 
 	// Checkpoints section
-	if m.Checkpoints.CompleteCount > 0 {
+	if has("checkpoints") && m.Checkpoints.CompleteCount > 0 {
 		avgWriteSeconds := m.Checkpoints.TotalWriteTimeSeconds / float64(m.Checkpoints.CompleteCount)
 		avgDuration := time.Duration(avgWriteSeconds * float64(time.Second)).Truncate(time.Second)
 		maxDuration := time.Duration(m.Checkpoints.MaxWriteTimeSeconds * float64(time.Second)).Truncate(time.Second)
@@ -90,7 +105,7 @@ func PrintMetrics(m analysis.AggregatedMetrics) {
 	}
 
 	// Connections & Sessions Metrics section.
-	if m.Connections.ConnectionReceivedCount > 0 {
+	if has("connections") && m.Connections.ConnectionReceivedCount > 0 {
 		fmt.Println(bold + "\nCONNECTIONS & SESSIONS\n" + reset)
 
 		// Histogram
@@ -112,7 +127,7 @@ func PrintMetrics(m analysis.AggregatedMetrics) {
 	}
 
 	// Unique Clients section.
-	if m.UniqueEntities.UniqueDbs > 0 || m.UniqueEntities.UniqueUsers > 0 || m.UniqueEntities.UniqueApps > 0 {
+	if has("clients") && (m.UniqueEntities.UniqueDbs > 0 || m.UniqueEntities.UniqueUsers > 0 || m.UniqueEntities.UniqueApps > 0) {
 		fmt.Println(bold + "\nCLIENTS\n" + reset)
 		fmt.Printf("  %-25s : %d\n", "Unique DBs", m.UniqueEntities.UniqueDbs)
 		fmt.Printf("  %-25s : %d\n", "Unique Users", m.UniqueEntities.UniqueUsers)

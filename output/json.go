@@ -83,6 +83,149 @@ type ClientsJSON struct {
 	UniqueApps      int `json:"unique_apps"`
 }
 
+// ExportJSON brings together all metrics into one composite structure,
+// converts it into an indented JSON string, and outputs the result.
+// Only sections with data are included in the output.
+func ExportJSON(m analysis.AggregatedMetrics, sections []string) {
+	// Build dynamic JSON structure
+	data := make(map[string]interface{})
+	fmt.Println("DEBUG ", sections)
+	// Check flags
+	has := func(name string) bool {
+		for _, s := range sections {
+			if s == name || s == "all" {
+				return true
+			}
+		}
+		return false
+	}
+
+	// summary
+	if has("summary") {
+		data["summary"] = convertSummary(m)
+	}
+
+	// Events summary
+	if has("events") && len(m.EventSummaries) > 0 {
+		events := make(map[string]int)
+		for _, ev := range m.EventSummaries {
+			events[ev.Type] = ev.Count
+		}
+		data["events"] = events
+	}
+
+	// Conditionally include SQL performance
+	if has("sql_performance") && m.SQL.TotalQueries > 0 {
+		data["sql_performance"] = convertSQLPerformance(m.SQL)
+	}
+
+	// Conditionally include temp files
+	if has("tempfiles") && m.TempFiles.Count > 0 {
+		tf := TempFilesJSON{
+			TotalMessages: m.TempFiles.Count,
+			TotalSize:     formatBytes(m.TempFiles.TotalSize),
+			AvgSize:       formatBytes(m.TempFiles.TotalSize / int64(m.TempFiles.Count)),
+			Events:        []TempFileEventJSON{},
+		}
+		for _, event := range m.TempFiles.Events {
+			tf.Events = append(tf.Events, TempFileEventJSON{
+				Timestamp: event.Timestamp.Format("2006-01-02 15:04:05"),
+				Size:      formatBytes(int64(event.Size)),
+			})
+		}
+		data["temp_files"] = tf
+	}
+
+	// Conditionally include maintenance
+	if has("maintenance") && (m.Vacuum.VacuumCount > 0 || m.Vacuum.AnalyzeCount > 0) {
+		data["maintenance"] = MaintenanceJSON{
+			VacuumCount:          m.Vacuum.VacuumCount,
+			AnalyzeCount:         m.Vacuum.AnalyzeCount,
+			VacuumTableCounts:    m.Vacuum.VacuumTableCounts,
+			AnalyzeTableCounts:   m.Vacuum.AnalyzeTableCounts,
+			VacuumSpaceRecovered: formatVacuumSpaceRecovered(m.Vacuum.VacuumSpaceRecovered),
+		}
+	}
+
+	// Conditionally include checkpoints
+	if has("checkpoints") && m.Checkpoints.CompleteCount > 0 {
+		cp := CheckpointsJSON{
+			TotalCheckpoints:  m.Checkpoints.CompleteCount,
+			AvgCheckpointTime: formatSeconds(m.Checkpoints.TotalWriteTimeSeconds / float64(m.Checkpoints.CompleteCount)),
+			MaxCheckpointTime: formatSeconds(m.Checkpoints.MaxWriteTimeSeconds),
+		}
+		for _, t := range m.Checkpoints.Events {
+			cp.Events = append(cp.Events, t.Format("2006-01-02 15:04:05"))
+		}
+		data["checkpoints"] = cp
+	}
+
+	// Conditionally include connections
+	if has("connections") && (m.Connections.ConnectionReceivedCount > 0 || m.Connections.DisconnectionCount > 0) {
+		conn := ConnectionsJSON{
+			ConnectionCount:       m.Connections.ConnectionReceivedCount,
+			AvgConnectionsPerHour: fmt.Sprintf("%.2f", float64(m.Connections.ConnectionReceivedCount)/24.0),
+			DisconnectionCount:    m.Connections.DisconnectionCount,
+			AvgSessionTime: func() string {
+				if m.Connections.DisconnectionCount > 0 {
+					return (m.Connections.TotalSessionTime / time.Duration(m.Connections.DisconnectionCount)).String()
+				}
+				return ""
+			}(),
+			Connections: []string{},
+		}
+		for _, t := range m.Connections.Connections {
+			conn.Connections = append(conn.Connections, t.Format("2006-01-02 15:04:05"))
+		}
+		data["connections"] = conn
+	}
+
+	// Clients and detailed lists
+	if has("clients") && (m.UniqueEntities.UniqueDbs > 0 || m.UniqueEntities.UniqueUsers > 0 || m.UniqueEntities.UniqueApps > 0) {
+		// Basic counts
+		data["clients"] = ClientsJSON{
+			UniqueDatabases: m.UniqueEntities.UniqueDbs,
+			UniqueUsers:     m.UniqueEntities.UniqueUsers,
+			UniqueApps:      m.UniqueEntities.UniqueApps,
+		}
+		// Detailed lists, excluding sole UNKNOWN entries
+		if m.UniqueEntities.UniqueUsers > 0 && !(len(m.UniqueEntities.Users) == 1 && m.UniqueEntities.Users[0] == "UNKNOWN") {
+			data["users"] = m.UniqueEntities.Users
+		}
+		if m.UniqueEntities.UniqueApps > 0 && !(len(m.UniqueEntities.Apps) == 1 && m.UniqueEntities.Apps[0] == "UNKNOWN") {
+			data["apps"] = m.UniqueEntities.Apps
+		}
+		if m.UniqueEntities.UniqueDbs > 0 && !(len(m.UniqueEntities.DBs) == 1 && m.UniqueEntities.DBs[0] == "UNKNOWN") {
+			data["databases"] = m.UniqueEntities.DBs
+		}
+	}
+
+	// Marshal and output
+	jsonData, err := json.MarshalIndent(data, "", "  ")
+	if err != nil {
+		fmt.Println("[ERROR] Failed to export JSON:", err)
+		return
+	}
+	fmt.Println(string(jsonData))
+}
+
+// formatSeconds formats float64 seconds into "X.XX s" or "Y ms" without using time.Duration
+func formatSeconds(s float64) string {
+	if s >= 1.0 {
+		return fmt.Sprintf("%.2f s", s)
+	}
+	return fmt.Sprintf("%d ms", int(s*1000))
+}
+
+// Helper function to format the vacuum space recovered for each table.
+func formatVacuumSpaceRecovered(space map[string]int64) map[string]string {
+	formatted := make(map[string]string, len(space))
+	for table, size := range space {
+		formatted[table] = formatBytes(size)
+	}
+	return formatted
+}
+
 // convertSummary aggregates global metrics into a JSON-friendly format.
 // It calculates the total duration between the first and last log entry
 // and computes the throughput (logs per second).
@@ -137,122 +280,4 @@ func convertSQLPerformance(m analysis.SqlMetrics) SQLPerformanceJSON {
 		Query99thPercentile:    formatQueryDuration(m.P99QueryDuration),
 		Executions:             executionsJSON,
 	}
-}
-
-// ExportJSON brings together all metrics into one composite structure,
-// converts it into an indented JSON string, and outputs the result.
-// It processes sections for summary, SQL performance, temporary files,
-// maintenance tasks, checkpoints, connections, and client information.
-func ExportJSON(m analysis.AggregatedMetrics) {
-	// Calculate average session time
-
-	avgSessionTime := time.Duration(0)
-	if m.Connections.DisconnectionCount > 0 {
-		avgSessionTime = m.Connections.TotalSessionTime / time.Duration(m.Connections.DisconnectionCount)
-	}
-
-	// Calculate average temp file size with a check to avoid division by zero.
-	var avgTempFileSize int64
-	if m.TempFiles.Count > 0 {
-		avgTempFileSize = m.TempFiles.TotalSize / int64(m.TempFiles.Count)
-	} else {
-		avgTempFileSize = 0
-	}
-
-	// Calculate average checkpoint time only if there is at least one complete checkpoint.
-	var avgCheckpointTime float64
-
-	if m.Checkpoints.CompleteCount > 0 {
-		fmt.Printf("[DEBUG] m.Checkpoints.TotalWriteTimeSeconds: %f\n", m.Checkpoints.TotalWriteTimeSeconds)
-		fmt.Printf("[DEBUG] m.Checkpoints.CompleteCount: %d\n", m.Checkpoints.CompleteCount)
-		avgCheckpointTime = m.Checkpoints.TotalWriteTimeSeconds / float64(m.Checkpoints.CompleteCount)
-	} else {
-		avgCheckpointTime = 0
-	}
-
-	// Calculate average connections per hour (dividing by 24.0 is safe as 24.0 is constant).
-	avgConnectionsPerHour := float64(m.Connections.ConnectionReceivedCount) / 24.0
-
-	// Convert the slice of time.Time to a slice of formatted strings
-
-	// for checkpoints
-	events := make([]string, len(m.Checkpoints.Events))
-	for i, t := range m.Checkpoints.Events {
-		events[i] = t.Format("2006-01-02 15:04:05")
-	}
-
-	// for connections
-	connections := make([]string, len(m.Connections.Connections))
-	for i, t := range m.Connections.Connections {
-		connections[i] = t.Format("2006-01-02 15:04:05")
-	}
-
-	// for temp files, with size info added
-	tempFileEvents := make([]TempFileEventJSON, len(m.TempFiles.Events))
-	for i, event := range m.TempFiles.Events {
-		tempFileEvents[i] = TempFileEventJSON{
-			Timestamp: event.Timestamp.Format("2006-01-02 15:04:05"),
-			Size:      formatBytes(int64(event.Size)),
-		}
-	}
-
-	data := struct {
-		Summary     SummaryJSON        `json:"summary"`
-		SQL         SQLPerformanceJSON `json:"sql_performance"`
-		TempFiles   TempFilesJSON      `json:"temp_files"`
-		Maintenance MaintenanceJSON    `json:"maintenance"`
-		Checkpoints CheckpointsJSON    `json:"checkpoints"`
-		Connections ConnectionsJSON    `json:"connections"`
-		Clients     ClientsJSON        `json:"clients"`
-	}{
-		Summary: convertSummary(m),
-		SQL:     convertSQLPerformance(m.SQL),
-		TempFiles: TempFilesJSON{
-			TotalMessages: m.TempFiles.Count,
-			TotalSize:     formatBytes(m.TempFiles.TotalSize),
-			AvgSize:       formatBytes(avgTempFileSize),
-			Events:        tempFileEvents,
-		},
-		Maintenance: MaintenanceJSON{
-			VacuumCount:          m.Vacuum.VacuumCount,
-			AnalyzeCount:         m.Vacuum.AnalyzeCount,
-			VacuumTableCounts:    m.Vacuum.VacuumTableCounts,
-			AnalyzeTableCounts:   m.Vacuum.AnalyzeTableCounts,
-			VacuumSpaceRecovered: formatVacuumSpaceRecovered(m.Vacuum.VacuumSpaceRecovered),
-		},
-		Checkpoints: CheckpointsJSON{
-			TotalCheckpoints:  m.Checkpoints.CompleteCount,
-			AvgCheckpointTime: formatQueryDuration(1000 * avgCheckpointTime),
-			MaxCheckpointTime: formatQueryDuration(1000 * float64(m.Checkpoints.MaxWriteTimeSeconds)),
-			Events:            events,
-		},
-		Connections: ConnectionsJSON{
-			ConnectionCount:       m.Connections.ConnectionReceivedCount,
-			AvgConnectionsPerHour: fmt.Sprintf("%.2f", avgConnectionsPerHour),
-			DisconnectionCount:    m.Connections.DisconnectionCount,
-			AvgSessionTime:        avgSessionTime.String(),
-			Connections:           connections,
-		},
-		Clients: ClientsJSON{
-			UniqueDatabases: m.UniqueEntities.UniqueDbs,
-			UniqueUsers:     m.UniqueEntities.UniqueUsers,
-			UniqueApps:      m.UniqueEntities.UniqueApps,
-		},
-	}
-
-	jsonData, err := json.MarshalIndent(data, "", "  ")
-	if err != nil {
-		fmt.Println("[ERROR] Failed to export JSON:", err)
-		return
-	}
-	fmt.Println(string(jsonData))
-}
-
-// Helper function to format the vacuum space recovered for each table.
-func formatVacuumSpaceRecovered(space map[string]int64) map[string]string {
-	formatted := make(map[string]string, len(space))
-	for table, size := range space {
-		formatted[table] = formatBytes(size)
-	}
-	return formatted
 }
