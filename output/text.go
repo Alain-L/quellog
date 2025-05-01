@@ -36,37 +36,43 @@ func PrintMetrics(m analysis.AggregatedMetrics) {
 	}
 
 	// SQL performance section
-	PrintSQLSummary(m.SQL, true)
+	if m.SQL.TotalQueries > 0 {
+		PrintSQLSummary(m.SQL, true)
+	}
 
 	// Events
-	PrintEventSummary(m.EventSummaries)
+	PrintEventsReport(m.EventSummaries)
 
 	// Temp Files section.
-
-	fmt.Println(bold + "\nTEMP FILES\n" + reset)
-
-	// Histogram
-	hist, unit, scaleFactor := computeTempFileHistogram(m.TempFiles)
-	PrintHistogram(hist, "Temp file distribution", unit, scaleFactor, nil)
-
-	fmt.Printf("  %-25s : %d\n", "Temp file messages", m.TempFiles.Count)
-	fmt.Printf("  %-25s : %s\n", "Cumulative temp file size", formatBytes(m.TempFiles.TotalSize))
-	avgSize := int64(0)
 	if m.TempFiles.Count > 0 {
-		avgSize = m.TempFiles.TotalSize / int64(m.TempFiles.Count)
+
+		fmt.Println(bold + "\nTEMP FILES\n" + reset)
+
+		// Histogram
+		hist, unit, scaleFactor := computeTempFileHistogram(m.TempFiles)
+		PrintHistogram(hist, "Temp file distribution", unit, scaleFactor, nil)
+
+		fmt.Printf("  %-25s : %d\n", "Temp file messages", m.TempFiles.Count)
+		fmt.Printf("  %-25s : %s\n", "Cumulative temp file size", formatBytes(m.TempFiles.TotalSize))
+		avgSize := int64(0)
+		if m.TempFiles.Count > 0 {
+			avgSize = m.TempFiles.TotalSize / int64(m.TempFiles.Count)
+		}
+		fmt.Printf("  %-25s : %s\n", "Average temp file size", formatBytes(avgSize))
 	}
-	fmt.Printf("  %-25s : %s\n", "Average temp file size", formatBytes(avgSize))
 
 	// Maintenance Metrics section.
-	fmt.Println(bold + "\nMAINTENANCE\n" + reset)
-	fmt.Printf("  %-25s : %d\n", "Automatic vacuum count", m.Vacuum.VacuumCount)
-	fmt.Printf("  %-25s : %d\n", "Automatic analyze count", m.Vacuum.AnalyzeCount)
-	fmt.Println("  Top automatic vacuum operations per table:")
-	printTopTables(m.Vacuum.VacuumTableCounts, m.Vacuum.VacuumCount, m.Vacuum.VacuumSpaceRecovered)
-	fmt.Println("  Top automatic analyze operations per table:")
-	printTopTables(m.Vacuum.AnalyzeTableCounts, m.Vacuum.AnalyzeCount, nil)
+	if m.Vacuum.VacuumCount > 0 || m.Vacuum.AnalyzeCount > 0 {
+		fmt.Println(bold + "\nMAINTENANCE\n" + reset)
+		fmt.Printf("  %-25s : %d\n", "Automatic vacuum count", m.Vacuum.VacuumCount)
+		fmt.Printf("  %-25s : %d\n", "Automatic analyze count", m.Vacuum.AnalyzeCount)
+		fmt.Println("  Top automatic vacuum operations per table:")
+		printTopTables(m.Vacuum.VacuumTableCounts, m.Vacuum.VacuumCount, m.Vacuum.VacuumSpaceRecovered)
+		fmt.Println("  Top automatic analyze operations per table:")
+		printTopTables(m.Vacuum.AnalyzeTableCounts, m.Vacuum.AnalyzeCount, nil)
+	}
 
-	// Checkpoints section (if available).
+	// Checkpoints section
 	if m.Checkpoints.CompleteCount > 0 {
 		avgWriteSeconds := m.Checkpoints.TotalWriteTimeSeconds / float64(m.Checkpoints.CompleteCount)
 		avgDuration := time.Duration(avgWriteSeconds * float64(time.Second)).Truncate(time.Second)
@@ -106,28 +112,30 @@ func PrintMetrics(m analysis.AggregatedMetrics) {
 	}
 
 	// Unique Clients section.
-	fmt.Println(bold + "\nCLIENTS\n" + reset)
-	fmt.Printf("  %-25s : %d\n", "Unique DBs", m.UniqueEntities.UniqueDbs)
-	fmt.Printf("  %-25s : %d\n", "Unique Users", m.UniqueEntities.UniqueUsers)
-	fmt.Printf("  %-25s : %d\n", "Unique Apps", m.UniqueEntities.UniqueApps)
+	if m.UniqueEntities.UniqueDbs > 0 || m.UniqueEntities.UniqueUsers > 0 || m.UniqueEntities.UniqueApps > 0 {
+		fmt.Println(bold + "\nCLIENTS\n" + reset)
+		fmt.Printf("  %-25s : %d\n", "Unique DBs", m.UniqueEntities.UniqueDbs)
+		fmt.Printf("  %-25s : %d\n", "Unique Users", m.UniqueEntities.UniqueUsers)
+		fmt.Printf("  %-25s : %d\n", "Unique Apps", m.UniqueEntities.UniqueApps)
 
-	// Display lists.
-	if m.UniqueEntities.UniqueUsers > 0 {
-		fmt.Println(bold + "\nUSERS\n" + reset)
-		for _, user := range m.UniqueEntities.Users {
-			fmt.Printf("    %s\n", user)
+		// Display lists.
+		if m.UniqueEntities.UniqueUsers > 0 {
+			fmt.Println(bold + "\nUSERS\n" + reset)
+			for _, user := range m.UniqueEntities.Users {
+				fmt.Printf("    %s\n", user)
+			}
 		}
-	}
-	if m.UniqueEntities.UniqueApps > 0 {
-		fmt.Println(bold + "\nAPPS\n" + reset)
-		for _, app := range m.UniqueEntities.Apps {
-			fmt.Printf("    %s\n", app)
+		if m.UniqueEntities.UniqueApps > 0 {
+			fmt.Println(bold + "\nAPPS\n" + reset)
+			for _, app := range m.UniqueEntities.Apps {
+				fmt.Printf("    %s\n", app)
+			}
 		}
-	}
-	if m.UniqueEntities.UniqueDbs > 0 {
-		fmt.Println(bold + "\nDATABASES\n" + reset)
-		for _, db := range m.UniqueEntities.DBs {
-			fmt.Printf("    %s\n", db)
+		if m.UniqueEntities.UniqueDbs > 0 {
+			fmt.Println(bold + "\nDATABASES\n" + reset)
+			for _, db := range m.UniqueEntities.DBs {
+				fmt.Printf("    %s\n", db)
+			}
 		}
 	}
 	fmt.Println()
@@ -561,15 +569,14 @@ Number of SQL queries: %d`,
 	)
 }
 
-// PrintEventSummary prints a clean, simple event summary with aligned labels.
-func PrintEventSummary(summaries []analysis.EventSummary) {
+// PrintEventsReport prints a clean, simple event summary with aligned labels.
+func PrintEventsReport(summaries []analysis.EventSummary) {
 	// ANSI style for bold text.
 	bold := "\033[1m"
 	reset := "\033[0m"
 
 	// Print title in bold.
-	fmt.Println(bold + "EVENTS" + reset)
-	fmt.Println()
+	fmt.Println(bold + "\nEVENTS\n" + reset)
 
 	// Determine the longest event type for alignment.
 	maxTypeLength := 0
@@ -581,7 +588,11 @@ func PrintEventSummary(summaries []analysis.EventSummary) {
 
 	// Print event counts with aligned labels.
 	for _, summary := range summaries {
-		fmt.Printf("  %-*s : %d\n", maxTypeLength, summary.Type, summary.Count)
+		if summary.Count == 0 {
+			fmt.Printf("  %-*s : -\n", maxTypeLength, summary.Type)
+		} else {
+			fmt.Printf("  %-*s : %d\n", maxTypeLength, summary.Type, summary.Count)
+		}
 	}
 }
 
