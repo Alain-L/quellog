@@ -89,7 +89,7 @@ type ClientsJSON struct {
 func ExportJSON(m analysis.AggregatedMetrics, sections []string) {
 	// Build dynamic JSON structure
 	data := make(map[string]interface{})
-	fmt.Println("DEBUG ", sections)
+
 	// Check flags
 	has := func(name string) bool {
 		for _, s := range sections {
