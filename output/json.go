@@ -161,7 +161,10 @@ func ExportJSON(m analysis.AggregatedMetrics) {
 
 	// Calculate average checkpoint time only if there is at least one complete checkpoint.
 	var avgCheckpointTime float64
+
 	if m.Checkpoints.CompleteCount > 0 {
+		fmt.Printf("[DEBUG] m.Checkpoints.TotalWriteTimeSeconds: %f\n", m.Checkpoints.TotalWriteTimeSeconds)
+		fmt.Printf("[DEBUG] m.Checkpoints.CompleteCount: %d\n", m.Checkpoints.CompleteCount)
 		avgCheckpointTime = m.Checkpoints.TotalWriteTimeSeconds / float64(m.Checkpoints.CompleteCount)
 	} else {
 		avgCheckpointTime = 0
@@ -219,8 +222,8 @@ func ExportJSON(m analysis.AggregatedMetrics) {
 		},
 		Checkpoints: CheckpointsJSON{
 			TotalCheckpoints:  m.Checkpoints.CompleteCount,
-			AvgCheckpointTime: formatQueryDuration(avgCheckpointTime),
-			MaxCheckpointTime: formatQueryDuration(float64(m.Checkpoints.MaxWriteTimeSeconds)),
+			AvgCheckpointTime: formatQueryDuration(1000 * avgCheckpointTime),
+			MaxCheckpointTime: formatQueryDuration(1000 * float64(m.Checkpoints.MaxWriteTimeSeconds)),
 			Events:            events,
 		},
 		Connections: ConnectionsJSON{

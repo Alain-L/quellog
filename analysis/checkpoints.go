@@ -3,6 +3,7 @@ package analysis
 
 import (
 	"dalibo/quellog/parser"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -18,31 +19,32 @@ type CheckpointMetrics struct {
 // AnalyzeCheckpoints scans log entries to aggregate checkpoint-related metrics.
 func AnalyzeCheckpoints(entries *[]parser.LogEntry) CheckpointMetrics {
 	var summary CheckpointMetrics
-	var lastCheckpointStart time.Time // Stores the most recent "checkpoint starting" timestamp
 
-	// Iterate over log entries by reference to avoid unnecessary copies
 	for i := range *entries {
 		entry := &(*entries)[i]
 
-		// Detect checkpoint starting
-		if strings.Contains(entry.Message, "checkpoint starting") {
-			lastCheckpointStart = entry.Timestamp
-		}
-
-		// Detect checkpoint completion
 		if strings.Contains(entry.Message, "checkpoint complete") {
 			summary.CompleteCount++
-			// Add the event: timestamp of checkpoint completion.
 			summary.Events = append(summary.Events, entry.Timestamp)
 
-			// If a start time was recorded, calculate the write duration.
-			if !lastCheckpointStart.IsZero() {
-				writeTime := entry.Timestamp.Sub(lastCheckpointStart).Seconds()
-				summary.TotalWriteTimeSeconds += writeTime
-				if writeTime > summary.MaxWriteTimeSeconds {
-					summary.MaxWriteTimeSeconds = writeTime
+			// Extraction manuelle du temps total après "total="
+			const prefix = "total="
+			idx := strings.Index(entry.Message, prefix)
+			if idx >= 0 {
+				// Commencer après "total="
+				rest := entry.Message[idx+len(prefix):]
+
+				// Trouver la fin du nombre (avant " s")
+				end := strings.Index(rest, " s")
+				if end > 0 {
+					valueStr := rest[:end]
+					if seconds, err := strconv.ParseFloat(strings.TrimSpace(valueStr), 64); err == nil {
+						summary.TotalWriteTimeSeconds += seconds
+						if seconds > summary.MaxWriteTimeSeconds {
+							summary.MaxWriteTimeSeconds = seconds
+						}
+					}
 				}
-				lastCheckpointStart = time.Time{} // Reset after processing.
 			}
 		}
 	}
