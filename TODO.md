@@ -8,6 +8,7 @@
 
 ## Log Parsing & Detection
 - Improve autodetection of log formats (stderr, syslog, CSV, JSON).
+    - gérer tabulation syslog
     - do naïve detection on the fly, no regex, no sample
     - stderr by _default_
     - until proven the opposite
