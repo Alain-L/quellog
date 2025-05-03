@@ -38,8 +38,8 @@ var (
 	connectionsFlag    bool // --connections
 	clientsFlag        bool // --clients
 
-	grepExpr []string // --grep
-	jsonFlag bool     // --json
+	//grepExpr []string // --grep
+	jsonFlag bool // --json
 )
 
 // rootCmd is the main command.
@@ -94,8 +94,8 @@ func init() {
 	rootCmd.Flags().BoolVar(&checkpointsFlag, "checkpoints", false, "print only checkpoints section")
 	rootCmd.Flags().BoolVar(&connectionsFlag, "connections", false, "print only connections section")
 	rootCmd.Flags().BoolVar(&clientsFlag, "clients", false, "print only clients section")
-	rootCmd.PersistentFlags().StringSliceVarP(&grepExpr, "grep", "g", nil,
-		"Filter the final lines by a substring match (can be specified multiple times)")
+	//rootCmd.PersistentFlags().StringSliceVarP(&grepExpr, "grep", "g", nil,
+	//	"Filter the final lines by a substring match (can be specified multiple times)")
 	rootCmd.PersistentFlags().BoolVarP(&jsonFlag, "json", "J", false, "Export results in JSON format")
 }
 
@@ -175,7 +175,7 @@ func executeParsing(cmd *cobra.Command, args []string) {
 		UserFilter:  userFilter,
 		ExcludeUser: excludeUser,
 		AppFilter:   appFilter,
-		GrepExpr:    grepExpr,
+		//GrepExpr:    grepExpr,
 	}
 
 	// 8) Apply streaming filtering.
