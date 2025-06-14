@@ -33,7 +33,7 @@ func ParseLine(line string) (LogEntry, error) {
 	return LogEntry{Timestamp: timestamp, Message: message}, nil
 }
 
-// ParseLogFile reads a file and returns a slice of valid log entries.
+// // ParseLogFile reads a file and returns a slice of valid log entries.
 func ParseLogFile(filename string) ([]LogEntry, error) {
 	file, err := os.Open(filename)
 	if err != nil {
