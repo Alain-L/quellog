@@ -25,8 +25,8 @@ func (p *StderrParser) Parse(filename string, out chan<- LogEntry) error {
 
 	scanner := bufio.NewScanner(file)
 	// Augmenter la taille du buffer si nécessaire.
-	buf := make([]byte, 1024*1024)    // 1 MB
-	scanner.Buffer(buf, 10*1024*1024) // jusqu'à 10 MB
+	buf := make([]byte, 4*1024*1024)   // 4 MB
+	scanner.Buffer(buf, 100*1024*1024) // jusqu'à 100 MB
 
 	// Channel pour transmettre les entrées complètes (messages multi-lignes).
 	entriesChan := make(chan string, 1000)
