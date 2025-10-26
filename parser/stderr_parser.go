@@ -77,6 +77,11 @@ func (p *StderrParser) Parse(filename string, out chan<- LogEntry) error {
 	// // Attendre la fin de tous les workers.
 	// wg.Wait()
 
+	if currentEntry != "" {
+		timestamp, message := parseStderrLine(currentEntry)
+		out <- LogEntry{Timestamp: timestamp, Message: message}
+	}
+
 	return scanner.Err()
 }
 
