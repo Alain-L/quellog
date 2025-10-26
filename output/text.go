@@ -102,6 +102,59 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string) {
 		fmt.Printf("  %-25s : %d\n", "Checkpoint count", m.Checkpoints.CompleteCount)
 		fmt.Printf("  %-25s : %s\n", "Avg checkpoint write time", avgDuration)
 		fmt.Printf("  %-25s : %s\n", "Max checkpoint write time", maxDuration)
+
+		// Affichage des types de checkpoints
+		if len(m.Checkpoints.TypeCounts) > 0 {
+			fmt.Println("  Checkpoint types:")
+
+			// Créer une slice pour trier les types par count (décroissant)
+			type typePair struct {
+				Name  string
+				Count int
+			}
+			var pairs []typePair
+			for cpType, count := range m.Checkpoints.TypeCounts {
+				pairs = append(pairs, typePair{Name: cpType, Count: count})
+			}
+
+			// Trier par count décroissant, puis par nom alphabétique
+			sort.Slice(pairs, func(i, j int) bool {
+				if pairs[i].Count != pairs[j].Count {
+					return pairs[i].Count > pairs[j].Count
+				}
+				return pairs[i].Name < pairs[j].Name
+			})
+
+			// Calculer la durée totale pour les pourcentages et le taux
+			duration := m.Global.MaxTimestamp.Sub(m.Global.MinTimestamp)
+			durationHours := duration.Hours()
+
+			// Déterminer la largeur max pour les noms de types
+			maxTypeLen := 0
+			for _, pair := range pairs {
+				if len(pair.Name) > maxTypeLen {
+					maxTypeLen = len(pair.Name)
+				}
+			}
+			if maxTypeLen < 10 {
+				maxTypeLen = 10
+			}
+
+			// Afficher chaque type avec son count, pourcentage et taux
+			for _, pair := range pairs {
+				percentage := float64(pair.Count) / float64(m.Checkpoints.CompleteCount) * 100
+
+				// Calculer le taux (checkpoints par heure) pour ce type
+				rate := 0.0
+				if durationHours > 0 {
+					rate = float64(pair.Count) / durationHours
+				}
+
+				// Format: type (left-aligned), count (right, 3 digits), percentage (right, 6 chars), rate (right, 8 chars)
+				fmt.Printf("    %-*s  %3d  %5.1f%%  (%.2f/h)\n",
+					maxTypeLen, pair.Name, pair.Count, percentage, rate)
+			}
+		}
 	}
 
 	// Connections & Sessions Metrics section.
