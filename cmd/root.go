@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sync"
 	"time"
 
@@ -144,28 +145,49 @@ func executeParsing(cmd *cobra.Command, args []string) {
 	}
 
 	// 4) Create the channel for raw logs (unfiltered).
-	rawLogs := make(chan parser.LogEntry, 100)
+	// ✅ OPTIMISÉ: Buffer plus grand pour réduire la contention
+	rawLogs := make(chan parser.LogEntry, 65536)
 
-	// 5) Launch file reading and streaming parsing concurrently.
+	// 5) ✅ OPTIMISÉ: Launch file reading avec contrôle du nombre de workers
 	go func() {
-		var wg sync.WaitGroup
-		for _, file := range allFiles {
-			wg.Add(1)
-			go func(f string) {
-				defer wg.Done()
-				// Ici, on suppose que la fonction ParseFile traite un fichier unique
-				// et envoie ses LogEntry dans le canal rawLogs.
-				if err := parser.ParseFile(f, rawLogs); err != nil {
-					log.Printf("Error parsing file %s: %v", f, err)
+		// Déterminer le nombre optimal de workers
+		numWorkers := determineWorkerCount(len(allFiles))
+
+		if numWorkers == 1 {
+			// ✅ Cas spécial: un seul fichier, pas besoin de goroutines multiples
+			for _, file := range allFiles {
+				if err := parser.ParseFile(file, rawLogs); err != nil {
+					log.Printf("Error parsing file %s: %v", file, err)
 				}
-			}(file)
+			}
+		} else {
+			// ✅ Worker pool limité pour éviter la contention
+			fileChan := make(chan string, len(allFiles))
+			for _, file := range allFiles {
+				fileChan <- file
+			}
+			close(fileChan)
+
+			var wg sync.WaitGroup
+			for i := 0; i < numWorkers; i++ {
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					for file := range fileChan {
+						if err := parser.ParseFile(file, rawLogs); err != nil {
+							log.Printf("Error parsing file %s: %v", file, err)
+						}
+					}
+				}()
+			}
+			wg.Wait()
 		}
-		wg.Wait()
 		close(rawLogs)
 	}()
 
 	// 6) Create the channel for filtered logs.
-	filteredLogs := make(chan parser.LogEntry, 100)
+	// ✅ OPTIMISÉ: Buffer plus grand
+	filteredLogs := make(chan parser.LogEntry, 65536)
 
 	// 7) Build the filter structure.
 	filters := parser.LogFilters{
@@ -250,7 +272,35 @@ func executeParsing(cmd *cobra.Command, args []string) {
 	output.PrintMetrics(metrics, sections)
 }
 
-// HELPERS
+// ============================================================================
+// ✅ NOUVELLE FONCTION: Détermine le nombre optimal de workers
+// ============================================================================
+
+// determineWorkerCount calcule le nombre optimal de workers en fonction du nombre de fichiers
+func determineWorkerCount(numFiles int) int {
+	if numFiles == 1 {
+		return 1 // Un seul fichier, pas besoin de parallélisme
+	}
+
+	// Pour plusieurs fichiers, limite à NumCPU/2 pour éviter la contention
+	maxWorkers := runtime.NumCPU() / 2
+	if maxWorkers < 2 {
+		maxWorkers = 2
+	}
+	if maxWorkers > 4 {
+		maxWorkers = 4 // Max 4 workers pour éviter trop de contention
+	}
+
+	if numFiles < maxWorkers {
+		return numFiles // Ne pas créer plus de workers que de fichiers
+	}
+
+	return maxWorkers
+}
+
+// ============================================================================
+// HELPERS (inchangés)
+// ============================================================================
 
 // collectFiles gathers files based on the provided arguments.
 func collectFiles(args []string) []string {

@@ -50,32 +50,48 @@ var errorClassDescriptions = map[string]string{
 	"3D": "Invalid Catalog Name",
 	"3F": "Invalid Schema Name",
 	"40": "Transaction Rollback",
-	// Ajoutez d'autres classes au besoin...
 }
 
 // errorCodeRegex is used to find the SQLSTATE error code in a log message.
-// On s'attend à une mention du type "SQLSTATE = 'XXXXX'" (où X est un chiffre ou une lettre).
 var errorCodeRegex = regexp.MustCompile(`SQLSTATE\s*=\s*'([0-9A-Z]{5})'`)
 
-// SummarizeErrorClasses processes a slice of log entries, extracts SQLSTATE codes (if présents)
-// et regroupe les erreurs par classe (les deux premiers caractères du code).
-func SummarizeErrorClasses(entries []parser.LogEntry) []ErrorClassSummary {
-	counts := make(map[string]int)
-	for _, entry := range entries {
-		msg := strings.ToUpper(entry.Message)
-		// On recherche le code SQLSTATE dans le message.
-		match := errorCodeRegex.FindStringSubmatch(msg)
-		if len(match) == 2 {
-			sqlstate := match[1]
-			// La classe d'erreur est constituée des deux premiers caractères.
-			classCode := sqlstate[:2]
-			counts[classCode]++
-		}
+// ============================================================================
+// VERSION STREAMING
+// ============================================================================
+
+// ErrorClassAnalyzer traite les error classes au fil de l'eau.
+type ErrorClassAnalyzer struct {
+	counts map[string]int
+}
+
+// NewErrorClassAnalyzer crée un nouvel analyseur d'error classes.
+func NewErrorClassAnalyzer() *ErrorClassAnalyzer {
+	return &ErrorClassAnalyzer{
+		counts: make(map[string]int, 50),
+	}
+}
+
+// Process traite une entrée de log pour détecter les SQLSTATE codes.
+func (a *ErrorClassAnalyzer) Process(entry *parser.LogEntry) {
+	// Early return si pas de SQLSTATE dans le message
+	if !strings.Contains(entry.Message, "SQLSTATE") {
+		return
 	}
 
-	// Transforme la map en slice de résumés.
-	var summaries []ErrorClassSummary
-	for classCode, count := range counts {
+	msg := strings.ToUpper(entry.Message)
+	match := errorCodeRegex.FindStringSubmatch(msg)
+	if len(match) == 2 {
+		sqlstate := match[1]
+		classCode := sqlstate[:2]
+		a.counts[classCode]++
+	}
+}
+
+// Finalize retourne les métriques finales.
+func (a *ErrorClassAnalyzer) Finalize() []ErrorClassSummary {
+	summaries := make([]ErrorClassSummary, 0, len(a.counts))
+
+	for classCode, count := range a.counts {
 		description := errorClassDescriptions[classCode]
 		if description == "" {
 			description = "Unknown"
@@ -86,5 +102,20 @@ func SummarizeErrorClasses(entries []parser.LogEntry) []ErrorClassSummary {
 			Count:       count,
 		})
 	}
+
 	return summaries
+}
+
+// ============================================================================
+// ANCIENNE VERSION (compatibilité backwards)
+// ============================================================================
+
+// SummarizeErrorClasses processes a slice of log entries, extracts SQLSTATE codes.
+// À supprimer une fois le refactoring terminé.
+func SummarizeErrorClasses(entries []parser.LogEntry) []ErrorClassSummary {
+	analyzer := NewErrorClassAnalyzer()
+	for i := range entries {
+		analyzer.Process(&entries[i])
+	}
+	return analyzer.Finalize()
 }

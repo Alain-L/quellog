@@ -24,31 +24,46 @@ var predefinedEventTypes = []string{
 	"DEBUG",
 }
 
-// SummarizeEvents analyzes log entries and updates the summary of predefined event types.
-func SummarizeEvents(entries *[]parser.LogEntry) []EventSummary {
-	counts := make(map[string]int)
-	total := 0
+// ============================================================================
+// VERSION STREAMING
+// ============================================================================
 
-	for i := range *entries {
-		entry := &(*entries)[i] // Direct reference to avoid unnecessary copies
-		//upperMsg := strings.ToUpper(entry.Message) 20% faster without !
+// EventAnalyzer traite les events au fil de l'eau.
+type EventAnalyzer struct {
+	counts map[string]int
+	total  int
+}
 
-		for _, eventType := range predefinedEventTypes {
-			if strings.Contains(entry.Message, eventType) {
-				counts[eventType]++
-				total++
-				break // Prevent counting multiple event types in one entry
-			}
+// NewEventAnalyzer crée un nouvel analyseur d'événements.
+func NewEventAnalyzer() *EventAnalyzer {
+	return &EventAnalyzer{
+		counts: make(map[string]int, len(predefinedEventTypes)),
+	}
+}
+
+// Process traite une entrée de log pour détecter les event types.
+func (a *EventAnalyzer) Process(entry *parser.LogEntry) {
+	msg := &entry.Message
+
+	// Check for predefined event types
+	for _, eventType := range predefinedEventTypes {
+		if strings.Contains(*msg, eventType) {
+			a.counts[eventType]++
+			a.total++
+			break // Prevent counting multiple event types in one entry
 		}
 	}
+}
 
-	// Build the summary list.
+// Finalize retourne les métriques finales.
+func (a *EventAnalyzer) Finalize() []EventSummary {
 	summary := make([]EventSummary, 0, len(predefinedEventTypes))
+
 	for _, eventType := range predefinedEventTypes {
-		count := counts[eventType]
+		count := a.counts[eventType]
 		percentage := 0.0
-		if total > 0 {
-			percentage = (float64(count) / float64(total)) * 100
+		if a.total > 0 {
+			percentage = (float64(count) / float64(a.total)) * 100
 		}
 		summary = append(summary, EventSummary{
 			Type:       eventType,
@@ -58,4 +73,18 @@ func SummarizeEvents(entries *[]parser.LogEntry) []EventSummary {
 	}
 
 	return summary
+}
+
+// ============================================================================
+// ANCIENNE VERSION (compatibilité backwards)
+// ============================================================================
+
+// SummarizeEvents analyzes log entries and updates the summary of predefined event types.
+// À supprimer une fois le refactoring terminé.
+func SummarizeEvents(entries *[]parser.LogEntry) []EventSummary {
+	analyzer := NewEventAnalyzer()
+	for i := range *entries {
+		analyzer.Process(&(*entries)[i])
+	}
+	return analyzer.Finalize()
 }

@@ -21,7 +21,6 @@ type QueryStat struct {
 	FullHash        string  // Full hash in hexadecimal (e.g., 32-character MD5).
 }
 
-// For Histogram
 // QueryExecution stores the timestamp and duration of a single SQL query.
 type QueryExecution struct {
 	Timestamp time.Time
@@ -43,96 +42,120 @@ type SqlMetrics struct {
 	P99QueryDuration    float64               // 99th percentile of query durations.
 }
 
-// RunSQLSummary reads SQL log entries from the channel and aggregates SQL statistics.
-// It uses regular expressions to extract the execution time and the SQL statement.
-func RunSQLSummary(in <-chan parser.LogEntry) SqlMetrics {
+// ============================================================================
+// VERSION STREAMING
+// ============================================================================
+
+// SQLAnalyzer traite les requêtes SQL au fil de l'eau.
+type SQLAnalyzer struct {
+	queryStats       map[string]*QueryStat
+	totalQueries     int
+	minQueryDuration float64
+	maxQueryDuration float64
+	sumQueryDuration float64
+	startTimestamp   time.Time
+	endTimestamp     time.Time
+	executions       []QueryExecution
+}
+
+// NewSQLAnalyzer crée un nouvel analyseur SQL.
+func NewSQLAnalyzer() *SQLAnalyzer {
+	return &SQLAnalyzer{
+		queryStats: make(map[string]*QueryStat, 1000),
+		executions: make([]QueryExecution, 0, 10000),
+	}
+}
+
+// Process traite une entrée de log pour détecter et analyser les requêtes SQL.
+func (a *SQLAnalyzer) Process(entry *parser.LogEntry) {
+	message := &entry.Message
+
+	// Extract duration and query without regex
+	duration, query, ok := extractDurationAndQuery(*message)
+	if !ok {
+		return
+	}
+
+	// Update global metrics
+	a.totalQueries++
+	a.executions = append(a.executions, QueryExecution{
+		Timestamp: entry.Timestamp,
+		Duration:  duration,
+	})
+
+	if a.startTimestamp.IsZero() || entry.Timestamp.Before(a.startTimestamp) {
+		a.startTimestamp = entry.Timestamp
+	}
+	if a.endTimestamp.IsZero() || entry.Timestamp.After(a.endTimestamp) {
+		a.endTimestamp = entry.Timestamp
+	}
+
+	// Extract and normalize the SQL query
+	rawQuery := strings.TrimSpace(query)
+	normalizedQuery := normalizeQuery(rawQuery)
+
+	// Generate a user-friendly ID and full hash from the query
+	id, fullHash := GenerateQueryID(rawQuery, normalizedQuery)
+
+	// Use the normalized query as the key
+	key := normalizedQuery
+	if _, exists := a.queryStats[key]; !exists {
+		a.queryStats[key] = &QueryStat{
+			RawQuery:        rawQuery,
+			NormalizedQuery: normalizedQuery,
+			ID:              id,
+			FullHash:        fullHash,
+		}
+	}
+
+	// Update per-query statistics
+	stats := a.queryStats[key]
+	stats.Count++
+	stats.TotalTime += duration
+	if duration > stats.MaxTime {
+		stats.MaxTime = duration
+	}
+	stats.AvgTime = stats.TotalTime / float64(stats.Count)
+
+	// Update global duration stats
+	if a.minQueryDuration == 0 || duration < a.minQueryDuration {
+		a.minQueryDuration = duration
+	}
+	if duration > a.maxQueryDuration {
+		a.maxQueryDuration = duration
+	}
+	a.sumQueryDuration += duration
+}
+
+// Finalize retourne les métriques finales.
+func (a *SQLAnalyzer) Finalize() SqlMetrics {
 	metrics := SqlMetrics{
-		QueryStats: make(map[string]*QueryStat),
+		QueryStats:       a.queryStats,
+		TotalQueries:     a.totalQueries,
+		UniqueQueries:    len(a.queryStats),
+		MinQueryDuration: a.minQueryDuration,
+		MaxQueryDuration: a.maxQueryDuration,
+		SumQueryDuration: a.sumQueryDuration,
+		StartTimestamp:   a.startTimestamp,
+		EndTimestamp:     a.endTimestamp,
+		Executions:       a.executions,
 	}
 
-	// Regex to capture the duration (in ms) of an SQL query.
-	// Example: "duration: 123.45 ms"
-	//durationRegex := regexp.MustCompile(`duration:\s+(\d+\.?\d*)\s+ms\b`)
-
-	// Regex to capture the SQL statement.
-	// Example: "STATEMENT: SELECT * FROM table WHERE id = 1"
-	//statementRegex := regexp.MustCompile(`(?i)(?:statement|execute(?:\s+\S+)?):\s+(.+)`)
-
-	// Loop over SQL entries.
-	for entry := range in {
-		message := entry.Message
-
-		// Extraire la durée et la requête sans regex
-		duration, query, ok := extractDurationAndQuery(message)
-		if !ok {
-			// La ligne n'a pas le format attendu ; passer à l'entrée suivante.
-			continue
-		}
-
-		// Update global metrics.
-		metrics.TotalQueries++
-		metrics.Executions = append(metrics.Executions, QueryExecution{
-			Timestamp: entry.Timestamp,
-			Duration:  duration,
-		})
-		if metrics.StartTimestamp.IsZero() || entry.Timestamp.Before(metrics.StartTimestamp) {
-			metrics.StartTimestamp = entry.Timestamp
-		}
-		if metrics.EndTimestamp.IsZero() || entry.Timestamp.After(metrics.EndTimestamp) {
-			metrics.EndTimestamp = entry.Timestamp
-		}
-
-		// Extract and normalize the SQL query.
-		rawQuery := strings.TrimSpace(query)
-		normalizedQuery := normalizeQuery(rawQuery)
-
-		// Generate a user-friendly ID and full hash from the query.
-		id, fullHash := GenerateQueryID(rawQuery, normalizedQuery)
-
-		// Use the normalized query as the key in the map.
-		key := normalizedQuery
-		if _, exists := metrics.QueryStats[key]; !exists {
-			metrics.QueryStats[key] = &QueryStat{
-				RawQuery:        rawQuery,
-				NormalizedQuery: normalizedQuery,
-				ID:              id,
-				FullHash:        fullHash,
-			}
-		}
-
-		// Update per-query statistics.
-		stats := metrics.QueryStats[key]
-		stats.Count++
-		stats.TotalTime += duration
-		if duration > stats.MaxTime {
-			stats.MaxTime = duration
-		}
-		stats.AvgTime = stats.TotalTime / float64(stats.Count)
-
-		// Update global duration stats.
-		if metrics.MinQueryDuration == 0 || duration < metrics.MinQueryDuration {
-			metrics.MinQueryDuration = duration
-		}
-		if duration > metrics.MaxQueryDuration {
-			metrics.MaxQueryDuration = duration
-		}
-		metrics.SumQueryDuration += duration
-	}
-
-	// Compute median and 99th percentile durations based on Executions.
-	if len(metrics.Executions) > 0 {
-		// Extraire toutes les durées dans un slice pour le calcul.
-		durations := make([]float64, len(metrics.Executions))
-		for i, exec := range metrics.Executions {
+	// Compute median and 99th percentile durations
+	if len(a.executions) > 0 {
+		durations := make([]float64, len(a.executions))
+		for i, exec := range a.executions {
 			durations[i] = exec.Duration
 		}
 		sort.Float64s(durations)
 		n := len(durations)
+
 		if n%2 == 1 {
 			metrics.MedianQueryDuration = durations[n/2]
 		} else {
 			metrics.MedianQueryDuration = (durations[n/2-1] + durations[n/2]) / 2.0
 		}
+
 		index := int(0.99 * float64(n))
 		if index >= n {
 			index = n - 1
@@ -140,32 +163,48 @@ func RunSQLSummary(in <-chan parser.LogEntry) SqlMetrics {
 		metrics.P99QueryDuration = durations[index]
 	}
 
-	// Set the count of unique queries.
-	metrics.UniqueQueries = len(metrics.QueryStats)
 	return metrics
 }
 
+// ============================================================================
+// ANCIENNE VERSION (compatibilité backwards)
+// ============================================================================
+
+// RunSQLSummary reads SQL log entries from the channel and aggregates SQL statistics.
+// À supprimer une fois le refactoring terminé.
+func RunSQLSummary(in <-chan parser.LogEntry) SqlMetrics {
+	analyzer := NewSQLAnalyzer()
+	for entry := range in {
+		analyzer.Process(&entry)
+	}
+	return analyzer.Finalize()
+}
+
+// ============================================================================
+// HELPERS (inchangés)
+// ============================================================================
+
 func extractDurationAndQuery(message string) (duration float64, query string, ok bool) {
-	// Trouver la position de "duration:"
+	// Find "duration:"
 	durIdx := strings.Index(message, "duration:")
 	if durIdx == -1 {
 		return 0, "", false
 	}
-	// Extraire la partie après "duration:"
-	afterDur := message[durIdx+len("duration:"):]
+
+	afterDur := message[durIdx+9:] // Skip "duration:"
 	afterDur = strings.TrimSpace(afterDur)
-	// La durée est le premier token (jusqu'au premier espace)
+
 	tokens := strings.SplitN(afterDur, " ", 2)
 	if len(tokens) < 2 {
 		return 0, "", false
 	}
-	// Convertir la durée
+
 	dur, err := strconv.ParseFloat(tokens[0], 64)
 	if err != nil {
 		return 0, "", false
 	}
 
-	// Rechercher "execute" ou "statement"
+	// Search for "execute" or "statement"
 	execIdx := strings.Index(message, "execute")
 	stmtIdx := strings.Index(message, "statement")
 
@@ -181,7 +220,6 @@ func extractDurationAndQuery(message string) (duration float64, query string, ok
 		return dur, "", false
 	}
 
-	// Après le marqueur, chercher le deux-points qui sépare le libellé du SQL
 	queryStart := markerIdx + len(marker)
 	colonIdx := strings.Index(message[queryStart:], ":")
 	if colonIdx != -1 {

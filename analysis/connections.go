@@ -13,36 +13,76 @@ type ConnectionMetrics struct {
 	ConnectionReceivedCount int           // Number of received connections
 	DisconnectionCount      int           // Number of disconnections
 	TotalSessionTime        time.Duration // Total accumulated session duration
-	Connections             []time.Time   // every checkpoints
+	Connections             []time.Time   // Timestamp of every connection
 }
 
-// AnalyzeConnections scans log entries to count connection and disconnection events.
-func AnalyzeConnections(entries *[]parser.LogEntry) ConnectionMetrics {
-	var metrics ConnectionMetrics
+// ============================================================================
+// VERSION STREAMING
+// ============================================================================
 
-	for i := range *entries {
-		entry := &(*entries)[i] // Use pointer to avoid copy
+// ConnectionAnalyzer traite les connexions au fil de l'eau.
+type ConnectionAnalyzer struct {
+	connectionReceivedCount int
+	disconnectionCount      int
+	totalSessionTime        time.Duration
+	connections             []time.Time
+}
 
-		// Detect connection events
-		if strings.Contains(entry.Message, "connection received") {
-			metrics.ConnectionReceivedCount++
-			// Ajouter le timestamp de la connexion
-			metrics.Connections = append(metrics.Connections, entry.Timestamp)
-		}
+// NewConnectionAnalyzer crée un nouvel analyseur de connexions.
+func NewConnectionAnalyzer() *ConnectionAnalyzer {
+	return &ConnectionAnalyzer{
+		connections: make([]time.Time, 0, 1000),
+	}
+}
 
-		// Detect disconnection events
-		if strings.Contains(entry.Message, "disconnection") {
-			metrics.DisconnectionCount++
+// Process traite une entrée de log pour détecter connexions/disconnexions.
+func (a *ConnectionAnalyzer) Process(entry *parser.LogEntry) {
+	msg := &entry.Message
 
-			// Extract session duration if available
-			if duration := extractSessionTime(entry.Message); duration > 0 {
-				metrics.TotalSessionTime += duration
-			}
-		}
+	// Detect connection events
+	if strings.Contains(*msg, "connection received") {
+		a.connectionReceivedCount++
+		a.connections = append(a.connections, entry.Timestamp)
 	}
 
-	return metrics
+	// Detect disconnection events
+	if strings.Contains(*msg, "disconnection") {
+		a.disconnectionCount++
+
+		// Extract session duration if available
+		if duration := extractSessionTime(*msg); duration > 0 {
+			a.totalSessionTime += duration
+		}
+	}
 }
+
+// Finalize retourne les métriques finales.
+func (a *ConnectionAnalyzer) Finalize() ConnectionMetrics {
+	return ConnectionMetrics{
+		ConnectionReceivedCount: a.connectionReceivedCount,
+		DisconnectionCount:      a.disconnectionCount,
+		TotalSessionTime:        a.totalSessionTime,
+		Connections:             a.connections,
+	}
+}
+
+// ============================================================================
+// ANCIENNE VERSION (compatibilité backwards)
+// ============================================================================
+
+// AnalyzeConnections scans log entries to count connection and disconnection events.
+// À supprimer une fois le refactoring terminé.
+func AnalyzeConnections(entries *[]parser.LogEntry) ConnectionMetrics {
+	analyzer := NewConnectionAnalyzer()
+	for i := range *entries {
+		analyzer.Process(&(*entries)[i])
+	}
+	return analyzer.Finalize()
+}
+
+// ============================================================================
+// HELPERS (inchangés)
+// ============================================================================
 
 // extractSessionTime extracts the session duration from a disconnection log entry.
 // Example log line: "disconnection: session time: 0:00:05.123"

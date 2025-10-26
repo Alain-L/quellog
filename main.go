@@ -11,7 +11,6 @@ func main() {
 	// 	log.Fatal(err)
 	// }
 	// defer f.Close()
-
 	// // Démarrer le profilage CPU
 	// if err := pprof.StartCPUProfile(f); err != nil {
 	// 	log.Fatal(err)
