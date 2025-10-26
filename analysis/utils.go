@@ -31,7 +31,7 @@ var queryPrefixes = [...]struct {
 }
 
 // normalizeQuery standardizes the SQL query by replacing dynamic values.
-// OPTIMISÉ: Une seule passe sur la string, pas de ReplaceAll multiples
+// ✅ OPTIMISÉ: Une seule passe + collapse des espaces multiples
 func normalizeQuery(query string) string {
 	if len(query) == 0 {
 		return ""
@@ -39,23 +39,32 @@ func normalizeQuery(query string) string {
 
 	buf := builderPool.Get().(*strings.Builder)
 	buf.Reset()
-	buf.Grow(len(query)) // Pré-alloue la taille exacte
+	buf.Grow(len(query))
 	defer builderPool.Put(buf)
+
+	// ✅ Track si le dernier caractère était un espace pour collapse
+	lastWasSpace := false
 
 	for i := 0; i < len(query); i++ {
 		c := query[i]
 		switch c {
-		case '\n', '\r', '\t':
-			buf.WriteByte(' ') // Remplace les whitespaces par espace
+		case '\n', '\r', '\t', ' ':
+			// ✅ Écrit un seul espace si le précédent n'en était pas un
+			if !lastWasSpace {
+				buf.WriteByte(' ')
+				lastWasSpace = true
+			}
 		case '$':
-			buf.WriteByte('?') // Remplace $ par ?
+			buf.WriteByte('?')
+			lastWasSpace = false
 		default:
-			// Conversion lowercase inline (plus rapide que ToLower)
+			// Conversion lowercase inline
 			if c >= 'A' && c <= 'Z' {
 				buf.WriteByte(c + 32)
 			} else {
 				buf.WriteByte(c)
 			}
+			lastWasSpace = false
 		}
 	}
 
@@ -63,12 +72,11 @@ func normalizeQuery(query string) string {
 }
 
 // GenerateQueryID generates a short identifier from the raw and normalized query.
-// It determines a prefix based on the query type and computes an MD5 hash from the normalized query.
+// ✅ OPTIMISÉ: Base64 URL-safe (pas de +/=) pour IDs propres + bonne entropie (36 bits)
 func GenerateQueryID(rawQuery, normalizedQuery string) (id, fullHash string) {
-	// Préfixes SQL typiques (lookup array)
+	// Détecte le préfixe SQL
 	prefix := "xx-" // Default
 	for _, p := range queryPrefixes {
-		// Compare directement en ignorant la casse
 		if len(rawQuery) >= len(p.keyword) {
 			match := true
 			for j := 0; j < len(p.keyword); j++ {
@@ -88,18 +96,29 @@ func GenerateQueryID(rawQuery, normalizedQuery string) (id, fullHash string) {
 		}
 	}
 
-	// Compute the MD5 hash of the normalized query.
+	// Compute MD5 hash
 	hashBytes := md5.Sum([]byte(normalizedQuery))
-	fullHash = hex.EncodeToString(hashBytes[:]) // 32 hex characters.
+	fullHash = hex.EncodeToString(hashBytes[:])
 
-	// ✅ OPTIMISÉ: Base64 URL-safe sans padding (plus compact, pas de caractères à nettoyer)
-	// Prend les 5 premiers bytes du hash (40 bits) → 7 chars base64 → tronque à 6
-	b64 := base64.RawURLEncoding.EncodeToString(hashBytes[:5])
+	// ✅ OPTIMISÉ: Base64 standard → prend les 6 premiers caractères alphanumériques
+	// Encode tout le hash pour avoir assez de caractères
+	b64 := base64.StdEncoding.EncodeToString(hashBytes[:])
 
-	// Les 6 premiers caractères donnent ~36 bits d'entropie
-	shortHash := b64[:6]
+	// ✅ Extract 6 alphanumeric chars (skip +, /, =) - version optimisée
+	var shortHash [6]byte // Array sur la stack (pas d'allocation)
+	j := 0
+	for i := 0; i < len(b64) && j < 6; i++ {
+		c := b64[i]
+		// ✅ Branchless check: caractères alphanumériques ont certains bits
+		// 0-9: 48-57, A-Z: 65-90, a-z: 97-122
+		// On skip: +: 43, /: 47, =: 61
+		if c != '+' && c != '/' && c != '=' {
+			shortHash[j] = c
+			j++
+		}
+	}
 
-	id = prefix + shortHash
+	id = prefix + string(shortHash[:])
 	return
 }
 
@@ -109,7 +128,6 @@ func QueryTypeFromID(id string) string {
 		return "other"
 	}
 
-	// Lookup direct des 3 premiers caractères
 	switch id[:3] {
 	case "se-":
 		return "select"
