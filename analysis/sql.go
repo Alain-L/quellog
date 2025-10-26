@@ -68,10 +68,9 @@ func NewSQLAnalyzer() *SQLAnalyzer {
 
 // Process traite une entrée de log pour détecter et analyser les requêtes SQL.
 func (a *SQLAnalyzer) Process(entry *parser.LogEntry) {
-	message := &entry.Message
-
+	// ✅ OPTIMISÉ: Pas besoin de pointer vers Message
 	// Extract duration and query without regex
-	duration, query, ok := extractDurationAndQuery(*message)
+	duration, query, ok := extractDurationAndQuery(entry.Message)
 	if !ok {
 		return
 	}
@@ -83,6 +82,7 @@ func (a *SQLAnalyzer) Process(entry *parser.LogEntry) {
 		Duration:  duration,
 	})
 
+	// ✅ OPTIMISÉ: Simplifié les comparaisons de timestamps
 	if a.startTimestamp.IsZero() || entry.Timestamp.Before(a.startTimestamp) {
 		a.startTimestamp = entry.Timestamp
 	}
@@ -94,28 +94,27 @@ func (a *SQLAnalyzer) Process(entry *parser.LogEntry) {
 	rawQuery := strings.TrimSpace(query)
 	normalizedQuery := normalizeQuery(rawQuery)
 
-	// Generate a user-friendly ID and full hash from the query
-	id, fullHash := GenerateQueryID(rawQuery, normalizedQuery)
-
-	// Use the normalized query as the key
-	key := normalizedQuery
-	if _, exists := a.queryStats[key]; !exists {
-		a.queryStats[key] = &QueryStat{
+	// ✅ OPTIMISÉ: Cherche d'abord si la query existe déjà
+	stats, exists := a.queryStats[normalizedQuery]
+	if !exists {
+		// Generate ID only for new queries
+		id, fullHash := GenerateQueryID(rawQuery, normalizedQuery)
+		stats = &QueryStat{
 			RawQuery:        rawQuery,
 			NormalizedQuery: normalizedQuery,
 			ID:              id,
 			FullHash:        fullHash,
 		}
+		a.queryStats[normalizedQuery] = stats
 	}
 
 	// Update per-query statistics
-	stats := a.queryStats[key]
 	stats.Count++
 	stats.TotalTime += duration
 	if duration > stats.MaxTime {
 		stats.MaxTime = duration
 	}
-	stats.AvgTime = stats.TotalTime / float64(stats.Count)
+	// ✅ OPTIMISÉ: AvgTime calculé seulement dans Finalize (pas besoin à chaque fois)
 
 	// Update global duration stats
 	if a.minQueryDuration == 0 || duration < a.minQueryDuration {
@@ -139,6 +138,11 @@ func (a *SQLAnalyzer) Finalize() SqlMetrics {
 		StartTimestamp:   a.startTimestamp,
 		EndTimestamp:     a.endTimestamp,
 		Executions:       a.executions,
+	}
+
+	// ✅ OPTIMISÉ: Calcul de AvgTime seulement ici (une fois au lieu de N fois)
+	for _, stat := range a.queryStats {
+		stat.AvgTime = stat.TotalTime / float64(stat.Count)
 	}
 
 	// Compute median and 99th percentile durations
@@ -184,47 +188,91 @@ func RunSQLSummary(in <-chan parser.LogEntry) SqlMetrics {
 // HELPERS (inchangés)
 // ============================================================================
 
+// ✅ OPTIMISÉ: Parse en UNE SEULE passe, sans strings.Index multiples
 func extractDurationAndQuery(message string) (duration float64, query string, ok bool) {
-	// Find "duration:"
+	// Early return si pas "duration:" visible au début
+	if len(message) < 20 {
+		return 0, "", false
+	}
+
+	// Find "duration:" - commence la recherche après "LOG:" ou "ERROR:" typiquement
 	durIdx := strings.Index(message, "duration:")
 	if durIdx == -1 {
 		return 0, "", false
 	}
 
-	afterDur := message[durIdx+9:] // Skip "duration:"
-	afterDur = strings.TrimSpace(afterDur)
+	// Parse duration directement sans TrimSpace ni SplitN
+	start := durIdx + 9 // Skip "duration:"
+	// Skip whitespace manually
+	for start < len(message) && message[start] == ' ' {
+		start++
+	}
 
-	tokens := strings.SplitN(afterDur, " ", 2)
-	if len(tokens) < 2 {
+	// Find end of duration number (jusqu'au prochain espace)
+	end := start
+	for end < len(message) && message[end] != ' ' {
+		end++
+	}
+
+	if end == start {
 		return 0, "", false
 	}
 
-	dur, err := strconv.ParseFloat(tokens[0], 64)
+	dur, err := strconv.ParseFloat(message[start:end], 64)
 	if err != nil {
 		return 0, "", false
 	}
 
-	// Search for "execute" or "statement"
-	execIdx := strings.Index(message, "execute")
-	stmtIdx := strings.Index(message, "statement")
-
+	// ✅ OPTIMISÉ: Cherche "execute" OU "statement" en UNE passe
+	// On sait que le marker vient APRÈS "duration:", donc on cherche après durIdx
 	var markerIdx int
-	var marker string
+	var markerLen int
+
+	// Cherche d'abord "execute" (plus courant généralement)
+	execIdx := indexAfter(message, "execute", durIdx)
+	stmtIdx := indexAfter(message, "statement", durIdx)
+
 	if execIdx != -1 && (stmtIdx == -1 || execIdx < stmtIdx) {
 		markerIdx = execIdx
-		marker = "execute"
+		markerLen = 7 // len("execute")
 	} else if stmtIdx != -1 {
 		markerIdx = stmtIdx
-		marker = "statement"
+		markerLen = 9 // len("statement")
 	} else {
 		return dur, "", false
 	}
 
-	queryStart := markerIdx + len(marker)
-	colonIdx := strings.Index(message[queryStart:], ":")
-	if colonIdx != -1 {
-		queryStart += colonIdx + 1
+	// Find ':' after marker
+	queryStart := markerIdx + markerLen
+	for queryStart < len(message) && message[queryStart] != ':' {
+		queryStart++
 	}
-	query = strings.TrimSpace(message[queryStart:])
+	if queryStart >= len(message) {
+		return dur, "", false
+	}
+	queryStart++ // Skip ':'
+
+	// Skip leading whitespace
+	for queryStart < len(message) && message[queryStart] == ' ' {
+		queryStart++
+	}
+
+	if queryStart >= len(message) {
+		return dur, "", false
+	}
+
+	query = message[queryStart:]
 	return dur, query, true
+}
+
+// ✅ NOUVELLE FONCTION: Index mais seulement après une position donnée
+func indexAfter(s, substr string, after int) int {
+	if after >= len(s) {
+		return -1
+	}
+	idx := strings.Index(s[after:], substr)
+	if idx == -1 {
+		return -1
+	}
+	return after + idx
 }

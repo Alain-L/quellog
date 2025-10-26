@@ -1,4 +1,5 @@
 // analysis/utils.go
+
 package analysis
 
 import (
@@ -29,7 +30,7 @@ var queryPrefixes = [...]struct {
 }
 
 // normalizeQuery standardizes the SQL query by replacing dynamic values.
-// It converts newlines to spaces, converts to lower case, and replaces PostgreSQL variable symbols.
+// OPTIMISÉ: Une seule passe sur la string, pas de ReplaceAll multiples
 func normalizeQuery(query string) string {
 	if len(query) == 0 {
 		return ""
@@ -56,11 +57,12 @@ func normalizeQuery(query string) string {
 			}
 		}
 	}
+
 	return buf.String()
 }
 
-// GenerateQueryID generates a short identifier from the raw and normalized query.
-// It determines a prefix based on the query type and computes an MD5 hash from the normalized query.
+// GenerateQueryID génère un identifiant court à partir de la query brute et normalisée.
+// OPTIMISÉ: Pas de ToLower redondant, pas de strings.NewReplacer, lookup direct
 func GenerateQueryID(rawQuery, normalizedQuery string) (id, fullHash string) {
 	// Détecte le préfixe - OPTIMISÉ: lookup direct sans ToLower
 	prefix := "xx-"
@@ -100,6 +102,7 @@ func GenerateQueryID(rawQuery, normalizedQuery string) (id, fullHash string) {
 }
 
 // QueryTypeFromID returns the query type based on the identifier prefix.
+// OPTIMISÉ: Utilise un switch plus rapide qu'un if/else chain
 func QueryTypeFromID(id string) string {
 	if len(id) < 3 {
 		return "other"
