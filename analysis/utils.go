@@ -4,6 +4,7 @@ package analysis
 
 import (
 	"crypto/md5"
+	"encoding/base64"
 	"encoding/hex"
 	"strings"
 	"sync"
@@ -61,16 +62,13 @@ func normalizeQuery(query string) string {
 	return buf.String()
 }
 
-// GenerateQueryID génère un identifiant court à partir de la query brute et normalisée.
-// OPTIMISÉ: Pas de ToLower redondant, pas de strings.NewReplacer, lookup direct
+// GenerateQueryID generates a short identifier from the raw and normalized query.
+// It determines a prefix based on the query type and computes an MD5 hash from the normalized query.
 func GenerateQueryID(rawQuery, normalizedQuery string) (id, fullHash string) {
-	// Détecte le préfixe - OPTIMISÉ: lookup direct sans ToLower
-	prefix := "xx-"
-	rawQuery = strings.TrimSpace(rawQuery)
-
-	// Lookup optimisé avec array au lieu de map
+	// Préfixes SQL typiques (lookup array)
+	prefix := "xx-" // Default
 	for _, p := range queryPrefixes {
-		// Compare directement en ignorant la casse (plus rapide qu'un HasPrefix + ToLower)
+		// Compare directement en ignorant la casse
 		if len(rawQuery) >= len(p.keyword) {
 			match := true
 			for j := 0; j < len(p.keyword); j++ {
@@ -90,19 +88,22 @@ func GenerateQueryID(rawQuery, normalizedQuery string) (id, fullHash string) {
 		}
 	}
 
-	// Compute MD5 hash
+	// Compute the MD5 hash of the normalized query.
 	hashBytes := md5.Sum([]byte(normalizedQuery))
-	fullHash = hex.EncodeToString(hashBytes[:])
+	fullHash = hex.EncodeToString(hashBytes[:]) // 32 hex characters.
 
-	// OPTIMISÉ: Génère directement le short hash sans base64
-	// On prend les 6 premiers caractères hex du MD5
-	id = prefix + fullHash[:6]
+	// ✅ OPTIMISÉ: Base64 URL-safe sans padding (plus compact, pas de caractères à nettoyer)
+	// Prend les 5 premiers bytes du hash (40 bits) → 7 chars base64 → tronque à 6
+	b64 := base64.RawURLEncoding.EncodeToString(hashBytes[:5])
 
+	// Les 6 premiers caractères donnent ~36 bits d'entropie
+	shortHash := b64[:6]
+
+	id = prefix + shortHash
 	return
 }
 
 // QueryTypeFromID returns the query type based on the identifier prefix.
-// OPTIMISÉ: Utilise un switch plus rapide qu'un if/else chain
 func QueryTypeFromID(id string) string {
 	if len(id) < 3 {
 		return "other"
