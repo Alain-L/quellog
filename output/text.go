@@ -177,9 +177,12 @@ func printTopTables(tableCounts map[string]int, total int, spaceRecovered map[st
 		pairs = append(pairs, p)
 	}
 
-	// Sort by count in descending order.
+	// Sort by count in descending order, then by name alphabetically.
 	sort.Slice(pairs, func(i, j int) bool {
-		return pairs[i].Count > pairs[j].Count
+		if pairs[i].Count != pairs[j].Count {
+			return pairs[i].Count > pairs[j].Count
+		}
+		return pairs[i].Name < pairs[j].Name
 	})
 
 	// Determine maximum width for table names.
