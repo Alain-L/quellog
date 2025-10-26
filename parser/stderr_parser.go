@@ -1,21 +1,41 @@
-// parser/stderr_parser.go
+// Package parser provides log file parsing for PostgreSQL logs.
 package parser
 
 import (
 	"bufio"
 	"fmt"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 )
 
-// StderrParser parses PostgreSQL logs in stderr format.
+// Buffer size constants for scanner
+const (
+	// scannerBuffer is the initial buffer size for reading log lines (4 MB)
+	scannerBuffer = 4 * 1024 * 1024
+
+	// scannerMaxBuffer is the maximum buffer size for very long log lines (100 MB)
+	scannerMaxBuffer = 100 * 1024 * 1024
+
+	// syslogTabMarker is the marker used in syslog format for tab characters
+	syslogTabMarker = "#011"
+)
+
+// StderrParser parses PostgreSQL logs in stderr/syslog format.
+// It handles multi-line log entries and supports both standard stderr format
+// (YYYY-MM-DD HH:MM:SS TZ) and syslog format (Mon DD HH:MM:SS).
 type StderrParser struct{}
 
-// Parse lit un fichier et envoie des LogEntry via le canal out, en utilisant un pool de workers.
+// Parse reads a PostgreSQL stderr/syslog format log file and streams parsed entries.
+// Multi-line entries (continuation lines starting with whitespace) are automatically
+// assembled into single LogEntry records.
+//
+// The parser handles:
+//   - Standard stderr format: "2006-01-02 15:04:05 MST message..."
+//   - Syslog format: "Jan _2 15:04:05 message..."
+//   - Multi-line log entries (DETAIL, HINT, STATEMENT, etc.)
+//   - Syslog tab markers (#011)
 func (p *StderrParser) Parse(filename string, out chan<- LogEntry) error {
-	// Ouvrir le fichier.
 	file, err := os.Open(filename)
 	if err != nil {
 		return fmt.Errorf("failed to open file %s: %w", filename, err)
@@ -23,60 +43,40 @@ func (p *StderrParser) Parse(filename string, out chan<- LogEntry) error {
 	defer file.Close()
 
 	scanner := bufio.NewScanner(file)
-	// Augmenter la taille du buffer si nécessaire.
-	buf := make([]byte, 4*1024*1024)   // 4 MB
-	scanner.Buffer(buf, 100*1024*1024) // jusqu'à 100 MB
 
-	// // Channel pour transmettre les entrées complètes (messages multi-lignes).
-	// entriesChan := make(chan string, 1000)
-	//
-	// // Démarrage d'un pool de workers.
-	// numWorkers := 4 // ou ajuster en fonction des cœurs disponibles
-	// var wg sync.WaitGroup
-	// for i := 0; i < numWorkers; i++ {
-	// 	wg.Add(1)
-	// 	go func() {
-	// 		defer wg.Done()
-	// 		for entry := range entriesChan {
-	// 			timestamp, message := parseStderrLine(entry)
-	// 			out <- LogEntry{Timestamp: timestamp, Message: message}
-	// 		}
-	// 	}()
-	// }
+	// Configure scanner with large buffer to handle long log lines
+	// (e.g., STATEMENT lines with large queries)
+	buf := make([]byte, scannerBuffer)
+	scanner.Buffer(buf, scannerMaxBuffer)
 
-	// Lecture du fichier ligne par ligne et assemblage des entrées multi-lignes.
+	// Accumulate multi-line entries
 	var currentEntry string
+
 	for scanner.Scan() {
 		line := scanner.Text()
 
-		// Traitement spécifique aux logs syslog : couper avant le "#011".
-		if idx := strings.Index(line, "#011"); idx != -1 {
-			line = " " + line[idx+4:]
+		// Handle syslog tab markers: "#011" represents a tab character
+		// Replace it with a space for consistency
+		if idx := strings.Index(line, syslogTabMarker); idx != -1 {
+			line = " " + line[idx+len(syslogTabMarker):]
 		}
 
-		// Si la ligne commence par un espace ou une tabulation, c'est la suite de l'entrée précédente.
+		// Check if this is a continuation line (starts with whitespace)
 		if strings.HasPrefix(line, " ") || strings.HasPrefix(line, "\t") {
+			// Append to current entry
 			currentEntry += " " + strings.TrimSpace(line)
 		} else {
-			// Si une entrée a été accumulée, l'envoyer au canal de travail.
+			// This is a new entry, so process the previous one
 			if currentEntry != "" {
-				//entriesChan <- currentEntry
 				timestamp, message := parseStderrLine(currentEntry)
 				out <- LogEntry{Timestamp: timestamp, Message: message}
 			}
-			// Commencer une nouvelle entrée.
+			// Start accumulating new entry
 			currentEntry = line
 		}
 	}
-	// // Envoyer la dernière entrée accumulée.
-	// if currentEntry != "" {
-	// 	entriesChan <- currentEntry
-	// }
-	// close(entriesChan) // signaler la fin des entrées
-	//
-	// // Attendre la fin de tous les workers.
-	// wg.Wait()
 
+	// Process the last accumulated entry
 	if currentEntry != "" {
 		timestamp, message := parseStderrLine(currentEntry)
 		out <- LogEntry{Timestamp: timestamp, Message: message}
@@ -85,118 +85,154 @@ func (p *StderrParser) Parse(filename string, out chan<- LogEntry) error {
 	return scanner.Err()
 }
 
-// fastParseStderrLine parse rapidement deux formats:
-// 1) stderr: "2006-01-02 15:04:05 TZ <message...>"
-// 2) syslog: "Jan _2 15:04:05 <rest...>" (année courante ajoutée)
+// parseStderrLine extracts the timestamp and message from a log line.
+// It attempts to parse two formats:
+//  1. Stderr format: "2006-01-02 15:04:05 TZ message..."
+//  2. Syslog format: "Jan _2 15:04:05 message..." (current year is assumed)
+//
+// If parsing fails, returns zero time and the original line as message.
+//
+// This function uses positional checks for performance, avoiding regex
+// and string splitting when possible.
 func parseStderrLine(line string) (time.Time, string) {
 	n := len(line)
+
+	// Need at least 20 characters for a valid timestamp
 	if n < 20 {
 		return time.Time{}, line
 	}
 
-	// --- Tentative format stderr: "YYYY-MM-DD HH:MM:SS TZ ..."
-	// Vérifs positionnelles minimales (dates/heures)
-	if n >= 20 &&
-		line[4] == '-' && line[7] == '-' &&
-		line[10] == ' ' &&
-		line[13] == ':' && line[16] == ':' {
-
-		// s1 = index du 1er espace après la date (on sait que c'est 10)
-		s1 := 10
-
-		// s2 = index du 2e espace après l'heure
-		// L'heure "HH:MM:SS" commence à s1+1 et dure 8 bytes donc espace attendu à 19.
-		s2 := 19
-		// Tolérance: si pas d'espace exact à 19 (espaces multiples/étranges), on rescanne.
-		if line[s2] != ' ' {
-			// scan pour trouver le prochain espace après l’heure
-			i := s1 + 1 + 8
-			for i < n && line[i] != ' ' && line[i] != '\t' {
-				i++
-			}
-			if i >= n {
-				return time.Time{}, line
-			}
-			s2 = i
-		}
-
-		// Avancer au début du token timezone (skipper espaces/tabs)
-		i := s2 + 1
-		for i < n && (line[i] == ' ' || line[i] == '\t') {
-			i++
-		}
-		tzStart := i
-
-		// Trouver la fin du token timezone (jusqu'à espace/tab ou fin)
-		for i < n && line[i] != ' ' && line[i] != '\t' {
-			i++
-		}
-		tzEnd := i
-
-		if tzEnd > tzStart {
-			// On a "YYYY-MM-DD HH:MM:SS <TZ>"
-			tstr := line[:tzEnd]
-			if t, err := time.Parse("2006-01-02 15:04:05 MST", tstr); err == nil {
-				// Sauter les espaces avant le message
-				for i < n && (line[i] == ' ' || line[i] == '\t') {
-					i++
-				}
-				return t, line[i:]
-			}
-		}
-		// Si la parse du timestamp échoue → on tentera fallback syslog plus bas
+	// Attempt 1: Parse stderr format (YYYY-MM-DD HH:MM:SS TZ)
+	if timestamp, message, ok := parseStderrFormat(line); ok {
+		return timestamp, message
 	}
 
-	// --- Fallback format syslog: "Jan _2 15:04:05 ..."
-	// Heuristique légère sur positions (mois + jour + heure):
-	// "Jan _2 15:04:05" => indices 0..14 (longueur 15)
-	if n >= 15 &&
-		line[3] == ' ' && line[6] == ' ' &&
-		line[9] == ':' && line[12] == ':' {
-
-		// Construire "YYYY Jan _2 15:04:05"
-		year := time.Now().Year()
-		layout := "2006 Jan _2 15:04:05"
-		// On parse uniquement les 15 premiers caractères (sans hostname/process, etc.)
-		t, err := time.Parse(layout, fmt.Sprintf("%04d %s", year, line[:15]))
-		if err == nil {
-			// Le message commence après ces 15 chars (skipper espaces/tabs)
-			i := 15
-			for i < n && (line[i] == ' ' || line[i] == '\t') {
-				i++
-			}
-			return t, line[i:]
-		}
+	// Attempt 2: Parse syslog format (Mon DD HH:MM:SS)
+	if timestamp, message, ok := parseSyslogFormat(line); ok {
+		return timestamp, message
 	}
 
-	// Rien de reconnu proprement → renvoyer brut
+	// Unable to parse timestamp, return line as-is
 	return time.Time{}, line
 }
 
-// parseStderrLine extrait le timestamp et le message d'une ligne de log stderr.
-func parseStderrLineOld(line string) (time.Time, string) {
-	parts := strings.Fields(line)
-	if len(parts) < 4 {
-		return time.Time{}, line
+// parseStderrFormat attempts to parse the standard stderr format:
+// "YYYY-MM-DD HH:MM:SS TZ message..."
+//
+// Returns:
+//   - timestamp: parsed time
+//   - message: remaining text after timestamp
+//   - ok: true if parsing succeeded
+func parseStderrFormat(line string) (time.Time, string, bool) {
+	n := len(line)
+
+	// Quick positional validation: check for date/time separators
+	if n < 20 ||
+		line[4] != '-' || line[7] != '-' || // Date separators
+		line[10] != ' ' || // Space between date and time
+		line[13] != ':' || line[16] != ':' { // Time separators
+		return time.Time{}, "", false
 	}
 
-	// Format standard : "2006-01-02 15:04:05 MST"
-	if len(parts[0]) == 10 && parts[0][4] == '-' && parts[0][7] == '-' {
-		timestampStr := parts[0] + " " + parts[1] + " " + parts[2]
-		if t, err := time.Parse("2006-01-02 15:04:05 MST", timestampStr); err == nil {
-			return t, strings.Join(parts[3:], " ") // Rapide et optimisé
+	// Find the timezone field
+	// Format: "YYYY-MM-DD HH:MM:SS TZ"
+	//          0123456789012345678901...
+	// Expected space after seconds (HH:MM:SS) at position 19
+
+	spaceAfterTime := 19
+	if line[spaceAfterTime] != ' ' {
+		// Handle cases with no space or multiple spaces
+		// Scan forward to find next space
+		i := 19
+		for i < n && line[i] != ' ' && line[i] != '\t' {
+			i++
 		}
+		if i >= n {
+			return time.Time{}, "", false
+		}
+		spaceAfterTime = i
 	}
 
-	// Format syslog : "Jan _2 15:04:05", ajout de l'année courante.
-	currentYear := strconv.Itoa(time.Now().Year())
-	timestampStr := currentYear + " " + parts[0] + " " + parts[1] + " " + parts[2]
+	// Skip whitespace to find timezone token
+	i := spaceAfterTime + 1
+	for i < n && (line[i] == ' ' || line[i] == '\t') {
+		i++
+	}
+	tzStart := i
+
+	// Find end of timezone token
+	for i < n && line[i] != ' ' && line[i] != '\t' {
+		i++
+	}
+	tzEnd := i
+
+	if tzEnd <= tzStart {
+		return time.Time{}, "", false
+	}
+
+	// Parse timestamp: "YYYY-MM-DD HH:MM:SS TZ"
+	timestampStr := line[:tzEnd]
+	t, err := time.Parse("2006-01-02 15:04:05 MST", timestampStr)
+	if err != nil {
+		return time.Time{}, "", false
+	}
+
+	// Skip whitespace before message
+	for i < n && (line[i] == ' ' || line[i] == '\t') {
+		i++
+	}
+
+	message := ""
+	if i < n {
+		message = line[i:]
+	}
+
+	return t, message, true
+}
+
+// parseSyslogFormat attempts to parse the syslog format:
+// "Mon DD HH:MM:SS message..."
+//
+// Since syslog format doesn't include year, the current year is assumed.
+//
+// Returns:
+//   - timestamp: parsed time with current year
+//   - message: remaining text after timestamp
+//   - ok: true if parsing succeeded
+func parseSyslogFormat(line string) (time.Time, string, bool) {
+	n := len(line)
+
+	// Quick positional validation for syslog format
+	// "Jan _2 15:04:05" = 15 characters
+	if n < 15 ||
+		line[3] != ' ' || // Space after month abbreviation
+		line[6] != ' ' || // Space after day
+		line[9] != ':' || line[12] != ':' { // Time separators
+		return time.Time{}, "", false
+	}
+
+	// Extract syslog timestamp (first 15 chars)
+	syslogTimestamp := line[:15]
+
+	// Add current year and parse
+	currentYear := time.Now().Year()
+	timestampStr := fmt.Sprintf("%04d %s", currentYear, syslogTimestamp)
 
 	t, err := time.Parse("2006 Jan _2 15:04:05", timestampStr)
-	if err == nil {
-		return t, strings.Join(parts[3:], " ")
+	if err != nil {
+		return time.Time{}, "", false
 	}
 
-	// Retourne la ligne brute si aucun format ne correspond.
-	return time.Time{}, line
+	// Skip whitespace before message
+	i := 15
+	for i < n && (line[i] == ' ' || line[i] == '\t') {
+		i++
+	}
+
+	message := ""
+	if i < n {
+		message = line[i:]
+	}
+
+	return t, message, true
 }

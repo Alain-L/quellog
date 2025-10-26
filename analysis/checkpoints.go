@@ -1,4 +1,4 @@
-// analysis/checkpoints.go
+// Package analysis provides log analysis functionality for PostgreSQL logs.
 package analysis
 
 import (
@@ -9,32 +9,76 @@ import (
 	"time"
 )
 
-// CheckpointMetrics aggregates statistics related to checkpoints.
+// CheckpointMetrics aggregates statistics related to PostgreSQL checkpoints.
+// Checkpoints are critical events where PostgreSQL flushes dirty buffers to disk.
 type CheckpointMetrics struct {
-	CompleteCount         int                    // Number of completed checkpoints
-	TotalWriteTimeSeconds float64                // Sum of checkpoint write times
-	MaxWriteTimeSeconds   float64                // Max checkpoint write time
-	Events                []time.Time            // Timestamp of every checkpoint
-	TypeCounts            map[string]int         // Count by checkpoint type (time, xlog, shutdown, etc.)
-	TypeEvents            map[string][]time.Time // Events by type for rate calculation
+	// CompleteCount is the total number of completed checkpoints.
+	CompleteCount int
+
+	// TotalWriteTimeSeconds is the sum of all checkpoint write times.
+	TotalWriteTimeSeconds float64
+
+	// MaxWriteTimeSeconds is the longest checkpoint write time observed.
+	MaxWriteTimeSeconds float64
+
+	// Events contains the timestamp of every completed checkpoint.
+	// Useful for calculating checkpoint frequency and distribution.
+	Events []time.Time
+
+	// TypeCounts maps checkpoint type to occurrence count.
+	// Types include: "time", "xlog", "shutdown", "immediate", etc.
+	TypeCounts map[string]int
+
+	// TypeEvents maps checkpoint type to timestamps of occurrences.
+	// Useful for analyzing frequency by type.
+	TypeEvents map[string][]time.Time
 }
 
 // ============================================================================
-// VERSION STREAMING
+// Checkpoint patterns and constants
 // ============================================================================
 
-// CheckpointAnalyzer traite les checkpoints au fil de l'eau.
+// Checkpoint log message patterns
+const (
+	checkpointStarting = "checkpoint starting:"
+	checkpointComplete = "checkpoint complete"
+	writeTotalPrefix   = "total="
+	writeTotalSuffix   = " s"
+)
+
+// Pre-compiled regex for extracting checkpoint type from "checkpoint starting: <type>"
+var checkpointTypeRegex = regexp.MustCompile(`checkpoint starting:\s*(.+)$`)
+
+// ============================================================================
+// Streaming checkpoint analyzer
+// ============================================================================
+
+// CheckpointAnalyzer processes checkpoint events from log entries in streaming mode.
+// It tracks checkpoint types, durations, and occurrences.
+//
+// Usage:
+//
+//	analyzer := NewCheckpointAnalyzer()
+//	for entry := range logEntries {
+//	    analyzer.Process(&entry)
+//	}
+//	metrics := analyzer.Finalize()
 type CheckpointAnalyzer struct {
+	// Aggregated statistics
 	completeCount         int
 	totalWriteTimeSeconds float64
 	maxWriteTimeSeconds   float64
 	events                []time.Time
-	typeCounts            map[string]int
-	typeEvents            map[string][]time.Time
-	lastCheckpointType    string // Pour associer le type au complete
+
+	// Type tracking
+	typeCounts map[string]int
+	typeEvents map[string][]time.Time
+
+	// State tracking (for associating "starting" with "complete")
+	lastCheckpointType string
 }
 
-// NewCheckpointAnalyzer crée un nouvel analyseur de checkpoints.
+// NewCheckpointAnalyzer creates a new checkpoint analyzer.
 func NewCheckpointAnalyzer() *CheckpointAnalyzer {
 	return &CheckpointAnalyzer{
 		events:     make([]time.Time, 0, 100),
@@ -43,59 +87,91 @@ func NewCheckpointAnalyzer() *CheckpointAnalyzer {
 	}
 }
 
-// Regex pour extraire le type de checkpoint (après "checkpoint starting:")
-var checkpointTypeRegex = regexp.MustCompile(`checkpoint starting:\s*(.+)$`)
-
-// Process traite une entrée de log pour détecter les checkpoints.
+// Process analyzes a single log entry for checkpoint-related information.
+// It handles both "checkpoint starting" and "checkpoint complete" messages.
+//
+// Checkpoint lifecycle:
+//  1. "checkpoint starting: <type>" - Records the checkpoint type
+//  2. "checkpoint complete: ..." - Records completion, duration, and associates with type
+//
+// The type from "starting" is associated with the next "complete" message.
 func (a *CheckpointAnalyzer) Process(entry *parser.LogEntry) {
-	// Détection du type de checkpoint (starting)
-	if strings.Contains(entry.Message, "checkpoint starting:") {
-		if matches := checkpointTypeRegex.FindStringSubmatch(entry.Message); len(matches) > 1 {
-			a.lastCheckpointType = strings.TrimSpace(matches[1])
-		}
+	// Handle "checkpoint starting: <type>"
+	if strings.Contains(entry.Message, checkpointStarting) {
+		a.processCheckpointStarting(entry)
 		return
 	}
 
-	// Détection du checkpoint complete
-	if !strings.Contains(entry.Message, "checkpoint complete") {
-		return
+	// Handle "checkpoint complete: ..."
+	if strings.Contains(entry.Message, checkpointComplete) {
+		a.processCheckpointComplete(entry)
 	}
+}
 
+// processCheckpointStarting extracts and stores the checkpoint type.
+// Example message: "checkpoint starting: time"
+func (a *CheckpointAnalyzer) processCheckpointStarting(entry *parser.LogEntry) {
+	matches := checkpointTypeRegex.FindStringSubmatch(entry.Message)
+	if len(matches) > 1 {
+		a.lastCheckpointType = strings.TrimSpace(matches[1])
+	}
+}
+
+// processCheckpointComplete records checkpoint completion and extracts duration.
+// Example message: "checkpoint complete: wrote 1234 buffers (75.5%); 0 WAL file(s) added, 0 removed, 1 recycled; write=0.123 s, sync=0.045 s, total=0.168 s"
+func (a *CheckpointAnalyzer) processCheckpointComplete(entry *parser.LogEntry) {
 	a.completeCount++
 	a.events = append(a.events, entry.Timestamp)
 
-	// Associer le type au complete
+	// Associate checkpoint type with completion
 	cpType := a.lastCheckpointType
 	if cpType == "" {
 		cpType = "unknown"
 	}
 	a.typeCounts[cpType]++
 	a.typeEvents[cpType] = append(a.typeEvents[cpType], entry.Timestamp)
-	a.lastCheckpointType = "" // Reset pour le prochain checkpoint
+	a.lastCheckpointType = "" // Reset for next checkpoint
 
-	// Extract write time after "total="
-	const prefix = "total="
-	idx := strings.Index(entry.Message, prefix)
-	if idx < 0 {
-		return
-	}
-
-	rest := entry.Message[idx+len(prefix):]
-	end := strings.Index(rest, " s")
-	if end <= 0 {
-		return
-	}
-
-	valueStr := rest[:end]
-	if seconds, err := strconv.ParseFloat(strings.TrimSpace(valueStr), 64); err == nil {
-		a.totalWriteTimeSeconds += seconds
-		if seconds > a.maxWriteTimeSeconds {
-			a.maxWriteTimeSeconds = seconds
+	// Extract total write time
+	if writeTime := extractWriteTime(entry.Message); writeTime > 0 {
+		a.totalWriteTimeSeconds += writeTime
+		if writeTime > a.maxWriteTimeSeconds {
+			a.maxWriteTimeSeconds = writeTime
 		}
 	}
 }
 
-// Finalize retourne les métriques finales.
+// extractWriteTime parses the total write time from a checkpoint complete message.
+// Looks for "total=X.XXX s" pattern and returns the duration in seconds.
+// Returns 0 if parsing fails.
+func extractWriteTime(message string) float64 {
+	// Find "total=" prefix
+	idx := strings.Index(message, writeTotalPrefix)
+	if idx < 0 {
+		return 0
+	}
+
+	// Extract value after "total="
+	rest := message[idx+len(writeTotalPrefix):]
+
+	// Find " s" suffix
+	end := strings.Index(rest, writeTotalSuffix)
+	if end <= 0 {
+		return 0
+	}
+
+	// Parse float value
+	valueStr := strings.TrimSpace(rest[:end])
+	seconds, err := strconv.ParseFloat(valueStr, 64)
+	if err != nil {
+		return 0
+	}
+
+	return seconds
+}
+
+// Finalize returns the aggregated checkpoint metrics.
+// This should be called after all log entries have been processed.
 func (a *CheckpointAnalyzer) Finalize() CheckpointMetrics {
 	return CheckpointMetrics{
 		CompleteCount:         a.completeCount,
@@ -108,11 +184,16 @@ func (a *CheckpointAnalyzer) Finalize() CheckpointMetrics {
 }
 
 // ============================================================================
-// ANCIENNE VERSION (compatibilité backwards)
+// Legacy API (for backward compatibility)
 // ============================================================================
 
 // AnalyzeCheckpoints scans log entries to aggregate checkpoint-related metrics.
-// À supprimer une fois le refactoring terminé.
+//
+// Deprecated: This function loads all entries into memory. Use CheckpointAnalyzer
+// with streaming for better performance and memory efficiency.
+//
+// This function is maintained for backward compatibility and will be removed
+// in a future version.
 func AnalyzeCheckpoints(entries *[]parser.LogEntry) CheckpointMetrics {
 	analyzer := NewCheckpointAnalyzer()
 	for i := range *entries {

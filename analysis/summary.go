@@ -1,3 +1,4 @@
+// Package analysis provides log analysis functionality for PostgreSQL logs.
 package analysis
 
 import (
@@ -8,46 +9,100 @@ import (
 	"dalibo/quellog/parser"
 )
 
-// GlobalMetrics aggregates general log statistics.
+// GlobalMetrics aggregates general statistics from PostgreSQL logs.
 type GlobalMetrics struct {
-	Count        int
+	// Count is the total number of log entries processed.
+	Count int
+
+	// MinTimestamp is the timestamp of the earliest log entry.
 	MinTimestamp time.Time
+
+	// MaxTimestamp is the timestamp of the latest log entry.
 	MaxTimestamp time.Time
-	ErrorCount   int
-	FatalCount   int
-	PanicCount   int
+
+	// ErrorCount is the number of ERROR-level messages.
+	ErrorCount int
+
+	// FatalCount is the number of FATAL-level messages.
+	FatalCount int
+
+	// PanicCount is the number of PANIC-level messages.
+	PanicCount int
+
+	// WarningCount is the number of WARNING-level messages.
 	WarningCount int
-	LogCount     int
+
+	// LogCount is the number of LOG-level messages.
+	LogCount int
 }
 
-// UniqueEntityMetrics tracks unique database entities (DBs, Users, Apps).
+// UniqueEntityMetrics tracks unique database entities (databases, users, applications).
+// This helps understand the scope of database usage and identify which components are active.
 type UniqueEntityMetrics struct {
-	UniqueDbs   int
+	// UniqueDbs is the count of distinct databases referenced in logs.
+	UniqueDbs int
+
+	// UniqueUsers is the count of distinct users referenced in logs.
 	UniqueUsers int
-	UniqueApps  int
-	DBs         []string
-	Users       []string
-	Apps        []string
+
+	// UniqueApps is the count of distinct applications referenced in logs.
+	UniqueApps int
+
+	// DBs is the sorted list of all unique database names.
+	DBs []string
+
+	// Users is the sorted list of all unique user names.
+	Users []string
+
+	// Apps is the sorted list of all unique application names.
+	Apps []string
 }
 
-// AggregatedMetrics is the final structure combining all metrics.
+// AggregatedMetrics combines all analysis metrics into a single structure.
+// This is the final output of log analysis, containing statistics from all analyzers.
 type AggregatedMetrics struct {
-	Global         GlobalMetrics
-	TempFiles      TempFileMetrics
-	Vacuum         VacuumMetrics
-	Checkpoints    CheckpointMetrics
-	Connections    ConnectionMetrics
+	// Global contains overall log statistics.
+	Global GlobalMetrics
+
+	// TempFiles contains temporary file usage statistics.
+	TempFiles TempFileMetrics
+
+	// Vacuum contains autovacuum and manual vacuum statistics.
+	Vacuum VacuumMetrics
+
+	// Checkpoints contains checkpoint statistics.
+	Checkpoints CheckpointMetrics
+
+	// Connections contains connection and session statistics.
+	Connections ConnectionMetrics
+
+	// UniqueEntities contains unique database entity statistics.
 	UniqueEntities UniqueEntityMetrics
+
+	// EventSummaries contains severity level distribution.
 	EventSummaries []EventSummary
-	ErrorClasses   []ErrorClassSummary
-	SQL            SqlMetrics
+
+	// ErrorClasses contains SQLSTATE error class distribution.
+	ErrorClasses []ErrorClassSummary
+
+	// SQL contains SQL query statistics.
+	SQL SqlMetrics
 }
 
 // ============================================================================
-// VERSION STREAMING (NOUVELLE)
+// Streaming analysis orchestrator
 // ============================================================================
 
-// StreamingAnalyzer accumule les métriques au fil de l'eau.
+// StreamingAnalyzer orchestrates multiple specialized analyzers to process
+// log entries in streaming mode without loading all data into memory.
+//
+// Usage:
+//
+//	analyzer := NewStreamingAnalyzer()
+//	for entry := range logEntries {
+//	    analyzer.Process(&entry)
+//	}
+//	metrics := analyzer.Finalize()
 type StreamingAnalyzer struct {
 	global         GlobalMetrics
 	tempFiles      *TempFileAnalyzer
@@ -60,7 +115,7 @@ type StreamingAnalyzer struct {
 	sql            *SQLAnalyzer
 }
 
-// NewStreamingAnalyzer crée un nouvel analyseur streaming.
+// NewStreamingAnalyzer creates a new streaming analyzer with all sub-analyzers initialized.
 func NewStreamingAnalyzer() *StreamingAnalyzer {
 	return &StreamingAnalyzer{
 		tempFiles:      NewTempFileAnalyzer(),
@@ -74,10 +129,13 @@ func NewStreamingAnalyzer() *StreamingAnalyzer {
 	}
 }
 
-// Process traite une entrée de log.
+// Process analyzes a single log entry, dispatching it to all relevant sub-analyzers.
+// Each sub-analyzer filters and processes only the entries relevant to it.
 func (sa *StreamingAnalyzer) Process(entry *parser.LogEntry) {
-	// Global metrics
+	// Update global metrics
 	sa.global.Count++
+
+	// Track timestamp range
 	if sa.global.MinTimestamp.IsZero() || entry.Timestamp.Before(sa.global.MinTimestamp) {
 		sa.global.MinTimestamp = entry.Timestamp
 	}
@@ -85,7 +143,8 @@ func (sa *StreamingAnalyzer) Process(entry *parser.LogEntry) {
 		sa.global.MaxTimestamp = entry.Timestamp
 	}
 
-	// Dispatch vers les analyseurs spécialisés (chacun filtre lui-même)
+	// Dispatch to specialized analyzers
+	// Each analyzer performs its own filtering
 	sa.tempFiles.Process(entry)
 	sa.vacuum.Process(entry)
 	sa.checkpoints.Process(entry)
@@ -96,7 +155,8 @@ func (sa *StreamingAnalyzer) Process(entry *parser.LogEntry) {
 	sa.sql.Process(entry)
 }
 
-// Finalize calcule les métriques finales après traitement de toutes les entrées.
+// Finalize computes final metrics after all log entries have been processed.
+// This should be called once after processing all entries.
 func (sa *StreamingAnalyzer) Finalize() AggregatedMetrics {
 	return AggregatedMetrics{
 		Global:         sa.global,
@@ -111,12 +171,20 @@ func (sa *StreamingAnalyzer) Finalize() AggregatedMetrics {
 	}
 }
 
-// AggregateMetrics est maintenant une simple façade pour le streaming analyzer.
-// ✅ VERSION STREAMING - Plus d'accumulation en mémoire !
+// ============================================================================
+// Main analysis function
+// ============================================================================
+
+// AggregateMetrics processes a stream of log entries and returns aggregated metrics.
+// This is the main entry point for log analysis, using streaming processing
+// to avoid loading all entries into memory.
+//
+// The function reads entries from the input channel until it closes, then returns
+// the complete analysis results.
 func AggregateMetrics(in <-chan parser.LogEntry) AggregatedMetrics {
 	analyzer := NewStreamingAnalyzer()
 
-	// ✅ Traitement au fil de l'eau, SANS accumulation
+	// Process entries in streaming mode
 	for entry := range in {
 		analyzer.Process(&entry)
 	}
@@ -125,56 +193,18 @@ func AggregateMetrics(in <-chan parser.LogEntry) AggregatedMetrics {
 }
 
 // ============================================================================
-// ANCIENNE VERSION (compatibilité backwards - À SUPPRIMER)
+// Unique entity tracking
 // ============================================================================
 
-// AggregateMetricsOld - Ancienne version qui accumule tout en mémoire.
-// Cette fonction est conservée temporairement pour référence.
-// À SUPPRIMER une fois tous les tests validés.
-func AggregateMetricsOld(in <-chan parser.LogEntry) AggregatedMetrics {
-	var metrics AggregatedMetrics
-	var allEntries []parser.LogEntry
-
-	// ❌ ANCIEN CODE - Accumule TOUT en mémoire
-	for entry := range in {
-		allEntries = append(allEntries, entry)
-		metrics.Global.Count++
-		if metrics.Global.MinTimestamp.IsZero() || entry.Timestamp.Before(metrics.Global.MinTimestamp) {
-			metrics.Global.MinTimestamp = entry.Timestamp
-		}
-		if metrics.Global.MaxTimestamp.IsZero() || entry.Timestamp.After(metrics.Global.MaxTimestamp) {
-			metrics.Global.MaxTimestamp = entry.Timestamp
-		}
-	}
-
-	metrics.TempFiles = CalculateTemporaryFileMetrics(&allEntries)
-	AnalyzeVacuum(&metrics.Vacuum, &allEntries)
-	metrics.Checkpoints = AnalyzeCheckpoints(&allEntries)
-	metrics.EventSummaries = SummarizeEvents(&allEntries)
-	metrics.Connections = AnalyzeConnections(&allEntries)
-	metrics.UniqueEntities = AnalyzeUniqueEntities(&allEntries)
-
-	sqlLogs := make(chan parser.LogEntry, len(allEntries))
-	for _, entry := range allEntries {
-		sqlLogs <- entry
-	}
-	close(sqlLogs)
-	metrics.SQL = RunSQLSummary(sqlLogs)
-
-	return metrics
-}
-
-// ============================================================================
-// ANALYSEUR UNIQUE ENTITIES (intégré dans le streaming)
-// ============================================================================
-
-// UniqueEntityAnalyzer traite les entités uniques au fil de l'eau.
+// UniqueEntityAnalyzer tracks unique database entities (databases, users, applications)
+// encountered in log entries.
 type UniqueEntityAnalyzer struct {
 	dbSet   map[string]struct{}
 	userSet map[string]struct{}
 	appSet  map[string]struct{}
 }
 
+// NewUniqueEntityAnalyzer creates a new unique entity analyzer.
 func NewUniqueEntityAnalyzer() *UniqueEntityAnalyzer {
 	return &UniqueEntityAnalyzer{
 		dbSet:   make(map[string]struct{}, 100),
@@ -183,23 +213,32 @@ func NewUniqueEntityAnalyzer() *UniqueEntityAnalyzer {
 	}
 }
 
+// Process extracts database, user, and application names from a log entry.
+//
+// Expected patterns in log messages:
+//   - "db=mydb"
+//   - "user=postgres"
+//   - "app=psql"
 func (a *UniqueEntityAnalyzer) Process(entry *parser.LogEntry) {
-	msg := &entry.Message
+	msg := entry.Message
 
 	// Extract database name
-	if dbName, found := extractKeyValue(*msg, "db="); found {
+	if dbName, found := extractKeyValue(msg, "db="); found {
 		a.dbSet[dbName] = struct{}{}
 	}
+
 	// Extract user name
-	if userName, found := extractKeyValue(*msg, "user="); found {
+	if userName, found := extractKeyValue(msg, "user="); found {
 		a.userSet[userName] = struct{}{}
 	}
+
 	// Extract application name
-	if appName, found := extractKeyValue(*msg, "app="); found {
+	if appName, found := extractKeyValue(msg, "app="); found {
 		a.appSet[appName] = struct{}{}
 	}
 }
 
+// Finalize returns the unique entity metrics with sorted lists.
 func (a *UniqueEntityAnalyzer) Finalize() UniqueEntityMetrics {
 	return UniqueEntityMetrics{
 		UniqueDbs:   len(a.dbSet),
@@ -212,30 +251,31 @@ func (a *UniqueEntityAnalyzer) Finalize() UniqueEntityMetrics {
 }
 
 // ============================================================================
-// ANCIENNE VERSION AnalyzeUniqueEntities (compatibilité backwards)
+// Helper functions
 // ============================================================================
 
-// AnalyzeUniqueEntities - Ancienne version à supprimer après migration.
-func AnalyzeUniqueEntities(entries *[]parser.LogEntry) UniqueEntityMetrics {
-	analyzer := NewUniqueEntityAnalyzer()
-	for i := range *entries {
-		analyzer.Process(&(*entries)[i])
-	}
-	return analyzer.Finalize()
-}
-
-// ============================================================================
-// HELPERS (inchangés)
-// ============================================================================
-
-// extractKeyValue extracts a value from a log message based on a given key (e.g., "db=").
+// extractKeyValue extracts a value from a log message for a given key.
+// It handles common PostgreSQL log formats where key-value pairs are separated
+// by spaces, commas, brackets, or parentheses.
+//
+// Example patterns:
+//   - "db=mydb user=postgres"
+//   - "db=mydb,user=postgres"
+//   - "connection authorized: user=postgres database=mydb"
+//
+// Returns the extracted value and true if found, or empty string and false if not found.
+// Values of "unknown" or "[unknown]" are normalized to "UNKNOWN".
 func extractKeyValue(line, key string) (string, bool) {
+	// Find the key in the message
 	idx := strings.Index(line, key)
 	if idx == -1 {
 		return "", false
 	}
+
+	// Get the substring after the key
 	rest := line[idx+len(key):]
 
+	// Find the end of the value (first occurrence of separator)
 	separators := []rune{' ', ',', '[', ')'}
 	minPos := len(rest)
 	for _, sep := range separators {
@@ -244,14 +284,17 @@ func extractKeyValue(line, key string) (string, bool) {
 		}
 	}
 
+	// Extract and normalize the value
 	val := strings.TrimSpace(rest[:minPos])
 	if val == "" || strings.EqualFold(val, "unknown") || strings.EqualFold(val, "[unknown]") {
 		val = "UNKNOWN"
 	}
+
 	return val, true
 }
 
-// mapKeysAsSlice converts a map's keys into a sorted slice.
+// mapKeysAsSlice converts map keys to a sorted slice.
+// This provides deterministic ordering for consistent output.
 func mapKeysAsSlice(m map[string]struct{}) []string {
 	keys := make([]string, 0, len(m))
 	for k := range m {
@@ -259,4 +302,23 @@ func mapKeysAsSlice(m map[string]struct{}) []string {
 	}
 	sort.Strings(keys)
 	return keys
+}
+
+// ============================================================================
+// Legacy API (for backward compatibility)
+// ============================================================================
+
+// AnalyzeUniqueEntities analyzes log entries to find unique database entities.
+//
+// Deprecated: This function loads all entries into memory. Use UniqueEntityAnalyzer
+// with streaming for better performance and memory efficiency.
+//
+// This function is maintained for backward compatibility and will be removed
+// in a future version.
+func AnalyzeUniqueEntities(entries *[]parser.LogEntry) UniqueEntityMetrics {
+	analyzer := NewUniqueEntityAnalyzer()
+	for i := range *entries {
+		analyzer.Process(&(*entries)[i])
+	}
+	return analyzer.Finalize()
 }

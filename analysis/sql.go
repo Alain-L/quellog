@@ -1,4 +1,4 @@
-// analysis/sql.go
+// Package analysis provides log analysis functionality for PostgreSQL logs.
 package analysis
 
 import (
@@ -9,44 +9,97 @@ import (
 	"time"
 )
 
-// QueryStat stores aggregated statistics for ONE SQL query.
+// QueryStat stores aggregated statistics for a single SQL query pattern.
+// Multiple executions of the same normalized query are aggregated into one QueryStat.
 type QueryStat struct {
-	RawQuery        string  // Original raw query.
-	NormalizedQuery string  // Normalized query (used for stats).
-	Count           int     // Number of occurrences.
-	TotalTime       float64 // Total execution time in milliseconds.
-	AvgTime         float64 // Average execution time in milliseconds.
-	MaxTime         float64 // Maximum execution time in milliseconds.
-	ID              string  // User-friendly identifier, e.g. "se-123xaB".
-	FullHash        string  // Full hash in hexadecimal (e.g., 32-character MD5).
+	// RawQuery is the original query text (first occurrence).
+	RawQuery string
+
+	// NormalizedQuery is the parameterized version used for grouping.
+	// Example: "SELECT * FROM users WHERE id = $1"
+	NormalizedQuery string
+
+	// Count is the number of times this query was executed.
+	Count int
+
+	// TotalTime is the cumulative execution time in milliseconds.
+	TotalTime float64
+
+	// AvgTime is the average execution time in milliseconds.
+	// Calculated as TotalTime / Count.
+	AvgTime float64
+
+	// MaxTime is the maximum execution time observed in milliseconds.
+	MaxTime float64
+
+	// ID is a short, user-friendly identifier (e.g., "se-123xaB").
+	ID string
+
+	// FullHash is the complete hash in hexadecimal (e.g., 32-character MD5).
+	FullHash string
 }
 
-// QueryExecution stores the timestamp and duration of a single SQL query.
+// QueryExecution represents a single SQL query execution event.
 type QueryExecution struct {
+	// Timestamp is when the query was executed.
 	Timestamp time.Time
-	Duration  float64 // in milliseconds
+
+	// Duration is the execution time in milliseconds.
+	Duration float64
 }
 
-// SqlMetrics aggregates overall SQL metrics from parsed log entries.
+// SqlMetrics aggregates SQL query statistics from log analysis.
+// It provides both per-query statistics and global metrics.
 type SqlMetrics struct {
-	QueryStats          map[string]*QueryStat // Aggregation by normalized query.
-	TotalQueries        int                   // Total number of parsed SQL queries.
-	UniqueQueries       int                   // Number of unique (normalized) queries.
-	MinQueryDuration    float64               // Minimum query duration in ms.
-	MaxQueryDuration    float64               // Maximum query duration in ms.
-	SumQueryDuration    float64               // Sum of all query durations in ms.
-	StartTimestamp      time.Time             // Timestamp of the first SQL query.
-	EndTimestamp        time.Time             // Timestamp of the last SQL query.
-	Executions          []QueryExecution      // List of individual query executions.
-	MedianQueryDuration float64               // Median (50th percentile) of query durations.
-	P99QueryDuration    float64               // 99th percentile of query durations.
+	// QueryStats maps normalized queries to their aggregated statistics.
+	QueryStats map[string]*QueryStat
+
+	// TotalQueries is the total number of SQL queries executed.
+	TotalQueries int
+
+	// UniqueQueries is the number of distinct normalized queries.
+	UniqueQueries int
+
+	// MinQueryDuration is the fastest query duration in milliseconds.
+	MinQueryDuration float64
+
+	// MaxQueryDuration is the slowest query duration in milliseconds.
+	MaxQueryDuration float64
+
+	// SumQueryDuration is the total execution time of all queries in milliseconds.
+	SumQueryDuration float64
+
+	// StartTimestamp is when the first query was executed.
+	StartTimestamp time.Time
+
+	// EndTimestamp is when the last query was executed.
+	EndTimestamp time.Time
+
+	// Executions contains all individual query executions.
+	// Useful for timeline analysis and percentile calculations.
+	Executions []QueryExecution
+
+	// MedianQueryDuration is the 50th percentile of query durations.
+	MedianQueryDuration float64
+
+	// P99QueryDuration is the 99th percentile of query durations.
+	P99QueryDuration float64
 }
 
 // ============================================================================
-// VERSION STREAMING
+// Streaming SQL analyzer
 // ============================================================================
 
-// SQLAnalyzer traite les requêtes SQL au fil de l'eau.
+// SQLAnalyzer processes SQL queries from log entries in streaming mode.
+// It extracts query durations, normalizes queries, and aggregates statistics.
+//
+// Usage:
+//
+//	analyzer := NewSQLAnalyzer()
+//	for entry := range logEntries {
+//	    analyzer.Process(&entry)
+//	}
+//	metrics := analyzer.Finalize()
 type SQLAnalyzer struct {
 	queryStats       map[string]*QueryStat
 	totalQueries     int
@@ -58,7 +111,7 @@ type SQLAnalyzer struct {
 	executions       []QueryExecution
 }
 
-// NewSQLAnalyzer crée un nouvel analyseur SQL.
+// NewSQLAnalyzer creates a new SQL analyzer with pre-allocated capacity.
 func NewSQLAnalyzer() *SQLAnalyzer {
 	return &SQLAnalyzer{
 		queryStats: make(map[string]*QueryStat, 1000),
@@ -66,23 +119,28 @@ func NewSQLAnalyzer() *SQLAnalyzer {
 	}
 }
 
-// Process traite une entrée de log pour détecter et analyser les requêtes SQL.
+// Process analyzes a single log entry for SQL query information.
+// It extracts duration and query text, normalizes the query, and updates statistics.
+//
+// Expected log format:
+//
+//	"LOG: duration: 5.123 ms execute <unnamed>: SELECT * FROM users WHERE id = 1"
+//	"LOG: duration: 10.456 ms statement: UPDATE users SET name = 'John' WHERE id = 1"
 func (a *SQLAnalyzer) Process(entry *parser.LogEntry) {
-	// ✅ OPTIMISÉ: Pas besoin de pointer vers Message
-	// Extract duration and query without regex
+	// Extract duration and query from log message
 	duration, query, ok := extractDurationAndQuery(entry.Message)
 	if !ok {
 		return
 	}
 
-	// Update global metrics
+	// Update global execution metrics
 	a.totalQueries++
 	a.executions = append(a.executions, QueryExecution{
 		Timestamp: entry.Timestamp,
 		Duration:  duration,
 	})
 
-	// ✅ OPTIMISÉ: Simplifié les comparaisons de timestamps
+	// Track timestamp range
 	if a.startTimestamp.IsZero() || entry.Timestamp.Before(a.startTimestamp) {
 		a.startTimestamp = entry.Timestamp
 	}
@@ -90,14 +148,14 @@ func (a *SQLAnalyzer) Process(entry *parser.LogEntry) {
 		a.endTimestamp = entry.Timestamp
 	}
 
-	// Extract and normalize the SQL query
+	// Normalize query for aggregation
 	rawQuery := strings.TrimSpace(query)
 	normalizedQuery := normalizeQuery(rawQuery)
 
-	// ✅ OPTIMISÉ: Cherche d'abord si la query existe déjà
+	// Update or create query statistics
 	stats, exists := a.queryStats[normalizedQuery]
 	if !exists {
-		// Generate ID only for new queries
+		// Generate ID only for new queries (expensive operation)
 		id, fullHash := GenerateQueryID(rawQuery, normalizedQuery)
 		stats = &QueryStat{
 			RawQuery:        rawQuery,
@@ -114,9 +172,8 @@ func (a *SQLAnalyzer) Process(entry *parser.LogEntry) {
 	if duration > stats.MaxTime {
 		stats.MaxTime = duration
 	}
-	// ✅ OPTIMISÉ: AvgTime calculé seulement dans Finalize (pas besoin à chaque fois)
 
-	// Update global duration stats
+	// Update global duration statistics
 	if a.minQueryDuration == 0 || duration < a.minQueryDuration {
 		a.minQueryDuration = duration
 	}
@@ -126,7 +183,12 @@ func (a *SQLAnalyzer) Process(entry *parser.LogEntry) {
 	a.sumQueryDuration += duration
 }
 
-// Finalize retourne les métriques finales.
+// Finalize returns the aggregated SQL metrics.
+// This should be called after all log entries have been processed.
+//
+// It calculates:
+//   - Average execution time for each query
+//   - Median and 99th percentile of all query durations
 func (a *SQLAnalyzer) Finalize() SqlMetrics {
 	metrics := SqlMetrics{
 		QueryStats:       a.queryStats,
@@ -140,75 +202,105 @@ func (a *SQLAnalyzer) Finalize() SqlMetrics {
 		Executions:       a.executions,
 	}
 
-	// ✅ OPTIMISÉ: Calcul de AvgTime seulement ici (une fois au lieu de N fois)
+	// Calculate average time for each query
+	// Done here (once) instead of in Process (N times) for efficiency
 	for _, stat := range a.queryStats {
 		stat.AvgTime = stat.TotalTime / float64(stat.Count)
 	}
 
-	// Compute median and 99th percentile durations
+	// Calculate percentiles
 	if len(a.executions) > 0 {
-		durations := make([]float64, len(a.executions))
-		for i, exec := range a.executions {
-			durations[i] = exec.Duration
-		}
-		sort.Float64s(durations)
-		n := len(durations)
-
-		if n%2 == 1 {
-			metrics.MedianQueryDuration = durations[n/2]
-		} else {
-			metrics.MedianQueryDuration = (durations[n/2-1] + durations[n/2]) / 2.0
-		}
-
-		index := int(0.99 * float64(n))
-		if index >= n {
-			index = n - 1
-		}
-		metrics.P99QueryDuration = durations[index]
+		metrics.MedianQueryDuration = calculateMedian(a.executions)
+		metrics.P99QueryDuration = calculatePercentile(a.executions, 99)
 	}
 
 	return metrics
 }
 
 // ============================================================================
-// ANCIENNE VERSION (compatibilité backwards)
+// Percentile calculation helpers
 // ============================================================================
 
-// RunSQLSummary reads SQL log entries from the channel and aggregates SQL statistics.
-// À supprimer une fois le refactoring terminé.
-func RunSQLSummary(in <-chan parser.LogEntry) SqlMetrics {
-	analyzer := NewSQLAnalyzer()
-	for entry := range in {
-		analyzer.Process(&entry)
+// calculateMedian computes the median (50th percentile) of query durations.
+func calculateMedian(executions []QueryExecution) float64 {
+	durations := extractDurations(executions)
+	sort.Float64s(durations)
+
+	n := len(durations)
+	if n%2 == 1 {
+		return durations[n/2]
 	}
-	return analyzer.Finalize()
+	return (durations[n/2-1] + durations[n/2]) / 2.0
+}
+
+// calculatePercentile computes the Nth percentile of query durations.
+// percentile should be between 0 and 100.
+func calculatePercentile(executions []QueryExecution, percentile int) float64 {
+	durations := extractDurations(executions)
+	sort.Float64s(durations)
+
+	n := len(durations)
+	index := int(float64(percentile) / 100.0 * float64(n))
+	if index >= n {
+		index = n - 1
+	}
+	if index < 0 {
+		index = 0
+	}
+
+	return durations[index]
+}
+
+// extractDurations extracts duration values from query executions.
+func extractDurations(executions []QueryExecution) []float64 {
+	durations := make([]float64, len(executions))
+	for i, exec := range executions {
+		durations[i] = exec.Duration
+	}
+	return durations
 }
 
 // ============================================================================
-// HELPERS (inchangés)
+// Query extraction from log messages
 // ============================================================================
 
-// ✅ OPTIMISÉ: Parse en UNE SEULE passe, sans strings.Index multiples
+// extractDurationAndQuery parses duration and query text from a PostgreSQL log message.
+//
+// Expected format:
+//
+//	"duration: X.XXX ms execute <name>: QUERY"
+//	"duration: X.XXX ms statement: QUERY"
+//
+// Returns:
+//   - duration: execution time in milliseconds
+//   - query: SQL query text
+//   - ok: true if parsing succeeded
+//
+// This function is optimized for performance:
+//   - Single pass parsing
+//   - No intermediate string allocations
+//   - Manual whitespace skipping
 func extractDurationAndQuery(message string) (duration float64, query string, ok bool) {
-	// Early return si pas "duration:" visible au début
+	// Quick length check
 	if len(message) < 20 {
 		return 0, "", false
 	}
 
-	// Find "duration:" - commence la recherche après "LOG:" ou "ERROR:" typiquement
+	// Find "duration:" marker
 	durIdx := strings.Index(message, "duration:")
 	if durIdx == -1 {
 		return 0, "", false
 	}
 
-	// Parse duration directement sans TrimSpace ni SplitN
+	// Parse duration value
 	start := durIdx + 9 // Skip "duration:"
-	// Skip whitespace manually
+
+	// Skip leading whitespace
 	for start < len(message) && message[start] == ' ' {
 		start++
 	}
 
-	// Find end of duration number (jusqu'au prochain espace)
+	// Find end of duration number (next space)
 	end := start
 	for end < len(message) && message[end] != ' ' {
 		end++
@@ -218,17 +310,17 @@ func extractDurationAndQuery(message string) (duration float64, query string, ok
 		return 0, "", false
 	}
 
+	// Parse float duration
 	dur, err := strconv.ParseFloat(message[start:end], 64)
 	if err != nil {
 		return 0, "", false
 	}
 
-	// ✅ OPTIMISÉ: Cherche "execute" OU "statement" en UNE passe
-	// On sait que le marker vient APRÈS "duration:", donc on cherche après durIdx
+	// Find query marker ("execute" or "statement")
+	// Search after duration marker for efficiency
 	var markerIdx int
 	var markerLen int
 
-	// Cherche d'abord "execute" (plus courant généralement)
 	execIdx := indexAfter(message, "execute", durIdx)
 	stmtIdx := indexAfter(message, "statement", durIdx)
 
@@ -252,7 +344,7 @@ func extractDurationAndQuery(message string) (duration float64, query string, ok
 	}
 	queryStart++ // Skip ':'
 
-	// Skip leading whitespace
+	// Skip leading whitespace before query
 	for queryStart < len(message) && message[queryStart] == ' ' {
 		queryStart++
 	}
@@ -265,7 +357,8 @@ func extractDurationAndQuery(message string) (duration float64, query string, ok
 	return dur, query, true
 }
 
-// ✅ NOUVELLE FONCTION: Index mais seulement après une position donnée
+// indexAfter finds the first occurrence of substr in s, starting after the given position.
+// Returns -1 if not found.
 func indexAfter(s, substr string, after int) int {
 	if after >= len(s) {
 		return -1
@@ -275,4 +368,23 @@ func indexAfter(s, substr string, after int) int {
 		return -1
 	}
 	return after + idx
+}
+
+// ============================================================================
+// Legacy API (for backward compatibility)
+// ============================================================================
+
+// RunSQLSummary reads SQL log entries from a channel and aggregates statistics.
+//
+// Deprecated: This function is designed for the old channel-based API.
+// Use SQLAnalyzer with streaming for better control and flexibility.
+//
+// This function is maintained for backward compatibility and will be removed
+// in a future version.
+func RunSQLSummary(in <-chan parser.LogEntry) SqlMetrics {
+	analyzer := NewSQLAnalyzer()
+	for entry := range in {
+		analyzer.Process(&entry)
+	}
+	return analyzer.Finalize()
 }

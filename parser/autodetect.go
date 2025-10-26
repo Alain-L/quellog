@@ -1,3 +1,5 @@
+// Package parser provides log file parsing and format detection for PostgreSQL logs.
+// It supports multiple formats: stderr/syslog, CSV, and JSON.
 package parser
 
 import (
@@ -12,123 +14,153 @@ import (
 	"strings"
 )
 
-// ParseFile détecte le parser pour le fichier donné et le traite en streaming.
-// Elle renvoie une erreur si le format du log est inconnu ou si le parsing échoue.
+// Constants for format detection
+const (
+	// sampleBufferSize is the initial buffer size for reading file samples
+	sampleBufferSize = 32 * 1024 // 32 KB
+
+	// extendedSampleLines is the number of lines to read when initial sample has no newlines
+	extendedSampleLines = 5
+
+	// minCSVFields is the minimum number of fields expected in a PostgreSQL CSV log
+	minCSVFields = 12
+
+	// minCSVCommas is the minimum number of commas expected in a CSV log line
+	minCSVCommas = 12
+
+	// binaryThreshold is the maximum ratio of non-printable characters before considering a file binary
+	binaryThreshold = 0.3
+)
+
+// Regex patterns for format detection (compiled once at init time)
+var (
+	// csvTimestampRegex matches PostgreSQL CSV log timestamp format
+	csvTimestampRegex = regexp.MustCompile(`^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:\.\d+)?(?: [A-Z]{2,5})?$`)
+
+	// jsonFieldRegex checks for required fields in JSON logs
+	jsonFieldRegex = regexp.MustCompile(`^\s*\{\s*"(timestamp|insertId)"\s*:`)
+
+	// logPatterns define various PostgreSQL log format patterns
+	logPatterns = []*regexp.Regexp{
+		// Pattern 1: ISO-style timestamp (2025-01-01 12:00:00 or 2025-01-01T12:00:00)
+		// with optional fractional seconds, timezone, and log level
+		regexp.MustCompile(`^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?: [A-Z]{2,5})?.*?\b(?:LOG|WARNING|ERROR|FATAL|PANIC|DETAIL|STATEMENT|HINT|CONTEXT):\s+`),
+
+		// Pattern 2: Syslog format (Mon  3 12:34:56)
+		// with host, process info, and log level
+		regexp.MustCompile(`^[A-Z][a-z]{2}\s+\d+\s+\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:\s+[A-Z]{2,5})?\s+\S+\s+\S+\[\d+\]:(?:\s+\[[^\]]+\])?\s+\[\d+(?:-\d+)?\].*?\b(?:LOG|WARNING|ERROR|FATAL|PANIC|DETAIL|STATEMENT|HINT|CONTEXT):\s+`),
+
+		// Pattern 3: Epoch timestamp or simple date-time
+		regexp.MustCompile(`^(?:\d{10}\.\d{3}|\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}).*?\b(?:LOG|WARNING|ERROR|FATAL|PANIC|DETAIL|STATEMENT|HINT|CONTEXT):\s+`),
+
+		// Pattern 4: Minimal ISO format with basic log levels
+		regexp.MustCompile(`^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}.*?\b(?:LOG|ERROR|WARNING|FATAL|PANIC):\s+`),
+	}
+)
+
+// ParseFile detects the log format and parses the file in streaming mode.
+// It automatically detects whether the file is in stderr/syslog, CSV, or JSON format.
+// Returns an error if the format is unknown or parsing fails.
 func ParseFile(filename string, out chan<- LogEntry) error {
-	lp := detectParser(filename)
-	if lp == nil {
+	parser := detectParser(filename)
+	if parser == nil {
 		return fmt.Errorf("unknown log format for file: %s", filename)
 	}
-	return lp.Parse(filename, out)
+	return parser.Parse(filename, out)
 }
 
-// detectParser lit un petit bout du fichier pour identifier le format
+// detectParser reads a sample from the file to identify its format.
+// It tries to detect the format based on file extension first, then falls back
+// to content-based detection.
+//
+// Detection order:
+//  1. Check file existence and size
+//  2. Read a sample (32KB or until 5 newlines)
+//  3. Check for binary content
+//  4. Try extension-based detection (.log, .csv, .json)
+//  5. Fall back to content-based detection
 func detectParser(filename string) LogParser {
-	// 1) Vérifier si le fichier existe et n'est pas vide.
+	// Step 1: Validate file exists and is not empty
 	fi, err := os.Stat(filename)
 	if err != nil {
-		log.Printf("[ERROR] cannot stat file %s: %v", filename, err)
+		log.Printf("[ERROR] Cannot stat file %s: %v", filename, err)
 		return nil
 	}
 	if fi.Size() == 0 {
-		log.Printf("[WARN] file %s is empty", filename)
+		log.Printf("[WARN] File %s is empty", filename)
 		return nil
 	}
 
-	// 2) Ouvrir le fichier.
+	// Step 2: Open file and read sample
 	f, err := os.Open(filename)
 	if err != nil {
-		log.Printf("[ERROR] cannot open file %s: %v", filename, err)
+		log.Printf("[ERROR] Cannot open file %s: %v", filename, err)
 		return nil
 	}
 	defer f.Close()
 
-	// Convertir en string en s'assurant de ne pas couper une ligne au milieu
-	buf := make([]byte, 32768) // Crée un buffer de 32 Ko
-	n, err := f.Read(buf)      // Lit jusqu'à 32 Ko dans buf
-	rawsample := string(buf[:n])
-	lastNewline := strings.LastIndex(rawsample, "\n")
-	if lastNewline == -1 {
-		// Cas rare : aucune nouvelle ligne dans les 32 Ko
-		// On étend la lecture jusqu'à trouver 5 '\n' ou la fin du fichier
-		extendedSample, err := readUntilNLines(f, 5)
-		if err != nil {
-			log.Printf("[ERROR] extending read for %s: %v", filename, err)
-			return nil
-		}
-		if extendedSample == "" {
-			log.Printf("[WARN] no newline found in extended read for %s", filename)
-			return nil
-		}
-		rawsample = extendedSample
-		lastNewline = len(rawsample) - 1 // Le dernier caractère est maintenant un '\n'
+	sample, err := readFileSample(f)
+	if err != nil {
+		log.Printf("[ERROR] Failed to read sample from %s: %v", filename, err)
+		return nil
 	}
 
-	// Delete last incomplete line
-	sample := rawsample[:lastNewline]
-
-	// Check if binary file
+	// Step 3: Check for binary content
 	if isBinaryContent(sample) {
-		log.Printf("[ERROR] %s is binary. quellog does not support this format yet.", filename)
+		log.Printf("[ERROR] File %s appears to be binary. Binary formats are not supported.", filename)
 		return nil
 	}
 
+	// Step 4: Try extension-based detection
 	ext := strings.ToLower(strings.TrimPrefix(filepath.Ext(filename), "."))
-
-	// 4) Détection basée sur l'extension + validation du contenu.
-	switch ext {
-	case "json":
-		if isJSONContent(sample) {
-			return &JsonParser{}
-		}
-		log.Printf("[ERROR] file %s has .json extension but content is not valid JSON", filename)
-		return nil
-
-	case "csv":
-		if isCSVContent(sample) {
-			return &CsvParser{}
-		}
-		log.Printf("[ERROR] file %s has .csv extension but content is not valid CSV", filename)
-		return nil
-
-	case "log":
-		if isLogContent(sample) {
-			return &StderrParser{}
-		}
-		log.Printf("[ERROR] file %s has .log extension but content is not valid", filename)
-		return nil
-
-	default:
-		// Détection basée sur le contenu pour les extensions inconnues.
-		switch {
-		case isJSONContent(sample):
-			log.Printf("[INFO] detected JSON format for unknown extension in %s", filename)
-			return &JsonParser{}
-		case isCSVContent(sample):
-			log.Printf("[INFO] detected CSV format for unknown extension in %s", filename)
-			return &CsvParser{}
-		case isLogContent(sample):
-			log.Printf("[INFO] detected LOG format for unknown extension in %s", filename)
-			return &StderrParser{}
-		default:
-			log.Printf("[ERROR] unknown log format for file: %s", filename)
-			return nil
-		}
+	parser := detectByExtension(filename, ext, sample)
+	if parser != nil {
+		return parser
 	}
+
+	// Step 5: Fall back to content-based detection
+	return detectByContent(filename, sample)
 }
 
-// Helpers
+// readFileSample reads a representative sample from the file.
+// It reads up to sampleBufferSize bytes, ensuring we don't cut a line in the middle.
+// If no newlines are found in the initial buffer, it extends the read.
+func readFileSample(f *os.File) (string, error) {
+	buf := make([]byte, sampleBufferSize)
+	n, err := f.Read(buf)
+	if err != nil && n == 0 {
+		return "", err
+	}
 
-// readUntilNLines lit le fichier jusqu'à trouver n lignes ou la fin du fichier
+	rawSample := string(buf[:n])
+	lastNewline := strings.LastIndex(rawSample, "\n")
+
+	// If no newlines found, try to read more lines
+	if lastNewline == -1 {
+		extendedSample, err := readUntilNLines(f, extendedSampleLines)
+		if err != nil {
+			return "", fmt.Errorf("extending read: %w", err)
+		}
+		if extendedSample == "" {
+			return "", fmt.Errorf("no newlines found in file")
+		}
+		return extendedSample, nil
+	}
+
+	// Return sample without the last incomplete line
+	return rawSample[:lastNewline], nil
+}
+
+// readUntilNLines reads from the file until n complete lines are found.
+// Returns the accumulated text or an error.
 func readUntilNLines(f *os.File, n int) (string, error) {
-	var (
-		sample    strings.Builder
-		lineCount int
-	)
+	var sample strings.Builder
+	var lineCount int
 
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
-		sample.WriteString(scanner.Text() + "\n") // Ajouter le saut de ligne
+		sample.WriteString(scanner.Text())
+		sample.WriteString("\n")
 		lineCount++
 		if lineCount >= n {
 			break
@@ -142,132 +174,165 @@ func readUntilNLines(f *os.File, n int) (string, error) {
 	return sample.String(), nil
 }
 
-// isJSONContent verifies whether the given sample appears to be valid JSON log content.
-// It checks that the sample is not empty, starts with '{' or '[',
-// and, if it's an object (starting with '{'), that it contains a "timestamp" or "insertId" field.
+// detectByExtension attempts to detect the parser based on file extension.
+// Returns nil if the extension doesn't match or content validation fails.
+func detectByExtension(filename, ext, sample string) LogParser {
+	switch ext {
+	case "json":
+		if isJSONContent(sample) {
+			return &JsonParser{}
+		}
+		log.Printf("[ERROR] File %s has .json extension but content is not valid JSON", filename)
+		return nil
+
+	case "csv":
+		if isCSVContent(sample) {
+			return &CsvParser{}
+		}
+		log.Printf("[ERROR] File %s has .csv extension but content is not valid CSV", filename)
+		return nil
+
+	case "log":
+		if isLogContent(sample) {
+			return &StderrParser{}
+		}
+		log.Printf("[ERROR] File %s has .log extension but content is not valid log format", filename)
+		return nil
+
+	default:
+		return nil
+	}
+}
+
+// detectByContent attempts to detect the parser based on file content.
+// This is used when the file extension doesn't provide enough information.
+func detectByContent(filename, sample string) LogParser {
+	switch {
+	case isJSONContent(sample):
+		log.Printf("[INFO] Detected JSON format for %s (unknown extension)", filename)
+		return &JsonParser{}
+
+	case isCSVContent(sample):
+		log.Printf("[INFO] Detected CSV format for %s (unknown extension)", filename)
+		return &CsvParser{}
+
+	case isLogContent(sample):
+		log.Printf("[INFO] Detected stderr/syslog format for %s (unknown extension)", filename)
+		return &StderrParser{}
+
+	default:
+		log.Printf("[ERROR] Unknown log format for file: %s", filename)
+		return nil
+	}
+}
+
+// ============================================================================
+// Format validation functions
+// ============================================================================
+
+// isJSONContent checks if the sample appears to be valid JSON log content.
+// It verifies:
+//  1. Sample is not empty
+//  2. Starts with '{' or '['
+//  3. If object, contains "timestamp" or "insertId" field
+//  4. Can be unmarshaled as JSON
 func isJSONContent(sample string) bool {
 	trimmed := strings.TrimSpace(sample)
 	if trimmed == "" {
 		return false
 	}
-	// Must start with '{' or '['.
-	if !(strings.HasPrefix(trimmed, "{") || strings.HasPrefix(trimmed, "[")) {
+
+	// Must start with '{' or '['
+	if !strings.HasPrefix(trimmed, "{") && !strings.HasPrefix(trimmed, "[") {
 		return false
 	}
 
-	// If it starts with '{', ensure it contains a key "timestamp" or "insertId".
+	// For objects, check for required timestamp fields
 	if strings.HasPrefix(trimmed, "{") {
-		// This regex checks if the JSON object starts with a key "timestamp" or "insertId"
-		re := regexp.MustCompile(`^\s*\{\s*"(timestamp|insertId)"\s*:`)
-		if !re.MatchString(trimmed) {
+		if !jsonFieldRegex.MatchString(trimmed) {
 			return false
 		}
 	}
 
-	// Finally, try to unmarshal the JSON.
+	// Validate JSON structure
 	var js interface{}
 	return json.Unmarshal([]byte(trimmed), &js) == nil
 }
 
-// isCSVContent verifies whether the given sample appears to be a valid CSV log.
-// It checks that the sample contains a minimum number of commas,
-// that parsing returns enough fields, and that the first field resembles a timestamp.
+// isCSVContent checks if the sample appears to be a valid PostgreSQL CSV log.
+// It verifies:
+//  1. Minimum number of commas present
+//  2. Can be parsed as CSV
+//  3. Has minimum required fields
+//  4. First field is a valid timestamp
 func isCSVContent(sample string) bool {
-	// Check that the sample contains at least 12 commas (commonly used heuristic).
-	if strings.Count(sample, ",") < 12 {
+	// Quick check: must have enough commas
+	if strings.Count(sample, ",") < minCSVCommas {
 		return false
 	}
 
-	// Use csv.Reader to parse the sample.
+	// Try parsing as CSV
 	r := csv.NewReader(strings.NewReader(sample))
 	record, err := r.Read()
 	if err != nil {
 		return false
 	}
 
-	// Ensure that the record contains at least 12 fields.
-	if len(record) < 12 {
+	// Check field count
+	if len(record) < minCSVFields {
 		return false
 	}
 
-	// Check if the first field resembles a timestamp.
-	// Expected format: "YYYY-MM-DD HH:MM:SS" with optional fractional seconds and an optional timezone.
-	dateRegex := regexp.MustCompile(`^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:\.\d+)?(?: [A-Z]{2,5})?$`)
-	if !dateRegex.MatchString(strings.TrimSpace(record[0])) {
-		return false
-	}
-
-	return true
+	// Validate timestamp format in first field
+	firstField := strings.TrimSpace(record[0])
+	return csvTimestampRegex.MatchString(firstField)
 }
 
-// isLogContent verifies whether the given sample appears to be a PostgreSQL log in a syslog/stderr style.
+// isLogContent checks if the sample appears to be a PostgreSQL stderr/syslog format log.
+// It tests the sample against multiple regex patterns that match various PostgreSQL
+// log format variations (ISO timestamps, syslog format, epoch timestamps, etc.).
 func isLogContent(sample string) bool {
-
-	// Define a slice of regex patterns covering common variations for stderr/syslog logs.
-	patterns := []*regexp.Regexp{
-
-		// Pattern 1: ISO-style timestamp
-		// - ISO-style timestamp with 'T' or space,
-		// - optional fraction,
-		// - optional timezone,
-		// - followed by any text,
-		// - then a log level indicator.
-		regexp.MustCompile(`^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?: [A-Z]{2,5})?.*?\b(?:LOG|WARNING|ERROR|FATAL|PANIC|DETAIL|STATEMENT|HINT|CONTEXT):\s+`),
-
-		// Pattern 2: (Syslog)
-		// - abbreviated day (e.g., "Mon  3 12:34:56"),
-		// - optional fraction,
-		// - optional TZ,
-		// - followed by host and program info,
-		// then a log level indicator.
-		regexp.MustCompile(`^[A-Z][a-z]{2}\s+\d+\s+\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:\s+[A-Z]{2,5})?\s+\S+\s+\S+\[\d+\]:(?:\s+\[[^\]]+\])?\s+\[\d+(?:-\d+)?\].*?\b(?:LOG|WARNING|ERROR|FATAL|PANIC|DETAIL|STATEMENT|HINT|CONTEXT):\s+`),
-
-		// Pattern 3:
-		//  - epoch timestamp or date-time (without 'T')
-		//  - followed by a log level indicator.
-		regexp.MustCompile(`^(?:\d{10}\.\d{3}|\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}).*?\b(?:LOG|WARNING|ERROR|FATAL|PANIC|DETAIL|STATEMENT|HINT|CONTEXT):\s+`),
-
-		// Pattern 4: (Minimal)
-		// - a date-time (ISO or space separated)
-		// - followed by any text and one of the basic levels.
-		regexp.MustCompile(`^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}.*?\b(?:LOG|ERROR|WARNING|FATAL|PANIC):\s+`),
-	}
-
-	// Split the sample into lines.
 	lines := strings.Split(sample, "\n")
+
 	for _, line := range lines {
 		trimmed := strings.TrimSpace(line)
 		if trimmed == "" {
 			continue
 		}
-		// Check each pattern: if any matches, consider the sample as a valid log.
-		for _, re := range patterns {
-			if re.MatchString(trimmed) {
+
+		// Check if line matches any of the known log patterns
+		for _, pattern := range logPatterns {
+			if pattern.MatchString(trimmed) {
 				return true
 			}
 		}
 	}
+
 	return false
 }
 
-// isBinaryContent checks if the sample contains non-printable characters or null bytes,
-// which indicates that the file is likely in a binary format.
+// isBinaryContent checks if the sample contains non-printable characters
+// that would indicate a binary (non-text) file.
+//
+// A file is considered binary if:
+//  1. It contains null bytes (\x00)
+//  2. More than 30% of characters are non-printable control characters
 func isBinaryContent(sample string) bool {
-	// Check for null characters.
+	// Immediate rejection for null bytes
 	if strings.Contains(sample, "\x00") {
 		return true
 	}
-	// Count non-printable characters (excluding common whitespace like \n, \r, \t).
+
+	// Count non-printable characters (excluding common whitespace)
 	nonPrintable := 0
 	for _, r := range sample {
-		// Consider ASCII control characters (below 32) except newline, carriage return, and tab.
+		// ASCII control characters (< 32) except newline, carriage return, and tab
 		if r < 32 && r != '\n' && r != '\r' && r != '\t' {
 			nonPrintable++
 		}
 	}
-	// If more than 30% of the characters are non-printable, consider the sample binary.
-	if float64(nonPrintable) > float64(len(sample))*0.3 {
-		return true
-	}
-	return false
+
+	// Check if ratio exceeds threshold
+	ratio := float64(nonPrintable) / float64(len(sample))
+	return ratio > binaryThreshold
 }

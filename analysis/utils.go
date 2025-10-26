@@ -1,5 +1,4 @@
-// analysis/utils.go
-
+// Package analysis provides log analysis functionality for PostgreSQL logs.
 package analysis
 
 import (
@@ -10,57 +9,103 @@ import (
 	"sync"
 )
 
-// Pool de strings.Builder pour réduire les allocations
+// ============================================================================
+// String builder pool for efficient string operations
+// ============================================================================
+
+// builderPool provides reusable strings.Builder instances to reduce allocations.
+// This is especially important for high-throughput query normalization.
 var builderPool = sync.Pool{
 	New: func() interface{} {
 		return new(strings.Builder)
 	},
 }
 
-// Lookup table pré-calculée pour éviter les maps
-var queryPrefixes = [...]struct {
+// ============================================================================
+// Query type detection
+// ============================================================================
+
+// queryPrefix maps SQL keywords to short prefixes for query identification.
+type queryPrefix struct {
 	keyword string
 	prefix  string
-}{
-	{"SELECT", "se-"},
-	{"INSERT", "in-"},
-	{"UPDATE", "up-"},
-	{"DELETE", "de-"},
-	{"COPY", "co-"},
-	{"REFRESH", "mv-"},
 }
 
-// normalizeQuery standardizes the SQL query by replacing dynamic values.
-// ✅ OPTIMISÉ: Une seule passe + collapse des espaces multiples
+// queryPrefixes defines SQL command types and their corresponding ID prefixes.
+// The order matters: more specific commands should come first.
+var queryPrefixes = [...]queryPrefix{
+	{"SELECT", "se-"},   // SELECT queries
+	{"INSERT", "in-"},   // INSERT statements
+	{"UPDATE", "up-"},   // UPDATE statements
+	{"DELETE", "de-"},   // DELETE statements
+	{"COPY", "co-"},     // COPY operations
+	{"REFRESH", "mv-"},  // REFRESH MATERIALIZED VIEW
+	{"CREATE", "cr-"},   // CREATE statements
+	{"DROP", "dr-"},     // DROP statements
+	{"ALTER", "al-"},    // ALTER statements
+	{"TRUNCATE", "tr-"}, // TRUNCATE statements
+}
+
+// ============================================================================
+// Query normalization
+// ============================================================================
+
+// normalizeQuery standardizes an SQL query for grouping and comparison.
+// It performs the following transformations:
+//   - Converts to lowercase
+//   - Collapses multiple whitespaces/newlines to single space
+//   - Replaces PostgreSQL parameters ($1, $2, etc.) with '?'
+//
+// This allows queries with different parameter values to be grouped together.
+//
+// Example:
+//
+//	Input:  "SELECT * FROM users WHERE id = $1"
+//	Output: "select * from users where id = ?"
+//
+// Performance notes:
+//   - Single-pass algorithm
+//   - Uses pooled strings.Builder to reduce allocations
+//   - Inline lowercase conversion (avoids strings.ToLower allocation)
 func normalizeQuery(query string) string {
 	if len(query) == 0 {
 		return ""
 	}
 
+	// Get pooled builder and pre-allocate capacity
 	buf := builderPool.Get().(*strings.Builder)
 	buf.Reset()
 	buf.Grow(len(query))
 	defer builderPool.Put(buf)
 
-	// ✅ Track si le dernier caractère était un espace pour collapse
+	// Track if last character was whitespace (for collapsing)
 	lastWasSpace := false
 
 	for i := 0; i < len(query); i++ {
 		c := query[i]
+
 		switch c {
 		case '\n', '\r', '\t', ' ':
-			// ✅ Écrit un seul espace si le précédent n'en était pas un
+			// Collapse multiple whitespace to single space
 			if !lastWasSpace {
 				buf.WriteByte(' ')
 				lastWasSpace = true
 			}
+
 		case '$':
+			// Replace PostgreSQL parameters ($1, $2) with placeholder
 			buf.WriteByte('?')
 			lastWasSpace = false
+
+			// Skip parameter number (e.g., "1" in "$1")
+			for i+1 < len(query) && query[i+1] >= '0' && query[i+1] <= '9' {
+				i++
+			}
+
 		default:
-			// Conversion lowercase inline
+			// Convert uppercase to lowercase inline (ASCII only)
 			if c >= 'A' && c <= 'Z' {
-				buf.WriteByte(c + 32)
+				buf.WriteByte(c + 32) // 'A' -> 'a'
 			} else {
 				buf.WriteByte(c)
 			}
@@ -71,63 +116,125 @@ func normalizeQuery(query string) string {
 	return buf.String()
 }
 
-// GenerateQueryID generates a short identifier from the raw and normalized query.
-// ✅ OPTIMISÉ: Base64 URL-safe (pas de +/=) pour IDs propres + bonne entropie (36 bits)
-func GenerateQueryID(rawQuery, normalizedQuery string) (id, fullHash string) {
-	// Détecte le préfixe SQL
-	prefix := "xx-" // Default
-	for _, p := range queryPrefixes {
-		if len(rawQuery) >= len(p.keyword) {
-			match := true
-			for j := 0; j < len(p.keyword); j++ {
-				c := rawQuery[j]
-				if c >= 'a' && c <= 'z' {
-					c -= 32 // Convert to uppercase
-				}
-				if c != p.keyword[j] {
-					match = false
-					break
-				}
-			}
-			if match {
-				prefix = p.prefix
-				break
-			}
-		}
-	}
+// ============================================================================
+// Query ID generation
+// ============================================================================
 
-	// Compute MD5 hash
+// GenerateQueryID creates a short, human-readable identifier for an SQL query.
+// It combines a type prefix (e.g., "se-" for SELECT) with a hash-based suffix.
+//
+// Returns:
+//   - id: Short identifier like "se-A3bC9k" (prefix + 6 chars)
+//   - fullHash: Complete MD5 hash in hexadecimal (32 chars)
+//
+// The short ID is designed to be:
+//   - Human-readable (starts with meaningful prefix)
+//   - Collision-resistant (6 alphanumeric chars = 36 bits of entropy)
+//   - URL-safe (no special characters)
+//
+// Example:
+//
+//	Input:  "SELECT * FROM users WHERE id = $1"
+//	Output: id="se-A3bC9k", fullHash="5d41402abc4b2a76b9719d911017c592"
+func GenerateQueryID(rawQuery, normalizedQuery string) (id, fullHash string) {
+	// Detect query type from first keyword
+	prefix := detectQueryPrefix(rawQuery)
+
+	// Compute MD5 hash of normalized query
 	hashBytes := md5.Sum([]byte(normalizedQuery))
 	fullHash = hex.EncodeToString(hashBytes[:])
 
-	// ✅ OPTIMISÉ: Base64 standard → prend les 6 premiers caractères alphanumériques
-	// Encode tout le hash pour avoir assez de caractères
-	b64 := base64.StdEncoding.EncodeToString(hashBytes[:])
+	// Generate short hash suffix (6 alphanumeric characters)
+	shortHash := generateShortHash(hashBytes[:])
 
-	// ✅ Extract 6 alphanumeric chars (skip +, /, =) - version optimisée
-	var shortHash [6]byte // Array sur la stack (pas d'allocation)
+	id = prefix + shortHash
+	return
+}
+
+// detectQueryPrefix identifies the SQL command type and returns its prefix.
+// Uses case-insensitive matching on the first word of the query.
+func detectQueryPrefix(rawQuery string) string {
+	// Default prefix for unknown query types
+	prefix := "xx-"
+
+	// Try to match against known query prefixes
+	for _, p := range queryPrefixes {
+		if matchesKeyword(rawQuery, p.keyword) {
+			prefix = p.prefix
+			break
+		}
+	}
+
+	return prefix
+}
+
+// matchesKeyword checks if a query starts with a specific SQL keyword (case-insensitive).
+func matchesKeyword(query, keyword string) bool {
+	if len(query) < len(keyword) {
+		return false
+	}
+
+	// Case-insensitive comparison of first word
+	for i := 0; i < len(keyword); i++ {
+		c := query[i]
+		// Convert to uppercase for comparison
+		if c >= 'a' && c <= 'z' {
+			c -= 32
+		}
+		if c != keyword[i] {
+			return false
+		}
+	}
+
+	return true
+}
+
+// generateShortHash extracts 6 alphanumeric characters from a hash.
+// It encodes the hash in base64 and filters out non-alphanumeric characters.
+//
+// This provides a good balance between:
+//   - Brevity (6 characters)
+//   - Collision resistance (36 bits of entropy)
+//   - Readability (no special characters)
+func generateShortHash(hashBytes []byte) string {
+	// Encode hash to base64
+	b64 := base64.StdEncoding.EncodeToString(hashBytes)
+
+	// Extract 6 alphanumeric characters (skip +, /, =)
+	var shortHash [6]byte
 	j := 0
+
 	for i := 0; i < len(b64) && j < 6; i++ {
 		c := b64[i]
-		// ✅ Branchless check: caractères alphanumériques ont certains bits
-		// 0-9: 48-57, A-Z: 65-90, a-z: 97-122
-		// On skip: +: 43, /: 47, =: 61
+		// Keep only alphanumeric: 0-9, A-Z, a-z
+		// Skip: + (43), / (47), = (61)
 		if c != '+' && c != '/' && c != '=' {
 			shortHash[j] = c
 			j++
 		}
 	}
 
-	id = prefix + string(shortHash[:])
-	return
+	return string(shortHash[:])
 }
 
-// QueryTypeFromID returns the query type based on the identifier prefix.
+// ============================================================================
+// Query type extraction
+// ============================================================================
+
+// QueryTypeFromID extracts the query type from a generated query ID.
+// This is useful for filtering or grouping queries by type.
+//
+// Example:
+//
+//	"se-A3bC9k" -> "select"
+//	"in-XyZ123" -> "insert"
+//	"xx-AbCdEf" -> "other"
 func QueryTypeFromID(id string) string {
 	if len(id) < 3 {
 		return "other"
 	}
 
+	// Map prefix to query type
 	switch id[:3] {
 	case "se-":
 		return "select"
@@ -141,6 +248,14 @@ func QueryTypeFromID(id string) string {
 		return "copy"
 	case "mv-":
 		return "refresh"
+	case "cr-":
+		return "create"
+	case "dr-":
+		return "drop"
+	case "al-":
+		return "alter"
+	case "tr-":
+		return "truncate"
 	default:
 		return "other"
 	}

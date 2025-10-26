@@ -1,4 +1,4 @@
-// analysis/vacuum.go
+// Package analysis provides log analysis functionality for PostgreSQL logs.
 package analysis
 
 import (
@@ -8,23 +8,61 @@ import (
 	"dalibo/quellog/parser"
 )
 
-// PostgreSQL page size in bytes.
-const pageSize int64 = 8192 // 8 KB
+// PostgreSQL constants
+const (
+	// pageSize is the standard PostgreSQL page size in bytes.
+	// PostgreSQL stores data in 8 KB pages.
+	pageSize int64 = 8192
+)
 
-// VacuumMetrics aggregates statistics for vacuum and analyze operations.
+// VacuumMetrics aggregates statistics for autovacuum and autoanalyze operations.
+// These operations are critical for PostgreSQL performance and space management.
 type VacuumMetrics struct {
-	VacuumCount          int              // Total number of automatic vacuum operations.
-	AnalyzeCount         int              // Total number of automatic analyze operations.
-	VacuumTableCounts    map[string]int   // Count of vacuum operations per table.
-	AnalyzeTableCounts   map[string]int   // Count of analyze operations per table.
-	VacuumSpaceRecovered map[string]int64 // Disk space recovered by vacuum (in bytes).
+	// VacuumCount is the total number of automatic vacuum operations.
+	VacuumCount int
+
+	// AnalyzeCount is the total number of automatic analyze operations.
+	AnalyzeCount int
+
+	// VacuumTableCounts maps table names to their vacuum operation count.
+	// Useful for identifying tables that are vacuumed frequently.
+	VacuumTableCounts map[string]int
+
+	// AnalyzeTableCounts maps table names to their analyze operation count.
+	// Useful for understanding statistics update patterns.
+	AnalyzeTableCounts map[string]int
+
+	// VacuumSpaceRecovered maps table names to total disk space recovered in bytes.
+	// This represents dead tuple space reclaimed by vacuum operations.
+	VacuumSpaceRecovered map[string]int64
 }
 
 // ============================================================================
-// VERSION STREAMING
+// Vacuum log patterns
 // ============================================================================
 
-// VacuumAnalyzer traite les opérations vacuum/analyze au fil de l'eau.
+// Vacuum log message patterns
+const (
+	autoVacuumMarker  = "automatic vacuum of table"
+	autoAnalyzeMarker = "automatic analyze of table"
+	pagesRemovedKey   = "pages: "
+	pagesRemovedWord  = " removed"
+)
+
+// ============================================================================
+// Streaming vacuum analyzer
+// ============================================================================
+
+// VacuumAnalyzer processes autovacuum and autoanalyze events from log entries.
+// It tracks operation counts and space recovery per table.
+//
+// Usage:
+//
+//	analyzer := NewVacuumAnalyzer()
+//	for entry := range logEntries {
+//	    analyzer.Process(&entry)
+//	}
+//	metrics := analyzer.Finalize()
 type VacuumAnalyzer struct {
 	vacuumCount          int
 	analyzeCount         int
@@ -33,7 +71,7 @@ type VacuumAnalyzer struct {
 	vacuumSpaceRecovered map[string]int64
 }
 
-// NewVacuumAnalyzer crée un nouvel analyseur de vacuum.
+// NewVacuumAnalyzer creates a new vacuum analyzer.
 func NewVacuumAnalyzer() *VacuumAnalyzer {
 	return &VacuumAnalyzer{
 		vacuumTableCounts:    make(map[string]int, 100),
@@ -42,28 +80,37 @@ func NewVacuumAnalyzer() *VacuumAnalyzer {
 	}
 }
 
-// Process traite une entrée de log pour détecter vacuum/analyze.
+// Process analyzes a single log entry for vacuum and analyze operations.
+//
+// Expected log formats:
+//   - Vacuum: "automatic vacuum of table \"schema.table\": index scans: 0, pages: 123 removed, ..."
+//   - Analyze: "automatic analyze of table \"schema.table\" system usage: CPU: ..."
 func (a *VacuumAnalyzer) Process(entry *parser.LogEntry) {
-	msg := &entry.Message
+	msg := entry.Message
 
-	if strings.Contains(*msg, "automatic vacuum of table") {
-		tableName := extractTableName(*msg)
+	// Check for automatic vacuum
+	if strings.Contains(msg, autoVacuumMarker) {
+		tableName := extractTableName(msg)
 		a.vacuumCount++
 		a.vacuumTableCounts[tableName]++
 
-		// Extract "pages: X removed" if present
+		// Extract space recovered (removed pages * page size)
 		if removedPages := extractRemovedPages(msg); removedPages > 0 {
 			a.vacuumSpaceRecovered[tableName] += removedPages * pageSize
 		}
+		return
+	}
 
-	} else if strings.Contains(*msg, "automatic analyze of table") {
-		tableName := extractTableName(*msg)
+	// Check for automatic analyze
+	if strings.Contains(msg, autoAnalyzeMarker) {
+		tableName := extractTableName(msg)
 		a.analyzeCount++
 		a.analyzeTableCounts[tableName]++
 	}
 }
 
-// Finalize retourne les métriques finales.
+// Finalize returns the aggregated vacuum metrics.
+// This should be called after all log entries have been processed.
 func (a *VacuumAnalyzer) Finalize() VacuumMetrics {
 	return VacuumMetrics{
 		VacuumCount:          a.vacuumCount,
@@ -75,13 +122,85 @@ func (a *VacuumAnalyzer) Finalize() VacuumMetrics {
 }
 
 // ============================================================================
-// ANCIENNE VERSION (compatibilité backwards)
+// Extraction helpers
 // ============================================================================
 
-// AnalyzeVacuum processes log entries and updates VacuumMetrics.
-// À supprimer une fois le refactoring terminé.
+// extractTableName retrieves the table name from a vacuum/analyze log message.
+// PostgreSQL logs table names in quotes: "schema.table" or "public.users"
+//
+// Returns "UNKNOWN" if the table name cannot be extracted.
+func extractTableName(logMsg string) string {
+	// Find first quote
+	firstQuote := strings.Index(logMsg, `"`)
+	if firstQuote == -1 {
+		return "UNKNOWN"
+	}
+
+	// Find second quote (closing quote)
+	secondQuote := strings.Index(logMsg[firstQuote+1:], `"`)
+	if secondQuote == -1 {
+		return "UNKNOWN"
+	}
+
+	// Extract table name between quotes
+	tableName := logMsg[firstQuote+1 : firstQuote+1+secondQuote]
+	if tableName == "" {
+		return "UNKNOWN"
+	}
+
+	return tableName
+}
+
+// extractRemovedPages retrieves the number of removed pages from a vacuum log message.
+//
+// Expected format: "pages: 123 removed, 456 remain"
+// The function extracts the number after "pages: " and before " removed".
+//
+// Returns 0 if the removed pages count cannot be extracted.
+func extractRemovedPages(logMsg string) int64 {
+	// Find "pages: " marker
+	idx := strings.Index(logMsg, pagesRemovedKey)
+	if idx == -1 {
+		return 0
+	}
+
+	// Move past "pages: " marker
+	start := idx + len(pagesRemovedKey)
+	if start >= len(logMsg) {
+		return 0
+	}
+
+	// Find " removed" or next space
+	sub := logMsg[start:]
+	spaceIdx := strings.Index(sub, " ")
+	if spaceIdx == -1 {
+		return 0
+	}
+
+	// Parse the number
+	numStr := sub[:spaceIdx]
+	removedPages, err := strconv.ParseInt(numStr, 10, 64)
+	if err != nil {
+		return 0
+	}
+
+	return removedPages
+}
+
+// ============================================================================
+// Legacy API (for backward compatibility)
+// ============================================================================
+
+// AnalyzeVacuum processes log entries and updates VacuumMetrics in-place.
+//
+// Deprecated: This function uses an unusual in-place update pattern and loads
+// all entries into memory. Use VacuumAnalyzer with streaming for better
+// performance and memory efficiency.
+//
+// This function is maintained for backward compatibility and will be removed
+// in a future version.
 func AnalyzeVacuum(metrics *VacuumMetrics, entries *[]parser.LogEntry) {
-	// Initialize maps if nil.
+	// Initialize maps if nil
 	if metrics.VacuumTableCounts == nil {
 		metrics.VacuumTableCounts = make(map[string]int)
 	}
@@ -92,7 +211,7 @@ func AnalyzeVacuum(metrics *VacuumMetrics, entries *[]parser.LogEntry) {
 		metrics.VacuumSpaceRecovered = make(map[string]int64)
 	}
 
-	// Use the streaming analyzer internally
+	// Use streaming analyzer internally
 	analyzer := &VacuumAnalyzer{
 		vacuumTableCounts:    metrics.VacuumTableCounts,
 		analyzeTableCounts:   metrics.AnalyzeTableCounts,
@@ -105,37 +224,4 @@ func AnalyzeVacuum(metrics *VacuumMetrics, entries *[]parser.LogEntry) {
 
 	metrics.VacuumCount = analyzer.vacuumCount
 	metrics.AnalyzeCount = analyzer.analyzeCount
-}
-
-// ============================================================================
-// HELPERS (inchangés)
-// ============================================================================
-
-// extractTableName retrieves the table name from a log entry.
-func extractTableName(logMsg string) string {
-	parts := strings.SplitN(logMsg, `"`, 3)
-	if len(parts) < 3 {
-		return "UNKNOWN"
-	}
-	return parts[1]
-}
-
-// extractRemovedPages retrieves the number of removed pages from a log entry.
-func extractRemovedPages(logMsg *string) int64 {
-	idx := strings.Index(*logMsg, "pages: ")
-	if idx == -1 {
-		return 0
-	}
-
-	sub := (*logMsg)[idx+7:]
-	spaceIdx := strings.Index(sub, " ")
-	if spaceIdx == -1 {
-		return 0
-	}
-
-	removedPages, err := strconv.ParseInt(sub[:spaceIdx], 10, 64)
-	if err != nil {
-		return 0
-	}
-	return removedPages
 }

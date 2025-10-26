@@ -1,26 +1,57 @@
-// analysis/connections.go
+// Package analysis provides log analysis functionality for PostgreSQL logs.
 package analysis
 
 import (
+	"strconv"
 	"strings"
 	"time"
 
 	"dalibo/quellog/parser"
 )
 
-// ConnectionMetrics aggregates statistics related to connections and sessions.
+// ConnectionMetrics aggregates statistics related to database connections and sessions.
+// These metrics help understand connection patterns, session durations, and client behavior.
 type ConnectionMetrics struct {
-	ConnectionReceivedCount int           // Number of received connections
-	DisconnectionCount      int           // Number of disconnections
-	TotalSessionTime        time.Duration // Total accumulated session duration
-	Connections             []time.Time   // Timestamp of every connection
+	// ConnectionReceivedCount is the total number of connection requests received.
+	ConnectionReceivedCount int
+
+	// DisconnectionCount is the total number of disconnections.
+	DisconnectionCount int
+
+	// TotalSessionTime is the accumulated duration of all sessions.
+	// Only includes sessions where duration was logged (requires log_disconnections = on).
+	TotalSessionTime time.Duration
+
+	// Connections contains timestamps of all connection events.
+	// Useful for analyzing connection rate and patterns over time.
+	Connections []time.Time
 }
 
 // ============================================================================
-// VERSION STREAMING
+// Connection patterns and constants
 // ============================================================================
 
-// ConnectionAnalyzer traite les connexions au fil de l'eau.
+// Connection log message patterns
+const (
+	connectionReceived = "connection received"
+	disconnection      = "disconnection"
+	sessionTimePrefix  = "session time: "
+)
+
+// ============================================================================
+// Streaming connection analyzer
+// ============================================================================
+
+// ConnectionAnalyzer processes connection and disconnection events from log entries.
+// It tracks connection counts, session durations, and connection timestamps.
+//
+// Usage:
+//
+//	analyzer := NewConnectionAnalyzer()
+//	for entry := range logEntries {
+//	    analyzer.Process(&entry)
+//	}
+//	metrics := analyzer.Finalize()
 type ConnectionAnalyzer struct {
 	connectionReceivedCount int
 	disconnectionCount      int
@@ -28,35 +59,42 @@ type ConnectionAnalyzer struct {
 	connections             []time.Time
 }
 
-// NewConnectionAnalyzer crée un nouvel analyseur de connexions.
+// NewConnectionAnalyzer creates a new connection analyzer.
 func NewConnectionAnalyzer() *ConnectionAnalyzer {
 	return &ConnectionAnalyzer{
 		connections: make([]time.Time, 0, 1000),
 	}
 }
 
-// Process traite une entrée de log pour détecter connexions/disconnexions.
+// Process analyzes a single log entry for connection-related events.
+// It handles both "connection received" and "disconnection" messages.
+//
+// Example messages:
+//   - "connection received: host=127.0.0.1 port=54321"
+//   - "disconnection: session time: 0:00:05.123 user=postgres database=mydb host=127.0.0.1"
 func (a *ConnectionAnalyzer) Process(entry *parser.LogEntry) {
-	msg := &entry.Message
+	msg := entry.Message
 
 	// Detect connection events
-	if strings.Contains(*msg, "connection received") {
+	if strings.Contains(msg, connectionReceived) {
 		a.connectionReceivedCount++
 		a.connections = append(a.connections, entry.Timestamp)
+		return
 	}
 
 	// Detect disconnection events
-	if strings.Contains(*msg, "disconnection") {
+	if strings.Contains(msg, disconnection) {
 		a.disconnectionCount++
 
-		// Extract session duration if available
-		if duration := extractSessionTime(*msg); duration > 0 {
+		// Extract and accumulate session duration if available
+		if duration := extractSessionTime(msg); duration > 0 {
 			a.totalSessionTime += duration
 		}
 	}
 }
 
-// Finalize retourne les métriques finales.
+// Finalize returns the aggregated connection metrics.
+// This should be called after all log entries have been processed.
 func (a *ConnectionAnalyzer) Finalize() ConnectionMetrics {
 	return ConnectionMetrics{
 		ConnectionReceivedCount: a.connectionReceivedCount,
@@ -67,48 +105,92 @@ func (a *ConnectionAnalyzer) Finalize() ConnectionMetrics {
 }
 
 // ============================================================================
-// ANCIENNE VERSION (compatibilité backwards)
+// Session time extraction
+// ============================================================================
+
+// extractSessionTime parses the session duration from a disconnection message.
+// PostgreSQL logs session time in the format "H:MM:SS.mmm" or "HH:MM:SS.mmm".
+//
+// Example formats:
+//   - "0:00:05.123" → 5.123 seconds
+//   - "0:15:30.456" → 15 minutes 30.456 seconds
+//   - "2:30:45.789" → 2 hours 30 minutes 45.789 seconds
+//
+// Returns 0 if the session time cannot be parsed or is not present.
+func extractSessionTime(message string) time.Duration {
+	// Find "session time: " prefix
+	idx := strings.Index(message, sessionTimePrefix)
+	if idx == -1 {
+		return 0
+	}
+
+	// Extract the time string after "session time: "
+	timePart := message[idx+len(sessionTimePrefix):]
+
+	// Find the end of the time string (first space)
+	if spaceIdx := strings.IndexByte(timePart, ' '); spaceIdx != -1 {
+		timePart = timePart[:spaceIdx]
+	}
+
+	// Parse "H:MM:SS.mmm" or "HH:MM:SS.mmm" format
+	return parsePostgreSQLDuration(timePart)
+}
+
+// parsePostgreSQLDuration parses a PostgreSQL duration string in "H:MM:SS.mmm" format.
+// Components:
+//   - Hours: can be 1 or 2 digits
+//   - Minutes: always 2 digits (00-59)
+//   - Seconds: 2 digits + optional fractional part (00.000-59.999)
+//
+// Returns 0 if parsing fails.
+func parsePostgreSQLDuration(s string) time.Duration {
+	// Split by ":"
+	components := strings.Split(s, ":")
+	if len(components) != 3 {
+		return 0
+	}
+
+	// Parse hours
+	hours, err := strconv.Atoi(components[0])
+	if err != nil {
+		return 0
+	}
+
+	// Parse minutes
+	minutes, err := strconv.Atoi(components[1])
+	if err != nil || minutes < 0 || minutes > 59 {
+		return 0
+	}
+
+	// Parse seconds (may include fractional part)
+	seconds, err := strconv.ParseFloat(components[2], 64)
+	if err != nil || seconds < 0 || seconds >= 60 {
+		return 0
+	}
+
+	// Calculate total duration
+	duration := time.Duration(hours)*time.Hour +
+		time.Duration(minutes)*time.Minute +
+		time.Duration(seconds*float64(time.Second))
+
+	return duration
+}
+
+// ============================================================================
+// Legacy API (for backward compatibility)
 // ============================================================================
 
 // AnalyzeConnections scans log entries to count connection and disconnection events.
-// À supprimer une fois le refactoring terminé.
+//
+// Deprecated: This function loads all entries into memory. Use ConnectionAnalyzer
+// with streaming for better performance and memory efficiency.
+//
+// This function is maintained for backward compatibility and will be removed
+// in a future version.
 func AnalyzeConnections(entries *[]parser.LogEntry) ConnectionMetrics {
 	analyzer := NewConnectionAnalyzer()
 	for i := range *entries {
 		analyzer.Process(&(*entries)[i])
 	}
 	return analyzer.Finalize()
-}
-
-// ============================================================================
-// HELPERS (inchangés)
-// ============================================================================
-
-// extractSessionTime extracts the session duration from a disconnection log entry.
-// Example log line: "disconnection: session time: 0:00:05.123"
-func extractSessionTime(message string) time.Duration {
-	// Locate the session time portion directly
-	idx := strings.Index(message, "session time: ")
-	if idx == -1 {
-		return 0
-	}
-
-	// Extract the time string
-	timePart := message[idx+14:] // Skip "session time: "
-	spaceIdx := strings.IndexByte(timePart, ' ')
-	if spaceIdx != -1 {
-		timePart = timePart[:spaceIdx]
-	}
-
-	// Convert "HH:MM:SS.mmm" format to duration
-	components := strings.SplitN(timePart, ":", 3)
-	switch len(components) {
-	case 3: // Full HH:MM:SS.mmm format
-		h, _ := time.ParseDuration(components[0] + "h")
-		m, _ := time.ParseDuration(components[1] + "m")
-		s, _ := time.ParseDuration(components[2] + "s")
-		return h + m + s
-	default:
-		return 0
-	}
 }
