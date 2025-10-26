@@ -62,11 +62,19 @@ type MaintenanceJSON struct {
 	VacuumSpaceRecovered map[string]string `json:"vacuum_space_recovered"`
 }
 
+type CheckpointTypeJSON struct {
+	Count      int      `json:"count"`
+	Percentage float64  `json:"percentage"`
+	Rate       float64  `json:"rate_per_hour"`
+	Events     []string `json:"events"`
+}
+
 type CheckpointsJSON struct {
-	TotalCheckpoints  int      `json:"total_checkpoints"`
-	AvgCheckpointTime string   `json:"avg_checkpoint_time"`
-	MaxCheckpointTime string   `json:"max_checkpoint_time"`
-	Events            []string `json:"events"`
+	TotalCheckpoints  int                           `json:"total_checkpoints"`
+	AvgCheckpointTime string                        `json:"avg_checkpoint_time"`
+	MaxCheckpointTime string                        `json:"max_checkpoint_time"`
+	Events            []string                      `json:"events"`
+	Types             map[string]CheckpointTypeJSON `json:"types,omitempty"`
 }
 
 type ConnectionsJSON struct {
@@ -154,9 +162,46 @@ func ExportJSON(m analysis.AggregatedMetrics, sections []string) {
 			AvgCheckpointTime: formatSeconds(m.Checkpoints.TotalWriteTimeSeconds / float64(m.Checkpoints.CompleteCount)),
 			MaxCheckpointTime: formatSeconds(m.Checkpoints.MaxWriteTimeSeconds),
 		}
+
+		// Ajouter les événements globaux
 		for _, t := range m.Checkpoints.Events {
 			cp.Events = append(cp.Events, t.Format("2006-01-02 15:04:05"))
 		}
+
+		// Ajouter les types de checkpoints si disponibles
+		if len(m.Checkpoints.TypeCounts) > 0 {
+			cp.Types = make(map[string]CheckpointTypeJSON)
+
+			// Calculer la durée totale pour le taux
+			duration := m.Global.MaxTimestamp.Sub(m.Global.MinTimestamp)
+			durationHours := duration.Hours()
+
+			for cpType, count := range m.Checkpoints.TypeCounts {
+				percentage := float64(count) / float64(m.Checkpoints.CompleteCount) * 100
+
+				// Calculer le taux (checkpoints par heure) pour ce type
+				rate := 0.0
+				if durationHours > 0 {
+					rate = float64(count) / durationHours
+				}
+
+				typeJSON := CheckpointTypeJSON{
+					Count:      count,
+					Percentage: percentage,
+					Rate:       rate,
+				}
+
+				// Ajouter les événements pour ce type
+				if events, ok := m.Checkpoints.TypeEvents[cpType]; ok {
+					for _, t := range events {
+						typeJSON.Events = append(typeJSON.Events, t.Format("2006-01-02 15:04:05"))
+					}
+				}
+
+				cp.Types[cpType] = typeJSON
+			}
+		}
+
 		data["checkpoints"] = cp
 	}
 
