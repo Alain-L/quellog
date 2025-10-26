@@ -41,6 +41,7 @@ var (
 
 	//grepExpr []string // --grep
 	jsonFlag bool // --json
+	mdFlag   bool // --md
 )
 
 // rootCmd is the main command.
@@ -98,6 +99,8 @@ func init() {
 	//rootCmd.PersistentFlags().StringSliceVarP(&grepExpr, "grep", "g", nil,
 	//	"Filter the final lines by a substring match (can be specified multiple times)")
 	rootCmd.PersistentFlags().BoolVarP(&jsonFlag, "json", "J", false, "Export results in JSON format")
+	rootCmd.PersistentFlags().BoolVarP(&mdFlag, "md", "", false, "Export results in markdown format")
+
 }
 
 // executeParsing is the main run function (streaming version).
@@ -264,6 +267,12 @@ func executeParsing(cmd *cobra.Command, args []string) {
 	// Export JSON if requested
 	if jsonFlag {
 		output.ExportJSON(metrics, sections)
+		return
+	}
+
+	// markdown export if requested
+	if mdFlag {
+		output.ExportMarkdown(metrics, sections)
 		return
 	}
 
