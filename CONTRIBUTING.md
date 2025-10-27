@@ -1,6 +1,6 @@
 # Contributing to _quellog_
 
-Thank you for considering contributing to _quellog_! Contributions that improve
+Thank you for considering contributing to **quellog**! Contributions that improve
 functionality, documentation, performance, or developer experience are highly
 appreciated. Below are some guidelines to help you get started.
 
@@ -11,7 +11,7 @@ expected behavior within our community.
 
 ## How to Contribute
 
-_quellog_ tries to balance pragmatism and good engineering practices. The
+**quellog** tries to balance pragmatism and good engineering practices. The
 goal isn’t perfection, but consistency: keep the code readable, write clear
 commits, add tests when it makes sense, and update the docs if behavior
 changes.
