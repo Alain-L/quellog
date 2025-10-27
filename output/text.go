@@ -766,6 +766,11 @@ func computeQueryLoadHistogram(m analysis.SqlMetrics) (map[string]int, string, i
 	numBuckets := 6
 	bucketDuration := totalDuration / time.Duration(numBuckets)
 
+	// Protection contre la division par zéro : si la durée totale est nulle ou très courte
+	if bucketDuration <= 0 {
+		bucketDuration = 1 * time.Nanosecond
+	}
+
 	// Préparation des buckets avec accumulation en millisecondes.
 	histogramMs := make([]int, numBuckets)
 	bucketLabels := make([]string, numBuckets)
@@ -781,6 +786,9 @@ func computeQueryLoadHistogram(m analysis.SqlMetrics) (map[string]int, string, i
 		bucketIndex := int(elapsed / bucketDuration)
 		if bucketIndex >= numBuckets {
 			bucketIndex = numBuckets - 1
+		}
+		if bucketIndex < 0 {
+			bucketIndex = 0
 		}
 		histogramMs[bucketIndex] += int(exec.Duration)
 	}
