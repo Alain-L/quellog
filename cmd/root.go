@@ -23,8 +23,8 @@ var (
 	excludeUser []string // --exclude-user: Exclude specific user(s)
 
 	// SQL analysis flags
-	sqlSummaryFlag  bool     // --sql-summary: Display SQL performance summary
-	queryDetailFlag []string // --query-detail: Show details for specific SQL IDs
+	sqlSummaryFlag bool     // --sql-summary: Display SQL performance summary
+	sqlDetailFlag  []string // --sql-detail: Show details for specific SQL IDs
 
 	// Section selection flags (print only specific sections)
 	summaryFlag        bool // --summary: Print only summary section
@@ -89,7 +89,7 @@ func init() {
 	// SQL analysis flags
 	rootCmd.PersistentFlags().BoolVar(&sqlSummaryFlag, "sql-summary", false,
 		"Display SQL performance summary with metrics and percentiles")
-	rootCmd.PersistentFlags().StringSliceVarP(&queryDetailFlag, "query-detail", "Q", nil,
+	rootCmd.PersistentFlags().StringSliceVarP(&sqlDetailFlag, "sql-detail", "Q", nil,
 		"Show details for specific SQL ID(s). Can be specified multiple times")
 
 	// Section selection flags

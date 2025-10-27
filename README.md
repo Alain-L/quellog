@@ -1,29 +1,38 @@
 # _quellog_
 
-Quellog is a fast, reliable, and easy-to-use CLI tool for parsing and filtering
-PostgreSQL logs. It provides summary reports, detailed SQL performance analysis,
-and various filtering options to help you quickly gain insights from your logs.  
+**_quellog_** is a fast, reliable, and developer-friendly CLI tool for parsing
+and analyzing PostgreSQL logs. It generates a synthetic overview, a detailed SQL
+performance breakdown, and per-query insights, all with powerful filtering
+options to help you quickly extract meaning from your data.
 
-With Quellog, you can analyze query performance, detect anomalies, and track
-database maintenance operations effortlessly.
+With **_quellog_**, you can analyze query performance, detect anomalies, and
+track database maintenance operations effortlessly.
 
 ## Features
 
-- **Time-based Filtering:** Filter log entries by start/end dates or a custom
-  time window.
-- **Attribute Filters:** Filter by database, user, application, or other
-  attributes.
-- **SQL Performance Reporting:**  
-  - Generate a global SQL summary including performance metrics and percentiles.
-  - View details for specific SQL query IDs.
-  - See top lists for slowest, most frequent, and most time-consuming queries.
-- **Event and Maintenance Reporting:**  
-  - Automatic detection of events (errors, warnings, etc.).
-  - Maintenance metrics for vacuum, analyze, and checkpoint operations.
-- **Customizable Output:** Supports both summary and detailed line-by-line
-  output.
-- **Extensible:** Designed to be further extended with a TUI interface or
-  additional API support.
+**_quellog_** is designed for speed and clarity: parse gigabytes of logs in
+seconds and get instant, actionable insights into your PostgreSQL instance.
+
+- **Multi-format support:** Automatically detects and parses PostgreSQL logs in
+  stderr, CSV, or JSON format
+- **Time-based filtering:** Analyze logs within specific date ranges or time
+  windows
+- **Attribute filtering:** Focus on specific databases, users, applications, or
+  custom criteria
+- **Comprehensive SQL analysis:**
+  - Global performance metrics with percentiles and distribution histograms
+  - Per-query details with execution statistics
+  - Top rankings: slowest queries, most frequent, highest total time consumption
+- **Database health monitoring:**
+  - Error and warning detection with event classification
+  - Vacuum and autovacuum analysis with space recovery metrics
+  - Checkpoint tracking and performance impact assessment
+- **Connection insights:** Session duration, client distribution, and connection
+  patterns
+- **Flexible output formats:** Human-readable reports, JSON export, or Markdown
+  documentation
+- **High performance:** Streaming parser with concurrent processing for large
+  log files
 
 ---
 
@@ -43,27 +52,27 @@ go build -o bin/quellog
 
 ### Generate a summary report  
 ```sh
-./bin/quellog /path/to/logs --summary
+quellog /path/to/logs --summary
 ```
 
 ### Analyze SQL performance  
 ```sh
-./bin/quellog /path/to/logs --sql-summary
+quellog /path/to/logs --sql-summary
 ```
 
 ### Show details for a specific SQL query  
 ```sh
-./bin/quellog /path/to/logs --sql-detail <query_id>
+quellog /path/to/logs --sql-detail <query_id>
 ```
 
 ### Filter logs for a specific database and user, within a time range  
 ```sh
-./bin/quellog /path/to/logs --dbname mydb --dbuser myuser --begin "2024-01-01 00:00:00" --end "2024-01-01 23:59:59"
+quellog /path/to/logs --dbname mydb --dbuser myuser --begin "2024-01-01 00:00:00" --end "2024-01-01 23:59:59"
 ```
 
 For more details, run:
 ```sh
-./bin/quellog --help
+quellog --help
 ```
 
 ---
