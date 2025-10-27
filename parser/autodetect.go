@@ -234,29 +234,74 @@ func detectByContent(filename, sample string) LogParser {
 // It verifies:
 //  1. Sample is not empty
 //  2. Starts with '{' or '['
-//  3. If object, contains "timestamp" or "insertId" field
-//  4. Can be unmarshaled as JSON
+//  3. Can be unmarshaled as JSON (either single object/array or JSONL)
+//  4. Contains timestamp-related fields
 func isJSONContent(sample string) bool {
 	trimmed := strings.TrimSpace(sample)
+	log.Printf("[DEBUG] isJSONContent: sample length = %d", len(trimmed))
+
 	if trimmed == "" {
+		log.Printf("[DEBUG] isJSONContent: sample is empty")
 		return false
 	}
+
+	// Show first 200 chars of sample
+	preview := trimmed
+	if len(preview) > 200 {
+		preview = preview[:200] + "..."
+	}
+	log.Printf("[DEBUG] isJSONContent: sample preview = %s", preview)
 
 	// Must start with '{' or '['
 	if !strings.HasPrefix(trimmed, "{") && !strings.HasPrefix(trimmed, "[") {
+		log.Printf("[DEBUG] isJSONContent: does not start with { or [, starts with: %c", trimmed[0])
 		return false
 	}
+	log.Printf("[DEBUG] isJSONContent: starts with %c", trimmed[0])
 
-	// For objects, check for required timestamp fields
-	if strings.HasPrefix(trimmed, "{") {
-		if !jsonFieldRegex.MatchString(trimmed) {
+	// Try to unmarshal as a single JSON object/array first
+	var js interface{}
+	err := json.Unmarshal([]byte(trimmed), &js)
+
+	// If it fails, try JSONL format (newline-delimited JSON)
+	if err != nil {
+		log.Printf("[DEBUG] isJSONContent: not a single JSON object/array, trying JSONL format")
+		// Try to parse first line as JSON
+		lines := strings.Split(trimmed, "\n")
+		if len(lines) == 0 {
+			log.Printf("[DEBUG] isJSONContent: no lines found")
 			return false
 		}
+
+		firstLine := strings.TrimSpace(lines[0])
+		if firstLine == "" {
+			log.Printf("[DEBUG] isJSONContent: first line is empty")
+			return false
+		}
+
+		if err := json.Unmarshal([]byte(firstLine), &js); err != nil {
+			log.Printf("[DEBUG] isJSONContent: JSONL first line unmarshal failed: %v", err)
+			return false
+		}
+		log.Printf("[DEBUG] isJSONContent: JSONL format detected, first line is valid JSON")
+	} else {
+		log.Printf("[DEBUG] isJSONContent: single JSON object/array unmarshal succeeded")
 	}
 
-	// Validate JSON structure
-	var js interface{}
-	return json.Unmarshal([]byte(trimmed), &js) == nil
+	// Check for timestamp-related fields anywhere in the sample
+	hasTimestamp := strings.Contains(trimmed, `"timestamp"`)
+	hasTime := strings.Contains(trimmed, `"time"`)
+	hasTs := strings.Contains(trimmed, `"ts"`)
+	hasAtTimestamp := strings.Contains(trimmed, `"@timestamp"`)
+	hasInsertId := strings.Contains(trimmed, `"insertId"`)
+
+	log.Printf("[DEBUG] isJSONContent: timestamp fields - timestamp:%v time:%v ts:%v @timestamp:%v insertId:%v",
+		hasTimestamp, hasTime, hasTs, hasAtTimestamp, hasInsertId)
+
+	result := hasTimestamp || hasTime || hasTs || hasAtTimestamp || hasInsertId
+	log.Printf("[DEBUG] isJSONContent: final result = %v", result)
+
+	return result
 }
 
 // isCSVContent checks if the sample appears to be a valid PostgreSQL CSV log.
