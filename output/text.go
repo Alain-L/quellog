@@ -1,7 +1,7 @@
 package output
 
 import (
-	"dalibo/quellog/analysis"
+	"github.com/Alain-L/quellog/analysis"
 	"fmt"
 	"math"
 	"os"

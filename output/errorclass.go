@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"dalibo/quellog/analysis"
+	"github.com/Alain-L/quellog/analysis"
 )
 
 // FormatErrorClassSummary returns a formatted string representing the error class summary as an elegant table.

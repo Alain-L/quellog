@@ -2,7 +2,7 @@
 package analysis
 
 import (
-	"dalibo/quellog/parser"
+	"github.com/Alain-L/quellog/parser"
 	"strconv"
 	"strings"
 	"time"

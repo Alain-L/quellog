@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"dalibo/quellog/parser"
+	"github.com/Alain-L/quellog/parser"
 )
 
 // ErrorClassSummary represents aggregated statistics for a specific PostgreSQL error class.

@@ -5,7 +5,7 @@ import (
 	"sort"
 	"strings"
 
-	"dalibo/quellog/parser"
+	"github.com/Alain-L/quellog/parser"
 )
 
 // EventSummary represents aggregated statistics for a specific PostgreSQL log event type.

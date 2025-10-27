@@ -8,9 +8,9 @@ import (
 	"sync"
 	"time"
 
-	"dalibo/quellog/analysis"
-	"dalibo/quellog/output"
-	"dalibo/quellog/parser"
+	"github.com/Alain-L/quellog/analysis"
+	"github.com/Alain-L/quellog/output"
+	"github.com/Alain-L/quellog/parser"
 
 	"github.com/spf13/cobra"
 )

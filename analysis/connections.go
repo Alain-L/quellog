@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"dalibo/quellog/parser"
+	"github.com/Alain-L/quellog/parser"
 )
 
 // ConnectionMetrics aggregates statistics related to database connections and sessions.

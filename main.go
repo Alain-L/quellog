@@ -4,7 +4,7 @@
 package main
 
 import (
-	"dalibo/quellog/cmd"
+	"github.com/Alain-L/quellog/cmd"
 )
 
 func main() {

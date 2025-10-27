@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"dalibo/quellog/parser"
+	"github.com/Alain-L/quellog/parser"
 )
 
 // PostgreSQL constants

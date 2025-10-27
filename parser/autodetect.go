@@ -238,10 +238,8 @@ func detectByContent(filename, sample string) LogParser {
 //  4. Contains timestamp-related fields
 func isJSONContent(sample string) bool {
 	trimmed := strings.TrimSpace(sample)
-	log.Printf("[DEBUG] isJSONContent: sample length = %d", len(trimmed))
 
 	if trimmed == "" {
-		log.Printf("[DEBUG] isJSONContent: sample is empty")
 		return false
 	}
 
@@ -250,14 +248,11 @@ func isJSONContent(sample string) bool {
 	if len(preview) > 200 {
 		preview = preview[:200] + "..."
 	}
-	log.Printf("[DEBUG] isJSONContent: sample preview = %s", preview)
 
 	// Must start with '{' or '['
 	if !strings.HasPrefix(trimmed, "{") && !strings.HasPrefix(trimmed, "[") {
-		log.Printf("[DEBUG] isJSONContent: does not start with { or [, starts with: %c", trimmed[0])
 		return false
 	}
-	log.Printf("[DEBUG] isJSONContent: starts with %c", trimmed[0])
 
 	// Try to unmarshal as a single JSON object/array first
 	var js interface{}
@@ -265,27 +260,21 @@ func isJSONContent(sample string) bool {
 
 	// If it fails, try JSONL format (newline-delimited JSON)
 	if err != nil {
-		log.Printf("[DEBUG] isJSONContent: not a single JSON object/array, trying JSONL format")
 		// Try to parse first line as JSON
 		lines := strings.Split(trimmed, "\n")
 		if len(lines) == 0 {
-			log.Printf("[DEBUG] isJSONContent: no lines found")
 			return false
 		}
 
 		firstLine := strings.TrimSpace(lines[0])
 		if firstLine == "" {
-			log.Printf("[DEBUG] isJSONContent: first line is empty")
 			return false
 		}
 
 		if err := json.Unmarshal([]byte(firstLine), &js); err != nil {
-			log.Printf("[DEBUG] isJSONContent: JSONL first line unmarshal failed: %v", err)
 			return false
 		}
-		log.Printf("[DEBUG] isJSONContent: JSONL format detected, first line is valid JSON")
 	} else {
-		log.Printf("[DEBUG] isJSONContent: single JSON object/array unmarshal succeeded")
 	}
 
 	// Check for timestamp-related fields anywhere in the sample
@@ -295,11 +284,7 @@ func isJSONContent(sample string) bool {
 	hasAtTimestamp := strings.Contains(trimmed, `"@timestamp"`)
 	hasInsertId := strings.Contains(trimmed, `"insertId"`)
 
-	log.Printf("[DEBUG] isJSONContent: timestamp fields - timestamp:%v time:%v ts:%v @timestamp:%v insertId:%v",
-		hasTimestamp, hasTime, hasTs, hasAtTimestamp, hasInsertId)
-
 	result := hasTimestamp || hasTime || hasTs || hasAtTimestamp || hasInsertId
-	log.Printf("[DEBUG] isJSONContent: final result = %v", result)
 
 	return result
 }

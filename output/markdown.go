@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"dalibo/quellog/analysis"
+	"github.com/Alain-L/quellog/analysis"
 )
 
 // ExportMarkdown produces a comprehensive markdown report.

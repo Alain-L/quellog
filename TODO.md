@@ -29,7 +29,6 @@
 - Include SQL hints and `auto_explain` insights.
 
 ## Checkpoints & WAL
-- Distinguish ideal vs. non-ideal checkpoints (`timeout` vs. `max_wal_size`).
 - Explore WAL reporting.
 
 ## API & Integration

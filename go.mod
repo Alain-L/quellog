@@ -1,4 +1,4 @@
-module dalibo/quellog
+module github.com/Alain-L/quellog
 
 go 1.24.0
 

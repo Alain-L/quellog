@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"dalibo/quellog/parser"
+	"github.com/Alain-L/quellog/parser"
 )
 
 // GlobalMetrics aggregates general statistics from PostgreSQL logs.
