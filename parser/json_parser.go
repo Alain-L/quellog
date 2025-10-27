@@ -7,12 +7,14 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 )
 
 // JsonParser parses PostgreSQL logs in JSON format.
 // It supports multiple JSON log formats:
-//   - Standard format: {"timestamp":"2025-01-01T12:00:00Z","message":"log text"}
+//   - Standard PostgreSQL jsonlog format with detailed fields
+//   - Simple format: {"timestamp":"2025-01-01T12:00:00Z","message":"log text"}
 //   - Google Cloud SQL format with insertId and timestamp fields
 //   - Nested structures with flexible field extraction
 //
@@ -82,6 +84,10 @@ func (p *JsonParser) parseJSONArray(f *os.File, out chan<- LogEntry) error {
 // Format: {"timestamp":"...","message":"..."}\n{"timestamp":"...","message":"..."}\n
 func (p *JsonParser) parseJSONLines(f *os.File, out chan<- LogEntry) error {
 	scanner := bufio.NewScanner(f)
+	// Configure scanner with large buffer to handle long log lines
+	buf := make([]byte, 4*1024*1024)
+	scanner.Buffer(buf, 100*1024*1024)
+
 	lineNum := 0
 
 	for scanner.Scan() {
@@ -115,17 +121,21 @@ func (p *JsonParser) parseJSONLines(f *os.File, out chan<- LogEntry) error {
 // It supports multiple field name variations and formats commonly used
 // in PostgreSQL JSON logs.
 //
+// PostgreSQL native JSON format includes fields like:
+//   - timestamp, user, database, pid, remote_host, session_id
+//   - error_severity, message, detail, hint, query, context
+//   - application_name, backend_type
+//
 // Supported timestamp fields (in order of preference):
 //   - "timestamp"
 //   - "time"
 //   - "ts"
 //   - "@timestamp" (Elasticsearch/Logstash format)
 //
-// Supported message fields:
-//   - "message"
-//   - "msg"
-//   - "text"
-//   - "log"
+// Message construction:
+//   - Primary: "message" field
+//   - Enriched with: "detail", "hint", "query", "context" if present
+//   - Prefix with severity and context info if available
 //
 // Returns an error if required fields are missing or invalid.
 func extractLogEntry(obj map[string]interface{}) (LogEntry, error) {
@@ -135,16 +145,103 @@ func extractLogEntry(obj map[string]interface{}) (LogEntry, error) {
 		return LogEntry{}, fmt.Errorf("timestamp extraction failed: %w", err)
 	}
 
-	// Extract message
-	message, err := extractMessage(obj)
-	if err != nil {
-		return LogEntry{}, fmt.Errorf("message extraction failed: %w", err)
+	// Extract and construct message
+	message := constructMessage(obj)
+	if message == "" {
+		return LogEntry{}, fmt.Errorf("message extraction failed: no message content")
 	}
 
 	return LogEntry{
 		Timestamp: timestamp,
 		Message:   message,
 	}, nil
+}
+
+// constructMessage builds a complete log message from PostgreSQL JSON log fields.
+// It combines various fields to reconstruct a message similar to stderr format:
+//   - Adds context prefix (user, database, application)
+//   - Includes severity level
+//   - Appends detail, hint, query, and context if present
+func constructMessage(obj map[string]interface{}) string {
+	var parts []string
+
+	// Extract context fields
+	user := getStringField(obj, "user")
+	database := getStringField(obj, "database")
+	appName := getStringField(obj, "application_name")
+	severity := getStringField(obj, "error_severity")
+	pid := getStringField(obj, "pid")
+
+	// Build context prefix: [pid]: user=X,db=Y,app=Z SEVERITY:
+	var contextParts []string
+	if pid != "" {
+		contextParts = append(contextParts, fmt.Sprintf("[%s]:", pid))
+	}
+	if user != "" || database != "" || appName != "" {
+		var userDbApp []string
+		if user != "" {
+			userDbApp = append(userDbApp, fmt.Sprintf("user=%s", user))
+		}
+		if database != "" {
+			userDbApp = append(userDbApp, fmt.Sprintf("db=%s", database))
+		}
+		if appName != "" {
+			userDbApp = append(userDbApp, fmt.Sprintf("app=%s", appName))
+		}
+		if len(userDbApp) > 0 {
+			contextParts = append(contextParts, strings.Join(userDbApp, ","))
+		}
+	}
+
+	if len(contextParts) > 0 {
+		parts = append(parts, strings.Join(contextParts, " "))
+	}
+
+	// Add severity
+	if severity != "" {
+		parts = append(parts, severity+":")
+	}
+
+	// Main message
+	message := getStringField(obj, "message")
+	if message != "" {
+		parts = append(parts, message)
+	}
+
+	// Additional detail fields
+	detail := getStringField(obj, "detail")
+	if detail != "" {
+		parts = append(parts, "DETAIL: "+detail)
+	}
+
+	hint := getStringField(obj, "hint")
+	if hint != "" {
+		parts = append(parts, "HINT: "+hint)
+	}
+
+	query := getStringField(obj, "query")
+	if query != "" {
+		parts = append(parts, "STATEMENT: "+query)
+	}
+
+	context := getStringField(obj, "context")
+	if context != "" {
+		parts = append(parts, "CONTEXT: "+context)
+	}
+
+	return strings.Join(parts, " ")
+}
+
+// getStringField safely extracts a string field from a map, returning empty string if not found or wrong type.
+func getStringField(obj map[string]interface{}, key string) string {
+	if val, ok := obj[key]; ok && val != nil {
+		if str, ok := val.(string); ok {
+			return str
+		}
+		// Handle numeric types (e.g., pid)
+		return fmt.Sprintf("%v", val)
+	}
+	return ""
 }
 
 // extractTimestamp extracts and parses the timestamp from a JSON object.
@@ -166,7 +263,8 @@ func extractTimestamp(obj map[string]interface{}) (time.Time, error) {
 // Supports:
 //   - RFC3339 strings (2025-01-01T12:00:00Z)
 //   - Unix timestamps (seconds or milliseconds)
-//   - PostgreSQL format (2025-01-01 12:00:00)
+//   - PostgreSQL format (2025-01-01 12:00:00 or 2025-01-01 12:00:00.123)
+//   - PostgreSQL with timezone (2025-01-01 12:00:00 CET, 2025-01-01 12:00:00.123 CET)
 func parseTimestampValue(val interface{}) (time.Time, error) {
 	switch v := val.(type) {
 	case string:
@@ -178,12 +276,20 @@ func parseTimestampValue(val interface{}) (time.Time, error) {
 		if t, err := time.Parse(time.RFC3339Nano, v); err == nil {
 			return t, nil
 		}
-		// Try PostgreSQL format
-		if t, err := time.Parse("2006-01-02 15:04:05", v); err == nil {
+		// Try PostgreSQL format with milliseconds and timezone
+		if t, err := time.Parse("2006-01-02 15:04:05.999 MST", v); err == nil {
 			return t, nil
 		}
-		// Try with timezone
+		// Try PostgreSQL format with timezone
 		if t, err := time.Parse("2006-01-02 15:04:05 MST", v); err == nil {
+			return t, nil
+		}
+		// Try PostgreSQL format with milliseconds
+		if t, err := time.Parse("2006-01-02 15:04:05.999", v); err == nil {
+			return t, nil
+		}
+		// Try PostgreSQL format without timezone
+		if t, err := time.Parse("2006-01-02 15:04:05", v); err == nil {
 			return t, nil
 		}
 		return time.Time{}, fmt.Errorf("unsupported timestamp format: %s", v)
@@ -202,21 +308,4 @@ func parseTimestampValue(val interface{}) (time.Time, error) {
 	default:
 		return time.Time{}, fmt.Errorf("unsupported timestamp type: %T", val)
 	}
-}
-
-// extractMessage extracts the message text from a JSON object.
-// Tries multiple common field names.
-func extractMessage(obj map[string]interface{}) (string, error) {
-	// Try different field names
-	messageFields := []string{"message", "msg", "text", "log"}
-
-	for _, field := range messageFields {
-		if val, ok := obj[field]; ok && val != nil {
-			if msg, ok := val.(string); ok {
-				return msg, nil
-			}
-		}
-	}
-
-	return "", fmt.Errorf("no message field found")
 }

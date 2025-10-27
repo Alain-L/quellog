@@ -65,6 +65,7 @@ type CsvParser struct{}
 // Records with fewer fields are logged as warnings and skipped.
 //
 // The message field is enriched with additional context if available:
+//   - User, database, application metadata (formatted as in stderr logs)
 //   - DETAIL lines are appended
 //   - HINT lines are appended
 //   - QUERY text is appended
@@ -149,18 +150,49 @@ func parseCSVTimestamp(timestampStr string) (time.Time, error) {
 }
 
 // buildCSVMessage constructs a complete log message from CSV fields.
-// It combines the main message with additional context fields:
+// It combines the main message with additional context fields to match the stderr format:
+//   - PID (if present)
+//   - User, database, application context (formatted as "user=X,db=Y,app=Z")
 //   - Error severity (LOG, ERROR, WARNING, etc.)
 //   - Main message text
 //   - DETAIL (if present)
 //   - HINT (if present)
 //   - QUERY (if present)
+//   - CONTEXT (if present)
 //
-// Format: "SEVERITY: message DETAIL: detail HINT: hint QUERY: query"
+// Format: "[pid]: user=X,db=Y,app=Z SEVERITY: message DETAIL: detail HINT: hint QUERY: query"
 func buildCSVMessage(record []string) string {
 	var parts []string
 
-	// Start with severity and message
+	// Build context prefix similar to stderr format
+	var contextParts []string
+
+	// Add PID if present
+	if pid := getField(record, csvFieldPID); pid != "" {
+		contextParts = append(contextParts, fmt.Sprintf("[%s]:", pid))
+	}
+
+	// Add user/db/app context (format: "user=X,db=Y,app=Z")
+	var userDbApp []string
+	if user := getField(record, csvFieldUser); user != "" {
+		userDbApp = append(userDbApp, fmt.Sprintf("user=%s", user))
+	}
+	if database := getField(record, csvFieldDatabase); database != "" {
+		userDbApp = append(userDbApp, fmt.Sprintf("db=%s", database))
+	}
+	if app := getField(record, csvFieldAppName); app != "" {
+		userDbApp = append(userDbApp, fmt.Sprintf("app=%s", app))
+	}
+	if len(userDbApp) > 0 {
+		contextParts = append(contextParts, strings.Join(userDbApp, ","))
+	}
+
+	// Add context prefix to parts
+	if len(contextParts) > 0 {
+		parts = append(parts, strings.Join(contextParts, " "))
+	}
+
+	// Add severity and main message
 	severity := getField(record, csvFieldErrorSeverity)
 	message := getField(record, csvFieldMessage)
 
