@@ -1,13 +1,14 @@
 package output
 
 import (
-	"github.com/Alain-L/quellog/analysis"
 	"fmt"
 	"math"
 	"os"
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/Alain-L/quellog/analysis"
 
 	"golang.org/x/term"
 )
@@ -526,27 +527,20 @@ func PrintMostFrequentQueries(queryStats map[string]*analysis.QueryStat) {
 	totalWidth := 9 + 2 + queryWidth + 2 + 12
 	fmt.Println(strings.Repeat("-", totalWidth))
 
-	var maxCount int
 	var prevCount int
 	for i, q := range queries {
-		if i == 0 {
-			maxCount = q.Count
-			prevCount = q.Count
-		} else {
-			if q.Count == 1 {
-				break
-			}
-			if q.Count < prevCount/10 {
-				break
-			}
-			if q.Count <= (maxCount/2)-2 {
-				break
-			}
-			if i == 15 {
-				break
-			}
-			prevCount = q.Count
+		// Stop conditions
+		if i >= 15 {
+			break // Max 15 queries
 		}
+		if q.Count == 1 {
+			break // Don't show queries executed only once
+		}
+		if i > 0 && q.Count < prevCount/10 {
+			break // Stop if frequency drops by 10x
+		}
+
+		prevCount = q.Count
 
 		displayQuery := truncateQuery(q.Query, queryWidth)
 		fmt.Printf("%-9s  %-*s  %12d\n",

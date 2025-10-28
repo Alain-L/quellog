@@ -175,22 +175,3 @@ func parsePostgreSQLDuration(s string) time.Duration {
 
 	return duration
 }
-
-// ============================================================================
-// Legacy API (for backward compatibility)
-// ============================================================================
-
-// AnalyzeConnections scans log entries to count connection and disconnection events.
-//
-// Deprecated: This function loads all entries into memory. Use ConnectionAnalyzer
-// with streaming for better performance and memory efficiency.
-//
-// This function is maintained for backward compatibility and will be removed
-// in a future version.
-func AnalyzeConnections(entries *[]parser.LogEntry) ConnectionMetrics {
-	analyzer := NewConnectionAnalyzer()
-	for i := range *entries {
-		analyzer.Process(&(*entries)[i])
-	}
-	return analyzer.Finalize()
-}

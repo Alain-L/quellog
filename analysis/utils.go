@@ -72,45 +72,133 @@ func normalizeQuery(query string) string {
 		return ""
 	}
 
-	// Get pooled builder and pre-allocate capacity
 	buf := builderPool.Get().(*strings.Builder)
 	buf.Reset()
 	buf.Grow(len(query))
 	defer builderPool.Put(buf)
 
-	// Track if last character was whitespace (for collapsing)
 	lastWasSpace := false
 
 	for i := 0; i < len(query); i++ {
 		c := query[i]
 
-		switch c {
-		case '\n', '\r', '\t', ' ':
-			// Collapse multiple whitespace to single space
+		// Handle single-quoted strings (VALUES) - replace with ?
+		if c == '\'' {
+			buf.WriteByte('?')
+			// Skip until closing quote
+			for i+1 < len(query) {
+				i++
+				if query[i] == '\'' {
+					// Check for escaped quote ('')
+					if i+1 < len(query) && query[i+1] == '\'' {
+						i++ // Skip escaped quote
+					} else {
+						break // End of string
+					}
+				}
+			}
+			lastWasSpace = false
+			continue
+		}
+
+		// Handle double-quoted identifiers (tables/columns) - preserve as-is
+		if c == '"' {
+			buf.WriteByte('"')
+			// Copy until closing quote
+			for i+1 < len(query) {
+				i++
+				c = query[i]
+				// Convert to lowercase inside quotes too
+				if c >= 'A' && c <= 'Z' {
+					buf.WriteByte(c + 32)
+				} else {
+					buf.WriteByte(c)
+				}
+				if c == '"' {
+					break
+				}
+			}
+			lastWasSpace = false
+			continue
+		}
+
+		// Handle whitespace
+		if c == '\n' || c == '\r' || c == '\t' || c == ' ' {
 			if !lastWasSpace {
 				buf.WriteByte(' ')
 				lastWasSpace = true
 			}
+			continue
+		}
 
-		case '$':
-			// Replace PostgreSQL parameters ($1, $2) with placeholder
+		// Handle PostgreSQL parameters ($1, $2)
+		if c == '$' {
 			buf.WriteByte('?')
 			lastWasSpace = false
-
-			// Skip parameter number (e.g., "1" in "$1")
+			// Skip parameter number
 			for i+1 < len(query) && query[i+1] >= '0' && query[i+1] <= '9' {
 				i++
 			}
-
-		default:
-			// Convert uppercase to lowercase inline (ASCII only)
-			if c >= 'A' && c <= 'Z' {
-				buf.WriteByte(c + 32) // 'A' -> 'a'
-			} else {
-				buf.WriteByte(c)
-			}
-			lastWasSpace = false
+			continue
 		}
+
+		// Handle negative numbers: -123 → ? (only if isolated)
+		if c == '-' && i+1 < len(query) && query[i+1] >= '0' && query[i+1] <= '9' {
+			// Check if previous character is part of identifier
+			isPrevIdentifier := i > 0 && ((query[i-1] >= 'a' && query[i-1] <= 'z') ||
+				(query[i-1] >= 'A' && query[i-1] <= 'Z') ||
+				(query[i-1] >= '0' && query[i-1] <= '9') ||
+				query[i-1] == '_')
+
+			if !isPrevIdentifier {
+				buf.WriteByte('?')
+				lastWasSpace = false
+				i++ // Skip the minus sign
+				// Skip the number
+				for i+1 < len(query) && (query[i+1] >= '0' && query[i+1] <= '9' || query[i+1] == '.') {
+					i++
+				}
+				continue
+			}
+		}
+
+		// Handle numbers - replace with ? ONLY if isolated (not part of an identifier)
+		if c >= '0' && c <= '9' {
+			// Check BOTH previous AND next character
+			isPrevIdentifier := i > 0 && ((query[i-1] >= 'a' && query[i-1] <= 'z') ||
+				(query[i-1] >= 'A' && query[i-1] <= 'Z') ||
+				(query[i-1] >= '0' && query[i-1] <= '9') ||
+				query[i-1] == '_')
+
+			isNextIdentifier := i+1 < len(query) && ((query[i+1] >= 'a' && query[i+1] <= 'z') ||
+				(query[i+1] >= 'A' && query[i+1] <= 'Z') ||
+				(query[i+1] >= '0' && query[i+1] <= '9') ||
+				query[i+1] == '_')
+
+			// If part of identifier (sandwiched between identifier chars), keep it
+			if isPrevIdentifier || isNextIdentifier {
+				buf.WriteByte(c)
+				lastWasSpace = false
+				continue
+			}
+
+			// Isolated number - replace with ?
+			buf.WriteByte('?')
+			lastWasSpace = false
+			// Skip entire number (including decimals)
+			for i+1 < len(query) && (query[i+1] >= '0' && query[i+1] <= '9' || query[i+1] == '.') {
+				i++
+			}
+			continue
+		}
+
+		// Convert uppercase to lowercase
+		if c >= 'A' && c <= 'Z' {
+			buf.WriteByte(c + 32)
+		} else {
+			buf.WriteByte(c)
+		}
+		lastWasSpace = false
 	}
 
 	return buf.String()

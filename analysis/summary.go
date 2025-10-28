@@ -303,22 +303,3 @@ func mapKeysAsSlice(m map[string]struct{}) []string {
 	sort.Strings(keys)
 	return keys
 }
-
-// ============================================================================
-// Legacy API (for backward compatibility)
-// ============================================================================
-
-// AnalyzeUniqueEntities analyzes log entries to find unique database entities.
-//
-// Deprecated: This function loads all entries into memory. Use UniqueEntityAnalyzer
-// with streaming for better performance and memory efficiency.
-//
-// This function is maintained for backward compatibility and will be removed
-// in a future version.
-func AnalyzeUniqueEntities(entries *[]parser.LogEntry) UniqueEntityMetrics {
-	analyzer := NewUniqueEntityAnalyzer()
-	for i := range *entries {
-		analyzer.Process(&(*entries)[i])
-	}
-	return analyzer.Finalize()
-}

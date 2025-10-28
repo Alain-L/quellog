@@ -2,11 +2,12 @@
 package analysis
 
 import (
-	"github.com/Alain-L/quellog/parser"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/Alain-L/quellog/parser"
 )
 
 // CheckpointMetrics aggregates statistics related to PostgreSQL checkpoints.
@@ -181,23 +182,4 @@ func (a *CheckpointAnalyzer) Finalize() CheckpointMetrics {
 		TypeCounts:            a.typeCounts,
 		TypeEvents:            a.typeEvents,
 	}
-}
-
-// ============================================================================
-// Legacy API (for backward compatibility)
-// ============================================================================
-
-// AnalyzeCheckpoints scans log entries to aggregate checkpoint-related metrics.
-//
-// Deprecated: This function loads all entries into memory. Use CheckpointAnalyzer
-// with streaming for better performance and memory efficiency.
-//
-// This function is maintained for backward compatibility and will be removed
-// in a future version.
-func AnalyzeCheckpoints(entries *[]parser.LogEntry) CheckpointMetrics {
-	analyzer := NewCheckpointAnalyzer()
-	for i := range *entries {
-		analyzer.Process(&(*entries)[i])
-	}
-	return analyzer.Finalize()
 }

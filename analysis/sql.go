@@ -2,11 +2,12 @@
 package analysis
 
 import (
-	"github.com/Alain-L/quellog/parser"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/Alain-L/quellog/parser"
 )
 
 // QueryStat stores aggregated statistics for a single SQL query pattern.
