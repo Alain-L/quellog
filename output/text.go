@@ -1,13 +1,14 @@
 package output
 
 import (
-	"github.com/Alain-L/quellog/analysis"
 	"fmt"
 	"math"
 	"os"
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/Alain-L/quellog/analysis"
 
 	"golang.org/x/term"
 )
