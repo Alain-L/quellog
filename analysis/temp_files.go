@@ -2,10 +2,11 @@
 package analysis
 
 import (
-	"github.com/Alain-L/quellog/parser"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/Alain-L/quellog/parser"
 )
 
 // TempFileMetrics aggregates statistics about PostgreSQL temporary file usage.

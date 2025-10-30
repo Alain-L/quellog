@@ -129,22 +129,3 @@ func (a *EventAnalyzer) Finalize() []EventSummary {
 
 	return summary
 }
-
-// ============================================================================
-// Legacy API (for backward compatibility)
-// ============================================================================
-
-// SummarizeEvents analyzes log entries and returns a summary of event types.
-//
-// Deprecated: This function loads all entries into memory. Use EventAnalyzer
-// with streaming for better performance and memory efficiency.
-//
-// This function is maintained for backward compatibility and will be removed
-// in a future version.
-func SummarizeEvents(entries *[]parser.LogEntry) []EventSummary {
-	analyzer := NewEventAnalyzer()
-	for i := range *entries {
-		analyzer.Process(&(*entries)[i])
-	}
-	return analyzer.Finalize()
-}

@@ -245,22 +245,3 @@ func (a *ErrorClassAnalyzer) Finalize() []ErrorClassSummary {
 
 	return summaries
 }
-
-// ============================================================================
-// Legacy API (for backward compatibility)
-// ============================================================================
-
-// SummarizeErrorClasses processes log entries to extract SQLSTATE error class statistics.
-//
-// Deprecated: This function loads all entries into memory. Use ErrorClassAnalyzer
-// with streaming for better performance and memory efficiency.
-//
-// This function is maintained for backward compatibility and will be removed
-// in a future version.
-func SummarizeErrorClasses(entries []parser.LogEntry) []ErrorClassSummary {
-	analyzer := NewErrorClassAnalyzer()
-	for i := range entries {
-		analyzer.Process(&entries[i])
-	}
-	return analyzer.Finalize()
-}
