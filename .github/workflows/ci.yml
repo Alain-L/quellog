@@ -38,4 +38,4 @@ jobs:
           go test ./... -cover
 
       - name: Build CLI
-        run: go build -v ./quellog
+        run: go build -v .
