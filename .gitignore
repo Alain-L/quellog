@@ -30,7 +30,7 @@ vendor/
 _*
 
 # Test data
-testdata/
+!test/testdata/**
 retroengineering/
 out.html
 cpu.prof
