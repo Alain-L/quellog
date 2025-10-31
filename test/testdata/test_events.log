@@ -1,0 +1,8 @@
+2025-01-01 00:00:01 CET [12345]: [1-1] user=app_user,db=mydb LOG: database system is ready to accept connections
+2025-01-01 00:05:12 CET [12346]: [1-1] user=app_user,db=mydb HINT: Consider increasing max_connections
+2025-01-01 00:10:45 CET [12347]: [1-1] user=app_user,db=mydb INFO: Autovacuum started
+2025-01-01 00:15:30 CET [12348]: [1-1] user=app_user,db=mydb DEBUG: Starting background worker
+2025-01-01 00:20:00 CET [12349]: [1-1] user=app_user,db=mydb WARNING: Disk usage is above 90%
+2025-01-01 00:25:30 CET [12350]: [1-1] user=app_user,db=mydb ERROR: Could not serialize access due to concurrent update
+2025-01-01 00:30:00 CET [12351]: [1-1] user=app_user,db=mydb FATAL: Role "nonexistent_user" does not exist
+2025-01-01 00:35:45 CET [12352]: [1-1] user=app_user,db=mydb PANIC: Cannot write to transaction log, out of disk space

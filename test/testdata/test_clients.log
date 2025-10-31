@@ -1,0 +1,10 @@
+2025-01-01 07:00:00 CET [60001]: [1-1] user=admin,db=postgres,app=pgAdmin,host=192.168.1.10 LOG: starting session
+2025-01-01 07:05:15 CET [60002]: [1-1] user=webapp,db=production,app=webserver,host=10.0.0.15 LOG: query executed: SELECT * FROM users;
+2025-01-01 07:10:30 CET [60003]: [1-1] user=reporting,db=analytics,app=psql,host=[local] LOG: starting query execution
+2025-01-01 07:15:45 CET [60004]: [1-1] user=backup,db=postgres,app=pgBackRest,host=10.10.10.5 LOG: backup started
+2025-01-01 07:20:50 CET [60005]: [1-1] user=monitoring,db=metrics,app=Zabbix,host=10.20.30.40 LOG: monitoring job started
+2025-01-01 07:25:55 CET [60006]: [1-1] user=unknown,db=unknown,app=unknown,host=unknown FATAL: connection attempt failed
+2025-01-01 07:30:10 CET [60007]: [1-1] user=dba,db=postgres,app=pgAdmin,host=192.168.1.11 LOG: user login successful
+2025-01-01 07:35:25 CET [60008]: [1-1] user=etl,db=warehouse,app=Airflow,host=10.30.40.50 LOG: ETL job completed
+2025-01-01 07:40:40 CET [60009]: [1-1] user=analytics,db=bigdata,app=Jupyter,host=10.40.50.60 LOG: running analytics queries
+2025-01-01 07:45:55 CET [60010]: [1-1] user=,db=,app= LOG: log entry with missing fields

@@ -1,0 +1,19 @@
+{
+  "maintenance": {
+    "vacuum_count": 3,
+    "analyze_count": 3,
+    "vacuum_table_counts": {
+      "public.customers": 1,
+      "public.orders": 1,
+      "public.transactions": 1
+    },
+    "analyze_table_counts": {
+      "public.customers": 1,
+      "public.orders": 1,
+      "public.transactions": 1
+    },
+    "vacuum_space_recovered": {
+      "public.customers": "400.00 KB"
+    }
+  }
+}

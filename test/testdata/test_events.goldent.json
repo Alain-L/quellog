@@ -1,0 +1,12 @@
+{
+    "events": {
+      "DEBUG": 1,
+      "ERROR": 1,
+      "FATAL": 1,
+      "HINT": 1,
+      "INFO": 1,
+      "LOG": 1,
+      "PANIC": 1,
+      "WARNING": 1
+    }
+}

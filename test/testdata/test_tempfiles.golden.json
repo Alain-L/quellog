@@ -1,0 +1,29 @@
+{
+    "temp_files": {
+      "total_messages": 5,
+      "total_size": "1006.80 MB",
+      "avg_size": "201.36 MB",
+      "events": [
+        {
+          "timestamp": "2025-01-01 01:45:30",
+          "size": "2.00 MB"
+        },
+        {
+          "timestamp": "2025-01-01 02:00:00",
+          "size": "953.67 MB"
+        },
+        {
+          "timestamp": "2025-01-01 01:00:05",
+          "size": "125.00 KB"
+        },
+        {
+          "timestamp": "2025-01-01 01:15:20",
+          "size": "50.00 MB"
+        },
+        {
+          "timestamp": "2025-01-01 01:30:45",
+          "size": "1.00 MB"
+        }
+      ]
+    }
+  }
