@@ -194,6 +194,43 @@ func NewErrorClassAnalyzer() *ErrorClassAnalyzer {
 //   - 'ERROR: relation "users" does not exist SQLSTATE = '42P01”
 //   - 'ERROR: duplicate key value violates unique constraint SQLSTATE='23505”
 func (a *ErrorClassAnalyzer) Process(entry *parser.LogEntry) {
+	msg := entry.Message
+
+	// Quick checks before expensive operations
+	if len(msg) < 15 || msg[0] != 'S' { // "SQLSTATE" starts with 'S'
+		// Alternative: check if likely position has 'S'
+		found := false
+		for i := 0; i < len(msg)-8 && i < 100; i++ {
+			if msg[i] == 'S' && msg[i+1] == 'Q' {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return
+		}
+	}
+
+	// Now do the full check
+	if !strings.Contains(msg, "SQLSTATE") {
+		return
+	}
+
+	// Extract SQLSTATE code using regex
+	match := errorCodeRegex.FindStringSubmatch(msg)
+	if len(match) != 2 {
+		return
+	}
+
+	// Extract error class (first two characters of SQLSTATE)
+	sqlstate := match[1]
+	if len(sqlstate) >= 2 {
+		classCode := sqlstate[:2]
+		a.counts[classCode]++
+	}
+}
+
+func (a *ErrorClassAnalyzer) ProcessLegacy(entry *parser.LogEntry) {
 	// Quick check: skip if message doesn't contain SQLSTATE
 	if !strings.Contains(entry.Message, "SQLSTATE") {
 		return

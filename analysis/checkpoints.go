@@ -97,14 +97,29 @@ func NewCheckpointAnalyzer() *CheckpointAnalyzer {
 //
 // The type from "starting" is associated with the next "complete" message.
 func (a *CheckpointAnalyzer) Process(entry *parser.LogEntry) {
-	// Handle "checkpoint starting: <type>"
-	if strings.Contains(entry.Message, checkpointStarting) {
-		a.processCheckpointStarting(entry)
+	msg := entry.Message
+
+	if len(msg) < 10 {
 		return
 	}
 
-	// Handle "checkpoint complete: ..."
-	if strings.Contains(entry.Message, checkpointComplete) {
+	// Search for "checkpoint" anywhere
+	idx := strings.Index(msg, "checkpoint")
+	if idx < 0 {
+		return
+	}
+
+	// Check character after "checkpoint " (position idx+11)
+	pos := idx + 11
+	if pos >= len(msg) {
+		return
+	}
+
+	// Just check first letter: 's' for starting, 'c' for complete
+	switch msg[pos] {
+	case 's': // "checkpoint starting"
+		a.processCheckpointStarting(entry)
+	case 'c': // "checkpoint complete"
 		a.processCheckpointComplete(entry)
 	}
 }

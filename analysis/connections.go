@@ -66,14 +66,13 @@ func NewConnectionAnalyzer() *ConnectionAnalyzer {
 	}
 }
 
-// Process analyzes a single log entry for connection-related events.
-// It handles both "connection received" and "disconnection" messages.
-//
-// Example messages:
-//   - "connection received: host=127.0.0.1 port=54321"
-//   - "disconnection: session time: 0:00:05.123 user=postgres database=mydb host=127.0.0.1"
+// optimized version of Process for connection-related events.
 func (a *ConnectionAnalyzer) Process(entry *parser.LogEntry) {
 	msg := entry.Message
+
+	if len(msg) < 12 {
+		return
+	}
 
 	// Detect connection events
 	if strings.Contains(msg, connectionReceived) {
@@ -85,8 +84,6 @@ func (a *ConnectionAnalyzer) Process(entry *parser.LogEntry) {
 	// Detect disconnection events
 	if strings.Contains(msg, disconnection) {
 		a.disconnectionCount++
-
-		// Extract and accumulate session duration if available
 		if duration := extractSessionTime(msg); duration > 0 {
 			a.totalSessionTime += duration
 		}

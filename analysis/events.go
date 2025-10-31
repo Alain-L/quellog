@@ -87,12 +87,16 @@ func NewEventAnalyzer() *EventAnalyzer {
 func (a *EventAnalyzer) Process(entry *parser.LogEntry) {
 	msg := entry.Message
 
-	// Check for predefined event types
+	if len(msg) < 3 {
+		return
+	}
+
+	// Check for predefined event types (kept simple, they're usually at start)
 	for _, eventType := range predefinedEventTypes {
 		if strings.Contains(msg, eventType) {
 			a.counts[eventType]++
 			a.total++
-			break // Prevent counting multiple event types in one entry
+			break
 		}
 	}
 }

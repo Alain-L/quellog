@@ -129,6 +129,7 @@ func NewSQLAnalyzer() *SQLAnalyzer {
 //	"LOG: duration: 10.456 ms statement: UPDATE users SET name = 'John' WHERE id = 1"
 func (a *SQLAnalyzer) Process(entry *parser.LogEntry) {
 	// Extract duration and query from log message
+
 	duration, query, ok := extractDurationAndQuery(entry.Message)
 	if !ok {
 		return

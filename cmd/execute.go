@@ -109,11 +109,7 @@ func buildLogFilters(beginT, endT time.Time) parser.LogFilters {
 
 // processAndOutput analyzes filtered logs and outputs results in the requested format.
 func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, totalFileSize int64) {
-<<<<<<< HEAD
-	// Special case: SQL sql details (single sql analysis)
-=======
 	// Special case: SQL query details (single query analysis)
->>>>>>> debug
 	if len(sqlDetailFlag) > 0 {
 		sqlMetrics := analysis.RunSQLSummary(filteredLogs)
 		processingDuration := time.Since(startTime)

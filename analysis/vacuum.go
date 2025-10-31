@@ -88,21 +88,30 @@ func NewVacuumAnalyzer() *VacuumAnalyzer {
 func (a *VacuumAnalyzer) Process(entry *parser.LogEntry) {
 	msg := entry.Message
 
-	// Check for automatic vacuum
-	if strings.Contains(msg, autoVacuumMarker) {
+	if len(msg) < 18 {
+		return
+	}
+
+	// Search for "automatic vacuum" or "automatic analyze" anywhere
+	idx := strings.Index(msg, "automatic")
+	if idx < 0 {
+		return
+	}
+
+	// Check what follows "automatic "
+	rest := msg[idx+10:]
+
+	if strings.HasPrefix(rest, "vacuum") {
 		tableName := extractTableName(msg)
 		a.vacuumCount++
 		a.vacuumTableCounts[tableName]++
-
-		// Extract space recovered (removed pages * page size)
 		if removedPages := extractRemovedPages(msg); removedPages > 0 {
 			a.vacuumSpaceRecovered[tableName] += removedPages * pageSize
 		}
 		return
 	}
 
-	// Check for automatic analyze
-	if strings.Contains(msg, autoAnalyzeMarker) {
+	if strings.HasPrefix(rest, "analyze") {
 		tableName := extractTableName(msg)
 		a.analyzeCount++
 		a.analyzeTableCounts[tableName]++

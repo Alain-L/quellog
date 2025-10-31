@@ -81,15 +81,19 @@ func NewTempFileAnalyzer() *TempFileAnalyzer {
 //
 // The size is in bytes and appears after the "size" keyword.
 func (a *TempFileAnalyzer) Process(entry *parser.LogEntry) {
-	// Quick check: skip non-temp-file entries
-	if !strings.Contains(entry.Message, tempFileMarker) {
+	msg := entry.Message
+
+	if len(msg) < 14 {
+		return
+	}
+
+	// Search for "temporary file" anywhere
+	if !strings.Contains(msg, tempFileMarker) {
 		return
 	}
 
 	a.count++
-
-	// Extract size from message
-	size := extractTempFileSize(entry.Message)
+	size := extractTempFileSize(msg)
 	if size > 0 {
 		a.totalSize += size
 		a.events = append(a.events, TempFileEvent{
