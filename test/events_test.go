@@ -4,14 +4,22 @@ package quellog_test
 import (
 	"bytes"
 	"encoding/json"
+	"os"
 	"os/exec"
 	"reflect"
 	"testing"
 )
 
 func TestEventsJSONOutput(t *testing.T) {
-	// Path to your built CLI binary
-	quellogBinary := "../bin/quellog_test"
+	// Build the binary from source
+	buildCmd := exec.Command("go", "build", "-o", "quellog_test", ".")
+	buildCmd.Dir = ".." // Remonte au root du projet
+	if err := buildCmd.Run(); err != nil {
+		t.Fatalf("Failed to build binary: %v", err)
+	}
+	defer os.Remove("../quellog_test") // Cleanup
+
+	quellogBinary := "../quellog_test"
 
 	// List of input test files in different formats
 	inputs := []string{

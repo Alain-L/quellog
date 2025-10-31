@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [0.2.0] - 2025-10-31
 ### Added
 - **JSON log format support**: Native PostgreSQL jsonlog format detection and parsing
 - **CSV log format support**: Full CSV log parsing capability
@@ -39,7 +39,7 @@ All notable changes to this project will be documented in this file.
 ### Removed
 - `--grep` flag: Favor standard Unix tools (grep, awk) for raw log filtering
 
-## [0.1.0-alpha] - 2025-02-17
+## [0.1.0] - 2025-02-17
 ### Added
 - Initial release with PostgreSQL stderr format parsing
 - CLI interface with time-based filters (begin, end, window)
