@@ -38,6 +38,4 @@ jobs:
           go test ./... -cover
 
       - name: Build CLI
-  run: |
-    mkdir -p bin
-    go build -v -o bin/quellog .
+        run: go build -v ./quellog
