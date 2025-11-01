@@ -35,3 +35,7 @@ retroengineering/
 out.html
 cpu.prof
 trace.out
+
+# AI helpers
+CLAUDE.md
+.claude
