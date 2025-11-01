@@ -212,6 +212,8 @@ func readUntilNLines(f *os.File, n int) (string, error) {
 	var lineCount int
 
 	scanner := bufio.NewScanner(f)
+	buf := make([]byte, 64*1024)
+	scanner.Buffer(buf, 4*1024*1024)
 	for scanner.Scan() {
 		sample.WriteString(scanner.Text())
 		sample.WriteString("\n")
@@ -301,12 +303,6 @@ func isJSONContent(sample string) bool {
 
 	if trimmed == "" {
 		return false
-	}
-
-	// Show first 200 chars of sample
-	preview := trimmed
-	if len(preview) > 200 {
-		preview = preview[:200] + "..."
 	}
 
 	// Must start with '{' or '['
@@ -408,6 +404,10 @@ func isLogContent(sample string) bool {
 //  1. It contains null bytes (\x00)
 //  2. More than 30% of characters are non-printable control characters
 func isBinaryContent(sample string) bool {
+	if len(sample) == 0 {
+		return false
+	}
+
 	// Immediate rejection for null bytes
 	if strings.Contains(sample, "\x00") {
 		return true
