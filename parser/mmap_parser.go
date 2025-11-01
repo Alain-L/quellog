@@ -67,8 +67,8 @@ func (p *MmapStderrParser) parseWithMmap(filename string, out chan<- LogEntry) e
 	}
 	defer syscall.Munmap(data)
 
-	// Parse the mapped data line by line
-	return parseMmapData(data, out)
+	// Parse the mapped data line by line (optimized version with zero-copy byte slicing)
+	return parseMmapDataOptimized(data, out)
 }
 
 // parseMmapData parses log data from a memory-mapped buffer.
