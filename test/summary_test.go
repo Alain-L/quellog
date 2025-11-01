@@ -39,6 +39,23 @@ func TestSummaryJSONOutput(t *testing.T) {
 		"testdata/test_summary.csv",
 		"testdata/test_summary.json",
 		"testdata/test_summary_sys.log",
+		"testdata/test_summary.log.gz",
+		"testdata/test_summary.csv.gz",
+		"testdata/test_summary.json.gz",
+		"testdata/test_summary_sys.log.gz",
+		"testdata/test_summary.tar",
+		"testdata/test_summary.tar.gz",
+		"testdata/test_summary.log.zst",
+		"testdata/test_summary.csv.zst",
+		"testdata/test_summary.json.zst",
+		"testdata/test_summary_sys.log.zst",
+		"testdata/test_summary.tar.zst",
+		"testdata/test_summary.log.zstd",
+		"testdata/test_summary.csv.zstd",
+		"testdata/test_summary.json.zstd",
+		"testdata/test_summary_sys.log.zstd",
+		"testdata/test_summary.tar.zstd",
+		"testdata/test_summary.tzst",
 	}
 
 	for _, input := range inputs {

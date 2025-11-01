@@ -28,6 +28,7 @@ vendor/
 
 # Commodity files
 _*
+.gocache/
 
 # Test data
 !test/testdata/**
@@ -39,4 +40,5 @@ trace.out
 # AI helpers
 CLAUDE.md
 GEMINI.md
+AGENTS.md
 .claude

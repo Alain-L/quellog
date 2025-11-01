@@ -5,6 +5,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"strings"
@@ -42,39 +43,63 @@ func (p *JsonParser) Parse(filename string, out chan<- LogEntry) error {
 	}
 	defer f.Close()
 
-	// Try to parse as JSON array first, then fall back to JSONL
-	if err := p.parseJSONArray(f, out); err == nil {
-		return nil
-	}
+	return p.parseReader(f, out)
+}
 
-	// Reopen file for JSONL parsing (decoder consumed the file)
-	f.Close()
-	f, err = os.Open(filename)
+// parseReader detects the JSON structure and dispatches to the appropriate parser.
+func (p *JsonParser) parseReader(r io.Reader, out chan<- LogEntry) error {
+	bufReader := bufio.NewReader(r)
+
+	firstByte, err := peekFirstNonWhitespace(bufReader)
 	if err != nil {
-		return fmt.Errorf("failed to reopen file %s: %w", filename, err)
+		if err == io.EOF {
+			return nil
+		}
+		return fmt.Errorf("failed to read JSON stream: %w", err)
 	}
-	defer f.Close()
 
-	return p.parseJSONLines(f, out)
+	switch firstByte {
+	case '[':
+		return p.parseJSONArray(bufReader, out)
+	default:
+		return p.parseJSONLines(bufReader, out)
+	}
 }
 
 // parseJSONArray attempts to parse the file as a JSON array of log entries.
 // Format: [{"timestamp":"...","message":"..."},...]
-func (p *JsonParser) parseJSONArray(f *os.File, out chan<- LogEntry) error {
-	var entries []map[string]interface{}
-	decoder := json.NewDecoder(f)
+func (p *JsonParser) parseJSONArray(r io.Reader, out chan<- LogEntry) error {
+	decoder := json.NewDecoder(r)
 
-	if err := decoder.Decode(&entries); err != nil {
-		return err // Not a JSON array, will try JSONL
+	tok, err := decoder.Token()
+	if err != nil {
+		return err
 	}
 
-	for i, obj := range entries {
+	del, ok := tok.(json.Delim)
+	if !ok || del != '[' {
+		return fmt.Errorf("expected JSON array")
+	}
+
+	index := 0
+	for decoder.More() {
+		var obj map[string]interface{}
+		if err := decoder.Decode(&obj); err != nil {
+			return err
+		}
+
 		entry, err := extractLogEntry(obj)
 		if err != nil {
-			log.Printf("[WARN] Skipping malformed JSON entry at index %d: %v", i, err)
+			log.Printf("[WARN] Skipping malformed JSON entry at index %d: %v", index, err)
 			continue
 		}
 		out <- entry
+		index++
+	}
+
+	// Consume closing ']'
+	if _, err := decoder.Token(); err != nil {
+		return err
 	}
 
 	return nil
@@ -82,8 +107,8 @@ func (p *JsonParser) parseJSONArray(f *os.File, out chan<- LogEntry) error {
 
 // parseJSONLines parses newline-delimited JSON (JSONL/NDJSON format).
 // Format: {"timestamp":"...","message":"..."}\n{"timestamp":"...","message":"..."}\n
-func (p *JsonParser) parseJSONLines(f *os.File, out chan<- LogEntry) error {
-	scanner := bufio.NewScanner(f)
+func (p *JsonParser) parseJSONLines(r io.Reader, out chan<- LogEntry) error {
+	scanner := bufio.NewScanner(r)
 	// Configure scanner with large buffer to handle long log lines
 	buf := make([]byte, 4*1024*1024)
 	scanner.Buffer(buf, 100*1024*1024)
@@ -115,6 +140,31 @@ func (p *JsonParser) parseJSONLines(f *os.File, out chan<- LogEntry) error {
 	}
 
 	return scanner.Err()
+}
+
+// peekFirstNonWhitespace returns the first non-whitespace byte without consuming it.
+func peekFirstNonWhitespace(reader *bufio.Reader) (byte, error) {
+	for {
+		b, err := reader.ReadByte()
+		if err != nil {
+			return 0, err
+		}
+		if !isWhitespace(b) {
+			if err := reader.UnreadByte(); err != nil {
+				return 0, err
+			}
+			return b, nil
+		}
+	}
+}
+
+func isWhitespace(b byte) bool {
+	switch b {
+	case ' ', '\n', '\r', '\t':
+		return true
+	default:
+		return false
+	}
 }
 
 // extractLogEntry extracts timestamp and message from a JSON object.

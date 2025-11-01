@@ -5,13 +5,14 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // collectFiles gathers all log files from the provided arguments.
 // Arguments can be:
 //   - Individual files
 //   - Glob patterns (e.g., "*.log")
-//   - Directories (scans for .log files, non-recursive)
+//   - Directories (scans for supported log files, non-recursive)
 func collectFiles(args []string) []string {
 	var files []string
 
@@ -19,7 +20,7 @@ func collectFiles(args []string) []string {
 		// Check if argument is a directory
 		info, err := os.Stat(arg)
 		if err == nil && info.IsDir() {
-			// Scan directory for .log files
+			// Scan directory for supported log files
 			dirFiles, err := gatherLogFiles(arg)
 			if err != nil {
 				log.Printf("[WARN] Failed to read directory %s: %v", arg, err)
@@ -47,8 +48,7 @@ func collectFiles(args []string) []string {
 	return files
 }
 
-// gatherLogFiles scans a directory for .log files (non-recursive).
-// Only files with the .log extension are returned.
+// gatherLogFiles scans a directory for supported log files (non-recursive).
 func gatherLogFiles(dir string) ([]string, error) {
 	f, err := os.Open(dir)
 	if err != nil {
@@ -68,11 +68,37 @@ func gatherLogFiles(dir string) ([]string, error) {
 			continue
 		}
 
-		// Only include .log files
-		if filepath.Ext(entry.Name()) == ".log" {
+		if isSupportedLogFile(entry.Name()) {
 			logFiles = append(logFiles, filepath.Join(dir, entry.Name()))
 		}
 	}
 
 	return logFiles, nil
+}
+
+// isSupportedLogFile reports whether the file name looks like a supported log format.
+// Accepted extensions:
+//   - .log, .csv, .json
+//   - .log.gz, .csv.gz, .json.gz
+//   - .tar, .tar.gz, .tgz
+func isSupportedLogFile(name string) bool {
+	lower := strings.ToLower(name)
+	supported := []string{
+		".log",
+		".csv",
+		".json",
+		".log.gz",
+		".csv.gz",
+		".json.gz",
+		".tar",
+		".tar.gz",
+		".tgz",
+	}
+
+	for _, ext := range supported {
+		if strings.HasSuffix(lower, ext) {
+			return true
+		}
+	}
+	return false
 }

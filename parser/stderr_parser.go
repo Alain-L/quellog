@@ -4,6 +4,7 @@ package parser
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"time"
@@ -42,8 +43,12 @@ func (p *StderrParser) Parse(filename string, out chan<- LogEntry) error {
 	}
 	defer file.Close()
 
-	scanner := bufio.NewScanner(file)
+	return p.parseReader(file, out)
+}
 
+// parseReader runs the stderr parsing logic against any io.Reader.
+func (p *StderrParser) parseReader(r io.Reader, out chan<- LogEntry) error {
+	scanner := bufio.NewScanner(r)
 	// Configure scanner with large buffer to handle long log lines
 	// (e.g., STATEMENT lines with large queries)
 	buf := make([]byte, scannerBuffer)

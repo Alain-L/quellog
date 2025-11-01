@@ -153,6 +153,8 @@ Here are the main features:
 
 - **Multi-format support:** Automatically detects and parses PostgreSQL logs in
   stderr, CSV, or JSON format
+- **Transparent archive support:** Read `*.log.gz`, `*.csv.gz`, `*.json.gz`
+  as well as tar bundles (`*.tar`, `*.tar.gz`, `*.tgz`) without manual decompression
 - **Time-based filtering:** Analyze logs within specific date ranges or time
   windows
 - **Attribute filtering:** Focus on specific databases, users, applications, or

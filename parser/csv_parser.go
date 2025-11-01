@@ -79,7 +79,12 @@ func (p *CsvParser) Parse(filename string, out chan<- LogEntry) error {
 	}
 	defer f.Close()
 
-	reader := csv.NewReader(f)
+	return p.parseReader(f, out)
+}
+
+// parseReader processes CSV records from any io.Reader.
+func (p *CsvParser) parseReader(r io.Reader, out chan<- LogEntry) error {
+	reader := csv.NewReader(r)
 	// PostgreSQL CSV logs have 23 fields, but we'll be lenient
 	reader.FieldsPerRecord = -1 // Variable number of fields (lenient mode)
 	reader.TrimLeadingSpace = true
