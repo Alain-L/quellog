@@ -387,7 +387,12 @@ func PrintTimeConsumingQueries(queryStats map[string]*analysis.QueryStat) {
 		})
 	}
 
-	sort.Slice(queries, func(i, j int) bool { return queries[i].TotalTime > queries[j].TotalTime })
+	sort.Slice(queries, func(i, j int) bool {
+		if queries[i].TotalTime != queries[j].TotalTime {
+			return queries[i].TotalTime > queries[j].TotalTime
+		}
+		return queries[i].Query < queries[j].Query
+	})
 
 	bold := "\033[1m"
 	reset := "\033[0m"
@@ -455,7 +460,10 @@ func PrintSlowestQueries(queryStats map[string]*analysis.QueryStat) {
 	}
 
 	sort.Slice(queries, func(i, j int) bool {
-		return queries[i].MaxTime > queries[j].MaxTime
+		if queries[i].MaxTime != queries[j].MaxTime {
+			return queries[i].MaxTime > queries[j].MaxTime
+		}
+		return queries[i].Query < queries[j].Query
 	})
 
 	if len(queries) > 10 {
@@ -507,7 +515,10 @@ func PrintMostFrequentQueries(queryStats map[string]*analysis.QueryStat) {
 	}
 
 	sort.Slice(queries, func(i, j int) bool {
-		return queries[i].Count > queries[j].Count
+		if queries[i].Count != queries[j].Count {
+			return queries[i].Count > queries[j].Count
+		}
+		return queries[i].Query < queries[j].Query
 	})
 
 	termWidth, _, err := term.GetSize(int(os.Stdout.Fd()))

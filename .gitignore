@@ -33,7 +33,7 @@ _*
 !test/testdata/**
 retroengineering/
 out.html
-cpu.prof
+*.prof
 trace.out
 
 # AI helpers
