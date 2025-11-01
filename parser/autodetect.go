@@ -61,6 +61,9 @@ var (
 // ParseFile detects the log format and parses the file in streaming mode.
 // It automatically detects whether the file is in stderr/syslog, CSV, or JSON format.
 // Returns an error if the format is unknown or parsing fails.
+//
+// For stderr/syslog format, uses memory-mapped I/O by default with automatic
+// fallback to buffered I/O if mmap fails (network filesystems, pipes, etc.).
 func ParseFile(filename string, out chan<- LogEntry) error {
 	parser := detectParser(filename)
 	if parser == nil {
@@ -194,7 +197,7 @@ func detectByExtension(filename, ext, sample string) LogParser {
 
 	case "log":
 		if isLogContent(sample) {
-			return &StderrParser{}
+			return &MmapStderrParser{}
 		}
 		log.Printf("[ERROR] File %s has .log extension but content is not valid log format", filename)
 		return nil
@@ -218,7 +221,7 @@ func detectByContent(filename, sample string) LogParser {
 
 	case isLogContent(sample):
 		log.Printf("[INFO] Detected stderr/syslog format for %s (unknown extension)", filename)
-		return &StderrParser{}
+		return &MmapStderrParser{}
 
 	default:
 		log.Printf("[ERROR] Unknown log format for file: %s", filename)
