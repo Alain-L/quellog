@@ -21,19 +21,29 @@ func TestSummaryJSONOutput(t *testing.T) {
 
 	quellogBinary := "../quellog_test"
 
-	// List of input test files in different formats
-	inputs := []string{
-		"testdata/test_summary.log",
-		//"testdata/test_summary.csv",
-		//"testdata/test_summary.json",
-		//"testdata/test_summary.syslog",
+	// Load the golden file
+	goldenFile := "testdata/test_summary.golden.json"
+	goldenJSON, err := os.ReadFile(goldenFile)
+	if err != nil {
+		t.Fatalf("Failed to read golden file: %v", err)
 	}
 
 	var baseline interface{}
+	if err := json.Unmarshal(goldenJSON, &baseline); err != nil {
+		t.Fatalf("Failed to unmarshal golden file: %v", err)
+	}
 
-	for i, input := range inputs {
-		// Run the CLI on each input with --json --summary
-		cmd := exec.Command(quellogBinary, input, "--json", "--summary")
+	// List of input test files in different formats
+	inputs := []string{
+		"testdata/test_summary.log",
+		"testdata/test_summary.csv",
+		"testdata/test_summary.json",
+		"testdata/test_summary_sys.log",
+	}
+
+	for _, input := range inputs {
+		// Run the CLI on each input with --json
+		cmd := exec.Command(quellogBinary, input, "--json")
 		var stdout bytes.Buffer
 		cmd.Stdout = &stdout
 		cmd.Stderr = &stdout // include stderr in case of format detection messages
@@ -48,18 +58,13 @@ func TestSummaryJSONOutput(t *testing.T) {
 			t.Fatalf("invalid JSON from %s: %v\n%s", input, err, stdout.String())
 		}
 
-		if i == 0 {
-			// first format becomes our baseline
-			baseline = got
-		} else {
-			// compare to baseline
-			if !reflect.DeepEqual(baseline, got) {
-				// pretty-print both for debugging
-				bs, _ := json.MarshalIndent(baseline, "", "  ")
-				gs, _ := json.MarshalIndent(got, "", "  ")
-				t.Errorf("JSON output for %s diverges from baseline (%s):\n--- baseline ---\n%s\n--- got ---\n%s",
-					input, inputs[0], string(bs), string(gs))
-			}
+		// compare to baseline
+		if !reflect.DeepEqual(baseline, got) {
+			// pretty-print both for debugging
+			bs, _ := json.MarshalIndent(baseline, "", "  ")
+			gs, _ := json.MarshalIndent(got, "", "  ")
+			t.Errorf("JSON output for %s diverges from golden file:\n--- golden ---\n%s\n--- got ---\n%s",
+				input, string(bs), string(gs))
 		}
 	}
 }

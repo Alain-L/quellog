@@ -84,7 +84,7 @@
 2025-01-01 00:52:00 CET [70031]: [1-1] LOG: connection received: host=192.168.1.103 port=5432
 2025-01-01 00:52:00 CET [70031]: [2-1] user=app_user,db=app_db,app=app_server LOG: connection authorized: user=app_user database=app_db
 2025-01-01 00:55:15 CET [70032]: [1-1] LOG: disconnection: session time: 0:42:45.890 user=admin database=postgres host=192.168.1.102 port=5432
-2025-01-01 01:00:00 CET [70120]: [1-1] LOG: checkpoint starting: xlog
+2025-01-01 01:00:00 CET [70120]: [1-1] LOG: checkpoint starting: wal
 2025-01-01 01:00:04 CET [70120]: [2-1] LOG: checkpoint complete: wrote 512 buffers (3.1%); 0 WAL file(s) added, 1 removed, 0 recycled; write=2.800 s, sync=0.150 s, total=4.000 s; sync files=5, longest=0.080 s, average=0.030 s; distance=4096 kB, estimate=7372 kB; lsn=0/1E000028, redo lsn=0/1DFFFFF8
 2025-01-01 01:02:30 CET [70033]: [1-1] LOG: connection received: host=10.0.2.40 port=5432
 2025-01-01 01:02:30 CET [70033]: [2-1] user=readonly,db=analytics_db,app=metabase LOG: connection authorized: user=readonly database=analytics_db
@@ -145,7 +145,7 @@
 	ORDER BY category, product_count DESC;
 2025-01-01 01:45:30 CET [70043]: [1-1] LOG: disconnection: session time: 0:56:45.123 user=readonly database=app_db host=192.168.1.150 port=5432
 2025-01-01 02:00:00 CET [70190]: [1-1] LOG: automatic analyze of table "app_db.public.products"
-2025-01-01 02:00:00 CET [70191]: [1-1] LOG: checkpoint starting: xlog
+2025-01-01 02:00:00 CET [70191]: [1-1] LOG: checkpoint starting: wal
 2025-01-01 02:00:05 CET [70191]: [2-1] LOG: checkpoint complete: wrote 896 buffers (5.5%); 0 WAL file(s) added, 1 removed, 1 recycled; write=4.200 s, sync=0.600 s, total=5.000 s; sync files=7, longest=0.190 s, average=0.086 s; distance=7168 kB, estimate=15461 kB; lsn=0/35000028, redo lsn=0/34FFFFF8
 2025-01-01 02:03:15 CET [70044]: [1-1] LOG: connection received: host=192.168.1.105 port=5432
 2025-01-01 02:03:15 CET [70044]: [2-1] user=admin,db=postgres,app=psql LOG: connection authorized: user=admin database=postgres
@@ -247,7 +247,7 @@
 	    GROUP BY user_id
 	) sq
 	WHERE user_statistics.user_id = sq.user_id;
-2025-01-01 04:00:00 CET [70240]: [1-1] LOG: checkpoint starting: xlog
+2025-01-01 04:00:00 CET [70240]: [1-1] LOG: checkpoint starting: wal
 2025-01-01 04:00:05 CET [70240]: [2-1] LOG: checkpoint complete: wrote 1152 buffers (7.0%); 1 WAL file(s) added, 0 removed, 1 recycled; write=4.300 s, sync=0.550 s, total=5.000 s; sync files=8, longest=0.210 s, average=0.069 s; distance=9216 kB, estimate=12719 kB; lsn=0/53000028, redo lsn=0/52FFFFF8
 2025-01-01 04:05:15 CET [70064]: [1-1] LOG: disconnection: session time: 2:20:15.890 user=app_user database=app_db host=172.16.0.40 port=5432
 2025-01-01 04:10:00 CET [70065]: [1-1] LOG: connection received: host=172.16.0.90 port=5432
@@ -333,7 +333,7 @@
 	FROM cohort_data
 	GROUP BY cohort_month, order_month
 	ORDER BY cohort_month, order_month;
-2025-01-01 06:00:00 CET [70280]: [1-1] LOG: checkpoint starting: xlog
+2025-01-01 06:00:00 CET [70280]: [1-1] LOG: checkpoint starting: wal
 2025-01-01 06:00:06 CET [70280]: [2-1] LOG: checkpoint complete: wrote 1536 buffers (9.4%); 1 WAL file(s) added, 0 removed, 2 recycled; write=5.400 s, sync=0.500 s, total=6.000 s; sync files=11, longest=0.190 s, average=0.045 s; distance=12288 kB, estimate=12288 kB; lsn=0/77000028, redo lsn=0/76FFFFF8
 2025-01-01 23:59:30 CET [70520]: [1-1] LOG: checkpoint starting: time
 2025-01-01 23:59:35 CET [70520]: [2-1] LOG: checkpoint complete: wrote 1024 buffers (6.3%); 0 WAL file(s) added, 0 removed, 1 recycled; write=4.800 s, sync=0.150 s, total=5.000 s; sync files=8, longest=0.070 s, average=0.019 s; distance=8192 kB, estimate=11906 kB; lsn=0/83000028, redo lsn=0/82FFFFF8

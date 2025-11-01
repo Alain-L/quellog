@@ -1,9 +1,346 @@
 {
-    "summary": {
-      "start_date": "2025-01-01 00:00:00",
-      "end_date": "2025-01-01 01:03:37",
-      "duration": "1h3m37s",
-      "total_logs": 15,
-      "throughput": "0.00 entries/s"
+  "apps": [
+    "app_server",
+    "batch_job",
+    "metabase",
+    "pg_dump",
+    "pgadmin",
+    "psql",
+    "python_script",
+    "reporting_tool",
+    "tableau"
+  ],
+  "checkpoints": {
+    "total_checkpoints": 13,
+    "avg_checkpoint_time": "5.15 s",
+    "max_checkpoint_time": "7.00 s",
+    "events": [
+      "2025-01-01 00:30:05",
+      "2025-01-01 01:00:04",
+      "2025-01-01 01:30:07",
+      "2025-01-01 02:00:05",
+      "2025-01-01 02:30:05",
+      "2025-01-01 03:00:06",
+      "2025-01-01 03:30:04",
+      "2025-01-01 04:00:05",
+      "2025-01-01 04:30:06",
+      "2025-01-01 05:00:05",
+      "2025-01-01 05:30:04",
+      "2025-01-01 06:00:06",
+      "2025-01-01 23:59:35"
+    ],
+    "types": {
+      "time": {
+        "count": 9,
+        "percentage": 69.23076923076923,
+        "rate_per_hour": 0.37510853835021707,
+        "events": [
+          "2025-01-01 00:30:05",
+          "2025-01-01 01:30:07",
+          "2025-01-01 02:30:05",
+          "2025-01-01 03:00:06",
+          "2025-01-01 03:30:04",
+          "2025-01-01 04:30:06",
+          "2025-01-01 05:00:05",
+          "2025-01-01 05:30:04",
+          "2025-01-01 23:59:35"
+        ]
+      },
+      "wal": {
+        "count": 4,
+        "percentage": 30.76923076923077,
+        "rate_per_hour": 0.1667149059334298,
+        "events": [
+          "2025-01-01 01:00:04",
+          "2025-01-01 02:00:05",
+          "2025-01-01 04:00:05",
+          "2025-01-01 06:00:06"
+        ]
+      }
     }
+  },
+  "clients": {
+    "unique_databases": 3,
+    "unique_users": 6,
+    "unique_apps": 9
+  },
+  "connections": {
+    "connection_count": 36,
+    "avg_connections_per_hour": "1.50",
+    "disconnection_count": 23,
+    "avg_session_time": "1h14m6.550869565s",
+    "connections": [
+      "2025-01-01 00:00:15",
+      "2025-01-01 00:00:20",
+      "2025-01-01 00:00:35",
+      "2025-01-01 00:00:50",
+      "2025-01-01 00:01:10",
+      "2025-01-01 00:01:25",
+      "2025-01-01 00:01:40",
+      "2025-01-01 00:02:00",
+      "2025-01-01 00:12:15",
+      "2025-01-01 00:18:45",
+      "2025-01-01 00:22:30",
+      "2025-01-01 00:28:15",
+      "2025-01-01 00:38:00",
+      "2025-01-01 00:42:45",
+      "2025-01-01 00:52:00",
+      "2025-01-01 01:02:30",
+      "2025-01-01 01:12:20",
+      "2025-01-01 01:18:00",
+      "2025-01-01 01:28:30",
+      "2025-01-01 01:38:15",
+      "2025-01-01 02:03:15",
+      "2025-01-01 02:12:30",
+      "2025-01-01 02:25:00",
+      "2025-01-01 02:40:00",
+      "2025-01-01 03:05:30",
+      "2025-01-01 03:20:00",
+      "2025-01-01 03:35:00",
+      "2025-01-01 03:50:00",
+      "2025-01-01 04:10:00",
+      "2025-01-01 04:20:00",
+      "2025-01-01 04:40:00",
+      "2025-01-01 04:50:00",
+      "2025-01-01 05:10:00",
+      "2025-01-01 05:20:00",
+      "2025-01-01 05:40:00",
+      "2025-01-01 05:50:00"
+    ]
+  },
+  "databases": [
+    "analytics_db",
+    "app_db",
+    "postgres"
+  ],
+  "events": {
+    "ERROR": 2,
+    "LOG": 172,
+    "WARNING": 1
+  },
+  "maintenance": {
+    "vacuum_count": 2,
+    "analyze_count": 2,
+    "vacuum_table_counts": {
+      "app_db.public.orders": 1,
+      "app_db.public.sessions": 1
+    },
+    "analyze_table_counts": {
+      "app_db.public.orders": 1,
+      "app_db.public.products": 1
+    },
+    "vacuum_space_recovered": {
+      "app_db.public.sessions": "1.00 MB"
+    }
+  },
+  "sql_performance": {
+    "total_query_duration": "2m 40s",
+    "total_queries_parsed": 25,
+    "total_unique_queries": 25,
+    "top_1_percent_slow_queries": 1,
+    "query_max_duration": "15.23 s",
+    "query_min_duration": "45 ms",
+    "query_median_duration": "7.89 s",
+    "query_99th_percentile": "15.23 s",
+    "executions": [
+      {
+        "timestamp": "2025-01-01 00:00:16",
+        "duration": "45 ms"
+      },
+      {
+        "timestamp": "2025-01-01 00:05:00",
+        "duration": "1.25 s"
+      },
+      {
+        "timestamp": "2025-01-01 00:05:01",
+        "duration": "89 ms"
+      },
+      {
+        "timestamp": "2025-01-01 00:05:02",
+        "duration": "432 ms"
+      },
+      {
+        "timestamp": "2025-01-01 00:15:00",
+        "duration": "2.15 s"
+      },
+      {
+        "timestamp": "2025-01-01 00:15:04",
+        "duration": "8.95 s"
+      },
+      {
+        "timestamp": "2025-01-01 00:25:00",
+        "duration": "67 ms"
+      },
+      {
+        "timestamp": "2025-01-01 00:35:00",
+        "duration": "15.23 s"
+      },
+      {
+        "timestamp": "2025-01-01 00:40:00",
+        "duration": "156 ms"
+      },
+      {
+        "timestamp": "2025-01-01 00:45:00",
+        "duration": "234 ms"
+      },
+      {
+        "timestamp": "2025-01-01 01:05:00",
+        "duration": "5.68 s"
+      },
+      {
+        "timestamp": "2025-01-01 01:08:50",
+        "duration": "6.23 s"
+      },
+      {
+        "timestamp": "2025-01-01 01:10:00",
+        "duration": "89 ms"
+      },
+      {
+        "timestamp": "2025-01-01 01:25:10",
+        "duration": "12.35 s"
+      },
+      {
+        "timestamp": "2025-01-01 01:42:08",
+        "duration": "9.88 s"
+      },
+      {
+        "timestamp": "2025-01-01 02:05:00",
+        "duration": "299 ms"
+      },
+      {
+        "timestamp": "2025-01-01 02:15:12",
+        "duration": "14.57 s"
+      },
+      {
+        "timestamp": "2025-01-01 02:45:40",
+        "duration": "11.23 s"
+      },
+      {
+        "timestamp": "2025-01-01 03:10:09",
+        "duration": "10.12 s"
+      },
+      {
+        "timestamp": "2025-01-01 03:40:21",
+        "duration": "7.89 s"
+      },
+      {
+        "timestamp": "2025-01-01 03:55:38",
+        "duration": "9.46 s"
+      },
+      {
+        "timestamp": "2025-01-01 04:25:55",
+        "duration": "11.79 s"
+      },
+      {
+        "timestamp": "2025-01-01 04:55:38",
+        "duration": "9.01 s"
+      },
+      {
+        "timestamp": "2025-01-01 05:25:24",
+        "duration": "10.35 s"
+      },
+      {
+        "timestamp": "2025-01-01 05:55:26",
+        "duration": "12.68 s"
+      }
+    ]
+  },
+  "summary": {
+    "start_date": "2025-01-01 00:00:00",
+    "end_date": "2025-01-01 23:59:35",
+    "duration": "23h59m35s",
+    "total_logs": 180,
+    "throughput": "0.00 entries/s"
+  },
+  "temp_files": {
+    "total_messages": 19,
+    "total_size": "1.48 GB",
+    "avg_size": "79.79 MB",
+    "events": [
+      {
+        "timestamp": "2025-01-01 00:15:03",
+        "size": "50.00 MB"
+      },
+      {
+        "timestamp": "2025-01-01 00:35:16",
+        "size": "100.00 MB"
+      },
+      {
+        "timestamp": "2025-01-01 00:35:18",
+        "size": "24.00 MB"
+      },
+      {
+        "timestamp": "2025-01-01 01:08:45",
+        "size": "75.00 MB"
+      },
+      {
+        "timestamp": "2025-01-01 01:25:00",
+        "size": "200.00 MB"
+      },
+      {
+        "timestamp": "2025-01-01 01:25:02",
+        "size": "40.00 MB"
+      },
+      {
+        "timestamp": "2025-01-01 01:42:00",
+        "size": "149.00 MB"
+      },
+      {
+        "timestamp": "2025-01-01 02:15:00",
+        "size": "90.00 MB"
+      },
+      {
+        "timestamp": "2025-01-01 02:15:00",
+        "size": "60.00 MB"
+      },
+      {
+        "timestamp": "2025-01-01 02:15:00",
+        "size": "30.00 MB"
+      },
+      {
+        "timestamp": "2025-01-01 02:45:30",
+        "size": "120.00 MB"
+      },
+      {
+        "timestamp": "2025-01-01 03:10:00",
+        "size": "80.00 MB"
+      },
+      {
+        "timestamp": "2025-01-01 03:40:15",
+        "size": "64.00 MB"
+      },
+      {
+        "timestamp": "2025-01-01 03:55:30",
+        "size": "50.00 MB"
+      },
+      {
+        "timestamp": "2025-01-01 03:55:30",
+        "size": "20.00 MB"
+      },
+      {
+        "timestamp": "2025-01-01 04:25:45",
+        "size": "100.00 MB"
+      },
+      {
+        "timestamp": "2025-01-01 04:55:30",
+        "size": "70.00 MB"
+      },
+      {
+        "timestamp": "2025-01-01 05:25:15",
+        "size": "84.00 MB"
+      },
+      {
+        "timestamp": "2025-01-01 05:55:15",
+        "size": "110.00 MB"
+      }
+    ]
+  },
+  "users": [
+    "admin",
+    "analytics",
+    "app_user",
+    "backup_user",
+    "batch_user",
+    "readonly"
+  ]
 }
