@@ -30,6 +30,9 @@ type LogEntry struct {
 	//   "LOG: database system is ready"
 	//   "ERROR: relation \"users\" does not exist HINT: Did you mean \"user\"?"
 	Message string
+
+	// Pid is the process ID associated with the log entry, if available.
+	Pid int
 }
 
 // LogParser defines the interface that all format-specific parsers must implement.

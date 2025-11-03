@@ -99,8 +99,8 @@ func parseMmapData(data []byte, out chan<- LogEntry) error {
 			} else {
 				// This is a new entry, process the previous one
 				if currentEntry.Len() > 0 {
-					timestamp, message := parseStderrLine(currentEntry.String())
-					out <- LogEntry{Timestamp: timestamp, Message: message}
+					timestamp, message, pid := parseStderrLine([]byte(currentEntry.String()))
+					out <- LogEntry{Timestamp: timestamp, Message: message, Pid: pid}
 					currentEntry.Reset()
 				}
 				// Start accumulating new entry
@@ -119,9 +119,10 @@ func parseMmapData(data []byte, out chan<- LogEntry) error {
 				}
 				currentEntry.WriteString(strings.TrimSpace(line))
 			} else {
+				// This is a new entry, process the previous one
 				if currentEntry.Len() > 0 {
-					timestamp, message := parseStderrLine(currentEntry.String())
-					out <- LogEntry{Timestamp: timestamp, Message: message}
+					timestamp, message, pid := parseStderrLine([]byte(currentEntry.String()))
+					out <- LogEntry{Timestamp: timestamp, Message: message, Pid: pid}
 					currentEntry.Reset()
 				}
 				currentEntry.WriteString(line)
@@ -131,8 +132,8 @@ func parseMmapData(data []byte, out chan<- LogEntry) error {
 
 	// Process final accumulated entry
 	if currentEntry.Len() > 0 {
-		timestamp, message := parseStderrLine(currentEntry.String())
-		out <- LogEntry{Timestamp: timestamp, Message: message}
+		timestamp, message, pid := parseStderrLine([]byte(currentEntry.String()))
+		out <- LogEntry{Timestamp: timestamp, Message: message, Pid: pid}
 	}
 
 	return nil
@@ -166,8 +167,8 @@ func parseMmapDataOptimized(data []byte, out chan<- LogEntry) error {
 			} else {
 				// This is a new entry, process the previous one
 				if len(currentEntry) > 0 {
-					timestamp, message := parseStderrLineBytes(currentEntry)
-					out <- LogEntry{Timestamp: timestamp, Message: message}
+					timestamp, message, pid := parseStderrLineBytes(currentEntry)
+					out <- LogEntry{Timestamp: timestamp, Message: message, Pid: pid}
 					currentEntry = currentEntry[:0] // Reset but keep capacity
 				}
 				// Start accumulating new entry
@@ -181,25 +182,25 @@ func parseMmapDataOptimized(data []byte, out chan<- LogEntry) error {
 		line := data[start:]
 		if len(line) > 0 {
 			if line[0] == ' ' || line[0] == '\t' {
-				if len(currentEntry) > 0 {
-					currentEntry = append(currentEntry, ' ')
+					if len(currentEntry) > 0 {
+						currentEntry = append(currentEntry, ' ')
+					}
+					currentEntry = append(currentEntry, bytes.TrimSpace(line)...)
+				} else {
+					if len(currentEntry) > 0 {
+						timestamp, message, pid := parseStderrLineBytes(currentEntry)
+						out <- LogEntry{Timestamp: timestamp, Message: message, Pid: pid}
+						currentEntry = currentEntry[:0]
+					}
+					currentEntry = append(currentEntry[:0], line...)
 				}
-				currentEntry = append(currentEntry, bytes.TrimSpace(line)...)
-			} else {
-				if len(currentEntry) > 0 {
-					timestamp, message := parseStderrLineBytes(currentEntry)
-					out <- LogEntry{Timestamp: timestamp, Message: message}
-					currentEntry = currentEntry[:0]
-				}
-				currentEntry = append(currentEntry[:0], line...)
 			}
 		}
-	}
 
 	// Process final accumulated entry
 	if len(currentEntry) > 0 {
-		timestamp, message := parseStderrLineBytes(currentEntry)
-		out <- LogEntry{Timestamp: timestamp, Message: message}
+		timestamp, message, pid := parseStderrLineBytes(currentEntry)
+		out <- LogEntry{Timestamp: timestamp, Message: message, Pid: pid}
 	}
 
 	return nil
@@ -207,8 +208,8 @@ func parseMmapDataOptimized(data []byte, out chan<- LogEntry) error {
 
 // parseStderrLineBytes is the byte-slice version of parseStderrLine.
 // It converts to string only at the last moment to reduce allocations.
-func parseStderrLineBytes(line []byte) (time.Time, string) {
+func parseStderrLineBytes(line []byte) (time.Time, string, int) {
 	// For now, convert to string and reuse existing parser
 	// TODO: Could be optimized further by parsing directly from bytes
-	return parseStderrLine(string(line))
+	return parseStderrLine(line)
 }

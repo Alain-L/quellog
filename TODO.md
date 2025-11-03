@@ -7,13 +7,6 @@
 - Implement benchmark mode (`--benchmark` flag).
 
 ## Log Parsing & Detection
-- Improve autodetection of log formats (stderr, syslog, CSV, JSON).
-    - gérer tabulation syslog
-    - do naïve detection on the fly, no regex, no sample
-    - stderr by _default_
-    - until proven the opposite
-    - add `type` field in global structure
-    - check Year in file name or metadata if syslog
 - Handle edge cases from pgBadger (orphan lines, remote files, log format distinctions).
 - Parse `log_line_prefix` like `parse_log_prefix` in pgBadger.
 - Enhance SQL parsing (`parse_query` from pgBadger).
@@ -33,14 +26,11 @@
 
 ## API & Integration
 - Evaluate REST or gRPC API for internal data access.
-- Add JSON ourput for SQL report
 - Consider packaging (Debian, Docker).
-- Investigate compressed file support.
 
 ## Terminal UI (TUI)
 - Explore `tview` or `Bubble Tea` for interactive usage.
 - Add autocompletion.
-- explicit format flag
 
 ## Housekeeping & Refactoring
 - Finalize refactoring, standardize comments (English).

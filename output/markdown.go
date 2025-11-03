@@ -376,6 +376,7 @@ func printQueryStatsMarkdown(b *strings.Builder, stats map[string]*analysis.Quer
 		TotalTime float64
 		AvgTime   float64
 		MaxTime   float64
+		TotalTempSize int64
 	}
 
 	var list []qinfo
@@ -388,6 +389,7 @@ func printQueryStatsMarkdown(b *strings.Builder, stats map[string]*analysis.Quer
 			TotalTime: s.TotalTime,
 			AvgTime:   s.AvgTime,
 			MaxTime:   s.MaxTime,
+			TotalTempSize: s.TotalTempSize,
 		})
 	}
 
@@ -433,6 +435,24 @@ func printQueryStatsMarkdown(b *strings.Builder, stats map[string]*analysis.Quer
 		b.WriteString(fmt.Sprintf("| %s | %s | %s | %d | %s |\n",
 			q.ID, formatQueryDuration(q.TotalTime), formatQueryDuration(q.AvgTime),
 			q.Count, truncateQuery(q.Query, 80)))
+	}
+	b.WriteString("\n")
+
+	// Temp file consuming queries
+	sort.Slice(list, func(i, j int) bool { return list[i].TotalTempSize > list[j].TotalTempSize })
+	b.WriteString("**Most temporary file consuming queries (top 10)**\n\n")
+	b.WriteString("| SQLID | Total Temp Size | Count | Query |\n")
+	b.WriteString("|---|---:|---:|---|\n")
+	for i, q := range list {
+		if i >= 10 {
+			break
+		}
+		if q.TotalTempSize == 0 {
+			continue
+		}
+		b.WriteString(fmt.Sprintf("| %s | %s | %d | %s |\n",
+			q.ID, formatBytes(q.TotalTempSize), q.Count,
+			truncateQuery(q.Query, 80)))
 	}
 	b.WriteString("\n")
 }

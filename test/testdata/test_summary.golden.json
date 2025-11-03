@@ -11,9 +11,7 @@
     "tableau"
   ],
   "checkpoints": {
-    "total_checkpoints": 13,
     "avg_checkpoint_time": "5.15 s",
-    "max_checkpoint_time": "7.00 s",
     "events": [
       "2025-01-01 00:30:05",
       "2025-01-01 01:00:04",
@@ -29,11 +27,11 @@
       "2025-01-01 06:00:06",
       "2025-01-01 23:59:35"
     ],
+    "max_checkpoint_time": "7.00 s",
+    "total_checkpoints": 13,
     "types": {
       "time": {
         "count": 9,
-        "percentage": 69.23076923076923,
-        "rate_per_hour": 0.37510853835021707,
         "events": [
           "2025-01-01 00:30:05",
           "2025-01-01 01:30:07",
@@ -44,31 +42,32 @@
           "2025-01-01 05:00:05",
           "2025-01-01 05:30:04",
           "2025-01-01 23:59:35"
-        ]
+        ],
+        "percentage": 69.23076923076923,
+        "rate_per_hour": 0.37510853835021707
       },
       "wal": {
         "count": 4,
-        "percentage": 30.76923076923077,
-        "rate_per_hour": 0.1667149059334298,
         "events": [
           "2025-01-01 01:00:04",
           "2025-01-01 02:00:05",
           "2025-01-01 04:00:05",
           "2025-01-01 06:00:06"
-        ]
+        ],
+        "percentage": 30.76923076923077,
+        "rate_per_hour": 0.1667149059334298
       }
     }
   },
   "clients": {
+    "unique_apps": 9,
     "unique_databases": 3,
-    "unique_users": 6,
-    "unique_apps": 9
+    "unique_users": 6
   },
   "connections": {
-    "connection_count": 36,
     "avg_connections_per_hour": "1.50",
-    "disconnection_count": 23,
     "avg_session_time": "1h14m6.550869565s",
+    "connection_count": 36,
     "connections": [
       "2025-01-01 00:00:15",
       "2025-01-01 00:00:20",
@@ -106,7 +105,8 @@
       "2025-01-01 05:20:00",
       "2025-01-01 05:40:00",
       "2025-01-01 05:50:00"
-    ]
+    ],
+    "disconnection_count": 23
   },
   "databases": [
     "analytics_db",
@@ -119,221 +119,353 @@
     "WARNING": 1
   },
   "maintenance": {
-    "vacuum_count": 2,
     "analyze_count": 2,
-    "vacuum_table_counts": {
-      "app_db.public.orders": 1,
-      "app_db.public.sessions": 1
-    },
     "analyze_table_counts": {
       "app_db.public.orders": 1,
       "app_db.public.products": 1
     },
+    "vacuum_count": 2,
     "vacuum_space_recovered": {
       "app_db.public.sessions": "1.00 MB"
+    },
+    "vacuum_table_counts": {
+      "app_db.public.orders": 1,
+      "app_db.public.sessions": 1
     }
   },
   "sql_performance": {
-    "total_query_duration": "2m 40s",
-    "total_queries_parsed": 25,
-    "total_unique_queries": 25,
-    "top_1_percent_slow_queries": 1,
-    "query_max_duration": "15.23 s",
-    "query_min_duration": "45 ms",
-    "query_median_duration": "7.89 s",
-    "query_99th_percentile": "15.23 s",
     "executions": [
       {
-        "timestamp": "2025-01-01 00:00:16",
-        "duration": "45 ms"
+        "duration": "45 ms",
+        "timestamp": "2025-01-01 00:00:16"
       },
       {
-        "timestamp": "2025-01-01 00:05:00",
-        "duration": "1.25 s"
+        "duration": "1.25 s",
+        "timestamp": "2025-01-01 00:05:00"
       },
       {
-        "timestamp": "2025-01-01 00:05:01",
-        "duration": "89 ms"
+        "duration": "89 ms",
+        "timestamp": "2025-01-01 00:05:01"
       },
       {
-        "timestamp": "2025-01-01 00:05:02",
-        "duration": "432 ms"
+        "duration": "432 ms",
+        "timestamp": "2025-01-01 00:05:02"
       },
       {
-        "timestamp": "2025-01-01 00:15:00",
-        "duration": "2.15 s"
+        "duration": "2.15 s",
+        "timestamp": "2025-01-01 00:15:00"
       },
       {
-        "timestamp": "2025-01-01 00:15:04",
-        "duration": "8.95 s"
+        "duration": "8.95 s",
+        "timestamp": "2025-01-01 00:15:04"
       },
       {
-        "timestamp": "2025-01-01 00:25:00",
-        "duration": "67 ms"
+        "duration": "67 ms",
+        "timestamp": "2025-01-01 00:25:00"
       },
       {
-        "timestamp": "2025-01-01 00:35:00",
-        "duration": "15.23 s"
+        "duration": "15.23 s",
+        "timestamp": "2025-01-01 00:35:00"
       },
       {
-        "timestamp": "2025-01-01 00:40:00",
-        "duration": "156 ms"
+        "duration": "156 ms",
+        "timestamp": "2025-01-01 00:40:00"
       },
       {
-        "timestamp": "2025-01-01 00:45:00",
-        "duration": "234 ms"
+        "duration": "234 ms",
+        "timestamp": "2025-01-01 00:45:00"
       },
       {
-        "timestamp": "2025-01-01 01:05:00",
-        "duration": "5.68 s"
+        "duration": "5.68 s",
+        "timestamp": "2025-01-01 01:05:00"
       },
       {
-        "timestamp": "2025-01-01 01:08:50",
-        "duration": "6.23 s"
+        "duration": "6.23 s",
+        "timestamp": "2025-01-01 01:08:50"
       },
       {
-        "timestamp": "2025-01-01 01:10:00",
-        "duration": "89 ms"
+        "duration": "89 ms",
+        "timestamp": "2025-01-01 01:10:00"
       },
       {
-        "timestamp": "2025-01-01 01:25:10",
-        "duration": "12.35 s"
+        "duration": "12.35 s",
+        "timestamp": "2025-01-01 01:25:10"
       },
       {
-        "timestamp": "2025-01-01 01:42:08",
-        "duration": "9.88 s"
+        "duration": "9.88 s",
+        "timestamp": "2025-01-01 01:42:08"
       },
       {
-        "timestamp": "2025-01-01 02:05:00",
-        "duration": "299 ms"
+        "duration": "299 ms",
+        "timestamp": "2025-01-01 02:05:00"
       },
       {
-        "timestamp": "2025-01-01 02:15:12",
-        "duration": "14.57 s"
+        "duration": "14.57 s",
+        "timestamp": "2025-01-01 02:15:12"
       },
       {
-        "timestamp": "2025-01-01 02:45:40",
-        "duration": "11.23 s"
+        "duration": "11.23 s",
+        "timestamp": "2025-01-01 02:45:40"
       },
       {
-        "timestamp": "2025-01-01 03:10:09",
-        "duration": "10.12 s"
+        "duration": "10.12 s",
+        "timestamp": "2025-01-01 03:10:09"
       },
       {
-        "timestamp": "2025-01-01 03:40:21",
-        "duration": "7.89 s"
+        "duration": "7.89 s",
+        "timestamp": "2025-01-01 03:40:21"
       },
       {
-        "timestamp": "2025-01-01 03:55:38",
-        "duration": "9.46 s"
+        "duration": "9.46 s",
+        "timestamp": "2025-01-01 03:55:38"
       },
       {
-        "timestamp": "2025-01-01 04:25:55",
-        "duration": "11.79 s"
+        "duration": "11.79 s",
+        "timestamp": "2025-01-01 04:25:55"
       },
       {
-        "timestamp": "2025-01-01 04:55:38",
-        "duration": "9.01 s"
+        "duration": "9.01 s",
+        "timestamp": "2025-01-01 04:55:38"
       },
       {
-        "timestamp": "2025-01-01 05:25:24",
-        "duration": "10.35 s"
+        "duration": "10.35 s",
+        "timestamp": "2025-01-01 05:25:24"
       },
       {
-        "timestamp": "2025-01-01 05:55:26",
-        "duration": "12.68 s"
+        "duration": "12.68 s",
+        "timestamp": "2025-01-01 05:55:26"
       }
-    ]
+    ],
+    "queries": [
+      {
+        "avg_time": "12.35 s",
+        "count": 1,
+        "id": "cr-wgSzpj",
+        "max_time": "12.35 s",
+        "normalized_query": "create temporary table tmp_aggregates as select user_id, date(created_at) as date, count(*) as event_count from events where created_at > now() - interval ? group by user_id, date(created_at);",
+        "total_temp_size": "240.00 MB",
+        "total_time": "12.35 s"
+      },
+      {
+        "avg_time": "299 ms",
+        "count": 1,
+        "id": "de-CObqgd",
+        "max_time": "299 ms",
+        "normalized_query": "delete from audit_logs where created_at < now() - interval ?;",
+        "total_time": "299 ms"
+      },
+      {
+        "avg_time": "9.01 s",
+        "count": 1,
+        "id": "de-NvyXk4",
+        "max_time": "9.01 s",
+        "normalized_query": "delete from session_logs where created_at < now() - interval ? and session_id not in (select id from active_sessions);",
+        "total_temp_size": "70.00 MB",
+        "total_time": "9.01 s"
+      },
+      {
+        "avg_time": "89 ms",
+        "count": 1,
+        "id": "de-bBueyy",
+        "max_time": "89 ms",
+        "normalized_query": "delete from sessions where expires_at < now();",
+        "total_time": "89 ms"
+      },
+      {
+        "avg_time": "67 ms",
+        "count": 1,
+        "id": "in-Cq6LCA",
+        "max_time": "67 ms",
+        "normalized_query": "insert into sessions (user_id, token, expires_at) values (42, ?, ?);",
+        "total_time": "67 ms"
+      },
+      {
+        "avg_time": "10.12 s",
+        "count": 1,
+        "id": "in-Vv5Ky5",
+        "max_time": "10.12 s",
+        "normalized_query": "insert into monthly_reports (month, total_orders, total_revenue, avg_order_value) select date_trunc(?, created_at) as month, count(*) as total_orders, sum(total) as total_revenue, avg(total) as avg_order_value from orders where created_at >= date_trunc(?, current_date - interval ?) and created_at < date_trunc(?, current_date) group by month;",
+        "total_temp_size": "80.00 MB",
+        "total_time": "10.12 s"
+      },
+      {
+        "avg_time": "7.89 s",
+        "count": 1,
+        "id": "se-4Le1Vn",
+        "max_time": "7.89 s",
+        "normalized_query": "select p.name, p.category, count(distinct oi.order_id) as times_ordered, sum(oi.quantity) as total_quantity_sold, sum(oi.quantity * oi.price) as total_revenue from products p join order_items oi on p.id = oi.product_id join orders o on oi.order_id = o.id where o.created_at > now() - interval ? group by p.id, p.name, p.category having count(distinct oi.order_id) > 50 order by total_revenue desc;",
+        "total_temp_size": "64.00 MB",
+        "total_time": "7.89 s"
+      },
+      {
+        "avg_time": "156 ms",
+        "count": 1,
+        "id": "se-8UPbX1",
+        "max_time": "156 ms",
+        "normalized_query": "select id, name, email from users where last_login > now() - interval ? order by last_login desc;",
+        "total_time": "156 ms"
+      },
+      {
+        "avg_time": "11.23 s",
+        "count": 1,
+        "id": "se-BPyDv3",
+        "max_time": "11.23 s",
+        "normalized_query": "select date(o.created_at) as order_date, p.category, sum(oi.quantity * oi.price) as daily_revenue, count(distinct o.user_id) as unique_customers from orders o join order_items oi on o.id = oi.order_id join products p on oi.product_id = p.id where o.created_at > now() - interval ? group by order_date, p.category order by order_date desc, daily_revenue desc;",
+        "total_temp_size": "120.00 MB",
+        "total_time": "11.23 s"
+      },
+      {
+        "avg_time": "89 ms",
+        "count": 1,
+        "id": "se-GyAYhE",
+        "max_time": "89 ms",
+        "normalized_query": "select * from orders where user_id = 42 order by created_at desc limit 10;",
+        "total_time": "89 ms"
+      },
+      {
+        "avg_time": "8.95 s",
+        "count": 1,
+        "id": "se-artDBI",
+        "max_time": "8.95 s",
+        "normalized_query": "select date_trunc(?, created_at) as hour, count(*) as count, avg(total) as avg_total from orders where created_at > now() - interval ? group by hour order by hour;",
+        "total_temp_size": "50.00 MB",
+        "total_time": "8.95 s"
+      },
+      {
+        "avg_time": "2.15 s",
+        "count": 1,
+        "id": "se-bSTnpn",
+        "max_time": "2.15 s",
+        "normalized_query": "select u.id, u.name, count(o.id) as order_count, sum(o.total) as total_spent from users u left join orders o on u.id = o.user_id where u.created_at > ? group by u.id, u.name order by total_spent desc limit 100;",
+        "total_time": "2.15 s"
+      },
+      {
+        "avg_time": "10.35 s",
+        "count": 1,
+        "id": "se-icbHlE",
+        "max_time": "10.35 s",
+        "normalized_query": "select category, count(*) as total_products, avg(price) as avg_price, min(price) as min_price, max(price) as max_price, sum(stock) as total_stock from products where active = true group by category order by total_products desc;",
+        "total_temp_size": "84.00 MB",
+        "total_time": "10.35 s"
+      },
+      {
+        "avg_time": "1.25 s",
+        "count": 1,
+        "id": "se-pQZavG",
+        "max_time": "1.25 s",
+        "normalized_query": "select * from users where id = 42;",
+        "total_time": "1.25 s"
+      },
+      {
+        "avg_time": "9.88 s",
+        "count": 1,
+        "id": "se-r0bek4",
+        "max_time": "9.88 s",
+        "normalized_query": "select category, subcategory, count(*) as product_count, avg(price) as avg_price from products where active = true group by category, subcategory order by category, product_count desc;",
+        "total_temp_size": "149.00 MB",
+        "total_time": "9.88 s"
+      },
+      {
+        "avg_time": "6.23 s",
+        "count": 1,
+        "id": "se-t5xfLG",
+        "max_time": "6.23 s",
+        "normalized_query": "select product_id, count(*) as view_count, avg(duration) as avg_duration from product_views where timestamp > now() - interval ? group by product_id order by view_count desc;",
+        "total_temp_size": "75.00 MB",
+        "total_time": "6.23 s"
+      },
+      {
+        "avg_time": "5.68 s",
+        "count": 1,
+        "id": "se-tLDSoK",
+        "max_time": "5.68 s",
+        "normalized_query": "select date_trunc(?, o.created_at) as day, p.category, count(distinct o.id) as order_count, sum(oi.quantity * oi.price) as revenue from orders o join order_items oi on o.id = oi.order_id join products p on oi.product_id = p.id where o.created_at > now() - interval ? group by day, p.category order by day desc, revenue desc;",
+        "total_time": "5.68 s"
+      },
+      {
+        "avg_time": "45 ms",
+        "count": 1,
+        "id": "se-wjIaKQ",
+        "max_time": "45 ms",
+        "normalized_query": "select version();",
+        "total_time": "45 ms"
+      },
+      {
+        "avg_time": "432 ms",
+        "count": 1,
+        "id": "up-0PfjJq",
+        "max_time": "432 ms",
+        "normalized_query": "update orders set status = ? where id = 1234;",
+        "total_time": "432 ms"
+      },
+      {
+        "avg_time": "15.23 s",
+        "count": 1,
+        "id": "up-TTbMVk",
+        "max_time": "15.23 s",
+        "normalized_query": "update products set stock = stock - orders_temp.quantity from (select product_id, sum(quantity) as quantity from order_items where order_id in (select id from orders where status = ?)) as orders_temp where products.id = orders_temp.product_id;",
+        "total_time": "15.23 s"
+      },
+      {
+        "avg_time": "9.46 s",
+        "count": 1,
+        "id": "up-tiXPwa",
+        "max_time": "9.46 s",
+        "normalized_query": "update user_statistics set total_orders = sq.order_count, total_spent = sq.total_spent, last_order_date = sq.last_order, updated_at = now() from ( select user_id, count(*) as order_count, sum(total) as total_spent, max(created_at) as last_order from orders group by user_id ) sq where user_statistics.user_id = sq.user_id;",
+        "total_temp_size": "70.00 MB",
+        "total_time": "9.46 s"
+      },
+      {
+        "avg_time": "234 ms",
+        "count": 1,
+        "id": "xx-P6SWQR",
+        "max_time": "234 ms",
+        "normalized_query": "begin;",
+        "total_time": "234 ms"
+      },
+      {
+        "avg_time": "12.68 s",
+        "count": 1,
+        "id": "xx-T9XAxn",
+        "max_time": "12.68 s",
+        "normalized_query": "with cohort_data as ( select user_id, date_trunc(?, min(created_at)) as cohort_month, date_trunc(?, created_at) as order_month, count(*) as order_count from orders where created_at > now() - interval ? group by user_id, cohort_month, order_month ) select cohort_month, order_month, count(distinct user_id) as active_users, sum(order_count) as total_orders from cohort_data group by cohort_month, order_month order by cohort_month, order_month;",
+        "total_temp_size": "110.00 MB",
+        "total_time": "12.68 s"
+      },
+      {
+        "avg_time": "11.79 s",
+        "count": 1,
+        "id": "xx-cY6oTR",
+        "max_time": "11.79 s",
+        "normalized_query": "with daily_metrics as ( select date(created_at) as date, user_id, count(*) as daily_events, sum(duration) as daily_duration from user_events where created_at > now() - interval ? group by date, user_id ) select user_id, avg(daily_events) as avg_daily_events, avg(daily_duration) as avg_daily_duration, max(daily_events) as max_daily_events from daily_metrics group by user_id having avg(daily_events) > 10 order by avg_daily_events desc;",
+        "total_temp_size": "100.00 MB",
+        "total_time": "11.79 s"
+      },
+      {
+        "avg_time": "14.57 s",
+        "count": 1,
+        "id": "xx-rp7S7c",
+        "max_time": "14.57 s",
+        "normalized_query": "with user_segments as ( select user_id, case when total_orders > 100 then ? when total_orders > 10 then ? else ? end as segment from (select user_id, count(*) as total_orders from orders group by user_id) sq ) select segment, count(*) as user_count, avg(total_spent) as avg_spent from user_segments us join (select user_id, sum(total) as total_spent from orders group by user_id) os on us.user_id = os.user_id group by segment;",
+        "total_temp_size": "180.00 MB",
+        "total_time": "14.57 s"
+      }
+    ],
+    "query_99th_percentile": "15.23 s",
+    "query_max_duration": "15.23 s",
+    "query_median_duration": "7.89 s",
+    "query_min_duration": "45 ms",
+    "top_1_percent_slow_queries": 1,
+    "total_queries_parsed": 25,
+    "total_query_duration": "2m 40s",
+    "total_unique_queries": 25
   },
   "summary": {
-    "start_date": "2025-01-01 00:00:00",
-    "end_date": "2025-01-01 23:59:35",
     "duration": "23h59m35s",
-    "total_logs": 180,
-    "throughput": "0.00 entries/s"
-  },
-  "temp_files": {
-    "total_messages": 19,
-    "total_size": "1.48 GB",
-    "avg_size": "79.79 MB",
-    "events": [
-      {
-        "timestamp": "2025-01-01 00:15:03",
-        "size": "50.00 MB"
-      },
-      {
-        "timestamp": "2025-01-01 00:35:16",
-        "size": "100.00 MB"
-      },
-      {
-        "timestamp": "2025-01-01 00:35:18",
-        "size": "24.00 MB"
-      },
-      {
-        "timestamp": "2025-01-01 01:08:45",
-        "size": "75.00 MB"
-      },
-      {
-        "timestamp": "2025-01-01 01:25:00",
-        "size": "200.00 MB"
-      },
-      {
-        "timestamp": "2025-01-01 01:25:02",
-        "size": "40.00 MB"
-      },
-      {
-        "timestamp": "2025-01-01 01:42:00",
-        "size": "149.00 MB"
-      },
-      {
-        "timestamp": "2025-01-01 02:15:00",
-        "size": "90.00 MB"
-      },
-      {
-        "timestamp": "2025-01-01 02:15:00",
-        "size": "60.00 MB"
-      },
-      {
-        "timestamp": "2025-01-01 02:15:00",
-        "size": "30.00 MB"
-      },
-      {
-        "timestamp": "2025-01-01 02:45:30",
-        "size": "120.00 MB"
-      },
-      {
-        "timestamp": "2025-01-01 03:10:00",
-        "size": "80.00 MB"
-      },
-      {
-        "timestamp": "2025-01-01 03:40:15",
-        "size": "64.00 MB"
-      },
-      {
-        "timestamp": "2025-01-01 03:55:30",
-        "size": "50.00 MB"
-      },
-      {
-        "timestamp": "2025-01-01 03:55:30",
-        "size": "20.00 MB"
-      },
-      {
-        "timestamp": "2025-01-01 04:25:45",
-        "size": "100.00 MB"
-      },
-      {
-        "timestamp": "2025-01-01 04:55:30",
-        "size": "70.00 MB"
-      },
-      {
-        "timestamp": "2025-01-01 05:25:15",
-        "size": "84.00 MB"
-      },
-      {
-        "timestamp": "2025-01-01 05:55:15",
-        "size": "110.00 MB"
-      }
-    ]
+    "end_date": "2025-01-01 23:59:35",
+    "start_date": "2025-01-01 00:00:00",
+    "throughput": "0.00 entries/s",
+    "total_logs": 180
   },
   "users": [
     "admin",

@@ -4,6 +4,7 @@ import (
 	"github.com/Alain-L/quellog/analysis"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"time"
 )
 
@@ -35,11 +36,22 @@ type SQLPerformanceJSON struct {
 	QueryMedianDuration    string               `json:"query_median_duration"`
 	Query99thPercentile    string               `json:"query_99th_percentile"`
 	Executions             []QueryExecutionJSON `json:"executions"`
+	Queries                []QueryStatJSON      `json:"queries"`
 }
 
 type QueryExecutionJSON struct {
 	Timestamp string `json:"timestamp"`
 	Duration  string `json:"duration"`
+}
+
+type QueryStatJSON struct {
+	ID              string `json:"id"`
+	NormalizedQuery string `json:"normalized_query"`
+	Count           int    `json:"count"`
+	TotalTime       string `json:"total_time"`
+	AvgTime         string `json:"avg_time"`
+	MaxTime         string `json:"max_time"`
+	TotalTempSize   string `json:"total_temp_size,omitempty"`
 }
 
 type TempFilesJSON struct {
@@ -314,6 +326,28 @@ func convertSQLPerformance(m analysis.SqlMetrics) SQLPerformanceJSON {
 		}
 	}
 
+	// Detailed query stats
+	queries := make([]QueryStatJSON, 0, len(m.QueryStats))
+	for _, stat := range m.QueryStats {
+		q := QueryStatJSON{
+			ID:              stat.ID,
+			NormalizedQuery: stat.NormalizedQuery,
+			Count:           stat.Count,
+			TotalTime:       formatQueryDuration(stat.TotalTime),
+			AvgTime:         formatQueryDuration(stat.AvgTime),
+			MaxTime:         formatQueryDuration(stat.MaxTime),
+		}
+		if stat.TotalTempSize > 0 {
+			q.TotalTempSize = formatBytes(stat.TotalTempSize)
+		}
+		queries = append(queries, q)
+	}
+
+	// Sort queries by ID for deterministic output
+	sort.Slice(queries, func(i, j int) bool {
+		return queries[i].ID < queries[j].ID
+	})
+
 	return SQLPerformanceJSON{
 		TotalQueryDuration:     formatQueryDuration(m.SumQueryDuration),
 		TotalQueriesParsed:     m.TotalQueries,
@@ -324,5 +358,6 @@ func convertSQLPerformance(m analysis.SqlMetrics) SQLPerformanceJSON {
 		QueryMedianDuration:    formatQueryDuration(m.MedianQueryDuration),
 		Query99thPercentile:    formatQueryDuration(m.P99QueryDuration),
 		Executions:             executionsJSON,
+		Queries:                queries,
 	}
 }

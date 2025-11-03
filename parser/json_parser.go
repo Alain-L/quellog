@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -201,9 +202,19 @@ func extractLogEntry(obj map[string]interface{}) (LogEntry, error) {
 		return LogEntry{}, fmt.Errorf("message extraction failed: no message content")
 	}
 
+	// Extract PID
+	pidStr := getStringField(obj, "pid")
+	pid := 0
+	if pidStr != "" {
+		if p, err := strconv.Atoi(pidStr); err == nil {
+			pid = p
+		}
+	}
+
 	return LogEntry{
 		Timestamp: timestamp,
 		Message:   message,
+		Pid:       pid,
 	}, nil
 }
 
