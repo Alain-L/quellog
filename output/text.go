@@ -2,7 +2,6 @@ package output
 
 import (
 	"fmt"
-	"io"
 	"math"
 	"os"
 	"sort"
@@ -14,277 +13,206 @@ import (
 	"golang.org/x/term"
 )
 
-type textPrinter struct {
-	out     io.Writer
-	width   int
-	boldOn  string
-	boldOff string
-}
-
-func newStdoutPrinter() textPrinter {
-	return newTextPrinter(os.Stdout)
-}
-
-func newTextPrinter(w io.Writer) textPrinter {
-	pr := textPrinter{
-		out:   w,
-		width: 80,
-	}
-
-	if file, ok := w.(*os.File); ok {
-		if term.IsTerminal(int(file.Fd())) {
-			pr.boldOn = "\033[1m"
-			pr.boldOff = "\033[0m"
-		}
-
-		if width, _, err := term.GetSize(int(file.Fd())); err == nil && width > 0 {
-			pr.width = width
-		}
-	}
-
-	return pr
-}
-
-func (p textPrinter) bold(text string) string {
-	if p.boldOn == "" {
-		return text
-	}
-	return p.boldOn + text + p.boldOff
-}
-
-type sectionFilter struct {
-	all   bool
-	names map[string]struct{}
-}
-
-func newSectionFilter(sections []string) sectionFilter {
-	filter := sectionFilter{
-		names: make(map[string]struct{}, len(sections)),
-	}
-
-	for _, section := range sections {
-		section = strings.TrimSpace(section)
-		if section == "" {
-			continue
-		}
-
-		if section == "all" {
-			filter.all = true
-			return filter
-		}
-		filter.names[section] = struct{}{}
-	}
-
-	return filter
-}
-
-func (f sectionFilter) includes(name string) bool {
-	if f.all {
-		return true
-	}
-	_, ok := f.names[name]
-	return ok
-}
-
 // TextFormatter formats the report in plain text.
 type TextFormatter struct{}
 
 // PrintMetrics displays the aggregated metrics.
 func PrintMetrics(m analysis.AggregatedMetrics, sections []string) {
-	pr := newStdoutPrinter()
-	renderMetrics(pr, m, sections)
-}
 
-func renderMetrics(pr textPrinter, m analysis.AggregatedMetrics, sections []string) {
-	filter := newSectionFilter(sections)
+	// Check flags
+	has := func(name string) bool {
+		for _, s := range sections {
+			if s == name || s == "all" {
+				return true
+			}
+		}
+		return false
+	}
+
+	// Calculate total duration from min and max timestamps.
 	duration := m.Global.MaxTimestamp.Sub(m.Global.MinTimestamp)
 
-	if filter.includes("summary") {
-		printSummarySection(pr, m, duration)
-	}
+	// ANSI style for bold text.
+	bold := "\033[1m"
+	reset := "\033[0m"
 
-	if filter.includes("sql_performance") && m.SQL.TotalQueries > 0 {
-		renderSQLSummary(pr, m.SQL, true)
-	}
-
-	if filter.includes("events") && len(m.EventSummaries) > 0 {
-		renderEventsReport(pr, m.EventSummaries)
-	}
-
-	if filter.includes("tempfiles") && m.TempFiles.Count > 0 {
-		printTempFilesSection(pr, m)
-	}
-
-	if filter.includes("maintenance") && (m.Vacuum.VacuumCount > 0 || m.Vacuum.AnalyzeCount > 0) {
-		printMaintenanceSection(pr, m)
-	}
-
-	if filter.includes("checkpoints") && m.Checkpoints.CompleteCount > 0 {
-		printCheckpointsSection(pr, m, duration)
-	}
-
-	if filter.includes("connections") && m.Connections.ConnectionReceivedCount > 0 {
-		printConnectionsSection(pr, m, duration)
-	}
-
-	if filter.includes("clients") && (m.UniqueEntities.UniqueDbs > 0 || m.UniqueEntities.UniqueUsers > 0 || m.UniqueEntities.UniqueApps > 0) {
-		printClientsSection(pr, m)
-	}
-
-	fmt.Fprintln(pr.out)
-}
-
-const timeFormat = "2006-01-02 15:04:05 MST"
-
-func printSummarySection(pr textPrinter, m analysis.AggregatedMetrics, duration time.Duration) {
-	fmt.Fprintln(pr.out, pr.bold("\nSUMMARY\n"))
-	fmt.Fprintf(pr.out, "  %-25s : %s\n", "Start date", m.Global.MinTimestamp.Format(timeFormat))
-	fmt.Fprintf(pr.out, "  %-25s : %s\n", "End date", m.Global.MaxTimestamp.Format(timeFormat))
-	fmt.Fprintf(pr.out, "  %-25s : %s\n", "Duration", duration)
-	fmt.Fprintf(pr.out, "  %-25s : %d\n", "Total entries", m.Global.Count)
-	if duration > 0 {
-		rate := float64(m.Global.Count) / duration.Seconds()
-		fmt.Fprintf(pr.out, "  %-25s : %.2f entries/s\n", "Throughput", rate)
-	}
-}
-
-func printTempFilesSection(pr textPrinter, m analysis.AggregatedMetrics) {
-	fmt.Fprintln(pr.out, pr.bold("\nTEMP FILES\n"))
-
-	hist, unit, scaleFactor := computeTempFileHistogram(m.TempFiles)
-	renderHistogram(pr, hist, "Temp file distribution", unit, scaleFactor, nil)
-
-	fmt.Fprintf(pr.out, "  %-25s : %d\n", "Temp file messages", m.TempFiles.Count)
-	fmt.Fprintf(pr.out, "  %-25s : %s\n", "Cumulative temp file size", formatBytes(m.TempFiles.TotalSize))
-
-	avgSize := int64(0)
-	if m.TempFiles.Count > 0 {
-		avgSize = m.TempFiles.TotalSize / int64(m.TempFiles.Count)
-	}
-	fmt.Fprintf(pr.out, "  %-25s : %s\n", "Average temp file size", formatBytes(avgSize))
-}
-
-func printMaintenanceSection(pr textPrinter, m analysis.AggregatedMetrics) {
-	fmt.Fprintln(pr.out, pr.bold("\nMAINTENANCE\n"))
-	fmt.Fprintf(pr.out, "  %-25s : %d\n", "Automatic vacuum count", m.Vacuum.VacuumCount)
-	fmt.Fprintf(pr.out, "  %-25s : %d\n", "Automatic analyze count", m.Vacuum.AnalyzeCount)
-
-	fmt.Fprintln(pr.out, "  Top automatic vacuum operations per table:")
-	printTopTables(pr, m.Vacuum.VacuumTableCounts, m.Vacuum.VacuumCount, m.Vacuum.VacuumSpaceRecovered)
-
-	fmt.Fprintln(pr.out, "  Top automatic analyze operations per table:")
-	printTopTables(pr, m.Vacuum.AnalyzeTableCounts, m.Vacuum.AnalyzeCount, nil)
-}
-
-func printCheckpointsSection(pr textPrinter, m analysis.AggregatedMetrics, duration time.Duration) {
-	avgWriteSeconds := m.Checkpoints.TotalWriteTimeSeconds / float64(m.Checkpoints.CompleteCount)
-	avgDuration := time.Duration(avgWriteSeconds * float64(time.Second)).Truncate(time.Second)
-	maxDuration := time.Duration(m.Checkpoints.MaxWriteTimeSeconds * float64(time.Second)).Truncate(time.Second)
-
-	fmt.Fprintln(pr.out, pr.bold("\nCHECKPOINTS\n"))
-
-	hist, _, scaleFactor := computeCheckpointHistogram(m.Checkpoints)
-	renderHistogram(pr, hist, "Checkpoints", "", scaleFactor, nil)
-
-	fmt.Fprintf(pr.out, "  %-25s : %d\n", "Checkpoint count", m.Checkpoints.CompleteCount)
-	fmt.Fprintf(pr.out, "  %-25s : %s\n", "Avg checkpoint write time", avgDuration)
-	fmt.Fprintf(pr.out, "  %-25s : %s\n", "Max checkpoint write time", maxDuration)
-
-	if len(m.Checkpoints.TypeCounts) == 0 {
-		return
-	}
-
-	fmt.Fprintln(pr.out, "  Checkpoint types:")
-
-	type typePair struct {
-		Name  string
-		Count int
-	}
-
-	var pairs []typePair
-	for cpType, count := range m.Checkpoints.TypeCounts {
-		pairs = append(pairs, typePair{Name: cpType, Count: count})
-	}
-
-	sort.Slice(pairs, func(i, j int) bool {
-		if pairs[i].Count != pairs[j].Count {
-			return pairs[i].Count > pairs[j].Count
-		}
-		return pairs[i].Name < pairs[j].Name
-	})
-
-	durationHours := duration.Hours()
-
-	maxTypeLen := 10
-	for _, pair := range pairs {
-		if len(pair.Name) > maxTypeLen {
-			maxTypeLen = len(pair.Name)
+	// General summary header.
+	if has("summary") {
+		fmt.Println(bold + "\nSUMMARY\n" + reset)
+		fmt.Printf("  %-25s : %s\n", "Start date", m.Global.MinTimestamp.Format("2006-01-02 15:04:05 MST"))
+		fmt.Printf("  %-25s : %s\n", "End date", m.Global.MaxTimestamp.Format("2006-01-02 15:04:05 MST"))
+		fmt.Printf("  %-25s : %s\n", "Duration", duration)
+		fmt.Printf("  %-25s : %d\n", "Total entries", m.Global.Count)
+		if duration > 0 {
+			rate := float64(m.Global.Count) / duration.Seconds()
+			fmt.Printf("  %-25s : %.2f entries/s\n", "Throughput", rate)
 		}
 	}
 
-	for _, pair := range pairs {
-		percentage := float64(pair.Count) / float64(m.Checkpoints.CompleteCount) * 100
-		rate := 0.0
-		if durationHours > 0 {
-			rate = float64(pair.Count) / durationHours
+	// SQL performance section
+	if has("sql_performance") && m.SQL.TotalQueries > 0 {
+		PrintSQLSummary(m.SQL, true)
+	}
+
+	// Events
+	if has("events") && len(m.EventSummaries) > 0 {
+		PrintEventsReport(m.EventSummaries)
+	}
+
+	// Temp Files section.
+	if has("tempfiles") && m.TempFiles.Count > 0 {
+
+		fmt.Println(bold + "\nTEMP FILES\n" + reset)
+
+		// Histogram
+		hist, unit, scaleFactor := computeTempFileHistogram(m.TempFiles)
+		PrintHistogram(hist, "Temp file distribution", unit, scaleFactor, nil)
+
+		fmt.Printf("  %-25s : %d\n", "Temp file messages", m.TempFiles.Count)
+		fmt.Printf("  %-25s : %s\n", "Cumulative temp file size", formatBytes(m.TempFiles.TotalSize))
+		avgSize := int64(0)
+		if m.TempFiles.Count > 0 {
+			avgSize = m.TempFiles.TotalSize / int64(m.TempFiles.Count)
 		}
-
-		fmt.Fprintf(pr.out, "    %-*s  %3d  %5.1f%%  (%.2f/h)\n",
-			maxTypeLen, pair.Name, pair.Count, percentage, rate)
+		fmt.Printf("  %-25s : %s\n", "Average temp file size", formatBytes(avgSize))
 	}
-}
 
-func printConnectionsSection(pr textPrinter, m analysis.AggregatedMetrics, duration time.Duration) {
-	fmt.Fprintln(pr.out, pr.bold("\nCONNECTIONS & SESSIONS\n"))
-
-	hist, _, scaleFactor := computeConnectionsHistogram(m.Connections.Connections)
-	renderHistogram(pr, hist, "Connection distribution", "", scaleFactor, nil)
-
-	fmt.Fprintf(pr.out, "  %-25s : %d\n", "Connection count", m.Connections.ConnectionReceivedCount)
-	if duration.Hours() > 0 {
-		avgConnPerHour := float64(m.Connections.ConnectionReceivedCount) / duration.Hours()
-		fmt.Fprintf(pr.out, "  %-25s : %.2f\n", "Avg connections per hour", avgConnPerHour)
+	// Maintenance Metrics section.
+	if has("maintenance") && (m.Vacuum.VacuumCount > 0 || m.Vacuum.AnalyzeCount > 0) {
+		fmt.Println(bold + "\nMAINTENANCE\n" + reset)
+		fmt.Printf("  %-25s : %d\n", "Automatic vacuum count", m.Vacuum.VacuumCount)
+		fmt.Printf("  %-25s : %d\n", "Automatic analyze count", m.Vacuum.AnalyzeCount)
+		fmt.Println("  Top automatic vacuum operations per table:")
+		printTopTables(m.Vacuum.VacuumTableCounts, m.Vacuum.VacuumCount, m.Vacuum.VacuumSpaceRecovered)
+		fmt.Println("  Top automatic analyze operations per table:")
+		printTopTables(m.Vacuum.AnalyzeTableCounts, m.Vacuum.AnalyzeCount, nil)
 	}
-	fmt.Fprintf(pr.out, "  %-25s : %d\n", "Disconnection count", m.Connections.DisconnectionCount)
-	if m.Connections.DisconnectionCount > 0 {
-		avgSessionTime := time.Duration(float64(m.Connections.TotalSessionTime) / float64(m.Connections.DisconnectionCount))
-		fmt.Fprintf(pr.out, "  %-25s : %s\n", "Avg session time", avgSessionTime.Round(time.Second))
-	} else {
-		fmt.Fprintf(pr.out, "  %-25s : %s\n", "Avg session time", "N/A")
-	}
-}
 
-func printClientsSection(pr textPrinter, m analysis.AggregatedMetrics) {
-	fmt.Fprintln(pr.out, pr.bold("\nCLIENTS\n"))
-	fmt.Fprintf(pr.out, "  %-25s : %d\n", "Unique DBs", m.UniqueEntities.UniqueDbs)
-	fmt.Fprintf(pr.out, "  %-25s : %d\n", "Unique Users", m.UniqueEntities.UniqueUsers)
-	fmt.Fprintf(pr.out, "  %-25s : %d\n", "Unique Apps", m.UniqueEntities.UniqueApps)
+	// Checkpoints section
+	if has("checkpoints") && m.Checkpoints.CompleteCount > 0 {
+		avgWriteSeconds := m.Checkpoints.TotalWriteTimeSeconds / float64(m.Checkpoints.CompleteCount)
+		avgDuration := time.Duration(avgWriteSeconds * float64(time.Second)).Truncate(time.Second)
+		maxDuration := time.Duration(m.Checkpoints.MaxWriteTimeSeconds * float64(time.Second)).Truncate(time.Second)
 
-	if m.UniqueEntities.UniqueUsers > 0 {
-		fmt.Fprintln(pr.out, pr.bold("\nUSERS\n"))
-		for _, user := range m.UniqueEntities.Users {
-			fmt.Fprintf(pr.out, "    %s\n", user)
+		fmt.Println(bold + "\nCHECKPOINTS\n" + reset)
+
+		// Histogram
+		hist, _, scaleFactor := computeCheckpointHistogram(m.Checkpoints)
+		PrintHistogram(hist, "Checkpoints", "", scaleFactor, nil)
+
+		fmt.Printf("  %-25s : %d\n", "Checkpoint count", m.Checkpoints.CompleteCount)
+		fmt.Printf("  %-25s : %s\n", "Avg checkpoint write time", avgDuration)
+		fmt.Printf("  %-25s : %s\n", "Max checkpoint write time", maxDuration)
+
+		// Affichage des types de checkpoints
+		if len(m.Checkpoints.TypeCounts) > 0 {
+			fmt.Println("  Checkpoint types:")
+
+			// Créer une slice pour trier les types par count (décroissant)
+			type typePair struct {
+				Name  string
+				Count int
+			}
+			var pairs []typePair
+			for cpType, count := range m.Checkpoints.TypeCounts {
+				pairs = append(pairs, typePair{Name: cpType, Count: count})
+			}
+
+			// Trier par count décroissant, puis par nom alphabétique
+			sort.Slice(pairs, func(i, j int) bool {
+				if pairs[i].Count != pairs[j].Count {
+					return pairs[i].Count > pairs[j].Count
+				}
+				return pairs[i].Name < pairs[j].Name
+			})
+
+			// Calculer la durée totale pour les pourcentages et le taux
+			duration := m.Global.MaxTimestamp.Sub(m.Global.MinTimestamp)
+			durationHours := duration.Hours()
+
+			// Déterminer la largeur max pour les noms de types
+			maxTypeLen := 0
+			for _, pair := range pairs {
+				if len(pair.Name) > maxTypeLen {
+					maxTypeLen = len(pair.Name)
+				}
+			}
+			if maxTypeLen < 10 {
+				maxTypeLen = 10
+			}
+
+			// Afficher chaque type avec son count, pourcentage et taux
+			for _, pair := range pairs {
+				percentage := float64(pair.Count) / float64(m.Checkpoints.CompleteCount) * 100
+
+				// Calculer le taux (checkpoints par heure) pour ce type
+				rate := 0.0
+				if durationHours > 0 {
+					rate = float64(pair.Count) / durationHours
+				}
+
+				// Format: type (left-aligned), count (right, 3 digits), percentage (right, 6 chars), rate (right, 8 chars)
+				fmt.Printf("    %-*s  %3d  %5.1f%%  (%.2f/h)\n",
+					maxTypeLen, pair.Name, pair.Count, percentage, rate)
+			}
 		}
 	}
 
-	if m.UniqueEntities.UniqueApps > 0 {
-		fmt.Fprintln(pr.out, pr.bold("\nAPPS\n"))
-		for _, app := range m.UniqueEntities.Apps {
-			fmt.Fprintf(pr.out, "    %s\n", app)
+	// Connections & Sessions Metrics section.
+	if has("connections") && m.Connections.ConnectionReceivedCount > 0 {
+		fmt.Println(bold + "\nCONNECTIONS & SESSIONS\n" + reset)
+
+		// Histogram
+		hist, _, scaleFactor := computeConnectionsHistogram(m.Connections.Connections)
+		PrintHistogram(hist, "Connection distribution", "", scaleFactor, nil)
+
+		fmt.Printf("  %-25s : %d\n", "Connection count", m.Connections.ConnectionReceivedCount)
+		if duration.Hours() > 0 {
+			avgConnPerHour := float64(m.Connections.ConnectionReceivedCount) / duration.Hours()
+			fmt.Printf("  %-25s : %.2f\n", "Avg connections per hour", avgConnPerHour) // Ensure float formatting
+		}
+		fmt.Printf("  %-25s : %d\n", "Disconnection count", m.Connections.DisconnectionCount)
+		if m.Connections.DisconnectionCount > 0 {
+			avgSessionTime := time.Duration(float64(m.Connections.TotalSessionTime) / float64(m.Connections.DisconnectionCount))
+			fmt.Printf("  %-25s : %s\n", "Avg session time", avgSessionTime.Round(time.Second))
+		} else {
+			fmt.Printf("  %-25s : %s\n", "Avg session time", "N/A")
 		}
 	}
 
-	if m.UniqueEntities.UniqueDbs > 0 {
-		fmt.Fprintln(pr.out, pr.bold("\nDATABASES\n"))
-		for _, db := range m.UniqueEntities.DBs {
-			fmt.Fprintf(pr.out, "    %s\n", db)
+	// Unique Clients section.
+	if has("clients") && (m.UniqueEntities.UniqueDbs > 0 || m.UniqueEntities.UniqueUsers > 0 || m.UniqueEntities.UniqueApps > 0) {
+		fmt.Println(bold + "\nCLIENTS\n" + reset)
+		fmt.Printf("  %-25s : %d\n", "Unique DBs", m.UniqueEntities.UniqueDbs)
+		fmt.Printf("  %-25s : %d\n", "Unique Users", m.UniqueEntities.UniqueUsers)
+		fmt.Printf("  %-25s : %d\n", "Unique Apps", m.UniqueEntities.UniqueApps)
+
+		// Display lists.
+		if m.UniqueEntities.UniqueUsers > 0 {
+			fmt.Println(bold + "\nUSERS\n" + reset)
+			for _, user := range m.UniqueEntities.Users {
+				fmt.Printf("    %s\n", user)
+			}
+		}
+		if m.UniqueEntities.UniqueApps > 0 {
+			fmt.Println(bold + "\nAPPS\n" + reset)
+			for _, app := range m.UniqueEntities.Apps {
+				fmt.Printf("    %s\n", app)
+			}
+		}
+		if m.UniqueEntities.UniqueDbs > 0 {
+			fmt.Println(bold + "\nDATABASES\n" + reset)
+			for _, db := range m.UniqueEntities.DBs {
+				fmt.Printf("    %s\n", db)
+			}
 		}
 	}
+	fmt.Println()
 }
 
 // printTopTables prints the top tables for a given operation (vacuum or analyze).
 // It stops when the cumulative count reaches at least 80% of the total, unless fewer than 10 tables are available.
-func printTopTables(pr textPrinter, tableCounts map[string]int, total int, spaceRecovered map[string]int64) {
+func printTopTables(tableCounts map[string]int, total int, spaceRecovered map[string]int64) {
 	// Convert the map into a slice of pairs.
 	type tablePair struct {
 		Name      string
@@ -318,10 +246,9 @@ func printTopTables(pr textPrinter, tableCounts map[string]int, total int, space
 			tableLen = l
 		}
 	}
-	if pr.width > 0 {
-		maxAllowed := int(float64(pr.width) * 0.4)
-		if maxAllowed > 0 && tableLen > maxAllowed {
-			tableLen = maxAllowed
+	if w, _, err := term.GetSize(int(os.Stdout.Fd())); err == nil {
+		if tableLen > int(float64(w)*0.4) {
+			tableLen = int(float64(w) * 0.4)
 		}
 	}
 
@@ -335,10 +262,10 @@ func printTopTables(pr textPrinter, tableCounts map[string]int, total int, space
 
 		// Fixed alignment: table name (left, width = tableLen), count (right, width 6), percentage (right, width 6, 2 decimals).
 		if spaceRecovered != nil && pair.Recovered > 0 {
-			fmt.Fprintf(pr.out, "    %-*s %6d %6.2f%%  %12s removed\n",
+			fmt.Printf("    %-*s %6d %6.2f%%  %12s removed\n",
 				tableLen, pair.Name, pair.Count, percentage, formatBytes(pair.Recovered))
 		} else {
-			fmt.Fprintf(pr.out, "    %-*s %6d %6.2f%%\n",
+			fmt.Printf("    %-*s %6d %6.2f%%\n",
 				tableLen, pair.Name, pair.Count, percentage)
 		}
 
@@ -349,14 +276,25 @@ func printTopTables(pr textPrinter, tableCounts map[string]int, total int, space
 }
 
 // PrintSQLSummary displays an SQL performance report in the CLI.
-// The public wrapper uses stdout; internal rendering accepts any writer.
+// The report uses ANSI bold formatting for better readability. The query text is truncated based on terminal width.
 func PrintSQLSummary(m analysis.SqlMetrics, indicatorsOnly bool) {
-	renderSQLSummary(newStdoutPrinter(), m, indicatorsOnly)
-}
+	// Get terminal width, defaulting to 80.
+	width := 80
+	if w, _, err := term.GetSize(int(os.Stdout.Fd())); err == nil {
+		width = w
+	}
 
-func renderSQLSummary(pr textPrinter, m analysis.SqlMetrics, indicatorsOnly bool) {
-	fmt.Fprintln(pr.out, pr.bold("\nSQL PERFORMANCE\n"))
+	// Define histogram width dynamically
+	histogramWidth := width / 2 // Reserve space for labels (e.g., "00:00 - 04:00  ")
+	if histogramWidth < 20 {
+		histogramWidth = 20 // Ensure it is readable
+	}
 
+	// ANSI styles.
+	bold := "\033[1m"
+	reset := "\033[0m"
+
+	// Compute top 1% slowest queries.
 	top1Slow := 0
 	if len(m.Executions) > 0 {
 		threshold := m.P99QueryDuration
@@ -367,74 +305,75 @@ func renderSQLSummary(pr textPrinter, m analysis.SqlMetrics, indicatorsOnly bool
 		}
 	}
 
-	fmt.Fprintln(pr.out)
+	// ** SQL Summary Header **
+	fmt.Println(bold + "\nSQL PERFORMANCE" + reset)
+	fmt.Println()
 
+	// ** Query Load Histogram **
 	if !m.StartTimestamp.IsZero() && !m.EndTimestamp.IsZero() {
 		queryLoad, unit, scale := computeQueryLoadHistogram(m)
-		renderHistogram(pr, queryLoad, "Query load distribution", unit, scale, nil)
+		PrintHistogram(queryLoad, "Query load distribution", unit, scale, nil)
 	}
 
-	fmt.Fprintf(pr.out, "  %-25s : %-20s\n", "Total query duration", formatQueryDuration(m.SumQueryDuration))
-	fmt.Fprintf(pr.out, "  %-25s : %-20d\n", "Total queries parsed", m.TotalQueries)
-	fmt.Fprintf(pr.out, "  %-25s : %-20d\n", "Total unique query", m.UniqueQueries)
-	fmt.Fprintf(pr.out, "  %-25s : %-20d\n", "Top 1% slow queries", top1Slow)
-	fmt.Fprintln(pr.out)
-	fmt.Fprintf(pr.out, "  %-25s : %-20s\n", "Query max duration", formatQueryDuration(m.MaxQueryDuration))
-	fmt.Fprintf(pr.out, "  %-25s : %-20s\n", "Query min duration", formatQueryDuration(m.MinQueryDuration))
-	fmt.Fprintf(pr.out, "  %-25s : %-20s\n", "Query median duration", formatQueryDuration(m.MedianQueryDuration))
-	fmt.Fprintf(pr.out, "  %-25s : %-20s\n", "Query 99% max duration", formatQueryDuration(m.P99QueryDuration))
-	fmt.Fprintln(pr.out)
+	fmt.Printf("  %-25s : %-20s\n", "Total query duration", formatQueryDuration(m.SumQueryDuration))
+	fmt.Printf("  %-25s : %-20d\n", "Total queries parsed", m.TotalQueries)
+	fmt.Printf("  %-25s : %-20d\n", "Total unique query", m.UniqueQueries)
+	fmt.Printf("  %-25s : %-20d\n", "Top 1% slow queries", top1Slow)
+	fmt.Println()
+	fmt.Printf("  %-25s : %-20s\n", "Query max duration", formatQueryDuration(m.MaxQueryDuration))
+	fmt.Printf("  %-25s : %-20s\n", "Query min duration", formatQueryDuration(m.MinQueryDuration))
+	fmt.Printf("  %-25s : %-20s\n", "Query median duration", formatQueryDuration(m.MedianQueryDuration))
+	fmt.Printf("  %-25s : %-20s\n", "Query 99% max duration", formatQueryDuration(m.P99QueryDuration))
+	fmt.Println()
 
-	if indicatorsOnly {
-		return
+	if !indicatorsOnly {
+
+		// Définition de l'ordre des labels pour l'histogramme des durées de requêtes.
+		queryDurationOrder := []string{
+			"< 1 ms",
+			"< 10 ms",
+			"< 100 ms",
+			"< 1 s",
+			"< 10 s",
+			">= 10 s",
+		}
+
+		// ** Query Time Histogram **
+		if !m.StartTimestamp.IsZero() && !m.EndTimestamp.IsZero() {
+			hist, unit, scale := computeQueryDurationHistogram(m)
+			PrintHistogram(hist, "Query duration distribution", unit, scale, queryDurationOrder)
+		}
+
+		fmt.Println(bold + "Slowest individual queries:" + reset)
+		PrintSlowestQueries(m.QueryStats)
+		fmt.Println()
+
+		fmt.Println(bold + "Most Frequent Individual Queries:" + reset)
+		PrintMostFrequentQueries(m.QueryStats)
+		fmt.Println()
+
+		fmt.Println(bold + "Most time consuming queries:" + reset)
+		PrintTimeConsumingQueries(m.QueryStats)
+		fmt.Println()
 	}
-
-	queryDurationOrder := []string{
-		"< 1 ms",
-		"< 10 ms",
-		"< 100 ms",
-		"< 1 s",
-		"< 10 s",
-		">= 10 s",
-	}
-
-	if !m.StartTimestamp.IsZero() && !m.EndTimestamp.IsZero() {
-		hist, unit, scale := computeQueryDurationHistogram(m)
-		renderHistogram(pr, hist, "Query duration distribution", unit, scale, queryDurationOrder)
-	}
-
-	fmt.Fprintln(pr.out, pr.bold("Slowest individual queries:"))
-	renderSlowestQueries(pr, m.QueryStats)
-	fmt.Fprintln(pr.out)
-
-	fmt.Fprintln(pr.out, pr.bold("Most Frequent Individual Queries:"))
-	renderMostFrequentQueries(pr, m.QueryStats)
-	fmt.Fprintln(pr.out)
-
-	fmt.Fprintln(pr.out, pr.bold("Most time consuming queries:"))
-	renderTimeConsumingQueries(pr, m.QueryStats)
-	fmt.Fprintln(pr.out)
-
-	fmt.Fprintln(pr.out, pr.bold("Top Queries by Temporary File Size:"))
-	renderTempFileQueries(pr, m.QueryStats)
-	fmt.Fprintln(pr.out)
 }
 
 // PrintTimeConsumingQueries sorts and displays the top 10 queries based on total execution time.
+// The display adapts to the terminal width, switching between full and simplified modes.
 func PrintTimeConsumingQueries(queryStats map[string]*analysis.QueryStat) {
-	renderTimeConsumingQueries(newStdoutPrinter(), queryStats)
-}
-
-func renderTimeConsumingQueries(pr textPrinter, queryStats map[string]*analysis.QueryStat) {
-	type queryInfo struct {
-		Query     string
-		ID        string
-		Count     int
-		TotalTime float64
-		AvgTime   float64
-		MaxTime   float64
+	termWidth, _, err := term.GetSize(int(os.Stdout.Fd()))
+	if err != nil {
+		termWidth = 120
 	}
 
+	type queryInfo struct {
+		Query     string // Normalized query.
+		ID        string // Friendly identifier.
+		Count     int
+		TotalTime float64 // in ms.
+		AvgTime   float64 // in ms.
+		MaxTime   float64 // in ms.
+	}
 	var queries []queryInfo
 	for normalized, stats := range queryStats {
 		id, _ := analysis.GenerateQueryID(stats.RawQuery, normalized)
@@ -455,10 +394,8 @@ func renderTimeConsumingQueries(pr textPrinter, queryStats map[string]*analysis.
 		return queries[i].Query < queries[j].Query
 	})
 
-	termWidth := pr.width
-	if termWidth <= 0 {
-		termWidth = 120
-	}
+	bold := "\033[1m"
+	reset := "\033[0m"
 
 	if termWidth >= 120 {
 		queryWidth := int(float64(termWidth) * 0.6)
@@ -466,18 +403,17 @@ func renderTimeConsumingQueries(pr textPrinter, queryStats map[string]*analysis.
 			queryWidth = 40
 		}
 
-		header := fmt.Sprintf("%-9s  %-*s  %10s  %12s  %12s  %12s",
-			"SQLID", queryWidth, "Query", "Executed", "Max", "Avg", "Total")
-		fmt.Fprintln(pr.out, pr.bold(header))
+		fmt.Printf("%s%-9s  %-*s  %10s  %12s  %12s  %12s%s\n",
+			bold, "SQLID", queryWidth, "Query", "Executed", "Max", "Avg", "Total", reset)
 		totalWidth := 9 + 2 + queryWidth + 2 + 10 + 2 + 12 + 2 + 12 + 2 + 12
-		fmt.Fprintln(pr.out, strings.Repeat("-", totalWidth))
+		fmt.Println(strings.Repeat("-", totalWidth))
 
 		for i, q := range queries {
 			if i >= 10 {
 				break
 			}
 			displayQuery := truncateQuery(q.Query, queryWidth)
-			fmt.Fprintf(pr.out, "%-9s  %-*s  %10d  %12s  %12s  %12s\n",
+			fmt.Printf("%-8s  %-*s  %10d  %12s  %12s  %12s\n",
 				q.ID,
 				queryWidth, displayQuery,
 				q.Count,
@@ -485,96 +421,29 @@ func renderTimeConsumingQueries(pr textPrinter, queryStats map[string]*analysis.
 				formatQueryDuration(q.AvgTime),
 				formatQueryDuration(q.TotalTime))
 		}
-		return
-	}
-
-	header := fmt.Sprintf("%-9s  %-10s  %-10s  %-12s  %-12s  %-12s", "SQLID", "Type", "Executed", "Max", "Avg", "Total")
-	fmt.Fprintln(pr.out, pr.bold(header))
-	fmt.Fprintln(pr.out, strings.Repeat("-", len(header)))
-	for i, q := range queries {
-		if i >= 10 {
-			break
-		}
-		qType := analysis.QueryTypeFromID(q.ID)
-		fmt.Fprintf(pr.out, "%-9s  %-10s  %-10d  %-12s  %-12s  %-12s\n",
-			q.ID,
-			qType,
-			q.Count,
-			formatQueryDuration(q.MaxTime),
-			formatQueryDuration(q.AvgTime),
-			formatQueryDuration(q.TotalTime))
-	}
-}
-
-func renderTempFileQueries(pr textPrinter, queryStats map[string]*analysis.QueryStat) {
-	type queryInfo struct {
-		Query         string
-		ID            string
-		Count         int
-		TotalTempSize int64
-	}
-
-	var queries []queryInfo
-	for normalized, stats := range queryStats {
-		if stats.TotalTempSize > 0 {
-			id, _ := analysis.GenerateQueryID(stats.RawQuery, normalized)
-			queries = append(queries, queryInfo{
-				Query:         normalized,
-				ID:            id,
-				Count:         stats.Count,
-				TotalTempSize: stats.TotalTempSize,
-			})
+	} else {
+		header := fmt.Sprintf("%-8s  %-10s  %-10s  %-12s  %-12s  %-12s\n", "SQLID", "Type", "Executed", "Max", "Avg", "Total")
+		fmt.Print(bold + header + reset)
+		fmt.Println(strings.Repeat("-", 80))
+		for i, q := range queries {
+			if i >= 10 {
+				break
+			}
+			qType := analysis.QueryTypeFromID(q.ID)
+			fmt.Printf("%-8s  %-10s  %-10d  %-12s  %-12s  %-12s\n",
+				q.ID,
+				qType,
+				q.Count,
+				formatQueryDuration(q.MaxTime),
+				formatQueryDuration(q.AvgTime),
+				formatQueryDuration(q.TotalTime))
 		}
 	}
-
-	if len(queries) == 0 {
-		return
-	}
-
-	sort.Slice(queries, func(i, j int) bool {
-		if queries[i].TotalTempSize != queries[j].TotalTempSize {
-			return queries[i].TotalTempSize > queries[j].TotalTempSize
-		}
-		return queries[i].Query < queries[j].Query
-	})
-
-	termWidth := pr.width
-	if termWidth <= 0 {
-		termWidth = 120
-	}
-
-	queryWidth := int(float64(termWidth) * 0.6)
-	if queryWidth < 40 {
-		queryWidth = 40
-	}
-
-	header := fmt.Sprintf("%-9s  %-*s  %10s  %15s",
-		"SQLID", queryWidth, "Query", "Executed", "Total Temp Size")
-	fmt.Fprintln(pr.out, pr.bold(header))
-	totalWidth := 9 + 2 + queryWidth + 2 + 10 + 2 + 15
-	fmt.Fprintln(pr.out, strings.Repeat("-", totalWidth))
-
-	for i, q := range queries {
-		if i >= 10 {
-			break
-		}
-		displayQuery := truncateQuery(q.Query, queryWidth)
-		fmt.Fprintf(pr.out, "%-9s  %-*s  %10d  %15s\n",
-			q.ID,
-			queryWidth, displayQuery,
-			q.Count,
-			formatBytes(q.TotalTempSize))
-	}
-	fmt.Fprintln(pr.out)
 }
 
 // PrintSlowestQueries displays the top 10 slowest individual queries,
 // showing three columns: SQLID, truncated Query, and Duration.
 func PrintSlowestQueries(queryStats map[string]*analysis.QueryStat) {
-	renderSlowestQueries(newStdoutPrinter(), queryStats)
-}
-
-func renderSlowestQueries(pr textPrinter, queryStats map[string]*analysis.QueryStat) {
 	type queryInfo struct {
 		ID      string
 		Query   string
@@ -601,8 +470,8 @@ func renderSlowestQueries(pr textPrinter, queryStats map[string]*analysis.QueryS
 		queries = queries[:10]
 	}
 
-	termWidth := pr.width
-	if termWidth <= 0 {
+	termWidth, _, err := term.GetSize(int(os.Stdout.Fd()))
+	if err != nil {
 		termWidth = 120
 	}
 	queryWidth := int(float64(termWidth) * 0.6)
@@ -610,15 +479,17 @@ func renderSlowestQueries(pr textPrinter, queryStats map[string]*analysis.QueryS
 		queryWidth = 40
 	}
 
-	headerFormat := fmt.Sprintf("%%-9s  %%-%ds  %%12s", queryWidth)
-	header := fmt.Sprintf(headerFormat, "SQLID", "Query", "Duration")
-	fmt.Fprintln(pr.out, pr.bold(header))
+	bold := "\033[1m"
+	reset := "\033[0m"
+
+	headerFormat := fmt.Sprintf("%%-9s  %%-%ds  %%12s\n", queryWidth)
+	fmt.Printf("%s"+headerFormat+reset, bold, "SQLID", "Query", "Duration")
 	totalWidth := 9 + 2 + queryWidth + 2 + 12
-	fmt.Fprintln(pr.out, strings.Repeat("-", totalWidth))
+	fmt.Println(strings.Repeat("-", totalWidth))
 
 	for _, q := range queries {
 		displayQuery := truncateQuery(q.Query, queryWidth)
-		fmt.Fprintf(pr.out, "%-9s  %-*s  %12s\n",
+		fmt.Printf("%-9s  %-*s  %12s\n",
 			q.ID,
 			queryWidth, displayQuery,
 			formatQueryDuration(q.MaxTime))
@@ -628,24 +499,18 @@ func renderSlowestQueries(pr textPrinter, queryStats map[string]*analysis.QueryS
 // PrintMostFrequentQueries displays the top queries by frequency (sorted descending by count).
 // The display stops if a query was executed only once or if the execution count drops by more than a factor of 10.
 func PrintMostFrequentQueries(queryStats map[string]*analysis.QueryStat) {
-	renderMostFrequentQueries(newStdoutPrinter(), queryStats)
-}
-
-func renderMostFrequentQueries(pr textPrinter, queryStats map[string]*analysis.QueryStat) {
 	type queryInfo struct {
-		ID      string
-		Query   string
-		Count   int
-		AvgTime float64
+		ID    string
+		Query string
+		Count int
 	}
 	var queries []queryInfo
 	for normalized, stats := range queryStats {
 		id, _ := analysis.GenerateQueryID(stats.RawQuery, normalized)
 		queries = append(queries, queryInfo{
-			ID:      id,
-			Query:   normalized,
-			Count:   stats.Count,
-			AvgTime: stats.AvgTime,
+			ID:    id,
+			Query: normalized,
+			Count: stats.Count,
 		})
 	}
 
@@ -656,8 +521,8 @@ func renderMostFrequentQueries(pr textPrinter, queryStats map[string]*analysis.Q
 		return queries[i].Query < queries[j].Query
 	})
 
-	termWidth := pr.width
-	if termWidth <= 0 {
+	termWidth, _, err := term.GetSize(int(os.Stdout.Fd()))
+	if err != nil {
 		termWidth = 120
 	}
 	queryWidth := int(float64(termWidth) * 0.6)
@@ -665,63 +530,55 @@ func renderMostFrequentQueries(pr textPrinter, queryStats map[string]*analysis.Q
 		queryWidth = 40
 	}
 
-	header := fmt.Sprintf("%-9s  %-*s  %-12s  %-12s", "SQLID", queryWidth, "Query", "Executed", "Avg time")
-	fmt.Fprintln(pr.out, pr.bold(header))
-	fmt.Fprintln(pr.out, strings.Repeat("-", 9+2+queryWidth+2+12+2+12))
+	bold := "\033[1m"
+	reset := "\033[0m"
 
-	prevCount := -1
+	headerFormat := fmt.Sprintf("%%-9s  %%-%ds  %%12s\n", queryWidth)
+	fmt.Printf("%s"+headerFormat+reset, bold, "SQLID", "Query", "Executed")
+	totalWidth := 9 + 2 + queryWidth + 2 + 12
+	fmt.Println(strings.Repeat("-", totalWidth))
+
+	var prevCount int
 	for i, q := range queries {
+		// Stop conditions
 		if i >= 15 {
-			break
+			break // Max 15 queries
 		}
-		if q.Count <= 1 {
-			break
+		if q.Count == 1 {
+			break // Don't show queries executed only once
 		}
-		if prevCount > 0 && q.Count*10 < prevCount {
-			break
+		if i > 0 && q.Count < prevCount/10 {
+			break // Stop if frequency drops by 10x
 		}
+
 		prevCount = q.Count
 
 		displayQuery := truncateQuery(q.Query, queryWidth)
-		fmt.Fprintf(pr.out, "%-9s  %-*s  %-12d  %-12s\n",
+		fmt.Printf("%-9s  %-*s  %12d\n",
 			q.ID,
 			queryWidth, displayQuery,
-			q.Count,
-			formatQueryDuration(q.AvgTime))
+			q.Count)
 	}
 }
 
 // PrintSqlDetails iterates over the QueryStats and displays details for each query
 // whose SQLID matches one of the provided queryDetails.
 func PrintSqlDetails(m analysis.SqlMetrics, queryDetails []string) {
-	renderSQLDetails(newStdoutPrinter(), m, queryDetails)
-}
-
-func renderSQLDetails(pr textPrinter, m analysis.SqlMetrics, queryDetails []string) {
-	if len(queryDetails) == 0 {
-		return
-	}
-
-	targets := make(map[string]struct{}, len(queryDetails))
-	for _, id := range queryDetails {
-		targets[id] = struct{}{}
-	}
-
 	for _, qs := range m.QueryStats {
-		if _, ok := targets[qs.ID]; !ok {
-			continue
+		for _, qid := range queryDetails {
+			if qs.ID == qid {
+				fmt.Printf("\nDetails for SQLID: %s\n", qs.ID)
+				fmt.Println("SQL Query Details:")
+				fmt.Printf("  SQLID            : %s\n", qs.ID)
+				fmt.Printf("  Query Type       : %s\n", analysis.QueryTypeFromID(qs.ID))
+				fmt.Printf("  Raw Query        : %s\n", qs.RawQuery)
+				fmt.Printf("  Normalized Query : %s\n", qs.NormalizedQuery)
+				fmt.Printf("  Executed         : %d\n", qs.Count)
+				fmt.Printf("  Total Time       : %s\n", formatQueryDuration(qs.TotalTime))
+				fmt.Printf("  Median Time      : %s\n", formatQueryDuration(qs.AvgTime))
+				fmt.Printf("  Max Time         : %s\n", formatQueryDuration(qs.MaxTime))
+			}
 		}
-
-		fmt.Fprintf(pr.out, "\nDetails for SQLID: %s\n", qs.ID)
-		fmt.Fprintln(pr.out, "SQL Query Details:")
-		fmt.Fprintf(pr.out, "  SQLID            : %s\n", qs.ID)
-		fmt.Fprintf(pr.out, "  Query Type       : %s\n", analysis.QueryTypeFromID(qs.ID))
-		fmt.Fprintf(pr.out, "  Raw Query        : %s\n", qs.RawQuery)
-		fmt.Fprintf(pr.out, "  Normalized Query : %s\n", qs.NormalizedQuery)
-		fmt.Fprintf(pr.out, "  Executed         : %d\n", qs.Count)
-		fmt.Fprintf(pr.out, "  Total Time       : %s\n", formatQueryDuration(qs.TotalTime))
-		fmt.Fprintf(pr.out, "  Average Time     : %s\n", formatQueryDuration(qs.AvgTime))
-		fmt.Fprintf(pr.out, "  Max Time         : %s\n", formatQueryDuration(qs.MaxTime))
 	}
 }
 
@@ -729,14 +586,10 @@ func renderSQLDetails(pr textPrinter, m analysis.SqlMetrics, queryDetails []stri
 
 // truncateQuery truncates the query string to the specified length, appending "..." if necessary.
 func truncateQuery(query string, length int) string {
-	if length <= 3 {
-		return query
+	if len(query) > length {
+		return query[:length-3] + "..."
 	}
-	runes := []rune(query)
-	if len(runes) <= length {
-		return query
-	}
-	return string(runes[:length-3]) + "..."
+	return query
 }
 
 func formatQueryDuration(ms float64) string {
@@ -794,16 +647,14 @@ Number of SQL queries: %d`,
 
 // PrintEventsReport prints a clean, simple event summary with aligned labels.
 func PrintEventsReport(summaries []analysis.EventSummary) {
-	renderEventsReport(newStdoutPrinter(), summaries)
-}
+	// ANSI style for bold text.
+	bold := "\033[1m"
+	reset := "\033[0m"
 
-func renderEventsReport(pr textPrinter, summaries []analysis.EventSummary) {
-	if len(summaries) == 0 {
-		return
-	}
+	// Print title in bold.
+	fmt.Println(bold + "\nEVENTS\n" + reset)
 
-	fmt.Fprintln(pr.out, pr.bold("\nEVENTS\n"))
-
+	// Determine the longest event type for alignment.
 	maxTypeLength := 0
 	for _, summary := range summaries {
 		if len(summary.Type) > maxTypeLength {
@@ -811,44 +662,46 @@ func renderEventsReport(pr textPrinter, summaries []analysis.EventSummary) {
 		}
 	}
 
+	// Print event counts with aligned labels.
 	for _, summary := range summaries {
 		if summary.Count == 0 {
-			fmt.Fprintf(pr.out, "  %-*s : -\n", maxTypeLength, summary.Type)
-			continue
+			fmt.Printf("  %-*s : -\n", maxTypeLength, summary.Type)
+		} else {
+			fmt.Printf("  %-*s : %d\n", maxTypeLength, summary.Type, summary.Count)
 		}
-		fmt.Fprintf(pr.out, "  %-*s : %d\n", maxTypeLength, summary.Type, summary.Count)
 	}
 }
 
 // PrintHistogram affiche l'histogramme en triant les plages horaires par ordre chronologique.
 // La largeur du terminal est récupérée automatiquement pour adapter la largeur de la barre.
 func PrintHistogram(data map[string]int, title string, unit string, scaleFactor int, orderedLabels []string) {
-	renderHistogram(newStdoutPrinter(), data, title, unit, scaleFactor, orderedLabels)
-}
-
-func renderHistogram(pr textPrinter, data map[string]int, title string, unit string, scaleFactor int, orderedLabels []string) {
 	if len(data) == 0 {
-		fmt.Fprintln(pr.out, "\n  (No data available)")
+		fmt.Printf("\n  (No data available)\n")
 		return
 	}
 
-	termWidth := pr.width
-	if termWidth <= 0 {
-		termWidth = 80
+	// Récupération de la largeur du terminal.
+	termWidth, _, err := term.GetSize(int(os.Stdout.Fd()))
+	if err != nil || termWidth <= 0 {
+		termWidth = 80 // valeur par défaut
 	}
 
-	const labelPadWidth = 20
-	const valueWidth = 5
-	const spacing = 4
-	barWidth := termWidth - labelPadWidth - spacing - valueWidth
+	// Définition des largeurs réservées : 20 pour l'étiquette et 5 pour la valeur.
+	labelWidth := 20
+	valueWidth := 5
+	spacing := 4 // Espaces entre le label et la valeur.
+	barWidth := termWidth - labelWidth - spacing - valueWidth
 	if barWidth < 10 {
 		barWidth = 10
 	}
 
+	// Gestion des labels (ordre fixe ou tri automatique basé sur l'heure).
 	labels := make([]string, 0, len(data))
 	if len(orderedLabels) > 0 {
+		// Utilisation de l'ordre défini explicitement.
 		labels = orderedLabels
 	} else {
+		// Tri automatique basé sur l'heure "HH:MM - HH:MM".
 		for label := range data {
 			labels = append(labels, label)
 		}
@@ -861,6 +714,7 @@ func renderHistogram(pr textPrinter, data map[string]int, title string, unit str
 		})
 	}
 
+	// Détermination de la valeur maximale pour normaliser l'affichage.
 	maxValue := 0
 	for _, value := range data {
 		if value > maxValue {
@@ -868,6 +722,7 @@ func renderHistogram(pr textPrinter, data map[string]int, title string, unit str
 		}
 	}
 
+	// Calcul dynamique du scale factor si non fourni.
 	if scaleFactor <= 0 {
 		scaleFactor = int(math.Ceil(float64(maxValue) / float64(barWidth)))
 		if scaleFactor < 1 {
@@ -875,8 +730,10 @@ func renderHistogram(pr textPrinter, data map[string]int, title string, unit str
 		}
 	}
 
-	fmt.Fprintf(pr.out, "  %s | ■ = %d %s\n\n", title, scaleFactor, unit)
+	// Affichage de l'en-tête.
+	fmt.Printf("  %s | ■ = %d %s\n\n", title, scaleFactor, unit)
 
+	// Affichage des lignes de l'histogramme.
 	for _, label := range labels {
 		value := data[label]
 		barLength := value / scaleFactor
@@ -885,18 +742,20 @@ func renderHistogram(pr textPrinter, data map[string]int, title string, unit str
 		}
 		bar := strings.Repeat("■", barLength)
 
+		// Déterminer si on affiche la valeur ou un `-`
 		valueStr := fmt.Sprintf("%d %s", value, unit)
 		if value == 0 {
 			valueStr = " -"
 		}
 
+		// Ajustement du formatage : si pas de barres, on aligne à gauche sans indentation.
 		if barLength > 0 {
-			fmt.Fprintf(pr.out, "  %-13s  %-s %s\n", label, bar, valueStr)
+			fmt.Printf("  %-13s  %-s %s\n", label, bar, valueStr)
 		} else {
-			fmt.Fprintf(pr.out, "  %-14s %s\n", label, valueStr)
+			fmt.Printf("  %-14s %s\n", label, valueStr)
 		}
 	}
-	fmt.Fprintln(pr.out)
+	fmt.Println()
 }
 
 // computeQueryLoadHistogram répartit les durées des requêtes SQL en 6 intervalles égaux,

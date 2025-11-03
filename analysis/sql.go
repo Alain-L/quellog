@@ -33,9 +33,6 @@ type QueryStat struct {
 	// MaxTime is the maximum execution time observed in milliseconds.
 	MaxTime float64
 
-	// TotalTempSize is the cumulative size of temporary files created in bytes.
-	TotalTempSize int64
-
 	// ID is a short, user-friendly identifier (e.g., "se-123xaB").
 	ID string
 
@@ -113,24 +110,13 @@ type SQLAnalyzer struct {
 	startTimestamp   time.Time
 	endTimestamp     time.Time
 	executions       []QueryExecution
-	tempFileSizesPerPID map[int]int64
 }
 
 // NewSQLAnalyzer creates a new SQL analyzer with pre-allocated capacity.
 func NewSQLAnalyzer() *SQLAnalyzer {
 	return &SQLAnalyzer{
-		queryStats:          make(map[string]*QueryStat, 1000),
-		executions:          make([]QueryExecution, 0, 10000),
-		tempFileSizesPerPID: make(map[int]int64, 100),
-	}
-}
-
-// ProcessTempFile analyzes a log entry for temporary file creation events
-// and stores the size against the process ID (PID).
-func (a *SQLAnalyzer) ProcessTempFile(entry *parser.LogEntry) {
-	size := extractTempFileSize(entry.Message)
-	if size > 0 {
-		a.tempFileSizesPerPID[entry.Pid] += size
+		queryStats: make(map[string]*QueryStat, 1000),
+		executions: make([]QueryExecution, 0, 10000),
 	}
 }
 
@@ -168,25 +154,20 @@ func (a *SQLAnalyzer) Process(entry *parser.LogEntry) {
 	rawQuery := strings.TrimSpace(query)
 	normalizedQuery := normalizeQuery(rawQuery)
 
-			// Update or create query statistics
-		stats, exists := a.queryStats[normalizedQuery]
-		if !exists {
-			// Generate ID only for new queries (expensive operation)
-			id, fullHash := GenerateQueryID(rawQuery, normalizedQuery)
-			stats = &QueryStat{
-				RawQuery:        rawQuery,
-				NormalizedQuery: normalizedQuery,
-				ID:              id,
-				FullHash:        fullHash,
-			}
-			a.queryStats[normalizedQuery] = stats
+	// Update or create query statistics
+	stats, exists := a.queryStats[normalizedQuery]
+	if !exists {
+		// Generate ID only for new queries (expensive operation)
+		id, fullHash := GenerateQueryID(rawQuery, normalizedQuery)
+		stats = &QueryStat{
+			RawQuery:        rawQuery,
+			NormalizedQuery: normalizedQuery,
+			ID:              id,
+			FullHash:        fullHash,
 		}
-	
-		// Associate pending temporary file size with this query
-		if tempSize, found := a.tempFileSizesPerPID[entry.Pid]; found {
-			stats.TotalTempSize += tempSize
-			delete(a.tempFileSizesPerPID, entry.Pid)
-		}
+		a.queryStats[normalizedQuery] = stats
+	}
+
 	// Update per-query statistics
 	stats.Count++
 	stats.TotalTime += duration

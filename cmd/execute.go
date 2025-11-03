@@ -118,24 +118,17 @@ func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, 
 		return
 	}
 
-	// Default: full analysis with all metrics
-	metrics := analysis.AggregateMetrics(filteredLogs)
-
 	// Special case: SQL summary (aggregated query statistics)
 	if sqlSummaryFlag {
+		sqlMetrics := analysis.RunSQLSummary(filteredLogs)
 		processingDuration := time.Since(startTime)
-		PrintProcessingSummary(metrics.SQL.TotalQueries, processingDuration, totalFileSize)
-
-		if jsonFlag {
-			output.ExportJSON(metrics, []string{"sql_performance"})
-		} else if mdFlag {
-			output.ExportMarkdown(metrics, []string{"sql_performance"})
-		} else {
-			output.PrintSQLSummary(metrics.SQL, false)
-		}
+		PrintProcessingSummary(sqlMetrics.TotalQueries, processingDuration, totalFileSize)
+		output.PrintSQLSummary(sqlMetrics, false)
 		return
 	}
 
+	// Default: full analysis with all metrics
+	metrics := analysis.AggregateMetrics(filteredLogs)
 	processingDuration := time.Since(startTime)
 
 	// Validate that we have a valid time range

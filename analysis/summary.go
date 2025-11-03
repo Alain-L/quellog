@@ -145,18 +145,14 @@ func (sa *StreamingAnalyzer) Process(entry *parser.LogEntry) {
 
 	// Dispatch to specialized analyzers
 	// Each analyzer performs its own filtering
-	if strings.Contains(entry.Message, "temporary file:") {
-		sa.sql.ProcessTempFile(entry)
-	} else if strings.Contains(entry.Message, "duration:") {
-		sa.sql.Process(entry)
-	}
-
+	sa.tempFiles.Process(entry)
 	sa.vacuum.Process(entry)
 	sa.checkpoints.Process(entry)
 	sa.connections.Process(entry)
 	sa.events.Process(entry)
 	sa.errorClasses.Process(entry)
 	sa.uniqueEntities.Process(entry)
+	sa.sql.Process(entry)
 }
 
 // Finalize computes final metrics after all log entries have been processed.

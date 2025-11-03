@@ -7,7 +7,6 @@ import (
 	"io"
 	"log"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -120,19 +119,9 @@ func (p *CsvParser) parseReader(r io.Reader, out chan<- LogEntry) error {
 		// Build complete message with context
 		message := buildCSVMessage(record)
 
-		// Extract PID
-		pidStr := getField(record, csvFieldPID)
-		pid := 0
-		if pidStr != "" {
-			if p, err := strconv.Atoi(pidStr); err == nil {
-				pid = p
-			}
-		}
-
 		out <- LogEntry{
 			Timestamp: timestamp,
 			Message:   message,
-			Pid:       pid,
 		}
 	}
 
