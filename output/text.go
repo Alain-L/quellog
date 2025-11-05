@@ -75,6 +75,40 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string) {
 			avgSize = m.TempFiles.TotalSize / int64(m.TempFiles.Count)
 		}
 		fmt.Printf("  %-25s : %s\n", "Average temp file size", formatBytes(avgSize))
+
+		// Queries generating temp files (if available)
+		if len(m.TempFiles.QueryStats) > 0 {
+			fmt.Println("\n" + bold + "Queries generating temp files:" + reset)
+			fmt.Printf("%s%-10s %-70s %10s %10s%s\n", bold, "SQLID", "Query", "Count", "Total Size", reset)
+			fmt.Println(strings.Repeat("-", 102))
+
+			// Sort queries by total size descending
+			type queryWithSize struct {
+				stat *analysis.TempFileQueryStat
+			}
+			queries := make([]queryWithSize, 0, len(m.TempFiles.QueryStats))
+			for _, stat := range m.TempFiles.QueryStats {
+				queries = append(queries, queryWithSize{stat: stat})
+			}
+			sort.Slice(queries, func(i, j int) bool {
+				return queries[i].stat.TotalSize > queries[j].stat.TotalSize
+			})
+
+			// Display top 10
+			limit := 10
+			if len(queries) < limit {
+				limit = len(queries)
+			}
+			for i := 0; i < limit; i++ {
+				stat := queries[i].stat
+				truncatedQuery := truncateQuery(stat.NormalizedQuery, 70)
+				fmt.Printf("%-10s %-70s %10d %10s\n",
+					stat.ID,
+					truncatedQuery,
+					stat.Count,
+					formatBytes(stat.TotalSize))
+			}
+		}
 	}
 
 	// Maintenance Metrics section.

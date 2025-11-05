@@ -1,7 +1,10 @@
 // Package parser provides types and interfaces for PostgreSQL log parsing.
 package parser
 
-import "time"
+import (
+	"strings"
+	"time"
+)
 
 // LogEntry represents a single parsed PostgreSQL log entry.
 // Each entry consists of a timestamp and the complete log message,
@@ -72,4 +75,49 @@ type LogParser interface {
 	// Note: Individual malformed lines may be logged as warnings but should not
 	// cause the entire parsing operation to fail.
 	Parse(filename string, out chan<- LogEntry) error
+}
+
+// ExtractPID extracts the PostgreSQL process ID from a log message.
+// Looks for the first occurrence of "[digits]" pattern.
+//
+// Examples:
+//   - "[12345]: LOG: ..." → "12345"
+//   - "postgre[12345]: LOG: ..." → "12345"
+//   - "[12345-1]: LOG: ..." → "12345"
+//
+// Returns empty string if no PID found.
+func ExtractPID(message string) string {
+	// Find '[' followed by digits and ']'
+	start := strings.IndexByte(message, '[')
+	if start == -1 {
+		return ""
+	}
+
+	// Look for the closing ']' and extract digits between
+	end := strings.IndexByte(message[start:], ']')
+	if end == -1 {
+		return ""
+	}
+
+	pidCandidate := message[start+1 : start+end]
+
+	// Verify it's all digits (or digits followed by -)
+	if len(pidCandidate) == 0 {
+		return ""
+	}
+
+	// Extract only the numeric part (before any dash)
+	dashIdx := strings.IndexByte(pidCandidate, '-')
+	if dashIdx != -1 {
+		pidCandidate = pidCandidate[:dashIdx]
+	}
+
+	// Verify all digits
+	for i := 0; i < len(pidCandidate); i++ {
+		if pidCandidate[i] < '0' || pidCandidate[i] > '9' {
+			return ""
+		}
+	}
+
+	return pidCandidate
 }
