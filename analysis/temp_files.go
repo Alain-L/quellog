@@ -21,6 +21,9 @@ type TempFileMetrics struct {
 	// Events contains individual temporary file creation events.
 	// Useful for timeline analysis and identifying memory pressure periods.
 	Events []TempFileEvent
+
+	// QueryStats maps normalized queries to their temp file statistics.
+	QueryStats map[string]*TempFileQueryStat
 }
 
 // TempFileEvent represents a single temporary file creation event.
@@ -30,6 +33,27 @@ type TempFileEvent struct {
 
 	// Size is the file size in bytes.
 	Size float64
+}
+
+// TempFileQueryStat stores aggregated temp file statistics for a single query pattern.
+type TempFileQueryStat struct {
+	// RawQuery is the original query text (first occurrence).
+	RawQuery string
+
+	// NormalizedQuery is the parameterized version used for grouping.
+	NormalizedQuery string
+
+	// Count is the number of temp file events for this query.
+	Count int
+
+	// TotalSize is the cumulative size of temp files for this query in bytes.
+	TotalSize int64
+
+	// ID is a short, user-friendly identifier.
+	ID string
+
+	// FullHash is the complete hash in hexadecimal.
+	FullHash string
 }
 
 // ============================================================================
@@ -61,25 +85,53 @@ const (
 //	}
 //	metrics := analyzer.Finalize()
 type TempFileAnalyzer struct {
-	count     int
-	totalSize int64
-	events    []TempFileEvent
+	count               int
+	totalSize           int64
+	events              []TempFileEvent
+	queryStats          map[string]*TempFileQueryStat
+
+	// Dual-pattern approach:
+	// Pattern 1: temp → STATEMENT (next line) - for log_statement configs
+	// Pattern 2: query → temp (cache last query by PID) - for log_min_duration_statement configs
+
+	// Pattern 1 state
+	pendingSize         int64  // Size of last temp file awaiting statement association
+	pendingPID          string // PID of last temp file seen (for immediate matching)
+	expectingStatement  bool   // True if next line should be a STATEMENT
+	pendingByPID        map[string]int64 // Fallback: cumulative temp size per PID waiting for statement
+
+	// Pattern 2 state (query before temp file)
+	lastQueryByPID         map[string]string // Most recent query text seen for each PID
+	tempFilesExist         bool              // True once we've seen at least one temp file
+
+	// Recheck buffer for first temp file (to achieve 100% coverage with minimal overhead)
+	recentLines            []string          // Circular buffer of recent raw messages (before 1st temp file)
+	recentLinesIdx         int               // Current position in circular buffer
+	firstTempFileProcessed bool              // True after processing the first temp file
 }
 
 // NewTempFileAnalyzer creates a new temporary file analyzer.
 func NewTempFileAnalyzer() *TempFileAnalyzer {
 	return &TempFileAnalyzer{
-		events: make([]TempFileEvent, 0, 1000),
+		events:         make([]TempFileEvent, 0, 1000),
+		queryStats:     make(map[string]*TempFileQueryStat, 100),
+		pendingByPID:   make(map[string]int64, 50),   // Pattern 1: fallback cache
+		lastQueryByPID: make(map[string]string, 100), // Pattern 2: query cache
+		recentLines:    make([]string, 200),          // Pre-allocate fixed 200-line circular buffer
 	}
 }
 
 // Process analyzes a single log entry for temporary file creation events.
 //
+// Uses a hybrid approach:
+//  1. Try to match STATEMENT on the immediate next line (fast path, works for ~79% of cases)
+//  2. Fall back to PID-based cache (fallback, works for the remaining ~21%)
+//  3. For the FIRST temp file only, recheck the recent buffer if no immediate match
+//
 // Expected log format:
 //
 //	LOG: temporary file: path "base/pgsql_tmp/pgsql_tmp12345.0", size 1048576
-//
-// The size is in bytes and appears after the "size" keyword.
+//	STATEMENT: SELECT * FROM large_table WHERE ...  (or "statement:" for CSV)
 func (a *TempFileAnalyzer) Process(entry *parser.LogEntry) {
 	msg := entry.Message
 
@@ -87,8 +139,173 @@ func (a *TempFileAnalyzer) Process(entry *parser.LogEntry) {
 		return
 	}
 
-	// Search for "temporary file" anywhere
-	if !strings.Contains(msg, tempFileMarker) {
+	// Fast path optimization: Use IndexByte as quick filter
+	hasColon := strings.IndexByte(msg, ':') >= 0
+	hasT := strings.IndexByte(msg, 't') >= 0
+
+	// Quick reject: can't be relevant if neither colon nor 't'
+	if !hasColon && !hasT {
+		return
+	}
+
+	// Fast path: skip if not expecting statement and no pending queries
+	// This avoids expensive Contains() calls for most lines
+	if !a.expectingStatement && len(a.pendingByPID) == 0 && !a.tempFilesExist {
+		// Before first temp file: only check for temp files
+		// Use multiple IndexByte checks before expensive Contains
+		if hasT && strings.IndexByte(msg, 'e') >= 0 && strings.IndexByte(msg, 'm') >= 0 {
+			if strings.Contains(msg, tempFileMarker) {
+				// Found first temp file, fall through to process it
+			} else {
+				// Buffer this line for recheck when we see first temp file
+				if !a.firstTempFileProcessed {
+					a.recentLines[a.recentLinesIdx] = msg
+					a.recentLinesIdx++
+					if a.recentLinesIdx >= 200 {
+						a.recentLinesIdx = 0
+					}
+				}
+				return
+			}
+		} else {
+			// Buffer this line for recheck when we see first temp file
+			if !a.firstTempFileProcessed {
+				a.recentLines[a.recentLinesIdx] = msg
+				a.recentLinesIdx++
+				if a.recentLinesIdx >= 200 {
+					a.recentLinesIdx = 0
+				}
+			}
+			return
+		}
+	}
+
+	// Now check specific patterns (only for relevant lines)
+	var hasTempFile, hasStatement, hasDurationExecute, hasContext bool
+
+	// Check for temp files
+	if hasT {
+		hasTempFile = strings.Contains(msg, tempFileMarker)
+	}
+
+	// Only cache queries if temp files exist (Pattern 2)
+	checkForQueries := a.tempFilesExist || a.expectingStatement || len(a.pendingByPID) > 0
+
+	if hasColon {
+		hasStatement = strings.Contains(msg, "STATEMENT:") || strings.Contains(msg, "statement:")
+
+		// Check for CONTEXT: (for queries executed from PL/pgSQL functions)
+		if !hasStatement && a.expectingStatement {
+			hasContext = strings.Contains(msg, "CONTEXT:")
+		}
+
+		// Only check for duration:execute if we're caching
+		if checkForQueries && !hasStatement {
+			if strings.Contains(msg, "execute") {
+				hasDurationExecute = strings.Contains(msg, "duration:")
+			}
+		}
+	}
+
+	// Skip if nothing relevant
+	if !hasTempFile && !hasStatement && !hasDurationExecute && !hasContext {
+		return
+	}
+
+	// === STEP 1: Check for STATEMENT/CONTEXT/query lines ===
+	// Support:
+	//   - "STATEMENT:" (stderr/syslog)
+	//   - "statement:" (CSV)
+	//   - "duration: ... execute" (prepared statements)
+	//   - "CONTEXT: SQL statement" (queries from PL/pgSQL functions)
+
+	if hasStatement || hasDurationExecute || hasContext {
+		var query string
+
+		// Try to extract from STATEMENT first
+		if hasStatement || hasDurationExecute {
+			query = extractStatementQuery(msg)
+		}
+
+		// If no query found and we have CONTEXT, try extracting from CONTEXT
+		if query == "" && hasContext {
+			query = extractContextQuery(msg)
+		}
+
+		if query == "" {
+			return
+		}
+
+		// Skip transaction control commands (BEGIN/COMMIT/ROLLBACK)
+		// They never generate temp files themselves
+		if isTransactionCommand(query) {
+			return
+		}
+
+		// Pattern 2: Save query for this PID (for duration→temp pattern)
+		pid := parser.ExtractPID(msg)
+		if pid != "" {
+			a.lastQueryByPID[pid] = query
+		}
+
+		// Pattern 1: Try to match with pending temp files (temp→STATEMENT pattern)
+		if a.expectingStatement || len(a.pendingByPID) > 0 {
+			// Try immediate match first (fast path)
+			if a.expectingStatement {
+			// Fast path: pendingPID is empty (means we couldn't extract it), assume it's the same
+			if a.pendingPID == "" {
+				a.associateQuery(query, a.pendingSize)
+				a.expectingStatement = false
+				a.pendingSize = 0
+				return
+			}
+
+			// Extract PID only when we have a pendingPID to compare against
+			currentPID := parser.ExtractPID(msg)
+
+			// Fast path: next line has same PID
+			if currentPID == a.pendingPID {
+				a.associateQuery(query, a.pendingSize)
+				a.expectingStatement = false
+				a.pendingSize = 0
+				a.pendingPID = ""
+				return
+			}
+
+			// Different PID: move pending to fallback cache and check this one
+			a.pendingByPID[a.pendingPID] += a.pendingSize
+			a.expectingStatement = false
+			a.pendingSize = 0
+			a.pendingPID = ""
+
+			// Fallback: check if current PID has pending temp files
+			if currentPID != "" {
+				if pendingSize, exists := a.pendingByPID[currentPID]; exists && pendingSize > 0 {
+					a.associateQuery(query, pendingSize)
+					delete(a.pendingByPID, currentPID)
+				}
+			}
+
+				return
+			}
+
+			// Not expecting statement: check fallback cache only
+			if len(a.pendingByPID) > 0 {
+				currentPID := parser.ExtractPID(msg)
+				if currentPID != "" {
+					if pendingSize, exists := a.pendingByPID[currentPID]; exists && pendingSize > 0 {
+						a.associateQuery(query, pendingSize)
+						delete(a.pendingByPID, currentPID)
+					}
+				}
+			}
+		}
+
+		return
+	}
+
+	// === STEP 2: Search for "temporary file" lines ===
+	if !hasTempFile {
 		return
 	}
 
@@ -100,85 +317,281 @@ func (a *TempFileAnalyzer) Process(entry *parser.LogEntry) {
 			Timestamp: entry.Timestamp,
 			Size:      float64(size),
 		})
+
+		// Extract PID for this temp file
+		pid := parser.ExtractPID(msg)
+
+		// Pattern 1b: Check if query is in the SAME message (CSV format with QUERY: field)
+		// This has PRIORITY over cache (Pattern 2)
+		if query := extractStatementQuery(msg); query != "" {
+			a.associateQuery(query, size)
+
+			// Clean up cache for this PID if it exists (stale query)
+			if pid != "" {
+				delete(a.lastQueryByPID, pid)
+			}
+
+			if !a.firstTempFileProcessed {
+				a.firstTempFileProcessed = true
+				a.tempFilesExist = true
+				a.recentLines = nil
+			}
+
+			return // Done, query was in same message
+		}
+
+		// Pattern 2: Check if we have a cached query for this PID (fallback)
+		if pid != "" {
+			if cachedQuery, exists := a.lastQueryByPID[pid]; exists {
+				a.associateQuery(cachedQuery, size)
+
+				if !a.firstTempFileProcessed {
+					a.firstTempFileProcessed = true
+					a.tempFilesExist = true
+					a.recentLines = nil // Free buffer memory
+				}
+
+				return // Done, no need to wait for next line
+			}
+		}
+
+		// RECHECK: If this is the first temp file and no cache hit,
+		// scan the recent lines buffer to find the query
+		if !a.firstTempFileProcessed && pid != "" {
+			if query := a.recheckInBuffer(pid); query != "" {
+				a.associateQuery(query, size)
+				a.firstTempFileProcessed = true
+				a.tempFilesExist = true
+				a.recentLines = nil // Free buffer memory
+				return
+			}
+		}
+
+		// Mark first temp file as processed and enable caching for future
+		if !a.firstTempFileProcessed {
+			a.firstTempFileProcessed = true
+			a.tempFilesExist = true
+			a.recentLines = nil // Free buffer memory
+		}
+
+		// Pattern 1: No cached query, wait for STATEMENT on next line (temp→STATEMENT pattern)
+		a.pendingSize = size
+		a.pendingPID = pid
+		a.expectingStatement = true
 	}
 }
 
-// Finalize returns the aggregated temporary file metrics.
-// This should be called after all log entries have been processed.
+// recheckInBuffer scans the recent lines buffer backwards to find a query for the given PID.
+// This is called only for the FIRST temp file to achieve 100% coverage with minimal overhead.
+// Returns the query text if found, empty string otherwise.
+func (a *TempFileAnalyzer) recheckInBuffer(pid string) string {
+	if len(a.recentLines) == 0 {
+		return ""
+	}
+
+	pidMarker := "[" + pid + "]"
+
+	// Scan backwards through recent lines buffer (most recent first)
+	for i := len(a.recentLines) - 1; i >= 0; i-- {
+		line := a.recentLines[i]
+
+		// Check if this line is from the same PID
+		if !strings.Contains(line, pidMarker) {
+			continue
+		}
+
+		// Try to extract a query from this line
+		if query := extractStatementQuery(line); query != "" {
+			return query
+		}
+	}
+
+	return ""
+}
+
+// isTransactionCommand checks if a query is a transaction control command.
+// These commands (BEGIN/COMMIT/ROLLBACK/START/END) never generate temp files.
+func isTransactionCommand(query string) bool {
+	if len(query) < 3 {
+		return false
+	}
+
+	firstChar := query[0]
+
+	// Check BEGIN
+	if firstChar == 'B' || firstChar == 'b' {
+		return len(query) >= 5 && (query[:5] == "BEGIN" || query[:5] == "begin")
+	}
+
+	// Check COMMIT
+	if firstChar == 'C' || firstChar == 'c' {
+		return len(query) >= 6 && (query[:6] == "COMMIT" || query[:6] == "commit")
+	}
+
+	// Check ROLLBACK
+	if firstChar == 'R' || firstChar == 'r' {
+		return len(query) >= 8 && (query[:8] == "ROLLBACK" || query[:8] == "rollback")
+	}
+
+	// Check START
+	if firstChar == 'S' || firstChar == 's' {
+		return len(query) >= 5 && (query[:5] == "START" || query[:5] == "start")
+	}
+
+	// Check END
+	if firstChar == 'E' || firstChar == 'e' {
+		return len(query) >= 3 && (query[:3] == "END" || query[:3] == "end")
+	}
+
+	return false
+}
+
+// extractStatementQuery extracts the query text from a STATEMENT or duration line.
+// Supports multiple formats:
+//   - "STATEMENT: SELECT ..." (stderr/syslog)
+//   - "statement: SELECT ..." (CSV)
+//   - "QUERY: SELECT ..." (CSV with QUERY field)
+//   - "duration: 1234.567 ms execute <unnamed>: SELECT ..." (prepared statements)
+func extractStatementQuery(message string) string {
+	// Try "QUERY:" first (CSV format with query field) - HIGHEST PRIORITY
+	idx := strings.Index(message, "QUERY:")
+	if idx != -1 {
+		query := message[idx+len("QUERY:"):]
+		return strings.TrimSpace(query)
+	}
+
+	// Try "STATEMENT:" (stderr/syslog format)
+	idx = strings.Index(message, "STATEMENT:")
+	if idx != -1 {
+		query := message[idx+len("STATEMENT:"):]
+		return strings.TrimSpace(query)
+	}
+
+	// Try "statement:" (CSV format)
+	idx = strings.Index(message, "statement:")
+	if idx != -1 {
+		query := message[idx+len("statement:"):]
+		return strings.TrimSpace(query)
+	}
+
+	// Try "duration: ... execute" (prepared statements)
+	idx = strings.Index(message, "duration:")
+	if idx != -1 {
+		execIdx := strings.Index(message[idx:], "execute")
+		if execIdx != -1 {
+			// Find the colon after "execute <unnamed>" or "execute <name>"
+			colonIdx := strings.Index(message[idx+execIdx:], ":")
+			if colonIdx != -1 {
+				query := message[idx+execIdx+colonIdx+1:]
+				return strings.TrimSpace(query)
+			}
+		}
+	}
+
+	return ""
+}
+
+// extractContextQuery extracts the query text from a CONTEXT line.
+// Supports format: "CONTEXT: SQL statement \"SELECT ...\""
+func extractContextQuery(message string) string {
+	// Find "CONTEXT:"
+	idx := strings.Index(message, "CONTEXT:")
+	if idx == -1 {
+		return ""
+	}
+
+	// Look for "SQL statement \"" after CONTEXT:
+	contextPart := message[idx:]
+	sqlIdx := strings.Index(contextPart, "SQL statement \"")
+	if sqlIdx == -1 {
+		return ""
+	}
+
+	// Extract everything after "SQL statement \""
+	query := contextPart[sqlIdx+len("SQL statement \""):]
+
+	// Remove trailing quote if present
+	if len(query) > 0 && query[len(query)-1] == '"' {
+		query = query[:len(query)-1]
+	}
+
+	return strings.TrimSpace(query)
+}
+
+// associateQuery links a temp file size to a query by normalizing and storing stats.
+func (a *TempFileAnalyzer) associateQuery(query string, size int64) {
+	if query == "" {
+		return
+	}
+
+	// Normalize query for grouping
+	normalized := normalizeQuery(query)
+
+	// Generate query ID and hash
+	id, fullHash := GenerateQueryID(query, normalized)
+
+	// Get or create stat entry
+	stat, exists := a.queryStats[fullHash]
+	if !exists {
+		stat = &TempFileQueryStat{
+			RawQuery:        query,
+			NormalizedQuery: normalized,
+			Count:           0,
+			TotalSize:       0,
+			ID:              id,
+			FullHash:        fullHash,
+		}
+		a.queryStats[fullHash] = stat
+	}
+
+	// Update stats
+	stat.Count++
+	stat.TotalSize += size
+}
+
+// Finalize computes and returns the final temporary file metrics.
 func (a *TempFileAnalyzer) Finalize() TempFileMetrics {
 	return TempFileMetrics{
-		Count:     a.count,
-		TotalSize: a.totalSize,
-		Events:    a.events,
+		Count:      a.count,
+		TotalSize:  a.totalSize,
+		Events:     a.events,
+		QueryStats: a.queryStats,
 	}
 }
 
-// ============================================================================
-// Size extraction
-// ============================================================================
-
-// extractTempFileSize parses the file size from a temporary file log message.
-//
-// PostgreSQL log format:
-//
-//	"temporary file: path \"...\", size 1048576"
-//
-// The function looks for "size" keyword followed by a number.
-// Returns 0 if size cannot be parsed.
+// extractTempFileSize parses the size value from a temporary file log message.
+// Returns 0 if the size cannot be extracted.
 func extractTempFileSize(message string) int64 {
 	// Find "size" keyword
-	sizeIdx := strings.Index(message, tempFileSize)
-	if sizeIdx == -1 {
+	idx := strings.Index(message, tempFileSize)
+	if idx == -1 {
 		return 0
 	}
 
-	// Move past "size" keyword (4 characters)
-	start := sizeIdx + len(tempFileSize)
+	// Skip "size" and look for the number
+	sizeStr := message[idx+len(tempFileSize):]
 
-	// Skip whitespace
-	for start < len(message) && (message[start] == ' ' || message[start] == ':') {
+	// Trim leading non-digits (spaces, colons, etc.)
+	start := 0
+	for start < len(sizeStr) && (sizeStr[start] < '0' || sizeStr[start] > '9') {
 		start++
 	}
 
-	if start >= len(message) {
+	if start >= len(sizeStr) {
 		return 0
 	}
 
-	// Find end of number (next non-digit character)
+	// Extract digits
 	end := start
-	for end < len(message) && message[end] >= '0' && message[end] <= '9' {
+	for end < len(sizeStr) && sizeStr[end] >= '0' && sizeStr[end] <= '9' {
 		end++
 	}
 
-	if end == start {
-		return 0
-	}
-
-	// Parse the size
-	sizeStr := message[start:end]
-	size, err := strconv.ParseInt(sizeStr, 10, 64)
+	// Parse the number
+	sizeVal, err := strconv.ParseInt(sizeStr[start:end], 10, 64)
 	if err != nil {
 		return 0
 	}
 
-	return size
-}
-
-// ============================================================================
-// Legacy API (for backward compatibility)
-// ============================================================================
-
-// CalculateTemporaryFileMetrics analyzes log entries for temporary file usage.
-//
-// Deprecated: This function loads all entries into memory. Use TempFileAnalyzer
-// with streaming for better performance and memory efficiency.
-//
-// This function is maintained for backward compatibility and will be removed
-// in a future version.
-func CalculateTemporaryFileMetrics(entries *[]parser.LogEntry) TempFileMetrics {
-	analyzer := NewTempFileAnalyzer()
-	for i := range *entries {
-		analyzer.Process(&(*entries)[i])
-	}
-	return analyzer.Finalize()
+	return sizeVal
 }
