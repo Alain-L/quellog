@@ -167,34 +167,41 @@ func parseCSVTimestamp(timestampStr string) (time.Time, error) {
 //
 // Format: "[pid]: user=X,db=Y,app=Z SEVERITY: message DETAIL: detail HINT: hint QUERY: query"
 func buildCSVMessage(record []string) string {
-	var parts []string
-
-	// Build context prefix similar to stderr format
-	var contextParts []string
+	var b strings.Builder
+	b.Grow(256) // Optimal pre-allocation size
 
 	// Add PID if present
 	if pid := getField(record, csvFieldPID); pid != "" {
-		contextParts = append(contextParts, fmt.Sprintf("[%s]:", pid))
+		b.WriteString("[")
+		b.WriteString(pid)
+		b.WriteString("]: ")
 	}
 
 	// Add user/db/app context (format: "user=X,db=Y,app=Z")
-	var userDbApp []string
+	hasUserDbApp := false
 	if user := getField(record, csvFieldUser); user != "" {
-		userDbApp = append(userDbApp, fmt.Sprintf("user=%s", user))
+		b.WriteString("user=")
+		b.WriteString(user)
+		hasUserDbApp = true
 	}
 	if database := getField(record, csvFieldDatabase); database != "" {
-		userDbApp = append(userDbApp, fmt.Sprintf("db=%s", database))
+		if hasUserDbApp {
+			b.WriteByte(',')
+		}
+		b.WriteString("db=")
+		b.WriteString(database)
+		hasUserDbApp = true
 	}
 	if app := getField(record, csvFieldAppName); app != "" {
-		userDbApp = append(userDbApp, fmt.Sprintf("app=%s", app))
+		if hasUserDbApp {
+			b.WriteByte(',')
+		}
+		b.WriteString("app=")
+		b.WriteString(app)
+		hasUserDbApp = true
 	}
-	if len(userDbApp) > 0 {
-		contextParts = append(contextParts, strings.Join(userDbApp, ","))
-	}
-
-	// Add context prefix to parts
-	if len(contextParts) > 0 {
-		parts = append(parts, strings.Join(contextParts, " "))
+	if hasUserDbApp {
+		b.WriteByte(' ')
 	}
 
 	// Add severity and main message
@@ -202,33 +209,38 @@ func buildCSVMessage(record []string) string {
 	message := getField(record, csvFieldMessage)
 
 	if severity != "" {
-		parts = append(parts, severity+":")
+		b.WriteString(severity)
+		b.WriteString(": ")
 	}
 	if message != "" {
-		parts = append(parts, message)
+		b.WriteString(message)
 	}
 
 	// Add DETAIL if present
 	if detail := getField(record, csvFieldDetail); detail != "" {
-		parts = append(parts, "DETAIL: "+detail)
+		b.WriteString(" DETAIL: ")
+		b.WriteString(detail)
 	}
 
 	// Add HINT if present
 	if hint := getField(record, csvFieldHint); hint != "" {
-		parts = append(parts, "HINT: "+hint)
+		b.WriteString(" HINT: ")
+		b.WriteString(hint)
 	}
 
 	// Add QUERY if present
 	if query := getField(record, csvFieldQuery); query != "" {
-		parts = append(parts, "QUERY: "+query)
+		b.WriteString(" QUERY: ")
+		b.WriteString(query)
 	}
 
 	// Add CONTEXT if present (useful for debugging)
 	if context := getField(record, csvFieldContext); context != "" {
-		parts = append(parts, "CONTEXT: "+context)
+		b.WriteString(" CONTEXT: ")
+		b.WriteString(context)
 	}
 
-	return strings.Join(parts, " ")
+	return b.String()
 }
 
 // getField safely retrieves a field from a CSV record.
