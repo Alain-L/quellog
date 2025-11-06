@@ -1,0 +1,20 @@
+2025-01-15 10:00:00.100 CET [1001] LOG:  duration: 5.234 ms  execute <unnamed>: SELECT * FROM users WHERE id = $1
+2025-01-15 10:00:00.101 CET [1001] DETAIL:  parameters: $1 = '123'
+2025-01-15 10:00:01.200 CET [1002] LOG:  duration: 12.456 ms  execute <unnamed>: SELECT * FROM users WHERE id = $1
+2025-01-15 10:00:01.201 CET [1002] DETAIL:  parameters: $1 = '456'
+2025-01-15 10:00:02.300 CET [1003] LOG:  duration: 3.789 ms  execute <unnamed>: SELECT * FROM users WHERE id = $1
+2025-01-15 10:00:02.301 CET [1003] DETAIL:  parameters: $1 = '789'
+2025-01-15 10:00:03.400 CET [1004] LOG:  duration: 8.123 ms  execute s1: INSERT INTO orders (user_id, total) VALUES ($1, $2)
+2025-01-15 10:00:03.401 CET [1004] DETAIL:  parameters: $1 = '123', $2 = '99.99'
+2025-01-15 10:00:04.500 CET [1005] LOG:  duration: 15.678 ms  execute s1: INSERT INTO orders (user_id, total) VALUES ($1, $2)
+2025-01-15 10:00:04.501 CET [1005] DETAIL:  parameters: $1 = '456', $2 = '149.99'
+2025-01-15 10:00:05.600 CET [1006] LOG:  duration: 7.890 ms  execute s2: UPDATE users SET last_login = NOW() WHERE id = $1
+2025-01-15 10:00:05.601 CET [1006] DETAIL:  parameters: $1 = '123'
+2025-01-15 10:00:06.700 CET [1007] LOG:  duration: 25.345 ms  execute <unnamed>: SELECT * FROM users WHERE id = $1
+2025-01-15 10:00:06.701 CET [1007] DETAIL:  parameters: $1 = '111'
+2025-01-15 10:00:07.800 CET [1008] LOG:  duration: 4.567 ms  execute s1: INSERT INTO orders (user_id, total) VALUES ($1, $2)
+2025-01-15 10:00:07.801 CET [1008] DETAIL:  parameters: $1 = '789', $2 = '199.99'
+2025-01-15 10:00:08.900 CET [1009] LOG:  duration: 6.234 ms  execute s2: UPDATE users SET last_login = NOW() WHERE id = $1
+2025-01-15 10:00:08.901 CET [1009] DETAIL:  parameters: $1 = '456'
+2025-01-15 10:00:09.000 CET [1010] LOG:  duration: 9.876 ms  execute <unnamed>: SELECT * FROM users WHERE id = $1
+2025-01-15 10:00:09.001 CET [1010] DETAIL:  parameters: $1 = '222'

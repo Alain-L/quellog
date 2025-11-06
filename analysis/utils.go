@@ -172,7 +172,6 @@ func normalizeQuery(query string) string {
 
 			isNextIdentifier := i+1 < len(query) && ((query[i+1] >= 'a' && query[i+1] <= 'z') ||
 				(query[i+1] >= 'A' && query[i+1] <= 'Z') ||
-				(query[i+1] >= '0' && query[i+1] <= '9') ||
 				query[i+1] == '_')
 
 			// If part of identifier (sandwiched between identifier chars), keep it
