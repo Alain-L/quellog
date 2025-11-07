@@ -587,6 +587,14 @@ func printLockStatsMarkdown(b *strings.Builder, stats map[string]int, total int)
 }
 
 // printTopLockQueriesMarkdown prints the top queries generating locks in markdown table format.
+// formatLockCountMarkdown formats a lock count for markdown, displaying "-" for 0.
+func formatLockCountMarkdown(count int) string {
+	if count == 0 {
+		return "-"
+	}
+	return fmt.Sprintf("%d", count)
+}
+
 func printTopLockQueriesMarkdown(b *strings.Builder, queryStats map[string]*analysis.LockQueryStat, limit int) {
 	// Convert map to slice and sort by total wait time
 	type queryPair struct {
@@ -607,11 +615,11 @@ func printTopLockQueriesMarkdown(b *strings.Builder, queryStats map[string]*anal
 	for i := 0; i < limit; i++ {
 		stat := pairs[i].stat
 		truncatedQuery := truncateQuery(stat.NormalizedQuery, 60)
-		b.WriteString(fmt.Sprintf("| %s | %s | %d | %d | %.2f |\n",
+		b.WriteString(fmt.Sprintf("| %s | %s | %s | %s | %.2f |\n",
 			stat.ID,
 			truncatedQuery,
-			stat.WaitingCount,
-			stat.AcquiredCount,
+			formatLockCountMarkdown(stat.WaitingCount),
+			formatLockCountMarkdown(stat.AcquiredCount),
 			stat.TotalWaitTime))
 	}
 }

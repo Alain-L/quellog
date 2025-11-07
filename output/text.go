@@ -1307,6 +1307,14 @@ func printLockStats(stats map[string]int, total int) {
 	}
 }
 
+// formatLockCount formats a lock count, displaying "-" for 0.
+func formatLockCount(count int) string {
+	if count == 0 {
+		return "-"
+	}
+	return fmt.Sprintf("%d", count)
+}
+
 // printTopLockQueries prints the top queries generating locks.
 func printTopLockQueries(queryStats map[string]*analysis.LockQueryStat, limit int) {
 	// Convert map to slice and sort by total wait time
@@ -1328,11 +1336,11 @@ func printTopLockQueries(queryStats map[string]*analysis.LockQueryStat, limit in
 	for i := 0; i < limit; i++ {
 		stat := pairs[i].stat
 		truncatedQuery := truncateQuery(stat.NormalizedQuery, 70)
-		fmt.Printf("%-10s %-70s %10d %10d %15s\n",
+		fmt.Printf("%-10s %-70s %10s %10s %15s\n",
 			stat.ID,
 			truncatedQuery,
-			stat.WaitingCount,
-			stat.AcquiredCount,
+			formatLockCount(stat.WaitingCount),
+			formatLockCount(stat.AcquiredCount),
 			formatQueryDuration(stat.TotalWaitTime))
 	}
 }
@@ -1361,10 +1369,10 @@ func printMostFrequentWaitingQueries(queryStats map[string]*analysis.LockQuerySt
 		stat := pairs[i].stat
 		truncatedQuery := truncateQuery(stat.NormalizedQuery, 70)
 		avgWait := stat.TotalWaitTime / float64(stat.WaitingCount)
-		fmt.Printf("%-10s %-70s %10d %15s %15s\n",
+		fmt.Printf("%-10s %-70s %10s %15s %15s\n",
 			stat.ID,
 			truncatedQuery,
-			stat.WaitingCount,
+			formatLockCount(stat.WaitingCount),
 			formatQueryDuration(avgWait),
 			formatQueryDuration(stat.TotalWaitTime))
 	}
