@@ -80,7 +80,7 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string) {
 		if len(m.TempFiles.QueryStats) > 0 {
 			fmt.Println("\n" + bold + "Queries generating temp files:" + reset + "\n")
 			fmt.Printf("%s%-10s %-70s %10s %10s%s\n", bold, "SQLID", "Query", "Count", "Total Size", reset)
-			fmt.Println(strings.Repeat("-", 102))
+			fmt.Println(strings.Repeat("-", 103))
 
 			// Sort queries by total size descending
 			type queryWithSize struct {
@@ -142,7 +142,7 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string) {
 		if len(m.Locks.QueryStats) > 0 {
 			fmt.Println("\n" + bold + "Top queries generating locks:" + reset + "\n")
 			fmt.Printf("%-10s %-70s %10s %10s %15s\n", "SQLID", "Query", "Waiting", "Acquired", "Total Wait")
-			fmt.Println("------------------------------------------------------------------------------------------------------")
+			fmt.Println(strings.Repeat("-", 119))
 			printTopLockQueries(m.Locks.QueryStats, 10)
 		}
 	}
