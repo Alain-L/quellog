@@ -168,10 +168,30 @@ func (a *LockAnalyzer) Process(entry *parser.LogEntry) {
 	}
 
 	// Cache query text for later association with lock events
-	if strings.HasPrefix(msg, "statement:") || strings.HasPrefix(msg, "STATEMENT:") {
-		query := extractStatementText(msg)
+	// Handle both "duration: ... statement: ..." and standalone "STATEMENT:" lines
+	if strings.Contains(msg, "statement:") || strings.Contains(msg, "STATEMENT:") {
+		var query string
+		var pid string
+
+		// Method 1: duration: X ms statement: QUERY
+		if strings.Contains(msg, "duration:") {
+			if idx := strings.Index(msg, "statement:"); idx != -1 {
+				query = strings.TrimSpace(msg[idx+10:])
+			}
+		}
+
+		// Method 2: Standalone STATEMENT: line
+		if query == "" {
+			if idx := strings.Index(msg, "STATEMENT:"); idx != -1 {
+				query = strings.TrimSpace(msg[idx+10:])
+			} else if idx := strings.Index(msg, "statement:"); idx != -1 {
+				query = strings.TrimSpace(msg[idx+10:])
+			}
+		}
+
+		// Extract PID from message (format: "[12345]: ..." or "process 12345")
 		if query != "" {
-			pid := parser.ExtractPID(msg)
+			pid = parser.ExtractPID(msg)
 			if pid != "" {
 				a.lastQueryByPID[pid] = query
 			}
