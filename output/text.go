@@ -171,6 +171,23 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string) {
 				printStillWaitingLockQueries(m.Locks.QueryStats, 10)
 			}
 		}
+
+		// Most frequent waiting queries (all locks that waited, acquired or not)
+		if len(m.Locks.QueryStats) > 0 {
+			hasWaiting := false
+			for _, stat := range m.Locks.QueryStats {
+				if stat.AcquiredCount > 0 || stat.StillWaitingCount > 0 {
+					hasWaiting = true
+					break
+				}
+			}
+			if hasWaiting {
+				fmt.Println("\n" + bold + "Most frequent waiting queries:" + reset + "\n")
+				fmt.Printf("%-10s %-70s %10s %15s %15s\n", "SQLID", "Query", "Locks", "Avg Wait", "Total Wait")
+				fmt.Println(strings.Repeat("-", 124))
+				printMostFrequentWaitingQueries(m.Locks.QueryStats, 10)
+			}
+		}
 	}
 
 	// Maintenance Metrics section.
@@ -1388,5 +1405,47 @@ func printStillWaitingLockQueries(queryStats map[string]*analysis.LockQueryStat,
 			stat.StillWaitingCount,
 			formatQueryDuration(avgWait),
 			formatQueryDuration(stat.StillWaitingTime))
+	}
+}
+
+// printMostFrequentWaitingQueries prints all queries that experienced lock waits,
+// sorted by the number of unique locks that waited (acquired or not).
+func printMostFrequentWaitingQueries(queryStats map[string]*analysis.LockQueryStat, limit int) {
+	// Convert map to slice and filter/sort by total number of locks that waited
+	type queryPair struct {
+		stat       *analysis.LockQueryStat
+		totalLocks int
+		totalWait  float64
+	}
+	var pairs []queryPair
+	for _, stat := range queryStats {
+		totalLocks := stat.AcquiredCount + stat.StillWaitingCount
+		if totalLocks > 0 {
+			totalWait := stat.AcquiredWaitTime + stat.StillWaitingTime
+			pairs = append(pairs, queryPair{
+				stat:       stat,
+				totalLocks: totalLocks,
+				totalWait:  totalWait,
+			})
+		}
+	}
+	sort.Slice(pairs, func(i, j int) bool {
+		return pairs[i].totalLocks > pairs[j].totalLocks
+	})
+
+	// Print top queries
+	if limit > len(pairs) {
+		limit = len(pairs)
+	}
+	for i := 0; i < limit; i++ {
+		pair := pairs[i]
+		truncatedQuery := truncateQuery(pair.stat.NormalizedQuery, 70)
+		avgWait := pair.totalWait / float64(pair.totalLocks)
+		fmt.Printf("%-10s %-70s %10d %15s %15s\n",
+			pair.stat.ID,
+			truncatedQuery,
+			pair.totalLocks,
+			formatQueryDuration(avgWait),
+			formatQueryDuration(pair.totalWait))
 	}
 }
