@@ -78,7 +78,7 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string) {
 
 		// Queries generating temp files (if available)
 		if len(m.TempFiles.QueryStats) > 0 {
-			fmt.Println("\n" + bold + "Queries generating temp files:" + reset)
+			fmt.Println("\n" + bold + "Queries generating temp files:" + reset + "\n")
 			fmt.Printf("%s%-10s %-70s %10s %10s%s\n", bold, "SQLID", "Query", "Count", "Total Size", reset)
 			fmt.Println(strings.Repeat("-", 102))
 
@@ -122,8 +122,8 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string) {
 		}
 		if m.Locks.TotalWaitTime > 0 {
 			avgWaitTime := m.Locks.TotalWaitTime / float64(m.Locks.WaitingEvents+m.Locks.AcquiredEvents)
-			fmt.Printf("  %-25s : %.2f ms\n", "Avg wait time", avgWaitTime)
-			fmt.Printf("  %-25s : %.2f s\n", "Total wait time", m.Locks.TotalWaitTime/1000)
+			fmt.Printf("  %-25s : %s\n", "Avg wait time", formatQueryDuration(avgWaitTime))
+			fmt.Printf("  %-25s : %s\n", "Total wait time", formatQueryDuration(m.Locks.TotalWaitTime))
 		}
 
 		// Lock types distribution
@@ -140,8 +140,8 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string) {
 
 		// Top queries generating locks
 		if len(m.Locks.QueryStats) > 0 {
-			fmt.Println("\n" + bold + "Top queries generating locks:" + reset)
-			fmt.Printf("%-10s %-70s %10s %10s %15s\n", "SQLID", "Query", "Waiting", "Acquired", "Total Wait (ms)")
+			fmt.Println("\n" + bold + "Top queries generating locks:" + reset + "\n")
+			fmt.Printf("%-10s %-70s %10s %10s %15s\n", "SQLID", "Query", "Waiting", "Acquired", "Total Wait")
 			fmt.Println("------------------------------------------------------------------------------------------------------")
 			printTopLockQueries(m.Locks.QueryStats, 10)
 		}
@@ -1245,11 +1245,11 @@ func printTopLockQueries(queryStats map[string]*analysis.LockQueryStat, limit in
 	for i := 0; i < limit; i++ {
 		stat := pairs[i].stat
 		truncatedQuery := truncateQuery(stat.NormalizedQuery, 70)
-		fmt.Printf("%-10s %-70s %10d %10d %15.2f\n",
+		fmt.Printf("%-10s %-70s %10d %10d %15s\n",
 			stat.ID,
 			truncatedQuery,
 			stat.WaitingCount,
 			stat.AcquiredCount,
-			stat.TotalWaitTime)
+			formatQueryDuration(stat.TotalWaitTime))
 	}
 }
