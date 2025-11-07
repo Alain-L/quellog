@@ -70,13 +70,19 @@ type LockQueryStat struct {
 	// NormalizedQuery is the parameterized version used for grouping.
 	NormalizedQuery string
 
-	// WaitingCount is the number of waiting events for this query.
-	WaitingCount int
-
-	// AcquiredCount is the number of acquired events for this query.
+	// AcquiredCount is the number of unique locks that were acquired.
 	AcquiredCount int
 
-	// TotalWaitTime is the cumulative wait time for this query in milliseconds.
+	// AcquiredWaitTime is the cumulative wait time for acquired locks in milliseconds.
+	AcquiredWaitTime float64
+
+	// StillWaitingCount is the number of unique locks still waiting (never acquired).
+	StillWaitingCount int
+
+	// StillWaitingTime is the cumulative wait time for locks still waiting in milliseconds.
+	StillWaitingTime float64
+
+	// TotalWaitTime is the total wait time (acquired + still waiting) in milliseconds.
 	TotalWaitTime float64
 
 	// ID is a short, user-friendly identifier.
@@ -385,10 +391,9 @@ func (a *LockAnalyzer) Finalize() LockMetrics {
 	a.queryStats = make(map[string]*LockQueryStat, 100)
 
 	for _, lock := range a.activeLocks {
-		// Add wait time for locks that were never acquired
-		if !lock.acquired {
-			a.totalWaitTime += lock.lastWaitTime
-		}
+		// Note: We do NOT add wait time for locks that were never acquired to the global total.
+		// We only count completed (acquired) locks in the global total wait time.
+		// Never-acquired locks are tracked separately in StillWaitingTime per query.
 
 		// Associate lock with query if known
 		if lock.query != "" {
@@ -398,26 +403,30 @@ func (a *LockAnalyzer) Finalize() LockMetrics {
 			stat, exists := a.queryStats[fullHash]
 			if !exists {
 				stat = &LockQueryStat{
-					RawQuery:        lock.query,
-					NormalizedQuery: normalized,
-					WaitingCount:    0,
-					AcquiredCount:   0,
-					TotalWaitTime:   0,
-					ID:              shortID,
-					FullHash:        fullHash,
+					RawQuery:          lock.query,
+					NormalizedQuery:   normalized,
+					AcquiredCount:     0,
+					AcquiredWaitTime:  0,
+					StillWaitingCount: 0,
+					StillWaitingTime:  0,
+					TotalWaitTime:     0,
+					ID:                shortID,
+					FullHash:          fullHash,
 				}
 				a.queryStats[fullHash] = stat
 			}
 
 			// Add this lock's wait time (counted once per lock, not per event)
-			stat.TotalWaitTime += lock.lastWaitTime
-
-			// Count waiting vs acquired
+			// Separate acquired vs still waiting
 			if lock.acquired {
 				stat.AcquiredCount++
+				stat.AcquiredWaitTime += lock.lastWaitTime
 			} else {
-				stat.WaitingCount++
+				stat.StillWaitingCount++
+				stat.StillWaitingTime += lock.lastWaitTime
 			}
+
+			stat.TotalWaitTime += lock.lastWaitTime
 		}
 	}
 
