@@ -2,7 +2,6 @@
 package analysis
 
 import (
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -101,15 +100,14 @@ type LockQueryStat struct {
 //   - "process 12345 acquired ShareLock on transaction 789 after 2468.117 ms"
 //   - "deadlock detected"
 
-var (
-	// lockWaitingPattern matches "still waiting" messages
-	lockWaitingPattern = regexp.MustCompile(`process (\d+) still waiting for (\w+) on (.+) after ([\d.]+) ms`)
-
-	// lockAcquiredPattern matches "acquired" messages
-	lockAcquiredPattern = regexp.MustCompile(`process (\d+) acquired (\w+) on (.+) after ([\d.]+) ms`)
-
-	// deadlockPattern matches deadlock detection messages
-	deadlockPattern = regexp.MustCompile(`deadlock detected`)
+const (
+	lockProcessPrefix    = "process "
+	lockStillWaiting     = "still waiting for "
+	lockAcquired         = "acquired "
+	lockOnMarker         = " on "
+	lockAfterMarker      = " after "
+	lockMsSuffix         = " ms"
+	lockDeadlock         = "deadlock detected"
 )
 
 // ============================================================================
@@ -134,14 +132,15 @@ type LockAnalyzer struct {
 	totalWaitTime     float64
 	lockTypeStats     map[string]int
 	resourceTypeStats map[string]int
-	events            []LockEvent
-	queryStats        map[string]*LockQueryStat
 
-	// Query association state
-	lastQueryByPID map[string]string // Most recent query text seen for each PID
+	// Lazy-initialized structures (nil until first lock detected)
+	events         *[]LockEvent
+	queryStats     *map[string]*LockQueryStat
+	lastQueryByPID *map[string]string
+	activeLocks    *map[string]*activeLock
 
-	// Track individual locks to avoid double-counting wait times
-	activeLocks map[string]*activeLock // key: "PID-LockType-Resource"
+	// State machine optimization (like tempfiles)
+	locksExist bool // True once we've seen at least one lock event
 }
 
 // activeLock tracks an individual lock to avoid counting the same wait time multiple times.
@@ -158,12 +157,40 @@ type activeLock struct {
 // NewLockAnalyzer creates a new lock event analyzer.
 func NewLockAnalyzer() *LockAnalyzer {
 	return &LockAnalyzer{
-		lockTypeStats:     make(map[string]int, 20),
-		resourceTypeStats: make(map[string]int, 10),
-		events:            make([]LockEvent, 0, 1000),
-		queryStats:        make(map[string]*LockQueryStat, 100),
-		lastQueryByPID:    make(map[string]string, 100),
-		activeLocks:       make(map[string]*activeLock, 200),
+		lockTypeStats:     nil, // Lazy-initialized when first lock found
+		resourceTypeStats: nil, // Lazy-initialized when first lock found
+		// Lazy-initialized fields start as nil
+		events:         nil,
+		queryStats:     nil,
+		lastQueryByPID: nil,
+		activeLocks:    nil,
+		locksExist:     false,
+	}
+}
+
+// initStructures initializes the lazy structures when the first lock is detected.
+func (a *LockAnalyzer) initStructures() {
+	if a.lockTypeStats == nil {
+		a.lockTypeStats = make(map[string]int, 20)
+	}
+	if a.resourceTypeStats == nil {
+		a.resourceTypeStats = make(map[string]int, 10)
+	}
+	if a.events == nil {
+		events := make([]LockEvent, 0, 1000)
+		a.events = &events
+	}
+	if a.queryStats == nil {
+		queryStats := make(map[string]*LockQueryStat, 100)
+		a.queryStats = &queryStats
+	}
+	if a.lastQueryByPID == nil {
+		lastQueryByPID := make(map[string]string, 100)
+		a.lastQueryByPID = &lastQueryByPID
+	}
+	if a.activeLocks == nil {
+		activeLocks := make(map[string]*activeLock, 200)
+		a.activeLocks = &activeLocks
 	}
 }
 
@@ -183,14 +210,60 @@ func NewLockAnalyzer() *LockAnalyzer {
 func (a *LockAnalyzer) Process(entry *parser.LogEntry) {
 	msg := entry.Message
 
-	// Fast path optimization: quick reject if message is too short or doesn't contain key markers
+	// Fast path optimization: quick reject if message is too short
 	if len(msg) < 20 {
 		return
 	}
 
-	// Cache query text for later association with lock events
-	// Handle both "duration: ... statement: ..." and standalone "STATEMENT:" lines
-	if strings.Contains(msg, "statement:") || strings.Contains(msg, "STATEMENT:") {
+	// State machine: if no locks seen yet, only look for lock events (not statements)
+	// This dramatically reduces overhead for logs without locks
+	if !a.locksExist {
+		// OPTIMIZATION 1: Two-stage fast pre-check
+		// Stage 1: Quick check for "process" keyword (all lock waiting/acquired messages contain "process NNN")
+		// deadlock messages contain "deadlock" keyword
+		// This is much more selective than individual characters
+		if !strings.Contains(msg, "process ") && !strings.Contains(msg, "deadlock") {
+			return // Fast reject: not a lock message format
+		}
+
+		// Stage 2: Now check full lock patterns
+		if strings.Contains(msg, lockStillWaiting) {
+			a.locksExist = true
+			a.initStructures() // OPTIMIZATION 2: Lazy init
+			// Fall through to full processing
+		} else if strings.Contains(msg, lockAcquired) {
+			a.locksExist = true
+			a.initStructures() // OPTIMIZATION 2: Lazy init
+			// Fall through to full processing
+		} else if strings.Contains(msg, lockDeadlock) {
+			a.locksExist = true
+			a.initStructures() // OPTIMIZATION 2: Lazy init
+			// Fall through to full processing
+		} else {
+			// No lock event yet, skip all processing
+			return
+		}
+	}
+
+	// Now check specific patterns (only after first lock seen)
+	hasLockWaiting := strings.Contains(msg, lockStillWaiting)
+	hasLockAcquired := strings.Contains(msg, lockAcquired)
+	hasDeadlock := strings.Contains(msg, lockDeadlock)
+
+	// OPTIMIZATION 3: Skip STATEMENT parsing until locks are actually seen
+	// This avoids filling lastQueryByPID unnecessarily
+	hasStatement := false
+	if a.locksExist {
+		hasStatement = strings.Contains(msg, "statement:") || strings.Contains(msg, "STATEMENT:")
+	}
+
+	// Skip if nothing relevant
+	if !hasLockWaiting && !hasLockAcquired && !hasDeadlock && !hasStatement {
+		return
+	}
+
+	// === STEP 1: Handle STATEMENT lines (cache queries) ===
+	if hasStatement {
 		var query string
 		var pid string
 
@@ -210,14 +283,14 @@ func (a *LockAnalyzer) Process(entry *parser.LogEntry) {
 			}
 		}
 
-		// Extract PID from message (format: "[12345]: ..." or "process 12345")
+		// Extract PID and cache query
 		if query != "" {
 			pid = parser.ExtractPID(msg)
 			if pid != "" {
-				a.lastQueryByPID[pid] = query
+				(*a.lastQueryByPID)[pid] = query
 
 				// Also update any active locks for this PID that don't have a query yet
-				for _, lock := range a.activeLocks {
+				for _, lock := range *a.activeLocks {
 					if lock.processID == pid && lock.query == "" {
 						lock.query = query
 					}
@@ -227,12 +300,12 @@ func (a *LockAnalyzer) Process(entry *parser.LogEntry) {
 		return
 	}
 
-	// Check for deadlock detection
-	if deadlockPattern.MatchString(msg) && strings.HasPrefix(msg, "ERROR:") {
+	// === STEP 2: Handle deadlock detection ===
+	if hasDeadlock && strings.HasPrefix(msg, "ERROR:") {
 		a.deadlockEvents++
 		a.totalEvents++
 		pid := parser.ExtractPID(msg)
-		a.events = append(a.events, LockEvent{
+		*a.events = append(*a.events, LockEvent{
 			Timestamp:  entry.Timestamp,
 			EventType:  "deadlock",
 			LockType:   "",
@@ -242,105 +315,177 @@ func (a *LockAnalyzer) Process(entry *parser.LogEntry) {
 		return
 	}
 
-	// Check for "still waiting" pattern
-	if matches := lockWaitingPattern.FindStringSubmatch(msg); matches != nil {
-		processID := matches[1]
-		lockType := matches[2]
-		resource := matches[3]
-		waitTime, _ := strconv.ParseFloat(matches[4], 64)
-
-		resourceType := extractResourceType(resource)
-
-		// Track this lock to avoid double-counting
-		lockKey := processID + "-" + lockType + "-" + resource
-		lock, exists := a.activeLocks[lockKey]
-		if !exists {
-			// First time seeing this lock
-			lock = &activeLock{
-				processID:    processID,
-				lockType:     lockType,
-				resource:     resource,
-				lastWaitTime: waitTime,
-				acquired:     false,
-			}
-			// Get associated query if available
-			if query, ok := a.lastQueryByPID[processID]; ok {
-				lock.query = query
-			}
-			a.activeLocks[lockKey] = lock
-		} else {
-			// Update the wait time (don't add to total yet)
-			lock.lastWaitTime = waitTime
+	// === STEP 3: Parse lock messages (waiting or acquired) ===
+	if hasLockWaiting || hasLockAcquired {
+		processID, lockType, resource, waitTime, eventType, ok := parseLockEvent(msg, hasLockWaiting)
+		if !ok {
+			return
 		}
 
-		a.waitingEvents++
-		a.totalEvents++
-		a.lockTypeStats[lockType]++
-		a.resourceTypeStats[resourceType]++
-
-		a.events = append(a.events, LockEvent{
-			Timestamp:    entry.Timestamp,
-			EventType:    "waiting",
-			LockType:     lockType,
-			ResourceType: resourceType,
-			WaitTime:     waitTime,
-			ProcessID:    processID,
-		})
-
-		return
-	}
-
-	// Check for "acquired" pattern
-	if matches := lockAcquiredPattern.FindStringSubmatch(msg); matches != nil {
-		processID := matches[1]
-		lockType := matches[2]
-		resource := matches[3]
-		waitTime, _ := strconv.ParseFloat(matches[4], 64)
-
 		resourceType := extractResourceType(resource)
-
-		// Track this lock and mark as acquired
 		lockKey := processID + "-" + lockType + "-" + resource
-		lock, exists := a.activeLocks[lockKey]
-		if exists {
-			// Lock was previously waiting, mark as acquired
-			lock.acquired = true
-			lock.lastWaitTime = waitTime
-		} else {
-			// Lock acquired without prior "waiting" message (fast acquisition)
-			lock = &activeLock{
-				processID:    processID,
-				lockType:     lockType,
-				resource:     resource,
-				lastWaitTime: waitTime,
-				acquired:     true,
+
+		if eventType == "waiting" {
+			lock, exists := (*a.activeLocks)[lockKey]
+			if !exists {
+				// First time seeing this lock
+				lock = &activeLock{
+					processID:    processID,
+					lockType:     lockType,
+					resource:     resource,
+					lastWaitTime: waitTime,
+					acquired:     false,
+				}
+				// Get associated query if available
+				if query, ok := (*a.lastQueryByPID)[processID]; ok {
+					lock.query = query
+				}
+				(*a.activeLocks)[lockKey] = lock
+			} else {
+				// Update the wait time (don't add to total yet)
+				lock.lastWaitTime = waitTime
 			}
-			// Get associated query if available
-			if query, ok := a.lastQueryByPID[processID]; ok {
-				lock.query = query
+
+			a.waitingEvents++
+			a.totalEvents++
+			a.lockTypeStats[lockType]++
+			a.resourceTypeStats[resourceType]++
+
+			*a.events = append(*a.events, LockEvent{
+				Timestamp:    entry.Timestamp,
+				EventType:    "waiting",
+				LockType:     lockType,
+				ResourceType: resourceType,
+				WaitTime:     waitTime,
+				ProcessID:    processID,
+			})
+		} else { // "acquired"
+			lock, exists := (*a.activeLocks)[lockKey]
+			if exists {
+				// Lock was previously waiting, mark as acquired
+				lock.acquired = true
+				lock.lastWaitTime = waitTime
+			} else {
+				// Lock acquired without prior "waiting" message (fast acquisition)
+				lock = &activeLock{
+					processID:    processID,
+					lockType:     lockType,
+					resource:     resource,
+					lastWaitTime: waitTime,
+					acquired:     true,
+				}
+				// Get associated query if available
+				if query, ok := (*a.lastQueryByPID)[processID]; ok {
+					lock.query = query
+				}
+				(*a.activeLocks)[lockKey] = lock
 			}
-			a.activeLocks[lockKey] = lock
+
+			// Add the final wait time to total (this is the real total time for this lock)
+			a.totalWaitTime += waitTime
+
+			a.acquiredEvents++
+			a.totalEvents++
+			a.lockTypeStats[lockType]++
+			a.resourceTypeStats[resourceType]++
+
+			*a.events = append(*a.events, LockEvent{
+				Timestamp:    entry.Timestamp,
+				EventType:    "acquired",
+				LockType:     lockType,
+				ResourceType: resourceType,
+				WaitTime:     waitTime,
+				ProcessID:    processID,
+			})
 		}
-
-		// Add the final wait time to total (this is the real total time for this lock)
-		a.totalWaitTime += waitTime
-
-		a.acquiredEvents++
-		a.totalEvents++
-		a.lockTypeStats[lockType]++
-		a.resourceTypeStats[resourceType]++
-
-		a.events = append(a.events, LockEvent{
-			Timestamp:    entry.Timestamp,
-			EventType:    "acquired",
-			LockType:     lockType,
-			ResourceType: resourceType,
-			WaitTime:     waitTime,
-			ProcessID:    processID,
-		})
-
-		return
 	}
+}
+
+// parseLockEvent parses a lock waiting/acquired message using string operations.
+// Returns: processID, lockType, resource, waitTime, eventType, ok
+func parseLockEvent(msg string, isWaiting bool) (string, string, string, float64, string, bool) {
+	// Find "process XXX"
+	procIdx := strings.Index(msg, lockProcessPrefix)
+	if procIdx == -1 {
+		return "", "", "", 0, "", false
+	}
+
+	// Extract PID
+	pidStart := procIdx + len(lockProcessPrefix)
+	pidEnd := pidStart
+	for pidEnd < len(msg) && msg[pidEnd] >= '0' && msg[pidEnd] <= '9' {
+		pidEnd++
+	}
+	if pidEnd == pidStart {
+		return "", "", "", 0, "", false
+	}
+	processID := msg[pidStart:pidEnd]
+
+	var markerIdx int
+	var eventType string
+
+	if isWaiting {
+		markerIdx = strings.Index(msg[pidEnd:], lockStillWaiting)
+		if markerIdx == -1 {
+			return "", "", "", 0, "", false
+		}
+		markerIdx += pidEnd
+		eventType = "waiting"
+	} else {
+		markerIdx = strings.Index(msg[pidEnd:], lockAcquired)
+		if markerIdx == -1 {
+			return "", "", "", 0, "", false
+		}
+		markerIdx += pidEnd
+		eventType = "acquired"
+	}
+
+	// Extract lock type (between marker and " on ")
+	lockTypeStart := markerIdx + len(lockStillWaiting)
+	if !isWaiting {
+		lockTypeStart = markerIdx + len(lockAcquired)
+	}
+
+	onIdx := strings.Index(msg[lockTypeStart:], lockOnMarker)
+	if onIdx == -1 {
+		return "", "", "", 0, "", false
+	}
+	lockType := msg[lockTypeStart : lockTypeStart+onIdx]
+
+	// Extract resource (between " on " and " after ")
+	resourceStart := lockTypeStart + onIdx + len(lockOnMarker)
+	afterIdx := strings.Index(msg[resourceStart:], lockAfterMarker)
+	if afterIdx == -1 {
+		return "", "", "", 0, "", false
+	}
+	resource := msg[resourceStart : resourceStart+afterIdx]
+
+	// Extract wait time (after " after ", before " ms")
+	waitTimeStart := resourceStart + afterIdx + len(lockAfterMarker)
+	waitTimeEnd := waitTimeStart
+	hasDot := false
+	for waitTimeEnd < len(msg) {
+		ch := msg[waitTimeEnd]
+		if ch >= '0' && ch <= '9' {
+			waitTimeEnd++
+		} else if ch == '.' && !hasDot {
+			hasDot = true
+			waitTimeEnd++
+		} else {
+			break
+		}
+	}
+
+	if waitTimeEnd == waitTimeStart {
+		return "", "", "", 0, "", false
+	}
+
+	waitTime, err := strconv.ParseFloat(msg[waitTimeStart:waitTimeEnd], 64)
+	if err != nil {
+		return "", "", "", 0, "", false
+	}
+
+	return processID, lockType, resource, waitTime, eventType, true
 }
 
 // extractResourceType extracts the resource type from the resource description.
@@ -349,30 +494,44 @@ func (a *LockAnalyzer) Process(entry *parser.LogEntry) {
 //   - "transaction 789" -> "transaction"
 //   - "advisory lock [16385,929248354,809055841,1]" -> "advisory lock"
 func extractResourceType(resource string) string {
-	if strings.HasPrefix(resource, "relation ") {
-		return "relation"
+	if len(resource) < 4 {
+		return "unknown"
 	}
-	if strings.HasPrefix(resource, "transaction ") {
-		return "transaction"
+
+	// Use first character for quick branching
+	switch resource[0] {
+	case 'r':
+		if len(resource) >= 9 && resource[1] == 'e' && resource[:9] == "relation " {
+			return "relation"
+		}
+	case 't':
+		if len(resource) >= 12 && resource[1] == 'r' && resource[:12] == "transaction " {
+			return "transaction"
+		}
+		if len(resource) >= 6 && resource[1] == 'u' && resource[:6] == "tuple " {
+			return "tuple"
+		}
+	case 'a':
+		if len(resource) >= 14 && resource[1] == 'd' && resource[:14] == "advisory lock " {
+			return "advisory lock"
+		}
+	case 'p':
+		if len(resource) >= 5 && resource[:5] == "page " {
+			return "page"
+		}
+	case 'e':
+		if len(resource) >= 7 && resource[:7] == "extend " {
+			return "extend"
+		}
 	}
-	if strings.HasPrefix(resource, "advisory lock ") {
-		return "advisory lock"
-	}
-	if strings.HasPrefix(resource, "tuple ") {
-		return "tuple"
-	}
-	if strings.HasPrefix(resource, "page ") {
-		return "page"
-	}
-	if strings.HasPrefix(resource, "extend ") {
-		return "extend"
-	}
+
 	// Default: return the first word
-	parts := strings.Fields(resource)
-	if len(parts) > 0 {
-		return parts[0]
+	spaceIdx := strings.IndexByte(resource, ' ')
+	if spaceIdx > 0 {
+		return resource[:spaceIdx]
 	}
-	return "unknown"
+
+	return resource
 }
 
 // extractStatementText extracts the SQL query from a STATEMENT line.
@@ -387,10 +546,25 @@ func extractStatementText(msg string) string {
 // Finalize returns the aggregated lock metrics.
 // This should be called after all log entries have been processed.
 func (a *LockAnalyzer) Finalize() LockMetrics {
-	// Build query statistics from individual locks
-	a.queryStats = make(map[string]*LockQueryStat, 100)
+	// If no locks were found, return empty metrics
+	if !a.locksExist {
+		return LockMetrics{
+			TotalEvents:       0,
+			WaitingEvents:     0,
+			AcquiredEvents:    0,
+			DeadlockEvents:    0,
+			TotalWaitTime:     0,
+			LockTypeStats:     make(map[string]int),
+			ResourceTypeStats: make(map[string]int),
+			Events:            nil,
+			QueryStats:        nil,
+		}
+	}
 
-	for _, lock := range a.activeLocks {
+	// Build query statistics from individual locks
+	queryStats := make(map[string]*LockQueryStat, 100)
+
+	for _, lock := range *a.activeLocks {
 		// Note: We do NOT add wait time for locks that were never acquired to the global total.
 		// We only count completed (acquired) locks in the global total wait time.
 		// Never-acquired locks are tracked separately in StillWaitingTime per query.
@@ -400,7 +574,7 @@ func (a *LockAnalyzer) Finalize() LockMetrics {
 			normalized := normalizeQuery(lock.query)
 			shortID, fullHash := GenerateQueryID(lock.query, normalized)
 
-			stat, exists := a.queryStats[fullHash]
+			stat, exists := queryStats[fullHash]
 			if !exists {
 				stat = &LockQueryStat{
 					RawQuery:          lock.query,
@@ -413,7 +587,7 @@ func (a *LockAnalyzer) Finalize() LockMetrics {
 					ID:                shortID,
 					FullHash:          fullHash,
 				}
-				a.queryStats[fullHash] = stat
+				queryStats[fullHash] = stat
 			}
 
 			// Add this lock's wait time (counted once per lock, not per event)
@@ -438,7 +612,7 @@ func (a *LockAnalyzer) Finalize() LockMetrics {
 		TotalWaitTime:     a.totalWaitTime,
 		LockTypeStats:     a.lockTypeStats,
 		ResourceTypeStats: a.resourceTypeStats,
-		Events:            a.events,
-		QueryStats:        a.queryStats,
+		Events:            *a.events,
+		QueryStats:        queryStats,
 	}
 }
