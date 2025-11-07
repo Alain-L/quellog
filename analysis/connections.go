@@ -140,27 +140,36 @@ func extractSessionTime(message string) time.Duration {
 //   - Seconds: 2 digits + optional fractional part (00.000-59.999)
 //
 // Returns 0 if parsing fails.
+//
+// Optimized version: uses manual parsing instead of strings.Split to avoid allocations.
 func parsePostgreSQLDuration(s string) time.Duration {
-	// Split by ":"
-	components := strings.Split(s, ":")
-	if len(components) != 3 {
+	// Find first colon (after hours)
+	firstColon := strings.IndexByte(s, ':')
+	if firstColon == -1 {
 		return 0
 	}
 
-	// Parse hours
-	hours, err := strconv.Atoi(components[0])
+	// Find second colon (after minutes)
+	secondColon := strings.IndexByte(s[firstColon+1:], ':')
+	if secondColon == -1 {
+		return 0
+	}
+	secondColon += firstColon + 1
+
+	// Parse hours: s[0:firstColon]
+	hours, err := strconv.Atoi(s[:firstColon])
 	if err != nil {
 		return 0
 	}
 
-	// Parse minutes
-	minutes, err := strconv.Atoi(components[1])
+	// Parse minutes: s[firstColon+1:secondColon]
+	minutes, err := strconv.Atoi(s[firstColon+1 : secondColon])
 	if err != nil || minutes < 0 || minutes > 59 {
 		return 0
 	}
 
-	// Parse seconds (may include fractional part)
-	seconds, err := strconv.ParseFloat(components[2], 64)
+	// Parse seconds: s[secondColon+1:]
+	seconds, err := strconv.ParseFloat(s[secondColon+1:], 64)
 	if err != nil || seconds < 0 || seconds >= 60 {
 		return 0
 	}
