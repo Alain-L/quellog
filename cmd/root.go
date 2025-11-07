@@ -31,6 +31,7 @@ var (
 	eventsFlag         bool // --events: Print only events section
 	sqlPerformanceFlag bool // --sql-performance: Print only SQL performance section
 	tempfilesFlag      bool // --tempfiles: Print only temporary files section
+	locksFlag          bool // --locks: Print only locks section
 	maintenanceFlag    bool // --maintenance: Print only maintenance section
 	checkpointsFlag    bool // --checkpoints: Print only checkpoints section
 	connectionsFlag    bool // --connections: Print only connections section
@@ -101,6 +102,8 @@ func init() {
 		"Print only the SQL performance section")
 	rootCmd.Flags().BoolVar(&tempfilesFlag, "tempfiles", false,
 		"Print only the temporary files section")
+	rootCmd.Flags().BoolVar(&locksFlag, "locks", false,
+		"Print only the locks section")
 	rootCmd.Flags().BoolVar(&maintenanceFlag, "maintenance", false,
 		"Print only the maintenance section")
 	rootCmd.Flags().BoolVar(&checkpointsFlag, "checkpoints", false,

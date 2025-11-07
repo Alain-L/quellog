@@ -176,6 +176,9 @@ func buildSectionList() []string {
 	if tempfilesFlag {
 		sections = append(sections, "tempfiles")
 	}
+	if locksFlag {
+		sections = append(sections, "locks")
+	}
 	if maintenanceFlag {
 		sections = append(sections, "maintenance")
 	}
