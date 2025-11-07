@@ -138,29 +138,37 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string) {
 			printLockStats(m.Locks.ResourceTypeStats, m.Locks.TotalEvents)
 		}
 
-		// Top queries generating locks
+		// Acquired locks by query
 		if len(m.Locks.QueryStats) > 0 {
-			fmt.Println("\n" + bold + "Top queries generating locks:" + reset + "\n")
-			fmt.Printf("%-10s %-70s %10s %10s %15s\n", "SQLID", "Query", "Waiting", "Acquired", "Total Wait")
-			fmt.Println(strings.Repeat("-", 119))
-			printTopLockQueries(m.Locks.QueryStats, 10)
-		}
-
-		// Most frequent waiting queries
-		if len(m.Locks.QueryStats) > 0 {
-			// Check if there are queries with waiting events
-			hasWaiting := false
+			hasAcquired := false
 			for _, stat := range m.Locks.QueryStats {
-				if stat.WaitingCount > 0 {
-					hasWaiting = true
+				if stat.AcquiredCount > 0 {
+					hasAcquired = true
 					break
 				}
 			}
-			if hasWaiting {
-				fmt.Println("\n" + bold + "Most frequent waiting queries:" + reset + "\n")
-				fmt.Printf("%-10s %-70s %10s %15s %15s\n", "SQLID", "Query", "Waiting", "Avg Wait", "Total Wait")
+			if hasAcquired {
+				fmt.Println("\n" + bold + "Acquired locks by query:" + reset + "\n")
+				fmt.Printf("%-10s %-70s %10s %15s %15s\n", "SQLID", "Query", "Locks", "Avg Wait", "Total Wait")
 				fmt.Println(strings.Repeat("-", 124))
-				printMostFrequentWaitingQueries(m.Locks.QueryStats, 10)
+				printAcquiredLockQueries(m.Locks.QueryStats, 10)
+			}
+		}
+
+		// Locks still waiting by query
+		if len(m.Locks.QueryStats) > 0 {
+			hasStillWaiting := false
+			for _, stat := range m.Locks.QueryStats {
+				if stat.StillWaitingCount > 0 {
+					hasStillWaiting = true
+					break
+				}
+			}
+			if hasStillWaiting {
+				fmt.Println("\n" + bold + "Locks still waiting by query:" + reset + "\n")
+				fmt.Printf("%-10s %-70s %10s %15s %15s\n", "SQLID", "Query", "Locks", "Avg Wait", "Total Wait")
+				fmt.Println(strings.Repeat("-", 124))
+				printStillWaitingLockQueries(m.Locks.QueryStats, 10)
 			}
 		}
 	}
@@ -695,13 +703,15 @@ func PrintSqlDetails(m analysis.AggregatedMetrics, queryDetails []string) {
 			if ls.ID == qid {
 				fmt.Printf("\nDetails for SQLID: %s\n", ls.ID)
 				fmt.Println("Query Details (from lock events):")
-				fmt.Printf("  SQLID            : %s\n", ls.ID)
-				fmt.Printf("  Query Type       : %s\n", analysis.QueryTypeFromID(ls.ID))
-				fmt.Printf("  Raw Query        : %s\n", ls.RawQuery)
-				fmt.Printf("  Normalized Query : %s\n", ls.NormalizedQuery)
-				fmt.Printf("  Waiting Events   : %d\n", ls.WaitingCount)
-				fmt.Printf("  Acquired Events  : %d\n", ls.AcquiredCount)
-				fmt.Printf("  Total Wait Time  : %s\n", formatQueryDuration(ls.TotalWaitTime))
+				fmt.Printf("  SQLID                 : %s\n", ls.ID)
+				fmt.Printf("  Query Type            : %s\n", analysis.QueryTypeFromID(ls.ID))
+				fmt.Printf("  Raw Query             : %s\n", ls.RawQuery)
+				fmt.Printf("  Normalized Query      : %s\n", ls.NormalizedQuery)
+				fmt.Printf("  Acquired Locks        : %d\n", ls.AcquiredCount)
+				fmt.Printf("  Acquired Wait Time    : %s\n", formatQueryDuration(ls.AcquiredWaitTime))
+				fmt.Printf("  Still Waiting Locks   : %d\n", ls.StillWaitingCount)
+				fmt.Printf("  Still Waiting Time    : %s\n", formatQueryDuration(ls.StillWaitingTime))
+				fmt.Printf("  Total Wait Time       : %s\n", formatQueryDuration(ls.TotalWaitTime))
 				fmt.Println("\nNote: This query was identified from lock events and has no duration metrics.")
 				found = true
 				break
@@ -1315,50 +1325,20 @@ func formatLockCount(count int) string {
 	return fmt.Sprintf("%d", count)
 }
 
-// printTopLockQueries prints the top queries generating locks.
-func printTopLockQueries(queryStats map[string]*analysis.LockQueryStat, limit int) {
-	// Convert map to slice and sort by total wait time
+// printAcquiredLockQueries prints queries with acquired locks, sorted by total wait time.
+func printAcquiredLockQueries(queryStats map[string]*analysis.LockQueryStat, limit int) {
+	// Convert map to slice and filter/sort by acquired wait time
 	type queryPair struct {
 		stat *analysis.LockQueryStat
 	}
 	var pairs []queryPair
 	for _, stat := range queryStats {
-		pairs = append(pairs, queryPair{stat})
-	}
-	sort.Slice(pairs, func(i, j int) bool {
-		return pairs[i].stat.TotalWaitTime > pairs[j].stat.TotalWaitTime
-	})
-
-	// Print top queries
-	if limit > len(pairs) {
-		limit = len(pairs)
-	}
-	for i := 0; i < limit; i++ {
-		stat := pairs[i].stat
-		truncatedQuery := truncateQuery(stat.NormalizedQuery, 70)
-		fmt.Printf("%-10s %-70s %10s %10s %15s\n",
-			stat.ID,
-			truncatedQuery,
-			formatLockCount(stat.WaitingCount),
-			formatLockCount(stat.AcquiredCount),
-			formatQueryDuration(stat.TotalWaitTime))
-	}
-}
-
-// printMostFrequentWaitingQueries prints queries sorted by number of waiting events.
-func printMostFrequentWaitingQueries(queryStats map[string]*analysis.LockQueryStat, limit int) {
-	// Convert map to slice and filter/sort by waiting count
-	type queryPair struct {
-		stat *analysis.LockQueryStat
-	}
-	var pairs []queryPair
-	for _, stat := range queryStats {
-		if stat.WaitingCount > 0 {
+		if stat.AcquiredCount > 0 {
 			pairs = append(pairs, queryPair{stat})
 		}
 	}
 	sort.Slice(pairs, func(i, j int) bool {
-		return pairs[i].stat.WaitingCount > pairs[j].stat.WaitingCount
+		return pairs[i].stat.AcquiredWaitTime > pairs[j].stat.AcquiredWaitTime
 	})
 
 	// Print top queries
@@ -1368,12 +1348,45 @@ func printMostFrequentWaitingQueries(queryStats map[string]*analysis.LockQuerySt
 	for i := 0; i < limit; i++ {
 		stat := pairs[i].stat
 		truncatedQuery := truncateQuery(stat.NormalizedQuery, 70)
-		avgWait := stat.TotalWaitTime / float64(stat.WaitingCount)
-		fmt.Printf("%-10s %-70s %10s %15s %15s\n",
+		avgWait := stat.AcquiredWaitTime / float64(stat.AcquiredCount)
+		fmt.Printf("%-10s %-70s %10d %15s %15s\n",
 			stat.ID,
 			truncatedQuery,
-			formatLockCount(stat.WaitingCount),
+			stat.AcquiredCount,
 			formatQueryDuration(avgWait),
-			formatQueryDuration(stat.TotalWaitTime))
+			formatQueryDuration(stat.AcquiredWaitTime))
+	}
+}
+
+// printStillWaitingLockQueries prints queries with locks still waiting, sorted by total wait time.
+func printStillWaitingLockQueries(queryStats map[string]*analysis.LockQueryStat, limit int) {
+	// Convert map to slice and filter/sort by still waiting time
+	type queryPair struct {
+		stat *analysis.LockQueryStat
+	}
+	var pairs []queryPair
+	for _, stat := range queryStats {
+		if stat.StillWaitingCount > 0 {
+			pairs = append(pairs, queryPair{stat})
+		}
+	}
+	sort.Slice(pairs, func(i, j int) bool {
+		return pairs[i].stat.StillWaitingTime > pairs[j].stat.StillWaitingTime
+	})
+
+	// Print top queries
+	if limit > len(pairs) {
+		limit = len(pairs)
+	}
+	for i := 0; i < limit; i++ {
+		stat := pairs[i].stat
+		truncatedQuery := truncateQuery(stat.NormalizedQuery, 70)
+		avgWait := stat.StillWaitingTime / float64(stat.StillWaitingCount)
+		fmt.Printf("%-10s %-70s %10d %15s %15s\n",
+			stat.ID,
+			truncatedQuery,
+			stat.StillWaitingCount,
+			formatQueryDuration(avgWait),
+			formatQueryDuration(stat.StillWaitingTime))
 	}
 }

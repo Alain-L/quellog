@@ -85,11 +85,13 @@ type LockEventJSON struct {
 }
 
 type LockQueryStatJSON struct {
-	ID              string `json:"id"`
-	NormalizedQuery string `json:"normalized_query"`
-	WaitingCount    int    `json:"waiting_count"`
-	AcquiredCount   int    `json:"acquired_count"`
-	TotalWaitTime   string `json:"total_wait_time"`
+	ID                  string `json:"id"`
+	NormalizedQuery     string `json:"normalized_query"`
+	AcquiredCount       int    `json:"acquired_count"`
+	AcquiredWaitTime    string `json:"acquired_wait_time"`
+	StillWaitingCount   int    `json:"still_waiting_count"`
+	StillWaitingTime    string `json:"still_waiting_time"`
+	TotalWaitTime       string `json:"total_wait_time"`
 }
 
 type CheckpointTypeJSON struct {
@@ -416,11 +418,13 @@ func convertLocks(m analysis.LockMetrics) LocksJSON {
 	for i := 0; i < limit; i++ {
 		stat := pairs[i].stat
 		topQueries = append(topQueries, LockQueryStatJSON{
-			ID:              stat.ID,
-			NormalizedQuery: stat.NormalizedQuery,
-			WaitingCount:    stat.WaitingCount,
-			AcquiredCount:   stat.AcquiredCount,
-			TotalWaitTime:   fmt.Sprintf("%.2f ms", stat.TotalWaitTime),
+			ID:                stat.ID,
+			NormalizedQuery:   stat.NormalizedQuery,
+			AcquiredCount:     stat.AcquiredCount,
+			AcquiredWaitTime:  fmt.Sprintf("%.2f ms", stat.AcquiredWaitTime),
+			StillWaitingCount: stat.StillWaitingCount,
+			StillWaitingTime:  fmt.Sprintf("%.2f ms", stat.StillWaitingTime),
+			TotalWaitTime:     fmt.Sprintf("%.2f ms", stat.TotalWaitTime),
 		})
 	}
 
