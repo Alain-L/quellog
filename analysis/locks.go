@@ -133,6 +133,20 @@ type LockAnalyzer struct {
 
 	// Query association state
 	lastQueryByPID map[string]string // Most recent query text seen for each PID
+
+	// Track individual locks to avoid double-counting wait times
+	activeLocks map[string]*activeLock // key: "PID-LockType-Resource"
+}
+
+// activeLock tracks an individual lock to avoid counting the same wait time multiple times.
+// PostgreSQL emits multiple "still waiting" messages followed by one "acquired" message.
+type activeLock struct {
+	processID    string
+	lockType     string
+	resource     string
+	lastWaitTime float64 // Most recent wait time reported
+	acquired     bool    // Whether this lock was acquired
+	query        string  // Associated query if known
 }
 
 // NewLockAnalyzer creates a new lock event analyzer.
@@ -143,6 +157,7 @@ func NewLockAnalyzer() *LockAnalyzer {
 		events:            make([]LockEvent, 0, 1000),
 		queryStats:        make(map[string]*LockQueryStat, 100),
 		lastQueryByPID:    make(map[string]string, 100),
+		activeLocks:       make(map[string]*activeLock, 200),
 	}
 }
 
@@ -194,6 +209,13 @@ func (a *LockAnalyzer) Process(entry *parser.LogEntry) {
 			pid = parser.ExtractPID(msg)
 			if pid != "" {
 				a.lastQueryByPID[pid] = query
+
+				// Also update any active locks for this PID that don't have a query yet
+				for _, lock := range a.activeLocks {
+					if lock.processID == pid && lock.query == "" {
+						lock.query = query
+					}
+				}
 			}
 		}
 		return
@@ -223,9 +245,30 @@ func (a *LockAnalyzer) Process(entry *parser.LogEntry) {
 
 		resourceType := extractResourceType(resource)
 
+		// Track this lock to avoid double-counting
+		lockKey := processID + "-" + lockType + "-" + resource
+		lock, exists := a.activeLocks[lockKey]
+		if !exists {
+			// First time seeing this lock
+			lock = &activeLock{
+				processID:    processID,
+				lockType:     lockType,
+				resource:     resource,
+				lastWaitTime: waitTime,
+				acquired:     false,
+			}
+			// Get associated query if available
+			if query, ok := a.lastQueryByPID[processID]; ok {
+				lock.query = query
+			}
+			a.activeLocks[lockKey] = lock
+		} else {
+			// Update the wait time (don't add to total yet)
+			lock.lastWaitTime = waitTime
+		}
+
 		a.waitingEvents++
 		a.totalEvents++
-		a.totalWaitTime += waitTime
 		a.lockTypeStats[lockType]++
 		a.resourceTypeStats[resourceType]++
 
@@ -238,10 +281,6 @@ func (a *LockAnalyzer) Process(entry *parser.LogEntry) {
 			ProcessID:    processID,
 		})
 
-		// Associate with query if available
-		if query, ok := a.lastQueryByPID[processID]; ok {
-			a.associateQueryWithLock(query, waitTime, "waiting")
-		}
 		return
 	}
 
@@ -254,9 +293,34 @@ func (a *LockAnalyzer) Process(entry *parser.LogEntry) {
 
 		resourceType := extractResourceType(resource)
 
+		// Track this lock and mark as acquired
+		lockKey := processID + "-" + lockType + "-" + resource
+		lock, exists := a.activeLocks[lockKey]
+		if exists {
+			// Lock was previously waiting, mark as acquired
+			lock.acquired = true
+			lock.lastWaitTime = waitTime
+		} else {
+			// Lock acquired without prior "waiting" message (fast acquisition)
+			lock = &activeLock{
+				processID:    processID,
+				lockType:     lockType,
+				resource:     resource,
+				lastWaitTime: waitTime,
+				acquired:     true,
+			}
+			// Get associated query if available
+			if query, ok := a.lastQueryByPID[processID]; ok {
+				lock.query = query
+			}
+			a.activeLocks[lockKey] = lock
+		}
+
+		// Add the final wait time to total (this is the real total time for this lock)
+		a.totalWaitTime += waitTime
+
 		a.acquiredEvents++
 		a.totalEvents++
-		a.totalWaitTime += waitTime
 		a.lockTypeStats[lockType]++
 		a.resourceTypeStats[resourceType]++
 
@@ -269,10 +333,6 @@ func (a *LockAnalyzer) Process(entry *parser.LogEntry) {
 			ProcessID:    processID,
 		})
 
-		// Associate with query if available
-		if query, ok := a.lastQueryByPID[processID]; ok {
-			a.associateQueryWithLock(query, waitTime, "acquired")
-		}
 		return
 	}
 }
@@ -318,36 +378,49 @@ func extractStatementText(msg string) string {
 	return ""
 }
 
-// associateQueryWithLock associates a query with lock statistics.
-func (a *LockAnalyzer) associateQueryWithLock(query string, waitTime float64, eventType string) {
-	normalized := normalizeQuery(query)
-	shortID, fullHash := GenerateQueryID(query, normalized)
-
-	stat, exists := a.queryStats[fullHash]
-	if !exists {
-		stat = &LockQueryStat{
-			RawQuery:         query,
-			NormalizedQuery:  normalized,
-			WaitingCount:     0,
-			AcquiredCount:    0,
-			TotalWaitTime:    0,
-			ID:               shortID,
-			FullHash:         fullHash,
-		}
-		a.queryStats[fullHash] = stat
-	}
-
-	stat.TotalWaitTime += waitTime
-	if eventType == "waiting" {
-		stat.WaitingCount++
-	} else if eventType == "acquired" {
-		stat.AcquiredCount++
-	}
-}
-
 // Finalize returns the aggregated lock metrics.
 // This should be called after all log entries have been processed.
 func (a *LockAnalyzer) Finalize() LockMetrics {
+	// Build query statistics from individual locks
+	a.queryStats = make(map[string]*LockQueryStat, 100)
+
+	for _, lock := range a.activeLocks {
+		// Add wait time for locks that were never acquired
+		if !lock.acquired {
+			a.totalWaitTime += lock.lastWaitTime
+		}
+
+		// Associate lock with query if known
+		if lock.query != "" {
+			normalized := normalizeQuery(lock.query)
+			shortID, fullHash := GenerateQueryID(lock.query, normalized)
+
+			stat, exists := a.queryStats[fullHash]
+			if !exists {
+				stat = &LockQueryStat{
+					RawQuery:        lock.query,
+					NormalizedQuery: normalized,
+					WaitingCount:    0,
+					AcquiredCount:   0,
+					TotalWaitTime:   0,
+					ID:              shortID,
+					FullHash:        fullHash,
+				}
+				a.queryStats[fullHash] = stat
+			}
+
+			// Add this lock's wait time (counted once per lock, not per event)
+			stat.TotalWaitTime += lock.lastWaitTime
+
+			// Count waiting vs acquired
+			if lock.acquired {
+				stat.AcquiredCount++
+			} else {
+				stat.WaitingCount++
+			}
+		}
+	}
+
 	return LockMetrics{
 		TotalEvents:       a.totalEvents,
 		WaitingEvents:     a.waitingEvents,
