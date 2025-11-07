@@ -145,6 +145,24 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string) {
 			fmt.Println(strings.Repeat("-", 119))
 			printTopLockQueries(m.Locks.QueryStats, 10)
 		}
+
+		// Most frequent waiting queries
+		if len(m.Locks.QueryStats) > 0 {
+			// Check if there are queries with waiting events
+			hasWaiting := false
+			for _, stat := range m.Locks.QueryStats {
+				if stat.WaitingCount > 0 {
+					hasWaiting = true
+					break
+				}
+			}
+			if hasWaiting {
+				fmt.Println("\n" + bold + "Most frequent waiting queries:" + reset + "\n")
+				fmt.Printf("%-10s %-70s %10s %15s %15s\n", "SQLID", "Query", "Waiting", "Avg Wait", "Total Wait")
+				fmt.Println(strings.Repeat("-", 124))
+				printMostFrequentWaitingQueries(m.Locks.QueryStats, 10)
+			}
+		}
 	}
 
 	// Maintenance Metrics section.
@@ -1250,6 +1268,39 @@ func printTopLockQueries(queryStats map[string]*analysis.LockQueryStat, limit in
 			truncatedQuery,
 			stat.WaitingCount,
 			stat.AcquiredCount,
+			formatQueryDuration(stat.TotalWaitTime))
+	}
+}
+
+// printMostFrequentWaitingQueries prints queries sorted by number of waiting events.
+func printMostFrequentWaitingQueries(queryStats map[string]*analysis.LockQueryStat, limit int) {
+	// Convert map to slice and filter/sort by waiting count
+	type queryPair struct {
+		stat *analysis.LockQueryStat
+	}
+	var pairs []queryPair
+	for _, stat := range queryStats {
+		if stat.WaitingCount > 0 {
+			pairs = append(pairs, queryPair{stat})
+		}
+	}
+	sort.Slice(pairs, func(i, j int) bool {
+		return pairs[i].stat.WaitingCount > pairs[j].stat.WaitingCount
+	})
+
+	// Print top queries
+	if limit > len(pairs) {
+		limit = len(pairs)
+	}
+	for i := 0; i < limit; i++ {
+		stat := pairs[i].stat
+		truncatedQuery := truncateQuery(stat.NormalizedQuery, 70)
+		avgWait := stat.TotalWaitTime / float64(stat.WaitingCount)
+		fmt.Printf("%-10s %-70s %10d %15s %15s\n",
+			stat.ID,
+			truncatedQuery,
+			stat.WaitingCount,
+			formatQueryDuration(avgWait),
 			formatQueryDuration(stat.TotalWaitTime))
 	}
 }
