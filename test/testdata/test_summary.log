@@ -113,6 +113,23 @@
 2025-01-01 01:15:30 CET [70036]: [1-1] LOG: disconnection: session time: 0:47:30.123 user=readonly database=analytics_db host=10.0.2.30 port=5432
 2025-01-01 01:18:00 CET [70037]: [1-1] LOG: connection received: host=192.168.1.104 port=5432
 2025-01-01 01:18:00 CET [70037]: [2-1] user=readonly,db=app_db,app=reporting_tool LOG: connection authorized: user=readonly database=app_db
+2025-01-01 01:18:30 CET [70150]: [1-1] user=app_user,db=app_db,app=app_server LOG: process 70150 still waiting for ShareLock on transaction 12340 after 1000.123 ms
+2025-01-01 01:18:30 CET [70150]: [2-1] user=app_user,db=app_db,app=app_server STATEMENT: UPDATE orders SET status = 'shipped' WHERE id = 500;
+2025-01-01 01:18:31 CET [70151]: [1-1] user=app_user,db=app_db,app=app_server LOG: process 70151 still waiting for ShareLock on transaction 12341 after 1000.456 ms
+2025-01-01 01:18:31 CET [70151]: [2-1] user=app_user,db=app_db,app=app_server STATEMENT: UPDATE products SET stock = stock - 1 WHERE id = 250;
+2025-01-01 01:18:32 CET [70152]: [1-1] user=app_user,db=app_db,app=app_server LOG: process 70152 still waiting for ShareLock on transaction 12342 after 1000.789 ms
+2025-01-01 01:18:32 CET [70152]: [2-1] user=app_user,db=app_db,app=app_server STATEMENT: UPDATE orders SET status = 'shipped' WHERE id = 501;
+2025-01-01 01:18:33 CET [70150]: [3-1] user=app_user,db=app_db,app=app_server LOG: process 70150 acquired ShareLock on transaction 12340 after 3456.789 ms
+2025-01-01 01:18:33 CET [70151]: [3-1] user=app_user,db=app_db,app=app_server LOG: process 70151 still waiting for ShareLock on transaction 12341 after 2234.567 ms
+2025-01-01 01:18:34 CET [70153]: [1-1] user=app_user,db=app_db,app=app_server LOG: process 70153 still waiting for ExclusiveLock on tuple 100 of relation 16385 of database 16384 after 1000.234 ms
+2025-01-01 01:18:34 CET [70153]: [2-1] user=app_user,db=app_db,app=app_server STATEMENT: SELECT * FROM users WHERE id = 42 FOR UPDATE;
+2025-01-01 01:18:34 CET [70152]: [3-1] user=app_user,db=app_db,app=app_server LOG: process 70152 acquired ShareLock on transaction 12342 after 2567.890 ms
+2025-01-01 01:18:35 CET [70151]: [4-1] user=app_user,db=app_db,app=app_server LOG: process 70151 still waiting for ShareLock on transaction 12341 after 4345.678 ms
+2025-01-01 01:18:36 CET [70154]: [1-1] user=postgres,db=app_db,app=psql LOG: process 70154 acquired AccessShareLock on relation 16390 of database 16384 after 523.456 ms
+2025-01-01 01:18:36 CET [70154]: [2-1] user=postgres,db=app_db,app=psql STATEMENT: ANALYZE orders;
+2025-01-01 01:18:37 CET [70155]: [1-1] user=app_user,db=app_db,app=app_server LOG: process 70155 still waiting for AccessShareLock on relation 16385 of database 16384 after 1000.111 ms
+2025-01-01 01:18:37 CET [70155]: [2-1] user=app_user,db=app_db,app=app_server STATEMENT: SELECT * FROM users WHERE id = 42 FOR UPDATE;
+2025-01-01 01:18:38 CET [70155]: [3-1] user=app_user,db=app_db,app=app_server LOG: process 70155 acquired AccessShareLock on relation 16385 of database 16384 after 1789.222 ms
 2025-01-01 01:20:00 CET [70160]: [1-1] user=app_user,db=app_db,app=app_server ERROR: deadlock detected
 2025-01-01 01:20:00 CET [70160]: [2-1] user=app_user,db=app_db,app=app_server DETAIL: Process 70160 waits for ShareLock on transaction 12345; blocked by process 70161.
 	Process 70161 waits for ShareLock on transaction 12346; blocked by process 70160.
