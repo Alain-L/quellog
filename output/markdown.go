@@ -111,6 +111,103 @@ func ExportMarkdown(m analysis.AggregatedMetrics, sections []string) {
 	}
 
 	// ============================================================================
+	// LOCKS
+	// ============================================================================
+	if has("locks") && m.Locks.TotalEvents > 0 {
+		b.WriteString("## LOCKS\n\n")
+
+		avgWaitTime := 0.0
+		if m.Locks.WaitingEvents+m.Locks.AcquiredEvents > 0 {
+			avgWaitTime = m.Locks.TotalWaitTime / float64(m.Locks.WaitingEvents+m.Locks.AcquiredEvents)
+		}
+
+		b.WriteString(fmt.Sprintf("- **Total lock events**: %d\n", m.Locks.TotalEvents))
+		b.WriteString(fmt.Sprintf("- **Waiting events**: %d\n", m.Locks.WaitingEvents))
+		b.WriteString(fmt.Sprintf("- **Acquired events**: %d\n", m.Locks.AcquiredEvents))
+		if m.Locks.DeadlockEvents > 0 {
+			b.WriteString(fmt.Sprintf("- **Deadlock events**: %d\n", m.Locks.DeadlockEvents))
+		}
+		if m.Locks.TotalWaitTime > 0 {
+			b.WriteString(fmt.Sprintf("- **Average wait time**: %.2f ms\n", avgWaitTime))
+			b.WriteString(fmt.Sprintf("- **Total wait time**: %.2f s\n\n", m.Locks.TotalWaitTime/1000))
+		} else {
+			b.WriteString("\n")
+		}
+
+		// Lock types distribution
+		if len(m.Locks.LockTypeStats) > 0 {
+			b.WriteString("### Lock Types\n\n")
+			b.WriteString("| Lock Type | Count | Percentage |\n")
+			b.WriteString("|---|---:|---:|\n")
+			printLockStatsMarkdown(&b, m.Locks.LockTypeStats, m.Locks.TotalEvents)
+			b.WriteString("\n")
+		}
+
+		// Resource types distribution
+		if len(m.Locks.ResourceTypeStats) > 0 {
+			b.WriteString("### Resource Types\n\n")
+			b.WriteString("| Resource Type | Count | Percentage |\n")
+			b.WriteString("|---|---:|---:|\n")
+			printLockStatsMarkdown(&b, m.Locks.ResourceTypeStats, m.Locks.TotalEvents)
+			b.WriteString("\n")
+		}
+
+		// Acquired locks by query
+		if len(m.Locks.QueryStats) > 0 {
+			hasAcquired := false
+			for _, stat := range m.Locks.QueryStats {
+				if stat.AcquiredCount > 0 {
+					hasAcquired = true
+					break
+				}
+			}
+			if hasAcquired {
+				b.WriteString("### Acquired Locks by Query\n\n")
+				b.WriteString("| SQLID | Normalized Query | Locks | Avg Wait (ms) | Total Wait (ms) |\n")
+				b.WriteString("|---|---|---:|---:|---:|\n")
+				printAcquiredLockQueriesMarkdown(&b, m.Locks.QueryStats, 10)
+				b.WriteString("\n")
+			}
+		}
+
+		// Locks still waiting by query
+		if len(m.Locks.QueryStats) > 0 {
+			hasStillWaiting := false
+			for _, stat := range m.Locks.QueryStats {
+				if stat.StillWaitingCount > 0 {
+					hasStillWaiting = true
+					break
+				}
+			}
+			if hasStillWaiting {
+				b.WriteString("### Locks Still Waiting by Query\n\n")
+				b.WriteString("| SQLID | Normalized Query | Locks | Avg Wait (ms) | Total Wait (ms) |\n")
+				b.WriteString("|---|---|---:|---:|---:|\n")
+				printStillWaitingLockQueriesMarkdown(&b, m.Locks.QueryStats, 10)
+				b.WriteString("\n")
+			}
+		}
+
+		// Most frequent waiting queries
+		if len(m.Locks.QueryStats) > 0 {
+			hasWaiting := false
+			for _, stat := range m.Locks.QueryStats {
+				if stat.AcquiredCount > 0 || stat.StillWaitingCount > 0 {
+					hasWaiting = true
+					break
+				}
+			}
+			if hasWaiting {
+				b.WriteString("### Most Frequent Waiting Queries\n\n")
+				b.WriteString("| SQLID | Normalized Query | Locks | Avg Wait (ms) | Total Wait (ms) |\n")
+				b.WriteString("|---|---|---:|---:|---:|\n")
+				printMostFrequentWaitingQueriesMarkdown(&b, m.Locks.QueryStats, 10)
+				b.WriteString("\n")
+			}
+		}
+	}
+
+	// ============================================================================
 	// MAINTENANCE
 	// ============================================================================
 	if has("maintenance") && (m.Vacuum.VacuumCount > 0 || m.Vacuum.AnalyzeCount > 0) {
@@ -510,4 +607,133 @@ func humanDuration(d time.Duration) string {
 		parts = append(parts, fmt.Sprintf("%ds", secs))
 	}
 	return strings.Join(parts, " ")
+}
+
+// printLockStatsMarkdown prints lock type or resource type statistics in markdown table format.
+func printLockStatsMarkdown(b *strings.Builder, stats map[string]int, total int) {
+	// Sort by count descending
+	type statPair struct {
+		name  string
+		count int
+	}
+	var pairs []statPair
+	for name, count := range stats {
+		pairs = append(pairs, statPair{name, count})
+	}
+	sort.Slice(pairs, func(i, j int) bool {
+		return pairs[i].count > pairs[j].count
+	})
+
+	// Print entries
+	for _, p := range pairs {
+		percentage := (float64(p.count) / float64(total)) * 100
+		b.WriteString(fmt.Sprintf("| %s | %d | %.1f%% |\n", p.name, p.count, percentage))
+	}
+}
+
+// printAcquiredLockQueriesMarkdown prints queries with acquired locks in markdown table format.
+func printAcquiredLockQueriesMarkdown(b *strings.Builder, queryStats map[string]*analysis.LockQueryStat, limit int) {
+	// Convert map to slice and filter/sort by acquired wait time
+	type queryPair struct {
+		stat *analysis.LockQueryStat
+	}
+	var pairs []queryPair
+	for _, stat := range queryStats {
+		if stat.AcquiredCount > 0 {
+			pairs = append(pairs, queryPair{stat})
+		}
+	}
+	sort.Slice(pairs, func(i, j int) bool {
+		return pairs[i].stat.AcquiredWaitTime > pairs[j].stat.AcquiredWaitTime
+	})
+
+	// Print top queries
+	if limit > len(pairs) {
+		limit = len(pairs)
+	}
+	for i := 0; i < limit; i++ {
+		stat := pairs[i].stat
+		truncatedQuery := truncateQuery(stat.NormalizedQuery, 60)
+		avgWait := stat.AcquiredWaitTime / float64(stat.AcquiredCount)
+		b.WriteString(fmt.Sprintf("| %s | %s | %d | %.2f | %.2f |\n",
+			stat.ID,
+			truncatedQuery,
+			stat.AcquiredCount,
+			avgWait,
+			stat.AcquiredWaitTime))
+	}
+}
+
+// printStillWaitingLockQueriesMarkdown prints queries with locks still waiting in markdown table format.
+func printStillWaitingLockQueriesMarkdown(b *strings.Builder, queryStats map[string]*analysis.LockQueryStat, limit int) {
+	// Convert map to slice and filter/sort by still waiting time
+	type queryPair struct {
+		stat *analysis.LockQueryStat
+	}
+	var pairs []queryPair
+	for _, stat := range queryStats {
+		if stat.StillWaitingCount > 0 {
+			pairs = append(pairs, queryPair{stat})
+		}
+	}
+	sort.Slice(pairs, func(i, j int) bool {
+		return pairs[i].stat.StillWaitingTime > pairs[j].stat.StillWaitingTime
+	})
+
+	// Print top queries
+	if limit > len(pairs) {
+		limit = len(pairs)
+	}
+	for i := 0; i < limit; i++ {
+		stat := pairs[i].stat
+		truncatedQuery := truncateQuery(stat.NormalizedQuery, 60)
+		avgWait := stat.StillWaitingTime / float64(stat.StillWaitingCount)
+		b.WriteString(fmt.Sprintf("| %s | %s | %d | %.2f | %.2f |\n",
+			stat.ID,
+			truncatedQuery,
+			stat.StillWaitingCount,
+			avgWait,
+			stat.StillWaitingTime))
+	}
+}
+
+// printMostFrequentWaitingQueriesMarkdown prints all queries that experienced lock waits in markdown table format.
+func printMostFrequentWaitingQueriesMarkdown(b *strings.Builder, queryStats map[string]*analysis.LockQueryStat, limit int) {
+	// Convert map to slice and filter/sort by total number of locks that waited
+	type queryPair struct {
+		stat       *analysis.LockQueryStat
+		totalLocks int
+		totalWait  float64
+	}
+	var pairs []queryPair
+	for _, stat := range queryStats {
+		totalLocks := stat.AcquiredCount + stat.StillWaitingCount
+		if totalLocks > 0 {
+			totalWait := stat.AcquiredWaitTime + stat.StillWaitingTime
+			pairs = append(pairs, queryPair{
+				stat:       stat,
+				totalLocks: totalLocks,
+				totalWait:  totalWait,
+			})
+		}
+	}
+	sort.Slice(pairs, func(i, j int) bool {
+		return pairs[i].totalLocks > pairs[j].totalLocks
+	})
+
+	// Print top queries
+	if limit > len(pairs) {
+		limit = len(pairs)
+	}
+	for i := 0; i < limit; i++ {
+		pair := pairs[i]
+		truncatedQuery := truncateQuery(pair.stat.NormalizedQuery, 60)
+		avgWait := pair.totalWait / float64(pair.totalLocks)
+		b.WriteString(fmt.Sprintf("| %s | %s | %d | %.2f | %.2f |\n",
+			pair.stat.ID,
+			truncatedQuery,
+			pair.totalLocks,
+			avgWait,
+			pair.totalWait))
+	}
 }

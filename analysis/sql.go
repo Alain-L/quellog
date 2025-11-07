@@ -85,6 +85,13 @@ type SqlMetrics struct {
 
 	// P99QueryDuration is the 99th percentile of query durations.
 	P99QueryDuration float64
+
+	// QueriesWithoutDurationCount tracks queries identified from logs but without duration metrics.
+	QueriesWithoutDurationCount struct {
+		FromLocks     int // Queries seen in lock events
+		FromTempfiles int // Queries seen in tempfile events
+		Total         int // Total unique queries (may be < FromLocks + FromTempfiles due to overlap)
+	}
 }
 
 // ============================================================================
@@ -370,6 +377,39 @@ func indexAfter(s, substr string, after int) int {
 		return -1
 	}
 	return after + idx
+}
+
+// ============================================================================
+// Queries without duration metrics
+// ============================================================================
+
+// CollectQueriesWithoutDuration populates the count of queries identified
+// from logs (lock events, tempfile events) but without duration metrics.
+// This is useful when logs contain STATEMENT lines but no duration messages.
+func CollectQueriesWithoutDuration(sql *SqlMetrics, locks *LockMetrics, tempfiles *TempFileMetrics) {
+	seen := make(map[string]bool)
+
+	// Count from locks
+	for hash := range locks.QueryStats {
+		if _, hasMetrics := sql.QueryStats[hash]; !hasMetrics {
+			if !seen[hash] {
+				sql.QueriesWithoutDurationCount.FromLocks++
+				seen[hash] = true
+			}
+		}
+	}
+
+	// Count from tempfiles
+	for hash := range tempfiles.QueryStats {
+		if _, hasMetrics := sql.QueryStats[hash]; !hasMetrics {
+			if !seen[hash] {
+				sql.QueriesWithoutDurationCount.FromTempfiles++
+				seen[hash] = true
+			}
+		}
+	}
+
+	sql.QueriesWithoutDurationCount.Total = len(seen)
 }
 
 // ============================================================================

@@ -111,19 +111,21 @@ func buildLogFilters(beginT, endT time.Time) parser.LogFilters {
 func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, totalFileSize int64) {
 	// Special case: SQL query details (single query analysis)
 	if len(sqlDetailFlag) > 0 {
-		sqlMetrics := analysis.RunSQLSummary(filteredLogs)
+		// Run full analysis to collect queries from locks and tempfiles
+		metrics := analysis.AggregateMetrics(filteredLogs)
 		processingDuration := time.Since(startTime)
-		PrintProcessingSummary(sqlMetrics.TotalQueries, processingDuration, totalFileSize)
-		output.PrintSqlDetails(sqlMetrics, sqlDetailFlag)
+		PrintProcessingSummary(metrics.SQL.TotalQueries, processingDuration, totalFileSize)
+		output.PrintSqlDetails(metrics, sqlDetailFlag)
 		return
 	}
 
 	// Special case: SQL summary (aggregated query statistics)
 	if sqlSummaryFlag {
-		sqlMetrics := analysis.RunSQLSummary(filteredLogs)
+		// Run full analysis to collect queries from locks and tempfiles
+		metrics := analysis.AggregateMetrics(filteredLogs)
 		processingDuration := time.Since(startTime)
-		PrintProcessingSummary(sqlMetrics.TotalQueries, processingDuration, totalFileSize)
-		output.PrintSQLSummary(sqlMetrics, false)
+		PrintProcessingSummary(metrics.SQL.TotalQueries, processingDuration, totalFileSize)
+		output.PrintSQLSummary(metrics.SQL, false)
 		return
 	}
 
@@ -175,6 +177,9 @@ func buildSectionList() []string {
 	}
 	if tempfilesFlag {
 		sections = append(sections, "tempfiles")
+	}
+	if locksFlag {
+		sections = append(sections, "locks")
 	}
 	if maintenanceFlag {
 		sections = append(sections, "maintenance")
