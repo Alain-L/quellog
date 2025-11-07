@@ -958,6 +958,13 @@ func computeTempFileHistogram(m analysis.TempFileMetrics) (map[string]int, strin
 	}
 	totalDuration := end.Sub(start)
 
+	// Si tous les événements ont le même timestamp (ou très proche),
+	// on ne peut pas créer un histogramme temporel utile.
+	// On met tout dans un seul bucket.
+	if totalDuration < time.Second {
+		totalDuration = time.Second
+	}
+
 	// On divise l'intervalle en 6 buckets égaux.
 	numBuckets := 6
 	bucketDuration := totalDuration / time.Duration(numBuckets)
