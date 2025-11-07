@@ -42,8 +42,10 @@ func executeParsing(cmd *cobra.Command, args []string) {
 	beginT, endT = applyTimeWindow(beginT, endT, windowDur)
 
 	// Step 3: Set up streaming pipeline
-	rawLogs := make(chan parser.LogEntry, 24576)
-	filteredLogs := make(chan parser.LogEntry, 24576)
+	// Channel buffer sizes optimized for memory efficiency while maintaining throughput
+	// 4096 entries ≈ 16KB per channel (LogEntry is small: timestamp + string pointer)
+	rawLogs := make(chan parser.LogEntry, 4096)
+	filteredLogs := make(chan parser.LogEntry, 4096)
 
 	// Launch parallel file parsing
 	go parseFilesAsync(allFiles, rawLogs)
