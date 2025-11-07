@@ -164,17 +164,25 @@ func (sa *StreamingAnalyzer) Process(entry *parser.LogEntry) {
 // Finalize computes final metrics after all log entries have been processed.
 // This should be called once after processing all entries.
 func (sa *StreamingAnalyzer) Finalize() AggregatedMetrics {
+	// Finalize all metrics
+	tempFiles := sa.tempFiles.Finalize()
+	locks := sa.locks.Finalize()
+	sql := sa.sql.Finalize()
+
+	// Collect queries without duration metrics from locks and tempfiles
+	CollectQueriesWithoutDuration(&sql, &locks, &tempFiles)
+
 	return AggregatedMetrics{
 		Global:         sa.global,
-		TempFiles:      sa.tempFiles.Finalize(),
+		TempFiles:      tempFiles,
 		Vacuum:         sa.vacuum.Finalize(),
 		Checkpoints:    sa.checkpoints.Finalize(),
 		Connections:    sa.connections.Finalize(),
-		Locks:          sa.locks.Finalize(),
+		Locks:          locks,
 		EventSummaries: sa.events.Finalize(),
 		ErrorClasses:   sa.errorClasses.Finalize(),
 		UniqueEntities: sa.uniqueEntities.Finalize(),
-		SQL:            sa.sql.Finalize(),
+		SQL:            sql,
 	}
 }
 
