@@ -111,6 +111,42 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string) {
 		}
 	}
 
+	// Locks section
+	if has("locks") && m.Locks.TotalEvents > 0 {
+		fmt.Println(bold + "\nLOCKS\n" + reset)
+		fmt.Printf("  %-25s : %d\n", "Total lock events", m.Locks.TotalEvents)
+		fmt.Printf("  %-25s : %d\n", "Waiting events", m.Locks.WaitingEvents)
+		fmt.Printf("  %-25s : %d\n", "Acquired events", m.Locks.AcquiredEvents)
+		if m.Locks.DeadlockEvents > 0 {
+			fmt.Printf("  %-25s : %d\n", "Deadlock events", m.Locks.DeadlockEvents)
+		}
+		if m.Locks.TotalWaitTime > 0 {
+			avgWaitTime := m.Locks.TotalWaitTime / float64(m.Locks.WaitingEvents+m.Locks.AcquiredEvents)
+			fmt.Printf("  %-25s : %.2f ms\n", "Avg wait time", avgWaitTime)
+			fmt.Printf("  %-25s : %.2f s\n", "Total wait time", m.Locks.TotalWaitTime/1000)
+		}
+
+		// Lock types distribution
+		if len(m.Locks.LockTypeStats) > 0 {
+			fmt.Println("  Lock types:")
+			printLockStats(m.Locks.LockTypeStats, m.Locks.TotalEvents)
+		}
+
+		// Resource types distribution
+		if len(m.Locks.ResourceTypeStats) > 0 {
+			fmt.Println("  Resource types:")
+			printLockStats(m.Locks.ResourceTypeStats, m.Locks.TotalEvents)
+		}
+
+		// Top queries generating locks
+		if len(m.Locks.QueryStats) > 0 {
+			fmt.Println("\n" + bold + "Top queries generating locks:" + reset)
+			fmt.Printf("%-10s %-70s %10s %10s %15s\n", "SQLID", "Query", "Waiting", "Acquired", "Total Wait (ms)")
+			fmt.Println("------------------------------------------------------------------------------------------------------")
+			printTopLockQueries(m.Locks.QueryStats, 10)
+		}
+	}
+
 	// Maintenance Metrics section.
 	if has("maintenance") && (m.Vacuum.VacuumCount > 0 || m.Vacuum.AnalyzeCount > 0) {
 		fmt.Println(bold + "\nMAINTENANCE\n" + reset)
@@ -1164,4 +1200,56 @@ func computeConnectionsHistogram(events []time.Time) (map[string]int, string, in
 
 	// L'unité ici est "connections".
 	return histogram, "connections", scaleFactor
+}
+
+// printLockStats prints lock type or resource type statistics.
+func printLockStats(stats map[string]int, total int) {
+	// Sort by count descending
+	type statPair struct {
+		name  string
+		count int
+	}
+	var pairs []statPair
+	for name, count := range stats {
+		pairs = append(pairs, statPair{name, count})
+	}
+	sort.Slice(pairs, func(i, j int) bool {
+		return pairs[i].count > pairs[j].count
+	})
+
+	// Print top entries
+	for _, p := range pairs {
+		percentage := (float64(p.count) / float64(total)) * 100
+		fmt.Printf("    %-25s %6d  %5.1f%%\n", p.name, p.count, percentage)
+	}
+}
+
+// printTopLockQueries prints the top queries generating locks.
+func printTopLockQueries(queryStats map[string]*analysis.LockQueryStat, limit int) {
+	// Convert map to slice and sort by total wait time
+	type queryPair struct {
+		stat *analysis.LockQueryStat
+	}
+	var pairs []queryPair
+	for _, stat := range queryStats {
+		pairs = append(pairs, queryPair{stat})
+	}
+	sort.Slice(pairs, func(i, j int) bool {
+		return pairs[i].stat.TotalWaitTime > pairs[j].stat.TotalWaitTime
+	})
+
+	// Print top queries
+	if limit > len(pairs) {
+		limit = len(pairs)
+	}
+	for i := 0; i < limit; i++ {
+		stat := pairs[i].stat
+		truncatedQuery := truncateQuery(stat.NormalizedQuery, 70)
+		fmt.Printf("%-10s %-70s %10d %10d %15.2f\n",
+			stat.ID,
+			truncatedQuery,
+			stat.WaitingCount,
+			stat.AcquiredCount,
+			stat.TotalWaitTime)
+	}
 }

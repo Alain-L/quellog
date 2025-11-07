@@ -111,6 +111,58 @@ func ExportMarkdown(m analysis.AggregatedMetrics, sections []string) {
 	}
 
 	// ============================================================================
+	// LOCKS
+	// ============================================================================
+	if has("locks") && m.Locks.TotalEvents > 0 {
+		b.WriteString("## LOCKS\n\n")
+
+		avgWaitTime := 0.0
+		if m.Locks.WaitingEvents+m.Locks.AcquiredEvents > 0 {
+			avgWaitTime = m.Locks.TotalWaitTime / float64(m.Locks.WaitingEvents+m.Locks.AcquiredEvents)
+		}
+
+		b.WriteString(fmt.Sprintf("- **Total lock events**: %d\n", m.Locks.TotalEvents))
+		b.WriteString(fmt.Sprintf("- **Waiting events**: %d\n", m.Locks.WaitingEvents))
+		b.WriteString(fmt.Sprintf("- **Acquired events**: %d\n", m.Locks.AcquiredEvents))
+		if m.Locks.DeadlockEvents > 0 {
+			b.WriteString(fmt.Sprintf("- **Deadlock events**: %d\n", m.Locks.DeadlockEvents))
+		}
+		if m.Locks.TotalWaitTime > 0 {
+			b.WriteString(fmt.Sprintf("- **Average wait time**: %.2f ms\n", avgWaitTime))
+			b.WriteString(fmt.Sprintf("- **Total wait time**: %.2f s\n\n", m.Locks.TotalWaitTime/1000))
+		} else {
+			b.WriteString("\n")
+		}
+
+		// Lock types distribution
+		if len(m.Locks.LockTypeStats) > 0 {
+			b.WriteString("### Lock Types\n\n")
+			b.WriteString("| Lock Type | Count | Percentage |\n")
+			b.WriteString("|---|---:|---:|\n")
+			printLockStatsMarkdown(&b, m.Locks.LockTypeStats, m.Locks.TotalEvents)
+			b.WriteString("\n")
+		}
+
+		// Resource types distribution
+		if len(m.Locks.ResourceTypeStats) > 0 {
+			b.WriteString("### Resource Types\n\n")
+			b.WriteString("| Resource Type | Count | Percentage |\n")
+			b.WriteString("|---|---:|---:|\n")
+			printLockStatsMarkdown(&b, m.Locks.ResourceTypeStats, m.Locks.TotalEvents)
+			b.WriteString("\n")
+		}
+
+		// Top queries generating locks
+		if len(m.Locks.QueryStats) > 0 {
+			b.WriteString("### Top Queries Generating Locks\n\n")
+			b.WriteString("| SQLID | Normalized Query | Waiting | Acquired | Total Wait (ms) |\n")
+			b.WriteString("|---|---|---:|---:|---:|\n")
+			printTopLockQueriesMarkdown(&b, m.Locks.QueryStats, 10)
+			b.WriteString("\n")
+		}
+	}
+
+	// ============================================================================
 	// MAINTENANCE
 	// ============================================================================
 	if has("maintenance") && (m.Vacuum.VacuumCount > 0 || m.Vacuum.AnalyzeCount > 0) {
@@ -510,4 +562,56 @@ func humanDuration(d time.Duration) string {
 		parts = append(parts, fmt.Sprintf("%ds", secs))
 	}
 	return strings.Join(parts, " ")
+}
+
+// printLockStatsMarkdown prints lock type or resource type statistics in markdown table format.
+func printLockStatsMarkdown(b *strings.Builder, stats map[string]int, total int) {
+	// Sort by count descending
+	type statPair struct {
+		name  string
+		count int
+	}
+	var pairs []statPair
+	for name, count := range stats {
+		pairs = append(pairs, statPair{name, count})
+	}
+	sort.Slice(pairs, func(i, j int) bool {
+		return pairs[i].count > pairs[j].count
+	})
+
+	// Print entries
+	for _, p := range pairs {
+		percentage := (float64(p.count) / float64(total)) * 100
+		b.WriteString(fmt.Sprintf("| %s | %d | %.1f%% |\n", p.name, p.count, percentage))
+	}
+}
+
+// printTopLockQueriesMarkdown prints the top queries generating locks in markdown table format.
+func printTopLockQueriesMarkdown(b *strings.Builder, queryStats map[string]*analysis.LockQueryStat, limit int) {
+	// Convert map to slice and sort by total wait time
+	type queryPair struct {
+		stat *analysis.LockQueryStat
+	}
+	var pairs []queryPair
+	for _, stat := range queryStats {
+		pairs = append(pairs, queryPair{stat})
+	}
+	sort.Slice(pairs, func(i, j int) bool {
+		return pairs[i].stat.TotalWaitTime > pairs[j].stat.TotalWaitTime
+	})
+
+	// Print top queries
+	if limit > len(pairs) {
+		limit = len(pairs)
+	}
+	for i := 0; i < limit; i++ {
+		stat := pairs[i].stat
+		truncatedQuery := truncateQuery(stat.NormalizedQuery, 60)
+		b.WriteString(fmt.Sprintf("| %s | %s | %d | %d | %.2f |\n",
+			stat.ID,
+			truncatedQuery,
+			stat.WaitingCount,
+			stat.AcquiredCount,
+			stat.TotalWaitTime))
+	}
 }

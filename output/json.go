@@ -62,6 +62,36 @@ type MaintenanceJSON struct {
 	VacuumSpaceRecovered map[string]string `json:"vacuum_space_recovered"`
 }
 
+type LocksJSON struct {
+	TotalEvents       int                 `json:"total_events"`
+	WaitingEvents     int                 `json:"waiting_events"`
+	AcquiredEvents    int                 `json:"acquired_events"`
+	DeadlockEvents    int                 `json:"deadlock_events,omitempty"`
+	TotalWaitTime     string              `json:"total_wait_time"`
+	AvgWaitTime       string              `json:"avg_wait_time"`
+	LockTypeStats     map[string]int      `json:"lock_type_stats"`
+	ResourceTypeStats map[string]int      `json:"resource_type_stats"`
+	Events            []LockEventJSON     `json:"events"`
+	TopQueries        []LockQueryStatJSON `json:"top_queries,omitempty"`
+}
+
+type LockEventJSON struct {
+	Timestamp    string `json:"timestamp"`
+	EventType    string `json:"event_type"`
+	LockType     string `json:"lock_type,omitempty"`
+	ResourceType string `json:"resource_type,omitempty"`
+	WaitTime     string `json:"wait_time,omitempty"`
+	ProcessID    string `json:"process_id"`
+}
+
+type LockQueryStatJSON struct {
+	ID              string `json:"id"`
+	NormalizedQuery string `json:"normalized_query"`
+	WaitingCount    int    `json:"waiting_count"`
+	AcquiredCount   int    `json:"acquired_count"`
+	TotalWaitTime   string `json:"total_wait_time"`
+}
+
 type CheckpointTypeJSON struct {
 	Count      int      `json:"count"`
 	Percentage float64  `json:"percentage"`
@@ -142,6 +172,11 @@ func ExportJSON(m analysis.AggregatedMetrics, sections []string) {
 			})
 		}
 		data["temp_files"] = tf
+	}
+
+	// Conditionally include locks
+	if has("locks") && m.Locks.TotalEvents > 0 {
+		data["locks"] = convertLocks(m.Locks)
 	}
 
 	// Conditionally include maintenance
@@ -324,5 +359,81 @@ func convertSQLPerformance(m analysis.SqlMetrics) SQLPerformanceJSON {
 		QueryMedianDuration:    formatQueryDuration(m.MedianQueryDuration),
 		Query99thPercentile:    formatQueryDuration(m.P99QueryDuration),
 		Executions:             executionsJSON,
+	}
+}
+
+// convertLocks processes lock metrics to create a JSON structure.
+func convertLocks(m analysis.LockMetrics) LocksJSON {
+	// Calculate average wait time
+	avgWaitTime := "0 ms"
+	if m.WaitingEvents+m.AcquiredEvents > 0 {
+		avg := m.TotalWaitTime / float64(m.WaitingEvents+m.AcquiredEvents)
+		avgWaitTime = fmt.Sprintf("%.2f ms", avg)
+	}
+
+	// Format total wait time
+	totalWaitTime := fmt.Sprintf("%.2f s", m.TotalWaitTime/1000)
+
+	// Convert events
+	eventsJSON := make([]LockEventJSON, len(m.Events))
+	for i, event := range m.Events {
+		waitTime := ""
+		if event.WaitTime > 0 {
+			waitTime = fmt.Sprintf("%.2f ms", event.WaitTime)
+		}
+		eventsJSON[i] = LockEventJSON{
+			Timestamp:    event.Timestamp.Format("2006-01-02 15:04:05"),
+			EventType:    event.EventType,
+			LockType:     event.LockType,
+			ResourceType: event.ResourceType,
+			WaitTime:     waitTime,
+			ProcessID:    event.ProcessID,
+		}
+	}
+
+	// Convert top queries (sorted by total wait time)
+	type queryPair struct {
+		stat *analysis.LockQueryStat
+	}
+	var pairs []queryPair
+	for _, stat := range m.QueryStats {
+		pairs = append(pairs, queryPair{stat})
+	}
+	// Sort by total wait time descending
+	for i := 0; i < len(pairs)-1; i++ {
+		for j := i + 1; j < len(pairs); j++ {
+			if pairs[j].stat.TotalWaitTime > pairs[i].stat.TotalWaitTime {
+				pairs[i], pairs[j] = pairs[j], pairs[i]
+			}
+		}
+	}
+
+	topQueries := make([]LockQueryStatJSON, 0, 10)
+	limit := 10
+	if len(pairs) < limit {
+		limit = len(pairs)
+	}
+	for i := 0; i < limit; i++ {
+		stat := pairs[i].stat
+		topQueries = append(topQueries, LockQueryStatJSON{
+			ID:              stat.ID,
+			NormalizedQuery: stat.NormalizedQuery,
+			WaitingCount:    stat.WaitingCount,
+			AcquiredCount:   stat.AcquiredCount,
+			TotalWaitTime:   fmt.Sprintf("%.2f ms", stat.TotalWaitTime),
+		})
+	}
+
+	return LocksJSON{
+		TotalEvents:       m.TotalEvents,
+		WaitingEvents:     m.WaitingEvents,
+		AcquiredEvents:    m.AcquiredEvents,
+		DeadlockEvents:    m.DeadlockEvents,
+		TotalWaitTime:     totalWaitTime,
+		AvgWaitTime:       avgWaitTime,
+		LockTypeStats:     m.LockTypeStats,
+		ResourceTypeStats: m.ResourceTypeStats,
+		Events:            eventsJSON,
+		TopQueries:        topQueries,
 	}
 }
