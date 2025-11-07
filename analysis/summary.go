@@ -76,6 +76,9 @@ type AggregatedMetrics struct {
 	// Connections contains connection and session statistics.
 	Connections ConnectionMetrics
 
+	// Locks contains lock event statistics.
+	Locks LockMetrics
+
 	// UniqueEntities contains unique database entity statistics.
 	UniqueEntities UniqueEntityMetrics
 
@@ -109,6 +112,7 @@ type StreamingAnalyzer struct {
 	vacuum         *VacuumAnalyzer
 	checkpoints    *CheckpointAnalyzer
 	connections    *ConnectionAnalyzer
+	locks          *LockAnalyzer
 	events         *EventAnalyzer
 	errorClasses   *ErrorClassAnalyzer
 	uniqueEntities *UniqueEntityAnalyzer
@@ -122,6 +126,7 @@ func NewStreamingAnalyzer() *StreamingAnalyzer {
 		vacuum:         NewVacuumAnalyzer(),
 		checkpoints:    NewCheckpointAnalyzer(),
 		connections:    NewConnectionAnalyzer(),
+		locks:          NewLockAnalyzer(),
 		events:         NewEventAnalyzer(),
 		errorClasses:   NewErrorClassAnalyzer(),
 		uniqueEntities: NewUniqueEntityAnalyzer(),
@@ -149,6 +154,7 @@ func (sa *StreamingAnalyzer) Process(entry *parser.LogEntry) {
 	sa.vacuum.Process(entry)
 	sa.checkpoints.Process(entry)
 	sa.connections.Process(entry)
+	sa.locks.Process(entry)
 	sa.events.Process(entry)
 	sa.errorClasses.Process(entry)
 	sa.uniqueEntities.Process(entry)
@@ -164,6 +170,7 @@ func (sa *StreamingAnalyzer) Finalize() AggregatedMetrics {
 		Vacuum:         sa.vacuum.Finalize(),
 		Checkpoints:    sa.checkpoints.Finalize(),
 		Connections:    sa.connections.Finalize(),
+		Locks:          sa.locks.Finalize(),
 		EventSummaries: sa.events.Finalize(),
 		ErrorClasses:   sa.errorClasses.Finalize(),
 		UniqueEntities: sa.uniqueEntities.Finalize(),
