@@ -443,6 +443,19 @@ func PrintSQLSummary(m analysis.SqlMetrics, indicatorsOnly bool) {
 		fmt.Println(bold + "Most time consuming queries:" + reset)
 		PrintTimeConsumingQueries(m.QueryStats)
 		fmt.Println()
+
+		// Display note about queries without duration metrics
+		if m.QueriesWithoutDurationCount.Total > 0 {
+			fmt.Println(strings.Repeat("─", 70))
+			fmt.Printf("Note: %d queries without duration metrics were identified:\n", m.QueriesWithoutDurationCount.Total)
+			if m.QueriesWithoutDurationCount.FromLocks > 0 {
+				fmt.Printf("  • %d from lock events\n", m.QueriesWithoutDurationCount.FromLocks)
+			}
+			if m.QueriesWithoutDurationCount.FromTempfiles > 0 {
+				fmt.Printf("  • %d from tempfile events\n", m.QueriesWithoutDurationCount.FromTempfiles)
+			}
+			fmt.Println()
+		}
 	}
 }
 
@@ -651,9 +664,12 @@ func PrintMostFrequentQueries(queryStats map[string]*analysis.QueryStat) {
 
 // PrintSqlDetails iterates over the QueryStats and displays details for each query
 // whose SQLID matches one of the provided queryDetails.
-func PrintSqlDetails(m analysis.SqlMetrics, queryDetails []string) {
-	for _, qs := range m.QueryStats {
-		for _, qid := range queryDetails {
+func PrintSqlDetails(m analysis.AggregatedMetrics, queryDetails []string) {
+	for _, qid := range queryDetails {
+		found := false
+
+		// First, try to find in SQL metrics (queries with duration)
+		for _, qs := range m.SQL.QueryStats {
 			if qs.ID == qid {
 				fmt.Printf("\nDetails for SQLID: %s\n", qs.ID)
 				fmt.Println("SQL Query Details:")
@@ -665,7 +681,56 @@ func PrintSqlDetails(m analysis.SqlMetrics, queryDetails []string) {
 				fmt.Printf("  Total Time       : %s\n", formatQueryDuration(qs.TotalTime))
 				fmt.Printf("  Median Time      : %s\n", formatQueryDuration(qs.AvgTime))
 				fmt.Printf("  Max Time         : %s\n", formatQueryDuration(qs.MaxTime))
+				found = true
+				break
 			}
+		}
+
+		if found {
+			continue
+		}
+
+		// If not found in SQL metrics, try locks
+		for _, ls := range m.Locks.QueryStats {
+			if ls.ID == qid {
+				fmt.Printf("\nDetails for SQLID: %s\n", ls.ID)
+				fmt.Println("Query Details (from lock events):")
+				fmt.Printf("  SQLID            : %s\n", ls.ID)
+				fmt.Printf("  Query Type       : %s\n", analysis.QueryTypeFromID(ls.ID))
+				fmt.Printf("  Raw Query        : %s\n", ls.RawQuery)
+				fmt.Printf("  Normalized Query : %s\n", ls.NormalizedQuery)
+				fmt.Printf("  Waiting Events   : %d\n", ls.WaitingCount)
+				fmt.Printf("  Acquired Events  : %d\n", ls.AcquiredCount)
+				fmt.Printf("  Total Wait Time  : %s\n", formatQueryDuration(ls.TotalWaitTime))
+				fmt.Println("\nNote: This query was identified from lock events and has no duration metrics.")
+				found = true
+				break
+			}
+		}
+
+		if found {
+			continue
+		}
+
+		// If not found in locks, try tempfiles
+		for _, ts := range m.TempFiles.QueryStats {
+			if ts.ID == qid {
+				fmt.Printf("\nDetails for SQLID: %s\n", ts.ID)
+				fmt.Println("Query Details (from tempfile events):")
+				fmt.Printf("  SQLID            : %s\n", ts.ID)
+				fmt.Printf("  Query Type       : %s\n", analysis.QueryTypeFromID(ts.ID))
+				fmt.Printf("  Raw Query        : %s\n", ts.RawQuery)
+				fmt.Printf("  Normalized Query : %s\n", ts.NormalizedQuery)
+				fmt.Printf("  Tempfile Count   : %d\n", ts.Count)
+				fmt.Printf("  Total Size       : %s\n", formatBytes(ts.TotalSize))
+				fmt.Println("\nNote: This query was identified from tempfile events and has no duration metrics.")
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			fmt.Printf("\nQuery ID '%s' not found.\n", qid)
 		}
 	}
 }
