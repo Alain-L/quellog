@@ -1,0 +1,79 @@
+{
+  "events": {
+    "LOG": 12
+  },
+  "sql_performance": {
+    "total_query_duration": "19.68 s",
+    "total_queries_parsed": 5,
+    "total_unique_queries": 5,
+    "top_1_percent_slow_queries": 1,
+    "query_max_duration": "8.77 s",
+    "query_min_duration": "987 ms",
+    "query_median_duration": "3.46 s",
+    "query_99th_percentile": "8.77 s",
+    "executions": [
+      {
+        "timestamp": "2025-01-15 10:00:00",
+        "duration": "5.23 s"
+      },
+      {
+        "timestamp": "2025-01-15 10:02:00",
+        "duration": "3.46 s"
+      },
+      {
+        "timestamp": "2025-01-15 10:04:00",
+        "duration": "8.77 s"
+      },
+      {
+        "timestamp": "2025-01-15 10:05:01",
+        "duration": "1.23 s"
+      },
+      {
+        "timestamp": "2025-01-15 10:06:01",
+        "duration": "987 ms"
+      }
+    ]
+  },
+  "summary": {
+    "start_date": "2025-01-15 10:00:00",
+    "end_date": "2025-01-15 10:06:01",
+    "duration": "6m1.3s",
+    "total_logs": 14,
+    "throughput": "0.04 entries/s"
+  },
+  "temp_files": {
+    "total_messages": 7,
+    "total_size": "337.50 MB",
+    "avg_size": "48.21 MB",
+    "events": [
+      {
+        "timestamp": "2025-01-15 10:00:00",
+        "size": "100.00 MB"
+      },
+      {
+        "timestamp": "2025-01-15 10:01:00",
+        "size": "50.00 MB"
+      },
+      {
+        "timestamp": "2025-01-15 10:02:00",
+        "size": "20.00 MB"
+      },
+      {
+        "timestamp": "2025-01-15 10:03:00",
+        "size": "10.00 MB"
+      },
+      {
+        "timestamp": "2025-01-15 10:04:01",
+        "size": "150.00 MB"
+      },
+      {
+        "timestamp": "2025-01-15 10:05:01",
+        "size": "5.00 MB"
+      },
+      {
+        "timestamp": "2025-01-15 10:06:01",
+        "size": "2.50 MB"
+      }
+    ]
+  }
+}

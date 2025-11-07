@@ -61,7 +61,7 @@
   },
   "clients": {
     "unique_databases": 3,
-    "unique_users": 6,
+    "unique_users": 7,
     "unique_apps": 9
   },
   "connections": {
@@ -115,8 +115,153 @@
   ],
   "events": {
     "ERROR": 2,
-    "LOG": 172,
+    "LOG": 183,
     "WARNING": 1
+  },
+  "locks": {
+    "total_events": 11,
+    "waiting_events": 7,
+    "acquired_events": 4,
+    "total_wait_time": "8.34 s",
+    "avg_wait_time": "757.94 ms",
+    "lock_type_stats": {
+      "AccessShareLock": 3,
+      "ExclusiveLock": 1,
+      "ShareLock": 7
+    },
+    "resource_type_stats": {
+      "relation": 3,
+      "transaction": 7,
+      "tuple": 1
+    },
+    "events": [
+      {
+        "timestamp": "2025-01-01 01:18:30",
+        "event_type": "waiting",
+        "lock_type": "ShareLock",
+        "resource_type": "transaction",
+        "wait_time": "1000.12 ms",
+        "process_id": "70150"
+      },
+      {
+        "timestamp": "2025-01-01 01:18:31",
+        "event_type": "waiting",
+        "lock_type": "ShareLock",
+        "resource_type": "transaction",
+        "wait_time": "1000.46 ms",
+        "process_id": "70151"
+      },
+      {
+        "timestamp": "2025-01-01 01:18:32",
+        "event_type": "waiting",
+        "lock_type": "ShareLock",
+        "resource_type": "transaction",
+        "wait_time": "1000.79 ms",
+        "process_id": "70152"
+      },
+      {
+        "timestamp": "2025-01-01 01:18:33",
+        "event_type": "acquired",
+        "lock_type": "ShareLock",
+        "resource_type": "transaction",
+        "wait_time": "3456.79 ms",
+        "process_id": "70150"
+      },
+      {
+        "timestamp": "2025-01-01 01:18:33",
+        "event_type": "waiting",
+        "lock_type": "ShareLock",
+        "resource_type": "transaction",
+        "wait_time": "2234.57 ms",
+        "process_id": "70151"
+      },
+      {
+        "timestamp": "2025-01-01 01:18:34",
+        "event_type": "waiting",
+        "lock_type": "ExclusiveLock",
+        "resource_type": "tuple",
+        "wait_time": "1000.23 ms",
+        "process_id": "70153"
+      },
+      {
+        "timestamp": "2025-01-01 01:18:34",
+        "event_type": "acquired",
+        "lock_type": "ShareLock",
+        "resource_type": "transaction",
+        "wait_time": "2567.89 ms",
+        "process_id": "70152"
+      },
+      {
+        "timestamp": "2025-01-01 01:18:35",
+        "event_type": "waiting",
+        "lock_type": "ShareLock",
+        "resource_type": "transaction",
+        "wait_time": "4345.68 ms",
+        "process_id": "70151"
+      },
+      {
+        "timestamp": "2025-01-01 01:18:36",
+        "event_type": "acquired",
+        "lock_type": "AccessShareLock",
+        "resource_type": "relation",
+        "wait_time": "523.46 ms",
+        "process_id": "70154"
+      },
+      {
+        "timestamp": "2025-01-01 01:18:37",
+        "event_type": "waiting",
+        "lock_type": "AccessShareLock",
+        "resource_type": "relation",
+        "wait_time": "1000.11 ms",
+        "process_id": "70155"
+      },
+      {
+        "timestamp": "2025-01-01 01:18:38",
+        "event_type": "acquired",
+        "lock_type": "AccessShareLock",
+        "resource_type": "relation",
+        "wait_time": "1789.22 ms",
+        "process_id": "70155"
+      }
+    ],
+    "top_queries": [
+      {
+        "id": "up-6oT4b3",
+        "normalized_query": "update orders set status = ? where id = ?;",
+        "acquired_count": 2,
+        "acquired_wait_time": "6024.68 ms",
+        "still_waiting_count": 0,
+        "still_waiting_time": "0.00 ms",
+        "total_wait_time": "6024.68 ms"
+      },
+      {
+        "id": "up-N6vKXC",
+        "normalized_query": "update products set stock = stock - ? where id = ?;",
+        "acquired_count": 0,
+        "acquired_wait_time": "0.00 ms",
+        "still_waiting_count": 1,
+        "still_waiting_time": "4345.68 ms",
+        "total_wait_time": "4345.68 ms"
+      },
+      {
+        "id": "se-I5oJov",
+        "normalized_query": "select * from users where id = ? for update;",
+        "acquired_count": 1,
+        "acquired_wait_time": "1789.22 ms",
+        "still_waiting_count": 1,
+        "still_waiting_time": "1000.23 ms",
+        "total_wait_time": "2789.46 ms"
+      },
+      {
+        "id": "xx-BdkPcf",
+        "normalized_query": "analyze orders;",
+        "acquired_count": 1,
+        "acquired_wait_time": "523.46 ms",
+        "still_waiting_count": 0,
+        "still_waiting_time": "0.00 ms",
+        "total_wait_time": "523.46 ms"
+      }
+    ]
   },
   "maintenance": {
     "vacuum_count": 2,
@@ -249,7 +394,7 @@
     "start_date": "2025-01-01 00:00:00",
     "end_date": "2025-01-01 23:59:35",
     "duration": "23h59m35s",
-    "total_logs": 180,
+    "total_logs": 197,
     "throughput": "0.00 entries/s"
   },
   "temp_files": {
@@ -341,6 +486,7 @@
     "app_user",
     "backup_user",
     "batch_user",
+    "postgres",
     "readonly"
   ]
 }

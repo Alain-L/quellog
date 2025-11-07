@@ -14,9 +14,9 @@
     - until proven the opposite
     - add `type` field in global structure
     - check Year in file name or metadata if syslog
-- Handle edge cases from pgBadger (orphan lines, remote files, log format distinctions).
-- Parse `log_line_prefix` like `parse_log_prefix` in pgBadger.
-- Enhance SQL parsing (`parse_query` from pgBadger).
+- Handle edge cases (orphan lines, remote files, log format distinctions).
+- Parse `log_line_prefix` dynamically.
+- Enhance SQL parsing (query normalization and extraction).
 - Normalize log parsing functions (`parser/normalization.go`?).
 - Improve performance by reducing regex usage.
 
