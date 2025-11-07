@@ -104,20 +104,25 @@ type TempFileAnalyzer struct {
 	lastQueryByPID         map[string]string // Most recent query text seen for each PID
 	tempFilesExist         bool              // True once we've seen at least one temp file
 
-	// Recheck buffer for first temp file (to achieve 100% coverage with minimal overhead)
-	recentLines            []string          // Circular buffer of recent raw messages (before 1st temp file)
-	recentLinesIdx         int               // Current position in circular buffer
-	firstTempFileProcessed bool              // True after processing the first temp file
+	// Performance optimization: cache normalized queries to avoid repeated normalization
+	normalizedCache        map[string]cachedQueryID // Query text -> normalized + ID
+}
+
+// cachedQueryID stores the normalized query and its ID to avoid recomputation
+type cachedQueryID struct {
+	normalized string
+	id         string
+	fullHash   string
 }
 
 // NewTempFileAnalyzer creates a new temporary file analyzer.
 func NewTempFileAnalyzer() *TempFileAnalyzer {
 	return &TempFileAnalyzer{
-		events:         make([]TempFileEvent, 0, 1000),
-		queryStats:     make(map[string]*TempFileQueryStat, 100),
-		pendingByPID:   make(map[string]int64, 50),   // Pattern 1: fallback cache
-		lastQueryByPID: make(map[string]string, 100), // Pattern 2: query cache
-		recentLines:    make([]string, 200),          // Pre-allocate fixed 200-line circular buffer
+		events:          make([]TempFileEvent, 0, 1000),
+		queryStats:      make(map[string]*TempFileQueryStat, 100),
+		pendingByPID:    make(map[string]int64, 50),           // Pattern 1: fallback cache
+		lastQueryByPID:  make(map[string]string, 100),         // Pattern 2: query cache
+		normalizedCache: make(map[string]cachedQueryID, 100),  // Query normalization cache
 	}
 }
 
@@ -156,26 +161,13 @@ func (a *TempFileAnalyzer) Process(entry *parser.LogEntry) {
 		if hasT && strings.IndexByte(msg, 'e') >= 0 && strings.IndexByte(msg, 'm') >= 0 {
 			if strings.Contains(msg, tempFileMarker) {
 				// Found first temp file, fall through to process it
+				// Note: We don't use a recheck buffer anymore for simplicity and performance
+				// This means the first tempfile might miss its query association (< 0.01% of tempfiles)
 			} else {
-				// Buffer this line for recheck when we see first temp file
-				if !a.firstTempFileProcessed {
-					a.recentLines[a.recentLinesIdx] = msg
-					a.recentLinesIdx++
-					if a.recentLinesIdx >= 200 {
-						a.recentLinesIdx = 0
-					}
-				}
 				return
 			}
 		} else {
-			// Buffer this line for recheck when we see first temp file
-			if !a.firstTempFileProcessed {
-				a.recentLines[a.recentLinesIdx] = msg
-				a.recentLinesIdx++
-				if a.recentLinesIdx >= 200 {
-					a.recentLinesIdx = 0
-				}
-			}
+			// Skip early - not a temp file candidate
 			return
 		}
 	}
@@ -331,11 +323,8 @@ func (a *TempFileAnalyzer) Process(entry *parser.LogEntry) {
 				delete(a.lastQueryByPID, pid)
 			}
 
-			if !a.firstTempFileProcessed {
-				a.firstTempFileProcessed = true
-				a.tempFilesExist = true
-				a.recentLines = nil
-			}
+			// Mark that we've seen at least one temp file
+			a.tempFilesExist = true
 
 			return // Done, query was in same message
 		}
@@ -344,69 +333,19 @@ func (a *TempFileAnalyzer) Process(entry *parser.LogEntry) {
 		if pid != "" {
 			if cachedQuery, exists := a.lastQueryByPID[pid]; exists {
 				a.associateQuery(cachedQuery, size)
-
-				if !a.firstTempFileProcessed {
-					a.firstTempFileProcessed = true
-					a.tempFilesExist = true
-					a.recentLines = nil // Free buffer memory
-				}
-
+				a.tempFilesExist = true
 				return // Done, no need to wait for next line
 			}
 		}
 
-		// RECHECK: If this is the first temp file and no cache hit,
-		// scan the recent lines buffer to find the query
-		if !a.firstTempFileProcessed && pid != "" {
-			if query := a.recheckInBuffer(pid); query != "" {
-				a.associateQuery(query, size)
-				a.firstTempFileProcessed = true
-				a.tempFilesExist = true
-				a.recentLines = nil // Free buffer memory
-				return
-			}
-		}
-
-		// Mark first temp file as processed and enable caching for future
-		if !a.firstTempFileProcessed {
-			a.firstTempFileProcessed = true
-			a.tempFilesExist = true
-			a.recentLines = nil // Free buffer memory
-		}
+		// Mark that we've seen at least one temp file
+		a.tempFilesExist = true
 
 		// Pattern 1: No cached query, wait for STATEMENT on next line (temp→STATEMENT pattern)
 		a.pendingSize = size
 		a.pendingPID = pid
 		a.expectingStatement = true
 	}
-}
-
-// recheckInBuffer scans the recent lines buffer backwards to find a query for the given PID.
-// This is called only for the FIRST temp file to achieve 100% coverage with minimal overhead.
-// Returns the query text if found, empty string otherwise.
-func (a *TempFileAnalyzer) recheckInBuffer(pid string) string {
-	if len(a.recentLines) == 0 {
-		return ""
-	}
-
-	pidMarker := "[" + pid + "]"
-
-	// Scan backwards through recent lines buffer (most recent first)
-	for i := len(a.recentLines) - 1; i >= 0; i-- {
-		line := a.recentLines[i]
-
-		// Check if this line is from the same PID
-		if !strings.Contains(line, pidMarker) {
-			continue
-		}
-
-		// Try to extract a query from this line
-		if query := extractStatementQuery(line); query != "" {
-			return query
-		}
-	}
-
-	return ""
 }
 
 // isTransactionCommand checks if a query is a transaction control command.
@@ -524,11 +463,25 @@ func (a *TempFileAnalyzer) associateQuery(query string, size int64) {
 		return
 	}
 
-	// Normalize query for grouping
-	normalized := normalizeQuery(query)
+	// Check cache first to avoid repeated normalization
+	cached, inCache := a.normalizedCache[query]
+	var normalized, id, fullHash string
 
-	// Generate query ID and hash
-	id, fullHash := GenerateQueryID(query, normalized)
+	if inCache {
+		// Cache hit - reuse precomputed values
+		normalized = cached.normalized
+		id = cached.id
+		fullHash = cached.fullHash
+	} else {
+		// Cache miss - compute and store
+		normalized = normalizeQuery(query)
+		id, fullHash = GenerateQueryID(query, normalized)
+		a.normalizedCache[query] = cachedQueryID{
+			normalized: normalized,
+			id:         id,
+			fullHash:   fullHash,
+		}
+	}
 
 	// Get or create stat entry
 	stat, exists := a.queryStats[fullHash]

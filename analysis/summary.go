@@ -237,19 +237,31 @@ func NewUniqueEntityAnalyzer() *UniqueEntityAnalyzer {
 func (a *UniqueEntityAnalyzer) Process(entry *parser.LogEntry) {
 	msg := entry.Message
 
+	// Single-pass extraction: scan once for all three keys
+	// This is much faster than calling extractKeyValue 3 times
+	dbIdx := strings.Index(msg, "db=")
+	userIdx := strings.Index(msg, "user=")
+	appIdx := strings.Index(msg, "app=")
+
 	// Extract database name
-	if dbName, found := extractKeyValue(msg, "db="); found {
-		a.dbSet[dbName] = struct{}{}
+	if dbIdx != -1 {
+		if dbName := extractValueAt(msg, dbIdx+3); dbName != "" {
+			a.dbSet[dbName] = struct{}{}
+		}
 	}
 
 	// Extract user name
-	if userName, found := extractKeyValue(msg, "user="); found {
-		a.userSet[userName] = struct{}{}
+	if userIdx != -1 {
+		if userName := extractValueAt(msg, userIdx+5); userName != "" {
+			a.userSet[userName] = struct{}{}
+		}
 	}
 
 	// Extract application name
-	if appName, found := extractKeyValue(msg, "app="); found {
-		a.appSet[appName] = struct{}{}
+	if appIdx != -1 {
+		if appName := extractValueAt(msg, appIdx+4); appName != "" {
+			a.appSet[appName] = struct{}{}
+		}
 	}
 }
 
@@ -269,6 +281,48 @@ func (a *UniqueEntityAnalyzer) Finalize() UniqueEntityMetrics {
 // Helper functions
 // ============================================================================
 
+// extractValueAt extracts a value starting at a given position in the message.
+// It stops at the first separator: space, comma, bracket, or parenthesis.
+// Returns empty string if no valid value found.
+// This is optimized to avoid allocating a slice of separators.
+func extractValueAt(msg string, startPos int) string {
+	if startPos >= len(msg) {
+		return ""
+	}
+
+	// Find end position (first separator)
+	endPos := startPos
+	for endPos < len(msg) {
+		c := msg[endPos]
+		// Check for separators: space, comma, '[', ')'
+		if c == ' ' || c == ',' || c == '[' || c == ')' {
+			break
+		}
+		endPos++
+	}
+
+	if endPos == startPos {
+		return ""
+	}
+
+	// Extract and normalize value
+	val := msg[startPos:endPos]
+
+	// Normalize "unknown" or "[unknown]" to "UNKNOWN"
+	if val == "" || val == "unknown" || val == "[unknown]" {
+		return "UNKNOWN"
+	}
+
+	// Case-insensitive check for "unknown" (rare but handle it)
+	if len(val) == 7 && (val[0] == 'u' || val[0] == 'U') {
+		if strings.EqualFold(val, "unknown") {
+			return "UNKNOWN"
+		}
+	}
+
+	return val
+}
+
 // extractKeyValue extracts a value from a log message for a given key.
 // It handles common PostgreSQL log formats where key-value pairs are separated
 // by spaces, commas, brackets, or parentheses.
@@ -287,22 +341,10 @@ func extractKeyValue(line, key string) (string, bool) {
 		return "", false
 	}
 
-	// Get the substring after the key
-	rest := line[idx+len(key):]
-
-	// Find the end of the value (first occurrence of separator)
-	separators := []rune{' ', ',', '[', ')'}
-	minPos := len(rest)
-	for _, sep := range separators {
-		if pos := strings.IndexRune(rest, sep); pos != -1 && pos < minPos {
-			minPos = pos
-		}
-	}
-
-	// Extract and normalize the value
-	val := strings.TrimSpace(rest[:minPos])
-	if val == "" || strings.EqualFold(val, "unknown") || strings.EqualFold(val, "[unknown]") {
-		val = "UNKNOWN"
+	// Extract value starting after the key
+	val := extractValueAt(line, idx+len(key))
+	if val == "" {
+		return "", false
 	}
 
 	return val, true
