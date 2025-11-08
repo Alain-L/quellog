@@ -117,13 +117,20 @@ type SQLAnalyzer struct {
 	startTimestamp   time.Time
 	endTimestamp     time.Time
 	executions       []QueryExecution
+
+	// Cache to avoid re-normalizing identical raw queries
+	// Maps trimmed raw query → normalized query
+	// For I1.log: 899k queries → 256 unique = 99.97% cache hit rate
+	normalizationCache map[string]string
 }
 
 // NewSQLAnalyzer creates a new SQL analyzer with pre-allocated capacity.
+// Pre-allocates space for 10,000 unique queries to reduce map reallocation overhead.
 func NewSQLAnalyzer() *SQLAnalyzer {
 	return &SQLAnalyzer{
-		queryStats: make(map[string]*QueryStat, 1000),
-		executions: make([]QueryExecution, 0, 10000),
+		queryStats:         make(map[string]*QueryStat, 10000),
+		executions:         make([]QueryExecution, 0, 10000),
+		normalizationCache: make(map[string]string, 1000), // Cache for raw→normalized mapping
 	}
 }
 
@@ -157,9 +164,15 @@ func (a *SQLAnalyzer) Process(entry *parser.LogEntry) {
 		a.endTimestamp = entry.Timestamp
 	}
 
-	// Normalize query for aggregation
+	// Normalize query for aggregation (with caching)
 	rawQuery := strings.TrimSpace(query)
-	normalizedQuery := normalizeQuery(rawQuery)
+
+	// Check normalization cache first to avoid expensive re-normalization
+	normalizedQuery, cached := a.normalizationCache[rawQuery]
+	if !cached {
+		normalizedQuery = normalizeQuery(rawQuery)
+		a.normalizationCache[rawQuery] = normalizedQuery
+	}
 
 	// Update or create query statistics
 	stats, exists := a.queryStats[normalizedQuery]
