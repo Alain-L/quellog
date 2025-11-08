@@ -401,11 +401,17 @@ func convertLocks(m analysis.LockMetrics) LocksJSON {
 	for _, stat := range m.QueryStats {
 		pairs = append(pairs, queryPair{stat})
 	}
-	// Sort by total wait time descending
+	// Sort by total wait time descending, then by ID ascending for deterministic ordering
 	for i := 0; i < len(pairs)-1; i++ {
 		for j := i + 1; j < len(pairs); j++ {
+			// Primary: sort by total wait time (descending)
 			if pairs[j].stat.TotalWaitTime > pairs[i].stat.TotalWaitTime {
 				pairs[i], pairs[j] = pairs[j], pairs[i]
+			} else if pairs[j].stat.TotalWaitTime == pairs[i].stat.TotalWaitTime {
+				// Secondary: sort by ID (ascending) for stable output
+				if pairs[j].stat.ID < pairs[i].stat.ID {
+					pairs[i], pairs[j] = pairs[j], pairs[i]
+				}
 			}
 		}
 	}
