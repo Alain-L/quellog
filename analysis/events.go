@@ -91,18 +91,9 @@ func (a *EventAnalyzer) Process(entry *parser.LogEntry) {
 		return
 	}
 
-	// OPTIMIZATION: Event types appear at the start of messages (after timestamp).
-	// Check only first 50 characters instead of entire message.
-	// This reduces CPU time from 230ms to ~30ms on I1.log.
-	checkLen := len(msg)
-	if checkLen > 50 {
-		checkLen = 50
-	}
-	prefix := msg[:checkLen]
-
-	// Check for predefined event types in the prefix only
+	// Check for predefined event types (kept simple, they're usually at start)
 	for _, eventType := range predefinedEventTypes {
-		if strings.Contains(prefix, eventType) {
+		if strings.Contains(msg, eventType) {
 			a.counts[eventType]++
 			a.total++
 			break
