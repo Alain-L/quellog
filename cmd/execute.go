@@ -112,7 +112,7 @@ func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, 
 	// Special case: SQL query details (single query analysis)
 	if len(sqlDetailFlag) > 0 {
 		// Run full analysis to collect queries from locks and tempfiles
-		metrics := analysis.AggregateMetrics(filteredLogs)
+		metrics := analysis.AggregateMetrics(filteredLogs, totalFileSize)
 		processingDuration := time.Since(startTime)
 		PrintProcessingSummary(metrics.SQL.TotalQueries, processingDuration, totalFileSize)
 		output.PrintSqlDetails(metrics, sqlDetailFlag)
@@ -122,7 +122,7 @@ func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, 
 	// Special case: SQL summary (aggregated query statistics)
 	if sqlSummaryFlag {
 		// Run full analysis to collect queries from locks and tempfiles
-		metrics := analysis.AggregateMetrics(filteredLogs)
+		metrics := analysis.AggregateMetrics(filteredLogs, totalFileSize)
 		processingDuration := time.Since(startTime)
 		PrintProcessingSummary(metrics.SQL.TotalQueries, processingDuration, totalFileSize)
 		output.PrintSQLSummary(metrics.SQL, false)
@@ -130,7 +130,7 @@ func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, 
 	}
 
 	// Default: full analysis with all metrics
-	metrics := analysis.AggregateMetrics(filteredLogs)
+	metrics := analysis.AggregateMetrics(filteredLogs, totalFileSize)
 	processingDuration := time.Since(startTime)
 
 	// Validate that we have a valid time range
