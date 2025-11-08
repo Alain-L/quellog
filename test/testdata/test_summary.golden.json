@@ -114,9 +114,7 @@
     "postgres"
   ],
   "events": {
-    "ERROR": 2,
-    "LOG": 183,
-    "WARNING": 1
+    "LOG": 115
   },
   "locks": {
     "total_events": 11,
