@@ -2,6 +2,7 @@
 package analysis
 
 import (
+	"container/list"
 	"sort"
 	"strconv"
 	"strings"
@@ -95,6 +96,68 @@ type SqlMetrics struct {
 }
 
 // ============================================================================
+// LRU Cache for normalization
+// ============================================================================
+
+// lruCacheEntry represents a single cache entry
+type lruCacheEntry struct {
+	key   string
+	value string
+}
+
+// lruCache is a simple LRU cache implementation
+type lruCache struct {
+	capacity int
+	cache    map[string]*list.Element
+	list     *list.List
+}
+
+// newLRUCache creates a new LRU cache with the given capacity
+func newLRUCache(capacity int) *lruCache {
+	return &lruCache{
+		capacity: capacity,
+		cache:    make(map[string]*list.Element, capacity),
+		list:     list.New(),
+	}
+}
+
+// Get retrieves a value from the cache
+func (c *lruCache) Get(key string) (string, bool) {
+	if elem, ok := c.cache[key]; ok {
+		// Only move to front if not already there (optimization)
+		if c.list.Front() != elem {
+			c.list.MoveToFront(elem)
+		}
+		return elem.Value.(*lruCacheEntry).value, true
+	}
+	return "", false
+}
+
+// Put adds a value to the cache
+func (c *lruCache) Put(key, value string) {
+	if elem, ok := c.cache[key]; ok {
+		// Only move to front if not already there (optimization)
+		if c.list.Front() != elem {
+			c.list.MoveToFront(elem)
+		}
+		elem.Value.(*lruCacheEntry).value = value
+		return
+	}
+
+	entry := &lruCacheEntry{key: key, value: value}
+	elem := c.list.PushFront(entry)
+	c.cache[key] = elem
+
+	if c.list.Len() > c.capacity {
+		oldest := c.list.Back()
+		if oldest != nil {
+			c.list.Remove(oldest)
+			delete(c.cache, oldest.Value.(*lruCacheEntry).key)
+		}
+	}
+}
+
+// ============================================================================
 // Streaming SQL analyzer
 // ============================================================================
 
@@ -118,19 +181,20 @@ type SQLAnalyzer struct {
 	endTimestamp     time.Time
 	executions       []QueryExecution
 
-	// Cache to avoid re-normalizing identical raw queries
+	// LRU cache to avoid re-normalizing identical raw queries
+	// Limited capacity to prevent unbounded memory growth
 	// Maps trimmed raw query → normalized query
-	// For I1.log: 899k queries → 256 unique = 99.97% cache hit rate
-	normalizationCache map[string]string
+	normalizationCache *lruCache
 }
 
 // NewSQLAnalyzer creates a new SQL analyzer with pre-allocated capacity.
 // Pre-allocates space for 10,000 unique queries to reduce map reallocation overhead.
+// Uses LRU cache with 1000 entry capacity to balance performance and memory usage.
 func NewSQLAnalyzer() *SQLAnalyzer {
 	return &SQLAnalyzer{
 		queryStats:         make(map[string]*QueryStat, 10000),
 		executions:         make([]QueryExecution, 0, 10000),
-		normalizationCache: make(map[string]string, 1000), // Cache for raw→normalized mapping
+		normalizationCache: newLRUCache(500), // LRU cache for raw→normalized mapping
 	}
 }
 
@@ -164,14 +228,14 @@ func (a *SQLAnalyzer) Process(entry *parser.LogEntry) {
 		a.endTimestamp = entry.Timestamp
 	}
 
-	// Normalize query for aggregation (with caching)
+	// Normalize query for aggregation (with LRU caching)
 	rawQuery := strings.TrimSpace(query)
 
-	// Check normalization cache first to avoid expensive re-normalization
-	normalizedQuery, cached := a.normalizationCache[rawQuery]
+	// Check LRU cache first to avoid expensive re-normalization
+	normalizedQuery, cached := a.normalizationCache.Get(rawQuery)
 	if !cached {
 		normalizedQuery = normalizeQuery(rawQuery)
-		a.normalizationCache[rawQuery] = normalizedQuery
+		a.normalizationCache.Put(rawQuery, normalizedQuery)
 	}
 
 	// Update or create query statistics
