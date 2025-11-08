@@ -4,6 +4,7 @@ package analysis
 import (
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Alain-L/quellog/parser"
@@ -117,11 +118,15 @@ type StreamingAnalyzer struct {
 	errorClasses   *ErrorClassAnalyzer
 	uniqueEntities *UniqueEntityAnalyzer
 	sql            *SQLAnalyzer
+
+	// Parallel SQL processing
+	sqlChan chan *parser.LogEntry
+	sqlWg   sync.WaitGroup
 }
 
 // NewStreamingAnalyzer creates a new streaming analyzer with all sub-analyzers initialized.
 func NewStreamingAnalyzer() *StreamingAnalyzer {
-	return &StreamingAnalyzer{
+	sa := &StreamingAnalyzer{
 		tempFiles:      NewTempFileAnalyzer(),
 		vacuum:         NewVacuumAnalyzer(),
 		checkpoints:    NewCheckpointAnalyzer(),
@@ -131,7 +136,19 @@ func NewStreamingAnalyzer() *StreamingAnalyzer {
 		errorClasses:   NewErrorClassAnalyzer(),
 		uniqueEntities: NewUniqueEntityAnalyzer(),
 		sql:            NewSQLAnalyzer(),
+		sqlChan:        make(chan *parser.LogEntry, 10000),
 	}
+
+	// Start parallel SQL analyzer goroutine
+	sa.sqlWg.Add(1)
+	go func() {
+		defer sa.sqlWg.Done()
+		for entry := range sa.sqlChan {
+			sa.sql.Process(entry)
+		}
+	}()
+
+	return sa
 }
 
 // Process analyzes a single log entry, dispatching it to all relevant sub-analyzers.
@@ -158,12 +175,18 @@ func (sa *StreamingAnalyzer) Process(entry *parser.LogEntry) {
 	sa.events.Process(entry)
 	sa.errorClasses.Process(entry)
 	sa.uniqueEntities.Process(entry)
-	sa.sql.Process(entry)
+
+	// SQL analyzer runs in parallel goroutine
+	sa.sqlChan <- entry
 }
 
 // Finalize computes final metrics after all log entries have been processed.
 // This should be called once after processing all entries.
 func (sa *StreamingAnalyzer) Finalize() AggregatedMetrics {
+	// Close SQL channel and wait for goroutine to finish
+	close(sa.sqlChan)
+	sa.sqlWg.Wait()
+
 	// Finalize all metrics
 	tempFiles := sa.tempFiles.Finalize()
 	locks := sa.locks.Finalize()

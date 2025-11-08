@@ -1430,7 +1430,11 @@ func printMostFrequentWaitingQueries(queryStats map[string]*analysis.LockQuerySt
 		}
 	}
 	sort.Slice(pairs, func(i, j int) bool {
-		return pairs[i].totalLocks > pairs[j].totalLocks
+		// Sort by total locks (descending), then by ID (ascending) for deterministic ordering
+		if pairs[i].totalLocks != pairs[j].totalLocks {
+			return pairs[i].totalLocks > pairs[j].totalLocks
+		}
+		return pairs[i].stat.ID < pairs[j].stat.ID
 	})
 
 	// Print top queries
