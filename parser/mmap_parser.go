@@ -145,34 +145,42 @@ func parseMmapDataOptimized(data []byte, out chan<- LogEntry) error {
 	currentEntry = make([]byte, 0, 1024) // Pre-allocate
 
 	start := 0
-	for i := 0; i < len(data); i++ {
-		if data[i] == '\n' {
-			// Extract line (without newline)
-			line := data[start:i]
-			start = i + 1
+	// OPTIMIZATION: Use bytes.IndexByte to jump directly to newlines
+	// instead of scanning byte-by-byte. This is ~10x faster for finding '\n'.
+	for start < len(data) {
+		// Find next newline
+		i := bytes.IndexByte(data[start:], '\n')
+		if i < 0 {
+			// No more newlines, handle remaining data
+			break
+		}
 
-			// Skip empty lines
-			if len(line) == 0 {
-				continue
-			}
+		// Extract line (without newline)
+		i += start // Convert relative index to absolute
+		line := data[start:i]
+		start = i + 1
 
-			// Check if this is a continuation line
-			if line[0] == ' ' || line[0] == '\t' {
-				// Append to current entry
-				if len(currentEntry) > 0 {
-					currentEntry = append(currentEntry, ' ')
-				}
-				currentEntry = append(currentEntry, bytes.TrimSpace(line)...)
-			} else {
-				// This is a new entry, process the previous one
-				if len(currentEntry) > 0 {
-					timestamp, message := parseStderrLineBytes(currentEntry)
-					out <- LogEntry{Timestamp: timestamp, Message: message}
-					currentEntry = currentEntry[:0] // Reset but keep capacity
-				}
-				// Start accumulating new entry
-				currentEntry = append(currentEntry[:0], line...)
+		// Skip empty lines
+		if len(line) == 0 {
+			continue
+		}
+
+		// Check if this is a continuation line
+		if line[0] == ' ' || line[0] == '\t' {
+			// Append to current entry
+			if len(currentEntry) > 0 {
+				currentEntry = append(currentEntry, ' ')
 			}
+			currentEntry = append(currentEntry, bytes.TrimSpace(line)...)
+		} else {
+			// This is a new entry, process the previous one
+			if len(currentEntry) > 0 {
+				timestamp, message := parseStderrLineBytes(currentEntry)
+				out <- LogEntry{Timestamp: timestamp, Message: message}
+				currentEntry = currentEntry[:0] // Reset but keep capacity
+			}
+			// Start accumulating new entry
+			currentEntry = append(currentEntry[:0], line...)
 		}
 	}
 
