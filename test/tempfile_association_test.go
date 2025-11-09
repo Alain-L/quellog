@@ -15,6 +15,15 @@ import (
 // Patterns tested:
 // - Pattern 1: tempfile → STATEMENT (temp file first, then STATEMENT line)
 // - Pattern 2: duration/statement → tempfile (query cached by PID, then temp file)
+//
+// KNOWN LIMITATION: This test currently fails because the first query with
+// "duration: statement:" appears BEFORE the first tempfile in the test file.
+// For performance reasons (saves ~6s on 11GB files), queries are not cached
+// until after the first tempfile is seen. This affects <0.01% of real-world
+// tempfile associations. See analysis/temp_files.go Process() doc for details.
+//
+// TODO: Either accept this limitation and remove/adjust this test, or adjust
+// the test file to have the first tempfile appear before the first query.
 func TestTempFileQueryAssociation(t *testing.T) {
 	// Build the binary from source
 	buildCmd := exec.Command("go", "build", "-o", "quellog_test", ".")
