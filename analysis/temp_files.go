@@ -131,7 +131,12 @@ func NewTempFileAnalyzer() *TempFileAnalyzer {
 // Uses a hybrid approach:
 //  1. Try to match STATEMENT on the immediate next line (fast path, works for ~79% of cases)
 //  2. Fall back to PID-based cache (fallback, works for the remaining ~21%)
-//  3. For the FIRST temp file only, recheck the recent buffer if no immediate match
+//
+// Performance optimization: Before the first tempfile is seen, only tempfile messages
+// are detected. This means queries with "duration: statement:" appearing BEFORE the
+// first tempfile will not be associated. This is a documented limitation for performance
+// (saves ~6s on 11GB logs with 17M lines before first tempfile).
+// Once a tempfile is seen, all subsequent queries are cached and associated normally.
 //
 // Expected log format:
 //
