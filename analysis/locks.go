@@ -133,11 +133,11 @@ type LockAnalyzer struct {
 	lockTypeStats     map[string]int
 	resourceTypeStats map[string]int
 
-	// Lazy-initialized structures (nil until first lock detected)
-	events         *[]LockEvent
-	queryStats     *map[string]*LockQueryStat
-	lastQueryByPID *map[string]string
-	activeLocks    *map[string]*activeLock
+	// Pre-allocated structures (initialized at creation)
+	events         []LockEvent
+	queryStats     map[string]*LockQueryStat
+	lastQueryByPID map[string]string
+	activeLocks    map[string]*activeLock
 
 	// State machine optimization (like tempfiles)
 	locksExist bool // True once we've seen at least one lock event
@@ -157,40 +157,13 @@ type activeLock struct {
 // NewLockAnalyzer creates a new lock event analyzer.
 func NewLockAnalyzer() *LockAnalyzer {
 	return &LockAnalyzer{
-		lockTypeStats:     nil, // Lazy-initialized when first lock found
-		resourceTypeStats: nil, // Lazy-initialized when first lock found
-		// Lazy-initialized fields start as nil
-		events:         nil,
-		queryStats:     nil,
-		lastQueryByPID: nil,
-		activeLocks:    nil,
-		locksExist:     false,
-	}
-}
-
-// initStructures initializes the lazy structures when the first lock is detected.
-func (a *LockAnalyzer) initStructures() {
-	if a.lockTypeStats == nil {
-		a.lockTypeStats = make(map[string]int, 20)
-	}
-	if a.resourceTypeStats == nil {
-		a.resourceTypeStats = make(map[string]int, 10)
-	}
-	if a.events == nil {
-		events := make([]LockEvent, 0, 1000)
-		a.events = &events
-	}
-	if a.queryStats == nil {
-		queryStats := make(map[string]*LockQueryStat, 100)
-		a.queryStats = &queryStats
-	}
-	if a.lastQueryByPID == nil {
-		lastQueryByPID := make(map[string]string, 100)
-		a.lastQueryByPID = &lastQueryByPID
-	}
-	if a.activeLocks == nil {
-		activeLocks := make(map[string]*activeLock, 200)
-		a.activeLocks = &activeLocks
+		lockTypeStats:     make(map[string]int, 20),
+		resourceTypeStats: make(map[string]int, 10),
+		events:            make([]LockEvent, 0, 1000),
+		queryStats:        make(map[string]*LockQueryStat, 100),
+		lastQueryByPID:    make(map[string]string, 100),
+		activeLocks:       make(map[string]*activeLock, 200),
+		locksExist:        false,
 	}
 }
 
@@ -248,7 +221,6 @@ func (a *LockAnalyzer) Process(entry *parser.LogEntry) {
 			// Check if it's a lock waiting or acquired message
 			if strings.Contains(msg, lockStillWaiting) || strings.Contains(msg, lockAcquired) {
 				a.locksExist = true
-				a.initStructures()
 				// Fall through to full processing
 			} else {
 				return
@@ -257,7 +229,6 @@ func (a *LockAnalyzer) Process(entry *parser.LogEntry) {
 			// Check if it's a deadlock message
 			if strings.Contains(msg, lockDeadlock) {
 				a.locksExist = true
-				a.initStructures()
 				// Fall through to full processing
 			} else {
 				return
@@ -309,10 +280,10 @@ func (a *LockAnalyzer) Process(entry *parser.LogEntry) {
 		if query != "" {
 			pid = parser.ExtractPID(msg)
 			if pid != "" {
-				(*a.lastQueryByPID)[pid] = query
+				a.lastQueryByPID[pid] = query
 
 				// Also update any active locks for this PID that don't have a query yet
-				for _, lock := range *a.activeLocks {
+				for _, lock := range a.activeLocks {
 					if lock.processID == pid && lock.query == "" {
 						lock.query = query
 					}
@@ -327,7 +298,7 @@ func (a *LockAnalyzer) Process(entry *parser.LogEntry) {
 		a.deadlockEvents++
 		a.totalEvents++
 		pid := parser.ExtractPID(msg)
-		*a.events = append(*a.events, LockEvent{
+		a.events = append(a.events, LockEvent{
 			Timestamp:  entry.Timestamp,
 			EventType:  "deadlock",
 			LockType:   "",
@@ -348,7 +319,7 @@ func (a *LockAnalyzer) Process(entry *parser.LogEntry) {
 		lockKey := processID + "-" + lockType + "-" + resource
 
 		if eventType == "waiting" {
-			lock, exists := (*a.activeLocks)[lockKey]
+			lock, exists := a.activeLocks[lockKey]
 			if !exists {
 				// First time seeing this lock
 				lock = &activeLock{
@@ -359,10 +330,10 @@ func (a *LockAnalyzer) Process(entry *parser.LogEntry) {
 					acquired:     false,
 				}
 				// Get associated query if available
-				if query, ok := (*a.lastQueryByPID)[processID]; ok {
+				if query, ok := a.lastQueryByPID[processID]; ok {
 					lock.query = query
 				}
-				(*a.activeLocks)[lockKey] = lock
+				a.activeLocks[lockKey] = lock
 			} else {
 				// Update the wait time (don't add to total yet)
 				lock.lastWaitTime = waitTime
@@ -373,7 +344,7 @@ func (a *LockAnalyzer) Process(entry *parser.LogEntry) {
 			a.lockTypeStats[lockType]++
 			a.resourceTypeStats[resourceType]++
 
-			*a.events = append(*a.events, LockEvent{
+			a.events = append(a.events, LockEvent{
 				Timestamp:    entry.Timestamp,
 				EventType:    "waiting",
 				LockType:     lockType,
@@ -382,7 +353,7 @@ func (a *LockAnalyzer) Process(entry *parser.LogEntry) {
 				ProcessID:    processID,
 			})
 		} else { // "acquired"
-			lock, exists := (*a.activeLocks)[lockKey]
+			lock, exists := a.activeLocks[lockKey]
 			if exists {
 				// Lock was previously waiting, mark as acquired
 				lock.acquired = true
@@ -397,10 +368,10 @@ func (a *LockAnalyzer) Process(entry *parser.LogEntry) {
 					acquired:     true,
 				}
 				// Get associated query if available
-				if query, ok := (*a.lastQueryByPID)[processID]; ok {
+				if query, ok := a.lastQueryByPID[processID]; ok {
 					lock.query = query
 				}
-				(*a.activeLocks)[lockKey] = lock
+				a.activeLocks[lockKey] = lock
 			}
 
 			// Add the final wait time to total (this is the real total time for this lock)
@@ -411,7 +382,7 @@ func (a *LockAnalyzer) Process(entry *parser.LogEntry) {
 			a.lockTypeStats[lockType]++
 			a.resourceTypeStats[resourceType]++
 
-			*a.events = append(*a.events, LockEvent{
+			a.events = append(a.events, LockEvent{
 				Timestamp:    entry.Timestamp,
 				EventType:    "acquired",
 				LockType:     lockType,
@@ -586,7 +557,7 @@ func (a *LockAnalyzer) Finalize() LockMetrics {
 	// Build query statistics from individual locks
 	queryStats := make(map[string]*LockQueryStat, 100)
 
-	for _, lock := range *a.activeLocks {
+	for _, lock := range a.activeLocks {
 		// Note: We do NOT add wait time for locks that were never acquired to the global total.
 		// We only count completed (acquired) locks in the global total wait time.
 		// Never-acquired locks are tracked separately in StillWaitingTime per query.
@@ -634,7 +605,7 @@ func (a *LockAnalyzer) Finalize() LockMetrics {
 		TotalWaitTime:     a.totalWaitTime,
 		LockTypeStats:     a.lockTypeStats,
 		ResourceTypeStats: a.resourceTypeStats,
-		Events:            *a.events,
+		Events:            a.events,
 		QueryStats:        queryStats,
 	}
 }
