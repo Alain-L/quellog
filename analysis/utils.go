@@ -74,7 +74,9 @@ func normalizeQuery(query string) string {
 
 	buf := builderPool.Get().(*strings.Builder)
 	buf.Reset()
-	buf.Grow(len(query))
+	// Grow with conservative estimate: normalized queries are typically shorter
+	// due to replacing values/numbers with '?'. Using len/2 reduces peak memory.
+	buf.Grow(len(query) / 2)
 	defer builderPool.Put(buf)
 
 	lastWasSpace := false
