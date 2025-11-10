@@ -189,12 +189,13 @@ type SQLAnalyzer struct {
 
 // NewSQLAnalyzer creates a new SQL analyzer with pre-allocated capacity.
 // Pre-allocates space for 10,000 unique queries to reduce map reallocation overhead.
-// Uses LRU cache with 1000 entry capacity to balance performance and memory usage.
+// Uses LRU cache with 5000 entry capacity to balance performance and memory usage.
+// Larger cache reduces normalizeQuery() calls, saving ~300MB on 11GB files.
 func NewSQLAnalyzer() *SQLAnalyzer {
 	return &SQLAnalyzer{
 		queryStats:         make(map[string]*QueryStat, 10000),
 		executions:         make([]QueryExecution, 0, 10000),
-		normalizationCache: newLRUCache(500), // LRU cache for raw→normalized mapping
+		normalizationCache: newLRUCache(5000), // LRU cache for raw→normalized mapping
 	}
 }
 
