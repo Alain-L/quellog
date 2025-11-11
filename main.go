@@ -11,6 +11,13 @@ import (
 	"github.com/Alain-L/quellog/cmd"
 )
 
+// Version information (set by goreleaser at build time)
+var (
+	version = "dev"
+	commit  = "none"
+	date    = "unknown"
+)
+
 func main() {
 
 	// CPU profiling
@@ -41,5 +48,5 @@ func main() {
 	// Execute the CLI application.
 	// All command-line parsing, flag handling, and execution logic
 	// is delegated to the cmd package.
-	cmd.Execute()
+	cmd.Execute(version, commit, date)
 }
