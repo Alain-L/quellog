@@ -76,8 +76,8 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string) {
 		}
 		fmt.Printf("  %-25s : %s\n", "Average temp file size", formatBytes(avgSize))
 
-		// Queries generating temp files (if available)
-		if len(m.TempFiles.QueryStats) > 0 {
+		// Queries generating temp files (only shown with --tempfiles flag, not in default report)
+		if !has("all") && len(m.TempFiles.QueryStats) > 0 {
 			termWidth, _, err := term.GetSize(int(os.Stdout.Fd()))
 			if err != nil {
 				termWidth = 120
@@ -169,8 +169,8 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string) {
 			printLockStats(m.Locks.ResourceTypeStats, m.Locks.TotalEvents)
 		}
 
-		// Acquired locks by query
-		if len(m.Locks.QueryStats) > 0 {
+		// Acquired locks by query (only shown with --locks flag, not in default report)
+		if !has("all") && len(m.Locks.QueryStats) > 0 {
 			hasAcquired := false
 			for _, stat := range m.Locks.QueryStats {
 				if stat.AcquiredCount > 0 {
@@ -189,8 +189,8 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string) {
 			}
 		}
 
-		// Locks still waiting by query
-		if len(m.Locks.QueryStats) > 0 {
+		// Locks still waiting by query (only shown with --locks flag, not in default report)
+		if !has("all") && len(m.Locks.QueryStats) > 0 {
 			hasStillWaiting := false
 			for _, stat := range m.Locks.QueryStats {
 				if stat.StillWaitingCount > 0 {
@@ -209,8 +209,8 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string) {
 			}
 		}
 
-		// Most frequent waiting queries (all locks that waited, acquired or not)
-		if len(m.Locks.QueryStats) > 0 {
+		// Most frequent waiting queries (only shown with --locks flag, not in default report)
+		if !has("all") && len(m.Locks.QueryStats) > 0 {
 			hasWaiting := false
 			for _, stat := range m.Locks.QueryStats {
 				if stat.AcquiredCount > 0 || stat.StillWaitingCount > 0 {
