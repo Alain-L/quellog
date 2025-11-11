@@ -115,7 +115,7 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string) {
 			for i := 0; i < limit; i++ {
 				stat := queries[i].stat
 				truncatedQuery := truncateQuery(stat.NormalizedQuery, queryWidth)
-				fmt.Printf("%-8s  %-*s  %10d  %12s\n",
+				fmt.Printf("%-9s  %-*s  %10d  %12s\n",
 					stat.ID,
 					queryWidth, truncatedQuery,
 					stat.Count,
@@ -1061,7 +1061,7 @@ func printAcquiredLockQueries(queryStats map[string]*analysis.LockQueryStat, lim
 		stat := pairs[i].stat
 		truncatedQuery := truncateQuery(stat.NormalizedQuery, queryWidth)
 		avgWait := stat.AcquiredWaitTime / float64(stat.AcquiredCount)
-		fmt.Printf("%-8s  %-*s  %10d  %15s  %15s\n",
+		fmt.Printf("%-9s  %-*s  %10d  %15s  %15s\n",
 			stat.ID,
 			queryWidth, truncatedQuery,
 			stat.AcquiredCount,
@@ -1094,7 +1094,7 @@ func printStillWaitingLockQueries(queryStats map[string]*analysis.LockQueryStat,
 		stat := pairs[i].stat
 		truncatedQuery := truncateQuery(stat.NormalizedQuery, queryWidth)
 		avgWait := stat.StillWaitingTime / float64(stat.StillWaitingCount)
-		fmt.Printf("%-8s  %-*s  %10d  %15s  %15s\n",
+		fmt.Printf("%-9s  %-*s  %10d  %15s  %15s\n",
 			stat.ID,
 			queryWidth, truncatedQuery,
 			stat.StillWaitingCount,
@@ -1140,7 +1140,7 @@ func printMostFrequentWaitingQueries(queryStats map[string]*analysis.LockQuerySt
 		pair := pairs[i]
 		truncatedQuery := truncateQuery(pair.stat.NormalizedQuery, queryWidth)
 		avgWait := pair.totalWait / float64(pair.totalLocks)
-		fmt.Printf("%-8s  %-*s  %10d  %15s  %15s\n",
+		fmt.Printf("%-9s  %-*s  %10d  %15s  %15s\n",
 			pair.stat.ID,
 			queryWidth, truncatedQuery,
 			pair.totalLocks,
