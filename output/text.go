@@ -78,9 +78,22 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string) {
 
 		// Queries generating temp files (if available)
 		if len(m.TempFiles.QueryStats) > 0 {
-			fmt.Println("\n" + bold + "Queries generating temp files:" + reset + "\n")
-			fmt.Printf("%s%-10s %-70s %10s %10s%s\n", bold, "SQLID", "Query", "Count", "Total Size", reset)
-			fmt.Println(strings.Repeat("-", 103))
+			termWidth, _, err := term.GetSize(int(os.Stdout.Fd()))
+			if err != nil {
+				termWidth = 120
+			}
+
+			fmt.Println(bold + "\nQueries generating temp files:" + reset)
+
+			queryWidth := int(float64(termWidth) * 0.6)
+			if queryWidth < 40 {
+				queryWidth = 40
+			}
+
+			fmt.Printf("%s%-9s  %-*s  %10s  %12s%s\n",
+				bold, "SQLID", queryWidth, "Query", "Count", "Total Size", reset)
+			totalWidth := 9 + 2 + queryWidth + 2 + 10 + 2 + 12
+			fmt.Println(strings.Repeat("-", totalWidth))
 
 			// Sort queries by total size descending
 			type queryWithSize struct {
@@ -101,10 +114,10 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string) {
 			}
 			for i := 0; i < limit; i++ {
 				stat := queries[i].stat
-				truncatedQuery := truncateQuery(stat.NormalizedQuery, 70)
-				fmt.Printf("%-10s %-70s %10d %10s\n",
+				truncatedQuery := truncateQuery(stat.NormalizedQuery, queryWidth)
+				fmt.Printf("%-8s  %-*s  %10d  %12s\n",
 					stat.ID,
-					truncatedQuery,
+					queryWidth, truncatedQuery,
 					stat.Count,
 					formatBytes(stat.TotalSize))
 			}
@@ -148,10 +161,22 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string) {
 				}
 			}
 			if hasAcquired {
-				fmt.Println("\n" + bold + "Acquired locks by query:" + reset + "\n")
-				fmt.Printf("%-10s %-70s %10s %15s %15s\n", "SQLID", "Query", "Locks", "Avg Wait", "Total Wait")
-				fmt.Println(strings.Repeat("-", 124))
-				printAcquiredLockQueries(m.Locks.QueryStats, 10)
+				termWidth, _, err := term.GetSize(int(os.Stdout.Fd()))
+				if err != nil {
+					termWidth = 120
+				}
+
+				queryWidth := int(float64(termWidth) * 0.6)
+				if queryWidth < 40 {
+					queryWidth = 40
+				}
+
+				fmt.Println(bold + "\nAcquired locks by query:" + reset)
+				fmt.Printf("%s%-9s  %-*s  %10s  %12s  %12s%s\n",
+					bold, "SQLID", queryWidth, "Query", "Locks", "Avg Wait", "Total Wait", reset)
+				totalWidth := 9 + 2 + queryWidth + 2 + 10 + 2 + 12 + 2 + 12
+				fmt.Println(strings.Repeat("-", totalWidth))
+				printAcquiredLockQueries(m.Locks.QueryStats, 10, queryWidth)
 			}
 		}
 
@@ -165,10 +190,22 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string) {
 				}
 			}
 			if hasStillWaiting {
-				fmt.Println("\n" + bold + "Locks still waiting by query:" + reset + "\n")
-				fmt.Printf("%-10s %-70s %10s %15s %15s\n", "SQLID", "Query", "Locks", "Avg Wait", "Total Wait")
-				fmt.Println(strings.Repeat("-", 124))
-				printStillWaitingLockQueries(m.Locks.QueryStats, 10)
+				termWidth, _, err := term.GetSize(int(os.Stdout.Fd()))
+				if err != nil {
+					termWidth = 120
+				}
+
+				queryWidth := int(float64(termWidth) * 0.6)
+				if queryWidth < 40 {
+					queryWidth = 40
+				}
+
+				fmt.Println(bold + "\nLocks still waiting by query:" + reset)
+				fmt.Printf("%s%-9s  %-*s  %10s  %12s  %12s%s\n",
+					bold, "SQLID", queryWidth, "Query", "Locks", "Avg Wait", "Total Wait", reset)
+				totalWidth := 9 + 2 + queryWidth + 2 + 10 + 2 + 12 + 2 + 12
+				fmt.Println(strings.Repeat("-", totalWidth))
+				printStillWaitingLockQueries(m.Locks.QueryStats, 10, queryWidth)
 			}
 		}
 
@@ -182,10 +219,22 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string) {
 				}
 			}
 			if hasWaiting {
-				fmt.Println("\n" + bold + "Most frequent waiting queries:" + reset + "\n")
-				fmt.Printf("%-10s %-70s %10s %15s %15s\n", "SQLID", "Query", "Locks", "Avg Wait", "Total Wait")
-				fmt.Println(strings.Repeat("-", 124))
-				printMostFrequentWaitingQueries(m.Locks.QueryStats, 10)
+				termWidth, _, err := term.GetSize(int(os.Stdout.Fd()))
+				if err != nil {
+					termWidth = 120
+				}
+
+				queryWidth := int(float64(termWidth) * 0.6)
+				if queryWidth < 40 {
+					queryWidth = 40
+				}
+
+				fmt.Println(bold + "\nMost frequent waiting queries:" + reset)
+				fmt.Printf("%s%-9s  %-*s  %10s  %12s  %12s%s\n",
+					bold, "SQLID", queryWidth, "Query", "Locks", "Avg Wait", "Total Wait", reset)
+				totalWidth := 9 + 2 + queryWidth + 2 + 10 + 2 + 12 + 2 + 12
+				fmt.Println(strings.Repeat("-", totalWidth))
+				printMostFrequentWaitingQueries(m.Locks.QueryStats, 10, queryWidth)
 			}
 		}
 	}
@@ -989,7 +1038,7 @@ func formatLockCount(count int) string {
 }
 
 // printAcquiredLockQueries prints queries with acquired locks, sorted by total wait time.
-func printAcquiredLockQueries(queryStats map[string]*analysis.LockQueryStat, limit int) {
+func printAcquiredLockQueries(queryStats map[string]*analysis.LockQueryStat, limit int, queryWidth int) {
 	// Convert map to slice and filter/sort by acquired wait time
 	type queryPair struct {
 		stat *analysis.LockQueryStat
@@ -1010,11 +1059,11 @@ func printAcquiredLockQueries(queryStats map[string]*analysis.LockQueryStat, lim
 	}
 	for i := 0; i < limit; i++ {
 		stat := pairs[i].stat
-		truncatedQuery := truncateQuery(stat.NormalizedQuery, 70)
+		truncatedQuery := truncateQuery(stat.NormalizedQuery, queryWidth)
 		avgWait := stat.AcquiredWaitTime / float64(stat.AcquiredCount)
-		fmt.Printf("%-10s %-70s %10d %15s %15s\n",
+		fmt.Printf("%-8s  %-*s  %10d  %12s  %12s\n",
 			stat.ID,
-			truncatedQuery,
+			queryWidth, truncatedQuery,
 			stat.AcquiredCount,
 			formatQueryDuration(avgWait),
 			formatQueryDuration(stat.AcquiredWaitTime))
@@ -1022,7 +1071,7 @@ func printAcquiredLockQueries(queryStats map[string]*analysis.LockQueryStat, lim
 }
 
 // printStillWaitingLockQueries prints queries with locks still waiting, sorted by total wait time.
-func printStillWaitingLockQueries(queryStats map[string]*analysis.LockQueryStat, limit int) {
+func printStillWaitingLockQueries(queryStats map[string]*analysis.LockQueryStat, limit int, queryWidth int) {
 	// Convert map to slice and filter/sort by still waiting time
 	type queryPair struct {
 		stat *analysis.LockQueryStat
@@ -1043,11 +1092,11 @@ func printStillWaitingLockQueries(queryStats map[string]*analysis.LockQueryStat,
 	}
 	for i := 0; i < limit; i++ {
 		stat := pairs[i].stat
-		truncatedQuery := truncateQuery(stat.NormalizedQuery, 70)
+		truncatedQuery := truncateQuery(stat.NormalizedQuery, queryWidth)
 		avgWait := stat.StillWaitingTime / float64(stat.StillWaitingCount)
-		fmt.Printf("%-10s %-70s %10d %15s %15s\n",
+		fmt.Printf("%-8s  %-*s  %10d  %12s  %12s\n",
 			stat.ID,
-			truncatedQuery,
+			queryWidth, truncatedQuery,
 			stat.StillWaitingCount,
 			formatQueryDuration(avgWait),
 			formatQueryDuration(stat.StillWaitingTime))
@@ -1056,7 +1105,7 @@ func printStillWaitingLockQueries(queryStats map[string]*analysis.LockQueryStat,
 
 // printMostFrequentWaitingQueries prints all queries that experienced lock waits,
 // sorted by the number of unique locks that waited (acquired or not).
-func printMostFrequentWaitingQueries(queryStats map[string]*analysis.LockQueryStat, limit int) {
+func printMostFrequentWaitingQueries(queryStats map[string]*analysis.LockQueryStat, limit int, queryWidth int) {
 	// Convert map to slice and filter/sort by total number of locks that waited
 	type queryPair struct {
 		stat       *analysis.LockQueryStat
@@ -1089,11 +1138,11 @@ func printMostFrequentWaitingQueries(queryStats map[string]*analysis.LockQuerySt
 	}
 	for i := 0; i < limit; i++ {
 		pair := pairs[i]
-		truncatedQuery := truncateQuery(pair.stat.NormalizedQuery, 70)
+		truncatedQuery := truncateQuery(pair.stat.NormalizedQuery, queryWidth)
 		avgWait := pair.totalWait / float64(pair.totalLocks)
-		fmt.Printf("%-10s %-70s %10d %15s %15s\n",
+		fmt.Printf("%-8s  %-*s  %10d  %12s  %12s\n",
 			pair.stat.ID,
-			truncatedQuery,
+			queryWidth, truncatedQuery,
 			pair.totalLocks,
 			formatQueryDuration(avgWait),
 			formatQueryDuration(pair.totalWait))
