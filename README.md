@@ -153,8 +153,8 @@ Here are the main features:
 
 - **Multi-format support:** Automatically detects and parses PostgreSQL logs in
   stderr, CSV, or JSON format
-- **Transparent archive support:** Read `*.log.gz`, `*.csv.gz`, `*.json.gz`
-  as well as tar bundles (`*.tar`, `*.tar.gz`, `*.tgz`) without manual decompression
+- **Transparent compression and archive support:** Read gzip (`.gz`), zstd (`.zst`, `.zstd`),
+  and tar archives (`.tar`, `.tar.gz`, `.tar.zst`, `.tzst`) without manual decompression
 - **Time-based filtering:** Analyze logs within specific date ranges or time
   windows
 - **Attribute filtering:** Focus on specific databases, users, applications, or
@@ -167,6 +167,15 @@ Here are the main features:
   - Error and warning detection with event classification
   - Vacuum and autovacuum analysis with space recovery metrics
   - Checkpoint tracking and performance impact assessment
+- **Lock analysis:**
+  - Lock wait tracking with wait time statistics
+  - Query-to-lock association for identifying blocking queries
+  - Lock type and resource type distribution analysis
+  - Most frequent waiting queries and acquired locks by query
+- **Temporary file analysis:**
+  - SQL query association with 99.79% coverage across all log formats
+  - Multi-pattern recognition for comprehensive tempfile tracking
+  - Top queries by temporary file size with cumulative statistics
 - **Connection insights:** Session duration, client distribution, and connection
   patterns
 - **Flexible output formats:** Human-readable reports, JSON export, or Markdown
@@ -193,8 +202,23 @@ sudo mv quellog /usr/local/bin/
 Check it works:
 
 ```sh
+quellog --version
 quellog --help
 ```
+
+### Package installation (Linux)
+
+**Debian/Ubuntu (.deb):**
+```sh
+sudo dpkg -i quellog_*_linux_amd64.deb
+```
+
+**RedHat/Fedora/CentOS (.rpm):**
+```sh
+sudo rpm -i quellog_*_linux_amd64.rpm
+```
+
+### Build from source
 
 To build from source :
 
@@ -223,7 +247,7 @@ log_line_prefix = '%t [%p]: db=%d,user=%u,app=%a,client=%h '
 log_checkpoints = on                 # Track checkpoint activity
 log_autovacuum_min_duration = 0      # Log all autovacuum activity
 log_temp_files = 0                   # Log temporary file usage
-log_lock_waits = on                  # Log lock waits
+log_lock_waits = on                  # Log lock waits (required for lock analysis)
 
 ```
 
@@ -252,14 +276,19 @@ quellog /path/to/logs --summary
 quellog /path/to/logs --checkpoints --connections
 ```
 
-### Analyze SQL performance  
+### Analyze SQL performance
 ```sh
 quellog /path/to/logs --sql-summary
 ```
 
-### Show details for a specific SQL query  
+### Show details for a specific SQL query
 ```sh
 quellog /path/to/logs --sql-detail <query_id>
+```
+
+### Analyze lock contention
+```sh
+quellog /path/to/logs --locks
 ```
 
 ### Filter by database, user, and time range  
