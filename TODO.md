@@ -25,7 +25,6 @@
 - Differentiate slowest individual, normalized, and parameterized queries.
 - Identify busiest query windows.
 - Group similar queries together.
-- Add `--sql-detail` for in-depth query analysis.
 - Include SQL hints and `auto_explain` insights.
 
 ## Checkpoints & WAL
@@ -33,9 +32,6 @@
 
 ## API & Integration
 - Evaluate REST or gRPC API for internal data access.
-- Add JSON ourput for SQL report
-- Consider packaging (Debian, Docker).
-- Investigate compressed file support.
 
 ## Terminal UI (TUI)
 - Explore `tview` or `Bubble Tea` for interactive usage.
