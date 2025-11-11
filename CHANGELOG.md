@@ -2,6 +2,40 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.0] - 2025-11-11
+### Added
+- **Lock event analysis**: Complete lock tracking with acquired/waiting events, wait times, and query association
+  - Lock type and resource type distribution
+  - "Acquired locks by query" and "Most frequent waiting queries" tables
+  - `--locks` flag for focused lock reports
+
+- **Temporary file analysis**: SQL query association with 99.79% coverage
+  - Multi-pattern recognition across stderr, CSV, and JSON formats
+  - Support for STATEMENT, QUERY field, and CONTEXT associations
+  - PID-based fallback matching
+  - Top queries by temp file size with cumulative statistics
+
+- **Compression and archive support**: Transparent compressed log handling
+  - gzip/pgzip (.gz), zstd (.zst, .zstd), and tar archives (.tar, .tar.gz, .tar.zst)
+  - Nested compression handling with automatic format detection
+
+- **Memory-mapped I/O**: Zero-copy stderr parsing (3% faster, 60% fewer allocations)
+- **Adaptive parallelization**: File size-based worker allocation for optimal performance
+
+### Changed
+- **Performance optimizations**:
+  - Parallel SQL analysis: up to 20% faster on large files
+  - LRU normalization cache: Eliminates 99.97% of redundant normalizations
+  - IndexByte fast-path for lock and parsing operations
+  - Memory footprint reduced up to 50% on workloads with query repetition
+
+- **SQL normalization**: Improved handling of numeric literals and edge cases
+- **Test coverage**: Added format equivalence tests and SQL normalization edge case tests
+- **Deterministic output**: Consistent query ordering across runs
+
+### Fixed
+- **Query normalization**: Standalone numeric literals (e.g., "id = 123") now correctly normalize to "id = ?"
+
 ## [0.2.0] - 2025-10-31
 ### Added
 - **JSON log format support**: Native PostgreSQL jsonlog format detection and parsing
