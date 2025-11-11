@@ -1,3 +1,7 @@
+//go:build (linux || darwin) && !wasm
+// +build linux darwin
+// +build !wasm
+
 // Package parser provides log file parsing for PostgreSQL logs.
 package parser
 
