@@ -3,9 +3,17 @@
 package cmd
 
 import (
+	"fmt"
 	"log"
 
 	"github.com/spf13/cobra"
+)
+
+// Version information (passed from main)
+var (
+	version string
+	commit  string
+	date    string
 )
 
 // Flag variables for command-line options.
@@ -61,7 +69,12 @@ and customize the output.`,
 
 // Execute runs the root command.
 // This is called by main.go to start the CLI application.
-func Execute() {
+func Execute(v, c, d string) {
+	version = v
+	commit = c
+	date = d
+	rootCmd.Version = fmt.Sprintf("%s (commit: %s, built: %s)", version, commit, date)
+
 	if err := rootCmd.Execute(); err != nil {
 		log.Fatalf("Error: %v", err)
 	}
