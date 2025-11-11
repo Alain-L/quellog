@@ -29,6 +29,7 @@ vendor/
 # Commodity files
 _*
 .gocache/
+reports/
 
 # Test data
 !test/testdata/**
