@@ -44,6 +44,8 @@ nfpms:
       - rpm
     bindir: /usr/bin
     contents:
+      - src: LICENSE
+        dst: /usr/share/doc/quellog/LICENSE
       - src: README.md
         dst: /usr/share/doc/quellog/README.md
       - src: CHANGELOG.md
