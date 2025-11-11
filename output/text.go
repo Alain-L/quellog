@@ -431,6 +431,11 @@ func printTopTables(tableCounts map[string]int, total int, spaceRecovered map[st
 // PrintSQLSummary displays an SQL performance report in the CLI.
 // The report uses ANSI bold formatting for better readability. The query text is truncated based on terminal width.
 func PrintSQLSummary(m analysis.SqlMetrics, indicatorsOnly bool) {
+	PrintSQLSummaryWithContext(m, analysis.TempFileMetrics{}, analysis.LockMetrics{}, indicatorsOnly)
+}
+
+// PrintSQLSummaryWithContext displays SQL performance with optional tempfiles and locks context.
+func PrintSQLSummaryWithContext(m analysis.SqlMetrics, tempFiles analysis.TempFileMetrics, locks analysis.LockMetrics, indicatorsOnly bool) {
 	// Get terminal width, defaulting to 80.
 	width := 80
 	if w, _, err := term.GetSize(int(os.Stdout.Fd())); err == nil {
@@ -509,17 +514,118 @@ func PrintSQLSummary(m analysis.SqlMetrics, indicatorsOnly bool) {
 		PrintTimeConsumingQueries(m.QueryStats)
 		fmt.Println()
 
-		// Display note about queries without duration metrics
-		if m.QueriesWithoutDurationCount.Total > 0 {
-			fmt.Println(strings.Repeat("─", 70))
-			fmt.Printf("Note: %d queries without duration metrics were identified:\n", m.QueriesWithoutDurationCount.Total)
-			if m.QueriesWithoutDurationCount.FromLocks > 0 {
-				fmt.Printf("  • %d from lock events\n", m.QueriesWithoutDurationCount.FromLocks)
+		// Display tempfiles and locks query tables to show queries without duration metrics
+		termWidth, _, err := term.GetSize(int(os.Stdout.Fd()))
+		if err != nil {
+			termWidth = 120
+		}
+
+		// Tempfiles queries
+		if len(tempFiles.QueryStats) > 0 {
+			fmt.Println(bold + "\nQueries generating temp files:" + reset)
+
+			// Sort queries by total size descending
+			type queryWithSize struct {
+				stat *analysis.TempFileQueryStat
 			}
-			if m.QueriesWithoutDurationCount.FromTempfiles > 0 {
-				fmt.Printf("  • %d from tempfile events\n", m.QueriesWithoutDurationCount.FromTempfiles)
+			queries := make([]queryWithSize, 0, len(tempFiles.QueryStats))
+			for _, stat := range tempFiles.QueryStats {
+				queries = append(queries, queryWithSize{stat: stat})
+			}
+			sort.Slice(queries, func(i, j int) bool {
+				return queries[i].stat.TotalSize > queries[j].stat.TotalSize
+			})
+
+			// Display top 10
+			limit := 10
+			if len(queries) < limit {
+				limit = len(queries)
+			}
+
+			if termWidth >= 120 {
+				// Wide mode: show full query
+				queryWidth := int(float64(termWidth) * 0.6)
+				if queryWidth < 40 {
+					queryWidth = 40
+				}
+
+				fmt.Printf("%s%-9s  %-*s  %10s  %12s%s\n",
+					bold, "SQLID", queryWidth, "Query", "Count", "Total Size", reset)
+				totalWidth := 9 + 2 + queryWidth + 2 + 10 + 2 + 12
+				fmt.Println(strings.Repeat("-", totalWidth))
+
+				for i := 0; i < limit; i++ {
+					stat := queries[i].stat
+					truncatedQuery := truncateQuery(stat.NormalizedQuery, queryWidth)
+					fmt.Printf("%-9s  %-*s  %10d  %12s\n",
+						stat.ID,
+						queryWidth, truncatedQuery,
+						stat.Count,
+						formatBytes(stat.TotalSize))
+				}
+			} else {
+				// Compact mode: show type only
+				header := fmt.Sprintf("%-8s  %-10s  %-10s  %-12s\n", "SQLID", "Type", "Count", "Total Size")
+				fmt.Print(bold + header + reset)
+				fmt.Println(strings.Repeat("-", 80))
+				for i := 0; i < limit; i++ {
+					stat := queries[i].stat
+					qType := analysis.QueryTypeFromID(stat.ID)
+					fmt.Printf("%-8s  %-10s  %-10d  %-12s\n",
+						stat.ID,
+						qType,
+						stat.Count,
+						formatBytes(stat.TotalSize))
+				}
 			}
 			fmt.Println()
+		}
+
+		// Locks queries - Acquired locks by query
+		if len(locks.QueryStats) > 0 {
+			hasAcquired := false
+			for _, stat := range locks.QueryStats {
+				if stat.AcquiredCount > 0 {
+					hasAcquired = true
+					break
+				}
+			}
+			if hasAcquired {
+				fmt.Println(bold + "\nAcquired locks by query:" + reset)
+				printAcquiredLockQueries(locks.QueryStats, 10, termWidth)
+				fmt.Println()
+			}
+		}
+
+		// Locks still waiting by query
+		if len(locks.QueryStats) > 0 {
+			hasStillWaiting := false
+			for _, stat := range locks.QueryStats {
+				if stat.StillWaitingCount > 0 {
+					hasStillWaiting = true
+					break
+				}
+			}
+			if hasStillWaiting {
+				fmt.Println(bold + "\nLocks still waiting by query:" + reset)
+				printStillWaitingLockQueries(locks.QueryStats, 10, termWidth)
+				fmt.Println()
+			}
+		}
+
+		// Most frequent waiting queries (all locks that waited, acquired or not)
+		if len(locks.QueryStats) > 0 {
+			hasWaiting := false
+			for _, stat := range locks.QueryStats {
+				if stat.AcquiredCount > 0 || stat.StillWaitingCount > 0 {
+					hasWaiting = true
+					break
+				}
+			}
+			if hasWaiting {
+				fmt.Println(bold + "\nMost frequent waiting queries:" + reset)
+				printMostFrequentWaitingQueries(locks.QueryStats, 10, termWidth)
+			}
 		}
 	}
 }
