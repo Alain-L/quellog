@@ -80,7 +80,8 @@ func gatherLogFiles(dir string) ([]string, error) {
 // Accepted extensions:
 //   - .log, .csv, .json
 //   - .log.gz, .csv.gz, .json.gz
-//   - .tar, .tar.gz, .tgz
+//   - .log.zst, .log.zstd, .csv.zst, .csv.zstd, .json.zst, .json.zstd
+//   - .tar, .tar.gz, .tgz, .tar.zst, .tar.zstd, .tzst
 func isSupportedLogFile(name string) bool {
 	lower := strings.ToLower(name)
 	supported := []string{
@@ -90,9 +91,18 @@ func isSupportedLogFile(name string) bool {
 		".log.gz",
 		".csv.gz",
 		".json.gz",
+		".log.zst",
+		".log.zstd",
+		".csv.zst",
+		".csv.zstd",
+		".json.zst",
+		".json.zstd",
 		".tar",
 		".tar.gz",
 		".tgz",
+		".tar.zst",
+		".tar.zstd",
+		".tzst",
 	}
 
 	for _, ext := range supported {
