@@ -31,6 +31,24 @@ archives:
         format: zip
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
 
+nfpms:
+  - id: quellog
+    package_name: quellog
+    vendor: Alain Lesage
+    homepage: https://github.com/Alain-L/quellog
+    maintainer: Alain Lesage <alain.lesage@dalibo.com>
+    description: High-performance PostgreSQL log parser and analyzer
+    license: PostgreSQL
+    formats:
+      - deb
+      - rpm
+    bindir: /usr/bin
+    contents:
+      - src: README.md
+        dst: /usr/share/doc/quellog/README.md
+      - src: CHANGELOG.md
+        dst: /usr/share/doc/quellog/CHANGELOG.md
+
 checksum:
   name_template: 'checksums.txt'
 
