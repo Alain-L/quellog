@@ -125,7 +125,7 @@ func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, 
 		metrics := analysis.AggregateMetrics(filteredLogs, totalFileSize)
 		processingDuration := time.Since(startTime)
 		PrintProcessingSummary(metrics.SQL.TotalQueries, processingDuration, totalFileSize)
-		output.PrintSQLSummary(metrics.SQL, false)
+		output.PrintSQLSummaryWithContext(metrics.SQL, metrics.TempFiles, metrics.Locks, false)
 		return
 	}
 

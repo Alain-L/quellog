@@ -76,11 +76,14 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string) {
 		}
 		fmt.Printf("  %-25s : %s\n", "Average temp file size", formatBytes(avgSize))
 
-		// Queries generating temp files (if available)
-		if len(m.TempFiles.QueryStats) > 0 {
-			fmt.Println("\n" + bold + "Queries generating temp files:" + reset + "\n")
-			fmt.Printf("%s%-10s %-70s %10s %10s%s\n", bold, "SQLID", "Query", "Count", "Total Size", reset)
-			fmt.Println(strings.Repeat("-", 103))
+		// Queries generating temp files (only shown with --tempfiles flag, not in default report)
+		if !has("all") && len(m.TempFiles.QueryStats) > 0 {
+			termWidth, _, err := term.GetSize(int(os.Stdout.Fd()))
+			if err != nil {
+				termWidth = 120
+			}
+
+			fmt.Println(bold + "\nQueries generating temp files:" + reset)
 
 			// Sort queries by total size descending
 			type queryWithSize struct {
@@ -99,14 +102,42 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string) {
 			if len(queries) < limit {
 				limit = len(queries)
 			}
-			for i := 0; i < limit; i++ {
-				stat := queries[i].stat
-				truncatedQuery := truncateQuery(stat.NormalizedQuery, 70)
-				fmt.Printf("%-10s %-70s %10d %10s\n",
-					stat.ID,
-					truncatedQuery,
-					stat.Count,
-					formatBytes(stat.TotalSize))
+
+			if termWidth >= 120 {
+				// Wide mode: show full query
+				queryWidth := int(float64(termWidth) * 0.6)
+				if queryWidth < 40 {
+					queryWidth = 40
+				}
+
+				fmt.Printf("%s%-9s  %-*s  %10s  %12s%s\n",
+					bold, "SQLID", queryWidth, "Query", "Count", "Total Size", reset)
+				totalWidth := 9 + 2 + queryWidth + 2 + 10 + 2 + 12
+				fmt.Println(strings.Repeat("-", totalWidth))
+
+				for i := 0; i < limit; i++ {
+					stat := queries[i].stat
+					truncatedQuery := truncateQuery(stat.NormalizedQuery, queryWidth)
+					fmt.Printf("%-9s  %-*s  %10d  %12s\n",
+						stat.ID,
+						queryWidth, truncatedQuery,
+						stat.Count,
+						formatBytes(stat.TotalSize))
+				}
+			} else {
+				// Compact mode: show type only
+				header := fmt.Sprintf("%-8s  %-10s  %-10s  %-12s\n", "SQLID", "Type", "Count", "Total Size")
+				fmt.Print(bold + header + reset)
+				fmt.Println(strings.Repeat("-", 80))
+				for i := 0; i < limit; i++ {
+					stat := queries[i].stat
+					qType := analysis.QueryTypeFromID(stat.ID)
+					fmt.Printf("%-8s  %-10s  %-10d  %-12s\n",
+						stat.ID,
+						qType,
+						stat.Count,
+						formatBytes(stat.TotalSize))
+				}
 			}
 		}
 	}
@@ -138,8 +169,8 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string) {
 			printLockStats(m.Locks.ResourceTypeStats, m.Locks.TotalEvents)
 		}
 
-		// Acquired locks by query
-		if len(m.Locks.QueryStats) > 0 {
+		// Acquired locks by query (only shown with --locks flag, not in default report)
+		if !has("all") && len(m.Locks.QueryStats) > 0 {
 			hasAcquired := false
 			for _, stat := range m.Locks.QueryStats {
 				if stat.AcquiredCount > 0 {
@@ -148,15 +179,18 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string) {
 				}
 			}
 			if hasAcquired {
-				fmt.Println("\n" + bold + "Acquired locks by query:" + reset + "\n")
-				fmt.Printf("%-10s %-70s %10s %15s %15s\n", "SQLID", "Query", "Locks", "Avg Wait", "Total Wait")
-				fmt.Println(strings.Repeat("-", 124))
-				printAcquiredLockQueries(m.Locks.QueryStats, 10)
+				termWidth, _, err := term.GetSize(int(os.Stdout.Fd()))
+				if err != nil {
+					termWidth = 120
+				}
+
+				fmt.Println(bold + "\nAcquired locks by query:" + reset)
+				printAcquiredLockQueries(m.Locks.QueryStats, 10, termWidth)
 			}
 		}
 
-		// Locks still waiting by query
-		if len(m.Locks.QueryStats) > 0 {
+		// Locks still waiting by query (only shown with --locks flag, not in default report)
+		if !has("all") && len(m.Locks.QueryStats) > 0 {
 			hasStillWaiting := false
 			for _, stat := range m.Locks.QueryStats {
 				if stat.StillWaitingCount > 0 {
@@ -165,15 +199,18 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string) {
 				}
 			}
 			if hasStillWaiting {
-				fmt.Println("\n" + bold + "Locks still waiting by query:" + reset + "\n")
-				fmt.Printf("%-10s %-70s %10s %15s %15s\n", "SQLID", "Query", "Locks", "Avg Wait", "Total Wait")
-				fmt.Println(strings.Repeat("-", 124))
-				printStillWaitingLockQueries(m.Locks.QueryStats, 10)
+				termWidth, _, err := term.GetSize(int(os.Stdout.Fd()))
+				if err != nil {
+					termWidth = 120
+				}
+
+				fmt.Println(bold + "\nLocks still waiting by query:" + reset)
+				printStillWaitingLockQueries(m.Locks.QueryStats, 10, termWidth)
 			}
 		}
 
-		// Most frequent waiting queries (all locks that waited, acquired or not)
-		if len(m.Locks.QueryStats) > 0 {
+		// Most frequent waiting queries (only shown with --locks flag, not in default report)
+		if !has("all") && len(m.Locks.QueryStats) > 0 {
 			hasWaiting := false
 			for _, stat := range m.Locks.QueryStats {
 				if stat.AcquiredCount > 0 || stat.StillWaitingCount > 0 {
@@ -182,10 +219,13 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string) {
 				}
 			}
 			if hasWaiting {
-				fmt.Println("\n" + bold + "Most frequent waiting queries:" + reset + "\n")
-				fmt.Printf("%-10s %-70s %10s %15s %15s\n", "SQLID", "Query", "Locks", "Avg Wait", "Total Wait")
-				fmt.Println(strings.Repeat("-", 124))
-				printMostFrequentWaitingQueries(m.Locks.QueryStats, 10)
+				termWidth, _, err := term.GetSize(int(os.Stdout.Fd()))
+				if err != nil {
+					termWidth = 120
+				}
+
+				fmt.Println(bold + "\nMost frequent waiting queries:" + reset)
+				printMostFrequentWaitingQueries(m.Locks.QueryStats, 10, termWidth)
 			}
 		}
 	}
@@ -391,6 +431,11 @@ func printTopTables(tableCounts map[string]int, total int, spaceRecovered map[st
 // PrintSQLSummary displays an SQL performance report in the CLI.
 // The report uses ANSI bold formatting for better readability. The query text is truncated based on terminal width.
 func PrintSQLSummary(m analysis.SqlMetrics, indicatorsOnly bool) {
+	PrintSQLSummaryWithContext(m, analysis.TempFileMetrics{}, analysis.LockMetrics{}, indicatorsOnly)
+}
+
+// PrintSQLSummaryWithContext displays SQL performance with optional tempfiles and locks context.
+func PrintSQLSummaryWithContext(m analysis.SqlMetrics, tempFiles analysis.TempFileMetrics, locks analysis.LockMetrics, indicatorsOnly bool) {
 	// Get terminal width, defaulting to 80.
 	width := 80
 	if w, _, err := term.GetSize(int(os.Stdout.Fd())); err == nil {
@@ -469,17 +514,118 @@ func PrintSQLSummary(m analysis.SqlMetrics, indicatorsOnly bool) {
 		PrintTimeConsumingQueries(m.QueryStats)
 		fmt.Println()
 
-		// Display note about queries without duration metrics
-		if m.QueriesWithoutDurationCount.Total > 0 {
-			fmt.Println(strings.Repeat("─", 70))
-			fmt.Printf("Note: %d queries without duration metrics were identified:\n", m.QueriesWithoutDurationCount.Total)
-			if m.QueriesWithoutDurationCount.FromLocks > 0 {
-				fmt.Printf("  • %d from lock events\n", m.QueriesWithoutDurationCount.FromLocks)
+		// Display tempfiles and locks query tables to show queries without duration metrics
+		termWidth, _, err := term.GetSize(int(os.Stdout.Fd()))
+		if err != nil {
+			termWidth = 120
+		}
+
+		// Tempfiles queries
+		if len(tempFiles.QueryStats) > 0 {
+			fmt.Println(bold + "\nQueries generating temp files:" + reset)
+
+			// Sort queries by total size descending
+			type queryWithSize struct {
+				stat *analysis.TempFileQueryStat
 			}
-			if m.QueriesWithoutDurationCount.FromTempfiles > 0 {
-				fmt.Printf("  • %d from tempfile events\n", m.QueriesWithoutDurationCount.FromTempfiles)
+			queries := make([]queryWithSize, 0, len(tempFiles.QueryStats))
+			for _, stat := range tempFiles.QueryStats {
+				queries = append(queries, queryWithSize{stat: stat})
+			}
+			sort.Slice(queries, func(i, j int) bool {
+				return queries[i].stat.TotalSize > queries[j].stat.TotalSize
+			})
+
+			// Display top 10
+			limit := 10
+			if len(queries) < limit {
+				limit = len(queries)
+			}
+
+			if termWidth >= 120 {
+				// Wide mode: show full query
+				queryWidth := int(float64(termWidth) * 0.6)
+				if queryWidth < 40 {
+					queryWidth = 40
+				}
+
+				fmt.Printf("%s%-9s  %-*s  %10s  %12s%s\n",
+					bold, "SQLID", queryWidth, "Query", "Count", "Total Size", reset)
+				totalWidth := 9 + 2 + queryWidth + 2 + 10 + 2 + 12
+				fmt.Println(strings.Repeat("-", totalWidth))
+
+				for i := 0; i < limit; i++ {
+					stat := queries[i].stat
+					truncatedQuery := truncateQuery(stat.NormalizedQuery, queryWidth)
+					fmt.Printf("%-9s  %-*s  %10d  %12s\n",
+						stat.ID,
+						queryWidth, truncatedQuery,
+						stat.Count,
+						formatBytes(stat.TotalSize))
+				}
+			} else {
+				// Compact mode: show type only
+				header := fmt.Sprintf("%-8s  %-10s  %-10s  %-12s\n", "SQLID", "Type", "Count", "Total Size")
+				fmt.Print(bold + header + reset)
+				fmt.Println(strings.Repeat("-", 80))
+				for i := 0; i < limit; i++ {
+					stat := queries[i].stat
+					qType := analysis.QueryTypeFromID(stat.ID)
+					fmt.Printf("%-8s  %-10s  %-10d  %-12s\n",
+						stat.ID,
+						qType,
+						stat.Count,
+						formatBytes(stat.TotalSize))
+				}
 			}
 			fmt.Println()
+		}
+
+		// Locks queries - Acquired locks by query
+		if len(locks.QueryStats) > 0 {
+			hasAcquired := false
+			for _, stat := range locks.QueryStats {
+				if stat.AcquiredCount > 0 {
+					hasAcquired = true
+					break
+				}
+			}
+			if hasAcquired {
+				fmt.Println(bold + "\nAcquired locks by query:" + reset)
+				printAcquiredLockQueries(locks.QueryStats, 10, termWidth)
+				fmt.Println()
+			}
+		}
+
+		// Locks still waiting by query
+		if len(locks.QueryStats) > 0 {
+			hasStillWaiting := false
+			for _, stat := range locks.QueryStats {
+				if stat.StillWaitingCount > 0 {
+					hasStillWaiting = true
+					break
+				}
+			}
+			if hasStillWaiting {
+				fmt.Println(bold + "\nLocks still waiting by query:" + reset)
+				printStillWaitingLockQueries(locks.QueryStats, 10, termWidth)
+				fmt.Println()
+			}
+		}
+
+		// Most frequent waiting queries (all locks that waited, acquired or not)
+		if len(locks.QueryStats) > 0 {
+			hasWaiting := false
+			for _, stat := range locks.QueryStats {
+				if stat.AcquiredCount > 0 || stat.StillWaitingCount > 0 {
+					hasWaiting = true
+					break
+				}
+			}
+			if hasWaiting {
+				fmt.Println(bold + "\nMost frequent waiting queries:" + reset)
+				printMostFrequentWaitingQueries(locks.QueryStats, 10, termWidth)
+			}
 		}
 	}
 }
@@ -941,91 +1087,6 @@ func PrintHistogram(data map[string]int, title string, unit string, scaleFactor 
 // computeQueryLoadHistogram répartit les durées des requêtes SQL en 6 intervalles égaux,
 // et retourne l'histogramme, l'unité (ms, s ou min) et le scale factor.
 // La durée de chaque tranche est convertie pour être au moins d'une unité d'échelle.
-func computeQueryLoadHistogram(m analysis.SqlMetrics) (map[string]int, string, int) {
-	if m.StartTimestamp.IsZero() || m.EndTimestamp.IsZero() || len(m.Executions) == 0 {
-		return nil, "", 0
-	}
-
-	// Division de l'intervalle total en 6 buckets égaux.
-	totalDuration := m.EndTimestamp.Sub(m.StartTimestamp)
-	numBuckets := 6
-	bucketDuration := totalDuration / time.Duration(numBuckets)
-
-	// Protection contre la division par zéro : si la durée totale est nulle ou très courte
-	if bucketDuration <= 0 {
-		bucketDuration = 1 * time.Nanosecond
-	}
-
-	// Préparation des buckets avec accumulation en millisecondes.
-	histogramMs := make([]int, numBuckets)
-	bucketLabels := make([]string, numBuckets)
-	for i := 0; i < numBuckets; i++ {
-		start := m.StartTimestamp.Add(time.Duration(i) * bucketDuration)
-		end := m.StartTimestamp.Add(time.Duration(i+1) * bucketDuration)
-		bucketLabels[i] = fmt.Sprintf("%s - %s", start.Format("15:04"), end.Format("15:04"))
-	}
-
-	// Répartition des durées (en ms) dans les buckets en fonction du timestamp de chaque exécution.
-	for _, exec := range m.Executions {
-		elapsed := exec.Timestamp.Sub(m.StartTimestamp)
-		bucketIndex := int(elapsed / bucketDuration)
-		if bucketIndex >= numBuckets {
-			bucketIndex = numBuckets - 1
-		}
-		if bucketIndex < 0 {
-			bucketIndex = 0
-		}
-		histogramMs[bucketIndex] += int(exec.Duration)
-	}
-
-	// Détermination de l'unité et du facteur de conversion en fonction de la charge maximale.
-	maxBucketLoad := 0
-	for _, load := range histogramMs {
-		if load > maxBucketLoad {
-			maxBucketLoad = load
-		}
-	}
-
-	var unit string
-	var conversion int
-	if maxBucketLoad < 1000 {
-		unit = "ms"
-		conversion = 1
-	} else if maxBucketLoad < 60000 {
-		unit = "s"
-		conversion = 1000
-	} else {
-		unit = "m"
-		conversion = 60000
-	}
-
-	// Conversion et arrondi vers le haut pour que toute charge non nulle soit affichée au moins 1 unité.
-	histogram := make(map[string]int, numBuckets)
-	for i, load := range histogramMs {
-		var value int
-		if load > 0 {
-			value = (load + conversion - 1) / conversion
-		} else {
-			value = 0
-		}
-		histogram[bucketLabels[i]] = value
-	}
-
-	// Calcul automatique du scale factor pour l'affichage.
-	maxValue := 0
-	for _, v := range histogram {
-		if v > maxValue {
-			maxValue = v
-		}
-	}
-	histogramWidth := 40
-	scaleFactor := int(math.Ceil(float64(maxValue) / float64(histogramWidth)))
-	if scaleFactor < 1 {
-		scaleFactor = 1
-	}
-
-	return histogram, unit, scaleFactor
-}
 
 // computeQueryDurationHistogram renvoie un histogramme sous forme de map associant des étiquettes de buckets à leur nombre de requêtes.
 // computeQueryDurationHistogram calcule un histogramme basé sur la durée des requêtes (exprimée en millisecondes)
@@ -1033,284 +1094,15 @@ func computeQueryLoadHistogram(m analysis.SqlMetrics) (map[string]int, string, i
 // - une map associant une étiquette de bucket au nombre de requêtes
 // - une chaîne "req" indiquant que les valeurs sont en nombre de requêtes,
 // - un scaleFactor permettant d’afficher des barres proportionnelles sur une largeur maximale de 40 caractères.
-func computeQueryDurationHistogram(m analysis.SqlMetrics) (map[string]int, string, int) {
-	// Définition des buckets fixes dans l'ordre souhaité.
-	bucketDefinitions := []struct {
-		label string
-		lower float64 // Borne inférieure en ms (inclusive)
-		upper float64 // Borne supérieure en ms (exclusive)
-	}{
-		{"< 1 ms", 0, 1},
-		{"< 10 ms", 1, 10},
-		{"< 100 ms", 10, 100},
-		{"< 1 s", 100, 1000},
-		{"< 10 s", 1000, 10000},
-		{">= 10 s", 10000, math.Inf(1)},
-	}
 
-	// Initialisation de l'histogramme avec des valeurs à zéro pour garantir l'ordre d'affichage.
-	histogram := make(map[string]int)
-	for _, bucket := range bucketDefinitions {
-		histogram[bucket.label] = 0
-	}
-
-	// Parcours des requêtes et répartition dans les buckets.
-	for _, exec := range m.Executions {
-		d := exec.Duration
-		for _, bucket := range bucketDefinitions {
-			if d >= bucket.lower && d < bucket.upper {
-				histogram[bucket.label]++
-				break
-			}
-		}
-	}
-
-	// Détermination du nombre maximal de requêtes dans un bucket.
-	maxCount := 0
-	for _, count := range histogram {
-		if count > maxCount {
-			maxCount = count
-		}
-	}
-
-	// L'unité est "req" (nombre de requêtes).
-	unit := "req"
-
-	// Calcul du scale factor pour limiter la barre la plus longue à 40 caractères.
-	scaleFactor := int(math.Ceil(float64(maxCount) / 40.0))
-	if scaleFactor < 1 {
-		scaleFactor = 1
-	}
-
-	return histogram, unit, scaleFactor
-}
-
-func computeTempFileHistogram(m analysis.TempFileMetrics) (map[string]int, string, int) {
-	// Si aucun événement, on ne peut pas construire l'histogramme.
-	if len(m.Events) == 0 {
-		return nil, "", 0
-	}
-
-	// Déterminer le début et la fin de la période à partir des événements.
-	start := m.Events[0].Timestamp
-	end := m.Events[0].Timestamp
-	for _, event := range m.Events {
-		if event.Timestamp.Before(start) {
-			start = event.Timestamp
-		}
-		if event.Timestamp.After(end) {
-			end = event.Timestamp
-		}
-	}
-	totalDuration := end.Sub(start)
-
-	// Si tous les événements ont le même timestamp (ou très proche),
-	// on ne peut pas créer un histogramme temporel utile.
-	// On met tout dans un seul bucket.
-	if totalDuration < time.Second {
-		totalDuration = time.Second
-	}
-
-	// On divise l'intervalle en 6 buckets égaux.
-	numBuckets := 6
-	bucketDuration := totalDuration / time.Duration(numBuckets)
-
-	// Préparation des buckets.
-	histogramSizes := make([]float64, numBuckets) // cumul des tailles en octets pour chaque bucket
-	bucketLabels := make([]string, numBuckets)
-	for i := 0; i < numBuckets; i++ {
-		bucketStart := start.Add(time.Duration(i) * bucketDuration)
-		bucketEnd := bucketStart.Add(bucketDuration)
-		bucketLabels[i] = fmt.Sprintf("%s - %s", bucketStart.Format("15:04"), bucketEnd.Format("15:04"))
-		histogramSizes[i] = 0
-	}
-
-	// Répartition des événements dans les buckets.
-	for _, event := range m.Events {
-		elapsed := event.Timestamp.Sub(start)
-		bucketIndex := int(elapsed / bucketDuration)
-		if bucketIndex >= numBuckets {
-			bucketIndex = numBuckets - 1
-		}
-		histogramSizes[bucketIndex] += event.Size
-	}
-
-	// Détermination de la charge maximale.
-	maxBucketLoad := 0.0
-	for _, size := range histogramSizes {
-		if size > maxBucketLoad {
-			maxBucketLoad = size
-		}
-	}
-
-	// Choix de l'unité et du facteur de conversion en fonction de la charge maximale.
-	var unit string
-	var conversion float64
-	if maxBucketLoad < 1024 {
-		unit = "B"
-		conversion = 1
-	} else if maxBucketLoad < 1024*1024 {
-		unit = "KB"
-		conversion = 1024
-	} else if maxBucketLoad < 1024*1024*1024 {
-		unit = "MB"
-		conversion = 1024 * 1024
-	} else {
-		unit = "GB"
-		conversion = 1024 * 1024 * 1024
-	}
-
-	// Conversion des valeurs en arrondissant vers le haut pour afficher au moins 1 unité.
-	histogram := make(map[string]int, numBuckets)
-	for i, raw := range histogramSizes {
-		var value int
-		if raw > 0 {
-			value = int((raw + conversion - 1) / conversion)
-		} else {
-			value = 0
-		}
-		histogram[bucketLabels[i]] = value
-	}
-
-	// Calcul automatique du scale factor pour l'affichage (limite à 40 blocs max).
-	histogramWidth := 40
-	maxValue := 0
-	for _, v := range histogram {
-		if v > maxValue {
-			maxValue = v
-		}
-	}
-
-	scaleFactor := int(math.Ceil(float64(maxValue) / float64(histogramWidth)))
-	if scaleFactor < 1 {
-		scaleFactor = 1
-	}
-
-	return histogram, unit, scaleFactor
-}
 
 // computeCheckpointHistogram agrège les événements de checkpoints en 6 tranches d'une journée complète.
 // On considère que tous les événements se situent dans la même journée.
 // Le résultat est un histogramme (map label -> nombre de checkpoints),
 // l'unité ("checkpoints") et un scale factor calculé pour limiter la largeur à 35 caractères.
-func computeCheckpointHistogram(m analysis.CheckpointMetrics) (map[string]int, string, int) {
-	if len(m.Events) == 0 {
-		return nil, "", 0
-	}
-
-	// On utilise le jour de la première occurrence pour fixer le début de la journée.
-	day := m.Events[0]
-	start := time.Date(day.Year(), day.Month(), day.Day(), 0, 0, 0, 0, day.Location())
-	end := start.Add(24 * time.Hour)
-	numBuckets := 6
-	bucketDuration := end.Sub(start) / time.Duration(numBuckets)
-
-	histogram := make(map[string]int, numBuckets)
-	bucketLabels := make([]string, numBuckets)
-	for i := 0; i < numBuckets; i++ {
-		bucketStart := start.Add(time.Duration(i) * bucketDuration)
-		bucketEnd := bucketStart.Add(bucketDuration)
-		label := fmt.Sprintf("%s - %s", bucketStart.Format("15:04"), bucketEnd.Format("15:04"))
-		histogram[label] = 0
-		bucketLabels[i] = label
-	}
-
-	// Répartition des événements dans les buckets, en se basant sur l'heure de l'événement.
-	for _, t := range m.Events {
-		// Si l'événement n'est pas dans la journée, on le ramène dans l'intervalle [start, end).
-		// On utilise l'heure uniquement.
-		hour := t.Hour()
-		bucketIndex := hour / 4 // 24h/6 = 4 heures par bucket.
-		if bucketIndex >= numBuckets {
-			bucketIndex = numBuckets - 1
-		}
-		histogram[bucketLabels[bucketIndex]]++
-	}
-
-	// Calcul du scale factor pour limiter la barre à 35 caractères.
-	maxValue := 0
-	for _, count := range histogram {
-		if count > maxValue {
-			maxValue = count
-		}
-	}
-	histogramWidth := 40
-	scaleFactor := int(math.Ceil(float64(maxValue) / float64(histogramWidth)))
-	if scaleFactor < 1 {
-		scaleFactor = 1
-	}
-
-	return histogram, "checkpoints", scaleFactor
-}
 
 // computeConnectionsHistogram agrège les timestamps d'événements dans un histogramme réparti sur numBuckets.
 // Les buckets sont calculés sur la journée complète (00:00 - 24:00) basée sur la première occurrence.
-func computeConnectionsHistogram(events []time.Time) (map[string]int, string, int) {
-	if len(events) == 0 {
-		return nil, "", 0
-	}
-
-	// Déterminer le début et la fin de la période à partir des événements.
-	start := events[0]
-	end := events[0]
-	for _, t := range events {
-		if t.Before(start) {
-			start = t
-		}
-		if t.After(end) {
-			end = t
-		}
-	}
-
-	// On fixe le nombre de buckets à 6.
-	numBuckets := 6
-	totalDuration := end.Sub(start)
-	if totalDuration <= 0 {
-		totalDuration = time.Second // Durée minimale pour éviter la division par zéro.
-	}
-	bucketDuration := totalDuration / time.Duration(numBuckets)
-
-	// Création des buckets avec leurs labels.
-	histogram := make(map[string]int, numBuckets)
-	bucketLabels := make([]string, numBuckets)
-	for i := 0; i < numBuckets; i++ {
-		bucketStart := start.Add(time.Duration(i) * bucketDuration)
-		bucketEnd := bucketStart.Add(bucketDuration)
-		label := fmt.Sprintf("%s - %s", bucketStart.Format("15:04"), bucketEnd.Format("15:04"))
-		histogram[label] = 0
-		bucketLabels[i] = label
-	}
-
-	// Répartition des événements dans les buckets.
-	for _, t := range events {
-		// On s'assure que l'événement se situe dans l'intervalle [start, end].
-		if t.Before(start) || t.After(end) {
-			continue
-		}
-		elapsed := t.Sub(start)
-		bucketIndex := int(elapsed / bucketDuration)
-		if bucketIndex >= numBuckets {
-			bucketIndex = numBuckets - 1
-		}
-		histogram[bucketLabels[bucketIndex]]++
-	}
-
-	// Calcul du scale factor pour limiter la largeur de la barre à 35 caractères.
-	maxValue := 0
-	for _, count := range histogram {
-		if count > maxValue {
-			maxValue = count
-		}
-	}
-	histogramWidth := 40
-	scaleFactor := int(math.Ceil(float64(maxValue) / float64(histogramWidth)))
-	if scaleFactor < 1 {
-		scaleFactor = 1
-	}
-
-	// L'unité ici est "connections".
-	return histogram, "connections", scaleFactor
-}
 
 // printLockStats prints lock type or resource type statistics.
 func printLockStats(stats map[string]int, total int) {
@@ -1343,7 +1135,7 @@ func formatLockCount(count int) string {
 }
 
 // printAcquiredLockQueries prints queries with acquired locks, sorted by total wait time.
-func printAcquiredLockQueries(queryStats map[string]*analysis.LockQueryStat, limit int) {
+func printAcquiredLockQueries(queryStats map[string]*analysis.LockQueryStat, limit int, termWidth int) {
 	// Convert map to slice and filter/sort by acquired wait time
 	type queryPair struct {
 		stat *analysis.LockQueryStat
@@ -1362,21 +1154,55 @@ func printAcquiredLockQueries(queryStats map[string]*analysis.LockQueryStat, lim
 	if limit > len(pairs) {
 		limit = len(pairs)
 	}
-	for i := 0; i < limit; i++ {
-		stat := pairs[i].stat
-		truncatedQuery := truncateQuery(stat.NormalizedQuery, 70)
-		avgWait := stat.AcquiredWaitTime / float64(stat.AcquiredCount)
-		fmt.Printf("%-10s %-70s %10d %15s %15s\n",
-			stat.ID,
-			truncatedQuery,
-			stat.AcquiredCount,
-			formatQueryDuration(avgWait),
-			formatQueryDuration(stat.AcquiredWaitTime))
+
+	bold := "\033[1m"
+	reset := "\033[0m"
+
+	if termWidth >= 120 {
+		// Wide mode: show full query
+		queryWidth := int(float64(termWidth) * 0.6)
+		if queryWidth < 40 {
+			queryWidth = 40
+		}
+
+		fmt.Printf("%s%-9s  %-*s  %10s  %15s  %15s%s\n",
+			bold, "SQLID", queryWidth, "Query", "Locks", "Avg Wait", "Total Wait", reset)
+		totalWidth := 9 + 2 + queryWidth + 2 + 10 + 2 + 15 + 2 + 15
+		fmt.Println(strings.Repeat("-", totalWidth))
+
+		for i := 0; i < limit; i++ {
+			stat := pairs[i].stat
+			truncatedQuery := truncateQuery(stat.NormalizedQuery, queryWidth)
+			avgWait := stat.AcquiredWaitTime / float64(stat.AcquiredCount)
+			fmt.Printf("%-9s  %-*s  %10d  %15s  %15s\n",
+				stat.ID,
+				queryWidth, truncatedQuery,
+				stat.AcquiredCount,
+				formatQueryDuration(avgWait),
+				formatQueryDuration(stat.AcquiredWaitTime))
+		}
+	} else {
+		// Compact mode: show type only
+		header := fmt.Sprintf("%-8s  %-10s  %-10s  %-12s  %-12s\n", "SQLID", "Type", "Locks", "Avg Wait", "Total Wait")
+		fmt.Print(bold + header + reset)
+		fmt.Println(strings.Repeat("-", 80))
+
+		for i := 0; i < limit; i++ {
+			stat := pairs[i].stat
+			qType := analysis.QueryTypeFromID(stat.ID)
+			avgWait := stat.AcquiredWaitTime / float64(stat.AcquiredCount)
+			fmt.Printf("%-8s  %-10s  %-10d  %-12s  %-12s\n",
+				stat.ID,
+				qType,
+				stat.AcquiredCount,
+				formatQueryDuration(avgWait),
+				formatQueryDuration(stat.AcquiredWaitTime))
+		}
 	}
 }
 
 // printStillWaitingLockQueries prints queries with locks still waiting, sorted by total wait time.
-func printStillWaitingLockQueries(queryStats map[string]*analysis.LockQueryStat, limit int) {
+func printStillWaitingLockQueries(queryStats map[string]*analysis.LockQueryStat, limit int, termWidth int) {
 	// Convert map to slice and filter/sort by still waiting time
 	type queryPair struct {
 		stat *analysis.LockQueryStat
@@ -1395,22 +1221,56 @@ func printStillWaitingLockQueries(queryStats map[string]*analysis.LockQueryStat,
 	if limit > len(pairs) {
 		limit = len(pairs)
 	}
-	for i := 0; i < limit; i++ {
-		stat := pairs[i].stat
-		truncatedQuery := truncateQuery(stat.NormalizedQuery, 70)
-		avgWait := stat.StillWaitingTime / float64(stat.StillWaitingCount)
-		fmt.Printf("%-10s %-70s %10d %15s %15s\n",
-			stat.ID,
-			truncatedQuery,
-			stat.StillWaitingCount,
-			formatQueryDuration(avgWait),
-			formatQueryDuration(stat.StillWaitingTime))
+
+	bold := "\033[1m"
+	reset := "\033[0m"
+
+	if termWidth >= 120 {
+		// Wide mode: show full query
+		queryWidth := int(float64(termWidth) * 0.6)
+		if queryWidth < 40 {
+			queryWidth = 40
+		}
+
+		fmt.Printf("%s%-9s  %-*s  %10s  %15s  %15s%s\n",
+			bold, "SQLID", queryWidth, "Query", "Locks", "Avg Wait", "Total Wait", reset)
+		totalWidth := 9 + 2 + queryWidth + 2 + 10 + 2 + 15 + 2 + 15
+		fmt.Println(strings.Repeat("-", totalWidth))
+
+		for i := 0; i < limit; i++ {
+			stat := pairs[i].stat
+			truncatedQuery := truncateQuery(stat.NormalizedQuery, queryWidth)
+			avgWait := stat.StillWaitingTime / float64(stat.StillWaitingCount)
+			fmt.Printf("%-9s  %-*s  %10d  %15s  %15s\n",
+				stat.ID,
+				queryWidth, truncatedQuery,
+				stat.StillWaitingCount,
+				formatQueryDuration(avgWait),
+				formatQueryDuration(stat.StillWaitingTime))
+		}
+	} else {
+		// Compact mode: show type only
+		header := fmt.Sprintf("%-8s  %-10s  %-10s  %-12s  %-12s\n", "SQLID", "Type", "Locks", "Avg Wait", "Total Wait")
+		fmt.Print(bold + header + reset)
+		fmt.Println(strings.Repeat("-", 80))
+
+		for i := 0; i < limit; i++ {
+			stat := pairs[i].stat
+			qType := analysis.QueryTypeFromID(stat.ID)
+			avgWait := stat.StillWaitingTime / float64(stat.StillWaitingCount)
+			fmt.Printf("%-8s  %-10s  %-10d  %-12s  %-12s\n",
+				stat.ID,
+				qType,
+				stat.StillWaitingCount,
+				formatQueryDuration(avgWait),
+				formatQueryDuration(stat.StillWaitingTime))
+		}
 	}
 }
 
 // printMostFrequentWaitingQueries prints all queries that experienced lock waits,
 // sorted by the number of unique locks that waited (acquired or not).
-func printMostFrequentWaitingQueries(queryStats map[string]*analysis.LockQueryStat, limit int) {
+func printMostFrequentWaitingQueries(queryStats map[string]*analysis.LockQueryStat, limit int, termWidth int) {
 	// Convert map to slice and filter/sort by total number of locks that waited
 	type queryPair struct {
 		stat       *analysis.LockQueryStat
@@ -1441,15 +1301,49 @@ func printMostFrequentWaitingQueries(queryStats map[string]*analysis.LockQuerySt
 	if limit > len(pairs) {
 		limit = len(pairs)
 	}
-	for i := 0; i < limit; i++ {
-		pair := pairs[i]
-		truncatedQuery := truncateQuery(pair.stat.NormalizedQuery, 70)
-		avgWait := pair.totalWait / float64(pair.totalLocks)
-		fmt.Printf("%-10s %-70s %10d %15s %15s\n",
-			pair.stat.ID,
-			truncatedQuery,
-			pair.totalLocks,
-			formatQueryDuration(avgWait),
-			formatQueryDuration(pair.totalWait))
+
+	bold := "\033[1m"
+	reset := "\033[0m"
+
+	if termWidth >= 120 {
+		// Wide mode: show full query
+		queryWidth := int(float64(termWidth) * 0.6)
+		if queryWidth < 40 {
+			queryWidth = 40
+		}
+
+		fmt.Printf("%s%-9s  %-*s  %10s  %15s  %15s%s\n",
+			bold, "SQLID", queryWidth, "Query", "Locks", "Avg Wait", "Total Wait", reset)
+		totalWidth := 9 + 2 + queryWidth + 2 + 10 + 2 + 15 + 2 + 15
+		fmt.Println(strings.Repeat("-", totalWidth))
+
+		for i := 0; i < limit; i++ {
+			pair := pairs[i]
+			truncatedQuery := truncateQuery(pair.stat.NormalizedQuery, queryWidth)
+			avgWait := pair.totalWait / float64(pair.totalLocks)
+			fmt.Printf("%-9s  %-*s  %10d  %15s  %15s\n",
+				pair.stat.ID,
+				queryWidth, truncatedQuery,
+				pair.totalLocks,
+				formatQueryDuration(avgWait),
+				formatQueryDuration(pair.totalWait))
+		}
+	} else {
+		// Compact mode: show type only
+		header := fmt.Sprintf("%-8s  %-10s  %-10s  %-12s  %-12s\n", "SQLID", "Type", "Locks", "Avg Wait", "Total Wait")
+		fmt.Print(bold + header + reset)
+		fmt.Println(strings.Repeat("-", 80))
+
+		for i := 0; i < limit; i++ {
+			pair := pairs[i]
+			qType := analysis.QueryTypeFromID(pair.stat.ID)
+			avgWait := pair.totalWait / float64(pair.totalLocks)
+			fmt.Printf("%-8s  %-10s  %-10d  %-12s  %-12s\n",
+				pair.stat.ID,
+				qType,
+				pair.totalLocks,
+				formatQueryDuration(avgWait),
+				formatQueryDuration(pair.totalWait))
+		}
 	}
 }
