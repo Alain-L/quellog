@@ -640,204 +640,53 @@ func PrintSQLSummaryWithContext(m analysis.SqlMetrics, tempFiles analysis.TempFi
 // PrintTimeConsumingQueries sorts and displays the top 10 queries based on total execution time.
 // The display adapts to the terminal width, switching between full and simplified modes.
 func PrintTimeConsumingQueries(queryStats map[string]*analysis.QueryStat) {
-	termWidth, _, err := term.GetSize(int(os.Stdout.Fd()))
-	if err != nil {
-		termWidth = 120
-	}
-
-	type queryInfo struct {
-		Query     string // Normalized query.
-		ID        string // Friendly identifier.
-		Count     int
-		TotalTime float64 // in ms.
-		AvgTime   float64 // in ms.
-		MaxTime   float64 // in ms.
-	}
-	var queries []queryInfo
-	for normalized, stats := range queryStats {
-		id, _ := analysis.GenerateQueryID(stats.RawQuery, normalized)
-		queries = append(queries, queryInfo{
-			Query:     normalized,
-			ID:        id,
-			Count:     stats.Count,
-			TotalTime: stats.TotalTime,
-			AvgTime:   stats.AvgTime,
-			MaxTime:   stats.MaxTime,
-		})
-	}
-
-	sort.Slice(queries, func(i, j int) bool {
-		if queries[i].TotalTime != queries[j].TotalTime {
-			return queries[i].TotalTime > queries[j].TotalTime
-		}
-		return queries[i].Query < queries[j].Query
+	PrintQueryTable(queryStats, QueryTableConfig{
+		Columns: []QueryTableColumn{
+			ColumnSQLID(),
+			ColumnQuery(),
+			ColumnCount(),
+			ColumnMaxTime(),
+			ColumnAvgTime(),
+			ColumnTotalTime(),
+		},
+		SortFunc:      SortByTotalTime,
+		Limit:         10,
+		ShowQueryText: true,
 	})
-
-	bold := "\033[1m"
-	reset := "\033[0m"
-
-	if termWidth >= 120 {
-		queryWidth := int(float64(termWidth) * 0.6)
-		if queryWidth < 40 {
-			queryWidth = 40
-		}
-
-		fmt.Printf("%s%-9s  %-*s  %10s  %12s  %12s  %12s%s\n",
-			bold, "SQLID", queryWidth, "Query", "Executed", "Max", "Avg", "Total", reset)
-		totalWidth := 9 + 2 + queryWidth + 2 + 10 + 2 + 12 + 2 + 12 + 2 + 12
-		fmt.Println(strings.Repeat("-", totalWidth))
-
-		for i, q := range queries {
-			if i >= 10 {
-				break
-			}
-			displayQuery := truncateQuery(q.Query, queryWidth)
-			fmt.Printf("%-8s  %-*s  %10d  %12s  %12s  %12s\n",
-				q.ID,
-				queryWidth, displayQuery,
-				q.Count,
-				formatQueryDuration(q.MaxTime),
-				formatQueryDuration(q.AvgTime),
-				formatQueryDuration(q.TotalTime))
-		}
-	} else {
-		header := fmt.Sprintf("%-8s  %-10s  %-10s  %-12s  %-12s  %-12s\n", "SQLID", "Type", "Executed", "Max", "Avg", "Total")
-		fmt.Print(bold + header + reset)
-		fmt.Println(strings.Repeat("-", 80))
-		for i, q := range queries {
-			if i >= 10 {
-				break
-			}
-			qType := analysis.QueryTypeFromID(q.ID)
-			fmt.Printf("%-8s  %-10s  %-10d  %-12s  %-12s  %-12s\n",
-				q.ID,
-				qType,
-				q.Count,
-				formatQueryDuration(q.MaxTime),
-				formatQueryDuration(q.AvgTime),
-				formatQueryDuration(q.TotalTime))
-		}
-	}
 }
 
 // PrintSlowestQueries displays the top 10 slowest individual queries,
 // showing three columns: SQLID, truncated Query, and Duration.
 func PrintSlowestQueries(queryStats map[string]*analysis.QueryStat) {
-	type queryInfo struct {
-		ID      string
-		Query   string
-		MaxTime float64
-	}
-	var queries []queryInfo
-	for normalized, stats := range queryStats {
-		id, _ := analysis.GenerateQueryID(stats.RawQuery, normalized)
-		queries = append(queries, queryInfo{
-			ID:      id,
-			Query:   normalized,
-			MaxTime: stats.MaxTime,
-		})
-	}
-
-	sort.Slice(queries, func(i, j int) bool {
-		if queries[i].MaxTime != queries[j].MaxTime {
-			return queries[i].MaxTime > queries[j].MaxTime
-		}
-		return queries[i].Query < queries[j].Query
+	PrintQueryTable(queryStats, QueryTableConfig{
+		Columns: []QueryTableColumn{
+			ColumnSQLID(),
+			ColumnQuery(),
+			ColumnDuration(),
+		},
+		SortFunc:      SortByMaxTime,
+		Limit:         10,
+		ShowQueryText: true,
 	})
-
-	if len(queries) > 10 {
-		queries = queries[:10]
-	}
-
-	termWidth, _, err := term.GetSize(int(os.Stdout.Fd()))
-	if err != nil {
-		termWidth = 120
-	}
-	queryWidth := int(float64(termWidth) * 0.6)
-	if queryWidth < 40 {
-		queryWidth = 40
-	}
-
-	bold := "\033[1m"
-	reset := "\033[0m"
-
-	headerFormat := fmt.Sprintf("%%-9s  %%-%ds  %%12s\n", queryWidth)
-	fmt.Printf("%s"+headerFormat+reset, bold, "SQLID", "Query", "Duration")
-	totalWidth := 9 + 2 + queryWidth + 2 + 12
-	fmt.Println(strings.Repeat("-", totalWidth))
-
-	for _, q := range queries {
-		displayQuery := truncateQuery(q.Query, queryWidth)
-		fmt.Printf("%-9s  %-*s  %12s\n",
-			q.ID,
-			queryWidth, displayQuery,
-			formatQueryDuration(q.MaxTime))
-	}
 }
 
 // PrintMostFrequentQueries displays the top queries by frequency (sorted descending by count).
 // The display stops if a query was executed only once or if the execution count drops by more than a factor of 10.
 func PrintMostFrequentQueries(queryStats map[string]*analysis.QueryStat) {
-	type queryInfo struct {
-		ID    string
-		Query string
-		Count int
-	}
-	var queries []queryInfo
-	for normalized, stats := range queryStats {
-		id, _ := analysis.GenerateQueryID(stats.RawQuery, normalized)
-		queries = append(queries, queryInfo{
-			ID:    id,
-			Query: normalized,
-			Count: stats.Count,
-		})
-	}
-
-	sort.Slice(queries, func(i, j int) bool {
-		if queries[i].Count != queries[j].Count {
-			return queries[i].Count > queries[j].Count
-		}
-		return queries[i].Query < queries[j].Query
+	PrintQueryTable(queryStats, QueryTableConfig{
+		Columns: []QueryTableColumn{
+			ColumnSQLID(),
+			ColumnQuery(),
+			ColumnCount(),
+		},
+		SortFunc: SortByCount,
+		FilterFunc: func(row QueryRow) bool {
+			// Don't show queries executed only once
+			return row.Count > 1
+		},
+		Limit:         15,
+		ShowQueryText: true,
 	})
-
-	termWidth, _, err := term.GetSize(int(os.Stdout.Fd()))
-	if err != nil {
-		termWidth = 120
-	}
-	queryWidth := int(float64(termWidth) * 0.6)
-	if queryWidth < 40 {
-		queryWidth = 40
-	}
-
-	bold := "\033[1m"
-	reset := "\033[0m"
-
-	headerFormat := fmt.Sprintf("%%-9s  %%-%ds  %%12s\n", queryWidth)
-	fmt.Printf("%s"+headerFormat+reset, bold, "SQLID", "Query", "Executed")
-	totalWidth := 9 + 2 + queryWidth + 2 + 12
-	fmt.Println(strings.Repeat("-", totalWidth))
-
-	var prevCount int
-	for i, q := range queries {
-		// Stop conditions
-		if i >= 15 {
-			break // Max 15 queries
-		}
-		if q.Count == 1 {
-			break // Don't show queries executed only once
-		}
-		if i > 0 && q.Count < prevCount/10 {
-			break // Stop if frequency drops by 10x
-		}
-
-		prevCount = q.Count
-
-		displayQuery := truncateQuery(q.Query, queryWidth)
-		fmt.Printf("%-9s  %-*s  %12d\n",
-			q.ID,
-			queryWidth, displayQuery,
-			q.Count)
-	}
 }
 
 // PrintSqlDetails iterates over the QueryStats and displays details for each query
