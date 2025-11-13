@@ -121,6 +121,7 @@ type ClientsJSON struct {
 	UniqueDatabases int `json:"unique_databases"`
 	UniqueUsers     int `json:"unique_users"`
 	UniqueApps      int `json:"unique_apps"`
+	UniqueHosts     int `json:"unique_hosts"`
 }
 
 // ExportJSON brings together all metrics into one composite structure,
@@ -263,12 +264,13 @@ func ExportJSON(m analysis.AggregatedMetrics, sections []string) {
 	}
 
 	// Clients and detailed lists
-	if has("clients") && (m.UniqueEntities.UniqueDbs > 0 || m.UniqueEntities.UniqueUsers > 0 || m.UniqueEntities.UniqueApps > 0) {
+	if has("clients") && (m.UniqueEntities.UniqueDbs > 0 || m.UniqueEntities.UniqueUsers > 0 || m.UniqueEntities.UniqueApps > 0 || m.UniqueEntities.UniqueHosts > 0) {
 		// Basic counts
 		data["clients"] = ClientsJSON{
 			UniqueDatabases: m.UniqueEntities.UniqueDbs,
 			UniqueUsers:     m.UniqueEntities.UniqueUsers,
 			UniqueApps:      m.UniqueEntities.UniqueApps,
+			UniqueHosts:     m.UniqueEntities.UniqueHosts,
 		}
 		// Detailed lists, excluding sole UNKNOWN entries
 		if m.UniqueEntities.UniqueUsers > 0 && !(len(m.UniqueEntities.Users) == 1 && m.UniqueEntities.Users[0] == "UNKNOWN") {
@@ -279,6 +281,9 @@ func ExportJSON(m analysis.AggregatedMetrics, sections []string) {
 		}
 		if m.UniqueEntities.UniqueDbs > 0 && !(len(m.UniqueEntities.DBs) == 1 && m.UniqueEntities.DBs[0] == "UNKNOWN") {
 			data["databases"] = m.UniqueEntities.DBs
+		}
+		if m.UniqueEntities.UniqueHosts > 0 && !(len(m.UniqueEntities.Hosts) == 1 && m.UniqueEntities.Hosts[0] == "UNKNOWN") {
+			data["hosts"] = m.UniqueEntities.Hosts
 		}
 	}
 

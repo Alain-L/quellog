@@ -37,7 +37,7 @@ type GlobalMetrics struct {
 	LogCount int
 }
 
-// UniqueEntityMetrics tracks unique database entities (databases, users, applications).
+// UniqueEntityMetrics tracks unique database entities (databases, users, applications, hosts).
 // This helps understand the scope of database usage and identify which components are active.
 type UniqueEntityMetrics struct {
 	// UniqueDbs is the count of distinct databases referenced in logs.
@@ -49,6 +49,9 @@ type UniqueEntityMetrics struct {
 	// UniqueApps is the count of distinct applications referenced in logs.
 	UniqueApps int
 
+	// UniqueHosts is the count of distinct hosts/clients referenced in logs.
+	UniqueHosts int
+
 	// DBs is the sorted list of all unique database names.
 	DBs []string
 
@@ -57,6 +60,9 @@ type UniqueEntityMetrics struct {
 
 	// Apps is the sorted list of all unique application names.
 	Apps []string
+
+	// Hosts is the sorted list of all unique host/client addresses.
+	Hosts []string
 }
 
 // AggregatedMetrics combines all analysis metrics into a single structure.
@@ -260,12 +266,13 @@ func AggregateMetrics(in <-chan parser.LogEntry, fileSize int64) AggregatedMetri
 // Unique entity tracking
 // ============================================================================
 
-// UniqueEntityAnalyzer tracks unique database entities (databases, users, applications)
+// UniqueEntityAnalyzer tracks unique database entities (databases, users, applications, hosts)
 // encountered in log entries.
 type UniqueEntityAnalyzer struct {
 	dbSet   map[string]struct{}
 	userSet map[string]struct{}
 	appSet  map[string]struct{}
+	hostSet map[string]struct{}
 }
 
 // NewUniqueEntityAnalyzer creates a new unique entity analyzer.
@@ -274,23 +281,27 @@ func NewUniqueEntityAnalyzer() *UniqueEntityAnalyzer {
 		dbSet:   make(map[string]struct{}, 100),
 		userSet: make(map[string]struct{}, 100),
 		appSet:  make(map[string]struct{}, 100),
+		hostSet: make(map[string]struct{}, 100),
 	}
 }
 
-// Process extracts database, user, and application names from a log entry.
+// Process extracts database, user, application, and host names from a log entry.
 //
 // Expected patterns in log messages:
 //   - "db=mydb"
 //   - "user=postgres"
 //   - "app=psql"
+//   - "host=192.168.1.1" or "client=192.168.1.1"
 func (a *UniqueEntityAnalyzer) Process(entry *parser.LogEntry) {
 	msg := entry.Message
 
-	// Single-pass extraction: scan once for all three keys
-	// This is much faster than calling extractKeyValue 3 times
+	// Use strings.Index for each pattern - Go's stdlib is highly optimized (likely SIMD)
+	// Manual loops are slower despite being "single-pass" due to lack of low-level optimizations
 	dbIdx := strings.Index(msg, "db=")
 	userIdx := strings.Index(msg, "user=")
 	appIdx := strings.Index(msg, "app=")
+	hostIdx := strings.Index(msg, "host=")
+	clientIdx := strings.Index(msg, "client=")
 
 	// Extract database name
 	if dbIdx != -1 {
@@ -312,6 +323,17 @@ func (a *UniqueEntityAnalyzer) Process(entry *parser.LogEntry) {
 			a.appSet[appName] = struct{}{}
 		}
 	}
+
+	// Extract host name (prefer host= over client=)
+	if hostIdx != -1 {
+		if hostName := extractValueAt(msg, hostIdx+5); hostName != "" {
+			a.hostSet[hostName] = struct{}{}
+		}
+	} else if clientIdx != -1 {
+		if clientName := extractValueAt(msg, clientIdx+7); clientName != "" {
+			a.hostSet[clientName] = struct{}{}
+		}
+	}
 }
 
 // Finalize returns the unique entity metrics with sorted lists.
@@ -320,9 +342,11 @@ func (a *UniqueEntityAnalyzer) Finalize() UniqueEntityMetrics {
 		UniqueDbs:   len(a.dbSet),
 		UniqueUsers: len(a.userSet),
 		UniqueApps:  len(a.appSet),
+		UniqueHosts: len(a.hostSet),
 		DBs:         mapKeysAsSlice(a.dbSet),
 		Users:       mapKeysAsSlice(a.userSet),
 		Apps:        mapKeysAsSlice(a.appSet),
+		Hosts:       mapKeysAsSlice(a.hostSet),
 	}
 }
 

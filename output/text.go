@@ -334,11 +334,12 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string) {
 	}
 
 	// Unique Clients section.
-	if has("clients") && (m.UniqueEntities.UniqueDbs > 0 || m.UniqueEntities.UniqueUsers > 0 || m.UniqueEntities.UniqueApps > 0) {
+	if has("clients") && (m.UniqueEntities.UniqueDbs > 0 || m.UniqueEntities.UniqueUsers > 0 || m.UniqueEntities.UniqueApps > 0 || m.UniqueEntities.UniqueHosts > 0) {
 		fmt.Println(bold + "\nCLIENTS\n" + reset)
 		fmt.Printf("  %-25s : %d\n", "Unique DBs", m.UniqueEntities.UniqueDbs)
 		fmt.Printf("  %-25s : %d\n", "Unique Users", m.UniqueEntities.UniqueUsers)
 		fmt.Printf("  %-25s : %d\n", "Unique Apps", m.UniqueEntities.UniqueApps)
+		fmt.Printf("  %-25s : %d\n", "Unique Hosts", m.UniqueEntities.UniqueHosts)
 
 		// Display lists.
 		if m.UniqueEntities.UniqueUsers > 0 {
@@ -357,6 +358,12 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string) {
 			fmt.Println(bold + "\nDATABASES\n" + reset)
 			for _, db := range m.UniqueEntities.DBs {
 				fmt.Printf("    %s\n", db)
+			}
+		}
+		if m.UniqueEntities.UniqueHosts > 0 {
+			fmt.Println(bold + "\nHOSTS\n" + reset)
+			for _, host := range m.UniqueEntities.Hosts {
+				fmt.Printf("    %s\n", host)
 			}
 		}
 	}
