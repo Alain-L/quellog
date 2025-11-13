@@ -60,12 +60,16 @@ type QueryTableConfig struct {
 
 	// ShowQueryText shows full query text in wide mode
 	ShowQueryText bool
+
+	// TableWidthPercent is the percentage of terminal width to use (0 = default 90%)
+	TableWidthPercent int
 }
 
 // PrintQueryTable prints a formatted table of queries.
-func PrintQueryTable(queryStats map[string]*analysis.QueryStat, config QueryTableConfig) {
+// Returns true if any data was printed, false otherwise.
+func PrintQueryTable(queryStats map[string]*analysis.QueryStat, config QueryTableConfig) bool {
 	if len(queryStats) == 0 {
-		return
+		return false
 	}
 
 	// Convert map to rows
@@ -101,7 +105,7 @@ func PrintQueryTable(queryStats map[string]*analysis.QueryStat, config QueryTabl
 	}
 
 	if len(rows) == 0 {
-		return
+		return false
 	}
 
 	// Detect terminal width
@@ -123,11 +127,84 @@ func PrintQueryTable(queryStats map[string]*analysis.QueryStat, config QueryTabl
 		// Compact mode: show query type only
 		printCompactQueryTable(rows, config, bold, reset)
 	}
+
+	return true
+}
+
+// PrintQueryTableWithTitle prints a query table with a title, but only if there's data to display.
+func PrintQueryTableWithTitle(title string, queryStats map[string]*analysis.QueryStat, config QueryTableConfig) {
+	// First check if there's any data to display
+	hasData := hasDataToDisplay(queryStats, config)
+	if !hasData {
+		return
+	}
+
+	// Display title
+	bold := "\033[1m"
+	reset := "\033[0m"
+	fmt.Println(bold + title + reset)
+
+	// Display table
+	PrintQueryTable(queryStats, config)
+	fmt.Println()
+}
+
+// hasDataToDisplay checks if there's any data to display without actually rendering.
+func hasDataToDisplay(queryStats map[string]*analysis.QueryStat, config QueryTableConfig) bool {
+	if len(queryStats) == 0 {
+		return false
+	}
+
+	// Count rows after filtering
+	rowCount := 0
+	for normalized, stats := range queryStats {
+		id, _ := analysis.GenerateQueryID(stats.RawQuery, normalized)
+		row := QueryRow{
+			ID:        id,
+			Query:     normalized,
+			QueryType: analysis.QueryTypeFromID(id),
+			Count:     stats.Count,
+			TotalTime: stats.TotalTime,
+			AvgTime:   stats.AvgTime,
+			MaxTime:   stats.MaxTime,
+		}
+
+		// Apply filter
+		if config.FilterFunc != nil && !config.FilterFunc(row) {
+			continue
+		}
+
+		rowCount++
+		// Early exit if we have at least one row
+		if rowCount > 0 {
+			return true
+		}
+	}
+
+	return rowCount > 0
+}
+
+// calculateTableWidth returns a consistent table width for all query tables.
+// This ensures visual alignment across different table types.
+// The widthPercent parameter specifies the percentage of terminal width to use (default 90% if 0).
+func calculateTableWidth(termWidth int, widthPercent int) int {
+	// Default to 90% if not specified
+	if widthPercent == 0 {
+		widthPercent = 90
+	}
+
+	tableWidth := int(float64(termWidth) * float64(widthPercent) / 100.0)
+	if tableWidth > termWidth-10 {
+		tableWidth = termWidth - 10 // Leave at least 10 chars margin
+	}
+	return tableWidth
 }
 
 // printWideQueryTable prints the table with full query text.
 func printWideQueryTable(rows []QueryRow, config QueryTableConfig, termWidth int, bold, reset string) {
-	// First pass: calculate total width of fixed columns
+	tableWidth := calculateTableWidth(termWidth, config.TableWidthPercent)
+
+	// Calculate total width of fixed columns
 	fixedWidth := 0
 	numFixedCols := 0
 	for _, col := range config.Columns {
@@ -142,18 +219,12 @@ func printWideQueryTable(rows []QueryRow, config QueryTableConfig, termWidth int
 	}
 
 	// Calculate spacing: 2 spaces between each column
-	// Total columns = numFixedCols + 1 (Query), so spacing = (numFixedCols + 1 - 1) * 2 = numFixedCols * 2
 	spacingWidth := numFixedCols * 2
 
-	// Calculate query column width: remaining space after fixed columns and spacing
-	queryWidth := termWidth - fixedWidth - spacingWidth
+	// Calculate query column width: fill remaining space to reach tableWidth
+	queryWidth := tableWidth - fixedWidth - spacingWidth
 	if queryWidth < 40 {
 		queryWidth = 40
-	}
-	// Cap at 60% of terminal width to avoid too wide queries
-	maxQueryWidth := int(float64(termWidth) * 0.6)
-	if queryWidth > maxQueryWidth {
-		queryWidth = maxQueryWidth
 	}
 
 	// Build header
@@ -183,15 +254,8 @@ func printWideQueryTable(rows []QueryRow, config QueryTableConfig, termWidth int
 	fmt.Println(strings.Join(headerParts, "  "))
 	fmt.Print(reset)
 
-	// Print separator
-	totalWidth := 0
-	for i, w := range widthParts {
-		totalWidth += w
-		if i < len(widthParts)-1 {
-			totalWidth += 2 // spacing
-		}
-	}
-	fmt.Println(strings.Repeat("-", totalWidth))
+	// Print separator using fixed table width for consistency
+	fmt.Println(strings.Repeat("-", tableWidth))
 
 	// Print rows
 	for _, row := range rows {

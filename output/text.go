@@ -105,15 +105,24 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string) {
 
 			if termWidth >= 120 {
 				// Wide mode: show full query
-				queryWidth := int(float64(termWidth) * 0.6)
+				// Calculate consistent table width (90% of terminal)
+				tableWidth := int(float64(termWidth) * 0.9)
+				if tableWidth > termWidth-10 {
+					tableWidth = termWidth - 10
+				}
+
+				// Fixed columns: SQLID(9) + Count(10) + Total Size(12) = 31
+				// Spacing: 3 fixed columns * 2 spaces = 6
+				fixedWidth := 31
+				spacingWidth := 6
+				queryWidth := tableWidth - fixedWidth - spacingWidth
 				if queryWidth < 40 {
 					queryWidth = 40
 				}
 
 				fmt.Printf("%s%-9s  %-*s  %10s  %12s%s\n",
 					bold, "SQLID", queryWidth, "Query", "Count", "Total Size", reset)
-				totalWidth := 9 + 2 + queryWidth + 2 + 10 + 2 + 12
-				fmt.Println(strings.Repeat("-", totalWidth))
+				fmt.Println(strings.Repeat("-", tableWidth))
 
 				for i := 0; i < limit; i++ {
 					stat := queries[i].stat
@@ -509,17 +518,46 @@ func PrintSQLSummaryWithContext(m analysis.SqlMetrics, tempFiles analysis.TempFi
 			PrintHistogram(hist, "Query duration distribution", unit, scale, queryDurationOrder)
 		}
 
-		fmt.Println(bold + "Slowest individual queries:" + reset)
-		PrintSlowestQueries(m.QueryStats)
-		fmt.Println()
+		PrintQueryTableWithTitle("Slowest individual queries:", m.QueryStats, QueryTableConfig{
+			Columns: []QueryTableColumn{
+				ColumnSQLID(),
+				ColumnQuery(),
+				ColumnDuration(),
+			},
+			SortFunc:          SortByMaxTime,
+			Limit:             10,
+			ShowQueryText:     true,
+			TableWidthPercent: 70,
+		})
 
-		fmt.Println(bold + "Most Frequent Individual Queries:" + reset)
-		PrintMostFrequentQueries(m.QueryStats)
-		fmt.Println()
+		PrintQueryTableWithTitle("Most Frequent Individual Queries:", m.QueryStats, QueryTableConfig{
+			Columns: []QueryTableColumn{
+				ColumnSQLID(),
+				ColumnQuery(),
+				ColumnCount(),
+			},
+			SortFunc: SortByCount,
+			FilterFunc: func(row QueryRow) bool {
+				return row.Count > 1
+			},
+			Limit:             15,
+			ShowQueryText:     true,
+			TableWidthPercent: 70,
+		})
 
-		fmt.Println(bold + "Most time consuming queries:" + reset)
-		PrintTimeConsumingQueries(m.QueryStats)
-		fmt.Println()
+		PrintQueryTableWithTitle("Most time consuming queries:", m.QueryStats, QueryTableConfig{
+			Columns: []QueryTableColumn{
+				ColumnSQLID(),
+				ColumnQuery(),
+				ColumnCount(),
+				ColumnMaxTime(),
+				ColumnAvgTime(),
+				ColumnTotalTime(),
+			},
+			SortFunc:      SortByTotalTime,
+			Limit:         10,
+			ShowQueryText: true,
+		})
 
 		// Display tempfiles and locks query tables to show queries without duration metrics
 		termWidth, _, err := term.GetSize(int(os.Stdout.Fd()))
@@ -551,15 +589,24 @@ func PrintSQLSummaryWithContext(m analysis.SqlMetrics, tempFiles analysis.TempFi
 
 			if termWidth >= 120 {
 				// Wide mode: show full query
-				queryWidth := int(float64(termWidth) * 0.6)
+				// Calculate consistent table width (90% of terminal)
+				tableWidth := int(float64(termWidth) * 0.9)
+				if tableWidth > termWidth-10 {
+					tableWidth = termWidth - 10
+				}
+
+				// Fixed columns: SQLID(9) + Count(10) + Total Size(12) = 31
+				// Spacing: 3 fixed columns * 2 spaces = 6
+				fixedWidth := 31
+				spacingWidth := 6
+				queryWidth := tableWidth - fixedWidth - spacingWidth
 				if queryWidth < 40 {
 					queryWidth = 40
 				}
 
 				fmt.Printf("%s%-9s  %-*s  %10s  %12s%s\n",
 					bold, "SQLID", queryWidth, "Query", "Count", "Total Size", reset)
-				totalWidth := 9 + 2 + queryWidth + 2 + 10 + 2 + 12
-				fmt.Println(strings.Repeat("-", totalWidth))
+				fmt.Println(strings.Repeat("-", tableWidth))
 
 				for i := 0; i < limit; i++ {
 					stat := queries[i].stat
@@ -639,8 +686,10 @@ func PrintSQLSummaryWithContext(m analysis.SqlMetrics, tempFiles analysis.TempFi
 
 // PrintTimeConsumingQueries sorts and displays the top 10 queries based on total execution time.
 // The display adapts to the terminal width, switching between full and simplified modes.
-func PrintTimeConsumingQueries(queryStats map[string]*analysis.QueryStat) {
-	PrintQueryTable(queryStats, QueryTableConfig{
+// PrintTimeConsumingQueries displays queries sorted by total time consumed.
+// Returns true if any data was printed.
+func PrintTimeConsumingQueries(queryStats map[string]*analysis.QueryStat) bool {
+	return PrintQueryTable(queryStats, QueryTableConfig{
 		Columns: []QueryTableColumn{
 			ColumnSQLID(),
 			ColumnQuery(),
@@ -657,23 +706,26 @@ func PrintTimeConsumingQueries(queryStats map[string]*analysis.QueryStat) {
 
 // PrintSlowestQueries displays the top 10 slowest individual queries,
 // showing three columns: SQLID, truncated Query, and Duration.
-func PrintSlowestQueries(queryStats map[string]*analysis.QueryStat) {
-	PrintQueryTable(queryStats, QueryTableConfig{
+// Returns true if any data was printed.
+func PrintSlowestQueries(queryStats map[string]*analysis.QueryStat) bool {
+	return PrintQueryTable(queryStats, QueryTableConfig{
 		Columns: []QueryTableColumn{
 			ColumnSQLID(),
 			ColumnQuery(),
 			ColumnDuration(),
 		},
-		SortFunc:      SortByMaxTime,
-		Limit:         10,
-		ShowQueryText: true,
+		SortFunc:          SortByMaxTime,
+		Limit:             10,
+		ShowQueryText:     true,
+		TableWidthPercent: 70, // Narrower table for simple 3-column layout
 	})
 }
 
 // PrintMostFrequentQueries displays the top queries by frequency (sorted descending by count).
 // The display stops if a query was executed only once or if the execution count drops by more than a factor of 10.
-func PrintMostFrequentQueries(queryStats map[string]*analysis.QueryStat) {
-	PrintQueryTable(queryStats, QueryTableConfig{
+// Returns true if any data was printed.
+func PrintMostFrequentQueries(queryStats map[string]*analysis.QueryStat) bool {
+	return PrintQueryTable(queryStats, QueryTableConfig{
 		Columns: []QueryTableColumn{
 			ColumnSQLID(),
 			ColumnQuery(),
@@ -684,8 +736,9 @@ func PrintMostFrequentQueries(queryStats map[string]*analysis.QueryStat) {
 			// Don't show queries executed only once
 			return row.Count > 1
 		},
-		Limit:         15,
-		ShowQueryText: true,
+		Limit:             15,
+		ShowQueryText:     true,
+		TableWidthPercent: 70, // Narrower table for simple 3-column layout
 	})
 }
 
@@ -1016,15 +1069,24 @@ func printAcquiredLockQueries(queryStats map[string]*analysis.LockQueryStat, lim
 
 	if termWidth >= 120 {
 		// Wide mode: show full query
-		queryWidth := int(float64(termWidth) * 0.6)
+		// Calculate consistent table width (90% of terminal)
+		tableWidth := int(float64(termWidth) * 0.9)
+		if tableWidth > termWidth-10 {
+			tableWidth = termWidth - 10
+		}
+
+		// Fixed columns: SQLID(9) + Locks(10) + Avg Wait(15) + Total Wait(15) = 49
+		// Spacing: 4 fixed columns * 2 spaces = 8
+		fixedWidth := 49
+		spacingWidth := 8
+		queryWidth := tableWidth - fixedWidth - spacingWidth
 		if queryWidth < 40 {
 			queryWidth = 40
 		}
 
 		fmt.Printf("%s%-9s  %-*s  %10s  %15s  %15s%s\n",
 			bold, "SQLID", queryWidth, "Query", "Locks", "Avg Wait", "Total Wait", reset)
-		totalWidth := 9 + 2 + queryWidth + 2 + 10 + 2 + 15 + 2 + 15
-		fmt.Println(strings.Repeat("-", totalWidth))
+		fmt.Println(strings.Repeat("-", tableWidth))
 
 		for i := 0; i < limit; i++ {
 			stat := pairs[i].stat
@@ -1083,15 +1145,24 @@ func printStillWaitingLockQueries(queryStats map[string]*analysis.LockQueryStat,
 
 	if termWidth >= 120 {
 		// Wide mode: show full query
-		queryWidth := int(float64(termWidth) * 0.6)
+		// Calculate consistent table width (90% of terminal)
+		tableWidth := int(float64(termWidth) * 0.9)
+		if tableWidth > termWidth-10 {
+			tableWidth = termWidth - 10
+		}
+
+		// Fixed columns: SQLID(9) + Locks(10) + Avg Wait(15) + Total Wait(15) = 49
+		// Spacing: 4 fixed columns * 2 spaces = 8
+		fixedWidth := 49
+		spacingWidth := 8
+		queryWidth := tableWidth - fixedWidth - spacingWidth
 		if queryWidth < 40 {
 			queryWidth = 40
 		}
 
 		fmt.Printf("%s%-9s  %-*s  %10s  %15s  %15s%s\n",
 			bold, "SQLID", queryWidth, "Query", "Locks", "Avg Wait", "Total Wait", reset)
-		totalWidth := 9 + 2 + queryWidth + 2 + 10 + 2 + 15 + 2 + 15
-		fmt.Println(strings.Repeat("-", totalWidth))
+		fmt.Println(strings.Repeat("-", tableWidth))
 
 		for i := 0; i < limit; i++ {
 			stat := pairs[i].stat
@@ -1163,15 +1234,24 @@ func printMostFrequentWaitingQueries(queryStats map[string]*analysis.LockQuerySt
 
 	if termWidth >= 120 {
 		// Wide mode: show full query
-		queryWidth := int(float64(termWidth) * 0.6)
+		// Calculate consistent table width (90% of terminal)
+		tableWidth := int(float64(termWidth) * 0.9)
+		if tableWidth > termWidth-10 {
+			tableWidth = termWidth - 10
+		}
+
+		// Fixed columns: SQLID(9) + Locks(10) + Avg Wait(15) + Total Wait(15) = 49
+		// Spacing: 4 fixed columns * 2 spaces = 8
+		fixedWidth := 49
+		spacingWidth := 8
+		queryWidth := tableWidth - fixedWidth - spacingWidth
 		if queryWidth < 40 {
 			queryWidth = 40
 		}
 
 		fmt.Printf("%s%-9s  %-*s  %10s  %15s  %15s%s\n",
 			bold, "SQLID", queryWidth, "Query", "Locks", "Avg Wait", "Total Wait", reset)
-		totalWidth := 9 + 2 + queryWidth + 2 + 10 + 2 + 15 + 2 + 15
-		fmt.Println(strings.Repeat("-", totalWidth))
+		fmt.Println(strings.Repeat("-", tableWidth))
 
 		for i := 0; i < limit; i++ {
 			pair := pairs[i]
