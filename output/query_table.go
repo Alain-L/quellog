@@ -127,10 +127,33 @@ func PrintQueryTable(queryStats map[string]*analysis.QueryStat, config QueryTabl
 
 // printWideQueryTable prints the table with full query text.
 func printWideQueryTable(rows []QueryRow, config QueryTableConfig, termWidth int, bold, reset string) {
-	// Calculate query column width (60% of terminal width)
-	queryWidth := int(float64(termWidth) * 0.6)
+	// First pass: calculate total width of fixed columns
+	fixedWidth := 0
+	numFixedCols := 0
+	for _, col := range config.Columns {
+		if col.Header != "Query" {
+			width := col.Width
+			if width == 0 {
+				width = 12 // default width
+			}
+			fixedWidth += width
+			numFixedCols++
+		}
+	}
+
+	// Calculate spacing: 2 spaces between each column
+	// Total columns = numFixedCols + 1 (Query), so spacing = (numFixedCols + 1 - 1) * 2 = numFixedCols * 2
+	spacingWidth := numFixedCols * 2
+
+	// Calculate query column width: remaining space after fixed columns and spacing
+	queryWidth := termWidth - fixedWidth - spacingWidth
 	if queryWidth < 40 {
 		queryWidth = 40
+	}
+	// Cap at 60% of terminal width to avoid too wide queries
+	maxQueryWidth := int(float64(termWidth) * 0.6)
+	if queryWidth > maxQueryWidth {
+		queryWidth = maxQueryWidth
 	}
 
 	// Build header
