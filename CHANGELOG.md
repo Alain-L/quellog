@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.1] - 2025-11-13
+### Fixed
+- **Display formatting**: Fixed tempfiles and locks table presentation
+  - Fixed SQLID column alignment and table header widths
+  - Fixed query tables visibility in `--sql-summary` output
+- **File scanning**: Fixed zstd format detection for directory traversal
+- **Code organization**: Extracted histogram computation to dedicated module (`output/histogram.go`)
+
 ## [0.3.0] - 2025-11-11
 ### Added
 - **Lock event analysis**: Complete lock tracking with acquired/waiting events, wait times, and query association
