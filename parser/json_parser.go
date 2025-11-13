@@ -212,7 +212,20 @@ func extractLogEntry(obj map[string]interface{}) (LogEntry, error) {
 //   - Adds context prefix (user, database, application)
 //   - Includes severity level
 //   - Appends detail, hint, query, and context if present
+//
+// Special handling for Google Cloud SQL:
+//   - If "textPayload" field exists, use it directly (already formatted PostgreSQL log)
 func constructMessage(obj map[string]interface{}) string {
+	// Check for Google Cloud SQL format first
+	// Cloud SQL encapsulates PostgreSQL logs in "textPayload" field
+	textPayload := getStringField(obj, "textPayload")
+	if textPayload != "" {
+		// textPayload contains pre-formatted PostgreSQL log like:
+		// "[1234]: [1-1] db=production,user=webapp LOG: connection received..."
+		return textPayload
+	}
+
+	// Standard PostgreSQL JSON format
 	var parts []string
 
 	// Extract context fields
