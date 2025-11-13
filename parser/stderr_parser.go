@@ -91,9 +91,10 @@ func (p *StderrParser) parseReader(r io.Reader, out chan<- LogEntry) error {
 }
 
 // parseStderrLine extracts the timestamp and message from a log line.
-// It attempts to parse two formats:
+// It attempts to parse three formats:
 //  1. Stderr format: "2006-01-02 15:04:05 TZ message..."
-//  2. Syslog format: "Jan _2 15:04:05 message..." (current year is assumed)
+//  2. RDS format: "2006-01-02 15:04:05 TZ:host(port):user@db:[pid]:severity: message..."
+//  3. Syslog format: "Jan _2 15:04:05 message..." (current year is assumed)
 //
 // If parsing fails, returns zero time and the original line as message.
 //
@@ -112,7 +113,12 @@ func parseStderrLine(line string) (time.Time, string) {
 		return timestamp, message
 	}
 
-	// Attempt 2: Parse syslog format (Mon DD HH:MM:SS)
+	// Attempt 2: Parse RDS format (YYYY-MM-DD HH:MM:SS TZ:...)
+	if timestamp, message, ok := parseRDSFormat(line); ok {
+		return timestamp, message
+	}
+
+	// Attempt 3: Parse syslog format (Mon DD HH:MM:SS)
 	if timestamp, message, ok := parseSyslogFormat(line); ok {
 		return timestamp, message
 	}
@@ -193,6 +199,149 @@ func parseStderrFormat(line string) (time.Time, string, bool) {
 	}
 
 	return t, message, true
+}
+
+// parseRDSFormat attempts to parse the AWS RDS PostgreSQL log format:
+// "YYYY-MM-DD HH:MM:SS TZ:host(port):user@db:[pid]:severity: message..."
+//
+// RDS uses a fixed log_line_prefix format: %t:%r:%u@%d:[%p]:
+// Where:
+//   - %t = timestamp with timezone
+//   - %r = remote host and port
+//   - %u = user name
+//   - %d = database name
+//   - %p = process ID
+//
+// The function extracts metadata (host, user, database) and injects them into
+// the message in a format compatible with our entity tracking (host=, user=, db=).
+//
+// Returns:
+//   - timestamp: parsed time
+//   - message: enriched message with metadata
+//   - ok: true if parsing succeeded
+func parseRDSFormat(line string) (time.Time, string, bool) {
+	n := len(line)
+
+	// Quick positional validation: check for date/time separators
+	if n < 40 || // Need more characters for RDS format
+		line[4] != '-' || line[7] != '-' || // Date separators
+		line[10] != ' ' || // Space between date and time
+		line[13] != ':' || line[16] != ':' { // Time separators
+		return time.Time{}, "", false
+	}
+
+	// Find the timezone field and check for RDS marker (colon after timezone)
+	// Format: "YYYY-MM-DD HH:MM:SS TZ:..."
+	//          0123456789012345678901...
+	spaceAfterTime := 19
+	if line[spaceAfterTime] != ' ' {
+		// Scan forward to find space after seconds
+		i := 19
+		for i < n && line[i] != ' ' && line[i] != '\t' {
+			i++
+		}
+		if i >= n {
+			return time.Time{}, "", false
+		}
+		spaceAfterTime = i
+	}
+
+	// Skip whitespace to find timezone token
+	i := spaceAfterTime + 1
+	for i < n && (line[i] == ' ' || line[i] == '\t') {
+		i++
+	}
+
+	// Find end of timezone token (should be followed by colon for RDS format)
+	for i < n && line[i] != ':' && line[i] != ' ' && line[i] != '\t' {
+		i++
+	}
+	tzEnd := i
+
+	// Check for RDS marker: colon after timezone
+	if i >= n || line[i] != ':' {
+		return time.Time{}, "", false // Not RDS format
+	}
+
+	// Parse timestamp
+	timestampStr := line[:tzEnd]
+	t, err := time.Parse("2006-01-02 15:04:05 MST", timestampStr)
+	if err != nil {
+		return time.Time{}, "", false
+	}
+
+	// Now parse RDS-specific fields: :host(port):user@db:[pid]:message
+	i++ // Skip the colon after timezone
+
+	// Extract host(port)
+	hostStart := i
+	for i < n && line[i] != ':' {
+		i++
+	}
+	if i >= n {
+		return time.Time{}, "", false
+	}
+	hostAndPort := line[hostStart:i]
+	i++ // Skip colon
+
+	// Extract user@database
+	userDbStart := i
+	for i < n && line[i] != ':' {
+		i++
+	}
+	if i >= n {
+		return time.Time{}, "", false
+	}
+	userDb := line[userDbStart:i]
+	i++ // Skip colon
+
+	// Extract [pid] - skip it, we don't use it
+	if i < n && line[i] == '[' {
+		for i < n && line[i] != ']' {
+			i++
+		}
+		if i < n {
+			i++ // Skip closing bracket
+		}
+		if i < n && line[i] == ':' {
+			i++ // Skip colon after pid
+		}
+	}
+
+	// Rest is the message
+	message := ""
+	if i < n {
+		message = line[i:]
+	}
+
+	// Extract host (without port)
+	host := hostAndPort
+	if idx := strings.Index(hostAndPort, "("); idx != -1 {
+		host = hostAndPort[:idx]
+	}
+
+	// Extract user and database
+	user := ""
+	database := ""
+	if idx := strings.Index(userDb, "@"); idx != -1 {
+		user = userDb[:idx]
+		database = userDb[idx+1:]
+	}
+
+	// Enrich message with metadata in format compatible with entity tracking
+	// Insert at the beginning so they're always captured
+	enrichedMessage := message
+	if host != "" && host != "[unknown]" {
+		enrichedMessage = "host=" + host + " " + enrichedMessage
+	}
+	if user != "" && user != "[unknown]" {
+		enrichedMessage = "user=" + user + " " + enrichedMessage
+	}
+	if database != "" && database != "[unknown]" {
+		enrichedMessage = "db=" + database + " " + enrichedMessage
+	}
+
+	return t, enrichedMessage, true
 }
 
 // parseSyslogFormat attempts to parse the syslog format:
