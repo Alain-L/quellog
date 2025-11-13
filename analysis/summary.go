@@ -288,9 +288,9 @@ func NewUniqueEntityAnalyzer() *UniqueEntityAnalyzer {
 // Process extracts database, user, application, and host names from a log entry.
 //
 // Expected patterns in log messages:
-//   - "db=mydb"
+//   - "db=mydb" or "database=mydb"
 //   - "user=postgres"
-//   - "app=psql"
+//   - "app=psql" or "application_name=app"
 //   - "host=192.168.1.1" or "client=192.168.1.1"
 func (a *UniqueEntityAnalyzer) Process(entry *parser.LogEntry) {
 	msg := entry.Message
@@ -298,14 +298,20 @@ func (a *UniqueEntityAnalyzer) Process(entry *parser.LogEntry) {
 	// Use strings.Index for each pattern - Go's stdlib is highly optimized (likely SIMD)
 	// Manual loops are slower despite being "single-pass" due to lack of low-level optimizations
 	dbIdx := strings.Index(msg, "db=")
+	databaseIdx := strings.Index(msg, "database=")
 	userIdx := strings.Index(msg, "user=")
 	appIdx := strings.Index(msg, "app=")
+	appNameIdx := strings.Index(msg, "application_name=")
 	hostIdx := strings.Index(msg, "host=")
 	clientIdx := strings.Index(msg, "client=")
 
-	// Extract database name
+	// Extract database name (prefer "db=" over "database=")
 	if dbIdx != -1 {
 		if dbName := extractValueAt(msg, dbIdx+3); dbName != "" {
+			a.dbSet[dbName] = struct{}{}
+		}
+	} else if databaseIdx != -1 {
+		if dbName := extractValueAt(msg, databaseIdx+9); dbName != "" {
 			a.dbSet[dbName] = struct{}{}
 		}
 	}
@@ -317,9 +323,13 @@ func (a *UniqueEntityAnalyzer) Process(entry *parser.LogEntry) {
 		}
 	}
 
-	// Extract application name
+	// Extract application name (prefer "app=" over "application_name=")
 	if appIdx != -1 {
 		if appName := extractValueAt(msg, appIdx+4); appName != "" {
+			a.appSet[appName] = struct{}{}
+		}
+	} else if appNameIdx != -1 {
+		if appName := extractValueAt(msg, appNameIdx+17); appName != "" {
 			a.appSet[appName] = struct{}{}
 		}
 	}

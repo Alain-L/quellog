@@ -91,10 +91,11 @@ func (p *StderrParser) parseReader(r io.Reader, out chan<- LogEntry) error {
 }
 
 // parseStderrLine extracts the timestamp and message from a log line.
-// It attempts to parse three formats:
+// It attempts to parse four formats:
 //  1. Stderr format: "2006-01-02 15:04:05 TZ message..."
 //  2. RDS format: "2006-01-02 15:04:05 TZ:host(port):user@db:[pid]:severity: message..."
-//  3. Syslog format: "Jan _2 15:04:05 message..." (current year is assumed)
+//  3. Azure format: "2006-01-02 15:04:05 TZ-session_id-severity: message..."
+//  4. Syslog format: "Jan _2 15:04:05 message..." (current year is assumed)
 //
 // If parsing fails, returns zero time and the original line as message.
 //
@@ -118,7 +119,12 @@ func parseStderrLine(line string) (time.Time, string) {
 		return timestamp, message
 	}
 
-	// Attempt 3: Parse syslog format (Mon DD HH:MM:SS)
+	// Attempt 3: Parse Azure format (YYYY-MM-DD HH:MM:SS TZ-...)
+	if timestamp, message, ok := parseAzureFormat(line); ok {
+		return timestamp, message
+	}
+
+	// Attempt 4: Parse syslog format (Mon DD HH:MM:SS)
 	if timestamp, message, ok := parseSyslogFormat(line); ok {
 		return timestamp, message
 	}
@@ -342,6 +348,93 @@ func parseRDSFormat(line string) (time.Time, string, bool) {
 	}
 
 	return t, enrichedMessage, true
+}
+
+// parseAzureFormat attempts to parse the Azure Database for PostgreSQL log format:
+// "YYYY-MM-DD HH:MM:SS TZ-session_id-severity: message..."
+//
+// Azure uses the default log_line_prefix format: %t-%c-
+// Where:
+//   - %t = timestamp with timezone
+//   - %c = session ID (hexadecimal)
+//
+// The session ID is skipped as it's not useful for analysis, but we still
+// need to parse past it to get to the actual log message.
+//
+// Returns:
+//   - timestamp: parsed time
+//   - message: remaining text after timestamp and session ID
+//   - ok: true if parsing succeeded
+func parseAzureFormat(line string) (time.Time, string, bool) {
+	n := len(line)
+
+	// Quick positional validation: check for date/time separators
+	if n < 30 || // Need more characters for Azure format
+		line[4] != '-' || line[7] != '-' || // Date separators
+		line[10] != ' ' || // Space between date and time
+		line[13] != ':' || line[16] != ':' { // Time separators
+		return time.Time{}, "", false
+	}
+
+	// Find the timezone field and check for Azure marker (dash after timezone)
+	// Format: "YYYY-MM-DD HH:MM:SS TZ-..."
+	//          0123456789012345678901...
+	spaceAfterTime := 19
+	if line[spaceAfterTime] != ' ' {
+		// Scan forward to find space after seconds
+		i := 19
+		for i < n && line[i] != ' ' && line[i] != '\t' {
+			i++
+		}
+		if i >= n {
+			return time.Time{}, "", false
+		}
+		spaceAfterTime = i
+	}
+
+	// Skip whitespace to find timezone token
+	i := spaceAfterTime + 1
+	for i < n && (line[i] == ' ' || line[i] == '\t') {
+		i++
+	}
+
+	// Find end of timezone token (should be followed by dash for Azure format)
+	for i < n && line[i] != '-' && line[i] != ' ' && line[i] != '\t' {
+		i++
+	}
+	tzEnd := i
+
+	// Check for Azure marker: dash after timezone
+	if i >= n || line[i] != '-' {
+		return time.Time{}, "", false // Not Azure format
+	}
+
+	// Parse timestamp
+	timestampStr := line[:tzEnd]
+	t, err := time.Parse("2006-01-02 15:04:05 MST", timestampStr)
+	if err != nil {
+		return time.Time{}, "", false
+	}
+
+	// Now skip Azure-specific fields: -session_id-
+	i++ // Skip the dash after timezone
+
+	// Skip session ID (until next dash)
+	for i < n && line[i] != '-' {
+		i++
+	}
+	if i >= n {
+		return time.Time{}, "", false
+	}
+	i++ // Skip the dash after session ID
+
+	// Rest is the message
+	message := ""
+	if i < n {
+		message = line[i:]
+	}
+
+	return t, message, true
 }
 
 // parseSyslogFormat attempts to parse the syslog format:
