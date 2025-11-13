@@ -317,11 +317,12 @@ func ExportMarkdown(m analysis.AggregatedMetrics, sections []string) {
 	// ============================================================================
 	// CLIENTS
 	// ============================================================================
-	if has("clients") && (m.UniqueEntities.UniqueDbs > 0 || m.UniqueEntities.UniqueUsers > 0 || m.UniqueEntities.UniqueApps > 0) {
+	if has("clients") && (m.UniqueEntities.UniqueDbs > 0 || m.UniqueEntities.UniqueUsers > 0 || m.UniqueEntities.UniqueApps > 0 || m.UniqueEntities.UniqueHosts > 0) {
 		b.WriteString("## CLIENTS\n\n")
 		b.WriteString(fmt.Sprintf("- **Unique DBs**: %d\n", m.UniqueEntities.UniqueDbs))
 		b.WriteString(fmt.Sprintf("- **Unique Users**: %d\n", m.UniqueEntities.UniqueUsers))
-		b.WriteString(fmt.Sprintf("- **Unique Apps**: %d\n\n", m.UniqueEntities.UniqueApps))
+		b.WriteString(fmt.Sprintf("- **Unique Apps**: %d\n", m.UniqueEntities.UniqueApps))
+		b.WriteString(fmt.Sprintf("- **Unique Hosts**: %d\n\n", m.UniqueEntities.UniqueHosts))
 
 		if m.UniqueEntities.UniqueUsers > 0 {
 			b.WriteString("### USERS\n\n")
@@ -343,6 +344,14 @@ func ExportMarkdown(m analysis.AggregatedMetrics, sections []string) {
 			b.WriteString("### DATABASES\n\n")
 			for _, db := range m.UniqueEntities.DBs {
 				b.WriteString(fmt.Sprintf("- %s\n", db))
+			}
+			b.WriteString("\n")
+		}
+
+		if m.UniqueEntities.UniqueHosts > 0 {
+			b.WriteString("### HOSTS\n\n")
+			for _, host := range m.UniqueEntities.Hosts {
+				b.WriteString(fmt.Sprintf("- %s\n", host))
 			}
 			b.WriteString("\n")
 		}
