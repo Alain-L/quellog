@@ -69,7 +69,7 @@ func parseFilesAsync(files []string, out chan<- parser.LogEntry) {
 		// Single file: no need for worker pool
 		for _, file := range files {
 			if err := parser.ParseFile(file, out); err != nil {
-				log.Printf("[ERROR] Failed to parse file %s: %v", file, err)
+				// Error already logged in detectParser with specific details
 				successChan <- false
 			} else {
 				successChan <- true
@@ -90,7 +90,7 @@ func parseFilesAsync(files []string, out chan<- parser.LogEntry) {
 				defer wg.Done()
 				for file := range fileChan {
 					if err := parser.ParseFile(file, out); err != nil {
-						log.Printf("[ERROR] Failed to parse file %s: %v", file, err)
+						// Error already logged in detectParser with specific details
 						successChan <- false
 					} else {
 						successChan <- true

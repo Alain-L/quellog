@@ -6,6 +6,7 @@ import (
 	"bufio"
 	"encoding/csv"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -17,6 +18,15 @@ import (
 
 	"github.com/klauspost/compress/zstd"
 	"github.com/klauspost/pgzip"
+)
+
+// Detection errors - used to distinguish between different failure causes
+var (
+	ErrFileEmpty          = errors.New("file is empty")
+	ErrBinaryFile         = errors.New("file appears to be binary")
+	ErrInvalidFormat      = errors.New("file content doesn't match expected format for extension")
+	ErrUnknownFormat      = errors.New("unable to detect log format")
+	ErrCompressionFailed  = errors.New("failed to read compressed file")
 )
 
 // Constants for format detection
@@ -91,9 +101,9 @@ var (
 // For stderr/syslog format, uses memory-mapped I/O by default with automatic
 // fallback to buffered I/O if mmap fails (network filesystems, pipes, etc.).
 func ParseFile(filename string, out chan<- LogEntry) error {
-	parser := detectParser(filename)
-	if parser == nil {
-		return fmt.Errorf("unknown log format for file: %s", filename)
+	parser, err := detectParser(filename)
+	if err != nil {
+		return fmt.Errorf("%s: %w", filename, err)
 	}
 	return parser.Parse(filename, out)
 }
@@ -108,7 +118,9 @@ func ParseFile(filename string, out chan<- LogEntry) error {
 //  3. Check for binary content
 //  4. Try extension-based detection (.log, .csv, .json)
 //  5. Fall back to content-based detection
-func detectParser(filename string) LogParser {
+//
+// Returns a LogParser and nil error on success, or nil parser and a typed error on failure.
+func detectParser(filename string) (LogParser, error) {
 	lowerName := strings.ToLower(filename)
 	if strings.HasSuffix(lowerName, ".tar.gz") ||
 		strings.HasSuffix(lowerName, ".tgz") ||
@@ -116,64 +128,76 @@ func detectParser(filename string) LogParser {
 		strings.HasSuffix(lowerName, ".tar.zstd") ||
 		strings.HasSuffix(lowerName, ".tzst") ||
 		strings.HasSuffix(lowerName, ".tar") {
-		return &TarParser{}
+		return &TarParser{}, nil
 	}
 
 	if strings.HasSuffix(lowerName, ".gz") {
 		baseName := filename[:len(filename)-len(".gz")]
-		return detectCompressedParser(filename, baseName, gzipCodec)
+		return detectCompressedParserWithError(filename, baseName, gzipCodec)
 	}
 
 	if strings.HasSuffix(lowerName, ".zstd") {
 		baseName := filename[:len(filename)-len(".zstd")]
-		return detectCompressedParser(filename, baseName, zstdCodec)
+		return detectCompressedParserWithError(filename, baseName, zstdCodec)
 	}
 
 	if strings.HasSuffix(lowerName, ".zst") {
 		baseName := filename[:len(filename)-len(".zst")]
-		return detectCompressedParser(filename, baseName, zstdCodec)
+		return detectCompressedParserWithError(filename, baseName, zstdCodec)
 	}
 
 	// Step 1: Validate file exists and is not empty
 	fi, err := os.Stat(filename)
 	if err != nil {
 		log.Printf("[ERROR] Cannot stat file %s: %v", filename, err)
-		return nil
+		return nil, fmt.Errorf("%w: %v", ErrUnknownFormat, err)
 	}
 	if fi.Size() == 0 {
 		log.Printf("[WARN] File %s is empty", filename)
-		return nil
+		return nil, ErrFileEmpty
 	}
 
 	// Step 2: Open file and read sample
 	f, err := os.Open(filename)
 	if err != nil {
 		log.Printf("[ERROR] Cannot open file %s: %v", filename, err)
-		return nil
+		return nil, fmt.Errorf("%w: %v", ErrUnknownFormat, err)
 	}
 	defer f.Close()
 
 	sample, err := readFileSample(f)
 	if err != nil {
 		log.Printf("[ERROR] Failed to read sample from %s: %v", filename, err)
-		return nil
+		return nil, fmt.Errorf("%w: %v", ErrUnknownFormat, err)
 	}
 
 	// Step 3: Check for binary content
 	if isBinaryContent(sample) {
 		log.Printf("[ERROR] File %s appears to be binary. Binary formats are not supported.", filename)
-		return nil
+		return nil, ErrBinaryFile
 	}
 
 	// Step 4: Try extension-based detection
 	ext := strings.ToLower(strings.TrimPrefix(filepath.Ext(filename), "."))
 	parser := detectByExtension(filename, ext, sample, true)
 	if parser != nil {
-		return parser
+		return parser, nil
 	}
 
 	// Step 5: Fall back to content-based detection
-	return detectByContent(filename, sample, true)
+	// Only try content detection if extension was unknown (not csv/json/log)
+	// If extension was known but content didn't match, we already logged a specific error
+	if ext == "csv" || ext == "json" || ext == "log" {
+		// Extension was known but content validation failed - error already logged
+		return nil, ErrInvalidFormat
+	}
+
+	parser = detectByContent(filename, sample, true)
+	if parser != nil {
+		return parser, nil
+	}
+
+	return nil, ErrUnknownFormat
 }
 
 // readFileSample reads a representative sample from the file.
@@ -429,29 +453,42 @@ func isBinaryContent(sample string) bool {
 
 // detectCompressedParser handles detection for compressed log files using the provided codec.
 func detectCompressedParser(filename, baseName string, codec compressionCodec) LogParser {
+	parser, _ := detectCompressedParserWithError(filename, baseName, codec)
+	return parser
+}
+
+// detectCompressedParserWithError handles detection for compressed log files using the provided codec.
+// Returns a LogParser and nil error on success, or nil parser and a typed error on failure.
+func detectCompressedParserWithError(filename, baseName string, codec compressionCodec) (LogParser, error) {
 	sample, err := readCompressedSample(filename, codec)
 	if err != nil {
 		log.Printf("[ERROR] Failed to read %s sample from %s: %v", codec.name, filename, err)
-		return nil
+		return nil, fmt.Errorf("%w: %v", ErrCompressionFailed, err)
 	}
 
 	if isBinaryContent(sample) {
 		log.Printf("[ERROR] File %s appears to be binary after %s decompression. Binary formats are not supported.", filename, codec.name)
-		return nil
+		return nil, ErrBinaryFile
 	}
 
 	ext := strings.ToLower(strings.TrimPrefix(filepath.Ext(baseName), "."))
 
 	parser := detectByExtension(baseName, ext, sample, false)
 	if parser == nil {
-		parser = detectByContent(baseName, sample, false)
+		// Only try content detection if extension was unknown
+		// If extension was known but content didn't match, error already logged
+		if ext != "csv" && ext != "json" && ext != "log" {
+			parser = detectByContent(baseName, sample, false)
+		} else {
+			return nil, ErrInvalidFormat
+		}
 	}
 
 	if parser == nil {
-		return nil
+		return nil, ErrUnknownFormat
 	}
 
-	return wrapCompressedParser(parser, codec)
+	return wrapCompressedParser(parser, codec), nil
 }
 
 // readCompressedSample streams the first portion of the compressed file and returns it as text.
