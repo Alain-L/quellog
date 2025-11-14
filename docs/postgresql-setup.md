@@ -2,6 +2,45 @@
 
 This guide covers the PostgreSQL logging settings that affect quellog's analysis capabilities.
 
+## Configuration Example
+
+Here is a complete configuration example with all logging parameters relevant for quellog:
+
+```ini
+# postgresql.conf
+
+# Logging destination
+log_destination = 'stderr'              # or 'csvlog', 'jsonlog' (PostgreSQL 15+)
+logging_collector = on
+
+# Log line format (for stderr logs)
+log_line_prefix = '%t [%p]: db=%d,user=%u,app=%a,client=%h '
+
+# Query logging
+log_min_duration_statement = 100        # Log queries > 100ms (milliseconds)
+log_statement = 'ddl'                   # Log DDL statements
+
+# Connection logging
+log_connections = on
+log_disconnections = on
+
+# Operational events
+log_checkpoints = on
+log_autovacuum_min_duration = 0         # Log all autovacuum operations
+log_temp_files = 0                      # Log all temporary files
+log_lock_waits = on
+deadlock_timeout = 1000                 # 1 second
+
+# Error level
+log_min_messages = warning
+```
+
+Apply configuration:
+
+```sql
+SELECT pg_reload_conf();
+```
+
 ## Logging Destination
 
 PostgreSQL can write logs to different destinations.
