@@ -4,9 +4,9 @@ Get up and running with quellog in 5 minutes. This guide will walk you through i
 
 ## Installation
 
-=== "Linux/macOS (Binary)"
+=== "Linux/macOS (tar.gz)"
 
-    Download the latest release for your platform:
+    Download and extract the binary:
 
     ```bash
     # Download (replace with latest version and your platform)
@@ -16,16 +16,46 @@ Get up and running with quellog in 5 minutes. This guide will walk you through i
     tar -xzf quellog_Linux_x86_64.tar.gz
 
     # Move to PATH
-    sudo mv quellog /usr/local/bin/
+    sudo install -m 755 quellog /usr/local/bin/
 
     # Verify installation
+    quellog --version
+    ```
+
+=== "Debian/Ubuntu (.deb)"
+
+    Download and install the package:
+
+    ```bash
+    # Download
+    wget https://github.com/Alain-L/quellog/releases/download/v0.x.x/quellog_amd64.deb
+
+    # Install
+    sudo dpkg -i quellog_amd64.deb
+
+    # Verify
+    quellog --version
+    ```
+
+=== "Red Hat/Fedora (.rpm)"
+
+    Download and install the package:
+
+    ```bash
+    # Download
+    wget https://github.com/Alain-L/quellog/releases/download/v0.x.x/quellog_amd64.rpm
+
+    # Install
+    sudo dnf install quellog_amd64.rpm
+
+    # Verify
     quellog --version
     ```
 
 === "macOS (Homebrew)"
 
     !!! warning "Coming Soon"
-        Homebrew installation is not yet available. Use the binary installation method above.
+        Homebrew installation is not yet available. Use the tar.gz installation method above.
 
 === "Build from Source"
 
@@ -38,7 +68,7 @@ Get up and running with quellog in 5 minutes. This guide will walk you through i
     go build -o quellog .
 
     # Optionally move to PATH
-    sudo mv quellog /usr/local/bin/
+    sudo install -m 755 quellog /usr/local/bin/
     ```
 
 ## Your First Analysis
@@ -57,6 +87,9 @@ quellog will automatically:
 2. Parse all entries
 3. Aggregate metrics across all analysis categories
 4. Display a comprehensive report
+
+!!! info "Automatic Format Detection"
+    quellog automatically detects log format and compression. You don't need to specify file types manually.
 
 ### Example Output
 
@@ -107,14 +140,22 @@ EVENTS
 #### 1. Analyze a specific time window
 
 ```bash
-# Last hour of logs
-quellog /var/log/postgresql/*.log --begin "2025-01-13 23:00:00"
-
 # Specific 2-hour window
 quellog /var/log/postgresql/*.log \
   --begin "2025-01-13 14:00:00" \
   --end "2025-01-13 16:00:00"
+
+# Last hour of logs (example with specific end time)
+quellog /var/log/postgresql/*.log \
+  --begin "2025-01-13 23:00:00" \
+  --end "2025-01-14 00:00:00"
 ```
+
+!!! info "Time Window Filtering"
+    Use `--begin` and `--end` together to specify a time range. A standalone `--window` flag for relative time ranges is coming soon.
+
+!!! warning "Timestamp Format"
+    Make sure your log timestamps match the format you're using with `--begin` and `--end`. The format should be `YYYY-MM-DD HH:MM:SS`.
 
 #### 2. Focus on a specific database
 
@@ -136,23 +177,27 @@ quellog /var/log/postgresql/*.log --sql-summary
 quellog /var/log/postgresql/*.log --sql-detail se-a1b2c3d
 ```
 
-#### 4. Check temporary file usage
+#### 4. Focus on specific sections
+
+You can display only specific sections of the report:
 
 ```bash
 # Show only tempfile section
 quellog /var/log/postgresql/*.log --tempfiles
-```
 
-#### 5. Examine lock contention
-
-```bash
-# Display lock analysis
+# Show only lock analysis
 quellog /var/log/postgresql/*.log --locks
+
+# Combine multiple sections
+quellog /var/log/postgresql/*.log --tempfiles --locks
 ```
 
 ## Processing Multiple Files
 
 quellog can process multiple files and directories:
+
+!!! tip "Performance"
+    For very large log files (> 1 GB), quellog uses parallel processing automatically to maximize throughput.
 
 ```bash
 # Multiple files
@@ -181,12 +226,21 @@ quellog /var/log/postgresql/*.log --json > report.json
 Use with `jq` for specific queries:
 
 ```bash
-# Extract top 5 slowest queries
-quellog /var/log/postgresql/*.log --json | \
-  jq '.sql.query_stats | to_entries | sort_by(-.value.max_time) | .[0:5]'
-
 # Get checkpoint count
 quellog /var/log/postgresql/*.log --json | jq '.checkpoints.complete_count'
+# Output: 19
+
+# Extract top 5 slowest queries
+quellog /var/log/postgresql/*.log --json | \
+  jq '.sql.query_stats | to_entries | sort_by(-.value.max_time) | .[0:5] | .[] | {id: .value.id, max_time: .value.max_time}'
+# Output:
+# {"id": "se-a1b2c3d", "max_time": 3450.0}
+# {"id": "se-x4y5z6w", "max_time": 2340.0}
+# ...
+
+# Get total query duration in seconds
+quellog /var/log/postgresql/*.log --json | jq '.sql.sum_query_duration / 1000'
+# Output: 526.0
 ```
 
 ### Markdown Export
@@ -237,10 +291,13 @@ quellog /var/log/postgresql/*.log \
 
 ```bash
 # Show queries creating large temporary files
-quellog /var/log/postgresql/*.log --tempfiles --sql-summary
+quellog /var/log/postgresql/*.log --tempfiles
 ```
 
 This will display the queries that exceeded `work_mem` and had to spill to disk, sorted by total temporary file size.
+
+!!! info "Coming Soon"
+    Combining `--tempfiles` with `--sql-summary` for integrated analysis is planned for a future release.
 
 ## Next Steps
 
@@ -250,22 +307,6 @@ Now that you've run your first analysis, explore more advanced features:
 - [SQL Analysis](sql-reports.md) - Deep dive into query performance analysis
 - [Default Report](default-report.md) - Understand every section of the report
 - [PostgreSQL Setup](postgresql-setup.md) - Configure PostgreSQL for comprehensive logging
-
-## Tips & Tricks
-
-!!! tip "Performance Tip"
-    For very large log files (> 1 GB), quellog uses parallel processing automatically. You can also pre-filter logs at the shell level to reduce processing time:
-
-    ```bash
-    # Pre-filter before analysis
-    grep "2025-01-13 14:" /var/log/postgresql/huge.log | quellog -
-    ```
-
-!!! warning "Timestamp Parsing"
-    Make sure your log timestamps match the format you're using with `--begin` and `--end`. The format should be `YYYY-MM-DD HH:MM:SS`.
-
-!!! info "File Detection"
-    quellog automatically detects log format and compression. You don't need to specify file types manually.
 
 ## Troubleshooting
 

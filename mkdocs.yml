@@ -35,6 +35,7 @@ theme:
     - search.highlight
     - content.code.copy
     - content.code.annotate
+    - toc.integrate
 
 markdown_extensions:
   - admonition

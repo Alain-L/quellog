@@ -10,13 +10,11 @@ For immediate comprehensive logging (suitable for development or troubleshooting
 # postgresql.conf
 
 # Basic logging
-log_destination = 'stderr'          # or 'csvlog' for better parsing
+log_destination = 'stderr'          # or 'csvlog' for structured logs
 logging_collector = on
-log_directory = 'log'
-log_filename = 'postgresql-%Y-%m-%d_%H%M%S.log'
 
 # What to log
-log_min_duration_statement = 0      # Log all queries (use with caution in production!)
+log_min_duration_statement = 0      # Log all queries (WARNING: use with caution in production!)
 log_connections = on                 # Track connections
 log_disconnections = on              # Track disconnections
 log_line_prefix = '%t [%p]: db=%d,user=%u,app=%a,client=%h '
@@ -54,14 +52,14 @@ logging_collector = on
 - **Cons**: Requires careful `log_line_prefix` configuration for structured parsing
 - **Best for**: General-purpose logging, development environments
 
-### csvlog (Best for quellog)
+### csvlog
 
 ```ini
 log_destination = 'csvlog'
 logging_collector = on
 ```
 
-- **Pros**: Structured format, dedicated query field, highest query association accuracy (99.79%)
+- **Pros**: Structured format, dedicated query field for better query association
 - **Cons**: Not human-readable without tools
 - **Best for**: Production environments, automated analysis
 
@@ -85,55 +83,6 @@ log_destination = 'stderr,csvlog'
 ```
 
 This gives you both human-readable logs (`stderr`) and structured logs (`csvlog`) for analysis.
-
-## Log File Management
-
-### File Naming and Rotation
-
-```ini
-# Log directory (relative to data directory)
-log_directory = 'log'
-
-# File naming pattern
-log_filename = 'postgresql-%Y-%m-%d_%H%M%S.log'
-
-# Rotation settings
-log_rotation_age = 1d               # Rotate daily
-log_rotation_size = 1GB             # Rotate when file reaches 1 GB
-
-# Retention (0 = keep all)
-log_truncate_on_rotation = off      # Don't overwrite old logs
-```
-
-Common naming patterns:
-
-=== "Daily Rotation"
-
-    ```ini
-    log_filename = 'postgresql-%Y-%m-%d.log'
-    log_rotation_age = 1d
-    ```
-
-    Produces: `postgresql-2025-01-13.log`, `postgresql-2025-01-14.log`, ...
-
-=== "Hourly Rotation"
-
-    ```ini
-    log_filename = 'postgresql-%Y-%m-%d_%H.log'
-    log_rotation_age = 1h
-    ```
-
-    Produces: `postgresql-2025-01-13_14.log`, `postgresql-2025-01-13_15.log`, ...
-
-=== "Size-based Rotation"
-
-    ```ini
-    log_filename = 'postgresql-%Y-%m-%d_%H%M%S.log'
-    log_rotation_size = 100MB
-    log_rotation_age = 0
-    ```
-
-    Rotates when file reaches 100 MB regardless of time.
 
 ## Query Logging
 
@@ -302,8 +251,8 @@ This produces:
     ✅ Works with quellog
     ✅ Includes transaction ID for correlation
 
-!!! warning "csvlog Ignores log_line_prefix"
-    When using `log_destination = 'csvlog'`, the `log_line_prefix` setting is **ignored**. CSV logs have a fixed structure with dedicated fields for user, database, application, etc.
+!!! info "CSV Log Format"
+    When using `log_destination = 'csvlog'`, CSV logs have a fixed structure with dedicated fields for user, database, application, etc.
 
 ## Temporary File Logging
 

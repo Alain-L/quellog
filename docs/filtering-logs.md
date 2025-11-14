@@ -57,46 +57,8 @@ quellog /var/log/postgresql/*.log \
 
 ### --window: Time Window Duration
 
-Specify a duration to automatically calculate begin or end time.
-
-```bash
-# Last 30 minutes (if --end is now)
-quellog /var/log/postgresql/*.log --window 30m
-
-# Last 2 hours
-quellog /var/log/postgresql/*.log --window 2h
-
-# Last 24 hours
-quellog /var/log/postgresql/*.log --window 24h
-```
-
-**Supported units**:
-
-- `m` - minutes (e.g., `30m`)
-- `h` - hours (e.g., `2h`)
-- `d` - days (e.g., `7d`)
-
-**Window behavior**:
-
-- If only `--window` is specified: analyzes the most recent entries
-- If `--begin` + `--window`: end time = begin + window
-- If `--end` + `--window`: begin time = end - window
-
-**Examples**:
-
-```bash
-# 2-hour window starting at 2 PM
-quellog /var/log/postgresql/*.log \
-  --begin "2025-01-13 14:00:00" \
-  --window 2h
-# Result: 2025-01-13 14:00:00 to 2025-01-13 16:00:00
-
-# 30-minute window ending at 3 PM
-quellog /var/log/postgresql/*.log \
-  --end "2025-01-13 15:00:00" \
-  --window 30m
-# Result: 2025-01-13 14:30:00 to 2025-01-13 15:00:00
-```
+!!! info "Coming Soon"
+    The `--window` flag for specifying relative time ranges is planned for a future release. Currently, use `--begin` and `--end` together to specify time ranges.
 
 ### Time Filtering Tips
 

@@ -36,12 +36,12 @@ Process logs directly without manual decompression:
 quellog extracts and aggregates metrics across multiple dimensions:
 
 - **SQL Performance** - Query durations, execution counts, percentiles (median, p99)
-- **Temporary Files** - Size tracking with 99.79% query association accuracy
+- **Temporary Files** - Size tracking with query association
 - **Lock Events** - Wait times, lock types, deadlock detection
 - **Connections** - Session durations, connection rates, client distribution
 - **Checkpoints** - Frequency, types, write times
 - **Vacuum Operations** - Autovacuum/autoanalyze activity, space recovery
-- **Error Analysis** - Severity distribution, SQLSTATE classification
+- **Error Analysis** - Severity distribution
 
 ### Powerful Filtering
 
@@ -73,16 +73,26 @@ quellog is built for speed, utilizing:
 
 !!! example "Performance Examples"
 
-    **Large CSV file (430 MB)**
+    **Standard stderr log (B.log - TODO: add size)**
+
+    - **Processing time**: TODO seconds
+    - **Throughput**: TODO MB/s
+    - **Memory usage**: < 100 MB
+
+    **Large stderr log (I1.log - TODO: add size)**
+
+    - **Processing time**: TODO seconds
+    - **Throughput**: TODO MB/s
+
+    **CSV log (C.csv - ~430 MB)**
 
     - **Processing time**: ~1.5 seconds
     - **Throughput**: ~280 MB/s
-    - **Memory usage**: < 100 MB
 
-    **Massive compressed archive (11 GB uncompressed)**
+    **Compressed tar archive (60 GB)**
 
-    - **Processing time**: ~45 seconds
-    - **Throughput**: ~250 MB/s
+    - **Processing time**: TODO minutes
+    - **Throughput**: TODO MB/s
     - **Parallel decompression**: 8 threads
 
 quellog can process typical production log files (100 MB - 1 GB) in seconds, making it suitable for both ad-hoc analysis and automated reporting pipelines.
