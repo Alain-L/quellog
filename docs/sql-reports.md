@@ -10,48 +10,86 @@ Shows detailed statistics for all queries found in logs.
 quellog /var/log/postgresql/*.log --sql-summary
 ```
 
-### Output Sections
+### Output Format
 
-**SQL PERFORMANCE**
+```
+SQL PERFORMANCE
 
-Summary metrics and histograms:
-- Query load distribution (histogram by time)
-- Total query duration, query count, unique queries
-- Max/min/median/99th percentile durations
-- Query duration distribution (< 1ms, < 10ms, < 100ms, < 1s, < 10s, >= 10s)
+  Query load distribution | ■ = 169 m
 
-**Slowest individual queries**
+  02:11 - 05:36  4 m
+  05:36 - 09:02  ■ 291 m
+  09:02 - 12:27  ■■■■■■■■■■■■■■■■■■■■■■■■■■■ 4602 m
 
-Top queries sorted by maximum single execution time.
+  Total query duration      : 11d 4h 33m
+  Total queries parsed      : 485
+  Total unique query        : 5
+  Top 1% slow queries       : 5
 
-Columns: SQLID, Query (truncated), Duration
+  Query max duration        : 1h 12m 50s
+  Query min duration        : 2m 00s
+  Query median duration     : 42m 05s
+  Query 99% max duration    : 1h 08m 57s
 
-**Most Frequent Individual Queries**
+  Query duration distribution | ■ = 13 req
 
-Top queries sorted by execution count.
+  < 1 ms          -
+  < 10 ms         -
+  < 100 ms        -
+  < 1 s           -
+  < 10 s          -
+  >= 10 s        ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ 485 req
 
-Columns: SQLID, Query (truncated), Executed
+Slowest individual queries:
+SQLID      Query                                                            Duration
+------------------------------------------------------------------------------------
+se-a1b2c3  select * from orders o join customers c on o.customer_id...       15.23 s
+se-x4y5z6  with user_segments as ( select user_id, case when total...       14.57 s
+se-m7n8o9  with cohort_data as ( select user_id, date_trunc('day'...        12.68 s
 
-**Most time consuming queries**
+Most Frequent Individual Queries:
+SQLID      Query                                                            Executed
+------------------------------------------------------------------------------------
+se-a1b2c3  select * from orders o join customers c on o.customer_id...         456
+se-x4y5z6  select id, email, name from users where status = ?...               234
+se-m7n8o9  select count(*) from events where user_id = ?...                    178
 
-Top queries sorted by total cumulative time.
+Most time consuming queries:
+SQLID      Query                                          Executed           Max           Avg         Total
+------------------------------------------------------------------------------------------------------------
+se-a1b2c3  select * from orders o join customer...         456       15.23 s        2m 12s     16h 45m 12s
+se-x4y5z6  select id, email, name from users w...          234        1.23 s        1m 05s      4h 14m 30s
+se-m7n8o9  select count(*) from events where u...          178        4.12 s        2m 14s      6h 37m 52s
 
-Columns: SQLID, Query (truncated), Executed, Max, Avg, Total
+Queries generating temp files:
+SQLID      Query                                                                         Count    Total Size
+------------------------------------------------------------------------------------------------------------
+se-p1q2r3  select * from large_table order by created_at desc...                          123       5.67 GB
+se-s4t5u6  with recursive categories as ( select id, parent_id from...                      45       2.34 GB
+se-v7w8x9  select array_agg(distinct name) from products group by...                        12       1.12 GB
 
-**Queries generating temp files**
+Acquired locks by query:
+SQLID      Query                                                     Locks         Avg Wait       Total Wait
+------------------------------------------------------------------------------------------------------------
+up-a1b2c3  update inventory set quantity = quantity - ? where...         12           5.23 s           1m 02s
+in-d4e5f6  insert into audit_log (user_id, action, timestam...            8           2.15 s          17.20 s
+up-g7h8i9  update orders set status = ? where id = ?...                   5           1.87 s           9.35 s
 
-Queries that created temporary files, sorted by total tempfile size.
+Locks still waiting by query:
+SQLID      Query                                                     Locks         Avg Wait       Total Wait
+------------------------------------------------------------------------------------------------------------
+se-j1k2l3  select * from products where category_id = ? for...           3          10.50 s          31.50 s
+up-m4n5o6  update users set last_login = now() where id = ?...            2           8.25 s          16.50 s
 
-Columns: SQLID, Query (truncated), Count, Total Size
-
-**Lock-related query tables**
-
-Three tables showing queries involved in lock waits:
-- Acquired locks by query
-- Locks still waiting by query
-- Most frequent waiting queries
-
-Columns: SQLID, Query (truncated), Locks, Avg Wait, Total Wait
+Most frequent waiting queries:
+SQLID      Query                                                     Locks         Avg Wait       Total Wait
+------------------------------------------------------------------------------------------------------------
+up-a1b2c3  update inventory set quantity = quantity - ? where...         12           5.23 s           1m 02s
+in-d4e5f6  insert into audit_log (user_id, action, timestam...            8           2.15 s          17.20 s
+up-g7h8i9  update orders set status = ? where id = ?...                   5           1.87 s           9.35 s
+se-j1k2l3  select * from products where category_id = ? for...           3          10.50 s          31.50 s
+up-m4n5o6  update users set last_login = now() where id = ?...            2           8.25 s          16.50 s
+```
 
 ### Query Normalization
 
