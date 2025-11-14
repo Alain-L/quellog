@@ -117,7 +117,7 @@ EVENTS
 Tracks queries that exceeded `work_mem` and spilled to disk.
 
 !!! note
-    Query details ("Top queries by tempfile size") are only shown when using `--tempfiles`. The default report shows only summary metrics.
+    Query details ("Top queries by tempfile size") are shown when using `--tempfiles` or `--sql-summary`. The default report shows only summary metrics.
 
 ```
 TEMP FILES
@@ -159,7 +159,7 @@ TEMP FILES
 Shows lock contention, wait times, and queries involved in lock waits.
 
 !!! note
-    Query details (the three query tables) are only shown when using `--locks`. The default report shows only summary metrics.
+    Query details (the three query tables) are shown when using `--locks` or `--sql-summary`. The default report shows only summary metrics.
 
 ```
 LOCKS
