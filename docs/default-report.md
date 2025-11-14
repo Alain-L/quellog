@@ -252,22 +252,22 @@ CHECKPOINTS
   16:00 - 20:00  ■■■ 3
   20:00 - 00:00  ■ 1
 
-  Checkpoint count          : 19
-  Avg checkpoint write time : 3.2 s
-  Max checkpoint write time : 7.8 s
-
+  Checkpoint count          : 282
+  Avg checkpoint write time : 29s
+  Max checkpoint write time : 2m31s
   Checkpoint types:
-
-    time          14   73.7%  (0.58/h)
-    wal           5    26.3%  (0.21/h)
+    wal                   171   60.6%  (18.03/h)
+    time                  110   39.0%  (11.60/h)
+    immediate force wait    1    0.4%  (0.11/h)
 ```
 
 **Checkpoint types**:
 
-- **time**: Triggered by `checkpoint_timeout` (default: 5 minutes)
-- **wal**: Triggered by `max_wal_size` (too much WAL generated)
+- **time**: Triggered by `checkpoint_timeout`
+- **wal**: Triggered by `max_wal_size`
 - **shutdown**: Database shutdown
 - **immediate**: Manual CHECKPOINT command
+- Types can be combined (e.g., "immediate force wait")
 
 **Metrics explained**:
 
