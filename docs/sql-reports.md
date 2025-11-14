@@ -59,7 +59,7 @@ se-x4y5z6  with user_segments as ( select user_id, case when total...        2.1
 se-m7n8o9  select count(*) from events where user_id = ? and date...         1.98 s
 ```
 
-Top queries by maximum single execution time.
+Top queries sorted by maximum single execution time (**Duration**: slowest execution observed).
 
 **Most Frequent Individual Queries**
 
@@ -72,7 +72,7 @@ se-r4s5t6  select count(*) from products where category_id = ?...               
 se-u7v8w9  insert into audit_log (user_id, action, created_at) v...             178
 ```
 
-Top queries by execution count.
+Top queries sorted by execution count (**Executed**: number of times the query ran).
 
 **Most time consuming queries**
 
@@ -80,12 +80,12 @@ Top queries by execution count.
 Most time consuming queries:
 SQLID      Query                                          Executed           Max           Avg         Total
 ------------------------------------------------------------------------------------------------------------
-se-a1b2c3  select * from orders o join customer...             23        2.34 s      987 ms        22.71 s
-se-x4y5z6  select id, name, email from users wh...            456       456 ms       45 ms        20.52 s
-se-m7n8o9  select count(*) from events where us...            178        1.98 s      112 ms        19.94 s
+se-a1b2c3  select * from orders o join customer...              23        2.34 s      987 ms        22.71 s
+se-x4y5z6  select id, name, email from users wh...             456       456 ms       45 ms        20.52 s
+se-m7n8o9  select count(*) from events where us...             178        1.98 s      112 ms        19.94 s
 ```
 
-Top queries by total cumulative time (sum of all executions).
+Top queries by total cumulative time. **Executed**: number of times run. **Max**: slowest execution. **Avg**: average duration. **Total**: sum of all executions.
 
 **Queries generating temp files**
 
@@ -98,7 +98,7 @@ se-b4c5d6  with recursive categories as ( select id, parent_id from...          
 se-e7f8g9  select array_agg(distinct name) from products group by...                         5     234.56 MB
 ```
 
-Queries that created temporary files, sorted by total tempfile size.
+Queries that created temporary files, sorted by total tempfile size. **Count**: number of tempfile creations. **Total Size**: cumulative size of all tempfiles created by this query.
 
 **Lock-related query tables**
 
@@ -126,7 +126,7 @@ se-q1r2s3  select * from products where category_id = ? for...            3     
 up-t4u5v6  update users set last_login = now() where id = ?...             2          825 ms           1.65 s
 ```
 
-Queries involved in lock waits: acquired locks (eventually granted), still waiting (not granted when logs ended), and most frequent waiters.
+Three tables showing queries involved in lock waits. **Locks**: number of lock wait events. **Avg Wait**: average time spent waiting. **Total Wait**: sum of all wait times. "Acquired locks" = locks eventually granted. "Still waiting" = locks not granted when logs ended. "Most frequent" = all queries that waited, sorted by lock count.
 
 ### Query Normalization
 
@@ -164,7 +164,7 @@ Details for SQLID: se-a1b2c3
 SQL Query Details:
   SQLID            : se-a1b2c3
   Query Type       : select
-  Raw Query        : select * from orders o join customers c on o.customer_id = c.id where o.status = $1 ...
+  Raw Query        : SELECT * FROM orders o JOIN customers c ON o.customer_id = c.id WHERE o.status = $1 ...
   Normalized Query : select * from orders o join customers c on o.customer_id = c.id where o.status = ? ...
   Executed         : 234
   Total Time       : 2h 15m 30s
