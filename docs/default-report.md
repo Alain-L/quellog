@@ -216,15 +216,11 @@ MAINTENANCE
 
   Automatic vacuum count    : 12
   Automatic analyze count   : 8
-
   Top automatic vacuum operations per table:
-
-    app_db.public.orders        4  33.3%       2.34 MB removed
-    app_db.public.sessions      3  25.0%       1.12 MB removed
-    app_db.public.users         2  16.7%       0.56 MB removed
-
+    app_db.public.orders        4  33.3%
+    app_db.public.sessions      3  25.0%
+    app_db.public.users         2  16.7%
   Top automatic analyze operations per table:
-
     app_db.public.orders        3  37.5%
     app_db.public.products      2  25.0%
     app_db.public.sessions      2  25.0%
@@ -234,7 +230,7 @@ MAINTENANCE
 
 - **Automatic vacuum count**: Number of autovacuum operations
 - **Automatic analyze count**: Number of autoanalyze operations
-- **Space removed**: Disk space recovered by VACUUM (dead tuples)
+- **Top operations per table**: Tables sorted by operation count with percentage
 
 ## Checkpoints
 
@@ -243,14 +239,14 @@ Displays checkpoint frequency and performance.
 ```
 CHECKPOINTS
 
-  Checkpoints | ■ = 1
+  Checkpoints | ■ = 4
 
-  00:00 - 04:00  ■■■■■■■ 7
-  04:00 - 08:00  ■■■■■ 5
-  08:00 - 12:00  ■ 1
-  12:00 - 16:00  ■■ 2
-  16:00 - 20:00  ■■■ 3
-  20:00 - 00:00  ■ 1
+  00:00 - 04:00  ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ 159
+  04:00 - 08:00  ■■■■■■■■■■■■■■■■■ 69
+  08:00 - 12:00  ■■■■■■■■■■■■ 48
+  12:00 - 16:00  ■ 6
+  16:00 - 20:00   -
+  20:00 - 00:00   -
 
   Checkpoint count          : 282
   Avg checkpoint write time : 29s
@@ -314,6 +310,7 @@ CLIENTS
   Unique DBs                : 3
   Unique Users              : 6
   Unique Apps               : 9
+  Unique Hosts              : 4
 
 USERS
 
@@ -338,6 +335,13 @@ DATABASES
     analytics_db
     app_db
     postgres
+
+HOSTS
+
+    10.0.1.100
+    10.0.1.101
+    127.0.0.1
+    192.168.1.50
 ```
 
 ## Next Steps
