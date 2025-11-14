@@ -22,10 +22,10 @@ The easiest way to install quellog is using pre-built binaries from the GitHub r
     ```bash
     # Download latest release
     LATEST_VERSION=$(curl -s https://api.github.com/repos/Alain-L/quellog/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
-    wget "https://github.com/Alain-L/quellog/releases/download/${LATEST_VERSION}/quellog_Linux_x86_64.tar.gz"
+    wget "https://github.com/Alain-L/quellog/releases/download/${LATEST_VERSION}/quellog_${LATEST_VERSION}_linux_amd64.tar.gz"
 
     # Extract
-    tar -xzf quellog_Linux_x86_64.tar.gz
+    tar -xzf quellog_${LATEST_VERSION}_linux_amd64.tar.gz
 
     # Install globally
     sudo install -m 755 quellog /usr/local/bin/quellog
@@ -39,10 +39,10 @@ The easiest way to install quellog is using pre-built binaries from the GitHub r
     ```bash
     # Download latest release
     LATEST_VERSION=$(curl -s https://api.github.com/repos/Alain-L/quellog/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
-    wget "https://github.com/Alain-L/quellog/releases/download/${LATEST_VERSION}/quellog_Linux_arm64.tar.gz"
+    wget "https://github.com/Alain-L/quellog/releases/download/${LATEST_VERSION}/quellog_${LATEST_VERSION}_linux_arm64.tar.gz"
 
     # Extract
-    tar -xzf quellog_Linux_arm64.tar.gz
+    tar -xzf quellog_${LATEST_VERSION}_linux_arm64.tar.gz
 
     # Install globally
     sudo install -m 755 quellog /usr/local/bin/quellog
@@ -58,10 +58,10 @@ The easiest way to install quellog is using pre-built binaries from the GitHub r
     ```bash
     # Download latest release
     LATEST_VERSION=$(curl -s https://api.github.com/repos/Alain-L/quellog/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
-    curl -LO "https://github.com/Alain-L/quellog/releases/download/${LATEST_VERSION}/quellog_Darwin_x86_64.tar.gz"
+    curl -LO "https://github.com/Alain-L/quellog/releases/download/${LATEST_VERSION}/quellog_${LATEST_VERSION}_darwin_amd64.tar.gz"
 
     # Extract
-    tar -xzf quellog_Darwin_x86_64.tar.gz
+    tar -xzf quellog_${LATEST_VERSION}_darwin_amd64.tar.gz
 
     # Install globally
     sudo install -m 755 quellog /usr/local/bin/quellog
@@ -75,10 +75,10 @@ The easiest way to install quellog is using pre-built binaries from the GitHub r
     ```bash
     # Download latest release
     LATEST_VERSION=$(curl -s https://api.github.com/repos/Alain-L/quellog/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
-    curl -LO "https://github.com/Alain-L/quellog/releases/download/${LATEST_VERSION}/quellog_Darwin_arm64.tar.gz"
+    curl -LO "https://github.com/Alain-L/quellog/releases/download/${LATEST_VERSION}/quellog_${LATEST_VERSION}_darwin_arm64.tar.gz"
 
     # Extract
-    tar -xzf quellog_Darwin_arm64.tar.gz
+    tar -xzf quellog_${LATEST_VERSION}_darwin_arm64.tar.gz
 
     # Install globally
     sudo install -m 755 quellog /usr/local/bin/quellog
@@ -122,10 +122,10 @@ The easiest way to install quellog is using pre-built binaries from the GitHub r
     ```bash
     # Download the .deb package
     LATEST_VERSION=$(curl -s https://api.github.com/repos/Alain-L/quellog/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
-    wget "https://github.com/Alain-L/quellog/releases/download/${LATEST_VERSION}/quellog_amd64.deb"
+    wget "https://github.com/Alain-L/quellog/releases/download/${LATEST_VERSION}/quellog_${LATEST_VERSION#v}_amd64.deb"
 
     # Install
-    sudo dpkg -i quellog_amd64.deb
+    sudo dpkg -i quellog_${LATEST_VERSION#v}_amd64.deb
 
     # If dependencies are missing
     sudo apt-get install -f
@@ -139,13 +139,13 @@ The easiest way to install quellog is using pre-built binaries from the GitHub r
     ```bash
     # Download the .rpm package
     LATEST_VERSION=$(curl -s https://api.github.com/repos/Alain-L/quellog/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
-    wget "https://github.com/Alain-L/quellog/releases/download/${LATEST_VERSION}/quellog_amd64.rpm"
+    wget "https://github.com/Alain-L/quellog/releases/download/${LATEST_VERSION}/quellog_${LATEST_VERSION#v}_amd64.rpm"
 
     # Install (Fedora/RHEL 8+)
-    sudo dnf install quellog_amd64.rpm
+    sudo dnf install quellog_${LATEST_VERSION#v}_amd64.rpm
 
     # Or for older versions
-    sudo yum install quellog_amd64.rpm
+    sudo yum install quellog_${LATEST_VERSION#v}_amd64.rpm
 
     # Verify installation
     quellog --version
@@ -169,7 +169,6 @@ Building from source gives you the latest development version and allows customi
 
 - **Go**: version 1.21 or later
 - **Git**: for cloning the repository
-- **Make** (optional): for using the Makefile
 
 #### Clone and Build
 
@@ -178,11 +177,8 @@ Building from source gives you the latest development version and allows customi
 git clone https://github.com/Alain-L/quellog.git
 cd quellog
 
-# Build using Go
+# Build
 go build -o quellog .
-
-# Or use the Makefile (if available)
-make build
 
 # Install globally
 sudo install -m 755 quellog /usr/local/bin/quellog
@@ -315,8 +311,8 @@ To update quellog to the latest version:
 # Download and replace the binary using the same method as installation
 # Example for Linux:
 LATEST_VERSION=$(curl -s https://api.github.com/repos/Alain-L/quellog/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
-wget "https://github.com/Alain-L/quellog/releases/download/${LATEST_VERSION}/quellog_Linux_x86_64.tar.gz"
-tar -xzf quellog_Linux_x86_64.tar.gz
+wget "https://github.com/Alain-L/quellog/releases/download/${LATEST_VERSION}/quellog_${LATEST_VERSION}_linux_amd64.tar.gz"
+tar -xzf quellog_${LATEST_VERSION}_linux_amd64.tar.gz
 sudo install -m 755 quellog /usr/local/bin/quellog
 ```
 
@@ -326,14 +322,18 @@ sudo install -m 755 quellog /usr/local/bin/quellog
 
     ```bash
     # Download and install new .deb package
-    sudo dpkg -i quellog_amd64.deb
+    LATEST_VERSION=$(curl -s https://api.github.com/repos/Alain-L/quellog/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+    wget "https://github.com/Alain-L/quellog/releases/download/${LATEST_VERSION}/quellog_${LATEST_VERSION#v}_amd64.deb"
+    sudo dpkg -i quellog_${LATEST_VERSION#v}_amd64.deb
     ```
 
 === "Red Hat/Fedora/CentOS"
 
     ```bash
     # Download and install new .rpm package
-    sudo dnf install quellog_amd64.rpm
+    LATEST_VERSION=$(curl -s https://api.github.com/repos/Alain-L/quellog/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+    wget "https://github.com/Alain-L/quellog/releases/download/${LATEST_VERSION}/quellog_${LATEST_VERSION#v}_amd64.rpm"
+    sudo dnf install quellog_${LATEST_VERSION#v}_amd64.rpm
     ```
 
 ### Source Build

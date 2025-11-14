@@ -4,34 +4,16 @@ Get up and running with quellog in 5 minutes. This guide will walk you through i
 
 ## Installation
 
-=== "Linux/macOS (tar.gz)"
-
-    Download and extract the binary:
-
-    ```bash
-    # Download (replace with latest version and your platform)
-    wget https://github.com/Alain-L/quellog/releases/download/v0.x.x/quellog_Linux_x86_64.tar.gz
-
-    # Extract
-    tar -xzf quellog_Linux_x86_64.tar.gz
-
-    # Move to PATH
-    sudo install -m 755 quellog /usr/local/bin/
-
-    # Verify installation
-    quellog --version
-    ```
-
 === "Debian/Ubuntu (.deb)"
 
     Download and install the package:
 
     ```bash
-    # Download
-    wget https://github.com/Alain-L/quellog/releases/download/v0.x.x/quellog_amd64.deb
+    # Download (replace 0.1.0 with latest version)
+    wget https://github.com/Alain-L/quellog/releases/download/v0.1.0/quellog_0.1.0_amd64.deb
 
     # Install
-    sudo dpkg -i quellog_amd64.deb
+    sudo dpkg -i quellog_0.1.0_amd64.deb
 
     # Verify
     quellog --version
@@ -42,13 +24,33 @@ Get up and running with quellog in 5 minutes. This guide will walk you through i
     Download and install the package:
 
     ```bash
-    # Download
-    wget https://github.com/Alain-L/quellog/releases/download/v0.x.x/quellog_amd64.rpm
+    # Download (replace 0.1.0 with latest version)
+    wget https://github.com/Alain-L/quellog/releases/download/v0.1.0/quellog_0.1.0_amd64.rpm
 
     # Install
-    sudo dnf install quellog_amd64.rpm
+    sudo dnf install quellog_0.1.0_amd64.rpm
 
     # Verify
+    quellog --version
+    ```
+
+=== "Linux/macOS (tar.gz)"
+
+    Download and extract the binary:
+
+    ```bash
+    # Download (replace v0.1.0 with latest version and adjust platform)
+    # Linux amd64:
+    wget https://github.com/Alain-L/quellog/releases/download/v0.1.0/quellog_v0.1.0_linux_amd64.tar.gz
+    tar -xzf quellog_v0.1.0_linux_amd64.tar.gz
+
+    # macOS (darwin) amd64:
+    # wget https://github.com/Alain-L/quellog/releases/download/v0.1.0/quellog_v0.1.0_darwin_amd64.tar.gz
+
+    # Move to PATH
+    sudo install -m 755 quellog /usr/local/bin/
+
+    # Verify installation
     quellog --version
     ```
 
@@ -197,7 +199,7 @@ quellog /var/log/postgresql/*.log --tempfiles --locks
 quellog can process multiple files and directories:
 
 !!! tip "Performance"
-    For very large log files (> 1 GB), quellog uses parallel processing automatically to maximize throughput.
+    When processing multiple files, quellog uses parallel workers automatically (up to 4 workers based on CPU cores) to maximize throughput.
 
 ```bash
 # Multiple files
@@ -339,3 +341,13 @@ SHOW log_lock_waits;
 ```
 
 See [PostgreSQL Setup](postgresql-setup.md) for complete configuration guidance.
+
+### Still having issues?
+
+If quellog doesn't parse your logs correctly, it may be due to a non-standard `log_line_prefix` configuration. Please [open an issue on GitHub](https://github.com/Alain-L/quellog/issues) with:
+
+- Your `log_line_prefix` setting
+- A sample of your log file (anonymized if needed)
+- The error message or unexpected behavior
+
+We regularly add support for new log formats and configurations based on user feedback. Your input helps improve quellog for everyone!

@@ -1,0 +1,54 @@
+/* Reduce line height for better density */
+.md-typeset {
+  line-height: 1.4;
+}
+
+.md-typeset p {
+  margin-bottom: 0.5em;
+}
+
+.md-typeset ul, .md-typeset ol {
+  margin-bottom: 0.5em;
+  margin-top: 0.3em;
+}
+
+.md-typeset li {
+  margin-bottom: 0.2em;
+}
+
+.md-typeset h2 {
+  margin-top: 1.2em;
+  margin-bottom: 0.5em;
+}
+
+.md-typeset h3 {
+  margin-top: 1em;
+  margin-bottom: 0.4em;
+}
+
+.md-typeset h4 {
+  margin-top: 0.8em;
+  margin-bottom: 0.3em;
+}
+
+/* Tighten code blocks */
+.md-typeset pre {
+  margin-bottom: 0.5em;
+  margin-top: 0.5em;
+}
+
+/* Admonitions spacing */
+.md-typeset .admonition {
+  margin-bottom: 0.5em;
+  margin-top: 0.5em;
+}
+
+.md-typeset .admonition p {
+  margin-bottom: 0.3em;
+}
+
+/* Tables */
+.md-typeset table:not([class]) {
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+}

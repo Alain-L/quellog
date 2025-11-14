@@ -2,6 +2,20 @@
 
 **quellog** is a high-performance PostgreSQL log analyzer designed to help database administrators and developers understand their PostgreSQL instances through comprehensive log analysis. Built with Go, it processes gigabytes of log data in seconds, providing actionable insights about query performance, database operations, and system health.
 
+```console
+$ quellog /var/log/postgresql/postgresql.log
+quellog – 835,059 entries processed in 0.90 s (100 MB)
+
+SUMMARY
+
+  Start date                : 2024-12-31 23:00:08 UTC
+  End date                  : 2025-02-15 04:05:38 UTC
+  Duration                  : 1085h5m30s
+  Total entries             : 835059
+  Throughput                : 927843 entries/s
+...
+```
+
 ## Why quellog?
 
 PostgreSQL generates rich logs that contain invaluable information about database behavior, but analyzing these logs manually is time-consuming and error-prone. quellog automates this process, transforming raw log files into clear, structured reports that help you:
@@ -71,29 +85,12 @@ quellog is built for speed, utilizing:
 
 ### Benchmark Results
 
-!!! example "Performance Examples"
-
-    **Standard stderr log (54 MB)**
-
-    - **Processing time**: 0.34 seconds
-    - **Throughput**: ~159 MB/s
-    - **Memory usage**: < 100 MB
-
-    **Large stderr log (1.0 GB)**
-
-    - **Processing time**: 3.41 seconds
-    - **Throughput**: ~300 MB/s
-
-    **CSV log (1.2 GB)**
-
-    - **Processing time**: 5.50 seconds
-    - **Throughput**: ~218 MB/s
-
-    **Compressed tar archive (60 GB)**
-
-    - **Processing time**: 4 minutes 34 seconds
-    - **Throughput**: ~225 MB/s
-    - **Parallel decompression**: Automatic
+| Log Type | Size | Processing Time | Throughput | Notes |
+|----------|------|-----------------|------------|-------|
+| **stderr** | 54 MB | 0.34 s | ~159 MB/s | Memory < 100 MB |
+| **stderr** | 1.0 GB | 3.41 s | ~300 MB/s | |
+| **CSV** | 1.2 GB | 5.50 s | ~218 MB/s | |
+| **tar.gz archive** | 60 GB | 4m 34s | ~225 MB/s | Parallel decompression |
 
 quellog can process typical production log files (100 MB - 1 GB) in seconds, making it suitable for both ad-hoc analysis and automated reporting pipelines.
 
@@ -139,8 +136,11 @@ quellog is open source software licensed under the PostgreSQL License.
 
 ## Community
 
-- **Issues**: Report bugs or request features on [GitHub Issues](https://github.com/Alain-L/quellog/issues)
+- **Issues**: Report bugs, request features, or share non-standard log formats on [GitHub Issues](https://github.com/Alain-L/quellog/issues)
 - **Contributing**: Contributions are welcome! See [CONTRIBUTING.md](https://github.com/Alain-L/quellog/blob/main/CONTRIBUTING.md)
+
+!!! info "Help Us Improve"
+    If quellog doesn't support your specific `log_line_prefix` configuration, please open an issue with your settings and a sample log. We regularly add support for new formats based on community feedback!
 
 ---
 
