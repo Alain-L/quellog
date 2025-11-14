@@ -214,16 +214,13 @@ Tracks autovacuum and autoanalyze operations.
 ```
 MAINTENANCE
 
-  Automatic vacuum count    : 12
-  Automatic analyze count   : 8
+  Automatic vacuum count    : 668
+  Automatic analyze count   : 353
   Top automatic vacuum operations per table:
-    app_db.public.orders        4  33.3%
-    app_db.public.sessions      3  25.0%
-    app_db.public.users         2  16.7%
+    alfresco.public.alf_lock               422  63.17%
+    alfresco.public.alf_audit_entry        216  32.34%       8.00 KB removed
   Top automatic analyze operations per table:
-    app_db.public.orders        3  37.5%
-    app_db.public.products      2  25.0%
-    app_db.public.sessions      2  25.0%
+    alfresco.public.alf_lock                       300  84.99%
 ```
 
 **Metrics explained**:
@@ -231,6 +228,7 @@ MAINTENANCE
 - **Automatic vacuum count**: Number of autovacuum operations
 - **Automatic analyze count**: Number of autoanalyze operations
 - **Top operations per table**: Tables sorted by operation count with percentage
+- **Space removed**: Disk space recovered by VACUUM (shown when available)
 
 ## Checkpoints
 
