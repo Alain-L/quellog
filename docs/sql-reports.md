@@ -12,84 +12,121 @@ quellog /var/log/postgresql/*.log --sql-summary
 
 ### Output Format
 
+**SQL PERFORMANCE section**
+
 ```
 SQL PERFORMANCE
 
-  Query load distribution | ■ = 169 m
+  Query load distribution | ■ = 10 s
 
-  02:11 - 05:36  4 m
-  05:36 - 09:02  ■ 291 m
-  09:02 - 12:27  ■■■■■■■■■■■■■■■■■■■■■■■■■■■ 4602 m
+  00:00 - 03:59  ■■■■■■■■■■ 105 s
+  04:00 - 07:59  ■■■■■■■ 78 s
+  08:00 - 11:59  ■■■■■■■■■■■■■■ 145 s
+  12:00 - 15:59  ■■■■■■■■ 89 s
+  16:00 - 19:59  ■■■■■■ 67 s
+  20:00 - 23:59  ■■■■ 42 s
 
-  Total query duration      : 11d 4h 33m
-  Total queries parsed      : 485
-  Total unique query        : 5
+  Total query duration      : 8m 46s
+  Total queries parsed      : 456
+  Total unique query        : 127
   Top 1% slow queries       : 5
 
-  Query max duration        : 1h 12m 50s
-  Query min duration        : 2m 00s
-  Query median duration     : 42m 05s
-  Query 99% max duration    : 1h 08m 57s
+  Query max duration        : 2.34 s
+  Query min duration        : 12 ms
+  Query median duration     : 145 ms
+  Query 99% max duration    : 1.87 s
 
-  Query duration distribution | ■ = 13 req
+  Query duration distribution | ■ = 10 req
 
-  < 1 ms          -
-  < 10 ms         -
-  < 100 ms        -
-  < 1 s           -
-  < 10 s          -
-  >= 10 s        ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ 485 req
+  < 1 ms          ■■ 25 req
+  < 10 ms         ■■■■■■■ 78 req
+  < 100 ms        ■■■■■■■■■■■■■■ 156 req
+  < 1 s           ■■■■■■■■■■ 112 req
+  < 10 s          ■■■■■■■■ 89 req
+  >= 10 s         ■■ 23 req
+```
 
+Histograms show query load over time and distribution by duration. Metrics show totals, counts, and percentiles.
+
+**Slowest individual queries**
+
+```
 Slowest individual queries:
 SQLID      Query                                                            Duration
 ------------------------------------------------------------------------------------
-se-a1b2c3  select * from orders o join customers c on o.customer_id...       15.23 s
-se-x4y5z6  with user_segments as ( select user_id, case when total...       14.57 s
-se-m7n8o9  with cohort_data as ( select user_id, date_trunc('day'...        12.68 s
+se-a1b2c3  select * from orders o join customers c on o.customer_id...        2.34 s
+se-x4y5z6  with user_segments as ( select user_id, case when total...        2.12 s
+se-m7n8o9  select count(*) from events where user_id = ? and date...         1.98 s
+```
 
+Top queries by maximum single execution time.
+
+**Most Frequent Individual Queries**
+
+```
 Most Frequent Individual Queries:
 SQLID      Query                                                            Executed
 ------------------------------------------------------------------------------------
-se-a1b2c3  select * from orders o join customers c on o.customer_id...         456
-se-x4y5z6  select id, email, name from users where status = ?...               234
-se-m7n8o9  select count(*) from events where user_id = ?...                    178
+se-p1q2r3  select id, name, email from users where id = ?...                    456
+se-r4s5t6  select count(*) from products where category_id = ?...               234
+se-u7v8w9  insert into audit_log (user_id, action, created_at) v...             178
+```
 
+Top queries by execution count.
+
+**Most time consuming queries**
+
+```
 Most time consuming queries:
 SQLID      Query                                          Executed           Max           Avg         Total
 ------------------------------------------------------------------------------------------------------------
-se-a1b2c3  select * from orders o join customer...         456       15.23 s        2m 12s     16h 45m 12s
-se-x4y5z6  select id, email, name from users w...          234        1.23 s        1m 05s      4h 14m 30s
-se-m7n8o9  select count(*) from events where u...          178        4.12 s        2m 14s      6h 37m 52s
+se-a1b2c3  select * from orders o join customer...             23        2.34 s      987 ms        22.71 s
+se-x4y5z6  select id, name, email from users wh...            456       456 ms       45 ms        20.52 s
+se-m7n8o9  select count(*) from events where us...            178        1.98 s      112 ms        19.94 s
+```
 
+Top queries by total cumulative time (sum of all executions).
+
+**Queries generating temp files**
+
+```
 Queries generating temp files:
 SQLID      Query                                                                         Count    Total Size
 ------------------------------------------------------------------------------------------------------------
-se-p1q2r3  select * from large_table order by created_at desc...                          123       5.67 GB
-se-s4t5u6  with recursive categories as ( select id, parent_id from...                      45       2.34 GB
-se-v7w8x9  select array_agg(distinct name) from products group by...                        12       1.12 GB
+se-y1z2a3  select * from large_table order by created_at desc...                           12       1.23 GB
+se-b4c5d6  with recursive categories as ( select id, parent_id from...                       8     456.78 MB
+se-e7f8g9  select array_agg(distinct name) from products group by...                         5     234.56 MB
+```
 
+Queries that created temporary files, sorted by total tempfile size.
+
+**Lock-related query tables**
+
+```
 Acquired locks by query:
 SQLID      Query                                                     Locks         Avg Wait       Total Wait
 ------------------------------------------------------------------------------------------------------------
-up-a1b2c3  update inventory set quantity = quantity - ? where...         12           5.23 s           1m 02s
-in-d4e5f6  insert into audit_log (user_id, action, timestam...            8           2.15 s          17.20 s
-up-g7h8i9  update orders set status = ? where id = ?...                   5           1.87 s           9.35 s
+up-h1i2j3  update inventory set quantity = quantity - ? where...         12          523 ms           6.28 s
+in-k4l5m6  insert into audit_log (user_id, action, timestam...             8          215 ms           1.72 s
+up-n7o8p9  update orders set status = ? where id = ?...                    5          187 ms         935 ms
 
 Locks still waiting by query:
 SQLID      Query                                                     Locks         Avg Wait       Total Wait
 ------------------------------------------------------------------------------------------------------------
-se-j1k2l3  select * from products where category_id = ? for...           3          10.50 s          31.50 s
-up-m4n5o6  update users set last_login = now() where id = ?...            2           8.25 s          16.50 s
+se-q1r2s3  select * from products where category_id = ? for...            3           1.05 s           3.15 s
+up-t4u5v6  update users set last_login = now() where id = ?...             2          825 ms           1.65 s
 
 Most frequent waiting queries:
 SQLID      Query                                                     Locks         Avg Wait       Total Wait
 ------------------------------------------------------------------------------------------------------------
-up-a1b2c3  update inventory set quantity = quantity - ? where...         12           5.23 s           1m 02s
-in-d4e5f6  insert into audit_log (user_id, action, timestam...            8           2.15 s          17.20 s
-up-g7h8i9  update orders set status = ? where id = ?...                   5           1.87 s           9.35 s
-se-j1k2l3  select * from products where category_id = ? for...           3          10.50 s          31.50 s
-up-m4n5o6  update users set last_login = now() where id = ?...            2           8.25 s          16.50 s
+up-h1i2j3  update inventory set quantity = quantity - ? where...         12          523 ms           6.28 s
+in-k4l5m6  insert into audit_log (user_id, action, timestam...             8          215 ms           1.72 s
+up-n7o8p9  update orders set status = ? where id = ?...                    5          187 ms         935 ms
+se-q1r2s3  select * from products where category_id = ? for...            3           1.05 s           3.15 s
+up-t4u5v6  update users set last_login = now() where id = ?...             2          825 ms           1.65 s
 ```
+
+Queries involved in lock waits: acquired locks (eventually granted), still waiting (not granted when logs ended), and most frequent waiters.
 
 ### Query Normalization
 
