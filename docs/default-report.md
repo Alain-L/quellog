@@ -150,61 +150,55 @@ TEMP FILES
 
 ## Locks
 
-Shows lock contention, wait times, and blocking queries.
+Shows lock contention, wait times, and queries involved in lock waits.
 
 ```
 LOCKS
 
-  Total lock events         : 23
-  Lock waiting events       : 15
-  Lock acquired events      : 8
-  Deadlock events           : 0
-
-  Total lock wait time      : 34.5 s
-
+  Total lock events         : 194
+  Waiting events            : 171
+  Acquired events           : 23
+  Avg wait time             : 54.92 s
+  Total wait time           : 2h 57m 34s
   Lock types:
-
-    AccessShareLock         : 12  (52.2%)
-    RowExclusiveLock        : 8   (34.8%)
-    ExclusiveLock           : 3   (13.0%)
-
+    AccessShareLock              194  100.0%
   Resource types:
+    relation                     194  100.0%
 
-    relation                : 18  (78.3%)
-    transaction             : 5   (21.7%)
+Acquired locks by query:
+SQLID      Query                                                     Locks         Avg Wait       Total Wait
+------------------------------------------------------------------------------------------------------------
+se-uD4Xj2  select count(*) as gt_result_ from (select * fro...           3          15m 08s          45m 26s
+se-jStrWD  select count(*) as gt_result_ from (select * fro...           3          12m 48s          38m 24s
+se-kvbfUA  select count(*) as gt_result_ from (select * fro...           3          10m 50s          32m 30s
 
-  Top queries by total wait time:
+Locks still waiting by query:
+SQLID      Query                                                     Locks         Avg Wait       Total Wait
+------------------------------------------------------------------------------------------------------------
+xx-AmtyJ1  -- probe btree_bloat select current_database() a...          89           8.14 s          12m 04s
+xx-Asa3KN  -- probe heap_bloat select current_database() as...          24           1.00 s          24.00 s
 
-    1. se-a1b2c3d (12.3 s total, 4 locks acquired)
-       SELECT * FROM users WHERE ...
-
-    2. se-x4y5z6w (8.9 s total, 2 locks acquired)
-       UPDATE orders SET status = ...
+Most frequent waiting queries:
+SQLID      Query                                                     Locks         Avg Wait       Total Wait
+------------------------------------------------------------------------------------------------------------
+xx-AmtyJ1  -- probe btree_bloat select current_database() a...          94           8.80 s          13m 47s
+se-uD4Xj2  select count(*) as gt_result_ from (select * fro...           3          15m 08s          45m 26s
+se-jStrWD  select count(*) as gt_result_ from (select * fro...           3          12m 48s          38m 24s
 ```
 
 **Metrics explained**:
 
-- **Total lock events**: Total waiting + acquired + deadlock events
-- **Lock waiting events**: "still waiting" messages
-- **Lock acquired events**: "acquired" messages
-- **Deadlock events**: Deadlock detection events
-- **Total lock wait time**: Sum of time spent waiting for locks
+- **Total lock events**: Number of lock wait log messages
+- **Waiting events**: "still waiting" messages (lock not yet acquired)
+- **Acquired events**: "acquired" messages (lock eventually granted)
+- **Avg wait time**: Average duration of lock waits
+- **Total wait time**: Sum of all lock wait durations
 
-**Lock types** (most common):
+**Query tables**:
 
-- **AccessShareLock**: Read locks (SELECT queries)
-- **RowShareLock**: SELECT FOR UPDATE
-- **RowExclusiveLock**: INSERT, UPDATE, DELETE
-- **ShareUpdateExclusiveLock**: VACUUM, ANALYZE, CREATE INDEX CONCURRENTLY
-- **ExclusiveLock**: DDL operations
-- **AccessExclusiveLock**: DROP TABLE, TRUNCATE
-
-**Resource types**:
-
-- **relation**: Tables, indexes
-- **transaction**: Transaction IDs
-- **tuple**: Individual table rows
-- **advisory lock**: Application-defined locks
+- **Acquired locks by query**: Queries that eventually acquired locks (sorted by total wait time)
+- **Locks still waiting by query**: Queries still waiting when logs ended
+- **Most frequent waiting queries**: All queries that waited for locks (sorted by lock count)
 
 ## Maintenance
 
