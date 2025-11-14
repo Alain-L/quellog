@@ -131,20 +131,18 @@ TEMP FILES
   04:01 - 04:58  ■■■■■■■■■■■■■■■■■ 170 MB
   04:58 - 05:55  ■■■■■■■■■■■■■■■■■■■ 194 MB
 
-  Temp file messages        : 19
-  Cumulative temp file size : 1.48 GB
-  Average temp file size    : 79.79 MB
+  Temp file messages        : 11639
+  Cumulative temp file size : 48.34 GB
+  Average temp file size    : 4.25 MB
 
-  Top queries by tempfile size:
-
-    1. se-a1b2c3d (789 MB, 8 times)
-       SELECT * FROM large_table ORDER BY created_at
-
-    2. se-x4y5z6w (456 MB, 3 times)
-       SELECT * FROM users JOIN orders ON ...
-
-    3. se-m7n8o9p (123 MB, 2 times)
-       SELECT COUNT(*) FROM events GROUP BY ...
+Queries generating temp files:
+SQLID      Query                                                                         Count    Total Size
+------------------------------------------------------------------------------------------------------------
+xx-Asa3KN  -- probe heap_bloat select current_database() as dbname, sum(bloat_s...       10188      16.66 GB
+xx-TtcBPJ  with namespace_rels as ( select nsp.oid, nsp.nspname, array_remove(a...          28       7.37 GB
+se-SunZ0F  select sit_gestion.refresh_referentiel_topo();                                 1276       6.52 GB
+xx-T3SufA  close c17                                                                         4       2.56 GB
+se-z3k2JB  select ?, array_agg(distinct st_srid("geom")::text || ? || upper(geo...           6       2.49 GB
 ```
 
 **Metrics explained**:
@@ -152,7 +150,7 @@ TEMP FILES
 - **Temp file messages**: Number of tempfile creation events
 - **Cumulative temp file size**: Total disk space used for tempfiles
 - **Average temp file size**: Mean tempfile size
-- **Top queries**: Queries sorted by total tempfile size (sum across all executions)
+- **Queries generating temp files**: Table showing queries sorted by total tempfile size, with count and total size per query
 
 ## Locks
 
