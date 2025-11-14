@@ -249,105 +249,12 @@ Generate markdown reports for documentation:
 quellog /var/log/postgresql/*.log --md > report.md
 ```
 
-## Common Workflows
-
-### Daily Performance Review
-
-```bash
-#!/bin/bash
-# daily_review.sh - Analyze yesterday's logs
-
-YESTERDAY=$(date -d "yesterday" +%Y-%m-%d)
-LOG_DIR="/var/log/postgresql"
-
-quellog $LOG_DIR/*.log \
-  --begin "$YESTERDAY 00:00:00" \
-  --end "$YESTERDAY 23:59:59" \
-  --json > "/reports/daily_$(date -d yesterday +%Y%m%d).json"
-```
-
-### Incident Investigation
-
-When investigating an issue that occurred around 14:30:
-
-```bash
-# Analyze 1-hour window around incident
-quellog /var/log/postgresql/*.log \
-  --begin "2025-01-13 14:00:00" \
-  --end "2025-01-13 15:00:00" \
-  --sql-summary
-
-# Focus on specific database that had issues
-quellog /var/log/postgresql/*.log \
-  --begin "2025-01-13 14:00:00" \
-  --end "2025-01-13 15:00:00" \
-  --dbname problematic_db \
-  --events --locks
-```
-
-### Finding Memory-Hungry Queries
-
-```bash
-# Show queries creating large temporary files
-quellog /var/log/postgresql/*.log --tempfiles
-```
-
-This will display the queries that exceeded `work_mem` and had to spill to disk, sorted by total temporary file size.
-
-!!! info "Coming Soon"
-    Combining `--tempfiles` with `--sql-summary` for integrated analysis is planned for a future release.
 
 ## Next Steps
 
-Now that you've run your first analysis, explore more advanced features:
+You're now familiar with the basics of quellog! Explore more:
 
-- [Filtering Logs](filtering-logs.md) - Learn about all filtering options
-- [SQL Analysis](sql-reports.md) - Deep dive into query performance analysis
-- [Default Report](default-report.md) - Understand every section of the report
-- [PostgreSQL Setup](postgresql-setup.md) - Configure PostgreSQL for comprehensive logging
-
-## Troubleshooting
-
-### "Unknown log format"
-
-If quellog reports an unknown log format, it may be because:
-
-1. The log file is empty or corrupted
-2. The log format is not one of the supported types (stderr, CSV, JSON)
-3. The file is binary (not a text log)
-
-Check your `log_destination` setting in PostgreSQL:
-
-```sql
-SHOW log_destination;
-```
-
-### No SQL statistics
-
-If you don't see SQL performance data, check that `log_min_duration_statement` is enabled:
-
-```sql
-SHOW log_min_duration_statement;
-```
-
-It should be set to `0` (log all queries) or a specific threshold (e.g., `1000` for queries over 1 second).
-
-### No lock information
-
-Lock analysis requires `log_lock_waits = on` in your PostgreSQL configuration:
-
-```sql
-SHOW log_lock_waits;
-```
-
-See [PostgreSQL Setup](postgresql-setup.md) for complete configuration guidance.
-
-### Still having issues?
-
-If quellog doesn't parse your logs correctly, it may be due to a non-standard `log_line_prefix` configuration. Please [open an issue on GitHub](https://github.com/Alain-L/quellog/issues) with:
-
-- Your `log_line_prefix` setting
-- A sample of your log file (anonymized if needed)
-- The error message or unexpected behavior
-
-We regularly add support for new log formats and configurations based on user feedback. Your input helps improve quellog for everyone!
+- [Default Report](default-report.md) - Understanding all report sections
+- [SQL Analysis](sql-reports.md) - Deep dive into query performance
+- [Filtering Logs](filtering-logs.md) - Focus on specific time ranges and attributes
+- [PostgreSQL Setup](postgresql-setup.md) - Optimize your PostgreSQL logging configuration

@@ -1,41 +1,6 @@
 # PostgreSQL Configuration
 
-To get the most comprehensive insights from quellog, PostgreSQL must be configured to log the right information. This guide covers all logging settings that affect quellog's analysis capabilities.
-
-## Quick Configuration
-
-For immediate comprehensive logging (suitable for development or troubleshooting):
-
-```ini
-# postgresql.conf
-
-# Basic logging
-log_destination = 'stderr'          # or 'csvlog' for structured logs
-logging_collector = on
-
-# What to log
-log_min_duration_statement = 0      # Log all queries (WARNING: use with caution in production!)
-log_connections = on                 # Track connections
-log_disconnections = on              # Track disconnections
-log_line_prefix = '%t [%p]: db=%d,user=%u,app=%a,client=%h '
-
-# Additional useful logs
-log_checkpoints = on                 # Checkpoint activity
-log_autovacuum_min_duration = 0      # All autovacuum operations
-log_temp_files = 0                   # All temporary files
-log_lock_waits = on                  # Lock wait events
-```
-
-Apply changes:
-
-```sql
--- Reload configuration
-SELECT pg_reload_conf();
-
--- Verify settings
-SHOW log_destination;
-SHOW log_min_duration_statement;
-```
+To get the most comprehensive insights from quellog, PostgreSQL must be configured to log the right information. This guide covers the logging settings that affect quellog's analysis capabilities.
 
 ## Logging Destination
 
@@ -367,69 +332,6 @@ log_min_messages = warning
 ```
 
 For production, `warning` or `error` is typically appropriate. For development or troubleshooting, `info` or `log` provides more detail.
-
-quellog categorizes log entries by severity and provides SQLSTATE classification for errors.
-
-## Production Recommendations
-
-For a production environment, balance comprehensive logging with performance:
-
-```ini
-# Format
-log_destination = 'csvlog'
-logging_collector = on
-log_directory = 'log'
-log_filename = 'postgresql-%Y-%m-%d_%H.csv'
-log_rotation_age = 1d
-log_truncate_on_rotation = off
-
-# Query logging (adjust threshold as needed)
-log_min_duration_statement = 100    # Log queries > 100ms
-log_statement = 'ddl'               # Also log DDL
-
-# Connections
-log_connections = on
-log_disconnections = on
-
-# Operational monitoring
-log_checkpoints = on
-log_autovacuum_min_duration = 1000  # Log slow autovacuums
-log_temp_files = 10240              # Log tempfiles > 10 MB
-log_lock_waits = on
-
-# Error level
-log_min_messages = warning
-```
-
-## Development Recommendations
-
-For development or troubleshooting:
-
-```ini
-# Format (stderr for easier manual inspection)
-log_destination = 'stderr'
-logging_collector = on
-log_line_prefix = '%t [%p]: db=%d,user=%u,app=%a,client=%h '
-
-# Query logging (log everything short-term)
-log_min_duration_statement = 0
-
-# Connections
-log_connections = on
-log_disconnections = on
-
-# All operational events
-log_checkpoints = on
-log_autovacuum_min_duration = 0
-log_temp_files = 0
-log_lock_waits = on
-
-# More verbose
-log_min_messages = info
-```
-
-!!! warning "Remember to reset after troubleshooting!"
-    Settings like `log_min_duration_statement = 0` can generate huge logs. Reset to production values after development/troubleshooting.
 
 ## Applying Configuration Changes
 
