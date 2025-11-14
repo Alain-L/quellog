@@ -61,6 +61,9 @@ log_min_duration_statement = 100
 log_min_duration_statement = -1
 ```
 
+!!! warning "Performance Impact"
+    Setting `log_min_duration_statement = 0` logs every query, which can generate massive log files on busy databases and increase I/O load.
+
 ### log_statement
 
 Controls which SQL statements are logged regardless of duration.
@@ -193,12 +196,6 @@ LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp12345.0", size 104857600
 STATEMENT:  SELECT * FROM large_table ORDER BY created_at
 ```
 
-quellog associates temporary files with their queries and reports:
-
-- Total tempfile count and size
-- Top queries by tempfile size
-- Tempfile size distribution over time
-
 ## Lock Wait Logging
 
 ```ini
@@ -217,12 +214,6 @@ STATEMENT:  SELECT * FROM users WHERE id = 42
 
 LOG:  process 12345 acquired AccessShareLock on relation 16384 of database 13445 after 2468.117 ms
 ```
-
-quellog analyzes lock events to show:
-
-- Total lock wait time
-- Most frequent blocking queries
-- Lock types and resources
 
 ## Autovacuum Logging
 
@@ -248,12 +239,6 @@ LOG:  automatic vacuum of table "mydb.public.users": index scans: 0
     system usage: CPU: user: 0.12 s, system: 0.03 s, elapsed: 2.45 s
 ```
 
-quellog tracks:
-
-- Autovacuum/autoanalyze frequency by table
-- Space recovered by vacuum
-- Tables requiring frequent vacuuming
-
 ## Checkpoint Logging
 
 ```ini
@@ -267,12 +252,6 @@ Example log output:
 LOG:  checkpoint starting: time
 LOG:  checkpoint complete: wrote 12345 buffers (75.5%); 0 WAL file(s) added, 0 removed, 1 recycled; write=0.123 s, sync=0.045 s, total=0.168 s; sync files=10, longest=0.012 s, average=0.005 s
 ```
-
-quellog analyzes:
-
-- Checkpoint frequency (time-based vs. WAL-based)
-- Write times
-- Checkpoint distribution over time
 
 ## Error and Warning Logging
 
