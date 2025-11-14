@@ -2,6 +2,17 @@
 
 quellog provides powerful filtering capabilities to analyze specific subsets of your PostgreSQL logs. This page covers all available filtering options for selecting which log entries to analyze.
 
+## Default Behavior
+
+If no filters are specified, quellog analyzes **all log entries** in the provided files:
+
+```bash
+# Analyzes everything
+quellog /var/log/postgresql/*.log
+```
+
+Use the filtering options below to focus on specific subsets.
+
 ## Time-Based Filtering
 
 Filter logs by timestamp to focus on specific time periods.
@@ -97,6 +108,11 @@ quellog /var/log/postgresql/*.log \
 
 # Using shorthand -d
 quellog /var/log/postgresql/*.log -d mydb
+
+# Exclude monitoring databases
+quellog /var/log/postgresql/*.log \
+  --dbname production \
+  --dbname staging
 ```
 
 **Use cases**:
@@ -104,6 +120,7 @@ quellog /var/log/postgresql/*.log -d mydb
 - Production vs. staging comparison
 - Per-tenant analysis in multi-tenant setups
 - Isolating test database activity
+- Excluding monitoring tool databases (powa, postgres, template1)
 
 ### --dbuser: Database User
 
@@ -120,6 +137,11 @@ quellog /var/log/postgresql/*.log \
 
 # Using shorthand -u
 quellog /var/log/postgresql/*.log -u readonly
+
+# Focus on application users only (exclude monitoring)
+quellog /var/log/postgresql/*.log \
+  --dbuser myapp \
+  --dbuser api_backend
 ```
 
 **Use cases**:
@@ -127,6 +149,7 @@ quellog /var/log/postgresql/*.log -u readonly
 - Application-specific analysis
 - Security auditing
 - User activity tracking
+- Excluding monitoring tool users (powa, temboard, health_check)
 
 ### --appname: Application Name
 
@@ -166,6 +189,11 @@ quellog /var/log/postgresql/*.log \
 
 # Using shorthand -U
 quellog /var/log/postgresql/*.log -U readonly
+
+# Exclude monitoring tools (powa, temboard)
+quellog /var/log/postgresql/*.log \
+  --exclude-user powa \
+  --exclude-user temboard
 ```
 
 **Use cases**:
@@ -173,6 +201,7 @@ quellog /var/log/postgresql/*.log -U readonly
 - Filtering out monitoring/health check queries
 - Excluding administrative users
 - Removing replication connections from analysis
+- Excluding monitoring tool activity (powa, temboard_agent)
 
 ## Combining Filters
 
@@ -186,10 +215,11 @@ quellog /var/log/postgresql/*.log \
   --begin "2025-01-13 09:00:00" \
   --end "2025-01-13 17:00:00"
 
-# Exclude monitoring, last 2 hours
+# Exclude monitoring, specific time window
 quellog /var/log/postgresql/*.log \
   --exclude-user health_check \
-  --window 2h
+  --begin "2025-01-13 22:00:00" \
+  --end "2025-01-14 00:00:00"
 
 # Multiple databases, specific app, yesterday
 quellog /var/log/postgresql/*.log \
@@ -202,25 +232,12 @@ quellog /var/log/postgresql/*.log \
 
 ### Filter Logic
 
-- **Within each filter type**: OR logic (e.g., `--dbname app_db --dbname analytics_db` matches entries from either database)
-- **Across filter types**: AND logic (e.g., `--dbname app_db --dbuser myuser` matches entries that are both `app_db` AND `myuser`)
+When combining multiple filters:
 
-**Example**:
+- Multiple values of the **same type** use OR logic (e.g., `--dbname db1 --dbname db2` matches db1 OR db2)
+- **Different types** use AND logic (e.g., `--dbname production --dbuser app_user` matches production AND app_user)
 
-```bash
-quellog /var/log/postgresql/*.log \
-  --dbname db1 \
-  --dbname db2 \
-  --dbuser user1 \
-  --dbuser user2 \
-  --appname app1
-```
-
-This matches entries where:
-
-- (database = db1 OR database = db2) **AND**
-- (user = user1 OR user = user2) **AND**
-- (application = app1)
+Example: `--dbname db1 --dbname db2 --dbuser user1` matches entries where database is (db1 OR db2) AND user is user1.
 
 ## Practical Examples
 
@@ -306,6 +323,8 @@ quellog /var/log/postgresql/*.log \
   --exclude-user health_check \
   --exclude-user monitoring \
   --exclude-user readonly \
+  --exclude-user powa \
+  --exclude-user temboard \
   --sql-summary
 ```
 
@@ -322,38 +341,6 @@ quellog /var/log/postgresql/*.log \
 ```
 
 This shows the unique databases, users, and applications in the filtered results.
-
-## Performance Considerations
-
-### Filter Order Impact
-
-quellog applies filters in this order:
-
-1. **Time filters** (--begin, --end, --window)
-2. **Attribute filters** (--dbname, --dbuser, --appname, --exclude-user)
-
-Time filters are applied first because they're most selective and fastest to check.
-
-### Large Datasets
-
-For very large log files, pre-filter at the shell level before piping to quellog:
-
-```bash
-# Pre-filter with grep, then analyze
-grep "db=production" /huge/log/file.log | quellog - --sql-summary
-```
-
-!!! tip "stdin Support"
-    quellog accepts `-` as an argument to read from stdin, enabling shell-level pre-processing.
-
-### Filter Coverage
-
-No filters specified = analyze entire log file(s):
-
-```bash
-# Analyzes everything
-quellog /var/log/postgresql/*.log
-```
 
 ## Next Steps
 

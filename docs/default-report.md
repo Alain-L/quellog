@@ -40,12 +40,6 @@ SUMMARY
 - **Total entries**: Number of log lines processed
 - **Throughput**: Processing speed (entries per second)
 
-**Interpreting**:
-
-- **Large duration, few entries**: Quiet period or filtering removed most entries
-- **High throughput**: quellog processed logs quickly
-- **Gap in dates**: Missing log files or log rotation
-
 ## SQL Performance
 
 Shows query execution statistics and load distribution.
@@ -90,13 +84,6 @@ SQL PERFORMANCE
 - **Query median duration**: 50th percentile
 - **Query 99% max duration**: 99th percentile (typical "slow" threshold)
 
-**Interpreting**:
-
-- **High max, low median**: Occasional slow queries, most are fast
-- **High total duration**: Database is CPU-bound or has slow queries
-- **Few unique queries, many total**: Repetitive workload (good for optimization)
-- **Many unique queries**: Ad-hoc workload (consider prepared statements)
-
 **Limitations**:
 
 - Only shows queries logged via `log_min_duration_statement`
@@ -112,10 +99,6 @@ EVENTS
   LOG     : 1,180
   WARNING : 3
   ERROR   : 1
-
-ERROR CLASSES (SQLSTATE)
-
-  53100 - disk_full               : 1
 ```
 
 **Severity levels**:
@@ -125,24 +108,6 @@ ERROR CLASSES (SQLSTATE)
 - **ERROR**: Query failures, constraint violations
 - **FATAL**: Session termination errors
 - **PANIC**: Server crash-level errors
-
-**SQLSTATE classification**:
-
-Shows error codes (SQLSTATE) and their meanings:
-
-- **53100**: Disk full
-- **42P01**: Undefined table
-- **23505**: Unique violation
-- **57014**: Query canceled
-
-See [PostgreSQL Error Codes](https://www.postgresql.org/docs/current/errcodes-appendix.html) for complete list.
-
-**Interpreting**:
-
-- **Many WARNINGs**: Check PostgreSQL configuration or deprecated feature usage
-- **ERRORs**: Application errors, missing tables, constraint violations
-- **FATALs**: Connection issues, authentication failures
-- **PANICs**: Critical - database crashes require investigation
 
 ## Temporary Files
 
@@ -182,19 +147,6 @@ TEMP FILES
 - **Cumulative temp file size**: Total disk space used for tempfiles
 - **Average temp file size**: Mean tempfile size
 - **Top queries**: Queries sorted by total tempfile size (sum across all executions)
-
-**Interpreting**:
-
-- **Large cumulative size**: Increase `work_mem` or optimize queries
-- **Many tempfiles**: Workload has many sorts/hashes exceeding `work_mem`
-- **Specific queries dominate**: Optimize those queries (indexes, rewrite)
-- **Tempfiles during peak hours**: Tune `work_mem` or add memory
-
-**Tuning recommendations**:
-
-- **Small tempfiles (< 10 MB)**: Increase `work_mem` by 2x
-- **Large tempfiles (> 100 MB)**: Query optimization (indexes, JOINs)
-- **Frequent tempfiles**: Consider connection pooling to limit concurrent memory usage
 
 ## Locks
 
@@ -254,19 +206,6 @@ LOCKS
 - **tuple**: Individual table rows
 - **advisory lock**: Application-defined locks
 
-**Interpreting**:
-
-- **High wait time**: Lock contention is slowing queries
-- **AccessShareLock waits**: Likely blocked by DDL or VACUUM
-- **RowExclusiveLock waits**: Concurrent UPDATEs/DELETEs on same rows
-- **Deadlocks**: Application logic issue or lock ordering problem
-
-**Tuning recommendations**:
-
-- **Frequent lock waits**: Review transaction isolation levels, reduce transaction duration
-- **Deadlocks**: Enforce consistent lock ordering in application
-- **AccessShareLock blocked by VACUUM**: Use `VACUUM` with lower `maintenance_work_mem` or schedule during off-peak
-
 ## Maintenance
 
 Tracks autovacuum and autoanalyze operations.
@@ -295,17 +234,6 @@ MAINTENANCE
 - **Automatic vacuum count**: Number of autovacuum operations
 - **Automatic analyze count**: Number of autoanalyze operations
 - **Space removed**: Disk space recovered by VACUUM (dead tuples)
-
-**Interpreting**:
-
-- **Frequent vacuums on one table**: High UPDATE/DELETE rate
-- **Large space removed**: Many dead tuples (consider manual VACUUM or tune autovacuum)
-- **No vacuums**: Either no write activity or `log_autovacuum_min_duration` not set
-
-**Tuning recommendations**:
-
-- **Frequent autovacuum on large table**: Lower `autovacuum_vacuum_scale_factor` for that table
-- **Autovacuum too slow**: Increase `autovacuum_max_workers` or `autovacuum_work_mem`
 
 ## Checkpoints
 
@@ -346,17 +274,6 @@ CHECKPOINTS
 - **Avg/Max write time**: Time to flush dirty buffers to disk
 - **Frequency (per hour)**: Checkpoint rate
 
-**Interpreting**:
-
-- **Many time-based checkpoints**: Normal (every `checkpoint_timeout`)
-- **Many WAL-based checkpoints**: High write load, consider increasing `max_wal_size`
-- **Long write times (> 10s)**: I/O bottleneck, consider tuning `checkpoint_completion_target`
-
-**Tuning recommendations**:
-
-- **Frequent WAL checkpoints**: Increase `max_wal_size`
-- **Long write times**: Increase `checkpoint_completion_target` (default 0.9)
-
 ## Connections & Sessions
 
 Shows connection patterns and session durations.
@@ -385,12 +302,6 @@ CONNECTIONS & SESSIONS
 - **Avg connections per hour**: Connection rate
 - **Disconnection count**: Sessions that ended
 - **Avg session time**: Mean session duration
-
-**Interpreting**:
-
-- **High connection rate**: Consider connection pooling
-- **Long avg session time**: Persistent connections (good for pooling)
-- **Short avg session time**: Frequent reconnects (use pooler like pgBouncer)
 
 ## Clients
 
@@ -427,12 +338,6 @@ DATABASES
     app_db
     postgres
 ```
-
-**Interpreting**:
-
-- **Unexpected users/apps**: Security audit
-- **Many unique databases**: Multi-tenant setup
-- **Few unique entities**: Focused workload
 
 ## Next Steps
 

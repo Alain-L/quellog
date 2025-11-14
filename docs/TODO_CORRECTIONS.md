@@ -1,21 +1,21 @@
 # Corrections restantes à faire
 
 ## filtering-logs.md
-- [ ] Retirer les exemples avec --window tout seul (lignes ~50-70)
-- [ ] Enlever la section "Filter Order Impact" (pas vrai)
-- [ ] Retirer stdin support `quellog -` (ligne ~370)
-- [ ] Retirer section "Filter Logic" trop complexe OU simplifier
-- [ ] Ajouter exemples avec powa/temboard_agent pour dbname/dbuser
-- [ ] Disperser les tips dans le texte
-- [ ] Mettre "No filters = all logs" au début
+- [x] Retirer les exemples avec --window tout seul (lignes ~50-70)
+- [x] Enlever la section "Filter Order Impact" (pas vrai)
+- [x] Retirer stdin support `quellog -` (ligne ~370)
+- [x] Retirer section "Filter Logic" trop complexe OU simplifier
+- [x] Ajouter exemples avec powa/temboard_agent pour dbname/dbuser
+- [x] Disperser les tips dans le texte (déjà fait - tips sont dans des admonitions contextuelles)
+- [x] Mettre "No filters = all logs" au début
 
 ## filtering-output.md
 - [ ] RAS (looks good)
 
 ## default-report.md
-- [ ] Enlever toutes les sections "Interpreting"
-- [ ] Enlever toutes les sections "Tuning recommendations"
-- [ ] Enlever section "Error Classes (SQLSTATE)"
+- [x] Enlever toutes les sections "Interpreting"
+- [x] Enlever toutes les sections "Tuning recommendations"
+- [x] Enlever section "Error Classes (SQLSTATE)"
 - [ ] Vérifier format checkpoint reporting
 
 ## sql-reports.md
