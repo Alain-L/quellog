@@ -217,10 +217,10 @@ MAINTENANCE
   Automatic vacuum count    : 668
   Automatic analyze count   : 353
   Top automatic vacuum operations per table:
-    alfresco.public.alf_lock               422  63.17%
-    alfresco.public.alf_audit_entry        216  32.34%       8.00 KB removed
+    app_db.public.sessions                 422  63.17%
+    app_db.public.audit_log                216  32.34%       8.00 KB removed
   Top automatic analyze operations per table:
-    alfresco.public.alf_lock                       300  84.99%
+    app_db.public.sessions                         300  84.99%
 ```
 
 **Metrics explained**:
