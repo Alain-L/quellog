@@ -44,6 +44,9 @@ SUMMARY
 
 Shows query execution statistics and load distribution.
 
+!!! note
+    Query details (list of slowest queries, most time-consuming queries) are only shown when using `--sql-summary`. The default report shows only summary metrics.
+
 ```
 SQL PERFORMANCE
 
@@ -113,6 +116,9 @@ EVENTS
 
 Tracks queries that exceeded `work_mem` and spilled to disk.
 
+!!! note
+    Query details ("Top queries by tempfile size") are only shown when using `--tempfiles`. The default report shows only summary metrics.
+
 ```
 TEMP FILES
 
@@ -151,6 +157,9 @@ TEMP FILES
 ## Locks
 
 Shows lock contention, wait times, and queries involved in lock waits.
+
+!!! note
+    Query details (the three query tables) are only shown when using `--locks`. The default report shows only summary metrics.
 
 ```
 LOCKS
