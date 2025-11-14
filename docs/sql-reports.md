@@ -136,10 +136,11 @@ This allows aggregating statistics across parameter variations.
 Filter by time, database, user, etc. to focus analysis:
 
 ```bash
-# Production database, last 24 hours
+# Production database, specific time range
 quellog /var/log/postgresql/*.log \
   --dbname production \
-  --window 24h \
+  --begin "2025-01-13 00:00:00" \
+  --end "2025-01-14 00:00:00" \
   --sql-summary
 
 # Specific user, yesterday

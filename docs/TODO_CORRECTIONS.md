@@ -16,11 +16,11 @@
 - [x] Enlever toutes les sections "Interpreting"
 - [x] Enlever toutes les sections "Tuning recommendations"
 - [x] Enlever section "Error Classes (SQLSTATE)"
-- [ ] Vérifier format checkpoint reporting
+- [x] Vérifier format checkpoint reporting (correct)
 
 ## sql-reports.md
-- [ ] Corriger la forme des tableaux --sql-summary (vérifier output/text.go)
-- [ ] Vérifier que c'est bien la vraie sortie
+- [x] Corriger la forme des tableaux --sql-summary (vérifier output/text.go)
+- [x] Vérifier que c'est bien la vraie sortie
 
 ## json-export.md
 - [ ] Ajouter exemples de résultats pour les commandes jq

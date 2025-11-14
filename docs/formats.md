@@ -123,8 +123,6 @@ PostgreSQL's CSV log format includes these fields (in order):
 - **Complete**: Includes dedicated `query` field for full SQL text
 - **Unambiguous**: No need to parse free-form text
 
-quellog achieves 99.79% query-to-tempfile association accuracy with CSV format due to the dedicated `query` field.
-
 ### JSON Format
 
 Modern structured JSON output, used in cloud environments and with `log_destination = 'jsonlog'` (PostgreSQL 15+).
@@ -398,7 +396,7 @@ quellog archive.tar.gz
 
 ## Best Practices
 
-1. **Use CSV format** for maximum query association accuracy (99.79%)
+1. **Use CSV format** for structured logging with dedicated query field
 2. **Use zstd compression** for backups (better ratio and speed than gzip)
 3. **Keep consistent naming** to leverage extension hints
 4. **Avoid binary files** in log directories (will be skipped but waste detection time)

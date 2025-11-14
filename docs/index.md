@@ -73,27 +73,27 @@ quellog is built for speed, utilizing:
 
 !!! example "Performance Examples"
 
-    **Standard stderr log (B.log - TODO: add size)**
+    **Standard stderr log (54 MB)**
 
-    - **Processing time**: TODO seconds
-    - **Throughput**: TODO MB/s
+    - **Processing time**: 0.34 seconds
+    - **Throughput**: ~159 MB/s
     - **Memory usage**: < 100 MB
 
-    **Large stderr log (I1.log - TODO: add size)**
+    **Large stderr log (1.0 GB)**
 
-    - **Processing time**: TODO seconds
-    - **Throughput**: TODO MB/s
+    - **Processing time**: 3.41 seconds
+    - **Throughput**: ~300 MB/s
 
-    **CSV log (C.csv - ~430 MB)**
+    **CSV log (1.2 GB)**
 
-    - **Processing time**: ~1.5 seconds
-    - **Throughput**: ~280 MB/s
+    - **Processing time**: 5.50 seconds
+    - **Throughput**: ~218 MB/s
 
     **Compressed tar archive (60 GB)**
 
-    - **Processing time**: TODO minutes
-    - **Throughput**: TODO MB/s
-    - **Parallel decompression**: 8 threads
+    - **Processing time**: 4 minutes 34 seconds
+    - **Throughput**: ~225 MB/s
+    - **Parallel decompression**: Automatic
 
 quellog can process typical production log files (100 MB - 1 GB) in seconds, making it suitable for both ad-hoc analysis and automated reporting pipelines.
 

@@ -16,7 +16,8 @@ quellog /var/log/postgresql/*.log --md > report.md
 # Combine with filters
 quellog /var/log/postgresql/*.log \
   --dbname production \
-  --window 24h \
+  --begin "2025-01-13 00:00:00" \
+  --end "2025-01-14 00:00:00" \
   --md > daily_report.md
 ```
 

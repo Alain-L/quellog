@@ -227,20 +227,16 @@ Use with `jq` for specific queries:
 
 ```bash
 # Get checkpoint count
-quellog /var/log/postgresql/*.log --json | jq '.checkpoints.complete_count'
+quellog /var/log/postgresql/*.log --json | jq '.checkpoints.total_checkpoints'
 # Output: 19
 
-# Extract top 5 slowest queries
-quellog /var/log/postgresql/*.log --json | \
-  jq '.sql.query_stats | to_entries | sort_by(-.value.max_time) | .[0:5] | .[] | {id: .value.id, max_time: .value.max_time}'
-# Output:
-# {"id": "se-a1b2c3d", "max_time": 3450.0}
-# {"id": "se-x4y5z6w", "max_time": 2340.0}
-# ...
+# Get total queries parsed
+quellog /var/log/postgresql/*.log --json | jq '.sql_performance.total_queries_parsed'
+# Output: 456
 
-# Get total query duration in seconds
-quellog /var/log/postgresql/*.log --json | jq '.sql.sum_query_duration / 1000'
-# Output: 526.0
+# Get query median duration
+quellog /var/log/postgresql/*.log --json | jq '.sql_performance.query_median_duration'
+# Output: "145 ms"
 ```
 
 ### Markdown Export

@@ -242,10 +242,11 @@ Output order:
 Section filtering works seamlessly with log filtering:
 
 ```bash
-# Production database, last 24 hours, only SQL performance
+# Production database, specific time range, only SQL performance
 quellog /var/log/postgresql/*.log \
   --dbname production \
-  --window 24h \
+  --begin "2025-01-13 00:00:00" \
+  --end "2025-01-14 00:00:00" \
   --sql-performance
 
 # Specific user, yesterday, only locks and tempfiles
@@ -256,10 +257,11 @@ quellog /var/log/postgresql/*.log \
   --locks \
   --tempfiles
 
-# Exclude monitoring, last hour, summary only
+# Exclude monitoring, specific hour, summary only
 quellog /var/log/postgresql/*.log \
   --exclude-user health_check \
-  --window 1h \
+  --begin "2025-01-13 14:00:00" \
+  --end "2025-01-13 15:00:00" \
   --summary
 ```
 
@@ -331,9 +333,10 @@ quellog $LOG_DIR/*.log \
 ### Connection Monitoring
 
 ```bash
-# Monitor connection patterns every hour
+# Monitor connection patterns for specific hour
 quellog /var/log/postgresql/*.log \
-  --window 1h \
+  --begin "2025-01-13 14:00:00" \
+  --end "2025-01-13 15:00:00" \
   --connections \
   --clients
 ```

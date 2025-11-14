@@ -339,7 +339,7 @@ quellog /var/log/postgresql/*.log --json | \
 #!/bin/bash
 # Alert if errors exceed threshold
 
-ERRORS=$(quellog /var/log/postgresql/*.log --window 1h --json | jq '.global.error_count')
+ERRORS=$(quellog /var/log/postgresql/*.log --begin "$(date -d '1 hour ago' '+%Y-%m-%d %H:00:00')" --end "$(date '+%Y-%m-%d %H:00:00')" --json | jq '.events.error_count')
 
 if [ $ERRORS -gt 10 ]; then
   curl -X POST -H 'Content-type: application/json' \
@@ -396,7 +396,10 @@ However, log filters do affect results:
 quellog /var/log/postgresql/*.log --dbname production --json > prod_report.json
 
 # Last 24 hours
-quellog /var/log/postgresql/*.log --window 24h --json > last_24h.json
+quellog /var/log/postgresql/*.log \
+  --begin "$(date -d 'yesterday' '+%Y-%m-%d 00:00:00')" \
+  --end "$(date '+%Y-%m-%d 00:00:00')" \
+  --json > last_24h.json
 ```
 
 ## JSON Schema
