@@ -15,61 +15,84 @@ quellog /var/log/postgresql/*.log --sql-summary
 ### Output Format
 
 ```
-SQL SUMMARY
+SQL PERFORMANCE
 
-Total queries: 456
-Unique queries: 127
+  Query load distribution | ■ = 1 s
 
-TOP QUERIES BY TOTAL TIME
+  00:00 - 03:59  ■■■■■■■■■■ 105 s
+  04:00 - 07:59  ■■■■■■■ 78 s
+  08:00 - 11:59  ■■■■■■■■■■■■■■ 145 s
+  12:00 - 15:59  ■■■■■■■■ 89 s
+  16:00 - 19:59  ■■■■■■ 67 s
+  20:00 - 23:59  ■■■■ 42 s
 
-  1. se-a1b2c3d  Total: 45.67s  Count: 23  Avg: 1.99s  Max: 3.45s
-     SELECT * FROM orders o
-     JOIN customers c ON o.customer_id = c.id
-     WHERE o.created_at > NOW() - INTERVAL '7 days'
-     ORDER BY o.created_at DESC
+  Total query duration      : 8m 46s
+  Total queries parsed      : 456
+  Total unique query        : 127
+  Top 1% slow queries       : 5
 
-  2. se-x4y5z6w  Total: 32.14s  Count: 156  Avg: 206ms  Max: 1.23s
-     SELECT id, email, name FROM users WHERE id = $1
+  Query max duration        : 2.34 s
+  Query min duration        : 12 ms
+  Query median duration     : 145 ms
+  Query 99% max duration    : 1.87 s
 
-  3. se-m7n8o9p  Total: 21.89s  Count: 8  Avg: 2.74s  Max: 4.12s
-     SELECT COUNT(*) FROM events
-     WHERE user_id = $1
-     AND event_type IN ($2, $3, $4)
-     GROUP BY DATE_TRUNC('day', created_at)
+  Query duration distribution | ■ = 10 req
 
-TOP QUERIES BY AVERAGE TIME
+  < 1 ms          ■■ 25 req
+  < 10 ms         ■■■■■■■ 78 req
+  < 100 ms        ■■■■■■■■■■■■■■ 156 req
+  < 1 s           ■■■■■■■■■■ 112 req
+  < 10 s          ■■■■■■■■ 89 req
+  >= 10 s         ■■ 23 req
 
-  1. se-q1w2e3r  Avg: 4.56s  Count: 3  Total: 13.68s  Max: 5.12s
-     SELECT * FROM large_table
-     WHERE unindexed_column LIKE '%pattern%'
+Slowest individual queries:
+SQLID      Query                                                            Duration
+------------------------------------------------------------------------------------
+se-a1b2c3  select * from orders o join customers c on o.customer_id...       15.23 s
+se-x4y5z6  with user_segments as ( select user_id, case when total...       14.57 s
+se-m7n8o9  with cohort_data as ( select user_id, date_trunc('day',...       12.68 s
 
-  2. se-t4y5u6i  Avg: 3.87s  Count: 12  Total: 46.44s  Max: 4.98s
-     UPDATE inventory SET quantity = quantity - $1
-     WHERE product_id = $2
-
-TOP QUERIES BY EXECUTION COUNT
-
-  1. se-x4y5z6w  Count: 156  Total: 32.14s  Avg: 206ms  Max: 1.23s
-     SELECT id, email, name FROM users WHERE id = $1
-
-  2. se-a9s8d7f  Count: 89  Total: 8.34s  Avg: 94ms  Max: 234ms
-     SELECT * FROM sessions WHERE session_id = $1
-
-TOP QUERIES BY MAX TIME
-
-  1. se-z9x8c7v  Max: 8.45s  Avg: 6.12s  Count: 4  Total: 24.48s
-     VACUUM ANALYZE users
-
-  2. se-q1w2e3r  Max: 5.12s  Avg: 4.56s  Count: 3  Total: 13.68s
-     SELECT * FROM large_table
-     WHERE unindexed_column LIKE '%pattern%'
+Most time consuming queries:
+SQLID      Query                                          Executed           Max           Avg         Total
+------------------------------------------------------------------------------------------------------------
+se-a1b2c3  select * from orders o join customer...              23       15.23 s        1.99 s       45.67 s
+se-x4y5z6  select id, email, name from users w...              156        1.23 s      206 ms        32.14 s
+se-m7n8o9  select count(*) from events where u...                8        4.12 s        2.74 s       21.89 s
 ```
 
 ### Sections Explained
 
-#### TOP QUERIES BY TOTAL TIME
+#### Query load distribution
 
-Queries sorted by cumulative execution time (sum of all executions).
+Histogram showing total query execution time per time bucket across the log period. Helps identify peak load periods.
+
+#### Query duration distribution
+
+Histogram showing distribution of queries by execution time ranges:
+- < 1 ms
+- < 10 ms
+- < 100 ms
+- < 1 s
+- < 10 s
+- >= 10 s
+
+#### Slowest individual queries
+
+Top 10 queries sorted by their longest single execution (max duration).
+
+**Columns**: SQLID, Query text (truncated), Duration (max)
+
+**Use for**:
+
+- Finding outlier slow queries
+- Detecting queries that sometimes perform poorly
+- Investigating performance regressions or lock contention
+
+#### Most time consuming queries
+
+Top 10 queries sorted by cumulative execution time (total duration).
+
+**Columns**: SQLID, Query text (truncated), Executed (count), Max, Avg, Total
 
 **Use for**:
 
@@ -77,47 +100,18 @@ Queries sorted by cumulative execution time (sum of all executions).
 - Identifying optimization candidates with high total impact
 - Understanding which queries dominate your workload
 
-#### TOP QUERIES BY AVERAGE TIME
-
-Queries sorted by mean execution time per query.
-
-**Use for**:
-
-- Finding consistently slow queries
-- Identifying queries that need indexes or rewrites
-- Detecting poorly optimized queries regardless of frequency
-
-#### TOP QUERIES BY EXECUTION COUNT
-
-Queries sorted by number of executions.
-
-**Use for**:
-
-- Finding hot queries (frequently executed)
-- Identifying candidates for caching or prepared statements
-- Understanding query patterns in your application
-
-#### TOP QUERIES BY MAX TIME
-
-Queries sorted by worst-case execution time.
-
-**Use for**:
-
-- Finding queries with worst-case performance issues
-- Identifying timeout candidates
-- Detecting queries with high variance (good avg, bad max)
-
 ### Query Information
 
 Each query entry shows:
 
-- **Query ID**: Short identifier (e.g., `se-a1b2c3d`) for use with `--sql-detail`
-- **Metrics**:
-    - **Total**: Sum of all execution times
-    - **Count**: Number of times executed
+- **SQLID**: Short identifier (e.g., `se-a1b2c3`) for use with `--sql-detail`
+- **Query**: Normalized SQL text (truncated), with parameters replaced by `?` or `$1`, `$2`, etc.
+- **Metrics** (varies by table):
+    - **Duration**: Maximum execution time (in "Slowest individual queries")
+    - **Executed**: Number of times executed
+    - **Max**: Slowest single execution
     - **Avg**: Average execution time
-    - **Max**: Slowest execution
-- **Normalized query**: Parameters replaced with `$1`, `$2`, etc.
+    - **Total**: Sum of all execution times
 
 ### Query Normalization
 
