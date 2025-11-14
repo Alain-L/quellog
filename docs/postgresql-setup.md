@@ -1,21 +1,19 @@
 # PostgreSQL Configuration
 
-To get the most comprehensive insights from quellog, PostgreSQL must be configured to log the right information. This guide covers the logging settings that affect quellog's analysis capabilities.
+This guide covers the PostgreSQL logging settings that affect quellog's analysis capabilities.
 
 ## Logging Destination
 
-PostgreSQL can write logs to different destinations. Each has trade-offs.
+PostgreSQL can write logs to different destinations.
 
-### stderr (Recommended for quellog)
+### stderr
 
 ```ini
 log_destination = 'stderr'
 logging_collector = on
 ```
 
-- **Pros**: Human-readable, easy to inspect manually
-- **Cons**: Requires careful `log_line_prefix` configuration for structured parsing
-- **Best for**: General-purpose logging, development environments
+Logs are written in plain text format. The `log_line_prefix` configuration determines what metadata is included with each log entry.
 
 ### csvlog
 
@@ -24,9 +22,7 @@ log_destination = 'csvlog'
 logging_collector = on
 ```
 
-- **Pros**: Structured format, dedicated query field for better query association
-- **Cons**: Not human-readable without tools
-- **Best for**: Production environments, automated analysis
+Logs are written in CSV format with a fixed structure and dedicated fields for user, database, application, query text, and other metadata.
 
 ### jsonlog (PostgreSQL 15+)
 
@@ -35,9 +31,7 @@ log_destination = 'jsonlog'
 logging_collector = on
 ```
 
-- **Pros**: Modern structured format, easy integration with log aggregation tools
-- **Cons**: Larger file sizes, requires PostgreSQL 15+
-- **Best for**: Cloud deployments, integration with modern observability stacks
+Logs are written in JSON format with structured fields. Available in PostgreSQL 15 and later.
 
 ### Multiple Destinations
 
@@ -47,8 +41,6 @@ You can log to multiple destinations simultaneously:
 log_destination = 'stderr,csvlog'
 ```
 
-This gives you both human-readable logs (`stderr`) and structured logs (`csvlog`) for analysis.
-
 ## Query Logging
 
 ### log_min_duration_statement
@@ -56,7 +48,7 @@ This gives you both human-readable logs (`stderr`) and structured logs (`csvlog`
 Controls which queries are logged based on execution time.
 
 ```ini
-# Log all queries (use in development or short-term troubleshooting)
+# Log all queries
 log_min_duration_statement = 0
 
 # Log queries taking longer than 1 second
@@ -65,28 +57,9 @@ log_min_duration_statement = 1000
 # Log queries taking longer than 100ms
 log_min_duration_statement = 100
 
-# Don't log query durations (default, not recommended for quellog)
+# Don't log query durations (default)
 log_min_duration_statement = -1
 ```
-
-!!! warning "Performance Impact"
-    Setting `log_min_duration_statement = 0` logs **every query**, which can:
-
-    - Generate massive log files on busy databases
-    - Increase I/O load
-    - Impact overall performance
-
-    Use this setting only in development or for temporary troubleshooting. In production, set a reasonable threshold (e.g., 100-1000ms).
-
-!!! tip "Finding the Right Threshold"
-    Start with a higher threshold (e.g., `1000` ms) and gradually lower it:
-
-    ```bash
-    # Analyze with 1s threshold
-    quellog /var/log/postgresql/*.log --sql-summary
-
-    # If you want more detail, lower the threshold and re-analyze
-    ```
 
 ### log_statement
 
@@ -102,15 +75,9 @@ log_statement = 'ddl'
 # Log DDL + data modification statements (INSERT, UPDATE, DELETE)
 log_statement = 'mod'
 
-# Log all statements (very verbose!)
+# Log all statements
 log_statement = 'all'
 ```
-
-!!! tip "Combining with log_min_duration_statement"
-    `log_statement = 'ddl'` combined with `log_min_duration_statement = 100` gives you:
-
-    - All DDL statements (CREATE TABLE, etc.)
-    - DML statements that take > 100ms
 
 ## Connection Logging
 
@@ -123,12 +90,6 @@ log_connections = on
 # Log disconnections with session statistics
 log_disconnections = on
 ```
-
-When enabled, quellog can analyze:
-
-- Connection rate over time
-- Session duration distribution
-- Clients connecting to the database
 
 Example log output:
 
@@ -185,9 +146,6 @@ This produces:
     2025-01-13 14:32:18 UTC [12345] LOG:  ...
     ```
 
-    ✅ Works with quellog
-    ❌ No database/user filtering available
-
 === "Detailed"
 
     ```ini
@@ -199,9 +157,6 @@ This produces:
     2025-01-13 14:32:18.456 UTC [12345] postgres@mydb 192.168.1.100 LOG:  ...
     ```
 
-    ✅ Works with quellog
-    ✅ Includes milliseconds
-
 === "With Transaction ID"
 
     ```ini
@@ -212,9 +167,6 @@ This produces:
     ```
     2025-01-13 14:32:18 UTC [12345]: [1-1] user=postgres,db=mydb,app=psql,host=192.168.1.100,xid=5678 LOG:  ...
     ```
-
-    ✅ Works with quellog
-    ✅ Includes transaction ID for correlation
 
 !!! info "CSV Log Format"
     When using `log_destination = 'csvlog'`, CSV logs have a fixed structure with dedicated fields for user, database, application, etc.
@@ -232,7 +184,7 @@ log_temp_files = 10240
 log_temp_files = -1
 ```
 
-Temporary files are created when queries exceed `work_mem`. Logging them helps identify memory-hungry queries.
+Temporary files are created when queries exceed `work_mem`.
 
 Example log output:
 
@@ -330,8 +282,6 @@ log_min_messages = warning
 
 # Options: debug5, debug4, debug3, debug2, debug1, info, notice, warning, error, log, fatal, panic
 ```
-
-For production, `warning` or `error` is typically appropriate. For development or troubleshooting, `info` or `log` provides more detail.
 
 ## Applying Configuration Changes
 
