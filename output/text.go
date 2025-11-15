@@ -865,9 +865,26 @@ func PrintSqlDetails(m analysis.AggregatedMetrics, queryDetails []string) {
 				}
 			}
 
-			fmt.Printf("  Total Time           : %s\n", formatQueryDuration(sqlStat.TotalTime))
-			fmt.Printf("  Median Time          : %s\n", formatQueryDuration(sqlStat.AvgTime))
-			fmt.Printf("  Max Time             : %s\n", formatQueryDuration(sqlStat.MaxTime))
+			// Duration distribution histogram (if multiple executions)
+			if sqlStat.Count > 1 {
+				durationHist, durationUnit, durationScale, durationLabels := computeSingleQueryDurationDistribution(m.SQL.Executions, qid)
+				if durationHist != nil {
+					PrintHistogram(durationHist, "Query duration distribution", durationUnit, durationScale, durationLabels)
+				}
+			}
+
+			// Calculate min duration from executions
+			minDuration := sqlStat.MaxTime
+			for _, exec := range m.SQL.Executions {
+				if exec.QueryID == qid && exec.Duration < minDuration {
+					minDuration = exec.Duration
+				}
+			}
+
+			fmt.Printf("  Total Duration       : %s\n", formatQueryDuration(sqlStat.TotalTime))
+			fmt.Printf("  Min Duration         : %s\n", formatQueryDuration(minDuration))
+			fmt.Printf("  Median Duration      : %s\n", formatQueryDuration(sqlStat.AvgTime))
+			fmt.Printf("  Max Duration         : %s\n", formatQueryDuration(sqlStat.MaxTime))
 		}
 
 		// TEMP FILES section (if tempfiles metrics available)
@@ -876,17 +893,43 @@ func PrintSqlDetails(m analysis.AggregatedMetrics, queryDetails []string) {
 			fmt.Println(bold + "TEMP FILES" + reset)
 			fmt.Println()
 
-			// Tempfiles histogram (if multiple events)
+			// Tempfiles size histogram (if multiple events)
 			if tempStat.Count > 1 {
-				tempHist, tempUnit, tempScale := computeSingleQueryTempFileHistogram(m.TempFiles.Events, qid)
-				if tempHist != nil {
-					PrintHistogram(tempHist, "Temp files created", tempUnit, tempScale, nil)
+				tempSizeHist, tempSizeUnit, tempSizeScale := computeSingleQueryTempFileHistogram(m.TempFiles.Events, qid)
+				if tempSizeHist != nil {
+					PrintHistogram(tempSizeHist, "Temp files size", tempSizeUnit, tempSizeScale, nil)
 				}
 			}
 
+			// Tempfiles count histogram (if multiple events)
+			if tempStat.Count > 1 {
+				tempCountHist, tempCountUnit, tempCountScale := computeSingleQueryTempFileCountHistogram(m.TempFiles.Events, qid)
+				if tempCountHist != nil {
+					PrintHistogram(tempCountHist, "Temp files count", tempCountUnit, tempCountScale, nil)
+				}
+			}
+
+			// Calculate min/max/avg size from events
+			var minSize, maxSize int64
+			minSize = math.MaxInt64
+			maxSize = 0
+			for _, event := range m.TempFiles.Events {
+				if event.QueryID == qid {
+					size := int64(event.Size)
+					if size < minSize {
+						minSize = size
+					}
+					if size > maxSize {
+						maxSize = size
+					}
+				}
+			}
 			avgSize := tempStat.TotalSize / int64(tempStat.Count)
+
 			fmt.Printf("  Temp Files #         : %d\n", tempStat.Count)
-			fmt.Printf("  Temp Files avg size  : %s\n", formatBytes(avgSize))
+			fmt.Printf("  Temp File min size   : %s\n", formatBytes(minSize))
+			fmt.Printf("  Temp File max size   : %s\n", formatBytes(maxSize))
+			fmt.Printf("  Temp File avg size   : %s\n", formatBytes(avgSize))
 			fmt.Printf("  Temp Files size      : %s\n", formatBytes(tempStat.TotalSize))
 		}
 

@@ -206,6 +206,160 @@ func computeSingleQueryTimeHistogram(executions []analysis.QueryExecution, query
 	return result, unit, scaleFactor
 }
 
+// computeSingleQueryDurationDistribution calculates a histogram of query duration distribution
+// for a specific query ID (similar to the global duration histogram).
+//
+// Returns:
+//   - histogram: map of duration ranges to query count
+//   - unit: "queries"
+//   - scaleFactor: for proportional display
+func computeSingleQueryDurationDistribution(executions []analysis.QueryExecution, queryID string) (map[string]int, string, int, []string) {
+	// Filter executions for this query
+	var filtered []analysis.QueryExecution
+	for _, exec := range executions {
+		if exec.QueryID == queryID {
+			filtered = append(filtered, exec)
+		}
+	}
+
+	if len(filtered) == 0 {
+		return nil, "", 0, nil
+	}
+
+	// Define duration buckets (same as global report)
+	bucketDefinitions := []struct {
+		label string
+		lower float64 // Lower bound in ms (inclusive)
+		upper float64 // Upper bound in ms (exclusive)
+	}{
+		{"< 1 ms", 0, 1},
+		{"< 10 ms", 1, 10},
+		{"< 100 ms", 10, 100},
+		{"< 1 s", 100, 1000},
+		{"< 10 s", 1000, 10000},
+		{">= 10 s", 10000, math.Inf(1)},
+	}
+
+	// Initialize histogram
+	histogram := make(map[string]int)
+	orderedLabels := make([]string, 0, len(bucketDefinitions))
+	for _, bucket := range bucketDefinitions {
+		histogram[bucket.label] = 0
+		orderedLabels = append(orderedLabels, bucket.label)
+	}
+
+	// Distribute executions into buckets
+	for _, exec := range filtered {
+		d := exec.Duration
+		for _, bucket := range bucketDefinitions {
+			if d >= bucket.lower && d < bucket.upper {
+				histogram[bucket.label]++
+				break
+			}
+		}
+	}
+
+	// Calculate scale factor
+	maxCount := 0
+	for _, count := range histogram {
+		if count > maxCount {
+			maxCount = count
+		}
+	}
+	histogramWidth := 40
+	scaleFactor := int(math.Ceil(float64(maxCount) / float64(histogramWidth)))
+	if scaleFactor < 1 {
+		scaleFactor = 1
+	}
+
+	return histogram, "queries", scaleFactor, orderedLabels
+}
+
+// computeSingleQueryTempFileCountHistogram calculates a histogram of temp file count
+// over time for a specific query ID.
+//
+// Returns:
+//   - histogram: map of time range labels to temp file count
+//   - unit: "files"
+//   - scaleFactor: for proportional display
+func computeSingleQueryTempFileCountHistogram(events []analysis.TempFileEvent, queryID string) (map[string]int, string, int) {
+	// Filter events for this query
+	var filtered []analysis.TempFileEvent
+	for _, event := range events {
+		if event.QueryID == queryID {
+			filtered = append(filtered, event)
+		}
+	}
+
+	if len(filtered) == 0 {
+		return nil, "", 0
+	}
+
+	// Find time range
+	start := filtered[0].Timestamp
+	end := filtered[0].Timestamp
+	for _, event := range filtered {
+		if event.Timestamp.Before(start) {
+			start = event.Timestamp
+		}
+		if event.Timestamp.After(end) {
+			end = event.Timestamp
+		}
+	}
+
+	// Divide into 6 buckets
+	totalDuration := end.Sub(start)
+	numBuckets := 6
+	bucketDuration := totalDuration / time.Duration(numBuckets)
+
+	if bucketDuration <= 0 {
+		bucketDuration = 1 * time.Nanosecond
+	}
+
+	// Prepare buckets
+	histogram := make([]int, numBuckets)
+	bucketLabels := make([]string, numBuckets)
+	for i := 0; i < numBuckets; i++ {
+		bucketStart := start.Add(time.Duration(i) * bucketDuration)
+		bucketEnd := start.Add(time.Duration(i+1) * bucketDuration)
+		bucketLabels[i] = fmt.Sprintf("%s - %s", bucketStart.Format("15:04"), bucketEnd.Format("15:04"))
+	}
+
+	// Count temp files per bucket
+	for _, event := range filtered {
+		elapsed := event.Timestamp.Sub(start)
+		bucketIndex := int(elapsed / bucketDuration)
+		if bucketIndex >= numBuckets {
+			bucketIndex = numBuckets - 1
+		}
+		if bucketIndex < 0 {
+			bucketIndex = 0
+		}
+		histogram[bucketIndex]++
+	}
+
+	// Convert to map
+	result := make(map[string]int, numBuckets)
+	for i, count := range histogram {
+		result[bucketLabels[i]] = count
+	}
+
+	// Calculate scale factor
+	maxValue := 0
+	for _, count := range histogram {
+		if count > maxValue {
+			maxValue = count
+		}
+	}
+	histogramWidth := 40
+	scaleFactor := int(math.Ceil(float64(maxValue) / float64(histogramWidth)))
+	if scaleFactor < 1 {
+		scaleFactor = 1
+	}
+
+	return result, "files", scaleFactor
+}
+
 // computeSingleQueryTempFileHistogram calculates a histogram of temp file sizes
 // over time for a specific query ID.
 //
