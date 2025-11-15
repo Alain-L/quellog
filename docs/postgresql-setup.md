@@ -107,7 +107,11 @@ Example output:
 
 ### Method 3: Use CSV or JSON logs
 
-CSV and JSON log formats include SQLSTATE codes by default:
+CSV and JSON log formats include SQLSTATE codes by default in dedicated fields:
+- CSV: `sql_state_code` (column index 12)
+- JSON: `state_code` field
+
+Both formats always include a SQLSTATE code, even for successful queries (code `00000`). quellog automatically filters out success codes to report only errors.
 
 ```ini
 # postgresql.conf
