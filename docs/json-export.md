@@ -115,7 +115,7 @@ PostgreSQL error classification by SQLSTATE code (when available).
 - `description`: Human-readable error class description
 - `count`: Number of errors in this class
 
-**Note:** Error classes require SQLSTATE codes in logs. See [PostgreSQL Configuration](#postgresql-configuration-for-error-classes) below.
+**Note:** Error classes require SQLSTATE codes in logs. See [Error Class Reporting](postgresql-setup.md#error-class-reporting-sqlstate-codes) for configuration instructions.
 
 ### sql_performance
 
@@ -402,52 +402,6 @@ Unique database entities.
   ]
 }
 ```
-
-## PostgreSQL Configuration for Error Classes
-
-To enable error class reporting, PostgreSQL must include SQLSTATE codes in log messages. Choose one of these methods:
-
-### Method 1: log_error_verbosity = verbose
-
-```sql
-ALTER SYSTEM SET log_error_verbosity = 'verbose';
-SELECT pg_reload_conf();
-```
-
-This produces error messages like:
-```
-ERROR: 42P01: relation "users" does not exist at character 15
-```
-
-### Method 2: %e in log_line_prefix
-
-```sql
-ALTER SYSTEM SET log_line_prefix = '%m [%p] %e ';
-SELECT pg_reload_conf();
-```
-
-This produces log lines like:
-```
-2025-01-01 12:00:00 CET [12345] 42P01 ERROR: relation "users" does not exist
-```
-
-### Method 3: CSV or JSON logs
-
-CSV and JSON log formats include SQLSTATE codes by default in dedicated fields:
-- CSV: `sql_state_code` column (column 12)
-- JSON: `state_code` field
-
-```sql
--- For CSV logs
-ALTER SYSTEM SET log_destination = 'csvlog';
-SELECT pg_reload_conf();
-
--- For JSON logs (PostgreSQL 15+)
-ALTER SYSTEM SET log_destination = 'jsonlog';
-SELECT pg_reload_conf();
-```
-
-See [PostgreSQL Configuration](postgresql-setup.md) for complete logging setup.
 
 ## Using jq
 
