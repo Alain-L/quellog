@@ -357,7 +357,7 @@ func computeSingleQueryTempFileCountHistogram(events []analysis.TempFileEvent, q
 		scaleFactor = 1
 	}
 
-	return result, "files", scaleFactor
+	return result, "", scaleFactor
 }
 
 // computeSingleQueryTempFileHistogram calculates a histogram of temp file sizes
