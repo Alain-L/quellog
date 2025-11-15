@@ -159,8 +159,11 @@ var errorClassDescriptions = map[string]string{
 }
 
 // Pre-compiled regex for extracting SQLSTATE codes from log messages.
-// Matches patterns like: SQLSTATE = '42P01' or SQLSTATE='42P01'
-var errorCodeRegex = regexp.MustCompile(`SQLSTATE\s*=\s*'([0-9A-Z]{5})'`)
+// Matches patterns like:
+//   - SQLSTATE = '42P01' or SQLSTATE='42P01' (log message content)
+//   - ERROR: 42P01: (with log_error_verbosity = verbose)
+//   - [PID] 42P01 ERROR: (with %e in log_line_prefix)
+var errorCodeRegex = regexp.MustCompile(`(?:SQLSTATE\s*=\s*'([0-9A-Z]{5})'|ERROR:\s+([0-9A-Z]{5}):|]\s+([0-9A-Z]{5})\s+(?:ERROR|DETAIL|STATEMENT):)`)
 
 // ============================================================================
 // Streaming error class analyzer
@@ -197,33 +200,29 @@ func (a *ErrorClassAnalyzer) Process(entry *parser.LogEntry) {
 	msg := entry.Message
 
 	// Quick checks before expensive operations
-	if len(msg) < 15 || msg[0] != 'S' { // "SQLSTATE" starts with 'S'
-		// Alternative: check if likely position has 'S'
-		found := false
-		for i := 0; i < len(msg)-8 && i < 100; i++ {
-			if msg[i] == 'S' && msg[i+1] == 'Q' {
-				found = true
-				break
-			}
-		}
-		if !found {
-			return
-		}
-	}
+	// Check for "ERROR:" or "SQLSTATE"
+	hasError := strings.Contains(msg, "ERROR:")
+	hasSQLSTATE := strings.Contains(msg, "SQLSTATE")
 
-	// Now do the full check
-	if !strings.Contains(msg, "SQLSTATE") {
+	if !hasError && !hasSQLSTATE {
 		return
 	}
 
 	// Extract SQLSTATE code using regex
 	match := errorCodeRegex.FindStringSubmatch(msg)
-	if len(match) != 2 {
+	if len(match) < 2 {
 		return
 	}
 
-	// Extract error class (first two characters of SQLSTATE)
+	// Extract SQLSTATE from whichever group matched (match[1], match[2], or match[3])
 	sqlstate := match[1]
+	if sqlstate == "" {
+		sqlstate = match[2]
+	}
+	if sqlstate == "" && len(match) > 3 {
+		sqlstate = match[3]
+	}
+
 	if len(sqlstate) >= 2 {
 		classCode := sqlstate[:2]
 		a.counts[classCode]++
@@ -231,20 +230,26 @@ func (a *ErrorClassAnalyzer) Process(entry *parser.LogEntry) {
 }
 
 func (a *ErrorClassAnalyzer) ProcessLegacy(entry *parser.LogEntry) {
-	// Quick check: skip if message doesn't contain SQLSTATE
-	if !strings.Contains(entry.Message, "SQLSTATE") {
+	// Quick check: skip if message doesn't contain SQLSTATE or ERROR:
+	if !strings.Contains(entry.Message, "SQLSTATE") && !strings.Contains(entry.Message, "ERROR:") {
 		return
 	}
 
 	// Extract SQLSTATE code using regex
-	// Note: We search the original message (case-insensitive regex handles it)
 	match := errorCodeRegex.FindStringSubmatch(entry.Message)
-	if len(match) != 2 {
+	if len(match) < 2 {
 		return
 	}
 
-	// Extract error class (first two characters of SQLSTATE)
+	// Extract SQLSTATE from whichever group matched (match[1], match[2], or match[3])
 	sqlstate := match[1]
+	if sqlstate == "" {
+		sqlstate = match[2]
+	}
+	if sqlstate == "" && len(match) > 3 {
+		sqlstate = match[3]
+	}
+
 	if len(sqlstate) >= 2 {
 		classCode := sqlstate[:2]
 		a.counts[classCode]++
