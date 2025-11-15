@@ -848,7 +848,7 @@ func PrintSqlDetails(m analysis.AggregatedMetrics, queryDetails []string) {
 		fmt.Printf("  Id                   : %s\n", qid)
 		fmt.Printf("  Query Type           : %s\n", queryType)
 		if sqlStat != nil {
-			fmt.Printf("  Executed             : %d\n", sqlStat.Count)
+			fmt.Printf("  Count                : %d\n", sqlStat.Count)
 		}
 
 		// TIME section (if SQL metrics available)

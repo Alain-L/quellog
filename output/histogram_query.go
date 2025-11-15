@@ -91,7 +91,7 @@ func computeSingleQueryExecutionHistogram(executions []analysis.QueryExecution, 
 		scaleFactor = 1
 	}
 
-	return result, "x", scaleFactor
+	return result, "", scaleFactor
 }
 
 // computeSingleQueryTimeHistogram calculates a histogram of cumulative execution time
