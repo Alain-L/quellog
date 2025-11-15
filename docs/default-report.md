@@ -8,13 +8,14 @@ When you run quellog without any section flags, you get a comprehensive report w
 
 1. [Summary](#summary) - Overview statistics
 2. [SQL Performance](#sql-performance) - Query timing and distribution
-3. [Events](#events) - Log severity and error classification
-4. [Temporary Files](#temporary-files) - Disk spills from memory exhaustion
-5. [Locks](#locks) - Lock contention and wait times
-6. [Maintenance](#maintenance) - Vacuum and analyze operations
-7. [Checkpoints](#checkpoints) - Checkpoint frequency and timing
-8. [Connections & Sessions](#connections-sessions) - Connection patterns
-9. [Clients](#clients) - Unique database entities
+3. [Events](#events) - Log severity distribution
+4. [Error Classes](#error-classes) - SQLSTATE error classification
+5. [Temporary Files](#temporary-files) - Disk spills from memory exhaustion
+6. [Locks](#locks) - Lock contention and wait times
+7. [Maintenance](#maintenance) - Vacuum and analyze operations
+8. [Checkpoints](#checkpoints) - Checkpoint frequency and timing
+9. [Connections & Sessions](#connections-sessions) - Connection patterns
+10. [Clients](#clients) - Unique database entities
 
 ## Summary
 
@@ -111,6 +112,30 @@ EVENTS
 - **ERROR**: Query failures, constraint violations
 - **FATAL**: Session termination errors
 - **PANIC**: Server crash-level errors
+
+## Error Classes
+
+Shows PostgreSQL error distribution by SQLSTATE error class code.
+
+```
+ERROR CLASSES
+
+  42 – Syntax Error or Access Rule Violation   : 125
+  23 – Integrity Constraint Violation          : 18
+  22 – Data Exception                          : 5
+  53 – Insufficient Resources                  : 2
+```
+
+**Common error classes**:
+
+- **42**: Syntax errors, undefined objects, permission issues
+- **23**: Foreign key violations, unique constraint violations
+- **22**: Invalid input, division by zero, invalid text representation
+- **53**: Out of memory, disk full, too many connections
+- **08**: Connection exceptions
+- **40**: Transaction rollback (deadlock, serialization failure)
+
+**Note**: Error classes require SQLSTATE codes in logs. Configure with `%e` in `log_line_prefix`, `log_error_verbosity = 'verbose'`, or use csvlog/jsonlog formats.
 
 ## Temporary Files
 
