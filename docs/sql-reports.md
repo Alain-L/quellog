@@ -226,6 +226,7 @@ TIME
 ```
 
 Execution time analysis with two histograms (shown when count > 1):
+
 - **Cumulative time**: Total time spent per time period
 - **Query duration distribution**: Number of queries in each duration bucket
 
@@ -260,6 +261,7 @@ TEMP FILES
 ```
 
 Temporary file analysis with two histograms (shown when count > 1):
+
 - **Temp files size**: Cumulative size of temp files per time period
 - **Temp files count**: Number of temp files created per time period
 
