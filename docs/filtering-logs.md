@@ -23,8 +23,8 @@ tail -f /var/log/postgresql/postgresql.log | quellog -
 # From command output
 kubectl logs postgres-pod | quellog -
 
-# From compressed archives
-zcat logs.gz | quellog -
+# From bzip2 archives (gzip handled natively)
+bzcat logs.bz2 | quellog -
 ```
 
 Format detection works automatically for stdin.
