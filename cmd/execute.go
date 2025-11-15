@@ -37,9 +37,17 @@ func executeParsing(cmd *cobra.Command, args []string) {
 
 	// Step 2: Validate and parse time filter options
 	validateTimeFilters()
-	beginT, endT := parseDateTimes(beginTime, endTime)
-	windowDur := parseWindow(windowFlag)
-	beginT, endT = applyTimeWindow(beginT, endT, windowDur)
+
+	var beginT, endT time.Time
+	if lastFlag != "" {
+		// --last takes precedence and sets both begin and end
+		beginT, endT = parseLast(lastFlag)
+	} else {
+		// Parse --begin and --end normally
+		beginT, endT = parseDateTimes(beginTime, endTime)
+		windowDur := parseWindow(windowFlag)
+		beginT, endT = applyTimeWindow(beginT, endT, windowDur)
+	}
 
 	// Step 3: Set up streaming pipeline
 	rawLogs := make(chan parser.LogEntry, 24576)
@@ -284,6 +292,13 @@ func buildSectionList() []string {
 func validateTimeFilters() {
 	if beginTime != "" && endTime != "" && windowFlag != "" {
 		log.Fatalf("[ERROR] --begin, --end, and --window cannot all be used together")
+	}
+
+	// --last cannot be used with other time filters
+	if lastFlag != "" {
+		if beginTime != "" || endTime != "" || windowFlag != "" {
+			log.Fatalf("[ERROR] --last cannot be used with --begin, --end, or --window")
+		}
 	}
 }
 
