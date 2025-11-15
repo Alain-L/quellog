@@ -590,7 +590,8 @@ func PrintSQLSummaryWithContext(m analysis.SqlMetrics, tempFiles analysis.TempFi
 
 		// Tempfiles queries
 		if len(tempFiles.QueryStats) > 0 {
-			fmt.Println(bold + "\nQueries generating temp files:" + reset)
+			fmt.Println(bold + "\nTEMP FILES" + reset)
+			fmt.Println()
 
 			// Sort queries by total size descending
 			type queryWithSize struct {
@@ -655,6 +656,12 @@ func PrintSQLSummaryWithContext(m analysis.SqlMetrics, tempFiles analysis.TempFi
 						formatBytes(stat.TotalSize))
 				}
 			}
+			fmt.Println()
+		}
+
+		// Locks section header
+		if len(locks.QueryStats) > 0 {
+			fmt.Println(bold + "\nLOCKS" + reset)
 			fmt.Println()
 		}
 
