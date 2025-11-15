@@ -15,16 +15,20 @@ quellog /var/log/postgresql/*.log --dbname production --json > prod.json
 
 ## Design Philosophy
 
-The JSON export provides **complete raw data** without client-side calculations, allowing you to:
+The JSON export provides **quellog's complete analysis data structures** with all metrics pre-calculated, ready for programmatic consumption. This allows you to:
 
-- Reconstruct the full analysis from exported data
-- Perform custom aggregations and filtering
-- Build your own dashboards and visualizations
-- Archive analysis results for historical comparison
+- Consume analysis results without rendering logic
+- Build custom visualizations and dashboards
+- Integrate with monitoring and alerting systems
+- Archive analysis snapshots for historical comparison
+- Perform additional filtering or aggregations on individual events
 
-Each section exports both:
-- **Raw events**: individual log entries with timestamps and metrics
-- **Query metadata**: normalized queries with their statistics (when applicable)
+Each section exports:
+- **Aggregated metrics**: all counts, totals, averages, and percentiles already calculated
+- **Individual events**: timestamped entries for custom analysis and drill-down
+- **Query metadata**: normalized queries with their complete statistics (when applicable)
+
+The only thing **not** included is text formatting—all the analytical work is done.
 
 ## JSON Structure
 
