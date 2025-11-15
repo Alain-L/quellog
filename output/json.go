@@ -1,10 +1,12 @@
 package output
 
 import (
-	"github.com/Alain-L/quellog/analysis"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"time"
+
+	"github.com/Alain-L/quellog/analysis"
 )
 
 // JSON structures define the format of the output data.
@@ -18,11 +20,16 @@ import (
 // - ClientsJSON: counts of unique databases, users, and client applications.
 
 type SummaryJSON struct {
-	StartDate  string `json:"start_date"`
-	EndDate    string `json:"end_date"`
-	Duration   string `json:"duration"`
-	TotalLogs  int    `json:"total_logs"`
-	Throughput string `json:"throughput"`
+	StartDate    string `json:"start_date"`
+	EndDate      string `json:"end_date"`
+	Duration     string `json:"duration"`
+	TotalLogs    int    `json:"total_logs"`
+	Throughput   string `json:"throughput"`
+	ErrorCount   int    `json:"error_count"`
+	FatalCount   int    `json:"fatal_count"`
+	PanicCount   int    `json:"panic_count"`
+	WarningCount int    `json:"warning_count"`
+	LogCount     int    `json:"log_count"`
 }
 
 type SQLPerformanceJSON struct {
@@ -35,23 +42,45 @@ type SQLPerformanceJSON struct {
 	QueryMedianDuration    string               `json:"query_median_duration"`
 	Query99thPercentile    string               `json:"query_99th_percentile"`
 	Executions             []QueryExecutionJSON `json:"executions"`
+	Queries                []QueryStatJSON      `json:"queries"`
 }
 
 type QueryExecutionJSON struct {
 	Timestamp string `json:"timestamp"`
 	Duration  string `json:"duration"`
+	QueryID   string `json:"query_id"`
+}
+
+type QueryStatJSON struct {
+	ID              string  `json:"id"`
+	NormalizedQuery string  `json:"normalized_query"`
+	RawQuery        string  `json:"raw_query"`
+	Count           int     `json:"count"`
+	TotalTime       float64 `json:"total_time_ms"`
+	AvgTime         float64 `json:"avg_time_ms"`
+	MaxTime         float64 `json:"max_time_ms"`
 }
 
 type TempFilesJSON struct {
-	TotalMessages int                 `json:"total_messages"`
-	TotalSize     string              `json:"total_size"`
-	AvgSize       string              `json:"avg_size"`
-	Events        []TempFileEventJSON `json:"events"`
+	TotalMessages int                      `json:"total_messages"`
+	TotalSize     string                   `json:"total_size"`
+	AvgSize       string                   `json:"avg_size"`
+	Events        []TempFileEventJSON      `json:"events"`
+	Queries       []TempFileQueryStatJSON  `json:"queries,omitempty"`
 }
 
 type TempFileEventJSON struct {
 	Timestamp string `json:"timestamp"`
 	Size      string `json:"size"`
+	QueryID   string `json:"query_id,omitempty"`
+}
+
+type TempFileQueryStatJSON struct {
+	ID              string `json:"id"`
+	NormalizedQuery string `json:"normalized_query"`
+	RawQuery        string `json:"raw_query"`
+	Count           int    `json:"count"`
+	TotalSize       string `json:"total_size"`
 }
 
 type MaintenanceJSON struct {
@@ -72,7 +101,7 @@ type LocksJSON struct {
 	LockTypeStats     map[string]int      `json:"lock_type_stats"`
 	ResourceTypeStats map[string]int      `json:"resource_type_stats"`
 	Events            []LockEventJSON     `json:"events"`
-	TopQueries        []LockQueryStatJSON `json:"top_queries,omitempty"`
+	Queries           []LockQueryStatJSON `json:"queries,omitempty"`
 }
 
 type LockEventJSON struct {
@@ -82,11 +111,13 @@ type LockEventJSON struct {
 	ResourceType string `json:"resource_type,omitempty"`
 	WaitTime     string `json:"wait_time,omitempty"`
 	ProcessID    string `json:"process_id"`
+	QueryID      string `json:"query_id,omitempty"`
 }
 
 type LockQueryStatJSON struct {
 	ID                  string `json:"id"`
 	NormalizedQuery     string `json:"normalized_query"`
+	RawQuery            string `json:"raw_query"`
 	AcquiredCount       int    `json:"acquired_count"`
 	AcquiredWaitTime    string `json:"acquired_wait_time"`
 	StillWaitingCount   int    `json:"still_waiting_count"`
@@ -124,6 +155,12 @@ type ClientsJSON struct {
 	UniqueHosts     int `json:"unique_hosts"`
 }
 
+type EventJSON struct {
+	Type       string  `json:"type"`
+	Count      int     `json:"count"`
+	Percentage float64 `json:"percentage"`
+}
+
 // ExportJSON brings together all metrics into one composite structure,
 // converts it into an indented JSON string, and outputs the result.
 // Only sections with data are included in the output.
@@ -148,9 +185,13 @@ func ExportJSON(m analysis.AggregatedMetrics, sections []string) {
 
 	// Events summary
 	if has("events") && len(m.EventSummaries) > 0 {
-		events := make(map[string]int)
-		for _, ev := range m.EventSummaries {
-			events[ev.Type] = ev.Count
+		events := make([]EventJSON, len(m.EventSummaries))
+		for i, ev := range m.EventSummaries {
+			events[i] = EventJSON{
+				Type:       ev.Type,
+				Count:      ev.Count,
+				Percentage: ev.Percentage,
+			}
 		}
 		data["events"] = events
 	}
@@ -167,13 +208,30 @@ func ExportJSON(m analysis.AggregatedMetrics, sections []string) {
 			TotalSize:     formatBytes(m.TempFiles.TotalSize),
 			AvgSize:       formatBytes(m.TempFiles.TotalSize / int64(m.TempFiles.Count)),
 			Events:        []TempFileEventJSON{},
+			Queries:       []TempFileQueryStatJSON{},
 		}
+		// Export events with QueryID
 		for _, event := range m.TempFiles.Events {
 			tf.Events = append(tf.Events, TempFileEventJSON{
 				Timestamp: event.Timestamp.Format("2006-01-02 15:04:05"),
 				Size:      formatBytes(int64(event.Size)),
+				QueryID:   event.QueryID,
 			})
 		}
+		// Export query stats (sorted by ID for deterministic output)
+		for _, stat := range m.TempFiles.QueryStats {
+			tf.Queries = append(tf.Queries, TempFileQueryStatJSON{
+				ID:              stat.ID,
+				NormalizedQuery: stat.NormalizedQuery,
+				RawQuery:        stat.RawQuery,
+				Count:           stat.Count,
+				TotalSize:       formatBytes(stat.TotalSize),
+			})
+		}
+		// Sort by ID for deterministic JSON output
+		sort.Slice(tf.Queries, func(i, j int) bool {
+			return tf.Queries[i].ID < tf.Queries[j].ID
+		})
 		data["temp_files"] = tf
 	}
 
@@ -323,11 +381,16 @@ func convertSummary(m analysis.AggregatedMetrics) SummaryJSON {
 		throughput = float64(m.Global.Count) / duration.Seconds()
 	}
 	return SummaryJSON{
-		StartDate:  m.Global.MinTimestamp.Format("2006-01-02 15:04:05"),
-		EndDate:    m.Global.MaxTimestamp.Format("2006-01-02 15:04:05"),
-		Duration:   duration.String(),
-		TotalLogs:  m.Global.Count,
-		Throughput: fmt.Sprintf("%.2f entries/s", throughput),
+		StartDate:    m.Global.MinTimestamp.Format("2006-01-02 15:04:05"),
+		EndDate:      m.Global.MaxTimestamp.Format("2006-01-02 15:04:05"),
+		Duration:     duration.String(),
+		TotalLogs:    m.Global.Count,
+		Throughput:   fmt.Sprintf("%.2f entries/s", throughput),
+		ErrorCount:   m.Global.ErrorCount,
+		FatalCount:   m.Global.FatalCount,
+		PanicCount:   m.Global.PanicCount,
+		WarningCount: m.Global.WarningCount,
+		LogCount:     m.Global.LogCount,
 	}
 }
 
@@ -353,8 +416,27 @@ func convertSQLPerformance(m analysis.SqlMetrics) SQLPerformanceJSON {
 		executionsJSON[i] = QueryExecutionJSON{
 			Timestamp: exec.Timestamp.Format("2006-01-02 15:04:05"),
 			Duration:  formatQueryDuration(exec.Duration),
+			QueryID:   exec.QueryID,
 		}
 	}
+
+	// Export all query stats (sorted by ID for deterministic output)
+	queriesJSON := make([]QueryStatJSON, 0, len(m.QueryStats))
+	for _, stat := range m.QueryStats {
+		queriesJSON = append(queriesJSON, QueryStatJSON{
+			ID:              stat.ID,
+			NormalizedQuery: stat.NormalizedQuery,
+			RawQuery:        stat.RawQuery,
+			Count:           stat.Count,
+			TotalTime:       stat.TotalTime,
+			AvgTime:         stat.AvgTime,
+			MaxTime:         stat.MaxTime,
+		})
+	}
+	// Sort by ID for deterministic JSON output
+	sort.Slice(queriesJSON, func(i, j int) bool {
+		return queriesJSON[i].ID < queriesJSON[j].ID
+	})
 
 	return SQLPerformanceJSON{
 		TotalQueryDuration:     formatQueryDuration(m.SumQueryDuration),
@@ -366,6 +448,7 @@ func convertSQLPerformance(m analysis.SqlMetrics) SQLPerformanceJSON {
 		QueryMedianDuration:    formatQueryDuration(m.MedianQueryDuration),
 		Query99thPercentile:    formatQueryDuration(m.P99QueryDuration),
 		Executions:             executionsJSON,
+		Queries:                queriesJSON,
 	}
 }
 
@@ -395,42 +478,17 @@ func convertLocks(m analysis.LockMetrics) LocksJSON {
 			ResourceType: event.ResourceType,
 			WaitTime:     waitTime,
 			ProcessID:    event.ProcessID,
+			QueryID:      event.QueryID,
 		}
 	}
 
-	// Convert top queries (sorted by total wait time)
-	type queryPair struct {
-		stat *analysis.LockQueryStat
-	}
-	var pairs []queryPair
+	// Export all query stats (sorted by ID for deterministic output)
+	queriesJSON := make([]LockQueryStatJSON, 0, len(m.QueryStats))
 	for _, stat := range m.QueryStats {
-		pairs = append(pairs, queryPair{stat})
-	}
-	// Sort by total wait time descending, then by ID ascending for deterministic ordering
-	for i := 0; i < len(pairs)-1; i++ {
-		for j := i + 1; j < len(pairs); j++ {
-			// Primary: sort by total wait time (descending)
-			if pairs[j].stat.TotalWaitTime > pairs[i].stat.TotalWaitTime {
-				pairs[i], pairs[j] = pairs[j], pairs[i]
-			} else if pairs[j].stat.TotalWaitTime == pairs[i].stat.TotalWaitTime {
-				// Secondary: sort by ID (ascending) for stable output
-				if pairs[j].stat.ID < pairs[i].stat.ID {
-					pairs[i], pairs[j] = pairs[j], pairs[i]
-				}
-			}
-		}
-	}
-
-	topQueries := make([]LockQueryStatJSON, 0, 10)
-	limit := 10
-	if len(pairs) < limit {
-		limit = len(pairs)
-	}
-	for i := 0; i < limit; i++ {
-		stat := pairs[i].stat
-		topQueries = append(topQueries, LockQueryStatJSON{
+		queriesJSON = append(queriesJSON, LockQueryStatJSON{
 			ID:                stat.ID,
 			NormalizedQuery:   stat.NormalizedQuery,
+			RawQuery:          stat.RawQuery,
 			AcquiredCount:     stat.AcquiredCount,
 			AcquiredWaitTime:  fmt.Sprintf("%.2f ms", stat.AcquiredWaitTime),
 			StillWaitingCount: stat.StillWaitingCount,
@@ -438,6 +496,10 @@ func convertLocks(m analysis.LockMetrics) LocksJSON {
 			TotalWaitTime:     fmt.Sprintf("%.2f ms", stat.TotalWaitTime),
 		})
 	}
+	// Sort by ID for deterministic JSON output
+	sort.Slice(queriesJSON, func(i, j int) bool {
+		return queriesJSON[i].ID < queriesJSON[j].ID
+	})
 
 	return LocksJSON{
 		TotalEvents:       m.TotalEvents,
@@ -449,6 +511,6 @@ func convertLocks(m analysis.LockMetrics) LocksJSON {
 		LockTypeStats:     m.LockTypeStats,
 		ResourceTypeStats: m.ResourceTypeStats,
 		Events:            eventsJSON,
-		TopQueries:        topQueries,
+		Queries:           queriesJSON,
 	}
 }

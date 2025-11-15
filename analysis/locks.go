@@ -59,6 +59,10 @@ type LockEvent struct {
 
 	// ProcessID is the PID of the process involved.
 	ProcessID string
+
+	// QueryID is the short identifier for the associated query (e.g., "se-abc123").
+	// May be empty if the query cannot be identified.
+	QueryID string
 }
 
 // LockQueryStat stores aggregated lock statistics for a single query pattern.
@@ -298,12 +302,21 @@ func (a *LockAnalyzer) Process(entry *parser.LogEntry) {
 		a.deadlockEvents++
 		a.totalEvents++
 		pid := parser.ExtractPID(msg)
+
+		// Generate QueryID if query is known
+		queryID := ""
+		if query, ok := a.lastQueryByPID[pid]; ok && query != "" {
+			normalized := normalizeQuery(query)
+			queryID, _ = GenerateQueryID(query, normalized)
+		}
+
 		a.events = append(a.events, LockEvent{
 			Timestamp:  entry.Timestamp,
 			EventType:  "deadlock",
 			LockType:   "",
 			WaitTime:   0,
 			ProcessID:  pid,
+			QueryID:    queryID,
 		})
 		return
 	}
@@ -344,6 +357,13 @@ func (a *LockAnalyzer) Process(entry *parser.LogEntry) {
 			a.lockTypeStats[lockType]++
 			a.resourceTypeStats[resourceType]++
 
+			// Generate QueryID if query is known
+			queryID := ""
+			if lock.query != "" {
+				normalized := normalizeQuery(lock.query)
+				queryID, _ = GenerateQueryID(lock.query, normalized)
+			}
+
 			a.events = append(a.events, LockEvent{
 				Timestamp:    entry.Timestamp,
 				EventType:    "waiting",
@@ -351,6 +371,7 @@ func (a *LockAnalyzer) Process(entry *parser.LogEntry) {
 				ResourceType: resourceType,
 				WaitTime:     waitTime,
 				ProcessID:    processID,
+				QueryID:      queryID,
 			})
 		} else { // "acquired"
 			lock, exists := a.activeLocks[lockKey]
@@ -382,6 +403,13 @@ func (a *LockAnalyzer) Process(entry *parser.LogEntry) {
 			a.lockTypeStats[lockType]++
 			a.resourceTypeStats[resourceType]++
 
+			// Generate QueryID if query is known
+			queryID := ""
+			if lock != nil && lock.query != "" {
+				normalized := normalizeQuery(lock.query)
+				queryID, _ = GenerateQueryID(lock.query, normalized)
+			}
+
 			a.events = append(a.events, LockEvent{
 				Timestamp:    entry.Timestamp,
 				EventType:    "acquired",
@@ -389,6 +417,7 @@ func (a *LockAnalyzer) Process(entry *parser.LogEntry) {
 				ResourceType: resourceType,
 				WaitTime:     waitTime,
 				ProcessID:    processID,
+				QueryID:      queryID,
 			})
 		}
 	}
@@ -581,6 +610,11 @@ func (a *LockAnalyzer) Finalize() LockMetrics {
 					FullHash:          fullHash,
 				}
 				queryStats[fullHash] = stat
+			} else {
+				// For deterministic JSON output, always keep the alphabetically first raw query
+				if lock.query < stat.RawQuery {
+					stat.RawQuery = lock.query
+				}
 			}
 
 			// Add this lock's wait time (counted once per lock, not per event)
