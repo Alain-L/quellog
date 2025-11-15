@@ -841,7 +841,7 @@ func PrintSqlDetails(m analysis.AggregatedMetrics, queryDetails []string) {
 		if sqlStat != nil && sqlStat.Count > 1 {
 			execHist, execUnit, execScale := computeSingleQueryExecutionHistogram(m.SQL.Executions, qid)
 			if execHist != nil {
-				PrintHistogram(execHist, "Query executions", execUnit, execScale, nil)
+				PrintHistogram(execHist, "Query count", execUnit, execScale, nil)
 			}
 		}
 
