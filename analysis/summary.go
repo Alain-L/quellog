@@ -295,15 +295,36 @@ func NewUniqueEntityAnalyzer() *UniqueEntityAnalyzer {
 func (a *UniqueEntityAnalyzer) Process(entry *parser.LogEntry) {
 	msg := entry.Message
 
-	// Use strings.Index for each pattern - Go's stdlib is highly optimized (likely SIMD)
-	// Manual loops are slower despite being "single-pass" due to lack of low-level optimizations
-	dbIdx := strings.Index(msg, "db=")
-	databaseIdx := strings.Index(msg, "database=")
-	userIdx := strings.Index(msg, "user=")
-	appIdx := strings.Index(msg, "app=")
-	appNameIdx := strings.Index(msg, "application_name=")
-	hostIdx := strings.Index(msg, "host=")
-	clientIdx := strings.Index(msg, "client=")
+	// OPTIMIZATION: Search for '=' first - much more discriminating than individual chars
+	// Most log messages don't have key=value patterns, so this rejects them immediately
+	if strings.IndexByte(msg, '=') == -1 {
+		return
+	}
+
+	// Now do targeted Index searches only when '=' is present
+	// Order optimized: check shorter/more common patterns first to fail fast
+	var dbIdx, databaseIdx, userIdx, appIdx, appNameIdx, hostIdx, clientIdx int = -1, -1, -1, -1, -1, -1, -1
+
+	// Database (try short form first)
+	dbIdx = strings.Index(msg, "db=")
+	if dbIdx == -1 {
+		databaseIdx = strings.Index(msg, "database=")
+	}
+
+	// User
+	userIdx = strings.Index(msg, "user=")
+
+	// Application (try short form first)
+	appIdx = strings.Index(msg, "app=")
+	if appIdx == -1 {
+		appNameIdx = strings.Index(msg, "application_name=")
+	}
+
+	// Host (try host= first, only check client= if host not found)
+	hostIdx = strings.Index(msg, "host=")
+	if hostIdx == -1 {
+		clientIdx = strings.Index(msg, "client=")
+	}
 
 	// Extract database name (prefer "db=" over "database=")
 	if dbIdx != -1 {
