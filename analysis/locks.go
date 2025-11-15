@@ -243,15 +243,22 @@ func (a *LockAnalyzer) Process(entry *parser.LogEntry) {
 	}
 
 	// Now check specific patterns (only after first lock seen)
-	hasLockWaiting := strings.Contains(msg, lockStillWaiting)
-	hasLockAcquired := strings.Contains(msg, lockAcquired)
-	hasDeadlock := strings.Contains(msg, lockDeadlock)
+	hasLockWaiting := strings.Index(msg, lockStillWaiting) >= 0
+	hasLockAcquired := strings.Index(msg, lockAcquired) >= 0
+	hasDeadlock := strings.Index(msg, lockDeadlock) >= 0
 
 	// OPTIMIZATION 3: Skip STATEMENT parsing until locks are actually seen
 	// This avoids filling lastQueryByPID unnecessarily
 	hasStatement := false
 	if a.locksExist {
-		hasStatement = strings.Contains(msg, "statement:") || strings.Contains(msg, "STATEMENT:")
+		// OPTIMIZATION: Check for "TATEMENT:" instead of two separate Contains calls
+		// This pattern appears in both "STATEMENT:" and "statement:"
+		if idx := strings.Index(msg, "TATEMENT:"); idx >= 0 {
+			// Verify it's actually STATEMENT or statement (check preceding char)
+			if idx == 0 || msg[idx-1] == 'S' || msg[idx-1] == 's' {
+				hasStatement = true
+			}
+		}
 	}
 
 	// Skip if nothing relevant
@@ -265,7 +272,8 @@ func (a *LockAnalyzer) Process(entry *parser.LogEntry) {
 		var pid string
 
 		// Method 1: duration: X ms statement: QUERY
-		if strings.Contains(msg, "duration:") {
+		// OPTIMIZATION: Use Index instead of Contains
+		if durationIdx := strings.Index(msg, "duration:"); durationIdx >= 0 {
 			if idx := strings.Index(msg, "statement:"); idx != -1 {
 				query = strings.TrimSpace(msg[idx+10:])
 			}
