@@ -662,7 +662,6 @@ func PrintSQLSummaryWithContext(m analysis.SqlMetrics, tempFiles analysis.TempFi
 		// Locks section header
 		if len(locks.QueryStats) > 0 {
 			fmt.Println(bold + "\nLOCKS" + reset)
-			fmt.Println()
 		}
 
 		// Locks queries - Acquired locks by query
