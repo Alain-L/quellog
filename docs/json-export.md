@@ -13,39 +13,109 @@ quellog /var/log/postgresql/*.log --json > report.json
 quellog /var/log/postgresql/*.log --dbname production --json > prod.json
 ```
 
+## Design Philosophy
+
+The JSON export provides **complete raw data** without client-side calculations, allowing you to:
+
+- Reconstruct the full analysis from exported data
+- Perform custom aggregations and filtering
+- Build your own dashboards and visualizations
+- Archive analysis results for historical comparison
+
+Each section exports both:
+- **Raw events**: individual log entries with timestamps and metrics
+- **Query metadata**: normalized queries with their statistics (when applicable)
+
 ## JSON Structure
 
-The JSON output contains all analysis sections:
+The JSON output contains all analysis sections. Below is the complete structure with field descriptions.
 
 ### summary
 
-General log statistics.
+General log statistics and severity counts.
 
 ```json
 {
   "summary": {
-    "start_date": "2024-12-10 00:00:01",
-    "end_date": "2024-12-11 00:00:01",
-    "duration": "24h0m0s",
-    "total_logs": 95139,
-    "throughput": "1.10 entries/s"
+    "start_date": "2025-01-01 00:00:01",
+    "end_date": "2025-01-01 23:59:59",
+    "duration": "23h59m58s",
+    "total_logs": 186,
+    "throughput": "0.00 entries/s",
+    "error_count": 2,
+    "fatal_count": 0,
+    "panic_count": 0,
+    "warning_count": 1,
+    "log_count": 183
   }
 }
 ```
+
+**Fields:**
+- `start_date`, `end_date`: Time range of analyzed logs
+- `duration`: Timespan covered
+- `total_logs`: Total number of log entries
+- `throughput`: Average entries per second
+- `error_count`, `fatal_count`, `panic_count`, `warning_count`, `log_count`: Counts by severity level
 
 ### events
 
-Log entries by severity level.
+Log entries grouped by severity level with percentages.
 
 ```json
 {
-  "events": {
-    "LOG": 5943,
-    "ERROR": 28236,
-    "FATAL": 1215
-  }
+  "events": [
+    {
+      "type": "LOG",
+      "count": 183,
+      "percentage": 98.38709677419355
+    },
+    {
+      "type": "ERROR",
+      "count": 2,
+      "percentage": 1.0752688172043012
+    },
+    {
+      "type": "WARNING",
+      "count": 1,
+      "percentage": 0.5376344086021506
+    }
+  ]
 }
 ```
+
+**Fields:**
+- `type`: Severity level (LOG, ERROR, FATAL, PANIC, WARNING)
+- `count`: Number of entries
+- `percentage`: Percentage of total logs
+
+### error_classes
+
+PostgreSQL error classification by SQLSTATE code (when available).
+
+```json
+{
+  "error_classes": [
+    {
+      "class_code": "42",
+      "description": "Syntax Error or Access Rule Violation",
+      "count": 4
+    },
+    {
+      "class_code": "23",
+      "description": "Integrity Constraint Violation",
+      "count": 3
+    }
+  ]
+}
+```
+
+**Fields:**
+- `class_code`: Two-character SQLSTATE class code
+- `description`: Human-readable error class description
+- `count`: Number of errors in this class
+
+**Note:** Error classes require SQLSTATE codes in logs. See [PostgreSQL Configuration](#postgresql-configuration-for-error-classes) below.
 
 ### sql_performance
 
@@ -64,15 +134,39 @@ Query statistics and execution details.
     "query_99th_percentile": "1h 08m 57s",
     "executions": [
       {
-        "timestamp": "2024-12-10 02:11:47",
-        "duration": "3m 21s"
+        "timestamp": "2025-01-01 02:11:47",
+        "duration": "3m 21s",
+        "query_id": "se-R7UmAf"
+      }
+    ],
+    "queries": [
+      {
+        "id": "se-R7UmAf",
+        "normalized_query": "select * from users where id = ?",
+        "raw_query": "SELECT * FROM users WHERE id = 42",
+        "count": 485,
+        "total_time_ms": 97500.5,
+        "avg_time_ms": 201.03,
+        "max_time_ms": 4350.2
       }
     ]
   }
 }
 ```
 
-**executions**: list of all query executions with timestamp and duration.
+**executions**: List of all query executions
+- `timestamp`: When the query executed
+- `duration`: How long it took
+- `query_id`: Links to the corresponding entry in `queries`
+
+**queries**: Normalized query statistics
+- `id`: Unique query identifier (prefix `se-` for SELECT, `up-` for UPDATE, etc.)
+- `normalized_query`: Query with parameters replaced by `?`
+- `raw_query`: Example of the original query (alphabetically first variant)
+- `count`: Number of executions
+- `total_time_ms`: Total execution time across all executions
+- `avg_time_ms`: Average execution time
+- `max_time_ms`: Maximum execution time
 
 ### temp_files
 
@@ -81,20 +175,40 @@ Temporary file statistics and events.
 ```json
 {
   "temp_files": {
-    "total_messages": 668,
-    "total_size": "107.62 GB",
-    "avg_size": "165.02 MB",
+    "total_messages": 19,
+    "total_size": "1.48 GB",
+    "avg_size": "79.79 MB",
     "events": [
       {
-        "timestamp": "2024-12-10 08:09:34",
-        "size": "293.12 MB"
+        "timestamp": "2025-01-01 08:09:34",
+        "size": "293.12 MB",
+        "query_id": "se-dP4pEd"
+      }
+    ],
+    "queries": [
+      {
+        "id": "se-dP4pEd",
+        "normalized_query": "select * from large_table where created_at > ?",
+        "raw_query": "SELECT * FROM large_table WHERE created_at > '2025-01-01'",
+        "count": 5,
+        "total_size": "612.50 MB"
       }
     ]
   }
 }
 ```
 
-**events**: list of tempfile creation events with timestamp and size.
+**events**: List of temporary file creation events
+- `timestamp`: When the tempfile was created
+- `size`: Size of the temporary file
+- `query_id`: Associated query (if identified)
+
+**queries**: Queries that created temporary files
+- `id`: Unique query identifier
+- `normalized_query`: Query with parameters replaced by `?`
+- `raw_query`: Example of the original query
+- `count`: Number of tempfiles created by this query
+- `total_size`: Total size across all tempfiles
 
 ### locks
 
@@ -116,17 +230,20 @@ Lock wait statistics and events.
     },
     "events": [
       {
-        "timestamp": "2024-12-10 00:23:56",
+        "timestamp": "2025-01-01 00:23:56",
         "event_type": "waiting",
         "lock_type": "ShareLock",
         "resource_type": "transaction",
         "wait_time": "1000.09 ms",
-        "process_id": "110896"
+        "process_id": "110896",
+        "query_id": "up-bG8qBk"
       }
     ],
-    "top_queries": [
+    "queries": [
       {
-        "sql_id": "up-bG8qBk",
+        "id": "up-bG8qBk",
+        "normalized_query": "update orders set status = ? where id = ?",
+        "raw_query": "UPDATE orders SET status = 'shipped' WHERE id = 500",
         "count": 259,
         "avg_wait": "2.88 s",
         "total_wait": "12m 25s"
@@ -136,7 +253,22 @@ Lock wait statistics and events.
 }
 ```
 
-**events**: list of lock wait events with details. **top_queries**: queries sorted by lock wait frequency.
+**events**: List of lock wait events
+- `timestamp`: When the lock event occurred
+- `event_type`: "waiting" or "acquired"
+- `lock_type`: PostgreSQL lock type (e.g., ShareLock, ExclusiveLock)
+- `resource_type`: What was locked (e.g., relation, transaction)
+- `wait_time`: How long the process waited
+- `process_id`: PostgreSQL backend PID
+- `query_id`: Associated query (if identified)
+
+**queries**: Queries that experienced lock waits
+- `id`: Unique query identifier
+- `normalized_query`: Query with parameters replaced by `?`
+- `raw_query`: Example of the original query
+- `count`: Number of lock events for this query
+- `avg_wait`: Average wait time
+- `total_wait`: Total wait time across all events
 
 ### maintenance
 
@@ -160,57 +292,166 @@ Autovacuum and autoanalyze statistics.
 }
 ```
 
+**Fields:**
+- `vacuum_count`: Total autovacuum operations
+- `analyze_count`: Total autoanalyze operations
+- `vacuum_table_counts`: Vacuum count per table
+- `analyze_table_counts`: Analyze count per table
+- `vacuum_space_recovered`: Space recovered per table
+
 ### checkpoints
 
-Checkpoint statistics.
+Checkpoint statistics and events.
 
 ```json
 {
   "checkpoints": {
-    "total_checkpoints": 282,
-    "avg_checkpoint_time": "29s",
-    "max_checkpoint_time": "2m31s",
+    "total_checkpoints": 13,
+    "avg_checkpoint_time": "5.15 s",
+    "max_checkpoint_time": "7.00 s",
     "types": {
-      "wal": 171,
-      "time": 110,
-      "immediate force wait": 1
+      "time": {
+        "count": 9,
+        "percentage": 69.23,
+        "rate_per_hour": 0.375,
+        "events": [
+          "2025-01-01 00:30:05",
+          "2025-01-01 01:30:07"
+        ]
+      },
+      "wal": {
+        "count": 4,
+        "percentage": 30.77,
+        "rate_per_hour": 0.167,
+        "events": [
+          "2025-01-01 01:00:04"
+        ]
+      }
     },
     "events": [
-      "2024-12-10 00:03:25",
-      "2024-12-10 00:08:34"
+      "2025-01-01 00:30:05",
+      "2025-01-01 01:00:04"
     ]
   }
 }
 ```
 
-**events**: list of checkpoint timestamps.
+**Fields:**
+- `total_checkpoints`: Total checkpoint count
+- `avg_checkpoint_time`: Average duration
+- `max_checkpoint_time`: Maximum duration
+- `types`: Breakdown by checkpoint type (time-based vs WAL-based)
+- `events`: List of all checkpoint timestamps
 
-### clients, users, databases
+### connections
+
+Connection and session statistics.
+
+```json
+{
+  "connections": {
+    "connection_count": 36,
+    "disconnection_count": 23,
+    "avg_connections_per_hour": "1.50",
+    "avg_session_time": "1h14m6.55s",
+    "connections": [
+      "2025-01-01 00:00:15",
+      "2025-01-01 00:00:20"
+    ]
+  }
+}
+```
+
+**Fields:**
+- `connection_count`: Total connections
+- `disconnection_count`: Total disconnections
+- `avg_connections_per_hour`: Connection rate
+- `avg_session_time`: Average session duration
+- `connections`: List of connection timestamps
+
+### clients, users, databases, apps, hosts
 
 Unique database entities.
 
 ```json
 {
   "clients": {
-    "unique_dbs": 9,
-    "unique_users": 48,
-    "unique_apps": 15,
-    "unique_hosts": 45
+    "unique_dbs": 3,
+    "unique_users": 7,
+    "unique_apps": 9,
+    "unique_hosts": 37
   },
   "users": [
     "postgres",
-    "app_user"
+    "app_user",
+    "readonly"
   ],
   "databases": [
     "postgres",
-    "app_db"
+    "app_db",
+    "analytics_db"
+  ],
+  "apps": [
+    "psql",
+    "pgadmin",
+    "metabase"
+  ],
+  "hosts": [
+    "10.0.1.50",
+    "172.16.0.10"
   ]
 }
 ```
 
+## PostgreSQL Configuration for Error Classes
+
+To enable error class reporting, PostgreSQL must include SQLSTATE codes in log messages. Choose one of these methods:
+
+### Method 1: log_error_verbosity = verbose
+
+```sql
+ALTER SYSTEM SET log_error_verbosity = 'verbose';
+SELECT pg_reload_conf();
+```
+
+This produces error messages like:
+```
+ERROR: 42P01: relation "users" does not exist at character 15
+```
+
+### Method 2: %e in log_line_prefix
+
+```sql
+ALTER SYSTEM SET log_line_prefix = '%m [%p] %e ';
+SELECT pg_reload_conf();
+```
+
+This produces log lines like:
+```
+2025-01-01 12:00:00 CET [12345] 42P01 ERROR: relation "users" does not exist
+```
+
+### Method 3: CSV or JSON logs
+
+CSV and JSON log formats include SQLSTATE codes by default in dedicated fields:
+- CSV: `sql_state_code` column (column 12)
+- JSON: `state_code` field
+
+```sql
+-- For CSV logs
+ALTER SYSTEM SET log_destination = 'csvlog';
+SELECT pg_reload_conf();
+
+-- For JSON logs (PostgreSQL 15+)
+ALTER SYSTEM SET log_destination = 'jsonlog';
+SELECT pg_reload_conf();
+```
+
+See [PostgreSQL Configuration](postgresql-setup.md) for complete logging setup.
+
 ## Using jq
 
-Extract specific fields:
+Extract specific fields from JSON output:
 
 ```bash
 # Total queries
@@ -223,13 +464,50 @@ quellog /var/log/postgresql/*.log --json | jq '.checkpoints.total_checkpoints'
 quellog /var/log/postgresql/*.log --json | jq '.databases'
 
 # Error count
-quellog /var/log/postgresql/*.log --json | jq '.events.ERROR'
+quellog /var/log/postgresql/*.log --json | jq '.summary.error_count'
 
 # Tempfile total size
 quellog /var/log/postgresql/*.log --json | jq '.temp_files.total_size'
+
+# Error classes
+quellog /var/log/postgresql/*.log --json | jq '.error_classes'
+
+# All queries with their IDs
+quellog /var/log/postgresql/*.log --json | jq '.sql_performance.queries[] | {id, normalized_query, count}'
+
+# Tempfile events for a specific query
+quellog /var/log/postgresql/*.log --json | jq '.temp_files.events[] | select(.query_id == "se-abc123")'
+
+# Lock waits grouped by query
+quellog /var/log/postgresql/*.log --json | jq '.locks.queries | sort_by(-.count)'
+```
+
+## Reconstructing Analysis
+
+Because JSON exports complete raw data, you can rebuild the entire analysis:
+
+```python
+import json
+
+with open('report.json') as f:
+    data = json.load(f)
+
+# Reconstruct query statistics from executions
+for execution in data['sql_performance']['executions']:
+    query_id = execution['query_id']
+    # Find corresponding query in queries array
+    query = next(q for q in data['sql_performance']['queries'] if q['id'] == query_id)
+    print(f"{execution['timestamp']}: {query['normalized_query']} ({execution['duration']})")
+
+# Analyze tempfile patterns
+for event in data['temp_files']['events']:
+    if event.get('query_id'):
+        query = next(q for q in data['temp_files']['queries'] if q['id'] == event['query_id'])
+        print(f"{event['timestamp']}: {event['size']} for {query['normalized_query']}")
 ```
 
 ## Next Steps
 
 - [Markdown Export](markdown-export.md) for documentation format
+- [PostgreSQL Configuration](postgresql-setup.md) for optimal logging setup
 - [Filtering Logs](filtering-logs.md) to focus exports on specific subsets
