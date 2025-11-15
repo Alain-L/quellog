@@ -36,13 +36,32 @@ quellog /var/log/postgresql/*.log --events
 **Output includes**:
 
 - Count by severity (LOG, WARNING, ERROR, FATAL, PANIC)
-- SQLSTATE error classification
 
 **Use when**:
 
 - Investigating errors and warnings
 - Health checking
 - Tracking error trends
+
+### --errors
+
+Display only the error classes section showing SQLSTATE error distribution.
+
+```bash
+quellog /var/log/postgresql/*.log --errors
+```
+
+**Output includes**:
+
+- Error classes by SQLSTATE code (42, 23, 22, etc.)
+- Description for each error class
+- Count per error class
+
+**Use when**:
+
+- Analyzing error patterns
+- Identifying specific error types (syntax errors, constraint violations, etc.)
+- Troubleshooting application errors
 
 ### --sql-performance
 
@@ -230,12 +249,13 @@ Output order:
 1. Summary
 2. SQL Performance
 3. Events
-4. Temporary Files (if any)
-5. Locks (if any)
-6. Maintenance
-7. Checkpoints
-8. Connections
-9. Clients
+4. Error Classes (if any)
+5. Temporary Files (if any)
+6. Locks (if any)
+7. Maintenance
+8. Checkpoints
+9. Connections
+10. Clients
 
 ## Combining with Other Filters
 
@@ -380,6 +400,7 @@ Some sections may be empty or omitted if no relevant data exists:
 | Summary | (always available) |
 | SQL Performance | `log_min_duration_statement >= 0` |
 | Events | (always available) |
+| Error Classes | Errors with SQLSTATE codes occurred |
 | Temporary Files | `log_temp_files >= 0` and tempfiles created |
 | Locks | `log_lock_waits = on` and locks occurred |
 | Maintenance | `log_autovacuum_min_duration >= 0` and autovacuum ran |

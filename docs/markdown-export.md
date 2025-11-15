@@ -70,6 +70,18 @@ Query statistics with histograms and tables.
 | FATAL | 1215 |
 ```
 
+### ERROR CLASSES
+
+```markdown
+## ERROR CLASSES
+
+| Class | Description | Count |
+|---|---|---:|
+| 42 | Syntax Error or Access Rule Violation | 4 |
+| 23 | Integrity Constraint Violation | 3 |
+| 22 | Data Exception | 2 |
+```
+
 ### TEMP FILES
 
 Temporary file statistics with histogram.
