@@ -759,3 +759,318 @@ func printMostFrequentWaitingQueriesMarkdown(b *strings.Builder, queryStats map[
 			pair.totalWait))
 	}
 }
+
+// ExportSqlSummaryMarkdown produces a markdown report for --sql-summary
+func ExportSqlSummaryMarkdown(m analysis.SqlMetrics, tempFiles analysis.TempFileMetrics, locks analysis.LockMetrics) {
+	var b strings.Builder
+
+	// Compute top 1% slowest queries
+	top1Slow := 0
+	if len(m.Executions) > 0 {
+		threshold := m.P99QueryDuration
+		for _, exec := range m.Executions {
+			if exec.Duration >= threshold {
+				top1Slow++
+			}
+		}
+	}
+
+	// SQL PERFORMANCE section
+	b.WriteString("## SQL PERFORMANCE\n\n")
+
+	// Query load histogram
+	if !m.StartTimestamp.IsZero() && !m.EndTimestamp.IsZero() {
+		queryLoad, unit, scale := computeQueryLoadHistogram(m)
+		printHistogramMarkdown(&b, queryLoad, "Query load distribution", unit, scale, nil)
+	}
+
+	// Key metrics table
+	b.WriteString("|  |  |  |  |\n")
+	b.WriteString("|---|---:|---|---:|\n")
+	b.WriteString(fmt.Sprintf("| Total query duration | %s | Total queries parsed | %d |\n",
+		formatQueryDuration(m.SumQueryDuration), m.TotalQueries))
+	b.WriteString(fmt.Sprintf("| Total unique queries | %d | Top 1%% slow queries | %d |\n",
+		m.UniqueQueries, top1Slow))
+	b.WriteString(fmt.Sprintf("| Query max duration | %s | Query min duration | %s |\n",
+		formatQueryDuration(m.MaxQueryDuration), formatQueryDuration(m.MinQueryDuration)))
+	b.WriteString(fmt.Sprintf("| Query median duration | %s | Query 99%% max duration | %s |\n\n",
+		formatQueryDuration(m.MedianQueryDuration), formatQueryDuration(m.P99QueryDuration)))
+
+	// Duration histogram
+	if !m.StartTimestamp.IsZero() && !m.EndTimestamp.IsZero() {
+		hist, unit, scale := computeQueryDurationHistogram(m)
+		printHistogramMarkdown(&b, hist, "Query duration distribution", unit, scale,
+			[]string{"< 1 ms", "< 10 ms", "< 100 ms", "< 1 s", "< 10 s", ">= 10 s"})
+	}
+
+	// Query stats tables
+	b.WriteString("### Query Statistics\n\n")
+	printQueryStatsMarkdown(&b, m.QueryStats)
+
+	// TEMP FILES section
+	if len(tempFiles.QueryStats) > 0 {
+		b.WriteString("## TEMP FILES\n\n")
+		b.WriteString("| SQLID | Normalized Query | Count | Total Size |\n")
+		b.WriteString("|---|---|---:|---:|\n")
+
+		// Sort by total size descending
+		type queryWithSize struct {
+			stat *analysis.TempFileQueryStat
+		}
+		queries := make([]queryWithSize, 0, len(tempFiles.QueryStats))
+		for _, stat := range tempFiles.QueryStats {
+			queries = append(queries, queryWithSize{stat: stat})
+		}
+		sort.Slice(queries, func(i, j int) bool {
+			return queries[i].stat.TotalSize > queries[j].stat.TotalSize
+		})
+
+		// Display top 10
+		limit := 10
+		if len(queries) < limit {
+			limit = len(queries)
+		}
+		for i := 0; i < limit; i++ {
+			stat := queries[i].stat
+			truncatedQuery := truncateQuery(stat.NormalizedQuery, 60)
+			b.WriteString(fmt.Sprintf("| %s | %s | %d | %s |\n",
+				stat.ID,
+				truncatedQuery,
+				stat.Count,
+				formatBytes(stat.TotalSize)))
+		}
+		b.WriteString("\n")
+	}
+
+	// LOCKS section
+	if len(locks.QueryStats) > 0 {
+		b.WriteString("## LOCKS\n\n")
+
+		// Acquired locks by query
+		hasAcquired := false
+		for _, stat := range locks.QueryStats {
+			if stat.AcquiredCount > 0 {
+				hasAcquired = true
+				break
+			}
+		}
+		if hasAcquired {
+			b.WriteString("### Acquired Locks by Query\n\n")
+			b.WriteString("| SQLID | Normalized Query | Locks | Avg Wait (ms) | Total Wait (ms) |\n")
+			b.WriteString("|---|---|---:|---:|---:|\n")
+			printAcquiredLockQueriesMarkdown(&b, locks.QueryStats, 10)
+			b.WriteString("\n")
+		}
+
+		// Locks still waiting by query
+		hasStillWaiting := false
+		for _, stat := range locks.QueryStats {
+			if stat.StillWaitingCount > 0 {
+				hasStillWaiting = true
+				break
+			}
+		}
+		if hasStillWaiting {
+			b.WriteString("### Locks Still Waiting by Query\n\n")
+			b.WriteString("| SQLID | Normalized Query | Locks | Avg Wait (ms) | Total Wait (ms) |\n")
+			b.WriteString("|---|---|---:|---:|---:|\n")
+			printStillWaitingLockQueriesMarkdown(&b, locks.QueryStats, 10)
+			b.WriteString("\n")
+		}
+
+		// Most frequent waiting queries
+		hasWaiting := false
+		for _, stat := range locks.QueryStats {
+			if stat.AcquiredCount > 0 || stat.StillWaitingCount > 0 {
+				hasWaiting = true
+				break
+			}
+		}
+		if hasWaiting {
+			b.WriteString("### Most Frequent Waiting Queries\n\n")
+			b.WriteString("| SQLID | Normalized Query | Locks | Avg Wait (ms) | Total Wait (ms) |\n")
+			b.WriteString("|---|---|---:|---:|---:|\n")
+			printMostFrequentWaitingQueriesMarkdown(&b, locks.QueryStats, 10)
+			b.WriteString("\n")
+		}
+	}
+
+	fmt.Println(b.String())
+}
+
+// ExportSqlDetailMarkdown produces a markdown report for --sql-detail
+func ExportSqlDetailMarkdown(m analysis.AggregatedMetrics, queryDetails []string) {
+	var b strings.Builder
+
+	for _, qid := range queryDetails {
+		// Collect metrics for this query ID
+		var sqlStat *analysis.QueryStat
+		var tempStat *analysis.TempFileQueryStat
+		var lockStat *analysis.LockQueryStat
+
+		// Search in SQL metrics
+		for _, qs := range m.SQL.QueryStats {
+			if qs.ID == qid {
+				sqlStat = qs
+				break
+			}
+		}
+
+		// Search in tempfiles metrics
+		for _, ts := range m.TempFiles.QueryStats {
+			if ts.ID == qid {
+				tempStat = ts
+				break
+			}
+		}
+
+		// Search in locks metrics
+		for _, ls := range m.Locks.QueryStats {
+			if ls.ID == qid {
+				lockStat = ls
+				break
+			}
+		}
+
+		// If query not found anywhere, skip
+		if sqlStat == nil && tempStat == nil && lockStat == nil {
+			continue
+		}
+
+		// Get normalized query and type
+		normalizedQuery := ""
+		queryType := analysis.QueryTypeFromID(qid)
+		rawQuery := ""
+
+		if sqlStat != nil {
+			normalizedQuery = sqlStat.NormalizedQuery
+			rawQuery = sqlStat.RawQuery
+		} else if tempStat != nil {
+			normalizedQuery = tempStat.NormalizedQuery
+		} else if lockStat != nil {
+			normalizedQuery = lockStat.NormalizedQuery
+		}
+
+		// SQL DETAILS section
+		b.WriteString(fmt.Sprintf("## SQL DETAILS: %s\n\n", qid))
+		b.WriteString(fmt.Sprintf("- **Id**: %s\n", qid))
+		b.WriteString(fmt.Sprintf("- **Query Type**: %s\n", queryType))
+		if sqlStat != nil {
+			b.WriteString(fmt.Sprintf("- **Count**: %d\n", sqlStat.Count))
+		}
+		b.WriteString("\n")
+
+		// Execution histogram (if > 1 execution)
+		if sqlStat != nil && sqlStat.Count > 1 {
+			execHist, execUnit, execScale := computeSingleQueryExecutionHistogram(m.SQL.Executions, qid)
+			if execHist != nil {
+				printHistogramMarkdown(&b, execHist, "Query count", execUnit, execScale, nil)
+			}
+		}
+
+		// TIME section
+		if sqlStat != nil {
+			b.WriteString("### TIME\n\n")
+
+			// Cumulative time histogram (if > 1 execution)
+			if sqlStat.Count > 1 {
+				timeHist, timeUnit, timeScale := computeSingleQueryTimeHistogram(m.SQL.Executions, qid)
+				if timeHist != nil {
+					printHistogramMarkdown(&b, timeHist, "Cumulative time", timeUnit, timeScale, nil)
+				}
+			}
+
+			// Duration distribution histogram (if > 1 execution)
+			if sqlStat.Count > 1 {
+				durationHist, durationUnit, durationScale, durationLabels := computeSingleQueryDurationDistribution(m.SQL.Executions, qid)
+				if durationHist != nil {
+					printHistogramMarkdown(&b, durationHist, "Query duration distribution", durationUnit, durationScale, durationLabels)
+				}
+			}
+
+			// Calculate min duration
+			minDuration := sqlStat.MaxTime
+			for _, exec := range m.SQL.Executions {
+				if exec.QueryID == qid && exec.Duration < minDuration {
+					minDuration = exec.Duration
+				}
+			}
+
+			b.WriteString(fmt.Sprintf("- **Total Duration**: %s\n", formatQueryDuration(sqlStat.TotalTime)))
+			b.WriteString(fmt.Sprintf("- **Min Duration**: %s\n", formatQueryDuration(minDuration)))
+			b.WriteString(fmt.Sprintf("- **Median Duration**: %s\n", formatQueryDuration(sqlStat.AvgTime)))
+			b.WriteString(fmt.Sprintf("- **Max Duration**: %s\n\n", formatQueryDuration(sqlStat.MaxTime)))
+		}
+
+		// TEMP FILES section
+		if tempStat != nil {
+			b.WriteString("### TEMP FILES\n\n")
+
+			// Size histogram (if > 1 event)
+			if tempStat.Count > 1 {
+				tempSizeHist, tempSizeUnit, tempSizeScale := computeSingleQueryTempFileHistogram(m.TempFiles.Events, qid)
+				if tempSizeHist != nil {
+					printHistogramMarkdown(&b, tempSizeHist, "Temp files size", tempSizeUnit, tempSizeScale, nil)
+				}
+			}
+
+			// Count histogram (if > 1 event)
+			if tempStat.Count > 1 {
+				tempCountHist, tempCountUnit, tempCountScale := computeSingleQueryTempFileCountHistogram(m.TempFiles.Events, qid)
+				if tempCountHist != nil {
+					printHistogramMarkdown(&b, tempCountHist, "Temp files count", tempCountUnit, tempCountScale, nil)
+				}
+			}
+
+			// Calculate min/max/avg sizes
+			var minSize, maxSize int64
+			minSize = 9223372036854775807 // MaxInt64
+			for _, event := range m.TempFiles.Events {
+				if event.QueryID == qid {
+					size := int64(event.Size)
+					if size < minSize {
+						minSize = size
+					}
+					if size > maxSize {
+						maxSize = size
+					}
+				}
+			}
+			avgSize := tempStat.TotalSize / int64(tempStat.Count)
+
+			b.WriteString(fmt.Sprintf("- **Temp Files count**: %d\n", tempStat.Count))
+			b.WriteString(fmt.Sprintf("- **Temp File min size**: %s\n", formatBytes(minSize)))
+			b.WriteString(fmt.Sprintf("- **Temp File max size**: %s\n", formatBytes(maxSize)))
+			b.WriteString(fmt.Sprintf("- **Temp File avg size**: %s\n", formatBytes(avgSize)))
+			b.WriteString(fmt.Sprintf("- **Temp Files size**: %s\n\n", formatBytes(tempStat.TotalSize)))
+		}
+
+		// LOCKS section
+		if lockStat != nil {
+			b.WriteString("### LOCKS\n\n")
+			b.WriteString(fmt.Sprintf("- **Acquired Locks**: %d\n", lockStat.AcquiredCount))
+			b.WriteString(fmt.Sprintf("- **Acquired Wait Time**: %s\n", formatQueryDuration(lockStat.AcquiredWaitTime)))
+			b.WriteString(fmt.Sprintf("- **Still Waiting Locks**: %d\n", lockStat.StillWaitingCount))
+			b.WriteString(fmt.Sprintf("- **Still Waiting Time**: %s\n", formatQueryDuration(lockStat.StillWaitingTime)))
+			b.WriteString(fmt.Sprintf("- **Total Wait Time**: %s\n\n", formatQueryDuration(lockStat.TotalWaitTime)))
+		}
+
+		// Normalized query
+		if normalizedQuery != "" {
+			b.WriteString("### Normalized Query\n\n")
+			b.WriteString("```sql\n")
+			b.WriteString(formatSQL(normalizedQuery))
+			b.WriteString("\n```\n\n")
+		}
+
+		// Example query
+		if rawQuery != "" {
+			b.WriteString("### Example Query\n\n")
+			b.WriteString("```sql\n")
+			b.WriteString(rawQuery)
+			b.WriteString("\n```\n\n")
+		}
+	}
+
+	fmt.Println(b.String())
+}

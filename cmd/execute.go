@@ -172,8 +172,12 @@ func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, 
 			log.Fatalf("[ERROR] No log entries could be parsed. Check that files are readable and in a supported format.")
 		}
 
-		PrintProcessingSummary(metrics.SQL.TotalQueries, processingDuration, totalFileSize)
-		output.PrintSqlDetails(metrics, sqlDetailFlag)
+		if mdFlag {
+			output.ExportSqlDetailMarkdown(metrics, sqlDetailFlag)
+		} else {
+			PrintProcessingSummary(metrics.SQL.TotalQueries, processingDuration, totalFileSize)
+			output.PrintSqlDetails(metrics, sqlDetailFlag)
+		}
 		return
 	}
 
@@ -188,8 +192,12 @@ func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, 
 			log.Fatalf("[ERROR] No log entries could be parsed. Check that files are readable and in a supported format.")
 		}
 
-		PrintProcessingSummary(metrics.SQL.TotalQueries, processingDuration, totalFileSize)
-		output.PrintSQLSummaryWithContext(metrics.SQL, metrics.TempFiles, metrics.Locks, false)
+		if mdFlag {
+			output.ExportSqlSummaryMarkdown(metrics.SQL, metrics.TempFiles, metrics.Locks)
+		} else {
+			PrintProcessingSummary(metrics.SQL.TotalQueries, processingDuration, totalFileSize)
+			output.PrintSQLSummaryWithContext(metrics.SQL, metrics.TempFiles, metrics.Locks, false)
+		}
 		return
 	}
 
