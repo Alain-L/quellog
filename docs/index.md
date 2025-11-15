@@ -16,6 +16,8 @@ SUMMARY
 ...
 ```
 
+Beyond terminal output, quellog provides comprehensive [JSON export](json-export.md) capabilities for seamless integration with dashboards, monitoring systems, and custom automation workflows.
+
 ## Why quellog?
 
 PostgreSQL generates rich logs that contain invaluable information about database behavior, but analyzing these logs manually is time-consuming and error-prone. quellog automates this process, transforming raw log files into clear, structured reports that help you:
