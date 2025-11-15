@@ -295,75 +295,96 @@ func NewUniqueEntityAnalyzer() *UniqueEntityAnalyzer {
 func (a *UniqueEntityAnalyzer) Process(entry *parser.LogEntry) {
 	msg := entry.Message
 
-	// OPTIMIZATION: Search for '=' first - much more discriminating than individual chars
-	// Most log messages don't have key=value patterns, so this rejects them immediately
+	// OPTION 1: Single-pass scanner
+	// Scan the message once looking for all patterns simultaneously
+	// This is more efficient on CSV where 90% of messages have metadata
+
+	// Quick pre-filter: skip if no '=' present
 	if strings.IndexByte(msg, '=') == -1 {
 		return
 	}
 
-	// Now do targeted Index searches only when '=' is present
-	// Order optimized: check shorter/more common patterns first to fail fast
-	var dbIdx, databaseIdx, userIdx, appIdx, appNameIdx, hostIdx, clientIdx int = -1, -1, -1, -1, -1, -1, -1
+	// Single-pass extraction: scan once, extract all matches
+	i := 0
+	msgLen := len(msg)
 
-	// Database (try short form first)
-	dbIdx = strings.Index(msg, "db=")
-	if dbIdx == -1 {
-		databaseIdx = strings.Index(msg, "database=")
-	}
-
-	// User
-	userIdx = strings.Index(msg, "user=")
-
-	// Application (try short form first)
-	appIdx = strings.Index(msg, "app=")
-	if appIdx == -1 {
-		appNameIdx = strings.Index(msg, "application_name=")
-	}
-
-	// Host (try host= first, only check client= if host not found)
-	hostIdx = strings.Index(msg, "host=")
-	if hostIdx == -1 {
-		clientIdx = strings.Index(msg, "client=")
-	}
-
-	// Extract database name (prefer "db=" over "database=")
-	if dbIdx != -1 {
-		if dbName := extractValueAt(msg, dbIdx+3); dbName != "" {
-			a.dbSet[dbName] = struct{}{}
+	for i < msgLen {
+		// Find next '='
+		eqIdx := strings.IndexByte(msg[i:], '=')
+		if eqIdx == -1 {
+			break // No more '=' in message
 		}
-	} else if databaseIdx != -1 {
-		if dbName := extractValueAt(msg, databaseIdx+9); dbName != "" {
-			a.dbSet[dbName] = struct{}{}
-		}
-	}
+		eqIdx += i
 
-	// Extract user name
-	if userIdx != -1 {
-		if userName := extractValueAt(msg, userIdx+5); userName != "" {
-			a.userSet[userName] = struct{}{}
+		// Check what's before the '='
+		// We need at least 2 chars before '=' for "db=" (shortest pattern)
+		if eqIdx < 2 {
+			i = eqIdx + 1
+			continue
 		}
-	}
 
-	// Extract application name (prefer "app=" over "application_name=")
-	if appIdx != -1 {
-		if appName := extractValueAt(msg, appIdx+4); appName != "" {
-			a.appSet[appName] = struct{}{}
-		}
-	} else if appNameIdx != -1 {
-		if appName := extractValueAt(msg, appNameIdx+17); appName != "" {
-			a.appSet[appName] = struct{}{}
-		}
-	}
+		// Match patterns by checking backwards from '='
+		// Check longer patterns first to avoid false matches
+		matched := false
 
-	// Extract host name (prefer host= over client=)
-	if hostIdx != -1 {
-		if hostName := extractValueAt(msg, hostIdx+5); hostName != "" {
-			a.hostSet[hostName] = struct{}{}
+		// "application_name=" (17 chars)
+		if eqIdx >= 16 && msg[eqIdx-16:eqIdx] == "application_name" {
+			if appName := extractValueAt(msg, eqIdx+1); appName != "" {
+				a.appSet[appName] = struct{}{}
+				matched = true
+			}
+		} else if eqIdx >= 8 && msg[eqIdx-8:eqIdx] == "database" {
+			// "database=" (9 chars)
+			if dbName := extractValueAt(msg, eqIdx+1); dbName != "" {
+				a.dbSet[dbName] = struct{}{}
+				matched = true
+			}
+		} else if eqIdx >= 6 && msg[eqIdx-6:eqIdx] == "client" {
+			// "client=" (7 chars)
+			if hostName := extractValueAt(msg, eqIdx+1); hostName != "" {
+				a.hostSet[hostName] = struct{}{}
+				matched = true
+			}
+		} else if eqIdx >= 4 {
+			// Check 4-char patterns: "user=", "host="
+			prefix4 := msg[eqIdx-4 : eqIdx]
+			if prefix4 == "user" {
+				if userName := extractValueAt(msg, eqIdx+1); userName != "" {
+					a.userSet[userName] = struct{}{}
+					matched = true
+				}
+			} else if prefix4 == "host" {
+				if hostName := extractValueAt(msg, eqIdx+1); hostName != "" {
+					a.hostSet[hostName] = struct{}{}
+					matched = true
+				}
+			}
 		}
-	} else if clientIdx != -1 {
-		if clientName := extractValueAt(msg, clientIdx+7); clientName != "" {
-			a.hostSet[clientName] = struct{}{}
+
+		// Check 3-char patterns: "app="
+		if !matched && eqIdx >= 3 {
+			prefix3 := msg[eqIdx-3 : eqIdx]
+			if prefix3 == "app" {
+				if appName := extractValueAt(msg, eqIdx+1); appName != "" {
+					a.appSet[appName] = struct{}{}
+					matched = true
+				}
+			}
 		}
+
+		// Check 2-char patterns: "db="
+		if !matched && eqIdx >= 2 {
+			prefix2 := msg[eqIdx-2 : eqIdx]
+			if prefix2 == "db" {
+				if dbName := extractValueAt(msg, eqIdx+1); dbName != "" {
+					a.dbSet[dbName] = struct{}{}
+					matched = true
+				}
+			}
+		}
+
+		// Move past this '=' and continue scanning
+		i = eqIdx + 1
 	}
 }
 
