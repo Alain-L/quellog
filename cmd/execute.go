@@ -37,9 +37,17 @@ func executeParsing(cmd *cobra.Command, args []string) {
 
 	// Step 2: Validate and parse time filter options
 	validateTimeFilters()
-	beginT, endT := parseDateTimes(beginTime, endTime)
-	windowDur := parseWindow(windowFlag)
-	beginT, endT = applyTimeWindow(beginT, endT, windowDur)
+
+	var beginT, endT time.Time
+	if lastFlag != "" {
+		// --last takes precedence and sets both begin and end
+		beginT, endT = parseLast(lastFlag)
+	} else {
+		// Parse --begin and --end normally
+		beginT, endT = parseDateTimes(beginTime, endTime)
+		windowDur := parseWindow(windowFlag)
+		beginT, endT = applyTimeWindow(beginT, endT, windowDur)
+	}
 
 	// Step 3: Set up streaming pipeline
 	rawLogs := make(chan parser.LogEntry, 24576)
@@ -59,15 +67,39 @@ func executeParsing(cmd *cobra.Command, args []string) {
 // parseFilesAsync reads log files in parallel and sends entries to the channel.
 // It determines the optimal number of workers based on file count and CPU cores.
 // If all files fail to parse, it exits immediately with a clear error.
+// Special handling: if "-" is in the files list, it reads from stdin.
 func parseFilesAsync(files []string, out chan<- parser.LogEntry) {
 	defer close(out)
 
-	numWorkers := determineWorkerCount(len(files))
-	successChan := make(chan bool, len(files))
+	// Special case: check if stdin is requested
+	hasStdin := false
+	regularFiles := []string{}
+	for _, file := range files {
+		if file == "-" {
+			hasStdin = true
+		} else {
+			regularFiles = append(regularFiles, file)
+		}
+	}
+
+	// If stdin is requested, it must be the only input
+	if hasStdin {
+		if len(regularFiles) > 0 {
+			log.Fatalf("[ERROR] Cannot mix stdin (-) with file arguments")
+		}
+		// Parse from stdin
+		if err := parser.ParseStdin(out); err != nil {
+			log.Fatalf("[ERROR] Failed to parse from stdin: %v", err)
+		}
+		return
+	}
+
+	numWorkers := determineWorkerCount(len(regularFiles))
+	successChan := make(chan bool, len(regularFiles))
 
 	if numWorkers == 1 {
 		// Single file: no need for worker pool
-		for _, file := range files {
+		for _, file := range regularFiles {
 			if err := parser.ParseFile(file, out); err != nil {
 				// Error already logged in detectParser with specific details
 				successChan <- false
@@ -77,8 +109,8 @@ func parseFilesAsync(files []string, out chan<- parser.LogEntry) {
 		}
 	} else {
 		// Multiple files: use worker pool
-		fileChan := make(chan string, len(files))
-		for _, file := range files {
+		fileChan := make(chan string, len(regularFiles))
+		for _, file := range regularFiles {
 			fileChan <- file
 		}
 		close(fileChan)
@@ -148,8 +180,12 @@ func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, 
 			log.Fatalf("[ERROR] No log entries could be parsed. Check that files are readable and in a supported format.")
 		}
 
-		PrintProcessingSummary(metrics.SQL.TotalQueries, processingDuration, totalFileSize)
-		output.PrintSqlDetails(metrics, sqlDetailFlag)
+		if mdFlag {
+			output.ExportSqlDetailMarkdown(metrics, sqlDetailFlag)
+		} else {
+			PrintProcessingSummary(metrics.SQL.TotalQueries, processingDuration, totalFileSize)
+			output.PrintSqlDetails(metrics, sqlDetailFlag)
+		}
 		return
 	}
 
@@ -164,8 +200,12 @@ func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, 
 			log.Fatalf("[ERROR] No log entries could be parsed. Check that files are readable and in a supported format.")
 		}
 
-		PrintProcessingSummary(metrics.SQL.TotalQueries, processingDuration, totalFileSize)
-		output.PrintSQLSummaryWithContext(metrics.SQL, metrics.TempFiles, metrics.Locks, false)
+		if mdFlag {
+			output.ExportSqlSummaryMarkdown(metrics.SQL, metrics.TempFiles, metrics.Locks)
+		} else {
+			PrintProcessingSummary(metrics.SQL.TotalQueries, processingDuration, totalFileSize)
+			output.PrintSQLSummaryWithContext(metrics.SQL, metrics.TempFiles, metrics.Locks, false)
+		}
 		return
 	}
 
@@ -252,6 +292,13 @@ func buildSectionList() []string {
 func validateTimeFilters() {
 	if beginTime != "" && endTime != "" && windowFlag != "" {
 		log.Fatalf("[ERROR] --begin, --end, and --window cannot all be used together")
+	}
+
+	// --last cannot be used with other time filters
+	if lastFlag != "" {
+		if beginTime != "" || endTime != "" || windowFlag != "" {
+			log.Fatalf("[ERROR] --last cannot be used with --begin, --end, or --window")
+		}
 	}
 }
 
