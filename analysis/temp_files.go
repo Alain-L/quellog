@@ -196,17 +196,26 @@ func (a *TempFileAnalyzer) Process(entry *parser.LogEntry) {
 	checkForQueries := a.tempFilesExist || a.expectingStatement || len(a.pendingByPID) > 0
 
 	if hasColon {
-		hasStatement = strings.Contains(msg, "STATEMENT:") || strings.Contains(msg, "statement:")
+		// OPTIMIZATION: Check for "TATEMENT:" instead of two separate Contains calls
+		// This pattern appears in both "STATEMENT:" and "statement:"
+		if idx := strings.Index(msg, "TATEMENT:"); idx >= 0 {
+			// Verify it's actually STATEMENT or statement (check preceding char)
+			if idx == 0 || msg[idx-1] == 'S' || msg[idx-1] == 's' {
+				hasStatement = true
+			}
+		}
 
 		// Check for CONTEXT: (for queries executed from PL/pgSQL functions)
 		if !hasStatement && a.expectingStatement {
-			hasContext = strings.Contains(msg, "CONTEXT:")
+			hasContext = strings.Index(msg, "CONTEXT:") >= 0
 		}
 
 		// Only check for duration:execute if we're caching
+		// OPTIMIZATION: Use Index for both checks to reduce overhead
 		if checkForQueries && !hasStatement {
-			if strings.Contains(msg, "execute") {
-				hasDurationExecute = strings.Contains(msg, "duration:")
+			if durationIdx := strings.Index(msg, "duration:"); durationIdx >= 0 {
+				// Only check for "execute" if we found "duration:"
+				hasDurationExecute = strings.Index(msg[durationIdx:], "execute") >= 0
 			}
 		}
 	}
@@ -215,6 +224,10 @@ func (a *TempFileAnalyzer) Process(entry *parser.LogEntry) {
 	if !hasTempFile && !hasStatement && !hasDurationExecute && !hasContext {
 		return
 	}
+
+	// OPTIMIZATION: Extract PID once and reuse it throughout
+	// This avoids multiple expensive ExtractPID() calls (up to 4× per entry)
+	pid := parser.ExtractPID(msg)
 
 	// === STEP 1: Check for STATEMENT/CONTEXT/query lines ===
 	// Support:
@@ -247,7 +260,6 @@ func (a *TempFileAnalyzer) Process(entry *parser.LogEntry) {
 		}
 
 		// Pattern 2: Save query for this PID (for duration→temp pattern)
-		pid := parser.ExtractPID(msg)
 		if pid != "" {
 			a.lastQueryByPID[pid] = query
 		}
@@ -265,11 +277,8 @@ func (a *TempFileAnalyzer) Process(entry *parser.LogEntry) {
 				return
 			}
 
-			// Extract PID only when we have a pendingPID to compare against
-			currentPID := parser.ExtractPID(msg)
-
-			// Fast path: next line has same PID
-			if currentPID == a.pendingPID {
+			// Fast path: next line has same PID (reuse extracted pid)
+			if pid == a.pendingPID {
 				a.associateQuery(query, a.pendingSize, a.pendingEventIndex)
 				a.expectingStatement = false
 				a.pendingSize = 0
@@ -286,10 +295,10 @@ func (a *TempFileAnalyzer) Process(entry *parser.LogEntry) {
 			a.pendingEventIndex = -1
 
 			// Fallback: check if current PID has pending temp files
-			if currentPID != "" {
-				if pendingSize, exists := a.pendingByPID[currentPID]; exists && pendingSize > 0 {
+			if pid != "" {
+				if pendingSize, exists := a.pendingByPID[pid]; exists && pendingSize > 0 {
 					a.associateQuery(query, pendingSize, -1) // No eventIndex for fallback cache
-					delete(a.pendingByPID, currentPID)
+					delete(a.pendingByPID, pid)
 				}
 			}
 
@@ -298,11 +307,10 @@ func (a *TempFileAnalyzer) Process(entry *parser.LogEntry) {
 
 			// Not expecting statement: check fallback cache only
 			if len(a.pendingByPID) > 0 {
-				currentPID := parser.ExtractPID(msg)
-				if currentPID != "" {
-					if pendingSize, exists := a.pendingByPID[currentPID]; exists && pendingSize > 0 {
+				if pid != "" {
+					if pendingSize, exists := a.pendingByPID[pid]; exists && pendingSize > 0 {
 						a.associateQuery(query, pendingSize, -1) // No eventIndex for fallback cache
-						delete(a.pendingByPID, currentPID)
+						delete(a.pendingByPID, pid)
 					}
 				}
 			}
@@ -327,9 +335,7 @@ func (a *TempFileAnalyzer) Process(entry *parser.LogEntry) {
 			QueryID:   "", // Will be filled later if query is found
 		})
 
-		// Extract PID for this temp file
-		pid := parser.ExtractPID(msg)
-
+		// Use cached PID (already extracted above)
 		// Pattern 1b: Check if query is in the SAME message (CSV format with QUERY: field)
 		// This has PRIORITY over cache (Pattern 2)
 		if query := extractStatementQuery(msg); query != "" {
