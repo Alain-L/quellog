@@ -773,75 +773,115 @@ func PrintMostFrequentQueries(queryStats map[string]*analysis.QueryStat) bool {
 
 // PrintSqlDetails iterates over the QueryStats and displays details for each query
 // whose SQLID matches one of the provided queryDetails.
+// It consolidates metrics from SQL performance, tempfiles, and locks into a unified view.
 func PrintSqlDetails(m analysis.AggregatedMetrics, queryDetails []string) {
-	for _, qid := range queryDetails {
-		found := false
+	bold := "\033[1m"
+	reset := "\033[0m"
 
-		// First, try to find in SQL metrics (queries with duration)
+	for _, qid := range queryDetails {
+		// Collect all metrics for this query ID
+		var sqlStat *analysis.QueryStat
+		var tempStat *analysis.TempFileQueryStat
+		var lockStat *analysis.LockQueryStat
+
+		// Search in SQL metrics
 		for _, qs := range m.SQL.QueryStats {
 			if qs.ID == qid {
-				fmt.Printf("\nDetails for SQLID: %s\n", qs.ID)
-				fmt.Println("SQL Query Details:")
-				fmt.Printf("  SQLID            : %s\n", qs.ID)
-				fmt.Printf("  Query Type       : %s\n", analysis.QueryTypeFromID(qs.ID))
-				fmt.Printf("  Raw Query        : %s\n", qs.RawQuery)
-				fmt.Printf("  Normalized Query : %s\n", qs.NormalizedQuery)
-				fmt.Printf("  Executed         : %d\n", qs.Count)
-				fmt.Printf("  Total Time       : %s\n", formatQueryDuration(qs.TotalTime))
-				fmt.Printf("  Median Time      : %s\n", formatQueryDuration(qs.AvgTime))
-				fmt.Printf("  Max Time         : %s\n", formatQueryDuration(qs.MaxTime))
-				found = true
+				sqlStat = qs
 				break
 			}
 		}
 
-		if found {
-			continue
-		}
-
-		// If not found in SQL metrics, try locks
-		for _, ls := range m.Locks.QueryStats {
-			if ls.ID == qid {
-				fmt.Printf("\nDetails for SQLID: %s\n", ls.ID)
-				fmt.Println("Query Details (from lock events):")
-				fmt.Printf("  SQLID                 : %s\n", ls.ID)
-				fmt.Printf("  Query Type            : %s\n", analysis.QueryTypeFromID(ls.ID))
-				fmt.Printf("  Raw Query             : %s\n", ls.RawQuery)
-				fmt.Printf("  Normalized Query      : %s\n", ls.NormalizedQuery)
-				fmt.Printf("  Acquired Locks        : %d\n", ls.AcquiredCount)
-				fmt.Printf("  Acquired Wait Time    : %s\n", formatQueryDuration(ls.AcquiredWaitTime))
-				fmt.Printf("  Still Waiting Locks   : %d\n", ls.StillWaitingCount)
-				fmt.Printf("  Still Waiting Time    : %s\n", formatQueryDuration(ls.StillWaitingTime))
-				fmt.Printf("  Total Wait Time       : %s\n", formatQueryDuration(ls.TotalWaitTime))
-				fmt.Println("\nNote: This query was identified from lock events and has no duration metrics.")
-				found = true
-				break
-			}
-		}
-
-		if found {
-			continue
-		}
-
-		// If not found in locks, try tempfiles
+		// Search in tempfiles
 		for _, ts := range m.TempFiles.QueryStats {
 			if ts.ID == qid {
-				fmt.Printf("\nDetails for SQLID: %s\n", ts.ID)
-				fmt.Println("Query Details (from tempfile events):")
-				fmt.Printf("  SQLID            : %s\n", ts.ID)
-				fmt.Printf("  Query Type       : %s\n", analysis.QueryTypeFromID(ts.ID))
-				fmt.Printf("  Raw Query        : %s\n", ts.RawQuery)
-				fmt.Printf("  Normalized Query : %s\n", ts.NormalizedQuery)
-				fmt.Printf("  Tempfile Count   : %d\n", ts.Count)
-				fmt.Printf("  Total Size       : %s\n", formatBytes(ts.TotalSize))
-				fmt.Println("\nNote: This query was identified from tempfile events and has no duration metrics.")
-				found = true
+				tempStat = ts
 				break
 			}
 		}
 
-		if !found {
+		// Search in locks
+		for _, ls := range m.Locks.QueryStats {
+			if ls.ID == qid {
+				lockStat = ls
+				break
+			}
+		}
+
+		// Check if query was found anywhere
+		if sqlStat == nil && tempStat == nil && lockStat == nil {
 			fmt.Printf("\nQuery ID '%s' not found.\n", qid)
+			continue
+		}
+
+		// Display unified SQL DETAILS section
+		fmt.Println(bold + "\nSQL DETAILS" + reset)
+		fmt.Println()
+
+		// Get query type and normalized query (from any available source)
+		var queryType string
+		var normalizedQuery string
+		var rawQuery string
+
+		if sqlStat != nil {
+			queryType = analysis.QueryTypeFromID(sqlStat.ID)
+			normalizedQuery = sqlStat.NormalizedQuery
+			rawQuery = sqlStat.RawQuery
+		} else if lockStat != nil {
+			queryType = analysis.QueryTypeFromID(lockStat.ID)
+			normalizedQuery = lockStat.NormalizedQuery
+			rawQuery = lockStat.RawQuery
+		} else if tempStat != nil {
+			queryType = analysis.QueryTypeFromID(tempStat.ID)
+			normalizedQuery = tempStat.NormalizedQuery
+			rawQuery = tempStat.RawQuery
+		}
+
+		// Always show ID and type
+		fmt.Printf("  Id                   : %s\n", qid)
+		fmt.Printf("  Query Type           : %s\n", queryType)
+
+		// SQL performance metrics (if available)
+		if sqlStat != nil {
+			fmt.Printf("  Executed             : %d\n", sqlStat.Count)
+			fmt.Printf("  Total Time           : %s\n", formatQueryDuration(sqlStat.TotalTime))
+			fmt.Printf("  Median Time          : %s\n", formatQueryDuration(sqlStat.AvgTime))
+			fmt.Printf("  Max Time             : %s\n", formatQueryDuration(sqlStat.MaxTime))
+		}
+
+		// Tempfiles metrics (if available)
+		if tempStat != nil {
+			avgSize := tempStat.TotalSize / int64(tempStat.Count)
+			fmt.Printf("  Temp Files #         : %d\n", tempStat.Count)
+			fmt.Printf("  Temp Files avg size  : %s\n", formatBytes(avgSize))
+			fmt.Printf("  Temp Files size      : %s\n", formatBytes(tempStat.TotalSize))
+		}
+
+		// Locks metrics (if available)
+		if lockStat != nil {
+			if lockStat.AcquiredCount > 0 {
+				fmt.Printf("  Acquired Locks       : %d\n", lockStat.AcquiredCount)
+				fmt.Printf("  Acquired Wait Time   : %s\n", formatQueryDuration(lockStat.AcquiredWaitTime))
+			}
+			if lockStat.StillWaitingCount > 0 {
+				fmt.Printf("  Still Waiting Locks  : %d\n", lockStat.StillWaitingCount)
+				fmt.Printf("  Still Waiting Time   : %s\n", formatQueryDuration(lockStat.StillWaitingTime))
+			}
+			fmt.Printf("  Total Wait Time      : %s\n", formatQueryDuration(lockStat.TotalWaitTime))
+		}
+
+		// Display normalized query
+		fmt.Println()
+		fmt.Println("Normalized Query:")
+		fmt.Println()
+		fmt.Println(normalizedQuery)
+		fmt.Println()
+
+		// Optionally show one raw query as example
+		if rawQuery != "" {
+			fmt.Println("Example Query:")
+			fmt.Println()
+			fmt.Println(rawQuery)
 		}
 	}
 }
