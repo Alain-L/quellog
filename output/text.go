@@ -814,10 +814,6 @@ func PrintSqlDetails(m analysis.AggregatedMetrics, queryDetails []string) {
 			continue
 		}
 
-		// Display unified SQL DETAILS section
-		fmt.Println(bold + "\nSQL DETAILS" + reset)
-		fmt.Println()
-
 		// Get query type and normalized query (from any available source)
 		var queryType string
 		var normalizedQuery string
@@ -837,36 +833,74 @@ func PrintSqlDetails(m analysis.AggregatedMetrics, queryDetails []string) {
 			rawQuery = tempStat.RawQuery
 		}
 
-		// Always show ID and type
+		// SQL DETAILS section
+		fmt.Println(bold + "\nSQL DETAILS" + reset)
+		fmt.Println()
+
+		// Execution histogram (if multiple executions)
+		if sqlStat != nil && sqlStat.Count > 1 {
+			execHist, execUnit, execScale := computeSingleQueryExecutionHistogram(m.SQL.Executions, qid)
+			if execHist != nil {
+				PrintHistogram(execHist, "Query executions", execUnit, execScale, nil)
+			}
+		}
+
 		fmt.Printf("  Id                   : %s\n", qid)
 		fmt.Printf("  Query Type           : %s\n", queryType)
-
-		// SQL performance metrics (if available)
 		if sqlStat != nil {
 			fmt.Printf("  Executed             : %d\n", sqlStat.Count)
+		}
+
+		// TIME section (if SQL metrics available)
+		if sqlStat != nil {
+			fmt.Println()
+			fmt.Println(bold + "TIME" + reset)
+			fmt.Println()
+
+			// Time histogram (if multiple executions)
+			if sqlStat.Count > 1 {
+				timeHist, timeUnit, timeScale := computeSingleQueryTimeHistogram(m.SQL.Executions, qid)
+				if timeHist != nil {
+					PrintHistogram(timeHist, "Cumulative time", timeUnit, timeScale, nil)
+				}
+			}
+
 			fmt.Printf("  Total Time           : %s\n", formatQueryDuration(sqlStat.TotalTime))
 			fmt.Printf("  Median Time          : %s\n", formatQueryDuration(sqlStat.AvgTime))
 			fmt.Printf("  Max Time             : %s\n", formatQueryDuration(sqlStat.MaxTime))
 		}
 
-		// Tempfiles metrics (if available)
+		// TEMP FILES section (if tempfiles metrics available)
 		if tempStat != nil {
+			fmt.Println()
+			fmt.Println(bold + "TEMP FILES" + reset)
+			fmt.Println()
+
+			// Tempfiles histogram (if multiple events)
+			if tempStat.Count > 1 {
+				tempHist, tempUnit, tempScale := computeSingleQueryTempFileHistogram(m.TempFiles.Events, qid)
+				if tempHist != nil {
+					PrintHistogram(tempHist, "Temp files created", tempUnit, tempScale, nil)
+				}
+			}
+
 			avgSize := tempStat.TotalSize / int64(tempStat.Count)
 			fmt.Printf("  Temp Files #         : %d\n", tempStat.Count)
 			fmt.Printf("  Temp Files avg size  : %s\n", formatBytes(avgSize))
 			fmt.Printf("  Temp Files size      : %s\n", formatBytes(tempStat.TotalSize))
 		}
 
-		// Locks metrics (if available)
+		// LOCKS section (if locks metrics available)
 		if lockStat != nil {
-			if lockStat.AcquiredCount > 0 {
-				fmt.Printf("  Acquired Locks       : %d\n", lockStat.AcquiredCount)
-				fmt.Printf("  Acquired Wait Time   : %s\n", formatQueryDuration(lockStat.AcquiredWaitTime))
-			}
-			if lockStat.StillWaitingCount > 0 {
-				fmt.Printf("  Still Waiting Locks  : %d\n", lockStat.StillWaitingCount)
-				fmt.Printf("  Still Waiting Time   : %s\n", formatQueryDuration(lockStat.StillWaitingTime))
-			}
+			fmt.Println()
+			fmt.Println(bold + "LOCKS" + reset)
+			fmt.Println()
+
+			// Always show acquired locks/time (even if 0)
+			fmt.Printf("  Acquired Locks       : %d\n", lockStat.AcquiredCount)
+			fmt.Printf("  Acquired Wait Time   : %s\n", formatQueryDuration(lockStat.AcquiredWaitTime))
+			fmt.Printf("  Still Waiting Locks  : %d\n", lockStat.StillWaitingCount)
+			fmt.Printf("  Still Waiting Time   : %s\n", formatQueryDuration(lockStat.StillWaitingTime))
 			fmt.Printf("  Total Wait Time      : %s\n", formatQueryDuration(lockStat.TotalWaitTime))
 		}
 
