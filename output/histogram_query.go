@@ -206,12 +206,12 @@ func computeSingleQueryTimeHistogram(executions []analysis.QueryExecution, query
 	return result, unit, scaleFactor
 }
 
-// computeSingleQueryTempFileHistogram calculates a histogram of temp file count
+// computeSingleQueryTempFileHistogram calculates a histogram of temp file sizes
 // over time for a specific query ID.
 //
 // Returns:
-//   - histogram: map of time range labels to temp file count
-//   - unit: "files"
+//   - histogram: map of time range labels to cumulative temp file size
+//   - unit: "MB" or "GB" depending on scale
 //   - scaleFactor: for proportional display
 func computeSingleQueryTempFileHistogram(events []analysis.TempFileEvent, queryID string) (map[string]int, string, int) {
 	// Filter events for this query
@@ -247,8 +247,8 @@ func computeSingleQueryTempFileHistogram(events []analysis.TempFileEvent, queryI
 		bucketDuration = 1 * time.Nanosecond
 	}
 
-	// Prepare buckets
-	histogram := make([]int, numBuckets)
+	// Prepare buckets (store sizes in bytes)
+	histogramSizes := make([]int64, numBuckets)
 	bucketLabels := make([]string, numBuckets)
 	for i := 0; i < numBuckets; i++ {
 		bucketStart := start.Add(time.Duration(i) * bucketDuration)
@@ -256,7 +256,7 @@ func computeSingleQueryTempFileHistogram(events []analysis.TempFileEvent, queryI
 		bucketLabels[i] = fmt.Sprintf("%s - %s", bucketStart.Format("15:04"), bucketEnd.Format("15:04"))
 	}
 
-	// Count temp files per bucket
+	// Sum temp file sizes per bucket
 	for _, event := range filtered {
 		elapsed := event.Timestamp.Sub(start)
 		bucketIndex := int(elapsed / bucketDuration)
@@ -266,20 +266,44 @@ func computeSingleQueryTempFileHistogram(events []analysis.TempFileEvent, queryI
 		if bucketIndex < 0 {
 			bucketIndex = 0
 		}
-		histogram[bucketIndex]++
+		histogramSizes[bucketIndex] += int64(event.Size)
 	}
 
-	// Convert to map
+	// Determine unit and conversion based on max bucket size
+	maxBucketSize := int64(0)
+	for _, size := range histogramSizes {
+		if size > maxBucketSize {
+			maxBucketSize = size
+		}
+	}
+
+	var unit string
+	var conversion int64
+	if maxBucketSize < 1024*1024*1024 {
+		unit = "MB"
+		conversion = 1024 * 1024
+	} else {
+		unit = "GB"
+		conversion = 1024 * 1024 * 1024
+	}
+
+	// Convert to map with unit conversion
 	result := make(map[string]int, numBuckets)
-	for i, count := range histogram {
-		result[bucketLabels[i]] = count
+	for i, raw := range histogramSizes {
+		var value int
+		if raw > 0 {
+			value = int((raw + conversion - 1) / conversion)
+		} else {
+			value = 0
+		}
+		result[bucketLabels[i]] = value
 	}
 
 	// Calculate scale factor
 	maxValue := 0
-	for _, count := range histogram {
-		if count > maxValue {
-			maxValue = count
+	for _, v := range result {
+		if v > maxValue {
+			maxValue = v
 		}
 	}
 	histogramWidth := 40
@@ -288,5 +312,5 @@ func computeSingleQueryTempFileHistogram(events []analysis.TempFileEvent, queryI
 		scaleFactor = 1
 	}
 
-	return result, "files", scaleFactor
+	return result, unit, scaleFactor
 }
