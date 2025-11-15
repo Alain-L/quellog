@@ -292,6 +292,13 @@ func constructMessage(obj map[string]interface{}) string {
 		parts = append(parts, "CONTEXT: "+context)
 	}
 
+	// Add SQLSTATE if present (for error classification)
+	// Skip 00000 (successful completion) as it's not an error
+	stateCode := getStringField(obj, "state_code")
+	if stateCode != "" && stateCode != "00000" {
+		parts = append(parts, fmt.Sprintf("SQLSTATE = '%s'", stateCode))
+	}
+
 	return strings.Join(parts, " ")
 }
 

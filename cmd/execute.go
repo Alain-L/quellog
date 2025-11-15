@@ -58,41 +58,62 @@ func executeParsing(cmd *cobra.Command, args []string) {
 
 // parseFilesAsync reads log files in parallel and sends entries to the channel.
 // It determines the optimal number of workers based on file count and CPU cores.
+// If all files fail to parse, it exits immediately with a clear error.
 func parseFilesAsync(files []string, out chan<- parser.LogEntry) {
 	defer close(out)
 
 	numWorkers := determineWorkerCount(len(files))
+	successChan := make(chan bool, len(files))
 
 	if numWorkers == 1 {
 		// Single file: no need for worker pool
 		for _, file := range files {
 			if err := parser.ParseFile(file, out); err != nil {
-				log.Printf("[ERROR] Failed to parse file %s: %v", file, err)
+				// Error already logged in detectParser with specific details
+				successChan <- false
+			} else {
+				successChan <- true
 			}
 		}
-		return
-	}
+	} else {
+		// Multiple files: use worker pool
+		fileChan := make(chan string, len(files))
+		for _, file := range files {
+			fileChan <- file
+		}
+		close(fileChan)
 
-	// Multiple files: use worker pool
-	fileChan := make(chan string, len(files))
-	for _, file := range files {
-		fileChan <- file
-	}
-	close(fileChan)
-
-	var wg sync.WaitGroup
-	for i := 0; i < numWorkers; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for file := range fileChan {
-				if err := parser.ParseFile(file, out); err != nil {
-					log.Printf("[ERROR] Failed to parse file %s: %v", file, err)
+		var wg sync.WaitGroup
+		for i := 0; i < numWorkers; i++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				for file := range fileChan {
+					if err := parser.ParseFile(file, out); err != nil {
+						// Error already logged in detectParser with specific details
+						successChan <- false
+					} else {
+						successChan <- true
+					}
 				}
-			}
-		}()
+			}()
+		}
+		wg.Wait()
 	}
-	wg.Wait()
+	close(successChan)
+
+	// Check if at least one file was successfully parsed
+	anySuccess := false
+	for success := range successChan {
+		if success {
+			anySuccess = true
+			break
+		}
+	}
+
+	if !anySuccess {
+		log.Fatalf("[ERROR] No files could be parsed. Check that files exist, are readable, and in a supported format.")
+	}
 }
 
 // buildLogFilters creates a LogFilters struct from command-line flags.
@@ -121,6 +142,12 @@ func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, 
 		// Run full analysis to collect queries from locks and tempfiles
 		metrics := analysis.AggregateMetrics(filteredLogs, totalFileSize)
 		processingDuration := time.Since(startTime)
+
+		// Check if any log entries were successfully parsed
+		if metrics.Global.Count == 0 {
+			log.Fatalf("[ERROR] No log entries could be parsed. Check that files are readable and in a supported format.")
+		}
+
 		PrintProcessingSummary(metrics.SQL.TotalQueries, processingDuration, totalFileSize)
 		output.PrintSqlDetails(metrics, sqlDetailFlag)
 		return
@@ -131,6 +158,12 @@ func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, 
 		// Run full analysis to collect queries from locks and tempfiles
 		metrics := analysis.AggregateMetrics(filteredLogs, totalFileSize)
 		processingDuration := time.Since(startTime)
+
+		// Check if any log entries were successfully parsed
+		if metrics.Global.Count == 0 {
+			log.Fatalf("[ERROR] No log entries could be parsed. Check that files are readable and in a supported format.")
+		}
+
 		PrintProcessingSummary(metrics.SQL.TotalQueries, processingDuration, totalFileSize)
 		output.PrintSQLSummaryWithContext(metrics.SQL, metrics.TempFiles, metrics.Locks, false)
 		return
@@ -140,8 +173,14 @@ func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, 
 	metrics := analysis.AggregateMetrics(filteredLogs, totalFileSize)
 	processingDuration := time.Since(startTime)
 
+	// Check if any log entries were successfully parsed
+	if metrics.Global.Count == 0 {
+		log.Fatalf("[ERROR] No log entries could be parsed. Check that files are readable and in a supported format.")
+	}
+
 	// Validate that we have a valid time range
-	if metrics.Global.MaxTimestamp.IsZero() || !metrics.Global.MaxTimestamp.After(metrics.Global.MinTimestamp) {
+	// Note: MaxTimestamp can be equal to MinTimestamp if there's only one log entry
+	if metrics.Global.MaxTimestamp.IsZero() || metrics.Global.MaxTimestamp.Before(metrics.Global.MinTimestamp) {
 		log.Fatalf("[ERROR] Invalid time range: MinTimestamp=%v, MaxTimestamp=%v",
 			metrics.Global.MinTimestamp, metrics.Global.MaxTimestamp)
 	}
@@ -178,6 +217,9 @@ func buildSectionList() []string {
 	}
 	if eventsFlag {
 		sections = append(sections, "events")
+	}
+	if errorsFlag {
+		sections = append(sections, "errors")
 	}
 	if sqlPerformanceFlag {
 		sections = append(sections, "sql_performance")

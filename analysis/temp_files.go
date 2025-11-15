@@ -33,6 +33,10 @@ type TempFileEvent struct {
 
 	// Size is the file size in bytes.
 	Size float64
+
+	// QueryID is the short identifier for the associated query (e.g., "se-abc123").
+	// May be empty if the query cannot be identified.
+	QueryID string
 }
 
 // TempFileQueryStat stores aggregated temp file statistics for a single query pattern.
@@ -97,6 +101,7 @@ type TempFileAnalyzer struct {
 	// Pattern 1 state
 	pendingSize         int64  // Size of last temp file awaiting statement association
 	pendingPID          string // PID of last temp file seen (for immediate matching)
+	pendingEventIndex   int    // Index of the pending event in events slice
 	expectingStatement  bool   // True if next line should be a STATEMENT
 	pendingByPID        map[string]int64 // Fallback: cumulative temp size per PID waiting for statement
 
@@ -251,9 +256,10 @@ func (a *TempFileAnalyzer) Process(entry *parser.LogEntry) {
 			if a.expectingStatement {
 			// Fast path: pendingPID is empty (means we couldn't extract it), assume it's the same
 			if a.pendingPID == "" {
-				a.associateQuery(query, a.pendingSize)
+				a.associateQuery(query, a.pendingSize, a.pendingEventIndex)
 				a.expectingStatement = false
 				a.pendingSize = 0
+				a.pendingEventIndex = -1
 				return
 			}
 
@@ -262,10 +268,11 @@ func (a *TempFileAnalyzer) Process(entry *parser.LogEntry) {
 
 			// Fast path: next line has same PID
 			if currentPID == a.pendingPID {
-				a.associateQuery(query, a.pendingSize)
+				a.associateQuery(query, a.pendingSize, a.pendingEventIndex)
 				a.expectingStatement = false
 				a.pendingSize = 0
 				a.pendingPID = ""
+				a.pendingEventIndex = -1
 				return
 			}
 
@@ -274,11 +281,12 @@ func (a *TempFileAnalyzer) Process(entry *parser.LogEntry) {
 			a.expectingStatement = false
 			a.pendingSize = 0
 			a.pendingPID = ""
+			a.pendingEventIndex = -1
 
 			// Fallback: check if current PID has pending temp files
 			if currentPID != "" {
 				if pendingSize, exists := a.pendingByPID[currentPID]; exists && pendingSize > 0 {
-					a.associateQuery(query, pendingSize)
+					a.associateQuery(query, pendingSize, -1) // No eventIndex for fallback cache
 					delete(a.pendingByPID, currentPID)
 				}
 			}
@@ -291,7 +299,7 @@ func (a *TempFileAnalyzer) Process(entry *parser.LogEntry) {
 				currentPID := parser.ExtractPID(msg)
 				if currentPID != "" {
 					if pendingSize, exists := a.pendingByPID[currentPID]; exists && pendingSize > 0 {
-						a.associateQuery(query, pendingSize)
+						a.associateQuery(query, pendingSize, -1) // No eventIndex for fallback cache
 						delete(a.pendingByPID, currentPID)
 					}
 				}
@@ -310,9 +318,11 @@ func (a *TempFileAnalyzer) Process(entry *parser.LogEntry) {
 	size := extractTempFileSize(msg)
 	if size > 0 {
 		a.totalSize += size
+		eventIndex := len(a.events)
 		a.events = append(a.events, TempFileEvent{
 			Timestamp: entry.Timestamp,
 			Size:      float64(size),
+			QueryID:   "", // Will be filled later if query is found
 		})
 
 		// Extract PID for this temp file
@@ -321,7 +331,7 @@ func (a *TempFileAnalyzer) Process(entry *parser.LogEntry) {
 		// Pattern 1b: Check if query is in the SAME message (CSV format with QUERY: field)
 		// This has PRIORITY over cache (Pattern 2)
 		if query := extractStatementQuery(msg); query != "" {
-			a.associateQuery(query, size)
+			a.associateQuery(query, size, eventIndex)
 
 			// Clean up cache for this PID if it exists (stale query)
 			if pid != "" {
@@ -337,7 +347,7 @@ func (a *TempFileAnalyzer) Process(entry *parser.LogEntry) {
 		// Pattern 2: Check if we have a cached query for this PID (fallback)
 		if pid != "" {
 			if cachedQuery, exists := a.lastQueryByPID[pid]; exists {
-				a.associateQuery(cachedQuery, size)
+				a.associateQuery(cachedQuery, size, eventIndex)
 				a.tempFilesExist = true
 				return // Done, no need to wait for next line
 			}
@@ -349,6 +359,7 @@ func (a *TempFileAnalyzer) Process(entry *parser.LogEntry) {
 		// Pattern 1: No cached query, wait for STATEMENT on next line (temp→STATEMENT pattern)
 		a.pendingSize = size
 		a.pendingPID = pid
+		a.pendingEventIndex = eventIndex
 		a.expectingStatement = true
 	}
 }
@@ -463,7 +474,8 @@ func extractContextQuery(message string) string {
 }
 
 // associateQuery links a temp file size to a query by normalizing and storing stats.
-func (a *TempFileAnalyzer) associateQuery(query string, size int64) {
+// If eventIndex >= 0, also updates the QueryID of the corresponding event.
+func (a *TempFileAnalyzer) associateQuery(query string, size int64, eventIndex int) {
 	if query == "" {
 		return
 	}
@@ -488,6 +500,11 @@ func (a *TempFileAnalyzer) associateQuery(query string, size int64) {
 		}
 	}
 
+	// Update event's QueryID if we have a valid index
+	if eventIndex >= 0 && eventIndex < len(a.events) {
+		a.events[eventIndex].QueryID = id
+	}
+
 	// Get or create stat entry
 	stat, exists := a.queryStats[fullHash]
 	if !exists {
@@ -500,6 +517,11 @@ func (a *TempFileAnalyzer) associateQuery(query string, size int64) {
 			FullHash:        fullHash,
 		}
 		a.queryStats[fullHash] = stat
+	} else {
+		// For deterministic JSON output, always keep the alphabetically first raw query
+		if query < stat.RawQuery {
+			stat.RawQuery = query
+		}
 	}
 
 	// Update stats

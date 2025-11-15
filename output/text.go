@@ -59,6 +59,29 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string) {
 		PrintEventsReport(m.EventSummaries)
 	}
 
+	// Error Classes
+	if has("errors") && len(m.ErrorClasses) > 0 {
+		fmt.Println(bold + "\nERROR CLASSES\n" + reset)
+
+		// Determine the longest description for alignment
+		maxDescLength := 0
+		for _, ec := range m.ErrorClasses {
+			descWithCode := fmt.Sprintf("%s – %s", ec.ClassCode, ec.Description)
+			if len(descWithCode) > maxDescLength {
+				maxDescLength = len(descWithCode)
+			}
+		}
+
+		// Print error classes with aligned counts
+		for _, ec := range m.ErrorClasses {
+			fmt.Printf("  %s – %-*s : %d\n",
+				ec.ClassCode,
+				maxDescLength - len(ec.ClassCode) - 3, // -3 for " – "
+				ec.Description,
+				ec.Count)
+		}
+	}
+
 	// Temp Files section.
 	if has("tempfiles") && m.TempFiles.Count > 0 {
 
