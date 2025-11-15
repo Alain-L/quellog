@@ -951,7 +951,7 @@ func PrintSqlDetails(m analysis.AggregatedMetrics, queryDetails []string) {
 		fmt.Println()
 		fmt.Println("Normalized Query:")
 		fmt.Println()
-		fmt.Println(normalizedQuery)
+		fmt.Println(formatSQL(normalizedQuery))
 		fmt.Println()
 
 		// Optionally show one raw query as example
