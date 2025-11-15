@@ -16,7 +16,8 @@ SUMMARY
 ...
 ```
 
-Beyond terminal output, quellog provides comprehensive [JSON export](json-export.md) capabilities for seamless integration with dashboards, monitoring systems, and custom automation workflows.
+!!! info "JSON Export"
+    Beyond terminal output, quellog provides comprehensive [JSON export](json-export.md) capabilities for seamless integration with dashboards, monitoring systems, and custom automation workflows.
 
 ## Why quellog?
 
