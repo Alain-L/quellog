@@ -24,11 +24,12 @@ The JSON export provides **quellog's complete analysis data structures** with al
 - Perform additional filtering or aggregations on individual events
 
 Each section exports:
+
 - **Aggregated metrics**: all counts, totals, averages, and percentiles already calculated
 - **Individual events**: timestamped entries for custom analysis and drill-down
 - **Query metadata**: normalized queries with their complete statistics (when applicable)
 
-The only thing **not** included is text formatting—all the analytical work is done.
+This unlocks quellog's full parsing and analysis capabilities without being constrained by synthetic text report formatting.
 
 ## JSON Structure
 
