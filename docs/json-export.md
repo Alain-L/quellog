@@ -29,7 +29,7 @@ Each section exports:
 - **Individual events**: timestamped entries for custom analysis and drill-down
 - **Query metadata**: normalized queries with their complete statistics (when applicable)
 
-This unlocks quellog's full parsing and analysis capabilities without being constrained by synthetic text report formatting.
+This unlocks full exploitation of quellog's parsing and analysis results without being constrained by synthetic text report formatting.
 
 ## JSON Structure
 
