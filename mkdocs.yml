@@ -57,13 +57,15 @@ markdown_extensions:
 plugins:
   - search
 
+exclude_docs: |
+  README.md
+
 extra_css:
   - stylesheets/extra.css
 
 nav:
   - Home: index.md
   - Getting Started:
-      - Quick Start: quick-start.md
       - Installation: installation.md
   - Configuration:
       - PostgreSQL Setup: postgresql-setup.md

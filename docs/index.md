@@ -94,6 +94,218 @@ quellog is built for speed, utilizing:
 
 quellog can process typical production log files (100 MB - 1 GB) in seconds, making it suitable for both ad-hoc analysis and automated reporting pipelines.
 
+## Quick Start
+
+Get up and running with quellog in 5 minutes.
+
+### Installation
+
+=== "Debian/Ubuntu (.deb)"
+
+    Download and install the package:
+
+    ```bash
+    # Download latest release
+    LATEST_VERSION=$(curl -s https://api.github.com/repos/Alain-L/quellog/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+    wget "https://github.com/Alain-L/quellog/releases/download/${LATEST_VERSION}/quellog_${LATEST_VERSION#v}_amd64.deb"
+
+    # Install
+    sudo dpkg -i quellog_${LATEST_VERSION#v}_amd64.deb
+
+    # Verify
+    quellog --version
+    ```
+
+=== "Red Hat/Fedora (.rpm)"
+
+    Download and install the package:
+
+    ```bash
+    # Download latest release
+    LATEST_VERSION=$(curl -s https://api.github.com/repos/Alain-L/quellog/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+    wget "https://github.com/Alain-L/quellog/releases/download/${LATEST_VERSION}/quellog_${LATEST_VERSION#v}_amd64.rpm"
+
+    # Install
+    sudo dnf install quellog_${LATEST_VERSION#v}_amd64.rpm
+
+    # Verify
+    quellog --version
+    ```
+
+=== "Linux/macOS (tar.gz)"
+
+    Download and extract the binary:
+
+    ```bash
+    # Download latest release
+    LATEST_VERSION=$(curl -s https://api.github.com/repos/Alain-L/quellog/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+
+    # Linux amd64:
+    wget "https://github.com/Alain-L/quellog/releases/download/${LATEST_VERSION}/quellog_${LATEST_VERSION}_linux_amd64.tar.gz"
+    tar -xzf quellog_${LATEST_VERSION}_linux_amd64.tar.gz
+
+    # macOS (darwin) amd64:
+    # curl -LO "https://github.com/Alain-L/quellog/releases/download/${LATEST_VERSION}/quellog_${LATEST_VERSION}_darwin_amd64.tar.gz"
+    # tar -xzf quellog_${LATEST_VERSION}_darwin_amd64.tar.gz
+
+    # Move to PATH
+    sudo install -m 755 quellog /usr/local/bin/
+
+    # Verify installation
+    quellog --version
+    ```
+
+=== "macOS (Homebrew)"
+
+    !!! warning "Coming Soon"
+        Homebrew installation is not yet available. Use the tar.gz installation method above.
+
+=== "Build from Source"
+
+    ```bash
+    # Clone the repository
+    git clone https://github.com/Alain-L/quellog.git
+    cd quellog
+
+    # Build
+    go build -o quellog .
+
+    # Optionally move to PATH
+    sudo install -m 755 quellog /usr/local/bin/
+    ```
+
+For detailed installation instructions for all platforms, see the [Installation Guide](installation.md).
+
+### Your First Analysis
+
+The simplest way to use quellog is to point it at a log file:
+
+```bash
+quellog /var/log/postgresql/postgresql-15-main.log
+```
+
+quellog will automatically:
+
+1. Detect the log format (stderr, CSV, or JSON)
+2. Parse all entries
+3. Aggregate metrics across all analysis categories
+4. Display a comprehensive report
+
+!!! info "Automatic Format Detection"
+    quellog automatically detects log format and compression. You don't need to specify file types manually.
+
+### Common First Steps
+
+#### 1. Analyze a specific time window
+
+```bash
+# Specific 2-hour window
+quellog /var/log/postgresql/*.log \
+  --begin "2025-01-13 14:00:00" \
+  --end "2025-01-13 16:00:00"
+
+# Last hour of logs (example with specific end time)
+quellog /var/log/postgresql/*.log \
+  --begin "2025-01-13 23:00:00" \
+  --end "2025-01-14 00:00:00"
+```
+
+!!! info "Time Window Filtering"
+    Use `--begin` and `--end` together to specify a time range. A standalone `--window` flag for relative time ranges is coming soon.
+
+!!! warning "Timestamp Format"
+    Make sure your log timestamps match the format you're using with `--begin` and `--end`. The format should be `YYYY-MM-DD HH:MM:SS`.
+
+#### 2. Focus on a specific database
+
+```bash
+# Production database only
+quellog /var/log/postgresql/*.log --dbname production
+
+# Multiple databases
+quellog /var/log/postgresql/*.log --dbname app_db --dbname analytics_db
+```
+
+#### 3. Analyze SQL performance
+
+```bash
+# Show SQL summary with top queries
+quellog /var/log/postgresql/*.log --sql-summary
+
+# Get details for a specific slow query
+quellog /var/log/postgresql/*.log --sql-detail se-a1b2c3d
+```
+
+#### 4. Focus on specific sections
+
+You can display only specific sections of the report:
+
+```bash
+# Show only tempfile section
+quellog /var/log/postgresql/*.log --tempfiles
+
+# Show only lock analysis
+quellog /var/log/postgresql/*.log --locks
+
+# Combine multiple sections
+quellog /var/log/postgresql/*.log --tempfiles --locks
+```
+
+### Processing Multiple Files
+
+quellog can process multiple files and directories:
+
+!!! tip "Performance"
+    When processing multiple files, quellog uses parallel workers automatically (up to 8 workers based on CPU cores) to maximize throughput.
+
+```bash
+# Multiple files
+quellog postgresql-2025-01-12.log postgresql-2025-01-13.log
+
+# Entire directory
+quellog /var/log/postgresql/
+
+# Glob patterns
+quellog /var/log/postgresql/postgresql-*.log
+
+# Compressed archives
+quellog /backups/logs/postgresql-2025-01.tar.gz
+```
+
+### Exporting Results
+
+#### JSON Export
+
+Export results as JSON for further processing:
+
+```bash
+quellog /var/log/postgresql/*.log --json > report.json
+```
+
+Use with `jq` for specific queries:
+
+```bash
+# Get checkpoint count
+quellog /var/log/postgresql/*.log --json | jq '.checkpoints.total_checkpoints'
+# Output: 19
+
+# Get total queries parsed
+quellog /var/log/postgresql/*.log --json | jq '.sql_performance.total_queries_parsed'
+# Output: 456
+
+# Get query median duration
+quellog /var/log/postgresql/*.log --json | jq '.sql_performance.query_median_duration'
+# Output: "145 ms"
+```
+
+#### Markdown Export
+
+Generate markdown reports for documentation:
+
+```bash
+quellog /var/log/postgresql/*.log --md > report.md
+```
+
 ## Architecture
 
 quellog's design prioritizes both performance and accuracy:
@@ -124,11 +336,17 @@ quellog's design prioritizes both performance and accuracy:
 - **Query auditing** - Review what queries were executed and when
 - **Error reporting** - Aggregate and classify database errors
 
-## Getting Started
+## Next Steps
 
-Ready to analyze your PostgreSQL logs? Check out the [Quick Start Guide](quick-start.md) to get up and running in minutes.
+Now that you're familiar with quellog, explore more advanced features:
 
-For detailed installation instructions, see the [Installation Guide](installation.md).
+- [Installation Guide](installation.md) - Detailed installation for all platforms
+- [PostgreSQL Setup](postgresql-setup.md) - Configure PostgreSQL for optimal logging
+- [Default Report](default-report.md) - Understanding all report sections
+- [SQL Analysis](sql-reports.md) - Deep dive into query performance analysis
+- [Filtering Logs](filtering-logs.md) - Advanced filtering techniques
+- [JSON Export](json-export.md) - Structured data export for automation
+- [Markdown Export](markdown-export.md) - Generate documentation-ready reports
 
 ## License
 
@@ -141,11 +359,3 @@ quellog is open source software licensed under the PostgreSQL License.
 
 !!! info "Help Us Improve"
     If quellog doesn't support your specific `log_line_prefix` configuration, please open an issue with your settings and a sample log. We regularly add support for new formats based on community feedback!
-
----
-
-!!! tip "Next Steps"
-
-    - [Quick Start Guide](quick-start.md) - Get started in 5 minutes
-    - [Installation](installation.md) - Detailed installation instructions
-    - [PostgreSQL Setup](postgresql-setup.md) - Configure PostgreSQL for optimal logging
