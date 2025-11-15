@@ -135,7 +135,8 @@ ERROR CLASSES
 - **08**: Connection exceptions
 - **40**: Transaction rollback (deadlock, serialization failure)
 
-**Note**: Error classes require SQLSTATE codes in logs. Configure with `%e` in `log_line_prefix`, `log_error_verbosity = 'verbose'`, or use csvlog/jsonlog formats.
+!!! info "Configuration Required"
+    Error classes require SQLSTATE codes in logs. Configure with `%e` in `log_line_prefix`, `log_error_verbosity = 'verbose'`, or use csvlog/jsonlog formats.
 
 ## Temporary Files
 
