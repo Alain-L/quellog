@@ -2,13 +2,32 @@
 
 quellog provides filtering to analyze specific subsets of PostgreSQL logs.
 
-## Default Behavior
+## Input Sources
 
-Without filters, quellog analyzes all log entries:
+### Log Files
+
+Analyze log files from disk:
 
 ```bash
 quellog /var/log/postgresql/*.log
 ```
+
+### Standard Input
+
+Read logs from stdin using `-`:
+
+```bash
+# From a pipe
+tail -f /var/log/postgresql/postgresql.log | quellog -
+
+# From command output
+kubectl logs postgres-pod | quellog -
+
+# From compressed archives
+zcat logs.gz | quellog -
+```
+
+Format detection works automatically for stdin.
 
 ## Time-Based Filtering
 
@@ -44,6 +63,37 @@ quellog /var/log/postgresql/*.log \
 ```
 
 Use the same timezone as your PostgreSQL logs.
+
+### --last (-L)
+
+Analyze the last N duration from now. Automatically sets end time to now and begin time to now minus the duration.
+
+```bash
+# Last hour
+quellog /var/log/postgresql/*.log --last 1h
+
+# Last 30 minutes
+quellog /var/log/postgresql/*.log --last 30m
+
+# Last 24 hours
+quellog /var/log/postgresql/*.log -L 24h
+
+# Last 2 hours and 15 minutes
+quellog /var/log/postgresql/*.log --last 2h15m
+```
+
+Valid duration units: `h` (hours), `m` (minutes), `s` (seconds).
+
+**Note**: `--last` cannot be combined with `--begin`, `--end`, or `--window`.
+
+### Use Cases
+
+| Scenario | Command |
+|----------|---------|
+| Recent production issue | `--last 1h` |
+| Daily morning review | `--last 24h` |
+| Real-time monitoring | `tail -f *.log \| quellog - --last 5m` |
+| Specific time range | `--begin "..." --end "..."` |
 
 ## Attribute-Based Filtering
 

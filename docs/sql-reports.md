@@ -4,7 +4,7 @@ quellog provides two SQL analysis modes: `--sql-summary` for aggregate query sta
 
 ## --sql-summary
 
-Shows detailed statistics for all queries found in logs.
+Shows detailed statistics for all queries found in logs, including SQL performance, temp files, and locks.
 
 ```bash
 quellog /var/log/postgresql/*.log --sql-summary
@@ -87,46 +87,55 @@ se-m7n8o9  select count(*) from events where us...             178        1.98 s
 
 Top queries by total cumulative time. **Executed**: number of times run. **Max**: slowest execution. **Avg**: average duration. **Total**: sum of all executions.
 
-**Queries generating temp files**
+**TEMP FILES section**
 
 ```
-Queries generating temp files:
+TEMP FILES
+
 SQLID      Query                                                                         Count    Total Size
 ------------------------------------------------------------------------------------------------------------
+se-N2d0E3  select node.id as id from alf_node node where node.type_qname_id <> ?...       364     100.47 GB
 se-y1z2a3  select * from large_table order by created_at desc...                           12       1.23 GB
-se-b4c5d6  with recursive categories as ( select id, parent_id from...                       8     456.78 MB
-se-e7f8g9  select array_agg(distinct name) from products group by...                         5     234.56 MB
+se-b4c5d6  with recursive categories as ( select id, parent_id from...                      8     456.78 MB
 ```
 
 Queries that created temporary files, sorted by total tempfile size. **Count**: number of tempfile creations. **Total Size**: cumulative size of all tempfiles created by this query.
 
-**Lock-related query tables**
+**LOCKS section**
 
 ```
+LOCKS
+
 Acquired locks by query:
 SQLID      Query                                                     Locks         Avg Wait       Total Wait
 ------------------------------------------------------------------------------------------------------------
-up-h1i2j3  update inventory set quantity = quantity - ? where...         12          523 ms           6.28 s
-in-k4l5m6  insert into audit_log (user_id, action, timestam...             8          215 ms           1.72 s
-up-n7o8p9  update orders set status = ? where id = ?...                    5          187 ms         935 ms
+up-bG8qBk  update alf_node set version = ? , transaction_id...        259           2.88 s          12m 25s
+in-79Lxjd  insert into alf_content_url (id, content_url, co...        130           2.97 s           6m 26s
+up-Yd6ZIK  update act_ru_task set rev_ = ?, name_ = ?, pare...         19           5.68 s           1m 47s
 
 Locks still waiting by query:
 SQLID      Query                                                     Locks         Avg Wait       Total Wait
 ------------------------------------------------------------------------------------------------------------
-se-q1r2s3  select * from products where category_id = ? for...            3           1.05 s           3.15 s
-up-t4u5v6  update users set last_login = now() where id = ?...             2          825 ms           1.65 s
+se-q1r2s3  select * from products where category_id = ? for...         3           1.05 s           3.15 s
+up-t4u5v6  update users set last_login = now() where id = ?...         2          825 ms           1.65 s
 
 Most frequent waiting queries:
 SQLID      Query                                                     Locks         Avg Wait       Total Wait
 ------------------------------------------------------------------------------------------------------------
-up-h1i2j3  update inventory set quantity = quantity - ? where...         12          523 ms           6.28 s
-in-k4l5m6  insert into audit_log (user_id, action, timestam...             8          215 ms           1.72 s
-up-n7o8p9  update orders set status = ? where id = ?...                    5          187 ms         935 ms
-se-q1r2s3  select * from products where category_id = ? for...            3           1.05 s           3.15 s
-up-t4u5v6  update users set last_login = now() where id = ?...             2          825 ms           1.65 s
+up-bG8qBk  update alf_node set version = ? , transaction_id...        259           2.88 s          12m 25s
+in-79Lxjd  insert into alf_content_url (id, content_url, co...        130           2.97 s           6m 26s
+up-Yd6ZIK  update act_ru_task set rev_ = ?, name_ = ?, pare...         19           5.68 s           1m 47s
 ```
 
-Three tables showing queries involved in lock waits. **Locks**: number of lock wait events. **Avg Wait**: average time spent waiting. **Total Wait**: sum of all wait times. "Acquired locks" = locks eventually granted. "Still waiting" = locks not granted when logs ended. "Most frequent" = all queries that waited, sorted by lock count.
+Three tables showing queries involved in lock waits:
+- **Acquired locks by query**: Locks that were eventually granted (sorted by total wait time)
+- **Locks still waiting by query**: Locks not granted when logs ended (sorted by total wait time)
+- **Most frequent waiting queries**: All queries that waited, sorted by lock count
+
+**Fields**:
+- **Locks**: Number of lock wait events
+- **Avg Wait**: Average time spent waiting for locks
+- **Total Wait**: Sum of all lock wait times for this query
 
 ### Query Normalization
 
@@ -147,47 +156,185 @@ Each query gets a short identifier like `se-a1b2c3` (select), `up-x4y5z6` (updat
 
 ## --sql-detail
 
-Shows detailed information for a specific query.
+Shows comprehensive analysis for a specific query, including execution patterns, temp files, and lock behavior.
 
 ```bash
 # Single query
-quellog /var/log/postgresql/*.log --sql-detail se-a1b2c3
+quellog /var/log/postgresql/*.log --sql-detail se-N2d0E3
 
 # Multiple queries
-quellog /var/log/postgresql/*.log --sql-detail se-a1b2c3 --sql-detail se-x4y5z6
+quellog /var/log/postgresql/*.log --sql-detail se-N2d0E3 --sql-detail up-bG8qBk
+
+# Short form
+quellog /var/log/postgresql/*.log -Q se-N2d0E3
 ```
 
 ### Output Format
 
+The output is organized into sections that appear only when relevant data exists:
+
+**SQL DETAILS section** (always present)
+
 ```
-Details for SQLID: se-a1b2c3
-SQL Query Details:
-  SQLID            : se-a1b2c3
-  Query Type       : select
-  Raw Query        : SELECT * FROM orders o JOIN customers c ON o.customer_id = c.id WHERE o.status = $1 ...
-  Normalized Query : select * from orders o join customers c on o.customer_id = c.id where o.status = ? ...
-  Executed         : 234
-  Total Time       : 2h 15m 30s
-  Median Time      : 1m 23s
-  Max Time         : 5m 12s
+SQL DETAILS
+
+  Query count | ■ = 5
+
+  07:50 - 10:19  ■■■■■■■■■■ 54
+  10:19 - 12:48  ■■■■■■■■■■■■■■■■■■ 94
+  12:48 - 15:16  ■■■■■■■■■■■■■■■ 79
+  15:16 - 17:45  ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ 170
+  17:45 - 20:14  ■■■■■■■■■■■ 56
+  20:14 - 22:42  3
+
+  Id                   : se-N2d0E3
+  Query Type           : select
+  Count                : 456
 ```
 
-**Fields**:
+Basic query information with execution count histogram (shown when count > 1).
 
-- **SQLID**: Query identifier
-- **Query Type**: select, insert, update, delete, etc.
-- **Raw Query**: Original query with parameter placeholders ($1, $2, etc.)
-- **Normalized Query**: Query with all parameters replaced by `?`
-- **Executed**: Number of executions
-- **Total Time**: Cumulative execution time
-- **Median Time**: Typical execution time (50th percentile)
-- **Max Time**: Slowest execution
+**TIME section** (when SQL metrics available)
+
+```
+TIME
+
+  Cumulative time | ■ = 183 m
+
+  07:50 - 10:19  ■■■■■■■■■ 1772 m
+  10:19 - 12:48  ■■■■■■■■■■■■■■■■ 3059 m
+  12:48 - 15:16  ■■■■■■■■■■■■ 2227 m
+  15:16 - 17:45  ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ 7314 m
+  17:45 - 20:14  ■■■■■■■■ 1562 m
+  20:14 - 22:42  71 m
+
+  Query duration distribution | ■ = 12 queries
+
+  < 1 ms          -
+  < 10 ms         -
+  < 100 ms        -
+  < 1 s           -
+  < 10 s          -
+  >= 10 s        ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ 456 queries
+
+  Total Duration       : 11d 2h 42m
+  Min Duration         : 2m 00s
+  Median Duration      : 35m 05s
+  Max Duration         : 1h 12m 50s
+```
+
+Execution time analysis with two histograms (shown when count > 1):
+- **Cumulative time**: Total time spent per time period
+- **Query duration distribution**: Number of queries in each duration bucket
+
+**TEMP FILES section** (when tempfile metrics available)
+
+```
+TEMP FILES
+
+  Temp files size | ■ = 1 GB
+
+  08:09 - 10:27  ■■■■■■■■■■■ 11 GB
+  10:27 - 12:44  ■■■■■■■■■■■■■■■■■■■■■■■ 23 GB
+  12:44 - 15:01  ■■■■■■■■■■■■■ 13 GB
+  15:01 - 17:19  ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ 31 GB
+  17:19 - 19:36  ■■■■■■■■■■■■■■■■■■■■■■■■ 24 GB
+  19:36 - 21:53  ■ 1 GB
+
+  Temp files count | ■ = 3
+
+  08:09 - 10:27  ■■■■■■■■■■■■ 38
+  10:27 - 12:44  ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ 91
+  12:44 - 15:01  ■■■■■■■■■■■■■■ 44
+  15:01 - 17:19  ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ 107
+  17:19 - 19:36  ■■■■■■■■■■■■■■■■■■■■■■■■■■■ 81
+  19:36 - 21:53  ■ 3
+
+  Temp Files count     : 364
+  Temp File min size   : 77.08 MB
+  Temp File max size   : 295.61 MB
+  Temp File avg size   : 282.63 MB
+  Temp Files size      : 100.47 GB
+```
+
+Temporary file analysis with two histograms (shown when count > 1):
+- **Temp files size**: Cumulative size of temp files per time period
+- **Temp files count**: Number of temp files created per time period
+
+**LOCKS section** (when lock metrics available)
+
+```
+LOCKS
+
+  Acquired Locks       : 259
+  Acquired Wait Time   : 12m 25s
+  Still Waiting Locks  : 0
+  Still Waiting Time   : 0 ms
+  Total Wait Time      : 12m 25s
+```
+
+Lock wait statistics. Note: "Acquired Locks" is always shown (even if 0) to indicate the query was checked for locks.
+
+**Normalized Query**
+
+```
+Normalized Query:
+
+ select node.id as id
+ from alf_node node
+ where node.type_qname_id <> ?
+ and node.store_id = ?
+ and ( node.id in (
+     select prop.node_id
+     from alf_node_properties prop
+     where (? = prop.qname_id)
+     and prop.string_value = ? )
+   and node.id in (
+     select prop.node_id
+     from alf_node_properties prop
+     where (? = prop.qname_id)
+     and prop.string_value = ? )
+   and node.id in (
+     select prop.node_id
+     from alf_node_properties prop
+     where (? = prop.qname_id)
+     and prop.string_value = ? )
+   and ( node.type_qname_id in ( ? , ? , ? , ? , ? , ? , ? , ? , ? , ? , ? , ? , ? , ? , ? , ? , ? , ? , ? , ? , ? ) ) )
+```
+
+Pretty-printed normalized query with automatic indentation and keyword formatting.
+
+**Example Query**
+
+```
+Example Query:
+
+select  node.id             as id from alf_node node  where node.type_qname_id <> $1 AND node.store_id = $2     AND   (        node.id IN (     select PROP.node_id from alf_node_properties PROP where ($3 = PROP.qname_id) AND   PROP.string_value = $4  )     AND        node.id IN (     select PROP.node_id from alf_node_properties PROP where ($5 = PROP.qname_id) AND   PROP.string_value = $6  )     AND        node.id IN (     select PROP.node_id from alf_node_properties PROP where ($7 = PROP.qname_id) AND   PROP.string_value = $8  )     AND       (     node.type_qname_id IN  (  $9 , $10 , $11 , $12 , $13 , $14 , $15 , $16 , $17 , $18 , $19 , $20 , $21 , $22 , $23 , $24 , $25 , $26 , $27 , $28 , $29 )  )     )
+```
+
+One actual execution example showing the original query with parameter placeholders.
+
+### Real-World Example
+
+Query `se-N2d0E3` from production logs shows a complex query pattern:
+- **456 executions** over ~15 hours
+- **11 days total runtime** (avg 35 minutes per execution)
+- **100 GB temp files** generated (avg 282 MB per file)
+- Peak activity: 170 executions between 15:16-17:45
+
+This data reveals:
+- The query needs optimization (very long execution times)
+- Significant temp file usage indicates work_mem may be too low
+- Execution pattern follows business hours (peak afternoon activity)
 
 ## Combining with Filters
 
 Use filters to focus SQL analysis:
 
 ```bash
+# Last hour of logs
+quellog /var/log/postgresql/*.log --last 1h --sql-summary
+
 # Production database, specific time window
 quellog /var/log/postgresql/*.log \
   --dbname production \
@@ -204,6 +351,24 @@ quellog /var/log/postgresql/*.log \
   --exclude-user powa \
   --sql-summary
 ```
+
+## Export Formats
+
+Both `--sql-summary` and `--sql-detail` support markdown export:
+
+```bash
+# Export summary to markdown
+quellog /var/log/postgresql/*.log --sql-summary --md > report.md
+
+# Export specific query details to markdown
+quellog /var/log/postgresql/*.log --sql-detail se-N2d0E3 --md > query-analysis.md
+```
+
+Markdown output includes:
+- All histograms in code blocks
+- Tables with proper formatting
+- SQL queries in syntax-highlighted blocks
+- Perfect for documentation and reports
 
 ## Next Steps
 

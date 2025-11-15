@@ -3,15 +3,58 @@
 Export analysis results as Markdown for documentation and reports.
 
 ```bash
-# Export to stdout
-quellog /var/log/postgresql/*.log --md
-
-# Save to file
+# Default report to markdown
 quellog /var/log/postgresql/*.log --md > report.md
 
+# SQL summary to markdown
+quellog /var/log/postgresql/*.log --sql-summary --md > queries.md
+
+# SQL detail to markdown
+quellog /var/log/postgresql/*.log --sql-detail se-N2d0E3 --md > query-detail.md
+
 # With filters
-quellog /var/log/postgresql/*.log --dbname production --md > prod.md
+quellog /var/log/postgresql/*.log --dbname production --last 1h --md > recent.md
 ```
+
+## Export Modes
+
+### Default Report (`--md`)
+
+Exports comprehensive analysis of all metrics:
+
+```bash
+quellog /var/log/postgresql/*.log --md > full-report.md
+```
+
+### SQL Summary (`--sql-summary --md`)
+
+Exports query performance analysis with temp files and locks:
+
+```bash
+quellog /var/log/postgresql/*.log --sql-summary --md > sql-analysis.md
+```
+
+Includes:
+- Query load and duration histograms
+- Top queries tables (slowest, most frequent, time consuming)
+- TEMP FILES section with query breakdown
+- LOCKS section with acquired/waiting queries
+
+### SQL Detail (`--sql-detail <id> --md`)
+
+Exports detailed analysis for specific queries:
+
+```bash
+quellog /var/log/postgresql/*.log --sql-detail se-N2d0E3 --md > query-se-N2d0E3.md
+```
+
+Includes:
+- Execution count histogram
+- TIME section with cumulative time and duration distribution
+- TEMP FILES section with size and count histograms
+- LOCKS section with wait statistics
+- Formatted normalized query
+- Example query
 
 ## Markdown Structure
 
