@@ -59,15 +59,39 @@ func executeParsing(cmd *cobra.Command, args []string) {
 // parseFilesAsync reads log files in parallel and sends entries to the channel.
 // It determines the optimal number of workers based on file count and CPU cores.
 // If all files fail to parse, it exits immediately with a clear error.
+// Special handling: if "-" is in the files list, it reads from stdin.
 func parseFilesAsync(files []string, out chan<- parser.LogEntry) {
 	defer close(out)
 
-	numWorkers := determineWorkerCount(len(files))
-	successChan := make(chan bool, len(files))
+	// Special case: check if stdin is requested
+	hasStdin := false
+	regularFiles := []string{}
+	for _, file := range files {
+		if file == "-" {
+			hasStdin = true
+		} else {
+			regularFiles = append(regularFiles, file)
+		}
+	}
+
+	// If stdin is requested, it must be the only input
+	if hasStdin {
+		if len(regularFiles) > 0 {
+			log.Fatalf("[ERROR] Cannot mix stdin (-) with file arguments")
+		}
+		// Parse from stdin
+		if err := parser.ParseStdin(out); err != nil {
+			log.Fatalf("[ERROR] Failed to parse from stdin: %v", err)
+		}
+		return
+	}
+
+	numWorkers := determineWorkerCount(len(regularFiles))
+	successChan := make(chan bool, len(regularFiles))
 
 	if numWorkers == 1 {
 		// Single file: no need for worker pool
-		for _, file := range files {
+		for _, file := range regularFiles {
 			if err := parser.ParseFile(file, out); err != nil {
 				// Error already logged in detectParser with specific details
 				successChan <- false
@@ -77,8 +101,8 @@ func parseFilesAsync(files []string, out chan<- parser.LogEntry) {
 		}
 	} else {
 		// Multiple files: use worker pool
-		fileChan := make(chan string, len(files))
-		for _, file := range files {
+		fileChan := make(chan string, len(regularFiles))
+		for _, file := range regularFiles {
 			fileChan <- file
 		}
 		close(fileChan)
