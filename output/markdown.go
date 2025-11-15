@@ -92,6 +92,19 @@ func ExportMarkdown(m analysis.AggregatedMetrics, sections []string) {
 	}
 
 	// ============================================================================
+	// ERROR CLASSES
+	// ============================================================================
+	if has("errors") && len(m.ErrorClasses) > 0 {
+		b.WriteString("## ERROR CLASSES\n\n")
+		b.WriteString("| Class | Description | Count |\n")
+		b.WriteString("|---|---|---:|\n")
+		for _, ec := range m.ErrorClasses {
+			b.WriteString(fmt.Sprintf("| %s | %s | %d |\n", ec.ClassCode, ec.Description, ec.Count))
+		}
+		b.WriteString("\n")
+	}
+
+	// ============================================================================
 	// TEMP FILES
 	// ============================================================================
 	if has("tempfiles") && m.TempFiles.Count > 0 {

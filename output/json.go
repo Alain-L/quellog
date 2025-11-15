@@ -161,6 +161,12 @@ type EventJSON struct {
 	Percentage float64 `json:"percentage"`
 }
 
+type ErrorClassJSON struct {
+	ClassCode   string `json:"class_code"`
+	Description string `json:"description"`
+	Count       int    `json:"count"`
+}
+
 // ExportJSON brings together all metrics into one composite structure,
 // converts it into an indented JSON string, and outputs the result.
 // Only sections with data are included in the output.
@@ -194,6 +200,19 @@ func ExportJSON(m analysis.AggregatedMetrics, sections []string) {
 			}
 		}
 		data["events"] = events
+	}
+
+	// Error classes
+	if has("errors") && len(m.ErrorClasses) > 0 {
+		errorClasses := make([]ErrorClassJSON, len(m.ErrorClasses))
+		for i, ec := range m.ErrorClasses {
+			errorClasses[i] = ErrorClassJSON{
+				ClassCode:   ec.ClassCode,
+				Description: ec.Description,
+				Count:       ec.Count,
+			}
+		}
+		data["error_classes"] = errorClasses
 	}
 
 	// Conditionally include SQL performance

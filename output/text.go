@@ -60,7 +60,7 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string) {
 	}
 
 	// Error Classes
-	if has("events") && len(m.ErrorClasses) > 0 {
+	if has("errors") && len(m.ErrorClasses) > 0 {
 		fmt.Println(bold + "\nERROR CLASSES\n" + reset)
 
 		// Determine the longest description for alignment

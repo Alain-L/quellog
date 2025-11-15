@@ -211,6 +211,9 @@ func buildSectionList() []string {
 	if eventsFlag {
 		sections = append(sections, "events")
 	}
+	if errorsFlag {
+		sections = append(sections, "errors")
+	}
 	if sqlPerformanceFlag {
 		sections = append(sections, "sql_performance")
 	}

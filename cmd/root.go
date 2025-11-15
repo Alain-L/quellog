@@ -37,6 +37,7 @@ var (
 	// Section selection flags (print only specific sections)
 	summaryFlag        bool // --summary: Print only summary section
 	eventsFlag         bool // --events: Print only events section
+	errorsFlag         bool // --errors: Print only error classes section
 	sqlPerformanceFlag bool // --sql-performance: Print only SQL performance section
 	tempfilesFlag      bool // --tempfiles: Print only temporary files section
 	locksFlag          bool // --locks: Print only locks section
@@ -111,6 +112,8 @@ func init() {
 		"Print only the summary section")
 	rootCmd.Flags().BoolVar(&eventsFlag, "events", false,
 		"Print only the events section")
+	rootCmd.Flags().BoolVar(&errorsFlag, "errors", false,
+		"Print only the error classes section")
 	rootCmd.Flags().BoolVar(&sqlPerformanceFlag, "sql-performance", false,
 		"Print only the SQL performance section")
 	rootCmd.Flags().BoolVar(&tempfilesFlag, "tempfiles", false,
