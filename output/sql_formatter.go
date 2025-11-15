@@ -36,7 +36,7 @@ func formatSQL(query string) string {
 		// Use word boundaries to avoid matching partial words
 		pattern := regexp.MustCompile(`(?i)\b` + regexp.QuoteMeta(keyword) + `\b`)
 		result = pattern.ReplaceAllStringFunc(result, func(match string) string {
-			return "\n" + strings.ToUpper(match)
+			return "\n" + match
 		})
 	}
 
@@ -44,7 +44,7 @@ func formatSQL(query string) string {
 	for _, keyword := range indentedKeywords {
 		pattern := regexp.MustCompile(`(?i)\b` + regexp.QuoteMeta(keyword) + `\b`)
 		result = pattern.ReplaceAllStringFunc(result, func(match string) string {
-			return "\n  " + strings.ToUpper(match)
+			return "\n  " + match
 		})
 	}
 
