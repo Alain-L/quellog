@@ -67,15 +67,12 @@ nav:
   - Home: index.md
   - Getting Started:
       - Installation: installation.md
-  - Configuration:
       - PostgreSQL Setup: postgresql-setup.md
       - Supported Log Formats: formats.md
-  - Usage:
-      - Filtering Logs: filtering-logs.md
-      - Filtering Output: filtering-output.md
-  - Reports:
+  - Guides:
       - Default Report: default-report.md
       - SQL Analysis: sql-reports.md
-  - Output Formats:
+      - Filtering Logs: filtering-logs.md
+      - Filtering Output: filtering-output.md
       - JSON Export: json-export.md
       - Markdown Export: markdown-export.md
