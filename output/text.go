@@ -951,7 +951,11 @@ func PrintSqlDetails(m analysis.AggregatedMetrics, queryDetails []string) {
 		fmt.Println()
 		fmt.Println("Normalized Query:")
 		fmt.Println()
-		fmt.Println(formatSQL(normalizedQuery))
+		// Indent each line of the formatted query
+		formatted := formatSQL(normalizedQuery)
+		for _, line := range strings.Split(formatted, "\n") {
+			fmt.Println(" " + line)
+		}
 		fmt.Println()
 
 		// Optionally show one raw query as example
