@@ -926,7 +926,7 @@ func PrintSqlDetails(m analysis.AggregatedMetrics, queryDetails []string) {
 			}
 			avgSize := tempStat.TotalSize / int64(tempStat.Count)
 
-			fmt.Printf("  Temp Files #         : %d\n", tempStat.Count)
+			fmt.Printf("  Temp Files count     : %d\n", tempStat.Count)
 			fmt.Printf("  Temp File min size   : %s\n", formatBytes(minSize))
 			fmt.Printf("  Temp File max size   : %s\n", formatBytes(maxSize))
 			fmt.Printf("  Temp File avg size   : %s\n", formatBytes(avgSize))
