@@ -47,7 +47,8 @@ The configuration above enables comprehensive logging for PostgreSQL analysis wi
 
 quellog supports all PostgreSQL log formats: stderr/syslog (plain text), csvlog (structured CSV), and jsonlog (PostgreSQL 15+). The format is auto-detected.
 
-**Error class reporting (SQLSTATE codes):** The `%e` in `log_line_prefix` includes SQLSTATE error codes for classification. Alternatively, use `log_error_verbosity = 'verbose'` for detailed error context, or csvlog/jsonlog which include SQLSTATE codes by default in dedicated fields.
+!!! info "Error Class Reporting (SQLSTATE codes)"
+    The `%e` in `log_line_prefix` includes SQLSTATE error codes for classification. Alternatively, use `log_error_verbosity = 'verbose'` for detailed error context, or csvlog/jsonlog which include SQLSTATE codes by default in dedicated fields.
 
 !!! warning "Performance Impact"
     Setting `log_min_duration_statement = 0` logs every query, which can generate massive log files on busy databases and increase I/O load.
