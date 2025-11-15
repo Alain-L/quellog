@@ -80,9 +80,9 @@ Top queries sorted by execution count (**Executed**: number of times the query r
 Most time consuming queries:
 SQLID      Query                                          Executed           Max           Avg         Total
 ------------------------------------------------------------------------------------------------------------
-se-a1b2c3  select * from orders o join customer...              23        2.34 s      987 ms        22.71 s
-se-x4y5z6  select id, name, email from users wh...             456       456 ms       45 ms        20.52 s
-se-m7n8o9  select count(*) from events where us...             178        1.98 s      112 ms        19.94 s
+se-a1b2c3  select * from orders o join customer...              23        2.34 s        987 ms       22.71 s
+se-x4y5z6  select id, name, email from users wh...             456        456 ms         45 ms       20.52 s
+se-m7n8o9  select count(*) from events where us...             178        1.98 s        112 ms       19.94 s
 ```
 
 Top queries by total cumulative time. **Executed**: number of times run. **Max**: slowest execution. **Avg**: average duration. **Total**: sum of all executions.
@@ -94,9 +94,9 @@ TEMP FILES
 
 SQLID      Query                                                                         Count    Total Size
 ------------------------------------------------------------------------------------------------------------
-se-N2d0E3  select node.id as id from alf_node node where node.type_qname_id <> ?...       364     100.47 GB
-se-y1z2a3  select * from large_table order by created_at desc...                           12       1.23 GB
-se-b4c5d6  with recursive categories as ( select id, parent_id from...                      8     456.78 MB
+se-N2d0E3  select node.id as id from alf_node node where node.type_qname_id <> ?...        364     100.47 GB
+se-y1z2a3  select * from large_table order by created_at desc...                            12       1.23 GB
+se-b4c5d6  with recursive categories as ( select id, parent_id from...                       8     456.78 MB
 ```
 
 Queries that created temporary files, sorted by total tempfile size. **Count**: number of tempfile creations. **Total Size**: cumulative size of all tempfiles created by this query.
@@ -116,23 +116,25 @@ up-Yd6ZIK  update act_ru_task set rev_ = ?, name_ = ?, pare...         19       
 Locks still waiting by query:
 SQLID      Query                                                     Locks         Avg Wait       Total Wait
 ------------------------------------------------------------------------------------------------------------
-se-q1r2s3  select * from products where category_id = ? for...         3           1.05 s           3.15 s
-up-t4u5v6  update users set last_login = now() where id = ?...         2          825 ms           1.65 s
+se-q1r2s3  select * from products where category_id = ? for...         3           1.05 s             3.15 s
+up-t4u5v6  update users set last_login = now() where id = ?...         2           825 ms             1.65 s
 
 Most frequent waiting queries:
 SQLID      Query                                                     Locks         Avg Wait       Total Wait
 ------------------------------------------------------------------------------------------------------------
-up-bG8qBk  update alf_node set version = ? , transaction_id...        259           2.88 s          12m 25s
-in-79Lxjd  insert into alf_content_url (id, content_url, co...        130           2.97 s           6m 26s
-up-Yd6ZIK  update act_ru_task set rev_ = ?, name_ = ?, pare...         19           5.68 s           1m 47s
+up-bG8qBk  update alf_node set version = ? , transaction_id...        259           2.88 s           12m 25s
+in-79Lxjd  insert into alf_content_url (id, content_url, co...        130           2.97 s            6m 26s
+up-Yd6ZIK  update act_ru_task set rev_ = ?, name_ = ?, pare...         19           5.68 s            1m 47s
 ```
 
 Three tables showing queries involved in lock waits:
+
 - **Acquired locks by query**: Locks that were eventually granted (sorted by total wait time)
 - **Locks still waiting by query**: Locks not granted when logs ended (sorted by total wait time)
 - **Most frequent waiting queries**: All queries that waited, sorted by lock count
 
 **Fields**:
+
 - **Locks**: Number of lock wait events
 - **Avg Wait**: Average time spent waiting for locks
 - **Total Wait**: Sum of all lock wait times for this query
@@ -147,7 +149,7 @@ SELECT * FROM users WHERE id = 1
 SELECT * FROM users WHERE id = 42
 
 -- Normalized as
-SELECT * FROM users WHERE id = ?
+select * from users where id = ?
 ```
 
 ### SQLID Format
@@ -178,18 +180,18 @@ The output is organized into sections that appear only when relevant data exists
 ```
 SQL DETAILS
 
-  Query count | ■ = 5
+  Query count | ■ = 8
 
-  07:50 - 10:19  ■■■■■■■■■■ 54
-  10:19 - 12:48  ■■■■■■■■■■■■■■■■■■ 94
-  12:48 - 15:16  ■■■■■■■■■■■■■■■ 79
-  15:16 - 17:45  ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ 170
-  17:45 - 20:14  ■■■■■■■■■■■ 56
-  20:14 - 22:42  3
+  09:00 - 11:00  ■■■■■■■■ 42
+  11:00 - 13:00  ■■■■■■■■■■■■■■■■ 78
+  13:00 - 15:00  ■■■■■■■■■■■■■■ 67
+  15:00 - 17:00  ■■■■■■■■■■■■■■■■■■■■■■■ 112
+  17:00 - 19:00  ■■■■■■■ 34
+  19:00 - 21:00  5
 
-  Id                   : se-N2d0E3
+  Id                   : se-a1b2c3
   Query Type           : select
-  Count                : 456
+  Count                : 338
 ```
 
 Basic query information with execution count histogram (shown when count > 1).
@@ -199,28 +201,28 @@ Basic query information with execution count histogram (shown when count > 1).
 ```
 TIME
 
-  Cumulative time | ■ = 183 m
+  Cumulative time | ■ = 45 s
 
-  07:50 - 10:19  ■■■■■■■■■ 1772 m
-  10:19 - 12:48  ■■■■■■■■■■■■■■■■ 3059 m
-  12:48 - 15:16  ■■■■■■■■■■■■ 2227 m
-  15:16 - 17:45  ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ 7314 m
-  17:45 - 20:14  ■■■■■■■■ 1562 m
-  20:14 - 22:42  71 m
+  09:00 - 11:00  ■■■■■■■■ 378 s
+  11:00 - 13:00  ■■■■■■■■■■■■■■■■ 756 s
+  13:00 - 15:00  ■■■■■■■■■■■■ 589 s
+  15:00 - 17:00  ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ 1834 s
+  17:00 - 19:00  ■■■■■■ 312 s
+  19:00 - 21:00  23 s
 
-  Query duration distribution | ■ = 12 queries
+  Query duration distribution | ■ = 15 queries
 
-  < 1 ms          -
-  < 10 ms         -
-  < 100 ms        -
-  < 1 s           -
-  < 10 s          -
-  >= 10 s        ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ 456 queries
+  < 1 ms         ■■ 28 queries
+  < 10 ms        ■■■■■■ 87 queries
+  < 100 ms       ■■■■■■■■■■ 145 queries
+  < 1 s          ■■■■■■■ 98 queries
+  < 10 s         ■■■■■ 67 queries
+  >= 10 s        ■ 13 queries
 
-  Total Duration       : 11d 2h 42m
-  Min Duration         : 2m 00s
-  Median Duration      : 35m 05s
-  Max Duration         : 1h 12m 50s
+  Total Duration       : 1h 05m 32s
+  Min Duration         : 1 ms
+  Median Duration      : 234 ms
+  Max Duration         : 15.23 s
 ```
 
 Execution time analysis with two histograms (shown when count > 1):
@@ -232,29 +234,29 @@ Execution time analysis with two histograms (shown when count > 1):
 ```
 TEMP FILES
 
-  Temp files size | ■ = 1 GB
+  Temp files size | ■ = 250 MB
 
-  08:09 - 10:27  ■■■■■■■■■■■ 11 GB
-  10:27 - 12:44  ■■■■■■■■■■■■■■■■■■■■■■■ 23 GB
-  12:44 - 15:01  ■■■■■■■■■■■■■ 13 GB
-  15:01 - 17:19  ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ 31 GB
-  17:19 - 19:36  ■■■■■■■■■■■■■■■■■■■■■■■■ 24 GB
-  19:36 - 21:53  ■ 1 GB
+  10:15 - 12:20  ■■■■■■■■ 2.1 GB
+  12:20 - 14:25  ■■■■■■■■■■■■■■■■ 4.3 GB
+  14:25 - 16:30  ■■■■■■■■■■ 2.8 GB
+  16:30 - 18:35  ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ 8.2 GB
+  18:35 - 20:40  ■■■■■ 1.5 GB
+  20:40 - 22:45  97 MB
 
-  Temp files count | ■ = 3
+  Temp files count | ■ = 5
 
-  08:09 - 10:27  ■■■■■■■■■■■■ 38
-  10:27 - 12:44  ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ 91
-  12:44 - 15:01  ■■■■■■■■■■■■■■ 44
-  15:01 - 17:19  ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ 107
-  17:19 - 19:36  ■■■■■■■■■■■■■■■■■■■■■■■■■■■ 81
-  19:36 - 21:53  ■ 3
+  10:15 - 12:20  ■■■■■■■ 38
+  12:20 - 14:25  ■■■■■■■■■■■■■■ 72
+  14:25 - 16:30  ■■■■■■■■■ 45
+  16:30 - 18:35  ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ 198
+  18:35 - 20:40  ■■■■ 23
+  20:40 - 22:45  2
 
-  Temp Files count     : 364
-  Temp File min size   : 77.08 MB
-  Temp File max size   : 295.61 MB
-  Temp File avg size   : 282.63 MB
-  Temp Files size      : 100.47 GB
+  Temp Files count     : 378
+  Temp File min size   : 24.00 MB
+  Temp File max size   : 512.00 MB
+  Temp File avg size   : 128.45 MB
+  Temp Files size      : 47.43 GB
 ```
 
 Temporary file analysis with two histograms (shown when count > 1):
@@ -266,11 +268,11 @@ Temporary file analysis with two histograms (shown when count > 1):
 ```
 LOCKS
 
-  Acquired Locks       : 259
-  Acquired Wait Time   : 12m 25s
-  Still Waiting Locks  : 0
-  Still Waiting Time   : 0 ms
-  Total Wait Time      : 12m 25s
+  Acquired Locks       : 127
+  Acquired Wait Time   : 5m 42s
+  Still Waiting Locks  : 3
+  Still Waiting Time   : 8.45 s
+  Total Wait Time      : 5m 50s
 ```
 
 Lock wait statistics. Note: "Acquired Locks" is always shown (even if 0) to indicate the query was checked for locks.
@@ -280,26 +282,15 @@ Lock wait statistics. Note: "Acquired Locks" is always shown (even if 0) to indi
 ```
 Normalized Query:
 
- select node.id as id
- from alf_node node
- where node.type_qname_id <> ?
- and node.store_id = ?
- and ( node.id in (
-     select prop.node_id
-     from alf_node_properties prop
-     where (? = prop.qname_id)
-     and prop.string_value = ? )
-   and node.id in (
-     select prop.node_id
-     from alf_node_properties prop
-     where (? = prop.qname_id)
-     and prop.string_value = ? )
-   and node.id in (
-     select prop.node_id
-     from alf_node_properties prop
-     where (? = prop.qname_id)
-     and prop.string_value = ? )
-   and ( node.type_qname_id in ( ? , ? , ? , ? , ? , ? , ? , ? , ? , ? , ? , ? , ? , ? , ? , ? , ? , ? , ? , ? , ? ) ) )
+ select o.id, o.customer_id, o.total_amount, c.name
+ from orders o
+ join customers c
+ on o.customer_id = c.id
+ where o.status = ?
+ and o.created_at >= ?
+ and o.created_at < ?
+ order by o.created_at desc
+ limit ?
 ```
 
 Pretty-printed normalized query with automatic indentation and keyword formatting.
@@ -309,23 +300,10 @@ Pretty-printed normalized query with automatic indentation and keyword formattin
 ```
 Example Query:
 
-select  node.id             as id from alf_node node  where node.type_qname_id <> $1 AND node.store_id = $2     AND   (        node.id IN (     select PROP.node_id from alf_node_properties PROP where ($3 = PROP.qname_id) AND   PROP.string_value = $4  )     AND        node.id IN (     select PROP.node_id from alf_node_properties PROP where ($5 = PROP.qname_id) AND   PROP.string_value = $6  )     AND        node.id IN (     select PROP.node_id from alf_node_properties PROP where ($7 = PROP.qname_id) AND   PROP.string_value = $8  )     AND       (     node.type_qname_id IN  (  $9 , $10 , $11 , $12 , $13 , $14 , $15 , $16 , $17 , $18 , $19 , $20 , $21 , $22 , $23 , $24 , $25 , $26 , $27 , $28 , $29 )  )     )
+SELECT o.id, o.customer_id, o.total_amount, c.name FROM orders o JOIN customers c ON o.customer_id = c.id WHERE o.status = 'pending' AND o.created_at >= '2025-01-13 00:00:00' AND o.created_at < '2025-01-14 00:00:00' ORDER BY o.created_at DESC LIMIT 100
 ```
 
 One actual execution example showing the original query with parameter placeholders.
-
-### Real-World Example
-
-Query `se-N2d0E3` from production logs shows a complex query pattern:
-- **456 executions** over ~15 hours
-- **11 days total runtime** (avg 35 minutes per execution)
-- **100 GB temp files** generated (avg 282 MB per file)
-- Peak activity: 170 executions between 15:16-17:45
-
-This data reveals:
-- The query needs optimization (very long execution times)
-- Significant temp file usage indicates work_mem may be too low
-- Execution pattern follows business hours (peak afternoon activity)
 
 ## Combining with Filters
 
@@ -365,6 +343,7 @@ quellog /var/log/postgresql/*.log --sql-detail se-N2d0E3 --md > query-analysis.m
 ```
 
 Markdown output includes:
+
 - All histograms in code blocks
 - Tables with proper formatting
 - SQL queries in syntax-highlighted blocks
