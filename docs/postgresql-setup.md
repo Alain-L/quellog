@@ -54,4 +54,4 @@ quellog supports all PostgreSQL log formats: stderr/syslog (plain text), csvlog 
 
 - [Understand log formats](formats.md) that quellog supports
 - [Learn filtering options](filtering-logs.md) to analyze specific log subsets
-- [Run your first analysis](quick-start.md) on your configured logs
+- [Run your first analysis](index.md#quick-start) on your configured logs

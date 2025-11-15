@@ -34,8 +34,7 @@ The output will be in the `site/` directory.
 
 ## Documentation Structure
 
-- `index.md` - Home page with overview and features
-- `quick-start.md` - Quick start guide for new users
+- `index.md` - Home page with overview, features, and quick start guide
 - `installation.md` - Detailed installation instructions
 - `postgresql-setup.md` - PostgreSQL configuration guide
 - `formats.md` - Supported log formats documentation
