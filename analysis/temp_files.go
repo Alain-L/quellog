@@ -196,14 +196,12 @@ func (a *TempFileAnalyzer) Process(entry *parser.LogEntry) {
 	checkForQueries := a.tempFilesExist || a.expectingStatement || len(a.pendingByPID) > 0
 
 	if hasColon {
-		// OPTIMIZATION: Check for "TATEMENT:" instead of two separate Contains calls
-		// This pattern appears in both "STATEMENT:" and "statement:"
-		if idx := strings.Index(msg, "TATEMENT:"); idx >= 0 {
-			// Verify it's actually STATEMENT or statement (check preceding char)
-			if idx == 0 || msg[idx-1] == 'S' || msg[idx-1] == 's' {
-				hasStatement = true
-			}
-		}
+		// OPTIMIZATION: Contains() with short patterns is highly optimized by Go compiler
+		// Using || short-circuit: if first match succeeds, second is never evaluated
+		// In practice, lowercase "statement:" is 99%+ of cases (CSV + duration lines)
+		// Uppercase "STATEMENT:" appears mainly in error context (rare)
+		// Note: Manual IndexByte approaches are slower due to loop overhead
+		hasStatement = strings.Contains(msg, "statement:") || strings.Contains(msg, "STATEMENT:")
 
 		// Check for CONTEXT: (for queries executed from PL/pgSQL functions)
 		if !hasStatement && a.expectingStatement {
