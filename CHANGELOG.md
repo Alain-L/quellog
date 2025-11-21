@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.0] - 2025-11-21
+
+### Added
+- **Enhanced SQL summary report**: Section headers for TEMP FILES and LOCKS, improved metrics display
+- **Visual histograms in SQL detail**: TIME, TEMP FILES, and LOCKS distribution charts
+- **Markdown export for SQL reports**: `--sql-summary` and `--sql-detail` now support `--md` flag
+- **SQL formatter**: Readable formatting for normalized queries in `--sql-detail`
+- **Relative time filtering**: `--last` flag for time-based queries (e.g., `--last 24h`, `--last 7d`)
+- **Error class reporting**: `--errors` flag for SQLSTATE-based error analysis
+- **SQLSTATE extraction**: Support for CSV and JSON log formats
+- **Stdin streaming**: Accept logs from stdin with `-` argument
+- **Host/client tracking**: Entity metrics now include host information
+- **Comprehensive MkDocs documentation**: Complete user guide with examples
+- **Basic log format detection for cloud providers**: AWS RDS/Aurora, Azure Database, and Google Cloud SQL PostgreSQL
+
+### Fixed
+- **Query table display**: Column width calculation based on available terminal space
+- **Error classes**: SQLSTATE now displayed correctly in events section
+- **File access errors**: Improved handling for inaccessible files
+- **JSON export**: Flag validation for incompatible combinations
+
 ## [0.3.1] - 2025-11-13
 ### Fixed
 - **Display formatting**: Fixed tempfiles and locks table presentation

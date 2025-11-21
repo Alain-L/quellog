@@ -120,7 +120,7 @@ PostgreSQL error classification by SQLSTATE code (when available).
 - `description`: Human-readable error class description
 - `count`: Number of errors in this class
 
-**Note:** Error classes require SQLSTATE codes in logs. See [Error Class Reporting](postgresql-setup.md#error-class-reporting-sqlstate-codes) for configuration instructions.
+**Note:** Error classes require SQLSTATE codes in logs. See [PostgreSQL Setup](postgresql-setup.md) for configuration instructions.
 
 ### sql_performance
 
