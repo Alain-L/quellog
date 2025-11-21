@@ -8,6 +8,8 @@ options to help you quickly extract meaning from your data.
 With **quellog**, you can analyze query performance, detect anomalies, and track
 database maintenance operations effortlessly.
 
+**[Read the full documentation](https://alain-l.github.io/quellog/)**
+
 ## Features
 
 **quellog** is designed for speed and clarity: parse gigabytes of logs in
