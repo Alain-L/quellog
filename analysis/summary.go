@@ -445,6 +445,12 @@ func extractValueAt(msg string, startPos int) string {
 		}
 	}
 
+	// Filter PostgreSQL log_line_prefix placeholders (e.g., %u, %d, %a, %h)
+	// These appear in "log_line_prefix changed to..." messages
+	if len(val) == 2 && val[0] == '%' {
+		return ""
+	}
+
 	return val
 }
 
