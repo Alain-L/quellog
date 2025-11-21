@@ -37,7 +37,7 @@ type GlobalMetrics struct {
 	LogCount int
 }
 
-// UniqueEntityMetrics tracks unique database entities (databases, users, applications).
+// UniqueEntityMetrics tracks unique database entities (databases, users, applications, hosts).
 // This helps understand the scope of database usage and identify which components are active.
 type UniqueEntityMetrics struct {
 	// UniqueDbs is the count of distinct databases referenced in logs.
@@ -49,6 +49,9 @@ type UniqueEntityMetrics struct {
 	// UniqueApps is the count of distinct applications referenced in logs.
 	UniqueApps int
 
+	// UniqueHosts is the count of distinct hosts/clients referenced in logs.
+	UniqueHosts int
+
 	// DBs is the sorted list of all unique database names.
 	DBs []string
 
@@ -57,6 +60,9 @@ type UniqueEntityMetrics struct {
 
 	// Apps is the sorted list of all unique application names.
 	Apps []string
+
+	// Hosts is the sorted list of all unique host/client addresses.
+	Hosts []string
 }
 
 // AggregatedMetrics combines all analysis metrics into a single structure.
@@ -260,12 +266,13 @@ func AggregateMetrics(in <-chan parser.LogEntry, fileSize int64) AggregatedMetri
 // Unique entity tracking
 // ============================================================================
 
-// UniqueEntityAnalyzer tracks unique database entities (databases, users, applications)
+// UniqueEntityAnalyzer tracks unique database entities (databases, users, applications, hosts)
 // encountered in log entries.
 type UniqueEntityAnalyzer struct {
 	dbSet   map[string]struct{}
 	userSet map[string]struct{}
 	appSet  map[string]struct{}
+	hostSet map[string]struct{}
 }
 
 // NewUniqueEntityAnalyzer creates a new unique entity analyzer.
@@ -274,43 +281,110 @@ func NewUniqueEntityAnalyzer() *UniqueEntityAnalyzer {
 		dbSet:   make(map[string]struct{}, 100),
 		userSet: make(map[string]struct{}, 100),
 		appSet:  make(map[string]struct{}, 100),
+		hostSet: make(map[string]struct{}, 100),
 	}
 }
 
-// Process extracts database, user, and application names from a log entry.
+// Process extracts database, user, application, and host names from a log entry.
 //
 // Expected patterns in log messages:
-//   - "db=mydb"
+//   - "db=mydb" or "database=mydb"
 //   - "user=postgres"
-//   - "app=psql"
+//   - "app=psql" or "application_name=app"
+//   - "host=192.168.1.1" or "client=192.168.1.1"
 func (a *UniqueEntityAnalyzer) Process(entry *parser.LogEntry) {
 	msg := entry.Message
 
-	// Single-pass extraction: scan once for all three keys
-	// This is much faster than calling extractKeyValue 3 times
-	dbIdx := strings.Index(msg, "db=")
-	userIdx := strings.Index(msg, "user=")
-	appIdx := strings.Index(msg, "app=")
+	// OPTION 1: Single-pass scanner
+	// Scan the message once looking for all patterns simultaneously
+	// This is more efficient on CSV where 90% of messages have metadata
 
-	// Extract database name
-	if dbIdx != -1 {
-		if dbName := extractValueAt(msg, dbIdx+3); dbName != "" {
-			a.dbSet[dbName] = struct{}{}
-		}
+	// Quick pre-filter: skip if no '=' present
+	if strings.IndexByte(msg, '=') == -1 {
+		return
 	}
 
-	// Extract user name
-	if userIdx != -1 {
-		if userName := extractValueAt(msg, userIdx+5); userName != "" {
-			a.userSet[userName] = struct{}{}
-		}
-	}
+	// Single-pass extraction: scan once, extract all matches
+	i := 0
+	msgLen := len(msg)
 
-	// Extract application name
-	if appIdx != -1 {
-		if appName := extractValueAt(msg, appIdx+4); appName != "" {
-			a.appSet[appName] = struct{}{}
+	for i < msgLen {
+		// Find next '='
+		eqIdx := strings.IndexByte(msg[i:], '=')
+		if eqIdx == -1 {
+			break // No more '=' in message
 		}
+		eqIdx += i
+
+		// Check what's before the '='
+		// We need at least 2 chars before '=' for "db=" (shortest pattern)
+		if eqIdx < 2 {
+			i = eqIdx + 1
+			continue
+		}
+
+		// Match patterns by checking backwards from '='
+		// Check longer patterns first to avoid false matches
+		matched := false
+
+		// "application_name=" (17 chars)
+		if eqIdx >= 16 && msg[eqIdx-16:eqIdx] == "application_name" {
+			if appName := extractValueAt(msg, eqIdx+1); appName != "" {
+				a.appSet[appName] = struct{}{}
+				matched = true
+			}
+		} else if eqIdx >= 8 && msg[eqIdx-8:eqIdx] == "database" {
+			// "database=" (9 chars)
+			if dbName := extractValueAt(msg, eqIdx+1); dbName != "" {
+				a.dbSet[dbName] = struct{}{}
+				matched = true
+			}
+		} else if eqIdx >= 6 && msg[eqIdx-6:eqIdx] == "client" {
+			// "client=" (7 chars)
+			if hostName := extractValueAt(msg, eqIdx+1); hostName != "" {
+				a.hostSet[hostName] = struct{}{}
+				matched = true
+			}
+		} else if eqIdx >= 4 {
+			// Check 4-char patterns: "user=", "host="
+			prefix4 := msg[eqIdx-4 : eqIdx]
+			if prefix4 == "user" {
+				if userName := extractValueAt(msg, eqIdx+1); userName != "" {
+					a.userSet[userName] = struct{}{}
+					matched = true
+				}
+			} else if prefix4 == "host" {
+				if hostName := extractValueAt(msg, eqIdx+1); hostName != "" {
+					a.hostSet[hostName] = struct{}{}
+					matched = true
+				}
+			}
+		}
+
+		// Check 3-char patterns: "app="
+		if !matched && eqIdx >= 3 {
+			prefix3 := msg[eqIdx-3 : eqIdx]
+			if prefix3 == "app" {
+				if appName := extractValueAt(msg, eqIdx+1); appName != "" {
+					a.appSet[appName] = struct{}{}
+					matched = true
+				}
+			}
+		}
+
+		// Check 2-char patterns: "db="
+		if !matched && eqIdx >= 2 {
+			prefix2 := msg[eqIdx-2 : eqIdx]
+			if prefix2 == "db" {
+				if dbName := extractValueAt(msg, eqIdx+1); dbName != "" {
+					a.dbSet[dbName] = struct{}{}
+					matched = true
+				}
+			}
+		}
+
+		// Move past this '=' and continue scanning
+		i = eqIdx + 1
 	}
 }
 
@@ -320,9 +394,11 @@ func (a *UniqueEntityAnalyzer) Finalize() UniqueEntityMetrics {
 		UniqueDbs:   len(a.dbSet),
 		UniqueUsers: len(a.userSet),
 		UniqueApps:  len(a.appSet),
+		UniqueHosts: len(a.hostSet),
 		DBs:         mapKeysAsSlice(a.dbSet),
 		Users:       mapKeysAsSlice(a.userSet),
 		Apps:        mapKeysAsSlice(a.appSet),
+		Hosts:       mapKeysAsSlice(a.hostSet),
 	}
 }
 

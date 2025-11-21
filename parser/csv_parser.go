@@ -240,6 +240,14 @@ func buildCSVMessage(record []string) string {
 		b.WriteString(context)
 	}
 
+	// Add SQLSTATE if present (for error classification)
+	// Skip 00000 (successful completion) as it's not an error
+	if sqlstate := getField(record, csvFieldSQLState); sqlstate != "" && sqlstate != "00000" {
+		b.WriteString(" SQLSTATE = '")
+		b.WriteString(sqlstate)
+		b.WriteString("'")
+	}
+
 	return b.String()
 }
 

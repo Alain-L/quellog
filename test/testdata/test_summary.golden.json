@@ -62,7 +62,8 @@
   "clients": {
     "unique_databases": 3,
     "unique_users": 7,
-    "unique_apps": 9
+    "unique_apps": 9,
+    "unique_hosts": 37
   },
   "connections": {
     "connection_count": 36,
@@ -113,11 +114,62 @@
     "app_db",
     "postgres"
   ],
-  "events": {
-    "ERROR": 2,
-    "LOG": 183,
-    "WARNING": 1
-  },
+  "events": [
+    {
+      "type": "LOG",
+      "count": 183,
+      "percentage": 98.38709677419355
+    },
+    {
+      "type": "ERROR",
+      "count": 2,
+      "percentage": 1.0752688172043012
+    },
+    {
+      "type": "WARNING",
+      "count": 1,
+      "percentage": 0.5376344086021506
+    }
+  ],
+  "hosts": [
+    "0:52:00.567",
+    "10.0.1.100",
+    "10.0.1.110",
+    "10.0.1.50",
+    "10.0.1.51",
+    "10.0.1.80",
+    "10.0.1.90",
+    "10.0.2.30",
+    "10.0.2.40",
+    "10.0.2.50",
+    "10.0.2.60",
+    "172.16.0.10",
+    "172.16.0.100",
+    "172.16.0.11",
+    "172.16.0.110",
+    "172.16.0.12",
+    "172.16.0.120",
+    "172.16.0.20",
+    "172.16.0.30",
+    "172.16.0.40",
+    "172.16.0.50",
+    "172.16.0.60",
+    "172.16.0.70",
+    "172.16.0.80",
+    "172.16.0.90",
+    "192.168.1.100",
+    "192.168.1.101",
+    "192.168.1.102",
+    "192.168.1.103",
+    "192.168.1.104",
+    "192.168.1.105",
+    "192.168.1.106",
+    "192.168.1.107",
+    "192.168.1.108",
+    "192.168.1.109",
+    "192.168.1.150",
+    "192.168.1.200"
+  ],
   "locks": {
     "total_events": 11,
     "waiting_events": 7,
@@ -165,7 +217,8 @@
         "lock_type": "ShareLock",
         "resource_type": "transaction",
         "wait_time": "3456.79 ms",
-        "process_id": "70150"
+        "process_id": "70150",
+        "query_id": "up-6oT4b3"
       },
       {
         "timestamp": "2025-01-01 01:18:33",
@@ -173,7 +226,8 @@
         "lock_type": "ShareLock",
         "resource_type": "transaction",
         "wait_time": "2234.57 ms",
-        "process_id": "70151"
+        "process_id": "70151",
+        "query_id": "up-N6vKXC"
       },
       {
         "timestamp": "2025-01-01 01:18:34",
@@ -189,7 +243,8 @@
         "lock_type": "ShareLock",
         "resource_type": "transaction",
         "wait_time": "2567.89 ms",
-        "process_id": "70152"
+        "process_id": "70152",
+        "query_id": "up-6oT4b3"
       },
       {
         "timestamp": "2025-01-01 01:18:35",
@@ -197,7 +252,8 @@
         "lock_type": "ShareLock",
         "resource_type": "transaction",
         "wait_time": "4345.68 ms",
-        "process_id": "70151"
+        "process_id": "70151",
+        "query_id": "up-N6vKXC"
       },
       {
         "timestamp": "2025-01-01 01:18:36",
@@ -221,13 +277,25 @@
         "lock_type": "AccessShareLock",
         "resource_type": "relation",
         "wait_time": "1789.22 ms",
-        "process_id": "70155"
+        "process_id": "70155",
+        "query_id": "se-I5oJov"
       }
     ],
-    "top_queries": [
+    "queries": [
+      {
+        "id": "se-I5oJov",
+        "normalized_query": "select * from users where id = ? for update;",
+        "raw_query": "SELECT * FROM users WHERE id = 42 FOR UPDATE;",
+        "acquired_count": 1,
+        "acquired_wait_time": "1789.22 ms",
+        "still_waiting_count": 1,
+        "still_waiting_time": "1000.23 ms",
+        "total_wait_time": "2789.46 ms"
+      },
       {
         "id": "up-6oT4b3",
         "normalized_query": "update orders set status = ? where id = ?;",
+        "raw_query": "UPDATE orders SET status = 'shipped' WHERE id = 500;",
         "acquired_count": 2,
         "acquired_wait_time": "6024.68 ms",
         "still_waiting_count": 0,
@@ -237,6 +305,7 @@
       {
         "id": "up-N6vKXC",
         "normalized_query": "update products set stock = stock - ? where id = ?;",
+        "raw_query": "UPDATE products SET stock = stock - 1 WHERE id = 250;",
         "acquired_count": 0,
         "acquired_wait_time": "0.00 ms",
         "still_waiting_count": 1,
@@ -244,17 +313,9 @@
         "total_wait_time": "4345.68 ms"
       },
       {
-        "id": "se-I5oJov",
-        "normalized_query": "select * from users where id = ? for update;",
-        "acquired_count": 1,
-        "acquired_wait_time": "1789.22 ms",
-        "still_waiting_count": 1,
-        "still_waiting_time": "1000.23 ms",
-        "total_wait_time": "2789.46 ms"
-      },
-      {
         "id": "xx-BdkPcf",
         "normalized_query": "analyze orders;",
+        "raw_query": "ANALYZE orders;",
         "acquired_count": 1,
         "acquired_wait_time": "523.46 ms",
         "still_waiting_count": 0,
@@ -290,103 +351,355 @@
     "executions": [
       {
         "timestamp": "2025-01-01 00:00:16",
-        "duration": "45 ms"
+        "duration": "45 ms",
+        "query_id": "se-wjIaKQ"
       },
       {
         "timestamp": "2025-01-01 00:05:00",
-        "duration": "1.25 s"
+        "duration": "1.25 s",
+        "query_id": "se-fewGrD"
       },
       {
         "timestamp": "2025-01-01 00:05:01",
-        "duration": "89 ms"
+        "duration": "89 ms",
+        "query_id": "se-0jc0Bm"
       },
       {
         "timestamp": "2025-01-01 00:05:02",
-        "duration": "432 ms"
+        "duration": "432 ms",
+        "query_id": "up-6oT4b3"
       },
       {
         "timestamp": "2025-01-01 00:15:00",
-        "duration": "2.15 s"
+        "duration": "2.15 s",
+        "query_id": "se-qjYEBI"
       },
       {
         "timestamp": "2025-01-01 00:15:04",
-        "duration": "8.95 s"
+        "duration": "8.95 s",
+        "query_id": "se-artDBI"
       },
       {
         "timestamp": "2025-01-01 00:25:00",
-        "duration": "67 ms"
+        "duration": "67 ms",
+        "query_id": "in-cLbna3"
       },
       {
         "timestamp": "2025-01-01 00:35:00",
-        "duration": "15.23 s"
+        "duration": "15.23 s",
+        "query_id": "up-TTbMVk"
       },
       {
         "timestamp": "2025-01-01 00:40:00",
-        "duration": "156 ms"
+        "duration": "156 ms",
+        "query_id": "se-8UPbX1"
       },
       {
         "timestamp": "2025-01-01 00:45:00",
-        "duration": "234 ms"
+        "duration": "234 ms",
+        "query_id": "xx-P6SWQR"
       },
       {
         "timestamp": "2025-01-01 01:05:00",
-        "duration": "5.68 s"
+        "duration": "5.68 s",
+        "query_id": "se-tLDSoK"
       },
       {
         "timestamp": "2025-01-01 01:08:50",
-        "duration": "6.23 s"
+        "duration": "6.23 s",
+        "query_id": "se-t5xfLG"
       },
       {
         "timestamp": "2025-01-01 01:10:00",
-        "duration": "89 ms"
+        "duration": "89 ms",
+        "query_id": "de-bBueyy"
       },
       {
         "timestamp": "2025-01-01 01:25:10",
-        "duration": "12.35 s"
+        "duration": "12.35 s",
+        "query_id": "cr-wgSzpj"
       },
       {
         "timestamp": "2025-01-01 01:42:08",
-        "duration": "9.88 s"
+        "duration": "9.88 s",
+        "query_id": "se-r0bek4"
       },
       {
         "timestamp": "2025-01-01 02:05:00",
-        "duration": "299 ms"
+        "duration": "299 ms",
+        "query_id": "de-CObqgd"
       },
       {
         "timestamp": "2025-01-01 02:15:12",
-        "duration": "14.57 s"
+        "duration": "14.57 s",
+        "query_id": "xx-jxdKj2"
       },
       {
         "timestamp": "2025-01-01 02:45:40",
-        "duration": "11.23 s"
+        "duration": "11.23 s",
+        "query_id": "se-BPyDv3"
       },
       {
         "timestamp": "2025-01-01 03:10:09",
-        "duration": "10.12 s"
+        "duration": "10.12 s",
+        "query_id": "in-Vv5Ky5"
       },
       {
         "timestamp": "2025-01-01 03:40:21",
-        "duration": "7.89 s"
+        "duration": "7.89 s",
+        "query_id": "se-aBpbzd"
       },
       {
         "timestamp": "2025-01-01 03:55:38",
-        "duration": "9.46 s"
+        "duration": "9.46 s",
+        "query_id": "up-tiXPwa"
       },
       {
         "timestamp": "2025-01-01 04:25:55",
-        "duration": "11.79 s"
+        "duration": "11.79 s",
+        "query_id": "xx-dcjqlQ"
       },
       {
         "timestamp": "2025-01-01 04:55:38",
-        "duration": "9.01 s"
+        "duration": "9.01 s",
+        "query_id": "de-NvyXk4"
       },
       {
         "timestamp": "2025-01-01 05:25:24",
-        "duration": "10.35 s"
+        "duration": "10.35 s",
+        "query_id": "se-icbHlE"
       },
       {
         "timestamp": "2025-01-01 05:55:26",
-        "duration": "12.68 s"
+        "duration": "12.68 s",
+        "query_id": "xx-T9XAxn"
+      }
+    ],
+    "queries": [
+      {
+        "id": "cr-wgSzpj",
+        "normalized_query": "create temporary table tmp_aggregates as select user_id, date(created_at) as date, count(*) as event_count from events where created_at \u003e now() - interval ? group by user_id, date(created_at);",
+        "raw_query": "CREATE TEMPORARY TABLE tmp_aggregates AS SELECT user_id, DATE(created_at) as date, COUNT(*) as event_count FROM events WHERE created_at \u003e NOW() - INTERVAL '90 days' GROUP BY user_id, DATE(created_at);",
+        "count": 1,
+        "total_time_ms": 12345.67,
+        "avg_time_ms": 12345.67,
+        "max_time_ms": 12345.67
+      },
+      {
+        "id": "de-CObqgd",
+        "normalized_query": "delete from audit_logs where created_at \u003c now() - interval ?;",
+        "raw_query": "DELETE FROM audit_logs WHERE created_at \u003c NOW() - INTERVAL '90 days';",
+        "count": 1,
+        "total_time_ms": 299.99,
+        "avg_time_ms": 299.99,
+        "max_time_ms": 299.99
+      },
+      {
+        "id": "de-NvyXk4",
+        "normalized_query": "delete from session_logs where created_at \u003c now() - interval ? and session_id not in (select id from active_sessions);",
+        "raw_query": "DELETE FROM session_logs WHERE created_at \u003c NOW() - INTERVAL '30 days' AND session_id NOT IN (SELECT id FROM active_sessions);",
+        "count": 1,
+        "total_time_ms": 9012.34,
+        "avg_time_ms": 9012.34,
+        "max_time_ms": 9012.34
+      },
+      {
+        "id": "de-bBueyy",
+        "normalized_query": "delete from sessions where expires_at \u003c now();",
+        "raw_query": "DELETE FROM sessions WHERE expires_at \u003c NOW();",
+        "count": 1,
+        "total_time_ms": 89.12,
+        "avg_time_ms": 89.12,
+        "max_time_ms": 89.12
+      },
+      {
+        "id": "in-Vv5Ky5",
+        "normalized_query": "insert into monthly_reports (month, total_orders, total_revenue, avg_order_value) select date_trunc(?, created_at) as month, count(*) as total_orders, sum(total) as total_revenue, avg(total) as avg_order_value from orders where created_at \u003e= date_trunc(?, current_date - interval ?) and created_at \u003c date_trunc(?, current_date) group by month;",
+        "raw_query": "INSERT INTO monthly_reports (month, total_orders, total_revenue, avg_order_value) SELECT DATE_TRUNC('month', created_at) as month, COUNT(*) as total_orders, SUM(total) as total_revenue, AVG(total) as avg_order_value FROM orders WHERE created_at \u003e= DATE_TRUNC('month', CURRENT_DATE - INTERVAL '1 month') AND created_at \u003c DATE_TRUNC('month', CURRENT_DATE) GROUP BY month;",
+        "count": 1,
+        "total_time_ms": 10123.45,
+        "avg_time_ms": 10123.45,
+        "max_time_ms": 10123.45
+      },
+      {
+        "id": "in-cLbna3",
+        "normalized_query": "insert into sessions (user_id, token, expires_at) values (?, ?, ?);",
+        "raw_query": "INSERT INTO sessions (user_id, token, expires_at) VALUES (42, 'abc123', '2025-01-02 00:25:00');",
+        "count": 1,
+        "total_time_ms": 67.89,
+        "avg_time_ms": 67.89,
+        "max_time_ms": 67.89
+      },
+      {
+        "id": "se-0jc0Bm",
+        "normalized_query": "select * from orders where user_id = ? order by created_at desc limit ?;",
+        "raw_query": "SELECT * FROM orders WHERE user_id = 42 ORDER BY created_at DESC LIMIT 10;",
+        "count": 1,
+        "total_time_ms": 89.45,
+        "avg_time_ms": 89.45,
+        "max_time_ms": 89.45
+      },
+      {
+        "id": "se-8UPbX1",
+        "normalized_query": "select id, name, email from users where last_login \u003e now() - interval ? order by last_login desc;",
+        "raw_query": "SELECT id, name, email FROM users WHERE last_login \u003e NOW() - INTERVAL '1 day' ORDER BY last_login DESC;",
+        "count": 1,
+        "total_time_ms": 156.23,
+        "avg_time_ms": 156.23,
+        "max_time_ms": 156.23
+      },
+      {
+        "id": "se-BPyDv3",
+        "normalized_query": "select date(o.created_at) as order_date, p.category, sum(oi.quantity * oi.price) as daily_revenue, count(distinct o.user_id) as unique_customers from orders o join order_items oi on o.id = oi.order_id join products p on oi.product_id = p.id where o.created_at \u003e now() - interval ? group by order_date, p.category order by order_date desc, daily_revenue desc;",
+        "raw_query": "SELECT DATE(o.created_at) as order_date, p.category, SUM(oi.quantity * oi.price) as daily_revenue, COUNT(DISTINCT o.user_id) as unique_customers FROM orders o JOIN order_items oi ON o.id = oi.order_id JOIN products p ON oi.product_id = p.id WHERE o.created_at \u003e NOW() - INTERVAL '90 days' GROUP BY order_date, p.category ORDER BY order_date DESC, daily_revenue DESC;",
+        "count": 1,
+        "total_time_ms": 11234.56,
+        "avg_time_ms": 11234.56,
+        "max_time_ms": 11234.56
+      },
+      {
+        "id": "se-aBpbzd",
+        "normalized_query": "select p.name, p.category, count(distinct oi.order_id) as times_ordered, sum(oi.quantity) as total_quantity_sold, sum(oi.quantity * oi.price) as total_revenue from products p join order_items oi on p.id = oi.product_id join orders o on oi.order_id = o.id where o.created_at \u003e now() - interval ? group by p.id, p.name, p.category having count(distinct oi.order_id) \u003e ? order by total_revenue desc;",
+        "raw_query": "SELECT p.name, p.category, COUNT(DISTINCT oi.order_id) as times_ordered, SUM(oi.quantity) as total_quantity_sold, SUM(oi.quantity * oi.price) as total_revenue FROM products p JOIN order_items oi ON p.id = oi.product_id JOIN orders o ON oi.order_id = o.id WHERE o.created_at \u003e NOW() - INTERVAL '180 days' GROUP BY p.id, p.name, p.category HAVING COUNT(DISTINCT oi.order_id) \u003e 50 ORDER BY total_revenue DESC;",
+        "count": 1,
+        "total_time_ms": 7890.12,
+        "avg_time_ms": 7890.12,
+        "max_time_ms": 7890.12
+      },
+      {
+        "id": "se-artDBI",
+        "normalized_query": "select date_trunc(?, created_at) as hour, count(*) as count, avg(total) as avg_total from orders where created_at \u003e now() - interval ? group by hour order by hour;",
+        "raw_query": "SELECT date_trunc('hour', created_at) as hour, COUNT(*) as count, AVG(total) as avg_total FROM orders WHERE created_at \u003e NOW() - INTERVAL '7 days' GROUP BY hour ORDER BY hour;",
+        "count": 1,
+        "total_time_ms": 8945.67,
+        "avg_time_ms": 8945.67,
+        "max_time_ms": 8945.67
+      },
+      {
+        "id": "se-fewGrD",
+        "normalized_query": "select * from users where id = ?;",
+        "raw_query": "SELECT * FROM users WHERE id = 42;",
+        "count": 1,
+        "total_time_ms": 1250.32,
+        "avg_time_ms": 1250.32,
+        "max_time_ms": 1250.32
+      },
+      {
+        "id": "se-icbHlE",
+        "normalized_query": "select category, count(*) as total_products, avg(price) as avg_price, min(price) as min_price, max(price) as max_price, sum(stock) as total_stock from products where active = true group by category order by total_products desc;",
+        "raw_query": "SELECT category, COUNT(*) as total_products, AVG(price) as avg_price, MIN(price) as min_price, MAX(price) as max_price, SUM(stock) as total_stock FROM products WHERE active = true GROUP BY category ORDER BY total_products DESC;",
+        "count": 1,
+        "total_time_ms": 10345.67,
+        "avg_time_ms": 10345.67,
+        "max_time_ms": 10345.67
+      },
+      {
+        "id": "se-qjYEBI",
+        "normalized_query": "select u.id, u.name, count(o.id) as order_count, sum(o.total) as total_spent from users u left join orders o on u.id = o.user_id where u.created_at \u003e ? group by u.id, u.name order by total_spent desc limit ?;",
+        "raw_query": "SELECT u.id, u.name, COUNT(o.id) as order_count, SUM(o.total) as total_spent FROM users u LEFT JOIN orders o ON u.id = o.user_id WHERE u.created_at \u003e '2024-01-01' GROUP BY u.id, u.name ORDER BY total_spent DESC LIMIT 100;",
+        "count": 1,
+        "total_time_ms": 2150.88,
+        "avg_time_ms": 2150.88,
+        "max_time_ms": 2150.88
+      },
+      {
+        "id": "se-r0bek4",
+        "normalized_query": "select category, subcategory, count(*) as product_count, avg(price) as avg_price from products where active = true group by category, subcategory order by category, product_count desc;",
+        "raw_query": "SELECT category, subcategory, COUNT(*) as product_count, AVG(price) as avg_price FROM products WHERE active = true GROUP BY category, subcategory ORDER BY category, product_count DESC;",
+        "count": 1,
+        "total_time_ms": 9876.54,
+        "avg_time_ms": 9876.54,
+        "max_time_ms": 9876.54
+      },
+      {
+        "id": "se-t5xfLG",
+        "normalized_query": "select product_id, count(*) as view_count, avg(duration) as avg_duration from product_views where timestamp \u003e now() - interval ? group by product_id order by view_count desc;",
+        "raw_query": "SELECT product_id, COUNT(*) as view_count, AVG(duration) as avg_duration FROM product_views WHERE timestamp \u003e NOW() - INTERVAL '7 days' GROUP BY product_id ORDER BY view_count DESC;",
+        "count": 1,
+        "total_time_ms": 6234.56,
+        "avg_time_ms": 6234.56,
+        "max_time_ms": 6234.56
+      },
+      {
+        "id": "se-tLDSoK",
+        "normalized_query": "select date_trunc(?, o.created_at) as day, p.category, count(distinct o.id) as order_count, sum(oi.quantity * oi.price) as revenue from orders o join order_items oi on o.id = oi.order_id join products p on oi.product_id = p.id where o.created_at \u003e now() - interval ? group by day, p.category order by day desc, revenue desc;",
+        "raw_query": "SELECT date_trunc('day', o.created_at) as day, p.category, COUNT(DISTINCT o.id) as order_count, SUM(oi.quantity * oi.price) as revenue FROM orders o JOIN order_items oi ON o.id = oi.order_id JOIN products p ON oi.product_id = p.id WHERE o.created_at \u003e NOW() - INTERVAL '30 days' GROUP BY day, p.category ORDER BY day DESC, revenue DESC;",
+        "count": 1,
+        "total_time_ms": 5678.9,
+        "avg_time_ms": 5678.9,
+        "max_time_ms": 5678.9
+      },
+      {
+        "id": "se-wjIaKQ",
+        "normalized_query": "select version();",
+        "raw_query": "SELECT version();",
+        "count": 1,
+        "total_time_ms": 45.23,
+        "avg_time_ms": 45.23,
+        "max_time_ms": 45.23
+      },
+      {
+        "id": "up-6oT4b3",
+        "normalized_query": "update orders set status = ? where id = ?;",
+        "raw_query": "UPDATE orders SET status = 'shipped' WHERE id = 1234;",
+        "count": 1,
+        "total_time_ms": 432.17,
+        "avg_time_ms": 432.17,
+        "max_time_ms": 432.17
+      },
+      {
+        "id": "up-TTbMVk",
+        "normalized_query": "update products set stock = stock - orders_temp.quantity from (select product_id, sum(quantity) as quantity from order_items where order_id in (select id from orders where status = ?)) as orders_temp where products.id = orders_temp.product_id;",
+        "raw_query": "UPDATE products SET stock = stock - orders_temp.quantity FROM (SELECT product_id, SUM(quantity) as quantity FROM order_items WHERE order_id IN (SELECT id FROM orders WHERE status = 'pending')) as orders_temp WHERE products.id = orders_temp.product_id;",
+        "count": 1,
+        "total_time_ms": 15234.56,
+        "avg_time_ms": 15234.56,
+        "max_time_ms": 15234.56
+      },
+      {
+        "id": "up-tiXPwa",
+        "normalized_query": "update user_statistics set total_orders = sq.order_count, total_spent = sq.total_spent, last_order_date = sq.last_order, updated_at = now() from ( select user_id, count(*) as order_count, sum(total) as total_spent, max(created_at) as last_order from orders group by user_id ) sq where user_statistics.user_id = sq.user_id;",
+        "raw_query": "UPDATE user_statistics SET total_orders = sq.order_count, total_spent = sq.total_spent, last_order_date = sq.last_order, updated_at = NOW() FROM ( SELECT user_id, COUNT(*) as order_count, SUM(total) as total_spent, MAX(created_at) as last_order FROM orders GROUP BY user_id ) sq WHERE user_statistics.user_id = sq.user_id;",
+        "count": 1,
+        "total_time_ms": 9456.78,
+        "avg_time_ms": 9456.78,
+        "max_time_ms": 9456.78
+      },
+      {
+        "id": "xx-P6SWQR",
+        "normalized_query": "begin;",
+        "raw_query": "BEGIN;",
+        "count": 1,
+        "total_time_ms": 234.56,
+        "avg_time_ms": 234.56,
+        "max_time_ms": 234.56
+      },
+      {
+        "id": "xx-T9XAxn",
+        "normalized_query": "with cohort_data as ( select user_id, date_trunc(?, min(created_at)) as cohort_month, date_trunc(?, created_at) as order_month, count(*) as order_count from orders where created_at \u003e now() - interval ? group by user_id, cohort_month, order_month ) select cohort_month, order_month, count(distinct user_id) as active_users, sum(order_count) as total_orders from cohort_data group by cohort_month, order_month order by cohort_month, order_month;",
+        "raw_query": "WITH cohort_data AS ( SELECT user_id, DATE_TRUNC('month', MIN(created_at)) as cohort_month, DATE_TRUNC('month', created_at) as order_month, COUNT(*) as order_count FROM orders WHERE created_at \u003e NOW() - INTERVAL '12 months' GROUP BY user_id, cohort_month, order_month ) SELECT cohort_month, order_month, COUNT(DISTINCT user_id) as active_users, SUM(order_count) as total_orders FROM cohort_data GROUP BY cohort_month, order_month ORDER BY cohort_month, order_month;",
+        "count": 1,
+        "total_time_ms": 12678.9,
+        "avg_time_ms": 12678.9,
+        "max_time_ms": 12678.9
+      },
+      {
+        "id": "xx-dcjqlQ",
+        "normalized_query": "with daily_metrics as ( select date(created_at) as date, user_id, count(*) as daily_events, sum(duration) as daily_duration from user_events where created_at \u003e now() - interval ? group by date, user_id ) select user_id, avg(daily_events) as avg_daily_events, avg(daily_duration) as avg_daily_duration, max(daily_events) as max_daily_events from daily_metrics group by user_id having avg(daily_events) \u003e ? order by avg_daily_events desc;",
+        "raw_query": "WITH daily_metrics AS ( SELECT DATE(created_at) as date, user_id, COUNT(*) as daily_events, SUM(duration) as daily_duration FROM user_events WHERE created_at \u003e NOW() - INTERVAL '30 days' GROUP BY date, user_id ) SELECT user_id, AVG(daily_events) as avg_daily_events, AVG(daily_duration) as avg_daily_duration, MAX(daily_events) as max_daily_events FROM daily_metrics GROUP BY user_id HAVING AVG(daily_events) \u003e 10 ORDER BY avg_daily_events DESC;",
+        "count": 1,
+        "total_time_ms": 11789.34,
+        "avg_time_ms": 11789.34,
+        "max_time_ms": 11789.34
+      },
+      {
+        "id": "xx-jxdKj2",
+        "normalized_query": "with user_segments as ( select user_id, case when total_orders \u003e ? then ? when total_orders \u003e ? then ? else ? end as segment from (select user_id, count(*) as total_orders from orders group by user_id) sq ) select segment, count(*) as user_count, avg(total_spent) as avg_spent from user_segments us join (select user_id, sum(total) as total_spent from orders group by user_id) os on us.user_id = os.user_id group by segment;",
+        "raw_query": "WITH user_segments AS ( SELECT user_id, CASE WHEN total_orders \u003e 100 THEN 'vip' WHEN total_orders \u003e 10 THEN 'regular' ELSE 'occasional' END as segment FROM (SELECT user_id, COUNT(*) as total_orders FROM orders GROUP BY user_id) sq ) SELECT segment, COUNT(*) as user_count, AVG(total_spent) as avg_spent FROM user_segments us JOIN (SELECT user_id, SUM(total) as total_spent FROM orders GROUP BY user_id) os ON us.user_id = os.user_id GROUP BY segment;",
+        "count": 1,
+        "total_time_ms": 14567.89,
+        "avg_time_ms": 14567.89,
+        "max_time_ms": 14567.89
       }
     ]
   },
@@ -395,7 +708,12 @@
     "end_date": "2025-01-01 23:59:35",
     "duration": "23h59m35s",
     "total_logs": 197,
-    "throughput": "0.00 entries/s"
+    "throughput": "0.00 entries/s",
+    "error_count": 0,
+    "fatal_count": 0,
+    "panic_count": 0,
+    "warning_count": 0,
+    "log_count": 0
   },
   "temp_files": {
     "total_messages": 19,
@@ -404,19 +722,23 @@
     "events": [
       {
         "timestamp": "2025-01-01 00:15:03",
-        "size": "50.00 MB"
+        "size": "50.00 MB",
+        "query_id": "se-artDBI"
       },
       {
         "timestamp": "2025-01-01 00:35:16",
-        "size": "100.00 MB"
+        "size": "100.00 MB",
+        "query_id": "up-TTbMVk"
       },
       {
         "timestamp": "2025-01-01 00:35:18",
-        "size": "24.00 MB"
+        "size": "24.00 MB",
+        "query_id": "up-TTbMVk"
       },
       {
         "timestamp": "2025-01-01 01:08:45",
-        "size": "75.00 MB"
+        "size": "75.00 MB",
+        "query_id": "se-t5xfLG"
       },
       {
         "timestamp": "2025-01-01 01:25:00",
@@ -424,11 +746,13 @@
       },
       {
         "timestamp": "2025-01-01 01:25:02",
-        "size": "40.00 MB"
+        "size": "40.00 MB",
+        "query_id": "cr-wgSzpj"
       },
       {
         "timestamp": "2025-01-01 01:42:00",
-        "size": "149.00 MB"
+        "size": "149.00 MB",
+        "query_id": "se-r0bek4"
       },
       {
         "timestamp": "2025-01-01 02:15:00",
@@ -440,19 +764,23 @@
       },
       {
         "timestamp": "2025-01-01 02:15:00",
-        "size": "30.00 MB"
+        "size": "30.00 MB",
+        "query_id": "xx-jxdKj2"
       },
       {
         "timestamp": "2025-01-01 02:45:30",
-        "size": "120.00 MB"
+        "size": "120.00 MB",
+        "query_id": "se-BPyDv3"
       },
       {
         "timestamp": "2025-01-01 03:10:00",
-        "size": "80.00 MB"
+        "size": "80.00 MB",
+        "query_id": "in-Vv5Ky5"
       },
       {
         "timestamp": "2025-01-01 03:40:15",
-        "size": "64.00 MB"
+        "size": "64.00 MB",
+        "query_id": "in-cLbna3"
       },
       {
         "timestamp": "2025-01-01 03:55:30",
@@ -460,23 +788,128 @@
       },
       {
         "timestamp": "2025-01-01 03:55:30",
-        "size": "20.00 MB"
+        "size": "20.00 MB",
+        "query_id": "up-tiXPwa"
       },
       {
         "timestamp": "2025-01-01 04:25:45",
-        "size": "100.00 MB"
+        "size": "100.00 MB",
+        "query_id": "xx-dcjqlQ"
       },
       {
         "timestamp": "2025-01-01 04:55:30",
-        "size": "70.00 MB"
+        "size": "70.00 MB",
+        "query_id": "de-NvyXk4"
       },
       {
         "timestamp": "2025-01-01 05:25:15",
-        "size": "84.00 MB"
+        "size": "84.00 MB",
+        "query_id": "se-icbHlE"
       },
       {
         "timestamp": "2025-01-01 05:55:15",
-        "size": "110.00 MB"
+        "size": "110.00 MB",
+        "query_id": "xx-T9XAxn"
+      }
+    ],
+    "queries": [
+      {
+        "id": "cr-wgSzpj",
+        "normalized_query": "create temporary table tmp_aggregates as select user_id, date(created_at) as date, count(*) as event_count from events where created_at \u003e now() - interval ? group by user_id, date(created_at);",
+        "raw_query": "CREATE TEMPORARY TABLE tmp_aggregates AS SELECT user_id, DATE(created_at) as date, COUNT(*) as event_count FROM events WHERE created_at \u003e NOW() - INTERVAL '90 days' GROUP BY user_id, DATE(created_at);",
+        "count": 1,
+        "total_size": "40.00 MB"
+      },
+      {
+        "id": "de-NvyXk4",
+        "normalized_query": "delete from session_logs where created_at \u003c now() - interval ? and session_id not in (select id from active_sessions);",
+        "raw_query": "DELETE FROM session_logs WHERE created_at \u003c NOW() - INTERVAL '30 days' AND session_id NOT IN (SELECT id FROM active_sessions);",
+        "count": 1,
+        "total_size": "70.00 MB"
+      },
+      {
+        "id": "in-Vv5Ky5",
+        "normalized_query": "insert into monthly_reports (month, total_orders, total_revenue, avg_order_value) select date_trunc(?, created_at) as month, count(*) as total_orders, sum(total) as total_revenue, avg(total) as avg_order_value from orders where created_at \u003e= date_trunc(?, current_date - interval ?) and created_at \u003c date_trunc(?, current_date) group by month;",
+        "raw_query": "INSERT INTO monthly_reports (month, total_orders, total_revenue, avg_order_value) SELECT DATE_TRUNC('month', created_at) as month, COUNT(*) as total_orders, SUM(total) as total_revenue, AVG(total) as avg_order_value FROM orders WHERE created_at \u003e= DATE_TRUNC('month', CURRENT_DATE - INTERVAL '1 month') AND created_at \u003c DATE_TRUNC('month', CURRENT_DATE) GROUP BY month;",
+        "count": 1,
+        "total_size": "80.00 MB"
+      },
+      {
+        "id": "in-cLbna3",
+        "normalized_query": "insert into sessions (user_id, token, expires_at) values (?, ?, ?);",
+        "raw_query": "INSERT INTO sessions (user_id, token, expires_at) VALUES (42, 'abc123', '2025-01-02 00:25:00');",
+        "count": 1,
+        "total_size": "64.00 MB"
+      },
+      {
+        "id": "se-BPyDv3",
+        "normalized_query": "select date(o.created_at) as order_date, p.category, sum(oi.quantity * oi.price) as daily_revenue, count(distinct o.user_id) as unique_customers from orders o join order_items oi on o.id = oi.order_id join products p on oi.product_id = p.id where o.created_at \u003e now() - interval ? group by order_date, p.category order by order_date desc, daily_revenue desc;",
+        "raw_query": "SELECT DATE(o.created_at) as order_date, p.category, SUM(oi.quantity * oi.price) as daily_revenue, COUNT(DISTINCT o.user_id) as unique_customers FROM orders o JOIN order_items oi ON o.id = oi.order_id JOIN products p ON oi.product_id = p.id WHERE o.created_at \u003e NOW() - INTERVAL '90 days' GROUP BY order_date, p.category ORDER BY order_date DESC, daily_revenue DESC;",
+        "count": 1,
+        "total_size": "120.00 MB"
+      },
+      {
+        "id": "se-artDBI",
+        "normalized_query": "select date_trunc(?, created_at) as hour, count(*) as count, avg(total) as avg_total from orders where created_at \u003e now() - interval ? group by hour order by hour;",
+        "raw_query": "SELECT date_trunc('hour', created_at) as hour, COUNT(*) as count, AVG(total) as avg_total FROM orders WHERE created_at \u003e NOW() - INTERVAL '7 days' GROUP BY hour ORDER BY hour;",
+        "count": 1,
+        "total_size": "50.00 MB"
+      },
+      {
+        "id": "se-icbHlE",
+        "normalized_query": "select category, count(*) as total_products, avg(price) as avg_price, min(price) as min_price, max(price) as max_price, sum(stock) as total_stock from products where active = true group by category order by total_products desc;",
+        "raw_query": "SELECT category, COUNT(*) as total_products, AVG(price) as avg_price, MIN(price) as min_price, MAX(price) as max_price, SUM(stock) as total_stock FROM products WHERE active = true GROUP BY category ORDER BY total_products DESC;",
+        "count": 1,
+        "total_size": "84.00 MB"
+      },
+      {
+        "id": "se-r0bek4",
+        "normalized_query": "select category, subcategory, count(*) as product_count, avg(price) as avg_price from products where active = true group by category, subcategory order by category, product_count desc;",
+        "raw_query": "SELECT category, subcategory, COUNT(*) as product_count, AVG(price) as avg_price FROM products WHERE active = true GROUP BY category, subcategory ORDER BY category, product_count DESC;",
+        "count": 1,
+        "total_size": "149.00 MB"
+      },
+      {
+        "id": "se-t5xfLG",
+        "normalized_query": "select product_id, count(*) as view_count, avg(duration) as avg_duration from product_views where timestamp \u003e now() - interval ? group by product_id order by view_count desc;",
+        "raw_query": "SELECT product_id, COUNT(*) as view_count, AVG(duration) as avg_duration FROM product_views WHERE timestamp \u003e NOW() - INTERVAL '7 days' GROUP BY product_id ORDER BY view_count DESC;",
+        "count": 1,
+        "total_size": "75.00 MB"
+      },
+      {
+        "id": "up-TTbMVk",
+        "normalized_query": "update products set stock = stock - orders_temp.quantity from (select product_id, sum(quantity) as quantity from order_items where order_id in (select id from orders where status = ?)) as orders_temp where products.id = orders_temp.product_id;",
+        "raw_query": "UPDATE products SET stock = stock - orders_temp.quantity FROM (SELECT product_id, SUM(quantity) as quantity FROM order_items WHERE order_id IN (SELECT id FROM orders WHERE status = 'pending')) as orders_temp WHERE products.id = orders_temp.product_id;",
+        "count": 2,
+        "total_size": "124.00 MB"
+      },
+      {
+        "id": "up-tiXPwa",
+        "normalized_query": "update user_statistics set total_orders = sq.order_count, total_spent = sq.total_spent, last_order_date = sq.last_order, updated_at = now() from ( select user_id, count(*) as order_count, sum(total) as total_spent, max(created_at) as last_order from orders group by user_id ) sq where user_statistics.user_id = sq.user_id;",
+        "raw_query": "UPDATE user_statistics SET total_orders = sq.order_count, total_spent = sq.total_spent, last_order_date = sq.last_order, updated_at = NOW() FROM ( SELECT user_id, COUNT(*) as order_count, SUM(total) as total_spent, MAX(created_at) as last_order FROM orders GROUP BY user_id ) sq WHERE user_statistics.user_id = sq.user_id;",
+        "count": 1,
+        "total_size": "20.00 MB"
+      },
+      {
+        "id": "xx-T9XAxn",
+        "normalized_query": "with cohort_data as ( select user_id, date_trunc(?, min(created_at)) as cohort_month, date_trunc(?, created_at) as order_month, count(*) as order_count from orders where created_at \u003e now() - interval ? group by user_id, cohort_month, order_month ) select cohort_month, order_month, count(distinct user_id) as active_users, sum(order_count) as total_orders from cohort_data group by cohort_month, order_month order by cohort_month, order_month;",
+        "raw_query": "WITH cohort_data AS ( SELECT user_id, DATE_TRUNC('month', MIN(created_at)) as cohort_month, DATE_TRUNC('month', created_at) as order_month, COUNT(*) as order_count FROM orders WHERE created_at \u003e NOW() - INTERVAL '12 months' GROUP BY user_id, cohort_month, order_month ) SELECT cohort_month, order_month, COUNT(DISTINCT user_id) as active_users, SUM(order_count) as total_orders FROM cohort_data GROUP BY cohort_month, order_month ORDER BY cohort_month, order_month;",
+        "count": 1,
+        "total_size": "110.00 MB"
+      },
+      {
+        "id": "xx-dcjqlQ",
+        "normalized_query": "with daily_metrics as ( select date(created_at) as date, user_id, count(*) as daily_events, sum(duration) as daily_duration from user_events where created_at \u003e now() - interval ? group by date, user_id ) select user_id, avg(daily_events) as avg_daily_events, avg(daily_duration) as avg_daily_duration, max(daily_events) as max_daily_events from daily_metrics group by user_id having avg(daily_events) \u003e ? order by avg_daily_events desc;",
+        "raw_query": "WITH daily_metrics AS ( SELECT DATE(created_at) as date, user_id, COUNT(*) as daily_events, SUM(duration) as daily_duration FROM user_events WHERE created_at \u003e NOW() - INTERVAL '30 days' GROUP BY date, user_id ) SELECT user_id, AVG(daily_events) as avg_daily_events, AVG(daily_duration) as avg_daily_duration, MAX(daily_events) as max_daily_events FROM daily_metrics GROUP BY user_id HAVING AVG(daily_events) \u003e 10 ORDER BY avg_daily_events DESC;",
+        "count": 1,
+        "total_size": "100.00 MB"
+      },
+      {
+        "id": "xx-jxdKj2",
+        "normalized_query": "with user_segments as ( select user_id, case when total_orders \u003e ? then ? when total_orders \u003e ? then ? else ? end as segment from (select user_id, count(*) as total_orders from orders group by user_id) sq ) select segment, count(*) as user_count, avg(total_spent) as avg_spent from user_segments us join (select user_id, sum(total) as total_spent from orders group by user_id) os on us.user_id = os.user_id group by segment;",
+        "raw_query": "WITH user_segments AS ( SELECT user_id, CASE WHEN total_orders \u003e 100 THEN 'vip' WHEN total_orders \u003e 10 THEN 'regular' ELSE 'occasional' END as segment FROM (SELECT user_id, COUNT(*) as total_orders FROM orders GROUP BY user_id) sq ) SELECT segment, COUNT(*) as user_count, AVG(total_spent) as avg_spent FROM user_segments us JOIN (SELECT user_id, SUM(total) as total_spent FROM orders GROUP BY user_id) os ON us.user_id = os.user_id GROUP BY segment;",
+        "count": 1,
+        "total_size": "30.00 MB"
       }
     ]
   },

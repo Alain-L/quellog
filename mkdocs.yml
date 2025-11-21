@@ -1,0 +1,79 @@
+site_name: quellog Documentation
+site_description: High-performance PostgreSQL log analyzer and parser
+site_author: Alain L
+repo_url: https://github.com/Alain-L/quellog
+repo_name: Alain-L/quellog
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  palette:
+    # Light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    # Dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+    - toc.integrate
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.tabbed:
+      alternate_style: true
+  - tables
+  - toc:
+      permalink: true
+      toc_depth: 3
+  - attr_list
+  - md_in_html
+
+plugins:
+  - search
+
+exclude_docs: |
+  README.md
+  TODO_CORRECTIONS.md
+
+extra_css:
+  - stylesheets/extra.css
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Installation: installation.md
+      - PostgreSQL Setup: postgresql-setup.md
+      - Supported Log Formats: formats.md
+  - Guides:
+      - Default Report: default-report.md
+      - SQL Analysis: sql-reports.md
+      - Filtering Logs: filtering-logs.md
+      - Filtering Output: filtering-output.md
+      - JSON Export: json-export.md
+      - Markdown Export: markdown-export.md

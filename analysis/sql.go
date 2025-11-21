@@ -48,6 +48,9 @@ type QueryExecution struct {
 
 	// Duration is the execution time in milliseconds.
 	Duration float64
+
+	// QueryID is the short identifier for this query (e.g., "se-abc123").
+	QueryID string
 }
 
 // SqlMetrics aggregates SQL query statistics from log analysis.
@@ -216,10 +219,6 @@ func (a *SQLAnalyzer) Process(entry *parser.LogEntry) {
 
 	// Update global execution metrics
 	a.totalQueries++
-	a.executions = append(a.executions, QueryExecution{
-		Timestamp: entry.Timestamp,
-		Duration:  duration,
-	})
 
 	// Track timestamp range
 	if a.startTimestamp.IsZero() || entry.Timestamp.Before(a.startTimestamp) {
@@ -251,7 +250,19 @@ func (a *SQLAnalyzer) Process(entry *parser.LogEntry) {
 			FullHash:        fullHash,
 		}
 		a.queryStats[normalizedQuery] = stats
+	} else {
+		// For deterministic JSON output, always keep the alphabetically first raw query
+		if rawQuery < stats.RawQuery {
+			stats.RawQuery = rawQuery
+		}
 	}
+
+	// Add execution with query ID (after stats are created/retrieved)
+	a.executions = append(a.executions, QueryExecution{
+		Timestamp: entry.Timestamp,
+		Duration:  duration,
+		QueryID:   stats.ID,
+	})
 
 	// Update per-query statistics
 	stats.Count++

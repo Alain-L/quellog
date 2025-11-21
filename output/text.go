@@ -59,6 +59,29 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string) {
 		PrintEventsReport(m.EventSummaries)
 	}
 
+	// Error Classes
+	if has("errors") && len(m.ErrorClasses) > 0 {
+		fmt.Println(bold + "\nERROR CLASSES\n" + reset)
+
+		// Determine the longest description for alignment
+		maxDescLength := 0
+		for _, ec := range m.ErrorClasses {
+			descWithCode := fmt.Sprintf("%s – %s", ec.ClassCode, ec.Description)
+			if len(descWithCode) > maxDescLength {
+				maxDescLength = len(descWithCode)
+			}
+		}
+
+		// Print error classes with aligned counts
+		for _, ec := range m.ErrorClasses {
+			fmt.Printf("  %s – %-*s : %d\n",
+				ec.ClassCode,
+				maxDescLength - len(ec.ClassCode) - 3, // -3 for " – "
+				ec.Description,
+				ec.Count)
+		}
+	}
+
 	// Temp Files section.
 	if has("tempfiles") && m.TempFiles.Count > 0 {
 
@@ -105,15 +128,24 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string) {
 
 			if termWidth >= 120 {
 				// Wide mode: show full query
-				queryWidth := int(float64(termWidth) * 0.6)
+				// Calculate consistent table width (90% of terminal)
+				tableWidth := int(float64(termWidth) * 0.9)
+				if tableWidth > termWidth-10 {
+					tableWidth = termWidth - 10
+				}
+
+				// Fixed columns: SQLID(9) + Count(10) + Total Size(12) = 31
+				// Spacing: 3 fixed columns * 2 spaces = 6
+				fixedWidth := 31
+				spacingWidth := 6
+				queryWidth := tableWidth - fixedWidth - spacingWidth
 				if queryWidth < 40 {
 					queryWidth = 40
 				}
 
 				fmt.Printf("%s%-9s  %-*s  %10s  %12s%s\n",
 					bold, "SQLID", queryWidth, "Query", "Count", "Total Size", reset)
-				totalWidth := 9 + 2 + queryWidth + 2 + 10 + 2 + 12
-				fmt.Println(strings.Repeat("-", totalWidth))
+				fmt.Println(strings.Repeat("-", tableWidth))
 
 				for i := 0; i < limit; i++ {
 					stat := queries[i].stat
@@ -334,11 +366,12 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string) {
 	}
 
 	// Unique Clients section.
-	if has("clients") && (m.UniqueEntities.UniqueDbs > 0 || m.UniqueEntities.UniqueUsers > 0 || m.UniqueEntities.UniqueApps > 0) {
+	if has("clients") && (m.UniqueEntities.UniqueDbs > 0 || m.UniqueEntities.UniqueUsers > 0 || m.UniqueEntities.UniqueApps > 0 || m.UniqueEntities.UniqueHosts > 0) {
 		fmt.Println(bold + "\nCLIENTS\n" + reset)
 		fmt.Printf("  %-25s : %d\n", "Unique DBs", m.UniqueEntities.UniqueDbs)
 		fmt.Printf("  %-25s : %d\n", "Unique Users", m.UniqueEntities.UniqueUsers)
 		fmt.Printf("  %-25s : %d\n", "Unique Apps", m.UniqueEntities.UniqueApps)
+		fmt.Printf("  %-25s : %d\n", "Unique Hosts", m.UniqueEntities.UniqueHosts)
 
 		// Display lists.
 		if m.UniqueEntities.UniqueUsers > 0 {
@@ -357,6 +390,12 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string) {
 			fmt.Println(bold + "\nDATABASES\n" + reset)
 			for _, db := range m.UniqueEntities.DBs {
 				fmt.Printf("    %s\n", db)
+			}
+		}
+		if m.UniqueEntities.UniqueHosts > 0 {
+			fmt.Println(bold + "\nHOSTS\n" + reset)
+			for _, host := range m.UniqueEntities.Hosts {
+				fmt.Printf("    %s\n", host)
 			}
 		}
 	}
@@ -502,17 +541,46 @@ func PrintSQLSummaryWithContext(m analysis.SqlMetrics, tempFiles analysis.TempFi
 			PrintHistogram(hist, "Query duration distribution", unit, scale, queryDurationOrder)
 		}
 
-		fmt.Println(bold + "Slowest individual queries:" + reset)
-		PrintSlowestQueries(m.QueryStats)
-		fmt.Println()
+		PrintQueryTableWithTitle("Slowest individual queries:", m.QueryStats, QueryTableConfig{
+			Columns: []QueryTableColumn{
+				ColumnSQLID(),
+				ColumnQuery(),
+				ColumnDuration(),
+			},
+			SortFunc:          SortByMaxTime,
+			Limit:             10,
+			ShowQueryText:     true,
+			TableWidthPercent: 70,
+		})
 
-		fmt.Println(bold + "Most Frequent Individual Queries:" + reset)
-		PrintMostFrequentQueries(m.QueryStats)
-		fmt.Println()
+		PrintQueryTableWithTitle("Most Frequent Individual Queries:", m.QueryStats, QueryTableConfig{
+			Columns: []QueryTableColumn{
+				ColumnSQLID(),
+				ColumnQuery(),
+				ColumnCount(),
+			},
+			SortFunc: SortByCount,
+			FilterFunc: func(row QueryRow) bool {
+				return row.Count > 1
+			},
+			Limit:             15,
+			ShowQueryText:     true,
+			TableWidthPercent: 70,
+		})
 
-		fmt.Println(bold + "Most time consuming queries:" + reset)
-		PrintTimeConsumingQueries(m.QueryStats)
-		fmt.Println()
+		PrintQueryTableWithTitle("Most time consuming queries:", m.QueryStats, QueryTableConfig{
+			Columns: []QueryTableColumn{
+				ColumnSQLID(),
+				ColumnQuery(),
+				ColumnCount(),
+				ColumnMaxTime(),
+				ColumnAvgTime(),
+				ColumnTotalTime(),
+			},
+			SortFunc:      SortByTotalTime,
+			Limit:         10,
+			ShowQueryText: true,
+		})
 
 		// Display tempfiles and locks query tables to show queries without duration metrics
 		termWidth, _, err := term.GetSize(int(os.Stdout.Fd()))
@@ -522,7 +590,8 @@ func PrintSQLSummaryWithContext(m analysis.SqlMetrics, tempFiles analysis.TempFi
 
 		// Tempfiles queries
 		if len(tempFiles.QueryStats) > 0 {
-			fmt.Println(bold + "\nQueries generating temp files:" + reset)
+			fmt.Println(bold + "\nTEMP FILES" + reset)
+			fmt.Println()
 
 			// Sort queries by total size descending
 			type queryWithSize struct {
@@ -544,15 +613,24 @@ func PrintSQLSummaryWithContext(m analysis.SqlMetrics, tempFiles analysis.TempFi
 
 			if termWidth >= 120 {
 				// Wide mode: show full query
-				queryWidth := int(float64(termWidth) * 0.6)
+				// Calculate consistent table width (90% of terminal)
+				tableWidth := int(float64(termWidth) * 0.9)
+				if tableWidth > termWidth-10 {
+					tableWidth = termWidth - 10
+				}
+
+				// Fixed columns: SQLID(9) + Count(10) + Total Size(12) = 31
+				// Spacing: 3 fixed columns * 2 spaces = 6
+				fixedWidth := 31
+				spacingWidth := 6
+				queryWidth := tableWidth - fixedWidth - spacingWidth
 				if queryWidth < 40 {
 					queryWidth = 40
 				}
 
 				fmt.Printf("%s%-9s  %-*s  %10s  %12s%s\n",
 					bold, "SQLID", queryWidth, "Query", "Count", "Total Size", reset)
-				totalWidth := 9 + 2 + queryWidth + 2 + 10 + 2 + 12
-				fmt.Println(strings.Repeat("-", totalWidth))
+				fmt.Println(strings.Repeat("-", tableWidth))
 
 				for i := 0; i < limit; i++ {
 					stat := queries[i].stat
@@ -579,6 +657,11 @@ func PrintSQLSummaryWithContext(m analysis.SqlMetrics, tempFiles analysis.TempFi
 				}
 			}
 			fmt.Println()
+		}
+
+		// Locks section header
+		if len(locks.QueryStats) > 0 {
+			fmt.Println(bold + "\nLOCKS" + reset)
 		}
 
 		// Locks queries - Acquired locks by query
@@ -632,278 +715,254 @@ func PrintSQLSummaryWithContext(m analysis.SqlMetrics, tempFiles analysis.TempFi
 
 // PrintTimeConsumingQueries sorts and displays the top 10 queries based on total execution time.
 // The display adapts to the terminal width, switching between full and simplified modes.
-func PrintTimeConsumingQueries(queryStats map[string]*analysis.QueryStat) {
-	termWidth, _, err := term.GetSize(int(os.Stdout.Fd()))
-	if err != nil {
-		termWidth = 120
-	}
-
-	type queryInfo struct {
-		Query     string // Normalized query.
-		ID        string // Friendly identifier.
-		Count     int
-		TotalTime float64 // in ms.
-		AvgTime   float64 // in ms.
-		MaxTime   float64 // in ms.
-	}
-	var queries []queryInfo
-	for normalized, stats := range queryStats {
-		id, _ := analysis.GenerateQueryID(stats.RawQuery, normalized)
-		queries = append(queries, queryInfo{
-			Query:     normalized,
-			ID:        id,
-			Count:     stats.Count,
-			TotalTime: stats.TotalTime,
-			AvgTime:   stats.AvgTime,
-			MaxTime:   stats.MaxTime,
-		})
-	}
-
-	sort.Slice(queries, func(i, j int) bool {
-		if queries[i].TotalTime != queries[j].TotalTime {
-			return queries[i].TotalTime > queries[j].TotalTime
-		}
-		return queries[i].Query < queries[j].Query
+// PrintTimeConsumingQueries displays queries sorted by total time consumed.
+// Returns true if any data was printed.
+func PrintTimeConsumingQueries(queryStats map[string]*analysis.QueryStat) bool {
+	return PrintQueryTable(queryStats, QueryTableConfig{
+		Columns: []QueryTableColumn{
+			ColumnSQLID(),
+			ColumnQuery(),
+			ColumnCount(),
+			ColumnMaxTime(),
+			ColumnAvgTime(),
+			ColumnTotalTime(),
+		},
+		SortFunc:      SortByTotalTime,
+		Limit:         10,
+		ShowQueryText: true,
 	})
-
-	bold := "\033[1m"
-	reset := "\033[0m"
-
-	if termWidth >= 120 {
-		queryWidth := int(float64(termWidth) * 0.6)
-		if queryWidth < 40 {
-			queryWidth = 40
-		}
-
-		fmt.Printf("%s%-9s  %-*s  %10s  %12s  %12s  %12s%s\n",
-			bold, "SQLID", queryWidth, "Query", "Executed", "Max", "Avg", "Total", reset)
-		totalWidth := 9 + 2 + queryWidth + 2 + 10 + 2 + 12 + 2 + 12 + 2 + 12
-		fmt.Println(strings.Repeat("-", totalWidth))
-
-		for i, q := range queries {
-			if i >= 10 {
-				break
-			}
-			displayQuery := truncateQuery(q.Query, queryWidth)
-			fmt.Printf("%-8s  %-*s  %10d  %12s  %12s  %12s\n",
-				q.ID,
-				queryWidth, displayQuery,
-				q.Count,
-				formatQueryDuration(q.MaxTime),
-				formatQueryDuration(q.AvgTime),
-				formatQueryDuration(q.TotalTime))
-		}
-	} else {
-		header := fmt.Sprintf("%-8s  %-10s  %-10s  %-12s  %-12s  %-12s\n", "SQLID", "Type", "Executed", "Max", "Avg", "Total")
-		fmt.Print(bold + header + reset)
-		fmt.Println(strings.Repeat("-", 80))
-		for i, q := range queries {
-			if i >= 10 {
-				break
-			}
-			qType := analysis.QueryTypeFromID(q.ID)
-			fmt.Printf("%-8s  %-10s  %-10d  %-12s  %-12s  %-12s\n",
-				q.ID,
-				qType,
-				q.Count,
-				formatQueryDuration(q.MaxTime),
-				formatQueryDuration(q.AvgTime),
-				formatQueryDuration(q.TotalTime))
-		}
-	}
 }
 
 // PrintSlowestQueries displays the top 10 slowest individual queries,
 // showing three columns: SQLID, truncated Query, and Duration.
-func PrintSlowestQueries(queryStats map[string]*analysis.QueryStat) {
-	type queryInfo struct {
-		ID      string
-		Query   string
-		MaxTime float64
-	}
-	var queries []queryInfo
-	for normalized, stats := range queryStats {
-		id, _ := analysis.GenerateQueryID(stats.RawQuery, normalized)
-		queries = append(queries, queryInfo{
-			ID:      id,
-			Query:   normalized,
-			MaxTime: stats.MaxTime,
-		})
-	}
-
-	sort.Slice(queries, func(i, j int) bool {
-		if queries[i].MaxTime != queries[j].MaxTime {
-			return queries[i].MaxTime > queries[j].MaxTime
-		}
-		return queries[i].Query < queries[j].Query
+// Returns true if any data was printed.
+func PrintSlowestQueries(queryStats map[string]*analysis.QueryStat) bool {
+	return PrintQueryTable(queryStats, QueryTableConfig{
+		Columns: []QueryTableColumn{
+			ColumnSQLID(),
+			ColumnQuery(),
+			ColumnDuration(),
+		},
+		SortFunc:          SortByMaxTime,
+		Limit:             10,
+		ShowQueryText:     true,
+		TableWidthPercent: 70, // Narrower table for simple 3-column layout
 	})
-
-	if len(queries) > 10 {
-		queries = queries[:10]
-	}
-
-	termWidth, _, err := term.GetSize(int(os.Stdout.Fd()))
-	if err != nil {
-		termWidth = 120
-	}
-	queryWidth := int(float64(termWidth) * 0.6)
-	if queryWidth < 40 {
-		queryWidth = 40
-	}
-
-	bold := "\033[1m"
-	reset := "\033[0m"
-
-	headerFormat := fmt.Sprintf("%%-9s  %%-%ds  %%12s\n", queryWidth)
-	fmt.Printf("%s"+headerFormat+reset, bold, "SQLID", "Query", "Duration")
-	totalWidth := 9 + 2 + queryWidth + 2 + 12
-	fmt.Println(strings.Repeat("-", totalWidth))
-
-	for _, q := range queries {
-		displayQuery := truncateQuery(q.Query, queryWidth)
-		fmt.Printf("%-9s  %-*s  %12s\n",
-			q.ID,
-			queryWidth, displayQuery,
-			formatQueryDuration(q.MaxTime))
-	}
 }
 
 // PrintMostFrequentQueries displays the top queries by frequency (sorted descending by count).
 // The display stops if a query was executed only once or if the execution count drops by more than a factor of 10.
-func PrintMostFrequentQueries(queryStats map[string]*analysis.QueryStat) {
-	type queryInfo struct {
-		ID    string
-		Query string
-		Count int
-	}
-	var queries []queryInfo
-	for normalized, stats := range queryStats {
-		id, _ := analysis.GenerateQueryID(stats.RawQuery, normalized)
-		queries = append(queries, queryInfo{
-			ID:    id,
-			Query: normalized,
-			Count: stats.Count,
-		})
-	}
-
-	sort.Slice(queries, func(i, j int) bool {
-		if queries[i].Count != queries[j].Count {
-			return queries[i].Count > queries[j].Count
-		}
-		return queries[i].Query < queries[j].Query
+// Returns true if any data was printed.
+func PrintMostFrequentQueries(queryStats map[string]*analysis.QueryStat) bool {
+	return PrintQueryTable(queryStats, QueryTableConfig{
+		Columns: []QueryTableColumn{
+			ColumnSQLID(),
+			ColumnQuery(),
+			ColumnCount(),
+		},
+		SortFunc: SortByCount,
+		FilterFunc: func(row QueryRow) bool {
+			// Don't show queries executed only once
+			return row.Count > 1
+		},
+		Limit:             15,
+		ShowQueryText:     true,
+		TableWidthPercent: 70, // Narrower table for simple 3-column layout
 	})
-
-	termWidth, _, err := term.GetSize(int(os.Stdout.Fd()))
-	if err != nil {
-		termWidth = 120
-	}
-	queryWidth := int(float64(termWidth) * 0.6)
-	if queryWidth < 40 {
-		queryWidth = 40
-	}
-
-	bold := "\033[1m"
-	reset := "\033[0m"
-
-	headerFormat := fmt.Sprintf("%%-9s  %%-%ds  %%12s\n", queryWidth)
-	fmt.Printf("%s"+headerFormat+reset, bold, "SQLID", "Query", "Executed")
-	totalWidth := 9 + 2 + queryWidth + 2 + 12
-	fmt.Println(strings.Repeat("-", totalWidth))
-
-	var prevCount int
-	for i, q := range queries {
-		// Stop conditions
-		if i >= 15 {
-			break // Max 15 queries
-		}
-		if q.Count == 1 {
-			break // Don't show queries executed only once
-		}
-		if i > 0 && q.Count < prevCount/10 {
-			break // Stop if frequency drops by 10x
-		}
-
-		prevCount = q.Count
-
-		displayQuery := truncateQuery(q.Query, queryWidth)
-		fmt.Printf("%-9s  %-*s  %12d\n",
-			q.ID,
-			queryWidth, displayQuery,
-			q.Count)
-	}
 }
 
 // PrintSqlDetails iterates over the QueryStats and displays details for each query
 // whose SQLID matches one of the provided queryDetails.
+// It consolidates metrics from SQL performance, tempfiles, and locks into a unified view.
 func PrintSqlDetails(m analysis.AggregatedMetrics, queryDetails []string) {
-	for _, qid := range queryDetails {
-		found := false
+	bold := "\033[1m"
+	reset := "\033[0m"
 
-		// First, try to find in SQL metrics (queries with duration)
+	for _, qid := range queryDetails {
+		// Collect all metrics for this query ID
+		var sqlStat *analysis.QueryStat
+		var tempStat *analysis.TempFileQueryStat
+		var lockStat *analysis.LockQueryStat
+
+		// Search in SQL metrics
 		for _, qs := range m.SQL.QueryStats {
 			if qs.ID == qid {
-				fmt.Printf("\nDetails for SQLID: %s\n", qs.ID)
-				fmt.Println("SQL Query Details:")
-				fmt.Printf("  SQLID            : %s\n", qs.ID)
-				fmt.Printf("  Query Type       : %s\n", analysis.QueryTypeFromID(qs.ID))
-				fmt.Printf("  Raw Query        : %s\n", qs.RawQuery)
-				fmt.Printf("  Normalized Query : %s\n", qs.NormalizedQuery)
-				fmt.Printf("  Executed         : %d\n", qs.Count)
-				fmt.Printf("  Total Time       : %s\n", formatQueryDuration(qs.TotalTime))
-				fmt.Printf("  Median Time      : %s\n", formatQueryDuration(qs.AvgTime))
-				fmt.Printf("  Max Time         : %s\n", formatQueryDuration(qs.MaxTime))
-				found = true
+				sqlStat = qs
 				break
 			}
 		}
 
-		if found {
-			continue
-		}
-
-		// If not found in SQL metrics, try locks
-		for _, ls := range m.Locks.QueryStats {
-			if ls.ID == qid {
-				fmt.Printf("\nDetails for SQLID: %s\n", ls.ID)
-				fmt.Println("Query Details (from lock events):")
-				fmt.Printf("  SQLID                 : %s\n", ls.ID)
-				fmt.Printf("  Query Type            : %s\n", analysis.QueryTypeFromID(ls.ID))
-				fmt.Printf("  Raw Query             : %s\n", ls.RawQuery)
-				fmt.Printf("  Normalized Query      : %s\n", ls.NormalizedQuery)
-				fmt.Printf("  Acquired Locks        : %d\n", ls.AcquiredCount)
-				fmt.Printf("  Acquired Wait Time    : %s\n", formatQueryDuration(ls.AcquiredWaitTime))
-				fmt.Printf("  Still Waiting Locks   : %d\n", ls.StillWaitingCount)
-				fmt.Printf("  Still Waiting Time    : %s\n", formatQueryDuration(ls.StillWaitingTime))
-				fmt.Printf("  Total Wait Time       : %s\n", formatQueryDuration(ls.TotalWaitTime))
-				fmt.Println("\nNote: This query was identified from lock events and has no duration metrics.")
-				found = true
-				break
-			}
-		}
-
-		if found {
-			continue
-		}
-
-		// If not found in locks, try tempfiles
+		// Search in tempfiles
 		for _, ts := range m.TempFiles.QueryStats {
 			if ts.ID == qid {
-				fmt.Printf("\nDetails for SQLID: %s\n", ts.ID)
-				fmt.Println("Query Details (from tempfile events):")
-				fmt.Printf("  SQLID            : %s\n", ts.ID)
-				fmt.Printf("  Query Type       : %s\n", analysis.QueryTypeFromID(ts.ID))
-				fmt.Printf("  Raw Query        : %s\n", ts.RawQuery)
-				fmt.Printf("  Normalized Query : %s\n", ts.NormalizedQuery)
-				fmt.Printf("  Tempfile Count   : %d\n", ts.Count)
-				fmt.Printf("  Total Size       : %s\n", formatBytes(ts.TotalSize))
-				fmt.Println("\nNote: This query was identified from tempfile events and has no duration metrics.")
-				found = true
+				tempStat = ts
 				break
 			}
 		}
 
-		if !found {
+		// Search in locks
+		for _, ls := range m.Locks.QueryStats {
+			if ls.ID == qid {
+				lockStat = ls
+				break
+			}
+		}
+
+		// Check if query was found anywhere
+		if sqlStat == nil && tempStat == nil && lockStat == nil {
 			fmt.Printf("\nQuery ID '%s' not found.\n", qid)
+			continue
+		}
+
+		// Get query type and normalized query (from any available source)
+		var queryType string
+		var normalizedQuery string
+		var rawQuery string
+
+		if sqlStat != nil {
+			queryType = analysis.QueryTypeFromID(sqlStat.ID)
+			normalizedQuery = sqlStat.NormalizedQuery
+			rawQuery = sqlStat.RawQuery
+		} else if lockStat != nil {
+			queryType = analysis.QueryTypeFromID(lockStat.ID)
+			normalizedQuery = lockStat.NormalizedQuery
+			rawQuery = lockStat.RawQuery
+		} else if tempStat != nil {
+			queryType = analysis.QueryTypeFromID(tempStat.ID)
+			normalizedQuery = tempStat.NormalizedQuery
+			rawQuery = tempStat.RawQuery
+		}
+
+		// SQL DETAILS section
+		fmt.Println(bold + "\nSQL DETAILS" + reset)
+		fmt.Println()
+
+		// Execution histogram (if multiple executions)
+		if sqlStat != nil && sqlStat.Count > 1 {
+			execHist, execUnit, execScale := computeSingleQueryExecutionHistogram(m.SQL.Executions, qid)
+			if execHist != nil {
+				PrintHistogram(execHist, "Query count", execUnit, execScale, nil)
+			}
+		}
+
+		fmt.Printf("  Id                   : %s\n", qid)
+		fmt.Printf("  Query Type           : %s\n", queryType)
+		if sqlStat != nil {
+			fmt.Printf("  Count                : %d\n", sqlStat.Count)
+		}
+
+		// TIME section (if SQL metrics available)
+		if sqlStat != nil {
+			fmt.Println()
+			fmt.Println(bold + "TIME" + reset)
+			fmt.Println()
+
+			// Time histogram (if multiple executions)
+			if sqlStat.Count > 1 {
+				timeHist, timeUnit, timeScale := computeSingleQueryTimeHistogram(m.SQL.Executions, qid)
+				if timeHist != nil {
+					PrintHistogram(timeHist, "Cumulative time", timeUnit, timeScale, nil)
+				}
+			}
+
+			// Duration distribution histogram (if multiple executions)
+			if sqlStat.Count > 1 {
+				durationHist, durationUnit, durationScale, durationLabels := computeSingleQueryDurationDistribution(m.SQL.Executions, qid)
+				if durationHist != nil {
+					PrintHistogram(durationHist, "Query duration distribution", durationUnit, durationScale, durationLabels)
+				}
+			}
+
+			// Calculate min duration from executions
+			minDuration := sqlStat.MaxTime
+			for _, exec := range m.SQL.Executions {
+				if exec.QueryID == qid && exec.Duration < minDuration {
+					minDuration = exec.Duration
+				}
+			}
+
+			fmt.Printf("  Total Duration       : %s\n", formatQueryDuration(sqlStat.TotalTime))
+			fmt.Printf("  Min Duration         : %s\n", formatQueryDuration(minDuration))
+			fmt.Printf("  Median Duration      : %s\n", formatQueryDuration(sqlStat.AvgTime))
+			fmt.Printf("  Max Duration         : %s\n", formatQueryDuration(sqlStat.MaxTime))
+		}
+
+		// TEMP FILES section (if tempfiles metrics available)
+		if tempStat != nil {
+			fmt.Println()
+			fmt.Println(bold + "TEMP FILES" + reset)
+			fmt.Println()
+
+			// Tempfiles size histogram (if multiple events)
+			if tempStat.Count > 1 {
+				tempSizeHist, tempSizeUnit, tempSizeScale := computeSingleQueryTempFileHistogram(m.TempFiles.Events, qid)
+				if tempSizeHist != nil {
+					PrintHistogram(tempSizeHist, "Temp files size", tempSizeUnit, tempSizeScale, nil)
+				}
+			}
+
+			// Tempfiles count histogram (if multiple events)
+			if tempStat.Count > 1 {
+				tempCountHist, tempCountUnit, tempCountScale := computeSingleQueryTempFileCountHistogram(m.TempFiles.Events, qid)
+				if tempCountHist != nil {
+					PrintHistogram(tempCountHist, "Temp files count", tempCountUnit, tempCountScale, nil)
+				}
+			}
+
+			// Calculate min/max/avg size from events
+			var minSize, maxSize int64
+			minSize = math.MaxInt64
+			maxSize = 0
+			for _, event := range m.TempFiles.Events {
+				if event.QueryID == qid {
+					size := int64(event.Size)
+					if size < minSize {
+						minSize = size
+					}
+					if size > maxSize {
+						maxSize = size
+					}
+				}
+			}
+			avgSize := tempStat.TotalSize / int64(tempStat.Count)
+
+			fmt.Printf("  Temp Files count     : %d\n", tempStat.Count)
+			fmt.Printf("  Temp File min size   : %s\n", formatBytes(minSize))
+			fmt.Printf("  Temp File max size   : %s\n", formatBytes(maxSize))
+			fmt.Printf("  Temp File avg size   : %s\n", formatBytes(avgSize))
+			fmt.Printf("  Temp Files size      : %s\n", formatBytes(tempStat.TotalSize))
+		}
+
+		// LOCKS section (if locks metrics available)
+		if lockStat != nil {
+			fmt.Println()
+			fmt.Println(bold + "LOCKS" + reset)
+			fmt.Println()
+
+			// Always show acquired locks/time (even if 0)
+			fmt.Printf("  Acquired Locks       : %d\n", lockStat.AcquiredCount)
+			fmt.Printf("  Acquired Wait Time   : %s\n", formatQueryDuration(lockStat.AcquiredWaitTime))
+			fmt.Printf("  Still Waiting Locks  : %d\n", lockStat.StillWaitingCount)
+			fmt.Printf("  Still Waiting Time   : %s\n", formatQueryDuration(lockStat.StillWaitingTime))
+			fmt.Printf("  Total Wait Time      : %s\n", formatQueryDuration(lockStat.TotalWaitTime))
+		}
+
+		// Display normalized query
+		fmt.Println()
+		fmt.Println("Normalized Query:")
+		fmt.Println()
+		// Indent each line of the formatted query
+		formatted := formatSQL(normalizedQuery)
+		for _, line := range strings.Split(formatted, "\n") {
+			fmt.Println(" " + line)
+		}
+		fmt.Println()
+
+		// Optionally show one raw query as example
+		if rawQuery != "" {
+			fmt.Println("Example Query:")
+			fmt.Println()
+			fmt.Println(rawQuery)
 		}
 	}
 }
@@ -1160,15 +1219,24 @@ func printAcquiredLockQueries(queryStats map[string]*analysis.LockQueryStat, lim
 
 	if termWidth >= 120 {
 		// Wide mode: show full query
-		queryWidth := int(float64(termWidth) * 0.6)
+		// Calculate consistent table width (90% of terminal)
+		tableWidth := int(float64(termWidth) * 0.9)
+		if tableWidth > termWidth-10 {
+			tableWidth = termWidth - 10
+		}
+
+		// Fixed columns: SQLID(9) + Locks(10) + Avg Wait(15) + Total Wait(15) = 49
+		// Spacing: 4 fixed columns * 2 spaces = 8
+		fixedWidth := 49
+		spacingWidth := 8
+		queryWidth := tableWidth - fixedWidth - spacingWidth
 		if queryWidth < 40 {
 			queryWidth = 40
 		}
 
 		fmt.Printf("%s%-9s  %-*s  %10s  %15s  %15s%s\n",
 			bold, "SQLID", queryWidth, "Query", "Locks", "Avg Wait", "Total Wait", reset)
-		totalWidth := 9 + 2 + queryWidth + 2 + 10 + 2 + 15 + 2 + 15
-		fmt.Println(strings.Repeat("-", totalWidth))
+		fmt.Println(strings.Repeat("-", tableWidth))
 
 		for i := 0; i < limit; i++ {
 			stat := pairs[i].stat
@@ -1227,15 +1295,24 @@ func printStillWaitingLockQueries(queryStats map[string]*analysis.LockQueryStat,
 
 	if termWidth >= 120 {
 		// Wide mode: show full query
-		queryWidth := int(float64(termWidth) * 0.6)
+		// Calculate consistent table width (90% of terminal)
+		tableWidth := int(float64(termWidth) * 0.9)
+		if tableWidth > termWidth-10 {
+			tableWidth = termWidth - 10
+		}
+
+		// Fixed columns: SQLID(9) + Locks(10) + Avg Wait(15) + Total Wait(15) = 49
+		// Spacing: 4 fixed columns * 2 spaces = 8
+		fixedWidth := 49
+		spacingWidth := 8
+		queryWidth := tableWidth - fixedWidth - spacingWidth
 		if queryWidth < 40 {
 			queryWidth = 40
 		}
 
 		fmt.Printf("%s%-9s  %-*s  %10s  %15s  %15s%s\n",
 			bold, "SQLID", queryWidth, "Query", "Locks", "Avg Wait", "Total Wait", reset)
-		totalWidth := 9 + 2 + queryWidth + 2 + 10 + 2 + 15 + 2 + 15
-		fmt.Println(strings.Repeat("-", totalWidth))
+		fmt.Println(strings.Repeat("-", tableWidth))
 
 		for i := 0; i < limit; i++ {
 			stat := pairs[i].stat
@@ -1307,15 +1384,24 @@ func printMostFrequentWaitingQueries(queryStats map[string]*analysis.LockQuerySt
 
 	if termWidth >= 120 {
 		// Wide mode: show full query
-		queryWidth := int(float64(termWidth) * 0.6)
+		// Calculate consistent table width (90% of terminal)
+		tableWidth := int(float64(termWidth) * 0.9)
+		if tableWidth > termWidth-10 {
+			tableWidth = termWidth - 10
+		}
+
+		// Fixed columns: SQLID(9) + Locks(10) + Avg Wait(15) + Total Wait(15) = 49
+		// Spacing: 4 fixed columns * 2 spaces = 8
+		fixedWidth := 49
+		spacingWidth := 8
+		queryWidth := tableWidth - fixedWidth - spacingWidth
 		if queryWidth < 40 {
 			queryWidth = 40
 		}
 
 		fmt.Printf("%s%-9s  %-*s  %10s  %15s  %15s%s\n",
 			bold, "SQLID", queryWidth, "Query", "Locks", "Avg Wait", "Total Wait", reset)
-		totalWidth := 9 + 2 + queryWidth + 2 + 10 + 2 + 15 + 2 + 15
-		fmt.Println(strings.Repeat("-", totalWidth))
+		fmt.Println(strings.Repeat("-", tableWidth))
 
 		for i := 0; i < limit; i++ {
 			pair := pairs[i]

@@ -13,10 +13,17 @@ import (
 //   - Individual files
 //   - Glob patterns (e.g., "*.log")
 //   - Directories (scans for supported log files, non-recursive)
+//   - "-" to read from stdin
 func collectFiles(args []string) []string {
 	var files []string
 
 	for _, arg := range args {
+		// Special case: "-" means read from stdin
+		if arg == "-" {
+			files = append(files, "-")
+			continue
+		}
+
 		// Check if argument is a directory
 		info, err := os.Stat(arg)
 		if err == nil && info.IsDir() {
