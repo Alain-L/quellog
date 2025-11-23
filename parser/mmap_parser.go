@@ -94,7 +94,21 @@ func parseMmapData(data []byte, out chan<- LogEntry) error {
 			}
 
 			// Check if this is a continuation line
-			if len(line) > 0 && (line[0] == ' ' || line[0] == '\t') {
+			// Fast path: starts with whitespace (most continuation lines)
+			isContinuation := len(line) > 0 && (line[0] == ' ' || line[0] == '\t')
+
+			// Fallback: if not indented AND we have a current entry, check for timestamp
+			// This handles cases like GCP where SQL continuation lines are not indented
+			if !isContinuation && len(line) > 0 && currentEntry.Len() > 0 {
+				// Try to parse as a new log entry - if it fails, it's a continuation
+				timestamp, _ := parseStderrLine(line)
+				if timestamp.IsZero() {
+					// No valid timestamp = continuation line
+					isContinuation = true
+				}
+			}
+
+			if isContinuation {
 				// Append to current entry
 				if currentEntry.Len() > 0 {
 					currentEntry.WriteByte(' ')
@@ -117,7 +131,18 @@ func parseMmapData(data []byte, out chan<- LogEntry) error {
 	if start < len(data) {
 		line := string(data[start:])
 		if len(line) > 0 {
-			if line[0] == ' ' || line[0] == '\t' {
+			// Check if this is a continuation line
+			isContinuation := line[0] == ' ' || line[0] == '\t'
+
+			// Fallback: if not indented AND we have a current entry, check for timestamp
+			if !isContinuation && currentEntry.Len() > 0 {
+				timestamp, _ := parseStderrLine(line)
+				if timestamp.IsZero() {
+					isContinuation = true
+				}
+			}
+
+			if isContinuation {
 				if currentEntry.Len() > 0 {
 					currentEntry.WriteByte(' ')
 				}
@@ -170,7 +195,21 @@ func parseMmapDataOptimized(data []byte, out chan<- LogEntry) error {
 		}
 
 		// Check if this is a continuation line
-		if line[0] == ' ' || line[0] == '\t' {
+		// Fast path: starts with whitespace (most continuation lines)
+		isContinuation := line[0] == ' ' || line[0] == '\t'
+
+		// Fallback: if not indented AND we have a current entry, check for timestamp
+		// This handles cases like GCP where SQL continuation lines are not indented
+		if !isContinuation && len(currentEntry) > 0 {
+			// Try to parse as a new log entry - if it fails, it's a continuation
+			timestamp, _ := parseStderrLineBytes(line)
+			if timestamp.IsZero() {
+				// No valid timestamp = continuation line
+				isContinuation = true
+			}
+		}
+
+		if isContinuation {
 			// Append to current entry
 			if len(currentEntry) > 0 {
 				currentEntry = append(currentEntry, ' ')
@@ -192,7 +231,18 @@ func parseMmapDataOptimized(data []byte, out chan<- LogEntry) error {
 	if start < len(data) {
 		line := data[start:]
 		if len(line) > 0 {
-			if line[0] == ' ' || line[0] == '\t' {
+			// Check if this is a continuation line
+			isContinuation := line[0] == ' ' || line[0] == '\t'
+
+			// Fallback: if not indented AND we have a current entry, check for timestamp
+			if !isContinuation && len(currentEntry) > 0 {
+				timestamp, _ := parseStderrLineBytes(line)
+				if timestamp.IsZero() {
+					isContinuation = true
+				}
+			}
+
+			if isContinuation {
 				if len(currentEntry) > 0 {
 					currentEntry = append(currentEntry, ' ')
 				}

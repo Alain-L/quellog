@@ -335,12 +335,68 @@ func isJSONContent(sample string) bool {
 	}
 
 	// Try to unmarshal as a single JSON object/array first
+	// If the sample is truncated (common with large JSON arrays), validation may fail
+	// but we can still detect it as JSON by checking the structure
 	var js interface{}
 	err := json.Unmarshal([]byte(trimmed), &js)
 
-	// If it fails, try JSONL format (newline-delimited JSON)
+	// If unmarshaling the full sample fails, try JSONL format (newline-delimited JSON)
+	// or check if it's a truncated JSON array with valid structure
 	if err != nil {
-		// Try to parse first line as JSON
+		// For JSON arrays, the sample might be truncated mid-entry
+		// Check if it starts like a JSON array with objects
+		if strings.HasPrefix(trimmed, "[") {
+			// Look for opening of first object
+			firstObjStart := strings.Index(trimmed, "{")
+			if firstObjStart == -1 {
+				return false
+			}
+			// Try to extract and validate the first complete object
+			objDepth := 0
+			inString := false
+			escape := false
+			for i := firstObjStart; i < len(trimmed); i++ {
+				c := trimmed[i]
+
+				if escape {
+					escape = false
+					continue
+				}
+
+				if c == '\\' {
+					escape = true
+					continue
+				}
+
+				if c == '"' && !escape {
+					inString = !inString
+					continue
+				}
+
+				if inString {
+					continue
+				}
+
+				if c == '{' {
+					objDepth++
+				} else if c == '}' {
+					objDepth--
+					if objDepth == 0 {
+						// Found a complete object
+						firstObj := trimmed[firstObjStart : i+1]
+						if err := json.Unmarshal([]byte(firstObj), &js); err == nil {
+							// Valid JSON object in array
+							goto checkFields
+						}
+						return false
+					}
+				}
+			}
+			// Couldn't find a complete object, but structure looks like JSON array
+			goto checkFields
+		}
+
+		// Try JSONL format (newline-delimited JSON)
 		lines := strings.Split(trimmed, "\n")
 		if len(lines) == 0 {
 			return false
@@ -354,17 +410,18 @@ func isJSONContent(sample string) bool {
 		if err := json.Unmarshal([]byte(firstLine), &js); err != nil {
 			return false
 		}
-	} else {
 	}
 
+checkFields:
 	// Check for timestamp-related fields anywhere in the sample
 	hasTimestamp := strings.Contains(trimmed, `"timestamp"`)
 	hasTime := strings.Contains(trimmed, `"time"`)
 	hasTs := strings.Contains(trimmed, `"ts"`)
 	hasAtTimestamp := strings.Contains(trimmed, `"@timestamp"`)
 	hasInsertId := strings.Contains(trimmed, `"insertId"`)
+	hasTextPayload := strings.Contains(trimmed, `"textPayload"`)
 
-	result := hasTimestamp || hasTime || hasTs || hasAtTimestamp || hasInsertId
+	result := hasTimestamp || hasTime || hasTs || hasAtTimestamp || hasInsertId || hasTextPayload
 
 	return result
 }

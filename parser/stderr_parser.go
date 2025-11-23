@@ -66,8 +66,22 @@ func (p *StderrParser) parseReader(r io.Reader, out chan<- LogEntry) error {
 			line = " " + line[idx+len(syslogTabMarker):]
 		}
 
-		// Check if this is a continuation line (starts with whitespace)
-		if strings.HasPrefix(line, " ") || strings.HasPrefix(line, "\t") {
+		// Check if this is a continuation line
+		// Fast path: starts with whitespace (most continuation lines)
+		isContinuation := strings.HasPrefix(line, " ") || strings.HasPrefix(line, "\t")
+
+		// Fallback: if not indented AND we have a current entry, check for timestamp
+		// This handles cases like GCP where SQL continuation lines are not indented
+		if !isContinuation && currentEntry != "" {
+			// Try to parse as a new log entry - if it fails, it's a continuation
+			timestamp, _ := parseStderrLine(line)
+			if timestamp.IsZero() {
+				// No valid timestamp = continuation line
+				isContinuation = true
+			}
+		}
+
+		if isContinuation {
 			// Append to current entry
 			currentEntry += " " + strings.TrimSpace(line)
 		} else {
@@ -187,11 +201,17 @@ func parseStderrFormat(line string) (time.Time, string, bool) {
 		return time.Time{}, "", false
 	}
 
-	// Parse timestamp: "YYYY-MM-DD HH:MM:SS TZ"
+	// Parse timestamp: "YYYY-MM-DD HH:MM:SS TZ" or "YYYY-MM-DD HH:MM:SS.mmm TZ"
 	timestampStr := line[:tzEnd]
-	t, err := time.Parse("2006-01-02 15:04:05 MST", timestampStr)
+
+	// Try with milliseconds first (e.g., GCP Cloud SQL format)
+	t, err := time.Parse("2006-01-02 15:04:05.999 MST", timestampStr)
 	if err != nil {
-		return time.Time{}, "", false
+		// Try without milliseconds
+		t, err = time.Parse("2006-01-02 15:04:05 MST", timestampStr)
+		if err != nil {
+			return time.Time{}, "", false
+		}
 	}
 
 	// Skip whitespace before message
