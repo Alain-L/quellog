@@ -105,6 +105,50 @@ var knownApps = map[string]bool{
 	"php":           true,
 }
 
+// knownUsernames is a set of common PostgreSQL usernames
+// Used to disambiguate user vs database fields
+var knownUsernames = map[string]bool{
+	"postgres":  true,
+	"admin":     true,
+	"root":      true,
+	"user":      true,
+	"alice":     true,
+	"bob":       true,
+	"charlie":   true,
+	"dave":      true,
+	"eve":       true,
+	"frank":     true,
+	"grace":     true,
+	"henry":     true,
+	"test":      true,
+	"demo":      true,
+	"guest":     true,
+	"anonymous": true,
+}
+
+// knownDatabases is a set of common PostgreSQL database names
+// Used to disambiguate user vs database fields
+var knownDatabases = map[string]bool{
+	"postgres":   true,
+	"template0":  true,
+	"template1":  true,
+	"mydb":       true,
+	"testdb":     true,
+	"test":       true,
+	"production": true,
+	"prod":       true,
+	"proddb":     true,
+	"development": true,
+	"dev":        true,
+	"devdb":      true,
+	"staging":    true,
+	"database":   true,
+	"db":         true,
+	"main":       true,
+	"app":        true,
+	"appdb":      true,
+}
+
 // detectorFunc is a function that detects patterns in a token sequence.
 type detectorFunc func([]Token) []Token
 
@@ -708,13 +752,17 @@ func scoreRemainingValues(tokens []Token, allTokens [][]Token, prefixes []string
 	// Score based on count and variance characteristics
 	switch len(valueIndices) {
 	case 1:
-		// Single VALUE → use variance analysis to determine type
+		// Single VALUE → use known lists and variance analysis to determine type
 		idx := valueIndices[0]
 		val := strings.ToLower(tokens[idx].Value)
 
-		// First check if it's a known application
+		// First check known lists for direct match
 		if knownApps[val] || strings.Contains(val, "psql") || strings.Contains(val, "pg") {
 			tokens[idx].Class = TokenClassApplication
+		} else if knownUsernames[val] {
+			tokens[idx].Class = TokenClassUser
+		} else if knownDatabases[val] {
+			tokens[idx].Class = TokenClassDatabase
 		} else {
 			// Calculate variance metrics for this token
 			variance := calculateVarianceMetrics(idx, allTokens, prefixes)
@@ -731,15 +779,108 @@ func scoreRemainingValues(tokens []Token, allTokens [][]Token, prefixes []string
 		}
 
 	case 2:
-		// Two VALUES → likely USER + DB (in that order)
-		tokens[valueIndices[0]].Class = TokenClassUser
-		tokens[valueIndices[1]].Class = TokenClassDatabase
+		// Two VALUES → likely USER + DB, but check known lists to determine order
+		val0 := strings.ToLower(tokens[valueIndices[0]].Value)
+		val1 := strings.ToLower(tokens[valueIndices[1]].Value)
+
+		// Check if values match known lists (this determines order)
+		val0IsUser := knownUsernames[val0]
+		val0IsDB := knownDatabases[val0]
+		val1IsUser := knownUsernames[val1]
+		val1IsDB := knownDatabases[val1]
+
+		if val0IsUser && !val0IsDB {
+			// val0 is definitely user
+			tokens[valueIndices[0]].Class = TokenClassUser
+			tokens[valueIndices[1]].Class = TokenClassDatabase
+		} else if val0IsDB && !val0IsUser {
+			// val0 is definitely db → order is reversed
+			tokens[valueIndices[0]].Class = TokenClassDatabase
+			tokens[valueIndices[1]].Class = TokenClassUser
+		} else if val1IsUser && !val1IsDB {
+			// val1 is definitely user → order is reversed
+			tokens[valueIndices[0]].Class = TokenClassDatabase
+			tokens[valueIndices[1]].Class = TokenClassUser
+		} else if val1IsDB && !val1IsUser {
+			// val1 is definitely db → normal order
+			tokens[valueIndices[0]].Class = TokenClassUser
+			tokens[valueIndices[1]].Class = TokenClassDatabase
+		} else {
+			// No clear match, use default PostgreSQL order: USER then DB
+			tokens[valueIndices[0]].Class = TokenClassUser
+			tokens[valueIndices[1]].Class = TokenClassDatabase
+		}
 
 	case 3:
-		// Three VALUES → likely USER + DB + APP (in that order)
-		tokens[valueIndices[0]].Class = TokenClassUser
-		tokens[valueIndices[1]].Class = TokenClassDatabase
-		tokens[valueIndices[2]].Class = TokenClassApplication
+		// Three VALUES → likely USER + DB + APP, use known lists to verify
+		val0 := strings.ToLower(tokens[valueIndices[0]].Value)
+		val1 := strings.ToLower(tokens[valueIndices[1]].Value)
+		val2 := strings.ToLower(tokens[valueIndices[2]].Value)
+
+		// Check which values match known lists
+		val0IsUser := knownUsernames[val0]
+		val0IsDB := knownDatabases[val0]
+		val0IsApp := knownApps[val0]
+		val1IsUser := knownUsernames[val1]
+		val1IsDB := knownDatabases[val1]
+		val1IsApp := knownApps[val1]
+		val2IsApp := knownApps[val2]
+
+		// Try to determine correct order based on known matches
+		// Default order: USER, DB, APP
+		userIdx := valueIndices[0]
+		dbIdx := valueIndices[1]
+		appIdx := valueIndices[2]
+
+		// If val2 is clearly an app, that's the app
+		if val2IsApp {
+			appIdx = valueIndices[2]
+			// Now determine user vs db for first two
+			if val0IsUser && !val0IsDB {
+				userIdx = valueIndices[0]
+				dbIdx = valueIndices[1]
+			} else if val0IsDB && !val0IsUser {
+				dbIdx = valueIndices[0]
+				userIdx = valueIndices[1]
+			}
+		} else if val0IsApp {
+			// Unusual order: APP first
+			appIdx = valueIndices[0]
+			if val1IsDB && !val1IsUser {
+				dbIdx = valueIndices[1]
+				userIdx = valueIndices[2]
+			} else {
+				userIdx = valueIndices[1]
+				dbIdx = valueIndices[2]
+			}
+		} else if val1IsApp {
+			// APP in middle
+			appIdx = valueIndices[1]
+			if val0IsUser && !val0IsDB {
+				userIdx = valueIndices[0]
+				dbIdx = valueIndices[2]
+			} else if val0IsDB && !val0IsUser {
+				dbIdx = valueIndices[0]
+				userIdx = valueIndices[2]
+			}
+		} else {
+			// No app match, determine user/db order
+			if val0IsDB && !val0IsUser {
+				dbIdx = valueIndices[0]
+				userIdx = valueIndices[1]
+			} else if val1IsDB && !val1IsUser {
+				userIdx = valueIndices[0]
+				dbIdx = valueIndices[1]
+			}
+			// Third value could be app or something else
+			if strings.Contains(val2, "psql") || strings.Contains(val2, "pg") {
+				appIdx = valueIndices[2]
+			}
+		}
+
+		tokens[userIdx].Class = TokenClassUser
+		tokens[dbIdx].Class = TokenClassDatabase
+		tokens[appIdx].Class = TokenClassApplication
 
 	default:
 		// 4+ VALUES → USER + DB + APP + others remain VALUE
