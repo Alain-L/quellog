@@ -18,24 +18,24 @@ const (
 type TokenClass int
 
 const (
-	TokenClassUnknown      TokenClass = iota
-	TokenClassLabel                   // Fixed text (e.g., "USER", "DB", "app=")
-	TokenClassValue                   // Variable data (timestamp, PID, username, etc.)
-	TokenClassSeparator               // Delimiters (: [ ] @ - etc.)
-	TokenClassTimestampYear           // Year (YYYY)
-	TokenClassTimestampMonth          // Month (MM)
-	TokenClassTimestampDay            // Day (DD)
-	TokenClassTimestampHour           // Hour (HH)
-	TokenClassTimestampMinute         // Minute (mm)
-	TokenClassTimestampSecond         // Second (SS)
-	TokenClassTimestampMillisecond    // Millisecond (sss)
-	TokenClassPID                     // Process ID (4-6 digits)
-	TokenClassSessionID               // Session ID (%c - hex string)
-	TokenClassLogLineNumber           // Log line number (%l - small integer)
-	TokenClassUser                    // Username
-	TokenClassDatabase                // Database name
-	TokenClassApplication             // Application name
-	TokenClassHost                    // Hostname or IP address
+	TokenClassUnknown              TokenClass = iota
+	TokenClassLabel                           // Fixed text (e.g., "USER", "DB", "app=")
+	TokenClassValue                           // Variable data (timestamp, PID, username, etc.)
+	TokenClassSeparator                       // Delimiters (: [ ] @ - etc.)
+	TokenClassTimestampYear                   // Year (YYYY)
+	TokenClassTimestampMonth                  // Month (MM)
+	TokenClassTimestampDay                    // Day (DD)
+	TokenClassTimestampHour                   // Hour (HH)
+	TokenClassTimestampMinute                 // Minute (mm)
+	TokenClassTimestampSecond                 // Second (SS)
+	TokenClassTimestampMillisecond            // Millisecond (sss)
+	TokenClassPID                             // Process ID (4-6 digits)
+	TokenClassSessionID                       // Session ID (%c - hex string)
+	TokenClassLogLineNumber                   // Log line number (%l - small integer)
+	TokenClassUser                            // Username
+	TokenClassDatabase                        // Database name
+	TokenClassApplication                     // Application name
+	TokenClassHost                            // Hostname or IP address
 )
 
 // Token represents a segment of the prefix (word or non-word)
@@ -47,18 +47,80 @@ type Token struct {
 
 // PrefixStructure represents the analyzed structure of a log_line_prefix
 type PrefixStructure struct {
-	Raw    string   // Original prefix string
-	Tokens []Token  // Alternating word/non-word tokens
+	Raw    string  // Original prefix string
+	Tokens []Token // Alternating word/non-word tokens
 }
 
-// severityMarkers are used to find where the prefix ends
+// severityMarkers are used to find where the prefix ends.
+//
+// We include the colon (":") in each marker to avoid false positives from other colons
+// in the prefix (e.g., timestamps "00:00:01", PID markers "[123]:", etc.).
+// By searching for "LOG:" rather than just ":", we ensure we find the actual
+// message boundary.
+//
+// Includes both severity levels (LOG, ERROR, etc.) and continuation keywords
+// (DETAIL, HINT, etc.) since they all can have the full prefix in PostgreSQL logs.
+//
+// Note: NOTICE is not included as it often appears without a prefix in some configs.
 var severityMarkers = []string{
-	"LOG:", "ERROR:", "WARNING:", "FATAL:", "PANIC:",
-	"INFO:", "DETAIL:", "HINT:", "STATEMENT:", "CONTEXT:",
+	// Main severity levels (ordered by severity)
+	"DEBUG5:", "DEBUG4:", "DEBUG3:", "DEBUG2:", "DEBUG1:", "DEBUG:",
+	"LOG:", "INFO:", "WARNING:", "ERROR:", "FATAL:", "PANIC:",
+	// Continuation keywords (always follow a main severity line)
+	"DETAIL:", "HINT:", "STATEMENT:", "CONTEXT:",
 }
 
-// AnalyzePrefixes samples log lines and extracts the word/non-word structure
-// It returns a structure representing the common pattern found in the prefixes
+// knownApps is a set of well-known PostgreSQL application names
+// Used for identifying application fields in log prefixes
+var knownApps = map[string]bool{
+	"psql":          true,
+	"pgbench":       true,
+	"pgadmin":       true,
+	"pgadmin4":      true,
+	"pg_dump":       true,
+	"pg_restore":    true,
+	"pg_basebackup": true,
+	"pg_rewind":     true,
+	"pg_upgrade":    true,
+	"psycopg2":      true,
+	"jdbc":          true,
+	"odbc":          true,
+	"rails":         true,
+	"django":        true,
+	"spring":        true,
+	"node":          true,
+	"nodejs":        true,
+	"python":        true,
+	"java":          true,
+	"php":           true,
+}
+
+// detectorFunc is a function that detects patterns in a token sequence.
+type detectorFunc func([]Token) []Token
+
+// applyDetectors applies a sequence of detector functions to all token arrays.
+// Each detector is applied to all samples before moving to the next detector.
+func applyDetectors(allTokens [][]Token, detectors ...detectorFunc) [][]Token {
+	for _, detector := range detectors {
+		for i := range allTokens {
+			allTokens[i] = detector(allTokens[i])
+		}
+	}
+	return allTokens
+}
+
+// AnalyzePrefixes samples log lines and extracts the word/non-word structure.
+// It returns a structure representing the common pattern found in the prefixes.
+//
+// The function analyzes a sample of log lines to detect the log_line_prefix pattern
+// and classify each component (timestamp, PID, user, database, application, etc.).
+//
+// Parameters:
+//   - lines: Array of log lines to analyze
+//   - sampleSize: Maximum number of lines to sample (0 or negative uses default of 20)
+//
+// Returns:
+//   - PrefixStructure containing the detected pattern, or nil if no pattern found
 func AnalyzePrefixes(lines []string, sampleSize int) *PrefixStructure {
 	if len(lines) == 0 {
 		return nil
@@ -97,48 +159,27 @@ func AnalyzePrefixes(lines []string, sampleSize int) *PrefixStructure {
 		return nil
 	}
 
-	// First, detect timestamp components (structural pattern)
-	// This is done before variance-based classification to avoid marking
-	// constant timestamps as labels
-	for i := range allTokens {
-		allTokens[i] = detectTimestamps(allTokens[i])
-	}
-
-	// Then detect PIDs (numeric patterns after timestamps)
-	for i := range allTokens {
-		allTokens[i] = detectPID(allTokens[i])
-	}
-
-	// Detect Session IDs (%c - long hex strings)
-	for i := range allTokens {
-		allTokens[i] = detectSessionID(allTokens[i])
-	}
-
-	// Detect Log Line Numbers (%l - small integers)
-	for i := range allTokens {
-		allTokens[i] = detectLogLineNumber(allTokens[i])
-	}
-
-	// Detect user/database/application by explicit labels (user=, db=, app=, etc.)
-	for i := range allTokens {
-		allTokens[i] = detectLabels(allTokens[i])
-	}
-
-	// Detect user@database positional pattern
-	for i := range allTokens {
-		allTokens[i] = detectPositional(allTokens[i])
-	}
-
-	// Detect IP addresses (host)
-	for i := range allTokens {
-		allTokens[i] = detectHost(allTokens[i])
-	}
+	// Apply structural detectors in sequence
+	// Order matters: timestamps first, then PIDs, then semantic fields
+	allTokens = applyDetectors(allTokens,
+		detectTimestamps,    // Detect timestamp components (YYYY-MM-DD HH:mm:SS)
+		detectPID,           // Detect process IDs (4-6 digit numbers)
+		detectSessionID,     // Detect session IDs (%c - long hex strings)
+		detectLogLineNumber, // Detect log line numbers (%l - small integers)
+		detectLabels,        // Detect labeled fields (user=, db=, app=)
+		detectKnownApps,     // Detect known application names
+		detectPositional,    // Detect user@database patterns
+		detectHost,          // Detect IP addresses
+	)
 
 	// Then classify remaining tokens by comparing across all samples
 	classifiedTokens := classifyTokens(allTokens)
 
-	// Score remaining VALUE tokens as USER/DB/APP based on count and position
-	classifiedTokens = scoreRemainingValues(classifiedTokens)
+	// Score remaining VALUE tokens as USER/DB/APP based on variance and position
+	classifiedTokens = scoreRemainingValues(classifiedTokens, allTokens, prefixes)
+
+	// Final fallback: try splitting underscore-joined tokens if we're missing essential fields
+	classifiedTokens = detectUnderscoreFallback(classifiedTokens, allTokens, prefixes)
 
 	return &PrefixStructure{
 		Raw:    prefixes[0],
@@ -198,8 +239,12 @@ func isWordChar(r rune) bool {
 	return unicode.IsLetter(r) || unicode.IsDigit(r) || r == '_'
 }
 
-// detectTimestamps identifies timestamp components in the token sequence
-// It looks for patterns like YYYY-MM-DD HH:mm:SS(.sss) by examining word sequences
+// detectTimestamps identifies timestamp components in the token sequence.
+// It looks for patterns like YYYY-MM-DD HH:mm:SS(.sss) by examining word sequences.
+//
+// The function searches for sequences of 2-digit and 4-digit numbers that match
+// the structure of a timestamp. At least 6 components (year through second) must
+// match for a valid timestamp detection.
 func detectTimestamps(tokens []Token) []Token {
 	// Extract word-only sequence (positions and values)
 	type wordPos struct {
@@ -290,8 +335,11 @@ func isTimestampClass(class TokenClass) bool {
 		class == TokenClassTimestampMillisecond
 }
 
-// detectPID identifies process IDs in the token sequence
-// PIDs are typically 4-6 digit numbers that aren't timestamp components
+// detectPID identifies process IDs in the token sequence.
+// PIDs are typically 4-6 digit numbers that aren't timestamp components.
+//
+// The function first looks for standalone numeric tokens, then falls back to
+// extracting digit sequences from within tokens if no pure numeric PID is found.
 func detectPID(tokens []Token) []Token {
 	// First pass: look for pure numeric tokens of 4-6 digits
 	foundPID := false
@@ -411,8 +459,16 @@ func detectLogLineNumber(tokens []Token) []Token {
 	return tokens
 }
 
-// detectLabels identifies user/database/application fields by explicit labels
-// Looks for patterns like "user=", "db=", "app=", "USER[", "DB[", etc.
+// detectLabels identifies user/database/application fields by explicit labels.
+// Looks for patterns like "user=", "db=", "app=", "pid=", followed by a value token.
+//
+// Supported label formats:
+//   - user=, usr=, u= → USER
+//   - db=, database=, d= → DATABASE
+//   - app=, application=, a= → APPLICATION
+//   - pid=, proc=, process=, p= → PID
+//
+// The label can be followed by =, :, or [ as separator.
 func detectLabels(tokens []Token) []Token {
 	for i := 0; i < len(tokens); i++ {
 		token := tokens[i]
@@ -487,9 +543,50 @@ func detectLabels(tokens []Token) []Token {
 	return tokens
 }
 
+// detectKnownApps identifies well-known PostgreSQL application names.
+// This runs before positional detection to avoid misclassifying apps as USER/DB.
+func detectKnownApps(tokens []Token) []Token {
+	for i, token := range tokens {
+		if token.Type != TokenWord || token.Class != TokenClassUnknown {
+			continue
+		}
+
+		// Check if the value (case-insensitive) is a known app
+		lowerVal := strings.ToLower(token.Value)
+		if knownApps[lowerVal] {
+			tokens[i].Class = TokenClassApplication
+			continue
+		}
+
+		// Check for partial matches with pg-related tools
+		if strings.Contains(lowerVal, "psql") ||
+			strings.HasPrefix(lowerVal, "pg_") ||
+			strings.HasPrefix(lowerVal, "pg-") {
+			tokens[i].Class = TokenClassApplication
+		}
+	}
+
+	return tokens
+}
+
 // detectPositional identifies user/database by positional patterns
 // Looks for patterns like "user@database" where @ indicates the relationship
+// Only applies if there is exactly ONE @ to avoid conflicts with complex patterns
 func detectPositional(tokens []Token) []Token {
+	// Count @ symbols in the prefix
+	atCount := 0
+	for _, token := range tokens {
+		if token.Type == TokenNonWord && token.Value == "@" {
+			atCount++
+		}
+	}
+
+	// Only apply user@database rule if there is exactly one @
+	// Multiple @ symbols indicate complex patterns that need different handling
+	if atCount != 1 {
+		return tokens
+	}
+
 	for i := 0; i < len(tokens)-2; i++ {
 		// Look for pattern: WORD @ WORD
 		if tokens[i].Type == TokenWord &&
@@ -498,12 +595,31 @@ func detectPositional(tokens []Token) []Token {
 
 			// Check if separator is @
 			if tokens[i+1].Value == "@" {
-				// Token before @ is likely user, after @ is likely database
-				if tokens[i].Class == TokenClassUnknown {
-					tokens[i].Class = TokenClassUser
+				// Skip if the token after @ is already classified as structural field
+				// (timestamp, PID, session, etc.) - this means @ is not user@database
+				afterClass := tokens[i+2].Class
+				if afterClass != TokenClassUnknown &&
+					afterClass != TokenClassValue &&
+					afterClass != TokenClassUser &&
+					afterClass != TokenClassDatabase &&
+					afterClass != TokenClassApplication {
+					continue
 				}
-				if tokens[i+2].Class == TokenClassUnknown {
-					tokens[i+2].Class = TokenClassDatabase
+
+				// Special case: if token after @ is already APP, pattern is DB@APP not USER@DB
+				if tokens[i+2].Class == TokenClassApplication {
+					// Token before @ is likely database
+					if tokens[i].Class == TokenClassUnknown {
+						tokens[i].Class = TokenClassDatabase
+					}
+				} else {
+					// Standard case: token before @ is likely user, after @ is likely database
+					if tokens[i].Class == TokenClassUnknown {
+						tokens[i].Class = TokenClassUser
+					}
+					if tokens[i+2].Class == TokenClassUnknown {
+						tokens[i+2].Class = TokenClassDatabase
+					}
 				}
 			}
 		}
@@ -512,15 +628,11 @@ func detectPositional(tokens []Token) []Token {
 	return tokens
 }
 
-// detectHost identifies IP addresses in the token sequence
-// Looks for patterns like: digit.digit.digit.digit (IPv4)
+// detectHost identifies IP addresses in the token sequence.
+// Looks for patterns like: digit.digit.digit.digit (IPv4).
 func detectHost(tokens []Token) []Token {
-	for i := 0; i < len(tokens)-6; i++ {
-		// Pattern: WORD . WORD . WORD . WORD
-		// Where each WORD is 1-3 digits
-		if i+6 >= len(tokens) {
-			break
-		}
+	// Need at least 7 tokens for IPv4 pattern (4 numbers + 3 dots)
+	for i := 0; i <= len(tokens)-7; i++ {
 
 		// Check if we have the IPv4 pattern
 		if tokens[i].Type == TokenWord &&
@@ -569,26 +681,8 @@ func detectHost(tokens []Token) []Token {
 }
 
 // scoreRemainingValues classifies unidentified VALUE tokens as USER/DB/APP
-// based on their count and position in the prefix
-func scoreRemainingValues(tokens []Token) []Token {
-	// Common PostgreSQL application names
-	knownApps := map[string]bool{
-		"psql":         true,
-		"pgbench":      true,
-		"pgadmin":      true,
-		"pgadmin4":     true,
-		"pg_dump":      true,
-		"pg_restore":   true,
-		"pg_basebackup": true,
-		"psycopg2":     true,
-		"jdbc":         true,
-		"odbc":         true,
-		"rails":        true,
-		"django":       true,
-		"spring":       true,
-		"node":         true,
-	}
-
+// based on their variance characteristics, count, and position in the prefix.
+func scoreRemainingValues(tokens []Token, allTokens [][]Token, prefixes []string) []Token {
 	// Collect VALUE tokens that are still unclassified (not USER/DB/APP/HOST/PID)
 	var valueIndices []int
 	for i, token := range tokens {
@@ -601,15 +695,29 @@ func scoreRemainingValues(tokens []Token) []Token {
 		return tokens
 	}
 
-	// Score based on count and position
+	// Score based on count and variance characteristics
 	switch len(valueIndices) {
 	case 1:
-		// Single VALUE → check if it's a known app first, otherwise USER
-		val := strings.ToLower(tokens[valueIndices[0]].Value)
+		// Single VALUE → use variance analysis to determine type
+		idx := valueIndices[0]
+		val := strings.ToLower(tokens[idx].Value)
+
+		// First check if it's a known application
 		if knownApps[val] || strings.Contains(val, "psql") || strings.Contains(val, "pg") {
-			tokens[valueIndices[0]].Class = TokenClassApplication
+			tokens[idx].Class = TokenClassApplication
 		} else {
-			tokens[valueIndices[0]].Class = TokenClassUser
+			// Calculate variance metrics for this token
+			variance := calculateVarianceMetrics(idx, allTokens, prefixes)
+
+			// Heuristic based on observed patterns:
+			// - Uniqueness ≥35% → USER (many different usernames, typically 40%+)
+			// - Uniqueness <35% → DATABASE (fewer databases, typically 30% or less)
+			// The 35% threshold is calibrated from mock data analysis
+			if variance.uniquenessRatio >= 0.35 {
+				tokens[idx].Class = TokenClassUser
+			} else {
+				tokens[idx].Class = TokenClassDatabase
+			}
 		}
 
 	case 2:
@@ -755,4 +863,240 @@ func looksLikeLabel(word string) bool {
 	}
 
 	return false
+}
+
+// varianceMetrics holds statistics about a token's variance across samples
+type varianceMetrics struct {
+	uniqueCount     int     // Number of unique values
+	totalSamples    int     // Total number of samples
+	uniquenessRatio float64 // Ratio of unique values to samples (0.0 to 1.0)
+	avgLength       float64 // Average length of the values
+}
+
+// calculateVarianceMetrics analyzes how a token varies across all samples.
+// Returns metrics about uniqueness and average length to help classify ambiguous tokens.
+func calculateVarianceMetrics(tokenIndex int, allTokens [][]Token, prefixes []string) varianceMetrics {
+	uniqueValues := make(map[string]bool)
+	totalLength := 0
+	count := 0
+
+	// Collect all values at this token position across samples
+	for _, tokens := range allTokens {
+		if tokenIndex >= len(tokens) {
+			continue
+		}
+
+		value := tokens[tokenIndex].Value
+		uniqueValues[value] = true
+		totalLength += len(value)
+		count++
+	}
+
+	// Calculate metrics
+	uniqueCount := len(uniqueValues)
+	var avgLength float64
+	if count > 0 {
+		avgLength = float64(totalLength) / float64(count)
+	}
+
+	var uniquenessRatio float64
+	if count > 0 {
+		uniquenessRatio = float64(uniqueCount) / float64(count)
+	}
+
+	return varianceMetrics{
+		uniqueCount:     uniqueCount,
+		totalSamples:    count,
+		uniquenessRatio: uniquenessRatio,
+		avgLength:       avgLength,
+	}
+}
+
+// detectUnderscoreFallback handles rare patterns where multiple fields are joined by underscores.
+//
+// Example: log_line_prefix='%t_%p_%u_%d_%a' produces "UTC_10000_alice_mydb_psql" as a single token
+// since underscores are treated as word characters by the tokenizer.
+//
+// This fallback only activates when:
+//   - We're missing 2 or more essential fields (USER/DB/APP)
+//   - We find a token with 2+ underscores that could be split
+//   - Splitting and re-classifying improves field detection
+//
+// The function splits the token, re-runs the full detection pipeline, and only keeps
+// the split version if it recovers missing fields.
+func detectUnderscoreFallback(tokens []Token, allTokens [][]Token, prefixes []string) []Token {
+	// Check if we're missing essential fields
+	hasUser := false
+	hasDB := false
+	hasApp := false
+
+	for _, token := range tokens {
+		if token.Class == TokenClassUser {
+			hasUser = true
+		}
+		if token.Class == TokenClassDatabase {
+			hasDB = true
+		}
+		if token.Class == TokenClassApplication {
+			hasApp = true
+		}
+	}
+
+	// Count how many essential fields are missing
+	missingCount := 0
+	if !hasUser {
+		missingCount++
+	}
+	if !hasDB {
+		missingCount++
+	}
+	if !hasApp {
+		missingCount++
+	}
+
+	// Only apply fallback if we're missing 2 or more essential fields
+	// (One missing field might be intentional in the log_line_prefix)
+	if missingCount < 2 {
+		return tokens
+	}
+
+	// Look for tokens with multiple underscores (VALUE, PID, SessionID, or any WORD)
+	// These might be concatenated fields that were misclassified
+	for i := 0; i < len(tokens); i++ {
+		token := tokens[i]
+		if token.Type != TokenWord {
+			continue
+		}
+
+		// Skip if it's a timestamp component (those should never be split)
+		if isTimestampClass(token.Class) {
+			continue
+		}
+
+		// Check if token has multiple underscores (at least 2)
+		underscoreCount := strings.Count(token.Value, "_")
+		if underscoreCount < 2 {
+			continue
+		}
+
+		// This token might be a concatenation of multiple fields
+		// Try to split and re-tokenize all samples
+		var newAllTokens [][]Token
+		canSplit := true
+
+		for _, sampleTokens := range allTokens {
+			if i >= len(sampleTokens) {
+				canSplit = false
+				break
+			}
+
+			sampleToken := sampleTokens[i]
+			if sampleToken.Type != TokenWord {
+				canSplit = false
+				break
+			}
+
+			// Split by underscore
+			parts := strings.Split(sampleToken.Value, "_")
+			if len(parts) < 3 {
+				canSplit = false
+				break
+			}
+
+			// Build new token sequence for this sample
+			var newSampleTokens []Token
+
+			// Copy tokens before the split position
+			newSampleTokens = append(newSampleTokens, sampleTokens[:i]...)
+
+			// Add the split tokens (word _ word _ word ...)
+			for j, part := range parts {
+				if part == "" {
+					continue
+				}
+
+				newSampleTokens = append(newSampleTokens, Token{
+					Type:  TokenWord,
+					Value: part,
+					Class: TokenClassUnknown,
+				})
+
+				// Add underscore separator between parts (but not after last part)
+				if j < len(parts)-1 {
+					newSampleTokens = append(newSampleTokens, Token{
+						Type:  TokenNonWord,
+						Value: "_",
+						Class: TokenClassSeparator,
+					})
+				}
+			}
+
+			// Copy tokens after the split position
+			if i+1 < len(sampleTokens) {
+				newSampleTokens = append(newSampleTokens, sampleTokens[i+1:]...)
+			}
+
+			newAllTokens = append(newAllTokens, newSampleTokens)
+		}
+
+		// Only apply the split if we could split consistently across all samples
+		if !canSplit || len(newAllTokens) != len(allTokens) {
+			continue
+		}
+
+		// Re-run full detection pipeline on the split tokens
+		newAllTokens = applyDetectors(newAllTokens,
+			detectTimestamps,
+			detectPID,
+			detectSessionID,
+			detectLogLineNumber,
+			detectLabels,
+			detectKnownApps,
+			detectPositional,
+			detectHost,
+		)
+
+		// Classify and score
+		newClassified := classifyTokens(newAllTokens)
+		newClassified = scoreRemainingValues(newClassified, newAllTokens, prefixes)
+
+		// Check if the new classification is better (has more essential fields)
+		newHasUser := false
+		newHasDB := false
+		newHasApp := false
+
+		for _, t := range newClassified {
+			if t.Class == TokenClassUser {
+				newHasUser = true
+			}
+			if t.Class == TokenClassDatabase {
+				newHasDB = true
+			}
+			if t.Class == TokenClassApplication {
+				newHasApp = true
+			}
+		}
+
+		// Count how many we recovered
+		newMissingCount := 0
+		if !newHasUser {
+			newMissingCount++
+		}
+		if !newHasDB {
+			newMissingCount++
+		}
+		if !newHasApp {
+			newMissingCount++
+		}
+
+		// If we improved (recovered at least one field), use the new classification
+		if newMissingCount < missingCount {
+			return newClassified
+		}
+
+		// Otherwise, try the next candidate token
+	}
+
+	// No improvement possible, return original tokens
+	return tokens
 }

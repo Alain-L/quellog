@@ -22,11 +22,11 @@ import (
 
 // Detection errors - used to distinguish between different failure causes
 var (
-	ErrFileEmpty          = errors.New("file is empty")
-	ErrBinaryFile         = errors.New("file appears to be binary")
-	ErrInvalidFormat      = errors.New("file content doesn't match expected format for extension")
-	ErrUnknownFormat      = errors.New("unable to detect log format")
-	ErrCompressionFailed  = errors.New("failed to read compressed file")
+	ErrFileEmpty         = errors.New("file is empty")
+	ErrBinaryFile        = errors.New("file appears to be binary")
+	ErrInvalidFormat     = errors.New("file content doesn't match expected format for extension")
+	ErrUnknownFormat     = errors.New("unable to detect log format")
+	ErrCompressionFailed = errors.New("failed to read compressed file")
 )
 
 // Constants for format detection
