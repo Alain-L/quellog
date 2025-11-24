@@ -22,6 +22,8 @@ const (
 	TokenClassLabel                           // Fixed text (e.g., "USER", "DB", "app=")
 	TokenClassValue                           // Variable data (timestamp, PID, username, etc.)
 	TokenClassSeparator                       // Delimiters (: [ ] @ - etc.)
+
+	// Timestamp components (%t, %m, %n)
 	TokenClassTimestampYear                   // Year (YYYY)
 	TokenClassTimestampMonth                  // Month (MM)
 	TokenClassTimestampDay                    // Day (DD)
@@ -29,13 +31,31 @@ const (
 	TokenClassTimestampMinute                 // Minute (mm)
 	TokenClassTimestampSecond                 // Second (SS)
 	TokenClassTimestampMillisecond            // Millisecond (sss)
-	TokenClassPID                             // Process ID (4-6 digits)
+
+	// Process and session identifiers (%p, %c, %l)
+	TokenClassPID                             // Process ID (%p - 4-6 digits)
 	TokenClassSessionID                       // Session ID (%c - hex string)
 	TokenClassLogLineNumber                   // Log line number (%l - small integer)
-	TokenClassUser                            // Username
-	TokenClassDatabase                        // Database name
-	TokenClassApplication                     // Application name
-	TokenClassHost                            // Hostname or IP address
+
+	// Connection metadata (%u, %d, %a, %h, %r)
+	TokenClassUser                            // Username (%u)
+	TokenClassDatabase                        // Database name (%d)
+	TokenClassApplication                     // Application name (%a)
+	TokenClassHost                            // Hostname or IP address (%h, %r)
+
+	// TODO: Future implementation - Advanced PostgreSQL log_line_prefix parameters
+	// Uncomment and implement detection logic when needed
+
+	// TokenClassLocalAddress                 // Local server IP address (%L)
+	// TokenClassBackendType                  // Backend type (%b - e.g., "client backend", "autovacuum worker")
+	// TokenClassParallelGroupLeaderPID       // Parallel group leader PID (%P)
+	// TokenClassUnixEpochTimestamp           // Unix epoch timestamp with ms (%n)
+	// TokenClassCommandTag                   // Command tag (%i - SELECT, INSERT, UPDATE, etc.)
+	// TokenClassSQLStateErrorCode            // SQLSTATE error code (%e - 5 chars like "42P01")
+	// TokenClassProcessStartTimestamp        // Process start timestamp (%s)
+	// TokenClassVirtualTransactionID         // Virtual transaction ID (%v - format: procNumber/localXID)
+	// TokenClassTransactionID                // Transaction ID (%x - 0 if none assigned)
+	// TokenClassQueryID                      // Query identifier (%Q - requires compute_query_id)
 )
 
 // Token represents a segment of the prefix (word or non-word)
@@ -53,12 +73,27 @@ type PrefixStructure struct {
 
 // ExtractedMetadata contains metadata extracted from a log line using prefix structure
 type ExtractedMetadata struct {
-	User        string // Username (if present in prefix)
-	Database    string // Database name (if present)
-	Application string // Application name (if present)
-	Host        string // Hostname (if present)
+	// Currently implemented fields
+	User        string // Username (%u)
+	Database    string // Database name (%d)
+	Application string // Application name (%a)
+	Host        string // Remote hostname or IP (%h, %r)
 	Prefix      string // The full prefix that was parsed
 	Message     string // The message after the prefix
+
+	// TODO: Future implementation - Additional PostgreSQL log_line_prefix fields
+	// Uncomment when implementing corresponding TokenClass detection
+
+	// LocalAddress     string // Local server IP address (%L)
+	// BackendType      string // Backend type (%b)
+	// ParallelLeaderPID string // Parallel group leader PID (%P)
+	// UnixEpoch        string // Unix epoch timestamp (%n)
+	// CommandTag       string // Command tag (%i)
+	// SQLStateCode     string // SQLSTATE error code (%e)
+	// ProcessStartTime string // Process start timestamp (%s)
+	// VirtualTxID      string // Virtual transaction ID (%v)
+	// TransactionID    string // Transaction ID (%x)
+	// QueryID          string // Query identifier (%Q)
 }
 
 // severityMarkers are used to find where the prefix ends.
