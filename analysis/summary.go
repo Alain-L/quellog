@@ -63,6 +63,18 @@ type UniqueEntityMetrics struct {
 
 	// Hosts is the sorted list of all unique host/client addresses.
 	Hosts []string
+
+	// DBCounts maps each database name to its occurrence count in logs.
+	DBCounts map[string]int
+
+	// UserCounts maps each username to its occurrence count in logs.
+	UserCounts map[string]int
+
+	// AppCounts maps each application name to its occurrence count in logs.
+	AppCounts map[string]int
+
+	// HostCounts maps each host address to its occurrence count in logs.
+	HostCounts map[string]int
 }
 
 // AggregatedMetrics combines all analysis metrics into a single structure.
