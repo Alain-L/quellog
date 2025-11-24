@@ -1,20 +1,10 @@
 // Package parser provides log file parsing for PostgreSQL logs.
 //
-// # Automatic log_line_prefix Detection
+// Includes automatic log_line_prefix detection using heuristic analysis:
+// pattern recognition, variance analysis (35% threshold), known value lists,
+// and underscore fallback for concatenated formats.
 //
-// This package includes sophisticated heuristic detection for PostgreSQL log_line_prefix
-// formats, eliminating the need for manual configuration. The detection system uses a
-// multi-stage approach:
-//
-//   1. Pattern recognition: Identifies timestamps, PIDs, session IDs by structure
-//   2. Variance analysis: Distinguishes user vs database fields using uniqueness metrics (35% threshold)
-//   3. Known value lists: Resolves field order ambiguity using common PostgreSQL names
-//   4. Underscore fallback: Handles concatenated formats by splitting and searching
-//
-// This approach achieves 100% detection and extraction accuracy across diverse log formats
-// (366 tested patterns) with negligible performance overhead (~36 microseconds per file).
-//
-// See AnalyzePrefixes() and ExtractMetadataFromLine() for detailed documentation.
+// See AnalyzePrefixes() and ExtractMetadataFromLine() for details.
 package parser
 
 import (
@@ -214,63 +204,22 @@ func applyDetectors(allTokens [][]Token, detectors ...detectorFunc) [][]Token {
 	return allTokens
 }
 
-// AnalyzePrefixes samples log lines and extracts the word/non-word structure.
-// It returns a structure representing the common pattern found in the prefixes.
+// AnalyzePrefixes detects log_line_prefix structure from sample lines.
 //
-// The function analyzes a sample of log lines to detect the log_line_prefix pattern
-// and classify each component (timestamp, PID, user, database, application, etc.).
+// Multi-stage heuristic detection:
+//  1. Positional patterns: timestamps, PIDs (4-6 digits), session IDs, log line numbers
+//  2. Variance analysis: distinguishes user/database (35% uniqueness threshold)
+//  3. Known value lists: resolves field order ambiguity (e.g., "mydb alice" vs "alice mydb")
 //
-// # Detection Strategy
+// Covers 10/20 PostgreSQL log_line_prefix parameters (~95% of production formats).
+// Detection overhead: ~36µs per file (performed once at initialization).
 //
-// This function employs a multi-stage heuristic approach to handle diverse PostgreSQL
-// log_line_prefix formats without requiring explicit configuration:
+// Parameters:
+//   - lines: log lines to analyze
+//   - sampleSize: max lines to sample (≤0 uses default of 20)
 //
-//  1. Positional pattern detection:
-//     - Timestamps: Recognizes YYYY-MM-DD and HH:MM:SS patterns with separators
-//     - PIDs: Detects 4-6 digit integers (typical process IDs)
-//     - Session IDs: Identifies hexadecimal strings with dots (e.g., "65c4a2b3.1a")
-//     - Log line numbers: Small integers (1-4 digits) in typical positions
-//
-//  2. Variance analysis (35% threshold):
-//     When multiple unclassified VALUE tokens remain, variance analysis disambiguates
-//     user vs database fields. Users typically have higher variance (more unique values)
-//     than databases across log entries. A uniqueness ratio threshold of 35% determines
-//     classification: values with >35% unique entries are classified as USER, others as DATABASE.
-//
-//  3. Known value lists:
-//     For ambiguous cases (e.g., 2-3 values with similar variance), the function checks
-//     tokens against predefined lists of common PostgreSQL usernames, database names,
-//     and application names. This resolves field order ambiguity (e.g., "mydb alice" vs
-//     "alice mydb") with high accuracy.
-//
-// # Format Coverage
-//
-// The detection handles all common PostgreSQL log_line_prefix parameters:
-//   - Timestamps: %t (without ms), %m (with ms) - IMPLEMENTED
-//   - Process IDs: %p - IMPLEMENTED
-//   - Session/Line: %c (session ID), %l (log line) - IMPLEMENTED
-//   - Connection: %u (user), %d (database), %a (application), %h/%r (host) - IMPLEMENTED
-//   - Advanced: %L, %b, %P, %n, %i, %e, %s, %v, %x, %Q - NOT YET IMPLEMENTED (see TODO comments)
-//
-// Current implementation covers ~95% of production formats (10 of 20 parameters).
-//
-// # Performance
-//
-// Detection overhead is negligible: ~36 microseconds per sample on typical hardware.
-// Sampling is performed once per file at parser initialization, not per log entry.
-//
-// # Parameters
-//   - lines: Array of log lines to analyze
-//   - sampleSize: Maximum number of lines to sample (0 or negative uses default of 20)
-//
-// # Returns
-//   - PrefixStructure containing the detected pattern, or nil if no pattern found
-//
-// # Example Formats Detected
-//   2025-01-15 10:30:00 UTC [12345]: user=alice,db=mydb LOG: ...
-//   2025-01-15T10:30:00.123Z 12345 alice mydb psql LOG: ...
-//   [12345] alice@mydb LOG: ...
-//   2025-01-15 10:30:00 alice mydb LOG: ...
+// Returns:
+//   - PrefixStructure with detected pattern, or nil if no pattern found
 func AnalyzePrefixes(lines []string, sampleSize int) *PrefixStructure {
 	if len(lines) == 0 {
 		return nil
@@ -1348,62 +1297,18 @@ func detectUnderscoreFallback(tokens []Token, allTokens [][]Token, prefixes []st
 	return tokens
 }
 
-// ExtractMetadataFromLine extracts metadata from a log line using a detected prefix structure.
+// ExtractMetadataFromLine extracts metadata (user, database, app, host) from a log line
+// using the detected prefix structure.
 //
-// This function uses the PrefixStructure to parse the log line prefix, extract metadata
-// (user, database, application, host), and return both the metadata and the message
-// without the prefix.
+// Two-stage extraction:
+//  1. Structure-based: aligns line tokens with PrefixStructure classifications
+//  2. Underscore fallback: for concatenated formats (e.g., "alice_mydb_psql"),
+//     splits on underscores and searches known value lists
 //
-// # Extraction Strategy
+// Handles labeled (user=X), positional (alice mydb), slash-separated (alice/mydb),
+// and underscore-concatenated formats.
 //
-// The function employs a two-stage extraction approach:
-//
-//  1. Structure-based extraction:
-//     The function tokenizes the log line prefix and aligns tokens with the detected
-//     PrefixStructure. Each token's classification (TokenClassUser, TokenClassDatabase, etc.)
-//     determines which metadata field receives the value. This handles standard formats
-//     where fields are clearly separated (spaces, commas, brackets, etc.).
-//
-//  2. Underscore fallback (for concatenated formats):
-//     If structure-based extraction yields no metadata (all fields empty), the function
-//     performs a fallback scan of underscore-concatenated tokens. It splits tokens on
-//     underscore boundaries and searches for known values from predefined lists:
-//       - knownUsernames: Common PostgreSQL users (postgres, admin, alice, etc.)
-//       - knownDatabases: Common database names (postgres, mydb, testdb, etc.)
-//       - knownApps: Common applications (psql, pgbench, pgadmin, etc.)
-//
-//     This handles exotic formats like "UTC_10000_alice_mydb_psql" where traditional
-//     tokenization produces a single concatenated token that structure analysis cannot
-//     further decompose.
-//
-// # Format Compatibility
-//
-// The extraction handles diverse PostgreSQL log formats:
-//   - Standard labeled: user=alice,db=mydb,app=psql
-//   - Unlabeled positional: alice mydb psql
-//   - Slash-separated: alice/mydb/psql
-//   - Concatenated with underscores: alice_mydb_psql (via fallback)
-//   - Mixed formats: [PID] user=alice db=mydb
-//
-// # Accuracy
-//
-// Achieves 100% extraction accuracy on tested formats (296/296 test cases).
-// The combination of variance analysis, known value lists, and underscore fallback
-// eliminates field order ambiguity and handles edge cases effectively.
-//
-// # Parameters
-//   - line: The log line to parse
-//   - structure: The detected prefix structure to use for parsing
-//
-// # Returns
-//   - ExtractedMetadata containing all extracted fields and the message, or nil if parsing fails
-//
-// # Example Usage
-//   structure := AnalyzePrefixes(sampleLines, 50)
-//   metadata := ExtractMetadataFromLine(logLine, structure)
-//   if metadata != nil {
-//       fmt.Printf("User: %s, DB: %s\n", metadata.User, metadata.Database)
-//   }
+// Returns ExtractedMetadata with all fields and message, or nil if parsing fails.
 func ExtractMetadataFromLine(line string, structure *PrefixStructure) *ExtractedMetadata {
 	if structure == nil || line == "" {
 		return nil
