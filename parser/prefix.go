@@ -1311,6 +1311,38 @@ func ExtractMetadataFromLine(line string, structure *PrefixStructure) *Extracted
 		}
 	}
 
+	// Fallback: if we didn't extract metadata and have underscore-concatenated tokens,
+	// try to extract known values from within those tokens
+	if result.User == "" && result.Database == "" && result.Application == "" {
+		for _, token := range lineTokens {
+			if token.Type != TokenWord {
+				continue
+			}
+
+			// Check if token contains underscores (potential concatenation)
+			if !strings.Contains(token.Value, "_") {
+				continue
+			}
+
+			// Split by underscore and check each part
+			parts := strings.Split(token.Value, "_")
+			for _, part := range parts {
+				lowerPart := strings.ToLower(part)
+
+				// Try to identify each part
+				if result.User == "" && knownUsernames[lowerPart] {
+					result.User = part
+				}
+				if result.Database == "" && knownDatabases[lowerPart] {
+					result.Database = part
+				}
+				if result.Application == "" && knownApps[lowerPart] {
+					result.Application = part
+				}
+			}
+		}
+	}
+
 	// Extract the message (everything after the prefix + severity marker)
 	// Find the severity marker position
 	messageStart := len(prefix)
