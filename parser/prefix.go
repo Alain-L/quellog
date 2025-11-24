@@ -51,6 +51,16 @@ type PrefixStructure struct {
 	Tokens []Token // Alternating word/non-word tokens
 }
 
+// ExtractedMetadata contains metadata extracted from a log line using prefix structure
+type ExtractedMetadata struct {
+	User        string // Username (if present in prefix)
+	Database    string // Database name (if present)
+	Application string // Application name (if present)
+	Host        string // Hostname (if present)
+	Prefix      string // The full prefix that was parsed
+	Message     string // The message after the prefix
+}
+
 // severityMarkers are used to find where the prefix ends.
 //
 // We include the colon (":") in each marker to avoid false positives from other colons
@@ -1099,4 +1109,125 @@ func detectUnderscoreFallback(tokens []Token, allTokens [][]Token, prefixes []st
 
 	// No improvement possible, return original tokens
 	return tokens
+}
+
+// ExtractMetadataFromLine extracts metadata from a log line using a detected prefix structure.
+//
+// This function uses the PrefixStructure to parse the log line prefix, extract metadata
+// (user, database, application, host), and return both the metadata and the message
+// without the prefix.
+//
+// Parameters:
+//   - line: The log line to parse
+//   - structure: The detected prefix structure to use for parsing
+//
+// Returns:
+//   - ExtractedMetadata containing all extracted fields and the message, or nil if parsing fails
+func ExtractMetadataFromLine(line string, structure *PrefixStructure) *ExtractedMetadata {
+	if structure == nil || line == "" {
+		return nil
+	}
+
+	// Extract the prefix from this line
+	prefix := extractPrefix(line)
+	if prefix == "" {
+		return nil
+	}
+
+	// Tokenize this line's prefix using analyzePrefix
+	prefixStructure := analyzePrefix(prefix)
+	if prefixStructure == nil || len(prefixStructure.Tokens) == 0 {
+		return nil
+	}
+	lineTokens := prefixStructure.Tokens
+
+	// Match tokens against the structure to extract values
+	result := &ExtractedMetadata{
+		Prefix: prefix,
+	}
+
+	// We need to align the line tokens with the structure tokens
+	// The structure tells us which positions contain USER, DB, APP, etc.
+	minLen := len(lineTokens)
+	if len(structure.Tokens) < minLen {
+		minLen = len(structure.Tokens)
+	}
+
+	for i := 0; i < minLen; i++ {
+		structToken := structure.Tokens[i]
+		lineToken := lineTokens[i]
+
+		// Extract values based on the structure's classification
+		switch structToken.Class {
+		case TokenClassUser:
+			result.User = lineToken.Value
+		case TokenClassDatabase:
+			result.Database = lineToken.Value
+		case TokenClassApplication:
+			result.Application = lineToken.Value
+		case TokenClassHost:
+			result.Host = lineToken.Value
+		}
+	}
+
+	// Extract the message (everything after the prefix + severity marker)
+	// Find the severity marker position
+	messageStart := len(prefix)
+	for _, marker := range severityMarkers {
+		idx := strings.Index(line, marker)
+		if idx >= 0 {
+			messageStart = idx
+			break
+		}
+	}
+
+	// Message is everything from the severity marker onward
+	if messageStart < len(line) {
+		result.Message = line[messageStart:]
+	} else {
+		result.Message = line
+	}
+
+	return result
+}
+
+// NormalizeMessage takes extracted metadata and builds a normalized message.
+//
+// The normalized format is: "user=X db=Y app=Z host=W SEVERITY: original message"
+// This format is consistent with CSV and JSON parsers, allowing downstream code
+// to extract metadata uniformly using the extractValue() function.
+//
+// Parameters:
+//   - metadata: Extracted metadata from a log line
+//
+// Returns:
+//   - A normalized message string with metadata prepended in key=value format
+func NormalizeMessage(metadata *ExtractedMetadata) string {
+	if metadata == nil {
+		return ""
+	}
+
+	// Build the normalized prefix with metadata
+	var parts []string
+
+	if metadata.User != "" && metadata.User != "[unknown]" {
+		parts = append(parts, "user="+metadata.User)
+	}
+	if metadata.Database != "" && metadata.Database != "[unknown]" {
+		parts = append(parts, "db="+metadata.Database)
+	}
+	if metadata.Application != "" && metadata.Application != "[unknown]" {
+		parts = append(parts, "app="+metadata.Application)
+	}
+	if metadata.Host != "" && metadata.Host != "[unknown]" {
+		parts = append(parts, "host="+metadata.Host)
+	}
+
+	// Prepend metadata to the message
+	if len(parts) > 0 {
+		return strings.Join(parts, " ") + " " + metadata.Message
+	}
+
+	// No metadata to add, return message as-is
+	return metadata.Message
 }
