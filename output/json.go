@@ -179,6 +179,11 @@ type ClientsJSON struct {
 	UniqueHosts     int `json:"unique_hosts"`
 }
 
+type ClientEntityJSON struct {
+	Name  string `json:"name"`
+	Count int    `json:"count"`
+}
+
 type EventJSON struct {
 	Type       string  `json:"type"`
 	Count      int     `json:"count"`
@@ -469,18 +474,38 @@ func ExportJSON(m analysis.AggregatedMetrics, sections []string) {
 			UniqueApps:      m.UniqueEntities.UniqueApps,
 			UniqueHosts:     m.UniqueEntities.UniqueHosts,
 		}
-		// Detailed lists, excluding sole UNKNOWN entries
-		if m.UniqueEntities.UniqueUsers > 0 && !(len(m.UniqueEntities.Users) == 1 && m.UniqueEntities.Users[0] == "UNKNOWN") {
-			data["users"] = m.UniqueEntities.Users
+		// Detailed lists with counts, excluding sole UNKNOWN entries
+		if m.UniqueEntities.UniqueUsers > 0 && m.UniqueEntities.UserCounts != nil && !(len(m.UniqueEntities.Users) == 1 && m.UniqueEntities.Users[0] == "UNKNOWN") {
+			sortedUsers := analysis.SortByCount(m.UniqueEntities.UserCounts)
+			users := make([]ClientEntityJSON, len(sortedUsers))
+			for i, item := range sortedUsers {
+				users[i] = ClientEntityJSON{Name: item.Name, Count: item.Count}
+			}
+			data["users"] = users
 		}
-		if m.UniqueEntities.UniqueApps > 0 && !(len(m.UniqueEntities.Apps) == 1 && m.UniqueEntities.Apps[0] == "UNKNOWN") {
-			data["apps"] = m.UniqueEntities.Apps
+		if m.UniqueEntities.UniqueApps > 0 && m.UniqueEntities.AppCounts != nil && !(len(m.UniqueEntities.Apps) == 1 && m.UniqueEntities.Apps[0] == "UNKNOWN") {
+			sortedApps := analysis.SortByCount(m.UniqueEntities.AppCounts)
+			apps := make([]ClientEntityJSON, len(sortedApps))
+			for i, item := range sortedApps {
+				apps[i] = ClientEntityJSON{Name: item.Name, Count: item.Count}
+			}
+			data["apps"] = apps
 		}
-		if m.UniqueEntities.UniqueDbs > 0 && !(len(m.UniqueEntities.DBs) == 1 && m.UniqueEntities.DBs[0] == "UNKNOWN") {
-			data["databases"] = m.UniqueEntities.DBs
+		if m.UniqueEntities.UniqueDbs > 0 && m.UniqueEntities.DBCounts != nil && !(len(m.UniqueEntities.DBs) == 1 && m.UniqueEntities.DBs[0] == "UNKNOWN") {
+			sortedDBs := analysis.SortByCount(m.UniqueEntities.DBCounts)
+			databases := make([]ClientEntityJSON, len(sortedDBs))
+			for i, item := range sortedDBs {
+				databases[i] = ClientEntityJSON{Name: item.Name, Count: item.Count}
+			}
+			data["databases"] = databases
 		}
-		if m.UniqueEntities.UniqueHosts > 0 && !(len(m.UniqueEntities.Hosts) == 1 && m.UniqueEntities.Hosts[0] == "UNKNOWN") {
-			data["hosts"] = m.UniqueEntities.Hosts
+		if m.UniqueEntities.UniqueHosts > 0 && m.UniqueEntities.HostCounts != nil && !(len(m.UniqueEntities.Hosts) == 1 && m.UniqueEntities.Hosts[0] == "UNKNOWN") {
+			sortedHosts := analysis.SortByCount(m.UniqueEntities.HostCounts)
+			hosts := make([]ClientEntityJSON, len(sortedHosts))
+			for i, item := range sortedHosts {
+				hosts[i] = ClientEntityJSON{Name: item.Name, Count: item.Count}
+			}
+			data["hosts"] = hosts
 		}
 	}
 

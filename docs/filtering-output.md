@@ -220,7 +220,7 @@ SESSION DURATION BY USER
 
 ### --clients
 
-Display only the clients section showing unique entities.
+Display only the clients section showing **all** unique entities with counts and percentages.
 
 ```bash
 quellog /var/log/postgresql/*.log --clients
@@ -228,19 +228,65 @@ quellog /var/log/postgresql/*.log --clients
 
 **Output includes**:
 
-- Unique database count and list
-- Unique user count and list
-- Unique application count and list
-- Unique host count and list (if available)
+- Unique database count and complete list with activity counts
+- Unique user count and complete list with activity counts
+- Unique application count and complete list with activity counts
+- Unique host count and complete list with activity counts (if available)
+
+**Difference from default report**:
+
+- Default report shows **TOP 10** most active entities per category
+- `--clients` flag shows **ALL** entities (no limit)
+
+**Example output**:
+
+```
+CLIENTS
+
+  Unique DBs                : 3
+  Unique Users              : 15
+  Unique Apps               : 12
+  Unique Hosts              : 37
+
+USERS
+
+  app_user                   1250   42.5%
+  readonly                    856   29.1%
+  batch_user                  423   14.4%
+  admin                       198    6.7%
+  analytics                   145    4.9%
+  backup_user                  52    1.8%
+  postgres                     16    0.5%
+  monitoring                   12    0.4%
+  replication                   8    0.3%
+  test_user                     5    0.2%
+  dev_user_1                    3    0.1%
+  dev_user_2                    2    0.1%
+  dev_user_3                    1    0.0%
+  [... all 15 users shown ...]
+
+APPS
+
+  [... all 12 apps with counts ...]
+
+DATABASES
+
+  [... all 3 databases with counts ...]
+
+HOSTS
+
+  [... all 37 hosts with counts ...]
+```
 
 **Use when**:
 
-- Auditing database access
+- Auditing database access (need complete list)
 - Understanding client diversity
 - Security reviews
+- Generating compliance reports
 
-!!! note "Always in Default Report"
-    The clients section appears in the default report. The `--clients` flag is used to display **only** this section, filtering out all other sections.
+!!! tip "Complete Entity Lists"
+    The `--clients` flag displays **all** entities without the 10-item limit applied in the default report. This is useful for comprehensive audits and compliance reporting.
 
 ## Combining Sections
 

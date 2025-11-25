@@ -451,37 +451,112 @@ Connection and session statistics with detailed breakdowns.
 
 ### clients, users, databases, apps, hosts
 
-Unique database entities.
+Unique database entities with activity counts.
 
 ```json
 {
   "clients": {
-    "unique_dbs": 3,
+    "unique_databases": 3,
     "unique_users": 7,
     "unique_apps": 9,
     "unique_hosts": 37
   },
   "users": [
-    "postgres",
-    "app_user",
-    "readonly"
+    {
+      "name": "app_user",
+      "count": 1250
+    },
+    {
+      "name": "readonly",
+      "count": 856
+    },
+    {
+      "name": "batch_user",
+      "count": 423
+    },
+    {
+      "name": "admin",
+      "count": 198
+    },
+    {
+      "name": "analytics",
+      "count": 145
+    },
+    {
+      "name": "backup_user",
+      "count": 52
+    },
+    {
+      "name": "postgres",
+      "count": 16
+    }
   ],
   "databases": [
-    "postgres",
-    "app_db",
-    "analytics_db"
+    {
+      "name": "app_db",
+      "count": 2456
+    },
+    {
+      "name": "postgres",
+      "count": 342
+    },
+    {
+      "name": "analytics_db",
+      "count": 142
+    }
   ],
   "apps": [
-    "psql",
-    "pgadmin",
-    "metabase"
+    {
+      "name": "app_server",
+      "count": 1342
+    },
+    {
+      "name": "psql",
+      "count": 687
+    },
+    {
+      "name": "metabase",
+      "count": 456
+    }
   ],
   "hosts": [
-    "10.0.1.50",
-    "172.16.0.10"
+    {
+      "name": "192.168.1.100",
+      "count": 876
+    },
+    {
+      "name": "10.0.1.50",
+      "count": 654
+    },
+    {
+      "name": "172.16.0.10",
+      "count": 543
+    }
   ]
 }
 ```
+
+**Fields:**
+
+- `clients`: Summary counts
+  - `unique_databases`: Total number of distinct databases
+  - `unique_users`: Total number of distinct users
+  - `unique_apps`: Total number of distinct applications
+  - `unique_hosts`: Total number of distinct hosts
+- `users`: Array of user objects, sorted by activity (descending)
+  - `name`: Username
+  - `count`: Number of log entries from this user
+- `databases`: Array of database objects, sorted by activity (descending)
+  - `name`: Database name
+  - `count`: Number of log entries for this database
+- `apps`: Array of application objects, sorted by activity (descending)
+  - `name`: Application name
+  - `count`: Number of log entries from this application
+- `hosts`: Array of host objects, sorted by activity (descending)
+  - `name`: Host address
+  - `count`: Number of log entries from this host
+
+**Note:** All entities are included in JSON export (no 10-item limit as in text output).
 
 ## Using jq
 

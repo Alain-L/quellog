@@ -410,49 +410,65 @@ SESSION DURATION BY HOST
 
 ## Clients
 
-Lists unique database entities found in logs.
+Lists unique database entities found in logs with activity counts and percentages.
 
-This section appears in the default report. Use `--clients` flag to display **only** this section.
+This section appears in the default report showing the **top 10** most active entities. Use `--clients` flag to display **all** entities (not just top 10).
 
 ```
 CLIENTS
 
   Unique DBs                : 3
-  Unique Users              : 6
+  Unique Users              : 7
   Unique Apps               : 9
-  Unique Hosts              : 4
+  Unique Hosts              : 37
 
-USERS
+TOP USERS
 
-    admin
-    analytics
-    app_user
-    backup_user
-    batch_user
-    readonly
+  app_user                   1250   42.5%
+  readonly                    856   29.1%
+  batch_user                  423   14.4%
+  admin                       198    6.7%
+  analytics                   145    4.9%
+  backup_user                  52    1.8%
+  postgres                     16    0.5%
 
-APPS
+TOP APPS
 
-    app_server
-    batch_job
-    metabase
-    pg_dump
-    pgadmin
-    psql
+  app_server                 1342   45.6%
+  psql                        687   23.4%
+  metabase                    456   15.5%
+  pgadmin                     234    8.0%
+  batch_job                   145    4.9%
+  pg_dump                      52    1.8%
+  pg_restore                   12    0.4%
+  [3 more...]
 
-DATABASES
+TOP DATABASES
 
-    analytics_db
-    app_db
-    postgres
+  app_db                     2456   83.5%
+  postgres                    342   11.6%
+  analytics_db                142    4.8%
 
-HOSTS
+TOP HOSTS
 
-    10.0.1.100
-    10.0.1.101
-    127.0.0.1
-    192.168.1.50
+  192.168.1.100               876   29.8%
+  10.0.1.50                   654   22.2%
+  172.16.0.10                 543   18.5%
+  10.0.1.51                   432   14.7%
+  172.16.0.12                 234    8.0%
+  192.168.1.101               123    4.2%
+  10.0.1.52                    56    1.9%
+  172.16.0.15                  22    0.7%
+  [29 more...]
 ```
+
+**Metrics explained**:
+
+- **Unique counts**: Total number of distinct entities
+- **Entity names**: Sorted by activity (most active first)
+- **Count**: Number of log entries from this entity
+- **Percentage**: Proportion of total log entries
+- **[X more...]**: Indicator when more than 10 entities exist (use `--clients` to see all)
 
 ## Next Steps
 
