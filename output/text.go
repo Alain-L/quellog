@@ -414,13 +414,18 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string) {
 			fmt.Println(bold + "\n" + topPrefix + "USERS\n" + reset)
 			sortedUsers := analysis.SortByCount(m.UniqueEntities.UserCounts)
 			limit := len(sortedUsers)
+			remaining := 0
 			if topLimit > 0 && topLimit < limit {
+				remaining = limit - topLimit
 				limit = topLimit
 			}
 			for i := 0; i < limit; i++ {
 				item := sortedUsers[i]
 				percentage := float64(item.Count) * 100.0 / float64(totalLogs)
 				fmt.Printf("  %-25s %6d  %5.1f%%\n", item.Name, item.Count, percentage)
+			}
+			if remaining > 0 {
+				fmt.Printf("  [%d more...]\n", remaining)
 			}
 		}
 
@@ -429,13 +434,18 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string) {
 			fmt.Println(bold + "\n" + topPrefix + "APPS\n" + reset)
 			sortedApps := analysis.SortByCount(m.UniqueEntities.AppCounts)
 			limit := len(sortedApps)
+			remaining := 0
 			if topLimit > 0 && topLimit < limit {
+				remaining = limit - topLimit
 				limit = topLimit
 			}
 			for i := 0; i < limit; i++ {
 				item := sortedApps[i]
 				percentage := float64(item.Count) * 100.0 / float64(totalLogs)
 				fmt.Printf("  %-25s %6d  %5.1f%%\n", item.Name, item.Count, percentage)
+			}
+			if remaining > 0 {
+				fmt.Printf("  [%d more...]\n", remaining)
 			}
 		}
 
@@ -444,13 +454,18 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string) {
 			fmt.Println(bold + "\n" + topPrefix + "DATABASES\n" + reset)
 			sortedDBs := analysis.SortByCount(m.UniqueEntities.DBCounts)
 			limit := len(sortedDBs)
+			remaining := 0
 			if topLimit > 0 && topLimit < limit {
+				remaining = limit - topLimit
 				limit = topLimit
 			}
 			for i := 0; i < limit; i++ {
 				item := sortedDBs[i]
 				percentage := float64(item.Count) * 100.0 / float64(totalLogs)
 				fmt.Printf("  %-25s %6d  %5.1f%%\n", item.Name, item.Count, percentage)
+			}
+			if remaining > 0 {
+				fmt.Printf("  [%d more...]\n", remaining)
 			}
 		}
 
@@ -459,13 +474,18 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string) {
 			fmt.Println(bold + "\n" + topPrefix + "HOSTS\n" + reset)
 			sortedHosts := analysis.SortByCount(m.UniqueEntities.HostCounts)
 			limit := len(sortedHosts)
+			remaining := 0
 			if topLimit > 0 && topLimit < limit {
+				remaining = limit - topLimit
 				limit = topLimit
 			}
 			for i := 0; i < limit; i++ {
 				item := sortedHosts[i]
 				percentage := float64(item.Count) * 100.0 / float64(totalLogs)
 				fmt.Printf("  %-25s %6d  %5.1f%%\n", item.Name, item.Count, percentage)
+			}
+			if remaining > 0 {
+				fmt.Printf("  [%d more...]\n", remaining)
 			}
 		}
 
@@ -474,7 +494,9 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string) {
 			fmt.Println(bold + "\n" + topPrefix + "USER × DATABASE\n" + reset)
 			sortedCombos := analysis.SortByCount(m.UniqueEntities.UserDbCombos)
 			limit := len(sortedCombos)
+			remaining := 0
 			if topLimit > 0 && topLimit < limit {
+				remaining = limit - topLimit
 				limit = topLimit
 			}
 			for i := 0; i < limit; i++ {
@@ -486,6 +508,9 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string) {
 					fmt.Printf("  %-25s × %-25s %6d  %5.1f%%\n", parts[0], parts[1], item.Count, percentage)
 				}
 			}
+			if remaining > 0 {
+				fmt.Printf("  [%d more...]\n", remaining)
+			}
 		}
 
 		// Display user×host combinations
@@ -493,7 +518,9 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string) {
 			fmt.Println(bold + "\n" + topPrefix + "USER × HOST\n" + reset)
 			sortedCombos := analysis.SortByCount(m.UniqueEntities.UserHostCombos)
 			limit := len(sortedCombos)
+			remaining := 0
 			if topLimit > 0 && topLimit < limit {
+				remaining = limit - topLimit
 				limit = topLimit
 			}
 			for i := 0; i < limit; i++ {
@@ -504,6 +531,9 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string) {
 				if len(parts) == 2 {
 					fmt.Printf("  %-25s × %-25s %6d  %5.1f%%\n", parts[0], parts[1], item.Count, percentage)
 				}
+			}
+			if remaining > 0 {
+				fmt.Printf("  [%d more...]\n", remaining)
 			}
 		}
 	}

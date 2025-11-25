@@ -460,6 +460,34 @@ TOP HOSTS
   10.0.1.52                    56    1.9%
   172.16.0.15                  22    0.7%
   [29 more...]
+
+TOP USER × DATABASE
+
+  app_user                  × app_db                      1856   63.1%
+  readonly                  × app_db                       543   18.5%
+  app_user                  × analytics_db                 123    4.2%
+  batch_user                 × app_db                        98    3.3%
+  readonly                  × analytics_db                  87    3.0%
+  admin                     × postgres                      65    2.2%
+  batch_user                × analytics_db                  45    1.5%
+  analytics                 × analytics_db                  34    1.2%
+  admin                     × app_db                        23    0.8%
+  backup_user               × postgres                      12    0.4%
+  [8 more...]
+
+TOP USER × HOST
+
+  app_user                  × 192.168.1.100                 654   22.2%
+  readonly                  × 10.0.1.50                     432   14.7%
+  app_user                  × 172.16.0.10                   345   11.7%
+  batch_user                × 10.0.1.51                     234    8.0%
+  app_user                  × 10.0.1.50                     187    6.4%
+  readonly                  × 192.168.1.100                 156    5.3%
+  admin                     × 172.16.0.12                   123    4.2%
+  analytics                 × 10.0.1.52                      98    3.3%
+  batch_user                × 192.168.1.101                  76    2.6%
+  readonly                  × 172.16.0.10                    65    2.2%
+  [42 more...]
 ```
 
 **Metrics explained**:
@@ -469,6 +497,14 @@ TOP HOSTS
 - **Count**: Number of log entries from this entity
 - **Percentage**: Proportion of total log entries
 - **[X more...]**: Indicator when more than 10 entities exist (use `--clients` to see all)
+- **USER × DATABASE**: Shows which users access which databases and how frequently
+- **USER × HOST**: Shows which users connect from which hosts and how frequently
+
+**Cross-tabulations** help identify:
+- Access patterns (which user accesses which database)
+- Connection sources (which user connects from which host)
+- Security anomalies (unexpected user/database or user/host combinations)
+- Load distribution across client connections
 
 ## Next Steps
 
