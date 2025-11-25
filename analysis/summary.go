@@ -289,11 +289,9 @@ func AggregateMetrics(in <-chan parser.LogEntry, fileSize int64) AggregatedMetri
 // UniqueEntityAnalyzer tracks unique database entities (databases, users, applications, hosts)
 // encountered in log entries.
 type UniqueEntityAnalyzer struct {
-	dbSet   map[string]struct{}
-	userSet map[string]struct{}
-	appSet  map[string]struct{}
-	hostSet map[string]struct{}
-
+	// NOTE: We only keep count maps, not separate sets. The unique lists
+	// are derived from map keys in Finalize(). This halves the number of
+	// hash map operations per log entry.
 	dbCounts   map[string]int
 	userCounts map[string]int
 	appCounts  map[string]int
@@ -306,11 +304,6 @@ type UniqueEntityAnalyzer struct {
 // NewUniqueEntityAnalyzer creates a new unique entity analyzer.
 func NewUniqueEntityAnalyzer() *UniqueEntityAnalyzer {
 	return &UniqueEntityAnalyzer{
-		dbSet:   make(map[string]struct{}, 100),
-		userSet: make(map[string]struct{}, 100),
-		appSet:  make(map[string]struct{}, 100),
-		hostSet: make(map[string]struct{}, 100),
-
 		dbCounts:   make(map[string]int, 100),
 		userCounts: make(map[string]int, 100),
 		appCounts:  make(map[string]int, 100),
@@ -363,76 +356,63 @@ func (a *UniqueEntityAnalyzer) Process(entry *parser.LogEntry) {
 		}
 
 		// Match patterns by checking backwards from '='
-		// Check longer patterns first to avoid false matches
+		// Use single-byte prefix check first to avoid expensive string comparisons
 		matched := false
+		lastChar := msg[eqIdx-1]
 
-		// "application_name=" (17 chars)
-		if eqIdx >= 16 && msg[eqIdx-16:eqIdx] == "application_name" {
-			if appName := extractValueAt(msg, eqIdx+1); appName != "" {
-				a.appSet[appName] = struct{}{}
-				a.appCounts[appName]++
-				matched = true
-			}
-		} else if eqIdx >= 8 && msg[eqIdx-8:eqIdx] == "database" {
-			// "database=" (9 chars)
-			if dbName := extractValueAt(msg, eqIdx+1); dbName != "" {
-				a.dbSet[dbName] = struct{}{}
-				a.dbCounts[dbName]++
-				currentDb = dbName
-				matched = true
-			}
-		} else if eqIdx >= 6 && msg[eqIdx-6:eqIdx] == "client" {
-			// "client=" (7 chars)
-			if hostName := extractValueAt(msg, eqIdx+1); hostName != "" {
-				a.hostSet[hostName] = struct{}{}
-				a.hostCounts[hostName]++
-				currentHost = hostName
-				matched = true
-			}
-		} else if eqIdx >= 4 {
-			// Check 4-char patterns: "user=", "host="
-			prefix4 := msg[eqIdx-4 : eqIdx]
-			if prefix4 == "user" {
-				if userName := extractValueAt(msg, eqIdx+1); userName != "" {
-					a.userSet[userName] = struct{}{}
-					a.userCounts[userName]++
-					currentUser = userName
-					matched = true
-				}
-			} else if prefix4 == "host" {
-				if hostName := extractValueAt(msg, eqIdx+1); hostName != "" {
-					a.hostSet[hostName] = struct{}{}
-					a.hostCounts[hostName]++
-					currentHost = hostName
-					matched = true
-				}
-			}
-		}
-
-		// Check 3-char patterns: "app="
-		if !matched && eqIdx >= 3 {
-			prefix3 := msg[eqIdx-3 : eqIdx]
-			if prefix3 == "app" {
+		// "application_name=" ends with 'e', "database=" also ends with 'e'
+		if lastChar == 'e' {
+			if eqIdx >= 16 && msg[eqIdx-16:eqIdx] == "application_name" {
 				if appName := extractValueAt(msg, eqIdx+1); appName != "" {
-					a.appSet[appName] = struct{}{}
 					a.appCounts[appName]++
 					matched = true
 				}
-			}
-		}
-
-		// Check 2-char patterns: "db="
-		if !matched && eqIdx >= 2 {
-			prefix2 := msg[eqIdx-2 : eqIdx]
-			if prefix2 == "db" {
+			} else if eqIdx >= 8 && msg[eqIdx-8:eqIdx] == "database" {
 				if dbName := extractValueAt(msg, eqIdx+1); dbName != "" {
-					a.dbSet[dbName] = struct{}{}
 					a.dbCounts[dbName]++
 					currentDb = dbName
 					matched = true
 				}
 			}
+		} else if lastChar == 't' {
+			// "client=" and "host=" both end with 't'
+			if eqIdx >= 6 && msg[eqIdx-6:eqIdx] == "client" {
+				if hostName := extractValueAt(msg, eqIdx+1); hostName != "" {
+					a.hostCounts[hostName]++
+					currentHost = hostName
+					matched = true
+				}
+			} else if eqIdx >= 4 && msg[eqIdx-4:eqIdx] == "host" {
+				if hostName := extractValueAt(msg, eqIdx+1); hostName != "" {
+					a.hostCounts[hostName]++
+					currentHost = hostName
+					matched = true
+				}
+			}
+		} else if lastChar == 'r' && eqIdx >= 4 && msg[eqIdx-4:eqIdx] == "user" {
+			// "user=" ends with 'r'
+			if userName := extractValueAt(msg, eqIdx+1); userName != "" {
+				a.userCounts[userName]++
+				currentUser = userName
+				matched = true
+			}
+		} else if lastChar == 'p' && eqIdx >= 3 && msg[eqIdx-3:eqIdx] == "app" {
+			// "app=" ends with 'p'
+			if appName := extractValueAt(msg, eqIdx+1); appName != "" {
+				a.appCounts[appName]++
+				matched = true
+			}
+		} else if lastChar == 'b' && eqIdx >= 2 && msg[eqIdx-2:eqIdx] == "db" {
+			// "db=" ends with 'b'
+			if dbName := extractValueAt(msg, eqIdx+1); dbName != "" {
+				a.dbCounts[dbName]++
+				currentDb = dbName
+				matched = true
+			}
 		}
+
+		// Silence unused variable warning
+		_ = matched
 
 		// Move past this '=' and continue scanning
 		i = eqIdx + 1
@@ -451,15 +431,16 @@ func (a *UniqueEntityAnalyzer) Process(entry *parser.LogEntry) {
 
 // Finalize returns the unique entity metrics with sorted lists.
 func (a *UniqueEntityAnalyzer) Finalize() UniqueEntityMetrics {
+	// Derive unique lists from count map keys (no need for separate sets)
 	return UniqueEntityMetrics{
-		UniqueDbs:      len(a.dbSet),
-		UniqueUsers:    len(a.userSet),
-		UniqueApps:     len(a.appSet),
-		UniqueHosts:    len(a.hostSet),
-		DBs:            mapKeysAsSlice(a.dbSet),
-		Users:          mapKeysAsSlice(a.userSet),
-		Apps:           mapKeysAsSlice(a.appSet),
-		Hosts:          mapKeysAsSlice(a.hostSet),
+		UniqueDbs:      len(a.dbCounts),
+		UniqueUsers:    len(a.userCounts),
+		UniqueApps:     len(a.appCounts),
+		UniqueHosts:    len(a.hostCounts),
+		DBs:            countMapKeysAsSlice(a.dbCounts),
+		Users:          countMapKeysAsSlice(a.userCounts),
+		Apps:           countMapKeysAsSlice(a.appCounts),
+		Hosts:          countMapKeysAsSlice(a.hostCounts),
 		DBCounts:       a.dbCounts,
 		UserCounts:     a.userCounts,
 		AppCounts:      a.appCounts,
@@ -472,6 +453,18 @@ func (a *UniqueEntityAnalyzer) Finalize() UniqueEntityMetrics {
 // ============================================================================
 // Helper functions
 // ============================================================================
+
+// isSeparator is a lookup table for fast separator detection.
+// Using a 256-byte array is faster than multiple comparisons.
+var isSeparator [256]bool
+
+func init() {
+	// Mark separator characters
+	isSeparator[' '] = true
+	isSeparator[','] = true
+	isSeparator['['] = true
+	isSeparator[')'] = true
+}
 
 // extractValueAt extracts a value starting at a given position in the message.
 // It stops at the first separator: space, comma, bracket, or parenthesis.
@@ -486,8 +479,8 @@ func extractValueAt(msg string, startPos int) string {
 	endPos := startPos
 	for endPos < len(msg) {
 		c := msg[endPos]
-		// Check for separators: space, comma, '[', ')'
-		if c == ' ' || c == ',' || c == '[' || c == ')' {
+		// Fast lookup table check (single array access vs 4 comparisons)
+		if isSeparator[c] {
 			break
 		}
 		endPos++
@@ -519,6 +512,17 @@ func extractValueAt(msg string, startPos int) string {
 	}
 
 	return val
+}
+
+// countMapKeysAsSlice extracts keys from a count map and returns them as a sorted slice.
+// This is used to derive unique entity lists from count maps without needing separate sets.
+func countMapKeysAsSlice(m map[string]int) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 // extractKeyValue extracts a value from a log message for a given key.

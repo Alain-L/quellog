@@ -100,10 +100,16 @@ func parseMmapData(data []byte, out chan<- LogEntry) error {
 			// Fallback: if not indented AND we have a current entry, check for timestamp
 			// This handles cases like GCP where SQL continuation lines are not indented
 			if !isContinuation && len(line) > 0 && currentEntry.Len() > 0 {
-				// Try to parse as a new log entry - if it fails, it's a continuation
-				timestamp, _ := parseStderrLine(line)
-				if timestamp.IsZero() {
-					// No valid timestamp = continuation line
+				// Fast path: check if line could possibly start a log entry
+				if line[0] >= '0' && line[0] <= '9' || line[0] == '[' {
+					// Might be a new log entry - verify with full parsing
+					timestamp, _ := parseStderrLine(line)
+					if timestamp.IsZero() {
+						// No valid timestamp = continuation line
+						isContinuation = true
+					}
+				} else {
+					// Doesn't start with digit/bracket = definitely continuation
 					isContinuation = true
 				}
 			}
@@ -136,8 +142,14 @@ func parseMmapData(data []byte, out chan<- LogEntry) error {
 
 			// Fallback: if not indented AND we have a current entry, check for timestamp
 			if !isContinuation && currentEntry.Len() > 0 {
-				timestamp, _ := parseStderrLine(line)
-				if timestamp.IsZero() {
+				// Fast path: check if line could possibly start a log entry
+				if line[0] >= '0' && line[0] <= '9' || line[0] == '[' {
+					timestamp, _ := parseStderrLine(line)
+					if timestamp.IsZero() {
+						isContinuation = true
+					}
+				} else {
+					// Doesn't start with digit/bracket = definitely continuation
 					isContinuation = true
 				}
 			}
@@ -201,10 +213,18 @@ func parseMmapDataOptimized(data []byte, out chan<- LogEntry) error {
 		// Fallback: if not indented AND we have a current entry, check for timestamp
 		// This handles cases like GCP where SQL continuation lines are not indented
 		if !isContinuation && len(currentEntry) > 0 {
-			// Try to parse as a new log entry - if it fails, it's a continuation
-			timestamp, _ := parseStderrLineBytes(line)
-			if timestamp.IsZero() {
-				// No valid timestamp = continuation line
+			// Fast path: check if line could possibly start a log entry
+			// Most log entries start with: digit (timestamp) or '[' (bracket timestamp)
+			// This avoids expensive parseStderrLineBytes call for obvious continuation lines
+			if line[0] >= '0' && line[0] <= '9' || line[0] == '[' {
+				// Might be a new log entry - verify with full parsing
+				timestamp, _ := parseStderrLineBytes(line)
+				if timestamp.IsZero() {
+					// No valid timestamp = continuation line
+					isContinuation = true
+				}
+			} else {
+				// Doesn't start with digit/bracket = definitely continuation
 				isContinuation = true
 			}
 		}
@@ -236,8 +256,14 @@ func parseMmapDataOptimized(data []byte, out chan<- LogEntry) error {
 
 			// Fallback: if not indented AND we have a current entry, check for timestamp
 			if !isContinuation && len(currentEntry) > 0 {
-				timestamp, _ := parseStderrLineBytes(line)
-				if timestamp.IsZero() {
+				// Fast path: check if line could possibly start a log entry
+				if line[0] >= '0' && line[0] <= '9' || line[0] == '[' {
+					timestamp, _ := parseStderrLineBytes(line)
+					if timestamp.IsZero() {
+						isContinuation = true
+					}
+				} else {
+					// Doesn't start with digit/bracket = definitely continuation
 					isContinuation = true
 				}
 			}
