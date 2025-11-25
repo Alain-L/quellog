@@ -321,9 +321,162 @@ func ExportMarkdown(m analysis.AggregatedMetrics, sections []string) {
 
 		if m.Connections.DisconnectionCount > 0 {
 			avgSessionTime := time.Duration(float64(m.Connections.TotalSessionTime) / float64(m.Connections.DisconnectionCount))
-			b.WriteString(fmt.Sprintf("- **Avg session time**: %s\n\n", avgSessionTime.Round(time.Second)))
+			b.WriteString(fmt.Sprintf("- **Avg session time**: %s\n", avgSessionTime.Round(time.Second)))
 		} else {
-			b.WriteString("- **Avg session time**: N/A\n\n")
+			b.WriteString("- **Avg session time**: N/A\n")
+		}
+
+		// Peak concurrent sessions
+		if m.Connections.PeakConcurrentSessions > 0 {
+			b.WriteString(fmt.Sprintf("- **Peak concurrent sessions**: %d (at %s)\n",
+				m.Connections.PeakConcurrentSessions,
+				m.Connections.PeakConcurrentTimestamp.Format("15:04:05")))
+		}
+		b.WriteString("\n")
+
+		// Session statistics
+		if len(m.Connections.SessionDurations) > 0 {
+			stats := analysis.CalculateDurationStats(m.Connections.SessionDurations)
+			var cumulated time.Duration
+			for _, d := range m.Connections.SessionDurations {
+				cumulated += d
+			}
+
+			b.WriteString("### Session Duration Statistics\n\n")
+			b.WriteString(fmt.Sprintf("- **Count**: %d\n", stats.Count))
+			b.WriteString(fmt.Sprintf("- **Min**: %s\n", stats.Min.Round(time.Second)))
+			b.WriteString(fmt.Sprintf("- **Max**: %s\n", stats.Max.Round(time.Second)))
+			b.WriteString(fmt.Sprintf("- **Avg**: %s\n", stats.Avg.Round(time.Second)))
+			b.WriteString(fmt.Sprintf("- **Median**: %s\n", stats.Median.Round(time.Second)))
+			b.WriteString(fmt.Sprintf("- **Cumulated**: %s\n\n", cumulated.Round(time.Second)))
+
+			// Session duration distribution
+			dist := analysis.CalculateDurationDistribution(m.Connections.SessionDurations)
+			printHistogramMarkdown(&b, dist, "Session duration distribution", "sessions", 1,
+				[]string{"< 1s", "1s - 1min", "1min - 30min", "30min - 2h", "2h - 5h", "> 5h"})
+		}
+
+		// Sessions by user
+		if len(m.Connections.SessionsByUser) > 0 {
+			b.WriteString("### Session Duration by User\n\n")
+			b.WriteString("| User | Sessions | Min | Max | Avg | Median | Cumulated |\n")
+			b.WriteString("|---|---:|---|---|---|---|---:|\n")
+
+			type userStats struct {
+				user      string
+				stats     analysis.DurationStats
+				cumulated time.Duration
+			}
+			var sortedUsers []userStats
+			for user, durations := range m.Connections.SessionsByUser {
+				stats := analysis.CalculateDurationStats(durations)
+				var cumulated time.Duration
+				for _, d := range durations {
+					cumulated += d
+				}
+				sortedUsers = append(sortedUsers, userStats{
+					user: user, stats: stats, cumulated: cumulated,
+				})
+			}
+			sort.Slice(sortedUsers, func(i, j int) bool {
+				return sortedUsers[i].stats.Count > sortedUsers[j].stats.Count
+			})
+
+			limit := 10
+			for i := 0; i < limit && i < len(sortedUsers); i++ {
+				u := sortedUsers[i]
+				b.WriteString(fmt.Sprintf("| %s | %d | %s | %s | %s | %s | %s |\n",
+					u.user,
+					u.stats.Count,
+					u.stats.Min.Round(time.Second),
+					u.stats.Max.Round(time.Second),
+					u.stats.Avg.Round(time.Second),
+					u.stats.Median.Round(time.Second),
+					u.cumulated.Round(time.Second)))
+			}
+			b.WriteString("\n")
+		}
+
+		// Sessions by database
+		if len(m.Connections.SessionsByDatabase) > 0 {
+			b.WriteString("### Session Duration by Database\n\n")
+			b.WriteString("| Database | Sessions | Min | Max | Avg | Median | Cumulated |\n")
+			b.WriteString("|---|---:|---|---|---|---|---:|\n")
+
+			type dbStats struct {
+				database  string
+				stats     analysis.DurationStats
+				cumulated time.Duration
+			}
+			var sortedDBs []dbStats
+			for db, durations := range m.Connections.SessionsByDatabase {
+				stats := analysis.CalculateDurationStats(durations)
+				var cumulated time.Duration
+				for _, d := range durations {
+					cumulated += d
+				}
+				sortedDBs = append(sortedDBs, dbStats{
+					database: db, stats: stats, cumulated: cumulated,
+				})
+			}
+			sort.Slice(sortedDBs, func(i, j int) bool {
+				return sortedDBs[i].stats.Count > sortedDBs[j].stats.Count
+			})
+
+			limit := 10
+			for i := 0; i < limit && i < len(sortedDBs); i++ {
+				d := sortedDBs[i]
+				b.WriteString(fmt.Sprintf("| %s | %d | %s | %s | %s | %s | %s |\n",
+					d.database,
+					d.stats.Count,
+					d.stats.Min.Round(time.Second),
+					d.stats.Max.Round(time.Second),
+					d.stats.Avg.Round(time.Second),
+					d.stats.Median.Round(time.Second),
+					d.cumulated.Round(time.Second)))
+			}
+			b.WriteString("\n")
+		}
+
+		// Sessions by host
+		if len(m.Connections.SessionsByHost) > 0 {
+			b.WriteString("### Session Duration by Host\n\n")
+			b.WriteString("| Host | Sessions | Min | Max | Avg | Median | Cumulated |\n")
+			b.WriteString("|---|---:|---|---|---|---|---:|\n")
+
+			type hostStats struct {
+				host      string
+				stats     analysis.DurationStats
+				cumulated time.Duration
+			}
+			var sortedHosts []hostStats
+			for host, durations := range m.Connections.SessionsByHost {
+				stats := analysis.CalculateDurationStats(durations)
+				var cumulated time.Duration
+				for _, d := range durations {
+					cumulated += d
+				}
+				sortedHosts = append(sortedHosts, hostStats{
+					host: host, stats: stats, cumulated: cumulated,
+				})
+			}
+			sort.Slice(sortedHosts, func(i, j int) bool {
+				return sortedHosts[i].stats.Count > sortedHosts[j].stats.Count
+			})
+
+			limit := 10
+			for i := 0; i < limit && i < len(sortedHosts); i++ {
+				h := sortedHosts[i]
+				b.WriteString(fmt.Sprintf("| %s | %d | %s | %s | %s | %s | %s |\n",
+					h.host,
+					h.stats.Count,
+					h.stats.Min.Round(time.Second),
+					h.stats.Max.Round(time.Second),
+					h.stats.Avg.Round(time.Second),
+					h.stats.Median.Round(time.Second),
+					h.cumulated.Round(time.Second)))
+			}
+			b.WriteString("\n")
 		}
 	}
 
