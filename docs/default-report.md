@@ -510,7 +510,7 @@ TOP USER × HOST
 
 **With `--clients` Flag (ALL Entities)**
 
-When using `--clients` explicitly, **all** entities are displayed without the 10-item limit, and headers show "USERS", "APPS", etc. (without "TOP" prefix):
+With `--clients`, **all** entities are displayed without limit. Headers show "USERS", "APPS" (no "TOP" prefix), and there are no `[X more...]` indicators:
 
 ```
 CLIENTS
@@ -528,14 +528,7 @@ USERS
   admin                       198    6.7%
   analytics                   145    4.9%
   backup_user                  52    1.8%
-  postgres                     16    0.5%
-  monitoring                   12    0.4%
-  replication                   8    0.3%
-  test_user                     5    0.2%
-  dev_user_1                    3    0.1%
-  dev_user_2                    2    0.1%
-  dev_user_3                    1    0.0%
-  dev_user_4                    1    0.0%
+  ...
   qa_user                       1    0.0%
 
 APPS
@@ -544,34 +537,8 @@ APPS
   psql                        687   23.4%
   metabase                    456   15.5%
   pgadmin                     234    8.0%
-  batch_job                   145    4.9%
-  pg_dump                      52    1.8%
-  pg_restore                   12    0.4%
-  python_script                 8    0.3%
-  monitoring_tool               5    0.2%
-  tableau                       3    0.1%
-  dbeaver                       2    0.1%
+  ...
   datagrip                      1    0.0%
-
-DATABASES
-
-  app_db                     2456   83.5%
-  postgres                    342   11.6%
-  analytics_db                142    4.8%
-
-HOSTS
-
-  192.168.1.100               876   29.8%
-  10.0.1.50                   654   22.2%
-  172.16.0.10                 543   18.5%
-  10.0.1.51                   432   14.7%
-  172.16.0.12                 234    8.0%
-  192.168.1.101               123    4.2%
-  10.0.1.52                    56    1.9%
-  172.16.0.15                  22    0.7%
-  10.0.1.53                    18    0.6%
-  172.16.0.20                  12    0.4%
-  ... (all 37 hosts listed)
 
 USER × DATABASE
 
@@ -579,17 +546,7 @@ USER × DATABASE
   readonly                  × app_db                       543   18.5%
   app_user                  × analytics_db                 123    4.2%
   batch_user                × app_db                        98    3.3%
-  readonly                  × analytics_db                  87    3.0%
-  admin                     × postgres                      65    2.2%
-  batch_user                × analytics_db                  45    1.5%
-  analytics                 × analytics_db                  34    1.2%
-  admin                     × app_db                        23    0.8%
-  backup_user               × postgres                      12    0.4%
-  monitoring                × postgres                       8    0.3%
-  replication               × app_db                         5    0.2%
-  postgres                  × postgres                       4    0.1%
-  test_user                 × app_db                         3    0.1%
-  ... (all 18 combinations listed)
+  ...
 
 USER × HOST
 
@@ -597,20 +554,8 @@ USER × HOST
   readonly                  × 10.0.1.50                     432   14.7%
   app_user                  × 172.16.0.10                   345   11.7%
   batch_user                × 10.0.1.51                     234    8.0%
-  app_user                  × 10.0.1.50                     187    6.4%
-  readonly                  × 192.168.1.100                 156    5.3%
-  admin                     × 172.16.0.12                   123    4.2%
-  analytics                 × 10.0.1.52                      98    3.3%
-  batch_user                × 192.168.1.101                  76    2.6%
-  readonly                  × 172.16.0.10                    65    2.2%
-  ... (all 52 combinations listed)
+  ...
 ```
-
-**Key differences with `--clients`**:
-- No "TOP" prefix in section headers
-- **All** entities displayed (no 10-item limit)
-- No `[X more...]` indicators
-- Complete cross-tabulation tables
 
 ## Next Steps
 
