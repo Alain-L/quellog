@@ -490,34 +490,82 @@ func ExportMarkdown(m analysis.AggregatedMetrics, sections []string) {
 		b.WriteString(fmt.Sprintf("- **Unique Apps**: %d\n", m.UniqueEntities.UniqueApps))
 		b.WriteString(fmt.Sprintf("- **Unique Hosts**: %d\n\n", m.UniqueEntities.UniqueHosts))
 
-		if m.UniqueEntities.UniqueUsers > 0 {
+		totalLogs := m.Global.Count
+
+		if m.UniqueEntities.UniqueUsers > 0 && m.UniqueEntities.UserCounts != nil {
 			b.WriteString("### USERS\n\n")
-			for _, user := range m.UniqueEntities.Users {
-				b.WriteString(fmt.Sprintf("- %s\n", user))
+			b.WriteString("| User | Count | % |\n")
+			b.WriteString("|---|---:|---:|\n")
+			sortedUsers := analysis.SortByCount(m.UniqueEntities.UserCounts)
+			for _, item := range sortedUsers {
+				percentage := float64(item.Count) * 100.0 / float64(totalLogs)
+				b.WriteString(fmt.Sprintf("| %s | %d | %.1f%% |\n", item.Name, item.Count, percentage))
 			}
 			b.WriteString("\n")
 		}
 
-		if m.UniqueEntities.UniqueApps > 0 {
+		if m.UniqueEntities.UniqueApps > 0 && m.UniqueEntities.AppCounts != nil {
 			b.WriteString("### APPS\n\n")
-			for _, app := range m.UniqueEntities.Apps {
-				b.WriteString(fmt.Sprintf("- %s\n", app))
+			b.WriteString("| App | Count | % |\n")
+			b.WriteString("|---|---:|---:|\n")
+			sortedApps := analysis.SortByCount(m.UniqueEntities.AppCounts)
+			for _, item := range sortedApps {
+				percentage := float64(item.Count) * 100.0 / float64(totalLogs)
+				b.WriteString(fmt.Sprintf("| %s | %d | %.1f%% |\n", item.Name, item.Count, percentage))
 			}
 			b.WriteString("\n")
 		}
 
-		if m.UniqueEntities.UniqueDbs > 0 {
+		if m.UniqueEntities.UniqueDbs > 0 && m.UniqueEntities.DBCounts != nil {
 			b.WriteString("### DATABASES\n\n")
-			for _, db := range m.UniqueEntities.DBs {
-				b.WriteString(fmt.Sprintf("- %s\n", db))
+			b.WriteString("| Database | Count | % |\n")
+			b.WriteString("|---|---:|---:|\n")
+			sortedDBs := analysis.SortByCount(m.UniqueEntities.DBCounts)
+			for _, item := range sortedDBs {
+				percentage := float64(item.Count) * 100.0 / float64(totalLogs)
+				b.WriteString(fmt.Sprintf("| %s | %d | %.1f%% |\n", item.Name, item.Count, percentage))
 			}
 			b.WriteString("\n")
 		}
 
-		if m.UniqueEntities.UniqueHosts > 0 {
+		if m.UniqueEntities.UniqueHosts > 0 && m.UniqueEntities.HostCounts != nil {
 			b.WriteString("### HOSTS\n\n")
-			for _, host := range m.UniqueEntities.Hosts {
-				b.WriteString(fmt.Sprintf("- %s\n", host))
+			b.WriteString("| Host | Count | % |\n")
+			b.WriteString("|---|---:|---:|\n")
+			sortedHosts := analysis.SortByCount(m.UniqueEntities.HostCounts)
+			for _, item := range sortedHosts {
+				percentage := float64(item.Count) * 100.0 / float64(totalLogs)
+				b.WriteString(fmt.Sprintf("| %s | %d | %.1f%% |\n", item.Name, item.Count, percentage))
+			}
+			b.WriteString("\n")
+		}
+
+		if len(m.UniqueEntities.UserDbCombos) > 0 {
+			b.WriteString("### USER × DATABASE\n\n")
+			b.WriteString("| User | Database | Count | % |\n")
+			b.WriteString("|---|---|---:|---:|\n")
+			sortedCombos := analysis.SortByCount(m.UniqueEntities.UserDbCombos)
+			for _, item := range sortedCombos {
+				percentage := float64(item.Count) * 100.0 / float64(totalLogs)
+				parts := strings.SplitN(item.Name, "|", 2)
+				if len(parts) == 2 {
+					b.WriteString(fmt.Sprintf("| %s | %s | %d | %.1f%% |\n", parts[0], parts[1], item.Count, percentage))
+				}
+			}
+			b.WriteString("\n")
+		}
+
+		if len(m.UniqueEntities.UserHostCombos) > 0 {
+			b.WriteString("### USER × HOST\n\n")
+			b.WriteString("| User | Host | Count | % |\n")
+			b.WriteString("|---|---|---:|---:|\n")
+			sortedCombos := analysis.SortByCount(m.UniqueEntities.UserHostCombos)
+			for _, item := range sortedCombos {
+				percentage := float64(item.Count) * 100.0 / float64(totalLogs)
+				parts := strings.SplitN(item.Name, "|", 2)
+				if len(parts) == 2 {
+					b.WriteString(fmt.Sprintf("| %s | %s | %d | %.1f%% |\n", parts[0], parts[1], item.Count, percentage))
+				}
 			}
 			b.WriteString("\n")
 		}

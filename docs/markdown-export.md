@@ -274,23 +274,69 @@ Connection patterns and session duration analytics.
 
 ### CLIENTS
 
+Unique database entities with activity counts and cross-tabulations.
+
 ```markdown
 ## CLIENTS
 
-- **Unique DBs**: 2
-- **Unique Users**: 3
-- **Unique Apps**: 0
-- **Unique Hosts**: 0
+- **Unique DBs**: 3
+- **Unique Users**: 7
+- **Unique Apps**: 9
+- **Unique Hosts**: 37
 
 ### USERS
 
-- postgres
-- app_user
+| User | Count | % |
+|---|---:|---:|
+| app_user | 1250 | 42.5% |
+| readonly | 856 | 29.1% |
+| batch_user | 423 | 14.4% |
+| admin | 198 | 6.7% |
+| analytics | 145 | 4.9% |
+| backup_user | 52 | 1.8% |
+| postgres | 16 | 0.5% |
+
+### APPS
+
+| App | Count | % |
+|---|---:|---:|
+| app_server | 1342 | 45.6% |
+| psql | 687 | 23.4% |
+| metabase | 456 | 15.5% |
 
 ### DATABASES
 
-- postgres
-- app_db
+| Database | Count | % |
+|---|---:|---:|
+| app_db | 2456 | 83.5% |
+| postgres | 342 | 11.6% |
+| analytics_db | 142 | 4.8% |
+
+### HOSTS
+
+| Host | Count | % |
+|---|---:|---:|
+| 192.168.1.100 | 876 | 29.8% |
+| 10.0.1.50 | 654 | 22.2% |
+| 172.16.0.10 | 543 | 18.5% |
+
+### USER × DATABASE
+
+| User | Database | Count | % |
+|---|---|---:|---:|
+| app_user | app_db | 1856 | 63.1% |
+| readonly | app_db | 543 | 18.5% |
+| app_user | analytics_db | 123 | 4.2% |
+| batch_user | app_db | 98 | 3.3% |
+
+### USER × HOST
+
+| User | Host | Count | % |
+|---|---|---:|---:|
+| app_user | 192.168.1.100 | 654 | 22.2% |
+| readonly | 10.0.1.50 | 432 | 14.7% |
+| app_user | 172.16.0.10 | 345 | 11.7% |
+| batch_user | 10.0.1.51 | 234 | 8.0% |
 ```
 
 ## Common Uses
