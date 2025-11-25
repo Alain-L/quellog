@@ -5,8 +5,10 @@ import (
 	"crypto/md5"
 	"encoding/base64"
 	"encoding/hex"
+	"sort"
 	"strings"
 	"sync"
+	"time"
 )
 
 // ============================================================================
@@ -348,4 +350,140 @@ func QueryTypeFromID(id string) string {
 	default:
 		return "other"
 	}
+}
+
+// ============================================================================
+// Entity count sorting
+// ============================================================================
+
+// EntityCount represents an entity with its occurrence count.
+type EntityCount struct {
+	Name  string
+	Count int
+}
+
+// SortByCount converts a count map to a sorted slice of EntityCount.
+// Entities are sorted by count (descending), with alphabetical ordering as tiebreaker.
+// Returns all entities (no limit).
+func SortByCount(counts map[string]int) []EntityCount {
+	items := make([]EntityCount, 0, len(counts))
+	for name, count := range counts {
+		items = append(items, EntityCount{Name: name, Count: count})
+	}
+
+	sort.Slice(items, func(i, j int) bool {
+		if items[i].Count != items[j].Count {
+			return items[i].Count > items[j].Count // Descending by count
+		}
+		return items[i].Name < items[j].Name // Alphabetical tiebreaker
+	})
+
+	return items
+}
+
+// ============================================================================
+// Duration statistics
+// ============================================================================
+
+// DurationStats contains statistical information about a set of durations.
+type DurationStats struct {
+	Count  int
+	Min    time.Duration
+	Max    time.Duration
+	Avg    time.Duration
+	Median time.Duration
+}
+
+// CalculateDurationStats computes min, max, avg, and median for a set of durations.
+// Returns zero values if the input slice is empty.
+func CalculateDurationStats(durations []time.Duration) DurationStats {
+	if len(durations) == 0 {
+		return DurationStats{}
+	}
+
+	// Calculate min, max, and sum
+	min := durations[0]
+	max := durations[0]
+	var sum time.Duration
+
+	for _, d := range durations {
+		if d < min {
+			min = d
+		}
+		if d > max {
+			max = d
+		}
+		sum += d
+	}
+
+	avg := sum / time.Duration(len(durations))
+
+	// Calculate median (requires sorting)
+	median := CalculateMedian(durations)
+
+	return DurationStats{
+		Count:  len(durations),
+		Min:    min,
+		Max:    max,
+		Avg:    avg,
+		Median: median,
+	}
+}
+
+// CalculateMedian calculates the median duration from a slice of durations.
+// Note: This function sorts a copy of the input slice.
+func CalculateMedian(durations []time.Duration) time.Duration {
+	if len(durations) == 0 {
+		return 0
+	}
+
+	// Make a copy to avoid modifying the original slice
+	sorted := make([]time.Duration, len(durations))
+	copy(sorted, durations)
+
+	// Sort the copy
+	sort.Slice(sorted, func(i, j int) bool {
+		return sorted[i] < sorted[j]
+	})
+
+	// Calculate median
+	n := len(sorted)
+	if n%2 == 1 {
+		// Odd number of elements: return middle element
+		return sorted[n/2]
+	}
+	// Even number of elements: return average of two middle elements
+	return (sorted[n/2-1] + sorted[n/2]) / 2
+}
+
+// CalculateDurationDistribution groups durations into buckets and returns counts per bucket.
+// Buckets: < 1s, 1s - 1min, 1min - 30min, 30min - 2h, 2h - 5h, > 5h
+func CalculateDurationDistribution(durations []time.Duration) map[string]int {
+	dist := map[string]int{
+		"< 1s":         0,
+		"1s - 1min":    0,
+		"1min - 30min": 0,
+		"30min - 2h":   0,
+		"2h - 5h":      0,
+		"> 5h":         0,
+	}
+
+	for _, d := range durations {
+		switch {
+		case d < time.Second:
+			dist["< 1s"]++
+		case d < time.Minute:
+			dist["1s - 1min"]++
+		case d < 30*time.Minute:
+			dist["1min - 30min"]++
+		case d < 2*time.Hour:
+			dist["30min - 2h"]++
+		case d < 5*time.Hour:
+			dist["2h - 5h"]++
+		default:
+			dist["> 5h"]++
+		}
+	}
+
+	return dist
 }

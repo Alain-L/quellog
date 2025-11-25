@@ -75,6 +75,14 @@ type UniqueEntityMetrics struct {
 
 	// HostCounts maps each host address to its occurrence count in logs.
 	HostCounts map[string]int
+
+	// UserDbCombos maps user×database combinations to their occurrence counts.
+	// Key format: "username|database"
+	UserDbCombos map[string]int
+
+	// UserHostCombos maps user×host combinations to their occurrence counts.
+	// Key format: "username|host"
+	UserHostCombos map[string]int
 }
 
 // AggregatedMetrics combines all analysis metrics into a single structure.
@@ -285,6 +293,14 @@ type UniqueEntityAnalyzer struct {
 	userSet map[string]struct{}
 	appSet  map[string]struct{}
 	hostSet map[string]struct{}
+
+	dbCounts   map[string]int
+	userCounts map[string]int
+	appCounts  map[string]int
+	hostCounts map[string]int
+
+	userDbCombos   map[string]int
+	userHostCombos map[string]int
 }
 
 // NewUniqueEntityAnalyzer creates a new unique entity analyzer.
@@ -294,6 +310,14 @@ func NewUniqueEntityAnalyzer() *UniqueEntityAnalyzer {
 		userSet: make(map[string]struct{}, 100),
 		appSet:  make(map[string]struct{}, 100),
 		hostSet: make(map[string]struct{}, 100),
+
+		dbCounts:   make(map[string]int, 100),
+		userCounts: make(map[string]int, 100),
+		appCounts:  make(map[string]int, 100),
+		hostCounts: make(map[string]int, 100),
+
+		userDbCombos:   make(map[string]int, 200),
+		userHostCombos: make(map[string]int, 200),
 	}
 }
 
@@ -315,6 +339,9 @@ func (a *UniqueEntityAnalyzer) Process(entry *parser.LogEntry) {
 	if strings.IndexByte(msg, '=') == -1 {
 		return
 	}
+
+	// Track extracted values for building combinations
+	var currentUser, currentDb, currentHost string
 
 	// Single-pass extraction: scan once, extract all matches
 	i := 0
@@ -343,18 +370,23 @@ func (a *UniqueEntityAnalyzer) Process(entry *parser.LogEntry) {
 		if eqIdx >= 16 && msg[eqIdx-16:eqIdx] == "application_name" {
 			if appName := extractValueAt(msg, eqIdx+1); appName != "" {
 				a.appSet[appName] = struct{}{}
+				a.appCounts[appName]++
 				matched = true
 			}
 		} else if eqIdx >= 8 && msg[eqIdx-8:eqIdx] == "database" {
 			// "database=" (9 chars)
 			if dbName := extractValueAt(msg, eqIdx+1); dbName != "" {
 				a.dbSet[dbName] = struct{}{}
+				a.dbCounts[dbName]++
+				currentDb = dbName
 				matched = true
 			}
 		} else if eqIdx >= 6 && msg[eqIdx-6:eqIdx] == "client" {
 			// "client=" (7 chars)
 			if hostName := extractValueAt(msg, eqIdx+1); hostName != "" {
 				a.hostSet[hostName] = struct{}{}
+				a.hostCounts[hostName]++
+				currentHost = hostName
 				matched = true
 			}
 		} else if eqIdx >= 4 {
@@ -363,11 +395,15 @@ func (a *UniqueEntityAnalyzer) Process(entry *parser.LogEntry) {
 			if prefix4 == "user" {
 				if userName := extractValueAt(msg, eqIdx+1); userName != "" {
 					a.userSet[userName] = struct{}{}
+					a.userCounts[userName]++
+					currentUser = userName
 					matched = true
 				}
 			} else if prefix4 == "host" {
 				if hostName := extractValueAt(msg, eqIdx+1); hostName != "" {
 					a.hostSet[hostName] = struct{}{}
+					a.hostCounts[hostName]++
+					currentHost = hostName
 					matched = true
 				}
 			}
@@ -379,6 +415,7 @@ func (a *UniqueEntityAnalyzer) Process(entry *parser.LogEntry) {
 			if prefix3 == "app" {
 				if appName := extractValueAt(msg, eqIdx+1); appName != "" {
 					a.appSet[appName] = struct{}{}
+					a.appCounts[appName]++
 					matched = true
 				}
 			}
@@ -390,6 +427,8 @@ func (a *UniqueEntityAnalyzer) Process(entry *parser.LogEntry) {
 			if prefix2 == "db" {
 				if dbName := extractValueAt(msg, eqIdx+1); dbName != "" {
 					a.dbSet[dbName] = struct{}{}
+					a.dbCounts[dbName]++
+					currentDb = dbName
 					matched = true
 				}
 			}
@@ -398,19 +437,35 @@ func (a *UniqueEntityAnalyzer) Process(entry *parser.LogEntry) {
 		// Move past this '=' and continue scanning
 		i = eqIdx + 1
 	}
+
+	// Build combinations if we have the necessary data
+	if currentUser != "" && currentDb != "" {
+		comboKey := currentUser + "|" + currentDb
+		a.userDbCombos[comboKey]++
+	}
+	if currentUser != "" && currentHost != "" {
+		comboKey := currentUser + "|" + currentHost
+		a.userHostCombos[comboKey]++
+	}
 }
 
 // Finalize returns the unique entity metrics with sorted lists.
 func (a *UniqueEntityAnalyzer) Finalize() UniqueEntityMetrics {
 	return UniqueEntityMetrics{
-		UniqueDbs:   len(a.dbSet),
-		UniqueUsers: len(a.userSet),
-		UniqueApps:  len(a.appSet),
-		UniqueHosts: len(a.hostSet),
-		DBs:         mapKeysAsSlice(a.dbSet),
-		Users:       mapKeysAsSlice(a.userSet),
-		Apps:        mapKeysAsSlice(a.appSet),
-		Hosts:       mapKeysAsSlice(a.hostSet),
+		UniqueDbs:      len(a.dbSet),
+		UniqueUsers:    len(a.userSet),
+		UniqueApps:     len(a.appSet),
+		UniqueHosts:    len(a.hostSet),
+		DBs:            mapKeysAsSlice(a.dbSet),
+		Users:          mapKeysAsSlice(a.userSet),
+		Apps:           mapKeysAsSlice(a.appSet),
+		Hosts:          mapKeysAsSlice(a.hostSet),
+		DBCounts:       a.dbCounts,
+		UserCounts:     a.userCounts,
+		AppCounts:      a.appCounts,
+		HostCounts:     a.hostCounts,
+		UserDbCombos:   a.userDbCombos,
+		UserHostCombos: a.userHostCombos,
 	}
 }
 
