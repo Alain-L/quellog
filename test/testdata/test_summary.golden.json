@@ -70,6 +70,286 @@
     "avg_connections_per_hour": "1.50",
     "disconnection_count": 23,
     "avg_session_time": "1h14m6.550869565s",
+    "session_stats": {
+      "count": 23,
+      "min_duration": "7m10.234s",
+      "max_duration": "2h20m15.89s",
+      "avg_duration": "1h14m6.550869565s",
+      "median_duration": "1h17m45.123s",
+      "cumulated_duration": "28h24m30.67s"
+    },
+    "session_distribution": {
+      "1min - 30min": 1,
+      "1s - 1min": 0,
+      "2h - 5h": 3,
+      "30min - 2h": 19,
+      "\u003c 1s": 0,
+      "\u003e 5h": 0
+    },
+    "sessions_by_user": {
+      "admin": {
+        "count": 3,
+        "min_duration": "42m45.89s",
+        "max_duration": "47m30.89s",
+        "avg_duration": "45m15.634333333s",
+        "median_duration": "45m30.123s",
+        "cumulated_duration": "2h15m46.903s"
+      },
+      "analytics": {
+        "count": 1,
+        "min_duration": "1h17m45.123s",
+        "max_duration": "1h17m45.123s",
+        "avg_duration": "1h17m45.123s",
+        "median_duration": "1h17m45.123s",
+        "cumulated_duration": "1h17m45.123s"
+      },
+      "app_user": {
+        "count": 10,
+        "min_duration": "31m5.567s",
+        "max_duration": "2h20m15.89s",
+        "avg_duration": "1h26m58.5872s",
+        "median_duration": "1h26m48.1225s",
+        "cumulated_duration": "14h29m45.872s"
+      },
+      "backup_user": {
+        "count": 1,
+        "min_duration": "1h44m45.234s",
+        "max_duration": "1h44m45.234s",
+        "avg_duration": "1h44m45.234s",
+        "median_duration": "1h44m45.234s",
+        "cumulated_duration": "1h44m45.234s"
+      },
+      "batch_user": {
+        "count": 3,
+        "min_duration": "1h21m45.678s",
+        "max_duration": "2h0m30.234s",
+        "avg_duration": "1h42m45.419s",
+        "median_duration": "1h46m0.345s",
+        "cumulated_duration": "5h8m16.257s"
+      },
+      "readonly": {
+        "count": 5,
+        "min_duration": "7m10.234s",
+        "max_duration": "1h3m25.678s",
+        "avg_duration": "41m38.2562s",
+        "median_duration": "47m30.123s",
+        "cumulated_duration": "3h28m11.281s"
+      }
+    },
+    "sessions_by_database": {
+      "analytics_db": {
+        "count": 3,
+        "min_duration": "47m30.123s",
+        "max_duration": "1h17m45.123s",
+        "avg_duration": "1h2m53.641333333s",
+        "median_duration": "1h3m25.678s",
+        "cumulated_duration": "3h8m40.924s"
+      },
+      "app_db": {
+        "count": 16,
+        "min_duration": "7m10.234s",
+        "max_duration": "2h20m15.89s",
+        "avg_duration": "1h19m42.3505625s",
+        "median_duration": "1h22m18.178s",
+        "cumulated_duration": "21h15m17.609s"
+      },
+      "postgres": {
+        "count": 4,
+        "min_duration": "42m45.89s",
+        "max_duration": "1h44m45.234s",
+        "avg_duration": "1h0m8.03425s",
+        "median_duration": "46m30.5065s",
+        "cumulated_duration": "4h0m32.137s"
+      }
+    },
+    "sessions_by_host": {
+      "0:52:00.567": {
+        "count": 1,
+        "min_duration": "1h13m10.456s",
+        "max_duration": "1h13m10.456s",
+        "avg_duration": "1h13m10.456s",
+        "median_duration": "1h13m10.456s",
+        "cumulated_duration": "1h13m10.456s"
+      },
+      "10.0.1.100": {
+        "count": 1,
+        "min_duration": "2h0m30.234s",
+        "max_duration": "2h0m30.234s",
+        "avg_duration": "2h0m30.234s",
+        "median_duration": "2h0m30.234s",
+        "cumulated_duration": "2h0m30.234s"
+      },
+      "10.0.1.50": {
+        "count": 1,
+        "min_duration": "1h17m45.123s",
+        "max_duration": "1h17m45.123s",
+        "avg_duration": "1h17m45.123s",
+        "median_duration": "1h17m45.123s",
+        "cumulated_duration": "1h17m45.123s"
+      },
+      "10.0.1.51": {
+        "count": 1,
+        "min_duration": "1h21m45.678s",
+        "max_duration": "1h21m45.678s",
+        "avg_duration": "1h21m45.678s",
+        "median_duration": "1h21m45.678s",
+        "cumulated_duration": "1h21m45.678s"
+      },
+      "10.0.1.90": {
+        "count": 1,
+        "min_duration": "1h46m0.345s",
+        "max_duration": "1h46m0.345s",
+        "avg_duration": "1h46m0.345s",
+        "median_duration": "1h46m0.345s",
+        "cumulated_duration": "1h46m0.345s"
+      },
+      "10.0.2.30": {
+        "count": 1,
+        "min_duration": "47m30.123s",
+        "max_duration": "47m30.123s",
+        "avg_duration": "47m30.123s",
+        "median_duration": "47m30.123s",
+        "cumulated_duration": "47m30.123s"
+      },
+      "10.0.2.40": {
+        "count": 1,
+        "min_duration": "1h3m25.678s",
+        "max_duration": "1h3m25.678s",
+        "avg_duration": "1h3m25.678s",
+        "median_duration": "1h3m25.678s",
+        "cumulated_duration": "1h3m25.678s"
+      },
+      "172.16.0.10": {
+        "count": 1,
+        "min_duration": "1h33m40.234s",
+        "max_duration": "1h33m40.234s",
+        "avg_duration": "1h33m40.234s",
+        "median_duration": "1h33m40.234s",
+        "cumulated_duration": "1h33m40.234s"
+      },
+      "172.16.0.11": {
+        "count": 1,
+        "min_duration": "2h6m45.789s",
+        "max_duration": "2h6m45.789s",
+        "avg_duration": "2h6m45.789s",
+        "median_duration": "2h6m45.789s",
+        "cumulated_duration": "2h6m45.789s"
+      },
+      "172.16.0.12": {
+        "count": 1,
+        "min_duration": "1h52m45.567s",
+        "max_duration": "1h52m45.567s",
+        "avg_duration": "1h52m45.567s",
+        "median_duration": "1h52m45.567s",
+        "cumulated_duration": "1h52m45.567s"
+      },
+      "172.16.0.30": {
+        "count": 1,
+        "min_duration": "37m45.234s",
+        "max_duration": "37m45.234s",
+        "avg_duration": "37m45.234s",
+        "median_duration": "37m45.234s",
+        "cumulated_duration": "37m45.234s"
+      },
+      "172.16.0.40": {
+        "count": 1,
+        "min_duration": "2h20m15.89s",
+        "max_duration": "2h20m15.89s",
+        "avg_duration": "2h20m15.89s",
+        "median_duration": "2h20m15.89s",
+        "cumulated_duration": "2h20m15.89s"
+      },
+      "172.16.0.60": {
+        "count": 1,
+        "min_duration": "1h22m50.678s",
+        "max_duration": "1h22m50.678s",
+        "avg_duration": "1h22m50.678s",
+        "median_duration": "1h22m50.678s",
+        "cumulated_duration": "1h22m50.678s"
+      },
+      "172.16.0.70": {
+        "count": 1,
+        "min_duration": "1h30m45.567s",
+        "max_duration": "1h30m45.567s",
+        "avg_duration": "1h30m45.567s",
+        "median_duration": "1h30m45.567s",
+        "cumulated_duration": "1h30m45.567s"
+      },
+      "172.16.0.80": {
+        "count": 1,
+        "min_duration": "1h20m40.89s",
+        "max_duration": "1h20m40.89s",
+        "avg_duration": "1h20m40.89s",
+        "median_duration": "1h20m40.89s",
+        "cumulated_duration": "1h20m40.89s"
+      },
+      "192.168.1.100": {
+        "count": 1,
+        "min_duration": "31m5.567s",
+        "max_duration": "31m5.567s",
+        "avg_duration": "31m5.567s",
+        "median_duration": "31m5.567s",
+        "cumulated_duration": "31m5.567s"
+      },
+      "192.168.1.101": {
+        "count": 1,
+        "min_duration": "7m10.234s",
+        "max_duration": "7m10.234s",
+        "avg_duration": "7m10.234s",
+        "median_duration": "7m10.234s",
+        "cumulated_duration": "7m10.234s"
+      },
+      "192.168.1.102": {
+        "count": 1,
+        "min_duration": "42m45.89s",
+        "max_duration": "42m45.89s",
+        "avg_duration": "42m45.89s",
+        "median_duration": "42m45.89s",
+        "cumulated_duration": "42m45.89s"
+      },
+      "192.168.1.104": {
+        "count": 1,
+        "min_duration": "33m20.123s",
+        "max_duration": "33m20.123s",
+        "avg_duration": "33m20.123s",
+        "median_duration": "33m20.123s",
+        "cumulated_duration": "33m20.123s"
+      },
+      "192.168.1.105": {
+        "count": 1,
+        "min_duration": "47m30.89s",
+        "max_duration": "47m30.89s",
+        "avg_duration": "47m30.89s",
+        "median_duration": "47m30.89s",
+        "cumulated_duration": "47m30.89s"
+      },
+      "192.168.1.106": {
+        "count": 1,
+        "min_duration": "1h44m45.234s",
+        "max_duration": "1h44m45.234s",
+        "avg_duration": "1h44m45.234s",
+        "median_duration": "1h44m45.234s",
+        "cumulated_duration": "1h44m45.234s"
+      },
+      "192.168.1.107": {
+        "count": 1,
+        "min_duration": "45m30.123s",
+        "max_duration": "45m30.123s",
+        "avg_duration": "45m30.123s",
+        "median_duration": "45m30.123s",
+        "cumulated_duration": "45m30.123s"
+      },
+      "192.168.1.150": {
+        "count": 1,
+        "min_duration": "56m45.123s",
+        "max_duration": "56m45.123s",
+        "avg_duration": "56m45.123s",
+        "median_duration": "56m45.123s",
+        "cumulated_duration": "56m45.123s"
+      }
+    },
+    "peak_concurrent_sessions": 36,
+    "peak_concurrent_timestamp": "2025-01-01 05:50:00",
     "connections": [
       "2025-01-01 00:00:15",
       "2025-01-01 00:00:20",

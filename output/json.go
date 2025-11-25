@@ -140,12 +140,36 @@ type CheckpointsJSON struct {
 	Types             map[string]CheckpointTypeJSON `json:"types,omitempty"`
 }
 
+type SessionStatsJSON struct {
+	Count     int    `json:"count"`
+	Min       string `json:"min_duration"`
+	Max       string `json:"max_duration"`
+	Avg       string `json:"avg_duration"`
+	Median    string `json:"median_duration"`
+	Cumulated string `json:"cumulated_duration"`
+}
+
 type ConnectionsJSON struct {
-	ConnectionCount       int      `json:"connection_count"`
-	AvgConnectionsPerHour string   `json:"avg_connections_per_hour"`
-	DisconnectionCount    int      `json:"disconnection_count"`
-	AvgSessionTime        string   `json:"avg_session_time"`
-	Connections           []string `json:"connections"`
+	ConnectionCount       int                         `json:"connection_count"`
+	AvgConnectionsPerHour string                      `json:"avg_connections_per_hour"`
+	DisconnectionCount    int                         `json:"disconnection_count"`
+	AvgSessionTime        string                      `json:"avg_session_time"`
+
+	// Session statistics
+	SessionStats        *SessionStatsJSON           `json:"session_stats,omitempty"`
+	SessionDistribution map[string]int              `json:"session_distribution,omitempty"`
+
+	// Breakdown by entity
+	SessionsByUser     map[string]SessionStatsJSON `json:"sessions_by_user,omitempty"`
+	SessionsByDatabase map[string]SessionStatsJSON `json:"sessions_by_database,omitempty"`
+	SessionsByHost     map[string]SessionStatsJSON `json:"sessions_by_host,omitempty"`
+
+	// Concurrent sessions
+	PeakConcurrent     int    `json:"peak_concurrent_sessions,omitempty"`
+	PeakConcurrentTime string `json:"peak_concurrent_timestamp,omitempty"`
+
+	// Raw events
+	Connections []string `json:"connections"`
 }
 
 type ClientsJSON struct {
@@ -322,9 +346,16 @@ func ExportJSON(m analysis.AggregatedMetrics, sections []string) {
 
 	// Conditionally include connections
 	if has("connections") && (m.Connections.ConnectionReceivedCount > 0 || m.Connections.DisconnectionCount > 0) {
+		// Calculate duration for avg connections per hour
+		duration := m.Global.MaxTimestamp.Sub(m.Global.MinTimestamp)
+		durationHours := duration.Hours()
+		if durationHours == 0 {
+			durationHours = 1 // Avoid division by zero
+		}
+
 		conn := ConnectionsJSON{
 			ConnectionCount:       m.Connections.ConnectionReceivedCount,
-			AvgConnectionsPerHour: fmt.Sprintf("%.2f", float64(m.Connections.ConnectionReceivedCount)/24.0),
+			AvgConnectionsPerHour: fmt.Sprintf("%.2f", float64(m.Connections.ConnectionReceivedCount)/durationHours),
 			DisconnectionCount:    m.Connections.DisconnectionCount,
 			AvgSessionTime: func() string {
 				if m.Connections.DisconnectionCount > 0 {
@@ -334,9 +365,98 @@ func ExportJSON(m analysis.AggregatedMetrics, sections []string) {
 			}(),
 			Connections: []string{},
 		}
+
+		// Add connection timestamps
 		for _, t := range m.Connections.Connections {
 			conn.Connections = append(conn.Connections, t.Format("2006-01-02 15:04:05"))
 		}
+
+		// Add global session statistics if we have session data
+		if len(m.Connections.SessionDurations) > 0 {
+			stats := analysis.CalculateDurationStats(m.Connections.SessionDurations)
+			var cumulated time.Duration
+			for _, d := range m.Connections.SessionDurations {
+				cumulated += d
+			}
+			conn.SessionStats = &SessionStatsJSON{
+				Count:     stats.Count,
+				Min:       stats.Min.String(),
+				Max:       stats.Max.String(),
+				Avg:       stats.Avg.String(),
+				Median:    stats.Median.String(),
+				Cumulated: cumulated.String(),
+			}
+
+			// Add session duration distribution
+			conn.SessionDistribution = analysis.CalculateDurationDistribution(m.Connections.SessionDurations)
+		}
+
+		// Add sessions by user
+		if len(m.Connections.SessionsByUser) > 0 {
+			conn.SessionsByUser = make(map[string]SessionStatsJSON)
+			for user, durations := range m.Connections.SessionsByUser {
+				stats := analysis.CalculateDurationStats(durations)
+				var cumulated time.Duration
+				for _, d := range durations {
+					cumulated += d
+				}
+				conn.SessionsByUser[user] = SessionStatsJSON{
+					Count:     stats.Count,
+					Min:       stats.Min.String(),
+					Max:       stats.Max.String(),
+					Avg:       stats.Avg.String(),
+					Median:    stats.Median.String(),
+					Cumulated: cumulated.String(),
+				}
+			}
+		}
+
+		// Add sessions by database
+		if len(m.Connections.SessionsByDatabase) > 0 {
+			conn.SessionsByDatabase = make(map[string]SessionStatsJSON)
+			for db, durations := range m.Connections.SessionsByDatabase {
+				stats := analysis.CalculateDurationStats(durations)
+				var cumulated time.Duration
+				for _, d := range durations {
+					cumulated += d
+				}
+				conn.SessionsByDatabase[db] = SessionStatsJSON{
+					Count:     stats.Count,
+					Min:       stats.Min.String(),
+					Max:       stats.Max.String(),
+					Avg:       stats.Avg.String(),
+					Median:    stats.Median.String(),
+					Cumulated: cumulated.String(),
+				}
+			}
+		}
+
+		// Add sessions by host
+		if len(m.Connections.SessionsByHost) > 0 {
+			conn.SessionsByHost = make(map[string]SessionStatsJSON)
+			for host, durations := range m.Connections.SessionsByHost {
+				stats := analysis.CalculateDurationStats(durations)
+				var cumulated time.Duration
+				for _, d := range durations {
+					cumulated += d
+				}
+				conn.SessionsByHost[host] = SessionStatsJSON{
+					Count:     stats.Count,
+					Min:       stats.Min.String(),
+					Max:       stats.Max.String(),
+					Avg:       stats.Avg.String(),
+					Median:    stats.Median.String(),
+					Cumulated: cumulated.String(),
+				}
+			}
+		}
+
+		// Add peak concurrent sessions
+		if m.Connections.PeakConcurrentSessions > 0 {
+			conn.PeakConcurrent = m.Connections.PeakConcurrentSessions
+			conn.PeakConcurrentTime = m.Connections.PeakConcurrentTimestamp.Format("2006-01-02 15:04:05")
+		}
+
 		data["connections"] = conn
 	}
 
