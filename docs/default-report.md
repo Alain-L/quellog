@@ -299,6 +299,8 @@ CHECKPOINTS
 
 Shows connection patterns and session durations.
 
+### Basic Output (Default Report)
+
 ```
 CONNECTIONS & SESSIONS
 
@@ -315,14 +317,96 @@ CONNECTIONS & SESSIONS
   Avg connections per hour  : 1.50
   Disconnection count       : 23
   Avg session time          : 1h14m7s
+  Avg concurrent sessions   : 13.45
+  Peak concurrent sessions  : 36 (at 05:50:00)
 ```
 
-**Metrics explained**:
+**Basic metrics explained**:
 
 - **Connection count**: Total connections received
 - **Avg connections per hour**: Connection rate
-- **Disconnection count**: Sessions that ended
+- **Disconnection count**: Sessions that ended (requires `log_disconnections = on`)
 - **Avg session time**: Mean session duration
+- **Avg concurrent sessions**: Average number of simultaneous sessions
+- **Peak concurrent sessions**: Maximum simultaneous sessions with timestamp
+
+### Detailed Output (With `--connections` Flag)
+
+When using the explicit `--connections` flag, additional session analytics are displayed:
+
+```
+CONNECTIONS & SESSIONS
+
+  Connection distribution | ■ = 1
+
+  00:00 - 00:58  ■■■■■■■■■■■■■■■ 15
+  00:58 - 01:56  ■■■■■ 5
+  01:56 - 02:55  ■■■■ 4
+  02:55 - 03:53  ■■■■ 4
+  03:53 - 04:51  ■■■■ 4
+  04:51 - 05:50  ■■■■ 4
+
+  Connection count          : 36
+  Avg connections per hour  : 1.50
+  Disconnection count       : 23
+  Avg session time          : 1h14m7s
+  Avg concurrent sessions   : 13.45
+  Peak concurrent sessions  : 36 (at 05:50:00)
+
+  Session duration distribution | ■ = 1 session
+
+  < 1s           -
+  1s - 1min      -
+  1min - 30min   ■ 1
+  30min - 2h     ■■■■■■■■■■■■■■■■■■■ 19
+  2h - 5h        ■■■ 3
+  > 5h           -
+
+SESSION DURATION BY USER
+
+  User                       Sessions      Min      Max      Avg   Median  Cumulated
+  ---------------------------------------------------------------------------------------
+  app_user                         10   31m6s  2h20m16s  1h26m59s  1h26m48s   14h29m46s
+  readonly                          5   7m10s   1h3m26s   41m38s    47m30s    3h28m11s
+  batch_user                        3  1h21m46s  2h0m30s  1h42m45s   1h46m0s    5h8m16s
+  admin                             3  42m46s   47m31s   45m16s    45m30s    2h15m47s
+  analytics                         1  1h17m45s  1h17m45s  1h17m45s  1h17m45s    1h17m45s
+  backup_user                       1  1h44m45s  1h44m45s  1h44m45s  1h44m45s    1h44m45s
+
+SESSION DURATION BY DATABASE
+
+  Database                   Sessions      Min      Max      Avg   Median  Cumulated
+  ---------------------------------------------------------------------------------------
+  app_db                           16   7m10s  2h20m16s  1h19m42s  1h22m18s   21h15m18s
+  postgres                          4  42m46s  1h44m45s   1h0m8s    46m31s    4h0m32s
+  analytics_db                      3  47m30s  1h17m45s  1h2m54s   1h3m26s    3h8m41s
+
+SESSION DURATION BY HOST
+
+  Host                       Sessions      Min      Max      Avg   Median  Cumulated
+  ---------------------------------------------------------------------------------------
+  192.168.1.100                     3   31m6s  1h13m10s   50m40s    45m30s    2h32m1s
+  10.0.1.50                         2  1h17m45s  1h52m46s  1h35m16s  1h35m16s   3h10m31s
+  172.16.0.12                       2  1h44m45s  2h20m16s  2h2m31s   2h2m31s    4h5m1s
+  172.16.0.30                       1  37m45s   37m45s   37m45s    37m45s    37m45s
+  ...
+```
+
+**Detailed metrics explained**:
+
+- **Session duration distribution**: Histogram showing distribution of session lengths across time buckets
+- **Session tables**: Breakdown by user, database, and host showing:
+  - **Sessions**: Number of sessions for this entity
+  - **Min/Max**: Shortest and longest sessions
+  - **Avg**: Average session duration
+  - **Median**: 50th percentile (more resistant to outliers than average)
+  - **Cumulated**: Total time spent in sessions for this entity
+
+**Configuration requirements**:
+
+- `log_connections = on` - Track connection events
+- `log_disconnections = on` - Calculate session durations
+- `log_line_prefix` should include `%u` (user), `%d` (database), and `%h` (host) for entity breakdowns
 
 ## Clients
 

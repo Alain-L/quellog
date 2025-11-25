@@ -350,7 +350,7 @@ Checkpoint statistics and events.
 
 ### connections
 
-Connection and session statistics.
+Connection and session statistics with detailed breakdowns.
 
 ```json
 {
@@ -359,6 +359,62 @@ Connection and session statistics.
     "disconnection_count": 23,
     "avg_connections_per_hour": "1.50",
     "avg_session_time": "1h14m6.55s",
+    "session_stats": {
+      "count": 23,
+      "min_duration": "7m10.234s",
+      "max_duration": "2h20m15.89s",
+      "avg_duration": "1h14m6.55s",
+      "median_duration": "1h17m45.123s",
+      "cumulated_duration": "28h24m30.67s"
+    },
+    "session_distribution": {
+      "< 1s": 0,
+      "1s - 1min": 0,
+      "1min - 30min": 1,
+      "30min - 2h": 19,
+      "2h - 5h": 3,
+      "> 5h": 0
+    },
+    "sessions_by_user": {
+      "app_user": {
+        "count": 10,
+        "min_duration": "31m5.567s",
+        "max_duration": "2h20m15.89s",
+        "avg_duration": "1h26m58.587s",
+        "median_duration": "1h26m48.123s",
+        "cumulated_duration": "14h29m45.872s"
+      },
+      "readonly": {
+        "count": 5,
+        "min_duration": "7m10.234s",
+        "max_duration": "1h3m25.678s",
+        "avg_duration": "41m38.256s",
+        "median_duration": "47m30.123s",
+        "cumulated_duration": "3h28m11.281s"
+      }
+    },
+    "sessions_by_database": {
+      "app_db": {
+        "count": 16,
+        "min_duration": "7m10.234s",
+        "max_duration": "2h20m15.89s",
+        "avg_duration": "1h19m42.351s",
+        "median_duration": "1h22m18.178s",
+        "cumulated_duration": "21h15m17.609s"
+      }
+    },
+    "sessions_by_host": {
+      "192.168.1.100": {
+        "count": 3,
+        "min_duration": "31m5.567s",
+        "max_duration": "1h13m10.456s",
+        "avg_duration": "50m40.342s",
+        "median_duration": "45m30.123s",
+        "cumulated_duration": "2h32m1.027s"
+      }
+    },
+    "peak_concurrent_sessions": 36,
+    "peak_concurrent_timestamp": "2025-01-01 05:50:00",
     "connections": [
       "2025-01-01 00:00:15",
       "2025-01-01 00:00:20"
@@ -372,6 +428,19 @@ Connection and session statistics.
 - `disconnection_count`: Total disconnections
 - `avg_connections_per_hour`: Connection rate
 - `avg_session_time`: Average session duration
+- `session_stats`: Global session duration statistics
+  - `count`: Number of sessions with duration data
+  - `min_duration`: Shortest session
+  - `max_duration`: Longest session
+  - `avg_duration`: Mean session duration
+  - `median_duration`: 50th percentile (robust to outliers)
+  - `cumulated_duration`: Total time in sessions
+- `session_distribution`: Histogram of session durations by time buckets
+- `sessions_by_user`: Per-user session statistics (same fields as `session_stats`)
+- `sessions_by_database`: Per-database session statistics
+- `sessions_by_host`: Per-host session statistics
+- `peak_concurrent_sessions`: Maximum simultaneous sessions
+- `peak_concurrent_timestamp`: When peak occurred
 - `connections`: List of connection timestamps
 
 ### clients, users, databases, apps, hosts

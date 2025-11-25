@@ -207,6 +207,71 @@ Lock statistics with query tables.
 | time | 257 | 99.6% | 10.71/h |
 ```
 
+### CONNECTIONS & SESSIONS
+
+Connection patterns and session duration analytics.
+
+```markdown
+## CONNECTIONS & SESSIONS
+
+### Connection distribution
+
+\`\`\`
+00:00 - 00:58 | ■■■■■■■■■■■■■■■ 15
+00:58 - 01:56 | ■■■■■ 5
+01:56 - 02:55 | ■■■■ 4
+\`\`\`
+
+- **Connection count**: 36
+- **Avg connections per hour**: 1.50
+- **Disconnection count**: 23
+- **Avg session time**: 1h14m7s
+- **Avg concurrent sessions**: 13.45
+- **Peak concurrent sessions**: 36 (at 05:50:00)
+
+### Session Duration Statistics
+
+- **Count**: 23
+- **Min**: 7m10s
+- **Max**: 2h20m16s
+- **Avg**: 1h14m7s
+- **Median**: 1h17m45s
+- **Cumulated**: 28h24m31s
+
+### Session duration distribution
+
+\`\`\`
+< 1s         | -
+1s - 1min    | -
+1min - 30min | ■ 1
+30min - 2h   | ■■■■■■■■■■■■■■■■■■■ 19
+2h - 5h      | ■■■ 3
+> 5h         | -
+\`\`\`
+
+### Session Duration by User
+
+| User | Sessions | Min | Max | Avg | Median | Cumulated |
+|---|---:|---|---|---|---|---|
+| app_user | 10 | 31m6s | 2h20m16s | 1h26m59s | 1h26m48s | 14h29m46s |
+| readonly | 5 | 7m10s | 1h3m26s | 41m38s | 47m30s | 3h28m11s |
+| batch_user | 3 | 1h21m46s | 2h0m30s | 1h42m45s | 1h46m0s | 5h8m16s |
+
+### Session Duration by Database
+
+| Database | Sessions | Min | Max | Avg | Median | Cumulated |
+|---|---:|---|---|---|---|---|
+| app_db | 16 | 7m10s | 2h20m16s | 1h19m42s | 1h22m18s | 21h15m18s |
+| postgres | 4 | 42m46s | 1h44m45s | 1h0m8s | 46m31s | 4h0m32s |
+
+### Session Duration by Host
+
+| Host | Sessions | Min | Max | Avg | Median | Cumulated |
+|---|---:|---|---|---|---|---|
+| 192.168.1.100 | 3 | 31m6s | 1h13m10s | 50m40s | 45m30s | 2h32m1s |
+| 10.0.1.50 | 2 | 1h17m45s | 1h52m46s | 1h35m16s | 1h35m16s | 3h10m31s |
+```
+
 ### CLIENTS
 
 ```markdown

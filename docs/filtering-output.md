@@ -176,7 +176,7 @@ quellog /var/log/postgresql/*.log --checkpoints
 
 ### --connections
 
-Display only the connections section.
+Display detailed connection and session analytics.
 
 ```bash
 quellog /var/log/postgresql/*.log --connections
@@ -185,16 +185,38 @@ quellog /var/log/postgresql/*.log --connections
 **Output includes**:
 
 - Connection distribution histogram
-- Total connection count
-- Average connections per hour
+- Total connection count and rate per hour
 - Disconnection count
-- Average session duration
+- Average and peak concurrent sessions
+- **Session duration statistics** (min, max, avg, median, cumulated)
+- **Session duration distribution** histogram (6 time buckets)
+- **Top 10 sessions by user** (with full statistics)
+- **Top 10 sessions by database** (with full statistics)
+- **Top 10 sessions by host** (with full statistics)
 
 **Use when**:
 
 - Monitoring connection patterns
 - Planning connection pooling
 - Investigating connection churn
+- Analyzing session duration patterns by user/database/host
+- Identifying long-running sessions
+- Understanding connection lifecycle
+
+**Example output excerpt**:
+
+```
+SESSION DURATION BY USER
+
+  User                       Sessions      Min      Max      Avg   Median  Cumulated
+  ---------------------------------------------------------------------------------------
+  app_user                         10   31m6s  2h20m16s  1h26m59s  1h26m48s   14h29m46s
+  readonly                          5   7m10s   1h3m26s   41m38s    47m30s    3h28m11s
+  batch_user                        3  1h21m46s  2h0m30s  1h42m45s   1h46m0s    5h8m16s
+```
+
+!!! tip "Detailed Analytics"
+    The `--connections` flag provides much more detail than the connections section in the default report, including session breakdowns by entity and duration distributions.
 
 ### --clients
 
