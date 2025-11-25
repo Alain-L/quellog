@@ -92,6 +92,12 @@ func (a *VacuumAnalyzer) Process(entry *parser.LogEntry) {
 		return
 	}
 
+	// Fast pre-filter: check for 'a' before expensive Index
+	// "automatic" is not super common, so this helps skip most messages
+	if strings.IndexByte(msg, 'a') < 0 {
+		return
+	}
+
 	// Search for "automatic vacuum" or "automatic analyze" anywhere
 	idx := strings.Index(msg, "automatic")
 	if idx < 0 {
