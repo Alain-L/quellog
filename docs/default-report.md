@@ -299,7 +299,7 @@ CHECKPOINTS
 
 Shows connection patterns and session durations.
 
-### Basic Output (Default Report)
+**Basic Output (Default Report)**
 
 ```
 CONNECTIONS & SESSIONS
@@ -330,7 +330,7 @@ CONNECTIONS & SESSIONS
 - **Avg concurrent sessions**: Average number of simultaneous sessions
 - **Peak concurrent sessions**: Maximum simultaneous sessions with timestamp
 
-### Detailed Output (With `--connections` Flag)
+**Detailed Output (With `--connections` Flag)**
 
 When using the explicit `--connections` flag, additional session analytics are displayed:
 
@@ -411,6 +411,8 @@ SESSION DURATION BY HOST
 ## Clients
 
 Lists unique database entities found in logs.
+
+This section appears in the default report. Use `--clients` flag to display **only** this section.
 
 ```
 CLIENTS

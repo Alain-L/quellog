@@ -57,6 +57,7 @@ General log statistics and severity counts.
 ```
 
 **Fields:**
+
 - `start_date`, `end_date`: Time range of analyzed logs
 - `duration`: Timespan covered
 - `total_logs`: Total number of log entries
@@ -90,6 +91,7 @@ Log entries grouped by severity level with percentages.
 ```
 
 **Fields:**
+
 - `type`: Severity level (LOG, ERROR, FATAL, PANIC, WARNING)
 - `count`: Number of entries
 - `percentage`: Percentage of total logs
@@ -116,6 +118,7 @@ PostgreSQL error classification by SQLSTATE code (when available).
 ```
 
 **Fields:**
+
 - `class_code`: Two-character SQLSTATE class code
 - `description`: Human-readable error class description
 - `count`: Number of errors in this class
@@ -298,6 +301,7 @@ Autovacuum and autoanalyze statistics.
 ```
 
 **Fields:**
+
 - `vacuum_count`: Total autovacuum operations
 - `analyze_count`: Total autoanalyze operations
 - `vacuum_table_counts`: Vacuum count per table
@@ -342,6 +346,7 @@ Checkpoint statistics and events.
 ```
 
 **Fields:**
+
 - `total_checkpoints`: Total checkpoint count
 - `avg_checkpoint_time`: Average duration
 - `max_checkpoint_time`: Maximum duration
@@ -424,6 +429,7 @@ Connection and session statistics with detailed breakdowns.
 ```
 
 **Fields:**
+
 - `connection_count`: Total connections
 - `disconnection_count`: Total disconnections
 - `avg_connections_per_hour`: Connection rate

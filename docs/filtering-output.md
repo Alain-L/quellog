@@ -239,6 +239,9 @@ quellog /var/log/postgresql/*.log --clients
 - Understanding client diversity
 - Security reviews
 
+!!! note "Always in Default Report"
+    The clients section appears in the default report. The `--clients` flag is used to display **only** this section, filtering out all other sections.
+
 ## Combining Sections
 
 You can combine multiple section flags to display several sections:
