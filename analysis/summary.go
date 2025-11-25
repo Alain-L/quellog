@@ -145,10 +145,9 @@ type StreamingAnalyzer struct {
 	uniqueEntities *UniqueEntityAnalyzer
 	sql            *SQLAnalyzer
 
-	// Parallel processing
-	sqlChan       chan *parser.LogEntry
-	tempFilesChan chan *parser.LogEntry
-	parallelWg    sync.WaitGroup
+	// Parallel SQL processing
+	sqlChan    chan *parser.LogEntry
+	parallelWg sync.WaitGroup
 }
 
 // NewStreamingAnalyzer creates a new streaming analyzer with all sub-analyzers initialized.
@@ -168,27 +167,15 @@ func NewStreamingAnalyzer(enableParallel bool) *StreamingAnalyzer {
 	}
 
 	if enableParallel {
-		// Start parallel analyzer goroutines.
+		// Start parallel SQL analyzer goroutine.
 		// This provides ~20% wall clock speedup (benchmarked on 1GB+ files) by offloading
-		// expensive analyzers to dedicated goroutines, allowing better CPU utilization.
-
-		// SQL analyzer goroutine (most expensive)
-		sa.sqlChan = make(chan *parser.LogEntry, 10000)
+		// the most expensive analyzer to a dedicated goroutine, allowing better CPU utilization.
+		sa.sqlChan = make(chan *parser.LogEntry, 65536)
 		sa.parallelWg.Add(1)
 		go func() {
 			defer sa.parallelWg.Done()
 			for entry := range sa.sqlChan {
 				sa.sql.Process(entry)
-			}
-		}()
-
-		// TempFile analyzer goroutine
-		sa.tempFilesChan = make(chan *parser.LogEntry, 10000)
-		sa.parallelWg.Add(1)
-		go func() {
-			defer sa.parallelWg.Done()
-			for entry := range sa.tempFilesChan {
-				sa.tempFiles.Process(entry)
 			}
 		}()
 	}
@@ -220,23 +207,23 @@ func (sa *StreamingAnalyzer) Process(entry *parser.LogEntry) {
 	sa.errorClasses.Process(entry)
 	sa.uniqueEntities.Process(entry)
 
-	// Parallel analyzers: dispatch to goroutines if enabled
+	// TempFiles: always sequential (faster than channel overhead for typical logs)
+	sa.tempFiles.Process(entry)
+
+	// SQL: parallel if enabled (most expensive analyzer)
 	if sa.sqlChan != nil {
 		sa.sqlChan <- entry
-		sa.tempFilesChan <- entry
 	} else {
 		sa.sql.Process(entry)
-		sa.tempFiles.Process(entry)
 	}
 }
 
 // Finalize computes final metrics after all log entries have been processed.
 // This should be called once after processing all entries.
 func (sa *StreamingAnalyzer) Finalize() AggregatedMetrics {
-	// Close parallel channels and wait for goroutines to finish
+	// Close SQL channel and wait for goroutine to finish
 	if sa.sqlChan != nil {
 		close(sa.sqlChan)
-		close(sa.tempFilesChan)
 		sa.parallelWg.Wait()
 	}
 
