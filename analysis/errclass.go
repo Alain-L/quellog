@@ -229,33 +229,6 @@ func (a *ErrorClassAnalyzer) Process(entry *parser.LogEntry) {
 	}
 }
 
-func (a *ErrorClassAnalyzer) ProcessLegacy(entry *parser.LogEntry) {
-	// Quick check: skip if message doesn't contain SQLSTATE or ERROR:
-	if !strings.Contains(entry.Message, "SQLSTATE") && !strings.Contains(entry.Message, "ERROR:") {
-		return
-	}
-
-	// Extract SQLSTATE code using regex
-	match := errorCodeRegex.FindStringSubmatch(entry.Message)
-	if len(match) < 2 {
-		return
-	}
-
-	// Extract SQLSTATE from whichever group matched (match[1], match[2], or match[3])
-	sqlstate := match[1]
-	if sqlstate == "" {
-		sqlstate = match[2]
-	}
-	if sqlstate == "" && len(match) > 3 {
-		sqlstate = match[3]
-	}
-
-	if len(sqlstate) >= 2 {
-		classCode := sqlstate[:2]
-		a.counts[classCode]++
-	}
-}
-
 // Finalize returns the aggregated error class summaries, sorted by count (descending).
 // This should be called after all log entries have been processed.
 //

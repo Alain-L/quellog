@@ -564,15 +564,6 @@ func extractResourceType(resource string) string {
 	return resource
 }
 
-// extractStatementText extracts the SQL query from a STATEMENT line.
-func extractStatementText(msg string) string {
-	// Handle both "STATEMENT: " and "statement: " prefixes
-	if idx := strings.Index(msg, ": "); idx >= 0 {
-		return strings.TrimSpace(msg[idx+2:])
-	}
-	return ""
-}
-
 // Finalize returns the aggregated lock metrics.
 // This should be called after all log entries have been processed.
 func (a *LockAnalyzer) Finalize() LockMetrics {

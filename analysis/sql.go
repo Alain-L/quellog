@@ -501,21 +501,3 @@ func CollectQueriesWithoutDuration(sql *SqlMetrics, locks *LockMetrics, tempfile
 	sql.QueriesWithoutDurationCount.Total = len(seen)
 }
 
-// ============================================================================
-// Legacy API (for backward compatibility)
-// ============================================================================
-
-// RunSQLSummary reads SQL log entries from a channel and aggregates statistics.
-//
-// Deprecated: This function is designed for the old channel-based API.
-// Use SQLAnalyzer with streaming for better control and flexibility.
-//
-// This function is maintained for backward compatibility and will be removed
-// in a future version.
-func RunSQLSummary(in <-chan parser.LogEntry) SqlMetrics {
-	analyzer := NewSQLAnalyzer()
-	for entry := range in {
-		analyzer.Process(&entry)
-	}
-	return analyzer.Finalize()
-}
