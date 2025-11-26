@@ -163,6 +163,10 @@ func buildLogFilters(beginT, endT time.Time) parser.LogFilters {
 // processAndOutput analyzes filtered logs and outputs results in the requested format.
 func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, totalFileSize int64) {
 	// Validate flag compatibility
+	if jsonFlag && mdFlag {
+		fmt.Fprintln(os.Stderr, "Error: --json and --md are mutually exclusive")
+		os.Exit(1)
+	}
 	if jsonFlag && (sqlSummaryFlag || len(sqlDetailFlag) > 0) {
 		fmt.Fprintln(os.Stderr, "Error: --json is not compatible with --sql-summary or --sql-detail")
 		fmt.Fprintln(os.Stderr, "Tip: use --json --sql-performance and filter with jq")

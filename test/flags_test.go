@@ -117,7 +117,7 @@ func TestFlagCompatibility(t *testing.T) {
 			{
 				name:        "json_and_md",
 				args:        []string{testFile, "--json", "--md"},
-				errContains: "", // Currently not validated - this test documents the gap
+				errContains: "mutually exclusive",
 			},
 
 			// Time filter conflicts
@@ -158,12 +158,6 @@ func TestFlagCompatibility(t *testing.T) {
 		for _, tc := range invalidCases {
 			t.Run(tc.name, func(t *testing.T) {
 				_, stderr, exitCode := runQuellog(t, binary, tc.args...)
-
-				// Skip tests that document gaps (errContains is empty)
-				if tc.errContains == "" {
-					t.Skipf("Test documents a validation gap - --json + --md not currently validated")
-					return
-				}
 
 				if exitCode == 0 {
 					t.Errorf("Expected non-zero exit code for invalid combination")
