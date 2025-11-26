@@ -169,6 +169,7 @@ Here are the main features:
   - Global performance metrics with percentiles and distribution histograms
   - Per-query details with execution statistics
   - Top rankings: slowest queries, most frequent, highest total time consumption
+  - Query type overview: breakdown by database, user, host, and application
 - **Database health monitoring:**
   - Error and warning detection with event classification
   - Vacuum and autovacuum analysis with space recovery metrics
@@ -286,7 +287,53 @@ quellog /path/to/logs --checkpoints --connections
 
 ### Analyze SQL performance
 ```sh
-quellog /path/to/logs --sql-summary
+quellog /path/to/logs --sql-performance
+```
+
+### Query type overview
+```sh
+quellog /path/to/logs --sql-overview
+```
+
+This displays query breakdowns by type, category, and dimensions (database, user, host, application):
+
+```
+SQL OVERVIEW
+
+  Query Category Summary
+
+    DML          : 1,234     (78.5%)
+    UTILITY      : 245       (15.6%)
+    DDL          : 78        (5.0%)
+    TCL          : 14        (0.9%)
+
+  Query Type Distribution
+
+    SELECT       : 890       (56.6%)
+    INSERT       : 234       (14.9%)
+    UPDATE       : 110       (7.0%)
+    DELETE       : 45        (2.9%)
+    BEGIN        : 78        (5.0%)
+    COMMIT       : 65        (4.1%)
+    ...
+
+  Queries per Database
+
+    mydb (1,234 queries, 45m 23s)
+      SELECT         890      38m 12s
+      INSERT         234       5m 45s
+      UPDATE         110       1m 26s
+
+    analytics_db (523 queries, 12m 45s)
+      SELECT         487      11m 30s
+      INSERT          36       1m 15s
+
+  Queries per User
+
+    app_user (1,456 queries, 52m 8s)
+      SELECT       1,123      45m 32s
+      INSERT         234       5m 12s
+      UPDATE         99        1m 24s
 ```
 
 ### Show details for a specific SQL query
@@ -337,7 +384,8 @@ Attribute Filters:
   -U, --exclude-user      Exclude entries from specified user(s)
 
 SQL Analysis:
-      --sql-summary       Display SQL performance summary with metrics and percentiles
+      --sql-performance   Display detailed SQL performance analysis with metrics and percentiles
+      --sql-overview      Display query type overview with breakdown by dimension
   -Q, --sql-detail        Show details for specific SQL ID(s)
 
 Section Selection:
@@ -347,7 +395,7 @@ Section Selection:
       --clients           Print only the clients section
       --events            Print only the events section
       --errors            Print only the error classes section
-      --sql-performance   Print only the SQL performance section
+      --sql-summary       Print only the SQL summary section
       --tempfiles         Print only the temporary files section
       --locks             Print only the locks section
       --maintenance       Print only the maintenance section

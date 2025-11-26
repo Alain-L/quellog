@@ -232,8 +232,11 @@ quellog /var/log/postgresql/*.log --dbname app_db --dbname analytics_db
 #### 3. Analyze SQL performance
 
 ```bash
-# Show SQL summary with top queries
-quellog /var/log/postgresql/*.log --sql-summary
+# Show SQL performance with top queries, temp files, locks
+quellog /var/log/postgresql/*.log --sql-performance
+
+# Show query type overview
+quellog /var/log/postgresql/*.log --sql-overview
 
 # Get details for a specific slow query
 quellog /var/log/postgresql/*.log --sql-detail se-a1b2c3d

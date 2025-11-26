@@ -64,7 +64,7 @@ func TestSQLNormalizationEdgeCases(t *testing.T) {
 	}
 
 	// Verify normalization is working by running text output and checking queries
-	cmd2 := exec.Command(quellogBinary, "testdata/sql_normalization_edge_cases.log", "--sql-summary")
+	cmd2 := exec.Command(quellogBinary, "testdata/sql_normalization_edge_cases.log", "--sql-performance")
 	var stdout2 bytes.Buffer
 	cmd2.Stdout = &stdout2
 

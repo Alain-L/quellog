@@ -60,7 +60,7 @@ func TestFlagCompatibility(t *testing.T) {
 			{"section_checkpoints", []string{testFile, "--checkpoints"}},
 			{"section_events", []string{testFile, "--events"}},
 			{"section_errors", []string{testFile, "--errors"}},
-			{"section_sql_performance", []string{testFile, "--sql-performance"}},
+			{"section_sql_summary", []string{testFile, "--sql-summary"}},
 			{"section_tempfiles", []string{testFile, "--tempfiles"}},
 			{"section_locks", []string{testFile, "--locks"}},
 			{"section_maintenance", []string{testFile, "--maintenance"}},
@@ -75,10 +75,11 @@ func TestFlagCompatibility(t *testing.T) {
 			{"section_json", []string{testFile, "--summary", "--json"}},
 			{"section_md", []string{testFile, "--summary", "--md"}},
 			{"multiple_sections_json", []string{testFile, "--summary", "--events", "--json"}},
+			{"section_sql_summary_json", []string{testFile, "--sql-summary", "--json"}},
 
-			// SQL flags
-			{"sql_summary", []string{testFile, "--sql-summary"}},
-			{"sql_summary_md", []string{testFile, "--sql-summary", "--md"}},
+			// SQL analysis flags (dedicated reports)
+			{"sql_performance", []string{testFile, "--sql-performance"}},
+			{"sql_performance_md", []string{testFile, "--sql-performance", "--md"}},
 
 			// Time filters (valid combinations) - using dates that match test_summary.log (2025-01-01)
 			{"begin_only", []string{testFile, "--begin", "2025-01-01 00:00:00"}},
@@ -144,9 +145,9 @@ func TestFlagCompatibility(t *testing.T) {
 
 			// SQL flag conflicts
 			{
-				name:        "json_with_sql_summary",
-				args:        []string{testFile, "--json", "--sql-summary"},
-				errContains: "--json is not compatible with --sql-summary",
+				name:        "json_with_sql_performance",
+				args:        []string{testFile, "--json", "--sql-performance"},
+				errContains: "--json is not compatible with --sql-performance",
 			},
 			{
 				name:        "json_with_sql_detail",

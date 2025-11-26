@@ -38,10 +38,10 @@ func ExportMarkdown(m analysis.AggregatedMetrics, sections []string) {
 	}
 
 	// ============================================================================
-	// SQL PERFORMANCE
+	// SQL SUMMARY
 	// ============================================================================
-	if has("sql_performance") && m.SQL.TotalQueries > 0 {
-		b.WriteString("## SQL PERFORMANCE\n\n")
+	if has("sql_summary") && m.SQL.TotalQueries > 0 {
+		b.WriteString("## SQL SUMMARY\n\n")
 
 		// Query load histogram
 		if !m.SQL.StartTimestamp.IsZero() && !m.SQL.EndTimestamp.IsZero() {
@@ -1274,4 +1274,170 @@ func ExportSqlDetailMarkdown(m analysis.AggregatedMetrics, queryDetails []string
 	}
 
 	fmt.Println(b.String())
+}
+
+// ExportSqlOverviewMarkdown exports SQL query type overview statistics in Markdown format.
+// This provides query type statistics with dimensional breakdowns (SELECT, INSERT, UPDATE, DELETE, etc.)
+func ExportSqlOverviewMarkdown(m analysis.SqlMetrics) {
+	var b strings.Builder
+
+	b.WriteString("# SQL QUERY OVERVIEW\n\n")
+
+	// Global statistics
+	b.WriteString("## Global Statistics\n\n")
+	b.WriteString("|  |  |  |  |\n")
+	b.WriteString("|---|---:|---|---:|\n")
+	b.WriteString(fmt.Sprintf("| Total queries | %d | Unique queries | %d |\n",
+		m.TotalQueries, m.UniqueQueries))
+	b.WriteString(fmt.Sprintf("| Total duration | %s | Median duration | %s |\n",
+		formatQueryDuration(m.SumQueryDuration), formatQueryDuration(m.MedianQueryDuration)))
+	b.WriteString(fmt.Sprintf("| Min duration | %s | Max duration | %s |\n",
+		formatQueryDuration(m.MinQueryDuration), formatQueryDuration(m.MaxQueryDuration)))
+	b.WriteString(fmt.Sprintf("| 99th percentile | %s | | |\n\n",
+		formatQueryDuration(m.P99QueryDuration)))
+
+	// Query Category Summary - EN PREMIER
+	if len(m.QueryTypeStats) > 0 {
+		b.WriteString("## Query Category Summary\n\n")
+		b.WriteString("| Category | Count | % | Total Time |\n")
+		b.WriteString("|---|---:|---:|---:|\n")
+
+		// Aggregate by category
+		categoryStats := make(map[string]struct {
+			Count     int
+			TotalTime float64
+		})
+		for _, ts := range m.QueryTypeStats {
+			cat := categoryStats[ts.Category]
+			cat.Count += ts.Count
+			cat.TotalTime += ts.TotalTime
+			categoryStats[ts.Category] = cat
+		}
+
+		// Sort categories by count descending
+		categories := make([]string, 0, len(categoryStats))
+		for cat := range categoryStats {
+			categories = append(categories, cat)
+		}
+		sort.Slice(categories, func(i, j int) bool {
+			return categoryStats[categories[i]].Count > categoryStats[categories[j]].Count
+		})
+
+		for _, cat := range categories {
+			stats := categoryStats[cat]
+			pct := 0.0
+			if m.TotalQueries > 0 {
+				pct = float64(stats.Count) / float64(m.TotalQueries) * 100
+			}
+			b.WriteString(fmt.Sprintf("| %s | %d | %.1f%% | %s |\n",
+				cat, stats.Count, pct, formatQueryDuration(stats.TotalTime)))
+		}
+		b.WriteString("\n")
+	}
+
+	// Query Type Distribution - EN SECOND
+	if len(m.QueryTypeStats) > 0 {
+		b.WriteString("## Query Type Distribution\n\n")
+		b.WriteString("| Type | Count | % | Total Time | Avg Time | Max Time |\n")
+		b.WriteString("|---|---:|---:|---:|---:|---:|\n")
+
+		// Sort by count descending
+		types := make([]*analysis.QueryTypeStat, 0, len(m.QueryTypeStats))
+		for _, ts := range m.QueryTypeStats {
+			types = append(types, ts)
+		}
+		sort.Slice(types, func(i, j int) bool {
+			return types[i].Count > types[j].Count
+		})
+
+		for _, ts := range types {
+			pct := 0.0
+			if m.TotalQueries > 0 {
+				pct = float64(ts.Count) / float64(m.TotalQueries) * 100
+			}
+			b.WriteString(fmt.Sprintf("| %s | %d | %.1f%% | %s | %s | %s |\n",
+				ts.Type, ts.Count, pct,
+				formatQueryDuration(ts.TotalTime),
+				formatQueryDuration(ts.AvgTime),
+				formatQueryDuration(ts.MaxTime)))
+		}
+		b.WriteString("\n")
+	}
+
+	// Breakdowns by dimension
+	exportQueryTypeBreakdownMarkdown(&b, "Per Database", m.QueryTypesByDatabase)
+	exportQueryTypeBreakdownMarkdown(&b, "Per User", m.QueryTypesByUser)
+	exportQueryTypeBreakdownMarkdown(&b, "Per Host", m.QueryTypesByHost)
+	exportQueryTypeBreakdownMarkdown(&b, "Per Application", m.QueryTypesByApp)
+
+	fmt.Println(b.String())
+}
+
+// exportQueryTypeBreakdownMarkdown writes query type breakdown for a dimension (database, user, host, app)
+func exportQueryTypeBreakdownMarkdown(b *strings.Builder, title string, breakdown map[string]map[string]*analysis.QueryTypeCount) {
+	if len(breakdown) == 0 {
+		return
+	}
+
+	b.WriteString("## " + title + "\n\n")
+
+	// Sort dimensions by total count (descending)
+	type dimStats struct {
+		name      string
+		count     int
+		totalTime float64
+	}
+	var dimensions []dimStats
+	for dimName, types := range breakdown {
+		var totalCount int
+		var totalTime float64
+		for _, tc := range types {
+			totalCount += tc.Count
+			totalTime += tc.TotalTime
+		}
+		dimensions = append(dimensions, dimStats{dimName, totalCount, totalTime})
+	}
+	sort.Slice(dimensions, func(i, j int) bool {
+		return dimensions[i].count > dimensions[j].count
+	})
+
+	// Print each dimension with its query types
+	for _, dim := range dimensions {
+		b.WriteString(fmt.Sprintf("### %s (%d queries, %s)\n\n",
+			dim.name,
+			dim.count,
+			formatQueryDuration(dim.totalTime)))
+
+		b.WriteString("| Query Type | Count | Total Time |\n")
+		b.WriteString("|---|---:|---:|\n")
+
+		// Get all query types for this dimension
+		types := breakdown[dim.name]
+		var typeList []struct {
+			name      string
+			count     int
+			totalTime float64
+		}
+		for typeName, tc := range types {
+			typeList = append(typeList, struct {
+				name      string
+				count     int
+				totalTime float64
+			}{typeName, tc.Count, tc.TotalTime})
+		}
+
+		// Sort by count descending
+		sort.Slice(typeList, func(i, j int) bool {
+			return typeList[i].count > typeList[j].count
+		})
+
+		// Print query types
+		for _, t := range typeList {
+			b.WriteString(fmt.Sprintf("| %s | %d | %s |\n",
+				t.name,
+				t.count,
+				formatQueryDuration(t.totalTime)))
+		}
+		b.WriteString("\n")
+	}
 }

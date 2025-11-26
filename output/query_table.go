@@ -451,3 +451,13 @@ func ColumnDuration() QueryTableColumn {
 		ValueFunc: func(row QueryRow) string { return formatQueryDuration(row.MaxTime) },
 	}
 }
+
+// ColumnType returns the query type column (SELECT, INSERT, etc.).
+func ColumnType() QueryTableColumn {
+	return QueryTableColumn{
+		Header:    "Type",
+		Width:     8,
+		Alignment: "left",
+		ValueFunc: func(row QueryRow) string { return row.QueryType },
+	}
+}

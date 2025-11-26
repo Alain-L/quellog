@@ -35,17 +35,76 @@ type queryPrefix struct {
 
 // queryPrefixes defines SQL command types and their corresponding ID prefixes.
 // The order matters: more specific commands should come first.
+// Query categories:
+//   - DML: SELECT, INSERT, UPDATE, DELETE, MERGE
+//   - COPY: COPY operations
+//   - CTE: WITH queries (Common Table Expressions)
+//   - DDL: CREATE, DROP, ALTER, TRUNCATE, COMMENT, SECURITY LABEL
+//   - TCL: BEGIN, COMMIT, ROLLBACK, SAVEPOINT, START, END, RELEASE
+//   - CURSOR: DECLARE, FETCH, CLOSE, MOVE
+//   - Utility: EXPLAIN, ANALYZE, VACUUM, REINDEX, CLUSTER, LOCK, etc.
 var queryPrefixes = [...]queryPrefix{
+	// DML - Data Manipulation Language
 	{"SELECT", "se-"},   // SELECT queries
 	{"INSERT", "in-"},   // INSERT statements
 	{"UPDATE", "up-"},   // UPDATE statements
 	{"DELETE", "de-"},   // DELETE statements
-	{"COPY", "co-"},     // COPY operations
-	{"REFRESH", "mv-"},  // REFRESH MATERIALIZED VIEW
+	{"MERGE", "me-"},    // MERGE statements (PostgreSQL 15+)
+
+	// COPY operations
+	{"COPY", "co-"}, // COPY TO/FROM
+
+	// CTE - Common Table Expressions (WITH queries)
+	{"WITH", "wi-"}, // WITH ... SELECT/INSERT/UPDATE/DELETE
+
+	// DDL - Data Definition Language
 	{"CREATE", "cr-"},   // CREATE statements
 	{"DROP", "dr-"},     // DROP statements
 	{"ALTER", "al-"},    // ALTER statements
 	{"TRUNCATE", "tr-"}, // TRUNCATE statements
+	{"COMMENT", "cm-"},  // COMMENT ON statements
+	{"REFRESH", "mv-"},  // REFRESH MATERIALIZED VIEW
+
+	// TCL - Transaction Control Language
+	{"BEGIN", "be-"},      // BEGIN transaction
+	{"COMMIT", "ct-"},     // COMMIT transaction
+	{"ROLLBACK", "rb-"},   // ROLLBACK transaction
+	{"SAVEPOINT", "sv-"},  // SAVEPOINT
+	{"RELEASE", "rl-"},    // RELEASE SAVEPOINT
+	{"START", "st-"},      // START TRANSACTION
+	{"END", "en-"},        // END (alias for COMMIT)
+	{"ABORT", "ab-"},      // ABORT (alias for ROLLBACK)
+	{"PREPARE", "pr-"},    // PREPARE TRANSACTION
+	{"DEALLOCATE", "dl-"}, // DEALLOCATE prepared statement
+
+	// CURSOR operations
+	{"DECLARE", "dc-"}, // DECLARE cursor
+	{"FETCH", "fe-"},   // FETCH from cursor
+	{"CLOSE", "cl-"},   // CLOSE cursor
+	{"MOVE", "mo-"},    // MOVE cursor
+
+	// Utility commands
+	{"EXPLAIN", "ex-"},  // EXPLAIN / EXPLAIN ANALYZE
+	{"ANALYZE", "an-"},  // ANALYZE table
+	{"VACUUM", "va-"},   // VACUUM
+	{"REINDEX", "ri-"},  // REINDEX
+	{"CLUSTER", "cu-"},  // CLUSTER
+	{"LOCK", "lk-"},     // LOCK TABLE
+	{"UNLISTEN", "ul-"}, // UNLISTEN (before LISTEN for prefix match)
+	{"LISTEN", "li-"},   // LISTEN
+	{"NOTIFY", "no-"},   // NOTIFY
+	{"DISCARD", "di-"},  // DISCARD
+	{"RESET", "re-"},    // RESET
+	{"SET", "se-"},      // SET - shares prefix with SELECT intentionally
+	{"SHOW", "sh-"},     // SHOW
+	{"LOAD", "lo-"},     // LOAD
+	{"CALL", "ca-"},     // CALL procedure
+	{"DO", "do-"},       // DO anonymous block
+	{"EXECUTE", "xe-"},  // EXECUTE prepared statement
+
+	// Security
+	{"GRANT", "gr-"},  // GRANT privileges
+	{"REVOKE", "rv-"}, // REVOKE privileges
 }
 
 // ============================================================================
@@ -244,19 +303,79 @@ func GenerateQueryID(rawQuery, normalizedQuery string) (id, fullHash string) {
 
 // detectQueryPrefix identifies the SQL command type and returns its prefix.
 // Uses case-insensitive matching on the first word of the query.
+// Handles queries that start with comments (/* ... */ or -- ...).
 func detectQueryPrefix(rawQuery string) string {
+	// Skip leading whitespace and comments to find actual SQL keyword
+	query := skipLeadingComments(rawQuery)
+
 	// Default prefix for unknown query types
 	prefix := "xx-"
 
 	// Try to match against known query prefixes
 	for _, p := range queryPrefixes {
-		if matchesKeyword(rawQuery, p.keyword) {
+		if matchesKeyword(query, p.keyword) {
 			prefix = p.prefix
 			break
 		}
 	}
 
 	return prefix
+}
+
+// skipLeadingComments removes leading whitespace and SQL comments from a query.
+// Handles:
+//   - Block comments: /* ... */
+//   - Line comments: -- ... (until newline)
+//   - Nested block comments (PostgreSQL supports them)
+func skipLeadingComments(query string) string {
+	i := 0
+	n := len(query)
+
+	for i < n {
+		// Skip whitespace
+		if query[i] == ' ' || query[i] == '\t' || query[i] == '\n' || query[i] == '\r' {
+			i++
+			continue
+		}
+
+		// Skip block comments /* ... */ (may be nested in PostgreSQL)
+		if i+1 < n && query[i] == '/' && query[i+1] == '*' {
+			i += 2
+			depth := 1
+			for i+1 < n && depth > 0 {
+				if query[i] == '/' && query[i+1] == '*' {
+					depth++
+					i += 2
+				} else if query[i] == '*' && query[i+1] == '/' {
+					depth--
+					i += 2
+				} else {
+					i++
+				}
+			}
+			continue
+		}
+
+		// Skip line comments -- ...
+		if i+1 < n && query[i] == '-' && query[i+1] == '-' {
+			i += 2
+			for i < n && query[i] != '\n' {
+				i++
+			}
+			if i < n {
+				i++ // Skip the newline
+			}
+			continue
+		}
+
+		// Found non-comment, non-whitespace character
+		break
+	}
+
+	if i >= n {
+		return ""
+	}
+	return query[i:]
 }
 
 // matchesKeyword checks if a query starts with a specific SQL keyword (case-insensitive).
@@ -317,38 +436,139 @@ func generateShortHash(hashBytes []byte) string {
 //
 // Example:
 //
-//	"se-A3bC9k" -> "select"
-//	"in-XyZ123" -> "insert"
-//	"xx-AbCdEf" -> "other"
+//	"se-A3bC9k" -> "SELECT"
+//	"in-XyZ123" -> "INSERT"
+//	"xx-AbCdEf" -> "OTHER"
 func QueryTypeFromID(id string) string {
 	if len(id) < 3 {
-		return "other"
+		return "OTHER"
 	}
 
 	// Map prefix to query type
 	switch id[:3] {
+	// DML
 	case "se-":
-		return "select"
+		return "SELECT"
 	case "in-":
-		return "insert"
+		return "INSERT"
 	case "up-":
-		return "update"
+		return "UPDATE"
 	case "de-":
-		return "delete"
+		return "DELETE"
+	case "me-":
+		return "MERGE"
+	// COPY
 	case "co-":
-		return "copy"
-	case "mv-":
-		return "refresh"
+		return "COPY"
+	// CTE
+	case "wi-":
+		return "WITH"
+	// DDL
 	case "cr-":
-		return "create"
+		return "CREATE"
 	case "dr-":
-		return "drop"
+		return "DROP"
 	case "al-":
-		return "alter"
+		return "ALTER"
 	case "tr-":
-		return "truncate"
+		return "TRUNCATE"
+	case "cm-":
+		return "COMMENT"
+	case "mv-":
+		return "REFRESH"
+	// TCL
+	case "be-":
+		return "BEGIN"
+	case "ct-":
+		return "COMMIT"
+	case "rb-":
+		return "ROLLBACK"
+	case "sv-":
+		return "SAVEPOINT"
+	case "rl-":
+		return "RELEASE"
+	case "st-":
+		return "START"
+	case "en-":
+		return "END"
+	case "ab-":
+		return "ABORT"
+	case "pr-":
+		return "PREPARE"
+	case "dl-":
+		return "DEALLOCATE"
+	// CURSOR
+	case "dc-":
+		return "DECLARE"
+	case "fe-":
+		return "FETCH"
+	case "cl-":
+		return "CLOSE"
+	case "mo-":
+		return "MOVE"
+	// Utility
+	case "ex-":
+		return "EXPLAIN"
+	case "an-":
+		return "ANALYZE"
+	case "va-":
+		return "VACUUM"
+	case "ri-":
+		return "REINDEX"
+	case "cu-":
+		return "CLUSTER"
+	case "lk-":
+		return "LOCK"
+	case "ul-":
+		return "UNLISTEN"
+	case "li-":
+		return "LISTEN"
+	case "no-":
+		return "NOTIFY"
+	case "di-":
+		return "DISCARD"
+	case "re-":
+		return "RESET"
+	case "sh-":
+		return "SHOW"
+	case "lo-":
+		return "LOAD"
+	case "ca-":
+		return "CALL"
+	case "do-":
+		return "DO"
+	case "xe-":
+		return "EXECUTE"
+	// Security
+	case "gr-":
+		return "GRANT"
+	case "rv-":
+		return "REVOKE"
 	default:
-		return "other"
+		return "OTHER"
+	}
+}
+
+// QueryCategory returns the high-level category for a query type.
+// Categories: DML, COPY, CTE, DDL, TCL, CURSOR, UTILITY, Security, OTHER
+func QueryCategory(queryType string) string {
+	switch queryType {
+	case "SELECT", "INSERT", "UPDATE", "DELETE", "MERGE":
+		return "DML"
+	case "COPY":
+		return "COPY"
+	case "WITH":
+		return "CTE"
+	case "CREATE", "DROP", "ALTER", "TRUNCATE", "COMMENT", "REFRESH":
+		return "DDL"
+	case "BEGIN", "COMMIT", "ROLLBACK", "SAVEPOINT", "RELEASE", "START", "END", "ABORT", "PREPARE", "DEALLOCATE":
+		return "TCL"
+	case "DECLARE", "FETCH", "CLOSE", "MOVE":
+		return "CURSOR"
+	case "EXPLAIN", "ANALYZE", "VACUUM", "REINDEX", "CLUSTER", "LOCK", "UNLISTEN", "LISTEN", "NOTIFY", "DISCARD", "RESET", "SHOW", "LOAD", "CALL", "DO", "EXECUTE", "GRANT", "REVOKE", "SET":
+		return "UTILITY"
+	default:
+		return "OTHER"
 	}
 }
 

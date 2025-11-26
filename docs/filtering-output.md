@@ -84,8 +84,10 @@ quellog /var/log/postgresql/*.log --sql-performance
 - Checking query load distribution
 - Verifying query logging is working
 
-!!! note "Difference from --sql-summary"
-    `--sql-performance` shows the overview histogram and aggregate stats from the default report, while `--sql-summary` provides detailed per-query statistics.
+!!! note "Related SQL flags"
+    - `--sql-performance`: Detailed per-query statistics with top queries, temp files, and locks
+    - `--sql-overview`: Query type breakdown by database/user/host/application
+    - Use `--sql-summary` flag to show only the SQL summary section in the default report
 
 ### --tempfiles
 
@@ -515,7 +517,7 @@ quellog /var/log/postgresql/*.log \
 quellog /var/log/postgresql/*.log \
   --begin "2025-01-13 14:00:00" \
   --end "2025-01-13 15:00:00" \
-  --sql-summary
+  --sql-detail se-a1b2c3
 ```
 
 ## Section Availability
@@ -575,5 +577,5 @@ quellog /var/log/postgresql/*.log \
 ## Next Steps
 
 - [Understand the default report](default-report.md) to interpret each section
-- [Deep dive into SQL analysis](sql-reports.md) with --sql-summary
+- [Deep dive into SQL analysis](sql-reports.md) with `--sql-performance`, `--sql-overview`, and `--sql-detail`
 - [Export results](json-export.md) for further processing

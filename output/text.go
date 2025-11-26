@@ -49,8 +49,8 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string) {
 		}
 	}
 
-	// SQL performance section
-	if has("sql_performance") && m.SQL.TotalQueries > 0 {
+	// SQL summary section
+	if has("sql_summary") && m.SQL.TotalQueries > 0 {
 		PrintSQLSummary(m.SQL, true)
 	}
 
@@ -851,7 +851,7 @@ func PrintSQLSummaryWithContext(m analysis.SqlMetrics, tempFiles analysis.TempFi
 	}
 
 	// ** SQL Summary Header **
-	fmt.Println(bold + "\nSQL PERFORMANCE" + reset)
+	fmt.Println(bold + "\nSQL SUMMARY" + reset)
 	fmt.Println()
 
 	// ** Query Load Histogram **
@@ -1887,5 +1887,168 @@ func printMostFrequentWaitingQueries(queryStats map[string]*analysis.LockQuerySt
 				formatQueryDuration(avgWait),
 				formatQueryDuration(pair.totalWait))
 		}
+	}
+}
+
+// PrintSQLOverview displays SQL query type overview with dimensional breakdowns.
+// This shows statistics grouped by query type (SELECT, INSERT, UPDATE, DELETE, etc.)
+// with counts, times, and percentages, broken down by database, user, host, and application.
+func PrintSQLOverview(m analysis.SqlMetrics) {
+	bold := "\033[1m"
+	reset := "\033[0m"
+
+	fmt.Println(bold + "\nSQL QUERY OVERVIEW" + reset)
+	fmt.Println()
+
+	if m.TotalQueries == 0 {
+		fmt.Println("  No SQL queries found in the logs.")
+		return
+	}
+
+	// Group by category (DML, DDL, TCL, etc.) - EN PREMIER
+	categoryStats := make(map[string]struct {
+		count     int
+		totalTime float64
+	})
+	for _, stat := range m.QueryTypeStats {
+		cat := stat.Category
+		cs := categoryStats[cat]
+		cs.count += stat.Count
+		cs.totalTime += stat.TotalTime
+		categoryStats[cat] = cs
+	}
+
+	// Sort categories by count
+	type catStatPair struct {
+		category  string
+		count     int
+		totalTime float64
+	}
+	var catPairs []catStatPair
+	for cat, cs := range categoryStats {
+		catPairs = append(catPairs, catStatPair{cat, cs.count, cs.totalTime})
+	}
+	sort.Slice(catPairs, func(i, j int) bool {
+		return catPairs[i].count > catPairs[j].count
+	})
+
+	fmt.Println(bold + "  Query Category Summary" + reset)
+	fmt.Println()
+	fmt.Printf("  %-10s  %10s  %8s  %12s\n", "Category", "Count", "%", "Total Time")
+	fmt.Println("  " + strings.Repeat("-", 46))
+
+	for _, pair := range catPairs {
+		pct := float64(pair.count) / float64(m.TotalQueries) * 100
+		fmt.Printf("  %-10s  %10d  %7.1f%%  %12s\n",
+			pair.category,
+			pair.count,
+			pct,
+			formatQueryDuration(pair.totalTime))
+	}
+	fmt.Println()
+
+	// Sort query types by count (descending)
+	type typeStatPair struct {
+		qtype string
+		stat  *analysis.QueryTypeStat
+	}
+	var pairs []typeStatPair
+	for qtype, stat := range m.QueryTypeStats {
+		pairs = append(pairs, typeStatPair{qtype, stat})
+	}
+	sort.Slice(pairs, func(i, j int) bool {
+		return pairs[i].stat.Count > pairs[j].stat.Count
+	})
+
+	// Print query type distribution - EN SECOND
+	fmt.Println(bold + "  Query Type Distribution" + reset)
+	fmt.Println()
+	fmt.Printf("  %-12s  %10s  %8s  %12s  %12s  %10s\n", "Type", "Count", "%", "Total Time", "Avg Time", "Max Time")
+	fmt.Println("  " + strings.Repeat("-", 70))
+
+	for _, pair := range pairs {
+		stat := pair.stat
+		pct := float64(stat.Count) / float64(m.TotalQueries) * 100
+		fmt.Printf("  %-12s  %10d  %7.1f%%  %12s  %12s  %10s\n",
+			pair.qtype,
+			stat.Count,
+			pct,
+			formatQueryDuration(stat.TotalTime),
+			formatQueryDuration(stat.AvgTime),
+			formatQueryDuration(stat.MaxTime))
+	}
+	fmt.Println()
+
+	// Breakdowns by dimension
+	printQueryTypeBreakdown("Per Database", m.QueryTypesByDatabase, bold, reset)
+	printQueryTypeBreakdown("Per User", m.QueryTypesByUser, bold, reset)
+	printQueryTypeBreakdown("Per Host", m.QueryTypesByHost, bold, reset)
+	printQueryTypeBreakdown("Per Application", m.QueryTypesByApp, bold, reset)
+}
+
+// printQueryTypeBreakdown displays query type statistics grouped by a dimension (database, user, host, app)
+func printQueryTypeBreakdown(title string, breakdown map[string]map[string]*analysis.QueryTypeCount, bold, reset string) {
+	if len(breakdown) == 0 {
+		return
+	}
+
+	fmt.Println(bold + "  " + title + reset)
+	fmt.Println()
+
+	// Sort dimensions by total count (descending)
+	type dimStats struct {
+		name      string
+		count     int
+		totalTime float64
+	}
+	var dimensions []dimStats
+	for dimName, types := range breakdown {
+		var totalCount int
+		var totalTime float64
+		for _, tc := range types {
+			totalCount += tc.Count
+			totalTime += tc.TotalTime
+		}
+		dimensions = append(dimensions, dimStats{dimName, totalCount, totalTime})
+	}
+	sort.Slice(dimensions, func(i, j int) bool {
+		return dimensions[i].count > dimensions[j].count
+	})
+
+	// Print each dimension with its query types
+	for _, dim := range dimensions {
+		fmt.Printf("  %s (%d queries, %s)\n",
+			dim.name,
+			dim.count,
+			formatQueryDuration(dim.totalTime))
+
+		// Get all query types for this dimension
+		types := breakdown[dim.name]
+		var typeList []struct {
+			name      string
+			count     int
+			totalTime float64
+		}
+		for typeName, tc := range types {
+			typeList = append(typeList, struct {
+				name      string
+				count     int
+				totalTime float64
+			}{typeName, tc.Count, tc.TotalTime})
+		}
+
+		// Sort by count descending
+		sort.Slice(typeList, func(i, j int) bool {
+			return typeList[i].count > typeList[j].count
+		})
+
+		// Print query types
+		for _, t := range typeList {
+			fmt.Printf("    %-12s  %6d  %12s\n",
+				t.name,
+				t.count,
+				formatQueryDuration(t.totalTime))
+		}
+		fmt.Println()
 	}
 }

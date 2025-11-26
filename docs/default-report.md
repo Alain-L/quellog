@@ -46,7 +46,7 @@ SUMMARY
 Shows query execution statistics and load distribution.
 
 !!! note
-    Query details (list of slowest queries, most time-consuming queries) are only shown when using `--sql-summary`. The default report shows only summary metrics.
+    Query details (list of slowest queries, most time-consuming queries) are only shown when using `--sql-performance`. The default report shows only summary metrics.
 
 ```
 SQL PERFORMANCE
@@ -143,7 +143,7 @@ ERROR CLASSES
 Tracks queries that exceeded `work_mem` and spilled to disk.
 
 !!! note
-    Query details ("Top queries by tempfile size") are shown when using `--tempfiles` or `--sql-summary`. The default report shows only summary metrics.
+    Query details ("Top queries by tempfile size") are shown when using `--tempfiles` or `--sql-performance`. The default report shows only summary metrics.
 
 ```
 TEMP FILES
@@ -183,7 +183,7 @@ se-z3k2JB  select ?, array_agg(distinct st_srid("geom")::text || ? || upper(geo.
 Shows lock contention, wait times, and queries involved in lock waits.
 
 !!! note
-    Query details (the three query tables) are shown when using `--locks` or `--sql-summary`. The default report shows only summary metrics.
+    Query details (the three query tables) are shown when using `--locks` or `--sql-performance`. The default report shows only summary metrics.
 
 ```
 LOCKS

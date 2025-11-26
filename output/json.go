@@ -244,8 +244,8 @@ func ExportJSON(m analysis.AggregatedMetrics, sections []string) {
 		data["error_classes"] = errorClasses
 	}
 
-	// Conditionally include SQL performance
-	if has("sql_performance") && m.SQL.TotalQueries > 0 {
+	// Conditionally include SQL summary (keeping "sql_performance" key for backwards compatibility)
+	if has("sql_summary") && m.SQL.TotalQueries > 0 {
 		data["sql_performance"] = convertSQLPerformance(m.SQL)
 	}
 

@@ -6,8 +6,11 @@ Export analysis results as Markdown for documentation and reports.
 # Default report to markdown
 quellog /var/log/postgresql/*.log --md > report.md
 
-# SQL summary to markdown
-quellog /var/log/postgresql/*.log --sql-summary --md > queries.md
+# SQL performance to markdown
+quellog /var/log/postgresql/*.log --sql-performance --md > queries.md
+
+# SQL overview to markdown
+quellog /var/log/postgresql/*.log --sql-overview --md > overview.md
 
 # SQL detail to markdown
 quellog /var/log/postgresql/*.log --sql-detail se-N2d0E3 --md > query-detail.md
@@ -26,12 +29,12 @@ Exports comprehensive analysis of all metrics:
 quellog /var/log/postgresql/*.log --md > full-report.md
 ```
 
-### SQL Summary (`--sql-summary --md`)
+### SQL Performance (`--sql-performance --md`)
 
-Exports query performance analysis with temp files and locks:
+Exports detailed query performance analysis with temp files and locks:
 
 ```bash
-quellog /var/log/postgresql/*.log --sql-summary --md > sql-analysis.md
+quellog /var/log/postgresql/*.log --sql-performance --md > sql-analysis.md
 ```
 
 Includes:
@@ -39,6 +42,19 @@ Includes:
 - Top queries tables (slowest, most frequent, time consuming)
 - TEMP FILES section with query breakdown
 - LOCKS section with acquired/waiting queries
+
+### SQL Overview (`--sql-overview --md`)
+
+Exports query type breakdown by dimension:
+
+```bash
+quellog /var/log/postgresql/*.log --sql-overview --md > sql-overview.md
+```
+
+Includes:
+- Query Category Summary (DML, DDL, TCL, etc.)
+- Query Type Distribution (SELECT, INSERT, UPDATE, etc.)
+- Breakdown by Database, User, Host, and Application
 
 ### SQL Detail (`--sql-detail <id> --md`)
 

@@ -710,6 +710,16 @@
     ],
     "queries": [
       {
+        "id": "an-BdkPcf",
+        "normalized_query": "analyze orders;",
+        "raw_query": "ANALYZE orders;",
+        "acquired_count": 1,
+        "acquired_wait_time": "523.46 ms",
+        "still_waiting_count": 0,
+        "still_waiting_time": "0.00 ms",
+        "total_wait_time": "523.46 ms"
+      },
+      {
         "id": "se-I5oJov",
         "normalized_query": "select * from users where id = ? for update;",
         "raw_query": "SELECT * FROM users WHERE id = 42 FOR UPDATE;",
@@ -738,16 +748,6 @@
         "still_waiting_count": 1,
         "still_waiting_time": "4345.68 ms",
         "total_wait_time": "4345.68 ms"
-      },
-      {
-        "id": "xx-BdkPcf",
-        "normalized_query": "analyze orders;",
-        "raw_query": "ANALYZE orders;",
-        "acquired_count": 1,
-        "acquired_wait_time": "523.46 ms",
-        "still_waiting_count": 0,
-        "still_waiting_time": "0.00 ms",
-        "total_wait_time": "523.46 ms"
       }
     ]
   },
@@ -824,7 +824,7 @@
       {
         "timestamp": "2025-01-01 00:45:00",
         "duration": "234 ms",
-        "query_id": "xx-P6SWQR"
+        "query_id": "be-P6SWQR"
       },
       {
         "timestamp": "2025-01-01 01:05:00",
@@ -859,7 +859,7 @@
       {
         "timestamp": "2025-01-01 02:15:12",
         "duration": "14.57 s",
-        "query_id": "xx-jxdKj2"
+        "query_id": "wi-jxdKj2"
       },
       {
         "timestamp": "2025-01-01 02:45:40",
@@ -884,7 +884,7 @@
       {
         "timestamp": "2025-01-01 04:25:55",
         "duration": "11.79 s",
-        "query_id": "xx-dcjqlQ"
+        "query_id": "wi-dcjqlQ"
       },
       {
         "timestamp": "2025-01-01 04:55:38",
@@ -899,10 +899,19 @@
       {
         "timestamp": "2025-01-01 05:55:26",
         "duration": "12.68 s",
-        "query_id": "xx-T9XAxn"
+        "query_id": "wi-T9XAxn"
       }
     ],
     "queries": [
+      {
+        "id": "be-P6SWQR",
+        "normalized_query": "begin;",
+        "raw_query": "BEGIN;",
+        "count": 1,
+        "total_time_ms": 234.56,
+        "avg_time_ms": 234.56,
+        "max_time_ms": 234.56
+      },
       {
         "id": "cr-wgSzpj",
         "normalized_query": "create temporary table tmp_aggregates as select user_id, date(created_at) as date, count(*) as event_count from events where created_at \u003e now() - interval ? group by user_id, date(created_at);",
@@ -1093,16 +1102,7 @@
         "max_time_ms": 9456.78
       },
       {
-        "id": "xx-P6SWQR",
-        "normalized_query": "begin;",
-        "raw_query": "BEGIN;",
-        "count": 1,
-        "total_time_ms": 234.56,
-        "avg_time_ms": 234.56,
-        "max_time_ms": 234.56
-      },
-      {
-        "id": "xx-T9XAxn",
+        "id": "wi-T9XAxn",
         "normalized_query": "with cohort_data as ( select user_id, date_trunc(?, min(created_at)) as cohort_month, date_trunc(?, created_at) as order_month, count(*) as order_count from orders where created_at \u003e now() - interval ? group by user_id, cohort_month, order_month ) select cohort_month, order_month, count(distinct user_id) as active_users, sum(order_count) as total_orders from cohort_data group by cohort_month, order_month order by cohort_month, order_month;",
         "raw_query": "WITH cohort_data AS ( SELECT user_id, DATE_TRUNC('month', MIN(created_at)) as cohort_month, DATE_TRUNC('month', created_at) as order_month, COUNT(*) as order_count FROM orders WHERE created_at \u003e NOW() - INTERVAL '12 months' GROUP BY user_id, cohort_month, order_month ) SELECT cohort_month, order_month, COUNT(DISTINCT user_id) as active_users, SUM(order_count) as total_orders FROM cohort_data GROUP BY cohort_month, order_month ORDER BY cohort_month, order_month;",
         "count": 1,
@@ -1111,7 +1111,7 @@
         "max_time_ms": 12678.9
       },
       {
-        "id": "xx-dcjqlQ",
+        "id": "wi-dcjqlQ",
         "normalized_query": "with daily_metrics as ( select date(created_at) as date, user_id, count(*) as daily_events, sum(duration) as daily_duration from user_events where created_at \u003e now() - interval ? group by date, user_id ) select user_id, avg(daily_events) as avg_daily_events, avg(daily_duration) as avg_daily_duration, max(daily_events) as max_daily_events from daily_metrics group by user_id having avg(daily_events) \u003e ? order by avg_daily_events desc;",
         "raw_query": "WITH daily_metrics AS ( SELECT DATE(created_at) as date, user_id, COUNT(*) as daily_events, SUM(duration) as daily_duration FROM user_events WHERE created_at \u003e NOW() - INTERVAL '30 days' GROUP BY date, user_id ) SELECT user_id, AVG(daily_events) as avg_daily_events, AVG(daily_duration) as avg_daily_duration, MAX(daily_events) as max_daily_events FROM daily_metrics GROUP BY user_id HAVING AVG(daily_events) \u003e 10 ORDER BY avg_daily_events DESC;",
         "count": 1,
@@ -1120,7 +1120,7 @@
         "max_time_ms": 11789.34
       },
       {
-        "id": "xx-jxdKj2",
+        "id": "wi-jxdKj2",
         "normalized_query": "with user_segments as ( select user_id, case when total_orders \u003e ? then ? when total_orders \u003e ? then ? else ? end as segment from (select user_id, count(*) as total_orders from orders group by user_id) sq ) select segment, count(*) as user_count, avg(total_spent) as avg_spent from user_segments us join (select user_id, sum(total) as total_spent from orders group by user_id) os on us.user_id = os.user_id group by segment;",
         "raw_query": "WITH user_segments AS ( SELECT user_id, CASE WHEN total_orders \u003e 100 THEN 'vip' WHEN total_orders \u003e 10 THEN 'regular' ELSE 'occasional' END as segment FROM (SELECT user_id, COUNT(*) as total_orders FROM orders GROUP BY user_id) sq ) SELECT segment, COUNT(*) as user_count, AVG(total_spent) as avg_spent FROM user_segments us JOIN (SELECT user_id, SUM(total) as total_spent FROM orders GROUP BY user_id) os ON us.user_id = os.user_id GROUP BY segment;",
         "count": 1,
@@ -1192,7 +1192,7 @@
       {
         "timestamp": "2025-01-01 02:15:00",
         "size": "30.00 MB",
-        "query_id": "xx-jxdKj2"
+        "query_id": "wi-jxdKj2"
       },
       {
         "timestamp": "2025-01-01 02:45:30",
@@ -1221,7 +1221,7 @@
       {
         "timestamp": "2025-01-01 04:25:45",
         "size": "100.00 MB",
-        "query_id": "xx-dcjqlQ"
+        "query_id": "wi-dcjqlQ"
       },
       {
         "timestamp": "2025-01-01 04:55:30",
@@ -1236,7 +1236,7 @@
       {
         "timestamp": "2025-01-01 05:55:15",
         "size": "110.00 MB",
-        "query_id": "xx-T9XAxn"
+        "query_id": "wi-T9XAxn"
       }
     ],
     "queries": [
@@ -1318,21 +1318,21 @@
         "total_size": "20.00 MB"
       },
       {
-        "id": "xx-T9XAxn",
+        "id": "wi-T9XAxn",
         "normalized_query": "with cohort_data as ( select user_id, date_trunc(?, min(created_at)) as cohort_month, date_trunc(?, created_at) as order_month, count(*) as order_count from orders where created_at \u003e now() - interval ? group by user_id, cohort_month, order_month ) select cohort_month, order_month, count(distinct user_id) as active_users, sum(order_count) as total_orders from cohort_data group by cohort_month, order_month order by cohort_month, order_month;",
         "raw_query": "WITH cohort_data AS ( SELECT user_id, DATE_TRUNC('month', MIN(created_at)) as cohort_month, DATE_TRUNC('month', created_at) as order_month, COUNT(*) as order_count FROM orders WHERE created_at \u003e NOW() - INTERVAL '12 months' GROUP BY user_id, cohort_month, order_month ) SELECT cohort_month, order_month, COUNT(DISTINCT user_id) as active_users, SUM(order_count) as total_orders FROM cohort_data GROUP BY cohort_month, order_month ORDER BY cohort_month, order_month;",
         "count": 1,
         "total_size": "110.00 MB"
       },
       {
-        "id": "xx-dcjqlQ",
+        "id": "wi-dcjqlQ",
         "normalized_query": "with daily_metrics as ( select date(created_at) as date, user_id, count(*) as daily_events, sum(duration) as daily_duration from user_events where created_at \u003e now() - interval ? group by date, user_id ) select user_id, avg(daily_events) as avg_daily_events, avg(daily_duration) as avg_daily_duration, max(daily_events) as max_daily_events from daily_metrics group by user_id having avg(daily_events) \u003e ? order by avg_daily_events desc;",
         "raw_query": "WITH daily_metrics AS ( SELECT DATE(created_at) as date, user_id, COUNT(*) as daily_events, SUM(duration) as daily_duration FROM user_events WHERE created_at \u003e NOW() - INTERVAL '30 days' GROUP BY date, user_id ) SELECT user_id, AVG(daily_events) as avg_daily_events, AVG(daily_duration) as avg_daily_duration, MAX(daily_events) as max_daily_events FROM daily_metrics GROUP BY user_id HAVING AVG(daily_events) \u003e 10 ORDER BY avg_daily_events DESC;",
         "count": 1,
         "total_size": "100.00 MB"
       },
       {
-        "id": "xx-jxdKj2",
+        "id": "wi-jxdKj2",
         "normalized_query": "with user_segments as ( select user_id, case when total_orders \u003e ? then ? when total_orders \u003e ? then ? else ? end as segment from (select user_id, count(*) as total_orders from orders group by user_id) sq ) select segment, count(*) as user_count, avg(total_spent) as avg_spent from user_segments us join (select user_id, sum(total) as total_spent from orders group by user_id) os on us.user_id = os.user_id group by segment;",
         "raw_query": "WITH user_segments AS ( SELECT user_id, CASE WHEN total_orders \u003e 100 THEN 'vip' WHEN total_orders \u003e 10 THEN 'regular' ELSE 'occasional' END as segment FROM (SELECT user_id, COUNT(*) as total_orders FROM orders GROUP BY user_id) sq ) SELECT segment, COUNT(*) as user_count, AVG(total_spent) as avg_spent FROM user_segments us JOIN (SELECT user_id, SUM(total) as total_spent FROM orders GROUP BY user_id) os ON us.user_id = os.user_id GROUP BY segment;",
         "count": 1,
