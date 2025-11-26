@@ -38,7 +38,7 @@ quellog automatically detects and parses PostgreSQL logs in multiple formats:
 
 - **stderr/syslog format** - Traditional PostgreSQL text logs
 - **CSV format** - Structured comma-separated value logs
-- **JSON format** - Modern JSON logging output (including Google Cloud SQL and Azure Database for PostgreSQL)
+- **JSON format** - Modern JSON logging output (including AWS RDS, GCP Cloud SQL, and Azure Database for PostgreSQL)
 
 ### Compression & Archive Handling
 
