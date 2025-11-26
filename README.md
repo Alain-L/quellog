@@ -155,6 +155,10 @@ Here are the main features:
 
 - **Multi-format support:** Automatically detects and parses PostgreSQL logs in
   stderr, CSV, or JSON format
+- **Cloud provider support:** Works out-of-the-box with AWS RDS, Azure Database
+  for PostgreSQL, and GCP Cloud SQL logs
+- **Automatic log_line_prefix detection:** Heuristically detects custom
+  `log_line_prefix` configurations for accurate metadata extraction
 - **Transparent compression and archive support:** Read gzip (`.gz`), zstd (`.zst`, `.zstd`),
   and tar archives (`.tar`, `.tar.gz`, `.tar.zst`, `.tzst`) without manual decompression
 - **Time-based filtering:** Analyze logs within specific date ranges or time
