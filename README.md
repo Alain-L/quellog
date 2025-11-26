@@ -312,9 +312,49 @@ quellog /path/to/logs --json
 quellog /path/to/logs --md
 ```
 
-For more details, run:
-```sh
-quellog --help
+---
+
+## Command Reference
+
+```
+Usage:
+  quellog [files or dirs] [flags]
+
+Time Filters:
+  -b, --begin string      Filter entries after this datetime (YYYY-MM-DD HH:MM:SS)
+  -e, --end string        Filter entries before this datetime (YYYY-MM-DD HH:MM:SS)
+  -W, --window string     Time window duration (e.g., 30m, 2h). Adjusts --begin or --end
+  -L, --last string       Analyze last N duration from now (e.g., 1h, 30m, 24h)
+
+Attribute Filters:
+  -d, --dbname strings    Filter by database name(s)
+  -u, --dbuser strings    Filter by database user(s)
+  -N, --appname strings   Filter by application name(s)
+  -U, --exclude-user      Exclude entries from specified user(s)
+
+SQL Analysis:
+      --sql-summary       Display SQL performance summary with metrics and percentiles
+  -Q, --sql-detail        Show details for specific SQL ID(s)
+
+Section Selection:
+      --summary           Print only the summary section
+      --checkpoints       Print only the checkpoints section
+      --connections       Print only the connections section
+      --clients           Print only the clients section
+      --events            Print only the events section
+      --errors            Print only the error classes section
+      --sql-performance   Print only the SQL performance section
+      --tempfiles         Print only the temporary files section
+      --locks             Print only the locks section
+      --maintenance       Print only the maintenance section
+
+Output:
+  -J, --json              Export results in JSON format
+      --md                Export results in Markdown format
+
+Other:
+  -h, --help              Show help
+  -v, --version           Show version
 ```
 
 ---
