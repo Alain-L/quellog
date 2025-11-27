@@ -312,6 +312,18 @@ func ExportMarkdown(m analysis.AggregatedMetrics, sections []string) {
 		hist, _, scale := computeConnectionsHistogram(m.Connections.Connections)
 		printHistogramMarkdown(&b, hist, "Connection distribution", "", scale, nil)
 
+		// Concurrent sessions histogram
+		if len(m.Connections.SessionEvents) > 0 && !m.Global.MinTimestamp.IsZero() && !m.Global.MaxTimestamp.IsZero() {
+			concurrentHist, labels, concurrentScale, peakTimes := computeConcurrentHistogram(
+				m.Connections.SessionEvents,
+				m.Global.MinTimestamp,
+				m.Global.MaxTimestamp,
+			)
+			if len(concurrentHist) > 0 {
+				printConcurrentHistogramMarkdown(&b, concurrentHist, "Concurrent sessions", concurrentScale, labels, peakTimes)
+			}
+		}
+
 		b.WriteString(fmt.Sprintf("- **Connection count**: %d\n", m.Connections.ConnectionReceivedCount))
 		if duration.Hours() > 0 {
 			avgConnPerHour := float64(m.Connections.ConnectionReceivedCount) / duration.Hours()
@@ -319,10 +331,17 @@ func ExportMarkdown(m analysis.AggregatedMetrics, sections []string) {
 		}
 		b.WriteString(fmt.Sprintf("- **Disconnection count**: %d\n", m.Connections.DisconnectionCount))
 
-		if m.Connections.DisconnectionCount > 0 {
+		if len(m.Connections.SessionDurations) > 0 {
+			// Average
 			avgSessionTime := time.Duration(float64(m.Connections.TotalSessionTime) / float64(m.Connections.DisconnectionCount))
-			b.WriteString(fmt.Sprintf("- **Avg session time**: %s\n", avgSessionTime.Round(time.Second)))
-		} else {
+			b.WriteString(fmt.Sprintf("- **Avg session time**: %s\n", formatSessionDuration(avgSessionTime)))
+			// Median (more representative for skewed distributions)
+			sorted := make([]time.Duration, len(m.Connections.SessionDurations))
+			copy(sorted, m.Connections.SessionDurations)
+			sort.Slice(sorted, func(i, j int) bool { return sorted[i] < sorted[j] })
+			median := sorted[len(sorted)/2]
+			b.WriteString(fmt.Sprintf("- **Median session time**: %s\n", formatSessionDuration(median)))
+		} else if m.Connections.DisconnectionCount > 0 {
 			b.WriteString("- **Avg session time**: N/A\n")
 		}
 
@@ -625,6 +644,60 @@ func printHistogramMarkdown(b *strings.Builder, data map[string]int, title, unit
 			valueStr = "-"
 		}
 		b.WriteString(fmt.Sprintf("%s | %s %s\n", label, bar, valueStr))
+	}
+	b.WriteString("```\n\n")
+}
+
+// printConcurrentHistogramMarkdown prints a histogram with peak times in markdown format.
+func printConcurrentHistogramMarkdown(b *strings.Builder, data map[string]int, title string, scaleFactor int, orderedLabels []string, peakTimes map[string]time.Time) {
+	if len(data) == 0 {
+		b.WriteString("(No data available)\n\n")
+		return
+	}
+
+	var labels []string
+	if len(orderedLabels) > 0 {
+		labels = orderedLabels
+	} else {
+		for k := range data {
+			labels = append(labels, k)
+		}
+		sort.Slice(labels, func(i, j int) bool {
+			pi := strings.Split(labels[i], " - ")
+			pj := strings.Split(labels[j], " - ")
+			if len(pi) == 2 && len(pj) == 2 {
+				ti, err1 := time.Parse("15:04", pi[0])
+				tj, err2 := time.Parse("15:04", pj[0])
+				if err1 == nil && err2 == nil {
+					return ti.Before(tj)
+				}
+			}
+			return labels[i] < labels[j]
+		})
+	}
+
+	if scaleFactor <= 0 {
+		scaleFactor = 1
+	}
+
+	b.WriteString(fmt.Sprintf("### %s\n\n```\n", title))
+	for _, label := range labels {
+		v := data[label]
+		barLen := v / scaleFactor
+		if barLen < 0 {
+			barLen = 0
+		}
+		bar := strings.Repeat("■", barLen)
+
+		if v == 0 {
+			b.WriteString(fmt.Sprintf("%s | -\n", label))
+		} else {
+			peakStr := ""
+			if pt, ok := peakTimes[label]; ok && !pt.IsZero() {
+				peakStr = fmt.Sprintf("(%02d:%02d)", pt.Hour(), pt.Minute())
+			}
+			b.WriteString(fmt.Sprintf("%s | %s %d %s\n", label, bar, v, peakStr))
+		}
 	}
 	b.WriteString("```\n\n")
 }

@@ -347,9 +347,21 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string) {
 	if has("connections") && m.Connections.ConnectionReceivedCount > 0 {
 		fmt.Println(bold + "\nCONNECTIONS & SESSIONS\n" + reset)
 
-		// Histogram
+		// Histogram des connexions reçues
 		hist, _, scaleFactor := computeConnectionsHistogram(m.Connections.Connections)
 		PrintHistogram(hist, "Connection distribution", "", scaleFactor, nil)
+
+		// Histogramme des sessions simultanées
+		if len(m.Connections.SessionEvents) > 0 && !m.Global.MinTimestamp.IsZero() && !m.Global.MaxTimestamp.IsZero() {
+			concurrentHist, labels, concurrentScale, peakTimes := computeConcurrentHistogram(
+				m.Connections.SessionEvents,
+				m.Global.MinTimestamp,
+				m.Global.MaxTimestamp,
+			)
+			if len(concurrentHist) > 0 {
+				PrintConcurrentHistogram(concurrentHist, "Concurrent sessions", concurrentScale, labels, peakTimes)
+			}
+		}
 
 		fmt.Printf("  %-25s : %d\n", "Connection count", m.Connections.ConnectionReceivedCount)
 		fmt.Printf("  %-25s : %d\n", "Disconnection count", m.Connections.DisconnectionCount)
@@ -357,10 +369,17 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string) {
 			avgConnPerHour := float64(m.Connections.ConnectionReceivedCount) / duration.Hours()
 			fmt.Printf("  %-25s : %.2f\n", "Avg connections per hour", avgConnPerHour)
 		}
-		if m.Connections.DisconnectionCount > 0 {
+		if len(m.Connections.SessionDurations) > 0 {
+			// Average
 			avgSessionTime := time.Duration(float64(m.Connections.TotalSessionTime) / float64(m.Connections.DisconnectionCount))
-			fmt.Printf("  %-25s : %s\n", "Avg session time", avgSessionTime.Round(time.Second))
-		} else {
+			fmt.Printf("  %-25s : %s\n", "Avg session time", formatSessionDuration(avgSessionTime))
+			// Median (more representative for skewed distributions)
+			sorted := make([]time.Duration, len(m.Connections.SessionDurations))
+			copy(sorted, m.Connections.SessionDurations)
+			sort.Slice(sorted, func(i, j int) bool { return sorted[i] < sorted[j] })
+			median := sorted[len(sorted)/2]
+			fmt.Printf("  %-25s : %s\n", "Median session time", formatSessionDuration(median))
+		} else if m.Connections.DisconnectionCount > 0 {
 			fmt.Printf("  %-25s : %s\n", "Avg session time", "N/A")
 		}
 
@@ -543,18 +562,6 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string) {
 // printDetailedConnectionStats displays detailed connection and session statistics.
 // This is shown only when --connections is explicitly used (not as part of "all").
 func printDetailedConnectionStats(m analysis.AggregatedMetrics, bold, reset string) {
-	// 1. CONCURRENT CONNECTIONS HISTOGRAM (disabled for now)
-	// TODO: Re-enable when we can match connection/disconnection by PID
-	// Currently unreliable because:
-	// - SessionEvents only include sessions with logged disconnections (incomplete)
-	// - Can't track full session lifecycle without PID matching
-	//
-	// if len(m.Connections.SessionEvents) > 0 {
-	// 	fmt.Println()
-	// 	concurrentHist, labels, scaleFactor := computeConcurrentHistogram(m.Connections.SessionEvents, m.Global.MinTimestamp, m.Global.MaxTimestamp)
-	// 	PrintHistogram(concurrentHist, "Concurrent sessions over time", "", scaleFactor, labels)
-	// }
-
 	// 1. SESSION TIME DISTRIBUTION (with histogram bars)
 	if len(m.Connections.SessionDurations) > 0 {
 		fmt.Println()
@@ -1491,6 +1498,93 @@ func PrintHistogram(data map[string]int, title string, unit string, scaleFactor 
 	fmt.Println()
 }
 
+// PrintConcurrentHistogram displays a histogram with peak times for each bucket.
+// Similar to PrintHistogram but adds the time when the peak occurred.
+func PrintConcurrentHistogram(data map[string]int, title string, scaleFactor int, orderedLabels []string, peakTimes map[string]time.Time) {
+	if len(data) == 0 {
+		fmt.Printf("\n  (No data available)\n")
+		return
+	}
+
+	// Récupération de la largeur du terminal.
+	termWidth, _, err := term.GetSize(int(os.Stdout.Fd()))
+	if err != nil || termWidth <= 0 {
+		termWidth = 80 // valeur par défaut
+	}
+
+	// Définition des largeurs
+	labelWidth := 15
+	peakTimeWidth := 8 // " (HH:MM)"
+	valueWidth := 5
+	spacing := 4
+	barWidth := termWidth - labelWidth - spacing - valueWidth - peakTimeWidth
+	if barWidth < 10 {
+		barWidth = 10
+	}
+
+	// Gestion des labels
+	labels := make([]string, 0, len(data))
+	if len(orderedLabels) > 0 {
+		labels = orderedLabels
+	} else {
+		for label := range data {
+			labels = append(labels, label)
+		}
+		sort.Slice(labels, func(i, j int) bool {
+			partsI := strings.Split(labels[i], " - ")
+			partsJ := strings.Split(labels[j], " - ")
+			t1, _ := time.Parse("15:04", partsI[0])
+			t2, _ := time.Parse("15:04", partsJ[0])
+			return t1.Before(t2)
+		})
+	}
+
+	// Détermination de la valeur maximale
+	maxValue := 0
+	for _, value := range data {
+		if value > maxValue {
+			maxValue = value
+		}
+	}
+
+	// Calcul dynamique du scale factor si non fourni
+	if scaleFactor <= 0 {
+		scaleFactor = int(math.Ceil(float64(maxValue) / float64(barWidth)))
+		if scaleFactor < 1 {
+			scaleFactor = 1
+		}
+	}
+
+	// Affichage de l'en-tête
+	fmt.Printf("  %s | ■ = %d \n\n", title, scaleFactor)
+
+	// Affichage des lignes de l'histogramme
+	for _, label := range labels {
+		value := data[label]
+		barLength := value / scaleFactor
+		if barLength > barWidth {
+			barLength = barWidth
+		}
+		bar := strings.Repeat("■", barLength)
+
+		// Format value and peak time
+		if value == 0 {
+			fmt.Printf("  %-13s  %s\n", label, " -")
+		} else {
+			peakStr := ""
+			if pt, ok := peakTimes[label]; ok && !pt.IsZero() {
+				peakStr = fmt.Sprintf("(%02d:%02d)", pt.Hour(), pt.Minute())
+			}
+			if barLength > 0 {
+				fmt.Printf("  %-13s  %-s %d %s\n", label, bar, value, peakStr)
+			} else {
+				fmt.Printf("  %-13s  %d %s\n", label, value, peakStr)
+			}
+		}
+	}
+	fmt.Println()
+}
+
 // computeQueryLoadHistogram répartit les durées des requêtes SQL en 6 intervalles égaux,
 // et retourne l'histogramme, l'unité (ms, s ou min) et le scale factor.
 // La durée de chaque tranche est convertie pour être au moins d'une unité d'échelle.
@@ -1510,9 +1604,10 @@ func PrintHistogram(data map[string]int, title string, unit string, scaleFactor 
 
 // computeConcurrentHistogram calculates concurrent sessions over time during the analyzed period.
 // It divides the log period (logStart to logEnd) into 6 buckets and counts concurrent sessions.
-func computeConcurrentHistogram(sessions []analysis.SessionEvent, logStart, logEnd time.Time) (map[string]int, []string, int) {
+// Returns: histogram data, ordered labels, scale factor, and peak times for each bucket.
+func computeConcurrentHistogram(sessions []analysis.SessionEvent, logStart, logEnd time.Time) (map[string]int, []string, int, map[string]time.Time) {
 	if len(sessions) == 0 || logStart.IsZero() || logEnd.IsZero() {
-		return nil, nil, 1
+		return nil, nil, 1, nil
 	}
 
 	// Use the log period as the reference time range
@@ -1525,7 +1620,7 @@ func computeConcurrentHistogram(sessions []analysis.SessionEvent, logStart, logE
 		minTime, maxTime = maxTime, minTime
 		duration = maxTime.Sub(minTime)
 		if duration == 0 {
-			return nil, nil, 1
+			return nil, nil, 1, nil
 		}
 	}
 
@@ -1535,10 +1630,13 @@ func computeConcurrentHistogram(sessions []analysis.SessionEvent, logStart, logE
 
 	// Initialize buckets
 	hist := make(map[string]int)
+	peakTimes := make(map[string]time.Time)
 	labels := make([]string, numBuckets)
 
-	// Check if we span multiple days
-	spansDays := !minTime.Truncate(24*time.Hour).Equal(maxTime.Truncate(24 * time.Hour))
+	// Check if we span multiple calendar days (not just > 24h, but different dates)
+	minDay := time.Date(minTime.Year(), minTime.Month(), minTime.Day(), 0, 0, 0, 0, minTime.Location())
+	maxDay := time.Date(maxTime.Year(), maxTime.Month(), maxTime.Day(), 0, 0, 0, 0, maxTime.Location())
+	spansDays := !minDay.Equal(maxDay)
 
 	for i := 0; i < numBuckets; i++ {
 		bucketStart := minTime.Add(time.Duration(i) * bucketDuration)
@@ -1558,21 +1656,21 @@ func computeConcurrentHistogram(sessions []analysis.SessionEvent, logStart, logE
 		}
 	}
 
-	// Calculate concurrent sessions using 5-minute intervals
-	// Then aggregate by taking the max for each bucket
-	intervalDuration := 5 * time.Minute
+	// Use 1-minute intervals for more precise peak time detection
+	intervalDuration := 1 * time.Minute
 	numIntervals := int(duration / intervalDuration)
 	if numIntervals == 0 {
 		numIntervals = 1
 	}
 
-	// Calculate concurrency for each 5-minute interval
+	// Calculate concurrency for each 1-minute interval
 	intervalCounts := make([]int, numIntervals)
 	for i := 0; i < numIntervals; i++ {
 		intervalTime := minTime.Add(time.Duration(i) * intervalDuration)
 
 		count := 0
 		for _, s := range sessions {
+			// Session is active at intervalTime if it started before/at and ends after
 			if !s.StartTime.After(intervalTime) && s.EndTime.After(intervalTime) {
 				count++
 			}
@@ -1580,7 +1678,7 @@ func computeConcurrentHistogram(sessions []analysis.SessionEvent, logStart, logE
 		intervalCounts[i] = count
 	}
 
-	// Aggregate intervals into 6 buckets, taking the max
+	// Aggregate intervals into 6 buckets, taking the max and tracking when it occurred
 	intervalsPerBucket := numIntervals / numBuckets
 	if intervalsPerBucket == 0 {
 		intervalsPerBucket = 1
@@ -1593,14 +1691,19 @@ func computeConcurrentHistogram(sessions []analysis.SessionEvent, logStart, logE
 			endIdx = numIntervals // Last bucket gets remaining intervals
 		}
 
-		// Find max concurrency in this bucket
+		// Find max concurrency in this bucket and when it occurred
 		maxCount := 0
+		maxIdx := startIdx
 		for j := startIdx; j < endIdx && j < numIntervals; j++ {
 			if intervalCounts[j] > maxCount {
 				maxCount = intervalCounts[j]
+				maxIdx = j
 			}
 		}
 		hist[labels[i]] = maxCount
+		if maxCount > 0 {
+			peakTimes[labels[i]] = minTime.Add(time.Duration(maxIdx) * intervalDuration)
+		}
 	}
 
 	// Calculate scale factor to limit width to 40 chars
@@ -1616,7 +1719,7 @@ func computeConcurrentHistogram(sessions []analysis.SessionEvent, logStart, logE
 		scaleFactor = 1
 	}
 
-	return hist, labels, scaleFactor
+	return hist, labels, scaleFactor, peakTimes
 }
 
 // printLockStats prints lock type or resource type statistics.
