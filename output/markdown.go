@@ -309,19 +309,30 @@ func ExportMarkdown(m analysis.AggregatedMetrics, sections []string) {
 	if has("connections") && m.Connections.ConnectionReceivedCount > 0 {
 		b.WriteString("## CONNECTIONS & SESSIONS\n\n")
 
-		hist, _, scale := computeConnectionsHistogram(m.Connections.Connections)
-		printHistogramMarkdown(&b, hist, "Connection distribution", "", scale, nil)
+		// Determine if detailed mode (markdown always shows details like --md implies full export)
+		isDetailedMode := true
 
-		// Concurrent sessions histogram
+		// Concurrent sessions histogram (always shown)
 		if len(m.Connections.SessionEvents) > 0 && !m.Global.MinTimestamp.IsZero() && !m.Global.MaxTimestamp.IsZero() {
+			numBuckets := 6
+			if isDetailedMode {
+				numBuckets = 12
+			}
 			concurrentHist, labels, concurrentScale, peakTimes := computeConcurrentHistogram(
 				m.Connections.SessionEvents,
 				m.Global.MinTimestamp,
 				m.Global.MaxTimestamp,
+				numBuckets,
 			)
 			if len(concurrentHist) > 0 {
 				printConcurrentHistogramMarkdown(&b, concurrentHist, "Concurrent sessions", concurrentScale, labels, peakTimes)
 			}
+		}
+
+		// Connection distribution histogram (in detailed mode)
+		if isDetailedMode {
+			hist, _, scale := computeConnectionsHistogram(m.Connections.Connections, m.Global.MinTimestamp, m.Global.MaxTimestamp)
+			printHistogramMarkdown(&b, hist, "Connection distribution", "", scale, nil)
 		}
 
 		b.WriteString(fmt.Sprintf("- **Connection count**: %d\n", m.Connections.ConnectionReceivedCount))

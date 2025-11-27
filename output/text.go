@@ -347,20 +347,30 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string) {
 	if has("connections") && m.Connections.ConnectionReceivedCount > 0 {
 		fmt.Println(bold + "\nCONNECTIONS & SESSIONS\n" + reset)
 
-		// Histogram des connexions reçues
-		hist, _, scaleFactor := computeConnectionsHistogram(m.Connections.Connections)
-		PrintHistogram(hist, "Connection distribution", "", scaleFactor, nil)
+		// Determine if --connections was explicitly used (not just included in "all")
+		isDetailedMode := !has("all")
 
-		// Histogramme des sessions simultanées
+		// Histogramme des sessions simultanées (always shown, more buckets in detailed mode)
 		if len(m.Connections.SessionEvents) > 0 && !m.Global.MinTimestamp.IsZero() && !m.Global.MaxTimestamp.IsZero() {
+			numBuckets := 6
+			if isDetailedMode {
+				numBuckets = 12
+			}
 			concurrentHist, labels, concurrentScale, peakTimes := computeConcurrentHistogram(
 				m.Connections.SessionEvents,
 				m.Global.MinTimestamp,
 				m.Global.MaxTimestamp,
+				numBuckets,
 			)
 			if len(concurrentHist) > 0 {
 				PrintConcurrentHistogram(concurrentHist, "Concurrent sessions", concurrentScale, labels, peakTimes)
 			}
+		}
+
+		// Connection distribution histogram (only in detailed mode)
+		if isDetailedMode {
+			hist, _, scaleFactor := computeConnectionsHistogram(m.Connections.Connections, m.Global.MinTimestamp, m.Global.MaxTimestamp)
+			PrintHistogram(hist, "Connection distribution", "", scaleFactor, nil)
 		}
 
 		fmt.Printf("  %-25s : %d\n", "Connection count", m.Connections.ConnectionReceivedCount)
@@ -1605,7 +1615,7 @@ func PrintConcurrentHistogram(data map[string]int, title string, scaleFactor int
 // computeConcurrentHistogram calculates concurrent sessions over time during the analyzed period.
 // It divides the log period (logStart to logEnd) into 6 buckets and counts concurrent sessions.
 // Returns: histogram data, ordered labels, scale factor, and peak times for each bucket.
-func computeConcurrentHistogram(sessions []analysis.SessionEvent, logStart, logEnd time.Time) (map[string]int, []string, int, map[string]time.Time) {
+func computeConcurrentHistogram(sessions []analysis.SessionEvent, logStart, logEnd time.Time, numBuckets int) (map[string]int, []string, int, map[string]time.Time) {
 	if len(sessions) == 0 || logStart.IsZero() || logEnd.IsZero() {
 		return nil, nil, 1, nil
 	}
@@ -1624,8 +1634,10 @@ func computeConcurrentHistogram(sessions []analysis.SessionEvent, logStart, logE
 		}
 	}
 
-	// Divide into 6 buckets
-	numBuckets := 6
+	// Default to 6 buckets if not specified
+	if numBuckets <= 0 {
+		numBuckets = 6
+	}
 	bucketDuration := duration / time.Duration(numBuckets)
 
 	// Initialize buckets
@@ -2067,7 +2079,7 @@ func PrintSQLOverview(m analysis.SqlMetrics) {
 	fmt.Println(bold + "  Query Type Distribution" + reset)
 	fmt.Println()
 	fmt.Printf("  %-12s  %10s  %8s  %12s  %12s  %10s\n", "Type", "Count", "%", "Total Time", "Avg Time", "Max Time")
-	fmt.Println("  " + strings.Repeat("-", 70))
+	fmt.Println("  " + strings.Repeat("-", 72))
 
 	for _, pair := range pairs {
 		stat := pair.stat
@@ -2119,11 +2131,14 @@ func printQueryTypeBreakdown(title string, breakdown map[string]map[string]*anal
 	})
 
 	// Print each dimension with its query types
+	italic := "\033[3m"
 	for _, dim := range dimensions {
-		fmt.Printf("  %s (%d queries, %s)\n",
+		fmt.Printf("  %s%s (%d queries, %s)%s\n",
+			italic,
 			dim.name,
 			dim.count,
-			formatQueryDuration(dim.totalTime))
+			formatQueryDuration(dim.totalTime),
+			reset)
 
 		// Get all query types for this dimension
 		types := breakdown[dim.name]

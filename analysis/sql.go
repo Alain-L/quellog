@@ -367,18 +367,13 @@ func (a *SQLAnalyzer) trackQueryTypeByDimension(dimensionValue, queryType string
 // Format: "user=app_user,db=app_db,app=pgadmin" or "[pid]: [line] user=x,db=y,app=z LOG: ..."
 // This is faster than calling extractPrefixValue 4 times as it only scans the message once.
 func extractPrefixFields(message string) (database, user, host, app string) {
-	// Most efficient approach: find the first ']' which marks the end of the prefix
-	// Then scan that substring once for all fields
-	end := strings.IndexByte(message, ']')
-	if end == -1 {
-		// No prefix bracket found, scan first 200 chars (prefix is typically < 100 chars)
-		if len(message) > 200 {
-			end = 200
-		} else {
-			end = len(message)
-		}
+	// Scan the first 200 chars of the message for key=value patterns
+	// The prefix may contain [pid]: user=X,db=Y,app=Z or similar patterns
+	// Fields can appear before or after brackets depending on log format
+	end := 200
+	if len(message) < end {
+		end = len(message)
 	}
-
 	prefix := message[:end]
 
 	// Scan the prefix once and extract all fields
