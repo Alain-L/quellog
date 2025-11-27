@@ -167,11 +167,6 @@ func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, 
 		fmt.Fprintln(os.Stderr, "Error: --json and --md are mutually exclusive")
 		os.Exit(1)
 	}
-	if jsonFlag && (sqlPerformanceFlag || sqlOverviewFlag || len(sqlDetailFlag) > 0) {
-		fmt.Fprintln(os.Stderr, "Error: --json is not compatible with --sql-performance, --sql-overview or --sql-detail")
-		fmt.Fprintln(os.Stderr, "Tip: use --json --sql-summary and filter with jq")
-		os.Exit(1)
-	}
 
 	// Special case: SQL query details (single query analysis)
 	if len(sqlDetailFlag) > 0 {
@@ -184,7 +179,9 @@ func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, 
 			log.Fatalf("[ERROR] No log entries could be parsed. Check that files are readable and in a supported format.")
 		}
 
-		if mdFlag {
+		if jsonFlag {
+			output.ExportSQLDetailJSON(metrics, sqlDetailFlag)
+		} else if mdFlag {
 			output.ExportSqlDetailMarkdown(metrics, sqlDetailFlag)
 		} else {
 			PrintProcessingSummary(metrics.SQL.TotalQueries, processingDuration, totalFileSize)
@@ -204,7 +201,9 @@ func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, 
 			log.Fatalf("[ERROR] No log entries could be parsed. Check that files are readable and in a supported format.")
 		}
 
-		if mdFlag {
+		if jsonFlag {
+			output.ExportSQLPerformanceJSON(metrics.SQL)
+		} else if mdFlag {
 			output.ExportSqlSummaryMarkdown(metrics.SQL, metrics.TempFiles, metrics.Locks)
 		} else {
 			PrintProcessingSummary(metrics.SQL.TotalQueries, processingDuration, totalFileSize)
@@ -223,7 +222,9 @@ func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, 
 			log.Fatalf("[ERROR] No log entries could be parsed. Check that files are readable and in a supported format.")
 		}
 
-		if mdFlag {
+		if jsonFlag {
+			output.ExportSQLOverviewJSON(metrics.SQL)
+		} else if mdFlag {
 			output.ExportSqlOverviewMarkdown(metrics.SQL)
 		} else {
 			PrintProcessingSummary(metrics.SQL.TotalQueries, processingDuration, totalFileSize)

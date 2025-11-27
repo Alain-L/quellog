@@ -143,17 +143,8 @@ func TestFlagCompatibility(t *testing.T) {
 				errContains: "--last cannot be used with",
 			},
 
-			// SQL flag conflicts
-			{
-				name:        "json_with_sql_performance",
-				args:        []string{testFile, "--json", "--sql-performance"},
-				errContains: "--json is not compatible with --sql-performance",
-			},
-			{
-				name:        "json_with_sql_detail",
-				args:        []string{testFile, "--json", "--sql-detail", "se-123456"},
-				errContains: "--json is not compatible with",
-			},
+			// Note: --json with --sql-performance, --sql-overview, and --sql-detail are now
+			// valid combinations that produce dedicated JSON exports
 		}
 
 		for _, tc := range invalidCases {

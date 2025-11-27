@@ -61,6 +61,118 @@ type QueryStatJSON struct {
 	MaxTime         float64 `json:"max_time_ms"`
 }
 
+// SQL Overview JSON structures (for --sql-overview --json)
+
+type SQLOverviewJSON struct {
+	TotalQueries int                       `json:"total_queries"`
+	Categories   []CategoryStatJSON        `json:"categories"`
+	Types        []TypeStatJSON            `json:"types"`
+	ByDatabase   []DimensionBreakdownJSON  `json:"by_database,omitempty"`
+	ByUser       []DimensionBreakdownJSON  `json:"by_user,omitempty"`
+	ByHost       []DimensionBreakdownJSON  `json:"by_host,omitempty"`
+	ByApp        []DimensionBreakdownJSON  `json:"by_app,omitempty"`
+}
+
+type CategoryStatJSON struct {
+	Category   string  `json:"category"`
+	Count      int     `json:"count"`
+	Percentage float64 `json:"percentage"`
+	TotalTime  string  `json:"total_time"`
+}
+
+type TypeStatJSON struct {
+	Type       string  `json:"type"`
+	Category   string  `json:"category"`
+	Count      int     `json:"count"`
+	Percentage float64 `json:"percentage"`
+	TotalTime  string  `json:"total_time"`
+	AvgTime    string  `json:"avg_time"`
+	MaxTime    string  `json:"max_time"`
+}
+
+type DimensionBreakdownJSON struct {
+	Name       string              `json:"name"`
+	Count      int                 `json:"count"`
+	TotalTime  string              `json:"total_time"`
+	QueryTypes []QueryTypeCountJSON `json:"query_types"`
+}
+
+type QueryTypeCountJSON struct {
+	Type      string `json:"type"`
+	Count     int    `json:"count"`
+	TotalTime string `json:"total_time"`
+}
+
+// SQL Detail JSON structures (for --sql-detail --json)
+
+type SQLDetailJSON struct {
+	ID              string                   `json:"id"`
+	NormalizedQuery string                   `json:"normalized_query"`
+	RawQuery        string                   `json:"raw_query,omitempty"`
+	Type            string                   `json:"type"`
+	Category        string                   `json:"category"`
+	Statistics      *QueryDetailStatsJSON    `json:"statistics,omitempty"`
+	Executions      []QueryExecutionJSON     `json:"executions,omitempty"`
+	TempFiles       *QueryTempFilesJSON      `json:"temp_files,omitempty"`
+	Locks           *QueryLocksJSON          `json:"locks,omitempty"`
+}
+
+type QueryDetailStatsJSON struct {
+	Count     int    `json:"count"`
+	TotalTime string `json:"total_time"`
+	AvgTime   string `json:"avg_time"`
+	MaxTime   string `json:"max_time"`
+}
+
+type QueryTempFilesJSON struct {
+	Count     int    `json:"count"`
+	TotalSize string `json:"total_size"`
+}
+
+type QueryLocksJSON struct {
+	AcquiredCount    int    `json:"acquired_count"`
+	AcquiredWaitTime string `json:"acquired_wait_time"`
+	WaitingCount     int    `json:"waiting_count"`
+	WaitingTime      string `json:"waiting_time"`
+	TotalWaitTime    string `json:"total_wait_time"`
+}
+
+// SQL Performance JSON structures (for --sql-performance --json)
+
+type SQLPerformanceDetailJSON struct {
+	// Summary statistics
+	TotalQueryDuration  string `json:"total_query_duration"`
+	TotalQueriesParsed  int    `json:"total_queries_parsed"`
+	TotalUniqueQueries  int    `json:"total_unique_queries"`
+	Top1PercentSlow     int    `json:"top_1_percent_slow_queries"`
+	QueryMaxDuration    string `json:"query_max_duration"`
+	QueryMinDuration    string `json:"query_min_duration"`
+	QueryMedianDuration string `json:"query_median_duration"`
+	Query99thPercentile string `json:"query_99th_percentile"`
+
+	// Duration distribution histogram
+	DurationDistribution []DurationBucketJSON `json:"duration_distribution"`
+
+	// Top queries by different criteria
+	SlowestQueries       []QueryRankJSON `json:"slowest_queries"`
+	MostFrequentQueries  []QueryRankJSON `json:"most_frequent_queries"`
+	MostTimeConsuming    []QueryRankJSON `json:"most_time_consuming"`
+}
+
+type DurationBucketJSON struct {
+	Bucket string `json:"bucket"`
+	Count  int    `json:"count"`
+}
+
+type QueryRankJSON struct {
+	ID              string `json:"id"`
+	NormalizedQuery string `json:"normalized_query"`
+	Count           int    `json:"count"`
+	TotalTime       string `json:"total_time"`
+	AvgTime         string `json:"avg_time"`
+	MaxTime         string `json:"max_time"`
+}
+
 type TempFilesJSON struct {
 	TotalMessages int                      `json:"total_messages"`
 	TotalSize     string                   `json:"total_size"`
@@ -677,4 +789,355 @@ func convertLocks(m analysis.LockMetrics) LocksJSON {
 		Events:            eventsJSON,
 		Queries:           queriesJSON,
 	}
+}
+
+// ExportSQLOverviewJSON exports SQL overview data as JSON.
+func ExportSQLOverviewJSON(m analysis.SqlMetrics) {
+	if m.TotalQueries == 0 {
+		fmt.Println("{}")
+		return
+	}
+
+	overview := SQLOverviewJSON{
+		TotalQueries: m.TotalQueries,
+	}
+
+	// Build category statistics
+	categoryStats := make(map[string]struct {
+		count     int
+		totalTime float64
+	})
+	for _, stat := range m.QueryTypeStats {
+		cs := categoryStats[stat.Category]
+		cs.count += stat.Count
+		cs.totalTime += stat.TotalTime
+		categoryStats[stat.Category] = cs
+	}
+
+	// Convert to sorted slice
+	for cat, cs := range categoryStats {
+		overview.Categories = append(overview.Categories, CategoryStatJSON{
+			Category:   cat,
+			Count:      cs.count,
+			Percentage: float64(cs.count) / float64(m.TotalQueries) * 100,
+			TotalTime:  formatQueryDuration(cs.totalTime),
+		})
+	}
+	sort.Slice(overview.Categories, func(i, j int) bool {
+		return overview.Categories[i].Count > overview.Categories[j].Count
+	})
+
+	// Build type statistics
+	for qtype, stat := range m.QueryTypeStats {
+		overview.Types = append(overview.Types, TypeStatJSON{
+			Type:       qtype,
+			Category:   stat.Category,
+			Count:      stat.Count,
+			Percentage: float64(stat.Count) / float64(m.TotalQueries) * 100,
+			TotalTime:  formatQueryDuration(stat.TotalTime),
+			AvgTime:    formatQueryDuration(stat.AvgTime),
+			MaxTime:    formatQueryDuration(stat.MaxTime),
+		})
+	}
+	sort.Slice(overview.Types, func(i, j int) bool {
+		return overview.Types[i].Count > overview.Types[j].Count
+	})
+
+	// Build dimensional breakdowns
+	overview.ByDatabase = convertDimensionBreakdown(m.QueryTypesByDatabase)
+	overview.ByUser = convertDimensionBreakdown(m.QueryTypesByUser)
+	overview.ByHost = convertDimensionBreakdown(m.QueryTypesByHost)
+	overview.ByApp = convertDimensionBreakdown(m.QueryTypesByApp)
+
+	// Marshal and output
+	jsonData, err := json.MarshalIndent(overview, "", "  ")
+	if err != nil {
+		fmt.Println("[ERROR] Failed to export JSON:", err)
+		return
+	}
+	fmt.Println(string(jsonData))
+}
+
+// ExportSQLPerformanceJSON exports detailed SQL performance data as JSON.
+func ExportSQLPerformanceJSON(m analysis.SqlMetrics) {
+	if m.TotalQueries == 0 {
+		fmt.Println("{}")
+		return
+	}
+
+	// Top 1% slow computation
+	top1Slow := 0
+	if len(m.Executions) > 0 {
+		threshold := m.P99QueryDuration
+		for _, exec := range m.Executions {
+			if exec.Duration >= threshold {
+				top1Slow++
+			}
+		}
+	}
+
+	perf := SQLPerformanceDetailJSON{
+		TotalQueryDuration:  formatQueryDuration(m.SumQueryDuration),
+		TotalQueriesParsed:  m.TotalQueries,
+		TotalUniqueQueries:  m.UniqueQueries,
+		Top1PercentSlow:     top1Slow,
+		QueryMaxDuration:    formatQueryDuration(m.MaxQueryDuration),
+		QueryMinDuration:    formatQueryDuration(m.MinQueryDuration),
+		QueryMedianDuration: formatQueryDuration(m.MedianQueryDuration),
+		Query99thPercentile: formatQueryDuration(m.P99QueryDuration),
+	}
+
+	// Duration distribution histogram
+	buckets := []struct {
+		label     string
+		threshold float64
+	}{
+		{"< 1 ms", 1},
+		{"< 10 ms", 10},
+		{"< 100 ms", 100},
+		{"< 1 s", 1000},
+		{"< 10 s", 10000},
+		{">= 10 s", -1},
+	}
+
+	bucketCounts := make([]int, len(buckets))
+	for _, exec := range m.Executions {
+		for i, b := range buckets {
+			if b.threshold < 0 || exec.Duration < b.threshold {
+				bucketCounts[i]++
+				break
+			}
+		}
+	}
+
+	for i, b := range buckets {
+		perf.DurationDistribution = append(perf.DurationDistribution, DurationBucketJSON{
+			Bucket: b.label,
+			Count:  bucketCounts[i],
+		})
+	}
+
+	// Convert QueryStats to slice for sorting
+	type queryStat struct {
+		id    string
+		query string
+		stat  *analysis.QueryStat
+	}
+	var stats []queryStat
+	for _, s := range m.QueryStats {
+		stats = append(stats, queryStat{s.ID, s.NormalizedQuery, s})
+	}
+
+	// Slowest queries (by max duration)
+	sort.Slice(stats, func(i, j int) bool {
+		return stats[i].stat.MaxTime > stats[j].stat.MaxTime
+	})
+	limit := 10
+	if len(stats) < limit {
+		limit = len(stats)
+	}
+	for i := 0; i < limit; i++ {
+		s := stats[i]
+		perf.SlowestQueries = append(perf.SlowestQueries, QueryRankJSON{
+			ID:              s.id,
+			NormalizedQuery: s.query,
+			Count:           s.stat.Count,
+			TotalTime:       formatQueryDuration(s.stat.TotalTime),
+			AvgTime:         formatQueryDuration(s.stat.AvgTime),
+			MaxTime:         formatQueryDuration(s.stat.MaxTime),
+		})
+	}
+
+	// Most frequent queries (by count)
+	sort.Slice(stats, func(i, j int) bool {
+		return stats[i].stat.Count > stats[j].stat.Count
+	})
+	limit = 15
+	if len(stats) < limit {
+		limit = len(stats)
+	}
+	for i := 0; i < limit; i++ {
+		s := stats[i]
+		perf.MostFrequentQueries = append(perf.MostFrequentQueries, QueryRankJSON{
+			ID:              s.id,
+			NormalizedQuery: s.query,
+			Count:           s.stat.Count,
+			TotalTime:       formatQueryDuration(s.stat.TotalTime),
+			AvgTime:         formatQueryDuration(s.stat.AvgTime),
+			MaxTime:         formatQueryDuration(s.stat.MaxTime),
+		})
+	}
+
+	// Most time consuming queries (by total time)
+	sort.Slice(stats, func(i, j int) bool {
+		return stats[i].stat.TotalTime > stats[j].stat.TotalTime
+	})
+	limit = 10
+	if len(stats) < limit {
+		limit = len(stats)
+	}
+	for i := 0; i < limit; i++ {
+		s := stats[i]
+		perf.MostTimeConsuming = append(perf.MostTimeConsuming, QueryRankJSON{
+			ID:              s.id,
+			NormalizedQuery: s.query,
+			Count:           s.stat.Count,
+			TotalTime:       formatQueryDuration(s.stat.TotalTime),
+			AvgTime:         formatQueryDuration(s.stat.AvgTime),
+			MaxTime:         formatQueryDuration(s.stat.MaxTime),
+		})
+	}
+
+	// Marshal and output
+	jsonData, err := json.MarshalIndent(perf, "", "  ")
+	if err != nil {
+		fmt.Println("[ERROR] Failed to export JSON:", err)
+		return
+	}
+	fmt.Println(string(jsonData))
+}
+
+// convertDimensionBreakdown converts a dimension breakdown map to JSON format.
+func convertDimensionBreakdown(breakdown map[string]map[string]*analysis.QueryTypeCount) []DimensionBreakdownJSON {
+	if len(breakdown) == 0 {
+		return nil
+	}
+
+	var result []DimensionBreakdownJSON
+	for dimName, types := range breakdown {
+		var totalCount int
+		var totalTime float64
+		var queryTypes []QueryTypeCountJSON
+
+		for typeName, tc := range types {
+			totalCount += tc.Count
+			totalTime += tc.TotalTime
+			queryTypes = append(queryTypes, QueryTypeCountJSON{
+				Type:      typeName,
+				Count:     tc.Count,
+				TotalTime: formatQueryDuration(tc.TotalTime),
+			})
+		}
+
+		// Sort query types by count descending
+		sort.Slice(queryTypes, func(i, j int) bool {
+			return queryTypes[i].Count > queryTypes[j].Count
+		})
+
+		result = append(result, DimensionBreakdownJSON{
+			Name:       dimName,
+			Count:      totalCount,
+			TotalTime:  formatQueryDuration(totalTime),
+			QueryTypes: queryTypes,
+		})
+	}
+
+	// Sort dimensions by count descending
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].Count > result[j].Count
+	})
+
+	return result
+}
+
+// ExportSQLDetailJSON exports SQL query details as JSON.
+func ExportSQLDetailJSON(m analysis.AggregatedMetrics, queryIDs []string) {
+	var details []SQLDetailJSON
+
+	for _, queryID := range queryIDs {
+		detail := SQLDetailJSON{
+			ID: queryID,
+		}
+
+		// Find query in SQL stats by ID (iterate since map is keyed by normalized query hash)
+		var foundStat *analysis.QueryStat
+		for _, stat := range m.SQL.QueryStats {
+			if stat.ID == queryID {
+				foundStat = stat
+				break
+			}
+		}
+
+		if foundStat != nil {
+			detail.NormalizedQuery = foundStat.NormalizedQuery
+			detail.RawQuery = foundStat.RawQuery
+			detail.Type = analysis.QueryTypeFromID(queryID)
+			detail.Category = analysis.QueryCategory(detail.Type)
+			detail.Statistics = &QueryDetailStatsJSON{
+				Count:     foundStat.Count,
+				TotalTime: formatQueryDuration(foundStat.TotalTime),
+				AvgTime:   formatQueryDuration(foundStat.AvgTime),
+				MaxTime:   formatQueryDuration(foundStat.MaxTime),
+			}
+
+			// Find executions for this query
+			for _, exec := range m.SQL.Executions {
+				if exec.QueryID == queryID {
+					detail.Executions = append(detail.Executions, QueryExecutionJSON{
+						Timestamp: exec.Timestamp.Format("2006-01-02 15:04:05"),
+						Duration:  formatQueryDuration(exec.Duration),
+						QueryID:   exec.QueryID,
+					})
+				}
+			}
+		} else {
+			// Query not found in SQL stats, might be from locks or tempfiles only
+			detail.Type = analysis.QueryTypeFromID(queryID)
+			detail.Category = analysis.QueryCategory(detail.Type)
+		}
+
+		// Find in temp files by ID
+		var foundTfStat *analysis.TempFileQueryStat
+		for _, tfStat := range m.TempFiles.QueryStats {
+			if tfStat.ID == queryID {
+				foundTfStat = tfStat
+				break
+			}
+		}
+		if foundTfStat != nil {
+			if detail.NormalizedQuery == "" {
+				detail.NormalizedQuery = foundTfStat.NormalizedQuery
+				detail.RawQuery = foundTfStat.RawQuery
+			}
+			detail.TempFiles = &QueryTempFilesJSON{
+				Count:     foundTfStat.Count,
+				TotalSize: formatBytes(foundTfStat.TotalSize),
+			}
+		}
+
+		// Find in locks by ID
+		var foundLockStat *analysis.LockQueryStat
+		for _, lockStat := range m.Locks.QueryStats {
+			if lockStat.ID == queryID {
+				foundLockStat = lockStat
+				break
+			}
+		}
+		if foundLockStat != nil {
+			if detail.NormalizedQuery == "" {
+				detail.NormalizedQuery = foundLockStat.NormalizedQuery
+				detail.RawQuery = foundLockStat.RawQuery
+			}
+			detail.Locks = &QueryLocksJSON{
+				AcquiredCount:    foundLockStat.AcquiredCount,
+				AcquiredWaitTime: fmt.Sprintf("%.2f ms", foundLockStat.AcquiredWaitTime),
+				WaitingCount:     foundLockStat.StillWaitingCount,
+				WaitingTime:      fmt.Sprintf("%.2f ms", foundLockStat.StillWaitingTime),
+				TotalWaitTime:    fmt.Sprintf("%.2f ms", foundLockStat.TotalWaitTime),
+			}
+		}
+
+		// Only add if we found something
+		if detail.NormalizedQuery != "" || detail.TempFiles != nil || detail.Locks != nil {
+			details = append(details, detail)
+		}
+	}
+
+	// Marshal and output
+	jsonData, err := json.MarshalIndent(details, "", "  ")
+	if err != nil {
+		fmt.Println("[ERROR] Failed to export JSON:", err)
+		return
+	}
+	fmt.Println(string(jsonData))
 }
