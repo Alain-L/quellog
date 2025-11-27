@@ -205,7 +205,8 @@ deadlock_timeout = 1s
 log_temp_files = 0                  # All temp files
 
 # Prefix for stderr (CSV/JSON have fixed formats)
-log_line_prefix = '%m [%p] %q%u@%d app=%a host=%h '
+# Recommended format from docs/postgresql-setup.md
+log_line_prefix = '%t [%p] %e: db=%d,user=%u,app=%a,client=%h '
 
 # =============================================================================
 # AUTOVACUUM - Aggressive settings for 30-min test window
