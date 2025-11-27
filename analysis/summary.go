@@ -393,10 +393,13 @@ func (a *UniqueEntityAnalyzer) Process(entry *parser.LogEntry) {
 			}
 		} else if lastChar == 'r' && eqIdx >= 4 && msg[eqIdx-4:eqIdx] == "user" {
 			// "user=" ends with 'r'
-			if userName := extractValueAt(msg, eqIdx+1); userName != "" {
-				a.userCounts[userName]++
-				currentUser = userName
-				matched = true
+			// Only count if we haven't found a user yet in this message (avoid double-counting)
+			if currentUser == "" {
+				if userName := extractValueAt(msg, eqIdx+1); userName != "" {
+					a.userCounts[userName]++
+					currentUser = userName
+					matched = true
+				}
 			}
 		} else if lastChar == 'p' && eqIdx >= 3 && msg[eqIdx-3:eqIdx] == "app" {
 			// "app=" ends with 'p'

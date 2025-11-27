@@ -101,7 +101,8 @@ func parseMmapData(data []byte, out chan<- LogEntry) error {
 			// This handles cases like GCP where SQL continuation lines are not indented
 			if !isContinuation && len(line) > 0 && currentEntry.Len() > 0 {
 				// Fast path: check if line could possibly start a log entry
-				if line[0] >= '0' && line[0] <= '9' || line[0] == '[' {
+				// Most log entries start with: digit (timestamp), '[' (bracket), or uppercase letter (syslog month)
+				if line[0] >= '0' && line[0] <= '9' || line[0] == '[' || (line[0] >= 'A' && line[0] <= 'Z') {
 					// Might be a new log entry - verify with full parsing
 					timestamp, _ := parseStderrLine(line)
 					if timestamp.IsZero() {
@@ -109,7 +110,7 @@ func parseMmapData(data []byte, out chan<- LogEntry) error {
 						isContinuation = true
 					}
 				} else {
-					// Doesn't start with digit/bracket = definitely continuation
+					// Doesn't start with digit/bracket/uppercase = definitely continuation
 					isContinuation = true
 				}
 			}
@@ -143,13 +144,14 @@ func parseMmapData(data []byte, out chan<- LogEntry) error {
 			// Fallback: if not indented AND we have a current entry, check for timestamp
 			if !isContinuation && currentEntry.Len() > 0 {
 				// Fast path: check if line could possibly start a log entry
-				if line[0] >= '0' && line[0] <= '9' || line[0] == '[' {
+				// Most log entries start with: digit (timestamp), '[' (bracket), or uppercase letter (syslog month)
+				if line[0] >= '0' && line[0] <= '9' || line[0] == '[' || (line[0] >= 'A' && line[0] <= 'Z') {
 					timestamp, _ := parseStderrLine(line)
 					if timestamp.IsZero() {
 						isContinuation = true
 					}
 				} else {
-					// Doesn't start with digit/bracket = definitely continuation
+					// Doesn't start with digit/bracket/uppercase = definitely continuation
 					isContinuation = true
 				}
 			}
@@ -214,9 +216,9 @@ func parseMmapDataOptimized(data []byte, out chan<- LogEntry) error {
 		// This handles cases like GCP where SQL continuation lines are not indented
 		if !isContinuation && len(currentEntry) > 0 {
 			// Fast path: check if line could possibly start a log entry
-			// Most log entries start with: digit (timestamp) or '[' (bracket timestamp)
+			// Most log entries start with: digit (timestamp), '[' (bracket), or uppercase letter (syslog month)
 			// This avoids expensive parseStderrLineBytes call for obvious continuation lines
-			if line[0] >= '0' && line[0] <= '9' || line[0] == '[' {
+			if line[0] >= '0' && line[0] <= '9' || line[0] == '[' || (line[0] >= 'A' && line[0] <= 'Z') {
 				// Might be a new log entry - verify with full parsing
 				timestamp, _ := parseStderrLineBytes(line)
 				if timestamp.IsZero() {
@@ -224,7 +226,7 @@ func parseMmapDataOptimized(data []byte, out chan<- LogEntry) error {
 					isContinuation = true
 				}
 			} else {
-				// Doesn't start with digit/bracket = definitely continuation
+				// Doesn't start with digit/bracket/uppercase = definitely continuation
 				isContinuation = true
 			}
 		}
