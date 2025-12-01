@@ -266,6 +266,45 @@ func normalizeQuery(query string) string {
 	return buf.String()
 }
 
+// normalizeWhitespace collapses all whitespace (spaces, tabs, newlines) into single spaces.
+// This ensures consistent raw_query formatting across log formats (stderr uses spaces,
+// CSV/JSON preserve newlines from the original query).
+//
+// Example:
+//
+//	Input:  "BEGIN;\n            UPDATE users\n            SET name = 'foo';"
+//	Output: "BEGIN; UPDATE users SET name = 'foo';"
+func normalizeWhitespace(s string) string {
+	if len(s) == 0 {
+		return ""
+	}
+
+	buf := builderPool.Get().(*strings.Builder)
+	buf.Reset()
+	buf.Grow(len(s))
+	defer builderPool.Put(buf)
+
+	lastWasSpace := false
+
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+
+		// Collapse whitespace
+		if c == '\n' || c == '\r' || c == '\t' || c == ' ' {
+			if !lastWasSpace {
+				buf.WriteByte(' ')
+				lastWasSpace = true
+			}
+			continue
+		}
+
+		buf.WriteByte(c)
+		lastWasSpace = false
+	}
+
+	return strings.TrimSpace(buf.String())
+}
+
 // ============================================================================
 // Query ID generation
 // ============================================================================

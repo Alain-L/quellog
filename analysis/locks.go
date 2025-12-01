@@ -150,12 +150,13 @@ type LockAnalyzer struct {
 // activeLock tracks an individual lock to avoid counting the same wait time multiple times.
 // PostgreSQL emits multiple "still waiting" messages followed by one "acquired" message.
 type activeLock struct {
-	processID    string
-	lockType     string
-	resource     string
-	lastWaitTime float64 // Most recent wait time reported
-	acquired     bool    // Whether this lock was acquired
-	query        string  // Associated query if known
+	processID      string
+	lockType       string
+	resource       string
+	lastWaitTime   float64 // Most recent wait time reported
+	acquired       bool    // Whether this lock was acquired
+	query          string  // Associated query if known
+	waitingEventID int     // Index into events slice for the waiting event (-1 if none)
 }
 
 // NewLockAnalyzer creates a new lock event analyzer.
@@ -248,27 +249,32 @@ func (a *LockAnalyzer) Process(entry *parser.LogEntry) {
 	hasLockAcquired := strings.Index(msg, lockAcquired) >= 0
 	hasDeadlock := strings.Index(msg, lockDeadlock) >= 0
 
-	// OPTIMIZATION 3: Skip STATEMENT parsing until locks are actually seen
+	// OPTIMIZATION 3: Skip STATEMENT/QUERY parsing until locks are actually seen
 	// This avoids filling lastQueryByPID unnecessarily
 	hasStatement := false
+	hasQuery := false
 	if a.locksExist {
-		// OPTIMIZATION: Check for "TATEMENT:" instead of two separate Contains calls
-		// This pattern appears in both "STATEMENT:" and "statement:"
+		// Check for "TATEMENT:" (covers STATEMENT: and statement:)
 		if idx := strings.Index(msg, "TATEMENT:"); idx >= 0 {
 			// Verify it's actually STATEMENT or statement (check preceding char)
 			if idx == 0 || msg[idx-1] == 'S' || msg[idx-1] == 's' {
 				hasStatement = true
 			}
 		}
+		// Also check for "QUERY:" which is used by CSV parser
+		if !hasStatement && strings.Contains(msg, "QUERY:") {
+			hasQuery = true
+		}
 	}
 
 	// Skip if nothing relevant
-	if !hasLockWaiting && !hasLockAcquired && !hasDeadlock && !hasStatement {
+	if !hasLockWaiting && !hasLockAcquired && !hasDeadlock && !hasStatement && !hasQuery {
 		return
 	}
 
-	// === STEP 1: Handle STATEMENT lines (cache queries) ===
-	if hasStatement {
+	// === STEP 1: Handle STATEMENT/QUERY lines (cache queries) ===
+	// This handles both stderr (STATEMENT: as separate line) and CSV (QUERY: in message)
+	if hasStatement || hasQuery {
 		var query string
 		var pid string
 
@@ -289,21 +295,45 @@ func (a *LockAnalyzer) Process(entry *parser.LogEntry) {
 			}
 		}
 
+		// Method 3: QUERY: (used by CSV parser)
+		if query == "" {
+			if idx := strings.Index(msg, "QUERY:"); idx != -1 {
+				query = strings.TrimSpace(msg[idx+6:])
+				// QUERY: may be followed by CONTEXT:, remove it
+				if ctxIdx := strings.Index(query, " CONTEXT:"); ctxIdx != -1 {
+					query = strings.TrimSpace(query[:ctxIdx])
+				}
+			}
+		}
+
 		// Extract PID and cache query
 		if query != "" {
 			pid = parser.ExtractPID(msg)
 			if pid != "" {
+				// Normalize whitespace (newlines to spaces) for consistent raw_query across formats
+				query = normalizeWhitespace(query)
 				a.lastQueryByPID[pid] = query
 
 				// Also update any active locks for this PID that don't have a query yet
 				for _, lock := range a.activeLocks {
 					if lock.processID == pid && lock.query == "" {
 						lock.query = query
+						// Update the waiting event's query_id if we have one
+						if lock.waitingEventID >= 0 && lock.waitingEventID < len(a.events) {
+							normalized := normalizeQuery(query)
+							queryID, _ := GenerateQueryID(query, normalized)
+							a.events[lock.waitingEventID].QueryID = queryID
+						}
 					}
 				}
 			}
 		}
-		return
+
+		// If this is ONLY a STATEMENT/QUERY line (not also a lock event), return
+		// For CSV, QUERY: is embedded in the lock message, so we continue processing
+		if hasStatement && !hasLockWaiting && !hasLockAcquired && !hasDeadlock {
+			return
+		}
 	}
 
 	// === STEP 2: Handle deadlock detection ===
@@ -345,11 +375,12 @@ func (a *LockAnalyzer) Process(entry *parser.LogEntry) {
 			if !exists {
 				// First time seeing this lock
 				lock = &activeLock{
-					processID:    processID,
-					lockType:     lockType,
-					resource:     resource,
-					lastWaitTime: waitTime,
-					acquired:     false,
+					processID:      processID,
+					lockType:       lockType,
+					resource:       resource,
+					lastWaitTime:   waitTime,
+					acquired:       false,
+					waitingEventID: -1, // Will be set after we append the event
 				}
 				// Get associated query if available
 				if query, ok := a.lastQueryByPID[processID]; ok {
@@ -373,6 +404,8 @@ func (a *LockAnalyzer) Process(entry *parser.LogEntry) {
 				queryID, _ = GenerateQueryID(lock.query, normalized)
 			}
 
+			// Store the event index so we can update query_id later if STATEMENT comes after
+			eventIdx := len(a.events)
 			a.events = append(a.events, LockEvent{
 				Timestamp:    entry.Timestamp,
 				EventType:    "waiting",
@@ -382,6 +415,8 @@ func (a *LockAnalyzer) Process(entry *parser.LogEntry) {
 				ProcessID:    processID,
 				QueryID:      queryID,
 			})
+			// Track this event so we can update its query_id when STATEMENT arrives
+			lock.waitingEventID = eventIdx
 		} else { // "acquired"
 			lock, exists := a.activeLocks[lockKey]
 			if exists {
@@ -391,11 +426,12 @@ func (a *LockAnalyzer) Process(entry *parser.LogEntry) {
 			} else {
 				// Lock acquired without prior "waiting" message (fast acquisition)
 				lock = &activeLock{
-					processID:    processID,
-					lockType:     lockType,
-					resource:     resource,
-					lastWaitTime: waitTime,
-					acquired:     true,
+					processID:      processID,
+					lockType:       lockType,
+					resource:       resource,
+					lastWaitTime:   waitTime,
+					acquired:       true,
+					waitingEventID: -1, // No waiting event for direct acquisition
 				}
 				// Get associated query if available
 				if query, ok := a.lastQueryByPID[processID]; ok {

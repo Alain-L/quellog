@@ -229,18 +229,23 @@ func constructMessage(obj map[string]interface{}) string {
 	var parts []string
 
 	// Extract context fields
+	// PostgreSQL JSON format uses "dbname" not "database"
 	user := getStringField(obj, "user")
-	database := getStringField(obj, "database")
+	database := getStringField(obj, "dbname")
+	if database == "" {
+		database = getStringField(obj, "database") // fallback for compatibility
+	}
 	appName := getStringField(obj, "application_name")
+	remoteHost := getStringField(obj, "remote_host")
 	severity := getStringField(obj, "error_severity")
 	pid := getStringField(obj, "pid")
 
-	// Build context prefix: [pid]: user=X,db=Y,app=Z SEVERITY:
+	// Build context prefix: [pid]: user=X,db=Y,app=Z,client=H SEVERITY:
 	var contextParts []string
 	if pid != "" {
 		contextParts = append(contextParts, fmt.Sprintf("[%s]:", pid))
 	}
-	if user != "" || database != "" || appName != "" {
+	if user != "" || database != "" || appName != "" || remoteHost != "" {
 		var userDbApp []string
 		if user != "" {
 			userDbApp = append(userDbApp, fmt.Sprintf("user=%s", user))
@@ -250,6 +255,9 @@ func constructMessage(obj map[string]interface{}) string {
 		}
 		if appName != "" {
 			userDbApp = append(userDbApp, fmt.Sprintf("app=%s", appName))
+		}
+		if remoteHost != "" {
+			userDbApp = append(userDbApp, fmt.Sprintf("client=%s", remoteHost))
 		}
 		if len(userDbApp) > 0 {
 			contextParts = append(contextParts, strings.Join(userDbApp, ","))
@@ -282,7 +290,11 @@ func constructMessage(obj map[string]interface{}) string {
 		parts = append(parts, "HINT: "+hint)
 	}
 
+	// Try "query" field first (some formats), then "statement" (PostgreSQL native jsonlog)
 	query := getStringField(obj, "query")
+	if query == "" {
+		query = getStringField(obj, "statement")
+	}
 	if query != "" {
 		parts = append(parts, "STATEMENT: "+query)
 	}

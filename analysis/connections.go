@@ -93,7 +93,9 @@ type ConnectionAnalyzer struct {
 	sessionsByHost          map[string][]time.Duration
 
 	// For tracking concurrent connections
-	activeConnections       map[time.Time]bool // connection timestamp -> active
+	// Use PID as key instead of timestamp to avoid collisions when
+	// multiple connections arrive in the same second
+	activeConnections       map[string]time.Time // PID -> connection timestamp
 	peakConcurrent          int
 	peakConcurrentTimestamp time.Time
 }
@@ -107,7 +109,7 @@ func NewConnectionAnalyzer() *ConnectionAnalyzer {
 		sessionsByUser:     make(map[string][]time.Duration, 100),
 		sessionsByDatabase: make(map[string][]time.Duration, 50),
 		sessionsByHost:     make(map[string][]time.Duration, 100),
-		activeConnections:  make(map[time.Time]bool, 1000),
+		activeConnections:  make(map[string]time.Time, 1000),
 	}
 }
 
@@ -126,12 +128,21 @@ func (a *ConnectionAnalyzer) Process(entry *parser.LogEntry) {
 		return // Neither connection nor disconnection present
 	}
 
+	// Extract PID once for this entry (used for connection tracking)
+	pid := parser.ExtractPID(msg)
+
 	// Check if it's "connection received" or "disconnection"
 	// "connection received" has 'c' at position idx
 	// "disconnection" has 'd' before "connection" (idx-3: "dis")
 	if idx >= 3 && msg[idx-3:idx] == "dis" {
 		// It's "disconnection"
 		a.disconnectionCount++
+
+		// Remove from active connections using PID
+		if pid != "" {
+			delete(a.activeConnections, pid)
+		}
+
 		if duration := extractSessionTime(msg); duration > 0 {
 			a.totalSessionTime += duration
 			a.sessionDurations = append(a.sessionDurations, duration)
@@ -169,8 +180,13 @@ func (a *ConnectionAnalyzer) Process(entry *parser.LogEntry) {
 			a.connectionReceivedCount++
 			a.connections = append(a.connections, entry.Timestamp)
 
-			// Track active connections for concurrent calculation
-			a.activeConnections[entry.Timestamp] = true
+			// Track active connections using PID for accurate counting
+			// Fall back to timestamp string if PID not available
+			key := pid
+			if key == "" {
+				key = entry.Timestamp.String()
+			}
+			a.activeConnections[key] = entry.Timestamp
 			currentActive := len(a.activeConnections)
 			if currentActive > a.peakConcurrent {
 				a.peakConcurrent = currentActive

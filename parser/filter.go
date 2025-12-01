@@ -162,6 +162,8 @@ func extractValue(line, key string) string {
 
 	// Extract and trim the value
 	value := strings.TrimSpace(rest[:endPos])
+	// Remove surrounding quotes if present (e.g., user="postgres" → postgres)
+	value = strings.Trim(value, `"'`)
 	return value
 }
 

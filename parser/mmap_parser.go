@@ -183,7 +183,210 @@ func parseMmapData(data []byte, out chan<- LogEntry) error {
 
 // parseMmapDataOptimized is an optimized version using byte slicing instead of string conversions.
 // This reduces allocations by working directly with byte slices.
+//
+// For syslog format, it uses per-PID tracking to handle interleaved logs from
+// multiple PostgreSQL backends. Each backend (PID) maintains its own accumulated
+// entry, preventing premature flushes when logs from different PIDs are interleaved.
 func parseMmapDataOptimized(data []byte, out chan<- LogEntry) error {
+	// Detect syslog format by checking if first non-empty line starts with month abbreviation
+	isSyslogMode := detectSyslogMode(data)
+
+	if isSyslogMode {
+		return parseMmapDataSyslog(data, out)
+	}
+	return parseMmapDataStderr(data, out)
+}
+
+// detectSyslogMode checks if the data appears to be syslog format.
+// Syslog lines start with a 3-letter month abbreviation (Jan, Feb, etc.)
+func detectSyslogMode(data []byte) bool {
+	// Find first non-empty line
+	start := 0
+	for start < len(data) {
+		i := bytes.IndexByte(data[start:], '\n')
+		if i < 0 {
+			i = len(data) - start
+		}
+		line := data[start : start+i]
+		start += i + 1
+
+		if len(line) < 4 {
+			continue
+		}
+
+		// Check for syslog month pattern: "Mon " (e.g., "Nov ")
+		// Valid months: Jan, Feb, Mar, Apr, May, Jun, Jul, Aug, Sep, Oct, Nov, Dec
+		if line[3] == ' ' && line[0] >= 'A' && line[0] <= 'Z' {
+			months := [][]byte{
+				[]byte("Jan"), []byte("Feb"), []byte("Mar"), []byte("Apr"),
+				[]byte("May"), []byte("Jun"), []byte("Jul"), []byte("Aug"),
+				[]byte("Sep"), []byte("Oct"), []byte("Nov"), []byte("Dec"),
+			}
+			for _, month := range months {
+				if bytes.HasPrefix(line, month) {
+					return true
+				}
+			}
+		}
+		// First non-empty line checked, return false if not syslog
+		return false
+	}
+	return false
+}
+
+// parseMmapDataSyslog parses syslog format with per-PID tracking.
+// This handles interleaved logs from multiple PostgreSQL backends correctly.
+//
+// Key insight: syslog uses [statement_id-line_number] pattern where:
+//   - [X-1] = first line of statement X (new entry)
+//   - [X-N] where N>1 = continuation line (append to entry)
+//
+// Strategy: Track entries per PID for correct multi-line SQL assembly.
+// When a new entry arrives for a PID, flush only that PID's previous entry.
+// At the end, flush remaining entries sorted by timestamp for correct analyzer order.
+func parseMmapDataSyslog(data []byte, out chan<- LogEntry) error {
+	// Per-PID entry tracking: each backend accumulates its own entry
+	// We store both the entry data and its original line number for stable sorting
+	type pidEntry struct {
+		lineNum int
+		data    []byte
+	}
+	perPIDEntries := make(map[string]pidEntry)
+
+	// Track emission order for deterministic output
+	type orderedEntry struct {
+		lineNum int // Original file line number for stable sorting
+		entry   LogEntry
+	}
+	var emissionOrder []orderedEntry
+	lineNum := 0
+
+	// Helper to emit an entry with its original line number
+	emit := func(ln int, entry []byte) {
+		ts, msg := parseStderrLineBytes(entry)
+		emissionOrder = append(emissionOrder, orderedEntry{
+			lineNum: ln,
+			entry:   LogEntry{Timestamp: ts, Message: msg},
+		})
+	}
+
+	start := 0
+	for start < len(data) {
+		// Find next newline
+		i := bytes.IndexByte(data[start:], '\n')
+		if i < 0 {
+			break
+		}
+
+		i += start
+		line := data[start:i]
+		start = i + 1
+		lineNum++
+
+		if len(line) == 0 {
+			continue
+		}
+
+		// Parse syslog line to extract message part
+		lineStr := string(line)
+		_, message, ok := parseSyslogFormat(lineStr)
+		if !ok {
+			// Not a valid syslog line - skip
+			continue
+		}
+
+		// Extract PID from message
+		pid := extractSyslogPID(message)
+		if pid == "" {
+			// No PID found - emit as standalone entry
+			ts, msg := parseStderrLine(lineStr)
+			emissionOrder = append(emissionOrder, orderedEntry{
+				lineNum: lineNum,
+				entry:   LogEntry{Timestamp: ts, Message: msg},
+			})
+			continue
+		}
+
+		// Check if this is a continuation line ([X-N] where N > 1)
+		if isSyslogContinuationLine(message) {
+			// Continuation: append to this PID's entry
+			if pe, exists := perPIDEntries[pid]; exists && len(pe.data) > 0 {
+				content := extractSyslogContinuationContent(message)
+				if content != "" {
+					pe.data = append(pe.data, ' ')
+					pe.data = append(pe.data, content...)
+					perPIDEntries[pid] = pe
+				}
+			}
+			// If no entry for this PID, it's an orphan continuation - skip
+		} else {
+			// New entry [X-1]: flush previous entry for THIS PID only
+			if pe, exists := perPIDEntries[pid]; exists && len(pe.data) > 0 {
+				emit(pe.lineNum, pe.data)
+			}
+			// Start accumulating this entry for this PID (with current line number)
+			perPIDEntries[pid] = pidEntry{lineNum: lineNum, data: append([]byte(nil), line...)}
+		}
+	}
+
+	// Handle remaining data after last newline
+	if start < len(data) {
+		line := data[start:]
+		lineNum++
+		if len(line) > 0 {
+			lineStr := string(line)
+			_, message, ok := parseSyslogFormat(lineStr)
+			if ok {
+				pid := extractSyslogPID(message)
+				if pid != "" {
+					if isSyslogContinuationLine(message) {
+						if pe, exists := perPIDEntries[pid]; exists && len(pe.data) > 0 {
+							content := extractSyslogContinuationContent(message)
+							if content != "" {
+								pe.data = append(pe.data, ' ')
+								pe.data = append(pe.data, content...)
+								perPIDEntries[pid] = pe
+							}
+						}
+					} else {
+						if pe, exists := perPIDEntries[pid]; exists && len(pe.data) > 0 {
+							emit(pe.lineNum, pe.data)
+						}
+						perPIDEntries[pid] = pidEntry{lineNum: lineNum, data: append([]byte(nil), line...)}
+					}
+				}
+			}
+		}
+	}
+
+	// Flush remaining entries
+	for _, pe := range perPIDEntries {
+		if len(pe.data) > 0 {
+			emit(pe.lineNum, pe.data)
+		}
+	}
+
+	// Now sort ALL emitted entries by timestamp (stable sort preserving file line order)
+	// This ensures correct order for analyzers that depend on temporal ordering
+	for i := 0; i < len(emissionOrder)-1; i++ {
+		for j := i + 1; j < len(emissionOrder); j++ {
+			ei, ej := emissionOrder[i], emissionOrder[j]
+			// Sort by timestamp first, then by original line number for stability
+			if ej.entry.Timestamp.Before(ei.entry.Timestamp) ||
+				(ej.entry.Timestamp.Equal(ei.entry.Timestamp) && ej.lineNum < ei.lineNum) {
+				emissionOrder[i], emissionOrder[j] = emissionOrder[j], emissionOrder[i]
+			}
+		}
+	}
+	for _, e := range emissionOrder {
+		out <- e.entry
+	}
+
+	return nil
+}
+
+// parseMmapDataStderr parses stderr format (non-syslog) using the original logic.
+func parseMmapDataStderr(data []byte, out chan<- LogEntry) error {
 	var currentEntry []byte
 	currentEntry = make([]byte, 0, 1024) // Pre-allocate
 

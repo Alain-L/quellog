@@ -186,8 +186,10 @@ func NewStreamingAnalyzer(enableParallel bool) *StreamingAnalyzer {
 // Process analyzes a single log entry, dispatching it to all relevant sub-analyzers.
 // Each sub-analyzer filters and processes only the entries relevant to it.
 func (sa *StreamingAnalyzer) Process(entry *parser.LogEntry) {
-	// Update global metrics
-	sa.global.Count++
+	// Update global metrics (skip continuation lines for accurate count)
+	if !entry.IsContinuation {
+		sa.global.Count++
+	}
 
 	// Track timestamp range
 	if sa.global.MinTimestamp.IsZero() || entry.Timestamp.Before(sa.global.MinTimestamp) {
@@ -324,6 +326,12 @@ func NewUniqueEntityAnalyzer() *UniqueEntityAnalyzer {
 //   - "app=psql" or "application_name=app"
 //   - "host=192.168.1.1" or "client=192.168.1.1"
 func (a *UniqueEntityAnalyzer) Process(entry *parser.LogEntry) {
+	// Skip continuation lines (STATEMENT, DETAIL, HINT, CONTEXT) to avoid double-counting
+	// These are secondary messages that belong to the previous entry
+	if entry.IsContinuation {
+		return
+	}
+
 	msg := entry.Message
 
 	// OPTION 1: Single-pass scanner
@@ -335,8 +343,8 @@ func (a *UniqueEntityAnalyzer) Process(entry *parser.LogEntry) {
 		return
 	}
 
-	// Track extracted values for building combinations
-	var currentUser, currentDb, currentHost string
+	// Track extracted values for building combinations and avoiding double-counting
+	var currentUser, currentDb, currentHost, currentApp string
 
 	// Single-pass extraction: scan once, extract all matches
 	i := 0
@@ -365,30 +373,47 @@ func (a *UniqueEntityAnalyzer) Process(entry *parser.LogEntry) {
 		// "application_name=" ends with 'e', "database=" also ends with 'e'
 		if lastChar == 'e' {
 			if eqIdx >= 16 && msg[eqIdx-16:eqIdx] == "application_name" {
-				if appName := extractValueAt(msg, eqIdx+1); appName != "" {
-					a.appCounts[appName]++
-					matched = true
+				// Only count if we haven't found an app yet in this message (avoid double-counting)
+				if currentApp == "" {
+					if appName := extractValueAt(msg, eqIdx+1); appName != "" {
+						a.appCounts[appName]++
+						currentApp = appName
+						matched = true
+					}
 				}
 			} else if eqIdx >= 8 && msg[eqIdx-8:eqIdx] == "database" {
-				if dbName := extractValueAt(msg, eqIdx+1); dbName != "" {
-					a.dbCounts[dbName]++
-					currentDb = dbName
-					matched = true
+				// Only count if we haven't found a db yet in this message (avoid double-counting)
+				if currentDb == "" {
+					if dbName := extractValueAt(msg, eqIdx+1); dbName != "" {
+						a.dbCounts[dbName]++
+						currentDb = dbName
+						matched = true
+					}
 				}
 			}
 		} else if lastChar == 't' {
 			// "client=" and "host=" both end with 't'
 			if eqIdx >= 6 && msg[eqIdx-6:eqIdx] == "client" {
-				if hostName := extractValueAt(msg, eqIdx+1); hostName != "" {
-					a.hostCounts[hostName]++
-					currentHost = hostName
-					matched = true
+				// Only count if we haven't found a host yet in this message (avoid double-counting)
+				if currentHost == "" {
+					if hostName := extractValueAt(msg, eqIdx+1); hostName != "" {
+						// Normalize host to remove port (e.g., "192.168.1.1(12345)" -> "192.168.1.1")
+						hostName = normalizeHost(hostName)
+						a.hostCounts[hostName]++
+						currentHost = hostName
+						matched = true
+					}
 				}
 			} else if eqIdx >= 4 && msg[eqIdx-4:eqIdx] == "host" {
-				if hostName := extractValueAt(msg, eqIdx+1); hostName != "" {
-					a.hostCounts[hostName]++
-					currentHost = hostName
-					matched = true
+				// Only count if we haven't found a host yet in this message (avoid double-counting)
+				if currentHost == "" {
+					if hostName := extractValueAt(msg, eqIdx+1); hostName != "" {
+						// Normalize host to remove port (e.g., "192.168.1.1(12345)" -> "192.168.1.1")
+						hostName = normalizeHost(hostName)
+						a.hostCounts[hostName]++
+						currentHost = hostName
+						matched = true
+					}
 				}
 			}
 		} else if lastChar == 'r' && eqIdx >= 4 && msg[eqIdx-4:eqIdx] == "user" {
@@ -403,16 +428,23 @@ func (a *UniqueEntityAnalyzer) Process(entry *parser.LogEntry) {
 			}
 		} else if lastChar == 'p' && eqIdx >= 3 && msg[eqIdx-3:eqIdx] == "app" {
 			// "app=" ends with 'p'
-			if appName := extractValueAt(msg, eqIdx+1); appName != "" {
-				a.appCounts[appName]++
-				matched = true
+			// Only count if we haven't found an app yet in this message (avoid double-counting)
+			if currentApp == "" {
+				if appName := extractValueAt(msg, eqIdx+1); appName != "" {
+					a.appCounts[appName]++
+					currentApp = appName
+					matched = true
+				}
 			}
 		} else if lastChar == 'b' && eqIdx >= 2 && msg[eqIdx-2:eqIdx] == "db" {
 			// "db=" ends with 'b'
-			if dbName := extractValueAt(msg, eqIdx+1); dbName != "" {
-				a.dbCounts[dbName]++
-				currentDb = dbName
-				matched = true
+			// Only count if we haven't found a db yet in this message (avoid double-counting)
+			if currentDb == "" {
+				if dbName := extractValueAt(msg, eqIdx+1); dbName != "" {
+					a.dbCounts[dbName]++
+					currentDb = dbName
+					matched = true
+				}
 			}
 		}
 
@@ -498,6 +530,11 @@ func extractValueAt(msg string, startPos int) string {
 	// Extract and normalize value
 	val := msg[startPos:endPos]
 
+	// Remove surrounding quotes if present (e.g., user="postgres" → postgres)
+	if len(val) >= 2 && (val[0] == '"' && val[len(val)-1] == '"' || val[0] == '\'' && val[len(val)-1] == '\'') {
+		val = val[1 : len(val)-1]
+	}
+
 	// Normalize "unknown" or "[unknown]" to "UNKNOWN"
 	if val == "" || val == "unknown" || val == "[unknown]" {
 		return "UNKNOWN"
@@ -517,6 +554,38 @@ func extractValueAt(msg string, startPos int) string {
 	}
 
 	return val
+}
+
+// normalizeHost removes the port from a host address.
+// Handles formats like "192.168.1.1(12345)" or "192.168.1.1:5432" or "[::1](12345)".
+// Returns just the IP/hostname part.
+func normalizeHost(host string) string {
+	if host == "" {
+		return host
+	}
+
+	// Handle IPv6 with brackets: [::1](port) or [::1]:port
+	if host[0] == '[' {
+		if idx := strings.Index(host, "]"); idx > 0 {
+			return host[:idx+1] // Include the closing bracket
+		}
+		return host
+	}
+
+	// Handle IP(port) format - common in PostgreSQL logs
+	if idx := strings.Index(host, "("); idx > 0 {
+		return host[:idx]
+	}
+
+	// Handle IP:port format
+	if idx := strings.LastIndex(host, ":"); idx > 0 {
+		// Make sure it's not IPv6 (multiple colons)
+		if strings.Count(host, ":") == 1 {
+			return host[:idx]
+		}
+	}
+
+	return host
 }
 
 // countMapKeysAsSlice extracts keys from a count map and returns them as a sorted slice.

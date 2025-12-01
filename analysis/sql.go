@@ -281,6 +281,9 @@ func (a *SQLAnalyzer) Process(entry *parser.LogEntry) {
 	// Normalize query for aggregation (with LRU caching)
 	rawQuery := strings.TrimSpace(query)
 
+	// Normalize whitespace (newlines to spaces) for consistent raw_query across formats
+	rawQuery = normalizeWhitespace(rawQuery)
+
 	// Check LRU cache first to avoid expensive re-normalization
 	normalizedQuery, cached := a.normalizationCache.Get(rawQuery)
 	if !cached {

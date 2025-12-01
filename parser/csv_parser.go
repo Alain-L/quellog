@@ -200,6 +200,14 @@ func buildCSVMessage(record []string) string {
 		b.WriteString(app)
 		hasUserDbApp = true
 	}
+	if clientAddr := getField(record, csvFieldClientAddr); clientAddr != "" {
+		if hasUserDbApp {
+			b.WriteByte(',')
+		}
+		b.WriteString("client=")
+		b.WriteString(clientAddr)
+		hasUserDbApp = true
+	}
 	if hasUserDbApp {
 		b.WriteByte(' ')
 	}

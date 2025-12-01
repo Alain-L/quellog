@@ -22,6 +22,241 @@ const (
 	syslogTabMarker = "#011"
 )
 
+// continuationPrefixes are the PostgreSQL secondary message types that follow
+// a primary log entry (LOG, ERROR, etc.). These lines have their own timestamp
+// and log_line_prefix in stderr format, but semantically belong to the previous
+// entry and should not be counted as separate log entries.
+//
+// Reference: PostgreSQL documentation and src/backend/utils/error/elog.c
+var continuationPrefixes = []string{
+	"DETAIL:",
+	"HINT:",
+	"CONTEXT:",
+	"STATEMENT:",
+	"QUERY:",
+	"LOCATION:",
+}
+
+// preCollectorMessages are emitted before the logging collector starts.
+// In syslog mode, these appear but don't exist in stderr logs.
+// We skip them to maintain parity between formats.
+var preCollectorMessages = []string{
+	"redirecting log output to logging collector process",
+}
+
+// isContinuationMessage checks if a log message is a continuation of a previous entry.
+// These are secondary messages like DETAIL, HINT, STATEMENT, CONTEXT, QUERY that
+// PostgreSQL emits with their own log_line_prefix but belong to the previous entry.
+//
+// The message may have prefixes like "[pid] SQLSTATE: db=X,user=Y DETAIL: ..."
+// so we need to search for the continuation keywords, not just check the start.
+//
+// For syslog format with %l in log_line_prefix, we also detect [X-N] patterns
+// where N>1 indicates a continuation line (e.g., [10-2] is line 2 of statement 10).
+//
+// Also skips pre-collector messages that only appear in syslog (not stderr).
+func isContinuationMessage(message string) bool {
+	if len(message) < 5 {
+		return false
+	}
+
+	// Check for pre-collector messages (syslog-only, skip for parity)
+	for _, skip := range preCollectorMessages {
+		if strings.Contains(message, skip) {
+			return true
+		}
+	}
+
+	// Check for syslog line number pattern: [X-N] where N > 1
+	// This handles multi-line SQL statements in syslog format where each line
+	// gets its own syslog timestamp but belongs to the same PostgreSQL log entry.
+	// Pattern examples: [10-2], [10-3], [1-2], [123-45]
+	if isSyslogContinuationLine(message) {
+		return true
+	}
+
+	// Check against known continuation prefixes anywhere in the message
+	// We look for " DETAIL:" or "DETAIL:" at specific positions to avoid
+	// false positives from messages that contain these words
+	for _, prefix := range continuationPrefixes {
+		// Check if it appears after typical PostgreSQL prefix patterns
+		// Pattern: "... DETAIL: " or starts with "DETAIL:"
+		idx := strings.Index(message, prefix)
+		if idx == -1 {
+			continue
+		}
+
+		// If at start, it's a continuation
+		if idx == 0 {
+			return true
+		}
+
+		// If preceded by space, it's likely the log level position
+		// This handles: "[pid] SQLSTATE: db=X,user=Y DETAIL: ..."
+		if message[idx-1] == ' ' {
+			// Make sure it's not part of a larger word (check what comes before space)
+			// Valid patterns: ", DETAIL:" or "app=X DETAIL:" or "] DETAIL:"
+			return true
+		}
+	}
+	return false
+}
+
+// isSyslogContinuationLine detects syslog entries with [X-N] where N > 1
+// that contain SQL continuations (not PostgreSQL log continuations like HINT).
+//
+// PostgreSQL's %l in log_line_prefix produces [statement_id-line_number].
+// Line 1 is the primary entry; lines 2+ are continuations.
+//
+// However, there are two types of continuations:
+// 1. SQL continuations: "[10-2] \t id SERIAL..." - should be concatenated
+// 2. Log continuations: "[1-2] 2025-11-30... HINT:..." - separate log entry
+//
+// This function returns true ONLY for SQL continuations (type 1).
+func isSyslogContinuationLine(message string) bool {
+	// Find first '[' - it may be preceded by syslog prefix or PG timestamp
+	start := strings.IndexByte(message, '[')
+	if start == -1 || start+4 >= len(message) {
+		return false
+	}
+
+	// Look for pattern [digits-digits] within reasonable range
+	for i := start; i < len(message) && i < start+200; i++ {
+		if message[i] != '[' {
+			continue
+		}
+
+		// Parse [X-Y] pattern
+		j := i + 1
+		// Skip first number (statement id)
+		for j < len(message) && message[j] >= '0' && message[j] <= '9' {
+			j++
+		}
+		if j == i+1 || j >= len(message) || message[j] != '-' {
+			continue
+		}
+
+		// Parse line number after '-'
+		k := j + 1
+		lineNum := 0
+		for k < len(message) && message[k] >= '0' && message[k] <= '9' {
+			lineNum = lineNum*10 + int(message[k]-'0')
+			k++
+		}
+
+		// Must end with ']' and line number > 1 means continuation
+		if k < len(message) && message[k] == ']' && lineNum > 1 {
+			// Check content after ']' - if it starts with a PostgreSQL timestamp,
+			// this is a log continuation (HINT/DETAIL), not SQL continuation
+			content := message[k+1:]
+			// Skip leading whitespace
+			for len(content) > 0 && (content[0] == ' ' || content[0] == '\t') {
+				content = content[1:]
+			}
+			// Check for PostgreSQL timestamp pattern (YYYY-MM-DD)
+			if len(content) >= 10 &&
+				content[0] >= '1' && content[0] <= '2' && // Year starts with 1 or 2
+				content[4] == '-' && content[7] == '-' {
+				// This is a PostgreSQL log continuation with full metadata
+				// NOT a SQL continuation - treat as new entry
+				return false
+			}
+			return true
+		}
+	}
+	return false
+}
+
+// extractSyslogPID extracts the PostgreSQL backend PID from a syslog message.
+// The message format is: "172.20.0.2 postgres[160]: [10-1] ..."
+// Returns the PID as a string, or empty string if not found.
+func extractSyslogPID(message string) string {
+	// Find "postgres[" or similar pattern
+	idx := strings.Index(message, "postgres[")
+	if idx == -1 {
+		// Try alternative patterns like "pg[" or just look for pattern "[digits]:"
+		for i := 0; i < len(message)-3; i++ {
+			if message[i] == '[' && message[i+1] >= '0' && message[i+1] <= '9' {
+				// Found potential PID bracket
+				j := i + 1
+				for j < len(message) && message[j] >= '0' && message[j] <= '9' {
+					j++
+				}
+				if j < len(message) && message[j] == ']' && j+1 < len(message) && message[j+1] == ':' {
+					return message[i+1 : j]
+				}
+			}
+		}
+		return ""
+	}
+
+	// Extract PID from postgres[PID]
+	start := idx + 9 // len("postgres[")
+	end := start
+	for end < len(message) && message[end] >= '0' && message[end] <= '9' {
+		end++
+	}
+	if end > start && end < len(message) && message[end] == ']' {
+		return message[start:end]
+	}
+	return ""
+}
+
+// extractSyslogContinuationContent extracts the SQL content from a syslog continuation line.
+// It returns the content after the [X-N] pattern, which is the actual SQL fragment.
+//
+// Example input message: "000 172.20.0.2 postgres[108]: [10-2]     CREATE TABLE users ("
+// Returns: "CREATE TABLE users ("
+func extractSyslogContinuationContent(message string) string {
+	// Find the [X-N] pattern and return content after it
+	start := strings.IndexByte(message, '[')
+	if start == -1 || start+4 >= len(message) {
+		return strings.TrimSpace(message)
+	}
+
+	// Look for pattern [digits-digits] within reasonable range
+	for i := start; i < len(message) && i < start+200; i++ {
+		if message[i] != '[' {
+			continue
+		}
+
+		// Parse [X-Y] pattern
+		j := i + 1
+		// Skip first number (statement id)
+		for j < len(message) && message[j] >= '0' && message[j] <= '9' {
+			j++
+		}
+		if j == i+1 || j >= len(message) || message[j] != '-' {
+			continue
+		}
+
+		// Parse line number after '-'
+		k := j + 1
+		lineNum := 0
+		for k < len(message) && message[k] >= '0' && message[k] <= '9' {
+			lineNum = lineNum*10 + int(message[k]-'0')
+			k++
+		}
+
+		// Found [X-N] pattern - return content after ']'
+		if k < len(message) && message[k] == ']' && lineNum > 1 {
+			content := strings.TrimSpace(message[k+1:])
+			// Check if content starts with a PostgreSQL timestamp (YYYY-MM-DD)
+			// If so, this is a full log continuation (HINT/DETAIL/CONTEXT), not SQL
+			if len(content) >= 10 &&
+				content[0] >= '1' && content[0] <= '2' && // Year starts with 1 or 2
+				content[4] == '-' && content[7] == '-' {
+				// This is a PostgreSQL log continuation with full metadata
+				// Return empty to skip appending (it will be handled as a new entry)
+				return ""
+			}
+			return content
+		}
+	}
+
+	return strings.TrimSpace(message)
+}
+
 // StderrParser parses PostgreSQL logs in stderr/syslog format.
 // It handles multi-line log entries and supports both standard stderr format
 // (YYYY-MM-DD HH:MM:SS TZ) and syslog format (Mon DD HH:MM:SS).
@@ -104,7 +339,11 @@ func (p *StderrParser) parseReader(r io.Reader, out chan<- LogEntry) error {
 				// Try to normalize with detected structure (if not RDS/Azure format)
 				normalizedEntry := p.normalizeEntryBeforeParsing(currentEntry)
 				timestamp, message := parseStderrLine(normalizedEntry)
-				out <- LogEntry{Timestamp: timestamp, Message: message}
+				out <- LogEntry{
+					Timestamp:      timestamp,
+					Message:        message,
+					IsContinuation: isContinuationMessage(message),
+				}
 			}
 			// Start accumulating new entry
 			currentEntry = line
@@ -116,7 +355,11 @@ func (p *StderrParser) parseReader(r io.Reader, out chan<- LogEntry) error {
 		// Try to normalize with detected structure (if not RDS/Azure format)
 		normalizedEntry := p.normalizeEntryBeforeParsing(currentEntry)
 		timestamp, message := parseStderrLine(normalizedEntry)
-		out <- LogEntry{Timestamp: timestamp, Message: message}
+		out <- LogEntry{
+			Timestamp:      timestamp,
+			Message:        message,
+			IsContinuation: isContinuationMessage(message),
+		}
 	}
 
 	return scanner.Err()
@@ -488,7 +731,8 @@ func parseSyslogFormat(line string) (time.Time, string, bool) {
 	n := len(line)
 
 	// Quick positional validation for syslog format
-	// "Jan _2 15:04:05" = 15 characters
+	// "Jan _2 15:04:05" = 15 characters (minimum)
+	// With milliseconds: "Jan _2 15:04:05.999" = 19 characters
 	if n < 15 ||
 		line[3] != ' ' || // Space after month abbreviation
 		line[6] != ' ' || // Space after day
@@ -496,20 +740,43 @@ func parseSyslogFormat(line string) (time.Time, string, bool) {
 		return time.Time{}, "", false
 	}
 
-	// Extract syslog timestamp (first 15 chars)
-	syslogTimestamp := line[:15]
+	// Check for fractional seconds (position 15 should be '.' if present)
+	// Supports variable precision: .XXX (milliseconds) to .XXXXXXXXX (nanoseconds)
+	hasFrac := n > 15 && line[15] == '.'
+	timestampLen := 15
+	if hasFrac {
+		// Scan forward to find the end of fractional digits
+		timestampLen = 16 // Start after '.'
+		for timestampLen < n && line[timestampLen] >= '0' && line[timestampLen] <= '9' {
+			timestampLen++
+		}
+		// Minimum: at least one digit after the dot
+		if timestampLen <= 16 {
+			return time.Time{}, "", false
+		}
+	}
+
+	// Extract syslog timestamp
+	syslogTimestamp := line[:timestampLen]
 
 	// Add current year and parse
 	currentYear := time.Now().Year()
 	timestampStr := fmt.Sprintf("%04d %s", currentYear, syslogTimestamp)
 
-	t, err := time.Parse("2006 Jan _2 15:04:05", timestampStr)
+	var t time.Time
+	var err error
+	if hasFrac {
+		// .999999999 handles any precision from 1-9 digits
+		t, err = time.Parse("2006 Jan _2 15:04:05.999999999", timestampStr)
+	} else {
+		t, err = time.Parse("2006 Jan _2 15:04:05", timestampStr)
+	}
 	if err != nil {
 		return time.Time{}, "", false
 	}
 
 	// Skip whitespace before message
-	i := 15
+	i := timestampLen
 	for i < n && (line[i] == ' ' || line[i] == '\t') {
 		i++
 	}

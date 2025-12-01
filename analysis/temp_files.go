@@ -233,6 +233,9 @@ func (a *TempFileAnalyzer) Process(entry *parser.LogEntry) {
 	//   - "statement:" (CSV)
 	//   - "duration: ... execute" (prepared statements)
 	//   - "CONTEXT: SQL statement" (queries from PL/pgSQL functions)
+	//
+	// IMPORTANT: For jsonlog format, temp file messages include the STATEMENT in the SAME line.
+	// We must NOT return early if hasTempFile is also true (fall through to STEP 2).
 
 	if hasStatement || hasDurationExecute || hasContext {
 		var query string
@@ -248,73 +251,100 @@ func (a *TempFileAnalyzer) Process(entry *parser.LogEntry) {
 		}
 
 		if query == "" {
-			return
-		}
+			// No query extracted, but if this is also a temp file line, continue to STEP 2
+			if !hasTempFile {
+				return
+			}
+			// Fall through to STEP 2 to process temp file
+		} else {
+			// Query extracted successfully
 
-		// Skip transaction control commands (BEGIN/COMMIT/ROLLBACK)
-		// They never generate temp files themselves
-		if isTransactionCommand(query) {
-			return
-		}
-
-		// Pattern 2: Save query for this PID (for duration→temp pattern)
-		if pid != "" {
-			a.lastQueryByPID[pid] = query
-		}
-
-		// Pattern 1: Try to match with pending temp files (temp→STATEMENT pattern)
-		if a.expectingStatement || len(a.pendingByPID) > 0 {
-			// Try immediate match first (fast path)
-			if a.expectingStatement {
-			// Fast path: pendingPID is empty (means we couldn't extract it), assume it's the same
-			if a.pendingPID == "" {
-				a.associateQuery(query, a.pendingSize, a.pendingEventIndex)
-				a.expectingStatement = false
-				a.pendingSize = 0
-				a.pendingEventIndex = -1
+			// Skip transaction control commands (BEGIN/COMMIT/ROLLBACK)
+			// They never generate temp files themselves
+			if isTransactionCommand(query) {
 				return
 			}
 
-			// Fast path: next line has same PID (reuse extracted pid)
-			if pid == a.pendingPID {
-				a.associateQuery(query, a.pendingSize, a.pendingEventIndex)
-				a.expectingStatement = false
-				a.pendingSize = 0
-				a.pendingPID = ""
-				a.pendingEventIndex = -1
-				return
-			}
-
-			// Different PID: move pending to fallback cache and check this one
-			a.pendingByPID[a.pendingPID] += a.pendingSize
-			a.expectingStatement = false
-			a.pendingSize = 0
-			a.pendingPID = ""
-			a.pendingEventIndex = -1
-
-			// Fallback: check if current PID has pending temp files
+			// Pattern 2: Save query for this PID (for duration→temp pattern)
 			if pid != "" {
-				if pendingSize, exists := a.pendingByPID[pid]; exists && pendingSize > 0 {
-					a.associateQuery(query, pendingSize, -1) // No eventIndex for fallback cache
-					delete(a.pendingByPID, pid)
-				}
+				a.lastQueryByPID[pid] = query
 			}
 
-				return
-			}
-
-			// Not expecting statement: check fallback cache only
-			if len(a.pendingByPID) > 0 {
-				if pid != "" {
-					if pendingSize, exists := a.pendingByPID[pid]; exists && pendingSize > 0 {
-						a.associateQuery(query, pendingSize, -1) // No eventIndex for fallback cache
-						delete(a.pendingByPID, pid)
+			// Pattern 1: Try to match with pending temp files (temp→STATEMENT pattern)
+			if a.expectingStatement || len(a.pendingByPID) > 0 {
+				// Try immediate match first (fast path)
+				if a.expectingStatement {
+				// Fast path: pendingPID is empty (means we couldn't extract it), assume it's the same
+				if a.pendingPID == "" {
+					a.associateQuery(query, a.pendingSize, a.pendingEventIndex)
+					a.expectingStatement = false
+					a.pendingSize = 0
+					a.pendingEventIndex = -1
+					// If this line also has a temp file, continue to STEP 2
+					if !hasTempFile {
+						return
 					}
+					// Fall through to STEP 2
+				} else if pid == a.pendingPID {
+					// Fast path: next line has same PID (reuse extracted pid)
+					a.associateQuery(query, a.pendingSize, a.pendingEventIndex)
+					a.expectingStatement = false
+					a.pendingSize = 0
+					a.pendingPID = ""
+					a.pendingEventIndex = -1
+					// If this line also has a temp file, continue to STEP 2
+					if !hasTempFile {
+						return
+					}
+					// Fall through to STEP 2
+				} else {
+					// Different PID: move pending to fallback cache and check this one
+					a.pendingByPID[a.pendingPID] += a.pendingSize
+					a.expectingStatement = false
+					a.pendingSize = 0
+					a.pendingPID = ""
+					a.pendingEventIndex = -1
+
+					// Fallback: check if current PID has pending temp files
+					if pid != "" {
+						if pendingSize, exists := a.pendingByPID[pid]; exists && pendingSize > 0 {
+							a.associateQuery(query, pendingSize, -1) // No eventIndex for fallback cache
+							delete(a.pendingByPID, pid)
+						}
+					}
+
+					// If this line also has a temp file, continue to STEP 2
+					if !hasTempFile {
+						return
+					}
+					// Fall through to STEP 2
 				}
+				} else {
+					// Not expecting statement: check fallback cache only
+					if len(a.pendingByPID) > 0 {
+						if pid != "" {
+							if pendingSize, exists := a.pendingByPID[pid]; exists && pendingSize > 0 {
+								a.associateQuery(query, pendingSize, -1) // No eventIndex for fallback cache
+								delete(a.pendingByPID, pid)
+							}
+						}
+					}
+
+					// If this line also has a temp file, continue to STEP 2
+					if !hasTempFile {
+						return
+					}
+					// Fall through to STEP 2
+				}
+			} else {
+				// No pending temp files to match
+				// If this line also has a temp file, continue to STEP 2
+				if !hasTempFile {
+					return
+				}
+				// Fall through to STEP 2
 			}
 		}
-
-		return
 	}
 
 	// === STEP 2: Search for "temporary file" lines ===
@@ -334,9 +364,12 @@ func (a *TempFileAnalyzer) Process(entry *parser.LogEntry) {
 		})
 
 		// Use cached PID (already extracted above)
-		// Pattern 1b: Check if query is in the SAME message (CSV format with QUERY: field)
+		// Pattern 1b: Check if query is in the SAME message (CSV/jsonlog format with query field)
+		// For jsonlog, the JSON parser includes STATEMENT in the same reconstructed message.
 		// This has PRIORITY over cache (Pattern 2)
-		if query := extractStatementQuery(msg); query != "" {
+		query := extractStatementQuery(msg)
+
+		if query != "" {
 			a.associateQuery(query, size, eventIndex)
 
 			// Clean up cache for this PID if it exists (stale query)
@@ -485,6 +518,9 @@ func (a *TempFileAnalyzer) associateQuery(query string, size int64, eventIndex i
 	if query == "" {
 		return
 	}
+
+	// Normalize whitespace (newlines to spaces) for consistent raw_query across formats
+	query = normalizeWhitespace(query)
 
 	// Check cache first to avoid repeated normalization
 	cached, inCache := a.normalizedCache[query]
