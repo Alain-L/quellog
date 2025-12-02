@@ -338,70 +338,98 @@ func (a *SQLAnalyzer) Process(entry *parser.LogEntry) {
 	queryType := QueryTypeFromID(stats.ID)
 	database, user, host, app := extractPrefixFields(entry.Message)
 
-	a.trackQueryTypeByDimension(database, queryType, duration, &a.queryTypesByDatabase)
-	a.trackQueryTypeByDimension(user, queryType, duration, &a.queryTypesByUser)
-	a.trackQueryTypeByDimension(host, queryType, duration, &a.queryTypesByHost)
-	a.trackQueryTypeByDimension(app, queryType, duration, &a.queryTypesByApp)
+	// Track query type breakdown by dimension - cache inner map refs
+	if database != "" {
+		dbMap := a.queryTypesByDatabase[database]
+		if dbMap == nil {
+			dbMap = make(map[string]*QueryTypeCount)
+			a.queryTypesByDatabase[database] = dbMap
+		}
+		if entry := dbMap[queryType]; entry != nil {
+			entry.Count++
+			entry.TotalTime += duration
+		} else {
+			dbMap[queryType] = &QueryTypeCount{Count: 1, TotalTime: duration}
+		}
+	}
+	if user != "" {
+		uMap := a.queryTypesByUser[user]
+		if uMap == nil {
+			uMap = make(map[string]*QueryTypeCount)
+			a.queryTypesByUser[user] = uMap
+		}
+		if entry := uMap[queryType]; entry != nil {
+			entry.Count++
+			entry.TotalTime += duration
+		} else {
+			uMap[queryType] = &QueryTypeCount{Count: 1, TotalTime: duration}
+		}
+	}
+	if host != "" {
+		hMap := a.queryTypesByHost[host]
+		if hMap == nil {
+			hMap = make(map[string]*QueryTypeCount)
+			a.queryTypesByHost[host] = hMap
+		}
+		if entry := hMap[queryType]; entry != nil {
+			entry.Count++
+			entry.TotalTime += duration
+		} else {
+			hMap[queryType] = &QueryTypeCount{Count: 1, TotalTime: duration}
+		}
+	}
+	if app != "" {
+		aMap := a.queryTypesByApp[app]
+		if aMap == nil {
+			aMap = make(map[string]*QueryTypeCount)
+			a.queryTypesByApp[app] = aMap
+		}
+		if entry := aMap[queryType]; entry != nil {
+			entry.Count++
+			entry.TotalTime += duration
+		} else {
+			aMap[queryType] = &QueryTypeCount{Count: 1, TotalTime: duration}
+		}
+	}
 }
 
-// trackQueryTypeByDimension updates the query type count and total time for a dimension value.
-func (a *SQLAnalyzer) trackQueryTypeByDimension(dimensionValue, queryType string, duration float64, breakdownMap *map[string]map[string]*QueryTypeCount) {
-	// Skip empty dimension values
-	if dimensionValue == "" {
-		return
-	}
-
-	// Initialize dimension entry if needed
-	if (*breakdownMap)[dimensionValue] == nil {
-		(*breakdownMap)[dimensionValue] = make(map[string]*QueryTypeCount)
-	}
-
-	// Initialize query type entry if needed
-	if (*breakdownMap)[dimensionValue][queryType] == nil {
-		(*breakdownMap)[dimensionValue][queryType] = &QueryTypeCount{}
-	}
-
-	// Update count and total time
-	(*breakdownMap)[dimensionValue][queryType].Count++
-	(*breakdownMap)[dimensionValue][queryType].TotalTime += duration
-}
 
 // extractPrefixFields extracts db, user, host, and app from the log prefix in a single pass.
-// Format: "user=app_user,db=app_db,app=pgadmin" or "[pid]: [line] user=x,db=y,app=z LOG: ..."
+// Format: "user=app_user,db=app_db,app=pgadmin,client=192.168.1.1" or "[pid]: user=x,db=y LOG: ..."
 // This is faster than calling extractPrefixValue 4 times as it only scans the message once.
 func extractPrefixFields(message string) (database, user, host, app string) {
 	// Scan the first 200 chars of the message for key=value patterns
-	// The prefix may contain [pid]: user=X,db=Y,app=Z or similar patterns
-	// Fields can appear before or after brackets depending on log format
 	end := 200
 	if len(message) < end {
 		end = len(message)
 	}
 	prefix := message[:end]
-
-	// Scan the prefix once and extract all fields
-	i := 0
 	n := len(prefix)
-	for i < n {
-		// Look for key= patterns
-		if i+3 < n && prefix[i:i+3] == "db=" {
-			i += 3
-			database = extractPrefixValueAt(prefix, i)
-		} else if i+5 < n && prefix[i:i+5] == "user=" {
-			i += 5
-			user = extractPrefixValueAt(prefix, i)
-		} else if i+5 < n && prefix[i:i+5] == "host=" {
-			i += 5
-			host = extractPrefixValueAt(prefix, i)
-		} else if i+4 < n && prefix[i:i+4] == "app=" {
-			i += 4
-			app = extractPrefixValueAt(prefix, i)
-		} else {
-			i++
+
+	// Fast scan using '=' as anchor point
+	for i := 0; i < n-1; i++ {
+		if prefix[i] != '=' {
+			continue
+		}
+		// Found '=', check what key it is
+		if i >= 2 && prefix[i-2:i] == "db" && (i == 2 || !isAlnum(prefix[i-3])) {
+			database = extractPrefixValueAt(prefix, i+1)
+		} else if i >= 4 && prefix[i-4:i] == "user" && (i == 4 || !isAlnum(prefix[i-5])) {
+			user = extractPrefixValueAt(prefix, i+1)
+		} else if i >= 4 && prefix[i-4:i] == "host" && (i == 4 || !isAlnum(prefix[i-5])) {
+			host = extractPrefixValueAt(prefix, i+1)
+		} else if i >= 6 && prefix[i-6:i] == "client" && (i == 6 || !isAlnum(prefix[i-7])) {
+			host = extractPrefixValueAt(prefix, i+1) // client= is alias for host
+		} else if i >= 3 && prefix[i-3:i] == "app" && (i == 3 || !isAlnum(prefix[i-4])) {
+			app = extractPrefixValueAt(prefix, i+1)
 		}
 	}
-
 	return
+}
+
+// isAlnum returns true if c is alphanumeric
+func isAlnum(c byte) bool {
+	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_'
 }
 
 // extractPrefixValueAt extracts a value starting at position i until comma, space, or bracket

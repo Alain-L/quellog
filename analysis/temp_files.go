@@ -154,66 +154,45 @@ func (a *TempFileAnalyzer) Process(entry *parser.LogEntry) {
 		return
 	}
 
-	// OPTIMIZATION: Use Index("temp") as discriminating pre-filter instead of IndexByte
-	// "temp" is much more specific than individual chars 't', 'e', 'm'
-	// This reduces false positives from ~40% to <5% of messages
-	hasTemp := strings.Index(msg, "temp") >= 0
-	hasColon := strings.IndexByte(msg, ':') >= 0
+	// OPTIMIZATION: Fast pre-filter using byte checks before string searches
+	// Most messages don't contain temp file patterns, so exit quickly
 
-	// Quick reject: can't be relevant if no "temp" or ':'
-	if !hasTemp && !hasColon {
-		return
-	}
-
-	// Fast path: skip if not expecting statement and no pending queries
-	// This avoids expensive Contains() calls for most lines
+	// Fast path: if no temp files seen yet and not expecting statement
 	if !a.expectingStatement && len(a.pendingByPID) == 0 && !a.tempFilesExist {
-		// Before first temp file: only check for temp files
-		// Use direct Index("temporary file") instead of Contains for better performance
-		if hasTemp {
-			if strings.Index(msg, tempFileMarker) >= 0 {
-				// Found first temp file, fall through to process it
-				// Note: We don't use a recheck buffer anymore for simplicity and performance
-				// This means the first tempfile might miss its query association (< 0.01% of tempfiles)
-			} else {
-				return
-			}
-		} else {
-			// Skip early - not a temp file candidate
+		// Only need to detect first temp file - use direct Contains
+		if !strings.Contains(msg, tempFileMarker) {
 			return
 		}
+		// Found first temp file, fall through to process it
 	}
+
+	// For subsequent processing, check if message is relevant
+	hasTemp := strings.Contains(msg, "temp")
 
 	// Now check specific patterns (only for relevant lines)
 	var hasTempFile, hasStatement, hasDurationExecute, hasContext bool
 
-	// Check for temp files (use Index instead of Contains for consistency)
+	// Check for temp files
 	if hasTemp {
-		hasTempFile = strings.Index(msg, tempFileMarker) >= 0
+		hasTempFile = strings.Contains(msg, tempFileMarker)
 	}
 
 	// Only cache queries if temp files exist (Pattern 2)
 	checkForQueries := a.tempFilesExist || a.expectingStatement || len(a.pendingByPID) > 0
 
-	if hasColon {
-		// OPTIMIZATION: Contains() with short patterns is highly optimized by Go compiler
-		// Using || short-circuit: if first match succeeds, second is never evaluated
-		// In practice, lowercase "statement:" is 99%+ of cases (CSV + duration lines)
-		// Uppercase "STATEMENT:" appears mainly in error context (rare)
-		// Note: Manual IndexByte approaches are slower due to loop overhead
+	// Check for statement patterns (only if needed)
+	if checkForQueries || a.expectingStatement {
 		hasStatement = strings.Contains(msg, "statement:") || strings.Contains(msg, "STATEMENT:")
 
 		// Check for CONTEXT: (for queries executed from PL/pgSQL functions)
 		if !hasStatement && a.expectingStatement {
-			hasContext = strings.Index(msg, "CONTEXT:") >= 0
+			hasContext = strings.Contains(msg, "CONTEXT:")
 		}
 
-		// Only check for duration:execute if we're caching
-		// OPTIMIZATION: Use Index for both checks to reduce overhead
+		// Check for duration:execute (prepared statements)
 		if checkForQueries && !hasStatement {
 			if durationIdx := strings.Index(msg, "duration:"); durationIdx >= 0 {
-				// Only check for "execute" if we found "duration:"
-				hasDurationExecute = strings.Index(msg[durationIdx:], "execute") >= 0
+				hasDurationExecute = strings.Contains(msg[durationIdx:], "execute")
 			}
 		}
 	}
