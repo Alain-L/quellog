@@ -385,6 +385,46 @@ volumes:
 
 ---
 
+## Test Suite
+
+### Test Files
+
+| File | Description |
+|------|-------------|
+| `summary_test.go` | Golden file regression test (JSON output vs `golden.json`) |
+| `flags_test.go` | CLI flag combinations, output formats, section filters |
+| `comprehensive_test.go` | Format parity tests across all input formats |
+| `exhaustive_test.go` | Exhaustive combinatorial testing (216 combinations) |
+
+### comprehensive_test.go
+
+| Test | Description |
+|------|-------------|
+| **TestComprehensiveFormatParity** | All formats (stderr, CSV, JSON, syslog_bsd) produce identical metrics |
+| **TestSyslogAllFormats** | All 3 syslog variants (BSD, ISO, RFC5424) produce identical metrics |
+| **TestComprehensiveCompression** | Compressed files (gzip, zstd) produce same results as uncompressed |
+
+### exhaustive_test.go
+
+Tests **all combinations** of:
+- **6 input formats**: stderr, CSV, JSON, syslog_bsd, syslog_iso, syslog_rfc5424
+- **12 sections**: default, summary, checkpoints, events, errors, connections, clients, maintenance, locks, tempfiles, sql_summary, sql_performance
+- **3 output formats**: text, JSON, markdown
+
+**Total: 36 sub-tests × 6 input formats = 216 executions**
+
+For each `(section, output)` combination, verifies that all 6 input formats produce equivalent results.
+
+### flags_test.go
+
+| Test | Description |
+|------|-------------|
+| **TestFlagCompatibility** | Valid/invalid flag combinations, edge cases |
+| **TestOutputFormats** | Text, JSON, Markdown output validation |
+| **TestSectionFilters** | Section flags filter output correctly |
+
+---
+
 ## Implementation Steps
 
 1. [ ] Create `test/generate/` directory structure

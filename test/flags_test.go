@@ -8,8 +8,8 @@ import (
 	"testing"
 )
 
-// testFile is a small test file that exists for flag testing
-const testFile = "testdata/test_summary.log"
+// testFile is the reference file for flag testing (comprehensive fixtures)
+const testFile = "testdata/stderr.log"
 
 // runQuellog executes the binary with given flags and returns stdout, stderr, and exit code
 func runQuellog(t *testing.T, binary string, args ...string) (stdout, stderr string, exitCode int) {
@@ -81,12 +81,12 @@ func TestFlagCompatibility(t *testing.T) {
 			{"sql_performance", []string{testFile, "--sql-performance"}},
 			{"sql_performance_md", []string{testFile, "--sql-performance", "--md"}},
 
-			// Time filters (valid combinations) - using dates that match test_summary.log (2025-01-01)
-			{"begin_only", []string{testFile, "--begin", "2025-01-01 00:00:00"}},
-			{"end_only", []string{testFile, "--end", "2025-01-02 00:00:00"}},
-			{"begin_end", []string{testFile, "--begin", "2025-01-01 00:00:00", "--end", "2025-01-02 00:00:00"}},
-			{"begin_window", []string{testFile, "--begin", "2025-01-01 00:00:00", "--window", "24h"}},
-			{"end_window", []string{testFile, "--end", "2025-01-02 00:00:00", "--window", "24h"}},
+			// Time filters (valid combinations) - using dates that match comprehensive fixtures (2025-11-30)
+			{"begin_only", []string{testFile, "--begin", "2025-11-30 00:00:00"}},
+			{"end_only", []string{testFile, "--end", "2025-12-01 00:00:00"}},
+			{"begin_end", []string{testFile, "--begin", "2025-11-30 00:00:00", "--end", "2025-12-01 00:00:00"}},
+			{"begin_window", []string{testFile, "--begin", "2025-11-30 00:00:00", "--window", "24h"}},
+			{"end_window", []string{testFile, "--end", "2025-12-01 00:00:00", "--window", "24h"}},
 
 			// Attribute filters (use values that don't filter out everything)
 			{"dbuser_filter", []string{testFile, "--dbuser", "postgres"}},
