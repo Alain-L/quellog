@@ -168,37 +168,69 @@ func isSyslogContinuationLine(message string) bool {
 }
 
 // extractSyslogPID extracts the PostgreSQL backend PID from a syslog message.
-// The message format is: "172.20.0.2 postgres[160]: [10-1] ..."
+// Supports multiple formats:
+//   - BSD syslog: "172.20.0.2 postgres[160]: [10-1] ..."
+//   - ISO/RFC5424 extracted: "[10-1] 2025-11-30 21:10:20.100 UTC [55] 00000: ..."
+//   - RFC5424 header: "<134>1 timestamp host postgres 55 - - [1-1] ..."
+//
 // Returns the PID as a string, or empty string if not found.
 func extractSyslogPID(message string) string {
-	// Find "postgres[" or similar pattern
+	// Format 1: Find "postgres[" pattern (BSD syslog and ISO)
 	idx := strings.Index(message, "postgres[")
-	if idx == -1 {
-		// Try alternative patterns like "pg[" or just look for pattern "[digits]:"
-		for i := 0; i < len(message)-3; i++ {
-			if message[i] == '[' && message[i+1] >= '0' && message[i+1] <= '9' {
-				// Found potential PID bracket
-				j := i + 1
-				for j < len(message) && message[j] >= '0' && message[j] <= '9' {
-					j++
-				}
-				if j < len(message) && message[j] == ']' && j+1 < len(message) && message[j+1] == ':' {
-					return message[i+1 : j]
-				}
-			}
+	if idx != -1 {
+		// Extract PID from postgres[PID]
+		start := idx + 9 // len("postgres[")
+		end := start
+		for end < len(message) && message[end] >= '0' && message[end] <= '9' {
+			end++
 		}
-		return ""
+		if end > start && end < len(message) && message[end] == ']' {
+			return message[start:end]
+		}
 	}
 
-	// Extract PID from postgres[PID]
-	start := idx + 9 // len("postgres[")
-	end := start
-	for end < len(message) && message[end] >= '0' && message[end] <= '9' {
-		end++
+	// Format 2: RFC5424 header format "postgres PID -" (PID as separate field)
+	// Example: "<134>1 2025-11-30T21:10:20+00:00 host postgres 55 - - [1-1] ..."
+	pgIdx := strings.Index(message, " postgres ")
+	if pgIdx != -1 {
+		start := pgIdx + 10 // len(" postgres ")
+		end := start
+		for end < len(message) && message[end] >= '0' && message[end] <= '9' {
+			end++
+		}
+		if end > start && end < len(message) && message[end] == ' ' {
+			return message[start:end]
+		}
 	}
-	if end > start && end < len(message) && message[end] == ']' {
-		return message[start:end]
+
+	// Format 3: Find "UTC [PID]" or "timezone [PID]" pattern (ISO/RFC5424 extracted message)
+	// Pattern: "[X-Y] timestamp UTC [PID] SQLSTATE: ..."
+	utcIdx := strings.Index(message, " UTC [")
+	if utcIdx != -1 {
+		start := utcIdx + 6 // len(" UTC [")
+		end := start
+		for end < len(message) && message[end] >= '0' && message[end] <= '9' {
+			end++
+		}
+		if end > start && end < len(message) && message[end] == ']' {
+			return message[start:end]
+		}
 	}
+
+	// Format 4: Try pattern "[digits]:" anywhere
+	for i := 0; i < len(message)-3; i++ {
+		if message[i] == '[' && message[i+1] >= '0' && message[i+1] <= '9' {
+			// Found potential PID bracket
+			j := i + 1
+			for j < len(message) && message[j] >= '0' && message[j] <= '9' {
+				j++
+			}
+			if j < len(message) && message[j] == ']' && j+1 < len(message) && message[j+1] == ':' {
+				return message[i+1 : j]
+			}
+		}
+	}
+
 	return ""
 }
 
@@ -399,8 +431,18 @@ func parseStderrLine(line string) (time.Time, string) {
 		return timestamp, message
 	}
 
-	// Attempt 4: Parse syslog format (Mon DD HH:MM:SS)
+	// Attempt 4: Parse syslog BSD format (Mon DD HH:MM:SS)
 	if timestamp, message, ok := parseSyslogFormat(line); ok {
+		return timestamp, message
+	}
+
+	// Attempt 5: Parse syslog ISO format (YYYY-MM-DDTHH:MM:SS+00:00 host ...)
+	if timestamp, message, ok := parseSyslogFormatISO(line); ok {
+		return timestamp, message
+	}
+
+	// Attempt 6: Parse syslog RFC5424 format (<pri>ver timestamp host ...)
+	if timestamp, message, ok := parseSyslogFormatRFC5424(line); ok {
 		return timestamp, message
 	}
 
@@ -787,6 +829,165 @@ func parseSyslogFormat(line string) (time.Time, string, bool) {
 	}
 
 	return t, message, true
+}
+
+// parseSyslogFormatISO parses a syslog line with ISO 8601 timestamp format.
+// Format: "2025-11-30T21:10:20+00:00 host process[pid]: message"
+//
+// Returns:
+//   - timestamp: parsed time
+//   - message: remaining text after syslog header (host, process info)
+//   - ok: true if parsing succeeded
+func parseSyslogFormatISO(line string) (time.Time, string, bool) {
+	n := len(line)
+
+	// Minimum: "2025-11-30T21:10:20+00:00 h p[1]: m" = ~35 chars
+	if n < 25 {
+		return time.Time{}, "", false
+	}
+
+	// Validate ISO timestamp structure: YYYY-MM-DDTHH:MM:SS
+	if line[4] != '-' || line[7] != '-' || line[10] != 'T' || line[13] != ':' || line[16] != ':' {
+		return time.Time{}, "", false
+	}
+
+	// Find end of timestamp (after timezone offset or Z)
+	// Formats: +00:00, -05:00, Z, or with fractional seconds .123456+00:00
+	timestampEnd := 19 // After "YYYY-MM-DDTHH:MM:SS"
+
+	// Check for fractional seconds
+	if timestampEnd < n && line[timestampEnd] == '.' {
+		timestampEnd++
+		for timestampEnd < n && line[timestampEnd] >= '0' && line[timestampEnd] <= '9' {
+			timestampEnd++
+		}
+	}
+
+	// Check for timezone: Z or +/-HH:MM
+	if timestampEnd < n {
+		if line[timestampEnd] == 'Z' {
+			timestampEnd++
+		} else if line[timestampEnd] == '+' || line[timestampEnd] == '-' {
+			// +00:00 or -05:00
+			if timestampEnd+6 <= n {
+				timestampEnd += 6
+			}
+		}
+	}
+
+	// Parse timestamp
+	timestampStr := line[:timestampEnd]
+	t, err := time.Parse(time.RFC3339Nano, timestampStr)
+	if err != nil {
+		// Try without fractional seconds
+		t, err = time.Parse(time.RFC3339, timestampStr)
+		if err != nil {
+			return time.Time{}, "", false
+		}
+	}
+
+	// Skip to message: find "]: " or "]: [" pattern after hostname and process
+	// Format: "2025-11-30T21:10:20+00:00 172.20.0.2 postgres[55]: [1-1] message"
+	rest := line[timestampEnd:]
+	colonBracket := strings.Index(rest, "]: ")
+	if colonBracket == -1 {
+		return time.Time{}, "", false
+	}
+
+	message := rest[colonBracket+3:]
+	return t, message, true
+}
+
+// parseSyslogFormatRFC5424 parses a syslog line with RFC 5424 format.
+// Format: "<priority>version timestamp host app procid msgid structured-data msg"
+// Example: "<134>1 2025-11-30T21:10:20+00:00 172.20.0.2 postgres 55 - - [1-1] message"
+//
+// Returns:
+//   - timestamp: parsed time
+//   - message: remaining text after RFC5424 header
+//   - ok: true if parsing succeeded
+func parseSyslogFormatRFC5424(line string) (time.Time, string, bool) {
+	n := len(line)
+
+	// Minimum length check
+	if n < 30 || line[0] != '<' {
+		return time.Time{}, "", false
+	}
+
+	// Find end of priority: "<NNN>"
+	priorityEnd := strings.IndexByte(line, '>')
+	if priorityEnd == -1 || priorityEnd > 5 {
+		return time.Time{}, "", false
+	}
+
+	// Skip version number and space: "1 "
+	pos := priorityEnd + 1
+	if pos >= n || line[pos] < '0' || line[pos] > '9' {
+		return time.Time{}, "", false
+	}
+	pos++ // Skip version
+	if pos >= n || line[pos] != ' ' {
+		return time.Time{}, "", false
+	}
+	pos++ // Skip space
+
+	// Parse ISO timestamp starting at pos
+	if pos+19 > n {
+		return time.Time{}, "", false
+	}
+
+	// Find end of timestamp
+	timestampStart := pos
+	timestampEnd := pos + 19 // After "YYYY-MM-DDTHH:MM:SS"
+
+	// Check for fractional seconds
+	if timestampEnd < n && line[timestampEnd] == '.' {
+		timestampEnd++
+		for timestampEnd < n && line[timestampEnd] >= '0' && line[timestampEnd] <= '9' {
+			timestampEnd++
+		}
+	}
+
+	// Check for timezone: Z or +/-HH:MM
+	if timestampEnd < n {
+		if line[timestampEnd] == 'Z' {
+			timestampEnd++
+		} else if line[timestampEnd] == '+' || line[timestampEnd] == '-' {
+			if timestampEnd+6 <= n {
+				timestampEnd += 6
+			}
+		}
+	}
+
+	// Parse timestamp
+	timestampStr := line[timestampStart:timestampEnd]
+	t, err := time.Parse(time.RFC3339Nano, timestampStr)
+	if err != nil {
+		t, err = time.Parse(time.RFC3339, timestampStr)
+		if err != nil {
+			return time.Time{}, "", false
+		}
+	}
+
+	// RFC5424 format after timestamp: "host app procid msgid structured-data msg"
+	// We need to find the PostgreSQL message which starts with "[X-Y]"
+	// Skip: hostname, app, procid, msgid, structured-data (all space-separated, "-" for nil)
+	rest := line[timestampEnd:]
+
+	// Find the PostgreSQL log pattern: " [digit" which starts the [X-Y] pattern
+	bracketIdx := strings.Index(rest, " [")
+	if bracketIdx == -1 {
+		return time.Time{}, "", false
+	}
+
+	// Verify it's the PostgreSQL pattern [X-Y] not structured-data
+	checkPos := bracketIdx + 2
+	if checkPos < len(rest) && rest[checkPos] >= '0' && rest[checkPos] <= '9' {
+		message := rest[bracketIdx+1:]
+		return t, message, true
+	}
+
+	return time.Time{}, "", false
 }
 
 // detectPrefixStructure reads a sample of lines from the file and attempts

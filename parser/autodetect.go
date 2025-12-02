@@ -82,7 +82,7 @@ var (
 		// with optional fractional seconds, timezone, and log level
 		regexp.MustCompile(`^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?: [A-Z]{2,5})?.*?\b(?:LOG|WARNING|ERROR|FATAL|PANIC|DETAIL|STATEMENT|HINT|CONTEXT):\s+`),
 
-		// Pattern 2: Syslog format (Mon  3 12:34:56)
+		// Pattern 2: Syslog BSD format (Mon  3 12:34:56)
 		// with host, process info, and log level
 		regexp.MustCompile(`^[A-Z][a-z]{2}\s+\d+\s+\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:\s+[A-Z]{2,5})?\s+\S+\s+\S+\[\d+\]:(?:\s+\[[^\]]+\])?\s+\[\d+(?:-\d+)?\].*?\b(?:LOG|WARNING|ERROR|FATAL|PANIC|DETAIL|STATEMENT|HINT|CONTEXT):\s+`),
 
@@ -91,6 +91,14 @@ var (
 
 		// Pattern 4: Minimal ISO format with basic log levels
 		regexp.MustCompile(`^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}.*?\b(?:LOG|ERROR|WARNING|FATAL|PANIC):\s+`),
+
+		// Pattern 5: Syslog RFC5424 format (<priority>version timestamp)
+		// Example: <134>1 2025-11-30T21:10:20+00:00 host postgres ...LOG:
+		regexp.MustCompile(`^<\d+>\d+\s+\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.*?\b(?:LOG|WARNING|ERROR|FATAL|PANIC|DETAIL|STATEMENT|HINT|CONTEXT):\s+`),
+
+		// Pattern 6: Syslog ISO format (timestamp with timezone offset followed by host)
+		// Example: 2025-11-30T21:10:20+00:00 172.20.0.2 postgres[55]: ...LOG:
+		regexp.MustCompile(`^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}\s+\S+\s+\S+\[\d+\]:.*?\b(?:LOG|WARNING|ERROR|FATAL|PANIC|DETAIL|STATEMENT|HINT|CONTEXT):\s+`),
 	}
 )
 

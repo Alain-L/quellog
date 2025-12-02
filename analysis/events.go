@@ -85,6 +85,12 @@ func NewEventAnalyzer() *EventAnalyzer {
 //   - "LOG: database system is ready"
 //   - "WARNING: out of shared memory"
 func (a *EventAnalyzer) Process(entry *parser.LogEntry) {
+	// Skip continuation lines (DETAIL, HINT, STATEMENT, pre-collector messages)
+	// to maintain parity between formats
+	if entry.IsContinuation {
+		return
+	}
+
 	msg := entry.Message
 
 	if len(msg) < 3 {

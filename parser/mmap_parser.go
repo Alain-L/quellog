@@ -125,7 +125,7 @@ func parseMmapData(data []byte, out chan<- LogEntry) error {
 				// This is a new entry, process the previous one
 				if currentEntry.Len() > 0 {
 					timestamp, message := parseStderrLine(currentEntry.String())
-					out <- LogEntry{Timestamp: timestamp, Message: message}
+					out <- LogEntry{Timestamp: timestamp, Message: message, IsContinuation: isContinuationMessage(message)}
 					currentEntry.Reset()
 				}
 				// Start accumulating new entry
@@ -164,7 +164,7 @@ func parseMmapData(data []byte, out chan<- LogEntry) error {
 			} else {
 				if currentEntry.Len() > 0 {
 					timestamp, message := parseStderrLine(currentEntry.String())
-					out <- LogEntry{Timestamp: timestamp, Message: message}
+					out <- LogEntry{Timestamp: timestamp, Message: message, IsContinuation: isContinuationMessage(message)}
 					currentEntry.Reset()
 				}
 				currentEntry.WriteString(line)
@@ -175,7 +175,7 @@ func parseMmapData(data []byte, out chan<- LogEntry) error {
 	// Process final accumulated entry
 	if currentEntry.Len() > 0 {
 		timestamp, message := parseStderrLine(currentEntry.String())
-		out <- LogEntry{Timestamp: timestamp, Message: message}
+		out <- LogEntry{Timestamp: timestamp, Message: message, IsContinuation: isContinuationMessage(message)}
 	}
 
 	return nil
@@ -187,19 +187,32 @@ func parseMmapData(data []byte, out chan<- LogEntry) error {
 // For syslog format, it uses per-PID tracking to handle interleaved logs from
 // multiple PostgreSQL backends. Each backend (PID) maintains its own accumulated
 // entry, preventing premature flushes when logs from different PIDs are interleaved.
-func parseMmapDataOptimized(data []byte, out chan<- LogEntry) error {
-	// Detect syslog format by checking if first non-empty line starts with month abbreviation
-	isSyslogMode := detectSyslogMode(data)
+// SyslogFormat represents the detected syslog format type
+type SyslogFormat int
 
-	if isSyslogMode {
-		return parseMmapDataSyslog(data, out)
+const (
+	SyslogNone    SyslogFormat = iota // Not syslog format
+	SyslogBSD                         // RFC 3164: "Nov 30 21:10:20 host ..."
+	SyslogISO                         // ISO timestamp: "2025-11-30T21:10:20+00:00 host ..."
+	SyslogRFC5424                     // RFC 5424: "<134>1 2025-11-30T21:10:20+00:00 host ..."
+)
+
+func parseMmapDataOptimized(data []byte, out chan<- LogEntry) error {
+	// Detect syslog format by checking first non-empty line
+	syslogFormat := detectSyslogFormat(data)
+
+	if syslogFormat != SyslogNone {
+		return parseMmapDataSyslog(data, out, syslogFormat)
 	}
 	return parseMmapDataStderr(data, out)
 }
 
-// detectSyslogMode checks if the data appears to be syslog format.
-// Syslog lines start with a 3-letter month abbreviation (Jan, Feb, etc.)
-func detectSyslogMode(data []byte) bool {
+// detectSyslogFormat checks if the data appears to be syslog format and returns the type.
+// Supports three syslog formats:
+//   - BSD (RFC 3164): "Nov 30 21:10:20 host ..."
+//   - ISO: "2025-11-30T21:10:20+00:00 host ..."
+//   - RFC 5424: "<134>1 2025-11-30T21:10:20+00:00 host ..."
+func detectSyslogFormat(data []byte) SyslogFormat {
 	// Find first non-empty line
 	start := 0
 	for start < len(data) {
@@ -210,12 +223,30 @@ func detectSyslogMode(data []byte) bool {
 		line := data[start : start+i]
 		start += i + 1
 
-		if len(line) < 4 {
+		if len(line) < 15 {
 			continue
 		}
 
-		// Check for syslog month pattern: "Mon " (e.g., "Nov ")
-		// Valid months: Jan, Feb, Mar, Apr, May, Jun, Jul, Aug, Sep, Oct, Nov, Dec
+		// RFC 5424: starts with <priority>version (e.g., "<134>1 ")
+		if line[0] == '<' {
+			// Find closing '>'
+			for j := 1; j < len(line) && j < 5; j++ {
+				if line[j] == '>' {
+					// Check for version number and space after '>'
+					if j+2 < len(line) && line[j+1] >= '0' && line[j+1] <= '9' && line[j+2] == ' ' {
+						return SyslogRFC5424
+					}
+					break
+				}
+			}
+		}
+
+		// ISO format: starts with "YYYY-MM-DDTHH:MM:SS" (e.g., "2025-11-30T21:10:20")
+		if line[4] == '-' && line[7] == '-' && line[10] == 'T' && line[13] == ':' && line[16] == ':' {
+			return SyslogISO
+		}
+
+		// BSD format: starts with month abbreviation (e.g., "Nov 30 21:10:20")
 		if line[3] == ' ' && line[0] >= 'A' && line[0] <= 'Z' {
 			months := [][]byte{
 				[]byte("Jan"), []byte("Feb"), []byte("Mar"), []byte("Apr"),
@@ -224,14 +255,15 @@ func detectSyslogMode(data []byte) bool {
 			}
 			for _, month := range months {
 				if bytes.HasPrefix(line, month) {
-					return true
+					return SyslogBSD
 				}
 			}
 		}
-		// First non-empty line checked, return false if not syslog
-		return false
+
+		// First non-empty line checked, return none if not syslog
+		return SyslogNone
 	}
-	return false
+	return SyslogNone
 }
 
 // parseMmapDataSyslog parses syslog format with per-PID tracking.
@@ -244,7 +276,7 @@ func detectSyslogMode(data []byte) bool {
 // Strategy: Track entries per PID for correct multi-line SQL assembly.
 // When a new entry arrives for a PID, flush only that PID's previous entry.
 // At the end, flush remaining entries sorted by timestamp for correct analyzer order.
-func parseMmapDataSyslog(data []byte, out chan<- LogEntry) error {
+func parseMmapDataSyslog(data []byte, out chan<- LogEntry, format SyslogFormat) error {
 	// Per-PID entry tracking: each backend accumulates its own entry
 	// We store both the entry data and its original line number for stable sorting
 	type pidEntry struct {
@@ -262,12 +294,40 @@ func parseMmapDataSyslog(data []byte, out chan<- LogEntry) error {
 	lineNum := 0
 
 	// Helper to emit an entry with its original line number
+	// Uses the correct parser based on the detected syslog format
 	emit := func(ln int, entry []byte) {
-		ts, msg := parseStderrLineBytes(entry)
+		var ts time.Time
+		var msg string
+
+		switch format {
+		case SyslogBSD:
+			ts, msg = parseStderrLineBytes(entry)
+		case SyslogISO:
+			ts, msg, _ = parseSyslogFormatISO(string(entry))
+		case SyslogRFC5424:
+			ts, msg, _ = parseSyslogFormatRFC5424(string(entry))
+		default:
+			ts, msg = parseStderrLineBytes(entry)
+		}
+
 		emissionOrder = append(emissionOrder, orderedEntry{
 			lineNum: ln,
-			entry:   LogEntry{Timestamp: ts, Message: msg},
+			entry:   LogEntry{Timestamp: ts, Message: msg, IsContinuation: isContinuationMessage(msg)},
 		})
+	}
+
+	// Helper to parse syslog line based on detected format
+	parseLine := func(line string) (time.Time, string, bool) {
+		switch format {
+		case SyslogBSD:
+			return parseSyslogFormat(line)
+		case SyslogISO:
+			return parseSyslogFormatISO(line)
+		case SyslogRFC5424:
+			return parseSyslogFormatRFC5424(line)
+		default:
+			return parseSyslogFormat(line)
+		}
 	}
 
 	start := 0
@@ -287,22 +347,23 @@ func parseMmapDataSyslog(data []byte, out chan<- LogEntry) error {
 			continue
 		}
 
-		// Parse syslog line to extract message part
+		// Parse syslog line to extract timestamp and message part
 		lineStr := string(line)
-		_, message, ok := parseSyslogFormat(lineStr)
+		ts, message, ok := parseLine(lineStr)
 		if !ok {
 			// Not a valid syslog line - skip
 			continue
 		}
 
-		// Extract PID from message
-		pid := extractSyslogPID(message)
+		// Extract PID from the full line (header contains postgres[PID])
+		// For continuation lines, the message after "]: " doesn't have the PID,
+		// but the syslog header does (e.g., "...postgres[108]: [10-2] ...")
+		pid := extractSyslogPID(lineStr)
 		if pid == "" {
-			// No PID found - emit as standalone entry
-			ts, msg := parseStderrLine(lineStr)
+			// No PID found - emit as standalone entry using already-parsed values
 			emissionOrder = append(emissionOrder, orderedEntry{
 				lineNum: lineNum,
-				entry:   LogEntry{Timestamp: ts, Message: msg},
+				entry:   LogEntry{Timestamp: ts, Message: message, IsContinuation: isContinuationMessage(message)},
 			})
 			continue
 		}
@@ -335,9 +396,9 @@ func parseMmapDataSyslog(data []byte, out chan<- LogEntry) error {
 		lineNum++
 		if len(line) > 0 {
 			lineStr := string(line)
-			_, message, ok := parseSyslogFormat(lineStr)
+			_, message, ok := parseLine(lineStr)
 			if ok {
-				pid := extractSyslogPID(message)
+				pid := extractSyslogPID(lineStr)
 				if pid != "" {
 					if isSyslogContinuationLine(message) {
 						if pe, exists := perPIDEntries[pid]; exists && len(pe.data) > 0 {
@@ -444,7 +505,7 @@ func parseMmapDataStderr(data []byte, out chan<- LogEntry) error {
 			// This is a new entry, process the previous one
 			if len(currentEntry) > 0 {
 				timestamp, message := parseStderrLineBytes(currentEntry)
-				out <- LogEntry{Timestamp: timestamp, Message: message}
+				out <- LogEntry{Timestamp: timestamp, Message: message, IsContinuation: isContinuationMessage(message)}
 				currentEntry = currentEntry[:0] // Reset but keep capacity
 			}
 			// Start accumulating new entry
@@ -481,7 +542,7 @@ func parseMmapDataStderr(data []byte, out chan<- LogEntry) error {
 			} else {
 				if len(currentEntry) > 0 {
 					timestamp, message := parseStderrLineBytes(currentEntry)
-					out <- LogEntry{Timestamp: timestamp, Message: message}
+					out <- LogEntry{Timestamp: timestamp, Message: message, IsContinuation: isContinuationMessage(message)}
 					currentEntry = currentEntry[:0]
 				}
 				currentEntry = append(currentEntry[:0], line...)
@@ -492,7 +553,7 @@ func parseMmapDataStderr(data []byte, out chan<- LogEntry) error {
 	// Process final accumulated entry
 	if len(currentEntry) > 0 {
 		timestamp, message := parseStderrLineBytes(currentEntry)
-		out <- LogEntry{Timestamp: timestamp, Message: message}
+		out <- LogEntry{Timestamp: timestamp, Message: message, IsContinuation: isContinuationMessage(message)}
 	}
 
 	return nil

@@ -325,18 +325,18 @@ func NewUniqueEntityAnalyzer() *UniqueEntityAnalyzer {
 //   - "user=postgres"
 //   - "app=psql" or "application_name=app"
 //   - "host=192.168.1.1" or "client=192.168.1.1"
+//
+// Known limitation: In stderr format, parallel workers have empty log_line_prefix
+// fields (db=,user=,app=,client=) because PostgreSQL doesn't populate them.
+// CSV/JSON capture this data from pg_stat_activity. This causes slight count
+// differences between formats. See docs/POSTGRESQL_PATCHES.md.
 func (a *UniqueEntityAnalyzer) Process(entry *parser.LogEntry) {
 	// Skip continuation lines (STATEMENT, DETAIL, HINT, CONTEXT) to avoid double-counting
-	// These are secondary messages that belong to the previous entry
 	if entry.IsContinuation {
 		return
 	}
 
 	msg := entry.Message
-
-	// OPTION 1: Single-pass scanner
-	// Scan the message once looking for all patterns simultaneously
-	// This is more efficient on CSV where 90% of messages have metadata
 
 	// Quick pre-filter: skip if no '=' present
 	if strings.IndexByte(msg, '=') == -1 {
@@ -354,115 +354,88 @@ func (a *UniqueEntityAnalyzer) Process(entry *parser.LogEntry) {
 		// Find next '='
 		eqIdx := strings.IndexByte(msg[i:], '=')
 		if eqIdx == -1 {
-			break // No more '=' in message
+			break
 		}
 		eqIdx += i
 
-		// Check what's before the '='
-		// We need at least 2 chars before '=' for "db=" (shortest pattern)
 		if eqIdx < 2 {
 			i = eqIdx + 1
 			continue
 		}
 
-		// Match patterns by checking backwards from '='
-		// Use single-byte prefix check first to avoid expensive string comparisons
-		matched := false
 		lastChar := msg[eqIdx-1]
 
-		// "application_name=" ends with 'e', "database=" also ends with 'e'
 		if lastChar == 'e' {
 			if eqIdx >= 16 && msg[eqIdx-16:eqIdx] == "application_name" {
-				// Only count if we haven't found an app yet in this message (avoid double-counting)
 				if currentApp == "" {
 					if appName := extractValueAt(msg, eqIdx+1); appName != "" {
-						a.appCounts[appName]++
 						currentApp = appName
-						matched = true
 					}
 				}
 			} else if eqIdx >= 8 && msg[eqIdx-8:eqIdx] == "database" {
-				// Only count if we haven't found a db yet in this message (avoid double-counting)
 				if currentDb == "" {
 					if dbName := extractValueAt(msg, eqIdx+1); dbName != "" {
-						a.dbCounts[dbName]++
 						currentDb = dbName
-						matched = true
 					}
 				}
 			}
 		} else if lastChar == 't' {
-			// "client=" and "host=" both end with 't'
 			if eqIdx >= 6 && msg[eqIdx-6:eqIdx] == "client" {
-				// Only count if we haven't found a host yet in this message (avoid double-counting)
 				if currentHost == "" {
 					if hostName := extractValueAt(msg, eqIdx+1); hostName != "" {
-						// Normalize host to remove port (e.g., "192.168.1.1(12345)" -> "192.168.1.1")
-						hostName = normalizeHost(hostName)
-						a.hostCounts[hostName]++
-						currentHost = hostName
-						matched = true
+						currentHost = normalizeHost(hostName)
 					}
 				}
 			} else if eqIdx >= 4 && msg[eqIdx-4:eqIdx] == "host" {
-				// Only count if we haven't found a host yet in this message (avoid double-counting)
 				if currentHost == "" {
 					if hostName := extractValueAt(msg, eqIdx+1); hostName != "" {
-						// Normalize host to remove port (e.g., "192.168.1.1(12345)" -> "192.168.1.1")
-						hostName = normalizeHost(hostName)
-						a.hostCounts[hostName]++
-						currentHost = hostName
-						matched = true
+						currentHost = normalizeHost(hostName)
 					}
 				}
 			}
 		} else if lastChar == 'r' && eqIdx >= 4 && msg[eqIdx-4:eqIdx] == "user" {
-			// "user=" ends with 'r'
-			// Only count if we haven't found a user yet in this message (avoid double-counting)
 			if currentUser == "" {
 				if userName := extractValueAt(msg, eqIdx+1); userName != "" {
-					a.userCounts[userName]++
 					currentUser = userName
-					matched = true
 				}
 			}
 		} else if lastChar == 'p' && eqIdx >= 3 && msg[eqIdx-3:eqIdx] == "app" {
-			// "app=" ends with 'p'
-			// Only count if we haven't found an app yet in this message (avoid double-counting)
 			if currentApp == "" {
 				if appName := extractValueAt(msg, eqIdx+1); appName != "" {
-					a.appCounts[appName]++
 					currentApp = appName
-					matched = true
 				}
 			}
 		} else if lastChar == 'b' && eqIdx >= 2 && msg[eqIdx-2:eqIdx] == "db" {
-			// "db=" ends with 'b'
-			// Only count if we haven't found a db yet in this message (avoid double-counting)
 			if currentDb == "" {
 				if dbName := extractValueAt(msg, eqIdx+1); dbName != "" {
-					a.dbCounts[dbName]++
 					currentDb = dbName
-					matched = true
 				}
 			}
 		}
 
-		// Silence unused variable warning
-		_ = matched
-
-		// Move past this '=' and continue scanning
 		i = eqIdx + 1
 	}
 
-	// Build combinations if we have the necessary data
+	// Count entities
+	if currentUser != "" {
+		a.userCounts[currentUser]++
+	}
+	if currentDb != "" {
+		a.dbCounts[currentDb]++
+	}
+	if currentApp != "" {
+		a.appCounts[currentApp]++
+	}
+	if currentHost != "" {
+		a.hostCounts[currentHost]++
+	}
+
+	// Build combinations
 	if currentUser != "" && currentDb != "" {
-		comboKey := currentUser + "|" + currentDb
-		a.userDbCombos[comboKey]++
+		a.userDbCombos[currentUser+"|"+currentDb]++
 	}
 	if currentUser != "" && currentHost != "" {
-		comboKey := currentUser + "|" + currentHost
-		a.userHostCombos[comboKey]++
+		a.userHostCombos[currentUser+"|"+currentHost]++
 	}
 }
 
