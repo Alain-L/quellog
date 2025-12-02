@@ -13,7 +13,7 @@ This document outlines the plan for comprehensive integration testing using real
 
 ```
 test/
-├── generate/
+├── generate/                       # Docker fixture generation (gitignored)
 │   ├── docker-compose.yml          # PostgreSQL + syslog containers
 │   ├── postgresql.conf             # Tuned for logging everything
 │   ├── scenarios/
@@ -29,18 +29,41 @@ test/
 │   │   └── 09_prepared.sql         # PREPARE/EXECUTE/DEALLOCATE
 │   └── generate_fixtures.sh        # Orchestration script
 ├── testdata/
-│   ├── comprehensive/              # Main fixture with all scenarios
-│   │   ├── stderr.log
-│   │   ├── csvlog.csv
-│   │   ├── jsonlog.json
-│   │   ├── syslog.log
-│   │   ├── expected.json           # Expected counter values
-│   │   └── MANIFEST.md             # Human-readable description
-│   └── legacy/                     # Old fixtures (deprecate progressively)
-│       ├── test_summary.log
-│       └── ...
-└── integration_test.go
+│   ├── stderr.log                  # PostgreSQL stderr format
+│   ├── csvlog.csv                  # PostgreSQL CSV format
+│   ├── jsonlog.json                # PostgreSQL JSON format (PG15+)
+│   ├── syslog.log                  # Syslog ISO timestamp format
+│   ├── syslog_bsd.log              # Syslog BSD format (Jan 15 ...)
+│   ├── syslog_rfc5424.log          # Syslog RFC5424 format
+│   ├── golden.json                 # Golden file for regression tests
+│   └── sql_*.log                   # SQL normalization test fixtures
+├── summary_test.go                 # Golden file regression + JSON structure
+├── comprehensive_test.go           # Format parity tests
+├── exhaustive_test.go              # Exhaustive combinatorial tests
+├── tempfile_*.go                   # Temp file analysis tests
+└── sql_*.go                        # SQL normalization tests
 ```
+
+### Fixture Files
+
+| File | Format | Description |
+|------|--------|-------------|
+| `stderr.log` | stderr | PostgreSQL text log with custom prefix |
+| `csvlog.csv` | CSV | PostgreSQL CSV log format |
+| `jsonlog.json` | JSON | PostgreSQL JSON log format (PG15+) |
+| `syslog.log` | syslog | ISO timestamp format via syslog-ng |
+| `syslog_bsd.log` | syslog | BSD format (Jan 15 14:30:00) |
+| `syslog_rfc5424.log` | syslog | RFC5424 format with structured data |
+| `golden.json` | JSON | Expected output for regression tests |
+
+### Generation
+
+```bash
+cd test/generate
+./generate_fixtures.sh
+```
+
+Requirements: Docker, Docker Compose, psql client, ~30 minutes for full generation.
 
 ---
 
@@ -425,15 +448,15 @@ For each `(section, output)` combination, verifies that all 6 input formats prod
 
 ---
 
-## Implementation Steps
+## Implementation Status
 
-1. [ ] Create `test/generate/` directory structure
-2. [ ] Write `docker-compose.yml`
-3. [ ] Write `postgresql.conf`
-4. [ ] Write SQL scenario files (00-09)
-5. [ ] Write `generate_fixtures.sh` orchestration script
-6. [ ] Generate fixtures and verify counters manually
-7. [ ] Commit fixtures to `test/testdata/comprehensive/`
-8. [ ] Write `integration_test.go` using expected.json
-9. [ ] Set up GitHub Actions workflow (uses committed fixtures)
-10. [ ] Document fixture regeneration process
+- [x] Create `test/generate/` directory structure
+- [x] Write `docker-compose.yml`
+- [x] Write `postgresql.conf`
+- [x] Write SQL scenario files (00-09)
+- [x] Write `generate_fixtures.sh` orchestration script
+- [x] Generate fixtures and verify counters manually
+- [x] Commit fixtures to `test/testdata/`
+- [x] Write test suite (comprehensive, exhaustive, summary tests)
+- [ ] Set up GitHub Actions workflow (uses committed fixtures)
+- [x] Document fixture regeneration process
