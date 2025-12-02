@@ -18,7 +18,7 @@ seconds and get instant, actionable insights into your PostgreSQL instance.
 Here is what it looks like:
 
 ```console
-❯ bin/quellog_dev test/testdata/test_summary.log
+❯ quellog test_summary.log
 quellog – 180 entries processed in 0.00 s (29.2kB)
 
 SUMMARY
@@ -250,7 +250,8 @@ To get the most out of **quellog**, configure your PostgreSQL instance to log th
 log_connections = on                 # Track connections
 log_disconnections = on              # Track disconnections
 log_min_duration_statement = 0       # Log all queries 
-log_line_prefix = '%t [%p]: db=%d,user=%u,app=%a,client=%h ' 
+log_line_prefix = '%t [%p] %e: db=%d,user=%u,app=%a,client=%h '
+
 
 # Additional useful settings
 log_checkpoints = on                 # Track checkpoint activity
