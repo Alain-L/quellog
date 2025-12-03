@@ -162,8 +162,9 @@ var errorClassDescriptions = map[string]string{
 // Matches patterns like:
 //   - SQLSTATE = '42P01' or SQLSTATE='42P01' (log message content)
 //   - ERROR: 42P01: (with log_error_verbosity = verbose)
-//   - [PID] 42P01 ERROR: (with %e in log_line_prefix)
-var errorCodeRegex = regexp.MustCompile(`(?:SQLSTATE\s*=\s*'([0-9A-Z]{5})'|ERROR:\s+([0-9A-Z]{5}):|]\s+([0-9A-Z]{5})\s+(?:ERROR|DETAIL|STATEMENT):)`)
+//   - [PID] 42P01 ERROR: (with %e in log_line_prefix, space before log level)
+//   - [PID] 42P01: (with %e in log_line_prefix, colon after SQLSTATE)
+var errorCodeRegex = regexp.MustCompile(`(?:SQLSTATE\s*=\s*'([0-9A-Z]{5})'|ERROR:\s+([0-9A-Z]{5}):|]\s+([0-9A-Z]{5})[\s:])`)
 
 // ============================================================================
 // Streaming error class analyzer
@@ -200,8 +201,11 @@ func (a *ErrorClassAnalyzer) Process(entry *parser.LogEntry) {
 	msg := entry.Message
 
 	// Quick checks before expensive operations
-	// Check for "ERROR:" or "SQLSTATE"
-	hasError := strings.Contains(msg, "ERROR:")
+	// Check for error-level messages or SQLSTATE keyword
+	// Include FATAL and PANIC which also have SQLSTATE codes
+	hasError := strings.Contains(msg, "ERROR:") ||
+		strings.Contains(msg, "FATAL:") ||
+		strings.Contains(msg, "PANIC:")
 	hasSQLSTATE := strings.Contains(msg, "SQLSTATE")
 
 	if !hasError && !hasSQLSTATE {
@@ -210,33 +214,6 @@ func (a *ErrorClassAnalyzer) Process(entry *parser.LogEntry) {
 
 	// Extract SQLSTATE code using regex
 	match := errorCodeRegex.FindStringSubmatch(msg)
-	if len(match) < 2 {
-		return
-	}
-
-	// Extract SQLSTATE from whichever group matched (match[1], match[2], or match[3])
-	sqlstate := match[1]
-	if sqlstate == "" {
-		sqlstate = match[2]
-	}
-	if sqlstate == "" && len(match) > 3 {
-		sqlstate = match[3]
-	}
-
-	if len(sqlstate) >= 2 {
-		classCode := sqlstate[:2]
-		a.counts[classCode]++
-	}
-}
-
-func (a *ErrorClassAnalyzer) ProcessLegacy(entry *parser.LogEntry) {
-	// Quick check: skip if message doesn't contain SQLSTATE or ERROR:
-	if !strings.Contains(entry.Message, "SQLSTATE") && !strings.Contains(entry.Message, "ERROR:") {
-		return
-	}
-
-	// Extract SQLSTATE code using regex
-	match := errorCodeRegex.FindStringSubmatch(entry.Message)
 	if len(match) < 2 {
 		return
 	}

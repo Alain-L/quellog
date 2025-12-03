@@ -33,6 +33,8 @@ reports/
 
 # Test data
 !test/testdata/**
+# Test fixture generation (local only, fixtures are committed)
+test/generate/
 retroengineering/
 out.html
 *.prof
@@ -42,5 +44,7 @@ trace.out
 CLAUDE.md
 GEMINI.md
 AGENTS.md
+TESTS.md
 .claude
 site/
+docs/POSTGRESQL_PATCHES.md

@@ -33,6 +33,13 @@ type LogEntry struct {
 	//   "LOG: database system is ready"
 	//   "ERROR: relation \"users\" does not exist HINT: Did you mean \"user\"?"
 	Message string
+
+	// IsContinuation indicates this entry is a continuation of a previous entry.
+	// In stderr format, PostgreSQL emits DETAIL/HINT/STATEMENT/CONTEXT/QUERY as
+	// separate lines with their own timestamp and log_line_prefix, but they belong
+	// to the previous LOG/ERROR/etc entry. These should not be counted as separate
+	// log entries for total_logs, but may still be processed by analyzers.
+	IsContinuation bool
 }
 
 // LogParser defines the interface that all format-specific parsers must implement.

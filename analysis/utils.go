@@ -5,8 +5,10 @@ import (
 	"crypto/md5"
 	"encoding/base64"
 	"encoding/hex"
+	"sort"
 	"strings"
 	"sync"
+	"time"
 )
 
 // ============================================================================
@@ -33,17 +35,76 @@ type queryPrefix struct {
 
 // queryPrefixes defines SQL command types and their corresponding ID prefixes.
 // The order matters: more specific commands should come first.
+// Query categories:
+//   - DML: SELECT, INSERT, UPDATE, DELETE, MERGE
+//   - COPY: COPY operations
+//   - CTE: WITH queries (Common Table Expressions)
+//   - DDL: CREATE, DROP, ALTER, TRUNCATE, COMMENT, SECURITY LABEL
+//   - TCL: BEGIN, COMMIT, ROLLBACK, SAVEPOINT, START, END, RELEASE
+//   - CURSOR: DECLARE, FETCH, CLOSE, MOVE
+//   - Utility: EXPLAIN, ANALYZE, VACUUM, REINDEX, CLUSTER, LOCK, etc.
 var queryPrefixes = [...]queryPrefix{
+	// DML - Data Manipulation Language
 	{"SELECT", "se-"},   // SELECT queries
 	{"INSERT", "in-"},   // INSERT statements
 	{"UPDATE", "up-"},   // UPDATE statements
 	{"DELETE", "de-"},   // DELETE statements
-	{"COPY", "co-"},     // COPY operations
-	{"REFRESH", "mv-"},  // REFRESH MATERIALIZED VIEW
+	{"MERGE", "me-"},    // MERGE statements (PostgreSQL 15+)
+
+	// COPY operations
+	{"COPY", "co-"}, // COPY TO/FROM
+
+	// CTE - Common Table Expressions (WITH queries)
+	{"WITH", "wi-"}, // WITH ... SELECT/INSERT/UPDATE/DELETE
+
+	// DDL - Data Definition Language
 	{"CREATE", "cr-"},   // CREATE statements
 	{"DROP", "dr-"},     // DROP statements
 	{"ALTER", "al-"},    // ALTER statements
 	{"TRUNCATE", "tr-"}, // TRUNCATE statements
+	{"COMMENT", "cm-"},  // COMMENT ON statements
+	{"REFRESH", "mv-"},  // REFRESH MATERIALIZED VIEW
+
+	// TCL - Transaction Control Language
+	{"BEGIN", "be-"},      // BEGIN transaction
+	{"COMMIT", "ct-"},     // COMMIT transaction
+	{"ROLLBACK", "rb-"},   // ROLLBACK transaction
+	{"SAVEPOINT", "sv-"},  // SAVEPOINT
+	{"RELEASE", "rl-"},    // RELEASE SAVEPOINT
+	{"START", "st-"},      // START TRANSACTION
+	{"END", "en-"},        // END (alias for COMMIT)
+	{"ABORT", "ab-"},      // ABORT (alias for ROLLBACK)
+	{"PREPARE", "pr-"},    // PREPARE TRANSACTION
+	{"DEALLOCATE", "dl-"}, // DEALLOCATE prepared statement
+
+	// CURSOR operations
+	{"DECLARE", "dc-"}, // DECLARE cursor
+	{"FETCH", "fe-"},   // FETCH from cursor
+	{"CLOSE", "cl-"},   // CLOSE cursor
+	{"MOVE", "mo-"},    // MOVE cursor
+
+	// Utility commands
+	{"EXPLAIN", "ex-"},  // EXPLAIN / EXPLAIN ANALYZE
+	{"ANALYZE", "an-"},  // ANALYZE table
+	{"VACUUM", "va-"},   // VACUUM
+	{"REINDEX", "ri-"},  // REINDEX
+	{"CLUSTER", "cu-"},  // CLUSTER
+	{"LOCK", "lk-"},     // LOCK TABLE
+	{"UNLISTEN", "ul-"}, // UNLISTEN (before LISTEN for prefix match)
+	{"LISTEN", "li-"},   // LISTEN
+	{"NOTIFY", "no-"},   // NOTIFY
+	{"DISCARD", "di-"},  // DISCARD
+	{"RESET", "re-"},    // RESET
+	{"SET", "se-"},      // SET - shares prefix with SELECT intentionally
+	{"SHOW", "sh-"},     // SHOW
+	{"LOAD", "lo-"},     // LOAD
+	{"CALL", "ca-"},     // CALL procedure
+	{"DO", "do-"},       // DO anonymous block
+	{"EXECUTE", "xe-"},  // EXECUTE prepared statement
+
+	// Security
+	{"GRANT", "gr-"},  // GRANT privileges
+	{"REVOKE", "rv-"}, // REVOKE privileges
 }
 
 // ============================================================================
@@ -205,6 +266,45 @@ func normalizeQuery(query string) string {
 	return buf.String()
 }
 
+// normalizeWhitespace collapses all whitespace (spaces, tabs, newlines) into single spaces.
+// This ensures consistent raw_query formatting across log formats (stderr uses spaces,
+// CSV/JSON preserve newlines from the original query).
+//
+// Example:
+//
+//	Input:  "BEGIN;\n            UPDATE users\n            SET name = 'foo';"
+//	Output: "BEGIN; UPDATE users SET name = 'foo';"
+func normalizeWhitespace(s string) string {
+	if len(s) == 0 {
+		return ""
+	}
+
+	buf := builderPool.Get().(*strings.Builder)
+	buf.Reset()
+	buf.Grow(len(s))
+	defer builderPool.Put(buf)
+
+	lastWasSpace := false
+
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+
+		// Collapse whitespace
+		if c == '\n' || c == '\r' || c == '\t' || c == ' ' {
+			if !lastWasSpace {
+				buf.WriteByte(' ')
+				lastWasSpace = true
+			}
+			continue
+		}
+
+		buf.WriteByte(c)
+		lastWasSpace = false
+	}
+
+	return strings.TrimSpace(buf.String())
+}
+
 // ============================================================================
 // Query ID generation
 // ============================================================================
@@ -242,19 +342,79 @@ func GenerateQueryID(rawQuery, normalizedQuery string) (id, fullHash string) {
 
 // detectQueryPrefix identifies the SQL command type and returns its prefix.
 // Uses case-insensitive matching on the first word of the query.
+// Handles queries that start with comments (/* ... */ or -- ...).
 func detectQueryPrefix(rawQuery string) string {
+	// Skip leading whitespace and comments to find actual SQL keyword
+	query := skipLeadingComments(rawQuery)
+
 	// Default prefix for unknown query types
 	prefix := "xx-"
 
 	// Try to match against known query prefixes
 	for _, p := range queryPrefixes {
-		if matchesKeyword(rawQuery, p.keyword) {
+		if matchesKeyword(query, p.keyword) {
 			prefix = p.prefix
 			break
 		}
 	}
 
 	return prefix
+}
+
+// skipLeadingComments removes leading whitespace and SQL comments from a query.
+// Handles:
+//   - Block comments: /* ... */
+//   - Line comments: -- ... (until newline)
+//   - Nested block comments (PostgreSQL supports them)
+func skipLeadingComments(query string) string {
+	i := 0
+	n := len(query)
+
+	for i < n {
+		// Skip whitespace
+		if query[i] == ' ' || query[i] == '\t' || query[i] == '\n' || query[i] == '\r' {
+			i++
+			continue
+		}
+
+		// Skip block comments /* ... */ (may be nested in PostgreSQL)
+		if i+1 < n && query[i] == '/' && query[i+1] == '*' {
+			i += 2
+			depth := 1
+			for i+1 < n && depth > 0 {
+				if query[i] == '/' && query[i+1] == '*' {
+					depth++
+					i += 2
+				} else if query[i] == '*' && query[i+1] == '/' {
+					depth--
+					i += 2
+				} else {
+					i++
+				}
+			}
+			continue
+		}
+
+		// Skip line comments -- ...
+		if i+1 < n && query[i] == '-' && query[i+1] == '-' {
+			i += 2
+			for i < n && query[i] != '\n' {
+				i++
+			}
+			if i < n {
+				i++ // Skip the newline
+			}
+			continue
+		}
+
+		// Found non-comment, non-whitespace character
+		break
+	}
+
+	if i >= n {
+		return ""
+	}
+	return query[i:]
 }
 
 // matchesKeyword checks if a query starts with a specific SQL keyword (case-insensitive).
@@ -315,37 +475,274 @@ func generateShortHash(hashBytes []byte) string {
 //
 // Example:
 //
-//	"se-A3bC9k" -> "select"
-//	"in-XyZ123" -> "insert"
-//	"xx-AbCdEf" -> "other"
+//	"se-A3bC9k" -> "SELECT"
+//	"in-XyZ123" -> "INSERT"
+//	"xx-AbCdEf" -> "OTHER"
 func QueryTypeFromID(id string) string {
 	if len(id) < 3 {
-		return "other"
+		return "OTHER"
 	}
 
 	// Map prefix to query type
 	switch id[:3] {
+	// DML
 	case "se-":
-		return "select"
+		return "SELECT"
 	case "in-":
-		return "insert"
+		return "INSERT"
 	case "up-":
-		return "update"
+		return "UPDATE"
 	case "de-":
-		return "delete"
+		return "DELETE"
+	case "me-":
+		return "MERGE"
+	// COPY
 	case "co-":
-		return "copy"
-	case "mv-":
-		return "refresh"
+		return "COPY"
+	// CTE
+	case "wi-":
+		return "WITH"
+	// DDL
 	case "cr-":
-		return "create"
+		return "CREATE"
 	case "dr-":
-		return "drop"
+		return "DROP"
 	case "al-":
-		return "alter"
+		return "ALTER"
 	case "tr-":
-		return "truncate"
+		return "TRUNCATE"
+	case "cm-":
+		return "COMMENT"
+	case "mv-":
+		return "REFRESH"
+	// TCL
+	case "be-":
+		return "BEGIN"
+	case "ct-":
+		return "COMMIT"
+	case "rb-":
+		return "ROLLBACK"
+	case "sv-":
+		return "SAVEPOINT"
+	case "rl-":
+		return "RELEASE"
+	case "st-":
+		return "START"
+	case "en-":
+		return "END"
+	case "ab-":
+		return "ABORT"
+	case "pr-":
+		return "PREPARE"
+	case "dl-":
+		return "DEALLOCATE"
+	// CURSOR
+	case "dc-":
+		return "DECLARE"
+	case "fe-":
+		return "FETCH"
+	case "cl-":
+		return "CLOSE"
+	case "mo-":
+		return "MOVE"
+	// Utility
+	case "ex-":
+		return "EXPLAIN"
+	case "an-":
+		return "ANALYZE"
+	case "va-":
+		return "VACUUM"
+	case "ri-":
+		return "REINDEX"
+	case "cu-":
+		return "CLUSTER"
+	case "lk-":
+		return "LOCK"
+	case "ul-":
+		return "UNLISTEN"
+	case "li-":
+		return "LISTEN"
+	case "no-":
+		return "NOTIFY"
+	case "di-":
+		return "DISCARD"
+	case "re-":
+		return "RESET"
+	case "sh-":
+		return "SHOW"
+	case "lo-":
+		return "LOAD"
+	case "ca-":
+		return "CALL"
+	case "do-":
+		return "DO"
+	case "xe-":
+		return "EXECUTE"
+	// Security
+	case "gr-":
+		return "GRANT"
+	case "rv-":
+		return "REVOKE"
 	default:
-		return "other"
+		return "OTHER"
 	}
+}
+
+// QueryCategory returns the high-level category for a query type.
+// Categories: DML, COPY, CTE, DDL, TCL, CURSOR, UTILITY, Security, OTHER
+func QueryCategory(queryType string) string {
+	switch queryType {
+	case "SELECT", "INSERT", "UPDATE", "DELETE", "MERGE":
+		return "DML"
+	case "COPY":
+		return "COPY"
+	case "WITH":
+		return "CTE"
+	case "CREATE", "DROP", "ALTER", "TRUNCATE", "COMMENT", "REFRESH":
+		return "DDL"
+	case "BEGIN", "COMMIT", "ROLLBACK", "SAVEPOINT", "RELEASE", "START", "END", "ABORT", "PREPARE", "DEALLOCATE":
+		return "TCL"
+	case "DECLARE", "FETCH", "CLOSE", "MOVE":
+		return "CURSOR"
+	case "EXPLAIN", "ANALYZE", "VACUUM", "REINDEX", "CLUSTER", "LOCK", "UNLISTEN", "LISTEN", "NOTIFY", "DISCARD", "RESET", "SHOW", "LOAD", "CALL", "DO", "EXECUTE", "GRANT", "REVOKE", "SET":
+		return "UTILITY"
+	default:
+		return "OTHER"
+	}
+}
+
+// ============================================================================
+// Entity count sorting
+// ============================================================================
+
+// EntityCount represents an entity with its occurrence count.
+type EntityCount struct {
+	Name  string
+	Count int
+}
+
+// SortByCount converts a count map to a sorted slice of EntityCount.
+// Entities are sorted by count (descending), with alphabetical ordering as tiebreaker.
+// Returns all entities (no limit).
+func SortByCount(counts map[string]int) []EntityCount {
+	items := make([]EntityCount, 0, len(counts))
+	for name, count := range counts {
+		items = append(items, EntityCount{Name: name, Count: count})
+	}
+
+	sort.Slice(items, func(i, j int) bool {
+		if items[i].Count != items[j].Count {
+			return items[i].Count > items[j].Count // Descending by count
+		}
+		return items[i].Name < items[j].Name // Alphabetical tiebreaker
+	})
+
+	return items
+}
+
+// ============================================================================
+// Duration statistics
+// ============================================================================
+
+// DurationStats contains statistical information about a set of durations.
+type DurationStats struct {
+	Count  int
+	Min    time.Duration
+	Max    time.Duration
+	Avg    time.Duration
+	Median time.Duration
+}
+
+// CalculateDurationStats computes min, max, avg, and median for a set of durations.
+// Returns zero values if the input slice is empty.
+func CalculateDurationStats(durations []time.Duration) DurationStats {
+	if len(durations) == 0 {
+		return DurationStats{}
+	}
+
+	// Calculate min, max, and sum
+	min := durations[0]
+	max := durations[0]
+	var sum time.Duration
+
+	for _, d := range durations {
+		if d < min {
+			min = d
+		}
+		if d > max {
+			max = d
+		}
+		sum += d
+	}
+
+	avg := sum / time.Duration(len(durations))
+
+	// Calculate median (requires sorting)
+	median := CalculateMedian(durations)
+
+	return DurationStats{
+		Count:  len(durations),
+		Min:    min,
+		Max:    max,
+		Avg:    avg,
+		Median: median,
+	}
+}
+
+// CalculateMedian calculates the median duration from a slice of durations.
+// Note: This function sorts a copy of the input slice.
+func CalculateMedian(durations []time.Duration) time.Duration {
+	if len(durations) == 0 {
+		return 0
+	}
+
+	// Make a copy to avoid modifying the original slice
+	sorted := make([]time.Duration, len(durations))
+	copy(sorted, durations)
+
+	// Sort the copy
+	sort.Slice(sorted, func(i, j int) bool {
+		return sorted[i] < sorted[j]
+	})
+
+	// Calculate median
+	n := len(sorted)
+	if n%2 == 1 {
+		// Odd number of elements: return middle element
+		return sorted[n/2]
+	}
+	// Even number of elements: return average of two middle elements
+	return (sorted[n/2-1] + sorted[n/2]) / 2
+}
+
+// CalculateDurationDistribution groups durations into buckets and returns counts per bucket.
+// Buckets: < 1s, 1s - 1min, 1min - 30min, 30min - 2h, 2h - 5h, > 5h
+func CalculateDurationDistribution(durations []time.Duration) map[string]int {
+	dist := map[string]int{
+		"< 1s":         0,
+		"1s - 1min":    0,
+		"1min - 30min": 0,
+		"30min - 2h":   0,
+		"2h - 5h":      0,
+		"> 5h":         0,
+	}
+
+	for _, d := range durations {
+		switch {
+		case d < time.Second:
+			dist["< 1s"]++
+		case d < time.Minute:
+			dist["1s - 1min"]++
+		case d < 30*time.Minute:
+			dist["1min - 30min"]++
+		case d < 2*time.Hour:
+			dist["30min - 2h"]++
+		case d < 5*time.Hour:
+			dist["2h - 5h"]++
+		default:
+			dist["> 5h"]++
+		}
+	}
+
+	return dist
 }

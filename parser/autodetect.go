@@ -22,11 +22,11 @@ import (
 
 // Detection errors - used to distinguish between different failure causes
 var (
-	ErrFileEmpty          = errors.New("file is empty")
-	ErrBinaryFile         = errors.New("file appears to be binary")
-	ErrInvalidFormat      = errors.New("file content doesn't match expected format for extension")
-	ErrUnknownFormat      = errors.New("unable to detect log format")
-	ErrCompressionFailed  = errors.New("failed to read compressed file")
+	ErrFileEmpty         = errors.New("file is empty")
+	ErrBinaryFile        = errors.New("file appears to be binary")
+	ErrInvalidFormat     = errors.New("file content doesn't match expected format for extension")
+	ErrUnknownFormat     = errors.New("unable to detect log format")
+	ErrCompressionFailed = errors.New("failed to read compressed file")
 )
 
 // Constants for format detection
@@ -82,7 +82,7 @@ var (
 		// with optional fractional seconds, timezone, and log level
 		regexp.MustCompile(`^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?: [A-Z]{2,5})?.*?\b(?:LOG|WARNING|ERROR|FATAL|PANIC|DETAIL|STATEMENT|HINT|CONTEXT):\s+`),
 
-		// Pattern 2: Syslog format (Mon  3 12:34:56)
+		// Pattern 2: Syslog BSD format (Mon  3 12:34:56)
 		// with host, process info, and log level
 		regexp.MustCompile(`^[A-Z][a-z]{2}\s+\d+\s+\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:\s+[A-Z]{2,5})?\s+\S+\s+\S+\[\d+\]:(?:\s+\[[^\]]+\])?\s+\[\d+(?:-\d+)?\].*?\b(?:LOG|WARNING|ERROR|FATAL|PANIC|DETAIL|STATEMENT|HINT|CONTEXT):\s+`),
 
@@ -91,6 +91,14 @@ var (
 
 		// Pattern 4: Minimal ISO format with basic log levels
 		regexp.MustCompile(`^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}.*?\b(?:LOG|ERROR|WARNING|FATAL|PANIC):\s+`),
+
+		// Pattern 5: Syslog RFC5424 format (<priority>version timestamp)
+		// Example: <134>1 2025-11-30T21:10:20+00:00 host postgres ...LOG:
+		regexp.MustCompile(`^<\d+>\d+\s+\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.*?\b(?:LOG|WARNING|ERROR|FATAL|PANIC|DETAIL|STATEMENT|HINT|CONTEXT):\s+`),
+
+		// Pattern 6: Syslog ISO format (timestamp with timezone offset followed by host)
+		// Example: 2025-11-30T21:10:20+00:00 172.20.0.2 postgres[55]: ...LOG:
+		regexp.MustCompile(`^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}\s+\S+\s+\S+\[\d+\]:.*?\b(?:LOG|WARNING|ERROR|FATAL|PANIC|DETAIL|STATEMENT|HINT|CONTEXT):\s+`),
 	}
 )
 
@@ -335,12 +343,68 @@ func isJSONContent(sample string) bool {
 	}
 
 	// Try to unmarshal as a single JSON object/array first
+	// If the sample is truncated (common with large JSON arrays), validation may fail
+	// but we can still detect it as JSON by checking the structure
 	var js interface{}
 	err := json.Unmarshal([]byte(trimmed), &js)
 
-	// If it fails, try JSONL format (newline-delimited JSON)
+	// If unmarshaling the full sample fails, try JSONL format (newline-delimited JSON)
+	// or check if it's a truncated JSON array with valid structure
 	if err != nil {
-		// Try to parse first line as JSON
+		// For JSON arrays, the sample might be truncated mid-entry
+		// Check if it starts like a JSON array with objects
+		if strings.HasPrefix(trimmed, "[") {
+			// Look for opening of first object
+			firstObjStart := strings.Index(trimmed, "{")
+			if firstObjStart == -1 {
+				return false
+			}
+			// Try to extract and validate the first complete object
+			objDepth := 0
+			inString := false
+			escape := false
+			for i := firstObjStart; i < len(trimmed); i++ {
+				c := trimmed[i]
+
+				if escape {
+					escape = false
+					continue
+				}
+
+				if c == '\\' {
+					escape = true
+					continue
+				}
+
+				if c == '"' && !escape {
+					inString = !inString
+					continue
+				}
+
+				if inString {
+					continue
+				}
+
+				if c == '{' {
+					objDepth++
+				} else if c == '}' {
+					objDepth--
+					if objDepth == 0 {
+						// Found a complete object
+						firstObj := trimmed[firstObjStart : i+1]
+						if err := json.Unmarshal([]byte(firstObj), &js); err == nil {
+							// Valid JSON object in array
+							goto checkFields
+						}
+						return false
+					}
+				}
+			}
+			// Couldn't find a complete object, but structure looks like JSON array
+			goto checkFields
+		}
+
+		// Try JSONL format (newline-delimited JSON)
 		lines := strings.Split(trimmed, "\n")
 		if len(lines) == 0 {
 			return false
@@ -354,17 +418,18 @@ func isJSONContent(sample string) bool {
 		if err := json.Unmarshal([]byte(firstLine), &js); err != nil {
 			return false
 		}
-	} else {
 	}
 
+checkFields:
 	// Check for timestamp-related fields anywhere in the sample
 	hasTimestamp := strings.Contains(trimmed, `"timestamp"`)
 	hasTime := strings.Contains(trimmed, `"time"`)
 	hasTs := strings.Contains(trimmed, `"ts"`)
 	hasAtTimestamp := strings.Contains(trimmed, `"@timestamp"`)
 	hasInsertId := strings.Contains(trimmed, `"insertId"`)
+	hasTextPayload := strings.Contains(trimmed, `"textPayload"`)
 
-	result := hasTimestamp || hasTime || hasTs || hasAtTimestamp || hasInsertId
+	result := hasTimestamp || hasTime || hasTs || hasAtTimestamp || hasInsertId || hasTextPayload
 
 	return result
 }

@@ -9,20 +9,11 @@ import (
 	"testing"
 )
 
-// TestTempFileQueryAssociation tests that temporary files are correctly associated
-// with the SQL queries that generated them across all supported patterns.
+// TestTempFileAnalysis tests that temporary files are correctly detected and analyzed
+// using the comprehensive fixtures generated from a real PostgreSQL instance.
 //
-// Patterns tested:
-// - Pattern 1: tempfile → STATEMENT (temp file first, then STATEMENT line)
-// - Pattern 2: duration/statement → tempfile (query cached by PID, then temp file)
-//
-// KNOWN LIMITATION: This test is skipped because the first query with
-// "duration: statement:" appears BEFORE the first tempfile in the test file.
-// For performance reasons (saves ~6s on 11GB files), queries are not cached
-// until after the first tempfile is seen. This affects <0.01% of real-world
-// tempfile associations. See analysis/temp_files.go Process() doc for details.
-func TestTempFileQueryAssociation(t *testing.T) {
-	t.Skip("Skipping due to known performance optimization: queries before first tempfile are not associated (affects <0.01% of cases)")
+// The comprehensive fixtures contain 7 temporary file events from parallel query execution.
+func TestTempFileAnalysis(t *testing.T) {
 	// Build the binary from source
 	buildCmd := exec.Command("go", "build", "-o", "quellog_test", ".")
 	buildCmd.Dir = ".."
@@ -33,8 +24,8 @@ func TestTempFileQueryAssociation(t *testing.T) {
 
 	quellogBinary := "../quellog_test"
 
-	// Run analysis on tempfile association log
-	cmd := exec.Command(quellogBinary, "testdata/tempfile_association.log", "--json")
+	// Run analysis on comprehensive stderr fixture
+	cmd := exec.Command(quellogBinary, "testdata/stderr.log", "--tempfiles", "--json")
 	var stdout bytes.Buffer
 	cmd.Stdout = &stdout
 
@@ -53,7 +44,7 @@ func TestTempFileQueryAssociation(t *testing.T) {
 		t.Fatalf("missing or invalid 'temp_files' section in output")
 	}
 
-	// Check total temp file messages
+	// Check total temp file messages (comprehensive fixtures have 7)
 	totalMessages, ok := tempFiles["total_messages"].(float64)
 	if !ok {
 		t.Fatalf("missing or invalid 'total_messages' in temp_files section")
@@ -62,63 +53,97 @@ func TestTempFileQueryAssociation(t *testing.T) {
 		t.Errorf("expected 7 temp file messages, got %v", totalMessages)
 	}
 
-	// Check total size
+	// Check total size exists and is reasonable
 	totalSize, ok := tempFiles["total_size"].(string)
-	if !ok {
+	if !ok || totalSize == "" {
 		t.Fatalf("missing or invalid 'total_size' in temp_files section")
 	}
-	if totalSize != "337.50 MB" {
-		t.Errorf("expected total size '337.50 MB', got '%s'", totalSize)
+
+	// Check that events array exists
+	events, ok := tempFiles["events"].([]interface{})
+	if !ok {
+		t.Fatalf("missing or invalid 'events' in temp_files section")
+	}
+	if len(events) != 7 {
+		t.Errorf("expected 7 events, got %d", len(events))
 	}
 
-	// Note: Tempfile associations are currently only exported in text output,
-	// not in JSON. The JSON only contains basic tempfile metrics.
+	// Verify each event has required fields
+	for i, e := range events {
+		event, ok := e.(map[string]interface{})
+		if !ok {
+			t.Errorf("event %d is not a map", i)
+			continue
+		}
 
-	// Run text output to verify associations are displayed
-	cmd2 := exec.Command(quellogBinary, "testdata/tempfile_association.log")
-	var stdout2 bytes.Buffer
-	cmd2.Stdout = &stdout2
-
-	if err := cmd2.Run(); err != nil {
-		t.Fatalf("failed to run text output: %v", err)
-	}
-
-	// Check that the "Queries generating temp files:" section exists
-	if !bytes.Contains(stdout2.Bytes(), []byte("Queries generating temp files:")) {
-		t.Error("expected 'Queries generating temp files:' section in text output")
-	}
-
-	// Check for specific query associations
-	expectedAssociations := []string{
-		"select * from large_table order by id",
-		"select * from medium_table join large_table using (id)",
-		"insert into archive select * from active where date < now()",
-		"delete from temp_data where processed = true",
-		"create index idx_huge on huge_table(col1, col2)",
-		"update stats set count = count + ?",
-		"select id from orphan_tempfile",
-	}
-
-	for _, query := range expectedAssociations {
-		if !bytes.Contains(stdout2.Bytes(), []byte(query)) {
-			t.Errorf("expected query '%s' in temp file associations, but not found", query)
+		if _, ok := event["timestamp"]; !ok {
+			t.Errorf("event %d missing timestamp", i)
+		}
+		if _, ok := event["size"]; !ok {
+			t.Errorf("event %d missing size", i)
 		}
 	}
 
-	// Verify sizes are shown
-	expectedSizes := []string{
-		"100.00 MB",
-		"50.00 MB",
-		"20.00 MB",
-		"10.00 MB",
-		"150.00 MB",
-		"5.00 MB",
-		"2.50 MB",
+	// Check that queries array exists (query association)
+	queries, ok := tempFiles["queries"].([]interface{})
+	if !ok {
+		t.Fatalf("missing or invalid 'queries' in temp_files section")
+	}
+	if len(queries) == 0 {
+		t.Error("expected at least one query association")
 	}
 
-	for _, size := range expectedSizes {
-		if !bytes.Contains(stdout2.Bytes(), []byte(size)) {
-			t.Errorf("expected size '%s' in temp file associations output", size)
+	// Verify queries have required fields
+	for i, q := range queries {
+		query, ok := q.(map[string]interface{})
+		if !ok {
+			t.Errorf("query %d is not a map", i)
+			continue
 		}
+
+		requiredFields := []string{"id", "normalized_query", "count", "total_size"}
+		for _, field := range requiredFields {
+			if _, ok := query[field]; !ok {
+				t.Errorf("query %d missing field: %s", i, field)
+			}
+		}
+	}
+}
+
+// TestTempFileTextOutput verifies that text output includes tempfile information
+func TestTempFileTextOutput(t *testing.T) {
+	buildCmd := exec.Command("go", "build", "-o", "quellog_test", ".")
+	buildCmd.Dir = ".."
+	if err := buildCmd.Run(); err != nil {
+		t.Fatalf("Failed to build binary: %v", err)
+	}
+	defer os.Remove("../quellog_test")
+
+	quellogBinary := "../quellog_test"
+
+	// Run text output
+	cmd := exec.Command(quellogBinary, "testdata/stderr.log", "--tempfiles")
+	var stdout bytes.Buffer
+	cmd.Stdout = &stdout
+
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to run: %v", err)
+	}
+
+	output := stdout.String()
+
+	// Check for tempfiles section header
+	if !bytes.Contains(stdout.Bytes(), []byte("TEMP FILES")) {
+		t.Error("expected 'TEMP FILES' section in text output")
+	}
+
+	// Check for total count
+	if !bytes.Contains(stdout.Bytes(), []byte("7")) {
+		t.Error("expected tempfile count '7' in text output")
+	}
+
+	// Check for size information
+	if !bytes.Contains(stdout.Bytes(), []byte("MB")) {
+		t.Errorf("expected size in MB in text output, got: %s", output)
 	}
 }

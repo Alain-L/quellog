@@ -49,8 +49,8 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string) {
 		}
 	}
 
-	// SQL performance section
-	if has("sql_performance") && m.SQL.TotalQueries > 0 {
+	// SQL summary section
+	if has("sql_summary") && m.SQL.TotalQueries > 0 {
 		PrintSQLSummary(m.SQL, true)
 	}
 
@@ -347,21 +347,74 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string) {
 	if has("connections") && m.Connections.ConnectionReceivedCount > 0 {
 		fmt.Println(bold + "\nCONNECTIONS & SESSIONS\n" + reset)
 
-		// Histogram
-		hist, _, scaleFactor := computeConnectionsHistogram(m.Connections.Connections)
-		PrintHistogram(hist, "Connection distribution", "", scaleFactor, nil)
+		// Determine if --connections was explicitly used (not just included in "all")
+		isDetailedMode := !has("all")
+
+		// Histogramme des sessions simultanées (always shown, more buckets in detailed mode)
+		if len(m.Connections.SessionEvents) > 0 && !m.Global.MinTimestamp.IsZero() && !m.Global.MaxTimestamp.IsZero() {
+			numBuckets := 6
+			if isDetailedMode {
+				numBuckets = 12
+			}
+			concurrentHist, labels, concurrentScale, peakTimes := computeConcurrentHistogram(
+				m.Connections.SessionEvents,
+				m.Global.MinTimestamp,
+				m.Global.MaxTimestamp,
+				numBuckets,
+			)
+			if len(concurrentHist) > 0 {
+				PrintConcurrentHistogram(concurrentHist, "Concurrent sessions", concurrentScale, labels, peakTimes)
+			}
+		}
+
+		// Connection distribution histogram (only in detailed mode)
+		if isDetailedMode {
+			hist, _, scaleFactor := computeConnectionsHistogram(m.Connections.Connections, m.Global.MinTimestamp, m.Global.MaxTimestamp)
+			PrintHistogram(hist, "Connection distribution", "", scaleFactor, nil)
+		}
 
 		fmt.Printf("  %-25s : %d\n", "Connection count", m.Connections.ConnectionReceivedCount)
+		fmt.Printf("  %-25s : %d\n", "Disconnection count", m.Connections.DisconnectionCount)
 		if duration.Hours() > 0 {
 			avgConnPerHour := float64(m.Connections.ConnectionReceivedCount) / duration.Hours()
-			fmt.Printf("  %-25s : %.2f\n", "Avg connections per hour", avgConnPerHour) // Ensure float formatting
+			fmt.Printf("  %-25s : %.2f\n", "Avg connections per hour", avgConnPerHour)
 		}
-		fmt.Printf("  %-25s : %d\n", "Disconnection count", m.Connections.DisconnectionCount)
-		if m.Connections.DisconnectionCount > 0 {
+		if len(m.Connections.SessionDurations) > 0 {
+			// Average
 			avgSessionTime := time.Duration(float64(m.Connections.TotalSessionTime) / float64(m.Connections.DisconnectionCount))
-			fmt.Printf("  %-25s : %s\n", "Avg session time", avgSessionTime.Round(time.Second))
-		} else {
+			fmt.Printf("  %-25s : %s\n", "Avg session time", formatSessionDuration(avgSessionTime))
+			// Median (more representative for skewed distributions)
+			sorted := make([]time.Duration, len(m.Connections.SessionDurations))
+			copy(sorted, m.Connections.SessionDurations)
+			sort.Slice(sorted, func(i, j int) bool { return sorted[i] < sorted[j] })
+			median := sorted[len(sorted)/2]
+			fmt.Printf("  %-25s : %s\n", "Median session time", formatSessionDuration(median))
+		} else if m.Connections.DisconnectionCount > 0 {
 			fmt.Printf("  %-25s : %s\n", "Avg session time", "N/A")
+		}
+
+		// Average concurrent (always shown if data available)
+		if len(m.Connections.Connections) > 0 && m.Connections.DisconnectionCount > 0 {
+			duration := m.Global.MaxTimestamp.Sub(m.Global.MinTimestamp)
+			if duration > 0 {
+				avgConcurrent := float64(m.Connections.TotalSessionTime) / float64(duration)
+				fmt.Printf("  %-25s : %.1f\n", "Avg concurrent", avgConcurrent)
+			}
+		}
+
+		// Peak concurrent sessions (always shown)
+		if m.Connections.PeakConcurrentSessions > 0 {
+			fmt.Printf("  %-25s : %d", "Maximum simultaneous", m.Connections.PeakConcurrentSessions)
+			if !m.Connections.PeakConcurrentTimestamp.IsZero() {
+				fmt.Printf("     (at %s)", m.Connections.PeakConcurrentTimestamp.Format("2006-01-02 15:04:05"))
+			}
+			fmt.Println()
+		}
+
+		// Detailed mode: show additional stats when --connections is explicitly used
+		isExplicit := !has("all")
+		if isExplicit && len(m.Connections.SessionDurations) > 0 {
+			printDetailedConnectionStats(m, bold, reset)
 		}
 	}
 
@@ -373,33 +426,345 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string) {
 		fmt.Printf("  %-25s : %d\n", "Unique Apps", m.UniqueEntities.UniqueApps)
 		fmt.Printf("  %-25s : %d\n", "Unique Hosts", m.UniqueEntities.UniqueHosts)
 
-		// Display lists.
-		if m.UniqueEntities.UniqueUsers > 0 {
-			fmt.Println(bold + "\nUSERS\n" + reset)
-			for _, user := range m.UniqueEntities.Users {
-				fmt.Printf("    %s\n", user)
+		// Calculate total logs for percentage calculation
+		totalLogs := m.Global.Count
+
+		// Determine if --clients was explicitly used (not just included in "all")
+		isExplicit := !has("all")
+		topPrefix := ""
+		topLimit := 0 // 0 means no limit
+		if !isExplicit {
+			topPrefix = "TOP "
+			topLimit = 10 // Limit to top 10 when not explicit
+		}
+
+		// Display users with counts and percentages
+		if m.UniqueEntities.UniqueUsers > 0 && m.UniqueEntities.UserCounts != nil {
+			fmt.Println(bold + "\n" + topPrefix + "USERS\n" + reset)
+			sortedUsers := analysis.SortByCount(m.UniqueEntities.UserCounts)
+			limit := len(sortedUsers)
+			remaining := 0
+			if topLimit > 0 && topLimit < limit {
+				remaining = limit - topLimit
+				limit = topLimit
+			}
+			for i := 0; i < limit; i++ {
+				item := sortedUsers[i]
+				percentage := float64(item.Count) * 100.0 / float64(totalLogs)
+				fmt.Printf("  %-25s %6d  %5.1f%%\n", item.Name, item.Count, percentage)
+			}
+			if remaining > 0 {
+				fmt.Printf("  [%d more...]\n", remaining)
 			}
 		}
-		if m.UniqueEntities.UniqueApps > 0 {
-			fmt.Println(bold + "\nAPPS\n" + reset)
-			for _, app := range m.UniqueEntities.Apps {
-				fmt.Printf("    %s\n", app)
+
+		// Display apps with counts and percentages
+		if m.UniqueEntities.UniqueApps > 0 && m.UniqueEntities.AppCounts != nil {
+			fmt.Println(bold + "\n" + topPrefix + "APPS\n" + reset)
+			sortedApps := analysis.SortByCount(m.UniqueEntities.AppCounts)
+			limit := len(sortedApps)
+			remaining := 0
+			if topLimit > 0 && topLimit < limit {
+				remaining = limit - topLimit
+				limit = topLimit
+			}
+			for i := 0; i < limit; i++ {
+				item := sortedApps[i]
+				percentage := float64(item.Count) * 100.0 / float64(totalLogs)
+				fmt.Printf("  %-25s %6d  %5.1f%%\n", item.Name, item.Count, percentage)
+			}
+			if remaining > 0 {
+				fmt.Printf("  [%d more...]\n", remaining)
 			}
 		}
-		if m.UniqueEntities.UniqueDbs > 0 {
-			fmt.Println(bold + "\nDATABASES\n" + reset)
-			for _, db := range m.UniqueEntities.DBs {
-				fmt.Printf("    %s\n", db)
+
+		// Display databases with counts and percentages
+		if m.UniqueEntities.UniqueDbs > 0 && m.UniqueEntities.DBCounts != nil {
+			fmt.Println(bold + "\n" + topPrefix + "DATABASES\n" + reset)
+			sortedDBs := analysis.SortByCount(m.UniqueEntities.DBCounts)
+			limit := len(sortedDBs)
+			remaining := 0
+			if topLimit > 0 && topLimit < limit {
+				remaining = limit - topLimit
+				limit = topLimit
+			}
+			for i := 0; i < limit; i++ {
+				item := sortedDBs[i]
+				percentage := float64(item.Count) * 100.0 / float64(totalLogs)
+				fmt.Printf("  %-25s %6d  %5.1f%%\n", item.Name, item.Count, percentage)
+			}
+			if remaining > 0 {
+				fmt.Printf("  [%d more...]\n", remaining)
 			}
 		}
-		if m.UniqueEntities.UniqueHosts > 0 {
-			fmt.Println(bold + "\nHOSTS\n" + reset)
-			for _, host := range m.UniqueEntities.Hosts {
-				fmt.Printf("    %s\n", host)
+
+		// Display hosts with counts and percentages
+		if m.UniqueEntities.UniqueHosts > 0 && m.UniqueEntities.HostCounts != nil {
+			fmt.Println(bold + "\n" + topPrefix + "HOSTS\n" + reset)
+			sortedHosts := analysis.SortByCount(m.UniqueEntities.HostCounts)
+			limit := len(sortedHosts)
+			remaining := 0
+			if topLimit > 0 && topLimit < limit {
+				remaining = limit - topLimit
+				limit = topLimit
+			}
+			for i := 0; i < limit; i++ {
+				item := sortedHosts[i]
+				percentage := float64(item.Count) * 100.0 / float64(totalLogs)
+				fmt.Printf("  %-25s %6d  %5.1f%%\n", item.Name, item.Count, percentage)
+			}
+			if remaining > 0 {
+				fmt.Printf("  [%d more...]\n", remaining)
+			}
+		}
+
+		// Display user×database combinations
+		if len(m.UniqueEntities.UserDbCombos) > 0 {
+			fmt.Println(bold + "\n" + topPrefix + "USER × DATABASE\n" + reset)
+			sortedCombos := analysis.SortByCount(m.UniqueEntities.UserDbCombos)
+			limit := len(sortedCombos)
+			remaining := 0
+			if topLimit > 0 && topLimit < limit {
+				remaining = limit - topLimit
+				limit = topLimit
+			}
+			for i := 0; i < limit; i++ {
+				item := sortedCombos[i]
+				percentage := float64(item.Count) * 100.0 / float64(totalLogs)
+				// Split the combo key "user|database"
+				parts := strings.SplitN(item.Name, "|", 2)
+				if len(parts) == 2 {
+					fmt.Printf("  %-25s × %-25s %6d  %5.1f%%\n", parts[0], parts[1], item.Count, percentage)
+				}
+			}
+			if remaining > 0 {
+				fmt.Printf("  [%d more...]\n", remaining)
+			}
+		}
+
+		// Display user×host combinations
+		if len(m.UniqueEntities.UserHostCombos) > 0 {
+			fmt.Println(bold + "\n" + topPrefix + "USER × HOST\n" + reset)
+			sortedCombos := analysis.SortByCount(m.UniqueEntities.UserHostCombos)
+			limit := len(sortedCombos)
+			remaining := 0
+			if topLimit > 0 && topLimit < limit {
+				remaining = limit - topLimit
+				limit = topLimit
+			}
+			for i := 0; i < limit; i++ {
+				item := sortedCombos[i]
+				percentage := float64(item.Count) * 100.0 / float64(totalLogs)
+				// Split the combo key "user|host"
+				parts := strings.SplitN(item.Name, "|", 2)
+				if len(parts) == 2 {
+					fmt.Printf("  %-25s × %-25s %6d  %5.1f%%\n", parts[0], parts[1], item.Count, percentage)
+				}
+			}
+			if remaining > 0 {
+				fmt.Printf("  [%d more...]\n", remaining)
 			}
 		}
 	}
 	fmt.Println()
+}
+
+// printDetailedConnectionStats displays detailed connection and session statistics.
+// This is shown only when --connections is explicitly used (not as part of "all").
+func printDetailedConnectionStats(m analysis.AggregatedMetrics, bold, reset string) {
+	// 1. SESSION TIME DISTRIBUTION (with histogram bars)
+	if len(m.Connections.SessionDurations) > 0 {
+		fmt.Println()
+		dist := analysis.CalculateDurationDistribution(m.Connections.SessionDurations)
+
+		// Define bucket order for consistent display
+		orderedBuckets := []string{"< 1s", "1s - 1min", "1min - 30min", "30min - 2h", "2h - 5h", "> 5h"}
+
+		// Calculate scale factor to limit histogram width to 40 chars (like connections histogram)
+		maxValue := 0
+		for _, count := range dist {
+			if count > maxValue {
+				maxValue = count
+			}
+		}
+		histogramWidth := 40
+		scaleFactor := int(math.Ceil(float64(maxValue) / float64(histogramWidth)))
+		if scaleFactor < 1 {
+			scaleFactor = 1
+		}
+
+		// Use PrintHistogram like for connections
+		PrintHistogram(dist, "Session time distribution", "", scaleFactor, orderedBuckets)
+	}
+
+	// 2. SESSION DURATION BY USER (tables at the end, more readable)
+	if len(m.Connections.SessionsByUser) > 0 {
+		fmt.Println(bold + "\nSESSION DURATION BY USER\n" + reset)
+
+		// Sort by total session count (descending)
+		type userStats struct {
+			user      string
+			stats     analysis.DurationStats
+			cumulated time.Duration
+		}
+		var sortedUsers []userStats
+		for user, durations := range m.Connections.SessionsByUser {
+			stats := analysis.CalculateDurationStats(durations)
+			// Calculate cumulated duration
+			var cumulated time.Duration
+			for _, d := range durations {
+				cumulated += d
+			}
+			sortedUsers = append(sortedUsers, userStats{user: user, stats: stats, cumulated: cumulated})
+		}
+		sort.Slice(sortedUsers, func(i, j int) bool {
+			return sortedUsers[i].stats.Count > sortedUsers[j].stats.Count
+		})
+
+		// Display header
+		fmt.Printf("  %-25s  %8s  %8s  %8s  %8s  %8s  %10s\n",
+			"User", "Sessions", "Min", "Max", "Avg", "Median", "Cumulated")
+		fmt.Println("  " + strings.Repeat("-", 89))
+
+		// Display top 10 users
+		limit := len(sortedUsers)
+		if limit > 10 {
+			limit = 10
+		}
+		for i := 0; i < limit; i++ {
+			u := sortedUsers[i]
+			fmt.Printf("  %-25s  %8d  %8s  %8s  %8s  %8s  %10s\n",
+				u.user,
+				u.stats.Count,
+				formatSessionDuration(u.stats.Min),
+				formatSessionDuration(u.stats.Max),
+				formatSessionDuration(u.stats.Avg),
+				formatSessionDuration(u.stats.Median),
+				formatSessionDuration(u.cumulated))
+		}
+	}
+
+	// 3. SESSION DURATION BY DATABASE (tables at the end, more readable)
+	if len(m.Connections.SessionsByDatabase) > 0 {
+		fmt.Println(bold + "\nSESSION DURATION BY DATABASE\n" + reset)
+
+		// Sort by total session count (descending)
+		type dbStats struct {
+			database  string
+			stats     analysis.DurationStats
+			cumulated time.Duration
+		}
+		var sortedDBs []dbStats
+		for db, durations := range m.Connections.SessionsByDatabase {
+			stats := analysis.CalculateDurationStats(durations)
+			// Calculate cumulated duration
+			var cumulated time.Duration
+			for _, d := range durations {
+				cumulated += d
+			}
+			sortedDBs = append(sortedDBs, dbStats{database: db, stats: stats, cumulated: cumulated})
+		}
+		sort.Slice(sortedDBs, func(i, j int) bool {
+			return sortedDBs[i].stats.Count > sortedDBs[j].stats.Count
+		})
+
+		// Display header
+		fmt.Printf("  %-25s  %8s  %8s  %8s  %8s  %8s  %10s\n",
+			"Database", "Sessions", "Min", "Max", "Avg", "Median", "Cumulated")
+		fmt.Println("  " + strings.Repeat("-", 89))
+
+		// Display top 10 databases
+		limit := len(sortedDBs)
+		if limit > 10 {
+			limit = 10
+		}
+		for i := 0; i < limit; i++ {
+			d := sortedDBs[i]
+			fmt.Printf("  %-25s  %8d  %8s  %8s  %8s  %8s  %10s\n",
+				d.database,
+				d.stats.Count,
+				formatSessionDuration(d.stats.Min),
+				formatSessionDuration(d.stats.Max),
+				formatSessionDuration(d.stats.Avg),
+				formatSessionDuration(d.stats.Median),
+				formatSessionDuration(d.cumulated))
+		}
+	}
+
+	// 4. SESSION DURATION BY HOST
+	if len(m.Connections.SessionsByHost) > 0 {
+		fmt.Println(bold + "\nSESSION DURATION BY HOST\n" + reset)
+
+		// Sort by total session count (descending)
+		type hostStats struct {
+			host      string
+			stats     analysis.DurationStats
+			cumulated time.Duration
+		}
+		var sortedHosts []hostStats
+		for host, durations := range m.Connections.SessionsByHost {
+			stats := analysis.CalculateDurationStats(durations)
+			// Calculate cumulated duration
+			var cumulated time.Duration
+			for _, d := range durations {
+				cumulated += d
+			}
+			sortedHosts = append(sortedHosts, hostStats{host: host, stats: stats, cumulated: cumulated})
+		}
+		sort.Slice(sortedHosts, func(i, j int) bool {
+			return sortedHosts[i].stats.Count > sortedHosts[j].stats.Count
+		})
+
+		// Display header
+		fmt.Printf("  %-25s  %8s  %8s  %8s  %8s  %8s  %10s\n",
+			"Host", "Sessions", "Min", "Max", "Avg", "Median", "Cumulated")
+		fmt.Println("  " + strings.Repeat("-", 89))
+
+		// Display top 10 hosts
+		limit := len(sortedHosts)
+		if limit > 10 {
+			limit = 10
+		}
+		for i := 0; i < limit; i++ {
+			h := sortedHosts[i]
+			fmt.Printf("  %-25s  %8d  %8s  %8s  %8s  %8s  %10s\n",
+				h.host,
+				h.stats.Count,
+				formatSessionDuration(h.stats.Min),
+				formatSessionDuration(h.stats.Max),
+				formatSessionDuration(h.stats.Avg),
+				formatSessionDuration(h.stats.Median),
+				formatSessionDuration(h.cumulated))
+		}
+	}
+
+	// Note: SESSION DURATION BY APPLICATION not implemented
+	// App info is in log_line_prefix, not in disconnection message body
+}
+
+// formatSessionDuration formats a time.Duration for human-readable display.
+// Examples: "0s", "2s", "5m30s", "1h45m", "2h"
+func formatSessionDuration(d time.Duration) string {
+	if d < time.Minute {
+		// Less than 1 minute: show seconds
+		return fmt.Sprintf("%.0fs", d.Seconds())
+	}
+	if d < time.Hour {
+		// Less than 1 hour: show minutes and seconds
+		mins := int(d.Minutes())
+		secs := int(d.Seconds()) % 60
+		if secs > 0 {
+			return fmt.Sprintf("%dm%ds", mins, secs)
+		}
+		return fmt.Sprintf("%dm", mins)
+	}
+	// 1 hour or more: show hours and minutes
+	hours := int(d.Hours())
+	mins := int(d.Minutes()) % 60
+	if mins > 0 {
+		return fmt.Sprintf("%dh%dm", hours, mins)
+	}
+	return fmt.Sprintf("%dh", hours)
 }
 
 // printTopTables prints the top tables for a given operation (vacuum or analyze).
@@ -503,7 +868,7 @@ func PrintSQLSummaryWithContext(m analysis.SqlMetrics, tempFiles analysis.TempFi
 	}
 
 	// ** SQL Summary Header **
-	fmt.Println(bold + "\nSQL PERFORMANCE" + reset)
+	fmt.Println(bold + "\nSQL SUMMARY" + reset)
 	fmt.Println()
 
 	// ** Query Load Histogram **
@@ -1133,11 +1498,98 @@ func PrintHistogram(data map[string]int, title string, unit string, scaleFactor 
 			valueStr = " -"
 		}
 
-		// Ajustement du formatage : si pas de barres, on aligne à gauche sans indentation.
+		// Ajustement du formatage : toujours garder l'alignement des valeurs
 		if barLength > 0 {
 			fmt.Printf("  %-13s  %-s %s\n", label, bar, valueStr)
 		} else {
-			fmt.Printf("  %-14s %s\n", label, valueStr)
+			fmt.Printf("  %-13s  %s\n", label, valueStr)
+		}
+	}
+	fmt.Println()
+}
+
+// PrintConcurrentHistogram displays a histogram with peak times for each bucket.
+// Similar to PrintHistogram but adds the time when the peak occurred.
+func PrintConcurrentHistogram(data map[string]int, title string, scaleFactor int, orderedLabels []string, peakTimes map[string]time.Time) {
+	if len(data) == 0 {
+		fmt.Printf("\n  (No data available)\n")
+		return
+	}
+
+	// Récupération de la largeur du terminal.
+	termWidth, _, err := term.GetSize(int(os.Stdout.Fd()))
+	if err != nil || termWidth <= 0 {
+		termWidth = 80 // valeur par défaut
+	}
+
+	// Définition des largeurs
+	labelWidth := 15
+	peakTimeWidth := 8 // " (HH:MM)"
+	valueWidth := 5
+	spacing := 4
+	barWidth := termWidth - labelWidth - spacing - valueWidth - peakTimeWidth
+	if barWidth < 10 {
+		barWidth = 10
+	}
+
+	// Gestion des labels
+	labels := make([]string, 0, len(data))
+	if len(orderedLabels) > 0 {
+		labels = orderedLabels
+	} else {
+		for label := range data {
+			labels = append(labels, label)
+		}
+		sort.Slice(labels, func(i, j int) bool {
+			partsI := strings.Split(labels[i], " - ")
+			partsJ := strings.Split(labels[j], " - ")
+			t1, _ := time.Parse("15:04", partsI[0])
+			t2, _ := time.Parse("15:04", partsJ[0])
+			return t1.Before(t2)
+		})
+	}
+
+	// Détermination de la valeur maximale
+	maxValue := 0
+	for _, value := range data {
+		if value > maxValue {
+			maxValue = value
+		}
+	}
+
+	// Calcul dynamique du scale factor si non fourni
+	if scaleFactor <= 0 {
+		scaleFactor = int(math.Ceil(float64(maxValue) / float64(barWidth)))
+		if scaleFactor < 1 {
+			scaleFactor = 1
+		}
+	}
+
+	// Affichage de l'en-tête
+	fmt.Printf("  %s | ■ = %d \n\n", title, scaleFactor)
+
+	// Affichage des lignes de l'histogramme
+	for _, label := range labels {
+		value := data[label]
+		barLength := value / scaleFactor
+		if barLength > barWidth {
+			barLength = barWidth
+		}
+		bar := strings.Repeat("■", barLength)
+
+		// Format value and peak time
+		if value == 0 {
+			fmt.Printf("  %-13s  %s\n", label, " -")
+		} else {
+			peakStr := ""
+			if pt, ok := peakTimes[label]; ok && !pt.IsZero() {
+				peakStr = fmt.Sprintf("(%02d:%02d)", pt.Hour(), pt.Minute())
+			}
+			if barLength > 0 {
+				fmt.Printf("  %-13s  %-s %d %s\n", label, bar, value, peakStr)
+			} else {
+				fmt.Printf("  %-13s  %d %s\n", label, value, peakStr)
+			}
 		}
 	}
 	fmt.Println()
@@ -1160,8 +1612,127 @@ func PrintHistogram(data map[string]int, title string, unit string, scaleFactor 
 // Le résultat est un histogramme (map label -> nombre de checkpoints),
 // l'unité ("checkpoints") et un scale factor calculé pour limiter la largeur à 35 caractères.
 
-// computeConnectionsHistogram agrège les timestamps d'événements dans un histogramme réparti sur numBuckets.
-// Les buckets sont calculés sur la journée complète (00:00 - 24:00) basée sur la première occurrence.
+// computeConcurrentHistogram calculates concurrent sessions over time during the analyzed period.
+// It divides the log period (logStart to logEnd) into 6 buckets and counts concurrent sessions.
+// Returns: histogram data, ordered labels, scale factor, and peak times for each bucket.
+func computeConcurrentHistogram(sessions []analysis.SessionEvent, logStart, logEnd time.Time, numBuckets int) (map[string]int, []string, int, map[string]time.Time) {
+	if len(sessions) == 0 || logStart.IsZero() || logEnd.IsZero() {
+		return nil, nil, 1, nil
+	}
+
+	// Use the log period as the reference time range
+	minTime := logStart
+	maxTime := logEnd
+
+	duration := maxTime.Sub(minTime)
+	if duration <= 0 {
+		// If duration is negative or zero, swap min and max
+		minTime, maxTime = maxTime, minTime
+		duration = maxTime.Sub(minTime)
+		if duration == 0 {
+			return nil, nil, 1, nil
+		}
+	}
+
+	// Default to 6 buckets if not specified
+	if numBuckets <= 0 {
+		numBuckets = 6
+	}
+	bucketDuration := duration / time.Duration(numBuckets)
+
+	// Initialize buckets
+	hist := make(map[string]int)
+	peakTimes := make(map[string]time.Time)
+	labels := make([]string, numBuckets)
+
+	// Check if we span multiple calendar days (not just > 24h, but different dates)
+	minDay := time.Date(minTime.Year(), minTime.Month(), minTime.Day(), 0, 0, 0, 0, minTime.Location())
+	maxDay := time.Date(maxTime.Year(), maxTime.Month(), maxTime.Day(), 0, 0, 0, 0, maxTime.Location())
+	spansDays := !minDay.Equal(maxDay)
+
+	for i := 0; i < numBuckets; i++ {
+		bucketStart := minTime.Add(time.Duration(i) * bucketDuration)
+		bucketEnd := bucketStart.Add(bucketDuration)
+
+		if spansDays {
+			// Include date when spanning multiple days
+			labels[i] = fmt.Sprintf("%02d/%02d %02d:%02d - %02d/%02d %02d:%02d",
+				bucketStart.Month(), bucketStart.Day(),
+				bucketStart.Hour(), bucketStart.Minute(),
+				bucketEnd.Month(), bucketEnd.Day(),
+				bucketEnd.Hour(), bucketEnd.Minute())
+		} else {
+			labels[i] = fmt.Sprintf("%02d:%02d - %02d:%02d",
+				bucketStart.Hour(), bucketStart.Minute(),
+				bucketEnd.Hour(), bucketEnd.Minute())
+		}
+	}
+
+	// Use 1-minute intervals for more precise peak time detection
+	intervalDuration := 1 * time.Minute
+	numIntervals := int(duration / intervalDuration)
+	if numIntervals == 0 {
+		numIntervals = 1
+	}
+
+	// Calculate concurrency for each 1-minute interval
+	intervalCounts := make([]int, numIntervals)
+	for i := 0; i < numIntervals; i++ {
+		intervalTime := minTime.Add(time.Duration(i) * intervalDuration)
+
+		count := 0
+		for _, s := range sessions {
+			// Session is active at intervalTime if it started before/at and ends after
+			if !s.StartTime.After(intervalTime) && s.EndTime.After(intervalTime) {
+				count++
+			}
+		}
+		intervalCounts[i] = count
+	}
+
+	// Aggregate intervals into 6 buckets, taking the max and tracking when it occurred
+	intervalsPerBucket := numIntervals / numBuckets
+	if intervalsPerBucket == 0 {
+		intervalsPerBucket = 1
+	}
+
+	for i := 0; i < numBuckets; i++ {
+		startIdx := i * intervalsPerBucket
+		endIdx := startIdx + intervalsPerBucket
+		if i == numBuckets-1 {
+			endIdx = numIntervals // Last bucket gets remaining intervals
+		}
+
+		// Find max concurrency in this bucket and when it occurred
+		maxCount := 0
+		maxIdx := startIdx
+		for j := startIdx; j < endIdx && j < numIntervals; j++ {
+			if intervalCounts[j] > maxCount {
+				maxCount = intervalCounts[j]
+				maxIdx = j
+			}
+		}
+		hist[labels[i]] = maxCount
+		if maxCount > 0 {
+			peakTimes[labels[i]] = minTime.Add(time.Duration(maxIdx) * intervalDuration)
+		}
+	}
+
+	// Calculate scale factor to limit width to 40 chars
+	maxValue := 0
+	for _, count := range hist {
+		if count > maxValue {
+			maxValue = count
+		}
+	}
+	histogramWidth := 40
+	scaleFactor := int(math.Ceil(float64(maxValue) / float64(histogramWidth)))
+	if scaleFactor < 1 {
+		scaleFactor = 1
+	}
+
+	return hist, labels, scaleFactor, peakTimes
+}
 
 // printLockStats prints lock type or resource type statistics.
 func printLockStats(stats map[string]int, total int) {
@@ -1431,5 +2002,171 @@ func printMostFrequentWaitingQueries(queryStats map[string]*analysis.LockQuerySt
 				formatQueryDuration(avgWait),
 				formatQueryDuration(pair.totalWait))
 		}
+	}
+}
+
+// PrintSQLOverview displays SQL query type overview with dimensional breakdowns.
+// This shows statistics grouped by query type (SELECT, INSERT, UPDATE, DELETE, etc.)
+// with counts, times, and percentages, broken down by database, user, host, and application.
+func PrintSQLOverview(m analysis.SqlMetrics) {
+	bold := "\033[1m"
+	reset := "\033[0m"
+
+	fmt.Println(bold + "\nSQL QUERY OVERVIEW" + reset)
+	fmt.Println()
+
+	if m.TotalQueries == 0 {
+		fmt.Println("  No SQL queries found in the logs.")
+		return
+	}
+
+	// Group by category (DML, DDL, TCL, etc.) - EN PREMIER
+	categoryStats := make(map[string]struct {
+		count     int
+		totalTime float64
+	})
+	for _, stat := range m.QueryTypeStats {
+		cat := stat.Category
+		cs := categoryStats[cat]
+		cs.count += stat.Count
+		cs.totalTime += stat.TotalTime
+		categoryStats[cat] = cs
+	}
+
+	// Sort categories by count
+	type catStatPair struct {
+		category  string
+		count     int
+		totalTime float64
+	}
+	var catPairs []catStatPair
+	for cat, cs := range categoryStats {
+		catPairs = append(catPairs, catStatPair{cat, cs.count, cs.totalTime})
+	}
+	sort.Slice(catPairs, func(i, j int) bool {
+		return catPairs[i].count > catPairs[j].count
+	})
+
+	fmt.Println(bold + "  Query Category Summary" + reset)
+	fmt.Println()
+	fmt.Printf("  %-10s  %10s  %8s  %12s\n", "Category", "Count", "%", "Total Time")
+	fmt.Println("  " + strings.Repeat("-", 46))
+
+	for _, pair := range catPairs {
+		pct := float64(pair.count) / float64(m.TotalQueries) * 100
+		fmt.Printf("  %-10s  %10d  %7.1f%%  %12s\n",
+			pair.category,
+			pair.count,
+			pct,
+			formatQueryDuration(pair.totalTime))
+	}
+	fmt.Println()
+
+	// Sort query types by count (descending)
+	type typeStatPair struct {
+		qtype string
+		stat  *analysis.QueryTypeStat
+	}
+	var pairs []typeStatPair
+	for qtype, stat := range m.QueryTypeStats {
+		pairs = append(pairs, typeStatPair{qtype, stat})
+	}
+	sort.Slice(pairs, func(i, j int) bool {
+		return pairs[i].stat.Count > pairs[j].stat.Count
+	})
+
+	// Print query type distribution - EN SECOND
+	fmt.Println(bold + "  Query Type Distribution" + reset)
+	fmt.Println()
+	fmt.Printf("  %-12s  %10s  %8s  %12s  %12s  %10s\n", "Type", "Count", "%", "Total Time", "Avg Time", "Max Time")
+	fmt.Println("  " + strings.Repeat("-", 72))
+
+	for _, pair := range pairs {
+		stat := pair.stat
+		pct := float64(stat.Count) / float64(m.TotalQueries) * 100
+		fmt.Printf("  %-12s  %10d  %7.1f%%  %12s  %12s  %10s\n",
+			pair.qtype,
+			stat.Count,
+			pct,
+			formatQueryDuration(stat.TotalTime),
+			formatQueryDuration(stat.AvgTime),
+			formatQueryDuration(stat.MaxTime))
+	}
+	fmt.Println()
+
+	// Breakdowns by dimension
+	printQueryTypeBreakdown("Per Database", m.QueryTypesByDatabase, bold, reset)
+	printQueryTypeBreakdown("Per User", m.QueryTypesByUser, bold, reset)
+	printQueryTypeBreakdown("Per Host", m.QueryTypesByHost, bold, reset)
+	printQueryTypeBreakdown("Per Application", m.QueryTypesByApp, bold, reset)
+}
+
+// printQueryTypeBreakdown displays query type statistics grouped by a dimension (database, user, host, app)
+func printQueryTypeBreakdown(title string, breakdown map[string]map[string]*analysis.QueryTypeCount, bold, reset string) {
+	if len(breakdown) == 0 {
+		return
+	}
+
+	fmt.Println(bold + "  " + title + reset)
+	fmt.Println()
+
+	// Sort dimensions by total count (descending)
+	type dimStats struct {
+		name      string
+		count     int
+		totalTime float64
+	}
+	var dimensions []dimStats
+	for dimName, types := range breakdown {
+		var totalCount int
+		var totalTime float64
+		for _, tc := range types {
+			totalCount += tc.Count
+			totalTime += tc.TotalTime
+		}
+		dimensions = append(dimensions, dimStats{dimName, totalCount, totalTime})
+	}
+	sort.Slice(dimensions, func(i, j int) bool {
+		return dimensions[i].count > dimensions[j].count
+	})
+
+	// Print each dimension with its query types
+	italic := "\033[3m"
+	for _, dim := range dimensions {
+		fmt.Printf("  %s%s (%d queries, %s)%s\n",
+			italic,
+			dim.name,
+			dim.count,
+			formatQueryDuration(dim.totalTime),
+			reset)
+
+		// Get all query types for this dimension
+		types := breakdown[dim.name]
+		var typeList []struct {
+			name      string
+			count     int
+			totalTime float64
+		}
+		for typeName, tc := range types {
+			typeList = append(typeList, struct {
+				name      string
+				count     int
+				totalTime float64
+			}{typeName, tc.Count, tc.TotalTime})
+		}
+
+		// Sort by count descending
+		sort.Slice(typeList, func(i, j int) bool {
+			return typeList[i].count > typeList[j].count
+		})
+
+		// Print query types
+		for _, t := range typeList {
+			fmt.Printf("    %-12s  %6d  %12s\n",
+				t.name,
+				t.count,
+				formatQueryDuration(t.totalTime))
+		}
+		fmt.Println()
 	}
 }

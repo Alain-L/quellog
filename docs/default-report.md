@@ -46,7 +46,7 @@ SUMMARY
 Shows query execution statistics and load distribution.
 
 !!! note
-    Query details (list of slowest queries, most time-consuming queries) are only shown when using `--sql-summary`. The default report shows only summary metrics.
+    Query details (list of slowest queries, most time-consuming queries) are only shown when using `--sql-performance`. The default report shows only summary metrics.
 
 ```
 SQL PERFORMANCE
@@ -143,7 +143,7 @@ ERROR CLASSES
 Tracks queries that exceeded `work_mem` and spilled to disk.
 
 !!! note
-    Query details ("Top queries by tempfile size") are shown when using `--tempfiles` or `--sql-summary`. The default report shows only summary metrics.
+    Query details ("Top queries by tempfile size") are shown when using `--tempfiles` or `--sql-performance`. The default report shows only summary metrics.
 
 ```
 TEMP FILES
@@ -183,7 +183,7 @@ se-z3k2JB  select ?, array_agg(distinct st_srid("geom")::text || ? || upper(geo.
 Shows lock contention, wait times, and queries involved in lock waits.
 
 !!! note
-    Query details (the three query tables) are shown when using `--locks` or `--sql-summary`. The default report shows only summary metrics.
+    Query details (the three query tables) are shown when using `--locks` or `--sql-performance`. The default report shows only summary metrics.
 
 ```
 LOCKS
@@ -299,6 +299,8 @@ CHECKPOINTS
 
 Shows connection patterns and session durations.
 
+**Basic Output (Default Report)**
+
 ```
 CONNECTIONS & SESSIONS
 
@@ -315,57 +317,244 @@ CONNECTIONS & SESSIONS
   Avg connections per hour  : 1.50
   Disconnection count       : 23
   Avg session time          : 1h14m7s
+  Avg concurrent sessions   : 13.45
+  Peak concurrent sessions  : 36 (at 05:50:00)
 ```
 
-**Metrics explained**:
+**Basic metrics explained**:
 
 - **Connection count**: Total connections received
 - **Avg connections per hour**: Connection rate
-- **Disconnection count**: Sessions that ended
+- **Disconnection count**: Sessions that ended (requires `log_disconnections = on`)
 - **Avg session time**: Mean session duration
+- **Avg concurrent sessions**: Average number of simultaneous sessions
+- **Peak concurrent sessions**: Maximum simultaneous sessions with timestamp
+
+**Detailed Output (With `--connections` Flag)**
+
+When using the explicit `--connections` flag, additional session analytics are displayed:
+
+```
+CONNECTIONS & SESSIONS
+
+  Connection distribution | ■ = 1
+
+  00:00 - 00:58  ■■■■■■■■■■■■■■■ 15
+  00:58 - 01:56  ■■■■■ 5
+  01:56 - 02:55  ■■■■ 4
+  02:55 - 03:53  ■■■■ 4
+  03:53 - 04:51  ■■■■ 4
+  04:51 - 05:50  ■■■■ 4
+
+  Connection count          : 36
+  Avg connections per hour  : 1.50
+  Disconnection count       : 23
+  Avg session time          : 1h14m7s
+  Avg concurrent sessions   : 13.45
+  Peak concurrent sessions  : 36 (at 05:50:00)
+
+  Session duration distribution | ■ = 1 session
+
+  < 1s           -
+  1s - 1min      -
+  1min - 30min   ■ 1
+  30min - 2h     ■■■■■■■■■■■■■■■■■■■ 19
+  2h - 5h        ■■■ 3
+  > 5h           -
+
+SESSION DURATION BY USER
+
+  User                       Sessions      Min      Max      Avg   Median  Cumulated
+  ---------------------------------------------------------------------------------------
+  app_user                         10   31m6s  2h20m16s  1h26m59s  1h26m48s   14h29m46s
+  readonly                          5   7m10s   1h3m26s   41m38s    47m30s    3h28m11s
+  batch_user                        3  1h21m46s  2h0m30s  1h42m45s   1h46m0s    5h8m16s
+  admin                             3  42m46s   47m31s   45m16s    45m30s    2h15m47s
+  analytics                         1  1h17m45s  1h17m45s  1h17m45s  1h17m45s    1h17m45s
+  backup_user                       1  1h44m45s  1h44m45s  1h44m45s  1h44m45s    1h44m45s
+
+SESSION DURATION BY DATABASE
+
+  Database                   Sessions      Min      Max      Avg   Median  Cumulated
+  ---------------------------------------------------------------------------------------
+  app_db                           16   7m10s  2h20m16s  1h19m42s  1h22m18s   21h15m18s
+  postgres                          4  42m46s  1h44m45s   1h0m8s    46m31s    4h0m32s
+  analytics_db                      3  47m30s  1h17m45s  1h2m54s   1h3m26s    3h8m41s
+
+SESSION DURATION BY HOST
+
+  Host                       Sessions      Min      Max      Avg   Median  Cumulated
+  ---------------------------------------------------------------------------------------
+  192.168.1.100                     3   31m6s  1h13m10s   50m40s    45m30s    2h32m1s
+  10.0.1.50                         2  1h17m45s  1h52m46s  1h35m16s  1h35m16s   3h10m31s
+  172.16.0.12                       2  1h44m45s  2h20m16s  2h2m31s   2h2m31s    4h5m1s
+  172.16.0.30                       1  37m45s   37m45s   37m45s    37m45s    37m45s
+  ...
+```
+
+**Detailed metrics explained**:
+
+- **Session duration distribution**: Histogram showing distribution of session lengths across time buckets
+- **Session tables**: Breakdown by user, database, and host showing:
+  - **Sessions**: Number of sessions for this entity
+  - **Min/Max**: Shortest and longest sessions
+  - **Avg**: Average session duration
+  - **Median**: 50th percentile (more resistant to outliers than average)
+  - **Cumulated**: Total time spent in sessions for this entity
+
+**Configuration requirements**:
+
+- `log_connections = on` - Track connection events
+- `log_disconnections = on` - Calculate session durations
+- `log_line_prefix` should include `%u` (user), `%d` (database), and `%h` (host) for entity breakdowns
 
 ## Clients
 
-Lists unique database entities found in logs.
+Lists unique database entities found in logs with activity counts and percentages.
+
+**Default Output (TOP 10)**
+
+The default report shows the **top 10** most active entities per category. Use `--clients` flag to display **all** entities without limit.
 
 ```
 CLIENTS
 
   Unique DBs                : 3
-  Unique Users              : 6
+  Unique Users              : 7
   Unique Apps               : 9
-  Unique Hosts              : 4
+  Unique Hosts              : 37
+
+TOP USERS
+
+  app_user                   1250   42.5%
+  readonly                    856   29.1%
+  batch_user                  423   14.4%
+  admin                       198    6.7%
+  analytics                   145    4.9%
+  backup_user                  52    1.8%
+  postgres                     16    0.5%
+
+TOP APPS
+
+  app_server                 1342   45.6%
+  psql                        687   23.4%
+  metabase                    456   15.5%
+  pgadmin                     234    8.0%
+  batch_job                   145    4.9%
+  pg_dump                      52    1.8%
+  pg_restore                   12    0.4%
+  [3 more...]
+
+TOP DATABASES
+
+  app_db                     2456   83.5%
+  postgres                    342   11.6%
+  analytics_db                142    4.8%
+
+TOP HOSTS
+
+  192.168.1.100               876   29.8%
+  10.0.1.50                   654   22.2%
+  172.16.0.10                 543   18.5%
+  10.0.1.51                   432   14.7%
+  172.16.0.12                 234    8.0%
+  192.168.1.101               123    4.2%
+  10.0.1.52                    56    1.9%
+  172.16.0.15                  22    0.7%
+  [29 more...]
+
+TOP USER × DATABASE
+
+  app_user                  × app_db                      1856   63.1%
+  readonly                  × app_db                       543   18.5%
+  app_user                  × analytics_db                 123    4.2%
+  batch_user                 × app_db                        98    3.3%
+  readonly                  × analytics_db                  87    3.0%
+  admin                     × postgres                      65    2.2%
+  batch_user                × analytics_db                  45    1.5%
+  analytics                 × analytics_db                  34    1.2%
+  admin                     × app_db                        23    0.8%
+  backup_user               × postgres                      12    0.4%
+  [8 more...]
+
+TOP USER × HOST
+
+  app_user                  × 192.168.1.100                 654   22.2%
+  readonly                  × 10.0.1.50                     432   14.7%
+  app_user                  × 172.16.0.10                   345   11.7%
+  batch_user                × 10.0.1.51                     234    8.0%
+  app_user                  × 10.0.1.50                     187    6.4%
+  readonly                  × 192.168.1.100                 156    5.3%
+  admin                     × 172.16.0.12                   123    4.2%
+  analytics                 × 10.0.1.52                      98    3.3%
+  batch_user                × 192.168.1.101                  76    2.6%
+  readonly                  × 172.16.0.10                    65    2.2%
+  [42 more...]
+```
+
+**Metrics explained**:
+
+- **Unique counts**: Total number of distinct entities
+- **Entity names**: Sorted by activity (most active first)
+- **Count**: Number of log entries from this entity
+- **Percentage**: Proportion of total log entries
+- **[X more...]**: Indicator when more than 10 entities exist (use `--clients` to see all)
+- **USER × DATABASE**: Shows which users access which databases and how frequently
+- **USER × HOST**: Shows which users connect from which hosts and how frequently
+
+**Cross-tabulations** help identify:
+- Access patterns (which user accesses which database)
+- Connection sources (which user connects from which host)
+- Security anomalies (unexpected user/database or user/host combinations)
+- Load distribution across client connections
+
+**With `--clients` Flag (ALL Entities)**
+
+With `--clients`, **all** entities are displayed without limit. Headers show "USERS", "APPS" (no "TOP" prefix), and there are no `[X more...]` indicators:
+
+```
+CLIENTS
+
+  Unique DBs                : 3
+  Unique Users              : 15
+  Unique Apps               : 12
+  Unique Hosts              : 37
 
 USERS
 
-    admin
-    analytics
-    app_user
-    backup_user
-    batch_user
-    readonly
+  app_user                   1250   42.5%
+  readonly                    856   29.1%
+  batch_user                  423   14.4%
+  admin                       198    6.7%
+  analytics                   145    4.9%
+  backup_user                  52    1.8%
+  ...
+  qa_user                       1    0.0%
 
 APPS
 
-    app_server
-    batch_job
-    metabase
-    pg_dump
-    pgadmin
-    psql
+  app_server                 1342   45.6%
+  psql                        687   23.4%
+  metabase                    456   15.5%
+  pgadmin                     234    8.0%
+  ...
+  datagrip                      1    0.0%
 
-DATABASES
+USER × DATABASE
 
-    analytics_db
-    app_db
-    postgres
+  app_user                  × app_db                      1856   63.1%
+  readonly                  × app_db                       543   18.5%
+  app_user                  × analytics_db                 123    4.2%
+  batch_user                × app_db                        98    3.3%
+  ...
 
-HOSTS
+USER × HOST
 
-    10.0.1.100
-    10.0.1.101
-    127.0.0.1
-    192.168.1.50
+  app_user                  × 192.168.1.100                 654   22.2%
+  readonly                  × 10.0.1.50                     432   14.7%
+  app_user                  × 172.16.0.10                   345   11.7%
+  batch_user                × 10.0.1.51                     234    8.0%
+  ...
 ```
 
 ## Next Steps

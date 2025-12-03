@@ -154,66 +154,45 @@ func (a *TempFileAnalyzer) Process(entry *parser.LogEntry) {
 		return
 	}
 
-	// OPTIMIZATION: Use Index("temp") as discriminating pre-filter instead of IndexByte
-	// "temp" is much more specific than individual chars 't', 'e', 'm'
-	// This reduces false positives from ~40% to <5% of messages
-	hasTemp := strings.Index(msg, "temp") >= 0
-	hasColon := strings.IndexByte(msg, ':') >= 0
+	// OPTIMIZATION: Fast pre-filter using byte checks before string searches
+	// Most messages don't contain temp file patterns, so exit quickly
 
-	// Quick reject: can't be relevant if no "temp" or ':'
-	if !hasTemp && !hasColon {
-		return
-	}
-
-	// Fast path: skip if not expecting statement and no pending queries
-	// This avoids expensive Contains() calls for most lines
+	// Fast path: if no temp files seen yet and not expecting statement
 	if !a.expectingStatement && len(a.pendingByPID) == 0 && !a.tempFilesExist {
-		// Before first temp file: only check for temp files
-		// Use direct Index("temporary file") instead of Contains for better performance
-		if hasTemp {
-			if strings.Index(msg, tempFileMarker) >= 0 {
-				// Found first temp file, fall through to process it
-				// Note: We don't use a recheck buffer anymore for simplicity and performance
-				// This means the first tempfile might miss its query association (< 0.01% of tempfiles)
-			} else {
-				return
-			}
-		} else {
-			// Skip early - not a temp file candidate
+		// Only need to detect first temp file - use direct Contains
+		if !strings.Contains(msg, tempFileMarker) {
 			return
 		}
+		// Found first temp file, fall through to process it
 	}
+
+	// For subsequent processing, check if message is relevant
+	hasTemp := strings.Contains(msg, "temp")
 
 	// Now check specific patterns (only for relevant lines)
 	var hasTempFile, hasStatement, hasDurationExecute, hasContext bool
 
-	// Check for temp files (use Index instead of Contains for consistency)
+	// Check for temp files
 	if hasTemp {
-		hasTempFile = strings.Index(msg, tempFileMarker) >= 0
+		hasTempFile = strings.Contains(msg, tempFileMarker)
 	}
 
 	// Only cache queries if temp files exist (Pattern 2)
 	checkForQueries := a.tempFilesExist || a.expectingStatement || len(a.pendingByPID) > 0
 
-	if hasColon {
-		// OPTIMIZATION: Contains() with short patterns is highly optimized by Go compiler
-		// Using || short-circuit: if first match succeeds, second is never evaluated
-		// In practice, lowercase "statement:" is 99%+ of cases (CSV + duration lines)
-		// Uppercase "STATEMENT:" appears mainly in error context (rare)
-		// Note: Manual IndexByte approaches are slower due to loop overhead
+	// Check for statement patterns (only if needed)
+	if checkForQueries || a.expectingStatement {
 		hasStatement = strings.Contains(msg, "statement:") || strings.Contains(msg, "STATEMENT:")
 
 		// Check for CONTEXT: (for queries executed from PL/pgSQL functions)
 		if !hasStatement && a.expectingStatement {
-			hasContext = strings.Index(msg, "CONTEXT:") >= 0
+			hasContext = strings.Contains(msg, "CONTEXT:")
 		}
 
-		// Only check for duration:execute if we're caching
-		// OPTIMIZATION: Use Index for both checks to reduce overhead
+		// Check for duration:execute (prepared statements)
 		if checkForQueries && !hasStatement {
 			if durationIdx := strings.Index(msg, "duration:"); durationIdx >= 0 {
-				// Only check for "execute" if we found "duration:"
-				hasDurationExecute = strings.Index(msg[durationIdx:], "execute") >= 0
+				hasDurationExecute = strings.Contains(msg[durationIdx:], "execute")
 			}
 		}
 	}
@@ -233,6 +212,9 @@ func (a *TempFileAnalyzer) Process(entry *parser.LogEntry) {
 	//   - "statement:" (CSV)
 	//   - "duration: ... execute" (prepared statements)
 	//   - "CONTEXT: SQL statement" (queries from PL/pgSQL functions)
+	//
+	// IMPORTANT: For jsonlog format, temp file messages include the STATEMENT in the SAME line.
+	// We must NOT return early if hasTempFile is also true (fall through to STEP 2).
 
 	if hasStatement || hasDurationExecute || hasContext {
 		var query string
@@ -248,73 +230,100 @@ func (a *TempFileAnalyzer) Process(entry *parser.LogEntry) {
 		}
 
 		if query == "" {
-			return
-		}
+			// No query extracted, but if this is also a temp file line, continue to STEP 2
+			if !hasTempFile {
+				return
+			}
+			// Fall through to STEP 2 to process temp file
+		} else {
+			// Query extracted successfully
 
-		// Skip transaction control commands (BEGIN/COMMIT/ROLLBACK)
-		// They never generate temp files themselves
-		if isTransactionCommand(query) {
-			return
-		}
-
-		// Pattern 2: Save query for this PID (for duration→temp pattern)
-		if pid != "" {
-			a.lastQueryByPID[pid] = query
-		}
-
-		// Pattern 1: Try to match with pending temp files (temp→STATEMENT pattern)
-		if a.expectingStatement || len(a.pendingByPID) > 0 {
-			// Try immediate match first (fast path)
-			if a.expectingStatement {
-			// Fast path: pendingPID is empty (means we couldn't extract it), assume it's the same
-			if a.pendingPID == "" {
-				a.associateQuery(query, a.pendingSize, a.pendingEventIndex)
-				a.expectingStatement = false
-				a.pendingSize = 0
-				a.pendingEventIndex = -1
+			// Skip transaction control commands (BEGIN/COMMIT/ROLLBACK)
+			// They never generate temp files themselves
+			if isTransactionCommand(query) {
 				return
 			}
 
-			// Fast path: next line has same PID (reuse extracted pid)
-			if pid == a.pendingPID {
-				a.associateQuery(query, a.pendingSize, a.pendingEventIndex)
-				a.expectingStatement = false
-				a.pendingSize = 0
-				a.pendingPID = ""
-				a.pendingEventIndex = -1
-				return
-			}
-
-			// Different PID: move pending to fallback cache and check this one
-			a.pendingByPID[a.pendingPID] += a.pendingSize
-			a.expectingStatement = false
-			a.pendingSize = 0
-			a.pendingPID = ""
-			a.pendingEventIndex = -1
-
-			// Fallback: check if current PID has pending temp files
+			// Pattern 2: Save query for this PID (for duration→temp pattern)
 			if pid != "" {
-				if pendingSize, exists := a.pendingByPID[pid]; exists && pendingSize > 0 {
-					a.associateQuery(query, pendingSize, -1) // No eventIndex for fallback cache
-					delete(a.pendingByPID, pid)
-				}
+				a.lastQueryByPID[pid] = query
 			}
 
-				return
-			}
-
-			// Not expecting statement: check fallback cache only
-			if len(a.pendingByPID) > 0 {
-				if pid != "" {
-					if pendingSize, exists := a.pendingByPID[pid]; exists && pendingSize > 0 {
-						a.associateQuery(query, pendingSize, -1) // No eventIndex for fallback cache
-						delete(a.pendingByPID, pid)
+			// Pattern 1: Try to match with pending temp files (temp→STATEMENT pattern)
+			if a.expectingStatement || len(a.pendingByPID) > 0 {
+				// Try immediate match first (fast path)
+				if a.expectingStatement {
+				// Fast path: pendingPID is empty (means we couldn't extract it), assume it's the same
+				if a.pendingPID == "" {
+					a.associateQuery(query, a.pendingSize, a.pendingEventIndex)
+					a.expectingStatement = false
+					a.pendingSize = 0
+					a.pendingEventIndex = -1
+					// If this line also has a temp file, continue to STEP 2
+					if !hasTempFile {
+						return
 					}
+					// Fall through to STEP 2
+				} else if pid == a.pendingPID {
+					// Fast path: next line has same PID (reuse extracted pid)
+					a.associateQuery(query, a.pendingSize, a.pendingEventIndex)
+					a.expectingStatement = false
+					a.pendingSize = 0
+					a.pendingPID = ""
+					a.pendingEventIndex = -1
+					// If this line also has a temp file, continue to STEP 2
+					if !hasTempFile {
+						return
+					}
+					// Fall through to STEP 2
+				} else {
+					// Different PID: move pending to fallback cache and check this one
+					a.pendingByPID[a.pendingPID] += a.pendingSize
+					a.expectingStatement = false
+					a.pendingSize = 0
+					a.pendingPID = ""
+					a.pendingEventIndex = -1
+
+					// Fallback: check if current PID has pending temp files
+					if pid != "" {
+						if pendingSize, exists := a.pendingByPID[pid]; exists && pendingSize > 0 {
+							a.associateQuery(query, pendingSize, -1) // No eventIndex for fallback cache
+							delete(a.pendingByPID, pid)
+						}
+					}
+
+					// If this line also has a temp file, continue to STEP 2
+					if !hasTempFile {
+						return
+					}
+					// Fall through to STEP 2
 				}
+				} else {
+					// Not expecting statement: check fallback cache only
+					if len(a.pendingByPID) > 0 {
+						if pid != "" {
+							if pendingSize, exists := a.pendingByPID[pid]; exists && pendingSize > 0 {
+								a.associateQuery(query, pendingSize, -1) // No eventIndex for fallback cache
+								delete(a.pendingByPID, pid)
+							}
+						}
+					}
+
+					// If this line also has a temp file, continue to STEP 2
+					if !hasTempFile {
+						return
+					}
+					// Fall through to STEP 2
+				}
+			} else {
+				// No pending temp files to match
+				// If this line also has a temp file, continue to STEP 2
+				if !hasTempFile {
+					return
+				}
+				// Fall through to STEP 2
 			}
 		}
-
-		return
 	}
 
 	// === STEP 2: Search for "temporary file" lines ===
@@ -334,9 +343,12 @@ func (a *TempFileAnalyzer) Process(entry *parser.LogEntry) {
 		})
 
 		// Use cached PID (already extracted above)
-		// Pattern 1b: Check if query is in the SAME message (CSV format with QUERY: field)
+		// Pattern 1b: Check if query is in the SAME message (CSV/jsonlog format with query field)
+		// For jsonlog, the JSON parser includes STATEMENT in the same reconstructed message.
 		// This has PRIORITY over cache (Pattern 2)
-		if query := extractStatementQuery(msg); query != "" {
+		query := extractStatementQuery(msg)
+
+		if query != "" {
 			a.associateQuery(query, size, eventIndex)
 
 			// Clean up cache for this PID if it exists (stale query)
@@ -485,6 +497,9 @@ func (a *TempFileAnalyzer) associateQuery(query string, size int64, eventIndex i
 	if query == "" {
 		return
 	}
+
+	// Normalize whitespace (newlines to spaces) for consistent raw_query across formats
+	query = normalizeWhitespace(query)
 
 	// Check cache first to avoid repeated normalization
 	cached, inCache := a.normalizedCache[query]

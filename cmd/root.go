@@ -32,14 +32,15 @@ var (
 	excludeUser []string // --exclude-user: Exclude specific user(s)
 
 	// SQL analysis flags
-	sqlSummaryFlag bool     // --sql-summary: Display SQL performance summary
-	sqlDetailFlag  []string // --sql-detail: Show details for specific SQL IDs
+	sqlPerformanceFlag bool     // --sql-performance: Display detailed SQL performance report
+	sqlOverviewFlag    bool     // --sql-overview: Display query type overview with dimensional breakdown
+	sqlDetailFlag      []string // --sql-detail: Show details for specific SQL IDs
 
 	// Section selection flags (print only specific sections)
-	summaryFlag        bool // --summary: Print only summary section
-	eventsFlag         bool // --events: Print only events section
-	errorsFlag         bool // --errors: Print only error classes section
-	sqlPerformanceFlag bool // --sql-performance: Print only SQL performance section
+	summaryFlag    bool // --summary: Print only summary section
+	eventsFlag     bool // --events: Print only events section
+	errorsFlag     bool // --errors: Print only error classes section
+	sqlSummaryFlag bool // --sql-summary: Print only SQL summary section
 	tempfilesFlag      bool // --tempfiles: Print only temporary files section
 	locksFlag          bool // --locks: Print only locks section
 	maintenanceFlag    bool // --maintenance: Print only maintenance section
@@ -105,8 +106,10 @@ func init() {
 		"Filter by application name(s)")
 
 	// SQL analysis flags
-	rootCmd.PersistentFlags().BoolVar(&sqlSummaryFlag, "sql-summary", false,
-		"Display SQL performance summary with metrics and percentiles")
+	rootCmd.PersistentFlags().BoolVar(&sqlPerformanceFlag, "sql-performance", false,
+		"Display detailed SQL performance analysis with metrics and percentiles")
+	rootCmd.PersistentFlags().BoolVar(&sqlOverviewFlag, "sql-overview", false,
+		"Display query type overview with breakdown by dimension")
 	rootCmd.PersistentFlags().StringSliceVarP(&sqlDetailFlag, "sql-detail", "Q", nil,
 		"Show details for specific SQL ID(s). Can be specified multiple times")
 
@@ -117,8 +120,8 @@ func init() {
 		"Print only the events section")
 	rootCmd.Flags().BoolVar(&errorsFlag, "errors", false,
 		"Print only the error classes section")
-	rootCmd.Flags().BoolVar(&sqlPerformanceFlag, "sql-performance", false,
-		"Print only the SQL performance section")
+	rootCmd.Flags().BoolVar(&sqlSummaryFlag, "sql-summary", false,
+		"Print only the SQL summary section")
 	rootCmd.Flags().BoolVar(&tempfilesFlag, "tempfiles", false,
 		"Print only the temporary files section")
 	rootCmd.Flags().BoolVar(&locksFlag, "locks", false,

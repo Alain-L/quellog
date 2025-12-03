@@ -96,6 +96,46 @@ type SqlMetrics struct {
 		FromTempfiles int // Queries seen in tempfile events
 		Total         int // Total unique queries (may be < FromLocks + FromTempfiles due to overlap)
 	}
+
+	// QueryTypeStats contains statistics grouped by SQL query type.
+	// Maps query type (SELECT, INSERT, etc.) to statistics.
+	QueryTypeStats map[string]*QueryTypeStat
+
+	// Query type breakdown by dimension (for --sql-overview)
+	QueryTypesByDatabase map[string]map[string]*QueryTypeCount
+	QueryTypesByUser     map[string]map[string]*QueryTypeCount
+	QueryTypesByHost     map[string]map[string]*QueryTypeCount
+	QueryTypesByApp      map[string]map[string]*QueryTypeCount
+}
+
+// QueryTypeStat contains aggregated statistics for a specific query type.
+type QueryTypeStat struct {
+	// Type is the SQL command type (SELECT, INSERT, UPDATE, DELETE, etc.)
+	Type string
+
+	// Category is the high-level category (DML, DDL, TCL, etc.)
+	Category string
+
+	// Count is the total number of executions of this type.
+	Count int
+
+	// UniqueQueries is the number of distinct queries of this type.
+	UniqueQueries int
+
+	// TotalTime is the cumulative execution time in milliseconds.
+	TotalTime float64
+
+	// AvgTime is the average execution time per query.
+	AvgTime float64
+
+	// MaxTime is the maximum execution time for this type.
+	MaxTime float64
+}
+
+// QueryTypeCount tracks count and total time for a query type in a specific dimension.
+type QueryTypeCount struct {
+	Count     int
+	TotalTime float64 // milliseconds
 }
 
 // ============================================================================
@@ -188,6 +228,12 @@ type SQLAnalyzer struct {
 	// Limited capacity to prevent unbounded memory growth
 	// Maps trimmed raw query → normalized query
 	normalizationCache *lruCache
+
+	// Query type breakdown by dimension (for --sql-overview)
+	queryTypesByDatabase map[string]map[string]*QueryTypeCount
+	queryTypesByUser     map[string]map[string]*QueryTypeCount
+	queryTypesByHost     map[string]map[string]*QueryTypeCount
+	queryTypesByApp      map[string]map[string]*QueryTypeCount
 }
 
 // NewSQLAnalyzer creates a new SQL analyzer with pre-allocated capacity.
@@ -196,9 +242,13 @@ type SQLAnalyzer struct {
 // Larger cache reduces normalizeQuery() calls, saving ~300MB on 11GB files.
 func NewSQLAnalyzer() *SQLAnalyzer {
 	return &SQLAnalyzer{
-		queryStats:         make(map[string]*QueryStat, 10000),
-		executions:         make([]QueryExecution, 0, 10000),
-		normalizationCache: newLRUCache(5000), // LRU cache for raw→normalized mapping
+		queryStats:           make(map[string]*QueryStat, 10000),
+		executions:           make([]QueryExecution, 0, 10000),
+		normalizationCache:   newLRUCache(5000), // LRU cache for raw→normalized mapping
+		queryTypesByDatabase: make(map[string]map[string]*QueryTypeCount),
+		queryTypesByUser:     make(map[string]map[string]*QueryTypeCount),
+		queryTypesByHost:     make(map[string]map[string]*QueryTypeCount),
+		queryTypesByApp:      make(map[string]map[string]*QueryTypeCount),
 	}
 }
 
@@ -230,6 +280,9 @@ func (a *SQLAnalyzer) Process(entry *parser.LogEntry) {
 
 	// Normalize query for aggregation (with LRU caching)
 	rawQuery := strings.TrimSpace(query)
+
+	// Normalize whitespace (newlines to spaces) for consistent raw_query across formats
+	rawQuery = normalizeWhitespace(rawQuery)
 
 	// Check LRU cache first to avoid expensive re-normalization
 	normalizedQuery, cached := a.normalizationCache.Get(rawQuery)
@@ -279,6 +332,114 @@ func (a *SQLAnalyzer) Process(entry *parser.LogEntry) {
 		a.maxQueryDuration = duration
 	}
 	a.sumQueryDuration += duration
+
+	// Track query type breakdown by dimension (database, user, host, app)
+	// Extract all fields in a single pass for performance
+	queryType := QueryTypeFromID(stats.ID)
+	database, user, host, app := extractPrefixFields(entry.Message)
+
+	// Track query type breakdown by dimension - cache inner map refs
+	if database != "" {
+		dbMap := a.queryTypesByDatabase[database]
+		if dbMap == nil {
+			dbMap = make(map[string]*QueryTypeCount)
+			a.queryTypesByDatabase[database] = dbMap
+		}
+		if entry := dbMap[queryType]; entry != nil {
+			entry.Count++
+			entry.TotalTime += duration
+		} else {
+			dbMap[queryType] = &QueryTypeCount{Count: 1, TotalTime: duration}
+		}
+	}
+	if user != "" {
+		uMap := a.queryTypesByUser[user]
+		if uMap == nil {
+			uMap = make(map[string]*QueryTypeCount)
+			a.queryTypesByUser[user] = uMap
+		}
+		if entry := uMap[queryType]; entry != nil {
+			entry.Count++
+			entry.TotalTime += duration
+		} else {
+			uMap[queryType] = &QueryTypeCount{Count: 1, TotalTime: duration}
+		}
+	}
+	if host != "" {
+		hMap := a.queryTypesByHost[host]
+		if hMap == nil {
+			hMap = make(map[string]*QueryTypeCount)
+			a.queryTypesByHost[host] = hMap
+		}
+		if entry := hMap[queryType]; entry != nil {
+			entry.Count++
+			entry.TotalTime += duration
+		} else {
+			hMap[queryType] = &QueryTypeCount{Count: 1, TotalTime: duration}
+		}
+	}
+	if app != "" {
+		aMap := a.queryTypesByApp[app]
+		if aMap == nil {
+			aMap = make(map[string]*QueryTypeCount)
+			a.queryTypesByApp[app] = aMap
+		}
+		if entry := aMap[queryType]; entry != nil {
+			entry.Count++
+			entry.TotalTime += duration
+		} else {
+			aMap[queryType] = &QueryTypeCount{Count: 1, TotalTime: duration}
+		}
+	}
+}
+
+
+// extractPrefixFields extracts db, user, host, and app from the log prefix in a single pass.
+// Format: "user=app_user,db=app_db,app=pgadmin,client=192.168.1.1" or "[pid]: user=x,db=y LOG: ..."
+// This is faster than calling extractPrefixValue 4 times as it only scans the message once.
+func extractPrefixFields(message string) (database, user, host, app string) {
+	// Scan the first 200 chars of the message for key=value patterns
+	end := 200
+	if len(message) < end {
+		end = len(message)
+	}
+	prefix := message[:end]
+	n := len(prefix)
+
+	// Fast scan using '=' as anchor point
+	for i := 0; i < n-1; i++ {
+		if prefix[i] != '=' {
+			continue
+		}
+		// Found '=', check what key it is
+		if i >= 2 && prefix[i-2:i] == "db" && (i == 2 || !isAlnum(prefix[i-3])) {
+			database = extractPrefixValueAt(prefix, i+1)
+		} else if i >= 4 && prefix[i-4:i] == "user" && (i == 4 || !isAlnum(prefix[i-5])) {
+			user = extractPrefixValueAt(prefix, i+1)
+		} else if i >= 4 && prefix[i-4:i] == "host" && (i == 4 || !isAlnum(prefix[i-5])) {
+			host = extractPrefixValueAt(prefix, i+1)
+		} else if i >= 6 && prefix[i-6:i] == "client" && (i == 6 || !isAlnum(prefix[i-7])) {
+			host = extractPrefixValueAt(prefix, i+1) // client= is alias for host
+		} else if i >= 3 && prefix[i-3:i] == "app" && (i == 3 || !isAlnum(prefix[i-4])) {
+			app = extractPrefixValueAt(prefix, i+1)
+		}
+	}
+	return
+}
+
+// isAlnum returns true if c is alphanumeric
+func isAlnum(c byte) bool {
+	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_'
+}
+
+// extractPrefixValueAt extracts a value starting at position i until comma, space, or bracket
+func extractPrefixValueAt(s string, start int) string {
+	end := start
+	n := len(s)
+	for end < n && s[end] != ',' && s[end] != ' ' && s[end] != ']' && s[end] != '[' {
+		end++
+	}
+	return s[start:end]
 }
 
 // Finalize returns the aggregated SQL metrics.
@@ -287,23 +448,56 @@ func (a *SQLAnalyzer) Process(entry *parser.LogEntry) {
 // It calculates:
 //   - Average execution time for each query
 //   - Median and 99th percentile of all query durations
+//   - Query type statistics
 func (a *SQLAnalyzer) Finalize() SqlMetrics {
 	metrics := SqlMetrics{
-		QueryStats:       a.queryStats,
-		TotalQueries:     a.totalQueries,
-		UniqueQueries:    len(a.queryStats),
-		MinQueryDuration: a.minQueryDuration,
-		MaxQueryDuration: a.maxQueryDuration,
-		SumQueryDuration: a.sumQueryDuration,
-		StartTimestamp:   a.startTimestamp,
-		EndTimestamp:     a.endTimestamp,
-		Executions:       a.executions,
+		QueryStats:           a.queryStats,
+		TotalQueries:         a.totalQueries,
+		UniqueQueries:        len(a.queryStats),
+		MinQueryDuration:     a.minQueryDuration,
+		MaxQueryDuration:     a.maxQueryDuration,
+		SumQueryDuration:     a.sumQueryDuration,
+		StartTimestamp:       a.startTimestamp,
+		EndTimestamp:         a.endTimestamp,
+		Executions:           a.executions,
+		QueryTypeStats:       make(map[string]*QueryTypeStat),
+		QueryTypesByDatabase: a.queryTypesByDatabase,
+		QueryTypesByUser:     a.queryTypesByUser,
+		QueryTypesByHost:     a.queryTypesByHost,
+		QueryTypesByApp:      a.queryTypesByApp,
 	}
 
-	// Calculate average time for each query
-	// Done here (once) instead of in Process (N times) for efficiency
+	// Calculate average time for each query and aggregate by type
 	for _, stat := range a.queryStats {
 		stat.AvgTime = stat.TotalTime / float64(stat.Count)
+
+		// Get query type from ID
+		queryType := QueryTypeFromID(stat.ID)
+		category := QueryCategory(queryType)
+
+		// Update type statistics
+		typeStat, exists := metrics.QueryTypeStats[queryType]
+		if !exists {
+			typeStat = &QueryTypeStat{
+				Type:     queryType,
+				Category: category,
+			}
+			metrics.QueryTypeStats[queryType] = typeStat
+		}
+
+		typeStat.UniqueQueries++
+		typeStat.Count += stat.Count
+		typeStat.TotalTime += stat.TotalTime
+		if stat.MaxTime > typeStat.MaxTime {
+			typeStat.MaxTime = stat.MaxTime
+		}
+	}
+
+	// Calculate average time per type
+	for _, typeStat := range metrics.QueryTypeStats {
+		if typeStat.Count > 0 {
+			typeStat.AvgTime = typeStat.TotalTime / float64(typeStat.Count)
+		}
 	}
 
 	// Calculate percentiles
@@ -501,21 +695,3 @@ func CollectQueriesWithoutDuration(sql *SqlMetrics, locks *LockMetrics, tempfile
 	sql.QueriesWithoutDurationCount.Total = len(seen)
 }
 
-// ============================================================================
-// Legacy API (for backward compatibility)
-// ============================================================================
-
-// RunSQLSummary reads SQL log entries from a channel and aggregates statistics.
-//
-// Deprecated: This function is designed for the old channel-based API.
-// Use SQLAnalyzer with streaming for better control and flexibility.
-//
-// This function is maintained for backward compatibility and will be removed
-// in a future version.
-func RunSQLSummary(in <-chan parser.LogEntry) SqlMetrics {
-	analyzer := NewSQLAnalyzer()
-	for entry := range in {
-		analyzer.Process(&entry)
-	}
-	return analyzer.Finalize()
-}

@@ -38,10 +38,10 @@ func ExportMarkdown(m analysis.AggregatedMetrics, sections []string) {
 	}
 
 	// ============================================================================
-	// SQL PERFORMANCE
+	// SQL SUMMARY
 	// ============================================================================
-	if has("sql_performance") && m.SQL.TotalQueries > 0 {
-		b.WriteString("## SQL PERFORMANCE\n\n")
+	if has("sql_summary") && m.SQL.TotalQueries > 0 {
+		b.WriteString("## SQL SUMMARY\n\n")
 
 		// Query load histogram
 		if !m.SQL.StartTimestamp.IsZero() && !m.SQL.EndTimestamp.IsZero() {
@@ -309,8 +309,31 @@ func ExportMarkdown(m analysis.AggregatedMetrics, sections []string) {
 	if has("connections") && m.Connections.ConnectionReceivedCount > 0 {
 		b.WriteString("## CONNECTIONS & SESSIONS\n\n")
 
-		hist, _, scale := computeConnectionsHistogram(m.Connections.Connections)
-		printHistogramMarkdown(&b, hist, "Connection distribution", "", scale, nil)
+		// Determine if detailed mode (markdown always shows details like --md implies full export)
+		isDetailedMode := true
+
+		// Concurrent sessions histogram (always shown)
+		if len(m.Connections.SessionEvents) > 0 && !m.Global.MinTimestamp.IsZero() && !m.Global.MaxTimestamp.IsZero() {
+			numBuckets := 6
+			if isDetailedMode {
+				numBuckets = 12
+			}
+			concurrentHist, labels, concurrentScale, peakTimes := computeConcurrentHistogram(
+				m.Connections.SessionEvents,
+				m.Global.MinTimestamp,
+				m.Global.MaxTimestamp,
+				numBuckets,
+			)
+			if len(concurrentHist) > 0 {
+				printConcurrentHistogramMarkdown(&b, concurrentHist, "Concurrent sessions", concurrentScale, labels, peakTimes)
+			}
+		}
+
+		// Connection distribution histogram (in detailed mode)
+		if isDetailedMode {
+			hist, _, scale := computeConnectionsHistogram(m.Connections.Connections, m.Global.MinTimestamp, m.Global.MaxTimestamp)
+			printHistogramMarkdown(&b, hist, "Connection distribution", "", scale, nil)
+		}
 
 		b.WriteString(fmt.Sprintf("- **Connection count**: %d\n", m.Connections.ConnectionReceivedCount))
 		if duration.Hours() > 0 {
@@ -319,11 +342,171 @@ func ExportMarkdown(m analysis.AggregatedMetrics, sections []string) {
 		}
 		b.WriteString(fmt.Sprintf("- **Disconnection count**: %d\n", m.Connections.DisconnectionCount))
 
-		if m.Connections.DisconnectionCount > 0 {
+		if len(m.Connections.SessionDurations) > 0 {
+			// Average
 			avgSessionTime := time.Duration(float64(m.Connections.TotalSessionTime) / float64(m.Connections.DisconnectionCount))
-			b.WriteString(fmt.Sprintf("- **Avg session time**: %s\n\n", avgSessionTime.Round(time.Second)))
-		} else {
-			b.WriteString("- **Avg session time**: N/A\n\n")
+			b.WriteString(fmt.Sprintf("- **Avg session time**: %s\n", formatSessionDuration(avgSessionTime)))
+			// Median (more representative for skewed distributions)
+			sorted := make([]time.Duration, len(m.Connections.SessionDurations))
+			copy(sorted, m.Connections.SessionDurations)
+			sort.Slice(sorted, func(i, j int) bool { return sorted[i] < sorted[j] })
+			median := sorted[len(sorted)/2]
+			b.WriteString(fmt.Sprintf("- **Median session time**: %s\n", formatSessionDuration(median)))
+		} else if m.Connections.DisconnectionCount > 0 {
+			b.WriteString("- **Avg session time**: N/A\n")
+		}
+
+		// Peak concurrent sessions
+		if m.Connections.PeakConcurrentSessions > 0 {
+			b.WriteString(fmt.Sprintf("- **Peak concurrent sessions**: %d (at %s)\n",
+				m.Connections.PeakConcurrentSessions,
+				m.Connections.PeakConcurrentTimestamp.Format("15:04:05")))
+		}
+		b.WriteString("\n")
+
+		// Session statistics
+		if len(m.Connections.SessionDurations) > 0 {
+			stats := analysis.CalculateDurationStats(m.Connections.SessionDurations)
+			var cumulated time.Duration
+			for _, d := range m.Connections.SessionDurations {
+				cumulated += d
+			}
+
+			b.WriteString("### Session Duration Statistics\n\n")
+			b.WriteString(fmt.Sprintf("- **Count**: %d\n", stats.Count))
+			b.WriteString(fmt.Sprintf("- **Min**: %s\n", stats.Min.Round(time.Second)))
+			b.WriteString(fmt.Sprintf("- **Max**: %s\n", stats.Max.Round(time.Second)))
+			b.WriteString(fmt.Sprintf("- **Avg**: %s\n", stats.Avg.Round(time.Second)))
+			b.WriteString(fmt.Sprintf("- **Median**: %s\n", stats.Median.Round(time.Second)))
+			b.WriteString(fmt.Sprintf("- **Cumulated**: %s\n\n", cumulated.Round(time.Second)))
+
+			// Session duration distribution
+			dist := analysis.CalculateDurationDistribution(m.Connections.SessionDurations)
+			printHistogramMarkdown(&b, dist, "Session duration distribution", "sessions", 1,
+				[]string{"< 1s", "1s - 1min", "1min - 30min", "30min - 2h", "2h - 5h", "> 5h"})
+		}
+
+		// Sessions by user
+		if len(m.Connections.SessionsByUser) > 0 {
+			b.WriteString("### Session Duration by User\n\n")
+			b.WriteString("| User | Sessions | Min | Max | Avg | Median | Cumulated |\n")
+			b.WriteString("|---|---:|---|---|---|---|---:|\n")
+
+			type userStats struct {
+				user      string
+				stats     analysis.DurationStats
+				cumulated time.Duration
+			}
+			var sortedUsers []userStats
+			for user, durations := range m.Connections.SessionsByUser {
+				stats := analysis.CalculateDurationStats(durations)
+				var cumulated time.Duration
+				for _, d := range durations {
+					cumulated += d
+				}
+				sortedUsers = append(sortedUsers, userStats{
+					user: user, stats: stats, cumulated: cumulated,
+				})
+			}
+			sort.Slice(sortedUsers, func(i, j int) bool {
+				return sortedUsers[i].stats.Count > sortedUsers[j].stats.Count
+			})
+
+			limit := 10
+			for i := 0; i < limit && i < len(sortedUsers); i++ {
+				u := sortedUsers[i]
+				b.WriteString(fmt.Sprintf("| %s | %d | %s | %s | %s | %s | %s |\n",
+					u.user,
+					u.stats.Count,
+					u.stats.Min.Round(time.Second),
+					u.stats.Max.Round(time.Second),
+					u.stats.Avg.Round(time.Second),
+					u.stats.Median.Round(time.Second),
+					u.cumulated.Round(time.Second)))
+			}
+			b.WriteString("\n")
+		}
+
+		// Sessions by database
+		if len(m.Connections.SessionsByDatabase) > 0 {
+			b.WriteString("### Session Duration by Database\n\n")
+			b.WriteString("| Database | Sessions | Min | Max | Avg | Median | Cumulated |\n")
+			b.WriteString("|---|---:|---|---|---|---|---:|\n")
+
+			type dbStats struct {
+				database  string
+				stats     analysis.DurationStats
+				cumulated time.Duration
+			}
+			var sortedDBs []dbStats
+			for db, durations := range m.Connections.SessionsByDatabase {
+				stats := analysis.CalculateDurationStats(durations)
+				var cumulated time.Duration
+				for _, d := range durations {
+					cumulated += d
+				}
+				sortedDBs = append(sortedDBs, dbStats{
+					database: db, stats: stats, cumulated: cumulated,
+				})
+			}
+			sort.Slice(sortedDBs, func(i, j int) bool {
+				return sortedDBs[i].stats.Count > sortedDBs[j].stats.Count
+			})
+
+			limit := 10
+			for i := 0; i < limit && i < len(sortedDBs); i++ {
+				d := sortedDBs[i]
+				b.WriteString(fmt.Sprintf("| %s | %d | %s | %s | %s | %s | %s |\n",
+					d.database,
+					d.stats.Count,
+					d.stats.Min.Round(time.Second),
+					d.stats.Max.Round(time.Second),
+					d.stats.Avg.Round(time.Second),
+					d.stats.Median.Round(time.Second),
+					d.cumulated.Round(time.Second)))
+			}
+			b.WriteString("\n")
+		}
+
+		// Sessions by host
+		if len(m.Connections.SessionsByHost) > 0 {
+			b.WriteString("### Session Duration by Host\n\n")
+			b.WriteString("| Host | Sessions | Min | Max | Avg | Median | Cumulated |\n")
+			b.WriteString("|---|---:|---|---|---|---|---:|\n")
+
+			type hostStats struct {
+				host      string
+				stats     analysis.DurationStats
+				cumulated time.Duration
+			}
+			var sortedHosts []hostStats
+			for host, durations := range m.Connections.SessionsByHost {
+				stats := analysis.CalculateDurationStats(durations)
+				var cumulated time.Duration
+				for _, d := range durations {
+					cumulated += d
+				}
+				sortedHosts = append(sortedHosts, hostStats{
+					host: host, stats: stats, cumulated: cumulated,
+				})
+			}
+			sort.Slice(sortedHosts, func(i, j int) bool {
+				return sortedHosts[i].stats.Count > sortedHosts[j].stats.Count
+			})
+
+			limit := 10
+			for i := 0; i < limit && i < len(sortedHosts); i++ {
+				h := sortedHosts[i]
+				b.WriteString(fmt.Sprintf("| %s | %d | %s | %s | %s | %s | %s |\n",
+					h.host,
+					h.stats.Count,
+					h.stats.Min.Round(time.Second),
+					h.stats.Max.Round(time.Second),
+					h.stats.Avg.Round(time.Second),
+					h.stats.Median.Round(time.Second),
+					h.cumulated.Round(time.Second)))
+			}
+			b.WriteString("\n")
 		}
 	}
 
@@ -337,34 +520,82 @@ func ExportMarkdown(m analysis.AggregatedMetrics, sections []string) {
 		b.WriteString(fmt.Sprintf("- **Unique Apps**: %d\n", m.UniqueEntities.UniqueApps))
 		b.WriteString(fmt.Sprintf("- **Unique Hosts**: %d\n\n", m.UniqueEntities.UniqueHosts))
 
-		if m.UniqueEntities.UniqueUsers > 0 {
+		totalLogs := m.Global.Count
+
+		if m.UniqueEntities.UniqueUsers > 0 && m.UniqueEntities.UserCounts != nil {
 			b.WriteString("### USERS\n\n")
-			for _, user := range m.UniqueEntities.Users {
-				b.WriteString(fmt.Sprintf("- %s\n", user))
+			b.WriteString("| User | Count | % |\n")
+			b.WriteString("|---|---:|---:|\n")
+			sortedUsers := analysis.SortByCount(m.UniqueEntities.UserCounts)
+			for _, item := range sortedUsers {
+				percentage := float64(item.Count) * 100.0 / float64(totalLogs)
+				b.WriteString(fmt.Sprintf("| %s | %d | %.1f%% |\n", item.Name, item.Count, percentage))
 			}
 			b.WriteString("\n")
 		}
 
-		if m.UniqueEntities.UniqueApps > 0 {
+		if m.UniqueEntities.UniqueApps > 0 && m.UniqueEntities.AppCounts != nil {
 			b.WriteString("### APPS\n\n")
-			for _, app := range m.UniqueEntities.Apps {
-				b.WriteString(fmt.Sprintf("- %s\n", app))
+			b.WriteString("| App | Count | % |\n")
+			b.WriteString("|---|---:|---:|\n")
+			sortedApps := analysis.SortByCount(m.UniqueEntities.AppCounts)
+			for _, item := range sortedApps {
+				percentage := float64(item.Count) * 100.0 / float64(totalLogs)
+				b.WriteString(fmt.Sprintf("| %s | %d | %.1f%% |\n", item.Name, item.Count, percentage))
 			}
 			b.WriteString("\n")
 		}
 
-		if m.UniqueEntities.UniqueDbs > 0 {
+		if m.UniqueEntities.UniqueDbs > 0 && m.UniqueEntities.DBCounts != nil {
 			b.WriteString("### DATABASES\n\n")
-			for _, db := range m.UniqueEntities.DBs {
-				b.WriteString(fmt.Sprintf("- %s\n", db))
+			b.WriteString("| Database | Count | % |\n")
+			b.WriteString("|---|---:|---:|\n")
+			sortedDBs := analysis.SortByCount(m.UniqueEntities.DBCounts)
+			for _, item := range sortedDBs {
+				percentage := float64(item.Count) * 100.0 / float64(totalLogs)
+				b.WriteString(fmt.Sprintf("| %s | %d | %.1f%% |\n", item.Name, item.Count, percentage))
 			}
 			b.WriteString("\n")
 		}
 
-		if m.UniqueEntities.UniqueHosts > 0 {
+		if m.UniqueEntities.UniqueHosts > 0 && m.UniqueEntities.HostCounts != nil {
 			b.WriteString("### HOSTS\n\n")
-			for _, host := range m.UniqueEntities.Hosts {
-				b.WriteString(fmt.Sprintf("- %s\n", host))
+			b.WriteString("| Host | Count | % |\n")
+			b.WriteString("|---|---:|---:|\n")
+			sortedHosts := analysis.SortByCount(m.UniqueEntities.HostCounts)
+			for _, item := range sortedHosts {
+				percentage := float64(item.Count) * 100.0 / float64(totalLogs)
+				b.WriteString(fmt.Sprintf("| %s | %d | %.1f%% |\n", item.Name, item.Count, percentage))
+			}
+			b.WriteString("\n")
+		}
+
+		if len(m.UniqueEntities.UserDbCombos) > 0 {
+			b.WriteString("### USER × DATABASE\n\n")
+			b.WriteString("| User | Database | Count | % |\n")
+			b.WriteString("|---|---|---:|---:|\n")
+			sortedCombos := analysis.SortByCount(m.UniqueEntities.UserDbCombos)
+			for _, item := range sortedCombos {
+				percentage := float64(item.Count) * 100.0 / float64(totalLogs)
+				parts := strings.SplitN(item.Name, "|", 2)
+				if len(parts) == 2 {
+					b.WriteString(fmt.Sprintf("| %s | %s | %d | %.1f%% |\n", parts[0], parts[1], item.Count, percentage))
+				}
+			}
+			b.WriteString("\n")
+		}
+
+		if len(m.UniqueEntities.UserHostCombos) > 0 {
+			b.WriteString("### USER × HOST\n\n")
+			b.WriteString("| User | Host | Count | % |\n")
+			b.WriteString("|---|---|---:|---:|\n")
+			sortedCombos := analysis.SortByCount(m.UniqueEntities.UserHostCombos)
+			for _, item := range sortedCombos {
+				percentage := float64(item.Count) * 100.0 / float64(totalLogs)
+				parts := strings.SplitN(item.Name, "|", 2)
+				if len(parts) == 2 {
+					b.WriteString(fmt.Sprintf("| %s | %s | %d | %.1f%% |\n", parts[0], parts[1], item.Count, percentage))
+				}
 			}
 			b.WriteString("\n")
 		}
@@ -424,6 +655,60 @@ func printHistogramMarkdown(b *strings.Builder, data map[string]int, title, unit
 			valueStr = "-"
 		}
 		b.WriteString(fmt.Sprintf("%s | %s %s\n", label, bar, valueStr))
+	}
+	b.WriteString("```\n\n")
+}
+
+// printConcurrentHistogramMarkdown prints a histogram with peak times in markdown format.
+func printConcurrentHistogramMarkdown(b *strings.Builder, data map[string]int, title string, scaleFactor int, orderedLabels []string, peakTimes map[string]time.Time) {
+	if len(data) == 0 {
+		b.WriteString("(No data available)\n\n")
+		return
+	}
+
+	var labels []string
+	if len(orderedLabels) > 0 {
+		labels = orderedLabels
+	} else {
+		for k := range data {
+			labels = append(labels, k)
+		}
+		sort.Slice(labels, func(i, j int) bool {
+			pi := strings.Split(labels[i], " - ")
+			pj := strings.Split(labels[j], " - ")
+			if len(pi) == 2 && len(pj) == 2 {
+				ti, err1 := time.Parse("15:04", pi[0])
+				tj, err2 := time.Parse("15:04", pj[0])
+				if err1 == nil && err2 == nil {
+					return ti.Before(tj)
+				}
+			}
+			return labels[i] < labels[j]
+		})
+	}
+
+	if scaleFactor <= 0 {
+		scaleFactor = 1
+	}
+
+	b.WriteString(fmt.Sprintf("### %s\n\n```\n", title))
+	for _, label := range labels {
+		v := data[label]
+		barLen := v / scaleFactor
+		if barLen < 0 {
+			barLen = 0
+		}
+		bar := strings.Repeat("■", barLen)
+
+		if v == 0 {
+			b.WriteString(fmt.Sprintf("%s | -\n", label))
+		} else {
+			peakStr := ""
+			if pt, ok := peakTimes[label]; ok && !pt.IsZero() {
+				peakStr = fmt.Sprintf("(%02d:%02d)", pt.Hour(), pt.Minute())
+			}
+			b.WriteString(fmt.Sprintf("%s | %s %d %s\n", label, bar, v, peakStr))
+		}
 	}
 	b.WriteString("```\n\n")
 }
@@ -1073,4 +1358,170 @@ func ExportSqlDetailMarkdown(m analysis.AggregatedMetrics, queryDetails []string
 	}
 
 	fmt.Println(b.String())
+}
+
+// ExportSqlOverviewMarkdown exports SQL query type overview statistics in Markdown format.
+// This provides query type statistics with dimensional breakdowns (SELECT, INSERT, UPDATE, DELETE, etc.)
+func ExportSqlOverviewMarkdown(m analysis.SqlMetrics) {
+	var b strings.Builder
+
+	b.WriteString("# SQL QUERY OVERVIEW\n\n")
+
+	// Global statistics
+	b.WriteString("## Global Statistics\n\n")
+	b.WriteString("|  |  |  |  |\n")
+	b.WriteString("|---|---:|---|---:|\n")
+	b.WriteString(fmt.Sprintf("| Total queries | %d | Unique queries | %d |\n",
+		m.TotalQueries, m.UniqueQueries))
+	b.WriteString(fmt.Sprintf("| Total duration | %s | Median duration | %s |\n",
+		formatQueryDuration(m.SumQueryDuration), formatQueryDuration(m.MedianQueryDuration)))
+	b.WriteString(fmt.Sprintf("| Min duration | %s | Max duration | %s |\n",
+		formatQueryDuration(m.MinQueryDuration), formatQueryDuration(m.MaxQueryDuration)))
+	b.WriteString(fmt.Sprintf("| 99th percentile | %s | | |\n\n",
+		formatQueryDuration(m.P99QueryDuration)))
+
+	// Query Category Summary - EN PREMIER
+	if len(m.QueryTypeStats) > 0 {
+		b.WriteString("## Query Category Summary\n\n")
+		b.WriteString("| Category | Count | % | Total Time |\n")
+		b.WriteString("|---|---:|---:|---:|\n")
+
+		// Aggregate by category
+		categoryStats := make(map[string]struct {
+			Count     int
+			TotalTime float64
+		})
+		for _, ts := range m.QueryTypeStats {
+			cat := categoryStats[ts.Category]
+			cat.Count += ts.Count
+			cat.TotalTime += ts.TotalTime
+			categoryStats[ts.Category] = cat
+		}
+
+		// Sort categories by count descending
+		categories := make([]string, 0, len(categoryStats))
+		for cat := range categoryStats {
+			categories = append(categories, cat)
+		}
+		sort.Slice(categories, func(i, j int) bool {
+			return categoryStats[categories[i]].Count > categoryStats[categories[j]].Count
+		})
+
+		for _, cat := range categories {
+			stats := categoryStats[cat]
+			pct := 0.0
+			if m.TotalQueries > 0 {
+				pct = float64(stats.Count) / float64(m.TotalQueries) * 100
+			}
+			b.WriteString(fmt.Sprintf("| %s | %d | %.1f%% | %s |\n",
+				cat, stats.Count, pct, formatQueryDuration(stats.TotalTime)))
+		}
+		b.WriteString("\n")
+	}
+
+	// Query Type Distribution - EN SECOND
+	if len(m.QueryTypeStats) > 0 {
+		b.WriteString("## Query Type Distribution\n\n")
+		b.WriteString("| Type | Count | % | Total Time | Avg Time | Max Time |\n")
+		b.WriteString("|---|---:|---:|---:|---:|---:|\n")
+
+		// Sort by count descending
+		types := make([]*analysis.QueryTypeStat, 0, len(m.QueryTypeStats))
+		for _, ts := range m.QueryTypeStats {
+			types = append(types, ts)
+		}
+		sort.Slice(types, func(i, j int) bool {
+			return types[i].Count > types[j].Count
+		})
+
+		for _, ts := range types {
+			pct := 0.0
+			if m.TotalQueries > 0 {
+				pct = float64(ts.Count) / float64(m.TotalQueries) * 100
+			}
+			b.WriteString(fmt.Sprintf("| %s | %d | %.1f%% | %s | %s | %s |\n",
+				ts.Type, ts.Count, pct,
+				formatQueryDuration(ts.TotalTime),
+				formatQueryDuration(ts.AvgTime),
+				formatQueryDuration(ts.MaxTime)))
+		}
+		b.WriteString("\n")
+	}
+
+	// Breakdowns by dimension
+	exportQueryTypeBreakdownMarkdown(&b, "Per Database", m.QueryTypesByDatabase)
+	exportQueryTypeBreakdownMarkdown(&b, "Per User", m.QueryTypesByUser)
+	exportQueryTypeBreakdownMarkdown(&b, "Per Host", m.QueryTypesByHost)
+	exportQueryTypeBreakdownMarkdown(&b, "Per Application", m.QueryTypesByApp)
+
+	fmt.Println(b.String())
+}
+
+// exportQueryTypeBreakdownMarkdown writes query type breakdown for a dimension (database, user, host, app)
+func exportQueryTypeBreakdownMarkdown(b *strings.Builder, title string, breakdown map[string]map[string]*analysis.QueryTypeCount) {
+	if len(breakdown) == 0 {
+		return
+	}
+
+	b.WriteString("## " + title + "\n\n")
+
+	// Sort dimensions by total count (descending)
+	type dimStats struct {
+		name      string
+		count     int
+		totalTime float64
+	}
+	var dimensions []dimStats
+	for dimName, types := range breakdown {
+		var totalCount int
+		var totalTime float64
+		for _, tc := range types {
+			totalCount += tc.Count
+			totalTime += tc.TotalTime
+		}
+		dimensions = append(dimensions, dimStats{dimName, totalCount, totalTime})
+	}
+	sort.Slice(dimensions, func(i, j int) bool {
+		return dimensions[i].count > dimensions[j].count
+	})
+
+	// Print each dimension with its query types
+	for _, dim := range dimensions {
+		b.WriteString(fmt.Sprintf("### %s (%d queries, %s)\n\n",
+			dim.name,
+			dim.count,
+			formatQueryDuration(dim.totalTime)))
+
+		b.WriteString("| Query Type | Count | Total Time |\n")
+		b.WriteString("|---|---:|---:|\n")
+
+		// Get all query types for this dimension
+		types := breakdown[dim.name]
+		var typeList []struct {
+			name      string
+			count     int
+			totalTime float64
+		}
+		for typeName, tc := range types {
+			typeList = append(typeList, struct {
+				name      string
+				count     int
+				totalTime float64
+			}{typeName, tc.Count, tc.TotalTime})
+		}
+
+		// Sort by count descending
+		sort.Slice(typeList, func(i, j int) bool {
+			return typeList[i].count > typeList[j].count
+		})
+
+		// Print query types
+		for _, t := range typeList {
+			b.WriteString(fmt.Sprintf("| %s | %d | %s |\n",
+				t.name,
+				t.count,
+				formatQueryDuration(t.totalTime)))
+		}
+		b.WriteString("\n")
+	}
 }

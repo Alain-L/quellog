@@ -1,13 +1,13 @@
 # SQL Analysis
 
-quellog provides two SQL analysis modes: `--sql-summary` for aggregate query statistics and `--sql-detail` for individual query inspection.
+quellog provides three SQL analysis modes: `--sql-performance` for detailed performance analysis, `--sql-overview` for query type breakdowns, and `--sql-detail` for individual query inspection.
 
-## --sql-summary
+## --sql-performance
 
 Shows detailed statistics for all queries found in logs, including SQL performance, temp files, and locks.
 
 ```bash
-quellog /var/log/postgresql/*.log --sql-summary
+quellog /var/log/postgresql/*.log --sql-performance
 ```
 
 ### Output Format
@@ -155,6 +155,162 @@ select * from users where id = ?
 ### SQLID Format
 
 Each query gets a short identifier like `se-a1b2c3` (select), `up-x4y5z6` (update), `in-m7n8o9` (insert), `mv-p1q2r3` (materialized view), or `xx-s4t5u6` (other). Use this ID with `--sql-detail`.
+
+## --sql-overview
+
+Provides an overview of query types and their distribution across different dimensions (database, user, host, application).
+
+```bash
+quellog /var/log/postgresql/*.log --sql-overview
+```
+
+This mode focuses on query categorization and breakdown rather than performance metrics. It helps answer questions like "which applications run the most SELECT queries?" or "what types of queries does each database receive?"
+
+### Output Format
+
+**Query Category Summary**
+
+```
+  Query Category Summary
+
+    DML          : 1,234     (78.5%)
+    UTILITY      : 245       (15.6%)
+    DDL          : 78        (5.0%)
+    TCL          : 14        (0.9%)
+```
+
+Queries are grouped into high-level categories:
+
+- **DML** (Data Manipulation Language): SELECT, INSERT, UPDATE, DELETE, MERGE
+- **DDL** (Data Definition Language): CREATE, ALTER, DROP, TRUNCATE
+- **TCL** (Transaction Control Language): BEGIN, COMMIT, ROLLBACK, SAVEPOINT
+- **CTE** (Common Table Expressions): WITH queries
+- **CURSOR**: DECLARE, FETCH, CLOSE cursor operations
+- **UTILITY**: VACUUM, ANALYZE, EXPLAIN, SET, SHOW, etc.
+- **Security**: GRANT, REVOKE
+- **Other**: Unclassified queries
+
+**Query Type Distribution**
+
+```
+  Query Type Distribution
+
+    SELECT       : 890       (56.6%)
+    INSERT       : 234       (14.9%)
+    UPDATE       : 110       (7.0%)
+    DELETE       : 45        (2.9%)
+    BEGIN        : 78        (5.0%)
+    COMMIT       : 65        (4.1%)
+    CREATE TABLE : 12        (0.8%)
+    VACUUM       : 23        (1.5%)
+    ...
+```
+
+Detailed breakdown by specific query type. quellog recognizes 40+ query types including:
+
+- **DML**: SELECT, INSERT, UPDATE, DELETE, MERGE
+- **DDL**: CREATE TABLE, ALTER TABLE, DROP TABLE, CREATE INDEX, DROP INDEX, TRUNCATE
+- **TCL**: BEGIN, COMMIT, ROLLBACK, SAVEPOINT, RELEASE SAVEPOINT
+- **CTE**: WITH (Common Table Expressions)
+- **CURSOR**: DECLARE, FETCH, CLOSE
+- **Utility**: VACUUM, ANALYZE, EXPLAIN, SET, SHOW, COPY, DISCARD, RESET
+- **Security**: GRANT, REVOKE
+
+**Dimension Breakdowns**
+
+Four breakdowns show query types per database, user, host, and application:
+
+```
+  Queries per Database
+
+    mydb (1,234 queries, 45m 23s)
+      SELECT         890      38m 12s
+      INSERT         234       5m 45s
+      UPDATE         110       1m 26s
+
+    analytics_db (523 queries, 12m 45s)
+      SELECT         487      11m 30s
+      INSERT          36       1m 15s
+
+  Queries per User
+
+    app_user (1,456 queries, 52m 8s)
+      SELECT       1,123      45m 32s
+      INSERT         234       5m 12s
+      UPDATE          99       1m 24s
+
+    readonly (245 queries, 3m 15s)
+      SELECT         245       3m 15s
+
+  Queries per Host
+
+    10.0.1.45 (789 queries, 32m 17s)
+      SELECT         567      28m 34s
+      INSERT         145       2m 51s
+      UPDATE          77         52s
+
+  Queries per Application
+
+    app_server (1,123 queries, 48m 9s)
+      SELECT         890      42m 15s
+      INSERT         178       4m 32s
+      UPDATE          55       1m 22s
+
+    batch_job (234 queries, 8m 14s)
+      INSERT          56       3m 45s
+      UPDATE          55       2m 18s
+      DELETE          43       1m 29s
+```
+
+Each dimension shows:
+- Total count and cumulative duration
+- Top query types with individual counts and durations
+- Sorted by total count descending
+
+### Use Cases
+
+**Identify application patterns**
+
+```bash
+quellog /var/log/postgresql/*.log --sql-overview
+```
+
+See which applications are read-heavy (mostly SELECT) vs write-heavy (INSERT/UPDATE/DELETE).
+
+**Database workload analysis**
+
+```bash
+quellog /var/log/postgresql/*.log --dbname production --sql-overview
+```
+
+Understand the query mix for a specific database: transactional (DML), analytical (complex SELECT), or maintenance (VACUUM/ANALYZE).
+
+**User activity profiling**
+
+```bash
+quellog /var/log/postgresql/*.log --sql-overview
+```
+
+Check if users are respecting their role boundaries (e.g., readonly users should only run SELECT queries).
+
+**Combining with filters**
+
+```bash
+# Last hour query breakdown
+quellog /var/log/postgresql/*.log --last 1h --sql-overview
+
+# Specific database and time range
+quellog /var/log/postgresql/*.log \
+  --dbname production \
+  --begin "2025-01-13 00:00:00" \
+  --end "2025-01-14 00:00:00" \
+  --sql-overview
+
+# Exclude monitoring noise
+quellog /var/log/postgresql/*.log \
+  --exclude-user health_check \
+  --sql-overview
+```
 
 ## --sql-detail
 
@@ -313,32 +469,35 @@ Use filters to focus SQL analysis:
 
 ```bash
 # Last hour of logs
-quellog /var/log/postgresql/*.log --last 1h --sql-summary
+quellog /var/log/postgresql/*.log --last 1h --sql-performance
 
 # Production database, specific time window
 quellog /var/log/postgresql/*.log \
   --dbname production \
   --begin "2025-01-13 00:00:00" \
   --end "2025-01-14 00:00:00" \
-  --sql-summary
+  --sql-performance
 
 # Specific user
-quellog /var/log/postgresql/*.log --dbuser app_user --sql-summary
+quellog /var/log/postgresql/*.log --dbuser app_user --sql-performance
 
 # Exclude monitoring tools
 quellog /var/log/postgresql/*.log \
   --exclude-user health_check \
   --exclude-user powa \
-  --sql-summary
+  --sql-performance
 ```
 
 ## Export Formats
 
-Both `--sql-summary` and `--sql-detail` support markdown export:
+All SQL analysis modes (`--sql-performance`, `--sql-overview`, `--sql-detail`) support markdown export:
 
 ```bash
-# Export summary to markdown
-quellog /var/log/postgresql/*.log --sql-summary --md > report.md
+# Export performance analysis to markdown
+quellog /var/log/postgresql/*.log --sql-performance --md > report.md
+
+# Export query type overview to markdown
+quellog /var/log/postgresql/*.log --sql-overview --md > overview.md
 
 # Export specific query details to markdown
 quellog /var/log/postgresql/*.log --sql-detail se-N2d0E3 --md > query-analysis.md

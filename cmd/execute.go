@@ -163,9 +163,8 @@ func buildLogFilters(beginT, endT time.Time) parser.LogFilters {
 // processAndOutput analyzes filtered logs and outputs results in the requested format.
 func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, totalFileSize int64) {
 	// Validate flag compatibility
-	if jsonFlag && (sqlSummaryFlag || len(sqlDetailFlag) > 0) {
-		fmt.Fprintln(os.Stderr, "Error: --json is not compatible with --sql-summary or --sql-detail")
-		fmt.Fprintln(os.Stderr, "Tip: use --json --sql-performance and filter with jq")
+	if jsonFlag && mdFlag {
+		fmt.Fprintln(os.Stderr, "Error: --json and --md are mutually exclusive")
 		os.Exit(1)
 	}
 
@@ -180,7 +179,9 @@ func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, 
 			log.Fatalf("[ERROR] No log entries could be parsed. Check that files are readable and in a supported format.")
 		}
 
-		if mdFlag {
+		if jsonFlag {
+			output.ExportSQLDetailJSON(metrics, sqlDetailFlag)
+		} else if mdFlag {
 			output.ExportSqlDetailMarkdown(metrics, sqlDetailFlag)
 		} else {
 			PrintProcessingSummary(metrics.SQL.TotalQueries, processingDuration, totalFileSize)
@@ -189,8 +190,8 @@ func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, 
 		return
 	}
 
-	// Special case: SQL summary (aggregated query statistics)
-	if sqlSummaryFlag {
+	// Special case: SQL performance (detailed aggregated query statistics)
+	if sqlPerformanceFlag {
 		// Run full analysis to collect queries from locks and tempfiles
 		metrics := analysis.AggregateMetrics(filteredLogs, totalFileSize)
 		processingDuration := time.Since(startTime)
@@ -200,11 +201,34 @@ func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, 
 			log.Fatalf("[ERROR] No log entries could be parsed. Check that files are readable and in a supported format.")
 		}
 
-		if mdFlag {
+		if jsonFlag {
+			output.ExportSQLPerformanceJSON(metrics.SQL)
+		} else if mdFlag {
 			output.ExportSqlSummaryMarkdown(metrics.SQL, metrics.TempFiles, metrics.Locks)
 		} else {
 			PrintProcessingSummary(metrics.SQL.TotalQueries, processingDuration, totalFileSize)
 			output.PrintSQLSummaryWithContext(metrics.SQL, metrics.TempFiles, metrics.Locks, false)
+		}
+		return
+	}
+
+	// Special case: SQL overview (query type statistics with dimensional breakdown)
+	if sqlOverviewFlag {
+		metrics := analysis.AggregateMetrics(filteredLogs, totalFileSize)
+		processingDuration := time.Since(startTime)
+
+		// Check if any log entries were successfully parsed
+		if metrics.Global.Count == 0 {
+			log.Fatalf("[ERROR] No log entries could be parsed. Check that files are readable and in a supported format.")
+		}
+
+		if jsonFlag {
+			output.ExportSQLOverviewJSON(metrics.SQL)
+		} else if mdFlag {
+			output.ExportSqlOverviewMarkdown(metrics.SQL)
+		} else {
+			PrintProcessingSummary(metrics.SQL.TotalQueries, processingDuration, totalFileSize)
+			output.PrintSQLOverview(metrics.SQL)
 		}
 		return
 	}
@@ -261,8 +285,8 @@ func buildSectionList() []string {
 	if errorsFlag {
 		sections = append(sections, "errors")
 	}
-	if sqlPerformanceFlag {
-		sections = append(sections, "sql_performance")
+	if sqlSummaryFlag {
+		sections = append(sections, "sql_summary")
 	}
 	if tempfilesFlag {
 		sections = append(sections, "tempfiles")

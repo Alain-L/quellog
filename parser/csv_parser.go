@@ -128,6 +128,19 @@ func (p *CsvParser) parseReader(r io.Reader, out chan<- LogEntry) error {
 	return nil
 }
 
+// CSV timestamp formats in order of likelihood
+var csvTimestampFormats = []string{
+	"2006-01-02 15:04:05.999 MST",    // With millis and timezone
+	"2006-01-02 15:04:05.999999 MST", // With micros and timezone
+	"2006-01-02 15:04:05 MST",        // With timezone
+	"2006-01-02 15:04:05.999",        // With millis
+	"2006-01-02 15:04:05.999999",     // With micros
+	"2006-01-02 15:04:05",            // Basic
+}
+
+// cachedTimestampFormat caches the last successful format for faster parsing
+var cachedTimestampFormat string
+
 // parseCSVTimestamp parses the timestamp from PostgreSQL CSV logs.
 // Supports multiple formats:
 //   - "2006-01-02 15:04:05.999 MST"  (with fractional seconds and timezone)
@@ -135,18 +148,17 @@ func (p *CsvParser) parseReader(r io.Reader, out chan<- LogEntry) error {
 //   - "2006-01-02 15:04:05.999"      (with fractional seconds)
 //   - "2006-01-02 15:04:05"          (basic format)
 func parseCSVTimestamp(timestampStr string) (time.Time, error) {
-	// Try formats in order of likelihood
-	formats := []string{
-		"2006-01-02 15:04:05.999 MST",    // With millis and timezone
-		"2006-01-02 15:04:05.999999 MST", // With micros and timezone
-		"2006-01-02 15:04:05 MST",        // With timezone
-		"2006-01-02 15:04:05.999",        // With millis
-		"2006-01-02 15:04:05.999999",     // With micros
-		"2006-01-02 15:04:05",            // Basic
+	// Fast path: try cached format first
+	if cachedTimestampFormat != "" {
+		if t, err := time.Parse(cachedTimestampFormat, timestampStr); err == nil {
+			return t, nil
+		}
 	}
 
-	for _, format := range formats {
+	// Slow path: try all formats
+	for _, format := range csvTimestampFormats {
 		if t, err := time.Parse(format, timestampStr); err == nil {
+			cachedTimestampFormat = format
 			return t, nil
 		}
 	}
@@ -168,7 +180,7 @@ func parseCSVTimestamp(timestampStr string) (time.Time, error) {
 // Format: "[pid]: user=X,db=Y,app=Z SEVERITY: message DETAIL: detail HINT: hint QUERY: query"
 func buildCSVMessage(record []string) string {
 	var b strings.Builder
-	b.Grow(256) // Optimal pre-allocation size
+	b.Grow(512) // Pre-allocate for typical message with metadata
 
 	// Add PID if present
 	if pid := getField(record, csvFieldPID); pid != "" {
@@ -198,6 +210,14 @@ func buildCSVMessage(record []string) string {
 		}
 		b.WriteString("app=")
 		b.WriteString(app)
+		hasUserDbApp = true
+	}
+	if clientAddr := getField(record, csvFieldClientAddr); clientAddr != "" {
+		if hasUserDbApp {
+			b.WriteByte(',')
+		}
+		b.WriteString("client=")
+		b.WriteString(clientAddr)
 		hasUserDbApp = true
 	}
 	if hasUserDbApp {
@@ -253,11 +273,17 @@ func buildCSVMessage(record []string) string {
 
 // getField safely retrieves a field from a CSV record.
 // Returns empty string if the index is out of bounds or the field is empty.
+// Note: CSV reader already trims leading space, we only trim trailing for safety.
 func getField(record []string, index int) string {
 	if index >= len(record) {
 		return ""
 	}
-	return strings.TrimSpace(record[index])
+	s := record[index]
+	// Fast path: most fields don't have trailing spaces
+	if len(s) == 0 || s[len(s)-1] != ' ' {
+		return s
+	}
+	return strings.TrimRight(s, " ")
 }
 
 // ExtractCSVFields extracts structured fields from a CSV record for filtering.

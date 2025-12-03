@@ -63,6 +63,26 @@ type UniqueEntityMetrics struct {
 
 	// Hosts is the sorted list of all unique host/client addresses.
 	Hosts []string
+
+	// DBCounts maps each database name to its occurrence count in logs.
+	DBCounts map[string]int
+
+	// UserCounts maps each username to its occurrence count in logs.
+	UserCounts map[string]int
+
+	// AppCounts maps each application name to its occurrence count in logs.
+	AppCounts map[string]int
+
+	// HostCounts maps each host address to its occurrence count in logs.
+	HostCounts map[string]int
+
+	// UserDbCombos maps user×database combinations to their occurrence counts.
+	// Key format: "username|database"
+	UserDbCombos map[string]int
+
+	// UserHostCombos maps user×host combinations to their occurrence counts.
+	// Key format: "username|host"
+	UserHostCombos map[string]int
 }
 
 // AggregatedMetrics combines all analysis metrics into a single structure.
@@ -126,8 +146,8 @@ type StreamingAnalyzer struct {
 	sql            *SQLAnalyzer
 
 	// Parallel SQL processing
-	sqlChan chan *parser.LogEntry
-	sqlWg   sync.WaitGroup
+	sqlChan    chan *parser.LogEntry
+	parallelWg sync.WaitGroup
 }
 
 // NewStreamingAnalyzer creates a new streaming analyzer with all sub-analyzers initialized.
@@ -150,10 +170,10 @@ func NewStreamingAnalyzer(enableParallel bool) *StreamingAnalyzer {
 		// Start parallel SQL analyzer goroutine.
 		// This provides ~20% wall clock speedup (benchmarked on 1GB+ files) by offloading
 		// the most expensive analyzer to a dedicated goroutine, allowing better CPU utilization.
-		sa.sqlChan = make(chan *parser.LogEntry, 10000)
-		sa.sqlWg.Add(1)
+		sa.sqlChan = make(chan *parser.LogEntry, 65536)
+		sa.parallelWg.Add(1)
 		go func() {
-			defer sa.sqlWg.Done()
+			defer sa.parallelWg.Done()
 			for entry := range sa.sqlChan {
 				sa.sql.Process(entry)
 			}
@@ -166,8 +186,10 @@ func NewStreamingAnalyzer(enableParallel bool) *StreamingAnalyzer {
 // Process analyzes a single log entry, dispatching it to all relevant sub-analyzers.
 // Each sub-analyzer filters and processes only the entries relevant to it.
 func (sa *StreamingAnalyzer) Process(entry *parser.LogEntry) {
-	// Update global metrics
-	sa.global.Count++
+	// Update global metrics (skip continuation lines for accurate count)
+	if !entry.IsContinuation {
+		sa.global.Count++
+	}
 
 	// Track timestamp range
 	if sa.global.MinTimestamp.IsZero() || entry.Timestamp.Before(sa.global.MinTimestamp) {
@@ -179,7 +201,6 @@ func (sa *StreamingAnalyzer) Process(entry *parser.LogEntry) {
 
 	// Dispatch to specialized analyzers
 	// Each analyzer performs its own filtering
-	sa.tempFiles.Process(entry)
 	sa.vacuum.Process(entry)
 	sa.checkpoints.Process(entry)
 	sa.connections.Process(entry)
@@ -188,7 +209,10 @@ func (sa *StreamingAnalyzer) Process(entry *parser.LogEntry) {
 	sa.errorClasses.Process(entry)
 	sa.uniqueEntities.Process(entry)
 
-	// SQLAnalyzer: run in parallel if enabled, otherwise sequential
+	// TempFiles: always sequential (faster than channel overhead for typical logs)
+	sa.tempFiles.Process(entry)
+
+	// SQL: parallel if enabled (most expensive analyzer)
 	if sa.sqlChan != nil {
 		sa.sqlChan <- entry
 	} else {
@@ -199,10 +223,10 @@ func (sa *StreamingAnalyzer) Process(entry *parser.LogEntry) {
 // Finalize computes final metrics after all log entries have been processed.
 // This should be called once after processing all entries.
 func (sa *StreamingAnalyzer) Finalize() AggregatedMetrics {
-	// Close SQL channel and wait for goroutine to finish (if parallel mode)
+	// Close SQL channel and wait for goroutine to finish
 	if sa.sqlChan != nil {
 		close(sa.sqlChan)
-		sa.sqlWg.Wait()
+		sa.parallelWg.Wait()
 	}
 
 	// Finalize all metrics
@@ -269,19 +293,28 @@ func AggregateMetrics(in <-chan parser.LogEntry, fileSize int64) AggregatedMetri
 // UniqueEntityAnalyzer tracks unique database entities (databases, users, applications, hosts)
 // encountered in log entries.
 type UniqueEntityAnalyzer struct {
-	dbSet   map[string]struct{}
-	userSet map[string]struct{}
-	appSet  map[string]struct{}
-	hostSet map[string]struct{}
+	// NOTE: We only keep count maps, not separate sets. The unique lists
+	// are derived from map keys in Finalize(). This halves the number of
+	// hash map operations per log entry.
+	dbCounts   map[string]int
+	userCounts map[string]int
+	appCounts  map[string]int
+	hostCounts map[string]int
+
+	userDbCombos   map[string]int
+	userHostCombos map[string]int
 }
 
 // NewUniqueEntityAnalyzer creates a new unique entity analyzer.
 func NewUniqueEntityAnalyzer() *UniqueEntityAnalyzer {
 	return &UniqueEntityAnalyzer{
-		dbSet:   make(map[string]struct{}, 100),
-		userSet: make(map[string]struct{}, 100),
-		appSet:  make(map[string]struct{}, 100),
-		hostSet: make(map[string]struct{}, 100),
+		dbCounts:   make(map[string]int, 100),
+		userCounts: make(map[string]int, 100),
+		appCounts:  make(map[string]int, 100),
+		hostCounts: make(map[string]int, 100),
+
+		userDbCombos:   make(map[string]int, 200),
+		userHostCombos: make(map[string]int, 200),
 	}
 }
 
@@ -292,17 +325,26 @@ func NewUniqueEntityAnalyzer() *UniqueEntityAnalyzer {
 //   - "user=postgres"
 //   - "app=psql" or "application_name=app"
 //   - "host=192.168.1.1" or "client=192.168.1.1"
+//
+// Known limitation: In stderr format, parallel workers have empty log_line_prefix
+// fields (db=,user=,app=,client=) because PostgreSQL doesn't populate them.
+// CSV/JSON capture this data from pg_stat_activity. This causes slight count
+// differences between formats. See docs/POSTGRESQL_PATCHES.md.
 func (a *UniqueEntityAnalyzer) Process(entry *parser.LogEntry) {
-	msg := entry.Message
+	// Skip continuation lines (STATEMENT, DETAIL, HINT, CONTEXT) to avoid double-counting
+	if entry.IsContinuation {
+		return
+	}
 
-	// OPTION 1: Single-pass scanner
-	// Scan the message once looking for all patterns simultaneously
-	// This is more efficient on CSV where 90% of messages have metadata
+	msg := entry.Message
 
 	// Quick pre-filter: skip if no '=' present
 	if strings.IndexByte(msg, '=') == -1 {
 		return
 	}
+
+	// Track extracted values for building combinations and avoiding double-counting
+	var currentUser, currentDb, currentHost, currentApp string
 
 	// Single-pass extraction: scan once, extract all matches
 	i := 0
@@ -312,99 +354,127 @@ func (a *UniqueEntityAnalyzer) Process(entry *parser.LogEntry) {
 		// Find next '='
 		eqIdx := strings.IndexByte(msg[i:], '=')
 		if eqIdx == -1 {
-			break // No more '=' in message
+			break
 		}
 		eqIdx += i
 
-		// Check what's before the '='
-		// We need at least 2 chars before '=' for "db=" (shortest pattern)
 		if eqIdx < 2 {
 			i = eqIdx + 1
 			continue
 		}
 
-		// Match patterns by checking backwards from '='
-		// Check longer patterns first to avoid false matches
-		matched := false
+		lastChar := msg[eqIdx-1]
 
-		// "application_name=" (17 chars)
-		if eqIdx >= 16 && msg[eqIdx-16:eqIdx] == "application_name" {
-			if appName := extractValueAt(msg, eqIdx+1); appName != "" {
-				a.appSet[appName] = struct{}{}
-				matched = true
+		if lastChar == 'e' {
+			if eqIdx >= 16 && msg[eqIdx-16:eqIdx] == "application_name" {
+				if currentApp == "" {
+					if appName := extractValueAt(msg, eqIdx+1); appName != "" {
+						currentApp = appName
+					}
+				}
+			} else if eqIdx >= 8 && msg[eqIdx-8:eqIdx] == "database" {
+				if currentDb == "" {
+					if dbName := extractValueAt(msg, eqIdx+1); dbName != "" {
+						currentDb = dbName
+					}
+				}
 			}
-		} else if eqIdx >= 8 && msg[eqIdx-8:eqIdx] == "database" {
-			// "database=" (9 chars)
-			if dbName := extractValueAt(msg, eqIdx+1); dbName != "" {
-				a.dbSet[dbName] = struct{}{}
-				matched = true
+		} else if lastChar == 't' {
+			if eqIdx >= 6 && msg[eqIdx-6:eqIdx] == "client" {
+				if currentHost == "" {
+					if hostName := extractValueAt(msg, eqIdx+1); hostName != "" {
+						currentHost = normalizeHost(hostName)
+					}
+				}
+			} else if eqIdx >= 4 && msg[eqIdx-4:eqIdx] == "host" {
+				if currentHost == "" {
+					if hostName := extractValueAt(msg, eqIdx+1); hostName != "" {
+						currentHost = normalizeHost(hostName)
+					}
+				}
 			}
-		} else if eqIdx >= 6 && msg[eqIdx-6:eqIdx] == "client" {
-			// "client=" (7 chars)
-			if hostName := extractValueAt(msg, eqIdx+1); hostName != "" {
-				a.hostSet[hostName] = struct{}{}
-				matched = true
-			}
-		} else if eqIdx >= 4 {
-			// Check 4-char patterns: "user=", "host="
-			prefix4 := msg[eqIdx-4 : eqIdx]
-			if prefix4 == "user" {
+		} else if lastChar == 'r' && eqIdx >= 4 && msg[eqIdx-4:eqIdx] == "user" {
+			if currentUser == "" {
 				if userName := extractValueAt(msg, eqIdx+1); userName != "" {
-					a.userSet[userName] = struct{}{}
-					matched = true
-				}
-			} else if prefix4 == "host" {
-				if hostName := extractValueAt(msg, eqIdx+1); hostName != "" {
-					a.hostSet[hostName] = struct{}{}
-					matched = true
+					currentUser = userName
 				}
 			}
-		}
-
-		// Check 3-char patterns: "app="
-		if !matched && eqIdx >= 3 {
-			prefix3 := msg[eqIdx-3 : eqIdx]
-			if prefix3 == "app" {
+		} else if lastChar == 'p' && eqIdx >= 3 && msg[eqIdx-3:eqIdx] == "app" {
+			if currentApp == "" {
 				if appName := extractValueAt(msg, eqIdx+1); appName != "" {
-					a.appSet[appName] = struct{}{}
-					matched = true
+					currentApp = appName
 				}
 			}
-		}
-
-		// Check 2-char patterns: "db="
-		if !matched && eqIdx >= 2 {
-			prefix2 := msg[eqIdx-2 : eqIdx]
-			if prefix2 == "db" {
+		} else if lastChar == 'b' && eqIdx >= 2 && msg[eqIdx-2:eqIdx] == "db" {
+			if currentDb == "" {
 				if dbName := extractValueAt(msg, eqIdx+1); dbName != "" {
-					a.dbSet[dbName] = struct{}{}
-					matched = true
+					currentDb = dbName
 				}
 			}
 		}
 
-		// Move past this '=' and continue scanning
 		i = eqIdx + 1
+	}
+
+	// Count entities
+	if currentUser != "" {
+		a.userCounts[currentUser]++
+	}
+	if currentDb != "" {
+		a.dbCounts[currentDb]++
+	}
+	if currentApp != "" {
+		a.appCounts[currentApp]++
+	}
+	if currentHost != "" {
+		a.hostCounts[currentHost]++
+	}
+
+	// Build combinations
+	if currentUser != "" && currentDb != "" {
+		a.userDbCombos[currentUser+"|"+currentDb]++
+	}
+	if currentUser != "" && currentHost != "" {
+		a.userHostCombos[currentUser+"|"+currentHost]++
 	}
 }
 
 // Finalize returns the unique entity metrics with sorted lists.
 func (a *UniqueEntityAnalyzer) Finalize() UniqueEntityMetrics {
+	// Derive unique lists from count map keys (no need for separate sets)
 	return UniqueEntityMetrics{
-		UniqueDbs:   len(a.dbSet),
-		UniqueUsers: len(a.userSet),
-		UniqueApps:  len(a.appSet),
-		UniqueHosts: len(a.hostSet),
-		DBs:         mapKeysAsSlice(a.dbSet),
-		Users:       mapKeysAsSlice(a.userSet),
-		Apps:        mapKeysAsSlice(a.appSet),
-		Hosts:       mapKeysAsSlice(a.hostSet),
+		UniqueDbs:      len(a.dbCounts),
+		UniqueUsers:    len(a.userCounts),
+		UniqueApps:     len(a.appCounts),
+		UniqueHosts:    len(a.hostCounts),
+		DBs:            countMapKeysAsSlice(a.dbCounts),
+		Users:          countMapKeysAsSlice(a.userCounts),
+		Apps:           countMapKeysAsSlice(a.appCounts),
+		Hosts:          countMapKeysAsSlice(a.hostCounts),
+		DBCounts:       a.dbCounts,
+		UserCounts:     a.userCounts,
+		AppCounts:      a.appCounts,
+		HostCounts:     a.hostCounts,
+		UserDbCombos:   a.userDbCombos,
+		UserHostCombos: a.userHostCombos,
 	}
 }
 
 // ============================================================================
 // Helper functions
 // ============================================================================
+
+// isSeparator is a lookup table for fast separator detection.
+// Using a 256-byte array is faster than multiple comparisons.
+var isSeparator [256]bool
+
+func init() {
+	// Mark separator characters
+	isSeparator[' '] = true
+	isSeparator[','] = true
+	isSeparator['['] = true
+	isSeparator[')'] = true
+}
 
 // extractValueAt extracts a value starting at a given position in the message.
 // It stops at the first separator: space, comma, bracket, or parenthesis.
@@ -419,8 +489,8 @@ func extractValueAt(msg string, startPos int) string {
 	endPos := startPos
 	for endPos < len(msg) {
 		c := msg[endPos]
-		// Check for separators: space, comma, '[', ')'
-		if c == ' ' || c == ',' || c == '[' || c == ')' {
+		// Fast lookup table check (single array access vs 4 comparisons)
+		if isSeparator[c] {
 			break
 		}
 		endPos++
@@ -432,6 +502,11 @@ func extractValueAt(msg string, startPos int) string {
 
 	// Extract and normalize value
 	val := msg[startPos:endPos]
+
+	// Remove surrounding quotes if present (e.g., user="postgres" → postgres)
+	if len(val) >= 2 && (val[0] == '"' && val[len(val)-1] == '"' || val[0] == '\'' && val[len(val)-1] == '\'') {
+		val = val[1 : len(val)-1]
+	}
 
 	// Normalize "unknown" or "[unknown]" to "UNKNOWN"
 	if val == "" || val == "unknown" || val == "[unknown]" {
@@ -445,7 +520,56 @@ func extractValueAt(msg string, startPos int) string {
 		}
 	}
 
+	// Filter PostgreSQL log_line_prefix placeholders (e.g., %u, %d, %a, %h)
+	// These appear in "log_line_prefix changed to..." messages
+	if len(val) == 2 && val[0] == '%' {
+		return ""
+	}
+
 	return val
+}
+
+// normalizeHost removes the port from a host address.
+// Handles formats like "192.168.1.1(12345)" or "192.168.1.1:5432" or "[::1](12345)".
+// Returns just the IP/hostname part.
+func normalizeHost(host string) string {
+	if host == "" {
+		return host
+	}
+
+	// Handle IPv6 with brackets: [::1](port) or [::1]:port
+	if host[0] == '[' {
+		if idx := strings.Index(host, "]"); idx > 0 {
+			return host[:idx+1] // Include the closing bracket
+		}
+		return host
+	}
+
+	// Handle IP(port) format - common in PostgreSQL logs
+	if idx := strings.Index(host, "("); idx > 0 {
+		return host[:idx]
+	}
+
+	// Handle IP:port format
+	if idx := strings.LastIndex(host, ":"); idx > 0 {
+		// Make sure it's not IPv6 (multiple colons)
+		if strings.Count(host, ":") == 1 {
+			return host[:idx]
+		}
+	}
+
+	return host
+}
+
+// countMapKeysAsSlice extracts keys from a count map and returns them as a sorted slice.
+// This is used to derive unique entity lists from count maps without needing separate sets.
+func countMapKeysAsSlice(m map[string]int) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 // extractKeyValue extracts a value from a log message for a given key.

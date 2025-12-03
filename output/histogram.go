@@ -332,25 +332,30 @@ func computeCheckpointHistogram(m analysis.CheckpointMetrics) (map[string]int, s
 
 // computeConnectionsHistogram calculates a histogram of connection events over time.
 // It divides the time range into 6 equal buckets and counts connections in each bucket.
+// If logStart/logEnd are provided, they define the time range; otherwise the range is derived from events.
 //
 // Returns:
 //   - histogram: map of time range labels to connection count
 //   - unit: "connections"
 //   - scaleFactor: for proportional display (max bar width = 40 chars)
-func computeConnectionsHistogram(events []time.Time) (map[string]int, string, int) {
+func computeConnectionsHistogram(events []time.Time, logStart, logEnd time.Time) (map[string]int, string, int) {
 	if len(events) == 0 {
 		return nil, "", 0
 	}
 
-	// Déterminer le début et la fin de la période à partir des événements.
-	start := events[0]
-	end := events[0]
-	for _, t := range events {
-		if t.Before(start) {
-			start = t
-		}
-		if t.After(end) {
-			end = t
+	// Use log period if provided, otherwise derive from events
+	start := logStart
+	end := logEnd
+	if start.IsZero() || end.IsZero() {
+		start = events[0]
+		end = events[0]
+		for _, t := range events {
+			if t.Before(start) {
+				start = t
+			}
+			if t.After(end) {
+				end = t
+			}
 		}
 	}
 
@@ -362,13 +367,27 @@ func computeConnectionsHistogram(events []time.Time) (map[string]int, string, in
 	}
 	bucketDuration := totalDuration / time.Duration(numBuckets)
 
+	// Check if we span multiple calendar days
+	startDay := time.Date(start.Year(), start.Month(), start.Day(), 0, 0, 0, 0, start.Location())
+	endDay := time.Date(end.Year(), end.Month(), end.Day(), 0, 0, 0, 0, end.Location())
+	spansDays := !startDay.Equal(endDay)
+
 	// Création des buckets avec leurs labels.
 	histogram := make(map[string]int, numBuckets)
 	bucketLabels := make([]string, numBuckets)
 	for i := 0; i < numBuckets; i++ {
 		bucketStart := start.Add(time.Duration(i) * bucketDuration)
 		bucketEnd := bucketStart.Add(bucketDuration)
-		label := fmt.Sprintf("%s - %s", bucketStart.Format("15:04"), bucketEnd.Format("15:04"))
+		var label string
+		if spansDays {
+			label = fmt.Sprintf("%02d/%02d %02d:%02d - %02d/%02d %02d:%02d",
+				bucketStart.Month(), bucketStart.Day(),
+				bucketStart.Hour(), bucketStart.Minute(),
+				bucketEnd.Month(), bucketEnd.Day(),
+				bucketEnd.Hour(), bucketEnd.Minute())
+		} else {
+			label = fmt.Sprintf("%s - %s", bucketStart.Format("15:04"), bucketEnd.Format("15:04"))
+		}
 		histogram[label] = 0
 		bucketLabels[i] = label
 	}

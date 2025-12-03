@@ -2,6 +2,32 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.0] - 2025-12-03
+
+### Added
+- **Syslog RFC5424 and BSD support**: Full parsing of RFC5424 structured syslog and BSD-style syslog formats
+- **Automatic `log_line_prefix` detection**: Heuristic-based detection achieving 100% metadata extraction accuracy
+- **SQL overview report**: `--sql-overview` flag with query category breakdown (DML/DDL/TCL/UTILITY) and type distribution
+- **Enhanced client statistics**: `--clients` now shows activity counts, cross-tabulations, and `[X more...]` indicators
+- **Concurrent sessions histogram**: Visual distribution of simultaneous database connections over time
+- **Detailed session analytics**: Enriched connection statistics with session duration percentiles
+- **Dedicated JSON exports for SQL analysis**: `--sql-summary --json` and `--sql-detail --json` produce focused exports
+
+### Changed
+- **Performance optimizations**:
+  - CSV and temp file parsing optimizations
+  - Analyzer pre-filters ~2x faster processing
+  - Parallel TempFileAnalyzer with SQL analyzer
+  - Fast-path event type and vacuum detection
+- **Test infrastructure overhaul**: Comprehensive fixtures across 6 formats (stderr, CSV, JSON, syslog, syslog_bsd, syslog_rfc5424) with format parity validation
+- **Enriched Markdown exports**: Connections and clients sections now include detailed analytics
+
+### Fixed
+- **User double-counting**: Resolved duplicate user counts in entity metrics
+- **Syslog parsing**: Improved timestamp and metadata extraction for edge cases
+- **Histogram consistency**: Fixed extractPrefixFields alignment issues
+- **Flag validation**: `--json` and `--md` flags now properly rejected when used together
+
 ## [0.4.0] - 2025-11-21
 
 ### Added

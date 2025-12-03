@@ -84,8 +84,10 @@ quellog /var/log/postgresql/*.log --sql-performance
 - Checking query load distribution
 - Verifying query logging is working
 
-!!! note "Difference from --sql-summary"
-    `--sql-performance` shows the overview histogram and aggregate stats from the default report, while `--sql-summary` provides detailed per-query statistics.
+!!! note "Related SQL flags"
+    - `--sql-performance`: Detailed per-query statistics with top queries, temp files, and locks
+    - `--sql-overview`: Query type breakdown by database/user/host/application
+    - Use `--sql-summary` flag to show only the SQL summary section in the default report
 
 ### --tempfiles
 
@@ -176,7 +178,7 @@ quellog /var/log/postgresql/*.log --checkpoints
 
 ### --connections
 
-Display only the connections section.
+Display detailed connection and session analytics.
 
 ```bash
 quellog /var/log/postgresql/*.log --connections
@@ -185,20 +187,42 @@ quellog /var/log/postgresql/*.log --connections
 **Output includes**:
 
 - Connection distribution histogram
-- Total connection count
-- Average connections per hour
+- Total connection count and rate per hour
 - Disconnection count
-- Average session duration
+- Average and peak concurrent sessions
+- **Session duration statistics** (min, max, avg, median, cumulated)
+- **Session duration distribution** histogram (6 time buckets)
+- **Top 10 sessions by user** (with full statistics)
+- **Top 10 sessions by database** (with full statistics)
+- **Top 10 sessions by host** (with full statistics)
 
 **Use when**:
 
 - Monitoring connection patterns
 - Planning connection pooling
 - Investigating connection churn
+- Analyzing session duration patterns by user/database/host
+- Identifying long-running sessions
+- Understanding connection lifecycle
+
+**Example output excerpt**:
+
+```
+SESSION DURATION BY USER
+
+  User                       Sessions      Min      Max      Avg   Median  Cumulated
+  ---------------------------------------------------------------------------------------
+  app_user                         10   31m6s  2h20m16s  1h26m59s  1h26m48s   14h29m46s
+  readonly                          5   7m10s   1h3m26s   41m38s    47m30s    3h28m11s
+  batch_user                        3  1h21m46s  2h0m30s  1h42m45s   1h46m0s    5h8m16s
+```
+
+!!! tip "Detailed Analytics"
+    The `--connections` flag provides much more detail than the connections section in the default report, including session breakdowns by entity and duration distributions.
 
 ### --clients
 
-Display only the clients section showing unique entities.
+Display only the clients section showing **all** unique entities with counts and percentages.
 
 ```bash
 quellog /var/log/postgresql/*.log --clients
@@ -206,16 +230,121 @@ quellog /var/log/postgresql/*.log --clients
 
 **Output includes**:
 
-- Unique database count and list
-- Unique user count and list
-- Unique application count and list
-- Unique host count and list (if available)
+- Unique database count and complete list with activity counts
+- Unique user count and complete list with activity counts
+- Unique application count and complete list with activity counts
+- Unique host count and complete list with activity counts (if available)
+
+**Difference from default report**:
+
+- Default report shows **TOP 10** most active entities per category
+- `--clients` flag shows **ALL** entities (no limit)
+
+**Example output** (complete --clients output showing ALL entities):
+
+```
+CLIENTS
+
+  Unique DBs                : 3
+  Unique Users              : 15
+  Unique Apps               : 12
+  Unique Hosts              : 37
+
+USERS
+
+  app_user                   1250   42.5%
+  readonly                    856   29.1%
+  batch_user                  423   14.4%
+  admin                       198    6.7%
+  analytics                   145    4.9%
+  backup_user                  52    1.8%
+  postgres                     16    0.5%
+  monitoring                   12    0.4%
+  replication                   8    0.3%
+  test_user                     5    0.2%
+  dev_user_1                    3    0.1%
+  dev_user_2                    2    0.1%
+  dev_user_3                    1    0.0%
+  dev_user_4                    1    0.0%
+  qa_user                       1    0.0%
+
+APPS
+
+  app_server                 1342   45.6%
+  psql                        687   23.4%
+  metabase                    456   15.5%
+  pgadmin                     234    8.0%
+  batch_job                   145    4.9%
+  pg_dump                      52    1.8%
+  pg_restore                   12    0.4%
+  python_script                 8    0.3%
+  monitoring_tool               5    0.2%
+  tableau                       3    0.1%
+  dbeaver                       2    0.1%
+  datagrip                      1    0.0%
+
+DATABASES
+
+  app_db                     2456   83.5%
+  postgres                    342   11.6%
+  analytics_db                142    4.8%
+
+HOSTS
+
+  192.168.1.100               876   29.8%
+  10.0.1.50                   654   22.2%
+  172.16.0.10                 543   18.5%
+  10.0.1.51                   432   14.7%
+  172.16.0.12                 234    8.0%
+  192.168.1.101               123    4.2%
+  10.0.1.52                    56    1.9%
+  172.16.0.15                  22    0.7%
+  10.0.1.53                    18    0.6%
+  172.16.0.20                  12    0.4%
+  [... 27 more hosts listed with counts ...]
+
+USER × DATABASE
+
+  app_user                  × app_db                      1856   63.1%
+  readonly                  × app_db                       543   18.5%
+  app_user                  × analytics_db                 123    4.2%
+  batch_user                × app_db                        98    3.3%
+  readonly                  × analytics_db                  87    3.0%
+  admin                     × postgres                      65    2.2%
+  batch_user                × analytics_db                  45    1.5%
+  analytics                 × analytics_db                  34    1.2%
+  admin                     × app_db                        23    0.8%
+  backup_user               × postgres                      12    0.4%
+  monitoring                × postgres                       8    0.3%
+  replication               × app_db                         5    0.2%
+  postgres                  × postgres                       4    0.1%
+  test_user                 × app_db                         3    0.1%
+  [... all 18 combinations listed ...]
+
+USER × HOST
+
+  app_user                  × 192.168.1.100                 654   22.2%
+  readonly                  × 10.0.1.50                     432   14.7%
+  app_user                  × 172.16.0.10                   345   11.7%
+  batch_user                × 10.0.1.51                     234    8.0%
+  app_user                  × 10.0.1.50                     187    6.4%
+  readonly                  × 192.168.1.100                 156    5.3%
+  admin                     × 172.16.0.12                   123    4.2%
+  analytics                 × 10.0.1.52                      98    3.3%
+  batch_user                × 192.168.1.101                  76    2.6%
+  readonly                  × 172.16.0.10                    65    2.2%
+  [... all 52 combinations listed ...]
+```
 
 **Use when**:
 
-- Auditing database access
+- Auditing database access (need complete list)
 - Understanding client diversity
 - Security reviews
+- Generating compliance reports
+
+!!! tip "Complete Entity Lists"
+    The `--clients` flag displays **all** entities without the 10-item limit applied in the default report. This is useful for comprehensive audits and compliance reporting.
 
 ## Combining Sections
 
@@ -388,7 +517,7 @@ quellog /var/log/postgresql/*.log \
 quellog /var/log/postgresql/*.log \
   --begin "2025-01-13 14:00:00" \
   --end "2025-01-13 15:00:00" \
-  --sql-summary
+  --sql-detail se-a1b2c3
 ```
 
 ## Section Availability
@@ -448,5 +577,5 @@ quellog /var/log/postgresql/*.log \
 ## Next Steps
 
 - [Understand the default report](default-report.md) to interpret each section
-- [Deep dive into SQL analysis](sql-reports.md) with --sql-summary
+- [Deep dive into SQL analysis](sql-reports.md) with `--sql-performance`, `--sql-overview`, and `--sql-detail`
 - [Export results](json-export.md) for further processing

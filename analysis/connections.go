@@ -9,6 +9,12 @@ import (
 	"github.com/Alain-L/quellog/parser"
 )
 
+// SessionEvent represents a session with its start and end times.
+type SessionEvent struct {
+	StartTime time.Time
+	EndTime   time.Time
+}
+
 // ConnectionMetrics aggregates statistics related to database connections and sessions.
 // These metrics help understand connection patterns, session durations, and client behavior.
 type ConnectionMetrics struct {
@@ -25,6 +31,29 @@ type ConnectionMetrics struct {
 	// Connections contains timestamps of all connection events.
 	// Useful for analyzing connection rate and patterns over time.
 	Connections []time.Time
+
+	// SessionDurations contains all individual session durations.
+	// Used for calculating median, distribution, and statistics.
+	SessionDurations []time.Duration
+
+	// SessionEvents contains all sessions with their start and end times.
+	// Used for calculating concurrent connections over time.
+	SessionEvents []SessionEvent
+
+	// SessionsByUser maps usernames to their session durations.
+	SessionsByUser map[string][]time.Duration
+
+	// SessionsByDatabase maps database names to their session durations.
+	SessionsByDatabase map[string][]time.Duration
+
+	// SessionsByHost maps host addresses to their session durations.
+	SessionsByHost map[string][]time.Duration
+
+	// PeakConcurrentSessions is the maximum number of simultaneous sessions observed.
+	PeakConcurrentSessions int
+
+	// PeakConcurrentTimestamp is when the peak concurrent sessions occurred.
+	PeakConcurrentTimestamp time.Time
 }
 
 // ============================================================================
@@ -57,12 +86,30 @@ type ConnectionAnalyzer struct {
 	disconnectionCount      int
 	totalSessionTime        time.Duration
 	connections             []time.Time
+	sessionDurations        []time.Duration
+	sessionEvents           []SessionEvent
+	sessionsByUser          map[string][]time.Duration
+	sessionsByDatabase      map[string][]time.Duration
+	sessionsByHost          map[string][]time.Duration
+
+	// For tracking concurrent connections
+	// Use PID as key instead of timestamp to avoid collisions when
+	// multiple connections arrive in the same second
+	activeConnections       map[string]time.Time // PID -> connection timestamp
+	peakConcurrent          int
+	peakConcurrentTimestamp time.Time
 }
 
 // NewConnectionAnalyzer creates a new connection analyzer.
 func NewConnectionAnalyzer() *ConnectionAnalyzer {
 	return &ConnectionAnalyzer{
-		connections: make([]time.Time, 0, 1000),
+		connections:        make([]time.Time, 0, 1000),
+		sessionDurations:   make([]time.Duration, 0, 1000),
+		sessionEvents:      make([]SessionEvent, 0, 1000),
+		sessionsByUser:     make(map[string][]time.Duration, 100),
+		sessionsByDatabase: make(map[string][]time.Duration, 50),
+		sessionsByHost:     make(map[string][]time.Duration, 100),
+		activeConnections:  make(map[string]time.Time, 1000),
 	}
 }
 
@@ -81,20 +128,70 @@ func (a *ConnectionAnalyzer) Process(entry *parser.LogEntry) {
 		return // Neither connection nor disconnection present
 	}
 
+	// Extract PID once for this entry (used for connection tracking)
+	pid := parser.ExtractPID(msg)
+
 	// Check if it's "connection received" or "disconnection"
 	// "connection received" has 'c' at position idx
 	// "disconnection" has 'd' before "connection" (idx-3: "dis")
 	if idx >= 3 && msg[idx-3:idx] == "dis" {
 		// It's "disconnection"
 		a.disconnectionCount++
+
+		// Remove from active connections using PID
+		if pid != "" {
+			delete(a.activeConnections, pid)
+		}
+
 		if duration := extractSessionTime(msg); duration > 0 {
 			a.totalSessionTime += duration
+			a.sessionDurations = append(a.sessionDurations, duration)
+
+			// Store session event for concurrent tracking
+			startTime := entry.Timestamp.Add(-duration)
+			a.sessionEvents = append(a.sessionEvents, SessionEvent{
+				StartTime: startTime,
+				EndTime:   entry.Timestamp,
+			})
+
+			// Extract user, database, and host from disconnection message
+			user := extractEntityFromMessage(msg, "user")
+			database := extractEntityFromMessage(msg, "database")
+			host := extractEntityFromMessage(msg, "host")
+
+			// Store duration by user
+			if user != "" {
+				a.sessionsByUser[user] = append(a.sessionsByUser[user], duration)
+			}
+
+			// Store duration by database
+			if database != "" {
+				a.sessionsByDatabase[database] = append(a.sessionsByDatabase[database], duration)
+			}
+
+			// Store duration by host
+			if host != "" {
+				a.sessionsByHost[host] = append(a.sessionsByHost[host], duration)
+			}
 		}
 	} else if idx+10 < len(msg) && msg[idx:idx+10] == "connection" {
 		// Check if followed by " received"
 		if idx+19 <= len(msg) && msg[idx:idx+19] == "connection received" {
 			a.connectionReceivedCount++
 			a.connections = append(a.connections, entry.Timestamp)
+
+			// Track active connections using PID for accurate counting
+			// Fall back to timestamp string if PID not available
+			key := pid
+			if key == "" {
+				key = entry.Timestamp.String()
+			}
+			a.activeConnections[key] = entry.Timestamp
+			currentActive := len(a.activeConnections)
+			if currentActive > a.peakConcurrent {
+				a.peakConcurrent = currentActive
+				a.peakConcurrentTimestamp = entry.Timestamp
+			}
 		}
 	}
 }
@@ -107,6 +204,13 @@ func (a *ConnectionAnalyzer) Finalize() ConnectionMetrics {
 		DisconnectionCount:      a.disconnectionCount,
 		TotalSessionTime:        a.totalSessionTime,
 		Connections:             a.connections,
+		SessionDurations:        a.sessionDurations,
+		SessionEvents:           a.sessionEvents,
+		SessionsByUser:          a.sessionsByUser,
+		SessionsByDatabase:      a.sessionsByDatabase,
+		SessionsByHost:          a.sessionsByHost,
+		PeakConcurrentSessions:  a.peakConcurrent,
+		PeakConcurrentTimestamp: a.peakConcurrentTimestamp,
 	}
 }
 
@@ -189,4 +293,50 @@ func parsePostgreSQLDuration(s string) time.Duration {
 		time.Duration(seconds*float64(time.Second))
 
 	return duration
+}
+
+// extractEntityFromMessage extracts a specific entity (user, database, host, or application) from a log message.
+// Supports patterns: "user=value", "database=value", "db=value", "host=value", "application=value"
+func extractEntityFromMessage(msg, entityType string) string {
+	var patterns []string
+	if entityType == "user" {
+		patterns = []string{"user="}
+	} else if entityType == "database" {
+		patterns = []string{"database=", "db="}
+	} else if entityType == "host" {
+		patterns = []string{"host="}
+	} else if entityType == "application" {
+		patterns = []string{"application=", "app="}
+	} else {
+		return ""
+	}
+
+	for _, pattern := range patterns {
+		idx := strings.Index(msg, pattern)
+		if idx == -1 {
+			continue
+		}
+
+		// Extract value after '='
+		startPos := idx + len(pattern)
+		if startPos >= len(msg) {
+			continue
+		}
+
+		// Find end position (first separator: space, comma, bracket, or parenthesis)
+		endPos := startPos
+		for endPos < len(msg) {
+			c := msg[endPos]
+			if c == ' ' || c == ',' || c == '[' || c == ')' {
+				break
+			}
+			endPos++
+		}
+
+		if endPos > startPos {
+			return msg[startPos:endPos]
+		}
+	}
+
+	return ""
 }

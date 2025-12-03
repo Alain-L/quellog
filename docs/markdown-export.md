@@ -6,8 +6,11 @@ Export analysis results as Markdown for documentation and reports.
 # Default report to markdown
 quellog /var/log/postgresql/*.log --md > report.md
 
-# SQL summary to markdown
-quellog /var/log/postgresql/*.log --sql-summary --md > queries.md
+# SQL performance to markdown
+quellog /var/log/postgresql/*.log --sql-performance --md > queries.md
+
+# SQL overview to markdown
+quellog /var/log/postgresql/*.log --sql-overview --md > overview.md
 
 # SQL detail to markdown
 quellog /var/log/postgresql/*.log --sql-detail se-N2d0E3 --md > query-detail.md
@@ -26,12 +29,12 @@ Exports comprehensive analysis of all metrics:
 quellog /var/log/postgresql/*.log --md > full-report.md
 ```
 
-### SQL Summary (`--sql-summary --md`)
+### SQL Performance (`--sql-performance --md`)
 
-Exports query performance analysis with temp files and locks:
+Exports detailed query performance analysis with temp files and locks:
 
 ```bash
-quellog /var/log/postgresql/*.log --sql-summary --md > sql-analysis.md
+quellog /var/log/postgresql/*.log --sql-performance --md > sql-analysis.md
 ```
 
 Includes:
@@ -39,6 +42,19 @@ Includes:
 - Top queries tables (slowest, most frequent, time consuming)
 - TEMP FILES section with query breakdown
 - LOCKS section with acquired/waiting queries
+
+### SQL Overview (`--sql-overview --md`)
+
+Exports query type breakdown by dimension:
+
+```bash
+quellog /var/log/postgresql/*.log --sql-overview --md > sql-overview.md
+```
+
+Includes:
+- Query Category Summary (DML, DDL, TCL, etc.)
+- Query Type Distribution (SELECT, INSERT, UPDATE, etc.)
+- Breakdown by Database, User, Host, and Application
 
 ### SQL Detail (`--sql-detail <id> --md`)
 
@@ -207,25 +223,136 @@ Lock statistics with query tables.
 | time | 257 | 99.6% | 10.71/h |
 ```
 
+### CONNECTIONS & SESSIONS
+
+Connection patterns and session duration analytics.
+
+```markdown
+## CONNECTIONS & SESSIONS
+
+### Connection distribution
+
+\`\`\`
+00:00 - 00:58 | ■■■■■■■■■■■■■■■ 15
+00:58 - 01:56 | ■■■■■ 5
+01:56 - 02:55 | ■■■■ 4
+\`\`\`
+
+- **Connection count**: 36
+- **Avg connections per hour**: 1.50
+- **Disconnection count**: 23
+- **Avg session time**: 1h14m7s
+- **Avg concurrent sessions**: 13.45
+- **Peak concurrent sessions**: 36 (at 05:50:00)
+
+### Session Duration Statistics
+
+- **Count**: 23
+- **Min**: 7m10s
+- **Max**: 2h20m16s
+- **Avg**: 1h14m7s
+- **Median**: 1h17m45s
+- **Cumulated**: 28h24m31s
+
+### Session duration distribution
+
+\`\`\`
+< 1s         | -
+1s - 1min    | -
+1min - 30min | ■ 1
+30min - 2h   | ■■■■■■■■■■■■■■■■■■■ 19
+2h - 5h      | ■■■ 3
+> 5h         | -
+\`\`\`
+
+### Session Duration by User
+
+| User | Sessions | Min | Max | Avg | Median | Cumulated |
+|---|---:|---|---|---|---|---|
+| app_user | 10 | 31m6s | 2h20m16s | 1h26m59s | 1h26m48s | 14h29m46s |
+| readonly | 5 | 7m10s | 1h3m26s | 41m38s | 47m30s | 3h28m11s |
+| batch_user | 3 | 1h21m46s | 2h0m30s | 1h42m45s | 1h46m0s | 5h8m16s |
+
+### Session Duration by Database
+
+| Database | Sessions | Min | Max | Avg | Median | Cumulated |
+|---|---:|---|---|---|---|---|
+| app_db | 16 | 7m10s | 2h20m16s | 1h19m42s | 1h22m18s | 21h15m18s |
+| postgres | 4 | 42m46s | 1h44m45s | 1h0m8s | 46m31s | 4h0m32s |
+
+### Session Duration by Host
+
+| Host | Sessions | Min | Max | Avg | Median | Cumulated |
+|---|---:|---|---|---|---|---|
+| 192.168.1.100 | 3 | 31m6s | 1h13m10s | 50m40s | 45m30s | 2h32m1s |
+| 10.0.1.50 | 2 | 1h17m45s | 1h52m46s | 1h35m16s | 1h35m16s | 3h10m31s |
+```
+
 ### CLIENTS
+
+Unique database entities with activity counts and cross-tabulations.
 
 ```markdown
 ## CLIENTS
 
-- **Unique DBs**: 2
-- **Unique Users**: 3
-- **Unique Apps**: 0
-- **Unique Hosts**: 0
+- **Unique DBs**: 3
+- **Unique Users**: 7
+- **Unique Apps**: 9
+- **Unique Hosts**: 37
 
 ### USERS
 
-- postgres
-- app_user
+| User | Count | % |
+|---|---:|---:|
+| app_user | 1250 | 42.5% |
+| readonly | 856 | 29.1% |
+| batch_user | 423 | 14.4% |
+| admin | 198 | 6.7% |
+| analytics | 145 | 4.9% |
+| backup_user | 52 | 1.8% |
+| postgres | 16 | 0.5% |
+
+### APPS
+
+| App | Count | % |
+|---|---:|---:|
+| app_server | 1342 | 45.6% |
+| psql | 687 | 23.4% |
+| metabase | 456 | 15.5% |
 
 ### DATABASES
 
-- postgres
-- app_db
+| Database | Count | % |
+|---|---:|---:|
+| app_db | 2456 | 83.5% |
+| postgres | 342 | 11.6% |
+| analytics_db | 142 | 4.8% |
+
+### HOSTS
+
+| Host | Count | % |
+|---|---:|---:|
+| 192.168.1.100 | 876 | 29.8% |
+| 10.0.1.50 | 654 | 22.2% |
+| 172.16.0.10 | 543 | 18.5% |
+
+### USER × DATABASE
+
+| User | Database | Count | % |
+|---|---|---:|---:|
+| app_user | app_db | 1856 | 63.1% |
+| readonly | app_db | 543 | 18.5% |
+| app_user | analytics_db | 123 | 4.2% |
+| batch_user | app_db | 98 | 3.3% |
+
+### USER × HOST
+
+| User | Host | Count | % |
+|---|---|---:|---:|
+| app_user | 192.168.1.100 | 654 | 22.2% |
+| readonly | 10.0.1.50 | 432 | 14.7% |
+| app_user | 172.16.0.10 | 345 | 11.7% |
+| batch_user | 10.0.1.51 | 234 | 8.0% |
 ```
 
 ## Common Uses
