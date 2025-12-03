@@ -1,3 +1,5 @@
+//go:build !js
+
 // Package output provides query table formatting functionality.
 package output
 
