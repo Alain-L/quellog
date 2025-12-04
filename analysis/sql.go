@@ -229,6 +229,10 @@ type SQLAnalyzer struct {
 	// Maps trimmed raw query → normalized query
 	normalizationCache *lruCache
 
+	// Cache for whitespace normalization (original query → whitespace-normalized query)
+	// Avoids expensive normalizeWhitespace calls for repeated queries
+	whitespaceCache *lruCache
+
 	// Query type breakdown by dimension (for --sql-overview)
 	queryTypesByDatabase map[string]map[string]*QueryTypeCount
 	queryTypesByUser     map[string]map[string]*QueryTypeCount
@@ -245,6 +249,7 @@ func NewSQLAnalyzer() *SQLAnalyzer {
 		queryStats:           make(map[string]*QueryStat, 10000),
 		executions:           make([]QueryExecution, 0, 10000),
 		normalizationCache:   newLRUCache(5000), // LRU cache for raw→normalized mapping
+		whitespaceCache:      newLRUCache(5000), // LRU cache for whitespace normalization
 		queryTypesByDatabase: make(map[string]map[string]*QueryTypeCount),
 		queryTypesByUser:     make(map[string]map[string]*QueryTypeCount),
 		queryTypesByHost:     make(map[string]map[string]*QueryTypeCount),
@@ -279,10 +284,15 @@ func (a *SQLAnalyzer) Process(entry *parser.LogEntry) {
 	}
 
 	// Normalize query for aggregation (with LRU caching)
-	rawQuery := strings.TrimSpace(query)
+	trimmedQuery := strings.TrimSpace(query)
 
 	// Normalize whitespace (newlines to spaces) for consistent raw_query across formats
-	rawQuery = normalizeWhitespace(rawQuery)
+	// Use cache to avoid expensive re-normalization for repeated queries
+	rawQuery, cached := a.whitespaceCache.Get(trimmedQuery)
+	if !cached {
+		rawQuery = normalizeWhitespace(trimmedQuery)
+		a.whitespaceCache.Put(trimmedQuery, rawQuery)
+	}
 
 	// Check LRU cache first to avoid expensive re-normalization
 	normalizedQuery, cached := a.normalizationCache.Get(rawQuery)

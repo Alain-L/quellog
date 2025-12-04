@@ -280,67 +280,33 @@ func normalizeWhitespace(s string) string {
 		return ""
 	}
 
-	// Quick check: if no special whitespace, return as-is (most common case)
-	needsNormalize := false
-	hasConsecutiveSpaces := false
-	prevWasSpace := false
-	for i := 0; i < n; i++ {
-		c := s[i]
-		if c == '\n' || c == '\r' || c == '\t' {
-			needsNormalize = true
-			break
-		}
-		if c == ' ' {
-			if prevWasSpace {
-				hasConsecutiveSpaces = true
-				needsNormalize = true
-				break
-			}
-			prevWasSpace = true
-		} else {
-			prevWasSpace = false
-		}
-	}
-
-	// Also check for leading/trailing spaces
-	if !needsNormalize && n > 0 && (s[0] == ' ' || s[n-1] == ' ') {
-		needsNormalize = true
-	}
-
-	if !needsNormalize && !hasConsecutiveSpaces {
-		return s
-	}
-
-	// Need to normalize: use buffer
-	buf := builderPool.Get().(*strings.Builder)
-	buf.Reset()
-	buf.Grow(n)
-	defer builderPool.Put(buf)
-
+	// Simple single-pass: always allocate []byte and process
+	// This is faster than strings.Builder in WASM (no sync.Pool overhead)
+	buf := make([]byte, 0, n)
 	lastWasSpace := true // Start true to skip leading spaces
 
 	for i := 0; i < n; i++ {
 		c := s[i]
 
-		// Collapse whitespace
-		if c == '\n' || c == '\r' || c == '\t' || c == ' ' {
+		// Collapse whitespace (space, newline, tab, carriage return)
+		if c == ' ' || c == '\n' || c == '\r' || c == '\t' {
 			if !lastWasSpace {
-				buf.WriteByte(' ')
+				buf = append(buf, ' ')
 				lastWasSpace = true
 			}
 			continue
 		}
 
-		buf.WriteByte(c)
+		buf = append(buf, c)
 		lastWasSpace = false
 	}
 
-	// Trim trailing space by getting result without last char if it's space
-	result := buf.String()
-	if len(result) > 0 && result[len(result)-1] == ' ' {
-		return result[:len(result)-1]
+	// Trim trailing space
+	if len(buf) > 0 && buf[len(buf)-1] == ' ' {
+		buf = buf[:len(buf)-1]
 	}
-	return result
+
+	return string(buf)
 }
 
 // ============================================================================
