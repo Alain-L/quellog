@@ -275,18 +275,51 @@ func normalizeQuery(query string) string {
 //	Input:  "BEGIN;\n            UPDATE users\n            SET name = 'foo';"
 //	Output: "BEGIN; UPDATE users SET name = 'foo';"
 func normalizeWhitespace(s string) string {
-	if len(s) == 0 {
+	n := len(s)
+	if n == 0 {
 		return ""
 	}
 
+	// Quick check: if no special whitespace, return as-is (most common case)
+	needsNormalize := false
+	hasConsecutiveSpaces := false
+	prevWasSpace := false
+	for i := 0; i < n; i++ {
+		c := s[i]
+		if c == '\n' || c == '\r' || c == '\t' {
+			needsNormalize = true
+			break
+		}
+		if c == ' ' {
+			if prevWasSpace {
+				hasConsecutiveSpaces = true
+				needsNormalize = true
+				break
+			}
+			prevWasSpace = true
+		} else {
+			prevWasSpace = false
+		}
+	}
+
+	// Also check for leading/trailing spaces
+	if !needsNormalize && n > 0 && (s[0] == ' ' || s[n-1] == ' ') {
+		needsNormalize = true
+	}
+
+	if !needsNormalize && !hasConsecutiveSpaces {
+		return s
+	}
+
+	// Need to normalize: use buffer
 	buf := builderPool.Get().(*strings.Builder)
 	buf.Reset()
-	buf.Grow(len(s))
+	buf.Grow(n)
 	defer builderPool.Put(buf)
 
-	lastWasSpace := false
+	lastWasSpace := true // Start true to skip leading spaces
 
-	for i := 0; i < len(s); i++ {
+	for i := 0; i < n; i++ {
 		c := s[i]
 
 		// Collapse whitespace
@@ -302,7 +335,12 @@ func normalizeWhitespace(s string) string {
 		lastWasSpace = false
 	}
 
-	return strings.TrimSpace(buf.String())
+	// Trim trailing space by getting result without last char if it's space
+	result := buf.String()
+	if len(result) > 0 && result[len(result)-1] == ' ' {
+		return result[:len(result)-1]
+	}
+	return result
 }
 
 // ============================================================================

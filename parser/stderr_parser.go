@@ -354,10 +354,24 @@ func (p *StderrParser) parseReader(r io.Reader, out chan<- LogEntry) error {
 		// Fallback: if not indented AND we have a current entry, check for timestamp
 		// This handles cases like GCP where SQL continuation lines are not indented
 		if !isContinuation && currentEntry != "" {
-			// Try to parse as a new log entry - if it fails, it's a continuation
-			timestamp, _ := parseStderrLine(line)
-			if timestamp.IsZero() {
-				// No valid timestamp = continuation line
+			// Fast path: quick timestamp format check before expensive parsing
+			// Most logs start with YYYY-MM-DD (stderr) or Mon DD (syslog) or <pri> (RFC5424)
+			n := len(line)
+			hasTimestamp := false
+			if n >= 19 {
+				// Check stderr format: YYYY-MM-DD (line[4]=='-' && line[7]=='-')
+				if line[4] == '-' && line[7] == '-' && line[10] == ' ' {
+					hasTimestamp = true
+				} else if n >= 15 && line[3] == ' ' && line[6] == ' ' && line[9] == ':' {
+					// Check syslog BSD format: "Mon DD HH:MM:SS"
+					hasTimestamp = true
+				} else if line[0] == '<' {
+					// Check RFC5424 format: "<pri>..."
+					hasTimestamp = true
+				}
+			}
+			if !hasTimestamp {
+				// No recognizable timestamp pattern = continuation line
 				isContinuation = true
 			}
 		}

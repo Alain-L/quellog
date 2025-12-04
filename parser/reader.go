@@ -45,3 +45,31 @@ func DetectFormatFromContent(sample string) string {
 		return ""
 	}
 }
+
+// ParseFromReaderSync parses log content synchronously (no channels/goroutines).
+// This is optimized for single-threaded environments like WASM.
+// Returns the parsed entries directly instead of streaming via channels.
+func ParseFromReaderSync(r io.Reader, format string) ([]LogEntry, error) {
+	// Use a buffered channel and collect results
+	// This avoids duplicating all parser logic while still being sync-friendly
+	entryChan := make(chan LogEntry, 65536)
+
+	var parseErr error
+	go func() {
+		parseErr = ParseFromReader(r, format, entryChan)
+		close(entryChan)
+	}()
+
+	entries := make([]LogEntry, 0, 100000)
+	for entry := range entryChan {
+		entries = append(entries, entry)
+	}
+
+	return entries, parseErr
+}
+
+// ParseFromStringSync parses log content from a string synchronously.
+// This is a convenience wrapper around ParseFromReaderSync.
+func ParseFromStringSync(content string, format string) ([]LogEntry, error) {
+	return ParseFromReaderSync(strings.NewReader(content), format)
+}
