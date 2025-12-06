@@ -365,7 +365,7 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string) {
 				numBuckets,
 			)
 			if len(concurrentHist) > 0 {
-				PrintConcurrentHistogram(concurrentHist, "Concurrent sessions", concurrentScale, labels, peakTimes)
+				PrintConcurrentHistogramWithTZ(concurrentHist, "Concurrent sessions", concurrentScale, labels, peakTimes, &m.Global.MinTimestamp)
 			}
 		}
 
@@ -1488,6 +1488,10 @@ func PrintHistogram(data map[string]int, title string, unit string, scaleFactor 
 // PrintConcurrentHistogram displays a histogram with peak times for each bucket.
 // Similar to PrintHistogram but adds the time when the peak occurred.
 func PrintConcurrentHistogram(data map[string]int, title string, scaleFactor int, orderedLabels []string, peakTimes map[string]time.Time) {
+	PrintConcurrentHistogramWithTZ(data, title, scaleFactor, orderedLabels, peakTimes, nil)
+}
+
+func PrintConcurrentHistogramWithTZ(data map[string]int, title string, scaleFactor int, orderedLabels []string, peakTimes map[string]time.Time, refTime *time.Time) {
 	if len(data) == 0 {
 		fmt.Printf("\n  (No data available)\n")
 		return
@@ -1560,7 +1564,12 @@ func PrintConcurrentHistogram(data map[string]int, title string, scaleFactor int
 		} else {
 			peakStr := ""
 			if pt, ok := peakTimes[label]; ok && !pt.IsZero() {
-				peakStr = fmt.Sprintf("(%02d:%02d)", pt.Hour(), pt.Minute())
+				// Normalize peak time to reference timezone if provided
+				displayTime := pt
+				if refTime != nil {
+					displayTime = pt.In(refTime.Location())
+				}
+				peakStr = fmt.Sprintf("(%02d:%02d)", displayTime.Hour(), displayTime.Minute())
 			}
 			if barLength > 0 {
 				fmt.Printf("  %-13s  %-s %d %s\n", label, bar, value, peakStr)
@@ -1645,53 +1654,78 @@ func computeConcurrentHistogram(sessions []analysis.SessionEvent, logStart, logE
 		}
 	}
 
-	// Use 1-minute intervals for more precise peak time detection
-	intervalDuration := 1 * time.Minute
-	numIntervals := int(duration / intervalDuration)
-	if numIntervals == 0 {
-		numIntervals = 1
+	// Use sweep line algorithm O(n log n) instead of O(intervals * sessions)
+	// Create events: +1 for session start, -1 for session end
+	type event struct {
+		time  time.Time
+		delta int // +1 start, -1 end
 	}
-
-	// Calculate concurrency for each 1-minute interval
-	intervalCounts := make([]int, numIntervals)
-	for i := 0; i < numIntervals; i++ {
-		intervalTime := minTime.Add(time.Duration(i) * intervalDuration)
-
-		count := 0
-		for _, s := range sessions {
-			// Session is active at intervalTime if it started before/at and ends after
-			if !s.StartTime.After(intervalTime) && s.EndTime.After(intervalTime) {
-				count++
-			}
+	events := make([]event, 0, len(sessions)*2)
+	for _, s := range sessions {
+		if !s.StartTime.IsZero() && !s.EndTime.IsZero() {
+			events = append(events, event{s.StartTime, +1})
+			events = append(events, event{s.EndTime, -1})
 		}
-		intervalCounts[i] = count
 	}
 
-	// Aggregate intervals into 6 buckets, taking the max and tracking when it occurred
-	intervalsPerBucket := numIntervals / numBuckets
-	if intervalsPerBucket == 0 {
-		intervalsPerBucket = 1
+	// Sort events by time (starts before ends at same time for correct counting)
+	sort.Slice(events, func(i, j int) bool {
+		if events[i].time.Equal(events[j].time) {
+			return events[i].delta > events[j].delta // +1 before -1
+		}
+		return events[i].time.Before(events[j].time)
+	})
+
+	// Track max concurrency and peak time per bucket
+	bucketMax := make([]int, numBuckets)
+	bucketPeakTime := make([]time.Time, numBuckets)
+
+	current := 0
+	eventIdx := 0
+
+	// Process each bucket
+	for b := 0; b < numBuckets; b++ {
+		bucketStart := minTime.Add(time.Duration(b) * bucketDuration)
+		bucketEnd := bucketStart.Add(bucketDuration)
+
+		// Initialize bucket max with current count (carried over from previous bucket)
+		if current > bucketMax[b] {
+			bucketMax[b] = current
+			bucketPeakTime[b] = bucketStart
+		}
+
+		// Process all events within this bucket
+		for eventIdx < len(events) && events[eventIdx].time.Before(bucketEnd) {
+			e := events[eventIdx]
+
+			// Skip events before minTime
+			if e.time.Before(minTime) {
+				current += e.delta
+				eventIdx++
+				continue
+			}
+
+			// Apply delta
+			current += e.delta
+			if current < 0 {
+				current = 0
+			}
+
+			// Update max if this event is in our bucket
+			if !e.time.Before(bucketStart) && current > bucketMax[b] {
+				bucketMax[b] = current
+				bucketPeakTime[b] = e.time
+			}
+
+			eventIdx++
+		}
 	}
 
+	// Fill histogram
 	for i := 0; i < numBuckets; i++ {
-		startIdx := i * intervalsPerBucket
-		endIdx := startIdx + intervalsPerBucket
-		if i == numBuckets-1 {
-			endIdx = numIntervals // Last bucket gets remaining intervals
-		}
-
-		// Find max concurrency in this bucket and when it occurred
-		maxCount := 0
-		maxIdx := startIdx
-		for j := startIdx; j < endIdx && j < numIntervals; j++ {
-			if intervalCounts[j] > maxCount {
-				maxCount = intervalCounts[j]
-				maxIdx = j
-			}
-		}
-		hist[labels[i]] = maxCount
-		if maxCount > 0 {
-			peakTimes[labels[i]] = minTime.Add(time.Duration(maxIdx) * intervalDuration)
+		hist[labels[i]] = bucketMax[i]
+		if bucketMax[i] > 0 {
+			peakTimes[labels[i]] = bucketPeakTime[i]
 		}
 	}
 

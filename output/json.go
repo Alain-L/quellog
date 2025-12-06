@@ -638,10 +638,11 @@ func ExportJSONString(m analysis.AggregatedMetrics, sections []string) (string, 
 
 // MetaInfo contains optional metadata about the parsing process.
 type MetaInfo struct {
-	Format    string `json:"format,omitempty"`
-	Entries   int    `json:"entries,omitempty"`
-	Bytes     int64  `json:"bytes,omitempty"`
-	ParseTime string `json:"parse_time,omitempty"`
+	Format       string `json:"format,omitempty"`
+	Entries      int    `json:"entries,omitempty"`
+	Bytes        int64  `json:"bytes,omitempty"`
+	ParseTime    string `json:"parse_time,omitempty"`
+	ProcessingMs int64  `json:"processing_ms,omitempty"`
 }
 
 // ExportJSONStringWithMeta returns the JSON export with optional metadata.

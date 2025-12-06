@@ -280,12 +280,63 @@ func normalizeWhitespace(s string) string {
 		return ""
 	}
 
-	// Simple single-pass: always allocate []byte and process
-	// This is faster than strings.Builder in WASM (no sync.Pool overhead)
-	buf := make([]byte, 0, n)
+	// Fast path: check if normalization is needed at all
+	// This avoids allocation for strings that are already normalized
+	needsNormalization := false
+	start := 0
+	end := n
+
+	// Find first non-whitespace (for leading trim check)
+	for start < n {
+		c := s[start]
+		if c != ' ' && c != '\n' && c != '\r' && c != '\t' {
+			break
+		}
+		needsNormalization = true
+		start++
+	}
+
+	// Find last non-whitespace (for trailing trim check)
+	for end > start {
+		c := s[end-1]
+		if c != ' ' && c != '\n' && c != '\r' && c != '\t' {
+			break
+		}
+		needsNormalization = true
+		end--
+	}
+
+	// Check for multiple consecutive whitespace or non-space whitespace
+	if !needsNormalization {
+		lastWasSpace := false
+		for i := start; i < end; i++ {
+			c := s[i]
+			isWhitespace := c == ' ' || c == '\n' || c == '\r' || c == '\t'
+			if isWhitespace {
+				if lastWasSpace || c != ' ' {
+					needsNormalization = true
+					break
+				}
+				lastWasSpace = true
+			} else {
+				lastWasSpace = false
+			}
+		}
+	}
+
+	// Fast path: no normalization needed, return original (or trimmed slice)
+	if !needsNormalization {
+		if start == 0 && end == n {
+			return s // Completely unchanged
+		}
+		return s[start:end] // Just trimmed, no internal changes
+	}
+
+	// Slow path: allocate and normalize
+	buf := make([]byte, 0, end-start)
 	lastWasSpace := true // Start true to skip leading spaces
 
-	for i := 0; i < n; i++ {
+	for i := start; i < end; i++ {
 		c := s[i]
 
 		// Collapse whitespace (space, newline, tab, carriage return)
@@ -301,7 +352,7 @@ func normalizeWhitespace(s string) string {
 		lastWasSpace = false
 	}
 
-	// Trim trailing space
+	// Trim trailing space (shouldn't happen due to end calculation, but safe)
 	if len(buf) > 0 && buf[len(buf)-1] == ' ' {
 		buf = buf[:len(buf)-1]
 	}
