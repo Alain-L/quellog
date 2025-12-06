@@ -544,6 +544,72 @@ func parseStderrFormat(line string) (time.Time, string, bool) {
 	return t, message, true
 }
 
+// parseStderrFormatFromBytes is the zero-copy version of parseStderrFormat.
+// Returns the message offset instead of copying the message string.
+func parseStderrFormatFromBytes(line []byte) (time.Time, int, bool) {
+	n := len(line)
+
+	// Quick positional validation: check for date/time separators
+	if n < 20 ||
+		line[4] != '-' || line[7] != '-' || // Date separators
+		line[10] != ' ' || // Space between date and time
+		line[13] != ':' || line[16] != ':' { // Time separators
+		return time.Time{}, 0, false
+	}
+
+	// Find the timezone field
+	spaceAfterTime := 19
+	if line[spaceAfterTime] != ' ' {
+		// Scan forward to find next space
+		i := 19
+		for i < n && line[i] != ' ' && line[i] != '\t' {
+			i++
+		}
+		if i >= n {
+			return time.Time{}, 0, false
+		}
+		spaceAfterTime = i
+	}
+
+	// Skip whitespace to find timezone token
+	i := spaceAfterTime + 1
+	for i < n && (line[i] == ' ' || line[i] == '\t') {
+		i++
+	}
+	tzStart := i
+
+	// Find end of timezone token
+	for i < n && line[i] != ' ' && line[i] != '\t' {
+		i++
+	}
+	tzEnd := i
+
+	if tzEnd <= tzStart {
+		return time.Time{}, 0, false
+	}
+
+	// Parse timestamp - must convert to string for time.Parse
+	timestampStr := string(line[:tzEnd])
+
+	// Try with milliseconds first
+	t, err := time.Parse("2006-01-02 15:04:05.999 MST", timestampStr)
+	if err != nil {
+		// Try without milliseconds
+		t, err = time.Parse("2006-01-02 15:04:05 MST", timestampStr)
+		if err != nil {
+			return time.Time{}, 0, false
+		}
+	}
+
+	// Skip whitespace before message
+	for i < n && (line[i] == ' ' || line[i] == '\t') {
+		i++
+	}
+
+	// Return offset instead of copying message
+	return t, i, true
+}
+
 // parseRDSFormat attempts to parse the AWS RDS PostgreSQL log format:
 // "YYYY-MM-DD HH:MM:SS TZ:host(port):user@db:[pid]:severity: message..."
 //

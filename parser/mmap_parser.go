@@ -559,10 +559,25 @@ func parseMmapDataStderr(data []byte, out chan<- LogEntry) error {
 	return nil
 }
 
-// parseStderrLineBytes is the byte-slice version of parseStderrLine.
-// It converts to string only at the last moment to reduce allocations.
+// parseStderrLineBytes is the zero-copy version of parseStderrLine.
+// Parses directly from bytes and only copies the message portion.
 func parseStderrLineBytes(line []byte) (time.Time, string) {
-	// For now, convert to string and reuse existing parser
-	// TODO: Could be optimized further by parsing directly from bytes
+	n := len(line)
+
+	// Need at least 20 characters for a valid timestamp
+	if n < 20 {
+		return time.Time{}, string(line)
+	}
+
+	// Attempt 1: Parse stderr format (YYYY-MM-DD HH:MM:SS TZ)
+	if timestamp, msgOffset, ok := parseStderrFormatFromBytes(line); ok {
+		if msgOffset >= n {
+			return timestamp, ""
+		}
+		return timestamp, string(line[msgOffset:])
+	}
+
+	// Fallback: convert to string for other formats
+	// TODO: Implement byte versions of other parsers (RDS, Azure, syslog)
 	return parseStderrLine(string(line))
 }
