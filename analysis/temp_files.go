@@ -2,7 +2,6 @@
 package analysis
 
 import (
-	"bytes"
 	"strconv"
 	"strings"
 	"time"
@@ -149,7 +148,7 @@ func NewTempFileAnalyzer() *TempFileAnalyzer {
 //	LOG: temporary file: path "base/pgsql_tmp/pgsql_tmp12345.0", size 1048576
 //	STATEMENT: SELECT * FROM large_table WHERE ...  (or "statement:" for CSV)
 func (a *TempFileAnalyzer) Process(entry *parser.LogEntry) {
-	msg := entry.MessageBytes
+	msg := entry.Message
 
 	if len(msg) < 14 {
 		return
@@ -161,21 +160,21 @@ func (a *TempFileAnalyzer) Process(entry *parser.LogEntry) {
 	// Fast path: if no temp files seen yet and not expecting statement
 	if !a.expectingStatement && len(a.pendingByPID) == 0 && !a.tempFilesExist {
 		// Only need to detect first temp file - use direct Contains
-		if !bytes.Contains(msg, []byte(tempFileMarker)) {
+		if !strings.Contains(msg, tempFileMarker) {
 			return
 		}
 		// Found first temp file, fall through to process it
 	}
 
 	// For subsequent processing, check if message is relevant
-	hasTemp := bytes.Contains(msg, []byte("temp"))
+	hasTemp := strings.Contains(msg, "temp")
 
 	// Now check specific patterns (only for relevant lines)
 	var hasTempFile, hasStatement, hasDurationExecute, hasContext bool
 
 	// Check for temp files
 	if hasTemp {
-		hasTempFile = bytes.Contains(msg, []byte(tempFileMarker))
+		hasTempFile = strings.Contains(msg, tempFileMarker)
 	}
 
 	// Only cache queries if temp files exist (Pattern 2)
@@ -183,17 +182,17 @@ func (a *TempFileAnalyzer) Process(entry *parser.LogEntry) {
 
 	// Check for statement patterns (only if needed)
 	if checkForQueries || a.expectingStatement {
-		hasStatement = bytes.Contains(msg, []byte("statement:")) || bytes.Contains(msg, []byte("STATEMENT:"))
+		hasStatement = strings.Contains(msg, "statement:") || strings.Contains(msg, "STATEMENT:")
 
 		// Check for CONTEXT: (for queries executed from PL/pgSQL functions)
 		if !hasStatement && a.expectingStatement {
-			hasContext = bytes.Contains(msg, []byte("CONTEXT:"))
+			hasContext = strings.Contains(msg, "CONTEXT:")
 		}
 
 		// Check for duration:execute (prepared statements)
 		if checkForQueries && !hasStatement {
-			if durationIdx := bytes.Index(msg, []byte("duration:")); durationIdx >= 0 {
-				hasDurationExecute = bytes.Contains(msg[durationIdx:], []byte("execute"))
+			if durationIdx := strings.Index(msg, "duration:"); durationIdx >= 0 {
+				hasDurationExecute = strings.Contains(msg[durationIdx:], "execute")
 			}
 		}
 	}
@@ -206,9 +205,6 @@ func (a *TempFileAnalyzer) Process(entry *parser.LogEntry) {
 	// OPTIMIZATION: Extract PID once and reuse it throughout
 	// This avoids multiple expensive ExtractPID() calls (up to 4× per entry)
 	pid := parser.ExtractPID(msg)
-
-	// Convert to string only when needed for helper functions
-	msgStr := string(msg)
 
 	// === STEP 1: Check for STATEMENT/CONTEXT/query lines ===
 	// Support:
@@ -225,12 +221,12 @@ func (a *TempFileAnalyzer) Process(entry *parser.LogEntry) {
 
 		// Try to extract from STATEMENT first
 		if hasStatement || hasDurationExecute {
-			query = extractStatementQuery(msgStr)
+			query = extractStatementQuery(msg)
 		}
 
 		// If no query found and we have CONTEXT, try extracting from CONTEXT
 		if query == "" && hasContext {
-			query = extractContextQuery(msgStr)
+			query = extractContextQuery(msg)
 		}
 
 		if query == "" {
@@ -336,7 +332,7 @@ func (a *TempFileAnalyzer) Process(entry *parser.LogEntry) {
 	}
 
 	a.count++
-	size := extractTempFileSize(msgStr)
+	size := extractTempFileSize(msg)
 	if size > 0 {
 		a.totalSize += size
 		eventIndex := len(a.events)
@@ -350,7 +346,7 @@ func (a *TempFileAnalyzer) Process(entry *parser.LogEntry) {
 		// Pattern 1b: Check if query is in the SAME message (CSV/jsonlog format with query field)
 		// For jsonlog, the JSON parser includes STATEMENT in the same reconstructed message.
 		// This has PRIORITY over cache (Pattern 2)
-		query := extractStatementQuery(msgStr)
+		query := extractStatementQuery(msg)
 
 		if query != "" {
 			a.associateQuery(query, size, eventIndex)

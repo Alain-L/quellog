@@ -2,7 +2,6 @@
 package analysis
 
 import (
-	"bytes"
 	"regexp"
 	"strconv"
 	"strings"
@@ -98,14 +97,14 @@ func NewCheckpointAnalyzer() *CheckpointAnalyzer {
 //
 // The type from "starting" is associated with the next "complete" message.
 func (a *CheckpointAnalyzer) Process(entry *parser.LogEntry) {
-	msg := entry.MessageBytes
+	msg := entry.Message
 
 	if len(msg) < 10 {
 		return
 	}
 
 	// Search for "checkpoint" anywhere
-	idx := bytes.Index(msg, []byte("checkpoint"))
+	idx := strings.Index(msg, "checkpoint")
 	if idx < 0 {
 		return
 	}
@@ -128,24 +127,9 @@ func (a *CheckpointAnalyzer) Process(entry *parser.LogEntry) {
 // processCheckpointStarting extracts and stores the checkpoint type.
 // Example message: "checkpoint starting: time"
 func (a *CheckpointAnalyzer) processCheckpointStarting(entry *parser.LogEntry) {
-	msg := entry.MessageBytes
-
-	// Find "checkpoint starting: " (20 chars)
-	idx := bytes.Index(msg, []byte(checkpointStarting))
-	if idx < 0 {
-		return
-	}
-
-	// Extract type after "checkpoint starting: "
-	typeStart := idx + len(checkpointStarting) + 1 // +1 for the space
-	if typeStart >= len(msg) {
-		return
-	}
-
-	// Trim trailing whitespace/newlines from the type
-	typeBytes := bytes.TrimSpace(msg[typeStart:])
-	if len(typeBytes) > 0 {
-		a.lastCheckpointType = string(typeBytes) // Only copy the type portion
+	matches := checkpointTypeRegex.FindStringSubmatch(entry.Message)
+	if len(matches) > 1 {
+		a.lastCheckpointType = strings.TrimSpace(matches[1])
 	}
 }
 
@@ -165,7 +149,7 @@ func (a *CheckpointAnalyzer) processCheckpointComplete(entry *parser.LogEntry) {
 	a.lastCheckpointType = "" // Reset for next checkpoint
 
 	// Extract total write time
-	if writeTime := extractWriteTimeFromBytes(entry.MessageBytes); writeTime > 0 {
+	if writeTime := extractWriteTime(entry.Message); writeTime > 0 {
 		a.totalWriteTimeSeconds += writeTime
 		if writeTime > a.maxWriteTimeSeconds {
 			a.maxWriteTimeSeconds = writeTime
@@ -173,40 +157,9 @@ func (a *CheckpointAnalyzer) processCheckpointComplete(entry *parser.LogEntry) {
 	}
 }
 
-// extractWriteTimeFromBytes parses the total write time from a checkpoint complete message.
-// Looks for "total=X.XXX s" pattern and returns the duration in seconds.
-// Returns 0 if parsing fails.
-// This version parses from []byte without allocating a string for the entire message.
-func extractWriteTimeFromBytes(message []byte) float64 {
-	// Find "total=" prefix
-	idx := bytes.Index(message, []byte(writeTotalPrefix))
-	if idx < 0 {
-		return 0
-	}
-
-	// Extract value after "total="
-	rest := message[idx+len(writeTotalPrefix):]
-
-	// Find " s" suffix
-	end := bytes.Index(rest, []byte(writeTotalSuffix))
-	if end <= 0 {
-		return 0
-	}
-
-	// Parse float value - need to convert just this small portion to string
-	valueStr := strings.TrimSpace(string(rest[:end]))
-	seconds, err := strconv.ParseFloat(valueStr, 64)
-	if err != nil {
-		return 0
-	}
-
-	return seconds
-}
-
 // extractWriteTime parses the total write time from a checkpoint complete message.
 // Looks for "total=X.XXX s" pattern and returns the duration in seconds.
 // Returns 0 if parsing fails.
-// Deprecated: Use extractWriteTimeFromBytes for better memory efficiency.
 func extractWriteTime(message string) float64 {
 	// Find "total=" prefix
 	idx := strings.Index(message, writeTotalPrefix)

@@ -2,7 +2,6 @@
 package analysis
 
 import (
-	"bytes"
 	"strconv"
 	"strings"
 
@@ -87,7 +86,7 @@ func NewVacuumAnalyzer() *VacuumAnalyzer {
 //   - Vacuum: "automatic vacuum of table \"schema.table\": index scans: 0, pages: 123 removed, ..."
 //   - Analyze: "automatic analyze of table \"schema.table\" system usage: CPU: ..."
 func (a *VacuumAnalyzer) Process(entry *parser.LogEntry) {
-	msg := entry.MessageBytes
+	msg := entry.Message
 
 	if len(msg) < 18 {
 		return
@@ -95,12 +94,12 @@ func (a *VacuumAnalyzer) Process(entry *parser.LogEntry) {
 
 	// Fast pre-filter: check for "uto" before expensive Index
 	// "uto" is highly specific to "automatic" and eliminates ~99%+ of messages
-	if bytes.Index(msg, []byte("uto")) < 0 {
+	if strings.Index(msg, "uto") < 0 {
 		return
 	}
 
 	// Search for "automatic vacuum" or "automatic analyze" anywhere
-	idx := bytes.Index(msg, []byte("automatic"))
+	idx := strings.Index(msg, "automatic")
 	if idx < 0 {
 		return
 	}
@@ -108,18 +107,18 @@ func (a *VacuumAnalyzer) Process(entry *parser.LogEntry) {
 	// Check what follows "automatic "
 	rest := msg[idx+10:]
 
-	if bytes.HasPrefix(rest, []byte("vacuum")) {
-		tableName := extractTableNameFromBytes(msg)
+	if strings.HasPrefix(rest, "vacuum") {
+		tableName := extractTableName(msg)
 		a.vacuumCount++
 		a.vacuumTableCounts[tableName]++
-		if removedPages := extractRemovedPagesFromBytes(msg); removedPages > 0 {
+		if removedPages := extractRemovedPages(msg); removedPages > 0 {
 			a.vacuumSpaceRecovered[tableName] += removedPages * pageSize
 		}
 		return
 	}
 
-	if bytes.HasPrefix(rest, []byte("analyze")) {
-		tableName := extractTableNameFromBytes(msg)
+	if strings.HasPrefix(rest, "analyze") {
+		tableName := extractTableName(msg)
 		a.analyzeCount++
 		a.analyzeTableCounts[tableName]++
 	}
@@ -141,75 +140,10 @@ func (a *VacuumAnalyzer) Finalize() VacuumMetrics {
 // Extraction helpers
 // ============================================================================
 
-// extractTableNameFromBytes retrieves the table name from a vacuum/analyze log message.
-// PostgreSQL logs table names in quotes: "schema.table" or "public.users"
-//
-// Returns "UNKNOWN" if the table name cannot be extracted.
-// This version parses from []byte without allocating a string for the entire message.
-func extractTableNameFromBytes(logMsg []byte) string {
-	// Find first quote
-	firstQuote := bytes.IndexByte(logMsg, '"')
-	if firstQuote == -1 {
-		return "UNKNOWN"
-	}
-
-	// Find second quote (closing quote)
-	secondQuote := bytes.IndexByte(logMsg[firstQuote+1:], '"')
-	if secondQuote == -1 {
-		return "UNKNOWN"
-	}
-
-	// Extract table name between quotes - only copy this portion
-	tableNameBytes := logMsg[firstQuote+1 : firstQuote+1+secondQuote]
-	if len(tableNameBytes) == 0 {
-		return "UNKNOWN"
-	}
-
-	return string(tableNameBytes) // Only copy the table name
-}
-
-// extractRemovedPagesFromBytes retrieves the number of removed pages from a vacuum log message.
-//
-// Expected format: "pages: 123 removed, 456 remain"
-// The function extracts the number after "pages: " and before " removed".
-//
-// Returns 0 if the removed pages count cannot be extracted.
-// This version parses from []byte without allocating a string for the entire message.
-func extractRemovedPagesFromBytes(logMsg []byte) int64 {
-	// Find "pages: " marker
-	idx := bytes.Index(logMsg, []byte(pagesRemovedKey))
-	if idx == -1 {
-		return 0
-	}
-
-	// Move past "pages: " marker
-	start := idx + len(pagesRemovedKey)
-	if start >= len(logMsg) {
-		return 0
-	}
-
-	// Find " removed" or next space
-	sub := logMsg[start:]
-	spaceIdx := bytes.IndexByte(sub, ' ')
-	if spaceIdx == -1 {
-		return 0
-	}
-
-	// Parse the number - only copy this small number string
-	numStr := string(sub[:spaceIdx])
-	removedPages, err := strconv.ParseInt(numStr, 10, 64)
-	if err != nil {
-		return 0
-	}
-
-	return removedPages
-}
-
 // extractTableName retrieves the table name from a vacuum/analyze log message.
 // PostgreSQL logs table names in quotes: "schema.table" or "public.users"
 //
 // Returns "UNKNOWN" if the table name cannot be extracted.
-// Deprecated: Use extractTableNameFromBytes for better memory efficiency.
 func extractTableName(logMsg string) string {
 	// Find first quote
 	firstQuote := strings.Index(logMsg, `"`)
@@ -238,7 +172,6 @@ func extractTableName(logMsg string) string {
 // The function extracts the number after "pages: " and before " removed".
 //
 // Returns 0 if the removed pages count cannot be extracted.
-// Deprecated: Use extractRemovedPagesFromBytes for better memory efficiency.
 func extractRemovedPages(logMsg string) int64 {
 	// Find "pages: " marker
 	idx := strings.Index(logMsg, pagesRemovedKey)

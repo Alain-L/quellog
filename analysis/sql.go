@@ -265,9 +265,9 @@ func NewSQLAnalyzer() *SQLAnalyzer {
 //	"LOG: duration: 5.123 ms execute <unnamed>: SELECT * FROM users WHERE id = 1"
 //	"LOG: duration: 10.456 ms statement: UPDATE users SET name = 'John' WHERE id = 1"
 func (a *SQLAnalyzer) Process(entry *parser.LogEntry) {
-	// Extract duration and query from log message (zero-copy from bytes)
+	// Extract duration and query from log message
 
-	duration, query, ok := extractDurationAndQueryFromBytes(entry.MessageBytes)
+	duration, query, ok := extractDurationAndQuery(entry.Message)
 	if !ok {
 		return
 	}
@@ -346,7 +346,7 @@ func (a *SQLAnalyzer) Process(entry *parser.LogEntry) {
 	// Track query type breakdown by dimension (database, user, host, app)
 	// Extract all fields in a single pass for performance
 	queryType := QueryTypeFromID(stats.ID)
-	database, user, host, app := extractPrefixFields(string(entry.MessageBytes))
+	database, user, host, app := extractPrefixFields(entry.Message)
 
 	// Track query type breakdown by dimension - cache inner map refs
 	if database != "" {
@@ -657,123 +657,6 @@ func extractDurationAndQuery(message string) (duration float64, query string, ok
 
 	query = message[queryStart:]
 	return dur, query, true
-}
-
-// extractDurationAndQueryFromBytes is the zero-copy version of extractDurationAndQuery.
-// Parses from bytes and only copies the query portion to string.
-func extractDurationAndQueryFromBytes(message []byte) (duration float64, query string, ok bool) {
-	// Quick length check
-	if len(message) < 20 {
-		return 0, "", false
-	}
-
-	// Find "duration:" marker
-	durIdx := bytesIndex(message, []byte("duration:"))
-	if durIdx == -1 {
-		return 0, "", false
-	}
-
-	// Parse duration value
-	start := durIdx + 9 // Skip "duration:"
-
-	// Skip leading whitespace
-	for start < len(message) && message[start] == ' ' {
-		start++
-	}
-
-	// Find end of duration number (next space)
-	end := start
-	for end < len(message) && message[end] != ' ' {
-		end++
-	}
-
-	if end == start {
-		return 0, "", false
-	}
-
-	// Parse float duration
-	dur, err := strconv.ParseFloat(string(message[start:end]), 64)
-	if err != nil {
-		return 0, "", false
-	}
-
-	// Find query marker ("execute" or "statement")
-	execIdx := bytesIndexAfter(message, []byte("execute"), durIdx)
-	stmtIdx := bytesIndexAfter(message, []byte("statement"), durIdx)
-
-	var markerIdx int
-	var markerLen int
-
-	if execIdx != -1 && (stmtIdx == -1 || execIdx < stmtIdx) {
-		markerIdx = execIdx
-		markerLen = 7
-	} else if stmtIdx != -1 {
-		markerIdx = stmtIdx
-		markerLen = 9
-	} else {
-		return dur, "", false
-	}
-
-	// Find ':' after marker
-	queryStart := markerIdx + markerLen
-	for queryStart < len(message) && message[queryStart] != ':' {
-		queryStart++
-	}
-	if queryStart >= len(message) {
-		return dur, "", false
-	}
-	queryStart++ // Skip ':'
-
-	// Skip leading whitespace before query
-	for queryStart < len(message) && message[queryStart] == ' ' {
-		queryStart++
-	}
-
-	if queryStart >= len(message) {
-		return dur, "", false
-	}
-
-	// Copy only the query portion to string
-	query = string(message[queryStart:])
-	return dur, query, true
-}
-
-// bytesIndex finds the first occurrence of sep in s, returns -1 if not found.
-func bytesIndex(s, sep []byte) int {
-	n := len(sep)
-	if n == 0 {
-		return 0
-	}
-	if n > len(s) {
-		return -1
-	}
-	for i := 0; i <= len(s)-n; i++ {
-		if s[i] == sep[0] {
-			match := true
-			for j := 1; j < n; j++ {
-				if s[i+j] != sep[j] {
-					match = false
-					break
-				}
-			}
-			if match {
-				return i
-			}
-		}
-	}
-	return -1
-}
-
-// bytesIndexAfter finds the first occurrence of sep in s after the given position.
-func bytesIndexAfter(s, sep []byte, after int) int {
-	if after >= len(s) {
-		return -1
-	}
-	idx := bytesIndex(s[after:], sep)
-	if idx == -1 {
-		return -1
-	}
-	return after + idx
 }
 
 // indexAfter finds the first occurrence of substr in s, starting after the given position.
