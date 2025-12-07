@@ -559,25 +559,10 @@ func parseMmapDataStderr(data []byte, out chan<- LogEntry) error {
 	return nil
 }
 
-// parseStderrLineBytes is the zero-copy version of parseStderrLine.
-// Parses directly from bytes and only copies the message portion.
+// parseStderrLineBytes converts a byte slice to string and parses it.
+// For the native CLI with Go's GC, this is faster than byte-level parsing
+// because it avoids goroutine contention. The WASM path uses parseFromBytes
+// in stderr_parser.go which benefits from zero-copy parsing with leaking GC.
 func parseStderrLineBytes(line []byte) (time.Time, string) {
-	n := len(line)
-
-	// Need at least 20 characters for a valid timestamp
-	if n < 20 {
-		return time.Time{}, string(line)
-	}
-
-	// Attempt 1: Parse stderr format (YYYY-MM-DD HH:MM:SS TZ)
-	if timestamp, msgOffset, ok := parseStderrFormatFromBytes(line); ok {
-		if msgOffset >= n {
-			return timestamp, ""
-		}
-		return timestamp, string(line[msgOffset:])
-	}
-
-	// Fallback: convert to string for other formats
-	// TODO: Implement byte versions of other parsers (RDS, Azure, syslog)
 	return parseStderrLine(string(line))
 }
