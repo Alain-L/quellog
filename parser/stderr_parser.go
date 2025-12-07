@@ -335,8 +335,10 @@ func (p *StderrParser) parseReader(r io.Reader, out chan<- LogEntry) error {
 	buf := make([]byte, scannerBuffer)
 	scanner.Buffer(buf, scannerMaxBuffer)
 
-	// Accumulate multi-line entries
-	var currentEntry string
+	// Accumulate multi-line entries using strings.Builder for efficiency.
+	// This avoids repeated string allocations when concatenating continuation lines.
+	var entryBuilder strings.Builder
+	entryBuilder.Grow(512) // Pre-allocate for typical log entry size
 
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -353,7 +355,7 @@ func (p *StderrParser) parseReader(r io.Reader, out chan<- LogEntry) error {
 
 		// Fallback: if not indented AND we have a current entry, check for timestamp
 		// This handles cases like GCP where SQL continuation lines are not indented
-		if !isContinuation && currentEntry != "" {
+		if !isContinuation && entryBuilder.Len() > 0 {
 			// Fast path: quick timestamp format check before expensive parsing
 			// Most logs start with YYYY-MM-DD (stderr) or Mon DD (syslog) or <pri> (RFC5424)
 			n := len(line)
@@ -377,11 +379,13 @@ func (p *StderrParser) parseReader(r io.Reader, out chan<- LogEntry) error {
 		}
 
 		if isContinuation {
-			// Append to current entry
-			currentEntry += " " + strings.TrimSpace(line)
+			// Append to current entry using Builder (avoids allocation per concat)
+			entryBuilder.WriteByte(' ')
+			entryBuilder.WriteString(strings.TrimSpace(line))
 		} else {
 			// This is a new entry, so process the previous one
-			if currentEntry != "" {
+			if entryBuilder.Len() > 0 {
+				currentEntry := entryBuilder.String()
 				// Try to normalize with detected structure (if not RDS/Azure format)
 				normalizedEntry := p.normalizeEntryBeforeParsing(currentEntry)
 				timestamp, message := parseStderrLine(normalizedEntry)
@@ -390,14 +394,16 @@ func (p *StderrParser) parseReader(r io.Reader, out chan<- LogEntry) error {
 					Message:        message,
 					IsContinuation: isContinuationMessage(message),
 				}
+				entryBuilder.Reset()
 			}
 			// Start accumulating new entry
-			currentEntry = line
+			entryBuilder.WriteString(line)
 		}
 	}
 
 	// Process the last accumulated entry
-	if currentEntry != "" {
+	if entryBuilder.Len() > 0 {
+		currentEntry := entryBuilder.String()
 		// Try to normalize with detected structure (if not RDS/Azure format)
 		normalizedEntry := p.normalizeEntryBeforeParsing(currentEntry)
 		timestamp, message := parseStderrLine(normalizedEntry)
