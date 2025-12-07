@@ -2,6 +2,7 @@
 package analysis
 
 import (
+	"bytes"
 	"strconv"
 	"strings"
 	"time"
@@ -186,7 +187,7 @@ func NewLockAnalyzer() *LockAnalyzer {
 //	ERROR: deadlock detected
 //	DETAIL: Process 12345 waits for ShareLock on transaction 789; blocked by process 12346.
 func (a *LockAnalyzer) Process(entry *parser.LogEntry) {
-	msg := entry.Message
+	msg := entry.MessageBytes
 
 	// Fast path optimization: quick reject if message is too short
 	if len(msg) < 20 {
@@ -200,8 +201,8 @@ func (a *LockAnalyzer) Process(entry *parser.LogEntry) {
 		// "ss " appears in "process " but is rare in general text (~0% on typical logs)
 		// "ock" appears in "deadlock" and is also rare
 		// This eliminates 99%+ of messages before expensive Index calls
-		hasSS := strings.Index(msg, "ss ") >= 0
-		hasOck := strings.Index(msg, "ock") >= 0
+		hasSS := bytes.Index(msg, []byte("ss ")) >= 0
+		hasOck := bytes.Index(msg, []byte("ock")) >= 0
 
 		// Quick reject if neither discriminator present
 		if !hasSS && !hasOck {
@@ -211,10 +212,10 @@ func (a *LockAnalyzer) Process(entry *parser.LogEntry) {
 		// Now do the full pattern checks
 		var processIdx, deadlockIdx int = -1, -1
 		if hasSS {
-			processIdx = strings.Index(msg, "process ")
+			processIdx = bytes.Index(msg, []byte("process "))
 		}
 		if hasOck {
-			deadlockIdx = strings.Index(msg, "deadlock")
+			deadlockIdx = bytes.Index(msg, []byte("deadlock"))
 		}
 
 		// Quick reject if neither pattern found
@@ -225,7 +226,7 @@ func (a *LockAnalyzer) Process(entry *parser.LogEntry) {
 		// Now check full lock patterns (we know at least one keyword exists)
 		if processIdx >= 0 {
 			// Check if it's a lock waiting or acquired message
-			if strings.Contains(msg, lockStillWaiting) || strings.Contains(msg, lockAcquired) {
+			if bytes.Contains(msg, []byte(lockStillWaiting)) || bytes.Contains(msg, []byte(lockAcquired)) {
 				a.locksExist = true
 				// Fall through to full processing
 			} else {
@@ -233,7 +234,7 @@ func (a *LockAnalyzer) Process(entry *parser.LogEntry) {
 			}
 		} else if deadlockIdx >= 0 {
 			// Check if it's a deadlock message
-			if strings.Contains(msg, lockDeadlock) {
+			if bytes.Contains(msg, []byte(lockDeadlock)) {
 				a.locksExist = true
 				// Fall through to full processing
 			} else {
@@ -245,9 +246,9 @@ func (a *LockAnalyzer) Process(entry *parser.LogEntry) {
 	}
 
 	// Now check specific patterns (only after first lock seen)
-	hasLockWaiting := strings.Index(msg, lockStillWaiting) >= 0
-	hasLockAcquired := strings.Index(msg, lockAcquired) >= 0
-	hasDeadlock := strings.Index(msg, lockDeadlock) >= 0
+	hasLockWaiting := bytes.Index(msg, []byte(lockStillWaiting)) >= 0
+	hasLockAcquired := bytes.Index(msg, []byte(lockAcquired)) >= 0
+	hasDeadlock := bytes.Index(msg, []byte(lockDeadlock)) >= 0
 
 	// OPTIMIZATION 3: Skip STATEMENT/QUERY parsing until locks are actually seen
 	// This avoids filling lastQueryByPID unnecessarily
@@ -255,14 +256,14 @@ func (a *LockAnalyzer) Process(entry *parser.LogEntry) {
 	hasQuery := false
 	if a.locksExist {
 		// Check for "TATEMENT:" (covers STATEMENT: and statement:)
-		if idx := strings.Index(msg, "TATEMENT:"); idx >= 0 {
+		if idx := bytes.Index(msg, []byte("TATEMENT:")); idx >= 0 {
 			// Verify it's actually STATEMENT or statement (check preceding char)
 			if idx == 0 || msg[idx-1] == 'S' || msg[idx-1] == 's' {
 				hasStatement = true
 			}
 		}
 		// Also check for "QUERY:" which is used by CSV parser
-		if !hasStatement && strings.Contains(msg, "QUERY:") {
+		if !hasStatement && bytes.Contains(msg, []byte("QUERY:")) {
 			hasQuery = true
 		}
 	}
@@ -280,28 +281,30 @@ func (a *LockAnalyzer) Process(entry *parser.LogEntry) {
 
 		// Method 1: duration: X ms statement: QUERY
 		// OPTIMIZATION: Use Index instead of Contains
-		if durationIdx := strings.Index(msg, "duration:"); durationIdx >= 0 {
-			if idx := strings.Index(msg, "statement:"); idx != -1 {
-				query = strings.TrimSpace(msg[idx+10:])
+		if durationIdx := bytes.Index(msg, []byte("duration:")); durationIdx >= 0 {
+			if idx := bytes.Index(msg, []byte("statement:")); idx != -1 {
+				query = strings.TrimSpace(string(msg[idx+10:])) // Copy only the query portion
 			}
 		}
 
 		// Method 2: Standalone STATEMENT: line
 		if query == "" {
-			if idx := strings.Index(msg, "STATEMENT:"); idx != -1 {
-				query = strings.TrimSpace(msg[idx+10:])
-			} else if idx := strings.Index(msg, "statement:"); idx != -1 {
-				query = strings.TrimSpace(msg[idx+10:])
+			if idx := bytes.Index(msg, []byte("STATEMENT:")); idx != -1 {
+				query = strings.TrimSpace(string(msg[idx+10:]))
+			} else if idx := bytes.Index(msg, []byte("statement:")); idx != -1 {
+				query = strings.TrimSpace(string(msg[idx+10:]))
 			}
 		}
 
 		// Method 3: QUERY: (used by CSV parser)
 		if query == "" {
-			if idx := strings.Index(msg, "QUERY:"); idx != -1 {
-				query = strings.TrimSpace(msg[idx+6:])
+			if idx := bytes.Index(msg, []byte("QUERY:")); idx != -1 {
+				queryBytes := bytes.TrimSpace(msg[idx+6:])
 				// QUERY: may be followed by CONTEXT:, remove it
-				if ctxIdx := strings.Index(query, " CONTEXT:"); ctxIdx != -1 {
-					query = strings.TrimSpace(query[:ctxIdx])
+				if ctxIdx := bytes.Index(queryBytes, []byte(" CONTEXT:")); ctxIdx != -1 {
+					query = string(bytes.TrimSpace(queryBytes[:ctxIdx]))
+				} else {
+					query = string(queryBytes)
 				}
 			}
 		}
@@ -337,7 +340,7 @@ func (a *LockAnalyzer) Process(entry *parser.LogEntry) {
 	}
 
 	// === STEP 2: Handle deadlock detection ===
-	if hasDeadlock && strings.HasPrefix(msg, "ERROR:") {
+	if hasDeadlock && bytes.HasPrefix(msg, []byte("ERROR:")) {
 		a.deadlockEvents++
 		a.totalEvents++
 		pid := parser.ExtractPID(msg)
@@ -362,7 +365,7 @@ func (a *LockAnalyzer) Process(entry *parser.LogEntry) {
 
 	// === STEP 3: Parse lock messages (waiting or acquired) ===
 	if hasLockWaiting || hasLockAcquired {
-		processID, lockType, resource, waitTime, eventType, ok := parseLockEvent(msg, hasLockWaiting)
+		processID, lockType, resource, waitTime, eventType, ok := parseLockEventFromBytes(msg, hasLockWaiting)
 		if !ok {
 			return
 		}
@@ -468,8 +471,97 @@ func (a *LockAnalyzer) Process(entry *parser.LogEntry) {
 	}
 }
 
+// parseLockEventFromBytes parses a lock waiting/acquired message from []byte.
+// Returns: processID, lockType, resource, waitTime, eventType, ok
+// This version parses from []byte without allocating a string for the entire message.
+func parseLockEventFromBytes(msg []byte, isWaiting bool) (string, string, string, float64, string, bool) {
+	// Find "process XXX"
+	procIdx := bytes.Index(msg, []byte(lockProcessPrefix))
+	if procIdx == -1 {
+		return "", "", "", 0, "", false
+	}
+
+	// Extract PID
+	pidStart := procIdx + len(lockProcessPrefix)
+	pidEnd := pidStart
+	for pidEnd < len(msg) && msg[pidEnd] >= '0' && msg[pidEnd] <= '9' {
+		pidEnd++
+	}
+	if pidEnd == pidStart {
+		return "", "", "", 0, "", false
+	}
+	processID := string(msg[pidStart:pidEnd]) // Small copy: PID is typically 5-6 chars
+
+	var markerIdx int
+	var eventType string
+
+	if isWaiting {
+		markerIdx = bytes.Index(msg[pidEnd:], []byte(lockStillWaiting))
+		if markerIdx == -1 {
+			return "", "", "", 0, "", false
+		}
+		markerIdx += pidEnd
+		eventType = "waiting"
+	} else {
+		markerIdx = bytes.Index(msg[pidEnd:], []byte(lockAcquired))
+		if markerIdx == -1 {
+			return "", "", "", 0, "", false
+		}
+		markerIdx += pidEnd
+		eventType = "acquired"
+	}
+
+	// Extract lock type (between marker and " on ")
+	lockTypeStart := markerIdx + len(lockStillWaiting)
+	if !isWaiting {
+		lockTypeStart = markerIdx + len(lockAcquired)
+	}
+
+	onIdx := bytes.Index(msg[lockTypeStart:], []byte(lockOnMarker))
+	if onIdx == -1 {
+		return "", "", "", 0, "", false
+	}
+	lockType := string(msg[lockTypeStart : lockTypeStart+onIdx]) // Copy lock type
+
+	// Extract resource (between " on " and " after ")
+	resourceStart := lockTypeStart + onIdx + len(lockOnMarker)
+	afterIdx := bytes.Index(msg[resourceStart:], []byte(lockAfterMarker))
+	if afterIdx == -1 {
+		return "", "", "", 0, "", false
+	}
+	resource := string(msg[resourceStart : resourceStart+afterIdx]) // Copy resource
+
+	// Extract wait time (after " after ", before " ms")
+	waitTimeStart := resourceStart + afterIdx + len(lockAfterMarker)
+	waitTimeEnd := waitTimeStart
+	hasDot := false
+	for waitTimeEnd < len(msg) {
+		ch := msg[waitTimeEnd]
+		if ch >= '0' && ch <= '9' {
+			waitTimeEnd++
+		} else if ch == '.' && !hasDot {
+			hasDot = true
+			waitTimeEnd++
+		} else {
+			break
+		}
+	}
+
+	if waitTimeEnd == waitTimeStart {
+		return "", "", "", 0, "", false
+	}
+
+	waitTime, err := strconv.ParseFloat(string(msg[waitTimeStart:waitTimeEnd]), 64)
+	if err != nil {
+		return "", "", "", 0, "", false
+	}
+
+	return processID, lockType, resource, waitTime, eventType, true
+}
+
 // parseLockEvent parses a lock waiting/acquired message using string operations.
 // Returns: processID, lockType, resource, waitTime, eventType, ok
+// Deprecated: Use parseLockEventFromBytes for better memory efficiency.
 func parseLockEvent(msg string, isWaiting bool) (string, string, string, float64, string, bool) {
 	// Find "process XXX"
 	procIdx := strings.Index(msg, lockProcessPrefix)

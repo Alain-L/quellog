@@ -2,6 +2,7 @@
 package analysis
 
 import (
+	"bytes"
 	"sort"
 	"strings"
 	"sync"
@@ -336,10 +337,10 @@ func (a *UniqueEntityAnalyzer) Process(entry *parser.LogEntry) {
 		return
 	}
 
-	msg := entry.Message
+	msg := entry.MessageBytes
 
 	// Quick pre-filter: skip if no '=' present
-	if strings.IndexByte(msg, '=') == -1 {
+	if bytes.IndexByte(msg, '=') == -1 {
 		return
 	}
 
@@ -352,7 +353,7 @@ func (a *UniqueEntityAnalyzer) Process(entry *parser.LogEntry) {
 
 	for i < msgLen {
 		// Find next '='
-		eqIdx := strings.IndexByte(msg[i:], '=')
+		eqIdx := bytes.IndexByte(msg[i:], '=')
 		if eqIdx == -1 {
 			break
 		}
@@ -366,48 +367,48 @@ func (a *UniqueEntityAnalyzer) Process(entry *parser.LogEntry) {
 		lastChar := msg[eqIdx-1]
 
 		if lastChar == 'e' {
-			if eqIdx >= 16 && msg[eqIdx-16:eqIdx] == "application_name" {
+			if eqIdx >= 16 && string(msg[eqIdx-16:eqIdx]) == "application_name" {
 				if currentApp == "" {
-					if appName := extractValueAt(msg, eqIdx+1); appName != "" {
+					if appName := extractValueAtFromBytes(msg, eqIdx+1); appName != "" {
 						currentApp = appName
 					}
 				}
-			} else if eqIdx >= 8 && msg[eqIdx-8:eqIdx] == "database" {
+			} else if eqIdx >= 8 && string(msg[eqIdx-8:eqIdx]) == "database" {
 				if currentDb == "" {
-					if dbName := extractValueAt(msg, eqIdx+1); dbName != "" {
+					if dbName := extractValueAtFromBytes(msg, eqIdx+1); dbName != "" {
 						currentDb = dbName
 					}
 				}
 			}
 		} else if lastChar == 't' {
-			if eqIdx >= 6 && msg[eqIdx-6:eqIdx] == "client" {
+			if eqIdx >= 6 && string(msg[eqIdx-6:eqIdx]) == "client" {
 				if currentHost == "" {
-					if hostName := extractValueAt(msg, eqIdx+1); hostName != "" {
+					if hostName := extractValueAtFromBytes(msg, eqIdx+1); hostName != "" {
 						currentHost = normalizeHost(hostName)
 					}
 				}
-			} else if eqIdx >= 4 && msg[eqIdx-4:eqIdx] == "host" {
+			} else if eqIdx >= 4 && string(msg[eqIdx-4:eqIdx]) == "host" {
 				if currentHost == "" {
-					if hostName := extractValueAt(msg, eqIdx+1); hostName != "" {
+					if hostName := extractValueAtFromBytes(msg, eqIdx+1); hostName != "" {
 						currentHost = normalizeHost(hostName)
 					}
 				}
 			}
-		} else if lastChar == 'r' && eqIdx >= 4 && msg[eqIdx-4:eqIdx] == "user" {
+		} else if lastChar == 'r' && eqIdx >= 4 && string(msg[eqIdx-4:eqIdx]) == "user" {
 			if currentUser == "" {
-				if userName := extractValueAt(msg, eqIdx+1); userName != "" {
+				if userName := extractValueAtFromBytes(msg, eqIdx+1); userName != "" {
 					currentUser = userName
 				}
 			}
-		} else if lastChar == 'p' && eqIdx >= 3 && msg[eqIdx-3:eqIdx] == "app" {
+		} else if lastChar == 'p' && eqIdx >= 3 && string(msg[eqIdx-3:eqIdx]) == "app" {
 			if currentApp == "" {
-				if appName := extractValueAt(msg, eqIdx+1); appName != "" {
+				if appName := extractValueAtFromBytes(msg, eqIdx+1); appName != "" {
 					currentApp = appName
 				}
 			}
-		} else if lastChar == 'b' && eqIdx >= 2 && msg[eqIdx-2:eqIdx] == "db" {
+		} else if lastChar == 'b' && eqIdx >= 2 && string(msg[eqIdx-2:eqIdx]) == "db" {
 			if currentDb == "" {
-				if dbName := extractValueAt(msg, eqIdx+1); dbName != "" {
+				if dbName := extractValueAtFromBytes(msg, eqIdx+1); dbName != "" {
 					currentDb = dbName
 				}
 			}
@@ -477,10 +478,46 @@ func init() {
 	isSeparator['"'] = true // CSV field delimiter can appear at end of message
 }
 
+// extractValueAtFromBytes extracts a value starting at a given position in the message.
+// It stops at the first separator: space, comma, bracket, or parenthesis.
+// Returns empty string if no valid value found.
+// This version parses from []byte without allocating a string for the entire message.
+func extractValueAtFromBytes(msg []byte, startPos int) string {
+	if startPos >= len(msg) {
+		return ""
+	}
+
+	// Find end position (first separator)
+	endPos := startPos
+	for endPos < len(msg) {
+		c := msg[endPos]
+		// Fast lookup table check (single array access vs 4 comparisons)
+		if isSeparator[c] {
+			break
+		}
+		endPos++
+	}
+
+	if endPos == startPos {
+		return ""
+	}
+
+	// Extract and normalize value - only copy this portion
+	valBytes := msg[startPos:endPos]
+
+	// Remove surrounding quotes if present (e.g., user="postgres" → postgres)
+	if len(valBytes) >= 2 && (valBytes[0] == '"' && valBytes[len(valBytes)-1] == '"' || valBytes[0] == '\'' && valBytes[len(valBytes)-1] == '\'') {
+		return string(valBytes[1 : len(valBytes)-1])
+	}
+
+	return string(valBytes)
+}
+
 // extractValueAt extracts a value starting at a given position in the message.
 // It stops at the first separator: space, comma, bracket, or parenthesis.
 // Returns empty string if no valid value found.
 // This is optimized to avoid allocating a slice of separators.
+// Deprecated: Use extractValueAtFromBytes for better memory efficiency.
 func extractValueAt(msg string, startPos int) string {
 	if startPos >= len(msg) {
 		return ""

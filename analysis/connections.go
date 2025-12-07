@@ -2,6 +2,7 @@
 package analysis
 
 import (
+	"bytes"
 	"strconv"
 	"strings"
 	"time"
@@ -115,7 +116,7 @@ func NewConnectionAnalyzer() *ConnectionAnalyzer {
 
 // optimized version of Process for connection-related events.
 func (a *ConnectionAnalyzer) Process(entry *parser.LogEntry) {
-	msg := entry.Message
+	msg := entry.MessageBytes
 
 	if len(msg) < 12 {
 		return
@@ -123,7 +124,7 @@ func (a *ConnectionAnalyzer) Process(entry *parser.LogEntry) {
 
 	// OPTIMIZATION: Use single Index call to find "connection" then check context
 	// This reduces CPU time from 220ms to ~110ms on I1.log
-	idx := strings.Index(msg, "connection")
+	idx := bytes.Index(msg, []byte("connection"))
 	if idx == -1 {
 		return // Neither connection nor disconnection present
 	}
@@ -134,7 +135,7 @@ func (a *ConnectionAnalyzer) Process(entry *parser.LogEntry) {
 	// Check if it's "connection received" or "disconnection"
 	// "connection received" has 'c' at position idx
 	// "disconnection" has 'd' before "connection" (idx-3: "dis")
-	if idx >= 3 && msg[idx-3:idx] == "dis" {
+	if idx >= 3 && string(msg[idx-3:idx]) == "dis" {
 		// It's "disconnection"
 		a.disconnectionCount++
 
@@ -143,7 +144,7 @@ func (a *ConnectionAnalyzer) Process(entry *parser.LogEntry) {
 			delete(a.activeConnections, pid)
 		}
 
-		if duration := extractSessionTime(msg); duration > 0 {
+		if duration := extractSessionTimeFromBytes(msg); duration > 0 {
 			a.totalSessionTime += duration
 			a.sessionDurations = append(a.sessionDurations, duration)
 
@@ -155,9 +156,9 @@ func (a *ConnectionAnalyzer) Process(entry *parser.LogEntry) {
 			})
 
 			// Extract user, database, and host from disconnection message
-			user := extractEntityFromMessage(msg, "user")
-			database := extractEntityFromMessage(msg, "database")
-			host := extractEntityFromMessage(msg, "host")
+			user := extractEntityFromMessageBytes(msg, []byte("user"))
+			database := extractEntityFromMessageBytes(msg, []byte("database"))
+			host := extractEntityFromMessageBytes(msg, []byte("host"))
 
 			// Store duration by user
 			if user != "" {
@@ -174,9 +175,9 @@ func (a *ConnectionAnalyzer) Process(entry *parser.LogEntry) {
 				a.sessionsByHost[host] = append(a.sessionsByHost[host], duration)
 			}
 		}
-	} else if idx+10 < len(msg) && msg[idx:idx+10] == "connection" {
+	} else if idx+10 < len(msg) && string(msg[idx:idx+10]) == "connection" {
 		// Check if followed by " received"
-		if idx+19 <= len(msg) && msg[idx:idx+19] == "connection received" {
+		if idx+19 <= len(msg) && string(msg[idx:idx+19]) == "connection received" {
 			a.connectionReceivedCount++
 			a.connections = append(a.connections, entry.Timestamp)
 
@@ -227,6 +228,29 @@ func (a *ConnectionAnalyzer) Finalize() ConnectionMetrics {
 //   - "2:30:45.789" → 2 hours 30 minutes 45.789 seconds
 //
 // Returns 0 if the session time cannot be parsed or is not present.
+// extractSessionTimeFromBytes extracts and parses session time from a []byte message.
+// This version parses from []byte without allocating a string for the entire message.
+func extractSessionTimeFromBytes(message []byte) time.Duration {
+	// Find "session time: " prefix
+	idx := bytes.Index(message, []byte(sessionTimePrefix))
+	if idx == -1 {
+		return 0
+	}
+
+	// Extract the time string after "session time: "
+	timePart := message[idx+len(sessionTimePrefix):]
+
+	// Find the end of the time string (first space)
+	if spaceIdx := bytes.IndexByte(timePart, ' '); spaceIdx != -1 {
+		timePart = timePart[:spaceIdx]
+	}
+
+	// Parse "H:MM:SS.mmm" or "HH:MM:SS.mmm" format - convert only this small portion
+	return parsePostgreSQLDuration(string(timePart))
+}
+
+// extractSessionTime extracts and parses session time from a string message.
+// Deprecated: Use extractSessionTimeFromBytes for better memory efficiency.
 func extractSessionTime(message string) time.Duration {
 	// Find "session time: " prefix
 	idx := strings.Index(message, sessionTimePrefix)
@@ -297,6 +321,57 @@ func parsePostgreSQLDuration(s string) time.Duration {
 
 // extractEntityFromMessage extracts a specific entity (user, database, host, or application) from a log message.
 // Supports patterns: "user=value", "database=value", "db=value", "host=value", "application=value"
+// extractEntityFromMessageBytes extracts a specific entity (user, database, host, or application) from a []byte message.
+// Supports patterns: "user=value", "database=value", "db=value", "host=value", "application=value"
+// This version parses from []byte without allocating a string for the entire message.
+func extractEntityFromMessageBytes(msg, entityType []byte) string {
+	var patterns [][]byte
+	switch string(entityType) {
+	case "user":
+		patterns = [][]byte{[]byte("user=")}
+	case "database":
+		patterns = [][]byte{[]byte("database="), []byte("db=")}
+	case "host":
+		patterns = [][]byte{[]byte("host=")}
+	case "application":
+		patterns = [][]byte{[]byte("application="), []byte("app=")}
+	default:
+		return ""
+	}
+
+	for _, pattern := range patterns {
+		idx := bytes.Index(msg, pattern)
+		if idx == -1 {
+			continue
+		}
+
+		// Extract value after '='
+		startPos := idx + len(pattern)
+		if startPos >= len(msg) {
+			continue
+		}
+
+		// Find end position (first separator: space, comma, bracket, or parenthesis)
+		endPos := startPos
+		for endPos < len(msg) {
+			c := msg[endPos]
+			if c == ' ' || c == ',' || c == '[' || c == ')' {
+				break
+			}
+			endPos++
+		}
+
+		if endPos > startPos {
+			return string(msg[startPos:endPos]) // Only copy the entity value
+		}
+	}
+
+	return ""
+}
+
+// extractEntityFromMessage extracts a specific entity (user, database, host, or application) from a log message.
+// Supports patterns: "user=value", "database=value", "db=value", "host=value", "application=value"
+// Deprecated: Use extractEntityFromMessageBytes for better memory efficiency.
 func extractEntityFromMessage(msg, entityType string) string {
 	var patterns []string
 	if entityType == "user" {
