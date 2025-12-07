@@ -2,6 +2,7 @@
 package analysis
 
 import (
+	"bytes"
 	"sort"
 	"strings"
 
@@ -168,6 +169,84 @@ func isValidSQLSTATEClass(c byte) bool {
 	return (c >= '0' && c <= '5') || c == 'F' || c == 'H' || c == 'P' || c == 'X'
 }
 
+// extractSQLSTATEFromBytes extracts a 5-character SQLSTATE code from a log message.
+// It looks for patterns like:
+//   - SQLSTATE = '42P01' or SQLSTATE='42P01' (log message content)
+//   - ERROR: 42P01: (with log_error_verbosity = verbose)
+//   - ] 42P01 or ] 42P01: (with %e in log_line_prefix)
+//
+// Returns the 5-character code or empty string if not found.
+// This version parses from []byte without allocating a string for the entire message.
+func extractSQLSTATEFromBytes(msg []byte) string {
+	// Pattern 1: SQLSTATE = '42P01' or SQLSTATE='42P01'
+	if idx := bytes.Index(msg, []byte("SQLSTATE")); idx != -1 {
+		// Skip "SQLSTATE" and optional whitespace/equals
+		pos := idx + 8 // len("SQLSTATE")
+		// Skip whitespace
+		for pos < len(msg) && (msg[pos] == ' ' || msg[pos] == '\t') {
+			pos++
+		}
+		// Expect '='
+		if pos < len(msg) && msg[pos] == '=' {
+			pos++
+			// Skip whitespace
+			for pos < len(msg) && (msg[pos] == ' ' || msg[pos] == '\t') {
+				pos++
+			}
+			// Expect single quote
+			if pos < len(msg) && msg[pos] == '\'' {
+				pos++
+				// Extract 5 chars
+				if pos+5 <= len(msg) {
+					codeBytes := msg[pos : pos+5]
+					if isValidSQLSTATEClass(codeBytes[0]) &&
+						isSQLSTATEChar(codeBytes[1]) && isSQLSTATEChar(codeBytes[2]) &&
+						isSQLSTATEChar(codeBytes[3]) && isSQLSTATEChar(codeBytes[4]) {
+						return string(codeBytes) // Only copy the 5-char SQLSTATE
+					}
+				}
+			}
+		}
+	}
+
+	// Pattern 2: ERROR: 42P01: (verbose mode)
+	if idx := bytes.Index(msg, []byte("ERROR:")); idx != -1 {
+		pos := idx + 6 // len("ERROR:")
+		// Skip whitespace
+		for pos < len(msg) && (msg[pos] == ' ' || msg[pos] == '\t') {
+			pos++
+		}
+		// Check for 5 SQLSTATE chars followed by ':'
+		if pos+6 <= len(msg) && msg[pos+5] == ':' {
+			codeBytes := msg[pos : pos+5]
+			if isValidSQLSTATEClass(codeBytes[0]) &&
+				isSQLSTATEChar(codeBytes[1]) && isSQLSTATEChar(codeBytes[2]) &&
+				isSQLSTATEChar(codeBytes[3]) && isSQLSTATEChar(codeBytes[4]) {
+				return string(codeBytes) // Only copy the 5-char SQLSTATE
+			}
+		}
+	}
+
+	// Pattern 3: ] 42P01 or ] 42P01: (log_line_prefix with %e)
+	if idx := bytes.Index(msg, []byte("] ")); idx != -1 {
+		pos := idx + 2 // len("] ")
+		// Check for 5 SQLSTATE chars followed by space or colon
+		if pos+5 <= len(msg) {
+			codeBytes := msg[pos : pos+5]
+			if isValidSQLSTATEClass(codeBytes[0]) &&
+				isSQLSTATEChar(codeBytes[1]) && isSQLSTATEChar(codeBytes[2]) &&
+				isSQLSTATEChar(codeBytes[3]) && isSQLSTATEChar(codeBytes[4]) {
+				// Verify followed by space or colon (or end of string)
+				if pos+5 == len(msg) || msg[pos+5] == ' ' || msg[pos+5] == ':' {
+					return string(codeBytes) // Only copy the 5-char SQLSTATE
+				}
+			}
+		}
+	}
+
+	return ""
+}
+
 // extractSQLSTATE extracts a 5-character SQLSTATE code from a log message.
 // It looks for patterns like:
 //   - SQLSTATE = '42P01' or SQLSTATE='42P01' (log message content)
@@ -175,6 +254,7 @@ func isValidSQLSTATEClass(c byte) bool {
 //   - ] 42P01 or ] 42P01: (with %e in log_line_prefix)
 //
 // Returns the 5-character code or empty string if not found.
+// Deprecated: Use extractSQLSTATEFromBytes for better memory efficiency.
 func extractSQLSTATE(msg string) string {
 	// Pattern 1: SQLSTATE = '42P01' or SQLSTATE='42P01'
 	if idx := strings.Index(msg, "SQLSTATE"); idx != -1 {
@@ -277,22 +357,22 @@ func NewErrorClassAnalyzer() *ErrorClassAnalyzer {
 //   - 'ERROR: relation "users" does not exist SQLSTATE = '42P01"
 //   - 'ERROR: duplicate key value violates unique constraint SQLSTATE='23505"
 func (a *ErrorClassAnalyzer) Process(entry *parser.LogEntry) {
-	msg := entry.Message
+	msg := entry.MessageBytes
 
 	// Quick checks before expensive operations
 	// Check for error-level messages or SQLSTATE keyword
 	// Include FATAL and PANIC which also have SQLSTATE codes
-	hasError := strings.Contains(msg, "ERROR:") ||
-		strings.Contains(msg, "FATAL:") ||
-		strings.Contains(msg, "PANIC:")
-	hasSQLSTATE := strings.Contains(msg, "SQLSTATE")
+	hasError := bytes.Contains(msg, []byte("ERROR:")) ||
+		bytes.Contains(msg, []byte("FATAL:")) ||
+		bytes.Contains(msg, []byte("PANIC:"))
+	hasSQLSTATE := bytes.Contains(msg, []byte("SQLSTATE"))
 
 	if !hasError && !hasSQLSTATE {
 		return
 	}
 
 	// Extract SQLSTATE code using manual parsing (faster than regex)
-	sqlstate := extractSQLSTATE(msg)
+	sqlstate := extractSQLSTATEFromBytes(msg)
 	if len(sqlstate) >= 2 {
 		classCode := sqlstate[:2]
 		a.counts[classCode]++

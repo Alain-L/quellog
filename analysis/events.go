@@ -2,8 +2,8 @@
 package analysis
 
 import (
+	"bytes"
 	"sort"
-	"strings"
 
 	"github.com/Alain-L/quellog/parser"
 )
@@ -91,7 +91,7 @@ func (a *EventAnalyzer) Process(entry *parser.LogEntry) {
 		return
 	}
 
-	msg := entry.Message
+	msg := entry.MessageBytes
 
 	if len(msg) < 3 {
 		return
@@ -104,49 +104,49 @@ func (a *EventAnalyzer) Process(entry *parser.LogEntry) {
 	// Check based on first character (ordered by frequency in typical logs)
 	switch firstChar {
 	case 'L': // LOG
-		if len(msg) >= 3 && msg[0:3] == "LOG" {
+		if len(msg) >= 3 && string(msg[0:3]) == "LOG" {
 			a.counts["LOG"]++
 			a.total++
 			return
 		}
 	case 'E': // ERROR
-		if len(msg) >= 5 && msg[0:5] == "ERROR" {
+		if len(msg) >= 5 && string(msg[0:5]) == "ERROR" {
 			a.counts["ERROR"]++
 			a.total++
 			return
 		}
 	case 'W': // WARNING
-		if len(msg) >= 7 && msg[0:7] == "WARNING" {
+		if len(msg) >= 7 && string(msg[0:7]) == "WARNING" {
 			a.counts["WARNING"]++
 			a.total++
 			return
 		}
 	case 'F': // FATAL
-		if len(msg) >= 5 && msg[0:5] == "FATAL" {
+		if len(msg) >= 5 && string(msg[0:5]) == "FATAL" {
 			a.counts["FATAL"]++
 			a.total++
 			return
 		}
 	case 'I': // INFO
-		if len(msg) >= 4 && msg[0:4] == "INFO" {
+		if len(msg) >= 4 && string(msg[0:4]) == "INFO" {
 			a.counts["INFO"]++
 			a.total++
 			return
 		}
 	case 'N': // NOTICE
-		if len(msg) >= 6 && msg[0:6] == "NOTICE" {
+		if len(msg) >= 6 && string(msg[0:6]) == "NOTICE" {
 			a.counts["NOTICE"]++
 			a.total++
 			return
 		}
 	case 'D': // DEBUG
-		if len(msg) >= 5 && msg[0:5] == "DEBUG" {
+		if len(msg) >= 5 && string(msg[0:5]) == "DEBUG" {
 			a.counts["DEBUG"]++
 			a.total++
 			return
 		}
 	case 'P': // PANIC
-		if len(msg) >= 5 && msg[0:5] == "PANIC" {
+		if len(msg) >= 5 && string(msg[0:5]) == "PANIC" {
 			a.counts["PANIC"]++
 			a.total++
 			return
@@ -155,7 +155,7 @@ func (a *EventAnalyzer) Process(entry *parser.LogEntry) {
 
 	// Fallback: check for event types anywhere in message (for non-standard formats)
 	for _, eventType := range predefinedEventTypes {
-		if strings.Contains(msg, eventType) {
+		if bytes.Contains(msg, []byte(eventType)) {
 			a.counts[eventType]++
 			a.total++
 			return
