@@ -270,94 +270,41 @@ func normalizeQuery(query string) string {
 // This ensures consistent raw_query formatting across log formats (stderr uses spaces,
 // CSV/JSON preserve newlines from the original query).
 //
+// Uses builderPool to reuse strings.Builder instances and reduce allocations.
+//
 // Example:
 //
 //	Input:  "BEGIN;\n            UPDATE users\n            SET name = 'foo';"
 //	Output: "BEGIN; UPDATE users SET name = 'foo';"
 func normalizeWhitespace(s string) string {
-	n := len(s)
-	if n == 0 {
+	if len(s) == 0 {
 		return ""
 	}
 
-	// Fast path: check if normalization is needed at all
-	// This avoids allocation for strings that are already normalized
-	needsNormalization := false
-	start := 0
-	end := n
+	buf := builderPool.Get().(*strings.Builder)
+	buf.Reset()
+	buf.Grow(len(s))
+	defer builderPool.Put(buf)
 
-	// Find first non-whitespace (for leading trim check)
-	for start < n {
-		c := s[start]
-		if c != ' ' && c != '\n' && c != '\r' && c != '\t' {
-			break
-		}
-		needsNormalization = true
-		start++
-	}
+	lastWasSpace := false
 
-	// Find last non-whitespace (for trailing trim check)
-	for end > start {
-		c := s[end-1]
-		if c != ' ' && c != '\n' && c != '\r' && c != '\t' {
-			break
-		}
-		needsNormalization = true
-		end--
-	}
-
-	// Check for multiple consecutive whitespace or non-space whitespace
-	if !needsNormalization {
-		lastWasSpace := false
-		for i := start; i < end; i++ {
-			c := s[i]
-			isWhitespace := c == ' ' || c == '\n' || c == '\r' || c == '\t'
-			if isWhitespace {
-				if lastWasSpace || c != ' ' {
-					needsNormalization = true
-					break
-				}
-				lastWasSpace = true
-			} else {
-				lastWasSpace = false
-			}
-		}
-	}
-
-	// Fast path: no normalization needed, return original (or trimmed slice)
-	if !needsNormalization {
-		if start == 0 && end == n {
-			return s // Completely unchanged
-		}
-		return s[start:end] // Just trimmed, no internal changes
-	}
-
-	// Slow path: allocate and normalize
-	buf := make([]byte, 0, end-start)
-	lastWasSpace := true // Start true to skip leading spaces
-
-	for i := start; i < end; i++ {
+	for i := 0; i < len(s); i++ {
 		c := s[i]
 
-		// Collapse whitespace (space, newline, tab, carriage return)
-		if c == ' ' || c == '\n' || c == '\r' || c == '\t' {
+		// Collapse whitespace
+		if c == '\n' || c == '\r' || c == '\t' || c == ' ' {
 			if !lastWasSpace {
-				buf = append(buf, ' ')
+				buf.WriteByte(' ')
 				lastWasSpace = true
 			}
 			continue
 		}
 
-		buf = append(buf, c)
+		buf.WriteByte(c)
 		lastWasSpace = false
 	}
 
-	// Trim trailing space (shouldn't happen due to end calculation, but safe)
-	if len(buf) > 0 && buf[len(buf)-1] == ' ' {
-		buf = buf[:len(buf)-1]
-	}
-
-	return string(buf)
+	return strings.TrimSpace(buf.String())
 }
 
 // ============================================================================
