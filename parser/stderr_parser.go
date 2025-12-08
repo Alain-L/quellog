@@ -397,12 +397,14 @@ func (p *StderrParser) parseReader(r io.Reader, out chan<- LogEntry) error {
 }
 
 // parseFromBytes parses stderr log data directly from a byte slice.
-// This is more memory-efficient than using bufio.Scanner because it avoids
-// creating a new string for each line via scanner.Text().
+// This is optimized for WASM with leaking GC - it minimizes allocations by:
+// 1. Accumulating entries as []byte slices
+// 2. Parsing timestamps directly from bytes
+// 3. Only creating strings for the message portion
 func (p *StderrParser) parseFromBytes(data []byte, out chan<- LogEntry) error {
-	// Accumulate multi-line entries using strings.Builder for efficiency.
-	var entryBuilder strings.Builder
-	entryBuilder.Grow(512)
+	// Accumulate multi-line entries as bytes
+	var currentEntry []byte
+	currentEntry = make([]byte, 0, 1024)
 
 	dataLen := len(data)
 	lineStart := 0
@@ -441,7 +443,7 @@ func (p *StderrParser) parseFromBytes(data []byte, out chan<- LogEntry) error {
 		isContinuation := len(lineBytes) > 0 && (lineBytes[0] == ' ' || lineBytes[0] == '\t')
 
 		// Fallback: if not indented AND we have a current entry, check for timestamp
-		if !isContinuation && entryBuilder.Len() > 0 {
+		if !isContinuation && len(currentEntry) > 0 {
 			hasTimestamp := hasTimestampBytes(lineBytes)
 			if !hasTimestamp {
 				isContinuation = true
@@ -450,31 +452,29 @@ func (p *StderrParser) parseFromBytes(data []byte, out chan<- LogEntry) error {
 
 		if isContinuation {
 			// Append to current entry
-			entryBuilder.WriteByte(' ')
-			entryBuilder.Write(trimSpaceBytes(lineBytes))
+			if len(currentEntry) > 0 {
+				currentEntry = append(currentEntry, ' ')
+			}
+			currentEntry = append(currentEntry, trimSpaceBytes(lineBytes)...)
 		} else {
 			// Process previous entry
-			if entryBuilder.Len() > 0 {
-				currentEntry := entryBuilder.String()
-				normalizedEntry := p.normalizeEntryBeforeParsing(currentEntry)
-				timestamp, message := parseStderrLine(normalizedEntry)
+			if len(currentEntry) > 0 {
+				timestamp, message := p.parseEntryFromBytes(currentEntry)
 				out <- LogEntry{
 					Timestamp:      timestamp,
 					Message:        message,
 					IsContinuation: isContinuationMessage(message),
 				}
-				entryBuilder.Reset()
+				currentEntry = currentEntry[:0] // Reset but keep capacity
 			}
 			// Start new entry
-			entryBuilder.Write(lineBytes)
+			currentEntry = append(currentEntry[:0], lineBytes...)
 		}
 	}
 
 	// Process last entry
-	if entryBuilder.Len() > 0 {
-		currentEntry := entryBuilder.String()
-		normalizedEntry := p.normalizeEntryBeforeParsing(currentEntry)
-		timestamp, message := parseStderrLine(normalizedEntry)
+	if len(currentEntry) > 0 {
+		timestamp, message := p.parseEntryFromBytes(currentEntry)
 		out <- LogEntry{
 			Timestamp:      timestamp,
 			Message:        message,
@@ -483,6 +483,26 @@ func (p *StderrParser) parseFromBytes(data []byte, out chan<- LogEntry) error {
 	}
 
 	return nil
+}
+
+// parseEntryFromBytes parses a log entry directly from bytes.
+// Uses zero-copy parsing for stderr format, falls back to string for other formats.
+func (p *StderrParser) parseEntryFromBytes(entry []byte) (time.Time, string) {
+	// Try zero-copy parsing for stderr format (YYYY-MM-DD HH:MM:SS TZ)
+	n := len(entry)
+	if n >= 20 && entry[4] == '-' && entry[7] == '-' && entry[10] == ' ' && entry[13] == ':' && entry[16] == ':' {
+		if timestamp, msgOffset, ok := parseStderrFormatFromBytes(entry); ok {
+			if msgOffset >= n {
+				return timestamp, ""
+			}
+			return timestamp, string(entry[msgOffset:])
+		}
+	}
+
+	// Fallback: convert to string for other formats (syslog, RDS, Azure, etc.)
+	entryStr := string(entry)
+	normalizedEntry := p.normalizeEntryBeforeParsing(entryStr)
+	return parseStderrLine(normalizedEntry)
 }
 
 // hasTimestampBytes checks if a line starts with a recognizable timestamp pattern.
