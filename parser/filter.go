@@ -64,16 +64,16 @@ func FilterStream(in <-chan LogEntry, out chan<- LogEntry, filters LogFilters) {
 	defer close(out)
 
 	for entry := range in {
-		if !passesFilters(entry, filters) {
+		if !PassesFilters(entry, filters) {
 			continue
 		}
 		out <- entry
 	}
 }
 
-// passesFilters checks if a log entry matches all filter criteria.
+// PassesFilters checks if a log entry matches all filter criteria.
 // Returns true if the entry should be included in the output.
-func passesFilters(entry LogEntry, filters LogFilters) bool {
+func PassesFilters(entry LogEntry, filters LogFilters) bool {
 	// Time range filters (fastest - no string operations)
 	timeFormat := "20060102150405" // YYYYMMDDHHMMSS
 

@@ -5,8 +5,10 @@
 package main
 
 import (
+	"encoding/json"
 	"strconv"
 	"syscall/js"
+	"time"
 
 	"github.com/Alain-L/quellog/analysis"
 	"github.com/Alain-L/quellog/output"
@@ -15,10 +17,42 @@ import (
 
 const version = "0.2.0-wasm"
 
+// JSFilters is the JSON structure for filters from JavaScript
+type JSFilters struct {
+	Begin       string   `json:"begin"`       // ISO datetime string
+	End         string   `json:"end"`         // ISO datetime string
+	Database    []string `json:"database"`    // Database names
+	User        []string `json:"user"`        // User names
+	Application []string `json:"application"` // Application names
+}
+
 var perf = js.Global().Get("performance")
 
 func now() float64 {
 	return perf.Call("now").Float()
+}
+
+// convertFilters converts JS filters to parser.LogFilters
+func convertFilters(jsf JSFilters) parser.LogFilters {
+	var f parser.LogFilters
+
+	// Parse time range (JS sends ISO format like "2024-06-05T00:00")
+	if jsf.Begin != "" {
+		if t, err := time.Parse("2006-01-02T15:04", jsf.Begin); err == nil {
+			f.BeginT = t
+		}
+	}
+	if jsf.End != "" {
+		if t, err := time.Parse("2006-01-02T15:04", jsf.End); err == nil {
+			f.EndT = t
+		}
+	}
+
+	f.DbFilter = jsf.Database
+	f.UserFilter = jsf.User
+	f.AppFilter = jsf.Application
+
+	return f
 }
 
 func formatDuration(ms int64) string {
@@ -52,6 +86,18 @@ func parseLog(this js.Value, args []js.Value) interface{} {
 		return `{"error": "Empty input"}`
 	}
 
+	// Parse optional filters (second argument)
+	var filters parser.LogFilters
+	if len(args) >= 2 && !args[1].IsNull() && !args[1].IsUndefined() {
+		filtersJSON := args[1].String()
+		if filtersJSON != "" {
+			var jsFilters JSFilters
+			if err := json.Unmarshal([]byte(filtersJSON), &jsFilters); err == nil {
+				filters = convertFilters(jsFilters)
+			}
+		}
+	}
+
 	// Convert to bytes for optimized parsing
 	data := []byte(content)
 
@@ -83,8 +129,16 @@ func parseLog(this js.Value, args []js.Value) interface{} {
 	sqlAnalyzer := analysis.NewSQLAnalyzer()
 
 	var globalMetrics analysis.GlobalMetrics
+	var filteredCount int
 	for i := range entries {
 		entry := &entries[i]
+
+		// Apply filters
+		if !parser.PassesFilters(*entry, filters) {
+			continue
+		}
+		filteredCount++
+
 		tempAnalyzer.Process(entry)
 		vacAnalyzer.Process(entry)
 		chkAnalyzer.Process(entry)
