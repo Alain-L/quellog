@@ -176,6 +176,10 @@ func isWhitespace(b byte) bool {
 //   - error_severity, message, detail, hint, query, context
 //   - application_name, backend_type
 //
+// CloudNative-PG (CNPG) format with Kubernetes wrapper:
+//   - message.record contains PostgreSQL log fields with different names
+//   - log_time, user_name, database_name, process_id, connection_from, etc.
+//
 // Supported timestamp fields (in order of preference):
 //   - "timestamp"
 //   - "time"
@@ -189,6 +193,9 @@ func isWhitespace(b byte) bool {
 //
 // Returns an error if required fields are missing or invalid.
 func extractLogEntry(obj map[string]interface{}) (LogEntry, error) {
+	// Check for CNPG/Kubernetes wrapped format
+	obj = unwrapCNPG(obj)
+
 	// Extract timestamp
 	timestamp, err := extractTimestamp(obj)
 	if err != nil {
@@ -205,6 +212,59 @@ func extractLogEntry(obj map[string]interface{}) (LogEntry, error) {
 		Timestamp: timestamp,
 		Message:   message,
 	}, nil
+}
+
+// unwrapCNPG detects CloudNative-PG format and extracts the PostgreSQL log record.
+// CNPG wraps PostgreSQL logs in: {"message":{"logger":"postgres|pgaudit","record":{...}}}
+// Returns the normalized record with standard field names, or the original object if not CNPG.
+func unwrapCNPG(obj map[string]interface{}) map[string]interface{} {
+	// Check for CNPG structure: message.logger in ("postgres","pgaudit") && message.record exists
+	msgField, ok := obj["message"].(map[string]interface{})
+	if !ok {
+		return obj
+	}
+
+	logger, _ := msgField["logger"].(string)
+	if logger != "postgres" && logger != "pgaudit" {
+		return obj
+	}
+
+	record, ok := msgField["record"].(map[string]interface{})
+	if !ok {
+		return obj
+	}
+
+	// Normalize CNPG field names to standard PostgreSQL jsonlog names
+	normalized := make(map[string]interface{}, len(record))
+
+	for k, v := range record {
+		switch k {
+		case "log_time":
+			normalized["timestamp"] = v
+		case "user_name":
+			normalized["user"] = v
+		case "database_name":
+			normalized["dbname"] = v
+		case "process_id":
+			normalized["pid"] = v
+		case "connection_from":
+			// Extract IP from "10.131.3.19:58258" or "[local]"
+			if s, ok := v.(string); ok {
+				if idx := strings.LastIndex(s, ":"); idx > 0 {
+					normalized["remote_host"] = s[:idx]
+				} else {
+					normalized["remote_host"] = s
+				}
+			}
+		case "sql_state_code":
+			normalized["state_code"] = v
+		default:
+			// Keep other fields as-is (error_severity, message, application_name, etc.)
+			normalized[k] = v
+		}
+	}
+
+	return normalized
 }
 
 // constructMessage builds a complete log message from PostgreSQL JSON log fields.
