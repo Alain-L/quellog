@@ -191,7 +191,8 @@ func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, 
 	}
 
 	// Special case: SQL performance (detailed aggregated query statistics)
-	if sqlPerformanceFlag {
+	// Skip if --full is set (will be included in full report)
+	if sqlPerformanceFlag && !fullFlag {
 		// Run full analysis to collect queries from locks and tempfiles
 		metrics := analysis.AggregateMetrics(filteredLogs, totalFileSize)
 		processingDuration := time.Since(startTime)
@@ -213,7 +214,8 @@ func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, 
 	}
 
 	// Special case: SQL overview (query type statistics with dimensional breakdown)
-	if sqlOverviewFlag {
+	// Skip if --full is set (will be included in full report)
+	if sqlOverviewFlag && !fullFlag {
 		metrics := analysis.AggregateMetrics(filteredLogs, totalFileSize)
 		processingDuration := time.Since(startTime)
 
@@ -250,22 +252,28 @@ func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, 
 	}
 
 	// Determine which sections to display
-	sections := buildSectionList()
+	// --full forces all sections and ignores individual section flags
+	var sections []string
+	if fullFlag {
+		sections = []string{"all"}
+	} else {
+		sections = buildSectionList()
+	}
 
 	// Output in requested format
 	if jsonFlag {
-		output.ExportJSON(metrics, sections)
+		output.ExportJSON(metrics, sections, fullFlag)
 		return
 	}
 
 	if mdFlag {
-		output.ExportMarkdown(metrics, sections)
+		output.ExportMarkdown(metrics, sections, fullFlag)
 		return
 	}
 
 	// Default: text output
 	PrintProcessingSummary(metrics.Global.Count, processingDuration, totalFileSize)
-	output.PrintMetrics(metrics, sections)
+	output.PrintMetrics(metrics, sections, fullFlag)
 }
 
 // buildSectionList returns the list of sections to display based on flags.
