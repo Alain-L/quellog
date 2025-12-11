@@ -13,7 +13,8 @@ import (
 
 // ExportMarkdown produces a comprehensive markdown report.
 // Reuses histogram computation from text.go.
-func ExportMarkdown(m analysis.AggregatedMetrics, sections []string) {
+// When full is true, sql_overview and sql_performance sections are added at the end.
+func ExportMarkdown(m analysis.AggregatedMetrics, sections []string, full bool) {
 	has := func(name string) bool {
 		for _, s := range sections {
 			if s == name || s == "all" {
@@ -40,9 +41,9 @@ func ExportMarkdown(m analysis.AggregatedMetrics, sections []string) {
 	}
 
 	// ============================================================================
-	// SQL SUMMARY
+	// SQL SUMMARY (skip if full mode - enriched version added at the end)
 	// ============================================================================
-	if has("sql_summary") && m.SQL.TotalQueries > 0 {
+	if !full && has("sql_summary") && m.SQL.TotalQueries > 0 {
 		b.WriteString("## SQL SUMMARY\n\n")
 
 		// Query load histogram
@@ -123,6 +124,39 @@ func ExportMarkdown(m analysis.AggregatedMetrics, sections []string) {
 		b.WriteString(fmt.Sprintf("- **Temp file messages**: %d\n", m.TempFiles.Count))
 		b.WriteString(fmt.Sprintf("- **Cumulative temp file size**: %s\n", formatBytes(m.TempFiles.TotalSize)))
 		b.WriteString(fmt.Sprintf("- **Average temp file size**: %s\n\n", formatBytes(avgSize)))
+
+		// Queries generating temp files (in detailed/full mode)
+		if (full || !has("all")) && len(m.TempFiles.QueryStats) > 0 {
+			b.WriteString("### Queries Generating Temp Files\n\n")
+			b.WriteString("| SQLID | Query | Count | Total Size |\n")
+			b.WriteString("|---|---|---:|---:|\n")
+
+			// Sort by total size descending
+			type queryWithSize struct {
+				stat *analysis.TempFileQueryStat
+			}
+			queries := make([]queryWithSize, 0, len(m.TempFiles.QueryStats))
+			for _, stat := range m.TempFiles.QueryStats {
+				queries = append(queries, queryWithSize{stat: stat})
+			}
+			sort.Slice(queries, func(i, j int) bool {
+				return queries[i].stat.TotalSize > queries[j].stat.TotalSize
+			})
+
+			limit := 10
+			if len(queries) < limit {
+				limit = len(queries)
+			}
+			for i := 0; i < limit; i++ {
+				stat := queries[i].stat
+				b.WriteString(fmt.Sprintf("| %s | %s | %d | %s |\n",
+					stat.ID,
+					truncateQuery(stat.NormalizedQuery, 50),
+					stat.Count,
+					formatBytes(stat.TotalSize)))
+			}
+			b.WriteString("\n")
+		}
 	}
 
 	// ============================================================================
@@ -384,7 +418,18 @@ func ExportMarkdown(m analysis.AggregatedMetrics, sections []string) {
 
 			// Session duration distribution
 			dist := analysis.CalculateDurationDistribution(m.Connections.SessionDurations)
-			printHistogramMarkdown(&b, dist, "Session duration distribution", "sessions", 1,
+			// Calculate proper scale factor for histogram
+			maxVal := 0
+			for _, v := range dist {
+				if v > maxVal {
+					maxVal = v
+				}
+			}
+			scaleFactor := 1
+			if maxVal > 40 {
+				scaleFactor = (maxVal + 39) / 40 // Ceiling division to limit bars to ~40 chars
+			}
+			printHistogramMarkdown(&b, dist, "Session duration distribution", "sessions", scaleFactor,
 				[]string{"< 1s", "1s - 1min", "1min - 30min", "30min - 2h", "2h - 5h", "> 5h"})
 		}
 
@@ -601,6 +646,20 @@ func ExportMarkdown(m analysis.AggregatedMetrics, sections []string) {
 			}
 			b.WriteString("\n")
 		}
+	}
+
+	// ============================================================================
+	// FULL MODE: SQL OVERVIEW and SQL PERFORMANCE at the end
+	// ============================================================================
+	if full && m.SQL.TotalQueries > 0 {
+		// SQL Overview section
+		b.WriteString("## SQL OVERVIEW\n\n")
+		exportSQLOverviewMarkdownTo(&b, m.SQL)
+
+		// SQL Performance section (enriched with top queries)
+		// Don't include TempFiles/Locks here - they're already shown in their respective sections above
+		b.WriteString("## SQL PERFORMANCE\n\n")
+		exportSqlSummaryMarkdownTo(&b, m.SQL, analysis.TempFileMetrics{}, analysis.LockMetrics{})
 	}
 
 	fmt.Println(b.String())
@@ -1525,5 +1584,226 @@ func exportQueryTypeBreakdownMarkdown(b *strings.Builder, title string, breakdow
 				formatQueryDuration(t.totalTime)))
 		}
 		b.WriteString("\n")
+	}
+}
+
+// exportSQLOverviewMarkdownTo writes SQL overview content to a strings.Builder.
+// Used by ExportMarkdown in full mode.
+func exportSQLOverviewMarkdownTo(b *strings.Builder, m analysis.SqlMetrics) {
+	// Global statistics
+	b.WriteString("### Global Statistics\n\n")
+	b.WriteString("|  |  |  |  |\n")
+	b.WriteString("|---|---:|---|---:|\n")
+	b.WriteString(fmt.Sprintf("| Total queries | %d | Unique queries | %d |\n",
+		m.TotalQueries, m.UniqueQueries))
+	b.WriteString(fmt.Sprintf("| Total duration | %s | Median duration | %s |\n",
+		formatQueryDuration(m.SumQueryDuration), formatQueryDuration(m.MedianQueryDuration)))
+	b.WriteString(fmt.Sprintf("| Min duration | %s | Max duration | %s |\n",
+		formatQueryDuration(m.MinQueryDuration), formatQueryDuration(m.MaxQueryDuration)))
+	b.WriteString(fmt.Sprintf("| 99th percentile | %s | | |\n\n",
+		formatQueryDuration(m.P99QueryDuration)))
+
+	// Query Category Summary
+	if len(m.QueryTypeStats) > 0 {
+		b.WriteString("### Query Category Summary\n\n")
+		b.WriteString("| Category | Count | % | Total Time |\n")
+		b.WriteString("|---|---:|---:|---:|\n")
+
+		// Aggregate by category
+		categoryStats := make(map[string]struct {
+			Count     int
+			TotalTime float64
+		})
+		for _, ts := range m.QueryTypeStats {
+			cat := categoryStats[ts.Category]
+			cat.Count += ts.Count
+			cat.TotalTime += ts.TotalTime
+			categoryStats[ts.Category] = cat
+		}
+
+		// Sort categories by count descending
+		categories := make([]string, 0, len(categoryStats))
+		for cat := range categoryStats {
+			categories = append(categories, cat)
+		}
+		sort.Slice(categories, func(i, j int) bool {
+			return categoryStats[categories[i]].Count > categoryStats[categories[j]].Count
+		})
+
+		for _, cat := range categories {
+			stats := categoryStats[cat]
+			pct := 0.0
+			if m.TotalQueries > 0 {
+				pct = float64(stats.Count) / float64(m.TotalQueries) * 100
+			}
+			b.WriteString(fmt.Sprintf("| %s | %d | %.1f%% | %s |\n",
+				cat, stats.Count, pct, formatQueryDuration(stats.TotalTime)))
+		}
+		b.WriteString("\n")
+	}
+
+	// Query Type Distribution
+	if len(m.QueryTypeStats) > 0 {
+		b.WriteString("### Query Type Distribution\n\n")
+		b.WriteString("| Type | Count | % | Total Time | Avg Time | Max Time |\n")
+		b.WriteString("|---|---:|---:|---:|---:|---:|\n")
+
+		// Sort by count descending
+		types := make([]*analysis.QueryTypeStat, 0, len(m.QueryTypeStats))
+		for _, ts := range m.QueryTypeStats {
+			types = append(types, ts)
+		}
+		sort.Slice(types, func(i, j int) bool {
+			return types[i].Count > types[j].Count
+		})
+
+		for _, ts := range types {
+			pct := 0.0
+			if m.TotalQueries > 0 {
+				pct = float64(ts.Count) / float64(m.TotalQueries) * 100
+			}
+			b.WriteString(fmt.Sprintf("| %s | %d | %.1f%% | %s | %s | %s |\n",
+				ts.Type, ts.Count, pct,
+				formatQueryDuration(ts.TotalTime),
+				formatQueryDuration(ts.AvgTime),
+				formatQueryDuration(ts.MaxTime)))
+		}
+		b.WriteString("\n")
+	}
+
+	// Breakdowns by dimension
+	exportQueryTypeBreakdownMarkdown(b, "Per Database", m.QueryTypesByDatabase)
+	exportQueryTypeBreakdownMarkdown(b, "Per User", m.QueryTypesByUser)
+	exportQueryTypeBreakdownMarkdown(b, "Per Host", m.QueryTypesByHost)
+	exportQueryTypeBreakdownMarkdown(b, "Per Application", m.QueryTypesByApp)
+}
+
+// exportSqlSummaryMarkdownTo writes SQL performance content to a strings.Builder.
+// Used by ExportMarkdown in full mode.
+func exportSqlSummaryMarkdownTo(b *strings.Builder, m analysis.SqlMetrics, tempFiles analysis.TempFileMetrics, locks analysis.LockMetrics) {
+	// Compute top 1% slowest queries
+	top1Slow := 0
+	if len(m.Executions) > 0 {
+		threshold := m.P99QueryDuration
+		for _, exec := range m.Executions {
+			if exec.Duration >= threshold {
+				top1Slow++
+			}
+		}
+	}
+
+	// Query load histogram
+	if !m.StartTimestamp.IsZero() && !m.EndTimestamp.IsZero() {
+		queryLoad, unit, scale := computeQueryLoadHistogram(m)
+		printHistogramMarkdown(b, queryLoad, "Query load distribution", unit, scale, nil)
+	}
+
+	// Key metrics table
+	b.WriteString("|  |  |  |  |\n")
+	b.WriteString("|---|---:|---|---:|\n")
+	b.WriteString(fmt.Sprintf("| Total query duration | %s | Total queries parsed | %d |\n",
+		formatQueryDuration(m.SumQueryDuration), m.TotalQueries))
+	b.WriteString(fmt.Sprintf("| Total unique queries | %d | Top 1%% slow queries | %d |\n",
+		m.UniqueQueries, top1Slow))
+	b.WriteString(fmt.Sprintf("| Query max duration | %s | Query min duration | %s |\n",
+		formatQueryDuration(m.MaxQueryDuration), formatQueryDuration(m.MinQueryDuration)))
+	b.WriteString(fmt.Sprintf("| Query median duration | %s | Query 99%% max duration | %s |\n\n",
+		formatQueryDuration(m.MedianQueryDuration), formatQueryDuration(m.P99QueryDuration)))
+
+	// Duration histogram
+	if !m.StartTimestamp.IsZero() && !m.EndTimestamp.IsZero() {
+		hist, unit, scale := computeQueryDurationHistogram(m)
+		printHistogramMarkdown(b, hist, "Query duration distribution", unit, scale,
+			[]string{"< 1 ms", "< 10 ms", "< 100 ms", "< 1 s", "< 10 s", ">= 10 s"})
+	}
+
+	// Query stats tables
+	b.WriteString("### Query Statistics\n\n")
+	printQueryStatsMarkdown(b, m.QueryStats)
+
+	// TEMP FILES section
+	if len(tempFiles.QueryStats) > 0 {
+		b.WriteString("### Queries Generating Temp Files\n\n")
+		b.WriteString("| SQLID | Normalized Query | Count | Total Size |\n")
+		b.WriteString("|---|---|---:|---:|\n")
+
+		// Sort by total size descending
+		type queryWithSize struct {
+			stat *analysis.TempFileQueryStat
+		}
+		queries := make([]queryWithSize, 0, len(tempFiles.QueryStats))
+		for _, stat := range tempFiles.QueryStats {
+			queries = append(queries, queryWithSize{stat: stat})
+		}
+		sort.Slice(queries, func(i, j int) bool {
+			return queries[i].stat.TotalSize > queries[j].stat.TotalSize
+		})
+
+		// Display top 10
+		limit := 10
+		if len(queries) < limit {
+			limit = len(queries)
+		}
+		for i := 0; i < limit; i++ {
+			stat := queries[i].stat
+			truncatedQuery := truncateQuery(stat.NormalizedQuery, 60)
+			b.WriteString(fmt.Sprintf("| %s | %s | %d | %s |\n",
+				stat.ID,
+				truncatedQuery,
+				stat.Count,
+				formatBytes(stat.TotalSize)))
+		}
+		b.WriteString("\n")
+	}
+
+	// LOCKS section
+	if len(locks.QueryStats) > 0 {
+		// Acquired locks by query
+		hasAcquired := false
+		for _, stat := range locks.QueryStats {
+			if stat.AcquiredCount > 0 {
+				hasAcquired = true
+				break
+			}
+		}
+		if hasAcquired {
+			b.WriteString("### Acquired Locks by Query\n\n")
+			b.WriteString("| SQLID | Query | Locks | Avg Wait | Total Wait |\n")
+			b.WriteString("|---|---|---:|---:|---:|\n")
+			printAcquiredLockQueriesMarkdown(b, locks.QueryStats, 5)
+			b.WriteString("\n")
+		}
+
+		// Locks still waiting by query
+		hasStillWaiting := false
+		for _, stat := range locks.QueryStats {
+			if stat.StillWaitingCount > 0 {
+				hasStillWaiting = true
+				break
+			}
+		}
+		if hasStillWaiting {
+			b.WriteString("### Locks Still Waiting by Query\n\n")
+			b.WriteString("| SQLID | Query | Locks | Avg Wait | Total Wait |\n")
+			b.WriteString("|---|---|---:|---:|---:|\n")
+			printStillWaitingLockQueriesMarkdown(b, locks.QueryStats, 5)
+			b.WriteString("\n")
+		}
+
+		// Most frequent lock waiting queries
+		hasWaiting := false
+		for _, stat := range locks.QueryStats {
+			if stat.AcquiredCount > 0 || stat.StillWaitingCount > 0 {
+				hasWaiting = true
+				break
+			}
+		}
+		if hasWaiting {
+			b.WriteString("### Most Frequent Waiting Queries\n\n")
+			b.WriteString("| SQLID | Query | Locks | Avg Wait | Total Wait |\n")
+			b.WriteString("|---|---|---:|---:|---:|\n")
+			printMostFrequentWaitingQueriesMarkdown(b, locks.QueryStats, 5)
+			b.WriteString("\n")
+		}
 	}
 }
