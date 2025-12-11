@@ -404,7 +404,7 @@ func (p *StderrParser) parseReader(r io.Reader, out chan<- LogEntry) error {
 func (p *StderrParser) parseFromBytes(data []byte, out chan<- LogEntry) error {
 	// Accumulate multi-line entries as bytes
 	var currentEntry []byte
-	currentEntry = make([]byte, 0, 1024)
+	currentEntry = make([]byte, 0, 8192) // Larger capacity to reduce reallocs for multi-line entries
 
 	dataLen := len(data)
 	lineStart := 0

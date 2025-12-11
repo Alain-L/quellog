@@ -126,7 +126,7 @@ func parseLog(this js.Value, args []js.Value) interface{} {
 	evtAnalyzer := analysis.NewEventAnalyzer()
 	errAnalyzer := analysis.NewErrorClassAnalyzer()
 	uniAnalyzer := analysis.NewUniqueEntityAnalyzer()
-	sqlAnalyzer := analysis.NewSQLAnalyzer()
+	sqlAnalyzer := analysis.NewSQLAnalyzerWithSize(int64(len(content)))
 
 	var globalMetrics analysis.GlobalMetrics
 	var filteredCount int
@@ -186,8 +186,9 @@ func parseLog(this js.Value, args []js.Value) interface{} {
 		SQL:            sqlMetrics,
 	}
 
-	// JSON Export
+	// JSON Export (full=true to include all SQL analysis sections)
 	sections := []string{"all"}
+	full := true
 	processingMs := int64(now() - t0)
 	meta := &output.MetaInfo{
 		Format:    format,
@@ -195,7 +196,7 @@ func parseLog(this js.Value, args []js.Value) interface{} {
 		Bytes:     int64(len(content)),
 		ParseTime: formatDuration(processingMs),
 	}
-	jsonStr, err := output.ExportJSONStringWithMeta(metrics, sections, meta)
+	jsonStr, err := output.ExportJSONStringWithMeta(metrics, sections, full, meta)
 	if err != nil {
 		return `{"error": "JSON export error: ` + err.Error() + `"}`
 	}

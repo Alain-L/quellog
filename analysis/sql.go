@@ -241,9 +241,29 @@ type SQLAnalyzer struct {
 // Uses LRU cache with 5000 entry capacity to balance performance and memory usage.
 // Larger cache reduces normalizeQuery() calls, saving ~300MB on 11GB files.
 func NewSQLAnalyzer() *SQLAnalyzer {
+	return NewSQLAnalyzerWithSize(0)
+}
+
+// NewSQLAnalyzerWithSize creates a SQL analyzer with capacity estimated from input size.
+// inputBytes is the size of the input data in bytes. If 0, uses default capacity.
+// Estimates ~1 query per 200 bytes for typical PostgreSQL logs.
+func NewSQLAnalyzerWithSize(inputBytes int64) *SQLAnalyzer {
+	// Estimate capacity: ~1 query per 200 bytes, capped at reasonable limits
+	execCap := 10000
+	if inputBytes > 0 {
+		estimated := int(inputBytes / 200)
+		if estimated > execCap {
+			execCap = estimated
+		}
+		// Cap at 10M to avoid excessive memory for huge files
+		if execCap > 10000000 {
+			execCap = 10000000
+		}
+	}
+
 	return &SQLAnalyzer{
 		queryStats:           make(map[string]*QueryStat, 10000),
-		executions:           make([]QueryExecution, 0, 10000),
+		executions:           make([]QueryExecution, 0, execCap),
 		normalizationCache:   newLRUCache(5000), // LRU cache for raw→normalized mapping
 		queryTypesByDatabase: make(map[string]map[string]*QueryTypeCount),
 		queryTypesByUser:     make(map[string]map[string]*QueryTypeCount),
