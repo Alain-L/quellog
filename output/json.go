@@ -157,6 +157,10 @@ type SQLPerformanceDetailJSON struct {
 	SlowestQueries       []QueryRankJSON `json:"slowest_queries"`
 	MostFrequentQueries  []QueryRankJSON `json:"most_frequent_queries"`
 	MostTimeConsuming    []QueryRankJSON `json:"most_time_consuming"`
+
+	// Full query data for HTML viewer
+	Queries    []QueryStatJSON      `json:"queries,omitempty"`
+	Executions []QueryExecutionJSON `json:"executions,omitempty"`
 }
 
 type DurationBucketJSON struct {
@@ -261,6 +265,13 @@ type SessionStatsJSON struct {
 	Cumulated string `json:"cumulated_duration"`
 }
 
+// ConcurrentBucketJSON represents one bucket in the concurrent sessions histogram.
+type ConcurrentBucketJSON struct {
+	Label    string `json:"label"`
+	Count    int    `json:"count"`
+	PeakTime string `json:"peak_time,omitempty"`
+}
+
 type ConnectionsJSON struct {
 	ConnectionCount       int                         `json:"connection_count"`
 	AvgConnectionsPerHour string                      `json:"avg_connections_per_hour"`
@@ -277,11 +288,19 @@ type ConnectionsJSON struct {
 	SessionsByHost     map[string]SessionStatsJSON `json:"sessions_by_host,omitempty"`
 
 	// Concurrent sessions
-	PeakConcurrent     int    `json:"peak_concurrent_sessions,omitempty"`
-	PeakConcurrentTime string `json:"peak_concurrent_timestamp,omitempty"`
+	PeakConcurrent            int                    `json:"peak_concurrent_sessions,omitempty"`
+	PeakConcurrentTime        string                 `json:"peak_concurrent_timestamp,omitempty"`
+	ConcurrentSessionsHistory []ConcurrentBucketJSON `json:"concurrent_sessions_histogram,omitempty"`
 
 	// Raw events
-	Connections []string `json:"connections"`
+	Connections   []string           `json:"connections"`
+	SessionEvents []SessionEventJSON `json:"session_events,omitempty"`
+}
+
+// SessionEventJSON represents a session with start and end times for client-side sweep-line.
+type SessionEventJSON struct {
+	Start string `json:"s"` // Short keys for smaller JSON
+	End   string `json:"e"`
 }
 
 type ClientsJSON struct {
@@ -311,315 +330,9 @@ type ErrorClassJSON struct {
 // ExportJSON brings together all metrics into one composite structure,
 // converts it into an indented JSON string, and outputs the result.
 // Only sections with data are included in the output.
-func ExportJSON(m analysis.AggregatedMetrics, sections []string) {
-	// Build dynamic JSON structure
-	data := make(map[string]interface{})
-
-	// Check flags
-	has := func(name string) bool {
-		for _, s := range sections {
-			if s == name || s == "all" {
-				return true
-			}
-		}
-		return false
-	}
-
-	// summary
-	if has("summary") {
-		data["summary"] = convertSummary(m)
-	}
-
-	// Events summary
-	if has("events") && len(m.EventSummaries) > 0 {
-		events := make([]EventJSON, len(m.EventSummaries))
-		for i, ev := range m.EventSummaries {
-			events[i] = EventJSON{
-				Type:       ev.Type,
-				Count:      ev.Count,
-				Percentage: ev.Percentage,
-			}
-		}
-		data["events"] = events
-	}
-
-	// Error classes
-	if has("errors") && len(m.ErrorClasses) > 0 {
-		errorClasses := make([]ErrorClassJSON, len(m.ErrorClasses))
-		for i, ec := range m.ErrorClasses {
-			errorClasses[i] = ErrorClassJSON{
-				ClassCode:   ec.ClassCode,
-				Description: ec.Description,
-				Count:       ec.Count,
-			}
-		}
-		data["error_classes"] = errorClasses
-	}
-
-	// Conditionally include SQL summary (keeping "sql_performance" key for backwards compatibility)
-	if has("sql_summary") && m.SQL.TotalQueries > 0 {
-		data["sql_performance"] = convertSQLPerformance(m.SQL)
-	}
-
-	// Conditionally include temp files
-	if has("tempfiles") && m.TempFiles.Count > 0 {
-		tf := TempFilesJSON{
-			TotalMessages: m.TempFiles.Count,
-			TotalSize:     formatBytes(m.TempFiles.TotalSize),
-			AvgSize:       formatBytes(m.TempFiles.TotalSize / int64(m.TempFiles.Count)),
-			Events:        []TempFileEventJSON{},
-			Queries:       []TempFileQueryStatJSON{},
-		}
-		// Export events with QueryID
-		for _, event := range m.TempFiles.Events {
-			tf.Events = append(tf.Events, TempFileEventJSON{
-				Timestamp: event.Timestamp.Format("2006-01-02 15:04:05"),
-				Size:      formatBytes(int64(event.Size)),
-				QueryID:   event.QueryID,
-			})
-		}
-		// Export query stats (sorted by ID for deterministic output)
-		for _, stat := range m.TempFiles.QueryStats {
-			tf.Queries = append(tf.Queries, TempFileQueryStatJSON{
-				ID:              stat.ID,
-				NormalizedQuery: stat.NormalizedQuery,
-				RawQuery:        stat.RawQuery,
-				Count:           stat.Count,
-				TotalSize:       formatBytes(stat.TotalSize),
-			})
-		}
-		// Sort by ID for deterministic JSON output
-		sort.Slice(tf.Queries, func(i, j int) bool {
-			return tf.Queries[i].ID < tf.Queries[j].ID
-		})
-		data["temp_files"] = tf
-	}
-
-	// Conditionally include locks
-	if has("locks") && m.Locks.TotalEvents > 0 {
-		data["locks"] = convertLocks(m.Locks)
-	}
-
-	// Conditionally include maintenance
-	if has("maintenance") && (m.Vacuum.VacuumCount > 0 || m.Vacuum.AnalyzeCount > 0) {
-		data["maintenance"] = MaintenanceJSON{
-			VacuumCount:          m.Vacuum.VacuumCount,
-			AnalyzeCount:         m.Vacuum.AnalyzeCount,
-			VacuumTableCounts:    m.Vacuum.VacuumTableCounts,
-			AnalyzeTableCounts:   m.Vacuum.AnalyzeTableCounts,
-			VacuumSpaceRecovered: formatVacuumSpaceRecovered(m.Vacuum.VacuumSpaceRecovered),
-		}
-	}
-
-	// Conditionally include checkpoints
-	if has("checkpoints") && m.Checkpoints.CompleteCount > 0 {
-		cp := CheckpointsJSON{
-			TotalCheckpoints:  m.Checkpoints.CompleteCount,
-			AvgCheckpointTime: formatSeconds(m.Checkpoints.TotalWriteTimeSeconds / float64(m.Checkpoints.CompleteCount)),
-			MaxCheckpointTime: formatSeconds(m.Checkpoints.MaxWriteTimeSeconds),
-		}
-
-		// Ajouter les événements globaux
-		for _, t := range m.Checkpoints.Events {
-			cp.Events = append(cp.Events, t.Format("2006-01-02 15:04:05"))
-		}
-
-		// Ajouter les types de checkpoints si disponibles
-		if len(m.Checkpoints.TypeCounts) > 0 {
-			cp.Types = make(map[string]CheckpointTypeJSON)
-
-			// Calculer la durée totale pour le taux
-			duration := m.Global.MaxTimestamp.Sub(m.Global.MinTimestamp)
-			durationHours := duration.Hours()
-
-			for cpType, count := range m.Checkpoints.TypeCounts {
-				percentage := float64(count) / float64(m.Checkpoints.CompleteCount) * 100
-
-				// Calculer le taux (checkpoints par heure) pour ce type
-				rate := 0.0
-				if durationHours > 0 {
-					rate = float64(count) / durationHours
-				}
-
-				typeJSON := CheckpointTypeJSON{
-					Count:      count,
-					Percentage: percentage,
-					Rate:       rate,
-				}
-
-				// Ajouter les événements pour ce type
-				if events, ok := m.Checkpoints.TypeEvents[cpType]; ok {
-					for _, t := range events {
-						typeJSON.Events = append(typeJSON.Events, t.Format("2006-01-02 15:04:05"))
-					}
-				}
-
-				cp.Types[cpType] = typeJSON
-			}
-		}
-
-		data["checkpoints"] = cp
-	}
-
-	// Conditionally include connections
-	if has("connections") && (m.Connections.ConnectionReceivedCount > 0 || m.Connections.DisconnectionCount > 0) {
-		// Calculate duration for avg connections per hour
-		duration := m.Global.MaxTimestamp.Sub(m.Global.MinTimestamp)
-		durationHours := duration.Hours()
-		if durationHours == 0 {
-			durationHours = 1 // Avoid division by zero
-		}
-
-		conn := ConnectionsJSON{
-			ConnectionCount:       m.Connections.ConnectionReceivedCount,
-			AvgConnectionsPerHour: fmt.Sprintf("%.2f", float64(m.Connections.ConnectionReceivedCount)/durationHours),
-			DisconnectionCount:    m.Connections.DisconnectionCount,
-			AvgSessionTime: func() string {
-				if m.Connections.DisconnectionCount > 0 {
-					return (m.Connections.TotalSessionTime / time.Duration(m.Connections.DisconnectionCount)).String()
-				}
-				return ""
-			}(),
-			Connections: []string{},
-		}
-
-		// Add connection timestamps
-		for _, t := range m.Connections.Connections {
-			conn.Connections = append(conn.Connections, t.Format("2006-01-02 15:04:05"))
-		}
-
-		// Add global session statistics if we have session data
-		if len(m.Connections.SessionDurations) > 0 {
-			stats := analysis.CalculateDurationStats(m.Connections.SessionDurations)
-			var cumulated time.Duration
-			for _, d := range m.Connections.SessionDurations {
-				cumulated += d
-			}
-			conn.SessionStats = &SessionStatsJSON{
-				Count:     stats.Count,
-				Min:       stats.Min.String(),
-				Max:       stats.Max.String(),
-				Avg:       stats.Avg.String(),
-				Median:    stats.Median.String(),
-				Cumulated: cumulated.String(),
-			}
-
-			// Add session duration distribution
-			conn.SessionDistribution = analysis.CalculateDurationDistribution(m.Connections.SessionDurations)
-		}
-
-		// Add sessions by user
-		if len(m.Connections.SessionsByUser) > 0 {
-			conn.SessionsByUser = make(map[string]SessionStatsJSON)
-			for user, durations := range m.Connections.SessionsByUser {
-				stats := analysis.CalculateDurationStats(durations)
-				var cumulated time.Duration
-				for _, d := range durations {
-					cumulated += d
-				}
-				conn.SessionsByUser[user] = SessionStatsJSON{
-					Count:     stats.Count,
-					Min:       stats.Min.String(),
-					Max:       stats.Max.String(),
-					Avg:       stats.Avg.String(),
-					Median:    stats.Median.String(),
-					Cumulated: cumulated.String(),
-				}
-			}
-		}
-
-		// Add sessions by database
-		if len(m.Connections.SessionsByDatabase) > 0 {
-			conn.SessionsByDatabase = make(map[string]SessionStatsJSON)
-			for db, durations := range m.Connections.SessionsByDatabase {
-				stats := analysis.CalculateDurationStats(durations)
-				var cumulated time.Duration
-				for _, d := range durations {
-					cumulated += d
-				}
-				conn.SessionsByDatabase[db] = SessionStatsJSON{
-					Count:     stats.Count,
-					Min:       stats.Min.String(),
-					Max:       stats.Max.String(),
-					Avg:       stats.Avg.String(),
-					Median:    stats.Median.String(),
-					Cumulated: cumulated.String(),
-				}
-			}
-		}
-
-		// Add sessions by host
-		if len(m.Connections.SessionsByHost) > 0 {
-			conn.SessionsByHost = make(map[string]SessionStatsJSON)
-			for host, durations := range m.Connections.SessionsByHost {
-				stats := analysis.CalculateDurationStats(durations)
-				var cumulated time.Duration
-				for _, d := range durations {
-					cumulated += d
-				}
-				conn.SessionsByHost[host] = SessionStatsJSON{
-					Count:     stats.Count,
-					Min:       stats.Min.String(),
-					Max:       stats.Max.String(),
-					Avg:       stats.Avg.String(),
-					Median:    stats.Median.String(),
-					Cumulated: cumulated.String(),
-				}
-			}
-		}
-
-		// Add peak concurrent sessions
-		if m.Connections.PeakConcurrentSessions > 0 {
-			conn.PeakConcurrent = m.Connections.PeakConcurrentSessions
-			conn.PeakConcurrentTime = m.Connections.PeakConcurrentTimestamp.Format("2006-01-02 15:04:05")
-		}
-
-		data["connections"] = conn
-	}
-
-	// Clients and detailed lists
-	if has("clients") && (m.UniqueEntities.UniqueDbs > 0 || m.UniqueEntities.UniqueUsers > 0 || m.UniqueEntities.UniqueApps > 0 || m.UniqueEntities.UniqueHosts > 0) {
-		// Basic counts
-		data["clients"] = ClientsJSON{
-			UniqueDatabases: m.UniqueEntities.UniqueDbs,
-			UniqueUsers:     m.UniqueEntities.UniqueUsers,
-			UniqueApps:      m.UniqueEntities.UniqueApps,
-			UniqueHosts:     m.UniqueEntities.UniqueHosts,
-		}
-		// Detailed lists with counts, excluding sole UNKNOWN entries
-		if m.UniqueEntities.UniqueUsers > 0 && m.UniqueEntities.UserCounts != nil && !(len(m.UniqueEntities.Users) == 1 && m.UniqueEntities.Users[0] == "UNKNOWN") {
-			sortedUsers := analysis.SortByCount(m.UniqueEntities.UserCounts)
-			users := make([]ClientEntityJSON, len(sortedUsers))
-			for i, item := range sortedUsers {
-				users[i] = ClientEntityJSON{Name: item.Name, Count: item.Count}
-			}
-			data["users"] = users
-		}
-		if m.UniqueEntities.UniqueApps > 0 && m.UniqueEntities.AppCounts != nil && !(len(m.UniqueEntities.Apps) == 1 && m.UniqueEntities.Apps[0] == "UNKNOWN") {
-			sortedApps := analysis.SortByCount(m.UniqueEntities.AppCounts)
-			apps := make([]ClientEntityJSON, len(sortedApps))
-			for i, item := range sortedApps {
-				apps[i] = ClientEntityJSON{Name: item.Name, Count: item.Count}
-			}
-			data["apps"] = apps
-		}
-		if m.UniqueEntities.UniqueDbs > 0 && m.UniqueEntities.DBCounts != nil && !(len(m.UniqueEntities.DBs) == 1 && m.UniqueEntities.DBs[0] == "UNKNOWN") {
-			sortedDBs := analysis.SortByCount(m.UniqueEntities.DBCounts)
-			databases := make([]ClientEntityJSON, len(sortedDBs))
-			for i, item := range sortedDBs {
-				databases[i] = ClientEntityJSON{Name: item.Name, Count: item.Count}
-			}
-			data["databases"] = databases
-		}
-		if m.UniqueEntities.UniqueHosts > 0 && m.UniqueEntities.HostCounts != nil && !(len(m.UniqueEntities.Hosts) == 1 && m.UniqueEntities.Hosts[0] == "UNKNOWN") {
-			sortedHosts := analysis.SortByCount(m.UniqueEntities.HostCounts)
-			hosts := make([]ClientEntityJSON, len(sortedHosts))
-			for i, item := range sortedHosts {
-				hosts[i] = ClientEntityJSON{Name: item.Name, Count: item.Count}
-			}
-			data["hosts"] = hosts
-		}
-	}
+// When full is true, includes sql_overview and enriched sql_performance sections.
+func ExportJSON(m analysis.AggregatedMetrics, sections []string, full bool) {
+	data := buildJSONData(m, sections, full)
 
 	// Marshal and output
 	jsonData, err := json.MarshalIndent(data, "", "  ")
@@ -633,7 +346,7 @@ func ExportJSON(m analysis.AggregatedMetrics, sections []string) {
 // ExportJSONString returns the JSON export as a string instead of printing.
 // This is useful for WASM and other contexts where stdout is not available.
 func ExportJSONString(m analysis.AggregatedMetrics, sections []string) (string, error) {
-	return ExportJSONStringWithMeta(m, sections, nil)
+	return ExportJSONStringWithMeta(m, sections, false, nil)
 }
 
 // MetaInfo contains optional metadata about the parsing process.
@@ -646,8 +359,8 @@ type MetaInfo struct {
 }
 
 // ExportJSONStringWithMeta returns the JSON export with optional metadata.
-func ExportJSONStringWithMeta(m analysis.AggregatedMetrics, sections []string, meta *MetaInfo) (string, error) {
-	data := buildJSONData(m, sections)
+func ExportJSONStringWithMeta(m analysis.AggregatedMetrics, sections []string, full bool, meta *MetaInfo) (string, error) {
+	data := buildJSONData(m, sections, full)
 	if meta != nil {
 		data["meta"] = meta
 	}
@@ -660,7 +373,8 @@ func ExportJSONStringWithMeta(m analysis.AggregatedMetrics, sections []string, m
 
 // buildJSONData constructs the JSON data structure from metrics.
 // This is the shared implementation used by both ExportJSON and ExportJSONString.
-func buildJSONData(m analysis.AggregatedMetrics, sections []string) map[string]interface{} {
+// When full is true, sql_overview and enriched sql_performance are added at the end.
+func buildJSONData(m analysis.AggregatedMetrics, sections []string, full bool) map[string]interface{} {
 	data := make(map[string]interface{})
 
 	has := func(name string) bool {
@@ -700,13 +414,14 @@ func buildJSONData(m analysis.AggregatedMetrics, sections []string) map[string]i
 		data["error_classes"] = errorClasses
 	}
 
-	if has("sql_summary") && m.SQL.TotalQueries > 0 {
+	// SQL summary (basic) - skip if full mode (enriched version added at the end)
+	if !full && has("sql_summary") && m.SQL.TotalQueries > 0 {
 		data["sql_performance"] = convertSQLPerformance(m.SQL)
 	}
 
-	if has("sql_overview") && m.SQL.TotalQueries > 0 {
-		data["sql_overview"] = buildSQLOverviewData(m.SQL)
-	}
+	// Note: sql_overview is NOT included in default "all" mode.
+	// It's only shown when --sql-overview flag is used (handled via early return in execute.go)
+	// or when --full flag is used (added at the end of this function).
 
 	if has("tempfiles") && m.TempFiles.Count > 0 {
 		tf := TempFilesJSON{
@@ -870,6 +585,37 @@ func buildJSONData(m analysis.AggregatedMetrics, sections []string) map[string]i
 			conn.PeakConcurrent = m.Connections.PeakConcurrentSessions
 			conn.PeakConcurrentTime = m.Connections.PeakConcurrentTimestamp.Format("2006-01-02 15:04:05")
 		}
+		// Export session events for client-side sweep-line (allows bucket adjustment)
+		if len(m.Connections.SessionEvents) > 0 {
+			conn.SessionEvents = make([]SessionEventJSON, 0, len(m.Connections.SessionEvents))
+			for _, se := range m.Connections.SessionEvents {
+				if !se.StartTime.IsZero() && !se.EndTime.IsZero() {
+					conn.SessionEvents = append(conn.SessionEvents, SessionEventJSON{
+						Start: se.StartTime.Format("2006-01-02T15:04:05"),
+						End:   se.EndTime.Format("2006-01-02T15:04:05"),
+					})
+				}
+			}
+		}
+		// Pre-computed concurrent sessions histogram (12 buckets) as fallback
+		if len(m.Connections.SessionEvents) > 0 && !m.Global.MinTimestamp.IsZero() && !m.Global.MaxTimestamp.IsZero() {
+			hist, labels, _, peakTimes := computeConcurrentHistogram(
+				m.Connections.SessionEvents,
+				m.Global.MinTimestamp,
+				m.Global.MaxTimestamp,
+				12,
+			)
+			if len(labels) > 0 {
+				conn.ConcurrentSessionsHistory = make([]ConcurrentBucketJSON, len(labels))
+				for i, label := range labels {
+					bucket := ConcurrentBucketJSON{Label: label, Count: hist[label]}
+					if pt, ok := peakTimes[label]; ok && !pt.IsZero() {
+						bucket.PeakTime = pt.Format("15:04:05")
+					}
+					conn.ConcurrentSessionsHistory[i] = bucket
+				}
+			}
+		}
 		data["connections"] = conn
 	}
 
@@ -912,6 +658,15 @@ func buildJSONData(m analysis.AggregatedMetrics, sections []string) map[string]i
 			}
 			data["hosts"] = hosts
 		}
+	}
+
+	// Full mode: add sql_overview and enriched sql_performance at the end
+	if full && m.SQL.TotalQueries > 0 {
+		// SQL overview (categories, types, dimensional breakdowns)
+		data["sql_overview"] = buildSQLOverviewData(m.SQL)
+
+		// Enriched SQL performance (basic stats + histograms + top queries)
+		data["sql_performance"] = buildFullSQLPerformance(m.SQL)
 	}
 
 	return data
@@ -967,6 +722,160 @@ func buildSQLOverviewData(m analysis.SqlMetrics) SQLOverviewJSON {
 	overview.ByApp = convertDimensionBreakdown(m.QueryTypesByApp)
 
 	return overview
+}
+
+// buildFullSQLPerformance builds enriched SQL performance data for --full mode.
+// Includes basic stats, duration distribution histogram, and top queries lists.
+func buildFullSQLPerformance(m analysis.SqlMetrics) SQLPerformanceDetailJSON {
+	// Top 1% slow computation
+	top1Slow := 0
+	if len(m.Executions) > 0 {
+		threshold := m.P99QueryDuration
+		for _, exec := range m.Executions {
+			if exec.Duration >= threshold {
+				top1Slow++
+			}
+		}
+	}
+
+	perf := SQLPerformanceDetailJSON{
+		TotalQueryDuration:  formatQueryDuration(m.SumQueryDuration),
+		TotalQueriesParsed:  m.TotalQueries,
+		TotalUniqueQueries:  m.UniqueQueries,
+		Top1PercentSlow:     top1Slow,
+		QueryMaxDuration:    formatQueryDuration(m.MaxQueryDuration),
+		QueryMinDuration:    formatQueryDuration(m.MinQueryDuration),
+		QueryMedianDuration: formatQueryDuration(m.MedianQueryDuration),
+		Query99thPercentile: formatQueryDuration(m.P99QueryDuration),
+	}
+
+	// Duration distribution histogram
+	buckets := []struct {
+		label     string
+		threshold float64
+	}{
+		{"< 1 ms", 1},
+		{"< 10 ms", 10},
+		{"< 100 ms", 100},
+		{"< 1 s", 1000},
+		{"< 10 s", 10000},
+		{">= 10 s", -1},
+	}
+
+	bucketCounts := make([]int, len(buckets))
+	for _, exec := range m.Executions {
+		for i, b := range buckets {
+			if b.threshold < 0 || exec.Duration < b.threshold {
+				bucketCounts[i]++
+				break
+			}
+		}
+	}
+
+	for i, b := range buckets {
+		perf.DurationDistribution = append(perf.DurationDistribution, DurationBucketJSON{
+			Bucket: b.label,
+			Count:  bucketCounts[i],
+		})
+	}
+
+	// Convert QueryStats to slice for sorting
+	type queryStat struct {
+		id    string
+		query string
+		stat  *analysis.QueryStat
+	}
+	var stats []queryStat
+	for _, s := range m.QueryStats {
+		stats = append(stats, queryStat{s.ID, s.NormalizedQuery, s})
+	}
+
+	// Slowest queries (by max duration)
+	sort.Slice(stats, func(i, j int) bool {
+		return stats[i].stat.MaxTime > stats[j].stat.MaxTime
+	})
+	limit := 10
+	if len(stats) < limit {
+		limit = len(stats)
+	}
+	for i := 0; i < limit; i++ {
+		s := stats[i]
+		perf.SlowestQueries = append(perf.SlowestQueries, QueryRankJSON{
+			ID:              s.id,
+			NormalizedQuery: s.query,
+			Count:           s.stat.Count,
+			TotalTime:       formatQueryDuration(s.stat.TotalTime),
+			AvgTime:         formatQueryDuration(s.stat.AvgTime),
+			MaxTime:         formatQueryDuration(s.stat.MaxTime),
+		})
+	}
+
+	// Most frequent queries (by count)
+	sort.Slice(stats, func(i, j int) bool {
+		return stats[i].stat.Count > stats[j].stat.Count
+	})
+	limit = 15
+	if len(stats) < limit {
+		limit = len(stats)
+	}
+	for i := 0; i < limit; i++ {
+		s := stats[i]
+		perf.MostFrequentQueries = append(perf.MostFrequentQueries, QueryRankJSON{
+			ID:              s.id,
+			NormalizedQuery: s.query,
+			Count:           s.stat.Count,
+			TotalTime:       formatQueryDuration(s.stat.TotalTime),
+			AvgTime:         formatQueryDuration(s.stat.AvgTime),
+			MaxTime:         formatQueryDuration(s.stat.MaxTime),
+		})
+	}
+
+	// Most time consuming queries (by total time)
+	sort.Slice(stats, func(i, j int) bool {
+		return stats[i].stat.TotalTime > stats[j].stat.TotalTime
+	})
+	limit = 10
+	if len(stats) < limit {
+		limit = len(stats)
+	}
+	for i := 0; i < limit; i++ {
+		s := stats[i]
+		perf.MostTimeConsuming = append(perf.MostTimeConsuming, QueryRankJSON{
+			ID:              s.id,
+			NormalizedQuery: s.query,
+			Count:           s.stat.Count,
+			TotalTime:       formatQueryDuration(s.stat.TotalTime),
+			AvgTime:         formatQueryDuration(s.stat.AvgTime),
+			MaxTime:         formatQueryDuration(s.stat.MaxTime),
+		})
+	}
+
+	// Full queries data for HTML viewer (all queries, sorted by total time)
+	sort.Slice(stats, func(i, j int) bool {
+		return stats[i].stat.TotalTime > stats[j].stat.TotalTime
+	})
+	for _, s := range stats {
+		perf.Queries = append(perf.Queries, QueryStatJSON{
+			ID:              s.id,
+			NormalizedQuery: s.query,
+			RawQuery:        s.stat.RawQuery,
+			Count:           s.stat.Count,
+			TotalTime:       s.stat.TotalTime,
+			AvgTime:         s.stat.AvgTime,
+			MaxTime:         s.stat.MaxTime,
+		})
+	}
+
+	// Executions for time charts
+	for _, exec := range m.Executions {
+		perf.Executions = append(perf.Executions, QueryExecutionJSON{
+			Timestamp: exec.Timestamp.Format("2006-01-02T15:04:05"),
+			Duration:  formatQueryDuration(exec.Duration),
+			QueryID:   exec.QueryID,
+		})
+	}
+
+	return perf
 }
 
 // formatSeconds formats float64 seconds into "X.XX s" or "Y ms" without using time.Duration
