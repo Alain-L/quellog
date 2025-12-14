@@ -153,9 +153,10 @@ func (a *EventAnalyzer) Process(entry *parser.LogEntry) {
 		}
 	}
 
-	// Fallback: check for event types anywhere in message (for non-standard formats)
+	// Fallback: check for "LEVEL:" pattern anywhere in message (for non-standard formats)
+	// Use ":" suffix to avoid false positives from content containing severity words
 	for _, eventType := range predefinedEventTypes {
-		if strings.Contains(msg, eventType) {
+		if strings.Contains(msg, eventType+":") {
 			a.counts[eventType]++
 			a.total++
 			return

@@ -7486,13 +7486,13 @@
   "events": [
     {
       "type": "LOG",
-      "count": 7232,
-      "percentage": 99.73796717694111
+      "count": 7238,
+      "percentage": 99.82071438422287
     },
     {
       "type": "ERROR",
-      "count": 15,
-      "percentage": 0.2068680182043856
+      "count": 9,
+      "percentage": 0.12412081092263137
     },
     {
       "type": "FATAL",
