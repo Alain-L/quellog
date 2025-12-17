@@ -49,3 +49,7 @@ TESTS.md
 site/
 docs/POSTGRESQL_PATCHES.md
 QUELLOG_WASM.md
+
+# Web interface (generated/large files)
+web/*.wasm
+web/quellog.html

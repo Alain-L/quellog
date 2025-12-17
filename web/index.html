@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>quellog - PostgreSQL Log Analyzer</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<!-- Chart Modal -->
+    <div class="chart-modal" id="chartModal" onclick="if(event.target === this) closeChartModal()">
+        <div class="chart-modal-content">
+            <div class="chart-modal-header">
+                <span class="chart-modal-title" id="modalChartTitle">Chart</span>
+                <div class="chart-modal-actions">
+                    <select id="modalBucketSelect" onchange="updateModalBuckets(this.value)">
+                        <option value="15">15 buckets</option>
+                        <option value="30" selected>30 buckets</option>
+                        <option value="60">60 buckets</option>
+                        <option value="120">120 buckets</option>
+                    </select>
+                    <button onclick="resetModalZoom()">Reset Zoom</button>
+                    <button class="primary" onclick="exportChartPNG()">⬇ Export PNG</button>
+                    <button class="chart-modal-close" onclick="closeChartModal()">&times;</button>
+                </div>
+            </div>
+            <div class="chart-modal-body">
+                <div id="modal-chart-container"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="main" id="main">
+        <header>
+            <div class="header-content">
+                <div class="header-meta" id="headerMeta">
+                    <a href="https://github.com/Alain-L/quellog" target="_blank" style="font-size: 1.4rem; font-weight: 700; color: white; text-decoration: none;">quellog</a>
+                    <span style="color: rgba(255,255,255,0.7); font-size: 0.85rem; font-style: italic;">WebAssembly demo – all processing happens locally in your browser</span>
+                </div>
+                <div class="header-right">
+                    <button class="btn btn-sm btn-secondary" id="newFileBtn" onclick="resetAnalysis()" style="display:none;">New File</button>
+                    <button class="btn-icon" id="themeToggle" onclick="toggleTheme()" title="Toggle theme">
+                        <svg id="iconSun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+                        <svg id="iconMoon" style="display:none;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Filter Bar -->
+        <div class="filter-bar" id="filterBar">
+            <div class="filter-bar-content">
+                <div class="filter-dropdown" data-category="database">
+                    <button class="filter-dropdown-trigger" onclick="toggleDropdown('database')">
+                        <span class="filter-dropdown-label">Database</span>
+                        <span class="filter-dropdown-count"></span>
+                        <svg class="filter-dropdown-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                    </button>
+                    <div class="filter-dropdown-menu">
+                        <div class="filter-dropdown-header">
+                            <input type="text" class="filter-dropdown-search" placeholder="Search..." oninput="searchDropdown('database', this.value)">
+                            <button class="filter-dropdown-clear" onclick="clearCategoryFilter('database')" title="Clear">✕</button>
+                        </div>
+                        <div class="filter-dropdown-list" id="dropdownList-database"></div>
+                    </div>
+                </div>
+                <div class="filter-dropdown" data-category="user">
+                    <button class="filter-dropdown-trigger" onclick="toggleDropdown('user')">
+                        <span class="filter-dropdown-label">User</span>
+                        <span class="filter-dropdown-count"></span>
+                        <svg class="filter-dropdown-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                    </button>
+                    <div class="filter-dropdown-menu">
+                        <div class="filter-dropdown-header">
+                            <input type="text" class="filter-dropdown-search" placeholder="Search..." oninput="searchDropdown('user', this.value)">
+                            <button class="filter-dropdown-clear" onclick="clearCategoryFilter('user')" title="Clear">✕</button>
+                        </div>
+                        <div class="filter-dropdown-list" id="dropdownList-user"></div>
+                    </div>
+                </div>
+                <div class="filter-dropdown" data-category="application">
+                    <button class="filter-dropdown-trigger" onclick="toggleDropdown('application')">
+                        <span class="filter-dropdown-label">App</span>
+                        <span class="filter-dropdown-count"></span>
+                        <svg class="filter-dropdown-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                    </button>
+                    <div class="filter-dropdown-menu">
+                        <div class="filter-dropdown-header">
+                            <input type="text" class="filter-dropdown-search" placeholder="Search..." oninput="searchDropdown('application', this.value)">
+                            <button class="filter-dropdown-clear" onclick="clearCategoryFilter('application')" title="Clear">✕</button>
+                        </div>
+                        <div class="filter-dropdown-list" id="dropdownList-application"></div>
+                    </div>
+                </div>
+                <div class="filter-dropdown" data-category="host">
+                    <button class="filter-dropdown-trigger" onclick="toggleDropdown('host')">
+                        <span class="filter-dropdown-label">Host</span>
+                        <span class="filter-dropdown-count"></span>
+                        <svg class="filter-dropdown-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                    </button>
+                    <div class="filter-dropdown-menu">
+                        <div class="filter-dropdown-header">
+                            <input type="text" class="filter-dropdown-search" placeholder="Search..." oninput="searchDropdown('host', this.value)">
+                            <button class="filter-dropdown-clear" onclick="clearCategoryFilter('host')" title="Clear">✕</button>
+                        </div>
+                        <div class="filter-dropdown-list" id="dropdownList-host"></div>
+                    </div>
+                </div>
+                <div class="filter-dropdown filter-dropdown-time" data-category="time">
+                    <button class="filter-dropdown-trigger" onclick="toggleDropdown('time')">
+                        <span class="filter-dropdown-label">Time</span>
+                        <span class="filter-dropdown-count"></span>
+                        <svg class="filter-dropdown-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                    </button>
+                    <div class="filter-dropdown-menu filter-dropdown-menu-time">
+                        <!-- Slider mode (single day) -->
+                        <div class="filter-time-slider" id="filterTimeSlider">
+                            <div class="filter-time-slider-track">
+                                <input type="range" id="filterTimeMin" min="0" max="1440" value="0" step="1">
+                                <input type="range" id="filterTimeMax" min="0" max="1440" value="1440" step="1">
+                                <div class="filter-time-slider-range" id="filterTimeRange"></div>
+                            </div>
+                            <div class="filter-time-slider-label" id="filterTimeLabel">00:00 – 24:00</div>
+                            <div class="filter-time-slider-day" id="filterTimeDay"></div>
+                        </div>
+                        <!-- Date picker mode (multi-day) -->
+                        <div class="filter-time-pickers" id="filterTimePickers" style="display: none;">
+                            <label>From</label>
+                            <input type="datetime-local" class="filter-time-input" id="filterBegin">
+                            <label>To</label>
+                            <input type="datetime-local" class="filter-time-input" id="filterEnd">
+                        </div>
+                    </div>
+                </div>
+                <button class="filter-apply" id="filterApply" onclick="applyFilters()">Apply</button>
+                <button class="filter-clear" id="filterClear" onclick="clearAllFilters()">Clear</button>
+                <span class="filter-status" id="filterStatus"><span class="spinner-sm"></span>Filtering...</span>
+            </div>
+        </div>
+
+        <div class="content">
+            <!-- Drop Zone -->
+            <div class="drop-zone" id="dropZone">
+                <div class="drop-zone-icon">&#128193;</div>
+                <h2>Drop your PostgreSQL log file</h2>
+                <p>Supports stderr, CSV, JSON formats + gzip, zstd, tar archives - all processing happens locally</p>
+                <button class="btn" onclick="document.getElementById('fileInput').click()">Select File</button>
+                <input type="file" id="fileInput" accept=".log,.csv,.json,.txt,.gz,.gzip,.zst,.zstd,.tar,.tgz,.tar.gz,.tar.zst">
+            </div>
+
+            <!-- Loading -->
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p id="loadingText">Loading...</p>
+                <div class="progress-bar"><div class="progress-bar-fill" id="progressBar" style="width: 0%"></div></div>
+            </div>
+
+            <!-- Results -->
+            <div class="results" id="results"></div>
+        </div>
+
+        <footer>
+            <div class="footer-content">
+                <span>quellog v0.5.0</span>
+                <span>·</span>
+                <a href="https://github.com/Alain-L/quellog" target="_blank">GitHub</a>
+                <span>·</span>
+                <span>PostgreSQL License</span>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Query Detail Modal -->
+    <div class="modal-overlay" id="queryModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Query Detail</h3>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="queryModalBody"></div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="uplot.min.js"></script>
+    <script src="wasm_exec_tiny.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
