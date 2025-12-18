@@ -36,7 +36,7 @@
                         const y = u.data[1][idx];
                         const d = new Date(x * 1000);
                         const timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
-                        tooltip.innerHTML = `<div class="tt-time">${timeStr}</div><div class="tt-value">${y} events</div>`;
+                        tooltip.innerHTML = `${timeStr} · ${y} events`;
                         const left = u.valToPos(x, 'x');
                         const top = u.valToPos(y, 'y');
                         tooltip.style.display = 'block';
@@ -81,8 +81,13 @@
                 yData[idx]++;
             });
 
-            // Color from CSS variable
-            const color = options.color || getComputedStyle(document.documentElement).getPropertyValue('--chart-bar').trim() || '#5a9bd5';
+            // Calculate median for reference line and color gradient
+            const sortedY = [...yData].filter(v => v > 0).sort((a, b) => a - b);
+            const median = sortedY.length > 0 ? sortedY[Math.floor(sortedY.length / 2)] : 0;
+            const maxY = Math.max(...yData) || 1;
+
+            // Colors for gradient (light to dark based on intensity)
+            const baseColor = options.color || getComputedStyle(document.documentElement).getPropertyValue('--chart-bar').trim() || '#5a9bd5';
 
             // Range selection callback for filtering
             const onSelect = options.onSelect || null;
@@ -92,6 +97,7 @@
                 height: options.height || 120,
                 cursor: { drag: { x: true, y: false, setScale: true } },
                 select: { show: true },
+                legend: { show: false },
                 scales: {
                     x: { time: true },
                     y: { range: [0, null] }
@@ -115,29 +121,57 @@
                 series: [
                     {},
                     {
-                        fill: color,
-                        stroke: color,
+                        fill: 'transparent',
+                        stroke: 'transparent',
                         width: 0,
                         points: { show: false },
-                        paths: (u, seriesIdx, idx0, idx1) => {
-                            const { left, top, width, height } = u.bbox;
-                            const d = u.data;
-                            const xd = d[0];
-                            const yd = d[seriesIdx];
-                            const barWidth = Math.max(2, (width / xd.length) * 0.8);
-                            const p = new Path2D();
-                            for (let i = idx0; i <= idx1; i++) {
-                                const x = u.valToPos(xd[i], 'x', true);
-                                const y = u.valToPos(yd[i], 'y', true);
-                                const y0 = u.valToPos(0, 'y', true);
-                                p.rect(x - barWidth/2, y, barWidth, y0 - y);
-                            }
-                            return { fill: p };
-                        }
+                        paths: () => null
                     }
                 ],
                 plugins: [tooltipPlugin()],
                 hooks: {
+                    draw: [u => {
+                        const ctx = u.ctx;
+                        const xd = u.data[0];
+                        const yd = u.data[1];
+                        const barWidth = Math.max(2, (u.bbox.width / xd.length) * 0.75);
+                        const radius = Math.min(3, barWidth / 3);
+
+                        // Draw bars with gradient colors
+                        for (let i = 0; i < xd.length; i++) {
+                            const x = u.valToPos(xd[i], 'x', true);
+                            const y = u.valToPos(yd[i], 'y', true);
+                            const y0 = u.valToPos(0, 'y', true);
+                            const h = y0 - y;
+                            if (h > 0) {
+                                ctx.fillStyle = baseColor;
+                                ctx.beginPath();
+                                ctx.moveTo(x - barWidth/2, y0);
+                                ctx.lineTo(x - barWidth/2, y + radius);
+                                ctx.quadraticCurveTo(x - barWidth/2, y, x - barWidth/2 + radius, y);
+                                ctx.lineTo(x + barWidth/2 - radius, y);
+                                ctx.quadraticCurveTo(x + barWidth/2, y, x + barWidth/2, y + radius);
+                                ctx.lineTo(x + barWidth/2, y0);
+                                ctx.closePath();
+                                ctx.fill();
+                            }
+                        }
+
+                        // Draw median line
+                        if (median > 0) {
+                            const yMed = u.valToPos(median, 'y', true);
+                            const { left, width } = u.bbox;
+                            ctx.save();
+                            ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim();
+                            ctx.lineWidth = 1;
+                            ctx.setLineDash([4, 4]);
+                            ctx.beginPath();
+                            ctx.moveTo(left, yMed);
+                            ctx.lineTo(left + width, yMed);
+                            ctx.stroke();
+                            ctx.restore();
+                        }
+                    }],
                     setSelect: [u => {
                         if (onSelect && u.select.width > 10) {
                             const minX = u.posToVal(u.select.left, 'x');
@@ -153,6 +187,7 @@
 
             // Store original range for reset
             chart._originalXRange = [minT, maxT];
+            chart._median = median;
 
             // Handle resize
             const resizeObserver = new ResizeObserver(() => {
@@ -213,7 +248,12 @@
 
             if (xData.length === 0) return null;
 
-            const color = options.color || getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#5a9bd5';
+            const baseColor = options.color || getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#5a9bd5';
+
+            // Calculate median for reference line
+            const sortedY = [...yData].filter(v => v > 0).sort((a, b) => a - b);
+            const median = sortedY.length > 0 ? sortedY[Math.floor(sortedY.length / 2)] : 0;
+            const maxY = Math.max(...yData) || 1;
 
             // Tooltip plugin for histogram
             function tooltipPlugin() {
@@ -234,7 +274,7 @@
                             }
                             const h = histogram[idx];
                             const y = u.data[1][idx];
-                            tooltip.innerHTML = `<div class="tt-time">${h.label}</div><div class="tt-value">${y} sessions</div>${h.peak_time ? `<div class="tt-peak">peak: ${h.peak_time}</div>` : ''}`;
+                            tooltip.innerHTML = `${h.label} · ${y} sessions${h.peak_time ? ` (peak: ${h.peak_time})` : ''}`;
                             const left = u.valToPos(u.data[0][idx], 'x');
                             const top = u.valToPos(y, 'y');
                             tooltip.style.display = 'block';
@@ -249,6 +289,7 @@
                 width: container.clientWidth || 300,
                 height: options.height || 120,
                 cursor: { drag: { x: true, y: false, setScale: true } },
+                legend: { show: false },
                 scales: {
                     x: { time: true },
                     y: { range: [0, null] }
@@ -270,28 +311,58 @@
                 series: [
                     {},
                     {
-                        fill: color,
-                        stroke: color,
+                        fill: 'transparent',
+                        stroke: 'transparent',
                         width: 0,
                         points: { show: false },
-                        paths: (u, seriesIdx, idx0, idx1) => {
-                            const { left, top, width, height } = u.bbox;
-                            const d = u.data;
-                            const xd = d[0];
-                            const yd = d[seriesIdx];
-                            const barWidth = Math.max(4, (width / xd.length) * 0.8);
-                            const p = new Path2D();
-                            for (let i = idx0; i <= idx1; i++) {
-                                const x = u.valToPos(xd[i], 'x', true);
-                                const y = u.valToPos(yd[i], 'y', true);
-                                const y0 = u.valToPos(0, 'y', true);
-                                p.rect(x - barWidth/2, y, barWidth, y0 - y);
-                            }
-                            return { fill: p };
-                        }
+                        paths: () => null
                     }
                 ],
-                plugins: [tooltipPlugin()]
+                plugins: [tooltipPlugin()],
+                hooks: {
+                    draw: [u => {
+                        const ctx = u.ctx;
+                        const xd = u.data[0];
+                        const yd = u.data[1];
+                        const barWidth = Math.max(4, (u.bbox.width / xd.length) * 0.75);
+                        const radius = Math.min(3, barWidth / 3);
+
+                        // Draw bars
+                        for (let i = 0; i < xd.length; i++) {
+                            const x = u.valToPos(xd[i], 'x', true);
+                            const y = u.valToPos(yd[i], 'y', true);
+                            const y0 = u.valToPos(0, 'y', true);
+                            const h = y0 - y;
+                            if (h > 0) {
+                                ctx.fillStyle = baseColor;
+                                ctx.beginPath();
+                                ctx.moveTo(x - barWidth/2, y0);
+                                ctx.lineTo(x - barWidth/2, y + radius);
+                                ctx.quadraticCurveTo(x - barWidth/2, y, x - barWidth/2 + radius, y);
+                                ctx.lineTo(x + barWidth/2 - radius, y);
+                                ctx.quadraticCurveTo(x + barWidth/2, y, x + barWidth/2, y + radius);
+                                ctx.lineTo(x + barWidth/2, y0);
+                                ctx.closePath();
+                                ctx.fill();
+                            }
+                        }
+
+                        // Draw median line
+                        if (median > 0) {
+                            const yMed = u.valToPos(median, 'y', true);
+                            const { left, width } = u.bbox;
+                            ctx.save();
+                            ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim();
+                            ctx.lineWidth = 1;
+                            ctx.setLineDash([4, 4]);
+                            ctx.beginPath();
+                            ctx.moveTo(left, yMed);
+                            ctx.lineTo(left + width, yMed);
+                            ctx.stroke();
+                            ctx.restore();
+                        }
+                    }]
+                }
             };
 
             const chart = new uPlot(opts, [xData, yData], container);
@@ -299,6 +370,7 @@
 
             // Store original range for reset
             chart._originalXRange = [xData[0], xData[xData.length - 1]];
+            chart._median = median;
 
             // Handle resize
             const resizeObserver = new ResizeObserver(() => {
@@ -379,7 +451,12 @@
                 yData[b] = Math.max(maxInBucket, 0);
             }
 
-            const color = options.color || getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#5a9bd5';
+            const baseColor = options.color || getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#5a9bd5';
+
+            // Calculate median for reference line
+            const sortedY = [...yData].filter(v => v > 0).sort((a, b) => a - b);
+            const median = sortedY.length > 0 ? sortedY[Math.floor(sortedY.length / 2)] : 0;
+            const maxY = Math.max(...yData) || 1;
 
             // Tooltip
             function tooltipPlugin() {
@@ -399,7 +476,7 @@
                             const y = u.data[1][idx];
                             const d = new Date(x * 1000);
                             const timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
-                            tooltip.innerHTML = `<div class="tt-time">${timeStr}</div><div class="tt-value">${y} sessions</div>`;
+                            tooltip.innerHTML = `${timeStr} · ${y} sessions`;
                             const left = u.valToPos(x, 'x');
                             const top = u.valToPos(y, 'y');
                             tooltip.style.display = 'block';
@@ -413,6 +490,7 @@
             const opts = {
                 width: container.clientWidth || 300,
                 height: options.height || 120,
+                legend: { show: false },
                 scales: { x: { time: true }, y: { range: [0, null] } },
                 axes: [
                     {
@@ -426,27 +504,60 @@
                 series: [
                     {},
                     {
-                        fill: color, stroke: color, width: 0,
+                        fill: 'transparent', stroke: 'transparent', width: 0,
                         points: { show: false },
-                        paths: (u, seriesIdx, idx0, idx1) => {
-                            const xd = u.data[0], yd = u.data[seriesIdx];
-                            const barWidth = Math.max(2, (u.bbox.width / xd.length) * 0.8);
-                            const p = new Path2D();
-                            for (let i = idx0; i <= idx1; i++) {
-                                const x = u.valToPos(xd[i], 'x', true);
-                                const y = u.valToPos(yd[i], 'y', true);
-                                const y0 = u.valToPos(0, 'y', true);
-                                p.rect(x - barWidth/2, y, barWidth, y0 - y);
-                            }
-                            return { fill: p };
-                        }
+                        paths: () => null
                     }
                 ],
-                plugins: [tooltipPlugin()]
+                plugins: [tooltipPlugin()],
+                hooks: {
+                    draw: [u => {
+                        const ctx = u.ctx;
+                        const xd = u.data[0], yd = u.data[1];
+                        const barWidth = Math.max(2, (u.bbox.width / xd.length) * 0.75);
+                        const radius = Math.min(3, barWidth / 3);
+
+                        // Draw bars
+                        for (let i = 0; i < xd.length; i++) {
+                            const x = u.valToPos(xd[i], 'x', true);
+                            const y = u.valToPos(yd[i], 'y', true);
+                            const y0 = u.valToPos(0, 'y', true);
+                            const h = y0 - y;
+                            if (h > 0) {
+                                ctx.fillStyle = baseColor;
+                                ctx.beginPath();
+                                ctx.moveTo(x - barWidth/2, y0);
+                                ctx.lineTo(x - barWidth/2, y + radius);
+                                ctx.quadraticCurveTo(x - barWidth/2, y, x - barWidth/2 + radius, y);
+                                ctx.lineTo(x + barWidth/2 - radius, y);
+                                ctx.quadraticCurveTo(x + barWidth/2, y, x + barWidth/2, y + radius);
+                                ctx.lineTo(x + barWidth/2, y0);
+                                ctx.closePath();
+                                ctx.fill();
+                            }
+                        }
+
+                        // Draw median line
+                        if (median > 0) {
+                            const yMed = u.valToPos(median, 'y', true);
+                            const { left, width } = u.bbox;
+                            ctx.save();
+                            ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim();
+                            ctx.lineWidth = 1;
+                            ctx.setLineDash([4, 4]);
+                            ctx.beginPath();
+                            ctx.moveTo(left, yMed);
+                            ctx.lineTo(left + width, yMed);
+                            ctx.stroke();
+                            ctx.restore();
+                        }
+                    }]
+                }
             };
 
             const chart = new uPlot(opts, [xData, yData], container);
             charts.set(containerId, chart);
+            chart._median = median;
 
             const resizeObserver = new ResizeObserver(() => {
                 if (container.clientWidth > 0) chart.setSize({ width: container.clientWidth, height: opts.height });
@@ -459,7 +570,6 @@
         // Build chart container HTML with controls
         function buildChartContainer(id, title, options = {}) {
             const showBucketControl = options.showBucketControl !== false;
-            const showFilterBtn = options.showFilterBtn === true;
             const currentBuckets = chartBucketsMap.get(id) || defaultBuckets;
             return `
                 <div class="chart-container">
@@ -476,7 +586,6 @@
                                 </select>
                             ` : ''}
                             <button onclick="resetChartZoom('${id}')">Reset</button>
-                            ${showFilterBtn ? `<button onclick="filterFromChart('${id}')" title="Filter data to selected range">Filter</button>` : ''}
                             <button class="btn-expand" onclick="openChartModal('${id}', '${title.replace(/'/g, "\\'")}')" title="Expand chart">⛶</button>
                         </div>
                     </div>
@@ -515,25 +624,6 @@
 
         // Store chart data for re-creation
         const chartData = new Map();
-
-        // Filter from chart selection
-        function filterFromChart(chartId) {
-            const chart = charts.get(chartId);
-            if (!chart || chart.select.width < 10) return;
-
-            const minX = chart.posToVal(chart.select.left, 'x');
-            const maxX = chart.posToVal(chart.select.left + chart.select.width, 'x');
-
-            // Set filter inputs
-            const beginInput = document.getElementById('filterBegin');
-            const endInput = document.getElementById('filterEnd');
-            if (beginInput && endInput) {
-                beginInput.value = new Date(minX * 1000).toISOString().slice(0, 16);
-                endInput.value = new Date(maxX * 1000).toISOString().slice(0, 16);
-                // Apply filters
-                applyFilters();
-            }
-        }
 
         // Modal state
         let modalChart = null;
@@ -620,6 +710,11 @@
                 yData[i] = counts[i];
             }
 
+            // Calculate median for reference line
+            const sortedY = [...yData].filter(v => v > 0).sort((a, b) => a - b);
+            const median = sortedY.length > 0 ? sortedY[Math.floor(sortedY.length / 2)] : 0;
+            const maxY = Math.max(...yData) || 1;
+
             // Resolve CSS variable to actual color for canvas
             const resolveColor = (c) => {
                 if (c && c.startsWith('var(')) {
@@ -628,7 +723,7 @@
                 }
                 return c || '#5a9bd5';
             };
-            const barColor = resolveColor(options.color) || resolveColor('var(--chart-bar)');
+            const baseColor = resolveColor(options.color) || resolveColor('var(--chart-bar)');
             const textColor = resolveColor('var(--text-muted)');
             const borderColor = resolveColor('var(--border)');
 
@@ -654,30 +749,62 @@
                 series: [
                     {},
                     {
-                        fill: barColor,
-                        stroke: barColor,
+                        fill: 'transparent',
+                        stroke: 'transparent',
                         width: 0,
                         points: { show: false },
-                        paths: (u, seriesIdx, idx0, idx1) => {
-                            const { width } = u.bbox;
-                            const xd = u.data[0], yd = u.data[seriesIdx];
-                            const barWidth = Math.max(2, (width / xd.length) * 0.8);
-                            const p = new Path2D();
-                            for (let i = idx0; i <= idx1; i++) {
-                                const x = u.valToPos(xd[i], 'x', true);
-                                const y = u.valToPos(yd[i], 'y', true);
-                                const y0 = u.valToPos(0, 'y', true);
-                                p.rect(x - barWidth/2, y, barWidth, y0 - y);
-                            }
-                            return { fill: p };
-                        }
+                        paths: () => null
                     }
                 ],
-                plugins: [tooltipPlugin()]
+                plugins: [tooltipPlugin()],
+                hooks: {
+                    draw: [u => {
+                        const ctx = u.ctx;
+                        const xd = u.data[0], yd = u.data[1];
+                        const barWidth = Math.max(2, (u.bbox.width / xd.length) * 0.75);
+                        const radius = Math.min(4, barWidth / 3);
+
+                        // Draw bars
+                        for (let i = 0; i < xd.length; i++) {
+                            const x = u.valToPos(xd[i], 'x', true);
+                            const y = u.valToPos(yd[i], 'y', true);
+                            const y0 = u.valToPos(0, 'y', true);
+                            const h = y0 - y;
+                            if (h > 0) {
+                                ctx.fillStyle = baseColor;
+                                ctx.beginPath();
+                                ctx.moveTo(x - barWidth/2, y0);
+                                ctx.lineTo(x - barWidth/2, y + radius);
+                                ctx.quadraticCurveTo(x - barWidth/2, y, x - barWidth/2 + radius, y);
+                                ctx.lineTo(x + barWidth/2 - radius, y);
+                                ctx.quadraticCurveTo(x + barWidth/2, y, x + barWidth/2, y + radius);
+                                ctx.lineTo(x + barWidth/2, y0);
+                                ctx.closePath();
+                                ctx.fill();
+                            }
+                        }
+
+                        // Draw median line
+                        if (median > 0) {
+                            const yMed = u.valToPos(median, 'y', true);
+                            const { left, width } = u.bbox;
+                            ctx.save();
+                            ctx.strokeStyle = textColor;
+                            ctx.lineWidth = 1;
+                            ctx.setLineDash([4, 4]);
+                            ctx.beginPath();
+                            ctx.moveTo(left, yMed);
+                            ctx.lineTo(left + width, yMed);
+                            ctx.stroke();
+                            ctx.restore();
+                        }
+                    }]
+                }
             };
 
             const chart = new uPlot(opts, [xData, yData], container);
             chart._originalXRange = [xMin, xMax];
+            chart._median = median;
             return chart;
         }
 
@@ -728,6 +855,11 @@
                 yData[i] = maxValues[i];
             }
 
+            // Calculate median and max for styling
+            const sortedY = [...yData].filter(v => v > 0).sort((a, b) => a - b);
+            const median = sortedY.length > 0 ? sortedY[Math.floor(sortedY.length / 2)] : 0;
+            const maxY = Math.max(...yData) || 1;
+
             // Resolve CSS variable to actual color for canvas
             const resolveColor = (c) => {
                 if (c && c.startsWith('var(')) {
@@ -736,7 +868,7 @@
                 }
                 return c || '#5a9bd5';
             };
-            const barColor = resolveColor(options.color) || resolveColor('var(--chart-bar)');
+            const baseColor = resolveColor(options.color) || resolveColor('var(--chart-bar)');
             const textColor = resolveColor('var(--text-muted)');
             const borderColor = resolveColor('var(--border)');
             const height = options.height || 350;
@@ -763,30 +895,62 @@
                 series: [
                     {},
                     {
-                        fill: barColor,
-                        stroke: barColor,
+                        fill: 'transparent',
+                        stroke: 'transparent',
                         width: 0,
                         points: { show: false },
-                        paths: (u, seriesIdx, idx0, idx1) => {
-                            const { width } = u.bbox;
-                            const xd = u.data[0], yd = u.data[seriesIdx];
-                            const barWidth = Math.max(2, (width / xd.length) * 0.8);
-                            const p = new Path2D();
-                            for (let i = idx0; i <= idx1; i++) {
-                                const x = u.valToPos(xd[i], 'x', true);
-                                const y = u.valToPos(yd[i], 'y', true);
-                                const y0 = u.valToPos(0, 'y', true);
-                                p.rect(x - barWidth/2, y, barWidth, y0 - y);
-                            }
-                            return { fill: p };
-                        }
+                        paths: () => null
                     }
                 ],
-                plugins: [tooltipPlugin()]
+                plugins: [tooltipPlugin()],
+                hooks: {
+                    draw: [u => {
+                        const ctx = u.ctx;
+                        const xd = u.data[0], yd = u.data[1];
+                        const barWidth = Math.max(2, (u.bbox.width / xd.length) * 0.75);
+                        const radius = Math.min(4, barWidth / 3);
+
+                        // Draw bars
+                        for (let i = 0; i < xd.length; i++) {
+                            const x = u.valToPos(xd[i], 'x', true);
+                            const y = u.valToPos(yd[i], 'y', true);
+                            const y0 = u.valToPos(0, 'y', true);
+                            const h = y0 - y;
+                            if (h > 0) {
+                                ctx.fillStyle = baseColor;
+                                ctx.beginPath();
+                                ctx.moveTo(x - barWidth/2, y0);
+                                ctx.lineTo(x - barWidth/2, y + radius);
+                                ctx.quadraticCurveTo(x - barWidth/2, y, x - barWidth/2 + radius, y);
+                                ctx.lineTo(x + barWidth/2 - radius, y);
+                                ctx.quadraticCurveTo(x + barWidth/2, y, x + barWidth/2, y + radius);
+                                ctx.lineTo(x + barWidth/2, y0);
+                                ctx.closePath();
+                                ctx.fill();
+                            }
+                        }
+
+                        // Draw median line
+                        if (median > 0) {
+                            const yMed = u.valToPos(median, 'y', true);
+                            const { left, width } = u.bbox;
+                            ctx.save();
+                            ctx.strokeStyle = textColor;
+                            ctx.lineWidth = 1;
+                            ctx.setLineDash([4, 4]);
+                            ctx.beginPath();
+                            ctx.moveTo(left, yMed);
+                            ctx.lineTo(left + width, yMed);
+                            ctx.stroke();
+                            ctx.restore();
+                        }
+                    }]
+                }
             };
 
             const chart = new uPlot(opts, [xData, yData], container);
             chart._originalXRange = [xMin, xMax];
+            chart._median = median;
             return chart;
         }
 
@@ -801,6 +965,11 @@
                 yData[i] = histData[i].value;
             }
 
+            // Calculate median and max for styling
+            const sortedY = [...yData].filter(v => v > 0).sort((a, b) => a - b);
+            const median = sortedY.length > 0 ? sortedY[Math.floor(sortedY.length / 2)] : 0;
+            const maxY = Math.max(...yData) || 1;
+
             // Resolve CSS variable to actual color for canvas
             const resolveColor = (c) => {
                 if (c && c.startsWith('var(')) {
@@ -809,7 +978,7 @@
                 }
                 return c || '#5a9bd5';
             };
-            const barColor = resolveColor(options.color) || resolveColor('var(--chart-bar)');
+            const baseColor = resolveColor(options.color) || resolveColor('var(--chart-bar)');
             const textColor = resolveColor('var(--text-muted)');
             const borderColor = resolveColor('var(--border)');
             const height = options.height || 350;
@@ -836,30 +1005,60 @@
                 series: [
                     {},
                     {
-                        fill: barColor,
-                        stroke: barColor,
+                        fill: 'transparent',
+                        stroke: 'transparent',
                         width: 0,
                         points: { show: false },
-                        paths: (u, seriesIdx, idx0, idx1) => {
-                            const { width } = u.bbox;
-                            const xd = u.data[0], yd = u.data[seriesIdx];
-                            const barWidth = Math.max(2, (width / xd.length) * 0.8);
-                            const p = new Path2D();
-                            for (let i = idx0; i <= idx1; i++) {
-                                const x = u.valToPos(xd[i], 'x', true);
-                                const y = u.valToPos(yd[i], 'y', true);
-                                const y0 = u.valToPos(0, 'y', true);
-                                p.rect(x - barWidth/2, y, barWidth, y0 - y);
-                            }
-                            return { fill: p };
-                        }
+                        paths: () => null
                     }
                 ],
-                plugins: [tooltipPlugin()]
+                plugins: [tooltipPlugin()],
+                hooks: {
+                    draw: [u => {
+                        const ctx = u.ctx;
+                        const xd = u.data[0], yd = u.data[1];
+                        const barWidth = Math.max(2, (u.bbox.width / xd.length) * 0.75);
+                        const radius = Math.min(4, barWidth / 3);
+
+                        for (let i = 0; i < xd.length; i++) {
+                            const x = u.valToPos(xd[i], 'x', true);
+                            const y = u.valToPos(yd[i], 'y', true);
+                            const y0 = u.valToPos(0, 'y', true);
+                            const h = y0 - y;
+                            if (h > 0) {
+                                ctx.fillStyle = baseColor;
+                                ctx.beginPath();
+                                ctx.moveTo(x - barWidth/2, y0);
+                                ctx.lineTo(x - barWidth/2, y + radius);
+                                ctx.quadraticCurveTo(x - barWidth/2, y, x - barWidth/2 + radius, y);
+                                ctx.lineTo(x + barWidth/2 - radius, y);
+                                ctx.quadraticCurveTo(x + barWidth/2, y, x + barWidth/2, y + radius);
+                                ctx.lineTo(x + barWidth/2, y0);
+                                ctx.closePath();
+                                ctx.fill();
+                            }
+                        }
+
+                        if (median > 0) {
+                            const y = u.valToPos(median, 'y', true);
+                            const { left, width } = u.bbox;
+                            ctx.save();
+                            ctx.strokeStyle = textColor;
+                            ctx.lineWidth = 1;
+                            ctx.setLineDash([4, 4]);
+                            ctx.beginPath();
+                            ctx.moveTo(left, y);
+                            ctx.lineTo(left + width, y);
+                            ctx.stroke();
+                            ctx.restore();
+                        }
+                    }]
+                }
             };
 
             const chart = new uPlot(opts, [xData, yData], container);
             chart._originalXRange = [xMin, xMax];
+            chart._median = median;
             return chart;
         }
 
@@ -1174,14 +1373,14 @@
             // Build sections with new layout
             let html = '';
 
-            // Row 1: Summary | Events | Clients | Error Classes (3-4 cols)
+            // Row 1: Summary | Events | Error Classes | Clients (3-4 cols)
             html += `<div class="grid grid-top-row">`;
             html += buildSummarySection(data);
             html += buildEventsSection(data);
-            html += buildClientsSection(data);
             if (hasErrors) {
                 html += buildErrorClassesSection(data);
             }
+            html += buildClientsSection(data);
             html += '</div>';
 
             // Connections (full width)
@@ -1301,26 +1500,29 @@
                     <div class="section-header">Summary</div>
                     <div class="section-body summary-body">
                         <div class="summary-header">
-                            <span class="summary-filename">${esc(f.fileName || 'Unknown')} · <span class="summary-date">${dateDisplay}</span></span>
-                            <span class="summary-parsetime">parsed in ${parseTimeStr}</span>
+                            <div class="summary-date">${dateDisplay}</div>
+                            <div class="summary-meta">
+                                <span class="summary-filename">${esc(f.fileName || 'Unknown')}</span>
+                                <span class="summary-parsetime">parsed in ${parseTimeStr}</span>
+                            </div>
                         </div>
                         <div class="summary-separator"></div>
-                        <div class="summary-tiles">
-                            <div class="summary-tile">
-                                <div class="summary-tile-value">${(f.format || '?').toUpperCase()}</div>
-                                <div class="summary-tile-label">format</div>
+                        <div class="stat-grid" style="grid-template-columns: repeat(4, 1fr); margin-bottom: 1.2rem;">
+                            <div class="stat-card">
+                                <div class="stat-value">${(f.format || '?').toUpperCase()}</div>
+                                <div class="stat-label">format</div>
                             </div>
-                            <div class="summary-tile">
-                                <div class="summary-tile-value">${fmtBytes(f.fileSize || 0)}</div>
-                                <div class="summary-tile-label">size</div>
+                            <div class="stat-card">
+                                <div class="stat-value">${fmtBytes(f.fileSize || 0)}</div>
+                                <div class="stat-label">size</div>
                             </div>
-                            <div class="summary-tile">
-                                <div class="summary-tile-value">${fmt(s.total_logs)}</div>
-                                <div class="summary-tile-label">entries</div>
+                            <div class="stat-card">
+                                <div class="stat-value">${fmt(s.total_logs)}</div>
+                                <div class="stat-label">entries</div>
                             </div>
-                            <div class="summary-tile">
-                                <div class="summary-tile-value">${formatDuration(fmtDur(s.duration))}</div>
-                                <div class="summary-tile-label">duration</div>
+                            <div class="stat-card">
+                                <div class="stat-value">${formatDuration(fmtDur(s.duration))}</div>
+                                <div class="stat-label">duration</div>
                             </div>
                         </div>
                         <div class="summary-timeline">
@@ -1344,28 +1546,53 @@
         function buildEventsSection(data) {
             // data.events is an array: [{type: 'LOG', count: N, percentage: P}, ...]
             const eventsArr = data.events || [];
-            const clsMap = { LOG: 'log', ERROR: 'error', WARNING: 'warning', FATAL: 'fatal', PANIC: 'fatal' };
-            const events = eventsArr.map(e => ({
-                name: e.type,
-                count: e.count,
-                cls: clsMap[e.type] || 'log'
-            })).filter(x => x.count > 0);
-            const max = Math.max(...events.map(x => x.count)) || 1;
+            const eventsMap = {};
+            eventsArr.forEach(e => { eventsMap[e.type] = e.count; });
+
+            // All PostgreSQL log levels in severity order
+            const allLevels = ['DEBUG', 'LOG', 'INFO', 'NOTICE', 'WARNING', 'ERROR', 'FATAL', 'PANIC'];
+            const clsMap = { LOG: 'log', ERROR: 'error', WARNING: 'warning', FATAL: 'fatal', PANIC: 'fatal', DEBUG: 'debug', INFO: 'info', NOTICE: 'notice' };
+
+            const events = allLevels.map(level => ({
+                name: level,
+                count: eventsMap[level] || 0,
+                cls: clsMap[level] || 'log'
+            }));
+
+            // Find max and second max for truncation logic
+            const counts = events.map(x => x.count).filter(c => c > 0).sort((a, b) => b - a);
+            const max = counts[0] || 1;
+            const secondMax = counts[1] || max;
+            const needsTruncation = max > secondMax * 5 && secondMax > 0;
+
+            // If truncation needed: max bar gets 100% with break, others scale to secondMax
+            const secondMaxWidth = needsTruncation ? 75 : 100; // Width of second largest bar
+            const getBarWidth = (count) => {
+                if (count === 0) return 0;
+                if (needsTruncation && count === max) return 100;
+                const scaleMax = needsTruncation ? secondMax : max;
+                return Math.max((count / scaleMax) * secondMaxWidth, 5);
+            };
 
             return `
                 <div class="section" id="events">
                     <div class="section-header">Events</div>
                     <div class="section-body">
                         <div class="event-bars">
-                            ${events.map(ev => `
-                                <div class="event-bar">
+                            ${events.map(ev => {
+                                const isTruncated = needsTruncation && ev.count === max;
+                                const barStyle = isTruncated
+                                    ? `width: 100%; --hatch-start: ${secondMaxWidth}%`
+                                    : `width: ${getBarWidth(ev.count)}%`;
+                                return `
+                                <div class="event-bar ${ev.count === 0 ? 'disabled' : ''}">
                                     <span class="label">${ev.name}</span>
                                     <div class="bar-bg">
-                                        <div class="bar ${ev.cls}" style="width: ${ev.count/max*100}%"></div>
+                                        ${ev.count > 0 ? `<div class="bar ${ev.cls} ${isTruncated ? 'truncated' : ''}" style="${barStyle}"></div>` : ''}
                                     </div>
-                                    <span class="count">${fmt(ev.count)}</span>
+                                    <span class="count">${ev.count > 0 ? fmt(ev.count) : '-'}</span>
                                 </div>
-                            `).join('')}
+                            `}).join('')}
                         </div>
                     </div>
                 </div>
@@ -1386,7 +1613,7 @@
             const hasSessions = (c.sessions_by_user && Object.keys(c.sessions_by_user).length > 0) ||
                                (c.sessions_by_database && Object.keys(c.sessions_by_database).length > 0);
             // session_distribution is an object: {"< 1s": 123, ...}
-            const distEntries = c.session_distribution ? Object.entries(c.session_distribution).filter(([,v]) => v > 0) : [];
+            const hasSessionDist = c.session_distribution && Object.keys(c.session_distribution).length > 0;
             const hasConnections = c.connections?.length > 0;
             const hasConcurrentHist = c.concurrent_sessions_histogram?.length > 0;
 
@@ -1406,7 +1633,7 @@
                 <div class="section" id="connections">
                     <div class="section-header">Connections</div>
                     <div class="section-body">
-                        <div class="stats-row">
+                        <div class="stat-grid">
                             <div class="stat-card">
                                 <div class="stat-value">${fmt(c.connection_count)}</div>
                                 <div class="stat-label">Connections</div>
@@ -1428,7 +1655,7 @@
                                 <div class="stat-label">Rate</div>
                             </div>
                             ${c.peak_concurrent_sessions ? `
-                                <div class="stat-card accent">
+                                <div class="stat-card">
                                     <div class="stat-value">${c.peak_concurrent_sessions}</div>
                                     <div class="stat-label">Peak Concurrent</div>
                                 </div>
@@ -1438,10 +1665,10 @@
                             ${(c.session_events?.length > 0 || hasConcurrentHist) ? buildChartContainer('chart-concurrent', 'Concurrent Sessions', { showFilterBtn: false }) : ''}
                             ${hasConnections ? buildChartContainer('chart-connections', 'Connection Distribution', { showFilterBtn: true }) : ''}
                         </div>
-                        ${distEntries.length > 0 ? `
+                        ${hasSessionDist ? `
                             <div class="subsection">
                                 <div class="subsection-title">Session Duration Distribution</div>
-                                ${buildSessionDistributionChart(distEntries)}
+                                ${buildSessionDistributionChart(c.session_distribution)}
                             </div>
                         ` : ''}
                         ${hasSessions ? `
@@ -1465,20 +1692,49 @@
             `;
         }
 
-        // Build session duration distribution as horizontal bar chart
-        function buildSessionDistributionChart(entries) {
-            const max = Math.max(...entries.map(([,v]) => v)) || 1;
+        // Build session duration distribution as horizontal bar chart (same style as SQL Overview)
+        function buildSessionDistributionChart(distribution) {
+            // Standard buckets in order
+            const orderedBuckets = ['< 1s', '1s - 1min', '1min - 30min', '30min - 2h', '2h - 5h', '> 5h'];
+            const entries = orderedBuckets.map(label => ({
+                label,
+                count: distribution[label] || 0
+            }));
+            const total = entries.reduce((sum, e) => sum + e.count, 0) || 1;
+
+            // Calculate max and second max for truncation logic
+            const counts = entries.map(e => e.count).filter(c => c > 0).sort((a, b) => b - a);
+            const maxCount = counts[0] || 1;
+            const secondMax = counts[1] || maxCount;
+            const needsTruncation = maxCount > secondMax * 5 && secondMax > 0;
+            const secondMaxWidth = needsTruncation ? 75 : 100;
+
+            const getBarWidth = (count) => {
+                if (count === 0) return 0;
+                if (needsTruncation && count === maxCount) return 100;
+                const scaleMax = needsTruncation ? secondMax : maxCount;
+                return Math.max((count / scaleMax) * secondMaxWidth, 5);
+            };
+
             return `
-                <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 0.5rem;">
-                    ${entries.map(([name, count]) => `
-                        <div style="display: flex; align-items: center; gap: 8px; font-size: 0.75rem;">
-                            <span style="width: 70px; text-align: right; color: var(--text-muted);">${name}</span>
-                            <div style="flex: 1; height: 16px; background: var(--bg-tertiary); border-radius: 3px; overflow: hidden;">
-                                <div style="width: ${count/max*100}%; height: 100%; background: var(--chart-bar); border-radius: 3px;"></div>
+                <div class="sql-category-bars">
+                    ${entries.map(e => {
+                        const pct = ((e.count / total) * 100).toFixed(1);
+                        const width = getBarWidth(e.count);
+                        const isTruncated = needsTruncation && e.count === maxCount;
+                        const hatchStart = secondMaxWidth;
+                        return `
+                            <div class="sql-category-bar${e.count === 0 ? ' disabled' : ''}">
+                                <span class="label" style="width: 85px;">${e.label}</span>
+                                <div class="bar-bg">
+                                    <div class="bar${isTruncated ? ' truncated' : ''}"
+                                         style="width: ${width}%;${isTruncated ? ` --hatch-start: ${hatchStart}%;` : ''}"></div>
+                                </div>
+                                <span class="count">${fmt(e.count)}</span>
+                                <span class="pct">${pct}%</span>
                             </div>
-                            <span style="width: 50px; text-align: right;">${fmt(count)}</span>
-                        </div>
-                    `).join('')}
+                        `;
+                    }).join('')}
                 </div>
             `;
         }
@@ -1530,7 +1786,13 @@
             return `
                 <table class="data-table" style="font-size: 0.75rem;">
                     <thead><tr>
-                        <th>${label}</th><th>Sessions</th><th>Min</th><th>Avg</th><th>Median</th><th>Max</th><th>Cumulated</th>
+                        <th>${label}</th>
+                        <th style="text-align:right">Sessions</th>
+                        <th style="text-align:right">Min</th>
+                        <th style="text-align:right">Avg</th>
+                        <th style="text-align:right">Median</th>
+                        <th style="text-align:right">Max</th>
+                        <th style="text-align:right">Cumulated</th>
                     </tr></thead>
                     <tbody>
                         ${rows.map(s => `
@@ -1581,7 +1843,7 @@
                             return `
                             <div class="list-item">
                                 <span class="name">${esc(d.name)}</span>
-                                <div class="bar"><div class="bar-fill" style="width: ${d.count/max*100}%"></div></div>
+                                <div class="bar-container"><div class="bar"><div class="bar-fill" style="width: ${d.count/max*100}%"></div></div></div>
                                 <span class="value">${fmt(d.count)} <small style="color: var(--text-muted)">(${pct}%)</small></span>
                             </div>
                         `}).join('')}
@@ -1639,7 +1901,7 @@
             const maxCount = Math.max(...ec.map(e => e.count)) || 1;
             return `
                 <div class="section" id="error_classes">
-                    <div class="section-header danger">Error Classes <span class="badge">${ec.length} classes</span></div>
+                    <div class="section-header danger">Error Classes</div>
                     <div class="section-body">
                         <div class="scroll-list">
                             ${ec.map(e => {
@@ -1647,10 +1909,9 @@
                                 const pct = totalErrors > 0 ? (e.count / totalErrors * 100).toFixed(0) : 0;
                                 return `
                                 <div class="list-item">
-                                    <span class="name" style="font-weight: 600; color: var(--danger); min-width: 40px;">-${e.class_code}</span>
-                                    <span style="flex: 2; font-size: 0.8rem;">${esc(e.description)}</span>
-                                    <div class="bar"><div class="bar-fill" style="width: ${e.count/maxCount*100}%; background: var(--danger);"></div></div>
-                                    <span class="value">${fmt(e.count)}× <small style="color: var(--text-muted)">(${pct}%)</small></span>
+                                    <span class="name error-name" title="${esc(e.description)}"><strong>${e.class_code}</strong> ${esc(e.description)}</span>
+                                    <div class="bar-container"><div class="bar error-bar"><div class="bar-fill" style="width: ${e.count/maxCount*100}%; background: var(--danger);"></div></div></div>
+                                    <span class="value">${fmt(e.count)} <small style="color: var(--text-muted)">(${pct}%)</small></span>
                                 </div>
                             `}).join('')}
                         </div>
@@ -1684,17 +1945,17 @@
 
             return `
                 <div class="section" id="checkpoints">
-                    <div class="section-header">Checkpoints <span class="badge">${cp.total_checkpoints}</span></div>
+                    <div class="section-header">Checkpoints</div>
                     <div class="section-body">
-                        <div class="stats-row">
+                        <div class="stat-grid">
+                            <div class="stat-card"><div class="stat-value">${fmt(cp.total_checkpoints)}</div><div class="stat-label">Total</div></div>
                             <div class="stat-card"><div class="stat-value">${timed}</div><div class="stat-label">Timed</div></div>
                             <div class="stat-card"><div class="stat-value">${wal}</div><div class="stat-label">WAL</div></div>
                             <div class="stat-card"><div class="stat-value">${req}</div><div class="stat-label">Req</div></div>
+                            <div class="stat-card"><div class="stat-value">${cp.avg_checkpoint_time || '-'}</div><div class="stat-label">Avg</div></div>
+                            <div class="stat-card"><div class="stat-value">${cp.max_checkpoint_time || '-'}</div><div class="stat-label">Max</div></div>
                         </div>
                         ${hasEvents ? buildChartContainer('chart-checkpoints', 'Checkpoint Distribution', { showFilterBtn: false }) : ''}
-                        <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.5rem;">
-                            Avg: ${cp.avg_checkpoint_time} | Max: ${cp.max_checkpoint_time}
-                        </div>
                     </div>
                 </div>
             `;
@@ -1723,7 +1984,7 @@
                 <div class="section" id="maintenance">
                     <div class="section-header">Maintenance</div>
                     <div class="section-body">
-                        <div class="stats-row">
+                        <div class="stat-grid">
                             <div class="stat-card"><div class="stat-value">${m.vacuum_count || 0}</div><div class="stat-label">Vacuum</div></div>
                             <div class="stat-card"><div class="stat-value">${m.analyze_count || 0}</div><div class="stat-label">Analyze</div></div>
                         </div>
@@ -1783,13 +2044,12 @@
                 <div class="section" id="locks">
                     <div class="section-header ${deadlocks > 0 ? 'danger' : ''}">Locks</div>
                     <div class="section-body">
-                        <div class="stats-row">
-                            <div class="stat-card ${deadlocks > 0 ? 'danger' : ''}"><div class="stat-value">${deadlocks}</div><div class="stat-label">Deadlocks</div></div>
+                        <div class="stat-grid">
+                            <div class="stat-card ${deadlocks > 0 ? 'stat-card--alert' : ''}"><div class="stat-value">${deadlocks}</div><div class="stat-label">Deadlocks</div></div>
                             <div class="stat-card"><div class="stat-value">${l.waiting_events || 0}</div><div class="stat-label">Still Waiting</div></div>
                             <div class="stat-card"><div class="stat-value">${l.acquired_events || 0}</div><div class="stat-label">Acquired</div></div>
-                        </div>
-                        <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 0.5rem;">
-                            Avg: ${fmtDur(l.avg_wait_time) || '-'} | Total: ${fmtDur(l.total_wait_time) || '-'}
+                            <div class="stat-card"><div class="stat-value">${fmtDur(l.avg_wait_time) || '-'}</div><div class="stat-label">Avg</div></div>
+                            <div class="stat-card"><div class="stat-value">${fmtDur(l.total_wait_time) || '-'}</div><div class="stat-label">Total</div></div>
                         </div>
                         ${hasLockTypes || hasResTypes ? `
                             <div class="subsection" style="display: flex; gap: 1rem; flex-wrap: wrap;">
@@ -1871,23 +2131,34 @@
             }
             return `
                 <div class="section" id="temp_files">
-                    <div class="section-header accent">Temp Files <span class="badge">${tf.total_messages}</span></div>
+                    <div class="section-header">Temp Files</div>
                     <div class="section-body">
-                        <div class="stats-row">
-                            <div class="stat-card accent"><div class="stat-value">${tf.total_size}</div><div class="stat-label">Total</div></div>
+                        <div class="stat-grid">
+                            <div class="stat-card"><div class="stat-value">${fmt(tf.total_messages)}</div><div class="stat-label">Count</div></div>
+                            <div class="stat-card"><div class="stat-value">${tf.total_size}</div><div class="stat-label">Total</div></div>
                             <div class="stat-card"><div class="stat-value">${tf.avg_size}</div><div class="stat-label">Avg</div></div>
                         </div>
                         ${hasEvents ? buildChartContainer('chart-tempfiles', 'Temp File Activity', { showFilterBtn: true }) : ''}
                         ${hasQueries ? `
                             <div class="subsection">
                                 <div class="subsection-title">Top Queries</div>
-                                <div class="scroll-list" style="max-height: 150px;">
-                                    ${tf.queries.slice(0, 5).map(q => `
-                                        <div class="list-item" style="cursor: pointer;" onclick="showQueryModal('${esc(q.id || '')}')">
-                                            <span class="name" style="flex: 2;">${esc(q.normalized_query || '')}</span>
-                                            <span class="value">${fmt(q.count)}x - ${q.total_size}</span>
-                                        </div>
-                                    `).join('')}
+                                <div class="table-container" style="max-height: 180px;">
+                                    <table>
+                                        <thead><tr>
+                                            <th>Query</th>
+                                            <th class="num">Count</th>
+                                            <th class="num">Total Size</th>
+                                        </tr></thead>
+                                        <tbody>
+                                            ${tf.queries.slice(0, 10).map(q => `
+                                                <tr>
+                                                    <td class="query-cell" onclick="showQueryModal('${esc(q.id || '')}')">${esc(q.normalized_query || '')}</td>
+                                                    <td class="num">${fmt(q.count)}</td>
+                                                    <td class="num">${q.total_size}</td>
+                                                </tr>
+                                            `).join('')}
+                                        </tbody>
+                                    </table>
                                 </div>
                             </div>
                         ` : ''}
@@ -1961,19 +2232,38 @@
             const hasByHost = ov.by_host?.length > 0;
             const hasByApp = ov.by_app?.length > 0;
 
+            // Calculate max and second max for truncation logic (like Events)
+            const counts = ov.categories.map(c => c.count).filter(c => c > 0).sort((a, b) => b - a);
+            const maxCount = counts[0] || 1;
+            const secondMax = counts[1] || maxCount;
+            const needsTruncation = maxCount > secondMax * 5 && secondMax > 0;
+            const secondMaxWidth = needsTruncation ? 75 : 100;
+            const getBarWidth = (count) => {
+                if (count === 0) return 0;
+                if (needsTruncation && count === maxCount) return 100;
+                const scaleMax = needsTruncation ? secondMax : maxCount;
+                return Math.max((count / scaleMax) * secondMaxWidth, 5);
+            };
+
             return `
                 <div class="section" id="sql_overview">
                     <div class="section-header">SQL Overview</div>
                     <div class="section-body">
-                        <div class="categories">
-                            ${ov.categories.map(c => `
-                                <div class="category ${(c.category || c.name || '').toLowerCase()}">
-                                    <div class="category-name">${c.category || c.name}</div>
-                                    <div class="category-count">${fmt(c.count)}</div>
-                                    <div class="category-pct">${c.percentage?.toFixed(1) || 0}%</div>
-                                    ${c.total_time ? `<div class="category-pct" style="color: var(--primary); font-weight: 500;">${fmtDur(c.total_time)}</div>` : ''}
+                        <div class="sql-category-bars">
+                            ${ov.categories.filter(c => c.count > 0).map(c => {
+                                const isTruncated = needsTruncation && c.count === maxCount;
+                                const barStyle = isTruncated
+                                    ? `width: 100%; --hatch-start: ${secondMaxWidth}%`
+                                    : `width: ${getBarWidth(c.count)}%`;
+                                return `
+                                <div class="sql-category-bar">
+                                    <span class="label">${c.category || c.name}</span>
+                                    <div class="bar-bg"><div class="bar ${isTruncated ? 'truncated' : ''}" style="${barStyle}"></div></div>
+                                    <span class="count">${fmt(c.count)}</span>
+                                    <span class="pct">${c.percentage?.toFixed(1) || 0}%</span>
+                                    <span class="time">${c.total_time ? fmtDur(c.total_time) : '-'}</span>
                                 </div>
-                            `).join('')}
+                            `}).join('')}
                         </div>
 
                         <div class="subsection">
@@ -2022,7 +2312,7 @@
                 <div class="table-container" style="max-height: 300px;">
                     <table>
                         <thead><tr>
-                            <th>Type</th><th class="num">Count</th><th class="num">%</th><th class="num">Total</th><th class="num">Avg</th><th class="num">Max</th>
+                            <th>Type</th><th class="num">Count</th><th class="num">%</th><th class="num">Avg</th><th class="num">Max</th><th class="num">Total</th>
                         </tr></thead>
                         <tbody>
                             ${types.slice(0, 15).map(t => `
@@ -2030,9 +2320,9 @@
                                     <td><span class="query-type"><span class="name">${t.type}</span></span></td>
                                     <td class="num">${fmt(t.count)}</td>
                                     <td class="num">${t.percentage?.toFixed(1) || 0}%</td>
-                                    <td class="num">${fmtDur(t.total_time) || '-'}</td>
                                     <td class="num">${fmtDur(t.avg_time) || '-'}</td>
                                     <td class="num">${fmtDur(t.max_time) || '-'}</td>
+                                    <td class="num">${fmtDur(t.total_time) || '-'}</td>
                                 </tr>
                             `).join('')}
                         </tbody>
@@ -2096,20 +2386,19 @@
 
             return `
                 <div class="section" id="sql_performance">
-                    <div class="section-header accent">
-                        SQL Performance
-                        <span class="badge">${fmt(sql.total_queries_parsed)} queries | ${sql.total_unique_queries} unique</span>
-                    </div>
+                    <div class="section-header">SQL Performance</div>
                     <div class="section-body">
-                        <div class="percentiles">
-                            <div class="percentile"><div class="percentile-label">Min</div><div class="percentile-value">${fmtDur(sql.query_min_duration) || '-'}</div></div>
-                            <div class="percentile"><div class="percentile-label">Median</div><div class="percentile-value">${fmtDur(sql.query_median_duration) || '-'}</div></div>
-                            <div class="percentile danger"><div class="percentile-label">P99</div><div class="percentile-value">${fmtDur(sql.query_99th_percentile) || '-'}</div></div>
-                            <div class="percentile danger"><div class="percentile-label">Max</div><div class="percentile-value">${fmtDur(sql.query_max_duration) || '-'}</div></div>
-                            ${(sql.top_1_percent_slow_queries || 0) > 0 ? `<div class="percentile danger"><div class="percentile-label">Top 1%</div><div class="percentile-value">${sql.top_1_percent_slow_queries}</div></div>` : ''}
+                        <div class="stat-grid">
+                            <div class="stat-card"><div class="stat-value">${fmt(sql.total_queries_parsed)}</div><div class="stat-label">Queries</div></div>
+                            <div class="stat-card"><div class="stat-value">${fmt(sql.total_unique_queries)}</div><div class="stat-label">Unique</div></div>
+                            <div class="stat-card"><div class="stat-value">${fmtDur(sql.query_min_duration) || '-'}</div><div class="stat-label">Min</div></div>
+                            <div class="stat-card"><div class="stat-value">${fmtDur(sql.query_median_duration) || '-'}</div><div class="stat-label">Median</div></div>
+                            <div class="stat-card stat-card--alert"><div class="stat-value">${fmtDur(sql.query_99th_percentile) || '-'}</div><div class="stat-label">P99</div></div>
+                            <div class="stat-card stat-card--alert"><div class="stat-value">${fmtDur(sql.query_max_duration) || '-'}</div><div class="stat-label">Max</div></div>
+                            ${(sql.top_1_percent_slow_queries || 0) > 0 ? `<div class="stat-card stat-card--alert"><div class="stat-value">${sql.top_1_percent_slow_queries}</div><div class="stat-label">Top 1%</div></div>` : ''}
                         </div>
 
-                        ${hasExecutions || durationDist.length > 0 ? `
+                        ${hasExecutions || durationDist.some(d => d.count > 0) ? `
                             <div class="grid grid-2" style="margin-top: 0.75rem;">
                                 ${hasExecutions ? `<div>${buildChartContainer('chart-sql-load', 'Query Load Distribution', { showFilterBtn: true })}</div>` : ''}
                                 ${durationDist.length > 0 ? `
@@ -2146,12 +2435,12 @@
             if (!queries?.length) return [];
             // Duration buckets in ms
             const buckets = [
-                { label: '<1ms', max: 1 },
+                { label: '< 1ms', max: 1 },
                 { label: '1-10ms', max: 10 },
                 { label: '10-100ms', max: 100 },
                 { label: '100ms-1s', max: 1000 },
                 { label: '1-10s', max: 10000 },
-                { label: '>10s', max: Infinity }
+                { label: '> 10s', max: Infinity }
             ];
             const counts = buckets.map(() => 0);
             queries.forEach(q => {
@@ -2164,22 +2453,46 @@
                     }
                 }
             });
-            return buckets.map((b, i) => ({ label: b.label, count: counts[i] })).filter(b => b.count > 0);
+            // Return all buckets (including zeros for grayed display)
+            return buckets.map((b, i) => ({ label: b.label, count: counts[i] }));
         }
 
         function buildDurationDistChart(dist) {
-            const max = Math.max(...dist.map(d => d.count)) || 1;
+            const total = dist.reduce((sum, d) => sum + d.count, 0) || 1;
+
+            // Calculate max and second max for truncation logic
+            const counts = dist.map(d => d.count).filter(c => c > 0).sort((a, b) => b - a);
+            const maxCount = counts[0] || 1;
+            const secondMax = counts[1] || maxCount;
+            const needsTruncation = maxCount > secondMax * 5 && secondMax > 0;
+            const secondMaxWidth = needsTruncation ? 75 : 100;
+
+            const getBarWidth = (count) => {
+                if (count === 0) return 0;
+                if (needsTruncation && count === maxCount) return 100;
+                const scaleMax = needsTruncation ? secondMax : maxCount;
+                return Math.max((count / scaleMax) * secondMaxWidth, 5);
+            };
+
             return `
-                <div style="display: flex; flex-direction: column; gap: 3px;">
-                    ${dist.map(d => `
-                        <div class="event-bar">
-                            <span class="label" style="width: 70px; font-size: 0.65rem;">${d.label}</span>
-                            <div class="bar-bg">
-                                <div class="bar" style="width: ${d.count/max*100}%; background: var(--chart-bar);"></div>
+                <div class="sql-category-bars">
+                    ${dist.map(d => {
+                        const pct = ((d.count / total) * 100).toFixed(1);
+                        const width = getBarWidth(d.count);
+                        const isTruncated = needsTruncation && d.count === maxCount;
+                        const hatchStart = secondMaxWidth;
+                        return `
+                            <div class="sql-category-bar${d.count === 0 ? ' disabled' : ''}">
+                                <span class="label" style="width: 70px;">${d.label}</span>
+                                <div class="bar-bg">
+                                    <div class="bar${isTruncated ? ' truncated' : ''}"
+                                         style="width: ${width}%;${isTruncated ? ` --hatch-start: ${hatchStart}%;` : ''}"></div>
+                                </div>
+                                <span class="count">${fmt(d.count)}</span>
+                                <span class="pct">${pct}%</span>
                             </div>
-                            <span class="count" style="width: 50px;">${fmt(d.count)}</span>
-                        </div>
-                    `).join('')}
+                        `;
+                    }).join('')}
                 </div>
             `;
         }
@@ -2205,10 +2518,10 @@
                                 <th>#</th>
                                 <th>Query</th>
                                 <th class="num">Count</th>
-                                <th class="num">Total</th>
                                 <th class="num">Avg</th>
                                 <th class="num">Max</th>
                                 <th class="num">%</th>
+                                <th class="num">Total</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -2219,15 +2532,15 @@
                                     <td>${i + 1}</td>
                                     <td class="query-cell" onclick="showQueryModal('${esc(q.id)}')" title="Click for details">${esc(q.normalized_query)}</td>
                                     <td class="num">${fmt(q.count)}</td>
+                                    <td class="num">${fmtMs(q.avg_time_ms)}</td>
+                                    <td class="num">${fmtMs(q.max_time_ms)}</td>
+                                    <td class="num">${pct}%</td>
                                     <td class="num">
                                         <div class="duration-bar">
                                             <div class="bar"><div class="bar-fill" style="width: ${q.total_time_ms/maxTime*100}%"></div></div>
                                             <span>${fmtMs(q.total_time_ms)}</span>
                                         </div>
                                     </td>
-                                    <td class="num">${fmtMs(q.avg_time_ms)}</td>
-                                    <td class="num">${fmtMs(q.max_time_ms)}</td>
-                                    <td class="num">${pct}%</td>
                                 </tr>
                             `}).join('')}
                         </tbody>
@@ -2496,10 +2809,14 @@
                 return c || '#5a9bd5';
             };
 
-            const barColor = resolveColor(options.color || 'var(--primary)');
+            const baseColor = resolveColor(options.color || 'var(--primary)');
             const textColor = resolveColor('var(--text-muted)');
-            const borderColor = resolveColor('var(--border)');
             const height = options.height || 100;
+
+            // Calculate median and max for styling
+            const sortedY = [...yData].filter(v => v > 0).sort((a, b) => a - b);
+            const median = sortedY.length > 0 ? sortedY[Math.floor(sortedY.length / 2)] : 0;
+            const maxY = Math.max(...yData) || 1;
 
             const opts = {
                 width: container.clientWidth || 500,
@@ -2518,25 +2835,55 @@
                 series: [
                     {},
                     {
-                        fill: barColor,
-                        stroke: barColor,
+                        fill: 'transparent',
+                        stroke: 'transparent',
                         width: 0,
                         points: { show: false },
-                        paths: (u, seriesIdx, idx0, idx1) => {
-                            const xd = u.data[0], yd = u.data[seriesIdx];
-                            const barWidth = Math.max(6, (u.bbox.width / xd.length) * 0.7);
-                            const p = new Path2D();
-                            for (let i = idx0; i <= idx1; i++) {
-                                const x = u.valToPos(xd[i], 'x', true);
-                                const y = u.valToPos(yd[i], 'y', true);
-                                const y0 = u.valToPos(0, 'y', true);
-                                p.rect(x - barWidth/2, y, barWidth, y0 - y);
-                            }
-                            return { fill: p };
-                        }
+                        paths: () => null
                     }
                 ],
-                plugins: [modalTooltipPlugin(options.valueFormatter)]
+                plugins: [modalTooltipPlugin(options.valueFormatter)],
+                hooks: {
+                    draw: [u => {
+                        const ctx = u.ctx;
+                        const xd = u.data[0], yd = u.data[1];
+                        const barWidth = Math.max(6, (u.bbox.width / xd.length) * 0.7);
+                        const radius = Math.min(3, barWidth / 3);
+
+                        for (let i = 0; i < xd.length; i++) {
+                            const x = u.valToPos(xd[i], 'x', true);
+                            const y = u.valToPos(yd[i], 'y', true);
+                            const y0 = u.valToPos(0, 'y', true);
+                            const h = y0 - y;
+                            if (h > 0) {
+                                ctx.fillStyle = baseColor;
+                                ctx.beginPath();
+                                ctx.moveTo(x - barWidth/2, y0);
+                                ctx.lineTo(x - barWidth/2, y + radius);
+                                ctx.quadraticCurveTo(x - barWidth/2, y, x - barWidth/2 + radius, y);
+                                ctx.lineTo(x + barWidth/2 - radius, y);
+                                ctx.quadraticCurveTo(x + barWidth/2, y, x + barWidth/2, y + radius);
+                                ctx.lineTo(x + barWidth/2, y0);
+                                ctx.closePath();
+                                ctx.fill();
+                            }
+                        }
+
+                        if (median > 0) {
+                            const y = u.valToPos(median, 'y', true);
+                            const { left, width } = u.bbox;
+                            ctx.save();
+                            ctx.strokeStyle = textColor;
+                            ctx.lineWidth = 1;
+                            ctx.setLineDash([4, 4]);
+                            ctx.beginPath();
+                            ctx.moveTo(left, y);
+                            ctx.lineTo(left + width, y);
+                            ctx.stroke();
+                            ctx.restore();
+                        }
+                    }]
+                }
             };
 
             return new uPlot(opts, [xData, yData], container);
@@ -2561,7 +2908,7 @@
                         const d = new Date(x * 1000);
                         const timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
                         const valStr = valueFormatter ? valueFormatter(y) : y;
-                        tooltip.innerHTML = `<div class="tt-time">${timeStr}</div><div class="tt-value">${valStr}</div>`;
+                        tooltip.innerHTML = `${timeStr} · ${valStr}`;
                         const left = u.valToPos(x, 'x');
                         const top = u.valToPos(y, 'y');
                         tooltip.style.display = 'block';
@@ -3430,10 +3777,10 @@
         function fmtDur(s) {
             if (!s || s === '-') return '-';
             if (typeof s !== 'string') return String(s);
-            // Check for ms first
+            // Check for ms first (msIdx is position where 'ms' starts, so 'm' is at msIdx)
             var msIdx = s.indexOf('ms');
-            if (msIdx > 0 && s.indexOf('h') < 0 && s.indexOf('m') === msIdx - 1) {
-                // Pure milliseconds
+            if (msIdx > 0 && s.indexOf('h') < 0 && s.indexOf('m') === msIdx) {
+                // Pure milliseconds (no separate 'm' for minutes)
                 var msVal = parseFloat(s);
                 return isNaN(msVal) ? s : msVal.toFixed(1) + 'ms';
             }
@@ -3443,12 +3790,14 @@
             var mIdx = s.indexOf('m');
             var sIdx = s.lastIndexOf('s');
             if (hIdx > 0) h = parseInt(s.substring(0, hIdx)) || 0;
-            if (mIdx > 0 && mIdx !== msIdx - 1) {
+            if (mIdx > 0 && mIdx !== msIdx) {
+                // 'm' is for minutes only if it's not part of 'ms'
                 var mStart = hIdx > 0 ? hIdx + 1 : 0;
                 m = parseInt(s.substring(mStart, mIdx)) || 0;
             }
-            if (sIdx > 0 && sIdx !== msIdx) {
-                var sStart = mIdx > 0 ? mIdx + 1 : (hIdx > 0 ? hIdx + 1 : 0);
+            if (sIdx > 0 && sIdx !== msIdx + 1) {
+                // 's' is for seconds only if it's not the 's' in 'ms'
+                var sStart = mIdx > 0 && mIdx !== msIdx ? mIdx + 1 : (hIdx > 0 ? hIdx + 1 : 0);
                 sec = parseFloat(s.substring(sStart, sIdx)) || 0;
             }
             // Build output
@@ -3461,6 +3810,11 @@
                 } else {
                     parts.push(sec.toFixed(2) + 's');
                 }
+            }
+            // Handle pure milliseconds that weren't caught above (e.g., "0.5ms")
+            if (parts.length === 0 && msIdx > 0) {
+                var msVal = parseFloat(s);
+                return isNaN(msVal) ? s : msVal.toFixed(1) + 'ms';
             }
             return parts.length > 0 ? parts.join(' ') : s;
         }
@@ -3507,7 +3861,6 @@
         });
 
         // Expose functions for inline onclick handlers
-        window.scrollToSection = scrollToSection;
         window.showConnTab = showConnTab;
         window.showClientTab = showClientTab;
         window.showQueryModal = showQueryModal;
