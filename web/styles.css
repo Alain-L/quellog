@@ -1991,3 +1991,79 @@
             color: var(--primary);
             border: 1px solid var(--border);
         }
+
+        /* Chart legend */
+        .chart-legend {
+            display: flex;
+            justify-content: center;
+            gap: 1.5rem;
+            margin-top: 0.25rem;
+            font-size: 0.7rem;
+            color: var(--text-muted);
+        }
+        .chart-legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+            cursor: pointer;
+            padding: 0.15rem 0.4rem;
+            border-radius: 4px;
+            transition: opacity 0.15s, background 0.15s;
+            user-select: none;
+        }
+        .chart-legend-item:hover {
+            background: var(--bg-alt);
+        }
+        .chart-legend-item.disabled {
+            opacity: 0.4;
+        }
+        .chart-legend-bar {
+            width: 12px;
+            height: 10px;
+            border-radius: 2px;
+        }
+        .chart-legend-bar--count {
+            background: var(--chart-bar);
+        }
+        .chart-legend-bar--duration {
+            background: var(--accent);
+        }
+
+        /* Duration stacked bar */
+        .duration-stack {
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+        }
+        .duration-stack-bar {
+            display: flex;
+            height: 12px;
+            border-radius: 4px;
+            overflow: hidden;
+            background: var(--bg-alt);
+        }
+        .duration-stack-segment {
+            height: 100%;
+            transition: opacity 0.15s;
+        }
+        .duration-stack-segment:hover {
+            opacity: 0.8;
+        }
+        .duration-stack-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem 1rem;
+        }
+        .duration-stack-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            font-size: 0.65rem;
+            color: var(--text-muted);
+        }
+        .duration-stack-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 2px;
+            flex-shrink: 0;
+        }

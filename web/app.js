@@ -130,6 +130,43 @@
             return { xData, yData, median, buckets };
         }
 
+        // Helper: bin combined count and duration data for dual-axis chart
+        function binCombinedData(times, executions, minT, maxT, interval) {
+            const range = maxT - minT || 1;
+            const buckets = computeBuckets(range, interval);
+            const bucketSize = range / buckets;
+
+            const xData = new Float64Array(buckets);
+            const countData = new Float64Array(buckets);
+            const durationData = new Float64Array(buckets);
+            for (let i = 0; i < buckets; i++) {
+                xData[i] = minT + i * bucketSize + bucketSize / 2;
+            }
+
+            // Count queries per bucket
+            times.forEach(t => {
+                if (t >= minT && t <= maxT) {
+                    const idx = Math.min(Math.floor((t - minT) / bucketSize), buckets - 1);
+                    countData[idx]++;
+                }
+            });
+
+            // Sum durations per bucket (in seconds)
+            executions.forEach(e => {
+                const t = e.t;
+                const dur = e.d;
+                if (t >= minT && t <= maxT) {
+                    const idx = Math.min(Math.floor((t - minT) / bucketSize), buckets - 1);
+                    durationData[idx] += dur / 1000;
+                }
+            });
+
+            const sortedCount = [...countData].filter(v => v > 0).sort((a, b) => a - b);
+            const medianCount = sortedCount.length > 0 ? sortedCount[Math.floor(sortedCount.length / 2)] : 0;
+
+            return { xData, countData, durationData, medianCount, buckets };
+        }
+
         // Helper: bin concurrent sessions using sweep-line algorithm
         function binConcurrentSessions(events, minT, maxT, interval) {
             const range = maxT - minT || 1;
@@ -796,6 +833,261 @@
             return chart;
         }
 
+        // Create combined SQL chart with grouped bars (count + duration side by side)
+        function createCombinedSQLChart(containerId, rawData, options = {}) {
+            const container = document.getElementById(containerId);
+            if (!container || !rawData) return null;
+
+            const { times, executions } = rawData;
+            if (!times || times.length === 0) return null;
+
+            // Clear previous chart
+            if (charts.has(containerId)) {
+                charts.get(containerId).destroy();
+                charts.delete(containerId);
+            }
+            container.innerHTML = '';
+
+            const minT = times[0];
+            const maxT = times[times.length - 1];
+            const interval = options.interval !== undefined ? options.interval : (chartIntervalMap.get(containerId) ?? defaultInterval);
+
+            // Initial binning
+            const { xData, countData, durationData, medianCount } = binCombinedData(times, executions, minT, maxT, interval);
+
+            const countColor = getComputedStyle(document.documentElement).getPropertyValue('--chart-bar').trim() || '#5a9bd5';
+            const durationColor = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#f5a623';
+            const textColor = getComputedStyle(document.documentElement).getPropertyValue('--text').trim();
+            const mutedColor = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim();
+
+            // Series visibility state
+            const seriesVisible = { count: true, duration: true };
+
+            // Custom tooltip for combined chart
+            function combinedTooltipPlugin() {
+                let tooltip = null;
+                return {
+                    hooks: {
+                        init: u => {
+                            tooltip = document.createElement('div');
+                            tooltip.className = 'chart-tooltip';
+                            tooltip.style.display = 'none';
+                            u.over.appendChild(tooltip);
+                        },
+                        setCursor: u => {
+                            if (u._resampling) { tooltip.style.display = 'none'; return; }
+                            const { idx } = u.cursor;
+                            const xd = u.data[0];
+                            const countY = u.data[1];
+                            const durY = u.data[2];
+                            if (idx == null || !xd || idx < 0 || idx >= xd.length) {
+                                tooltip.style.display = 'none';
+                                return;
+                            }
+                            const x = xd[idx];
+                            const count = countY[idx];
+                            const dur = durY[idx];
+                            if (x === undefined || !Number.isFinite(x)) {
+                                tooltip.style.display = 'none';
+                                return;
+                            }
+                            const d = new Date(x * 1000);
+                            const timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+                            const durStr = dur >= 60 ? `${(dur/60).toFixed(1)}m` : `${dur.toFixed(1)}s`;
+                            let parts = [timeStr];
+                            if (u._seriesVisible.count) parts.push(`${fmt(count)} queries`);
+                            if (u._seriesVisible.duration) parts.push(durStr);
+                            tooltip.innerHTML = parts.join(' · ');
+                            const left = u.valToPos(x, 'x');
+                            const topCount = u._seriesVisible.count ? u.valToPos(count, 'y', true) : u.bbox.top + u.bbox.height;
+                            const topDur = u._seriesVisible.duration ? u.valToPos(dur, 'duration', true) : u.bbox.top + u.bbox.height;
+                            const top = Math.min(topCount, topDur);
+                            tooltip.style.display = 'block';
+                            tooltip.style.left = Math.min(left, u.over.clientWidth - 140) + 'px';
+                            tooltip.style.top = Math.max(0, top - 40) + 'px';
+                        }
+                    }
+                };
+            }
+
+            const opts = {
+                width: container.clientWidth || 300,
+                height: options.height || 150,
+                cursor: { drag: { x: true, y: false, setScale: true } },
+                select: { show: true },
+                legend: { show: false },
+                scales: {
+                    x: { time: true },
+                    y: { range: [0, null] },
+                    duration: { range: [0, null] }
+                },
+                axes: [
+                    {
+                        stroke: textColor,
+                        grid: { show: false },
+                        ticks: { show: false },
+                        values: (u, vals) => vals.map(v => {
+                            const d = new Date(v * 1000);
+                            return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+                        }),
+                        size: 20,
+                        font: '10px system-ui'
+                    },
+                    {
+                        stroke: countColor,
+                        grid: { show: false },
+                        ticks: { show: false },
+                        size: 35,
+                        font: '10px system-ui',
+                        side: 3  // left
+                    },
+                    {
+                        scale: 'duration',
+                        stroke: durationColor,
+                        grid: { show: false },
+                        ticks: { show: false },
+                        size: 40,
+                        font: '10px system-ui',
+                        side: 1,  // right
+                        values: (u, vals) => vals.map(v => v >= 60 ? `${(v/60).toFixed(0)}m` : `${v.toFixed(0)}s`)
+                    }
+                ],
+                series: [
+                    {},
+                    { label: 'Count', scale: 'y', stroke: 'transparent', fill: 'transparent', points: { show: false }, paths: () => null },
+                    { label: 'Duration', scale: 'duration', stroke: 'transparent', fill: 'transparent', points: { show: false }, paths: () => null }
+                ],
+                plugins: [combinedTooltipPlugin()],
+                hooks: {
+                    draw: [u => {
+                        const ctx = u.ctx;
+                        ctx.save();
+                        const xd = u.data[0];
+                        const countY = u.data[1];
+                        const durY = u.data[2];
+                        const bothVisible = u._seriesVisible.count && u._seriesVisible.duration;
+                        const totalBarWidth = Math.max(4, (u.bbox.width / xd.length) * 0.7);
+                        const barWidth = bothVisible ? totalBarWidth / 2 - 1 : totalBarWidth;
+                        const radius = Math.min(2, barWidth / 4);
+
+                        for (let i = 0; i < xd.length; i++) {
+                            const xCenter = u.valToPos(xd[i], 'x', true);
+                            const y0Count = u.valToPos(0, 'y', true);
+                            const y0Dur = u.valToPos(0, 'duration', true);
+
+                            // Draw count bar (left side if both visible)
+                            if (u._seriesVisible.count && countY[i] > 0) {
+                                const x = bothVisible ? xCenter - barWidth/2 - 0.5 : xCenter;
+                                const y = u.valToPos(countY[i], 'y', true);
+                                const h = y0Count - y;
+                                if (h > 0) {
+                                    ctx.fillStyle = countColor;
+                                    ctx.beginPath();
+                                    ctx.moveTo(x - barWidth/2, y0Count);
+                                    ctx.lineTo(x - barWidth/2, y + radius);
+                                    ctx.quadraticCurveTo(x - barWidth/2, y, x - barWidth/2 + radius, y);
+                                    ctx.lineTo(x + barWidth/2 - radius, y);
+                                    ctx.quadraticCurveTo(x + barWidth/2, y, x + barWidth/2, y + radius);
+                                    ctx.lineTo(x + barWidth/2, y0Count);
+                                    ctx.closePath();
+                                    ctx.fill();
+                                }
+                            }
+
+                            // Draw duration bar (right side if both visible)
+                            if (u._seriesVisible.duration && durY[i] > 0) {
+                                const x = bothVisible ? xCenter + barWidth/2 + 0.5 : xCenter;
+                                const y = u.valToPos(durY[i], 'duration', true);
+                                const h = y0Dur - y;
+                                if (h > 0) {
+                                    ctx.fillStyle = durationColor;
+                                    ctx.beginPath();
+                                    ctx.moveTo(x - barWidth/2, y0Dur);
+                                    ctx.lineTo(x - barWidth/2, y + radius);
+                                    ctx.quadraticCurveTo(x - barWidth/2, y, x - barWidth/2 + radius, y);
+                                    ctx.lineTo(x + barWidth/2 - radius, y);
+                                    ctx.quadraticCurveTo(x + barWidth/2, y, x + barWidth/2, y + radius);
+                                    ctx.lineTo(x + barWidth/2, y0Dur);
+                                    ctx.closePath();
+                                    ctx.fill();
+                                }
+                            }
+                        }
+
+                        // Draw median line for count if visible
+                        if (u._seriesVisible.count) {
+                            const currentMedian = u._medianCount || 0;
+                            if (currentMedian > 0) {
+                                const yMed = u.valToPos(currentMedian, 'y', true);
+                                const { left, width } = u.bbox;
+                                ctx.strokeStyle = mutedColor;
+                                ctx.lineWidth = 1;
+                                ctx.setLineDash([4, 4]);
+                                ctx.beginPath();
+                                ctx.moveTo(left, yMed);
+                                ctx.lineTo(left + width, yMed);
+                                ctx.stroke();
+                            }
+                        }
+                        ctx.restore();
+                    }],
+                    setScale: [u => {
+                        if (!u._rawData || u._resampling) return;
+                        const xScale = u.scales.x;
+                        const newMin = xScale.min;
+                        const newMax = xScale.max;
+                        if (newMin == null || newMax == null) return;
+
+                        const rangeChanged = !u._lastRange || Math.abs(u._lastRange[0] - newMin) > 1 || Math.abs(u._lastRange[1] - newMax) > 1;
+
+                        if (rangeChanged) {
+                            u._lastRange = [newMin, newMax];
+                            const { xData: newX, countData: newCount, durationData: newDur, medianCount: newMed } = binCombinedData(u._rawData.times, u._rawData.executions, newMin, newMax, u._interval);
+                            u._medianCount = newMed;
+                            u._resampling = true;
+                            u.setData([newX, newCount, newDur], false);
+                            u._resampling = false;
+                            u.batch(() => {
+                                u.setScale('x', { min: newMin, max: newMax });
+                            });
+                        }
+                    }]
+                }
+            };
+
+            const chart = new uPlot(opts, [xData, countData, durationData], container);
+            charts.set(containerId, chart);
+
+            chart._rawData = rawData;
+            chart._interval = interval;
+            chart._originalXRange = [minT, maxT];
+            chart._medianCount = medianCount;
+            chart._seriesVisible = seriesVisible;
+            chart._containerId = containerId;
+
+            const resizeObserver = new ResizeObserver(() => {
+                if (container.clientWidth > 0) {
+                    chart.setSize({ width: container.clientWidth, height: opts.height });
+                }
+            });
+            resizeObserver.observe(container);
+
+            return chart;
+        }
+
+        // Toggle series visibility for combined chart
+        function toggleCombinedSeries(chartId, series) {
+            const chart = charts.get(chartId);
+            if (!chart || !chart._seriesVisible) return;
+            chart._seriesVisible[series] = !chart._seriesVisible[series];
+            // Update legend UI
+            const legendItem = document.querySelector(`[data-chart="${chartId}"][data-series="${series}"]`);
+            if (legendItem) {
+                legendItem.classList.toggle('disabled', !chart._seriesVisible[series]);
+            }
+            chart.redraw();
+        }
+
         // Create chart from pre-aggregated histogram data (e.g., concurrent sessions)
         function createHistogramChart(containerId, histogram, options = {}) {
             const container = document.getElementById(containerId);
@@ -1243,6 +1535,8 @@
                     // Pre-computed histogram can't change interval
                 } else if (data?.type === 'duration') {
                     createDurationChart(chartId, data.data, { color: accentColor, interval });
+                } else if (data?.type === 'combined') {
+                    createCombinedSQLChart(chartId, data.data, { interval });
                 } else {
                     createTimeChart(chartId, data, { color, interval });
                 }
@@ -1320,6 +1614,11 @@
             } else if (data?.type === 'duration') {
                 modalChart = createDurationChartLarge(container, data.data, {
                     color: accentColor,
+                    interval: modalInterval,
+                    height: 350
+                });
+            } else if (data?.type === 'combined') {
+                modalChart = createCombinedSQLChartLarge(container, data.data, {
                     interval: modalInterval,
                     height: 350
                 });
@@ -1632,6 +1931,207 @@
             chart._interval = interval;
             chart._originalXRange = [minT, maxT];
             chart._median = median;
+            return chart;
+        }
+
+        // Create large combined SQL chart for modal (grouped bars)
+        function createCombinedSQLChartLarge(container, rawData, options = {}) {
+            if (!rawData?.times?.length) return null;
+
+            const { times, executions } = rawData;
+            const minT = times[0];
+            const maxT = times[times.length - 1];
+            const interval = options.interval ?? 0;
+            const height = options.height || 350;
+
+            const { xData, countData, durationData, medianCount } = binCombinedData(times, executions, minT, maxT, interval);
+
+            const resolveColor = (c) => {
+                if (c && c.startsWith('var(')) {
+                    const varName = c.slice(4, -1);
+                    return getComputedStyle(document.documentElement).getPropertyValue(varName).trim() || '#5a9bd5';
+                }
+                return c;
+            };
+            const countColor = resolveColor('var(--chart-bar)');
+            const durationColor = resolveColor('var(--accent)');
+            const textColor = resolveColor('var(--text)');
+            const borderColor = resolveColor('var(--border)');
+            const mutedColor = resolveColor('var(--text-muted)');
+
+            // Series visibility state (always both visible in modal for now)
+            const seriesVisible = { count: true, duration: true };
+
+            function combinedTooltipPlugin() {
+                let tooltip = null;
+                return {
+                    hooks: {
+                        init: u => {
+                            tooltip = document.createElement('div');
+                            tooltip.className = 'chart-tooltip';
+                            tooltip.style.display = 'none';
+                            u.over.appendChild(tooltip);
+                        },
+                        setCursor: u => {
+                            if (u._resampling) { tooltip.style.display = 'none'; return; }
+                            const { idx } = u.cursor;
+                            const xd = u.data[0];
+                            const countY = u.data[1];
+                            const durY = u.data[2];
+                            if (idx == null || !xd || idx < 0 || idx >= xd.length) {
+                                tooltip.style.display = 'none';
+                                return;
+                            }
+                            const x = xd[idx];
+                            const count = countY[idx];
+                            const dur = durY[idx];
+                            if (x === undefined || !Number.isFinite(x)) {
+                                tooltip.style.display = 'none';
+                                return;
+                            }
+                            const d = new Date(x * 1000);
+                            const timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+                            const durStr = dur >= 60 ? `${(dur/60).toFixed(1)}m` : `${dur.toFixed(1)}s`;
+                            tooltip.innerHTML = `${timeStr} · ${fmt(count)} queries · ${durStr}`;
+                            const left = u.valToPos(x, 'x');
+                            const topCount = u.valToPos(count, 'y', true);
+                            const topDur = u.valToPos(dur, 'duration', true);
+                            const top = Math.min(topCount, topDur);
+                            tooltip.style.display = 'block';
+                            tooltip.style.left = Math.min(left, u.over.clientWidth - 140) + 'px';
+                            tooltip.style.top = Math.max(0, top - 40) + 'px';
+                        }
+                    }
+                };
+            }
+
+            const opts = {
+                width: container.clientWidth || 1100,
+                height: height,
+                cursor: { drag: { x: true, y: false, setScale: true } },
+                select: { show: true },
+                legend: { show: false },
+                scales: {
+                    x: { time: true },
+                    y: { range: [0, null] },
+                    duration: { range: [0, null] }
+                },
+                axes: [
+                    { stroke: textColor, grid: { stroke: borderColor, width: 1 }, size: 50, font: '12px sans-serif', ticks: { stroke: borderColor } },
+                    { stroke: countColor, grid: { stroke: borderColor, width: 1 }, size: 50, font: '12px sans-serif', ticks: { stroke: borderColor }, side: 3 },
+                    { scale: 'duration', stroke: durationColor, grid: { show: false }, size: 50, font: '12px sans-serif', ticks: { stroke: borderColor }, side: 1,
+                      values: (u, vals) => vals.map(v => v >= 60 ? `${(v/60).toFixed(0)}m` : `${v.toFixed(0)}s`) }
+                ],
+                series: [
+                    {},
+                    { label: 'Count', scale: 'y', stroke: 'transparent', fill: 'transparent', points: { show: false }, paths: () => null },
+                    { label: 'Duration', scale: 'duration', stroke: 'transparent', fill: 'transparent', points: { show: false }, paths: () => null }
+                ],
+                plugins: [combinedTooltipPlugin()],
+                hooks: {
+                    draw: [u => {
+                        const ctx = u.ctx;
+                        ctx.save();
+                        const xd = u.data[0];
+                        const countY = u.data[1];
+                        const durY = u.data[2];
+                        const bothVisible = u._seriesVisible.count && u._seriesVisible.duration;
+                        const totalBarWidth = Math.max(4, (u.bbox.width / xd.length) * 0.7);
+                        const barWidth = bothVisible ? totalBarWidth / 2 - 1 : totalBarWidth;
+                        const radius = Math.min(3, barWidth / 4);
+
+                        for (let i = 0; i < xd.length; i++) {
+                            const xCenter = u.valToPos(xd[i], 'x', true);
+                            const y0Count = u.valToPos(0, 'y', true);
+                            const y0Dur = u.valToPos(0, 'duration', true);
+
+                            // Draw count bar (left side)
+                            if (u._seriesVisible.count && countY[i] > 0) {
+                                const x = bothVisible ? xCenter - barWidth/2 - 0.5 : xCenter;
+                                const y = u.valToPos(countY[i], 'y', true);
+                                const h = y0Count - y;
+                                if (h > 0) {
+                                    ctx.fillStyle = countColor;
+                                    ctx.beginPath();
+                                    ctx.moveTo(x - barWidth/2, y0Count);
+                                    ctx.lineTo(x - barWidth/2, y + radius);
+                                    ctx.quadraticCurveTo(x - barWidth/2, y, x - barWidth/2 + radius, y);
+                                    ctx.lineTo(x + barWidth/2 - radius, y);
+                                    ctx.quadraticCurveTo(x + barWidth/2, y, x + barWidth/2, y + radius);
+                                    ctx.lineTo(x + barWidth/2, y0Count);
+                                    ctx.closePath();
+                                    ctx.fill();
+                                }
+                            }
+
+                            // Draw duration bar (right side)
+                            if (u._seriesVisible.duration && durY[i] > 0) {
+                                const x = bothVisible ? xCenter + barWidth/2 + 0.5 : xCenter;
+                                const y = u.valToPos(durY[i], 'duration', true);
+                                const h = y0Dur - y;
+                                if (h > 0) {
+                                    ctx.fillStyle = durationColor;
+                                    ctx.beginPath();
+                                    ctx.moveTo(x - barWidth/2, y0Dur);
+                                    ctx.lineTo(x - barWidth/2, y + radius);
+                                    ctx.quadraticCurveTo(x - barWidth/2, y, x - barWidth/2 + radius, y);
+                                    ctx.lineTo(x + barWidth/2 - radius, y);
+                                    ctx.quadraticCurveTo(x + barWidth/2, y, x + barWidth/2, y + radius);
+                                    ctx.lineTo(x + barWidth/2, y0Dur);
+                                    ctx.closePath();
+                                    ctx.fill();
+                                }
+                            }
+                        }
+
+                        // Draw median line for count
+                        if (u._seriesVisible.count) {
+                            const currentMedian = u._medianCount || 0;
+                            if (currentMedian > 0) {
+                                const yMed = u.valToPos(currentMedian, 'y', true);
+                                const { left, width } = u.bbox;
+                                ctx.strokeStyle = mutedColor;
+                                ctx.lineWidth = 1;
+                                ctx.setLineDash([4, 4]);
+                                ctx.beginPath();
+                                ctx.moveTo(left, yMed);
+                                ctx.lineTo(left + width, yMed);
+                                ctx.stroke();
+                            }
+                        }
+                        ctx.restore();
+                    }],
+                    setScale: [u => {
+                        if (!u._rawData || u._resampling) return;
+                        const xScale = u.scales.x;
+                        const newMin = xScale.min;
+                        const newMax = xScale.max;
+                        if (newMin == null || newMax == null) return;
+
+                        const rangeChanged = !u._lastRange || Math.abs(u._lastRange[0] - newMin) > 1 || Math.abs(u._lastRange[1] - newMax) > 1;
+
+                        if (rangeChanged) {
+                            u._lastRange = [newMin, newMax];
+                            const { xData: newX, countData: newCount, durationData: newDur, medianCount: newMed } = binCombinedData(u._rawData.times, u._rawData.executions, newMin, newMax, u._interval);
+                            u._medianCount = newMed;
+                            u._resampling = true;
+                            u.setData([newX, newCount, newDur], false);
+                            u._resampling = false;
+                            u.batch(() => {
+                                u.setScale('x', { min: newMin, max: newMax });
+                            });
+                        }
+                    }]
+                }
+            };
+
+            const chart = new uPlot(opts, [xData, countData, durationData], container);
+
+            chart._rawData = rawData;
+            chart._interval = interval;
+            chart._originalXRange = [minT, maxT];
+            chart._medianCount = medianCount;
+            chart._seriesVisible = seriesVisible;
             return chart;
         }
 
@@ -2493,6 +2993,8 @@
                         createHistogramChart(chartId, data.data, { color: color || 'var(--accent)' });
                     } else if (data?.type === 'duration') {
                         createDurationChart(chartId, data.data, { color: accentColor });
+                    } else if (data?.type === 'combined') {
+                        createCombinedSQLChart(chartId, data.data);
                     } else {
                         createTimeChart(chartId, data, { color });
                     }
@@ -3476,17 +3978,17 @@
             const bySlowest = [...queries].sort((a, b) => b.max_time_ms - a.max_time_ms);
             const byFrequent = [...queries].sort((a, b) => b.count - a.count);
 
-            // Store executions for chart creation
+            // Store executions for combined chart
             const hasExecutions = executions.length > 0;
             if (hasExecutions) {
-                chartData.set('chart-sql-load', executions.map(e => e.timestamp));
-                // Store duration data for Query Time Distribution chart
-                chartData.set('chart-sql-duration', {
-                    type: 'duration',
-                    data: executions.map(e => ({
-                        t: new Date(e.timestamp).getTime() / 1000,
-                        d: e.duration_ms || 0
-                    }))
+                const times = executions.map(e => new Date(e.timestamp).getTime() / 1000).sort((a, b) => a - b);
+                const execs = executions.map(e => ({
+                    t: new Date(e.timestamp).getTime() / 1000,
+                    d: e.duration_ms || 0
+                }));
+                chartData.set('chart-sql-combined', {
+                    type: 'combined',
+                    data: { times, executions: execs }
                 });
             }
 
@@ -3508,15 +4010,17 @@
                         </div>
 
                         ${hasExecutions ? `
-                            <div class="grid grid-2" style="margin-top: 0.75rem;">
-                                <div>${buildChartContainer('chart-sql-load', 'Query Count', { showFilterBtn: true })}</div>
-                                <div>${buildChartContainer('chart-sql-duration', 'Query Duration', { showFilterBtn: true })}</div>
+                            <div style="margin-top: 0.75rem;">
+                                ${buildChartContainer('chart-sql-combined', 'Query Activity', { showFilterBtn: true })}
+                                <div class="chart-legend">
+                                    <span class="chart-legend-item" data-chart="chart-sql-combined" data-series="count" onclick="toggleCombinedSeries('chart-sql-combined', 'count')"><span class="chart-legend-bar chart-legend-bar--count"></span>Count</span>
+                                    <span class="chart-legend-item" data-chart="chart-sql-combined" data-series="duration" onclick="toggleCombinedSeries('chart-sql-combined', 'duration')"><span class="chart-legend-bar chart-legend-bar--duration"></span>Duration</span>
+                                </div>
                             </div>
                         ` : ''}
                         ${durationDist.some(d => d.count > 0) ? `
-                            <div style="margin-top: 0.75rem;">
-                                <div class="subsection-title" style="font-size: 0.7rem;">Query Duration Distribution</div>
-                                ${buildDurationDistChart(durationDist)}
+                            <div style="margin-top: 0.5rem;">
+                                ${buildCompactDurationDist(durationDist)}
                             </div>
                         ` : ''}
 
@@ -3603,6 +4107,34 @@
                             </div>
                         `;
                     }).join('')}
+                </div>
+            `;
+        }
+
+        // Compact horizontal duration distribution
+        function buildCompactDurationDist(dist) {
+            const total = dist.reduce((sum, d) => sum + d.count, 0) || 1;
+            // Filter to non-zero buckets only, keep original index for color
+            const activeDist = dist.map((d, i) => ({ ...d, idx: i })).filter(d => d.count > 0);
+            if (activeDist.length === 0) return '';
+
+            // Distinct colors with good contrast, elegant palette
+            const colors = ['#06b6d4', '#10b981', '#8b5cf6', '#f59e0b', '#f97316', '#ef4444'];
+
+            return `
+                <div class="duration-stack">
+                    <div class="duration-stack-bar">
+                        ${activeDist.map(d => {
+                            const pct = (d.count / total) * 100;
+                            return `<div class="duration-stack-segment" style="width: ${pct}%; background: ${colors[d.idx]};" title="${d.label}: ${fmt(d.count)} (${pct.toFixed(1)}%)"></div>`;
+                        }).join('')}
+                    </div>
+                    <div class="duration-stack-legend">
+                        ${activeDist.map(d => {
+                            const pct = (d.count / total) * 100;
+                            return `<span class="duration-stack-item"><span class="duration-stack-dot" style="background: ${colors[d.idx]};"></span>${d.label} ${pct.toFixed(0)}%</span>`;
+                        }).join('')}
+                    </div>
                 </div>
             `;
         }
