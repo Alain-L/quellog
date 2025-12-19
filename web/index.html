@@ -59,6 +59,7 @@
                     </button>
                     <div class="filter-dropdown-menu">
                         <div class="filter-dropdown-header">
+                            <input type="checkbox" class="filter-dropdown-toggle-all" onchange="toggleAllFilterValues('database', this.checked)" title="Select/Deselect all">
                             <input type="text" class="filter-dropdown-search" placeholder="Search..." oninput="searchDropdown('database', this.value)">
                             <button class="filter-dropdown-clear" onclick="clearCategoryFilter('database')" title="Clear">✕</button>
                         </div>
@@ -73,6 +74,7 @@
                     </button>
                     <div class="filter-dropdown-menu">
                         <div class="filter-dropdown-header">
+                            <input type="checkbox" class="filter-dropdown-toggle-all" onchange="toggleAllFilterValues('user', this.checked)" title="Select/Deselect all">
                             <input type="text" class="filter-dropdown-search" placeholder="Search..." oninput="searchDropdown('user', this.value)">
                             <button class="filter-dropdown-clear" onclick="clearCategoryFilter('user')" title="Clear">✕</button>
                         </div>
@@ -87,6 +89,7 @@
                     </button>
                     <div class="filter-dropdown-menu">
                         <div class="filter-dropdown-header">
+                            <input type="checkbox" class="filter-dropdown-toggle-all" onchange="toggleAllFilterValues('application', this.checked)" title="Select/Deselect all">
                             <input type="text" class="filter-dropdown-search" placeholder="Search..." oninput="searchDropdown('application', this.value)">
                             <button class="filter-dropdown-clear" onclick="clearCategoryFilter('application')" title="Clear">✕</button>
                         </div>
@@ -101,6 +104,7 @@
                     </button>
                     <div class="filter-dropdown-menu">
                         <div class="filter-dropdown-header">
+                            <input type="checkbox" class="filter-dropdown-toggle-all" onchange="toggleAllFilterValues('host', this.checked)" title="Select/Deselect all">
                             <input type="text" class="filter-dropdown-search" placeholder="Search..." oninput="searchDropdown('host', this.value)">
                             <button class="filter-dropdown-clear" onclick="clearCategoryFilter('host')" title="Clear">✕</button>
                         </div>

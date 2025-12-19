@@ -3270,49 +3270,37 @@
             `;
         }
 
-        // Build session duration distribution as horizontal bar chart (same style as SQL Overview)
+        // Build session duration distribution as stacked bar (same style as SQL duration dist)
         function buildSessionDistributionChart(distribution) {
             // Standard buckets in order
             const orderedBuckets = ['< 1s', '1s - 1min', '1min - 30min', '30min - 2h', '2h - 5h', '> 5h'];
-            const entries = orderedBuckets.map(label => ({
+            const entries = orderedBuckets.map((label, idx) => ({
                 label,
-                count: distribution[label] || 0
+                count: distribution[label] || 0,
+                idx
             }));
             const total = entries.reduce((sum, e) => sum + e.count, 0) || 1;
+            const activeEntries = entries.filter(e => e.count > 0);
 
-            // Calculate max and second max for truncation logic
-            const counts = entries.map(e => e.count).filter(c => c > 0).sort((a, b) => b - a);
-            const maxCount = counts[0] || 1;
-            const secondMax = counts[1] || maxCount;
-            const needsTruncation = maxCount > secondMax * 5 && secondMax > 0;
-            const secondMaxWidth = needsTruncation ? 75 : 100;
+            if (activeEntries.length === 0) return '<div class="empty">No session data</div>';
 
-            const getBarWidth = (count) => {
-                if (count === 0) return 0;
-                if (needsTruncation && count === maxCount) return 100;
-                const scaleMax = needsTruncation ? secondMax : maxCount;
-                return Math.max((count / scaleMax) * secondMaxWidth, 5);
-            };
+            // Distinct colors with good contrast
+            const colors = ['#3b82f6', '#10b981', '#8b5cf6', '#f59e0b', '#f97316', '#ef4444'];
 
             return `
-                <div class="sql-category-bars">
-                    ${entries.map(e => {
-                        const pct = ((e.count / total) * 100).toFixed(1);
-                        const width = getBarWidth(e.count);
-                        const isTruncated = needsTruncation && e.count === maxCount;
-                        const hatchStart = secondMaxWidth;
-                        return `
-                            <div class="sql-category-bar${e.count === 0 ? ' disabled' : ''}">
-                                <span class="label" style="width: 85px;">${e.label}</span>
-                                <div class="bar-bg">
-                                    <div class="bar${isTruncated ? ' truncated' : ''}"
-                                         style="width: ${width}%;${isTruncated ? ` --hatch-start: ${hatchStart}%;` : ''}"></div>
-                                </div>
-                                <span class="count">${fmt(e.count)}</span>
-                                <span class="pct">${pct}%</span>
-                            </div>
-                        `;
-                    }).join('')}
+                <div class="duration-stack">
+                    <div class="duration-stack-bar">
+                        ${activeEntries.map(e => {
+                            const pct = (e.count / total) * 100;
+                            return `<div class="duration-stack-segment" style="flex: ${pct}; min-width: 15px; background: ${colors[e.idx]};" title="${e.label}: ${fmt(e.count)} (${pct.toFixed(1)}%)"></div>`;
+                        }).join('')}
+                    </div>
+                    <div class="duration-stack-legend">
+                        ${activeEntries.map(e => {
+                            const pct = (e.count / total) * 100;
+                            return `<span class="duration-stack-item"><span class="duration-stack-dot" style="background: ${colors[e.idx]};"></span>${e.label} ${pct.toFixed(0)}%</span>`;
+                        }).join('')}
+                    </div>
                 </div>
             `;
         }
@@ -3835,38 +3823,25 @@
             const hasByHost = ov.by_host?.length > 0;
             const hasByApp = ov.by_app?.length > 0;
 
-            // Calculate max and second max for truncation logic (like Events)
-            const counts = ov.categories.map(c => c.count).filter(c => c > 0).sort((a, b) => b - a);
-            const maxCount = counts[0] || 1;
-            const secondMax = counts[1] || maxCount;
-            const needsTruncation = maxCount > secondMax * 5 && secondMax > 0;
-            const secondMaxWidth = needsTruncation ? 75 : 100;
-            const getBarWidth = (count) => {
-                if (count === 0) return 0;
-                if (needsTruncation && count === maxCount) return 100;
-                const scaleMax = needsTruncation ? secondMax : maxCount;
-                return Math.max((count / scaleMax) * secondMaxWidth, 5);
-            };
+            // All possible categories in order
+            const allCategories = ['DML', 'DDL', 'TCL', 'UTILITY', 'OTHER'];
+            const catMap = {};
+            (ov.categories || []).forEach(c => { catMap[c.category || c.name] = c; });
 
             return `
                 <div class="section" id="sql_overview">
                     <div class="section-header">SQL Overview</div>
                     <div class="section-body">
-                        <div class="sql-category-bars">
-                            ${ov.categories.filter(c => c.count > 0).map(c => {
-                                const isTruncated = needsTruncation && c.count === maxCount;
-                                const barStyle = isTruncated
-                                    ? `width: 100%; --hatch-start: ${secondMaxWidth}%`
-                                    : `width: ${getBarWidth(c.count)}%`;
+                        <div class="stat-grid">
+                            ${allCategories.map(cat => {
+                                const c = catMap[cat];
+                                const hasData = c && c.count > 0;
                                 return `
-                                <div class="sql-category-bar">
-                                    <span class="label">${c.category || c.name}</span>
-                                    <div class="bar-bg"><div class="bar ${isTruncated ? 'truncated' : ''}" style="${barStyle}"></div></div>
-                                    <span class="count">${fmt(c.count)}</span>
-                                    <span class="pct">${c.percentage?.toFixed(1) || 0}%</span>
-                                    <span class="time">${c.total_time ? fmtDur(c.total_time) : '-'}</span>
-                                </div>
-                            `}).join('')}
+                                <div class="stat-card stat-card-compact${hasData ? '' : ' stat-card-muted'}">
+                                    <div class="stat-value">${hasData ? fmt(c.count) : '—'}</div>
+                                    <div class="stat-label">${cat}${hasData ? ` <span class="stat-pct">${c.percentage?.toFixed(1) || 0}%</span>` : ''}</div>
+                                </div>`;
+                            }).join('')}
                         </div>
 
                         <div class="subsection">
@@ -4019,7 +3994,8 @@
                             </div>
                         ` : ''}
                         ${durationDist.some(d => d.count > 0) ? `
-                            <div style="margin-top: 0.5rem;">
+                            <div class="subsection" style="margin-top: 0.75rem;">
+                                <div class="subsection-title">Duration Distribution</div>
                                 ${buildCompactDurationDist(durationDist)}
                             </div>
                         ` : ''}
@@ -4118,15 +4094,15 @@
             const activeDist = dist.map((d, i) => ({ ...d, idx: i })).filter(d => d.count > 0);
             if (activeDist.length === 0) return '';
 
-            // Distinct colors with good contrast, elegant palette
-            const colors = ['#06b6d4', '#10b981', '#8b5cf6', '#f59e0b', '#f97316', '#ef4444'];
+            // Distinct colors with good contrast
+            const colors = ['#3b82f6', '#10b981', '#8b5cf6', '#f59e0b', '#f97316', '#ef4444'];
 
             return `
                 <div class="duration-stack">
                     <div class="duration-stack-bar">
                         ${activeDist.map(d => {
                             const pct = (d.count / total) * 100;
-                            return `<div class="duration-stack-segment" style="width: ${pct}%; background: ${colors[d.idx]};" title="${d.label}: ${fmt(d.count)} (${pct.toFixed(1)}%)"></div>`;
+                            return `<div class="duration-stack-segment" style="flex: ${pct}; min-width: 15px; background: ${colors[d.idx]};" title="${d.label}: ${fmt(d.count)} (${pct.toFixed(1)}%)"></div>`;
                         }).join('')}
                     </div>
                     <div class="duration-stack-legend">
@@ -4288,7 +4264,18 @@
             document.getElementById('queryModal').classList.add('active');
 
             // Render uPlot charts after DOM update and modal animation
-            setTimeout(() => renderModalCharts(), 100);
+            setTimeout(() => {
+                renderModalCharts();
+                // Create combined chart for query detail if we have executions
+                if (q && execs.length > 0) {
+                    const times = execs.map(e => new Date(e.timestamp).getTime() / 1000).sort((a, b) => a - b);
+                    const execData = execs.map(e => ({
+                        t: new Date(e.timestamp).getTime() / 1000,
+                        d: e.duration_ms || 0
+                    }));
+                    createCombinedSQLChart('qd-chart-combined', { times, executions: execData }, { height: 180 });
+                }
+            }, 100);
         }
 
         function buildQueryDetailHTML(q, execs, tempEvents, lockQ, tempQ) {
@@ -4304,16 +4291,6 @@
                 html += '<div class="qd-stats">';
                 html += '<div class="qd-stat"><div class="qd-stat-label">Type</div><div class="qd-stat-value">' + (q.type || q.query_type || '-') + '</div></div>';
                 html += '<div class="qd-stat"><div class="qd-stat-label">Count</div><div class="qd-stat-value">' + fmt(q.count) + '</div></div>';
-                html += '</div>';
-                if (execs.length > 0) {
-                    html += buildQdHistogram(execs.map(e => e.timestamp), 'Query count over time', '');
-                }
-                html += '</div>';
-
-                // TIME section
-                html += '<div class="qd-section">';
-                html += '<div class="qd-section-title">Time</div>';
-                html += '<div class="qd-stats">';
                 html += '<div class="qd-stat"><div class="qd-stat-label">Total</div><div class="qd-stat-value">' + fmtMsLong(q.total_time_ms) + '</div></div>';
                 html += '<div class="qd-stat"><div class="qd-stat-label">Avg</div><div class="qd-stat-value">' + fmtMsLong(q.avg_time_ms) + '</div></div>';
                 html += '<div class="qd-stat"><div class="qd-stat-label">Max</div><div class="qd-stat-value">' + fmtMsLong(q.max_time_ms) + '</div></div>';
@@ -4322,7 +4299,13 @@
                 }
                 html += '</div>';
                 if (execs.length > 0) {
-                    html += buildQdCumulativeTimeHistogram(execs);
+                    html += '<div class="qd-chart-container">';
+                    html += '<div id="qd-chart-combined" style="height: 180px;"></div>';
+                    html += '<div class="chart-legend">';
+                    html += '<span class="chart-legend-item" data-chart="qd-chart-combined" data-series="count" onclick="toggleCombinedSeries(\'qd-chart-combined\', \'count\')"><span class="chart-legend-bar chart-legend-bar--count"></span>Count</span>';
+                    html += '<span class="chart-legend-item" data-chart="qd-chart-combined" data-series="duration" onclick="toggleCombinedSeries(\'qd-chart-combined\', \'duration\')"><span class="chart-legend-bar chart-legend-bar--duration"></span>Duration</span>';
+                    html += '</div>';
+                    html += '</div>';
                     html += buildQdDurationDistribution(execs);
                 }
                 html += '</div>';
@@ -5028,9 +5011,11 @@
                 const name = typeof v === 'object' ? v.name : v;
                 const selected = currentFilters[category]?.includes(name) ? 'selected' : '';
                 return `<div class="filter-dropdown-item ${selected}" data-value="${esc(name)}" onclick="toggleFilterValue('${category}', '${esc(name)}', this)">
+                    <input type="checkbox" class="filter-item-checkbox" ${selected ? 'checked' : ''} tabindex="-1">
                     <span class="filter-dropdown-item-label" title="${esc(name)}">${esc(name)}</span>
                 </div>`;
             }).join('');
+            updateToggleAllCheckbox(category);
         }
 
         window.toggleDropdown = function(category) {
@@ -5085,14 +5070,61 @@
                 currentFilters[category].splice(idx, 1);
                 if (currentFilters[category].length === 0) delete currentFilters[category];
                 element?.classList.remove('selected');
+                const cb = element?.querySelector('.filter-item-checkbox');
+                if (cb) cb.checked = false;
             } else {
                 currentFilters[category].push(value);
                 element?.classList.add('selected');
+                const cb = element?.querySelector('.filter-item-checkbox');
+                if (cb) cb.checked = true;
+            }
+
+            updateDropdownTrigger(category);
+            updateToggleAllCheckbox(category);
+            updateApplyButton();
+        };
+
+        window.toggleAllFilterValues = function(category, checked) {
+            const list = document.getElementById(`dropdownList-${category}`);
+            if (!list) return;
+
+            const items = list.querySelectorAll('.filter-dropdown-item');
+            const values = Array.from(items).map(item => item.dataset.value);
+
+            if (checked) {
+                // Select all
+                currentFilters[category] = [...values];
+                items.forEach(item => {
+                    item.classList.add('selected');
+                    const cb = item.querySelector('.filter-item-checkbox');
+                    if (cb) cb.checked = true;
+                });
+            } else {
+                // Deselect all
+                delete currentFilters[category];
+                items.forEach(item => {
+                    item.classList.remove('selected');
+                    const cb = item.querySelector('.filter-item-checkbox');
+                    if (cb) cb.checked = false;
+                });
             }
 
             updateDropdownTrigger(category);
             updateApplyButton();
         };
+
+        function updateToggleAllCheckbox(category) {
+            const dropdown = document.querySelector(`.filter-dropdown[data-category="${category}"]`);
+            const checkbox = dropdown?.querySelector('.filter-dropdown-toggle-all');
+            const list = document.getElementById(`dropdownList-${category}`);
+            if (!checkbox || !list) return;
+
+            const items = list.querySelectorAll('.filter-dropdown-item');
+            const selectedCount = currentFilters[category]?.length || 0;
+
+            checkbox.checked = selectedCount === items.length && items.length > 0;
+            checkbox.indeterminate = selectedCount > 0 && selectedCount < items.length;
+        }
 
         window.applyTimeFilter = function() {
             closeAllDropdowns();

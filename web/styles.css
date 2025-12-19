@@ -428,6 +428,13 @@
             align-items: center;
             border-bottom: 1px solid var(--border);
         }
+        .filter-dropdown-toggle-all {
+            width: 14px;
+            height: 14px;
+            margin: 0 0.25rem 0 0.5rem;
+            cursor: pointer;
+            accent-color: var(--primary);
+        }
         .filter-dropdown-search {
             flex: 1;
             padding: 0.5rem;
@@ -482,15 +489,18 @@
         .filter-dropdown-item.selected {
             background: rgba(51, 103, 145, 0.15);
         }
-        .filter-dropdown-item.selected::before {
-            content: '✓';
-            color: var(--primary);
-            font-weight: 600;
-            width: 14px;
+        .filter-item-checkbox {
+            width: 12px;
+            height: 12px;
+            margin: 0;
+            opacity: 0.5;
+            cursor: pointer;
+            accent-color: var(--primary);
+            pointer-events: none;
         }
-        .filter-dropdown-item:not(.selected)::before {
-            content: '';
-            width: 14px;
+        .filter-dropdown-item:hover .filter-item-checkbox,
+        .filter-dropdown-item.selected .filter-item-checkbox {
+            opacity: 1;
         }
         .filter-dropdown-item-label {
             flex: 1;
@@ -975,6 +985,30 @@
             letter-spacing: 0.05em;
             color: var(--text-muted);
             white-space: nowrap;
+        }
+
+        /* Compact stat cards (2 lines) */
+        .stat-card-compact {
+            padding: 0.5rem 0.6rem;
+        }
+        .stat-card-compact .stat-value {
+            font-size: 1.3rem;
+        }
+        .stat-card-compact .stat-label {
+            margin-top: 0.15rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .stat-card-muted {
+            opacity: 0.4;
+        }
+        .stat-card-muted .stat-value {
+            color: var(--text-muted);
+        }
+        .stat-pct {
+            font-weight: 400;
+            opacity: 0.7;
+            margin-left: 0.3em;
         }
 
         /* Summary section - Tiles + Timeline */
@@ -2029,6 +2063,14 @@
             background: var(--accent);
         }
 
+        /* Query detail chart container */
+        .qd-chart-container {
+            margin-top: 0.75rem;
+        }
+        .qd-chart-container .chart-legend {
+            margin-top: 0.25rem;
+        }
+
         /* Duration stacked bar */
         .duration-stack {
             display: flex;
@@ -2037,6 +2079,7 @@
         }
         .duration-stack-bar {
             display: flex;
+            gap: 2px;
             height: 12px;
             border-radius: 4px;
             overflow: hidden;
@@ -2045,6 +2088,7 @@
         .duration-stack-segment {
             height: 100%;
             transition: opacity 0.15s;
+            border-radius: 2px;
         }
         .duration-stack-segment:hover {
             opacity: 0.8;

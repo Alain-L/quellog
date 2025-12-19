@@ -55,6 +55,7 @@ type QueryStatJSON struct {
 	ID              string  `json:"id"`
 	NormalizedQuery string  `json:"normalized_query"`
 	RawQuery        string  `json:"raw_query"`
+	Type            string  `json:"type"`
 	Count           int     `json:"count"`
 	TotalTime       float64 `json:"total_time_ms"`
 	AvgTime         float64 `json:"avg_time_ms"`
@@ -859,6 +860,7 @@ func buildFullSQLPerformance(m analysis.SqlMetrics) SQLPerformanceDetailJSON {
 			ID:              s.id,
 			NormalizedQuery: s.query,
 			RawQuery:        s.stat.RawQuery,
+			Type:            analysis.QueryTypeFromID(s.id),
 			Count:           s.stat.Count,
 			TotalTime:       s.stat.TotalTime,
 			AvgTime:         s.stat.AvgTime,
