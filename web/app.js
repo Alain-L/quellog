@@ -2442,19 +2442,14 @@
             // Initialize filter bar
             initFilterBar(data, isInitial);
 
-            // Check if we have error classes for 4-column layout
-            const hasErrors = data.error_classes?.length > 0;
-
             // Build sections with new layout
             let html = '';
 
-            // Row 1: Summary | Events | Error Classes | Clients (3-4 cols)
+            // Row 1: Summary | Events | Error Classes | Clients (4 cols)
             html += `<div class="grid grid-top-row">`;
             html += buildSummarySection(data);
             html += buildEventsSection(data);
-            if (hasErrors) {
-                html += buildErrorClassesSection(data);
-            }
+            html += buildErrorClassesSection(data);
             html += buildClientsSection(data);
             html += '</div>';
 
