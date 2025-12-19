@@ -104,6 +104,32 @@
             return { xData, yData, median, buckets };
         }
 
+        // Helper: bin executions by time and sum durations (for Query Time Distribution)
+        function binDurations(executions, minT, maxT, interval) {
+            const range = maxT - minT || 1;
+            const buckets = computeBuckets(range, interval);
+            const bucketSize = range / buckets;
+
+            const xData = new Float64Array(buckets);
+            const yData = new Float64Array(buckets);
+            for (let i = 0; i < buckets; i++) {
+                xData[i] = minT + i * bucketSize + bucketSize / 2;
+            }
+            executions.forEach(e => {
+                const t = e.t;
+                const dur = e.d;  // duration in ms
+                if (t >= minT && t <= maxT) {
+                    const idx = Math.min(Math.floor((t - minT) / bucketSize), buckets - 1);
+                    yData[idx] += dur / 1000;  // convert to seconds for display
+                }
+            });
+
+            const sortedY = [...yData].filter(v => v > 0).sort((a, b) => a - b);
+            const median = sortedY.length > 0 ? sortedY[Math.floor(sortedY.length / 2)] : 0;
+
+            return { xData, yData, median, buckets };
+        }
+
         // Helper: bin concurrent sessions using sweep-line algorithm
         function binConcurrentSessions(events, minT, maxT, interval) {
             const range = maxT - minT || 1;
@@ -577,6 +603,199 @@
             return chart;
         }
 
+        // Create duration distribution chart (sum of query durations per time bucket)
+        function createDurationChart(containerId, executions, options = {}) {
+            const container = document.getElementById(containerId);
+            if (!container || !executions || executions.length === 0) return null;
+
+            // Clear previous chart
+            if (charts.has(containerId)) {
+                charts.get(containerId).destroy();
+                charts.delete(containerId);
+            }
+            container.innerHTML = '';
+
+            // Sort by timestamp
+            const sorted = [...executions].sort((a, b) => a.t - b.t);
+            if (sorted.length === 0) return null;
+
+            const minT = sorted[0].t;
+            const maxT = sorted[sorted.length - 1].t;
+            const interval = options.interval !== undefined ? options.interval : (chartIntervalMap.get(containerId) ?? defaultInterval);
+
+            // Initial binning (sums durations in seconds)
+            const { xData, yData, median } = binDurations(sorted, minT, maxT, interval);
+
+            const baseColor = options.color || getComputedStyle(document.documentElement).getPropertyValue('--chart-bar').trim() || '#5a9bd5';
+
+            // Tooltip plugin for duration (shows seconds)
+            function durationTooltipPlugin() {
+                let tooltip = null;
+                return {
+                    hooks: {
+                        init: u => {
+                            tooltip = document.createElement('div');
+                            tooltip.className = 'chart-tooltip';
+                            tooltip.style.display = 'none';
+                            u.over.appendChild(tooltip);
+                        },
+                        setCursor: u => {
+                            if (u._resampling) { tooltip.style.display = 'none'; return; }
+                            const { idx } = u.cursor;
+                            const data0 = u.data[0];
+                            const data1 = u.data[1];
+                            if (idx == null || !data0 || idx < 0 || idx >= data0.length) {
+                                tooltip.style.display = 'none';
+                                return;
+                            }
+                            const x = data0[idx];
+                            const y = data1[idx];
+                            if (x === undefined || y === undefined || !Number.isFinite(x)) {
+                                tooltip.style.display = 'none';
+                                return;
+                            }
+                            const d = new Date(x * 1000);
+                            const timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+                            // Format duration nicely
+                            const durStr = y >= 60 ? `${(y/60).toFixed(1)}m` : `${y.toFixed(1)}s`;
+                            tooltip.innerHTML = `${timeStr} · ${durStr}`;
+                            const left = u.valToPos(x, 'x');
+                            const top = u.valToPos(y, 'y');
+                            tooltip.style.display = 'block';
+                            tooltip.style.left = Math.min(left, u.over.clientWidth - 100) + 'px';
+                            tooltip.style.top = Math.max(0, top - 40) + 'px';
+                        }
+                    }
+                };
+            }
+
+            const opts = {
+                width: container.clientWidth || 300,
+                height: options.height || 120,
+                cursor: { drag: { x: true, y: false, setScale: true } },
+                select: { show: true },
+                legend: { show: false },
+                scales: {
+                    x: { time: true },
+                    y: { range: [0, null] }
+                },
+                axes: [
+                    {
+                        stroke: getComputedStyle(document.documentElement).getPropertyValue('--text').trim(),
+                        grid: { show: false },
+                        ticks: { show: false },
+                        values: (u, vals) => vals.map(v => {
+                            const d = new Date(v * 1000);
+                            return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+                        }),
+                        size: 20,
+                        font: '10px system-ui'
+                    },
+                    {
+                        stroke: getComputedStyle(document.documentElement).getPropertyValue('--text').trim(),
+                        grid: { show: false },
+                        ticks: { show: false },
+                        size: 30,
+                        font: '10px system-ui',
+                        values: (u, vals) => vals.map(v => v >= 60 ? `${(v/60).toFixed(0)}m` : `${v.toFixed(0)}s`)
+                    }
+                ],
+                series: [
+                    {},
+                    {
+                        fill: 'transparent',
+                        stroke: 'transparent',
+                        width: 0,
+                        points: { show: false },
+                        paths: () => null
+                    }
+                ],
+                plugins: [durationTooltipPlugin()],
+                hooks: {
+                    draw: [u => {
+                        const ctx = u.ctx;
+                        const xd = u.data[0];
+                        const yd = u.data[1];
+                        const barWidth = Math.max(2, (u.bbox.width / xd.length) * 0.75);
+                        const radius = Math.min(3, barWidth / 3);
+
+                        for (let i = 0; i < xd.length; i++) {
+                            const x = u.valToPos(xd[i], 'x', true);
+                            const y = u.valToPos(yd[i], 'y', true);
+                            const y0 = u.valToPos(0, 'y', true);
+                            const h = y0 - y;
+                            if (h > 0) {
+                                ctx.fillStyle = baseColor;
+                                ctx.beginPath();
+                                ctx.moveTo(x - barWidth/2, y0);
+                                ctx.lineTo(x - barWidth/2, y + radius);
+                                ctx.quadraticCurveTo(x - barWidth/2, y, x - barWidth/2 + radius, y);
+                                ctx.lineTo(x + barWidth/2 - radius, y);
+                                ctx.quadraticCurveTo(x + barWidth/2, y, x + barWidth/2, y + radius);
+                                ctx.lineTo(x + barWidth/2, y0);
+                                ctx.closePath();
+                                ctx.fill();
+                            }
+                        }
+
+                        // Draw median line
+                        const currentMedian = u._median || 0;
+                        if (currentMedian > 0) {
+                            const yMed = u.valToPos(currentMedian, 'y', true);
+                            const { left, width } = u.bbox;
+                            ctx.save();
+                            ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim();
+                            ctx.lineWidth = 1;
+                            ctx.setLineDash([4, 4]);
+                            ctx.beginPath();
+                            ctx.moveTo(left, yMed);
+                            ctx.lineTo(left + width, yMed);
+                            ctx.stroke();
+                            ctx.restore();
+                        }
+                    }],
+                    setScale: [u => {
+                        if (!u._executions || u._resampling) return;
+                        const xScale = u.scales.x;
+                        const newMin = xScale.min;
+                        const newMax = xScale.max;
+                        if (newMin == null || newMax == null) return;
+
+                        const rangeChanged = !u._lastRange || Math.abs(u._lastRange[0] - newMin) > 1 || Math.abs(u._lastRange[1] - newMax) > 1;
+
+                        if (rangeChanged) {
+                            u._lastRange = [newMin, newMax];
+                            const { xData: newX, yData: newY, median: newMedian } = binDurations(u._executions, newMin, newMax, u._interval);
+                            u._median = newMedian;
+                            u._resampling = true;
+                            u.setData([newX, newY], false);
+                            u._resampling = false;
+                            u.batch(() => {
+                                u.setScale('x', { min: newMin, max: newMax });
+                            });
+                        }
+                    }]
+                }
+            };
+
+            const chart = new uPlot(opts, [xData, yData], container);
+            charts.set(containerId, chart);
+
+            chart._executions = sorted;
+            chart._interval = interval;
+            chart._originalXRange = [minT, maxT];
+            chart._median = median;
+
+            const resizeObserver = new ResizeObserver(() => {
+                if (container.clientWidth > 0) {
+                    chart.setSize({ width: container.clientWidth, height: opts.height });
+                }
+            });
+            resizeObserver.observe(container);
+
+            return chart;
+        }
+
         // Create chart from pre-aggregated histogram data (e.g., concurrent sessions)
         function createHistogramChart(containerId, histogram, options = {}) {
             const container = document.getElementById(containerId);
@@ -1021,6 +1240,8 @@
                     createConcurrentChart(chartId, data.data, { color: color || 'var(--accent)', interval });
                 } else if (data?.type === 'histogram') {
                     // Pre-computed histogram can't change interval
+                } else if (data?.type === 'duration') {
+                    createDurationChart(chartId, data.data, { color, interval });
                 } else {
                     createTimeChart(chartId, data, { color, interval });
                 }
@@ -1094,6 +1315,12 @@
             } else if (data?.type === 'histogram') {
                 modalChart = createHistogramChartLarge(container, data.data, {
                     color: color || 'var(--accent)',
+                    height: 350
+                });
+            } else if (data?.type === 'duration') {
+                modalChart = createDurationChartLarge(container, data.data, {
+                    color,
+                    interval: modalInterval,
                     height: 350
                 });
             } else {
@@ -1235,6 +1462,173 @@
 
             // Store data for re-sampling
             chart._times = times;
+            chart._interval = interval;
+            chart._originalXRange = [minT, maxT];
+            chart._median = median;
+            return chart;
+        }
+
+        // Create large duration chart for modal
+        function createDurationChartLarge(container, executions, options = {}) {
+            if (!executions?.length) return null;
+
+            const sorted = [...executions].sort((a, b) => a.t - b.t);
+            const minT = sorted[0].t;
+            const maxT = sorted[sorted.length - 1].t;
+            const interval = options.interval ?? 0;
+            const height = options.height || 350;
+
+            const { xData, yData, median } = binDurations(sorted, minT, maxT, interval);
+
+            const resolveColor = (c) => {
+                if (c && c.startsWith('var(')) {
+                    const varName = c.slice(4, -1);
+                    return getComputedStyle(document.documentElement).getPropertyValue(varName).trim() || '#5a9bd5';
+                }
+                return c;
+            };
+            const baseColor = resolveColor(options.color) || getComputedStyle(document.documentElement).getPropertyValue('--chart-bar').trim() || '#5a9bd5';
+            const textColor = resolveColor('var(--text)');
+            const borderColor = resolveColor('var(--border)');
+
+            function durationTooltipPlugin() {
+                let tooltip = null;
+                return {
+                    hooks: {
+                        init: u => {
+                            tooltip = document.createElement('div');
+                            tooltip.className = 'chart-tooltip';
+                            tooltip.style.display = 'none';
+                            u.over.appendChild(tooltip);
+                        },
+                        setCursor: u => {
+                            const { idx } = u.cursor;
+                            if (idx == null) { tooltip.style.display = 'none'; return; }
+                            const data0 = u.data?.[0];
+                            const data1 = u.data?.[1];
+                            if (!data0 || !data1 || idx < 0 || idx >= data0.length) {
+                                tooltip.style.display = 'none';
+                                return;
+                            }
+                            const x = data0[idx];
+                            const y = data1[idx];
+                            if (!Number.isFinite(x) || !Number.isFinite(y)) {
+                                tooltip.style.display = 'none';
+                                return;
+                            }
+                            const left = u.valToPos(x, 'x');
+                            const top = u.valToPos(y, 'y');
+                            if (!Number.isFinite(left) || !Number.isFinite(top)) {
+                                tooltip.style.display = 'none';
+                                return;
+                            }
+                            const d = new Date(x * 1000);
+                            const timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+                            const durStr = y >= 60 ? `${(y/60).toFixed(1)}m` : `${y.toFixed(1)}s`;
+                            tooltip.innerHTML = `${timeStr} · ${durStr}`;
+                            tooltip.style.display = 'block';
+                            tooltip.style.left = Math.min(left, u.over.clientWidth - 100) + 'px';
+                            tooltip.style.top = Math.max(0, top - 40) + 'px';
+                        }
+                    }
+                };
+            }
+
+            const opts = {
+                width: container.clientWidth || 1100,
+                height: height,
+                cursor: { drag: { x: true, y: false, setScale: true } },
+                select: { show: true },
+                legend: { show: false },
+                scales: {
+                    x: { time: true },
+                    y: { range: [0, null] }
+                },
+                axes: [
+                    { stroke: textColor, grid: { stroke: borderColor, width: 1 }, size: 50, font: '12px sans-serif', ticks: { stroke: borderColor } },
+                    { stroke: textColor, grid: { stroke: borderColor, width: 1 }, size: 50, font: '12px sans-serif', ticks: { stroke: borderColor },
+                      values: (u, vals) => vals.map(v => v >= 60 ? `${(v/60).toFixed(0)}m` : `${v.toFixed(0)}s`) }
+                ],
+                series: [
+                    {},
+                    {
+                        fill: 'transparent',
+                        stroke: 'transparent',
+                        width: 0,
+                        points: { show: false },
+                        paths: () => null
+                    }
+                ],
+                plugins: [durationTooltipPlugin()],
+                hooks: {
+                    draw: [u => {
+                        const ctx = u.ctx;
+                        const xd = u.data[0], yd = u.data[1];
+                        const barWidth = Math.max(2, (u.bbox.width / xd.length) * 0.75);
+                        const radius = Math.min(4, barWidth / 3);
+
+                        for (let i = 0; i < xd.length; i++) {
+                            const x = u.valToPos(xd[i], 'x', true);
+                            const y = u.valToPos(yd[i], 'y', true);
+                            const y0 = u.valToPos(0, 'y', true);
+                            const h = y0 - y;
+                            if (h > 0) {
+                                ctx.fillStyle = baseColor;
+                                ctx.beginPath();
+                                ctx.moveTo(x - barWidth/2, y0);
+                                ctx.lineTo(x - barWidth/2, y + radius);
+                                ctx.quadraticCurveTo(x - barWidth/2, y, x - barWidth/2 + radius, y);
+                                ctx.lineTo(x + barWidth/2 - radius, y);
+                                ctx.quadraticCurveTo(x + barWidth/2, y, x + barWidth/2, y + radius);
+                                ctx.lineTo(x + barWidth/2, y0);
+                                ctx.closePath();
+                                ctx.fill();
+                            }
+                        }
+
+                        // Draw median line
+                        const currentMedian = u._median || 0;
+                        if (currentMedian > 0) {
+                            const yMed = u.valToPos(currentMedian, 'y', true);
+                            const { left, width } = u.bbox;
+                            ctx.save();
+                            ctx.strokeStyle = resolveColor('var(--text-muted)');
+                            ctx.lineWidth = 1;
+                            ctx.setLineDash([4, 4]);
+                            ctx.beginPath();
+                            ctx.moveTo(left, yMed);
+                            ctx.lineTo(left + width, yMed);
+                            ctx.stroke();
+                            ctx.restore();
+                        }
+                    }],
+                    setScale: [u => {
+                        if (!u._executions || u._resampling) return;
+                        const xScale = u.scales.x;
+                        const newMin = xScale.min;
+                        const newMax = xScale.max;
+                        if (newMin == null || newMax == null) return;
+
+                        const rangeChanged = !u._lastRange || Math.abs(u._lastRange[0] - newMin) > 1 || Math.abs(u._lastRange[1] - newMax) > 1;
+
+                        if (rangeChanged) {
+                            u._lastRange = [newMin, newMax];
+                            const { xData: newX, yData: newY, median: newMedian } = binDurations(u._executions, newMin, newMax, u._interval);
+                            u._median = newMedian;
+                            u._resampling = true;
+                            u.setData([newX, newY], false);
+                            u._resampling = false;
+                            u.batch(() => {
+                                u.setScale('x', { min: newMin, max: newMax });
+                            });
+                        }
+                    }]
+                }
+            };
+
+            const chart = new uPlot(opts, [xData, yData], container);
+
+            chart._executions = sorted;
             chart._interval = interval;
             chart._originalXRange = [minT, maxT];
             chart._median = median;
@@ -2094,13 +2488,15 @@
             requestAnimationFrame(() => {
                 chartData.forEach((data, chartId) => {
                     const color = chartId.includes('tempfiles') ? getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() : null;
-                    // Check data type: checkpoints (stacked), sessions (sweep-line), histogram (pre-computed), or timestamps
+                    // Check data type: checkpoints (stacked), sessions (sweep-line), histogram (pre-computed), duration, or timestamps
                     if (data?.type === 'checkpoints') {
                         createCheckpointChart(chartId, data);
                     } else if (data?.type === 'sessions') {
                         createConcurrentChart(chartId, data.data, { color: color || 'var(--accent)' });
                     } else if (data?.type === 'histogram') {
                         createHistogramChart(chartId, data.data, { color: color || 'var(--accent)' });
+                    } else if (data?.type === 'duration') {
+                        createDurationChart(chartId, data.data, { color });
                     } else {
                         createTimeChart(chartId, data, { color });
                     }
@@ -3080,6 +3476,14 @@
             const hasExecutions = executions.length > 0;
             if (hasExecutions) {
                 chartData.set('chart-sql-load', executions.map(e => e.timestamp));
+                // Store duration data for Query Time Distribution chart
+                chartData.set('chart-sql-duration', {
+                    type: 'duration',
+                    data: executions.map(e => ({
+                        t: new Date(e.timestamp).getTime() / 1000,
+                        d: e.duration_ms || 0
+                    }))
+                });
             }
 
             // Build duration distribution from queries
@@ -3099,15 +3503,16 @@
                             ${(sql.top_1_percent_slow_queries || 0) > 0 ? `<div class="stat-card stat-card--alert"><div class="stat-value">${sql.top_1_percent_slow_queries}</div><div class="stat-label">Top 1%</div></div>` : ''}
                         </div>
 
-                        ${hasExecutions || durationDist.some(d => d.count > 0) ? `
+                        ${hasExecutions ? `
                             <div class="grid grid-2" style="margin-top: 0.75rem;">
-                                ${hasExecutions ? `<div>${buildChartContainer('chart-sql-load', 'Query Load Distribution', { showFilterBtn: true })}</div>` : ''}
-                                ${durationDist.length > 0 ? `
-                                    <div>
-                                        <div class="subsection-title" style="font-size: 0.7rem;">Query Duration Distribution</div>
-                                        ${buildDurationDistChart(durationDist)}
-                                    </div>
-                                ` : ''}
+                                <div>${buildChartContainer('chart-sql-load', 'Query Count', { showFilterBtn: true })}</div>
+                                <div>${buildChartContainer('chart-sql-duration', 'Query Time', { showFilterBtn: true })}</div>
+                            </div>
+                        ` : ''}
+                        ${durationDist.some(d => d.count > 0) ? `
+                            <div style="margin-top: 0.75rem;">
+                                <div class="subsection-title" style="font-size: 0.7rem;">Query Duration Distribution</div>
+                                ${buildDurationDistChart(durationDist)}
                             </div>
                         ` : ''}
 

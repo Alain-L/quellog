@@ -46,9 +46,10 @@ type SQLPerformanceJSON struct {
 }
 
 type QueryExecutionJSON struct {
-	Timestamp string `json:"timestamp"`
-	Duration  string `json:"duration"`
-	QueryID   string `json:"query_id"`
+	Timestamp  string  `json:"timestamp"`
+	Duration   string  `json:"duration"`
+	DurationMs float64 `json:"duration_ms"`
+	QueryID    string  `json:"query_id"`
 }
 
 type QueryStatJSON struct {
@@ -869,9 +870,10 @@ func buildFullSQLPerformance(m analysis.SqlMetrics) SQLPerformanceDetailJSON {
 	// Executions for time charts
 	for _, exec := range m.Executions {
 		perf.Executions = append(perf.Executions, QueryExecutionJSON{
-			Timestamp: exec.Timestamp.Format("2006-01-02T15:04:05"),
-			Duration:  formatQueryDuration(exec.Duration),
-			QueryID:   exec.QueryID,
+			Timestamp:  exec.Timestamp.Format("2006-01-02T15:04:05"),
+			Duration:   formatQueryDuration(exec.Duration),
+			DurationMs: exec.Duration,
+			QueryID:    exec.QueryID,
 		})
 	}
 
@@ -938,9 +940,10 @@ func convertSQLPerformance(m analysis.SqlMetrics) SQLPerformanceJSON {
 	executionsJSON := make([]QueryExecutionJSON, len(m.Executions))
 	for i, exec := range m.Executions {
 		executionsJSON[i] = QueryExecutionJSON{
-			Timestamp: exec.Timestamp.Format("2006-01-02 15:04:05"),
-			Duration:  formatQueryDuration(exec.Duration),
-			QueryID:   exec.QueryID,
+			Timestamp:  exec.Timestamp.Format("2006-01-02 15:04:05"),
+			Duration:   formatQueryDuration(exec.Duration),
+			DurationMs: exec.Duration,
+			QueryID:    exec.QueryID,
 		}
 	}
 
@@ -1322,9 +1325,10 @@ func ExportSQLDetailJSON(m analysis.AggregatedMetrics, queryIDs []string) {
 			for _, exec := range m.SQL.Executions {
 				if exec.QueryID == queryID {
 					detail.Executions = append(detail.Executions, QueryExecutionJSON{
-						Timestamp: exec.Timestamp.Format("2006-01-02 15:04:05"),
-						Duration:  formatQueryDuration(exec.Duration),
-						QueryID:   exec.QueryID,
+						Timestamp:  exec.Timestamp.Format("2006-01-02 15:04:05"),
+						Duration:   formatQueryDuration(exec.Duration),
+						DurationMs: exec.Duration,
+						QueryID:    exec.QueryID,
 					})
 				}
 			}
