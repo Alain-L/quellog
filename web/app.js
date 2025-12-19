@@ -3648,7 +3648,7 @@
                                     <td class="num">
                                         <div class="duration-bar">
                                             <div class="bar"><div class="bar-fill" style="width: ${q.total_time_ms/maxTime*100}%"></div></div>
-                                            <span>${fmtMs(q.total_time_ms)}</span>
+                                            <span>${fmtMsLong(q.total_time_ms)}</span>
                                         </div>
                                     </td>
                                 </tr>
