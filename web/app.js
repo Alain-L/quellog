@@ -1235,13 +1235,14 @@
             // Recreate only this specific chart
             const data = chartData.get(chartId);
             if (data) {
-                const color = chartId.includes('tempfiles') ? getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() : null;
+                const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+                const color = chartId.includes('tempfiles') ? accentColor : null;
                 if (data?.type === 'sessions') {
                     createConcurrentChart(chartId, data.data, { color: color || 'var(--accent)', interval });
                 } else if (data?.type === 'histogram') {
                     // Pre-computed histogram can't change interval
                 } else if (data?.type === 'duration') {
-                    createDurationChart(chartId, data.data, { color, interval });
+                    createDurationChart(chartId, data.data, { color: accentColor, interval });
                 } else {
                     createTimeChart(chartId, data, { color, interval });
                 }
@@ -1296,9 +1297,8 @@
             const data = chartData.get(modalChartId);
             if (!data) return;
 
-            const color = modalChartId.includes('tempfiles')
-                ? getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()
-                : null;
+            const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+            const color = modalChartId.includes('tempfiles') ? accentColor : null;
 
             // Create larger chart
             if (data?.type === 'checkpoints') {
@@ -1319,7 +1319,7 @@
                 });
             } else if (data?.type === 'duration') {
                 modalChart = createDurationChartLarge(container, data.data, {
-                    color,
+                    color: accentColor,
                     interval: modalInterval,
                     height: 350
                 });
@@ -2487,7 +2487,8 @@
             // Create uPlot charts after DOM is ready
             requestAnimationFrame(() => {
                 chartData.forEach((data, chartId) => {
-                    const color = chartId.includes('tempfiles') ? getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() : null;
+                    const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+                    const color = chartId.includes('tempfiles') ? accentColor : null;
                     // Check data type: checkpoints (stacked), sessions (sweep-line), histogram (pre-computed), duration, or timestamps
                     if (data?.type === 'checkpoints') {
                         createCheckpointChart(chartId, data);
@@ -2496,7 +2497,7 @@
                     } else if (data?.type === 'histogram') {
                         createHistogramChart(chartId, data.data, { color: color || 'var(--accent)' });
                     } else if (data?.type === 'duration') {
-                        createDurationChart(chartId, data.data, { color });
+                        createDurationChart(chartId, data.data, { color: accentColor });
                     } else {
                         createTimeChart(chartId, data, { color });
                     }
@@ -3506,7 +3507,7 @@
                         ${hasExecutions ? `
                             <div class="grid grid-2" style="margin-top: 0.75rem;">
                                 <div>${buildChartContainer('chart-sql-load', 'Query Count', { showFilterBtn: true })}</div>
-                                <div>${buildChartContainer('chart-sql-duration', 'Query Time', { showFilterBtn: true })}</div>
+                                <div>${buildChartContainer('chart-sql-duration', 'Query Duration', { showFilterBtn: true })}</div>
                             </div>
                         ` : ''}
                         ${durationDist.some(d => d.count > 0) ? `
