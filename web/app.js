@@ -2679,9 +2679,9 @@
             if (!c || c.connection_count === 0) {
                 return `
                     <div class="section" id="connections">
-                        <div class="section-header">Connections</div>
+                        <div class="section-header muted">Connections</div>
                         <div class="section-body">
-                            ${buildNoDataMessage('log_connections = on')}
+                            ${buildNoDataMessage('<code>log_connections = on</code>')}
                         </div>
                     </div>
                 `;
@@ -2897,9 +2897,9 @@
             if (!c.unique_databases && databases.length === 0) {
                 return `
                     <div class="section" id="clients">
-                        <div class="section-header">Clients</div>
+                        <div class="section-header muted">Clients</div>
                         <div class="section-body">
-                            ${buildNoDataMessage('%u, %d, %a in log_line_prefix')}
+                            ${buildNoDataMessage('<code>%u</code>, <code>%d</code>, <code>%a</code> in <code>log_line_prefix</code>')}
                         </div>
                     </div>
                 `;
@@ -2969,9 +2969,9 @@
             if (ec.length === 0) {
                 return `
                     <div class="section" id="error_classes">
-                        <div class="section-header">Error Classes</div>
+                        <div class="section-header muted">Error Classes</div>
                         <div class="section-body">
-                            ${buildNoDataMessage('%e in log_line_prefix (or use CSV/JSON log format)')}
+                            ${buildNoDataMessage('<code>%e</code> in <code>log_line_prefix</code>')}
                         </div>
                     </div>
                 `;
@@ -3003,9 +3003,9 @@
             if (!cp || cp.total_checkpoints === 0) {
                 return `
                     <div class="section" id="checkpoints">
-                        <div class="section-header">Checkpoints</div>
+                        <div class="section-header muted">Checkpoints</div>
                         <div class="section-body">
-                            ${buildNoDataMessage('log_checkpoints = on')}
+                            ${buildNoDataMessage('<code>log_checkpoints = on</code>')}
                         </div>
                     </div>
                 `;
@@ -3063,9 +3063,9 @@
             if (!m || ((m.vacuum_count || 0) + (m.analyze_count || 0)) === 0) {
                 return `
                     <div class="section" id="maintenance">
-                        <div class="section-header">Maintenance</div>
+                        <div class="section-header muted">Maintenance</div>
                         <div class="section-body">
-                            ${buildNoDataMessage('log_autovacuum_min_duration = 0')}
+                            ${buildNoDataMessage('<code>log_autovacuum_min_duration = 0</code>')}
                         </div>
                     </div>
                 `;
@@ -3124,9 +3124,9 @@
             if (!l || ((l.deadlock_events || 0) + (l.waiting_events || 0) + (l.acquired_events || 0)) === 0) {
                 return `
                     <div class="section" id="locks">
-                        <div class="section-header">Locks</div>
+                        <div class="section-header muted">Locks</div>
                         <div class="section-body">
-                            ${buildNoDataMessage('log_lock_waits = on')}
+                            ${buildNoDataMessage('<code>log_lock_waits = on</code>')}
                         </div>
                     </div>
                 `;
@@ -3216,9 +3216,9 @@
             if (!tf || tf.total_messages === 0) {
                 return `
                     <div class="section" id="temp_files">
-                        <div class="section-header accent">Temp Files</div>
+                        <div class="section-header muted">Temp Files</div>
                         <div class="section-body">
-                            ${buildNoDataMessage('log_temp_files = 0')}
+                            ${buildNoDataMessage('<code>log_temp_files = 0</code>')}
                         </div>
                     </div>
                 `;
@@ -3319,9 +3319,9 @@
             if (!hasData) {
                 return `
                     <div class="section" id="sql_overview">
-                        <div class="section-header">SQL Overview</div>
+                        <div class="section-header muted">SQL Overview</div>
                         <div class="section-body">
-                            ${buildNoDataMessage('log_min_duration_statement = 0')}
+                            ${buildNoDataMessage('<code>log_min_duration_statement = 0</code>')}
                         </div>
                     </div>
                 `;
@@ -4852,11 +4852,11 @@
         function fmt(n) { return n?.toLocaleString() || '0'; }
 
         // Build no-data message for sections without data
-        function buildNoDataMessage(param) {
+        function buildNoDataMessage(hint) {
             return `
                 <div class="no-data-message">
                     <div class="no-data-text">No data available</div>
-                    <div class="no-data-hint">Check: <code>${param}</code></div>
+                    <div class="no-data-hint">Check: ${hint}</div>
                 </div>
             `;
         }

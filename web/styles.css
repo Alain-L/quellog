@@ -776,6 +776,7 @@
         .section-header.success { background: var(--success); }
         .section-header.warning { background: #856404; }
         .section-header.danger { background: var(--danger); }
+        .section-header.muted { background: var(--text-muted); }
 
         .section-header .badge {
             background: rgba(255,255,255,0.2);
