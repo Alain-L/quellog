@@ -2683,10 +2683,11 @@
             const c = data.connections;
             if (!c || c.connection_count === 0) {
                 return `
-                    <div class="section disabled" id="connections">
+                    <div class="section" id="connections">
                         <div class="section-header">Connections</div>
-                        <div class="section-body"></div>
-                        ${buildDisabledOverlay('Enable connection logging', 'log_connections = on')}
+                        <div class="section-body">
+                            ${buildNoDataMessage('log_connections = on')}
+                        </div>
                     </div>
                 `;
             }
@@ -2900,10 +2901,11 @@
             const hosts = data.hosts || [];
             if (!c.unique_databases && databases.length === 0) {
                 return `
-                    <div class="section disabled" id="clients">
+                    <div class="section" id="clients">
                         <div class="section-header">Clients</div>
-                        <div class="section-body"></div>
-                        ${buildDisabledOverlay('No client info in log_line_prefix', '%u, %d, %a in log_line_prefix')}
+                        <div class="section-body">
+                            ${buildNoDataMessage('%u, %d, %a in log_line_prefix')}
+                        </div>
                     </div>
                 `;
             }
@@ -2971,10 +2973,11 @@
             const ec = data.error_classes || [];
             if (ec.length === 0) {
                 return `
-                    <div class="section disabled" id="error_classes">
+                    <div class="section" id="error_classes">
                         <div class="section-header">Error Classes</div>
-                        <div class="section-body"></div>
-                        ${buildDisabledOverlay('Enable error classification', '%e in log_line_prefix')}
+                        <div class="section-body">
+                            ${buildNoDataMessage('%e in log_line_prefix (or use CSV/JSON log format)')}
+                        </div>
                     </div>
                 `;
             }
@@ -3004,10 +3007,11 @@
             const cp = data.checkpoints;
             if (!cp || cp.total_checkpoints === 0) {
                 return `
-                    <div class="section disabled" id="checkpoints">
+                    <div class="section" id="checkpoints">
                         <div class="section-header">Checkpoints</div>
-                        <div class="section-body"></div>
-                        ${buildDisabledOverlay('Enable checkpoint logging', 'log_checkpoints = on')}
+                        <div class="section-body">
+                            ${buildNoDataMessage('log_checkpoints = on')}
+                        </div>
                     </div>
                 `;
             }
@@ -3063,10 +3067,11 @@
             const m = data.maintenance;
             if (!m || ((m.vacuum_count || 0) + (m.analyze_count || 0)) === 0) {
                 return `
-                    <div class="section disabled" id="maintenance">
+                    <div class="section" id="maintenance">
                         <div class="section-header">Maintenance</div>
-                        <div class="section-body"></div>
-                        ${buildDisabledOverlay('Enable autovacuum logging', 'log_autovacuum_min_duration = 0')}
+                        <div class="section-body">
+                            ${buildNoDataMessage('log_autovacuum_min_duration = 0')}
+                        </div>
                     </div>
                 `;
             }
@@ -3123,10 +3128,11 @@
             const l = data.locks;
             if (!l || ((l.deadlock_events || 0) + (l.waiting_events || 0) + (l.acquired_events || 0)) === 0) {
                 return `
-                    <div class="section disabled" id="locks">
+                    <div class="section" id="locks">
                         <div class="section-header">Locks</div>
-                        <div class="section-body"></div>
-                        ${buildDisabledOverlay('Enable lock wait logging', 'log_lock_waits = on')}
+                        <div class="section-body">
+                            ${buildNoDataMessage('log_lock_waits = on')}
+                        </div>
                     </div>
                 `;
             }
@@ -3214,10 +3220,11 @@
             // JSON has: total_messages, total_size, avg_size, events (array with timestamps), queries (array)
             if (!tf || tf.total_messages === 0) {
                 return `
-                    <div class="section disabled" id="temp_files">
+                    <div class="section" id="temp_files">
                         <div class="section-header accent">Temp Files</div>
-                        <div class="section-body"></div>
-                        ${buildDisabledOverlay('Enable temp file logging', 'log_temp_files = 0')}
+                        <div class="section-body">
+                            ${buildNoDataMessage('log_temp_files = 0')}
+                        </div>
                     </div>
                 `;
             }
@@ -3316,10 +3323,11 @@
             const hasData = ov && ov.categories && ov.categories.some(c => c.count > 0);
             if (!hasData) {
                 return `
-                    <div class="section disabled" id="sql_overview">
+                    <div class="section" id="sql_overview">
                         <div class="section-header">SQL Overview</div>
-                        <div class="section-body"></div>
-                        ${buildDisabledOverlay('Enable query logging', 'log_min_duration_statement = 0')}
+                        <div class="section-body">
+                            ${buildNoDataMessage('log_min_duration_statement = 0')}
+                        </div>
                     </div>
                 `;
             }
@@ -4848,13 +4856,12 @@
         // Helpers
         function fmt(n) { return n?.toLocaleString() || '0'; }
 
-        // Build disabled overlay for sections without data
-        function buildDisabledOverlay(message, param) {
+        // Build no-data message for sections without data
+        function buildNoDataMessage(param) {
             return `
-                <div class="section-overlay">
-                    <div class="section-overlay-icon">⚙️</div>
-                    <div class="section-overlay-msg">${message}</div>
-                    <code class="section-overlay-param">${param}</code>
+                <div class="no-data-message">
+                    <div class="no-data-text">No data available</div>
+                    <div class="no-data-hint">Check: <code>${param}</code></div>
                 </div>
             `;
         }

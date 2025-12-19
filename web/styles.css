@@ -1963,44 +1963,29 @@
             font-size: 0.7rem !important;
         }
 
-        /* Disabled section overlay */
-        .section.disabled {
-            position: relative;
-        }
-        .section.disabled .section-body {
-            min-height: 80px;
-        }
-        .section-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: var(--card-bg);
-            opacity: 0.92;
+        /* No data message for sections without data */
+        .no-data-message {
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            padding: 1rem;
+            padding: 2rem 1rem;
             text-align: center;
-            border-radius: var(--radius-lg);
         }
-        .section-overlay-icon {
-            font-size: 1.5rem;
-            margin-bottom: 0.5rem;
-            opacity: 0.5;
-        }
-        .section-overlay-msg {
-            font-size: 0.75rem;
+        .no-data-text {
+            font-size: 0.85rem;
             color: var(--text-muted);
             margin-bottom: 0.5rem;
         }
-        .section-overlay-param {
+        .no-data-hint {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+        .no-data-hint code {
             font-family: 'SF Mono', Monaco, Consolas, monospace;
             font-size: 0.7rem;
             background: var(--bg-alt);
-            padding: 0.3rem 0.6rem;
+            padding: 0.2rem 0.5rem;
             border-radius: 4px;
             color: var(--primary);
             border: 1px solid var(--border);
