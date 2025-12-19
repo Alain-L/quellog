@@ -982,18 +982,18 @@ func convertLocks(m analysis.LockMetrics) LocksJSON {
 	avgWaitTime := "0 ms"
 	if m.WaitingEvents+m.AcquiredEvents > 0 {
 		avg := m.TotalWaitTime / float64(m.WaitingEvents+m.AcquiredEvents)
-		avgWaitTime = fmt.Sprintf("%.2f ms", avg)
+		avgWaitTime = formatQueryDuration(avg)
 	}
 
 	// Format total wait time
-	totalWaitTime := fmt.Sprintf("%.2f s", m.TotalWaitTime/1000)
+	totalWaitTime := formatQueryDuration(m.TotalWaitTime)
 
 	// Convert events
 	eventsJSON := make([]LockEventJSON, len(m.Events))
 	for i, event := range m.Events {
 		waitTime := ""
 		if event.WaitTime > 0 {
-			waitTime = fmt.Sprintf("%.2f ms", event.WaitTime)
+			waitTime = formatQueryDuration(event.WaitTime)
 		}
 		eventsJSON[i] = LockEventJSON{
 			Timestamp:    event.Timestamp.Format("2006-01-02 15:04:05"),
@@ -1014,10 +1014,10 @@ func convertLocks(m analysis.LockMetrics) LocksJSON {
 			NormalizedQuery:   stat.NormalizedQuery,
 			RawQuery:          stat.RawQuery,
 			AcquiredCount:     stat.AcquiredCount,
-			AcquiredWaitTime:  fmt.Sprintf("%.2f ms", stat.AcquiredWaitTime),
+			AcquiredWaitTime:  formatQueryDuration(stat.AcquiredWaitTime),
 			StillWaitingCount: stat.StillWaitingCount,
-			StillWaitingTime:  fmt.Sprintf("%.2f ms", stat.StillWaitingTime),
-			TotalWaitTime:     fmt.Sprintf("%.2f ms", stat.TotalWaitTime),
+			StillWaitingTime:  formatQueryDuration(stat.StillWaitingTime),
+			TotalWaitTime:     formatQueryDuration(stat.TotalWaitTime),
 		})
 	}
 	// Sort by ID for deterministic JSON output
@@ -1368,10 +1368,10 @@ func ExportSQLDetailJSON(m analysis.AggregatedMetrics, queryIDs []string) {
 			}
 			detail.Locks = &QueryLocksJSON{
 				AcquiredCount:    foundLockStat.AcquiredCount,
-				AcquiredWaitTime: fmt.Sprintf("%.2f ms", foundLockStat.AcquiredWaitTime),
+				AcquiredWaitTime: formatQueryDuration(foundLockStat.AcquiredWaitTime),
 				WaitingCount:     foundLockStat.StillWaitingCount,
-				WaitingTime:      fmt.Sprintf("%.2f ms", foundLockStat.StillWaitingTime),
-				TotalWaitTime:    fmt.Sprintf("%.2f ms", foundLockStat.TotalWaitTime),
+				WaitingTime:      formatQueryDuration(foundLockStat.StillWaitingTime),
+				TotalWaitTime:    formatQueryDuration(foundLockStat.TotalWaitTime),
 			}
 		}
 
