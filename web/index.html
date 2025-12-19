@@ -13,11 +13,12 @@
             <div class="chart-modal-header">
                 <span class="chart-modal-title" id="modalChartTitle">Chart</span>
                 <div class="chart-modal-actions">
-                    <select id="modalBucketSelect" onchange="updateModalBuckets(this.value)">
-                        <option value="15">15 buckets</option>
-                        <option value="30" selected>30 buckets</option>
-                        <option value="60">60 buckets</option>
-                        <option value="120">120 buckets</option>
+                    <select id="modalBucketSelect" onchange="updateModalInterval(this.value)">
+                        <option value="0" selected>Auto</option>
+                        <option value="60">1 min</option>
+                        <option value="300">5 min</option>
+                        <option value="900">15 min</option>
+                        <option value="3600">1h</option>
                     </select>
                     <button onclick="resetModalZoom()">Reset Zoom</button>
                     <button class="primary" onclick="exportChartPNG()">⬇ Export PNG</button>

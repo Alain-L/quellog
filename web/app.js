@@ -12,8 +12,33 @@
         const modalCharts = [];    // Store modal chart instances
         const modalChartsData = new Map();  // Pending modal charts data
         let modalChartCounter = 0;
-        const chartBucketsMap = new Map();  // Per-chart bucket count
-        const defaultBuckets = 30;
+        const chartIntervalMap = new Map();  // Per-chart interval in seconds (0 = auto)
+        const defaultInterval = 0;  // Auto
+
+        // Compute optimal interval based on time range
+        function computeAutoInterval(rangeSeconds) {
+            if (rangeSeconds < 3600) return 60;         // < 1h → 1 min
+            if (rangeSeconds < 6 * 3600) return 300;    // < 6h → 5 min
+            if (rangeSeconds < 24 * 3600) return 900;   // < 24h → 15 min
+            return 3600;                                 // >= 24h → 1h
+        }
+
+        // Compute bucket count from interval and range
+        function computeBuckets(rangeSeconds, intervalSeconds) {
+            if (intervalSeconds === 0) {
+                intervalSeconds = computeAutoInterval(rangeSeconds);
+            }
+            const buckets = Math.max(5, Math.ceil(rangeSeconds / intervalSeconds));
+            return Math.min(buckets, 200);  // Cap at 200 buckets max
+        }
+
+        // Format interval for display
+        function formatInterval(seconds) {
+            if (seconds === 0) return 'Auto';
+            if (seconds < 60) return seconds + 's';
+            if (seconds < 3600) return (seconds / 60) + ' min';
+            return (seconds / 3600) + 'h';
+        }
 
         // Global tooltip plugin for uPlot charts
         function tooltipPlugin() {
@@ -27,13 +52,21 @@
                         u.over.appendChild(tooltip);
                     },
                     setCursor: u => {
+                        // Skip during re-sampling
+                        if (u._resampling) { tooltip.style.display = 'none'; return; }
                         const { idx } = u.cursor;
-                        if (idx == null) {
+                        const data0 = u.data[0];
+                        const data1 = u.data[1];
+                        if (idx == null || !data0 || idx < 0 || idx >= data0.length) {
                             tooltip.style.display = 'none';
                             return;
                         }
-                        const x = u.data[0][idx];
-                        const y = u.data[1][idx];
+                        const x = data0[idx];
+                        const y = data1[idx];
+                        if (x === undefined || y === undefined || !Number.isFinite(x)) {
+                            tooltip.style.display = 'none';
+                            return;
+                        }
                         const d = new Date(x * 1000);
                         const timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
                         tooltip.innerHTML = `${timeStr} · ${y} events`;
@@ -45,6 +78,332 @@
                     }
                 }
             };
+        }
+
+        // Helper: bin timestamps into histogram data
+        function binTimestamps(times, minT, maxT, interval) {
+            const range = maxT - minT || 1;
+            const buckets = computeBuckets(range, interval);
+            const bucketSize = range / buckets;
+
+            const xData = new Float64Array(buckets);
+            const yData = new Float64Array(buckets);
+            for (let i = 0; i < buckets; i++) {
+                xData[i] = minT + i * bucketSize + bucketSize / 2;
+            }
+            times.forEach(t => {
+                if (t >= minT && t <= maxT) {
+                    const idx = Math.min(Math.floor((t - minT) / bucketSize), buckets - 1);
+                    yData[idx]++;
+                }
+            });
+
+            const sortedY = [...yData].filter(v => v > 0).sort((a, b) => a - b);
+            const median = sortedY.length > 0 ? sortedY[Math.floor(sortedY.length / 2)] : 0;
+
+            return { xData, yData, median, buckets };
+        }
+
+        // Helper: bin concurrent sessions using sweep-line algorithm
+        function binConcurrentSessions(events, minT, maxT, interval) {
+            const range = maxT - minT || 1;
+            const buckets = computeBuckets(range, interval);
+            const bucketSize = range / buckets;
+
+            const xData = new Float64Array(buckets);
+            const yData = new Float64Array(buckets);
+            for (let i = 0; i < buckets; i++) {
+                xData[i] = minT + i * bucketSize + bucketSize / 2;
+            }
+
+            // Filter and find starting concurrent count before minT
+            let current = 0;
+            let eventIdx = 0;
+
+            // Count events before minT to get starting concurrent count
+            while (eventIdx < events.length && events[eventIdx].time / 1000 < minT) {
+                current += events[eventIdx].delta;
+                eventIdx++;
+            }
+
+            // Sweep-line for visible range
+            for (let b = 0; b < buckets; b++) {
+                const bucketStart = minT + b * bucketSize;
+                const bucketEnd = minT + (b + 1) * bucketSize;
+                let maxInBucket = current;
+
+                while (eventIdx < events.length && events[eventIdx].time / 1000 < bucketEnd) {
+                    const e = events[eventIdx];
+                    const t = e.time / 1000;
+                    if (t >= bucketStart) {
+                        current += e.delta;
+                        if (current > maxInBucket) maxInBucket = current;
+                    } else {
+                        current += e.delta;
+                    }
+                    eventIdx++;
+                }
+                yData[b] = Math.max(maxInBucket, 0);
+            }
+
+            const sortedY = [...yData].filter(v => v > 0).sort((a, b) => a - b);
+            const median = sortedY.length > 0 ? sortedY[Math.floor(sortedY.length / 2)] : 0;
+
+            return { xData, yData, median, buckets };
+        }
+
+        // Helper: bin checkpoints by type (for stacked bar chart)
+        function binCheckpointsByType(typeData, minT, maxT, interval) {
+            const range = maxT - minT || 1;
+            const buckets = computeBuckets(range, interval);
+            const bucketSize = range / buckets;
+
+            const xData = new Float64Array(buckets);
+            const series = {
+                time: new Float64Array(buckets),
+                wal: new Float64Array(buckets),
+                other: new Float64Array(buckets)
+            };
+
+            for (let i = 0; i < buckets; i++) {
+                xData[i] = minT + i * bucketSize + bucketSize / 2;
+            }
+
+            // Bin each type
+            ['time', 'wal', 'other'].forEach(type => {
+                (typeData[type] || []).forEach(t => {
+                    if (t >= minT && t <= maxT) {
+                        const idx = Math.min(Math.floor((t - minT) / bucketSize), buckets - 1);
+                        series[type][idx]++;
+                    }
+                });
+            });
+
+            return { xData, series, buckets };
+        }
+
+        // Create stacked bar chart for checkpoints (time=blue, xlog=orange, other=gray)
+        function createCheckpointChart(containerId, data, options = {}) {
+            const container = document.getElementById(containerId);
+            if (!container || !data?.all || data.all.length === 0) return null;
+
+            // Clear previous chart
+            if (charts.has(containerId)) {
+                charts.get(containerId).destroy();
+                charts.delete(containerId);
+            }
+            container.innerHTML = '';
+
+            // Parse all timestamps for range calculation
+            const allTimes = data.all.map(t => new Date(t).getTime() / 1000).filter(t => !isNaN(t)).sort((a, b) => a - b);
+            if (allTimes.length === 0) return null;
+
+            // Parse type-specific timestamps
+            const typeData = {
+                time: (data.types?.time || []).map(t => new Date(t).getTime() / 1000).filter(t => !isNaN(t)),
+                wal: (data.types?.wal || []).map(t => new Date(t).getTime() / 1000).filter(t => !isNaN(t)),
+                other: (data.types?.other || []).map(t => new Date(t).getTime() / 1000).filter(t => !isNaN(t))
+            };
+
+            const minT = allTimes[0];
+            const maxT = allTimes[allTimes.length - 1];
+            const interval = options.interval !== undefined ? options.interval : (chartIntervalMap.get(containerId) ?? defaultInterval);
+
+            // Initial binning
+            const { xData, series } = binCheckpointsByType(typeData, minT, maxT, interval);
+
+            // Colors for checkpoint types
+            const colors = {
+                time: getComputedStyle(document.documentElement).getPropertyValue('--chart-bar').trim() || '#5a9bd5',
+                wal: getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#f47920',
+                other: '#909399' // gray
+            };
+
+            // Tooltip plugin for stacked bars
+            const tooltip = document.createElement('div');
+            tooltip.className = 'chart-tooltip';
+            tooltip.style.cssText = 'position:absolute;display:none;padding:6px 10px;background:var(--bg);border:1px solid var(--border);border-radius:4px;font-size:12px;pointer-events:none;z-index:100;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.15);';
+
+            const checkpointTooltipPlugin = () => ({
+                hooks: {
+                    init: u => {
+                        u.root.querySelector('.u-over').appendChild(tooltip);
+                    },
+                    setCursor: u => {
+                        if (u._resampling) { tooltip.style.display = 'none'; return; }
+                        const { idx, left, top } = u.cursor;
+                        const data0 = u.data[0];
+                        if (idx == null || !data0 || idx < 0 || idx >= data0.length) {
+                            tooltip.style.display = 'none';
+                            return;
+                        }
+                        const x = data0[idx];
+                        if (x === undefined || !Number.isFinite(x)) {
+                            tooltip.style.display = 'none';
+                            return;
+                        }
+                        const timeVal = u.data[1][idx] || 0;
+                        const xlogVal = u.data[2][idx] || 0;
+                        const otherVal = u.data[3][idx] || 0;
+                        const total = timeVal + xlogVal + otherVal;
+                        if (total === 0) {
+                            tooltip.style.display = 'none';
+                            return;
+                        }
+                        const d = new Date(x * 1000);
+                        const timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+                        let parts = [];
+                        if (timeVal > 0) parts.push(`<span style="color:${colors.time}">${timeVal} timed</span>`);
+                        if (xlogVal > 0) parts.push(`<span style="color:${colors.wal}">${xlogVal} WAL</span>`);
+                        if (otherVal > 0) parts.push(`<span style="color:${colors.other}">${otherVal} other</span>`);
+                        tooltip.innerHTML = `<strong>${timeStr}</strong><br>${parts.join(' · ')}`;
+                        tooltip.style.display = 'block';
+                        const ttWidth = tooltip.offsetWidth;
+                        const ttHeight = tooltip.offsetHeight;
+                        const chartWidth = u.bbox.width;
+                        let ttLeft = left - ttWidth / 2;
+                        if (ttLeft < 0) ttLeft = 0;
+                        if (ttLeft + ttWidth > chartWidth) ttLeft = chartWidth - ttWidth;
+                        tooltip.style.left = ttLeft + 'px';
+                        tooltip.style.top = (top - ttHeight - 10) + 'px';
+                    }
+                }
+            });
+
+            const opts = {
+                width: container.clientWidth || 300,
+                height: options.height || 120,
+                cursor: { drag: { x: true, y: false, setScale: true } },
+                select: { show: true },
+                legend: { show: false },
+                scales: {
+                    x: { time: true },
+                    y: { range: [0, null] }
+                },
+                axes: [
+                    {
+                        stroke: getComputedStyle(document.documentElement).getPropertyValue('--text').trim(),
+                        grid: { show: false },
+                        ticks: { show: false },
+                        values: (u, vals) => vals.map(v => {
+                            const d = new Date(v * 1000);
+                            return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+                        }),
+                        size: 20,
+                        font: '10px system-ui'
+                    },
+                    {
+                        stroke: getComputedStyle(document.documentElement).getPropertyValue('--text').trim(),
+                        grid: { show: false },
+                        ticks: { show: false },
+                        size: 30,
+                        font: '10px system-ui'
+                    }
+                ],
+                series: [
+                    {},
+                    { fill: 'transparent', stroke: 'transparent', width: 0, points: { show: false }, paths: () => null },
+                    { fill: 'transparent', stroke: 'transparent', width: 0, points: { show: false }, paths: () => null },
+                    { fill: 'transparent', stroke: 'transparent', width: 0, points: { show: false }, paths: () => null }
+                ],
+                plugins: [checkpointTooltipPlugin()],
+                hooks: {
+                    draw: [u => {
+                        const ctx = u.ctx;
+                        const xd = u.data[0];
+                        const timeSeries = u.data[1];
+                        const xlogSeries = u.data[2];
+                        const otherSeries = u.data[3];
+                        const barWidth = Math.max(2, (u.bbox.width / xd.length) * 0.75);
+                        const radius = Math.min(3, barWidth / 3);
+                        const y0 = u.valToPos(0, 'y', true);
+
+                        // Draw stacked bars: other (bottom), xlog (middle), time (top)
+                        for (let i = 0; i < xd.length; i++) {
+                            const x = u.valToPos(xd[i], 'x', true);
+                            let yBottom = y0;
+
+                            // Draw other (bottom)
+                            const otherVal = otherSeries[i] || 0;
+                            if (otherVal > 0) {
+                                const yTop = u.valToPos(otherVal, 'y', true);
+                                const h = yBottom - yTop;
+                                ctx.fillStyle = colors.other;
+                                ctx.fillRect(x - barWidth/2, yTop, barWidth, h);
+                                yBottom = yTop;
+                            }
+
+                            // Draw xlog (middle)
+                            const xlogVal = xlogSeries[i] || 0;
+                            if (xlogVal > 0) {
+                                const yTop = yBottom - (y0 - u.valToPos(xlogVal, 'y', true));
+                                const h = yBottom - yTop;
+                                ctx.fillStyle = colors.wal;
+                                ctx.fillRect(x - barWidth/2, yTop, barWidth, h);
+                                yBottom = yTop;
+                            }
+
+                            // Draw time (top) with rounded corners
+                            const timeVal = timeSeries[i] || 0;
+                            if (timeVal > 0) {
+                                const yTop = yBottom - (y0 - u.valToPos(timeVal, 'y', true));
+                                const h = yBottom - yTop;
+                                ctx.fillStyle = colors.time;
+                                ctx.beginPath();
+                                ctx.moveTo(x - barWidth/2, yBottom);
+                                ctx.lineTo(x - barWidth/2, yTop + radius);
+                                ctx.quadraticCurveTo(x - barWidth/2, yTop, x - barWidth/2 + radius, yTop);
+                                ctx.lineTo(x + barWidth/2 - radius, yTop);
+                                ctx.quadraticCurveTo(x + barWidth/2, yTop, x + barWidth/2, yTop + radius);
+                                ctx.lineTo(x + barWidth/2, yBottom);
+                                ctx.closePath();
+                                ctx.fill();
+                            } else if (xlogVal > 0 || otherVal > 0) {
+                                // Round top of highest visible segment
+                                // Already drawn with fillRect, so add rounded corners
+                            }
+                        }
+                    }],
+                    setScale: [u => {
+                        if (!u._typeData || u._resampling) return;
+                        const xScale = u.scales.x;
+                        const newMin = xScale.min;
+                        const newMax = xScale.max;
+                        if (newMin == null || newMax == null) return;
+
+                        const rangeChanged = !u._lastRange || Math.abs(u._lastRange[0] - newMin) > 1 || Math.abs(u._lastRange[1] - newMax) > 1;
+                        if (rangeChanged) {
+                            u._lastRange = [newMin, newMax];
+                            const { xData: newX, series: newSeries } = binCheckpointsByType(u._typeData, newMin, newMax, u._interval);
+                            u._resampling = true;
+                            u.setData([newX, newSeries.time, newSeries.wal, newSeries.other], false);
+                            u._resampling = false;
+                            // Force batch/commit cycle to reset cursor state
+                            u.batch(() => {
+                                u.setScale('x', { min: newMin, max: newMax });
+                            });
+                        }
+                    }]
+                }
+            };
+
+            const chart = new uPlot(opts, [xData, series.time, series.wal, series.other], container);
+            charts.set(containerId, chart);
+
+            // Store data for re-sampling
+            chart._typeData = typeData;
+            chart._interval = interval;
+            chart._originalXRange = [minT, maxT];
+
+            // Handle resize
+            const resizeObserver = new ResizeObserver(() => {
+                if (container.clientWidth > 0) {
+                    chart.setSize({ width: container.clientWidth, height: opts.height });
+                }
+            });
+            resizeObserver.observe(container);
+
+            return chart;
         }
 
         // Create interactive time chart with uPlot
@@ -63,28 +422,12 @@
             const times = timestamps.map(t => new Date(t).getTime() / 1000).filter(t => !isNaN(t)).sort((a, b) => a - b);
             if (times.length === 0) return null;
 
-            const buckets = options.buckets || chartBucketsMap.get(containerId) || defaultBuckets;
             const minT = times[0];
             const maxT = times[times.length - 1];
-            const range = maxT - minT || 1;
-            const bucketSize = range / buckets;
+            const interval = options.interval !== undefined ? options.interval : (chartIntervalMap.get(containerId) ?? defaultInterval);
 
-            // Build histogram data
-            const xData = [];
-            const yData = [];
-            for (let i = 0; i < buckets; i++) {
-                xData.push(minT + i * bucketSize + bucketSize / 2);
-                yData.push(0);
-            }
-            times.forEach(t => {
-                const idx = Math.min(Math.floor((t - minT) / bucketSize), buckets - 1);
-                yData[idx]++;
-            });
-
-            // Calculate median for reference line and color gradient
-            const sortedY = [...yData].filter(v => v > 0).sort((a, b) => a - b);
-            const median = sortedY.length > 0 ? sortedY[Math.floor(sortedY.length / 2)] : 0;
-            const maxY = Math.max(...yData) || 1;
+            // Initial binning
+            const { xData, yData, median } = binTimestamps(times, minT, maxT, interval);
 
             // Colors for gradient (light to dark based on intensity)
             const baseColor = options.color || getComputedStyle(document.documentElement).getPropertyValue('--chart-bar').trim() || '#5a9bd5';
@@ -104,7 +447,7 @@
                 },
                 axes: [
                     {
-                        stroke: getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim(),
+                        stroke: getComputedStyle(document.documentElement).getPropertyValue('--text').trim(),
                         grid: { show: false },
                         ticks: { show: false },
                         values: (u, vals) => vals.map(v => {
@@ -115,7 +458,11 @@
                         font: '10px system-ui'
                     },
                     {
-                        show: false
+                        stroke: getComputedStyle(document.documentElement).getPropertyValue('--text').trim(),
+                        grid: { show: false },
+                        ticks: { show: false },
+                        size: 30,
+                        font: '10px system-ui'
                     }
                 ],
                 series: [
@@ -157,9 +504,10 @@
                             }
                         }
 
-                        // Draw median line
-                        if (median > 0) {
-                            const yMed = u.valToPos(median, 'y', true);
+                        // Draw median line (use dynamic median from re-sampling)
+                        const currentMedian = u._median || 0;
+                        if (currentMedian > 0) {
+                            const yMed = u.valToPos(currentMedian, 'y', true);
                             const { left, width } = u.bbox;
                             ctx.save();
                             ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim();
@@ -178,6 +526,33 @@
                             const maxX = u.posToVal(u.select.left + u.select.width, 'x');
                             onSelect(new Date(minX * 1000), new Date(maxX * 1000));
                         }
+                    }],
+                    setScale: [u => {
+                        // Re-sample on zoom
+                        if (!u._times || u._resampling) return;
+                        const xScale = u.scales.x;
+                        const newMin = xScale.min;
+                        const newMax = xScale.max;
+                        if (newMin == null || newMax == null) return;
+
+                        // Check if zoomed (not at original range)
+                        const [origMin, origMax] = u._originalXRange;
+                        const isZoomed = Math.abs(newMin - origMin) > 1 || Math.abs(newMax - origMax) > 1;
+                        const rangeChanged = !u._lastRange || Math.abs(u._lastRange[0] - newMin) > 1 || Math.abs(u._lastRange[1] - newMax) > 1;
+
+                        if (rangeChanged) {
+                            u._lastRange = [newMin, newMax];
+                            // Re-bin for the visible range
+                            const { xData: newX, yData: newY, median: newMedian } = binTimestamps(u._times, newMin, newMax, u._interval);
+                            u._median = newMedian;
+                            u._resampling = true;
+                            u.setData([newX, newY], false);
+                            u._resampling = false;
+                            // Force batch/commit cycle to reset cursor state
+                            u.batch(() => {
+                                u.setScale('x', { min: newMin, max: newMax });
+                            });
+                        }
                     }]
                 }
             };
@@ -185,7 +560,9 @@
             const chart = new uPlot(opts, [xData, yData], container);
             charts.set(containerId, chart);
 
-            // Store original range for reset
+            // Store data for re-sampling
+            chart._times = times;
+            chart._interval = interval;
             chart._originalXRange = [minT, maxT];
             chart._median = median;
 
@@ -255,8 +632,8 @@
             const median = sortedY.length > 0 ? sortedY[Math.floor(sortedY.length / 2)] : 0;
             const maxY = Math.max(...yData) || 1;
 
-            // Tooltip plugin for histogram
-            function tooltipPlugin() {
+            // Tooltip plugin for histogram - use stored histogram reference
+            function tooltipPlugin(histRef) {
                 let tooltip = null;
                 return {
                     hooks: {
@@ -268,14 +645,26 @@
                         },
                         setCursor: u => {
                             const { idx } = u.cursor;
-                            if (idx == null || idx >= histogram.length) {
+                            const data0 = u.data[0];
+                            const data1 = u.data[1];
+                            if (idx == null || !data0 || idx < 0 || idx >= data0.length) {
                                 tooltip.style.display = 'none';
                                 return;
                             }
-                            const h = histogram[idx];
-                            const y = u.data[1][idx];
-                            tooltip.innerHTML = `${h.label} · ${y} sessions${h.peak_time ? ` (peak: ${h.peak_time})` : ''}`;
-                            const left = u.valToPos(u.data[0][idx], 'x');
+                            const x = data0[idx];
+                            const y = data1[idx];
+                            if (x === undefined || y === undefined || !Number.isFinite(x)) {
+                                tooltip.style.display = 'none';
+                                return;
+                            }
+                            // Format time from x value
+                            const d = new Date(x * 1000);
+                            const timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+                            // Try to find matching histogram entry for peak_time
+                            const h = histRef[idx];
+                            const peakInfo = h?.peak_time ? ` (peak: ${h.peak_time})` : '';
+                            tooltip.innerHTML = `${timeStr} · ${y} sessions${peakInfo}`;
+                            const left = u.valToPos(x, 'x');
                             const top = u.valToPos(y, 'y');
                             tooltip.style.display = 'block';
                             tooltip.style.left = Math.min(left, u.over.clientWidth - 120) + 'px';
@@ -296,7 +685,7 @@
                 },
                 axes: [
                     {
-                        stroke: getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim(),
+                        stroke: getComputedStyle(document.documentElement).getPropertyValue('--text').trim(),
                         grid: { show: false },
                         ticks: { show: false },
                         values: (u, vals) => vals.map(v => {
@@ -306,7 +695,13 @@
                         size: 20,
                         font: '10px system-ui'
                     },
-                    { show: false }
+                    {
+                        stroke: getComputedStyle(document.documentElement).getPropertyValue('--text').trim(),
+                        grid: { show: false },
+                        ticks: { show: false },
+                        size: 30,
+                        font: '10px system-ui'
+                    }
                 ],
                 series: [
                     {},
@@ -318,7 +713,7 @@
                         paths: () => null
                     }
                 ],
-                plugins: [tooltipPlugin()],
+                plugins: [tooltipPlugin(histogram)],
                 hooks: {
                     draw: [u => {
                         const ctx = u.ctx;
@@ -395,9 +790,7 @@
             }
             container.innerHTML = '';
 
-            const buckets = options.buckets || chartBucketsMap.get(containerId) || defaultBuckets;
-
-            // Parse session events
+            // Parse session events first to get time range
             const events = [];
             sessions.forEach(s => {
                 const start = new Date(s.s).getTime();
@@ -415,51 +808,23 @@
             // Find time range
             const minT = events[0].time / 1000;
             const maxT = events[events.length - 1].time / 1000;
-            const range = maxT - minT || 1;
+            const interval = options.interval !== undefined ? options.interval : (chartIntervalMap.get(containerId) ?? defaultInterval);
 
-            // Limit buckets to ensure minimum 1 minute per bucket
-            const minBucketDuration = 60; // 1 minute in seconds
-            const maxBuckets = Math.max(1, Math.floor(range / minBucketDuration));
-            const effectiveBuckets = Math.min(buckets, maxBuckets);
-            const bucketSize = range / effectiveBuckets;
+            // Initial binning
+            const { xData, yData, median } = binConcurrentSessions(events, minT, maxT, interval);
 
-            // Sweep-line: compute max concurrent per bucket
-            const xData = [];
-            const yData = [];
-            for (let i = 0; i < effectiveBuckets; i++) {
-                xData.push(minT + i * bucketSize + bucketSize / 2);
-                yData.push(0);
-            }
-
-            let current = 0;
-            let eventIdx = 0;
-            for (let b = 0; b < effectiveBuckets; b++) {
-                const bucketStart = (minT + b * bucketSize) * 1000;
-                const bucketEnd = (minT + (b + 1) * bucketSize) * 1000;
-                let maxInBucket = current;
-
-                while (eventIdx < events.length && events[eventIdx].time < bucketEnd) {
-                    const e = events[eventIdx];
-                    if (e.time < bucketStart) {
-                        current += e.delta;
-                    } else {
-                        current += e.delta;
-                        if (current > maxInBucket) maxInBucket = current;
-                    }
-                    eventIdx++;
+            // Resolve CSS variable to actual color for canvas
+            const resolveColor = (c) => {
+                if (c && c.startsWith('var(')) {
+                    const varName = c.slice(4, -1);
+                    return getComputedStyle(document.documentElement).getPropertyValue(varName).trim() || '#f47920';
                 }
-                yData[b] = Math.max(maxInBucket, 0);
-            }
+                return c;
+            };
+            const baseColor = resolveColor(options.color) || getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#f47920';
 
-            const baseColor = options.color || getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#5a9bd5';
-
-            // Calculate median for reference line
-            const sortedY = [...yData].filter(v => v > 0).sort((a, b) => a - b);
-            const median = sortedY.length > 0 ? sortedY[Math.floor(sortedY.length / 2)] : 0;
-            const maxY = Math.max(...yData) || 1;
-
-            // Tooltip
-            function tooltipPlugin() {
+            // Tooltip for sessions - no _resampling check, rely on data validation
+            function sessionsTooltipPlugin() {
                 let tooltip = null;
                 return {
                     hooks: {
@@ -472,13 +837,27 @@
                         setCursor: u => {
                             const { idx } = u.cursor;
                             if (idx == null) { tooltip.style.display = 'none'; return; }
-                            const x = u.data[0][idx];
-                            const y = u.data[1][idx];
-                            const d = new Date(x * 1000);
-                            const timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
-                            tooltip.innerHTML = `${timeStr} · ${y} sessions`;
+                            const data0 = u.data?.[0];
+                            const data1 = u.data?.[1];
+                            if (!data0 || !data1 || idx < 0 || idx >= data0.length) {
+                                tooltip.style.display = 'none';
+                                return;
+                            }
+                            const x = data0[idx];
+                            const y = data1[idx];
+                            if (!Number.isFinite(x) || !Number.isFinite(y)) {
+                                tooltip.style.display = 'none';
+                                return;
+                            }
                             const left = u.valToPos(x, 'x');
                             const top = u.valToPos(y, 'y');
+                            if (!Number.isFinite(left) || !Number.isFinite(top)) {
+                                tooltip.style.display = 'none';
+                                return;
+                            }
+                            const d = new Date(x * 1000);
+                            const timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+                            tooltip.innerHTML = `${timeStr} · ${Math.round(y)} sessions`;
                             tooltip.style.display = 'block';
                             tooltip.style.left = Math.min(left, u.over.clientWidth - 100) + 'px';
                             tooltip.style.top = Math.max(0, top - 40) + 'px';
@@ -490,16 +869,21 @@
             const opts = {
                 width: container.clientWidth || 300,
                 height: options.height || 120,
+                cursor: { drag: { x: true, y: false, setScale: true } },
                 legend: { show: false },
                 scales: { x: { time: true }, y: { range: [0, null] } },
                 axes: [
                     {
-                        stroke: getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim(),
+                        stroke: getComputedStyle(document.documentElement).getPropertyValue('--text').trim(),
                         grid: { show: false }, ticks: { show: false },
                         values: (u, vals) => vals.map(v => new Date(v * 1000).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })),
                         size: 20, font: '10px system-ui'
                     },
-                    { show: false }
+                    {
+                        stroke: getComputedStyle(document.documentElement).getPropertyValue('--text').trim(),
+                        grid: { show: false }, ticks: { show: false },
+                        size: 30, font: '10px system-ui'
+                    }
                 ],
                 series: [
                     {},
@@ -509,7 +893,7 @@
                         paths: () => null
                     }
                 ],
-                plugins: [tooltipPlugin()],
+                plugins: [sessionsTooltipPlugin()],
                 hooks: {
                     draw: [u => {
                         const ctx = u.ctx;
@@ -537,9 +921,10 @@
                             }
                         }
 
-                        // Draw median line
-                        if (median > 0) {
-                            const yMed = u.valToPos(median, 'y', true);
+                        // Draw median line (use dynamic median from re-sampling)
+                        const currentMedian = u._median || 0;
+                        if (currentMedian > 0) {
+                            const yMed = u.valToPos(currentMedian, 'y', true);
                             const { left, width } = u.bbox;
                             ctx.save();
                             ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim();
@@ -551,12 +936,40 @@
                             ctx.stroke();
                             ctx.restore();
                         }
+                    }],
+                    setScale: [u => {
+                        // Re-sample on zoom
+                        if (!u._events || u._resampling) return;
+                        const xScale = u.scales.x;
+                        const newMin = xScale.min;
+                        const newMax = xScale.max;
+                        if (newMin == null || newMax == null) return;
+
+                        const rangeChanged = !u._lastRange || Math.abs(u._lastRange[0] - newMin) > 1 || Math.abs(u._lastRange[1] - newMax) > 1;
+
+                        if (rangeChanged) {
+                            u._lastRange = [newMin, newMax];
+                            const { xData: newX, yData: newY, median: newMedian } = binConcurrentSessions(u._events, newMin, newMax, u._interval);
+                            u._median = newMedian;
+                            u._resampling = true;
+                            u.setData([newX, newY], false);
+                            u._resampling = false;
+                            // Force batch/commit cycle to reset internal state
+                            u.batch(() => {
+                                u.setScale('x', { min: newMin, max: newMax });
+                            });
+                        }
                     }]
                 }
             };
 
             const chart = new uPlot(opts, [xData, yData], container);
             charts.set(containerId, chart);
+
+            // Store data for re-sampling
+            chart._events = events;
+            chart._interval = interval;
+            chart._originalXRange = [minT, maxT];
             chart._median = median;
 
             const resizeObserver = new ResizeObserver(() => {
@@ -569,20 +982,21 @@
 
         // Build chart container HTML with controls
         function buildChartContainer(id, title, options = {}) {
-            const showBucketControl = options.showBucketControl !== false;
-            const currentBuckets = chartBucketsMap.get(id) || defaultBuckets;
+            const showIntervalControl = options.showBucketControl !== false;
+            const currentInterval = chartIntervalMap.get(id) ?? defaultInterval;
             return `
                 <div class="chart-container">
                     <div class="chart-controls">
                         <span class="subsection-title" style="margin: 0; font-size: 0.7rem;">${title}</span>
                         <div style="display: flex; gap: 0.5rem; align-items: center;">
                             <span class="zoom-hint">drag to zoom</span>
-                            ${showBucketControl ? `
-                                <select onchange="updateChartBuckets('${id}', this.value)">
-                                    <option value="15" ${currentBuckets === 15 ? 'selected' : ''}>15 buckets</option>
-                                    <option value="30" ${currentBuckets === 30 ? 'selected' : ''}>30 buckets</option>
-                                    <option value="60" ${currentBuckets === 60 ? 'selected' : ''}>60 buckets</option>
-                                    <option value="120" ${currentBuckets === 120 ? 'selected' : ''}>120 buckets</option>
+                            ${showIntervalControl ? `
+                                <select onchange="updateChartInterval('${id}', this.value)">
+                                    <option value="0" ${currentInterval === 0 ? 'selected' : ''}>Auto</option>
+                                    <option value="60" ${currentInterval === 60 ? 'selected' : ''}>1 min</option>
+                                    <option value="300" ${currentInterval === 300 ? 'selected' : ''}>5 min</option>
+                                    <option value="900" ${currentInterval === 900 ? 'selected' : ''}>15 min</option>
+                                    <option value="3600" ${currentInterval === 3600 ? 'selected' : ''}>1h</option>
                                 </select>
                             ` : ''}
                             <button onclick="resetChartZoom('${id}')">Reset</button>
@@ -594,30 +1008,32 @@
             `;
         }
 
-        // Update chart with new bucket count
-        function updateChartBuckets(chartId, buckets) {
-            const numBuckets = parseInt(buckets);
-            chartBucketsMap.set(chartId, numBuckets);
+        // Update chart with new interval
+        function updateChartInterval(chartId, intervalValue) {
+            const interval = parseInt(intervalValue);
+            chartIntervalMap.set(chartId, interval);
 
             // Recreate only this specific chart
             const data = chartData.get(chartId);
             if (data) {
                 const color = chartId.includes('tempfiles') ? getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() : null;
                 if (data?.type === 'sessions') {
-                    createConcurrentChart(chartId, data.data, { color: color || 'var(--accent)', buckets: numBuckets });
+                    createConcurrentChart(chartId, data.data, { color: color || 'var(--accent)', interval });
                 } else if (data?.type === 'histogram') {
-                    // Pre-computed histogram can't change buckets
+                    // Pre-computed histogram can't change interval
                 } else {
-                    createTimeChart(chartId, data, { color, buckets: numBuckets });
+                    createTimeChart(chartId, data, { color, interval });
                 }
             }
         }
 
-        // Reset chart zoom
+        // Reset chart zoom and re-sample to original range
         function resetChartZoom(chartId) {
             const chart = charts.get(chartId);
             if (chart && chart._originalXRange) {
                 const [min, max] = chart._originalXRange;
+                // Clear lastRange to force re-sampling
+                chart._lastRange = null;
                 chart.setScale('x', { min, max });
             }
         }
@@ -628,7 +1044,7 @@
         // Modal state
         let modalChart = null;
         let modalChartId = null;
-        let modalBuckets = 30;
+        let modalInterval = 0;  // 0 = Auto
 
         // Open chart in modal
         function openChartModal(chartId, title) {
@@ -636,16 +1052,16 @@
             if (!data) return;
 
             modalChartId = chartId;
-            modalBuckets = chartBucketsMap.get(chartId) || defaultBuckets;
+            modalInterval = chartIntervalMap.get(chartId) ?? defaultInterval;
 
             document.getElementById('modalChartTitle').textContent = title;
-            document.getElementById('modalBucketSelect').value = modalBuckets;
+            document.getElementById('modalBucketSelect').value = modalInterval;
             document.getElementById('chartModal').classList.add('active');
             document.body.style.overflow = 'hidden';
 
-            // Hide bucket select for pre-computed histograms
-            const bucketSelect = document.getElementById('modalBucketSelect');
-            bucketSelect.style.display = data?.type === 'histogram' ? 'none' : '';
+            // Hide interval select for pre-computed histograms
+            const intervalSelect = document.getElementById('modalBucketSelect');
+            intervalSelect.style.display = data?.type === 'histogram' ? 'none' : '';
 
             // Create expanded chart
             setTimeout(() => renderModalChart(), 50);
@@ -664,10 +1080,15 @@
                 : null;
 
             // Create larger chart
-            if (data?.type === 'sessions') {
+            if (data?.type === 'checkpoints') {
+                modalChart = createCheckpointChartLarge(container, data, {
+                    interval: modalInterval,
+                    height: 350
+                });
+            } else if (data?.type === 'sessions') {
                 modalChart = createConcurrentChartLarge(container, data.data, {
                     color: color || 'var(--accent)',
-                    buckets: modalBuckets,
+                    interval: modalInterval,
                     height: 350
                 });
             } else if (data?.type === 'histogram') {
@@ -678,7 +1099,7 @@
             } else {
                 modalChart = createTimeChartLarge(container, data, {
                     color,
-                    buckets: modalBuckets,
+                    interval: modalInterval,
                     height: 350
                 });
             }
@@ -688,32 +1109,16 @@
         function createTimeChartLarge(container, timestamps, options = {}) {
             if (!timestamps?.length) return null;
 
-            const buckets = options.buckets || modalBuckets;
             const height = options.height || 350;
-            const times = timestamps.map(t => new Date(t).getTime()).filter(t => !isNaN(t)).sort((a, b) => a - b);
+            // Parse and store times in seconds for consistency
+            const times = timestamps.map(t => new Date(t).getTime() / 1000).filter(t => !isNaN(t)).sort((a, b) => a - b);
             if (times.length === 0) return null;
 
-            const min = times[0], max = times[times.length - 1];
-            const range = max - min || 1;
-            const bucketSize = range / buckets;
+            const minT = times[0], maxT = times[times.length - 1];
+            const interval = options.interval !== undefined ? options.interval : modalInterval;
 
-            const counts = new Array(buckets).fill(0);
-            times.forEach(t => {
-                const idx = Math.min(Math.floor((t - min) / bucketSize), buckets - 1);
-                counts[idx]++;
-            });
-
-            const xData = new Float64Array(buckets);
-            const yData = new Float64Array(buckets);
-            for (let i = 0; i < buckets; i++) {
-                xData[i] = (min + (i + 0.5) * bucketSize) / 1000;
-                yData[i] = counts[i];
-            }
-
-            // Calculate median for reference line
-            const sortedY = [...yData].filter(v => v > 0).sort((a, b) => a - b);
-            const median = sortedY.length > 0 ? sortedY[Math.floor(sortedY.length / 2)] : 0;
-            const maxY = Math.max(...yData) || 1;
+            // Initial binning
+            const { xData, yData, median } = binTimestamps(times, minT, maxT, interval);
 
             // Resolve CSS variable to actual color for canvas
             const resolveColor = (c) => {
@@ -724,11 +1129,11 @@
                 return c || '#5a9bd5';
             };
             const baseColor = resolveColor(options.color) || resolveColor('var(--chart-bar)');
-            const textColor = resolveColor('var(--text-muted)');
+            const textColor = resolveColor('var(--text)');
             const borderColor = resolveColor('var(--border)');
 
             // Add padding to prevent bars from being cut off
-            const xPadding = (xData[xData.length - 1] - xData[0]) / (buckets * 2);
+            const xPadding = (xData[xData.length - 1] - xData[0]) / (xData.length * 2);
             const xMin = xData[0] - xPadding;
             const xMax = xData[xData.length - 1] + xPadding;
 
@@ -784,9 +1189,10 @@
                             }
                         }
 
-                        // Draw median line
-                        if (median > 0) {
-                            const yMed = u.valToPos(median, 'y', true);
+                        // Draw median line (use dynamic median from re-sampling)
+                        const currentMedian = u._median || 0;
+                        if (currentMedian > 0) {
+                            const yMed = u.valToPos(currentMedian, 'y', true);
                             const { left, width } = u.bbox;
                             ctx.save();
                             ctx.strokeStyle = textColor;
@@ -798,12 +1204,39 @@
                             ctx.stroke();
                             ctx.restore();
                         }
+                    }],
+                    setScale: [u => {
+                        // Re-sample on zoom
+                        if (!u._times || u._resampling) return;
+                        const xScale = u.scales.x;
+                        const newMin = xScale.min;
+                        const newMax = xScale.max;
+                        if (newMin == null || newMax == null) return;
+
+                        const rangeChanged = !u._lastRange || Math.abs(u._lastRange[0] - newMin) > 1 || Math.abs(u._lastRange[1] - newMax) > 1;
+
+                        if (rangeChanged) {
+                            u._lastRange = [newMin, newMax];
+                            const { xData: newX, yData: newY, median: newMedian } = binTimestamps(u._times, newMin, newMax, u._interval);
+                            u._median = newMedian;
+                            u._resampling = true;
+                            u.setData([newX, newY], false);
+                            u._resampling = false;
+                            // Force batch/commit cycle to reset cursor state
+                            u.batch(() => {
+                                u.setScale('x', { min: newMin, max: newMax });
+                            });
+                        }
                     }]
                 }
             };
 
             const chart = new uPlot(opts, [xData, yData], container);
-            chart._originalXRange = [xMin, xMax];
+
+            // Store data for re-sampling
+            chart._times = times;
+            chart._interval = interval;
+            chart._originalXRange = [minT, maxT];
             chart._median = median;
             return chart;
         }
@@ -822,43 +1255,13 @@
             if (events.length === 0) return null;
 
             events.sort((a, b) => a.time - b.time || b.delta - a.delta);
-            const points = [];
-            let concurrent = 0;
-            events.forEach(e => {
-                concurrent += e.delta;
-                points.push({ time: e.time, value: concurrent });
-            });
 
-            const min = points[0].time, max = points[points.length - 1].time;
-            const range = (max - min) / 1000;
-            const buckets = options.buckets || modalBuckets;
-            const minBucketDuration = 60;
-            const maxBuckets = Math.max(1, Math.floor(range / minBucketDuration));
-            const effectiveBuckets = Math.min(buckets, maxBuckets);
-            const bucketSize = (max - min) / effectiveBuckets;
+            const minT = events[0].time / 1000;
+            const maxT = events[events.length - 1].time / 1000;
+            const interval = options.interval !== undefined ? options.interval : modalInterval;
 
-            const maxValues = new Array(effectiveBuckets).fill(0);
-            let pi = 0;
-            for (let b = 0; b < effectiveBuckets; b++) {
-                const bucketEnd = min + (b + 1) * bucketSize;
-                while (pi < points.length && points[pi].time <= bucketEnd) {
-                    maxValues[b] = Math.max(maxValues[b], points[pi].value);
-                    pi++;
-                }
-                if (b > 0 && maxValues[b] === 0) maxValues[b] = maxValues[b - 1];
-            }
-
-            const xData = new Float64Array(effectiveBuckets);
-            const yData = new Float64Array(effectiveBuckets);
-            for (let i = 0; i < effectiveBuckets; i++) {
-                xData[i] = (min + (i + 0.5) * bucketSize) / 1000;
-                yData[i] = maxValues[i];
-            }
-
-            // Calculate median and max for styling
-            const sortedY = [...yData].filter(v => v > 0).sort((a, b) => a - b);
-            const median = sortedY.length > 0 ? sortedY[Math.floor(sortedY.length / 2)] : 0;
-            const maxY = Math.max(...yData) || 1;
+            // Initial binning
+            const { xData, yData, median } = binConcurrentSessions(events, minT, maxT, interval);
 
             // Resolve CSS variable to actual color for canvas
             const resolveColor = (c) => {
@@ -868,13 +1271,56 @@
                 }
                 return c || '#5a9bd5';
             };
-            const baseColor = resolveColor(options.color) || resolveColor('var(--chart-bar)');
-            const textColor = resolveColor('var(--text-muted)');
+            const baseColor = resolveColor(options.color) || resolveColor('var(--accent)');
+            const textColor = resolveColor('var(--text)');
             const borderColor = resolveColor('var(--border)');
             const height = options.height || 350;
 
+            // Tooltip for sessions (modal) - no _resampling check
+            function sessionsTooltipPlugin() {
+                let tooltip = null;
+                return {
+                    hooks: {
+                        init: u => {
+                            tooltip = document.createElement('div');
+                            tooltip.className = 'chart-tooltip';
+                            tooltip.style.display = 'none';
+                            u.over.appendChild(tooltip);
+                        },
+                        setCursor: u => {
+                            const { idx } = u.cursor;
+                            if (idx == null) { tooltip.style.display = 'none'; return; }
+                            const data0 = u.data?.[0];
+                            const data1 = u.data?.[1];
+                            if (!data0 || !data1 || idx < 0 || idx >= data0.length) {
+                                tooltip.style.display = 'none';
+                                return;
+                            }
+                            const x = data0[idx];
+                            const y = data1[idx];
+                            if (!Number.isFinite(x) || !Number.isFinite(y)) {
+                                tooltip.style.display = 'none';
+                                return;
+                            }
+                            const left = u.valToPos(x, 'x');
+                            const top = u.valToPos(y, 'y');
+                            if (!Number.isFinite(left) || !Number.isFinite(top)) {
+                                tooltip.style.display = 'none';
+                                return;
+                            }
+                            const d = new Date(x * 1000);
+                            const timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+                            tooltip.innerHTML = `${timeStr} · ${Math.round(y)} sessions`;
+                            tooltip.style.display = 'block';
+                            tooltip.style.left = Math.min(left, u.over.clientWidth - 100) + 'px';
+                            tooltip.style.top = Math.max(0, top - 40) + 'px';
+                        }
+                    }
+                };
+            }
+
             // Add padding to prevent bars from being cut off
-            const xPadding = (xData[xData.length - 1] - xData[0]) / (effectiveBuckets * 2);
+            const xPadding = (xData[xData.length - 1] - xData[0]) / (xData.length * 2);
             const xMin = xData[0] - xPadding;
             const xMax = xData[xData.length - 1] + xPadding;
 
@@ -902,7 +1348,7 @@
                         paths: () => null
                     }
                 ],
-                plugins: [tooltipPlugin()],
+                plugins: [sessionsTooltipPlugin()],
                 hooks: {
                     draw: [u => {
                         const ctx = u.ctx;
@@ -930,9 +1376,10 @@
                             }
                         }
 
-                        // Draw median line
-                        if (median > 0) {
-                            const yMed = u.valToPos(median, 'y', true);
+                        // Draw median line (use dynamic median from re-sampling)
+                        const currentMedian = u._median || 0;
+                        if (currentMedian > 0) {
+                            const yMed = u.valToPos(currentMedian, 'y', true);
                             const { left, width } = u.bbox;
                             ctx.save();
                             ctx.strokeStyle = textColor;
@@ -944,12 +1391,39 @@
                             ctx.stroke();
                             ctx.restore();
                         }
+                    }],
+                    setScale: [u => {
+                        // Re-sample on zoom
+                        if (!u._events || u._resampling) return;
+                        const xScale = u.scales.x;
+                        const newMin = xScale.min;
+                        const newMax = xScale.max;
+                        if (newMin == null || newMax == null) return;
+
+                        const rangeChanged = !u._lastRange || Math.abs(u._lastRange[0] - newMin) > 1 || Math.abs(u._lastRange[1] - newMax) > 1;
+
+                        if (rangeChanged) {
+                            u._lastRange = [newMin, newMax];
+                            const { xData: newX, yData: newY, median: newMedian } = binConcurrentSessions(u._events, newMin, newMax, u._interval);
+                            u._median = newMedian;
+                            u._resampling = true;
+                            u.setData([newX, newY], false);
+                            u._resampling = false;
+                            // Force batch/commit cycle to reset internal state
+                            u.batch(() => {
+                                u.setScale('x', { min: newMin, max: newMax });
+                            });
+                        }
                     }]
                 }
             };
 
             const chart = new uPlot(opts, [xData, yData], container);
-            chart._originalXRange = [xMin, xMax];
+
+            // Store data for re-sampling
+            chart._events = events;
+            chart._interval = interval;
+            chart._originalXRange = [minT, maxT];
             chart._median = median;
             return chart;
         }
@@ -979,7 +1453,7 @@
                 return c || '#5a9bd5';
             };
             const baseColor = resolveColor(options.color) || resolveColor('var(--chart-bar)');
-            const textColor = resolveColor('var(--text-muted)');
+            const textColor = resolveColor('var(--text)');
             const borderColor = resolveColor('var(--border)');
             const height = options.height || 350;
 
@@ -1062,6 +1536,211 @@
             return chart;
         }
 
+        // Create large stacked checkpoint chart for modal
+        function createCheckpointChartLarge(container, data, options = {}) {
+            if (!data?.all || data.all.length === 0) return null;
+
+            const height = options.height || 350;
+
+            // Parse all timestamps for range calculation
+            const allTimes = data.all.map(t => new Date(t).getTime() / 1000).filter(t => !isNaN(t)).sort((a, b) => a - b);
+            if (allTimes.length === 0) return null;
+
+            // Parse type-specific timestamps
+            const typeData = {
+                time: (data.types?.time || []).map(t => new Date(t).getTime() / 1000).filter(t => !isNaN(t)),
+                wal: (data.types?.wal || []).map(t => new Date(t).getTime() / 1000).filter(t => !isNaN(t)),
+                other: (data.types?.other || []).map(t => new Date(t).getTime() / 1000).filter(t => !isNaN(t))
+            };
+
+            const minT = allTimes[0];
+            const maxT = allTimes[allTimes.length - 1];
+            const interval = options.interval !== undefined ? options.interval : modalInterval;
+
+            // Initial binning
+            const { xData, series } = binCheckpointsByType(typeData, minT, maxT, interval);
+
+            // Resolve CSS variable to actual color for canvas
+            const resolveColor = (c) => {
+                if (c && c.startsWith('var(')) {
+                    const varName = c.slice(4, -1);
+                    return getComputedStyle(document.documentElement).getPropertyValue(varName).trim() || '#5a9bd5';
+                }
+                return c || '#5a9bd5';
+            };
+
+            // Colors for checkpoint types
+            const colors = {
+                time: resolveColor('var(--chart-bar)'),
+                wal: getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#f47920',
+                other: '#909399' // gray
+            };
+            const textColor = resolveColor('var(--text)');
+            const borderColor = resolveColor('var(--border)');
+
+            // Tooltip for modal
+            const tooltip = document.createElement('div');
+            tooltip.className = 'chart-tooltip';
+            tooltip.style.cssText = 'position:absolute;display:none;padding:6px 10px;background:var(--bg);border:1px solid var(--border);border-radius:4px;font-size:12px;pointer-events:none;z-index:100;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.15);';
+
+            const checkpointTooltipPlugin = () => ({
+                hooks: {
+                    init: u => {
+                        u.root.querySelector('.u-over').appendChild(tooltip);
+                    },
+                    setCursor: u => {
+                        if (u._resampling) { tooltip.style.display = 'none'; return; }
+                        const { idx, left, top } = u.cursor;
+                        const data0 = u.data[0];
+                        if (idx == null || !data0 || idx < 0 || idx >= data0.length) {
+                            tooltip.style.display = 'none';
+                            return;
+                        }
+                        const x = data0[idx];
+                        if (x === undefined || !Number.isFinite(x)) {
+                            tooltip.style.display = 'none';
+                            return;
+                        }
+                        const timeVal = u.data[1][idx] || 0;
+                        const xlogVal = u.data[2][idx] || 0;
+                        const otherVal = u.data[3][idx] || 0;
+                        const total = timeVal + xlogVal + otherVal;
+                        if (total === 0) {
+                            tooltip.style.display = 'none';
+                            return;
+                        }
+                        const d = new Date(x * 1000);
+                        const timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+                        let parts = [];
+                        if (timeVal > 0) parts.push(`<span style="color:${colors.time}">${timeVal} timed</span>`);
+                        if (xlogVal > 0) parts.push(`<span style="color:${colors.wal}">${xlogVal} WAL</span>`);
+                        if (otherVal > 0) parts.push(`<span style="color:${colors.other}">${otherVal} other</span>`);
+                        tooltip.innerHTML = `<strong>${timeStr}</strong><br>${parts.join(' · ')}`;
+                        tooltip.style.display = 'block';
+                        const ttWidth = tooltip.offsetWidth;
+                        const ttHeight = tooltip.offsetHeight;
+                        const chartWidth = u.bbox.width;
+                        let ttLeft = left - ttWidth / 2;
+                        if (ttLeft < 0) ttLeft = 0;
+                        if (ttLeft + ttWidth > chartWidth) ttLeft = chartWidth - ttWidth;
+                        tooltip.style.left = ttLeft + 'px';
+                        tooltip.style.top = (top - ttHeight - 10) + 'px';
+                    }
+                }
+            });
+
+            // Add padding to prevent bars from being cut off
+            const xPadding = (xData[xData.length - 1] - xData[0]) / (xData.length * 2);
+            const xMin = xData[0] - xPadding;
+            const xMax = xData[xData.length - 1] + xPadding;
+
+            const opts = {
+                width: container.clientWidth || 1100,
+                height: height,
+                cursor: { drag: { x: true, y: false, setScale: true } },
+                select: { show: true },
+                legend: { show: false },
+                scales: {
+                    x: { time: true },
+                    y: { range: [0, null] }
+                },
+                axes: [
+                    { stroke: textColor, grid: { stroke: borderColor, width: 1 }, size: 50, font: '12px sans-serif', ticks: { stroke: borderColor } },
+                    { stroke: textColor, grid: { stroke: borderColor, width: 1 }, size: 50, font: '12px sans-serif', ticks: { stroke: borderColor } }
+                ],
+                series: [
+                    {},
+                    { fill: 'transparent', stroke: 'transparent', width: 0, points: { show: false }, paths: () => null },
+                    { fill: 'transparent', stroke: 'transparent', width: 0, points: { show: false }, paths: () => null },
+                    { fill: 'transparent', stroke: 'transparent', width: 0, points: { show: false }, paths: () => null }
+                ],
+                plugins: [checkpointTooltipPlugin()],
+                hooks: {
+                    draw: [u => {
+                        const ctx = u.ctx;
+                        const xd = u.data[0];
+                        const timeSeries = u.data[1];
+                        const xlogSeries = u.data[2];
+                        const otherSeries = u.data[3];
+                        const barWidth = Math.max(2, (u.bbox.width / xd.length) * 0.75);
+                        const radius = Math.min(4, barWidth / 3);
+                        const y0 = u.valToPos(0, 'y', true);
+
+                        // Draw stacked bars: other (bottom), xlog (middle), time (top)
+                        for (let i = 0; i < xd.length; i++) {
+                            const x = u.valToPos(xd[i], 'x', true);
+                            let yBottom = y0;
+
+                            // Draw other (bottom)
+                            const otherVal = otherSeries[i] || 0;
+                            if (otherVal > 0) {
+                                const yTop = u.valToPos(otherVal, 'y', true);
+                                const h = yBottom - yTop;
+                                ctx.fillStyle = colors.other;
+                                ctx.fillRect(x - barWidth/2, yTop, barWidth, h);
+                                yBottom = yTop;
+                            }
+
+                            // Draw xlog (middle)
+                            const xlogVal = xlogSeries[i] || 0;
+                            if (xlogVal > 0) {
+                                const yTop = yBottom - (y0 - u.valToPos(xlogVal, 'y', true));
+                                const h = yBottom - yTop;
+                                ctx.fillStyle = colors.wal;
+                                ctx.fillRect(x - barWidth/2, yTop, barWidth, h);
+                                yBottom = yTop;
+                            }
+
+                            // Draw time (top) with rounded corners
+                            const timeVal = timeSeries[i] || 0;
+                            if (timeVal > 0) {
+                                const yTop = yBottom - (y0 - u.valToPos(timeVal, 'y', true));
+                                ctx.fillStyle = colors.time;
+                                ctx.beginPath();
+                                ctx.moveTo(x - barWidth/2, yBottom);
+                                ctx.lineTo(x - barWidth/2, yTop + radius);
+                                ctx.quadraticCurveTo(x - barWidth/2, yTop, x - barWidth/2 + radius, yTop);
+                                ctx.lineTo(x + barWidth/2 - radius, yTop);
+                                ctx.quadraticCurveTo(x + barWidth/2, yTop, x + barWidth/2, yTop + radius);
+                                ctx.lineTo(x + barWidth/2, yBottom);
+                                ctx.closePath();
+                                ctx.fill();
+                            }
+                        }
+                    }],
+                    setScale: [u => {
+                        if (!u._typeData || u._resampling) return;
+                        const xScale = u.scales.x;
+                        const newMin = xScale.min;
+                        const newMax = xScale.max;
+                        if (newMin == null || newMax == null) return;
+
+                        const rangeChanged = !u._lastRange || Math.abs(u._lastRange[0] - newMin) > 1 || Math.abs(u._lastRange[1] - newMax) > 1;
+                        if (rangeChanged) {
+                            u._lastRange = [newMin, newMax];
+                            const { xData: newX, series: newSeries } = binCheckpointsByType(u._typeData, newMin, newMax, u._interval);
+                            u._resampling = true;
+                            u.setData([newX, newSeries.time, newSeries.wal, newSeries.other], false);
+                            u._resampling = false;
+                            // Force batch/commit cycle to reset cursor state
+                            u.batch(() => {
+                                u.setScale('x', { min: newMin, max: newMax });
+                            });
+                        }
+                    }]
+                }
+            };
+
+            const chart = new uPlot(opts, [xData, series.time, series.wal, series.other], container);
+
+            // Store data for re-sampling
+            chart._typeData = typeData;
+            chart._interval = interval;
+            chart._originalXRange = [minT, maxT];
+
+            return chart;
+        }
+
         // Close modal
         function closeChartModal() {
             document.getElementById('chartModal').classList.remove('active');
@@ -1073,16 +1752,18 @@
             modalChartId = null;
         }
 
-        // Update modal buckets
-        function updateModalBuckets(buckets) {
-            modalBuckets = parseInt(buckets);
+        // Update modal interval
+        function updateModalInterval(intervalValue) {
+            modalInterval = parseInt(intervalValue);
             renderModalChart();
         }
 
-        // Reset modal zoom
+        // Reset modal zoom and re-sample to original range
         function resetModalZoom() {
             if (modalChart && modalChart._originalXRange) {
                 const [min, max] = modalChart._originalXRange;
+                // Clear lastRange to force re-sampling
+                modalChart._lastRange = null;
                 modalChart.setScale('x', { min, max });
             }
         }
@@ -1413,8 +2094,10 @@
             requestAnimationFrame(() => {
                 chartData.forEach((data, chartId) => {
                     const color = chartId.includes('tempfiles') ? getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() : null;
-                    // Check data type: sessions (sweep-line), histogram (pre-computed), or timestamps
-                    if (data?.type === 'sessions') {
+                    // Check data type: checkpoints (stacked), sessions (sweep-line), histogram (pre-computed), or timestamps
+                    if (data?.type === 'checkpoints') {
+                        createCheckpointChart(chartId, data);
+                    } else if (data?.type === 'sessions') {
                         createConcurrentChart(chartId, data.data, { color: color || 'var(--accent)' });
                     } else if (data?.type === 'histogram') {
                         createHistogramChart(chartId, data.data, { color: color || 'var(--accent)' });
@@ -1938,9 +2621,20 @@
             const req = (types.shutdown?.count || 0) + (types['immediate force wait']?.count || 0);
             const hasEvents = cp.events?.length > 0;
 
-            // Store checkpoint timestamps for chart creation
+            // Store checkpoint data by type for multi-series chart
             if (hasEvents) {
-                chartData.set('chart-checkpoints', cp.events);
+                chartData.set('chart-checkpoints', {
+                    type: 'checkpoints',
+                    all: cp.events,
+                    types: {
+                        time: types.time?.events || [],
+                        wal: types.wal?.events || [],
+                        other: [
+                            ...(types.shutdown?.events || []),
+                            ...(types['immediate force wait']?.events || [])
+                        ]
+                    }
+                });
             }
 
             return `
@@ -1955,7 +2649,14 @@
                             <div class="stat-card"><div class="stat-value">${cp.avg_checkpoint_time || '-'}</div><div class="stat-label">Avg</div></div>
                             <div class="stat-card"><div class="stat-value">${cp.max_checkpoint_time || '-'}</div><div class="stat-label">Max</div></div>
                         </div>
-                        ${hasEvents ? buildChartContainer('chart-checkpoints', 'Checkpoint Distribution', { showFilterBtn: false }) : ''}
+                        ${hasEvents ? `
+                            ${buildChartContainer('chart-checkpoints', 'Checkpoint Distribution', { showFilterBtn: false })}
+                            <div class="chart-legend" style="display:flex;gap:16px;justify-content:center;margin-top:8px;font-size:12px;">
+                                <span><span style="display:inline-block;width:12px;height:12px;background:var(--chart-bar);border-radius:2px;vertical-align:middle;margin-right:4px;"></span>Timed</span>
+                                <span><span style="display:inline-block;width:12px;height:12px;background:var(--accent);border-radius:2px;vertical-align:middle;margin-right:4px;"></span>WAL</span>
+                                <span><span style="display:inline-block;width:12px;height:12px;background:#909399;border-radius:2px;vertical-align:middle;margin-right:4px;"></span>Other</span>
+                            </div>
+                        ` : ''}
                     </div>
                 </div>
             `;
@@ -2810,7 +3511,7 @@
             };
 
             const baseColor = resolveColor(options.color || 'var(--primary)');
-            const textColor = resolveColor('var(--text-muted)');
+            const textColor = resolveColor('var(--text)');
             const height = options.height || 100;
 
             // Calculate median and max for styling
@@ -2901,10 +3602,14 @@
                         u.over.appendChild(tooltip);
                     },
                     setCursor: u => {
+                        if (u._resampling) { tooltip.style.display = 'none'; return; }
                         const { idx } = u.cursor;
-                        if (idx == null) { tooltip.style.display = 'none'; return; }
-                        const x = u.data[0][idx];
-                        const y = u.data[1][idx];
+                        const data0 = u.data[0];
+                        const data1 = u.data[1];
+                        if (idx == null || !data0 || idx < 0 || idx >= data0.length) { tooltip.style.display = 'none'; return; }
+                        const x = data0[idx];
+                        const y = data1[idx];
+                        if (x === undefined || y === undefined || !Number.isFinite(x)) { tooltip.style.display = 'none'; return; }
                         const d = new Date(x * 1000);
                         const timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
                         const valStr = valueFormatter ? valueFormatter(y) : y;
