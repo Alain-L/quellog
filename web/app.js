@@ -505,6 +505,7 @@
                 hooks: {
                     draw: [u => {
                         const ctx = u.ctx;
+                        ctx.save();
                         const xd = u.data[0];
                         const yd = u.data[1];
                         const barWidth = Math.max(2, (u.bbox.width / xd.length) * 0.75);
@@ -535,7 +536,6 @@
                         if (currentMedian > 0) {
                             const yMed = u.valToPos(currentMedian, 'y', true);
                             const { left, width } = u.bbox;
-                            ctx.save();
                             ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim();
                             ctx.lineWidth = 1;
                             ctx.setLineDash([4, 4]);
@@ -543,8 +543,8 @@
                             ctx.moveTo(left, yMed);
                             ctx.lineTo(left + width, yMed);
                             ctx.stroke();
-                            ctx.restore();
                         }
+                        ctx.restore();
                     }],
                     setSelect: [u => {
                         if (onSelect && u.select.width > 10) {
@@ -695,7 +695,7 @@
                         stroke: getComputedStyle(document.documentElement).getPropertyValue('--text').trim(),
                         grid: { show: false },
                         ticks: { show: false },
-                        size: 30,
+                        size: 40,
                         font: '10px system-ui',
                         values: (u, vals) => vals.map(v => v >= 60 ? `${(v/60).toFixed(0)}m` : `${v.toFixed(0)}s`)
                     }
@@ -714,6 +714,7 @@
                 hooks: {
                     draw: [u => {
                         const ctx = u.ctx;
+                        ctx.save();
                         const xd = u.data[0];
                         const yd = u.data[1];
                         const barWidth = Math.max(2, (u.bbox.width / xd.length) * 0.75);
@@ -743,7 +744,6 @@
                         if (currentMedian > 0) {
                             const yMed = u.valToPos(currentMedian, 'y', true);
                             const { left, width } = u.bbox;
-                            ctx.save();
                             ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim();
                             ctx.lineWidth = 1;
                             ctx.setLineDash([4, 4]);
@@ -751,8 +751,8 @@
                             ctx.moveTo(left, yMed);
                             ctx.lineTo(left + width, yMed);
                             ctx.stroke();
-                            ctx.restore();
                         }
+                        ctx.restore();
                     }],
                     setScale: [u => {
                         if (!u._executions || u._resampling) return;
@@ -936,6 +936,7 @@
                 hooks: {
                     draw: [u => {
                         const ctx = u.ctx;
+                        ctx.save();
                         const xd = u.data[0];
                         const yd = u.data[1];
                         const barWidth = Math.max(4, (u.bbox.width / xd.length) * 0.75);
@@ -965,7 +966,6 @@
                         if (median > 0) {
                             const yMed = u.valToPos(median, 'y', true);
                             const { left, width } = u.bbox;
-                            ctx.save();
                             ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim();
                             ctx.lineWidth = 1;
                             ctx.setLineDash([4, 4]);
@@ -973,8 +973,8 @@
                             ctx.moveTo(left, yMed);
                             ctx.lineTo(left + width, yMed);
                             ctx.stroke();
-                            ctx.restore();
                         }
+                        ctx.restore();
                     }]
                 }
             };
@@ -1116,6 +1116,7 @@
                 hooks: {
                     draw: [u => {
                         const ctx = u.ctx;
+                        ctx.save();
                         const xd = u.data[0], yd = u.data[1];
                         const barWidth = Math.max(2, (u.bbox.width / xd.length) * 0.75);
                         const radius = Math.min(3, barWidth / 3);
@@ -1145,7 +1146,6 @@
                         if (currentMedian > 0) {
                             const yMed = u.valToPos(currentMedian, 'y', true);
                             const { left, width } = u.bbox;
-                            ctx.save();
                             ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim();
                             ctx.lineWidth = 1;
                             ctx.setLineDash([4, 4]);
@@ -1153,8 +1153,8 @@
                             ctx.moveTo(left, yMed);
                             ctx.lineTo(left + width, yMed);
                             ctx.stroke();
-                            ctx.restore();
                         }
+                        ctx.restore();
                     }],
                     setScale: [u => {
                         // Re-sample on zoom
@@ -1392,6 +1392,7 @@
                 hooks: {
                     draw: [u => {
                         const ctx = u.ctx;
+                        ctx.save();
                         const xd = u.data[0], yd = u.data[1];
                         const barWidth = Math.max(2, (u.bbox.width / xd.length) * 0.75);
                         const radius = Math.min(4, barWidth / 3);
@@ -1421,7 +1422,6 @@
                         if (currentMedian > 0) {
                             const yMed = u.valToPos(currentMedian, 'y', true);
                             const { left, width } = u.bbox;
-                            ctx.save();
                             ctx.strokeStyle = textColor;
                             ctx.lineWidth = 1;
                             ctx.setLineDash([4, 4]);
@@ -1429,8 +1429,8 @@
                             ctx.moveTo(left, yMed);
                             ctx.lineTo(left + width, yMed);
                             ctx.stroke();
-                            ctx.restore();
                         }
+                        ctx.restore();
                     }],
                     setScale: [u => {
                         // Re-sample on zoom
@@ -1563,6 +1563,7 @@
                 hooks: {
                     draw: [u => {
                         const ctx = u.ctx;
+                        ctx.save();
                         const xd = u.data[0], yd = u.data[1];
                         const barWidth = Math.max(2, (u.bbox.width / xd.length) * 0.75);
                         const radius = Math.min(4, barWidth / 3);
@@ -1591,7 +1592,6 @@
                         if (currentMedian > 0) {
                             const yMed = u.valToPos(currentMedian, 'y', true);
                             const { left, width } = u.bbox;
-                            ctx.save();
                             ctx.strokeStyle = resolveColor('var(--text-muted)');
                             ctx.lineWidth = 1;
                             ctx.setLineDash([4, 4]);
@@ -1599,8 +1599,8 @@
                             ctx.moveTo(left, yMed);
                             ctx.lineTo(left + width, yMed);
                             ctx.stroke();
-                            ctx.restore();
                         }
+                        ctx.restore();
                     }],
                     setScale: [u => {
                         if (!u._executions || u._resampling) return;
@@ -1746,6 +1746,7 @@
                 hooks: {
                     draw: [u => {
                         const ctx = u.ctx;
+                        ctx.save();
                         const xd = u.data[0], yd = u.data[1];
                         const barWidth = Math.max(2, (u.bbox.width / xd.length) * 0.75);
                         const radius = Math.min(4, barWidth / 3);
@@ -1775,7 +1776,6 @@
                         if (currentMedian > 0) {
                             const yMed = u.valToPos(currentMedian, 'y', true);
                             const { left, width } = u.bbox;
-                            ctx.save();
                             ctx.strokeStyle = textColor;
                             ctx.lineWidth = 1;
                             ctx.setLineDash([4, 4]);
@@ -1783,8 +1783,8 @@
                             ctx.moveTo(left, yMed);
                             ctx.lineTo(left + width, yMed);
                             ctx.stroke();
-                            ctx.restore();
                         }
+                        ctx.restore();
                     }],
                     setScale: [u => {
                         // Re-sample on zoom
@@ -1884,6 +1884,7 @@
                 hooks: {
                     draw: [u => {
                         const ctx = u.ctx;
+                        ctx.save();
                         const xd = u.data[0], yd = u.data[1];
                         const barWidth = Math.max(2, (u.bbox.width / xd.length) * 0.75);
                         const radius = Math.min(4, barWidth / 3);
@@ -1910,7 +1911,6 @@
                         if (median > 0) {
                             const y = u.valToPos(median, 'y', true);
                             const { left, width } = u.bbox;
-                            ctx.save();
                             ctx.strokeStyle = textColor;
                             ctx.lineWidth = 1;
                             ctx.setLineDash([4, 4]);
@@ -1918,8 +1918,8 @@
                             ctx.moveTo(left, y);
                             ctx.lineTo(left + width, y);
                             ctx.stroke();
-                            ctx.restore();
                         }
+                        ctx.restore();
                     }]
                 }
             };
@@ -3953,6 +3953,7 @@
                 hooks: {
                     draw: [u => {
                         const ctx = u.ctx;
+                        ctx.save();
                         const xd = u.data[0], yd = u.data[1];
                         const barWidth = Math.max(6, (u.bbox.width / xd.length) * 0.7);
                         const radius = Math.min(3, barWidth / 3);
@@ -3979,7 +3980,6 @@
                         if (median > 0) {
                             const y = u.valToPos(median, 'y', true);
                             const { left, width } = u.bbox;
-                            ctx.save();
                             ctx.strokeStyle = textColor;
                             ctx.lineWidth = 1;
                             ctx.setLineDash([4, 4]);
@@ -3987,8 +3987,8 @@
                             ctx.moveTo(left, y);
                             ctx.lineTo(left + width, y);
                             ctx.stroke();
-                            ctx.restore();
                         }
+                        ctx.restore();
                     }]
                 }
             };
