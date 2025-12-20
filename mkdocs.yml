@@ -77,3 +77,4 @@ nav:
       - Filtering Output: filtering-output.md
       - JSON Export: json-export.md
       - Markdown Export: markdown-export.md
+      - HTML Export: html-export.md

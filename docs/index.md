@@ -17,7 +17,7 @@ SUMMARY
 ```
 
 !!! info "JSON Export"
-    Beyond terminal output, quellog provides comprehensive [JSON export](json-export.md) capabilities for seamless integration with dashboards, monitoring systems, and custom automation workflows.
+    Beyond terminal output, quellog provides comprehensive [JSON export](json-export.md) capabilities for seamless integration with dashboards, monitoring systems, and custom automation workflows. JSON is also the foundation for [standalone HTML reports](html-export.md).
 
 ## Why quellog?
 
@@ -353,6 +353,7 @@ Now that you're familiar with quellog, explore more advanced features:
 - [Filtering Logs](filtering-logs.md) - Advanced filtering techniques
 - [JSON Export](json-export.md) - Structured data export for automation
 - [Markdown Export](markdown-export.md) - Generate documentation-ready reports
+- [HTML Export](html-export.md) - Standalone interactive reports
 
 ## License
 

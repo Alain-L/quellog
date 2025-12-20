@@ -43,6 +43,16 @@ JSON format from `log_destination = 'jsonlog'` (PostgreSQL 15+) or cloud provide
 
 Cloud-specific JSON schemas are automatically detected and parsed.
 
+### CloudNative-PG (Kubernetes)
+
+Logs from the [CloudNative-PG](https://cloudnative-pg.io/) operator are automatically detected. CNPG wraps PostgreSQL logs in a Kubernetes-specific JSON envelope:
+
+```json
+{"level":"info","ts":"2025-01-13T14:32:18Z","logger":"postgres","msg":"record","record":{"log_time":"2025-01-13 14:32:18.456 UTC","message":"duration: 145.234 ms"}}
+```
+
+quellog extracts the inner `record` object and processes it as standard PostgreSQL JSON logs.
+
 ## Compression Formats
 
 ### gzip (.gz)
