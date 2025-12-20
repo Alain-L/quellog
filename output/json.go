@@ -266,13 +266,6 @@ type SessionStatsJSON struct {
 	Cumulated string `json:"cumulated_duration"`
 }
 
-// ConcurrentBucketJSON represents one bucket in the concurrent sessions histogram.
-type ConcurrentBucketJSON struct {
-	Label    string `json:"label"`
-	Count    int    `json:"count"`
-	PeakTime string `json:"peak_time,omitempty"`
-}
-
 type ConnectionsJSON struct {
 	ConnectionCount       int                         `json:"connection_count"`
 	AvgConnectionsPerHour string                      `json:"avg_connections_per_hour"`
@@ -289,9 +282,8 @@ type ConnectionsJSON struct {
 	SessionsByHost     map[string]SessionStatsJSON `json:"sessions_by_host,omitempty"`
 
 	// Concurrent sessions
-	PeakConcurrent            int                    `json:"peak_concurrent_sessions,omitempty"`
-	PeakConcurrentTime        string                 `json:"peak_concurrent_timestamp,omitempty"`
-	ConcurrentSessionsHistory []ConcurrentBucketJSON `json:"concurrent_sessions_histogram,omitempty"`
+	PeakConcurrent     int    `json:"peak_concurrent_sessions,omitempty"`
+	PeakConcurrentTime string `json:"peak_concurrent_timestamp,omitempty"`
 
 	// Raw events
 	Connections   []string           `json:"connections"`
@@ -595,25 +587,6 @@ func buildJSONData(m analysis.AggregatedMetrics, sections []string, full bool) m
 						Start: se.StartTime.Format("2006-01-02T15:04:05"),
 						End:   se.EndTime.Format("2006-01-02T15:04:05"),
 					})
-				}
-			}
-		}
-		// Pre-computed concurrent sessions histogram (12 buckets) as fallback
-		if len(m.Connections.SessionEvents) > 0 && !m.Global.MinTimestamp.IsZero() && !m.Global.MaxTimestamp.IsZero() {
-			hist, labels, _, peakTimes := computeConcurrentHistogram(
-				m.Connections.SessionEvents,
-				m.Global.MinTimestamp,
-				m.Global.MaxTimestamp,
-				12,
-			)
-			if len(labels) > 0 {
-				conn.ConcurrentSessionsHistory = make([]ConcurrentBucketJSON, len(labels))
-				for i, label := range labels {
-					bucket := ConcurrentBucketJSON{Label: label, Count: hist[label]}
-					if pt, ok := peakTimes[label]; ok && !pt.IsZero() {
-						bucket.PeakTime = pt.Format("15:04:05")
-					}
-					conn.ConcurrentSessionsHistory[i] = bucket
 				}
 			}
 		}

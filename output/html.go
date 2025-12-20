@@ -21,6 +21,7 @@ type HTMLReportInfo struct {
 	Filename    string
 	FileSize    int64
 	ProcessTime float64 // in milliseconds
+	Format      string  // detected log format (csv, json, stderr)
 }
 
 // ExportHTML exports metrics as a standalone HTML report with embedded data.
@@ -33,8 +34,12 @@ func ExportHTML(w io.Writer, metrics analysis.AggregatedMetrics, info HTMLReport
 	data := buildJSONData(metrics, sections, true)
 
 	// Add meta section required by the web UI
+	format := info.Format
+	if format == "" {
+		format = "stderr" // default
+	}
 	data["meta"] = map[string]interface{}{
-		"format":        "report",
+		"format":        format,
 		"entries":       metrics.Global.Count,
 		"filename":      info.Filename,
 		"filesize":      info.FileSize,

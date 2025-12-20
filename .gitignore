@@ -54,3 +54,7 @@ QUELLOG_WASM.md
 # Web interface (generated/large files)
 web/*.wasm
 web/quellog.html
+wasm/*.wasm
+
+# Profiling artifacts
+*.svg

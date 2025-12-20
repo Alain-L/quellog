@@ -548,6 +548,21 @@
                         const barWidth = Math.max(2, (u.bbox.width / xd.length) * 0.75);
                         const radius = Math.min(3, barWidth / 3);
 
+                        // Draw median line first (behind bars)
+                        const currentMedian = u._median || 0;
+                        if (currentMedian > 0) {
+                            const yMed = u.valToPos(currentMedian, 'y', true);
+                            const { left, width } = u.bbox;
+                            ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim();
+                            ctx.lineWidth = 1;
+                            ctx.setLineDash([4, 4]);
+                            ctx.beginPath();
+                            ctx.moveTo(left, yMed);
+                            ctx.lineTo(left + width, yMed);
+                            ctx.stroke();
+                            ctx.setLineDash([]);
+                        }
+
                         // Draw bars with gradient colors
                         for (let i = 0; i < xd.length; i++) {
                             const x = u.valToPos(xd[i], 'x', true);
@@ -566,20 +581,6 @@
                                 ctx.closePath();
                                 ctx.fill();
                             }
-                        }
-
-                        // Draw median line (use dynamic median from re-sampling)
-                        const currentMedian = u._median || 0;
-                        if (currentMedian > 0) {
-                            const yMed = u.valToPos(currentMedian, 'y', true);
-                            const { left, width } = u.bbox;
-                            ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim();
-                            ctx.lineWidth = 1;
-                            ctx.setLineDash([4, 4]);
-                            ctx.beginPath();
-                            ctx.moveTo(left, yMed);
-                            ctx.lineTo(left + width, yMed);
-                            ctx.stroke();
                         }
                         ctx.restore();
                     }],
@@ -757,6 +758,21 @@
                         const barWidth = Math.max(2, (u.bbox.width / xd.length) * 0.75);
                         const radius = Math.min(3, barWidth / 3);
 
+                        // Draw median line first (behind bars)
+                        const currentMedian = u._median || 0;
+                        if (currentMedian > 0) {
+                            const yMed = u.valToPos(currentMedian, 'y', true);
+                            const { left, width } = u.bbox;
+                            ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim();
+                            ctx.lineWidth = 1;
+                            ctx.setLineDash([4, 4]);
+                            ctx.beginPath();
+                            ctx.moveTo(left, yMed);
+                            ctx.lineTo(left + width, yMed);
+                            ctx.stroke();
+                            ctx.setLineDash([]);
+                        }
+
                         for (let i = 0; i < xd.length; i++) {
                             const x = u.valToPos(xd[i], 'x', true);
                             const y = u.valToPos(yd[i], 'y', true);
@@ -774,20 +790,6 @@
                                 ctx.closePath();
                                 ctx.fill();
                             }
-                        }
-
-                        // Draw median line
-                        const currentMedian = u._median || 0;
-                        if (currentMedian > 0) {
-                            const yMed = u.valToPos(currentMedian, 'y', true);
-                            const { left, width } = u.bbox;
-                            ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim();
-                            ctx.lineWidth = 1;
-                            ctx.setLineDash([4, 4]);
-                            ctx.beginPath();
-                            ctx.moveTo(left, yMed);
-                            ctx.lineTo(left + width, yMed);
-                            ctx.stroke();
                         }
                         ctx.restore();
                     }],
@@ -970,6 +972,23 @@
                         const barWidth = bothVisible ? totalBarWidth / 2 - 1 : totalBarWidth;
                         const radius = Math.min(2, barWidth / 4);
 
+                        // Draw median line first (behind bars)
+                        if (u._seriesVisible.count) {
+                            const currentMedian = u._medianCount || 0;
+                            if (currentMedian > 0) {
+                                const yMed = u.valToPos(currentMedian, 'y', true);
+                                const { left, width } = u.bbox;
+                                ctx.strokeStyle = mutedColor;
+                                ctx.lineWidth = 1;
+                                ctx.setLineDash([4, 4]);
+                                ctx.beginPath();
+                                ctx.moveTo(left, yMed);
+                                ctx.lineTo(left + width, yMed);
+                                ctx.stroke();
+                                ctx.setLineDash([]);
+                            }
+                        }
+
                         for (let i = 0; i < xd.length; i++) {
                             const xCenter = u.valToPos(xd[i], 'x', true);
                             const y0Count = u.valToPos(0, 'y', true);
@@ -1011,22 +1030,6 @@
                                     ctx.closePath();
                                     ctx.fill();
                                 }
-                            }
-                        }
-
-                        // Draw median line for count if visible
-                        if (u._seriesVisible.count) {
-                            const currentMedian = u._medianCount || 0;
-                            if (currentMedian > 0) {
-                                const yMed = u.valToPos(currentMedian, 'y', true);
-                                const { left, width } = u.bbox;
-                                ctx.strokeStyle = mutedColor;
-                                ctx.lineWidth = 1;
-                                ctx.setLineDash([4, 4]);
-                                ctx.beginPath();
-                                ctx.moveTo(left, yMed);
-                                ctx.lineTo(left + width, yMed);
-                                ctx.stroke();
                             }
                         }
                         ctx.restore();
@@ -1234,6 +1237,20 @@
                         const barWidth = Math.max(4, (u.bbox.width / xd.length) * 0.75);
                         const radius = Math.min(3, barWidth / 3);
 
+                        // Draw median line first (behind bars)
+                        if (median > 0) {
+                            const yMed = u.valToPos(median, 'y', true);
+                            const { left, width } = u.bbox;
+                            ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim();
+                            ctx.lineWidth = 1;
+                            ctx.setLineDash([4, 4]);
+                            ctx.beginPath();
+                            ctx.moveTo(left, yMed);
+                            ctx.lineTo(left + width, yMed);
+                            ctx.stroke();
+                            ctx.setLineDash([]);
+                        }
+
                         // Draw bars
                         for (let i = 0; i < xd.length; i++) {
                             const x = u.valToPos(xd[i], 'x', true);
@@ -1252,19 +1269,6 @@
                                 ctx.closePath();
                                 ctx.fill();
                             }
-                        }
-
-                        // Draw median line
-                        if (median > 0) {
-                            const yMed = u.valToPos(median, 'y', true);
-                            const { left, width } = u.bbox;
-                            ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim();
-                            ctx.lineWidth = 1;
-                            ctx.setLineDash([4, 4]);
-                            ctx.beginPath();
-                            ctx.moveTo(left, yMed);
-                            ctx.lineTo(left + width, yMed);
-                            ctx.stroke();
                         }
                         ctx.restore();
                     }]
@@ -1413,6 +1417,21 @@
                         const barWidth = Math.max(2, (u.bbox.width / xd.length) * 0.75);
                         const radius = Math.min(3, barWidth / 3);
 
+                        // Draw median line first (behind bars)
+                        const currentMedian = u._median || 0;
+                        if (currentMedian > 0) {
+                            const yMed = u.valToPos(currentMedian, 'y', true);
+                            const { left, width } = u.bbox;
+                            ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim();
+                            ctx.lineWidth = 1;
+                            ctx.setLineDash([4, 4]);
+                            ctx.beginPath();
+                            ctx.moveTo(left, yMed);
+                            ctx.lineTo(left + width, yMed);
+                            ctx.stroke();
+                            ctx.setLineDash([]);
+                        }
+
                         // Draw bars
                         for (let i = 0; i < xd.length; i++) {
                             const x = u.valToPos(xd[i], 'x', true);
@@ -1431,20 +1450,6 @@
                                 ctx.closePath();
                                 ctx.fill();
                             }
-                        }
-
-                        // Draw median line (use dynamic median from re-sampling)
-                        const currentMedian = u._median || 0;
-                        if (currentMedian > 0) {
-                            const yMed = u.valToPos(currentMedian, 'y', true);
-                            const { left, width } = u.bbox;
-                            ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim();
-                            ctx.lineWidth = 1;
-                            ctx.setLineDash([4, 4]);
-                            ctx.beginPath();
-                            ctx.moveTo(left, yMed);
-                            ctx.lineTo(left + width, yMed);
-                            ctx.stroke();
                         }
                         ctx.restore();
                     }],
@@ -1495,10 +1500,12 @@
         function buildChartContainer(id, title, options = {}) {
             const showIntervalControl = options.showBucketControl !== false;
             const currentInterval = chartIntervalMap.get(id) ?? defaultInterval;
+            const tooltip = options.tooltip || '';
+            const infoIcon = tooltip ? `<span class="info-icon">i<span class="info-tooltip">${tooltip}</span></span>` : '';
             return `
                 <div class="chart-container">
                     <div class="chart-controls">
-                        <span class="subsection-title" style="margin: 0; font-size: 0.7rem;">${title}</span>
+                        <span class="subsection-title" style="margin: 0; font-size: 0.7rem;">${title} ${infoIcon}</span>
                         <div style="display: flex; gap: 0.5rem; align-items: center;">
                             <span class="zoom-hint">drag to zoom</span>
                             ${showIntervalControl ? `
@@ -1696,6 +1703,21 @@
                         const barWidth = Math.max(2, (u.bbox.width / xd.length) * 0.75);
                         const radius = Math.min(4, barWidth / 3);
 
+                        // Draw median line first (behind bars)
+                        const currentMedian = u._median || 0;
+                        if (currentMedian > 0) {
+                            const yMed = u.valToPos(currentMedian, 'y', true);
+                            const { left, width } = u.bbox;
+                            ctx.strokeStyle = textColor;
+                            ctx.lineWidth = 1;
+                            ctx.setLineDash([4, 4]);
+                            ctx.beginPath();
+                            ctx.moveTo(left, yMed);
+                            ctx.lineTo(left + width, yMed);
+                            ctx.stroke();
+                            ctx.setLineDash([]);
+                        }
+
                         // Draw bars
                         for (let i = 0; i < xd.length; i++) {
                             const x = u.valToPos(xd[i], 'x', true);
@@ -1714,20 +1736,6 @@
                                 ctx.closePath();
                                 ctx.fill();
                             }
-                        }
-
-                        // Draw median line (use dynamic median from re-sampling)
-                        const currentMedian = u._median || 0;
-                        if (currentMedian > 0) {
-                            const yMed = u.valToPos(currentMedian, 'y', true);
-                            const { left, width } = u.bbox;
-                            ctx.strokeStyle = textColor;
-                            ctx.lineWidth = 1;
-                            ctx.setLineDash([4, 4]);
-                            ctx.beginPath();
-                            ctx.moveTo(left, yMed);
-                            ctx.lineTo(left + width, yMed);
-                            ctx.stroke();
                         }
                         ctx.restore();
                     }],
@@ -1867,6 +1875,21 @@
                         const barWidth = Math.max(2, (u.bbox.width / xd.length) * 0.75);
                         const radius = Math.min(4, barWidth / 3);
 
+                        // Draw median line first (behind bars)
+                        const currentMedian = u._median || 0;
+                        if (currentMedian > 0) {
+                            const yMed = u.valToPos(currentMedian, 'y', true);
+                            const { left, width } = u.bbox;
+                            ctx.strokeStyle = resolveColor('var(--text-muted)');
+                            ctx.lineWidth = 1;
+                            ctx.setLineDash([4, 4]);
+                            ctx.beginPath();
+                            ctx.moveTo(left, yMed);
+                            ctx.lineTo(left + width, yMed);
+                            ctx.stroke();
+                            ctx.setLineDash([]);
+                        }
+
                         for (let i = 0; i < xd.length; i++) {
                             const x = u.valToPos(xd[i], 'x', true);
                             const y = u.valToPos(yd[i], 'y', true);
@@ -1884,20 +1907,6 @@
                                 ctx.closePath();
                                 ctx.fill();
                             }
-                        }
-
-                        // Draw median line
-                        const currentMedian = u._median || 0;
-                        if (currentMedian > 0) {
-                            const yMed = u.valToPos(currentMedian, 'y', true);
-                            const { left, width } = u.bbox;
-                            ctx.strokeStyle = resolveColor('var(--text-muted)');
-                            ctx.lineWidth = 1;
-                            ctx.setLineDash([4, 4]);
-                            ctx.beginPath();
-                            ctx.moveTo(left, yMed);
-                            ctx.lineTo(left + width, yMed);
-                            ctx.stroke();
                         }
                         ctx.restore();
                     }],
@@ -2040,6 +2049,23 @@
                         const barWidth = bothVisible ? totalBarWidth / 2 - 1 : totalBarWidth;
                         const radius = Math.min(3, barWidth / 4);
 
+                        // Draw median line first (behind bars)
+                        if (u._seriesVisible.count) {
+                            const currentMedian = u._medianCount || 0;
+                            if (currentMedian > 0) {
+                                const yMed = u.valToPos(currentMedian, 'y', true);
+                                const { left, width } = u.bbox;
+                                ctx.strokeStyle = mutedColor;
+                                ctx.lineWidth = 1;
+                                ctx.setLineDash([4, 4]);
+                                ctx.beginPath();
+                                ctx.moveTo(left, yMed);
+                                ctx.lineTo(left + width, yMed);
+                                ctx.stroke();
+                                ctx.setLineDash([]);
+                            }
+                        }
+
                         for (let i = 0; i < xd.length; i++) {
                             const xCenter = u.valToPos(xd[i], 'x', true);
                             const y0Count = u.valToPos(0, 'y', true);
@@ -2081,22 +2107,6 @@
                                     ctx.closePath();
                                     ctx.fill();
                                 }
-                            }
-                        }
-
-                        // Draw median line for count
-                        if (u._seriesVisible.count) {
-                            const currentMedian = u._medianCount || 0;
-                            if (currentMedian > 0) {
-                                const yMed = u.valToPos(currentMedian, 'y', true);
-                                const { left, width } = u.bbox;
-                                ctx.strokeStyle = mutedColor;
-                                ctx.lineWidth = 1;
-                                ctx.setLineDash([4, 4]);
-                                ctx.beginPath();
-                                ctx.moveTo(left, yMed);
-                                ctx.lineTo(left + width, yMed);
-                                ctx.stroke();
                             }
                         }
                         ctx.restore();
@@ -2251,6 +2261,21 @@
                         const barWidth = Math.max(2, (u.bbox.width / xd.length) * 0.75);
                         const radius = Math.min(4, barWidth / 3);
 
+                        // Draw median line first (behind bars)
+                        const currentMedian = u._median || 0;
+                        if (currentMedian > 0) {
+                            const yMed = u.valToPos(currentMedian, 'y', true);
+                            const { left, width } = u.bbox;
+                            ctx.strokeStyle = textColor;
+                            ctx.lineWidth = 1;
+                            ctx.setLineDash([4, 4]);
+                            ctx.beginPath();
+                            ctx.moveTo(left, yMed);
+                            ctx.lineTo(left + width, yMed);
+                            ctx.stroke();
+                            ctx.setLineDash([]);
+                        }
+
                         // Draw bars
                         for (let i = 0; i < xd.length; i++) {
                             const x = u.valToPos(xd[i], 'x', true);
@@ -2269,20 +2294,6 @@
                                 ctx.closePath();
                                 ctx.fill();
                             }
-                        }
-
-                        // Draw median line (use dynamic median from re-sampling)
-                        const currentMedian = u._median || 0;
-                        if (currentMedian > 0) {
-                            const yMed = u.valToPos(currentMedian, 'y', true);
-                            const { left, width } = u.bbox;
-                            ctx.strokeStyle = textColor;
-                            ctx.lineWidth = 1;
-                            ctx.setLineDash([4, 4]);
-                            ctx.beginPath();
-                            ctx.moveTo(left, yMed);
-                            ctx.lineTo(left + width, yMed);
-                            ctx.stroke();
                         }
                         ctx.restore();
                     }],
@@ -3193,7 +3204,6 @@
             // session_distribution is an object: {"< 1s": 123, ...}
             const hasSessionDist = c.session_distribution && Object.keys(c.session_distribution).length > 0;
             const hasConnections = c.connections?.length > 0;
-            const hasConcurrentHist = c.concurrent_sessions_histogram?.length > 0;
 
             // Store connection timestamps for chart creation
             if (hasConnections) {
@@ -3202,9 +3212,6 @@
             // Store session events for client-side sweep-line (allows bucket adjustment)
             if (c.session_events?.length > 0) {
                 chartData.set('chart-concurrent', { type: 'sessions', data: c.session_events });
-            } else if (hasConcurrentHist) {
-                // Fallback to pre-computed histogram
-                chartData.set('chart-concurrent', { type: 'histogram', data: c.concurrent_sessions_histogram });
             }
 
             return `
@@ -3240,8 +3247,8 @@
                             ` : ''}
                         </div>
                         <div class="grid grid-2" style="margin-top: 0.5rem;">
-                            ${(c.session_events?.length > 0 || hasConcurrentHist) ? buildChartContainer('chart-concurrent', 'Concurrent Sessions', { showFilterBtn: false }) : ''}
-                            ${hasConnections ? buildChartContainer('chart-connections', 'Connection Distribution', { showFilterBtn: true }) : ''}
+                            ${c.session_events?.length > 0 ? buildChartContainer('chart-concurrent', 'Concurrent Sessions', { showFilterBtn: false, tooltip: 'Number of active database connections at a given time. High values indicate more database activity.' }) : ''}
+                            ${hasConnections ? buildChartContainer('chart-connections', 'Connection Distribution', { showFilterBtn: true, tooltip: 'Timeline of connection events. High values indicate heavy traffic.' }) : ''}
                         </div>
                         ${hasSessionDist ? `
                             <div class="subsection">
@@ -3536,7 +3543,7 @@
                             <div class="stat-card"><div class="stat-value">${cp.max_checkpoint_time || '-'}</div><div class="stat-label">Max</div></div>
                         </div>
                         ${hasEvents ? `
-                            ${buildChartContainer('chart-checkpoints', 'Checkpoint Distribution', { showFilterBtn: false })}
+                            ${buildChartContainer('chart-checkpoints', 'Checkpoint Distribution', { showFilterBtn: false, tooltip: 'Checkpoint writes over time. Timed is normal, WAL indicates heavy write load.' })}
                             <div class="chart-legend" style="display:flex;gap:16px;justify-content:center;margin-top:8px;font-size:12px;">
                                 <span><span style="display:inline-block;width:12px;height:12px;background:var(--chart-bar);border-radius:2px;vertical-align:middle;margin-right:4px;"></span>Timed</span>
                                 <span><span style="display:inline-block;width:12px;height:12px;background:var(--accent);border-radius:2px;vertical-align:middle;margin-right:4px;"></span>WAL</span>
@@ -3728,7 +3735,7 @@
                             <div class="stat-card"><div class="stat-value">${tf.total_size}</div><div class="stat-label">Total</div></div>
                             <div class="stat-card"><div class="stat-value">${tf.avg_size}</div><div class="stat-label">Avg</div></div>
                         </div>
-                        ${hasEvents ? buildChartContainer('chart-tempfiles', 'Temp File Activity', { showFilterBtn: true }) : ''}
+                        ${hasEvents ? buildChartContainer('chart-tempfiles', 'Temp File Activity', { showFilterBtn: true, tooltip: 'Temporary files created by queries exceeding work_mem.' }) : ''}
                         ${hasQueries ? `
                             <div class="subsection">
                                 <div class="subsection-title">Top Queries</div>
@@ -3986,7 +3993,7 @@
 
                         ${hasExecutions ? `
                             <div style="margin-top: 0.75rem;">
-                                ${buildChartContainer('chart-sql-combined', 'Query Activity', { showFilterBtn: true })}
+                                ${buildChartContainer('chart-sql-combined', 'Query Activity', { showFilterBtn: true, tooltip: 'Query count and cumulated duration over time.' })}
                                 <div class="chart-legend">
                                     <span class="chart-legend-item" data-chart="chart-sql-combined" data-series="count" onclick="toggleCombinedSeries('chart-sql-combined', 'count')"><span class="chart-legend-bar chart-legend-bar--count"></span>Count</span>
                                     <span class="chart-legend-item" data-chart="chart-sql-combined" data-series="duration" onclick="toggleCombinedSeries('chart-sql-combined', 'duration')"><span class="chart-legend-bar chart-legend-bar--duration"></span>Duration</span>
@@ -5289,16 +5296,11 @@
                 const minVal = minSlider?.value || '0';
                 const maxVal = maxSlider?.value || String(timeFilterDurationMins);
 
-                console.log('[Time Filter] mode=slider, minVal=', minVal, 'minOrig=', minOrig, 'maxVal=', maxVal, 'maxOrig=', maxOrig);
-                console.log('[Time Filter] timeFilterStartTs=', timeFilterStartTs, 'durationMins=', timeFilterDurationMins);
-
                 if (minVal !== minOrig) {
                     beginFilter = offsetToDatetime(parseInt(minVal));
-                    console.log('[Time Filter] beginFilter=', beginFilter);
                 }
                 if (maxVal !== maxOrig) {
                     endFilter = offsetToDatetime(parseInt(maxVal));
-                    console.log('[Time Filter] endFilter=', endFilter);
                 }
             } else {
                 const begin = document.getElementById('filterBegin')?.value;
@@ -5314,7 +5316,6 @@
             if (endFilter) filters.end = endFilter;
 
             const hasFilters = Object.keys(filters).length > 0;
-            console.log('Applying filters:', filters);
 
             // Store what we're applying for comparison (deep copy arrays)
             appliedFilters = {};

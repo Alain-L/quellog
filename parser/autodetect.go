@@ -89,6 +89,24 @@ func ParseFile(filename string, out chan<- LogEntry) error {
 	return parser.Parse(filename, out)
 }
 
+// DetectFileFormat detects the log format of a file without parsing it.
+// Returns "csv", "json", or "stderr" (for stderr/syslog formats).
+// Returns empty string if the format cannot be detected.
+func DetectFileFormat(filename string) string {
+	parser, err := detectParser(filename)
+	if err != nil {
+		return ""
+	}
+	switch parser.(type) {
+	case *CsvParser:
+		return "csv"
+	case *JsonParser:
+		return "json"
+	default:
+		return "stderr"
+	}
+}
+
 // detectParser reads a sample from the file to identify its format.
 // It tries to detect the format based on file extension first, then falls back
 // to content-based detection.

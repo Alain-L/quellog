@@ -243,8 +243,9 @@ if (COMPRESSED_DATA) {{
 </body>
 </html>'''
 
-    # Write output
-    output_path = os.path.join(WEB_DIR, "report_template.html")
+    # Write output (to output/ directory for Go embed)
+    output_dir = os.path.join(PROJECT_DIR, "output")
+    output_path = os.path.join(output_dir, "report_template.html")
     with open(output_path, 'w') as f:
         f.write(template)
 

@@ -292,11 +292,18 @@ func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, 
 		}
 		defer f.Close()
 
+		// Detect format from first input file
+		detectedFormat := ""
+		if len(inputArgs) > 0 {
+			detectedFormat = parser.DetectFileFormat(inputArgs[0])
+		}
+
 		// Build report info with filename and processing stats
 		reportInfo := output.HTMLReportInfo{
 			Filename:    generateInputDescription(inputArgs),
 			FileSize:    totalFileSize,
 			ProcessTime: float64(processingDuration.Milliseconds()),
+			Format:      detectedFormat,
 		}
 
 		if err := output.ExportHTML(f, metrics, reportInfo); err != nil {
