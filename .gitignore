@@ -58,3 +58,4 @@ wasm/*.wasm
 
 # Profiling artifacts
 *.svg
+ROADMAP*.md
