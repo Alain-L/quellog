@@ -34,7 +34,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          go-version: '1.23'
 
       - name: Install TinyGo
         run: |
@@ -60,6 +60,8 @@ jobs:
 
       - name: Build WASM demo
         run: |
+          echo "Go version: $(go version)"
+          echo "GOROOT: $GOROOT"
           cd wasm
           tinygo build -o quellog_tiny.wasm -target wasm -gc=leaking -no-debug ./main.go
           ls -la quellog_tiny.wasm
