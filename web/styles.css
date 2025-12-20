@@ -1021,12 +1021,14 @@
             justify-content: space-between;
             align-items: flex-end;
             margin-bottom: 0.5rem;
+            gap: 1rem;
         }
 
         .summary-date {
-            font-size: 1.2rem;
+            font-size: 1rem;
             font-weight: 600;
             color: var(--text);
+            white-space: nowrap;
         }
 
         .summary-meta {

@@ -292,7 +292,14 @@ func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, 
 		}
 		defer f.Close()
 
-		if err := output.ExportHTML(f, metrics); err != nil {
+		// Build report info with filename and processing stats
+		reportInfo := output.HTMLReportInfo{
+			Filename:    generateInputDescription(inputArgs),
+			FileSize:    totalFileSize,
+			ProcessTime: float64(processingDuration.Milliseconds()),
+		}
+
+		if err := output.ExportHTML(f, metrics, reportInfo); err != nil {
 			log.Fatalf("[ERROR] Failed to write HTML report: %v", err)
 		}
 		fmt.Printf("Report saved to %s\n", outputName)
@@ -302,6 +309,15 @@ func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, 
 	// Default: text output
 	PrintProcessingSummary(metrics.Global.Count, processingDuration, totalFileSize)
 	output.PrintMetrics(metrics, sections, fullFlag)
+}
+
+// generateInputDescription creates a human-readable description of input files.
+// For a single file, returns its basename. For multiple files, returns "N files".
+func generateInputDescription(args []string) string {
+	if len(args) == 1 {
+		return filepath.Base(args[0])
+	}
+	return fmt.Sprintf("%d files", len(args))
 }
 
 // generateHTMLFilename creates an output filename based on input arguments.

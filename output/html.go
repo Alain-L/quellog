@@ -16,14 +16,30 @@ import (
 //go:embed report_template.html
 var reportTemplate string
 
+// HTMLReportInfo contains metadata about the report generation.
+type HTMLReportInfo struct {
+	Filename    string
+	FileSize    int64
+	ProcessTime float64 // in milliseconds
+}
+
 // ExportHTML exports metrics as a standalone HTML report with embedded data.
 // The HTML file includes all necessary CSS, JavaScript, and the data itself,
 // making it fully self-contained and openable in any modern browser.
-// The JSON data is gzip-compressed and base64-encoded to reduce file size.
-func ExportHTML(w io.Writer, metrics analysis.AggregatedMetrics) error {
+// The JSON data is zstd-compressed and base64-encoded to reduce file size.
+func ExportHTML(w io.Writer, metrics analysis.AggregatedMetrics, info HTMLReportInfo) error {
 	// Build full JSON data structure (same as JSON export with all sections)
 	sections := []string{"all"}
 	data := buildJSONData(metrics, sections, true)
+
+	// Add meta section required by the web UI
+	data["meta"] = map[string]interface{}{
+		"format":        "report",
+		"entries":       metrics.Global.Count,
+		"filename":      info.Filename,
+		"filesize":      info.FileSize,
+		"parse_time_ms": info.ProcessTime,
+	}
 
 	// Marshal to JSON
 	jsonBytes, err := json.Marshal(data)
