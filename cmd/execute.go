@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -61,7 +63,7 @@ func executeParsing(cmd *cobra.Command, args []string) {
 	go parser.FilterStream(rawLogs, filteredLogs, filters)
 
 	// Step 5: Process and output results based on flags
-	processAndOutput(filteredLogs, startTime, totalFileSize)
+	processAndOutput(filteredLogs, startTime, totalFileSize, args)
 }
 
 // parseFilesAsync reads log files in parallel and sends entries to the channel.
@@ -161,10 +163,20 @@ func buildLogFilters(beginT, endT time.Time) parser.LogFilters {
 }
 
 // processAndOutput analyzes filtered logs and outputs results in the requested format.
-func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, totalFileSize int64) {
+func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, totalFileSize int64, inputArgs []string) {
 	// Validate flag compatibility
-	if jsonFlag && mdFlag {
-		fmt.Fprintln(os.Stderr, "Error: --json and --md are mutually exclusive")
+	formatCount := 0
+	if jsonFlag {
+		formatCount++
+	}
+	if mdFlag {
+		formatCount++
+	}
+	if htmlFlag {
+		formatCount++
+	}
+	if formatCount > 1 {
+		fmt.Fprintln(os.Stderr, "Error: --json, --md, and --html are mutually exclusive")
 		os.Exit(1)
 	}
 
@@ -271,9 +283,48 @@ func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, 
 		return
 	}
 
+	if htmlFlag {
+		// Generate output filename based on input
+		outputName := generateHTMLFilename(inputArgs)
+		f, err := os.Create(outputName)
+		if err != nil {
+			log.Fatalf("[ERROR] Failed to create HTML file: %v", err)
+		}
+		defer f.Close()
+
+		if err := output.ExportHTML(f, metrics); err != nil {
+			log.Fatalf("[ERROR] Failed to write HTML report: %v", err)
+		}
+		fmt.Printf("Report saved to %s\n", outputName)
+		return
+	}
+
 	// Default: text output
 	PrintProcessingSummary(metrics.Global.Count, processingDuration, totalFileSize)
 	output.PrintMetrics(metrics, sections, fullFlag)
+}
+
+// generateHTMLFilename creates an output filename based on input arguments.
+// If a single file is given, uses its basename with .html extension.
+// Otherwise uses "quellog_report.html".
+func generateHTMLFilename(args []string) string {
+	if len(args) == 1 {
+		// Single file: use its basename
+		base := filepath.Base(args[0])
+		// Remove extension(s) like .log, .csv, .log.gz, etc.
+		for {
+			ext := filepath.Ext(base)
+			if ext == "" || (ext != ".log" && ext != ".csv" && ext != ".gz" && ext != ".zst" && ext != ".tar" && ext != ".tgz") {
+				break
+			}
+			base = strings.TrimSuffix(base, ext)
+		}
+		if base == "" {
+			base = "quellog_report"
+		}
+		return base + ".html"
+	}
+	return "quellog_report.html"
 }
 
 // buildSectionList returns the list of sections to display based on flags.

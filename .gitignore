@@ -14,6 +14,7 @@ dist/
 *.dylib
 *.test
 *.html
+!output/report_template.html
 
 # Vendored dependencies (if you use Go modules, this folder is optional)
 vendor/
