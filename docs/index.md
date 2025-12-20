@@ -17,7 +17,7 @@ SUMMARY
 ```
 
 !!! info "JSON Export"
-    Beyond terminal output, quellog provides comprehensive [JSON export](json-export.md) capabilities for seamless integration with dashboards, monitoring systems, and custom automation workflows. JSON is also the foundation for [standalone HTML reports](html-export.md). **[Try the interactive demo →](demo.html)** (runs entirely in your browser, no data is uploaded)
+    Beyond terminal output, quellog provides comprehensive [JSON export](json-export.md) capabilities for seamless integration with dashboards, monitoring systems, and custom automation workflows. JSON is also the foundation for [standalone HTML reports](html-export.md). **[Try the interactive demo →](https://alain-l.github.io/quellog/demo.html)** (runs entirely in your browser, no data is uploaded)
 
 ## Why quellog?
 
