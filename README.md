@@ -358,10 +358,11 @@ quellog /path/to/logs --dbname mydb --dbuser myuser --appname myapp \
 quellog /path/to/logs --dbname mydb1 --dbname mydb2 
 ```
 
-### Export to JSON or Markdown
+### Export Formats
 ```sh
-quellog /path/to/logs --json
-quellog /path/to/logs --md
+quellog /path/to/logs --json   # JSON export
+quellog /path/to/logs --md     # Markdown export
+quellog /path/to/logs --html   # Standalone HTML report
 ```
 
 ---
@@ -404,6 +405,8 @@ Section Selection:
 Output:
   -J, --json              Export results in JSON format
       --md                Export results in Markdown format
+  -H, --html              Export as standalone HTML report
+  -F, --full              Display comprehensive report with all sections
 
 Other:
   -h, --help              Show help

@@ -51,6 +51,10 @@ var (
 	// Output format flags
 	jsonFlag bool // --json: Export results in JSON format
 	mdFlag   bool // --md: Export results in Markdown format
+	htmlFlag bool // --html: Export results as standalone HTML report
+
+	// Report completeness flag
+	fullFlag bool // --full: Display comprehensive report with all sections and detailed SQL analysis
 )
 
 // rootCmd is the main command for the quellog CLI.
@@ -140,4 +144,10 @@ func init() {
 		"Export results in JSON format")
 	rootCmd.PersistentFlags().BoolVarP(&mdFlag, "md", "", false,
 		"Export results in Markdown format")
+	rootCmd.PersistentFlags().BoolVarP(&htmlFlag, "html", "H", false,
+		"Export results as standalone HTML report")
+
+	// Report completeness flag
+	rootCmd.PersistentFlags().BoolVarP(&fullFlag, "full", "F", false,
+		"Display comprehensive report with all sections and detailed SQL analysis")
 }

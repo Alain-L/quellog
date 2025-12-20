@@ -1,3 +1,5 @@
+//go:build !js
+
 package output
 
 import (
@@ -17,7 +19,8 @@ import (
 type TextFormatter struct{}
 
 // PrintMetrics displays the aggregated metrics.
-func PrintMetrics(m analysis.AggregatedMetrics, sections []string) {
+// If full is true, displays extended analysis sections.
+func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 
 	// Check flags
 	has := func(name string) bool {
@@ -363,7 +366,7 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string) {
 				numBuckets,
 			)
 			if len(concurrentHist) > 0 {
-				PrintConcurrentHistogram(concurrentHist, "Concurrent sessions", concurrentScale, labels, peakTimes)
+				PrintConcurrentHistogramWithTZ(concurrentHist, "Concurrent sessions", concurrentScale, labels, peakTimes, &m.Global.MinTimestamp)
 			}
 		}
 
@@ -1342,31 +1345,6 @@ func truncateQuery(query string, length int) string {
 	return query
 }
 
-func formatQueryDuration(ms float64) string {
-	d := time.Duration(ms * float64(time.Millisecond))
-	if d < time.Second {
-		return fmt.Sprintf("%d ms", d/time.Millisecond)
-	}
-	if d < time.Minute {
-		return fmt.Sprintf("%.2f s", d.Seconds())
-	}
-	if d < time.Hour {
-		minutes := int(d / time.Minute)
-		seconds := int((d % time.Minute) / time.Second)
-		return fmt.Sprintf("%dm %02ds", minutes, seconds)
-	}
-	if d < 24*time.Hour {
-		hours := int(d / time.Hour)
-		minutes := int((d % time.Hour) / time.Minute)
-		seconds := int((d % time.Minute) / time.Second)
-		return fmt.Sprintf("%dh %02dm %02ds", hours, minutes, seconds)
-	}
-	days := int(d / (24 * time.Hour))
-	hours := int((d % (24 * time.Hour)) / time.Hour)
-	minutes := int((d % time.Hour) / time.Minute)
-	return fmt.Sprintf("%dd %dh %02dm", days, hours, minutes)
-}
-
 // NewTextFormatter returns a new instance of TextFormatter.
 func NewTextFormatter() *TextFormatter {
 	return &TextFormatter{}
@@ -1511,6 +1489,10 @@ func PrintHistogram(data map[string]int, title string, unit string, scaleFactor 
 // PrintConcurrentHistogram displays a histogram with peak times for each bucket.
 // Similar to PrintHistogram but adds the time when the peak occurred.
 func PrintConcurrentHistogram(data map[string]int, title string, scaleFactor int, orderedLabels []string, peakTimes map[string]time.Time) {
+	PrintConcurrentHistogramWithTZ(data, title, scaleFactor, orderedLabels, peakTimes, nil)
+}
+
+func PrintConcurrentHistogramWithTZ(data map[string]int, title string, scaleFactor int, orderedLabels []string, peakTimes map[string]time.Time, refTime *time.Time) {
 	if len(data) == 0 {
 		fmt.Printf("\n  (No data available)\n")
 		return
@@ -1583,7 +1565,12 @@ func PrintConcurrentHistogram(data map[string]int, title string, scaleFactor int
 		} else {
 			peakStr := ""
 			if pt, ok := peakTimes[label]; ok && !pt.IsZero() {
-				peakStr = fmt.Sprintf("(%02d:%02d)", pt.Hour(), pt.Minute())
+				// Normalize peak time to reference timezone if provided
+				displayTime := pt
+				if refTime != nil {
+					displayTime = pt.In(refTime.Location())
+				}
+				peakStr = fmt.Sprintf("(%02d:%02d)", displayTime.Hour(), displayTime.Minute())
 			}
 			if barLength > 0 {
 				fmt.Printf("  %-13s  %-s %d %s\n", label, bar, value, peakStr)
@@ -1606,133 +1593,6 @@ func PrintConcurrentHistogram(data map[string]int, title string, scaleFactor int
 // - une chaîne "req" indiquant que les valeurs sont en nombre de requêtes,
 // - un scaleFactor permettant d’afficher des barres proportionnelles sur une largeur maximale de 40 caractères.
 
-
-// computeCheckpointHistogram agrège les événements de checkpoints en 6 tranches d'une journée complète.
-// On considère que tous les événements se situent dans la même journée.
-// Le résultat est un histogramme (map label -> nombre de checkpoints),
-// l'unité ("checkpoints") et un scale factor calculé pour limiter la largeur à 35 caractères.
-
-// computeConcurrentHistogram calculates concurrent sessions over time during the analyzed period.
-// It divides the log period (logStart to logEnd) into 6 buckets and counts concurrent sessions.
-// Returns: histogram data, ordered labels, scale factor, and peak times for each bucket.
-func computeConcurrentHistogram(sessions []analysis.SessionEvent, logStart, logEnd time.Time, numBuckets int) (map[string]int, []string, int, map[string]time.Time) {
-	if len(sessions) == 0 || logStart.IsZero() || logEnd.IsZero() {
-		return nil, nil, 1, nil
-	}
-
-	// Use the log period as the reference time range
-	minTime := logStart
-	maxTime := logEnd
-
-	duration := maxTime.Sub(minTime)
-	if duration <= 0 {
-		// If duration is negative or zero, swap min and max
-		minTime, maxTime = maxTime, minTime
-		duration = maxTime.Sub(minTime)
-		if duration == 0 {
-			return nil, nil, 1, nil
-		}
-	}
-
-	// Default to 6 buckets if not specified
-	if numBuckets <= 0 {
-		numBuckets = 6
-	}
-	bucketDuration := duration / time.Duration(numBuckets)
-
-	// Initialize buckets
-	hist := make(map[string]int)
-	peakTimes := make(map[string]time.Time)
-	labels := make([]string, numBuckets)
-
-	// Check if we span multiple calendar days (not just > 24h, but different dates)
-	minDay := time.Date(minTime.Year(), minTime.Month(), minTime.Day(), 0, 0, 0, 0, minTime.Location())
-	maxDay := time.Date(maxTime.Year(), maxTime.Month(), maxTime.Day(), 0, 0, 0, 0, maxTime.Location())
-	spansDays := !minDay.Equal(maxDay)
-
-	for i := 0; i < numBuckets; i++ {
-		bucketStart := minTime.Add(time.Duration(i) * bucketDuration)
-		bucketEnd := bucketStart.Add(bucketDuration)
-
-		if spansDays {
-			// Include date when spanning multiple days
-			labels[i] = fmt.Sprintf("%02d/%02d %02d:%02d - %02d/%02d %02d:%02d",
-				bucketStart.Month(), bucketStart.Day(),
-				bucketStart.Hour(), bucketStart.Minute(),
-				bucketEnd.Month(), bucketEnd.Day(),
-				bucketEnd.Hour(), bucketEnd.Minute())
-		} else {
-			labels[i] = fmt.Sprintf("%02d:%02d - %02d:%02d",
-				bucketStart.Hour(), bucketStart.Minute(),
-				bucketEnd.Hour(), bucketEnd.Minute())
-		}
-	}
-
-	// Use 1-minute intervals for more precise peak time detection
-	intervalDuration := 1 * time.Minute
-	numIntervals := int(duration / intervalDuration)
-	if numIntervals == 0 {
-		numIntervals = 1
-	}
-
-	// Calculate concurrency for each 1-minute interval
-	intervalCounts := make([]int, numIntervals)
-	for i := 0; i < numIntervals; i++ {
-		intervalTime := minTime.Add(time.Duration(i) * intervalDuration)
-
-		count := 0
-		for _, s := range sessions {
-			// Session is active at intervalTime if it started before/at and ends after
-			if !s.StartTime.After(intervalTime) && s.EndTime.After(intervalTime) {
-				count++
-			}
-		}
-		intervalCounts[i] = count
-	}
-
-	// Aggregate intervals into 6 buckets, taking the max and tracking when it occurred
-	intervalsPerBucket := numIntervals / numBuckets
-	if intervalsPerBucket == 0 {
-		intervalsPerBucket = 1
-	}
-
-	for i := 0; i < numBuckets; i++ {
-		startIdx := i * intervalsPerBucket
-		endIdx := startIdx + intervalsPerBucket
-		if i == numBuckets-1 {
-			endIdx = numIntervals // Last bucket gets remaining intervals
-		}
-
-		// Find max concurrency in this bucket and when it occurred
-		maxCount := 0
-		maxIdx := startIdx
-		for j := startIdx; j < endIdx && j < numIntervals; j++ {
-			if intervalCounts[j] > maxCount {
-				maxCount = intervalCounts[j]
-				maxIdx = j
-			}
-		}
-		hist[labels[i]] = maxCount
-		if maxCount > 0 {
-			peakTimes[labels[i]] = minTime.Add(time.Duration(maxIdx) * intervalDuration)
-		}
-	}
-
-	// Calculate scale factor to limit width to 40 chars
-	maxValue := 0
-	for _, count := range hist {
-		if count > maxValue {
-			maxValue = count
-		}
-	}
-	histogramWidth := 40
-	scaleFactor := int(math.Ceil(float64(maxValue) / float64(histogramWidth)))
-	if scaleFactor < 1 {
-		scaleFactor = 1
-	}
-
-	return hist, labels, scaleFactor, peakTimes
-}
 
 // printLockStats prints lock type or resource type statistics.
 func printLockStats(stats map[string]int, total int) {

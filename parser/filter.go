@@ -64,29 +64,23 @@ func FilterStream(in <-chan LogEntry, out chan<- LogEntry, filters LogFilters) {
 	defer close(out)
 
 	for entry := range in {
-		if !passesFilters(entry, filters) {
+		if !PassesFilters(entry, filters) {
 			continue
 		}
 		out <- entry
 	}
 }
 
-// passesFilters checks if a log entry matches all filter criteria.
+// PassesFilters checks if a log entry matches all filter criteria.
 // Returns true if the entry should be included in the output.
-func passesFilters(entry LogEntry, filters LogFilters) bool {
-	// Time range filters (fastest - no string operations)
-	timeFormat := "20060102150405" // YYYYMMDDHHMMSS
-
-	if !filters.BeginT.IsZero() {
-		if entry.Timestamp.Format(timeFormat) < filters.BeginT.Format(timeFormat) {
-			return false
-		}
+func PassesFilters(entry LogEntry, filters LogFilters) bool {
+	// Time range filters (fastest - direct time comparison, no allocations)
+	if !filters.BeginT.IsZero() && entry.Timestamp.Before(filters.BeginT) {
+		return false
 	}
 
-	if !filters.EndT.IsZero() {
-		if entry.Timestamp.Format(timeFormat) > filters.EndT.Format(timeFormat) {
-			return false
-		}
+	if !filters.EndT.IsZero() && entry.Timestamp.After(filters.EndT) {
+		return false
 	}
 
 	// Database filter

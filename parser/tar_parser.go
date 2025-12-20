@@ -1,3 +1,5 @@
+//go:build !js
+
 // Package parser provides log file parsing for PostgreSQL logs.
 package parser
 

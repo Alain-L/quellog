@@ -270,6 +270,8 @@ func normalizeQuery(query string) string {
 // This ensures consistent raw_query formatting across log formats (stderr uses spaces,
 // CSV/JSON preserve newlines from the original query).
 //
+// Uses builderPool to reuse strings.Builder instances and reduce allocations.
+//
 // Example:
 //
 //	Input:  "BEGIN;\n            UPDATE users\n            SET name = 'foo';"

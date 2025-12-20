@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -61,7 +63,7 @@ func executeParsing(cmd *cobra.Command, args []string) {
 	go parser.FilterStream(rawLogs, filteredLogs, filters)
 
 	// Step 5: Process and output results based on flags
-	processAndOutput(filteredLogs, startTime, totalFileSize)
+	processAndOutput(filteredLogs, startTime, totalFileSize, args)
 }
 
 // parseFilesAsync reads log files in parallel and sends entries to the channel.
@@ -161,10 +163,20 @@ func buildLogFilters(beginT, endT time.Time) parser.LogFilters {
 }
 
 // processAndOutput analyzes filtered logs and outputs results in the requested format.
-func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, totalFileSize int64) {
+func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, totalFileSize int64, inputArgs []string) {
 	// Validate flag compatibility
-	if jsonFlag && mdFlag {
-		fmt.Fprintln(os.Stderr, "Error: --json and --md are mutually exclusive")
+	formatCount := 0
+	if jsonFlag {
+		formatCount++
+	}
+	if mdFlag {
+		formatCount++
+	}
+	if htmlFlag {
+		formatCount++
+	}
+	if formatCount > 1 {
+		fmt.Fprintln(os.Stderr, "Error: --json, --md, and --html are mutually exclusive")
 		os.Exit(1)
 	}
 
@@ -191,7 +203,8 @@ func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, 
 	}
 
 	// Special case: SQL performance (detailed aggregated query statistics)
-	if sqlPerformanceFlag {
+	// Skip if --full is set (will be included in full report)
+	if sqlPerformanceFlag && !fullFlag {
 		// Run full analysis to collect queries from locks and tempfiles
 		metrics := analysis.AggregateMetrics(filteredLogs, totalFileSize)
 		processingDuration := time.Since(startTime)
@@ -213,7 +226,8 @@ func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, 
 	}
 
 	// Special case: SQL overview (query type statistics with dimensional breakdown)
-	if sqlOverviewFlag {
+	// Skip if --full is set (will be included in full report)
+	if sqlOverviewFlag && !fullFlag {
 		metrics := analysis.AggregateMetrics(filteredLogs, totalFileSize)
 		processingDuration := time.Since(startTime)
 
@@ -250,22 +264,90 @@ func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, 
 	}
 
 	// Determine which sections to display
-	sections := buildSectionList()
+	// --full forces all sections and ignores individual section flags
+	var sections []string
+	if fullFlag {
+		sections = []string{"all"}
+	} else {
+		sections = buildSectionList()
+	}
 
 	// Output in requested format
 	if jsonFlag {
-		output.ExportJSON(metrics, sections)
+		output.ExportJSON(metrics, sections, fullFlag)
 		return
 	}
 
 	if mdFlag {
-		output.ExportMarkdown(metrics, sections)
+		output.ExportMarkdown(metrics, sections, fullFlag)
+		return
+	}
+
+	if htmlFlag {
+		// Generate output filename based on input
+		outputName := generateHTMLFilename(inputArgs)
+		f, err := os.Create(outputName)
+		if err != nil {
+			log.Fatalf("[ERROR] Failed to create HTML file: %v", err)
+		}
+		defer f.Close()
+
+		// Detect format from first input file
+		detectedFormat := ""
+		if len(inputArgs) > 0 {
+			detectedFormat = parser.DetectFileFormat(inputArgs[0])
+		}
+
+		// Build report info with filename and processing stats
+		reportInfo := output.HTMLReportInfo{
+			Filename:    generateInputDescription(inputArgs),
+			FileSize:    totalFileSize,
+			ProcessTime: float64(processingDuration.Milliseconds()),
+			Format:      detectedFormat,
+		}
+
+		if err := output.ExportHTML(f, metrics, reportInfo); err != nil {
+			log.Fatalf("[ERROR] Failed to write HTML report: %v", err)
+		}
+		fmt.Printf("Report saved to %s\n", outputName)
 		return
 	}
 
 	// Default: text output
 	PrintProcessingSummary(metrics.Global.Count, processingDuration, totalFileSize)
-	output.PrintMetrics(metrics, sections)
+	output.PrintMetrics(metrics, sections, fullFlag)
+}
+
+// generateInputDescription creates a human-readable description of input files.
+// For a single file, returns its basename. For multiple files, returns "N files".
+func generateInputDescription(args []string) string {
+	if len(args) == 1 {
+		return filepath.Base(args[0])
+	}
+	return fmt.Sprintf("%d files", len(args))
+}
+
+// generateHTMLFilename creates an output filename based on input arguments.
+// If a single file is given, uses its basename with .html extension.
+// Otherwise uses "quellog_report.html".
+func generateHTMLFilename(args []string) string {
+	if len(args) == 1 {
+		// Single file: use its basename
+		base := filepath.Base(args[0])
+		// Remove extension(s) like .log, .csv, .log.gz, etc.
+		for {
+			ext := filepath.Ext(base)
+			if ext == "" || (ext != ".log" && ext != ".csv" && ext != ".gz" && ext != ".zst" && ext != ".tar" && ext != ".tgz") {
+				break
+			}
+			base = strings.TrimSuffix(base, ext)
+		}
+		if base == "" {
+			base = "quellog_report"
+		}
+		return base + ".html"
+	}
+	return "quellog_report.html"
 }
 
 // buildSectionList returns the list of sections to display based on flags.

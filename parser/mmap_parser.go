@@ -559,10 +559,10 @@ func parseMmapDataStderr(data []byte, out chan<- LogEntry) error {
 	return nil
 }
 
-// parseStderrLineBytes is the byte-slice version of parseStderrLine.
-// It converts to string only at the last moment to reduce allocations.
+// parseStderrLineBytes converts a byte slice to string and parses it.
+// For the native CLI with Go's GC, this is faster than byte-level parsing
+// because it avoids goroutine contention. The WASM path uses parseFromBytes
+// in stderr_parser.go which benefits from zero-copy parsing with leaking GC.
 func parseStderrLineBytes(line []byte) (time.Time, string) {
-	// For now, convert to string and reuse existing parser
-	// TODO: Could be optimized further by parsing directly from bytes
 	return parseStderrLine(string(line))
 }

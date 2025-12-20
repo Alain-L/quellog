@@ -2,6 +2,16 @@
 
 By default, quellog displays a comprehensive report with all analysis sections. You can filter the output to display only specific sections, making it easier to focus on particular aspects of your database activity.
 
+## Comprehensive Report
+
+Use `--full` to display all sections with detailed SQL analysis:
+
+```bash
+quellog /var/log/postgresql/*.log --full
+```
+
+This includes every analysis section plus extended SQL performance details. Useful for thorough investigations or when generating complete HTML reports with `--html --full`.
+
 ## Available Sections
 
 ### --summary

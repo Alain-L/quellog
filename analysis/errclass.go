@@ -2,7 +2,6 @@
 package analysis
 
 import (
-	"regexp"
 	"sort"
 	"strings"
 
@@ -158,13 +157,93 @@ var errorClassDescriptions = map[string]string{
 	"XX": "Internal Error",
 }
 
-// Pre-compiled regex for extracting SQLSTATE codes from log messages.
-// Matches patterns like:
+// isSQLSTATEChar returns true if c is a valid SQLSTATE character [0-9A-Z]
+func isSQLSTATEChar(c byte) bool {
+	return (c >= '0' && c <= '9') || (c >= 'A' && c <= 'Z')
+}
+
+// isValidSQLSTATEClass checks if the first char is a valid SQLSTATE class prefix.
+// Valid classes start with: 0-5, F, H, P, X (per PostgreSQL error codes appendix)
+func isValidSQLSTATEClass(c byte) bool {
+	return (c >= '0' && c <= '5') || c == 'F' || c == 'H' || c == 'P' || c == 'X'
+}
+
+// extractSQLSTATE extracts a 5-character SQLSTATE code from a log message.
+// It looks for patterns like:
 //   - SQLSTATE = '42P01' or SQLSTATE='42P01' (log message content)
 //   - ERROR: 42P01: (with log_error_verbosity = verbose)
-//   - [PID] 42P01 ERROR: (with %e in log_line_prefix, space before log level)
-//   - [PID] 42P01: (with %e in log_line_prefix, colon after SQLSTATE)
-var errorCodeRegex = regexp.MustCompile(`(?:SQLSTATE\s*=\s*'([0-9A-Z]{5})'|ERROR:\s+([0-9A-Z]{5}):|]\s+([0-9A-Z]{5})[\s:])`)
+//   - ] 42P01 or ] 42P01: (with %e in log_line_prefix)
+//
+// Returns the 5-character code or empty string if not found.
+func extractSQLSTATE(msg string) string {
+	// Pattern 1: SQLSTATE = '42P01' or SQLSTATE='42P01'
+	if idx := strings.Index(msg, "SQLSTATE"); idx != -1 {
+		// Skip "SQLSTATE" and optional whitespace/equals
+		pos := idx + 8 // len("SQLSTATE")
+		// Skip whitespace
+		for pos < len(msg) && (msg[pos] == ' ' || msg[pos] == '\t') {
+			pos++
+		}
+		// Expect '='
+		if pos < len(msg) && msg[pos] == '=' {
+			pos++
+			// Skip whitespace
+			for pos < len(msg) && (msg[pos] == ' ' || msg[pos] == '\t') {
+				pos++
+			}
+			// Expect single quote
+			if pos < len(msg) && msg[pos] == '\'' {
+				pos++
+				// Extract 5 chars
+				if pos+5 <= len(msg) {
+					code := msg[pos : pos+5]
+					if isValidSQLSTATEClass(code[0]) &&
+						isSQLSTATEChar(code[1]) && isSQLSTATEChar(code[2]) &&
+						isSQLSTATEChar(code[3]) && isSQLSTATEChar(code[4]) {
+						return code
+					}
+				}
+			}
+		}
+	}
+
+	// Pattern 2: ERROR: 42P01: (verbose mode)
+	if idx := strings.Index(msg, "ERROR:"); idx != -1 {
+		pos := idx + 6 // len("ERROR:")
+		// Skip whitespace
+		for pos < len(msg) && (msg[pos] == ' ' || msg[pos] == '\t') {
+			pos++
+		}
+		// Check for 5 SQLSTATE chars followed by ':'
+		if pos+6 <= len(msg) && msg[pos+5] == ':' {
+			code := msg[pos : pos+5]
+			if isValidSQLSTATEClass(code[0]) &&
+				isSQLSTATEChar(code[1]) && isSQLSTATEChar(code[2]) &&
+				isSQLSTATEChar(code[3]) && isSQLSTATEChar(code[4]) {
+				return code
+			}
+		}
+	}
+
+	// Pattern 3: ] 42P01 or ] 42P01: (log_line_prefix with %e)
+	if idx := strings.Index(msg, "] "); idx != -1 {
+		pos := idx + 2 // len("] ")
+		// Check for 5 SQLSTATE chars followed by space or colon
+		if pos+5 <= len(msg) {
+			code := msg[pos : pos+5]
+			if isValidSQLSTATEClass(code[0]) &&
+				isSQLSTATEChar(code[1]) && isSQLSTATEChar(code[2]) &&
+				isSQLSTATEChar(code[3]) && isSQLSTATEChar(code[4]) {
+				// Verify followed by space or colon (or end of string)
+				if pos+5 == len(msg) || msg[pos+5] == ' ' || msg[pos+5] == ':' {
+					return code
+				}
+			}
+		}
+	}
+
+	return ""
+}
 
 // ============================================================================
 // Streaming error class analyzer
@@ -195,8 +274,8 @@ func NewErrorClassAnalyzer() *ErrorClassAnalyzer {
 // It extracts the error class (first two characters of SQLSTATE) and increments its count.
 //
 // Example messages:
-//   - 'ERROR: relation "users" does not exist SQLSTATE = '42P01”
-//   - 'ERROR: duplicate key value violates unique constraint SQLSTATE='23505”
+//   - 'ERROR: relation "users" does not exist SQLSTATE = '42P01"
+//   - 'ERROR: duplicate key value violates unique constraint SQLSTATE='23505"
 func (a *ErrorClassAnalyzer) Process(entry *parser.LogEntry) {
 	msg := entry.Message
 
@@ -212,21 +291,8 @@ func (a *ErrorClassAnalyzer) Process(entry *parser.LogEntry) {
 		return
 	}
 
-	// Extract SQLSTATE code using regex
-	match := errorCodeRegex.FindStringSubmatch(msg)
-	if len(match) < 2 {
-		return
-	}
-
-	// Extract SQLSTATE from whichever group matched (match[1], match[2], or match[3])
-	sqlstate := match[1]
-	if sqlstate == "" {
-		sqlstate = match[2]
-	}
-	if sqlstate == "" && len(match) > 3 {
-		sqlstate = match[3]
-	}
-
+	// Extract SQLSTATE code using manual parsing (faster than regex)
+	sqlstate := extractSQLSTATE(msg)
 	if len(sqlstate) >= 2 {
 		classCode := sqlstate[:2]
 		a.counts[classCode]++

@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0] - 2025-12-20
+
+### Added
+- **Standalone HTML reports**: `--html` flag generates self-contained HTML files with embedded zstd-compressed JSON data, decoded client-side via fzstd
+- **Comprehensive report mode**: `--full` flag displays all sections with detailed SQL analysis
+- **CloudNative-PG (CNPG) support**: Parse Kubernetes-wrapped PostgreSQL logs from CNPG operator
+- **Session events in JSON**: Raw connection start/end times for client-side concurrent sessions visualization
+
+### Changed
+- **JSON duration fields**: Replaced duration strings with `duration_ms` numeric fields for programmatic access
+
+### Fixed
+- **Event detection**: Prevented false positive ERROR counts in event analysis
+- **Lock formatting**: Consistent duration formatting for lock wait times
+
 ## [0.5.0] - 2025-12-03
 
 ### Added

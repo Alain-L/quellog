@@ -474,6 +474,7 @@ func init() {
 	isSeparator[','] = true
 	isSeparator['['] = true
 	isSeparator[')'] = true
+	isSeparator['"'] = true // CSV field delimiter can appear at end of message
 }
 
 // extractValueAt extracts a value starting at a given position in the message.

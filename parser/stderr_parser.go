@@ -328,47 +328,47 @@ func (p *StderrParser) Parse(filename string, out chan<- LogEntry) error {
 }
 
 // parseReader runs the stderr parsing logic against any io.Reader.
+// Uses bufio.Scanner for streaming parsing from files and other readers.
 func (p *StderrParser) parseReader(r io.Reader, out chan<- LogEntry) error {
 	scanner := bufio.NewScanner(r)
-	// Configure scanner with large buffer to handle long log lines
-	// (e.g., STATEMENT lines with large queries)
 	buf := make([]byte, scannerBuffer)
 	scanner.Buffer(buf, scannerMaxBuffer)
 
-	// Accumulate multi-line entries
-	var currentEntry string
+	var entryBuilder strings.Builder
+	entryBuilder.Grow(512)
 
 	for scanner.Scan() {
 		line := scanner.Text()
 
-		// Handle syslog tab markers: "#011" represents a tab character
-		// Replace it with a space for consistency
 		if idx := strings.Index(line, syslogTabMarker); idx != -1 {
 			line = " " + line[idx+len(syslogTabMarker):]
 		}
 
-		// Check if this is a continuation line
-		// Fast path: starts with whitespace (most continuation lines)
 		isContinuation := strings.HasPrefix(line, " ") || strings.HasPrefix(line, "\t")
 
-		// Fallback: if not indented AND we have a current entry, check for timestamp
-		// This handles cases like GCP where SQL continuation lines are not indented
-		if !isContinuation && currentEntry != "" {
-			// Try to parse as a new log entry - if it fails, it's a continuation
-			timestamp, _ := parseStderrLine(line)
-			if timestamp.IsZero() {
-				// No valid timestamp = continuation line
+		if !isContinuation && entryBuilder.Len() > 0 {
+			n := len(line)
+			hasTimestamp := false
+			if n >= 19 {
+				if line[4] == '-' && line[7] == '-' && line[10] == ' ' {
+					hasTimestamp = true
+				} else if n >= 15 && line[3] == ' ' && line[6] == ' ' && line[9] == ':' {
+					hasTimestamp = true
+				} else if line[0] == '<' {
+					hasTimestamp = true
+				}
+			}
+			if !hasTimestamp {
 				isContinuation = true
 			}
 		}
 
 		if isContinuation {
-			// Append to current entry
-			currentEntry += " " + strings.TrimSpace(line)
+			entryBuilder.WriteByte(' ')
+			entryBuilder.WriteString(strings.TrimSpace(line))
 		} else {
-			// This is a new entry, so process the previous one
-			if currentEntry != "" {
-				// Try to normalize with detected structure (if not RDS/Azure format)
+			if entryBuilder.Len() > 0 {
+				currentEntry := entryBuilder.String()
 				normalizedEntry := p.normalizeEntryBeforeParsing(currentEntry)
 				timestamp, message := parseStderrLine(normalizedEntry)
 				out <- LogEntry{
@@ -376,15 +376,14 @@ func (p *StderrParser) parseReader(r io.Reader, out chan<- LogEntry) error {
 					Message:        message,
 					IsContinuation: isContinuationMessage(message),
 				}
+				entryBuilder.Reset()
 			}
-			// Start accumulating new entry
-			currentEntry = line
+			entryBuilder.WriteString(line)
 		}
 	}
 
-	// Process the last accumulated entry
-	if currentEntry != "" {
-		// Try to normalize with detected structure (if not RDS/Azure format)
+	if entryBuilder.Len() > 0 {
+		currentEntry := entryBuilder.String()
 		normalizedEntry := p.normalizeEntryBeforeParsing(currentEntry)
 		timestamp, message := parseStderrLine(normalizedEntry)
 		out <- LogEntry{
@@ -395,6 +394,175 @@ func (p *StderrParser) parseReader(r io.Reader, out chan<- LogEntry) error {
 	}
 
 	return scanner.Err()
+}
+
+// parseFromBytes parses stderr log data directly from a byte slice.
+// This is optimized for WASM with leaking GC - it minimizes allocations by:
+// 1. Accumulating entries as []byte slices
+// 2. Parsing timestamps directly from bytes
+// 3. Only creating strings for the message portion
+func (p *StderrParser) parseFromBytes(data []byte, out chan<- LogEntry) error {
+	// Accumulate multi-line entries as bytes
+	var currentEntry []byte
+	currentEntry = make([]byte, 0, 8192) // Larger capacity to reduce reallocs for multi-line entries
+
+	dataLen := len(data)
+	lineStart := 0
+
+	for i := 0; i <= dataLen; i++ {
+		// Find end of line (newline or end of data)
+		if i < dataLen && data[i] != '\n' {
+			continue
+		}
+
+		// Extract line bytes (without the newline)
+		lineEnd := i
+		if lineEnd > lineStart && data[lineEnd-1] == '\r' {
+			lineEnd-- // Handle CRLF
+		}
+
+		lineBytes := data[lineStart:lineEnd]
+		lineStart = i + 1
+
+		// Skip empty lines
+		if len(lineBytes) == 0 {
+			continue
+		}
+
+		// Handle syslog tab markers: "#011" represents a tab character
+		if idx := bytesIndex(lineBytes, []byte(syslogTabMarker)); idx != -1 {
+			// Create modified line with space prefix
+			newLine := make([]byte, 1+len(lineBytes)-idx-len(syslogTabMarker))
+			newLine[0] = ' '
+			copy(newLine[1:], lineBytes[idx+len(syslogTabMarker):])
+			lineBytes = newLine
+		}
+
+		// Check if this is a continuation line
+		// Fast path: starts with whitespace
+		isContinuation := len(lineBytes) > 0 && (lineBytes[0] == ' ' || lineBytes[0] == '\t')
+
+		// Fallback: if not indented AND we have a current entry, check for timestamp
+		if !isContinuation && len(currentEntry) > 0 {
+			hasTimestamp := hasTimestampBytes(lineBytes)
+			if !hasTimestamp {
+				isContinuation = true
+			}
+		}
+
+		if isContinuation {
+			// Append to current entry
+			if len(currentEntry) > 0 {
+				currentEntry = append(currentEntry, ' ')
+			}
+			currentEntry = append(currentEntry, trimSpaceBytes(lineBytes)...)
+		} else {
+			// Process previous entry
+			if len(currentEntry) > 0 {
+				timestamp, message := p.parseEntryFromBytes(currentEntry)
+				out <- LogEntry{
+					Timestamp:      timestamp,
+					Message:        message,
+					IsContinuation: isContinuationMessage(message),
+				}
+				currentEntry = currentEntry[:0] // Reset but keep capacity
+			}
+			// Start new entry
+			currentEntry = append(currentEntry[:0], lineBytes...)
+		}
+	}
+
+	// Process last entry
+	if len(currentEntry) > 0 {
+		timestamp, message := p.parseEntryFromBytes(currentEntry)
+		out <- LogEntry{
+			Timestamp:      timestamp,
+			Message:        message,
+			IsContinuation: isContinuationMessage(message),
+		}
+	}
+
+	return nil
+}
+
+// parseEntryFromBytes parses a log entry directly from bytes.
+// Uses zero-copy parsing for stderr format, falls back to string for other formats.
+func (p *StderrParser) parseEntryFromBytes(entry []byte) (time.Time, string) {
+	// Try zero-copy parsing for stderr format (YYYY-MM-DD HH:MM:SS TZ)
+	n := len(entry)
+	if n >= 20 && entry[4] == '-' && entry[7] == '-' && entry[10] == ' ' && entry[13] == ':' && entry[16] == ':' {
+		if timestamp, msgOffset, ok := parseStderrFormatFromBytes(entry); ok {
+			if msgOffset >= n {
+				return timestamp, ""
+			}
+			return timestamp, string(entry[msgOffset:])
+		}
+	}
+
+	// Fallback: convert to string for other formats (syslog, RDS, Azure, etc.)
+	entryStr := string(entry)
+	normalizedEntry := p.normalizeEntryBeforeParsing(entryStr)
+	return parseStderrLine(normalizedEntry)
+}
+
+// hasTimestampBytes checks if a line starts with a recognizable timestamp pattern.
+func hasTimestampBytes(line []byte) bool {
+	n := len(line)
+	if n < 15 {
+		return false
+	}
+	// Check stderr format: YYYY-MM-DD
+	if n >= 19 && line[4] == '-' && line[7] == '-' && line[10] == ' ' {
+		return true
+	}
+	// Check syslog BSD format: "Mon DD HH:MM:SS"
+	if line[3] == ' ' && line[6] == ' ' && line[9] == ':' {
+		return true
+	}
+	// Check RFC5424 format: "<pri>..."
+	if line[0] == '<' {
+		return true
+	}
+	return false
+}
+
+// trimSpaceBytes trims leading and trailing whitespace from a byte slice.
+func trimSpaceBytes(b []byte) []byte {
+	start := 0
+	for start < len(b) && (b[start] == ' ' || b[start] == '\t') {
+		start++
+	}
+	end := len(b)
+	for end > start && (b[end-1] == ' ' || b[end-1] == '\t' || b[end-1] == '\r') {
+		end--
+	}
+	return b[start:end]
+}
+
+// bytesIndex returns the index of sep in s, or -1 if not found.
+func bytesIndex(s, sep []byte) int {
+	n := len(sep)
+	if n == 0 {
+		return 0
+	}
+	if n > len(s) {
+		return -1
+	}
+	for i := 0; i <= len(s)-n; i++ {
+		if s[i] == sep[0] {
+			match := true
+			for j := 1; j < n; j++ {
+				if s[i+j] != sep[j] {
+					match = false
+					break
+				}
+			}
+			if match {
+				return i
+			}
+		}
+	}
+	return -1
 }
 
 // parseStderrLine extracts the timestamp and message from a log line.
@@ -528,6 +696,72 @@ func parseStderrFormat(line string) (time.Time, string, bool) {
 	}
 
 	return t, message, true
+}
+
+// parseStderrFormatFromBytes is the zero-copy version of parseStderrFormat.
+// Returns the message offset instead of copying the message string.
+func parseStderrFormatFromBytes(line []byte) (time.Time, int, bool) {
+	n := len(line)
+
+	// Quick positional validation: check for date/time separators
+	if n < 20 ||
+		line[4] != '-' || line[7] != '-' || // Date separators
+		line[10] != ' ' || // Space between date and time
+		line[13] != ':' || line[16] != ':' { // Time separators
+		return time.Time{}, 0, false
+	}
+
+	// Find the timezone field
+	spaceAfterTime := 19
+	if line[spaceAfterTime] != ' ' {
+		// Scan forward to find next space
+		i := 19
+		for i < n && line[i] != ' ' && line[i] != '\t' {
+			i++
+		}
+		if i >= n {
+			return time.Time{}, 0, false
+		}
+		spaceAfterTime = i
+	}
+
+	// Skip whitespace to find timezone token
+	i := spaceAfterTime + 1
+	for i < n && (line[i] == ' ' || line[i] == '\t') {
+		i++
+	}
+	tzStart := i
+
+	// Find end of timezone token
+	for i < n && line[i] != ' ' && line[i] != '\t' {
+		i++
+	}
+	tzEnd := i
+
+	if tzEnd <= tzStart {
+		return time.Time{}, 0, false
+	}
+
+	// Parse timestamp - must convert to string for time.Parse
+	timestampStr := string(line[:tzEnd])
+
+	// Try with milliseconds first
+	t, err := time.Parse("2006-01-02 15:04:05.999 MST", timestampStr)
+	if err != nil {
+		// Try without milliseconds
+		t, err = time.Parse("2006-01-02 15:04:05 MST", timestampStr)
+		if err != nil {
+			return time.Time{}, 0, false
+		}
+	}
+
+	// Skip whitespace before message
+	for i < n && (line[i] == ' ' || line[i] == '\t') {
+		i++
+	}
+
+	// Return offset instead of copying message
+	return t, i, true
 }
 
 // parseRDSFormat attempts to parse the AWS RDS PostgreSQL log format:
