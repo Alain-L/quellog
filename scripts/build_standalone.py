@@ -196,7 +196,7 @@ eval(exec);
 const go=new Go();const{instance}=await WebAssembly.instantiate(wasm,go.importObject);go.run(instance);
 window.wasmReady=true;
 if(typeof cacheWasmForWorkers==='function'){cacheWasmForWorkers(wasm.buffer,exec)}
-eval(app);
+const s2=document.createElement('script');s2.textContent=app;document.head.appendChild(s2);
 console.log('[quellog] Ready:',quellogVersion());
 }catch(e){console.error(e);alert('Load error: '+e.message)}}
 init();'''
