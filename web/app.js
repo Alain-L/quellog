@@ -5547,3 +5547,7 @@
         window.copyQuery = copyQuery;
         window.closeModal = closeModal;
         window.toggleTheme = toggleTheme;
+        window.closeChartModal = closeChartModal;
+        window.updateModalInterval = updateModalInterval;
+        window.resetModalZoom = resetModalZoom;
+        window.exportChartPNG = exportChartPNG;
