@@ -1,5 +1,8 @@
 # HTML Export
 
+!!! tip "Try it now"
+    **[Open the interactive demo →](../demo.html)** — Drop a PostgreSQL log file and explore the report. All processing happens locally in your browser; your data never leaves your machine.
+
 Generate standalone HTML reports that can be viewed in any browser without a server.
 
 ```bash
