@@ -11,6 +11,186 @@ import (
 	"github.com/Alain-L/quellog/parser"
 )
 
+// queryPrefix maps SQL keywords to short prefixes for query identification.
+type queryPrefix struct {
+	keyword string
+	prefix  string
+}
+
+// queryPrefixes defines SQL command types and their corresponding ID prefixes.
+var queryPrefixes = [...]queryPrefix{
+	{"SELECT", "se-"},
+	{"INSERT", "in-"},
+	{"UPDATE", "up-"},
+	{"DELETE", "de-"},
+	{"MERGE", "me-"},
+	{"COPY", "co-"},
+	{"WITH", "wi-"},
+	{"CREATE", "cr-"},
+	{"DROP", "dr-"},
+	{"ALTER", "al-"},
+	{"TRUNCATE", "tr-"},
+	{"COMMENT", "cm-"},
+	{"REFRESH", "mv-"},
+	{"BEGIN", "be-"},
+	{"COMMIT", "ct-"},
+	{"ROLLBACK", "rb-"},
+	{"SAVEPOINT", "sv-"},
+	{"RELEASE", "rl-"},
+	{"START", "st-"},
+	{"END", "en-"},
+	{"ABORT", "ab-"},
+	{"PREPARE", "pr-"},
+	{"DEALLOCATE", "dl-"},
+	{"DECLARE", "dc-"},
+	{"FETCH", "fe-"},
+	{"CLOSE", "cl-"},
+	{"MOVE", "mo-"},
+	{"EXPLAIN", "ex-"},
+	{"ANALYZE", "an-"},
+	{"VACUUM", "va-"},
+	{"REINDEX", "ri-"},
+	{"CLUSTER", "cu-"},
+	{"LOCK", "lk-"},
+	{"UNLISTEN", "ul-"},
+	{"LISTEN", "li-"},
+	{"NOTIFY", "no-"},
+	{"DISCARD", "di-"},
+	{"RESET", "re-"},
+	{"SET", "se-"},
+	{"SHOW", "sh-"},
+	{"LOAD", "lo-"},
+	{"CALL", "ca-"},
+	{"DO", "do-"},
+	{"EXECUTE", "xe-"},
+	{"GRANT", "gr-"},
+	{"REVOKE", "rv-"},
+}
+
+// QueryTypeFromID extracts the query type from a generated query ID.
+func QueryTypeFromID(id string) string {
+	if len(id) < 3 {
+		return "OTHER"
+	}
+
+	switch id[:3] {
+	case "se-":
+		return "SELECT"
+	case "in-":
+		return "INSERT"
+	case "up-":
+		return "UPDATE"
+	case "de-":
+		return "DELETE"
+	case "me-":
+		return "MERGE"
+	case "co-":
+		return "COPY"
+	case "wi-":
+		return "WITH"
+	case "cr-":
+		return "CREATE"
+	case "dr-":
+		return "DROP"
+	case "al-":
+		return "ALTER"
+	case "tr-":
+		return "TRUNCATE"
+	case "cm-":
+		return "COMMENT"
+	case "mv-":
+		return "REFRESH"
+	case "be-":
+		return "BEGIN"
+	case "ct-":
+		return "COMMIT"
+	case "rb-":
+		return "ROLLBACK"
+	case "sv-":
+		return "SAVEPOINT"
+	case "rl-":
+		return "RELEASE"
+	case "st-":
+		return "START"
+	case "en-":
+		return "END"
+	case "ab-":
+		return "ABORT"
+	case "pr-":
+		return "PREPARE"
+	case "dl-":
+		return "DEALLOCATE"
+	case "dc-":
+		return "DECLARE"
+	case "fe-":
+		return "FETCH"
+	case "cl-":
+		return "CLOSE"
+	case "mo-":
+		return "MOVE"
+	case "ex-":
+		return "EXPLAIN"
+	case "an-":
+		return "ANALYZE"
+	case "va-":
+		return "VACUUM"
+	case "ri-":
+		return "REINDEX"
+	case "cu-":
+		return "CLUSTER"
+	case "lk-":
+		return "LOCK"
+	case "ul-":
+		return "UNLISTEN"
+	case "li-":
+		return "LISTEN"
+	case "no-":
+		return "NOTIFY"
+	case "di-":
+		return "DISCARD"
+	case "re-":
+		return "RESET"
+	case "sh-":
+		return "SHOW"
+	case "lo-":
+		return "LOAD"
+	case "ca-":
+		return "CALL"
+	case "do-":
+		return "DO"
+	case "xe-":
+		return "EXECUTE"
+	case "gr-":
+		return "GRANT"
+	case "rv-":
+		return "REVOKE"
+	default:
+		return "OTHER"
+	}
+}
+
+// QueryCategory returns the high-level category for a query type.
+func QueryCategory(queryType string) string {
+	switch queryType {
+	case "SELECT", "INSERT", "UPDATE", "DELETE", "MERGE":
+		return "DML"
+	case "COPY":
+		return "COPY"
+	case "WITH":
+		return "CTE"
+	case "CREATE", "DROP", "ALTER", "TRUNCATE", "COMMENT", "REFRESH":
+		return "DDL"
+	case "BEGIN", "COMMIT", "ROLLBACK", "SAVEPOINT", "RELEASE", "START", "END", "ABORT", "PREPARE", "DEALLOCATE":
+		return "TCL"
+	case "DECLARE", "FETCH", "CLOSE", "MOVE":
+		return "CURSOR"
+	case "EXPLAIN", "ANALYZE", "VACUUM", "REINDEX", "CLUSTER", "LOCK", "UNLISTEN", "LISTEN", "NOTIFY", "DISCARD", "RESET", "SHOW", "LOAD", "CALL", "DO", "EXECUTE", "GRANT", "REVOKE", "SET":
+		return "UTILITY"
+	default:
+		return "OTHER"
+	}
+}
+
 // QueryStat stores aggregated statistics for a single SQL query pattern.
 // Multiple executions of the same normalized query are aggregated into one QueryStat.
 type QueryStat struct {

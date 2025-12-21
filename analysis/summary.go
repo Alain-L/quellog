@@ -109,147 +109,287 @@ type AggregatedMetrics struct {
 	// UniqueEntities contains unique database entity statistics.
 	UniqueEntities UniqueEntityMetrics
 
-	// EventSummaries contains severity level distribution.
-	EventSummaries []EventSummary
+		// EventSummaries contains severity level distribution.
 
-	// ErrorClasses contains SQLSTATE error class distribution.
-	ErrorClasses []ErrorClassSummary
+		// This is the main severity level distribution (ERROR, FATAL, LOG, etc.).
 
-	// SQL contains SQL query statistics.
-	SQL SqlMetrics
-}
+		EventSummaries []EventSummary
 
-// ============================================================================
-// Streaming analysis orchestrator
-// ============================================================================
+	
 
-// StreamingAnalyzer orchestrates multiple specialized analyzers to process
-// log entries in streaming mode without loading all data into memory.
-//
-// Usage:
-//
-//	analyzer := NewStreamingAnalyzer()
-//	for entry := range logEntries {
-//	    analyzer.Process(&entry)
-//	}
-//	metrics := analyzer.Finalize()
-type StreamingAnalyzer struct {
-	global         GlobalMetrics
-	tempFiles      *TempFileAnalyzer
-	vacuum         *VacuumAnalyzer
-	checkpoints    *CheckpointAnalyzer
-	connections    *ConnectionAnalyzer
-	locks          *LockAnalyzer
-	events         *EventAnalyzer
-	errorClasses   *ErrorClassAnalyzer
-	uniqueEntities *UniqueEntityAnalyzer
-	sql            *SQLAnalyzer
+		// TopEvents contains the most frequent event signatures.
 
-	// Parallel SQL processing
-	sqlChan    chan *parser.LogEntry
-	parallelWg sync.WaitGroup
-}
+		// This includes specific error messages, warnings, and log patterns.
 
-// NewStreamingAnalyzer creates a new streaming analyzer with all sub-analyzers initialized.
-// If enableParallel is true, SQLAnalyzer runs in a dedicated goroutine for better performance
-// on large files (>200MB). For smaller files, parallel overhead outweighs the gains.
-func NewStreamingAnalyzer(enableParallel bool) *StreamingAnalyzer {
-	sa := &StreamingAnalyzer{
-		tempFiles:      NewTempFileAnalyzer(),
-		vacuum:         NewVacuumAnalyzer(),
-		checkpoints:    NewCheckpointAnalyzer(),
-		connections:    NewConnectionAnalyzer(),
-		locks:          NewLockAnalyzer(),
-		events:         NewEventAnalyzer(),
-		errorClasses:   NewErrorClassAnalyzer(),
-		uniqueEntities: NewUniqueEntityAnalyzer(),
-		sql:            NewSQLAnalyzer(),
+		TopEvents []EventStat
+
+	
+
+		// SQL contains SQL query statistics.
+
+		SQL SqlMetrics
+
 	}
 
-	if enableParallel {
-		// Start parallel SQL analyzer goroutine.
-		// This provides ~20% wall clock speedup (benchmarked on 1GB+ files) by offloading
-		// the most expensive analyzer to a dedicated goroutine, allowing better CPU utilization.
-		sa.sqlChan = make(chan *parser.LogEntry, 65536)
-		sa.parallelWg.Add(1)
-		go func() {
-			defer sa.parallelWg.Done()
-			for entry := range sa.sqlChan {
-				sa.sql.Process(entry)
-			}
-		}()
+	
+
+	// ============================================================================
+
+	// Streaming analysis orchestrator
+
+	// ============================================================================
+
+	
+
+	// StreamingAnalyzer orchestrates multiple specialized analyzers to process
+
+	// log entries in streaming mode without loading all data into memory.
+
+	//
+
+	// Usage:
+
+	//
+
+	//	analyzer := NewStreamingAnalyzer()
+
+	//	for entry := range logEntries {
+
+	//	    analyzer.Process(&entry)
+
+	//	}
+
+	//	metrics := analyzer.Finalize()
+
+	type StreamingAnalyzer struct {
+
+		global         GlobalMetrics
+
+		tempFiles      *TempFileAnalyzer
+
+		vacuum         *VacuumAnalyzer
+
+		checkpoints    *CheckpointAnalyzer
+
+		connections    *ConnectionAnalyzer
+
+		locks          *LockAnalyzer
+
+		events         *EventAnalyzer
+
+		uniqueEntities *UniqueEntityAnalyzer
+
+		sql            *SQLAnalyzer
+
+	
+
+		// Parallel SQL processing
+
+		sqlChan    chan *parser.LogEntry
+
+		parallelWg sync.WaitGroup
+
 	}
 
-	return sa
-}
+	
 
-// Process analyzes a single log entry, dispatching it to all relevant sub-analyzers.
-// Each sub-analyzer filters and processes only the entries relevant to it.
-func (sa *StreamingAnalyzer) Process(entry *parser.LogEntry) {
-	// Update global metrics (skip continuation lines for accurate count)
-	if !entry.IsContinuation {
-		sa.global.Count++
+	// NewStreamingAnalyzer creates a new streaming analyzer with all sub-analyzers initialized.
+
+	// If enableParallel is true, SQLAnalyzer runs in a dedicated goroutine for better performance
+
+	// on large files (>200MB). For smaller files, parallel overhead outweighs the gains.
+
+	func NewStreamingAnalyzer(enableParallel bool) *StreamingAnalyzer {
+
+		sa := &StreamingAnalyzer{
+
+			tempFiles:      NewTempFileAnalyzer(),
+
+			vacuum:         NewVacuumAnalyzer(),
+
+			checkpoints:    NewCheckpointAnalyzer(),
+
+			connections:    NewConnectionAnalyzer(),
+
+			locks:          NewLockAnalyzer(),
+
+			events:         NewEventAnalyzer(),
+
+			uniqueEntities: NewUniqueEntityAnalyzer(),
+
+			sql:            NewSQLAnalyzer(),
+
+		}
+
+	
+
+		if enableParallel {
+
+			// Start parallel SQL analyzer goroutine.
+
+			// This provides ~20% wall clock speedup (benchmarked on 1GB+ files) by offloading
+
+			// the most expensive analyzer to a dedicated goroutine, allowing better CPU utilization.
+
+			sa.sqlChan = make(chan *parser.LogEntry, 65536)
+
+			sa.parallelWg.Add(1)
+
+			go func() {
+
+				defer sa.parallelWg.Done()
+
+				for entry := range sa.sqlChan {
+
+					sa.sql.Process(entry)
+
+				}
+
+			}()
+
+		}
+
+	
+
+		return sa
+
 	}
 
-	// Track timestamp range
-	if sa.global.MinTimestamp.IsZero() || entry.Timestamp.Before(sa.global.MinTimestamp) {
-		sa.global.MinTimestamp = entry.Timestamp
+	
+
+	// Process analyzes a single log entry, dispatching it to all relevant sub-analyzers.
+
+	// Each sub-analyzer filters and processes only the entries relevant to it.
+
+	func (sa *StreamingAnalyzer) Process(entry *parser.LogEntry) {
+
+		// Update global metrics (skip continuation lines for accurate count)
+
+		if !entry.IsContinuation {
+
+			sa.global.Count++
+
+		}
+
+	
+
+		// Track timestamp range
+
+		if sa.global.MinTimestamp.IsZero() || entry.Timestamp.Before(sa.global.MinTimestamp) {
+
+			sa.global.MinTimestamp = entry.Timestamp
+
+		}
+
+		if sa.global.MaxTimestamp.IsZero() || entry.Timestamp.After(sa.global.MaxTimestamp) {
+
+			sa.global.MaxTimestamp = entry.Timestamp
+
+		}
+
+	
+
+		// Dispatch to specialized analyzers
+
+		// Each analyzer performs its own filtering
+
+		sa.vacuum.Process(entry)
+
+		sa.checkpoints.Process(entry)
+
+		sa.connections.Process(entry)
+
+		sa.locks.Process(entry)
+
+		sa.events.Process(entry)
+
+		sa.uniqueEntities.Process(entry)
+
+	
+
+		// TempFiles: always sequential (faster than channel overhead for typical logs)
+
+		sa.tempFiles.Process(entry)
+
+	
+
+		// SQL: parallel if enabled (most expensive analyzer)
+
+		if sa.sqlChan != nil {
+
+			sa.sqlChan <- entry
+
+		} else {
+
+			sa.sql.Process(entry)
+
+		}
+
 	}
-	if sa.global.MaxTimestamp.IsZero() || entry.Timestamp.After(sa.global.MaxTimestamp) {
-		sa.global.MaxTimestamp = entry.Timestamp
+
+	
+
+	// Finalize computes final metrics after all log entries have been processed.
+
+	// This should be called once after processing all entries.
+
+	func (sa *StreamingAnalyzer) Finalize() AggregatedMetrics {
+
+		// Close SQL channel and wait for goroutine to finish
+
+		if sa.sqlChan != nil {
+
+			close(sa.sqlChan)
+
+			sa.parallelWg.Wait()
+
+		}
+
+	
+
+		// Finalize all metrics
+
+		tempFiles := sa.tempFiles.Finalize()
+
+		locks := sa.locks.Finalize()
+
+		sql := sa.sql.Finalize()
+
+		eventSummaries, topEvents := sa.events.Finalize()
+
+	
+
+		// Collect queries without duration metrics from locks and tempfiles
+
+		CollectQueriesWithoutDuration(&sql, &locks, &tempFiles)
+
+	
+
+		return AggregatedMetrics{
+
+			Global:         sa.global,
+
+			TempFiles:      tempFiles,
+
+			Vacuum:         sa.vacuum.Finalize(),
+
+			Checkpoints:    sa.checkpoints.Finalize(),
+
+			Connections:    sa.connections.Finalize(),
+
+			Locks:          locks,
+
+			EventSummaries: eventSummaries,
+
+			TopEvents:      topEvents,
+
+			UniqueEntities: sa.uniqueEntities.Finalize(),
+
+			SQL:            sql,
+
+		}
+
 	}
-
-	// Dispatch to specialized analyzers
-	// Each analyzer performs its own filtering
-	sa.vacuum.Process(entry)
-	sa.checkpoints.Process(entry)
-	sa.connections.Process(entry)
-	sa.locks.Process(entry)
-	sa.events.Process(entry)
-	sa.errorClasses.Process(entry)
-	sa.uniqueEntities.Process(entry)
-
-	// TempFiles: always sequential (faster than channel overhead for typical logs)
-	sa.tempFiles.Process(entry)
-
-	// SQL: parallel if enabled (most expensive analyzer)
-	if sa.sqlChan != nil {
-		sa.sqlChan <- entry
-	} else {
-		sa.sql.Process(entry)
-	}
-}
-
-// Finalize computes final metrics after all log entries have been processed.
-// This should be called once after processing all entries.
-func (sa *StreamingAnalyzer) Finalize() AggregatedMetrics {
-	// Close SQL channel and wait for goroutine to finish
-	if sa.sqlChan != nil {
-		close(sa.sqlChan)
-		sa.parallelWg.Wait()
-	}
-
-	// Finalize all metrics
-	tempFiles := sa.tempFiles.Finalize()
-	locks := sa.locks.Finalize()
-	sql := sa.sql.Finalize()
-
-	// Collect queries without duration metrics from locks and tempfiles
-	CollectQueriesWithoutDuration(&sql, &locks, &tempFiles)
-
-	return AggregatedMetrics{
-		Global:         sa.global,
-		TempFiles:      tempFiles,
-		Vacuum:         sa.vacuum.Finalize(),
-		Checkpoints:    sa.checkpoints.Finalize(),
-		Connections:    sa.connections.Finalize(),
-		Locks:          locks,
-		EventSummaries: sa.events.Finalize(),
-		ErrorClasses:   sa.errorClasses.Finalize(),
-		UniqueEntities: sa.uniqueEntities.Finalize(),
-		SQL:            sql,
-	}
-}
 
 // ============================================================================
 // Main analysis function

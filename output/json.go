@@ -314,6 +314,13 @@ type EventJSON struct {
 	Percentage float64 `json:"percentage"`
 }
 
+type EventStatJSON struct {
+	Message  string `json:"message"`
+	Count    int    `json:"count"`
+	Severity string `json:"severity"`
+	Example  string `json:"example"`
+}
+
 type ErrorClassJSON struct {
 	ClassCode   string `json:"class_code"`
 	Description string `json:"description"`
@@ -393,18 +400,19 @@ func buildJSONData(m analysis.AggregatedMetrics, sections []string, full bool) m
 			}
 		}
 		data["events"] = events
-	}
 
-	if has("errors") && len(m.ErrorClasses) > 0 {
-		errorClasses := make([]ErrorClassJSON, len(m.ErrorClasses))
-		for i, ec := range m.ErrorClasses {
-			errorClasses[i] = ErrorClassJSON{
-				ClassCode:   ec.ClassCode,
-				Description: ec.Description,
-				Count:       ec.Count,
+		if len(m.TopEvents) > 0 {
+			topEvents := make([]EventStatJSON, len(m.TopEvents))
+			for i, e := range m.TopEvents {
+				topEvents[i] = EventStatJSON{
+					Message:  e.Message,
+					Count:    e.Count,
+					Severity: e.Severity,
+					Example:  e.Example,
+				}
 			}
+			data["top_events"] = topEvents
 		}
-		data["error_classes"] = errorClasses
 	}
 
 	// SQL summary (basic) - skip if full mode (enriched version added at the end)

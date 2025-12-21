@@ -59,30 +59,7 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 
 	// Events
 	if has("events") && len(m.EventSummaries) > 0 {
-		PrintEventsReport(m.EventSummaries)
-	}
-
-	// Error Classes
-	if has("errors") && len(m.ErrorClasses) > 0 {
-		fmt.Println(bold + "\nERROR CLASSES\n" + reset)
-
-		// Determine the longest description for alignment
-		maxDescLength := 0
-		for _, ec := range m.ErrorClasses {
-			descWithCode := fmt.Sprintf("%s – %s", ec.ClassCode, ec.Description)
-			if len(descWithCode) > maxDescLength {
-				maxDescLength = len(descWithCode)
-			}
-		}
-
-		// Print error classes with aligned counts
-		for _, ec := range m.ErrorClasses {
-			fmt.Printf("  %s – %-*s : %d\n",
-				ec.ClassCode,
-				maxDescLength-len(ec.ClassCode)-3, // -3 for " – "
-				ec.Description,
-				ec.Count)
-		}
+		PrintEventsReport(m.EventSummaries, m.TopEvents)
 	}
 
 	// Temp Files section.
@@ -1373,31 +1350,156 @@ Number of SQL queries: %d`,
 	)
 }
 
-// PrintEventsReport prints a clean, simple event summary with aligned labels.
-func PrintEventsReport(summaries []analysis.EventSummary) {
-	// ANSI style for bold text.
+// PrintEventsReport prints a consolidated event report including summary and top events.
+func PrintEventsReport(summaries []analysis.EventSummary, topEvents []analysis.EventStat) {
+	// ANSI styles.
 	bold := "\033[1m"
 	reset := "\033[0m"
 
 	// Print title in bold.
 	fmt.Println(bold + "\nEVENTS\n" + reset)
 
-	// Determine the longest event type for alignment.
-	maxTypeLength := 0
-	for _, summary := range summaries {
-		if len(summary.Type) > maxTypeLength {
-			maxTypeLength = len(summary.Type)
-		}
+	// Re-sort summaries by severity order (PANIC -> FATAL -> ERROR ...)
+	severityRank := make(map[string]int)
+	for i, s := range analysis.PredefinedEventTypes {
+		severityRank[s] = i
 	}
 
-	// Print event counts with aligned labels.
+	sort.Slice(summaries, func(i, j int) bool {
+		rankI, okI := severityRank[summaries[i].Type]
+		rankJ, okJ := severityRank[summaries[j].Type]
+		if okI && okJ {
+			return rankI < rankJ
+		}
+		if okI {
+			return true
+		}
+		if okJ {
+			return false
+		}
+		return summaries[i].Type < summaries[j].Type
+	})
+
+	// Group top events by severity
+	eventsBySeverity := make(map[string][]analysis.EventStat)
+	for _, e := range topEvents {
+		eventsBySeverity[e.Severity] = append(eventsBySeverity[e.Severity], e)
+	}
+
+	// Determine terminal width
+	termWidth, _, err := term.GetSize(int(os.Stdout.Fd()))
+	if err != nil || termWidth <= 0 {
+		termWidth = 80
+	}
+
+	// Constants for layout
+	severityLabelWidth := 25
+
 	for _, summary := range summaries {
 		if summary.Count == 0 {
-			fmt.Printf("  %-*s : -\n", maxTypeLength, summary.Type)
-		} else {
-			fmt.Printf("  %-*s : %d\n", maxTypeLength, summary.Type, summary.Count)
+			continue
+		}
+
+		// Print Severity Main Line
+		fmt.Printf("  %-*s : %d (%.1f%%)\n", 
+			severityLabelWidth, summary.Type, 
+			summary.Count, summary.Percentage)
+
+		// Process detailed events for this severity
+		if events, ok := eventsBySeverity[summary.Type]; ok {
+			
+			// 1. Group by Error Class
+			// Map: ClassCode -> []EventStat
+			byClass := make(map[string][]analysis.EventStat)
+			for _, e := range events {
+				class := e.SQLStateClass
+				if class == "" || class == "00" {
+					class = "Unclassified"
+				}
+				byClass[class] = append(byClass[class], e)
+			}
+
+			// 2. Sort classes
+			// We want named classes first, then Unclassified at the end
+			var classes []string
+			for c := range byClass {
+				classes = append(classes, c)
+			}
+			sort.Slice(classes, func(i, j int) bool {
+				if classes[i] == "Unclassified" {
+					return false // Unclassified goes last
+				}
+				if classes[j] == "Unclassified" {
+					return true
+				}
+				return classes[i] < classes[j] // Sort by Class Code (e.g. 23 before 42)
+			})
+
+			// Find max message width for consistent alignment within this severity block
+			msgWidth := 0
+			for _, e := range events {
+				if len(e.Message) > msgWidth {
+					msgWidth = len(e.Message)
+				}
+			}
+			if msgWidth < 30 { msgWidth = 30 }
+			if msgWidth > 60 { msgWidth = 60 }
+
+			// 3. Print each class block
+			for _, classCode := range classes {
+				classEvents := byClass[classCode]
+				
+				// Calculate class header
+				classHeader := classCode
+				if classCode != "Unclassified" {
+					desc := analysis.GetErrorClassDescription(classCode)
+					classHeader = fmt.Sprintf("%s - %s", classCode, desc)
+				}
+
+				// Only print class header if we are in an error-like severity 
+				// (ERROR, FATAL, PANIC, WARNING) where SQLSTATEs are relevant.
+				
+				// If strictly Unclassified and not an Error severity, we might skip the "Unclassified" header
+				// to keep LOG/INFO sections cleaner (flat list).
+				// But user requested hierarchy. Let's keep it clean:
+				// If ALL events are unclassified (common for LOG), skip the header.
+				if classCode == "Unclassified" && len(classes) == 1 {
+					// Just print events directly
+				} else {
+					fmt.Printf("    %s\n", classHeader)
+				}
+
+				// Sort events by count
+				sort.Slice(classEvents, func(i, j int) bool {
+					return classEvents[i].Count > classEvents[j].Count
+				})
+
+				// Print messages
+				indent := "      " // 6 spaces (2 for severity + 2 for class + 2 offset)
+				if classCode == "Unclassified" && len(classes) == 1 {
+					indent = "    " // 4 spaces if no class header
+				}
+
+				for _, e := range classEvents {
+					msg := e.Message
+					if len(msg) > msgWidth {
+						msg = msg[:msgWidth-3] + "..."
+					}
+
+					localPct := 0.0
+					if summary.Count > 0 {
+						localPct = (float64(e.Count) / float64(summary.Count)) * 100
+					}
+
+					fmt.Printf("%s%-*s  %6d  %6.2f%%\n", 
+						indent,
+						msgWidth, msg, 
+						e.Count, localPct)
+				}
+			}
 		}
 	}
+	fmt.Println()
 }
 
 // PrintHistogram affiche l'histogramme en triant les plages horaires par ordre chronologique.

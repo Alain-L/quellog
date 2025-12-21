@@ -92,19 +92,16 @@ func ExportMarkdown(m analysis.AggregatedMetrics, sections []string, full bool) 
 			}
 		}
 		b.WriteString("\n")
-	}
 
-	// ============================================================================
-	// ERROR CLASSES
-	// ============================================================================
-	if has("errors") && len(m.ErrorClasses) > 0 {
-		b.WriteString("## ERROR CLASSES\n\n")
-		b.WriteString("| Class | Description | Count |\n")
-		b.WriteString("|---|---|---:|\n")
-		for _, ec := range m.ErrorClasses {
-			b.WriteString(fmt.Sprintf("| %s | %s | %d |\n", ec.ClassCode, ec.Description, ec.Count))
+		if len(m.TopEvents) > 0 {
+			b.WriteString("### TOP EVENTS\n\n")
+			b.WriteString("| Count | Severity | Message |\n")
+			b.WriteString("|---|---|---|\n")
+			for _, e := range m.TopEvents {
+				b.WriteString(fmt.Sprintf("| %d | %s | %s |\n", e.Count, e.Severity, e.Message))
+			}
+			b.WriteString("\n")
 		}
-		b.WriteString("\n")
 	}
 
 	// ============================================================================
