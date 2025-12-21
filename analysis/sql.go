@@ -414,7 +414,6 @@ func (a *SQLAnalyzer) Process(entry *parser.LogEntry) {
 	}
 }
 
-
 // extractPrefixFields extracts db, user, host, and app from the log prefix in a single pass.
 // Format: "user=app_user,db=app_db,app=pgadmin,client=192.168.1.1" or "[pid]: user=x,db=y LOG: ..."
 // This is faster than calling extractPrefixValue 4 times as it only scans the message once.
@@ -715,4 +714,3 @@ func CollectQueriesWithoutDuration(sql *SqlMetrics, locks *LockMetrics, tempfile
 
 	sql.QueriesWithoutDurationCount.Total = len(seen)
 }
-

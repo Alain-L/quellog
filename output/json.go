@@ -65,13 +65,13 @@ type QueryStatJSON struct {
 // SQL Overview JSON structures (for --sql-overview --json)
 
 type SQLOverviewJSON struct {
-	TotalQueries int                       `json:"total_queries"`
-	Categories   []CategoryStatJSON        `json:"categories"`
-	Types        []TypeStatJSON            `json:"types"`
-	ByDatabase   []DimensionBreakdownJSON  `json:"by_database,omitempty"`
-	ByUser       []DimensionBreakdownJSON  `json:"by_user,omitempty"`
-	ByHost       []DimensionBreakdownJSON  `json:"by_host,omitempty"`
-	ByApp        []DimensionBreakdownJSON  `json:"by_app,omitempty"`
+	TotalQueries int                      `json:"total_queries"`
+	Categories   []CategoryStatJSON       `json:"categories"`
+	Types        []TypeStatJSON           `json:"types"`
+	ByDatabase   []DimensionBreakdownJSON `json:"by_database,omitempty"`
+	ByUser       []DimensionBreakdownJSON `json:"by_user,omitempty"`
+	ByHost       []DimensionBreakdownJSON `json:"by_host,omitempty"`
+	ByApp        []DimensionBreakdownJSON `json:"by_app,omitempty"`
 }
 
 type CategoryStatJSON struct {
@@ -92,9 +92,9 @@ type TypeStatJSON struct {
 }
 
 type DimensionBreakdownJSON struct {
-	Name       string              `json:"name"`
-	Count      int                 `json:"count"`
-	TotalTime  string              `json:"total_time"`
+	Name       string               `json:"name"`
+	Count      int                  `json:"count"`
+	TotalTime  string               `json:"total_time"`
 	QueryTypes []QueryTypeCountJSON `json:"query_types"`
 }
 
@@ -107,15 +107,15 @@ type QueryTypeCountJSON struct {
 // SQL Detail JSON structures (for --sql-detail --json)
 
 type SQLDetailJSON struct {
-	ID              string                   `json:"id"`
-	NormalizedQuery string                   `json:"normalized_query"`
-	RawQuery        string                   `json:"raw_query,omitempty"`
-	Type            string                   `json:"type"`
-	Category        string                   `json:"category"`
-	Statistics      *QueryDetailStatsJSON    `json:"statistics,omitempty"`
-	Executions      []QueryExecutionJSON     `json:"executions,omitempty"`
-	TempFiles       *QueryTempFilesJSON      `json:"temp_files,omitempty"`
-	Locks           *QueryLocksJSON          `json:"locks,omitempty"`
+	ID              string                `json:"id"`
+	NormalizedQuery string                `json:"normalized_query"`
+	RawQuery        string                `json:"raw_query,omitempty"`
+	Type            string                `json:"type"`
+	Category        string                `json:"category"`
+	Statistics      *QueryDetailStatsJSON `json:"statistics,omitempty"`
+	Executions      []QueryExecutionJSON  `json:"executions,omitempty"`
+	TempFiles       *QueryTempFilesJSON   `json:"temp_files,omitempty"`
+	Locks           *QueryLocksJSON       `json:"locks,omitempty"`
 }
 
 type QueryDetailStatsJSON struct {
@@ -155,9 +155,9 @@ type SQLPerformanceDetailJSON struct {
 	DurationDistribution []DurationBucketJSON `json:"duration_distribution"`
 
 	// Top queries by different criteria
-	SlowestQueries       []QueryRankJSON `json:"slowest_queries"`
-	MostFrequentQueries  []QueryRankJSON `json:"most_frequent_queries"`
-	MostTimeConsuming    []QueryRankJSON `json:"most_time_consuming"`
+	SlowestQueries      []QueryRankJSON `json:"slowest_queries"`
+	MostFrequentQueries []QueryRankJSON `json:"most_frequent_queries"`
+	MostTimeConsuming   []QueryRankJSON `json:"most_time_consuming"`
 
 	// Full query data for HTML viewer
 	Queries    []QueryStatJSON      `json:"queries,omitempty"`
@@ -179,11 +179,11 @@ type QueryRankJSON struct {
 }
 
 type TempFilesJSON struct {
-	TotalMessages int                      `json:"total_messages"`
-	TotalSize     string                   `json:"total_size"`
-	AvgSize       string                   `json:"avg_size"`
-	Events        []TempFileEventJSON      `json:"events"`
-	Queries       []TempFileQueryStatJSON  `json:"queries,omitempty"`
+	TotalMessages int                     `json:"total_messages"`
+	TotalSize     string                  `json:"total_size"`
+	AvgSize       string                  `json:"avg_size"`
+	Events        []TempFileEventJSON     `json:"events"`
+	Queries       []TempFileQueryStatJSON `json:"queries,omitempty"`
 }
 
 type TempFileEventJSON struct {
@@ -232,14 +232,14 @@ type LockEventJSON struct {
 }
 
 type LockQueryStatJSON struct {
-	ID                  string `json:"id"`
-	NormalizedQuery     string `json:"normalized_query"`
-	RawQuery            string `json:"raw_query"`
-	AcquiredCount       int    `json:"acquired_count"`
-	AcquiredWaitTime    string `json:"acquired_wait_time"`
-	StillWaitingCount   int    `json:"still_waiting_count"`
-	StillWaitingTime    string `json:"still_waiting_time"`
-	TotalWaitTime       string `json:"total_wait_time"`
+	ID                string `json:"id"`
+	NormalizedQuery   string `json:"normalized_query"`
+	RawQuery          string `json:"raw_query"`
+	AcquiredCount     int    `json:"acquired_count"`
+	AcquiredWaitTime  string `json:"acquired_wait_time"`
+	StillWaitingCount int    `json:"still_waiting_count"`
+	StillWaitingTime  string `json:"still_waiting_time"`
+	TotalWaitTime     string `json:"total_wait_time"`
 }
 
 type CheckpointTypeJSON struct {
@@ -267,14 +267,14 @@ type SessionStatsJSON struct {
 }
 
 type ConnectionsJSON struct {
-	ConnectionCount       int                         `json:"connection_count"`
-	AvgConnectionsPerHour string                      `json:"avg_connections_per_hour"`
-	DisconnectionCount    int                         `json:"disconnection_count"`
-	AvgSessionTime        string                      `json:"avg_session_time"`
+	ConnectionCount       int    `json:"connection_count"`
+	AvgConnectionsPerHour string `json:"avg_connections_per_hour"`
+	DisconnectionCount    int    `json:"disconnection_count"`
+	AvgSessionTime        string `json:"avg_session_time"`
 
 	// Session statistics
-	SessionStats        *SessionStatsJSON           `json:"session_stats,omitempty"`
-	SessionDistribution map[string]int              `json:"session_distribution,omitempty"`
+	SessionStats        *SessionStatsJSON `json:"session_stats,omitempty"`
+	SessionDistribution map[string]int    `json:"session_distribution,omitempty"`
 
 	// Breakdown by entity
 	SessionsByUser     map[string]SessionStatsJSON `json:"sessions_by_user,omitempty"`

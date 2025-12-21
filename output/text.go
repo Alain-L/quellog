@@ -79,7 +79,7 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 		for _, ec := range m.ErrorClasses {
 			fmt.Printf("  %s – %-*s : %d\n",
 				ec.ClassCode,
-				maxDescLength - len(ec.ClassCode) - 3, // -3 for " – "
+				maxDescLength-len(ec.ClassCode)-3, // -3 for " – "
 				ec.Description,
 				ec.Count)
 		}
@@ -1592,7 +1592,6 @@ func PrintConcurrentHistogramWithTZ(data map[string]int, title string, scaleFact
 // - une map associant une étiquette de bucket au nombre de requêtes
 // - une chaîne "req" indiquant que les valeurs sont en nombre de requêtes,
 // - un scaleFactor permettant d’afficher des barres proportionnelles sur une largeur maximale de 40 caractères.
-
 
 // printLockStats prints lock type or resource type statistics.
 func printLockStats(stats map[string]int, total int) {

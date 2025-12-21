@@ -105,13 +105,13 @@ type LockQueryStat struct {
 //   - "deadlock detected"
 
 const (
-	lockProcessPrefix    = "process "
-	lockStillWaiting     = "still waiting for "
-	lockAcquired         = "acquired "
-	lockOnMarker         = " on "
-	lockAfterMarker      = " after "
-	lockMsSuffix         = " ms"
-	lockDeadlock         = "deadlock detected"
+	lockProcessPrefix = "process "
+	lockStillWaiting  = "still waiting for "
+	lockAcquired      = "acquired "
+	lockOnMarker      = " on "
+	lockAfterMarker   = " after "
+	lockMsSuffix      = " ms"
+	lockDeadlock      = "deadlock detected"
 )
 
 // ============================================================================
@@ -350,12 +350,12 @@ func (a *LockAnalyzer) Process(entry *parser.LogEntry) {
 		}
 
 		a.events = append(a.events, LockEvent{
-			Timestamp:  entry.Timestamp,
-			EventType:  "deadlock",
-			LockType:   "",
-			WaitTime:   0,
-			ProcessID:  pid,
-			QueryID:    queryID,
+			Timestamp: entry.Timestamp,
+			EventType: "deadlock",
+			LockType:  "",
+			WaitTime:  0,
+			ProcessID: pid,
+			QueryID:   queryID,
 		})
 		return
 	}

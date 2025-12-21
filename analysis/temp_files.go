@@ -89,28 +89,28 @@ const (
 //	}
 //	metrics := analyzer.Finalize()
 type TempFileAnalyzer struct {
-	count               int
-	totalSize           int64
-	events              []TempFileEvent
-	queryStats          map[string]*TempFileQueryStat
+	count      int
+	totalSize  int64
+	events     []TempFileEvent
+	queryStats map[string]*TempFileQueryStat
 
 	// Dual-pattern approach:
 	// Pattern 1: temp → STATEMENT (next line) - for log_statement configs
 	// Pattern 2: query → temp (cache last query by PID) - for log_min_duration_statement configs
 
 	// Pattern 1 state
-	pendingSize         int64  // Size of last temp file awaiting statement association
-	pendingPID          string // PID of last temp file seen (for immediate matching)
-	pendingEventIndex   int    // Index of the pending event in events slice
-	expectingStatement  bool   // True if next line should be a STATEMENT
-	pendingByPID        map[string]int64 // Fallback: cumulative temp size per PID waiting for statement
+	pendingSize        int64            // Size of last temp file awaiting statement association
+	pendingPID         string           // PID of last temp file seen (for immediate matching)
+	pendingEventIndex  int              // Index of the pending event in events slice
+	expectingStatement bool             // True if next line should be a STATEMENT
+	pendingByPID       map[string]int64 // Fallback: cumulative temp size per PID waiting for statement
 
 	// Pattern 2 state (query before temp file)
-	lastQueryByPID         map[string]string // Most recent query text seen for each PID
-	tempFilesExist         bool              // True once we've seen at least one temp file
+	lastQueryByPID map[string]string // Most recent query text seen for each PID
+	tempFilesExist bool              // True once we've seen at least one temp file
 
 	// Performance optimization: cache normalized queries to avoid repeated normalization
-	normalizedCache        map[string]cachedQueryID // Query text -> normalized + ID
+	normalizedCache map[string]cachedQueryID // Query text -> normalized + ID
 }
 
 // cachedQueryID stores the normalized query and its ID to avoid recomputation
@@ -125,9 +125,9 @@ func NewTempFileAnalyzer() *TempFileAnalyzer {
 	return &TempFileAnalyzer{
 		events:          make([]TempFileEvent, 0, 1000),
 		queryStats:      make(map[string]*TempFileQueryStat, 100),
-		pendingByPID:    make(map[string]int64, 50),           // Pattern 1: fallback cache
-		lastQueryByPID:  make(map[string]string, 100),         // Pattern 2: query cache
-		normalizedCache: make(map[string]cachedQueryID, 100),  // Query normalization cache
+		pendingByPID:    make(map[string]int64, 50),          // Pattern 1: fallback cache
+		lastQueryByPID:  make(map[string]string, 100),        // Pattern 2: query cache
+		normalizedCache: make(map[string]cachedQueryID, 100), // Query normalization cache
 	}
 }
 
@@ -253,51 +253,51 @@ func (a *TempFileAnalyzer) Process(entry *parser.LogEntry) {
 			if a.expectingStatement || len(a.pendingByPID) > 0 {
 				// Try immediate match first (fast path)
 				if a.expectingStatement {
-				// Fast path: pendingPID is empty (means we couldn't extract it), assume it's the same
-				if a.pendingPID == "" {
-					a.associateQuery(query, a.pendingSize, a.pendingEventIndex)
-					a.expectingStatement = false
-					a.pendingSize = 0
-					a.pendingEventIndex = -1
-					// If this line also has a temp file, continue to STEP 2
-					if !hasTempFile {
-						return
-					}
-					// Fall through to STEP 2
-				} else if pid == a.pendingPID {
-					// Fast path: next line has same PID (reuse extracted pid)
-					a.associateQuery(query, a.pendingSize, a.pendingEventIndex)
-					a.expectingStatement = false
-					a.pendingSize = 0
-					a.pendingPID = ""
-					a.pendingEventIndex = -1
-					// If this line also has a temp file, continue to STEP 2
-					if !hasTempFile {
-						return
-					}
-					// Fall through to STEP 2
-				} else {
-					// Different PID: move pending to fallback cache and check this one
-					a.pendingByPID[a.pendingPID] += a.pendingSize
-					a.expectingStatement = false
-					a.pendingSize = 0
-					a.pendingPID = ""
-					a.pendingEventIndex = -1
-
-					// Fallback: check if current PID has pending temp files
-					if pid != "" {
-						if pendingSize, exists := a.pendingByPID[pid]; exists && pendingSize > 0 {
-							a.associateQuery(query, pendingSize, -1) // No eventIndex for fallback cache
-							delete(a.pendingByPID, pid)
+					// Fast path: pendingPID is empty (means we couldn't extract it), assume it's the same
+					if a.pendingPID == "" {
+						a.associateQuery(query, a.pendingSize, a.pendingEventIndex)
+						a.expectingStatement = false
+						a.pendingSize = 0
+						a.pendingEventIndex = -1
+						// If this line also has a temp file, continue to STEP 2
+						if !hasTempFile {
+							return
 						}
-					}
+						// Fall through to STEP 2
+					} else if pid == a.pendingPID {
+						// Fast path: next line has same PID (reuse extracted pid)
+						a.associateQuery(query, a.pendingSize, a.pendingEventIndex)
+						a.expectingStatement = false
+						a.pendingSize = 0
+						a.pendingPID = ""
+						a.pendingEventIndex = -1
+						// If this line also has a temp file, continue to STEP 2
+						if !hasTempFile {
+							return
+						}
+						// Fall through to STEP 2
+					} else {
+						// Different PID: move pending to fallback cache and check this one
+						a.pendingByPID[a.pendingPID] += a.pendingSize
+						a.expectingStatement = false
+						a.pendingSize = 0
+						a.pendingPID = ""
+						a.pendingEventIndex = -1
 
-					// If this line also has a temp file, continue to STEP 2
-					if !hasTempFile {
-						return
+						// Fallback: check if current PID has pending temp files
+						if pid != "" {
+							if pendingSize, exists := a.pendingByPID[pid]; exists && pendingSize > 0 {
+								a.associateQuery(query, pendingSize, -1) // No eventIndex for fallback cache
+								delete(a.pendingByPID, pid)
+							}
+						}
+
+						// If this line also has a temp file, continue to STEP 2
+						if !hasTempFile {
+							return
+						}
+						// Fall through to STEP 2
 					}
-					// Fall through to STEP 2
-				}
 				} else {
 					// Not expecting statement: check fallback cache only
 					if len(a.pendingByPID) > 0 {

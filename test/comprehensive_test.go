@@ -86,18 +86,18 @@ func TestComprehensiveFormatParity(t *testing.T) {
 
 // keyMetrics holds the essential metrics that must be identical across formats
 type keyMetrics struct {
-	TotalLogs         int
-	Checkpoints       int
-	Connections       int
-	Disconnections    int
-	SQLQueries        int
-	SQLUniqueQueries  int
-	UniqueUsers       int
-	UniqueApps        int
-	UniqueHosts       int
-	EventLOG          int
-	EventERROR        int
-	EventFATAL        int
+	TotalLogs        int
+	Checkpoints      int
+	Connections      int
+	Disconnections   int
+	SQLQueries       int
+	SQLUniqueQueries int
+	UniqueUsers      int
+	UniqueApps       int
+	UniqueHosts      int
+	EventLOG         int
+	EventERROR       int
+	EventFATAL       int
 }
 
 // extractKeyMetrics extracts comparable metrics from a quellog JSON result

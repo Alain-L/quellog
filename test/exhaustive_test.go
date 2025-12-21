@@ -24,13 +24,13 @@ import (
 // stderr may differ due to PostgreSQL's log_line_prefix limitation for parallel workers.
 //
 // Known limitations (documented, not failures):
-// - stderr: Parallel workers have empty log_line_prefix fields (db=,user=,app=,client=)
-//   while CSV/JSON capture these from pg_stat_activity. This causes app counts to differ
-//   by the number of parallel worker log entries (typically 3 in our test fixtures).
-//   See docs/POSTGRESQL_PATCHES.md for the PostgreSQL improvement proposal.
-// - Query IDs may differ between formats due to different message formatting
-// - Table ordering may differ for items with equal counts
-// - temp_files.queries count may differ (parallel worker entries appear separately in stderr)
+//   - stderr: Parallel workers have empty log_line_prefix fields (db=,user=,app=,client=)
+//     while CSV/JSON capture these from pg_stat_activity. This causes app counts to differ
+//     by the number of parallel worker log entries (typically 3 in our test fixtures).
+//     See docs/POSTGRESQL_PATCHES.md for the PostgreSQL improvement proposal.
+//   - Query IDs may differ between formats due to different message formatting
+//   - Table ordering may differ for items with equal counts
+//   - temp_files.queries count may differ (parallel worker entries appear separately in stderr)
 func TestExhaustiveFormatParity(t *testing.T) {
 	// Build the binary
 	buildCmd := exec.Command("go", "build", "-o", "quellog_test", ".")

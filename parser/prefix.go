@@ -24,30 +24,30 @@ const (
 type TokenClass int
 
 const (
-	TokenClassUnknown              TokenClass = iota
-	TokenClassLabel                           // Fixed text (e.g., "USER", "DB", "app=")
-	TokenClassValue                           // Variable data (timestamp, PID, username, etc.)
-	TokenClassSeparator                       // Delimiters (: [ ] @ - etc.)
+	TokenClassUnknown   TokenClass = iota
+	TokenClassLabel                // Fixed text (e.g., "USER", "DB", "app=")
+	TokenClassValue                // Variable data (timestamp, PID, username, etc.)
+	TokenClassSeparator            // Delimiters (: [ ] @ - etc.)
 
 	// Timestamp components (%t, %m, %n)
-	TokenClassTimestampYear                   // Year (YYYY)
-	TokenClassTimestampMonth                  // Month (MM)
-	TokenClassTimestampDay                    // Day (DD)
-	TokenClassTimestampHour                   // Hour (HH)
-	TokenClassTimestampMinute                 // Minute (mm)
-	TokenClassTimestampSecond                 // Second (SS)
-	TokenClassTimestampMillisecond            // Millisecond (sss)
+	TokenClassTimestampYear        // Year (YYYY)
+	TokenClassTimestampMonth       // Month (MM)
+	TokenClassTimestampDay         // Day (DD)
+	TokenClassTimestampHour        // Hour (HH)
+	TokenClassTimestampMinute      // Minute (mm)
+	TokenClassTimestampSecond      // Second (SS)
+	TokenClassTimestampMillisecond // Millisecond (sss)
 
 	// Process and session identifiers (%p, %c, %l)
-	TokenClassPID                             // Process ID (%p - 4-6 digits)
-	TokenClassSessionID                       // Session ID (%c - hex string)
-	TokenClassLogLineNumber                   // Log line number (%l - small integer)
+	TokenClassPID           // Process ID (%p - 4-6 digits)
+	TokenClassSessionID     // Session ID (%c - hex string)
+	TokenClassLogLineNumber // Log line number (%l - small integer)
 
 	// Connection metadata (%u, %d, %a, %h, %r)
-	TokenClassUser                            // Username (%u)
-	TokenClassDatabase                        // Database name (%d)
-	TokenClassApplication                     // Application name (%a)
-	TokenClassHost                            // Hostname or IP address (%h, %r)
+	TokenClassUser        // Username (%u)
+	TokenClassDatabase    // Database name (%d)
+	TokenClassApplication // Application name (%a)
+	TokenClassHost        // Hostname or IP address (%h, %r)
 
 	// TODO: Future implementation - Advanced PostgreSQL log_line_prefix parameters
 	// Uncomment and implement detection logic when needed
@@ -170,24 +170,24 @@ var knownUsernames = map[string]bool{
 // knownDatabases is a set of common PostgreSQL database names
 // Used to disambiguate user vs database fields
 var knownDatabases = map[string]bool{
-	"postgres":   true,
-	"template0":  true,
-	"template1":  true,
-	"mydb":       true,
-	"testdb":     true,
-	"test":       true,
-	"production": true,
-	"prod":       true,
-	"proddb":     true,
+	"postgres":    true,
+	"template0":   true,
+	"template1":   true,
+	"mydb":        true,
+	"testdb":      true,
+	"test":        true,
+	"production":  true,
+	"prod":        true,
+	"proddb":      true,
 	"development": true,
-	"dev":        true,
-	"devdb":      true,
-	"staging":    true,
-	"database":   true,
-	"db":         true,
-	"main":       true,
-	"app":        true,
-	"appdb":      true,
+	"dev":         true,
+	"devdb":       true,
+	"staging":     true,
+	"database":    true,
+	"db":          true,
+	"main":        true,
+	"app":         true,
+	"appdb":       true,
 }
 
 // detectorFunc is a function that detects patterns in a token sequence.

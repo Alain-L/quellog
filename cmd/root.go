@@ -37,16 +37,16 @@ var (
 	sqlDetailFlag      []string // --sql-detail: Show details for specific SQL IDs
 
 	// Section selection flags (print only specific sections)
-	summaryFlag    bool // --summary: Print only summary section
-	eventsFlag     bool // --events: Print only events section
-	errorsFlag     bool // --errors: Print only error classes section
-	sqlSummaryFlag bool // --sql-summary: Print only SQL summary section
-	tempfilesFlag      bool // --tempfiles: Print only temporary files section
-	locksFlag          bool // --locks: Print only locks section
-	maintenanceFlag    bool // --maintenance: Print only maintenance section
-	checkpointsFlag    bool // --checkpoints: Print only checkpoints section
-	connectionsFlag    bool // --connections: Print only connections section
-	clientsFlag        bool // --clients: Print only clients section
+	summaryFlag     bool // --summary: Print only summary section
+	eventsFlag      bool // --events: Print only events section
+	errorsFlag      bool // --errors: Print only error classes section
+	sqlSummaryFlag  bool // --sql-summary: Print only SQL summary section
+	tempfilesFlag   bool // --tempfiles: Print only temporary files section
+	locksFlag       bool // --locks: Print only locks section
+	maintenanceFlag bool // --maintenance: Print only maintenance section
+	checkpointsFlag bool // --checkpoints: Print only checkpoints section
+	connectionsFlag bool // --connections: Print only connections section
+	clientsFlag     bool // --clients: Print only clients section
 
 	// Output format flags
 	jsonFlag bool // --json: Export results in JSON format

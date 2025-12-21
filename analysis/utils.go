@@ -45,11 +45,11 @@ type queryPrefix struct {
 //   - Utility: EXPLAIN, ANALYZE, VACUUM, REINDEX, CLUSTER, LOCK, etc.
 var queryPrefixes = [...]queryPrefix{
 	// DML - Data Manipulation Language
-	{"SELECT", "se-"},   // SELECT queries
-	{"INSERT", "in-"},   // INSERT statements
-	{"UPDATE", "up-"},   // UPDATE statements
-	{"DELETE", "de-"},   // DELETE statements
-	{"MERGE", "me-"},    // MERGE statements (PostgreSQL 15+)
+	{"SELECT", "se-"}, // SELECT queries
+	{"INSERT", "in-"}, // INSERT statements
+	{"UPDATE", "up-"}, // UPDATE statements
+	{"DELETE", "de-"}, // DELETE statements
+	{"MERGE", "me-"},  // MERGE statements (PostgreSQL 15+)
 
 	// COPY operations
 	{"COPY", "co-"}, // COPY TO/FROM

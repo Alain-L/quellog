@@ -83,14 +83,14 @@ func TestSQLFormatsEquivalence(t *testing.T) {
 				t.Errorf("expected total duration '99 ms', got '%s'", totalDuration)
 			}
 
-		// Check unique queries (normalization test)
-		uniqueQueries, ok := sqlPerf["total_unique_queries"].(float64)
-		if !ok {
-			t.Fatalf("missing or invalid 'total_unique_queries' in sql_performance section")
-		}
-		if uniqueQueries != 3 {
-			t.Errorf("expected 3 unique queries (normalization working), got %v", uniqueQueries)
-		}
+			// Check unique queries (normalization test)
+			uniqueQueries, ok := sqlPerf["total_unique_queries"].(float64)
+			if !ok {
+				t.Fatalf("missing or invalid 'total_unique_queries' in sql_performance section")
+			}
+			if uniqueQueries != 3 {
+				t.Errorf("expected 3 unique queries (normalization working), got %v", uniqueQueries)
+			}
 
 			results = append(results, result)
 		})
