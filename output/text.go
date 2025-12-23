@@ -59,7 +59,9 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 
 	// Events
 	if has("events") && len(m.EventSummaries) > 0 {
-		PrintEventsReport(m.EventSummaries, m.TopEvents)
+		PrintEventsReport(m.EventSummaries, m.TopEvents, false)
+	} else if has("errors") && len(m.EventSummaries) > 0 {
+		PrintEventsReport(m.EventSummaries, m.TopEvents, true)
 	}
 
 	// Temp Files section.
@@ -1351,7 +1353,7 @@ Number of SQL queries: %d`,
 }
 
 // PrintEventsReport prints a consolidated event report including summary and top events.
-func PrintEventsReport(summaries []analysis.EventSummary, topEvents []analysis.EventStat) {
+func PrintEventsReport(summaries []analysis.EventSummary, topEvents []analysis.EventStat, onlyErrors bool) {
 	// ANSI styles.
 	bold := "\033[1m"
 	reset := "\033[0m"
@@ -1398,6 +1400,14 @@ func PrintEventsReport(summaries []analysis.EventSummary, topEvents []analysis.E
 	for _, summary := range summaries {
 		if summary.Count == 0 {
 			continue
+		}
+
+		// Filter non-error severities if onlyErrors is true
+		if onlyErrors {
+			s := summary.Type
+			if s == "LOG" || s == "INFO" || s == "DEBUG" || s == "NOTICE" {
+				continue
+			}
 		}
 
 		// Print Severity Main Line

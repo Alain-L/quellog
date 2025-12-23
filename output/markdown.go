@@ -80,25 +80,122 @@ func ExportMarkdown(m analysis.AggregatedMetrics, sections []string, full bool) 
 	// ============================================================================
 	// EVENTS
 	// ============================================================================
-	if has("events") && len(m.EventSummaries) > 0 {
+	if (has("events") || has("errors")) && len(m.EventSummaries) > 0 {
 		b.WriteString("## EVENTS\n\n")
-		b.WriteString("|  |  |\n")
-		b.WriteString("|---|---:|\n")
-		for _, ev := range m.EventSummaries {
-			if ev.Count == 0 {
-				b.WriteString(fmt.Sprintf("| %s | - |\n", ev.Type))
-			} else {
-				b.WriteString(fmt.Sprintf("| %s | %d |\n", ev.Type, ev.Count))
-			}
-		}
-		b.WriteString("\n")
 
-		if len(m.TopEvents) > 0 {
-			b.WriteString("### TOP EVENTS\n\n")
-			b.WriteString("| Count | Severity | Message |\n")
-			b.WriteString("|---|---|---|\n")
-			for _, e := range m.TopEvents {
-				b.WriteString(fmt.Sprintf("| %d | %s | %s |\n", e.Count, e.Severity, e.Message))
+		onlyErrors := has("errors") && !has("events")
+
+		// Re-sort summaries by severity order (PANIC -> FATAL -> ERROR ...)
+		severityRank := make(map[string]int)
+		for i, s := range analysis.PredefinedEventTypes {
+			severityRank[s] = i
+		}
+
+		sort.Slice(m.EventSummaries, func(i, j int) bool {
+			rankI, okI := severityRank[m.EventSummaries[i].Type]
+			rankJ, okJ := severityRank[m.EventSummaries[j].Type]
+			if okI && okJ {
+				return rankI < rankJ
+			}
+			if okI {
+				return true
+			}
+			if okJ {
+				return false
+			}
+			return m.EventSummaries[i].Type < m.EventSummaries[j].Type
+		})
+
+		// Group top events by severity
+		eventsBySeverity := make(map[string][]analysis.EventStat)
+		for _, e := range m.TopEvents {
+			eventsBySeverity[e.Severity] = append(eventsBySeverity[e.Severity], e)
+		}
+
+		for _, summary := range m.EventSummaries {
+			if summary.Count == 0 {
+				continue
+			}
+
+			// Filter non-error severities if requested
+			if onlyErrors {
+				s := summary.Type
+				if s == "LOG" || s == "INFO" || s == "DEBUG" || s == "NOTICE" {
+					continue
+				}
+			}
+
+			// Level 1: Severity
+			b.WriteString(fmt.Sprintf("- **%s**: %d (%.1f%%)\n",
+				summary.Type, summary.Count, summary.Percentage))
+
+			// Detailed events
+			if events, ok := eventsBySeverity[summary.Type]; ok {
+				// Group by Error Class
+				byClass := make(map[string][]analysis.EventStat)
+				for _, e := range events {
+					class := e.SQLStateClass
+					if class == "" || class == "00" {
+						class = "Unclassified"
+					}
+					byClass[class] = append(byClass[class], e)
+				}
+
+				// Sort classes
+				var classes []string
+				for c := range byClass {
+					classes = append(classes, c)
+				}
+				sort.Slice(classes, func(i, j int) bool {
+					if classes[i] == "Unclassified" {
+						return false
+					}
+					if classes[j] == "Unclassified" {
+						return true
+					}
+					return classes[i] < classes[j]
+				})
+
+				for _, classCode := range classes {
+					classEvents := byClass[classCode]
+
+					// Level 2: Class
+					shouldPrintHeader := (classCode != "Unclassified") || (classCode == "Unclassified" && len(classes) > 1)
+					
+					indent := "  "
+					if shouldPrintHeader {
+						classHeader := classCode
+						if classCode != "Unclassified" {
+							desc := analysis.GetErrorClassDescription(classCode)
+							classHeader = fmt.Sprintf("%s - %s", classCode, desc)
+						}
+						b.WriteString(fmt.Sprintf("  - **%s**\n", classHeader))
+						indent = "    "
+					}
+
+					// Sort events by count
+					sort.Slice(classEvents, func(i, j int) bool {
+						return classEvents[i].Count > classEvents[j].Count
+					})
+
+					// Level 3: Message
+					for _, e := range classEvents {
+						msg := e.Message
+						if len(msg) > 80 {
+							msg = msg[:77] + "..."
+						}
+						// Escape backticks in message for markdown code block
+						msg = strings.ReplaceAll(msg, "`", "'")
+						
+						localPct := 0.0
+						if summary.Count > 0 {
+							localPct = (float64(e.Count) / float64(summary.Count)) * 100
+						}
+
+						b.WriteString(fmt.Sprintf("%s- `%s` (%d) [%.1f%%]\n",
+							indent, msg, e.Count, localPct))
+					}
+				}
 			}
 			b.WriteString("\n")
 		}

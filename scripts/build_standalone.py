@@ -14,7 +14,7 @@ import tempfile
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_DIR = os.path.dirname(SCRIPT_DIR)
-WASM_DIR = os.path.join(PROJECT_DIR, "wasm")
+WASM_DIR = os.path.join(PROJECT_DIR, "web")
 WEB_DIR = os.path.join(PROJECT_DIR, "web")
 ZSTD_DECODER = os.path.join(SCRIPT_DIR, "fzstd.min.js")
 UPLOT_JS = os.path.join(SCRIPT_DIR, "uplot.min.js")
@@ -66,7 +66,7 @@ def main():
 
     if not os.path.exists(wasm_path):
         print(f"ERROR: TinyGo WASM not found: {wasm_path}")
-        print("Build it with: cd wasm && tinygo build -o quellog_tiny.wasm -target wasm -gc=leaking -no-debug ./main.go")
+        print("Build it with: cd web && tinygo build -o quellog_tiny.wasm -target wasm -gc=leaking -no-debug ./main.go")
         sys.exit(1)
 
     if not os.path.exists(wasm_exec_path):

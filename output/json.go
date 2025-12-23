@@ -315,10 +315,11 @@ type EventJSON struct {
 }
 
 type EventStatJSON struct {
-	Message  string `json:"message"`
-	Count    int    `json:"count"`
-	Severity string `json:"severity"`
-	Example  string `json:"example"`
+	Message       string `json:"message"`
+	Count         int    `json:"count"`
+	Severity      string `json:"severity"`
+	Example       string `json:"example"`
+	SQLStateClass string `json:"sql_state_class,omitempty"`
 }
 
 type ErrorClassJSON struct {
@@ -405,10 +406,11 @@ func buildJSONData(m analysis.AggregatedMetrics, sections []string, full bool) m
 			topEvents := make([]EventStatJSON, len(m.TopEvents))
 			for i, e := range m.TopEvents {
 				topEvents[i] = EventStatJSON{
-					Message:  e.Message,
-					Count:    e.Count,
-					Severity: e.Severity,
-					Example:  e.Example,
+					Message:       e.Message,
+					Count:         e.Count,
+					Severity:      e.Severity,
+					Example:       e.Example,
+					SQLStateClass: e.SQLStateClass,
 				}
 			}
 			data["top_events"] = topEvents

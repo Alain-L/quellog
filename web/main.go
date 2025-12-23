@@ -124,7 +124,6 @@ func parseLog(this js.Value, args []js.Value) interface{} {
 	connAnalyzer := analysis.NewConnectionAnalyzer()
 	lockAnalyzer := analysis.NewLockAnalyzer()
 	evtAnalyzer := analysis.NewEventAnalyzer()
-	errAnalyzer := analysis.NewErrorClassAnalyzer()
 	uniAnalyzer := analysis.NewUniqueEntityAnalyzer()
 	sqlAnalyzer := analysis.NewSQLAnalyzerWithSize(int64(len(content)))
 
@@ -145,7 +144,6 @@ func parseLog(this js.Value, args []js.Value) interface{} {
 		connAnalyzer.Process(entry)
 		lockAnalyzer.Process(entry)
 		evtAnalyzer.Process(entry)
-		errAnalyzer.Process(entry)
 		uniAnalyzer.Process(entry)
 		sqlAnalyzer.Process(entry)
 
@@ -165,8 +163,7 @@ func parseLog(this js.Value, args []js.Value) interface{} {
 	chkMetrics := chkAnalyzer.Finalize()
 	connMetrics := connAnalyzer.Finalize()
 	lockMetrics := lockAnalyzer.Finalize()
-	evtMetrics := evtAnalyzer.Finalize()
-	errMetrics := errAnalyzer.Finalize()
+	evtSummaries, topEvents := evtAnalyzer.Finalize()
 	uniMetrics := uniAnalyzer.Finalize()
 	sqlMetrics := sqlAnalyzer.Finalize()
 
@@ -180,8 +177,8 @@ func parseLog(this js.Value, args []js.Value) interface{} {
 		Checkpoints:    chkMetrics,
 		Connections:    connMetrics,
 		Locks:          lockMetrics,
-		EventSummaries: evtMetrics,
-		ErrorClasses:   errMetrics,
+		EventSummaries: evtSummaries,
+		TopEvents:      topEvents,
 		UniqueEntities: uniMetrics,
 		SQL:            sqlMetrics,
 	}

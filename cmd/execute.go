@@ -306,7 +306,7 @@ func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, 
 			Format:      detectedFormat,
 		}
 
-		if err := output.ExportHTML(f, metrics, reportInfo); err != nil {
+		if err := output.ExportHTML(f, metrics, reportInfo, sections); err != nil {
 			log.Fatalf("[ERROR] Failed to write HTML report: %v", err)
 		}
 		fmt.Printf("Report saved to %s\n", outputName)
