@@ -752,6 +752,12 @@
         .results { display: none; }
         .results.active { display: block; }
 
+        .events-toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
         /* Section */
         .section {
             background: var(--card-bg);
@@ -810,6 +816,9 @@
             width: fit-content;
         }
 
+
+
+
         .tab {
             padding: 0.2rem 0.4rem;
             background: transparent;
@@ -821,6 +830,10 @@
             color: var(--text-muted);
             transition: all 0.15s;
             white-space: nowrap;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            line-height: 1;
         }
 
         .tab:hover {
@@ -850,6 +863,11 @@
         .tab.active .tab-badge {
             background: rgba(255,255,255,0.25);
             color: white;
+        }
+
+        .indicator:hover .tab-badge {
+            background: var(--bg-tertiary) !important;
+            color: var(--text-muted) !important;
         }
 
         .tab-content {
@@ -2181,9 +2199,7 @@
 .tab.panic:hover:not(.active) { color: #000; background: rgba(0, 0, 0, 0.05); }
 
 /* Indicator style (read-only tab) */
-.tab.indicator { cursor: default; }
-.tab.indicator:hover { background: transparent; color: var(--text-muted); }
-
+.tab.indicator { cursor: default; } 
 
 /* Event Tab Colors (Overrides default .tab.active) */
 .tab.error.active { background: var(--danger); }
@@ -2197,9 +2213,7 @@
 .tab.panic:hover:not(.active) { color: #000; background: rgba(0, 0, 0, 0.05); }
 
 /* Indicator style (read-only tab) */
-.tab.indicator { cursor: default; }
-.tab.indicator:hover { background: transparent; color: var(--text-muted); }
-
+.tab.indicator { cursor: default; } 
 
 /* Event Pill Colors */
 .nav-pill.panic { background: #000; }
@@ -2219,17 +2233,23 @@
 .nav-pill.warning.off:hover { background: rgba(229, 165, 75, 0.2) !important; opacity: 1; }
 
 .indicator { 
-    display: flex; 
+    display: inline-flex; 
     align-items: center; 
     gap: 0.3rem; 
-    padding: 0.35rem 0.7rem; 
-    background: transparent; 
-    border-radius: 20px; 
-    font-size: 0.72rem; 
+    padding: 0.2rem 0.4rem; 
+    background: var(--card-bg);
+    border: none;
+    border-radius: 4px; 
+    font-size: 0.68rem; 
     font-weight: 500; 
     color: var(--text-muted); 
-    border: none; 
     cursor: default;
+    line-height: 1;
+}
+
+.indicator:hover {
+    background: var(--card-bg) !important;
+    color: var(--text-muted) !important;
 }
 .indicator-label { font-weight: 500; }
 .indicator-value { 

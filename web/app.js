@@ -3177,7 +3177,7 @@ function buildEventsSection(data) {
 	}
 
 	// Generate Indicators HTML (Right)
-	let noiseHtml = '<div class="tabs">';
+	let noiseHtml = '<div class="tabs indicators-group">';
 	noiseSeverities.forEach(sev => {
 		if (onlyErrors) return;
 		const count = summaryMap[sev] || 0;
@@ -3245,7 +3245,7 @@ function buildEventsSection(data) {
 			});
 
 			innerContent = `
-			<div class="table-container" style="max-height: 400px;">
+			<div class="table-container" style="max-height: 220px;">
 				<table class="data-table" style="width: 100%;">
 					${rows}
 				</table>
