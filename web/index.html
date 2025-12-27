@@ -7,13 +7,14 @@
     <link rel="stylesheet" href="styles.css?v=2">
 </head>
 <body>
+    <a href="#main" class="skip-link">Skip to main content</a>
 <!-- Chart Modal -->
     <div class="chart-modal" id="chartModal" onclick="if(event.target === this) closeChartModal()">
         <div class="chart-modal-content">
             <div class="chart-modal-header">
                 <span class="chart-modal-title" id="modalChartTitle">Chart</span>
                 <div class="chart-modal-actions">
-                    <select id="modalBucketSelect" onchange="updateModalInterval(this.value)">
+                    <select id="modalBucketSelect" onchange="updateModalInterval(this.value)" aria-label="Chart time bucket">
                         <option value="0" selected>Auto</option>
                         <option value="60">1 min</option>
                         <option value="300">5 min</option>
@@ -22,7 +23,7 @@
                     </select>
                     <button onclick="resetModalZoom()">Reset Zoom</button>
                     <button class="primary" onclick="exportChartPNG()">⬇ Export PNG</button>
-                    <button class="chart-modal-close" onclick="closeChartModal()">&times;</button>
+                    <button class="chart-modal-close" onclick="closeChartModal()" aria-label="Close chart">&times;</button>
                 </div>
             </div>
             <div class="chart-modal-body">
@@ -40,7 +41,7 @@
                 </div>
                 <div class="header-right">
                     <button class="btn btn-sm btn-secondary" id="newFileBtn" onclick="resetAnalysis()" style="display:none;">New File</button>
-                    <button class="btn-icon" id="themeToggle" onclick="toggleTheme()" title="Toggle theme">
+                    <button class="btn-icon" id="themeToggle" onclick="toggleTheme()" title="Toggle theme" aria-label="Toggle theme">
                         <svg id="iconSun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
                         <svg id="iconMoon" style="display:none;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
                     </button>
@@ -121,8 +122,8 @@
                         <!-- Slider mode (single day) -->
                         <div class="filter-time-slider" id="filterTimeSlider">
                             <div class="filter-time-slider-track">
-                                <input type="range" id="filterTimeMin" min="0" max="1440" value="0" step="1">
-                                <input type="range" id="filterTimeMax" min="0" max="1440" value="1440" step="1">
+                                <input type="range" id="filterTimeMin" min="0" max="1440" value="0" step="1" aria-label="Start time (minutes)">
+                                <input type="range" id="filterTimeMax" min="0" max="1440" value="1440" step="1" aria-label="End time (minutes)">
                                 <div class="filter-time-slider-range" id="filterTimeRange"></div>
                             </div>
                             <div class="filter-time-slider-label" id="filterTimeLabel">00:00 – 24:00</div>
@@ -130,9 +131,9 @@
                         </div>
                         <!-- Date picker mode (multi-day) -->
                         <div class="filter-time-pickers" id="filterTimePickers" style="display: none;">
-                            <label>From</label>
+                            <label for="filterBegin">From</label>
                             <input type="datetime-local" class="filter-time-input" id="filterBegin">
-                            <label>To</label>
+                            <label for="filterEnd">To</label>
                             <input type="datetime-local" class="filter-time-input" id="filterEnd">
                         </div>
                     </div>
@@ -150,7 +151,7 @@
                 <h2>Drop your PostgreSQL log file</h2>
                 <p>Supports stderr, CSV, JSON formats + gzip, zstd, tar archives - all processing happens locally</p>
                 <button class="btn" onclick="document.getElementById('fileInput').click()">Select File</button>
-                <input type="file" id="fileInput" accept=".log,.csv,.json,.txt,.gz,.gzip,.zst,.zstd,.tar,.tgz,.tar.gz,.tar.zst">
+                <input type="file" id="fileInput" accept=".log,.csv,.json,.txt,.gz,.gzip,.zst,.zstd,.tar,.tgz,.tar.gz,.tar.zst" aria-label="Select log file">
             </div>
 
             <!-- Loading -->
@@ -180,7 +181,7 @@
         <div class="modal">
             <div class="modal-header">
                 <h3>Query Detail</h3>
-                <button class="modal-close" onclick="closeModal()">&times;</button>
+                <button class="modal-close" onclick="closeModal()" aria-label="Close query detail">&times;</button>
             </div>
             <div class="modal-body" id="queryModalBody"></div>
         </div>
