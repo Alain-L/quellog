@@ -1518,7 +1518,7 @@
                                 </select>
                             ` : ''}
                             <button onclick="resetChartZoom('${id}')">Reset</button>
-                            <button class="btn-expand" onclick="openChartModal('${id}', '${title.replace(/'/g, "\\'")}')" title="Expand chart" aria-label="Expand chart">⛶</button>
+                            <button class="btn-expand" onclick="openChartModal('${id}', '${title.replace(/'/g, "\\'")}')" title="Expand chart">⛶</button>
                         </div>
                     </div>
                     <div id="${id}" style="min-height: 120px;"></div>
@@ -3084,7 +3084,7 @@
 
             return `
                 <div class="section" id="summary">
-                    <h2 class="section-header">Summary</div>
+                    <div class="section-header">Summary</div>
                     <div class="section-body summary-body">
                         <div class="summary-header">
                             <div class="summary-date">${dateDisplay}</div>
@@ -3260,7 +3260,7 @@ function buildEventsSection(data) {
 
 	return `
 	<div class="section" id="events">
-		<h2 class="section-header">Events</div>
+		<div class="section-header">Events</div>
 		<div class="section-body">
 			<div class="events-toolbar">
 				${tabsHtml}
@@ -3277,7 +3277,7 @@ function buildEventsSection(data) {
             if (!c || c.connection_count === 0) {
                 return `
                     <div class="section" id="connections">
-                        <h2 class="section-header muted">Connections</div>
+                        <div class="section-header muted">Connections</div>
                         <div class="section-body">
                             ${buildNoDataMessage('<code>log_connections = on</code>')}
                         </div>
@@ -3301,7 +3301,7 @@ function buildEventsSection(data) {
 
             return `
                 <div class="section" id="connections">
-                    <h2 class="section-header">Connections</div>
+                    <div class="section-header">Connections</div>
                     <div class="section-body">
                         <div class="stat-grid">
                             <div class="stat-card">
@@ -3479,7 +3479,7 @@ function buildEventsSection(data) {
             if (!c.unique_databases && databases.length === 0) {
                 return `
                     <div class="section" id="clients">
-                        <h2 class="section-header muted">Clients</div>
+                        <div class="section-header muted">Clients</div>
                         <div class="section-body">
                             ${buildNoDataMessage('<code>%u</code>, <code>%d</code>, <code>%a</code> in <code>log_line_prefix</code>')}
                         </div>
@@ -3512,7 +3512,7 @@ function buildEventsSection(data) {
 
             return `
                 <div class="section" id="clients">
-                    <h2 class="section-header">Clients</div>
+                    <div class="section-header">Clients</div>
                     <div class="section-body">
                         <div class="tabs">
                             <button class="tab active" onclick="showClientTab(this, 'client-dbs')">Databases <span class="tab-badge">${c.unique_databases}</span></button>
@@ -3551,7 +3551,7 @@ function buildEventsSection(data) {
             if (!cp || cp.total_checkpoints === 0) {
                 return `
                     <div class="section" id="checkpoints">
-                        <h2 class="section-header muted">Checkpoints</div>
+                        <div class="section-header muted">Checkpoints</div>
                         <div class="section-body">
                             ${buildNoDataMessage('<code>log_checkpoints = on</code>')}
                         </div>
@@ -3583,7 +3583,7 @@ function buildEventsSection(data) {
 
             return `
                 <div class="section" id="checkpoints">
-                    <h2 class="section-header">Checkpoints</div>
+                    <div class="section-header">Checkpoints</div>
                     <div class="section-body">
                         <div class="stat-grid">
                             <div class="stat-card"><div class="stat-value">${fmt(cp.total_checkpoints)}</div><div class="stat-label">Total</div></div>
@@ -3611,7 +3611,7 @@ function buildEventsSection(data) {
             if (!m || ((m.vacuum_count || 0) + (m.analyze_count || 0)) === 0) {
                 return `
                     <div class="section" id="maintenance">
-                        <h2 class="section-header muted">Maintenance</div>
+                        <div class="section-header muted">Maintenance</div>
                         <div class="section-body">
                             ${buildNoDataMessage('<code>log_autovacuum_min_duration = 0</code>')}
                         </div>
@@ -3628,7 +3628,7 @@ function buildEventsSection(data) {
             const maxAna = anaTables[0]?.count || 1;
             return `
                 <div class="section" id="maintenance">
-                    <h2 class="section-header">Maintenance</div>
+                    <div class="section-header">Maintenance</div>
                     <div class="section-body">
                         <div class="stat-grid">
                             <div class="stat-card"><div class="stat-value">${m.vacuum_count || 0}</div><div class="stat-label">Vacuum</div></div>
@@ -3672,7 +3672,7 @@ function buildEventsSection(data) {
             if (!l || ((l.deadlock_events || 0) + (l.waiting_events || 0) + (l.acquired_events || 0)) === 0) {
                 return `
                     <div class="section" id="locks">
-                        <h2 class="section-header muted">Locks</div>
+                        <div class="section-header muted">Locks</div>
                         <div class="section-body">
                             ${buildNoDataMessage('<code>log_lock_waits = on</code>')}
                         </div>
@@ -3689,7 +3689,7 @@ function buildEventsSection(data) {
             const hasQueries = l.queries?.length > 0;
             return `
                 <div class="section" id="locks">
-                    <h2 class="section-header ${deadlocks > 0 ? 'danger' : ''}">Locks</div>
+                    <div class="section-header ${deadlocks > 0 ? 'danger' : ''}">Locks</div>
                     <div class="section-body">
                         <div class="stat-grid">
                             <div class="stat-card ${deadlocks > 0 ? 'stat-card--alert' : ''}"><div class="stat-value">${deadlocks}</div><div class="stat-label">Deadlocks</div></div>
@@ -3764,7 +3764,7 @@ function buildEventsSection(data) {
             if (!tf || tf.total_messages === 0) {
                 return `
                     <div class="section" id="temp_files">
-                        <h2 class="section-header muted">Temp Files</div>
+                        <div class="section-header muted">Temp Files</div>
                         <div class="section-body">
                             ${buildNoDataMessage('<code>log_temp_files = 0</code>')}
                         </div>
@@ -3779,7 +3779,7 @@ function buildEventsSection(data) {
             }
             return `
                 <div class="section" id="temp_files">
-                    <h2 class="section-header">Temp Files</div>
+                    <div class="section-header">Temp Files</div>
                     <div class="section-body">
                         <div class="stat-grid">
                             <div class="stat-card"><div class="stat-value">${fmt(tf.total_messages)}</div><div class="stat-label">Count</div></div>
@@ -3867,7 +3867,7 @@ function buildEventsSection(data) {
             if (!hasData) {
                 return `
                     <div class="section" id="sql_overview">
-                        <h2 class="section-header muted">SQL Overview</div>
+                        <div class="section-header muted">SQL Overview</div>
                         <div class="section-body">
                             ${buildNoDataMessage('<code>log_min_duration_statement = 0</code>')}
                         </div>
@@ -3888,7 +3888,7 @@ function buildEventsSection(data) {
 
             return `
                 <div class="section" id="sql_overview">
-                    <h2 class="section-header">SQL Overview</div>
+                    <div class="section-header">SQL Overview</div>
                     <div class="section-body">
                         <div class="stat-grid">
                             ${allCategories.map(cat => {
@@ -4030,7 +4030,7 @@ function buildEventsSection(data) {
 
             return `
                 <div class="section" id="sql_performance">
-                    <h2 class="section-header">SQL Performance</div>
+                    <div class="section-header">SQL Performance</div>
                     <div class="section-body">
                         <div class="stat-grid">
                             <div class="stat-card"><div class="stat-value">${fmt(sql.total_queries_parsed)}</div><div class="stat-label">Queries</div></div>
