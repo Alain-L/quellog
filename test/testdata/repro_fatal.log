@@ -1,0 +1,5 @@
+Dec 22 15:34:51 u3antu258 postgre[2432]: [11-1] [2432]: [2-1] db=,user=,app=,client= FATAL:  terminating walreceiver process due to administrator command
+Dec 22 18:12:53 u3antu258 postgre[2427]: [10-1] [2427]: [2-1] db=postgres,user=postgres,app=[unknown],client=127.0.0.1 FATAL:  the database system is not yet accepting connections
+Dec 22 18:12:53 u3antu258 postgre[2432]: [10-1] [2432]: [2-1] db=postgres,user=postgres,app=[unknown],client=127.0.0.1 FATAL:  the database system is not yet accepting connections
+Dec 22 18:12:54 u3antu258 postgre[2439]: [10-1] [2439]: [2-1] db=postgres,user=postgres,app=[unknown],client=127.0.0.1 FATAL:  the database system is not yet accepting connections
+Dec 22 18:12:55 u3antu258 postgre[2444]: [10-1] [2444]: [2-1] db=postgres,user=postgres,app=[unknown],client=127.0.0.1 FATAL:  the database system is not yet accepting connections

@@ -1,0 +1,4 @@
+Dec 22 03:23:04 u3antu258 postgre[108966]: [10-1] [108966]: [1-1] db=[unknown],user=[unknown],app=[unknown],client=[local] LOG:  connection received: host=[local]
+Dec 22 03:23:04 u3antu258 postgre[108966]: [11-1] [108966]: [2-1] db=postgres,user=temboardagent,app=[unknown],client=[local] LOG:  connection authenticated: identity="temboardagent" method=md5 (/var/lib/pgsql/14/main/data_mnt/data/pg_hba.conf:3)
+Dec 22 03:23:07 u3antu258 postgre[109163]: [10-1] [109163]: [1-1] db=[unknown],user=[unknown],app=[unknown],client=[local] FATAL:  password authentication failed for user "baduser"
+Dec 22 03:23:07 u3antu258 postgre[109163]: [11-1] [109163]: [2-1] db=postgres,user=temboardagent,app=[unknown],client=[local] ERROR:  syntax error at or near "FOO"

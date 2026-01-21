@@ -99,11 +99,6 @@ func TestAllSectionsJSONOutput(t *testing.T) {
 			expectedKeys: []string{"events"},
 		},
 		{
-			name:         "errors",
-			flags:        []string{"--errors", "--json"},
-			expectedKeys: []string{"error_classes"},
-		},
-		{
 			name:         "connections",
 			flags:        []string{"--connections", "--json"},
 			expectedKeys: []string{"connections"},

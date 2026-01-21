@@ -25,13 +25,9 @@ type HTMLReportInfo struct {
 }
 
 // ExportHTML exports metrics as a standalone HTML report with embedded data.
-// The HTML file includes all necessary CSS, JavaScript, and the data itself,
-// making it fully self-contained and openable in any modern browser.
-// The JSON data is zstd-compressed and base64-encoded to reduce file size.
-func ExportHTML(w io.Writer, metrics analysis.AggregatedMetrics, info HTMLReportInfo) error {
+func ExportHTML(w io.Writer, metrics analysis.AggregatedMetrics, info HTMLReportInfo, sections []string) error {
 	// Build full JSON data structure (same as JSON export with all sections)
-	sections := []string{"all"}
-	data := buildJSONData(metrics, sections, true)
+	data := buildJSONData(metrics, []string{"all"}, true)
 
 	// Add meta section required by the web UI
 	format := info.Format
@@ -44,6 +40,7 @@ func ExportHTML(w io.Writer, metrics analysis.AggregatedMetrics, info HTMLReport
 		"filename":      info.Filename,
 		"filesize":      info.FileSize,
 		"parse_time_ms": info.ProcessTime,
+		"sections":      sections,
 	}
 
 	// Marshal to JSON

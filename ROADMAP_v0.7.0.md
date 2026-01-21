@@ -33,36 +33,48 @@ Enrichir la catégorisation des ERROR/FATAL/PANIC/WARNING avec des sous-catégor
 
 ---
 
-## 2. Accessibilité HTML report
+## 2. Accessibilité HTML report (WCAG 2.1 AA)
 
 **Statut :** A faire
-**Effort :** 2-3 sessions
-**Difficulté :** Moyen
+**Effort :** 3-4 sessions
+**Difficulté :** Moyen à Élevé
 
-### Objectif
-Atteindre WCAG 2.1 AA compliance pour le rapport HTML.
+### Checklist par difficulté croissante
 
-### Tâches
-- [ ] ARIA labels sur tous les éléments interactifs (boutons, dropdowns, modals)
-- [ ] Navigation clavier complète (Tab, Shift+Tab, Enter, Escape)
-- [ ] Focus visible sur tous les éléments focusables
-- [ ] Skip links ("Skip to main content")
-- [ ] Vérifier contraste couleurs (dark/light themes)
-- [ ] Alternatives textuelles pour les charts uPlot :
-  - Option A : tableau masqué avec données brutes
-  - Option B : aria-label descriptif
-  - Option C : bouton "View as table"
-- [ ] Rôles sémantiques (`role="table"`, `role="dialog"`, `role="tablist"`, etc.)
-- [ ] Labels pour les inputs de filtres
-- [ ] Test avec screen reader (VoiceOver / NVDA)
-- [ ] Test navigation clavier uniquement
+#### Niveau 1 : Structure & Sémantique (Facile)
+- [ ] **Landmarks & Titres** : Remplacer `div.section-header` par `<h2>` ou `<h3>`.
+- [ ] **Langue** : Vérifier l'attribut `lang="en"` (ou fr selon la locale).
+- [ ] **Skip Link** : Ajouter un lien invisible "Aller au contenu principal" en haut de page.
+- [ ] **ARIA Labels** : Ajouter `aria-label` sur les boutons sans texte (icônes close, expand).
+- [ ] **Champs de formulaire** : Ajouter des `<label>` associés aux inputs (slider temps, sélecteur fichiers).
+
+#### Niveau 2 : Composants Interactifs (Moyen)
+- [ ] **Navigation Clavier** : Assurer que tous les éléments interactifs sont focusables (tabindex).
+- [ ] **Tabs Pattern** :
+  - Conteneur : `role="tablist"`
+  - Boutons : `role="tab"`, `aria-selected`, `aria-controls`
+  - Contenu : `role="tabpanel"`, `aria-labelledby`
+- [ ] **Dropdowns Filtres** :
+  - Trigger : `aria-haspopup="listbox"`, `aria-expanded`
+  - Menu : `role="listbox"`
+  - Items : `role="option"`, `aria-selected`
+- [ ] **Focus Visible** : Renforcer l'outline CSS au focus clavier.
+
+#### Niveau 3 : Patterns Complexes (Difficile)
+- [ ] **Modales (Focus Trap)** :
+  - `role="dialog"`, `aria-modal="true"`
+  - Empêcher le focus de sortir de la modale.
+  - Retour du focus sur l'élément déclencheur à la fermeture.
+- [ ] **Alternatives Graphiques (uPlot)** :
+  - Ajouter un bouton "Voir les données" pour chaque chart.
+  - Générer un tableau HTML sémantique (`<table>`, `<th>`) masqué par défaut contenant les données brutes.
+- [ ] **Navigation Graphique** : Permettre l'exploration des points de données (tooltips) via les flèches clavier (Bonus).
 
 ### Fichiers concernés
-- `web/app.js`
-- `web/styles.css`
-- `web/index.html`
-- `output/report_template.html`
-- `scripts/build_standalone.py` (rebuild après modifs)
+- `web/index.html` (Structure statique)
+- `web/app.js` (Génération dynamique du DOM & Gestion focus)
+- `web/styles.css` (Focus visible, Contrastes)
+- `output/report_template.html` (Template embarqué)
 
 ---
 

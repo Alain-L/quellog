@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0] - 2026-01-21
+
+### Added
+- **Enhanced event hierarchy**: 3-level structure (Severity > SQLSTATE Class > Message) for better error analysis
+- **SQLSTATE grouping**: Errors grouped by PostgreSQL error class (e.g., "23 - Integrity Constraint Violation")
+- **Continuous monitoring mode**: `--follow` flag for real-time log surveillance with periodic refresh
+
+### Changed
+- **Events section overhaul**: Clearer display with severity percentages and message deduplication
+- **Output functions refactored**: JSON and Markdown exports now accept `io.Writer` for flexible output targets
+- **Parser modularization**: Split `stderr_parser.go` into focused modules for maintainability
+
+### Improved (Accessibility)
+- **Modal dialogs**: ARIA attributes (`role="dialog"`, `aria-modal`, `aria-labelledby`)
+- **Focus management**: Focus trap in modals, focus restoration on close
+- **Keyboard navigation**: Enhanced dropdown search with keyboard support
+- **Tabs pattern**: Proper ARIA roles for tabbed interfaces
+
 ## [0.6.0] - 2025-12-20
 
 ### Added

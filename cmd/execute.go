@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/Alain-L/quellog/analysis"
@@ -25,13 +27,53 @@ import (
 //  4. Filter log entries based on criteria
 //  5. Analyze and output results
 func executeParsing(cmd *cobra.Command, args []string) {
+	if !followFlag {
+		runAnalysisCycle(args)
+		return
+	}
+
+	// Apply default time window for follow mode if none specified
+	if lastFlag == "" && beginTime == "" && endTime == "" && windowFlag == "" {
+		lastFlag = "24h"
+		fmt.Println("[INFO] No time filter specified for follow mode, defaulting to --last 24h")
+	}
+
+	// Follow mode implementation
+	fmt.Printf("[INFO] Entering follow mode (interval: %v). Press Ctrl+C to stop.\n", intervalFlag)
+
+	// Set up signal handling for graceful shutdown
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+
+	ticker := time.NewTicker(intervalFlag)
+	defer ticker.Stop()
+
+	// Run first cycle immediately
+	runAnalysisCycle(args)
+
+	for {
+		select {
+		case <-ticker.C:
+			runAnalysisCycle(args)
+		case <-sigChan:
+			fmt.Println("\n[INFO] Stopping follow mode.")
+			return
+		}
+	}
+}
+
+// runAnalysisCycle executes a single parsing and analysis pass.
+func runAnalysisCycle(args []string) {
 	startTime := time.Now()
 
 	// Step 1: Collect log files from arguments
 	allFiles := collectFiles(args)
 	if len(allFiles) == 0 {
 		fmt.Println("[INFO] No log files found. Exiting.")
-		os.Exit(0)
+		if !followFlag {
+			os.Exit(0)
+		}
+		return
 	}
 
 	// Calculate total file size for throughput reporting
@@ -191,10 +233,20 @@ func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, 
 			log.Fatalf("[ERROR] No log entries could be parsed. Check that files are readable and in a supported format.")
 		}
 
+		w := os.Stdout
+		if outputFlag != "" {
+			f, err := os.Create(outputFlag)
+			if err != nil {
+				log.Fatalf("[ERROR] Failed to create output file: %v", err)
+			}
+			defer f.Close()
+			w = f
+		}
+
 		if jsonFlag {
-			output.ExportSQLDetailJSON(metrics, sqlDetailFlag)
+			output.ExportSQLDetailJSON(w, metrics, sqlDetailFlag)
 		} else if mdFlag {
-			output.ExportSqlDetailMarkdown(metrics, sqlDetailFlag)
+			output.ExportSqlDetailMarkdown(w, metrics, sqlDetailFlag)
 		} else {
 			PrintProcessingSummary(metrics.SQL.TotalQueries, processingDuration, totalFileSize)
 			output.PrintSqlDetails(metrics, sqlDetailFlag)
@@ -214,10 +266,20 @@ func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, 
 			log.Fatalf("[ERROR] No log entries could be parsed. Check that files are readable and in a supported format.")
 		}
 
+		w := os.Stdout
+		if outputFlag != "" {
+			f, err := os.Create(outputFlag)
+			if err != nil {
+				log.Fatalf("[ERROR] Failed to create output file: %v", err)
+			}
+			defer f.Close()
+			w = f
+		}
+
 		if jsonFlag {
-			output.ExportSQLPerformanceJSON(metrics.SQL)
+			output.ExportSQLPerformanceJSON(w, metrics.SQL)
 		} else if mdFlag {
-			output.ExportSqlSummaryMarkdown(metrics.SQL, metrics.TempFiles, metrics.Locks)
+			output.ExportSqlSummaryMarkdown(w, metrics.SQL, metrics.TempFiles, metrics.Locks)
 		} else {
 			PrintProcessingSummary(metrics.SQL.TotalQueries, processingDuration, totalFileSize)
 			output.PrintSQLSummaryWithContext(metrics.SQL, metrics.TempFiles, metrics.Locks, false)
@@ -236,10 +298,20 @@ func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, 
 			log.Fatalf("[ERROR] No log entries could be parsed. Check that files are readable and in a supported format.")
 		}
 
+		w := os.Stdout
+		if outputFlag != "" {
+			f, err := os.Create(outputFlag)
+			if err != nil {
+				log.Fatalf("[ERROR] Failed to create output file: %v", err)
+			}
+			defer f.Close()
+			w = f
+		}
+
 		if jsonFlag {
-			output.ExportSQLOverviewJSON(metrics.SQL)
+			output.ExportSQLOverviewJSON(w, metrics.SQL)
 		} else if mdFlag {
-			output.ExportSqlOverviewMarkdown(metrics.SQL)
+			output.ExportSqlOverviewMarkdown(w, metrics.SQL)
 		} else {
 			PrintProcessingSummary(metrics.SQL.TotalQueries, processingDuration, totalFileSize)
 			output.PrintSQLOverview(metrics.SQL)
@@ -274,18 +346,40 @@ func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, 
 
 	// Output in requested format
 	if jsonFlag {
-		output.ExportJSON(metrics, sections, fullFlag)
+		w := os.Stdout
+		if outputFlag != "" {
+			f, err := os.Create(outputFlag)
+			if err != nil {
+				log.Fatalf("[ERROR] Failed to create output file: %v", err)
+			}
+			defer f.Close()
+			w = f
+		}
+		output.ExportJSON(w, metrics, sections, fullFlag)
 		return
 	}
 
 	if mdFlag {
-		output.ExportMarkdown(metrics, sections, fullFlag)
+		w := os.Stdout
+		if outputFlag != "" {
+			f, err := os.Create(outputFlag)
+			if err != nil {
+				log.Fatalf("[ERROR] Failed to create output file: %v", err)
+			}
+			defer f.Close()
+			w = f
+		}
+		output.ExportMarkdown(w, metrics, sections, fullFlag)
 		return
 	}
 
 	if htmlFlag {
-		// Generate output filename based on input
-		outputName := generateHTMLFilename(inputArgs)
+		// Generate output filename based on input or flag
+		outputName := outputFlag
+		if outputName == "" {
+			outputName = generateHTMLFilename(inputArgs)
+		}
+		
 		f, err := os.Create(outputName)
 		if err != nil {
 			log.Fatalf("[ERROR] Failed to create HTML file: %v", err)
@@ -306,10 +400,14 @@ func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, 
 			Format:      detectedFormat,
 		}
 
-		if err := output.ExportHTML(f, metrics, reportInfo); err != nil {
+		if err := output.ExportHTML(f, metrics, reportInfo, sections); err != nil {
 			log.Fatalf("[ERROR] Failed to write HTML report: %v", err)
 		}
-		fmt.Printf("Report saved to %s\n", outputName)
+		
+		// In follow mode, be less verbose about saved files
+		if !followFlag {
+			fmt.Printf("Report saved to %s\n", outputName)
+		}
 		return
 	}
 

@@ -2960,7 +2960,6 @@
             html += `<div class="grid grid-top-row">`;
             html += buildSummarySection(data);
             html += buildEventsSection(data);
-            html += buildErrorClassesSection(data);
             html += buildClientsSection(data);
             html += '</div>';
 
@@ -3131,61 +3130,147 @@
             `;
         }
 
-        function buildEventsSection(data) {
-            // data.events is an array: [{type: 'LOG', count: N, percentage: P}, ...]
-            const eventsArr = data.events || [];
-            const eventsMap = {};
-            eventsArr.forEach(e => { eventsMap[e.type] = e.count; });
+function buildEventsSection(data) {
+	// Filter logic
+	const onlyErrors = data.meta?.sections && data.meta.sections.includes('errors') && !data.meta.sections.includes('events') && !data.meta.sections.includes('all');
 
-            // All PostgreSQL log levels in severity order
-            const allLevels = ['DEBUG', 'LOG', 'INFO', 'NOTICE', 'WARNING', 'ERROR', 'FATAL', 'PANIC'];
-            const clsMap = { LOG: 'log', ERROR: 'error', WARNING: 'warning', FATAL: 'fatal', PANIC: 'fatal', DEBUG: 'debug', INFO: 'info', NOTICE: 'notice' };
+	// Prepare data
+	const topEvents = data.top_events || [];
+	const bySeverity = {};
+	topEvents.forEach(e => {
+		if (!bySeverity[e.severity]) bySeverity[e.severity] = [];
+		bySeverity[e.severity].push(e);
+	});
 
-            const events = allLevels.map(level => ({
-                name: level,
-                count: eventsMap[level] || 0,
-                cls: clsMap[level] || 'log'
-            }));
+	// Stats for bars
+	const eventsArr = data.events || []; // {type, count}
+	const summaryMap = {};
+	eventsArr.forEach(e => { summaryMap[e.type] = e.count; });
 
-            // Find max and second max for truncation logic
-            const counts = events.map(x => x.count).filter(c => c > 0).sort((a, b) => b - a);
-            const max = counts[0] || 1;
-            const secondMax = counts[1] || max;
-            const needsTruncation = max > secondMax * 5 && secondMax > 0;
+	// Define Groups
+	const criticalSeverities = ['PANIC', 'FATAL', 'ERROR', 'WARNING'];
+	const noiseSeverities = ['NOTICE', 'LOG', 'INFO', 'DEBUG'];
 
-            // If truncation needed: max bar gets 100% with break, others scale to secondMax
-            const secondMaxWidth = needsTruncation ? 75 : 100; // Width of second largest bar
-            const getBarWidth = (count) => {
-                if (count === 0) return 0;
-                if (needsTruncation && count === max) return 100;
-                const scaleMax = needsTruncation ? secondMax : max;
-                return Math.max((count / scaleMax) * secondMaxWidth, 5);
-            };
+	// Show all critical tabs even if empty (requested feature)
+	const activeCriticals = criticalSeverities;
 
-            return `
-                <div class="section" id="events">
-                    <div class="section-header">Events</div>
-                    <div class="section-body">
-                        <div class="event-bars">
-                            ${events.map(ev => {
-                                const isTruncated = needsTruncation && ev.count === max;
-                                const barStyle = isTruncated
-                                    ? `width: 100%; --hatch-start: ${secondMaxWidth}%`
-                                    : `width: ${getBarWidth(ev.count)}%`;
-                                return `
-                                <div class="event-bar ${ev.count === 0 ? 'disabled' : ''}">
-                                    <span class="label">${ev.name}</span>
-                                    <div class="bar-bg">
-                                        ${ev.count > 0 ? `<div class="bar ${ev.cls} ${isTruncated ? 'truncated' : ''}" style="${barStyle}"></div>` : ''}
-                                    </div>
-                                    <span class="count">${ev.count > 0 ? fmt(ev.count) : '-'}</span>
-                                </div>
-                            `}).join('')}
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
+	// Determine default active tab
+	let defaultTab = 'ERROR';
+	if (summaryMap['ERROR'] > 0) defaultTab = 'ERROR';
+	else if (summaryMap['FATAL'] > 0) defaultTab = 'FATAL';
+	else if (summaryMap['PANIC'] > 0) defaultTab = 'PANIC';
+	else if (summaryMap['WARNING'] > 0) defaultTab = 'WARNING';
+
+	// Generate Tabs HTML (Left)
+	let tabsHtml = '';
+	if (activeCriticals.length > 0) {
+		tabsHtml += '<div class="tabs">';
+		activeCriticals.forEach(sev => {
+			const count = summaryMap[sev] || 0;
+			const isActive = sev === defaultTab ? 'active' : '';
+			const cls = sev.toLowerCase();
+			tabsHtml += `<button class="tab ${cls} ${isActive}" onclick="openTab(event, 'event-tab-${sev}')">${sev}<span class="tab-badge">${fmt(count)}</span></button>`;
+		});
+		tabsHtml += '</div>';
+	} else {
+		tabsHtml += '<div class="empty">No critical events found</div>';
+	}
+
+	// Generate Indicators HTML (Right)
+	let noiseHtml = '<div class="tabs indicators-group">';
+	noiseSeverities.forEach(sev => {
+		if (onlyErrors) return;
+		const count = summaryMap[sev] || 0;
+		const cls = sev.toLowerCase();
+		noiseHtml += `<div class="tab indicator ${cls}">
+			${sev}<span class="tab-badge">${fmt(count)}</span>
+		</div>`;
+	});
+	noiseHtml += '</div>';
+
+	// Generate Content HTML
+	let contentHtml = '';
+	criticalSeverities.forEach(sev => {
+		const isActive = sev === defaultTab ? 'block' : 'none';
+		const count = summaryMap[sev] || 0;
+		const sevEvents = bySeverity[sev] || [];
+		
+		let innerContent = '';
+
+		if (count === 0 || sevEvents.length === 0) {
+			innerContent = `
+			<div style="padding: 2rem; text-align: center; color: var(--text-muted); font-style: italic;">
+				No ${sev} events recorded
+			</div>`;
+		} else {
+			// Group by Class
+			const byClass = {};
+			sevEvents.forEach(e => {
+				const cls = e.sql_state_class || 'Unclassified';
+				if (!byClass[cls]) byClass[cls] = [];
+				byClass[cls].push(e);
+			});
+			const classes = Object.keys(byClass).sort();
+			if (classes.includes('Unclassified')) {
+				classes.splice(classes.indexOf('Unclassified'), 1);
+				classes.push('Unclassified');
+			}
+
+			let rows = '';
+			const sevColor = sev === 'ERROR' ? 'var(--danger)' : sev === 'FATAL' || sev === 'PANIC' ? 'var(--purple)' : sev === 'WARNING' ? 'var(--warning)' : 'var(--text-muted)';
+
+			classes.forEach(cls => {
+				const classEvents = byClass[cls];
+				classEvents.sort((a, b) => b.count - a.count);
+
+				let code = "";
+				let desc = cls;
+				if (cls === 'Unclassified') { code = ''; desc = ''; }
+				else if (cls.match(/^\w{2} - /)) { code = cls.substring(0, 2); desc = cls.substring(5); }
+				else if (cls.length === 2) { code = cls; desc = ''; }
+
+				classEvents.forEach(e => {
+					rows += `
+					<tr class="event-row">
+						<td style="width: 50px; vertical-align: top; padding: 0.35rem 0.5rem;">
+							${code ? `<span class="event-class-badge" style="border-color:${sevColor}; color:${sevColor};">${code}</span>` : ''}
+						</td>
+						<td style="vertical-align: top; padding: 0.35rem 0.5rem;">
+							${desc ? `<div style="font-size: 0.6rem; font-weight: 600; color: var(--text-muted); margin-bottom: 2px;">${esc(desc)}</div>` : ''}
+							<div class="event-msg-text" title="${esc(e.message)}">${esc(e.message)}</div>
+						</td>
+						<td class="num" style="width: 60px; vertical-align: top; font-weight: 600;">${fmt(e.count)}</td>
+					</tr>`;
+				});
+			});
+
+			innerContent = `
+			<div class="table-container" style="max-height: 220px;">
+				<table class="data-table" style="width: 100%;">
+					${rows}
+				</table>
+			</div>`;
+		}
+
+		contentHtml += `
+		<div id="event-tab-${sev}" class="tab-content" style="display: ${isActive};">
+			${innerContent}
+		</div>`;
+	});
+
+	return `
+	<div class="section" id="events">
+		<div class="section-header">Events</div>
+		<div class="section-body">
+			<div class="events-toolbar">
+				${tabsHtml}
+				${noiseHtml}
+			</div>
+			${contentHtml}
+		</div>
+	</div>
+	`;
+}
 
         function buildConnectionsSection(data) {
             const c = data.connections;
@@ -3459,40 +3544,6 @@
                 const el = document.getElementById(tid);
                 if (el) el.style.display = tid === id ? 'block' : 'none';
             });
-        }
-
-        function buildErrorClassesSection(data) {
-            const ec = data.error_classes || [];
-            if (ec.length === 0) {
-                return `
-                    <div class="section" id="error_classes">
-                        <div class="section-header muted">Error Classes</div>
-                        <div class="section-body">
-                            ${buildNoDataMessage('<code>%e</code> in <code>log_line_prefix</code>')}
-                        </div>
-                    </div>
-                `;
-            }
-            const maxCount = Math.max(...ec.map(e => e.count)) || 1;
-            return `
-                <div class="section" id="error_classes">
-                    <div class="section-header danger">Error Classes</div>
-                    <div class="section-body">
-                        <div class="scroll-list">
-                            ${ec.map(e => {
-                                const totalErrors = ec.reduce((sum, x) => sum + x.count, 0);
-                                const pct = totalErrors > 0 ? (e.count / totalErrors * 100).toFixed(0) : 0;
-                                return `
-                                <div class="list-item">
-                                    <span class="name error-name" title="${esc(e.description)}"><strong>${e.class_code}</strong> ${esc(e.description)}</span>
-                                    <div class="bar-container"><div class="bar error-bar"><div class="bar-fill" style="width: ${e.count/maxCount*100}%; background: var(--danger);"></div></div></div>
-                                    <span class="value">${fmt(e.count)} <small style="color: var(--text-muted)">(${pct}%)</small></span>
-                                </div>
-                            `}).join('')}
-                        </div>
-                    </div>
-                </div>
-            `;
         }
 
         function buildCheckpointsSection(data) {
@@ -5551,3 +5602,28 @@
         window.updateModalInterval = updateModalInterval;
         window.resetModalZoom = resetModalZoom;
         window.exportChartPNG = exportChartPNG;
+window.openTab = function(evt, tabName) {
+    const btn = evt.currentTarget;
+    const container = btn.closest('.section-body') || document;
+    
+    // Hide all tab content in this container
+    const contents = container.querySelectorAll('.tab-content');
+    for (let i = 0; i < contents.length; i++) {
+        contents[i].style.display = 'none';
+    }
+
+    // Reset tabs (remove active)
+    // We search in the button's parent (the toolbar/tabs container) to be safe
+    const tabs = btn.parentElement.querySelectorAll('.tab');
+    for (let i = 0; i < tabs.length; i++) {
+        tabs[i].classList.remove('active');
+    }
+
+    // Activate target content
+    const target = document.getElementById(tabName);
+    if (target) target.style.display = 'block';
+
+    // Activate button
+    btn.classList.add('active');
+}
+

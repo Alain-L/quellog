@@ -4,6 +4,7 @@ package output
 
 import (
 	"fmt"
+	"io"
 	"sort"
 	"strings"
 	"time"
@@ -14,7 +15,7 @@ import (
 // ExportMarkdown produces a comprehensive markdown report.
 // Reuses histogram computation from text.go.
 // When full is true, sql_overview and sql_performance sections are added at the end.
-func ExportMarkdown(m analysis.AggregatedMetrics, sections []string, full bool) {
+func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string, full bool) {
 	has := func(name string) bool {
 		for _, s := range sections {
 			if s == name || s == "all" {
@@ -80,31 +81,125 @@ func ExportMarkdown(m analysis.AggregatedMetrics, sections []string, full bool) 
 	// ============================================================================
 	// EVENTS
 	// ============================================================================
-	if has("events") && len(m.EventSummaries) > 0 {
+	if (has("events") || has("errors")) && len(m.EventSummaries) > 0 {
 		b.WriteString("## EVENTS\n\n")
-		b.WriteString("|  |  |\n")
-		b.WriteString("|---|---:|\n")
-		for _, ev := range m.EventSummaries {
-			if ev.Count == 0 {
-				b.WriteString(fmt.Sprintf("| %s | - |\n", ev.Type))
-			} else {
-				b.WriteString(fmt.Sprintf("| %s | %d |\n", ev.Type, ev.Count))
-			}
-		}
-		b.WriteString("\n")
-	}
 
-	// ============================================================================
-	// ERROR CLASSES
-	// ============================================================================
-	if has("errors") && len(m.ErrorClasses) > 0 {
-		b.WriteString("## ERROR CLASSES\n\n")
-		b.WriteString("| Class | Description | Count |\n")
-		b.WriteString("|---|---|---:|\n")
-		for _, ec := range m.ErrorClasses {
-			b.WriteString(fmt.Sprintf("| %s | %s | %d |\n", ec.ClassCode, ec.Description, ec.Count))
+		onlyErrors := has("errors") && !has("events")
+
+		// Re-sort summaries by severity order (PANIC -> FATAL -> ERROR ...)
+		severityRank := make(map[string]int)
+		for i, s := range analysis.PredefinedEventTypes {
+			severityRank[s] = i
 		}
-		b.WriteString("\n")
+
+		sort.Slice(m.EventSummaries, func(i, j int) bool {
+			rankI, okI := severityRank[m.EventSummaries[i].Type]
+			rankJ, okJ := severityRank[m.EventSummaries[j].Type]
+			if okI && okJ {
+				return rankI < rankJ
+			}
+			if okI {
+				return true
+			}
+			if okJ {
+				return false
+			}
+			return m.EventSummaries[i].Type < m.EventSummaries[j].Type
+		})
+
+		// Group top events by severity
+		eventsBySeverity := make(map[string][]analysis.EventStat)
+		for _, e := range m.TopEvents {
+			eventsBySeverity[e.Severity] = append(eventsBySeverity[e.Severity], e)
+		}
+
+		for _, summary := range m.EventSummaries {
+			if summary.Count == 0 {
+				continue
+			}
+
+			// Filter non-error severities if requested
+			if onlyErrors {
+				s := summary.Type
+				if s == "LOG" || s == "INFO" || s == "DEBUG" || s == "NOTICE" {
+					continue
+				}
+			}
+
+			// Level 1: Severity
+			b.WriteString(fmt.Sprintf("- **%s**: %d (%.1f%%)\n",
+				summary.Type, summary.Count, summary.Percentage))
+
+			// Detailed events
+			if events, ok := eventsBySeverity[summary.Type]; ok {
+				// Group by Error Class
+				byClass := make(map[string][]analysis.EventStat)
+				for _, e := range events {
+					class := e.SQLStateClass
+					if class == "" || class == "00" {
+						class = "Unclassified"
+					}
+					byClass[class] = append(byClass[class], e)
+				}
+
+				// Sort classes
+				var classes []string
+				for c := range byClass {
+					classes = append(classes, c)
+				}
+				sort.Slice(classes, func(i, j int) bool {
+					if classes[i] == "Unclassified" {
+						return false
+					}
+					if classes[j] == "Unclassified" {
+						return true
+					}
+					return classes[i] < classes[j]
+				})
+
+				for _, classCode := range classes {
+					classEvents := byClass[classCode]
+
+					// Level 2: Class
+					shouldPrintHeader := (classCode != "Unclassified") || (classCode == "Unclassified" && len(classes) > 1)
+					
+					indent := "  "
+					if shouldPrintHeader {
+						classHeader := classCode
+						if classCode != "Unclassified" {
+							desc := analysis.GetErrorClassDescription(classCode)
+							classHeader = fmt.Sprintf("%s - %s", classCode, desc)
+						}
+						b.WriteString(fmt.Sprintf("  - **%s**\n", classHeader))
+						indent = "    "
+					}
+
+					// Sort events by count
+					sort.Slice(classEvents, func(i, j int) bool {
+						return classEvents[i].Count > classEvents[j].Count
+					})
+
+					// Level 3: Message
+					for _, e := range classEvents {
+						msg := e.Message
+						if len(msg) > 80 {
+							msg = msg[:77] + "..."
+						}
+						// Escape backticks in message for markdown code block
+						msg = strings.ReplaceAll(msg, "`", "'")
+						
+						localPct := 0.0
+						if summary.Count > 0 {
+							localPct = (float64(e.Count) / float64(summary.Count)) * 100
+						}
+
+						b.WriteString(fmt.Sprintf("%s- `%s` (%d) [%.1f%%]\n",
+							indent, msg, e.Count, localPct))
+					}
+				}
+			}
+			b.WriteString("\n")
+		}
 	}
 
 	// ============================================================================
@@ -662,7 +757,7 @@ func ExportMarkdown(m analysis.AggregatedMetrics, sections []string, full bool) 
 		exportSqlSummaryMarkdownTo(&b, m.SQL, analysis.TempFileMetrics{}, analysis.LockMetrics{})
 	}
 
-	fmt.Println(b.String())
+	fmt.Fprintln(w, b.String())
 }
 
 // ============================================================================
@@ -1107,9 +1202,12 @@ func printMostFrequentWaitingQueriesMarkdown(b *strings.Builder, queryStats map[
 }
 
 // ExportSqlSummaryMarkdown produces a markdown report for --sql-summary
-func ExportSqlSummaryMarkdown(m analysis.SqlMetrics, tempFiles analysis.TempFileMetrics, locks analysis.LockMetrics) {
+func ExportSqlSummaryMarkdown(w io.Writer, m analysis.SqlMetrics, tempFiles analysis.TempFileMetrics, locks analysis.LockMetrics) {
 	var b strings.Builder
 
+	// ... (content) ...
+	// I'll be more specific to avoid error
+	
 	// Compute top 1% slowest queries
 	top1Slow := 0
 	if len(m.Executions) > 0 {
@@ -1241,14 +1339,17 @@ func ExportSqlSummaryMarkdown(m analysis.SqlMetrics, tempFiles analysis.TempFile
 		}
 	}
 
-	fmt.Println(b.String())
+	fmt.Fprintln(w, b.String())
 }
 
 // ExportSqlDetailMarkdown produces a markdown report for --sql-detail
-func ExportSqlDetailMarkdown(m analysis.AggregatedMetrics, queryDetails []string) {
+func ExportSqlDetailMarkdown(w io.Writer, m analysis.AggregatedMetrics, queryIDs []string) {
 	var b strings.Builder
 
-	for _, qid := range queryDetails {
+	for _, qid := range queryIDs {
+		// ... (content) ...
+		// I'll be more specific to avoid error
+		
 		// Collect metrics for this query ID
 		var sqlStat *analysis.QueryStat
 		var tempStat *analysis.TempFileQueryStat
@@ -1418,16 +1519,19 @@ func ExportSqlDetailMarkdown(m analysis.AggregatedMetrics, queryDetails []string
 		}
 	}
 
-	fmt.Println(b.String())
+	fmt.Fprintln(w, b.String())
 }
 
 // ExportSqlOverviewMarkdown exports SQL query type overview statistics in Markdown format.
 // This provides query type statistics with dimensional breakdowns (SELECT, INSERT, UPDATE, DELETE, etc.)
-func ExportSqlOverviewMarkdown(m analysis.SqlMetrics) {
+func ExportSqlOverviewMarkdown(w io.Writer, m analysis.SqlMetrics) {
 	var b strings.Builder
 
 	b.WriteString("# SQL QUERY OVERVIEW\n\n")
 
+	// ... (rest of logic) ...
+	// Again, providing full body correctly to avoid corruption.
+	
 	// Global statistics
 	b.WriteString("## Global Statistics\n\n")
 	b.WriteString("|  |  |  |  |\n")
@@ -1515,7 +1619,7 @@ func ExportSqlOverviewMarkdown(m analysis.SqlMetrics) {
 	exportQueryTypeBreakdownMarkdown(&b, "Per Host", m.QueryTypesByHost)
 	exportQueryTypeBreakdownMarkdown(&b, "Per Application", m.QueryTypesByApp)
 
-	fmt.Println(b.String())
+	fmt.Fprintln(w, b.String())
 }
 
 // exportQueryTypeBreakdownMarkdown writes query type breakdown for a dimension (database, user, host, app)
