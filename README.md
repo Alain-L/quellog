@@ -217,14 +217,14 @@ quellog --help
 
 **Debian/Ubuntu (.deb):**
 ```sh
-wget https://github.com/Alain-L/quellog/releases/download/v0.4.0/quellog_0.4.0_linux_amd64.deb
-sudo dpkg -i quellog_0.4.0_linux_amd64.deb
+wget https://github.com/Alain-L/quellog/releases/download/v0.7.0/quellog_0.7.0_linux_amd64.deb
+sudo dpkg -i quellog_0.7.0_linux_amd64.deb
 ```
 
 **RedHat/Fedora/CentOS (.rpm):**
 ```sh
-wget https://github.com/Alain-L/quellog/releases/download/v0.4.0/quellog_0.4.0_linux_amd64.rpm
-sudo rpm -i quellog_0.4.0_linux_amd64.rpm
+wget https://github.com/Alain-L/quellog/releases/download/v0.7.0/quellog_0.7.0_linux_amd64.rpm
+sudo rpm -i quellog_0.7.0_linux_amd64.rpm
 ```
 
 ### Build from source
