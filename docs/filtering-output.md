@@ -584,6 +584,26 @@ quellog /var/log/postgresql/*.log \
 !!! note "JSON Export Completeness"
     When using `--json`, the JSON output contains all analyzed data, regardless of section flags. Section flags only affect the text output format. Use `jq` to filter JSON if needed.
 
+## Continuous Monitoring (--follow)
+
+Monitor log files in real-time with periodic refresh. By default, analyzes the last 24 hours of logs and outputs to the terminal:
+
+```bash
+# Refresh every 30 seconds (default), last 24 hours, output to terminal
+quellog --follow /var/log/postgresql/*.log
+
+# Custom interval
+quellog --follow --interval 1m /var/log/postgresql/*.log
+
+# Change the time window with --last
+quellog --follow --last 1h /var/log/postgresql/*.log
+
+# Write to file instead of terminal (for external tools like Grafana)
+quellog --follow --json --output /tmp/quellog.json /var/log/postgresql/*.log
+```
+
+Press `Ctrl+C` to stop.
+
 ## Next Steps
 
 - [Understand the default report](default-report.md) to interpret each section
