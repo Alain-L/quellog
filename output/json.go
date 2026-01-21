@@ -3,6 +3,7 @@ package output
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"sort"
 	"time"
 
@@ -332,16 +333,16 @@ type ErrorClassJSON struct {
 // converts it into an indented JSON string, and outputs the result.
 // Only sections with data are included in the output.
 // When full is true, includes sql_overview and enriched sql_performance sections.
-func ExportJSON(m analysis.AggregatedMetrics, sections []string, full bool) {
+func ExportJSON(w io.Writer, m analysis.AggregatedMetrics, sections []string, full bool) {
 	data := buildJSONData(m, sections, full)
 
 	// Marshal and output
 	jsonData, err := json.MarshalIndent(data, "", "  ")
 	if err != nil {
-		fmt.Println("[ERROR] Failed to export JSON:", err)
+		fmt.Fprintf(w, "[ERROR] Failed to export JSON: %v\n", err)
 		return
 	}
-	fmt.Println(string(jsonData))
+	fmt.Fprintln(w, string(jsonData))
 }
 
 // ExportJSONString returns the JSON export as a string instead of printing.
@@ -1025,9 +1026,9 @@ func convertLocks(m analysis.LockMetrics) LocksJSON {
 }
 
 // ExportSQLOverviewJSON exports SQL overview data as JSON.
-func ExportSQLOverviewJSON(m analysis.SqlMetrics) {
+func ExportSQLOverviewJSON(w io.Writer, m analysis.SqlMetrics) {
 	if m.TotalQueries == 0 {
-		fmt.Println("{}")
+		fmt.Fprintln(w, "{}")
 		return
 	}
 
@@ -1085,16 +1086,16 @@ func ExportSQLOverviewJSON(m analysis.SqlMetrics) {
 	// Marshal and output
 	jsonData, err := json.MarshalIndent(overview, "", "  ")
 	if err != nil {
-		fmt.Println("[ERROR] Failed to export JSON:", err)
+		fmt.Fprintf(w, "[ERROR] Failed to export JSON: %v\n", err)
 		return
 	}
-	fmt.Println(string(jsonData))
+	fmt.Fprintln(w, string(jsonData))
 }
 
 // ExportSQLPerformanceJSON exports detailed SQL performance data as JSON.
-func ExportSQLPerformanceJSON(m analysis.SqlMetrics) {
+func ExportSQLPerformanceJSON(w io.Writer, m analysis.SqlMetrics) {
 	if m.TotalQueries == 0 {
-		fmt.Println("{}")
+		fmt.Fprintln(w, "{}")
 		return
 	}
 
@@ -1224,10 +1225,10 @@ func ExportSQLPerformanceJSON(m analysis.SqlMetrics) {
 	// Marshal and output
 	jsonData, err := json.MarshalIndent(perf, "", "  ")
 	if err != nil {
-		fmt.Println("[ERROR] Failed to export JSON:", err)
+		fmt.Fprintf(w, "[ERROR] Failed to export JSON: %v\n", err)
 		return
 	}
-	fmt.Println(string(jsonData))
+	fmt.Fprintln(w, string(jsonData))
 }
 
 // convertDimensionBreakdown converts a dimension breakdown map to JSON format.
@@ -1274,7 +1275,7 @@ func convertDimensionBreakdown(breakdown map[string]map[string]*analysis.QueryTy
 }
 
 // ExportSQLDetailJSON exports SQL query details as JSON.
-func ExportSQLDetailJSON(m analysis.AggregatedMetrics, queryIDs []string) {
+func ExportSQLDetailJSON(w io.Writer, m analysis.AggregatedMetrics, queryIDs []string) {
 	var details []SQLDetailJSON
 
 	for _, queryID := range queryIDs {
@@ -1369,8 +1370,8 @@ func ExportSQLDetailJSON(m analysis.AggregatedMetrics, queryIDs []string) {
 	// Marshal and output
 	jsonData, err := json.MarshalIndent(details, "", "  ")
 	if err != nil {
-		fmt.Println("[ERROR] Failed to export JSON:", err)
+		fmt.Fprintf(w, "[ERROR] Failed to export JSON: %v\n", err)
 		return
 	}
-	fmt.Println(string(jsonData))
+	fmt.Fprintln(w, string(jsonData))
 }

@@ -15,7 +15,7 @@
 </head>
 <body>
 <!-- Chart Modal -->
-    <div class="chart-modal" id="chartModal" onclick="if(event.target === this) closeChartModal()">
+    <div class="chart-modal" id="chartModal" role="dialog" aria-modal="true" aria-labelledby="modalChartTitle" onclick="if(event.target === this) closeChartModal()">
         <div class="chart-modal-content">
             <div class="chart-modal-header">
                 <span class="chart-modal-title" id="modalChartTitle">Chart</span>
@@ -67,7 +67,7 @@
                     <div class="filter-dropdown-menu">
                         <div class="filter-dropdown-header">
                             <input type="checkbox" class="filter-dropdown-toggle-all" onchange="toggleAllFilterValues('database', this.checked)" title="Select/Deselect all">
-                            <input type="text" class="filter-dropdown-search" placeholder="Search..." oninput="searchDropdown('database', this.value)" aria-label="Search database">
+                            <input type="text" class="filter-dropdown-search" placeholder="Search..." oninput="searchDropdown('database', this.value)" onkeydown="handleSearchKey(event, 'database')" aria-label="Search database">
                             <button class="filter-dropdown-clear" onclick="clearCategoryFilter('database')" title="Clear">✕</button>
                         </div>
                         <div class="filter-dropdown-list" id="dropdownList-database" role="listbox"></div>
@@ -82,7 +82,7 @@
                     <div class="filter-dropdown-menu">
                         <div class="filter-dropdown-header">
                             <input type="checkbox" class="filter-dropdown-toggle-all" onchange="toggleAllFilterValues('user', this.checked)" title="Select/Deselect all">
-                            <input type="text" class="filter-dropdown-search" placeholder="Search..." oninput="searchDropdown('user', this.value)" aria-label="Search user">
+                            <input type="text" class="filter-dropdown-search" placeholder="Search..." oninput="searchDropdown('user', this.value)" onkeydown="handleSearchKey(event, 'user')" aria-label="Search user">
                             <button class="filter-dropdown-clear" onclick="clearCategoryFilter('user')" title="Clear">✕</button>
                         </div>
                         <div class="filter-dropdown-list" id="dropdownList-user" role="listbox"></div>
@@ -97,7 +97,7 @@
                     <div class="filter-dropdown-menu">
                         <div class="filter-dropdown-header">
                             <input type="checkbox" class="filter-dropdown-toggle-all" onchange="toggleAllFilterValues('application', this.checked)" title="Select/Deselect all">
-                            <input type="text" class="filter-dropdown-search" placeholder="Search..." oninput="searchDropdown('application', this.value)" aria-label="Search application">
+                            <input type="text" class="filter-dropdown-search" placeholder="Search..." oninput="searchDropdown('application', this.value)" onkeydown="handleSearchKey(event, 'application')" aria-label="Search application">
                             <button class="filter-dropdown-clear" onclick="clearCategoryFilter('application')" title="Clear">✕</button>
                         </div>
                         <div class="filter-dropdown-list" id="dropdownList-application" role="listbox"></div>
@@ -112,7 +112,7 @@
                     <div class="filter-dropdown-menu">
                         <div class="filter-dropdown-header">
                             <input type="checkbox" class="filter-dropdown-toggle-all" onchange="toggleAllFilterValues('host', this.checked)" title="Select/Deselect all">
-                            <input type="text" class="filter-dropdown-search" placeholder="Search..." oninput="searchDropdown('host', this.value)" aria-label="Search host">
+                            <input type="text" class="filter-dropdown-search" placeholder="Search..." oninput="searchDropdown('host', this.value)" onkeydown="handleSearchKey(event, 'host')" aria-label="Search host">
                             <button class="filter-dropdown-clear" onclick="clearCategoryFilter('host')" title="Clear">✕</button>
                         </div>
                         <div class="filter-dropdown-list" id="dropdownList-host" role="listbox"></div>
@@ -183,10 +183,10 @@
     </div>
 
     <!-- Query Detail Modal -->
-    <div class="modal-overlay" id="queryModal">
+    <div class="modal-overlay" id="queryModal" role="dialog" aria-modal="true" aria-labelledby="queryModalTitle">
         <div class="modal">
             <div class="modal-header">
-                <h3>Query Detail</h3>
+                <h3 id="queryModalTitle">Query Detail</h3>
                 <button class="modal-close" onclick="closeModal()">&times;</button>
             </div>
             <div class="modal-body" id="queryModalBody"></div>
@@ -279,6 +279,28 @@ async function decompressData(base64Data) {
 <script>let wasmModule = null;  
 let wasmReady = false;
 let analysisData = null;
+let lastFocusedElement = null;
+function trapFocus(e, modalId) {
+const modal = document.getElementById(modalId);
+if (!modal) return;
+const focusableElements = modal.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+if (focusableElements.length === 0) return;
+const firstFocusableElement = focusableElements[0];
+const lastFocusableElement = focusableElements[focusableElements.length - 1];
+if (e.key === 'Tab') {
+if (e.shiftKey) {
+if (document.activeElement === firstFocusableElement) {
+e.preventDefault();
+lastFocusableElement.focus();
+}
+} else {
+if (document.activeElement === lastFocusableElement) {
+e.preventDefault();
+firstFocusableElement.focus();
+}
+}
+}
+}
 let currentFileContent = null;  
 let currentFileName = null;
 let currentFileSize = 0;
@@ -1603,15 +1625,21 @@ let modalInterval = 0;
 function openChartModal(chartId, title) {
 const data = chartData.get(chartId);
 if (!data) return;
+lastFocusedElement = document.activeElement;
 modalChartId = chartId;
 modalInterval = chartIntervalMap.get(chartId) ?? defaultInterval;
+const modal = document.getElementById('chartModal');
 document.getElementById('modalChartTitle').textContent = title;
 document.getElementById('modalBucketSelect').value = modalInterval;
-document.getElementById('chartModal').classList.add('active');
+modal.classList.add('active');
 document.body.style.overflow = 'hidden';
 const intervalSelect = document.getElementById('modalBucketSelect');
 intervalSelect.style.display = data?.type === 'histogram' ? 'none' : '';
-setTimeout(() => renderModalChart(), 50);
+setTimeout(() => {
+renderModalChart();
+const closeBtn = modal.querySelector('.chart-modal-close');
+if (closeBtn) closeBtn.focus();
+}, 50);
 }
 function renderModalChart() {
 const container = document.getElementById('modal-chart-container');
@@ -2543,6 +2571,10 @@ modalChart.destroy();
 modalChart = null;
 }
 modalChartId = null;
+if (lastFocusedElement) {
+lastFocusedElement.focus();
+lastFocusedElement = null;
+}
 }
 function updateModalInterval(intervalValue) {
 modalInterval = parseInt(intervalValue);
@@ -2586,9 +2618,12 @@ link.href = exportCanvas.toDataURL('image/png');
 link.click();
 }
 document.addEventListener('keydown', (e) => {
-if (e.key === 'Escape' && document.getElementById('chartModal').classList.contains('active')) {
-closeChartModal();
+if (e.key === 'Escape') {
+if (document.getElementById('chartModal').classList.contains('active')) closeChartModal();
+if (document.getElementById('queryModal').classList.contains('active')) closeModal();
 }
+if (document.getElementById('chartModal').classList.contains('active')) trapFocus(e, 'chartModal');
+if (document.getElementById('queryModal').classList.contains('active')) trapFocus(e, 'queryModal');
 });
 /* WASM disabled in report mode */
 async function initWasmInstance() {
@@ -2837,7 +2872,7 @@ const timeRangeLabel = sameDay
 : `${startDate} → ${endDate}`;
 return `
 <div class="section" id="summary">
-<div class="section-header">Summary</div>
+<div class="section-header" role="heading" aria-level="2">Summary</div>
 <div class="section-body summary-body">
 <div class="summary-header">
 <div class="summary-date">${dateDisplay}</div>
@@ -2986,7 +3021,7 @@ ${innerContent}
 });
 return `
 <div class="section" id="events">
-<div class="section-header">Events</div>
+<div class="section-header" role="heading" aria-level="2">Events</div>
 <div class="section-body">
 <div class="events-toolbar">
 ${tabsHtml}
@@ -3002,7 +3037,7 @@ const c = data.connections;
 if (!c || c.connection_count === 0) {
 return `
 <div class="section" id="connections">
-<div class="section-header muted">Connections</div>
+<div class="section-header muted" role="heading" aria-level="2">Connections</div>
 <div class="section-body">
 ${buildNoDataMessage('<code>log_connections = on</code>')}
 </div>
@@ -3021,7 +3056,7 @@ chartData.set('chart-concurrent', { type: 'sessions', data: c.session_events });
 }
 return `
 <div class="section" id="connections">
-<div class="section-header">Connections</div>
+<div class="section-header" role="heading" aria-level="2">Connections</div>
 <div class="section-body">
 <div class="stat-grid">
 <div class="stat-card">
@@ -3189,7 +3224,7 @@ const hosts = data.hosts || [];
 if (!c.unique_databases && databases.length === 0) {
 return `
 <div class="section" id="clients">
-<div class="section-header muted">Clients</div>
+<div class="section-header muted" role="heading" aria-level="2">Clients</div>
 <div class="section-body">
 ${buildNoDataMessage('<code>%u</code>, <code>%d</code>, <code>%a</code> in <code>log_line_prefix</code>')}
 </div>
@@ -3220,7 +3255,7 @@ return `
 }
 return `
 <div class="section" id="clients">
-<div class="section-header">Clients</div>
+<div class="section-header" role="heading" aria-level="2">Clients</div>
 <div class="section-body">
 <div class="tabs" role="tablist" aria-label="Clients category">
 <button class="tab active" role="tab" aria-selected="true" aria-controls="client-dbs" id="tab-client-dbs" onclick="showClientTab(this, 'client-dbs')">Databases <span class="tab-badge">${c.unique_databases}</span></button>
@@ -3261,7 +3296,7 @@ const cp = data.checkpoints;
 if (!cp || cp.total_checkpoints === 0) {
 return `
 <div class="section" id="checkpoints">
-<div class="section-header muted">Checkpoints</div>
+<div class="section-header muted" role="heading" aria-level="2">Checkpoints</div>
 <div class="section-body">
 ${buildNoDataMessage('<code>log_checkpoints = on</code>')}
 </div>
@@ -3289,7 +3324,7 @@ other: [
 }
 return `
 <div class="section" id="checkpoints">
-<div class="section-header">Checkpoints</div>
+<div class="section-header" role="heading" aria-level="2">Checkpoints</div>
 <div class="section-body">
 <div class="stat-grid">
 <div class="stat-card"><div class="stat-value">${fmt(cp.total_checkpoints)}</div><div class="stat-label">Total</div></div>
@@ -3316,7 +3351,7 @@ const m = data.maintenance;
 if (!m || ((m.vacuum_count || 0) + (m.analyze_count || 0)) === 0) {
 return `
 <div class="section" id="maintenance">
-<div class="section-header muted">Maintenance</div>
+<div class="section-header muted" role="heading" aria-level="2">Maintenance</div>
 <div class="section-body">
 ${buildNoDataMessage('<code>log_autovacuum_min_duration = 0</code>')}
 </div>
@@ -3331,7 +3366,7 @@ const maxVac = vacTables[0]?.count || 1;
 const maxAna = anaTables[0]?.count || 1;
 return `
 <div class="section" id="maintenance">
-<div class="section-header">Maintenance</div>
+<div class="section-header" role="heading" aria-level="2">Maintenance</div>
 <div class="section-body">
 <div class="stat-grid">
 <div class="stat-card"><div class="stat-value">${m.vacuum_count || 0}</div><div class="stat-label">Vacuum</div></div>
@@ -3374,7 +3409,7 @@ const l = data.locks;
 if (!l || ((l.deadlock_events || 0) + (l.waiting_events || 0) + (l.acquired_events || 0)) === 0) {
 return `
 <div class="section" id="locks">
-<div class="section-header muted">Locks</div>
+<div class="section-header muted" role="heading" aria-level="2">Locks</div>
 <div class="section-body">
 ${buildNoDataMessage('<code>log_lock_waits = on</code>')}
 </div>
@@ -3389,7 +3424,7 @@ const hasResTypes = resTypes.length > 0;
 const hasQueries = l.queries?.length > 0;
 return `
 <div class="section" id="locks">
-<div class="section-header ${deadlocks > 0 ? 'danger' : ''}">Locks</div>
+<div class="section-header ${deadlocks > 0 ? 'danger' : ''}" role="heading" aria-level="2">Locks</div>
 <div class="section-body">
 <div class="stat-grid">
 <div class="stat-card ${deadlocks > 0 ? 'stat-card--alert' : ''}"><div class="stat-value">${deadlocks}</div><div class="stat-label">Deadlocks</div></div>
@@ -3462,7 +3497,7 @@ const tf = data.temp_files;
 if (!tf || tf.total_messages === 0) {
 return `
 <div class="section" id="temp_files">
-<div class="section-header muted">Temp Files</div>
+<div class="section-header muted" role="heading" aria-level="2">Temp Files</div>
 <div class="section-body">
 ${buildNoDataMessage('<code>log_temp_files = 0</code>')}
 </div>
@@ -3476,7 +3511,7 @@ chartData.set('chart-tempfiles', tf.events.map(e => e.timestamp));
 }
 return `
 <div class="section" id="temp_files">
-<div class="section-header">Temp Files</div>
+<div class="section-header" role="heading" aria-level="2">Temp Files</div>
 <div class="section-body">
 <div class="stat-grid">
 <div class="stat-card"><div class="stat-value">${fmt(tf.total_messages)}</div><div class="stat-label">Count</div></div>
@@ -3557,7 +3592,7 @@ const hasData = ov && ov.categories && ov.categories.some(c => c.count > 0);
 if (!hasData) {
 return `
 <div class="section" id="sql_overview">
-<div class="section-header muted">SQL Overview</div>
+<div class="section-header muted" role="heading" aria-level="2">SQL Overview</div>
 <div class="section-body">
 ${buildNoDataMessage('<code>log_min_duration_statement = 0</code>')}
 </div>
@@ -3574,7 +3609,7 @@ const catMap = {};
 (ov.categories || []).forEach(c => { catMap[c.category || c.name] = c; });
 return `
 <div class="section" id="sql_overview">
-<div class="section-header">SQL Overview</div>
+<div class="section-header" role="heading" aria-level="2">SQL Overview</div>
 <div class="section-body">
 <div class="stat-grid">
 ${allCategories.map(cat => {
@@ -3704,7 +3739,7 @@ data: { times, executions: execs }
 const durationDist = buildDurationDistribution(queries);
 return `
 <div class="section" id="sql_performance">
-<div class="section-header">SQL Performance</div>
+<div class="section-header" role="heading" aria-level="2">SQL Performance</div>
 <div class="section-body">
 <div class="stat-grid">
 <div class="stat-card"><div class="stat-value">${fmt(sql.total_queries_parsed)}</div><div class="stat-label">Queries</div></div>
@@ -3928,9 +3963,14 @@ function closeModal() {
 document.getElementById('queryModal').classList.remove('active');
 modalCharts.forEach(c => c.destroy());
 modalCharts.length = 0;
+if (lastFocusedElement) {
+lastFocusedElement.focus();
+lastFocusedElement = null;
+}
 }
 function showQueryModal(queryId) {
 if (!analysisData) return;
+lastFocusedElement = document.activeElement;
 const sqlQueries = analysisData.sql_performance?.queries || [];
 let q = sqlQueries.find(x => x.id === queryId);
 if (!q) {
@@ -3956,7 +3996,8 @@ const execs = q ? allExecs.filter(e => e.query_id === q.id) : [];
 const allTempEvents = analysisData.temp_files?.events || [];
 const tempEvents = q ? allTempEvents.filter(e => e.query_id === q.id) : [];
 document.getElementById('queryModalBody').innerHTML = buildQueryDetailHTML(q, execs, tempEvents, lockQ, tempQ);
-document.getElementById('queryModal').classList.add('active');
+const modal = document.getElementById('queryModal');
+modal.classList.add('active');
 setTimeout(() => {
 renderModalCharts();
 if (q && execs.length > 0) {
@@ -3967,6 +4008,8 @@ d: e.duration_ms || 0
 }));
 createCombinedSQLChart('qd-chart-combined', { times, executions: execData }, { height: 180 });
 }
+const closeBtn = modal.querySelector('.modal-close');
+if (closeBtn) closeBtn.focus();
 }, 100);
 }
 function buildQueryDetailHTML(q, execs, tempEvents, lockQ, tempQ) {
@@ -4572,6 +4615,28 @@ const hh = ts.getHours().toString().padStart(2, '0');
 const mm = ts.getMinutes().toString().padStart(2, '0');
 return `${y}-${m}-${d}T${hh}:${mm}`;
 }
+function handleSearchKey(e, category) {
+if (e.key === 'ArrowDown') {
+e.preventDefault();
+const list = document.getElementById(`dropdownList-${category}`);
+const firstItem = list.querySelector('.filter-dropdown-item:not([style*="display: none"])');
+if (firstItem) firstItem.focus();
+}
+}
+function handleOptionKey(e, category, value, element) {
+if (e.key === 'Enter' || e.key === ' ') {
+e.preventDefault();
+toggleFilterValue(category, value, element);
+} else if (e.key === 'ArrowDown') {
+e.preventDefault();
+const next = element.nextElementSibling;
+if (next) next.focus();
+} else if (e.key === 'ArrowUp') {
+e.preventDefault();
+const prev = element.previousElementSibling;
+if (prev) prev.focus();
+}
+}
 function populateDropdown(category, values) {
 const list = document.getElementById(`dropdownList-${category}`);
 if (!list) return;
@@ -4581,9 +4646,12 @@ return;
 }
 list.innerHTML = values.map(v => {
 const name = typeof v === 'object' ? v.name : v;
-const selected = currentFilters[category]?.includes(name) ? 'selected' : '';
-return `<div class="filter-dropdown-item ${selected}" data-value="${esc(name)}" onclick="toggleFilterValue('${category}', '${esc(name)}', this)">
-<input type="checkbox" class="filter-item-checkbox" ${selected ? 'checked' : ''} tabindex="-1">
+const isSelected = currentFilters[category]?.includes(name);
+const selectedCls = isSelected ? 'selected' : '';
+const ariaSelected = isSelected ? 'true' : 'false';
+const escapedName = esc(name).replace(/'/g, "\\'");
+return `<div class="filter-dropdown-item ${selectedCls}" role="option" aria-selected="${ariaSelected}" tabindex="0" data-value="${esc(name)}" onclick="toggleFilterValue('${category}', '${escapedName}', this)" onkeydown="handleOptionKey(event, '${category}', '${escapedName}', this)">
+<input type="checkbox" class="filter-item-checkbox" ${isSelected ? 'checked' : ''} tabindex="-1" aria-hidden="true">
 <span class="filter-dropdown-item-label" title="${esc(name)}">${esc(name)}</span>
 </div>`;
 }).join('');
@@ -4606,11 +4674,13 @@ if (search) setTimeout(() => search.focus(), 10);
 function closeAllDropdowns() {
 document.querySelectorAll('.filter-dropdown.open').forEach(d => {
 d.classList.remove('open');
-d.querySelector('.filter-dropdown-trigger')?.setAttribute('aria-expanded', 'false');
+const trigger = d.querySelector('.filter-dropdown-trigger');
+if (trigger) trigger.setAttribute('aria-expanded', 'false');
 });
 document.querySelectorAll('.filter-dropdown-search').forEach(s => {
 s.value = '';
-const category = s.closest('.filter-dropdown')?.dataset.category;
+const dropdown = s.closest('.filter-dropdown');
+const category = dropdown ? dropdown.dataset.category : null;
 if (category) searchDropdown(category, '');
 });
 openDropdown = null;
@@ -4631,14 +4701,20 @@ const idx = currentFilters[category].indexOf(value);
 if (idx >= 0) {
 currentFilters[category].splice(idx, 1);
 if (currentFilters[category].length === 0) delete currentFilters[category];
-element?.classList.remove('selected');
-const cb = element?.querySelector('.filter-item-checkbox');
+if (element) {
+element.classList.remove('selected');
+element.setAttribute('aria-selected', 'false');
+const cb = element.querySelector('.filter-item-checkbox');
 if (cb) cb.checked = false;
+}
 } else {
 currentFilters[category].push(value);
-element?.classList.add('selected');
-const cb = element?.querySelector('.filter-item-checkbox');
+if (element) {
+element.classList.add('selected');
+element.setAttribute('aria-selected', 'true');
+const cb = element.querySelector('.filter-item-checkbox');
 if (cb) cb.checked = true;
+}
 }
 updateDropdownTrigger(category);
 updateToggleAllCheckbox(category);
@@ -4669,11 +4745,11 @@ updateApplyButton();
 };
 function updateToggleAllCheckbox(category) {
 const dropdown = document.querySelector(`.filter-dropdown[data-category="${category}"]`);
-const checkbox = dropdown?.querySelector('.filter-dropdown-toggle-all');
+const checkbox = dropdown ? dropdown.querySelector('.filter-dropdown-toggle-all') : null;
 const list = document.getElementById(`dropdownList-${category}`);
 if (!checkbox || !list) return;
 const items = list.querySelectorAll('.filter-dropdown-item');
-const selectedCount = currentFilters[category]?.length || 0;
+const selectedCount = (currentFilters[category] && currentFilters[category].length) || 0;
 checkbox.checked = selectedCount === items.length && items.length > 0;
 checkbox.indeterminate = selectedCount > 0 && selectedCount < items.length;
 }

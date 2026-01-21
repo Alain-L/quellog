@@ -5,6 +5,7 @@ package cmd
 import (
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/spf13/cobra"
 )
@@ -55,6 +56,11 @@ var (
 
 	// Report completeness flag
 	fullFlag bool // --full: Display comprehensive report with all sections and detailed SQL analysis
+
+	// Follow mode flags
+	followFlag   bool          // --follow: Continuous monitoring mode
+	intervalFlag time.Duration // --interval: Refresh interval for follow mode
+	outputFlag   string        // --output: Output file path (mandatory for follow mode with JSON/HTML)
 )
 
 // rootCmd is the main command for the quellog CLI.
@@ -150,4 +156,12 @@ func init() {
 	// Report completeness flag
 	rootCmd.PersistentFlags().BoolVarP(&fullFlag, "full", "F", false,
 		"Display comprehensive report with all sections and detailed SQL analysis")
+
+	// Follow mode flags
+	rootCmd.PersistentFlags().BoolVar(&followFlag, "follow", false,
+		"Continuous monitoring mode (re-parse and refresh report periodically)")
+	rootCmd.PersistentFlags().DurationVar(&intervalFlag, "interval", 30*time.Second,
+		"Refresh interval for follow mode (e.g., 10s, 1m)")
+	rootCmd.PersistentFlags().StringVarP(&outputFlag, "output", "o", "",
+		"Output file path (recommended for follow mode with JSON or HTML formats)")
 }

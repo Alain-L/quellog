@@ -4,6 +4,7 @@ package output
 
 import (
 	"fmt"
+	"io"
 	"sort"
 	"strings"
 	"time"
@@ -14,7 +15,7 @@ import (
 // ExportMarkdown produces a comprehensive markdown report.
 // Reuses histogram computation from text.go.
 // When full is true, sql_overview and sql_performance sections are added at the end.
-func ExportMarkdown(m analysis.AggregatedMetrics, sections []string, full bool) {
+func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string, full bool) {
 	has := func(name string) bool {
 		for _, s := range sections {
 			if s == name || s == "all" {
@@ -756,7 +757,7 @@ func ExportMarkdown(m analysis.AggregatedMetrics, sections []string, full bool) 
 		exportSqlSummaryMarkdownTo(&b, m.SQL, analysis.TempFileMetrics{}, analysis.LockMetrics{})
 	}
 
-	fmt.Println(b.String())
+	fmt.Fprintln(w, b.String())
 }
 
 // ============================================================================
@@ -1201,9 +1202,12 @@ func printMostFrequentWaitingQueriesMarkdown(b *strings.Builder, queryStats map[
 }
 
 // ExportSqlSummaryMarkdown produces a markdown report for --sql-summary
-func ExportSqlSummaryMarkdown(m analysis.SqlMetrics, tempFiles analysis.TempFileMetrics, locks analysis.LockMetrics) {
+func ExportSqlSummaryMarkdown(w io.Writer, m analysis.SqlMetrics, tempFiles analysis.TempFileMetrics, locks analysis.LockMetrics) {
 	var b strings.Builder
 
+	// ... (content) ...
+	// I'll be more specific to avoid error
+	
 	// Compute top 1% slowest queries
 	top1Slow := 0
 	if len(m.Executions) > 0 {
@@ -1335,14 +1339,17 @@ func ExportSqlSummaryMarkdown(m analysis.SqlMetrics, tempFiles analysis.TempFile
 		}
 	}
 
-	fmt.Println(b.String())
+	fmt.Fprintln(w, b.String())
 }
 
 // ExportSqlDetailMarkdown produces a markdown report for --sql-detail
-func ExportSqlDetailMarkdown(m analysis.AggregatedMetrics, queryDetails []string) {
+func ExportSqlDetailMarkdown(w io.Writer, m analysis.AggregatedMetrics, queryIDs []string) {
 	var b strings.Builder
 
-	for _, qid := range queryDetails {
+	for _, qid := range queryIDs {
+		// ... (content) ...
+		// I'll be more specific to avoid error
+		
 		// Collect metrics for this query ID
 		var sqlStat *analysis.QueryStat
 		var tempStat *analysis.TempFileQueryStat
@@ -1512,16 +1519,19 @@ func ExportSqlDetailMarkdown(m analysis.AggregatedMetrics, queryDetails []string
 		}
 	}
 
-	fmt.Println(b.String())
+	fmt.Fprintln(w, b.String())
 }
 
 // ExportSqlOverviewMarkdown exports SQL query type overview statistics in Markdown format.
 // This provides query type statistics with dimensional breakdowns (SELECT, INSERT, UPDATE, DELETE, etc.)
-func ExportSqlOverviewMarkdown(m analysis.SqlMetrics) {
+func ExportSqlOverviewMarkdown(w io.Writer, m analysis.SqlMetrics) {
 	var b strings.Builder
 
 	b.WriteString("# SQL QUERY OVERVIEW\n\n")
 
+	// ... (rest of logic) ...
+	// Again, providing full body correctly to avoid corruption.
+	
 	// Global statistics
 	b.WriteString("## Global Statistics\n\n")
 	b.WriteString("|  |  |  |  |\n")
@@ -1609,7 +1619,7 @@ func ExportSqlOverviewMarkdown(m analysis.SqlMetrics) {
 	exportQueryTypeBreakdownMarkdown(&b, "Per Host", m.QueryTypesByHost)
 	exportQueryTypeBreakdownMarkdown(&b, "Per Application", m.QueryTypesByApp)
 
-	fmt.Println(b.String())
+	fmt.Fprintln(w, b.String())
 }
 
 // exportQueryTypeBreakdownMarkdown writes query type breakdown for a dimension (database, user, host, app)
