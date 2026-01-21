@@ -60,7 +60,7 @@ jobs:
 
       - name: Build WASM demo
         run: |
-          cd wasm
+          cd web
           tinygo build -o quellog_tiny.wasm -target wasm -gc=leaking -no-debug ./main.go
           ls -la quellog_tiny.wasm
 
