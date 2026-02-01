@@ -13,7 +13,7 @@ import sys
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_DIR = os.path.dirname(SCRIPT_DIR)
 WEB_DIR = os.path.join(PROJECT_DIR, "web")
-ZSTD_DECODER = os.path.join(SCRIPT_DIR, "fzstd.min.js")
+ZSTD_DECODER = os.path.join(WEB_DIR, "fzstd.min.js")
 
 def minify_css(css):
     """Simple CSS minification"""
@@ -73,7 +73,7 @@ def build_report_template():
     styles_path = os.path.join(WEB_DIR, "styles.css")
     app_bundle_path = os.path.join(WEB_DIR, "app.bundle.js")
     app_path = app_bundle_path  # Use bundled version (run 'npm run build' first)
-    uplot_path = os.path.join(SCRIPT_DIR, "uplot.min.js")
+    uplot_path = os.path.join(WEB_DIR, "uplot.min.js")
 
     # Check that bundle exists
     if not os.path.exists(app_bundle_path):
