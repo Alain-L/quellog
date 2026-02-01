@@ -71,8 +71,15 @@ def build_report_template():
     # Read source files
     index_path = os.path.join(WEB_DIR, "index.html")
     styles_path = os.path.join(WEB_DIR, "styles.css")
-    app_path = os.path.join(WEB_DIR, "app.js")
+    app_bundle_path = os.path.join(WEB_DIR, "app.bundle.js")
+    app_path = app_bundle_path  # Use bundled version (run 'npm run build' first)
     uplot_path = os.path.join(SCRIPT_DIR, "uplot.min.js")
+
+    # Check that bundle exists
+    if not os.path.exists(app_bundle_path):
+        print(f"ERROR: {app_bundle_path} not found.")
+        print("Run 'npm run build' first to bundle the JS modules.")
+        sys.exit(1)
 
     with open(index_path, 'r') as f:
         html = f.read()
@@ -107,24 +114,19 @@ def build_report_template():
         body
     )
 
-    # Don't remove any JS functions - the aggressive regex was breaking renderResults
-    # Just minify the JS as-is (unused functions won't hurt)
-
-    # Minify
+    # Minify CSS (JS is already bundled/minified by esbuild)
     css_min = minify_css(css)
-    js_min = minify_js(js)
 
-    # Remove WASM loading code entirely for report mode
-    # Replace the fetch chain with a no-op
-    js_min = re.sub(
-        r"fetch\('quellog\.wasm'\).*?alert\('Failed to load WASM module'\);\n\}\);",
+    # Remove WASM loading code for report mode
+    js_clean = re.sub(
+        r"fetch\(['\"]quellog\.wasm['\"]\).*?alert\(['\"]Failed to load WASM module['\"]\);\s*\}\);",
         "/* WASM disabled in report mode */",
-        js_min,
+        js,
         flags=re.DOTALL
     )
 
     print(f"Minified CSS: {len(css_min):,} bytes ({len(css_min)/len(css)*100:.0f}%)")
-    print(f"Cleaned JS:   {len(js_min):,} bytes ({len(js_min)/len(js)*100:.0f}%)")
+    print(f"Bundled JS:   {len(js_clean):,} bytes")
 
     # Build template with JSON placeholder and zstd decompression
     template = f'''<!DOCTYPE html>
@@ -224,14 +226,14 @@ async function decompressData(base64Data) {{
     }}
 }}
 </script>
-<script>{js_min}</script>
+<script>{js_clean}</script>
 <script>
 // Auto-decompress and render on load
 if (COMPRESSED_DATA) {{
     console.log('Decompressing embedded report data...');
     decompressData(COMPRESSED_DATA).then(data => {{
         console.log('Report data loaded successfully');
-        analysisData = data;  // Required for showQueryModal
+        setAnalysisData(data);  // Required for showQueryModal
         data._parseTimeMs = data.meta.parse_time_ms || 0;
         renderResults(data, data.meta.filename || 'Report', data.meta.filesize || 0, true);
     }}).catch(err => {{

@@ -5,7 +5,7 @@ Build standalone HTML for quellog WASM viewer.
 Reads from:
   - index.html (template)
   - styles.css
-  - app.js
+  - app.bundle.js (bundled by esbuild - run 'npm run build' first)
   - uplot.min.js
   - fzstd.min.js
   - wasm_exec_tiny.js
@@ -99,9 +99,15 @@ def build_standalone():
     css_min = minify_css(css)
     print(f"  styles.css: {len(css):,} → {len(css_min):,} (minified)")
 
-    app_js = read_file('app.js')
-    app_js_min = minify_js(app_js)
-    print(f"  app.js: {len(app_js):,} → {len(app_js_min):,} (minified)")
+    # Check that bundle exists
+    bundle_path = os.path.join(WASM_DIR, 'app.bundle.js')
+    if not os.path.exists(bundle_path):
+        print(f"ERROR: app.bundle.js not found.")
+        print("Run 'npm run build' first to bundle the JS modules.")
+        import sys
+        sys.exit(1)
+    app_js_min = read_file('app.bundle.js')
+    print(f"  app.bundle.js: {len(app_js_min):,} bytes (pre-bundled)")
 
     # 3. Read HTML template
     print(f"\n[3/5] Reading HTML template...")
@@ -171,9 +177,16 @@ window.reinitWasm=async function(){{
     app_js_standalone = app_js_standalone.replace('if (!wasmReady)', 'if (!window.wasmReady)')
     # Replace wasmModule usage to use window.wasmModule
     app_js_standalone = app_js_standalone.replace('WebAssembly.instantiate(wasmModule,', 'WebAssembly.instantiate(window.wasmModule,')
-    # Remove the fetch WASM block
+
+    # Remove WASM loading code (handles both old inline and new modular patterns)
+    # Pattern 1: Old inline fetch block
     wasm_init_pattern = r"fetch\('quellog\.wasm'\)[\s\S]*?Failed to load WASM module[\s\S]*?\}\);"
     app_js_standalone = re.sub(wasm_init_pattern, '// WASM init handled by standalone loader', app_js_standalone)
+    # Pattern 2: New modular loadWasm function definition
+    loadwasm_func_pattern = r'function loadWasm\(\)\s*\{[^}]*fetch\("quellog\.wasm"\)[\s\S]*?Failed to load WASM module[\s\S]*?\}\);\s*\}'
+    app_js_standalone = re.sub(loadwasm_func_pattern, 'function loadWasm() { /* standalone mode - WASM loaded by loader script */ }', app_js_standalone)
+    # Pattern 3: Remove standalone loadWasm() call
+    app_js_standalone = re.sub(r'\n\s*loadWasm\(\);', '\n  // loadWasm() - handled by standalone loader', app_js_standalone)
 
     # Build the standalone HTML
     standalone = f'''<!DOCTYPE html>

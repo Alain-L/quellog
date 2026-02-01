@@ -1,0 +1,12 @@
+{
+  "name": "quellog-web",
+  "private": true,
+  "scripts": {
+    "build": "esbuild web/app.js --bundle --outfile=web/app.bundle.js --format=iife",
+    "build:minify": "esbuild web/app.js --bundle --outfile=web/app.bundle.js --format=iife --minify",
+    "watch": "esbuild web/app.js --bundle --outfile=web/app.bundle.js --format=iife --watch"
+  },
+  "devDependencies": {
+    "esbuild": "^0.27.2"
+  }
+}
