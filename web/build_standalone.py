@@ -139,6 +139,7 @@ const FZSTD_GZ_B64="{fzstd_b64}";
 {wasm_exec_min}
 
 // Initialize WASM (standalone mode)
+window.STANDALONE_MODE=true;
 window.wasmReady=false;
 window.wasmModule=null;
 
@@ -171,22 +172,8 @@ window.reinitWasm=async function(){{
 }})();
 '''
 
-    # Modify app.js for standalone mode
+    # Use app.bundle.js as-is (STANDALONE_MODE flag handles WASM loading skip)
     app_js_standalone = app_js_min
-    # Replace wasmReady check to use window.wasmReady
-    app_js_standalone = app_js_standalone.replace('if (!wasmReady)', 'if (!window.wasmReady)')
-    # Replace wasmModule usage to use window.wasmModule
-    app_js_standalone = app_js_standalone.replace('WebAssembly.instantiate(wasmModule,', 'WebAssembly.instantiate(window.wasmModule,')
-
-    # Remove WASM loading code (handles both old inline and new modular patterns)
-    # Pattern 1: Old inline fetch block
-    wasm_init_pattern = r"fetch\('quellog\.wasm'\)[\s\S]*?Failed to load WASM module[\s\S]*?\}\);"
-    app_js_standalone = re.sub(wasm_init_pattern, '// WASM init handled by standalone loader', app_js_standalone)
-    # Pattern 2: New modular loadWasm function definition
-    loadwasm_func_pattern = r'function loadWasm\(\)\s*\{[^}]*fetch\("quellog\.wasm"\)[\s\S]*?Failed to load WASM module[\s\S]*?\}\);\s*\}'
-    app_js_standalone = re.sub(loadwasm_func_pattern, 'function loadWasm() { /* standalone mode - WASM loaded by loader script */ }', app_js_standalone)
-    # Pattern 3: Remove standalone loadWasm() call
-    app_js_standalone = re.sub(r'\n\s*loadWasm\(\);', '\n  // loadWasm() - handled by standalone loader', app_js_standalone)
 
     # Build the standalone HTML
     standalone = f'''<!DOCTYPE html>

@@ -22,7 +22,8 @@ import {
 import {
     chartData, createTimeChart, createDurationChart, createCombinedSQLChart,
     createConcurrentChart, createHistogramChart, createCheckpointChart,
-    buildChartContainer, closeChartModal, updateModalInterval, resetModalZoom, exportChartPNG
+    buildChartContainer, closeChartModal, updateModalInterval, resetModalZoom, exportChartPNG,
+    resetChartZoom, openChartModal, updateChartInterval, toggleCombinedSeries
 } from './js/charts.js';
 
         // Load WASM module on startup
@@ -39,7 +40,8 @@ import {
         setupDragDrop(dropZone, fileInput, processFile);
 
         async function processFile(file) {
-            if (!wasmReady) { alert('WASM not ready'); return; }
+            // Check both module state and window (standalone mode uses window.wasmReady)
+            if (!wasmReady && !window.wasmReady) { alert('WASM not ready'); return; }
 
             // Check file size limit
             if (file.size > MAX_FILE_SIZE) {
@@ -2126,6 +2128,10 @@ function buildEventsSection(data) {
         window.updateModalInterval = updateModalInterval;
         window.resetModalZoom = resetModalZoom;
         window.exportChartPNG = exportChartPNG;
+        window.resetChartZoom = resetChartZoom;
+        window.openChartModal = openChartModal;
+        window.updateChartInterval = updateChartInterval;
+        window.toggleCombinedSeries = toggleCombinedSeries;
 window.openTab = function(evt, tabName) {
     const btn = evt.currentTarget;
     const container = btn.closest('.section-body') || document;

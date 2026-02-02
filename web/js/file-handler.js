@@ -18,8 +18,10 @@ export function setProgress(pct, text) {
 
 // Create fresh WASM instance (resets memory for gc=leaking workaround)
 export async function initWasmInstance() {
+    // Use window.wasmModule in standalone mode, module state otherwise
+    const module = window.wasmModule || wasmModule;
     const go = new Go();
-    const instance = await WebAssembly.instantiate(wasmModule, go.importObject);
+    const instance = await WebAssembly.instantiate(module, go.importObject);
     go.run(instance);
     // Wait for Go initialization
     await new Promise(r => setTimeout(r, 10));
@@ -27,6 +29,18 @@ export async function initWasmInstance() {
 
 // Load and compile WASM module on startup
 export function loadWasm() {
+    // Skip WASM loading in report mode (data is pre-embedded)
+    if (window.REPORT_MODE) {
+        console.log('[quellog] Report mode - WASM loading skipped');
+        return Promise.resolve();
+    }
+
+    // Skip WASM loading in standalone mode (WASM loaded by loader script)
+    if (window.STANDALONE_MODE) {
+        console.log('[quellog] Standalone mode - WASM loading handled by loader');
+        return Promise.resolve();
+    }
+
     return fetch('quellog.wasm')
         .then(response => response.arrayBuffer())
         .then(buffer => WebAssembly.compile(buffer))
