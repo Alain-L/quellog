@@ -26,6 +26,9 @@ import {
     resetChartZoom, openChartModal, updateChartInterval, toggleCombinedSeries
 } from './js/charts.js';
 
+// Web Components (self-registering)
+import './js/components/ql-tabs.js';
+
         // Load WASM module on startup
         loadWasm();
 
@@ -315,9 +318,6 @@ function buildEventsSection(data) {
 	const criticalSeverities = ['PANIC', 'FATAL', 'ERROR', 'WARNING'];
 	const noiseSeverities = ['NOTICE', 'LOG', 'INFO', 'DEBUG'];
 
-	// Show all critical tabs even if empty (requested feature)
-	const activeCriticals = criticalSeverities;
-
 	// Determine default active tab
 	let defaultTab = 'ERROR';
 	if (summaryMap['ERROR'] > 0) defaultTab = 'ERROR';
@@ -325,40 +325,19 @@ function buildEventsSection(data) {
 	else if (summaryMap['PANIC'] > 0) defaultTab = 'PANIC';
 	else if (summaryMap['WARNING'] > 0) defaultTab = 'WARNING';
 
-	// Generate Tabs HTML (Left)
-	let tabsHtml = '';
-	if (activeCriticals.length > 0) {
-		tabsHtml += '<div class="tabs">';
-		activeCriticals.forEach(sev => {
-			const count = summaryMap[sev] || 0;
-			const isActive = sev === defaultTab ? 'active' : '';
-			const cls = sev.toLowerCase();
-			tabsHtml += `<button class="tab ${cls} ${isActive}" onclick="openTab(event, 'event-tab-${sev}')">${sev}<span class="tab-badge">${fmt(count)}</span></button>`;
-		});
-		tabsHtml += '</div>';
-	} else {
-		tabsHtml += '<div class="empty">No critical events found</div>';
-	}
-
-	// Generate Indicators HTML (Right)
-	let noiseHtml = '<div class="tabs indicators-group">';
-	noiseSeverities.forEach(sev => {
-		if (onlyErrors) return;
+	// Generate Tabs HTML
+	let tabsHtml = criticalSeverities.map(sev => {
 		const count = summaryMap[sev] || 0;
+		const isSelected = sev === defaultTab ? 'selected' : '';
 		const cls = sev.toLowerCase();
-		noiseHtml += `<div class="tab indicator ${cls}">
-			${sev}<span class="tab-badge">${fmt(count)}</span>
-		</div>`;
-	});
-	noiseHtml += '</div>';
+		return `<ql-tab class="${cls}" ${isSelected}>${sev}<ql-badge>${fmt(count)}</ql-badge></ql-tab>`;
+	}).join('');
 
-	// Generate Content HTML
-	let contentHtml = '';
-	criticalSeverities.forEach(sev => {
-		const isActive = sev === defaultTab ? 'block' : 'none';
+	// Generate Panels HTML
+	let panelsHtml = criticalSeverities.map(sev => {
 		const count = summaryMap[sev] || 0;
 		const sevEvents = bySeverity[sev] || [];
-		
+
 		let innerContent = '';
 
 		if (count === 0 || sevEvents.length === 0) {
@@ -416,21 +395,30 @@ function buildEventsSection(data) {
 			</div>`;
 		}
 
-		contentHtml += `
-		<div id="event-tab-${sev}" class="tab-content" style="display: ${isActive};">
-			${innerContent}
-		</div>`;
-	});
+		return `<ql-panel>${innerContent}</ql-panel>`;
+	}).join('');
+
+	// Generate Indicators HTML (Right)
+	let indicatorsHtml = '';
+	if (!onlyErrors) {
+		indicatorsHtml = '<div class="events-indicators"><div class="tabs indicators-group">';
+		noiseSeverities.forEach(sev => {
+			const count = summaryMap[sev] || 0;
+			const cls = sev.toLowerCase();
+			indicatorsHtml += `<div class="tab indicator ${cls}">${sev}<span class="tab-badge">${fmt(count)}</span></div>`;
+		});
+		indicatorsHtml += '</div></div>';
+	}
 
 	return `
 	<div class="section" id="events">
 		<div class="section-header">Events</div>
-		<div class="section-body">
-			<div class="events-toolbar">
+		<div class="section-body events-section">
+			${indicatorsHtml}
+			<ql-tabs>
 				${tabsHtml}
-				${noiseHtml}
-			</div>
-			${contentHtml}
+				${panelsHtml}
+			</ql-tabs>
 		</div>
 	</div>
 	`;
@@ -506,20 +494,14 @@ function buildEventsSection(data) {
                             </div>
                         ` : ''}
                         ${hasSessions ? `
-                            <div class="tabs" style="margin-top: 1rem;">
-                                <button class="tab active" onclick="showConnTab(this, 'conn-by-user')">By User</button>
-                                <button class="tab" onclick="showConnTab(this, 'conn-by-db')">By Database</button>
-                                <button class="tab" onclick="showConnTab(this, 'conn-by-host')">By Host</button>
-                            </div>
-                            <div id="conn-by-user" class="tab-content" style="display: block;">
-                                ${buildSessionTable(c.sessions_by_user, 'User')}
-                            </div>
-                            <div id="conn-by-db" class="tab-content" style="display: none;">
-                                ${buildSessionTable(c.sessions_by_database, 'Database')}
-                            </div>
-                            <div id="conn-by-host" class="tab-content" style="display: none;">
-                                ${buildSessionTable(c.sessions_by_host, 'Host')}
-                            </div>
+                            <ql-tabs style="margin-top: 1rem;">
+                                <ql-tab selected>By User</ql-tab>
+                                <ql-tab>By Database</ql-tab>
+                                <ql-tab>By Host</ql-tab>
+                                <ql-panel>${buildSessionTable(c.sessions_by_user, 'User')}</ql-panel>
+                                <ql-panel>${buildSessionTable(c.sessions_by_database, 'Database')}</ql-panel>
+                                <ql-panel>${buildSessionTable(c.sessions_by_host, 'Host')}</ql-panel>
+                            </ql-tabs>
                         ` : ''}
                     </div>
                 </div>
@@ -582,15 +564,6 @@ function buildEventsSection(data) {
                     </div>
                 </div>
             `;
-        }
-
-        function showConnTab(btn, id) {
-            btn.parentElement.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            btn.classList.add('active');
-            ['conn-by-user', 'conn-by-db', 'conn-by-host'].forEach(tid => {
-                const el = document.getElementById(tid);
-                if (el) el.style.display = tid === id ? 'block' : 'none';
-            });
         }
 
         function buildSessionTable(sessions, label) {
@@ -678,37 +651,21 @@ function buildEventsSection(data) {
                 <div class="section" id="clients">
                     <div class="section-header">Clients</div>
                     <div class="section-body">
-                        <div class="tabs">
-                            <button class="tab active" onclick="showClientTab(this, 'client-dbs')">Databases <span class="tab-badge">${c.unique_databases}</span></button>
-                            <button class="tab" onclick="showClientTab(this, 'client-users')">Users <span class="tab-badge">${c.unique_users}</span></button>
-                            <button class="tab" onclick="showClientTab(this, 'client-apps')">Apps <span class="tab-badge">${c.unique_apps}</span></button>
-                            <button class="tab" onclick="showClientTab(this, 'client-hosts')">Hosts <span class="tab-badge">${c.unique_hosts}</span></button>
-                        </div>
-                        <div id="client-dbs" class="tab-content" style="display: block;">
-                            ${buildClientList(databases, maxDb)}
-                        </div>
-                        <div id="client-users" class="tab-content" style="display: none;">
-                            ${buildClientList(users, maxUser)}
-                        </div>
-                        <div id="client-apps" class="tab-content" style="display: none;">
-                            ${buildClientList(apps, maxApp)}
-                        </div>
-                        <div id="client-hosts" class="tab-content" style="display: none;">
-                            ${buildClientList(hosts, maxHost)}
-                        </div>
+                        <ql-tabs>
+                            <ql-tab selected>Databases <ql-badge>${c.unique_databases}</ql-badge></ql-tab>
+                            <ql-tab>Users <ql-badge>${c.unique_users}</ql-badge></ql-tab>
+                            <ql-tab>Apps <ql-badge>${c.unique_apps}</ql-badge></ql-tab>
+                            <ql-tab>Hosts <ql-badge>${c.unique_hosts}</ql-badge></ql-tab>
+                            <ql-panel>${buildClientList(databases, maxDb)}</ql-panel>
+                            <ql-panel>${buildClientList(users, maxUser)}</ql-panel>
+                            <ql-panel>${buildClientList(apps, maxApp)}</ql-panel>
+                            <ql-panel>${buildClientList(hosts, maxHost)}</ql-panel>
+                        </ql-tabs>
                     </div>
                 </div>
             `;
         }
 
-        function showClientTab(btn, id) {
-            btn.parentElement.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            btn.classList.add('active');
-            ['client-dbs', 'client-users', 'client-apps', 'client-hosts', 'client-combos'].forEach(tid => {
-                const el = document.getElementById(tid);
-                if (el) el.style.display = tid === id ? 'block' : 'none';
-            });
-        }
 
         function buildCheckpointsSection(data) {
             const cp = data.checkpoints;
@@ -1222,21 +1179,14 @@ function buildEventsSection(data) {
                             </div>
                         ` : ''}
 
-                        <div class="tabs" style="margin-top: 1rem;">
-                            <button class="tab active" onclick="showSqlTab(this, 'sql-total')">By Total Time</button>
-                            <button class="tab" onclick="showSqlTab(this, 'sql-slowest')">Slowest (Max)</button>
-                            <button class="tab" onclick="showSqlTab(this, 'sql-frequent')">Most Frequent</button>
-                        </div>
-
-                        <div id="sql-total" class="tab-content" style="display: block;">
-                            ${buildQueryTable(byTotal, maxTime, 'total')}
-                        </div>
-                        <div id="sql-slowest" class="tab-content" style="display: none;">
-                            ${buildQueryTable(bySlowest, maxTime, 'max')}
-                        </div>
-                        <div id="sql-frequent" class="tab-content" style="display: none;">
-                            ${buildQueryTable(byFrequent, maxTime, 'count')}
-                        </div>
+                        <ql-tabs style="margin-top: 1rem;">
+                            <ql-tab selected>By Total Time</ql-tab>
+                            <ql-tab>Slowest (Max)</ql-tab>
+                            <ql-tab>Most Frequent</ql-tab>
+                            <ql-panel>${buildQueryTable(byTotal, maxTime, 'total')}</ql-panel>
+                            <ql-panel>${buildQueryTable(bySlowest, maxTime, 'max')}</ql-panel>
+                            <ql-panel>${buildQueryTable(byFrequent, maxTime, 'count')}</ql-panel>
+                        </ql-tabs>
                     </div>
                 </div>
             `;
@@ -1335,15 +1285,6 @@ function buildEventsSection(data) {
                     </div>
                 </div>
             `;
-        }
-
-        function showSqlTab(btn, id) {
-            btn.parentElement.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            btn.classList.add('active');
-            ['sql-total', 'sql-slowest', 'sql-frequent'].forEach(tid => {
-                const el = document.getElementById(tid);
-                if (el) el.style.display = tid === id ? 'block' : 'none';
-            });
         }
 
         function buildQueryTable(queries, maxTime, sortBy) {
@@ -2116,11 +2057,8 @@ function buildEventsSection(data) {
         // Expose functions for inline onclick handlers and report mode
         window.renderResults = renderResults;
         window.setAnalysisData = setAnalysisData;
-        window.showConnTab = showConnTab;
-        window.showClientTab = showClientTab;
         window.showQueryModal = showQueryModal;
         window.showSqlOvView = showSqlOvView;
-        window.showSqlTab = showSqlTab;
         window.copyQuery = copyQuery;
         window.closeModal = closeModal;
         window.toggleTheme = toggleTheme;
@@ -2132,28 +2070,4 @@ function buildEventsSection(data) {
         window.openChartModal = openChartModal;
         window.updateChartInterval = updateChartInterval;
         window.toggleCombinedSeries = toggleCombinedSeries;
-window.openTab = function(evt, tabName) {
-    const btn = evt.currentTarget;
-    const container = btn.closest('.section-body') || document;
-    
-    // Hide all tab content in this container
-    const contents = container.querySelectorAll('.tab-content');
-    for (let i = 0; i < contents.length; i++) {
-        contents[i].style.display = 'none';
-    }
-
-    // Reset tabs (remove active)
-    // We search in the button's parent (the toolbar/tabs container) to be safe
-    const tabs = btn.parentElement.querySelectorAll('.tab');
-    for (let i = 0; i < tabs.length; i++) {
-        tabs[i].classList.remove('active');
-    }
-
-    // Activate target content
-    const target = document.getElementById(tabName);
-    if (target) target.style.display = 'block';
-
-    // Activate button
-    btn.classList.add('active');
-}
 

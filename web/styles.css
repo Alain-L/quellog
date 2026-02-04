@@ -758,6 +758,21 @@
             align-items: center;
         }
 
+        .events-section {
+            display: grid;
+        }
+
+        .events-section > ql-tabs {
+            grid-area: 1 / 1;
+        }
+
+        .events-indicators {
+            grid-area: 1 / 1;
+            justify-self: end;
+            align-self: start;
+            z-index: 1;
+        }
+
         /* Section */
         .section {
             background: var(--card-bg);
@@ -803,6 +818,12 @@
         }
 
         .section-body { padding: 0.9rem; }
+
+        /* Web Components - Custom Elements */
+        ql-tabs { display: block; }
+        ql-tab { display: inline-flex; align-items: center; }
+        ql-panel { display: block; }
+        ql-badge { display: inline-block; }
 
         /* Tabs - Compact pills */
         .tabs {
