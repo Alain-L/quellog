@@ -28,6 +28,7 @@ import {
 
 // Web Components (self-registering)
 import './js/components/ql-tabs.js';
+import './js/components/ql-modal.js';
 
         // Load WASM module on startup
         loadWasm();
@@ -1369,7 +1370,7 @@ function buildEventsSection(data) {
                     <div class="detail-stat"><div class="value">${q.category || '-'}</div><div class="label">Category</div></div>
                 </div>
             `;
-            document.getElementById('queryModal').classList.add('active');
+            document.getElementById('queryModal').open();
         }
 
         function copyQuery(index) {
@@ -1379,10 +1380,7 @@ function buildEventsSection(data) {
         }
 
         function closeModal() {
-            document.getElementById('queryModal').classList.remove('active');
-            // Destroy modal charts
-            modalCharts.forEach(c => c.destroy());
-            modalCharts.length = 0;
+            document.getElementById('queryModal').close();
         }
 
         function showQueryModal(queryId) {
@@ -1412,7 +1410,7 @@ function buildEventsSection(data) {
             // If nothing found, show just the text
             if (!q && !lockQ && !tempQ) {
                 document.getElementById('queryModalBody').innerHTML = '<div class="query-detail-sql">' + esc(queryId) + '</div>';
-                document.getElementById('queryModal').classList.add('active');
+                document.getElementById('queryModal').open();
                 return;
             }
 
@@ -1424,7 +1422,7 @@ function buildEventsSection(data) {
 
             // Build detailed view with all available data
             document.getElementById('queryModalBody').innerHTML = buildQueryDetailHTML(q, execs, tempEvents, lockQ, tempQ);
-            document.getElementById('queryModal').classList.add('active');
+            document.getElementById('queryModal').open();
 
             // Render uPlot charts after DOM update and modal animation
             setTimeout(() => {
@@ -1950,8 +1948,10 @@ function buildEventsSection(data) {
             return s;
         }
 
-        document.getElementById('queryModal').addEventListener('click', e => {
-            if (e.target.id === 'queryModal') closeModal();
+        // Cleanup modal charts when modal closes
+        document.getElementById('queryModal').addEventListener('modal-close', () => {
+            modalCharts.forEach(c => c.destroy());
+            modalCharts.length = 0;
         });
 
         // Local state for file info display

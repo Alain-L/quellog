@@ -1628,6 +1628,10 @@
 
         .modal-overlay.active { display: flex; }
 
+        /* ql-modal component */
+        ql-modal { display: none; }
+        ql-modal.active { display: flex; }
+
         .modal {
             background: var(--card-bg);
             border-radius: 8px;
@@ -1664,6 +1668,23 @@
             padding: 1rem;
             overflow-y: auto;
             max-height: calc(90vh - 60px);
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 0.5rem;
+            margin-right: 1rem;
+        }
+
+        .modal-large { max-width: 1100px; }
+        .modal-fullscreen {
+            max-width: 95vw;
+            max-height: 95vh;
+            width: 95vw;
+            height: 95vh;
+        }
+        .modal-fullscreen .modal-body {
+            max-height: calc(95vh - 60px);
         }
 
         /* Query detail sections */

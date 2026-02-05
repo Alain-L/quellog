@@ -176,15 +176,10 @@
     </div>
 
     <!-- Query Detail Modal -->
-    <div class="modal-overlay" id="queryModal">
-        <div class="modal">
-            <div class="modal-header">
-                <h3>Query Detail</h3>
-                <button class="modal-close" onclick="closeModal()">&times;</button>
-            </div>
-            <div class="modal-body" id="queryModalBody"></div>
-        </div>
-    </div>
+    <ql-modal id="queryModal" size="large">
+        <span slot="title">Query Detail</span>
+        <div slot="body" id="queryModalBody"></div>
+    </ql-modal>
 
     <!-- Scripts -->
     <script src="uplot.min.js"></script>
