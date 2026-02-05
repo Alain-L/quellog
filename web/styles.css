@@ -1687,6 +1687,32 @@
             max-height: calc(95vh - 60px);
         }
 
+        .modal-actions select,
+        .modal-actions button {
+            padding: 0.4rem 0.8rem;
+            font-size: 0.75rem;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            background: var(--card-bg);
+            color: var(--text);
+            cursor: pointer;
+        }
+
+        .modal-actions button:hover {
+            background: var(--bg-alt);
+            border-color: var(--primary);
+        }
+
+        .modal-actions button.primary {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: white;
+        }
+
+        .modal-actions button.primary:hover {
+            background: var(--primary-dark);
+        }
+
         /* Query detail sections */
         .qd-section {
             margin-bottom: 1.25rem;
@@ -2110,6 +2136,8 @@
         #modal-chart-container {
             min-height: 350px;
         }
+
+        /* Chart expand button */
         .btn-expand {
             padding: 2px 5px !important;
             font-size: 0.7rem !important;
