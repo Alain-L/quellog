@@ -1501,11 +1501,11 @@ export function buildChartContainer(id, title, options = {}) {
     const showIntervalControl = options.showBucketControl !== false;
     const currentInterval = chartIntervalMap.get(id) ?? defaultInterval;
     const tooltip = options.tooltip || '';
-    const infoIcon = tooltip ? `<span class="info-icon">i<span class="info-tooltip">${tooltip}</span></span>` : '';
+    const infoIcon = tooltip ? `<ql-tooltip text="${tooltip}">i</ql-tooltip>` : '';
     return `
         <div class="chart-container">
             <div class="chart-controls">
-                <span class="subsection-title" style="margin: 0; font-size: 0.7rem;">${title} ${infoIcon}</span>
+                <span class="subsection-title" style="margin: 0; font-size: 0.7rem;">${title}${infoIcon}</span>
                 <div style="display: flex; gap: 0.5rem; align-items: center;">
                     <span class="zoom-hint">drag to zoom</span>
                     ${showIntervalControl ? `

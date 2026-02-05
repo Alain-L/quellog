@@ -2028,6 +2028,67 @@
             display: block;
         }
 
+        /* ql-tooltip Web Component */
+        ql-tooltip {
+            display: inline-flex;
+            position: relative;
+            margin-left: 4px;
+        }
+        ql-tooltip .tooltip-trigger {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: var(--primary);
+            color: white;
+            font-size: 0.55rem;
+            font-weight: 700;
+            border: none;
+            cursor: help;
+            opacity: 0.7;
+            transition: opacity 0.15s;
+            padding: 0;
+        }
+        ql-tooltip .tooltip-trigger:hover,
+        ql-tooltip .tooltip-trigger:focus {
+            opacity: 1;
+            outline: none;
+        }
+        ql-tooltip .tooltip-trigger:focus-visible {
+            box-shadow: 0 0 0 2px var(--primary);
+        }
+        ql-tooltip .tooltip-content {
+            display: none;
+            position: absolute;
+            background: var(--nav-bg);
+            color: var(--nav-text);
+            padding: 0.5rem 0.75rem;
+            border-radius: 6px;
+            font-size: 0.65rem;
+            font-weight: 400;
+            white-space: normal;
+            width: max-content;
+            max-width: 280px;
+            line-height: 1.4;
+            z-index: 1000;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            text-align: left;
+        }
+        ql-tooltip .tooltip-top {
+            bottom: calc(100% + 6px);
+            left: 0;
+        }
+        ql-tooltip .tooltip-bottom {
+            top: calc(100% + 6px);
+            left: 0;
+        }
+        ql-tooltip:hover .tooltip-content,
+        ql-tooltip:focus-within .tooltip-content {
+            display: block;
+        }
+
         .chart-tooltip {
             position: absolute;
             background: var(--card-bg);

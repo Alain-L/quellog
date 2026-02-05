@@ -29,6 +29,7 @@ import {
 // Web Components (self-registering)
 import './js/components/ql-tabs.js';
 import './js/components/ql-modal.js';
+import './js/components/ql-tooltip.js';
 
         // Load WASM module on startup
         loadWasm();
