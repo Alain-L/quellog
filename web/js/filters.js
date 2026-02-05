@@ -214,7 +214,7 @@ export function populateDropdown(category, values) {
     list.innerHTML = values.map(v => {
         const name = typeof v === 'object' ? v.name : v;
         const selected = currentFilters[category]?.includes(name) ? 'selected' : '';
-        return `<div class="filter-dropdown-item ${selected}" data-value="${esc(name)}" onclick="toggleFilterValue('${category}', '${esc(name)}', this)">
+        return `<div class="filter-dropdown-item ${selected}" data-value="${esc(name)}">
             <input type="checkbox" class="filter-item-checkbox" ${selected ? 'checked' : ''} tabindex="-1">
             <span class="filter-dropdown-item-label" title="${esc(name)}">${esc(name)}</span>
         </div>`;
@@ -302,6 +302,16 @@ export function toggleFilterValue(category, value, element) {
 }
 
 export function toggleAllFilterValues(category, checked) {
+    const dropdown = document.querySelector(`ql-dropdown[data-category="${category}"]`);
+
+    // Use component API if available
+    if (dropdown && typeof dropdown.selectAll === 'function') {
+        dropdown.selectAll(checked);
+        // State update happens via change event handler
+        return;
+    }
+
+    // Fallback for non-component dropdowns
     const list = document.getElementById(`dropdownList-${category}`);
     if (!list) return;
 
@@ -333,8 +343,17 @@ export function toggleAllFilterValues(category, checked) {
 }
 
 export function updateToggleAllCheckbox(category) {
-    const dropdown = document.querySelector(`.filter-dropdown[data-category="${category}"]`);
-    const checkbox = dropdown?.querySelector('.filter-dropdown-toggle-all');
+    const dropdown = document.querySelector(`ql-dropdown[data-category="${category}"]`);
+
+    // Use component's internal method if available
+    if (dropdown && typeof dropdown._updateToggleAll === 'function') {
+        dropdown._updateToggleAll();
+        return;
+    }
+
+    // Fallback for non-component dropdowns
+    const legacyDropdown = document.querySelector(`.filter-dropdown[data-category="${category}"]`);
+    const checkbox = legacyDropdown?.querySelector('.filter-dropdown-toggle-all');
     const list = document.getElementById(`dropdownList-${category}`);
     if (!checkbox || !list) return;
 
@@ -346,7 +365,16 @@ export function updateToggleAllCheckbox(category) {
 }
 
 export function clearCategoryFilter(category) {
-    // Clear this category's filters
+    const dropdown = document.querySelector(`ql-dropdown[data-category="${category}"]`);
+
+    // Use component API if available
+    if (dropdown && typeof dropdown.clearSelection === 'function') {
+        dropdown.clearSelection();
+        // State update happens via change event handler
+        return;
+    }
+
+    // Fallback for non-component dropdowns
     const filters = { ...currentFilters };
     delete filters[category];
     setCurrentFilters(filters);
@@ -555,11 +583,22 @@ export function resetTimeInputs() {
 
 export function clearFilterSelections() {
     clearCurrentFilters();
-    document.querySelectorAll('.filter-dropdown-item.selected').forEach(item => {
+
+    // Clear ql-dropdown components
+    document.querySelectorAll('ql-dropdown').forEach(dropdown => {
+        if (typeof dropdown.clearSelection === 'function') {
+            // Use silent clear to avoid triggering change events
+            dropdown.selectedValues = [];
+        }
+    });
+
+    // Clear legacy dropdowns
+    document.querySelectorAll('.filter-dropdown:not(ql-dropdown) .filter-dropdown-item.selected').forEach(item => {
         item.classList.remove('selected');
         const cb = item.querySelector('.filter-item-checkbox');
         if (cb) cb.checked = false;
     });
+
     ['database', 'user', 'application', 'host'].forEach(updateToggleAllCheckbox);
 }
 
@@ -579,6 +618,28 @@ export function setupFilterEventListeners() {
             closeAllDropdowns();
         }
     });
+
+    // Listen to ql-dropdown change events
+    document.querySelectorAll('ql-dropdown').forEach(dropdown => {
+        dropdown.addEventListener('change', handleDropdownChange);
+    });
+}
+
+// Handle selection change from ql-dropdown component
+function handleDropdownChange(e) {
+    const { category, values } = e.detail;
+    if (!category) return;
+
+    // Update state
+    const filters = { ...currentFilters };
+    if (values.length > 0) {
+        filters[category] = values;
+    } else {
+        delete filters[category];
+    }
+    setCurrentFilters(filters);
+
+    updateApplyButton();
 }
 
 // ===== Expose to Window for onclick handlers =====

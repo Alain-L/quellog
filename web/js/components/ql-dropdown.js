@@ -1,5 +1,5 @@
 /**
- * <ql-dropdown> Web Component - Phase 1
+ * <ql-dropdown> Web Component - Phase 2
  *
  * A dropdown with built-in accessibility (ARIA) and keyboard handling.
  *
@@ -13,9 +13,14 @@
  *   category - Category identifier (for integration with filters.js)
  *   open     - Dropdown is open (reflects state)
  *
+ * Properties:
+ *   selectedValues - Array of selected values (get/set)
+ *   count          - Number of selected items (get/set)
+ *
  * Events:
- *   dropdown-open  - Fired when dropdown opens
- *   dropdown-close - Fired when dropdown closes
+ *   dropdown-open   - Fired when dropdown opens
+ *   dropdown-close  - Fired when dropdown closes
+ *   change          - Fired when selection changes (detail: { category, values, added?, removed? })
  */
 
 class QlDropdown extends HTMLElement {
@@ -24,6 +29,7 @@ class QlDropdown extends HTMLElement {
         this._isOpen = false;
         this._handleKeydown = this._handleKeydown.bind(this);
         this._handleClickOutside = this._handleClickOutside.bind(this);
+        this._handleItemClick = this._handleItemClick.bind(this);
     }
 
     connectedCallback() {
@@ -102,6 +108,8 @@ class QlDropdown extends HTMLElement {
         if (menuContent) {
             this.appendChild(menuContent);
             this._menu = menuContent;
+            // Listen for item clicks (event delegation)
+            menuContent.addEventListener('click', this._handleItemClick);
         }
 
         // Add base class
@@ -214,6 +222,103 @@ class QlDropdown extends HTMLElement {
         const text = this._countEl?.textContent || '';
         const match = text.match(/\((\d+)\)/);
         return match ? parseInt(match[1], 10) : 0;
+    }
+
+    // Selected values API
+    get selectedValues() {
+        const items = this.querySelectorAll('.filter-dropdown-item.selected');
+        return Array.from(items).map(item => item.dataset.value);
+    }
+
+    set selectedValues(values) {
+        const valueSet = new Set(values || []);
+        const items = this.querySelectorAll('.filter-dropdown-item');
+
+        items.forEach(item => {
+            const value = item.dataset.value;
+            const isSelected = valueSet.has(value);
+            item.classList.toggle('selected', isSelected);
+            const cb = item.querySelector('.filter-item-checkbox');
+            if (cb) cb.checked = isSelected;
+        });
+
+        this.count = valueSet.size;
+        this._updateToggleAll();
+    }
+
+    // Handle item click (event delegation)
+    _handleItemClick(e) {
+        const item = e.target.closest('.filter-dropdown-item');
+        if (!item) return;
+
+        // Prevent default checkbox behavior - we handle it ourselves
+        if (e.target.type === 'checkbox') {
+            e.preventDefault();
+        }
+
+        const value = item.dataset.value;
+        const wasSelected = item.classList.contains('selected');
+
+        // Toggle selection
+        item.classList.toggle('selected');
+        const cb = item.querySelector('.filter-item-checkbox');
+        if (cb) cb.checked = !wasSelected;
+
+        // Update count and toggle-all
+        const newValues = this.selectedValues;
+        this.count = newValues.length;
+        this._updateToggleAll();
+
+        // Emit change event
+        this.dispatchEvent(new CustomEvent('change', {
+            bubbles: true,
+            detail: {
+                category: this.dataset.category,
+                values: newValues,
+                [wasSelected ? 'removed' : 'added']: value
+            }
+        }));
+    }
+
+    // Update "toggle all" checkbox state
+    _updateToggleAll() {
+        const checkbox = this.querySelector('.filter-dropdown-toggle-all');
+        if (!checkbox) return;
+
+        const items = this.querySelectorAll('.filter-dropdown-item');
+        const selectedCount = this.querySelectorAll('.filter-dropdown-item.selected').length;
+
+        checkbox.checked = selectedCount === items.length && items.length > 0;
+        checkbox.indeterminate = selectedCount > 0 && selectedCount < items.length;
+    }
+
+    // Select/deselect all items
+    selectAll(selected = true) {
+        const items = this.querySelectorAll('.filter-dropdown-item');
+        const values = [];
+
+        items.forEach(item => {
+            item.classList.toggle('selected', selected);
+            const cb = item.querySelector('.filter-item-checkbox');
+            if (cb) cb.checked = selected;
+            if (selected) values.push(item.dataset.value);
+        });
+
+        this.count = selected ? items.length : 0;
+        this._updateToggleAll();
+
+        this.dispatchEvent(new CustomEvent('change', {
+            bubbles: true,
+            detail: {
+                category: this.dataset.category,
+                values: selected ? values : []
+            }
+        }));
+    }
+
+    // Clear all selections
+    clearSelection() {
+        this.selectAll(false);
     }
 }
 
