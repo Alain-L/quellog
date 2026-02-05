@@ -30,6 +30,7 @@ class QlDropdown extends HTMLElement {
         this._handleKeydown = this._handleKeydown.bind(this);
         this._handleClickOutside = this._handleClickOutside.bind(this);
         this._handleItemClick = this._handleItemClick.bind(this);
+        this._handleSearchInput = this._handleSearchInput.bind(this);
     }
 
     connectedCallback() {
@@ -110,6 +111,12 @@ class QlDropdown extends HTMLElement {
             this._menu = menuContent;
             // Listen for item clicks (event delegation)
             menuContent.addEventListener('click', this._handleItemClick);
+            // Listen for search input
+            const searchInput = menuContent.querySelector('.filter-dropdown-search');
+            if (searchInput) {
+                searchInput.addEventListener('input', this._handleSearchInput);
+                this._searchInput = searchInput;
+            }
         }
 
         // Add base class
@@ -151,15 +158,10 @@ class QlDropdown extends HTMLElement {
 
         this._removeGlobalListeners();
 
-        // Clear search
-        const search = this.querySelector('.filter-dropdown-search');
-        if (search) {
-            search.value = '';
-            // Trigger search reset
-            const category = this.dataset.category;
-            if (category && typeof window.searchDropdown === 'function') {
-                window.searchDropdown(category, '');
-            }
+        // Clear search and reset filter
+        if (this._searchInput) {
+            this._searchInput.value = '';
+            this._filterItems('');
         }
 
         this.dispatchEvent(new CustomEvent('dropdown-close', { bubbles: true }));
@@ -290,6 +292,22 @@ class QlDropdown extends HTMLElement {
 
         checkbox.checked = selectedCount === items.length && items.length > 0;
         checkbox.indeterminate = selectedCount > 0 && selectedCount < items.length;
+    }
+
+    // Handle search input
+    _handleSearchInput(e) {
+        this._filterItems(e.target.value);
+    }
+
+    // Filter visible items by search query
+    _filterItems(query) {
+        const q = query.toLowerCase();
+        const items = this.querySelectorAll('.filter-dropdown-item');
+
+        items.forEach(item => {
+            const value = (item.dataset.value || '').toLowerCase();
+            item.style.display = value.includes(q) ? '' : 'none';
+        });
     }
 
     // Select/deselect all items
