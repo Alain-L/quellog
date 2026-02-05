@@ -15,7 +15,7 @@ import (
 	"github.com/Alain-L/quellog/parser"
 )
 
-const version = "0.2.0-wasm"
+const version = "0.3.0-wasm"
 
 // JSFilters is the JSON structure for filters from JavaScript
 type JSFilters struct {
@@ -66,6 +66,7 @@ func formatDuration(ms int64) string {
 
 func main() {
 	js.Global().Set("quellogParse", js.FuncOf(parseLog))
+	js.Global().Set("quellogParseBytes", js.FuncOf(parseLogBytes)) // Phase 1: accepts Uint8Array
 	js.Global().Set("quellogVersion", js.FuncOf(getVersion))
 	select {}
 }
@@ -191,6 +192,142 @@ func parseLog(this js.Value, args []js.Value) interface{} {
 		Format:    format,
 		Entries:   metrics.Global.Count,
 		Bytes:     int64(len(content)),
+		ParseTime: formatDuration(processingMs),
+	}
+	jsonStr, err := output.ExportJSONStringWithMeta(metrics, sections, full, meta)
+	if err != nil {
+		return `{"error": "JSON export error: ` + err.Error() + `"}`
+	}
+
+	return jsonStr
+}
+
+// parseLogBytes accepts a Uint8Array directly instead of a string.
+// This reduces memory usage by avoiding the JS string → Go string conversion.
+// Usage from JS: quellogParseBytes(uint8Array, filtersJson)
+func parseLogBytes(this js.Value, args []js.Value) interface{} {
+	t0 := now()
+
+	if len(args) < 1 {
+		return `{"error": "No input provided"}`
+	}
+
+	jsArray := args[0]
+	if jsArray.IsNull() || jsArray.IsUndefined() {
+		return `{"error": "Input is null or undefined"}`
+	}
+
+	// Get length from Uint8Array
+	length := jsArray.Get("length").Int()
+	if length == 0 {
+		return `{"error": "Empty input"}`
+	}
+
+	// Allocate buffer and copy directly from JS Uint8Array
+	// This is 1 copy instead of 2 (no string intermediate)
+	data := make([]byte, length)
+	js.CopyBytesToGo(data, jsArray)
+
+	// Parse optional filters (second argument)
+	var filters parser.LogFilters
+	if len(args) >= 2 && !args[1].IsNull() && !args[1].IsUndefined() {
+		filtersJSON := args[1].String()
+		if filtersJSON != "" {
+			var jsFilters JSFilters
+			if err := json.Unmarshal([]byte(filtersJSON), &jsFilters); err == nil {
+				filters = convertFilters(jsFilters)
+			}
+		}
+	}
+
+	// Detect format
+	sampleSize := 32 * 1024
+	if length < sampleSize {
+		sampleSize = length
+	}
+	format := parser.DetectFormatFromContent(string(data[:sampleSize]))
+	if format == "" {
+		format = "stderr"
+	}
+
+	// Parse using optimized bytes path
+	entries, parseErr := parser.ParseFromBytesSync(data, format)
+	if parseErr != nil {
+		return `{"error": "Parse error: ` + parseErr.Error() + `"}`
+	}
+
+	// Analysis
+	tempAnalyzer := analysis.NewTempFileAnalyzer()
+	vacAnalyzer := analysis.NewVacuumAnalyzer()
+	chkAnalyzer := analysis.NewCheckpointAnalyzer()
+	connAnalyzer := analysis.NewConnectionAnalyzer()
+	lockAnalyzer := analysis.NewLockAnalyzer()
+	evtAnalyzer := analysis.NewEventAnalyzer()
+	uniAnalyzer := analysis.NewUniqueEntityAnalyzer()
+	sqlAnalyzer := analysis.NewSQLAnalyzerWithSize(int64(length))
+
+	var globalMetrics analysis.GlobalMetrics
+	for i := range entries {
+		entry := &entries[i]
+
+		// Apply filters
+		if !parser.PassesFilters(*entry, filters) {
+			continue
+		}
+
+		tempAnalyzer.Process(entry)
+		vacAnalyzer.Process(entry)
+		chkAnalyzer.Process(entry)
+		connAnalyzer.Process(entry)
+		lockAnalyzer.Process(entry)
+		evtAnalyzer.Process(entry)
+		uniAnalyzer.Process(entry)
+		sqlAnalyzer.Process(entry)
+
+		if !entry.IsContinuation {
+			globalMetrics.Count++
+		}
+		if globalMetrics.MinTimestamp.IsZero() || entry.Timestamp.Before(globalMetrics.MinTimestamp) {
+			globalMetrics.MinTimestamp = entry.Timestamp
+		}
+		if globalMetrics.MaxTimestamp.IsZero() || entry.Timestamp.After(globalMetrics.MaxTimestamp) {
+			globalMetrics.MaxTimestamp = entry.Timestamp
+		}
+	}
+
+	tempMetrics := tempAnalyzer.Finalize()
+	vacMetrics := vacAnalyzer.Finalize()
+	chkMetrics := chkAnalyzer.Finalize()
+	connMetrics := connAnalyzer.Finalize()
+	lockMetrics := lockAnalyzer.Finalize()
+	evtSummaries, topEvents := evtAnalyzer.Finalize()
+	uniMetrics := uniAnalyzer.Finalize()
+	sqlMetrics := sqlAnalyzer.Finalize()
+
+	analysis.CollectQueriesWithoutDuration(&sqlMetrics, &lockMetrics, &tempMetrics)
+
+	// Assemble metrics
+	metrics := analysis.AggregatedMetrics{
+		Global:         globalMetrics,
+		TempFiles:      tempMetrics,
+		Vacuum:         vacMetrics,
+		Checkpoints:    chkMetrics,
+		Connections:    connMetrics,
+		Locks:          lockMetrics,
+		EventSummaries: evtSummaries,
+		TopEvents:      topEvents,
+		UniqueEntities: uniMetrics,
+		SQL:            sqlMetrics,
+	}
+
+	// JSON Export
+	sections := []string{"all"}
+	full := true
+	processingMs := int64(now() - t0)
+	meta := &output.MetaInfo{
+		Format:    format,
+		Entries:   metrics.Global.Count,
+		Bytes:     int64(length),
 		ParseTime: formatDuration(processingMs),
 	}
 	jsonStr, err := output.ExportJSONStringWithMeta(metrics, sections, full, meta)
