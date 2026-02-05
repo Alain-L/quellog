@@ -30,6 +30,7 @@ import {
 import './js/components/ql-tabs.js';
 import './js/components/ql-modal.js';
 import './js/components/ql-tooltip.js';
+import './js/components/ql-dropdown.js';
 
         // Load WASM module on startup
         loadWasm();

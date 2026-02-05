@@ -226,23 +226,32 @@ export function toggleDropdown(category) {
     const dropdown = document.querySelector(`.filter-dropdown[data-category="${category}"]`);
     if (!dropdown) return;
 
-    const wasOpen = dropdown.classList.contains('open');
-
-    // Close all dropdowns
-    closeAllDropdowns();
-
-    // Toggle this one
-    if (!wasOpen) {
-        dropdown.classList.add('open');
-        setOpenDropdown(category);
-        // Focus search if present
-        const search = dropdown.querySelector('.filter-dropdown-search');
-        if (search) setTimeout(() => search.focus(), 10);
+    // Use component API if available (ql-dropdown)
+    if (typeof dropdown.toggle === 'function') {
+        dropdown.toggle();
+        setOpenDropdown(dropdown.isOpen ? category : null);
+    } else {
+        // Fallback for non-component dropdowns (e.g., time)
+        const wasOpen = dropdown.classList.contains('open');
+        closeAllDropdowns();
+        if (!wasOpen) {
+            dropdown.classList.add('open');
+            setOpenDropdown(category);
+            const search = dropdown.querySelector('.filter-dropdown-search');
+            if (search) setTimeout(() => search.focus(), 10);
+        }
     }
 }
 
 export function closeAllDropdowns() {
-    document.querySelectorAll('.filter-dropdown.open').forEach(d => d.classList.remove('open'));
+    // Close ql-dropdown components
+    document.querySelectorAll('ql-dropdown[open]').forEach(d => d.close());
+    // Close legacy dropdowns
+    document.querySelectorAll('.filter-dropdown.open').forEach(d => {
+        if (typeof d.close !== 'function') {
+            d.classList.remove('open');
+        }
+    });
     // Clear search inputs
     document.querySelectorAll('.filter-dropdown-search').forEach(s => {
         s.value = '';
@@ -363,18 +372,24 @@ export function updateDropdownTrigger(category) {
     const dropdown = document.querySelector(`.filter-dropdown[data-category="${category}"]`);
     if (!dropdown) return;
 
-    const trigger = dropdown.querySelector('.filter-dropdown-trigger');
-    const countEl = dropdown.querySelector('.filter-dropdown-count');
     const count = currentFilters[category]?.length || 0;
 
-    if (count > 0) {
-        dropdown.classList.add('has-selection');
-        trigger.classList.add('has-selection');
-        countEl.textContent = `(${count})`;
+    // Use component API if available (ql-dropdown)
+    if ('count' in dropdown) {
+        dropdown.count = count;
     } else {
-        dropdown.classList.remove('has-selection');
-        trigger.classList.remove('has-selection');
-        countEl.textContent = '';
+        // Fallback for non-component dropdowns
+        const trigger = dropdown.querySelector('.filter-dropdown-trigger');
+        const countEl = dropdown.querySelector('.filter-dropdown-count');
+        if (count > 0) {
+            dropdown.classList.add('has-selection');
+            trigger?.classList.add('has-selection');
+            if (countEl) countEl.textContent = `(${count})`;
+        } else {
+            dropdown.classList.remove('has-selection');
+            trigger?.classList.remove('has-selection');
+            if (countEl) countEl.textContent = '';
+        }
     }
 }
 

@@ -51,12 +51,7 @@
         <!-- Filter Bar -->
         <div class="filter-bar" id="filterBar">
             <div class="filter-bar-content">
-                <div class="filter-dropdown" data-category="database">
-                    <button class="filter-dropdown-trigger" onclick="toggleDropdown('database')">
-                        <span class="filter-dropdown-label">Database</span>
-                        <span class="filter-dropdown-count"></span>
-                        <svg class="filter-dropdown-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
-                    </button>
+                <ql-dropdown label="Database" category="database">
                     <div class="filter-dropdown-menu">
                         <div class="filter-dropdown-header">
                             <input type="checkbox" class="filter-dropdown-toggle-all" onchange="toggleAllFilterValues('database', this.checked)" title="Select/Deselect all">
@@ -65,13 +60,8 @@
                         </div>
                         <div class="filter-dropdown-list" id="dropdownList-database"></div>
                     </div>
-                </div>
-                <div class="filter-dropdown" data-category="user">
-                    <button class="filter-dropdown-trigger" onclick="toggleDropdown('user')">
-                        <span class="filter-dropdown-label">User</span>
-                        <span class="filter-dropdown-count"></span>
-                        <svg class="filter-dropdown-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
-                    </button>
+                </ql-dropdown>
+                <ql-dropdown label="User" category="user">
                     <div class="filter-dropdown-menu">
                         <div class="filter-dropdown-header">
                             <input type="checkbox" class="filter-dropdown-toggle-all" onchange="toggleAllFilterValues('user', this.checked)" title="Select/Deselect all">
@@ -80,13 +70,8 @@
                         </div>
                         <div class="filter-dropdown-list" id="dropdownList-user"></div>
                     </div>
-                </div>
-                <div class="filter-dropdown" data-category="application">
-                    <button class="filter-dropdown-trigger" onclick="toggleDropdown('application')">
-                        <span class="filter-dropdown-label">App</span>
-                        <span class="filter-dropdown-count"></span>
-                        <svg class="filter-dropdown-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
-                    </button>
+                </ql-dropdown>
+                <ql-dropdown label="App" category="application">
                     <div class="filter-dropdown-menu">
                         <div class="filter-dropdown-header">
                             <input type="checkbox" class="filter-dropdown-toggle-all" onchange="toggleAllFilterValues('application', this.checked)" title="Select/Deselect all">
@@ -95,13 +80,8 @@
                         </div>
                         <div class="filter-dropdown-list" id="dropdownList-application"></div>
                     </div>
-                </div>
-                <div class="filter-dropdown" data-category="host">
-                    <button class="filter-dropdown-trigger" onclick="toggleDropdown('host')">
-                        <span class="filter-dropdown-label">Host</span>
-                        <span class="filter-dropdown-count"></span>
-                        <svg class="filter-dropdown-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
-                    </button>
+                </ql-dropdown>
+                <ql-dropdown label="Host" category="host">
                     <div class="filter-dropdown-menu">
                         <div class="filter-dropdown-header">
                             <input type="checkbox" class="filter-dropdown-toggle-all" onchange="toggleAllFilterValues('host', this.checked)" title="Select/Deselect all">
@@ -110,7 +90,7 @@
                         </div>
                         <div class="filter-dropdown-list" id="dropdownList-host"></div>
                     </div>
-                </div>
+                </ql-dropdown>
                 <div class="filter-dropdown filter-dropdown-time" data-category="time">
                     <button class="filter-dropdown-trigger" onclick="toggleDropdown('time')">
                         <span class="filter-dropdown-label">Time</span>

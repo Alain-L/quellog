@@ -824,6 +824,7 @@
         ql-tab { display: inline-flex; align-items: center; }
         ql-panel { display: block; }
         ql-badge { display: inline-block; }
+        ql-dropdown { display: inline-block; position: relative; }
 
         /* Tabs - Compact pills */
         .tabs {
