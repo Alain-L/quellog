@@ -1,6 +1,7 @@
 package output
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -336,13 +337,12 @@ type ErrorClassJSON struct {
 func ExportJSON(w io.Writer, m analysis.AggregatedMetrics, sections []string, full bool) {
 	data := buildJSONData(m, sections, full)
 
-	// Marshal and output
-	jsonData, err := json.MarshalIndent(data, "", "  ")
-	if err != nil {
+	// Stream directly to writer - no intermediate []byte or string
+	enc := json.NewEncoder(w)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(data); err != nil {
 		fmt.Fprintf(w, "[ERROR] Failed to export JSON: %v\n", err)
-		return
 	}
-	fmt.Fprintln(w, string(jsonData))
 }
 
 // ExportJSONString returns the JSON export as a string instead of printing.
@@ -361,16 +361,21 @@ type MetaInfo struct {
 }
 
 // ExportJSONStringWithMeta returns the JSON export with optional metadata.
+// Uses streaming encoder to avoid triple buffering (map + []byte + string).
 func ExportJSONStringWithMeta(m analysis.AggregatedMetrics, sections []string, full bool, meta *MetaInfo) (string, error) {
 	data := buildJSONData(m, sections, full)
 	if meta != nil {
 		data["meta"] = meta
 	}
-	jsonData, err := json.MarshalIndent(data, "", "  ")
-	if err != nil {
+
+	// Stream to buffer - avoids intermediate []byte from MarshalIndent
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(data); err != nil {
 		return "", err
 	}
-	return string(jsonData), nil
+	return buf.String(), nil
 }
 
 // buildJSONData constructs the JSON data structure from metrics.
