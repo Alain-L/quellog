@@ -1,5 +1,5 @@
 /**
- * <ql-dropdown> Web Component - Phase 2
+ * <ql-dropdown> Web Component - Phase 4
  *
  * A dropdown with built-in accessibility (ARIA) and keyboard handling.
  *
@@ -21,12 +21,19 @@
  *   dropdown-open   - Fired when dropdown opens
  *   dropdown-close  - Fired when dropdown closes
  *   change          - Fired when selection changes (detail: { category, values, added?, removed? })
+ *
+ * Keyboard:
+ *   ArrowDown/Up - Navigate items
+ *   Enter/Space  - Toggle selection
+ *   Home/End     - Jump to first/last item
+ *   Escape       - Close dropdown
  */
 
 class QlDropdown extends HTMLElement {
     constructor() {
         super();
         this._isOpen = false;
+        this._focusedIndex = -1;
         this._handleKeydown = this._handleKeydown.bind(this);
         this._handleClickOutside = this._handleClickOutside.bind(this);
         this._handleItemClick = this._handleItemClick.bind(this);
@@ -129,6 +136,7 @@ class QlDropdown extends HTMLElement {
     _show() {
         if (this._isOpen) return;
         this._isOpen = true;
+        this._focusedIndex = -1;
 
         this.classList.add('open');
         this._trigger.setAttribute('aria-expanded', 'true');
@@ -158,6 +166,10 @@ class QlDropdown extends HTMLElement {
 
         this._removeGlobalListeners();
 
+        // Clear focus
+        this._clearFocus();
+        this._focusedIndex = -1;
+
         // Clear search and reset filter
         if (this._searchInput) {
             this._searchInput.value = '';
@@ -173,10 +185,52 @@ class QlDropdown extends HTMLElement {
     }
 
     _handleKeydown(e) {
-        if (e.key === 'Escape') {
-            e.preventDefault();
-            this.close();
-            this._trigger.focus();
+        const visibleItems = this._getVisibleItems();
+        const maxIndex = visibleItems.length - 1;
+
+        switch (e.key) {
+            case 'Escape':
+                e.preventDefault();
+                this.close();
+                this._trigger.focus();
+                break;
+
+            case 'ArrowDown':
+                e.preventDefault();
+                if (this._focusedIndex < maxIndex) {
+                    this._setFocusedIndex(this._focusedIndex + 1, visibleItems);
+                } else {
+                    this._setFocusedIndex(0, visibleItems); // Wrap to first
+                }
+                break;
+
+            case 'ArrowUp':
+                e.preventDefault();
+                if (this._focusedIndex > 0) {
+                    this._setFocusedIndex(this._focusedIndex - 1, visibleItems);
+                } else {
+                    this._setFocusedIndex(maxIndex, visibleItems); // Wrap to last
+                }
+                break;
+
+            case 'Home':
+                e.preventDefault();
+                this._setFocusedIndex(0, visibleItems);
+                break;
+
+            case 'End':
+                e.preventDefault();
+                this._setFocusedIndex(maxIndex, visibleItems);
+                break;
+
+            case 'Enter':
+            case ' ':
+                // Only handle if we have a focused item and not in search input
+                if (this._focusedIndex >= 0 && e.target !== this._searchInput) {
+                    e.preventDefault();
+                    this._toggleFocusedItem(visibleItems);
+                }
+                break;
         }
     }
 
@@ -308,6 +362,46 @@ class QlDropdown extends HTMLElement {
             const value = (item.dataset.value || '').toLowerCase();
             item.style.display = value.includes(q) ? '' : 'none';
         });
+
+        // Reset focus when filter changes
+        this._clearFocus();
+        this._focusedIndex = -1;
+    }
+
+    // Get visible (not hidden by search) items
+    _getVisibleItems() {
+        const items = this.querySelectorAll('.filter-dropdown-item');
+        return Array.from(items).filter(item => item.style.display !== 'none');
+    }
+
+    // Set focused item by index
+    _setFocusedIndex(index, visibleItems = null) {
+        const items = visibleItems || this._getVisibleItems();
+        if (index < 0 || index >= items.length) return;
+
+        this._clearFocus();
+        this._focusedIndex = index;
+
+        const item = items[index];
+        item.classList.add('focused');
+        item.scrollIntoView({ block: 'nearest' });
+    }
+
+    // Clear focus from all items
+    _clearFocus() {
+        this.querySelectorAll('.filter-dropdown-item.focused').forEach(item => {
+            item.classList.remove('focused');
+        });
+    }
+
+    // Toggle selection of the currently focused item
+    _toggleFocusedItem(visibleItems = null) {
+        const items = visibleItems || this._getVisibleItems();
+        if (this._focusedIndex < 0 || this._focusedIndex >= items.length) return;
+
+        const item = items[this._focusedIndex];
+        // Simulate click to reuse existing logic
+        this._handleItemClick({ target: item, preventDefault: () => {} });
     }
 
     // Select/deselect all items
