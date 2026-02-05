@@ -64,9 +64,106 @@ func formatDuration(ms int64) string {
 	return strconv.FormatFloat(secs, 'f', 2, 64) + "s"
 }
 
+// parseAndAnalyze is the core parsing logic shared by parse methods.
+func parseAndAnalyze(data []byte, filters parser.LogFilters) string {
+	t0 := now()
+
+	// Detect format
+	sampleSize := 32 * 1024
+	if len(data) < sampleSize {
+		sampleSize = len(data)
+	}
+	format := parser.DetectFormatFromContent(string(data[:sampleSize]))
+	if format == "" {
+		format = "stderr"
+	}
+
+	// Parse
+	entries, parseErr := parser.ParseFromBytesSync(data, format)
+	if parseErr != nil {
+		return `{"error": "Parse error: ` + parseErr.Error() + `"}`
+	}
+
+	// Analysis
+	tempAnalyzer := analysis.NewTempFileAnalyzer()
+	vacAnalyzer := analysis.NewVacuumAnalyzer()
+	chkAnalyzer := analysis.NewCheckpointAnalyzer()
+	connAnalyzer := analysis.NewConnectionAnalyzer()
+	lockAnalyzer := analysis.NewLockAnalyzer()
+	evtAnalyzer := analysis.NewEventAnalyzer()
+	uniAnalyzer := analysis.NewUniqueEntityAnalyzer()
+	sqlAnalyzer := analysis.NewSQLAnalyzerWithSize(int64(len(data)))
+
+	var globalMetrics analysis.GlobalMetrics
+	for i := range entries {
+		entry := &entries[i]
+		if !parser.PassesFilters(*entry, filters) {
+			continue
+		}
+		tempAnalyzer.Process(entry)
+		vacAnalyzer.Process(entry)
+		chkAnalyzer.Process(entry)
+		connAnalyzer.Process(entry)
+		lockAnalyzer.Process(entry)
+		evtAnalyzer.Process(entry)
+		uniAnalyzer.Process(entry)
+		sqlAnalyzer.Process(entry)
+
+		if !entry.IsContinuation {
+			globalMetrics.Count++
+		}
+		if globalMetrics.MinTimestamp.IsZero() || entry.Timestamp.Before(globalMetrics.MinTimestamp) {
+			globalMetrics.MinTimestamp = entry.Timestamp
+		}
+		if globalMetrics.MaxTimestamp.IsZero() || entry.Timestamp.After(globalMetrics.MaxTimestamp) {
+			globalMetrics.MaxTimestamp = entry.Timestamp
+		}
+	}
+
+	tempMetrics := tempAnalyzer.Finalize()
+	vacMetrics := vacAnalyzer.Finalize()
+	chkMetrics := chkAnalyzer.Finalize()
+	connMetrics := connAnalyzer.Finalize()
+	lockMetrics := lockAnalyzer.Finalize()
+	evtSummaries, topEvents := evtAnalyzer.Finalize()
+	uniMetrics := uniAnalyzer.Finalize()
+	sqlMetrics := sqlAnalyzer.Finalize()
+
+	analysis.CollectQueriesWithoutDuration(&sqlMetrics, &lockMetrics, &tempMetrics)
+
+	metrics := analysis.AggregatedMetrics{
+		Global:         globalMetrics,
+		TempFiles:      tempMetrics,
+		Vacuum:         vacMetrics,
+		Checkpoints:    chkMetrics,
+		Connections:    connMetrics,
+		Locks:          lockMetrics,
+		EventSummaries: evtSummaries,
+		TopEvents:      topEvents,
+		UniqueEntities: uniMetrics,
+		SQL:            sqlMetrics,
+	}
+
+	sections := []string{"all"}
+	full := true
+	processingMs := int64(now() - t0)
+	meta := &output.MetaInfo{
+		Format:    format,
+		Entries:   metrics.Global.Count,
+		Bytes:     int64(len(data)),
+		ParseTime: formatDuration(processingMs),
+	}
+	jsonStr, err := output.ExportJSONStringWithMeta(metrics, sections, full, meta)
+	if err != nil {
+		return `{"error": "JSON export error: ` + err.Error() + `"}`
+	}
+
+	return jsonStr
+}
+
 func main() {
 	js.Global().Set("quellogParse", js.FuncOf(parseLog))
-	js.Global().Set("quellogParseBytes", js.FuncOf(parseLogBytes)) // Phase 1: accepts Uint8Array
+	js.Global().Set("quellogParseBytes", js.FuncOf(parseLogBytes)) // Accepts Uint8Array (faster)
 	js.Global().Set("quellogVersion", js.FuncOf(getVersion))
 	select {}
 }
