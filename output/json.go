@@ -334,12 +334,15 @@ type ErrorClassJSON struct {
 // converts it into an indented JSON string, and outputs the result.
 // Only sections with data are included in the output.
 // When full is true, includes sql_overview and enriched sql_performance sections.
-func ExportJSON(w io.Writer, m analysis.AggregatedMetrics, sections []string, full bool) {
+// When compact is true, outputs JSON without indentation (smaller, lower memory).
+func ExportJSON(w io.Writer, m analysis.AggregatedMetrics, sections []string, full bool, compact bool) {
 	data := buildJSONData(m, sections, full)
 
 	// Stream directly to writer - no intermediate []byte or string
 	enc := json.NewEncoder(w)
-	enc.SetIndent("", "  ")
+	if !compact {
+		enc.SetIndent("", "  ")
+	}
 	if err := enc.Encode(data); err != nil {
 		fmt.Fprintf(w, "[ERROR] Failed to export JSON: %v\n", err)
 	}
@@ -348,7 +351,7 @@ func ExportJSON(w io.Writer, m analysis.AggregatedMetrics, sections []string, fu
 // ExportJSONString returns the JSON export as a string instead of printing.
 // This is useful for WASM and other contexts where stdout is not available.
 func ExportJSONString(m analysis.AggregatedMetrics, sections []string) (string, error) {
-	return ExportJSONStringWithMeta(m, sections, false, nil)
+	return ExportJSONStringWithMeta(m, sections, false, nil, false)
 }
 
 // MetaInfo contains optional metadata about the parsing process.
@@ -362,7 +365,8 @@ type MetaInfo struct {
 
 // ExportJSONStringWithMeta returns the JSON export with optional metadata.
 // Uses streaming encoder to avoid triple buffering (map + []byte + string).
-func ExportJSONStringWithMeta(m analysis.AggregatedMetrics, sections []string, full bool, meta *MetaInfo) (string, error) {
+// When compact is true, outputs JSON without indentation (smaller, lower memory).
+func ExportJSONStringWithMeta(m analysis.AggregatedMetrics, sections []string, full bool, meta *MetaInfo, compact bool) (string, error) {
 	data := buildJSONData(m, sections, full)
 	if meta != nil {
 		data["meta"] = meta
@@ -371,7 +375,9 @@ func ExportJSONStringWithMeta(m analysis.AggregatedMetrics, sections []string, f
 	// Stream to buffer - avoids intermediate []byte from MarshalIndent
 	var buf bytes.Buffer
 	enc := json.NewEncoder(&buf)
-	enc.SetIndent("", "  ")
+	if !compact {
+		enc.SetIndent("", "  ")
+	}
 	if err := enc.Encode(data); err != nil {
 		return "", err
 	}

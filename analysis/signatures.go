@@ -136,17 +136,49 @@ func isDigit(c byte) bool {
 }
 
 // normalizeWhitespace collapses all whitespace into single spaces.
+// Optimized to return the original string if no normalization is needed.
 func normalizeWhitespace(s string) string {
 	if len(s) == 0 {
 		return ""
 	}
 
+	// Fast path: check if normalization is needed
+	needsNormalization := false
+	lastWasSpace := false
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if c == '\n' || c == '\r' || c == '\t' {
+			needsNormalization = true
+			break
+		}
+		if c == ' ' {
+			if lastWasSpace {
+				needsNormalization = true
+				break
+			}
+			lastWasSpace = true
+		} else {
+			lastWasSpace = false
+		}
+	}
+	// Also check for leading/trailing spaces
+	if !needsNormalization && len(s) > 0 {
+		if s[0] == ' ' || s[len(s)-1] == ' ' {
+			needsNormalization = true
+		}
+	}
+
+	if !needsNormalization {
+		return s // No allocation!
+	}
+
+	// Slow path: build normalized string
 	buf := builderPool.Get().(*strings.Builder)
 	buf.Reset()
 	buf.Grow(len(s))
 	defer builderPool.Put(buf)
 
-	lastWasSpace := false
+	lastWasSpace = false
 	for i := 0; i < len(s); i++ {
 		c := s[i]
 		if c == '\n' || c == '\r' || c == '\t' || c == ' ' {

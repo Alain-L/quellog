@@ -208,7 +208,7 @@ func buildLogFilters(beginT, endT time.Time) parser.LogFilters {
 func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, totalFileSize int64, inputArgs []string) {
 	// Validate flag compatibility
 	formatCount := 0
-	if jsonFlag {
+	if jsonFlag || jsonCompactFlag {
 		formatCount++
 	}
 	if mdFlag {
@@ -218,7 +218,11 @@ func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, 
 		formatCount++
 	}
 	if formatCount > 1 {
-		fmt.Fprintln(os.Stderr, "Error: --json, --md, and --html are mutually exclusive")
+		fmt.Fprintln(os.Stderr, "Error: --json, --json-compact, --md, and --html are mutually exclusive")
+		os.Exit(1)
+	}
+	if jsonFlag && jsonCompactFlag {
+		fmt.Fprintln(os.Stderr, "Error: --json and --json-compact are mutually exclusive")
 		os.Exit(1)
 	}
 
@@ -345,7 +349,7 @@ func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, 
 	}
 
 	// Output in requested format
-	if jsonFlag {
+	if jsonFlag || jsonCompactFlag {
 		w := os.Stdout
 		if outputFlag != "" {
 			f, err := os.Create(outputFlag)
@@ -355,7 +359,7 @@ func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, 
 			defer f.Close()
 			w = f
 		}
-		output.ExportJSON(w, metrics, sections, fullFlag)
+		output.ExportJSON(w, metrics, sections, fullFlag, jsonCompactFlag)
 		return
 	}
 

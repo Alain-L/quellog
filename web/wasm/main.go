@@ -153,7 +153,8 @@ func parseAndAnalyze(data []byte, filters parser.LogFilters) string {
 		Bytes:     int64(len(data)),
 		ParseTime: formatDuration(processingMs),
 	}
-	jsonStr, err := output.ExportJSONStringWithMeta(metrics, sections, full, meta)
+	// Use compact JSON in WASM to reduce memory usage (no indentation overhead)
+	jsonStr, err := output.ExportJSONStringWithMeta(metrics, sections, full, meta, true)
 	if err != nil {
 		return `{"error": "JSON export error: ` + err.Error() + `"}`
 	}
@@ -291,7 +292,8 @@ func parseLog(this js.Value, args []js.Value) interface{} {
 		Bytes:     int64(len(content)),
 		ParseTime: formatDuration(processingMs),
 	}
-	jsonStr, err := output.ExportJSONStringWithMeta(metrics, sections, full, meta)
+	// Use compact JSON in WASM to reduce memory usage
+	jsonStr, err := output.ExportJSONStringWithMeta(metrics, sections, full, meta, true)
 	if err != nil {
 		return `{"error": "JSON export error: ` + err.Error() + `"}`
 	}
@@ -427,7 +429,8 @@ func parseLogBytes(this js.Value, args []js.Value) interface{} {
 		Bytes:     int64(length),
 		ParseTime: formatDuration(processingMs),
 	}
-	jsonStr, err := output.ExportJSONStringWithMeta(metrics, sections, full, meta)
+	// Use compact JSON in WASM to reduce memory usage
+	jsonStr, err := output.ExportJSONStringWithMeta(metrics, sections, full, meta, true)
 	if err != nil {
 		return `{"error": "JSON export error: ` + err.Error() + `"}`
 	}
