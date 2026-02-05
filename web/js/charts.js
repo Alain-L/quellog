@@ -167,6 +167,35 @@ export function binCombinedData(times, executions, minT, maxT, interval) {
     return { xData, countData, durationData, medianCount, buckets };
 }
 
+// Helper: bin temp files data into count and size per bucket
+export function binTempFilesData(events, minT, maxT, interval) {
+    const range = maxT - minT || 1;
+    const buckets = computeBuckets(range, interval);
+    const bucketSize = range / buckets;
+
+    const xData = new Float64Array(buckets);
+    const countData = new Float64Array(buckets);
+    const sizeData = new Float64Array(buckets);
+    for (let i = 0; i < buckets; i++) {
+        xData[i] = minT + i * bucketSize + bucketSize / 2;
+    }
+
+    // Aggregate events into buckets
+    events.forEach(e => {
+        const t = e.ts;
+        if (t >= minT && t <= maxT) {
+            const idx = Math.min(Math.floor((t - minT) / bucketSize), buckets - 1);
+            countData[idx]++;
+            sizeData[idx] += e.size;
+        }
+    });
+
+    const sortedCount = [...countData].filter(v => v > 0).sort((a, b) => a - b);
+    const medianCount = sortedCount.length > 0 ? sortedCount[Math.floor(sortedCount.length / 2)] : 0;
+
+    return { xData, countData, sizeData, medianCount, buckets };
+}
+
 // Helper: bin concurrent sessions using sweep-line algorithm
 export function binConcurrentSessions(events, minT, maxT, interval) {
     const range = maxT - minT || 1;
@@ -1496,6 +1525,280 @@ export function createConcurrentChart(containerId, sessions, options = {}) {
     return chart;
 }
 
+// Create combined temp files chart (count + size)
+export function createCombinedTempFilesChart(containerId, events, options = {}) {
+    const container = document.getElementById(containerId);
+    if (!container || !events || events.length === 0) return null;
+
+    // Parse events: extract timestamp and size
+    const parsedEvents = events.map(e => ({
+        ts: new Date(e.timestamp).getTime() / 1000,
+        size: parseSizeToBytes(e.size)
+    })).filter(x => !isNaN(x.ts)).sort((a, b) => a.ts - b.ts);
+
+    if (parsedEvents.length === 0) return null;
+
+    // Clear previous chart
+    if (charts.has(containerId)) {
+        charts.get(containerId).destroy();
+        charts.delete(containerId);
+    }
+    container.innerHTML = '';
+
+    const minT = parsedEvents[0].ts;
+    const maxT = parsedEvents[parsedEvents.length - 1].ts;
+    const interval = options.interval !== undefined ? options.interval : (chartIntervalMap.get(containerId) ?? defaultInterval);
+
+    // Initial binning
+    const { xData, countData, sizeData, medianCount } = binTempFilesData(parsedEvents, minT, maxT, interval);
+
+    const countColor = getComputedStyle(document.documentElement).getPropertyValue('--chart-bar').trim() || '#5a9bd5';
+    const sizeColor = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#f5a623';
+    const textColor = getComputedStyle(document.documentElement).getPropertyValue('--text').trim();
+    const mutedColor = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim();
+
+    // Series visibility state
+    const seriesVisible = { count: true, size: true };
+
+    // Custom tooltip
+    function tempFilesTooltipPlugin() {
+        let tooltip = null;
+        return {
+            hooks: {
+                init: u => {
+                    tooltip = document.createElement('div');
+                    tooltip.className = 'chart-tooltip';
+                    tooltip.style.display = 'none';
+                    u.over.appendChild(tooltip);
+                },
+                setCursor: u => {
+                    if (u._resampling) { tooltip.style.display = 'none'; return; }
+                    const { idx } = u.cursor;
+                    const xd = u.data[0];
+                    const countY = u.data[1];
+                    const sizeY = u.data[2];
+                    if (idx == null || !xd || idx < 0 || idx >= xd.length) {
+                        tooltip.style.display = 'none';
+                        return;
+                    }
+                    const x = xd[idx];
+                    const count = countY[idx];
+                    const size = sizeY[idx];
+                    if (x === undefined || !Number.isFinite(x)) {
+                        tooltip.style.display = 'none';
+                        return;
+                    }
+                    const d = new Date(x * 1000);
+                    const timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+                    let parts = [timeStr];
+                    if (u._seriesVisible.count) parts.push(`${Math.round(count)} files`);
+                    if (u._seriesVisible.size) parts.push(fmtBytes(size));
+                    tooltip.innerHTML = parts.join(' · ');
+                    const left = u.valToPos(x, 'x');
+                    const topCount = u._seriesVisible.count ? u.valToPos(count, 'y', true) : u.bbox.top + u.bbox.height;
+                    const topSize = u._seriesVisible.size ? u.valToPos(size, 'size', true) : u.bbox.top + u.bbox.height;
+                    const top = Math.min(topCount, topSize);
+                    tooltip.style.display = 'block';
+                    tooltip.style.left = Math.min(left, u.over.clientWidth - 140) + 'px';
+                    tooltip.style.top = Math.max(0, top - 40) + 'px';
+                }
+            }
+        };
+    }
+
+    const opts = {
+        width: container.clientWidth || 300,
+        height: options.height || 150,
+        cursor: { drag: { x: true, y: false, setScale: true } },
+        select: { show: true },
+        legend: { show: false },
+        scales: {
+            x: { time: true },
+            y: { range: [0, null] },
+            size: { range: [0, null] }
+        },
+        axes: [
+            {
+                stroke: textColor,
+                grid: { show: false },
+                ticks: { show: false },
+                values: (u, vals) => vals.map(v => {
+                    const d = new Date(v * 1000);
+                    return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+                }),
+                size: 20,
+                font: '10px system-ui'
+            },
+            {
+                stroke: countColor,
+                grid: { show: false },
+                ticks: { show: false },
+                size: 35,
+                font: '10px system-ui',
+                side: 3  // left
+            },
+            {
+                scale: 'size',
+                stroke: sizeColor,
+                grid: { show: false },
+                ticks: { show: false },
+                size: 50,
+                font: '10px system-ui',
+                side: 1,  // right
+                values: (u, vals) => vals.map(v => fmtBytesShort(v))
+            }
+        ],
+        series: [
+            {},
+            { label: 'Count', scale: 'y', stroke: 'transparent', fill: 'transparent', points: { show: false }, paths: () => null },
+            { label: 'Size', scale: 'size', stroke: 'transparent', fill: 'transparent', points: { show: false }, paths: () => null }
+        ],
+        plugins: [tempFilesTooltipPlugin()],
+        hooks: {
+            draw: [u => {
+                const ctx = u.ctx;
+                ctx.save();
+                const xd = u.data[0];
+                const countY = u.data[1];
+                const sizeY = u.data[2];
+                const bothVisible = u._seriesVisible.count && u._seriesVisible.size;
+                const totalBarWidth = Math.max(4, (u.bbox.width / xd.length) * 0.7);
+                const barWidth = bothVisible ? totalBarWidth / 2 - 1 : totalBarWidth;
+                const radius = Math.min(2, barWidth / 4);
+
+                // Draw median line (behind bars)
+                if (u._seriesVisible.count) {
+                    const currentMedian = u._medianCount || 0;
+                    if (currentMedian > 0) {
+                        const yMed = u.valToPos(currentMedian, 'y', true);
+                        const { left, width } = u.bbox;
+                        ctx.strokeStyle = mutedColor;
+                        ctx.lineWidth = 1;
+                        ctx.setLineDash([4, 4]);
+                        ctx.beginPath();
+                        ctx.moveTo(left, yMed);
+                        ctx.lineTo(left + width, yMed);
+                        ctx.stroke();
+                        ctx.setLineDash([]);
+                    }
+                }
+
+                for (let i = 0; i < xd.length; i++) {
+                    const xCenter = u.valToPos(xd[i], 'x', true);
+                    const y0Count = u.valToPos(0, 'y', true);
+                    const y0Size = u.valToPos(0, 'size', true);
+
+                    // Draw count bar (left side if both visible)
+                    if (u._seriesVisible.count && countY[i] > 0) {
+                        const x = bothVisible ? xCenter - barWidth/2 - 0.5 : xCenter;
+                        const y = u.valToPos(countY[i], 'y', true);
+                        const h = y0Count - y;
+                        if (h > 0) {
+                            ctx.fillStyle = countColor;
+                            ctx.beginPath();
+                            ctx.moveTo(x - barWidth/2, y0Count);
+                            ctx.lineTo(x - barWidth/2, y + radius);
+                            ctx.quadraticCurveTo(x - barWidth/2, y, x - barWidth/2 + radius, y);
+                            ctx.lineTo(x + barWidth/2 - radius, y);
+                            ctx.quadraticCurveTo(x + barWidth/2, y, x + barWidth/2, y + radius);
+                            ctx.lineTo(x + barWidth/2, y0Count);
+                            ctx.closePath();
+                            ctx.fill();
+                        }
+                    }
+
+                    // Draw size bar (right side if both visible)
+                    if (u._seriesVisible.size && sizeY[i] > 0) {
+                        const x = bothVisible ? xCenter + barWidth/2 + 0.5 : xCenter;
+                        const y = u.valToPos(sizeY[i], 'size', true);
+                        const h = y0Size - y;
+                        if (h > 0) {
+                            ctx.fillStyle = sizeColor;
+                            ctx.beginPath();
+                            ctx.moveTo(x - barWidth/2, y0Size);
+                            ctx.lineTo(x - barWidth/2, y + radius);
+                            ctx.quadraticCurveTo(x - barWidth/2, y, x - barWidth/2 + radius, y);
+                            ctx.lineTo(x + barWidth/2 - radius, y);
+                            ctx.quadraticCurveTo(x + barWidth/2, y, x + barWidth/2, y + radius);
+                            ctx.lineTo(x + barWidth/2, y0Size);
+                            ctx.closePath();
+                            ctx.fill();
+                        }
+                    }
+                }
+                ctx.restore();
+            }],
+            setScale: [u => {
+                if (u._resampling) return;
+                const xScale = u.scales.x;
+                const newMin = xScale.min;
+                const newMax = xScale.max;
+                if (newMin != null && newMax != null && (newMax - newMin) > 1) {
+                    const { xData: newX, countData: newCount, sizeData: newSize, medianCount: newMed } = binTempFilesData(u._events, newMin, newMax, u._interval);
+                    u._medianCount = newMed;
+                    u._resampling = true;
+                    u.setData([newX, newCount, newSize], false);
+                    u._resampling = false;
+                    u.batch(() => {
+                        u.setScale('x', { min: newMin, max: newMax });
+                    });
+                }
+            }]
+        }
+    };
+
+    const chart = new uPlot(opts, [xData, countData, sizeData], container);
+    charts.set(containerId, chart);
+
+    chart._events = parsedEvents;
+    chart._interval = interval;
+    chart._originalXRange = [minT, maxT];
+    chart._medianCount = medianCount;
+    chart._seriesVisible = seriesVisible;
+    chart._containerId = containerId;
+
+    const resizeObserver = new ResizeObserver(() => {
+        if (container.clientWidth > 0) {
+            chart.setSize({ width: container.clientWidth, height: opts.height });
+        }
+    });
+    resizeObserver.observe(container);
+
+    return chart;
+}
+
+// Helper: parse size string to bytes
+function parseSizeToBytes(size) {
+    if (!size || typeof size !== 'string') return 0;
+    const match = size.match(/([\d.]+)\s*(KB|MB|GB|TB|B)/i);
+    if (!match) return parseFloat(size) || 0;
+    const val = parseFloat(match[1]);
+    const unit = match[2].toUpperCase();
+    if (unit === 'TB') return val * 1024 * 1024 * 1024 * 1024;
+    if (unit === 'GB') return val * 1024 * 1024 * 1024;
+    if (unit === 'MB') return val * 1024 * 1024;
+    if (unit === 'KB') return val * 1024;
+    return val;
+}
+
+// Helper: format bytes for display
+function fmtBytes(b) {
+    if (b == null || isNaN(b)) return '-';
+    if (b < 1024) return b.toFixed(0) + ' B';
+    if (b < 1024 * 1024) return (b / 1024).toFixed(1) + ' KB';
+    if (b < 1024 * 1024 * 1024) return (b / (1024 * 1024)).toFixed(1) + ' MB';
+    return (b / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
+}
+
+// Helper: format bytes short (for Y axis)
+function fmtBytesShort(b) {
+    if (b == null || isNaN(b) || b === 0) return '0';
+    if (b < 1024) return b.toFixed(0) + 'B';
+    if (b < 1024 * 1024) return (b / 1024).toFixed(0) + 'K';
+    if (b < 1024 * 1024 * 1024) return (b / (1024 * 1024)).toFixed(0) + 'M';
+    return (b / (1024 * 1024 * 1024)).toFixed(1) + 'G';
+}
+
 // Build chart container HTML with controls
 export function buildChartContainer(id, title, options = {}) {
     const showIntervalControl = options.showBucketControl !== false;
@@ -1626,6 +1929,11 @@ export function renderModalChart() {
         });
     } else if (data?.type === 'combined') {
         modalChart = createCombinedSQLChartLarge(container, data.data, {
+            interval: modalInterval,
+            height: 350
+        });
+    } else if (data?.type === 'combined-tempfiles') {
+        modalChart = createCombinedTempFilesChartLarge(container, data.events, {
             interval: modalInterval,
             height: 350
         });
@@ -2138,6 +2446,236 @@ export function createCombinedSQLChartLarge(container, rawData, options = {}) {
     const chart = new uPlot(opts, [xData, countData, durationData], container);
 
     chart._rawData = rawData;
+    chart._interval = interval;
+    chart._originalXRange = [minT, maxT];
+    chart._medianCount = medianCount;
+    chart._seriesVisible = seriesVisible;
+    return chart;
+}
+
+// Create large combined temp files chart for modal
+export function createCombinedTempFilesChartLarge(container, events, options = {}) {
+    if (!events || events.length === 0) return null;
+
+    // Parse events
+    const parsedEvents = events.map(e => ({
+        ts: new Date(e.timestamp).getTime() / 1000,
+        size: parseSizeToBytes(e.size)
+    })).filter(x => !isNaN(x.ts)).sort((a, b) => a.ts - b.ts);
+
+    if (parsedEvents.length === 0) return null;
+
+    const minT = parsedEvents[0].ts;
+    const maxT = parsedEvents[parsedEvents.length - 1].ts;
+    const interval = options.interval !== undefined ? options.interval : 0;
+
+    const { xData, countData, sizeData, medianCount } = binTempFilesData(parsedEvents, minT, maxT, interval);
+
+    const resolveColor = (c) => {
+        if (c && c.startsWith('var(')) {
+            const varName = c.slice(4, -1);
+            return getComputedStyle(document.documentElement).getPropertyValue(varName).trim() || '#5a9bd5';
+        }
+        return c;
+    };
+    const countColor = resolveColor('var(--chart-bar)');
+    const sizeColor = resolveColor('var(--accent)');
+    const textColor = resolveColor('var(--text)');
+    const borderColor = resolveColor('var(--border)');
+    const mutedColor = resolveColor('var(--text-muted)');
+
+    const seriesVisible = { count: true, size: true };
+
+    function tempFilesTooltipPlugin() {
+        let tooltip = null;
+        return {
+            hooks: {
+                init: u => {
+                    tooltip = document.createElement('div');
+                    tooltip.className = 'chart-tooltip';
+                    tooltip.style.display = 'none';
+                    u.over.appendChild(tooltip);
+                },
+                setCursor: u => {
+                    if (u._resampling) { tooltip.style.display = 'none'; return; }
+                    const { idx } = u.cursor;
+                    const xd = u.data[0];
+                    const countY = u.data[1];
+                    const sizeY = u.data[2];
+                    if (idx == null || !xd || idx < 0 || idx >= xd.length) {
+                        tooltip.style.display = 'none';
+                        return;
+                    }
+                    const x = xd[idx];
+                    const count = countY[idx];
+                    const size = sizeY[idx];
+                    if (x === undefined || !Number.isFinite(x)) {
+                        tooltip.style.display = 'none';
+                        return;
+                    }
+                    const d = new Date(x * 1000);
+                    const timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+                    let parts = [timeStr];
+                    if (u._seriesVisible.count) parts.push(`${Math.round(count)} files`);
+                    if (u._seriesVisible.size) parts.push(fmtBytes(size));
+                    tooltip.innerHTML = parts.join(' · ');
+                    const left = u.valToPos(x, 'x');
+                    tooltip.style.display = 'block';
+                    tooltip.style.left = Math.min(left, u.over.clientWidth - 140) + 'px';
+                    tooltip.style.top = '10px';
+                }
+            }
+        };
+    }
+
+    const opts = {
+        width: container.clientWidth || 600,
+        height: options.height || 350,
+        cursor: { drag: { x: true, y: false, setScale: true } },
+        select: { show: true },
+        legend: { show: false },
+        scales: {
+            x: { time: true },
+            y: { range: [0, null] },
+            size: { range: [0, null] }
+        },
+        axes: [
+            {
+                stroke: textColor,
+                grid: { stroke: borderColor, width: 1 },
+                ticks: { stroke: borderColor },
+                values: (u, vals) => vals.map(v => {
+                    const d = new Date(v * 1000);
+                    return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+                }),
+                size: 30,
+                font: '11px system-ui'
+            },
+            {
+                stroke: countColor,
+                grid: { stroke: borderColor, width: 1, dash: [4, 4] },
+                ticks: { stroke: borderColor },
+                size: 50,
+                font: '11px system-ui',
+                side: 3,
+                label: 'Count',
+                labelSize: 14,
+                labelFont: '11px system-ui'
+            },
+            {
+                scale: 'size',
+                stroke: sizeColor,
+                grid: { show: false },
+                ticks: { stroke: borderColor },
+                size: 60,
+                font: '11px system-ui',
+                side: 1,
+                label: 'Size',
+                labelSize: 14,
+                labelFont: '11px system-ui',
+                values: (u, vals) => vals.map(v => fmtBytesShort(v))
+            }
+        ],
+        series: [
+            {},
+            { label: 'Count', scale: 'y', stroke: 'transparent', fill: 'transparent', points: { show: false }, paths: () => null },
+            { label: 'Size', scale: 'size', stroke: 'transparent', fill: 'transparent', points: { show: false }, paths: () => null }
+        ],
+        plugins: [tempFilesTooltipPlugin()],
+        hooks: {
+            draw: [u => {
+                const ctx = u.ctx;
+                ctx.save();
+                const xd = u.data[0];
+                const countY = u.data[1];
+                const sizeY = u.data[2];
+                const bothVisible = u._seriesVisible.count && u._seriesVisible.size;
+                const totalBarWidth = Math.max(6, (u.bbox.width / xd.length) * 0.7);
+                const barWidth = bothVisible ? totalBarWidth / 2 - 1 : totalBarWidth;
+                const radius = Math.min(3, barWidth / 4);
+
+                // Draw median line
+                if (u._seriesVisible.count) {
+                    const currentMedian = u._medianCount || 0;
+                    if (currentMedian > 0) {
+                        const yMed = u.valToPos(currentMedian, 'y', true);
+                        const { left, width } = u.bbox;
+                        ctx.strokeStyle = mutedColor;
+                        ctx.lineWidth = 1;
+                        ctx.setLineDash([4, 4]);
+                        ctx.beginPath();
+                        ctx.moveTo(left, yMed);
+                        ctx.lineTo(left + width, yMed);
+                        ctx.stroke();
+                        ctx.setLineDash([]);
+                    }
+                }
+
+                for (let i = 0; i < xd.length; i++) {
+                    const xCenter = u.valToPos(xd[i], 'x', true);
+                    const y0Count = u.valToPos(0, 'y', true);
+                    const y0Size = u.valToPos(0, 'size', true);
+
+                    if (u._seriesVisible.count && countY[i] > 0) {
+                        const x = bothVisible ? xCenter - barWidth/2 - 0.5 : xCenter;
+                        const y = u.valToPos(countY[i], 'y', true);
+                        const h = y0Count - y;
+                        if (h > 0) {
+                            ctx.fillStyle = countColor;
+                            ctx.beginPath();
+                            ctx.moveTo(x - barWidth/2, y0Count);
+                            ctx.lineTo(x - barWidth/2, y + radius);
+                            ctx.quadraticCurveTo(x - barWidth/2, y, x - barWidth/2 + radius, y);
+                            ctx.lineTo(x + barWidth/2 - radius, y);
+                            ctx.quadraticCurveTo(x + barWidth/2, y, x + barWidth/2, y + radius);
+                            ctx.lineTo(x + barWidth/2, y0Count);
+                            ctx.closePath();
+                            ctx.fill();
+                        }
+                    }
+
+                    if (u._seriesVisible.size && sizeY[i] > 0) {
+                        const x = bothVisible ? xCenter + barWidth/2 + 0.5 : xCenter;
+                        const y = u.valToPos(sizeY[i], 'size', true);
+                        const h = y0Size - y;
+                        if (h > 0) {
+                            ctx.fillStyle = sizeColor;
+                            ctx.beginPath();
+                            ctx.moveTo(x - barWidth/2, y0Size);
+                            ctx.lineTo(x - barWidth/2, y + radius);
+                            ctx.quadraticCurveTo(x - barWidth/2, y, x - barWidth/2 + radius, y);
+                            ctx.lineTo(x + barWidth/2 - radius, y);
+                            ctx.quadraticCurveTo(x + barWidth/2, y, x + barWidth/2, y + radius);
+                            ctx.lineTo(x + barWidth/2, y0Size);
+                            ctx.closePath();
+                            ctx.fill();
+                        }
+                    }
+                }
+                ctx.restore();
+            }],
+            setScale: [u => {
+                if (u._resampling) return;
+                const xScale = u.scales.x;
+                const newMin = xScale.min;
+                const newMax = xScale.max;
+                if (newMin != null && newMax != null && (newMax - newMin) > 1) {
+                    const { xData: newX, countData: newCount, sizeData: newSize, medianCount: newMed } = binTempFilesData(u._events, newMin, newMax, u._interval);
+                    u._medianCount = newMed;
+                    u._resampling = true;
+                    u.setData([newX, newCount, newSize], false);
+                    u._resampling = false;
+                    u.batch(() => {
+                        u.setScale('x', { min: newMin, max: newMax });
+                    });
+                }
+            }]
+        }
+    };
+
+    const chart = new uPlot(opts, [xData, countData, sizeData], container);
+
+    chart._events = parsedEvents;
     chart._interval = interval;
     chart._originalXRange = [minT, maxT];
     chart._medianCount = medianCount;

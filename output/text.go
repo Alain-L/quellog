@@ -69,9 +69,15 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 
 		fmt.Println(bold + "\nTEMP FILES\n" + reset)
 
-		// Histogram
+		// Size histogram (always shown)
 		hist, unit, scaleFactor := computeTempFileHistogram(m.TempFiles)
-		PrintHistogram(hist, "Temp file distribution", unit, scaleFactor, nil)
+		PrintHistogram(hist, "Temp file size", unit, scaleFactor, nil)
+
+		// Count histogram (only when --tempfiles is explicitly specified)
+		if !has("all") {
+			countHist, countUnit, countScale := computeTempFileCountHistogram(m.TempFiles)
+			PrintHistogram(countHist, "Temp file count", countUnit, countScale, nil)
+		}
 
 		fmt.Printf("  %-25s : %d\n", "Temp file messages", m.TempFiles.Count)
 		fmt.Printf("  %-25s : %s\n", "Cumulative temp file size", formatBytes(m.TempFiles.TotalSize))

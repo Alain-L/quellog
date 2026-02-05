@@ -274,6 +274,88 @@ func computeTempFileHistogram(m analysis.TempFileMetrics) (map[string]int, strin
 	return histogram, unit, scaleFactor
 }
 
+// computeTempFileCountHistogram calculates a histogram of temporary file count over time.
+// It reuses computeTempFileCountHistogramFromEvents with all events.
+func computeTempFileCountHistogram(m analysis.TempFileMetrics) (map[string]int, string, int) {
+	return computeTempFileCountHistogramFromEvents(m.Events)
+}
+
+// computeTempFileCountHistogramFromEvents calculates a histogram of temp file count
+// over time from a slice of events (can be filtered or not).
+//
+// Returns:
+//   - histogram: map of time range labels to file count
+//   - unit: "" (empty, count has no unit)
+//   - scaleFactor: for proportional display (max bar width = 40 chars)
+func computeTempFileCountHistogramFromEvents(events []analysis.TempFileEvent) (map[string]int, string, int) {
+	if len(events) == 0 {
+		return nil, "", 0
+	}
+
+	// Find time range
+	start := events[0].Timestamp
+	end := events[0].Timestamp
+	for _, event := range events {
+		if event.Timestamp.Before(start) {
+			start = event.Timestamp
+		}
+		if event.Timestamp.After(end) {
+			end = event.Timestamp
+		}
+	}
+
+	// Divide into 6 buckets
+	totalDuration := end.Sub(start)
+	if totalDuration < time.Second {
+		totalDuration = time.Second
+	}
+	numBuckets := 6
+	bucketDuration := totalDuration / time.Duration(numBuckets)
+
+	// Prepare buckets
+	histogram := make([]int, numBuckets)
+	bucketLabels := make([]string, numBuckets)
+	for i := 0; i < numBuckets; i++ {
+		bucketStart := start.Add(time.Duration(i) * bucketDuration)
+		bucketEnd := start.Add(time.Duration(i+1) * bucketDuration)
+		bucketLabels[i] = fmt.Sprintf("%s - %s", bucketStart.Format("15:04"), bucketEnd.Format("15:04"))
+	}
+
+	// Count temp files per bucket
+	for _, event := range events {
+		elapsed := event.Timestamp.Sub(start)
+		bucketIndex := int(elapsed / bucketDuration)
+		if bucketIndex >= numBuckets {
+			bucketIndex = numBuckets - 1
+		}
+		if bucketIndex < 0 {
+			bucketIndex = 0
+		}
+		histogram[bucketIndex]++
+	}
+
+	// Convert to map
+	result := make(map[string]int, numBuckets)
+	for i, count := range histogram {
+		result[bucketLabels[i]] = count
+	}
+
+	// Calculate scale factor
+	maxValue := 0
+	for _, count := range histogram {
+		if count > maxValue {
+			maxValue = count
+		}
+	}
+	histogramWidth := 40
+	scaleFactor := int(math.Ceil(float64(maxValue) / float64(histogramWidth)))
+	if scaleFactor < 1 {
+		scaleFactor = 1
+	}
+
+	return result, "", scaleFactor
+}
+
 // computeCheckpointHistogram calculates a histogram of checkpoint events over a day.
 // It divides the day into 6 equal 4-hour buckets.
 //

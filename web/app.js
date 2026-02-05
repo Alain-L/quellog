@@ -21,7 +21,7 @@ import {
 } from './js/file-handler.js';
 import {
     chartData, createTimeChart, createDurationChart, createCombinedSQLChart,
-    createConcurrentChart, createHistogramChart, createCheckpointChart,
+    createConcurrentChart, createHistogramChart, createCheckpointChart, createCombinedTempFilesChart,
     buildChartContainer, closeChartModal, updateModalInterval, resetModalZoom, exportChartPNG,
     resetChartZoom, openChartModal, updateChartInterval, toggleCombinedSeries
 } from './js/charts.js';
@@ -164,7 +164,7 @@ import './js/components/ql-dropdown.js';
                 chartData.forEach((data, chartId) => {
                     const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
                     const color = chartId.includes('tempfiles') ? accentColor : null;
-                    // Check data type: checkpoints (stacked), sessions (sweep-line), histogram (pre-computed), duration, or timestamps
+                    // Check data type: checkpoints (stacked), sessions (sweep-line), histogram (pre-computed), duration, combined, tempfiles, or timestamps
                     if (data?.type === 'checkpoints') {
                         createCheckpointChart(chartId, data);
                     } else if (data?.type === 'sessions') {
@@ -175,6 +175,8 @@ import './js/components/ql-dropdown.js';
                         createDurationChart(chartId, data.data, { color: accentColor });
                     } else if (data?.type === 'combined') {
                         createCombinedSQLChart(chartId, data.data);
+                    } else if (data?.type === 'combined-tempfiles') {
+                        createCombinedTempFilesChart(chartId, data.events);
                     } else {
                         createTimeChart(chartId, data, { color });
                     }
@@ -897,9 +899,9 @@ function buildEventsSection(data) {
             }
             const hasQueries = tf.queries?.length > 0;
             const hasEvents = tf.events?.length > 0;
-            // Store timestamps for chart creation
+            // Store full events for combined chart (count + size)
             if (hasEvents) {
-                chartData.set('chart-tempfiles', tf.events.map(e => e.timestamp));
+                chartData.set('chart-tempfiles', { type: 'combined-tempfiles', events: tf.events });
             }
             return `
                 <div class="section" id="temp_files">
@@ -910,7 +912,7 @@ function buildEventsSection(data) {
                             <div class="stat-card"><div class="stat-value">${tf.total_size}</div><div class="stat-label">Total</div></div>
                             <div class="stat-card"><div class="stat-value">${tf.avg_size}</div><div class="stat-label">Avg</div></div>
                         </div>
-                        ${hasEvents ? buildChartContainer('chart-tempfiles', 'Temp File Activity', { showFilterBtn: true, tooltip: 'Temporary files created by queries exceeding work_mem.' }) : ''}
+                        ${hasEvents ? buildChartContainer('chart-tempfiles', 'Temp File Activity', { showFilterBtn: true, tooltip: 'Temp file count and cumulative size over time. Created when queries exceed work_mem.' }) : ''}
                         ${hasQueries ? `
                             <div class="subsection">
                                 <div class="subsection-title">Top Queries</div>

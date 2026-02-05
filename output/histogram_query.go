@@ -291,73 +291,8 @@ func computeSingleQueryTempFileCountHistogram(events []analysis.TempFileEvent, q
 		}
 	}
 
-	if len(filtered) == 0 {
-		return nil, "", 0
-	}
-
-	// Find time range
-	start := filtered[0].Timestamp
-	end := filtered[0].Timestamp
-	for _, event := range filtered {
-		if event.Timestamp.Before(start) {
-			start = event.Timestamp
-		}
-		if event.Timestamp.After(end) {
-			end = event.Timestamp
-		}
-	}
-
-	// Divide into 6 buckets
-	totalDuration := end.Sub(start)
-	numBuckets := 6
-	bucketDuration := totalDuration / time.Duration(numBuckets)
-
-	if bucketDuration <= 0 {
-		bucketDuration = 1 * time.Nanosecond
-	}
-
-	// Prepare buckets
-	histogram := make([]int, numBuckets)
-	bucketLabels := make([]string, numBuckets)
-	for i := 0; i < numBuckets; i++ {
-		bucketStart := start.Add(time.Duration(i) * bucketDuration)
-		bucketEnd := start.Add(time.Duration(i+1) * bucketDuration)
-		bucketLabels[i] = fmt.Sprintf("%s - %s", bucketStart.Format("15:04"), bucketEnd.Format("15:04"))
-	}
-
-	// Count temp files per bucket
-	for _, event := range filtered {
-		elapsed := event.Timestamp.Sub(start)
-		bucketIndex := int(elapsed / bucketDuration)
-		if bucketIndex >= numBuckets {
-			bucketIndex = numBuckets - 1
-		}
-		if bucketIndex < 0 {
-			bucketIndex = 0
-		}
-		histogram[bucketIndex]++
-	}
-
-	// Convert to map
-	result := make(map[string]int, numBuckets)
-	for i, count := range histogram {
-		result[bucketLabels[i]] = count
-	}
-
-	// Calculate scale factor
-	maxValue := 0
-	for _, count := range histogram {
-		if count > maxValue {
-			maxValue = count
-		}
-	}
-	histogramWidth := 40
-	scaleFactor := int(math.Ceil(float64(maxValue) / float64(histogramWidth)))
-	if scaleFactor < 1 {
-		scaleFactor = 1
-	}
-
-	return result, "", scaleFactor
+	// Delegate to the common helper
+	return computeTempFileCountHistogramFromEvents(filtered)
 }
 
 // computeSingleQueryTempFileHistogram calculates a histogram of temp file sizes
