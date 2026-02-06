@@ -404,6 +404,7 @@ Section Selection:
 
 Output:
   -J, --json              Export results in JSON format
+      --json-compact      Export JSON without indentation (smaller output)
       --md                Export results in Markdown format
   -H, --html              Export as standalone HTML report
   -F, --full              Display comprehensive report with all sections

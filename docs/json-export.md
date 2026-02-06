@@ -13,6 +13,20 @@ quellog /var/log/postgresql/*.log --json > report.json
 quellog /var/log/postgresql/*.log --dbname production --json > prod.json
 ```
 
+## Compact JSON
+
+Use `--json-compact` for smaller output without indentation:
+
+```bash
+quellog /var/log/postgresql/*.log --json-compact > report.json
+```
+
+This produces ~34% smaller files and uses less memory during export. Useful for:
+
+- Storing large analysis results
+- Piping to other tools (jq handles compact JSON fine)
+- Automated pipelines where readability isn't needed
+
 ## Design Philosophy
 
 The JSON export provides **quellog's complete analysis data structures** with all metrics pre-calculated, ready for programmatic consumption. This allows you to:
