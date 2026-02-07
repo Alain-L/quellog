@@ -32,18 +32,34 @@ func now() float64 {
 	return perf.Call("now").Float()
 }
 
+// parseFilterTime tries multiple formats for filter time inputs
+func parseFilterTime(s string) (time.Time, bool) {
+	formats := []string{
+		"2006-01-02 15:04:05", // Go output format (space with seconds)
+		"2006-01-02T15:04:05", // ISO with seconds
+		"2006-01-02T15:04",    // ISO without seconds
+		"2006-01-02 15:04",    // Space without seconds
+	}
+	for _, fmt := range formats {
+		if t, err := time.Parse(fmt, s); err == nil {
+			return t, true
+		}
+	}
+	return time.Time{}, false
+}
+
 // convertFilters converts JS filters to parser.LogFilters
 func convertFilters(jsf JSFilters) parser.LogFilters {
 	var f parser.LogFilters
 
-	// Parse time range (JS sends ISO format like "2024-06-05T00:00")
+	// Parse time range (supports multiple formats)
 	if jsf.Begin != "" {
-		if t, err := time.Parse("2006-01-02T15:04", jsf.Begin); err == nil {
+		if t, ok := parseFilterTime(jsf.Begin); ok {
 			f.BeginT = t
 		}
 	}
 	if jsf.End != "" {
-		if t, err := time.Parse("2006-01-02T15:04", jsf.End); err == nil {
+		if t, ok := parseFilterTime(jsf.End); ok {
 			f.EndT = t
 		}
 	}

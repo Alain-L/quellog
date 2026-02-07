@@ -196,8 +196,9 @@ export function offsetToDatetime(offsetMins) {
     const d = ts.getDate().toString().padStart(2, '0');
     const hh = ts.getHours().toString().padStart(2, '0');
     const mm = ts.getMinutes().toString().padStart(2, '0');
-    // Go expects format "2006-01-02T15:04" (with T, no seconds)
-    return `${y}-${m}-${d}T${hh}:${mm}`;
+    const ss = ts.getSeconds().toString().padStart(2, '0');
+    // Format matching Go output: "2006-01-02 15:04:05" (space separator, with seconds)
+    return `${y}-${m}-${d} ${hh}:${mm}:${ss}`;
 }
 
 // ===== Dropdown Functions =====
