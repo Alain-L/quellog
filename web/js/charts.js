@@ -1847,6 +1847,10 @@ export function updateChartInterval(chartId, intervalValue) {
             createDurationChart(chartId, data.data, { color: accentColor, interval });
         } else if (data?.type === 'combined') {
             createCombinedSQLChart(chartId, data.data, { interval });
+        } else if (data?.type === 'checkpoints') {
+            createCheckpointChart(chartId, data, { interval });
+        } else if (data?.type === 'combined-tempfiles') {
+            createCombinedTempFilesChart(chartId, data.events, { interval });
         } else {
             createTimeChart(chartId, data, { color, interval });
         }
