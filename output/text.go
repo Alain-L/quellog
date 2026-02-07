@@ -269,9 +269,9 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 
 		fmt.Println(bold + "\nCHECKPOINTS\n" + reset)
 
-		// Histogram
+		// Histogram with frequency (4-hour buckets)
 		hist, _, scaleFactor := computeCheckpointHistogram(m.Checkpoints)
-		PrintHistogram(hist, "Checkpoints", "", scaleFactor, nil)
+		PrintCheckpointHistogram(hist, "Checkpoints", scaleFactor, 4.0)
 
 		fmt.Printf("  %-25s : %d\n", "Checkpoint count", m.Checkpoints.CompleteCount)
 		fmt.Printf("  %-25s : %s\n", "Avg checkpoint write time", avgDuration)
@@ -315,6 +315,9 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 			}
 
 			// Afficher chaque type avec son count, pourcentage et taux
+			muted := "\033[3;38;5;243m" // italic + gray (256-color: 245)
+			reset := "\033[0m"
+
 			for _, pair := range pairs {
 				percentage := float64(pair.Count) / float64(m.Checkpoints.CompleteCount) * 100
 
@@ -324,9 +327,9 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 					rate = float64(pair.Count) / durationHours
 				}
 
-				// Format: type (left-aligned), count (right, 3 digits), percentage (right, 6 chars), rate (right, 8 chars)
-				fmt.Printf("    %-*s  %3d  %5.1f%%  (%.2f/h)\n",
-					maxTypeLen, pair.Name, pair.Count, percentage, rate)
+				// Format: type (left-aligned), count (right, 3 digits), percentage (right, 6 chars), rate (muted)
+				fmt.Printf("    %-*s  %3d  %5.1f%%   %s%.2f/h%s\n",
+					maxTypeLen, pair.Name, pair.Count, percentage, muted, rate, reset)
 			}
 		}
 	}
@@ -1599,6 +1602,100 @@ func PrintHistogram(data map[string]int, title string, unit string, scaleFactor 
 			fmt.Printf("  %-13s  %-s %s\n", label, bar, valueStr)
 		} else {
 			fmt.Printf("  %-13s  %s\n", label, valueStr)
+		}
+	}
+	fmt.Println()
+}
+
+// PrintCheckpointHistogram displays a checkpoint histogram with frequency per bucket.
+// bucketHours is the duration of each bucket in hours (e.g., 4 for 4-hour buckets).
+func PrintCheckpointHistogram(data map[string]int, title string, scaleFactor int, bucketHours float64) {
+	if len(data) == 0 {
+		fmt.Printf("\n  (No data available)\n")
+		return
+	}
+
+	// Terminal width
+	termWidth, _, err := term.GetSize(int(os.Stdout.Fd()))
+	if err != nil || termWidth <= 0 {
+		termWidth = 80
+	}
+
+	// Layout widths
+	labelWidth := 20
+	valueWidth := 5
+	freqWidth := 10 // space for "(X.XX/h)" or "(X.XX/m)"
+	spacing := 4
+	barWidth := termWidth - labelWidth - spacing - valueWidth - freqWidth
+	if barWidth < 10 {
+		barWidth = 10
+	}
+
+	// Sort labels by time
+	labels := make([]string, 0, len(data))
+	for label := range data {
+		labels = append(labels, label)
+	}
+	sort.Slice(labels, func(i, j int) bool {
+		partsI := strings.Split(labels[i], " - ")
+		partsJ := strings.Split(labels[j], " - ")
+		t1, _ := time.Parse("15:04", partsI[0])
+		t2, _ := time.Parse("15:04", partsJ[0])
+		return t1.Before(t2)
+	})
+
+	// Find max value
+	maxValue := 0
+	for _, value := range data {
+		if value > maxValue {
+			maxValue = value
+		}
+	}
+
+	// Calculate scale factor if not provided
+	if scaleFactor <= 0 {
+		scaleFactor = int(math.Ceil(float64(maxValue) / float64(barWidth)))
+		if scaleFactor < 1 {
+			scaleFactor = 1
+		}
+	}
+
+	// Header
+	fmt.Printf("  %s | ■ = %d \n\n", title, scaleFactor)
+
+	// Print each row
+	for _, label := range labels {
+		value := data[label]
+		barLength := value / scaleFactor
+		if barLength > barWidth {
+			barLength = barWidth
+		}
+		bar := strings.Repeat("■", barLength)
+
+		// Calculate frequency (italic + medium gray)
+		muted := "\033[3;38;5;243m" // italic + gray (256-color: 245)
+		reset := "\033[0m"
+		var freqStr string
+		if value == 0 {
+			freqStr = ""
+		} else {
+			freq := float64(value) / bucketHours
+			if freq >= 1.0 {
+				freqStr = fmt.Sprintf("%s%.1f/h%s", muted, freq, reset)
+			} else {
+				// Convert to per minute
+				freqPerMin := freq * 60
+				freqStr = fmt.Sprintf("%s%.1f/m%s", muted, freqPerMin, reset)
+			}
+		}
+
+		// Format output
+		if value == 0 {
+			fmt.Printf("  %-13s   -\n", label)
+		} else if barLength > 0 {
+			fmt.Printf("  %-13s  %-s %d  %s\n", label, bar, value, freqStr)
+		} else {
+			fmt.Printf("  %-13s  %d  %s\n", label, value, freqStr)
 		}
 	}
 	fmt.Println()
