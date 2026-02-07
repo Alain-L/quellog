@@ -754,12 +754,15 @@ function buildEventsSection(data) {
             const hasAnaTables = anaTables.length > 0;
             const maxVac = vacTables[0]?.count || 1;
             const maxAna = anaTables[0]?.count || 1;
+            // Calculate total space recovered
+            const totalRecovered = Object.values(spaceRecovered).reduce((sum, size) => sum + parseSizeToBytes(size), 0);
             return `
                 <div class="section" id="maintenance">
                     <div class="section-header">Maintenance</div>
                     <div class="section-body">
                         <div class="stat-grid">
                             <div class="stat-card"><div class="stat-value">${m.vacuum_count || 0}</div><div class="stat-label">Vacuum</div></div>
+                            ${totalRecovered > 0 ? `<div class="stat-card"><div class="stat-value">${fmtBytes(totalRecovered)}</div><div class="stat-label">Recovered</div></div>` : ''}
                             <div class="stat-card"><div class="stat-value">${m.analyze_count || 0}</div><div class="stat-label">Analyze</div></div>
                         </div>
                         ${hasVacTables ? `
