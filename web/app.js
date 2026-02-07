@@ -1465,11 +1465,11 @@ function buildEventsSection(data) {
                 html += '</div>';
                 if (execs.length > 0) {
                     html += '<div class="qd-chart-container">';
+                    html += '<div class="qd-chart-header"><span class="qd-chart-title">Execution Over Time</span><button class="btn-export-png" onclick="exportChartById(\'qd-chart-combined\', \'Query Execution Over Time\')" title="Export as PNG">⬇ PNG</button></div>';
                     html += '<div id="qd-chart-combined" style="height: 180px;"></div>';
                     html += '<div class="chart-legend">';
                     html += '<span class="chart-legend-item" data-chart="qd-chart-combined" data-series="count" onclick="toggleCombinedSeries(\'qd-chart-combined\', \'count\')"><span class="chart-legend-bar chart-legend-bar--count"></span>Count</span>';
                     html += '<span class="chart-legend-item" data-chart="qd-chart-combined" data-series="duration" onclick="toggleCombinedSeries(\'qd-chart-combined\', \'duration\')"><span class="chart-legend-bar chart-legend-bar--duration"></span>Duration</span>';
-                    html += '<button class="btn-export-png" onclick="exportChartById(\'qd-chart-combined\', \'Query Execution Over Time\')" title="Export as PNG">⬇ PNG</button>';
                     html += '</div>';
                     html += '</div>';
                     html += buildQdDurationDistribution(execs);

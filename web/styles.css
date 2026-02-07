@@ -2281,10 +2281,19 @@
         .qd-chart-container .chart-legend {
             margin-top: 0.25rem;
         }
+        .qd-chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.25rem;
+        }
+        .qd-chart-title {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+        }
 
-        /* Export PNG button in chart legend */
+        /* Export PNG button */
         .btn-export-png {
-            margin-left: auto;
             padding: 0.15rem 0.5rem;
             font-size: 0.65rem;
             background: var(--bg-alt);
