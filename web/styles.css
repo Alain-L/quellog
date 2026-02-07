@@ -1444,6 +1444,23 @@
             flex-shrink: 0;
             text-align: right;
         }
+        /* Maintenance lists: narrower value column + removed column */
+        .scroll-list--maintenance .list-item .value {
+            width: 50px;
+        }
+        .scroll-list--maintenance .list-item .name {
+            width: 200px;
+            max-width: 200px;
+        }
+        .scroll-list--maintenance .list-item .removed {
+            font-size: 0.72rem;
+            font-style: italic;
+            color: var(--text-muted);
+            width: 110px;
+            flex-shrink: 0;
+            text-align: right;
+            white-space: nowrap;
+        }
 
         /* Error Classes - uses same layout as Clients but wider name */
         .list-item .name.error-name {

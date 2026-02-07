@@ -746,7 +746,9 @@ function buildEventsSection(data) {
             }
             // JSON uses vacuum_count, analyze_count (not autovacuum/autoanalyze)
             // vacuum_table_counts and analyze_table_counts are objects {table: count}
-            const vacTables = m.vacuum_table_counts ? Object.entries(m.vacuum_table_counts).map(([t, c]) => ({table: t, count: c})).sort((a,b) => b.count - a.count) : [];
+            // vacuum_space_recovered is {table: "XX KB"} for tables that recovered space
+            const spaceRecovered = m.vacuum_space_recovered || {};
+            const vacTables = m.vacuum_table_counts ? Object.entries(m.vacuum_table_counts).map(([t, c]) => ({table: t, count: c, removed: spaceRecovered[t]})).sort((a,b) => b.count - a.count) : [];
             const anaTables = m.analyze_table_counts ? Object.entries(m.analyze_table_counts).map(([t, c]) => ({table: t, count: c})).sort((a,b) => b.count - a.count) : [];
             const hasVacTables = vacTables.length > 0;
             const hasAnaTables = anaTables.length > 0;
@@ -763,11 +765,12 @@ function buildEventsSection(data) {
                         ${hasVacTables ? `
                             <div class="subsection">
                                 <div class="subsection-title">Top Vacuum Tables</div>
-                                <div class="scroll-list">
+                                <div class="scroll-list scroll-list--maintenance">
                                     ${vacTables.slice(0, 5).map(t => `
                                         <div class="list-item">
                                             <span class="name">${esc(t.table)}</span>
                                             <div class="bar"><div class="bar-fill" style="width: ${t.count/maxVac*100}%"></div></div>
+                                            <span class="removed">${t.removed ? t.removed + ' removed' : ''}</span>
                                             <span class="value">${fmt(t.count)}</span>
                                         </div>
                                     `).join('')}
@@ -777,11 +780,12 @@ function buildEventsSection(data) {
                         ${hasAnaTables ? `
                             <div class="subsection">
                                 <div class="subsection-title">Top Analyze Tables</div>
-                                <div class="scroll-list">
+                                <div class="scroll-list scroll-list--maintenance">
                                     ${anaTables.slice(0, 5).map(t => `
                                         <div class="list-item">
                                             <span class="name">${esc(t.table)}</span>
                                             <div class="bar"><div class="bar-fill" style="width: ${t.count/maxAna*100}%"></div></div>
+                                            <span class="removed"></span>
                                             <span class="value">${fmt(t.count)}</span>
                                         </div>
                                     `).join('')}
