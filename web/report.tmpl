@@ -6,11 +6,15 @@
 <title>quellog Report</title>
 <style>{{.CSS}}</style>
 <style>
-/* Hide interactive elements in report mode */
-.filter-bar, #fileInputSection, #newFileBtn { display: none !important; }
-#app { margin-top: 0; }
-/* Disable WASM-dependent features */
+/* Report mode: show only time filter */
+#fileInputSection, #newFileBtn { display: none !important; }
 .drop-zone { display: none !important; }
+/* Hide dimension filters, keep only time filter */
+.filter-bar ql-dropdown { display: none !important; }
+.filter-bar .filter-status { display: none !important; }
+/* Adjust filter bar layout for report mode */
+.filter-bar .filter-bar-content { gap: 0.5rem; }
+.filter-bar .filter-apply { margin-left: 0; }
 </style>
 </head>
 <body>

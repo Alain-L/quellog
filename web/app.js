@@ -25,6 +25,9 @@ import {
     buildChartContainer, closeChartModal, updateModalInterval, resetModalZoom, exportChartPNG,
     resetChartZoom, openChartModal, updateChartInterval, toggleCombinedSeries, exportChartById
 } from './js/charts.js';
+import {
+    setOriginalReportData, getOriginalReportData, applyReportTimeFilter, resetReportTimeFilter
+} from './js/report-filter.js';
 
 // Web Components (self-registering)
 import './js/components/ql-tabs.js';
@@ -88,6 +91,9 @@ import './js/components/ql-dropdown.js';
                 // Store parse time for display
                 data._parseTimeMs = parseTimeMs;
 
+                // Store as base data for time filtering
+                setOriginalReportData(data);
+
                 setProgress(90, 'Rendering...');
                 setAnalysisData(data);
                 renderResults(data, currentFileName, currentFileSize);
@@ -109,6 +115,11 @@ import './js/components/ql-dropdown.js';
             chartData.clear();
             charts.forEach(c => c.destroy());
             charts.clear();
+
+            // In report mode, store original data for client-side filtering
+            if (window.REPORT_MODE && isInitial) {
+                setOriginalReportData(data);
+            }
 
             // Show action buttons in header
             document.getElementById('newFileBtn').style.display = 'inline-block';
@@ -1984,23 +1995,59 @@ function buildEventsSection(data) {
         exposeFilterGlobals();
 
         window.applyFilters = async function() {
-            if (!currentFileContent) return;
-
             // Build filters object from current UI state
             const filters = buildFiltersObject();
-            const hasFilters = Object.keys(filters).length > 0;
+
+            // Separate dimension filters from time filters
+            const { begin, end, ...dimensionFilters } = filters;
+            const hasDimensionFilters = Object.keys(dimensionFilters).length > 0;
+            const hasTimeFilter = begin || end;
 
             // Store what we're applying for comparison
             const newApplied = {};
             for (const key of Object.keys(currentFilters)) {
                 newApplied[key] = [...currentFilters[key]];
             }
-            if (filters.begin) newApplied._begin = filters.begin;
-            if (filters.end) newApplied._end = filters.end;
+            if (begin) newApplied._begin = begin;
+            if (end) newApplied._end = end;
             setAppliedFilters(newApplied);
 
             // Close dropdowns
             closeAllDropdowns();
+
+            // Check if only time filter changed (dimension filters unchanged)
+            const originalData = getOriginalReportData();
+            const canUseClientSideTimeFilter = originalData && !hasDimensionFilters;
+
+            // Use client-side time filtering when possible (faster, no re-parse)
+            if (canUseClientSideTimeFilter || window.REPORT_MODE) {
+                try {
+                    let data;
+                    if (hasTimeFilter) {
+                        const filterBegin = begin || originalData?.summary?.start_date;
+                        const filterEnd = end || originalData?.summary?.end_date;
+                        data = applyReportTimeFilter(filterBegin, filterEnd);
+                    } else {
+                        data = resetReportTimeFilter();
+                    }
+
+                    if (data) {
+                        setAnalysisData(data);
+                        const filename = window.REPORT_MODE ? (data.meta?.filename || 'Report') : currentFileName;
+                        const filesize = window.REPORT_MODE ? (data.meta?.filesize || 0) : currentFileSize;
+                        renderResults(data, filename, filesize, false);
+                        console.log('[quellog] Time filtered (client-side)');
+                    }
+                } catch (err) {
+                    console.error('Client-side filter failed:', err);
+                } finally {
+                    updateApplyButton();
+                }
+                return;
+            }
+
+            // WASM mode: re-parse with filters (dimension filters or first parse)
+            if (!currentFileContent) return;
 
             // Show filtering indicator
             const filterStatus = document.getElementById('filterStatus');
@@ -2009,7 +2056,9 @@ function buildEventsSection(data) {
             await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
 
             try {
-                const filtersJson = hasFilters ? JSON.stringify(filters) : null;
+                // Only pass dimension filters to WASM, time filter will be applied client-side
+                const wasmFilters = hasDimensionFilters ? dimensionFilters : null;
+                const filtersJson = wasmFilters ? JSON.stringify(wasmFilters) : null;
 
                 // Reinitialize WASM to reset memory (gc=leaking accumulates)
                 if (typeof reinitWasm === 'function') {
@@ -2022,12 +2071,22 @@ function buildEventsSection(data) {
                 const parseEnd = performance.now();
                 const parseTimeMs = Math.round(parseEnd - parseStart);
 
-                const data = JSON.parse(resultJson);
+                let data = JSON.parse(resultJson);
 
                 if (data.error) throw new Error(data.error);
 
                 // Store parse time for display
                 data._parseTimeMs = parseTimeMs;
+
+                // Store as base data for subsequent time filtering
+                setOriginalReportData(data);
+
+                // Apply time filter client-side if needed
+                if (hasTimeFilter) {
+                    const filterBegin = begin || data.summary?.start_date;
+                    const filterEnd = end || data.summary?.end_date;
+                    data = applyReportTimeFilter(filterBegin, filterEnd);
+                }
 
                 setAnalysisData(data);
                 renderResults(data, currentFileName, currentFileSize, false);
@@ -2046,7 +2105,7 @@ function buildEventsSection(data) {
             updateAllDropdownTriggers();
 
             // Apply immediately (clear = apply with no filters)
-            if (currentFileContent) {
+            if (currentFileContent || window.REPORT_MODE) {
                 window.applyFilters();
             }
         };
