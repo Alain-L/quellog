@@ -3211,14 +3211,23 @@ export function resetModalZoom() {
     }
 }
 
-// Export chart as PNG
+// Export chart as PNG (for modal chart)
 export function exportChartPNG() {
     if (!modalChart) return;
+    exportChartToPNG(modalChart, document.getElementById('modalChartTitle').textContent);
+}
 
-    const canvas = modalChart.root.querySelector('canvas');
+// Export any chart by ID
+export function exportChartById(chartId, title) {
+    const chart = charts.get(chartId);
+    if (!chart) return;
+    exportChartToPNG(chart, title);
+}
+
+// Common PNG export logic
+function exportChartToPNG(chart, title) {
+    const canvas = chart.root.querySelector('canvas');
     if (!canvas) return;
-
-    const title = document.getElementById('modalChartTitle').textContent;
     const padding = 20;
     const titleHeight = 45;
     const bottomPadding = 40;

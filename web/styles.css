@@ -2282,6 +2282,24 @@
             margin-top: 0.25rem;
         }
 
+        /* Export PNG button in chart legend */
+        .btn-export-png {
+            margin-left: auto;
+            padding: 0.15rem 0.5rem;
+            font-size: 0.65rem;
+            background: var(--bg-alt);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: background 0.15s, color 0.15s;
+        }
+        .btn-export-png:hover {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
         /* Duration stacked bar */
         .duration-stack {
             display: flex;

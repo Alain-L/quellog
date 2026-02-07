@@ -23,7 +23,7 @@ import {
     chartData, createTimeChart, createDurationChart, createCombinedSQLChart,
     createConcurrentChart, createHistogramChart, createCheckpointChart, createCombinedTempFilesChart,
     buildChartContainer, closeChartModal, updateModalInterval, resetModalZoom, exportChartPNG,
-    resetChartZoom, openChartModal, updateChartInterval, toggleCombinedSeries
+    resetChartZoom, openChartModal, updateChartInterval, toggleCombinedSeries, exportChartById
 } from './js/charts.js';
 
 // Web Components (self-registering)
@@ -1469,6 +1469,7 @@ function buildEventsSection(data) {
                     html += '<div class="chart-legend">';
                     html += '<span class="chart-legend-item" data-chart="qd-chart-combined" data-series="count" onclick="toggleCombinedSeries(\'qd-chart-combined\', \'count\')"><span class="chart-legend-bar chart-legend-bar--count"></span>Count</span>';
                     html += '<span class="chart-legend-item" data-chart="qd-chart-combined" data-series="duration" onclick="toggleCombinedSeries(\'qd-chart-combined\', \'duration\')"><span class="chart-legend-bar chart-legend-bar--duration"></span>Duration</span>';
+                    html += '<button class="btn-export-png" onclick="exportChartById(\'qd-chart-combined\', \'Query Execution Over Time\')" title="Export as PNG">⬇ PNG</button>';
                     html += '</div>';
                     html += '</div>';
                     html += buildQdDurationDistribution(execs);
@@ -2070,6 +2071,7 @@ function buildEventsSection(data) {
         window.updateModalInterval = updateModalInterval;
         window.resetModalZoom = resetModalZoom;
         window.exportChartPNG = exportChartPNG;
+        window.exportChartById = exportChartById;
         window.resetChartZoom = resetChartZoom;
         window.openChartModal = openChartModal;
         window.updateChartInterval = updateChartInterval;
