@@ -225,61 +225,8 @@ func extractLogEntry(obj map[string]interface{}) (LogEntry, error) {
 	}, nil
 }
 
-// unwrapCNPG detects CloudNative-PG format and extracts the PostgreSQL log record.
-// CNPG wraps PostgreSQL logs in: {"message":{"logger":"postgres|pgaudit","record":{...}}}
-// Returns the normalized record with standard field names, or nil if it's a CNPG envelope
-// but not a postgres/pgaudit log (e.g., operator logs like backups).
-// Returns the original object unchanged if it's not a CNPG format.
-func unwrapCNPG(obj map[string]interface{}) map[string]interface{} {
-	// Check if message field exists
-	msgRaw, hasMessage := obj["message"]
-	if !hasMessage {
-		return obj // Not CNPG format, try standard extraction
-	}
-
-	// Check for logtag field (Docker/fluentd log indicator)
-	_, hasLogtag := obj["logtag"].(string)
-
-	// If message is a string (truncated line or non-CNPG format)
-	if _, isString := msgRaw.(string); isString {
-		// If it has logtag, it's a Docker log fragment - skip it
-		// logtag "P" = Partial, "F" = Full but message as string means truncated
-		if hasLogtag {
-			return nil // Skip Docker log fragments
-		}
-		return obj // Let standard extraction handle it
-	}
-
-	// Check for CNPG structure: message is an object
-	msgField, ok := msgRaw.(map[string]interface{})
-	if !ok {
-		return obj
-	}
-
-	// Check if this looks like a CNPG envelope (has logtag or logging_pod or msg field)
-	// hasLogtag already set above
-	_, hasLoggingPod := msgField["logging_pod"]
-	_, hasMsg := msgField["msg"]
-	isCNPGEnvelope := hasLogtag || hasLoggingPod || hasMsg
-
-	logger, _ := msgField["logger"].(string)
-
-	// If it's a CNPG envelope but not postgres/pgaudit, skip it (return nil)
-	if isCNPGEnvelope && logger != "postgres" && logger != "pgaudit" {
-		return nil // Signal to skip this entry
-	}
-
-	// If not a recognized CNPG envelope, return original for standard extraction
-	if !isCNPGEnvelope {
-		return obj
-	}
-
-	record, ok := msgField["record"].(map[string]interface{})
-	if !ok {
-		return nil // CNPG envelope but no record - skip
-	}
-
-	// Normalize CNPG field names to standard PostgreSQL jsonlog names
+// normalizeCNPGRecord converts CNPG record field names to standard PostgreSQL jsonlog names.
+func normalizeCNPGRecord(record map[string]interface{}) map[string]interface{} {
 	normalized := make(map[string]interface{}, len(record))
 
 	for k, v := range record {
@@ -310,6 +257,74 @@ func unwrapCNPG(obj map[string]interface{}) map[string]interface{} {
 	}
 
 	return normalized
+}
+
+// unwrapCNPG detects CloudNative-PG format and extracts the PostgreSQL log record.
+// Supports two formats:
+//   - Direct (kubectl logs): {"logger":"postgres","record":{...}} at top level
+//   - Wrapped (fluentd):     {"logtag":"F","message":{"logger":"postgres","record":{...}}}
+//
+// Returns the normalized record, nil to skip, or the original object if not CNPG.
+func unwrapCNPG(obj map[string]interface{}) map[string]interface{} {
+	// === Format 1: Direct CNPG (kubectl logs / cnpg report) ===
+	// Top-level "logger" + "record" fields, no "message" wrapper
+	if logger, _ := obj["logger"].(string); logger != "" {
+		if logger == "postgres" || logger == "pgaudit" {
+			if record, ok := obj["record"].(map[string]interface{}); ok {
+				return normalizeCNPGRecord(record)
+			}
+		}
+		// Other CNPG loggers (instance-manager, etc.) — skip
+		if _, hasLoggingPod := obj["logging_pod"]; hasLoggingPod {
+			return nil
+		}
+	}
+
+	// === Format 2: Wrapped CNPG (fluentd/fluentbit) ===
+	// "message" field contains the CNPG object
+	msgRaw, hasMessage := obj["message"]
+	if !hasMessage {
+		return obj // Not CNPG format, try standard extraction
+	}
+
+	// Check for logtag field (Docker/fluentd log indicator)
+	_, hasLogtag := obj["logtag"].(string)
+
+	// If message is a string (truncated line or non-CNPG format)
+	if _, isString := msgRaw.(string); isString {
+		if hasLogtag {
+			return nil // Skip Docker log fragments
+		}
+		return obj // Let standard extraction handle it
+	}
+
+	// message is an object
+	msgField, ok := msgRaw.(map[string]interface{})
+	if !ok {
+		return obj
+	}
+
+	// Check if this looks like a CNPG envelope
+	_, hasLoggingPod := msgField["logging_pod"]
+	_, hasMsg := msgField["msg"]
+	isCNPGEnvelope := hasLogtag || hasLoggingPod || hasMsg
+
+	logger, _ := msgField["logger"].(string)
+
+	if isCNPGEnvelope && logger != "postgres" && logger != "pgaudit" {
+		return nil
+	}
+
+	if !isCNPGEnvelope {
+		return obj
+	}
+
+	record, ok := msgField["record"].(map[string]interface{})
+	if !ok {
+		return nil
+	}
+
+	return normalizeCNPGRecord(record)
 }
 
 // constructMessage builds a complete log message from PostgreSQL JSON log fields.

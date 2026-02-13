@@ -237,11 +237,11 @@ func readUntilNLines(f *os.File, n int) (string, error) {
 // Returns nil if the extension doesn't match or content validation fails.
 func detectByExtension(filename, ext, sample string, allowMmap bool) LogParser {
 	switch ext {
-	case "json":
+	case "json", "jsonl":
 		if isJSONContent(sample) {
 			return &JsonParser{}
 		}
-		log.Printf("[ERROR] File %s has .json extension but content is not valid JSON", filename)
+		log.Printf("[ERROR] File %s has .json/.jsonl extension but content is not valid JSON", filename)
 		return nil
 
 	case "csv":
