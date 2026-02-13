@@ -2,13 +2,7 @@
 
 const THEME_KEY = 'quellog-theme';
 
-export function getPreferredTheme() {
-    const saved = localStorage.getItem(THEME_KEY);
-    if (saved) return saved;
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-}
-
-export function setTheme(theme) {
+function applyTheme(theme) {
     const htmlEl = document.documentElement;
     const iconSun = document.getElementById('iconSun');
     const iconMoon = document.getElementById('iconMoon');
@@ -17,6 +11,16 @@ export function setTheme(theme) {
     // Show sun in dark mode (click to switch to light), moon in light mode (click to switch to dark)
     if (iconSun) iconSun.style.display = theme === 'dark' ? 'block' : 'none';
     if (iconMoon) iconMoon.style.display = theme === 'light' ? 'block' : 'none';
+}
+
+export function getPreferredTheme() {
+    const saved = localStorage.getItem(THEME_KEY);
+    if (saved) return saved;
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+export function setTheme(theme) {
+    applyTheme(theme);
     localStorage.setItem(THEME_KEY, theme);
 }
 
@@ -26,13 +30,14 @@ export function toggleTheme() {
 }
 
 export function initTheme() {
-    // Initialize theme
-    setTheme(getPreferredTheme());
+    const saved = localStorage.getItem(THEME_KEY);
+    const theme = saved || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    applyTheme(theme);
 
-    // Listen for system theme changes
+    // Follow system theme changes when user hasn't explicitly chosen
     window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
         if (!localStorage.getItem(THEME_KEY)) {
-            setTheme(e.matches ? 'dark' : 'light');
+            applyTheme(e.matches ? 'dark' : 'light');
         }
     });
 }
