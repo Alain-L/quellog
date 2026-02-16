@@ -48,7 +48,12 @@ var (
 func detectCompressedFile(filename string) (LogParser, error, bool) {
 	lowerName := strings.ToLower(filename)
 
-	// Check for tar archives first
+	// Check for zip archives
+	if strings.HasSuffix(lowerName, ".zip") {
+		return &ZipParser{}, nil, true
+	}
+
+	// Check for tar archives
 	if strings.HasSuffix(lowerName, ".tar.gz") ||
 		strings.HasSuffix(lowerName, ".tgz") ||
 		strings.HasSuffix(lowerName, ".tar.zst") ||

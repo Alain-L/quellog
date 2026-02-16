@@ -128,9 +128,9 @@
             <div class="drop-zone" id="dropZone">
                 <div class="drop-zone-icon">&#128193;</div>
                 <h2>Drop your PostgreSQL log file</h2>
-                <p>Supports stderr, CSV, JSON formats + gzip, zstd, tar archives - all processing happens locally</p>
+                <p>Supports stderr, CSV, JSON formats + gzip, zstd, tar, zip archives - all processing happens locally</p>
                 <button class="btn" onclick="document.getElementById('fileInput').click()">Select File</button>
-                <input type="file" id="fileInput" accept=".log,.csv,.json,.txt,.gz,.gzip,.zst,.zstd,.tar,.tgz,.tar.gz,.tar.zst">
+                <input type="file" id="fileInput" accept=".log,.csv,.json,.jsonl,.txt,.gz,.gzip,.zst,.zstd,.tar,.tgz,.tar.gz,.tar.zst,.zip">
             </div>
 
             <!-- Loading -->

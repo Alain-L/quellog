@@ -30,6 +30,8 @@ export function detectFormat(buffer) {
     const h = new Uint8Array(buffer.slice(0, 512));
     if (h[0] === 0x1f && h[1] === 0x8b) return 'gzip';
     if (h[0] === 0x28 && h[1] === 0xb5 && h[2] === 0x2f && h[3] === 0xfd) return 'zstd';
+    // ZIP: PK\x03\x04
+    if (h[0] === 0x50 && h[1] === 0x4b && h[2] === 0x03 && h[3] === 0x04) return 'zip';
     // Tar: check for 'ustar' at offset 257
     if (h[257] === 0x75 && h[258] === 0x73 && h[259] === 0x74 && h[260] === 0x61 && h[261] === 0x72) return 'tar';
     return 'plain';
@@ -46,6 +48,92 @@ export async function decompress(buffer, name) {
     if (format === 'gzip') return await gunzipBuffer(buffer);
     if (format === 'zstd') return unzstd(buffer);
     return new Uint8Array(buffer);
+}
+
+// Inflate raw deflate data using native DecompressionStream
+async function inflateRaw(buffer) {
+    const ds = new DecompressionStream('deflate-raw');
+    const writer = ds.writable.getWriter();
+    writer.write(buffer);
+    writer.close();
+    const reader = ds.readable.getReader();
+    const chunks = [];
+    while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+    }
+    const result = new Uint8Array(chunks.reduce((a, c) => a + c.length, 0));
+    let offset = 0;
+    for (const chunk of chunks) { result.set(chunk, offset); offset += chunk.length; }
+    return result;
+}
+
+// Supported log file extensions for archive extraction
+const SUPPORTED_EXTS = ['.log', '.csv', '.json', '.jsonl'];
+
+function isSupportedEntry(name) {
+    const lower = name.toLowerCase();
+    return SUPPORTED_EXTS.some(ext =>
+        lower.endsWith(ext) || lower.endsWith(ext + '.gz') ||
+        lower.endsWith(ext + '.zst') || lower.endsWith(ext + '.zstd')
+    );
+}
+
+// Extract ZIP archive and concatenate file contents
+// Parses local file headers; supports stored (method 0) and deflate (method 8)
+export async function extractZip(buffer) {
+    const data = new Uint8Array(buffer);
+    const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+    const files = [];
+    let offset = 0;
+
+    while (offset + 30 <= data.length) {
+        const sig = view.getUint32(offset, true);
+        if (sig !== 0x04034b50) break; // Not a local file header
+
+        const method = view.getUint16(offset + 8, true);
+        const compSize = view.getUint32(offset + 18, true);
+        const nameLen = view.getUint16(offset + 26, true);
+        const extraLen = view.getUint16(offset + 28, true);
+        const name = new TextDecoder().decode(data.subarray(offset + 30, offset + 30 + nameLen));
+
+        const dataStart = offset + 30 + nameLen + extraLen;
+        offset = dataStart + compSize;
+
+        // Skip directories and unsupported files
+        if (name.endsWith('/') || compSize === 0) continue;
+
+        const baseName = name.includes('/') ? name.substring(name.lastIndexOf('/') + 1) : name;
+        if (!isSupportedEntry(baseName)) continue;
+
+        // Path traversal protection
+        if (name.includes('..')) continue;
+
+        let content;
+        if (method === 0) {
+            // Stored (no compression)
+            content = data.slice(dataStart, dataStart + compSize);
+        } else if (method === 8) {
+            // Deflate
+            content = await inflateRaw(data.slice(dataStart, dataStart + compSize));
+        } else {
+            console.warn(`[quellog] Skipping ${name}: unsupported compression method ${method}`);
+            continue;
+        }
+
+        // Handle nested compression (.gz, .zst)
+        const lname = baseName.toLowerCase();
+        if (lname.endsWith('.gz') || lname.endsWith('.gzip')) {
+            content = await gunzipBuffer(content.buffer);
+        } else if (lname.endsWith('.zst') || lname.endsWith('.zstd')) {
+            content = unzstd(content.buffer);
+        }
+
+        files.push({ name: baseName, content });
+    }
+
+    return files.map(f => new TextDecoder().decode(f.content)).join('\n');
 }
 
 // Extract tar archive and concatenate file contents
@@ -90,11 +178,18 @@ export async function extractTar(buffer) {
 // Prepare file content: decompress and extract if needed
 export async function prepareContent(file) {
     const buffer = await file.arrayBuffer();
+    const lname = file.name.toLowerCase();
+
+    // ZIP archives: extract directly (no outer decompression needed)
+    const initialFormat = detectFormat(buffer);
+    if (initialFormat === 'zip' || lname.endsWith('.zip')) {
+        return await extractZip(buffer);
+    }
+
     let data = await decompress(buffer, file.name);
 
     // Check if result is a tar archive
     const format = detectFormat(data.buffer);
-    const lname = file.name.toLowerCase();
     if (format === 'tar' || lname.includes('.tar')) {
         return await extractTar(data.buffer);
     }
