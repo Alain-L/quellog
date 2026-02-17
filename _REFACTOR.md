@@ -124,7 +124,7 @@ Chaque bloc se reduit a : writer + metriques + appel specifique.
 
 ---
 
-## 12. Valider les bornes dans `extractZip` JS
+## ~~12. Valider les bornes dans `extractZip` JS~~ DONE
 
 **Fichier** : `web/js/compression.js:85-137`
 
