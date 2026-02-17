@@ -56,7 +56,9 @@ const (
 //
 // The CSV format includes fields like timestamp, user, database, message, query, etc.
 // See: https://www.postgresql.org/docs/current/runtime-config-logging.html#RUNTIME-CONFIG-LOGGING-CSVLOG
-type CsvParser struct{}
+type CsvParser struct {
+	cachedFormat string // last successful timestamp format (per-instance, no race)
+}
 
 // Parse reads a PostgreSQL CSV format log file and streams parsed entries.
 // The parser reads line-by-line (streaming) to handle large files efficiently.
@@ -110,7 +112,7 @@ func (p *CsvParser) parseReader(r io.Reader, out chan<- LogEntry) error {
 		}
 
 		// Extract and parse timestamp
-		timestamp, err := parseCSVTimestamp(record[csvFieldTimestamp])
+		timestamp, err := p.parseCSVTimestamp(record[csvFieldTimestamp])
 		if err != nil {
 			log.Printf("[WARN] Skipping CSV record at line %d: invalid timestamp: %v", lineNum, err)
 			continue
@@ -138,19 +140,14 @@ var csvTimestampFormats = []string{
 	"2006-01-02 15:04:05",            // Basic
 }
 
-// cachedTimestampFormat caches the last successful format for faster parsing
-var cachedTimestampFormat string
-
 // parseCSVTimestamp parses the timestamp from PostgreSQL CSV logs.
-// Supports multiple formats:
-//   - "2006-01-02 15:04:05.999 MST"  (with fractional seconds and timezone)
-//   - "2006-01-02 15:04:05 MST"      (with timezone)
-//   - "2006-01-02 15:04:05.999"      (with fractional seconds)
-//   - "2006-01-02 15:04:05"          (basic format)
-func parseCSVTimestamp(timestampStr string) (time.Time, error) {
+// The last successful format is cached per parser instance to avoid
+// re-trying all formats on every line (safe for concurrent use since
+// each goroutine gets its own CsvParser).
+func (p *CsvParser) parseCSVTimestamp(timestampStr string) (time.Time, error) {
 	// Fast path: try cached format first
-	if cachedTimestampFormat != "" {
-		if t, err := time.Parse(cachedTimestampFormat, timestampStr); err == nil {
+	if p.cachedFormat != "" {
+		if t, err := time.Parse(p.cachedFormat, timestampStr); err == nil {
 			return t, nil
 		}
 	}
@@ -158,7 +155,7 @@ func parseCSVTimestamp(timestampStr string) (time.Time, error) {
 	// Slow path: try all formats
 	for _, format := range csvTimestampFormats {
 		if t, err := time.Parse(format, timestampStr); err == nil {
-			cachedTimestampFormat = format
+			p.cachedFormat = format
 			return t, nil
 		}
 	}
