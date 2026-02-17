@@ -143,19 +143,17 @@ Idem pour `nameLen` et `extraLen` (verifier que `offset + 30 + nameLen + extraLe
 
 ## 13. Decouper les fonctions longues (bonus, progressif)
 
-A traiter en sous-commits si le temps le permet. Par ordre de valeur :
-
 ### 13a. `analysis/locks.go:Process()` (282 lignes)
-Extraire `handleLockStatement()`, `handleLockDeadlock()`, `handleLockEvent()`.
+SKIPPED — State machine with interdependent steps, splitting would scatter the logic.
 
 ### 13b. `analysis/temp_files.go:Process()` (234 lignes)
-Extraire `handleQueryLine()`, `handleTempFile()`.
+SKIPPED — Same pattern, tightly coupled via pending state.
 
 ### 13c. `parser/mmap_parser.go:parseMmapDataSyslog()` (169 lignes)
-Extraire le tri dans `sortEmittedEntries()` (lie au point 2).
+SKIPPED — Already well-structured, sort extraction done in point 2.
 
-### 13d. `parser/prefix.go:scoreRemainingValues()` (170 lignes)
-Extraire `scoreSingleValue()`, `scoreTwoValues()`, `scoreThreeValues()`.
+### ~~13d. `parser/prefix.go:scoreRemainingValues()` (170 lignes)~~ DONE
+Extracted `scoreSingleValue()`, `scoreTwoValues()`, `scoreThreeValues()`, `scoreMultipleValues()`.
 
 ---
 
