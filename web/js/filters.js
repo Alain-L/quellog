@@ -605,7 +605,12 @@ export function clearFilterSelections() {
 
 // ===== Event Listeners Setup =====
 
+let listenersRegistered = false;
+
 export function setupFilterEventListeners() {
+    if (listenersRegistered) return;
+    listenersRegistered = true;
+
     // Close dropdowns when clicking outside
     document.addEventListener('click', function(e) {
         if (!e.target.closest('.filter-dropdown')) {

@@ -104,7 +104,7 @@ Chaque bloc se reduit a : writer + metriques + appel specifique.
 
 ---
 
-## 10. Ajouter un garde contre l'accumulation de listeners JS
+## ~~10. Ajouter un garde contre l'accumulation de listeners JS~~ DONE
 
 **Fichier** : `web/js/filters.js:608-627`
 
