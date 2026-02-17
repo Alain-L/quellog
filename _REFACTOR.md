@@ -24,7 +24,7 @@ Audit du 2026-02-16. Chaque point = un commit sur la branche `refactor/code-qual
 
 ---
 
-## 3. Factoriser la duplication dans `cmd/execute.go`
+## ~~3. Factoriser la duplication dans `cmd/execute.go`~~ DONE
 
 **Fichier** : `cmd/execute.go:230-324`
 
