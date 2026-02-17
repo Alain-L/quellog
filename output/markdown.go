@@ -389,9 +389,9 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 		b.WriteString(fmt.Sprintf("- **Avg checkpoint write time**: %s\n", avgDuration))
 		b.WriteString(fmt.Sprintf("- **Max checkpoint write time**: %s\n\n", maxDuration))
 
-		// Affichage des types de checkpoints
+		// Display checkpoint types
 		if len(m.Checkpoints.TypeCounts) > 0 {
-			// Créer une slice pour trier les types par count (décroissant)
+			// Build a slice to sort types by count (descending).
 			type typePair struct {
 				Name  string
 				Count int
@@ -401,7 +401,7 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 				pairs = append(pairs, typePair{Name: cpType, Count: count})
 			}
 
-			// Trier par count décroissant, puis par nom alphabétique
+			// Sort by count descending, then alphabetically.
 			sort.Slice(pairs, func(i, j int) bool {
 				if pairs[i].Count != pairs[j].Count {
 					return pairs[i].Count > pairs[j].Count
@@ -409,7 +409,7 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 				return pairs[i].Name < pairs[j].Name
 			})
 
-			// Calculer la durée totale pour le taux
+			// Compute total duration for rate calculation.
 			duration := m.Global.MaxTimestamp.Sub(m.Global.MinTimestamp)
 			durationHours := duration.Hours()
 
@@ -417,11 +417,11 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 			b.WriteString("|  |  |  |  |\n")
 			b.WriteString("|------|------:|--:|-----:|\n")
 
-			// Afficher chaque type
+			// Display each type with count, percentage and rate.
 			for _, pair := range pairs {
 				percentage := float64(pair.Count) / float64(m.Checkpoints.CompleteCount) * 100
 
-				// Calculer le taux (checkpoints par heure) pour ce type
+				// Compute rate (checkpoints per hour) for this type.
 				rate := 0.0
 				if durationHours > 0 {
 					rate = float64(pair.Count) / durationHours
@@ -940,7 +940,7 @@ func printQueryStatsMarkdown(b *strings.Builder, stats map[string]*analysis.Quer
 
 	var list []qinfo
 	for _, s := range stats {
-		// ✅ Utilise l'ID déjà calculé au lieu de le recalculer
+		// Use the pre-computed ID instead of recalculating.
 		list = append(list, qinfo{
 			ID:        s.ID,
 			Query:     s.NormalizedQuery,
