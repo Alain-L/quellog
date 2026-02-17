@@ -250,10 +250,10 @@ func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, 
 		if jsonFlag {
 			output.ExportSQLDetailJSON(w, metrics, sqlDetailFlag)
 		} else if mdFlag {
-			output.ExportSqlDetailMarkdown(w, metrics, sqlDetailFlag)
+			output.ExportSQLDetailMarkdown(w, metrics, sqlDetailFlag)
 		} else {
 			PrintProcessingSummary(metrics.SQL.TotalQueries, processingDuration, totalFileSize)
-			output.PrintSqlDetails(metrics, sqlDetailFlag)
+			output.PrintSQLDetails(metrics, sqlDetailFlag)
 		}
 		return
 	}
@@ -283,7 +283,7 @@ func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, 
 		if jsonFlag {
 			output.ExportSQLPerformanceJSON(w, metrics.SQL)
 		} else if mdFlag {
-			output.ExportSqlSummaryMarkdown(w, metrics.SQL, metrics.TempFiles, metrics.Locks)
+			output.ExportSQLSummaryMarkdown(w, metrics.SQL, metrics.TempFiles, metrics.Locks)
 		} else {
 			PrintProcessingSummary(metrics.SQL.TotalQueries, processingDuration, totalFileSize)
 			output.PrintSQLSummaryWithContext(metrics.SQL, metrics.TempFiles, metrics.Locks, false)
@@ -315,7 +315,7 @@ func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, 
 		if jsonFlag {
 			output.ExportSQLOverviewJSON(w, metrics.SQL)
 		} else if mdFlag {
-			output.ExportSqlOverviewMarkdown(w, metrics.SQL)
+			output.ExportSQLOverviewMarkdown(w, metrics.SQL)
 		} else {
 			PrintProcessingSummary(metrics.SQL.TotalQueries, processingDuration, totalFileSize)
 			output.PrintSQLOverview(metrics.SQL)

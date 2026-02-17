@@ -754,7 +754,7 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 		// SQL Performance section (enriched with top queries)
 		// Don't include TempFiles/Locks here - they're already shown in their respective sections above
 		b.WriteString("## SQL PERFORMANCE\n\n")
-		exportSqlSummaryMarkdownTo(&b, m.SQL, analysis.TempFileMetrics{}, analysis.LockMetrics{})
+		exportSQLSummaryMarkdownTo(&b, m.SQL, analysis.TempFileMetrics{}, analysis.LockMetrics{})
 	}
 
 	fmt.Fprintln(w, b.String())
@@ -998,7 +998,7 @@ func printQueryStatsMarkdown(b *strings.Builder, stats map[string]*analysis.Quer
 }
 
 // countSlowQueries returns the count of queries in the top 1% (P99)
-func countSlowQueries(sql analysis.SqlMetrics) int {
+func countSlowQueries(sql analysis.SQLMetrics) int {
 	if len(sql.Executions) == 0 {
 		return 0
 	}
@@ -1201,8 +1201,8 @@ func printMostFrequentWaitingQueriesMarkdown(b *strings.Builder, queryStats map[
 	}
 }
 
-// ExportSqlSummaryMarkdown produces a markdown report for --sql-summary
-func ExportSqlSummaryMarkdown(w io.Writer, m analysis.SqlMetrics, tempFiles analysis.TempFileMetrics, locks analysis.LockMetrics) {
+// ExportSQLSummaryMarkdown produces a markdown report for --sql-summary
+func ExportSQLSummaryMarkdown(w io.Writer, m analysis.SQLMetrics, tempFiles analysis.TempFileMetrics, locks analysis.LockMetrics) {
 	var b strings.Builder
 
 	// ... (content) ...
@@ -1342,8 +1342,8 @@ func ExportSqlSummaryMarkdown(w io.Writer, m analysis.SqlMetrics, tempFiles anal
 	fmt.Fprintln(w, b.String())
 }
 
-// ExportSqlDetailMarkdown produces a markdown report for --sql-detail
-func ExportSqlDetailMarkdown(w io.Writer, m analysis.AggregatedMetrics, queryIDs []string) {
+// ExportSQLDetailMarkdown produces a markdown report for --sql-detail
+func ExportSQLDetailMarkdown(w io.Writer, m analysis.AggregatedMetrics, queryIDs []string) {
 	var b strings.Builder
 
 	for _, qid := range queryIDs {
@@ -1522,9 +1522,9 @@ func ExportSqlDetailMarkdown(w io.Writer, m analysis.AggregatedMetrics, queryIDs
 	fmt.Fprintln(w, b.String())
 }
 
-// ExportSqlOverviewMarkdown exports SQL query type overview statistics in Markdown format.
+// ExportSQLOverviewMarkdown exports SQL query type overview statistics in Markdown format.
 // This provides query type statistics with dimensional breakdowns (SELECT, INSERT, UPDATE, DELETE, etc.)
-func ExportSqlOverviewMarkdown(w io.Writer, m analysis.SqlMetrics) {
+func ExportSQLOverviewMarkdown(w io.Writer, m analysis.SQLMetrics) {
 	var b strings.Builder
 
 	b.WriteString("# SQL QUERY OVERVIEW\n\n")
@@ -1693,7 +1693,7 @@ func exportQueryTypeBreakdownMarkdown(b *strings.Builder, title string, breakdow
 
 // exportSQLOverviewMarkdownTo writes SQL overview content to a strings.Builder.
 // Used by ExportMarkdown in full mode.
-func exportSQLOverviewMarkdownTo(b *strings.Builder, m analysis.SqlMetrics) {
+func exportSQLOverviewMarkdownTo(b *strings.Builder, m analysis.SQLMetrics) {
 	// Global statistics
 	b.WriteString("### Global Statistics\n\n")
 	b.WriteString("|  |  |  |  |\n")
@@ -1782,9 +1782,9 @@ func exportSQLOverviewMarkdownTo(b *strings.Builder, m analysis.SqlMetrics) {
 	exportQueryTypeBreakdownMarkdown(b, "Per Application", m.QueryTypesByApp)
 }
 
-// exportSqlSummaryMarkdownTo writes SQL performance content to a strings.Builder.
+// exportSQLSummaryMarkdownTo writes SQL performance content to a strings.Builder.
 // Used by ExportMarkdown in full mode.
-func exportSqlSummaryMarkdownTo(b *strings.Builder, m analysis.SqlMetrics, tempFiles analysis.TempFileMetrics, locks analysis.LockMetrics) {
+func exportSQLSummaryMarkdownTo(b *strings.Builder, m analysis.SQLMetrics, tempFiles analysis.TempFileMetrics, locks analysis.LockMetrics) {
 	// Compute top 1% slowest queries
 	top1Slow := 0
 	if len(m.Executions) > 0 {

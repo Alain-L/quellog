@@ -233,9 +233,9 @@ type QueryExecution struct {
 	QueryID string
 }
 
-// SqlMetrics aggregates SQL query statistics from log analysis.
+// SQLMetrics aggregates SQL query statistics from log analysis.
 // It provides both per-query statistics and global metrics.
-type SqlMetrics struct {
+type SQLMetrics struct {
 	// QueryStats maps normalized queries to their aggregated statistics.
 	QueryStats map[string]*QueryStat
 
@@ -649,8 +649,8 @@ func extractPrefixValueAt(s string, start int) string {
 //   - Average execution time for each query
 //   - Median and 99th percentile of all query durations
 //   - Query type statistics
-func (a *SQLAnalyzer) Finalize() SqlMetrics {
-	metrics := SqlMetrics{
+func (a *SQLAnalyzer) Finalize() SQLMetrics {
+	metrics := SQLMetrics{
 		QueryStats:           a.queryStats,
 		TotalQueries:         a.totalQueries,
 		UniqueQueries:        len(a.queryStats),
@@ -869,7 +869,7 @@ func indexAfter(s, substr string, after int) int {
 // CollectQueriesWithoutDuration populates the count of queries identified
 // from logs (lock events, tempfile events) but without duration metrics.
 // This is useful when logs contain STATEMENT lines but no duration messages.
-func CollectQueriesWithoutDuration(sql *SqlMetrics, locks *LockMetrics, tempfiles *TempFileMetrics) {
+func CollectQueriesWithoutDuration(sql *SQLMetrics, locks *LockMetrics, tempfiles *TempFileMetrics) {
 	seen := make(map[string]bool)
 
 	// Count from locks

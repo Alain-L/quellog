@@ -669,7 +669,7 @@ func buildJSONData(m analysis.AggregatedMetrics, sections []string, full bool) m
 }
 
 // buildSQLOverviewData builds SQL overview data for JSON export.
-func buildSQLOverviewData(m analysis.SqlMetrics) SQLOverviewJSON {
+func buildSQLOverviewData(m analysis.SQLMetrics) SQLOverviewJSON {
 	overview := SQLOverviewJSON{
 		TotalQueries: m.TotalQueries,
 	}
@@ -722,7 +722,7 @@ func buildSQLOverviewData(m analysis.SqlMetrics) SQLOverviewJSON {
 
 // buildFullSQLPerformance builds enriched SQL performance data for --full mode.
 // Includes basic stats, duration distribution histogram, and top queries lists.
-func buildFullSQLPerformance(m analysis.SqlMetrics) SQLPerformanceDetailJSON {
+func buildFullSQLPerformance(m analysis.SQLMetrics) SQLPerformanceDetailJSON {
 	// Top 1% slow computation
 	top1Slow := 0
 	if len(m.Executions) > 0 {
@@ -918,7 +918,7 @@ func convertSummary(m analysis.AggregatedMetrics) SummaryJSON {
 // convertSQLPerformance processes SQL metrics to create a JSON structure.
 // It calculates additional information like counting the number of slow queries
 // (those that exceed the 99th percentile threshold) and formats various durations.
-func convertSQLPerformance(m analysis.SqlMetrics) SQLPerformanceJSON {
+func convertSQLPerformance(m analysis.SQLMetrics) SQLPerformanceJSON {
 
 	// Top 1% slow computation
 	top1Slow := 0
@@ -1037,7 +1037,7 @@ func convertLocks(m analysis.LockMetrics) LocksJSON {
 }
 
 // ExportSQLOverviewJSON exports SQL overview data as JSON.
-func ExportSQLOverviewJSON(w io.Writer, m analysis.SqlMetrics) {
+func ExportSQLOverviewJSON(w io.Writer, m analysis.SQLMetrics) {
 	if m.TotalQueries == 0 {
 		fmt.Fprintln(w, "{}")
 		return
@@ -1104,7 +1104,7 @@ func ExportSQLOverviewJSON(w io.Writer, m analysis.SqlMetrics) {
 }
 
 // ExportSQLPerformanceJSON exports detailed SQL performance data as JSON.
-func ExportSQLPerformanceJSON(w io.Writer, m analysis.SqlMetrics) {
+func ExportSQLPerformanceJSON(w io.Writer, m analysis.SQLMetrics) {
 	if m.TotalQueries == 0 {
 		fmt.Fprintln(w, "{}")
 		return

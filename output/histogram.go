@@ -18,7 +18,7 @@ import (
 //   - histogram: map of time range labels to total query time
 //   - unit: "ms", "s", or "m" depending on the scale
 //   - scaleFactor: for proportional display (max bar width = 40 chars)
-func computeQueryLoadHistogram(m analysis.SqlMetrics) (map[string]int, string, int) {
+func computeQueryLoadHistogram(m analysis.SQLMetrics) (map[string]int, string, int) {
 	if m.StartTimestamp.IsZero() || m.EndTimestamp.IsZero() || len(m.Executions) == 0 {
 		return nil, "", 0
 	}
@@ -111,7 +111,7 @@ func computeQueryLoadHistogram(m analysis.SqlMetrics) (map[string]int, string, i
 //   - histogram: map of duration labels to query count
 //   - unit: "req" (number of requests/queries)
 //   - scaleFactor: for proportional display (max bar width = 40 chars)
-func computeQueryDurationHistogram(m analysis.SqlMetrics) (map[string]int, string, int) {
+func computeQueryDurationHistogram(m analysis.SQLMetrics) (map[string]int, string, int) {
 	// Fixed bucket definitions in display order.
 	bucketDefinitions := []struct {
 		label string

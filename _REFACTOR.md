@@ -88,7 +88,7 @@ Chaque bloc se reduit a : writer + metriques + appel specifique.
 
 ---
 
-## 9. Renommer `SqlMetrics` en `SQLMetrics`
+## ~~9. Renommer `SqlMetrics` en `SQLMetrics`~~ DONE
 
 **Fichier** : `analysis/sql.go`
 

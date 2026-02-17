@@ -127,7 +127,7 @@ type AggregatedMetrics struct {
 
 		// SQL contains SQL query statistics.
 
-		SQL SqlMetrics
+		SQL SQLMetrics
 
 	}
 

@@ -822,12 +822,12 @@ func printTopTables(tableCounts map[string]int, total int, spaceRecovered map[st
 
 // PrintSQLSummary displays an SQL performance report in the CLI.
 // The report uses ANSI bold formatting for better readability. The query text is truncated based on terminal width.
-func PrintSQLSummary(m analysis.SqlMetrics, indicatorsOnly bool) {
+func PrintSQLSummary(m analysis.SQLMetrics, indicatorsOnly bool) {
 	PrintSQLSummaryWithContext(m, analysis.TempFileMetrics{}, analysis.LockMetrics{}, indicatorsOnly)
 }
 
 // PrintSQLSummaryWithContext displays SQL performance with optional tempfiles and locks context.
-func PrintSQLSummaryWithContext(m analysis.SqlMetrics, tempFiles analysis.TempFileMetrics, locks analysis.LockMetrics, indicatorsOnly bool) {
+func PrintSQLSummaryWithContext(m analysis.SQLMetrics, tempFiles analysis.TempFileMetrics, locks analysis.LockMetrics, indicatorsOnly bool) {
 	// Get terminal width, defaulting to 80.
 	width := 80
 	if w, _, err := term.GetSize(int(os.Stdout.Fd())); err == nil {
@@ -1124,10 +1124,10 @@ func PrintMostFrequentQueries(queryStats map[string]*analysis.QueryStat) bool {
 	})
 }
 
-// PrintSqlDetails iterates over the QueryStats and displays details for each query
+// PrintSQLDetails iterates over the QueryStats and displays details for each query
 // whose SQLID matches one of the provided queryDetails.
 // It consolidates metrics from SQL performance, tempfiles, and locks into a unified view.
-func PrintSqlDetails(m analysis.AggregatedMetrics, queryDetails []string) {
+func PrintSQLDetails(m analysis.AggregatedMetrics, queryDetails []string) {
 	bold := "\033[1m"
 	reset := "\033[0m"
 
@@ -2039,7 +2039,7 @@ func printMostFrequentWaitingQueries(queryStats map[string]*analysis.LockQuerySt
 // PrintSQLOverview displays SQL query type overview with dimensional breakdowns.
 // This shows statistics grouped by query type (SELECT, INSERT, UPDATE, DELETE, etc.)
 // with counts, times, and percentages, broken down by database, user, host, and application.
-func PrintSQLOverview(m analysis.SqlMetrics) {
+func PrintSQLOverview(m analysis.SQLMetrics) {
 	bold := "\033[1m"
 	reset := "\033[0m"
 
