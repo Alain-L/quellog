@@ -57,13 +57,7 @@ func collectFiles(args []string) []string {
 
 // gatherLogFiles scans a directory for supported log files (non-recursive).
 func gatherLogFiles(dir string) ([]string, error) {
-	f, err := os.Open(dir)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-
-	entries, err := f.Readdir(-1)
+	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return nil, err
 	}
