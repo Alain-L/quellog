@@ -68,7 +68,7 @@ Chaque bloc se reduit a : writer + metriques + appel specifique.
 
 ---
 
-## 7. Corriger `normalization_test.go`
+## ~~7. Corriger `normalization_test.go`~~ DONE
 
 **Fichier** : `analysis/normalization_test.go`
 
@@ -78,7 +78,7 @@ Chaque bloc se reduit a : writer + metriques + appel specifique.
 
 ---
 
-## 8. Remplacer `Readdir` deprecie par `ReadDir`
+## ~~8. Remplacer `Readdir` deprecie par `ReadDir`~~ DONE
 
 **Fichier** : `cmd/files.go:60-70`
 
