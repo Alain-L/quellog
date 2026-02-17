@@ -114,7 +114,7 @@ Chaque bloc se reduit a : writer + metriques + appel specifique.
 
 ---
 
-## 11. Ajouter le nettoyage des charts JS
+## ~~11. Ajouter le nettoyage des charts JS~~ DONE
 
 **Fichier** : `web/js/state.js:26-32`
 
