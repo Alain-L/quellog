@@ -1,24 +1,9 @@
 // output/formatter.go
 package output
 
-import (
-	"fmt"
-	"time"
-)
+import "fmt"
 
-// AnalysisReport rassemble les données issues de l'analyse des logs.
-type AnalysisReport struct {
-	StartDate        time.Time
-	EndDate          time.Time
-	Duration         time.Duration
-	VacuumCount      int
-	CheckpointsCount int
-	TempFiles        int
-	TempFileSize     int64
-	SQLCount         int
-}
-
-// formatBytes convertit une taille (en bytes) en une chaîne lisible (GB, MB, KB ou B).
+// formatBytes converts a size in bytes to a human-readable string (TB, GB, MB, KB or B).
 func formatBytes(bytes int64) string {
 	const (
 		KB = 1024
@@ -38,9 +23,4 @@ func formatBytes(bytes int64) string {
 	default:
 		return fmt.Sprintf("%d B", bytes)
 	}
-}
-
-// Formatter définit l'interface pour formater le rapport.
-type Formatter interface {
-	Format(report AnalysisReport) string
 }

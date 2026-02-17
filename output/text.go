@@ -15,9 +15,6 @@ import (
 	"golang.org/x/term"
 )
 
-// TextFormatter formats the report in plain text.
-type TextFormatter struct{}
-
 // PrintMetrics displays the aggregated metrics.
 // If full is true, displays extended analysis sections.
 func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
@@ -1331,34 +1328,6 @@ func truncateQuery(query string, length int) string {
 		return query[:length-3] + "..."
 	}
 	return query
-}
-
-// NewTextFormatter returns a new instance of TextFormatter.
-func NewTextFormatter() *TextFormatter {
-	return &TextFormatter{}
-}
-
-// Format returns a formatted string with the report data.
-func (tf *TextFormatter) Format(report AnalysisReport) string {
-	return fmt.Sprintf(`Log Analysis Report:
-Start date: %s
-End date:   %s
-Total duration: %s
-
-Number of VACUUM events: %d
-Number of checkpoints: %d
-Temp files: %d
-Temp file size: %s
-Number of SQL queries: %d`,
-		report.StartDate.Format("2006-01-02 15:04:05"),
-		report.EndDate.Format("2006-01-02 15:04:05"),
-		report.Duration,
-		report.VacuumCount,
-		report.CheckpointsCount,
-		report.TempFiles,
-		formatBytes(report.TempFileSize),
-		report.SQLCount,
-	)
 }
 
 // PrintEventsReport prints a consolidated event report including summary and top events.
