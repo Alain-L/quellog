@@ -2,6 +2,30 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.0] - 2026-02-08
+
+### Added
+- **ZIP archive support**: Transparent handling of `.zip` files in CLI (Go `archive/zip`) and browser, with nested compressed entries (`.gz`, `.zst`)
+- **CNPG direct log format**: Parse raw `kubectl logs` output from CloudNativePG pods
+- **Web Components**: Accessible, reusable UI components replacing string-based DOM generation (`<ql-tabs>`, `<ql-modal>`, `<ql-dropdown>` with search & multi-select, `<ql-tooltip>`)
+- **Time filtering for HTML reports**: Client-side time range filtering with slider and date-picker modes
+- **`--json-compact` flag**: Minified JSON output (~40% smaller)
+- **Temp files combined chart**: Toggle between count and size views in HTML; CLI histogram for temp file size distribution
+- **Vacuum space recovered in HTML**: Removed/dead tuples space in maintenance section with total recovered tile
+- **Checkpoint frequency histogram**: Checkpoint rate (events/min) in CLI text output
+- **PNG export for sql-detail charts**: Export individual SQL query charts as PNG images
+- **Dark mode auto-detection**: Respect `prefers-color-scheme` system preference on first load
+
+### Changed
+- **Frontend modularization**: Monolithic app.js split into ES modules bundled via esbuild (Go API)
+- **Build system**: Replaced Python build script with Go-native `//go:generate` pipeline + Makefile
+- **Code quality**: Fixed race condition on CSV timestamp cache, fixed silent test failures, renamed Go identifiers per conventions, removed dead code, replaced deprecated APIs
+
+### Performance
+- **Streaming JSON encoder**: Reduced allocations for large JSON exports
+- **WASM Uint8Array input**: `quellogParseBytes()` avoids UTF-8 round-trip for binary data
+- **O(n log n) sort**: Replaced O(n²) bubble sort in syslog PID emission ordering
+
 ## [0.7.0] - 2026-01-21
 
 ### Added
