@@ -96,9 +96,23 @@ export async function extractZip(buffer) {
         const compSize = view.getUint32(offset + 18, true);
         const nameLen = view.getUint16(offset + 26, true);
         const extraLen = view.getUint16(offset + 28, true);
+
+        // Validate that name and extra fields fit within the buffer
+        if (offset + 30 + nameLen + extraLen > data.length) {
+            console.warn('[quellog] Truncated zip entry header');
+            break;
+        }
+
         const name = new TextDecoder().decode(data.subarray(offset + 30, offset + 30 + nameLen));
 
         const dataStart = offset + 30 + nameLen + extraLen;
+
+        // Validate that compressed data fits within the buffer
+        if (dataStart + compSize > data.length) {
+            console.warn(`[quellog] Truncated zip entry: ${name}`);
+            break;
+        }
+
         offset = dataStart + compSize;
 
         // Skip directories and unsupported files

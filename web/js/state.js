@@ -41,6 +41,17 @@ export function setCurrentFileSize(size) { currentFileSize = size; }
 export function setOriginalDimensions(dims) { originalDimensions = dims; }
 export function incrementModalChartCounter() { return ++modalChartCounter; }
 
+// Chart cleanup (call before loading a new file)
+export function clearAllCharts() {
+    charts.forEach(chart => { try { chart.destroy(); } catch (_) {} });
+    charts.clear();
+    modalCharts.forEach(chart => { try { chart.destroy(); } catch (_) {} });
+    modalCharts.length = 0;
+    modalChartsData.clear();
+    chartIntervalMap.clear();
+    modalChartCounter = 0;
+}
+
 // Filter state setters
 export function setCurrentFilters(filters) { currentFilters = filters; }
 export function setAppliedFilters(filters) { appliedFilters = filters; }

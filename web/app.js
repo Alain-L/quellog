@@ -5,7 +5,7 @@ import {
     charts, modalCharts, modalChartsData, modalChartCounter, chartIntervalMap, defaultInterval,
     currentFilters, appliedFilters,
     setWasmModule, setWasmReady, setAnalysisData, setCurrentFileContent, setCurrentFileName, setCurrentFileSize,
-    setOriginalDimensions, incrementModalChartCounter, setAppliedFilters
+    setOriginalDimensions, incrementModalChartCounter, setAppliedFilters, clearAllCharts
 } from './js/state.js';
 import { initTheme, toggleTheme } from './js/theme.js';
 import { gunzipBuffer, unzstd, detectFormat, decompress, extractTar, prepareContent } from './js/compression.js';
@@ -59,6 +59,7 @@ import './js/components/ql-dropdown.js';
             }
 
             showLoading(dropZone, loading, results);
+            clearAllCharts();
             setProgress(5, 'Initializing...');
 
             try {
