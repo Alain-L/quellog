@@ -110,10 +110,10 @@ The web interface uses ES modules bundled with esbuild (Go API):
 
 **When modifying web assets:**
 1. Edit the source files in `web/`
-2. Run `go generate ./output/...` to bundle JS and copy assets
+2. Run `go generate ./web/...` to bundle JS and copy assets
 3. Run `go build` to compile with updated assets
 
-Or simply: `go generate ./output/... && go build -o bin/quellog .`
+Or simply: `go generate ./web/... && go build -o bin/quellog .`
 
 The assets are embedded via `//go:embed` and assembled into the HTML template at runtime.
 
