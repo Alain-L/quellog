@@ -489,6 +489,10 @@
         .filter-dropdown-item.selected {
             background: rgba(51, 103, 145, 0.15);
         }
+        .filter-dropdown-item.focused {
+            outline: 2px solid var(--primary);
+            outline-offset: -2px;
+        }
         .filter-item-checkbox {
             width: 12px;
             height: 12px;
@@ -758,6 +762,21 @@
             align-items: center;
         }
 
+        .events-section {
+            display: grid;
+        }
+
+        .events-section > ql-tabs {
+            grid-area: 1 / 1;
+        }
+
+        .events-indicators {
+            grid-area: 1 / 1;
+            justify-self: end;
+            align-self: start;
+            z-index: 1;
+        }
+
         /* Section */
         .section {
             background: var(--card-bg);
@@ -803,6 +822,13 @@
         }
 
         .section-body { padding: 0.9rem; }
+
+        /* Web Components - Custom Elements */
+        ql-tabs { display: block; }
+        ql-tab { display: inline-flex; align-items: center; }
+        ql-panel { display: block; }
+        ql-badge { display: inline-block; }
+        ql-dropdown { display: inline-block; position: relative; }
 
         /* Tabs - Compact pills */
         .tabs {
@@ -1418,6 +1444,23 @@
             flex-shrink: 0;
             text-align: right;
         }
+        /* Maintenance lists: narrower value column + removed column */
+        .scroll-list--maintenance .list-item .value {
+            width: 50px;
+        }
+        .scroll-list--maintenance .list-item .name {
+            width: 200px;
+            max-width: 200px;
+        }
+        .scroll-list--maintenance .list-item .removed {
+            font-size: 0.72rem;
+            font-style: italic;
+            color: var(--text-muted);
+            width: 110px;
+            flex-shrink: 0;
+            text-align: right;
+            white-space: nowrap;
+        }
 
         /* Error Classes - uses same layout as Clients but wider name */
         .list-item .name.error-name {
@@ -1607,6 +1650,10 @@
 
         .modal-overlay.active { display: flex; }
 
+        /* ql-modal component */
+        ql-modal { display: none; }
+        ql-modal.active { display: flex; }
+
         .modal {
             background: var(--card-bg);
             border-radius: 8px;
@@ -1643,6 +1690,49 @@
             padding: 1rem;
             overflow-y: auto;
             max-height: calc(90vh - 60px);
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 0.5rem;
+            margin-right: 1rem;
+        }
+
+        .modal-large { max-width: 1100px; }
+        .modal-fullscreen {
+            max-width: 95vw;
+            max-height: 95vh;
+            width: 95vw;
+            height: 95vh;
+        }
+        .modal-fullscreen .modal-body {
+            max-height: calc(95vh - 60px);
+        }
+
+        .modal-actions select,
+        .modal-actions button {
+            padding: 0.4rem 0.8rem;
+            font-size: 0.75rem;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            background: var(--card-bg);
+            color: var(--text);
+            cursor: pointer;
+        }
+
+        .modal-actions button:hover {
+            background: var(--bg-alt);
+            border-color: var(--primary);
+        }
+
+        .modal-actions button.primary {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: white;
+        }
+
+        .modal-actions button.primary:hover {
+            background: var(--primary-dark);
         }
 
         /* Query detail sections */
@@ -1960,6 +2050,67 @@
             display: block;
         }
 
+        /* ql-tooltip Web Component */
+        ql-tooltip {
+            display: inline-flex;
+            position: relative;
+            margin-left: 4px;
+        }
+        ql-tooltip .tooltip-trigger {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: var(--primary);
+            color: white;
+            font-size: 0.55rem;
+            font-weight: 700;
+            border: none;
+            cursor: help;
+            opacity: 0.7;
+            transition: opacity 0.15s;
+            padding: 0;
+        }
+        ql-tooltip .tooltip-trigger:hover,
+        ql-tooltip .tooltip-trigger:focus {
+            opacity: 1;
+            outline: none;
+        }
+        ql-tooltip .tooltip-trigger:focus-visible {
+            box-shadow: 0 0 0 2px var(--primary);
+        }
+        ql-tooltip .tooltip-content {
+            display: none;
+            position: absolute;
+            background: var(--nav-bg);
+            color: var(--nav-text);
+            padding: 0.5rem 0.75rem;
+            border-radius: 6px;
+            font-size: 0.65rem;
+            font-weight: 400;
+            white-space: normal;
+            width: max-content;
+            max-width: 280px;
+            line-height: 1.4;
+            z-index: 1000;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            text-align: left;
+        }
+        ql-tooltip .tooltip-top {
+            bottom: calc(100% + 6px);
+            left: 0;
+        }
+        ql-tooltip .tooltip-bottom {
+            top: calc(100% + 6px);
+            left: 0;
+        }
+        ql-tooltip:hover .tooltip-content,
+        ql-tooltip:focus-within .tooltip-content {
+            display: block;
+        }
+
         .chart-tooltip {
             position: absolute;
             background: var(--card-bg);
@@ -2068,6 +2219,8 @@
         #modal-chart-container {
             min-height: 350px;
         }
+
+        /* Chart expand button */
         .btn-expand {
             padding: 2px 5px !important;
             font-size: 0.7rem !important;
@@ -2144,6 +2297,33 @@
         }
         .qd-chart-container .chart-legend {
             margin-top: 0.25rem;
+        }
+        .qd-chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.25rem;
+        }
+        .qd-chart-title {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+        }
+
+        /* Export PNG button */
+        .btn-export-png {
+            padding: 0.15rem 0.5rem;
+            font-size: 0.65rem;
+            background: var(--bg-alt);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: background 0.15s, color 0.15s;
+        }
+        .btn-export-png:hover {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
         }
 
         /* Duration stacked bar */

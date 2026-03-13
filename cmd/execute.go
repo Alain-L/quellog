@@ -3,6 +3,7 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/signal"
@@ -208,7 +209,7 @@ func buildLogFilters(beginT, endT time.Time) parser.LogFilters {
 func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, totalFileSize int64, inputArgs []string) {
 	// Validate flag compatibility
 	formatCount := 0
-	if jsonFlag {
+	if jsonFlag || jsonCompactFlag {
 		formatCount++
 	}
 	if mdFlag {
@@ -218,38 +219,27 @@ func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, 
 		formatCount++
 	}
 	if formatCount > 1 {
-		fmt.Fprintln(os.Stderr, "Error: --json, --md, and --html are mutually exclusive")
+		fmt.Fprintln(os.Stderr, "Error: --json, --json-compact, --md, and --html are mutually exclusive")
+		os.Exit(1)
+	}
+	if jsonFlag && jsonCompactFlag {
+		fmt.Fprintln(os.Stderr, "Error: --json and --json-compact are mutually exclusive")
 		os.Exit(1)
 	}
 
 	// Special case: SQL query details (single query analysis)
 	if len(sqlDetailFlag) > 0 {
-		// Run full analysis to collect queries from locks and tempfiles
-		metrics := analysis.AggregateMetrics(filteredLogs, totalFileSize)
-		processingDuration := time.Since(startTime)
-
-		// Check if any log entries were successfully parsed
-		if metrics.Global.Count == 0 {
-			log.Fatalf("[ERROR] No log entries could be parsed. Check that files are readable and in a supported format.")
-		}
-
-		w := os.Stdout
-		if outputFlag != "" {
-			f, err := os.Create(outputFlag)
-			if err != nil {
-				log.Fatalf("[ERROR] Failed to create output file: %v", err)
-			}
-			defer f.Close()
-			w = f
-		}
+		metrics, processingDuration := requireMetrics(filteredLogs, totalFileSize, startTime)
+		w, closer := createOutputWriter(outputFlag)
+		defer closer()
 
 		if jsonFlag {
 			output.ExportSQLDetailJSON(w, metrics, sqlDetailFlag)
 		} else if mdFlag {
-			output.ExportSqlDetailMarkdown(w, metrics, sqlDetailFlag)
+			output.ExportSQLDetailMarkdown(w, metrics, sqlDetailFlag)
 		} else {
 			PrintProcessingSummary(metrics.SQL.TotalQueries, processingDuration, totalFileSize)
-			output.PrintSqlDetails(metrics, sqlDetailFlag)
+			output.PrintSQLDetails(metrics, sqlDetailFlag)
 		}
 		return
 	}
@@ -257,29 +247,14 @@ func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, 
 	// Special case: SQL performance (detailed aggregated query statistics)
 	// Skip if --full is set (will be included in full report)
 	if sqlPerformanceFlag && !fullFlag {
-		// Run full analysis to collect queries from locks and tempfiles
-		metrics := analysis.AggregateMetrics(filteredLogs, totalFileSize)
-		processingDuration := time.Since(startTime)
-
-		// Check if any log entries were successfully parsed
-		if metrics.Global.Count == 0 {
-			log.Fatalf("[ERROR] No log entries could be parsed. Check that files are readable and in a supported format.")
-		}
-
-		w := os.Stdout
-		if outputFlag != "" {
-			f, err := os.Create(outputFlag)
-			if err != nil {
-				log.Fatalf("[ERROR] Failed to create output file: %v", err)
-			}
-			defer f.Close()
-			w = f
-		}
+		metrics, processingDuration := requireMetrics(filteredLogs, totalFileSize, startTime)
+		w, closer := createOutputWriter(outputFlag)
+		defer closer()
 
 		if jsonFlag {
 			output.ExportSQLPerformanceJSON(w, metrics.SQL)
 		} else if mdFlag {
-			output.ExportSqlSummaryMarkdown(w, metrics.SQL, metrics.TempFiles, metrics.Locks)
+			output.ExportSQLSummaryMarkdown(w, metrics.SQL, metrics.TempFiles, metrics.Locks)
 		} else {
 			PrintProcessingSummary(metrics.SQL.TotalQueries, processingDuration, totalFileSize)
 			output.PrintSQLSummaryWithContext(metrics.SQL, metrics.TempFiles, metrics.Locks, false)
@@ -290,28 +265,14 @@ func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, 
 	// Special case: SQL overview (query type statistics with dimensional breakdown)
 	// Skip if --full is set (will be included in full report)
 	if sqlOverviewFlag && !fullFlag {
-		metrics := analysis.AggregateMetrics(filteredLogs, totalFileSize)
-		processingDuration := time.Since(startTime)
-
-		// Check if any log entries were successfully parsed
-		if metrics.Global.Count == 0 {
-			log.Fatalf("[ERROR] No log entries could be parsed. Check that files are readable and in a supported format.")
-		}
-
-		w := os.Stdout
-		if outputFlag != "" {
-			f, err := os.Create(outputFlag)
-			if err != nil {
-				log.Fatalf("[ERROR] Failed to create output file: %v", err)
-			}
-			defer f.Close()
-			w = f
-		}
+		metrics, processingDuration := requireMetrics(filteredLogs, totalFileSize, startTime)
+		w, closer := createOutputWriter(outputFlag)
+		defer closer()
 
 		if jsonFlag {
 			output.ExportSQLOverviewJSON(w, metrics.SQL)
 		} else if mdFlag {
-			output.ExportSqlOverviewMarkdown(w, metrics.SQL)
+			output.ExportSQLOverviewMarkdown(w, metrics.SQL)
 		} else {
 			PrintProcessingSummary(metrics.SQL.TotalQueries, processingDuration, totalFileSize)
 			output.PrintSQLOverview(metrics.SQL)
@@ -345,7 +306,7 @@ func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, 
 	}
 
 	// Output in requested format
-	if jsonFlag {
+	if jsonFlag || jsonCompactFlag {
 		w := os.Stdout
 		if outputFlag != "" {
 			f, err := os.Create(outputFlag)
@@ -355,7 +316,7 @@ func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, 
 			defer f.Close()
 			w = f
 		}
-		output.ExportJSON(w, metrics, sections, fullFlag)
+		output.ExportJSON(w, metrics, sections, fullFlag, jsonCompactFlag)
 		return
 	}
 
@@ -546,6 +507,30 @@ func calculateTotalFileSize(files []string) int64 {
 func PrintProcessingSummary(numEntries int, duration time.Duration, fileSize int64) {
 	fmt.Printf("quellog – %d entries processed in %.2f s (%s)\n",
 		numEntries, duration.Seconds(), formatBytes(fileSize))
+}
+
+// createOutputWriter returns an io.Writer for the given output path.
+// If path is empty, returns os.Stdout with a no-op closer.
+// Otherwise, creates the file and returns it with a closer that closes it.
+func createOutputWriter(path string) (io.Writer, func()) {
+	if path == "" {
+		return os.Stdout, func() {}
+	}
+	f, err := os.Create(path)
+	if err != nil {
+		log.Fatalf("[ERROR] Failed to create output file: %v", err)
+	}
+	return f, func() { f.Close() }
+}
+
+// requireMetrics aggregates metrics and fatals if no log entries were parsed.
+func requireMetrics(filteredLogs <-chan parser.LogEntry, totalFileSize int64, startTime time.Time) (analysis.AggregatedMetrics, time.Duration) {
+	metrics := analysis.AggregateMetrics(filteredLogs, totalFileSize)
+	processingDuration := time.Since(startTime)
+	if metrics.Global.Count == 0 {
+		log.Fatalf("[ERROR] No log entries could be parsed. Check that files are readable and in a supported format.")
+	}
+	return metrics, processingDuration
 }
 
 // formatBytes converts a byte count to a human-readable string (KB, MB, GB, etc).

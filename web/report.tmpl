@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>quellog Report</title>
+<style>{{.CSS}}</style>
+<style>
+/* Report mode: show only time filter */
+#fileInputSection, #newFileBtn { display: none !important; }
+.drop-zone { display: none !important; }
+/* Hide dimension filters, keep only time filter */
+.filter-bar ql-dropdown { display: none !important; }
+.filter-bar .filter-status { display: none !important; }
+/* Adjust filter bar layout for report mode */
+.filter-bar .filter-bar-content { gap: 0.5rem; }
+.filter-bar .filter-apply { margin-left: 0; }
+</style>
+</head>
+<body>
+{{.Body}}
+<script>{{.UplotJS}}</script>
+<script>
+// Report mode: skip WASM initialization
+window.REPORT_MODE = true;
+window.wasmReady = true;
+window.quellogVersion = function() { return 'CLI Report'; };
+window.parseLogFile = function() { console.warn('WASM not available in report mode'); };
+</script>
+<script>
+// Embedded compressed report data (zstd + base64, injected by Go)
+const COMPRESSED_DATA = "{{.CompressedData}}";
+const ZSTD_DECODER_GZIP_B64 = "{{.FzstdB64}}";
+
+// Load zstd decoder (gzipped and base64-encoded)
+async function loadZstdDecoder() {
+    try {
+        const binaryString = atob(ZSTD_DECODER_GZIP_B64);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+        }
+        const stream = new DecompressionStream('gzip');
+        const writer = stream.writable.getWriter();
+        writer.write(bytes);
+        writer.close();
+        const reader = stream.readable.getReader();
+        const chunks = [];
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            chunks.push(value);
+        }
+        const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0);
+        const result = new Uint8Array(totalLength);
+        let offset = 0;
+        for (const chunk of chunks) {
+            result.set(chunk, offset);
+            offset += chunk.length;
+        }
+        const code = new TextDecoder().decode(result);
+        eval(code);
+    } catch (err) {
+        console.error('Failed to load zstd decoder:', err);
+        throw err;
+    }
+}
+
+// Decompress base64 + zstd data
+async function decompressData(base64Data) {
+    try {
+        await loadZstdDecoder();
+        const binaryString = atob(base64Data);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+        }
+        const decompressed = fzstd.decompress(bytes);
+        const jsonString = new TextDecoder().decode(decompressed);
+        return JSON.parse(jsonString);
+    } catch (err) {
+        console.error('Failed to decompress data:', err);
+        throw err;
+    }
+}
+</script>
+<script>{{.AppJS}}</script>
+<script>
+// Auto-decompress and render on load
+if (COMPRESSED_DATA) {
+    console.log('Decompressing embedded report data...');
+    decompressData(COMPRESSED_DATA).then(data => {
+        console.log('Report data loaded successfully');
+        setAnalysisData(data);
+        data._parseTimeMs = data.meta.parse_time_ms || 0;
+        renderResults(data, data.meta.filename || 'Report', data.meta.filesize || 0, true);
+    }).catch(err => {
+        console.error('Failed to load report:', err);
+        alert('Failed to load report data: ' + err.message);
+    });
+}
+</script>
+</body>
+</html>

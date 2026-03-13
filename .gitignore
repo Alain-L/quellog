@@ -14,7 +14,6 @@ dist/
 *.dylib
 *.test
 *.html
-!output/report_template.html
 
 # Vendored dependencies (if you use Go modules, this folder is optional)
 vendor/
@@ -54,7 +53,12 @@ QUELLOG_WASM.md
 # Web interface (generated/large files)
 web/*.wasm
 web/quellog.html
+web/app.bundle.js
 wasm/*.wasm
+
+# Node.js (esbuild)
+node_modules/
+package-lock.json
 
 # Profiling artifacts
 *.svg

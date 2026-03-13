@@ -79,13 +79,21 @@ quellog /backups/postgresql-january.tar.gz
 
 Streams archive entries without full extraction. Handles nested compression (e.g., `.tar` containing `.log.gz` files).
 
+### ZIP Archives (.zip)
+
+```bash
+quellog /backups/postgresql-logs.zip
+```
+
+Extracts and processes all log entries from ZIP archives. Handles nested compressed files (`.gz`, `.zst`) within the archive.
+
 ## Format Detection
 
 Format detection is automatic:
 
-1. File extension provides a hint (`.log`, `.csv`, `.json`, `.gz`, `.zst`, `.tar`)
+1. File extension provides a hint (`.log`, `.csv`, `.json`, `.gz`, `.zst`, `.zip`, `.tar`)
 2. Content is sampled (first 32 KB) to verify format
-3. Compression is detected by magic bytes (gzip: `1f 8b`, zstd: `28 b5 2f fd`, tar: `ustar`)
+3. Compression is detected by magic bytes (gzip: `1f 8b`, zstd: `28 b5 2f fd`, zip: `50 4b 03 04`, tar: `ustar`)
 4. Log format is identified by structure (JSON object, CSV fields, or stderr patterns)
 
 If extension and content disagree, content wins. Binary files are automatically rejected.

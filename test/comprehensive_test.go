@@ -333,4 +333,27 @@ func TestComprehensiveCompression(t *testing.T) {
 				referenceMetrics, metrics)
 		}
 	})
+
+	// Test zip archive
+	t.Run("zip", func(t *testing.T) {
+		zipFile := "testdata/stderr.zip"
+
+		cmd := exec.Command(quellogBinary, zipFile, "--json")
+		var stdout bytes.Buffer
+		cmd.Stdout = &stdout
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to run quellog on zip file: %v", err)
+		}
+
+		var result map[string]interface{}
+		if err := json.Unmarshal(stdout.Bytes(), &result); err != nil {
+			t.Fatalf("invalid JSON from zip: %v", err)
+		}
+
+		metrics := extractKeyMetrics(t, result)
+		if !reflect.DeepEqual(referenceMetrics, metrics) {
+			t.Errorf("zip result differs from uncompressed:\n  uncompressed: %+v\n  zip: %+v",
+				referenceMetrics, metrics)
+		}
+	})
 }

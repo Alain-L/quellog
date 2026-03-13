@@ -794,162 +794,155 @@ func scoreRemainingValues(tokens []Token, allTokens [][]Token, prefixes []string
 		return tokens
 	}
 
-	// Score based on count and variance characteristics
+	// Classify values based on count and variance characteristics
 	switch len(valueIndices) {
 	case 1:
-		// Single VALUE → use known lists and variance analysis to determine type
-		idx := valueIndices[0]
-		val := strings.ToLower(tokens[idx].Value)
-
-		// First check known lists for direct match
-		if knownApps[val] || strings.Contains(val, "psql") || strings.Contains(val, "pg") {
-			tokens[idx].Class = TokenClassApplication
-		} else if knownUsernames[val] {
-			tokens[idx].Class = TokenClassUser
-		} else if knownDatabases[val] {
-			tokens[idx].Class = TokenClassDatabase
-		} else {
-			// Calculate variance metrics for this token
-			variance := calculateVarianceMetrics(idx, allTokens, prefixes)
-
-			// Heuristic based on observed patterns:
-			// - Uniqueness ≥35% → USER (many different usernames, typically 40%+)
-			// - Uniqueness <35% → DATABASE (fewer databases, typically 30% or less)
-			// The 35% threshold is calibrated from mock data analysis
-			if variance.uniquenessRatio >= 0.35 {
-				tokens[idx].Class = TokenClassUser
-			} else {
-				tokens[idx].Class = TokenClassDatabase
-			}
-		}
-
+		scoreSingleValue(tokens, valueIndices[0], allTokens, prefixes)
 	case 2:
-		// Two VALUES → likely USER + DB, but check known lists to determine order
-		val0 := strings.ToLower(tokens[valueIndices[0]].Value)
-		val1 := strings.ToLower(tokens[valueIndices[1]].Value)
-
-		// Check if values match known lists (this determines order)
-		val0IsUser := knownUsernames[val0]
-		val0IsDB := knownDatabases[val0]
-		val1IsUser := knownUsernames[val1]
-		val1IsDB := knownDatabases[val1]
-
-		if val0IsUser && !val0IsDB {
-			// val0 is definitely user
-			tokens[valueIndices[0]].Class = TokenClassUser
-			tokens[valueIndices[1]].Class = TokenClassDatabase
-		} else if val0IsDB && !val0IsUser {
-			// val0 is definitely db → order is reversed
-			tokens[valueIndices[0]].Class = TokenClassDatabase
-			tokens[valueIndices[1]].Class = TokenClassUser
-		} else if val1IsUser && !val1IsDB {
-			// val1 is definitely user → order is reversed
-			tokens[valueIndices[0]].Class = TokenClassDatabase
-			tokens[valueIndices[1]].Class = TokenClassUser
-		} else if val1IsDB && !val1IsUser {
-			// val1 is definitely db → normal order
-			tokens[valueIndices[0]].Class = TokenClassUser
-			tokens[valueIndices[1]].Class = TokenClassDatabase
-		} else {
-			// No clear match, use default PostgreSQL order: USER then DB
-			tokens[valueIndices[0]].Class = TokenClassUser
-			tokens[valueIndices[1]].Class = TokenClassDatabase
-		}
-
+		scoreTwoValues(tokens, valueIndices)
 	case 3:
-		// Three VALUES → likely USER + DB + APP, use known lists to verify
-		val0 := strings.ToLower(tokens[valueIndices[0]].Value)
-		val1 := strings.ToLower(tokens[valueIndices[1]].Value)
-		val2 := strings.ToLower(tokens[valueIndices[2]].Value)
-
-		// Check which values match known lists
-		val0IsUser := knownUsernames[val0]
-		val0IsDB := knownDatabases[val0]
-		val0IsApp := knownApps[val0]
-		val1IsUser := knownUsernames[val1]
-		val1IsDB := knownDatabases[val1]
-		val1IsApp := knownApps[val1]
-		val2IsApp := knownApps[val2]
-
-		// Try to determine correct order based on known matches
-		// Default order: USER, DB, APP
-		userIdx := valueIndices[0]
-		dbIdx := valueIndices[1]
-		appIdx := valueIndices[2]
-
-		// If val2 is clearly an app, that's the app
-		if val2IsApp {
-			appIdx = valueIndices[2]
-			// Now determine user vs db for first two
-			if val0IsUser && !val0IsDB {
-				userIdx = valueIndices[0]
-				dbIdx = valueIndices[1]
-			} else if val0IsDB && !val0IsUser {
-				dbIdx = valueIndices[0]
-				userIdx = valueIndices[1]
-			}
-		} else if val0IsApp {
-			// Unusual order: APP first
-			appIdx = valueIndices[0]
-			if val1IsDB && !val1IsUser {
-				dbIdx = valueIndices[1]
-				userIdx = valueIndices[2]
-			} else {
-				userIdx = valueIndices[1]
-				dbIdx = valueIndices[2]
-			}
-		} else if val1IsApp {
-			// APP in middle
-			appIdx = valueIndices[1]
-			if val0IsUser && !val0IsDB {
-				userIdx = valueIndices[0]
-				dbIdx = valueIndices[2]
-			} else if val0IsDB && !val0IsUser {
-				dbIdx = valueIndices[0]
-				userIdx = valueIndices[2]
-			}
-		} else {
-			// No app match, determine user/db order
-			if val0IsDB && !val0IsUser {
-				dbIdx = valueIndices[0]
-				userIdx = valueIndices[1]
-			} else if val1IsDB && !val1IsUser {
-				userIdx = valueIndices[0]
-				dbIdx = valueIndices[1]
-			}
-			// Third value could be app or something else
-			if strings.Contains(val2, "psql") || strings.Contains(val2, "pg") {
-				appIdx = valueIndices[2]
-			}
-		}
-
-		tokens[userIdx].Class = TokenClassUser
-		tokens[dbIdx].Class = TokenClassDatabase
-		tokens[appIdx].Class = TokenClassApplication
-
+		scoreThreeValues(tokens, valueIndices)
 	default:
-		// 4+ VALUES → USER + DB + APP + others remain VALUE
-		tokens[valueIndices[0]].Class = TokenClassUser
-		tokens[valueIndices[1]].Class = TokenClassDatabase
-
-		// Check if any looks like a known application
-		foundApp := false
-		for i := 2; i < len(valueIndices); i++ {
-			val := strings.ToLower(tokens[valueIndices[i]].Value)
-			if knownApps[val] || strings.Contains(val, "psql") || strings.Contains(val, "pg") {
-				tokens[valueIndices[i]].Class = TokenClassApplication
-				foundApp = true
-				break
-			}
-		}
-
-		// If no known app found, assume third VALUE is app
-		if !foundApp && len(valueIndices) >= 3 {
-			tokens[valueIndices[2]].Class = TokenClassApplication
-		}
+		scoreMultipleValues(tokens, valueIndices)
 	}
 
 	return tokens
+}
+
+// scoreSingleValue classifies a single VALUE token using known lists and variance analysis.
+func scoreSingleValue(tokens []Token, idx int, allTokens [][]Token, prefixes []string) {
+	val := strings.ToLower(tokens[idx].Value)
+
+	if knownApps[val] || strings.Contains(val, "psql") || strings.Contains(val, "pg") {
+		tokens[idx].Class = TokenClassApplication
+	} else if knownUsernames[val] {
+		tokens[idx].Class = TokenClassUser
+	} else if knownDatabases[val] {
+		tokens[idx].Class = TokenClassDatabase
+	} else {
+		variance := calculateVarianceMetrics(idx, allTokens, prefixes)
+		// Uniqueness ≥35% → USER (many different usernames, typically 40%+)
+		// Uniqueness <35% → DATABASE (fewer databases, typically 30% or less)
+		if variance.uniquenessRatio >= 0.35 {
+			tokens[idx].Class = TokenClassUser
+		} else {
+			tokens[idx].Class = TokenClassDatabase
+		}
+	}
+}
+
+// scoreTwoValues classifies two VALUE tokens as USER + DB using known lists.
+func scoreTwoValues(tokens []Token, valueIndices []int) {
+	val0 := strings.ToLower(tokens[valueIndices[0]].Value)
+	val1 := strings.ToLower(tokens[valueIndices[1]].Value)
+
+	val0IsUser := knownUsernames[val0]
+	val0IsDB := knownDatabases[val0]
+	val1IsUser := knownUsernames[val1]
+	val1IsDB := knownDatabases[val1]
+
+	if val0IsUser && !val0IsDB {
+		tokens[valueIndices[0]].Class = TokenClassUser
+		tokens[valueIndices[1]].Class = TokenClassDatabase
+	} else if val0IsDB && !val0IsUser {
+		tokens[valueIndices[0]].Class = TokenClassDatabase
+		tokens[valueIndices[1]].Class = TokenClassUser
+	} else if val1IsUser && !val1IsDB {
+		tokens[valueIndices[0]].Class = TokenClassDatabase
+		tokens[valueIndices[1]].Class = TokenClassUser
+	} else if val1IsDB && !val1IsUser {
+		tokens[valueIndices[0]].Class = TokenClassUser
+		tokens[valueIndices[1]].Class = TokenClassDatabase
+	} else {
+		// Default PostgreSQL order: USER then DB
+		tokens[valueIndices[0]].Class = TokenClassUser
+		tokens[valueIndices[1]].Class = TokenClassDatabase
+	}
+}
+
+// scoreThreeValues classifies three VALUE tokens as USER + DB + APP using known lists.
+func scoreThreeValues(tokens []Token, valueIndices []int) {
+	val0 := strings.ToLower(tokens[valueIndices[0]].Value)
+	val1 := strings.ToLower(tokens[valueIndices[1]].Value)
+	val2 := strings.ToLower(tokens[valueIndices[2]].Value)
+
+	val0IsUser := knownUsernames[val0]
+	val0IsDB := knownDatabases[val0]
+	val0IsApp := knownApps[val0]
+	val1IsUser := knownUsernames[val1]
+	val1IsDB := knownDatabases[val1]
+	val1IsApp := knownApps[val1]
+	val2IsApp := knownApps[val2]
+
+	// Default order: USER, DB, APP
+	userIdx := valueIndices[0]
+	dbIdx := valueIndices[1]
+	appIdx := valueIndices[2]
+
+	if val2IsApp {
+		appIdx = valueIndices[2]
+		if val0IsUser && !val0IsDB {
+			userIdx = valueIndices[0]
+			dbIdx = valueIndices[1]
+		} else if val0IsDB && !val0IsUser {
+			dbIdx = valueIndices[0]
+			userIdx = valueIndices[1]
+		}
+	} else if val0IsApp {
+		appIdx = valueIndices[0]
+		if val1IsDB && !val1IsUser {
+			dbIdx = valueIndices[1]
+			userIdx = valueIndices[2]
+		} else {
+			userIdx = valueIndices[1]
+			dbIdx = valueIndices[2]
+		}
+	} else if val1IsApp {
+		appIdx = valueIndices[1]
+		if val0IsUser && !val0IsDB {
+			userIdx = valueIndices[0]
+			dbIdx = valueIndices[2]
+		} else if val0IsDB && !val0IsUser {
+			dbIdx = valueIndices[0]
+			userIdx = valueIndices[2]
+		}
+	} else {
+		if val0IsDB && !val0IsUser {
+			dbIdx = valueIndices[0]
+			userIdx = valueIndices[1]
+		} else if val1IsDB && !val1IsUser {
+			userIdx = valueIndices[0]
+			dbIdx = valueIndices[1]
+		}
+		if strings.Contains(val2, "psql") || strings.Contains(val2, "pg") {
+			appIdx = valueIndices[2]
+		}
+	}
+
+	tokens[userIdx].Class = TokenClassUser
+	tokens[dbIdx].Class = TokenClassDatabase
+	tokens[appIdx].Class = TokenClassApplication
+}
+
+// scoreMultipleValues classifies 4+ VALUE tokens: first two as USER + DB,
+// then searches for an application among the rest.
+func scoreMultipleValues(tokens []Token, valueIndices []int) {
+	tokens[valueIndices[0]].Class = TokenClassUser
+	tokens[valueIndices[1]].Class = TokenClassDatabase
+
+	foundApp := false
+	for i := 2; i < len(valueIndices); i++ {
+		val := strings.ToLower(tokens[valueIndices[i]].Value)
+		if knownApps[val] || strings.Contains(val, "psql") || strings.Contains(val, "pg") {
+			tokens[valueIndices[i]].Class = TokenClassApplication
+			foundApp = true
+			break
+		}
+	}
+
+	if !foundApp && len(valueIndices) >= 3 {
+		tokens[valueIndices[2]].Class = TokenClassApplication
+	}
 }
 
 // classifyTokens compares tokens across multiple samples to classify them

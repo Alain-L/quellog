@@ -57,13 +57,7 @@ func collectFiles(args []string) []string {
 
 // gatherLogFiles scans a directory for supported log files (non-recursive).
 func gatherLogFiles(dir string) ([]string, error) {
-	f, err := os.Open(dir)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-
-	entries, err := f.Readdir(-1)
+	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return nil, err
 	}
@@ -95,21 +89,26 @@ func isSupportedLogFile(name string) bool {
 		".log",
 		".csv",
 		".json",
+		".jsonl",
 		".log.gz",
 		".csv.gz",
 		".json.gz",
+		".jsonl.gz",
 		".log.zst",
 		".log.zstd",
 		".csv.zst",
 		".csv.zstd",
 		".json.zst",
 		".json.zstd",
+		".jsonl.zst",
+		".jsonl.zstd",
 		".tar",
 		".tar.gz",
 		".tgz",
 		".tar.zst",
 		".tar.zstd",
 		".tzst",
+		".zip",
 	}
 
 	for _, ext := range supported {

@@ -1,6 +1,4 @@
 //go:build (linux || darwin) && !wasm
-// +build linux darwin
-// +build !wasm
 
 // Package parser provides log file parsing for PostgreSQL logs.
 package parser
@@ -9,6 +7,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 	"syscall"
 	"time"
@@ -427,18 +426,14 @@ func parseMmapDataSyslog(data []byte, out chan<- LogEntry, format SyslogFormat) 
 		}
 	}
 
-	// Now sort ALL emitted entries by timestamp (stable sort preserving file line order)
-	// This ensures correct order for analyzers that depend on temporal ordering
-	for i := 0; i < len(emissionOrder)-1; i++ {
-		for j := i + 1; j < len(emissionOrder); j++ {
-			ei, ej := emissionOrder[i], emissionOrder[j]
-			// Sort by timestamp first, then by original line number for stability
-			if ej.entry.Timestamp.Before(ei.entry.Timestamp) ||
-				(ej.entry.Timestamp.Equal(ei.entry.Timestamp) && ej.lineNum < ei.lineNum) {
-				emissionOrder[i], emissionOrder[j] = emissionOrder[j], emissionOrder[i]
-			}
+	// Sort emitted entries by timestamp, preserving file line order for equal timestamps
+	sort.SliceStable(emissionOrder, func(i, j int) bool {
+		ei, ej := emissionOrder[i], emissionOrder[j]
+		if !ei.entry.Timestamp.Equal(ej.entry.Timestamp) {
+			return ei.entry.Timestamp.Before(ej.entry.Timestamp)
 		}
-	}
+		return ei.lineNum < ej.lineNum
+	})
 	for _, e := range emissionOrder {
 		out <- e.entry
 	}

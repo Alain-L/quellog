@@ -18,22 +18,22 @@ import (
 //   - histogram: map of time range labels to total query time
 //   - unit: "ms", "s", or "m" depending on the scale
 //   - scaleFactor: for proportional display (max bar width = 40 chars)
-func computeQueryLoadHistogram(m analysis.SqlMetrics) (map[string]int, string, int) {
+func computeQueryLoadHistogram(m analysis.SQLMetrics) (map[string]int, string, int) {
 	if m.StartTimestamp.IsZero() || m.EndTimestamp.IsZero() || len(m.Executions) == 0 {
 		return nil, "", 0
 	}
 
-	// Division de l'intervalle total en 6 buckets égaux.
+	// Divide the total interval into 6 equal buckets.
 	totalDuration := m.EndTimestamp.Sub(m.StartTimestamp)
 	numBuckets := 6
 	bucketDuration := totalDuration / time.Duration(numBuckets)
 
-	// Protection contre la division par zéro : si la durée totale est nulle ou très courte
+	// Guard against division by zero when total duration is zero or very short.
 	if bucketDuration <= 0 {
 		bucketDuration = 1 * time.Nanosecond
 	}
 
-	// Préparation des buckets avec accumulation en millisecondes.
+	// Prepare buckets with millisecond accumulation.
 	histogramMs := make([]int, numBuckets)
 	bucketLabels := make([]string, numBuckets)
 	for i := 0; i < numBuckets; i++ {
@@ -42,7 +42,7 @@ func computeQueryLoadHistogram(m analysis.SqlMetrics) (map[string]int, string, i
 		bucketLabels[i] = fmt.Sprintf("%s - %s", start.Format("15:04"), end.Format("15:04"))
 	}
 
-	// Répartition des durées (en ms) dans les buckets en fonction du timestamp de chaque exécution.
+	// Distribute durations (in ms) into buckets based on each execution's timestamp.
 	for _, exec := range m.Executions {
 		elapsed := exec.Timestamp.Sub(m.StartTimestamp)
 		bucketIndex := int(elapsed / bucketDuration)
@@ -55,7 +55,7 @@ func computeQueryLoadHistogram(m analysis.SqlMetrics) (map[string]int, string, i
 		histogramMs[bucketIndex] += int(exec.Duration)
 	}
 
-	// Détermination de l'unité et du facteur de conversion en fonction de la charge maximale.
+	// Determine the unit and conversion factor based on the maximum bucket load.
 	maxBucketLoad := 0
 	for _, load := range histogramMs {
 		if load > maxBucketLoad {
@@ -76,7 +76,7 @@ func computeQueryLoadHistogram(m analysis.SqlMetrics) (map[string]int, string, i
 		conversion = 60000
 	}
 
-	// Conversion et arrondi vers le haut pour que toute charge non nulle soit affichée au moins 1 unité.
+	// Convert and round up so any non-zero load displays at least 1 unit.
 	histogram := make(map[string]int, numBuckets)
 	for i, load := range histogramMs {
 		var value int
@@ -88,7 +88,7 @@ func computeQueryLoadHistogram(m analysis.SqlMetrics) (map[string]int, string, i
 		histogram[bucketLabels[i]] = value
 	}
 
-	// Calcul automatique du scale factor pour l'affichage.
+	// Compute scale factor for display.
 	maxValue := 0
 	for _, v := range histogram {
 		if v > maxValue {
@@ -111,12 +111,12 @@ func computeQueryLoadHistogram(m analysis.SqlMetrics) (map[string]int, string, i
 //   - histogram: map of duration labels to query count
 //   - unit: "req" (number of requests/queries)
 //   - scaleFactor: for proportional display (max bar width = 40 chars)
-func computeQueryDurationHistogram(m analysis.SqlMetrics) (map[string]int, string, int) {
-	// Définition des buckets fixes dans l'ordre souhaité.
+func computeQueryDurationHistogram(m analysis.SQLMetrics) (map[string]int, string, int) {
+	// Fixed bucket definitions in display order.
 	bucketDefinitions := []struct {
 		label string
-		lower float64 // Borne inférieure en ms (inclusive)
-		upper float64 // Borne supérieure en ms (exclusive)
+		lower float64 // Lower bound in ms (inclusive)
+		upper float64 // Upper bound in ms (exclusive)
 	}{
 		{"< 1 ms", 0, 1},
 		{"< 10 ms", 1, 10},
@@ -126,13 +126,13 @@ func computeQueryDurationHistogram(m analysis.SqlMetrics) (map[string]int, strin
 		{">= 10 s", 10000, math.Inf(1)},
 	}
 
-	// Initialisation de l'histogramme avec des valeurs à zéro pour garantir l'ordre d'affichage.
+	// Initialize histogram with zero values to guarantee display order.
 	histogram := make(map[string]int)
 	for _, bucket := range bucketDefinitions {
 		histogram[bucket.label] = 0
 	}
 
-	// Parcours des requêtes et répartition dans les buckets.
+	// Distribute queries into buckets.
 	for _, exec := range m.Executions {
 		d := exec.Duration
 		for _, bucket := range bucketDefinitions {
@@ -143,7 +143,7 @@ func computeQueryDurationHistogram(m analysis.SqlMetrics) (map[string]int, strin
 		}
 	}
 
-	// Détermination du nombre maximal de requêtes dans un bucket.
+	// Find the maximum query count in any bucket.
 	maxCount := 0
 	for _, count := range histogram {
 		if count > maxCount {
@@ -151,10 +151,10 @@ func computeQueryDurationHistogram(m analysis.SqlMetrics) (map[string]int, strin
 		}
 	}
 
-	// L'unité est "req" (nombre de requêtes).
+	// Unit is "req" (number of requests).
 	unit := "req"
 
-	// Calcul du scale factor pour limiter la barre la plus longue à 40 caractères.
+	// Compute scale factor to limit the longest bar to 40 characters.
 	scaleFactor := int(math.Ceil(float64(maxCount) / 40.0))
 	if scaleFactor < 1 {
 		scaleFactor = 1
@@ -171,12 +171,12 @@ func computeQueryDurationHistogram(m analysis.SqlMetrics) (map[string]int, strin
 //   - unit: "B", "KB", "MB", or "GB" depending on the scale
 //   - scaleFactor: for proportional display (max bar width = 40 chars)
 func computeTempFileHistogram(m analysis.TempFileMetrics) (map[string]int, string, int) {
-	// Si aucun événement, on ne peut pas construire l'histogramme.
+	// No events means no histogram to build.
 	if len(m.Events) == 0 {
 		return nil, "", 0
 	}
 
-	// Déterminer le début et la fin de la période à partir des événements.
+	// Determine the time range from events.
 	start := m.Events[0].Timestamp
 	end := m.Events[0].Timestamp
 	for _, event := range m.Events {
@@ -189,19 +189,18 @@ func computeTempFileHistogram(m analysis.TempFileMetrics) (map[string]int, strin
 	}
 	totalDuration := end.Sub(start)
 
-	// Si tous les événements ont le même timestamp (ou très proche),
-	// on ne peut pas créer un histogramme temporel utile.
-	// On met tout dans un seul bucket.
+	// If all events share the same (or very close) timestamp,
+	// a temporal histogram is meaningless — collapse into one bucket.
 	if totalDuration < time.Second {
 		totalDuration = time.Second
 	}
 
-	// On divise l'intervalle en 6 buckets égaux.
+	// Divide the interval into 6 equal buckets.
 	numBuckets := 6
 	bucketDuration := totalDuration / time.Duration(numBuckets)
 
-	// Préparation des buckets.
-	histogramSizes := make([]float64, numBuckets) // cumul des tailles en octets pour chaque bucket
+	// Prepare buckets.
+	histogramSizes := make([]float64, numBuckets) // cumulative byte sizes per bucket
 	bucketLabels := make([]string, numBuckets)
 	for i := 0; i < numBuckets; i++ {
 		bucketStart := start.Add(time.Duration(i) * bucketDuration)
@@ -210,7 +209,7 @@ func computeTempFileHistogram(m analysis.TempFileMetrics) (map[string]int, strin
 		histogramSizes[i] = 0
 	}
 
-	// Répartition des événements dans les buckets.
+	// Distribute events into buckets.
 	for _, event := range m.Events {
 		elapsed := event.Timestamp.Sub(start)
 		bucketIndex := int(elapsed / bucketDuration)
@@ -220,7 +219,7 @@ func computeTempFileHistogram(m analysis.TempFileMetrics) (map[string]int, strin
 		histogramSizes[bucketIndex] += event.Size
 	}
 
-	// Détermination de la charge maximale.
+	// Find the maximum bucket load.
 	maxBucketLoad := 0.0
 	for _, size := range histogramSizes {
 		if size > maxBucketLoad {
@@ -228,7 +227,7 @@ func computeTempFileHistogram(m analysis.TempFileMetrics) (map[string]int, strin
 		}
 	}
 
-	// Choix de l'unité et du facteur de conversion en fonction de la charge maximale.
+	// Choose the unit and conversion factor based on the maximum bucket load.
 	var unit string
 	var conversion float64
 	if maxBucketLoad < 1024 {
@@ -245,7 +244,7 @@ func computeTempFileHistogram(m analysis.TempFileMetrics) (map[string]int, strin
 		conversion = 1024 * 1024 * 1024
 	}
 
-	// Conversion des valeurs en arrondissant vers le haut pour afficher au moins 1 unité.
+	// Convert values, rounding up so any non-zero load displays at least 1 unit.
 	histogram := make(map[string]int, numBuckets)
 	for i, raw := range histogramSizes {
 		var value int
@@ -257,7 +256,7 @@ func computeTempFileHistogram(m analysis.TempFileMetrics) (map[string]int, strin
 		histogram[bucketLabels[i]] = value
 	}
 
-	// Calcul automatique du scale factor pour l'affichage (limite à 40 blocs max).
+	// Compute scale factor for display (max 40 bar blocks).
 	histogramWidth := 40
 	maxValue := 0
 	for _, v := range histogram {
@@ -274,6 +273,88 @@ func computeTempFileHistogram(m analysis.TempFileMetrics) (map[string]int, strin
 	return histogram, unit, scaleFactor
 }
 
+// computeTempFileCountHistogram calculates a histogram of temporary file count over time.
+// It reuses computeTempFileCountHistogramFromEvents with all events.
+func computeTempFileCountHistogram(m analysis.TempFileMetrics) (map[string]int, string, int) {
+	return computeTempFileCountHistogramFromEvents(m.Events)
+}
+
+// computeTempFileCountHistogramFromEvents calculates a histogram of temp file count
+// over time from a slice of events (can be filtered or not).
+//
+// Returns:
+//   - histogram: map of time range labels to file count
+//   - unit: "" (empty, count has no unit)
+//   - scaleFactor: for proportional display (max bar width = 40 chars)
+func computeTempFileCountHistogramFromEvents(events []analysis.TempFileEvent) (map[string]int, string, int) {
+	if len(events) == 0 {
+		return nil, "", 0
+	}
+
+	// Find time range
+	start := events[0].Timestamp
+	end := events[0].Timestamp
+	for _, event := range events {
+		if event.Timestamp.Before(start) {
+			start = event.Timestamp
+		}
+		if event.Timestamp.After(end) {
+			end = event.Timestamp
+		}
+	}
+
+	// Divide into 6 buckets
+	totalDuration := end.Sub(start)
+	if totalDuration < time.Second {
+		totalDuration = time.Second
+	}
+	numBuckets := 6
+	bucketDuration := totalDuration / time.Duration(numBuckets)
+
+	// Prepare buckets
+	histogram := make([]int, numBuckets)
+	bucketLabels := make([]string, numBuckets)
+	for i := 0; i < numBuckets; i++ {
+		bucketStart := start.Add(time.Duration(i) * bucketDuration)
+		bucketEnd := start.Add(time.Duration(i+1) * bucketDuration)
+		bucketLabels[i] = fmt.Sprintf("%s - %s", bucketStart.Format("15:04"), bucketEnd.Format("15:04"))
+	}
+
+	// Count temp files per bucket
+	for _, event := range events {
+		elapsed := event.Timestamp.Sub(start)
+		bucketIndex := int(elapsed / bucketDuration)
+		if bucketIndex >= numBuckets {
+			bucketIndex = numBuckets - 1
+		}
+		if bucketIndex < 0 {
+			bucketIndex = 0
+		}
+		histogram[bucketIndex]++
+	}
+
+	// Convert to map
+	result := make(map[string]int, numBuckets)
+	for i, count := range histogram {
+		result[bucketLabels[i]] = count
+	}
+
+	// Calculate scale factor
+	maxValue := 0
+	for _, count := range histogram {
+		if count > maxValue {
+			maxValue = count
+		}
+	}
+	histogramWidth := 40
+	scaleFactor := int(math.Ceil(float64(maxValue) / float64(histogramWidth)))
+	if scaleFactor < 1 {
+		scaleFactor = 1
+	}
+
+	return result, "", scaleFactor
+}
+
 // computeCheckpointHistogram calculates a histogram of checkpoint events over a day.
 // It divides the day into 6 equal 4-hour buckets.
 //
@@ -286,7 +367,7 @@ func computeCheckpointHistogram(m analysis.CheckpointMetrics) (map[string]int, s
 		return nil, "", 0
 	}
 
-	// On utilise le jour de la première occurrence pour fixer le début de la journée.
+	// Use the first event's day to anchor the start of the 24h range.
 	day := m.Events[0]
 	start := time.Date(day.Year(), day.Month(), day.Day(), 0, 0, 0, 0, day.Location())
 	end := start.Add(24 * time.Hour)
@@ -303,19 +384,17 @@ func computeCheckpointHistogram(m analysis.CheckpointMetrics) (map[string]int, s
 		bucketLabels[i] = label
 	}
 
-	// Répartition des événements dans les buckets, en se basant sur l'heure de l'événement.
+	// Distribute events into buckets based on the hour of day.
 	for _, t := range m.Events {
-		// Si l'événement n'est pas dans la journée, on le ramène dans l'intervalle [start, end).
-		// On utilise l'heure uniquement.
 		hour := t.Hour()
-		bucketIndex := hour / 4 // 24h/6 = 4 heures par bucket.
+		bucketIndex := hour / 4 // 24h / 6 = 4 hours per bucket
 		if bucketIndex >= numBuckets {
 			bucketIndex = numBuckets - 1
 		}
 		histogram[bucketLabels[bucketIndex]]++
 	}
 
-	// Calcul du scale factor pour limiter la barre à 35 caractères.
+	// Compute scale factor for display (max 40 bar blocks).
 	maxValue := 0
 	for _, count := range histogram {
 		if count > maxValue {
@@ -360,11 +439,11 @@ func computeConnectionsHistogram(events []time.Time, logStart, logEnd time.Time)
 		}
 	}
 
-	// On fixe le nombre de buckets à 6.
+	// Fixed at 6 buckets.
 	numBuckets := 6
 	totalDuration := end.Sub(start)
 	if totalDuration <= 0 {
-		totalDuration = time.Second // Durée minimale pour éviter la division par zéro.
+		totalDuration = time.Second // Minimum duration to avoid division by zero.
 	}
 	bucketDuration := totalDuration / time.Duration(numBuckets)
 
@@ -373,7 +452,7 @@ func computeConnectionsHistogram(events []time.Time, logStart, logEnd time.Time)
 	endDay := time.Date(end.Year(), end.Month(), end.Day(), 0, 0, 0, 0, end.Location())
 	spansDays := !startDay.Equal(endDay)
 
-	// Création des buckets avec leurs labels.
+	// Create buckets with their labels.
 	histogram := make(map[string]int, numBuckets)
 	bucketLabels := make([]string, numBuckets)
 	for i := 0; i < numBuckets; i++ {
@@ -393,9 +472,9 @@ func computeConnectionsHistogram(events []time.Time, logStart, logEnd time.Time)
 		bucketLabels[i] = label
 	}
 
-	// Répartition des événements dans les buckets.
+	// Distribute events into buckets.
 	for _, t := range events {
-		// On s'assure que l'événement se situe dans l'intervalle [start, end].
+		// Skip events outside the [start, end] range.
 		if t.Before(start) || t.After(end) {
 			continue
 		}
@@ -407,7 +486,7 @@ func computeConnectionsHistogram(events []time.Time, logStart, logEnd time.Time)
 		histogram[bucketLabels[bucketIndex]]++
 	}
 
-	// Calcul du scale factor pour limiter la largeur de la barre à 35 caractères.
+	// Compute scale factor for display (max 40 bar blocks).
 	maxValue := 0
 	for _, count := range histogram {
 		if count > maxValue {
@@ -420,7 +499,6 @@ func computeConnectionsHistogram(events []time.Time, logStart, logEnd time.Time)
 		scaleFactor = 1
 	}
 
-	// L'unité ici est "connections".
 	return histogram, "connections", scaleFactor
 }
 

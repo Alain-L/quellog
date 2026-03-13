@@ -127,7 +127,7 @@ type AggregatedMetrics struct {
 
 		// SQL contains SQL query statistics.
 
-		SQL SqlMetrics
+		SQL SQLMetrics
 
 	}
 
@@ -740,13 +740,4 @@ func extractKeyValue(line, key string) (string, bool) {
 	return val, true
 }
 
-// mapKeysAsSlice converts map keys to a sorted slice.
-// This provides deterministic ordering for consistent output.
-func mapKeysAsSlice(m map[string]struct{}) []string {
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	return keys
-}
+

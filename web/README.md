@@ -1,78 +1,62 @@
 # quellog Web
 
-Version WebAssembly de quellog pour exécution dans le navigateur.
+Browser-based version of quellog using WebAssembly.
 
 ## Structure
 
 ```
 web/
-├── index.html              # Template dev (imports externes)
-├── styles.css              # Styles CSS
-├── app.js                  # Application JavaScript
-├── uplot.min.js            # Librairie charts
-├── fzstd.min.js            # Décodeur zstd
-├── wasm_exec_tiny.js       # Runtime TinyGo WASM
-├── quellog.html            # Standalone (tout embarqué)
-├── build_standalone.py     # Script de build
-├── main.go                 # Point d'entrée WASM
-├── quellog_tiny.wasm       # Build TinyGo
-└── quellog.wasm            # Build Go standard
+├── index.html              # HTML template
+├── styles.css              # CSS styles
+├── app.js                  # Entry point (ES module)
+├── js/                     # JS modules
+│   ├── utils.js
+│   ├── state.js
+│   ├── theme.js
+│   ├── compression.js
+│   ├── filters.js
+│   ├── file-handler.js
+│   └── charts.js
+├── uplot.min.js            # Chart library
+├── fzstd.min.js            # Zstd decompressor
+├── app.bundle.js           # Generated: esbuild IIFE bundle
+└── wasm/
+    └── main.go             # WASM entry point
 ```
 
-## Développement
+## Development
 
 ```bash
-cd web
-python3 -m http.server 8080
-# Ouvrir http://localhost:8080/index.html
+# Bundle JS and rebuild binary
+go generate ./output/...
+go build -o bin/quellog .
+
+# Or use the Makefile
+make build
 ```
 
 ## Build
 
-### TinyGo WASM (recommandé)
+The JS modules are bundled into a single IIFE file (`app.bundle.js`) using esbuild (Go API) via `go generate`. Assets are embedded into the Go binary with `//go:embed`.
 
-```bash
-cd web
-tinygo build -o quellog_tiny.wasm -target wasm -gc=leaking -no-debug ./main.go
-```
+No Node.js or Python required.
 
-### Go standard
-
-```bash
-cd web
-GOOS=js GOARCH=wasm go build -o quellog.wasm .
-```
-
-### Standalone HTML
-
-```bash
-cd web
-python3 build_standalone.py
-# Output: quellog.html (~586 KB)
-```
-
-Le standalone embarque tout dans un seul fichier HTML :
-- WASM TinyGo compressé zstd + base64
-- Décodeur fzstd compressé gzip + base64
-- Runtime wasm_exec minifié
-- CSS/JS minifiés
-- uPlot pour les charts
-
-## API JavaScript
+## JavaScript API
 
 ```javascript
-// Parser un log
+// Parse log content (string)
 const json = quellogParse(logContent);
-const data = JSON.parse(json);
+
+// Parse log content (binary, avoids UTF-8 round-trip)
+const json = quellogParseBytes(uint8Array);
 
 // Version
-quellogVersion()  // "0.2.0-wasm"
+quellogVersion()
 ```
 
-## Limites
+## Limitations
 
-- **Taille fichier** : ~1.5 GB max (configurable)
-- **Mémoire** : ~2-4 GB par onglet navigateur
-- **GC** : TinyGo avec `-gc=leaking` ne libère pas la mémoire
+- **File size**: ~1.5 GB max (browser memory dependent)
+- **Memory**: ~2-4 GB per browser tab
 
-Pour les gros fichiers (>500 MB), utiliser la CLI native.
+For large files (>500 MB), use the native CLI.

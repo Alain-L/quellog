@@ -160,7 +160,7 @@ Here are the main features:
 - **Automatic log_line_prefix detection:** Heuristically detects custom
   `log_line_prefix` configurations for accurate metadata extraction
 - **Transparent compression and archive support:** Read gzip (`.gz`), zstd (`.zst`, `.zstd`),
-  and tar archives (`.tar`, `.tar.gz`, `.tar.zst`, `.tzst`) without manual decompression
+  ZIP (`.zip`), and tar archives (`.tar`, `.tar.gz`, `.tar.zst`, `.tzst`) without manual decompression
 - **Time-based filtering:** Analyze logs within specific date ranges or time
   windows
 - **Attribute filtering:** Focus on specific databases, users, applications, or
@@ -217,14 +217,14 @@ quellog --help
 
 **Debian/Ubuntu (.deb):**
 ```sh
-wget https://github.com/Alain-L/quellog/releases/download/v0.7.0/quellog_0.7.0_linux_amd64.deb
-sudo dpkg -i quellog_0.7.0_linux_amd64.deb
+wget https://github.com/Alain-L/quellog/releases/download/v0.8.0/quellog_0.8.0_linux_amd64.deb
+sudo dpkg -i quellog_0.8.0_linux_amd64.deb
 ```
 
 **RedHat/Fedora/CentOS (.rpm):**
 ```sh
-wget https://github.com/Alain-L/quellog/releases/download/v0.7.0/quellog_0.7.0_linux_amd64.rpm
-sudo rpm -i quellog_0.7.0_linux_amd64.rpm
+wget https://github.com/Alain-L/quellog/releases/download/v0.8.0/quellog_0.8.0_linux_amd64.rpm
+sudo rpm -i quellog_0.8.0_linux_amd64.rpm
 ```
 
 ### Build from source
@@ -404,6 +404,7 @@ Section Selection:
 
 Output:
   -J, --json              Export results in JSON format
+      --json-compact      Export JSON without indentation (smaller output)
       --md                Export results in Markdown format
   -H, --html              Export as standalone HTML report
   -F, --full              Display comprehensive report with all sections

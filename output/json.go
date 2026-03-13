@@ -1,6 +1,7 @@
 package output
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -333,22 +334,24 @@ type ErrorClassJSON struct {
 // converts it into an indented JSON string, and outputs the result.
 // Only sections with data are included in the output.
 // When full is true, includes sql_overview and enriched sql_performance sections.
-func ExportJSON(w io.Writer, m analysis.AggregatedMetrics, sections []string, full bool) {
+// When compact is true, outputs JSON without indentation (smaller, lower memory).
+func ExportJSON(w io.Writer, m analysis.AggregatedMetrics, sections []string, full bool, compact bool) {
 	data := buildJSONData(m, sections, full)
 
-	// Marshal and output
-	jsonData, err := json.MarshalIndent(data, "", "  ")
-	if err != nil {
-		fmt.Fprintf(w, "[ERROR] Failed to export JSON: %v\n", err)
-		return
+	// Stream directly to writer - no intermediate []byte or string
+	enc := json.NewEncoder(w)
+	if !compact {
+		enc.SetIndent("", "  ")
 	}
-	fmt.Fprintln(w, string(jsonData))
+	if err := enc.Encode(data); err != nil {
+		fmt.Fprintf(w, "[ERROR] Failed to export JSON: %v\n", err)
+	}
 }
 
 // ExportJSONString returns the JSON export as a string instead of printing.
 // This is useful for WASM and other contexts where stdout is not available.
 func ExportJSONString(m analysis.AggregatedMetrics, sections []string) (string, error) {
-	return ExportJSONStringWithMeta(m, sections, false, nil)
+	return ExportJSONStringWithMeta(m, sections, false, nil, false)
 }
 
 // MetaInfo contains optional metadata about the parsing process.
@@ -361,16 +364,24 @@ type MetaInfo struct {
 }
 
 // ExportJSONStringWithMeta returns the JSON export with optional metadata.
-func ExportJSONStringWithMeta(m analysis.AggregatedMetrics, sections []string, full bool, meta *MetaInfo) (string, error) {
+// Uses streaming encoder to avoid triple buffering (map + []byte + string).
+// When compact is true, outputs JSON without indentation (smaller, lower memory).
+func ExportJSONStringWithMeta(m analysis.AggregatedMetrics, sections []string, full bool, meta *MetaInfo, compact bool) (string, error) {
 	data := buildJSONData(m, sections, full)
 	if meta != nil {
 		data["meta"] = meta
 	}
-	jsonData, err := json.MarshalIndent(data, "", "  ")
-	if err != nil {
+
+	// Stream to buffer - avoids intermediate []byte from MarshalIndent
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	if !compact {
+		enc.SetIndent("", "  ")
+	}
+	if err := enc.Encode(data); err != nil {
 		return "", err
 	}
-	return string(jsonData), nil
+	return buf.String(), nil
 }
 
 // buildJSONData constructs the JSON data structure from metrics.
@@ -658,7 +669,7 @@ func buildJSONData(m analysis.AggregatedMetrics, sections []string, full bool) m
 }
 
 // buildSQLOverviewData builds SQL overview data for JSON export.
-func buildSQLOverviewData(m analysis.SqlMetrics) SQLOverviewJSON {
+func buildSQLOverviewData(m analysis.SQLMetrics) SQLOverviewJSON {
 	overview := SQLOverviewJSON{
 		TotalQueries: m.TotalQueries,
 	}
@@ -711,7 +722,7 @@ func buildSQLOverviewData(m analysis.SqlMetrics) SQLOverviewJSON {
 
 // buildFullSQLPerformance builds enriched SQL performance data for --full mode.
 // Includes basic stats, duration distribution histogram, and top queries lists.
-func buildFullSQLPerformance(m analysis.SqlMetrics) SQLPerformanceDetailJSON {
+func buildFullSQLPerformance(m analysis.SQLMetrics) SQLPerformanceDetailJSON {
 	// Top 1% slow computation
 	top1Slow := 0
 	if len(m.Executions) > 0 {
@@ -907,7 +918,7 @@ func convertSummary(m analysis.AggregatedMetrics) SummaryJSON {
 // convertSQLPerformance processes SQL metrics to create a JSON structure.
 // It calculates additional information like counting the number of slow queries
 // (those that exceed the 99th percentile threshold) and formats various durations.
-func convertSQLPerformance(m analysis.SqlMetrics) SQLPerformanceJSON {
+func convertSQLPerformance(m analysis.SQLMetrics) SQLPerformanceJSON {
 
 	// Top 1% slow computation
 	top1Slow := 0
@@ -1026,7 +1037,7 @@ func convertLocks(m analysis.LockMetrics) LocksJSON {
 }
 
 // ExportSQLOverviewJSON exports SQL overview data as JSON.
-func ExportSQLOverviewJSON(w io.Writer, m analysis.SqlMetrics) {
+func ExportSQLOverviewJSON(w io.Writer, m analysis.SQLMetrics) {
 	if m.TotalQueries == 0 {
 		fmt.Fprintln(w, "{}")
 		return
@@ -1093,7 +1104,7 @@ func ExportSQLOverviewJSON(w io.Writer, m analysis.SqlMetrics) {
 }
 
 // ExportSQLPerformanceJSON exports detailed SQL performance data as JSON.
-func ExportSQLPerformanceJSON(w io.Writer, m analysis.SqlMetrics) {
+func ExportSQLPerformanceJSON(w io.Writer, m analysis.SQLMetrics) {
 	if m.TotalQueries == 0 {
 		fmt.Fprintln(w, "{}")
 		return

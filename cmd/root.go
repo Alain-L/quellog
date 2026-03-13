@@ -50,9 +50,10 @@ var (
 	clientsFlag     bool // --clients: Print only clients section
 
 	// Output format flags
-	jsonFlag bool // --json: Export results in JSON format
-	mdFlag   bool // --md: Export results in Markdown format
-	htmlFlag bool // --html: Export results as standalone HTML report
+	jsonFlag        bool // --json: Export results in JSON format
+	jsonCompactFlag bool // --json-compact: Export JSON without indentation (smaller output)
+	mdFlag          bool // --md: Export results in Markdown format
+	htmlFlag        bool // --html: Export results as standalone HTML report
 
 	// Report completeness flag
 	fullFlag bool // --full: Display comprehensive report with all sections and detailed SQL analysis
@@ -148,6 +149,8 @@ func init() {
 	// Output format flags
 	rootCmd.PersistentFlags().BoolVarP(&jsonFlag, "json", "J", false,
 		"Export results in JSON format")
+	rootCmd.PersistentFlags().BoolVar(&jsonCompactFlag, "json-compact", false,
+		"Export JSON without indentation (smaller output, lower memory)")
 	rootCmd.PersistentFlags().BoolVarP(&mdFlag, "md", "", false,
 		"Export results in Markdown format")
 	rootCmd.PersistentFlags().BoolVarP(&htmlFlag, "html", "H", false,

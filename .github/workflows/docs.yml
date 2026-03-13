@@ -60,13 +60,13 @@ jobs:
 
       - name: Build WASM demo
         run: |
-          cd web
-          tinygo build -o quellog_tiny.wasm -target wasm -gc=leaking -no-debug ./main.go
-          ls -la quellog_tiny.wasm
+          go generate ./web/...
+          tinygo build -o web/quellog_tiny.wasm -target wasm -gc=leaking -no-debug ./web/wasm/main.go
+          ls -la web/quellog_tiny.wasm
 
       - name: Build standalone HTML
         run: |
-          python3 scripts/build_standalone.py
+          go run web/standalone.go
           cp web/quellog.html site/demo.html
           ls -la site/demo.html
 

@@ -15,9 +15,6 @@ import (
 	"golang.org/x/term"
 )
 
-// TextFormatter formats the report in plain text.
-type TextFormatter struct{}
-
 // PrintMetrics displays the aggregated metrics.
 // If full is true, displays extended analysis sections.
 func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
@@ -69,9 +66,15 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 
 		fmt.Println(bold + "\nTEMP FILES\n" + reset)
 
-		// Histogram
+		// Size histogram (always shown)
 		hist, unit, scaleFactor := computeTempFileHistogram(m.TempFiles)
-		PrintHistogram(hist, "Temp file distribution", unit, scaleFactor, nil)
+		PrintHistogram(hist, "Temp file size", unit, scaleFactor, nil)
+
+		// Count histogram (only when --tempfiles is explicitly specified)
+		if !has("all") {
+			countHist, countUnit, countScale := computeTempFileCountHistogram(m.TempFiles)
+			PrintHistogram(countHist, "Temp file count", countUnit, countScale, nil)
+		}
 
 		fmt.Printf("  %-25s : %d\n", "Temp file messages", m.TempFiles.Count)
 		fmt.Printf("  %-25s : %s\n", "Cumulative temp file size", formatBytes(m.TempFiles.TotalSize))
@@ -263,19 +266,19 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 
 		fmt.Println(bold + "\nCHECKPOINTS\n" + reset)
 
-		// Histogram
+		// Histogram with frequency (4-hour buckets)
 		hist, _, scaleFactor := computeCheckpointHistogram(m.Checkpoints)
-		PrintHistogram(hist, "Checkpoints", "", scaleFactor, nil)
+		PrintCheckpointHistogram(hist, "Checkpoints", scaleFactor, 4.0)
 
 		fmt.Printf("  %-25s : %d\n", "Checkpoint count", m.Checkpoints.CompleteCount)
 		fmt.Printf("  %-25s : %s\n", "Avg checkpoint write time", avgDuration)
 		fmt.Printf("  %-25s : %s\n", "Max checkpoint write time", maxDuration)
 
-		// Affichage des types de checkpoints
+		// Display checkpoint types
 		if len(m.Checkpoints.TypeCounts) > 0 {
 			fmt.Println("  Checkpoint types:")
 
-			// Créer une slice pour trier les types par count (décroissant)
+			// Build a slice to sort types by count (descending).
 			type typePair struct {
 				Name  string
 				Count int
@@ -285,7 +288,7 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 				pairs = append(pairs, typePair{Name: cpType, Count: count})
 			}
 
-			// Trier par count décroissant, puis par nom alphabétique
+			// Sort by count descending, then alphabetically.
 			sort.Slice(pairs, func(i, j int) bool {
 				if pairs[i].Count != pairs[j].Count {
 					return pairs[i].Count > pairs[j].Count
@@ -293,11 +296,11 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 				return pairs[i].Name < pairs[j].Name
 			})
 
-			// Calculer la durée totale pour les pourcentages et le taux
+			// Compute total duration for percentages and rate.
 			duration := m.Global.MaxTimestamp.Sub(m.Global.MinTimestamp)
 			durationHours := duration.Hours()
 
-			// Déterminer la largeur max pour les noms de types
+			// Determine max width for type names.
 			maxTypeLen := 0
 			for _, pair := range pairs {
 				if len(pair.Name) > maxTypeLen {
@@ -308,19 +311,22 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 				maxTypeLen = 10
 			}
 
-			// Afficher chaque type avec son count, pourcentage et taux
+			// Display each type with count, percentage and rate.
+			muted := "\033[3;38;5;243m" // italic + gray (256-color: 245)
+			reset := "\033[0m"
+
 			for _, pair := range pairs {
 				percentage := float64(pair.Count) / float64(m.Checkpoints.CompleteCount) * 100
 
-				// Calculer le taux (checkpoints par heure) pour ce type
+				// Compute rate (checkpoints per hour) for this type.
 				rate := 0.0
 				if durationHours > 0 {
 					rate = float64(pair.Count) / durationHours
 				}
 
-				// Format: type (left-aligned), count (right, 3 digits), percentage (right, 6 chars), rate (right, 8 chars)
-				fmt.Printf("    %-*s  %3d  %5.1f%%  (%.2f/h)\n",
-					maxTypeLen, pair.Name, pair.Count, percentage, rate)
+				// Format: type (left-aligned), count (right, 3 digits), percentage (right, 6 chars), rate (muted)
+				fmt.Printf("    %-*s  %3d  %5.1f%%   %s%.2f/h%s\n",
+					maxTypeLen, pair.Name, pair.Count, percentage, muted, rate, reset)
 			}
 		}
 	}
@@ -332,7 +338,7 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 		// Determine if --connections was explicitly used (not just included in "all")
 		isDetailedMode := !has("all")
 
-		// Histogramme des sessions simultanées (always shown, more buckets in detailed mode)
+		// Concurrent sessions histogram (always shown, more buckets in detailed mode)
 		if len(m.Connections.SessionEvents) > 0 && !m.Global.MinTimestamp.IsZero() && !m.Global.MaxTimestamp.IsZero() {
 			numBuckets := 6
 			if isDetailedMode {
@@ -816,12 +822,12 @@ func printTopTables(tableCounts map[string]int, total int, spaceRecovered map[st
 
 // PrintSQLSummary displays an SQL performance report in the CLI.
 // The report uses ANSI bold formatting for better readability. The query text is truncated based on terminal width.
-func PrintSQLSummary(m analysis.SqlMetrics, indicatorsOnly bool) {
+func PrintSQLSummary(m analysis.SQLMetrics, indicatorsOnly bool) {
 	PrintSQLSummaryWithContext(m, analysis.TempFileMetrics{}, analysis.LockMetrics{}, indicatorsOnly)
 }
 
 // PrintSQLSummaryWithContext displays SQL performance with optional tempfiles and locks context.
-func PrintSQLSummaryWithContext(m analysis.SqlMetrics, tempFiles analysis.TempFileMetrics, locks analysis.LockMetrics, indicatorsOnly bool) {
+func PrintSQLSummaryWithContext(m analysis.SQLMetrics, tempFiles analysis.TempFileMetrics, locks analysis.LockMetrics, indicatorsOnly bool) {
 	// Get terminal width, defaulting to 80.
 	width := 80
 	if w, _, err := term.GetSize(int(os.Stdout.Fd())); err == nil {
@@ -872,7 +878,7 @@ func PrintSQLSummaryWithContext(m analysis.SqlMetrics, tempFiles analysis.TempFi
 
 	if !indicatorsOnly {
 
-		// Définition de l'ordre des labels pour l'histogramme des durées de requêtes.
+		// Define label order for the query duration histogram.
 		queryDurationOrder := []string{
 			"< 1 ms",
 			"< 10 ms",
@@ -1118,10 +1124,10 @@ func PrintMostFrequentQueries(queryStats map[string]*analysis.QueryStat) bool {
 	})
 }
 
-// PrintSqlDetails iterates over the QueryStats and displays details for each query
+// PrintSQLDetails iterates over the QueryStats and displays details for each query
 // whose SQLID matches one of the provided queryDetails.
 // It consolidates metrics from SQL performance, tempfiles, and locks into a unified view.
-func PrintSqlDetails(m analysis.AggregatedMetrics, queryDetails []string) {
+func PrintSQLDetails(m analysis.AggregatedMetrics, queryDetails []string) {
 	bold := "\033[1m"
 	reset := "\033[0m"
 
@@ -1324,34 +1330,6 @@ func truncateQuery(query string, length int) string {
 	return query
 }
 
-// NewTextFormatter returns a new instance of TextFormatter.
-func NewTextFormatter() *TextFormatter {
-	return &TextFormatter{}
-}
-
-// Format returns a formatted string with the report data.
-func (tf *TextFormatter) Format(report AnalysisReport) string {
-	return fmt.Sprintf(`Log Analysis Report:
-Start date: %s
-End date:   %s
-Total duration: %s
-
-Number of VACUUM events: %d
-Number of checkpoints: %d
-Temp files: %d
-Temp file size: %s
-Number of SQL queries: %d`,
-		report.StartDate.Format("2006-01-02 15:04:05"),
-		report.EndDate.Format("2006-01-02 15:04:05"),
-		report.Duration,
-		report.VacuumCount,
-		report.CheckpointsCount,
-		report.TempFiles,
-		formatBytes(report.TempFileSize),
-		report.SQLCount,
-	)
-}
-
 // PrintEventsReport prints a consolidated event report including summary and top events.
 func PrintEventsReport(summaries []analysis.EventSummary, topEvents []analysis.EventStat, onlyErrors bool) {
 	// ANSI styles.
@@ -1512,36 +1490,35 @@ func PrintEventsReport(summaries []analysis.EventSummary, topEvents []analysis.E
 	fmt.Println()
 }
 
-// PrintHistogram affiche l'histogramme en triant les plages horaires par ordre chronologique.
-// La largeur du terminal est récupérée automatiquement pour adapter la largeur de la barre.
+// PrintHistogram displays a histogram with time ranges sorted chronologically.
+// Terminal width is detected automatically to adapt bar width.
 func PrintHistogram(data map[string]int, title string, unit string, scaleFactor int, orderedLabels []string) {
 	if len(data) == 0 {
 		fmt.Printf("\n  (No data available)\n")
 		return
 	}
 
-	// Récupération de la largeur du terminal.
+	// Get terminal width.
 	termWidth, _, err := term.GetSize(int(os.Stdout.Fd()))
 	if err != nil || termWidth <= 0 {
-		termWidth = 80 // valeur par défaut
+		termWidth = 80 // default
 	}
 
-	// Définition des largeurs réservées : 20 pour l'étiquette et 5 pour la valeur.
+	// Reserved widths: 20 for label, 5 for value.
 	labelWidth := 20
 	valueWidth := 5
-	spacing := 4 // Espaces entre le label et la valeur.
+	spacing := 4
 	barWidth := termWidth - labelWidth - spacing - valueWidth
 	if barWidth < 10 {
 		barWidth = 10
 	}
 
-	// Gestion des labels (ordre fixe ou tri automatique basé sur l'heure).
+	// Label ordering: use explicit order if provided, otherwise sort by time.
 	labels := make([]string, 0, len(data))
 	if len(orderedLabels) > 0 {
-		// Utilisation de l'ordre défini explicitement.
 		labels = orderedLabels
 	} else {
-		// Tri automatique basé sur l'heure "HH:MM - HH:MM".
+		// Auto-sort by time "HH:MM - HH:MM".
 		for label := range data {
 			labels = append(labels, label)
 		}
@@ -1554,7 +1531,7 @@ func PrintHistogram(data map[string]int, title string, unit string, scaleFactor 
 		})
 	}
 
-	// Détermination de la valeur maximale pour normaliser l'affichage.
+	// Find the maximum value for display normalization.
 	maxValue := 0
 	for _, value := range data {
 		if value > maxValue {
@@ -1562,7 +1539,7 @@ func PrintHistogram(data map[string]int, title string, unit string, scaleFactor 
 		}
 	}
 
-	// Calcul dynamique du scale factor si non fourni.
+	// Compute scale factor dynamically if not provided.
 	if scaleFactor <= 0 {
 		scaleFactor = int(math.Ceil(float64(maxValue) / float64(barWidth)))
 		if scaleFactor < 1 {
@@ -1570,10 +1547,10 @@ func PrintHistogram(data map[string]int, title string, unit string, scaleFactor 
 		}
 	}
 
-	// Affichage de l'en-tête.
+	// Print header.
 	fmt.Printf("  %s | ■ = %d %s\n\n", title, scaleFactor, unit)
 
-	// Affichage des lignes de l'histogramme.
+	// Print histogram rows.
 	for _, label := range labels {
 		value := data[label]
 		barLength := value / scaleFactor
@@ -1582,17 +1559,111 @@ func PrintHistogram(data map[string]int, title string, unit string, scaleFactor 
 		}
 		bar := strings.Repeat("■", barLength)
 
-		// Déterminer si on affiche la valeur ou un `-`
+		// Show value or `-` for zero.
 		valueStr := fmt.Sprintf("%d %s", value, unit)
 		if value == 0 {
 			valueStr = " -"
 		}
 
-		// Ajustement du formatage : toujours garder l'alignement des valeurs
+		// Keep value alignment consistent.
 		if barLength > 0 {
 			fmt.Printf("  %-13s  %-s %s\n", label, bar, valueStr)
 		} else {
 			fmt.Printf("  %-13s  %s\n", label, valueStr)
+		}
+	}
+	fmt.Println()
+}
+
+// PrintCheckpointHistogram displays a checkpoint histogram with frequency per bucket.
+// bucketHours is the duration of each bucket in hours (e.g., 4 for 4-hour buckets).
+func PrintCheckpointHistogram(data map[string]int, title string, scaleFactor int, bucketHours float64) {
+	if len(data) == 0 {
+		fmt.Printf("\n  (No data available)\n")
+		return
+	}
+
+	// Terminal width
+	termWidth, _, err := term.GetSize(int(os.Stdout.Fd()))
+	if err != nil || termWidth <= 0 {
+		termWidth = 80
+	}
+
+	// Layout widths
+	labelWidth := 20
+	valueWidth := 5
+	freqWidth := 10 // space for "(X.XX/h)" or "(X.XX/m)"
+	spacing := 4
+	barWidth := termWidth - labelWidth - spacing - valueWidth - freqWidth
+	if barWidth < 10 {
+		barWidth = 10
+	}
+
+	// Sort labels by time
+	labels := make([]string, 0, len(data))
+	for label := range data {
+		labels = append(labels, label)
+	}
+	sort.Slice(labels, func(i, j int) bool {
+		partsI := strings.Split(labels[i], " - ")
+		partsJ := strings.Split(labels[j], " - ")
+		t1, _ := time.Parse("15:04", partsI[0])
+		t2, _ := time.Parse("15:04", partsJ[0])
+		return t1.Before(t2)
+	})
+
+	// Find max value
+	maxValue := 0
+	for _, value := range data {
+		if value > maxValue {
+			maxValue = value
+		}
+	}
+
+	// Calculate scale factor if not provided
+	if scaleFactor <= 0 {
+		scaleFactor = int(math.Ceil(float64(maxValue) / float64(barWidth)))
+		if scaleFactor < 1 {
+			scaleFactor = 1
+		}
+	}
+
+	// Header
+	fmt.Printf("  %s | ■ = %d \n\n", title, scaleFactor)
+
+	// Print each row
+	for _, label := range labels {
+		value := data[label]
+		barLength := value / scaleFactor
+		if barLength > barWidth {
+			barLength = barWidth
+		}
+		bar := strings.Repeat("■", barLength)
+
+		// Calculate frequency (italic + medium gray)
+		muted := "\033[3;38;5;243m" // italic + gray (256-color: 245)
+		reset := "\033[0m"
+		var freqStr string
+		if value == 0 {
+			freqStr = ""
+		} else {
+			freq := float64(value) / bucketHours
+			if freq >= 1.0 {
+				freqStr = fmt.Sprintf("%s%.1f/h%s", muted, freq, reset)
+			} else {
+				// Convert to per minute
+				freqPerMin := freq * 60
+				freqStr = fmt.Sprintf("%s%.1f/m%s", muted, freqPerMin, reset)
+			}
+		}
+
+		// Format output
+		if value == 0 {
+			fmt.Printf("  %-13s   -\n", label)
+		} else if barLength > 0 {
+			fmt.Printf("  %-13s  %-s %d  %s\n", label, bar, value, freqStr)
+		} else {
+			fmt.Printf("  %-13s  %d  %s\n", label, value, freqStr)
 		}
 	}
 	fmt.Println()
@@ -1610,13 +1681,13 @@ func PrintConcurrentHistogramWithTZ(data map[string]int, title string, scaleFact
 		return
 	}
 
-	// Récupération de la largeur du terminal.
+	// Get terminal width.
 	termWidth, _, err := term.GetSize(int(os.Stdout.Fd()))
 	if err != nil || termWidth <= 0 {
-		termWidth = 80 // valeur par défaut
+		termWidth = 80 // default
 	}
 
-	// Définition des largeurs
+	// Column widths.
 	labelWidth := 15
 	peakTimeWidth := 8 // " (HH:MM)"
 	valueWidth := 5
@@ -1626,7 +1697,7 @@ func PrintConcurrentHistogramWithTZ(data map[string]int, title string, scaleFact
 		barWidth = 10
 	}
 
-	// Gestion des labels
+	// Label ordering.
 	labels := make([]string, 0, len(data))
 	if len(orderedLabels) > 0 {
 		labels = orderedLabels
@@ -1643,7 +1714,7 @@ func PrintConcurrentHistogramWithTZ(data map[string]int, title string, scaleFact
 		})
 	}
 
-	// Détermination de la valeur maximale
+	// Find the maximum value.
 	maxValue := 0
 	for _, value := range data {
 		if value > maxValue {
@@ -1651,7 +1722,7 @@ func PrintConcurrentHistogramWithTZ(data map[string]int, title string, scaleFact
 		}
 	}
 
-	// Calcul dynamique du scale factor si non fourni
+	// Compute scale factor dynamically if not provided.
 	if scaleFactor <= 0 {
 		scaleFactor = int(math.Ceil(float64(maxValue) / float64(barWidth)))
 		if scaleFactor < 1 {
@@ -1659,10 +1730,10 @@ func PrintConcurrentHistogramWithTZ(data map[string]int, title string, scaleFact
 		}
 	}
 
-	// Affichage de l'en-tête
+	// Print header.
 	fmt.Printf("  %s | ■ = %d \n\n", title, scaleFactor)
 
-	// Affichage des lignes de l'histogramme
+	// Print histogram rows.
 	for _, label := range labels {
 		value := data[label]
 		barLength := value / scaleFactor
@@ -1693,17 +1764,6 @@ func PrintConcurrentHistogramWithTZ(data map[string]int, title string, scaleFact
 	}
 	fmt.Println()
 }
-
-// computeQueryLoadHistogram répartit les durées des requêtes SQL en 6 intervalles égaux,
-// et retourne l'histogramme, l'unité (ms, s ou min) et le scale factor.
-// La durée de chaque tranche est convertie pour être au moins d'une unité d'échelle.
-
-// computeQueryDurationHistogram renvoie un histogramme sous forme de map associant des étiquettes de buckets à leur nombre de requêtes.
-// computeQueryDurationHistogram calcule un histogramme basé sur la durée des requêtes (exprimée en millisecondes)
-// et retourne :
-// - une map associant une étiquette de bucket au nombre de requêtes
-// - une chaîne "req" indiquant que les valeurs sont en nombre de requêtes,
-// - un scaleFactor permettant d’afficher des barres proportionnelles sur une largeur maximale de 40 caractères.
 
 // printLockStats prints lock type or resource type statistics.
 func printLockStats(stats map[string]int, total int) {
@@ -1979,7 +2039,7 @@ func printMostFrequentWaitingQueries(queryStats map[string]*analysis.LockQuerySt
 // PrintSQLOverview displays SQL query type overview with dimensional breakdowns.
 // This shows statistics grouped by query type (SELECT, INSERT, UPDATE, DELETE, etc.)
 // with counts, times, and percentages, broken down by database, user, host, and application.
-func PrintSQLOverview(m analysis.SqlMetrics) {
+func PrintSQLOverview(m analysis.SQLMetrics) {
 	bold := "\033[1m"
 	reset := "\033[0m"
 
