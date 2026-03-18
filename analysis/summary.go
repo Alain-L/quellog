@@ -508,7 +508,8 @@ func (a *UniqueEntityAnalyzer) Process(entry *parser.LogEntry) {
 		if lastChar == 'e' {
 			if eqIdx >= 16 && msg[eqIdx-16:eqIdx] == "application_name" {
 				if currentApp == "" {
-					if appName := extractValueAt(msg, eqIdx+1); appName != "" {
+					commaSep := eqIdx >= 17 && msg[eqIdx-17] == ','
+					if appName := extractValueAt(msg, eqIdx+1, commaSep); appName != "" {
 						currentApp = appName
 					}
 				}
@@ -541,7 +542,8 @@ func (a *UniqueEntityAnalyzer) Process(entry *parser.LogEntry) {
 			}
 		} else if lastChar == 'p' && eqIdx >= 3 && msg[eqIdx-3:eqIdx] == "app" {
 			if currentApp == "" {
-				if appName := extractValueAt(msg, eqIdx+1); appName != "" {
+				commaSep := eqIdx >= 4 && msg[eqIdx-4] == ','
+				if appName := extractValueAt(msg, eqIdx+1, commaSep); appName != "" {
 					currentApp = appName
 				}
 			}
@@ -609,7 +611,6 @@ func (a *UniqueEntityAnalyzer) Finalize() UniqueEntityMetrics {
 var isSeparator [256]bool
 
 func init() {
-	// Mark separator characters
 	isSeparator[' '] = true
 	isSeparator[','] = true
 	isSeparator['['] = true
@@ -618,23 +619,26 @@ func init() {
 }
 
 // extractValueAt extracts a value starting at a given position in the message.
-// It stops at the first separator: space, comma, bracket, or parenthesis.
-// Returns empty string if no valid value found.
-// This is optimized to avoid allocating a slice of separators.
-func extractValueAt(msg string, startPos int) string {
+// When commaSep is true, space is not treated as a separator, and severity
+// markers (" LOG:", " ERROR:", etc.) act as terminators instead.
+func extractValueAt(msg string, startPos int, commaSep ...bool) string {
 	if startPos >= len(msg) {
 		return ""
 	}
+	skipSpace := len(commaSep) > 0 && commaSep[0]
 
-	// Find end position (first separator)
 	endPos := startPos
 	for endPos < len(msg) {
 		c := msg[endPos]
-		// Fast lookup table check (single array access vs 4 comparisons)
-		if isSeparator[c] {
+		if isSeparator[c] && !(c == ' ' && skipSpace) {
 			break
 		}
 		endPos++
+	}
+	if skipSpace {
+		if pos := findSeverityMarker(msg[startPos:endPos]); pos != -1 {
+			endPos = startPos + pos
+		}
 	}
 
 	if endPos == startPos {
@@ -671,6 +675,17 @@ func extractValueAt(msg string, startPos int) string {
 }
 
 // normalizeHost removes the port from a host address.
+// findSeverityMarker returns the position of the first PostgreSQL severity
+// marker (" LOG:", " ERROR:", etc.) in s, or -1 if not found.
+func findSeverityMarker(s string) int {
+	for _, sev := range []string{" LOG:", " ERROR:", " WARNING:", " FATAL:", " PANIC:"} {
+		if pos := strings.Index(s, sev); pos != -1 {
+			return pos
+		}
+	}
+	return -1
+}
+
 // Handles formats like "192.168.1.1(12345)" or "192.168.1.1:5432" or "[::1](12345)".
 // Returns just the IP/hostname part.
 func normalizeHost(host string) string {
