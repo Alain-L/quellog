@@ -2126,6 +2126,13 @@ function buildEventsSection(data) {
         // Initialize theme (from theme.js module)
         initTheme();
 
+        // Update footer version from WASM (or report mode)
+        const versionEl = document.getElementById('quellog-version');
+        if (versionEl && typeof window.quellogVersion === 'function') {
+            const v = window.quellogVersion();
+            if (v) versionEl.textContent = 'quellog ' + v;
+        }
+
         // Expose functions for inline onclick handlers and report mode
         window.renderResults = renderResults;
         window.setAnalysisData = setAnalysisData;

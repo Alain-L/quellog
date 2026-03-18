@@ -51,6 +51,9 @@ export function loadWasm() {
         .then(() => {
             setWasmReady(true);
             console.log('quellog WASM ready:', quellogVersion());
+            // Update footer version now that WASM is loaded
+            const versionEl = document.getElementById('quellog-version');
+            if (versionEl) versionEl.textContent = 'quellog ' + quellogVersion();
         })
         .catch(err => {
             console.error('WASM load failed:', err);
