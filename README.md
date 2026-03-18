@@ -160,7 +160,7 @@ Here are the main features:
 - **Automatic log_line_prefix detection:** Heuristically detects custom
   `log_line_prefix` configurations for accurate metadata extraction
 - **Transparent compression and archive support:** Read gzip (`.gz`), zstd (`.zst`, `.zstd`),
-  ZIP (`.zip`), and tar archives (`.tar`, `.tar.gz`, `.tar.zst`, `.tzst`) without manual decompression
+  ZIP (`.zip`), 7z (`.7z`), and tar archives (`.tar`, `.tar.gz`, `.tar.zst`, `.tzst`) without manual decompression
 - **Time-based filtering:** Analyze logs within specific date ranges or time
   windows
 - **Attribute filtering:** Focus on specific databases, users, applications, or
