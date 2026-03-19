@@ -311,6 +311,10 @@ func extractEntityFromMessage(msg, entityType string) string {
 		return ""
 	}
 
+	// Detect comma-separated format (e.g., "user=X,db=Y,app=Z")
+	commaSep := entityType == "application" &&
+		(strings.Contains(msg, ",db=") || strings.Contains(msg, ",user=") || strings.Contains(msg, ",app="))
+
 	for _, pattern := range patterns {
 		idx := strings.Index(msg, pattern)
 		if idx == -1 {
@@ -323,14 +327,22 @@ func extractEntityFromMessage(msg, entityType string) string {
 			continue
 		}
 
-		// Find end position (first separator: space, comma, bracket, or parenthesis)
+		// Find end position (first separator)
 		endPos := startPos
 		for endPos < len(msg) {
 			c := msg[endPos]
-			if c == ' ' || c == ',' || c == '[' || c == ')' {
+			if c == ',' || c == '[' || c == ')' {
+				break
+			}
+			if c == ' ' && !commaSep {
 				break
 			}
 			endPos++
+		}
+		if commaSep {
+			if pos := findSeverityMarker(msg[startPos:endPos]); pos != -1 {
+				endPos = startPos + pos
+			}
 		}
 
 		if endPos > startPos {
