@@ -606,6 +606,9 @@ func extractPrefixFields(message string) (database, user, host, app string) {
 	prefix := message[:end]
 	n := len(prefix)
 
+	// Detect comma-separated format (e.g., "user=X,db=Y,app=Z")
+	commaSep := strings.Contains(prefix, ",db=") || strings.Contains(prefix, ",user=") || strings.Contains(prefix, ",app=")
+
 	// Fast scan using '=' as anchor point
 	for i := 0; i < n-1; i++ {
 		if prefix[i] != '=' {
@@ -613,15 +616,15 @@ func extractPrefixFields(message string) (database, user, host, app string) {
 		}
 		// Found '=', check what key it is
 		if i >= 2 && prefix[i-2:i] == "db" && (i == 2 || !isAlnum(prefix[i-3])) {
-			database = extractPrefixValueAt(prefix, i+1)
+			database = extractPrefixValueAt(prefix, i+1, false)
 		} else if i >= 4 && prefix[i-4:i] == "user" && (i == 4 || !isAlnum(prefix[i-5])) {
-			user = extractPrefixValueAt(prefix, i+1)
+			user = extractPrefixValueAt(prefix, i+1, false)
 		} else if i >= 4 && prefix[i-4:i] == "host" && (i == 4 || !isAlnum(prefix[i-5])) {
-			host = extractPrefixValueAt(prefix, i+1)
+			host = extractPrefixValueAt(prefix, i+1, false)
 		} else if i >= 6 && prefix[i-6:i] == "client" && (i == 6 || !isAlnum(prefix[i-7])) {
-			host = extractPrefixValueAt(prefix, i+1) // client= is alias for host
+			host = extractPrefixValueAt(prefix, i+1, false) // client= is alias for host
 		} else if i >= 3 && prefix[i-3:i] == "app" && (i == 3 || !isAlnum(prefix[i-4])) {
-			app = extractPrefixValueAt(prefix, i+1)
+			app = extractPrefixValueAt(prefix, i+1, commaSep)
 		}
 	}
 	return
@@ -632,15 +635,30 @@ func isAlnum(c byte) bool {
 	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_'
 }
 
-// extractPrefixValueAt extracts a value starting at position i until comma, space, or bracket
-func extractPrefixValueAt(s string, start int) string {
+// extractPrefixValueAt extracts a value starting at position i until a separator.
+// When skipSpace is true (comma-separated format), spaces are allowed in values
+// and severity markers (" LOG:", " ERROR:", etc.) act as terminators instead.
+func extractPrefixValueAt(s string, start int, skipSpace bool) string {
 	end := start
 	n := len(s)
-	for end < n && s[end] != ',' && s[end] != ' ' && s[end] != ']' && s[end] != '[' {
+	for end < n {
+		c := s[end]
+		if c == ',' || c == ']' || c == '[' {
+			break
+		}
+		if c == ' ' && !skipSpace {
+			break
+		}
 		end++
+	}
+	if skipSpace {
+		if pos := findSeverityMarker(s[start:end]); pos != -1 {
+			end = start + pos
+		}
 	}
 	return s[start:end]
 }
+
 
 // Finalize returns the aggregated SQL metrics.
 // This should be called after all log entries have been processed.
