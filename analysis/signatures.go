@@ -135,6 +135,10 @@ func isDigit(c byte) bool {
 	return c >= '0' && c <= '9'
 }
 
+func isLetter(c byte) bool {
+	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
+}
+
 // normalizeWhitespace collapses all whitespace into single spaces.
 // Optimized to return the original string if no normalization is needed.
 func normalizeWhitespace(s string) string {
@@ -603,35 +607,31 @@ func NormalizeEvent(msg string) string {
 
 
 		// Handle single-quoted values ('2025-01-01')
-
 		if c == '\'' {
-
-			buf.WriteByte('?')
-
-			for i+1 < len(msg) {
-
-				i++
-
-				if msg[i] == '\'' {
-
-					if i+1 < len(msg) && msg[i+1] == '\'' {
-
-						i++
-
-					} else {
-
-						break
-
-					}
-
-				}
-
+			// Heuristic: letter'letter = linguistic apostrophe (French/English),
+			// not a SQL string delimiter. E.g. "d'exécution", "n'existe", "don't"
+			prevIsLetter := i > 0 && isLetter(msg[i-1])
+			nextIsLetter := i+1 < len(msg) && isLetter(msg[i+1])
+			if prevIsLetter && nextIsLetter {
+				buf.WriteByte(c)
+				lastWasSpace = false
+				continue
 			}
 
+			// SQL string literal: consume until closing quote
+			buf.WriteByte('?')
+			for i+1 < len(msg) {
+				i++
+				if msg[i] == '\'' {
+					if i+1 < len(msg) && msg[i+1] == '\'' {
+						i++
+					} else {
+						break
+					}
+				}
+			}
 			lastWasSpace = false
-
 			continue
-
 		}
 
 
