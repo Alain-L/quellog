@@ -10,6 +10,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -75,7 +76,19 @@ func (p *TarParser) Parse(filename string, out chan<- LogEntry) error {
 		entryName := hdr.Name
 		entryReader := io.LimitReader(tr, hdr.Size)
 
-		if !isSupportedArchiveEntry(entryName) {
+		// Path traversal protection
+		if strings.Contains(entryName, "..") {
+			log.Printf("[WARN] Skipping tar entry with suspicious path: %s", entryName)
+			if _, err := io.Copy(io.Discard, entryReader); err != nil {
+				return fmt.Errorf("discarding suspicious entry %s in %s: %w", entryName, filename, err)
+			}
+			continue
+		}
+
+		// Use only the base filename for extension matching
+		baseName := filepath.Base(entryName)
+
+		if !isSupportedArchiveEntry(baseName) {
 			// Drain entry to reach next header.
 			if _, err := io.Copy(io.Discard, entryReader); err != nil {
 				return fmt.Errorf("discarding unsupported entry %s in %s: %w", entryName, filename, err)
@@ -84,7 +97,7 @@ func (p *TarParser) Parse(filename string, out chan<- LogEntry) error {
 			continue
 		}
 
-		if err := parseArchiveEntry(entryName, entryReader, out); err != nil {
+		if err := parseArchiveEntry(baseName, entryReader, out); err != nil {
 			if errors.Is(err, errUnsupportedArchiveEntry) {
 				log.Printf("[WARN] Unsupported log format %s in archive %s", entryName, filename)
 			} else {
