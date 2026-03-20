@@ -131,10 +131,12 @@ func (p *StderrParser) parseReader(r io.Reader, out chan<- LogEntry) error {
 				currentEntry := entryBuilder.String()
 				normalizedEntry := p.normalizeEntryBeforeParsing(currentEntry)
 				timestamp, message := parseStderrLine(normalizedEntry)
-				out <- LogEntry{
-					Timestamp:      timestamp,
-					Message:        message,
-					IsContinuation: isContinuationMessage(message),
+				if !timestamp.IsZero() {
+					out <- LogEntry{
+						Timestamp:      timestamp,
+						Message:        message,
+						IsContinuation: isContinuationMessage(message),
+					}
 				}
 				entryBuilder.Reset()
 			}
@@ -146,10 +148,12 @@ func (p *StderrParser) parseReader(r io.Reader, out chan<- LogEntry) error {
 		currentEntry := entryBuilder.String()
 		normalizedEntry := p.normalizeEntryBeforeParsing(currentEntry)
 		timestamp, message := parseStderrLine(normalizedEntry)
-		out <- LogEntry{
-			Timestamp:      timestamp,
-			Message:        message,
-			IsContinuation: isContinuationMessage(message),
+		if !timestamp.IsZero() {
+			out <- LogEntry{
+				Timestamp:      timestamp,
+				Message:        message,
+				IsContinuation: isContinuationMessage(message),
+			}
 		}
 	}
 
@@ -225,10 +229,12 @@ func (p *StderrParser) parseFromBytes(data []byte, out chan<- LogEntry) error {
 		} else {
 			if len(currentEntry) > 0 {
 				timestamp, message := p.parseEntryFromBytes(currentEntry)
-				out <- LogEntry{
-					Timestamp:      timestamp,
-					Message:        message,
-					IsContinuation: isContinuationMessage(message),
+				if !timestamp.IsZero() {
+					out <- LogEntry{
+						Timestamp:      timestamp,
+						Message:        message,
+						IsContinuation: isContinuationMessage(message),
+					}
 				}
 				currentEntry = currentEntry[:0]
 			}
@@ -238,10 +244,12 @@ func (p *StderrParser) parseFromBytes(data []byte, out chan<- LogEntry) error {
 
 	if len(currentEntry) > 0 {
 		timestamp, message := p.parseEntryFromBytes(currentEntry)
-		out <- LogEntry{
-			Timestamp:      timestamp,
-			Message:        message,
-			IsContinuation: isContinuationMessage(message),
+		if !timestamp.IsZero() {
+			out <- LogEntry{
+				Timestamp:      timestamp,
+				Message:        message,
+				IsContinuation: isContinuationMessage(message),
+			}
 		}
 	}
 

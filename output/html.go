@@ -40,6 +40,7 @@ type HTMLReportInfo struct {
 	FileSize    int64
 	ProcessTime float64 // in milliseconds
 	Format      string  // detected log format (csv, json, stderr)
+	Version     string  // quellog version for display in the report
 }
 
 // minifyCSS performs basic CSS minification.
@@ -110,6 +111,7 @@ type templateValues struct {
 	FzstdB64       string
 	AppJS          template.JS
 	CompressedData string
+	Version        string
 }
 
 // ExportHTML exports metrics as a standalone HTML report with embedded data.
@@ -164,6 +166,7 @@ func ExportHTML(w io.Writer, metrics analysis.AggregatedMetrics, info HTMLReport
 		FzstdB64:       td.FzstdB64,
 		AppJS:          td.AppJS,
 		CompressedData: compressed,
+		Version:        info.Version,
 	}
 
 	if err := getTemplate().Execute(w, values); err != nil {

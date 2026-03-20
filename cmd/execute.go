@@ -359,6 +359,7 @@ func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, 
 			FileSize:    totalFileSize,
 			ProcessTime: float64(processingDuration.Milliseconds()),
 			Format:      detectedFormat,
+			Version:     version,
 		}
 
 		if err := output.ExportHTML(f, metrics, reportInfo, sections); err != nil {

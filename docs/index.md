@@ -47,6 +47,7 @@ Process logs directly without manual decompression:
 - **gzip** (`.gz`) - Parallel decompression for faster processing
 - **zstd** (`.zst`, `.zstd`) - High-compression ratio support
 - **ZIP archives** (`.zip`) - Transparent extraction with nested compression support
+- **7z archives** (`.7z`) - LZMA/LZMA2 high-ratio compression (CLI only)
 - **tar archives** (`.tar`, `.tar.gz`, `.tar.zst`, `.tgz`, `.tzst`) - Recursive archive processing
 
 ### Comprehensive Analysis

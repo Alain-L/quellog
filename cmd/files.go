@@ -109,6 +109,7 @@ func isSupportedLogFile(name string) bool {
 		".tar.zstd",
 		".tzst",
 		".zip",
+		".7z",
 	}
 
 	for _, ext := range supported {

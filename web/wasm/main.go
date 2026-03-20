@@ -15,7 +15,7 @@ import (
 	"github.com/Alain-L/quellog/parser"
 )
 
-const version = "0.3.0-wasm"
+var version = "dev"
 
 // JSFilters is the JSON structure for filters from JavaScript
 type JSFilters struct {
