@@ -117,5 +117,28 @@ func isSupportedLogFile(name string) bool {
 			return true
 		}
 	}
+
+	// Support rotated PostgreSQL log files (e.g. postgresql.log.2026-03-23-10)
+	if isRotatedLogFile(lower) {
+		return true
+	}
+
+	return false
+}
+
+// isRotatedLogFile detects PostgreSQL rotated log files where a date/number
+// suffix follows the base extension (e.g. "postgresql.log.2026-03-23-10").
+func isRotatedLogFile(lower string) bool {
+	for _, base := range []string{".log.", ".csv."} {
+		idx := strings.LastIndex(lower, base)
+		if idx == -1 {
+			continue
+		}
+		// Verify the suffix after ".log." starts with a digit (date rotation)
+		after := lower[idx+len(base):]
+		if len(after) > 0 && after[0] >= '0' && after[0] <= '9' {
+			return true
+		}
+	}
 	return false
 }
