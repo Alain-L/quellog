@@ -700,7 +700,7 @@ function buildEventsSection(data) {
             const types = cp.types || {};
             const timed = types.time?.count || 0;
             const wal = types.wal?.count || 0;
-            const req = (types.shutdown?.count || 0) + (types['immediate force wait']?.count || 0);
+            const req = (types['shutdown immediate']?.count || 0) + (types['immediate force wait']?.count || 0);
             const hasEvents = cp.events?.length > 0;
 
             // Store checkpoint data by type for multi-series chart
@@ -712,7 +712,7 @@ function buildEventsSection(data) {
                         time: types.time?.events || [],
                         wal: types.wal?.events || [],
                         other: [
-                            ...(types.shutdown?.events || []),
+                            ...(types['shutdown immediate']?.events || []),
                             ...(types['immediate force wait']?.events || [])
                         ]
                     }

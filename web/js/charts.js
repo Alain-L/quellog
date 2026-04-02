@@ -370,7 +370,7 @@ export function createCheckpointChart(containerId, data, options = {}) {
         legend: { show: false },
         scales: {
             x: { time: true },
-            y: { range: [0, null] }
+            y: { range: (u, min, max) => [0, Math.max(Math.ceil(max), 2)] }
         },
         axes: [
             {
@@ -389,7 +389,9 @@ export function createCheckpointChart(containerId, data, options = {}) {
                 grid: { show: false },
                 ticks: { show: false },
                 size: 30,
-                font: '10px system-ui'
+                font: '10px system-ui',
+                incrs: [1, 2, 5, 10, 20, 50, 100],
+                values: (u, vals) => vals.map(v => Number.isInteger(v) ? v : '')
             }
         ],
         series: [
@@ -486,6 +488,8 @@ export function createCheckpointChart(containerId, data, options = {}) {
     chart._typeData = typeData;
     chart._interval = interval;
     chart._originalXRange = [minT, maxT];
+    chart._lastRange = null;
+    chart.setScale('x', { min: minT, max: maxT });
 
     // Handle resize
     const resizeObserver = new ResizeObserver(() => {
@@ -657,6 +661,8 @@ export function createTimeChart(containerId, timestamps, options = {}) {
     chart._times = times;
     chart._interval = interval;
     chart._originalXRange = [minT, maxT];
+    chart._lastRange = null;
+    chart.setScale('x', { min: minT, max: maxT });
     chart._median = median;
 
     // Handle resize
@@ -852,6 +858,8 @@ export function createDurationChart(containerId, executions, options = {}) {
     chart._executions = sorted;
     chart._interval = interval;
     chart._originalXRange = [minT, maxT];
+    chart._lastRange = null;
+    chart.setScale('x', { min: minT, max: maxT });
     chart._median = median;
 
     const resizeObserver = new ResizeObserver(() => {
@@ -1093,6 +1101,8 @@ export function createCombinedSQLChart(containerId, rawData, options = {}) {
     chart._rawData = rawData;
     chart._interval = interval;
     chart._originalXRange = [minT, maxT];
+    chart._lastRange = null;
+    chart.setScale('x', { min: minT, max: maxT });
     chart._medianCount = medianCount;
     chart._seriesVisible = seriesVisible;
     chart._containerId = containerId;
@@ -1309,6 +1319,8 @@ export function createHistogramChart(containerId, histogram, options = {}) {
 
     // Store original range for reset
     chart._originalXRange = [xData[0], xData[xData.length - 1]];
+    chart._lastRange = null;
+    chart.setScale('x', { min: xData[0], max: xData[xData.length - 1] });
     chart._median = median;
 
     // Handle resize
@@ -1515,6 +1527,8 @@ export function createConcurrentChart(containerId, sessions, options = {}) {
     chart._events = events;
     chart._interval = interval;
     chart._originalXRange = [minT, maxT];
+    chart._lastRange = null;
+    chart.setScale('x', { min: minT, max: maxT });
     chart._median = median;
 
     const resizeObserver = new ResizeObserver(() => {
@@ -1753,6 +1767,8 @@ export function createCombinedTempFilesChart(containerId, events, options = {}) 
     chart._events = parsedEvents;
     chart._interval = interval;
     chart._originalXRange = [minT, maxT];
+    chart._lastRange = null;
+    chart.setScale('x', { min: minT, max: maxT });
     chart._medianCount = medianCount;
     chart._seriesVisible = seriesVisible;
     chart._containerId = containerId;
@@ -2083,6 +2099,8 @@ export function createTimeChartLarge(container, timestamps, options = {}) {
     chart._times = times;
     chart._interval = interval;
     chart._originalXRange = [minT, maxT];
+    chart._lastRange = null;
+    chart.setScale('x', { min: minT, max: maxT });
     chart._median = median;
     return chart;
 }
@@ -2251,6 +2269,8 @@ export function createDurationChartLarge(container, executions, options = {}) {
     chart._executions = sorted;
     chart._interval = interval;
     chart._originalXRange = [minT, maxT];
+    chart._lastRange = null;
+    chart.setScale('x', { min: minT, max: maxT });
     chart._median = median;
     return chart;
 }
@@ -2452,6 +2472,8 @@ export function createCombinedSQLChartLarge(container, rawData, options = {}) {
     chart._rawData = rawData;
     chart._interval = interval;
     chart._originalXRange = [minT, maxT];
+    chart._lastRange = null;
+    chart.setScale('x', { min: minT, max: maxT });
     chart._medianCount = medianCount;
     chart._seriesVisible = seriesVisible;
     return chart;
@@ -2682,6 +2704,8 @@ export function createCombinedTempFilesChartLarge(container, events, options = {
     chart._events = parsedEvents;
     chart._interval = interval;
     chart._originalXRange = [minT, maxT];
+    chart._lastRange = null;
+    chart.setScale('x', { min: minT, max: maxT });
     chart._medianCount = medianCount;
     chart._seriesVisible = seriesVisible;
     return chart;
@@ -2871,6 +2895,8 @@ export function createConcurrentChartLarge(container, sessions, options = {}) {
     chart._events = events;
     chart._interval = interval;
     chart._originalXRange = [minT, maxT];
+    chart._lastRange = null;
+    chart.setScale('x', { min: minT, max: maxT });
     chart._median = median;
     return chart;
 }
@@ -2979,6 +3005,8 @@ export function createHistogramChartLarge(container, histData, options = {}) {
 
     const chart = new uPlot(opts, [xData, yData], container);
     chart._originalXRange = [xMin, xMax];
+    chart._lastRange = null;
+    chart.setScale('x', { min: xMin, max: xMax });
     chart._median = median;
     return chart;
 }
@@ -3089,11 +3117,11 @@ export function createCheckpointChartLarge(container, data, options = {}) {
         legend: { show: false },
         scales: {
             x: { time: true },
-            y: { range: [0, null] }
+            y: { range: (u, min, max) => [0, Math.max(Math.ceil(max), 2)] }
         },
         axes: [
             { stroke: textColor, grid: { stroke: borderColor, width: 1 }, size: 50, font: '12px sans-serif', ticks: { stroke: borderColor } },
-            { stroke: textColor, grid: { stroke: borderColor, width: 1 }, size: 50, font: '12px sans-serif', ticks: { stroke: borderColor } }
+            { stroke: textColor, grid: { stroke: borderColor, width: 1 }, size: 50, font: '12px sans-serif', ticks: { stroke: borderColor }, incrs: [1, 2, 5, 10, 20, 50, 100], values: (u, vals) => vals.map(v => Number.isInteger(v) ? v : '') }
         ],
         series: [
             {},
@@ -3184,6 +3212,8 @@ export function createCheckpointChartLarge(container, data, options = {}) {
     chart._typeData = typeData;
     chart._interval = interval;
     chart._originalXRange = [minT, maxT];
+    chart._lastRange = null;
+    chart.setScale('x', { min: minT, max: maxT });
 
     return chart;
 }
