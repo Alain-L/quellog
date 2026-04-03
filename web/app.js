@@ -700,7 +700,7 @@ function buildEventsSection(data) {
             const types = cp.types || {};
             const timed = types.time?.count || 0;
             const wal = types.wal?.count || 0;
-            const req = (types.shutdown?.count || 0) + (types['immediate force wait']?.count || 0);
+            const req = (types['shutdown immediate']?.count || 0) + (types['immediate force wait']?.count || 0);
             const hasEvents = cp.events?.length > 0;
 
             // Store checkpoint data by type for multi-series chart
@@ -712,7 +712,7 @@ function buildEventsSection(data) {
                         time: types.time?.events || [],
                         wal: types.wal?.events || [],
                         other: [
-                            ...(types.shutdown?.events || []),
+                            ...(types['shutdown immediate']?.events || []),
                             ...(types['immediate force wait']?.events || [])
                         ]
                     }
@@ -1145,16 +1145,73 @@ function buildEventsSection(data) {
             `;
         }
 
+        const TCL_TYPES = new Set([
+            'BEGIN', 'COMMIT', 'ROLLBACK', 'SAVEPOINT', 'RELEASE',
+            'START', 'END', 'ABORT', 'PREPARE', 'DEALLOCATE'
+        ]);
+
+        function buildTCLTable(tclQueries) {
+            if (!tclQueries?.length) return '';
+
+            // Aggregate by type
+            const byType = new Map();
+            for (const q of tclQueries) {
+                const type = q.type;
+                if (!byType.has(type)) {
+                    byType.set(type, { type, count: 0, totalTime: 0, maxTime: 0 });
+                }
+                const agg = byType.get(type);
+                agg.count += q.count;
+                agg.totalTime += q.total_time_ms;
+                agg.maxTime = Math.max(agg.maxTime, q.max_time_ms);
+            }
+
+            // Sort by total time descending
+            const rows = [...byType.values()].sort((a, b) => b.totalTime - a.totalTime);
+
+            return `
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Type</th>
+                                <th class="num">Count</th>
+                                <th class="num">Total Time</th>
+                                <th class="num">Avg</th>
+                                <th class="num">Max</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${rows.map(r => `
+                                <tr>
+                                    <td>${r.type}</td>
+                                    <td class="num">${fmt(r.count)}</td>
+                                    <td class="num">${fmtMs(r.totalTime)}</td>
+                                    <td class="num">${fmtMs(r.count > 0 ? r.totalTime / r.count : 0)}</td>
+                                    <td class="num">${fmtMs(r.maxTime)}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+
         function buildSQLPerformanceSection(data) {
             const sql = data.sql_performance;
             const queries = sql.queries || [];
             const executions = sql.executions || [];
-            const maxTime = safeMax(queries.map(q => q.total_time_ms)) || 1;
 
-            // Create sorted copies for each tab
-            const byTotal = [...queries].sort((a, b) => b.total_time_ms - a.total_time_ms);
-            const bySlowest = [...queries].sort((a, b) => b.max_time_ms - a.max_time_ms);
-            const byFrequent = [...queries].sort((a, b) => b.count - a.count);
+            // Separate TCL queries from regular queries
+            const regularQueries = queries.filter(q => !TCL_TYPES.has(q.type));
+            const tclQueries = queries.filter(q => TCL_TYPES.has(q.type));
+
+            const maxTime = safeMax(regularQueries.map(q => q.total_time_ms)) || 1;
+
+            // Create sorted copies for each tab (regular queries only)
+            const byTotal = [...regularQueries].sort((a, b) => b.total_time_ms - a.total_time_ms);
+            const bySlowest = [...regularQueries].sort((a, b) => b.max_time_ms - a.max_time_ms);
+            const byFrequent = [...regularQueries].sort((a, b) => b.count - a.count);
 
             // Store executions for combined chart
             const hasExecutions = executions.length > 0;
@@ -1207,9 +1264,11 @@ function buildEventsSection(data) {
                             <ql-tab selected>By Total Time</ql-tab>
                             <ql-tab>Slowest (Max)</ql-tab>
                             <ql-tab>Most Frequent</ql-tab>
+                            ${tclQueries.length > 0 ? '<ql-tab>TCL</ql-tab>' : ''}
                             <ql-panel>${buildQueryTable(byTotal, maxTime, 'total')}</ql-panel>
                             <ql-panel>${buildQueryTable(bySlowest, maxTime, 'max')}</ql-panel>
                             <ql-panel>${buildQueryTable(byFrequent, maxTime, 'count')}</ql-panel>
+                            ${tclQueries.length > 0 ? `<ql-panel>${buildTCLTable(tclQueries)}</ql-panel>` : ''}
                         </ql-tabs>
                     </div>
                 </div>
@@ -2125,6 +2184,13 @@ function buildEventsSection(data) {
 
         // Initialize theme (from theme.js module)
         initTheme();
+
+        // Update footer version from WASM (or report mode)
+        const versionEl = document.getElementById('quellog-version');
+        if (versionEl && typeof window.quellogVersion === 'function') {
+            const v = window.quellogVersion();
+            if (v) versionEl.textContent = 'quellog ' + v;
+        }
 
         // Expose functions for inline onclick handlers and report mode
         window.renderResults = renderResults;

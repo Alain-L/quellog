@@ -67,15 +67,24 @@ type QueryTableConfig struct {
 	TableWidthPercent int
 }
 
+// isTCLQuery returns true if the query belongs to the TCL category
+// (BEGIN, COMMIT, END, ROLLBACK, SAVEPOINT, etc.).
+func isTCLQuery(row QueryRow) bool {
+	return analysis.QueryCategory(row.QueryType) == "TCL"
+}
+
 // PrintQueryTable prints a formatted table of queries.
+// TCL statements (BEGIN, COMMIT, ROLLBACK, etc.) are separated from regular
+// queries and displayed in a distinct section at the bottom.
 // Returns true if any data was printed, false otherwise.
 func PrintQueryTable(queryStats map[string]*analysis.QueryStat, config QueryTableConfig) bool {
 	if len(queryStats) == 0 {
 		return false
 	}
 
-	// Convert map to rows
+	// Convert map to rows, separating TCL from regular queries
 	var rows []QueryRow
+	var tclRows []QueryRow
 	for normalized, stats := range queryStats {
 		id, _ := analysis.GenerateQueryID(stats.RawQuery, normalized)
 		row := QueryRow{
@@ -93,20 +102,25 @@ func PrintQueryTable(queryStats map[string]*analysis.QueryStat, config QueryTabl
 			continue
 		}
 
-		rows = append(rows, row)
+		if isTCLQuery(row) {
+			tclRows = append(tclRows, row)
+		} else {
+			rows = append(rows, row)
+		}
 	}
 
-	// Sort rows
+	// Sort both groups
 	if config.SortFunc != nil {
 		config.SortFunc(rows)
+		config.SortFunc(tclRows)
 	}
 
-	// Apply limit
+	// Apply limit only to regular queries
 	if config.Limit > 0 && len(rows) > config.Limit {
 		rows = rows[:config.Limit]
 	}
 
-	if len(rows) == 0 {
+	if len(rows) == 0 && len(tclRows) == 0 {
 		return false
 	}
 
@@ -123,11 +137,15 @@ func PrintQueryTable(queryStats map[string]*analysis.QueryStat, config QueryTabl
 	reset := "\033[0m"
 
 	if wideMode {
-		// Wide mode: show full query text
 		printWideQueryTable(rows, config, termWidth, bold, reset)
+		if len(tclRows) > 0 {
+			printTCLSection(tclRows, config, termWidth)
+		}
 	} else {
-		// Compact mode: show query type only
 		printCompactQueryTable(rows, config, bold, reset)
+		if len(tclRows) > 0 {
+			printTCLSectionCompact(tclRows, config)
+		}
 	}
 
 	return true
@@ -461,5 +479,94 @@ func ColumnType() QueryTableColumn {
 		Width:     8,
 		Alignment: "left",
 		ValueFunc: func(row QueryRow) string { return row.QueryType },
+	}
+}
+
+// printTCLSection prints TCL rows in wide mode with a "TCL" separator.
+func printTCLSection(tclRows []QueryRow, config QueryTableConfig, termWidth int) {
+	italic := "\033[3m"
+	reset := "\033[0m"
+
+	tableWidth := calculateTableWidth(termWidth, config.TableWidthPercent)
+
+	// "-- TCL " + dashes to fill the line
+	muted := "\033[38;5;243m"
+	mutedBoldItalic := "\033[1;3;38;5;243m"
+	label := "TCL"
+	dashes := strings.Repeat("-", tableWidth-len(label)-4)
+	fmt.Println(muted + "-- " + mutedBoldItalic + label + muted + " " + dashes + reset)
+
+	// Calculate query column width (same logic as printWideQueryTable)
+	fixedWidth := 0
+	numFixedCols := 0
+	for _, col := range config.Columns {
+		if col.Header != "Query" {
+			width := col.Width
+			if width == 0 {
+				width = 12
+			}
+			fixedWidth += width
+			numFixedCols++
+		}
+	}
+	spacingWidth := numFixedCols * 2
+	queryWidth := tableWidth - fixedWidth - spacingWidth
+	if queryWidth < 40 {
+		queryWidth = 40
+	}
+
+	for _, row := range tclRows {
+		var rowParts []string
+		for _, col := range config.Columns {
+			value := col.ValueFunc(row)
+			if col.Header == "Query" {
+				value = truncateQuery(value, queryWidth)
+				rowParts = append(rowParts, fmt.Sprintf("%-*s", queryWidth, value))
+			} else {
+				width := col.Width
+				if width == 0 {
+					width = 12
+				}
+				if col.Alignment == "right" {
+					rowParts = append(rowParts, fmt.Sprintf("%*s", width, value))
+				} else {
+					rowParts = append(rowParts, fmt.Sprintf("%-*s", width, value))
+				}
+			}
+		}
+		fmt.Println(italic + strings.Join(rowParts, "  ") + reset)
+	}
+}
+
+// printTCLSectionCompact prints TCL rows in compact mode with a "TCL" separator.
+func printTCLSectionCompact(tclRows []QueryRow, config QueryTableConfig) {
+	italic := "\033[3m"
+	reset := "\033[0m"
+
+	muted := "\033[38;5;243m"
+	mutedBoldItalic := "\033[1;3;38;5;243m"
+	label := "TCL"
+	dashes := strings.Repeat("-", 80-len(label)-4)
+	fmt.Println(muted + "-- " + mutedBoldItalic + label + muted + " " + dashes + reset)
+
+	for _, row := range tclRows {
+		var rowParts []string
+		for _, col := range config.Columns {
+			if col.Header == "Query" {
+				rowParts = append(rowParts, fmt.Sprintf("%-10s", row.QueryType))
+			} else {
+				value := col.ValueFunc(row)
+				width := col.Width
+				if width == 0 {
+					width = 12
+				}
+				if col.Alignment == "right" {
+					rowParts = append(rowParts, fmt.Sprintf("%*s", width, value))
+				} else {
+					rowParts = append(rowParts, fmt.Sprintf("%-*s", width, value))
+				}
+			}
+		}
+		fmt.Println(italic + strings.Join(rowParts, "  ") + reset)
 	}
 }

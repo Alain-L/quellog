@@ -47,6 +47,7 @@ Process logs directly without manual decompression:
 - **gzip** (`.gz`) - Parallel decompression for faster processing
 - **zstd** (`.zst`, `.zstd`) - High-compression ratio support
 - **ZIP archives** (`.zip`) - Transparent extraction with nested compression support
+- **7z archives** (`.7z`) - LZMA/LZMA2 high-ratio compression (CLI only)
 - **tar archives** (`.tar`, `.tar.gz`, `.tar.zst`, `.tgz`, `.tzst`) - Recursive archive processing
 
 ### Comprehensive Analysis
@@ -76,7 +77,9 @@ Export results in the format that works for your workflow:
 
 - **Text** - Human-readable terminal output with ANSI colors
 - **JSON** - Structured data for automation and integration
+- **YAML** - Template-friendly format, compatible with [gomplate](https://docs.gomplate.ca/)
 - **Markdown** - Documentation-friendly format for reports
+- **HTML** - Standalone interactive report with charts
 
 ## Performance
 

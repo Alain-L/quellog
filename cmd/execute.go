@@ -212,6 +212,9 @@ func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, 
 	if jsonFlag || jsonCompactFlag {
 		formatCount++
 	}
+	if yamlFlag {
+		formatCount++
+	}
 	if mdFlag {
 		formatCount++
 	}
@@ -219,7 +222,7 @@ func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, 
 		formatCount++
 	}
 	if formatCount > 1 {
-		fmt.Fprintln(os.Stderr, "Error: --json, --json-compact, --md, and --html are mutually exclusive")
+		fmt.Fprintln(os.Stderr, "Error: --json, --json-compact, --yaml, --md, and --html are mutually exclusive")
 		os.Exit(1)
 	}
 	if jsonFlag && jsonCompactFlag {
@@ -235,6 +238,8 @@ func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, 
 
 		if jsonFlag {
 			output.ExportSQLDetailJSON(w, metrics, sqlDetailFlag)
+		} else if yamlFlag {
+			output.ExportSQLDetailYAML(w, metrics, sqlDetailFlag)
 		} else if mdFlag {
 			output.ExportSQLDetailMarkdown(w, metrics, sqlDetailFlag)
 		} else {
@@ -253,6 +258,8 @@ func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, 
 
 		if jsonFlag {
 			output.ExportSQLPerformanceJSON(w, metrics.SQL)
+		} else if yamlFlag {
+			output.ExportSQLPerformanceYAML(w, metrics.SQL)
 		} else if mdFlag {
 			output.ExportSQLSummaryMarkdown(w, metrics.SQL, metrics.TempFiles, metrics.Locks)
 		} else {
@@ -271,6 +278,8 @@ func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, 
 
 		if jsonFlag {
 			output.ExportSQLOverviewJSON(w, metrics.SQL)
+		} else if yamlFlag {
+			output.ExportSQLOverviewYAML(w, metrics.SQL)
 		} else if mdFlag {
 			output.ExportSQLOverviewMarkdown(w, metrics.SQL)
 		} else {
@@ -320,6 +329,20 @@ func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, 
 		return
 	}
 
+	if yamlFlag {
+		w := os.Stdout
+		if outputFlag != "" {
+			f, err := os.Create(outputFlag)
+			if err != nil {
+				log.Fatalf("[ERROR] Failed to create output file: %v", err)
+			}
+			defer f.Close()
+			w = f
+		}
+		output.ExportYAML(w, metrics, sections, fullFlag)
+		return
+	}
+
 	if mdFlag {
 		w := os.Stdout
 		if outputFlag != "" {
@@ -359,6 +382,7 @@ func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, 
 			FileSize:    totalFileSize,
 			ProcessTime: float64(processingDuration.Milliseconds()),
 			Format:      detectedFormat,
+			Version:     version,
 		}
 
 		if err := output.ExportHTML(f, metrics, reportInfo, sections); err != nil {

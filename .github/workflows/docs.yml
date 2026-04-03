@@ -60,8 +60,11 @@ jobs:
 
       - name: Build WASM demo
         run: |
+          VERSION=$(git describe --tags --always 2>/dev/null || echo "dev")
           go generate ./web/...
+          sed -i "s/var version = \".*\"/var version = \"$VERSION\"/" web/wasm/main.go
           tinygo build -o web/quellog_tiny.wasm -target wasm -gc=leaking -no-debug ./web/wasm/main.go
+          git checkout web/wasm/main.go
           ls -la web/quellog_tiny.wasm
 
       - name: Build standalone HTML

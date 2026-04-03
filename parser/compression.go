@@ -53,6 +53,11 @@ func detectCompressedFile(filename string) (LogParser, error, bool) {
 		return &ZipParser{}, nil, true
 	}
 
+	// Check for 7z archives
+	if strings.HasSuffix(lowerName, ".7z") {
+		return &SevenZipParser{}, nil, true
+	}
+
 	// Check for tar archives
 	if strings.HasSuffix(lowerName, ".tar.gz") ||
 		strings.HasSuffix(lowerName, ".tgz") ||
