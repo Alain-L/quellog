@@ -52,6 +52,7 @@ var (
 	// Output format flags
 	jsonFlag        bool // --json: Export results in JSON format
 	jsonCompactFlag bool // --json-compact: Export JSON without indentation (smaller output)
+	yamlFlag        bool // --yaml: Export results in YAML format
 	mdFlag          bool // --md: Export results in Markdown format
 	htmlFlag        bool // --html: Export results as standalone HTML report
 
@@ -151,6 +152,8 @@ func init() {
 		"Export results in JSON format")
 	rootCmd.PersistentFlags().BoolVar(&jsonCompactFlag, "json-compact", false,
 		"Export JSON without indentation (smaller output, lower memory)")
+	rootCmd.PersistentFlags().BoolVarP(&yamlFlag, "yaml", "Y", false,
+		"Export results in YAML format (gomplate compatible)")
 	rootCmd.PersistentFlags().BoolVarP(&mdFlag, "md", "", false,
 		"Export results in Markdown format")
 	rootCmd.PersistentFlags().BoolVarP(&htmlFlag, "html", "H", false,

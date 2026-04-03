@@ -9,6 +9,7 @@ require (
 	github.com/klauspost/pgzip v1.2.6
 	github.com/spf13/cobra v1.9.1
 	golang.org/x/term v0.29.0
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (

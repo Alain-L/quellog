@@ -185,8 +185,8 @@ Here are the main features:
   - Top queries by temporary file size with cumulative statistics
 - **Connection insights:** Session duration, client distribution, and connection
   patterns
-- **Flexible output formats:** Human-readable reports, JSON export, or Markdown
-  documentation
+- **Flexible output formats:** Human-readable reports, JSON, YAML, Markdown, or
+  standalone HTML reports
 - **High performance:** Streaming parser with concurrent processing for large
   log files
 
@@ -361,6 +361,7 @@ quellog /path/to/logs --dbname mydb1 --dbname mydb2
 ### Export Formats
 ```sh
 quellog /path/to/logs --json   # JSON export
+quellog /path/to/logs --yaml   # YAML export (gomplate compatible)
 quellog /path/to/logs --md     # Markdown export
 quellog /path/to/logs --html   # Standalone HTML report
 ```
@@ -405,6 +406,7 @@ Section Selection:
 Output:
   -J, --json              Export results in JSON format
       --json-compact      Export JSON without indentation (smaller output)
+  -Y, --yaml              Export results in YAML format (gomplate compatible)
       --md                Export results in Markdown format
   -H, --html              Export as standalone HTML report
   -F, --full              Display comprehensive report with all sections

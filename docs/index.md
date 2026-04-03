@@ -77,7 +77,9 @@ Export results in the format that works for your workflow:
 
 - **Text** - Human-readable terminal output with ANSI colors
 - **JSON** - Structured data for automation and integration
+- **YAML** - Template-friendly format, compatible with [gomplate](https://docs.gomplate.ca/)
 - **Markdown** - Documentation-friendly format for reports
+- **HTML** - Standalone interactive report with charts
 
 ## Performance
 
