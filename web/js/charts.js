@@ -503,6 +503,180 @@ export function createCheckpointChart(containerId, data, options = {}) {
     return chart;
 }
 
+// Create WAL distance vs estimate chart (bars + dashed line)
+export function createWALDistanceChart(containerId, data, options = {}) {
+    const container = document.getElementById(containerId);
+    if (!container || !data?.distances || data.distances.length === 0) return null;
+
+    if (charts.has(containerId)) {
+        charts.get(containerId).destroy();
+        charts.delete(containerId);
+    }
+    container.innerHTML = '';
+
+    // Parse data: timestamps, distance (MB), estimate (MB)
+    const points = data.distances
+        .map(d => ({
+            t: new Date(d.timestamp).getTime() / 1000,
+            dist: d.distance_kb / 1024,
+            est: d.estimate_kb / 1024
+        }))
+        .filter(p => !isNaN(p.t))
+        .sort((a, b) => a.t - b.t);
+
+    if (points.length === 0) return null;
+
+    const xData = new Float64Array(points.map(p => p.t));
+    const distData = new Float64Array(points.map(p => p.dist));
+    const estData = new Float64Array(points.map(p => p.est));
+
+    const barColor = getComputedStyle(document.documentElement).getPropertyValue('--chart-bar').trim() || '#5a9bd5';
+    const estColor = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#f47920';
+
+    // Parse warning timestamps for pink background bands
+    const warningTimes = (data.warnings || [])
+        .map(t => new Date(t).getTime() / 1000)
+        .filter(t => !isNaN(t))
+        .sort((a, b) => a - b);
+
+    // Tooltip
+    const tooltip = document.createElement('div');
+    tooltip.className = 'chart-tooltip';
+
+    const tooltipPlugin = () => ({
+        hooks: {
+            init: u => { u.root.querySelector('.u-over').appendChild(tooltip); },
+            setCursor: u => {
+                const { idx, left, top } = u.cursor;
+                if (idx == null || idx < 0 || idx >= u.data[0].length) {
+                    tooltip.style.display = 'none';
+                    return;
+                }
+                const dist = u.data[1][idx] || 0;
+                const est = u.data[2][idx] || 0;
+                if (dist === 0 && est === 0) {
+                    tooltip.style.display = 'none';
+                    return;
+                }
+                const d = new Date(u.data[0][idx] * 1000);
+                const timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+                tooltip.innerHTML = `<strong>${timeStr}</strong><br>` +
+                    `<span style="color:${barColor}">distance: ${dist.toFixed(1)} MB</span><br>` +
+                    `<span style="color:${estColor}">estimate: ${est.toFixed(1)} MB</span>`;
+                tooltip.style.display = 'block';
+                const ttWidth = tooltip.offsetWidth;
+                const chartWidth = u.bbox.width;
+                let ttLeft = left - ttWidth / 2;
+                if (ttLeft < 0) ttLeft = 0;
+                if (ttLeft + ttWidth > chartWidth) ttLeft = chartWidth - ttWidth;
+                tooltip.style.left = ttLeft + 'px';
+                tooltip.style.top = (top - tooltip.offsetHeight - 10) + 'px';
+            }
+        }
+    });
+
+    const opts = {
+        width: container.clientWidth || 300,
+        height: options.height || 200,
+        cursor: { drag: { x: true, y: false, setScale: true } },
+        legend: { show: false },
+        scales: {
+            x: { time: true },
+            y: { range: (u, min, max) => [0, max * 1.1] }
+        },
+        axes: [
+            { stroke: '#888', grid: { stroke: '#8881' }, ticks: { show: false }, gap: 2, size: 20,
+              values: (u, vals) => vals.map(v => { const d = new Date(v * 1000); return d.getHours() + ':' + String(d.getMinutes()).padStart(2, '0'); })
+            },
+            {
+                stroke: '#888',
+                grid: { stroke: '#8881' },
+                size: 30,
+                ticks: { show: false },
+                gap: 2,
+                values: (u, vals) => vals.map(v => v >= 1024 ? (v/1024).toFixed(0) + 'G' : v.toFixed(0))
+            }
+        ],
+        series: [
+            {},
+            // Distance: invisible series (drawn as bars in hook)
+            { fill: 'transparent', stroke: 'transparent', width: 0, points: { show: false }, paths: () => null },
+            // Estimate: dashed line
+            { stroke: estColor, width: 2, dash: [6, 4], points: { show: false } }
+        ],
+        plugins: [tooltipPlugin()],
+        hooks: {
+            draw: [u => {
+                const ctx = u.ctx;
+                const xd = u.data[0];
+                const dist = u.data[1];
+                const barW = Math.max(4, (u.bbox.width / xd.length) * 0.6);
+                const radius = Math.min(3, barW / 3);
+                const y0 = u.valToPos(0, 'y', true);
+                const yMax = u.valToPos(u.scales.y.max, 'y', true);
+
+                // Draw pink background bands for "too frequent" warning periods
+                if (warningTimes.length > 0) {
+                    ctx.fillStyle = 'rgba(220, 53, 69, 0.25)';
+                    // Group warnings within 60s into clusters
+                    let clusterStart = warningTimes[0];
+                    let clusterEnd = warningTimes[0];
+                    for (let i = 1; i <= warningTimes.length; i++) {
+                        if (i < warningTimes.length && warningTimes[i] - clusterEnd < 120) {
+                            clusterEnd = warningTimes[i];
+                        } else {
+                            // Draw this cluster with some padding
+                            const pad = Math.max(30, (clusterEnd - clusterStart) * 0.1);
+                            const x1 = u.valToPos(clusterStart - pad, 'x', true);
+                            const x2 = u.valToPos(clusterEnd + pad, 'x', true);
+                            ctx.fillRect(x1, yMax, x2 - x1, y0 - yMax);
+                            if (i < warningTimes.length) {
+                                clusterStart = warningTimes[i];
+                                clusterEnd = warningTimes[i];
+                            }
+                        }
+                    }
+                }
+
+                ctx.fillStyle = barColor;
+                for (let i = 0; i < xd.length; i++) {
+                    const v = dist[i] || 0;
+                    if (v <= 0) continue;
+                    const x = u.valToPos(xd[i], 'x', true);
+                    const yTop = u.valToPos(v, 'y', true);
+                    const h = y0 - yTop;
+
+                    ctx.beginPath();
+                    ctx.moveTo(x - barW/2, y0);
+                    ctx.lineTo(x - barW/2, yTop + radius);
+                    ctx.quadraticCurveTo(x - barW/2, yTop, x - barW/2 + radius, yTop);
+                    ctx.lineTo(x + barW/2 - radius, yTop);
+                    ctx.quadraticCurveTo(x + barW/2, yTop, x + barW/2, yTop + radius);
+                    ctx.lineTo(x + barW/2, y0);
+                    ctx.closePath();
+                    ctx.fill();
+                }
+            }]
+        }
+    };
+
+    const chart = new uPlot(opts, [xData, distData, estData], container);
+    charts.set(containerId, chart);
+
+    const minT = xData[0];
+    const maxT = xData[xData.length - 1];
+    chart._originalXRange = [minT, maxT];
+
+    const resizeObserver = new ResizeObserver(() => {
+        if (container.clientWidth > 0) {
+            chart.setSize({ width: container.clientWidth, height: opts.height });
+        }
+    });
+    resizeObserver.observe(container);
+
+    return chart;
+}
+
 // Create interactive time chart with uPlot
 export function createTimeChart(containerId, timestamps, options = {}) {
     const container = document.getElementById(containerId);
@@ -1908,7 +2082,7 @@ export function openChartModal(chartId, title) {
 
     // Hide interval select for pre-computed histograms
     const intervalSelect = document.getElementById('modalBucketSelect');
-    intervalSelect.style.display = data?.type === 'histogram' ? 'none' : '';
+    intervalSelect.style.display = (data?.type === 'histogram' || data?.type === 'wal-distance') ? 'none' : '';
 
     // Create expanded chart
     setTimeout(() => renderModalChart(), 50);
@@ -1926,7 +2100,9 @@ export function renderModalChart() {
     const color = modalChartId.includes('tempfiles') ? accentColor : null;
 
     // Create larger chart
-    if (data?.type === 'checkpoints') {
+    if (data?.type === 'wal-distance') {
+        modalChart = createWALDistanceChart('modal-chart-container', data, { height: 350 });
+    } else if (data?.type === 'checkpoints') {
         modalChart = createCheckpointChartLarge(container, data, {
             interval: modalInterval,
             height: 350

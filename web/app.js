@@ -21,7 +21,7 @@ import {
 } from './js/file-handler.js';
 import {
     chartData, createTimeChart, createDurationChart, createCombinedSQLChart,
-    createConcurrentChart, createHistogramChart, createCheckpointChart, createCombinedTempFilesChart,
+    createConcurrentChart, createHistogramChart, createCheckpointChart, createWALDistanceChart, createCombinedTempFilesChart,
     buildChartContainer, closeChartModal, updateModalInterval, resetModalZoom, exportChartPNG,
     resetChartZoom, openChartModal, updateChartInterval, toggleCombinedSeries, exportChartById
 } from './js/charts.js';
@@ -177,7 +177,9 @@ import './js/components/ql-dropdown.js';
                     const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
                     const color = chartId.includes('tempfiles') ? accentColor : null;
                     // Check data type: checkpoints (stacked), sessions (sweep-line), histogram (pre-computed), duration, combined, tempfiles, or timestamps
-                    if (data?.type === 'checkpoints') {
+                    if (data?.type === 'wal-distance') {
+                        createWALDistanceChart(chartId, data);
+                    } else if (data?.type === 'checkpoints') {
                         createCheckpointChart(chartId, data);
                     } else if (data?.type === 'sessions') {
                         createConcurrentChart(chartId, data.data, { color: color || 'var(--accent)' });
@@ -703,6 +705,37 @@ function buildEventsSection(data) {
             const req = (types['shutdown immediate']?.count || 0) + (types['immediate force wait']?.count || 0);
             const hasEvents = cp.events?.length > 0;
             const hasWarnings = cp.warning_events?.length > 0;
+            const other = cp.total_checkpoints - timed - wal;
+
+            // Compute throughput from wal_distances: distance_kb / write_time per checkpoint
+            // We need per-checkpoint write times, but we only have aggregates.
+            // Use avg and max from formatted strings: parse "263.22 s" → float
+            const parseSeconds = s => { const m = s?.match?.(/([\d.]+)\s*s/); return m ? parseFloat(m[1]) : 0; };
+            const parseMB = s => { const m = s?.match?.(/([\d.]+)\s*MB/); if (m) return parseFloat(m[1]); const g = s?.match?.(/([\d.]+)\s*GB/); return g ? parseFloat(g[1]) * 1024 : 0; };
+            const avgWriteS = parseSeconds(cp.avg_checkpoint_time);
+            const maxWriteS = parseSeconds(cp.max_checkpoint_time);
+            const avgDistMB = parseMB(cp.avg_wal_distance);
+            const maxDistMB = parseMB(cp.max_wal_distance);
+            const avgThroughput = avgWriteS > 0 ? avgDistMB / avgWriteS : 0;
+            // Peak throughput: max distance / avg write time (conservative estimate)
+            const peakThroughput = avgWriteS > 0 ? maxDistMB / avgWriteS : 0;
+            const fmtThroughput = v => {
+                if (v <= 0) return '-';
+                if (v >= 1024) return (v / 1024).toFixed(1) + ' GB/s';
+                if (v >= 1) return v.toFixed(1) + ' MB/s';
+                return (v * 1024).toFixed(0) + ' kB/s';
+            };
+
+            const hasWALDistances = cp.wal_distances?.length > 0;
+
+            // Store WAL distance data for distance vs estimate chart
+            if (hasWALDistances) {
+                chartData.set('chart-wal-distance', {
+                    type: 'wal-distance',
+                    distances: cp.wal_distances,
+                    warnings: cp.warning_events || []
+                });
+            }
 
             // Store checkpoint data by type for multi-series chart
             if (hasEvents) {
@@ -737,12 +770,11 @@ function buildEventsSection(data) {
                     <div class="section-header">Checkpoints</div>
                     <div class="section-body">
                         <div class="stat-grid">
-                            <div class="stat-card"><div class="stat-value">${fmt(cp.total_checkpoints)}</div><div class="stat-label">Total</div></div>
                             <div class="stat-card"><div class="stat-value">${timed}</div><div class="stat-label">Timed</div></div>
                             <div class="stat-card"><div class="stat-value">${wal}</div><div class="stat-label">WAL</div></div>
-                            <div class="stat-card"><div class="stat-value">${req}</div><div class="stat-label">Req</div></div>
-                            <div class="stat-card"><div class="stat-value">${cp.avg_checkpoint_time || '-'}</div><div class="stat-label">Avg</div></div>
-                            <div class="stat-card"><div class="stat-value">${cp.max_checkpoint_time || '-'}</div><div class="stat-label">Max</div></div>
+                            ${other > 0 ? `<div class="stat-card"><div class="stat-value">${other}</div><div class="stat-label">Other</div></div>` : ''}
+                            <div class="stat-card"><div class="stat-value">${fmtThroughput(avgThroughput)}</div><div class="stat-label">Avg Throughput</div></div>
+                            <div class="stat-card"><div class="stat-value">${fmtThroughput(peakThroughput)}</div><div class="stat-label">Peak Throughput</div></div>
                             ${cp.warning_count ? `<div class="stat-card stat-card--alert"><div class="stat-value">${cp.warning_count}</div><div class="stat-label">Too Frequent</div></div>` : ''}
                         </div>
                         ${hasEvents ? `
@@ -754,6 +786,16 @@ function buildEventsSection(data) {
                             </div>
                         ` : hasWarnings ? `
                             ${buildChartContainer('chart-checkpoints', 'Checkpoint Frequency Warnings', { showFilterBtn: false })}
+                        ` : ''}
+                        ${hasWALDistances ? `
+                            <div style="margin-top:-0.5rem;">
+                            ${buildChartContainer('chart-wal-distance', 'WAL Distance vs Estimate', { showFilterBtn: false, showBucketControl: false, tooltip: 'WAL generated between checkpoints. The estimate is PostgreSQL prediction for the next cycle.' })}
+                            <div class="chart-legend" style="display:flex;gap:16px;justify-content:center;margin-top:4px;font-size:12px;">
+                                <span><span style="display:inline-block;width:12px;height:12px;background:var(--chart-bar);border-radius:2px;vertical-align:middle;margin-right:4px;"></span>Distance</span>
+                                <span><span style="display:inline-block;width:16px;height:0;border-top:2px dashed var(--accent);vertical-align:middle;margin-right:4px;"></span>Estimate</span>
+                                ${cp.warning_count ? `<span><span style="display:inline-block;width:12px;height:12px;background:rgba(220,53,69,0.25);border-radius:2px;vertical-align:middle;margin-right:4px;"></span>Too frequent</span>` : ''}
+                            </div>
+                            </div>
                         ` : ''}
                     </div>
                 </div>
