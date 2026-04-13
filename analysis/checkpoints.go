@@ -2,7 +2,6 @@
 package analysis
 
 import (
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -33,6 +32,18 @@ type CheckpointMetrics struct {
 	// TypeEvents maps checkpoint type to timestamps of occurrences.
 	// Useful for analyzing frequency by type.
 	TypeEvents map[string][]time.Time
+
+	// WarningCount is the number of "checkpoints are occurring too frequently" warnings.
+	WarningCount int
+
+	// WarningEvents contains the timestamp of every checkpoint frequency warning.
+	WarningEvents []time.Time
+
+	// WarningMinIntervalSeconds is the shortest interval reported in warnings (in seconds).
+	WarningMinIntervalSeconds int
+
+	// WarningMaxIntervalSeconds is the longest interval reported in warnings (in seconds).
+	WarningMaxIntervalSeconds int
 }
 
 // ============================================================================
@@ -43,12 +54,10 @@ type CheckpointMetrics struct {
 const (
 	checkpointStarting = "checkpoint starting:"
 	checkpointComplete = "checkpoint complete"
+	checkpointWarning  = "checkpoints are occurring too frequently"
 	writeTotalPrefix   = "total="
 	writeTotalSuffix   = " s"
 )
-
-// Pre-compiled regex for extracting checkpoint type from "checkpoint starting: <type>"
-var checkpointTypeRegex = regexp.MustCompile(`checkpoint starting:\s*(.+)$`)
 
 // ============================================================================
 // Streaming checkpoint analyzer
@@ -77,14 +86,21 @@ type CheckpointAnalyzer struct {
 
 	// State tracking (for associating "starting" with "complete")
 	lastCheckpointType string
+
+	// Warning tracking
+	warningCount              int
+	warningEvents             []time.Time
+	warningMinIntervalSeconds int
+	warningMaxIntervalSeconds int
 }
 
 // NewCheckpointAnalyzer creates a new checkpoint analyzer.
 func NewCheckpointAnalyzer() *CheckpointAnalyzer {
 	return &CheckpointAnalyzer{
-		events:     make([]time.Time, 0, 100),
-		typeCounts: make(map[string]int),
-		typeEvents: make(map[string][]time.Time),
+		events:        make([]time.Time, 0, 100),
+		typeCounts:    make(map[string]int),
+		typeEvents:    make(map[string][]time.Time),
+		warningEvents: make([]time.Time, 0, 10),
 	}
 }
 
@@ -115,21 +131,32 @@ func (a *CheckpointAnalyzer) Process(entry *parser.LogEntry) {
 		return
 	}
 
-	// Just check first letter: 's' for starting, 'c' for complete
+	// Dispatch on the character after "checkpoint ":
+	//   's' → "checkpoint starting:"
+	//   'c' → "checkpoint complete:"
+	//   ' ' → "checkpoints are occurring too frequently" (plural, extra 's' shifts position)
 	switch msg[pos] {
 	case 's': // "checkpoint starting"
 		a.processCheckpointStarting(entry)
 	case 'c': // "checkpoint complete"
 		a.processCheckpointComplete(entry)
+	case ' ': // "checkpoints are occurring too frequently"
+		if strings.Contains(msg, checkpointWarning) {
+			a.processCheckpointWarning(entry)
+		}
 	}
 }
 
 // processCheckpointStarting extracts and stores the checkpoint type.
 // Example message: "checkpoint starting: time"
 func (a *CheckpointAnalyzer) processCheckpointStarting(entry *parser.LogEntry) {
-	matches := checkpointTypeRegex.FindStringSubmatch(entry.Message)
-	if len(matches) > 1 {
-		a.lastCheckpointType = strings.TrimSpace(matches[1])
+	idx := strings.Index(entry.Message, checkpointStarting)
+	if idx < 0 {
+		return
+	}
+	cpType := strings.TrimSpace(entry.Message[idx+len(checkpointStarting):])
+	if cpType != "" {
+		a.lastCheckpointType = cpType
 	}
 }
 
@@ -154,6 +181,36 @@ func (a *CheckpointAnalyzer) processCheckpointComplete(entry *parser.LogEntry) {
 		if writeTime > a.maxWriteTimeSeconds {
 			a.maxWriteTimeSeconds = writeTime
 		}
+	}
+}
+
+// processCheckpointWarning records a checkpoint frequency warning and extracts the interval.
+// Example message: "checkpoints are occurring too frequently (27 seconds apart)"
+func (a *CheckpointAnalyzer) processCheckpointWarning(entry *parser.LogEntry) {
+	msg := entry.Message
+
+	// Extract interval: find '(' then ' second' after it
+	open := strings.IndexByte(msg, '(')
+	if open < 0 {
+		return
+	}
+	rest := msg[open+1:]
+	end := strings.Index(rest, " second")
+	if end <= 0 {
+		return
+	}
+	interval, err := strconv.Atoi(rest[:end])
+	if err != nil {
+		return
+	}
+
+	a.warningCount++
+	a.warningEvents = append(a.warningEvents, entry.Timestamp)
+	if a.warningCount == 1 || interval < a.warningMinIntervalSeconds {
+		a.warningMinIntervalSeconds = interval
+	}
+	if interval > a.warningMaxIntervalSeconds {
+		a.warningMaxIntervalSeconds = interval
 	}
 }
 
@@ -190,11 +247,15 @@ func extractWriteTime(message string) float64 {
 // This should be called after all log entries have been processed.
 func (a *CheckpointAnalyzer) Finalize() CheckpointMetrics {
 	return CheckpointMetrics{
-		CompleteCount:         a.completeCount,
-		TotalWriteTimeSeconds: a.totalWriteTimeSeconds,
-		MaxWriteTimeSeconds:   a.maxWriteTimeSeconds,
-		Events:                a.events,
-		TypeCounts:            a.typeCounts,
-		TypeEvents:            a.typeEvents,
+		CompleteCount:             a.completeCount,
+		TotalWriteTimeSeconds:    a.totalWriteTimeSeconds,
+		MaxWriteTimeSeconds:      a.maxWriteTimeSeconds,
+		Events:                   a.events,
+		TypeCounts:               a.typeCounts,
+		TypeEvents:               a.typeEvents,
+		WarningCount:             a.warningCount,
+		WarningEvents:            a.warningEvents,
+		WarningMinIntervalSeconds: a.warningMinIntervalSeconds,
+		WarningMaxIntervalSeconds: a.warningMaxIntervalSeconds,
 	}
 }
