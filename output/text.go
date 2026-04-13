@@ -274,6 +274,13 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 			fmt.Printf("  %-25s : %d\n", "Checkpoint count", m.Checkpoints.CompleteCount)
 			fmt.Printf("  %-25s : %s\n", "Avg checkpoint write time", avgDuration)
 			fmt.Printf("  %-25s : %s\n", "Max checkpoint write time", maxDuration)
+
+			if len(m.Checkpoints.WALDistances) > 0 {
+				avgDistMB := float64(m.Checkpoints.TotalDistanceKB) / float64(m.Checkpoints.CompleteCount) / 1024.0
+				maxDistMB := float64(m.Checkpoints.MaxDistanceKB) / 1024.0
+				fmt.Printf("  %-25s : %.1f MB\n", "WAL per checkpoint (avg)", avgDistMB)
+				fmt.Printf("  %-25s : %.1f MB\n", "WAL per checkpoint (max)", maxDistMB)
+			}
 		}
 
 		if m.Checkpoints.WarningCount > 0 {
@@ -344,6 +351,11 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 				fmt.Printf("    %-*s  %3d  %5.1f%%   %s%.2f/h%s\n",
 					maxTypeLen, pair.Name, pair.Count, percentage, muted, rate, reset)
 			}
+		}
+
+		// WAL distance vs estimate histogram
+		if walBuckets := computeWALDistanceHistogram(m.Checkpoints); len(walBuckets) > 0 {
+			PrintWALDistanceHistogram(walBuckets)
 		}
 	}
 
@@ -1681,6 +1693,79 @@ func PrintCheckpointHistogram(data map[string]int, title string, scaleFactor int
 		} else {
 			fmt.Printf("  %-13s  %d  %s\n", label, value, freqStr)
 		}
+	}
+	fmt.Println()
+}
+
+// PrintWALDistanceHistogram displays a WAL distance vs estimate histogram.
+// Uses ◼ for distance within estimate, ◻ for estimate margin, ■ for overshoot.
+func PrintWALDistanceHistogram(buckets []WALDistanceBucket) {
+	// Find max value (max of distance and estimate across all buckets)
+	maxMB := 0.0
+	for _, b := range buckets {
+		if b.AvgDistMB > maxMB {
+			maxMB = b.AvgDistMB
+		}
+		if b.AvgEstMB > maxMB {
+			maxMB = b.AvgEstMB
+		}
+	}
+	if maxMB == 0 {
+		return
+	}
+
+	barWidth := 40
+
+	// Scale: MB per character
+	scaleMB := maxMB / float64(barWidth)
+	if scaleMB <= 0 {
+		scaleMB = 1
+	}
+
+	// Round scale for legend
+	scaleLabel := scaleMB
+	scaleUnit := "MB"
+	if scaleLabel < 1.0 {
+		scaleLabel *= 1024
+		scaleUnit = "kB"
+	}
+
+	muted := "\033[38;5;243m"
+	muteReset := "\033[0m"
+
+	fmt.Printf("\n  WAL per checkpoint (avg) | ■ = %.0f %s  %s□%s = estimate margin\n\n", scaleLabel, scaleUnit, muted, muteReset)
+
+	for _, b := range buckets {
+		if b.Count == 0 {
+			fmt.Printf("  %-13s   -\n", b.Label)
+			continue
+		}
+
+		dist := b.AvgDistMB
+		est := b.AvgEstMB
+
+		distChars := int(dist / scaleMB)
+		if distChars > barWidth {
+			distChars = barWidth
+		}
+		marginChars := 0
+		if est > dist {
+			estChars := int(est / scaleMB)
+			if estChars > barWidth {
+				estChars = barWidth
+			}
+			marginChars = estChars - distChars
+			if marginChars < 0 {
+				marginChars = 0
+			}
+		}
+		margin := ""
+		if marginChars > 0 {
+			margin = muted + strings.Repeat("□", marginChars) + muteReset
+		}
+		bar := strings.Repeat("■", distChars) + margin
+
+		fmt.Printf("  %-13s  %s  %.0f MB\n", b.Label, bar, dist)
 	}
 	fmt.Println()
 }

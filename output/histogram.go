@@ -410,6 +410,61 @@ func computeCheckpointHistogram(m analysis.CheckpointMetrics) (map[string]int, s
 	return histogram, "checkpoints", scaleFactor
 }
 
+// WALDistanceBucket holds the average WAL distance and estimate for a time bucket.
+type WALDistanceBucket struct {
+	Label      string
+	AvgDistMB  float64
+	AvgEstMB   float64
+	Count      int
+}
+
+// computeWALDistanceHistogram groups checkpoint WAL distances into 4-hour buckets
+// and computes average distance and estimate per bucket.
+func computeWALDistanceHistogram(m analysis.CheckpointMetrics) []WALDistanceBucket {
+	if len(m.WALDistances) == 0 {
+		return nil
+	}
+
+	numBuckets := 6
+	day := m.WALDistances[0].Timestamp
+	start := time.Date(day.Year(), day.Month(), day.Day(), 0, 0, 0, 0, day.Location())
+
+	buckets := make([]WALDistanceBucket, numBuckets)
+	for i := 0; i < numBuckets; i++ {
+		bStart := start.Add(time.Duration(i) * 4 * time.Hour)
+		bEnd := bStart.Add(4 * time.Hour)
+		buckets[i].Label = fmt.Sprintf("%s - %s", bStart.Format("15:04"), bEnd.Format("15:04"))
+	}
+
+	// Accumulate per bucket
+	type accum struct {
+		totalDist int64
+		totalEst  int64
+		count     int
+	}
+	acc := make([]accum, numBuckets)
+
+	for _, w := range m.WALDistances {
+		idx := w.Timestamp.Hour() / 4
+		if idx >= numBuckets {
+			idx = numBuckets - 1
+		}
+		acc[idx].totalDist += w.DistanceKB
+		acc[idx].totalEst += w.EstimateKB
+		acc[idx].count++
+	}
+
+	for i := 0; i < numBuckets; i++ {
+		buckets[i].Count = acc[i].count
+		if acc[i].count > 0 {
+			buckets[i].AvgDistMB = float64(acc[i].totalDist) / float64(acc[i].count) / 1024.0
+			buckets[i].AvgEstMB = float64(acc[i].totalEst) / float64(acc[i].count) / 1024.0
+		}
+	}
+
+	return buckets
+}
+
 // computeConnectionsHistogram calculates a histogram of connection events over time.
 // It divides the time range into 6 equal buckets and counts connections in each bucket.
 // If logStart/logEnd are provided, they define the time range; otherwise the range is derived from events.

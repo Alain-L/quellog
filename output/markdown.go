@@ -389,6 +389,13 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 			b.WriteString(fmt.Sprintf("- **Checkpoint count**: %d\n", m.Checkpoints.CompleteCount))
 			b.WriteString(fmt.Sprintf("- **Avg checkpoint write time**: %s\n", avgDuration))
 			b.WriteString(fmt.Sprintf("- **Max checkpoint write time**: %s\n", maxDuration))
+
+			if len(m.Checkpoints.WALDistances) > 0 {
+				avgDistMB := float64(m.Checkpoints.TotalDistanceKB) / float64(m.Checkpoints.CompleteCount) / 1024.0
+				maxDistMB := float64(m.Checkpoints.MaxDistanceKB) / 1024.0
+				b.WriteString(fmt.Sprintf("- **WAL per checkpoint (avg)**: %.1f MB\n", avgDistMB))
+				b.WriteString(fmt.Sprintf("- **WAL per checkpoint (max)**: %.1f MB\n", maxDistMB))
+			}
 		}
 
 		if m.Checkpoints.WarningCount > 0 {
@@ -445,6 +452,11 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 					pair.Name, pair.Count, percentage, rate))
 			}
 			b.WriteString("\n")
+		}
+
+		// WAL distance vs estimate
+		if walBuckets := computeWALDistanceHistogram(m.Checkpoints); len(walBuckets) > 0 {
+			printWALDistanceMarkdown(&b, walBuckets)
 		}
 	}
 
@@ -779,6 +791,65 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 // ============================================================================
 
 // printHistogramMarkdown renders a histogram as ASCII art in a code block
+func printWALDistanceMarkdown(b *strings.Builder, buckets []WALDistanceBucket) {
+	maxMB := 0.0
+	for _, bk := range buckets {
+		if bk.AvgDistMB > maxMB {
+			maxMB = bk.AvgDistMB
+		}
+		if bk.AvgEstMB > maxMB {
+			maxMB = bk.AvgEstMB
+		}
+	}
+	if maxMB == 0 {
+		return
+	}
+
+	barWidth := 50
+	scaleMB := maxMB / float64(barWidth)
+	if scaleMB <= 0 {
+		scaleMB = 1
+	}
+
+	scaleLabel := scaleMB
+	scaleUnit := "MB"
+	if scaleLabel < 1.0 {
+		scaleLabel *= 1024
+		scaleUnit = "kB"
+	}
+
+	b.WriteString("### WAL per checkpoint (avg)\n\n")
+	b.WriteString(fmt.Sprintf("■ = %.0f %s, □ = estimate margin\n\n", scaleLabel, scaleUnit))
+	b.WriteString("```\n")
+
+	for _, bk := range buckets {
+		if bk.Count == 0 {
+			b.WriteString(fmt.Sprintf("%-13s  -\n", bk.Label))
+			continue
+		}
+		dist := bk.AvgDistMB
+		est := bk.AvgEstMB
+		distChars := int(dist / scaleMB)
+		if distChars > barWidth {
+			distChars = barWidth
+		}
+		marginChars := 0
+		if est > dist {
+			estChars := int(est / scaleMB)
+			if estChars > barWidth {
+				estChars = barWidth
+			}
+			marginChars = estChars - distChars
+			if marginChars < 0 {
+				marginChars = 0
+			}
+		}
+		bar := strings.Repeat("■", distChars) + strings.Repeat("□", marginChars)
+		b.WriteString(fmt.Sprintf("%-13s %s  %.0f MB\n", bk.Label, bar, dist))
+	}
+	b.WriteString("```\n\n")
+}
+
 func printHistogramMarkdown(b *strings.Builder, data map[string]int, title, unit string, scaleFactor int, orderedLabels []string) {
 	if len(data) == 0 {
 		b.WriteString("(No data available)\n\n")
