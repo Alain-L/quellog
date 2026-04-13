@@ -61,6 +61,50 @@
         ]
       }
     },
+    "avg_wal_distance": "11.85 MB",
+    "max_wal_distance": "27.43 MB",
+    "wal_distances": [
+      {
+        "timestamp": "2025-11-30 21:10:20",
+        "distance_kb": 0,
+        "estimate_kb": 0
+      },
+      {
+        "timestamp": "2025-11-30 21:10:58",
+        "distance_kb": 28088,
+        "estimate_kb": 28088
+      },
+      {
+        "timestamp": "2025-11-30 21:13:45",
+        "distance_kb": 19564,
+        "estimate_kb": 27235
+      },
+      {
+        "timestamp": "2025-11-30 21:15:45",
+        "distance_kb": 13201,
+        "estimate_kb": 25832
+      },
+      {
+        "timestamp": "2025-11-30 21:17:45",
+        "distance_kb": 20898,
+        "estimate_kb": 25339
+      },
+      {
+        "timestamp": "2025-11-30 21:18:49",
+        "distance_kb": 225,
+        "estimate_kb": 22827
+      },
+      {
+        "timestamp": "2025-11-30 21:19:44",
+        "distance_kb": 12068,
+        "estimate_kb": 21751
+      },
+      {
+        "timestamp": "2025-11-30 21:20:17",
+        "distance_kb": 3028,
+        "estimate_kb": 19879
+      }
+    ],
     "warning_count": 1,
     "warning_min_interval_seconds": 25,
     "warning_max_interval_seconds": 25,

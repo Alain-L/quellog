@@ -251,12 +251,22 @@ type CheckpointTypeJSON struct {
 	Events     []string `json:"events"`
 }
 
+type WALDistanceJSON struct {
+	Timestamp  string `json:"timestamp"`
+	DistanceKB int64  `json:"distance_kb"`
+	EstimateKB int64  `json:"estimate_kb"`
+}
+
 type CheckpointsJSON struct {
 	TotalCheckpoints  int                           `json:"total_checkpoints"`
 	AvgCheckpointTime string                        `json:"avg_checkpoint_time"`
 	MaxCheckpointTime string                        `json:"max_checkpoint_time"`
 	Events            []string                      `json:"events"`
 	Types             map[string]CheckpointTypeJSON `json:"types,omitempty"`
+
+	AvgWALDistance  string             `json:"avg_wal_distance,omitempty"`
+	MaxWALDistance  string             `json:"max_wal_distance,omitempty"`
+	WALDistances   []WALDistanceJSON  `json:"wal_distances,omitempty"`
 
 	WarningCount              int      `json:"warning_count,omitempty"`
 	WarningMinIntervalSeconds int      `json:"warning_min_interval_seconds,omitempty"`
@@ -519,6 +529,18 @@ func buildJSONData(m analysis.AggregatedMetrics, sections []string, full bool) m
 					}
 				}
 				cp.Types[cpType] = typeJSON
+			}
+		}
+		if len(m.Checkpoints.WALDistances) > 0 && m.Checkpoints.CompleteCount > 0 {
+			avgKB := float64(m.Checkpoints.TotalDistanceKB) / float64(m.Checkpoints.CompleteCount)
+			cp.AvgWALDistance = formatBytes(int64(avgKB) * 1024)
+			cp.MaxWALDistance = formatBytes(m.Checkpoints.MaxDistanceKB * 1024)
+			for _, w := range m.Checkpoints.WALDistances {
+				cp.WALDistances = append(cp.WALDistances, WALDistanceJSON{
+					Timestamp:  w.Timestamp.Format("2006-01-02 15:04:05"),
+					DistanceKB: w.DistanceKB,
+					EstimateKB: w.EstimateKB,
+				})
 			}
 		}
 		if m.Checkpoints.WarningCount > 0 {
