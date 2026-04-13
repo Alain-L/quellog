@@ -686,7 +686,7 @@ function buildEventsSection(data) {
 
         function buildCheckpointsSection(data) {
             const cp = data.checkpoints;
-            if (!cp || cp.total_checkpoints === 0) {
+            if (!cp || (!cp.total_checkpoints && !cp.warning_count)) {
                 return `
                     <div class="section" id="checkpoints">
                         <div class="section-header muted">Checkpoints</div>
@@ -730,6 +730,7 @@ function buildEventsSection(data) {
                             <div class="stat-card"><div class="stat-value">${req}</div><div class="stat-label">Req</div></div>
                             <div class="stat-card"><div class="stat-value">${cp.avg_checkpoint_time || '-'}</div><div class="stat-label">Avg</div></div>
                             <div class="stat-card"><div class="stat-value">${cp.max_checkpoint_time || '-'}</div><div class="stat-label">Max</div></div>
+                            ${cp.warning_count ? `<div class="stat-card stat-card--alert"><div class="stat-value">${cp.warning_count}</div><div class="stat-label">Too Frequent</div></div>` : ''}
                         </div>
                         ${hasEvents ? `
                             ${buildChartContainer('chart-checkpoints', 'Checkpoint Distribution', { showFilterBtn: false, tooltip: 'Checkpoint writes over time. Timed is normal, WAL indicates heavy write load.' })}
