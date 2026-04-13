@@ -2,6 +2,7 @@
 .DS_Store
 
 # Build output directories (compiled binaries, builds, etc.)
+/quellog
 bin/
 build/
 dist/
