@@ -473,7 +473,7 @@ func computeWALDistanceHistogram(m analysis.CheckpointMetrics) []WALDistanceBuck
 //   - histogram: map of time range labels to connection count
 //   - unit: "connections"
 //   - scaleFactor: for proportional display (max bar width = 40 chars)
-func computeConnectionsHistogram(events []time.Time, logStart, logEnd time.Time) (map[string]int, string, int) {
+func computeConnectionsHistogram(events []time.Time, logStart, logEnd time.Time, numBuckets ...int) (map[string]int, string, int) {
 	if len(events) == 0 {
 		return nil, "", 0
 	}
@@ -494,13 +494,16 @@ func computeConnectionsHistogram(events []time.Time, logStart, logEnd time.Time)
 		}
 	}
 
-	// Fixed at 6 buckets.
-	numBuckets := 6
+	// Default to 6 buckets if not specified.
+	nBuckets := 6
+	if len(numBuckets) > 0 && numBuckets[0] > 0 {
+		nBuckets = numBuckets[0]
+	}
 	totalDuration := end.Sub(start)
 	if totalDuration <= 0 {
 		totalDuration = time.Second // Minimum duration to avoid division by zero.
 	}
-	bucketDuration := totalDuration / time.Duration(numBuckets)
+	bucketDuration := totalDuration / time.Duration(nBuckets)
 
 	// Check if we span multiple calendar days
 	startDay := time.Date(start.Year(), start.Month(), start.Day(), 0, 0, 0, 0, start.Location())
@@ -508,9 +511,9 @@ func computeConnectionsHistogram(events []time.Time, logStart, logEnd time.Time)
 	spansDays := !startDay.Equal(endDay)
 
 	// Create buckets with their labels.
-	histogram := make(map[string]int, numBuckets)
-	bucketLabels := make([]string, numBuckets)
-	for i := 0; i < numBuckets; i++ {
+	histogram := make(map[string]int, nBuckets)
+	bucketLabels := make([]string, nBuckets)
+	for i := 0; i < nBuckets; i++ {
 		bucketStart := start.Add(time.Duration(i) * bucketDuration)
 		bucketEnd := bucketStart.Add(bucketDuration)
 		var label string
@@ -535,8 +538,8 @@ func computeConnectionsHistogram(events []time.Time, logStart, logEnd time.Time)
 		}
 		elapsed := t.Sub(start)
 		bucketIndex := int(elapsed / bucketDuration)
-		if bucketIndex >= numBuckets {
-			bucketIndex = numBuckets - 1
+		if bucketIndex >= nBuckets {
+			bucketIndex = nBuckets - 1
 		}
 		histogram[bucketLabels[bucketIndex]]++
 	}

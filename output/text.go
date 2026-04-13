@@ -385,7 +385,7 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 
 		// Connection distribution histogram (only in detailed mode)
 		if isDetailedMode {
-			hist, _, scaleFactor := computeConnectionsHistogram(m.Connections.Connections, m.Global.MinTimestamp, m.Global.MaxTimestamp)
+			hist, _, scaleFactor := computeConnectionsHistogram(m.Connections.Connections, m.Global.MinTimestamp, m.Global.MaxTimestamp, 12)
 			PrintHistogram(hist, "Connection distribution", "", scaleFactor, nil)
 		}
 
@@ -1847,6 +1847,8 @@ func PrintConcurrentHistogramWithTZ(data map[string]int, title string, scaleFact
 		if value == 0 {
 			fmt.Printf("  %-13s  %s\n", label, " -")
 		} else {
+			muted := "\033[3;38;5;243m" // italic + gray
+			muteReset := "\033[0m"
 			peakStr := ""
 			if pt, ok := peakTimes[label]; ok && !pt.IsZero() {
 				// Normalize peak time to reference timezone if provided
@@ -1854,12 +1856,12 @@ func PrintConcurrentHistogramWithTZ(data map[string]int, title string, scaleFact
 				if refTime != nil {
 					displayTime = pt.In(refTime.Location())
 				}
-				peakStr = fmt.Sprintf("(%02d:%02d)", displayTime.Hour(), displayTime.Minute())
+				peakStr = fmt.Sprintf("%s%02d:%02d%s", muted, displayTime.Hour(), displayTime.Minute(), muteReset)
 			}
 			if barLength > 0 {
-				fmt.Printf("  %-13s  %-s %d %s\n", label, bar, value, peakStr)
+				fmt.Printf("  %-13s  %-s %d  %s\n", label, bar, value, peakStr)
 			} else {
-				fmt.Printf("  %-13s  %d %s\n", label, value, peakStr)
+				fmt.Printf("  %-13s  %d  %s\n", label, value, peakStr)
 			}
 		}
 	}
