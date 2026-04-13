@@ -375,19 +375,33 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 	// ============================================================================
 	// CHECKPOINTS
 	// ============================================================================
-	if has("checkpoints") && m.Checkpoints.CompleteCount > 0 {
-		avgWriteSeconds := m.Checkpoints.TotalWriteTimeSeconds / float64(m.Checkpoints.CompleteCount)
-		avgDuration := time.Duration(avgWriteSeconds * float64(time.Second)).Truncate(time.Second)
-		maxDuration := time.Duration(m.Checkpoints.MaxWriteTimeSeconds * float64(time.Second)).Truncate(time.Second)
-
+	if has("checkpoints") && (m.Checkpoints.CompleteCount > 0 || m.Checkpoints.WarningCount > 0) {
 		b.WriteString("## CHECKPOINTS\n\n")
 
-		hist, _, scale := computeCheckpointHistogram(m.Checkpoints)
-		printHistogramMarkdown(&b, hist, "Checkpoint distribution", "", scale, nil)
+		if m.Checkpoints.CompleteCount > 0 {
+			avgWriteSeconds := m.Checkpoints.TotalWriteTimeSeconds / float64(m.Checkpoints.CompleteCount)
+			avgDuration := time.Duration(avgWriteSeconds * float64(time.Second)).Truncate(time.Second)
+			maxDuration := time.Duration(m.Checkpoints.MaxWriteTimeSeconds * float64(time.Second)).Truncate(time.Second)
 
-		b.WriteString(fmt.Sprintf("- **Checkpoint count**: %d\n", m.Checkpoints.CompleteCount))
-		b.WriteString(fmt.Sprintf("- **Avg checkpoint write time**: %s\n", avgDuration))
-		b.WriteString(fmt.Sprintf("- **Max checkpoint write time**: %s\n\n", maxDuration))
+			hist, _, scale := computeCheckpointHistogram(m.Checkpoints)
+			printHistogramMarkdown(&b, hist, "Checkpoint distribution", "", scale, nil)
+
+			b.WriteString(fmt.Sprintf("- **Checkpoint count**: %d\n", m.Checkpoints.CompleteCount))
+			b.WriteString(fmt.Sprintf("- **Avg checkpoint write time**: %s\n", avgDuration))
+			b.WriteString(fmt.Sprintf("- **Max checkpoint write time**: %s\n", maxDuration))
+		}
+
+		if m.Checkpoints.WarningCount > 0 {
+			if m.Checkpoints.WarningMinIntervalSeconds == m.Checkpoints.WarningMaxIntervalSeconds {
+				b.WriteString(fmt.Sprintf("- **Too frequent warnings**: %d (%d s apart)\n",
+					m.Checkpoints.WarningCount, m.Checkpoints.WarningMinIntervalSeconds))
+			} else {
+				b.WriteString(fmt.Sprintf("- **Too frequent warnings**: %d (%d-%d s apart)\n",
+					m.Checkpoints.WarningCount,
+					m.Checkpoints.WarningMinIntervalSeconds, m.Checkpoints.WarningMaxIntervalSeconds))
+			}
+		}
+		b.WriteString("\n")
 
 		// Display checkpoint types
 		if len(m.Checkpoints.TypeCounts) > 0 {

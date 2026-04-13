@@ -259,20 +259,34 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 	}
 
 	// Checkpoints section
-	if has("checkpoints") && m.Checkpoints.CompleteCount > 0 {
-		avgWriteSeconds := m.Checkpoints.TotalWriteTimeSeconds / float64(m.Checkpoints.CompleteCount)
-		avgDuration := time.Duration(avgWriteSeconds * float64(time.Second)).Truncate(time.Second)
-		maxDuration := time.Duration(m.Checkpoints.MaxWriteTimeSeconds * float64(time.Second)).Truncate(time.Second)
-
+	if has("checkpoints") && (m.Checkpoints.CompleteCount > 0 || m.Checkpoints.WarningCount > 0) {
 		fmt.Println(bold + "\nCHECKPOINTS\n" + reset)
 
-		// Histogram with frequency (4-hour buckets)
-		hist, _, scaleFactor := computeCheckpointHistogram(m.Checkpoints)
-		PrintCheckpointHistogram(hist, "Checkpoints", scaleFactor, 4.0)
+		if m.Checkpoints.CompleteCount > 0 {
+			avgWriteSeconds := m.Checkpoints.TotalWriteTimeSeconds / float64(m.Checkpoints.CompleteCount)
+			avgDuration := time.Duration(avgWriteSeconds * float64(time.Second)).Truncate(time.Second)
+			maxDuration := time.Duration(m.Checkpoints.MaxWriteTimeSeconds * float64(time.Second)).Truncate(time.Second)
 
-		fmt.Printf("  %-25s : %d\n", "Checkpoint count", m.Checkpoints.CompleteCount)
-		fmt.Printf("  %-25s : %s\n", "Avg checkpoint write time", avgDuration)
-		fmt.Printf("  %-25s : %s\n", "Max checkpoint write time", maxDuration)
+			// Histogram with frequency (4-hour buckets)
+			hist, _, scaleFactor := computeCheckpointHistogram(m.Checkpoints)
+			PrintCheckpointHistogram(hist, "Checkpoints", scaleFactor, 4.0)
+
+			fmt.Printf("  %-25s : %d\n", "Checkpoint count", m.Checkpoints.CompleteCount)
+			fmt.Printf("  %-25s : %s\n", "Avg checkpoint write time", avgDuration)
+			fmt.Printf("  %-25s : %s\n", "Max checkpoint write time", maxDuration)
+		}
+
+		if m.Checkpoints.WarningCount > 0 {
+			if m.Checkpoints.WarningMinIntervalSeconds == m.Checkpoints.WarningMaxIntervalSeconds {
+				fmt.Printf("  %-25s : %d (%d s apart)\n",
+					"Too frequent warnings", m.Checkpoints.WarningCount,
+					m.Checkpoints.WarningMinIntervalSeconds)
+			} else {
+				fmt.Printf("  %-25s : %d (%d-%d s apart)\n",
+					"Too frequent warnings", m.Checkpoints.WarningCount,
+					m.Checkpoints.WarningMinIntervalSeconds, m.Checkpoints.WarningMaxIntervalSeconds)
+			}
+		}
 
 		// Display checkpoint types
 		if len(m.Checkpoints.TypeCounts) > 0 {
