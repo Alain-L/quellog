@@ -60,7 +60,13 @@
           "2025-11-30 21:10:58"
         ]
       }
-    }
+    },
+    "warning_count": 1,
+    "warning_min_interval_seconds": 25,
+    "warning_max_interval_seconds": 25,
+    "warning_events": [
+      "2025-11-30 21:10:45"
+    ]
   },
   "clients": {
     "unique_databases": 4,

@@ -257,6 +257,11 @@ type CheckpointsJSON struct {
 	MaxCheckpointTime string                        `json:"max_checkpoint_time"`
 	Events            []string                      `json:"events"`
 	Types             map[string]CheckpointTypeJSON `json:"types,omitempty"`
+
+	WarningCount              int      `json:"warning_count,omitempty"`
+	WarningMinIntervalSeconds int      `json:"warning_min_interval_seconds,omitempty"`
+	WarningMaxIntervalSeconds int      `json:"warning_max_interval_seconds,omitempty"`
+	WarningEvents             []string `json:"warning_events,omitempty"`
 }
 
 type SessionStatsJSON struct {
@@ -482,11 +487,13 @@ func buildJSONData(m analysis.AggregatedMetrics, sections []string, full bool) m
 		}
 	}
 
-	if has("checkpoints") && m.Checkpoints.CompleteCount > 0 {
+	if has("checkpoints") && (m.Checkpoints.CompleteCount > 0 || m.Checkpoints.WarningCount > 0) {
 		cp := CheckpointsJSON{
-			TotalCheckpoints:  m.Checkpoints.CompleteCount,
-			AvgCheckpointTime: formatSeconds(m.Checkpoints.TotalWriteTimeSeconds / float64(m.Checkpoints.CompleteCount)),
-			MaxCheckpointTime: formatSeconds(m.Checkpoints.MaxWriteTimeSeconds),
+			TotalCheckpoints: m.Checkpoints.CompleteCount,
+		}
+		if m.Checkpoints.CompleteCount > 0 {
+			cp.AvgCheckpointTime = formatSeconds(m.Checkpoints.TotalWriteTimeSeconds / float64(m.Checkpoints.CompleteCount))
+			cp.MaxCheckpointTime = formatSeconds(m.Checkpoints.MaxWriteTimeSeconds)
 		}
 		for _, t := range m.Checkpoints.Events {
 			cp.Events = append(cp.Events, t.Format("2006-01-02 15:04:05"))
@@ -512,6 +519,14 @@ func buildJSONData(m analysis.AggregatedMetrics, sections []string, full bool) m
 					}
 				}
 				cp.Types[cpType] = typeJSON
+			}
+		}
+		if m.Checkpoints.WarningCount > 0 {
+			cp.WarningCount = m.Checkpoints.WarningCount
+			cp.WarningMinIntervalSeconds = m.Checkpoints.WarningMinIntervalSeconds
+			cp.WarningMaxIntervalSeconds = m.Checkpoints.WarningMaxIntervalSeconds
+			for _, t := range m.Checkpoints.WarningEvents {
+				cp.WarningEvents = append(cp.WarningEvents, t.Format("2006-01-02 15:04:05"))
 			}
 		}
 		data["checkpoints"] = cp
