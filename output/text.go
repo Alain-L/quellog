@@ -277,12 +277,13 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 		}
 
 		if m.Checkpoints.WarningCount > 0 {
+			italic := "\033[3m"
 			if m.Checkpoints.WarningMinIntervalSeconds == m.Checkpoints.WarningMaxIntervalSeconds {
-				fmt.Printf("  %-25s : %d (%d s apart)\n",
+				fmt.Printf("  "+bold+"%-25s : %d"+reset+"   "+italic+"%ds apart"+reset+"\n",
 					"Too frequent warnings", m.Checkpoints.WarningCount,
 					m.Checkpoints.WarningMinIntervalSeconds)
 			} else {
-				fmt.Printf("  %-25s : %d (%d-%d s apart)\n",
+				fmt.Printf("  "+bold+"%-25s : %d"+reset+"   "+italic+"%d-%ds apart"+reset+"\n",
 					"Too frequent warnings", m.Checkpoints.WarningCount,
 					m.Checkpoints.WarningMinIntervalSeconds, m.Checkpoints.WarningMaxIntervalSeconds)
 			}
@@ -290,6 +291,7 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 
 		// Display checkpoint types
 		if len(m.Checkpoints.TypeCounts) > 0 {
+			fmt.Println()
 			fmt.Println("  Checkpoint types:")
 
 			// Build a slice to sort types by count (descending).

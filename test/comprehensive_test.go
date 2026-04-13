@@ -86,9 +86,10 @@ func TestComprehensiveFormatParity(t *testing.T) {
 
 // keyMetrics holds the essential metrics that must be identical across formats
 type keyMetrics struct {
-	TotalLogs        int
-	Checkpoints      int
-	Connections      int
+	TotalLogs            int
+	Checkpoints          int
+	CheckpointWarnings   int
+	Connections          int
 	Disconnections   int
 	SQLQueries       int
 	SQLUniqueQueries int
@@ -114,6 +115,7 @@ func extractKeyMetrics(t *testing.T, result map[string]interface{}) keyMetrics {
 	// Checkpoints
 	if checkpoints, ok := result["checkpoints"].(map[string]interface{}); ok {
 		metrics.Checkpoints = int(getFloat(checkpoints, "total_checkpoints"))
+		metrics.CheckpointWarnings = int(getFloat(checkpoints, "warning_count"))
 	}
 
 	// Connections
@@ -225,6 +227,9 @@ func TestSyslogAllFormats(t *testing.T) {
 		}
 		if bsd.Checkpoints != iso.Checkpoints {
 			t.Errorf("Checkpoints differ: bsd=%d, iso=%d", bsd.Checkpoints, iso.Checkpoints)
+		}
+		if bsd.CheckpointWarnings != iso.CheckpointWarnings {
+			t.Errorf("CheckpointWarnings differ: bsd=%d, iso=%d", bsd.CheckpointWarnings, iso.CheckpointWarnings)
 		}
 		if bsd.Connections != iso.Connections {
 			t.Errorf("Connections differ: bsd=%d, iso=%d", bsd.Connections, iso.Connections)

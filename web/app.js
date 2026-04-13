@@ -702,6 +702,7 @@ function buildEventsSection(data) {
             const wal = types.wal?.count || 0;
             const req = (types['shutdown immediate']?.count || 0) + (types['immediate force wait']?.count || 0);
             const hasEvents = cp.events?.length > 0;
+            const hasWarnings = cp.warning_events?.length > 0;
 
             // Store checkpoint data by type for multi-series chart
             if (hasEvents) {
@@ -715,6 +716,18 @@ function buildEventsSection(data) {
                             ...(types['shutdown immediate']?.events || []),
                             ...(types['immediate force wait']?.events || [])
                         ]
+                    }
+                });
+            } else if (hasWarnings) {
+                // Warnings only (log_checkpoints = off): show warnings as the sole series
+                chartData.set('chart-checkpoints', {
+                    type: 'checkpoints',
+                    warningsOnly: true,
+                    all: cp.warning_events,
+                    types: {
+                        time: [],
+                        wal: [],
+                        other: cp.warning_events
                     }
                 });
             }
@@ -739,6 +752,8 @@ function buildEventsSection(data) {
                                 <span><span style="display:inline-block;width:12px;height:12px;background:var(--accent);border-radius:2px;vertical-align:middle;margin-right:4px;"></span>WAL</span>
                                 <span><span style="display:inline-block;width:12px;height:12px;background:#909399;border-radius:2px;vertical-align:middle;margin-right:4px;"></span>Other</span>
                             </div>
+                        ` : hasWarnings ? `
+                            ${buildChartContainer('chart-checkpoints', 'Checkpoint Frequency Warnings', { showFilterBtn: false })}
                         ` : ''}
                     </div>
                 </div>
