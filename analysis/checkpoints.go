@@ -9,6 +9,15 @@ import (
 	"github.com/Alain-L/quellog/parser"
 )
 
+// CheckpointWAL holds the WAL distance and estimate for a single checkpoint.
+//   - DistanceKB: actual WAL generated since the previous checkpoint (kB)
+//   - EstimateKB: PostgreSQL's prediction for the next checkpoint cycle (kB)
+type CheckpointWAL struct {
+	Timestamp  time.Time
+	DistanceKB int64
+	EstimateKB int64
+}
+
 // CheckpointMetrics aggregates statistics related to PostgreSQL checkpoints.
 // Checkpoints are critical events where PostgreSQL flushes dirty buffers to disk.
 type CheckpointMetrics struct {
@@ -32,6 +41,15 @@ type CheckpointMetrics struct {
 	// TypeEvents maps checkpoint type to timestamps of occurrences.
 	// Useful for analyzing frequency by type.
 	TypeEvents map[string][]time.Time
+
+	// WALDistances contains per-checkpoint WAL distance and estimate values.
+	WALDistances []CheckpointWAL
+
+	// TotalDistanceKB is the cumulative WAL distance across all checkpoints.
+	TotalDistanceKB int64
+
+	// MaxDistanceKB is the largest WAL distance observed for a single checkpoint.
+	MaxDistanceKB int64
 
 	// WarningCount is the number of "checkpoints are occurring too frequently" warnings.
 	WarningCount int
@@ -57,6 +75,9 @@ const (
 	checkpointWarning  = "checkpoints are occurring too frequently"
 	writeTotalPrefix   = "total="
 	writeTotalSuffix   = " s"
+	distancePrefix     = "distance="
+	estimatePrefix     = "estimate="
+	kbSuffix           = " kB"
 )
 
 // ============================================================================
@@ -84,6 +105,11 @@ type CheckpointAnalyzer struct {
 	typeCounts map[string]int
 	typeEvents map[string][]time.Time
 
+	// WAL distance tracking
+	walDistances    []CheckpointWAL
+	totalDistanceKB int64
+	maxDistanceKB   int64
+
 	// State tracking (for associating "starting" with "complete")
 	lastCheckpointType string
 
@@ -100,6 +126,7 @@ func NewCheckpointAnalyzer() *CheckpointAnalyzer {
 		events:        make([]time.Time, 0, 100),
 		typeCounts:    make(map[string]int),
 		typeEvents:    make(map[string][]time.Time),
+		walDistances:  make([]CheckpointWAL, 0, 100),
 		warningEvents: make([]time.Time, 0, 10),
 	}
 }
@@ -182,6 +209,27 @@ func (a *CheckpointAnalyzer) processCheckpointComplete(entry *parser.LogEntry) {
 			a.maxWriteTimeSeconds = writeTime
 		}
 	}
+
+	// Extract WAL distance and estimate
+	distKB := extractKBValue(entry.Message, distancePrefix)
+	estKB := extractKBValue(entry.Message, estimatePrefix)
+	if distKB >= 0 || estKB >= 0 {
+		if distKB < 0 {
+			distKB = 0
+		}
+		if estKB < 0 {
+			estKB = 0
+		}
+		a.walDistances = append(a.walDistances, CheckpointWAL{
+			Timestamp:  entry.Timestamp,
+			DistanceKB: distKB,
+			EstimateKB: estKB,
+		})
+		a.totalDistanceKB += distKB
+		if distKB > a.maxDistanceKB {
+			a.maxDistanceKB = distKB
+		}
+	}
 }
 
 // processCheckpointWarning records a checkpoint frequency warning and extracts the interval.
@@ -243,6 +291,25 @@ func extractWriteTime(message string) float64 {
 	return seconds
 }
 
+// extractKBValue parses an integer kB value from a "prefix=XXXX kB" pattern.
+// Returns -1 if the prefix is not found or parsing fails.
+func extractKBValue(message string, prefix string) int64 {
+	idx := strings.Index(message, prefix)
+	if idx < 0 {
+		return -1
+	}
+	rest := message[idx+len(prefix):]
+	end := strings.Index(rest, kbSuffix)
+	if end <= 0 {
+		return -1
+	}
+	val, err := strconv.ParseInt(rest[:end], 10, 64)
+	if err != nil {
+		return -1
+	}
+	return val
+}
+
 // Finalize returns the aggregated checkpoint metrics.
 // This should be called after all log entries have been processed.
 func (a *CheckpointAnalyzer) Finalize() CheckpointMetrics {
@@ -253,6 +320,9 @@ func (a *CheckpointAnalyzer) Finalize() CheckpointMetrics {
 		Events:                   a.events,
 		TypeCounts:               a.typeCounts,
 		TypeEvents:               a.typeEvents,
+		WALDistances:            a.walDistances,
+		TotalDistanceKB:         a.totalDistanceKB,
+		MaxDistanceKB:           a.maxDistanceKB,
 		WarningCount:             a.warningCount,
 		WarningEvents:            a.warningEvents,
 		WarningMinIntervalSeconds: a.warningMinIntervalSeconds,
