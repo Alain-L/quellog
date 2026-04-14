@@ -269,9 +269,12 @@ type CheckpointsJSON struct {
 	Events            []string                      `json:"events"`
 	Types             map[string]CheckpointTypeJSON `json:"types,omitempty"`
 
-	AvgWALDistance  string             `json:"avg_wal_distance,omitempty"`
-	MaxWALDistance  string             `json:"max_wal_distance,omitempty"`
-	WALDistances   []WALDistanceJSON  `json:"wal_distances,omitempty"`
+	AvgWALDistance      string             `json:"avg_wal_distance,omitempty"`
+	MaxWALDistance      string             `json:"max_wal_distance,omitempty"`
+	TotalBuffersWritten int64             `json:"total_buffers_written,omitempty"`
+	WALRate             string             `json:"wal_rate,omitempty"`
+	FlushRate           string             `json:"flush_rate,omitempty"`
+	WALDistances        []WALDistanceJSON  `json:"wal_distances,omitempty"`
 
 	WarningCount              int      `json:"warning_count,omitempty"`
 	WarningMinIntervalSeconds int      `json:"warning_min_interval_seconds,omitempty"`
@@ -547,6 +550,19 @@ func buildJSONData(m analysis.AggregatedMetrics, sections []string, full bool) m
 					EstimateKB: w.EstimateKB,
 				})
 			}
+		}
+		// I/O rates
+		if m.Checkpoints.TotalBuffersWritten > 0 {
+			cp.TotalBuffersWritten = m.Checkpoints.TotalBuffersWritten
+		}
+		duration := m.Global.MaxTimestamp.Sub(m.Global.MinTimestamp)
+		if duration.Seconds() > 0 && m.Checkpoints.TotalDistanceKB > 0 {
+			walRateBytesPerSec := float64(m.Checkpoints.TotalDistanceKB*1024) / duration.Seconds()
+			cp.WALRate = formatRate(walRateBytesPerSec)
+		}
+		if m.Checkpoints.TotalWriteTimeSeconds > 0 && m.Checkpoints.TotalBuffersWritten > 0 {
+			flushRateBytesPerSec := float64(m.Checkpoints.TotalBuffersWritten*8192) / m.Checkpoints.TotalWriteTimeSeconds
+			cp.FlushRate = formatRate(flushRateBytesPerSec)
 		}
 		if m.Checkpoints.WarningCount > 0 {
 			cp.WarningCount = m.Checkpoints.WarningCount

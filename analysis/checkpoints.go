@@ -51,6 +51,9 @@ type CheckpointMetrics struct {
 	// MaxDistanceKB is the largest WAL distance observed for a single checkpoint.
 	MaxDistanceKB int64
 
+	// TotalBuffersWritten is the cumulative number of buffers written across all checkpoints.
+	TotalBuffersWritten int64
+
 	// WarningCount is the number of "checkpoints are occurring too frequently" warnings.
 	WarningCount int
 
@@ -73,6 +76,8 @@ const (
 	checkpointStarting = "checkpoint starting:"
 	checkpointComplete = "checkpoint complete"
 	checkpointWarning  = "checkpoints are occurring too frequently"
+	wrotePrefix        = "wrote "
+	buffersSuffix      = " buffers"
 	writeTotalPrefix   = "total="
 	writeTotalSuffix   = " s"
 	distancePrefix     = "distance="
@@ -106,9 +111,10 @@ type CheckpointAnalyzer struct {
 	typeEvents map[string][]time.Time
 
 	// WAL distance tracking
-	walDistances    []CheckpointWAL
-	totalDistanceKB int64
-	maxDistanceKB   int64
+	walDistances        []CheckpointWAL
+	totalDistanceKB     int64
+	maxDistanceKB       int64
+	totalBuffersWritten int64
 
 	// State tracking (for associating "starting" with "complete")
 	lastCheckpointType string
@@ -210,6 +216,11 @@ func (a *CheckpointAnalyzer) processCheckpointComplete(entry *parser.LogEntry) {
 		}
 	}
 
+	// Extract buffers written
+	if buffers := extractBuffersWritten(entry.Message); buffers > 0 {
+		a.totalBuffersWritten += buffers
+	}
+
 	// Extract WAL distance and estimate
 	distKB := extractKBValue(entry.Message, distancePrefix)
 	estKB := extractKBValue(entry.Message, estimatePrefix)
@@ -291,6 +302,25 @@ func extractWriteTime(message string) float64 {
 	return seconds
 }
 
+// extractBuffersWritten parses the buffer count from "wrote 1234 buffers" pattern.
+// Returns 0 if not found or parsing fails.
+func extractBuffersWritten(message string) int64 {
+	idx := strings.Index(message, wrotePrefix)
+	if idx < 0 {
+		return 0
+	}
+	rest := message[idx+len(wrotePrefix):]
+	end := strings.Index(rest, buffersSuffix)
+	if end <= 0 {
+		return 0
+	}
+	val, err := strconv.ParseInt(rest[:end], 10, 64)
+	if err != nil {
+		return 0
+	}
+	return val
+}
+
 // extractKBValue parses an integer kB value from a "prefix=XXXX kB" pattern.
 // Returns -1 if the prefix is not found or parsing fails.
 func extractKBValue(message string, prefix string) int64 {
@@ -323,6 +353,7 @@ func (a *CheckpointAnalyzer) Finalize() CheckpointMetrics {
 		WALDistances:            a.walDistances,
 		TotalDistanceKB:         a.totalDistanceKB,
 		MaxDistanceKB:           a.maxDistanceKB,
+		TotalBuffersWritten:    a.totalBuffersWritten,
 		WarningCount:             a.warningCount,
 		WarningEvents:            a.warningEvents,
 		WarningMinIntervalSeconds: a.warningMinIntervalSeconds,

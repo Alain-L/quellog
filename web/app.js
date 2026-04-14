@@ -707,24 +707,7 @@ function buildEventsSection(data) {
             const hasWarnings = cp.warning_events?.length > 0;
             const other = cp.total_checkpoints - timed - wal;
 
-            // Compute throughput from wal_distances: distance_kb / write_time per checkpoint
-            // We need per-checkpoint write times, but we only have aggregates.
-            // Use avg and max from formatted strings: parse "263.22 s" → float
-            const parseSeconds = s => { const m = s?.match?.(/([\d.]+)\s*s/); return m ? parseFloat(m[1]) : 0; };
-            const parseMB = s => { const m = s?.match?.(/([\d.]+)\s*MB/); if (m) return parseFloat(m[1]); const g = s?.match?.(/([\d.]+)\s*GB/); return g ? parseFloat(g[1]) * 1024 : 0; };
-            const avgWriteS = parseSeconds(cp.avg_checkpoint_time);
-            const maxWriteS = parseSeconds(cp.max_checkpoint_time);
-            const avgDistMB = parseMB(cp.avg_wal_distance);
-            const maxDistMB = parseMB(cp.max_wal_distance);
-            const avgThroughput = avgWriteS > 0 ? avgDistMB / avgWriteS : 0;
-            // Peak throughput: max distance / avg write time (conservative estimate)
-            const peakThroughput = avgWriteS > 0 ? maxDistMB / avgWriteS : 0;
-            const fmtThroughput = v => {
-                if (v <= 0) return '-';
-                if (v >= 1024) return (v / 1024).toFixed(1) + ' GB/s';
-                if (v >= 1) return v.toFixed(1) + ' MB/s';
-                return (v * 1024).toFixed(0) + ' kB/s';
-            };
+            // I/O rates from server-computed values
 
             const hasWALDistances = cp.wal_distances?.length > 0;
 
@@ -773,8 +756,8 @@ function buildEventsSection(data) {
                             <div class="stat-card"><div class="stat-value">${timed}</div><div class="stat-label">Timed</div></div>
                             <div class="stat-card"><div class="stat-value">${wal}</div><div class="stat-label">WAL</div></div>
                             ${other > 0 ? `<div class="stat-card"><div class="stat-value">${other}</div><div class="stat-label">Other</div></div>` : ''}
-                            <div class="stat-card"><div class="stat-value">${fmtThroughput(avgThroughput)}</div><div class="stat-label">Avg Throughput</div></div>
-                            <div class="stat-card"><div class="stat-value">${fmtThroughput(peakThroughput)}</div><div class="stat-label">Peak Throughput</div></div>
+                            ${cp.wal_rate ? `<div class="stat-card"><div class="stat-value">${cp.wal_rate}</div><div class="stat-label">WAL Rate</div></div>` : ''}
+                            ${cp.flush_rate ? `<div class="stat-card"><div class="stat-value">${cp.flush_rate}</div><div class="stat-label">Flush Rate</div></div>` : ''}
                             ${cp.warning_count ? `<div class="stat-card stat-card--alert"><div class="stat-value">${cp.warning_count}</div><div class="stat-label">Too Frequent</div></div>` : ''}
                         </div>
                         ${hasEvents ? `

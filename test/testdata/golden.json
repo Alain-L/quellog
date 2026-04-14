@@ -63,6 +63,9 @@
     },
     "avg_wal_distance": "11.85 MB",
     "max_wal_distance": "27.43 MB",
+    "total_buffers_written": 12118,
+    "wal_rate": "161 kB/s",
+    "flush_rate": "492 kB/s",
     "wal_distances": [
       {
         "timestamp": "2025-11-30 21:10:20",
