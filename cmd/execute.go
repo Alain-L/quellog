@@ -95,8 +95,8 @@ func runAnalysisCycle(args []string) {
 	}
 
 	// Step 3: Set up streaming pipeline
-	rawLogs := make(chan parser.LogEntry, 24576)
-	filteredLogs := make(chan parser.LogEntry, 24576)
+	rawLogs := make(chan parser.LogEntry, 65536)
+	filteredLogs := make(chan parser.LogEntry, 65536)
 
 	// Launch parallel file parsing
 	go parseFilesAsync(allFiles, rawLogs)
