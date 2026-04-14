@@ -62,6 +62,7 @@ type QueryStatJSON struct {
 	TotalTime       float64 `json:"total_time_ms"`
 	AvgTime         float64 `json:"avg_time_ms"`
 	MaxTime         float64 `json:"max_time_ms"`
+	Plan            string  `json:"plan,omitempty"`
 }
 
 // SQL Overview JSON structures (for --sql-overview --json)
@@ -118,6 +119,7 @@ type SQLDetailJSON struct {
 	Executions      []QueryExecutionJSON  `json:"executions,omitempty"`
 	TempFiles       *QueryTempFilesJSON   `json:"temp_files,omitempty"`
 	Locks           *QueryLocksJSON       `json:"locks,omitempty"`
+	Plan            string                `json:"plan,omitempty"`
 }
 
 type QueryDetailStatsJSON struct {
@@ -897,6 +899,7 @@ func buildFullSQLPerformance(m analysis.SQLMetrics) SQLPerformanceDetailJSON {
 			TotalTime:       s.stat.TotalTime,
 			AvgTime:         s.stat.AvgTime,
 			MaxTime:         s.stat.MaxTime,
+			Plan:            s.stat.LastPlan,
 		})
 	}
 
@@ -989,6 +992,7 @@ func convertSQLPerformance(m analysis.SQLMetrics) SQLPerformanceJSON {
 			TotalTime:       stat.TotalTime,
 			AvgTime:         stat.AvgTime,
 			MaxTime:         stat.MaxTime,
+			Plan:            stat.LastPlan,
 		})
 	}
 	// Sort by ID for deterministic JSON output
@@ -1350,6 +1354,10 @@ func ExportSQLDetailJSON(w io.Writer, m analysis.AggregatedMetrics, queryIDs []s
 				TotalTime: formatQueryDuration(foundStat.TotalTime),
 				AvgTime:   formatQueryDuration(foundStat.AvgTime),
 				MaxTime:   formatQueryDuration(foundStat.MaxTime),
+			}
+
+			if foundStat.LastPlan != "" {
+				detail.Plan = foundStat.LastPlan
 			}
 
 			// Find executions for this query
