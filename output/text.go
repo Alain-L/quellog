@@ -245,6 +245,108 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 				printMostFrequentWaitingQueries(m.Locks.QueryStats, 10, termWidth)
 			}
 		}
+
+		// Blocking queries (only shown with --locks flag, not in default report)
+		if !has("all") && len(m.Locks.Events) > 0 {
+			type blockerStat struct {
+				queryID    string
+				query      string
+				blockCount int
+				totalWait  float64
+			}
+			blockers := make(map[string]*blockerStat)
+			for _, e := range m.Locks.Events {
+				if e.BlockingQueryID == "" || e.EventType == "deadlock" {
+					continue
+				}
+				bs, ok := blockers[e.BlockingQueryID]
+				if !ok {
+					bs = &blockerStat{queryID: e.BlockingQueryID}
+					blockers[e.BlockingQueryID] = bs
+				}
+				bs.blockCount++
+				bs.totalWait += e.WaitTime
+			}
+			if len(blockers) > 0 {
+				for _, e := range m.Locks.Events {
+					if e.BlockingQueryID == "" || e.BlockingQuery == "" {
+						continue
+					}
+					if bs, ok := blockers[e.BlockingQueryID]; ok && bs.query == "" {
+						bs.query = e.BlockingQuery
+					}
+				}
+
+				type blockerPair struct{ stat *blockerStat }
+				var pairs []blockerPair
+				for _, bs := range blockers {
+					pairs = append(pairs, blockerPair{bs})
+				}
+				sort.Slice(pairs, func(i, j int) bool {
+					return pairs[i].stat.totalWait > pairs[j].stat.totalWait
+				})
+
+				termWidth, _, err := term.GetSize(int(os.Stdout.Fd()))
+				if err != nil {
+					termWidth = 120
+				}
+
+				limit := 10
+				if limit > len(pairs) {
+					limit = len(pairs)
+				}
+
+				fmt.Println(bold + "\nBlocking queries:" + reset)
+
+				if termWidth >= 120 {
+					tableWidth := int(float64(termWidth) * 0.9)
+					if tableWidth > termWidth-10 {
+						tableWidth = termWidth - 10
+					}
+					fixedWidth := 49
+					spacingWidth := 8
+					queryWidth := tableWidth - fixedWidth - spacingWidth
+					if queryWidth < 40 {
+						queryWidth = 40
+					}
+
+					fmt.Printf("%s%-9s  %-*s  %10s  %15s  %15s%s\n",
+						bold, "SQLID", queryWidth, "Query", "Blocked", "Avg Wait", "Total Wait", reset)
+					fmt.Println(strings.Repeat("-", tableWidth))
+
+					for i := 0; i < limit; i++ {
+						bs := pairs[i].stat
+						truncatedQuery := truncateQuery(bs.query, queryWidth)
+						if truncatedQuery == "" {
+							truncatedQuery = "(unknown)"
+						}
+						avgWait := bs.totalWait / float64(bs.blockCount)
+						fmt.Printf("%-9s  %-*s  %10d  %15s  %15s\n",
+							bs.queryID,
+							queryWidth, truncatedQuery,
+							bs.blockCount,
+							formatQueryDuration(avgWait),
+							formatQueryDuration(bs.totalWait))
+					}
+				} else {
+					header := fmt.Sprintf("%-8s  %-10s  %-10s  %-12s  %-12s\n", "SQLID", "Type", "Blocked", "Avg Wait", "Total Wait")
+					fmt.Print(bold + header + reset)
+					fmt.Println(strings.Repeat("-", 80))
+
+					for i := 0; i < limit; i++ {
+						bs := pairs[i].stat
+						qType := analysis.QueryTypeFromID(bs.queryID)
+						avgWait := bs.totalWait / float64(bs.blockCount)
+						fmt.Printf("%-8s  %-10s  %-10d  %-12s  %-12s\n",
+							bs.queryID,
+							qType,
+							bs.blockCount,
+							formatQueryDuration(avgWait),
+							formatQueryDuration(bs.totalWait))
+					}
+				}
+			}
+		}
 	}
 
 	// Maintenance Metrics section.

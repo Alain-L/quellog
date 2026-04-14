@@ -69,6 +69,9 @@ type LockEvent struct {
 
 	// BlockingQueryID is the short identifier for the blocking query, if known.
 	BlockingQueryID string
+
+	// BlockingQuery is the normalized text of the blocking query, if known.
+	BlockingQuery string
 }
 
 // LockQueryStat stores aggregated lock statistics for a single query pattern.
@@ -300,10 +303,11 @@ func (a *LockAnalyzer) Process(entry *parser.LogEntry) {
 				for i := len(a.events) - 1; i >= 0; i-- {
 					if a.events[i].ProcessID == waitingPID && a.events[i].EventType == "waiting" {
 						a.events[i].BlockingPID = bPID
-						// Try to resolve blocking query
+						// Try to resolve blocking query (text + ID together)
 						if bQuery, ok := a.lastQueryByPID[bPID]; ok {
 							normalized := normalizeQuery(bQuery)
 							a.events[i].BlockingQueryID, _ = GenerateQueryID(bQuery, normalized)
+							a.events[i].BlockingQuery = normalized
 						}
 						break
 					}
@@ -714,11 +718,14 @@ func (a *LockAnalyzer) Finalize() LockMetrics {
 
 	// Resolve blocking query IDs that weren't available during streaming.
 	// By now all entries have been processed, so lastQueryByPID is complete.
+	// Only resolve events that have NO blocking query yet — events resolved
+	// during streaming already have the correct query from that point in time.
 	for i := range a.events {
 		if a.events[i].BlockingPID != "" && a.events[i].BlockingQueryID == "" {
 			if bQuery, ok := a.lastQueryByPID[a.events[i].BlockingPID]; ok {
 				normalized := normalizeQuery(bQuery)
 				a.events[i].BlockingQueryID, _ = GenerateQueryID(bQuery, normalized)
+				a.events[i].BlockingQuery = normalized
 			}
 		}
 	}
