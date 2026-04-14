@@ -296,56 +296,102 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 			b.WriteString("\n")
 		}
 
-		// Acquired locks by query
+		// Waiting queries
 		if len(m.Locks.QueryStats) > 0 {
-			hasAcquired := false
-			for _, stat := range m.Locks.QueryStats {
-				if stat.AcquiredCount > 0 {
-					hasAcquired = true
-					break
-				}
-			}
-			if hasAcquired {
-				b.WriteString("### Acquired Locks by Query\n\n")
-				b.WriteString("| SQLID | Normalized Query | Locks | Avg Wait (ms) | Total Wait (ms) |\n")
-				b.WriteString("|---|---|---:|---:|---:|\n")
-				printAcquiredLockQueriesMarkdown(&b, m.Locks.QueryStats, 10)
-				b.WriteString("\n")
-			}
-		}
-
-		// Locks still waiting by query
-		if len(m.Locks.QueryStats) > 0 {
-			hasStillWaiting := false
-			for _, stat := range m.Locks.QueryStats {
-				if stat.StillWaitingCount > 0 {
-					hasStillWaiting = true
-					break
-				}
-			}
-			if hasStillWaiting {
-				b.WriteString("### Locks Still Waiting by Query\n\n")
-				b.WriteString("| SQLID | Normalized Query | Locks | Avg Wait (ms) | Total Wait (ms) |\n")
-				b.WriteString("|---|---|---:|---:|---:|\n")
-				printStillWaitingLockQueriesMarkdown(&b, m.Locks.QueryStats, 10)
-				b.WriteString("\n")
-			}
-		}
-
-		// Most frequent waiting queries
-		if len(m.Locks.QueryStats) > 0 {
-			hasWaiting := false
+			type queryPair struct{ stat *analysis.LockQueryStat }
+			var pairs []queryPair
 			for _, stat := range m.Locks.QueryStats {
 				if stat.AcquiredCount > 0 || stat.StillWaitingCount > 0 {
-					hasWaiting = true
-					break
+					pairs = append(pairs, queryPair{stat})
 				}
 			}
-			if hasWaiting {
-				b.WriteString("### Most Frequent Waiting Queries\n\n")
-				b.WriteString("| SQLID | Normalized Query | Locks | Avg Wait (ms) | Total Wait (ms) |\n")
+			if len(pairs) > 0 {
+				sort.Slice(pairs, func(i, j int) bool {
+					return pairs[i].stat.TotalWaitTime > pairs[j].stat.TotalWaitTime
+				})
+				limit := 10
+				if limit > len(pairs) {
+					limit = len(pairs)
+				}
+
+				b.WriteString("### Waiting Queries\n\n")
+				b.WriteString("| SQLID | Query | Acquired | Waiting | Total Wait |\n")
 				b.WriteString("|---|---|---:|---:|---:|\n")
-				printMostFrequentWaitingQueriesMarkdown(&b, m.Locks.QueryStats, 10)
+				for i := 0; i < limit; i++ {
+					stat := pairs[i].stat
+					b.WriteString(fmt.Sprintf("| %s | %s | %d | %d | %s |\n",
+						stat.ID,
+						truncateQuery(stat.NormalizedQuery, 60),
+						stat.AcquiredCount,
+						stat.StillWaitingCount,
+						formatQueryDuration(stat.TotalWaitTime)))
+				}
+				b.WriteString("\n")
+			}
+		}
+
+		// Blocking queries
+		if len(m.Locks.Events) > 0 {
+			type blockerStat struct {
+				queryID    string
+				query      string
+				blockCount int
+				totalWait  float64
+			}
+			blockers := make(map[string]*blockerStat)
+			for _, e := range m.Locks.Events {
+				if e.BlockingQueryID == "" || e.EventType == "deadlock" {
+					continue
+				}
+				bs, ok := blockers[e.BlockingQueryID]
+				if !ok {
+					bs = &blockerStat{queryID: e.BlockingQueryID}
+					blockers[e.BlockingQueryID] = bs
+				}
+				bs.blockCount++
+				bs.totalWait += e.WaitTime
+			}
+			if len(blockers) > 0 {
+				for _, e := range m.Locks.Events {
+					if e.BlockingQueryID == "" || e.BlockingQuery == "" {
+						continue
+					}
+					if bs, ok := blockers[e.BlockingQueryID]; ok && bs.query == "" {
+						bs.query = e.BlockingQuery
+					}
+				}
+
+				type blockerPair struct{ stat *blockerStat }
+				var pairs []blockerPair
+				for _, bs := range blockers {
+					pairs = append(pairs, blockerPair{bs})
+				}
+				sort.Slice(pairs, func(i, j int) bool {
+					return pairs[i].stat.totalWait > pairs[j].stat.totalWait
+				})
+
+				limit := 10
+				if limit > len(pairs) {
+					limit = len(pairs)
+				}
+
+				b.WriteString("### Blocking Queries\n\n")
+				b.WriteString("| SQLID | Query | Blocked | Avg Wait | Total Wait |\n")
+				b.WriteString("|---|---|---:|---:|---:|\n")
+				for i := 0; i < limit; i++ {
+					bs := pairs[i].stat
+					query := bs.query
+					if query == "" {
+						query = "(unknown)"
+					}
+					avgWait := bs.totalWait / float64(bs.blockCount)
+					b.WriteString(fmt.Sprintf("| %s | %s | %d | %s | %s |\n",
+						bs.queryID,
+						truncateQuery(query, 60),
+						bs.blockCount,
+						formatQueryDuration(avgWait),
+						formatQueryDuration(bs.totalWait)))
+				}
 				b.WriteString("\n")
 			}
 		}

@@ -186,63 +186,74 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 			printLockStats(m.Locks.ResourceTypeStats, m.Locks.TotalEvents)
 		}
 
-		// Acquired locks by query (only shown with --locks flag, not in default report)
+		// Waiting queries (only shown with --locks flag, not in default report)
 		if !has("all") && len(m.Locks.QueryStats) > 0 {
-			hasAcquired := false
-			for _, stat := range m.Locks.QueryStats {
-				if stat.AcquiredCount > 0 {
-					hasAcquired = true
-					break
-				}
+			termWidth, _, err := term.GetSize(int(os.Stdout.Fd()))
+			if err != nil {
+				termWidth = 120
 			}
-			if hasAcquired {
-				termWidth, _, err := term.GetSize(int(os.Stdout.Fd()))
-				if err != nil {
-					termWidth = 120
-				}
 
-				fmt.Println(bold + "\nAcquired locks by query:" + reset)
-				printAcquiredLockQueries(m.Locks.QueryStats, 10, termWidth)
-			}
-		}
-
-		// Locks still waiting by query (only shown with --locks flag, not in default report)
-		if !has("all") && len(m.Locks.QueryStats) > 0 {
-			hasStillWaiting := false
-			for _, stat := range m.Locks.QueryStats {
-				if stat.StillWaitingCount > 0 {
-					hasStillWaiting = true
-					break
-				}
-			}
-			if hasStillWaiting {
-				termWidth, _, err := term.GetSize(int(os.Stdout.Fd()))
-				if err != nil {
-					termWidth = 120
-				}
-
-				fmt.Println(bold + "\nLocks still waiting by query:" + reset)
-				printStillWaitingLockQueries(m.Locks.QueryStats, 10, termWidth)
-			}
-		}
-
-		// Most frequent waiting queries (only shown with --locks flag, not in default report)
-		if !has("all") && len(m.Locks.QueryStats) > 0 {
-			hasWaiting := false
+			// Sort by total wait time descending
+			type queryPair struct{ stat *analysis.LockQueryStat }
+			var pairs []queryPair
 			for _, stat := range m.Locks.QueryStats {
 				if stat.AcquiredCount > 0 || stat.StillWaitingCount > 0 {
-					hasWaiting = true
-					break
+					pairs = append(pairs, queryPair{stat})
 				}
 			}
-			if hasWaiting {
-				termWidth, _, err := term.GetSize(int(os.Stdout.Fd()))
-				if err != nil {
-					termWidth = 120
+			if len(pairs) > 0 {
+				sort.Slice(pairs, func(i, j int) bool {
+					return pairs[i].stat.TotalWaitTime > pairs[j].stat.TotalWaitTime
+				})
+
+				limit := 10
+				if limit > len(pairs) {
+					limit = len(pairs)
 				}
 
-				fmt.Println(bold + "\nMost frequent waiting queries:" + reset)
-				printMostFrequentWaitingQueries(m.Locks.QueryStats, 10, termWidth)
+				fmt.Println(bold + "\nWaiting queries:" + reset)
+
+				if termWidth >= 120 {
+					tableWidth := int(float64(termWidth) * 0.9)
+					if tableWidth > termWidth-10 {
+						tableWidth = termWidth - 10
+					}
+					// SQLID(9) + Acquired(10) + Waiting(10) + Total Wait(15) = 44
+					fixedWidth := 44
+					spacingWidth := 8
+					queryWidth := tableWidth - fixedWidth - spacingWidth
+					if queryWidth < 40 {
+						queryWidth = 40
+					}
+
+					fmt.Printf("%s%-9s  %-*s  %10s  %10s  %15s%s\n",
+						bold, "SQLID", queryWidth, "Query", "Acquired", "Waiting", "Total Wait", reset)
+					fmt.Println(strings.Repeat("-", tableWidth))
+
+					for i := 0; i < limit; i++ {
+						stat := pairs[i].stat
+						truncatedQuery := truncateQuery(stat.NormalizedQuery, queryWidth)
+						fmt.Printf("%-9s  %-*s  %10d  %10d  %15s\n",
+							stat.ID,
+							queryWidth, truncatedQuery,
+							stat.AcquiredCount,
+							stat.StillWaitingCount,
+							formatQueryDuration(stat.TotalWaitTime))
+					}
+				} else {
+					fmt.Printf("%s%-9s  %10s  %10s  %15s%s\n",
+						bold, "SQLID", "Acquired", "Waiting", "Total Wait", reset)
+					fmt.Println(strings.Repeat("-", 60))
+
+					for i := 0; i < limit; i++ {
+						stat := pairs[i].stat
+						fmt.Printf("%-9s  %10d  %10d  %15s\n",
+							stat.ID,
+							stat.AcquiredCount,
+							stat.StillWaitingCount,
+							formatQueryDuration(stat.TotalWaitTime))
+					}
+				}
 			}
 		}
 

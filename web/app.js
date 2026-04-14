@@ -933,7 +933,7 @@ function buildEventsSection(data) {
                         ` : ''}
                         ${hasQueries ? `
                             <div class="subsection">
-                                <div class="subsection-title">Queries Involved in Lock Waits</div>
+                                <div class="subsection-title">Waiting Queries</div>
                                 <div class="table-container" style="max-height: 180px;">
                                     <table>
                                         <thead><tr>
@@ -943,7 +943,11 @@ function buildEventsSection(data) {
                                             <th class="num">Total Wait</th>
                                         </tr></thead>
                                         <tbody>
-                                            ${l.queries.slice(0, 10).map(q => `
+                                            ${[...l.queries].sort((a, b) => {
+                                                const wa = parseFloat(a.total_wait_time) || 0;
+                                                const wb = parseFloat(b.total_wait_time) || 0;
+                                                return wb - wa;
+                                            }).slice(0, 10).map(q => `
                                                 <tr>
                                                     <td class="query-cell" onclick="showQueryModal('${esc(q.id)}')">${esc(q.normalized_query)}</td>
                                                     <td class="num">${q.acquired_count || 0}</td>
@@ -956,6 +960,51 @@ function buildEventsSection(data) {
                                 </div>
                             </div>
                         ` : ''}
+                        ${(() => {
+                            // Aggregate blocking queries from events
+                            const blockers = {};
+                            (l.events || []).forEach(e => {
+                                if (!e.blocking_query_id || e.event_type === 'deadlock') return;
+                                if (!blockers[e.blocking_query_id]) {
+                                    blockers[e.blocking_query_id] = { id: e.blocking_query_id, query: e.blocking_query || '', count: 0, totalWaitMs: 0 };
+                                }
+                                blockers[e.blocking_query_id].count++;
+                                // Parse "1.00 s" or "2m 30s" wait_time string to ms
+                                const wt = e.wait_time || '';
+                                const sMatch = wt.match(/([\d.]+)\s*s/);
+                                const mMatch = wt.match(/([\d.]+)\s*m/);
+                                let ms = 0;
+                                if (mMatch) ms += parseFloat(mMatch[1]) * 60000;
+                                if (sMatch) ms += parseFloat(sMatch[1]) * 1000;
+                                blockers[e.blocking_query_id].totalWaitMs += ms;
+                            });
+                            const sorted = Object.values(blockers).sort((a, b) => b.totalWaitMs - a.totalWaitMs).slice(0, 10);
+                            if (sorted.length === 0) return '';
+                            return `
+                            <div class="subsection">
+                                <div class="subsection-title">Blocking Queries</div>
+                                <div class="table-container" style="max-height: 180px;">
+                                    <table>
+                                        <thead><tr>
+                                            <th>Query</th>
+                                            <th class="num">Blocked</th>
+                                            <th class="num">Avg Wait</th>
+                                            <th class="num">Total Wait</th>
+                                        </tr></thead>
+                                        <tbody>
+                                            ${sorted.map(b => `
+                                                <tr>
+                                                    <td class="query-cell" onclick="showQueryModal('${esc(b.id)}')">${esc(b.query || b.id)}</td>
+                                                    <td class="num">${b.count}</td>
+                                                    <td class="num">${fmtMs(b.totalWaitMs / b.count)}</td>
+                                                    <td class="num">${fmtMs(b.totalWaitMs)}</td>
+                                                </tr>
+                                            `).join('')}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>`;
+                        })()}
                     </div>
                 </div>
             `;
