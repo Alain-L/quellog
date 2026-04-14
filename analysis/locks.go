@@ -63,6 +63,12 @@ type LockEvent struct {
 	// QueryID is the short identifier for the associated query (e.g., "se-abc123").
 	// May be empty if the query cannot be identified.
 	QueryID string
+
+	// BlockingPID is the PID of the process holding the lock (from DETAIL line).
+	BlockingPID string
+
+	// BlockingQueryID is the short identifier for the blocking query, if known.
+	BlockingQueryID string
 }
 
 // LockQueryStat stores aggregated lock statistics for a single query pattern.
@@ -112,6 +118,7 @@ const (
 	lockAfterMarker   = " after "
 	lockMsSuffix      = " ms"
 	lockDeadlock      = "deadlock detected"
+	lockBlockingPID   = "Process holding the lock: "
 )
 
 // ============================================================================
@@ -140,8 +147,9 @@ type LockAnalyzer struct {
 	// Pre-allocated structures (initialized at creation)
 	events         []LockEvent
 	queryStats     map[string]*LockQueryStat
-	lastQueryByPID map[string]string
-	activeLocks    map[string]*activeLock
+	lastQueryByPID      map[string]string
+	pendingBlockingPID  map[string]string // Maps waiting PID → blocking PID (from DETAIL line)
+	activeLocks         map[string]*activeLock
 
 	// State machine optimization (like tempfiles)
 	locksExist bool // True once we've seen at least one lock event
@@ -157,6 +165,7 @@ type activeLock struct {
 	acquired       bool    // Whether this lock was acquired
 	query          string  // Associated query if known
 	waitingEventID int     // Index into events slice for the waiting event (-1 if none)
+	blockingPID    string  // PID of the process holding the lock
 }
 
 // NewLockAnalyzer creates a new lock event analyzer.
@@ -166,8 +175,9 @@ func NewLockAnalyzer() *LockAnalyzer {
 		resourceTypeStats: make(map[string]int, 10),
 		events:            make([]LockEvent, 0, 1000),
 		queryStats:        make(map[string]*LockQueryStat, 100),
-		lastQueryByPID:    make(map[string]string, 100),
-		activeLocks:       make(map[string]*activeLock, 200),
+		lastQueryByPID:     make(map[string]string, 100),
+		pendingBlockingPID: make(map[string]string, 50),
+		activeLocks:        make(map[string]*activeLock, 200),
 		locksExist:        false,
 	}
 }
@@ -267,8 +277,46 @@ func (a *LockAnalyzer) Process(entry *parser.LogEntry) {
 		}
 	}
 
+	// Check for DETAIL line with blocking PID
+	hasBlockingDetail := false
+	if a.locksExist && strings.Contains(msg, lockBlockingPID) {
+		hasBlockingDetail = true
+	}
+
 	// Skip if nothing relevant
-	if !hasLockWaiting && !hasLockAcquired && !hasDeadlock && !hasStatement && !hasQuery {
+	if !hasLockWaiting && !hasLockAcquired && !hasDeadlock && !hasStatement && !hasQuery && !hasBlockingDetail {
+		return
+	}
+
+	// === STEP 0: Handle DETAIL lines with blocking PID ===
+	// DETAIL arrives AFTER the "still waiting" entry for the same PID.
+	// We extract the blocking PID and update the most recent waiting event.
+	if hasBlockingDetail {
+		bPID := extractBlockingPID(msg)
+		if bPID != "" {
+			waitingPID := parser.ExtractPID(msg)
+			if waitingPID != "" {
+				// Update the last waiting event for this PID
+				for i := len(a.events) - 1; i >= 0; i-- {
+					if a.events[i].ProcessID == waitingPID && a.events[i].EventType == "waiting" {
+						a.events[i].BlockingPID = bPID
+						// Try to resolve blocking query
+						if bQuery, ok := a.lastQueryByPID[bPID]; ok {
+							normalized := normalizeQuery(bQuery)
+							a.events[i].BlockingQueryID, _ = GenerateQueryID(bQuery, normalized)
+						}
+						break
+					}
+				}
+				// Also store in active locks
+				for _, lock := range a.activeLocks {
+					if lock.processID == waitingPID && !lock.acquired {
+						lock.blockingPID = bPID
+						break
+					}
+				}
+			}
+		}
 		return
 	}
 
@@ -370,6 +418,9 @@ func (a *LockAnalyzer) Process(entry *parser.LogEntry) {
 		resourceType := extractResourceType(resource)
 		lockKey := processID + "-" + lockType + "-" + resource
 
+		// Extract blocking PID from DETAIL line (if present)
+		blockingPID := extractBlockingPID(msg)
+
 		if eventType == "waiting" {
 			lock, exists := a.activeLocks[lockKey]
 			if !exists {
@@ -381,6 +432,7 @@ func (a *LockAnalyzer) Process(entry *parser.LogEntry) {
 					lastWaitTime:   waitTime,
 					acquired:       false,
 					waitingEventID: -1, // Will be set after we append the event
+					blockingPID:    blockingPID,
 				}
 				// Get associated query if available
 				if query, ok := a.lastQueryByPID[processID]; ok {
@@ -404,16 +456,27 @@ func (a *LockAnalyzer) Process(entry *parser.LogEntry) {
 				queryID, _ = GenerateQueryID(lock.query, normalized)
 			}
 
+			// Resolve blocking query if possible
+			blockingQueryID := ""
+			if blockingPID != "" {
+				if bQuery, ok := a.lastQueryByPID[blockingPID]; ok {
+					normalized := normalizeQuery(bQuery)
+					blockingQueryID, _ = GenerateQueryID(bQuery, normalized)
+				}
+			}
+
 			// Store the event index so we can update query_id later if STATEMENT comes after
 			eventIdx := len(a.events)
 			a.events = append(a.events, LockEvent{
-				Timestamp:    entry.Timestamp,
-				EventType:    "waiting",
-				LockType:     lockType,
-				ResourceType: resourceType,
-				WaitTime:     waitTime,
-				ProcessID:    processID,
-				QueryID:      queryID,
+				Timestamp:       entry.Timestamp,
+				EventType:       "waiting",
+				LockType:        lockType,
+				ResourceType:    resourceType,
+				WaitTime:        waitTime,
+				ProcessID:       processID,
+				QueryID:         queryID,
+				BlockingPID:     blockingPID,
+				BlockingQueryID: blockingQueryID,
 			})
 			// Track this event so we can update its query_id when STATEMENT arrives
 			lock.waitingEventID = eventIdx
@@ -455,6 +518,12 @@ func (a *LockAnalyzer) Process(entry *parser.LogEntry) {
 				queryID, _ = GenerateQueryID(lock.query, normalized)
 			}
 
+			// Get blocking PID from the active lock (captured during waiting phase)
+			acquiredBlockingPID := blockingPID
+			if lock != nil && lock.blockingPID != "" && acquiredBlockingPID == "" {
+				acquiredBlockingPID = lock.blockingPID
+			}
+
 			a.events = append(a.events, LockEvent{
 				Timestamp:    entry.Timestamp,
 				EventType:    "acquired",
@@ -463,6 +532,7 @@ func (a *LockAnalyzer) Process(entry *parser.LogEntry) {
 				WaitTime:     waitTime,
 				ProcessID:    processID,
 				QueryID:      queryID,
+				BlockingPID:  acquiredBlockingPID,
 			})
 		}
 	}
@@ -601,6 +671,29 @@ func extractResourceType(resource string) string {
 	return resource
 }
 
+// extractBlockingPID extracts the blocking process ID from a DETAIL line.
+// Format: "Process holding the lock: 101. Wait queue: 102."
+// Returns empty string if not found.
+func extractBlockingPID(msg string) string {
+	idx := strings.Index(msg, lockBlockingPID)
+	if idx < 0 {
+		return ""
+	}
+	rest := msg[idx+len(lockBlockingPID):]
+	end := strings.IndexByte(rest, '.')
+	if end <= 0 {
+		return ""
+	}
+	pid := rest[:end]
+	// Validate it's numeric
+	for i := 0; i < len(pid); i++ {
+		if pid[i] < '0' || pid[i] > '9' {
+			return ""
+		}
+	}
+	return pid
+}
+
 // Finalize returns the aggregated lock metrics.
 // This should be called after all log entries have been processed.
 func (a *LockAnalyzer) Finalize() LockMetrics {
@@ -616,6 +709,17 @@ func (a *LockAnalyzer) Finalize() LockMetrics {
 			ResourceTypeStats: make(map[string]int),
 			Events:            nil,
 			QueryStats:        nil,
+		}
+	}
+
+	// Resolve blocking query IDs that weren't available during streaming.
+	// By now all entries have been processed, so lastQueryByPID is complete.
+	for i := range a.events {
+		if a.events[i].BlockingPID != "" && a.events[i].BlockingQueryID == "" {
+			if bQuery, ok := a.lastQueryByPID[a.events[i].BlockingPID]; ok {
+				normalized := normalizeQuery(bQuery)
+				a.events[i].BlockingQueryID, _ = GenerateQueryID(bQuery, normalized)
+			}
 		}
 	}
 

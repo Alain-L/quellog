@@ -7490,7 +7490,8 @@
         "resource_type": "transaction",
         "wait_time": "1.00 s",
         "process_id": "1352",
-        "query_id": "be-BQ2mOa"
+        "query_id": "be-BQ2mOa",
+        "blocking_pid": "1351"
       },
       {
         "timestamp": "2025-11-30 21:16:12",
@@ -7499,7 +7500,8 @@
         "resource_type": "transaction",
         "wait_time": "2.51 s",
         "process_id": "1352",
-        "query_id": "be-BQ2mOa"
+        "query_id": "be-BQ2mOa",
+        "blocking_pid": "1351"
       }
     ],
     "queries": [

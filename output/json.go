@@ -231,8 +231,10 @@ type LockEventJSON struct {
 	LockType     string `json:"lock_type,omitempty"`
 	ResourceType string `json:"resource_type,omitempty"`
 	WaitTime     string `json:"wait_time,omitempty"`
-	ProcessID    string `json:"process_id"`
-	QueryID      string `json:"query_id,omitempty"`
+	ProcessID       string `json:"process_id"`
+	QueryID         string `json:"query_id,omitempty"`
+	BlockingPID     string `json:"blocking_pid,omitempty"`
+	BlockingQueryID string `json:"blocking_query_id,omitempty"`
 }
 
 type LockQueryStatJSON struct {
@@ -1034,13 +1036,15 @@ func convertLocks(m analysis.LockMetrics) LocksJSON {
 			waitTime = formatQueryDuration(event.WaitTime)
 		}
 		eventsJSON[i] = LockEventJSON{
-			Timestamp:    event.Timestamp.Format("2006-01-02 15:04:05"),
-			EventType:    event.EventType,
-			LockType:     event.LockType,
-			ResourceType: event.ResourceType,
-			WaitTime:     waitTime,
-			ProcessID:    event.ProcessID,
-			QueryID:      event.QueryID,
+			Timestamp:       event.Timestamp.Format("2006-01-02 15:04:05"),
+			EventType:       event.EventType,
+			LockType:        event.LockType,
+			ResourceType:    event.ResourceType,
+			WaitTime:        waitTime,
+			ProcessID:       event.ProcessID,
+			QueryID:         event.QueryID,
+			BlockingPID:     event.BlockingPID,
+			BlockingQueryID: event.BlockingQueryID,
 		}
 	}
 
