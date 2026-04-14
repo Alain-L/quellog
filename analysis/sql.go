@@ -219,6 +219,10 @@ type QueryStat struct {
 
 	// FullHash is the complete hash in hexadecimal (e.g., 32-character MD5).
 	FullHash string
+
+	// LastPlan stores the most recent execution plan from auto_explain (if available).
+	// Only one plan per query signature is retained to keep memory bounded.
+	LastPlan string
 }
 
 // QueryExecution represents a single SQL query execution event.
@@ -414,6 +418,11 @@ type SQLAnalyzer struct {
 	queryTypesByUser     map[string]map[string]*QueryTypeCount
 	queryTypesByHost     map[string]map[string]*QueryTypeCount
 	queryTypesByApp      map[string]map[string]*QueryTypeCount
+
+	// pendingPlanByPID stores auto_explain plan text temporarily, keyed by PID.
+	// When a plan: entry arrives, we store it here. When the subsequent
+	// statement: entry arrives for the same PID, we attach the plan to the query.
+	pendingPlanByPID map[string]string
 }
 
 // NewSQLAnalyzer creates a new SQL analyzer with pre-allocated capacity.
@@ -449,6 +458,7 @@ func NewSQLAnalyzerWithSize(inputBytes int64) *SQLAnalyzer {
 		queryTypesByUser:     make(map[string]map[string]*QueryTypeCount),
 		queryTypesByHost:     make(map[string]map[string]*QueryTypeCount),
 		queryTypesByApp:      make(map[string]map[string]*QueryTypeCount),
+		pendingPlanByPID:     make(map[string]string),
 	}
 }
 
@@ -460,9 +470,22 @@ func NewSQLAnalyzerWithSize(inputBytes int64) *SQLAnalyzer {
 //	"LOG: duration: 5.123 ms execute <unnamed>: SELECT * FROM users WHERE id = 1"
 //	"LOG: duration: 10.456 ms statement: UPDATE users SET name = 'John' WHERE id = 1"
 func (a *SQLAnalyzer) Process(entry *parser.LogEntry) {
-	// Extract duration and query from log message
+	msg := entry.Message
 
-	duration, query, ok := extractDurationAndQuery(entry.Message)
+	// Intercept auto_explain plan: messages before normal processing.
+	// These arrive BEFORE the corresponding statement: entry for the same PID.
+	if isPlanMessage(msg) {
+		pid := parser.ExtractPID(msg)
+		if pid != "" {
+			if plan := extractPlanText(msg); plan != "" {
+				a.pendingPlanByPID[pid] = plan
+			}
+		}
+		return
+	}
+
+	// Extract duration and query from log message
+	duration, query, ok := extractDurationAndQuery(msg)
 	if !ok {
 		return
 	}
@@ -517,6 +540,15 @@ func (a *SQLAnalyzer) Process(entry *parser.LogEntry) {
 		Duration:  duration,
 		QueryID:   stats.ID,
 	})
+
+	// Associate pending auto_explain plan (same PID, arrived just before)
+	pid := parser.ExtractPID(msg)
+	if pid != "" {
+		if plan, hasPlan := a.pendingPlanByPID[pid]; hasPlan {
+			stats.LastPlan = plan
+			delete(a.pendingPlanByPID, pid)
+		}
+	}
 
 	// Update per-query statistics
 	stats.Count++
@@ -878,6 +910,70 @@ func indexAfter(s, substr string, after int) int {
 		return -1
 	}
 	return after + idx
+}
+
+// ============================================================================
+// auto_explain plan extraction
+// ============================================================================
+
+// isPlanMessage returns true if the message is an auto_explain plan entry.
+// These contain "duration:" followed by "plan:" but NOT "statement:" or "execute:".
+func isPlanMessage(message string) bool {
+	durIdx := strings.Index(message, "duration:")
+	if durIdx == -1 {
+		return false
+	}
+	rest := message[durIdx:]
+	if strings.Index(rest, "plan:") == -1 {
+		return false
+	}
+	// Exclude normal statement/execute entries that happen to contain "plan" in the query text
+	if strings.Index(rest, "statement:") != -1 || strings.Index(rest, "execute") != -1 {
+		return false
+	}
+	return true
+}
+
+// extractPlanText extracts the execution plan text from an auto_explain message.
+// It strips the "duration: X ms  plan:" prefix and the "Query Text: ..." line.
+// Returns the plan nodes text only.
+func extractPlanText(message string) string {
+	// Find "plan:" marker
+	planIdx := strings.Index(message, "plan:")
+	if planIdx == -1 {
+		return ""
+	}
+	text := message[planIdx+5:] // Skip "plan:"
+
+	// Skip leading whitespace/newline
+	text = strings.TrimLeft(text, " \n\t")
+
+	// Strip "Query Text: ..." line (present in all auto_explain output)
+	// It's redundant with the statement: entry
+	if strings.HasPrefix(text, "Query Text:") {
+		// Find end of Query Text line: next newline or next plan node keyword
+		if nlIdx := strings.IndexByte(text, '\n'); nlIdx != -1 {
+			// Format with preserved newlines (JSON/CSV)
+			text = strings.TrimLeft(text[nlIdx+1:], " \n\t")
+		} else {
+			// Format without newlines (stderr): find first plan node keyword
+			for _, keyword := range []string{
+				"Result ", "Seq Scan ", "Index Scan ", "Index Only Scan ",
+				"Bitmap ", "Nested Loop", "Hash Join", "Merge Join",
+				"Sort ", "Aggregate", "Group", "Limit ", "Append",
+				"HashAggregate", "GroupAggregate", "WindowAgg",
+				"Subquery Scan", "Materialize", "CTE Scan",
+				"{", // JSON plan format
+			} {
+				if idx := strings.Index(text, keyword); idx > 0 {
+					text = text[idx:]
+					break
+				}
+			}
+		}
+	}
+
+	return strings.TrimSpace(text)
 }
 
 // ============================================================================
