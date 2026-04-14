@@ -956,24 +956,169 @@ func extractPlanText(message string) string {
 			// Format with preserved newlines (JSON/CSV)
 			text = strings.TrimLeft(text[nlIdx+1:], " \n\t")
 		} else {
-			// Format without newlines (stderr): find first plan node keyword
-			for _, keyword := range []string{
+			// Format without newlines (stderr): find earliest plan node keyword
+			planKeywords := []string{
 				"Result ", "Seq Scan ", "Index Scan ", "Index Only Scan ",
 				"Bitmap ", "Nested Loop", "Hash Join", "Merge Join",
 				"Sort ", "Aggregate", "Group", "Limit ", "Append",
 				"HashAggregate", "GroupAggregate", "WindowAgg",
 				"Subquery Scan", "Materialize", "CTE Scan",
 				"{", // JSON plan format
-			} {
-				if idx := strings.Index(text, keyword); idx > 0 {
-					text = text[idx:]
-					break
+			}
+			earliest := -1
+			for _, keyword := range planKeywords {
+				if idx := strings.Index(text, keyword); idx > 0 && (earliest == -1 || idx < earliest) {
+					earliest = idx
 				}
+			}
+			if earliest > 0 {
+				text = text[earliest:]
 			}
 		}
 	}
 
-	return strings.TrimSpace(text)
+	text = strings.TrimSpace(text)
+
+	// If no newlines (stderr format), reformat for readability
+	if !strings.Contains(text, "\n") && len(text) > 0 {
+		text = reformatFlatPlan(text)
+	}
+
+	return text
+}
+
+// reformatFlatPlan re-inserts newlines into a flat plan string (from stderr format
+// where continuation lines were joined with spaces). Handles both TEXT and JSON
+// auto_explain formats.
+func reformatFlatPlan(plan string) string {
+	// JSON plan format: detect and pretty-print
+	if strings.HasPrefix(strings.TrimSpace(plan), "{") {
+		return reformatJSONPlan(plan)
+	}
+
+	// TEXT plan format: re-insert newlines with depth tracking
+	return reformatTextPlan(plan)
+}
+
+// reformatJSONPlan pretty-prints a flat JSON plan string.
+func reformatJSONPlan(plan string) string {
+	var b strings.Builder
+	b.Grow(len(plan) * 2)
+	indent := 0
+	inString := false
+
+	for i := 0; i < len(plan); i++ {
+		c := plan[i]
+		if inString {
+			b.WriteByte(c)
+			if c == '"' && (i == 0 || plan[i-1] != '\\') {
+				inString = false
+			}
+			continue
+		}
+		switch c {
+		case '"':
+			b.WriteByte(c)
+			inString = true
+		case '{', '[':
+			b.WriteByte(c)
+			indent++
+			b.WriteByte('\n')
+			b.WriteString(strings.Repeat("  ", indent))
+		case '}', ']':
+			indent--
+			b.WriteByte('\n')
+			b.WriteString(strings.Repeat("  ", indent))
+			b.WriteByte(c)
+		case ',':
+			b.WriteByte(c)
+			b.WriteByte('\n')
+			b.WriteString(strings.Repeat("  ", indent))
+		case ':':
+			b.WriteString(": ")
+		case ' ':
+			// skip extra spaces between tokens
+		default:
+			b.WriteByte(c)
+		}
+	}
+	return b.String()
+}
+
+// planFields lists keywords that start detail lines within a plan node.
+var planFields = []string{
+	"Output: ",
+	"Filter: ",
+	"Index Cond: ",
+	"Hash Cond: ",
+	"Merge Cond: ",
+	"Join Filter: ",
+	"Recheck Cond: ",
+	"Sort Key: ",
+	"Sort Method: ",
+	"Group Key: ",
+	"Rows Removed by ",
+	"Buffers: ",
+	"Batches: ",
+	"Buckets: ",
+	"Memory Usage: ",
+	"Inner Unique: ",
+	"Planning Time: ",
+	"Execution Time: ",
+	"InitPlan ",
+	"SubPlan ",
+}
+
+// reformatTextPlan re-inserts newlines into a flat TEXT plan with depth tracking.
+func reformatTextPlan(plan string) string {
+	var b strings.Builder
+	b.Grow(len(plan) + 200)
+
+	depth := 0
+	i := 0
+	for i < len(plan) {
+		// Check for child node marker "->  "
+		if i > 0 && i+4 <= len(plan) && plan[i:i+4] == "->  " {
+			depth++
+			indent := strings.Repeat("  ", depth)
+			// Trim trailing space
+			s := b.String()
+			if len(s) > 0 && s[len(s)-1] == ' ' {
+				b.Reset()
+				b.WriteString(s[:len(s)-1])
+			}
+			b.WriteString("\n" + indent + "->  ")
+			i += 4
+			continue
+		}
+
+		// Check for plan detail fields
+		matched := false
+		if i > 0 && plan[i-1] == ' ' {
+			for _, field := range planFields {
+				if i+len(field) <= len(plan) && plan[i:i+len(field)] == field {
+					indent := strings.Repeat("  ", depth+1)
+					// Trim trailing space
+					s := b.String()
+					if len(s) > 0 && s[len(s)-1] == ' ' {
+						b.Reset()
+						b.WriteString(s[:len(s)-1])
+					}
+					b.WriteString("\n" + indent + field)
+					i += len(field)
+					matched = true
+					break
+				}
+			}
+		}
+
+		if !matched {
+			b.WriteByte(plan[i])
+			i++
+		}
+	}
+
+	return b.String()
 }
 
 // ============================================================================

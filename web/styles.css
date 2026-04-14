@@ -1752,6 +1752,33 @@
             letter-spacing: 0.03em;
             margin-bottom: 0.75rem;
         }
+        .qd-section-title ql-tooltip {
+            text-transform: none;
+        }
+        .btn-visualize {
+            position: relative;
+            overflow: hidden;
+            background: var(--purple);
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            padding: 4px 12px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            cursor: pointer;
+            letter-spacing: 0.03em;
+            text-transform: uppercase;
+        }
+        .btn-visualize::after {
+            content: '';
+            position: absolute;
+            top: 0; left: -100%; width: 60%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+        }
+        .btn-visualize:hover::after {
+            animation: shimmer 0.6s ease-out;
+        }
+        @keyframes shimmer { from{left:-100%} to{left:150%} }
 
         .qd-stats {
             display: flex;

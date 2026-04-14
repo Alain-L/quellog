@@ -1700,10 +1700,87 @@ function buildEventsSection(data) {
                 html += '</div>';
             }
 
+            // EXECUTION PLAN section (from auto_explain)
+            if (q?.plan) {
+                html += '<div class="qd-section">';
+                html += '<div class="qd-section-title" style="display: flex; align-items: center; gap: 4px;">Execution Plan <ql-tooltip text="Captured by auto_explain. Shows the last observed plan for this query signature.">i</ql-tooltip>';
+                html += '<button style="margin-left: auto;" class="btn-visualize" onclick="visualizePlan()">Visualize</button>';
+                html += '<button class="copy-btn-inline" onclick="navigator.clipboard.writeText(document.getElementById(\'plan-text\').textContent);this.textContent=\'Copied!\';setTimeout(()=>this.textContent=\'Copy\',1500)">Copy</button>';
+                html += '</div>';
+                html += '<div id="plan-text" class="query-detail-sql" style="white-space:pre;font-size:0.75rem;">';
+                html += esc(q.plan);
+                html += '</div>';
+                html += '<script type="application/json" id="plan-data">' + JSON.stringify({plan: q.plan, sql: q.normalized_query || '', id: q.id || ''}) + '<\/script>';
+                html += '</div>';
+            }
+
             return html;
         }
 
         // Render modal charts after DOM update
+        function visualizePlan() {
+            const dataEl = document.getElementById('plan-data');
+            if (!dataEl) return;
+
+            // Show confirmation dialog
+            let overlay = document.getElementById('visualize-confirm');
+            if (!overlay) {
+                overlay = document.createElement('div');
+                overlay.id = 'visualize-confirm';
+                overlay.className = 'modal-overlay';
+                overlay.innerHTML = `
+                    <div style="max-width:440px;padding:24px;text-align:center;background:var(--bg);border-radius:8px;box-shadow:0 4px 24px rgba(0,0,0,0.3);margin:auto;">
+                        <p style="margin:0 0 8px;font-weight:600;font-size:1rem;">Open on explain.dalibo.com?</p>
+                        <p style="margin:0 0 20px;font-size:0.85rem;color:var(--text-muted);">The execution plan and query will be sent to <a href="https://explain.dalibo.com/about" target="_blank" style="color:var(--primary);">explain.dalibo.com</a> for visualization.</p>
+                        <div style="display:flex;gap:8px;justify-content:center;">
+                            <button id="visualize-cancel" style="padding:6px 20px;border:1px solid var(--border);color:var(--text-muted);background:transparent;border-radius:4px;cursor:pointer;font-weight:600;font-size:0.75rem;text-transform:uppercase;">Cancel</button>
+                            <button id="visualize-ok" style="padding:6px 20px;background:var(--accent);color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:600;font-size:0.75rem;text-transform:uppercase;">Open</button>
+                        </div>
+                    </div>`;
+                document.body.appendChild(overlay);
+            }
+            overlay.classList.add('active');
+
+            const cancel = document.getElementById('visualize-cancel');
+            const ok = document.getElementById('visualize-ok');
+
+            const cleanup = () => { overlay.classList.remove('active'); };
+
+            cancel.onclick = cleanup;
+            overlay.onclick = (e) => { if (e.target === overlay) cleanup(); };
+
+            ok.onclick = () => {
+                cleanup();
+                const data = JSON.parse(dataEl.textContent);
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = 'https://explain.dalibo.com/new';
+                form.target = '_blank';
+                const planInput = document.createElement('input');
+                planInput.type = 'hidden';
+                planInput.name = 'plan';
+                planInput.value = data.plan;
+                form.appendChild(planInput);
+                if (data.sql) {
+                    const sqlInput = document.createElement('input');
+                    sqlInput.type = 'hidden';
+                    sqlInput.name = 'sql';
+                    sqlInput.value = data.sql;
+                    form.appendChild(sqlInput);
+                }
+                if (data.id) {
+                    const titleInput = document.createElement('input');
+                    titleInput.type = 'hidden';
+                    titleInput.name = 'title';
+                    titleInput.value = 'quellog_' + data.id;
+                    form.appendChild(titleInput);
+                }
+                document.body.appendChild(form);
+                form.submit();
+                document.body.removeChild(form);
+            };
+        }
+
         function renderModalCharts() {
             // Destroy previous modal charts
             modalCharts.forEach(c => c.destroy());
@@ -2254,6 +2331,7 @@ function buildEventsSection(data) {
         window.renderResults = renderResults;
         window.setAnalysisData = setAnalysisData;
         window.showQueryModal = showQueryModal;
+        window.visualizePlan = visualizePlan;
         window.showSqlOvView = showSqlOvView;
         window.copyQuery = copyQuery;
         window.closeModal = closeModal;
