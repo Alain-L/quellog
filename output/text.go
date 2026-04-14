@@ -1345,6 +1345,16 @@ func PrintSQLDetails(m analysis.AggregatedMetrics, queryDetails []string) {
 			fmt.Println()
 			fmt.Println(rawQuery)
 		}
+
+		// Display execution plan if available (from auto_explain)
+		if sqlStat != nil && sqlStat.LastPlan != "" {
+			fmt.Println()
+			fmt.Println(bold + "EXECUTION PLAN" + reset)
+			fmt.Println()
+			for _, line := range strings.Split(sqlStat.LastPlan, "\n") {
+				fmt.Printf("  %s\n", line)
+			}
+		}
 	}
 }
 

@@ -1602,6 +1602,14 @@ func ExportSQLDetailMarkdown(w io.Writer, m analysis.AggregatedMetrics, queryIDs
 			b.WriteString(rawQuery)
 			b.WriteString("\n```\n\n")
 		}
+
+		// Execution plan (from auto_explain)
+		if sqlStat != nil && sqlStat.LastPlan != "" {
+			b.WriteString("### Execution Plan\n\n")
+			b.WriteString("```\n")
+			b.WriteString(sqlStat.LastPlan)
+			b.WriteString("\n```\n\n")
+		}
 	}
 
 	fmt.Fprintln(w, b.String())
