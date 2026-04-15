@@ -60,6 +60,13 @@ type LogFilters struct {
 //  3. User name (including exclusions)
 //  4. Application name
 //  5. Grep patterns (slowest, requires multiple string searches)
+// IsEmpty returns true if no filters are configured.
+func (f LogFilters) IsEmpty() bool {
+	return f.BeginT.IsZero() && f.EndT.IsZero() &&
+		len(f.DbFilter) == 0 && len(f.UserFilter) == 0 &&
+		len(f.ExcludeUser) == 0 && len(f.AppFilter) == 0
+}
+
 func FilterStream(in <-chan LogEntry, out chan<- LogEntry, filters LogFilters) {
 	defer close(out)
 

@@ -96,17 +96,23 @@ func runAnalysisCycle(args []string) {
 
 	// Step 3: Set up streaming pipeline
 	rawLogs := make(chan parser.LogEntry, 65536)
-	filteredLogs := make(chan parser.LogEntry, 65536)
 
 	// Launch parallel file parsing
 	go parseFilesAsync(allFiles, rawLogs)
 
-	// Step 4: Apply filters to log entries
+	// Step 4: Apply filters (skip channel hop when no filters are active)
 	filters := buildLogFilters(beginT, endT)
-	go parser.FilterStream(rawLogs, filteredLogs, filters)
+	var analyzeInput <-chan parser.LogEntry
+	if filters.IsEmpty() {
+		analyzeInput = rawLogs
+	} else {
+		filteredLogs := make(chan parser.LogEntry, 65536)
+		go parser.FilterStream(rawLogs, filteredLogs, filters)
+		analyzeInput = filteredLogs
+	}
 
 	// Step 5: Process and output results based on flags
-	processAndOutput(filteredLogs, startTime, totalFileSize, args)
+	processAndOutput(analyzeInput, startTime, totalFileSize, args)
 }
 
 // parseFilesAsync reads log files in parallel and sends entries to the channel.
