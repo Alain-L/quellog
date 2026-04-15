@@ -1008,7 +1008,12 @@ func printTopTablesMarkdown(tableCounts map[string]int, total int, spaceRecovere
 		}
 		pairs = append(pairs, p)
 	}
-	sort.Slice(pairs, func(i, j int) bool { return pairs[i].Count > pairs[j].Count })
+	sort.Slice(pairs, func(i, j int) bool {
+		if pairs[i].Count != pairs[j].Count {
+			return pairs[i].Count > pairs[j].Count
+		}
+		return pairs[i].Name < pairs[j].Name
+	})
 
 	var sb strings.Builder
 	sb.WriteString("| Table | Count | % of total | Recovered |\n")
