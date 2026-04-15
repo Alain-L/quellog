@@ -919,14 +919,15 @@ func indexAfter(s, substr string, after int) int {
 // isPlanMessage returns true if the message is an auto_explain plan entry.
 // These contain "duration:" followed by "plan:" but NOT "statement:" or "execute:".
 func isPlanMessage(message string) bool {
+	// Fast reject: "plan:" is rare, check it first
+	if strings.Index(message, "plan:") == -1 {
+		return false
+	}
 	durIdx := strings.Index(message, "duration:")
 	if durIdx == -1 {
 		return false
 	}
 	rest := message[durIdx:]
-	if strings.Index(rest, "plan:") == -1 {
-		return false
-	}
 	// Exclude normal statement/execute entries that happen to contain "plan" in the query text
 	if strings.Index(rest, "statement:") != -1 || strings.Index(rest, "execute") != -1 {
 		return false
