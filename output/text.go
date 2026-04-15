@@ -737,14 +737,9 @@ func printDetailedConnectionStats(m analysis.AggregatedMetrics, bold, reset stri
 			cumulated time.Duration
 		}
 		var sortedUsers []userStats
-		for user, durations := range m.Connections.SessionsByUser {
-			stats := analysis.CalculateDurationStats(durations)
-			// Calculate cumulated duration
-			var cumulated time.Duration
-			for _, d := range durations {
-				cumulated += d
-			}
-			sortedUsers = append(sortedUsers, userStats{user: user, stats: stats, cumulated: cumulated})
+		for user, s := range m.Connections.SessionsByUser {
+			stats := s.Stats()
+			sortedUsers = append(sortedUsers, userStats{user: user, stats: stats, cumulated: s.Cumulated()})
 		}
 		sort.Slice(sortedUsers, func(i, j int) bool {
 			return sortedUsers[i].stats.Count > sortedUsers[j].stats.Count
@@ -784,14 +779,9 @@ func printDetailedConnectionStats(m analysis.AggregatedMetrics, bold, reset stri
 			cumulated time.Duration
 		}
 		var sortedDBs []dbStats
-		for db, durations := range m.Connections.SessionsByDatabase {
-			stats := analysis.CalculateDurationStats(durations)
-			// Calculate cumulated duration
-			var cumulated time.Duration
-			for _, d := range durations {
-				cumulated += d
-			}
-			sortedDBs = append(sortedDBs, dbStats{database: db, stats: stats, cumulated: cumulated})
+		for db, s := range m.Connections.SessionsByDatabase {
+			stats := s.Stats()
+			sortedDBs = append(sortedDBs, dbStats{database: db, stats: stats, cumulated: s.Cumulated()})
 		}
 		sort.Slice(sortedDBs, func(i, j int) bool {
 			return sortedDBs[i].stats.Count > sortedDBs[j].stats.Count
@@ -831,14 +821,9 @@ func printDetailedConnectionStats(m analysis.AggregatedMetrics, bold, reset stri
 			cumulated time.Duration
 		}
 		var sortedHosts []hostStats
-		for host, durations := range m.Connections.SessionsByHost {
-			stats := analysis.CalculateDurationStats(durations)
-			// Calculate cumulated duration
-			var cumulated time.Duration
-			for _, d := range durations {
-				cumulated += d
-			}
-			sortedHosts = append(sortedHosts, hostStats{host: host, stats: stats, cumulated: cumulated})
+		for host, s := range m.Connections.SessionsByHost {
+			stats := s.Stats()
+			sortedHosts = append(sortedHosts, hostStats{host: host, stats: stats, cumulated: s.Cumulated()})
 		}
 		sort.Slice(sortedHosts, func(i, j int) bool {
 			return sortedHosts[i].stats.Count > sortedHosts[j].stats.Count

@@ -40,14 +40,14 @@ type ConnectionMetrics struct {
 	// Used for calculating concurrent connections over time.
 	SessionEvents []SessionEvent
 
-	// SessionsByUser maps usernames to their session durations.
-	SessionsByUser map[string][]time.Duration
+	// SessionsByUser maps usernames to their session statistics.
+	SessionsByUser map[string]*StreamingDurationStats
 
-	// SessionsByDatabase maps database names to their session durations.
-	SessionsByDatabase map[string][]time.Duration
+	// SessionsByDatabase maps database names to their session statistics.
+	SessionsByDatabase map[string]*StreamingDurationStats
 
-	// SessionsByHost maps host addresses to their session durations.
-	SessionsByHost map[string][]time.Duration
+	// SessionsByHost maps host addresses to their session statistics.
+	SessionsByHost map[string]*StreamingDurationStats
 
 	// PeakConcurrentSessions is the maximum number of simultaneous sessions observed.
 	PeakConcurrentSessions int
@@ -88,9 +88,9 @@ type ConnectionAnalyzer struct {
 	connections             []time.Time
 	sessionDurations        []time.Duration
 	sessionEvents           []SessionEvent
-	sessionsByUser          map[string][]time.Duration
-	sessionsByDatabase      map[string][]time.Duration
-	sessionsByHost          map[string][]time.Duration
+	sessionsByUser          map[string]*StreamingDurationStats
+	sessionsByDatabase      map[string]*StreamingDurationStats
+	sessionsByHost          map[string]*StreamingDurationStats
 
 	// For tracking concurrent connections
 	// Use PID as key instead of timestamp to avoid collisions when
@@ -106,9 +106,9 @@ func NewConnectionAnalyzer() *ConnectionAnalyzer {
 		connections:        make([]time.Time, 0, 1000),
 		sessionDurations:   make([]time.Duration, 0, 1000),
 		sessionEvents:      make([]SessionEvent, 0, 1000),
-		sessionsByUser:     make(map[string][]time.Duration, 100),
-		sessionsByDatabase: make(map[string][]time.Duration, 50),
-		sessionsByHost:     make(map[string][]time.Duration, 100),
+		sessionsByUser:     make(map[string]*StreamingDurationStats, 100),
+		sessionsByDatabase: make(map[string]*StreamingDurationStats, 50),
+		sessionsByHost:     make(map[string]*StreamingDurationStats, 100),
 		activeConnections:  make(map[string]time.Time, 1000),
 	}
 }
@@ -161,17 +161,32 @@ func (a *ConnectionAnalyzer) Process(entry *parser.LogEntry) {
 
 			// Store duration by user
 			if user != "" {
-				a.sessionsByUser[user] = append(a.sessionsByUser[user], duration)
+				s, ok := a.sessionsByUser[user]
+				if !ok {
+					s = &StreamingDurationStats{}
+					a.sessionsByUser[user] = s
+				}
+				s.Add(duration)
 			}
 
 			// Store duration by database
 			if database != "" {
-				a.sessionsByDatabase[database] = append(a.sessionsByDatabase[database], duration)
+				s, ok := a.sessionsByDatabase[database]
+				if !ok {
+					s = &StreamingDurationStats{}
+					a.sessionsByDatabase[database] = s
+				}
+				s.Add(duration)
 			}
 
 			// Store duration by host
 			if host != "" {
-				a.sessionsByHost[host] = append(a.sessionsByHost[host], duration)
+				s, ok := a.sessionsByHost[host]
+				if !ok {
+					s = &StreamingDurationStats{}
+					a.sessionsByHost[host] = s
+				}
+				s.Add(duration)
 			}
 		}
 	} else if idx+10 < len(msg) && msg[idx:idx+10] == "connection" {

@@ -614,43 +614,31 @@ func buildJSONData(m analysis.AggregatedMetrics, sections []string, full bool) m
 		}
 		if len(m.Connections.SessionsByUser) > 0 {
 			conn.SessionsByUser = make(map[string]SessionStatsJSON)
-			for user, durations := range m.Connections.SessionsByUser {
-				stats := analysis.CalculateDurationStats(durations)
-				var cumulated time.Duration
-				for _, d := range durations {
-					cumulated += d
-				}
+			for user, s := range m.Connections.SessionsByUser {
+				stats := s.Stats()
 				conn.SessionsByUser[user] = SessionStatsJSON{
 					Count: stats.Count, Min: stats.Min.String(), Max: stats.Max.String(),
-					Avg: stats.Avg.String(), Median: stats.Median.String(), Cumulated: cumulated.String(),
+					Avg: stats.Avg.String(), Median: stats.Median.String(), Cumulated: s.Cumulated().String(),
 				}
 			}
 		}
 		if len(m.Connections.SessionsByDatabase) > 0 {
 			conn.SessionsByDatabase = make(map[string]SessionStatsJSON)
-			for db, durations := range m.Connections.SessionsByDatabase {
-				stats := analysis.CalculateDurationStats(durations)
-				var cumulated time.Duration
-				for _, d := range durations {
-					cumulated += d
-				}
+			for db, s := range m.Connections.SessionsByDatabase {
+				stats := s.Stats()
 				conn.SessionsByDatabase[db] = SessionStatsJSON{
 					Count: stats.Count, Min: stats.Min.String(), Max: stats.Max.String(),
-					Avg: stats.Avg.String(), Median: stats.Median.String(), Cumulated: cumulated.String(),
+					Avg: stats.Avg.String(), Median: stats.Median.String(), Cumulated: s.Cumulated().String(),
 				}
 			}
 		}
 		if len(m.Connections.SessionsByHost) > 0 {
 			conn.SessionsByHost = make(map[string]SessionStatsJSON)
-			for host, durations := range m.Connections.SessionsByHost {
-				stats := analysis.CalculateDurationStats(durations)
-				var cumulated time.Duration
-				for _, d := range durations {
-					cumulated += d
-				}
+			for host, s := range m.Connections.SessionsByHost {
+				stats := s.Stats()
 				conn.SessionsByHost[host] = SessionStatsJSON{
 					Count: stats.Count, Min: stats.Min.String(), Max: stats.Max.String(),
-					Avg: stats.Avg.String(), Median: stats.Median.String(), Cumulated: cumulated.String(),
+					Avg: stats.Avg.String(), Median: stats.Median.String(), Cumulated: s.Cumulated().String(),
 				}
 			}
 		}

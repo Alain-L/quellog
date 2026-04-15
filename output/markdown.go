@@ -612,14 +612,10 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 				cumulated time.Duration
 			}
 			var sortedUsers []userStats
-			for user, durations := range m.Connections.SessionsByUser {
-				stats := analysis.CalculateDurationStats(durations)
-				var cumulated time.Duration
-				for _, d := range durations {
-					cumulated += d
-				}
+			for user, s := range m.Connections.SessionsByUser {
+				stats := s.Stats()
 				sortedUsers = append(sortedUsers, userStats{
-					user: user, stats: stats, cumulated: cumulated,
+					user: user, stats: stats, cumulated: s.Cumulated(),
 				})
 			}
 			sort.Slice(sortedUsers, func(i, j int) bool {
@@ -653,14 +649,10 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 				cumulated time.Duration
 			}
 			var sortedDBs []dbStats
-			for db, durations := range m.Connections.SessionsByDatabase {
-				stats := analysis.CalculateDurationStats(durations)
-				var cumulated time.Duration
-				for _, d := range durations {
-					cumulated += d
-				}
+			for db, s := range m.Connections.SessionsByDatabase {
+				stats := s.Stats()
 				sortedDBs = append(sortedDBs, dbStats{
-					database: db, stats: stats, cumulated: cumulated,
+					database: db, stats: stats, cumulated: s.Cumulated(),
 				})
 			}
 			sort.Slice(sortedDBs, func(i, j int) bool {
@@ -694,14 +686,10 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 				cumulated time.Duration
 			}
 			var sortedHosts []hostStats
-			for host, durations := range m.Connections.SessionsByHost {
-				stats := analysis.CalculateDurationStats(durations)
-				var cumulated time.Duration
-				for _, d := range durations {
-					cumulated += d
-				}
+			for host, s := range m.Connections.SessionsByHost {
+				stats := s.Stats()
 				sortedHosts = append(sortedHosts, hostStats{
-					host: host, stats: stats, cumulated: cumulated,
+					host: host, stats: stats, cumulated: s.Cumulated(),
 				})
 			}
 			sort.Slice(sortedHosts, func(i, j int) bool {

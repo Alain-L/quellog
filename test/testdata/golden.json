@@ -148,7 +148,7 @@
         "min_duration": "130ms",
         "max_duration": "2.36s",
         "avg_duration": "325.764705ms",
-        "median_duration": "188.5ms",
+        "median_duration": "193.8619ms",
         "cumulated_duration": "11.076s"
       },
       "app_user": {
@@ -156,7 +156,7 @@
         "min_duration": "104ms",
         "max_duration": "4.366s",
         "avg_duration": "1.502214684s",
-        "median_duration": "1.482s",
+        "median_duration": "1.482142845s",
         "cumulated_duration": "31m22.274999982s"
       },
       "batch": {
@@ -164,7 +164,7 @@
         "min_duration": "123ms",
         "max_duration": "11.315s",
         "avg_duration": "980.153846ms",
-        "median_duration": "478.5ms",
+        "median_duration": "442.109605ms",
         "cumulated_duration": "50.968s"
       },
       "postgres": {
@@ -172,7 +172,7 @@
         "min_duration": "21ms",
         "max_duration": "1.719s",
         "avg_duration": "99.142857ms",
-        "median_duration": "47.5ms",
+        "median_duration": "48.361203ms",
         "cumulated_duration": "9.716s"
       }
     },
@@ -190,7 +190,7 @@
         "min_duration": "104ms",
         "max_duration": "11.315s",
         "avg_duration": "1.475472602s",
-        "median_duration": "1.4295s",
+        "median_duration": "1.49009218s",
         "cumulated_duration": "32m18.770999982s"
       },
       "postgres": {
@@ -198,7 +198,7 @@
         "min_duration": "21ms",
         "max_duration": "1.719s",
         "avg_duration": "120.852459ms",
-        "median_duration": "64.5ms",
+        "median_duration": "66.721661ms",
         "cumulated_duration": "14.744s"
       }
     },
@@ -208,7 +208,7 @@
         "min_duration": "104ms",
         "max_duration": "4.366s",
         "avg_duration": "1.502214684s",
-        "median_duration": "1.482s",
+        "median_duration": "1.482142845s",
         "cumulated_duration": "31m22.274999982s"
       },
       "172.20.0.20": {
@@ -216,7 +216,7 @@
         "min_duration": "123ms",
         "max_duration": "11.315s",
         "avg_duration": "980.153846ms",
-        "median_duration": "478.5ms",
+        "median_duration": "442.109605ms",
         "cumulated_duration": "50.968s"
       },
       "172.20.0.30": {
@@ -224,7 +224,7 @@
         "min_duration": "130ms",
         "max_duration": "2.36s",
         "avg_duration": "325.764705ms",
-        "median_duration": "188.5ms",
+        "median_duration": "193.8619ms",
         "cumulated_duration": "11.076s"
       }
     },

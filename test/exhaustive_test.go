@@ -203,6 +203,10 @@ func normalizeOutput(output, format string) string {
 	durationRegex := regexp.MustCompile(`"duration":\s*"[0-9.]+ (?:ms|s)"`)
 	normalized = durationRegex.ReplaceAllString(normalized, `"duration": "DURATION"`)
 
+	// Normalize median_duration (P² algorithm is order-dependent, results vary between formats)
+	medianRegex := regexp.MustCompile(`"median_duration":\s*"[^"]*"`)
+	normalized = medianRegex.ReplaceAllString(normalized, `"median_duration": "MEDIAN"`)
+
 	// Normalize whitespace
 	normalized = strings.TrimSpace(normalized)
 
@@ -264,6 +268,7 @@ func compareJSONMaps(ref, cmp map[string]interface{}, prefix string) []string {
 		"query_id":         true, // Same reason
 		"normalized_query": true, // May include CONTEXT in JSON but not CSV
 		"raw_query":        true, // Same reason
+		"median_duration":  true, // P² algorithm is order-dependent, varies between formats
 	}
 
 	for key, refVal := range ref {
