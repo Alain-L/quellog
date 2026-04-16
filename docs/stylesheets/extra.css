@@ -1,3 +1,42 @@
+/* quellog brand colors */
+[data-md-color-primary="custom"] {
+  --md-primary-fg-color: #336791;
+  --md-primary-fg-color--light: #4a8bc2;
+  --md-primary-fg-color--dark: #264d6d;
+}
+[data-md-color-accent="custom"] {
+  --md-accent-fg-color: #f47920;
+  --md-accent-fg-color--transparent: rgba(244, 121, 32, 0.1);
+}
+
+/* Header: quellog branding (matches HTML report style) */
+.md-logo,
+.md-header__button.md-logo {
+  display: none !important;
+}
+[dir=ltr] .md-header__title {
+  margin-left: .5rem;
+  margin-right: .4rem;
+}
+.md-header__topic:first-child .md-ellipsis {
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+.md-header__topic:first-child .md-ellipsis::after {
+  content: "High-performance PostgreSQL log analyzer";
+  font-weight: 400;
+  font-style: italic;
+  opacity: 0.6;
+  margin-left: 1.25rem;
+  font-size: 0.72rem;
+}
+
+/* System font stack (matches HTML report) */
+:root {
+  --md-text-font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --md-code-font: 'SF Mono', Monaco, Consolas, monospace;
+}
+
 /* Reduce line height for better density */
 .md-typeset {
   line-height: 1.4;

@@ -1,4 +1,4 @@
-site_name: quellog Documentation
+site_name: quellog
 site_description: High-performance PostgreSQL log analyzer and parser
 site_author: Alain L
 repo_url: https://github.com/Alain-L/quellog
@@ -11,19 +11,20 @@ theme:
     # Light mode
     - media: "(prefers-color-scheme: light)"
       scheme: default
-      primary: indigo
-      accent: indigo
+      primary: custom
+      accent: custom
       toggle:
         icon: material/brightness-7
         name: Switch to dark mode
     # Dark mode
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
-      primary: indigo
-      accent: indigo
+      primary: custom
+      accent: custom
       toggle:
         icon: material/brightness-4
         name: Switch to light mode
+  font: false
   features:
     - navigation.instant
     - navigation.tracking
