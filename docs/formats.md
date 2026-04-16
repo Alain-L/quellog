@@ -1,8 +1,6 @@
-# Supported Log Formats
+# Log Formats
 
-quellog automatically detects and parses PostgreSQL log formats and compression schemes.
-
-## Log Formats
+All formats are auto-detected from file content — no configuration needed.
 
 ### stderr/syslog
 
@@ -43,15 +41,39 @@ JSON format from `log_destination = 'jsonlog'` (PostgreSQL 15+) or cloud provide
 
 Cloud-specific JSON schemas are automatically detected and parsed.
 
-### CloudNative-PG (Kubernetes)
 
-Logs from the [CloudNative-PG](https://cloudnative-pg.io/) operator are automatically detected. CNPG wraps PostgreSQL logs in a Kubernetes-specific JSON envelope:
+### Cloud Providers
 
-```json
-{"level":"info","ts":"2025-01-13T14:32:18Z","logger":"postgres","msg":"record","record":{"log_time":"2025-01-13 14:32:18.456 UTC","message":"duration: 145.234 ms"}}
+quellog auto-detects log formats from managed PostgreSQL services:
+
+| Provider | Format | Notes |
+|----------|--------|-------|
+| AWS RDS / Aurora | stderr | Custom `log_line_prefix` with host, user, db in the timestamp line |
+| Google Cloud SQL | JSON | Cloud Logging JSON envelope with `insertId` and `timestamp` fields |
+| Azure Database | stderr | Session ID and severity in the timestamp line |
+| CloudNative-PG | JSON | Kubernetes JSON wrapper around PostgreSQL CSV records |
+
+No configuration needed — just point quellog at the log files.
+
+## Multiple Inputs
+
+quellog accepts multiple files, glob patterns, and directories:
+
+```bash
+# Two days of logs
+quellog postgresql-2026-01-14.log postgresql-2026-01-15.log
+
+# Glob pattern
+quellog /var/log/postgresql/*.log
+
+# Today's log + previous days compressed
+quellog postgresql-2026-01-15.log postgresql-2026-01-14.log.gz postgresql-2026-01-13.log.gz
+
+# Stdin
+kubectl logs postgres-pod | quellog -
 ```
 
-quellog extracts the inner `record` object and processes it as standard PostgreSQL JSON logs.
+All entries are merged and analyzed together regardless of source format.
 
 ## Compression Formats
 
@@ -95,19 +117,3 @@ quellog /backups/postgresql-logs.7z
 
 Extracts and processes log entries from 7z archives (LZMA/LZMA2 compression). Provides excellent compression ratios, especially for large log files. CLI-only — not supported in browser/WASM mode.
 
-## Format Detection
-
-Format detection is automatic:
-
-1. File extension provides a hint (`.log`, `.csv`, `.json`, `.gz`, `.zst`, `.zip`, `.7z`, `.tar`)
-2. Content is sampled (first 32 KB) to verify format
-3. Compression is detected by magic bytes (gzip: `1f 8b`, zstd: `28 b5 2f fd`, zip: `50 4b 03 04`, 7z: `37 7a bc af 27 1c`, tar: `ustar`)
-4. Log format is identified by structure (JSON object, CSV fields, or stderr patterns)
-
-If extension and content disagree, content wins. Binary files are automatically rejected.
-
-## Next Steps
-
-- [Configure PostgreSQL](postgresql-setup.md) logging settings
-- [Learn about filtering](filtering-logs.md) to analyze specific log subsets
-- [Run your first analysis](index.md#quick-start) on your logs
