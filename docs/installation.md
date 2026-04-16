@@ -246,11 +246,3 @@ Expected output for `--version`:
 ```
 quellog version v1.0.0 (commit: abc123def, built: 2025-01-13)
 ```
-
-## Next Steps
-
-Now that quellog is installed, you're ready to start analyzing your PostgreSQL logs!
-
-- [Quick Start Guide](index.md#quick-start) - Your first log analysis in 5 minutes
-- [PostgreSQL Setup](postgresql-setup.md) - Configure PostgreSQL for optimal logging
-- [Supported Formats](formats.md) - Learn about log format detection

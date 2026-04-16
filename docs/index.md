@@ -346,19 +346,6 @@ quellog's design prioritizes both performance and accuracy:
 - **Query auditing** - Review what queries were executed and when
 - **Error reporting** - Aggregate and classify database errors
 
-## Next Steps
-
-Now that you're familiar with quellog, explore more advanced features:
-
-- [Installation Guide](installation.md) - Detailed installation for all platforms
-- [PostgreSQL Setup](postgresql-setup.md) - Configure PostgreSQL for optimal logging
-- [Default Report](default-report.md) - Understanding all report sections
-- [SQL Analysis](sql-reports.md) - Deep dive into query performance analysis
-- [Filtering Logs](filtering-logs.md) - Advanced filtering techniques
-- [JSON Export](json-export.md) - Structured data export for automation
-- [Markdown Export](markdown-export.md) - Generate documentation-ready reports
-- [HTML Export](html-export.md) - Standalone interactive reports
-
 ## License
 
 quellog is open source software licensed under the PostgreSQL License.

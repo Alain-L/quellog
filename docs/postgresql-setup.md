@@ -55,9 +55,3 @@ quellog supports all PostgreSQL log formats: stderr/syslog (plain text), csvlog 
 
 !!! warning "Performance Impact"
     Setting `log_min_duration_statement = 0` logs every query, which can generate massive log files on busy databases and increase I/O load.
-
-## Next Steps
-
-- [Understand log formats](formats.md) that quellog supports
-- [Learn filtering options](filtering-logs.md) to analyze specific log subsets
-- [Run your first analysis](index.md#quick-start) on your configured logs

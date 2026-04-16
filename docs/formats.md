@@ -105,9 +105,3 @@ Format detection is automatic:
 4. Log format is identified by structure (JSON object, CSV fields, or stderr patterns)
 
 If extension and content disagree, content wins. Binary files are automatically rejected.
-
-## Next Steps
-
-- [Configure PostgreSQL](postgresql-setup.md) logging settings
-- [Learn about filtering](filtering-logs.md) to analyze specific log subsets
-- [Run your first analysis](index.md#quick-start) on your logs

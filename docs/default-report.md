@@ -556,9 +556,3 @@ USER × HOST
   batch_user                × 10.0.1.51                     234    8.0%
   ...
 ```
-
-## Next Steps
-
-- [SQL Analysis Deep Dive](sql-reports.md) - Detailed per-query analysis
-- [Filtering Output](filtering-output.md) - Show only specific sections
-- [Export Formats](json-export.md) - JSON and Markdown output

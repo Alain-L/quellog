@@ -509,9 +509,3 @@ Markdown output includes:
 - Tables with proper formatting
 - SQL queries in syntax-highlighted blocks
 - Perfect for documentation and reports
-
-## Next Steps
-
-- [Filter logs](filtering-logs.md) by time and attributes
-- [Export formats](json-export.md) for JSON/Markdown output
-- [Default report](default-report.md) for comprehensive analysis
