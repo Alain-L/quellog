@@ -1,8 +1,183 @@
-# Filtering Output
+# Filtering Logs
 
-By default, quellog displays a comprehensive report with all analysis sections. You can filter the output to display only specific sections, making it easier to focus on particular aspects of your database activity.
+quellog provides filtering to analyze specific subsets of PostgreSQL logs.
 
-## Comprehensive Report
+## Input Sources
+
+### Log Files
+
+Analyze log files from disk:
+
+```bash
+quellog /var/log/postgresql/*.log
+```
+
+### Standard Input
+
+Read logs from stdin using `-`:
+
+```bash
+# From a pipe
+tail -f /var/log/postgresql/postgresql.log | quellog -
+
+# From command output
+kubectl logs postgres-pod | quellog -
+
+# From bzip2 archives (gzip handled natively)
+bzcat logs.bz2 | quellog -
+```
+
+Format detection works automatically for stdin.
+
+## Time-Based Filtering
+
+### --begin
+
+Analyze entries after a specific datetime.
+
+```bash
+quellog /var/log/postgresql/*.log --begin "2025-01-13 14:30:00"
+```
+
+Format: `YYYY-MM-DD HH:MM:SS`
+
+### --end
+
+Analyze entries before a specific datetime.
+
+```bash
+quellog /var/log/postgresql/*.log --end "2025-01-13 15:00:00"
+```
+
+Format: `YYYY-MM-DD HH:MM:SS`
+
+### Time Window
+
+Combine `--begin` and `--end` for a specific time range:
+
+```bash
+# 1-hour window
+quellog /var/log/postgresql/*.log \
+  --begin "2025-01-13 14:00:00" \
+  --end "2025-01-13 15:00:00"
+```
+
+Use the same timezone as your PostgreSQL logs.
+
+### --last (-L)
+
+Analyze the last N duration from now. Automatically sets end time to now and begin time to now minus the duration.
+
+```bash
+# Last hour
+quellog /var/log/postgresql/*.log --last 1h
+
+# Last 30 minutes
+quellog /var/log/postgresql/*.log --last 30m
+
+# Last 24 hours
+quellog /var/log/postgresql/*.log -L 24h
+
+# Last 2 hours and 15 minutes
+quellog /var/log/postgresql/*.log --last 2h15m
+```
+
+Valid duration units: `h` (hours), `m` (minutes), `s` (seconds).
+
+**Note**: `--last` cannot be combined with `--begin`, `--end`, or `--window`.
+
+### Use Cases
+
+| Scenario | Command |
+|----------|---------|
+| Recent production issue | `--last 1h` |
+| Daily morning review | `--last 24h` |
+| Real-time monitoring | `tail -f *.log \| quellog - --last 5m` |
+| Specific time range | `--begin "..." --end "..."` |
+
+## Attribute-Based Filtering
+
+### --dbname (-d)
+
+Filter by database name. Can be specified multiple times.
+
+```bash
+# Single database
+quellog /var/log/postgresql/*.log --dbname production
+
+# Multiple databases
+quellog /var/log/postgresql/*.log --dbname app_db --dbname analytics_db
+```
+
+### --dbuser (-u)
+
+Filter by database user. Can be specified multiple times.
+
+```bash
+# Single user
+quellog /var/log/postgresql/*.log --dbuser app_user
+
+# Multiple users
+quellog /var/log/postgresql/*.log --dbuser app_user --dbuser batch_processor
+```
+
+### --appname (-N)
+
+Filter by application name. Can be specified multiple times.
+
+```bash
+# Single application
+quellog /var/log/postgresql/*.log --appname web_server
+
+# Multiple applications
+quellog /var/log/postgresql/*.log --appname api_server --appname background_worker
+```
+
+### --exclude-user (-U)
+
+Exclude specific users from analysis. Can be specified multiple times.
+
+```bash
+# Exclude monitoring users
+quellog /var/log/postgresql/*.log --exclude-user health_check --exclude-user powa
+```
+
+## Combining Filters
+
+All filters can be combined:
+
+```bash
+# Production database, specific user, during business hours
+quellog /var/log/postgresql/*.log \
+  --dbname production \
+  --dbuser app_user \
+  --begin "2025-01-13 09:00:00" \
+  --end "2025-01-13 17:00:00"
+
+# Multiple databases, exclude monitoring, specific time window
+quellog /var/log/postgresql/*.log \
+  --dbname app_db \
+  --dbname analytics_db \
+  --exclude-user powa \
+  --exclude-user temboard \
+  --begin "2025-01-13 00:00:00" \
+  --end "2025-01-13 23:59:59"
+```
+
+### Filter Logic
+
+- Multiple values of the **same type** use OR logic
+  - `--dbname db1 --dbname db2` matches db1 OR db2
+- **Different types** use AND logic
+  - `--dbname production --dbuser app_user` matches production AND app_user
+
+Example: `--dbname db1 --dbname db2 --dbuser user1` matches entries where database is (db1 OR db2) AND user is user1.
+
+## Output Sections
+
+By default, quellog displays all analysis sections. Use section flags to focus on specific aspects.
+
+### --full
 
 Use `--full` to display all sections with detailed SQL analysis:
 
@@ -604,8 +779,3 @@ quellog --follow --json --output /tmp/quellog.json /var/log/postgresql/*.log
 
 Press `Ctrl+C` to stop.
 
-## Next Steps
-
-- [Understand the default report](default-report.md) to interpret each section
-- [Deep dive into SQL analysis](sql-reports.md) with `--sql-performance`, `--sql-overview`, and `--sql-detail`
-- [Export results](json-export.md) for further processing

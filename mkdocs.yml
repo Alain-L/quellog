@@ -67,18 +67,13 @@ extra_css:
 
 nav:
   - Documentation:
-      - Overview: index.md
       - Installation: installation.md
       - PostgreSQL Setup: postgresql-setup.md
-      - Supported Log Formats: formats.md
-      - Default Report: default-report.md
+      - Log Formats: formats.md
+      - Report Sections: default-report.md
       - SQL Analysis: sql-reports.md
-      - Filtering Logs: filtering-logs.md
-      - Filtering Output: filtering-output.md
-      - JSON Export: json-export.md
-      - YAML Export: yaml-export.md
-      - Markdown Export: markdown-export.md
-      - HTML Export: html-export.md
+      - Filtering: filtering.md
+      - Export Formats: exports.md
   - How-tos:
       - Your First Analysis: howtos/first-analysis.md
       - Troubleshooting Slow Queries: howtos/slow-queries.md
