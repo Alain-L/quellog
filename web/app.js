@@ -1,5 +1,5 @@
 // ES Module imports
-import { fmt, fmtDuration, fmtBytes, fmtMs, fmtDur, esc, safeMax, safeMin } from './js/utils.js';
+import { fmt, fmtDuration, fmtBytes, fmtMs, fmtDur, parseDurToMs, esc, safeMax, safeMin } from './js/utils.js';
 import {
     wasmModule, wasmReady, analysisData, currentFileContent, currentFileName, currentFileSize, originalDimensions,
     charts, modalCharts, modalChartsData, modalChartCounter, chartIntervalMap, defaultInterval,
@@ -506,8 +506,25 @@ function buildEventsSection(data) {
                             ` : ''}
                         </div>
                         <div class="grid grid-2" style="margin-top: 0.5rem;">
-                            ${c.session_events?.length > 0 ? buildChartContainer('chart-concurrent', 'Concurrent Sessions', { showFilterBtn: false, tooltip: 'Number of active database connections at a given time. High values indicate more database activity.' }) : ''}
-                            ${hasConnections ? buildChartContainer('chart-connections', 'Connection Distribution', { showFilterBtn: true, tooltip: 'Timeline of connection events. High values indicate heavy traffic.' }) : ''}
+                            ${c.session_events?.length > 0 ? `
+                                <div>
+                                ${buildChartContainer('chart-concurrent', 'Concurrent Sessions', { showFilterBtn: false, tooltip: 'Number of active database connections at a given time. High values indicate more database activity.' })}
+                                <div class="chart-legend" style="display:flex;gap:16px;justify-content:center;margin-top:4px;font-size:12px;">
+                                    <span><span style="display:inline-block;width:12px;height:12px;background:var(--accent);border-radius:2px;vertical-align:middle;margin-right:4px;"></span>Sessions</span>
+                                    <span><span style="display:inline-block;width:12px;height:12px;background:var(--text-muted);border-radius:2px;vertical-align:middle;margin-right:4px;"></span>Pre-log</span>
+                                    <span><span style="display:inline-block;width:16px;height:0;border-top:2px dashed var(--text-muted);vertical-align:middle;margin-right:4px;"></span>Median</span>
+                                </div>
+                                </div>
+                            ` : ''}
+                            ${hasConnections ? `
+                                <div>
+                                ${buildChartContainer('chart-connections', 'Connection Distribution', { showFilterBtn: true, tooltip: 'Timeline of connection events. High values indicate heavy traffic.' })}
+                                <div class="chart-legend" style="display:flex;gap:16px;justify-content:center;margin-top:4px;font-size:12px;">
+                                    <span><span style="display:inline-block;width:12px;height:12px;background:var(--chart-bar);border-radius:2px;vertical-align:middle;margin-right:4px;"></span>Connections</span>
+                                    <span><span style="display:inline-block;width:16px;height:0;border-top:2px dashed var(--text-muted);vertical-align:middle;margin-right:4px;"></span>Median</span>
+                                </div>
+                                </div>
+                            ` : ''}
                         </div>
                         ${hasSessionDist ? `
                             <div class="subsection">
@@ -589,44 +606,73 @@ function buildEventsSection(data) {
         }
 
         function buildSessionTable(sessions, label) {
-            // sessions is an object: {name: {count, min_duration, avg_duration, ...}}
             if (!sessions || Object.keys(sessions).length === 0) return '<div class="empty">No session data</div>';
+            const tableId = 'session-table-' + label.toLowerCase().replace(/\s+/g, '-');
             const rows = Object.entries(sessions).map(([name, s]) => ({
                 name,
                 count: s.count,
-                min: fmtDur(s.min_duration),
-                avg: fmtDur(s.avg_duration),
-                median: fmtDur(s.median_duration),
-                max: fmtDur(s.max_duration),
-                cumulated: fmtDur(s.cumulated_duration)
-            })).sort((a, b) => b.count - a.count).slice(0, 10);
+                min: fmtDur(s.min_duration),   minMs: parseDurToMs(s.min_duration),
+                avg: fmtDur(s.avg_duration),   avgMs: parseDurToMs(s.avg_duration),
+                median: fmtDur(s.median_duration), medianMs: parseDurToMs(s.median_duration),
+                max: fmtDur(s.max_duration),   maxMs: parseDurToMs(s.max_duration),
+                cumulated: fmtDur(s.cumulated_duration), cumulatedMs: parseDurToMs(s.cumulated_duration)
+            }));
+            window['_sessionRows_' + tableId] = rows;
+
+            const cols = [
+                { key: 'count', label: 'Sessions', sort: 'count' },
+                { key: 'min', label: 'Min', sort: 'minMs' },
+                { key: 'avg', label: 'Avg', sort: 'avgMs' },
+                { key: 'median', label: 'Median', sort: 'medianMs' },
+                { key: 'max', label: 'Max', sort: 'maxMs' },
+                { key: 'cumulated', label: 'Cumulated', sort: 'cumulatedMs' },
+            ];
+            const thStyle = 'text-align:right;cursor:pointer;user-select:none';
+            const needsScroll = rows.length > 12;
             return `
-                <table class="data-table" style="font-size: 0.75rem;">
+                <div class="table-scroll-wrapper${needsScroll ? ' has-overflow' : ''}" style="${needsScroll ? 'max-height: 350px; overflow-y: auto;' : ''}">
+                <table class="data-table" id="${tableId}" style="font-size: 0.75rem;">
                     <thead><tr>
                         <th>${label}</th>
-                        <th style="text-align:right">Sessions</th>
-                        <th style="text-align:right">Min</th>
-                        <th style="text-align:right">Avg</th>
-                        <th style="text-align:right">Median</th>
-                        <th style="text-align:right">Max</th>
-                        <th style="text-align:right">Cumulated</th>
+                        ${cols.map(c => `<th style="${thStyle}" onclick="sortSessionTable('${tableId}','${c.sort}',this)" data-sort="${c.sort}">${c.label}${c.sort === 'count' ? ' ▼' : ''}</th>`).join('')}
                     </tr></thead>
                     <tbody>
-                        ${rows.map(s => `
-                            <tr>
-                                <td>${esc(s.name)}</td>
-                                <td style="text-align:right">${fmt(s.count)}</td>
-                                <td style="text-align:right">${s.min || '-'}</td>
-                                <td style="text-align:right">${s.avg || '-'}</td>
-                                <td style="text-align:right">${s.median || '-'}</td>
-                                <td style="text-align:right">${s.max || '-'}</td>
-                                <td style="text-align:right">${s.cumulated || '-'}</td>
-                            </tr>
-                        `).join('')}
+                        ${renderSessionRows(rows, 'count')}
                     </tbody>
                 </table>
+                </div>
             `;
         }
+
+        function renderSessionRows(rows, sortKey, asc) {
+            const sorted = [...rows].sort((a, b) => asc ? a[sortKey] - b[sortKey] : b[sortKey] - a[sortKey]);
+            return sorted.map(s => `
+                <tr>
+                    <td>${esc(s.name)}</td>
+                    <td style="text-align:right">${fmt(s.count)}</td>
+                    <td style="text-align:right">${s.min || '-'}</td>
+                    <td style="text-align:right">${s.avg || '-'}</td>
+                    <td style="text-align:right">${s.median || '-'}</td>
+                    <td style="text-align:right">${s.max || '-'}</td>
+                    <td style="text-align:right">${s.cumulated || '-'}</td>
+                </tr>
+            `).join('');
+        }
+
+        window.sortSessionTable = function(tableId, sortKey, th) {
+            const table = document.getElementById(tableId);
+            if (!table) return;
+            const rows = window['_sessionRows_' + tableId];
+            if (!rows) return;
+            const wasAsc = th.dataset.dir === 'asc';
+            const asc = !wasAsc;
+            th.dataset.dir = asc ? 'asc' : 'desc';
+            table.querySelectorAll('th[data-sort]').forEach(h => {
+                const arrow = h === th ? (asc ? ' ▲' : ' ▼') : '';
+                h.textContent = h.textContent.replace(/ [▲▼]$/, '') + arrow;
+            });
+            table.querySelector('tbody').innerHTML = renderSessionRows(rows, sortKey, asc);
+        };
 
         function buildClientsSection(data) {
             const c = data.clients || {};
@@ -1024,7 +1070,14 @@ function buildEventsSection(data) {
                             <div class="stat-card"><div class="stat-value">${tf.total_size}</div><div class="stat-label">Total</div></div>
                             <div class="stat-card"><div class="stat-value">${tf.avg_size}</div><div class="stat-label">Avg</div></div>
                         </div>
-                        ${hasEvents ? buildChartContainer('chart-tempfiles', 'Temp File Activity', { showFilterBtn: true, tooltip: 'Temp file count and cumulative size over time. Created when queries exceed work_mem.' }) : ''}
+                        ${hasEvents ? `
+                            ${buildChartContainer('chart-tempfiles', 'Temp File Activity', { showFilterBtn: true, tooltip: 'Temp file count and cumulative size over time. Created when queries exceed work_mem.' })}
+                            <div class="chart-legend" style="display:flex;gap:16px;justify-content:center;margin-top:4px;font-size:12px;">
+                                <span><span style="display:inline-block;width:12px;height:12px;background:var(--chart-bar);border-radius:2px;vertical-align:middle;margin-right:4px;"></span>Count</span>
+                                <span><span style="display:inline-block;width:12px;height:12px;background:var(--accent);border-radius:2px;vertical-align:middle;margin-right:4px;"></span>Size</span>
+                                <span><span style="display:inline-block;width:16px;height:0;border-top:2px dashed var(--text-muted);vertical-align:middle;margin-right:4px;"></span>Median</span>
+                            </div>
+                        ` : ''}
                         ${hasQueries ? `
                             <div class="subsection">
                                 <div class="subsection-title">Top Queries</div>

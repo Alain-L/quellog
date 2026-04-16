@@ -1482,6 +1482,21 @@
             overflow-y: auto;
         }
 
+        .table-scroll-wrapper {
+            position: relative;
+        }
+        .table-scroll-wrapper.has-overflow::after {
+            content: '';
+            position: sticky;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            display: block;
+            height: 15px;
+            background: linear-gradient(transparent, var(--card-bg, #fff) 90%);
+            pointer-events: none;
+        }
+
         table {
             width: 100%;
             border-collapse: collapse;
