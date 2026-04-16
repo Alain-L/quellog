@@ -153,19 +153,17 @@ import './js/components/ql-dropdown.js';
             html += buildSQLOverviewSection(data);
 
             // SQL Performance (full width)
-            if (data.sql_performance?.queries?.length > 0) {
-                html += buildSQLPerformanceSection(data);
-            }
+            html += buildSQLPerformanceSection(data);
 
-            // Row 5: Locks | Temp Files
+            // Row 5: Checkpoints | Temp Files
             html += '<div class="grid grid-2">';
-            html += buildLocksSection(data);
+            html += buildCheckpointsSection(data);
             html += buildTempFilesSection(data);
             html += '</div>';
 
-            // Row 6: Checkpoints | Maintenance
+            // Row 6: Locks | Maintenance
             html += '<div class="grid grid-2">';
-            html += buildCheckpointsSection(data);
+            html += buildLocksSection(data);
             html += buildMaintenanceSection(data);
             html += '</div>';
 
@@ -182,7 +180,7 @@ import './js/components/ql-dropdown.js';
                     } else if (data?.type === 'checkpoints') {
                         createCheckpointChart(chartId, data);
                     } else if (data?.type === 'sessions') {
-                        createConcurrentChart(chartId, data.data, { color: color || 'var(--accent)' });
+                        createConcurrentChart(chartId, data.data, { color: color || 'var(--accent)', logStart: data.logStart, logEnd: data.logEnd });
                     } else if (data?.type === 'histogram') {
                         createHistogramChart(chartId, data.data, { color: color || 'var(--accent)' });
                     } else if (data?.type === 'duration') {
@@ -280,7 +278,7 @@ import './js/components/ql-dropdown.js';
                             </div>
                         </div>
                         <div class="summary-separator"></div>
-                        <div class="stat-grid" style="grid-template-columns: repeat(4, 1fr); margin-bottom: 1.2rem;">
+                        <div class="stat-grid" style="grid-template-columns: repeat(4, auto); justify-content: center; margin-bottom: 1.2rem;">
                             <div class="stat-card">
                                 <div class="stat-value">${(f.format || '?').toUpperCase()}</div>
                                 <div class="stat-label">format</div>
@@ -467,7 +465,12 @@ function buildEventsSection(data) {
             }
             // Store session events for client-side sweep-line (allows bucket adjustment)
             if (c.session_events?.length > 0) {
-                chartData.set('chart-concurrent', { type: 'sessions', data: c.session_events });
+                chartData.set('chart-concurrent', {
+                    type: 'sessions',
+                    data: c.session_events,
+                    logStart: data.summary?.start_date,
+                    logEnd: data.summary?.end_date
+                });
             }
 
             return `
@@ -1289,6 +1292,16 @@ function buildEventsSection(data) {
 
         function buildSQLPerformanceSection(data) {
             const sql = data.sql_performance;
+            if (!sql || !sql.queries || sql.queries.length === 0) {
+                return `
+                    <div class="section" id="sql_performance">
+                        <div class="section-header muted">SQL Performance</div>
+                        <div class="section-body">
+                            ${buildNoDataMessage('<code>log_min_duration_statement = 0</code>')}
+                        </div>
+                    </div>
+                `;
+            }
             const queries = sql.queries || [];
             const executions = sql.executions || [];
 

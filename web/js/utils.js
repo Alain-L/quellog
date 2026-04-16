@@ -66,10 +66,11 @@ export function safeMin(arr) {
  * @returns {string}
  */
 export function fmtBytes(b) {
+    const strip = v => v.replace(/\.0$/, '');
     if (b < 1024) return b + ' B';
-    if (b < 1024 * 1024) return (b / 1024).toFixed(1) + ' KB';
-    if (b < 1024 * 1024 * 1024) return (b / 1024 / 1024).toFixed(1) + ' MB';
-    return (b / 1024 / 1024 / 1024).toFixed(2) + ' GB';
+    if (b < 1024 * 1024) return Math.round(b / 1024) + ' KB';
+    if (b < 1024 * 1024 * 1024) return Math.round(b / 1024 / 1024) + ' MB';
+    return strip((b / 1024 / 1024 / 1024).toFixed(1)) + ' GB';
 }
 
 /**
