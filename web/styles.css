@@ -1384,8 +1384,20 @@
 
         /* Scrollable list */
         .scroll-list {
-            max-height: 220px;
+            position: relative;
+            max-height: 200px;
             overflow-y: auto;
+        }
+        .scroll-list::after {
+            content: '';
+            position: sticky;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            display: block;
+            height: 15px;
+            background: linear-gradient(transparent, var(--card-bg, #fff) 90%);
+            pointer-events: none;
         }
 
         .scroll-list::-webkit-scrollbar { width: 5px; }
@@ -1477,9 +1489,36 @@
 
         /* SQL Table - Compact */
         .table-container {
+            position: relative;
             overflow-x: auto;
             max-height: 280px;
             overflow-y: auto;
+        }
+        .table-container::after {
+            content: '';
+            position: sticky;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            display: block;
+            height: 15px;
+            background: linear-gradient(transparent, var(--card-bg, #fff) 90%);
+            pointer-events: none;
+        }
+
+        .table-scroll-wrapper {
+            position: relative;
+        }
+        .table-scroll-wrapper.has-overflow::after {
+            content: '';
+            position: sticky;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            display: block;
+            height: 15px;
+            background: linear-gradient(transparent, var(--card-bg, #fff) 90%);
+            pointer-events: none;
         }
 
         table {
@@ -2178,7 +2217,7 @@
             background: var(--card-bg);
             border-radius: var(--radius-lg);
             width: 100%;
-            max-width: 1200px;
+            max-width: 90vw;
             max-height: 90vh;
             overflow: hidden;
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
