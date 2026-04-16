@@ -148,10 +148,10 @@ export function parseDurToMs(s) {
     if (!s || s === '-') return 0;
     if (typeof s !== 'string') return Number(s) || 0;
     let ms = 0;
-    const hMatch = s.match(/(\d+)h/);
-    const mMatch = s.match(/(\d+)m(?!s)/);
-    const sMatch = s.match(/([\d.]+)s(?!.*ms)/);
-    const msMatch = s.match(/([\d.]+)ms/);
+    const hMatch = s.match(/(\d+)\s*h/);
+    const mMatch = s.match(/(\d+)\s*m(?!s)/);
+    const sMatch = s.match(/([\d.]+)\s*s(?!.*ms)/);
+    const msMatch = s.match(/([\d.]+)\s*ms/);
     if (hMatch) ms += parseInt(hMatch[1]) * 3600000;
     if (mMatch) ms += parseInt(mMatch[1]) * 60000;
     if (sMatch) ms += parseFloat(sMatch[1]) * 1000;
@@ -169,4 +169,9 @@ export function esc(s) {
     const d = document.createElement('div');
     d.textContent = s;
     return d.innerHTML;
+}
+
+export function truncQuery(s, max = 120) {
+    if (!s || s.length <= max) return s;
+    return s.slice(0, max) + '…';
 }

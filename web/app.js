@@ -1,5 +1,5 @@
 // ES Module imports
-import { fmt, fmtDuration, fmtBytes, fmtMs, fmtDur, parseDurToMs, esc, safeMax, safeMin } from './js/utils.js';
+import { fmt, fmtDuration, fmtBytes, fmtMs, fmtDur, parseDurToMs, esc, truncQuery, safeMax, safeMin } from './js/utils.js';
 import {
     wasmModule, wasmReady, analysisData, currentFileContent, currentFileName, currentFileSize, originalDimensions,
     charts, modalCharts, modalChartsData, modalChartCounter, chartIntervalMap, defaultInterval,
@@ -392,20 +392,20 @@ function buildEventsSection(data) {
 				classEvents.forEach(e => {
 					rows += `
 					<tr class="event-row">
-						<td style="width: 50px; vertical-align: top; padding: 0.35rem 0.5rem;">
+						<td style="width: 50px; vertical-align: top; padding: 0.25rem 0.5rem;">
 							${code ? `<span class="event-class-badge" style="border-color:${sevColor}; color:${sevColor};">${code}</span>` : ''}
 						</td>
-						<td style="vertical-align: top; padding: 0.35rem 0.5rem;">
+						<td style="vertical-align: top; padding: 0.25rem 0.5rem;">
 							${desc ? `<div style="font-size: 0.6rem; font-weight: 600; color: var(--text-muted); margin-bottom: 2px;">${esc(desc)}</div>` : ''}
 							<div class="event-msg-text" title="${esc(e.message)}">${esc(e.message)}</div>
 						</td>
-						<td class="num" style="width: 60px; vertical-align: top; font-weight: 600;">${fmt(e.count)}</td>
+						<td class="num" style="width: 60px; vertical-align: top; padding: 0.25rem 0.5rem; font-weight: 600;">${fmt(e.count)}</td>
 					</tr>`;
 				});
 			});
 
 			innerContent = `
-			<div class="table-container" style="max-height: 220px;">
+			<div class="table-container" style="max-height: 200px;">
 				<table class="data-table" style="width: 100%;">
 					${rows}
 				</table>
@@ -575,7 +575,7 @@ function buildEventsSection(data) {
                     <div class="duration-stack-legend">
                         ${activeEntries.map(e => {
                             const pct = (e.count / total) * 100;
-                            return `<span class="duration-stack-item"><span class="duration-stack-dot" style="background: ${colors[e.idx]};"></span>${e.label} ${pct.toFixed(0)}%</span>`;
+                            return `<span class="duration-stack-item"><span class="duration-stack-dot" style="background: ${colors[e.idx]};"></span>${e.label} ${pct > 0 && pct < 1 ? '< 1' : pct.toFixed(0)}%</span>`;
                         }).join('')}
                     </div>
                 </div>
@@ -981,7 +981,7 @@ function buildEventsSection(data) {
                                                 return wb - wa;
                                             }).slice(0, 10).map(q => `
                                                 <tr>
-                                                    <td class="query-cell" onclick="showQueryModal('${esc(q.id)}')">${esc(q.normalized_query)}</td>
+                                                    <td class="query-cell" onclick="showQueryModal('${esc(q.id)}')">${esc(truncQuery(q.normalized_query))}</td>
                                                     <td class="num">${q.acquired_count || 0}</td>
                                                     <td class="num">${q.still_waiting_count || 0}</td>
                                                     <td class="num">${fmtDur(q.total_wait_time) || '-'}</td>
@@ -1091,7 +1091,7 @@ function buildEventsSection(data) {
                                         <tbody>
                                             ${tf.queries.slice(0, 10).map(q => `
                                                 <tr>
-                                                    <td class="query-cell" onclick="showQueryModal('${esc(q.id || '')}')">${esc(q.normalized_query || '')}</td>
+                                                    <td class="query-cell" onclick="showQueryModal('${esc(q.id || '')}')">${esc(truncQuery(q.normalized_query || ''))}</td>
                                                     <td class="num">${fmt(q.count)}</td>
                                                     <td class="num">${q.total_size}</td>
                                                 </tr>
@@ -1233,30 +1233,72 @@ function buildEventsSection(data) {
             }
         }
 
+        let _queryTypesTableCounter = 0;
         function buildQueryTypesTable(types) {
             if (!types?.length) return '<div class="empty">No query type data</div>';
+            const tableId = 'sql-types-table-' + (_queryTypesTableCounter++);
+            const rows = types.map(t => ({
+                type: t.type,
+                count: t.count,
+                pct: t.percentage || 0,
+                avg: fmtDur(t.avg_time), avgMs: parseDurToMs(t.avg_time),
+                max: fmtDur(t.max_time), maxMs: parseDurToMs(t.max_time),
+                total: fmtDur(t.total_time), totalMs: parseDurToMs(t.total_time)
+            }));
+            window['_queryTypesRows_' + tableId] = rows;
+
+            const thStyle = 'cursor:pointer;user-select:none';
+            const cols = [
+                { key: 'count', label: 'Count', sort: 'count' },
+                { key: 'pct', label: '%', sort: 'pct' },
+                { key: 'avg', label: 'Avg', sort: 'avgMs' },
+                { key: 'max', label: 'Max', sort: 'maxMs' },
+                { key: 'total', label: 'Total', sort: 'totalMs' },
+            ];
+            const needsScroll = rows.length > 8;
             return `
-                <div class="table-container" style="max-height: 300px;">
-                    <table>
+                <div class="table-scroll-wrapper${needsScroll ? ' has-overflow' : ''}" style="${needsScroll ? 'max-height: 250px; overflow-y: auto;' : ''}">
+                    <table id="${tableId}">
                         <thead><tr>
-                            <th>Type</th><th class="num">Count</th><th class="num">%</th><th class="num">Avg</th><th class="num">Max</th><th class="num">Total</th>
+                            <th>Type</th>
+                            ${cols.map(c => `<th class="num" style="${thStyle}" onclick="sortQueryTypesTable('${tableId}','${c.sort}',this)" data-sort="${c.sort}">${c.label}${c.sort === 'count' ? ' ▼' : ''}</th>`).join('')}
                         </tr></thead>
                         <tbody>
-                            ${types.slice(0, 15).map(t => `
-                                <tr>
-                                    <td><span class="query-type"><span class="name">${t.type}</span></span></td>
-                                    <td class="num">${fmt(t.count)}</td>
-                                    <td class="num">${t.percentage?.toFixed(1) || 0}%</td>
-                                    <td class="num">${fmtDur(t.avg_time) || '-'}</td>
-                                    <td class="num">${fmtDur(t.max_time) || '-'}</td>
-                                    <td class="num">${fmtDur(t.total_time) || '-'}</td>
-                                </tr>
-                            `).join('')}
+                            ${renderQueryTypesRows(rows, 'count')}
                         </tbody>
                     </table>
                 </div>
             `;
         }
+
+        function renderQueryTypesRows(rows, sortKey, asc) {
+            const sorted = [...rows].sort((a, b) => asc ? a[sortKey] - b[sortKey] : b[sortKey] - a[sortKey]);
+            return sorted.map(t => `
+                <tr>
+                    <td><span class="query-type"><span class="name">${t.type}</span></span></td>
+                    <td class="num">${fmt(t.count)}</td>
+                    <td class="num">${t.pct.toFixed(1)}%</td>
+                    <td class="num">${t.avg || '-'}</td>
+                    <td class="num">${t.max || '-'}</td>
+                    <td class="num">${t.total || '-'}</td>
+                </tr>
+            `).join('');
+        }
+
+        window.sortQueryTypesTable = function(tableId, sortKey, th) {
+            const table = document.getElementById(tableId);
+            if (!table) return;
+            const rows = window['_queryTypesRows_' + tableId];
+            if (!rows) return;
+            const wasAsc = th.dataset.dir === 'asc';
+            const asc = !wasAsc;
+            th.dataset.dir = asc ? 'asc' : 'desc';
+            table.querySelectorAll('th[data-sort]').forEach(h => {
+                const arrow = h === th ? (asc ? ' ▲' : ' ▼') : '';
+                h.textContent = h.textContent.replace(/ [▲▼]$/, '') + arrow;
+            });
+            table.querySelector('tbody').innerHTML = renderQueryTypesRows(rows, sortKey, asc);
+        };
 
         function buildDimensionTable(items, dimType) {
             if (!items?.length) return `<div class="empty">No ${dimType} data</div>`;
@@ -1520,7 +1562,7 @@ function buildEventsSection(data) {
                     <div class="duration-stack-legend">
                         ${activeDist.map(d => {
                             const pct = (d.count / total) * 100;
-                            return `<span class="duration-stack-item"><span class="duration-stack-dot" style="background: ${colors[d.idx]};"></span>${d.label} ${pct.toFixed(0)}%</span>`;
+                            return `<span class="duration-stack-item"><span class="duration-stack-dot" style="background: ${colors[d.idx]};"></span>${d.label} ${pct > 0 && pct < 1 ? '< 1' : pct.toFixed(0)}%</span>`;
                         }).join('')}
                     </div>
                 </div>
@@ -1551,7 +1593,7 @@ function buildEventsSection(data) {
                                 return `
                                 <tr>
                                     <td>${i + 1}</td>
-                                    <td class="query-cell" onclick="showQueryModal('${esc(q.id)}')" title="Click for details">${esc(q.normalized_query)}</td>
+                                    <td class="query-cell" onclick="showQueryModal('${esc(q.id)}')" title="Click for details">${esc(truncQuery(q.normalized_query))}</td>
                                     <td class="num">${fmt(q.count)}</td>
                                     <td class="num">${fmtMs(q.avg_time_ms)}</td>
                                     <td class="num">${fmtMs(q.max_time_ms)}</td>
