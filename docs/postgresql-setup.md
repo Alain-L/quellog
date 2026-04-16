@@ -1,23 +1,19 @@
-# PostgreSQL Configuration
+# PostgreSQL Setup
 
-This guide covers the PostgreSQL logging settings that affect quellog's analysis capabilities.
-
-## Configuration Example
-
-Here is a complete configuration example with all logging parameters relevant for quellog:
+## Recommended Configuration
 
 ```ini
 # postgresql.conf
 
 # Logging destination
-log_destination = 'stderr'              # or 'csvlog', 'jsonlog' (PostgreSQL 15+)
+log_destination = 'stderr'              # or 'csvlog', 'jsonlog' (PG 15+)
 logging_collector = on
 
-# Log line format (for stderr logs)
-log_line_prefix = '%t [%p] %e: db=%d,user=%u,app=%a,client=%h '  # Recommended format
+# Log line format (stderr only)
+log_line_prefix = '%t [%p] %e: db=%d,user=%u,app=%a,client=%h '
 
 # Query logging
-log_min_duration_statement = 100        # Log queries > 100ms (milliseconds)
+log_min_duration_statement = 100        # Log queries > 100ms
 log_statement = 'ddl'                   # Log DDL statements
 
 # Connection logging
@@ -35,23 +31,25 @@ deadlock_timeout = 1000                 # 1 second
 log_min_messages = warning
 ```
 
-Apply configuration:
+Apply with `SELECT pg_reload_conf();`
 
-```sql
-SELECT pg_reload_conf();
-```
+!!! tip "Automatic log_line_prefix detection"
+    The format above is recommended, but **quellog adapts to most `log_line_prefix` configurations**. CSV and JSON log formats include all metadata by default.
 
-## About These Settings
+!!! warning "Performance impact"
+    `log_min_duration_statement = 0` logs every query, which generates large log files on busy databases. Start with `100` (ms) and lower if needed.
 
-The configuration above enables comprehensive logging for PostgreSQL analysis with quellog. It includes query duration tracking, connection events, checkpoint activity, autovacuum operations, temporary file usage, and lock waits. The `log_line_prefix` format captures essential metadata (timestamp, PID, SQLSTATE, database, user, application, client) needed for filtering and attribution.
 
-quellog supports all PostgreSQL log formats: stderr/syslog (plain text), csvlog (structured CSV), and jsonlog (PostgreSQL 15+). The format is auto-detected.
+## What Each Setting Enables
 
-!!! tip "Automatic log_line_prefix Detection"
-    The format above is recommended for optimal results, but **quellog automatically adapts to most `log_line_prefix` configurations**. If your logs use a different format, quellog will analyze the structure and extract available metadata on a best-effort basis. Works well with common variations, but exotic formats may yield partial metadata.
-
-!!! info "Error Class Reporting (SQLSTATE codes)"
-    The `%e` in `log_line_prefix` includes SQLSTATE error codes for classification. Alternatively, use `log_error_verbosity = 'verbose'` for detailed error context, or csvlog/jsonlog which include SQLSTATE codes by default in dedicated fields.
-
-!!! warning "Performance Impact"
-    Setting `log_min_duration_statement = 0` logs every query, which can generate massive log files on busy databases and increase I/O load.
+| Setting | quellog section | Notes |
+|---------|----------------|-------|
+| `log_min_duration_statement` | SQL Performance, SQL Overview | `0` = all queries, `100` = queries > 100ms |
+| `log_connections` | Connections | Connection counts and rates |
+| `log_disconnections` | Connections | Session durations, concurrent sessions chart |
+| `log_checkpoints` | Checkpoints | Checkpoint frequency, WAL distance, I/O stats |
+| `log_autovacuum_min_duration` | Maintenance | Vacuum/analyze frequency, table stats |
+| `log_temp_files` | Temp Files | Temp file count and sizes per query |
+| `log_lock_waits` | Locks | Lock contention, deadlocks, blocking queries |
+| `log_line_prefix` with `%e` | Events | SQLSTATE error class reporting |
+| `log_line_prefix` with `%d,%u,%a,%h` | Clients, Filtering | Per-database/user/app/host breakdown |
