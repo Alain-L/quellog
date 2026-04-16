@@ -543,7 +543,7 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 		// Detailed mode: show additional stats when --connections is explicitly used
 		isExplicit := !has("all")
 		if isExplicit && len(m.Connections.SessionDurations) > 0 {
-			printDetailedConnectionStats(m, bold, reset)
+			printDetailedConnectionStats(m, bold, reset, true)
 		}
 	}
 
@@ -700,7 +700,7 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 
 // printDetailedConnectionStats displays detailed connection and session statistics.
 // This is shown only when --connections is explicitly used (not as part of "all").
-func printDetailedConnectionStats(m analysis.AggregatedMetrics, bold, reset string) {
+func printDetailedConnectionStats(m analysis.AggregatedMetrics, bold, reset string, showAll bool) {
 	// 1. SESSION TIME DISTRIBUTION (with histogram bars)
 	if len(m.Connections.SessionDurations) > 0 {
 		fmt.Println()
@@ -750,9 +750,8 @@ func printDetailedConnectionStats(m analysis.AggregatedMetrics, bold, reset stri
 			"User", "Sessions", "Min", "Max", "Avg", "Median", "Cumulated")
 		fmt.Println("  " + strings.Repeat("-", 89))
 
-		// Display top 10 users
 		limit := len(sortedUsers)
-		if limit > 10 {
+		if limit > 10 && !showAll {
 			limit = 10
 		}
 		for i := 0; i < limit; i++ {
@@ -792,9 +791,8 @@ func printDetailedConnectionStats(m analysis.AggregatedMetrics, bold, reset stri
 			"Database", "Sessions", "Min", "Max", "Avg", "Median", "Cumulated")
 		fmt.Println("  " + strings.Repeat("-", 89))
 
-		// Display top 10 databases
 		limit := len(sortedDBs)
-		if limit > 10 {
+		if limit > 10 && !showAll {
 			limit = 10
 		}
 		for i := 0; i < limit; i++ {
@@ -834,9 +832,8 @@ func printDetailedConnectionStats(m analysis.AggregatedMetrics, bold, reset stri
 			"Host", "Sessions", "Min", "Max", "Avg", "Median", "Cumulated")
 		fmt.Println("  " + strings.Repeat("-", 89))
 
-		// Display top 10 hosts
 		limit := len(sortedHosts)
-		if limit > 10 {
+		if limit > 10 && !showAll {
 			limit = 10
 		}
 		for i := 0; i < limit; i++ {
@@ -857,14 +854,12 @@ func printDetailedConnectionStats(m analysis.AggregatedMetrics, bold, reset stri
 }
 
 // formatSessionDuration formats a time.Duration for human-readable display.
-// Examples: "0s", "2s", "5m30s", "1h45m", "2h"
+// Examples: "0s", "2s", "5m30s", "1h45m", "2d 3h15m"
 func formatSessionDuration(d time.Duration) string {
 	if d < time.Minute {
-		// Less than 1 minute: show seconds
 		return fmt.Sprintf("%.0fs", d.Seconds())
 	}
 	if d < time.Hour {
-		// Less than 1 hour: show minutes and seconds
 		mins := int(d.Minutes())
 		secs := int(d.Seconds()) % 60
 		if secs > 0 {
@@ -872,13 +867,23 @@ func formatSessionDuration(d time.Duration) string {
 		}
 		return fmt.Sprintf("%dm", mins)
 	}
-	// 1 hour or more: show hours and minutes
-	hours := int(d.Hours())
+	totalHours := int(d.Hours())
 	mins := int(d.Minutes()) % 60
-	if mins > 0 {
-		return fmt.Sprintf("%dh%dm", hours, mins)
+	if totalHours >= 24 {
+		days := totalHours / 24
+		hours := totalHours % 24
+		if hours > 0 && mins > 0 {
+			return fmt.Sprintf("%dd %dh%dm", days, hours, mins)
+		}
+		if hours > 0 {
+			return fmt.Sprintf("%dd %dh", days, hours)
+		}
+		return fmt.Sprintf("%dd", days)
 	}
-	return fmt.Sprintf("%dh", hours)
+	if mins > 0 {
+		return fmt.Sprintf("%dh%dm", totalHours, mins)
+	}
+	return fmt.Sprintf("%dh", totalHours)
 }
 
 // printTopTables prints the top tables for a given operation (vacuum or analyze).
