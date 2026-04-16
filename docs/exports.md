@@ -26,8 +26,7 @@ quellog logs/ --sql-performance --json  # SQL data only
 quellog logs/ --summary --events --json # Multiple sections
 ```
 
-!!! note
-    JSON always contains all analyzed data regardless of section flags. Section flags only affect text output.
+Section flags control which data is included in all formats, including JSON.
 
 ### Using with jq
 
@@ -36,10 +35,10 @@ quellog logs/ --summary --events --json # Multiple sections
 quellog logs/ --json | jq '.sql_performance.queries | sort_by(-.max_time_ms) | .[0:5] | .[] | {id, type, max_time_ms}'
 
 # Error count
-quellog logs/ --json | jq '.events[] | select(.severity == "ERROR") | .count'
+quellog logs/ --json | jq '.events[] | select(.type == "ERROR") | .count'
 
 # Database list with counts
-quellog logs/ --json | jq '.databases | to_entries | sort_by(-.value) | .[] | "\(.key): \(.value)"'
+quellog logs/ --json | jq '.databases | sort_by(-.count) | .[] | "\(.name): \(.count)"'
 ```
 
 For complete JSON structure reference, see the output of `quellog --json --full`.
