@@ -32,6 +32,7 @@ theme:
     - navigation.sections
     - navigation.expand
     - navigation.top
+    - navigation.indexes
     - search.suggest
     - search.highlight
     - content.code.copy
@@ -67,6 +68,7 @@ extra_css:
 
 nav:
   - Documentation:
+      - index.md
       - Installation: installation.md
       - PostgreSQL Setup: postgresql-setup.md
       - Log Formats: formats.md
