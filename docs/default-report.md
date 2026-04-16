@@ -124,28 +124,19 @@ LOCKS
   Resource types:
     relation                     194  100.0%
 
-Acquired locks by query:
-SQLID      Query                                                     Locks         Avg Wait       Total Wait
-------------------------------------------------------------------------------------------------------------
-se-uD4Xj2  select count(*) as gt_result_ from (select * fro...           3          15m 08s          45m 26s
-se-jStrWD  select count(*) as gt_result_ from (select * fro...           3          12m 48s          38m 24s
-se-kvbfUA  select count(*) as gt_result_ from (select * fro...           3          10m 50s          32m 30s
+Waiting queries:
+SQLID      Query                                                       Acquired     Waiting    Total Wait
+---------------------------------------------------------------------------------------------------------
+up-kR4mNx  update orders set status = ? where id = ?                        12           3       45m 26s
+se-Wd9pLa  select * from inventory where product_id = ? for upd...           0           8       12m 04s
 
-Locks still waiting by query:
-SQLID      Query                                                     Locks         Avg Wait       Total Wait
-------------------------------------------------------------------------------------------------------------
-xx-AmtyJ1  -- probe btree_bloat select current_database() a...          89           8.14 s          12m 04s
-xx-Asa3KN  -- probe heap_bloat select current_database() as...          24           1.00 s          24.00 s
-
-Most frequent waiting queries:
-SQLID      Query                                                     Locks         Avg Wait       Total Wait
-------------------------------------------------------------------------------------------------------------
-xx-AmtyJ1  -- probe btree_bloat select current_database() a...          94           8.80 s          13m 47s
-se-uD4Xj2  select count(*) as gt_result_ from (select * fro...           3          15m 08s          45m 26s
-se-jStrWD  select count(*) as gt_result_ from (select * fro...           3          12m 48s          38m 24s
+Blocking queries:
+SQLID      Query                                                       Blocked    Avg Wait    Total Wait
+---------------------------------------------------------------------------------------------------------
+up-Tj7bQe  update inventory set quantity = quantity - ? where pr...          8      15m 08s       45m 26s
 ```
 
-Three query tables: **Acquired** (resolved waits, by total wait), **Still waiting** (unresolved at log end), **Most frequent** (by lock count).
+**Waiting queries**: queries that waited for locks, with acquired/still-waiting counts. **Blocking queries**: queries that held locks causing others to wait (requires `DETAIL: Process holding the lock` in logs).
 
 Requires `log_lock_waits = on`.
 
@@ -195,6 +186,12 @@ CHECKPOINTS
 ```
 
 Types: **time** (by `checkpoint_timeout`), **wal** (by `max_wal_size`), **shutdown**, **immediate** (manual).
+
+Additional metrics when available:
+
+- **WAL distance / estimate**: WAL generated between checkpoints vs PostgreSQL's prediction for the next cycle
+- **WAL rate / flush rate**: I/O throughput during checkpoint writes
+- **Too Frequent warnings**: alerts when checkpoints occur faster than `checkpoint_warning` threshold
 
 Requires `log_checkpoints = on`.
 

@@ -29,6 +29,12 @@ deadlock_timeout = 1000                 # 1 second
 
 # Error level
 log_min_messages = warning
+
+# Optional: execution plans for slow queries
+# shared_preload_libraries = 'auto_explain'
+# auto_explain.log_min_duration = 1000    # Log plans for queries > 1s
+# auto_explain.log_format = 'json'        # JSON for structured parsing
+# auto_explain.log_analyze = on           # Include actual row counts
 ```
 
 Apply with `SELECT pg_reload_conf();`
@@ -53,3 +59,4 @@ Apply with `SELECT pg_reload_conf();`
 | `log_lock_waits` | Locks | Lock contention, deadlocks, blocking queries |
 | `log_line_prefix` with `%e` | Events | SQLSTATE error class reporting |
 | `log_line_prefix` with `%d,%u,%a,%h` | Clients, Filtering | Per-database/user/app/host breakdown |
+| `auto_explain` extension | SQL Analysis | Execution plans attached to slow queries |

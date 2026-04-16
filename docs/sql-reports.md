@@ -83,11 +83,11 @@ se-y1z2a3  select * from large_table order by created_at desc...                
 
 LOCKS
 
-Acquired locks by query:
-SQLID      Query                                                     Locks         Avg Wait       Total Wait
+Waiting queries:
+SQLID      Query                                                       Acquired     Waiting       Total Wait
 ------------------------------------------------------------------------------------------------------------
-up-bG8qBk  update alf_node set version = ? , transaction_id...        259           2.88 s          12m 25s
-in-79Lxjd  insert into alf_content_url (id, content_url, co...        130           2.97 s           6m 26s
+up-bG8qBk  update alf_node set version = ? , transaction_id...              259           0          12m 25s
+in-79Lxjd  insert into alf_content_url (id, content_url, co...              130           0           6m 26s
 ```
 
 ### Query Normalization
@@ -106,6 +106,10 @@ select * from users where id = ?
 ### SQLID Format
 
 Each query gets a short identifier: `se-a1b2c3` (select), `up-x4y5z6` (update), `in-m7n8o9` (insert), `de-p1q2r3` (delete). Use this ID with `--sql-detail`.
+
+### TCL Statements
+
+Transaction control statements (BEGIN, COMMIT, ROLLBACK, SAVEPOINT) are separated into a dedicated **TCL** tab in the query tables, keeping DML/DDL queries uncluttered.
 
 ## --sql-overview
 
@@ -273,6 +277,12 @@ Example Query:
 
 SELECT o.id, o.customer_id, o.total_amount, c.name FROM orders o JOIN customers c ON o.customer_id = c.id WHERE o.status = 'pending' AND o.created_at >= '2025-01-13 00:00:00' AND o.created_at < '2025-01-14 00:00:00' ORDER BY o.created_at DESC LIMIT 100
 ```
+
+### Execution Plans (auto_explain)
+
+When `auto_explain` is enabled in PostgreSQL, execution plans are captured and displayed in the sql-detail output. In the HTML report, a **Visualize** button can be used to send the plan to [explain.dalibo.com](https://explain.dalibo.com) for interactive visualization.
+
+See [PostgreSQL Setup](postgresql-setup.md) for auto_explain configuration.
 
 ## Combining with Filters
 
