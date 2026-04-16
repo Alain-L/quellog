@@ -202,46 +202,49 @@ export function binConcurrentSessions(events, minT, maxT, interval) {
     const buckets = computeBuckets(range, interval);
     const bucketSize = range / buckets;
 
+    const hasPre = events.some(e => e.pre);
     const xData = new Float64Array(buckets);
     const yData = new Float64Array(buckets);
+    const yPre = hasPre ? new Float64Array(buckets) : null;
     for (let i = 0; i < buckets; i++) {
         xData[i] = minT + i * bucketSize + bucketSize / 2;
     }
 
-    // Filter and find starting concurrent count before minT
-    let current = 0;
+    let currentPre = 0, currentNew = 0;
     let eventIdx = 0;
 
-    // Count events before minT to get starting concurrent count
     while (eventIdx < events.length && events[eventIdx].time / 1000 < minT) {
-        current += events[eventIdx].delta;
+        if (events[eventIdx].pre) currentPre += events[eventIdx].delta;
+        else currentNew += events[eventIdx].delta;
         eventIdx++;
     }
 
-    // Sweep-line for visible range
     for (let b = 0; b < buckets; b++) {
         const bucketStart = minT + b * bucketSize;
         const bucketEnd = minT + (b + 1) * bucketSize;
-        let maxInBucket = current;
+        let maxTotal = currentPre + currentNew;
+        let preAtPeak = currentPre, newAtPeak = currentNew;
 
         while (eventIdx < events.length && events[eventIdx].time / 1000 < bucketEnd) {
             const e = events[eventIdx];
-            const t = e.time / 1000;
-            if (t >= bucketStart) {
-                current += e.delta;
-                if (current > maxInBucket) maxInBucket = current;
-            } else {
-                current += e.delta;
+            if (e.pre) currentPre += e.delta;
+            else currentNew += e.delta;
+            const total = currentPre + currentNew;
+            if (total > maxTotal) {
+                maxTotal = total;
+                preAtPeak = currentPre;
+                newAtPeak = currentNew;
             }
             eventIdx++;
         }
-        yData[b] = Math.max(maxInBucket, 0);
+        yData[b] = Math.max(maxTotal, 0);
+        if (yPre) yPre[b] = Math.max(preAtPeak, 0);
     }
 
     const sortedY = [...yData].filter(v => v > 0).sort((a, b) => a - b);
     const median = sortedY.length > 0 ? sortedY[Math.floor(sortedY.length / 2)] : 0;
 
-    return { xData, yData, median, buckets };
+    return { xData, yData, yPre, median, buckets };
 }
 
 // Helper: bin checkpoints by type (for stacked bar chart)
@@ -1465,21 +1468,45 @@ export function createHistogramChart(containerId, histogram, options = {}) {
                     ctx.setLineDash([]);
                 }
 
-                // Draw bars
+                // Draw bars (stacked: grey pre-log, orange new)
+                const preData = u._yPre;
+                const preColor = getComputedStyle(document.documentElement).getPropertyValue('--text-muted')?.trim() || '#999';
                 for (let i = 0; i < xd.length; i++) {
                     const x = u.valToPos(xd[i], 'x', true);
-                    const y = u.valToPos(yd[i], 'y', true);
                     const y0 = u.valToPos(0, 'y', true);
-                    const h = y0 - y;
-                    if (h > 0) {
+                    const total = yd[i];
+                    const pre = preData ? preData[i] : 0;
+                    const newVal = total - pre;
+
+                    if (pre > 0) {
+                        const yPre = u.valToPos(pre, 'y', true);
+                        ctx.fillStyle = preColor;
+                        ctx.beginPath();
+                        if (newVal > 0) {
+                            ctx.rect(x - barWidth/2, yPre, barWidth, y0 - yPre);
+                        } else {
+                            ctx.moveTo(x - barWidth/2, y0);
+                            ctx.lineTo(x - barWidth/2, yPre + radius);
+                            ctx.quadraticCurveTo(x - barWidth/2, yPre, x - barWidth/2 + radius, yPre);
+                            ctx.lineTo(x + barWidth/2 - radius, yPre);
+                            ctx.quadraticCurveTo(x + barWidth/2, yPre, x + barWidth/2, yPre + radius);
+                            ctx.lineTo(x + barWidth/2, y0);
+                            ctx.closePath();
+                        }
+                        ctx.fill();
+                    }
+
+                    if (newVal > 0) {
+                        const yTop = u.valToPos(total, 'y', true);
+                        const yBottom = pre > 0 ? u.valToPos(pre, 'y', true) : y0;
                         ctx.fillStyle = baseColor;
                         ctx.beginPath();
-                        ctx.moveTo(x - barWidth/2, y0);
-                        ctx.lineTo(x - barWidth/2, y + radius);
-                        ctx.quadraticCurveTo(x - barWidth/2, y, x - barWidth/2 + radius, y);
-                        ctx.lineTo(x + barWidth/2 - radius, y);
-                        ctx.quadraticCurveTo(x + barWidth/2, y, x + barWidth/2, y + radius);
-                        ctx.lineTo(x + barWidth/2, y0);
+                        ctx.moveTo(x - barWidth/2, yBottom);
+                        ctx.lineTo(x - barWidth/2, yTop + radius);
+                        ctx.quadraticCurveTo(x - barWidth/2, yTop, x - barWidth/2 + radius, yTop);
+                        ctx.lineTo(x + barWidth/2 - radius, yTop);
+                        ctx.quadraticCurveTo(x + barWidth/2, yTop, x + barWidth/2, yTop + radius);
+                        ctx.lineTo(x + barWidth/2, yBottom);
                         ctx.closePath();
                         ctx.fill();
                     }
@@ -1522,13 +1549,15 @@ export function createConcurrentChart(containerId, sessions, options = {}) {
     container.innerHTML = '';
 
     // Parse session events first to get time range
+    const logStartT = options.logStart ? new Date(options.logStart).getTime() : null;
     const events = [];
     sessions.forEach(s => {
         const start = new Date(s.s).getTime();
         const end = new Date(s.e).getTime();
         if (!isNaN(start) && !isNaN(end)) {
-            events.push({ time: start, delta: 1 });  // +1 at start
-            events.push({ time: end, delta: -1 });   // -1 at end
+            const pre = logStartT ? (start < logStartT) : false;
+            events.push({ time: start, delta: 1, pre });
+            events.push({ time: end, delta: -1, pre });
         }
     });
     if (events.length === 0) return null;
@@ -1542,7 +1571,7 @@ export function createConcurrentChart(containerId, sessions, options = {}) {
     const interval = options.interval !== undefined ? options.interval : (chartIntervalMap.get(containerId) ?? defaultInterval);
 
     // Initial binning
-    const { xData, yData, median } = binConcurrentSessions(events, minT, maxT, interval);
+    const { xData, yData, yPre, median } = binConcurrentSessions(events, minT, maxT, interval);
 
     // Resolve CSS variable to actual color for canvas
     const resolveColor = (c) => {
@@ -1607,8 +1636,20 @@ export function createConcurrentChart(containerId, sessions, options = {}) {
             {
                 stroke: getComputedStyle(document.documentElement).getPropertyValue('--text').trim(),
                 grid: { show: false }, ticks: { show: false },
-                values: (u, vals) => vals.map(v => new Date(v * 1000).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })),
-                size: 20, font: '10px system-ui'
+                values: (u, vals) => {
+                    const multiDay = (maxT - minT) > 86400;
+                    return vals.map((v, i) => {
+                        const d = new Date(v * 1000);
+                        const time = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+                        if (!multiDay) return time;
+                        const prevDay = i > 0 ? new Date(vals[i-1] * 1000).getDate() : -1;
+                        if (i === 0 || d.getDate() !== prevDay) {
+                            return time + '\n' + d.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
+                        }
+                        return time;
+                    });
+                },
+                size: (maxT - minT) > 86400 ? 36 : 20, font: '10px system-ui'
             },
             {
                 stroke: getComputedStyle(document.documentElement).getPropertyValue('--text').trim(),
@@ -1648,21 +1689,45 @@ export function createConcurrentChart(containerId, sessions, options = {}) {
                     ctx.setLineDash([]);
                 }
 
-                // Draw bars
+                // Draw bars (stacked: grey pre-log, orange new)
+                const preData = u._yPre;
+                const preColor = getComputedStyle(document.documentElement).getPropertyValue('--text-muted')?.trim() || '#999';
                 for (let i = 0; i < xd.length; i++) {
                     const x = u.valToPos(xd[i], 'x', true);
-                    const y = u.valToPos(yd[i], 'y', true);
                     const y0 = u.valToPos(0, 'y', true);
-                    const h = y0 - y;
-                    if (h > 0) {
+                    const total = yd[i];
+                    const pre = preData ? preData[i] : 0;
+                    const newVal = total - pre;
+
+                    if (pre > 0) {
+                        const yPre = u.valToPos(pre, 'y', true);
+                        ctx.fillStyle = preColor;
+                        ctx.beginPath();
+                        if (newVal > 0) {
+                            ctx.rect(x - barWidth/2, yPre, barWidth, y0 - yPre);
+                        } else {
+                            ctx.moveTo(x - barWidth/2, y0);
+                            ctx.lineTo(x - barWidth/2, yPre + radius);
+                            ctx.quadraticCurveTo(x - barWidth/2, yPre, x - barWidth/2 + radius, yPre);
+                            ctx.lineTo(x + barWidth/2 - radius, yPre);
+                            ctx.quadraticCurveTo(x + barWidth/2, yPre, x + barWidth/2, yPre + radius);
+                            ctx.lineTo(x + barWidth/2, y0);
+                            ctx.closePath();
+                        }
+                        ctx.fill();
+                    }
+
+                    if (newVal > 0) {
+                        const yTop = u.valToPos(total, 'y', true);
+                        const yBottom = pre > 0 ? u.valToPos(pre, 'y', true) : y0;
                         ctx.fillStyle = baseColor;
                         ctx.beginPath();
-                        ctx.moveTo(x - barWidth/2, y0);
-                        ctx.lineTo(x - barWidth/2, y + radius);
-                        ctx.quadraticCurveTo(x - barWidth/2, y, x - barWidth/2 + radius, y);
-                        ctx.lineTo(x + barWidth/2 - radius, y);
-                        ctx.quadraticCurveTo(x + barWidth/2, y, x + barWidth/2, y + radius);
-                        ctx.lineTo(x + barWidth/2, y0);
+                        ctx.moveTo(x - barWidth/2, yBottom);
+                        ctx.lineTo(x - barWidth/2, yTop + radius);
+                        ctx.quadraticCurveTo(x - barWidth/2, yTop, x - barWidth/2 + radius, yTop);
+                        ctx.lineTo(x + barWidth/2 - radius, yTop);
+                        ctx.quadraticCurveTo(x + barWidth/2, yTop, x + barWidth/2, yTop + radius);
+                        ctx.lineTo(x + barWidth/2, yBottom);
                         ctx.closePath();
                         ctx.fill();
                     }
@@ -1681,8 +1746,9 @@ export function createConcurrentChart(containerId, sessions, options = {}) {
 
                 if (rangeChanged) {
                     u._lastRange = [newMin, newMax];
-                    const { xData: newX, yData: newY, median: newMedian } = binConcurrentSessions(u._events, newMin, newMax, u._interval);
+                    const { xData: newX, yData: newY, yPre: newYPre, median: newMedian } = binConcurrentSessions(u._events, newMin, newMax, u._interval);
                     u._median = newMedian;
+                    u._yPre = newYPre;
                     u._resampling = true;
                     u.setData([newX, newY], false);
                     u._resampling = false;
@@ -1705,6 +1771,7 @@ export function createConcurrentChart(containerId, sessions, options = {}) {
     chart._lastRange = null;
     chart.setScale('x', { min: minT, max: maxT });
     chart._median = median;
+    chart._yPre = yPre;
 
     const resizeObserver = new ResizeObserver(() => {
         if (container.clientWidth > 0) chart.setSize({ width: container.clientWidth, height: opts.height });
@@ -2031,7 +2098,7 @@ export function updateChartInterval(chartId, intervalValue) {
         const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
         const color = chartId.includes('tempfiles') ? accentColor : null;
         if (data?.type === 'sessions') {
-            createConcurrentChart(chartId, data.data, { color: color || 'var(--accent)', interval });
+            createConcurrentChart(chartId, data.data, { color: color || 'var(--accent)', interval, logStart: data.logStart, logEnd: data.logEnd });
         } else if (data?.type === 'histogram') {
             // Pre-computed histogram can't change interval
         } else if (data?.type === 'duration') {
@@ -2111,7 +2178,9 @@ export function renderModalChart() {
         modalChart = createConcurrentChartLarge(container, data.data, {
             color: color || 'var(--accent)',
             interval: modalInterval,
-            height: 350
+            height: 350,
+            logStart: data.logStart,
+            logEnd: data.logEnd
         });
     } else if (data?.type === 'histogram') {
         modalChart = createHistogramChartLarge(container, data.data, {
@@ -2223,21 +2292,45 @@ export function createTimeChartLarge(container, timestamps, options = {}) {
                     ctx.setLineDash([]);
                 }
 
-                // Draw bars
+                // Draw bars (stacked: grey pre-log, orange new)
+                const preData = u._yPre;
+                const preColor = getComputedStyle(document.documentElement).getPropertyValue('--text-muted')?.trim() || '#999';
                 for (let i = 0; i < xd.length; i++) {
                     const x = u.valToPos(xd[i], 'x', true);
-                    const y = u.valToPos(yd[i], 'y', true);
                     const y0 = u.valToPos(0, 'y', true);
-                    const h = y0 - y;
-                    if (h > 0) {
+                    const total = yd[i];
+                    const pre = preData ? preData[i] : 0;
+                    const newVal = total - pre;
+
+                    if (pre > 0) {
+                        const yPre = u.valToPos(pre, 'y', true);
+                        ctx.fillStyle = preColor;
+                        ctx.beginPath();
+                        if (newVal > 0) {
+                            ctx.rect(x - barWidth/2, yPre, barWidth, y0 - yPre);
+                        } else {
+                            ctx.moveTo(x - barWidth/2, y0);
+                            ctx.lineTo(x - barWidth/2, yPre + radius);
+                            ctx.quadraticCurveTo(x - barWidth/2, yPre, x - barWidth/2 + radius, yPre);
+                            ctx.lineTo(x + barWidth/2 - radius, yPre);
+                            ctx.quadraticCurveTo(x + barWidth/2, yPre, x + barWidth/2, yPre + radius);
+                            ctx.lineTo(x + barWidth/2, y0);
+                            ctx.closePath();
+                        }
+                        ctx.fill();
+                    }
+
+                    if (newVal > 0) {
+                        const yTop = u.valToPos(total, 'y', true);
+                        const yBottom = pre > 0 ? u.valToPos(pre, 'y', true) : y0;
                         ctx.fillStyle = baseColor;
                         ctx.beginPath();
-                        ctx.moveTo(x - barWidth/2, y0);
-                        ctx.lineTo(x - barWidth/2, y + radius);
-                        ctx.quadraticCurveTo(x - barWidth/2, y, x - barWidth/2 + radius, y);
-                        ctx.lineTo(x + barWidth/2 - radius, y);
-                        ctx.quadraticCurveTo(x + barWidth/2, y, x + barWidth/2, y + radius);
-                        ctx.lineTo(x + barWidth/2, y0);
+                        ctx.moveTo(x - barWidth/2, yBottom);
+                        ctx.lineTo(x - barWidth/2, yTop + radius);
+                        ctx.quadraticCurveTo(x - barWidth/2, yTop, x - barWidth/2 + radius, yTop);
+                        ctx.lineTo(x + barWidth/2 - radius, yTop);
+                        ctx.quadraticCurveTo(x + barWidth/2, yTop, x + barWidth/2, yTop + radius);
+                        ctx.lineTo(x + barWidth/2, yBottom);
                         ctx.closePath();
                         ctx.fill();
                     }
@@ -2890,13 +2983,15 @@ export function createCombinedTempFilesChartLarge(container, events, options = {
 
 // Create large concurrent chart for modal
 export function createConcurrentChartLarge(container, sessions, options = {}) {
+    const logStartT = options.logStart ? new Date(options.logStart).getTime() : null;
     const events = [];
     sessions.forEach(s => {
         const start = new Date(s.s).getTime();
         const end = new Date(s.e).getTime();
         if (!isNaN(start) && !isNaN(end)) {
-            events.push({ time: start, delta: 1 });
-            events.push({ time: end, delta: -1 });
+            const pre = logStartT ? (start < logStartT) : false;
+            events.push({ time: start, delta: 1, pre });
+            events.push({ time: end, delta: -1, pre });
         }
     });
     if (events.length === 0) return null;
@@ -2908,7 +3003,7 @@ export function createConcurrentChartLarge(container, sessions, options = {}) {
     const interval = options.interval !== undefined ? options.interval : modalInterval;
 
     // Initial binning
-    const { xData, yData, median } = binConcurrentSessions(events, minT, maxT, interval);
+    const { xData, yData, yPre, median } = binConcurrentSessions(events, minT, maxT, interval);
 
     // Resolve CSS variable to actual color for canvas
     const resolveColor = (c) => {
@@ -2971,6 +3066,7 @@ export function createConcurrentChartLarge(container, sessions, options = {}) {
     const xMin = xData[0] - xPadding;
     const xMax = xData[xData.length - 1] + xPadding;
 
+    const multiDay = (maxT - minT) > 86400;
     const opts = {
         width: container.clientWidth || 1100,
         height: height,
@@ -2982,7 +3078,19 @@ export function createConcurrentChartLarge(container, sessions, options = {}) {
             y: { range: [0, null] }
         },
         axes: [
-            { stroke: textColor, grid: { stroke: borderColor, width: 1 }, size: 50, font: '12px sans-serif', ticks: { stroke: borderColor } },
+            {
+                stroke: textColor, grid: { stroke: borderColor, width: 1 }, size: multiDay ? 60 : 50, font: '12px sans-serif', ticks: { stroke: borderColor },
+                values: (u, vals) => vals.map((v, i) => {
+                    const d = new Date(v * 1000);
+                    const time = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+                    if (!multiDay) return time;
+                    const prevDay = i > 0 ? new Date(vals[i-1] * 1000).getDate() : -1;
+                    if (i === 0 || d.getDate() !== prevDay) {
+                        return time + '\n' + d.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
+                    }
+                    return time;
+                })
+            },
             { stroke: textColor, grid: { stroke: borderColor, width: 1 }, size: 50, font: '12px sans-serif', ticks: { stroke: borderColor } }
         ],
         series: [
@@ -3019,21 +3127,45 @@ export function createConcurrentChartLarge(container, sessions, options = {}) {
                     ctx.setLineDash([]);
                 }
 
-                // Draw bars
+                // Draw bars (stacked: grey pre-log, orange new)
+                const preData = u._yPre;
+                const preColor = getComputedStyle(document.documentElement).getPropertyValue('--text-muted')?.trim() || '#999';
                 for (let i = 0; i < xd.length; i++) {
                     const x = u.valToPos(xd[i], 'x', true);
-                    const y = u.valToPos(yd[i], 'y', true);
                     const y0 = u.valToPos(0, 'y', true);
-                    const h = y0 - y;
-                    if (h > 0) {
+                    const total = yd[i];
+                    const pre = preData ? preData[i] : 0;
+                    const newVal = total - pre;
+
+                    if (pre > 0) {
+                        const yPre = u.valToPos(pre, 'y', true);
+                        ctx.fillStyle = preColor;
+                        ctx.beginPath();
+                        if (newVal > 0) {
+                            ctx.rect(x - barWidth/2, yPre, barWidth, y0 - yPre);
+                        } else {
+                            ctx.moveTo(x - barWidth/2, y0);
+                            ctx.lineTo(x - barWidth/2, yPre + radius);
+                            ctx.quadraticCurveTo(x - barWidth/2, yPre, x - barWidth/2 + radius, yPre);
+                            ctx.lineTo(x + barWidth/2 - radius, yPre);
+                            ctx.quadraticCurveTo(x + barWidth/2, yPre, x + barWidth/2, yPre + radius);
+                            ctx.lineTo(x + barWidth/2, y0);
+                            ctx.closePath();
+                        }
+                        ctx.fill();
+                    }
+
+                    if (newVal > 0) {
+                        const yTop = u.valToPos(total, 'y', true);
+                        const yBottom = pre > 0 ? u.valToPos(pre, 'y', true) : y0;
                         ctx.fillStyle = baseColor;
                         ctx.beginPath();
-                        ctx.moveTo(x - barWidth/2, y0);
-                        ctx.lineTo(x - barWidth/2, y + radius);
-                        ctx.quadraticCurveTo(x - barWidth/2, y, x - barWidth/2 + radius, y);
-                        ctx.lineTo(x + barWidth/2 - radius, y);
-                        ctx.quadraticCurveTo(x + barWidth/2, y, x + barWidth/2, y + radius);
-                        ctx.lineTo(x + barWidth/2, y0);
+                        ctx.moveTo(x - barWidth/2, yBottom);
+                        ctx.lineTo(x - barWidth/2, yTop + radius);
+                        ctx.quadraticCurveTo(x - barWidth/2, yTop, x - barWidth/2 + radius, yTop);
+                        ctx.lineTo(x + barWidth/2 - radius, yTop);
+                        ctx.quadraticCurveTo(x + barWidth/2, yTop, x + barWidth/2, yTop + radius);
+                        ctx.lineTo(x + barWidth/2, yBottom);
                         ctx.closePath();
                         ctx.fill();
                     }
@@ -3052,8 +3184,9 @@ export function createConcurrentChartLarge(container, sessions, options = {}) {
 
                 if (rangeChanged) {
                     u._lastRange = [newMin, newMax];
-                    const { xData: newX, yData: newY, median: newMedian } = binConcurrentSessions(u._events, newMin, newMax, u._interval);
+                    const { xData: newX, yData: newY, yPre: newYPre, median: newMedian } = binConcurrentSessions(u._events, newMin, newMax, u._interval);
                     u._median = newMedian;
+                    u._yPre = newYPre;
                     u._resampling = true;
                     u.setData([newX, newY], false);
                     u._resampling = false;
@@ -3075,6 +3208,15 @@ export function createConcurrentChartLarge(container, sessions, options = {}) {
     chart._lastRange = null;
     chart.setScale('x', { min: minT, max: maxT });
     chart._median = median;
+    chart._yPre = yPre;
+    if (options.logStart) {
+        const t = new Date(options.logStart).getTime() / 1000;
+        if (!isNaN(t)) chart._logStart = t;
+    }
+    if (options.logEnd) {
+        const t = new Date(options.logEnd).getTime() / 1000;
+        if (!isNaN(t)) chart._logEnd = t;
+    }
     return chart;
 }
 
