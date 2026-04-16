@@ -1,38 +1,77 @@
 # Troubleshooting Slow Queries
 
-## Step 1: Identify slow queries
+A step-by-step workflow to find and diagnose slow SQL queries in
+PostgreSQL logs.
+
+## Step 1: Find the worst queries
+
+Run `--sql-performance` to get the full SQL performance breakdown:
 
 ```bash
 quellog /var/log/postgresql/*.log --sql-performance
 ```
 
-Look at the "Slowest individual queries" and "Most time consuming queries" tables.
+This displays three ranked tables:
 
-## Step 2: Check memory pressure
+- **Slowest individual queries** -- highest single-execution duration
+- **Most frequent queries** -- highest execution count
+- **Most time-consuming queries** -- highest cumulative duration
 
-```bash
-# Show tempfiles and related SQL performance
-quellog /var/log/postgresql/*.log --tempfiles --sql-performance
-```
+Focus on the "Most time-consuming" table first: a query running 275
+times at 274 ms average costs more than a single 11 s outlier.
 
-Queries generating large temp files are exceeding `work_mem` and spilling to disk.
+Each query has a **SQLID** (e.g. `up-UXcfCG`). Note the IDs you want
+to investigate.
 
-## Step 3: Check lock contention
+## Step 2: Drill into a specific query
 
-```bash
-# Locks + SQL performance + events
-quellog /var/log/postgresql/*.log --locks --sql-performance --events
-```
-
-Lock contention alongside query performance and errors.
-
-## Step 4: Drill down into a specific query
+Use `--sql-detail` with the SQLID to get the full picture:
 
 ```bash
-quellog /var/log/postgresql/*.log --sql-detail se-a1b2c3
+quellog /var/log/postgresql/*.log --sql-detail up-UXcfCG
 ```
 
-Shows execution patterns, temp files, locks, and the full query text.
+The detail view shows:
 
-!!! note "Work in progress"
-    This how-to will be expanded with interpretation guidance and tuning recommendations.
+- **Execution count and duration stats** (min / median / max)
+- **Temp file usage** for this query (indicates `work_mem` pressure)
+- **Normalized query** (parameters replaced with `?`)
+- **Example query** (one real execution with actual values)
+
+If the detail shows temp file activity, the query is sorting or hashing
+more data than `work_mem` allows.
+
+## Step 3: Check temp files
+
+Queries spilling to disk are a common cause of slowness:
+
+```bash
+quellog /var/log/postgresql/*.log --tempfiles
+```
+
+This shows a histogram of temp file activity over time and lists which
+queries generate the most temp files. Large temp file sizes suggest
+increasing `work_mem` or rewriting the query to reduce the sort/hash
+set.
+
+## Step 4: Check lock contention
+
+Slow queries can also be blocked by locks:
+
+```bash
+quellog /var/log/postgresql/*.log --locks
+```
+
+Look for high wait times and recurring lock patterns. The "Waiting
+queries" table shows which SQLIDs are blocked and for how long.
+
+## Putting it together
+
+Combine sections in a single pass for a complete view:
+
+```bash
+quellog /var/log/postgresql/*.log --sql-performance --tempfiles --locks
+```
+
+This gives you query rankings, disk spill data, and lock contention in
+one report -- usually enough to identify the root cause.

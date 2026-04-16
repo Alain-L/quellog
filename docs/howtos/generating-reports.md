@@ -47,6 +47,3 @@ quellog /var/log/postgresql/*.log \
   --end "2025-01-13 15:00:00" \
   --sql-performance --md > incident_report.md
 ```
-
-!!! note "Work in progress"
-    This how-to will be expanded with gomplate templates and automated reporting setups.
