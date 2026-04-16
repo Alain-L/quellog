@@ -2168,46 +2168,46 @@ export function renderModalChart() {
 
     // Create larger chart
     if (data?.type === 'wal-distance') {
-        modalChart = createWALDistanceChart('modal-chart-container', data, { height: 350 });
+        modalChart = createWALDistanceChart('modal-chart-container', data, { height: 500 });
     } else if (data?.type === 'checkpoints') {
         modalChart = createCheckpointChartLarge(container, data, {
             interval: modalInterval,
-            height: 350
+            height: 500
         });
     } else if (data?.type === 'sessions') {
         modalChart = createConcurrentChartLarge(container, data.data, {
             color: color || 'var(--accent)',
             interval: modalInterval,
-            height: 350,
+            height: 500,
             logStart: data.logStart,
             logEnd: data.logEnd
         });
     } else if (data?.type === 'histogram') {
         modalChart = createHistogramChartLarge(container, data.data, {
             color: color || 'var(--accent)',
-            height: 350
+            height: 500
         });
     } else if (data?.type === 'duration') {
         modalChart = createDurationChartLarge(container, data.data, {
             color: accentColor,
             interval: modalInterval,
-            height: 350
+            height: 500
         });
     } else if (data?.type === 'combined') {
         modalChart = createCombinedSQLChartLarge(container, data.data, {
             interval: modalInterval,
-            height: 350
+            height: 500
         });
     } else if (data?.type === 'combined-tempfiles') {
         modalChart = createCombinedTempFilesChartLarge(container, data.events, {
             interval: modalInterval,
-            height: 350
+            height: 500
         });
     } else {
         modalChart = createTimeChartLarge(container, data, {
             color,
             interval: modalInterval,
-            height: 350
+            height: 500
         });
     }
 
