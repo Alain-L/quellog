@@ -2210,6 +2210,26 @@ export function renderModalChart() {
             height: 350
         });
     }
+
+    // Add modal legend based on chart type
+    let legendEl = document.getElementById('modal-chart-legend');
+    if (!legendEl) {
+        legendEl = document.createElement('div');
+        legendEl.id = 'modal-chart-legend';
+        container.parentNode.appendChild(legendEl);
+    }
+    legendEl.style.cssText = 'display:flex;gap:16px;justify-content:center;margin-top:8px;font-size:13px;';
+    const dot = (color) => `<span style="display:inline-block;width:12px;height:12px;background:${color};border-radius:2px;vertical-align:middle;margin-right:4px;"></span>`;
+    const dash = (color) => `<span style="display:inline-block;width:16px;height:0;border-top:2px dashed ${color};vertical-align:middle;margin-right:4px;"></span>`;
+    const legends = {
+        'sessions': `<span>${dot('var(--accent)')}Sessions</span><span>${dot('var(--text-muted)')}Pre-log</span><span>${dash('var(--text-muted)')}Median</span>`,
+        'checkpoints': `<span>${dot('var(--chart-bar)')}Timed</span><span>${dot('var(--accent)')}WAL</span><span>${dot('#909399')}Other</span>`,
+        'wal-distance': `<span>${dot('var(--chart-bar)')}Distance</span><span>${dash('var(--accent)')}Estimate</span>`,
+        'combined': `<span>${dot('var(--chart-bar)')}Count</span><span>${dot('var(--accent)')}Duration</span><span>${dash('var(--text-muted)')}Median</span>`,
+        'combined-tempfiles': `<span>${dot('var(--chart-bar)')}Count</span><span>${dot('var(--accent)')}Size</span><span>${dash('var(--text-muted)')}Median</span>`,
+    };
+    const defaultLegend = `<span>${dot('var(--chart-bar)')}Connections</span><span>${dash('var(--text-muted)')}Median</span>`;
+    legendEl.innerHTML = legends[data?.type] || defaultLegend;
 }
 
 // Create large time chart for modal
