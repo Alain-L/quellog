@@ -7486,6 +7486,9 @@
     "resource_type_stats": {
       "transaction": 1
     },
+    "relation_stats": {
+      "lock_test": 1
+    },
     "events": [
       {
         "timestamp": "2025-11-30 21:16:10",

@@ -221,6 +221,7 @@ type LocksJSON struct {
 	AvgWaitTime       string              `json:"avg_wait_time"`
 	LockTypeStats     map[string]int      `json:"lock_type_stats"`
 	ResourceTypeStats map[string]int      `json:"resource_type_stats"`
+	RelationStats     map[string]int      `json:"relation_stats,omitempty"`
 	Events            []LockEventJSON     `json:"events"`
 	Queries           []LockQueryStatJSON `json:"queries,omitempty"`
 }
@@ -1084,6 +1085,7 @@ func convertLocks(m analysis.LockMetrics) LocksJSON {
 		AvgWaitTime:       avgWaitTime,
 		LockTypeStats:     m.LockTypeStats,
 		ResourceTypeStats: m.ResourceTypeStats,
+		RelationStats:     m.RelationStats,
 		Events:            eventsJSON,
 		Queries:           queriesJSON,
 	}

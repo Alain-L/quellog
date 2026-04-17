@@ -922,6 +922,8 @@ function buildEventsSection(data) {
             const hasLockTypes = lockTypes.length > 0;
             const hasResTypes = resTypes.length > 0;
             const hasQueries = l.queries?.length > 0;
+            const relations = l.relation_stats ? Object.entries(l.relation_stats).map(([t, c]) => ({type: t, count: c})).sort((a,b) => b.count - a.count) : [];
+            const hasRelations = relations.length > 0;
             return `
                 <div class="section" id="locks">
                     <div class="section-header ${deadlocks > 0 ? 'danger' : ''}">Locks</div>
@@ -933,7 +935,7 @@ function buildEventsSection(data) {
                             <div class="stat-card"><div class="stat-value">${fmtDur(l.avg_wait_time) || '-'}</div><div class="stat-label">Avg</div></div>
                             <div class="stat-card"><div class="stat-value">${fmtDur(l.total_wait_time) || '-'}</div><div class="stat-label">Total</div></div>
                         </div>
-                        ${hasLockTypes || hasResTypes ? `
+                        ${hasLockTypes || hasResTypes || hasRelations ? `
                             <div class="subsection" style="display: flex; gap: 1rem; flex-wrap: wrap;">
                                 ${hasLockTypes ? `
                                     <div style="flex: 1; min-width: 120px;">
@@ -953,6 +955,19 @@ function buildEventsSection(data) {
                                         <div class="subsection-title" style="margin-top: 0;">Resource Types</div>
                                         <div class="query-types">
                                             ${resTypes.map(t => `
+                                                <span class="query-type">
+                                                    <span class="name">${t.type}</span>
+                                                    <span class="count">${fmt(t.count)}</span>
+                                                </span>
+                                            `).join('')}
+                                        </div>
+                                    </div>
+                                ` : ''}
+                                ${hasRelations ? `
+                                    <div style="flex: 1; min-width: 120px;">
+                                        <div class="subsection-title" style="margin-top: 0;">Relations</div>
+                                        <div class="query-types">
+                                            ${relations.map(t => `
                                                 <span class="query-type">
                                                     <span class="name">${t.type}</span>
                                                     <span class="count">${fmt(t.count)}</span>
