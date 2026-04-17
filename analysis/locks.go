@@ -33,6 +33,9 @@ type LockMetrics struct {
 	// ResourceTypeStats maps resource types (e.g., "relation", "transaction", "advisory lock") to their event counts.
 	ResourceTypeStats map[string]int
 
+	// RelationStats maps table names (from CONTEXT) to their lock event counts.
+	RelationStats map[string]int
+
 	// Events contains individual lock events for timeline analysis.
 	Events []LockEvent
 
@@ -150,6 +153,7 @@ type LockAnalyzer struct {
 	totalWaitTime     float64
 	lockTypeStats     map[string]int
 	resourceTypeStats map[string]int
+	relationStats     map[string]int
 
 	// Pre-allocated structures (initialized at creation)
 	events         []LockEvent
@@ -181,6 +185,7 @@ func NewLockAnalyzer() *LockAnalyzer {
 	return &LockAnalyzer{
 		lockTypeStats:     make(map[string]int, 20),
 		resourceTypeStats: make(map[string]int, 10),
+		relationStats:     make(map[string]int, 50),
 		events:            make([]LockEvent, 0, 1000),
 		queryStats:        make(map[string]*LockQueryStat, 100),
 		lastQueryByPID:     make(map[string]string, 100),
@@ -350,6 +355,7 @@ func (a *LockAnalyzer) Process(entry *parser.LogEntry) {
 				for _, lock := range a.activeLocks {
 					if lock.processID == pid && lock.relation == "" {
 						lock.relation = rel
+						a.relationStats[rel]++
 						break
 					}
 				}
@@ -423,26 +429,19 @@ func (a *LockAnalyzer) Process(entry *parser.LogEntry) {
 	}
 
 	// === STEP 2: Handle deadlock detection ===
+	// A deadlock is a failed lock acquisition — update the existing waiting event
+	// for this PID rather than creating a new event.
 	if hasDeadlock && strings.Contains(msg, "ERROR:") {
 		a.deadlockEvents++
-		a.totalEvents++
 		pid := parser.ExtractPID(msg)
-
-		// Generate QueryID if query is known
-		queryID := ""
-		if query, ok := a.lastQueryByPID[pid]; ok && query != "" {
-			normalized := normalizeQuery(query)
-			queryID, _ = GenerateQueryID(query, normalized)
+		if pid != "" {
+			for i := len(a.events) - 1; i >= 0; i-- {
+				if a.events[i].ProcessID == pid && a.events[i].EventType == "waiting" {
+					a.events[i].EventType = "deadlock"
+					break
+				}
+			}
 		}
-
-		a.events = append(a.events, LockEvent{
-			Timestamp: entry.Timestamp,
-			EventType: "deadlock",
-			LockType:  "",
-			WaitTime:  0,
-			ProcessID: pid,
-			QueryID:   queryID,
-		})
 		return
 	}
 
@@ -485,6 +484,9 @@ func (a *LockAnalyzer) Process(entry *parser.LogEntry) {
 				a.totalEvents++
 				a.lockTypeStats[lockType]++
 				a.resourceTypeStats[resourceType]++
+				if relation != "" {
+					a.relationStats[relation]++
+				}
 			} else {
 				// Repeated "still waiting" for same lock — update wait time only
 				lock.lastWaitTime = waitTime
@@ -554,6 +556,9 @@ func (a *LockAnalyzer) Process(entry *parser.LogEntry) {
 				a.totalEvents++
 				a.lockTypeStats[lockType]++
 				a.resourceTypeStats[resourceType]++
+				if relation != "" {
+					a.relationStats[relation]++
+				}
 			}
 
 			// Generate QueryID if query is known
@@ -851,6 +856,7 @@ func (a *LockAnalyzer) Finalize() LockMetrics {
 		TotalWaitTime:     a.totalWaitTime,
 		LockTypeStats:     a.lockTypeStats,
 		ResourceTypeStats: a.resourceTypeStats,
+		RelationStats:     a.relationStats,
 		Events:            a.events,
 		QueryStats:        queryStats,
 	}
