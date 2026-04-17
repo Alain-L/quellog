@@ -72,6 +72,9 @@ type LockEvent struct {
 
 	// BlockingQuery is the normalized text of the blocking query, if known.
 	BlockingQuery string
+
+	// Relation is the table name from CONTEXT (e.g., "while locking tuple ... in relation X").
+	Relation string
 }
 
 // LockQueryStat stores aggregated lock statistics for a single query pattern.
@@ -122,6 +125,7 @@ const (
 	lockMsSuffix      = " ms"
 	lockDeadlock      = "deadlock detected"
 	lockBlockingPID   = "Process holding the lock: "
+	lockRelationCtx   = "in relation \""
 )
 
 // ============================================================================
@@ -169,6 +173,7 @@ type activeLock struct {
 	query          string  // Associated query if known
 	waitingEventID int     // Index into events slice for the waiting event (-1 if none)
 	blockingPID    string  // PID of the process holding the lock
+	relation       string  // Table name from CONTEXT
 }
 
 // NewLockAnalyzer creates a new lock event analyzer.
@@ -286,8 +291,14 @@ func (a *LockAnalyzer) Process(entry *parser.LogEntry) {
 		hasBlockingDetail = true
 	}
 
+	// Check for CONTEXT line with relation name
+	hasRelationCtx := false
+	if a.locksExist && strings.Contains(msg, lockRelationCtx) {
+		hasRelationCtx = true
+	}
+
 	// Skip if nothing relevant
-	if !hasLockWaiting && !hasLockAcquired && !hasDeadlock && !hasStatement && !hasQuery && !hasBlockingDetail {
+	if !hasLockWaiting && !hasLockAcquired && !hasDeadlock && !hasStatement && !hasQuery && !hasBlockingDetail && !hasRelationCtx {
 		return
 	}
 
@@ -316,6 +327,29 @@ func (a *LockAnalyzer) Process(entry *parser.LogEntry) {
 				for _, lock := range a.activeLocks {
 					if lock.processID == waitingPID && !lock.acquired {
 						lock.blockingPID = bPID
+						break
+					}
+				}
+			}
+		}
+		return
+	}
+
+	// === STEP 0b: Handle CONTEXT lines with relation name ===
+	if hasRelationCtx {
+		rel := extractRelation(msg)
+		if rel != "" {
+			pid := parser.ExtractPID(msg)
+			if pid != "" {
+				for i := len(a.events) - 1; i >= 0; i-- {
+					if a.events[i].ProcessID == pid && a.events[i].EventType == "waiting" && a.events[i].Relation == "" {
+						a.events[i].Relation = rel
+						break
+					}
+				}
+				for _, lock := range a.activeLocks {
+					if lock.processID == pid && lock.relation == "" {
+						lock.relation = rel
 						break
 					}
 				}
@@ -389,7 +423,7 @@ func (a *LockAnalyzer) Process(entry *parser.LogEntry) {
 	}
 
 	// === STEP 2: Handle deadlock detection ===
-	if hasDeadlock && strings.HasPrefix(msg, "ERROR:") {
+	if hasDeadlock && strings.Contains(msg, "ERROR:") {
 		a.deadlockEvents++
 		a.totalEvents++
 		pid := parser.ExtractPID(msg)
@@ -424,6 +458,8 @@ func (a *LockAnalyzer) Process(entry *parser.LogEntry) {
 
 		// Extract blocking PID from DETAIL line (if present)
 		blockingPID := extractBlockingPID(msg)
+		// Extract relation from CONTEXT line (if present)
+		relation := extractRelation(msg)
 
 		if eventType == "waiting" {
 			lock, exists := a.activeLocks[lockKey]
@@ -437,6 +473,7 @@ func (a *LockAnalyzer) Process(entry *parser.LogEntry) {
 					acquired:       false,
 					waitingEventID: -1, // Will be set after we append the event
 					blockingPID:    blockingPID,
+					relation:       relation,
 				}
 				// Get associated query if available
 				if query, ok := a.lastQueryByPID[processID]; ok {
@@ -481,6 +518,7 @@ func (a *LockAnalyzer) Process(entry *parser.LogEntry) {
 				QueryID:         queryID,
 				BlockingPID:     blockingPID,
 				BlockingQueryID: blockingQueryID,
+				Relation:        relation,
 			})
 			// Track this event so we can update its query_id when STATEMENT arrives
 			lock.waitingEventID = eventIdx
@@ -531,6 +569,11 @@ func (a *LockAnalyzer) Process(entry *parser.LogEntry) {
 				acquiredBlockingPID = lock.blockingPID
 			}
 
+			acquiredRelation := relation
+			if lock != nil && lock.relation != "" && acquiredRelation == "" {
+				acquiredRelation = lock.relation
+			}
+
 			a.events = append(a.events, LockEvent{
 				Timestamp:    entry.Timestamp,
 				EventType:    "acquired",
@@ -540,6 +583,7 @@ func (a *LockAnalyzer) Process(entry *parser.LogEntry) {
 				ProcessID:    processID,
 				QueryID:      queryID,
 				BlockingPID:  acquiredBlockingPID,
+				Relation:     acquiredRelation,
 			})
 		}
 	}
@@ -699,6 +743,19 @@ func extractBlockingPID(msg string) string {
 		}
 	}
 	return pid
+}
+
+func extractRelation(msg string) string {
+	idx := strings.Index(msg, lockRelationCtx)
+	if idx < 0 {
+		return ""
+	}
+	rest := msg[idx+len(lockRelationCtx):]
+	end := strings.IndexByte(rest, '"')
+	if end <= 0 {
+		return ""
+	}
+	return rest[:end]
 }
 
 // Finalize returns the aggregated lock metrics.
