@@ -261,12 +261,12 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 		b.WriteString("## LOCKS\n\n")
 
 		avgWaitTime := 0.0
-		if m.Locks.WaitingEvents+m.Locks.AcquiredEvents > 0 {
-			avgWaitTime = m.Locks.TotalWaitTime / float64(m.Locks.WaitingEvents+m.Locks.AcquiredEvents)
+		if m.Locks.TotalEvents > 0 {
+			avgWaitTime = m.Locks.TotalWaitTime / float64(m.Locks.TotalEvents)
 		}
 
 		b.WriteString(fmt.Sprintf("- **Total lock events**: %d\n", m.Locks.TotalEvents))
-		b.WriteString(fmt.Sprintf("- **Waiting events**: %d\n", m.Locks.WaitingEvents))
+		b.WriteString(fmt.Sprintf("- **Still waiting**: %d\n", m.Locks.WaitingEvents))
 		b.WriteString(fmt.Sprintf("- **Acquired events**: %d\n", m.Locks.AcquiredEvents))
 		if m.Locks.DeadlockEvents > 0 {
 			b.WriteString(fmt.Sprintf("- **Deadlock events**: %d\n", m.Locks.DeadlockEvents))
@@ -293,6 +293,15 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 			b.WriteString("| Resource Type | Count | Percentage |\n")
 			b.WriteString("|---|---:|---:|\n")
 			printLockStatsMarkdown(&b, m.Locks.ResourceTypeStats, m.Locks.TotalEvents)
+			b.WriteString("\n")
+		}
+
+		// Relation distribution
+		if len(m.Locks.RelationStats) > 0 {
+			b.WriteString("### Relations\n\n")
+			b.WriteString("| Relation | Count | Percentage |\n")
+			b.WriteString("|---|---:|---:|\n")
+			printLockStatsMarkdown(&b, m.Locks.RelationStats, m.Locks.TotalEvents)
 			b.WriteString("\n")
 		}
 
