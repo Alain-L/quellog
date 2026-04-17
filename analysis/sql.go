@@ -1028,6 +1028,9 @@ func reformatJSONPlan(plan string) string {
 			b.WriteString(strings.Repeat("  ", indent))
 		case '}', ']':
 			indent--
+			if indent < 0 {
+				indent = 0
+			}
 			b.WriteByte('\n')
 			b.WriteString(strings.Repeat("  ", indent))
 			b.WriteByte(c)

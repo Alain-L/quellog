@@ -257,18 +257,10 @@ func (a *LockAnalyzer) Process(entry *parser.LogEntry) {
 		}
 	}
 
-	// Fast pre-filter: only check full patterns if discriminating substrings are present
-	hasSS := strings.Index(msg, "ss ") >= 0    // "process " (still waiting), STATEMENT
-	hasOck := strings.Index(msg, "ock") >= 0   // "deadlock"
-	hasAcq := strings.Index(msg, "cquired") >= 0 // "acquired"
-	if !hasSS && !hasOck && !hasAcq {
-		return
-	}
-
 	// Now check specific patterns (only after first lock seen)
-	hasLockWaiting := hasSS && strings.Index(msg, lockStillWaiting) >= 0
-	hasLockAcquired := hasAcq && strings.Index(msg, lockAcquired) >= 0
-	hasDeadlock := hasOck && strings.Index(msg, lockDeadlock) >= 0
+	hasLockWaiting := strings.Index(msg, lockStillWaiting) >= 0
+	hasLockAcquired := strings.Index(msg, lockAcquired) >= 0
+	hasDeadlock := strings.Index(msg, lockDeadlock) >= 0
 
 	// OPTIMIZATION 3: Skip STATEMENT/QUERY parsing until locks are actually seen
 	// This avoids filling lastQueryByPID unnecessarily
