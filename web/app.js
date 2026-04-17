@@ -926,7 +926,7 @@ function buildEventsSection(data) {
             const hasRelations = relations.length > 0;
             return `
                 <div class="section" id="locks">
-                    <div class="section-header ${deadlocks > 0 ? 'danger' : ''}">Locks</div>
+                    <div class="section-header">Locks</div>
                     <div class="section-body">
                         <div class="stat-grid">
                             <div class="stat-card ${deadlocks > 0 ? 'stat-card--alert' : ''}"><div class="stat-value">${deadlocks}</div><div class="stat-label">Deadlocks</div></div>
