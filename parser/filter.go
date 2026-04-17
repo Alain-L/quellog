@@ -60,6 +60,13 @@ type LogFilters struct {
 //  3. User name (including exclusions)
 //  4. Application name
 //  5. Grep patterns (slowest, requires multiple string searches)
+// IsEmpty returns true if no filters are configured.
+func (f LogFilters) IsEmpty() bool {
+	return f.BeginT.IsZero() && f.EndT.IsZero() &&
+		len(f.DbFilter) == 0 && len(f.UserFilter) == 0 &&
+		len(f.ExcludeUser) == 0 && len(f.AppFilter) == 0
+}
+
 func FilterStream(in <-chan LogEntry, out chan<- LogEntry, filters LogFilters) {
 	defer close(out)
 
@@ -126,12 +133,15 @@ func PassesFilters(entry LogEntry, filters LogFilters) bool {
 }
 
 // extractValue extracts the value following a key in the format "key=value".
-// The value is read until the first separator character (space, comma, bracket, paren).
+// The value is read until the next field separator. When fields are comma-separated
+// (e.g., "user=X,db=Y,app=PostgreSQL JDBC Driver,client=Z"), the comma is used as
+// the delimiter, allowing values to contain spaces.
 //
 // Examples:
 //
 //	"user=postgres,db=mydb" with key "user=" → "postgres"
 //	"app=psql LOG: query" with key "app=" → "psql"
+//	"app=PostgreSQL JDBC Driver,client=10.0.0.1" with key "app=" → "PostgreSQL JDBC Driver"
 //	"db=test]" with key "db=" → "test"
 //
 // Returns empty string if the key is not found or the value is empty.
@@ -144,12 +154,20 @@ func extractValue(line, key string) string {
 	// Extract text after the key
 	rest := line[idx+len(key):]
 
-	// Find the first separator character
-	separators := []rune{' ', ',', '[', ']', '(', ')'}
-	endPos := len(rest) // Default to end of string
-
-	for _, sep := range separators {
+	// When fields are comma-separated (comma before key), skip space as separator
+	commaSep := idx > 0 && line[idx-1] == ','
+	endPos := len(rest)
+	for _, sep := range []rune{' ', ',', '[', ']', '(', ')'} {
+		if sep == ' ' && commaSep {
+			continue
+		}
 		if pos := strings.IndexRune(rest, sep); pos != -1 && pos < endPos {
+			endPos = pos
+		}
+	}
+	if commaSep {
+		// Last field before message ends at severity marker (" LOG:", " ERROR:", etc.)
+		if pos := findSeverityMarker(rest[:endPos]); pos != -1 {
 			endPos = pos
 		}
 	}
@@ -159,6 +177,17 @@ func extractValue(line, key string) string {
 	// Remove surrounding quotes if present (e.g., user="postgres" → postgres)
 	value = strings.Trim(value, `"'`)
 	return value
+}
+
+// findSeverityMarker returns the position of the first PostgreSQL severity
+// marker (" LOG:", " ERROR:", etc.) in s, or -1 if not found.
+func findSeverityMarker(s string) int {
+	for _, sev := range []string{" LOG:", " ERROR:", " WARNING:", " FATAL:", " PANIC:"} {
+		if pos := strings.Index(s, sev); pos != -1 {
+			return pos
+		}
+	}
+	return -1
 }
 
 // contains checks if a string slice contains a specific string.

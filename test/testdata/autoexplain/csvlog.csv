@@ -1,0 +1,276 @@
+2026-04-13 19:38:44.684 UTC,,,89,"[local]",69dd4644.59,1,"",2026-04-13 19:38:44 UTC,,0,LOG,00000,"connection received: host=[local]",,,,,,,,,"","not initialized",,0
+2026-04-13 19:38:44.686 UTC,"postgres","postgres",89,"[local]",69dd4644.59,2,"authentication",2026-04-13 19:38:44 UTC,2/1,0,LOG,00000,"connection authenticated: user=""postgres"" method=trust (/var/lib/postgresql/data/pg_hba.conf:117)",,,,,,,,,"","client backend",,0
+2026-04-13 19:38:44.686 UTC,"postgres","postgres",89,"[local]",69dd4644.59,3,"authentication",2026-04-13 19:38:44 UTC,2/1,0,LOG,00000,"connection authorized: user=postgres database=postgres application_name=psql",,,,,,,,,"","client backend",,0
+2026-04-13 19:38:44.689 UTC,"postgres","postgres",89,"[local]",69dd4644.59,4,"SELECT",2026-04-13 19:38:44 UTC,2/2,0,LOG,00000,"duration: 0.008 ms  plan:
+Query Text: SELECT now()::text;
+Result  (cost=0.00..0.02 rows=1 width=32) (actual time=0.004..0.005 rows=1 loops=1)
+  Output: (now())::text",,,,,,,,,"psql","client backend",,0
+2026-04-13 19:38:44.689 UTC,"postgres","postgres",89,"[local]",69dd4644.59,5,"SELECT",2026-04-13 19:38:44 UTC,2/0,0,LOG,00000,"duration: 0.301 ms  statement: SELECT now()::text;",,,,,,,,,"psql","client backend",,0
+2026-04-13 19:38:44.689 UTC,"postgres","postgres",89,"[local]",69dd4644.59,6,"idle",2026-04-13 19:38:44 UTC,,0,LOG,00000,"disconnection: session time: 0:00:00.005 user=postgres database=postgres host=[local]",,,,,,,,,"psql","client backend",,0
+2026-04-13 19:38:44.747 UTC,,,96,"[local]",69dd4644.60,1,"",2026-04-13 19:38:44 UTC,,0,LOG,00000,"connection received: host=[local]",,,,,,,,,"","not initialized",,0
+2026-04-13 19:38:44.749 UTC,"postgres","postgres",96,"[local]",69dd4644.60,2,"authentication",2026-04-13 19:38:44 UTC,3/1,0,LOG,00000,"connection authenticated: user=""postgres"" method=trust (/var/lib/postgresql/data/pg_hba.conf:117)",,,,,,,,,"","client backend",,0
+2026-04-13 19:38:44.749 UTC,"postgres","postgres",96,"[local]",69dd4644.60,3,"authentication",2026-04-13 19:38:44 UTC,3/1,0,LOG,00000,"connection authorized: user=postgres database=postgres application_name=psql",,,,,,,,,"","client backend",,0
+2026-04-13 19:38:44.754 UTC,"postgres","postgres",96,"[local]",69dd4644.60,4,"SELECT",2026-04-13 19:38:44 UTC,3/2,0,LOG,00000,"duration: 0.231 ms  plan:
+Query Text: SELECT * FROM users WHERE id = 42;
+Index Scan using users_pkey on public.users  (cost=0.29..8.30 rows=1 width=42) (actual time=0.224..0.225 rows=1 loops=1)
+  Output: id, username, email, created_at
+  Index Cond: (users.id = 42)
+  Buffers: shared hit=3",,,,,,,,,"psql","client backend",,0
+2026-04-13 19:38:44.754 UTC,"postgres","postgres",96,"[local]",69dd4644.60,5,"SELECT",2026-04-13 19:38:44 UTC,3/0,0,LOG,00000,"duration: 2.187 ms  statement: SELECT * FROM users WHERE id = 42;",,,,,,,,,"psql","client backend",,0
+2026-04-13 19:38:44.754 UTC,"postgres","postgres",96,"[local]",69dd4644.60,6,"idle",2026-04-13 19:38:44 UTC,,0,LOG,00000,"disconnection: session time: 0:00:00.007 user=postgres database=postgres host=[local]",,,,,,,,,"psql","client backend",,0
+2026-04-13 19:38:44.810 UTC,,,103,"[local]",69dd4644.67,1,"",2026-04-13 19:38:44 UTC,,0,LOG,00000,"connection received: host=[local]",,,,,,,,,"","not initialized",,0
+2026-04-13 19:38:44.811 UTC,"postgres","postgres",103,"[local]",69dd4644.67,2,"authentication",2026-04-13 19:38:44 UTC,4/1,0,LOG,00000,"connection authenticated: user=""postgres"" method=trust (/var/lib/postgresql/data/pg_hba.conf:117)",,,,,,,,,"","client backend",,0
+2026-04-13 19:38:44.811 UTC,"postgres","postgres",103,"[local]",69dd4644.67,3,"authentication",2026-04-13 19:38:44 UTC,4/1,0,LOG,00000,"connection authorized: user=postgres database=postgres application_name=psql",,,,,,,,,"","client backend",,0
+2026-04-13 19:38:44.812 UTC,"postgres","postgres",103,"[local]",69dd4644.67,4,"SELECT",2026-04-13 19:38:44 UTC,4/2,0,LOG,00000,"duration: 0.022 ms  plan:
+Query Text: SELECT * FROM orders WHERE amount > 400 LIMIT 10;
+Limit  (cost=0.00..1.01 rows=10 width=30) (actual time=0.009..0.012 rows=10 loops=1)
+  Output: id, user_id, amount, status, created_at
+  Buffers: shared hit=2
+  ->  Seq Scan on public.orders  (cost=0.00..1019.00 rows=10052 width=30) (actual time=0.008..0.010 rows=10 loops=1)
+        Output: id, user_id, amount, status, created_at
+        Filter: (orders.amount > '400'::numeric)
+        Rows Removed by Filter: 48
+        Buffers: shared hit=2",,,,,,,,,"psql","client backend",,0
+2026-04-13 19:38:44.812 UTC,"postgres","postgres",103,"[local]",69dd4644.67,5,"SELECT",2026-04-13 19:38:44 UTC,4/0,0,LOG,00000,"duration: 0.877 ms  statement: SELECT * FROM orders WHERE amount > 400 LIMIT 10;",,,,,,,,,"psql","client backend",,0
+2026-04-13 19:38:44.812 UTC,"postgres","postgres",103,"[local]",69dd4644.67,6,"idle",2026-04-13 19:38:44 UTC,,0,LOG,00000,"disconnection: session time: 0:00:00.002 user=postgres database=postgres host=[local]",,,,,,,,,"psql","client backend",,0
+2026-04-13 19:38:44.871 UTC,,,110,"[local]",69dd4644.6e,1,"",2026-04-13 19:38:44 UTC,,0,LOG,00000,"connection received: host=[local]",,,,,,,,,"","not initialized",,0
+2026-04-13 19:38:44.872 UTC,"postgres","postgres",110,"[local]",69dd4644.6e,2,"authentication",2026-04-13 19:38:44 UTC,5/1,0,LOG,00000,"connection authenticated: user=""postgres"" method=trust (/var/lib/postgresql/data/pg_hba.conf:117)",,,,,,,,,"","client backend",,0
+2026-04-13 19:38:44.872 UTC,"postgres","postgres",110,"[local]",69dd4644.6e,3,"authentication",2026-04-13 19:38:44 UTC,5/1,0,LOG,00000,"connection authorized: user=postgres database=postgres application_name=psql",,,,,,,,,"","client backend",,0
+2026-04-13 19:38:44.874 UTC,"postgres","postgres",110,"[local]",69dd4644.6e,4,"SELECT",2026-04-13 19:38:44 UTC,5/2,0,LOG,00000,"duration: 0.651 ms  plan:
+Query Text: SELECT u.username, o.amount FROM users u JOIN orders o ON u.id = o.user_id WHERE o.status = 'completed' LIMIT 100;
+Limit  (cost=0.57..26.99 rows=100 width=15) (actual time=0.029..0.630 rows=100 loops=1)
+  Output: u.username, o.amount
+  Buffers: shared hit=382
+  ->  Merge Join  (cost=0.57..3295.48 rows=12475 width=15) (actual time=0.028..0.623 rows=100 loops=1)
+        Output: u.username, o.amount
+        Merge Cond: (u.id = o.user_id)
+        Buffers: shared hit=382
+        ->  Index Scan using users_pkey on public.users u  (cost=0.29..367.29 rows=10000 width=13) (actual time=0.008..0.016 rows=73 loops=1)
+              Output: u.id, u.username, u.email, u.created_at
+              Buffers: shared hit=3
+        ->  Index Scan using idx_orders_user_id on public.orders o  (cost=0.29..2747.25 rows=12475 width=10) (actual time=0.018..0.590 rows=100 loops=1)
+              Output: o.id, o.user_id, o.amount, o.status, o.created_at
+              Filter: (o.status = 'completed'::text)
+              Rows Removed by Filter: 280
+              Buffers: shared hit=379",,,,,,,,,"psql","client backend",,0
+2026-04-13 19:38:44.874 UTC,"postgres","postgres",110,"[local]",69dd4644.6e,5,"SELECT",2026-04-13 19:38:44 UTC,5/0,0,LOG,00000,"duration: 1.555 ms  statement: SELECT u.username, o.amount FROM users u JOIN orders o ON u.id = o.user_id WHERE o.status = 'completed' LIMIT 100;",,,,,,,,,"psql","client backend",,0
+2026-04-13 19:38:44.874 UTC,"postgres","postgres",110,"[local]",69dd4644.6e,6,"idle",2026-04-13 19:38:44 UTC,,0,LOG,00000,"disconnection: session time: 0:00:00.002 user=postgres database=postgres host=[local]",,,,,,,,,"psql","client backend",,0
+2026-04-13 19:38:44.931 UTC,,,117,"[local]",69dd4644.75,1,"",2026-04-13 19:38:44 UTC,,0,LOG,00000,"connection received: host=[local]",,,,,,,,,"","not initialized",,0
+2026-04-13 19:38:44.931 UTC,"postgres","postgres",117,"[local]",69dd4644.75,2,"authentication",2026-04-13 19:38:44 UTC,6/1,0,LOG,00000,"connection authenticated: user=""postgres"" method=trust (/var/lib/postgresql/data/pg_hba.conf:117)",,,,,,,,,"","client backend",,0
+2026-04-13 19:38:44.931 UTC,"postgres","postgres",117,"[local]",69dd4644.75,3,"authentication",2026-04-13 19:38:44 UTC,6/1,0,LOG,00000,"connection authorized: user=postgres database=postgres application_name=psql",,,,,,,,,"","client backend",,0
+2026-04-13 19:38:44.933 UTC,"postgres","postgres",117,"[local]",69dd4644.75,4,"SELECT",2026-04-13 19:38:44 UTC,6/2,0,LOG,00000,"duration: 0.184 ms  plan:
+Query Text: SELECT u.username, o.amount, oi.quantity FROM users u JOIN orders o ON u.id = o.user_id JOIN order_items oi ON o.id = oi.order_id WHERE u.id = 100;
+Nested Loop  (cost=8.94..129.25 rows=15 width=19) (actual time=0.052..0.176 rows=19 loops=1)
+  Output: u.username, o.amount, oi.quantity
+  Buffers: shared hit=34 read=5
+  ->  Nested Loop  (cost=4.61..31.05 rows=5 width=19) (actual time=0.027..0.046 rows=5 loops=1)
+        Output: u.username, o.amount, o.id
+        Buffers: shared hit=10
+        ->  Index Scan using users_pkey on public.users u  (cost=0.29..8.30 rows=1 width=13) (actual time=0.013..0.014 rows=1 loops=1)
+              Output: u.id, u.username, u.email, u.created_at
+              Index Cond: (u.id = 100)
+              Buffers: shared hit=3
+        ->  Bitmap Heap Scan on public.orders o  (cost=4.33..22.70 rows=5 width=14) (actual time=0.011..0.029 rows=5 loops=1)
+              Output: o.id, o.user_id, o.amount, o.status, o.created_at
+              Recheck Cond: (o.user_id = 100)
+              Heap Blocks: exact=5
+              Buffers: shared hit=7
+              ->  Bitmap Index Scan on idx_orders_user_id  (cost=0.00..4.33 rows=5 width=0) (actual time=0.005..0.005 rows=5 loops=1)
+                    Index Cond: (o.user_id = 100)
+                    Buffers: shared hit=2
+  ->  Bitmap Heap Scan on public.order_items oi  (cost=4.33..19.60 rows=4 width=8) (actual time=0.010..0.021 rows=4 loops=5)
+        Output: oi.id, oi.order_id, oi.product_id, oi.quantity, oi.unit_price
+        Recheck Cond: (o.id = oi.order_id)
+        Heap Blocks: exact=19
+        Buffers: shared hit=24 read=5
+        ->  Bitmap Index Scan on idx_order_items_order_id  (cost=0.00..4.33 rows=4 width=0) (actual time=0.006..0.006 rows=4 loops=5)
+              Index Cond: (oi.order_id = o.id)
+              Buffers: shared hit=5 read=5",,,,,,,,,"psql","client backend",,0
+2026-04-13 19:38:44.933 UTC,"postgres","postgres",117,"[local]",69dd4644.75,5,"SELECT",2026-04-13 19:38:44 UTC,6/0,0,LOG,00000,"duration: 1.106 ms  statement: SELECT u.username, o.amount, oi.quantity FROM users u JOIN orders o ON u.id = o.user_id JOIN order_items oi ON o.id = oi.order_id WHERE u.id = 100;",,,,,,,,,"psql","client backend",,0
+2026-04-13 19:38:44.933 UTC,"postgres","postgres",117,"[local]",69dd4644.75,6,"idle",2026-04-13 19:38:44 UTC,,0,LOG,00000,"disconnection: session time: 0:00:00.002 user=postgres database=postgres host=[local]",,,,,,,,,"psql","client backend",,0
+2026-04-13 19:38:44.990 UTC,,,124,"[local]",69dd4644.7c,1,"",2026-04-13 19:38:44 UTC,,0,LOG,00000,"connection received: host=[local]",,,,,,,,,"","not initialized",,0
+2026-04-13 19:38:44.990 UTC,"postgres","postgres",124,"[local]",69dd4644.7c,2,"authentication",2026-04-13 19:38:44 UTC,7/1,0,LOG,00000,"connection authenticated: user=""postgres"" method=trust (/var/lib/postgresql/data/pg_hba.conf:117)",,,,,,,,,"","client backend",,0
+2026-04-13 19:38:44.990 UTC,"postgres","postgres",124,"[local]",69dd4644.7c,3,"authentication",2026-04-13 19:38:44 UTC,7/1,0,LOG,00000,"connection authorized: user=postgres database=postgres application_name=psql",,,,,,,,,"","client backend",,0
+2026-04-13 19:38:45.020 UTC,"postgres","postgres",124,"[local]",69dd4644.7c,4,"SELECT",2026-04-13 19:38:44 UTC,7/2,0,LOG,00000,"duration: 27.688 ms  plan:
+Query Text: SELECT u.username, count(*) as order_count, sum(o.amount) as total FROM users u JOIN orders o ON u.id = o.user_id GROUP BY u.username ORDER BY total DESC LIMIT 20;
+Limit  (cost=2110.40..2110.45 rows=20 width=49) (actual time=27.672..27.677 rows=20 loops=1)
+  Output: u.username, (count(*)), (sum(o.amount))
+  Buffers: shared hit=491
+  ->  Sort  (cost=2110.40..2135.40 rows=10000 width=49) (actual time=27.671..27.674 rows=20 loops=1)
+        Output: u.username, (count(*)), (sum(o.amount))
+        Sort Key: (sum(o.amount)) DESC
+        Sort Method: top-N heapsort  Memory: 27kB
+        Buffers: shared hit=491
+        ->  HashAggregate  (cost=1719.31..1844.31 rows=10000 width=49) (actual time=24.327..26.437 rows=9948 loops=1)
+              Output: u.username, count(*), sum(o.amount)
+              Group Key: u.username
+              Batches: 1  Memory Usage: 4241kB
+              Buffers: shared hit=488
+              ->  Hash Join  (cost=319.00..1344.31 rows=50000 width=15) (actual time=2.175..13.299 rows=50000 loops=1)
+                    Output: u.username, o.amount
+                    Inner Unique: true
+                    Hash Cond: (o.user_id = u.id)
+                    Buffers: shared hit=488
+                    ->  Seq Scan on public.orders o  (cost=0.00..894.00 rows=50000 width=10) (actual time=0.004..3.982 rows=50000 loops=1)
+                          Output: o.id, o.user_id, o.amount, o.status, o.created_at
+                          Buffers: shared hit=394
+                    ->  Hash  (cost=194.00..194.00 rows=10000 width=13) (actual time=2.122..2.122 rows=10000 loops=1)
+                          Output: u.username, u.id
+                          Buckets: 16384  Batches: 1  Memory Usage: 597kB
+                          Buffers: shared hit=94
+                          ->  Seq Scan on public.users u  (cost=0.00..194.00 rows=10000 width=13) (actual time=0.008..1.034 rows=10000 loops=1)
+                                Output: u.username, u.id
+                                Buffers: shared hit=94",,,,,,,,,"psql","client backend",,0
+2026-04-13 19:38:45.020 UTC,"postgres","postgres",124,"[local]",69dd4644.7c,5,"SELECT",2026-04-13 19:38:44 UTC,7/0,0,LOG,00000,"duration: 29.273 ms  statement: SELECT u.username, count(*) as order_count, sum(o.amount) as total FROM users u JOIN orders o ON u.id = o.user_id GROUP BY u.username ORDER BY total DESC LIMIT 20;",,,,,,,,,"psql","client backend",,0
+2026-04-13 19:38:45.020 UTC,"postgres","postgres",124,"[local]",69dd4644.7c,6,"idle",2026-04-13 19:38:44 UTC,,0,LOG,00000,"disconnection: session time: 0:00:00.030 user=postgres database=postgres host=[local]",,,,,,,,,"psql","client backend",,0
+2026-04-13 19:38:45.079 UTC,,,131,"[local]",69dd4645.83,1,"",2026-04-13 19:38:45 UTC,,0,LOG,00000,"connection received: host=[local]",,,,,,,,,"","not initialized",,0
+2026-04-13 19:38:45.080 UTC,"postgres","postgres",131,"[local]",69dd4645.83,2,"authentication",2026-04-13 19:38:45 UTC,8/1,0,LOG,00000,"connection authenticated: user=""postgres"" method=trust (/var/lib/postgresql/data/pg_hba.conf:117)",,,,,,,,,"","client backend",,0
+2026-04-13 19:38:45.080 UTC,"postgres","postgres",131,"[local]",69dd4645.83,3,"authentication",2026-04-13 19:38:45 UTC,8/1,0,LOG,00000,"connection authorized: user=postgres database=postgres application_name=psql",,,,,,,,,"","client backend",,0
+2026-04-13 19:38:45.088 UTC,"postgres","postgres",131,"[local]",69dd4645.83,4,"SELECT",2026-04-13 19:38:45 UTC,8/2,0,LOG,00000,"duration: 6.992 ms  plan:
+Query Text: SELECT * FROM users WHERE id IN (SELECT user_id FROM orders WHERE amount > 450);
+Hash Join  (cost=1122.92..1398.81 rows=5001 width=42) (actual time=4.400..5.939 rows=3841 loops=1)
+  Output: users.id, users.username, users.email, users.created_at
+  Inner Unique: true
+  Hash Cond: (users.id = orders.user_id)
+  Buffers: shared hit=488
+  ->  Seq Scan on public.users  (cost=0.00..194.00 rows=10000 width=42) (actual time=0.005..0.569 rows=10000 loops=1)
+        Output: users.id, users.username, users.email, users.created_at
+        Buffers: shared hit=94
+  ->  Hash  (cost=1072.13..1072.13 rows=4063 width=4) (actual time=4.385..4.386 rows=3841 loops=1)
+        Output: orders.user_id
+        Buckets: 4096  Batches: 1  Memory Usage: 168kB
+        Buffers: shared hit=394
+        ->  HashAggregate  (cost=1031.50..1072.13 rows=4063 width=4) (actual time=3.822..4.091 rows=3841 loops=1)
+              Output: orders.user_id
+              Group Key: orders.user_id
+              Batches: 1  Memory Usage: 465kB
+              Buffers: shared hit=394
+              ->  Seq Scan on public.orders  (cost=0.00..1019.00 rows=5001 width=4) (actual time=0.004..3.154 rows=4895 loops=1)
+                    Output: orders.user_id
+                    Filter: (orders.amount > '450'::numeric)
+                    Rows Removed by Filter: 45105
+                    Buffers: shared hit=394",,,,,,,,,"psql","client backend",,0
+2026-04-13 19:38:45.089 UTC,"postgres","postgres",131,"[local]",69dd4645.83,5,"SELECT",2026-04-13 19:38:45 UTC,8/0,0,LOG,00000,"duration: 8.165 ms  statement: SELECT * FROM users WHERE id IN (SELECT user_id FROM orders WHERE amount > 450);",,,,,,,,,"psql","client backend",,0
+2026-04-13 19:38:45.097 UTC,"postgres","postgres",131,"[local]",69dd4645.83,6,"idle",2026-04-13 19:38:45 UTC,,0,LOG,00000,"disconnection: session time: 0:00:00.017 user=postgres database=postgres host=[local]",,,,,,,,,"psql","client backend",,0
+2026-04-13 19:38:45.162 UTC,,,137,"[local]",69dd4645.89,1,"",2026-04-13 19:38:45 UTC,,0,LOG,00000,"connection received: host=[local]",,,,,,,,,"","not initialized",,0
+2026-04-13 19:38:45.163 UTC,"postgres","postgres",137,"[local]",69dd4645.89,2,"authentication",2026-04-13 19:38:45 UTC,9/1,0,LOG,00000,"connection authenticated: user=""postgres"" method=trust (/var/lib/postgresql/data/pg_hba.conf:117)",,,,,,,,,"","client backend",,0
+2026-04-13 19:38:45.163 UTC,"postgres","postgres",137,"[local]",69dd4645.89,3,"authentication",2026-04-13 19:38:45 UTC,9/1,0,LOG,00000,"connection authorized: user=postgres database=postgres application_name=psql",,,,,,,,,"","client backend",,0
+2026-04-13 19:38:45.182 UTC,"postgres","postgres",137,"[local]",69dd4645.89,4,"SELECT",2026-04-13 19:38:45 UTC,9/2,0,LOG,00000,"duration: 17.747 ms  plan:
+Query Text: WITH top_buyers AS (SELECT user_id, sum(amount) as total FROM orders GROUP BY user_id HAVING sum(amount) > 1000) SELECT u.username, tb.total FROM top_buyers tb JOIN users u ON tb.user_id = u.id ORDER BY tb.total DESC;
+Sort  (cost=1770.00..1778.07 rows=3226 width=41) (actual time=16.597..16.831 rows=6173 loops=1)
+  Output: u.username, tb.total
+  Sort Key: tb.total DESC
+  Sort Method: quicksort  Memory: 428kB
+  Buffers: shared hit=491
+  ->  Hash Join  (cost=1361.74..1582.00 rows=3226 width=41) (actual time=13.361..15.171 rows=6173 loops=1)
+        Output: u.username, tb.total
+        Inner Unique: true
+        Hash Cond: (u.id = tb.user_id)
+        Buffers: shared hit=488
+        ->  Seq Scan on public.users u  (cost=0.00..194.00 rows=10000 width=13) (actual time=0.004..0.648 rows=10000 loops=1)
+              Output: u.id, u.username, u.email, u.created_at
+              Buffers: shared hit=94
+        ->  Hash  (cost=1321.42..1321.42 rows=3226 width=36) (actual time=13.346..13.347 rows=6173 loops=1)
+              Output: tb.total, tb.user_id
+              Buckets: 8192 (originally 4096)  Batches: 1 (originally 1)  Memory Usage: 330kB
+              Buffers: shared hit=394
+              ->  Subquery Scan on tb  (cost=1144.00..1321.42 rows=3226 width=36) (actual time=10.854..12.687 rows=6173 loops=1)
+                    Output: tb.total, tb.user_id
+                    Buffers: shared hit=394
+                    ->  HashAggregate  (cost=1144.00..1289.16 rows=3226 width=36) (actual time=10.854..12.248 rows=6173 loops=1)
+                          Output: orders.user_id, sum(orders.amount)
+                          Group Key: orders.user_id
+                          Filter: (sum(orders.amount) > '1000'::numeric)
+                          Batches: 1  Memory Usage: 4241kB
+                          Rows Removed by Filter: 3775
+                          Buffers: shared hit=394
+                          ->  Seq Scan on public.orders  (cost=0.00..894.00 rows=50000 width=10) (actual time=0.002..2.802 rows=50000 loops=1)
+                                Output: orders.id, orders.user_id, orders.amount, orders.status, orders.created_at
+                                Buffers: shared hit=394",,,,,,,,,"psql","client backend",,0
+2026-04-13 19:38:45.183 UTC,"postgres","postgres",137,"[local]",69dd4645.89,5,"SELECT",2026-04-13 19:38:45 UTC,9/0,0,LOG,00000,"duration: 19.147 ms  statement: WITH top_buyers AS (SELECT user_id, sum(amount) as total FROM orders GROUP BY user_id HAVING sum(amount) > 1000) SELECT u.username, tb.total FROM top_buyers tb JOIN users u ON tb.user_id = u.id ORDER BY tb.total DESC;",,,,,,,,,"psql","client backend",,0
+2026-04-13 19:38:45.188 UTC,"postgres","postgres",137,"[local]",69dd4645.89,6,"idle",2026-04-13 19:38:45 UTC,,0,LOG,00000,"disconnection: session time: 0:00:00.026 user=postgres database=postgres host=[local]",,,,,,,,,"psql","client backend",,0
+2026-04-13 19:38:45.248 UTC,,,144,"[local]",69dd4645.90,1,"",2026-04-13 19:38:45 UTC,,0,LOG,00000,"connection received: host=[local]",,,,,,,,,"","not initialized",,0
+2026-04-13 19:38:45.249 UTC,"postgres","postgres",144,"[local]",69dd4645.90,2,"authentication",2026-04-13 19:38:45 UTC,10/1,0,LOG,00000,"connection authenticated: user=""postgres"" method=trust (/var/lib/postgresql/data/pg_hba.conf:117)",,,,,,,,,"","client backend",,0
+2026-04-13 19:38:45.249 UTC,"postgres","postgres",144,"[local]",69dd4645.90,3,"authentication",2026-04-13 19:38:45 UTC,10/1,0,LOG,00000,"connection authorized: user=postgres database=postgres application_name=psql",,,,,,,,,"","client backend",,0
+2026-04-13 19:38:45.257 UTC,"postgres","postgres",144,"[local]",69dd4645.90,4,"SELECT",2026-04-13 19:38:45 UTC,10/2,0,LOG,00000,"duration: 7.378 ms  plan:
+Query Text: SELECT count(*), avg(amount), min(amount), max(amount) FROM orders;
+Aggregate  (cost=1394.00..1394.01 rows=1 width=104) (actual time=7.372..7.372 rows=1 loops=1)
+  Output: count(*), avg(amount), min(amount), max(amount)
+  Buffers: shared hit=394
+  ->  Seq Scan on public.orders  (cost=0.00..894.00 rows=50000 width=6) (actual time=0.004..2.690 rows=50000 loops=1)
+        Output: id, user_id, amount, status, created_at
+        Buffers: shared hit=394",,,,,,,,,"psql","client backend",,0
+2026-04-13 19:38:45.257 UTC,"postgres","postgres",144,"[local]",69dd4645.90,5,"SELECT",2026-04-13 19:38:45 UTC,10/0,0,LOG,00000,"duration: 7.942 ms  statement: SELECT count(*), avg(amount), min(amount), max(amount) FROM orders;",,,,,,,,,"psql","client backend",,0
+2026-04-13 19:38:45.258 UTC,"postgres","postgres",144,"[local]",69dd4645.90,6,"idle",2026-04-13 19:38:45 UTC,,0,LOG,00000,"disconnection: session time: 0:00:00.009 user=postgres database=postgres host=[local]",,,,,,,,,"psql","client backend",,0
+2026-04-13 19:38:45.314 UTC,,,151,"[local]",69dd4645.97,1,"",2026-04-13 19:38:45 UTC,,0,LOG,00000,"connection received: host=[local]",,,,,,,,,"","not initialized",,0
+2026-04-13 19:38:45.314 UTC,"postgres","postgres",151,"[local]",69dd4645.97,2,"authentication",2026-04-13 19:38:45 UTC,11/1,0,LOG,00000,"connection authenticated: user=""postgres"" method=trust (/var/lib/postgresql/data/pg_hba.conf:117)",,,,,,,,,"","client backend",,0
+2026-04-13 19:38:45.314 UTC,"postgres","postgres",151,"[local]",69dd4645.97,3,"authentication",2026-04-13 19:38:45 UTC,11/1,0,LOG,00000,"connection authorized: user=postgres database=postgres application_name=psql",,,,,,,,,"","client backend",,0
+2026-04-13 19:38:45.316 UTC,"postgres","postgres",151,"[local]",69dd4645.97,4,"SELECT",2026-04-13 19:38:45 UTC,11/2,0,LOG,00000,"duration: 0.489 ms  plan:
+Query Text: SELECT u.username, (SELECT count(*) FROM orders o WHERE o.user_id = u.id) as order_count FROM users u WHERE u.id <= 50;
+Index Scan using users_pkey on public.users u  (cost=0.29..1145.36 rows=50 width=17) (actual time=0.029..0.479 rows=50 loops=1)
+  Output: u.username, (SubPlan 1)
+  Index Cond: (u.id <= 50)
+  Buffers: shared hit=355
+  SubPlan 1
+    ->  Aggregate  (cost=22.71..22.72 rows=1 width=8) (actual time=0.009..0.009 rows=1 loops=50)
+          Output: count(*)
+          Buffers: shared hit=352
+          ->  Bitmap Heap Scan on public.orders o  (cost=4.33..22.70 rows=5 width=0) (actual time=0.003..0.008 rows=5 loops=50)
+                Recheck Cond: (o.user_id = u.id)
+                Heap Blocks: exact=252
+                Buffers: shared hit=352
+                ->  Bitmap Index Scan on idx_orders_user_id  (cost=0.00..4.33 rows=5 width=0) (actual time=0.001..0.001 rows=5 loops=50)
+                      Index Cond: (o.user_id = u.id)
+                      Buffers: shared hit=100",,,,,,,,,"psql","client backend",,0
+2026-04-13 19:38:45.316 UTC,"postgres","postgres",151,"[local]",69dd4645.97,5,"SELECT",2026-04-13 19:38:45 UTC,11/0,0,LOG,00000,"duration: 1.187 ms  statement: SELECT u.username, (SELECT count(*) FROM orders o WHERE o.user_id = u.id) as order_count FROM users u WHERE u.id <= 50;",,,,,,,,,"psql","client backend",,0
+2026-04-13 19:38:45.316 UTC,"postgres","postgres",151,"[local]",69dd4645.97,6,"idle",2026-04-13 19:38:45 UTC,,0,LOG,00000,"disconnection: session time: 0:00:00.002 user=postgres database=postgres host=[local]",,,,,,,,,"psql","client backend",,0
+2026-04-13 19:38:45.371 UTC,,,158,"[local]",69dd4645.9e,1,"",2026-04-13 19:38:45 UTC,,0,LOG,00000,"connection received: host=[local]",,,,,,,,,"","not initialized",,0
+2026-04-13 19:38:45.372 UTC,"postgres","postgres",158,"[local]",69dd4645.9e,2,"authentication",2026-04-13 19:38:45 UTC,12/1,0,LOG,00000,"connection authenticated: user=""postgres"" method=trust (/var/lib/postgresql/data/pg_hba.conf:117)",,,,,,,,,"","client backend",,0
+2026-04-13 19:38:45.372 UTC,"postgres","postgres",158,"[local]",69dd4645.9e,3,"authentication",2026-04-13 19:38:45 UTC,12/1,0,LOG,00000,"connection authorized: user=postgres database=postgres application_name=psql",,,,,,,,,"","client backend",,0
+2026-04-13 19:38:45.381 UTC,"postgres","postgres",158,"[local]",69dd4645.9e,4,"SELECT",2026-04-13 19:38:45 UTC,12/2,0,LOG,00000,"duration: 7.545 ms  plan:
+Query Text: SELECT 'high' as tier, count(*) FROM orders WHERE amount > 300 UNION ALL SELECT 'medium', count(*) FROM orders WHERE amount BETWEEN 100 AND 300 UNION ALL SELECT 'low', count(*) FROM orders WHERE amount < 100;
+Gather  (cost=2070.17..3114.16 rows=3 width=40) (actual time=4.039..7.538 rows=3 loops=1)
+  Output: ('medium'::text), (count(*))
+  Workers Planned: 2
+  Workers Launched: 2
+  Buffers: shared hit=1222
+  ->  Parallel Append  (cost=1070.17..2113.87 rows=1 width=40) (actual time=4.261..4.262 rows=1 loops=3)
+        Buffers: shared hit=1222
+        Worker 0:  actual time=3.998..3.998 rows=1 loops=1
+          Buffers: shared hit=414
+        Worker 1:  actual time=4.955..4.956 rows=1 loops=1
+          Buffers: shared hit=414
+        ->  Aggregate  (cost=1193.16..1193.17 rows=1 width=40) (actual time=4.954..4.954 rows=1 loops=1)
+              Output: 'medium'::text, count(*)
+              Buffers: shared hit=414
+              Worker 1:  actual time=4.954..4.954 rows=1 loops=1
+                Buffers: shared hit=414
+              ->  Seq Scan on public.orders  (cost=0.00..1144.00 rows=19664 width=0) (actual time=0.037..4.189 rows=19831 loops=1)
+                    Output: orders.id, orders.user_id, orders.amount, orders.status, orders.created_at
+                    Filter: ((orders.amount >= '100'::numeric) AND (orders.amount <= '300'::numeric))
+                    Rows Removed by Filter: 30169
+                    Buffers: shared hit=414
+                    Worker 1:  actual time=0.037..4.189 rows=19831 loops=1
+                      Buffers: shared hit=414
+        ->  Aggregate  (cost=1070.17..1070.18 rows=1 width=40) (actual time=3.997..3.997 rows=1 loops=1)
+              Output: 'high'::text, count(*)
+              Buffers: shared hit=414
+              Worker 0:  actual time=3.997..3.997 rows=1 loops=1
+                Buffers: shared hit=414
+              ->  Seq Scan on public.orders orders_1  (cost=0.00..1019.00 rows=20468 width=0) (actual time=0.039..3.225 rows=20219 loops=1)
+                    Output: orders_1.id, orders_1.user_id, orders_1.amount, orders_1.status, orders_1.created_at
+                    Filter: (orders_1.amount > '300'::numeric)
+                    Rows Removed by Filter: 29781
+                    Buffers: shared hit=414
+                    Worker 0:  actual time=0.039..3.225 rows=20219 loops=1
+                      Buffers: shared hit=414
+        ->  Aggregate  (cost=1043.67..1043.68 rows=1 width=40) (actual time=3.831..3.831 rows=1 loops=1)
+              Output: 'low'::text, count(*)
+              Buffers: shared hit=394
+              ->  Seq Scan on public.orders orders_2  (cost=0.00..1019.00 rows=9868 width=0) (actual time=0.009..3.324 rows=9950 loops=1)
+                    Output: orders_2.id, orders_2.user_id, orders_2.amount, orders_2.status, orders_2.created_at
+                    Filter: (orders_2.amount < '100'::numeric)
+                    Rows Removed by Filter: 40050
+                    Buffers: shared hit=394",,,,,,,,,"psql","client backend",,0
+2026-04-13 19:38:45.381 UTC,"postgres","postgres",158,"[local]",69dd4645.9e,5,"SELECT",2026-04-13 19:38:45 UTC,12/0,0,LOG,00000,"duration: 8.504 ms  statement: SELECT 'high' as tier, count(*) FROM orders WHERE amount > 300 UNION ALL SELECT 'medium', count(*) FROM orders WHERE amount BETWEEN 100 AND 300 UNION ALL SELECT 'low', count(*) FROM orders WHERE amount < 100;",,,,,,,,,"psql","client backend",,0
+2026-04-13 19:38:45.381 UTC,"postgres","postgres",158,"[local]",69dd4645.9e,6,"idle",2026-04-13 19:38:45 UTC,,0,LOG,00000,"disconnection: session time: 0:00:00.009 user=postgres database=postgres host=[local]",,,,,,,,,"psql","client backend",,0

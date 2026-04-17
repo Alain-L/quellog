@@ -1,5 +1,5 @@
 // ES Module imports
-import { fmt, fmtDuration, fmtBytes, fmtMs, fmtDur, esc, safeMax, safeMin } from './js/utils.js';
+import { fmt, fmtDuration, fmtBytes, fmtMs, fmtDur, parseDurToMs, esc, truncQuery, safeMax, safeMin } from './js/utils.js';
 import {
     wasmModule, wasmReady, analysisData, currentFileContent, currentFileName, currentFileSize, originalDimensions,
     charts, modalCharts, modalChartsData, modalChartCounter, chartIntervalMap, defaultInterval,
@@ -21,7 +21,7 @@ import {
 } from './js/file-handler.js';
 import {
     chartData, createTimeChart, createDurationChart, createCombinedSQLChart,
-    createConcurrentChart, createHistogramChart, createCheckpointChart, createCombinedTempFilesChart,
+    createConcurrentChart, createHistogramChart, createCheckpointChart, createWALDistanceChart, createCombinedTempFilesChart,
     buildChartContainer, closeChartModal, updateModalInterval, resetModalZoom, exportChartPNG,
     resetChartZoom, openChartModal, updateChartInterval, toggleCombinedSeries, exportChartById
 } from './js/charts.js';
@@ -153,19 +153,17 @@ import './js/components/ql-dropdown.js';
             html += buildSQLOverviewSection(data);
 
             // SQL Performance (full width)
-            if (data.sql_performance?.queries?.length > 0) {
-                html += buildSQLPerformanceSection(data);
-            }
+            html += buildSQLPerformanceSection(data);
 
-            // Row 5: Locks | Temp Files
+            // Row 5: Checkpoints | Temp Files
             html += '<div class="grid grid-2">';
-            html += buildLocksSection(data);
+            html += buildCheckpointsSection(data);
             html += buildTempFilesSection(data);
             html += '</div>';
 
-            // Row 6: Checkpoints | Maintenance
+            // Row 6: Locks | Maintenance
             html += '<div class="grid grid-2">';
-            html += buildCheckpointsSection(data);
+            html += buildLocksSection(data);
             html += buildMaintenanceSection(data);
             html += '</div>';
 
@@ -177,10 +175,12 @@ import './js/components/ql-dropdown.js';
                     const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
                     const color = chartId.includes('tempfiles') ? accentColor : null;
                     // Check data type: checkpoints (stacked), sessions (sweep-line), histogram (pre-computed), duration, combined, tempfiles, or timestamps
-                    if (data?.type === 'checkpoints') {
+                    if (data?.type === 'wal-distance') {
+                        createWALDistanceChart(chartId, data);
+                    } else if (data?.type === 'checkpoints') {
                         createCheckpointChart(chartId, data);
                     } else if (data?.type === 'sessions') {
-                        createConcurrentChart(chartId, data.data, { color: color || 'var(--accent)' });
+                        createConcurrentChart(chartId, data.data, { color: color || 'var(--accent)', logStart: data.logStart, logEnd: data.logEnd });
                     } else if (data?.type === 'histogram') {
                         createHistogramChart(chartId, data.data, { color: color || 'var(--accent)' });
                     } else if (data?.type === 'duration') {
@@ -278,7 +278,7 @@ import './js/components/ql-dropdown.js';
                             </div>
                         </div>
                         <div class="summary-separator"></div>
-                        <div class="stat-grid" style="grid-template-columns: repeat(4, 1fr); margin-bottom: 1.2rem;">
+                        <div class="stat-grid" style="grid-template-columns: repeat(4, auto); justify-content: center; margin-bottom: 1.2rem;">
                             <div class="stat-card">
                                 <div class="stat-value">${(f.format || '?').toUpperCase()}</div>
                                 <div class="stat-label">format</div>
@@ -392,20 +392,20 @@ function buildEventsSection(data) {
 				classEvents.forEach(e => {
 					rows += `
 					<tr class="event-row">
-						<td style="width: 50px; vertical-align: top; padding: 0.35rem 0.5rem;">
+						<td style="width: 50px; vertical-align: top; padding: 0.25rem 0.5rem;">
 							${code ? `<span class="event-class-badge" style="border-color:${sevColor}; color:${sevColor};">${code}</span>` : ''}
 						</td>
-						<td style="vertical-align: top; padding: 0.35rem 0.5rem;">
+						<td style="vertical-align: top; padding: 0.25rem 0.5rem;">
 							${desc ? `<div style="font-size: 0.6rem; font-weight: 600; color: var(--text-muted); margin-bottom: 2px;">${esc(desc)}</div>` : ''}
 							<div class="event-msg-text" title="${esc(e.message)}">${esc(e.message)}</div>
 						</td>
-						<td class="num" style="width: 60px; vertical-align: top; font-weight: 600;">${fmt(e.count)}</td>
+						<td class="num" style="width: 60px; vertical-align: top; padding: 0.25rem 0.5rem; font-weight: 600;">${fmt(e.count)}</td>
 					</tr>`;
 				});
 			});
 
 			innerContent = `
-			<div class="table-container" style="max-height: 220px;">
+			<div class="table-container" style="max-height: 200px;">
 				<table class="data-table" style="width: 100%;">
 					${rows}
 				</table>
@@ -465,7 +465,12 @@ function buildEventsSection(data) {
             }
             // Store session events for client-side sweep-line (allows bucket adjustment)
             if (c.session_events?.length > 0) {
-                chartData.set('chart-concurrent', { type: 'sessions', data: c.session_events });
+                chartData.set('chart-concurrent', {
+                    type: 'sessions',
+                    data: c.session_events,
+                    logStart: data.summary?.start_date,
+                    logEnd: data.summary?.end_date
+                });
             }
 
             return `
@@ -501,8 +506,25 @@ function buildEventsSection(data) {
                             ` : ''}
                         </div>
                         <div class="grid grid-2" style="margin-top: 0.5rem;">
-                            ${c.session_events?.length > 0 ? buildChartContainer('chart-concurrent', 'Concurrent Sessions', { showFilterBtn: false, tooltip: 'Number of active database connections at a given time. High values indicate more database activity.' }) : ''}
-                            ${hasConnections ? buildChartContainer('chart-connections', 'Connection Distribution', { showFilterBtn: true, tooltip: 'Timeline of connection events. High values indicate heavy traffic.' }) : ''}
+                            ${c.session_events?.length > 0 ? `
+                                <div>
+                                ${buildChartContainer('chart-concurrent', 'Concurrent Sessions', { showFilterBtn: false, tooltip: 'Number of active database connections at a given time. High values indicate more database activity.' })}
+                                <div class="chart-legend" style="display:flex;gap:16px;justify-content:center;margin-top:4px;font-size:12px;">
+                                    <span><span style="display:inline-block;width:12px;height:12px;background:var(--accent);border-radius:2px;vertical-align:middle;margin-right:4px;"></span>Sessions</span>
+                                    <span><span style="display:inline-block;width:12px;height:12px;background:var(--text-muted);border-radius:2px;vertical-align:middle;margin-right:4px;"></span>Pre-log</span>
+                                    <span><span style="display:inline-block;width:16px;height:0;border-top:2px dashed var(--text-muted);vertical-align:middle;margin-right:4px;"></span>Median</span>
+                                </div>
+                                </div>
+                            ` : ''}
+                            ${hasConnections ? `
+                                <div>
+                                ${buildChartContainer('chart-connections', 'Connection Distribution', { showFilterBtn: true, tooltip: 'Timeline of connection events. High values indicate heavy traffic.' })}
+                                <div class="chart-legend" style="display:flex;gap:16px;justify-content:center;margin-top:4px;font-size:12px;">
+                                    <span><span style="display:inline-block;width:12px;height:12px;background:var(--chart-bar);border-radius:2px;vertical-align:middle;margin-right:4px;"></span>Connections</span>
+                                    <span><span style="display:inline-block;width:16px;height:0;border-top:2px dashed var(--text-muted);vertical-align:middle;margin-right:4px;"></span>Median</span>
+                                </div>
+                                </div>
+                            ` : ''}
                         </div>
                         ${hasSessionDist ? `
                             <div class="subsection">
@@ -553,7 +575,7 @@ function buildEventsSection(data) {
                     <div class="duration-stack-legend">
                         ${activeEntries.map(e => {
                             const pct = (e.count / total) * 100;
-                            return `<span class="duration-stack-item"><span class="duration-stack-dot" style="background: ${colors[e.idx]};"></span>${e.label} ${pct.toFixed(0)}%</span>`;
+                            return `<span class="duration-stack-item"><span class="duration-stack-dot" style="background: ${colors[e.idx]};"></span>${e.label} ${pct > 0 && pct < 1 ? '< 1' : pct.toFixed(0)}%</span>`;
                         }).join('')}
                     </div>
                 </div>
@@ -584,44 +606,73 @@ function buildEventsSection(data) {
         }
 
         function buildSessionTable(sessions, label) {
-            // sessions is an object: {name: {count, min_duration, avg_duration, ...}}
             if (!sessions || Object.keys(sessions).length === 0) return '<div class="empty">No session data</div>';
+            const tableId = 'session-table-' + label.toLowerCase().replace(/\s+/g, '-');
             const rows = Object.entries(sessions).map(([name, s]) => ({
                 name,
                 count: s.count,
-                min: fmtDur(s.min_duration),
-                avg: fmtDur(s.avg_duration),
-                median: fmtDur(s.median_duration),
-                max: fmtDur(s.max_duration),
-                cumulated: fmtDur(s.cumulated_duration)
-            })).sort((a, b) => b.count - a.count).slice(0, 10);
+                min: fmtDur(s.min_duration),   minMs: parseDurToMs(s.min_duration),
+                avg: fmtDur(s.avg_duration),   avgMs: parseDurToMs(s.avg_duration),
+                median: fmtDur(s.median_duration), medianMs: parseDurToMs(s.median_duration),
+                max: fmtDur(s.max_duration),   maxMs: parseDurToMs(s.max_duration),
+                cumulated: fmtDur(s.cumulated_duration), cumulatedMs: parseDurToMs(s.cumulated_duration)
+            }));
+            window['_sessionRows_' + tableId] = rows;
+
+            const cols = [
+                { key: 'count', label: 'Sessions', sort: 'count' },
+                { key: 'min', label: 'Min', sort: 'minMs' },
+                { key: 'avg', label: 'Avg', sort: 'avgMs' },
+                { key: 'median', label: 'Median', sort: 'medianMs' },
+                { key: 'max', label: 'Max', sort: 'maxMs' },
+                { key: 'cumulated', label: 'Cumulated', sort: 'cumulatedMs' },
+            ];
+            const thStyle = 'text-align:right;cursor:pointer;user-select:none';
+            const needsScroll = rows.length > 12;
             return `
-                <table class="data-table" style="font-size: 0.75rem;">
+                <div class="table-scroll-wrapper${needsScroll ? ' has-overflow' : ''}" style="${needsScroll ? 'max-height: 350px; overflow-y: auto;' : ''}">
+                <table class="data-table" id="${tableId}" style="font-size: 0.75rem;">
                     <thead><tr>
                         <th>${label}</th>
-                        <th style="text-align:right">Sessions</th>
-                        <th style="text-align:right">Min</th>
-                        <th style="text-align:right">Avg</th>
-                        <th style="text-align:right">Median</th>
-                        <th style="text-align:right">Max</th>
-                        <th style="text-align:right">Cumulated</th>
+                        ${cols.map(c => `<th style="${thStyle}" onclick="sortSessionTable('${tableId}','${c.sort}',this)" data-sort="${c.sort}">${c.label}${c.sort === 'count' ? ' ▼' : ''}</th>`).join('')}
                     </tr></thead>
                     <tbody>
-                        ${rows.map(s => `
-                            <tr>
-                                <td>${esc(s.name)}</td>
-                                <td style="text-align:right">${fmt(s.count)}</td>
-                                <td style="text-align:right">${s.min || '-'}</td>
-                                <td style="text-align:right">${s.avg || '-'}</td>
-                                <td style="text-align:right">${s.median || '-'}</td>
-                                <td style="text-align:right">${s.max || '-'}</td>
-                                <td style="text-align:right">${s.cumulated || '-'}</td>
-                            </tr>
-                        `).join('')}
+                        ${renderSessionRows(rows, 'count')}
                     </tbody>
                 </table>
+                </div>
             `;
         }
+
+        function renderSessionRows(rows, sortKey, asc) {
+            const sorted = [...rows].sort((a, b) => asc ? a[sortKey] - b[sortKey] : b[sortKey] - a[sortKey]);
+            return sorted.map(s => `
+                <tr>
+                    <td>${esc(s.name)}</td>
+                    <td style="text-align:right">${fmt(s.count)}</td>
+                    <td style="text-align:right">${s.min || '-'}</td>
+                    <td style="text-align:right">${s.avg || '-'}</td>
+                    <td style="text-align:right">${s.median || '-'}</td>
+                    <td style="text-align:right">${s.max || '-'}</td>
+                    <td style="text-align:right">${s.cumulated || '-'}</td>
+                </tr>
+            `).join('');
+        }
+
+        window.sortSessionTable = function(tableId, sortKey, th) {
+            const table = document.getElementById(tableId);
+            if (!table) return;
+            const rows = window['_sessionRows_' + tableId];
+            if (!rows) return;
+            const wasAsc = th.dataset.dir === 'asc';
+            const asc = !wasAsc;
+            th.dataset.dir = asc ? 'asc' : 'desc';
+            table.querySelectorAll('th[data-sort]').forEach(h => {
+                const arrow = h === th ? (asc ? ' ▲' : ' ▼') : '';
+                h.textContent = h.textContent.replace(/ [▲▼]$/, '') + arrow;
+            });
+            table.querySelector('tbody').innerHTML = renderSessionRows(rows, sortKey, asc);
+        };
 
         function buildClientsSection(data) {
             const c = data.clients || {};
@@ -686,7 +737,7 @@ function buildEventsSection(data) {
 
         function buildCheckpointsSection(data) {
             const cp = data.checkpoints;
-            if (!cp || cp.total_checkpoints === 0) {
+            if (!cp || (!cp.total_checkpoints && !cp.warning_count)) {
                 return `
                     <div class="section" id="checkpoints">
                         <div class="section-header muted">Checkpoints</div>
@@ -700,8 +751,23 @@ function buildEventsSection(data) {
             const types = cp.types || {};
             const timed = types.time?.count || 0;
             const wal = types.wal?.count || 0;
-            const req = (types.shutdown?.count || 0) + (types['immediate force wait']?.count || 0);
+            const req = (types['shutdown immediate']?.count || 0) + (types['immediate force wait']?.count || 0);
             const hasEvents = cp.events?.length > 0;
+            const hasWarnings = cp.warning_events?.length > 0;
+            const other = cp.total_checkpoints - timed - wal;
+
+            // I/O rates from server-computed values
+
+            const hasWALDistances = cp.wal_distances?.length > 0;
+
+            // Store WAL distance data for distance vs estimate chart
+            if (hasWALDistances) {
+                chartData.set('chart-wal-distance', {
+                    type: 'wal-distance',
+                    distances: cp.wal_distances,
+                    warnings: cp.warning_events || []
+                });
+            }
 
             // Store checkpoint data by type for multi-series chart
             if (hasEvents) {
@@ -712,9 +778,21 @@ function buildEventsSection(data) {
                         time: types.time?.events || [],
                         wal: types.wal?.events || [],
                         other: [
-                            ...(types.shutdown?.events || []),
+                            ...(types['shutdown immediate']?.events || []),
                             ...(types['immediate force wait']?.events || [])
                         ]
+                    }
+                });
+            } else if (hasWarnings) {
+                // Warnings only (log_checkpoints = off): show warnings as the sole series
+                chartData.set('chart-checkpoints', {
+                    type: 'checkpoints',
+                    warningsOnly: true,
+                    all: cp.warning_events,
+                    types: {
+                        time: [],
+                        wal: [],
+                        other: cp.warning_events
                     }
                 });
             }
@@ -724,12 +802,12 @@ function buildEventsSection(data) {
                     <div class="section-header">Checkpoints</div>
                     <div class="section-body">
                         <div class="stat-grid">
-                            <div class="stat-card"><div class="stat-value">${fmt(cp.total_checkpoints)}</div><div class="stat-label">Total</div></div>
                             <div class="stat-card"><div class="stat-value">${timed}</div><div class="stat-label">Timed</div></div>
                             <div class="stat-card"><div class="stat-value">${wal}</div><div class="stat-label">WAL</div></div>
-                            <div class="stat-card"><div class="stat-value">${req}</div><div class="stat-label">Req</div></div>
-                            <div class="stat-card"><div class="stat-value">${cp.avg_checkpoint_time || '-'}</div><div class="stat-label">Avg</div></div>
-                            <div class="stat-card"><div class="stat-value">${cp.max_checkpoint_time || '-'}</div><div class="stat-label">Max</div></div>
+                            ${other > 0 ? `<div class="stat-card"><div class="stat-value">${other}</div><div class="stat-label">Other</div></div>` : ''}
+                            ${cp.wal_rate ? `<div class="stat-card"><div class="stat-value">${cp.wal_rate}</div><div class="stat-label">WAL Rate</div></div>` : ''}
+                            ${cp.flush_rate ? `<div class="stat-card"><div class="stat-value">${cp.flush_rate}</div><div class="stat-label">Flush Rate</div></div>` : ''}
+                            ${cp.warning_count ? `<div class="stat-card stat-card--alert"><div class="stat-value">${cp.warning_count}</div><div class="stat-label">Too Frequent</div></div>` : ''}
                         </div>
                         ${hasEvents ? `
                             ${buildChartContainer('chart-checkpoints', 'Checkpoint Distribution', { showFilterBtn: false, tooltip: 'Checkpoint writes over time. Timed is normal, WAL indicates heavy write load.' })}
@@ -737,6 +815,18 @@ function buildEventsSection(data) {
                                 <span><span style="display:inline-block;width:12px;height:12px;background:var(--chart-bar);border-radius:2px;vertical-align:middle;margin-right:4px;"></span>Timed</span>
                                 <span><span style="display:inline-block;width:12px;height:12px;background:var(--accent);border-radius:2px;vertical-align:middle;margin-right:4px;"></span>WAL</span>
                                 <span><span style="display:inline-block;width:12px;height:12px;background:#909399;border-radius:2px;vertical-align:middle;margin-right:4px;"></span>Other</span>
+                            </div>
+                        ` : hasWarnings ? `
+                            ${buildChartContainer('chart-checkpoints', 'Checkpoint Frequency Warnings', { showFilterBtn: false })}
+                        ` : ''}
+                        ${hasWALDistances ? `
+                            <div style="margin-top:-0.5rem;">
+                            ${buildChartContainer('chart-wal-distance', 'WAL Distance vs Estimate', { showFilterBtn: false, showBucketControl: false, tooltip: 'WAL generated between checkpoints. The estimate is PostgreSQL prediction for the next cycle.' })}
+                            <div class="chart-legend" style="display:flex;gap:16px;justify-content:center;margin-top:4px;font-size:12px;">
+                                <span><span style="display:inline-block;width:12px;height:12px;background:var(--chart-bar);border-radius:2px;vertical-align:middle;margin-right:4px;"></span>Distance</span>
+                                <span><span style="display:inline-block;width:16px;height:0;border-top:2px dashed var(--accent);vertical-align:middle;margin-right:4px;"></span>Estimate</span>
+                                ${cp.warning_count ? `<span><span style="display:inline-block;width:12px;height:12px;background:rgba(220,53,69,0.25);border-radius:2px;vertical-align:middle;margin-right:4px;"></span>Too frequent</span>` : ''}
+                            </div>
                             </div>
                         ` : ''}
                     </div>
@@ -832,9 +922,11 @@ function buildEventsSection(data) {
             const hasLockTypes = lockTypes.length > 0;
             const hasResTypes = resTypes.length > 0;
             const hasQueries = l.queries?.length > 0;
+            const relations = l.relation_stats ? Object.entries(l.relation_stats).map(([t, c]) => ({type: t, count: c})).sort((a,b) => b.count - a.count) : [];
+            const hasRelations = relations.length > 0;
             return `
                 <div class="section" id="locks">
-                    <div class="section-header ${deadlocks > 0 ? 'danger' : ''}">Locks</div>
+                    <div class="section-header">Locks</div>
                     <div class="section-body">
                         <div class="stat-grid">
                             <div class="stat-card ${deadlocks > 0 ? 'stat-card--alert' : ''}"><div class="stat-value">${deadlocks}</div><div class="stat-label">Deadlocks</div></div>
@@ -843,7 +935,7 @@ function buildEventsSection(data) {
                             <div class="stat-card"><div class="stat-value">${fmtDur(l.avg_wait_time) || '-'}</div><div class="stat-label">Avg</div></div>
                             <div class="stat-card"><div class="stat-value">${fmtDur(l.total_wait_time) || '-'}</div><div class="stat-label">Total</div></div>
                         </div>
-                        ${hasLockTypes || hasResTypes ? `
+                        ${hasLockTypes || hasResTypes || hasRelations ? `
                             <div class="subsection" style="display: flex; gap: 1rem; flex-wrap: wrap;">
                                 ${hasLockTypes ? `
                                     <div style="flex: 1; min-width: 120px;">
@@ -871,11 +963,24 @@ function buildEventsSection(data) {
                                         </div>
                                     </div>
                                 ` : ''}
+                                ${hasRelations ? `
+                                    <div style="flex: 1; min-width: 120px;">
+                                        <div class="subsection-title" style="margin-top: 0;">Relations</div>
+                                        <div class="query-types">
+                                            ${relations.map(t => `
+                                                <span class="query-type">
+                                                    <span class="name">${t.type}</span>
+                                                    <span class="count">${fmt(t.count)}</span>
+                                                </span>
+                                            `).join('')}
+                                        </div>
+                                    </div>
+                                ` : ''}
                             </div>
                         ` : ''}
                         ${hasQueries ? `
                             <div class="subsection">
-                                <div class="subsection-title">Queries Involved in Lock Waits</div>
+                                <div class="subsection-title">Waiting Queries</div>
                                 <div class="table-container" style="max-height: 180px;">
                                     <table>
                                         <thead><tr>
@@ -885,9 +990,13 @@ function buildEventsSection(data) {
                                             <th class="num">Total Wait</th>
                                         </tr></thead>
                                         <tbody>
-                                            ${l.queries.slice(0, 10).map(q => `
+                                            ${[...l.queries].sort((a, b) => {
+                                                const wa = parseFloat(a.total_wait_time) || 0;
+                                                const wb = parseFloat(b.total_wait_time) || 0;
+                                                return wb - wa;
+                                            }).slice(0, 10).map(q => `
                                                 <tr>
-                                                    <td class="query-cell" onclick="showQueryModal('${esc(q.id)}')">${esc(q.normalized_query)}</td>
+                                                    <td class="query-cell" onclick="showQueryModal('${esc(q.id)}')">${esc(truncQuery(q.normalized_query))}</td>
                                                     <td class="num">${q.acquired_count || 0}</td>
                                                     <td class="num">${q.still_waiting_count || 0}</td>
                                                     <td class="num">${fmtDur(q.total_wait_time) || '-'}</td>
@@ -898,6 +1007,51 @@ function buildEventsSection(data) {
                                 </div>
                             </div>
                         ` : ''}
+                        ${(() => {
+                            // Aggregate blocking queries from events
+                            const blockers = {};
+                            (l.events || []).forEach(e => {
+                                if (!e.blocking_query_id || e.event_type === 'deadlock') return;
+                                if (!blockers[e.blocking_query_id]) {
+                                    blockers[e.blocking_query_id] = { id: e.blocking_query_id, query: e.blocking_query || '', count: 0, totalWaitMs: 0 };
+                                }
+                                blockers[e.blocking_query_id].count++;
+                                // Parse "1.00 s" or "2m 30s" wait_time string to ms
+                                const wt = e.wait_time || '';
+                                const sMatch = wt.match(/([\d.]+)\s*s/);
+                                const mMatch = wt.match(/([\d.]+)\s*m/);
+                                let ms = 0;
+                                if (mMatch) ms += parseFloat(mMatch[1]) * 60000;
+                                if (sMatch) ms += parseFloat(sMatch[1]) * 1000;
+                                blockers[e.blocking_query_id].totalWaitMs += ms;
+                            });
+                            const sorted = Object.values(blockers).sort((a, b) => b.totalWaitMs - a.totalWaitMs).slice(0, 10);
+                            if (sorted.length === 0) return '';
+                            return `
+                            <div class="subsection">
+                                <div class="subsection-title">Blocking Queries</div>
+                                <div class="table-container" style="max-height: 180px;">
+                                    <table>
+                                        <thead><tr>
+                                            <th>Query</th>
+                                            <th class="num">Blocked</th>
+                                            <th class="num">Avg Wait</th>
+                                            <th class="num">Total Wait</th>
+                                        </tr></thead>
+                                        <tbody>
+                                            ${sorted.map(b => `
+                                                <tr>
+                                                    <td class="query-cell" onclick="showQueryModal('${esc(b.id)}')">${esc(b.query || b.id)}</td>
+                                                    <td class="num">${b.count}</td>
+                                                    <td class="num">${fmtMs(b.totalWaitMs / b.count)}</td>
+                                                    <td class="num">${fmtMs(b.totalWaitMs)}</td>
+                                                </tr>
+                                            `).join('')}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>`;
+                        })()}
                     </div>
                 </div>
             `;
@@ -931,7 +1085,14 @@ function buildEventsSection(data) {
                             <div class="stat-card"><div class="stat-value">${tf.total_size}</div><div class="stat-label">Total</div></div>
                             <div class="stat-card"><div class="stat-value">${tf.avg_size}</div><div class="stat-label">Avg</div></div>
                         </div>
-                        ${hasEvents ? buildChartContainer('chart-tempfiles', 'Temp File Activity', { showFilterBtn: true, tooltip: 'Temp file count and cumulative size over time. Created when queries exceed work_mem.' }) : ''}
+                        ${hasEvents ? `
+                            ${buildChartContainer('chart-tempfiles', 'Temp File Activity', { showFilterBtn: true, tooltip: 'Temp file count and cumulative size over time. Created when queries exceed work_mem.' })}
+                            <div class="chart-legend" style="display:flex;gap:16px;justify-content:center;margin-top:4px;font-size:12px;">
+                                <span><span style="display:inline-block;width:12px;height:12px;background:var(--chart-bar);border-radius:2px;vertical-align:middle;margin-right:4px;"></span>Count</span>
+                                <span><span style="display:inline-block;width:12px;height:12px;background:var(--accent);border-radius:2px;vertical-align:middle;margin-right:4px;"></span>Size</span>
+                                <span><span style="display:inline-block;width:16px;height:0;border-top:2px dashed var(--text-muted);vertical-align:middle;margin-right:4px;"></span>Median</span>
+                            </div>
+                        ` : ''}
                         ${hasQueries ? `
                             <div class="subsection">
                                 <div class="subsection-title">Top Queries</div>
@@ -945,7 +1106,7 @@ function buildEventsSection(data) {
                                         <tbody>
                                             ${tf.queries.slice(0, 10).map(q => `
                                                 <tr>
-                                                    <td class="query-cell" onclick="showQueryModal('${esc(q.id || '')}')">${esc(q.normalized_query || '')}</td>
+                                                    <td class="query-cell" onclick="showQueryModal('${esc(q.id || '')}')">${esc(truncQuery(q.normalized_query || ''))}</td>
                                                     <td class="num">${fmt(q.count)}</td>
                                                     <td class="num">${q.total_size}</td>
                                                 </tr>
@@ -1087,30 +1248,72 @@ function buildEventsSection(data) {
             }
         }
 
+        let _queryTypesTableCounter = 0;
         function buildQueryTypesTable(types) {
             if (!types?.length) return '<div class="empty">No query type data</div>';
+            const tableId = 'sql-types-table-' + (_queryTypesTableCounter++);
+            const rows = types.map(t => ({
+                type: t.type,
+                count: t.count,
+                pct: t.percentage || 0,
+                avg: fmtDur(t.avg_time), avgMs: parseDurToMs(t.avg_time),
+                max: fmtDur(t.max_time), maxMs: parseDurToMs(t.max_time),
+                total: fmtDur(t.total_time), totalMs: parseDurToMs(t.total_time)
+            }));
+            window['_queryTypesRows_' + tableId] = rows;
+
+            const thStyle = 'cursor:pointer;user-select:none';
+            const cols = [
+                { key: 'count', label: 'Count', sort: 'count' },
+                { key: 'pct', label: '%', sort: 'pct' },
+                { key: 'avg', label: 'Avg', sort: 'avgMs' },
+                { key: 'max', label: 'Max', sort: 'maxMs' },
+                { key: 'total', label: 'Total', sort: 'totalMs' },
+            ];
+            const needsScroll = rows.length > 8;
             return `
-                <div class="table-container" style="max-height: 300px;">
-                    <table>
+                <div class="table-scroll-wrapper${needsScroll ? ' has-overflow' : ''}" style="${needsScroll ? 'max-height: 250px; overflow-y: auto;' : ''}">
+                    <table id="${tableId}">
                         <thead><tr>
-                            <th>Type</th><th class="num">Count</th><th class="num">%</th><th class="num">Avg</th><th class="num">Max</th><th class="num">Total</th>
+                            <th>Type</th>
+                            ${cols.map(c => `<th class="num" style="${thStyle}" onclick="sortQueryTypesTable('${tableId}','${c.sort}',this)" data-sort="${c.sort}">${c.label}${c.sort === 'count' ? ' ▼' : ''}</th>`).join('')}
                         </tr></thead>
                         <tbody>
-                            ${types.slice(0, 15).map(t => `
-                                <tr>
-                                    <td><span class="query-type"><span class="name">${t.type}</span></span></td>
-                                    <td class="num">${fmt(t.count)}</td>
-                                    <td class="num">${t.percentage?.toFixed(1) || 0}%</td>
-                                    <td class="num">${fmtDur(t.avg_time) || '-'}</td>
-                                    <td class="num">${fmtDur(t.max_time) || '-'}</td>
-                                    <td class="num">${fmtDur(t.total_time) || '-'}</td>
-                                </tr>
-                            `).join('')}
+                            ${renderQueryTypesRows(rows, 'count')}
                         </tbody>
                     </table>
                 </div>
             `;
         }
+
+        function renderQueryTypesRows(rows, sortKey, asc) {
+            const sorted = [...rows].sort((a, b) => asc ? a[sortKey] - b[sortKey] : b[sortKey] - a[sortKey]);
+            return sorted.map(t => `
+                <tr>
+                    <td><span class="query-type"><span class="name">${t.type}</span></span></td>
+                    <td class="num">${fmt(t.count)}</td>
+                    <td class="num">${t.pct.toFixed(1)}%</td>
+                    <td class="num">${t.avg || '-'}</td>
+                    <td class="num">${t.max || '-'}</td>
+                    <td class="num">${t.total || '-'}</td>
+                </tr>
+            `).join('');
+        }
+
+        window.sortQueryTypesTable = function(tableId, sortKey, th) {
+            const table = document.getElementById(tableId);
+            if (!table) return;
+            const rows = window['_queryTypesRows_' + tableId];
+            if (!rows) return;
+            const wasAsc = th.dataset.dir === 'asc';
+            const asc = !wasAsc;
+            th.dataset.dir = asc ? 'asc' : 'desc';
+            table.querySelectorAll('th[data-sort]').forEach(h => {
+                const arrow = h === th ? (asc ? ' ▲' : ' ▼') : '';
+                h.textContent = h.textContent.replace(/ [▲▼]$/, '') + arrow;
+            });
+            table.querySelector('tbody').innerHTML = renderQueryTypesRows(rows, sortKey, asc);
+        };
 
         function buildDimensionTable(items, dimType) {
             if (!items?.length) return `<div class="empty">No ${dimType} data</div>`;
@@ -1145,16 +1348,83 @@ function buildEventsSection(data) {
             `;
         }
 
+        const TCL_TYPES = new Set([
+            'BEGIN', 'COMMIT', 'ROLLBACK', 'SAVEPOINT', 'RELEASE',
+            'START', 'END', 'ABORT', 'PREPARE', 'DEALLOCATE'
+        ]);
+
+        function buildTCLTable(tclQueries) {
+            if (!tclQueries?.length) return '';
+
+            // Aggregate by type
+            const byType = new Map();
+            for (const q of tclQueries) {
+                const type = q.type;
+                if (!byType.has(type)) {
+                    byType.set(type, { type, count: 0, totalTime: 0, maxTime: 0 });
+                }
+                const agg = byType.get(type);
+                agg.count += q.count;
+                agg.totalTime += q.total_time_ms;
+                agg.maxTime = Math.max(agg.maxTime, q.max_time_ms);
+            }
+
+            // Sort by total time descending
+            const rows = [...byType.values()].sort((a, b) => b.totalTime - a.totalTime);
+
+            return `
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Type</th>
+                                <th class="num">Count</th>
+                                <th class="num">Total Time</th>
+                                <th class="num">Avg</th>
+                                <th class="num">Max</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${rows.map(r => `
+                                <tr>
+                                    <td>${r.type}</td>
+                                    <td class="num">${fmt(r.count)}</td>
+                                    <td class="num">${fmtMs(r.totalTime)}</td>
+                                    <td class="num">${fmtMs(r.count > 0 ? r.totalTime / r.count : 0)}</td>
+                                    <td class="num">${fmtMs(r.maxTime)}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+
         function buildSQLPerformanceSection(data) {
             const sql = data.sql_performance;
+            if (!sql || !sql.queries || sql.queries.length === 0) {
+                return `
+                    <div class="section" id="sql_performance">
+                        <div class="section-header muted">SQL Performance</div>
+                        <div class="section-body">
+                            ${buildNoDataMessage('<code>log_min_duration_statement = 0</code>')}
+                        </div>
+                    </div>
+                `;
+            }
             const queries = sql.queries || [];
             const executions = sql.executions || [];
-            const maxTime = safeMax(queries.map(q => q.total_time_ms)) || 1;
 
-            // Create sorted copies for each tab
-            const byTotal = [...queries].sort((a, b) => b.total_time_ms - a.total_time_ms);
-            const bySlowest = [...queries].sort((a, b) => b.max_time_ms - a.max_time_ms);
-            const byFrequent = [...queries].sort((a, b) => b.count - a.count);
+            // Separate TCL queries from regular queries
+            const regularQueries = queries.filter(q => !TCL_TYPES.has(q.type));
+            const tclQueries = queries.filter(q => TCL_TYPES.has(q.type));
+
+            const maxTime = safeMax(regularQueries.map(q => q.total_time_ms)) || 1;
+
+            // Create sorted copies for each tab (regular queries only)
+            const byTotal = [...regularQueries].sort((a, b) => b.total_time_ms - a.total_time_ms);
+            const bySlowest = [...regularQueries].sort((a, b) => b.max_time_ms - a.max_time_ms);
+            const byFrequent = [...regularQueries].sort((a, b) => b.count - a.count);
 
             // Store executions for combined chart
             const hasExecutions = executions.length > 0;
@@ -1193,6 +1463,7 @@ function buildEventsSection(data) {
                                 <div class="chart-legend">
                                     <span class="chart-legend-item" data-chart="chart-sql-combined" data-series="count" onclick="toggleCombinedSeries('chart-sql-combined', 'count')"><span class="chart-legend-bar chart-legend-bar--count"></span>Count</span>
                                     <span class="chart-legend-item" data-chart="chart-sql-combined" data-series="duration" onclick="toggleCombinedSeries('chart-sql-combined', 'duration')"><span class="chart-legend-bar chart-legend-bar--duration"></span>Duration</span>
+                                    <span><span style="display:inline-block;width:16px;height:0;border-top:2px dashed var(--text-muted);vertical-align:middle;margin-right:4px;"></span>Median</span>
                                 </div>
                             </div>
                         ` : ''}
@@ -1207,9 +1478,11 @@ function buildEventsSection(data) {
                             <ql-tab selected>By Total Time</ql-tab>
                             <ql-tab>Slowest (Max)</ql-tab>
                             <ql-tab>Most Frequent</ql-tab>
+                            ${tclQueries.length > 0 ? '<ql-tab>TCL</ql-tab>' : ''}
                             <ql-panel>${buildQueryTable(byTotal, maxTime, 'total')}</ql-panel>
                             <ql-panel>${buildQueryTable(bySlowest, maxTime, 'max')}</ql-panel>
                             <ql-panel>${buildQueryTable(byFrequent, maxTime, 'count')}</ql-panel>
+                            ${tclQueries.length > 0 ? `<ql-panel>${buildTCLTable(tclQueries)}</ql-panel>` : ''}
                         </ql-tabs>
                     </div>
                 </div>
@@ -1304,7 +1577,7 @@ function buildEventsSection(data) {
                     <div class="duration-stack-legend">
                         ${activeDist.map(d => {
                             const pct = (d.count / total) * 100;
-                            return `<span class="duration-stack-item"><span class="duration-stack-dot" style="background: ${colors[d.idx]};"></span>${d.label} ${pct.toFixed(0)}%</span>`;
+                            return `<span class="duration-stack-item"><span class="duration-stack-dot" style="background: ${colors[d.idx]};"></span>${d.label} ${pct > 0 && pct < 1 ? '< 1' : pct.toFixed(0)}%</span>`;
                         }).join('')}
                     </div>
                 </div>
@@ -1335,7 +1608,7 @@ function buildEventsSection(data) {
                                 return `
                                 <tr>
                                     <td>${i + 1}</td>
-                                    <td class="query-cell" onclick="showQueryModal('${esc(q.id)}')" title="Click for details">${esc(q.normalized_query)}</td>
+                                    <td class="query-cell" onclick="showQueryModal('${esc(q.id)}')" title="Click for details">${esc(truncQuery(q.normalized_query))}</td>
                                     <td class="num">${fmt(q.count)}</td>
                                     <td class="num">${fmtMs(q.avg_time_ms)}</td>
                                     <td class="num">${fmtMs(q.max_time_ms)}</td>
@@ -1489,6 +1762,7 @@ function buildEventsSection(data) {
                     html += '<div class="chart-legend">';
                     html += '<span class="chart-legend-item" data-chart="qd-chart-combined" data-series="count" onclick="toggleCombinedSeries(\'qd-chart-combined\', \'count\')"><span class="chart-legend-bar chart-legend-bar--count"></span>Count</span>';
                     html += '<span class="chart-legend-item" data-chart="qd-chart-combined" data-series="duration" onclick="toggleCombinedSeries(\'qd-chart-combined\', \'duration\')"><span class="chart-legend-bar chart-legend-bar--duration"></span>Duration</span>';
+                    html += '<span><span style="display:inline-block;width:16px;height:0;border-top:2px dashed var(--text-muted);vertical-align:middle;margin-right:4px;"></span>Median</span>';
                     html += '</div>';
                     html += '</div>';
                     html += buildQdDurationDistribution(execs);
@@ -1583,10 +1857,87 @@ function buildEventsSection(data) {
                 html += '</div>';
             }
 
+            // EXECUTION PLAN section (from auto_explain)
+            if (q?.plan) {
+                html += '<div class="qd-section">';
+                html += '<div class="qd-section-title" style="display: flex; align-items: center; gap: 4px;">Execution Plan <ql-tooltip text="Captured by auto_explain. Shows the last observed plan for this query signature.">i</ql-tooltip>';
+                html += '<button style="margin-left: auto;" class="btn-visualize" onclick="visualizePlan()">Visualize</button>';
+                html += '<button class="copy-btn-inline" onclick="navigator.clipboard.writeText(document.getElementById(\'plan-text\').textContent);this.textContent=\'Copied!\';setTimeout(()=>this.textContent=\'Copy\',1500)">Copy</button>';
+                html += '</div>';
+                html += '<div id="plan-text" class="query-detail-sql" style="white-space:pre;font-size:0.75rem;">';
+                html += esc(q.plan);
+                html += '</div>';
+                html += '<script type="application/json" id="plan-data">' + JSON.stringify({plan: q.plan, sql: q.normalized_query || '', id: q.id || ''}) + '<\/script>';
+                html += '</div>';
+            }
+
             return html;
         }
 
         // Render modal charts after DOM update
+        function visualizePlan() {
+            const dataEl = document.getElementById('plan-data');
+            if (!dataEl) return;
+
+            // Show confirmation dialog
+            let overlay = document.getElementById('visualize-confirm');
+            if (!overlay) {
+                overlay = document.createElement('div');
+                overlay.id = 'visualize-confirm';
+                overlay.className = 'modal-overlay';
+                overlay.innerHTML = `
+                    <div style="max-width:440px;padding:24px;text-align:center;background:var(--bg);border-radius:8px;box-shadow:0 4px 24px rgba(0,0,0,0.3);margin:auto;">
+                        <p style="margin:0 0 8px;font-weight:600;font-size:1rem;">Open on explain.dalibo.com?</p>
+                        <p style="margin:0 0 20px;font-size:0.85rem;color:var(--text-muted);">The execution plan and query will be sent to <a href="https://explain.dalibo.com/about" target="_blank" style="color:var(--primary);">explain.dalibo.com</a> for visualization.</p>
+                        <div style="display:flex;gap:8px;justify-content:center;">
+                            <button id="visualize-cancel" style="padding:6px 20px;border:1px solid var(--border);color:var(--text-muted);background:transparent;border-radius:4px;cursor:pointer;font-weight:600;font-size:0.75rem;text-transform:uppercase;">Cancel</button>
+                            <button id="visualize-ok" style="padding:6px 20px;background:var(--accent);color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:600;font-size:0.75rem;text-transform:uppercase;">Open</button>
+                        </div>
+                    </div>`;
+                document.body.appendChild(overlay);
+            }
+            overlay.classList.add('active');
+
+            const cancel = document.getElementById('visualize-cancel');
+            const ok = document.getElementById('visualize-ok');
+
+            const cleanup = () => { overlay.classList.remove('active'); };
+
+            cancel.onclick = cleanup;
+            overlay.onclick = (e) => { if (e.target === overlay) cleanup(); };
+
+            ok.onclick = () => {
+                cleanup();
+                const data = JSON.parse(dataEl.textContent);
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = 'https://explain.dalibo.com/new';
+                form.target = '_blank';
+                const planInput = document.createElement('input');
+                planInput.type = 'hidden';
+                planInput.name = 'plan';
+                planInput.value = data.plan;
+                form.appendChild(planInput);
+                if (data.sql) {
+                    const sqlInput = document.createElement('input');
+                    sqlInput.type = 'hidden';
+                    sqlInput.name = 'sql';
+                    sqlInput.value = data.sql;
+                    form.appendChild(sqlInput);
+                }
+                if (data.id) {
+                    const titleInput = document.createElement('input');
+                    titleInput.type = 'hidden';
+                    titleInput.name = 'title';
+                    titleInput.value = 'quellog_' + data.id;
+                    form.appendChild(titleInput);
+                }
+                document.body.appendChild(form);
+                form.submit();
+                document.body.removeChild(form);
+            };
+        }
+
         function renderModalCharts() {
             // Destroy previous modal charts
             modalCharts.forEach(c => c.destroy());
@@ -2126,10 +2477,18 @@ function buildEventsSection(data) {
         // Initialize theme (from theme.js module)
         initTheme();
 
+        // Update footer version from WASM (or report mode)
+        const versionEl = document.getElementById('quellog-version');
+        if (versionEl && typeof window.quellogVersion === 'function') {
+            const v = window.quellogVersion();
+            if (v) versionEl.textContent = 'quellog ' + v;
+        }
+
         // Expose functions for inline onclick handlers and report mode
         window.renderResults = renderResults;
         window.setAnalysisData = setAnalysisData;
         window.showQueryModal = showQueryModal;
+        window.visualizePlan = visualizePlan;
         window.showSqlOvView = showSqlOvView;
         window.copyQuery = copyQuery;
         window.closeModal = closeModal;

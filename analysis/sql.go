@@ -219,6 +219,10 @@ type QueryStat struct {
 
 	// FullHash is the complete hash in hexadecimal (e.g., 32-character MD5).
 	FullHash string
+
+	// LastPlan stores the most recent execution plan from auto_explain (if available).
+	// Only one plan per query signature is retained to keep memory bounded.
+	LastPlan string
 }
 
 // QueryExecution represents a single SQL query execution event.
@@ -414,6 +418,11 @@ type SQLAnalyzer struct {
 	queryTypesByUser     map[string]map[string]*QueryTypeCount
 	queryTypesByHost     map[string]map[string]*QueryTypeCount
 	queryTypesByApp      map[string]map[string]*QueryTypeCount
+
+	// pendingPlanByPID stores auto_explain plan text temporarily, keyed by PID.
+	// When a plan: entry arrives, we store it here. When the subsequent
+	// statement: entry arrives for the same PID, we attach the plan to the query.
+	pendingPlanByPID map[string]string
 }
 
 // NewSQLAnalyzer creates a new SQL analyzer with pre-allocated capacity.
@@ -449,6 +458,7 @@ func NewSQLAnalyzerWithSize(inputBytes int64) *SQLAnalyzer {
 		queryTypesByUser:     make(map[string]map[string]*QueryTypeCount),
 		queryTypesByHost:     make(map[string]map[string]*QueryTypeCount),
 		queryTypesByApp:      make(map[string]map[string]*QueryTypeCount),
+		pendingPlanByPID:     make(map[string]string),
 	}
 }
 
@@ -460,9 +470,22 @@ func NewSQLAnalyzerWithSize(inputBytes int64) *SQLAnalyzer {
 //	"LOG: duration: 5.123 ms execute <unnamed>: SELECT * FROM users WHERE id = 1"
 //	"LOG: duration: 10.456 ms statement: UPDATE users SET name = 'John' WHERE id = 1"
 func (a *SQLAnalyzer) Process(entry *parser.LogEntry) {
-	// Extract duration and query from log message
+	msg := entry.Message
 
-	duration, query, ok := extractDurationAndQuery(entry.Message)
+	// Intercept auto_explain plan: messages before normal processing.
+	// These arrive BEFORE the corresponding statement: entry for the same PID.
+	if isPlanMessage(msg) {
+		pid := parser.ExtractPID(msg)
+		if pid != "" {
+			if plan := extractPlanText(msg); plan != "" {
+				a.pendingPlanByPID[pid] = plan
+			}
+		}
+		return
+	}
+
+	// Extract duration and query from log message
+	duration, query, ok := extractDurationAndQuery(msg)
 	if !ok {
 		return
 	}
@@ -517,6 +540,15 @@ func (a *SQLAnalyzer) Process(entry *parser.LogEntry) {
 		Duration:  duration,
 		QueryID:   stats.ID,
 	})
+
+	// Associate pending auto_explain plan (same PID, arrived just before)
+	pid := parser.ExtractPID(msg)
+	if pid != "" {
+		if plan, hasPlan := a.pendingPlanByPID[pid]; hasPlan {
+			stats.LastPlan = plan
+			delete(a.pendingPlanByPID, pid)
+		}
+	}
 
 	// Update per-query statistics
 	stats.Count++
@@ -606,6 +638,9 @@ func extractPrefixFields(message string) (database, user, host, app string) {
 	prefix := message[:end]
 	n := len(prefix)
 
+	// Detect comma-separated format (e.g., "user=X,db=Y,app=Z")
+	commaSep := strings.Contains(prefix, ",db=") || strings.Contains(prefix, ",user=") || strings.Contains(prefix, ",app=")
+
 	// Fast scan using '=' as anchor point
 	for i := 0; i < n-1; i++ {
 		if prefix[i] != '=' {
@@ -613,15 +648,15 @@ func extractPrefixFields(message string) (database, user, host, app string) {
 		}
 		// Found '=', check what key it is
 		if i >= 2 && prefix[i-2:i] == "db" && (i == 2 || !isAlnum(prefix[i-3])) {
-			database = extractPrefixValueAt(prefix, i+1)
+			database = extractPrefixValueAt(prefix, i+1, false)
 		} else if i >= 4 && prefix[i-4:i] == "user" && (i == 4 || !isAlnum(prefix[i-5])) {
-			user = extractPrefixValueAt(prefix, i+1)
+			user = extractPrefixValueAt(prefix, i+1, false)
 		} else if i >= 4 && prefix[i-4:i] == "host" && (i == 4 || !isAlnum(prefix[i-5])) {
-			host = extractPrefixValueAt(prefix, i+1)
+			host = extractPrefixValueAt(prefix, i+1, false)
 		} else if i >= 6 && prefix[i-6:i] == "client" && (i == 6 || !isAlnum(prefix[i-7])) {
-			host = extractPrefixValueAt(prefix, i+1) // client= is alias for host
+			host = extractPrefixValueAt(prefix, i+1, false) // client= is alias for host
 		} else if i >= 3 && prefix[i-3:i] == "app" && (i == 3 || !isAlnum(prefix[i-4])) {
-			app = extractPrefixValueAt(prefix, i+1)
+			app = extractPrefixValueAt(prefix, i+1, commaSep)
 		}
 	}
 	return
@@ -632,15 +667,30 @@ func isAlnum(c byte) bool {
 	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_'
 }
 
-// extractPrefixValueAt extracts a value starting at position i until comma, space, or bracket
-func extractPrefixValueAt(s string, start int) string {
+// extractPrefixValueAt extracts a value starting at position i until a separator.
+// When skipSpace is true (comma-separated format), spaces are allowed in values
+// and severity markers (" LOG:", " ERROR:", etc.) act as terminators instead.
+func extractPrefixValueAt(s string, start int, skipSpace bool) string {
 	end := start
 	n := len(s)
-	for end < n && s[end] != ',' && s[end] != ' ' && s[end] != ']' && s[end] != '[' {
+	for end < n {
+		c := s[end]
+		if c == ',' || c == ']' || c == '[' {
+			break
+		}
+		if c == ' ' && !skipSpace {
+			break
+		}
 		end++
+	}
+	if skipSpace {
+		if pos := findSeverityMarker(s[start:end]); pos != -1 {
+			end = start + pos
+		}
 	}
 	return s[start:end]
 }
+
 
 // Finalize returns the aggregated SQL metrics.
 // This should be called after all log entries have been processed.
@@ -860,6 +910,219 @@ func indexAfter(s, substr string, after int) int {
 		return -1
 	}
 	return after + idx
+}
+
+// ============================================================================
+// auto_explain plan extraction
+// ============================================================================
+
+// isPlanMessage returns true if the message is an auto_explain plan entry.
+// These contain "duration:" followed by "plan:" but NOT "statement:" or "execute:".
+func isPlanMessage(message string) bool {
+	// Fast reject: "plan:" is rare, check it first
+	if strings.Index(message, "plan:") == -1 {
+		return false
+	}
+	durIdx := strings.Index(message, "duration:")
+	if durIdx == -1 {
+		return false
+	}
+	rest := message[durIdx:]
+	// Exclude normal statement/execute entries that happen to contain "plan" in the query text
+	if strings.Index(rest, "statement:") != -1 || strings.Index(rest, "execute") != -1 {
+		return false
+	}
+	return true
+}
+
+// extractPlanText extracts the execution plan text from an auto_explain message.
+// It strips the "duration: X ms  plan:" prefix and the "Query Text: ..." line.
+// Returns the plan nodes text only.
+func extractPlanText(message string) string {
+	// Find "plan:" marker
+	planIdx := strings.Index(message, "plan:")
+	if planIdx == -1 {
+		return ""
+	}
+	text := message[planIdx+5:] // Skip "plan:"
+
+	// Skip leading whitespace/newline
+	text = strings.TrimLeft(text, " \n\t")
+
+	// Strip "Query Text: ..." line (present in all auto_explain output)
+	// It's redundant with the statement: entry
+	if strings.HasPrefix(text, "Query Text:") {
+		// Find end of Query Text line: next newline or next plan node keyword
+		if nlIdx := strings.IndexByte(text, '\n'); nlIdx != -1 {
+			// Format with preserved newlines (JSON/CSV)
+			text = strings.TrimLeft(text[nlIdx+1:], " \n\t")
+		} else {
+			// Format without newlines (stderr): find earliest plan node keyword
+			planKeywords := []string{
+				"Result ", "Seq Scan ", "Index Scan ", "Index Only Scan ",
+				"Bitmap ", "Nested Loop", "Hash Join", "Merge Join",
+				"Sort ", "Aggregate", "Group", "Limit ", "Append",
+				"HashAggregate", "GroupAggregate", "WindowAgg",
+				"Subquery Scan", "Materialize", "CTE Scan",
+				"{", // JSON plan format
+			}
+			earliest := -1
+			for _, keyword := range planKeywords {
+				if idx := strings.Index(text, keyword); idx > 0 && (earliest == -1 || idx < earliest) {
+					earliest = idx
+				}
+			}
+			if earliest > 0 {
+				text = text[earliest:]
+			}
+		}
+	}
+
+	text = strings.TrimSpace(text)
+
+	// If no newlines (stderr format), reformat for readability
+	if !strings.Contains(text, "\n") && len(text) > 0 {
+		text = reformatFlatPlan(text)
+	}
+
+	return text
+}
+
+// reformatFlatPlan re-inserts newlines into a flat plan string (from stderr format
+// where continuation lines were joined with spaces). Handles both TEXT and JSON
+// auto_explain formats.
+func reformatFlatPlan(plan string) string {
+	// JSON plan format: detect and pretty-print
+	if strings.HasPrefix(strings.TrimSpace(plan), "{") {
+		return reformatJSONPlan(plan)
+	}
+
+	// TEXT plan format: re-insert newlines with depth tracking
+	return reformatTextPlan(plan)
+}
+
+// reformatJSONPlan pretty-prints a flat JSON plan string.
+func reformatJSONPlan(plan string) string {
+	var b strings.Builder
+	b.Grow(len(plan) * 2)
+	indent := 0
+	inString := false
+
+	for i := 0; i < len(plan); i++ {
+		c := plan[i]
+		if inString {
+			b.WriteByte(c)
+			if c == '"' && (i == 0 || plan[i-1] != '\\') {
+				inString = false
+			}
+			continue
+		}
+		switch c {
+		case '"':
+			b.WriteByte(c)
+			inString = true
+		case '{', '[':
+			b.WriteByte(c)
+			indent++
+			b.WriteByte('\n')
+			b.WriteString(strings.Repeat("  ", indent))
+		case '}', ']':
+			indent--
+			if indent < 0 {
+				indent = 0
+			}
+			b.WriteByte('\n')
+			b.WriteString(strings.Repeat("  ", indent))
+			b.WriteByte(c)
+		case ',':
+			b.WriteByte(c)
+			b.WriteByte('\n')
+			b.WriteString(strings.Repeat("  ", indent))
+		case ':':
+			b.WriteString(": ")
+		case ' ':
+			// skip extra spaces between tokens
+		default:
+			b.WriteByte(c)
+		}
+	}
+	return b.String()
+}
+
+// planFields lists keywords that start detail lines within a plan node.
+var planFields = []string{
+	"Output: ",
+	"Filter: ",
+	"Index Cond: ",
+	"Hash Cond: ",
+	"Merge Cond: ",
+	"Join Filter: ",
+	"Recheck Cond: ",
+	"Sort Key: ",
+	"Sort Method: ",
+	"Group Key: ",
+	"Rows Removed by ",
+	"Buffers: ",
+	"Batches: ",
+	"Buckets: ",
+	"Memory Usage: ",
+	"Inner Unique: ",
+	"Planning Time: ",
+	"Execution Time: ",
+	"InitPlan ",
+	"SubPlan ",
+}
+
+// reformatTextPlan re-inserts newlines into a flat TEXT plan with depth tracking.
+func reformatTextPlan(plan string) string {
+	var b strings.Builder
+	b.Grow(len(plan) + 200)
+
+	depth := 0
+	i := 0
+	for i < len(plan) {
+		// Check for child node marker "->  "
+		if i > 0 && i+4 <= len(plan) && plan[i:i+4] == "->  " {
+			depth++
+			indent := strings.Repeat("  ", depth)
+			// Trim trailing space
+			s := b.String()
+			if len(s) > 0 && s[len(s)-1] == ' ' {
+				b.Reset()
+				b.WriteString(s[:len(s)-1])
+			}
+			b.WriteString("\n" + indent + "->  ")
+			i += 4
+			continue
+		}
+
+		// Check for plan detail fields
+		matched := false
+		if i > 0 && plan[i-1] == ' ' {
+			for _, field := range planFields {
+				if i+len(field) <= len(plan) && plan[i:i+len(field)] == field {
+					indent := strings.Repeat("  ", depth+1)
+					// Trim trailing space
+					s := b.String()
+					if len(s) > 0 && s[len(s)-1] == ' ' {
+						b.Reset()
+						b.WriteString(s[:len(s)-1])
+					}
+					b.WriteString("\n" + indent + field)
+					i += len(field)
+					matched = true
+					break
+				}
+			}
+		}
+
+		if !matched {
+			b.WriteByte(plan[i])
+			i++
+		}
+	}
+
+	return b.String()
 }
 
 // ============================================================================

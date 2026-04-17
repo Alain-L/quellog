@@ -43,6 +43,7 @@ The output will be in the `site/` directory.
 - `default-report.md` - Default report sections explained
 - `sql-reports.md` - SQL analysis deep dive
 - `json-export.md` - JSON export format and usage
+- `yaml-export.md` - YAML export format and gomplate integration
 - `markdown-export.md` - Markdown export format and usage
 
 ## Contributing

@@ -163,7 +163,7 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 	if has("locks") && m.Locks.TotalEvents > 0 {
 		fmt.Println(bold + "\nLOCKS\n" + reset)
 		fmt.Printf("  %-25s : %d\n", "Total lock events", m.Locks.TotalEvents)
-		fmt.Printf("  %-25s : %d\n", "Waiting events", m.Locks.WaitingEvents)
+		fmt.Printf("  %-25s : %d\n", "Still waiting", m.Locks.WaitingEvents)
 		fmt.Printf("  %-25s : %d\n", "Acquired events", m.Locks.AcquiredEvents)
 		if m.Locks.DeadlockEvents > 0 {
 			fmt.Printf("  %-25s : %d\n", "Deadlock events", m.Locks.DeadlockEvents)
@@ -186,63 +186,183 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 			printLockStats(m.Locks.ResourceTypeStats, m.Locks.TotalEvents)
 		}
 
-		// Acquired locks by query (only shown with --locks flag, not in default report)
-		if !has("all") && len(m.Locks.QueryStats) > 0 {
-			hasAcquired := false
-			for _, stat := range m.Locks.QueryStats {
-				if stat.AcquiredCount > 0 {
-					hasAcquired = true
-					break
-				}
-			}
-			if hasAcquired {
-				termWidth, _, err := term.GetSize(int(os.Stdout.Fd()))
-				if err != nil {
-					termWidth = 120
-				}
-
-				fmt.Println(bold + "\nAcquired locks by query:" + reset)
-				printAcquiredLockQueries(m.Locks.QueryStats, 10, termWidth)
-			}
+		// Relation distribution
+		if len(m.Locks.RelationStats) > 0 {
+			fmt.Println()
+			fmt.Println("  Relations:")
+			printLockStats(m.Locks.RelationStats, m.Locks.TotalEvents)
 		}
 
-		// Locks still waiting by query (only shown with --locks flag, not in default report)
+		// Waiting queries (only shown with --locks flag, not in default report)
 		if !has("all") && len(m.Locks.QueryStats) > 0 {
-			hasStillWaiting := false
-			for _, stat := range m.Locks.QueryStats {
-				if stat.StillWaitingCount > 0 {
-					hasStillWaiting = true
-					break
-				}
+			termWidth, _, err := term.GetSize(int(os.Stdout.Fd()))
+			if err != nil {
+				termWidth = 120
 			}
-			if hasStillWaiting {
-				termWidth, _, err := term.GetSize(int(os.Stdout.Fd()))
-				if err != nil {
-					termWidth = 120
-				}
 
-				fmt.Println(bold + "\nLocks still waiting by query:" + reset)
-				printStillWaitingLockQueries(m.Locks.QueryStats, 10, termWidth)
-			}
-		}
-
-		// Most frequent waiting queries (only shown with --locks flag, not in default report)
-		if !has("all") && len(m.Locks.QueryStats) > 0 {
-			hasWaiting := false
+			// Sort by total wait time descending
+			type queryPair struct{ stat *analysis.LockQueryStat }
+			var pairs []queryPair
 			for _, stat := range m.Locks.QueryStats {
 				if stat.AcquiredCount > 0 || stat.StillWaitingCount > 0 {
-					hasWaiting = true
-					break
+					pairs = append(pairs, queryPair{stat})
 				}
 			}
-			if hasWaiting {
+			if len(pairs) > 0 {
+				sort.Slice(pairs, func(i, j int) bool {
+					return pairs[i].stat.TotalWaitTime > pairs[j].stat.TotalWaitTime
+				})
+
+				limit := 10
+				if limit > len(pairs) {
+					limit = len(pairs)
+				}
+
+				fmt.Println(bold + "\nWaiting queries:" + reset)
+
+				if termWidth >= 120 {
+					tableWidth := int(float64(termWidth) * 0.9)
+					if tableWidth > termWidth-10 {
+						tableWidth = termWidth - 10
+					}
+					// SQLID(9) + Acquired(10) + Waiting(10) + Total Wait(15) = 44
+					fixedWidth := 44
+					spacingWidth := 8
+					queryWidth := tableWidth - fixedWidth - spacingWidth
+					if queryWidth < 40 {
+						queryWidth = 40
+					}
+
+					fmt.Printf("%s%-9s  %-*s  %10s  %10s  %15s%s\n",
+						bold, "SQLID", queryWidth, "Query", "Acquired", "Waiting", "Total Wait", reset)
+					fmt.Println(strings.Repeat("-", tableWidth))
+
+					for i := 0; i < limit; i++ {
+						stat := pairs[i].stat
+						truncatedQuery := truncateQuery(stat.NormalizedQuery, queryWidth)
+						fmt.Printf("%-9s  %-*s  %10d  %10d  %15s\n",
+							stat.ID,
+							queryWidth, truncatedQuery,
+							stat.AcquiredCount,
+							stat.StillWaitingCount,
+							formatQueryDuration(stat.TotalWaitTime))
+					}
+				} else {
+					fmt.Printf("%s%-9s  %10s  %10s  %15s%s\n",
+						bold, "SQLID", "Acquired", "Waiting", "Total Wait", reset)
+					fmt.Println(strings.Repeat("-", 60))
+
+					for i := 0; i < limit; i++ {
+						stat := pairs[i].stat
+						fmt.Printf("%-9s  %10d  %10d  %15s\n",
+							stat.ID,
+							stat.AcquiredCount,
+							stat.StillWaitingCount,
+							formatQueryDuration(stat.TotalWaitTime))
+					}
+				}
+			}
+		}
+
+		// Blocking queries (only shown with --locks flag, not in default report)
+		if !has("all") && len(m.Locks.Events) > 0 {
+			type blockerStat struct {
+				queryID    string
+				query      string
+				blockCount int
+				totalWait  float64
+			}
+			blockers := make(map[string]*blockerStat)
+			for _, e := range m.Locks.Events {
+				if e.BlockingQueryID == "" || e.EventType == "deadlock" {
+					continue
+				}
+				bs, ok := blockers[e.BlockingQueryID]
+				if !ok {
+					bs = &blockerStat{queryID: e.BlockingQueryID}
+					blockers[e.BlockingQueryID] = bs
+				}
+				bs.blockCount++
+				bs.totalWait += e.WaitTime
+			}
+			if len(blockers) > 0 {
+				for _, e := range m.Locks.Events {
+					if e.BlockingQueryID == "" || e.BlockingQuery == "" {
+						continue
+					}
+					if bs, ok := blockers[e.BlockingQueryID]; ok && bs.query == "" {
+						bs.query = e.BlockingQuery
+					}
+				}
+
+				type blockerPair struct{ stat *blockerStat }
+				var pairs []blockerPair
+				for _, bs := range blockers {
+					pairs = append(pairs, blockerPair{bs})
+				}
+				sort.Slice(pairs, func(i, j int) bool {
+					return pairs[i].stat.totalWait > pairs[j].stat.totalWait
+				})
+
 				termWidth, _, err := term.GetSize(int(os.Stdout.Fd()))
 				if err != nil {
 					termWidth = 120
 				}
 
-				fmt.Println(bold + "\nMost frequent waiting queries:" + reset)
-				printMostFrequentWaitingQueries(m.Locks.QueryStats, 10, termWidth)
+				limit := 10
+				if limit > len(pairs) {
+					limit = len(pairs)
+				}
+
+				fmt.Println(bold + "\nBlocking queries:" + reset)
+
+				if termWidth >= 120 {
+					tableWidth := int(float64(termWidth) * 0.9)
+					if tableWidth > termWidth-10 {
+						tableWidth = termWidth - 10
+					}
+					fixedWidth := 49
+					spacingWidth := 8
+					queryWidth := tableWidth - fixedWidth - spacingWidth
+					if queryWidth < 40 {
+						queryWidth = 40
+					}
+
+					fmt.Printf("%s%-9s  %-*s  %10s  %15s  %15s%s\n",
+						bold, "SQLID", queryWidth, "Query", "Blocked", "Avg Wait", "Total Wait", reset)
+					fmt.Println(strings.Repeat("-", tableWidth))
+
+					for i := 0; i < limit; i++ {
+						bs := pairs[i].stat
+						truncatedQuery := truncateQuery(bs.query, queryWidth)
+						if truncatedQuery == "" {
+							truncatedQuery = "(unknown)"
+						}
+						avgWait := bs.totalWait / float64(bs.blockCount)
+						fmt.Printf("%-9s  %-*s  %10d  %15s  %15s\n",
+							bs.queryID,
+							queryWidth, truncatedQuery,
+							bs.blockCount,
+							formatQueryDuration(avgWait),
+							formatQueryDuration(bs.totalWait))
+					}
+				} else {
+					header := fmt.Sprintf("%-8s  %-10s  %-10s  %-12s  %-12s\n", "SQLID", "Type", "Blocked", "Avg Wait", "Total Wait")
+					fmt.Print(bold + header + reset)
+					fmt.Println(strings.Repeat("-", 80))
+
+					for i := 0; i < limit; i++ {
+						bs := pairs[i].stat
+						qType := analysis.QueryTypeFromID(bs.queryID)
+						avgWait := bs.totalWait / float64(bs.blockCount)
+						fmt.Printf("%-8s  %-10s  %-10d  %-12s  %-12s\n",
+							bs.queryID,
+							qType,
+							bs.blockCount,
+							formatQueryDuration(avgWait),
+							formatQueryDuration(bs.totalWait))
+					}
+				}
 			}
 		}
 	}
@@ -259,23 +379,46 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 	}
 
 	// Checkpoints section
-	if has("checkpoints") && m.Checkpoints.CompleteCount > 0 {
-		avgWriteSeconds := m.Checkpoints.TotalWriteTimeSeconds / float64(m.Checkpoints.CompleteCount)
-		avgDuration := time.Duration(avgWriteSeconds * float64(time.Second)).Truncate(time.Second)
-		maxDuration := time.Duration(m.Checkpoints.MaxWriteTimeSeconds * float64(time.Second)).Truncate(time.Second)
-
+	if has("checkpoints") && (m.Checkpoints.CompleteCount > 0 || m.Checkpoints.WarningCount > 0) {
 		fmt.Println(bold + "\nCHECKPOINTS\n" + reset)
 
-		// Histogram with frequency (4-hour buckets)
-		hist, _, scaleFactor := computeCheckpointHistogram(m.Checkpoints)
-		PrintCheckpointHistogram(hist, "Checkpoints", scaleFactor, 4.0)
+		if m.Checkpoints.CompleteCount > 0 {
+			avgWriteSeconds := m.Checkpoints.TotalWriteTimeSeconds / float64(m.Checkpoints.CompleteCount)
+			avgDuration := time.Duration(avgWriteSeconds * float64(time.Second)).Truncate(time.Second)
+			maxDuration := time.Duration(m.Checkpoints.MaxWriteTimeSeconds * float64(time.Second)).Truncate(time.Second)
 
-		fmt.Printf("  %-25s : %d\n", "Checkpoint count", m.Checkpoints.CompleteCount)
-		fmt.Printf("  %-25s : %s\n", "Avg checkpoint write time", avgDuration)
-		fmt.Printf("  %-25s : %s\n", "Max checkpoint write time", maxDuration)
+			// Histogram with frequency (4-hour buckets)
+			hist, _, scaleFactor := computeCheckpointHistogram(m.Checkpoints)
+			PrintCheckpointHistogram(hist, "Checkpoints", scaleFactor, 4.0)
+
+			fmt.Printf("  %-25s : %d\n", "Checkpoint count", m.Checkpoints.CompleteCount)
+			fmt.Printf("  %-25s : %s\n", "Avg checkpoint write time", avgDuration)
+			fmt.Printf("  %-25s : %s\n", "Max checkpoint write time", maxDuration)
+
+			if len(m.Checkpoints.WALDistances) > 0 {
+				avgDistMB := float64(m.Checkpoints.TotalDistanceKB) / float64(m.Checkpoints.CompleteCount) / 1024.0
+				maxDistMB := float64(m.Checkpoints.MaxDistanceKB) / 1024.0
+				fmt.Printf("  %-25s : %.1f MB\n", "WAL per checkpoint (avg)", avgDistMB)
+				fmt.Printf("  %-25s : %.1f MB\n", "WAL per checkpoint (max)", maxDistMB)
+			}
+		}
+
+		if m.Checkpoints.WarningCount > 0 {
+			italic := "\033[3m"
+			if m.Checkpoints.WarningMinIntervalSeconds == m.Checkpoints.WarningMaxIntervalSeconds {
+				fmt.Printf("  "+bold+"%-25s : %d"+reset+"   "+italic+"%ds apart"+reset+"\n",
+					"Too frequent warnings", m.Checkpoints.WarningCount,
+					m.Checkpoints.WarningMinIntervalSeconds)
+			} else {
+				fmt.Printf("  "+bold+"%-25s : %d"+reset+"   "+italic+"%d-%ds apart"+reset+"\n",
+					"Too frequent warnings", m.Checkpoints.WarningCount,
+					m.Checkpoints.WarningMinIntervalSeconds, m.Checkpoints.WarningMaxIntervalSeconds)
+			}
+		}
 
 		// Display checkpoint types
 		if len(m.Checkpoints.TypeCounts) > 0 {
+			fmt.Println()
 			fmt.Println("  Checkpoint types:")
 
 			// Build a slice to sort types by count (descending).
@@ -329,6 +472,11 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 					maxTypeLen, pair.Name, pair.Count, percentage, muted, rate, reset)
 			}
 		}
+
+		// WAL distance vs estimate histogram
+		if walBuckets := computeWALDistanceHistogram(m.Checkpoints); len(walBuckets) > 0 {
+			PrintWALDistanceHistogram(walBuckets)
+		}
 	}
 
 	// Connections & Sessions Metrics section.
@@ -357,7 +505,7 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 
 		// Connection distribution histogram (only in detailed mode)
 		if isDetailedMode {
-			hist, _, scaleFactor := computeConnectionsHistogram(m.Connections.Connections, m.Global.MinTimestamp, m.Global.MaxTimestamp)
+			hist, _, scaleFactor := computeConnectionsHistogram(m.Connections.Connections, m.Global.MinTimestamp, m.Global.MaxTimestamp, 12)
 			PrintHistogram(hist, "Connection distribution", "", scaleFactor, nil)
 		}
 
@@ -402,7 +550,7 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 		// Detailed mode: show additional stats when --connections is explicitly used
 		isExplicit := !has("all")
 		if isExplicit && len(m.Connections.SessionDurations) > 0 {
-			printDetailedConnectionStats(m, bold, reset)
+			printDetailedConnectionStats(m, bold, reset, true)
 		}
 	}
 
@@ -559,7 +707,7 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 
 // printDetailedConnectionStats displays detailed connection and session statistics.
 // This is shown only when --connections is explicitly used (not as part of "all").
-func printDetailedConnectionStats(m analysis.AggregatedMetrics, bold, reset string) {
+func printDetailedConnectionStats(m analysis.AggregatedMetrics, bold, reset string, showAll bool) {
 	// 1. SESSION TIME DISTRIBUTION (with histogram bars)
 	if len(m.Connections.SessionDurations) > 0 {
 		fmt.Println()
@@ -596,14 +744,9 @@ func printDetailedConnectionStats(m analysis.AggregatedMetrics, bold, reset stri
 			cumulated time.Duration
 		}
 		var sortedUsers []userStats
-		for user, durations := range m.Connections.SessionsByUser {
-			stats := analysis.CalculateDurationStats(durations)
-			// Calculate cumulated duration
-			var cumulated time.Duration
-			for _, d := range durations {
-				cumulated += d
-			}
-			sortedUsers = append(sortedUsers, userStats{user: user, stats: stats, cumulated: cumulated})
+		for user, s := range m.Connections.SessionsByUser {
+			stats := s.Stats()
+			sortedUsers = append(sortedUsers, userStats{user: user, stats: stats, cumulated: s.Cumulated()})
 		}
 		sort.Slice(sortedUsers, func(i, j int) bool {
 			return sortedUsers[i].stats.Count > sortedUsers[j].stats.Count
@@ -614,9 +757,8 @@ func printDetailedConnectionStats(m analysis.AggregatedMetrics, bold, reset stri
 			"User", "Sessions", "Min", "Max", "Avg", "Median", "Cumulated")
 		fmt.Println("  " + strings.Repeat("-", 89))
 
-		// Display top 10 users
 		limit := len(sortedUsers)
-		if limit > 10 {
+		if limit > 10 && !showAll {
 			limit = 10
 		}
 		for i := 0; i < limit; i++ {
@@ -643,14 +785,9 @@ func printDetailedConnectionStats(m analysis.AggregatedMetrics, bold, reset stri
 			cumulated time.Duration
 		}
 		var sortedDBs []dbStats
-		for db, durations := range m.Connections.SessionsByDatabase {
-			stats := analysis.CalculateDurationStats(durations)
-			// Calculate cumulated duration
-			var cumulated time.Duration
-			for _, d := range durations {
-				cumulated += d
-			}
-			sortedDBs = append(sortedDBs, dbStats{database: db, stats: stats, cumulated: cumulated})
+		for db, s := range m.Connections.SessionsByDatabase {
+			stats := s.Stats()
+			sortedDBs = append(sortedDBs, dbStats{database: db, stats: stats, cumulated: s.Cumulated()})
 		}
 		sort.Slice(sortedDBs, func(i, j int) bool {
 			return sortedDBs[i].stats.Count > sortedDBs[j].stats.Count
@@ -661,9 +798,8 @@ func printDetailedConnectionStats(m analysis.AggregatedMetrics, bold, reset stri
 			"Database", "Sessions", "Min", "Max", "Avg", "Median", "Cumulated")
 		fmt.Println("  " + strings.Repeat("-", 89))
 
-		// Display top 10 databases
 		limit := len(sortedDBs)
-		if limit > 10 {
+		if limit > 10 && !showAll {
 			limit = 10
 		}
 		for i := 0; i < limit; i++ {
@@ -690,14 +826,9 @@ func printDetailedConnectionStats(m analysis.AggregatedMetrics, bold, reset stri
 			cumulated time.Duration
 		}
 		var sortedHosts []hostStats
-		for host, durations := range m.Connections.SessionsByHost {
-			stats := analysis.CalculateDurationStats(durations)
-			// Calculate cumulated duration
-			var cumulated time.Duration
-			for _, d := range durations {
-				cumulated += d
-			}
-			sortedHosts = append(sortedHosts, hostStats{host: host, stats: stats, cumulated: cumulated})
+		for host, s := range m.Connections.SessionsByHost {
+			stats := s.Stats()
+			sortedHosts = append(sortedHosts, hostStats{host: host, stats: stats, cumulated: s.Cumulated()})
 		}
 		sort.Slice(sortedHosts, func(i, j int) bool {
 			return sortedHosts[i].stats.Count > sortedHosts[j].stats.Count
@@ -708,9 +839,8 @@ func printDetailedConnectionStats(m analysis.AggregatedMetrics, bold, reset stri
 			"Host", "Sessions", "Min", "Max", "Avg", "Median", "Cumulated")
 		fmt.Println("  " + strings.Repeat("-", 89))
 
-		// Display top 10 hosts
 		limit := len(sortedHosts)
-		if limit > 10 {
+		if limit > 10 && !showAll {
 			limit = 10
 		}
 		for i := 0; i < limit; i++ {
@@ -731,14 +861,12 @@ func printDetailedConnectionStats(m analysis.AggregatedMetrics, bold, reset stri
 }
 
 // formatSessionDuration formats a time.Duration for human-readable display.
-// Examples: "0s", "2s", "5m30s", "1h45m", "2h"
+// Examples: "0s", "2s", "5m30s", "1h45m", "2d 3h15m"
 func formatSessionDuration(d time.Duration) string {
 	if d < time.Minute {
-		// Less than 1 minute: show seconds
 		return fmt.Sprintf("%.0fs", d.Seconds())
 	}
 	if d < time.Hour {
-		// Less than 1 hour: show minutes and seconds
 		mins := int(d.Minutes())
 		secs := int(d.Seconds()) % 60
 		if secs > 0 {
@@ -746,13 +874,23 @@ func formatSessionDuration(d time.Duration) string {
 		}
 		return fmt.Sprintf("%dm", mins)
 	}
-	// 1 hour or more: show hours and minutes
-	hours := int(d.Hours())
+	totalHours := int(d.Hours())
 	mins := int(d.Minutes()) % 60
-	if mins > 0 {
-		return fmt.Sprintf("%dh%dm", hours, mins)
+	if totalHours >= 24 {
+		days := totalHours / 24
+		hours := totalHours % 24
+		if hours > 0 && mins > 0 {
+			return fmt.Sprintf("%dd %dh%dm", days, hours, mins)
+		}
+		if hours > 0 {
+			return fmt.Sprintf("%dd %dh", days, hours)
+		}
+		return fmt.Sprintf("%dd", days)
 	}
-	return fmt.Sprintf("%dh", hours)
+	if mins > 0 {
+		return fmt.Sprintf("%dh%dm", totalHours, mins)
+	}
+	return fmt.Sprintf("%dh", totalHours)
 }
 
 // printTopTables prints the top tables for a given operation (vacuum or analyze).
@@ -1317,6 +1455,16 @@ func PrintSQLDetails(m analysis.AggregatedMetrics, queryDetails []string) {
 			fmt.Println()
 			fmt.Println(rawQuery)
 		}
+
+		// Display execution plan if available (from auto_explain)
+		if sqlStat != nil && sqlStat.LastPlan != "" {
+			fmt.Println()
+			fmt.Println(bold + "EXECUTION PLAN" + reset)
+			fmt.Println()
+			for _, line := range strings.Split(sqlStat.LastPlan, "\n") {
+				fmt.Printf("  %s\n", line)
+			}
+		}
 	}
 }
 
@@ -1669,6 +1817,79 @@ func PrintCheckpointHistogram(data map[string]int, title string, scaleFactor int
 	fmt.Println()
 }
 
+// PrintWALDistanceHistogram displays a WAL distance vs estimate histogram.
+// Uses ◼ for distance within estimate, ◻ for estimate margin, ■ for overshoot.
+func PrintWALDistanceHistogram(buckets []WALDistanceBucket) {
+	// Find max value (max of distance and estimate across all buckets)
+	maxMB := 0.0
+	for _, b := range buckets {
+		if b.AvgDistMB > maxMB {
+			maxMB = b.AvgDistMB
+		}
+		if b.AvgEstMB > maxMB {
+			maxMB = b.AvgEstMB
+		}
+	}
+	if maxMB == 0 {
+		return
+	}
+
+	barWidth := 40
+
+	// Scale: MB per character
+	scaleMB := maxMB / float64(barWidth)
+	if scaleMB <= 0 {
+		scaleMB = 1
+	}
+
+	// Round scale for legend
+	scaleLabel := scaleMB
+	scaleUnit := "MB"
+	if scaleLabel < 1.0 {
+		scaleLabel *= 1024
+		scaleUnit = "kB"
+	}
+
+	muted := "\033[38;5;243m"
+	muteReset := "\033[0m"
+
+	fmt.Printf("\n  WAL per checkpoint (avg) | ■ = %.0f %s  %s□%s = estimate margin\n\n", scaleLabel, scaleUnit, muted, muteReset)
+
+	for _, b := range buckets {
+		if b.Count == 0 {
+			fmt.Printf("  %-13s   -\n", b.Label)
+			continue
+		}
+
+		dist := b.AvgDistMB
+		est := b.AvgEstMB
+
+		distChars := int(dist / scaleMB)
+		if distChars > barWidth {
+			distChars = barWidth
+		}
+		marginChars := 0
+		if est > dist {
+			estChars := int(est / scaleMB)
+			if estChars > barWidth {
+				estChars = barWidth
+			}
+			marginChars = estChars - distChars
+			if marginChars < 0 {
+				marginChars = 0
+			}
+		}
+		margin := ""
+		if marginChars > 0 {
+			margin = muted + strings.Repeat("□", marginChars) + muteReset
+		}
+		bar := strings.Repeat("■", distChars) + margin
+
+		fmt.Printf("  %-13s  %s  %.0f MB\n", b.Label, bar, dist)
+	}
+	fmt.Println()
+}
+
 // PrintConcurrentHistogram displays a histogram with peak times for each bucket.
 // Similar to PrintHistogram but adds the time when the peak occurred.
 func PrintConcurrentHistogram(data map[string]int, title string, scaleFactor int, orderedLabels []string, peakTimes map[string]time.Time) {
@@ -1746,6 +1967,8 @@ func PrintConcurrentHistogramWithTZ(data map[string]int, title string, scaleFact
 		if value == 0 {
 			fmt.Printf("  %-13s  %s\n", label, " -")
 		} else {
+			muted := "\033[3;38;5;243m" // italic + gray
+			muteReset := "\033[0m"
 			peakStr := ""
 			if pt, ok := peakTimes[label]; ok && !pt.IsZero() {
 				// Normalize peak time to reference timezone if provided
@@ -1753,12 +1976,12 @@ func PrintConcurrentHistogramWithTZ(data map[string]int, title string, scaleFact
 				if refTime != nil {
 					displayTime = pt.In(refTime.Location())
 				}
-				peakStr = fmt.Sprintf("(%02d:%02d)", displayTime.Hour(), displayTime.Minute())
+				peakStr = fmt.Sprintf("%s%02d:%02d%s", muted, displayTime.Hour(), displayTime.Minute(), muteReset)
 			}
 			if barLength > 0 {
-				fmt.Printf("  %-13s  %-s %d %s\n", label, bar, value, peakStr)
+				fmt.Printf("  %-13s  %-s %d  %s\n", label, bar, value, peakStr)
 			} else {
-				fmt.Printf("  %-13s  %d %s\n", label, value, peakStr)
+				fmt.Printf("  %-13s  %d  %s\n", label, value, peakStr)
 			}
 		}
 	}

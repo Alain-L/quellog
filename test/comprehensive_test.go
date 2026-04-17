@@ -86,9 +86,10 @@ func TestComprehensiveFormatParity(t *testing.T) {
 
 // keyMetrics holds the essential metrics that must be identical across formats
 type keyMetrics struct {
-	TotalLogs        int
-	Checkpoints      int
-	Connections      int
+	TotalLogs            int
+	Checkpoints          int
+	CheckpointWarnings   int
+	Connections          int
 	Disconnections   int
 	SQLQueries       int
 	SQLUniqueQueries int
@@ -114,6 +115,7 @@ func extractKeyMetrics(t *testing.T, result map[string]interface{}) keyMetrics {
 	// Checkpoints
 	if checkpoints, ok := result["checkpoints"].(map[string]interface{}); ok {
 		metrics.Checkpoints = int(getFloat(checkpoints, "total_checkpoints"))
+		metrics.CheckpointWarnings = int(getFloat(checkpoints, "warning_count"))
 	}
 
 	// Connections
@@ -225,6 +227,9 @@ func TestSyslogAllFormats(t *testing.T) {
 		}
 		if bsd.Checkpoints != iso.Checkpoints {
 			t.Errorf("Checkpoints differ: bsd=%d, iso=%d", bsd.Checkpoints, iso.Checkpoints)
+		}
+		if bsd.CheckpointWarnings != iso.CheckpointWarnings {
+			t.Errorf("CheckpointWarnings differ: bsd=%d, iso=%d", bsd.CheckpointWarnings, iso.CheckpointWarnings)
 		}
 		if bsd.Connections != iso.Connections {
 			t.Errorf("Connections differ: bsd=%d, iso=%d", bsd.Connections, iso.Connections)
@@ -353,6 +358,29 @@ func TestComprehensiveCompression(t *testing.T) {
 		metrics := extractKeyMetrics(t, result)
 		if !reflect.DeepEqual(referenceMetrics, metrics) {
 			t.Errorf("zip result differs from uncompressed:\n  uncompressed: %+v\n  zip: %+v",
+				referenceMetrics, metrics)
+		}
+	})
+
+	// Test 7z archive
+	t.Run("7z", func(t *testing.T) {
+		szFile := "testdata/stderr.7z"
+
+		cmd := exec.Command(quellogBinary, szFile, "--json")
+		var stdout bytes.Buffer
+		cmd.Stdout = &stdout
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to run quellog on 7z file: %v", err)
+		}
+
+		var result map[string]interface{}
+		if err := json.Unmarshal(stdout.Bytes(), &result); err != nil {
+			t.Fatalf("invalid JSON from 7z: %v", err)
+		}
+
+		metrics := extractKeyMetrics(t, result)
+		if !reflect.DeepEqual(referenceMetrics, metrics) {
+			t.Errorf("7z result differs from uncompressed:\n  uncompressed: %+v\n  7z: %+v",
 				referenceMetrics, metrics)
 		}
 	})

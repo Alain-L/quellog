@@ -66,10 +66,11 @@ export function safeMin(arr) {
  * @returns {string}
  */
 export function fmtBytes(b) {
+    const strip = v => v.replace(/\.0$/, '');
     if (b < 1024) return b + ' B';
-    if (b < 1024 * 1024) return (b / 1024).toFixed(1) + ' KB';
-    if (b < 1024 * 1024 * 1024) return (b / 1024 / 1024).toFixed(1) + ' MB';
-    return (b / 1024 / 1024 / 1024).toFixed(2) + ' GB';
+    if (b < 1024 * 1024) return Math.round(b / 1024) + ' KB';
+    if (b < 1024 * 1024 * 1024) return Math.round(b / 1024 / 1024) + ' MB';
+    return strip((b / 1024 / 1024 / 1024).toFixed(1)) + ' GB';
 }
 
 /**
@@ -119,9 +120,16 @@ export function fmtDur(s) {
         sec = parseFloat(s.substring(sStart, sIdx)) || 0;
     }
 
-    // Build output
+    // Build output — convert hours > 24 to days
     const parts = [];
-    if (h > 0) parts.push(h + 'h');
+    if (h >= 24) {
+        const days = Math.floor(h / 24);
+        const remH = h % 24;
+        parts.push(days + 'd');
+        if (remH > 0) parts.push(remH + 'h');
+    } else if (h > 0) {
+        parts.push(h + 'h');
+    }
     if (m > 0) parts.push(m + 'm');
     if (sec > 0) {
         parts.push(parts.length > 0 ? Math.round(sec) + 's' : sec.toFixed(2) + 's');
@@ -136,6 +144,21 @@ export function fmtDur(s) {
     return parts.length > 0 ? parts.join(' ') : s;
 }
 
+export function parseDurToMs(s) {
+    if (!s || s === '-') return 0;
+    if (typeof s !== 'string') return Number(s) || 0;
+    let ms = 0;
+    const hMatch = s.match(/(\d+)\s*h/);
+    const mMatch = s.match(/(\d+)\s*m(?!s)/);
+    const sMatch = s.match(/([\d.]+)\s*s(?!.*ms)/);
+    const msMatch = s.match(/([\d.]+)\s*ms/);
+    if (hMatch) ms += parseInt(hMatch[1]) * 3600000;
+    if (mMatch) ms += parseInt(mMatch[1]) * 60000;
+    if (sMatch) ms += parseFloat(sMatch[1]) * 1000;
+    if (msMatch) ms += parseFloat(msMatch[1]);
+    return ms;
+}
+
 /**
  * Escape HTML special characters.
  * @param {string} s
@@ -146,4 +169,9 @@ export function esc(s) {
     const d = document.createElement('div');
     d.textContent = s;
     return d.innerHTML;
+}
+
+export function truncQuery(s, max = 120) {
+    if (!s || s.length <= max) return s;
+    return s.slice(0, max) + '…';
 }

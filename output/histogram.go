@@ -410,6 +410,61 @@ func computeCheckpointHistogram(m analysis.CheckpointMetrics) (map[string]int, s
 	return histogram, "checkpoints", scaleFactor
 }
 
+// WALDistanceBucket holds the average WAL distance and estimate for a time bucket.
+type WALDistanceBucket struct {
+	Label      string
+	AvgDistMB  float64
+	AvgEstMB   float64
+	Count      int
+}
+
+// computeWALDistanceHistogram groups checkpoint WAL distances into 4-hour buckets
+// and computes average distance and estimate per bucket.
+func computeWALDistanceHistogram(m analysis.CheckpointMetrics) []WALDistanceBucket {
+	if len(m.WALDistances) == 0 {
+		return nil
+	}
+
+	numBuckets := 6
+	day := m.WALDistances[0].Timestamp
+	start := time.Date(day.Year(), day.Month(), day.Day(), 0, 0, 0, 0, day.Location())
+
+	buckets := make([]WALDistanceBucket, numBuckets)
+	for i := 0; i < numBuckets; i++ {
+		bStart := start.Add(time.Duration(i) * 4 * time.Hour)
+		bEnd := bStart.Add(4 * time.Hour)
+		buckets[i].Label = fmt.Sprintf("%s - %s", bStart.Format("15:04"), bEnd.Format("15:04"))
+	}
+
+	// Accumulate per bucket
+	type accum struct {
+		totalDist int64
+		totalEst  int64
+		count     int
+	}
+	acc := make([]accum, numBuckets)
+
+	for _, w := range m.WALDistances {
+		idx := w.Timestamp.Hour() / 4
+		if idx >= numBuckets {
+			idx = numBuckets - 1
+		}
+		acc[idx].totalDist += w.DistanceKB
+		acc[idx].totalEst += w.EstimateKB
+		acc[idx].count++
+	}
+
+	for i := 0; i < numBuckets; i++ {
+		buckets[i].Count = acc[i].count
+		if acc[i].count > 0 {
+			buckets[i].AvgDistMB = float64(acc[i].totalDist) / float64(acc[i].count) / 1024.0
+			buckets[i].AvgEstMB = float64(acc[i].totalEst) / float64(acc[i].count) / 1024.0
+		}
+	}
+
+	return buckets
+}
+
 // computeConnectionsHistogram calculates a histogram of connection events over time.
 // It divides the time range into 6 equal buckets and counts connections in each bucket.
 // If logStart/logEnd are provided, they define the time range; otherwise the range is derived from events.
@@ -418,7 +473,7 @@ func computeCheckpointHistogram(m analysis.CheckpointMetrics) (map[string]int, s
 //   - histogram: map of time range labels to connection count
 //   - unit: "connections"
 //   - scaleFactor: for proportional display (max bar width = 40 chars)
-func computeConnectionsHistogram(events []time.Time, logStart, logEnd time.Time) (map[string]int, string, int) {
+func computeConnectionsHistogram(events []time.Time, logStart, logEnd time.Time, numBuckets ...int) (map[string]int, string, int) {
 	if len(events) == 0 {
 		return nil, "", 0
 	}
@@ -439,13 +494,16 @@ func computeConnectionsHistogram(events []time.Time, logStart, logEnd time.Time)
 		}
 	}
 
-	// Fixed at 6 buckets.
-	numBuckets := 6
+	// Default to 6 buckets if not specified.
+	nBuckets := 6
+	if len(numBuckets) > 0 && numBuckets[0] > 0 {
+		nBuckets = numBuckets[0]
+	}
 	totalDuration := end.Sub(start)
 	if totalDuration <= 0 {
 		totalDuration = time.Second // Minimum duration to avoid division by zero.
 	}
-	bucketDuration := totalDuration / time.Duration(numBuckets)
+	bucketDuration := totalDuration / time.Duration(nBuckets)
 
 	// Check if we span multiple calendar days
 	startDay := time.Date(start.Year(), start.Month(), start.Day(), 0, 0, 0, 0, start.Location())
@@ -453,9 +511,9 @@ func computeConnectionsHistogram(events []time.Time, logStart, logEnd time.Time)
 	spansDays := !startDay.Equal(endDay)
 
 	// Create buckets with their labels.
-	histogram := make(map[string]int, numBuckets)
-	bucketLabels := make([]string, numBuckets)
-	for i := 0; i < numBuckets; i++ {
+	histogram := make(map[string]int, nBuckets)
+	bucketLabels := make([]string, nBuckets)
+	for i := 0; i < nBuckets; i++ {
 		bucketStart := start.Add(time.Duration(i) * bucketDuration)
 		bucketEnd := bucketStart.Add(bucketDuration)
 		var label string
@@ -480,8 +538,8 @@ func computeConnectionsHistogram(events []time.Time, logStart, logEnd time.Time)
 		}
 		elapsed := t.Sub(start)
 		bucketIndex := int(elapsed / bucketDuration)
-		if bucketIndex >= numBuckets {
-			bucketIndex = numBuckets - 1
+		if bucketIndex >= nBuckets {
+			bucketIndex = nBuckets - 1
 		}
 		histogram[bucketLabels[bucketIndex]]++
 	}

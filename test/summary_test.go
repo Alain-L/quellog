@@ -223,7 +223,7 @@ func TestSectionJSONStructure(t *testing.T) {
 		}
 
 		// Check required fields
-		requiredFields := []string{"total_checkpoints", "avg_checkpoint_time"}
+		requiredFields := []string{"total_checkpoints", "avg_checkpoint_time", "warning_count"}
 		for _, field := range requiredFields {
 			if _, ok := checkpoints[field]; !ok {
 				t.Errorf("checkpoints missing required field: %s", field)

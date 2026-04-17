@@ -226,6 +226,8 @@ window.reinitWasm=async function(){
         go.run(instance);
         window.wasmReady=true;
         console.log('[quellog] WASM ready (standalone)');
+        var ve=document.getElementById('quellog-version');
+        if(ve&&typeof quellogVersion==='function')ve.textContent='quellog '+quellogVersion();
     }catch(e){
         console.error('[quellog] WASM init failed:',e);
         alert('WASM initialization failed: '+e.message);

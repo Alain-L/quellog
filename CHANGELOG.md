@@ -2,6 +2,41 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.0] - 2026-04-16
+
+### Added
+- **auto_explain support**: Capture and display execution plans from `auto_explain` in text, markdown, JSON, and HTML (with Visualize button to explain.dalibo.com)
+- **Checkpoint frequency warnings**: Parse `checkpoints are occurring too frequently` messages with interval tracking
+- **WAL distance/estimate**: Extract WAL generation stats from checkpoint complete messages, with chart in HTML
+- **WAL rate / flush rate**: I/O throughput metrics for checkpoint writes
+- **Blocking queries**: Extract blocking PID from lock DETAIL lines, resolve to blocking query via PID tracking
+- **TCL separation**: Transaction control statements (BEGIN/COMMIT/ROLLBACK) in dedicated tab
+- **7z archive support**: Parse `.7z` archives with LZMA/LZMA2 compression
+- **YAML export** (`--yaml`): Structured output compatible with gomplate templates
+- **Duration formatting**: Sessions > 24h displayed as `5d 19h55m` instead of `139h55m`
+- **All session rows**: `--connections` flag shows all rows (no top-10 limit)
+
+### Changed
+- **HTML report polish**: Improved layout, sortable tables, chart legends, scroll hints, better concurrent sessions chart
+- **Documentation**: Complete rewrite — 2-tab layout (Documentation + How-tos), streamlined from 3166 to 992 lines
+
+### Fixed
+- **Lock counting**: Deduplicate lock events — count each contention once, not every repeated "still waiting" message
+- **Lock query association**: Fix regression where lock query tables were empty for logs without `log_min_duration_statement`
+- **JSON plan formatting**: Prevent panic on malformed auto_explain plan text
+- **Session filter**: Fix concurrent sessions chart disappearing on time filter
+- **Application name spaces**: Handle multi-word `application_name` in comma-separated log_line_prefix
+- **Non-PostgreSQL log lines**: Skip pgBackRest/WAL-G lines captured by logging_collector via archive_command
+- **Event normalization**: Handle linguistic apostrophes in message grouping
+- **Archive rotated logs**: Support rotated log filenames (e.g. `postgresql.log.2026-03-23-10`) in tar archives
+- **Path traversal protection**: Validate paths in tar archive entries
+
+### Performance
+- Streaming P² median for session stats (no full sort)
+- Skip filter channel hop when no filters active
+- Increase channel buffer from 24k to 64k entries
+- Optimize isPlanMessage and LockAnalyzer fast-path
+
 ## [0.8.0] - 2026-02-08
 
 ### Added

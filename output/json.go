@@ -62,6 +62,7 @@ type QueryStatJSON struct {
 	TotalTime       float64 `json:"total_time_ms"`
 	AvgTime         float64 `json:"avg_time_ms"`
 	MaxTime         float64 `json:"max_time_ms"`
+	Plan            string  `json:"plan,omitempty"`
 }
 
 // SQL Overview JSON structures (for --sql-overview --json)
@@ -118,6 +119,7 @@ type SQLDetailJSON struct {
 	Executions      []QueryExecutionJSON  `json:"executions,omitempty"`
 	TempFiles       *QueryTempFilesJSON   `json:"temp_files,omitempty"`
 	Locks           *QueryLocksJSON       `json:"locks,omitempty"`
+	Plan            string                `json:"plan,omitempty"`
 }
 
 type QueryDetailStatsJSON struct {
@@ -219,6 +221,7 @@ type LocksJSON struct {
 	AvgWaitTime       string              `json:"avg_wait_time"`
 	LockTypeStats     map[string]int      `json:"lock_type_stats"`
 	ResourceTypeStats map[string]int      `json:"resource_type_stats"`
+	RelationStats     map[string]int      `json:"relation_stats,omitempty"`
 	Events            []LockEventJSON     `json:"events"`
 	Queries           []LockQueryStatJSON `json:"queries,omitempty"`
 }
@@ -229,8 +232,12 @@ type LockEventJSON struct {
 	LockType     string `json:"lock_type,omitempty"`
 	ResourceType string `json:"resource_type,omitempty"`
 	WaitTime     string `json:"wait_time,omitempty"`
-	ProcessID    string `json:"process_id"`
-	QueryID      string `json:"query_id,omitempty"`
+	ProcessID       string `json:"process_id"`
+	QueryID         string `json:"query_id,omitempty"`
+	BlockingPID     string `json:"blocking_pid,omitempty"`
+	BlockingQueryID string `json:"blocking_query_id,omitempty"`
+	BlockingQuery   string `json:"blocking_query,omitempty"`
+	Relation        string `json:"relation,omitempty"`
 }
 
 type LockQueryStatJSON struct {
@@ -251,12 +258,30 @@ type CheckpointTypeJSON struct {
 	Events     []string `json:"events"`
 }
 
+type WALDistanceJSON struct {
+	Timestamp  string `json:"timestamp"`
+	DistanceKB int64  `json:"distance_kb"`
+	EstimateKB int64  `json:"estimate_kb"`
+}
+
 type CheckpointsJSON struct {
 	TotalCheckpoints  int                           `json:"total_checkpoints"`
 	AvgCheckpointTime string                        `json:"avg_checkpoint_time"`
 	MaxCheckpointTime string                        `json:"max_checkpoint_time"`
 	Events            []string                      `json:"events"`
 	Types             map[string]CheckpointTypeJSON `json:"types,omitempty"`
+
+	AvgWALDistance      string             `json:"avg_wal_distance,omitempty"`
+	MaxWALDistance      string             `json:"max_wal_distance,omitempty"`
+	TotalBuffersWritten int64             `json:"total_buffers_written,omitempty"`
+	WALRate             string             `json:"wal_rate,omitempty"`
+	FlushRate           string             `json:"flush_rate,omitempty"`
+	WALDistances        []WALDistanceJSON  `json:"wal_distances,omitempty"`
+
+	WarningCount              int      `json:"warning_count,omitempty"`
+	WarningMinIntervalSeconds int      `json:"warning_min_interval_seconds,omitempty"`
+	WarningMaxIntervalSeconds int      `json:"warning_max_interval_seconds,omitempty"`
+	WarningEvents             []string `json:"warning_events,omitempty"`
 }
 
 type SessionStatsJSON struct {
@@ -482,11 +507,13 @@ func buildJSONData(m analysis.AggregatedMetrics, sections []string, full bool) m
 		}
 	}
 
-	if has("checkpoints") && m.Checkpoints.CompleteCount > 0 {
+	if has("checkpoints") && (m.Checkpoints.CompleteCount > 0 || m.Checkpoints.WarningCount > 0) {
 		cp := CheckpointsJSON{
-			TotalCheckpoints:  m.Checkpoints.CompleteCount,
-			AvgCheckpointTime: formatSeconds(m.Checkpoints.TotalWriteTimeSeconds / float64(m.Checkpoints.CompleteCount)),
-			MaxCheckpointTime: formatSeconds(m.Checkpoints.MaxWriteTimeSeconds),
+			TotalCheckpoints: m.Checkpoints.CompleteCount,
+		}
+		if m.Checkpoints.CompleteCount > 0 {
+			cp.AvgCheckpointTime = formatSeconds(m.Checkpoints.TotalWriteTimeSeconds / float64(m.Checkpoints.CompleteCount))
+			cp.MaxCheckpointTime = formatSeconds(m.Checkpoints.MaxWriteTimeSeconds)
 		}
 		for _, t := range m.Checkpoints.Events {
 			cp.Events = append(cp.Events, t.Format("2006-01-02 15:04:05"))
@@ -512,6 +539,39 @@ func buildJSONData(m analysis.AggregatedMetrics, sections []string, full bool) m
 					}
 				}
 				cp.Types[cpType] = typeJSON
+			}
+		}
+		if len(m.Checkpoints.WALDistances) > 0 && m.Checkpoints.CompleteCount > 0 {
+			avgKB := float64(m.Checkpoints.TotalDistanceKB) / float64(m.Checkpoints.CompleteCount)
+			cp.AvgWALDistance = formatBytes(int64(avgKB) * 1024)
+			cp.MaxWALDistance = formatBytes(m.Checkpoints.MaxDistanceKB * 1024)
+			for _, w := range m.Checkpoints.WALDistances {
+				cp.WALDistances = append(cp.WALDistances, WALDistanceJSON{
+					Timestamp:  w.Timestamp.Format("2006-01-02 15:04:05"),
+					DistanceKB: w.DistanceKB,
+					EstimateKB: w.EstimateKB,
+				})
+			}
+		}
+		// I/O rates
+		if m.Checkpoints.TotalBuffersWritten > 0 {
+			cp.TotalBuffersWritten = m.Checkpoints.TotalBuffersWritten
+		}
+		duration := m.Global.MaxTimestamp.Sub(m.Global.MinTimestamp)
+		if duration.Seconds() > 0 && m.Checkpoints.TotalDistanceKB > 0 {
+			walRateBytesPerSec := float64(m.Checkpoints.TotalDistanceKB*1024) / duration.Seconds()
+			cp.WALRate = formatRate(walRateBytesPerSec)
+		}
+		if m.Checkpoints.TotalWriteTimeSeconds > 0 && m.Checkpoints.TotalBuffersWritten > 0 {
+			flushRateBytesPerSec := float64(m.Checkpoints.TotalBuffersWritten*8192) / m.Checkpoints.TotalWriteTimeSeconds
+			cp.FlushRate = formatRate(flushRateBytesPerSec)
+		}
+		if m.Checkpoints.WarningCount > 0 {
+			cp.WarningCount = m.Checkpoints.WarningCount
+			cp.WarningMinIntervalSeconds = m.Checkpoints.WarningMinIntervalSeconds
+			cp.WarningMaxIntervalSeconds = m.Checkpoints.WarningMaxIntervalSeconds
+			for _, t := range m.Checkpoints.WarningEvents {
+				cp.WarningEvents = append(cp.WarningEvents, t.Format("2006-01-02 15:04:05"))
 			}
 		}
 		data["checkpoints"] = cp
@@ -556,43 +616,31 @@ func buildJSONData(m analysis.AggregatedMetrics, sections []string, full bool) m
 		}
 		if len(m.Connections.SessionsByUser) > 0 {
 			conn.SessionsByUser = make(map[string]SessionStatsJSON)
-			for user, durations := range m.Connections.SessionsByUser {
-				stats := analysis.CalculateDurationStats(durations)
-				var cumulated time.Duration
-				for _, d := range durations {
-					cumulated += d
-				}
+			for user, s := range m.Connections.SessionsByUser {
+				stats := s.Stats()
 				conn.SessionsByUser[user] = SessionStatsJSON{
 					Count: stats.Count, Min: stats.Min.String(), Max: stats.Max.String(),
-					Avg: stats.Avg.String(), Median: stats.Median.String(), Cumulated: cumulated.String(),
+					Avg: stats.Avg.String(), Median: stats.Median.String(), Cumulated: s.Cumulated().String(),
 				}
 			}
 		}
 		if len(m.Connections.SessionsByDatabase) > 0 {
 			conn.SessionsByDatabase = make(map[string]SessionStatsJSON)
-			for db, durations := range m.Connections.SessionsByDatabase {
-				stats := analysis.CalculateDurationStats(durations)
-				var cumulated time.Duration
-				for _, d := range durations {
-					cumulated += d
-				}
+			for db, s := range m.Connections.SessionsByDatabase {
+				stats := s.Stats()
 				conn.SessionsByDatabase[db] = SessionStatsJSON{
 					Count: stats.Count, Min: stats.Min.String(), Max: stats.Max.String(),
-					Avg: stats.Avg.String(), Median: stats.Median.String(), Cumulated: cumulated.String(),
+					Avg: stats.Avg.String(), Median: stats.Median.String(), Cumulated: s.Cumulated().String(),
 				}
 			}
 		}
 		if len(m.Connections.SessionsByHost) > 0 {
 			conn.SessionsByHost = make(map[string]SessionStatsJSON)
-			for host, durations := range m.Connections.SessionsByHost {
-				stats := analysis.CalculateDurationStats(durations)
-				var cumulated time.Duration
-				for _, d := range durations {
-					cumulated += d
-				}
+			for host, s := range m.Connections.SessionsByHost {
+				stats := s.Stats()
 				conn.SessionsByHost[host] = SessionStatsJSON{
 					Count: stats.Count, Min: stats.Min.String(), Max: stats.Max.String(),
-					Avg: stats.Avg.String(), Median: stats.Median.String(), Cumulated: cumulated.String(),
+					Avg: stats.Avg.String(), Median: stats.Median.String(), Cumulated: s.Cumulated().String(),
 				}
 			}
 		}
@@ -860,6 +908,7 @@ func buildFullSQLPerformance(m analysis.SQLMetrics) SQLPerformanceDetailJSON {
 			TotalTime:       s.stat.TotalTime,
 			AvgTime:         s.stat.AvgTime,
 			MaxTime:         s.stat.MaxTime,
+			Plan:            s.stat.LastPlan,
 		})
 	}
 
@@ -952,6 +1001,7 @@ func convertSQLPerformance(m analysis.SQLMetrics) SQLPerformanceJSON {
 			TotalTime:       stat.TotalTime,
 			AvgTime:         stat.AvgTime,
 			MaxTime:         stat.MaxTime,
+			Plan:            stat.LastPlan,
 		})
 	}
 	// Sort by ID for deterministic JSON output
@@ -993,13 +1043,17 @@ func convertLocks(m analysis.LockMetrics) LocksJSON {
 			waitTime = formatQueryDuration(event.WaitTime)
 		}
 		eventsJSON[i] = LockEventJSON{
-			Timestamp:    event.Timestamp.Format("2006-01-02 15:04:05"),
-			EventType:    event.EventType,
-			LockType:     event.LockType,
-			ResourceType: event.ResourceType,
-			WaitTime:     waitTime,
-			ProcessID:    event.ProcessID,
-			QueryID:      event.QueryID,
+			Timestamp:       event.Timestamp.Format("2006-01-02 15:04:05"),
+			EventType:       event.EventType,
+			LockType:        event.LockType,
+			ResourceType:    event.ResourceType,
+			WaitTime:        waitTime,
+			ProcessID:       event.ProcessID,
+			QueryID:         event.QueryID,
+			BlockingPID:     event.BlockingPID,
+			BlockingQueryID: event.BlockingQueryID,
+			BlockingQuery:   event.BlockingQuery,
+			Relation:        event.Relation,
 		}
 	}
 
@@ -1031,6 +1085,7 @@ func convertLocks(m analysis.LockMetrics) LocksJSON {
 		AvgWaitTime:       avgWaitTime,
 		LockTypeStats:     m.LockTypeStats,
 		ResourceTypeStats: m.ResourceTypeStats,
+		RelationStats:     m.RelationStats,
 		Events:            eventsJSON,
 		Queries:           queriesJSON,
 	}
@@ -1313,6 +1368,10 @@ func ExportSQLDetailJSON(w io.Writer, m analysis.AggregatedMetrics, queryIDs []s
 				TotalTime: formatQueryDuration(foundStat.TotalTime),
 				AvgTime:   formatQueryDuration(foundStat.AvgTime),
 				MaxTime:   formatQueryDuration(foundStat.MaxTime),
+			}
+
+			if foundStat.LastPlan != "" {
+				detail.Plan = foundStat.LastPlan
 			}
 
 			// Find executions for this query

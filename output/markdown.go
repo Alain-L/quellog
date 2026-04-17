@@ -261,12 +261,12 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 		b.WriteString("## LOCKS\n\n")
 
 		avgWaitTime := 0.0
-		if m.Locks.WaitingEvents+m.Locks.AcquiredEvents > 0 {
-			avgWaitTime = m.Locks.TotalWaitTime / float64(m.Locks.WaitingEvents+m.Locks.AcquiredEvents)
+		if m.Locks.TotalEvents > 0 {
+			avgWaitTime = m.Locks.TotalWaitTime / float64(m.Locks.TotalEvents)
 		}
 
 		b.WriteString(fmt.Sprintf("- **Total lock events**: %d\n", m.Locks.TotalEvents))
-		b.WriteString(fmt.Sprintf("- **Waiting events**: %d\n", m.Locks.WaitingEvents))
+		b.WriteString(fmt.Sprintf("- **Still waiting**: %d\n", m.Locks.WaitingEvents))
 		b.WriteString(fmt.Sprintf("- **Acquired events**: %d\n", m.Locks.AcquiredEvents))
 		if m.Locks.DeadlockEvents > 0 {
 			b.WriteString(fmt.Sprintf("- **Deadlock events**: %d\n", m.Locks.DeadlockEvents))
@@ -296,56 +296,111 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 			b.WriteString("\n")
 		}
 
-		// Acquired locks by query
-		if len(m.Locks.QueryStats) > 0 {
-			hasAcquired := false
-			for _, stat := range m.Locks.QueryStats {
-				if stat.AcquiredCount > 0 {
-					hasAcquired = true
-					break
-				}
-			}
-			if hasAcquired {
-				b.WriteString("### Acquired Locks by Query\n\n")
-				b.WriteString("| SQLID | Normalized Query | Locks | Avg Wait (ms) | Total Wait (ms) |\n")
-				b.WriteString("|---|---|---:|---:|---:|\n")
-				printAcquiredLockQueriesMarkdown(&b, m.Locks.QueryStats, 10)
-				b.WriteString("\n")
-			}
+		// Relation distribution
+		if len(m.Locks.RelationStats) > 0 {
+			b.WriteString("### Relations\n\n")
+			b.WriteString("| Relation | Count | Percentage |\n")
+			b.WriteString("|---|---:|---:|\n")
+			printLockStatsMarkdown(&b, m.Locks.RelationStats, m.Locks.TotalEvents)
+			b.WriteString("\n")
 		}
 
-		// Locks still waiting by query
+		// Waiting queries
 		if len(m.Locks.QueryStats) > 0 {
-			hasStillWaiting := false
-			for _, stat := range m.Locks.QueryStats {
-				if stat.StillWaitingCount > 0 {
-					hasStillWaiting = true
-					break
-				}
-			}
-			if hasStillWaiting {
-				b.WriteString("### Locks Still Waiting by Query\n\n")
-				b.WriteString("| SQLID | Normalized Query | Locks | Avg Wait (ms) | Total Wait (ms) |\n")
-				b.WriteString("|---|---|---:|---:|---:|\n")
-				printStillWaitingLockQueriesMarkdown(&b, m.Locks.QueryStats, 10)
-				b.WriteString("\n")
-			}
-		}
-
-		// Most frequent waiting queries
-		if len(m.Locks.QueryStats) > 0 {
-			hasWaiting := false
+			type queryPair struct{ stat *analysis.LockQueryStat }
+			var pairs []queryPair
 			for _, stat := range m.Locks.QueryStats {
 				if stat.AcquiredCount > 0 || stat.StillWaitingCount > 0 {
-					hasWaiting = true
-					break
+					pairs = append(pairs, queryPair{stat})
 				}
 			}
-			if hasWaiting {
-				b.WriteString("### Most Frequent Waiting Queries\n\n")
-				b.WriteString("| SQLID | Normalized Query | Locks | Avg Wait (ms) | Total Wait (ms) |\n")
+			if len(pairs) > 0 {
+				sort.Slice(pairs, func(i, j int) bool {
+					return pairs[i].stat.TotalWaitTime > pairs[j].stat.TotalWaitTime
+				})
+				limit := 10
+				if limit > len(pairs) {
+					limit = len(pairs)
+				}
+
+				b.WriteString("### Waiting Queries\n\n")
+				b.WriteString("| SQLID | Query | Acquired | Waiting | Total Wait |\n")
 				b.WriteString("|---|---|---:|---:|---:|\n")
-				printMostFrequentWaitingQueriesMarkdown(&b, m.Locks.QueryStats, 10)
+				for i := 0; i < limit; i++ {
+					stat := pairs[i].stat
+					b.WriteString(fmt.Sprintf("| %s | %s | %d | %d | %s |\n",
+						stat.ID,
+						truncateQuery(stat.NormalizedQuery, 60),
+						stat.AcquiredCount,
+						stat.StillWaitingCount,
+						formatQueryDuration(stat.TotalWaitTime)))
+				}
+				b.WriteString("\n")
+			}
+		}
+
+		// Blocking queries
+		if len(m.Locks.Events) > 0 {
+			type blockerStat struct {
+				queryID    string
+				query      string
+				blockCount int
+				totalWait  float64
+			}
+			blockers := make(map[string]*blockerStat)
+			for _, e := range m.Locks.Events {
+				if e.BlockingQueryID == "" || e.EventType == "deadlock" {
+					continue
+				}
+				bs, ok := blockers[e.BlockingQueryID]
+				if !ok {
+					bs = &blockerStat{queryID: e.BlockingQueryID}
+					blockers[e.BlockingQueryID] = bs
+				}
+				bs.blockCount++
+				bs.totalWait += e.WaitTime
+			}
+			if len(blockers) > 0 {
+				for _, e := range m.Locks.Events {
+					if e.BlockingQueryID == "" || e.BlockingQuery == "" {
+						continue
+					}
+					if bs, ok := blockers[e.BlockingQueryID]; ok && bs.query == "" {
+						bs.query = e.BlockingQuery
+					}
+				}
+
+				type blockerPair struct{ stat *blockerStat }
+				var pairs []blockerPair
+				for _, bs := range blockers {
+					pairs = append(pairs, blockerPair{bs})
+				}
+				sort.Slice(pairs, func(i, j int) bool {
+					return pairs[i].stat.totalWait > pairs[j].stat.totalWait
+				})
+
+				limit := 10
+				if limit > len(pairs) {
+					limit = len(pairs)
+				}
+
+				b.WriteString("### Blocking Queries\n\n")
+				b.WriteString("| SQLID | Query | Blocked | Avg Wait | Total Wait |\n")
+				b.WriteString("|---|---|---:|---:|---:|\n")
+				for i := 0; i < limit; i++ {
+					bs := pairs[i].stat
+					query := bs.query
+					if query == "" {
+						query = "(unknown)"
+					}
+					avgWait := bs.totalWait / float64(bs.blockCount)
+					b.WriteString(fmt.Sprintf("| %s | %s | %d | %s | %s |\n",
+						bs.queryID,
+						truncateQuery(query, 60),
+						bs.blockCount,
+						formatQueryDuration(avgWait),
+						formatQueryDuration(bs.totalWait)))
+				}
 				b.WriteString("\n")
 			}
 		}
@@ -375,19 +430,40 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 	// ============================================================================
 	// CHECKPOINTS
 	// ============================================================================
-	if has("checkpoints") && m.Checkpoints.CompleteCount > 0 {
-		avgWriteSeconds := m.Checkpoints.TotalWriteTimeSeconds / float64(m.Checkpoints.CompleteCount)
-		avgDuration := time.Duration(avgWriteSeconds * float64(time.Second)).Truncate(time.Second)
-		maxDuration := time.Duration(m.Checkpoints.MaxWriteTimeSeconds * float64(time.Second)).Truncate(time.Second)
-
+	if has("checkpoints") && (m.Checkpoints.CompleteCount > 0 || m.Checkpoints.WarningCount > 0) {
 		b.WriteString("## CHECKPOINTS\n\n")
 
-		hist, _, scale := computeCheckpointHistogram(m.Checkpoints)
-		printHistogramMarkdown(&b, hist, "Checkpoint distribution", "", scale, nil)
+		if m.Checkpoints.CompleteCount > 0 {
+			avgWriteSeconds := m.Checkpoints.TotalWriteTimeSeconds / float64(m.Checkpoints.CompleteCount)
+			avgDuration := time.Duration(avgWriteSeconds * float64(time.Second)).Truncate(time.Second)
+			maxDuration := time.Duration(m.Checkpoints.MaxWriteTimeSeconds * float64(time.Second)).Truncate(time.Second)
 
-		b.WriteString(fmt.Sprintf("- **Checkpoint count**: %d\n", m.Checkpoints.CompleteCount))
-		b.WriteString(fmt.Sprintf("- **Avg checkpoint write time**: %s\n", avgDuration))
-		b.WriteString(fmt.Sprintf("- **Max checkpoint write time**: %s\n\n", maxDuration))
+			hist, _, scale := computeCheckpointHistogram(m.Checkpoints)
+			printHistogramMarkdown(&b, hist, "Checkpoint distribution", "", scale, nil)
+
+			b.WriteString(fmt.Sprintf("- **Checkpoint count**: %d\n", m.Checkpoints.CompleteCount))
+			b.WriteString(fmt.Sprintf("- **Avg checkpoint write time**: %s\n", avgDuration))
+			b.WriteString(fmt.Sprintf("- **Max checkpoint write time**: %s\n", maxDuration))
+
+			if len(m.Checkpoints.WALDistances) > 0 {
+				avgDistMB := float64(m.Checkpoints.TotalDistanceKB) / float64(m.Checkpoints.CompleteCount) / 1024.0
+				maxDistMB := float64(m.Checkpoints.MaxDistanceKB) / 1024.0
+				b.WriteString(fmt.Sprintf("- **WAL per checkpoint (avg)**: %.1f MB\n", avgDistMB))
+				b.WriteString(fmt.Sprintf("- **WAL per checkpoint (max)**: %.1f MB\n", maxDistMB))
+			}
+		}
+
+		if m.Checkpoints.WarningCount > 0 {
+			if m.Checkpoints.WarningMinIntervalSeconds == m.Checkpoints.WarningMaxIntervalSeconds {
+				b.WriteString(fmt.Sprintf("- **Too frequent warnings**: %d (%d s apart)\n",
+					m.Checkpoints.WarningCount, m.Checkpoints.WarningMinIntervalSeconds))
+			} else {
+				b.WriteString(fmt.Sprintf("- **Too frequent warnings**: %d (%d-%d s apart)\n",
+					m.Checkpoints.WarningCount,
+					m.Checkpoints.WarningMinIntervalSeconds, m.Checkpoints.WarningMaxIntervalSeconds))
+			}
+		}
+		b.WriteString("\n")
 
 		// Display checkpoint types
 		if len(m.Checkpoints.TypeCounts) > 0 {
@@ -431,6 +507,11 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 					pair.Name, pair.Count, percentage, rate))
 			}
 			b.WriteString("\n")
+		}
+
+		// WAL distance vs estimate
+		if walBuckets := computeWALDistanceHistogram(m.Checkpoints); len(walBuckets) > 0 {
+			printWALDistanceMarkdown(&b, walBuckets)
 		}
 	}
 
@@ -540,14 +621,10 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 				cumulated time.Duration
 			}
 			var sortedUsers []userStats
-			for user, durations := range m.Connections.SessionsByUser {
-				stats := analysis.CalculateDurationStats(durations)
-				var cumulated time.Duration
-				for _, d := range durations {
-					cumulated += d
-				}
+			for user, s := range m.Connections.SessionsByUser {
+				stats := s.Stats()
 				sortedUsers = append(sortedUsers, userStats{
-					user: user, stats: stats, cumulated: cumulated,
+					user: user, stats: stats, cumulated: s.Cumulated(),
 				})
 			}
 			sort.Slice(sortedUsers, func(i, j int) bool {
@@ -581,14 +658,10 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 				cumulated time.Duration
 			}
 			var sortedDBs []dbStats
-			for db, durations := range m.Connections.SessionsByDatabase {
-				stats := analysis.CalculateDurationStats(durations)
-				var cumulated time.Duration
-				for _, d := range durations {
-					cumulated += d
-				}
+			for db, s := range m.Connections.SessionsByDatabase {
+				stats := s.Stats()
 				sortedDBs = append(sortedDBs, dbStats{
-					database: db, stats: stats, cumulated: cumulated,
+					database: db, stats: stats, cumulated: s.Cumulated(),
 				})
 			}
 			sort.Slice(sortedDBs, func(i, j int) bool {
@@ -622,14 +695,10 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 				cumulated time.Duration
 			}
 			var sortedHosts []hostStats
-			for host, durations := range m.Connections.SessionsByHost {
-				stats := analysis.CalculateDurationStats(durations)
-				var cumulated time.Duration
-				for _, d := range durations {
-					cumulated += d
-				}
+			for host, s := range m.Connections.SessionsByHost {
+				stats := s.Stats()
 				sortedHosts = append(sortedHosts, hostStats{
-					host: host, stats: stats, cumulated: cumulated,
+					host: host, stats: stats, cumulated: s.Cumulated(),
 				})
 			}
 			sort.Slice(sortedHosts, func(i, j int) bool {
@@ -765,6 +834,65 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 // ============================================================================
 
 // printHistogramMarkdown renders a histogram as ASCII art in a code block
+func printWALDistanceMarkdown(b *strings.Builder, buckets []WALDistanceBucket) {
+	maxMB := 0.0
+	for _, bk := range buckets {
+		if bk.AvgDistMB > maxMB {
+			maxMB = bk.AvgDistMB
+		}
+		if bk.AvgEstMB > maxMB {
+			maxMB = bk.AvgEstMB
+		}
+	}
+	if maxMB == 0 {
+		return
+	}
+
+	barWidth := 50
+	scaleMB := maxMB / float64(barWidth)
+	if scaleMB <= 0 {
+		scaleMB = 1
+	}
+
+	scaleLabel := scaleMB
+	scaleUnit := "MB"
+	if scaleLabel < 1.0 {
+		scaleLabel *= 1024
+		scaleUnit = "kB"
+	}
+
+	b.WriteString("### WAL per checkpoint (avg)\n\n")
+	b.WriteString(fmt.Sprintf("■ = %.0f %s, □ = estimate margin\n\n", scaleLabel, scaleUnit))
+	b.WriteString("```\n")
+
+	for _, bk := range buckets {
+		if bk.Count == 0 {
+			b.WriteString(fmt.Sprintf("%-13s  -\n", bk.Label))
+			continue
+		}
+		dist := bk.AvgDistMB
+		est := bk.AvgEstMB
+		distChars := int(dist / scaleMB)
+		if distChars > barWidth {
+			distChars = barWidth
+		}
+		marginChars := 0
+		if est > dist {
+			estChars := int(est / scaleMB)
+			if estChars > barWidth {
+				estChars = barWidth
+			}
+			marginChars = estChars - distChars
+			if marginChars < 0 {
+				marginChars = 0
+			}
+		}
+		bar := strings.Repeat("■", distChars) + strings.Repeat("□", marginChars)
+		b.WriteString(fmt.Sprintf("%-13s %s  %.0f MB\n", bk.Label, bar, dist))
+	}
+	b.WriteString("```\n\n")
+}
+
 func printHistogramMarkdown(b *strings.Builder, data map[string]int, title, unit string, scaleFactor int, orderedLabels []string) {
 	if len(data) == 0 {
 		b.WriteString("(No data available)\n\n")
@@ -889,7 +1017,12 @@ func printTopTablesMarkdown(tableCounts map[string]int, total int, spaceRecovere
 		}
 		pairs = append(pairs, p)
 	}
-	sort.Slice(pairs, func(i, j int) bool { return pairs[i].Count > pairs[j].Count })
+	sort.Slice(pairs, func(i, j int) bool {
+		if pairs[i].Count != pairs[j].Count {
+			return pairs[i].Count > pairs[j].Count
+		}
+		return pairs[i].Name < pairs[j].Name
+	})
 
 	var sb strings.Builder
 	sb.WriteString("| Table | Count | % of total | Recovered |\n")
@@ -1515,6 +1648,14 @@ func ExportSQLDetailMarkdown(w io.Writer, m analysis.AggregatedMetrics, queryIDs
 			b.WriteString("### Example Query\n\n")
 			b.WriteString("```sql\n")
 			b.WriteString(rawQuery)
+			b.WriteString("\n```\n\n")
+		}
+
+		// Execution plan (from auto_explain)
+		if sqlStat != nil && sqlStat.LastPlan != "" {
+			b.WriteString("### Execution Plan\n\n")
+			b.WriteString("```\n")
+			b.WriteString(sqlStat.LastPlan)
 			b.WriteString("\n```\n\n")
 		}
 	}

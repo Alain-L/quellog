@@ -202,46 +202,49 @@ export function binConcurrentSessions(events, minT, maxT, interval) {
     const buckets = computeBuckets(range, interval);
     const bucketSize = range / buckets;
 
+    const hasPre = events.some(e => e.pre);
     const xData = new Float64Array(buckets);
     const yData = new Float64Array(buckets);
+    const yPre = hasPre ? new Float64Array(buckets) : null;
     for (let i = 0; i < buckets; i++) {
         xData[i] = minT + i * bucketSize + bucketSize / 2;
     }
 
-    // Filter and find starting concurrent count before minT
-    let current = 0;
+    let currentPre = 0, currentNew = 0;
     let eventIdx = 0;
 
-    // Count events before minT to get starting concurrent count
     while (eventIdx < events.length && events[eventIdx].time / 1000 < minT) {
-        current += events[eventIdx].delta;
+        if (events[eventIdx].pre) currentPre += events[eventIdx].delta;
+        else currentNew += events[eventIdx].delta;
         eventIdx++;
     }
 
-    // Sweep-line for visible range
     for (let b = 0; b < buckets; b++) {
         const bucketStart = minT + b * bucketSize;
         const bucketEnd = minT + (b + 1) * bucketSize;
-        let maxInBucket = current;
+        let maxTotal = currentPre + currentNew;
+        let preAtPeak = currentPre, newAtPeak = currentNew;
 
         while (eventIdx < events.length && events[eventIdx].time / 1000 < bucketEnd) {
             const e = events[eventIdx];
-            const t = e.time / 1000;
-            if (t >= bucketStart) {
-                current += e.delta;
-                if (current > maxInBucket) maxInBucket = current;
-            } else {
-                current += e.delta;
+            if (e.pre) currentPre += e.delta;
+            else currentNew += e.delta;
+            const total = currentPre + currentNew;
+            if (total > maxTotal) {
+                maxTotal = total;
+                preAtPeak = currentPre;
+                newAtPeak = currentNew;
             }
             eventIdx++;
         }
-        yData[b] = Math.max(maxInBucket, 0);
+        yData[b] = Math.max(maxTotal, 0);
+        if (yPre) yPre[b] = Math.max(preAtPeak, 0);
     }
 
     const sortedY = [...yData].filter(v => v > 0).sort((a, b) => a - b);
     const median = sortedY.length > 0 ? sortedY[Math.floor(sortedY.length / 2)] : 0;
 
-    return { xData, yData, median, buckets };
+    return { xData, yData, yPre, median, buckets };
 }
 
 // Helper: bin checkpoints by type (for stacked bar chart)
@@ -347,7 +350,8 @@ export function createCheckpointChart(containerId, data, options = {}) {
                 let parts = [];
                 if (timeVal > 0) parts.push(`<span style="color:${colors.time}">${timeVal} timed</span>`);
                 if (xlogVal > 0) parts.push(`<span style="color:${colors.wal}">${xlogVal} WAL</span>`);
-                if (otherVal > 0) parts.push(`<span style="color:${colors.other}">${otherVal} other</span>`);
+                const otherLabel = data.warningsOnly ? 'warning' : 'other';
+                if (otherVal > 0) parts.push(`<span style="color:${colors.other}">${otherVal} ${otherLabel}</span>`);
                 tooltip.innerHTML = `<strong>${timeStr}</strong><br>${parts.join(' · ')}`;
                 tooltip.style.display = 'block';
                 const ttWidth = tooltip.offsetWidth;
@@ -370,7 +374,7 @@ export function createCheckpointChart(containerId, data, options = {}) {
         legend: { show: false },
         scales: {
             x: { time: true },
-            y: { range: [0, null] }
+            y: { range: (u, min, max) => [0, Math.max(Math.ceil(max), 2)] }
         },
         axes: [
             {
@@ -389,7 +393,9 @@ export function createCheckpointChart(containerId, data, options = {}) {
                 grid: { show: false },
                 ticks: { show: false },
                 size: 30,
-                font: '10px system-ui'
+                font: '10px system-ui',
+                incrs: [1, 2, 5, 10, 20, 50, 100],
+                values: (u, vals) => vals.map(v => Number.isInteger(v) ? v : '')
             }
         ],
         series: [
@@ -486,8 +492,184 @@ export function createCheckpointChart(containerId, data, options = {}) {
     chart._typeData = typeData;
     chart._interval = interval;
     chart._originalXRange = [minT, maxT];
+    chart._lastRange = null;
+    chart.setScale('x', { min: minT, max: maxT });
 
     // Handle resize
+    const resizeObserver = new ResizeObserver(() => {
+        if (container.clientWidth > 0) {
+            chart.setSize({ width: container.clientWidth, height: opts.height });
+        }
+    });
+    resizeObserver.observe(container);
+
+    return chart;
+}
+
+// Create WAL distance vs estimate chart (bars + dashed line)
+export function createWALDistanceChart(containerId, data, options = {}) {
+    const container = document.getElementById(containerId);
+    if (!container || !data?.distances || data.distances.length === 0) return null;
+
+    if (charts.has(containerId)) {
+        charts.get(containerId).destroy();
+        charts.delete(containerId);
+    }
+    container.innerHTML = '';
+
+    // Parse data: timestamps, distance (MB), estimate (MB)
+    const points = data.distances
+        .map(d => ({
+            t: new Date(d.timestamp).getTime() / 1000,
+            dist: d.distance_kb / 1024,
+            est: d.estimate_kb / 1024
+        }))
+        .filter(p => !isNaN(p.t))
+        .sort((a, b) => a.t - b.t);
+
+    if (points.length === 0) return null;
+
+    const xData = new Float64Array(points.map(p => p.t));
+    const distData = new Float64Array(points.map(p => p.dist));
+    const estData = new Float64Array(points.map(p => p.est));
+
+    const barColor = getComputedStyle(document.documentElement).getPropertyValue('--chart-bar').trim() || '#5a9bd5';
+    const estColor = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#f47920';
+
+    // Parse warning timestamps for pink background bands
+    const warningTimes = (data.warnings || [])
+        .map(t => new Date(t).getTime() / 1000)
+        .filter(t => !isNaN(t))
+        .sort((a, b) => a - b);
+
+    // Tooltip
+    const tooltip = document.createElement('div');
+    tooltip.className = 'chart-tooltip';
+
+    const tooltipPlugin = () => ({
+        hooks: {
+            init: u => { u.root.querySelector('.u-over').appendChild(tooltip); },
+            setCursor: u => {
+                const { idx, left, top } = u.cursor;
+                if (idx == null || idx < 0 || idx >= u.data[0].length) {
+                    tooltip.style.display = 'none';
+                    return;
+                }
+                const dist = u.data[1][idx] || 0;
+                const est = u.data[2][idx] || 0;
+                if (dist === 0 && est === 0) {
+                    tooltip.style.display = 'none';
+                    return;
+                }
+                const d = new Date(u.data[0][idx] * 1000);
+                const timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+                tooltip.innerHTML = `<strong>${timeStr}</strong><br>` +
+                    `<span style="color:${barColor}">distance: ${dist.toFixed(1)} MB</span><br>` +
+                    `<span style="color:${estColor}">estimate: ${est.toFixed(1)} MB</span>`;
+                tooltip.style.display = 'block';
+                const ttWidth = tooltip.offsetWidth;
+                const chartWidth = u.bbox.width;
+                let ttLeft = left - ttWidth / 2;
+                if (ttLeft < 0) ttLeft = 0;
+                if (ttLeft + ttWidth > chartWidth) ttLeft = chartWidth - ttWidth;
+                tooltip.style.left = ttLeft + 'px';
+                tooltip.style.top = (top - tooltip.offsetHeight - 10) + 'px';
+            }
+        }
+    });
+
+    const opts = {
+        width: container.clientWidth || 300,
+        height: options.height || 200,
+        cursor: { drag: { x: true, y: false, setScale: true } },
+        legend: { show: false },
+        scales: {
+            x: { time: true },
+            y: { range: (u, min, max) => [0, max * 1.1] }
+        },
+        axes: [
+            { stroke: '#888', grid: { stroke: '#8881' }, ticks: { show: false }, gap: 2, size: 20,
+              values: (u, vals) => vals.map(v => { const d = new Date(v * 1000); return d.getHours() + ':' + String(d.getMinutes()).padStart(2, '0'); })
+            },
+            {
+                stroke: '#888',
+                grid: { stroke: '#8881' },
+                size: 30,
+                ticks: { show: false },
+                gap: 2,
+                values: (u, vals) => vals.map(v => v >= 1024 ? (v/1024).toFixed(0) + 'G' : v.toFixed(0))
+            }
+        ],
+        series: [
+            {},
+            // Distance: invisible series (drawn as bars in hook)
+            { fill: 'transparent', stroke: 'transparent', width: 0, points: { show: false }, paths: () => null },
+            // Estimate: dashed line
+            { stroke: estColor, width: 2, dash: [6, 4], points: { show: false } }
+        ],
+        plugins: [tooltipPlugin()],
+        hooks: {
+            draw: [u => {
+                const ctx = u.ctx;
+                const xd = u.data[0];
+                const dist = u.data[1];
+                const barW = Math.max(4, (u.bbox.width / xd.length) * 0.6);
+                const radius = Math.min(3, barW / 3);
+                const y0 = u.valToPos(0, 'y', true);
+                const yMax = u.valToPos(u.scales.y.max, 'y', true);
+
+                // Draw pink background bands for "too frequent" warning periods
+                if (warningTimes.length > 0) {
+                    ctx.fillStyle = 'rgba(220, 53, 69, 0.25)';
+                    // Group warnings within 60s into clusters
+                    let clusterStart = warningTimes[0];
+                    let clusterEnd = warningTimes[0];
+                    for (let i = 1; i <= warningTimes.length; i++) {
+                        if (i < warningTimes.length && warningTimes[i] - clusterEnd < 120) {
+                            clusterEnd = warningTimes[i];
+                        } else {
+                            // Draw this cluster with some padding
+                            const pad = Math.max(30, (clusterEnd - clusterStart) * 0.1);
+                            const x1 = u.valToPos(clusterStart - pad, 'x', true);
+                            const x2 = u.valToPos(clusterEnd + pad, 'x', true);
+                            ctx.fillRect(x1, yMax, x2 - x1, y0 - yMax);
+                            if (i < warningTimes.length) {
+                                clusterStart = warningTimes[i];
+                                clusterEnd = warningTimes[i];
+                            }
+                        }
+                    }
+                }
+
+                ctx.fillStyle = barColor;
+                for (let i = 0; i < xd.length; i++) {
+                    const v = dist[i] || 0;
+                    if (v <= 0) continue;
+                    const x = u.valToPos(xd[i], 'x', true);
+                    const yTop = u.valToPos(v, 'y', true);
+                    const h = y0 - yTop;
+
+                    ctx.beginPath();
+                    ctx.moveTo(x - barW/2, y0);
+                    ctx.lineTo(x - barW/2, yTop + radius);
+                    ctx.quadraticCurveTo(x - barW/2, yTop, x - barW/2 + radius, yTop);
+                    ctx.lineTo(x + barW/2 - radius, yTop);
+                    ctx.quadraticCurveTo(x + barW/2, yTop, x + barW/2, yTop + radius);
+                    ctx.lineTo(x + barW/2, y0);
+                    ctx.closePath();
+                    ctx.fill();
+                }
+            }]
+        }
+    };
+
+    const chart = new uPlot(opts, [xData, distData, estData], container);
+    charts.set(containerId, chart);
+
+    const minT = xData[0];
+    const maxT = xData[xData.length - 1];
+    chart._originalXRange = [minT, maxT];
+
     const resizeObserver = new ResizeObserver(() => {
         if (container.clientWidth > 0) {
             chart.setSize({ width: container.clientWidth, height: opts.height });
@@ -657,6 +839,8 @@ export function createTimeChart(containerId, timestamps, options = {}) {
     chart._times = times;
     chart._interval = interval;
     chart._originalXRange = [minT, maxT];
+    chart._lastRange = null;
+    chart.setScale('x', { min: minT, max: maxT });
     chart._median = median;
 
     // Handle resize
@@ -852,6 +1036,8 @@ export function createDurationChart(containerId, executions, options = {}) {
     chart._executions = sorted;
     chart._interval = interval;
     chart._originalXRange = [minT, maxT];
+    chart._lastRange = null;
+    chart.setScale('x', { min: minT, max: maxT });
     chart._median = median;
 
     const resizeObserver = new ResizeObserver(() => {
@@ -1093,6 +1279,8 @@ export function createCombinedSQLChart(containerId, rawData, options = {}) {
     chart._rawData = rawData;
     chart._interval = interval;
     chart._originalXRange = [minT, maxT];
+    chart._lastRange = null;
+    chart.setScale('x', { min: minT, max: maxT });
     chart._medianCount = medianCount;
     chart._seriesVisible = seriesVisible;
     chart._containerId = containerId;
@@ -1280,21 +1468,45 @@ export function createHistogramChart(containerId, histogram, options = {}) {
                     ctx.setLineDash([]);
                 }
 
-                // Draw bars
+                // Draw bars (stacked: grey pre-log, orange new)
+                const preData = u._yPre;
+                const preColor = getComputedStyle(document.documentElement).getPropertyValue('--text-muted')?.trim() || '#999';
                 for (let i = 0; i < xd.length; i++) {
                     const x = u.valToPos(xd[i], 'x', true);
-                    const y = u.valToPos(yd[i], 'y', true);
                     const y0 = u.valToPos(0, 'y', true);
-                    const h = y0 - y;
-                    if (h > 0) {
+                    const total = yd[i];
+                    const pre = preData ? preData[i] : 0;
+                    const newVal = total - pre;
+
+                    if (pre > 0) {
+                        const yPre = u.valToPos(pre, 'y', true);
+                        ctx.fillStyle = preColor;
+                        ctx.beginPath();
+                        if (newVal > 0) {
+                            ctx.rect(x - barWidth/2, yPre, barWidth, y0 - yPre);
+                        } else {
+                            ctx.moveTo(x - barWidth/2, y0);
+                            ctx.lineTo(x - barWidth/2, yPre + radius);
+                            ctx.quadraticCurveTo(x - barWidth/2, yPre, x - barWidth/2 + radius, yPre);
+                            ctx.lineTo(x + barWidth/2 - radius, yPre);
+                            ctx.quadraticCurveTo(x + barWidth/2, yPre, x + barWidth/2, yPre + radius);
+                            ctx.lineTo(x + barWidth/2, y0);
+                            ctx.closePath();
+                        }
+                        ctx.fill();
+                    }
+
+                    if (newVal > 0) {
+                        const yTop = u.valToPos(total, 'y', true);
+                        const yBottom = pre > 0 ? u.valToPos(pre, 'y', true) : y0;
                         ctx.fillStyle = baseColor;
                         ctx.beginPath();
-                        ctx.moveTo(x - barWidth/2, y0);
-                        ctx.lineTo(x - barWidth/2, y + radius);
-                        ctx.quadraticCurveTo(x - barWidth/2, y, x - barWidth/2 + radius, y);
-                        ctx.lineTo(x + barWidth/2 - radius, y);
-                        ctx.quadraticCurveTo(x + barWidth/2, y, x + barWidth/2, y + radius);
-                        ctx.lineTo(x + barWidth/2, y0);
+                        ctx.moveTo(x - barWidth/2, yBottom);
+                        ctx.lineTo(x - barWidth/2, yTop + radius);
+                        ctx.quadraticCurveTo(x - barWidth/2, yTop, x - barWidth/2 + radius, yTop);
+                        ctx.lineTo(x + barWidth/2 - radius, yTop);
+                        ctx.quadraticCurveTo(x + barWidth/2, yTop, x + barWidth/2, yTop + radius);
+                        ctx.lineTo(x + barWidth/2, yBottom);
                         ctx.closePath();
                         ctx.fill();
                     }
@@ -1309,6 +1521,8 @@ export function createHistogramChart(containerId, histogram, options = {}) {
 
     // Store original range for reset
     chart._originalXRange = [xData[0], xData[xData.length - 1]];
+    chart._lastRange = null;
+    chart.setScale('x', { min: xData[0], max: xData[xData.length - 1] });
     chart._median = median;
 
     // Handle resize
@@ -1335,13 +1549,15 @@ export function createConcurrentChart(containerId, sessions, options = {}) {
     container.innerHTML = '';
 
     // Parse session events first to get time range
+    const logStartT = options.logStart ? new Date(options.logStart).getTime() : null;
     const events = [];
     sessions.forEach(s => {
         const start = new Date(s.s).getTime();
         const end = new Date(s.e).getTime();
         if (!isNaN(start) && !isNaN(end)) {
-            events.push({ time: start, delta: 1 });  // +1 at start
-            events.push({ time: end, delta: -1 });   // -1 at end
+            const pre = logStartT ? (start < logStartT) : false;
+            events.push({ time: start, delta: 1, pre });
+            events.push({ time: end, delta: -1, pre });
         }
     });
     if (events.length === 0) return null;
@@ -1355,7 +1571,7 @@ export function createConcurrentChart(containerId, sessions, options = {}) {
     const interval = options.interval !== undefined ? options.interval : (chartIntervalMap.get(containerId) ?? defaultInterval);
 
     // Initial binning
-    const { xData, yData, median } = binConcurrentSessions(events, minT, maxT, interval);
+    const { xData, yData, yPre, median } = binConcurrentSessions(events, minT, maxT, interval);
 
     // Resolve CSS variable to actual color for canvas
     const resolveColor = (c) => {
@@ -1420,8 +1636,20 @@ export function createConcurrentChart(containerId, sessions, options = {}) {
             {
                 stroke: getComputedStyle(document.documentElement).getPropertyValue('--text').trim(),
                 grid: { show: false }, ticks: { show: false },
-                values: (u, vals) => vals.map(v => new Date(v * 1000).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })),
-                size: 20, font: '10px system-ui'
+                values: (u, vals) => {
+                    const multiDay = (maxT - minT) > 86400;
+                    return vals.map((v, i) => {
+                        const d = new Date(v * 1000);
+                        const time = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+                        if (!multiDay) return time;
+                        const prevDay = i > 0 ? new Date(vals[i-1] * 1000).getDate() : -1;
+                        if (i === 0 || d.getDate() !== prevDay) {
+                            return time + '\n' + d.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
+                        }
+                        return time;
+                    });
+                },
+                size: (maxT - minT) > 86400 ? 36 : 20, font: '10px system-ui'
             },
             {
                 stroke: getComputedStyle(document.documentElement).getPropertyValue('--text').trim(),
@@ -1461,21 +1689,45 @@ export function createConcurrentChart(containerId, sessions, options = {}) {
                     ctx.setLineDash([]);
                 }
 
-                // Draw bars
+                // Draw bars (stacked: grey pre-log, orange new)
+                const preData = u._yPre;
+                const preColor = getComputedStyle(document.documentElement).getPropertyValue('--text-muted')?.trim() || '#999';
                 for (let i = 0; i < xd.length; i++) {
                     const x = u.valToPos(xd[i], 'x', true);
-                    const y = u.valToPos(yd[i], 'y', true);
                     const y0 = u.valToPos(0, 'y', true);
-                    const h = y0 - y;
-                    if (h > 0) {
+                    const total = yd[i];
+                    const pre = preData ? preData[i] : 0;
+                    const newVal = total - pre;
+
+                    if (pre > 0) {
+                        const yPre = u.valToPos(pre, 'y', true);
+                        ctx.fillStyle = preColor;
+                        ctx.beginPath();
+                        if (newVal > 0) {
+                            ctx.rect(x - barWidth/2, yPre, barWidth, y0 - yPre);
+                        } else {
+                            ctx.moveTo(x - barWidth/2, y0);
+                            ctx.lineTo(x - barWidth/2, yPre + radius);
+                            ctx.quadraticCurveTo(x - barWidth/2, yPre, x - barWidth/2 + radius, yPre);
+                            ctx.lineTo(x + barWidth/2 - radius, yPre);
+                            ctx.quadraticCurveTo(x + barWidth/2, yPre, x + barWidth/2, yPre + radius);
+                            ctx.lineTo(x + barWidth/2, y0);
+                            ctx.closePath();
+                        }
+                        ctx.fill();
+                    }
+
+                    if (newVal > 0) {
+                        const yTop = u.valToPos(total, 'y', true);
+                        const yBottom = pre > 0 ? u.valToPos(pre, 'y', true) : y0;
                         ctx.fillStyle = baseColor;
                         ctx.beginPath();
-                        ctx.moveTo(x - barWidth/2, y0);
-                        ctx.lineTo(x - barWidth/2, y + radius);
-                        ctx.quadraticCurveTo(x - barWidth/2, y, x - barWidth/2 + radius, y);
-                        ctx.lineTo(x + barWidth/2 - radius, y);
-                        ctx.quadraticCurveTo(x + barWidth/2, y, x + barWidth/2, y + radius);
-                        ctx.lineTo(x + barWidth/2, y0);
+                        ctx.moveTo(x - barWidth/2, yBottom);
+                        ctx.lineTo(x - barWidth/2, yTop + radius);
+                        ctx.quadraticCurveTo(x - barWidth/2, yTop, x - barWidth/2 + radius, yTop);
+                        ctx.lineTo(x + barWidth/2 - radius, yTop);
+                        ctx.quadraticCurveTo(x + barWidth/2, yTop, x + barWidth/2, yTop + radius);
+                        ctx.lineTo(x + barWidth/2, yBottom);
                         ctx.closePath();
                         ctx.fill();
                     }
@@ -1494,8 +1746,9 @@ export function createConcurrentChart(containerId, sessions, options = {}) {
 
                 if (rangeChanged) {
                     u._lastRange = [newMin, newMax];
-                    const { xData: newX, yData: newY, median: newMedian } = binConcurrentSessions(u._events, newMin, newMax, u._interval);
+                    const { xData: newX, yData: newY, yPre: newYPre, median: newMedian } = binConcurrentSessions(u._events, newMin, newMax, u._interval);
                     u._median = newMedian;
+                    u._yPre = newYPre;
                     u._resampling = true;
                     u.setData([newX, newY], false);
                     u._resampling = false;
@@ -1515,7 +1768,10 @@ export function createConcurrentChart(containerId, sessions, options = {}) {
     chart._events = events;
     chart._interval = interval;
     chart._originalXRange = [minT, maxT];
+    chart._lastRange = null;
+    chart.setScale('x', { min: minT, max: maxT });
     chart._median = median;
+    chart._yPre = yPre;
 
     const resizeObserver = new ResizeObserver(() => {
         if (container.clientWidth > 0) chart.setSize({ width: container.clientWidth, height: opts.height });
@@ -1753,6 +2009,8 @@ export function createCombinedTempFilesChart(containerId, events, options = {}) 
     chart._events = parsedEvents;
     chart._interval = interval;
     chart._originalXRange = [minT, maxT];
+    chart._lastRange = null;
+    chart.setScale('x', { min: minT, max: maxT });
     chart._medianCount = medianCount;
     chart._seriesVisible = seriesVisible;
     chart._containerId = containerId;
@@ -1840,7 +2098,7 @@ export function updateChartInterval(chartId, intervalValue) {
         const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
         const color = chartId.includes('tempfiles') ? accentColor : null;
         if (data?.type === 'sessions') {
-            createConcurrentChart(chartId, data.data, { color: color || 'var(--accent)', interval });
+            createConcurrentChart(chartId, data.data, { color: color || 'var(--accent)', interval, logStart: data.logStart, logEnd: data.logEnd });
         } else if (data?.type === 'histogram') {
             // Pre-computed histogram can't change interval
         } else if (data?.type === 'duration') {
@@ -1891,7 +2149,7 @@ export function openChartModal(chartId, title) {
 
     // Hide interval select for pre-computed histograms
     const intervalSelect = document.getElementById('modalBucketSelect');
-    intervalSelect.style.display = data?.type === 'histogram' ? 'none' : '';
+    intervalSelect.style.display = (data?.type === 'histogram' || data?.type === 'wal-distance') ? 'none' : '';
 
     // Create expanded chart
     setTimeout(() => renderModalChart(), 50);
@@ -1909,45 +2167,69 @@ export function renderModalChart() {
     const color = modalChartId.includes('tempfiles') ? accentColor : null;
 
     // Create larger chart
-    if (data?.type === 'checkpoints') {
+    if (data?.type === 'wal-distance') {
+        modalChart = createWALDistanceChart('modal-chart-container', data, { height: 500 });
+    } else if (data?.type === 'checkpoints') {
         modalChart = createCheckpointChartLarge(container, data, {
             interval: modalInterval,
-            height: 350
+            height: 500
         });
     } else if (data?.type === 'sessions') {
         modalChart = createConcurrentChartLarge(container, data.data, {
             color: color || 'var(--accent)',
             interval: modalInterval,
-            height: 350
+            height: 500,
+            logStart: data.logStart,
+            logEnd: data.logEnd
         });
     } else if (data?.type === 'histogram') {
         modalChart = createHistogramChartLarge(container, data.data, {
             color: color || 'var(--accent)',
-            height: 350
+            height: 500
         });
     } else if (data?.type === 'duration') {
         modalChart = createDurationChartLarge(container, data.data, {
             color: accentColor,
             interval: modalInterval,
-            height: 350
+            height: 500
         });
     } else if (data?.type === 'combined') {
         modalChart = createCombinedSQLChartLarge(container, data.data, {
             interval: modalInterval,
-            height: 350
+            height: 500
         });
     } else if (data?.type === 'combined-tempfiles') {
         modalChart = createCombinedTempFilesChartLarge(container, data.events, {
             interval: modalInterval,
-            height: 350
+            height: 500
         });
     } else {
         modalChart = createTimeChartLarge(container, data, {
             color,
             interval: modalInterval,
-            height: 350
+            height: 500
         });
     }
+
+    // Add modal legend based on chart type
+    let legendEl = document.getElementById('modal-chart-legend');
+    if (!legendEl) {
+        legendEl = document.createElement('div');
+        legendEl.id = 'modal-chart-legend';
+        container.parentNode.appendChild(legendEl);
+    }
+    legendEl.style.cssText = 'display:flex;gap:16px;justify-content:center;margin-top:8px;font-size:13px;';
+    const dot = (color) => `<span style="display:inline-block;width:12px;height:12px;background:${color};border-radius:2px;vertical-align:middle;margin-right:4px;"></span>`;
+    const dash = (color) => `<span style="display:inline-block;width:16px;height:0;border-top:2px dashed ${color};vertical-align:middle;margin-right:4px;"></span>`;
+    const legends = {
+        'sessions': `<span>${dot('var(--accent)')}Sessions</span><span>${dot('var(--text-muted)')}Pre-log</span><span>${dash('var(--text-muted)')}Median</span>`,
+        'checkpoints': `<span>${dot('var(--chart-bar)')}Timed</span><span>${dot('var(--accent)')}WAL</span><span>${dot('#909399')}Other</span>`,
+        'wal-distance': `<span>${dot('var(--chart-bar)')}Distance</span><span>${dash('var(--accent)')}Estimate</span>`,
+        'combined': `<span>${dot('var(--chart-bar)')}Count</span><span>${dot('var(--accent)')}Duration</span><span>${dash('var(--text-muted)')}Median</span>`,
+        'combined-tempfiles': `<span>${dot('var(--chart-bar)')}Count</span><span>${dot('var(--accent)')}Size</span><span>${dash('var(--text-muted)')}Median</span>`,
+    };
+    const defaultLegend = `<span>${dot('var(--chart-bar)')}Connections</span><span>${dash('var(--text-muted)')}Median</span>`;
+    legendEl.innerHTML = legends[data?.type] || defaultLegend;
 }
 
 // Create large time chart for modal
@@ -2030,21 +2312,45 @@ export function createTimeChartLarge(container, timestamps, options = {}) {
                     ctx.setLineDash([]);
                 }
 
-                // Draw bars
+                // Draw bars (stacked: grey pre-log, orange new)
+                const preData = u._yPre;
+                const preColor = getComputedStyle(document.documentElement).getPropertyValue('--text-muted')?.trim() || '#999';
                 for (let i = 0; i < xd.length; i++) {
                     const x = u.valToPos(xd[i], 'x', true);
-                    const y = u.valToPos(yd[i], 'y', true);
                     const y0 = u.valToPos(0, 'y', true);
-                    const h = y0 - y;
-                    if (h > 0) {
+                    const total = yd[i];
+                    const pre = preData ? preData[i] : 0;
+                    const newVal = total - pre;
+
+                    if (pre > 0) {
+                        const yPre = u.valToPos(pre, 'y', true);
+                        ctx.fillStyle = preColor;
+                        ctx.beginPath();
+                        if (newVal > 0) {
+                            ctx.rect(x - barWidth/2, yPre, barWidth, y0 - yPre);
+                        } else {
+                            ctx.moveTo(x - barWidth/2, y0);
+                            ctx.lineTo(x - barWidth/2, yPre + radius);
+                            ctx.quadraticCurveTo(x - barWidth/2, yPre, x - barWidth/2 + radius, yPre);
+                            ctx.lineTo(x + barWidth/2 - radius, yPre);
+                            ctx.quadraticCurveTo(x + barWidth/2, yPre, x + barWidth/2, yPre + radius);
+                            ctx.lineTo(x + barWidth/2, y0);
+                            ctx.closePath();
+                        }
+                        ctx.fill();
+                    }
+
+                    if (newVal > 0) {
+                        const yTop = u.valToPos(total, 'y', true);
+                        const yBottom = pre > 0 ? u.valToPos(pre, 'y', true) : y0;
                         ctx.fillStyle = baseColor;
                         ctx.beginPath();
-                        ctx.moveTo(x - barWidth/2, y0);
-                        ctx.lineTo(x - barWidth/2, y + radius);
-                        ctx.quadraticCurveTo(x - barWidth/2, y, x - barWidth/2 + radius, y);
-                        ctx.lineTo(x + barWidth/2 - radius, y);
-                        ctx.quadraticCurveTo(x + barWidth/2, y, x + barWidth/2, y + radius);
-                        ctx.lineTo(x + barWidth/2, y0);
+                        ctx.moveTo(x - barWidth/2, yBottom);
+                        ctx.lineTo(x - barWidth/2, yTop + radius);
+                        ctx.quadraticCurveTo(x - barWidth/2, yTop, x - barWidth/2 + radius, yTop);
+                        ctx.lineTo(x + barWidth/2 - radius, yTop);
+                        ctx.quadraticCurveTo(x + barWidth/2, yTop, x + barWidth/2, yTop + radius);
+                        ctx.lineTo(x + barWidth/2, yBottom);
                         ctx.closePath();
                         ctx.fill();
                     }
@@ -2083,6 +2389,8 @@ export function createTimeChartLarge(container, timestamps, options = {}) {
     chart._times = times;
     chart._interval = interval;
     chart._originalXRange = [minT, maxT];
+    chart._lastRange = null;
+    chart.setScale('x', { min: minT, max: maxT });
     chart._median = median;
     return chart;
 }
@@ -2251,6 +2559,8 @@ export function createDurationChartLarge(container, executions, options = {}) {
     chart._executions = sorted;
     chart._interval = interval;
     chart._originalXRange = [minT, maxT];
+    chart._lastRange = null;
+    chart.setScale('x', { min: minT, max: maxT });
     chart._median = median;
     return chart;
 }
@@ -2452,6 +2762,8 @@ export function createCombinedSQLChartLarge(container, rawData, options = {}) {
     chart._rawData = rawData;
     chart._interval = interval;
     chart._originalXRange = [minT, maxT];
+    chart._lastRange = null;
+    chart.setScale('x', { min: minT, max: maxT });
     chart._medianCount = medianCount;
     chart._seriesVisible = seriesVisible;
     return chart;
@@ -2682,6 +2994,8 @@ export function createCombinedTempFilesChartLarge(container, events, options = {
     chart._events = parsedEvents;
     chart._interval = interval;
     chart._originalXRange = [minT, maxT];
+    chart._lastRange = null;
+    chart.setScale('x', { min: minT, max: maxT });
     chart._medianCount = medianCount;
     chart._seriesVisible = seriesVisible;
     return chart;
@@ -2689,13 +3003,15 @@ export function createCombinedTempFilesChartLarge(container, events, options = {
 
 // Create large concurrent chart for modal
 export function createConcurrentChartLarge(container, sessions, options = {}) {
+    const logStartT = options.logStart ? new Date(options.logStart).getTime() : null;
     const events = [];
     sessions.forEach(s => {
         const start = new Date(s.s).getTime();
         const end = new Date(s.e).getTime();
         if (!isNaN(start) && !isNaN(end)) {
-            events.push({ time: start, delta: 1 });
-            events.push({ time: end, delta: -1 });
+            const pre = logStartT ? (start < logStartT) : false;
+            events.push({ time: start, delta: 1, pre });
+            events.push({ time: end, delta: -1, pre });
         }
     });
     if (events.length === 0) return null;
@@ -2707,7 +3023,7 @@ export function createConcurrentChartLarge(container, sessions, options = {}) {
     const interval = options.interval !== undefined ? options.interval : modalInterval;
 
     // Initial binning
-    const { xData, yData, median } = binConcurrentSessions(events, minT, maxT, interval);
+    const { xData, yData, yPre, median } = binConcurrentSessions(events, minT, maxT, interval);
 
     // Resolve CSS variable to actual color for canvas
     const resolveColor = (c) => {
@@ -2770,6 +3086,7 @@ export function createConcurrentChartLarge(container, sessions, options = {}) {
     const xMin = xData[0] - xPadding;
     const xMax = xData[xData.length - 1] + xPadding;
 
+    const multiDay = (maxT - minT) > 86400;
     const opts = {
         width: container.clientWidth || 1100,
         height: height,
@@ -2781,7 +3098,19 @@ export function createConcurrentChartLarge(container, sessions, options = {}) {
             y: { range: [0, null] }
         },
         axes: [
-            { stroke: textColor, grid: { stroke: borderColor, width: 1 }, size: 50, font: '12px sans-serif', ticks: { stroke: borderColor } },
+            {
+                stroke: textColor, grid: { stroke: borderColor, width: 1 }, size: multiDay ? 60 : 50, font: '12px sans-serif', ticks: { stroke: borderColor },
+                values: (u, vals) => vals.map((v, i) => {
+                    const d = new Date(v * 1000);
+                    const time = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+                    if (!multiDay) return time;
+                    const prevDay = i > 0 ? new Date(vals[i-1] * 1000).getDate() : -1;
+                    if (i === 0 || d.getDate() !== prevDay) {
+                        return time + '\n' + d.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
+                    }
+                    return time;
+                })
+            },
             { stroke: textColor, grid: { stroke: borderColor, width: 1 }, size: 50, font: '12px sans-serif', ticks: { stroke: borderColor } }
         ],
         series: [
@@ -2818,21 +3147,45 @@ export function createConcurrentChartLarge(container, sessions, options = {}) {
                     ctx.setLineDash([]);
                 }
 
-                // Draw bars
+                // Draw bars (stacked: grey pre-log, orange new)
+                const preData = u._yPre;
+                const preColor = getComputedStyle(document.documentElement).getPropertyValue('--text-muted')?.trim() || '#999';
                 for (let i = 0; i < xd.length; i++) {
                     const x = u.valToPos(xd[i], 'x', true);
-                    const y = u.valToPos(yd[i], 'y', true);
                     const y0 = u.valToPos(0, 'y', true);
-                    const h = y0 - y;
-                    if (h > 0) {
+                    const total = yd[i];
+                    const pre = preData ? preData[i] : 0;
+                    const newVal = total - pre;
+
+                    if (pre > 0) {
+                        const yPre = u.valToPos(pre, 'y', true);
+                        ctx.fillStyle = preColor;
+                        ctx.beginPath();
+                        if (newVal > 0) {
+                            ctx.rect(x - barWidth/2, yPre, barWidth, y0 - yPre);
+                        } else {
+                            ctx.moveTo(x - barWidth/2, y0);
+                            ctx.lineTo(x - barWidth/2, yPre + radius);
+                            ctx.quadraticCurveTo(x - barWidth/2, yPre, x - barWidth/2 + radius, yPre);
+                            ctx.lineTo(x + barWidth/2 - radius, yPre);
+                            ctx.quadraticCurveTo(x + barWidth/2, yPre, x + barWidth/2, yPre + radius);
+                            ctx.lineTo(x + barWidth/2, y0);
+                            ctx.closePath();
+                        }
+                        ctx.fill();
+                    }
+
+                    if (newVal > 0) {
+                        const yTop = u.valToPos(total, 'y', true);
+                        const yBottom = pre > 0 ? u.valToPos(pre, 'y', true) : y0;
                         ctx.fillStyle = baseColor;
                         ctx.beginPath();
-                        ctx.moveTo(x - barWidth/2, y0);
-                        ctx.lineTo(x - barWidth/2, y + radius);
-                        ctx.quadraticCurveTo(x - barWidth/2, y, x - barWidth/2 + radius, y);
-                        ctx.lineTo(x + barWidth/2 - radius, y);
-                        ctx.quadraticCurveTo(x + barWidth/2, y, x + barWidth/2, y + radius);
-                        ctx.lineTo(x + barWidth/2, y0);
+                        ctx.moveTo(x - barWidth/2, yBottom);
+                        ctx.lineTo(x - barWidth/2, yTop + radius);
+                        ctx.quadraticCurveTo(x - barWidth/2, yTop, x - barWidth/2 + radius, yTop);
+                        ctx.lineTo(x + barWidth/2 - radius, yTop);
+                        ctx.quadraticCurveTo(x + barWidth/2, yTop, x + barWidth/2, yTop + radius);
+                        ctx.lineTo(x + barWidth/2, yBottom);
                         ctx.closePath();
                         ctx.fill();
                     }
@@ -2851,8 +3204,9 @@ export function createConcurrentChartLarge(container, sessions, options = {}) {
 
                 if (rangeChanged) {
                     u._lastRange = [newMin, newMax];
-                    const { xData: newX, yData: newY, median: newMedian } = binConcurrentSessions(u._events, newMin, newMax, u._interval);
+                    const { xData: newX, yData: newY, yPre: newYPre, median: newMedian } = binConcurrentSessions(u._events, newMin, newMax, u._interval);
                     u._median = newMedian;
+                    u._yPre = newYPre;
                     u._resampling = true;
                     u.setData([newX, newY], false);
                     u._resampling = false;
@@ -2871,7 +3225,18 @@ export function createConcurrentChartLarge(container, sessions, options = {}) {
     chart._events = events;
     chart._interval = interval;
     chart._originalXRange = [minT, maxT];
+    chart._lastRange = null;
+    chart.setScale('x', { min: minT, max: maxT });
     chart._median = median;
+    chart._yPre = yPre;
+    if (options.logStart) {
+        const t = new Date(options.logStart).getTime() / 1000;
+        if (!isNaN(t)) chart._logStart = t;
+    }
+    if (options.logEnd) {
+        const t = new Date(options.logEnd).getTime() / 1000;
+        if (!isNaN(t)) chart._logEnd = t;
+    }
     return chart;
 }
 
@@ -2979,6 +3344,8 @@ export function createHistogramChartLarge(container, histData, options = {}) {
 
     const chart = new uPlot(opts, [xData, yData], container);
     chart._originalXRange = [xMin, xMax];
+    chart._lastRange = null;
+    chart.setScale('x', { min: xMin, max: xMax });
     chart._median = median;
     return chart;
 }
@@ -3061,7 +3428,8 @@ export function createCheckpointChartLarge(container, data, options = {}) {
                 let parts = [];
                 if (timeVal > 0) parts.push(`<span style="color:${colors.time}">${timeVal} timed</span>`);
                 if (xlogVal > 0) parts.push(`<span style="color:${colors.wal}">${xlogVal} WAL</span>`);
-                if (otherVal > 0) parts.push(`<span style="color:${colors.other}">${otherVal} other</span>`);
+                const otherLabel = data.warningsOnly ? 'warning' : 'other';
+                if (otherVal > 0) parts.push(`<span style="color:${colors.other}">${otherVal} ${otherLabel}</span>`);
                 tooltip.innerHTML = `<strong>${timeStr}</strong><br>${parts.join(' · ')}`;
                 tooltip.style.display = 'block';
                 const ttWidth = tooltip.offsetWidth;
@@ -3089,11 +3457,11 @@ export function createCheckpointChartLarge(container, data, options = {}) {
         legend: { show: false },
         scales: {
             x: { time: true },
-            y: { range: [0, null] }
+            y: { range: (u, min, max) => [0, Math.max(Math.ceil(max), 2)] }
         },
         axes: [
             { stroke: textColor, grid: { stroke: borderColor, width: 1 }, size: 50, font: '12px sans-serif', ticks: { stroke: borderColor } },
-            { stroke: textColor, grid: { stroke: borderColor, width: 1 }, size: 50, font: '12px sans-serif', ticks: { stroke: borderColor } }
+            { stroke: textColor, grid: { stroke: borderColor, width: 1 }, size: 50, font: '12px sans-serif', ticks: { stroke: borderColor }, incrs: [1, 2, 5, 10, 20, 50, 100], values: (u, vals) => vals.map(v => Number.isInteger(v) ? v : '') }
         ],
         series: [
             {},
@@ -3184,6 +3552,8 @@ export function createCheckpointChartLarge(container, data, options = {}) {
     chart._typeData = typeData;
     chart._interval = interval;
     chart._originalXRange = [minT, maxT];
+    chart._lastRange = null;
+    chart.setScale('x', { min: minT, max: maxT });
 
     return chart;
 }

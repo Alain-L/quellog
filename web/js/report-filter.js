@@ -200,6 +200,20 @@ function reaggregateCheckpoints(original, filteredEvents, beginDate, endDate) {
     result.events = filteredEvents;
     result.total_checkpoints = filteredEvents.length;
 
+    // Filter WAL distances by time range
+    if (original.wal_distances) {
+        result.wal_distances = filterEventsByTime(
+            original.wal_distances, beginDate, endDate
+        );
+    }
+
+    // Filter warning events by time range
+    if (original.warning_events) {
+        result.warning_events = filterEventsByTime(
+            original.warning_events, beginDate, endDate
+        );
+    }
+
     // Recalculate types from filtered events
     if (original.types) {
         const durationHours = (endDate - beginDate) / (1000 * 60 * 60);
@@ -252,13 +266,14 @@ function reaggregateConnections(original, filteredConnections, beginDate, endDat
         ? (filteredConnections.length / durationHours).toFixed(2)
         : '0';
 
-    // Filter session events if present
+    // Filter session events if present (fields: s=start, e=end)
     if (original.session_events) {
-        result.session_events = filterEventsByTime(
-            original.session_events,
-            beginDate,
-            endDate
-        );
+        result.session_events = original.session_events.filter(ev => {
+            const start = parseTimestamp(ev.s);
+            const end = parseTimestamp(ev.e);
+            if (!start || !end) return false;
+            return start <= endDate && end >= beginDate;
+        });
     }
 
     return result;

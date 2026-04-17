@@ -105,7 +105,12 @@ func parseMmapData(data []byte, out chan<- LogEntry) error {
 					// Might be a new log entry - verify with full parsing
 					timestamp, _ := parseStderrLine(line)
 					if timestamp.IsZero() {
-						// No valid timestamp = continuation line
+						if line[0] >= '0' && line[0] <= '9' {
+							// Has timestamp-like prefix but not a valid PostgreSQL format
+							// (e.g., pgBackRest, WAL-G output captured by logging_collector)
+							continue
+						}
+						// No timestamp at all = continuation line
 						isContinuation = true
 					}
 				} else {
@@ -124,7 +129,9 @@ func parseMmapData(data []byte, out chan<- LogEntry) error {
 				// This is a new entry, process the previous one
 				if currentEntry.Len() > 0 {
 					timestamp, message := parseStderrLine(currentEntry.String())
-					out <- LogEntry{Timestamp: timestamp, Message: message, IsContinuation: isContinuationMessage(message)}
+					if !timestamp.IsZero() {
+						out <- LogEntry{Timestamp: timestamp, Message: message, IsContinuation: isContinuationMessage(message)}
+					}
 					currentEntry.Reset()
 				}
 				// Start accumulating new entry
@@ -146,7 +153,8 @@ func parseMmapData(data []byte, out chan<- LogEntry) error {
 				// Most log entries start with: digit (timestamp), '[' (bracket), or uppercase letter (syslog month)
 				if line[0] >= '0' && line[0] <= '9' || line[0] == '[' || (line[0] >= 'A' && line[0] <= 'Z') {
 					timestamp, _ := parseStderrLine(line)
-					if timestamp.IsZero() {
+					if timestamp.IsZero() && !(line[0] >= '0' && line[0] <= '9') {
+						// No valid PostgreSQL timestamp and not a foreign timestamped line
 						isContinuation = true
 					}
 				} else {
@@ -163,7 +171,9 @@ func parseMmapData(data []byte, out chan<- LogEntry) error {
 			} else {
 				if currentEntry.Len() > 0 {
 					timestamp, message := parseStderrLine(currentEntry.String())
-					out <- LogEntry{Timestamp: timestamp, Message: message, IsContinuation: isContinuationMessage(message)}
+					if !timestamp.IsZero() {
+						out <- LogEntry{Timestamp: timestamp, Message: message, IsContinuation: isContinuationMessage(message)}
+					}
 					currentEntry.Reset()
 				}
 				currentEntry.WriteString(line)
@@ -174,7 +184,9 @@ func parseMmapData(data []byte, out chan<- LogEntry) error {
 	// Process final accumulated entry
 	if currentEntry.Len() > 0 {
 		timestamp, message := parseStderrLine(currentEntry.String())
-		out <- LogEntry{Timestamp: timestamp, Message: message, IsContinuation: isContinuationMessage(message)}
+		if !timestamp.IsZero() {
+			out <- LogEntry{Timestamp: timestamp, Message: message, IsContinuation: isContinuationMessage(message)}
+		}
 	}
 
 	return nil
@@ -481,7 +493,13 @@ func parseMmapDataStderr(data []byte, out chan<- LogEntry) error {
 				// Might be a new log entry - verify with full parsing
 				timestamp, _ := parseStderrLineBytes(line)
 				if timestamp.IsZero() {
-					// No valid timestamp = continuation line
+					if line[0] >= '0' && line[0] <= '9' {
+						// Has timestamp-like prefix but not a valid PostgreSQL format
+						// (e.g., pgBackRest, WAL-G output captured by logging_collector)
+						// Skip this line entirely — it's neither a continuation nor a new entry
+						continue
+					}
+					// No timestamp at all = continuation line
 					isContinuation = true
 				}
 			} else {
@@ -500,7 +518,9 @@ func parseMmapDataStderr(data []byte, out chan<- LogEntry) error {
 			// This is a new entry, process the previous one
 			if len(currentEntry) > 0 {
 				timestamp, message := parseStderrLineBytes(currentEntry)
-				out <- LogEntry{Timestamp: timestamp, Message: message, IsContinuation: isContinuationMessage(message)}
+				if !timestamp.IsZero() {
+					out <- LogEntry{Timestamp: timestamp, Message: message, IsContinuation: isContinuationMessage(message)}
+				}
 				currentEntry = currentEntry[:0] // Reset but keep capacity
 			}
 			// Start accumulating new entry
@@ -520,7 +540,8 @@ func parseMmapDataStderr(data []byte, out chan<- LogEntry) error {
 				// Fast path: check if line could possibly start a log entry
 				if line[0] >= '0' && line[0] <= '9' || line[0] == '[' {
 					timestamp, _ := parseStderrLineBytes(line)
-					if timestamp.IsZero() {
+					if timestamp.IsZero() && !(line[0] >= '0' && line[0] <= '9') {
+						// No valid PostgreSQL timestamp and not a foreign timestamped line
 						isContinuation = true
 					}
 				} else {
@@ -537,7 +558,9 @@ func parseMmapDataStderr(data []byte, out chan<- LogEntry) error {
 			} else {
 				if len(currentEntry) > 0 {
 					timestamp, message := parseStderrLineBytes(currentEntry)
-					out <- LogEntry{Timestamp: timestamp, Message: message, IsContinuation: isContinuationMessage(message)}
+					if !timestamp.IsZero() {
+						out <- LogEntry{Timestamp: timestamp, Message: message, IsContinuation: isContinuationMessage(message)}
+					}
 					currentEntry = currentEntry[:0]
 				}
 				currentEntry = append(currentEntry[:0], line...)
@@ -548,7 +571,9 @@ func parseMmapDataStderr(data []byte, out chan<- LogEntry) error {
 	// Process final accumulated entry
 	if len(currentEntry) > 0 {
 		timestamp, message := parseStderrLineBytes(currentEntry)
-		out <- LogEntry{Timestamp: timestamp, Message: message, IsContinuation: isContinuationMessage(message)}
+		if !timestamp.IsZero() {
+			out <- LogEntry{Timestamp: timestamp, Message: message, IsContinuation: isContinuationMessage(message)}
+		}
 	}
 
 	return nil

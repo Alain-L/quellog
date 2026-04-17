@@ -60,7 +60,60 @@
           "2025-11-30 21:10:58"
         ]
       }
-    }
+    },
+    "avg_wal_distance": "11.85 MB",
+    "max_wal_distance": "27.43 MB",
+    "total_buffers_written": 12118,
+    "wal_rate": "161 kB/s",
+    "flush_rate": "492 kB/s",
+    "wal_distances": [
+      {
+        "timestamp": "2025-11-30 21:10:20",
+        "distance_kb": 0,
+        "estimate_kb": 0
+      },
+      {
+        "timestamp": "2025-11-30 21:10:58",
+        "distance_kb": 28088,
+        "estimate_kb": 28088
+      },
+      {
+        "timestamp": "2025-11-30 21:13:45",
+        "distance_kb": 19564,
+        "estimate_kb": 27235
+      },
+      {
+        "timestamp": "2025-11-30 21:15:45",
+        "distance_kb": 13201,
+        "estimate_kb": 25832
+      },
+      {
+        "timestamp": "2025-11-30 21:17:45",
+        "distance_kb": 20898,
+        "estimate_kb": 25339
+      },
+      {
+        "timestamp": "2025-11-30 21:18:49",
+        "distance_kb": 225,
+        "estimate_kb": 22827
+      },
+      {
+        "timestamp": "2025-11-30 21:19:44",
+        "distance_kb": 12068,
+        "estimate_kb": 21751
+      },
+      {
+        "timestamp": "2025-11-30 21:20:17",
+        "distance_kb": 3028,
+        "estimate_kb": 19879
+      }
+    ],
+    "warning_count": 1,
+    "warning_min_interval_seconds": 25,
+    "warning_max_interval_seconds": 25,
+    "warning_events": [
+      "2025-11-30 21:10:45"
+    ]
   },
   "clients": {
     "unique_databases": 4,
@@ -95,7 +148,7 @@
         "min_duration": "130ms",
         "max_duration": "2.36s",
         "avg_duration": "325.764705ms",
-        "median_duration": "188.5ms",
+        "median_duration": "193.8619ms",
         "cumulated_duration": "11.076s"
       },
       "app_user": {
@@ -103,7 +156,7 @@
         "min_duration": "104ms",
         "max_duration": "4.366s",
         "avg_duration": "1.502214684s",
-        "median_duration": "1.482s",
+        "median_duration": "1.482142845s",
         "cumulated_duration": "31m22.274999982s"
       },
       "batch": {
@@ -111,7 +164,7 @@
         "min_duration": "123ms",
         "max_duration": "11.315s",
         "avg_duration": "980.153846ms",
-        "median_duration": "478.5ms",
+        "median_duration": "442.109605ms",
         "cumulated_duration": "50.968s"
       },
       "postgres": {
@@ -119,7 +172,7 @@
         "min_duration": "21ms",
         "max_duration": "1.719s",
         "avg_duration": "99.142857ms",
-        "median_duration": "47.5ms",
+        "median_duration": "48.361203ms",
         "cumulated_duration": "9.716s"
       }
     },
@@ -137,7 +190,7 @@
         "min_duration": "104ms",
         "max_duration": "11.315s",
         "avg_duration": "1.475472602s",
-        "median_duration": "1.4295s",
+        "median_duration": "1.49009218s",
         "cumulated_duration": "32m18.770999982s"
       },
       "postgres": {
@@ -145,7 +198,7 @@
         "min_duration": "21ms",
         "max_duration": "1.719s",
         "avg_duration": "120.852459ms",
-        "median_duration": "64.5ms",
+        "median_duration": "66.721661ms",
         "cumulated_duration": "14.744s"
       }
     },
@@ -155,7 +208,7 @@
         "min_duration": "104ms",
         "max_duration": "4.366s",
         "avg_duration": "1.502214684s",
-        "median_duration": "1.482s",
+        "median_duration": "1.482142845s",
         "cumulated_duration": "31m22.274999982s"
       },
       "172.20.0.20": {
@@ -163,7 +216,7 @@
         "min_duration": "123ms",
         "max_duration": "11.315s",
         "avg_duration": "980.153846ms",
-        "median_duration": "478.5ms",
+        "median_duration": "442.109605ms",
         "cumulated_duration": "50.968s"
       },
       "172.20.0.30": {
@@ -171,7 +224,7 @@
         "min_duration": "130ms",
         "max_duration": "2.36s",
         "avg_duration": "325.764705ms",
-        "median_duration": "188.5ms",
+        "median_duration": "193.8619ms",
         "cumulated_duration": "11.076s"
       }
     },
@@ -7421,16 +7474,20 @@
     }
   ],
   "locks": {
-    "total_events": 2,
-    "waiting_events": 1,
+    "total_events": 1,
+    "waiting_events": 0,
     "acquired_events": 1,
+    "deadlock_events": 1,
     "total_wait_time": "2.51 s",
-    "avg_wait_time": "1.26 s",
+    "avg_wait_time": "2.51 s",
     "lock_type_stats": {
-      "ShareLock": 2
+      "ShareLock": 1
     },
     "resource_type_stats": {
-      "transaction": 2
+      "transaction": 1
+    },
+    "relation_stats": {
+      "lock_test": 1
     },
     "events": [
       {
@@ -7440,7 +7497,9 @@
         "resource_type": "transaction",
         "wait_time": "1.00 s",
         "process_id": "1352",
-        "query_id": "be-BQ2mOa"
+        "query_id": "be-BQ2mOa",
+        "blocking_pid": "1351",
+        "relation": "lock_test"
       },
       {
         "timestamp": "2025-11-30 21:16:12",
@@ -7449,7 +7508,9 @@
         "resource_type": "transaction",
         "wait_time": "2.51 s",
         "process_id": "1352",
-        "query_id": "be-BQ2mOa"
+        "query_id": "be-BQ2mOa",
+        "blocking_pid": "1351",
+        "relation": "lock_test"
       }
     ],
     "queries": [
