@@ -61,7 +61,6 @@ plugins:
 
 exclude_docs: |
   README.md
-  TODO_CORRECTIONS.md
 
 extra_css:
   - stylesheets/extra.css
