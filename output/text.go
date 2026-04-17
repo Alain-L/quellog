@@ -186,6 +186,13 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 			printLockStats(m.Locks.ResourceTypeStats, m.Locks.TotalEvents)
 		}
 
+		// Relation distribution
+		if len(m.Locks.RelationStats) > 0 {
+			fmt.Println()
+			fmt.Println("  Relations:")
+			printLockStats(m.Locks.RelationStats, m.Locks.TotalEvents)
+		}
+
 		// Waiting queries (only shown with --locks flag, not in default report)
 		if !has("all") && len(m.Locks.QueryStats) > 0 {
 			termWidth, _, err := term.GetSize(int(os.Stdout.Fd()))

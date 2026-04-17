@@ -236,6 +236,7 @@ type LockEventJSON struct {
 	BlockingPID     string `json:"blocking_pid,omitempty"`
 	BlockingQueryID string `json:"blocking_query_id,omitempty"`
 	BlockingQuery   string `json:"blocking_query,omitempty"`
+	Relation        string `json:"relation,omitempty"`
 }
 
 type LockQueryStatJSON struct {
@@ -1051,6 +1052,7 @@ func convertLocks(m analysis.LockMetrics) LocksJSON {
 			BlockingPID:     event.BlockingPID,
 			BlockingQueryID: event.BlockingQueryID,
 			BlockingQuery:   event.BlockingQuery,
+			Relation:        event.Relation,
 		}
 	}
 
