@@ -21,6 +21,9 @@ All notable changes to this project will be documented in this file.
 - **Documentation**: Complete rewrite — 2-tab layout (Documentation + How-tos), streamlined from 3166 to 992 lines
 
 ### Fixed
+- **Lock counting**: Deduplicate lock events — count each contention once, not every repeated "still waiting" message
+- **Lock query association**: Fix regression where lock query tables were empty for logs without `log_min_duration_statement`
+- **JSON plan formatting**: Prevent panic on malformed auto_explain plan text
 - **Session filter**: Fix concurrent sessions chart disappearing on time filter
 - **Application name spaces**: Handle multi-word `application_name` in comma-separated log_line_prefix
 - **Non-PostgreSQL log lines**: Skip pgBackRest/WAL-G lines captured by logging_collector via archive_command

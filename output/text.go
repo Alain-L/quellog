@@ -163,7 +163,7 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 	if has("locks") && m.Locks.TotalEvents > 0 {
 		fmt.Println(bold + "\nLOCKS\n" + reset)
 		fmt.Printf("  %-25s : %d\n", "Total lock events", m.Locks.TotalEvents)
-		fmt.Printf("  %-25s : %d\n", "Waiting events", m.Locks.WaitingEvents)
+		fmt.Printf("  %-25s : %d\n", "Still waiting", m.Locks.WaitingEvents)
 		fmt.Printf("  %-25s : %d\n", "Acquired events", m.Locks.AcquiredEvents)
 		if m.Locks.DeadlockEvents > 0 {
 			fmt.Printf("  %-25s : %d\n", "Deadlock events", m.Locks.DeadlockEvents)

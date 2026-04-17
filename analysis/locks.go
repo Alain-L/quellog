@@ -443,15 +443,15 @@ func (a *LockAnalyzer) Process(entry *parser.LogEntry) {
 					lock.query = query
 				}
 				a.activeLocks[lockKey] = lock
+
+				// Count only on first occurrence of this lock
+				a.totalEvents++
+				a.lockTypeStats[lockType]++
+				a.resourceTypeStats[resourceType]++
 			} else {
-				// Update the wait time (don't add to total yet)
+				// Repeated "still waiting" for same lock — update wait time only
 				lock.lastWaitTime = waitTime
 			}
-
-			a.waitingEvents++
-			a.totalEvents++
-			a.lockTypeStats[lockType]++
-			a.resourceTypeStats[resourceType]++
 
 			// Generate QueryID if query is known
 			queryID := ""
@@ -511,9 +511,12 @@ func (a *LockAnalyzer) Process(entry *parser.LogEntry) {
 			a.totalWaitTime += waitTime
 
 			a.acquiredEvents++
-			a.totalEvents++
-			a.lockTypeStats[lockType]++
-			a.resourceTypeStats[resourceType]++
+			if !exists {
+				// Direct acquisition (no prior "waiting") — count as new lock
+				a.totalEvents++
+				a.lockTypeStats[lockType]++
+				a.resourceTypeStats[resourceType]++
+			}
 
 			// Generate QueryID if query is known
 			queryID := ""
@@ -778,9 +781,14 @@ func (a *LockAnalyzer) Finalize() LockMetrics {
 		}
 	}
 
+	stillWaiting := a.totalEvents - a.acquiredEvents
+	if stillWaiting < 0 {
+		stillWaiting = 0
+	}
+
 	return LockMetrics{
 		TotalEvents:       a.totalEvents,
-		WaitingEvents:     a.waitingEvents,
+		WaitingEvents:     stillWaiting,
 		AcquiredEvents:    a.acquiredEvents,
 		DeadlockEvents:    a.deadlockEvents,
 		TotalWaitTime:     a.totalWaitTime,
