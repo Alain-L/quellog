@@ -107,9 +107,21 @@ Expected:
 Two `automatic aggressive vacuum` operations on `large_events` and
 `audit_logs` with full stats (pages, tuples, buffer, rates, system).
 
-Expected:
-- `vacuum.aggressive_count = 2`
-- `vacuum.tables` contains both relations
+**Current analyzer limitation**: `analysis/vacuum.go` matches
+`"automatic vacuum"` and `"automatic analyze"` literally, so
+`"automatic aggressive vacuum"` is not counted. This fixture exists to:
+
+1. Verify the parser handles the multi-line block without crashing
+2. Catch a future change where the analyzer learns to recognize
+   aggressive mode (the golden will then need regenerating)
+
+Expected (today):
+- 2 entries parsed, no crash
+- `maintenance` section absent or empty (analyzer gap)
+- `top_events` contains the aggressive vacuum signature
+
+If the analyzer is enhanced to count aggressive vacuums, expected:
+- `maintenance.vacuum_count >= 2` and tables include both relations
 
 ### `vacuum_normal.log` — automatic vacuum + analyze
 
