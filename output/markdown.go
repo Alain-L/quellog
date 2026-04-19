@@ -162,7 +162,7 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 
 					// Level 2: Class
 					shouldPrintHeader := (classCode != "Unclassified") || (classCode == "Unclassified" && len(classes) > 1)
-					
+
 					indent := "  "
 					if shouldPrintHeader {
 						classHeader := classCode
@@ -187,7 +187,7 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 						}
 						// Escape backticks in message for markdown code block
 						msg = strings.ReplaceAll(msg, "`", "'")
-						
+
 						localPct := 0.0
 						if summary.Count > 0 {
 							localPct = (float64(e.Count) / float64(summary.Count)) * 100
@@ -1340,7 +1340,7 @@ func ExportSQLSummaryMarkdown(w io.Writer, m analysis.SQLMetrics, tempFiles anal
 
 	// ... (content) ...
 	// I'll be more specific to avoid error
-	
+
 	// Compute top 1% slowest queries
 	top1Slow := 0
 	if len(m.Executions) > 0 {
@@ -1482,7 +1482,7 @@ func ExportSQLDetailMarkdown(w io.Writer, m analysis.AggregatedMetrics, queryIDs
 	for _, qid := range queryIDs {
 		// ... (content) ...
 		// I'll be more specific to avoid error
-		
+
 		// Collect metrics for this query ID
 		var sqlStat *analysis.QueryStat
 		var tempStat *analysis.TempFileQueryStat
@@ -1672,7 +1672,7 @@ func ExportSQLOverviewMarkdown(w io.Writer, m analysis.SQLMetrics) {
 
 	// ... (rest of logic) ...
 	// Again, providing full body correctly to avoid corruption.
-	
+
 	// Global statistics
 	b.WriteString("## Global Statistics\n\n")
 	b.WriteString("|  |  |  |  |\n")

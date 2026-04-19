@@ -412,10 +412,10 @@ func computeCheckpointHistogram(m analysis.CheckpointMetrics) (map[string]int, s
 
 // WALDistanceBucket holds the average WAL distance and estimate for a time bucket.
 type WALDistanceBucket struct {
-	Label      string
-	AvgDistMB  float64
-	AvgEstMB   float64
-	Count      int
+	Label     string
+	AvgDistMB float64
+	AvgEstMB  float64
+	Count     int
 }
 
 // computeWALDistanceHistogram groups checkpoint WAL distances into 4-hour buckets

@@ -1537,13 +1537,13 @@ func PrintEventsReport(summaries []analysis.EventSummary, topEvents []analysis.E
 		}
 
 		// Print Severity Main Line
-		fmt.Printf("  %-*s : %d (%.1f%%)\n", 
-			severityLabelWidth, summary.Type, 
+		fmt.Printf("  %-*s : %d (%.1f%%)\n",
+			severityLabelWidth, summary.Type,
 			summary.Count, summary.Percentage)
 
 		// Process detailed events for this severity
 		if events, ok := eventsBySeverity[summary.Type]; ok {
-			
+
 			// 1. Group by Error Class
 			// Map: ClassCode -> []EventStat
 			byClass := make(map[string][]analysis.EventStat)
@@ -1578,13 +1578,17 @@ func PrintEventsReport(summaries []analysis.EventSummary, topEvents []analysis.E
 					msgWidth = len(e.Message)
 				}
 			}
-			if msgWidth < 30 { msgWidth = 30 }
-			if msgWidth > 60 { msgWidth = 60 }
+			if msgWidth < 30 {
+				msgWidth = 30
+			}
+			if msgWidth > 60 {
+				msgWidth = 60
+			}
 
 			// 3. Print each class block
 			for _, classCode := range classes {
 				classEvents := byClass[classCode]
-				
+
 				// Calculate class header
 				classHeader := classCode
 				if classCode != "Unclassified" {
@@ -1592,9 +1596,9 @@ func PrintEventsReport(summaries []analysis.EventSummary, topEvents []analysis.E
 					classHeader = fmt.Sprintf("%s - %s", classCode, desc)
 				}
 
-				// Only print class header if we are in an error-like severity 
+				// Only print class header if we are in an error-like severity
 				// (ERROR, FATAL, PANIC, WARNING) where SQLSTATEs are relevant.
-				
+
 				// If strictly Unclassified and not an Error severity, we might skip the "Unclassified" header
 				// to keep LOG/INFO sections cleaner (flat list).
 				// But user requested hierarchy. Let's keep it clean:
@@ -1627,9 +1631,9 @@ func PrintEventsReport(summaries []analysis.EventSummary, topEvents []analysis.E
 						localPct = (float64(e.Count) / float64(summary.Count)) * 100
 					}
 
-					fmt.Printf("%s%-*s  %6d  %6.2f%%\n", 
+					fmt.Printf("%s%-*s  %6d  %6.2f%%\n",
 						indent,
-						msgWidth, msg, 
+						msgWidth, msg,
 						e.Count, localPct)
 				}
 			}

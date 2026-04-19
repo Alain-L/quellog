@@ -691,7 +691,6 @@ func extractPrefixValueAt(s string, start int, skipSpace bool) string {
 	return s[start:end]
 }
 
-
 // Finalize returns the aggregated SQL metrics.
 // This should be called after all log entries have been processed.
 //

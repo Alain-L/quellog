@@ -156,11 +156,11 @@ type LockAnalyzer struct {
 	relationStats     map[string]int
 
 	// Pre-allocated structures (initialized at creation)
-	events         []LockEvent
-	queryStats     map[string]*LockQueryStat
-	lastQueryByPID      map[string]string
-	pendingBlockingPID  map[string]string // Maps waiting PID → blocking PID (from DETAIL line)
-	activeLocks         map[string]*activeLock
+	events             []LockEvent
+	queryStats         map[string]*LockQueryStat
+	lastQueryByPID     map[string]string
+	pendingBlockingPID map[string]string // Maps waiting PID → blocking PID (from DETAIL line)
+	activeLocks        map[string]*activeLock
 
 	// State machine optimization (like tempfiles)
 	locksExist bool // True once we've seen at least one lock event
@@ -183,15 +183,15 @@ type activeLock struct {
 // NewLockAnalyzer creates a new lock event analyzer.
 func NewLockAnalyzer() *LockAnalyzer {
 	return &LockAnalyzer{
-		lockTypeStats:     make(map[string]int, 20),
-		resourceTypeStats: make(map[string]int, 10),
-		relationStats:     make(map[string]int, 50),
-		events:            make([]LockEvent, 0, 1000),
-		queryStats:        make(map[string]*LockQueryStat, 100),
+		lockTypeStats:      make(map[string]int, 20),
+		resourceTypeStats:  make(map[string]int, 10),
+		relationStats:      make(map[string]int, 50),
+		events:             make([]LockEvent, 0, 1000),
+		queryStats:         make(map[string]*LockQueryStat, 100),
 		lastQueryByPID:     make(map[string]string, 100),
 		pendingBlockingPID: make(map[string]string, 50),
 		activeLocks:        make(map[string]*activeLock, 200),
-		locksExist:        false,
+		locksExist:         false,
 	}
 }
 

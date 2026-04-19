@@ -227,11 +227,11 @@ type LocksJSON struct {
 }
 
 type LockEventJSON struct {
-	Timestamp    string `json:"timestamp"`
-	EventType    string `json:"event_type"`
-	LockType     string `json:"lock_type,omitempty"`
-	ResourceType string `json:"resource_type,omitempty"`
-	WaitTime     string `json:"wait_time,omitempty"`
+	Timestamp       string `json:"timestamp"`
+	EventType       string `json:"event_type"`
+	LockType        string `json:"lock_type,omitempty"`
+	ResourceType    string `json:"resource_type,omitempty"`
+	WaitTime        string `json:"wait_time,omitempty"`
 	ProcessID       string `json:"process_id"`
 	QueryID         string `json:"query_id,omitempty"`
 	BlockingPID     string `json:"blocking_pid,omitempty"`
@@ -271,12 +271,12 @@ type CheckpointsJSON struct {
 	Events            []string                      `json:"events"`
 	Types             map[string]CheckpointTypeJSON `json:"types,omitempty"`
 
-	AvgWALDistance      string             `json:"avg_wal_distance,omitempty"`
-	MaxWALDistance      string             `json:"max_wal_distance,omitempty"`
+	AvgWALDistance      string            `json:"avg_wal_distance,omitempty"`
+	MaxWALDistance      string            `json:"max_wal_distance,omitempty"`
 	TotalBuffersWritten int64             `json:"total_buffers_written,omitempty"`
-	WALRate             string             `json:"wal_rate,omitempty"`
-	FlushRate           string             `json:"flush_rate,omitempty"`
-	WALDistances        []WALDistanceJSON  `json:"wal_distances,omitempty"`
+	WALRate             string            `json:"wal_rate,omitempty"`
+	FlushRate           string            `json:"flush_rate,omitempty"`
+	WALDistances        []WALDistanceJSON `json:"wal_distances,omitempty"`
 
 	WarningCount              int      `json:"warning_count,omitempty"`
 	WarningMinIntervalSeconds int      `json:"warning_min_interval_seconds,omitempty"`

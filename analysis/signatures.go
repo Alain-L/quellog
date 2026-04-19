@@ -20,9 +20,9 @@ var tempTableRegex = regexp.MustCompile(`pg_(temp|toast)(_\d+)+`)
 var locationRegex = regexp.MustCompile(`(?s) at character \d+.*`)
 var detailParamsRegex = regexp.MustCompile(`Key \([^)]+\)=\([^)]+\)`)
 
-// ============================================================================ 
+// ============================================================================
 // SQL Pattern Extraction (Normalization)
-// ============================================================================ 
+// ============================================================================
 
 // normalizeQuery parameterizes an SQL query by replacing literal values with '?'.
 func normalizeQuery(query string) string {
@@ -198,9 +198,9 @@ func normalizeWhitespace(s string) string {
 	return strings.TrimSpace(buf.String())
 }
 
-// ============================================================================ 
+// ============================================================================
 // Hash & ID Generation
-// ============================================================================ 
+// ============================================================================
 
 // GenerateQueryID creates a short, human-readable identifier for an SQL query.
 func GenerateQueryID(rawQuery, normalizedQuery string) (id, fullHash string) {
@@ -302,8 +302,6 @@ func generateShortHash(hashBytes []byte) string {
 
 // ============================================================================
 
-
-
 // NormalizeEvent transforms a raw log message into a generic fingerprint.
 
 // It removes severity prefixes, masks quoted identifiers/values, and numbers.
@@ -323,8 +321,6 @@ func NormalizeEvent(msg string) string {
 		return ""
 
 	}
-
-
 
 	// 1. Strip everything before known severity markers to focus on the core message.
 
@@ -348,8 +344,6 @@ func NormalizeEvent(msg string) string {
 
 	}
 
-
-
 	// If no severity marker found, check for a simple colon at the beginning (legacy/simple formats)
 
 	if start == 0 {
@@ -362,205 +356,80 @@ func NormalizeEvent(msg string) string {
 
 	}
 
+	msg = msg[start:]
 
+	// Skip extra spaces after the marker
 
-		msg = msg[start:]
+	for len(msg) > 0 && (msg[0] == ' ' || msg[0] == '\t') {
 
+		msg = msg[1:]
 
+	}
 
-		// Skip extra spaces after the marker
+	if len(msg) == 0 {
 
+		return ""
 
+	}
 
-		for len(msg) > 0 && (msg[0] == ' ' || msg[0] == '\t') {
+	// 2. Strip technical suffixes often appended by CSV/JSON parsers.
 
+	// We want the clean message signature, not the variable context.
 
+	// Look for standard PostgreSQL metadata keywords that might appear after the main message.
 
-			msg = msg[1:]
+	suffixes := []string{
 
+		" DETAIL:",
 
+		" HINT:",
 
-		}
+		" QUERY:",
 
+		" STATEMENT:",
 
+		" CONTEXT:",
 
-	
+		" SQLSTATE =",
 
+		" LOCATION:",
+	}
 
+	shortestIdx := -1
 
-		if len(msg) == 0 {
+	for _, suffix := range suffixes {
 
+		if idx := strings.Index(msg, suffix); idx != -1 {
 
+			if shortestIdx == -1 || idx < shortestIdx {
 
-			return ""
-
-
-
-		}
-
-
-
-	
-
-
-
-		// 2. Strip technical suffixes often appended by CSV/JSON parsers.
-
-
-
-		// We want the clean message signature, not the variable context.
-
-
-
-		// Look for standard PostgreSQL metadata keywords that might appear after the main message.
-
-
-
-		suffixes := []string{
-
-
-
-			" DETAIL:",
-
-
-
-			" HINT:",
-
-
-
-			" QUERY:",
-
-
-
-			" STATEMENT:",
-
-
-
-			" CONTEXT:",
-
-
-
-			" SQLSTATE =",
-
-
-
-			" LOCATION:",
-
-
-
-		}
-
-
-
-	
-
-
-
-		shortestIdx := -1
-
-
-
-		for _, suffix := range suffixes {
-
-
-
-			if idx := strings.Index(msg, suffix); idx != -1 {
-
-
-
-				if shortestIdx == -1 || idx < shortestIdx {
-
-
-
-					shortestIdx = idx
-
-
-
-				}
-
-
+				shortestIdx = idx
 
 			}
 
-
-
 		}
 
+	}
 
+	if shortestIdx != -1 {
 
-		if shortestIdx != -1 {
+		msg = msg[:shortestIdx]
 
+	}
 
+	// 3. Strip location info which prevents grouping
 
-			msg = msg[:shortestIdx]
+	// e.g. "syntax error at character 14" vs "syntax error at character 25"
 
+	msg = locationRegex.ReplaceAllString(msg, "")
 
+	// Mask variable details in unique constraint violations
 
-		}
+	// e.g. "Key (email)=(foo@bar.com) already exists." -> "Key (?)=(?) already exists."
 
+	msg = detailParamsRegex.ReplaceAllString(msg, "Key (?)=(?)")
 
-
-	
-
-
-
-		// 3. Strip location info which prevents grouping
-
-
-
-		// e.g. "syntax error at character 14" vs "syntax error at character 25"
-
-
-
-		msg = locationRegex.ReplaceAllString(msg, "")
-
-
-
-	
-
-
-
-		
-
-
-
-	
-
-
-
-			// Mask variable details in unique constraint violations
-
-
-
-	
-
-
-
-			// e.g. "Key (email)=(foo@bar.com) already exists." -> "Key (?)=(?) already exists."
-
-
-
-	
-
-
-
-			msg = detailParamsRegex.ReplaceAllString(msg, "Key (?)=(?)")
-
-
-
-	
-
-
-
-		
-
-
-
-	
-
-
-
-			buf := builderPool.Get().(*strings.Builder)
+	buf := builderPool.Get().(*strings.Builder)
 
 	buf.Reset()
 
@@ -568,17 +437,11 @@ func NormalizeEvent(msg string) string {
 
 	defer builderPool.Put(buf)
 
-
-
 	lastWasSpace := false
-
-
 
 	for i := 0; i < len(msg); i++ {
 
 		c := msg[i]
-
-
 
 		// Handle double-quoted identifiers ("users")
 
@@ -603,8 +466,6 @@ func NormalizeEvent(msg string) string {
 			continue
 
 		}
-
-
 
 		// Handle single-quoted values ('2025-01-01')
 		if c == '\'' {
@@ -634,8 +495,6 @@ func NormalizeEvent(msg string) string {
 			continue
 		}
 
-
-
 		// Handle numbers (isolated integers)
 
 		if c >= '0' && c <= '9' {
@@ -660,8 +519,6 @@ func NormalizeEvent(msg string) string {
 
 		}
 
-
-
 		// Handle whitespace
 
 		if c == '\n' || c == '\r' || c == '\t' || c == ' ' {
@@ -678,20 +535,12 @@ func NormalizeEvent(msg string) string {
 
 		}
 
-
-
 		buf.WriteByte(c)
 
 		lastWasSpace = false
 
 	}
 
-
-
 	return strings.TrimSpace(buf.String())
 
 }
-
-
-
-

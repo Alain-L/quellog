@@ -369,7 +369,7 @@ func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, 
 		if outputName == "" {
 			outputName = generateHTMLFilename(inputArgs)
 		}
-		
+
 		f, err := os.Create(outputName)
 		if err != nil {
 			log.Fatalf("[ERROR] Failed to create HTML file: %v", err)
@@ -394,7 +394,7 @@ func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, 
 		if err := output.ExportHTML(f, metrics, reportInfo, sections); err != nil {
 			log.Fatalf("[ERROR] Failed to write HTML report: %v", err)
 		}
-		
+
 		// In follow mode, be less verbose about saved files
 		if !followFlag {
 			fmt.Printf("Report saved to %s\n", outputName)
