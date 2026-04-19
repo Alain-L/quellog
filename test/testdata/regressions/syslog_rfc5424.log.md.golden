@@ -1,0 +1,171 @@
+## SUMMARY
+
+This _quellog_ report summarizes **5** log entries collected between 20 Apr 2026, 09:00 (+0000) — 20 Apr 2026, 09:00 (+0000), spanning 3s of activity.
+
+## SQL SUMMARY
+
+### Query load distribution
+
+```
+09:00 - 09:00 |  -
+```
+
+|  |  |  |  |
+|---|---:|---|---:|
+| Total query duration | 5 ms | Total queries parsed | 1 |
+| Total unique queries | 1 | Top 1% slow queries | 1 |
+| Query max duration | 5 ms | Query min duration | 5 ms |
+| Query median duration | 5 ms | Query 99% max duration | 5 ms |
+
+### Query duration distribution
+
+```
+  < 1 ms |  -
+ < 10 ms |  -
+< 100 ms |  -
+   < 1 s |  -
+  < 10 s |  -
+ >= 10 s |  -
+```
+
+### Query Statistics
+
+**Slowest queries (top 10)**
+
+| SQLID | Max | Avg | Count | Query |
+|---|---:|---:|---:|---|
+| se-0KoGdb | 5 ms | 5 ms | 1 | select id from users where id = ? |
+
+**Most frequent queries (top 10)**
+
+| SQLID | Count | Avg | Max | Query |
+|---|---:|---:|---:|---|
+| se-0KoGdb | 1 | 5 ms | 5 ms | select id from users where id = ? |
+
+**Most time consuming queries (top 10)**
+
+| SQLID | Total | Avg | Count | Query |
+|---|---:|---:|---:|---|
+| se-0KoGdb | 5 ms | 5 ms | 1 | select id from users where id = ? |
+
+## EVENTS
+
+- **ERROR**: 1 (20.0%)
+  - `permission denied for table audit_logs` (1) [100.0%]
+
+- **LOG**: 4 (80.0%)
+
+## CONNECTIONS & SESSIONS
+
+### Concurrent sessions
+
+```
+09:00 - 09:00 | ■ 1 (09:00)
+09:00 - 09:00 | ■ 1 (09:00)
+09:00 - 09:00 | ■ 1 (09:00)
+09:00 - 09:00 | ■ 1 (09:00)
+09:00 - 09:00 | ■ 1 (09:00)
+09:00 - 09:00 | ■ 1 (09:00)
+09:00 - 09:00 | ■ 1 (09:00)
+09:00 - 09:00 | ■ 1 (09:00)
+09:00 - 09:00 | ■ 1 (09:00)
+09:00 - 09:00 | ■ 1 (09:00)
+09:00 - 09:00 | ■ 1 (09:00)
+09:00 - 09:00 | ■ 1 (09:00)
+```
+
+### Connection distribution
+
+```
+09:00 - 09:00 | ■ 1 
+```
+
+- **Connection count**: 1
+- **Avg connections per hour**: 1090.91
+- **Disconnection count**: 1
+- **Avg session time**: 3s
+- **Median session time**: 3s
+- **Peak concurrent sessions**: 1 (at 09:00:00)
+
+### Session Duration Statistics
+
+- **Count**: 1
+- **Min**: 3s
+- **Max**: 3s
+- **Avg**: 3s
+- **Median**: 3s
+- **Cumulated**: 3s
+
+### Session duration distribution
+
+```
+< 1s |  -
+1s - 1min | ■ 1 sessions
+1min - 30min |  -
+30min - 2h |  -
+2h - 5h |  -
+> 5h |  -
+```
+
+### Session Duration by User
+
+| User | Sessions | Min | Max | Avg | Median | Cumulated |
+|---|---:|---|---|---|---|---:|
+| app | 1 | 3s | 3s | 3s | 3s | 3s |
+
+### Session Duration by Database
+
+| Database | Sessions | Min | Max | Avg | Median | Cumulated |
+|---|---:|---|---|---|---|---:|
+| appdb | 1 | 3s | 3s | 3s | 3s | 3s |
+
+### Session Duration by Host
+
+| Host | Sessions | Min | Max | Avg | Median | Cumulated |
+|---|---:|---|---|---|---|---:|
+| 10.0.0.80 | 1 | 3s | 3s | 3s | 3s | 3s |
+
+## CLIENTS
+
+- **Unique DBs**: 1
+- **Unique Users**: 1
+- **Unique Apps**: 1
+- **Unique Hosts**: 1
+
+### USERS
+
+| User | Count | % |
+|---|---:|---:|
+| app | 5 | 100.0% |
+
+### APPS
+
+| App | Count | % |
+|---|---:|---:|
+| psql | 5 | 100.0% |
+
+### DATABASES
+
+| Database | Count | % |
+|---|---:|---:|
+| appdb | 5 | 100.0% |
+
+### HOSTS
+
+| Host | Count | % |
+|---|---:|---:|
+| 10.0.0.80 | 5 | 100.0% |
+
+### USER × DATABASE
+
+| User | Database | Count | % |
+|---|---|---:|---:|
+| app | appdb | 5 | 100.0% |
+
+### USER × HOST
+
+| User | Host | Count | % |
+|---|---|---:|---:|
+| app | 10.0.0.80 | 5 | 100.0% |
+
+

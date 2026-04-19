@@ -1,0 +1,186 @@
+{
+  "apps": [
+    {
+      "name": "psql",
+      "count": 5
+    }
+  ],
+  "checkpoints": {
+    "total_checkpoints": 1,
+    "avg_checkpoint_time": "270.02 s",
+    "max_checkpoint_time": "270.02 s",
+    "events": [
+      "2026-04-20 08:04:30"
+    ],
+    "types": {
+      "time": {
+        "count": 1,
+        "percentage": 100,
+        "rate_per_hour": 13.333333333333334,
+        "events": [
+          "2026-04-20 08:04:30"
+        ]
+      }
+    },
+    "avg_wal_distance": "2.00 MB",
+    "max_wal_distance": "2.00 MB",
+    "total_buffers_written": 200,
+    "wal_rate": "8 kB/s",
+    "flush_rate": "6 kB/s",
+    "wal_distances": [
+      {
+        "timestamp": "2026-04-20 08:04:30",
+        "distance_kb": 2048,
+        "estimate_kb": 2048
+      }
+    ]
+  },
+  "clients": {
+    "unique_databases": 1,
+    "unique_users": 1,
+    "unique_apps": 1,
+    "unique_hosts": 1
+  },
+  "connections": {
+    "connection_count": 1,
+    "avg_connections_per_hour": "13.33",
+    "disconnection_count": 1,
+    "avg_session_time": "3.123s",
+    "session_stats": {
+      "count": 1,
+      "min_duration": "3.123s",
+      "max_duration": "3.123s",
+      "avg_duration": "3.123s",
+      "median_duration": "3.123s",
+      "cumulated_duration": "3.123s"
+    },
+    "session_distribution": {
+      "1min - 30min": 0,
+      "1s - 1min": 1,
+      "2h - 5h": 0,
+      "30min - 2h": 0,
+      "\u003c 1s": 0,
+      "\u003e 5h": 0
+    },
+    "sessions_by_user": {
+      "app": {
+        "count": 1,
+        "min_duration": "3.123s",
+        "max_duration": "3.123s",
+        "avg_duration": "3.123s",
+        "median_duration": "3.123s",
+        "cumulated_duration": "3.123s"
+      }
+    },
+    "sessions_by_database": {
+      "appdb": {
+        "count": 1,
+        "min_duration": "3.123s",
+        "max_duration": "3.123s",
+        "avg_duration": "3.123s",
+        "median_duration": "3.123s",
+        "cumulated_duration": "3.123s"
+      }
+    },
+    "sessions_by_host": {
+      "10.0.0.70": {
+        "count": 1,
+        "min_duration": "3.123s",
+        "max_duration": "3.123s",
+        "avg_duration": "3.123s",
+        "median_duration": "3.123s",
+        "cumulated_duration": "3.123s"
+      }
+    },
+    "peak_concurrent_sessions": 1,
+    "peak_concurrent_timestamp": "2026-04-20 08:00:00",
+    "connections": [
+      "2026-04-20 08:00:00"
+    ],
+    "session_events": [
+      {
+        "s": "2026-04-20T07:59:59",
+        "e": "2026-04-20T08:00:03"
+      }
+    ]
+  },
+  "databases": [
+    {
+      "name": "appdb",
+      "count": 5
+    }
+  ],
+  "events": [
+    {
+      "type": "LOG",
+      "count": 6,
+      "percentage": 85.71428571428571
+    },
+    {
+      "type": "ERROR",
+      "count": 1,
+      "percentage": 14.285714285714285
+    }
+  ],
+  "hosts": [
+    {
+      "name": "10.0.0.70",
+      "count": 5
+    }
+  ],
+  "sql_performance": {
+    "total_query_duration": "12 ms",
+    "total_queries_parsed": 1,
+    "total_unique_queries": 1,
+    "top_1_percent_slow_queries": 1,
+    "query_max_duration": "12 ms",
+    "query_min_duration": "12 ms",
+    "query_median_duration": "12 ms",
+    "query_99th_percentile": "12 ms",
+    "executions": [
+      {
+        "timestamp": "2026-04-20 08:00:01",
+        "duration_ms": 12.345,
+        "query_id": "se-L7puXx"
+      }
+    ],
+    "queries": [
+      {
+        "id": "se-L7puXx",
+        "normalized_query": "select count(*) from users where active = true",
+        "raw_query": "SELECT count(*) FROM users WHERE active = true",
+        "type": "",
+        "count": 1,
+        "total_time_ms": 12.345,
+        "avg_time_ms": 12.345,
+        "max_time_ms": 12.345
+      }
+    ]
+  },
+  "summary": {
+    "start_date": "2026-04-20 08:00:00",
+    "end_date": "2026-04-20 08:04:30",
+    "duration": "4m30s",
+    "total_logs": 7,
+    "throughput": "0.03 entries/s",
+    "error_count": 0,
+    "fatal_count": 0,
+    "panic_count": 0,
+    "warning_count": 0,
+    "log_count": 0
+  },
+  "top_events": [
+    {
+      "message": "syntax error at or near ?",
+      "count": 1,
+      "severity": "ERROR",
+      "example": "dbhost01 postgres[30001]: [4-1] [30001]: [4-1] db=appdb,user=app,app=psql,client=10.0.0.70 ERROR:  syntax error at or near \"FORM\""
+    }
+  ],
+  "users": [
+    {
+      "name": "app",
+      "count": 5
+    }
+  ]
+}

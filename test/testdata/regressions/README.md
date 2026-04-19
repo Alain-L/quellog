@@ -299,6 +299,33 @@ Expected:
 - `total_buffers_written = 46668` (1234+6047+1318+38069)
 - `wal_distances` has 4 entries with `distance_kb` and `estimate_kb`
 
+### `syslog_bsd.log` — BSD syslog format
+
+Standard PostgreSQL output via `log_destination=syslog` in BSD/RFC3164
+form: `Apr 20 08:00:00 dbhost01 postgres[30001]: [1-1] [...]`. Includes
+a session, an ERROR with STATEMENT continuation, and a checkpoint pair.
+
+Expected:
+- `summary.total_logs = 7` (8 raw lines, ERROR+STATEMENT folds into 1)
+- `events.LOG = 6`, `events.ERROR = 1`
+- `checkpoints` section present (BSD timestamps must parse)
+
+**Known gap**: MD output for this fixture is non-deterministic (see the
+`markdownNonDeterministic` map in regression_corpus_test.go). MD subtest
+is skipped; JSON golden remains authoritative.
+
+### `syslog_rfc5424.log` — RFC 5424 syslog format
+
+PostgreSQL via `syslog`+`rsyslog` with RFC 5424 framing:
+`<134>1 2026-04-20T09:00:00.100+00:00 host postgres 31001 - - [...]`.
+Mix of LOG and ERROR with priority `<134>` (info) and `<131>` (err).
+
+Expected:
+- `summary.total_logs = 5` (6 raw lines, ERROR+STATEMENT folds)
+- `events.ERROR = 1`
+- `top_events.message` does NOT contain `<134>` or any priority prefix
+  (the RFC5424 prefix must be stripped before normalization)
+
 ### `multiline_statement.log` — long multi-line STATEMENT and CTE
 
 A multi-line SQL statement with subqueries and a recursive CTE. Both

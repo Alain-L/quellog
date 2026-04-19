@@ -84,10 +84,10 @@
   },
   "summary": {
     "start_date": "2026-04-20 04:00:00",
-    "end_date": "2026-04-20 04:01:00",
-    "duration": "1m0.05s",
+    "end_date": "2026-04-20 04:03:00",
+    "duration": "3m0.05s",
     "total_logs": 6,
-    "throughput": "0.10 entries/s",
+    "throughput": "0.03 entries/s",
     "error_count": 0,
     "fatal_count": 0,
     "panic_count": 0,
@@ -110,12 +110,12 @@
         "query_id": "se-1UDove"
       },
       {
-        "timestamp": "2026-04-20 04:01:00",
+        "timestamp": "2026-04-20 04:02:00",
         "size": "8.00 MB",
         "query_id": "se-1UDove"
       },
       {
-        "timestamp": "2026-04-20 04:01:00",
+        "timestamp": "2026-04-20 04:03:00",
         "size": "16.00 MB",
         "query_id": "se-1UDove"
       }

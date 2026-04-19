@@ -1,0 +1,8 @@
+Apr 20 08:00:00 dbhost01 postgres[30001]: [1-1] [30001]: [1-1] db=appdb,user=app,app=psql,client=10.0.0.70 LOG:  connection received: host=10.0.0.70 port=43210
+Apr 20 08:00:00 dbhost01 postgres[30001]: [2-1] [30001]: [2-1] db=appdb,user=app,app=psql,client=10.0.0.70 LOG:  connection authorized: user=app database=appdb application_name=psql
+Apr 20 08:00:01 dbhost01 postgres[30001]: [3-1] [30001]: [3-1] db=appdb,user=app,app=psql,client=10.0.0.70 LOG:  duration: 12.345 ms  statement: SELECT count(*) FROM users WHERE active = true
+Apr 20 08:00:02 dbhost01 postgres[30001]: [4-1] [30001]: [4-1] db=appdb,user=app,app=psql,client=10.0.0.70 ERROR:  syntax error at or near "FORM"
+Apr 20 08:00:02 dbhost01 postgres[30001]: [5-1] [30001]: [5-1] db=appdb,user=app,app=psql,client=10.0.0.70 STATEMENT:  SELECT * FORM users
+Apr 20 08:00:03 dbhost01 postgres[30001]: [6-1] [30001]: [6-1] db=appdb,user=app,app=psql,client=10.0.0.70 LOG:  disconnection: session time: 0:00:03.123 user=app database=appdb host=10.0.0.70
+Apr 20 08:00:10 dbhost01 postgres[30002]: [1-1] [30002]: [1-1] db=,user=,app=,client= LOG:  checkpoint starting: time
+Apr 20 08:04:30 dbhost01 postgres[30002]: [2-1] [30002]: [2-1] db=,user=,app=,client= LOG:  checkpoint complete: wrote 200 buffers (1.2%); 0 WAL file(s) added, 0 removed, 1 recycled; write=270.012 s, sync=0.005 s, total=270.024 s; sync files=12, longest=0.001 s, average=0.001 s; distance=2048 kB, estimate=2048 kB
