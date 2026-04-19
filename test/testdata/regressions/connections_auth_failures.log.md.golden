@@ -1,0 +1,141 @@
+## SUMMARY
+
+This _quellog_ report summarizes **10** log entries collected between 20 Apr 2026, 05:00 (UTC) — 20 Apr 2026, 05:00 (UTC), spanning 14s of activity.
+
+## EVENTS
+
+- **FATAL**: 4 (40.0%)
+  - `LDAP authentication failed for user ?` (1) [25.0%]
+  - `Peer authentication failed for user ?` (1) [25.0%]
+  - `no pg_hba.conf entry for host ?, user ?, database ?, no encryption` (1) [25.0%]
+  - `password authentication failed for user ?` (1) [25.0%]
+
+- **LOG**: 6 (60.0%)
+
+## CONNECTIONS & SESSIONS
+
+### Concurrent sessions
+
+```
+05:00 - 05:00 | ■ 1 (05:00)
+05:00 - 05:00 | ■ 1 (05:00)
+05:00 - 05:00 | ■ 1 (05:00)
+05:00 - 05:00 | ■ 1 (05:00)
+05:00 - 05:00 | ■ 1 (05:00)
+05:00 - 05:00 | ■ 1 (05:00)
+05:00 - 05:00 | ■ 1 (05:00)
+05:00 - 05:00 | ■ 1 (05:00)
+05:00 - 05:00 | ■ 1 (05:00)
+05:00 - 05:00 | ■ 1 (05:00)
+05:00 - 05:00 | ■ 1 (05:00)
+05:00 - 05:00 | ■ 1 (05:00)
+```
+
+### Connection distribution
+
+```
+05:00 - 05:00 | ■■ 2 
+```
+
+- **Connection count**: 2
+- **Avg connections per hour**: 499.65
+- **Disconnection count**: 2
+- **Avg session time**: 6s
+- **Median session time**: 10s
+- **Peak concurrent sessions**: 1 (at 05:00:04)
+
+### Session Duration Statistics
+
+- **Count**: 2
+- **Min**: 1s
+- **Max**: 10s
+- **Avg**: 6s
+- **Median**: 6s
+- **Cumulated**: 11s
+
+### Session duration distribution
+
+```
+< 1s |  -
+1s - 1min | ■■ 2 sessions
+1min - 30min |  -
+30min - 2h |  -
+2h - 5h |  -
+> 5h |  -
+```
+
+### Session Duration by User
+
+| User | Sessions | Min | Max | Avg | Median | Cumulated |
+|---|---:|---|---|---|---|---:|
+| app | 2 | 1s | 10s | 6s | 6s | 11s |
+
+### Session Duration by Database
+
+| Database | Sessions | Min | Max | Avg | Median | Cumulated |
+|---|---:|---|---|---|---|---:|
+| appdb | 2 | 1s | 10s | 6s | 6s | 11s |
+
+### Session Duration by Host
+
+| Host | Sessions | Min | Max | Avg | Median | Cumulated |
+|---|---:|---|---|---|---|---:|
+| fe80::1234:5678 | 1 | 10s | 10s | 10s | 10s | 10s |
+
+## CLIENTS
+
+- **Unique DBs**: 2
+- **Unique Users**: 4
+- **Unique Apps**: 1
+- **Unique Hosts**: 4
+
+### USERS
+
+| User | Count | % |
+|---|---:|---:|
+| app | 7 | 70.0% |
+| appuser | 1 | 10.0% |
+| ldapuser | 1 | 10.0% |
+| postgres | 1 | 10.0% |
+
+### APPS
+
+| App | Count | % |
+|---|---:|---:|
+| psql | 5 | 50.0% |
+
+### DATABASES
+
+| Database | Count | % |
+|---|---:|---:|
+| appdb | 9 | 90.0% |
+| postgres | 1 | 10.0% |
+
+### HOSTS
+
+| Host | Count | % |
+|---|---:|---:|
+| fe80::1234:5678 | 3 | 30.0% |
+| 10.0.0.50 | 1 | 10.0% |
+| 10.0.0.51 | 1 | 10.0% |
+| 10.0.0.52 | 1 | 10.0% |
+
+### USER × DATABASE
+
+| User | Database | Count | % |
+|---|---|---:|---:|
+| app | appdb | 7 | 70.0% |
+| appuser | appdb | 1 | 10.0% |
+| ldapuser | appdb | 1 | 10.0% |
+| postgres | postgres | 1 | 10.0% |
+
+### USER × HOST
+
+| User | Host | Count | % |
+|---|---|---:|---:|
+| app | fe80::1234:5678 | 3 | 30.0% |
+| appuser | 10.0.0.50 | 1 | 10.0% |
+| app | 10.0.0.51 | 1 | 10.0% |
+| ldapuser | 10.0.0.52 | 1 | 10.0% |
+
+

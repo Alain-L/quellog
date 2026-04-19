@@ -1,0 +1,10 @@
+2026-04-20 04:00:00.100 UTC [26001]: [1-1] user=app,db=appdb,app=psql,client=10.0.0.40 LOG:  duration: 1234.567 ms  statement: SELECT u.id, u.username, COUNT(o.id) FROM users u LEFT JOIN orders o ON o.user_id = u.id GROUP BY u.id ORDER BY count DESC
+2026-04-20 04:00:00.150 UTC [26001]: [2-1] user=app,db=appdb,app=psql,client=10.0.0.40 LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp26001.0", size 21168128
+2026-04-20 04:00:00.150 UTC [26001]: [3-1] user=app,db=appdb,app=psql,client=10.0.0.40 STATEMENT:  SELECT u.id, u.username, COUNT(o.id) FROM users u LEFT JOIN orders o ON o.user_id = u.id GROUP BY u.id ORDER BY count DESC
+2026-04-20 04:01:00.100 UTC [26002]: [1-1] user=app,db=appdb,app=app-worker,client=10.0.0.41 LOG:  duration: 5432.100 ms  statement: SELECT * FROM big_table ORDER BY non_indexed_col
+2026-04-20 04:01:00.150 UTC [26002]: [2-1] user=app,db=appdb,app=app-worker,client=10.0.0.41 LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp26002.0.sharedfileset/0.0", size 4194304
+2026-04-20 04:01:00.150 UTC [26002]: [3-1] user=app,db=appdb,app=app-worker,client=10.0.0.41 STATEMENT:  SELECT * FROM big_table ORDER BY non_indexed_col
+2026-04-20 04:01:00.150 UTC [26002]: [4-1] user=app,db=appdb,app=app-worker,client=10.0.0.41 LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp26002.0.sharedfileset/1.0", size 8388608
+2026-04-20 04:01:00.150 UTC [26002]: [5-1] user=app,db=appdb,app=app-worker,client=10.0.0.41 STATEMENT:  SELECT * FROM big_table ORDER BY non_indexed_col
+2026-04-20 04:01:00.150 UTC [26002]: [6-1] user=app,db=appdb,app=app-worker,client=10.0.0.41 LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp26002.0.sharedfileset/2.0", size 16777216
+2026-04-20 04:01:00.150 UTC [26002]: [7-1] user=app,db=appdb,app=app-worker,client=10.0.0.41 STATEMENT:  SELECT * FROM big_table ORDER BY non_indexed_col

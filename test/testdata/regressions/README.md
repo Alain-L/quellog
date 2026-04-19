@@ -250,6 +250,55 @@ Expected (using `--sql-performance --json` view):
 - `slowest_queries[1]` is the big_table SELECT
 - `slowest_queries[2]` is now() (most frequent but fastest)
 
+### `tempfile_with_query.log` — temp file association with shared filesets
+
+1 single temp file for query A + 3 temp files (sharedfileset/*) for
+query B. The analyzer must associate each event to its STATEMENT.
+
+Expected:
+- `temp_files.total_messages = 4`
+- `temp_files.events[0..3].query_id` all non-empty
+- The 3 sharedfileset events share the same `query_id` (collapsed by
+  the SQL normalizer to one ID)
+
+### `connections_auth_failures.log` — 4 auth failures + 2 sessions
+
+md5, pg_hba, peer, LDAP failures + one IPv6 session + one local session.
+
+Expected:
+- `events.FATAL.count = 4` (all 4 auth failures)
+- `connections.connection_count = 2`, `disconnection_count = 2`
+  (failed authentications do NOT count as connections)
+- IPv6 client `fe80::1234:5678` appears in `connections.sessions_by_*`
+
+### `errors_sqlstate_classes.log` — 8 PostgreSQL SQLSTATE classes
+
+12 errors covering classes 08, 22, 23, 25, 28, 42, 53, 57.
+
+Expected (current behaviour):
+- `events.ERROR.count = 10`, `events.FATAL.count = 2`
+- `--errors` (text) prints the structured class breakdown:
+  `08 - Connection Exception`, `22 - Data Exception`, etc.
+
+**Known gaps documented (find while writing this fixture):**
+- `--errors --json` returns `{}` (the errors section is missing from
+  the JSON export, while the text rendering works).
+- `summary.error_count` and `summary.fatal_count` stay at 0 even when
+  events show ERROR=10/FATAL=2. The `summary` block does not aggregate
+  from the events analyzer. Both are tracked in the roadmap.
+
+### `checkpoints_full.log` — full checkpoint metrics
+
+3 normal time-triggered checkpoints + 1 xlog with the "too frequently"
+warning. Stats include WAL distance, buffer counts, write rates.
+
+Expected:
+- `checkpoints.total_checkpoints = 4`
+- `checkpoints.warning_count = 1`
+- `types.time.count = 3`, `types.xlog.count = 1`
+- `total_buffers_written = 46668` (1234+6047+1318+38069)
+- `wal_distances` has 4 entries with `distance_kb` and `estimate_kb`
+
 ### `multiline_statement.log` — long multi-line STATEMENT and CTE
 
 A multi-line SQL statement with subqueries and a recursive CTE. Both

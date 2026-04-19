@@ -1,0 +1,85 @@
+{
+  "checkpoints": {
+    "total_checkpoints": 4,
+    "avg_checkpoint_time": "206.18 s",
+    "max_checkpoint_time": "270.13 s",
+    "events": [
+      "2026-04-20 07:04:30",
+      "2026-04-20 07:14:00",
+      "2026-04-20 07:23:30",
+      "2026-04-20 07:24:00"
+    ],
+    "types": {
+      "time": {
+        "count": 3,
+        "percentage": 75,
+        "rate_per_hour": 7.497568496883303,
+        "events": [
+          "2026-04-20 07:04:30",
+          "2026-04-20 07:14:00",
+          "2026-04-20 07:23:30"
+        ]
+      },
+      "xlog": {
+        "count": 1,
+        "percentage": 25,
+        "rate_per_hour": 2.4991894989611008,
+        "events": [
+          "2026-04-20 07:24:00"
+        ]
+      }
+    },
+    "avg_wal_distance": "96.97 MB",
+    "max_wal_distance": "335.42 MB",
+    "total_buffers_written": 46668,
+    "wal_rate": "276 kB/s",
+    "flush_rate": "453 kB/s",
+    "wal_distances": [
+      {
+        "timestamp": "2026-04-20 07:04:30",
+        "distance_kb": 20480,
+        "estimate_kb": 34187
+      },
+      {
+        "timestamp": "2026-04-20 07:14:00",
+        "distance_kb": 25494,
+        "estimate_kb": 33318
+      },
+      {
+        "timestamp": "2026-04-20 07:23:30",
+        "distance_kb": 7742,
+        "estimate_kb": 30760
+      },
+      {
+        "timestamp": "2026-04-20 07:24:00",
+        "distance_kb": 343475,
+        "estimate_kb": 343475
+      }
+    ],
+    "warning_count": 1,
+    "warning_min_interval_seconds": 15,
+    "warning_max_interval_seconds": 15,
+    "warning_events": [
+      "2026-04-20 07:23:45"
+    ]
+  },
+  "events": [
+    {
+      "type": "LOG",
+      "count": 9,
+      "percentage": 100
+    }
+  ],
+  "summary": {
+    "start_date": "2026-04-20 07:00:00",
+    "end_date": "2026-04-20 07:24:00",
+    "duration": "24m0.467s",
+    "total_logs": 9,
+    "throughput": "0.01 entries/s",
+    "error_count": 0,
+    "fatal_count": 0,
+    "panic_count": 0,
+    "warning_count": 0,
+    "log_count": 0
+  }
+}

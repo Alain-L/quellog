@@ -1,0 +1,10 @@
+2026-04-20 07:00:00.100 UTC [29001]: [1-1] user=,db=,app=,client= LOG:  checkpoint starting: time
+2026-04-20 07:04:30.234 UTC [29001]: [2-1] user=,db=,app=,client= LOG:  checkpoint complete: wrote 1234 buffers (7.5%); 0 WAL file(s) added, 0 removed, 2 recycled; write=270.123 s, sync=0.005 s, total=270.134 s; sync files=42, longest=0.003 s, average=0.001 s; distance=20480 kB, estimate=34187 kB
+2026-04-20 07:09:30.456 UTC [29001]: [3-1] user=,db=,app=,client= LOG:  checkpoint starting: time
+2026-04-20 07:14:00.678 UTC [29001]: [4-1] user=,db=,app=,client= LOG:  checkpoint complete: wrote 6047 buffers (12.3%); 0 WAL file(s) added, 0 removed, 1 recycled; write=269.345 s, sync=0.005 s, total=269.359 s; sync files=51, longest=0.001 s, average=0.001 s; distance=25494 kB, estimate=33318 kB
+2026-04-20 07:19:00.900 UTC [29001]: [5-1] user=,db=,app=,client= LOG:  checkpoint starting: time
+2026-04-20 07:23:30.123 UTC [29001]: [6-1] user=,db=,app=,client= LOG:  checkpoint complete: wrote 1318 buffers (3.1%); 0 WAL file(s) added, 0 removed, 1 recycled; write=270.012 s, sync=0.003 s, total=270.024 s; sync files=32, longest=0.001 s, average=0.001 s; distance=7742 kB, estimate=30760 kB
+2026-04-20 07:23:45.234 UTC [29001]: [7-1] user=,db=,app=,client= LOG:  checkpoint starting: xlog
+2026-04-20 07:23:45.234 UTC [29001]: [8-1] user=,db=,app=,client= LOG:  checkpoints are occurring too frequently (15 seconds apart)
+2026-04-20 07:23:45.234 UTC [29001]: [9-1] user=,db=,app=,client= HINT:  Consider increasing the configuration parameter "max_wal_size".
+2026-04-20 07:24:00.567 UTC [29001]: [10-1] user=,db=,app=,client= LOG:  checkpoint complete: wrote 38069 buffers (45.2%); 0 WAL file(s) added, 0 removed, 20 recycled; write=14.567 s, sync=0.003 s, total=15.190 s; sync files=29, longest=0.002 s, average=0.001 s; distance=343475 kB, estimate=343475 kB

@@ -1,0 +1,49 @@
+## SUMMARY
+
+This _quellog_ report summarizes **9** log entries collected between 20 Apr 2026, 07:00 (UTC) — 20 Apr 2026, 07:24 (UTC), spanning 24m of activity.
+
+## EVENTS
+
+- **LOG**: 9 (100.0%)
+
+## CHECKPOINTS
+
+### Checkpoint distribution
+
+```
+00:00 - 04:00 |  -
+04:00 - 08:00 | ■■■■ 4 
+08:00 - 12:00 |  -
+12:00 - 16:00 |  -
+16:00 - 20:00 |  -
+20:00 - 00:00 |  -
+```
+
+- **Checkpoint count**: 4
+- **Avg checkpoint write time**: 3m26s
+- **Max checkpoint write time**: 4m30s
+- **WAL per checkpoint (avg)**: 97.0 MB
+- **WAL per checkpoint (max)**: 335.4 MB
+- **Too frequent warnings**: 1 (15 s apart)
+
+### Checkpoint types
+
+|  |  |  |  |
+|------|------:|--:|-----:|
+| time | 3 | 75.0% | 7.50/h |
+| xlog | 1 | 25.0% | 2.50/h |
+
+### WAL per checkpoint (avg)
+
+■ = 2 MB, □ = estimate margin
+
+```
+00:00 - 04:00  -
+04:00 - 08:00 ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■□□□□□□  97 MB
+08:00 - 12:00  -
+12:00 - 16:00  -
+16:00 - 20:00  -
+20:00 - 00:00  -
+```
+
+
