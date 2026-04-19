@@ -115,9 +115,13 @@ func (p *JsonParser) parseJSONArray(r io.Reader, out chan<- LogEntry) error {
 // Format: {"timestamp":"...","message":"..."}\n{"timestamp":"...","message":"..."}\n
 func (p *JsonParser) parseJSONLines(r io.Reader, out chan<- LogEntry) error {
 	scanner := bufio.NewScanner(r)
-	// Configure scanner with large buffer to handle long log lines
+	// 4 MB initial buffer, 1 MB max per line. The cap protects against a
+	// pathological 1 GB single-line file that would otherwise OOM. PostgreSQL
+	// JSON log entries (PG ≥ 15 with log_destination=jsonlog) are typically
+	// well under 64 KB even for verbose STATEMENT records.
 	buf := make([]byte, 4*1024*1024)
-	scanner.Buffer(buf, 100*1024*1024)
+	const jsonlMaxLineBytes = 1 * 1024 * 1024
+	scanner.Buffer(buf, jsonlMaxLineBytes)
 
 	lineNum := 0
 
@@ -147,7 +151,16 @@ func (p *JsonParser) parseJSONLines(r io.Reader, out chan<- LogEntry) error {
 		out <- entry
 	}
 
-	return scanner.Err()
+	if err := scanner.Err(); err != nil {
+		// As with the stderr parser: oversized lines are non-fatal.
+		if errors.Is(err, bufio.ErrTooLong) {
+			slog.Warn("JSONL parser: skipping rest of input after oversized line",
+				"max_line_bytes", jsonlMaxLineBytes, "line", lineNum+1)
+			return nil
+		}
+		return err
+	}
+	return nil
 }
 
 // peekFirstNonWhitespace returns the first non-whitespace byte without consuming it.

@@ -6,12 +6,20 @@ package parser
 import (
 	"bytes"
 	"fmt"
+	"log/slog"
 	"os"
 	"sort"
 	"strings"
 	"syscall"
 	"time"
 )
+
+// mmapMaxLineBytes caps the largest single log line we will process from a
+// memory-mapped file. mmap parsers don't go through bufio.Scanner so they
+// inherit no built-in protection: a malformed or malicious file with a 1 GB
+// single line would otherwise force currentEntry to grow to 1 GB on the
+// heap. PostgreSQL log lines almost never exceed a few hundred KB.
+const mmapMaxLineBytes = 1 * 1024 * 1024
 
 // MmapStderrParser parses PostgreSQL logs using memory-mapped I/O.
 // This eliminates syscall overhead by mapping the file directly into memory.
@@ -358,6 +366,13 @@ func parseMmapDataSyslog(data []byte, out chan<- LogEntry, format SyslogFormat) 
 			continue
 		}
 
+		// Hostile-input guard (see mmapMaxLineBytes).
+		if len(line) > mmapMaxLineBytes {
+			slog.Warn("mmap syslog parser: skipping oversized line",
+				"line_bytes", len(line), "max_line_bytes", mmapMaxLineBytes)
+			continue
+		}
+
 		// Parse syslog line to extract timestamp and message part
 		lineStr := string(line)
 		ts, message, ok := parseLine(lineStr)
@@ -476,6 +491,15 @@ func parseMmapDataStderr(data []byte, out chan<- LogEntry) error {
 
 		// Skip empty lines
 		if len(line) == 0 {
+			continue
+		}
+
+		// Hostile-input guard: drop pathologically long lines (malformed
+		// log, binary garbage masquerading as text) before they can grow
+		// currentEntry past safe bounds via append below.
+		if len(line) > mmapMaxLineBytes {
+			slog.Warn("mmap parser: skipping oversized line",
+				"line_bytes", len(line), "max_line_bytes", mmapMaxLineBytes)
 			continue
 		}
 

@@ -3,8 +3,10 @@ package parser
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"strings"
 	"time"
@@ -12,11 +14,17 @@ import (
 
 // Buffer size constants for scanner
 const (
-	// scannerBuffer is the initial buffer size for reading log lines (4 MB)
+	// scannerBuffer is the initial buffer size for reading log lines (4 MB).
 	scannerBuffer = 4 * 1024 * 1024
 
-	// scannerMaxBuffer is the maximum buffer size for very long log lines (100 MB)
-	scannerMaxBuffer = 100 * 1024 * 1024
+	// scannerMaxBuffer caps the largest single log line we accept (1 MB).
+	// PostgreSQL log lines, even verbose STATEMENT lines with embedded
+	// parameters, very rarely exceed a few hundred KB. Capping here
+	// prevents a malformed or malicious log from forcing an OOM via a
+	// single huge line. Lines beyond this cap surface as bufio.ErrTooLong
+	// in scanner.Err(), and parseReader logs a warning rather than
+	// crashing the whole parse.
+	scannerMaxBuffer = 1 * 1024 * 1024
 )
 
 // continuationPrefixes are the PostgreSQL secondary message types that follow
@@ -157,7 +165,19 @@ func (p *StderrParser) parseReader(r io.Reader, out chan<- LogEntry) error {
 		}
 	}
 
-	return scanner.Err()
+	if err := scanner.Err(); err != nil {
+		// Treat oversized lines (bufio.ErrTooLong) as a recoverable warning
+		// instead of a hard parse failure: emit what we have and let the
+		// caller decide. This protects against malicious or malformed logs
+		// that contain a single 100 MB+ line, which would otherwise OOM.
+		if errors.Is(err, bufio.ErrTooLong) {
+			slog.Warn("stderr parser: skipping rest of input after oversized line",
+				"max_line_bytes", scannerMaxBuffer)
+			return nil
+		}
+		return err
+	}
+	return nil
 }
 
 // hasTimestampString checks if a line starts with a recognizable timestamp pattern.
