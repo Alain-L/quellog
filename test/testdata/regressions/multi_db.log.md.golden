@@ -1,0 +1,136 @@
+## SUMMARY
+
+This _quellog_ report summarizes **7** log entries collected between 20 Apr 2026, 10:00 (UTC) — 20 Apr 2026, 10:00 (UTC), spanning 6s of activity.
+
+## SQL SUMMARY
+
+### Query load distribution
+
+```
+10:00 - 10:00 | ■■■■■■■■■■■■ 12 ms
+```
+
+|  |  |  |  |
+|---|---:|---|---:|
+| Total query duration | 25 ms | Total queries parsed | 6 |
+| Total unique queries | 6 | Top 1% slow queries | 1 |
+| Query max duration | 12 ms | Query min duration | 0 ms |
+| Query median duration | 2 ms | Query 99% max duration | 12 ms |
+
+### Query duration distribution
+
+```
+  < 1 ms |  -
+ < 10 ms |  -
+< 100 ms | ■ 1 req
+   < 1 s |  -
+  < 10 s |  -
+ >= 10 s |  -
+```
+
+### Query Statistics
+
+**Slowest queries (top 10)**
+
+| SQLID | Max | Avg | Count | Query |
+|---|---:|---:|---:|---|
+| se-18LQnR | 12 ms | 12 ms | 1 | select pg_database_size(?) |
+| se-ibjHaN | 5 ms | 5 ms | 1 | select count(*) from events |
+| in-zIya0f | 3 ms | 3 ms | 1 | insert into events (kind, payload) values (?, ?) |
+| se-sogiPC | 2 ms | 2 ms | 1 | select * from audit_log where created_at > now() - interval ? |
+| se-tFx8MM | 1 ms | 1 ms | 1 | select * from appdb_table where id = ? |
+| se-4dSpXD | 0 ms | 0 ms | 1 | select version() |
+
+**Most frequent queries (top 10)**
+
+| SQLID | Count | Avg | Max | Query |
+|---|---:|---:|---:|---|
+| se-18LQnR | 1 | 12 ms | 12 ms | select pg_database_size(?) |
+| se-ibjHaN | 1 | 5 ms | 5 ms | select count(*) from events |
+| in-zIya0f | 1 | 3 ms | 3 ms | insert into events (kind, payload) values (?, ?) |
+| se-sogiPC | 1 | 2 ms | 2 ms | select * from audit_log where created_at > now() - interval ? |
+| se-tFx8MM | 1 | 1 ms | 1 ms | select * from appdb_table where id = ? |
+| se-4dSpXD | 1 | 0 ms | 0 ms | select version() |
+
+**Most time consuming queries (top 10)**
+
+| SQLID | Total | Avg | Count | Query |
+|---|---:|---:|---:|---|
+| se-18LQnR | 12 ms | 12 ms | 1 | select pg_database_size(?) |
+| se-ibjHaN | 5 ms | 5 ms | 1 | select count(*) from events |
+| in-zIya0f | 3 ms | 3 ms | 1 | insert into events (kind, payload) values (?, ?) |
+| se-sogiPC | 2 ms | 2 ms | 1 | select * from audit_log where created_at > now() - interval ? |
+| se-tFx8MM | 1 ms | 1 ms | 1 | select * from appdb_table where id = ? |
+| se-4dSpXD | 0 ms | 0 ms | 1 | select version() |
+
+## EVENTS
+
+- **ERROR**: 1 (14.3%)
+  - `syntax error at or near ?` (1) [100.0%]
+
+- **LOG**: 6 (85.7%)
+
+## CLIENTS
+
+- **Unique DBs**: 3
+- **Unique Users**: 4
+- **Unique Apps**: 4
+- **Unique Hosts**: 3
+
+### USERS
+
+| User | Count | % |
+|---|---:|---:|
+| app | 3 | 42.9% |
+| admin | 2 | 28.6% |
+| analyst | 1 | 14.3% |
+| auditor | 1 | 14.3% |
+
+### APPS
+
+| App | Count | % |
+|---|---:|---:|
+| psql | 4 | 57.1% |
+| app-worker | 1 | 14.3% |
+| auditd | 1 | 14.3% |
+| tableau | 1 | 14.3% |
+
+### DATABASES
+
+| Database | Count | % |
+|---|---:|---:|
+| appdb | 3 | 42.9% |
+| analytics | 2 | 28.6% |
+| audit | 2 | 28.6% |
+
+### HOSTS
+
+| Host | Count | % |
+|---|---:|---:|
+| 10.0.0.90 | 3 | 42.9% |
+| 10.0.0.91 | 2 | 28.6% |
+| 10.0.0.92 | 2 | 28.6% |
+
+### USER × DATABASE
+
+| User | Database | Count | % |
+|---|---|---:|---:|
+| app | appdb | 2 | 28.6% |
+| admin | appdb | 1 | 14.3% |
+| admin | audit | 1 | 14.3% |
+| analyst | analytics | 1 | 14.3% |
+| app | analytics | 1 | 14.3% |
+| auditor | audit | 1 | 14.3% |
+
+### USER × HOST
+
+| User | Host | Count | % |
+|---|---|---:|---:|
+| app | 10.0.0.90 | 2 | 28.6% |
+| admin | 10.0.0.90 | 1 | 14.3% |
+| admin | 10.0.0.92 | 1 | 14.3% |
+| analyst | 10.0.0.91 | 1 | 14.3% |
+| app | 10.0.0.91 | 1 | 14.3% |
+| auditor | 10.0.0.92 | 1 | 14.3% |
+
+

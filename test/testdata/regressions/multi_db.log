@@ -1,0 +1,8 @@
+2026-04-20 10:00:00.100 UTC [40001]: [1-1] user=app,db=appdb,app=psql,client=10.0.0.90 LOG:  duration: 1.234 ms  statement: SELECT * FROM appdb_table WHERE id = 1
+2026-04-20 10:00:01.100 UTC [40002]: [1-1] user=analyst,db=analytics,app=tableau,client=10.0.0.91 LOG:  duration: 5.678 ms  statement: SELECT count(*) FROM events
+2026-04-20 10:00:02.100 UTC [40003]: [1-1] user=auditor,db=audit,app=auditd,client=10.0.0.92 LOG:  duration: 2.345 ms  statement: SELECT * FROM audit_log WHERE created_at > now() - interval '1 hour'
+2026-04-20 10:00:03.100 UTC [40004]: [1-1] user=admin,db=appdb,app=psql,client=10.0.0.90 LOG:  duration: 0.567 ms  statement: SELECT version()
+2026-04-20 10:00:04.100 UTC [40005]: [1-1] user=app,db=analytics,app=app-worker,client=10.0.0.91 LOG:  duration: 3.456 ms  statement: INSERT INTO events (kind, payload) VALUES ('click', '{}')
+2026-04-20 10:00:05.100 UTC [40006]: [1-1] user=app,db=appdb,app=psql,client=10.0.0.90 ERROR:  syntax error at or near "FORM"
+2026-04-20 10:00:05.101 UTC [40006]: [2-1] user=app,db=appdb,app=psql,client=10.0.0.90 STATEMENT:  SELECT * FORM users
+2026-04-20 10:00:06.100 UTC [40007]: [1-1] user=admin,db=audit,app=psql,client=10.0.0.92 LOG:  duration: 12.345 ms  statement: SELECT pg_database_size('appdb')
