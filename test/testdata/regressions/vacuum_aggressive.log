@@ -1,0 +1,12 @@
+2026-04-19 15:00:00.100 UTC [8001]: [1-1] user=,db=,app=,client= LOG:  automatic aggressive vacuum of table "appdb.public.large_events": index scans: 1
+	pages: 245 removed, 12500 remain, 0 skipped due to pins, 8200 skipped frozen
+	tuples: 18432 removed, 985000 remain, 1234 are dead but not yet removable
+	buffer usage: 14523 hits, 312 misses, 28 dirtied
+	avg read rate: 1.234 MB/s, avg write rate: 0.234 MB/s
+	system usage: CPU: user: 1.23 s, system: 0.45 s, elapsed: 12.78 s
+2026-04-19 15:30:00.100 UTC [8002]: [1-1] user=,db=,app=,client= LOG:  automatic aggressive vacuum of table "appdb.public.audit_logs": index scans: 2
+	pages: 567 removed, 45000 remain, 0 skipped due to pins, 32000 skipped frozen
+	tuples: 87654 removed, 2345678 remain, 5432 are dead but not yet removable
+	buffer usage: 89000 hits, 1234 misses, 456 dirtied
+	avg read rate: 5.123 MB/s, avg write rate: 0.987 MB/s
+	system usage: CPU: user: 8.45 s, system: 2.34 s, elapsed: 45.67 s

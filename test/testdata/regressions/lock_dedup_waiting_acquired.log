@@ -1,0 +1,5 @@
+2026-04-19 10:00:00.100 UTC [3001]: [1-1] user=app,db=appdb,app=psql,client=10.0.0.5 LOG:  process 3001 still waiting for AccessExclusiveLock on relation 16384 of database 12345 after 1000.000 ms
+2026-04-19 10:00:00.100 UTC [3001]: [2-1] user=app,db=appdb,app=psql,client=10.0.0.5 DETAIL:  Process holding the lock: 3002. Wait queue: 3001.
+2026-04-19 10:00:00.100 UTC [3001]: [3-1] user=app,db=appdb,app=psql,client=10.0.0.5 STATEMENT:  ALTER TABLE customers ADD COLUMN email_verified boolean
+2026-04-19 10:00:02.500 UTC [3001]: [4-1] user=app,db=appdb,app=psql,client=10.0.0.5 LOG:  process 3001 acquired AccessExclusiveLock on relation 16384 of database 12345 after 3400.000 ms
+2026-04-19 10:00:02.500 UTC [3001]: [5-1] user=app,db=appdb,app=psql,client=10.0.0.5 STATEMENT:  ALTER TABLE customers ADD COLUMN email_verified boolean

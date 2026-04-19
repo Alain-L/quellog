@@ -1,0 +1,9 @@
+2026-04-19T18:00:00+00:00 172.28.0.2 postgres[10001]: [1-1] 2026-04-19 18:00:00.100 UTC [10001] 00000: db=appdb,user=app,app=psql,client=10.0.0.50 LOG:  duration: 245.123 ms  statement: SELECT u.id, u.username, COUNT(o.id) FROM users u LEFT JOIN orders o ON o.user_id = u.id WHERE u.created_at > '2026-01-01' GROUP BY u.id ORDER BY count DESC LIMIT 50
+2026-04-19T18:00:01+00:00 172.28.0.2 postgres[10002]: [2-1] 2026-04-19 18:00:01.200 UTC [10002] 23505: db=appdb,user=app,app=psql,client=10.0.0.51 ERROR:  duplicate key value violates unique constraint "users_email_key"
+2026-04-19T18:00:01+00:00 172.28.0.2 postgres[10002]: [2-2] 2026-04-19 18:00:01.200 UTC [10002] 23505: db=appdb,user=app,app=psql,client=10.0.0.51 DETAIL:  Key (email)=(test@example.com) already exists.
+2026-04-19T18:00:01+00:00 172.28.0.2 postgres[10002]: [2-3] 2026-04-19 18:00:01.200 UTC [10002] 23505: db=appdb,user=app,app=psql,client=10.0.0.51 STATEMENT:  INSERT INTO users (email, username) VALUES ('test@example.com', 'newuser')
+2026-04-19T18:00:02+00:00 172.28.0.2 postgres[10003]: [3-1] 2026-04-19 18:00:02.300 UTC [10003] 00000: db=appdb,user=app,app=psql,client=10.0.0.52 LOG:  duration: 1234.567 ms  plan:
+2026-04-19T18:00:02+00:00 172.28.0.2 postgres[10003]: [3-2] #011Query Text: SELECT * FROM products WHERE category = 'electronics'
+2026-04-19T18:00:02+00:00 172.28.0.2 postgres[10003]: [3-3] #011Seq Scan on public.products  (cost=0.00..1500.00 rows=12500 width=64) (actual time=0.020..1230.456 rows=12500 loops=1)
+2026-04-19T18:00:02+00:00 172.28.0.2 postgres[10003]: [3-4] #011  Output: id, name, category, price
+2026-04-19T18:00:02+00:00 172.28.0.2 postgres[10003]: [3-5] #011  Filter: ((category)::text = 'electronics'::text)

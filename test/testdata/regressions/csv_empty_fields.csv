@@ -1,0 +1,4 @@
+2026-04-19 16:00:00.100 UTC,,,55,,692cb2bb.37,1,,2026-04-19 15:59:00 UTC,,0,LOG,00000,"starting PostgreSQL 17.9 on aarch64",,,,,,,,,"","postmaster",,0
+2026-04-19 16:00:01.200 UTC,postgres,appdb,80,"127.0.0.1:54321",692cb2bd.50,1,SELECT,2026-04-19 16:00:01 UTC,2/100,0,LOG,00000,"duration: 12.345 ms statement: SELECT count(*) FROM users",,,,,,,,,"psql","client backend",,12345
+2026-04-19 16:00:02.300 UTC,,appdb,80,,692cb2bd.50,2,,2026-04-19 16:00:02 UTC,,0,LOG,00000,"automatic vacuum of table ""appdb.public.users"": index scans: 0",,,,,,,,,,"autovacuum worker",,0
+2026-04-19 16:00:03.400 UTC,app,appdb,90,"10.0.0.5:34567",692cb2be.5a,1,UPDATE,2026-04-19 16:00:03 UTC,3/200,1234,ERROR,23505,"duplicate key value violates unique constraint ""users_email_key""","Key (email)=(test@example.com) already exists.",,,"INSERT INTO users (email) VALUES ('test@example.com')",,,"app","client backend",,67890

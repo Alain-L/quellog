@@ -1,0 +1,12 @@
+2026-04-19 09:00:00.100 UTC [2001]: [1-1] user=app,db=appdb,app=psql,client=10.0.0.1 ERROR:  deadlock detected
+2026-04-19 09:00:00.100 UTC [2001]: [2-1] user=app,db=appdb,app=psql,client=10.0.0.1 DETAIL:  Process 2001 waits for ShareLock on transaction 200; blocked by process 2002.
+	Process 2002 waits for ShareLock on transaction 201; blocked by process 2001.
+2026-04-19 09:00:00.100 UTC [2001]: [3-1] user=app,db=appdb,app=psql,client=10.0.0.1 STATEMENT:  UPDATE orders SET status = 'paid' WHERE id = 100
+2026-04-19 09:05:30.250 UTC [2010]: [1-1] user=app,db=appdb,app=psql,client=10.0.0.2 ERROR:  deadlock detected
+2026-04-19 09:05:30.250 UTC [2010]: [2-1] user=app,db=appdb,app=psql,client=10.0.0.2 DETAIL:  Process 2010 waits for ShareLock on transaction 250; blocked by process 2011.
+	Process 2011 waits for ShareLock on transaction 251; blocked by process 2010.
+2026-04-19 09:05:30.250 UTC [2010]: [3-1] user=app,db=appdb,app=psql,client=10.0.0.2 STATEMENT:  UPDATE orders SET status = 'shipped' WHERE id = 200
+2026-04-19 09:12:15.700 UTC [2020]: [1-1] user=app,db=appdb,app=psql,client=10.0.0.3 ERROR:  deadlock detected
+2026-04-19 09:12:15.700 UTC [2020]: [2-1] user=app,db=appdb,app=psql,client=10.0.0.3 DETAIL:  Process 2020 waits for ShareLock on transaction 300; blocked by process 2021.
+	Process 2021 waits for ShareLock on transaction 301; blocked by process 2020.
+2026-04-19 09:12:15.700 UTC [2020]: [3-1] user=app,db=appdb,app=psql,client=10.0.0.3 STATEMENT:  UPDATE inventory SET stock = stock - 1 WHERE sku = 'ABC'

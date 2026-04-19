@@ -1,0 +1,12 @@
+2026-04-19 21:00:00.100 UTC [13001]: [1-1] user=app,db=appdb,app=psql,client=10.0.0.60 ERROR:  syntax error at or near "FORM"
+2026-04-19 21:00:00.100 UTC [13001]: [2-1] user=app,db=appdb,app=psql,client=10.0.0.60 STATEMENT:  SELECT * FORM users WHERE id = 1
+2026-04-19 21:00:01.200 UTC [13002]: [1-1] user=app,db=appdb,app=psql,client=10.0.0.61 ERROR:  permission denied for table audit_logs
+2026-04-19 21:00:01.200 UTC [13002]: [2-1] user=app,db=appdb,app=psql,client=10.0.0.61 STATEMENT:  SELECT * FROM audit_logs LIMIT 10
+2026-04-19 21:00:02.300 UTC [13003]: [1-1] user=app,db=appdb,app=psql,client=10.0.0.62 ERROR:  insert or update on table "orders" violates foreign key constraint "orders_user_id_fkey"
+2026-04-19 21:00:02.300 UTC [13003]: [2-1] user=app,db=appdb,app=psql,client=10.0.0.62 DETAIL:  Key (user_id)=(99999) is not present in table "users".
+2026-04-19 21:00:02.300 UTC [13003]: [3-1] user=app,db=appdb,app=psql,client=10.0.0.62 STATEMENT:  INSERT INTO orders (user_id, total) VALUES (99999, 50.0)
+2026-04-19 21:00:03.400 UTC [13004]: [1-1] user=app,db=appdb,app=psql,client=10.0.0.63 ERROR:  canceling statement due to lock timeout
+2026-04-19 21:00:03.400 UTC [13004]: [2-1] user=app,db=appdb,app=psql,client=10.0.0.63 STATEMENT:  ALTER TABLE customers ADD COLUMN phone text
+2026-04-19 21:00:04.500 UTC [13005]: [1-1] user=app,db=appdb,app=psql,client=10.0.0.64 WARNING:  there is no transaction in progress
+2026-04-19 21:00:05.600 UTC [13006]: [1-1] user=app,db=appdb,app=psql,client=10.0.0.65 FATAL:  password authentication failed for user "wronguser"
+2026-04-19 21:00:05.600 UTC [13006]: [2-1] user=app,db=appdb,app=psql,client=10.0.0.65 DETAIL:  Connection matched pg_hba.conf line 117: "host all all 0.0.0.0/0 md5"
