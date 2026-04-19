@@ -2,6 +2,7 @@
 package analysis
 
 import (
+	"context"
 	"sort"
 	"strings"
 	"sync"
@@ -360,13 +361,15 @@ func (sa *StreamingAnalyzer) Finalize() AggregatedMetrics {
 // This is the main entry point for log analysis, using streaming processing
 // to avoid loading all entries into memory.
 //
-// The function reads entries from the input channel until it closes, then returns
-// the complete analysis results.
+// The function reads entries from the input channel until it closes, or
+// until ctx is cancelled. On cancellation it returns whatever has been
+// processed so far, after draining the remaining entries from in so that
+// upstream producers can exit cleanly.
 //
 // fileSize is used to determine whether to enable parallel SQL analysis:
 //   - Files > 200MB: parallel SQL analyzer (~20% speedup)
 //   - Files < 200MB: sequential processing (avoids goroutine overhead)
-func AggregateMetrics(in <-chan parser.LogEntry, fileSize int64) AggregatedMetrics {
+func AggregateMetrics(ctx context.Context, in <-chan parser.LogEntry, fileSize int64) AggregatedMetrics {
 	// Enable parallel SQL analysis for large files to improve performance.
 	// Threshold of 200MB based on profiling: below this, goroutine overhead
 	// outweighs parallelization gains.
@@ -379,9 +382,27 @@ func AggregateMetrics(in <-chan parser.LogEntry, fileSize int64) AggregatedMetri
 
 	analyzer := NewStreamingAnalyzer(enableParallel)
 
-	// Process entries in streaming mode
-	for entry := range in {
-		analyzer.Process(&entry)
+	// Process entries in streaming mode. Periodically check ctx so a
+	// cancelled run (CTRL+C, follow-mode shutdown) does not have to wait
+	// for the entire input to drain on its own.
+loop:
+	for {
+		select {
+		case <-ctx.Done():
+			break loop
+		case entry, ok := <-in:
+			if !ok {
+				break loop
+			}
+			analyzer.Process(&entry)
+		}
+	}
+
+	// If ctx was cancelled mid-stream, drain remaining entries so the
+	// upstream goroutine can finish and close the channel cleanly.
+	if ctx.Err() != nil {
+		for range in {
+		}
 	}
 
 	return analyzer.Finalize()

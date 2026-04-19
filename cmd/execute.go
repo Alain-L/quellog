@@ -2,16 +2,15 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"log/slog"
 	"os"
-	"os/signal"
 	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
-	"syscall"
 	"time"
 
 	"github.com/Alain-L/quellog/analysis"
@@ -31,10 +30,13 @@ import (
 //
 // Returns an error so cobra (and ultimately Execute()) can decide how to
 // surface the failure. In follow mode, per-cycle errors are logged but
-// do not stop the loop — the only thing that exits the loop is a signal.
+// do not stop the loop — the only thing that exits the loop is a signal
+// (delivered via cmd.Context() cancellation, set up in Execute()).
 func executeParsing(cmd *cobra.Command, args []string) error {
+	ctx := cmd.Context()
+
 	if !followFlag {
-		return runAnalysisCycle(args)
+		return runAnalysisCycle(ctx, args)
 	}
 
 	// Apply default time window for follow mode if none specified
@@ -46,10 +48,6 @@ func executeParsing(cmd *cobra.Command, args []string) error {
 	// Follow mode implementation
 	slog.Info("entering follow mode", "interval", intervalFlag)
 
-	// Set up signal handling for graceful shutdown
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
-
 	ticker := time.NewTicker(intervalFlag)
 	defer ticker.Stop()
 
@@ -57,17 +55,17 @@ func executeParsing(cmd *cobra.Command, args []string) error {
 	// log them and wait for the next tick so transient failures (file
 	// rotated, no entries in the window, disk briefly full) do not kill
 	// the long-running process.
-	if err := runAnalysisCycle(args); err != nil {
+	if err := runAnalysisCycle(ctx, args); err != nil {
 		slog.Error("analysis cycle failed", "err", err)
 	}
 
 	for {
 		select {
 		case <-ticker.C:
-			if err := runAnalysisCycle(args); err != nil {
+			if err := runAnalysisCycle(ctx, args); err != nil {
 				slog.Error("analysis cycle failed", "err", err)
 			}
-		case <-sigChan:
+		case <-ctx.Done():
 			slog.Info("stopping follow mode")
 			return nil
 		}
@@ -75,7 +73,7 @@ func executeParsing(cmd *cobra.Command, args []string) error {
 }
 
 // runAnalysisCycle executes a single parsing and analysis pass.
-func runAnalysisCycle(args []string) error {
+func runAnalysisCycle(ctx context.Context, args []string) error {
 	startTime := time.Now()
 
 	// Step 1: Collect log files from arguments
@@ -129,7 +127,7 @@ func runAnalysisCycle(args []string) error {
 	var parsedAny atomic.Bool
 
 	// Launch parallel file parsing
-	go parseFilesAsync(allFiles, rawLogs, &parsedAny)
+	go parseFilesAsync(ctx, allFiles, rawLogs, &parsedAny)
 
 	// Step 4: Apply filters (skip channel hop when no filters are active)
 	filters := buildLogFilters(beginT, endT)
@@ -138,12 +136,12 @@ func runAnalysisCycle(args []string) error {
 		analyzeInput = rawLogs
 	} else {
 		filteredLogs := make(chan parser.LogEntry, 65536)
-		go parser.FilterStream(rawLogs, filteredLogs, filters)
+		go parser.FilterStream(ctx, rawLogs, filteredLogs, filters)
 		analyzeInput = filteredLogs
 	}
 
 	// Step 5: Process and output results based on flags
-	if err := processAndOutput(analyzeInput, startTime, totalFileSize, args); err != nil {
+	if err := processAndOutput(ctx, analyzeInput, startTime, totalFileSize, args); err != nil {
 		return err
 	}
 
@@ -179,7 +177,7 @@ func validateStdinUsage(files []string) error {
 // Special handling: if "-" is in the files list, it reads from stdin. The
 // caller must ensure stdin is not mixed with regular files (see
 // validateStdinUsage).
-func parseFilesAsync(files []string, out chan<- parser.LogEntry, parsedAny *atomic.Bool) {
+func parseFilesAsync(ctx context.Context, files []string, out chan<- parser.LogEntry, parsedAny *atomic.Bool) {
 	defer close(out)
 
 	// Special case: stdin (caller has validated it is not mixed)
@@ -197,6 +195,9 @@ func parseFilesAsync(files []string, out chan<- parser.LogEntry, parsedAny *atom
 	if numWorkers == 1 {
 		// Single file: no need for worker pool
 		for _, file := range files {
+			if ctx.Err() != nil {
+				return
+			}
 			if err := parser.ParseFile(file, out); err != nil {
 				// Error already logged in detectParser with specific details
 				continue
@@ -219,6 +220,9 @@ func parseFilesAsync(files []string, out chan<- parser.LogEntry, parsedAny *atom
 		go func() {
 			defer wg.Done()
 			for file := range fileChan {
+				if ctx.Err() != nil {
+					return
+				}
 				if err := parser.ParseFile(file, out); err != nil {
 					// Error already logged in detectParser with specific details
 					continue
@@ -243,7 +247,7 @@ func buildLogFilters(beginT, endT time.Time) parser.LogFilters {
 }
 
 // processAndOutput analyzes filtered logs and outputs results in the requested format.
-func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, totalFileSize int64, inputArgs []string) error {
+func processAndOutput(ctx context.Context, filteredLogs <-chan parser.LogEntry, startTime time.Time, totalFileSize int64, inputArgs []string) error {
 	// Validate flag compatibility
 	formatCount := 0
 	if jsonFlag || jsonCompactFlag {
@@ -267,7 +271,7 @@ func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, 
 
 	// Special case: SQL query details (single query analysis)
 	if len(sqlDetailFlag) > 0 {
-		metrics, processingDuration, err := requireMetrics(filteredLogs, totalFileSize, startTime)
+		metrics, processingDuration, err := requireMetrics(ctx, filteredLogs, totalFileSize, startTime)
 		if err != nil {
 			return err
 		}
@@ -293,7 +297,7 @@ func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, 
 	// Special case: SQL performance (detailed aggregated query statistics)
 	// Skip if --full is set (will be included in full report)
 	if sqlPerformanceFlag && !fullFlag {
-		metrics, processingDuration, err := requireMetrics(filteredLogs, totalFileSize, startTime)
+		metrics, processingDuration, err := requireMetrics(ctx, filteredLogs, totalFileSize, startTime)
 		if err != nil {
 			return err
 		}
@@ -319,7 +323,7 @@ func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, 
 	// Special case: SQL overview (query type statistics with dimensional breakdown)
 	// Skip if --full is set (will be included in full report)
 	if sqlOverviewFlag && !fullFlag {
-		metrics, processingDuration, err := requireMetrics(filteredLogs, totalFileSize, startTime)
+		metrics, processingDuration, err := requireMetrics(ctx, filteredLogs, totalFileSize, startTime)
 		if err != nil {
 			return err
 		}
@@ -343,7 +347,7 @@ func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, 
 	}
 
 	// Default: full analysis with all metrics
-	metrics := analysis.AggregateMetrics(filteredLogs, totalFileSize)
+	metrics := analysis.AggregateMetrics(ctx, filteredLogs, totalFileSize)
 	processingDuration := time.Since(startTime)
 
 	// Check if any log entries were successfully parsed
@@ -604,8 +608,8 @@ func createOutputWriter(path string) (io.Writer, func(), error) {
 
 // requireMetrics aggregates metrics and returns an error if no log entries
 // were parsed.
-func requireMetrics(filteredLogs <-chan parser.LogEntry, totalFileSize int64, startTime time.Time) (analysis.AggregatedMetrics, time.Duration, error) {
-	metrics := analysis.AggregateMetrics(filteredLogs, totalFileSize)
+func requireMetrics(ctx context.Context, filteredLogs <-chan parser.LogEntry, totalFileSize int64, startTime time.Time) (analysis.AggregatedMetrics, time.Duration, error) {
+	metrics := analysis.AggregateMetrics(ctx, filteredLogs, totalFileSize)
 	processingDuration := time.Since(startTime)
 	if metrics.Global.Count == 0 {
 		return analysis.AggregatedMetrics{}, 0, fmt.Errorf("no log entries could be parsed: check that files are readable and in a supported format")

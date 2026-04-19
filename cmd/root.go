@@ -3,9 +3,12 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -87,6 +90,12 @@ and customize the output.`,
 
 // Execute runs the root command.
 // This is called by main.go to start the CLI application.
+//
+// A root context is installed with signal.NotifyContext so SIGINT and
+// SIGTERM cancel any in-flight pipeline (parsing, filtering, analysis)
+// without leaking goroutines. The cancellation reaches the orchestration
+// layer immediately; per-file parsers complete the file they are reading
+// before exiting.
 func Execute(v, c, d string) {
 	version = v
 	commit = c
@@ -95,7 +104,10 @@ func Execute(v, c, d string) {
 
 	initLogger(slog.LevelInfo)
 
-	if err := rootCmd.Execute(); err != nil {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	if err := rootCmd.ExecuteContext(ctx); err != nil {
 		slog.Error("command failed", "err", err)
 		os.Exit(1)
 	}

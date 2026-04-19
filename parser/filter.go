@@ -2,6 +2,7 @@
 package parser
 
 import (
+	"context"
 	"strings"
 	"time"
 )
@@ -68,14 +69,38 @@ func (f LogFilters) IsEmpty() bool {
 		len(f.ExcludeUser) == 0 && len(f.AppFilter) == 0
 }
 
-func FilterStream(in <-chan LogEntry, out chan<- LogEntry, filters LogFilters) {
+// FilterStream forwards entries that pass the filters from in to out,
+// closing out when in closes or when ctx is cancelled.
+//
+// On cancellation it stops forwarding immediately and drains any
+// remaining entries from in (without re-forwarding them) so that
+// upstream producers do not block on the channel send. This guarantees
+// the upstream goroutine can exit cleanly even if the consumer aborted.
+func FilterStream(ctx context.Context, in <-chan LogEntry, out chan<- LogEntry, filters LogFilters) {
 	defer close(out)
 
-	for entry := range in {
-		if !PassesFilters(entry, filters) {
-			continue
+	for {
+		select {
+		case <-ctx.Done():
+			// Drain remaining entries to unblock upstream producers, then exit.
+			for range in {
+			}
+			return
+		case entry, ok := <-in:
+			if !ok {
+				return
+			}
+			if !PassesFilters(entry, filters) {
+				continue
+			}
+			select {
+			case out <- entry:
+			case <-ctx.Done():
+				for range in {
+				}
+				return
+			}
 		}
-		out <- entry
 	}
 }
 
