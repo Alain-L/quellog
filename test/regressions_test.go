@@ -17,10 +17,16 @@ import (
 // with --json and returns the unmarshalled top-level object.
 func runFixtureJSON(t *testing.T, fixturePath string) map[string]any {
 	t.Helper()
-	out := runHarness(t, false, fixturePath, "--json")
+	return mustJSON(t, runHarness(t, false, fixturePath, "--json"))
+}
+
+// mustJSON unmarshals raw output as a top-level JSON object, failing the
+// test on parse error.
+func mustJSON(t *testing.T, raw []byte) map[string]any {
+	t.Helper()
 	var got map[string]any
-	if err := json.Unmarshal(out, &got); err != nil {
-		t.Fatalf("invalid JSON output: %v", err)
+	if err := json.Unmarshal(raw, &got); err != nil {
+		t.Fatalf("invalid JSON output: %v\n%s", err, raw)
 	}
 	return got
 }

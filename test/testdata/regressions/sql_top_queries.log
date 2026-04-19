@@ -1,0 +1,16 @@
+2026-04-20 03:00:00.100 UTC [25001]: [1-1] user=app,db=appdb,app=psql,client=10.0.0.30 LOG:  duration: 1000.000 ms  statement: SELECT pg_sleep(1)
+2026-04-20 03:00:01.200 UTC [25002]: [1-1] user=app,db=appdb,app=psql,client=10.0.0.30 LOG:  duration: 100.000 ms  statement: SELECT id FROM big_table WHERE indexed_col = 1
+2026-04-20 03:00:01.300 UTC [25002]: [2-1] user=app,db=appdb,app=psql,client=10.0.0.30 LOG:  duration: 100.000 ms  statement: SELECT id FROM big_table WHERE indexed_col = 2
+2026-04-20 03:00:01.400 UTC [25002]: [3-1] user=app,db=appdb,app=psql,client=10.0.0.30 LOG:  duration: 100.000 ms  statement: SELECT id FROM big_table WHERE indexed_col = 3
+2026-04-20 03:00:01.500 UTC [25002]: [4-1] user=app,db=appdb,app=psql,client=10.0.0.30 LOG:  duration: 100.000 ms  statement: SELECT id FROM big_table WHERE indexed_col = 4
+2026-04-20 03:00:01.600 UTC [25002]: [5-1] user=app,db=appdb,app=psql,client=10.0.0.30 LOG:  duration: 100.000 ms  statement: SELECT id FROM big_table WHERE indexed_col = 5
+2026-04-20 03:00:02.100 UTC [25003]: [1-1] user=app,db=appdb,app=psql,client=10.0.0.31 LOG:  duration: 1.000 ms  statement: SELECT now()
+2026-04-20 03:00:02.200 UTC [25003]: [2-1] user=app,db=appdb,app=psql,client=10.0.0.31 LOG:  duration: 1.000 ms  statement: SELECT now()
+2026-04-20 03:00:02.300 UTC [25003]: [3-1] user=app,db=appdb,app=psql,client=10.0.0.31 LOG:  duration: 1.000 ms  statement: SELECT now()
+2026-04-20 03:00:02.400 UTC [25003]: [4-1] user=app,db=appdb,app=psql,client=10.0.0.31 LOG:  duration: 1.000 ms  statement: SELECT now()
+2026-04-20 03:00:02.500 UTC [25003]: [5-1] user=app,db=appdb,app=psql,client=10.0.0.31 LOG:  duration: 1.000 ms  statement: SELECT now()
+2026-04-20 03:00:02.600 UTC [25003]: [6-1] user=app,db=appdb,app=psql,client=10.0.0.31 LOG:  duration: 1.000 ms  statement: SELECT now()
+2026-04-20 03:00:02.700 UTC [25003]: [7-1] user=app,db=appdb,app=psql,client=10.0.0.31 LOG:  duration: 1.000 ms  statement: SELECT now()
+2026-04-20 03:00:02.800 UTC [25003]: [8-1] user=app,db=appdb,app=psql,client=10.0.0.31 LOG:  duration: 1.000 ms  statement: SELECT now()
+2026-04-20 03:00:02.900 UTC [25003]: [9-1] user=app,db=appdb,app=psql,client=10.0.0.31 LOG:  duration: 1.000 ms  statement: SELECT now()
+2026-04-20 03:00:03.000 UTC [25003]: [10-1] user=app,db=appdb,app=psql,client=10.0.0.31 LOG:  duration: 1.000 ms  statement: SELECT now()

@@ -1,0 +1,179 @@
+{
+  "apps": [
+    {
+      "name": "psql",
+      "count": 16
+    }
+  ],
+  "clients": {
+    "unique_databases": 1,
+    "unique_users": 1,
+    "unique_apps": 1,
+    "unique_hosts": 2
+  },
+  "databases": [
+    {
+      "name": "appdb",
+      "count": 16
+    }
+  ],
+  "events": [
+    {
+      "type": "LOG",
+      "count": 16,
+      "percentage": 100
+    }
+  ],
+  "hosts": [
+    {
+      "name": "10.0.0.31",
+      "count": 10
+    },
+    {
+      "name": "10.0.0.30",
+      "count": 6
+    }
+  ],
+  "sql_performance": {
+    "total_query_duration": "1.51 s",
+    "total_queries_parsed": 16,
+    "total_unique_queries": 3,
+    "top_1_percent_slow_queries": 1,
+    "query_max_duration": "1.00 s",
+    "query_min_duration": "1 ms",
+    "query_median_duration": "1 ms",
+    "query_99th_percentile": "1.00 s",
+    "executions": [
+      {
+        "timestamp": "2026-04-20 03:00:00",
+        "duration_ms": 1000,
+        "query_id": "se-gJPto2"
+      },
+      {
+        "timestamp": "2026-04-20 03:00:01",
+        "duration_ms": 100,
+        "query_id": "se-gW0ABY"
+      },
+      {
+        "timestamp": "2026-04-20 03:00:01",
+        "duration_ms": 100,
+        "query_id": "se-gW0ABY"
+      },
+      {
+        "timestamp": "2026-04-20 03:00:01",
+        "duration_ms": 100,
+        "query_id": "se-gW0ABY"
+      },
+      {
+        "timestamp": "2026-04-20 03:00:01",
+        "duration_ms": 100,
+        "query_id": "se-gW0ABY"
+      },
+      {
+        "timestamp": "2026-04-20 03:00:01",
+        "duration_ms": 100,
+        "query_id": "se-gW0ABY"
+      },
+      {
+        "timestamp": "2026-04-20 03:00:02",
+        "duration_ms": 1,
+        "query_id": "se-DAI8zf"
+      },
+      {
+        "timestamp": "2026-04-20 03:00:02",
+        "duration_ms": 1,
+        "query_id": "se-DAI8zf"
+      },
+      {
+        "timestamp": "2026-04-20 03:00:02",
+        "duration_ms": 1,
+        "query_id": "se-DAI8zf"
+      },
+      {
+        "timestamp": "2026-04-20 03:00:02",
+        "duration_ms": 1,
+        "query_id": "se-DAI8zf"
+      },
+      {
+        "timestamp": "2026-04-20 03:00:02",
+        "duration_ms": 1,
+        "query_id": "se-DAI8zf"
+      },
+      {
+        "timestamp": "2026-04-20 03:00:02",
+        "duration_ms": 1,
+        "query_id": "se-DAI8zf"
+      },
+      {
+        "timestamp": "2026-04-20 03:00:02",
+        "duration_ms": 1,
+        "query_id": "se-DAI8zf"
+      },
+      {
+        "timestamp": "2026-04-20 03:00:02",
+        "duration_ms": 1,
+        "query_id": "se-DAI8zf"
+      },
+      {
+        "timestamp": "2026-04-20 03:00:02",
+        "duration_ms": 1,
+        "query_id": "se-DAI8zf"
+      },
+      {
+        "timestamp": "2026-04-20 03:00:03",
+        "duration_ms": 1,
+        "query_id": "se-DAI8zf"
+      }
+    ],
+    "queries": [
+      {
+        "id": "se-DAI8zf",
+        "normalized_query": "select now()",
+        "raw_query": "SELECT now()",
+        "type": "",
+        "count": 10,
+        "total_time_ms": 10,
+        "avg_time_ms": 1,
+        "max_time_ms": 1
+      },
+      {
+        "id": "se-gJPto2",
+        "normalized_query": "select pg_sleep(?)",
+        "raw_query": "SELECT pg_sleep(1)",
+        "type": "",
+        "count": 1,
+        "total_time_ms": 1000,
+        "avg_time_ms": 1000,
+        "max_time_ms": 1000
+      },
+      {
+        "id": "se-gW0ABY",
+        "normalized_query": "select id from big_table where indexed_col = ?",
+        "raw_query": "SELECT id FROM big_table WHERE indexed_col = 1",
+        "type": "",
+        "count": 5,
+        "total_time_ms": 500,
+        "avg_time_ms": 100,
+        "max_time_ms": 100
+      }
+    ]
+  },
+  "summary": {
+    "start_date": "2026-04-20 03:00:00",
+    "end_date": "2026-04-20 03:00:03",
+    "duration": "2.9s",
+    "total_logs": 16,
+    "throughput": "5.52 entries/s",
+    "error_count": 0,
+    "fatal_count": 0,
+    "panic_count": 0,
+    "warning_count": 0,
+    "log_count": 0
+  },
+  "users": [
+    {
+      "name": "app",
+      "count": 16
+    }
+  ]
+}

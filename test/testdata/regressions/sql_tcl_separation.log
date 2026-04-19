@@ -1,0 +1,10 @@
+2026-04-20 00:00:00.100 UTC [22001]: [1-1] user=app,db=appdb,app=psql,client=10.0.0.3 LOG:  duration: 0.234 ms  statement: BEGIN
+2026-04-20 00:00:00.200 UTC [22001]: [2-1] user=app,db=appdb,app=psql,client=10.0.0.3 LOG:  duration: 12.345 ms  statement: SELECT * FROM users WHERE active = true
+2026-04-20 00:00:00.300 UTC [22001]: [3-1] user=app,db=appdb,app=psql,client=10.0.0.3 LOG:  duration: 5.678 ms  statement: UPDATE users SET last_seen = now() WHERE id = 1
+2026-04-20 00:00:00.400 UTC [22001]: [4-1] user=app,db=appdb,app=psql,client=10.0.0.3 LOG:  duration: 0.123 ms  statement: COMMIT
+2026-04-20 00:00:01.100 UTC [22002]: [1-1] user=app,db=appdb,app=psql,client=10.0.0.4 LOG:  duration: 0.345 ms  statement: BEGIN
+2026-04-20 00:00:01.200 UTC [22002]: [2-1] user=app,db=appdb,app=psql,client=10.0.0.4 LOG:  duration: 8.901 ms  statement: SELECT * FROM orders WHERE id = 100
+2026-04-20 00:00:01.300 UTC [22002]: [3-1] user=app,db=appdb,app=psql,client=10.0.0.4 LOG:  duration: 0.234 ms  statement: ROLLBACK
+2026-04-20 00:00:02.100 UTC [22003]: [1-1] user=app,db=appdb,app=psql,client=10.0.0.5 LOG:  duration: 0.456 ms  statement: BEGIN
+2026-04-20 00:00:02.200 UTC [22003]: [2-1] user=app,db=appdb,app=psql,client=10.0.0.5 LOG:  duration: 15.234 ms  statement: INSERT INTO orders (user_id, total) VALUES (5, 75.00)
+2026-04-20 00:00:02.300 UTC [22003]: [3-1] user=app,db=appdb,app=psql,client=10.0.0.5 LOG:  duration: 0.123 ms  statement: COMMIT

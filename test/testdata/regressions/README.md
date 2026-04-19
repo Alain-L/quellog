@@ -190,6 +190,66 @@ Expected:
 - `events.fatal_count >= 1`
 - `errors` section has at least 4 distinct SQLSTATE classes
 
+### `sql_normalization.log` — query ID stability under literal variation
+
+10 statements: 5 INSERTs with different values, 3 SELECTs with different
+ids, 2 UPDATEs with different emails. The SQL normalizer must collapse
+each shape into one Query ID.
+
+Expected:
+- `total_queries_parsed = 10`
+- `total_unique_queries = 3`
+- The INSERT entry has `count = 5`, the SELECT `count = 3`, the UPDATE `count = 2`
+
+### `sql_percentiles.log` — calibrated input for P²
+
+51 entries of the SAME query with durations 10, 20, ..., 510 ms (the
+true median is the 26th value = 260 ms).
+
+Expected:
+- `total_queries_parsed = 51`, `total_unique_queries = 1`
+- `query_min_duration = "10 ms"`, `query_max_duration = "510 ms"`
+- `query_median_duration` ≈ 260 ms (P² is approximate; tolerate ±20%)
+
+### `sql_tcl_separation.log` — TCL not collapsed with DML
+
+10 statements: 3 BEGIN + 2 SELECT + UPDATE + INSERT + 2 COMMIT + ROLLBACK.
+
+Expected:
+- `total_queries_parsed = 10`, `total_unique_queries = 7`
+- `begin` appears with `count = 3`, `commit` with `count = 2`, `rollback`
+  with `count = 1` — TCL must not be merged with DML normalization.
+
+### `sql_prepared_statements.log` — only EXECUTE counts
+
+1 parse + 3 binds + 3 executes for the same prepared statement.
+
+Expected:
+- `total_queries_parsed = 3` (only EXECUTE; parse and bind are skipped)
+- `total_unique_queries = 1`
+
+**Documents current behaviour**: if quellog ever changes to count parse
+or bind too, the matching test goes red and we re-evaluate (use case:
+might want to surface bind durations separately).
+
+### `sql_duration_variants.log` — statement vs execute (parse/bind skipped)
+
+3 plain `duration ... statement:` + 1 each of parse/bind/execute for a
+prepared statement.
+
+Expected:
+- `total_queries_parsed = 4` (3 statement + 1 execute, parse/bind dropped)
+
+### `sql_top_queries.log` — slowest list ordered by max_time
+
+3 distinct queries: pg_sleep(?) ×1 (1s), big_table SELECT ×5 (100ms),
+now() ×10 (1ms).
+
+Expected (using `--sql-performance --json` view):
+- `slowest_queries[0]` is pg_sleep (slowest single call)
+- `slowest_queries[1]` is the big_table SELECT
+- `slowest_queries[2]` is now() (most frequent but fastest)
+
 ### `multiline_statement.log` — long multi-line STATEMENT and CTE
 
 A multi-line SQL statement with subqueries and a recursive CTE. Both

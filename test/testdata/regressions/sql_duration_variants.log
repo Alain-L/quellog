@@ -1,0 +1,6 @@
+2026-04-20 02:00:00.100 UTC [24001]: [1-1] user=app,db=appdb,app=psql,client=10.0.0.20 LOG:  duration: 12.345 ms  statement: SELECT * FROM products WHERE category = 'electronics'
+2026-04-20 02:00:01.200 UTC [24002]: [1-1] user=app,db=appdb,app=app-worker,client=10.0.0.21 LOG:  duration: 0.567 ms  parse stmt_a: SELECT id FROM users WHERE email = $1
+2026-04-20 02:00:01.300 UTC [24002]: [2-1] user=app,db=appdb,app=app-worker,client=10.0.0.21 LOG:  duration: 0.234 ms  bind stmt_a: SELECT id FROM users WHERE email = $1
+2026-04-20 02:00:01.400 UTC [24002]: [3-1] user=app,db=appdb,app=app-worker,client=10.0.0.21 LOG:  duration: 5.678 ms  execute stmt_a: SELECT id FROM users WHERE email = $1
+2026-04-20 02:00:02.500 UTC [24003]: [1-1] user=app,db=appdb,app=psql,client=10.0.0.22 LOG:  duration: 25.789 ms  statement: UPDATE customers SET active = false WHERE last_login < '2025-01-01'
+2026-04-20 02:00:03.600 UTC [24004]: [1-1] user=app,db=appdb,app=psql,client=10.0.0.23 LOG:  duration: 100.123 ms  statement: DELETE FROM old_audit_logs WHERE created_at < '2024-01-01'

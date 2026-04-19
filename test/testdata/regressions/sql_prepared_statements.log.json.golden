@@ -1,0 +1,90 @@
+{
+  "apps": [
+    {
+      "name": "app-worker",
+      "count": 7
+    }
+  ],
+  "clients": {
+    "unique_databases": 1,
+    "unique_users": 1,
+    "unique_apps": 1,
+    "unique_hosts": 1
+  },
+  "databases": [
+    {
+      "name": "appdb",
+      "count": 7
+    }
+  ],
+  "events": [
+    {
+      "type": "LOG",
+      "count": 7,
+      "percentage": 100
+    }
+  ],
+  "hosts": [
+    {
+      "name": "10.0.0.10",
+      "count": 7
+    }
+  ],
+  "sql_performance": {
+    "total_query_duration": "13 ms",
+    "total_queries_parsed": 3,
+    "total_unique_queries": 1,
+    "top_1_percent_slow_queries": 1,
+    "query_max_duration": "4 ms",
+    "query_min_duration": "4 ms",
+    "query_median_duration": "4 ms",
+    "query_99th_percentile": "4 ms",
+    "executions": [
+      {
+        "timestamp": "2026-04-20 01:00:00",
+        "duration_ms": 4.567,
+        "query_id": "se-0gCNFx"
+      },
+      {
+        "timestamp": "2026-04-20 01:00:01",
+        "duration_ms": 4.789,
+        "query_id": "se-0gCNFx"
+      },
+      {
+        "timestamp": "2026-04-20 01:00:02",
+        "duration_ms": 4.234,
+        "query_id": "se-0gCNFx"
+      }
+    ],
+    "queries": [
+      {
+        "id": "se-0gCNFx",
+        "normalized_query": "select u.id, u.username, u.email from users u where u.id = ?",
+        "raw_query": "SELECT u.id, u.username, u.email FROM users u WHERE u.id = $1",
+        "type": "",
+        "count": 3,
+        "total_time_ms": 13.59,
+        "avg_time_ms": 4.53,
+        "max_time_ms": 4.789
+      }
+    ]
+  },
+  "summary": {
+    "start_date": "2026-04-20 01:00:00",
+    "end_date": "2026-04-20 01:00:02",
+    "duration": "2.005s",
+    "total_logs": 7,
+    "throughput": "3.49 entries/s",
+    "error_count": 0,
+    "fatal_count": 0,
+    "panic_count": 0,
+    "warning_count": 0,
+    "log_count": 0
+  },
+  "users": [
+    {
+      "name": "app",
+      "count": 7
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+2026-04-20 01:00:00.100 UTC [23001]: [1-1] user=app,db=appdb,app=app-worker,client=10.0.0.10 LOG:  duration: 0.456 ms  parse <unnamed>: SELECT u.id, u.username, u.email FROM users u WHERE u.id = $1
+2026-04-20 01:00:00.150 UTC [23001]: [2-1] user=app,db=appdb,app=app-worker,client=10.0.0.10 LOG:  duration: 0.123 ms  bind <unnamed>: SELECT u.id, u.username, u.email FROM users u WHERE u.id = $1
+2026-04-20 01:00:00.150 UTC [23001]: [3-1] user=app,db=appdb,app=app-worker,client=10.0.0.10 DETAIL:  parameters: $1 = '42'
+2026-04-20 01:00:00.155 UTC [23001]: [4-1] user=app,db=appdb,app=app-worker,client=10.0.0.10 LOG:  duration: 4.567 ms  execute <unnamed>: SELECT u.id, u.username, u.email FROM users u WHERE u.id = $1
+2026-04-20 01:00:00.155 UTC [23001]: [5-1] user=app,db=appdb,app=app-worker,client=10.0.0.10 DETAIL:  parameters: $1 = '42'
+2026-04-20 01:00:01.100 UTC [23001]: [6-1] user=app,db=appdb,app=app-worker,client=10.0.0.10 LOG:  duration: 0.111 ms  bind <unnamed>: SELECT u.id, u.username, u.email FROM users u WHERE u.id = $1
+2026-04-20 01:00:01.100 UTC [23001]: [7-1] user=app,db=appdb,app=app-worker,client=10.0.0.10 DETAIL:  parameters: $1 = '99'
+2026-04-20 01:00:01.105 UTC [23001]: [8-1] user=app,db=appdb,app=app-worker,client=10.0.0.10 LOG:  duration: 4.789 ms  execute <unnamed>: SELECT u.id, u.username, u.email FROM users u WHERE u.id = $1
+2026-04-20 01:00:01.105 UTC [23001]: [9-1] user=app,db=appdb,app=app-worker,client=10.0.0.10 DETAIL:  parameters: $1 = '99'
+2026-04-20 01:00:02.100 UTC [23001]: [10-1] user=app,db=appdb,app=app-worker,client=10.0.0.10 LOG:  duration: 0.098 ms  bind <unnamed>: SELECT u.id, u.username, u.email FROM users u WHERE u.id = $1
+2026-04-20 01:00:02.100 UTC [23001]: [11-1] user=app,db=appdb,app=app-worker,client=10.0.0.10 DETAIL:  parameters: $1 = '7'
+2026-04-20 01:00:02.105 UTC [23001]: [12-1] user=app,db=appdb,app=app-worker,client=10.0.0.10 LOG:  duration: 4.234 ms  execute <unnamed>: SELECT u.id, u.username, u.email FROM users u WHERE u.id = $1
+2026-04-20 01:00:02.105 UTC [23001]: [13-1] user=app,db=appdb,app=app-worker,client=10.0.0.10 DETAIL:  parameters: $1 = '7'
