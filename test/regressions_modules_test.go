@@ -13,7 +13,7 @@ import (
 // temp file to a query_id, and that multiple temp files for the same
 // query share the same id.
 func TestRegression_TempFileQueryAssociation(t *testing.T) {
-	got := runFixtureJSON(t, "testdata/regressions/tempfile_with_query.log")
+	got := runFixtureJSON(t, "testdata/regressions/misc/tempfile_with_query.log")
 	tf, ok := got["temp_files"].(map[string]any)
 	if !ok {
 		t.Fatal("missing 'temp_files' section")
@@ -47,7 +47,7 @@ func TestRegression_TempFileQueryAssociation(t *testing.T) {
 // session metrics. The fixture has 4 auth failures (md5, pg_hba,
 // peer, LDAP) plus 2 successful sessions (one IPv6, one local).
 func TestRegression_ConnectionsAuthFailures(t *testing.T) {
-	got := runFixtureJSON(t, "testdata/regressions/connections_auth_failures.log")
+	got := runFixtureJSON(t, "testdata/regressions/connections/connections_auth_failures.log")
 
 	// 4 FATAL events (the 4 auth failures)
 	events, _ := got["events"].([]any)
@@ -88,7 +88,7 @@ func TestRegression_ConnectionsAuthFailures(t *testing.T) {
 // stay at 0 while the events list correctly counts 10 ERROR and 2
 // FATAL. Both gaps are documented in the README and the roadmap.
 func TestRegression_ErrorClassesParsing(t *testing.T) {
-	got := runFixtureJSON(t, "testdata/regressions/errors_sqlstate_classes.log")
+	got := runFixtureJSON(t, "testdata/regressions/errors/errors_sqlstate_classes.log")
 
 	events, _ := got["events"].([]any)
 	counts := map[string]int{}
@@ -105,7 +105,7 @@ func TestRegression_ErrorClassesParsing(t *testing.T) {
 
 	// Smoke check on the text output: the SQLSTATE class labels must
 	// appear (08, 22, 23, 25, 28, 42, 53, 57). Use --errors to scope.
-	out := runHarness(t, false, "testdata/regressions/errors_sqlstate_classes.log", "--errors")
+	out := runHarness(t, false, "testdata/regressions/errors/errors_sqlstate_classes.log", "--errors")
 	text := ansiEscapeRe.ReplaceAllString(string(out), "")
 	for _, class := range []string{"08 - Connection", "22 - Data", "23 - Integrity", "25 -", "28 - Invalid", "42 - Syntax", "53 - Insufficient Resources", "57 - Operator"} {
 		if !strings.Contains(text, class) {
@@ -118,7 +118,7 @@ func TestRegression_ErrorClassesParsing(t *testing.T) {
 // analyzer extracts WAL distance, buffer counts, type breakdown
 // (time vs xlog) and warning counts.
 func TestRegression_CheckpointMetrics(t *testing.T) {
-	got := runFixtureJSON(t, "testdata/regressions/checkpoints_full.log")
+	got := runFixtureJSON(t, "testdata/regressions/checkpoints/checkpoints_full.log")
 	chk, ok := got["checkpoints"].(map[string]any)
 	if !ok {
 		t.Fatal("missing 'checkpoints' section")

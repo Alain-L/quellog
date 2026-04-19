@@ -36,7 +36,7 @@ func mustJSON(t *testing.T, raw []byte) map[string]any {
 // same PID must produce exactly ONE lock event (the wait, promoted to
 // deadlock state), not two.
 func TestRegression_DeadlockNotDoubleCounted(t *testing.T) {
-	got := runFixtureJSON(t, "testdata/regressions/deadlock_basic.log")
+	got := runFixtureJSON(t, "testdata/regressions/locks/deadlock_basic.log")
 	locks, ok := got["locks"].(map[string]any)
 	if !ok {
 		t.Fatal("missing 'locks' section in JSON output")
@@ -56,7 +56,7 @@ func TestRegression_DeadlockNotDoubleCounted(t *testing.T) {
 // `still waiting` LOG is followed by an `acquired` LOG for the same
 // PID/lock, this is one event (the wait that completed), not two.
 func TestRegression_LockDedupSameWait(t *testing.T) {
-	got := runFixtureJSON(t, "testdata/regressions/lock_dedup_waiting_acquired.log")
+	got := runFixtureJSON(t, "testdata/regressions/locks/lock_dedup_waiting_acquired.log")
 	locks, ok := got["locks"].(map[string]any)
 	if !ok {
 		t.Fatal("missing 'locks' section in JSON output")
@@ -76,7 +76,7 @@ func TestRegression_LockDedupSameWait(t *testing.T) {
 // continuation line following a lock event must let the analyzer
 // resolve a query_id on the lock event itself.
 func TestRegression_LockQueryAssociation(t *testing.T) {
-	got := runFixtureJSON(t, "testdata/regressions/lock_with_statement.log")
+	got := runFixtureJSON(t, "testdata/regressions/locks/lock_with_statement.log")
 	locks, ok := got["locks"].(map[string]any)
 	if !ok {
 		t.Fatal("missing 'locks' section")
@@ -97,7 +97,7 @@ func TestRegression_LockQueryAssociation(t *testing.T) {
 // the source for `locks.relation_stats`. Three lock events on `orders`
 // (×2) and `customers` (×1) should yield those exact counts.
 func TestRegression_RelationExtractionFromContext(t *testing.T) {
-	got := runFixtureJSON(t, "testdata/regressions/lock_relation_extraction.log")
+	got := runFixtureJSON(t, "testdata/regressions/locks/lock_relation_extraction.log")
 	locks, ok := got["locks"].(map[string]any)
 	if !ok {
 		t.Fatal("missing 'locks' section")
@@ -119,7 +119,7 @@ func TestRegression_RelationExtractionFromContext(t *testing.T) {
 // went past the bottom of its indent stack. The fixture uses a
 // 4-level-deep nested plan that previously triggered the panic.
 func TestRegression_AutoExplainJSONNoPanic(t *testing.T) {
-	got := runFixtureJSON(t, "testdata/regressions/autoexplain_json_negindent.log")
+	got := runFixtureJSON(t, "testdata/regressions/autoexplain/autoexplain_json_negindent.log")
 	// If we got here, exit was 0 and JSON unmarshalled successfully.
 	// A loose sanity check: the summary should report at least one log.
 	summary, ok := got["summary"].(map[string]any)
@@ -137,7 +137,7 @@ func TestRegression_AutoExplainJSONNoPanic(t *testing.T) {
 // fixture has a 17-line ERROR/STATEMENT block plus a CTE that span
 // many lines but should produce 2 entries total.
 func TestRegression_MultilineStatementAssembly(t *testing.T) {
-	got := runFixtureJSON(t, "testdata/regressions/multiline_statement.log")
+	got := runFixtureJSON(t, "testdata/regressions/misc/multiline_statement.log")
 	summary, ok := got["summary"].(map[string]any)
 	if !ok {
 		t.Fatal("missing 'summary' section")

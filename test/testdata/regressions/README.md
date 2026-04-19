@@ -11,15 +11,37 @@ exist to:
 - **Cover** edge cases that the larger fixtures (`comprehensive/`) do not
   exercise specifically.
 
-When adding a fixture: keep it under ~50 lines, document it below with
-its purpose and the **expected key values** (so a reviewer can verify
-the generated golden without running the parser by hand).
+When adding a fixture: keep it under ~50 lines, drop it in the **right
+themed sub-directory** (see Layout below), document it below with its
+purpose and the **expected key values** (so a reviewer can verify the
+generated golden without running the parser by hand).
 
 After changing analysis output intentionally, regenerate goldens with:
 
 ```
 go test ./test/ -run TestRegressionCorpus -update
 ```
+
+---
+
+## Layout
+
+Fixtures live in themed sub-directories. The corpus runner walks
+recursively, so adding a new directory works out of the box.
+
+| Sub-dir         | Topic                                                         |
+|-----------------|---------------------------------------------------------------|
+| `locks/`        | Lock waits, deadlocks, dedup, query association, relations    |
+| `sql/`          | SQL normalization, percentiles, TCL, prepared, top queries    |
+| `connections/`  | pgBouncer churn, auth failures, multi-DB filtering            |
+| `checkpoints/`  | Checkpoint stats, WAL distance, frequency warnings            |
+| `vacuum/`       | Normal/aggressive vacuum and analyze                          |
+| `parsers/`      | CSV, JSON, syslog (BSD / RFC 5424 / ISO with continuations)   |
+| `autoexplain/`  | auto_explain text and JSON plan formats                       |
+| `errors/`       | SQLSTATE class variety, mixed severities                      |
+| `misc/`         | Multi-line statements, temp file association                  |
+
+Goldens (`<fixture>.<format>.golden`) live next to their fixture.
 
 ---
 

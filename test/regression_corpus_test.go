@@ -1,7 +1,7 @@
 package quellog_test
 
 import (
-	"os"
+	"io/fs"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -39,27 +39,30 @@ var markdownNonDeterministic = map[string]bool{
 func TestRegressionCorpus(t *testing.T) {
 	const fixturesDir = "testdata/regressions"
 
-	entries, err := os.ReadDir(fixturesDir)
-	if err != nil {
-		t.Fatalf("read regressions dir: %v", err)
-	}
-
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
+	// Walk recursively: fixtures live in themed subdirectories
+	// (locks/, sql/, parsers/, ...) under testdata/regressions/.
+	err := filepath.WalkDir(fixturesDir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
 		}
-		name := entry.Name()
+		if d.IsDir() {
+			return nil
+		}
+		name := d.Name()
 		if !isFixtureFile(name) {
-			continue
+			return nil
 		}
-		fixturePath := filepath.Join(fixturesDir, name)
+		// Sub-test name uses the path relative to fixturesDir so it
+		// reads naturally: "locks/deadlock_basic.log/json".
+		rel, _ := filepath.Rel(fixturesDir, path)
+		fixturePath := path
 
-		t.Run(name+"/json", func(t *testing.T) {
+		t.Run(rel+"/json", func(t *testing.T) {
 			got := runHarness(t, false, fixturePath, "--json")
 			compareOrUpdateGolden(t, got, goldenPath(fixturePath, "json"))
 		})
 
-		t.Run(name+"/md", func(t *testing.T) {
+		t.Run(rel+"/md", func(t *testing.T) {
 			if markdownNonDeterministic[name] {
 				t.Skipf("markdown output is non-deterministic for %s (see markdownNonDeterministic)", name)
 			}
@@ -67,7 +70,7 @@ func TestRegressionCorpus(t *testing.T) {
 			compareOrUpdateGolden(t, got, goldenPath(fixturePath, "md"))
 		})
 
-		t.Run(name+"/text-smoke", func(t *testing.T) {
+		t.Run(rel+"/text-smoke", func(t *testing.T) {
 			raw := runHarness(t, false, fixturePath)
 			text := ansiEscapeRe.ReplaceAllString(string(raw), "")
 			if len(strings.TrimSpace(text)) == 0 {
@@ -82,6 +85,10 @@ func TestRegressionCorpus(t *testing.T) {
 				t.Fatalf("text output missing SUMMARY section:\n%s", text)
 			}
 		})
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("walk regressions dir: %v", err)
 	}
 }
 

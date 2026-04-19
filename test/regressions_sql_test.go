@@ -59,7 +59,7 @@ func findQuery(queries []map[string]any, substr string) map[string]any {
 // SQL aggregate metric — if it broke, top queries, percentiles and
 // counts would all be wrong.
 func TestRegression_SQLQueryIDStability(t *testing.T) {
-	got := runFixtureJSON(t, "testdata/regressions/sql_normalization.log")
+	got := runFixtureJSON(t, "testdata/regressions/sql/sql_normalization.log")
 	sp := sqlSummary(t, got)
 	if total, _ := sp["total_queries_parsed"].(float64); total != 10 {
 		t.Errorf("total_queries_parsed = %v, want 10", total)
@@ -81,7 +81,7 @@ func TestRegression_SQLQueryIDStability(t *testing.T) {
 // (51 entries, durations 10..510ms in 10ms steps). Tolerates ±20% on
 // the median since P² is approximate, especially at small N.
 func TestRegression_SQLPercentilesP2(t *testing.T) {
-	got := runFixtureJSON(t, "testdata/regressions/sql_percentiles.log")
+	got := runFixtureJSON(t, "testdata/regressions/sql/sql_percentiles.log")
 	sp := sqlSummary(t, got)
 	if total, _ := sp["total_queries_parsed"].(float64); total != 51 {
 		t.Errorf("total_queries_parsed = %v, want 51", total)
@@ -107,7 +107,7 @@ func TestRegression_SQLPercentilesP2(t *testing.T) {
 // ROLLBACK normalize to their own queries (not collapsed into the real
 // DML around them), and that frequent TCL gets correct counts.
 func TestRegression_SQLTCLAndDMLSeparated(t *testing.T) {
-	got := runFixtureJSON(t, "testdata/regressions/sql_tcl_separation.log")
+	got := runFixtureJSON(t, "testdata/regressions/sql/sql_tcl_separation.log")
 	sp := sqlSummary(t, got)
 	if total, _ := sp["total_queries_parsed"].(float64); total != 10 {
 		t.Errorf("total_queries_parsed = %v, want 10", total)
@@ -139,7 +139,7 @@ func TestRegression_SQLTCLAndDMLSeparated(t *testing.T) {
 // If quellog ever changes to count parse/bind too, this test goes red,
 // the call needs to be re-considered, and the fixture README updated.
 func TestRegression_SQLPreparedExecuteCounted(t *testing.T) {
-	got := runFixtureJSON(t, "testdata/regressions/sql_prepared_statements.log")
+	got := runFixtureJSON(t, "testdata/regressions/sql/sql_prepared_statements.log")
 	sp := sqlSummary(t, got)
 	if total, _ := sp["total_queries_parsed"].(float64); total != 3 {
 		t.Errorf("total_queries_parsed = %v, want 3 (only EXECUTE is counted; parse/bind are skipped)", total)
@@ -161,7 +161,7 @@ func TestRegression_SQLPreparedExecuteCounted(t *testing.T) {
 // as `execute stmt_a:` (the prepared statement), counting only one of
 // the two ranks (execute wins). Documented behaviour.
 func TestRegression_SQLDurationVariantsParsed(t *testing.T) {
-	got := runFixtureJSON(t, "testdata/regressions/sql_duration_variants.log")
+	got := runFixtureJSON(t, "testdata/regressions/sql/sql_duration_variants.log")
 	sp := sqlSummary(t, got)
 	if total, _ := sp["total_queries_parsed"].(float64); total != 4 {
 		t.Errorf("total_queries_parsed = %v, want 4 (3 statement + 1 execute; parse/bind skipped)", total)
@@ -187,7 +187,7 @@ func TestRegression_SQLDurationVariantsParsed(t *testing.T) {
 //
 // Order by max_time: pg_sleep > big_table > now.
 func TestRegression_SQLTopQueriesOrderedByMaxTime(t *testing.T) {
-	out := runHarness(t, false, "testdata/regressions/sql_top_queries.log", "--sql-performance", "--json")
+	out := runHarness(t, false, "testdata/regressions/sql/sql_top_queries.log", "--sql-performance", "--json")
 	doc := mustJSON(t, out)
 	slowest, _ := doc["slowest_queries"].([]any)
 	if len(slowest) < 3 {

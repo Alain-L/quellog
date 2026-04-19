@@ -18,7 +18,7 @@ import (
 // (`Apr 20 08:00:00 dbhost01 postgres[30001]: ...`) parses correctly,
 // timestamps are recognized and continuation lines fold.
 func TestRegression_SyslogBSDFormat(t *testing.T) {
-	got := runFixtureJSON(t, "testdata/regressions/syslog_bsd.log")
+	got := runFixtureJSON(t, "testdata/regressions/parsers/syslog_bsd.log")
 	summary := got["summary"].(map[string]any)
 	if total, _ := summary["total_logs"].(float64); total != 7 {
 		t.Errorf("summary.total_logs = %v, want 7 (8 raw lines, ERROR+STATEMENT folds into 1)", total)
@@ -46,7 +46,7 @@ func TestRegression_SyslogBSDFormat(t *testing.T) {
 // parses correctly and that the priority field doesn't leak into the
 // message text.
 func TestRegression_SyslogRFC5424Format(t *testing.T) {
-	got := runFixtureJSON(t, "testdata/regressions/syslog_rfc5424.log")
+	got := runFixtureJSON(t, "testdata/regressions/parsers/syslog_rfc5424.log")
 	summary := got["summary"].(map[string]any)
 	if total, _ := summary["total_logs"].(float64); total != 5 {
 		t.Errorf("summary.total_logs = %v, want 5 (6 lines, ERROR+STATEMENT folds)", total)
@@ -78,7 +78,7 @@ func TestRegression_StdinInput(t *testing.T) {
 	if harnessBinary == "" {
 		t.Fatal("harness binary not built")
 	}
-	fixture, err := os.ReadFile("testdata/regressions/deadlock_basic.log")
+	fixture, err := os.ReadFile("testdata/regressions/locks/deadlock_basic.log")
 	if err != nil {
 		t.Fatalf("read fixture: %v", err)
 	}

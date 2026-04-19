@@ -15,9 +15,9 @@ import (
 // Most subtests use multi_db.log (3 databases, 4 users) so filtering is
 // observable; some use other corpus fixtures.
 func TestFlagCoverage(t *testing.T) {
-	const multiDB = "testdata/regressions/multi_db.log"
-	const ddlk = "testdata/regressions/deadlock_basic.log"
-	const sqlNorm = "testdata/regressions/sql_normalization.log"
+	const multiDB = "testdata/regressions/connections/multi_db.log"
+	const ddlk = "testdata/regressions/locks/deadlock_basic.log"
+	const sqlNorm = "testdata/regressions/sql/sql_normalization.log"
 
 	t.Run("DBNameFilter", func(t *testing.T) {
 		out := runHarness(t, false, multiDB, "--dbname", "appdb", "--json")
