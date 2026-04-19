@@ -35,6 +35,18 @@ jobs:
       - name: Generate web assets
         run: go generate ./web/...
 
+      - name: Check formatting (gofmt -s)
+        run: |
+          unformatted=$(gofmt -s -l .)
+          if [ -n "$unformatted" ]; then
+            echo "::error::Files not gofmt -s'd:"
+            echo "$unformatted"
+            echo ""
+            echo "Diff:"
+            gofmt -s -d .
+            exit 1
+          fi
+
       - name: Vet & Test
         run: |
           go vet ./...
