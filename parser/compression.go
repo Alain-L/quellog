@@ -9,7 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -100,12 +100,12 @@ func detectCompressedParser(filename, baseName string, codec compressionCodec) L
 func detectCompressedParserWithError(filename, baseName string, codec compressionCodec) (LogParser, error) {
 	sample, err := readCompressedSample(filename, codec)
 	if err != nil {
-		log.Printf("[ERROR] Failed to read %s sample from %s: %v", codec.name, filename, err)
+		slog.Error("failed to read compressed sample", "codec", codec.name, "file", filename, "err", err)
 		return nil, fmt.Errorf("%w: %v", ErrCompressionFailed, err)
 	}
 
 	if isBinaryContent(sample) {
-		log.Printf("[ERROR] File %s appears to be binary after %s decompression. Binary formats are not supported.", filename, codec.name)
+		slog.Error("file appears to be binary after decompression", "file", filename, "codec", codec.name)
 		return nil, ErrBinaryFile
 	}
 
@@ -212,7 +212,7 @@ func wrapCompressedParser(parser LogParser, codec compressionCodec) LogParser {
 			return p.parseReader(r, out)
 		})
 	default:
-		log.Printf("[ERROR] Unsupported parser type for %s compressed files: %T", codec.name, parser)
+		slog.Error("unsupported parser type for compressed files", "codec", codec.name, "parser_type", fmt.Sprintf("%T", parser))
 		return nil
 	}
 }

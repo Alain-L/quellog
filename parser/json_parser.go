@@ -7,7 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"os"
 	"strings"
 	"time"
@@ -95,7 +95,7 @@ func (p *JsonParser) parseJSONArray(r io.Reader, out chan<- LogEntry) error {
 		entry, err := extractLogEntry(obj)
 		if err != nil {
 			if !errors.Is(err, errSkipEntry) {
-				log.Printf("[WARN] Skipping malformed JSON entry at index %d: %v", index, err)
+				slog.Warn("skipping malformed JSON entry", "index", index, "err", err)
 			}
 			continue
 		}
@@ -132,14 +132,14 @@ func (p *JsonParser) parseJSONLines(r io.Reader, out chan<- LogEntry) error {
 
 		var obj map[string]interface{}
 		if err := json.Unmarshal(line, &obj); err != nil {
-			log.Printf("[WARN] Skipping malformed JSON at line %d: %v", lineNum, err)
+			slog.Warn("skipping malformed JSON", "line", lineNum, "err", err)
 			continue
 		}
 
 		entry, err := extractLogEntry(obj)
 		if err != nil {
 			if !errors.Is(err, errSkipEntry) {
-				log.Printf("[WARN] Skipping incomplete JSON entry at line %d: %v", lineNum, err)
+				slog.Warn("skipping incomplete JSON entry", "line", lineNum, "err", err)
 			}
 			continue
 		}

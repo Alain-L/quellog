@@ -6,7 +6,7 @@ package parser
 import (
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"path/filepath"
 	"strings"
 
@@ -39,7 +39,7 @@ func (p *SevenZipParser) Parse(filename string, out chan<- LogEntry) error {
 
 		// Path traversal protection
 		if strings.Contains(entryName, "..") {
-			log.Printf("[WARN] Skipping 7z entry with suspicious path: %s", entryName)
+			slog.Warn("skipping 7z entry with suspicious path", "entry", entryName)
 			continue
 		}
 
@@ -47,21 +47,21 @@ func (p *SevenZipParser) Parse(filename string, out chan<- LogEntry) error {
 		baseName := filepath.Base(entryName)
 
 		if !isSupportedArchiveEntry(baseName) {
-			log.Printf("[INFO] Skipping unsupported file %s in archive %s", entryName, filename)
+			slog.Info("skipping unsupported file in archive", "entry", entryName, "archive", filename)
 			continue
 		}
 
 		rc, err := f.Open()
 		if err != nil {
-			log.Printf("[ERROR] Failed to open %s in archive %s: %v", entryName, filename, err)
+			slog.Error("failed to open entry in archive", "entry", entryName, "archive", filename, "err", err)
 			continue
 		}
 
 		if err := parseArchiveEntry(baseName, rc, out); err != nil {
 			if errors.Is(err, errUnsupportedArchiveEntry) {
-				log.Printf("[WARN] Unsupported log format %s in archive %s", entryName, filename)
+				slog.Warn("unsupported log format in archive", "entry", entryName, "archive", filename)
 			} else {
-				log.Printf("[ERROR] Failed to parse %s in archive %s: %v", entryName, filename, err)
+				slog.Error("failed to parse entry in archive", "entry", entryName, "archive", filename, "err", err)
 			}
 		}
 

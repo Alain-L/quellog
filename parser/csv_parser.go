@@ -5,7 +5,7 @@ import (
 	"encoding/csv"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"os"
 	"strings"
 	"time"
@@ -98,7 +98,7 @@ func (p *CsvParser) parseReader(r io.Reader, out chan<- LogEntry) error {
 			break
 		}
 		if err != nil {
-			log.Printf("[WARN] CSV parsing error at line ~%d: %v", lineNum, err)
+			slog.Warn("CSV parsing error", "line", lineNum, "err", err)
 			continue
 		}
 
@@ -106,15 +106,15 @@ func (p *CsvParser) parseReader(r io.Reader, out chan<- LogEntry) error {
 
 		// Validate minimum fields (need at least timestamp and message)
 		if len(record) < csvFieldMessage+1 {
-			log.Printf("[WARN] Skipping CSV record at line %d: insufficient fields (got %d, need at least %d)",
-				lineNum, len(record), csvFieldMessage+1)
+			slog.Warn("skipping CSV record: insufficient fields",
+				"line", lineNum, "got", len(record), "need", csvFieldMessage+1)
 			continue
 		}
 
 		// Extract and parse timestamp
 		timestamp, err := p.parseCSVTimestamp(record[csvFieldTimestamp])
 		if err != nil {
-			log.Printf("[WARN] Skipping CSV record at line %d: invalid timestamp: %v", lineNum, err)
+			slog.Warn("skipping CSV record: invalid timestamp", "line", lineNum, "err", err)
 			continue
 		}
 

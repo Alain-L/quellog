@@ -4,7 +4,8 @@ package cmd
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
+	"os"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -90,8 +91,11 @@ func Execute(v, c, d string) {
 	date = d
 	rootCmd.Version = fmt.Sprintf("%s (commit: %s, built: %s)", version, commit, date)
 
+	initLogger(slog.LevelInfo)
+
 	if err := rootCmd.Execute(); err != nil {
-		log.Fatalf("Error: %v", err)
+		slog.Error("command failed", "err", err)
+		os.Exit(1)
 	}
 }
 

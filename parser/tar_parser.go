@@ -8,7 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -78,7 +78,7 @@ func (p *TarParser) Parse(filename string, out chan<- LogEntry) error {
 
 		// Path traversal protection
 		if strings.Contains(entryName, "..") {
-			log.Printf("[WARN] Skipping tar entry with suspicious path: %s", entryName)
+			slog.Warn("skipping tar entry with suspicious path", "entry", entryName)
 			if _, err := io.Copy(io.Discard, entryReader); err != nil {
 				return fmt.Errorf("discarding suspicious entry %s in %s: %w", entryName, filename, err)
 			}
@@ -93,15 +93,15 @@ func (p *TarParser) Parse(filename string, out chan<- LogEntry) error {
 			if _, err := io.Copy(io.Discard, entryReader); err != nil {
 				return fmt.Errorf("discarding unsupported entry %s in %s: %w", entryName, filename, err)
 			}
-			log.Printf("[INFO] Skipping unsupported file %s in archive %s", entryName, filename)
+			slog.Info("skipping unsupported file in archive", "entry", entryName, "archive", filename)
 			continue
 		}
 
 		if err := parseArchiveEntry(baseName, entryReader, out); err != nil {
 			if errors.Is(err, errUnsupportedArchiveEntry) {
-				log.Printf("[WARN] Unsupported log format %s in archive %s", entryName, filename)
+				slog.Warn("unsupported log format in archive", "entry", entryName, "archive", filename)
 			} else {
-				log.Printf("[ERROR] Failed to parse %s in archive %s: %v", entryName, filename, err)
+				slog.Error("failed to parse entry in archive", "entry", entryName, "archive", filename, "err", err)
 			}
 		}
 
