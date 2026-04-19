@@ -1,0 +1,143 @@
+{
+  "apps": [
+    {
+      "name": "psql",
+      "count": 3
+    }
+  ],
+  "clients": {
+    "unique_databases": 1,
+    "unique_users": 1,
+    "unique_apps": 1,
+    "unique_hosts": 3
+  },
+  "databases": [
+    {
+      "name": "appdb",
+      "count": 3
+    }
+  ],
+  "events": [
+    {
+      "type": "LOG",
+      "count": 3,
+      "percentage": 100
+    }
+  ],
+  "hosts": [
+    {
+      "name": "10.0.0.20",
+      "count": 1
+    },
+    {
+      "name": "10.0.0.21",
+      "count": 1
+    },
+    {
+      "name": "10.0.0.22",
+      "count": 1
+    }
+  ],
+  "locks": {
+    "total_events": 3,
+    "waiting_events": 3,
+    "acquired_events": 0,
+    "total_wait_time": "0 ms",
+    "avg_wait_time": "0 ms",
+    "lock_type_stats": {
+      "ShareLock": 3
+    },
+    "resource_type_stats": {
+      "transaction": 3
+    },
+    "relation_stats": {
+      "customers": 1,
+      "orders": 2
+    },
+    "events": [
+      {
+        "timestamp": "2026-04-19 12:00:00",
+        "event_type": "waiting",
+        "lock_type": "ShareLock",
+        "resource_type": "transaction",
+        "wait_time": "1.10 s",
+        "process_id": "5001",
+        "query_id": "up-dWz4qk",
+        "blocking_pid": "5002",
+        "relation": "orders"
+      },
+      {
+        "timestamp": "2026-04-19 12:01:30",
+        "event_type": "waiting",
+        "lock_type": "ShareLock",
+        "resource_type": "transaction",
+        "wait_time": "1.05 s",
+        "process_id": "5010",
+        "query_id": "up-ECQ1ze",
+        "blocking_pid": "5011",
+        "relation": "orders"
+      },
+      {
+        "timestamp": "2026-04-19 12:03:45",
+        "event_type": "waiting",
+        "lock_type": "ShareLock",
+        "resource_type": "transaction",
+        "wait_time": "1.20 s",
+        "process_id": "5020",
+        "query_id": "up-L2dNae",
+        "blocking_pid": "5021",
+        "relation": "customers"
+      }
+    ],
+    "queries": [
+      {
+        "id": "up-ECQ1ze",
+        "normalized_query": "update orders set status = ? where id = ?",
+        "raw_query": "UPDATE orders SET status = 'paid' WHERE id = 2",
+        "acquired_count": 0,
+        "acquired_wait_time": "0 ms",
+        "still_waiting_count": 1,
+        "still_waiting_time": "1.05 s",
+        "total_wait_time": "1.05 s"
+      },
+      {
+        "id": "up-L2dNae",
+        "normalized_query": "update customers set active = false where id = ?",
+        "raw_query": "UPDATE customers SET active = false WHERE id = 100",
+        "acquired_count": 0,
+        "acquired_wait_time": "0 ms",
+        "still_waiting_count": 1,
+        "still_waiting_time": "1.20 s",
+        "total_wait_time": "1.20 s"
+      },
+      {
+        "id": "up-dWz4qk",
+        "normalized_query": "update orders set total = ? where id = ?",
+        "raw_query": "UPDATE orders SET total = 99.99 WHERE id = 1",
+        "acquired_count": 0,
+        "acquired_wait_time": "0 ms",
+        "still_waiting_count": 1,
+        "still_waiting_time": "1.10 s",
+        "total_wait_time": "1.10 s"
+      }
+    ]
+  },
+  "summary": {
+    "start_date": "2026-04-19 12:00:00",
+    "end_date": "2026-04-19 12:03:45",
+    "duration": "3m45.2s",
+    "total_logs": 3,
+    "throughput": "0.01 entries/s",
+    "error_count": 0,
+    "fatal_count": 0,
+    "panic_count": 0,
+    "warning_count": 0,
+    "log_count": 0
+  },
+  "users": [
+    {
+      "name": "app",
+      "count": 3
+    }
+  ]
+}

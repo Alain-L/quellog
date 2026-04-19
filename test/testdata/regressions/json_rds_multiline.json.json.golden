@@ -1,0 +1,125 @@
+{
+  "apps": [
+    {
+      "name": "psql",
+      "count": 2
+    },
+    {
+      "name": "app-worker",
+      "count": 1
+    },
+    {
+      "name": "long-task",
+      "count": 1
+    }
+  ],
+  "clients": {
+    "unique_databases": 1,
+    "unique_users": 1,
+    "unique_apps": 3,
+    "unique_hosts": 1
+  },
+  "connections": {
+    "connection_count": 1,
+    "avg_connections_per_hour": "1090.91",
+    "disconnection_count": 0,
+    "avg_session_time": "",
+    "peak_concurrent_sessions": 1,
+    "peak_concurrent_timestamp": "2026-04-19 17:00:00",
+    "connections": [
+      "2026-04-19 17:00:00"
+    ]
+  },
+  "databases": [
+    {
+      "name": "appdb",
+      "count": 4
+    }
+  ],
+  "events": [
+    {
+      "type": "LOG",
+      "count": 3,
+      "percentage": 60
+    },
+    {
+      "type": "FATAL",
+      "count": 1,
+      "percentage": 20
+    },
+    {
+      "type": "ERROR",
+      "count": 1,
+      "percentage": 20
+    }
+  ],
+  "hosts": [
+    {
+      "name": "10.0.0.10",
+      "count": 1
+    }
+  ],
+  "sql_performance": {
+    "total_query_duration": "45 ms",
+    "total_queries_parsed": 1,
+    "total_unique_queries": 1,
+    "top_1_percent_slow_queries": 1,
+    "query_max_duration": "45 ms",
+    "query_min_duration": "45 ms",
+    "query_median_duration": "45 ms",
+    "query_99th_percentile": "45 ms",
+    "executions": [
+      {
+        "timestamp": "2026-04-19 17:00:00",
+        "duration_ms": 45.678,
+        "query_id": "se-s970DF"
+      }
+    ],
+    "queries": [
+      {
+        "id": "se-s970DF",
+        "normalized_query": "select u.id, u.username, u.email from users u where u.created_at \u003e ? order by u.created_at desc limit ?",
+        "raw_query": "SELECT u.id, u.username, u.email FROM users u WHERE u.created_at \u003e '2026-01-01' ORDER BY u.created_at DESC LIMIT 100",
+        "type": "",
+        "count": 1,
+        "total_time_ms": 45.678,
+        "avg_time_ms": 45.678,
+        "max_time_ms": 45.678
+      }
+    ]
+  },
+  "summary": {
+    "start_date": "2026-04-19 17:00:00",
+    "end_date": "2026-04-19 17:00:03",
+    "duration": "3.3s",
+    "total_logs": 5,
+    "throughput": "1.52 entries/s",
+    "error_count": 0,
+    "fatal_count": 0,
+    "panic_count": 0,
+    "warning_count": 0,
+    "log_count": 0
+  },
+  "top_events": [
+    {
+      "message": "duplicate key value violates unique constraint ?",
+      "count": 1,
+      "severity": "ERROR",
+      "example": "[1002]: user=app,db=appdb,app=app-worker ERROR: duplicate key value violates unique constraint \"orders_pkey\" DETAIL: Key (id)=(42) already exists. STATEMENT: INSERT INTO orders (id, user_id, total) VALUES (42, 7, 99.99) SQLSTATE = '23505'",
+      "sql_state_class": "23"
+    },
+    {
+      "message": "the database system is in recovery mode",
+      "count": 1,
+      "severity": "FATAL",
+      "example": "[1004]: user=app,db=appdb,app=psql FATAL: the database system is in recovery mode SQLSTATE = '57P03'",
+      "sql_state_class": "57"
+    }
+  ],
+  "users": [
+    {
+      "name": "app",
+      "count": 4
+    }
+  ]
+}

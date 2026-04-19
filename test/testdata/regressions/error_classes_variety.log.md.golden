@@ -1,0 +1,72 @@
+## SUMMARY
+
+This _quellog_ report summarizes **6** log entries collected between 19 Apr 2026, 21:00 (UTC) — 19 Apr 2026, 21:00 (UTC), spanning 5s of activity.
+
+## EVENTS
+
+- **FATAL**: 1 (16.7%)
+  - `password authentication failed for user ?` (1) [100.0%]
+
+- **ERROR**: 4 (66.7%)
+  - `canceling statement due to lock timeout` (1) [25.0%]
+  - `insert or update on table ? violates foreign key constraint ?` (1) [25.0%]
+  - `permission denied for table audit_logs` (1) [25.0%]
+  - `syntax error at or near ?` (1) [25.0%]
+
+- **WARNING**: 1 (16.7%)
+  - `there is no transaction in progress` (1) [100.0%]
+
+## CLIENTS
+
+- **Unique DBs**: 1
+- **Unique Users**: 1
+- **Unique Apps**: 1
+- **Unique Hosts**: 6
+
+### USERS
+
+| User | Count | % |
+|---|---:|---:|
+| app | 6 | 100.0% |
+
+### APPS
+
+| App | Count | % |
+|---|---:|---:|
+| psql | 6 | 100.0% |
+
+### DATABASES
+
+| Database | Count | % |
+|---|---:|---:|
+| appdb | 6 | 100.0% |
+
+### HOSTS
+
+| Host | Count | % |
+|---|---:|---:|
+| 10.0.0.60 | 1 | 16.7% |
+| 10.0.0.61 | 1 | 16.7% |
+| 10.0.0.62 | 1 | 16.7% |
+| 10.0.0.63 | 1 | 16.7% |
+| 10.0.0.64 | 1 | 16.7% |
+| 10.0.0.65 | 1 | 16.7% |
+
+### USER × DATABASE
+
+| User | Database | Count | % |
+|---|---|---:|---:|
+| app | appdb | 6 | 100.0% |
+
+### USER × HOST
+
+| User | Host | Count | % |
+|---|---|---:|---:|
+| app | 10.0.0.60 | 1 | 16.7% |
+| app | 10.0.0.61 | 1 | 16.7% |
+| app | 10.0.0.62 | 1 | 16.7% |
+| app | 10.0.0.63 | 1 | 16.7% |
+| app | 10.0.0.64 | 1 | 16.7% |
+| app | 10.0.0.65 | 1 | 16.7% |
+
+

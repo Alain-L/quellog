@@ -1,0 +1,72 @@
+{
+  "checkpoints": {
+    "total_checkpoints": 2,
+    "avg_checkpoint_time": "15.16 s",
+    "max_checkpoint_time": "15.19 s",
+    "events": [
+      "2026-04-19 20:00:15",
+      "2026-04-19 20:00:45"
+    ],
+    "types": {
+      "time": {
+        "count": 1,
+        "percentage": 50,
+        "rate_per_hour": 59.21052631578948,
+        "events": [
+          "2026-04-19 20:00:15"
+        ]
+      },
+      "xlog": {
+        "count": 1,
+        "percentage": 50,
+        "rate_per_hour": 59.21052631578948,
+        "events": [
+          "2026-04-19 20:00:45"
+        ]
+      }
+    },
+    "avg_wal_distance": "21.00 MB",
+    "max_wal_distance": "22.00 MB",
+    "total_buffers_written": 2734,
+    "wal_rate": "707 kB/s",
+    "flush_rate": "721 kB/s",
+    "wal_distances": [
+      {
+        "timestamp": "2026-04-19 20:00:15",
+        "distance_kb": 20480,
+        "estimate_kb": 20480
+      },
+      {
+        "timestamp": "2026-04-19 20:00:45",
+        "distance_kb": 22528,
+        "estimate_kb": 22528
+      }
+    ],
+    "warning_count": 2,
+    "warning_min_interval_seconds": 15,
+    "warning_max_interval_seconds": 15,
+    "warning_events": [
+      "2026-04-19 20:00:30",
+      "2026-04-19 20:01:00"
+    ]
+  },
+  "events": [
+    {
+      "type": "LOG",
+      "count": 7,
+      "percentage": 100
+    }
+  ],
+  "summary": {
+    "start_date": "2026-04-19 20:00:00",
+    "end_date": "2026-04-19 20:01:00",
+    "duration": "1m0.8s",
+    "total_logs": 7,
+    "throughput": "0.12 entries/s",
+    "error_count": 0,
+    "fatal_count": 0,
+    "panic_count": 0,
+    "warning_count": 0,
+    "log_count": 0
+  }
+}

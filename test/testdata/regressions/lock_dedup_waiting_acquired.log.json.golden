@@ -1,0 +1,98 @@
+{
+  "apps": [
+    {
+      "name": "psql",
+      "count": 2
+    }
+  ],
+  "clients": {
+    "unique_databases": 1,
+    "unique_users": 1,
+    "unique_apps": 1,
+    "unique_hosts": 1
+  },
+  "databases": [
+    {
+      "name": "appdb",
+      "count": 2
+    }
+  ],
+  "events": [
+    {
+      "type": "LOG",
+      "count": 2,
+      "percentage": 100
+    }
+  ],
+  "hosts": [
+    {
+      "name": "10.0.0.5",
+      "count": 2
+    }
+  ],
+  "locks": {
+    "total_events": 1,
+    "waiting_events": 0,
+    "acquired_events": 1,
+    "total_wait_time": "3.40 s",
+    "avg_wait_time": "3.40 s",
+    "lock_type_stats": {
+      "AccessExclusiveLock": 1
+    },
+    "resource_type_stats": {
+      "relation": 1
+    },
+    "events": [
+      {
+        "timestamp": "2026-04-19 10:00:00",
+        "event_type": "waiting",
+        "lock_type": "AccessExclusiveLock",
+        "resource_type": "relation",
+        "wait_time": "1.00 s",
+        "process_id": "3001",
+        "query_id": "al-D4BXuB",
+        "blocking_pid": "3002"
+      },
+      {
+        "timestamp": "2026-04-19 10:00:02",
+        "event_type": "acquired",
+        "lock_type": "AccessExclusiveLock",
+        "resource_type": "relation",
+        "wait_time": "3.40 s",
+        "process_id": "3001",
+        "query_id": "al-D4BXuB",
+        "blocking_pid": "3002"
+      }
+    ],
+    "queries": [
+      {
+        "id": "al-D4BXuB",
+        "normalized_query": "alter table customers add column email_verified boolean",
+        "raw_query": "ALTER TABLE customers ADD COLUMN email_verified boolean",
+        "acquired_count": 1,
+        "acquired_wait_time": "3.40 s",
+        "still_waiting_count": 0,
+        "still_waiting_time": "0 ms",
+        "total_wait_time": "3.40 s"
+      }
+    ]
+  },
+  "summary": {
+    "start_date": "2026-04-19 10:00:00",
+    "end_date": "2026-04-19 10:00:02",
+    "duration": "2.4s",
+    "total_logs": 2,
+    "throughput": "0.83 entries/s",
+    "error_count": 0,
+    "fatal_count": 0,
+    "panic_count": 0,
+    "warning_count": 0,
+    "log_count": 0
+  },
+  "users": [
+    {
+      "name": "app",
+      "count": 2
+    }
+  ]
+}

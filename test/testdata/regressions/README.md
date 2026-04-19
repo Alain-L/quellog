@@ -39,14 +39,18 @@ Expected:
 - `locks.deadlock_events = 1`
 - `locks.relation_stats["accounts"] >= 1`
 
-### `deadlock_multiple.log` — three independent deadlocks
+### `deadlock_multiple.log` — three deadlocks without preceding wait
 
-Three deadlock ERRORs at different timestamps, on different relations
-(`orders`, `inventory`).
+Three deadlock ERRORs at different timestamps, **without** a preceding
+`still waiting` LOG. PostgreSQL emits deadlocks this way when detection
+is fast enough that no wait was logged. The analyzer counts them as
+errors but does not create lock events for them — that path exists only
+when a `still waiting` LOG was previously emitted for the same PID.
 
 Expected:
-- `locks.deadlock_events = 3`
-- `events.fatal/error` contains 3 entries with the deadlock signature
+- `top_events` contains "deadlock detected" with `count = 3`
+- `events.ERROR.count = 3`
+- No `locks` section emitted (no associated lock events)
 
 ### `lock_dedup_waiting_acquired.log` — same wait reported twice
 

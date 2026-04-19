@@ -1,0 +1,21 @@
+{
+  "events": [
+    {
+      "type": "LOG",
+      "count": 2,
+      "percentage": 100
+    }
+  ],
+  "summary": {
+    "start_date": "2026-04-19 15:00:00",
+    "end_date": "2026-04-19 15:30:00",
+    "duration": "30m0s",
+    "total_logs": 2,
+    "throughput": "0.00 entries/s",
+    "error_count": 0,
+    "fatal_count": 0,
+    "panic_count": 0,
+    "warning_count": 0,
+    "log_count": 0
+  }
+}

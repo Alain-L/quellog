@@ -1,0 +1,35 @@
+{
+  "events": [
+    {
+      "type": "LOG",
+      "count": 3,
+      "percentage": 100
+    }
+  ],
+  "maintenance": {
+    "vacuum_count": 2,
+    "analyze_count": 1,
+    "vacuum_table_counts": {
+      "appdb.public.sessions": 1,
+      "appdb.public.users": 1
+    },
+    "analyze_table_counts": {
+      "appdb.public.users": 1
+    },
+    "vacuum_space_recovered": {
+      "appdb.public.sessions": "40.00 KB"
+    }
+  },
+  "summary": {
+    "start_date": "2026-04-19 15:00:00",
+    "end_date": "2026-04-19 15:20:00",
+    "duration": "20m0s",
+    "total_logs": 3,
+    "throughput": "0.00 entries/s",
+    "error_count": 0,
+    "fatal_count": 0,
+    "panic_count": 0,
+    "warning_count": 0,
+    "log_count": 0
+  }
+}

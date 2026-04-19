@@ -1,0 +1,106 @@
+{
+  "apps": [
+    {
+      "name": "psql",
+      "count": 2
+    }
+  ],
+  "clients": {
+    "unique_databases": 1,
+    "unique_users": 1,
+    "unique_apps": 1,
+    "unique_hosts": 1
+  },
+  "databases": [
+    {
+      "name": "appdb",
+      "count": 2
+    }
+  ],
+  "events": [
+    {
+      "type": "ERROR",
+      "count": 1,
+      "percentage": 50
+    },
+    {
+      "type": "LOG",
+      "count": 1,
+      "percentage": 50
+    }
+  ],
+  "hosts": [
+    {
+      "name": "10.0.0.1",
+      "count": 2
+    }
+  ],
+  "locks": {
+    "total_events": 1,
+    "waiting_events": 1,
+    "acquired_events": 0,
+    "deadlock_events": 1,
+    "total_wait_time": "0 ms",
+    "avg_wait_time": "0 ms",
+    "lock_type_stats": {
+      "ShareLock": 1
+    },
+    "resource_type_stats": {
+      "transaction": 1
+    },
+    "relation_stats": {
+      "accounts": 1
+    },
+    "events": [
+      {
+        "timestamp": "2026-04-19 08:00:00",
+        "event_type": "deadlock",
+        "lock_type": "ShareLock",
+        "resource_type": "transaction",
+        "wait_time": "1.00 s",
+        "process_id": "1001",
+        "query_id": "up-pinkPO",
+        "blocking_pid": "1002",
+        "relation": "accounts"
+      }
+    ],
+    "queries": [
+      {
+        "id": "up-pinkPO",
+        "normalized_query": "update accounts set balance = balance - ? where id = ?",
+        "raw_query": "UPDATE accounts SET balance = balance - 10 WHERE id = 1",
+        "acquired_count": 0,
+        "acquired_wait_time": "0 ms",
+        "still_waiting_count": 1,
+        "still_waiting_time": "1.00 s",
+        "total_wait_time": "1.00 s"
+      }
+    ]
+  },
+  "summary": {
+    "start_date": "2026-04-19 08:00:00",
+    "end_date": "2026-04-19 08:00:01",
+    "duration": "1.4s",
+    "total_logs": 2,
+    "throughput": "1.43 entries/s",
+    "error_count": 0,
+    "fatal_count": 0,
+    "panic_count": 0,
+    "warning_count": 0,
+    "log_count": 0
+  },
+  "top_events": [
+    {
+      "message": "deadlock detected",
+      "count": 1,
+      "severity": "ERROR",
+      "example": "[1001]: [5-1] user=app,db=appdb,app=psql,client=10.0.0.1 ERROR:  deadlock detected"
+    }
+  ],
+  "users": [
+    {
+      "name": "app",
+      "count": 2
+    }
+  ]
+}

@@ -1,0 +1,124 @@
+## SUMMARY
+
+This _quellog_ report summarizes **3** log entries collected between 19 Apr 2026, 11:00 (UTC) — 19 Apr 2026, 11:00 (UTC), spanning 1s of activity.
+
+## SQL SUMMARY
+
+### Query load distribution
+
+```
+11:00 - 11:00 |  -
+```
+
+|  |  |  |  |
+|---|---:|---|---:|
+| Total query duration | 3.30 s | Total queries parsed | 1 |
+| Total unique queries | 1 | Top 1% slow queries | 1 |
+| Query max duration | 3.30 s | Query min duration | 3.30 s |
+| Query median duration | 3.30 s | Query 99% max duration | 3.30 s |
+
+### Query duration distribution
+
+```
+  < 1 ms |  -
+ < 10 ms |  -
+< 100 ms |  -
+   < 1 s |  -
+  < 10 s |  -
+ >= 10 s |  -
+```
+
+### Query Statistics
+
+**Slowest queries (top 10)**
+
+| SQLID | Max | Avg | Count | Query |
+|---|---:|---:|---:|---|
+| se-WbofPa | 3.30 s | 3.30 s | 1 | select * from bookings where id = ? for update |
+
+**Most frequent queries (top 10)**
+
+| SQLID | Count | Avg | Max | Query |
+|---|---:|---:|---:|---|
+| se-WbofPa | 1 | 3.30 s | 3.30 s | select * from bookings where id = ? for update |
+
+**Most time consuming queries (top 10)**
+
+| SQLID | Total | Avg | Count | Query |
+|---|---:|---:|---:|---|
+| se-WbofPa | 3.30 s | 3.30 s | 1 | select * from bookings where id = ? for update |
+
+## EVENTS
+
+- **LOG**: 3 (100.0%)
+
+## LOCKS
+
+- **Total lock events**: 1
+- **Still waiting**: 0
+- **Acquired events**: 1
+- **Average wait time**: 3200.00 ms
+- **Total wait time**: 3.20 s
+
+### Lock Types
+
+| Lock Type | Count | Percentage |
+|---|---:|---:|
+| ShareLock | 1 | 100.0% |
+
+### Resource Types
+
+| Resource Type | Count | Percentage |
+|---|---:|---:|
+| transaction | 1 | 100.0% |
+
+### Waiting Queries
+
+| SQLID | Query | Acquired | Waiting | Total Wait |
+|---|---|---:|---:|---:|
+| se-WbofPa | select * from bookings where id = ? for update | 1 | 0 | 3.20 s |
+
+## CLIENTS
+
+- **Unique DBs**: 1
+- **Unique Users**: 1
+- **Unique Apps**: 1
+- **Unique Hosts**: 1
+
+### USERS
+
+| User | Count | % |
+|---|---:|---:|
+| app | 3 | 100.0% |
+
+### APPS
+
+| App | Count | % |
+|---|---:|---:|
+| psql | 3 | 100.0% |
+
+### DATABASES
+
+| Database | Count | % |
+|---|---:|---:|
+| appdb | 3 | 100.0% |
+
+### HOSTS
+
+| Host | Count | % |
+|---|---:|---:|
+| 10.0.0.10 | 3 | 100.0% |
+
+### USER × DATABASE
+
+| User | Database | Count | % |
+|---|---|---:|---:|
+| app | appdb | 3 | 100.0% |
+
+### USER × HOST
+
+| User | Host | Count | % |
+|---|---|---:|---:|
+| app | 10.0.0.10 | 3 | 100.0% |
+
+
