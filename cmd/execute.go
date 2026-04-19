@@ -4,12 +4,13 @@ package cmd
 import (
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -27,20 +28,23 @@ import (
 //  3. Parse log files in parallel (streaming)
 //  4. Filter log entries based on criteria
 //  5. Analyze and output results
-func executeParsing(cmd *cobra.Command, args []string) {
+//
+// Returns an error so cobra (and ultimately Execute()) can decide how to
+// surface the failure. In follow mode, per-cycle errors are logged but
+// do not stop the loop — the only thing that exits the loop is a signal.
+func executeParsing(cmd *cobra.Command, args []string) error {
 	if !followFlag {
-		runAnalysisCycle(args)
-		return
+		return runAnalysisCycle(args)
 	}
 
 	// Apply default time window for follow mode if none specified
 	if lastFlag == "" && beginTime == "" && endTime == "" && windowFlag == "" {
 		lastFlag = "24h"
-		fmt.Println("[INFO] No time filter specified for follow mode, defaulting to --last 24h")
+		slog.Info("no time filter specified for follow mode, defaulting to --last 24h")
 	}
 
 	// Follow mode implementation
-	fmt.Printf("[INFO] Entering follow mode (interval: %v). Press Ctrl+C to stop.\n", intervalFlag)
+	slog.Info("entering follow mode", "interval", intervalFlag)
 
 	// Set up signal handling for graceful shutdown
 	sigChan := make(chan os.Signal, 1)
@@ -49,56 +53,83 @@ func executeParsing(cmd *cobra.Command, args []string) {
 	ticker := time.NewTicker(intervalFlag)
 	defer ticker.Stop()
 
-	// Run first cycle immediately
-	runAnalysisCycle(args)
+	// Run first cycle immediately. In follow mode, errors are non-fatal —
+	// log them and wait for the next tick so transient failures (file
+	// rotated, no entries in the window, disk briefly full) do not kill
+	// the long-running process.
+	if err := runAnalysisCycle(args); err != nil {
+		slog.Error("analysis cycle failed", "err", err)
+	}
 
 	for {
 		select {
 		case <-ticker.C:
-			runAnalysisCycle(args)
+			if err := runAnalysisCycle(args); err != nil {
+				slog.Error("analysis cycle failed", "err", err)
+			}
 		case <-sigChan:
-			fmt.Println("\n[INFO] Stopping follow mode.")
-			return
+			slog.Info("stopping follow mode")
+			return nil
 		}
 	}
 }
 
 // runAnalysisCycle executes a single parsing and analysis pass.
-func runAnalysisCycle(args []string) {
+func runAnalysisCycle(args []string) error {
 	startTime := time.Now()
 
 	// Step 1: Collect log files from arguments
 	allFiles := collectFiles(args)
 	if len(allFiles) == 0 {
-		fmt.Println("[INFO] No log files found. Exiting.")
-		if !followFlag {
-			os.Exit(0)
-		}
-		return
+		slog.Info("no log files found, exiting")
+		return nil
+	}
+
+	// Pre-validate stdin usage so we fail fast (and never from inside a
+	// goroutine) if the user mixed "-" with regular files.
+	if err := validateStdinUsage(allFiles); err != nil {
+		return err
 	}
 
 	// Calculate total file size for throughput reporting
 	totalFileSize := calculateTotalFileSize(allFiles)
 
 	// Step 2: Validate and parse time filter options
-	validateTimeFilters()
+	if err := validateTimeFilters(); err != nil {
+		return err
+	}
 
 	var beginT, endT time.Time
+	var err error
 	if lastFlag != "" {
 		// --last takes precedence and sets both begin and end
-		beginT, endT = parseLast(lastFlag)
+		beginT, endT, err = parseLast(lastFlag)
+		if err != nil {
+			return err
+		}
 	} else {
 		// Parse --begin and --end normally
-		beginT, endT = parseDateTimes(beginTime, endTime)
-		windowDur := parseWindow(windowFlag)
+		beginT, endT, err = parseDateTimes(beginTime, endTime)
+		if err != nil {
+			return err
+		}
+		windowDur, err := parseWindow(windowFlag)
+		if err != nil {
+			return err
+		}
 		beginT, endT = applyTimeWindow(beginT, endT, windowDur)
 	}
 
 	// Step 3: Set up streaming pipeline
 	rawLogs := make(chan parser.LogEntry, 65536)
 
+	// Track whether at least one input parsed successfully. The async
+	// parsers are fire-and-forget: errors get logged inside, and if
+	// nothing comes out we surface a single clean error here at the end.
+	var parsedAny atomic.Bool
+
 	// Launch parallel file parsing
-	go parseFilesAsync(allFiles, rawLogs)
+	go parseFilesAsync(allFiles, rawLogs, &parsedAny)
 
 	// Step 4: Apply filters (skip channel hop when no filters are active)
 	filters := buildLogFilters(beginT, endT)
@@ -112,91 +143,91 @@ func runAnalysisCycle(args []string) {
 	}
 
 	// Step 5: Process and output results based on flags
-	processAndOutput(analyzeInput, startTime, totalFileSize, args)
+	if err := processAndOutput(analyzeInput, startTime, totalFileSize, args); err != nil {
+		return err
+	}
+
+	if !parsedAny.Load() {
+		return fmt.Errorf("no files could be parsed: check that files exist, are readable, and in a supported format")
+	}
+	return nil
+}
+
+// validateStdinUsage rejects mixing "-" (stdin) with regular file arguments.
+func validateStdinUsage(files []string) error {
+	hasStdin := false
+	hasRegular := false
+	for _, f := range files {
+		if f == "-" {
+			hasStdin = true
+		} else {
+			hasRegular = true
+		}
+	}
+	if hasStdin && hasRegular {
+		return fmt.Errorf("cannot mix stdin (-) with file arguments")
+	}
+	return nil
 }
 
 // parseFilesAsync reads log files in parallel and sends entries to the channel.
 // It determines the optimal number of workers based on file count and CPU cores.
-// If all files fail to parse, it exits immediately with a clear error.
-// Special handling: if "-" is in the files list, it reads from stdin.
-func parseFilesAsync(files []string, out chan<- parser.LogEntry) {
+// On per-file failure, errors are logged via slog (the autodetect/parser layer
+// already logs specific details). The caller observes overall success through
+// the parsedAny flag and the channel closing.
+//
+// Special handling: if "-" is in the files list, it reads from stdin. The
+// caller must ensure stdin is not mixed with regular files (see
+// validateStdinUsage).
+func parseFilesAsync(files []string, out chan<- parser.LogEntry, parsedAny *atomic.Bool) {
 	defer close(out)
 
-	// Special case: check if stdin is requested
-	hasStdin := false
-	regularFiles := []string{}
-	for _, file := range files {
-		if file == "-" {
-			hasStdin = true
-		} else {
-			regularFiles = append(regularFiles, file)
+	// Special case: stdin (caller has validated it is not mixed)
+	if len(files) == 1 && files[0] == "-" {
+		if err := parser.ParseStdin(out); err != nil {
+			slog.Error("failed to parse from stdin", "err", err)
+			return
 		}
+		parsedAny.Store(true)
+		return
 	}
 
-	// If stdin is requested, it must be the only input
-	if hasStdin {
-		if len(regularFiles) > 0 {
-			log.Fatalf("[ERROR] Cannot mix stdin (-) with file arguments")
-		}
-		// Parse from stdin
-		if err := parser.ParseStdin(out); err != nil {
-			log.Fatalf("[ERROR] Failed to parse from stdin: %v", err)
+	numWorkers := determineWorkerCount(len(files))
+
+	if numWorkers == 1 {
+		// Single file: no need for worker pool
+		for _, file := range files {
+			if err := parser.ParseFile(file, out); err != nil {
+				// Error already logged in detectParser with specific details
+				continue
+			}
+			parsedAny.Store(true)
 		}
 		return
 	}
 
-	numWorkers := determineWorkerCount(len(regularFiles))
-	successChan := make(chan bool, len(regularFiles))
+	// Multiple files: use worker pool
+	fileChan := make(chan string, len(files))
+	for _, file := range files {
+		fileChan <- file
+	}
+	close(fileChan)
 
-	if numWorkers == 1 {
-		// Single file: no need for worker pool
-		for _, file := range regularFiles {
-			if err := parser.ParseFile(file, out); err != nil {
-				// Error already logged in detectParser with specific details
-				successChan <- false
-			} else {
-				successChan <- true
-			}
-		}
-	} else {
-		// Multiple files: use worker pool
-		fileChan := make(chan string, len(regularFiles))
-		for _, file := range regularFiles {
-			fileChan <- file
-		}
-		close(fileChan)
-
-		var wg sync.WaitGroup
-		for i := 0; i < numWorkers; i++ {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				for file := range fileChan {
-					if err := parser.ParseFile(file, out); err != nil {
-						// Error already logged in detectParser with specific details
-						successChan <- false
-					} else {
-						successChan <- true
-					}
+	var wg sync.WaitGroup
+	for i := 0; i < numWorkers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for file := range fileChan {
+				if err := parser.ParseFile(file, out); err != nil {
+					// Error already logged in detectParser with specific details
+					continue
 				}
-			}()
-		}
-		wg.Wait()
+				parsedAny.Store(true)
+			}
+		}()
 	}
-	close(successChan)
-
-	// Check if at least one file was successfully parsed
-	anySuccess := false
-	for success := range successChan {
-		if success {
-			anySuccess = true
-			break
-		}
-	}
-
-	if !anySuccess {
-		log.Fatalf("[ERROR] No files could be parsed. Check that files exist, are readable, and in a supported format.")
-	}
+	wg.Wait()
 }
 
 // buildLogFilters creates a LogFilters struct from command-line flags.
@@ -212,7 +243,7 @@ func buildLogFilters(beginT, endT time.Time) parser.LogFilters {
 }
 
 // processAndOutput analyzes filtered logs and outputs results in the requested format.
-func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, totalFileSize int64, inputArgs []string) {
+func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, totalFileSize int64, inputArgs []string) error {
 	// Validate flag compatibility
 	formatCount := 0
 	if jsonFlag || jsonCompactFlag {
@@ -228,18 +259,22 @@ func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, 
 		formatCount++
 	}
 	if formatCount > 1 {
-		fmt.Fprintln(os.Stderr, "Error: --json, --json-compact, --yaml, --md, and --html are mutually exclusive")
-		os.Exit(1)
+		return fmt.Errorf("--json, --json-compact, --yaml, --md, and --html are mutually exclusive")
 	}
 	if jsonFlag && jsonCompactFlag {
-		fmt.Fprintln(os.Stderr, "Error: --json and --json-compact are mutually exclusive")
-		os.Exit(1)
+		return fmt.Errorf("--json and --json-compact are mutually exclusive")
 	}
 
 	// Special case: SQL query details (single query analysis)
 	if len(sqlDetailFlag) > 0 {
-		metrics, processingDuration := requireMetrics(filteredLogs, totalFileSize, startTime)
-		w, closer := createOutputWriter(outputFlag)
+		metrics, processingDuration, err := requireMetrics(filteredLogs, totalFileSize, startTime)
+		if err != nil {
+			return err
+		}
+		w, closer, err := createOutputWriter(outputFlag)
+		if err != nil {
+			return err
+		}
 		defer closer()
 
 		if jsonFlag {
@@ -252,14 +287,20 @@ func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, 
 			PrintProcessingSummary(metrics.SQL.TotalQueries, processingDuration, totalFileSize)
 			output.PrintSQLDetails(metrics, sqlDetailFlag)
 		}
-		return
+		return nil
 	}
 
 	// Special case: SQL performance (detailed aggregated query statistics)
 	// Skip if --full is set (will be included in full report)
 	if sqlPerformanceFlag && !fullFlag {
-		metrics, processingDuration := requireMetrics(filteredLogs, totalFileSize, startTime)
-		w, closer := createOutputWriter(outputFlag)
+		metrics, processingDuration, err := requireMetrics(filteredLogs, totalFileSize, startTime)
+		if err != nil {
+			return err
+		}
+		w, closer, err := createOutputWriter(outputFlag)
+		if err != nil {
+			return err
+		}
 		defer closer()
 
 		if jsonFlag {
@@ -272,14 +313,20 @@ func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, 
 			PrintProcessingSummary(metrics.SQL.TotalQueries, processingDuration, totalFileSize)
 			output.PrintSQLSummaryWithContext(metrics.SQL, metrics.TempFiles, metrics.Locks, false)
 		}
-		return
+		return nil
 	}
 
 	// Special case: SQL overview (query type statistics with dimensional breakdown)
 	// Skip if --full is set (will be included in full report)
 	if sqlOverviewFlag && !fullFlag {
-		metrics, processingDuration := requireMetrics(filteredLogs, totalFileSize, startTime)
-		w, closer := createOutputWriter(outputFlag)
+		metrics, processingDuration, err := requireMetrics(filteredLogs, totalFileSize, startTime)
+		if err != nil {
+			return err
+		}
+		w, closer, err := createOutputWriter(outputFlag)
+		if err != nil {
+			return err
+		}
 		defer closer()
 
 		if jsonFlag {
@@ -292,7 +339,7 @@ func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, 
 			PrintProcessingSummary(metrics.SQL.TotalQueries, processingDuration, totalFileSize)
 			output.PrintSQLOverview(metrics.SQL)
 		}
-		return
+		return nil
 	}
 
 	// Default: full analysis with all metrics
@@ -301,13 +348,13 @@ func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, 
 
 	// Check if any log entries were successfully parsed
 	if metrics.Global.Count == 0 {
-		log.Fatalf("[ERROR] No log entries could be parsed. Check that files are readable and in a supported format.")
+		return fmt.Errorf("no log entries could be parsed: check that files are readable and in a supported format")
 	}
 
 	// Validate that we have a valid time range
 	// Note: MaxTimestamp can be equal to MinTimestamp if there's only one log entry
 	if metrics.Global.MaxTimestamp.IsZero() || metrics.Global.MaxTimestamp.Before(metrics.Global.MinTimestamp) {
-		log.Fatalf("[ERROR] Invalid time range: MinTimestamp=%v, MaxTimestamp=%v",
+		return fmt.Errorf("invalid time range: MinTimestamp=%v, MaxTimestamp=%v",
 			metrics.Global.MinTimestamp, metrics.Global.MaxTimestamp)
 	}
 
@@ -326,13 +373,13 @@ func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, 
 		if outputFlag != "" {
 			f, err := os.Create(outputFlag)
 			if err != nil {
-				log.Fatalf("[ERROR] Failed to create output file: %v", err)
+				return fmt.Errorf("failed to create output file %q: %w", outputFlag, err)
 			}
 			defer f.Close()
 			w = f
 		}
 		output.ExportJSON(w, metrics, sections, fullFlag, jsonCompactFlag)
-		return
+		return nil
 	}
 
 	if yamlFlag {
@@ -340,13 +387,13 @@ func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, 
 		if outputFlag != "" {
 			f, err := os.Create(outputFlag)
 			if err != nil {
-				log.Fatalf("[ERROR] Failed to create output file: %v", err)
+				return fmt.Errorf("failed to create output file %q: %w", outputFlag, err)
 			}
 			defer f.Close()
 			w = f
 		}
 		output.ExportYAML(w, metrics, sections, fullFlag)
-		return
+		return nil
 	}
 
 	if mdFlag {
@@ -354,13 +401,13 @@ func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, 
 		if outputFlag != "" {
 			f, err := os.Create(outputFlag)
 			if err != nil {
-				log.Fatalf("[ERROR] Failed to create output file: %v", err)
+				return fmt.Errorf("failed to create output file %q: %w", outputFlag, err)
 			}
 			defer f.Close()
 			w = f
 		}
 		output.ExportMarkdown(w, metrics, sections, fullFlag)
-		return
+		return nil
 	}
 
 	if htmlFlag {
@@ -372,7 +419,7 @@ func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, 
 
 		f, err := os.Create(outputName)
 		if err != nil {
-			log.Fatalf("[ERROR] Failed to create HTML file: %v", err)
+			return fmt.Errorf("failed to create HTML file %q: %w", outputName, err)
 		}
 		defer f.Close()
 
@@ -392,19 +439,20 @@ func processAndOutput(filteredLogs <-chan parser.LogEntry, startTime time.Time, 
 		}
 
 		if err := output.ExportHTML(f, metrics, reportInfo, sections); err != nil {
-			log.Fatalf("[ERROR] Failed to write HTML report: %v", err)
+			return fmt.Errorf("failed to write HTML report: %w", err)
 		}
 
 		// In follow mode, be less verbose about saved files
 		if !followFlag {
 			fmt.Printf("Report saved to %s\n", outputName)
 		}
-		return
+		return nil
 	}
 
 	// Default: text output
 	PrintProcessingSummary(metrics.Global.Count, processingDuration, totalFileSize)
 	output.PrintMetrics(metrics, sections, fullFlag)
+	return nil
 }
 
 // generateInputDescription creates a human-readable description of input files.
@@ -484,17 +532,18 @@ func buildSectionList() []string {
 }
 
 // validateTimeFilters checks that time filter flags are compatible.
-func validateTimeFilters() {
+func validateTimeFilters() error {
 	if beginTime != "" && endTime != "" && windowFlag != "" {
-		log.Fatalf("[ERROR] --begin, --end, and --window cannot all be used together")
+		return fmt.Errorf("--begin, --end, and --window cannot all be used together")
 	}
 
 	// --last cannot be used with other time filters
 	if lastFlag != "" {
 		if beginTime != "" || endTime != "" || windowFlag != "" {
-			log.Fatalf("[ERROR] --last cannot be used with --begin, --end, or --window")
+			return fmt.Errorf("--last cannot be used with --begin, --end, or --window")
 		}
 	}
+	return nil
 }
 
 // applyTimeWindow applies the time window to the begin/end times.
@@ -516,7 +565,7 @@ func applyTimeWindow(begin, end time.Time, window time.Duration) (time.Time, tim
 		begin = end.Add(-window)
 	} else {
 		// Neither begin nor end is set
-		fmt.Println("[WARN] --window specified but neither --begin nor --end is set. Ignoring --window.")
+		slog.Warn("--window specified but neither --begin nor --end is set; ignoring --window")
 	}
 
 	return begin, end
@@ -540,27 +589,28 @@ func PrintProcessingSummary(numEntries int, duration time.Duration, fileSize int
 }
 
 // createOutputWriter returns an io.Writer for the given output path.
-// If path is empty, returns os.Stdout with a no-op closer.
+// If path is empty, returns os.Stdout with a no-op closer and no error.
 // Otherwise, creates the file and returns it with a closer that closes it.
-func createOutputWriter(path string) (io.Writer, func()) {
+func createOutputWriter(path string) (io.Writer, func(), error) {
 	if path == "" {
-		return os.Stdout, func() {}
+		return os.Stdout, func() {}, nil
 	}
 	f, err := os.Create(path)
 	if err != nil {
-		log.Fatalf("[ERROR] Failed to create output file: %v", err)
+		return nil, nil, fmt.Errorf("failed to create output file %q: %w", path, err)
 	}
-	return f, func() { f.Close() }
+	return f, func() { f.Close() }, nil
 }
 
-// requireMetrics aggregates metrics and fatals if no log entries were parsed.
-func requireMetrics(filteredLogs <-chan parser.LogEntry, totalFileSize int64, startTime time.Time) (analysis.AggregatedMetrics, time.Duration) {
+// requireMetrics aggregates metrics and returns an error if no log entries
+// were parsed.
+func requireMetrics(filteredLogs <-chan parser.LogEntry, totalFileSize int64, startTime time.Time) (analysis.AggregatedMetrics, time.Duration, error) {
 	metrics := analysis.AggregateMetrics(filteredLogs, totalFileSize)
 	processingDuration := time.Since(startTime)
 	if metrics.Global.Count == 0 {
-		log.Fatalf("[ERROR] No log entries could be parsed. Check that files are readable and in a supported format.")
+		return analysis.AggregatedMetrics{}, 0, fmt.Errorf("no log entries could be parsed: check that files are readable and in a supported format")
 	}
-	return metrics, processingDuration
+	return metrics, processingDuration, nil
 }
 
 // formatBytes converts a byte count to a human-readable string (KB, MB, GB, etc).

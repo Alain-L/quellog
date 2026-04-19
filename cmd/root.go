@@ -80,7 +80,9 @@ It extracts insights about database operations including:
 
 Specify log files or directories as arguments, and use flags to filter
 and customize the output.`,
-	Run: executeParsing,
+	RunE:          executeParsing,
+	SilenceErrors: true, // we surface errors via slog in Execute()
+	SilenceUsage:  true, // do not print usage on runtime errors
 }
 
 // Execute runs the root command.
