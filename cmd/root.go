@@ -129,8 +129,8 @@ Specify log files or directories as arguments, and use flags to filter
 and customize the output.`,
 	RunE:          executeParsing,
 	Args:          cobra.ArbitraryArgs, // file paths, glob patterns, "-" for stdin
-	SilenceErrors: true,                 // we surface errors via slog in Execute()
-	SilenceUsage:  true,                 // do not print usage on runtime errors
+	SilenceErrors: true,                // we surface errors via slog in Execute()
+	SilenceUsage:  true,                // do not print usage on runtime errors
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		// Apply --quiet now that flags have been parsed.
 		if quietFlag {
