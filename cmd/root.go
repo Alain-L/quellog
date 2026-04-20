@@ -72,6 +72,47 @@ var (
 	quietFlag bool // --quiet: suppress INFO logs, keep WARN and above
 )
 
+// completionCmd generates shell autocompletion scripts for bash, zsh,
+// fish and powershell. Cobra implements all four — we just expose the
+// subcommand. Install instructions are printed in the long help.
+var completionCmd = &cobra.Command{
+	Use:   "completion [bash|zsh|fish|powershell]",
+	Short: "Generate shell completion script",
+	Long: `Output a shell completion script to stdout.
+
+Examples:
+  # bash (one-shot for the current shell)
+  source <(quellog completion bash)
+
+  # bash (persistent, system-wide on macOS with brew bash-completion)
+  quellog completion bash > $(brew --prefix)/etc/bash_completion.d/quellog
+
+  # zsh (persistent, with compinit already enabled in your .zshrc)
+  quellog completion zsh > "${fpath[1]}/_quellog"
+
+  # fish
+  quellog completion fish > ~/.config/fish/completions/quellog.fish
+
+  # PowerShell
+  quellog completion powershell | Out-String | Invoke-Expression`,
+	DisableFlagsInUseLine: true,
+	ValidArgs:             []string{"bash", "zsh", "fish", "powershell"},
+	Args:                  cobra.MatchAll(cobra.ExactArgs(1), cobra.OnlyValidArgs),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		switch args[0] {
+		case "bash":
+			return cmd.Root().GenBashCompletion(os.Stdout)
+		case "zsh":
+			return cmd.Root().GenZshCompletion(os.Stdout)
+		case "fish":
+			return cmd.Root().GenFishCompletion(os.Stdout, true)
+		case "powershell":
+			return cmd.Root().GenPowerShellCompletionWithDesc(os.Stdout)
+		}
+		return nil
+	},
+}
+
 // rootCmd is the main command for the quellog CLI.
 var rootCmd = &cobra.Command{
 	Use:   "quellog [files or dirs]",
@@ -87,8 +128,9 @@ It extracts insights about database operations including:
 Specify log files or directories as arguments, and use flags to filter
 and customize the output.`,
 	RunE:          executeParsing,
-	SilenceErrors: true, // we surface errors via slog in Execute()
-	SilenceUsage:  true, // do not print usage on runtime errors
+	Args:          cobra.ArbitraryArgs, // file paths, glob patterns, "-" for stdin
+	SilenceErrors: true,                 // we surface errors via slog in Execute()
+	SilenceUsage:  true,                 // do not print usage on runtime errors
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		// Apply --quiet now that flags have been parsed.
 		if quietFlag {
@@ -201,4 +243,7 @@ func init() {
 	// Verbosity
 	rootCmd.PersistentFlags().BoolVarP(&quietFlag, "quiet", "q", false,
 		"Suppress INFO logs (keep WARN and ERROR)")
+
+	// Subcommands
+	rootCmd.AddCommand(completionCmd)
 }
