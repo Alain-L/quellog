@@ -9,7 +9,7 @@ This _quellog_ report summarizes **2** log entries collected between 19 Apr 2026
 ## MAINTENANCE
 
 - **Automatic vacuum count**: 2
-  - *of which aggressive (anti-wraparound)*: 2
+  - *of which aggressive*: 2
 - **Automatic analyze count**: 0
 
 ### Top automatic vacuum operations per table
