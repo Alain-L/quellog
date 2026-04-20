@@ -94,11 +94,11 @@
     "duration": "3.3s",
     "total_logs": 5,
     "throughput": "1.52 entries/s",
-    "error_count": 0,
-    "fatal_count": 0,
+    "error_count": 1,
+    "fatal_count": 1,
     "panic_count": 0,
     "warning_count": 0,
-    "log_count": 0
+    "log_count": 3
   },
   "top_events": [
     {

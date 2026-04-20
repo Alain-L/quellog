@@ -328,6 +328,39 @@ func (sa *StreamingAnalyzer) Finalize() AggregatedMetrics {
 
 	CollectQueriesWithoutDuration(&sql, &locks, &tempFiles)
 
+	// Roll severity counts from EventAnalyzer into the global summary.
+	// Previously Global.ErrorCount / FatalCount / PanicCount / WarningCount
+	// / LogCount stayed at 0 even when EventSummaries correctly had the
+	// counts — surprising for users who rely on summary.error_count.
+
+	for _, s := range eventSummaries {
+
+		switch s.Type {
+
+		case "ERROR":
+
+			sa.global.ErrorCount = s.Count
+
+		case "FATAL":
+
+			sa.global.FatalCount = s.Count
+
+		case "PANIC":
+
+			sa.global.PanicCount = s.Count
+
+		case "WARNING":
+
+			sa.global.WarningCount = s.Count
+
+		case "LOG":
+
+			sa.global.LogCount = s.Count
+
+		}
+
+	}
+
 	return AggregatedMetrics{
 
 		Global: sa.global,

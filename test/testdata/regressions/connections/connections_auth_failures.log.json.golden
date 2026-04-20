@@ -126,10 +126,10 @@
     "total_logs": 10,
     "throughput": "0.69 entries/s",
     "error_count": 0,
-    "fatal_count": 0,
+    "fatal_count": 4,
     "panic_count": 0,
     "warning_count": 0,
-    "log_count": 0
+    "log_count": 6
   },
   "top_events": [
     {

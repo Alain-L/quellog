@@ -15328,11 +15328,11 @@
     "duration": "10m2.184s",
     "total_logs": 7251,
     "throughput": "12.04 entries/s",
-    "error_count": 0,
-    "fatal_count": 0,
+    "error_count": 9,
+    "fatal_count": 4,
     "panic_count": 0,
     "warning_count": 0,
-    "log_count": 0
+    "log_count": 7238
   },
   "temp_files": {
     "total_messages": 7,

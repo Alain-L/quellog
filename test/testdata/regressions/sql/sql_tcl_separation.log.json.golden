@@ -182,7 +182,7 @@
     "fatal_count": 0,
     "panic_count": 0,
     "warning_count": 0,
-    "log_count": 0
+    "log_count": 10
   },
   "users": [
     {

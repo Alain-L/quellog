@@ -66,10 +66,10 @@
     "duration": "5.5s",
     "total_logs": 6,
     "throughput": "1.09 entries/s",
-    "error_count": 0,
-    "fatal_count": 0,
+    "error_count": 4,
+    "fatal_count": 1,
     "panic_count": 0,
-    "warning_count": 0,
+    "warning_count": 1,
     "log_count": 0
   },
   "top_events": [

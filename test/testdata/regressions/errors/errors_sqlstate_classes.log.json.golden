@@ -45,8 +45,8 @@
     "duration": "11.1s",
     "total_logs": 12,
     "throughput": "1.08 entries/s",
-    "error_count": 0,
-    "fatal_count": 0,
+    "error_count": 10,
+    "fatal_count": 2,
     "panic_count": 0,
     "warning_count": 0,
     "log_count": 0
