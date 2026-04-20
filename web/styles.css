@@ -999,6 +999,14 @@
             color: var(--danger);
         }
 
+        /* Warning variant - amber, for "worth noting, not urgent" signals */
+        .stat-card--warning {
+            background: rgba(229, 165, 75, 0.08);
+        }
+        .stat-card--warning .stat-value {
+            color: var(--warning);
+        }
+
         /* Sub-info line (optional, below label) */
         .stat-sub {
             font-size: 0.55rem;

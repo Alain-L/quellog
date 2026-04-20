@@ -864,7 +864,7 @@ function buildEventsSection(data) {
                     <div class="section-body">
                         <div class="stat-grid">
                             <div class="stat-card"><div class="stat-value">${m.vacuum_count || 0}</div><div class="stat-label">Vacuum</div></div>
-                            ${(m.aggressive_vacuum_count || 0) > 0 ? `<div class="stat-card"><div class="stat-value">${m.aggressive_vacuum_count}</div><div class="stat-label">Aggressive</div></div>` : ''}
+                            ${(m.aggressive_vacuum_count || 0) > 0 ? `<div class="stat-card stat-card--warning"><div class="stat-value">${m.aggressive_vacuum_count}</div><div class="stat-label">Aggressive</div></div>` : ''}
                             ${totalRecovered > 0 ? `<div class="stat-card"><div class="stat-value">${fmtBytes(totalRecovered)}</div><div class="stat-label">Recovered</div></div>` : ''}
                             <div class="stat-card"><div class="stat-value">${m.analyze_count || 0}</div><div class="stat-label">Analyze</div></div>
                         </div>
