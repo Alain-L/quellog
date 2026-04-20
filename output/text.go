@@ -371,6 +371,9 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 	if has("maintenance") && (m.Vacuum.VacuumCount > 0 || m.Vacuum.AnalyzeCount > 0) {
 		fmt.Println(bold + "\nMAINTENANCE\n" + reset)
 		fmt.Printf("  %-25s : %d\n", "Automatic vacuum count", m.Vacuum.VacuumCount)
+		if m.Vacuum.AggressiveVacuumCount > 0 {
+			fmt.Printf("  %-25s : %d\n", "  of which aggressive", m.Vacuum.AggressiveVacuumCount)
+		}
 		fmt.Printf("  %-25s : %d\n", "Automatic analyze count", m.Vacuum.AnalyzeCount)
 		fmt.Println("  Top automatic vacuum operations per table:")
 		printTopTables(m.Vacuum.VacuumTableCounts, m.Vacuum.VacuumCount, m.Vacuum.VacuumSpaceRecovered)

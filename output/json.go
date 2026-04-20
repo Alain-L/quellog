@@ -205,11 +205,12 @@ type TempFileQueryStatJSON struct {
 }
 
 type MaintenanceJSON struct {
-	VacuumCount          int               `json:"vacuum_count"`
-	AnalyzeCount         int               `json:"analyze_count"`
-	VacuumTableCounts    map[string]int    `json:"vacuum_table_counts"`
-	AnalyzeTableCounts   map[string]int    `json:"analyze_table_counts"`
-	VacuumSpaceRecovered map[string]string `json:"vacuum_space_recovered"`
+	VacuumCount           int               `json:"vacuum_count"`
+	AggressiveVacuumCount int               `json:"aggressive_vacuum_count"`
+	AnalyzeCount          int               `json:"analyze_count"`
+	VacuumTableCounts     map[string]int    `json:"vacuum_table_counts"`
+	AnalyzeTableCounts    map[string]int    `json:"analyze_table_counts"`
+	VacuumSpaceRecovered  map[string]string `json:"vacuum_space_recovered"`
 }
 
 type LocksJSON struct {
@@ -499,11 +500,12 @@ func buildJSONData(m analysis.AggregatedMetrics, sections []string, full bool) m
 
 	if has("maintenance") && (m.Vacuum.VacuumCount > 0 || m.Vacuum.AnalyzeCount > 0) {
 		data["maintenance"] = MaintenanceJSON{
-			VacuumCount:          m.Vacuum.VacuumCount,
-			AnalyzeCount:         m.Vacuum.AnalyzeCount,
-			VacuumTableCounts:    m.Vacuum.VacuumTableCounts,
-			AnalyzeTableCounts:   m.Vacuum.AnalyzeTableCounts,
-			VacuumSpaceRecovered: formatVacuumSpaceRecovered(m.Vacuum.VacuumSpaceRecovered),
+			VacuumCount:           m.Vacuum.VacuumCount,
+			AggressiveVacuumCount: m.Vacuum.AggressiveVacuumCount,
+			AnalyzeCount:          m.Vacuum.AnalyzeCount,
+			VacuumTableCounts:     m.Vacuum.VacuumTableCounts,
+			AnalyzeTableCounts:    m.Vacuum.AnalyzeTableCounts,
+			VacuumSpaceRecovered:  formatVacuumSpaceRecovered(m.Vacuum.VacuumSpaceRecovered),
 		}
 	}
 

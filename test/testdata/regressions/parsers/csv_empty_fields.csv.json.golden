@@ -41,6 +41,7 @@
   ],
   "maintenance": {
     "vacuum_count": 1,
+    "aggressive_vacuum_count": 0,
     "analyze_count": 0,
     "vacuum_table_counts": {
       "appdb.public.users": 1

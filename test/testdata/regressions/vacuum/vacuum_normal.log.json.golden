@@ -8,6 +8,7 @@
   ],
   "maintenance": {
     "vacuum_count": 2,
+    "aggressive_vacuum_count": 0,
     "analyze_count": 1,
     "vacuum_table_counts": {
       "appdb.public.sessions": 1,

@@ -412,6 +412,9 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 	if has("maintenance") && (m.Vacuum.VacuumCount > 0 || m.Vacuum.AnalyzeCount > 0) {
 		b.WriteString("## MAINTENANCE\n\n")
 		b.WriteString(fmt.Sprintf("- **Automatic vacuum count**: %d\n", m.Vacuum.VacuumCount))
+		if m.Vacuum.AggressiveVacuumCount > 0 {
+			b.WriteString(fmt.Sprintf("  - *of which aggressive (anti-wraparound)*: %d\n", m.Vacuum.AggressiveVacuumCount))
+		}
 		b.WriteString(fmt.Sprintf("- **Automatic analyze count**: %d\n\n", m.Vacuum.AnalyzeCount))
 
 		if m.Vacuum.VacuumCount > 0 {

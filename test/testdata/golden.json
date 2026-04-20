@@ -7528,6 +7528,7 @@
   },
   "maintenance": {
     "vacuum_count": 16,
+    "aggressive_vacuum_count": 0,
     "analyze_count": 39,
     "vacuum_table_counts": {
       "analytics.pg_catalog.pg_statistic": 1,

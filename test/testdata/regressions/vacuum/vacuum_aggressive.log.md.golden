@@ -6,4 +6,17 @@ This _quellog_ report summarizes **2** log entries collected between 19 Apr 2026
 
 - **LOG**: 2 (100.0%)
 
+## MAINTENANCE
+
+- **Automatic vacuum count**: 2
+  - *of which aggressive (anti-wraparound)*: 2
+- **Automatic analyze count**: 0
+
+### Top automatic vacuum operations per table
+
+| Table | Count | % of total | Recovered |
+|---|---:|---:|---:|
+| appdb.public.audit_logs | 1 | 50.00% | 4.43 MB |
+| appdb.public.large_events | 1 | 50.00% | 1.91 MB |
+
 
