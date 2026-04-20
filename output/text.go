@@ -1682,7 +1682,12 @@ func PrintHistogram(data map[string]int, title string, unit string, scaleFactor 
 			partsJ := strings.Split(labels[j], " - ")
 			t1, _ := time.Parse("15:04", partsI[0])
 			t2, _ := time.Parse("15:04", partsJ[0])
-			return t1.Before(t2)
+			if !t1.Equal(t2) {
+				return t1.Before(t2)
+			}
+			// Tiebreaker for buckets sharing the same start minute
+			// (keeps output deterministic across runs).
+			return labels[i] < labels[j]
 		})
 	}
 
@@ -1764,7 +1769,10 @@ func PrintCheckpointHistogram(data map[string]int, title string, scaleFactor int
 		partsJ := strings.Split(labels[j], " - ")
 		t1, _ := time.Parse("15:04", partsI[0])
 		t2, _ := time.Parse("15:04", partsJ[0])
-		return t1.Before(t2)
+		if !t1.Equal(t2) {
+			return t1.Before(t2)
+		}
+		return labels[i] < labels[j]
 	})
 
 	// Find max value
@@ -1938,7 +1946,12 @@ func PrintConcurrentHistogramWithTZ(data map[string]int, title string, scaleFact
 			partsJ := strings.Split(labels[j], " - ")
 			t1, _ := time.Parse("15:04", partsI[0])
 			t2, _ := time.Parse("15:04", partsJ[0])
-			return t1.Before(t2)
+			if !t1.Equal(t2) {
+				return t1.Before(t2)
+			}
+			// Tiebreaker for buckets sharing the same start minute
+			// (keeps output deterministic across runs).
+			return labels[i] < labels[j]
 		})
 	}
 

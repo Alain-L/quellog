@@ -909,7 +909,13 @@ func printHistogramMarkdown(b *strings.Builder, data map[string]int, title, unit
 		for k := range data {
 			labels = append(labels, k)
 		}
-		// Sort by time if labels are time ranges
+		// Sort by time if labels are time ranges. When two buckets share
+		// the same start minute (e.g. 30-second buckets at 04:00:00 and
+		// 04:00:30 both format to "04:00"), ti.Before(tj) is false both
+		// ways, which makes the sort unstable and the output order
+		// non-deterministic across runs. Fall back to the full label
+		// string as a tiebreaker — it is always unique (contains the
+		// bucket end time).
 		sort.Slice(labels, func(i, j int) bool {
 			pi := strings.Split(labels[i], " - ")
 			pj := strings.Split(labels[j], " - ")
@@ -917,7 +923,9 @@ func printHistogramMarkdown(b *strings.Builder, data map[string]int, title, unit
 				ti, err1 := time.Parse("15:04", pi[0])
 				tj, err2 := time.Parse("15:04", pj[0])
 				if err1 == nil && err2 == nil {
-					return ti.Before(tj)
+					if !ti.Equal(tj) {
+						return ti.Before(tj)
+					}
 				}
 			}
 			return labels[i] < labels[j]
@@ -967,7 +975,9 @@ func printConcurrentHistogramMarkdown(b *strings.Builder, data map[string]int, t
 				ti, err1 := time.Parse("15:04", pi[0])
 				tj, err2 := time.Parse("15:04", pj[0])
 				if err1 == nil && err2 == nil {
-					return ti.Before(tj)
+					if !ti.Equal(tj) {
+						return ti.Before(tj)
+					}
 				}
 			}
 			return labels[i] < labels[j]

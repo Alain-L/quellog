@@ -12,16 +12,12 @@ import (
 // is robust whether the harness binary detected a TTY or not.
 var ansiEscapeRe = regexp.MustCompile("\x1b\\[[0-9;]*[a-zA-Z]")
 
-// markdownNonDeterministic lists fixtures whose Markdown output is
-// known to be unstable across runs. Root cause: histogram rendering for
-// some sections (temp_files, SQL) iterates over a map without sorting,
-// producing different orderings depending on Go's randomized map order.
-// Tracked in the roadmap; until fixed, the JSON golden is the
-// authoritative one for these fixtures and the MD subtest is skipped.
-var markdownNonDeterministic = map[string]bool{
-	"tempfile_with_query.log": true,
-	"syslog_bsd.log":          true,
-}
+// markdownNonDeterministic used to hold fixtures whose Markdown output
+// varied across runs due to a missing tiebreaker in the histogram
+// sort. The sort now falls back to the full label string when two
+// buckets share the same start minute, so the map is empty. Kept here
+// in case the issue resurfaces.
+var markdownNonDeterministic = map[string]bool{}
 
 // TestRegressionCorpus iterates over every fixture in
 // testdata/regressions/ and exercises three formats:

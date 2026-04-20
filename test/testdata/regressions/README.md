@@ -332,9 +332,11 @@ Expected:
 - `events.LOG = 6`, `events.ERROR = 1`
 - `checkpoints` section present (BSD timestamps must parse)
 
-**Known gap**: MD output for this fixture is non-deterministic (see the
-`markdownNonDeterministic` map in regression_corpus_test.go). MD subtest
-is skipped; JSON golden remains authoritative.
+Historical note: MD output was non-deterministic on this fixture
+because the histogram sort compared bucket start times at minute
+resolution, and 30-second buckets starting in the same minute tied
+(`sort.Slice` is not stable). Fixed by falling back to the full label
+string on tie; this fixture now runs the MD subtest like any other.
 
 ### `syslog_rfc5424.log` — RFC 5424 syslog format
 
