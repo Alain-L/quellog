@@ -33,8 +33,8 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 	duration := m.Global.MaxTimestamp.Sub(m.Global.MinTimestamp)
 
 	// ANSI style for bold text.
-	bold := "\033[1m"
-	reset := "\033[0m"
+	bold := ansiBold
+	reset := ansiReset
 
 	// General summary header.
 	if has("summary") {
@@ -404,7 +404,7 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 		}
 
 		if m.Checkpoints.WarningCount > 0 {
-			italic := "\033[3m"
+			italic := ansiItalic
 			if m.Checkpoints.WarningMinIntervalSeconds == m.Checkpoints.WarningMaxIntervalSeconds {
 				fmt.Printf("  "+bold+"%-25s : %d"+reset+"   "+italic+"%ds apart"+reset+"\n",
 					"Too frequent warnings", m.Checkpoints.WarningCount,
@@ -455,8 +455,8 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 			}
 
 			// Display each type with count, percentage and rate.
-			muted := "\033[3;38;5;243m" // italic + gray (256-color: 245)
-			reset := "\033[0m"
+			muted := ansiMutedItalic
+			reset := ansiReset
 
 			for _, pair := range pairs {
 				percentage := float64(pair.Count) / float64(m.Checkpoints.CompleteCount) * 100
@@ -979,8 +979,8 @@ func PrintSQLSummaryWithContext(m analysis.SQLMetrics, tempFiles analysis.TempFi
 	}
 
 	// ANSI styles.
-	bold := "\033[1m"
-	reset := "\033[0m"
+	bold := ansiBold
+	reset := ansiReset
 
 	// Compute top 1% slowest queries.
 	top1Slow := 0
@@ -1266,8 +1266,8 @@ func PrintMostFrequentQueries(queryStats map[string]*analysis.QueryStat) bool {
 // whose SQLID matches one of the provided queryDetails.
 // It consolidates metrics from SQL performance, tempfiles, and locks into a unified view.
 func PrintSQLDetails(m analysis.AggregatedMetrics, queryDetails []string) {
-	bold := "\033[1m"
-	reset := "\033[0m"
+	bold := ansiBold
+	reset := ansiReset
 
 	for _, qid := range queryDetails {
 		// Collect all metrics for this query ID
@@ -1481,8 +1481,8 @@ func truncateQuery(query string, length int) string {
 // PrintEventsReport prints a consolidated event report including summary and top events.
 func PrintEventsReport(summaries []analysis.EventSummary, topEvents []analysis.EventStat, onlyErrors bool) {
 	// ANSI styles.
-	bold := "\033[1m"
-	reset := "\033[0m"
+	bold := ansiBold
+	reset := ansiReset
 
 	// Print title in bold.
 	fmt.Println(bold + "\nEVENTS\n" + reset)
@@ -1793,8 +1793,8 @@ func PrintCheckpointHistogram(data map[string]int, title string, scaleFactor int
 		bar := strings.Repeat("■", barLength)
 
 		// Calculate frequency (italic + medium gray)
-		muted := "\033[3;38;5;243m" // italic + gray (256-color: 245)
-		reset := "\033[0m"
+		muted := ansiMutedItalic
+		reset := ansiReset
 		var freqStr string
 		if value == 0 {
 			freqStr = ""
@@ -1854,8 +1854,8 @@ func PrintWALDistanceHistogram(buckets []WALDistanceBucket) {
 		scaleUnit = "kB"
 	}
 
-	muted := "\033[38;5;243m"
-	muteReset := "\033[0m"
+	muted := ansiMuted
+	muteReset := ansiReset
 
 	fmt.Printf("\n  WAL per checkpoint (avg) | ■ = %.0f %s  %s□%s = estimate margin\n\n", scaleLabel, scaleUnit, muted, muteReset)
 
@@ -1971,8 +1971,8 @@ func PrintConcurrentHistogramWithTZ(data map[string]int, title string, scaleFact
 		if value == 0 {
 			fmt.Printf("  %-13s  %s\n", label, " -")
 		} else {
-			muted := "\033[3;38;5;243m" // italic + gray
-			muteReset := "\033[0m"
+			muted := ansiMutedItalic
+			muteReset := ansiReset
 			peakStr := ""
 			if pt, ok := peakTimes[label]; ok && !pt.IsZero() {
 				// Normalize peak time to reference timezone if provided
@@ -2043,8 +2043,8 @@ func printAcquiredLockQueries(queryStats map[string]*analysis.LockQueryStat, lim
 		limit = len(pairs)
 	}
 
-	bold := "\033[1m"
-	reset := "\033[0m"
+	bold := ansiBold
+	reset := ansiReset
 
 	if termWidth >= 120 {
 		// Wide mode: show full query
@@ -2119,8 +2119,8 @@ func printStillWaitingLockQueries(queryStats map[string]*analysis.LockQueryStat,
 		limit = len(pairs)
 	}
 
-	bold := "\033[1m"
-	reset := "\033[0m"
+	bold := ansiBold
+	reset := ansiReset
 
 	if termWidth >= 120 {
 		// Wide mode: show full query
@@ -2208,8 +2208,8 @@ func printMostFrequentWaitingQueries(queryStats map[string]*analysis.LockQuerySt
 		limit = len(pairs)
 	}
 
-	bold := "\033[1m"
-	reset := "\033[0m"
+	bold := ansiBold
+	reset := ansiReset
 
 	if termWidth >= 120 {
 		// Wide mode: show full query
@@ -2267,8 +2267,8 @@ func printMostFrequentWaitingQueries(queryStats map[string]*analysis.LockQuerySt
 // This shows statistics grouped by query type (SELECT, INSERT, UPDATE, DELETE, etc.)
 // with counts, times, and percentages, broken down by database, user, host, and application.
 func PrintSQLOverview(m analysis.SQLMetrics) {
-	bold := "\033[1m"
-	reset := "\033[0m"
+	bold := ansiBold
+	reset := ansiReset
 
 	fmt.Println(bold + "\nSQL QUERY OVERVIEW" + reset)
 	fmt.Println()
@@ -2389,7 +2389,7 @@ func printQueryTypeBreakdown(title string, breakdown map[string]map[string]*anal
 	})
 
 	// Print each dimension with its query types
-	italic := "\033[3m"
+	italic := ansiItalic
 	for _, dim := range dimensions {
 		fmt.Printf("  %s%s (%d queries, %s)%s\n",
 			italic,
