@@ -11,6 +11,8 @@ import (
 	"sort"
 	"syscall"
 	"time"
+
+	"golang.org/x/sys/unix"
 )
 
 // mmapMaxLineBytes caps the largest single log line we will process from a
@@ -19,6 +21,30 @@ import (
 // single line would otherwise force currentEntry to grow to 1 GB on the
 // heap. PostgreSQL log lines almost never exceed a few hundred KB.
 const mmapMaxLineBytes = 1 * 1024 * 1024
+
+// mmapAdviseChunk is how many bytes we parse before hinting the OS that a
+// prefix of the mapping is no longer needed. On a 4 GB file the parser
+// otherwise keeps every page resident for the whole run; releasing 64 MB
+// at a time lets the kernel reclaim ~hundreds of MB of RSS during
+// streaming without re-reading anything, since the parse is single-pass.
+const mmapAdviseChunk = 64 * 1024 * 1024
+
+// adviseDontNeed asks the kernel to drop pages in [startOffset, endOffset)
+// of the mapping. startOffset must already be page-aligned (returned by a
+// previous call). endOffset is rounded down to a page boundary so we never
+// release a page that still holds bytes the caller may read next.
+// Returns the new aligned boundary so the caller can feed it back next time.
+// Errors are logged at debug level and swallowed: madvise is best-effort.
+func adviseDontNeed(data []byte, startOffset, endOffset, pageSize int) int {
+	alignedEnd := (endOffset / pageSize) * pageSize
+	if alignedEnd <= startOffset || alignedEnd > len(data) {
+		return startOffset
+	}
+	if err := unix.Madvise(data[startOffset:alignedEnd], unix.MADV_DONTNEED); err != nil {
+		slog.Debug("mmap madvise failed", "err", err, "bytes", alignedEnd-startOffset)
+	}
+	return alignedEnd
+}
 
 // MmapStderrParser parses PostgreSQL logs using memory-mapped I/O.
 // This eliminates syscall overhead by mapping the file directly into memory.
@@ -193,6 +219,9 @@ func parseMmapDataSyslog(data []byte, out chan<- LogEntry, format SyslogFormat) 
 	var emissionOrder []orderedEntry
 	lineNum := 0
 
+	pageSize := os.Getpagesize()
+	advisedTo := 0
+
 	// Helper to emit an entry with its original line number
 	// Uses the correct parser based on the detected syslog format
 	emit := func(ln int, entry []byte) {
@@ -242,6 +271,11 @@ func parseMmapDataSyslog(data []byte, out chan<- LogEntry, format SyslogFormat) 
 		line := data[start:i]
 		start = i + 1
 		lineNum++
+
+		// Same safety margin as the stderr path — see comment there.
+		if start-mmapAdviseChunk-advisedTo >= mmapAdviseChunk {
+			advisedTo = adviseDontNeed(data, advisedTo, start-mmapAdviseChunk, pageSize)
+		}
 
 		if len(line) == 0 {
 			continue
@@ -354,6 +388,12 @@ func parseMmapDataStderr(data []byte, out chan<- LogEntry) error {
 	var currentEntry []byte
 	currentEntry = make([]byte, 0, 1024) // Pre-allocate
 
+	// Single-pass parse: every byte is consumed exactly once, so we can
+	// release mapped pages as we move past them. This keeps the RSS bounded
+	// even when the input is larger than physical memory.
+	pageSize := os.Getpagesize()
+	advisedTo := 0
+
 	start := 0
 	// OPTIMIZATION: Use bytes.IndexByte to jump directly to newlines
 	// instead of scanning byte-by-byte. This is ~10x faster for finding '\n'.
@@ -369,6 +409,18 @@ func parseMmapDataStderr(data []byte, out chan<- LogEntry) error {
 		i += start // Convert relative index to absolute
 		line := data[start:i]
 		start = i + 1
+
+		// Release pages we're done with. We always stay at least one line
+		// behind the parser's current position because `line` above still
+		// aliases `data[prev_start:i]` and parseStderrLineBytes below still
+		// reads it. adviseDontNeed rounds the requested end DOWN to a page
+		// boundary, so as long as we advise up to a prior line's start
+		// offset, no page holding bytes we still need is released.
+		if start-mmapAdviseChunk-advisedTo >= mmapAdviseChunk {
+			// Advise up to `start - mmapAdviseChunk` to keep a one-chunk
+			// safety margin behind the current read position.
+			advisedTo = adviseDontNeed(data, advisedTo, start-mmapAdviseChunk, pageSize)
+		}
 
 		// Skip empty lines
 		if len(line) == 0 {
