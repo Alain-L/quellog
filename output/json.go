@@ -466,15 +466,15 @@ func buildJSONData(m analysis.AggregatedMetrics, sections []string, full bool) m
 	if has("tempfiles") && m.TempFiles.Count > 0 {
 		tf := TempFilesJSON{
 			TotalMessages: m.TempFiles.Count,
-			TotalSize:     formatBytes(m.TempFiles.TotalSize),
-			AvgSize:       formatBytes(m.TempFiles.TotalSize / int64(m.TempFiles.Count)),
+			TotalSize:     FormatBytes(m.TempFiles.TotalSize),
+			AvgSize:       FormatBytes(m.TempFiles.TotalSize / int64(m.TempFiles.Count)),
 			Events:        []TempFileEventJSON{},
 			Queries:       []TempFileQueryStatJSON{},
 		}
 		for _, event := range m.TempFiles.Events {
 			tf.Events = append(tf.Events, TempFileEventJSON{
 				Timestamp: event.Timestamp.Format("2006-01-02 15:04:05"),
-				Size:      formatBytes(int64(event.Size)),
+				Size:      FormatBytes(int64(event.Size)),
 				QueryID:   event.QueryID,
 			})
 		}
@@ -484,7 +484,7 @@ func buildJSONData(m analysis.AggregatedMetrics, sections []string, full bool) m
 				NormalizedQuery: stat.NormalizedQuery,
 				RawQuery:        stat.RawQuery,
 				Count:           stat.Count,
-				TotalSize:       formatBytes(stat.TotalSize),
+				TotalSize:       FormatBytes(stat.TotalSize),
 			})
 		}
 		sort.Slice(tf.Queries, func(i, j int) bool {
@@ -543,8 +543,8 @@ func buildJSONData(m analysis.AggregatedMetrics, sections []string, full bool) m
 		}
 		if len(m.Checkpoints.WALDistances) > 0 && m.Checkpoints.CompleteCount > 0 {
 			avgKB := float64(m.Checkpoints.TotalDistanceKB) / float64(m.Checkpoints.CompleteCount)
-			cp.AvgWALDistance = formatBytes(int64(avgKB) * 1024)
-			cp.MaxWALDistance = formatBytes(m.Checkpoints.MaxDistanceKB * 1024)
+			cp.AvgWALDistance = FormatBytes(int64(avgKB) * 1024)
+			cp.MaxWALDistance = FormatBytes(m.Checkpoints.MaxDistanceKB * 1024)
 			for _, w := range m.Checkpoints.WALDistances {
 				cp.WALDistances = append(cp.WALDistances, WALDistanceJSON{
 					Timestamp:  w.Timestamp.Format("2006-01-02 15:04:05"),
@@ -936,7 +936,7 @@ func formatSeconds(s float64) string {
 func formatVacuumSpaceRecovered(space map[string]int64) map[string]string {
 	formatted := make(map[string]string, len(space))
 	for table, size := range space {
-		formatted[table] = formatBytes(size)
+		formatted[table] = FormatBytes(size)
 	}
 	return formatted
 }
@@ -1405,7 +1405,7 @@ func ExportSQLDetailJSON(w io.Writer, m analysis.AggregatedMetrics, queryIDs []s
 			}
 			detail.TempFiles = &QueryTempFilesJSON{
 				Count:     foundTfStat.Count,
-				TotalSize: formatBytes(foundTfStat.TotalSize),
+				TotalSize: FormatBytes(foundTfStat.TotalSize),
 			}
 		}
 

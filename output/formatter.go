@@ -3,8 +3,8 @@ package output
 
 import "fmt"
 
-// formatBytes converts a size in bytes to a human-readable string (TB, GB, MB, KB or B).
-func formatBytes(bytes int64) string {
+// FormatBytes converts a size in bytes to a human-readable string (TB, GB, MB, KB or B).
+func FormatBytes(bytes int64) string {
 	const (
 		KB = 1024
 		MB = 1024 * KB

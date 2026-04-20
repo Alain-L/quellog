@@ -217,8 +217,8 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 		}
 
 		b.WriteString(fmt.Sprintf("- **Temp file messages**: %d\n", m.TempFiles.Count))
-		b.WriteString(fmt.Sprintf("- **Cumulative temp file size**: %s\n", formatBytes(m.TempFiles.TotalSize)))
-		b.WriteString(fmt.Sprintf("- **Average temp file size**: %s\n\n", formatBytes(avgSize)))
+		b.WriteString(fmt.Sprintf("- **Cumulative temp file size**: %s\n", FormatBytes(m.TempFiles.TotalSize)))
+		b.WriteString(fmt.Sprintf("- **Average temp file size**: %s\n\n", FormatBytes(avgSize)))
 
 		// Queries generating temp files (in detailed/full mode)
 		if (full || !has("all")) && len(m.TempFiles.QueryStats) > 0 {
@@ -248,7 +248,7 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 					stat.ID,
 					truncateQuery(stat.NormalizedQuery, 50),
 					stat.Count,
-					formatBytes(stat.TotalSize)))
+					FormatBytes(stat.TotalSize)))
 			}
 			b.WriteString("\n")
 		}
@@ -1041,7 +1041,7 @@ func printTopTablesMarkdown(tableCounts map[string]int, total int, spaceRecovere
 		cum += p.Count
 
 		sb.WriteString(fmt.Sprintf("| %s | %d | %.2f%% | %s |\n",
-			p.Name, p.Count, percentage, formatBytes(p.Recovered)))
+			p.Name, p.Count, percentage, FormatBytes(p.Recovered)))
 
 		// Stop at 80% cumulative or 10 rows
 		cumPerc := 0.0
@@ -1414,7 +1414,7 @@ func ExportSQLSummaryMarkdown(w io.Writer, m analysis.SQLMetrics, tempFiles anal
 				stat.ID,
 				truncatedQuery,
 				stat.Count,
-				formatBytes(stat.TotalSize)))
+				FormatBytes(stat.TotalSize)))
 		}
 		b.WriteString("\n")
 	}
@@ -1619,10 +1619,10 @@ func ExportSQLDetailMarkdown(w io.Writer, m analysis.AggregatedMetrics, queryIDs
 			avgSize := tempStat.TotalSize / int64(tempStat.Count)
 
 			b.WriteString(fmt.Sprintf("- **Temp Files count**: %d\n", tempStat.Count))
-			b.WriteString(fmt.Sprintf("- **Temp File min size**: %s\n", formatBytes(minSize)))
-			b.WriteString(fmt.Sprintf("- **Temp File max size**: %s\n", formatBytes(maxSize)))
-			b.WriteString(fmt.Sprintf("- **Temp File avg size**: %s\n", formatBytes(avgSize)))
-			b.WriteString(fmt.Sprintf("- **Temp Files size**: %s\n\n", formatBytes(tempStat.TotalSize)))
+			b.WriteString(fmt.Sprintf("- **Temp File min size**: %s\n", FormatBytes(minSize)))
+			b.WriteString(fmt.Sprintf("- **Temp File max size**: %s\n", FormatBytes(maxSize)))
+			b.WriteString(fmt.Sprintf("- **Temp File avg size**: %s\n", FormatBytes(avgSize)))
+			b.WriteString(fmt.Sprintf("- **Temp Files size**: %s\n\n", FormatBytes(tempStat.TotalSize)))
 		}
 
 		// LOCKS section
@@ -1996,7 +1996,7 @@ func exportSQLSummaryMarkdownTo(b *strings.Builder, m analysis.SQLMetrics, tempF
 				stat.ID,
 				truncatedQuery,
 				stat.Count,
-				formatBytes(stat.TotalSize)))
+				FormatBytes(stat.TotalSize)))
 		}
 		b.WriteString("\n")
 	}

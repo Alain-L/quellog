@@ -77,12 +77,12 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 		}
 
 		fmt.Printf("  %-25s : %d\n", "Temp file messages", m.TempFiles.Count)
-		fmt.Printf("  %-25s : %s\n", "Cumulative temp file size", formatBytes(m.TempFiles.TotalSize))
+		fmt.Printf("  %-25s : %s\n", "Cumulative temp file size", FormatBytes(m.TempFiles.TotalSize))
 		avgSize := int64(0)
 		if m.TempFiles.Count > 0 {
 			avgSize = m.TempFiles.TotalSize / int64(m.TempFiles.Count)
 		}
-		fmt.Printf("  %-25s : %s\n", "Average temp file size", formatBytes(avgSize))
+		fmt.Printf("  %-25s : %s\n", "Average temp file size", FormatBytes(avgSize))
 
 		// Queries generating temp files (only shown with --tempfiles flag, not in default report)
 		if !has("all") && len(m.TempFiles.QueryStats) > 0 {
@@ -139,7 +139,7 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 						stat.ID,
 						queryWidth, truncatedQuery,
 						stat.Count,
-						formatBytes(stat.TotalSize))
+						FormatBytes(stat.TotalSize))
 				}
 			} else {
 				// Compact mode: show type only
@@ -153,7 +153,7 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 						stat.ID,
 						qType,
 						stat.Count,
-						formatBytes(stat.TotalSize))
+						FormatBytes(stat.TotalSize))
 				}
 			}
 		}
@@ -946,7 +946,7 @@ func printTopTables(tableCounts map[string]int, total int, spaceRecovered map[st
 		// Fixed alignment: table name (left, width = tableLen), count (right, width 6), percentage (right, width 6, 2 decimals).
 		if spaceRecovered != nil && pair.Recovered > 0 {
 			fmt.Printf("    %-*s %6d %6.2f%%  %12s removed\n",
-				tableLen, pair.Name, pair.Count, percentage, formatBytes(pair.Recovered))
+				tableLen, pair.Name, pair.Count, percentage, FormatBytes(pair.Recovered))
 		} else {
 			fmt.Printf("    %-*s %6d %6.2f%%\n",
 				tableLen, pair.Name, pair.Count, percentage)
@@ -1130,7 +1130,7 @@ func PrintSQLSummaryWithContext(m analysis.SQLMetrics, tempFiles analysis.TempFi
 						stat.ID,
 						queryWidth, truncatedQuery,
 						stat.Count,
-						formatBytes(stat.TotalSize))
+						FormatBytes(stat.TotalSize))
 				}
 			} else {
 				// Compact mode: show type only
@@ -1144,7 +1144,7 @@ func PrintSQLSummaryWithContext(m analysis.SQLMetrics, tempFiles analysis.TempFi
 						stat.ID,
 						qType,
 						stat.Count,
-						formatBytes(stat.TotalSize))
+						FormatBytes(stat.TotalSize))
 				}
 			}
 			fmt.Println()
@@ -1418,10 +1418,10 @@ func PrintSQLDetails(m analysis.AggregatedMetrics, queryDetails []string) {
 			avgSize := tempStat.TotalSize / int64(tempStat.Count)
 
 			fmt.Printf("  Temp Files count     : %d\n", tempStat.Count)
-			fmt.Printf("  Temp File min size   : %s\n", formatBytes(minSize))
-			fmt.Printf("  Temp File max size   : %s\n", formatBytes(maxSize))
-			fmt.Printf("  Temp File avg size   : %s\n", formatBytes(avgSize))
-			fmt.Printf("  Temp Files size      : %s\n", formatBytes(tempStat.TotalSize))
+			fmt.Printf("  Temp File min size   : %s\n", FormatBytes(minSize))
+			fmt.Printf("  Temp File max size   : %s\n", FormatBytes(maxSize))
+			fmt.Printf("  Temp File avg size   : %s\n", FormatBytes(avgSize))
+			fmt.Printf("  Temp Files size      : %s\n", FormatBytes(tempStat.TotalSize))
 		}
 
 		// LOCKS section (if locks metrics available)

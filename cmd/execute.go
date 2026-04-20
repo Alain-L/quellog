@@ -589,7 +589,7 @@ func calculateTotalFileSize(files []string) int64 {
 // PrintProcessingSummary displays a summary line showing processing statistics.
 func PrintProcessingSummary(numEntries int, duration time.Duration, fileSize int64) {
 	fmt.Printf("quellog – %d entries processed in %.2f s (%s)\n",
-		numEntries, duration.Seconds(), formatBytes(fileSize))
+		numEntries, duration.Seconds(), output.FormatBytes(fileSize))
 }
 
 // createOutputWriter returns an io.Writer for the given output path.
@@ -615,19 +615,4 @@ func requireMetrics(ctx context.Context, filteredLogs <-chan parser.LogEntry, to
 		return analysis.AggregatedMetrics{}, 0, fmt.Errorf("no log entries could be parsed: check that files are readable and in a supported format")
 	}
 	return metrics, processingDuration, nil
-}
-
-// formatBytes converts a byte count to a human-readable string (KB, MB, GB, etc).
-func formatBytes(b int64) string {
-	const unit = 1024
-	if b < unit {
-		return fmt.Sprintf("%dB", b)
-	}
-
-	div, exp := int64(unit), 0
-	for n := b / unit; n >= unit; n /= unit {
-		div *= unit
-		exp++
-	}
-	return fmt.Sprintf("%.1f%cB", float64(b)/float64(div), "kMGTPE"[exp])
 }
