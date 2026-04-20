@@ -429,7 +429,12 @@ func buildJSONData(m analysis.AggregatedMetrics, sections []string, full bool) m
 		data["summary"] = convertSummary(m)
 	}
 
-	if has("events") && len(m.EventSummaries) > 0 {
+	// --events and --errors select the same underlying data (severity
+	// distribution + top signatures). The text renderer shows them
+	// slightly differently (--errors focuses on ERROR/FATAL/PANIC); in
+	// JSON we emit the full structure for both so downstream callers
+	// always see the same shape.
+	if (has("events") || has("errors")) && len(m.EventSummaries) > 0 {
 		events := make([]EventJSON, len(m.EventSummaries))
 		for i, ev := range m.EventSummaries {
 			events[i] = EventJSON{
