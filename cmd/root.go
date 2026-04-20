@@ -121,9 +121,9 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&endTime, "end", "e", "",
 		"Filter entries before this datetime (format: YYYY-MM-DD HH:MM:SS)")
 	rootCmd.PersistentFlags().StringVarP(&windowFlag, "window", "W", "",
-		"Time window duration (e.g., 30m, 2h). Adjusts --begin or --end accordingly")
+		"Time window duration (e.g., 30m, 2h, 1d, 1w, 1y). Adjusts --begin or --end accordingly")
 	rootCmd.PersistentFlags().StringVarP(&lastFlag, "last", "L", "",
-		"Analyze last N duration from now (e.g., 1h, 30m, 24h)")
+		"Analyze last N duration from now (e.g., 1h, 30m, 1d, 1w, 5y)")
 
 	// Attribute filter flags
 	rootCmd.PersistentFlags().StringSliceVarP(&dbFilter, "dbname", "d", nil,
