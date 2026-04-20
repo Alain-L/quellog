@@ -709,30 +709,3 @@ func countMapKeysAsSlice(m map[string]int) []string {
 	sort.Strings(keys)
 	return keys
 }
-
-// extractKeyValue extracts a value from a log message for a given key.
-// It handles common PostgreSQL log formats where key-value pairs are separated
-// by spaces, commas, brackets, or parentheses.
-//
-// Example patterns:
-//   - "db=mydb user=postgres"
-//   - "db=mydb,user=postgres"
-//   - "connection authorized: user=postgres database=mydb"
-//
-// Returns the extracted value and true if found, or empty string and false if not found.
-// Values of "unknown" or "[unknown]" are normalized to "UNKNOWN".
-func extractKeyValue(line, key string) (string, bool) {
-	// Find the key in the message
-	idx := strings.Index(line, key)
-	if idx == -1 {
-		return "", false
-	}
-
-	// Extract value starting after the key
-	val := extractValueAt(line, idx+len(key))
-	if val == "" {
-		return "", false
-	}
-
-	return val, true
-}

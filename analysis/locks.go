@@ -147,7 +147,6 @@ const (
 //	metrics := analyzer.Finalize()
 type LockAnalyzer struct {
 	totalEvents       int
-	waitingEvents     int
 	acquiredEvents    int
 	deadlockEvents    int
 	totalWaitTime     float64
@@ -223,8 +222,8 @@ func (a *LockAnalyzer) Process(entry *parser.LogEntry) {
 		// "ss " appears in "process " but is rare in general text (~0% on typical logs)
 		// "ock" appears in "deadlock" and is also rare
 		// This eliminates 99%+ of messages before expensive Index calls
-		hasSS := strings.Index(msg, "ss ") >= 0
-		hasOck := strings.Index(msg, "ock") >= 0
+		hasSS := strings.Contains(msg, "ss ")
+		hasOck := strings.Contains(msg, "ock")
 
 		// Quick reject if neither discriminator present
 		if !hasSS && !hasOck {
@@ -268,9 +267,9 @@ func (a *LockAnalyzer) Process(entry *parser.LogEntry) {
 	}
 
 	// Now check specific patterns (only after first lock seen)
-	hasLockWaiting := strings.Index(msg, lockStillWaiting) >= 0
-	hasLockAcquired := strings.Index(msg, lockAcquired) >= 0
-	hasDeadlock := strings.Index(msg, lockDeadlock) >= 0
+	hasLockWaiting := strings.Contains(msg, lockStillWaiting)
+	hasLockAcquired := strings.Contains(msg, lockAcquired)
+	hasDeadlock := strings.Contains(msg, lockDeadlock)
 
 	// OPTIMIZATION 3: Skip STATEMENT/QUERY parsing until locks are actually seen
 	// This avoids filling lastQueryByPID unnecessarily

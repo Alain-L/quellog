@@ -94,7 +94,7 @@ func (a *VacuumAnalyzer) Process(entry *parser.LogEntry) {
 
 	// Fast pre-filter: check for "uto" before expensive Index
 	// "uto" is highly specific to "automatic" and eliminates ~99%+ of messages
-	if strings.Index(msg, "uto") < 0 {
+	if !strings.Contains(msg, "uto") {
 		return
 	}
 

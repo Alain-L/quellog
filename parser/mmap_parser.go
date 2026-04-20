@@ -9,7 +9,6 @@ import (
 	"log/slog"
 	"os"
 	"sort"
-	"strings"
 	"syscall"
 	"time"
 )
@@ -80,124 +79,6 @@ func (p *MmapStderrParser) parseWithMmap(filename string, out chan<- LogEntry) e
 
 	// Parse the mapped data line by line (optimized version with zero-copy byte slicing)
 	return parseMmapDataOptimized(data, out)
-}
-
-// parseMmapData parses log data from a memory-mapped buffer.
-// It scans for newlines and assembles multi-line entries.
-func parseMmapData(data []byte, out chan<- LogEntry) error {
-	var currentEntry strings.Builder
-	currentEntry.Grow(1024) // Pre-allocate for typical log line
-
-	start := 0
-	for i := 0; i < len(data); i++ {
-		if data[i] == '\n' {
-			// Extract line (without newline)
-			line := string(data[start:i])
-			start = i + 1
-
-			// Handle syslog tab markers
-			if idx := strings.Index(line, syslogTabMarker); idx != -1 {
-				line = " " + line[idx+len(syslogTabMarker):]
-			}
-
-			// Check if this is a continuation line
-			// Fast path: starts with whitespace (most continuation lines)
-			isContinuation := len(line) > 0 && (line[0] == ' ' || line[0] == '\t')
-
-			// Fallback: if not indented AND we have a current entry, check for timestamp
-			// This handles cases like GCP where SQL continuation lines are not indented
-			if !isContinuation && len(line) > 0 && currentEntry.Len() > 0 {
-				// Fast path: check if line could possibly start a log entry
-				// Most log entries start with: digit (timestamp), '[' (bracket), or uppercase letter (syslog month)
-				if line[0] >= '0' && line[0] <= '9' || line[0] == '[' || (line[0] >= 'A' && line[0] <= 'Z') {
-					// Might be a new log entry - verify with full parsing
-					timestamp, _ := parseStderrLine(line)
-					if timestamp.IsZero() {
-						if line[0] >= '0' && line[0] <= '9' {
-							// Has timestamp-like prefix but not a valid PostgreSQL format
-							// (e.g., pgBackRest, WAL-G output captured by logging_collector)
-							continue
-						}
-						// No timestamp at all = continuation line
-						isContinuation = true
-					}
-				} else {
-					// Doesn't start with digit/bracket/uppercase = definitely continuation
-					isContinuation = true
-				}
-			}
-
-			if isContinuation {
-				// Append to current entry
-				if currentEntry.Len() > 0 {
-					currentEntry.WriteByte(' ')
-				}
-				currentEntry.WriteString(strings.TrimSpace(line))
-			} else {
-				// This is a new entry, process the previous one
-				if currentEntry.Len() > 0 {
-					timestamp, message := parseStderrLine(currentEntry.String())
-					if !timestamp.IsZero() {
-						out <- LogEntry{Timestamp: timestamp, Message: message, IsContinuation: isContinuationMessage(message)}
-					}
-					currentEntry.Reset()
-				}
-				// Start accumulating new entry
-				currentEntry.WriteString(line)
-			}
-		}
-	}
-
-	// Handle last line if file doesn't end with newline
-	if start < len(data) {
-		line := string(data[start:])
-		if len(line) > 0 {
-			// Check if this is a continuation line
-			isContinuation := line[0] == ' ' || line[0] == '\t'
-
-			// Fallback: if not indented AND we have a current entry, check for timestamp
-			if !isContinuation && currentEntry.Len() > 0 {
-				// Fast path: check if line could possibly start a log entry
-				// Most log entries start with: digit (timestamp), '[' (bracket), or uppercase letter (syslog month)
-				if line[0] >= '0' && line[0] <= '9' || line[0] == '[' || (line[0] >= 'A' && line[0] <= 'Z') {
-					timestamp, _ := parseStderrLine(line)
-					if timestamp.IsZero() && !(line[0] >= '0' && line[0] <= '9') {
-						// No valid PostgreSQL timestamp and not a foreign timestamped line
-						isContinuation = true
-					}
-				} else {
-					// Doesn't start with digit/bracket/uppercase = definitely continuation
-					isContinuation = true
-				}
-			}
-
-			if isContinuation {
-				if currentEntry.Len() > 0 {
-					currentEntry.WriteByte(' ')
-				}
-				currentEntry.WriteString(strings.TrimSpace(line))
-			} else {
-				if currentEntry.Len() > 0 {
-					timestamp, message := parseStderrLine(currentEntry.String())
-					if !timestamp.IsZero() {
-						out <- LogEntry{Timestamp: timestamp, Message: message, IsContinuation: isContinuationMessage(message)}
-					}
-					currentEntry.Reset()
-				}
-				currentEntry.WriteString(line)
-			}
-		}
-	}
-
-	// Process final accumulated entry
-	if currentEntry.Len() > 0 {
-		timestamp, message := parseStderrLine(currentEntry.String())
-		if !timestamp.IsZero() {
-			out <- LogEntry{Timestamp: timestamp, Message: message, IsContinuation: isContinuationMessage(message)}
-		}
-	}
-
-	return nil
 }
 
 // parseMmapDataOptimized is an optimized version using byte slicing instead of string conversions.

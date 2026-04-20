@@ -89,12 +89,6 @@ func detectCompressedFile(filename string) (LogParser, error, bool) {
 	return nil, nil, false
 }
 
-// detectCompressedParser handles detection for compressed log files using the provided codec.
-func detectCompressedParser(filename, baseName string, codec compressionCodec) LogParser {
-	parser, _ := detectCompressedParserWithError(filename, baseName, codec)
-	return parser
-}
-
 // detectCompressedParserWithError handles detection for compressed log files using the provided codec.
 // Returns a LogParser and nil error on success, or nil parser and a typed error on failure.
 func detectCompressedParserWithError(filename, baseName string, codec compressionCodec) (LogParser, error) {

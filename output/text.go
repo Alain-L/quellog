@@ -2014,14 +2014,6 @@ func printLockStats(stats map[string]int, total int) {
 	}
 }
 
-// formatLockCount formats a lock count, displaying "-" for 0.
-func formatLockCount(count int) string {
-	if count == 0 {
-		return "-"
-	}
-	return fmt.Sprintf("%d", count)
-}
-
 // printAcquiredLockQueries prints queries with acquired locks, sorted by total wait time.
 func printAcquiredLockQueries(queryStats map[string]*analysis.LockQueryStat, limit int, termWidth int) {
 	// Convert map to slice and filter/sort by acquired wait time

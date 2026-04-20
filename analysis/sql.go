@@ -919,7 +919,7 @@ func indexAfter(s, substr string, after int) int {
 // These contain "duration:" followed by "plan:" but NOT "statement:" or "execute:".
 func isPlanMessage(message string) bool {
 	// Fast reject: "plan:" is rare, check it first
-	if strings.Index(message, "plan:") == -1 {
+	if !strings.Contains(message, "plan:") {
 		return false
 	}
 	durIdx := strings.Index(message, "duration:")
@@ -928,7 +928,7 @@ func isPlanMessage(message string) bool {
 	}
 	rest := message[durIdx:]
 	// Exclude normal statement/execute entries that happen to contain "plan" in the query text
-	if strings.Index(rest, "statement:") != -1 || strings.Index(rest, "execute") != -1 {
+	if strings.Contains(rest, "statement:") || strings.Contains(rest, "execute") {
 		return false
 	}
 	return true

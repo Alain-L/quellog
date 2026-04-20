@@ -321,44 +321,6 @@ func compareJSONMaps(ref, cmp map[string]interface{}, prefix string) []string {
 	return diffs
 }
 
-// showDiff shows the first lines that differ between two outputs
-func showDiff(t *testing.T, name1, out1, name2, out2 string) {
-	t.Helper()
-
-	lines1 := strings.Split(out1, "\n")
-	lines2 := strings.Split(out2, "\n")
-
-	maxLines := len(lines1)
-	if len(lines2) > maxLines {
-		maxLines = len(lines2)
-	}
-
-	for i := 0; i < maxLines && i < 50; i++ {
-		l1 := ""
-		l2 := ""
-		if i < len(lines1) {
-			l1 = lines1[i]
-		}
-		if i < len(lines2) {
-			l2 = lines2[i]
-		}
-
-		if l1 != l2 {
-			t.Errorf("First diff at line %d:", i+1)
-			t.Errorf("  %s: %s", name1, truncate(l1, 80))
-			t.Errorf("  %s: %s", name2, truncate(l2, 80))
-			return
-		}
-	}
-}
-
-func truncate(s string, maxLen int) string {
-	if len(s) <= maxLen {
-		return s
-	}
-	return s[:maxLen] + "..."
-}
-
 func minInt(a, b int) int {
 	if a < b {
 		return a

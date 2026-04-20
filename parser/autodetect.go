@@ -46,9 +46,6 @@ var (
 	// csvTimestampRegex matches PostgreSQL CSV log timestamp format
 	csvTimestampRegex = regexp.MustCompile(`^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:\.\d+)?(?: [A-Z]{2,5})?$`)
 
-	// jsonFieldRegex checks for required fields in JSON logs
-	jsonFieldRegex = regexp.MustCompile(`^\s*\{\s*"(timestamp|insertId)"\s*:`)
-
 	// logPatterns define various PostgreSQL log format patterns
 	logPatterns = []*regexp.Regexp{
 		// Pattern 1: ISO-style timestamp (2025-01-01 12:00:00 or 2025-01-01T12:00:00)

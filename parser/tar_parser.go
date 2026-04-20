@@ -65,7 +65,7 @@ func (p *TarParser) Parse(filename string, out chan<- LogEntry) error {
 			continue
 		}
 
-		if hdr.Typeflag != tar.TypeReg && hdr.Typeflag != tar.TypeRegA {
+		if hdr.Typeflag != tar.TypeReg {
 			continue
 		}
 

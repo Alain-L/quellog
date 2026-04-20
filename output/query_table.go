@@ -249,12 +249,10 @@ func printWideQueryTable(rows []QueryRow, config QueryTableConfig, termWidth int
 
 	// Build header
 	var headerParts []string
-	var widthParts []int
 
 	for _, col := range config.Columns {
 		if col.Header == "Query" {
 			headerParts = append(headerParts, fmt.Sprintf("%-*s", queryWidth, col.Header))
-			widthParts = append(widthParts, queryWidth)
 		} else {
 			width := col.Width
 			if width == 0 {
@@ -265,7 +263,6 @@ func printWideQueryTable(rows []QueryRow, config QueryTableConfig, termWidth int
 			} else {
 				headerParts = append(headerParts, fmt.Sprintf("%-*s", width, col.Header))
 			}
-			widthParts = append(widthParts, width)
 		}
 	}
 
@@ -305,13 +302,11 @@ func printWideQueryTable(rows []QueryRow, config QueryTableConfig, termWidth int
 func printCompactQueryTable(rows []QueryRow, config QueryTableConfig, bold, reset string) {
 	// Build header
 	var headerParts []string
-	var widthParts []int
 
 	for _, col := range config.Columns {
 		if col.Header == "Query" {
 			// Replace with "Type" column
 			headerParts = append(headerParts, fmt.Sprintf("%-10s", "Type"))
-			widthParts = append(widthParts, 10)
 		} else {
 			width := col.Width
 			if width == 0 {
@@ -322,7 +317,6 @@ func printCompactQueryTable(rows []QueryRow, config QueryTableConfig, bold, rese
 			} else {
 				headerParts = append(headerParts, fmt.Sprintf("%-*s", width, col.Header))
 			}
-			widthParts = append(widthParts, width)
 		}
 	}
 
