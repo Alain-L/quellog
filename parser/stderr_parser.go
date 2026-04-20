@@ -140,11 +140,7 @@ func (p *StderrParser) parseReader(r io.Reader, out chan<- LogEntry) error {
 				normalizedEntry := p.normalizeEntryBeforeParsing(currentEntry)
 				timestamp, message := parseStderrLine(normalizedEntry)
 				if !timestamp.IsZero() {
-					out <- LogEntry{
-						Timestamp:      timestamp,
-						Message:        message,
-						IsContinuation: isContinuationMessage(message),
-					}
+					out <- NewLogEntry(timestamp, message, isContinuationMessage(message))
 				}
 				entryBuilder.Reset()
 			}
@@ -157,11 +153,7 @@ func (p *StderrParser) parseReader(r io.Reader, out chan<- LogEntry) error {
 		normalizedEntry := p.normalizeEntryBeforeParsing(currentEntry)
 		timestamp, message := parseStderrLine(normalizedEntry)
 		if !timestamp.IsZero() {
-			out <- LogEntry{
-				Timestamp:      timestamp,
-				Message:        message,
-				IsContinuation: isContinuationMessage(message),
-			}
+			out <- NewLogEntry(timestamp, message, isContinuationMessage(message))
 		}
 	}
 
@@ -250,11 +242,7 @@ func (p *StderrParser) parseFromBytes(data []byte, out chan<- LogEntry) error {
 			if len(currentEntry) > 0 {
 				timestamp, message := p.parseEntryFromBytes(currentEntry)
 				if !timestamp.IsZero() {
-					out <- LogEntry{
-						Timestamp:      timestamp,
-						Message:        message,
-						IsContinuation: isContinuationMessage(message),
-					}
+					out <- NewLogEntry(timestamp, message, isContinuationMessage(message))
 				}
 				currentEntry = currentEntry[:0]
 			}
@@ -265,11 +253,7 @@ func (p *StderrParser) parseFromBytes(data []byte, out chan<- LogEntry) error {
 	if len(currentEntry) > 0 {
 		timestamp, message := p.parseEntryFromBytes(currentEntry)
 		if !timestamp.IsZero() {
-			out <- LogEntry{
-				Timestamp:      timestamp,
-				Message:        message,
-				IsContinuation: isContinuationMessage(message),
-			}
+			out <- NewLogEntry(timestamp, message, isContinuationMessage(message))
 		}
 	}
 

@@ -202,9 +202,10 @@ func (a *TempFileAnalyzer) Process(entry *parser.LogEntry) {
 		return
 	}
 
-	// OPTIMIZATION: Extract PID once and reuse it throughout
-	// This avoids multiple expensive ExtractPID() calls (up to 4× per entry)
-	pid := parser.ExtractPID(msg)
+	// PID is pre-populated by the parser layer (NewLogEntry) so we don't
+	// re-parse the message — this same PID is also used by the locks,
+	// connections and sql analyzers on the same entry.
+	pid := entry.PID
 
 	// === STEP 1: Check for STATEMENT/CONTEXT/query lines ===
 	// Support:

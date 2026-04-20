@@ -312,7 +312,7 @@ func (a *LockAnalyzer) Process(entry *parser.LogEntry) {
 	if hasBlockingDetail {
 		bPID := extractBlockingPID(msg)
 		if bPID != "" {
-			waitingPID := parser.ExtractPID(msg)
+			waitingPID := entry.PID
 			if waitingPID != "" {
 				// Update the last waiting event for this PID
 				for i := len(a.events) - 1; i >= 0; i-- {
@@ -343,7 +343,7 @@ func (a *LockAnalyzer) Process(entry *parser.LogEntry) {
 	if hasRelationCtx {
 		rel := extractRelation(msg)
 		if rel != "" {
-			pid := parser.ExtractPID(msg)
+			pid := entry.PID
 			if pid != "" {
 				for i := len(a.events) - 1; i >= 0; i-- {
 					if a.events[i].ProcessID == pid && a.events[i].EventType == "waiting" && a.events[i].Relation == "" {
@@ -399,7 +399,7 @@ func (a *LockAnalyzer) Process(entry *parser.LogEntry) {
 
 		// Extract PID and cache query
 		if query != "" {
-			pid = parser.ExtractPID(msg)
+			pid = entry.PID
 			if pid != "" {
 				// Normalize whitespace (newlines to spaces) for consistent raw_query across formats
 				query = normalizeWhitespace(query)
@@ -432,7 +432,7 @@ func (a *LockAnalyzer) Process(entry *parser.LogEntry) {
 	// for this PID rather than creating a new event.
 	if hasDeadlock && strings.Contains(msg, "ERROR:") {
 		a.deadlockEvents++
-		pid := parser.ExtractPID(msg)
+		pid := entry.PID
 		if pid != "" {
 			for i := len(a.events) - 1; i >= 0; i-- {
 				if a.events[i].ProcessID == pid && a.events[i].EventType == "waiting" {

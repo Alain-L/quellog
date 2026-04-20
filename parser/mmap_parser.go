@@ -212,7 +212,7 @@ func parseMmapDataSyslog(data []byte, out chan<- LogEntry, format SyslogFormat) 
 
 		emissionOrder = append(emissionOrder, orderedEntry{
 			lineNum: ln,
-			entry:   LogEntry{Timestamp: ts, Message: msg, IsContinuation: isContinuationMessage(msg)},
+			entry:   NewLogEntry(ts, msg, isContinuationMessage(msg)),
 		})
 	}
 
@@ -270,7 +270,7 @@ func parseMmapDataSyslog(data []byte, out chan<- LogEntry, format SyslogFormat) 
 			// No PID found - emit as standalone entry using already-parsed values
 			emissionOrder = append(emissionOrder, orderedEntry{
 				lineNum: lineNum,
-				entry:   LogEntry{Timestamp: ts, Message: message, IsContinuation: isContinuationMessage(message)},
+				entry:   NewLogEntry(ts, message, isContinuationMessage(message)),
 			})
 			continue
 		}
@@ -424,7 +424,7 @@ func parseMmapDataStderr(data []byte, out chan<- LogEntry) error {
 			if len(currentEntry) > 0 {
 				timestamp, message := parseStderrLineBytes(currentEntry)
 				if !timestamp.IsZero() {
-					out <- LogEntry{Timestamp: timestamp, Message: message, IsContinuation: isContinuationMessage(message)}
+					out <- NewLogEntry(timestamp, message, isContinuationMessage(message))
 				}
 				currentEntry = currentEntry[:0] // Reset but keep capacity
 			}
@@ -464,7 +464,7 @@ func parseMmapDataStderr(data []byte, out chan<- LogEntry) error {
 				if len(currentEntry) > 0 {
 					timestamp, message := parseStderrLineBytes(currentEntry)
 					if !timestamp.IsZero() {
-						out <- LogEntry{Timestamp: timestamp, Message: message, IsContinuation: isContinuationMessage(message)}
+						out <- NewLogEntry(timestamp, message, isContinuationMessage(message))
 					}
 					currentEntry = currentEntry[:0]
 				}
@@ -477,7 +477,7 @@ func parseMmapDataStderr(data []byte, out chan<- LogEntry) error {
 	if len(currentEntry) > 0 {
 		timestamp, message := parseStderrLineBytes(currentEntry)
 		if !timestamp.IsZero() {
-			out <- LogEntry{Timestamp: timestamp, Message: message, IsContinuation: isContinuationMessage(message)}
+			out <- NewLogEntry(timestamp, message, isContinuationMessage(message))
 		}
 	}
 

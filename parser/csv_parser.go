@@ -121,10 +121,7 @@ func (p *CsvParser) parseReader(r io.Reader, out chan<- LogEntry) error {
 		// Build complete message with context
 		message := buildCSVMessage(record)
 
-		out <- LogEntry{
-			Timestamp: timestamp,
-			Message:   message,
-		}
+		out <- NewLogEntry(timestamp, message, false)
 	}
 
 	return nil

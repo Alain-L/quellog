@@ -475,7 +475,7 @@ func (a *SQLAnalyzer) Process(entry *parser.LogEntry) {
 	// Intercept auto_explain plan: messages before normal processing.
 	// These arrive BEFORE the corresponding statement: entry for the same PID.
 	if isPlanMessage(msg) {
-		pid := parser.ExtractPID(msg)
+		pid := entry.PID
 		if pid != "" {
 			if plan := extractPlanText(msg); plan != "" {
 				a.pendingPlanByPID[pid] = plan
@@ -542,7 +542,7 @@ func (a *SQLAnalyzer) Process(entry *parser.LogEntry) {
 	})
 
 	// Associate pending auto_explain plan (same PID, arrived just before)
-	pid := parser.ExtractPID(msg)
+	pid := entry.PID
 	if pid != "" {
 		if plan, hasPlan := a.pendingPlanByPID[pid]; hasPlan {
 			stats.LastPlan = plan

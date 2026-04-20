@@ -40,6 +40,27 @@ type LogEntry struct {
 	// to the previous LOG/ERROR/etc entry. These should not be counted as separate
 	// log entries for total_logs, but may still be processed by analyzers.
 	IsContinuation bool
+
+	// PID is the PostgreSQL backend process id extracted from the message
+	// (the "[12345]" that follows log_line_prefix). Populated once by the
+	// parser so downstream analyzers don't have to re-parse the message.
+	// Empty string when no PID can be extracted.
+	PID string
+}
+
+// NewLogEntry builds a LogEntry with its PID field pre-populated from
+// the message. Parsers should use this helper at every construction
+// site so downstream analyzers can read entry.PID directly instead of
+// calling ExtractPID themselves on every entry. On a real log (J.log:
+// 23M entries, 8 analyzer call sites) this avoids ~184M redundant
+// parses of the same prefix.
+func NewLogEntry(timestamp time.Time, message string, isContinuation bool) LogEntry {
+	return LogEntry{
+		Timestamp:      timestamp,
+		Message:        message,
+		IsContinuation: isContinuation,
+		PID:            ExtractPID(message),
+	}
 }
 
 // LogParser defines the interface that all format-specific parsers must implement.

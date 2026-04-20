@@ -128,8 +128,8 @@ func (a *ConnectionAnalyzer) Process(entry *parser.LogEntry) {
 		return // Neither connection nor disconnection present
 	}
 
-	// Extract PID once for this entry (used for connection tracking)
-	pid := parser.ExtractPID(msg)
+	// PID is pre-populated by the parser layer.
+	pid := entry.PID
 
 	// Check if it's "connection received" or "disconnection"
 	// "connection received" has 'c' at position idx

@@ -232,10 +232,7 @@ func extractLogEntry(obj map[string]interface{}) (LogEntry, error) {
 		return LogEntry{}, fmt.Errorf("message extraction failed: no message content")
 	}
 
-	return LogEntry{
-		Timestamp: timestamp,
-		Message:   message,
-	}, nil
+	return NewLogEntry(timestamp, message, false), nil
 }
 
 // normalizeCNPGRecord converts CNPG record field names to standard PostgreSQL jsonlog names.
