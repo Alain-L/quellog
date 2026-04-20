@@ -67,6 +67,9 @@ var (
 	followFlag   bool          // --follow: Continuous monitoring mode
 	intervalFlag time.Duration // --interval: Refresh interval for follow mode
 	outputFlag   string        // --output: Output file path (mandatory for follow mode with JSON/HTML)
+
+	// Logging verbosity
+	quietFlag bool // --quiet: suppress INFO logs, keep WARN and above
 )
 
 // rootCmd is the main command for the quellog CLI.
@@ -86,6 +89,12 @@ and customize the output.`,
 	RunE:          executeParsing,
 	SilenceErrors: true, // we surface errors via slog in Execute()
 	SilenceUsage:  true, // do not print usage on runtime errors
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		// Apply --quiet now that flags have been parsed.
+		if quietFlag {
+			setLogLevel(slog.LevelWarn)
+		}
+	},
 }
 
 // Execute runs the root command.
@@ -102,7 +111,7 @@ func Execute(v, c, d string) {
 	date = d
 	rootCmd.Version = fmt.Sprintf("%s (commit: %s, built: %s)", version, commit, date)
 
-	initLogger(slog.LevelInfo)
+	initLogger()
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -188,4 +197,8 @@ func init() {
 		"Refresh interval for follow mode (e.g., 10s, 1m)")
 	rootCmd.PersistentFlags().StringVarP(&outputFlag, "output", "o", "",
 		"Output file path (recommended for follow mode with JSON or HTML formats)")
+
+	// Verbosity
+	rootCmd.PersistentFlags().BoolVarP(&quietFlag, "quiet", "q", false,
+		"Suppress INFO logs (keep WARN and ERROR)")
 }

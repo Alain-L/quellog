@@ -86,8 +86,21 @@ func writeAttr(b *strings.Builder, prefix string, a slog.Attr) {
 	fmt.Fprintf(b, " %s=%v", key, a.Value.Any())
 }
 
-// initLogger installs the pretty handler as slog's default at the given
-// level, writing to stderr (where the legacy log.Printf calls also wrote).
-func initLogger(level slog.Level) {
-	slog.SetDefault(slog.New(newPrettyHandler(os.Stderr, level)))
+// logLevel is a mutable slog.Leveler so the active level can change
+// after flag parsing. Initialised to Info; --quiet bumps it to Warn,
+// --verbose (future) would lower it to Debug.
+var logLevel = new(slog.LevelVar) // zero value = LevelInfo
+
+// initLogger installs the pretty handler as slog's default. The active
+// level is read from logLevel each time a record is emitted, so callers
+// can flip it (e.g. via --quiet) after Execute() has run.
+func initLogger() {
+	slog.SetDefault(slog.New(newPrettyHandler(os.Stderr, logLevel)))
+}
+
+// setLogLevel changes the package-level log filter at runtime.
+// Call this from a Cobra PersistentPreRun once the --quiet/--verbose
+// flags are bound and parsed.
+func setLogLevel(level slog.Level) {
+	logLevel.Set(level)
 }
