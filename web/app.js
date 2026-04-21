@@ -1009,10 +1009,26 @@ function buildEventsSection(data) {
                             </div>
                         ` : ''}
                         ${(() => {
-                            // Aggregate blocking queries from events
-                            const blockers = {};
+                            // PG emits one "still waiting" every deadlock_timeout (default 1s)
+                            // plus one final "acquired" for each blocked transaction, so a single
+                            // real wait surfaces as 2–5 entries in `events[]`. Aggregating the
+                            // raw stream triple-counts "Blocked" and inflates "Total Wait" by
+                            // the sum of the intermediate still-waiting values.
+                            // Fold to one entry per unique wait — keyed by (process_id,
+                            // blocking_pid, lock_type) — preferring the final `acquired`
+                            // event when present (carries the true end-to-end wait time),
+                            // falling back to the latest `waiting` otherwise.
+                            const uniqueWaits = new Map();
                             (l.events || []).forEach(e => {
                                 if (!e.blocking_query_id || e.event_type === 'deadlock') return;
+                                const key = `${e.process_id}|${e.blocking_pid}|${e.lock_type}`;
+                                const prev = uniqueWaits.get(key);
+                                if (!prev || e.event_type === 'acquired') {
+                                    uniqueWaits.set(key, e);
+                                }
+                            });
+                            const blockers = {};
+                            uniqueWaits.forEach(e => {
                                 if (!blockers[e.blocking_query_id]) {
                                     blockers[e.blocking_query_id] = { id: e.blocking_query_id, query: e.blocking_query || '', count: 0, totalWaitMs: 0 };
                                 }
