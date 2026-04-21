@@ -2,6 +2,7 @@
 package analysis
 
 import (
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -98,6 +99,14 @@ type ConnectionAnalyzer struct {
 	activeConnections       map[string]time.Time // PID -> connection timestamp
 	peakConcurrent          int
 	peakConcurrentTimestamp time.Time
+
+	// Most recent entry timestamp seen by this analyzer. Used at
+	// Finalize() as the EndTime for orphan sessions (connections that
+	// were received but never disconnected within the log window), so
+	// the concurrent-sessions histogram can account for them instead of
+	// silently dropping them — which would make the histogram peak
+	// diverge from PeakConcurrentSessions.
+	lastSeenTimestamp time.Time
 }
 
 // NewConnectionAnalyzer creates a new connection analyzer.
@@ -131,6 +140,12 @@ func (a *ConnectionAnalyzer) Process(entry *parser.LogEntry) {
 	// PID is pre-populated by the parser layer.
 	pid := entry.PID
 
+	// Keep track of the latest timestamp observed — used by Finalize()
+	// to close orphan sessions.
+	if entry.Timestamp.After(a.lastSeenTimestamp) {
+		a.lastSeenTimestamp = entry.Timestamp
+	}
+
 	// Check if it's "connection received" or "disconnection"
 	// "connection received" has 'c' at position idx
 	// "disconnection" has 'd' before "connection" (idx-3: "dis")
@@ -138,9 +153,16 @@ func (a *ConnectionAnalyzer) Process(entry *parser.LogEntry) {
 		// It's "disconnection"
 		a.disconnectionCount++
 
-		// Remove from active connections using PID
+		// Remove from active connections using PID — but remember the
+		// received timestamp in case the disconnect carries no parseable
+		// session_time, so we can still bound this session for the
+		// concurrent-sessions histogram.
+		var receivedAt time.Time
 		if pid != "" {
-			delete(a.activeConnections, pid)
+			if t, ok := a.activeConnections[pid]; ok {
+				receivedAt = t
+				delete(a.activeConnections, pid)
+			}
 		}
 
 		if duration := extractSessionTime(msg); duration > 0 {
@@ -188,6 +210,17 @@ func (a *ConnectionAnalyzer) Process(entry *parser.LogEntry) {
 				}
 				s.Add(duration)
 			}
+		} else if !receivedAt.IsZero() {
+			// Disconnect without a parseable session_time (unknown
+			// format, truncated line, …) — fall back to the tracked
+			// `connection received` timestamp so this session still
+			// shows up on the concurrent-sessions histogram. We do NOT
+			// feed the duration stats in this path: we have no reliable
+			// PG-reported duration, only a coarse observed window.
+			a.sessionEvents = append(a.sessionEvents, SessionEvent{
+				StartTime: receivedAt,
+				EndTime:   entry.Timestamp,
+			})
 		}
 	} else if idx+10 < len(msg) && msg[idx:idx+10] == "connection" {
 		// Check if followed by " received"
@@ -214,6 +247,34 @@ func (a *ConnectionAnalyzer) Process(entry *parser.LogEntry) {
 // Finalize returns the aggregated connection metrics.
 // This should be called after all log entries have been processed.
 func (a *ConnectionAnalyzer) Finalize() ConnectionMetrics {
+	// Flush orphan sessions: connections that were received but never
+	// saw a matching disconnect within the log window. Close them at
+	// the last timestamp observed by the analyzer — they were
+	// demonstrably still active then. Without this, the sweep-line
+	// concurrent-sessions histogram silently drops them and its peak
+	// ends up well below PeakConcurrentSessions on any log that gets
+	// truncated mid-session (common in real captures: the last hour
+	// holds connections still open when the operator stopped tailing).
+	if !a.lastSeenTimestamp.IsZero() && len(a.activeConnections) > 0 {
+		// Collect the orphan received-times and sort them so the
+		// resulting SessionEvents are appended in deterministic order —
+		// Go's map iteration is randomized, and downstream golden tests
+		// compare exact JSON ordering.
+		orphans := make([]time.Time, 0, len(a.activeConnections))
+		for _, receivedAt := range a.activeConnections {
+			orphans = append(orphans, receivedAt)
+		}
+		sort.Slice(orphans, func(i, j int) bool {
+			return orphans[i].Before(orphans[j])
+		})
+		for _, receivedAt := range orphans {
+			a.sessionEvents = append(a.sessionEvents, SessionEvent{
+				StartTime: receivedAt,
+				EndTime:   a.lastSeenTimestamp,
+			})
+		}
+	}
+
 	return ConnectionMetrics{
 		ConnectionReceivedCount: a.connectionReceivedCount,
 		DisconnectionCount:      a.disconnectionCount,

@@ -62,6 +62,23 @@ This _quellog_ report summarizes **5** log entries collected between 19 Apr 2026
 
 ## CONNECTIONS & SESSIONS
 
+### Concurrent sessions
+
+```
+17:00 - 17:00 | -
+17:00 - 17:00 | -
+17:00 - 17:00 | -
+17:00 - 17:00 | -
+17:00 - 17:00 | -
+17:00 - 17:00 | -
+17:00 - 17:00 | -
+17:00 - 17:00 | -
+17:00 - 17:00 | -
+17:00 - 17:00 | -
+17:00 - 17:00 | -
+17:00 - 17:00 | -
+```
+
 ### Connection distribution
 
 ```
