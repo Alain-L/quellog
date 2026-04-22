@@ -85,7 +85,7 @@ This _quellog_ report summarizes **5** log entries collected between 20 Apr 2026
 - **Disconnection count**: 1
 - **Avg session time**: 3s
 - **Median session time**: 3s
-- **Peak concurrent sessions**: 1 (at 09:00:00)
+- **Peak concurrent sessions**: 2 (at 09:00:00)
 
 ### Session Duration Statistics
 

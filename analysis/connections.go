@@ -93,12 +93,13 @@ type ConnectionAnalyzer struct {
 	sessionsByDatabase      map[string]*StreamingDurationStats
 	sessionsByHost          map[string]*StreamingDurationStats
 
-	// For tracking concurrent connections
-	// Use PID as key instead of timestamp to avoid collisions when
-	// multiple connections arrive in the same second
-	activeConnections       map[string]time.Time // PID -> connection timestamp
-	peakConcurrent          int
-	peakConcurrentTimestamp time.Time
+	// activeConnections tracks live receiveds so the orphan-flush at
+	// Finalize knows what's left dangling. The peak itself is computed
+	// at Finalize via sweep-line on sessionEvents — the streaming
+	// `len(activeConnections)` counter that lived here previously
+	// silently undercounted whenever a PID was re-used before the
+	// previous session for that PID had emitted its disconnect.
+	activeConnections map[string]time.Time // PID -> received timestamp
 
 	// Most recent entry timestamp seen by this analyzer. Used at
 	// Finalize() as the EndTime for orphan sessions (connections that
@@ -228,18 +229,24 @@ func (a *ConnectionAnalyzer) Process(entry *parser.LogEntry) {
 			a.connectionReceivedCount++
 			a.connections = append(a.connections, entry.Timestamp)
 
-			// Track active connections using PID for accurate counting
-			// Fall back to timestamp string if PID not available
+			// Track active connections using PID so the orphan-flush at
+			// Finalize knows what's left dangling. Fall back to a
+			// timestamp-string key if no PID is extractable.
+			//
+			// The peak is NOT computed here anymore — the streaming
+			// counter (`len(activeConnections)` after each received)
+			// silently undercounts whenever PG re-uses a PID before the
+			// previous session for that PID has emitted its disconnect
+			// (the map insert overwrites the existing entry without
+			// incrementing). Computed via a sweep-line on sessionEvents
+			// at Finalize() instead — same algorithm as the histogram,
+			// so chart peak and Maximum simultaneous converge by
+			// construction.
 			key := pid
 			if key == "" {
 				key = entry.Timestamp.String()
 			}
 			a.activeConnections[key] = entry.Timestamp
-			currentActive := len(a.activeConnections)
-			if currentActive > a.peakConcurrent {
-				a.peakConcurrent = currentActive
-				a.peakConcurrentTimestamp = entry.Timestamp
-			}
 		}
 	}
 }
@@ -275,6 +282,8 @@ func (a *ConnectionAnalyzer) Finalize() ConnectionMetrics {
 		}
 	}
 
+	peakConcurrent, peakTimestamp := computePeakSweepline(a.sessionEvents)
+
 	return ConnectionMetrics{
 		ConnectionReceivedCount: a.connectionReceivedCount,
 		DisconnectionCount:      a.disconnectionCount,
@@ -285,9 +294,57 @@ func (a *ConnectionAnalyzer) Finalize() ConnectionMetrics {
 		SessionsByUser:          a.sessionsByUser,
 		SessionsByDatabase:      a.sessionsByDatabase,
 		SessionsByHost:          a.sessionsByHost,
-		PeakConcurrentSessions:  a.peakConcurrent,
-		PeakConcurrentTimestamp: a.peakConcurrentTimestamp,
+		PeakConcurrentSessions:  peakConcurrent,
+		PeakConcurrentTimestamp: peakTimestamp,
 	}
+}
+
+// computePeakSweepline returns the maximum number of overlapping sessions
+// observed across `events` and the timestamp at which it occurred.
+// Replaces the old streaming counter (incr-on-received with len(map))
+// which silently undercounted whenever the OS re-used a PID before the
+// previous session's disconnect was logged.
+//
+// The convention is "starts before ends at tied timestamps", same as
+// histogram.go's computeConcurrentHistogram, so the histogram peak and
+// this PeakConcurrentSessions value converge by construction.
+func computePeakSweepline(events []SessionEvent) (int, time.Time) {
+	if len(events) == 0 {
+		return 0, time.Time{}
+	}
+	type tick struct {
+		t     time.Time
+		delta int
+	}
+	pts := make([]tick, 0, len(events)*2)
+	for _, e := range events {
+		if e.StartTime.IsZero() || e.EndTime.IsZero() {
+			continue
+		}
+		pts = append(pts, tick{e.StartTime, +1})
+		pts = append(pts, tick{e.EndTime, -1})
+	}
+	if len(pts) == 0 {
+		return 0, time.Time{}
+	}
+	sort.Slice(pts, func(i, j int) bool {
+		if !pts[i].t.Equal(pts[j].t) {
+			return pts[i].t.Before(pts[j].t)
+		}
+		// +1 before -1 at the same timestamp captures the local peak
+		return pts[i].delta > pts[j].delta
+	})
+
+	cur, peak := 0, 0
+	var peakT time.Time
+	for _, p := range pts {
+		cur += p.delta
+		if cur > peak {
+			peak = cur
+			peakT = p.t
+		}
+	}
+	return peak, peakT
 }
 
 // ============================================================================

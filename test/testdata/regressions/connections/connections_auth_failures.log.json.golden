@@ -62,8 +62,8 @@
         "cumulated_duration": "10s"
       }
     },
-    "peak_concurrent_sessions": 1,
-    "peak_concurrent_timestamp": "2026-04-20 05:00:04",
+    "peak_concurrent_sessions": 2,
+    "peak_concurrent_timestamp": "2026-04-20 05:00:05",
     "connections": [
       "2026-04-20 05:00:04",
       "2026-04-20 05:00:05"
