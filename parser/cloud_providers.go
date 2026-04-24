@@ -45,7 +45,7 @@ func parseRDSFormat(line string) (time.Time, string, bool) {
 	}
 
 	timestampStr := line[:tzEnd]
-	t, err := time.Parse("2006-01-02 15:04:05 MST", timestampStr)
+	t, err := parseTime("2006-01-02 15:04:05 MST", timestampStr)
 	if err != nil {
 		return time.Time{}, "", false
 	}
@@ -154,7 +154,7 @@ func parseAzureFormat(line string) (time.Time, string, bool) {
 	}
 
 	timestampStr := line[:tzEnd]
-	t, err := time.Parse("2006-01-02 15:04:05 MST", timestampStr)
+	t, err := parseTime("2006-01-02 15:04:05 MST", timestampStr)
 	if err != nil {
 		return time.Time{}, "", false
 	}

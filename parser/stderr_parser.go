@@ -384,9 +384,9 @@ func parseStderrFormat(line string) (time.Time, string, bool) {
 	}
 
 	timestampStr := line[:tzEnd]
-	t, err := time.Parse("2006-01-02 15:04:05.999 MST", timestampStr)
+	t, err := parseTime("2006-01-02 15:04:05.999 MST", timestampStr)
 	if err != nil {
-		t, err = time.Parse("2006-01-02 15:04:05 MST", timestampStr)
+		t, err = parseTime("2006-01-02 15:04:05 MST", timestampStr)
 		if err != nil {
 			return time.Time{}, "", false
 		}
@@ -434,9 +434,9 @@ func parseStderrFormatFromBytes(line []byte) (time.Time, int, bool) {
 	}
 
 	timestampStr := string(line[:tzEnd])
-	t, err := time.Parse("2006-01-02 15:04:05.999 MST", timestampStr)
+	t, err := parseTime("2006-01-02 15:04:05.999 MST", timestampStr)
 	if err != nil {
-		t, err = time.Parse("2006-01-02 15:04:05 MST", timestampStr)
+		t, err = parseTime("2006-01-02 15:04:05 MST", timestampStr)
 		if err != nil {
 			return time.Time{}, 0, false
 		}

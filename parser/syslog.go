@@ -201,9 +201,9 @@ func parseSyslogFormat(line string) (time.Time, string, bool) {
 	var t time.Time
 	var err error
 	if hasFrac {
-		t, err = time.Parse("2006 Jan _2 15:04:05.999999999", timestampStr)
+		t, err = parseTime("2006 Jan _2 15:04:05.999999999", timestampStr)
 	} else {
-		t, err = time.Parse("2006 Jan _2 15:04:05", timestampStr)
+		t, err = parseTime("2006 Jan _2 15:04:05", timestampStr)
 	}
 	if err != nil {
 		return time.Time{}, "", false
@@ -252,9 +252,9 @@ func parseSyslogFormatISO(line string) (time.Time, string, bool) {
 	}
 
 	timestampStr := line[:timestampEnd]
-	t, err := time.Parse(time.RFC3339Nano, timestampStr)
+	t, err := parseTime(time.RFC3339Nano, timestampStr)
 	if err != nil {
-		t, err = time.Parse(time.RFC3339, timestampStr)
+		t, err = parseTime(time.RFC3339, timestampStr)
 		if err != nil {
 			return time.Time{}, "", false
 		}
@@ -317,9 +317,9 @@ func parseSyslogFormatRFC5424(line string) (time.Time, string, bool) {
 	}
 
 	timestampStr := line[timestampStart:timestampEnd]
-	t, err := time.Parse(time.RFC3339Nano, timestampStr)
+	t, err := parseTime(time.RFC3339Nano, timestampStr)
 	if err != nil {
-		t, err = time.Parse(time.RFC3339, timestampStr)
+		t, err = parseTime(time.RFC3339, timestampStr)
 		if err != nil {
 			return time.Time{}, "", false
 		}

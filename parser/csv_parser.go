@@ -144,14 +144,14 @@ var csvTimestampFormats = []string{
 func (p *CsvParser) parseCSVTimestamp(timestampStr string) (time.Time, error) {
 	// Fast path: try cached format first
 	if p.cachedFormat != "" {
-		if t, err := time.Parse(p.cachedFormat, timestampStr); err == nil {
+		if t, err := parseTime(p.cachedFormat, timestampStr); err == nil {
 			return t, nil
 		}
 	}
 
 	// Slow path: try all formats
 	for _, format := range csvTimestampFormats {
-		if t, err := time.Parse(format, timestampStr); err == nil {
+		if t, err := parseTime(format, timestampStr); err == nil {
 			p.cachedFormat = format
 			return t, nil
 		}

@@ -481,27 +481,27 @@ func parseTimestampValue(val interface{}) (time.Time, error) {
 	switch v := val.(type) {
 	case string:
 		// Try RFC3339 format (ISO 8601)
-		if t, err := time.Parse(time.RFC3339, v); err == nil {
+		if t, err := parseTime(time.RFC3339, v); err == nil {
 			return t, nil
 		}
 		// Try RFC3339Nano
-		if t, err := time.Parse(time.RFC3339Nano, v); err == nil {
+		if t, err := parseTime(time.RFC3339Nano, v); err == nil {
 			return t, nil
 		}
 		// Try PostgreSQL format with milliseconds and timezone
-		if t, err := time.Parse("2006-01-02 15:04:05.999 MST", v); err == nil {
+		if t, err := parseTime("2006-01-02 15:04:05.999 MST", v); err == nil {
 			return t, nil
 		}
 		// Try PostgreSQL format with timezone
-		if t, err := time.Parse("2006-01-02 15:04:05 MST", v); err == nil {
+		if t, err := parseTime("2006-01-02 15:04:05 MST", v); err == nil {
 			return t, nil
 		}
 		// Try PostgreSQL format with milliseconds
-		if t, err := time.Parse("2006-01-02 15:04:05.999", v); err == nil {
+		if t, err := parseTime("2006-01-02 15:04:05.999", v); err == nil {
 			return t, nil
 		}
 		// Try PostgreSQL format without timezone
-		if t, err := time.Parse("2006-01-02 15:04:05", v); err == nil {
+		if t, err := parseTime("2006-01-02 15:04:05", v); err == nil {
 			return t, nil
 		}
 		return time.Time{}, fmt.Errorf("unsupported timestamp format: %s", v)
