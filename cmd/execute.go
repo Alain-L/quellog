@@ -190,7 +190,7 @@ func parseFilesAsync(ctx context.Context, files []string, out chan<- []parser.Lo
 		return
 	}
 
-	numWorkers := determineWorkerCount(len(files))
+	numWorkers := determineWorkerCount(files)
 
 	if numWorkers == 1 {
 		// Single file: no need for worker pool

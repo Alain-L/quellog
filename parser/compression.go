@@ -43,6 +43,32 @@ var (
 	}
 )
 
+// IsCompressed reports whether the filename has an extension that the
+// pipeline treats as compressed/archived (gzip, zstd, zip, 7z, tar and
+// the tar.{gz,zst,zstd} variants). Used by the cmd layer to decide
+// whether multi-file parallelism is profitable: compressed parsers are
+// CPU-bound on decompression, so spreading them over goroutines pays off
+// even on small individual files. Plain log files don't share that
+// property — see determineWorkerCount.
+func IsCompressed(filename string) bool {
+	lowerName := strings.ToLower(filename)
+	switch {
+	case strings.HasSuffix(lowerName, ".zip"),
+		strings.HasSuffix(lowerName, ".7z"),
+		strings.HasSuffix(lowerName, ".tar"),
+		strings.HasSuffix(lowerName, ".tar.gz"),
+		strings.HasSuffix(lowerName, ".tgz"),
+		strings.HasSuffix(lowerName, ".tar.zst"),
+		strings.HasSuffix(lowerName, ".tar.zstd"),
+		strings.HasSuffix(lowerName, ".tzst"),
+		strings.HasSuffix(lowerName, ".gz"),
+		strings.HasSuffix(lowerName, ".zst"),
+		strings.HasSuffix(lowerName, ".zstd"):
+		return true
+	}
+	return false
+}
+
 // detectCompressedFile checks if the file is compressed or a tar archive and returns the appropriate parser.
 // Returns (parser, error, handled). If handled is false, the caller should continue with normal detection.
 func detectCompressedFile(filename string) (LogParser, error, bool) {
