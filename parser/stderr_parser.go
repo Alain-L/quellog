@@ -17,14 +17,11 @@ const (
 	// scannerBuffer is the initial buffer size for reading log lines (4 MB).
 	scannerBuffer = 4 * 1024 * 1024
 
-	// scannerMaxBuffer caps the largest single log line we accept (1 MB).
-	// PostgreSQL log lines, even verbose STATEMENT lines with embedded
-	// parameters, very rarely exceed a few hundred KB. Capping here
-	// prevents a malformed or malicious log from forcing an OOM via a
-	// single huge line. Lines beyond this cap surface as bufio.ErrTooLong
-	// in scanner.Err(), and parseReader logs a warning rather than
-	// crashing the whole parse.
-	scannerMaxBuffer = 1 * 1024 * 1024
+	// scannerMaxBuffer caps the largest single log line we accept (16 MB).
+	// Above this we treat the line as hostile/corrupted and skip the rest.
+	// 16 MB covers verbose STATEMENT lines with embedded JSON/array/COPY
+	// payloads while still bounding worst-case heap allocation.
+	scannerMaxBuffer = 16 * 1024 * 1024
 )
 
 // continuationPrefixes are the PostgreSQL secondary message types that follow
