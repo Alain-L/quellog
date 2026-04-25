@@ -15,47 +15,6 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// oversizeReporter throttles the per-line WARN output when a parser
-// drops oversized lines: log the first occurrence (with details) and
-// keep counting; the parser flushes a single summary line on its way
-// out. Keeps log noise bounded on logs that legitimately contain many
-// long STATEMENTs.
-type oversizeReporter struct {
-	context string // e.g. "mmap parser" or "mmap syslog parser"
-	count   int
-	maxSeen int
-}
-
-// hit records one dropped line; logs only the first.
-func (r *oversizeReporter) hit(lineBytes, maxBytes int) {
-	if r.count == 0 {
-		slog.Warn(r.context+": skipping oversized line",
-			"line_bytes", lineBytes, "max_line_bytes", maxBytes)
-	}
-	r.count++
-	if lineBytes > r.maxSeen {
-		r.maxSeen = lineBytes
-	}
-}
-
-// flush emits a single summary line if more than one drop occurred.
-func (r *oversizeReporter) flush(maxBytes int) {
-	if r.count > 1 {
-		slog.Warn(r.context+": dropped additional oversized lines",
-			"total_dropped", r.count, "max_seen_bytes", r.maxSeen,
-			"max_line_bytes", maxBytes)
-	}
-}
-
-// mmapMaxLineBytes caps the largest single log line we will process from a
-// memory-mapped file. mmap parsers don't go through bufio.Scanner so they
-// inherit no built-in protection: a malformed or malicious file with a 1 GB
-// single line would otherwise force currentEntry to grow to 1 GB on the
-// heap. The cap is set at 16 MB: well above legitimate PG verbose lines
-// (COPY inline payload, large IN clauses, JSON blobs in STATEMENT) while
-// still bounding the worst-case allocation per oversize event.
-const mmapMaxLineBytes = 16 * 1024 * 1024
-
 // mmapAdviseChunk is how many bytes we parse before hinting the OS that a
 // prefix of the mapping is no longer needed. On a 4 GB file the parser
 // otherwise keeps every page resident for the whole run; releasing 64 MB
@@ -240,9 +199,6 @@ func parseMmapDataSyslog(data []byte, out chan<- []LogEntry, format SyslogFormat
 	bs := NewBatchSender(out)
 	defer bs.Flush()
 
-	oversize := oversizeReporter{context: "mmap syslog parser"}
-	defer oversize.flush(mmapMaxLineBytes)
-
 	// Per-PID entry tracking: each backend accumulates its own entry
 	// We store both the entry data and its original line number for stable sorting
 	type pidEntry struct {
@@ -318,12 +274,6 @@ func parseMmapDataSyslog(data []byte, out chan<- []LogEntry, format SyslogFormat
 		}
 
 		if len(line) == 0 {
-			continue
-		}
-
-		// Hostile-input guard (see mmapMaxLineBytes).
-		if len(line) > mmapMaxLineBytes {
-			oversize.hit(len(line), mmapMaxLineBytes)
 			continue
 		}
 
@@ -427,9 +377,6 @@ func parseMmapDataStderr(data []byte, out chan<- []LogEntry) error {
 	bs := NewBatchSender(out)
 	defer bs.Flush()
 
-	oversize := oversizeReporter{context: "mmap parser"}
-	defer oversize.flush(mmapMaxLineBytes)
-
 	var currentEntry []byte
 	currentEntry = make([]byte, 0, 1024) // Pre-allocate
 
@@ -469,14 +416,6 @@ func parseMmapDataStderr(data []byte, out chan<- []LogEntry) error {
 
 		// Skip empty lines
 		if len(line) == 0 {
-			continue
-		}
-
-		// Hostile-input guard: drop pathologically long lines (malformed
-		// log, binary garbage masquerading as text) before they can grow
-		// currentEntry past safe bounds via append below.
-		if len(line) > mmapMaxLineBytes {
-			oversize.hit(len(line), mmapMaxLineBytes)
 			continue
 		}
 

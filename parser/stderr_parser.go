@@ -3,26 +3,20 @@ package parser
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
 	"io"
-	"log/slog"
+	"math"
 	"os"
 	"strings"
 	"time"
 )
 
-// Buffer size constants for scanner
-const (
-	// scannerBuffer is the initial buffer size for reading log lines (4 MB).
-	scannerBuffer = 4 * 1024 * 1024
-
-	// scannerMaxBuffer caps the largest single log line we accept (16 MB).
-	// Above this we treat the line as hostile/corrupted and skip the rest.
-	// 16 MB covers verbose STATEMENT lines with embedded JSON/array/COPY
-	// payloads while still bounding worst-case heap allocation.
-	scannerMaxBuffer = 16 * 1024 * 1024
-)
+// scannerBuffer is the initial buffer size for reading log lines (4 MB).
+// The scanner is configured to grow up to math.MaxInt32 if needed —
+// PostgreSQL legitimately emits multi-MB STATEMENT lines (large IN
+// clauses, COPY inline payloads, JSON blobs) and a hard cap caused
+// silent truncation of the rest of the input.
+const scannerBuffer = 4 * 1024 * 1024
 
 // continuationPrefixes are the PostgreSQL secondary message types that follow
 // a primary log entry (LOG, ERROR, etc.). These lines have their own timestamp
@@ -111,7 +105,7 @@ func (p *StderrParser) parseReader(r io.Reader, out chan<- []LogEntry) error {
 
 	scanner := bufio.NewScanner(r)
 	buf := make([]byte, scannerBuffer)
-	scanner.Buffer(buf, scannerMaxBuffer)
+	scanner.Buffer(buf, math.MaxInt32)
 
 	var entryBuilder strings.Builder
 	entryBuilder.Grow(512)
@@ -158,15 +152,6 @@ func (p *StderrParser) parseReader(r io.Reader, out chan<- []LogEntry) error {
 	}
 
 	if err := scanner.Err(); err != nil {
-		// Treat oversized lines (bufio.ErrTooLong) as a recoverable warning
-		// instead of a hard parse failure: emit what we have and let the
-		// caller decide. This protects against malicious or malformed logs
-		// that contain a single 100 MB+ line, which would otherwise OOM.
-		if errors.Is(err, bufio.ErrTooLong) {
-			slog.Warn("stderr parser: skipping rest of input after oversized line",
-				"max_line_bytes", scannerMaxBuffer)
-			return nil
-		}
 		return err
 	}
 	return nil
@@ -455,7 +440,7 @@ func (p *StderrParser) detectPrefixStructure(f *os.File) {
 	const sampleSize = 50
 	scanner := bufio.NewScanner(f)
 	buf := make([]byte, scannerBuffer)
-	scanner.Buffer(buf, scannerMaxBuffer)
+	scanner.Buffer(buf, math.MaxInt32)
 
 	var lines []string
 	for scanner.Scan() && len(lines) < sampleSize {

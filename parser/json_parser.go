@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"math"
 	"os"
 	"strings"
 	"time"
@@ -119,13 +120,12 @@ func (p *JsonParser) parseJSONLines(r io.Reader, out chan<- []LogEntry) error {
 	bs := NewBatchSender(out)
 	defer bs.Flush()
 	scanner := bufio.NewScanner(r)
-	// 4 MB initial buffer, 1 MB max per line. The cap protects against a
-	// pathological 1 GB single-line file that would otherwise OOM. PostgreSQL
-	// JSON log entries (PG ≥ 15 with log_destination=jsonlog) are typically
-	// well under 64 KB even for verbose STATEMENT records.
+	// 4 MB initial buffer; grow up to math.MaxInt32 if a single jsonlog
+	// entry is unusually large (verbose STATEMENT with embedded JSON,
+	// long stack trace, …). A hard cap caused silent truncation of the
+	// rest of the input.
 	buf := make([]byte, 4*1024*1024)
-	const jsonlMaxLineBytes = 1 * 1024 * 1024
-	scanner.Buffer(buf, jsonlMaxLineBytes)
+	scanner.Buffer(buf, math.MaxInt32)
 
 	lineNum := 0
 
@@ -156,12 +156,6 @@ func (p *JsonParser) parseJSONLines(r io.Reader, out chan<- []LogEntry) error {
 	}
 
 	if err := scanner.Err(); err != nil {
-		// As with the stderr parser: oversized lines are non-fatal.
-		if errors.Is(err, bufio.ErrTooLong) {
-			slog.Warn("JSONL parser: skipping rest of input after oversized line",
-				"max_line_bytes", jsonlMaxLineBytes, "line", lineNum+1)
-			return nil
-		}
 		return err
 	}
 	return nil
