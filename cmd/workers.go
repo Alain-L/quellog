@@ -104,4 +104,3 @@ func capWorkers(want, fileCount, ceiling int) int {
 	}
 	return want
 }
-
