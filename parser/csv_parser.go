@@ -74,7 +74,7 @@ type CsvParser struct {
 //
 // IMPORTANT: This function does NOT close the output channel. The caller is responsible
 // for channel lifecycle management (as per LogParser interface contract).
-func (p *CsvParser) Parse(filename string, out chan<- LogEntry) error {
+func (p *CsvParser) Parse(filename string, out chan<- []LogEntry) error {
 	f, err := os.Open(filename)
 	if err != nil {
 		return fmt.Errorf("failed to open file %s: %w", filename, err)
@@ -85,7 +85,10 @@ func (p *CsvParser) Parse(filename string, out chan<- LogEntry) error {
 }
 
 // parseReader processes CSV records from any io.Reader.
-func (p *CsvParser) parseReader(r io.Reader, out chan<- LogEntry) error {
+func (p *CsvParser) parseReader(r io.Reader, out chan<- []LogEntry) error {
+	bs := NewBatchSender(out)
+	defer bs.Flush()
+
 	reader := csv.NewReader(r)
 	// PostgreSQL CSV logs have 23 fields, but we'll be lenient
 	reader.FieldsPerRecord = -1 // Variable number of fields (lenient mode)
@@ -121,7 +124,7 @@ func (p *CsvParser) parseReader(r io.Reader, out chan<- LogEntry) error {
 		// Build complete message with context
 		message := buildCSVMessage(record)
 
-		out <- NewLogEntry(timestamp, message, false)
+		bs.Send(NewLogEntry(timestamp, message, false))
 	}
 
 	return nil

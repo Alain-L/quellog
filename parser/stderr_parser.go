@@ -89,7 +89,7 @@ type StderrParser struct {
 }
 
 // Parse reads a PostgreSQL stderr/syslog format log file and streams parsed entries.
-func (p *StderrParser) Parse(filename string, out chan<- LogEntry) error {
+func (p *StderrParser) Parse(filename string, out chan<- []LogEntry) error {
 	file, err := os.Open(filename)
 	if err != nil {
 		return fmt.Errorf("failed to open file %s: %w", filename, err)
@@ -108,7 +108,10 @@ func (p *StderrParser) Parse(filename string, out chan<- LogEntry) error {
 }
 
 // parseReader runs the stderr parsing logic against any io.Reader.
-func (p *StderrParser) parseReader(r io.Reader, out chan<- LogEntry) error {
+func (p *StderrParser) parseReader(r io.Reader, out chan<- []LogEntry) error {
+	bs := NewBatchSender(out)
+	defer bs.Flush()
+
 	scanner := bufio.NewScanner(r)
 	buf := make([]byte, scannerBuffer)
 	scanner.Buffer(buf, scannerMaxBuffer)
@@ -140,7 +143,7 @@ func (p *StderrParser) parseReader(r io.Reader, out chan<- LogEntry) error {
 				normalizedEntry := p.normalizeEntryBeforeParsing(currentEntry)
 				timestamp, message := parseStderrLine(normalizedEntry)
 				if !timestamp.IsZero() {
-					out <- NewLogEntry(timestamp, message, isContinuationMessage(message))
+					bs.Send(NewLogEntry(timestamp, message, isContinuationMessage(message)))
 				}
 				entryBuilder.Reset()
 			}
@@ -153,7 +156,7 @@ func (p *StderrParser) parseReader(r io.Reader, out chan<- LogEntry) error {
 		normalizedEntry := p.normalizeEntryBeforeParsing(currentEntry)
 		timestamp, message := parseStderrLine(normalizedEntry)
 		if !timestamp.IsZero() {
-			out <- NewLogEntry(timestamp, message, isContinuationMessage(message))
+			bs.Send(NewLogEntry(timestamp, message, isContinuationMessage(message)))
 		}
 	}
 
@@ -194,7 +197,10 @@ func hasTimestampString(line string) bool {
 }
 
 // parseFromBytes parses stderr log data directly from a byte slice.
-func (p *StderrParser) parseFromBytes(data []byte, out chan<- LogEntry) error {
+func (p *StderrParser) parseFromBytes(data []byte, out chan<- []LogEntry) error {
+	bs := NewBatchSender(out)
+	defer bs.Flush()
+
 	var currentEntry []byte
 	currentEntry = make([]byte, 0, 8192)
 
@@ -242,7 +248,7 @@ func (p *StderrParser) parseFromBytes(data []byte, out chan<- LogEntry) error {
 			if len(currentEntry) > 0 {
 				timestamp, message := p.parseEntryFromBytes(currentEntry)
 				if !timestamp.IsZero() {
-					out <- NewLogEntry(timestamp, message, isContinuationMessage(message))
+					bs.Send(NewLogEntry(timestamp, message, isContinuationMessage(message)))
 				}
 				currentEntry = currentEntry[:0]
 			}
@@ -253,7 +259,7 @@ func (p *StderrParser) parseFromBytes(data []byte, out chan<- LogEntry) error {
 	if len(currentEntry) > 0 {
 		timestamp, message := p.parseEntryFromBytes(currentEntry)
 		if !timestamp.IsZero() {
-			out <- NewLogEntry(timestamp, message, isContinuationMessage(message))
+			bs.Send(NewLogEntry(timestamp, message, isContinuationMessage(message)))
 		}
 	}
 

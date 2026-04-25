@@ -76,7 +76,7 @@ func (f LogFilters) IsEmpty() bool {
 // remaining entries from in (without re-forwarding them) so that
 // upstream producers do not block on the channel send. This guarantees
 // the upstream goroutine can exit cleanly even if the consumer aborted.
-func FilterStream(ctx context.Context, in <-chan LogEntry, out chan<- LogEntry, filters LogFilters) {
+func FilterStream(ctx context.Context, in <-chan []LogEntry, out chan<- []LogEntry, filters LogFilters) {
 	defer close(out)
 
 	for {
@@ -86,15 +86,26 @@ func FilterStream(ctx context.Context, in <-chan LogEntry, out chan<- LogEntry, 
 			for range in {
 			}
 			return
-		case entry, ok := <-in:
+		case batch, ok := <-in:
 			if !ok {
 				return
 			}
-			if !PassesFilters(entry, filters) {
+			// Filter in place to avoid allocating a new slice when nothing
+			// is dropped. Most batches pass filters intact in the common case.
+			kept := batch[:0]
+			for _, e := range batch {
+				if PassesFilters(e, filters) {
+					kept = append(kept, e)
+				}
+			}
+			if len(kept) == 0 {
+				// Whole batch filtered out — return its backing storage to
+				// the pool so the producers can reuse it.
+				PutBatch(batch)
 				continue
 			}
 			select {
-			case out <- entry:
+			case out <- kept:
 			case <-ctx.Done():
 				for range in {
 				}

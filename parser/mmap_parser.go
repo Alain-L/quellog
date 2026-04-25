@@ -62,7 +62,7 @@ type MmapStderrParser struct{}
 // Parse reads a PostgreSQL stderr/syslog format log file using mmap.
 // If mmap fails (network filesystem, special file, permissions, etc.),
 // it automatically falls back to buffered I/O parsing.
-func (p *MmapStderrParser) Parse(filename string, out chan<- LogEntry) error {
+func (p *MmapStderrParser) Parse(filename string, out chan<- []LogEntry) error {
 	// Try mmap first
 	err := p.parseWithMmap(filename, out)
 	if err != nil {
@@ -76,7 +76,7 @@ func (p *MmapStderrParser) Parse(filename string, out chan<- LogEntry) error {
 
 // parseWithMmap attempts to parse the file using memory-mapped I/O.
 // Returns an error if mmap fails, triggering fallback to buffered I/O.
-func (p *MmapStderrParser) parseWithMmap(filename string, out chan<- LogEntry) error {
+func (p *MmapStderrParser) parseWithMmap(filename string, out chan<- []LogEntry) error {
 	file, err := os.Open(filename)
 	if err != nil {
 		return fmt.Errorf("failed to open file %s: %w", filename, err)
@@ -123,7 +123,7 @@ const (
 	SyslogRFC5424                     // RFC 5424: "<134>1 2025-11-30T21:10:20+00:00 host ..."
 )
 
-func parseMmapDataOptimized(data []byte, out chan<- LogEntry) error {
+func parseMmapDataOptimized(data []byte, out chan<- []LogEntry) error {
 	// Detect syslog format by checking first non-empty line
 	syslogFormat := detectSyslogFormat(data)
 
@@ -202,7 +202,10 @@ func detectSyslogFormat(data []byte) SyslogFormat {
 // Strategy: Track entries per PID for correct multi-line SQL assembly.
 // When a new entry arrives for a PID, flush only that PID's previous entry.
 // At the end, flush remaining entries sorted by timestamp for correct analyzer order.
-func parseMmapDataSyslog(data []byte, out chan<- LogEntry, format SyslogFormat) error {
+func parseMmapDataSyslog(data []byte, out chan<- []LogEntry, format SyslogFormat) error {
+	bs := NewBatchSender(out)
+	defer bs.Flush()
+
 	// Per-PID entry tracking: each backend accumulates its own entry
 	// We store both the entry data and its original line number for stable sorting
 	type pidEntry struct {
@@ -377,14 +380,17 @@ func parseMmapDataSyslog(data []byte, out chan<- LogEntry, format SyslogFormat) 
 		return ei.lineNum < ej.lineNum
 	})
 	for _, e := range emissionOrder {
-		out <- e.entry
+		bs.Send(e.entry)
 	}
 
 	return nil
 }
 
 // parseMmapDataStderr parses stderr format (non-syslog) using the original logic.
-func parseMmapDataStderr(data []byte, out chan<- LogEntry) error {
+func parseMmapDataStderr(data []byte, out chan<- []LogEntry) error {
+	bs := NewBatchSender(out)
+	defer bs.Flush()
+
 	var currentEntry []byte
 	currentEntry = make([]byte, 0, 1024) // Pre-allocate
 
@@ -476,7 +482,7 @@ func parseMmapDataStderr(data []byte, out chan<- LogEntry) error {
 			if len(currentEntry) > 0 {
 				timestamp, message := parseStderrLineBytes(currentEntry)
 				if !timestamp.IsZero() {
-					out <- NewLogEntry(timestamp, message, isContinuationMessage(message))
+					bs.Send(NewLogEntry(timestamp, message, isContinuationMessage(message)))
 				}
 				currentEntry = currentEntry[:0] // Reset but keep capacity
 			}
@@ -516,7 +522,7 @@ func parseMmapDataStderr(data []byte, out chan<- LogEntry) error {
 				if len(currentEntry) > 0 {
 					timestamp, message := parseStderrLineBytes(currentEntry)
 					if !timestamp.IsZero() {
-						out <- NewLogEntry(timestamp, message, isContinuationMessage(message))
+						bs.Send(NewLogEntry(timestamp, message, isContinuationMessage(message)))
 					}
 					currentEntry = currentEntry[:0]
 				}
@@ -529,7 +535,7 @@ func parseMmapDataStderr(data []byte, out chan<- LogEntry) error {
 	if len(currentEntry) > 0 {
 		timestamp, message := parseStderrLineBytes(currentEntry)
 		if !timestamp.IsZero() {
-			out <- NewLogEntry(timestamp, message, isContinuationMessage(message))
+			bs.Send(NewLogEntry(timestamp, message, isContinuationMessage(message)))
 		}
 	}
 

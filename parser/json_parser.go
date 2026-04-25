@@ -40,7 +40,7 @@ type JsonParser struct{}
 //
 // IMPORTANT: This function does NOT close the output channel. The caller is responsible
 // for channel lifecycle management (as per LogParser interface contract).
-func (p *JsonParser) Parse(filename string, out chan<- LogEntry) error {
+func (p *JsonParser) Parse(filename string, out chan<- []LogEntry) error {
 	f, err := os.Open(filename)
 	if err != nil {
 		return fmt.Errorf("failed to open file %s: %w", filename, err)
@@ -51,7 +51,7 @@ func (p *JsonParser) Parse(filename string, out chan<- LogEntry) error {
 }
 
 // parseReader detects the JSON structure and dispatches to the appropriate parser.
-func (p *JsonParser) parseReader(r io.Reader, out chan<- LogEntry) error {
+func (p *JsonParser) parseReader(r io.Reader, out chan<- []LogEntry) error {
 	bufReader := bufio.NewReader(r)
 
 	firstByte, err := peekFirstNonWhitespace(bufReader)
@@ -72,7 +72,9 @@ func (p *JsonParser) parseReader(r io.Reader, out chan<- LogEntry) error {
 
 // parseJSONArray attempts to parse the file as a JSON array of log entries.
 // Format: [{"timestamp":"...","message":"..."},...]
-func (p *JsonParser) parseJSONArray(r io.Reader, out chan<- LogEntry) error {
+func (p *JsonParser) parseJSONArray(r io.Reader, out chan<- []LogEntry) error {
+	bs := NewBatchSender(out)
+	defer bs.Flush()
 	decoder := json.NewDecoder(r)
 
 	tok, err := decoder.Token()
@@ -99,7 +101,7 @@ func (p *JsonParser) parseJSONArray(r io.Reader, out chan<- LogEntry) error {
 			}
 			continue
 		}
-		out <- entry
+		bs.Send(entry)
 		index++
 	}
 
@@ -113,7 +115,9 @@ func (p *JsonParser) parseJSONArray(r io.Reader, out chan<- LogEntry) error {
 
 // parseJSONLines parses newline-delimited JSON (JSONL/NDJSON format).
 // Format: {"timestamp":"...","message":"..."}\n{"timestamp":"...","message":"..."}\n
-func (p *JsonParser) parseJSONLines(r io.Reader, out chan<- LogEntry) error {
+func (p *JsonParser) parseJSONLines(r io.Reader, out chan<- []LogEntry) error {
+	bs := NewBatchSender(out)
+	defer bs.Flush()
 	scanner := bufio.NewScanner(r)
 	// 4 MB initial buffer, 1 MB max per line. The cap protects against a
 	// pathological 1 GB single-line file that would otherwise OOM. PostgreSQL
@@ -148,7 +152,7 @@ func (p *JsonParser) parseJSONLines(r io.Reader, out chan<- LogEntry) error {
 			continue
 		}
 
-		out <- entry
+		bs.Send(entry)
 	}
 
 	if err := scanner.Err(); err != nil {

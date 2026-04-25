@@ -402,37 +402,34 @@ func (sa *StreamingAnalyzer) Finalize() AggregatedMetrics {
 // fileSize is used to determine whether to enable parallel SQL analysis:
 //   - Files > 200MB: parallel SQL analyzer (~20% speedup)
 //   - Files < 200MB: sequential processing (avoids goroutine overhead)
-func AggregateMetrics(ctx context.Context, in <-chan parser.LogEntry, fileSize int64) AggregatedMetrics {
+func AggregateMetrics(ctx context.Context, in <-chan []parser.LogEntry, fileSize int64) AggregatedMetrics {
 	// Enable parallel SQL analysis for large files to improve performance.
 	// Threshold of 200MB based on profiling: below this, goroutine overhead
 	// outweighs parallelization gains.
 	const thresholdMB = 200
 	enableParallel := fileSize > thresholdMB*1024*1024
 
-	// DEBUG: log which mode is selected (disabled in production)
-	//fmt.Fprintf(os.Stderr, "[DEBUG] File size: %.1f MB, Parallel SQL: %v (threshold: %d MB)\n",
-	//	float64(fileSize)/(1024*1024), enableParallel, thresholdMB)
-
 	analyzer := NewStreamingAnalyzer(enableParallel)
 
-	// Process entries in streaming mode. Periodically check ctx so a
-	// cancelled run (CTRL+C, follow-mode shutdown) does not have to wait
-	// for the entire input to drain on its own.
+	// Process batches in streaming mode. ctx checked once per batch so a
+	// cancelled run (CTRL+C, follow-mode shutdown) doesn't wait for full drain.
 loop:
 	for {
 		select {
 		case <-ctx.Done():
 			break loop
-		case entry, ok := <-in:
+		case batch, ok := <-in:
 			if !ok {
 				break loop
 			}
-			analyzer.Process(&entry)
+			for i := range batch {
+				analyzer.Process(&batch[i])
+			}
+			parser.PutBatch(batch)
 		}
 	}
 
-	// If ctx was cancelled mid-stream, drain remaining entries so the
-	// upstream goroutine can finish and close the channel cleanly.
+	// If ctx was cancelled mid-stream, drain remaining batches.
 	if ctx.Err() != nil {
 		for range in {
 		}

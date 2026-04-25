@@ -12,7 +12,7 @@ import (
 // ParseStdin reads from standard input, detects the log format, and streams parsed entries.
 // It reads a sample to detect the format, then creates a combined reader with the sample
 // and remaining stdin data for streaming parsing.
-func ParseStdin(out chan<- LogEntry) error {
+func ParseStdin(out chan<- []LogEntry) error {
 	// Read a sample from stdin to detect format
 	sample, err := readStdinSample(os.Stdin)
 	if err != nil {
@@ -79,7 +79,7 @@ func detectFormatFromSample(sample string) LogParser {
 
 // parseFromReader parses log entries from an io.Reader using the specified parser.
 // This is a generic parsing function that works with any LogParser implementation.
-func parseFromReader(parser LogParser, r io.Reader, out chan<- LogEntry) error {
+func parseFromReader(parser LogParser, r io.Reader, out chan<- []LogEntry) error {
 	switch p := parser.(type) {
 	case *CsvParser:
 		return p.parseReader(r, out)

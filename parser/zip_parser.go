@@ -16,7 +16,7 @@ import (
 type ZipParser struct{}
 
 // Parse reads a ZIP archive and parses any supported log files inside it.
-func (p *ZipParser) Parse(filename string, out chan<- LogEntry) error {
+func (p *ZipParser) Parse(filename string, out chan<- []LogEntry) error {
 	zr, err := zip.OpenReader(filename)
 	if err != nil {
 		return fmt.Errorf("failed to open zip archive %s: %w", filename, err)

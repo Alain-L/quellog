@@ -9,7 +9,7 @@ import (
 // ParseFromReader parses log content from an io.Reader using the specified format.
 // Supported formats: "csv", "json", "stderr"
 // Returns error if format is unknown.
-func ParseFromReader(r io.Reader, format string, out chan<- LogEntry) error {
+func ParseFromReader(r io.Reader, format string, out chan<- []LogEntry) error {
 	switch format {
 	case "csv":
 		p := &CsvParser{}
@@ -27,7 +27,7 @@ func ParseFromReader(r io.Reader, format string, out chan<- LogEntry) error {
 
 // ParseFromString parses log content from a string using the specified format.
 // This is a convenience wrapper around ParseFromReader.
-func ParseFromString(content string, format string, out chan<- LogEntry) error {
+func ParseFromString(content string, format string, out chan<- []LogEntry) error {
 	return ParseFromReader(strings.NewReader(content), format, out)
 }
 
@@ -52,7 +52,7 @@ func DetectFormatFromContent(sample string) string {
 func ParseFromReaderSync(r io.Reader, format string) ([]LogEntry, error) {
 	// Use a buffered channel and collect results
 	// This avoids duplicating all parser logic while still being sync-friendly
-	entryChan := make(chan LogEntry, 65536)
+	entryChan := make(chan []LogEntry, 1024)
 
 	var parseErr error
 	go func() {
@@ -61,8 +61,8 @@ func ParseFromReaderSync(r io.Reader, format string) ([]LogEntry, error) {
 	}()
 
 	entries := make([]LogEntry, 0, 100000)
-	for entry := range entryChan {
-		entries = append(entries, entry)
+	for batch := range entryChan {
+		entries = append(entries, batch...)
 	}
 
 	return entries, parseErr
@@ -80,7 +80,7 @@ func ParseFromStringSync(content string, format string) ([]LogEntry, error) {
 func ParseFromBytesSync(data []byte, format string) ([]LogEntry, error) {
 	// For stderr format, use optimized direct byte parsing
 	if format == "stderr" || format == "log" {
-		entryChan := make(chan LogEntry, 65536)
+		entryChan := make(chan []LogEntry, 1024)
 		var parseErr error
 
 		go func() {
@@ -90,8 +90,8 @@ func ParseFromBytesSync(data []byte, format string) ([]LogEntry, error) {
 		}()
 
 		entries := make([]LogEntry, 0, 100000)
-		for entry := range entryChan {
-			entries = append(entries, entry)
+		for batch := range entryChan {
+			entries = append(entries, batch...)
 		}
 
 		return entries, parseErr

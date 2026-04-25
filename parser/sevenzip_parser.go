@@ -17,7 +17,7 @@ import (
 type SevenZipParser struct{}
 
 // Parse reads a 7z archive and parses any supported log files inside it.
-func (p *SevenZipParser) Parse(filename string, out chan<- LogEntry) error {
+func (p *SevenZipParser) Parse(filename string, out chan<- []LogEntry) error {
 	r, err := sevenzip.OpenReader(filename)
 	if err != nil {
 		return fmt.Errorf("failed to open 7z archive %s: %w", filename, err)

@@ -9,7 +9,7 @@ package parser
 type MmapStderrParser struct{}
 
 // Parse falls back to buffered I/O on unsupported platforms.
-func (p *MmapStderrParser) Parse(filename string, out chan<- LogEntry) error {
+func (p *MmapStderrParser) Parse(filename string, out chan<- []LogEntry) error {
 	// Fall back to buffered I/O parser
 	bufParser := &StderrParser{}
 	return bufParser.Parse(filename, out)

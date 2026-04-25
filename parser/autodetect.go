@@ -78,7 +78,7 @@ var (
 //
 // For stderr/syslog format, uses memory-mapped I/O by default with automatic
 // fallback to buffered I/O if mmap fails (network filesystems, pipes, etc.).
-func ParseFile(filename string, out chan<- LogEntry) error {
+func ParseFile(filename string, out chan<- []LogEntry) error {
 	parser, err := detectParser(filename)
 	if err != nil {
 		return fmt.Errorf("%s: %w", filename, err)

@@ -119,7 +119,7 @@ func runAnalysisCycle(ctx context.Context, args []string) error {
 	}
 
 	// Step 3: Set up streaming pipeline
-	rawLogs := make(chan parser.LogEntry, 65536)
+	rawLogs := make(chan []parser.LogEntry, 1024)
 
 	// Track whether at least one input parsed successfully. The async
 	// parsers are fire-and-forget: errors get logged inside, and if
@@ -131,11 +131,11 @@ func runAnalysisCycle(ctx context.Context, args []string) error {
 
 	// Step 4: Apply filters (skip channel hop when no filters are active)
 	filters := buildLogFilters(beginT, endT)
-	var analyzeInput <-chan parser.LogEntry
+	var analyzeInput <-chan []parser.LogEntry
 	if filters.IsEmpty() {
 		analyzeInput = rawLogs
 	} else {
-		filteredLogs := make(chan parser.LogEntry, 65536)
+		filteredLogs := make(chan []parser.LogEntry, 1024)
 		go parser.FilterStream(ctx, rawLogs, filteredLogs, filters)
 		analyzeInput = filteredLogs
 	}
@@ -177,7 +177,7 @@ func validateStdinUsage(files []string) error {
 // Special handling: if "-" is in the files list, it reads from stdin. The
 // caller must ensure stdin is not mixed with regular files (see
 // validateStdinUsage).
-func parseFilesAsync(ctx context.Context, files []string, out chan<- parser.LogEntry, parsedAny *atomic.Bool) {
+func parseFilesAsync(ctx context.Context, files []string, out chan<- []parser.LogEntry, parsedAny *atomic.Bool) {
 	defer close(out)
 
 	// Special case: stdin (caller has validated it is not mixed)
@@ -247,7 +247,7 @@ func buildLogFilters(beginT, endT time.Time) parser.LogFilters {
 }
 
 // processAndOutput analyzes filtered logs and outputs results in the requested format.
-func processAndOutput(ctx context.Context, filteredLogs <-chan parser.LogEntry, startTime time.Time, totalFileSize int64, inputArgs []string) error {
+func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry, startTime time.Time, totalFileSize int64, inputArgs []string) error {
 	// Validate flag compatibility
 	formatCount := 0
 	if jsonFlag || jsonCompactFlag {
@@ -608,7 +608,7 @@ func createOutputWriter(path string) (io.Writer, func(), error) {
 
 // requireMetrics aggregates metrics and returns an error if no log entries
 // were parsed.
-func requireMetrics(ctx context.Context, filteredLogs <-chan parser.LogEntry, totalFileSize int64, startTime time.Time) (analysis.AggregatedMetrics, time.Duration, error) {
+func requireMetrics(ctx context.Context, filteredLogs <-chan []parser.LogEntry, totalFileSize int64, startTime time.Time) (analysis.AggregatedMetrics, time.Duration, error) {
 	metrics := analysis.AggregateMetrics(ctx, filteredLogs, totalFileSize)
 	processingDuration := time.Since(startTime)
 	if metrics.Global.Count == 0 {

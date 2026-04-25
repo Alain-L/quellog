@@ -3,6 +3,7 @@ package parser
 
 import (
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -102,7 +103,75 @@ type LogParser interface {
 	//
 	// Note: Individual malformed lines may be logged as warnings but should not
 	// cause the entire parsing operation to fail.
-	Parse(filename string, out chan<- LogEntry) error
+	Parse(filename string, out chan<- []LogEntry) error
+}
+
+// batchSize is the target batch size for parsers emitting through
+// chan<- []LogEntry. Tuned via sweep on J.log/I.log: variation between
+// 32 and 2048 is within ~3% of wall (noise), so any value past ~32
+// captures the gain — 256 picked as a balanced default that doesn't
+// hold large transient slices in flight.
+const batchSize = 256
+
+// batchPool recycles []LogEntry buffers across the pipeline to avoid
+// re-allocating ~batchSize × N entries per parse. Producers (parsers
+// via BatchSender) acquire via getBatch, consumers (analyzers,
+// FilterStream-on-drop) return via PutBatch.
+var batchPool = sync.Pool{
+	New: func() interface{} {
+		s := make([]LogEntry, 0, batchSize)
+		return &s
+	},
+}
+
+// getBatch returns a fresh empty batch with cap == batchSize, reusing
+// pool memory when available.
+func getBatch() []LogEntry {
+	p := batchPool.Get().(*[]LogEntry)
+	return (*p)[:0]
+}
+
+// PutBatch returns a batch to the pool for reuse. Safe to call with
+// any slice — undersized batches are discarded to keep pool quality.
+func PutBatch(b []LogEntry) {
+	if cap(b) < batchSize {
+		return
+	}
+	s := b[:0]
+	batchPool.Put(&s)
+}
+
+// BatchSender accumulates LogEntry into a slice and flushes it to a
+// chan<- []LogEntry when the batch reaches batchSize. Reduces channel
+// signaling overhead (and consumer wake-ups) by giving the consumer
+// enough work per wake to stay busy. Backed by batchPool so flushed
+// slices are recycled rather than freshly allocated.
+type BatchSender struct {
+	out chan<- []LogEntry
+	buf []LogEntry
+}
+
+// NewBatchSender wraps a chan<- []LogEntry with a batching buffer.
+func NewBatchSender(out chan<- []LogEntry) *BatchSender {
+	return &BatchSender{out: out, buf: getBatch()}
+}
+
+// Send appends an entry; flushes automatically when buffer is full.
+func (b *BatchSender) Send(e LogEntry) {
+	b.buf = append(b.buf, e)
+	if len(b.buf) >= batchSize {
+		b.out <- b.buf
+		b.buf = getBatch()
+	}
+}
+
+// Flush sends any remaining buffered entries. Must be called at the end
+// of parsing to avoid losing the trailing partial batch.
+func (b *BatchSender) Flush() {
+	if len(b.buf) > 0 {
+		b.out <- b.buf
+		b.buf = nil
+	}
 }
 
 // ExtractPID extracts the PostgreSQL process ID from a log message.

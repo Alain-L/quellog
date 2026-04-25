@@ -186,23 +186,23 @@ func wrapCompressedParser(parser LogParser, codec compressionCodec) LogParser {
 	switch parser.(type) {
 	case *JsonParser:
 		p := &JsonParser{}
-		return newCompressedParser(codec, func(r io.Reader, out chan<- LogEntry) error {
+		return newCompressedParser(codec, func(r io.Reader, out chan<- []LogEntry) error {
 			return p.parseReader(r, out)
 		})
 	case *CsvParser:
 		p := &CsvParser{}
-		return newCompressedParser(codec, func(r io.Reader, out chan<- LogEntry) error {
+		return newCompressedParser(codec, func(r io.Reader, out chan<- []LogEntry) error {
 			return p.parseReader(r, out)
 		})
 	case *StderrParser:
 		p := &StderrParser{}
-		return newCompressedParser(codec, func(r io.Reader, out chan<- LogEntry) error {
+		return newCompressedParser(codec, func(r io.Reader, out chan<- []LogEntry) error {
 			return p.parseReader(r, out)
 		})
 	case *MmapStderrParser:
 		// mmap is not supported with compressed streams; fall back to standard stderr parser
 		p := &StderrParser{}
-		return newCompressedParser(codec, func(r io.Reader, out chan<- LogEntry) error {
+		return newCompressedParser(codec, func(r io.Reader, out chan<- []LogEntry) error {
 			return p.parseReader(r, out)
 		})
 	default:
@@ -212,18 +212,18 @@ func wrapCompressedParser(parser LogParser, codec compressionCodec) LogParser {
 }
 
 type compressedLogParser struct {
-	parse func(io.Reader, chan<- LogEntry) error
+	parse func(io.Reader, chan<- []LogEntry) error
 	codec compressionCodec
 }
 
-func newCompressedParser(codec compressionCodec, parse func(io.Reader, chan<- LogEntry) error) LogParser {
+func newCompressedParser(codec compressionCodec, parse func(io.Reader, chan<- []LogEntry) error) LogParser {
 	return &compressedLogParser{
 		parse: parse,
 		codec: codec,
 	}
 }
 
-func (c *compressedLogParser) Parse(filename string, out chan<- LogEntry) error {
+func (c *compressedLogParser) Parse(filename string, out chan<- []LogEntry) error {
 	file, err := os.Open(filename)
 	if err != nil {
 		return fmt.Errorf("failed to open file %s: %w", filename, err)

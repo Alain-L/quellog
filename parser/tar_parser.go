@@ -20,7 +20,7 @@ var errUnsupportedArchiveEntry = errors.New("unsupported archive entry")
 type TarParser struct{}
 
 // Parse reads a tar or tar.gz archive and parses any supported log files inside it.
-func (p *TarParser) Parse(filename string, out chan<- LogEntry) error {
+func (p *TarParser) Parse(filename string, out chan<- []LogEntry) error {
 	file, err := os.Open(filename)
 	if err != nil {
 		return fmt.Errorf("failed to open tar archive %s: %w", filename, err)
@@ -168,7 +168,7 @@ func isRotatedLogFile(lower string) bool {
 }
 
 // parseArchiveEntry selects the correct parser for an archive entry.
-func parseArchiveEntry(name string, r io.Reader, out chan<- LogEntry) error {
+func parseArchiveEntry(name string, r io.Reader, out chan<- []LogEntry) error {
 	lower := strings.ToLower(name)
 
 	switch {
@@ -208,7 +208,7 @@ func parseArchiveEntry(name string, r io.Reader, out chan<- LogEntry) error {
 	}
 }
 
-func parseZstdArchiveEntry(name string, r io.Reader, suffix string, out chan<- LogEntry) error {
+func parseZstdArchiveEntry(name string, r io.Reader, suffix string, out chan<- []LogEntry) error {
 	zr, err := newZstdDecoder(r)
 	if err != nil {
 		return fmt.Errorf("failed to decompress %s: %w", name, err)
