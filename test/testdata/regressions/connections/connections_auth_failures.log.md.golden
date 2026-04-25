@@ -41,7 +41,7 @@ This _quellog_ report summarizes **10** log entries collected between 20 Apr 202
 - **Avg connections per hour**: 499.65
 - **Disconnection count**: 2
 - **Avg session time**: 6s
-- **Median session time**: 10s
+- **Median session time**: 6s
 - **Peak concurrent sessions**: 2 (at 05:00:05)
 
 ### Session Duration Statistics

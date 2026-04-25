@@ -518,16 +518,12 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 			avgConnPerHour := float64(m.Connections.ConnectionReceivedCount) / duration.Hours()
 			fmt.Printf("  %-25s : %.2f\n", "Avg connections per hour", avgConnPerHour)
 		}
-		if len(m.Connections.SessionDurations) > 0 {
+		if m.Connections.SessionStats.Count > 0 {
 			// Average
 			avgSessionTime := time.Duration(float64(m.Connections.TotalSessionTime) / float64(m.Connections.DisconnectionCount))
 			fmt.Printf("  %-25s : %s\n", "Avg session time", formatSessionDuration(avgSessionTime))
-			// Median (more representative for skewed distributions)
-			sorted := make([]time.Duration, len(m.Connections.SessionDurations))
-			copy(sorted, m.Connections.SessionDurations)
-			sort.Slice(sorted, func(i, j int) bool { return sorted[i] < sorted[j] })
-			median := sorted[len(sorted)/2]
-			fmt.Printf("  %-25s : %s\n", "Median session time", formatSessionDuration(median))
+			// Median (P²-estimated; <5% error after 50 samples)
+			fmt.Printf("  %-25s : %s\n", "Median session time", formatSessionDuration(m.Connections.SessionStats.Median))
 		} else if m.Connections.DisconnectionCount > 0 {
 			fmt.Printf("  %-25s : %s\n", "Avg session time", "N/A")
 		}
@@ -552,7 +548,7 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 
 		// Detailed mode: show additional stats when --connections is explicitly used
 		isExplicit := !has("all")
-		if isExplicit && len(m.Connections.SessionDurations) > 0 {
+		if isExplicit && m.Connections.SessionStats.Count > 0 {
 			printDetailedConnectionStats(m, bold, reset, true)
 		}
 	}
@@ -712,9 +708,9 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 // This is shown only when --connections is explicitly used (not as part of "all").
 func printDetailedConnectionStats(m analysis.AggregatedMetrics, bold, reset string, showAll bool) {
 	// 1. SESSION TIME DISTRIBUTION (with histogram bars)
-	if len(m.Connections.SessionDurations) > 0 {
+	if m.Connections.SessionStats.Count > 0 {
 		fmt.Println()
-		dist := analysis.CalculateDurationDistribution(m.Connections.SessionDurations)
+		dist := m.Connections.SessionDistribution
 
 		// Define bucket order for consistent display
 		orderedBuckets := []string{"< 1s", "1s - 1min", "1min - 30min", "30min - 2h", "2h - 5h", "> 5h"}

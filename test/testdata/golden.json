@@ -131,7 +131,7 @@
       "min_duration": "21ms",
       "max_duration": "11.315s",
       "avg_duration": "1.35980167s",
-      "median_duration": "1.269s",
+      "median_duration": "1.356431488s",
       "cumulated_duration": "32m34.034999982s"
     },
     "session_distribution": {

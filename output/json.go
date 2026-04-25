@@ -605,21 +605,17 @@ func buildJSONData(m analysis.AggregatedMetrics, sections []string, full bool) m
 		for _, t := range m.Connections.Connections {
 			conn.Connections = append(conn.Connections, t.Format("2006-01-02 15:04:05"))
 		}
-		if len(m.Connections.SessionDurations) > 0 {
-			stats := analysis.CalculateDurationStats(m.Connections.SessionDurations)
-			var cumulated time.Duration
-			for _, d := range m.Connections.SessionDurations {
-				cumulated += d
-			}
+		if m.Connections.SessionStats.Count > 0 {
+			stats := m.Connections.SessionStats
 			conn.SessionStats = &SessionStatsJSON{
 				Count:     stats.Count,
 				Min:       stats.Min.String(),
 				Max:       stats.Max.String(),
 				Avg:       stats.Avg.String(),
 				Median:    stats.Median.String(),
-				Cumulated: cumulated.String(),
+				Cumulated: m.Connections.SessionCumulated.String(),
 			}
-			conn.SessionDistribution = analysis.CalculateDurationDistribution(m.Connections.SessionDurations)
+			conn.SessionDistribution = m.Connections.SessionDistribution
 		}
 		if len(m.Connections.SessionsByUser) > 0 {
 			conn.SessionsByUser = make(map[string]SessionStatsJSON)

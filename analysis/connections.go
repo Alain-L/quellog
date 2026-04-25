@@ -33,9 +33,19 @@ type ConnectionMetrics struct {
 	// Useful for analyzing connection rate and patterns over time.
 	Connections []time.Time
 
-	// SessionDurations contains all individual session durations.
-	// Used for calculating median, distribution, and statistics.
-	SessionDurations []time.Duration
+	// SessionStats holds the pre-computed global session duration statistics
+	// (count, min, max, avg, median). Median is estimated via the P² algorithm
+	// (<5% error after 50 samples, <0.01% after 1000); min, max, avg, count
+	// are exact.
+	SessionStats DurationStats
+
+	// SessionCumulated is the sum of all session durations. Exact.
+	SessionCumulated time.Duration
+
+	// SessionDistribution counts session durations per bucket
+	// ("< 1s", "1s - 1min", "1min - 30min", "30min - 2h", "2h - 5h", "> 5h").
+	// Pre-computed in streaming so the per-session slice can be discarded.
+	SessionDistribution map[string]int
 
 	// SessionEvents contains all sessions with their start and end times.
 	// Used for calculating concurrent connections over time.
@@ -87,11 +97,21 @@ type ConnectionAnalyzer struct {
 	disconnectionCount      int
 	totalSessionTime        time.Duration
 	connections             []time.Time
-	sessionDurations        []time.Duration
-	sessionEvents           []SessionEvent
-	sessionsByUser          map[string]*StreamingDurationStats
-	sessionsByDatabase      map[string]*StreamingDurationStats
-	sessionsByHost          map[string]*StreamingDurationStats
+
+	// Streaming accumulators that replace the previous full slice of
+	// per-session durations. The slice held one time.Duration per session
+	// solely so the renderers could later compute median + distribution
+	// from it; on J.log this was ~45 MB of float64 retained for the whole
+	// parse. Now each disconnect feeds globalSessionStats (P² for median,
+	// exact for min/max/avg/sum) and increments one bucket of
+	// sessionDistribution. The retained state is bounded.
+	globalSessionStats  StreamingDurationStats
+	sessionDistribution map[string]int
+
+	sessionEvents      []SessionEvent
+	sessionsByUser     map[string]*StreamingDurationStats
+	sessionsByDatabase map[string]*StreamingDurationStats
+	sessionsByHost     map[string]*StreamingDurationStats
 
 	// activeConnections tracks live receiveds so the orphan-flush at
 	// Finalize knows what's left dangling. The peak itself is computed
@@ -113,13 +133,47 @@ type ConnectionAnalyzer struct {
 // NewConnectionAnalyzer creates a new connection analyzer.
 func NewConnectionAnalyzer() *ConnectionAnalyzer {
 	return &ConnectionAnalyzer{
-		connections:        make([]time.Time, 0, 1000),
-		sessionDurations:   make([]time.Duration, 0, 1000),
-		sessionEvents:      make([]SessionEvent, 0, 1000),
-		sessionsByUser:     make(map[string]*StreamingDurationStats, 100),
-		sessionsByDatabase: make(map[string]*StreamingDurationStats, 50),
-		sessionsByHost:     make(map[string]*StreamingDurationStats, 100),
-		activeConnections:  make(map[string]time.Time, 1000),
+		connections:         make([]time.Time, 0, 1000),
+		sessionDistribution: newSessionDistribution(),
+		sessionEvents:       make([]SessionEvent, 0, 1000),
+		sessionsByUser:      make(map[string]*StreamingDurationStats, 100),
+		sessionsByDatabase:  make(map[string]*StreamingDurationStats, 50),
+		sessionsByHost:      make(map[string]*StreamingDurationStats, 100),
+		activeConnections:   make(map[string]time.Time, 1000),
+	}
+}
+
+// newSessionDistribution returns a fresh distribution map with all
+// buckets pre-initialized to zero — same key set as
+// CalculateDurationDistribution so renderers see a stable shape even
+// when no session was logged.
+func newSessionDistribution() map[string]int {
+	return map[string]int{
+		"< 1s":         0,
+		"1s - 1min":    0,
+		"1min - 30min": 0,
+		"30min - 2h":   0,
+		"2h - 5h":      0,
+		"> 5h":         0,
+	}
+}
+
+// addToSessionDistribution increments the right bucket. Keep in sync
+// with CalculateDurationDistribution in analysis/common.go.
+func (a *ConnectionAnalyzer) addToSessionDistribution(d time.Duration) {
+	switch {
+	case d < time.Second:
+		a.sessionDistribution["< 1s"]++
+	case d < time.Minute:
+		a.sessionDistribution["1s - 1min"]++
+	case d < 30*time.Minute:
+		a.sessionDistribution["1min - 30min"]++
+	case d < 2*time.Hour:
+		a.sessionDistribution["30min - 2h"]++
+	case d < 5*time.Hour:
+		a.sessionDistribution["2h - 5h"]++
+	default:
+		a.sessionDistribution["> 5h"]++
 	}
 }
 
@@ -168,7 +222,8 @@ func (a *ConnectionAnalyzer) Process(entry *parser.LogEntry) {
 
 		if duration := extractSessionTime(msg); duration > 0 {
 			a.totalSessionTime += duration
-			a.sessionDurations = append(a.sessionDurations, duration)
+			a.globalSessionStats.Add(duration)
+			a.addToSessionDistribution(duration)
 
 			// Store session event for concurrent tracking
 			startTime := entry.Timestamp.Add(-duration)
@@ -289,7 +344,9 @@ func (a *ConnectionAnalyzer) Finalize() ConnectionMetrics {
 		DisconnectionCount:      a.disconnectionCount,
 		TotalSessionTime:        a.totalSessionTime,
 		Connections:             a.connections,
-		SessionDurations:        a.sessionDurations,
+		SessionStats:            a.globalSessionStats.Stats(),
+		SessionCumulated:        a.globalSessionStats.Cumulated(),
+		SessionDistribution:     a.sessionDistribution,
 		SessionEvents:           a.sessionEvents,
 		SessionsByUser:          a.sessionsByUser,
 		SessionsByDatabase:      a.sessionsByDatabase,

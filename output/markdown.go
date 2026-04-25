@@ -557,16 +557,12 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 		}
 		b.WriteString(fmt.Sprintf("- **Disconnection count**: %d\n", m.Connections.DisconnectionCount))
 
-		if len(m.Connections.SessionDurations) > 0 {
+		if m.Connections.SessionStats.Count > 0 {
 			// Average
 			avgSessionTime := time.Duration(float64(m.Connections.TotalSessionTime) / float64(m.Connections.DisconnectionCount))
 			b.WriteString(fmt.Sprintf("- **Avg session time**: %s\n", formatSessionDuration(avgSessionTime)))
-			// Median (more representative for skewed distributions)
-			sorted := make([]time.Duration, len(m.Connections.SessionDurations))
-			copy(sorted, m.Connections.SessionDurations)
-			sort.Slice(sorted, func(i, j int) bool { return sorted[i] < sorted[j] })
-			median := sorted[len(sorted)/2]
-			b.WriteString(fmt.Sprintf("- **Median session time**: %s\n", formatSessionDuration(median)))
+			// Median (P²-estimated; <5% error after 50 samples)
+			b.WriteString(fmt.Sprintf("- **Median session time**: %s\n", formatSessionDuration(m.Connections.SessionStats.Median)))
 		} else if m.Connections.DisconnectionCount > 0 {
 			b.WriteString("- **Avg session time**: N/A\n")
 		}
@@ -580,12 +576,8 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 		b.WriteString("\n")
 
 		// Session statistics
-		if len(m.Connections.SessionDurations) > 0 {
-			stats := analysis.CalculateDurationStats(m.Connections.SessionDurations)
-			var cumulated time.Duration
-			for _, d := range m.Connections.SessionDurations {
-				cumulated += d
-			}
+		if m.Connections.SessionStats.Count > 0 {
+			stats := m.Connections.SessionStats
 
 			b.WriteString("### Session Duration Statistics\n\n")
 			b.WriteString(fmt.Sprintf("- **Count**: %d\n", stats.Count))
@@ -593,10 +585,10 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 			b.WriteString(fmt.Sprintf("- **Max**: %s\n", stats.Max.Round(time.Second)))
 			b.WriteString(fmt.Sprintf("- **Avg**: %s\n", stats.Avg.Round(time.Second)))
 			b.WriteString(fmt.Sprintf("- **Median**: %s\n", stats.Median.Round(time.Second)))
-			b.WriteString(fmt.Sprintf("- **Cumulated**: %s\n\n", cumulated.Round(time.Second)))
+			b.WriteString(fmt.Sprintf("- **Cumulated**: %s\n\n", m.Connections.SessionCumulated.Round(time.Second)))
 
 			// Session duration distribution
-			dist := analysis.CalculateDurationDistribution(m.Connections.SessionDurations)
+			dist := m.Connections.SessionDistribution
 			// Calculate proper scale factor for histogram
 			maxVal := 0
 			for _, v := range dist {
