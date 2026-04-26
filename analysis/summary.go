@@ -523,29 +523,14 @@ func (a *UniqueEntityAnalyzer) Process(entry *parser.LogEntry) {
 					// application_name is the long form, typically the
 					// last entity on a log_line_prefix or appended at the
 					// end of disconnection "session time: ..." messages.
-					// In both cases the value can legitimately contain
-					// spaces (e.g. "Envois Commande Baudu", "DBeaver 26
-					// - SQLEditor <foo.sql>") and is followed by either a
-					// severity marker, a comma-separated next field, or
-					// end-of-line. The conservative heuristic that broke
-					// on the first space silently truncated such names —
-					// "Envois Commande Baudu" became "Envois" 251 times
-					// alongside the correctly-extracted form 273 times,
-					// inflating the unique-app count and skewing TOP APPS.
-					// Always run with commaSep=true: extractValueAt then
-					// stops at commas, brackets, or a severity marker
-					// inside the value, but keeps internal spaces.
+					// The value can legitimately contain spaces (e.g.
+					// "Envois Commande Baudu", "DBeaver 26 - SQLEditor
+					// <foo.sql>"). Always run with commaSep=true so it
+					// stops at commas, brackets, or a marker from
+					// findSeverityMarker (which also lists " SSL " to
+					// catch the PG "connection authorized: …
+					// application_name=NAME SSL enabled (…)" suffix).
 					if appName := extractValueAt(msg, eqIdx+1, true); appName != "" {
-						// Strip the PostgreSQL "connection authorized"
-						// SSL suffix when present:
-						//   "...application_name=favier SSL enabled (protocol=TLSv1.2, cipher=...)"
-						// PostgreSQL appends "<NAME> SSL enabled (...)" without
-						// a structural separator, so the comma-aware
-						// extractor would otherwise capture the whole
-						// "favier SSL enabled (protocol=TLSv1.2" as the app.
-						if idx := strings.Index(appName, " SSL enabled"); idx != -1 {
-							appName = appName[:idx]
-						}
 						currentApp = appName
 					}
 				}
@@ -710,17 +695,47 @@ func extractValueAt(msg string, startPos int, commaSep ...bool) string {
 	return val
 }
 
-// normalizeHost removes the port from a host address.
-// findSeverityMarker returns the position of the first PostgreSQL severity
-// marker (" LOG:", " ERROR:", etc.) in s, or -1 if not found.
+// findSeverityMarker returns the position of the first PostgreSQL
+// severity (or continuation) marker in s, or -1 if not found. Used by
+// extractValueAt when running with commaSep=true to stop a value-with-
+// spaces from greedily swallowing the rest of the message. We include
+// every marker PostgreSQL emits after the prefix:
+//
+//   - The 8 severity levels (PANIC, FATAL, ERROR, WARNING, NOTICE,
+//     LOG, INFO, DEBUG). DEBUG actually has 5 numbered variants
+//     (DEBUG1..DEBUG5) but the marker scan only needs the prefix.
+//   - The 6 continuation markers (DETAIL, HINT, CONTEXT, STATEMENT,
+//     QUERY, LOCATION) which can appear inline on long composite
+//     log lines (typical of custom RAISE chains, e.g.
+//     "application_name=monitor-agent NOTICE: ... NOTICE: ...").
+//
+// Without NOTICE / continuation markers the previous list missed
+// these patterns and pulled them into the extracted entity, producing
+// fake variants like "monitor-agent NOTICE: ... table" in TOP APPS.
 func findSeverityMarker(s string) int {
-	for _, sev := range []string{" LOG:", " ERROR:", " WARNING:", " FATAL:", " PANIC:"} {
+	markers := []string{
+		" LOG:", " ERROR:", " WARNING:", " FATAL:", " PANIC:",
+		" NOTICE:", " INFO:", " DEBUG:",
+		" DETAIL:", " HINT:", " CONTEXT:", " STATEMENT:", " QUERY:", " LOCATION:",
+		// PostgreSQL appends " SSL <state> (protocol=…, cipher=…, …)"
+		// after application_name in "connection authorized:" log
+		// messages. Without this marker the comma-aware extractor would
+		// pull the whole "favier SSL enabled (protocol=TLSv1.2" tail
+		// into the captured value.
+		" SSL ",
+	}
+	earliest := -1
+	for _, sev := range markers {
 		if pos := strings.Index(s, sev); pos != -1 {
-			return pos
+			if earliest == -1 || pos < earliest {
+				earliest = pos
+			}
 		}
 	}
-	return -1
+	return earliest
 }
+
+// normalizeHost removes the port from a host address.
 
 // Handles formats like "192.168.1.1(12345)" or "192.168.1.1:5432" or "[::1](12345)".
 // Returns just the IP/hostname part.
