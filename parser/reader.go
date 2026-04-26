@@ -52,7 +52,7 @@ func DetectFormatFromContent(sample string) string {
 func ParseFromReaderSync(r io.Reader, format string) ([]LogEntry, error) {
 	// Use a buffered channel and collect results
 	// This avoids duplicating all parser logic while still being sync-friendly
-	entryChan := make(chan []LogEntry, 1024)
+	entryChan := make(chan []LogEntry, 64)
 
 	var parseErr error
 	go func() {
@@ -80,7 +80,7 @@ func ParseFromStringSync(content string, format string) ([]LogEntry, error) {
 func ParseFromBytesSync(data []byte, format string) ([]LogEntry, error) {
 	// For stderr format, use optimized direct byte parsing
 	if format == "stderr" || format == "log" {
-		entryChan := make(chan []LogEntry, 1024)
+		entryChan := make(chan []LogEntry, 64)
 		var parseErr error
 
 		go func() {

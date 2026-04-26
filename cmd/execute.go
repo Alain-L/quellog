@@ -119,7 +119,7 @@ func runAnalysisCycle(ctx context.Context, args []string) error {
 	}
 
 	// Step 3: Set up streaming pipeline
-	rawLogs := make(chan []parser.LogEntry, 1024)
+	rawLogs := make(chan []parser.LogEntry, 64)
 
 	// Track whether at least one input parsed successfully. The async
 	// parsers are fire-and-forget: errors get logged inside, and if
@@ -135,7 +135,7 @@ func runAnalysisCycle(ctx context.Context, args []string) error {
 	if filters.IsEmpty() {
 		analyzeInput = rawLogs
 	} else {
-		filteredLogs := make(chan []parser.LogEntry, 1024)
+		filteredLogs := make(chan []parser.LogEntry, 64)
 		go parser.FilterStream(ctx, rawLogs, filteredLogs, filters)
 		analyzeInput = filteredLogs
 	}

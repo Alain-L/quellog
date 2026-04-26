@@ -133,9 +133,22 @@ func getBatch() []LogEntry {
 
 // PutBatch returns a batch to the pool for reuse. Safe to call with
 // any slice — undersized batches are discarded to keep pool quality.
+//
+// Each LogEntry is zeroed before pooling so its Message string (and
+// any future pointer-typed field) is no longer reachable from the
+// pooled slice's backing array. Without this, the GC could not free
+// the messages in flight: b[:0] reduces the length but the cap-sized
+// underlying array still references every Message string of the
+// previous batch. On C.csv this kept ~190 MB of strings live across
+// the pipeline. Zeroing here costs ~batchSize×sizeof(LogEntry) bytes
+// of writes per batch — negligible compared to per-entry parse cost.
 func PutBatch(b []LogEntry) {
 	if cap(b) < batchSize {
 		return
+	}
+	full := b[:cap(b)]
+	for i := range full {
+		full[i] = LogEntry{}
 	}
 	s := b[:0]
 	batchPool.Put(&s)
