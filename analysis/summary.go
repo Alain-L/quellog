@@ -520,32 +520,8 @@ func (a *UniqueEntityAnalyzer) Process(entry *parser.LogEntry) {
 		if lastChar == 'e' {
 			if eqIdx >= 16 && msg[eqIdx-16:eqIdx] == "application_name" {
 				if currentApp == "" {
-					// application_name is the long form, typically the
-					// last entity on a log_line_prefix or appended at the
-					// end of disconnection "session time: ..." messages.
-					// In both cases the value can legitimately contain
-					// spaces (e.g. "Envois Commande Baudu", "DBeaver 26
-					// - SQLEditor <foo.sql>") and is followed by either a
-					// severity marker, a comma-separated next field, or
-					// end-of-line. The conservative heuristic that broke
-					// on the first space silently truncated such names —
-					// "Envois Commande Baudu" became "Envois" 251 times
-					// alongside the correctly-extracted form 273 times,
-					// inflating the unique-app count and skewing TOP APPS.
-					// Always run with commaSep=true: extractValueAt then
-					// stops at commas, brackets, or a severity marker
-					// inside the value, but keeps internal spaces.
-					if appName := extractValueAt(msg, eqIdx+1, true); appName != "" {
-						// Strip the PostgreSQL "connection authorized"
-						// SSL suffix when present:
-						//   "...application_name=favier SSL enabled (protocol=TLSv1.2, cipher=...)"
-						// PostgreSQL appends "<NAME> SSL enabled (...)" without
-						// a structural separator, so the comma-aware
-						// extractor would otherwise capture the whole
-						// "favier SSL enabled (protocol=TLSv1.2" as the app.
-						if idx := strings.Index(appName, " SSL enabled"); idx != -1 {
-							appName = appName[:idx]
-						}
+					commaSep := eqIdx >= 17 && msg[eqIdx-17] == ','
+					if appName := extractValueAt(msg, eqIdx+1, commaSep); appName != "" {
 						currentApp = appName
 					}
 				}
