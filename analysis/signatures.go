@@ -378,28 +378,21 @@ func NormalizeEvent(msg string) string {
 
 	// Look for standard PostgreSQL metadata keywords that might appear after the main message.
 
-	// Standard PostgreSQL metadata keywords + common application markers
-	// that introduce variable content (SQL queries, payloads). Stripping
-	// after them collapses many WARN/ERROR variants down to a single
-	// pattern. Example: a French app emits
-	// "Durée d'exécution favori : 1s, ID : 42, SQL : 'select ...'" —
-	// without " SQL :" stripping each query produces a distinct pattern.
 	suffixes := []string{
+
 		" DETAIL:",
+
 		" HINT:",
+
 		" QUERY:",
+
 		" STATEMENT:",
+
 		" CONTEXT:",
+
 		" SQLSTATE =",
+
 		" LOCATION:",
-		// Application-level markers seen in the wild (case-insensitive
-		// not implemented yet — covers the common forms only).
-		" SQL :",
-		" SQL:",
-		" Query :",
-		" Query:",
-		" Requête :",
-		" Requête:",
 	}
 
 	shortestIdx := -1
