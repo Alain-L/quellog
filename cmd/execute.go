@@ -455,7 +455,7 @@ func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry
 
 	// Default: text output
 	PrintProcessingSummary(metrics.Global.Count, processingDuration, totalFileSize)
-	output.PrintMetrics(metrics, sections, fullFlag, verboseFlag)
+	output.PrintMetrics(metrics, sections, fullFlag)
 	return nil
 }
 

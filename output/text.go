@@ -17,7 +17,7 @@ import (
 
 // PrintMetrics displays the aggregated metrics.
 // If full is true, displays extended analysis sections.
-func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full, verbose bool) {
+func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 
 	// Check flags
 	has := func(name string) bool {
@@ -56,9 +56,9 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full, verbose
 
 	// Events
 	if has("events") && len(m.EventSummaries) > 0 {
-		PrintEventsReport(m.EventSummaries, m.TopEvents, false, verbose)
+		PrintEventsReport(m.EventSummaries, m.TopEvents, false)
 	} else if has("errors") && len(m.EventSummaries) > 0 {
-		PrintEventsReport(m.EventSummaries, m.TopEvents, true, verbose)
+		PrintEventsReport(m.EventSummaries, m.TopEvents, true)
 	}
 
 	// Temp Files section.
@@ -1478,10 +1478,7 @@ func truncateQuery(query string, length int) string {
 }
 
 // PrintEventsReport prints a consolidated event report including summary and top events.
-// When verbose is true, the normalized message is shown in full (no truncation)
-// and the raw example is appended on its own indented line so callers can see
-// the original payload that produced the pattern.
-func PrintEventsReport(summaries []analysis.EventSummary, topEvents []analysis.EventStat, onlyErrors bool, verbose bool) {
+func PrintEventsReport(summaries []analysis.EventSummary, topEvents []analysis.EventStat, onlyErrors bool) {
 	// ANSI styles.
 	bold := ansiBold
 	reset := ansiReset
@@ -1538,25 +1535,10 @@ func PrintEventsReport(summaries []analysis.EventSummary, topEvents []analysis.E
 			}
 		}
 
-		// Print Severity Main Line, including a distinct-pattern counter
-		// when we have at least one collapsed pattern for this severity.
-		// Helps readers gauge diversity at a glance: "1500 WARNs across
-		// 12 patterns" vs "1500 WARNs across 1 pattern" tell very
-		// different stories about a log.
-		patternCount := len(eventsBySeverity[summary.Type])
-		if patternCount > 0 {
-			plural := "patterns"
-			if patternCount == 1 {
-				plural = "pattern"
-			}
-			fmt.Printf("  %-*s : %d (%.1f%%) — %d %s\n",
-				severityLabelWidth, summary.Type,
-				summary.Count, summary.Percentage, patternCount, plural)
-		} else {
-			fmt.Printf("  %-*s : %d (%.1f%%)\n",
-				severityLabelWidth, summary.Type,
-				summary.Count, summary.Percentage)
-		}
+		// Print Severity Main Line
+		fmt.Printf("  %-*s : %d (%.1f%%)\n",
+			severityLabelWidth, summary.Type,
+			summary.Count, summary.Percentage)
 
 		// Process detailed events for this severity
 		if events, ok := eventsBySeverity[summary.Type]; ok {
@@ -1638,28 +1620,20 @@ func PrintEventsReport(summaries []analysis.EventSummary, topEvents []analysis.E
 				}
 
 				for _, e := range classEvents {
+					msg := e.Message
+					if len(msg) > msgWidth {
+						msg = msg[:msgWidth-3] + "..."
+					}
+
 					localPct := 0.0
 					if summary.Count > 0 {
 						localPct = (float64(e.Count) / float64(summary.Count)) * 100
 					}
 
-					if verbose {
-						// Full normalized message + raw example below.
-						fmt.Printf("%s%s  %6d  %6.2f%%\n",
-							indent, e.Message, e.Count, localPct)
-						if e.Example != "" {
-							fmt.Printf("%s  example: %s\n", indent, e.Example)
-						}
-					} else {
-						msg := e.Message
-						if len(msg) > msgWidth {
-							msg = msg[:msgWidth-3] + "..."
-						}
-						fmt.Printf("%s%-*s  %6d  %6.2f%%\n",
-							indent,
-							msgWidth, msg,
-							e.Count, localPct)
-					}
+					fmt.Printf("%s%-*s  %6d  %6.2f%%\n",
+						indent,
+						msgWidth, msg,
+						e.Count, localPct)
 				}
 			}
 		}

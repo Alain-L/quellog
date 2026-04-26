@@ -4,7 +4,7 @@ This _quellog_ report summarizes **10** log entries collected between 20 Apr 202
 
 ## EVENTS
 
-- **FATAL**: 4 (40.0%) — 4 patterns
+- **FATAL**: 4 (40.0%)
   - `LDAP authentication failed for user ?` (1) [25.0%]
   - `Peer authentication failed for user ?` (1) [25.0%]
   - `no pg_hba.conf entry for host ?, user ?, database ?, no encryption` (1) [25.0%]

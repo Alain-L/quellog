@@ -4,16 +4,16 @@ This _quellog_ report summarizes **6** log entries collected between 19 Apr 2026
 
 ## EVENTS
 
-- **FATAL**: 1 (16.7%) — 1 pattern
+- **FATAL**: 1 (16.7%)
   - `password authentication failed for user ?` (1) [100.0%]
 
-- **ERROR**: 4 (66.7%) — 4 patterns
+- **ERROR**: 4 (66.7%)
   - `canceling statement due to lock timeout` (1) [25.0%]
   - `insert or update on table ? violates foreign key constraint ?` (1) [25.0%]
   - `permission denied for table audit_logs` (1) [25.0%]
   - `syntax error at or near ?` (1) [25.0%]
 
-- **WARNING**: 1 (16.7%) — 1 pattern
+- **WARNING**: 1 (16.7%)
   - `there is no transaction in progress` (1) [100.0%]
 
 ## CLIENTS

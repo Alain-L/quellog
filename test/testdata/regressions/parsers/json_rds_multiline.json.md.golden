@@ -50,11 +50,11 @@ This _quellog_ report summarizes **5** log entries collected between 19 Apr 2026
 
 ## EVENTS
 
-- **FATAL**: 1 (20.0%) — 1 pattern
+- **FATAL**: 1 (20.0%)
   - **57 - Operator Intervention**
     - `the database system is in recovery mode` (1) [100.0%]
 
-- **ERROR**: 1 (20.0%) — 1 pattern
+- **ERROR**: 1 (20.0%)
   - **23 - Integrity Constraint Violation**
     - `duplicate key value violates unique constraint ?` (1) [100.0%]
 
