@@ -4,7 +4,7 @@ This _quellog_ report summarizes **3** log entries collected between 19 Apr 2026
 
 ## EVENTS
 
-- **ERROR**: 3 (100.0%)
+- **ERROR**: 3 (100.0%) — 1 pattern
   - `deadlock detected` (3) [100.0%]
 
 ## CLIENTS

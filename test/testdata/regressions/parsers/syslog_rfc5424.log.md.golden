@@ -50,7 +50,7 @@ This _quellog_ report summarizes **5** log entries collected between 20 Apr 2026
 
 ## EVENTS
 
-- **ERROR**: 1 (20.0%)
+- **ERROR**: 1 (20.0%) — 1 pattern
   - `permission denied for table audit_logs` (1) [100.0%]
 
 - **LOG**: 4 (80.0%)

@@ -69,7 +69,8 @@ var (
 	outputFlag   string        // --output: Output file path (mandatory for follow mode with JSON/HTML)
 
 	// Logging verbosity
-	quietFlag bool // --quiet: suppress INFO logs, keep WARN and above
+	quietFlag   bool // --quiet: suppress INFO logs, keep WARN and above
+	verboseFlag bool // --verbose: full event messages + raw examples
 )
 
 // completionCmd generates shell autocompletion scripts for bash, zsh,
@@ -243,6 +244,8 @@ func init() {
 	// Verbosity
 	rootCmd.PersistentFlags().BoolVarP(&quietFlag, "quiet", "q", false,
 		"Suppress INFO logs (keep WARN and ERROR)")
+	rootCmd.PersistentFlags().BoolVarP(&verboseFlag, "verbose", "v", false,
+		"Verbose output (e.g. show full event messages with raw examples instead of truncated normalized form)")
 
 	// Subcommands
 	rootCmd.AddCommand(completionCmd)

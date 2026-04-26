@@ -65,7 +65,7 @@ This _quellog_ report summarizes **7** log entries collected between 20 Apr 2026
 
 ## EVENTS
 
-- **ERROR**: 1 (14.3%)
+- **ERROR**: 1 (14.3%) — 1 pattern
   - `syntax error at or near ?` (1) [100.0%]
 
 - **LOG**: 6 (85.7%)

@@ -126,9 +126,19 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 				}
 			}
 
-			// Level 1: Severity
-			b.WriteString(fmt.Sprintf("- **%s**: %d (%.1f%%)\n",
-				summary.Type, summary.Count, summary.Percentage))
+			// Level 1: Severity (with distinct-pattern counter when applicable)
+			patternCount := len(eventsBySeverity[summary.Type])
+			if patternCount > 0 {
+				plural := "patterns"
+				if patternCount == 1 {
+					plural = "pattern"
+				}
+				b.WriteString(fmt.Sprintf("- **%s**: %d (%.1f%%) — %d %s\n",
+					summary.Type, summary.Count, summary.Percentage, patternCount, plural))
+			} else {
+				b.WriteString(fmt.Sprintf("- **%s**: %d (%.1f%%)\n",
+					summary.Type, summary.Count, summary.Percentage))
+			}
 
 			// Detailed events
 			if events, ok := eventsBySeverity[summary.Type]; ok {

@@ -4,13 +4,13 @@ This _quellog_ report summarizes **12** log entries collected between 20 Apr 202
 
 ## EVENTS
 
-- **FATAL**: 2 (16.7%)
+- **FATAL**: 2 (16.7%) — 2 patterns
   - **08 - Connection Exception**
     - `connection to server lost` (1) [50.0%]
   - **28 - Invalid Authorization Specification**
     - `password authentication failed for user ?` (1) [50.0%]
 
-- **ERROR**: 10 (83.3%)
+- **ERROR**: 10 (83.3%) — 10 patterns
   - **22 - Data Exception**
     - `division by zero` (1) [10.0%]
     - `value too long for type character varying(?)` (1) [10.0%]
