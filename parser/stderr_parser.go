@@ -95,7 +95,7 @@ func (p *StderrParser) Parse(filename string, out chan<- []LogEntry) error {
 		return fmt.Errorf("failed to seek to start: %w", err)
 	}
 
-	return p.parseReader(file, out)
+	return p.parseReader(WithProgress(file), out)
 }
 
 // parseReader runs the stderr parsing logic against any io.Reader.

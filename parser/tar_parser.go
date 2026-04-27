@@ -27,18 +27,21 @@ func (p *TarParser) Parse(filename string, out chan<- []LogEntry) error {
 	}
 	defer file.Close()
 
-	var reader io.Reader = file
+	// Wrap the on-disk reader so progress reports compressed bytes
+	// consumed (= file size on disk = the bar's denominator).
+	source := WithProgress(file)
+	var reader io.Reader = source
 	var closer io.Closer
 
 	if isGzipArchive(filename) {
-		gr, gzipErr := newParallelGzipReader(file)
+		gr, gzipErr := newParallelGzipReader(source)
 		if gzipErr != nil {
 			return fmt.Errorf("failed to open gzip reader for tar archive %s: %w", filename, gzipErr)
 		}
 		reader = gr
 		closer = gr
 	} else if isZstdArchive(filename) {
-		zr, zstdErr := newZstdDecoder(file)
+		zr, zstdErr := newZstdDecoder(source)
 		if zstdErr != nil {
 			return fmt.Errorf("failed to open zstd reader for tar archive %s: %w", filename, zstdErr)
 		}

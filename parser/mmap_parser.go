@@ -255,6 +255,10 @@ func parseMmapDataSyslog(data []byte, out chan<- []LogEntry, format SyslogFormat
 		}
 	}
 
+	// Throttle progress reports: 1 atomic.Store every ~1 MB.
+	const progressReportInterval = 1 << 20
+	nextProgressReport := progressReportInterval
+
 	start := 0
 	for start < len(data) {
 		// Find next newline
@@ -267,6 +271,11 @@ func parseMmapDataSyslog(data []byte, out chan<- []LogEntry, format SyslogFormat
 		line := data[start:i]
 		start = i + 1
 		lineNum++
+
+		if start >= nextProgressReport {
+			reportFileProgress(int64(start))
+			nextProgressReport = start + progressReportInterval
+		}
 
 		// Same safety margin as the stderr path — see comment there.
 		if start-mmapAdviseChunk-advisedTo >= mmapAdviseChunk {
@@ -386,6 +395,12 @@ func parseMmapDataStderr(data []byte, out chan<- []LogEntry) error {
 	pageSize := os.Getpagesize()
 	advisedTo := 0
 
+	// Throttle progress reports: 1 atomic.Store every ~1 MB is enough
+	// for a UI ticker (200ms cadence) and keeps the hot loop free of
+	// cache-line ping-pong.
+	const progressReportInterval = 1 << 20 // 1 MB
+	nextProgressReport := progressReportInterval
+
 	start := 0
 	// OPTIMIZATION: Use bytes.IndexByte to jump directly to newlines
 	// instead of scanning byte-by-byte. This is ~10x faster for finding '\n'.
@@ -412,6 +427,13 @@ func parseMmapDataStderr(data []byte, out chan<- []LogEntry) error {
 			// Advise up to `start - mmapAdviseChunk` to keep a one-chunk
 			// safety margin behind the current read position.
 			advisedTo = adviseDontNeed(data, advisedTo, start-mmapAdviseChunk, pageSize)
+		}
+
+		// Publish progress for the CLI bar every ~1 MB. start is the
+		// byte cursor in the mmap, which closely matches the file offset.
+		if start >= nextProgressReport {
+			reportFileProgress(int64(start))
+			nextProgressReport = start + progressReportInterval
 		}
 
 		// Skip empty lines

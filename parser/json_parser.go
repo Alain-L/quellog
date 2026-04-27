@@ -48,7 +48,7 @@ func (p *JsonParser) Parse(filename string, out chan<- []LogEntry) error {
 	}
 	defer f.Close()
 
-	return p.parseReader(f, out)
+	return p.parseReader(WithProgress(f), out)
 }
 
 // parseReader detects the JSON structure and dispatches to the appropriate parser.

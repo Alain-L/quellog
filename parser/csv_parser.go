@@ -81,7 +81,7 @@ func (p *CsvParser) Parse(filename string, out chan<- []LogEntry) error {
 	}
 	defer f.Close()
 
-	return p.parseReader(f, out)
+	return p.parseReader(WithProgress(f), out)
 }
 
 // parseReader processes CSV records from any io.Reader.

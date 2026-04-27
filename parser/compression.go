@@ -256,7 +256,11 @@ func (c *compressedLogParser) Parse(filename string, out chan<- []LogEntry) erro
 	}
 	defer file.Close()
 
-	reader, err := c.codec.opener(file)
+	// Wrap the on-disk reader BEFORE the decompressor so progress
+	// reflects compressed bytes consumed (= file size on disk = the
+	// denominator the CLI bar shows). Wrapping the decompressed
+	// stream would let the bar overshoot 100%.
+	reader, err := c.codec.opener(WithProgress(file))
 	if err != nil {
 		return fmt.Errorf("failed to open %s reader for %s: %w", c.codec.name, filename, err)
 	}

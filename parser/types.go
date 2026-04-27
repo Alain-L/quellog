@@ -170,9 +170,13 @@ func NewBatchSender(out chan<- []LogEntry) *BatchSender {
 }
 
 // Send appends an entry; flushes automatically when buffer is full.
+// On flush we publish the batch size to the parsedEntries counter so
+// the CLI live header can report a running entry count without a
+// per-Send atomic in the hot path (one Add per ~batchSize entries).
 func (b *BatchSender) Send(e LogEntry) {
 	b.buf = append(b.buf, e)
 	if len(b.buf) >= batchSize {
+		parsedEntries.Add(int64(len(b.buf)))
 		b.out <- b.buf
 		b.buf = getBatch()
 	}
@@ -182,6 +186,7 @@ func (b *BatchSender) Send(e LogEntry) {
 // of parsing to avoid losing the trailing partial batch.
 func (b *BatchSender) Flush() {
 	if len(b.buf) > 0 {
+		parsedEntries.Add(int64(len(b.buf)))
 		b.out <- b.buf
 		b.buf = nil
 	}
