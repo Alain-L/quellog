@@ -16,7 +16,7 @@ var (
 	parsedEntries    atomic.Int64 // total LogEntry produced so far
 )
 
-func ResetCurrentFileProgress() { currentFileBytes.Store(0) }
+func ResetCurrentFileProgress()  { currentFileBytes.Store(0) }
 func CurrentFileProgress() int64 { return currentFileBytes.Load() }
 func ResetParsedEntries()        { parsedEntries.Store(0) }
 func ParsedEntries() int64       { return parsedEntries.Load() }
