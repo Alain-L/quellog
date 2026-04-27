@@ -126,8 +126,18 @@ func runAnalysisCycle(ctx context.Context, args []string) error {
 	// nothing comes out we surface a single clean error here at the end.
 	var parsedAny atomic.Bool
 
+	// Optional progress indicator on stderr (large input + TTY + text
+	// output). nil here is a no-op for all bar methods. Reset the
+	// parser-side counters so a follow-mode cycle doesn't show
+	// cumulative numbers from a previous run.
+	parser.ResetParsedEntries()
+	parser.ResetCurrentFileProgress()
+	pb := newProgressBar(totalFileSize)
+	pb.Start()
+	defer pb.Finish()
+
 	// Launch parallel file parsing
-	go parseFilesAsync(ctx, allFiles, rawLogs, &parsedAny)
+	go parseFilesAsync(ctx, allFiles, rawLogs, &parsedAny, pb)
 
 	// Step 4: Apply filters (skip channel hop when no filters are active)
 	filters := buildLogFilters(beginT, endT)
@@ -141,7 +151,7 @@ func runAnalysisCycle(ctx context.Context, args []string) error {
 	}
 
 	// Step 5: Process and output results based on flags
-	if err := processAndOutput(ctx, analyzeInput, startTime, totalFileSize, args); err != nil {
+	if err := processAndOutput(ctx, analyzeInput, startTime, totalFileSize, args, pb); err != nil {
 		return err
 	}
 
@@ -177,7 +187,7 @@ func validateStdinUsage(files []string) error {
 // Special handling: if "-" is in the files list, it reads from stdin. The
 // caller must ensure stdin is not mixed with regular files (see
 // validateStdinUsage).
-func parseFilesAsync(ctx context.Context, files []string, out chan<- []parser.LogEntry, parsedAny *atomic.Bool) {
+func parseFilesAsync(ctx context.Context, files []string, out chan<- []parser.LogEntry, parsedAny *atomic.Bool, pb *progressBar) {
 	defer close(out)
 
 	// Special case: stdin (caller has validated it is not mixed)
@@ -192,16 +202,34 @@ func parseFilesAsync(ctx context.Context, files []string, out chan<- []parser.Lo
 
 	numWorkers := determineWorkerCount(files)
 
+	// fileSize is captured per file so the progress bar can advance after
+	// each ParseFile completes — the parser layer doesn't expose a
+	// finer-grained cursor today, so multi-file rotations get smooth
+	// progress while a single huge file jumps from 0% to 100% at the end.
+	fileSize := func(path string) int64 {
+		st, err := os.Stat(path)
+		if err != nil {
+			return 0
+		}
+		return st.Size()
+	}
+
 	if numWorkers == 1 {
 		// Single file: no need for worker pool
 		for _, file := range files {
 			if ctx.Err() != nil {
 				return
 			}
+			parser.ResetCurrentFileProgress()
 			if err := parser.ParseFile(file, out); err != nil {
 				// Error already logged in detectParser with specific details
 				continue
 			}
+			// Reset the in-flight cursor to 0 before crediting the
+			// completed file size to bytesDone — otherwise the bar
+			// renders done = bytesDone + lingering cursor (= 2x file).
+			parser.ResetCurrentFileProgress()
+			pb.AddBytes(fileSize(file))
 			parsedAny.Store(true)
 		}
 		return
@@ -227,6 +255,7 @@ func parseFilesAsync(ctx context.Context, files []string, out chan<- []parser.Lo
 					// Error already logged in detectParser with specific details
 					continue
 				}
+				pb.AddBytes(fileSize(file))
 				parsedAny.Store(true)
 			}
 		}()
@@ -247,7 +276,7 @@ func buildLogFilters(beginT, endT time.Time) parser.LogFilters {
 }
 
 // processAndOutput analyzes filtered logs and outputs results in the requested format.
-func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry, startTime time.Time, totalFileSize int64, inputArgs []string) error {
+func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry, startTime time.Time, totalFileSize int64, inputArgs []string, pb *progressBar) error {
 	// Validate flag compatibility
 	formatCount := 0
 	if jsonFlag || jsonCompactFlag {
@@ -271,7 +300,7 @@ func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry
 
 	// Special case: SQL query details (single query analysis)
 	if len(sqlDetailFlag) > 0 {
-		metrics, processingDuration, err := requireMetrics(ctx, filteredLogs, totalFileSize, startTime)
+		metrics, processingDuration, err := requireMetrics(ctx, filteredLogs, totalFileSize, startTime, pb)
 		if err != nil {
 			return err
 		}
@@ -297,7 +326,7 @@ func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry
 	// Special case: SQL performance (detailed aggregated query statistics)
 	// Skip if --full is set (will be included in full report)
 	if sqlPerformanceFlag && !fullFlag {
-		metrics, processingDuration, err := requireMetrics(ctx, filteredLogs, totalFileSize, startTime)
+		metrics, processingDuration, err := requireMetrics(ctx, filteredLogs, totalFileSize, startTime, pb)
 		if err != nil {
 			return err
 		}
@@ -323,7 +352,7 @@ func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry
 	// Special case: SQL overview (query type statistics with dimensional breakdown)
 	// Skip if --full is set (will be included in full report)
 	if sqlOverviewFlag && !fullFlag {
-		metrics, processingDuration, err := requireMetrics(ctx, filteredLogs, totalFileSize, startTime)
+		metrics, processingDuration, err := requireMetrics(ctx, filteredLogs, totalFileSize, startTime, pb)
 		if err != nil {
 			return err
 		}
@@ -348,6 +377,12 @@ func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry
 
 	// Default: full analysis with all metrics
 	metrics := analysis.AggregateMetrics(ctx, filteredLogs, totalFileSize)
+	// Aggregation drained the input — parse is done. Clear the bar
+	// before any subsequent stderr/stdout write (PrintProcessingSummary
+	// and the section renderers below). The defer in runAnalysisCycle
+	// would otherwise fire too late, leaving the bar stuck next to the
+	// summary line.
+	pb.Finish()
 	processingDuration := time.Since(startTime)
 
 	// Check if any log entries were successfully parsed
@@ -608,8 +643,13 @@ func createOutputWriter(path string) (io.Writer, func(), error) {
 
 // requireMetrics aggregates metrics and returns an error if no log entries
 // were parsed.
-func requireMetrics(ctx context.Context, filteredLogs <-chan []parser.LogEntry, totalFileSize int64, startTime time.Time) (analysis.AggregatedMetrics, time.Duration, error) {
+func requireMetrics(ctx context.Context, filteredLogs <-chan []parser.LogEntry, totalFileSize int64, startTime time.Time, pb *progressBar) (analysis.AggregatedMetrics, time.Duration, error) {
 	metrics := analysis.AggregateMetrics(ctx, filteredLogs, totalFileSize)
+	// Aggregation has drained the input channel — parsing is fully
+	// done. Clear the progress bar before any subsequent stderr write
+	// (PrintProcessingSummary, slog warnings, …) so the redrawn line
+	// doesn't clobber them.
+	pb.Finish()
 	processingDuration := time.Since(startTime)
 	if metrics.Global.Count == 0 {
 		return analysis.AggregatedMetrics{}, 0, fmt.Errorf("no log entries could be parsed: check that files are readable and in a supported format")
