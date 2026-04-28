@@ -113,7 +113,7 @@ func parseAndAnalyze(data []byte, filters parser.LogFilters) string {
 		analyzeIn = filteredChan
 	}
 
-	metrics := analysis.AggregateMetrics(ctx, analyzeIn, int64(len(data)))
+	metrics := analysis.AggregateMetrics(ctx, analyzeIn)
 	if parseErr != nil {
 		return `{"error": "Parse error: ` + parseErr.Error() + `"}`
 	}

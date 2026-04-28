@@ -376,7 +376,7 @@ func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry
 	}
 
 	// Default: full analysis with all metrics
-	metrics := analysis.AggregateMetrics(ctx, filteredLogs, totalFileSize)
+	metrics := analysis.AggregateMetrics(ctx, filteredLogs)
 	// Aggregation drained the input — parse is done. Clear the bar
 	// before any subsequent stderr/stdout write (PrintProcessingSummary
 	// and the section renderers below). The defer in runAnalysisCycle
@@ -644,7 +644,7 @@ func createOutputWriter(path string) (io.Writer, func(), error) {
 // requireMetrics aggregates metrics and returns an error if no log entries
 // were parsed.
 func requireMetrics(ctx context.Context, filteredLogs <-chan []parser.LogEntry, totalFileSize int64, startTime time.Time, pb *progressBar) (analysis.AggregatedMetrics, time.Duration, error) {
-	metrics := analysis.AggregateMetrics(ctx, filteredLogs, totalFileSize)
+	metrics := analysis.AggregateMetrics(ctx, filteredLogs)
 	// Aggregation has drained the input channel — parsing is fully
 	// done. Clear the progress bar before any subsequent stderr write
 	// (PrintProcessingSummary, slog warnings, …) so the redrawn line

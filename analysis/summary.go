@@ -172,65 +172,73 @@ type StreamingAnalyzer struct {
 
 	sql *SQLAnalyzer
 
-	// Parallel SQL processing
+	// Parallel sub-analyzer dispatch (one channel per goroutine).
+	// Activated together by NewStreamingAnalyzer when enableParallel is true.
+	// SQL, Locks, TempFiles are the three measured-expensive paths
+	// (sql, locks ~22%, tempFiles ~14-34% of analyze time on >200 MB inputs).
+	// uniqueEntities is intentionally kept inline: a parallel goroutine
+	// for it showed plafond / no measurable gain (scheduler contention).
 
-	sqlChan chan parser.LogEntry
+	sqlChan   chan parser.LogEntry
+	locksChan chan parser.LogEntry
+	tempChan  chan parser.LogEntry
 
 	parallelWg sync.WaitGroup
 }
 
-// NewStreamingAnalyzer creates a new streaming analyzer with all sub-analyzers initialized.
-
-// If enableParallel is true, SQLAnalyzer runs in a dedicated goroutine for better performance
-
-// on large files (>200MB). For smaller files, parallel overhead outweighs the gains.
-
-func NewStreamingAnalyzer(enableParallel bool) *StreamingAnalyzer {
-
+// NewStreamingAnalyzer creates a new streaming analyzer with all
+// sub-analyzers initialized. SQL, Locks and TempFiles each get a
+// dedicated goroutine fed through a buffered channel — parallelism is
+// always on. Bench across the file-size spectrum (28-04, M3 Pro):
+//
+//	1 KB     → no measurable diff (channels close before they matter)
+//	10 MB    → -40%
+//	100 MB   → -42%
+//	J.log    → -21.7%   (4.4 GB stderr)
+//	I.log    → -11.6%   (997 MB stderr)
+//	C.csv    → -33.6%   (1.2 GB)
+//
+// The earlier `enableParallel = fileSize > 200 MB` gate was calibrated
+// for a single SQL goroutine; with three the break-even is below the
+// noise floor, so the gate just left performance on the table for
+// inputs in the 5-200 MB range. uniqueEntities was tested as a 4th
+// parallel goroutine but plafonned (scheduler contention), so it
+// stays inline below.
+func NewStreamingAnalyzer() *StreamingAnalyzer {
 	sa := &StreamingAnalyzer{
-
-		tempFiles: NewTempFileAnalyzer(),
-
-		vacuum: NewVacuumAnalyzer(),
-
-		checkpoints: NewCheckpointAnalyzer(),
-
-		connections: NewConnectionAnalyzer(),
-
-		locks: NewLockAnalyzer(),
-
-		events: NewEventAnalyzer(),
-
+		tempFiles:      NewTempFileAnalyzer(),
+		vacuum:         NewVacuumAnalyzer(),
+		checkpoints:    NewCheckpointAnalyzer(),
+		connections:    NewConnectionAnalyzer(),
+		locks:          NewLockAnalyzer(),
+		events:         NewEventAnalyzer(),
 		uniqueEntities: NewUniqueEntityAnalyzer(),
+		sql:            NewSQLAnalyzer(),
 
-		sql: NewSQLAnalyzer(),
+		sqlChan:   make(chan parser.LogEntry, 65536),
+		locksChan: make(chan parser.LogEntry, 65536),
+		tempChan:  make(chan parser.LogEntry, 65536),
 	}
 
-	if enableParallel {
-
-		// Start parallel SQL analyzer goroutine.
-
-		// This provides ~20% wall clock speedup (benchmarked on 1GB+ files) by offloading
-
-		// the most expensive analyzer to a dedicated goroutine, allowing better CPU utilization.
-
-		sa.sqlChan = make(chan parser.LogEntry, 65536)
-
-		sa.parallelWg.Add(1)
-
-		go func() {
-
-			defer sa.parallelWg.Done()
-
-			for entry := range sa.sqlChan {
-
-				sa.sql.Process(&entry)
-
-			}
-
-		}()
-
-	}
+	sa.parallelWg.Add(3)
+	go func() {
+		defer sa.parallelWg.Done()
+		for entry := range sa.sqlChan {
+			sa.sql.Process(&entry)
+		}
+	}()
+	go func() {
+		defer sa.parallelWg.Done()
+		for entry := range sa.locksChan {
+			sa.locks.Process(&entry)
+		}
+	}()
+	go func() {
+		defer sa.parallelWg.Done()
+		for entry := range sa.tempChan {
+			sa.tempFiles.Process(&entry)
+		}
+	}()
 
 	return sa
 
@@ -264,38 +272,18 @@ func (sa *StreamingAnalyzer) Process(entry *parser.LogEntry) {
 
 	}
 
-	// Dispatch to specialized analyzers
-
-	// Each analyzer performs its own filtering
-
+	// Inline analyzers (cheap on hot path or stateful in a way that
+	// doesn't benefit from a goroutine hand-off).
 	sa.vacuum.Process(entry)
-
 	sa.checkpoints.Process(entry)
-
 	sa.connections.Process(entry)
-
-	sa.locks.Process(entry)
-
 	sa.events.Process(entry)
-
 	sa.uniqueEntities.Process(entry)
 
-	// TempFiles: always sequential (faster than channel overhead for typical logs)
-
-	sa.tempFiles.Process(entry)
-
-	// SQL: parallel if enabled (most expensive analyzer)
-
-	if sa.sqlChan != nil {
-
-		sa.sqlChan <- *entry
-
-	} else {
-
-		sa.sql.Process(entry)
-
-	}
-
+	// Hand off to the dedicated goroutines.
+	sa.locksChan <- *entry
+	sa.tempChan <- *entry
+	sa.sqlChan <- *entry
 }
 
 // Finalize computes final metrics after all log entries have been processed.
@@ -304,15 +292,11 @@ func (sa *StreamingAnalyzer) Process(entry *parser.LogEntry) {
 
 func (sa *StreamingAnalyzer) Finalize() AggregatedMetrics {
 
-	// Close SQL channel and wait for goroutine to finish
-
-	if sa.sqlChan != nil {
-
-		close(sa.sqlChan)
-
-		sa.parallelWg.Wait()
-
-	}
+	// Drain the parallel-analyzer goroutines before reading their state.
+	close(sa.sqlChan)
+	close(sa.locksChan)
+	close(sa.tempChan)
+	sa.parallelWg.Wait()
 
 	// Finalize all metrics
 
@@ -398,18 +382,8 @@ func (sa *StreamingAnalyzer) Finalize() AggregatedMetrics {
 // until ctx is cancelled. On cancellation it returns whatever has been
 // processed so far, after draining the remaining entries from in so that
 // upstream producers can exit cleanly.
-//
-// fileSize is used to determine whether to enable parallel SQL analysis:
-//   - Files > 200MB: parallel SQL analyzer (~20% speedup)
-//   - Files < 200MB: sequential processing (avoids goroutine overhead)
-func AggregateMetrics(ctx context.Context, in <-chan []parser.LogEntry, fileSize int64) AggregatedMetrics {
-	// Enable parallel SQL analysis for large files to improve performance.
-	// Threshold of 200MB based on profiling: below this, goroutine overhead
-	// outweighs parallelization gains.
-	const thresholdMB = 200
-	enableParallel := fileSize > thresholdMB*1024*1024
-
-	analyzer := NewStreamingAnalyzer(enableParallel)
+func AggregateMetrics(ctx context.Context, in <-chan []parser.LogEntry) AggregatedMetrics {
+	analyzer := NewStreamingAnalyzer()
 
 	// Process batches in streaming mode. ctx checked once per batch so a
 	// cancelled run (CTRL+C, follow-mode shutdown) doesn't wait for full drain.
