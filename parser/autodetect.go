@@ -75,9 +75,6 @@ var (
 // ParseFile detects the log format and parses the file in streaming mode.
 // It automatically detects whether the file is in stderr/syslog, CSV, or JSON format.
 // Returns an error if the format is unknown or parsing fails.
-//
-// For stderr/syslog format, uses memory-mapped I/O by default with automatic
-// fallback to buffered I/O if mmap fails (network filesystems, pipes, etc.).
 func ParseFile(filename string, out chan<- []LogEntry) error {
 	parser, err := detectParser(filename)
 	if err != nil {
@@ -155,7 +152,7 @@ func detectParser(filename string) (LogParser, error) {
 
 	// Step 4: Try extension-based detection
 	ext := strings.ToLower(strings.TrimPrefix(filepath.Ext(filename), "."))
-	parser := detectByExtension(filename, ext, sample, true)
+	parser := detectByExtension(filename, ext, sample)
 	if parser != nil {
 		return parser, nil
 	}
@@ -168,7 +165,7 @@ func detectParser(filename string) (LogParser, error) {
 		return nil, ErrInvalidFormat
 	}
 
-	parser = detectByContent(filename, sample, true)
+	parser = detectByContent(filename, sample)
 	if parser != nil {
 		return parser, nil
 	}
@@ -232,7 +229,7 @@ func readUntilNLines(f *os.File, n int) (string, error) {
 
 // detectByExtension attempts to detect the parser based on file extension.
 // Returns nil if the extension doesn't match or content validation fails.
-func detectByExtension(filename, ext, sample string, allowMmap bool) LogParser {
+func detectByExtension(filename, ext, sample string) LogParser {
 	switch ext {
 	case "json", "jsonl":
 		if isJSONContent(sample) {
@@ -250,9 +247,6 @@ func detectByExtension(filename, ext, sample string, allowMmap bool) LogParser {
 
 	case "log":
 		if isLogContent(sample) {
-			if allowMmap {
-				return &MmapStderrParser{}
-			}
 			return &StderrParser{}
 		}
 		slog.Error("file has .log extension but content is not valid log format", "file", filename)
@@ -265,7 +259,7 @@ func detectByExtension(filename, ext, sample string, allowMmap bool) LogParser {
 
 // detectByContent attempts to detect the parser based on file content.
 // This is used when the file extension doesn't provide enough information.
-func detectByContent(filename, sample string, allowMmap bool) LogParser {
+func detectByContent(filename, sample string) LogParser {
 	switch {
 	case isJSONContent(sample):
 		slog.Info("detected JSON format (unknown extension)", "file", filename)
@@ -277,9 +271,6 @@ func detectByContent(filename, sample string, allowMmap bool) LogParser {
 
 	case isLogContent(sample):
 		slog.Info("detected stderr/syslog format (unknown extension)", "file", filename)
-		if allowMmap {
-			return &MmapStderrParser{}
-		}
 		return &StderrParser{}
 
 	default:

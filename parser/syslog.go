@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"bytes"
 	"fmt"
 	"strings"
 	"time"
@@ -8,6 +9,84 @@ import (
 
 // syslogTabMarker is the marker used in syslog format for tab characters
 const syslogTabMarker = "#011"
+
+// SyslogFormat identifies which syslog variant a stream uses. Detection
+// happens once on a 64 KB sample (see detectSyslogFormat). Plain stderr
+// returns SyslogNone and skips the per-PID assembly path entirely.
+type SyslogFormat int
+
+const (
+	SyslogNone    SyslogFormat = iota // Not syslog format
+	SyslogBSD                         // RFC 3164: "Nov 30 21:10:20 host ..."
+	SyslogISO                         // ISO timestamp: "2025-11-30T21:10:20+00:00 host ..."
+	SyslogRFC5424                     // RFC 5424: "<134>1 2025-11-30T21:10:20+00:00 host ..."
+)
+
+// detectSyslogFormat checks if data appears to be syslog format and returns
+// the type. Inspects the first non-empty line only — syslog streams are
+// homogeneous in practice.
+//
+// Supports three syslog formats:
+//   - BSD (RFC 3164): "Nov 30 21:10:20 host ..."
+//   - ISO: "2025-11-30T21:10:20+00:00 host ..."
+//   - RFC 5424: "<134>1 2025-11-30T21:10:20+00:00 host ..."
+func detectSyslogFormat(data []byte) SyslogFormat {
+	start := 0
+	for start < len(data) {
+		i := bytes.IndexByte(data[start:], '\n')
+		if i < 0 {
+			i = len(data) - start
+		}
+		line := data[start : start+i]
+		start += i + 1
+
+		if len(line) < 15 {
+			continue
+		}
+
+		// RFC 5424: starts with <priority>version (e.g., "<134>1 ")
+		if line[0] == '<' {
+			for j := 1; j < len(line) && j < 5; j++ {
+				if line[j] == '>' {
+					if j+2 < len(line) && line[j+1] >= '0' && line[j+1] <= '9' && line[j+2] == ' ' {
+						return SyslogRFC5424
+					}
+					break
+				}
+			}
+		}
+
+		// ISO format: starts with "YYYY-MM-DDTHH:MM:SS"
+		if line[4] == '-' && line[7] == '-' && line[10] == 'T' && line[13] == ':' && line[16] == ':' {
+			return SyslogISO
+		}
+
+		// BSD format: starts with month abbreviation
+		if line[3] == ' ' && line[0] >= 'A' && line[0] <= 'Z' {
+			months := [][]byte{
+				[]byte("Jan"), []byte("Feb"), []byte("Mar"), []byte("Apr"),
+				[]byte("May"), []byte("Jun"), []byte("Jul"), []byte("Aug"),
+				[]byte("Sep"), []byte("Oct"), []byte("Nov"), []byte("Dec"),
+			}
+			for _, month := range months {
+				if bytes.HasPrefix(line, month) {
+					return SyslogBSD
+				}
+			}
+		}
+
+		return SyslogNone
+	}
+	return SyslogNone
+}
+
+// parseStderrLineBytes converts a byte slice to string and parses it
+// through parseStderrLine. Kept as a thin wrapper because callers that
+// already hold a []byte (syslog BSD path, mmap-era code) would otherwise
+// allocate twice.
+func parseStderrLineBytes(line []byte) (time.Time, string) {
+	return parseStderrLine(string(line))
+}
 
 // isSyslogContinuationLine detects syslog entries with [X-N] where N > 1
 // that contain SQL continuations (not PostgreSQL log continuations like HINT).

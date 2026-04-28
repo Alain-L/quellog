@@ -131,12 +131,12 @@ func detectCompressedParserWithError(filename, baseName string, codec compressio
 
 	ext := strings.ToLower(strings.TrimPrefix(filepath.Ext(baseName), "."))
 
-	parser := detectByExtension(baseName, ext, sample, false)
+	parser := detectByExtension(baseName, ext, sample)
 	if parser == nil {
 		// Only try content detection if extension was unknown
 		// If extension was known but content didn't match, error already logged
 		if ext != "csv" && ext != "json" && ext != "log" {
-			parser = detectByContent(baseName, sample, false)
+			parser = detectByContent(baseName, sample)
 		} else {
 			return nil, ErrInvalidFormat
 		}
@@ -221,12 +221,6 @@ func wrapCompressedParser(parser LogParser, codec compressionCodec) LogParser {
 			return p.parseReader(r, out)
 		})
 	case *StderrParser:
-		p := &StderrParser{}
-		return newCompressedParser(codec, func(r io.Reader, out chan<- []LogEntry) error {
-			return p.parseReader(r, out)
-		})
-	case *MmapStderrParser:
-		// mmap is not supported with compressed streams; fall back to standard stderr parser
 		p := &StderrParser{}
 		return newCompressedParser(codec, func(r io.Reader, out chan<- []LogEntry) error {
 			return p.parseReader(r, out)
