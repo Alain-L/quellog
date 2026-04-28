@@ -435,18 +435,24 @@ func NewSQLAnalyzer() *SQLAnalyzer {
 
 // NewSQLAnalyzerWithSize creates a SQL analyzer with capacity estimated from input size.
 // inputBytes is the size of the input data in bytes. If 0, uses default capacity.
-// Estimates ~1 query per 200 bytes for typical PostgreSQL logs.
+//
+// Heuristic: ~1 timed query per 1000 bytes. Calibrated on I_250mb.log
+// (260k executions / 250 MB = 1 per ~960 B). The earlier 1/200 ratio
+// over-allocated by ~5x — invisible in CLI (Go GC reclaims unused slots
+// fast) but a flat 48 MB cumulative-alloc waste in TinyGo's gc=leaking
+// runtime, where the empty preallocated slots stay alive forever.
+// Underestimating is cheap: the slice grows by doubling.
 func NewSQLAnalyzerWithSize(inputBytes int64) *SQLAnalyzer {
-	// Estimate capacity: ~1 query per 200 bytes, capped at reasonable limits
 	execCap := 10000
 	if inputBytes > 0 {
-		estimated := int(inputBytes / 200)
+		estimated := int(inputBytes / 1000)
 		if estimated > execCap {
 			execCap = estimated
 		}
-		// Cap at 10M to avoid excessive memory for huge files
-		if execCap > 10000000 {
-			execCap = 10000000
+		// Cap initial preallocation at 2M; the slice can still grow past
+		// this if the log actually has more queries.
+		if execCap > 2000000 {
+			execCap = 2000000
 		}
 	}
 
