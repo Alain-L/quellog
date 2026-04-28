@@ -214,11 +214,11 @@ func NewStreamingAnalyzer() *StreamingAnalyzer {
 		events:         NewEventAnalyzer(),
 		uniqueEntities: NewUniqueEntityAnalyzer(),
 		sql:            NewSQLAnalyzer(),
-
-		sqlChan:   make(chan parser.LogEntry, 65536),
-		locksChan: make(chan parser.LogEntry, 65536),
-		tempChan:  make(chan parser.LogEntry, 65536),
 	}
+
+	sa.sqlChan = make(chan parser.LogEntry, 65536)
+	sa.locksChan = make(chan parser.LogEntry, 65536)
+	sa.tempChan = make(chan parser.LogEntry, 65536)
 
 	sa.parallelWg.Add(3)
 	go func() {
@@ -427,8 +427,17 @@ type UniqueEntityAnalyzer struct {
 	appCounts  map[string]int
 	hostCounts map[string]int
 
-	userDbCombos   map[string]int
-	userHostCombos map[string]int
+	// Combos use struct keys to avoid allocating a fresh string
+	// (`user+"|"+db`) on every entry — that concatenation alone was
+	// 37 MB of cumulative heap on I_250mb (10% of total alloc), and
+	// stays alive forever in TinyGo's gc=leaking runtime.
+	userDbCombos   map[entityCombo]int
+	userHostCombos map[entityCombo]int
+}
+
+// entityCombo is the keyed pair (user, db) or (user, host).
+type entityCombo struct {
+	a, b string
 }
 
 // NewUniqueEntityAnalyzer creates a new unique entity analyzer.
@@ -439,8 +448,8 @@ func NewUniqueEntityAnalyzer() *UniqueEntityAnalyzer {
 		appCounts:  make(map[string]int, 100),
 		hostCounts: make(map[string]int, 100),
 
-		userDbCombos:   make(map[string]int, 200),
-		userHostCombos: make(map[string]int, 200),
+		userDbCombos:   make(map[entityCombo]int, 200),
+		userHostCombos: make(map[entityCombo]int, 200),
 	}
 }
 
@@ -567,13 +576,24 @@ func (a *UniqueEntityAnalyzer) Process(entry *parser.LogEntry) {
 		a.hostCounts[currentHost]++
 	}
 
-	// Build combinations
+	// Build combinations (struct key avoids per-entry string concatenation).
 	if currentUser != "" && currentDb != "" {
-		a.userDbCombos[currentUser+"|"+currentDb]++
+		a.userDbCombos[entityCombo{currentUser, currentDb}]++
 	}
 	if currentUser != "" && currentHost != "" {
-		a.userHostCombos[currentUser+"|"+currentHost]++
+		a.userHostCombos[entityCombo{currentUser, currentHost}]++
 	}
+}
+
+// flattenCombos converts an internal entityCombo map into the public
+// "a|b" string-keyed map. Done once at Finalize so the per-entry hot
+// path stays allocation-free.
+func flattenCombos(in map[entityCombo]int) map[string]int {
+	out := make(map[string]int, len(in))
+	for k, v := range in {
+		out[k.a+"|"+k.b] = v
+	}
+	return out
 }
 
 // Finalize returns the unique entity metrics with sorted lists.
@@ -592,8 +612,8 @@ func (a *UniqueEntityAnalyzer) Finalize() UniqueEntityMetrics {
 		UserCounts:     a.userCounts,
 		AppCounts:      a.appCounts,
 		HostCounts:     a.hostCounts,
-		UserDbCombos:   a.userDbCombos,
-		UserHostCombos: a.userHostCombos,
+		UserDbCombos:   flattenCombos(a.userDbCombos),
+		UserHostCombos: flattenCombos(a.userHostCombos),
 	}
 }
 
