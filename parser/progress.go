@@ -21,10 +21,6 @@ func CurrentFileProgress() int64 { return currentFileBytes.Load() }
 func ResetParsedEntries()        { parsedEntries.Store(0) }
 func ParsedEntries() int64       { return parsedEntries.Load() }
 
-// reportFileProgress is called from the mmap parser hot loop to
-// publish its byte cursor (Store, not Add — it's an absolute offset).
-func reportFileProgress(bytes int64) { currentFileBytes.Store(bytes) }
-
 // progressReader wraps an io.Reader so every Read accumulates bytes
 // into currentFileBytes. Used by the CSV, JSON, bufio-stderr, gzip
 // and zstd paths via WithProgress. Compressed inputs are wrapped
