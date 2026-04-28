@@ -5,6 +5,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"strconv"
 	"syscall/js"
@@ -92,16 +93,12 @@ func parseFiltersArg(args []js.Value, idx int) parser.LogFilters {
 	return f
 }
 
-// parseAndAnalyze runs the full pipeline (detect → stream parse → analyze
-// → JSON) on the given byte slice. It mirrors the CLI's
-// AggregateMetrics shape: parser sends batches over a channel, analyzers
-// consume them in streaming mode and recycle each batch via PutBatch so
-// the slot pool stays warm.
-//
-// gc=leaking still keeps every allocated entry's strings alive for the
-// run, but the []LogEntry slice header itself never gets materialized
-// for the whole input — that alone saves the ~150 MB single-slice that
-// the previous Sync API allocated up front.
+// parseAndAnalyze runs the same pipeline as cmd/execute.go's
+// runAnalysisCycle: format detection, streamed parse on a goroutine,
+// optional FilterStream hop, then AggregateMetrics. Reusing the CLI's
+// AggregateMetrics gives the WASM build the same parallel SQL analyzer
+// activation (>200 MB), the same StreamingAnalyzer state machine, and
+// frees us from maintaining a parallel analyzer-orchestration block.
 func parseAndAnalyze(data []byte, filters parser.LogFilters) string {
 	t0 := now()
 
@@ -114,77 +111,28 @@ func parseAndAnalyze(data []byte, filters parser.LogFilters) string {
 		format = "stderr"
 	}
 
-	tempAnalyzer := analysis.NewTempFileAnalyzer()
-	vacAnalyzer := analysis.NewVacuumAnalyzer()
-	chkAnalyzer := analysis.NewCheckpointAnalyzer()
-	connAnalyzer := analysis.NewConnectionAnalyzer()
-	lockAnalyzer := analysis.NewLockAnalyzer()
-	evtAnalyzer := analysis.NewEventAnalyzer()
-	uniAnalyzer := analysis.NewUniqueEntityAnalyzer()
-	sqlAnalyzer := analysis.NewSQLAnalyzerWithSize(int64(len(data)))
-	var globalMetrics analysis.GlobalMetrics
-
-	entryChan := make(chan []parser.LogEntry, 64)
+	ctx := context.Background()
+	rawChan := make(chan []parser.LogEntry, 64)
 	var parseErr error
 	go func() {
-		parseErr = parser.ParseFromBytesStream(data, format, entryChan)
-		close(entryChan)
+		parseErr = parser.ParseFromBytesStream(data, format, rawChan)
+		close(rawChan)
 	}()
 
-	for batch := range entryChan {
-		for i := range batch {
-			entry := &batch[i]
-			if !parser.PassesFilters(*entry, filters) {
-				continue
-			}
-			tempAnalyzer.Process(entry)
-			vacAnalyzer.Process(entry)
-			chkAnalyzer.Process(entry)
-			connAnalyzer.Process(entry)
-			lockAnalyzer.Process(entry)
-			evtAnalyzer.Process(entry)
-			uniAnalyzer.Process(entry)
-			sqlAnalyzer.Process(entry)
-
-			if !entry.IsContinuation {
-				globalMetrics.Count++
-			}
-			if globalMetrics.MinTimestamp.IsZero() || entry.Timestamp.Before(globalMetrics.MinTimestamp) {
-				globalMetrics.MinTimestamp = entry.Timestamp
-			}
-			if globalMetrics.MaxTimestamp.IsZero() || entry.Timestamp.After(globalMetrics.MaxTimestamp) {
-				globalMetrics.MaxTimestamp = entry.Timestamp
-			}
-		}
-		parser.PutBatch(batch)
+	var analyzeIn <-chan []parser.LogEntry
+	if filters.IsEmpty() {
+		analyzeIn = rawChan
+	} else {
+		filteredChan := make(chan []parser.LogEntry, 64)
+		go parser.FilterStream(ctx, rawChan, filteredChan, filters)
+		analyzeIn = filteredChan
 	}
 
+	metrics := analysis.AggregateMetrics(ctx, analyzeIn, int64(len(data)))
 	if parseErr != nil {
 		return `{"error": "Parse error: ` + parseErr.Error() + `"}`
 	}
-
-	tempMetrics := tempAnalyzer.Finalize()
-	vacMetrics := vacAnalyzer.Finalize()
-	chkMetrics := chkAnalyzer.Finalize()
-	connMetrics := connAnalyzer.Finalize()
-	lockMetrics := lockAnalyzer.Finalize()
-	evtSummaries, topEvents := evtAnalyzer.Finalize()
-	uniMetrics := uniAnalyzer.Finalize()
-	sqlMetrics := sqlAnalyzer.Finalize()
-	analysis.CollectQueriesWithoutDuration(&sqlMetrics, &lockMetrics, &tempMetrics)
-
-	metrics := analysis.AggregatedMetrics{
-		Global:         globalMetrics,
-		TempFiles:      tempMetrics,
-		Vacuum:         vacMetrics,
-		Checkpoints:    chkMetrics,
-		Connections:    connMetrics,
-		Locks:          lockMetrics,
-		EventSummaries: evtSummaries,
-		TopEvents:      topEvents,
-		UniqueEntities: uniMetrics,
-		SQL:            sqlMetrics,
-	}
+	analysis.CollectQueriesWithoutDuration(&metrics.SQL, &metrics.Locks, &metrics.TempFiles)
 
 	processingMs := int64(now() - t0)
 	meta := &output.MetaInfo{
