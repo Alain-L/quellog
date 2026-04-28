@@ -174,7 +174,7 @@ type StreamingAnalyzer struct {
 
 	// Parallel SQL processing
 
-	sqlChan chan *parser.LogEntry
+	sqlChan chan parser.LogEntry
 
 	parallelWg sync.WaitGroup
 }
@@ -214,7 +214,7 @@ func NewStreamingAnalyzer(enableParallel bool) *StreamingAnalyzer {
 
 		// the most expensive analyzer to a dedicated goroutine, allowing better CPU utilization.
 
-		sa.sqlChan = make(chan *parser.LogEntry, 65536)
+		sa.sqlChan = make(chan parser.LogEntry, 65536)
 
 		sa.parallelWg.Add(1)
 
@@ -224,7 +224,7 @@ func NewStreamingAnalyzer(enableParallel bool) *StreamingAnalyzer {
 
 			for entry := range sa.sqlChan {
 
-				sa.sql.Process(entry)
+				sa.sql.Process(&entry)
 
 			}
 
@@ -288,7 +288,7 @@ func (sa *StreamingAnalyzer) Process(entry *parser.LogEntry) {
 
 	if sa.sqlChan != nil {
 
-		sa.sqlChan <- entry
+		sa.sqlChan <- *entry
 
 	} else {
 
