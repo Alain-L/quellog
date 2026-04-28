@@ -7,7 +7,6 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"strconv"
 	"syscall/js"
 	"time"
 
@@ -25,12 +24,6 @@ type JSFilters struct {
 	Database    []string `json:"database"`    // Database names
 	User        []string `json:"user"`        // User names
 	Application []string `json:"application"` // Application names
-}
-
-var perf = js.Global().Get("performance")
-
-func now() float64 {
-	return perf.Call("now").Float()
 }
 
 // parseFilterTime tries multiple formats for filter time inputs
@@ -68,14 +61,6 @@ func convertFilters(jsf JSFilters) parser.LogFilters {
 	return f
 }
 
-func formatDuration(ms int64) string {
-	if ms < 1000 {
-		return strconv.FormatInt(ms, 10) + "ms"
-	}
-	secs := float64(ms) / 1000
-	return strconv.FormatFloat(secs, 'f', 2, 64) + "s"
-}
-
 // parseFiltersArg extracts an optional JSFilters JSON string from args[idx].
 func parseFiltersArg(args []js.Value, idx int) parser.LogFilters {
 	var f parser.LogFilters
@@ -100,7 +85,7 @@ func parseFiltersArg(args []js.Value, idx int) parser.LogFilters {
 // activation (>200 MB), the same StreamingAnalyzer state machine, and
 // frees us from maintaining a parallel analyzer-orchestration block.
 func parseAndAnalyze(data []byte, filters parser.LogFilters) string {
-	t0 := now()
+	t0 := time.Now()
 
 	sampleSize := 32 * 1024
 	if len(data) < sampleSize {
@@ -134,12 +119,12 @@ func parseAndAnalyze(data []byte, filters parser.LogFilters) string {
 	}
 	analysis.CollectQueriesWithoutDuration(&metrics.SQL, &metrics.Locks, &metrics.TempFiles)
 
-	processingMs := int64(now() - t0)
+	processingMs := time.Since(t0).Milliseconds()
 	meta := &output.MetaInfo{
 		Format:    format,
 		Entries:   metrics.Global.Count,
 		Bytes:     int64(len(data)),
-		ParseTime: formatDuration(processingMs),
+		ParseTime: output.FormatDurationMs(processingMs),
 	}
 	jsonStr, err := output.ExportJSONStringWithMeta(metrics, []string{"all"}, true, meta, true)
 	if err != nil {
