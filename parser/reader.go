@@ -25,12 +25,6 @@ func ParseFromReader(r io.Reader, format string, out chan<- []LogEntry) error {
 	}
 }
 
-// ParseFromString parses log content from a string using the specified format.
-// This is a convenience wrapper around ParseFromReader.
-func ParseFromString(content string, format string, out chan<- []LogEntry) error {
-	return ParseFromReader(strings.NewReader(content), format, out)
-}
-
 // DetectFormatFromContent detects the log format from content sample.
 // Returns "csv", "json", "stderr", or empty string if unknown.
 func DetectFormatFromContent(sample string) string {
@@ -46,58 +40,19 @@ func DetectFormatFromContent(sample string) string {
 	}
 }
 
-// ParseFromReaderSync parses log content synchronously (no channels/goroutines).
-// This is optimized for single-threaded environments like WASM.
-// Returns the parsed entries directly instead of streaming via channels.
-func ParseFromReaderSync(r io.Reader, format string) ([]LogEntry, error) {
-	// Use a buffered channel and collect results
-	// This avoids duplicating all parser logic while still being sync-friendly
-	entryChan := make(chan []LogEntry, 64)
-
-	var parseErr error
-	go func() {
-		parseErr = ParseFromReader(r, format, entryChan)
-		close(entryChan)
-	}()
-
-	entries := make([]LogEntry, 0, 100000)
-	for batch := range entryChan {
-		entries = append(entries, batch...)
-	}
-
-	return entries, parseErr
-}
-
-// ParseFromStringSync parses log content from a string synchronously.
-// This is a convenience wrapper around ParseFromReaderSync.
-func ParseFromStringSync(content string, format string) ([]LogEntry, error) {
-	return ParseFromReaderSync(strings.NewReader(content), format)
-}
-
-// ParseFromBytesSync parses log content directly from a byte slice.
-// This is optimized for WASM and other cases where data is already in memory.
-// For stderr format, it uses direct byte parsing which avoids scanner.Text() allocations.
-func ParseFromBytesSync(data []byte, format string) ([]LogEntry, error) {
-	// For stderr format, use optimized direct byte parsing
+// ParseFromBytesStream parses log content from a byte slice and streams
+// batches through out. Caller is responsible for consuming and recycling
+// each batch (call PutBatch when done with it). Same shape as the CLI's
+// ParseFile pipeline so a single consumer pattern works for both paths.
+//
+// For stderr format, uses the optimized direct byte parser
+// (StderrParser.parseFromBytes) which avoids scanner.Text() allocations.
+// For CSV and JSON, the parser reads from a strings.Reader since these
+// formats don't have a byte-level fast path.
+func ParseFromBytesStream(data []byte, format string, out chan<- []LogEntry) error {
 	if format == "stderr" || format == "log" {
-		entryChan := make(chan []LogEntry, 64)
-		var parseErr error
-
-		go func() {
-			p := &StderrParser{}
-			parseErr = p.parseFromBytes(data, entryChan)
-			close(entryChan)
-		}()
-
-		entries := make([]LogEntry, 0, 100000)
-		for batch := range entryChan {
-			entries = append(entries, batch...)
-		}
-
-		return entries, parseErr
+		p := &StderrParser{}
+		return p.parseFromBytes(data, out)
 	}
-
-	// For other formats, convert to string and use standard parsing
-	// (CSV and JSON parsers don't benefit from byte-level parsing)
-	return ParseFromStringSync(string(data), format)
+	return ParseFromReader(strings.NewReader(string(data)), format, out)
 }
