@@ -7,6 +7,7 @@ import (
 	"io"
 	"math"
 	"os"
+	"sort"
 	"strings"
 	"time"
 )
@@ -87,6 +88,17 @@ func (p *StderrParser) Parse(filename string, out chan<- []LogEntry) error {
 	}
 	defer file.Close()
 
+	// Detect syslog format from a 64 KB sample so we can route to the
+	// per-PID syslog path before the prefix-structure scan starts.
+	syslogFormat := detectSyslogFormatFromFile(file)
+	if _, err := file.Seek(0, 0); err != nil {
+		return fmt.Errorf("failed to seek to start: %w", err)
+	}
+
+	if syslogFormat != SyslogNone {
+		return parseSyslogReader(WithProgress(file), syslogFormat, out)
+	}
+
 	// Try to detect prefix structure from a sample of lines
 	p.detectPrefixStructure(file)
 
@@ -96,6 +108,144 @@ func (p *StderrParser) Parse(filename string, out chan<- []LogEntry) error {
 	}
 
 	return p.parseReader(WithProgress(file), out)
+}
+
+// detectSyslogFormatFromFile reads a 64 KB sample from the file (without
+// consuming it for the caller — caller must seek back to 0 afterwards) and
+// runs the same detection used by the mmap path. Returns SyslogNone if
+// the input is plain stderr.
+func detectSyslogFormatFromFile(f *os.File) SyslogFormat {
+	buf := make([]byte, 64*1024)
+	n, _ := f.Read(buf)
+	if n == 0 {
+		return SyslogNone
+	}
+	return detectSyslogFormat(buf[:n])
+}
+
+// parseSyslogReader implements per-PID accumulation of multi-line syslog
+// entries (the [N-X] continuation pattern). PostgreSQL backends emit a
+// single LOG message split into [N-1], [N-2]... lines; multiple backends
+// interleave their lines in the journal, so we can't merge by adjacency
+// like the stderr path. This is a streaming port of parseMmapDataSyslog
+// that consumes any io.Reader instead of a mmap region.
+//
+// Memory profile: entries accumulate per-PID until the next [N-1] for the
+// same PID flushes them, then they queue in emissionOrder until EOF for
+// timestamp-stable sorting. For typical PG logs the per-PID set is small
+// (one entry per active backend) so the in-flight cost is bounded by the
+// total entry count, not file size — same trade-off as the mmap path.
+func parseSyslogReader(r io.Reader, format SyslogFormat, out chan<- []LogEntry) error {
+	bs := NewBatchSender(out)
+	defer bs.Flush()
+
+	type pidEntry struct {
+		lineNum int
+		data    []byte
+	}
+	perPIDEntries := make(map[string]pidEntry)
+
+	type orderedEntry struct {
+		lineNum int
+		entry   LogEntry
+	}
+	var emissionOrder []orderedEntry
+	lineNum := 0
+
+	parseLine := func(line string) (time.Time, string, bool) {
+		switch format {
+		case SyslogISO:
+			return parseSyslogFormatISO(line)
+		case SyslogRFC5424:
+			return parseSyslogFormatRFC5424(line)
+		default: // SyslogBSD
+			return parseSyslogFormat(line)
+		}
+	}
+
+	emit := func(ln int, entry []byte) {
+		var ts time.Time
+		var msg string
+		switch format {
+		case SyslogISO:
+			ts, msg, _ = parseSyslogFormatISO(string(entry))
+		case SyslogRFC5424:
+			ts, msg, _ = parseSyslogFormatRFC5424(string(entry))
+		default: // SyslogBSD
+			ts, msg = parseStderrLineBytes(entry)
+		}
+		emissionOrder = append(emissionOrder, orderedEntry{
+			lineNum: ln,
+			entry:   NewLogEntry(ts, msg, isContinuationMessage(msg)),
+		})
+	}
+
+	scanner := bufio.NewScanner(r)
+	buf := make([]byte, scannerBuffer)
+	scanner.Buffer(buf, math.MaxInt32)
+
+	for scanner.Scan() {
+		lineNum++
+		lineBytes := scanner.Bytes()
+		if len(lineBytes) == 0 {
+			continue
+		}
+		lineStr := string(lineBytes)
+		_, message, ok := parseLine(lineStr)
+		if !ok {
+			continue
+		}
+		pid := extractSyslogPID(lineStr)
+		if pid == "" {
+			// No PID — emit as standalone (cannot accumulate per-PID)
+			ts2, msg2, _ := parseLine(lineStr)
+			emissionOrder = append(emissionOrder, orderedEntry{
+				lineNum: lineNum,
+				entry:   NewLogEntry(ts2, msg2, isContinuationMessage(msg2)),
+			})
+			continue
+		}
+
+		if isSyslogContinuationLine(message) {
+			if pe, exists := perPIDEntries[pid]; exists && len(pe.data) > 0 {
+				content := extractSyslogContinuationContent(message)
+				if content != "" {
+					pe.data = append(pe.data, ' ')
+					pe.data = append(pe.data, content...)
+					perPIDEntries[pid] = pe
+				}
+			}
+			continue
+		}
+
+		// New entry [N-1]: flush this PID's previous entry, then start fresh.
+		if pe, exists := perPIDEntries[pid]; exists && len(pe.data) > 0 {
+			emit(pe.lineNum, pe.data)
+		}
+		perPIDEntries[pid] = pidEntry{lineNum: lineNum, data: append([]byte(nil), lineBytes...)}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return err
+	}
+
+	for _, pe := range perPIDEntries {
+		if len(pe.data) > 0 {
+			emit(pe.lineNum, pe.data)
+		}
+	}
+
+	sort.SliceStable(emissionOrder, func(i, j int) bool {
+		ei, ej := emissionOrder[i], emissionOrder[j]
+		if !ei.entry.Timestamp.Equal(ej.entry.Timestamp) {
+			return ei.entry.Timestamp.Before(ej.entry.Timestamp)
+		}
+		return ei.lineNum < ej.lineNum
+	})
+	for _, e := range emissionOrder {
+		bs.Send(e.entry)
+	}
+	return nil
 }
 
 // parseReader runs the stderr parsing logic against any io.Reader.
@@ -131,8 +281,7 @@ func (p *StderrParser) parseReader(r io.Reader, out chan<- []LogEntry) error {
 		} else {
 			if entryBuilder.Len() > 0 {
 				currentEntry := entryBuilder.String()
-				normalizedEntry := p.normalizeEntryBeforeParsing(currentEntry)
-				timestamp, message := parseStderrLine(normalizedEntry)
+				timestamp, message := p.parseEntry(currentEntry)
 				if !timestamp.IsZero() {
 					bs.Send(NewLogEntry(timestamp, message, isContinuationMessage(message)))
 				}
@@ -144,8 +293,7 @@ func (p *StderrParser) parseReader(r io.Reader, out chan<- []LogEntry) error {
 
 	if entryBuilder.Len() > 0 {
 		currentEntry := entryBuilder.String()
-		normalizedEntry := p.normalizeEntryBeforeParsing(currentEntry)
-		timestamp, message := parseStderrLine(normalizedEntry)
+		timestamp, message := p.parseEntry(currentEntry)
 		if !timestamp.IsZero() {
 			bs.Send(NewLogEntry(timestamp, message, isContinuationMessage(message)))
 		}
@@ -157,14 +305,34 @@ func (p *StderrParser) parseReader(r io.Reader, out chan<- []LogEntry) error {
 	return nil
 }
 
+// parseEntry parses an accumulated stderr entry. Tries the standard
+// stderr format (timestamp + body) first to skip the prefix-normalization
+// work, falling back to the multi-format / normalized path only when the
+// fast check does not match. The fallback drives the normalization step
+// safely: parseStderrLine first goes through every other format
+// (parseRDSFormat, parseAzureFormat, parseSyslogFormat...) before any
+// normalization is applied.
+func (p *StderrParser) parseEntry(currentEntry string) (time.Time, string) {
+	if len(currentEntry) >= 19 &&
+		currentEntry[4] == '-' && currentEntry[7] == '-' &&
+		currentEntry[10] == ' ' && currentEntry[13] == ':' &&
+		currentEntry[16] == ':' {
+		if ts, msg, ok := parseStderrFormat(currentEntry); ok {
+			return ts, msg
+		}
+	}
+	normalizedEntry := p.normalizeEntryBeforeParsing(currentEntry)
+	return parseStderrLine(normalizedEntry)
+}
+
 // hasTimestampString checks if a line starts with a recognizable timestamp pattern.
 func hasTimestampString(line string) bool {
 	n := len(line)
 	if n < 15 {
 		return false
 	}
-	// Check stderr format: YYYY-MM-DD
-	if n >= 19 && line[4] == '-' && line[7] == '-' && line[10] == ' ' {
+	// Stderr format ("YYYY-MM-DD HH:...") or syslog ISO ("YYYY-MM-DDTHH:...")
+	if n >= 19 && line[4] == '-' && line[7] == '-' && (line[10] == ' ' || line[10] == 'T') {
 		return true
 	}
 	// Check syslog BSD format: "Mon DD HH:MM:SS"
@@ -269,7 +437,8 @@ func hasTimestampBytes(line []byte) bool {
 	if n < 15 {
 		return false
 	}
-	if n >= 19 && line[4] == '-' && line[7] == '-' && line[10] == ' ' {
+	// Stderr format or syslog ISO (T separator at offset 10).
+	if n >= 19 && line[4] == '-' && line[7] == '-' && (line[10] == ' ' || line[10] == 'T') {
 		return true
 	}
 	if line[3] == ' ' && line[6] == ' ' && line[9] == ':' {
