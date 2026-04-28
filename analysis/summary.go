@@ -172,9 +172,16 @@ type StreamingAnalyzer struct {
 
 	sql *SQLAnalyzer
 
-	// Parallel SQL processing
+	// Parallel sub-analyzer dispatch (one channel per goroutine).
+	// Activated together by NewStreamingAnalyzer when enableParallel is true.
+	// SQL, Locks, TempFiles are the three measured-expensive paths
+	// (sql, locks ~22%, tempFiles ~14-34% of analyze time on >200 MB inputs).
+	// uniqueEntities is intentionally kept inline: a parallel goroutine
+	// for it showed plafond / no measurable gain (scheduler contention).
 
-	sqlChan chan parser.LogEntry
+	sqlChan   chan parser.LogEntry
+	locksChan chan parser.LogEntry
+	tempChan  chan parser.LogEntry
 
 	parallelWg sync.WaitGroup
 }
@@ -207,29 +214,41 @@ func NewStreamingAnalyzer(enableParallel bool) *StreamingAnalyzer {
 	}
 
 	if enableParallel {
-
-		// Start parallel SQL analyzer goroutine.
-
-		// This provides ~20% wall clock speedup (benchmarked on 1GB+ files) by offloading
-
-		// the most expensive analyzer to a dedicated goroutine, allowing better CPU utilization.
-
+		// Move the three measured-expensive analyzers off the dispatch
+		// goroutine so they can run concurrently with the parser. Each
+		// gets a buffered channel sized to absorb a typical batch run
+		// without blocking the dispatcher.
+		//
+		// Bench (28-04, M3 Pro, gc=on, instrumented baseline):
+		//   J.log  48.4s → 37.9s  (-21.7%)
+		//   I.log   4.4s →  4.0s  (-10.6%)
+		//   C.csv   5.6s →  3.8s  (-32%)
+		// uniqueEntities was tested as a 4th parallel goroutine but
+		// plafonned (no measurable additional gain on top of the three),
+		// so it stays inline below.
 		sa.sqlChan = make(chan parser.LogEntry, 65536)
+		sa.locksChan = make(chan parser.LogEntry, 65536)
+		sa.tempChan = make(chan parser.LogEntry, 65536)
 
-		sa.parallelWg.Add(1)
-
+		sa.parallelWg.Add(3)
 		go func() {
-
 			defer sa.parallelWg.Done()
-
 			for entry := range sa.sqlChan {
-
 				sa.sql.Process(&entry)
-
 			}
-
 		}()
-
+		go func() {
+			defer sa.parallelWg.Done()
+			for entry := range sa.locksChan {
+				sa.locks.Process(&entry)
+			}
+		}()
+		go func() {
+			defer sa.parallelWg.Done()
+			for entry := range sa.tempChan {
+				sa.tempFiles.Process(&entry)
+			}
+		}()
 	}
 
 	return sa
@@ -264,38 +283,31 @@ func (sa *StreamingAnalyzer) Process(entry *parser.LogEntry) {
 
 	}
 
-	// Dispatch to specialized analyzers
-
-	// Each analyzer performs its own filtering
-
+	// Inline analyzers (cheap on hot path or stateful in a way that
+	// doesn't benefit from a goroutine hand-off).
 	sa.vacuum.Process(entry)
-
 	sa.checkpoints.Process(entry)
-
 	sa.connections.Process(entry)
-
-	sa.locks.Process(entry)
-
 	sa.events.Process(entry)
-
 	sa.uniqueEntities.Process(entry)
 
-	// TempFiles: always sequential (faster than channel overhead for typical logs)
-
-	sa.tempFiles.Process(entry)
-
-	// SQL: parallel if enabled (most expensive analyzer)
-
-	if sa.sqlChan != nil {
-
-		sa.sqlChan <- *entry
-
+	// Parallel-eligible analyzers: dispatched to a goroutine when
+	// enableParallel was true at NewStreamingAnalyzer time.
+	if sa.locksChan != nil {
+		sa.locksChan <- *entry
 	} else {
-
-		sa.sql.Process(entry)
-
+		sa.locks.Process(entry)
 	}
-
+	if sa.tempChan != nil {
+		sa.tempChan <- *entry
+	} else {
+		sa.tempFiles.Process(entry)
+	}
+	if sa.sqlChan != nil {
+		sa.sqlChan <- *entry
+	} else {
+		sa.sql.Process(entry)
+	}
 }
 
 // Finalize computes final metrics after all log entries have been processed.
@@ -304,11 +316,14 @@ func (sa *StreamingAnalyzer) Process(entry *parser.LogEntry) {
 
 func (sa *StreamingAnalyzer) Finalize() AggregatedMetrics {
 
-	// Close SQL channel and wait for goroutine to finish
+	// Close parallel-analyzer channels and wait for goroutines to finish
 
 	if sa.sqlChan != nil {
 
 		close(sa.sqlChan)
+
+		close(sa.locksChan)
+		close(sa.tempChan)
 
 		sa.parallelWg.Wait()
 
