@@ -13,38 +13,13 @@ import (
 //
 // Zero values (empty slices, zero times) mean "no filtering for this criterion".
 type LogFilters struct {
-	// BeginT filters entries to only those at or after this time.
-	// Zero value means no lower bound.
-	BeginT time.Time
-
-	// EndT filters entries to only those at or before this time.
-	// Zero value means no upper bound.
-	EndT time.Time
-
-	// DbFilter is a whitelist of database names.
-	// If non-empty, only entries matching one of these databases are included.
-	// Database name is extracted from "db=<name>" in the message.
-	DbFilter []string
-
-	// UserFilter is a whitelist of database users.
-	// If non-empty, only entries matching one of these users are included.
-	// User name is extracted from "user=<name>" in the message.
-	UserFilter []string
-
-	// ExcludeUser is a blacklist of database users.
-	// If non-empty, entries matching any of these users are excluded.
-	// Takes precedence over UserFilter if a user appears in both.
-	ExcludeUser []string
-
-	// AppFilter is a whitelist of application names.
-	// If non-empty, only entries matching one of these applications are included.
-	// Application name is extracted from "app=<name>" in the message.
-	AppFilter []string
-
-	// GrepExpr is a list of patterns that must ALL be present in the message.
-	// All patterns are treated as literal strings (not regex).
-	// Empty slice means no grep filtering.
-	GrepExpr []string
+	BeginT      time.Time // entries at or after this time (zero = no lower bound)
+	EndT        time.Time // entries at or before this time (zero = no upper bound)
+	DbFilter    []string  // whitelist of database names (extracted from "db=<name>")
+	UserFilter  []string  // whitelist of users (extracted from "user=<name>")
+	ExcludeUser []string  // blacklist of users; takes precedence over UserFilter
+	AppFilter   []string  // whitelist of application names (extracted from "app=<name>")
+	GrepExpr    []string  // patterns that must ALL appear in the message (literal, not regex)
 }
 
 // FilterStream reads log entries from the input channel, applies filters,
