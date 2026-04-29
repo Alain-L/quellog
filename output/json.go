@@ -11,16 +11,9 @@ import (
 	"github.com/Alain-L/quellog/analysis"
 )
 
-// JSON structures define the format of the output data.
-// Each structure corresponds to a section of metrics:
-// - SummaryJSON: global metrics such as start/end dates, total logs, and throughput.
-// - SQLPerformanceJSON: metrics related to SQL query performance, including durations and counts.
-// - TempFilesJSON: statistics on temporary files (message count, total and average size).
-// - MaintenanceJSON: counts of maintenance operations like VACUUM and ANALYZE.
-// - CheckpointsJSON: information about checkpoint operations.
-// - ConnectionsJSON: connection and session-related statistics.
-// - ClientsJSON: counts of unique databases, users, and client applications.
-
+// JSON output structures, one per metrics section: SummaryJSON,
+// SQLPerformanceJSON, TempFilesJSON, MaintenanceJSON, CheckpointsJSON,
+// ConnectionsJSON, ClientsJSON, etc.
 type SummaryJSON struct {
 	StartDate    string `json:"start_date"`
 	EndDate      string `json:"end_date"`

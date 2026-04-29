@@ -9,105 +9,46 @@ import (
 	"github.com/Alain-L/quellog/parser"
 )
 
-// LockMetrics aggregates statistics about PostgreSQL lock events.
-// Locks are tracked when processes wait for or acquire locks on database resources.
+// LockMetrics aggregates PostgreSQL lock-event statistics.
 type LockMetrics struct {
-	// TotalEvents is the total number of lock-related events (waiting + acquired).
-	TotalEvents int
-
-	// WaitingEvents is the number of "still waiting" events.
-	WaitingEvents int
-
-	// AcquiredEvents is the number of "acquired" events.
-	AcquiredEvents int
-
-	// DeadlockEvents is the number of deadlock detection events.
-	DeadlockEvents int
-
-	// TotalWaitTime is the cumulative wait time across all lock events in milliseconds.
-	TotalWaitTime float64
-
-	// LockTypeStats maps lock types (e.g., "AccessShareLock", "ExclusiveLock") to their event counts.
-	LockTypeStats map[string]int
-
-	// ResourceTypeStats maps resource types (e.g., "relation", "transaction", "advisory lock") to their event counts.
-	ResourceTypeStats map[string]int
-
-	// RelationStats maps table names (from CONTEXT) to their lock event counts.
-	RelationStats map[string]int
-
-	// Events contains individual lock events for timeline analysis.
-	Events []LockEvent
-
-	// QueryStats maps normalized queries to their lock statistics.
-	QueryStats map[string]*LockQueryStat
+	TotalEvents       int     // waiting + acquired
+	WaitingEvents     int     // "still waiting" events
+	AcquiredEvents    int
+	DeadlockEvents    int
+	TotalWaitTime     float64 // cumulative ms
+	LockTypeStats     map[string]int            // lock mode → count (AccessShareLock, ExclusiveLock, ...)
+	ResourceTypeStats map[string]int            // resource → count (relation, transaction, advisory lock, ...)
+	RelationStats     map[string]int            // table (from CONTEXT) → count
+	Events            []LockEvent               // individual events, for timeline analysis
+	QueryStats        map[string]*LockQueryStat // normalized query → stats
 }
 
-// LockEvent represents a single lock-related event.
+// LockEvent is a single lock-related event.
 type LockEvent struct {
-	// Timestamp is when the lock event occurred.
-	Timestamp time.Time
-
-	// EventType is "waiting", "acquired", or "deadlock".
-	EventType string
-
-	// LockType is the PostgreSQL lock mode (e.g., "AccessShareLock", "ExclusiveLock").
-	LockType string
-
-	// ResourceType is the type of resource being locked (e.g., "relation", "transaction").
-	ResourceType string
-
-	// WaitTime is the duration waited for the lock in milliseconds (0 for deadlocks).
-	WaitTime float64
-
-	// ProcessID is the PID of the process involved.
-	ProcessID string
-
-	// QueryID is the short identifier for the associated query (e.g., "se-abc123").
-	// May be empty if the query cannot be identified.
-	QueryID string
-
-	// BlockingPID is the PID of the process holding the lock (from DETAIL line).
-	BlockingPID string
-
-	// BlockingQueryID is the short identifier for the blocking query, if known.
+	Timestamp       time.Time
+	EventType       string  // "waiting", "acquired", or "deadlock"
+	LockType        string  // PostgreSQL lock mode (AccessShareLock, ExclusiveLock, ...)
+	ResourceType    string  // relation, transaction, ...
+	WaitTime        float64 // ms (0 for deadlocks)
+	ProcessID       string
+	QueryID         string // associated query short id (empty if unknown)
+	BlockingPID     string // process holding the lock (from DETAIL line)
 	BlockingQueryID string
-
-	// BlockingQuery is the normalized text of the blocking query, if known.
-	BlockingQuery string
-
-	// Relation is the table name from CONTEXT (e.g., "while locking tuple ... in relation X").
-	Relation string
+	BlockingQuery   string // normalized blocking query, if known
+	Relation        string // table from CONTEXT ("while locking tuple ... in relation X")
 }
 
-// LockQueryStat stores aggregated lock statistics for a single query pattern.
+// LockQueryStat aggregates lock stats for one query pattern.
 type LockQueryStat struct {
-	// RawQuery is the original query text (first occurrence).
-	RawQuery string
-
-	// NormalizedQuery is the parameterized version used for grouping.
-	NormalizedQuery string
-
-	// AcquiredCount is the number of unique locks that were acquired.
-	AcquiredCount int
-
-	// AcquiredWaitTime is the cumulative wait time for acquired locks in milliseconds.
-	AcquiredWaitTime float64
-
-	// StillWaitingCount is the number of unique locks still waiting (never acquired).
-	StillWaitingCount int
-
-	// StillWaitingTime is the cumulative wait time for locks still waiting in milliseconds.
-	StillWaitingTime float64
-
-	// TotalWaitTime is the total wait time (acquired + still waiting) in milliseconds.
-	TotalWaitTime float64
-
-	// ID is a short, user-friendly identifier.
-	ID string
-
-	// FullHash is the complete hash in hexadecimal.
-	FullHash string
+	RawQuery          string
+	NormalizedQuery   string
+	AcquiredCount     int     // unique locks acquired
+	AcquiredWaitTime  float64 // cumulative ms for acquired
+	StillWaitingCount int     // unique locks still waiting (never acquired)
+	StillWaitingTime  float64 // cumulative ms for still-waiting
+	TotalWaitTime     float64 // acquired + still-waiting, ms
+	ID                string
+	FullHash          string
 }
 
 // ============================================================================

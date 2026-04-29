@@ -191,101 +191,57 @@ func QueryCategory(queryType string) string {
 	}
 }
 
-// QueryStat stores aggregated statistics for a single SQL query pattern.
-// Multiple executions of the same normalized query are aggregated into one QueryStat.
+// QueryStat aggregates stats for one normalized SQL query pattern
+// across all its executions.
 type QueryStat struct {
-	// RawQuery is the original query text (first occurrence).
-	RawQuery string
-
-	// NormalizedQuery is the parameterized version used for grouping.
-	// Example: "SELECT * FROM users WHERE id = $1"
-	NormalizedQuery string
-
-	// Count is the number of times this query was executed.
-	Count int
-
-	// TotalTime is the cumulative execution time in milliseconds.
-	TotalTime float64
-
-	// AvgTime is the average execution time in milliseconds.
-	// Calculated as TotalTime / Count.
-	AvgTime float64
-
-	// MaxTime is the maximum execution time observed in milliseconds.
-	MaxTime float64
-
-	// ID is a short, user-friendly identifier (e.g., "se-123xaB").
-	ID string
-
-	// FullHash is the complete hash in hexadecimal (e.g., 32-character MD5).
-	FullHash string
-
-	// LastPlan stores the most recent execution plan from auto_explain (if available).
-	// Only one plan per query signature is retained to keep memory bounded.
+	RawQuery        string  // first occurrence (raw text)
+	NormalizedQuery string  // parameterized form used for grouping (e.g. "SELECT * FROM users WHERE id = $1")
+	Count           int
+	TotalTime       float64 // cumulative execution time, ms
+	AvgTime         float64 // TotalTime / Count
+	MaxTime         float64
+	ID              string // short id (e.g. "se-123xaB")
+	FullHash        string // full MD5 hex
+	// LastPlan keeps only the most recent auto_explain plan per query
+	// signature (memory-bounded; older plans are discarded).
 	LastPlan string
 }
 
-// QueryExecution represents a single SQL query execution event.
+// QueryExecution is one SQL execution event.
 type QueryExecution struct {
-	// Timestamp is when the query was executed.
 	Timestamp time.Time
-
-	// Duration is the execution time in milliseconds.
-	Duration float64
-
-	// QueryID is the short identifier for this query (e.g., "se-abc123").
-	QueryID string
+	Duration  float64 // ms
+	QueryID   string  // short id (e.g. "se-abc123")
 }
 
-// SQLMetrics aggregates SQL query statistics from log analysis.
-// It provides both per-query statistics and global metrics.
+// SQLMetrics combines per-query stats and global SQL metrics.
 type SQLMetrics struct {
-	// QueryStats maps normalized queries to their aggregated statistics.
-	QueryStats map[string]*QueryStat
+	QueryStats          map[string]*QueryStat // normalized query → stats
+	TotalQueries        int
+	UniqueQueries       int
+	MinQueryDuration    float64
+	MaxQueryDuration    float64
+	SumQueryDuration    float64
+	StartTimestamp      time.Time
+	EndTimestamp        time.Time
+	Executions          []QueryExecution // all individual events (timeline, percentiles)
+	MedianQueryDuration float64          // 50th percentile
+	P99QueryDuration    float64
 
-	// TotalQueries is the total number of SQL queries executed.
-	TotalQueries int
-
-	// UniqueQueries is the number of distinct normalized queries.
-	UniqueQueries int
-
-	// MinQueryDuration is the fastest query duration in milliseconds.
-	MinQueryDuration float64
-
-	// MaxQueryDuration is the slowest query duration in milliseconds.
-	MaxQueryDuration float64
-
-	// SumQueryDuration is the total execution time of all queries in milliseconds.
-	SumQueryDuration float64
-
-	// StartTimestamp is when the first query was executed.
-	StartTimestamp time.Time
-
-	// EndTimestamp is when the last query was executed.
-	EndTimestamp time.Time
-
-	// Executions contains all individual query executions.
-	// Useful for timeline analysis and percentile calculations.
-	Executions []QueryExecution
-
-	// MedianQueryDuration is the 50th percentile of query durations.
-	MedianQueryDuration float64
-
-	// P99QueryDuration is the 99th percentile of query durations.
-	P99QueryDuration float64
-
-	// QueriesWithoutDurationCount tracks queries identified from logs but without duration metrics.
+	// QueriesWithoutDurationCount tracks queries identified from logs
+	// (lock events, tempfile events) but without a duration recorded.
+	// Total may be < FromLocks + FromTempfiles when a query appears in
+	// both.
 	QueriesWithoutDurationCount struct {
-		FromLocks     int // Queries seen in lock events
-		FromTempfiles int // Queries seen in tempfile events
-		Total         int // Total unique queries (may be < FromLocks + FromTempfiles due to overlap)
+		FromLocks     int
+		FromTempfiles int
+		Total         int
 	}
 
-	// QueryTypeStats contains statistics grouped by SQL query type.
-	// Maps query type (SELECT, INSERT, etc.) to statistics.
+	// QueryTypeStats: type (SELECT, INSERT, ...) → stats.
 	QueryTypeStats map[string]*QueryTypeStat
 
-	// Query type breakdown by dimension (for --sql-overview)
+	// Query type breakdown by dimension (for --sql-overview).
 	QueryTypesByDatabase map[string]map[string]*QueryTypeCount
 	QueryTypesByUser     map[string]map[string]*QueryTypeCount
 	QueryTypesByHost     map[string]map[string]*QueryTypeCount
@@ -294,26 +250,13 @@ type SQLMetrics struct {
 
 // QueryTypeStat contains aggregated statistics for a specific query type.
 type QueryTypeStat struct {
-	// Type is the SQL command type (SELECT, INSERT, UPDATE, DELETE, etc.)
-	Type string
-
-	// Category is the high-level category (DML, DDL, TCL, etc.)
-	Category string
-
-	// Count is the total number of executions of this type.
-	Count int
-
-	// UniqueQueries is the number of distinct queries of this type.
-	UniqueQueries int
-
-	// TotalTime is the cumulative execution time in milliseconds.
-	TotalTime float64
-
-	// AvgTime is the average execution time per query.
-	AvgTime float64
-
-	// MaxTime is the maximum execution time for this type.
-	MaxTime float64
+	Type          string  // SELECT, INSERT, UPDATE, ...
+	Category      string  // DML, DDL, TCL, ...
+	Count         int     // executions of this type
+	UniqueQueries int     // distinct queries of this type
+	TotalTime     float64 // cumulative ms
+	AvgTime       float64 // ms per query
+	MaxTime       float64
 }
 
 // QueryTypeCount tracks count and total time for a query type in a specific dimension.

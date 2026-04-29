@@ -15,33 +15,20 @@ const (
 	pageSize int64 = 8192
 )
 
-// VacuumMetrics aggregates statistics for autovacuum and autoanalyze operations.
-// These operations are critical for PostgreSQL performance and space management.
+// VacuumMetrics aggregates autovacuum and autoanalyze stats.
 type VacuumMetrics struct {
-	// VacuumCount is the total number of automatic vacuum operations
-	// (includes both regular and aggressive — aggressive is a type of vacuum).
+	// VacuumCount counts every automatic vacuum (includes aggressive,
+	// which is just a type of vacuum).
 	VacuumCount int
-
-	// AggressiveVacuumCount is the number of "automatic aggressive vacuum"
-	// operations, i.e. anti-wraparound freeze runs. A high value relative
-	// to VacuumCount means the cluster is under freeze pressure; this is
-	// worth surfacing separately when diagnosing autovacuum tuning.
+	// AggressiveVacuumCount counts "automatic aggressive vacuum" runs,
+	// i.e. anti-wraparound freezes. A high ratio vs VacuumCount means
+	// the cluster is under freeze pressure — worth surfacing when
+	// diagnosing autovacuum tuning.
 	AggressiveVacuumCount int
-
-	// AnalyzeCount is the total number of automatic analyze operations.
-	AnalyzeCount int
-
-	// VacuumTableCounts maps table names to their vacuum operation count.
-	// Useful for identifying tables that are vacuumed frequently.
-	VacuumTableCounts map[string]int
-
-	// AnalyzeTableCounts maps table names to their analyze operation count.
-	// Useful for understanding statistics update patterns.
-	AnalyzeTableCounts map[string]int
-
-	// VacuumSpaceRecovered maps table names to total disk space recovered in bytes.
-	// This represents dead tuple space reclaimed by vacuum operations.
-	VacuumSpaceRecovered map[string]int64
+	AnalyzeCount          int
+	VacuumTableCounts     map[string]int   // table → vacuum count
+	AnalyzeTableCounts    map[string]int   // table → analyze count
+	VacuumSpaceRecovered  map[string]int64 // table → bytes reclaimed (dead tuples)
 }
 
 // ============================================================================
