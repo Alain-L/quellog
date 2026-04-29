@@ -8,36 +8,20 @@ import (
 	"github.com/Alain-L/quellog/parser"
 )
 
-// EventSummary represents aggregated statistics for a specific PostgreSQL log event type.
-// Event types correspond to PostgreSQL severity levels (ERROR, WARNING, LOG, etc.).
+// EventSummary aggregates one PostgreSQL severity level (ERROR, WARNING, LOG, ...).
 type EventSummary struct {
-	// Type is the event/severity level (e.g., "ERROR", "WARNING", "LOG").
-	Type string
-
-	// Count is the number of occurrences of this event type.
-	Count int
-
-	// Percentage is the proportion of this event type relative to all counted events.
-	Percentage float64
+	Type       string  // severity level
+	Count      int     // occurrences of this type
+	Percentage float64 // share of all counted events
 }
 
-// EventStat represents statistics for a unique event message pattern.
+// EventStat holds statistics for a unique normalized message pattern.
 type EventStat struct {
-	// Message is the normalized version of the event message.
-	Message string
-
-	// Count is the number of times this event was encountered.
-	Count int
-
-	// Severity is the log level of the event (ERROR, WARNING, etc.).
-	Severity string
-
-	// Example is a raw example of the message.
-	Example string
-
-	// SQLStateClass is the 2-character SQLSTATE class code (e.g., "23", "42").
-	// Empty if not applicable or not found.
-	SQLStateClass string
+	Message       string // normalized message
+	Count         int
+	Severity      string
+	Example       string // raw example
+	SQLStateClass string // 2-char SQLSTATE class (e.g. "23", "42"), empty if N/A
 }
 
 // ============================================================================
@@ -74,135 +58,51 @@ var PredefinedEventTypes = []string{
 // SQLSTATE error class definitions
 // ============================================================================
 
-// errorClassDescriptions maps SQLSTATE error class codes (first two characters)
-// to their PostgreSQL-defined descriptions.
-//
-// Reference: https://www.postgresql.org/docs/current/errcodes-appendix.html
+// errorClassDescriptions maps SQLSTATE error class codes (first two
+// characters) to their PostgreSQL descriptions. Reference:
+// https://www.postgresql.org/docs/current/errcodes-appendix.html
 var errorClassDescriptions = map[string]string{
-	// Class 00 — Successful Completion
 	"00": "Successful Completion",
-
-	// Class 01 — Warning
 	"01": "Warning",
-
-	// Class 02 — No Data
 	"02": "No Data",
-
-	// Class 03 — SQL Statement Not Yet Complete
 	"03": "SQL Statement Not Yet Complete",
-
-	// Class 08 — Connection Exception
 	"08": "Connection Exception",
-
-	// Class 09 — Triggered Action Exception
 	"09": "Triggered Action Exception",
-
-	// Class 0A — Feature Not Supported
 	"0A": "Feature Not Supported",
-
-	// Class 0B — Invalid Transaction Initiation
 	"0B": "Invalid Transaction Initiation",
-
-	// Class 0F — Locator Exception
 	"0F": "Locator Exception",
-
-	// Class 0L — Invalid Grantor
 	"0L": "Invalid Grantor",
-
-	// Class 0P — Invalid Role Specification
 	"0P": "Invalid Role Specification",
-
-	// Class 0Z — Diagnostics Exception
 	"0Z": "Diagnostics Exception",
-
-	// Class 20 — Case Not Found
 	"20": "Case Not Found",
-
-	// Class 21 — Cardinality Violation
 	"21": "Cardinality Violation",
-
-	// Class 22 — Data Exception
 	"22": "Data Exception",
-
-	// Class 23 — Integrity Constraint Violation
 	"23": "Integrity Constraint Violation",
-
-	// Class 24 — Invalid Cursor State
 	"24": "Invalid Cursor State",
-
-	// Class 25 — Invalid Transaction State
 	"25": "Invalid Transaction State",
-
-	// Class 26 — Invalid SQL Statement Name
 	"26": "Invalid SQL Statement Name",
-
-	// Class 27 — Triggered Data Change Violation
 	"27": "Triggered Data Change Violation",
-
-	// Class 28 — Invalid Authorization Specification
 	"28": "Invalid Authorization Specification",
-
-	// Class 2B — Dependent Privilege Descriptors Still Exist
 	"2B": "Dependent Privilege Descriptors Still Exist",
-
-	// Class 2D — Invalid Transaction Termination
 	"2D": "Invalid Transaction Termination",
-
-	// Class 2F — SQL Routine Exception
 	"2F": "SQL Routine Exception",
-
-	// Class 34 — Invalid Cursor Name
 	"34": "Invalid Cursor Name",
-
-	// Class 38 — External Routine Exception
 	"38": "External Routine Exception",
-
-	// Class 39 — External Routine Invocation Exception
 	"39": "External Routine Invocation Exception",
-
-	// Class 3B — Savepoint Exception
 	"3B": "Savepoint Exception",
-
-	// Class 3D — Invalid Catalog Name
 	"3D": "Invalid Catalog Name",
-
-	// Class 3F — Invalid Schema Name
 	"3F": "Invalid Schema Name",
-
-	// Class 40 — Transaction Rollback
 	"40": "Transaction Rollback",
-
-	// Class 42 — Syntax Error or Access Rule Violation
 	"42": "Syntax Error or Access Rule Violation",
-
-	// Class 44 — WITH CHECK OPTION Violation
 	"44": "WITH CHECK OPTION Violation",
-
-	// Class 53 — Insufficient Resources
 	"53": "Insufficient Resources",
-
-	// Class 54 — Program Limit Exceeded
 	"54": "Program Limit Exceeded",
-
-	// Class 55 — Object Not In Prerequisite State
 	"55": "Object Not In Prerequisite State",
-
-	// Class 57 — Operator Intervention
 	"57": "Operator Intervention",
-
-	// Class 58 — System Error (errors external to PostgreSQL)
-	"58": "System Error",
-
-	// Class F0 — Configuration File Error
+	"58": "System Error", // external to PostgreSQL
 	"F0": "Configuration File Error",
-
-	// Class HV — Foreign Data Wrapper Error (SQL/MED)
-	"HV": "Foreign Data Wrapper Error",
-
-	// Class P0 — PL/pgSQL Error
+	"HV": "Foreign Data Wrapper Error", // SQL/MED
 	"P0": "PL/pgSQL Error",
-
-	// Class XX — Internal Error
 	"XX": "Internal Error",
 }
 

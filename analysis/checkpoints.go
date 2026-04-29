@@ -18,52 +18,22 @@ type CheckpointWAL struct {
 	EstimateKB int64
 }
 
-// CheckpointMetrics aggregates statistics related to PostgreSQL checkpoints.
-// Checkpoints are critical events where PostgreSQL flushes dirty buffers to disk.
+// CheckpointMetrics aggregates statistics for PostgreSQL checkpoints —
+// the events where PostgreSQL flushes dirty buffers to disk.
 type CheckpointMetrics struct {
-	// CompleteCount is the total number of completed checkpoints.
-	CompleteCount int
-
-	// TotalWriteTimeSeconds is the sum of all checkpoint write times.
+	CompleteCount         int
 	TotalWriteTimeSeconds float64
-
-	// MaxWriteTimeSeconds is the longest checkpoint write time observed.
-	MaxWriteTimeSeconds float64
-
-	// Events contains the timestamp of every completed checkpoint.
-	// Useful for calculating checkpoint frequency and distribution.
-	Events []time.Time
-
-	// TypeCounts maps checkpoint type to occurrence count.
-	// Types include: "time", "xlog", "shutdown", "immediate", etc.
-	TypeCounts map[string]int
-
-	// TypeEvents maps checkpoint type to timestamps of occurrences.
-	// Useful for analyzing frequency by type.
-	TypeEvents map[string][]time.Time
-
-	// WALDistances contains per-checkpoint WAL distance and estimate values.
-	WALDistances []CheckpointWAL
-
-	// TotalDistanceKB is the cumulative WAL distance across all checkpoints.
-	TotalDistanceKB int64
-
-	// MaxDistanceKB is the largest WAL distance observed for a single checkpoint.
-	MaxDistanceKB int64
-
-	// TotalBuffersWritten is the cumulative number of buffers written across all checkpoints.
-	TotalBuffersWritten int64
-
-	// WarningCount is the number of "checkpoints are occurring too frequently" warnings.
-	WarningCount int
-
-	// WarningEvents contains the timestamp of every checkpoint frequency warning.
-	WarningEvents []time.Time
-
-	// WarningMinIntervalSeconds is the shortest interval reported in warnings (in seconds).
+	MaxWriteTimeSeconds   float64
+	Events                []time.Time          // timestamp of each completed checkpoint
+	TypeCounts            map[string]int       // type → count ("time", "xlog", "shutdown", "immediate", ...)
+	TypeEvents            map[string][]time.Time
+	WALDistances          []CheckpointWAL // per-checkpoint WAL distance + estimate
+	TotalDistanceKB       int64
+	MaxDistanceKB         int64
+	TotalBuffersWritten   int64
+	WarningCount          int           // "checkpoints are occurring too frequently" warnings
+	WarningEvents         []time.Time
 	WarningMinIntervalSeconds int
-
-	// WarningMaxIntervalSeconds is the longest interval reported in warnings (in seconds).
 	WarningMaxIntervalSeconds int
 }
 

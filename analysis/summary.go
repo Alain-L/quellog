@@ -13,197 +13,90 @@ import (
 
 // GlobalMetrics aggregates general statistics from PostgreSQL logs.
 type GlobalMetrics struct {
-	// Count is the total number of log entries processed.
-	Count int
-
-	// MinTimestamp is the timestamp of the earliest log entry.
-	MinTimestamp time.Time
-
-	// MaxTimestamp is the timestamp of the latest log entry.
-	MaxTimestamp time.Time
-
-	// ErrorCount is the number of ERROR-level messages.
-	ErrorCount int
-
-	// FatalCount is the number of FATAL-level messages.
-	FatalCount int
-
-	// PanicCount is the number of PANIC-level messages.
-	PanicCount int
-
-	// WarningCount is the number of WARNING-level messages.
+	Count        int       // total number of log entries processed
+	MinTimestamp time.Time // earliest entry
+	MaxTimestamp time.Time // latest entry
+	ErrorCount   int
+	FatalCount   int
+	PanicCount   int
 	WarningCount int
-
-	// LogCount is the number of LOG-level messages.
-	LogCount int
+	LogCount     int
 }
 
-// UniqueEntityMetrics tracks unique database entities (databases, users, applications, hosts).
-// This helps understand the scope of database usage and identify which components are active.
+// UniqueEntityMetrics tracks unique databases, users, applications and hosts.
 type UniqueEntityMetrics struct {
-	// UniqueDbs is the count of distinct databases referenced in logs.
-	UniqueDbs int
-
-	// UniqueUsers is the count of distinct users referenced in logs.
+	UniqueDbs   int
 	UniqueUsers int
-
-	// UniqueApps is the count of distinct applications referenced in logs.
-	UniqueApps int
-
-	// UniqueHosts is the count of distinct hosts/clients referenced in logs.
+	UniqueApps  int
 	UniqueHosts int
 
-	// DBs is the sorted list of all unique database names.
-	DBs []string
-
-	// Users is the sorted list of all unique user names.
+	DBs   []string // sorted lists, derived from the *Counts map keys
 	Users []string
-
-	// Apps is the sorted list of all unique application names.
-	Apps []string
-
-	// Hosts is the sorted list of all unique host/client addresses.
+	Apps  []string
 	Hosts []string
 
-	// DBCounts maps each database name to its occurrence count in logs.
-	DBCounts map[string]int
-
-	// UserCounts maps each username to its occurrence count in logs.
+	DBCounts   map[string]int // name → occurrences
 	UserCounts map[string]int
-
-	// AppCounts maps each application name to its occurrence count in logs.
-	AppCounts map[string]int
-
-	// HostCounts maps each host address to its occurrence count in logs.
+	AppCounts  map[string]int
 	HostCounts map[string]int
 
-	// UserDbCombos maps user×database combinations to their occurrence counts.
-	// Key format: "username|database"
-	UserDbCombos map[string]int
-
-	// UserHostCombos maps user×host combinations to their occurrence counts.
-	// Key format: "username|host"
-	UserHostCombos map[string]int
+	UserDbCombos   map[string]int // key format "user|db"
+	UserHostCombos map[string]int // key format "user|host"
 }
 
-// AggregatedMetrics combines all analysis metrics into a single structure.
-// This is the final output of log analysis, containing statistics from all analyzers.
+// AggregatedMetrics is the final output of log analysis — every analyzer's
+// metrics combined into one struct. EventSummaries is the severity-level
+// distribution (ERROR/FATAL/LOG/...); TopEvents are the most frequent
+// individual event signatures.
 type AggregatedMetrics struct {
-	// Global contains overall log statistics.
-	Global GlobalMetrics
-
-	// TempFiles contains temporary file usage statistics.
-	TempFiles TempFileMetrics
-
-	// Vacuum contains autovacuum and manual vacuum statistics.
-	Vacuum VacuumMetrics
-
-	// Checkpoints contains checkpoint statistics.
-	Checkpoints CheckpointMetrics
-
-	// Connections contains connection and session statistics.
-	Connections ConnectionMetrics
-
-	// Locks contains lock event statistics.
-	Locks LockMetrics
-
-	// UniqueEntities contains unique database entity statistics.
+	Global         GlobalMetrics
+	TempFiles      TempFileMetrics
+	Vacuum         VacuumMetrics
+	Checkpoints    CheckpointMetrics
+	Connections    ConnectionMetrics
+	Locks          LockMetrics
 	UniqueEntities UniqueEntityMetrics
-
-	// EventSummaries contains severity level distribution.
-
-	// This is the main severity level distribution (ERROR, FATAL, LOG, etc.).
-
 	EventSummaries []EventSummary
-
-	// TopEvents contains the most frequent event signatures.
-
-	// This includes specific error messages, warnings, and log patterns.
-
-	TopEvents []EventStat
-
-	// SQL contains SQL query statistics.
-
-	SQL SQLMetrics
+	TopEvents      []EventStat
+	SQL            SQLMetrics
 }
 
-// ============================================================================
-
-// Streaming analysis orchestrator
-
-// ============================================================================
-
-// StreamingAnalyzer orchestrates multiple specialized analyzers to process
-
-// log entries in streaming mode without loading all data into memory.
-
+// StreamingAnalyzer orchestrates the eight specialized analyzers in
+// streaming mode, without loading all entries into memory.
 //
-
 // Usage:
-
 //
-
-//	analyzer := NewStreamingAnalyzer()
-
+//	a := NewStreamingAnalyzer()
 //	for entry := range logEntries {
-
-//	    analyzer.Process(&entry)
-
+//	    a.Process(&entry)
 //	}
-
-//	metrics := analyzer.Finalize()
-
+//	metrics := a.Finalize()
+//
+// SQL, Locks and TempFiles are dispatched to dedicated goroutines fed
+// by buffered channels — they were measured as the three most expensive
+// analyzers (sql/locks ~22% each, tempFiles 14-34% on >200 MB inputs).
+// uniqueEntities was tested as a 4th parallel goroutine but plafonned,
+// so it stays inline.
 type StreamingAnalyzer struct {
-	global GlobalMetrics
-
-	tempFiles *TempFileAnalyzer
-
-	vacuum *VacuumAnalyzer
-
-	checkpoints *CheckpointAnalyzer
-
-	connections *ConnectionAnalyzer
-
-	locks *LockAnalyzer
-
-	events *EventAnalyzer
-
+	global         GlobalMetrics
+	tempFiles      *TempFileAnalyzer
+	vacuum         *VacuumAnalyzer
+	checkpoints    *CheckpointAnalyzer
+	connections    *ConnectionAnalyzer
+	locks          *LockAnalyzer
+	events         *EventAnalyzer
 	uniqueEntities *UniqueEntityAnalyzer
+	sql            *SQLAnalyzer
 
-	sql *SQLAnalyzer
-
-	// Parallel sub-analyzer dispatch (one channel per goroutine).
-	// Activated together by NewStreamingAnalyzer when enableParallel is true.
-	// SQL, Locks, TempFiles are the three measured-expensive paths
-	// (sql, locks ~22%, tempFiles ~14-34% of analyze time on >200 MB inputs).
-	// uniqueEntities is intentionally kept inline: a parallel goroutine
-	// for it showed plafond / no measurable gain (scheduler contention).
-
-	sqlChan   chan parser.LogEntry
-	locksChan chan parser.LogEntry
-	tempChan  chan parser.LogEntry
-
+	sqlChan    chan parser.LogEntry
+	locksChan  chan parser.LogEntry
+	tempChan   chan parser.LogEntry
 	parallelWg sync.WaitGroup
 }
 
-// NewStreamingAnalyzer creates a new streaming analyzer with all
-// sub-analyzers initialized. SQL, Locks and TempFiles each get a
-// dedicated goroutine fed through a buffered channel — parallelism is
-// always on. Bench across the file-size spectrum (28-04, M3 Pro):
-//
-//	1 KB     → no measurable diff (channels close before they matter)
-//	10 MB    → -40%
-//	100 MB   → -42%
-//	J.log    → -21.7%   (4.4 GB stderr)
-//	I.log    → -11.6%   (997 MB stderr)
-//	C.csv    → -33.6%   (1.2 GB)
-//
-// The earlier `enableParallel = fileSize > 200 MB` gate was calibrated
-// for a single SQL goroutine; with three the break-even is below the
-// noise floor, so the gate just left performance on the table for
-// inputs in the 5-200 MB range. uniqueEntities was tested as a 4th
-// parallel goroutine but plafonned (scheduler contention), so it
-// stays inline below.
+// NewStreamingAnalyzer creates a streaming analyzer with all
+// sub-analyzers initialized and the three parallel dispatch goroutines
+// running.
 func NewStreamingAnalyzer() *StreamingAnalyzer {
 	sa := &StreamingAnalyzer{
 		tempFiles:      NewTempFileAnalyzer(),
@@ -241,46 +134,29 @@ func NewStreamingAnalyzer() *StreamingAnalyzer {
 	}()
 
 	return sa
-
 }
 
-// Process analyzes a single log entry, dispatching it to all relevant sub-analyzers.
-
-// Each sub-analyzer filters and processes only the entries relevant to it.
-
+// Process dispatches one log entry to every analyzer. The five inline
+// ones are cheap or stateful in a way that doesn't benefit from a
+// goroutine hand-off; the three remaining (locks, tempFiles, sql) are
+// channel-fed.
 func (sa *StreamingAnalyzer) Process(entry *parser.LogEntry) {
-
-	// Update global metrics (skip continuation lines for accurate count)
-
 	if !entry.IsContinuation {
-
 		sa.global.Count++
-
 	}
-
-	// Track timestamp range
-
 	if sa.global.MinTimestamp.IsZero() || entry.Timestamp.Before(sa.global.MinTimestamp) {
-
 		sa.global.MinTimestamp = entry.Timestamp
-
 	}
-
 	if sa.global.MaxTimestamp.IsZero() || entry.Timestamp.After(sa.global.MaxTimestamp) {
-
 		sa.global.MaxTimestamp = entry.Timestamp
-
 	}
 
-	// Inline analyzers (cheap on hot path or stateful in a way that
-	// doesn't benefit from a goroutine hand-off).
 	sa.vacuum.Process(entry)
 	sa.checkpoints.Process(entry)
 	sa.connections.Process(entry)
 	sa.events.Process(entry)
 	sa.uniqueEntities.Process(entry)
 
-	// Hand off to the dedicated goroutines.
 	sa.locksChan <- *entry
 	sa.tempChan <- *entry
 	sa.sqlChan <- *entry
@@ -298,90 +174,51 @@ func (sa *StreamingAnalyzer) Finalize() AggregatedMetrics {
 	close(sa.tempChan)
 	sa.parallelWg.Wait()
 
-	// Finalize all metrics
-
 	tempFiles := sa.tempFiles.Finalize()
-
 	locks := sa.locks.Finalize()
-
 	sql := sa.sql.Finalize()
-
 	eventSummaries, topEvents := sa.events.Finalize()
-
-	// Collect queries without duration metrics from locks and tempfiles
-
 	CollectQueriesWithoutDuration(&sql, &locks, &tempFiles)
 
 	// Roll severity counts from EventAnalyzer into the global summary.
-	// Previously Global.ErrorCount / FatalCount / PanicCount / WarningCount
-	// / LogCount stayed at 0 even when EventSummaries correctly had the
-	// counts — surprising for users who rely on summary.error_count.
-
+	// Without this, Global.{Error,Fatal,Panic,Warning,Log}Count stay at 0
+	// even when EventSummaries already has them — surprising for users
+	// reading summary.error_count.
 	for _, s := range eventSummaries {
-
 		switch s.Type {
-
 		case "ERROR":
-
 			sa.global.ErrorCount = s.Count
-
 		case "FATAL":
-
 			sa.global.FatalCount = s.Count
-
 		case "PANIC":
-
 			sa.global.PanicCount = s.Count
-
 		case "WARNING":
-
 			sa.global.WarningCount = s.Count
-
 		case "LOG":
-
 			sa.global.LogCount = s.Count
-
 		}
-
 	}
 
 	return AggregatedMetrics{
-
-		Global: sa.global,
-
-		TempFiles: tempFiles,
-
-		Vacuum: sa.vacuum.Finalize(),
-
-		Checkpoints: sa.checkpoints.Finalize(),
-
-		Connections: sa.connections.Finalize(),
-
-		Locks: locks,
-
+		Global:         sa.global,
+		TempFiles:      tempFiles,
+		Vacuum:         sa.vacuum.Finalize(),
+		Checkpoints:    sa.checkpoints.Finalize(),
+		Connections:    sa.connections.Finalize(),
+		Locks:          locks,
 		EventSummaries: eventSummaries,
-
-		TopEvents: topEvents,
-
+		TopEvents:      topEvents,
 		UniqueEntities: sa.uniqueEntities.Finalize(),
-
-		SQL: sql,
+		SQL:            sql,
 	}
-
 }
 
-// ============================================================================
-// Main analysis function
-// ============================================================================
-
-// AggregateMetrics processes a stream of log entries and returns aggregated metrics.
-// This is the main entry point for log analysis, using streaming processing
-// to avoid loading all entries into memory.
+// AggregateMetrics processes a stream of log entries from `in` and
+// returns the aggregated result. Streaming — entries are not held in
+// memory beyond their current batch.
 //
-// The function reads entries from the input channel until it closes, or
-// until ctx is cancelled. On cancellation it returns whatever has been
-// processed so far, after draining the remaining entries from in so that
-// upstream producers can exit cleanly.
+// On ctx cancellation it returns whatever has been processed so far,
+// after draining `in` so upstream producers can exit cleanly.
 func AggregateMetrics(ctx context.Context, in <-chan []parser.LogEntry) AggregatedMetrics {
 	analyzer := NewStreamingAnalyzer()
 

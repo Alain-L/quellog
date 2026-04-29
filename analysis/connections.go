@@ -16,54 +16,30 @@ type SessionEvent struct {
 	EndTime   time.Time
 }
 
-// ConnectionMetrics aggregates statistics related to database connections and sessions.
-// These metrics help understand connection patterns, session durations, and client behavior.
+// ConnectionMetrics aggregates statistics on database connections and sessions.
 type ConnectionMetrics struct {
-	// ConnectionReceivedCount is the total number of connection requests received.
 	ConnectionReceivedCount int
-
-	// DisconnectionCount is the total number of disconnections.
-	DisconnectionCount int
-
-	// TotalSessionTime is the accumulated duration of all sessions.
-	// Only includes sessions where duration was logged (requires log_disconnections = on).
+	DisconnectionCount      int
+	// TotalSessionTime: accumulated duration, only sessions with logged
+	// duration (requires log_disconnections = on).
 	TotalSessionTime time.Duration
-
-	// Connections contains timestamps of all connection events.
-	// Useful for analyzing connection rate and patterns over time.
+	// Connections: timestamps of all connection events.
 	Connections []time.Time
-
-	// SessionStats holds the pre-computed global session duration statistics
-	// (count, min, max, avg, median). Median is estimated via the P² algorithm
-	// (<5% error after 50 samples, <0.01% after 1000); min, max, avg, count
-	// are exact.
-	SessionStats DurationStats
-
-	// SessionCumulated is the sum of all session durations. Exact.
-	SessionCumulated time.Duration
-
-	// SessionDistribution counts session durations per bucket
-	// ("< 1s", "1s - 1min", "1min - 30min", "30min - 2h", "2h - 5h", "> 5h").
-	// Pre-computed in streaming so the per-session slice can be discarded.
+	// SessionStats: count/min/max/avg/median. Median is estimated via P²
+	// (<5% error after 50 samples, <0.01% after 1000); the rest is exact.
+	SessionStats     DurationStats
+	SessionCumulated time.Duration // exact sum of session durations
+	// SessionDistribution: counts per bucket ("< 1s", "1s - 1min", "1min -
+	// 30min", "30min - 2h", "2h - 5h", "> 5h"). Computed in streaming so
+	// the per-session slice can be discarded.
 	SessionDistribution map[string]int
-
-	// SessionEvents contains all sessions with their start and end times.
-	// Used for calculating concurrent connections over time.
-	SessionEvents []SessionEvent
-
-	// SessionsByUser maps usernames to their session statistics.
-	SessionsByUser map[string]*StreamingDurationStats
-
-	// SessionsByDatabase maps database names to their session statistics.
-	SessionsByDatabase map[string]*StreamingDurationStats
-
-	// SessionsByHost maps host addresses to their session statistics.
-	SessionsByHost map[string]*StreamingDurationStats
-
-	// PeakConcurrentSessions is the maximum number of simultaneous sessions observed.
-	PeakConcurrentSessions int
-
-	// PeakConcurrentTimestamp is when the peak concurrent sessions occurred.
+	// SessionEvents: start/end of every session, used for concurrent-
+	// sessions over time computations.
+	SessionEvents           []SessionEvent
+	SessionsByUser          map[string]*StreamingDurationStats
+	SessionsByDatabase      map[string]*StreamingDurationStats
+	SessionsByHost          map[string]*StreamingDurationStats
+	PeakConcurrentSessions  int
 	PeakConcurrentTimestamp time.Time
 }
 
