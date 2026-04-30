@@ -194,8 +194,8 @@ func QueryCategory(queryType string) string {
 // QueryStat aggregates stats for one normalized SQL query pattern
 // across all its executions.
 type QueryStat struct {
-	RawQuery        string  // first occurrence (raw text)
-	NormalizedQuery string  // parameterized form used for grouping (e.g. "SELECT * FROM users WHERE id = $1")
+	RawQuery        string // first occurrence (raw text)
+	NormalizedQuery string // parameterized form used for grouping (e.g. "SELECT * FROM users WHERE id = $1")
 	Count           int
 	TotalTime       float64 // cumulative execution time, ms
 	AvgTime         float64 // TotalTime / Count
