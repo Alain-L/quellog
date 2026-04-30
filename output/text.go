@@ -49,8 +49,8 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 		}
 	}
 
-	// SQL summary section
-	if has("sql_summary") && m.SQL.TotalQueries > 0 {
+	// SQL summary section (skip in full mode — enriched version added at the end)
+	if !full && has("sql_summary") && m.SQL.TotalQueries > 0 {
 		PrintSQLSummary(m.SQL, true)
 	}
 
@@ -70,8 +70,8 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 		hist, unit, scaleFactor := computeTempFileHistogram(m.TempFiles)
 		PrintHistogram(hist, "Temp file size", unit, scaleFactor, nil)
 
-		// Count histogram (only when --tempfiles is explicitly specified)
-		if !has("all") {
+		// Count histogram (shown with --tempfiles or --full)
+		if full || !has("all") {
 			countHist, countUnit, countScale := computeTempFileCountHistogram(m.TempFiles)
 			PrintHistogram(countHist, "Temp file count", countUnit, countScale, nil)
 		}
@@ -84,8 +84,8 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 		}
 		fmt.Printf("  %-25s : %s\n", "Average temp file size", FormatBytes(avgSize))
 
-		// Queries generating temp files (only shown with --tempfiles flag, not in default report)
-		if !has("all") && len(m.TempFiles.QueryStats) > 0 {
+		// Queries generating temp files (shown with --tempfiles or --full)
+		if (full || !has("all")) && len(m.TempFiles.QueryStats) > 0 {
 			termWidth, _, err := term.GetSize(int(os.Stdout.Fd()))
 			if err != nil {
 				termWidth = 120
@@ -193,8 +193,8 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 			printLockStats(m.Locks.RelationStats, m.Locks.TotalEvents)
 		}
 
-		// Waiting queries (only shown with --locks flag, not in default report)
-		if !has("all") && len(m.Locks.QueryStats) > 0 {
+		// Waiting queries (shown with --locks or --full)
+		if (full || !has("all")) && len(m.Locks.QueryStats) > 0 {
 			termWidth, _, err := term.GetSize(int(os.Stdout.Fd()))
 			if err != nil {
 				termWidth = 120
@@ -264,8 +264,8 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 			}
 		}
 
-		// Blocking queries (only shown with --locks flag, not in default report)
-		if !has("all") && len(m.Locks.Events) > 0 {
+		// Blocking queries (shown with --locks or --full)
+		if (full || !has("all")) && len(m.Locks.Events) > 0 {
 			type blockerStat struct {
 				queryID    string
 				query      string
@@ -486,8 +486,8 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 	if has("connections") && m.Connections.ConnectionReceivedCount > 0 {
 		fmt.Println(bold + "\nCONNECTIONS & SESSIONS\n" + reset)
 
-		// Determine if --connections was explicitly used (not just included in "all")
-		isDetailedMode := !has("all")
+		// Detailed mode: --connections explicit or --full
+		isDetailedMode := full || !has("all")
 
 		// Concurrent sessions histogram (always shown, more buckets in detailed mode)
 		if len(m.Connections.SessionEvents) > 0 && !m.Global.MinTimestamp.IsZero() && !m.Global.MaxTimestamp.IsZero() {
@@ -546,8 +546,8 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 			fmt.Println()
 		}
 
-		// Detailed mode: show additional stats when --connections is explicitly used
-		isExplicit := !has("all")
+		// Detailed mode: --connections explicit or --full
+		isExplicit := full || !has("all")
 		if isExplicit && m.Connections.SessionStats.Count > 0 {
 			printDetailedConnectionStats(m, bold, reset, true)
 		}
@@ -564,8 +564,8 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 		// Calculate total logs for percentage calculation
 		totalLogs := m.Global.Count
 
-		// Determine if --clients was explicitly used (not just included in "all")
-		isExplicit := !has("all")
+		// Detailed mode: --clients explicit or --full
+		isExplicit := full || !has("all")
 		topPrefix := ""
 		topLimit := 0 // 0 means no limit
 		if !isExplicit {
@@ -702,6 +702,14 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 		}
 	}
 	fmt.Println()
+
+	// Full mode: SQL OVERVIEW + SQL PERFORMANCE at the end. TempFiles
+	// and Locks are zeroed because they were already shown above as
+	// their own sections — passing them again would duplicate output.
+	if full && m.SQL.TotalQueries > 0 {
+		PrintSQLOverview(m.SQL)
+		PrintSQLSummaryWithContext(m.SQL, analysis.TempFileMetrics{}, analysis.LockMetrics{}, false)
+	}
 }
 
 // printDetailedConnectionStats displays detailed connection and session statistics.
