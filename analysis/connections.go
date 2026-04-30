@@ -68,6 +68,7 @@ const (
 //	    analyzer.Process(&entry)
 //	}
 //	metrics := analyzer.Finalize()
+//
 // compactSession stores a completed session as Unix-millisecond
 // timestamps. 16 bytes vs 48 for SessionEvent (×3 denser) — the
 // time.Location pointer is dropped, all materializations resolve in
