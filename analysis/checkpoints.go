@@ -21,18 +21,18 @@ type CheckpointWAL struct {
 // CheckpointMetrics aggregates statistics for PostgreSQL checkpoints —
 // the events where PostgreSQL flushes dirty buffers to disk.
 type CheckpointMetrics struct {
-	CompleteCount         int
-	TotalWriteTimeSeconds float64
-	MaxWriteTimeSeconds   float64
-	Events                []time.Time          // timestamp of each completed checkpoint
-	TypeCounts            map[string]int       // type → count ("time", "xlog", "shutdown", "immediate", ...)
-	TypeEvents            map[string][]time.Time
-	WALDistances          []CheckpointWAL // per-checkpoint WAL distance + estimate
-	TotalDistanceKB       int64
-	MaxDistanceKB         int64
-	TotalBuffersWritten   int64
-	WarningCount          int           // "checkpoints are occurring too frequently" warnings
-	WarningEvents         []time.Time
+	CompleteCount             int
+	TotalWriteTimeSeconds     float64
+	MaxWriteTimeSeconds       float64
+	Events                    []time.Time    // timestamp of each completed checkpoint
+	TypeCounts                map[string]int // type → count ("time", "xlog", "shutdown", "immediate", ...)
+	TypeEvents                map[string][]time.Time
+	WALDistances              []CheckpointWAL // per-checkpoint WAL distance + estimate
+	TotalDistanceKB           int64
+	MaxDistanceKB             int64
+	TotalBuffersWritten       int64
+	WarningCount              int // "checkpoints are occurring too frequently" warnings
+	WarningEvents             []time.Time
 	WarningMinIntervalSeconds int
 	WarningMaxIntervalSeconds int
 }

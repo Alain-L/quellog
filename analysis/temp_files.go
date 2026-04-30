@@ -63,6 +63,7 @@ const (
 //	    analyzer.Process(&entry)
 //	}
 //	metrics := analyzer.Finalize()
+//
 // TempFileAnalyzer uses a dual pattern to associate a temp-file event
 // with its query:
 //   - Pattern 1: temp → STATEMENT on the next line (log_statement configs)

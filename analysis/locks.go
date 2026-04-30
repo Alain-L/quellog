@@ -11,11 +11,11 @@ import (
 
 // LockMetrics aggregates PostgreSQL lock-event statistics.
 type LockMetrics struct {
-	TotalEvents       int     // waiting + acquired
-	WaitingEvents     int     // "still waiting" events
+	TotalEvents       int // waiting + acquired
+	WaitingEvents     int // "still waiting" events
 	AcquiredEvents    int
 	DeadlockEvents    int
-	TotalWaitTime     float64 // cumulative ms
+	TotalWaitTime     float64                   // cumulative ms
 	LockTypeStats     map[string]int            // lock mode → count (AccessShareLock, ExclusiveLock, ...)
 	ResourceTypeStats map[string]int            // resource → count (relation, transaction, advisory lock, ...)
 	RelationStats     map[string]int            // table (from CONTEXT) → count
