@@ -297,6 +297,12 @@ func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry
 	if jsonFlag && jsonCompactFlag {
 		return fmt.Errorf("--json and --json-compact are mutually exclusive")
 	}
+	if openFlag && !htmlFlag {
+		return fmt.Errorf("--open requires --html (nothing to open without an HTML report)")
+	}
+	if openFlag && followFlag {
+		return fmt.Errorf("--open is not supported with --follow (would re-open the browser every cycle)")
+	}
 
 	// Special case: SQL query details (single query analysis)
 	if len(sqlDetailFlag) > 0 {
@@ -484,6 +490,9 @@ func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry
 		// In follow mode, be less verbose about saved files
 		if !followFlag {
 			fmt.Printf("Report saved to %s\n", outputName)
+		}
+		if openFlag {
+			openInBrowser(outputName)
 		}
 		return nil
 	}

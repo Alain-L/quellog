@@ -59,6 +59,7 @@ var (
 	yamlFlag        bool // --yaml: Export results in YAML format
 	mdFlag          bool // --md: Export results in Markdown format
 	htmlFlag        bool // --html: Export results as standalone HTML report
+	openFlag        bool // --open: Open the generated HTML report in the default browser
 
 	// Report completeness flag
 	fullFlag bool // --full: Display comprehensive report with all sections and detailed SQL analysis
@@ -227,6 +228,8 @@ func init() {
 		"Export results in Markdown format")
 	rootCmd.PersistentFlags().BoolVarP(&htmlFlag, "html", "H", false,
 		"Export results as standalone HTML report")
+	rootCmd.PersistentFlags().BoolVar(&openFlag, "open", false,
+		"Open the generated HTML report in the default browser (requires --html)")
 
 	// Report completeness flag
 	rootCmd.PersistentFlags().BoolVarP(&fullFlag, "full", "F", false,
