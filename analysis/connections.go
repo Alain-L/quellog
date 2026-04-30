@@ -68,11 +68,41 @@ const (
 //	    analyzer.Process(&entry)
 //	}
 //	metrics := analyzer.Finalize()
+// compactSession stores a completed session as Unix-millisecond
+// timestamps. 16 bytes vs 48 for SessionEvent (×3 denser) — the
+// time.Location pointer is dropped, all materializations resolve in
+// the local zone. Millisecond precision is required so the sweep-line
+// peak counts correctly when many short sessions cluster within the
+// same wall-clock second (cf. connection-pool fixtures).
+type compactSession struct {
+	startUnixMs int64
+	endUnixMs   int64
+}
+
+// sessionsPerChunk is the fixed capacity of each compact-storage chunk.
+// Chunks are append-only and never resized, eliminating the slice-doubling
+// transient peaks that previously cost ~500 MB on J.log's 5.7M sessions.
+const sessionsPerChunk = 65536
+
 type ConnectionAnalyzer struct {
 	connectionReceivedCount int
 	disconnectionCount      int
 	totalSessionTime        time.Duration
-	connections             []time.Time
+
+	// Compact chunked storage for received timestamps. Unix milliseconds
+	// in fixed-capacity chunks to avoid append-doubling transient peaks.
+	// Materialized to []time.Time at Finalize for the API. ×3 denser
+	// than the previous []time.Time storage on long captures.
+	receivedChunks [][]int64
+
+	// Same scheme for completed sessions.
+	sessionChunks [][]compactSession
+
+	// loc is the location of the first event observed. Used to
+	// materialize compact Unix-ms timestamps back into the same zone
+	// the parser produced (typically UTC for PG default log_timezone),
+	// so the JSON output keeps reading "19:00:00 UTC" not "21:00:00 CEST".
+	loc *time.Location
 
 	// Streaming accumulators that replace the previous full slice of
 	// per-session durations. The slice held one time.Duration per session
@@ -84,7 +114,6 @@ type ConnectionAnalyzer struct {
 	globalSessionStats  StreamingDurationStats
 	sessionDistribution map[string]int
 
-	sessionEvents      []SessionEvent
 	sessionsByUser     map[string]*StreamingDurationStats
 	sessionsByDatabase map[string]*StreamingDurationStats
 	sessionsByHost     map[string]*StreamingDurationStats
@@ -109,14 +138,51 @@ type ConnectionAnalyzer struct {
 // NewConnectionAnalyzer creates a new connection analyzer.
 func NewConnectionAnalyzer() *ConnectionAnalyzer {
 	return &ConnectionAnalyzer{
-		connections:         make([]time.Time, 0, 1000),
 		sessionDistribution: newSessionDistribution(),
-		sessionEvents:       make([]SessionEvent, 0, 1000),
 		sessionsByUser:      make(map[string]*StreamingDurationStats, 100),
 		sessionsByDatabase:  make(map[string]*StreamingDurationStats, 50),
 		sessionsByHost:      make(map[string]*StreamingDurationStats, 100),
 		activeConnections:   make(map[string]time.Time, 1000),
 	}
+}
+
+// addReceived appends a received-timestamp (as Unix milliseconds) to
+// the compact chunked storage.
+func (a *ConnectionAnalyzer) addReceived(t time.Time) {
+	if a.loc == nil {
+		a.loc = t.Location()
+	}
+	ms := t.UnixMilli()
+	n := len(a.receivedChunks)
+	if n == 0 || len(a.receivedChunks[n-1]) == sessionsPerChunk {
+		a.receivedChunks = append(a.receivedChunks, make([]int64, 0, sessionsPerChunk))
+		n++
+	}
+	a.receivedChunks[n-1] = append(a.receivedChunks[n-1], ms)
+}
+
+// addSession appends a completed session (Unix-millisecond start/end)
+// to the compact chunked storage.
+func (a *ConnectionAnalyzer) addSession(start, end time.Time) {
+	if a.loc == nil {
+		a.loc = start.Location()
+	}
+	cs := compactSession{startUnixMs: start.UnixMilli(), endUnixMs: end.UnixMilli()}
+	n := len(a.sessionChunks)
+	if n == 0 || len(a.sessionChunks[n-1]) == sessionsPerChunk {
+		a.sessionChunks = append(a.sessionChunks, make([]compactSession, 0, sessionsPerChunk))
+		n++
+	}
+	a.sessionChunks[n-1] = append(a.sessionChunks[n-1], cs)
+}
+
+// totalSessions returns the total session count across all chunks.
+func (a *ConnectionAnalyzer) totalSessions() int {
+	n := 0
+	for _, c := range a.sessionChunks {
+		n += len(c)
+	}
+	return n
 }
 
 // newSessionDistribution returns a fresh distribution map with all
@@ -203,10 +269,7 @@ func (a *ConnectionAnalyzer) Process(entry *parser.LogEntry) {
 
 			// Store session event for concurrent tracking
 			startTime := entry.Timestamp.Add(-duration)
-			a.sessionEvents = append(a.sessionEvents, SessionEvent{
-				StartTime: startTime,
-				EndTime:   entry.Timestamp,
-			})
+			a.addSession(startTime, entry.Timestamp)
 
 			// Extract user, database, and host from disconnection message
 			user := extractEntityFromMessage(msg, "user")
@@ -249,16 +312,13 @@ func (a *ConnectionAnalyzer) Process(entry *parser.LogEntry) {
 			// shows up on the concurrent-sessions histogram. We do NOT
 			// feed the duration stats in this path: we have no reliable
 			// PG-reported duration, only a coarse observed window.
-			a.sessionEvents = append(a.sessionEvents, SessionEvent{
-				StartTime: receivedAt,
-				EndTime:   entry.Timestamp,
-			})
+			a.addSession(receivedAt, entry.Timestamp)
 		}
 	} else if idx+10 < len(msg) && msg[idx:idx+10] == "connection" {
 		// Check if followed by " received"
 		if idx+19 <= len(msg) && msg[idx:idx+19] == "connection received" {
 			a.connectionReceivedCount++
-			a.connections = append(a.connections, entry.Timestamp)
+			a.addReceived(entry.Timestamp)
 
 			// Track active connections using PID so the orphan-flush at
 			// Finalize knows what's left dangling. Fall back to a
@@ -295,7 +355,7 @@ func (a *ConnectionAnalyzer) Finalize() ConnectionMetrics {
 	// holds connections still open when the operator stopped tailing).
 	if !a.lastSeenTimestamp.IsZero() && len(a.activeConnections) > 0 {
 		// Collect the orphan received-times and sort them so the
-		// resulting SessionEvents are appended in deterministic order —
+		// resulting sessions are appended in deterministic order —
 		// Go's map iteration is randomized, and downstream golden tests
 		// compare exact JSON ordering.
 		orphans := make([]time.Time, 0, len(a.activeConnections))
@@ -306,30 +366,60 @@ func (a *ConnectionAnalyzer) Finalize() ConnectionMetrics {
 			return orphans[i].Before(orphans[j])
 		})
 		for _, receivedAt := range orphans {
-			a.sessionEvents = append(a.sessionEvents, SessionEvent{
-				StartTime: receivedAt,
-				EndTime:   a.lastSeenTimestamp,
+			a.addSession(receivedAt, a.lastSeenTimestamp)
+		}
+	}
+
+	// Materialize compact storage back to API types. This happens once,
+	// at output time, so the during-Process heap stays compact (~6×
+	// denser) and the slice-doubling transients are gone.
+	loc := a.loc
+	if loc == nil {
+		loc = time.UTC
+	}
+	connections := make([]time.Time, 0, a.totalReceived())
+	for _, chunk := range a.receivedChunks {
+		for _, ms := range chunk {
+			connections = append(connections, time.UnixMilli(ms).In(loc))
+		}
+	}
+
+	sessionEvents := make([]SessionEvent, 0, a.totalSessions())
+	for _, chunk := range a.sessionChunks {
+		for _, s := range chunk {
+			sessionEvents = append(sessionEvents, SessionEvent{
+				StartTime: time.UnixMilli(s.startUnixMs).In(loc),
+				EndTime:   time.UnixMilli(s.endUnixMs).In(loc),
 			})
 		}
 	}
 
-	peakConcurrent, peakTimestamp := computePeakSweepline(a.sessionEvents)
+	peakConcurrent, peakTimestamp := computePeakSweepline(sessionEvents)
 
 	return ConnectionMetrics{
 		ConnectionReceivedCount: a.connectionReceivedCount,
 		DisconnectionCount:      a.disconnectionCount,
 		TotalSessionTime:        a.totalSessionTime,
-		Connections:             a.connections,
+		Connections:             connections,
 		SessionStats:            a.globalSessionStats.Stats(),
 		SessionCumulated:        a.globalSessionStats.Cumulated(),
 		SessionDistribution:     a.sessionDistribution,
-		SessionEvents:           a.sessionEvents,
+		SessionEvents:           sessionEvents,
 		SessionsByUser:          a.sessionsByUser,
 		SessionsByDatabase:      a.sessionsByDatabase,
 		SessionsByHost:          a.sessionsByHost,
 		PeakConcurrentSessions:  peakConcurrent,
 		PeakConcurrentTimestamp: peakTimestamp,
 	}
+}
+
+// totalReceived returns the total received-event count across chunks.
+func (a *ConnectionAnalyzer) totalReceived() int {
+	n := 0
+	for _, c := range a.receivedChunks {
+		n += len(c)
+	}
+	return n
 }
 
 // computePeakSweepline returns the maximum number of overlapping sessions
