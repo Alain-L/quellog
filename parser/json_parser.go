@@ -3,7 +3,6 @@ package parser
 
 import (
 	"bufio"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -12,49 +11,58 @@ import (
 	"os"
 	"strings"
 	"time"
+	"unsafe"
+
+	"github.com/tidwall/gjson"
 )
+
+// unsafeString casts a []byte to a string without copying. Used to feed
+// gjson.Parse without paying the 1× input copy that gjson.ParseBytes
+// performs (its implementation does string(json) up front). Safe here
+// because every string we extract gets copied into msgBuf via append
+// or into a fresh time.Time before the underlying scanner buffer is
+// reused on the next Scan() call. Do not retain any gjson.Result
+// across the scan boundary.
+func unsafeString(b []byte) string {
+	if len(b) == 0 {
+		return ""
+	}
+	return unsafe.String(unsafe.SliceData(b), len(b))
+}
 
 // errSkipEntry is returned when an entry should be silently skipped (e.g., CNPG operator logs)
 var errSkipEntry = errors.New("skip entry")
 
-// JsonParser parses PostgreSQL logs in JSON format.
-// It supports multiple JSON log formats:
-//   - Standard PostgreSQL jsonlog format with detailed fields
-//   - Simple format: {"timestamp":"2025-01-01T12:00:00Z","message":"log text"}
-//   - Google Cloud SQL format with insertId and timestamp fields
-//   - Nested structures with flexible field extraction
+// JsonParser parses PostgreSQL logs in JSON format. Supported variants:
+//   - Standard PostgreSQL jsonlog (PG15+)
+//   - AWS RDS jsonlog (extra fields: ps, vxid, backend_type, query_id …)
+//   - Google Cloud SQL (textPayload-wrapped)
+//   - CloudNative-PG (CNPG) direct (kubectl logs)
+//   - CloudNative-PG wrapped (fluentd / fluentbit)
 //
-// The parser is lenient and attempts to extract timestamp and message fields
-// even if the JSON structure doesn't exactly match LogEntry.
-type JsonParser struct{}
+// Field extraction is performed via gjson.GetBytes paths, avoiding the
+// per-line decodeState / map[string]interface{} / reflect cost of
+// encoding/json. Critical under tinygo gc=leaking, where every
+// transient allocation persists in wasm linear memory.
+type JsonParser struct {
+	cachedTSFmt string // last successful timestamp format (per-instance)
+	msgBuf      []byte // reusable scratch for buildMessage
+}
 
 // Parse reads a JSON format log file and streams parsed entries.
-// The file should contain either:
-//   - A JSON array of log objects
-//   - Newline-delimited JSON objects (JSONL/NDJSON format)
-//
-// Each JSON object should have at minimum:
-//   - A timestamp field (various formats supported)
-//   - A message or text field
-//
-// The parser skips malformed JSON objects and logs warnings, but continues processing.
-//
-// IMPORTANT: This function does NOT close the output channel. The caller is responsible
-// for channel lifecycle management (as per LogParser interface contract).
+// IMPORTANT: This function does NOT close the output channel.
 func (p *JsonParser) Parse(filename string, out chan<- []LogEntry) error {
 	f, err := os.Open(filename)
 	if err != nil {
 		return fmt.Errorf("failed to open file %s: %w", filename, err)
 	}
 	defer f.Close()
-
 	return p.parseReader(WithProgress(f), out)
 }
 
 // parseReader detects the JSON structure and dispatches to the appropriate parser.
 func (p *JsonParser) parseReader(r io.Reader, out chan<- []LogEntry) error {
 	bufReader := bufio.NewReader(r)
-
 	firstByte, err := peekFirstNonWhitespace(bufReader)
 	if err != nil {
 		if err == io.EOF {
@@ -62,7 +70,6 @@ func (p *JsonParser) parseReader(r io.Reader, out chan<- []LogEntry) error {
 		}
 		return fmt.Errorf("failed to read JSON stream: %w", err)
 	}
-
 	switch firstByte {
 	case '[':
 		return p.parseJSONArray(bufReader, out)
@@ -71,94 +78,74 @@ func (p *JsonParser) parseReader(r io.Reader, out chan<- []LogEntry) error {
 	}
 }
 
-// parseJSONArray attempts to parse the file as a JSON array of log entries.
-// Format: [{"timestamp":"...","message":"..."},...]
+// parseJSONArray parses a JSON array of log entries: [{...},{...}].
 func (p *JsonParser) parseJSONArray(r io.Reader, out chan<- []LogEntry) error {
 	bs := NewBatchSender(out)
 	defer bs.Flush()
-	decoder := json.NewDecoder(r)
 
-	tok, err := decoder.Token()
+	// Read the entire stream so gjson.ForEachLine-style iteration over
+	// the array elements works on a single buffer. JSON arrays in
+	// PostgreSQL exports are typically small enough that buffering the
+	// whole thing is acceptable.
+	data, err := io.ReadAll(r)
 	if err != nil {
 		return err
 	}
-
-	del, ok := tok.(json.Delim)
-	if !ok || del != '[' {
+	root := gjson.ParseBytes(data)
+	if !root.IsArray() {
 		return fmt.Errorf("expected JSON array")
 	}
 
 	index := 0
-	for decoder.More() {
-		var obj map[string]interface{}
-		if err := decoder.Decode(&obj); err != nil {
-			return err
-		}
-
-		entry, err := extractLogEntry(obj)
+	root.ForEach(func(_, value gjson.Result) bool {
+		entry, err := p.extractFromResult(value)
 		if err != nil {
 			if !errors.Is(err, errSkipEntry) {
 				slog.Warn("skipping malformed JSON entry", "index", index, "err", err)
 			}
-			continue
+			index++
+			return true
 		}
 		bs.Send(entry)
 		index++
-	}
-
-	// Consume closing ']'
-	if _, err := decoder.Token(); err != nil {
-		return err
-	}
-
+		return true
+	})
 	return nil
 }
 
-// parseJSONLines parses newline-delimited JSON (JSONL/NDJSON format).
-// Format: {"timestamp":"...","message":"..."}\n{"timestamp":"...","message":"..."}\n
+// parseJSONLines parses newline-delimited JSON (JSONL/NDJSON).
 func (p *JsonParser) parseJSONLines(r io.Reader, out chan<- []LogEntry) error {
 	bs := NewBatchSender(out)
 	defer bs.Flush()
 	scanner := bufio.NewScanner(r)
 	// 4 MB initial buffer; grow up to math.MaxInt32 if a single jsonlog
 	// entry is unusually large (verbose STATEMENT with embedded JSON,
-	// long stack trace, …). A hard cap caused silent truncation of the
-	// rest of the input.
+	// long stack trace, …).
 	buf := make([]byte, 4*1024*1024)
 	scanner.Buffer(buf, math.MaxInt32)
 
 	lineNum := 0
-
 	for scanner.Scan() {
 		lineNum++
 		line := scanner.Bytes()
-
-		// Skip empty lines
 		if len(line) == 0 {
 			continue
 		}
-
-		var obj map[string]interface{}
-		if err := json.Unmarshal(line, &obj); err != nil {
-			slog.Warn("skipping malformed JSON", "line", lineNum, "err", err)
+		s := unsafeString(line)
+		if !gjson.Valid(s) {
+			slog.Warn("skipping malformed JSON", "line", lineNum)
 			continue
 		}
-
-		entry, err := extractLogEntry(obj)
+		entry, err := p.extractFromResult(gjson.Parse(s))
 		if err != nil {
 			if !errors.Is(err, errSkipEntry) {
 				slog.Warn("skipping incomplete JSON entry", "line", lineNum, "err", err)
 			}
 			continue
 		}
-
 		bs.Send(entry)
 	}
-
-	if err := scanner.Err(); err != nil {
-		return err
-	}
-	return nil
+	return scanner.Err()
 }
 
 // peekFirstNonWhitespace returns the first non-whitespace byte without consuming it.
@@ -186,336 +173,337 @@ func isWhitespace(b byte) bool {
 	}
 }
 
-// extractLogEntry extracts timestamp and message from a JSON object.
-// It supports multiple field name variations and formats commonly used
-// in PostgreSQL JSON logs.
-//
-// PostgreSQL native JSON format includes fields like:
-//   - timestamp, user, database, pid, remote_host, session_id
-//   - error_severity, message, detail, hint, query, context
-//   - application_name, backend_type
-//
-// CloudNative-PG (CNPG) format with Kubernetes wrapper:
-//   - message.record contains PostgreSQL log fields with different names
-//   - log_time, user_name, database_name, process_id, connection_from, etc.
-//
-// Supported timestamp fields (in order of preference):
-//   - "timestamp"
-//   - "time"
-//   - "ts"
-//   - "@timestamp" (Elasticsearch/Logstash format)
-//
-// Message construction:
-//   - Primary: "message" field
-//   - Enriched with: "detail", "hint", "query", "context" if present
-//   - Prefix with severity and context info if available
-//
-// Returns an error if required fields are missing or invalid.
-func extractLogEntry(obj map[string]interface{}) (LogEntry, error) {
-	// Check for CNPG/Kubernetes wrapped format
-	obj = unwrapCNPG(obj)
-	if obj == nil {
-		return LogEntry{}, errSkipEntry // Silently skip non-postgres CNPG entries
-	}
+// effectiveFields is the flat view used to build a LogEntry. Populated
+// either from a top-level postgres jsonlog or from a CNPG record after
+// envelope unwrapping.
+type effectiveFields struct {
+	timestamp   string
+	user        string
+	dbname      string
+	pid         string
+	remoteHost  string
+	severity    string
+	stateCode   string
+	appName     string
+	message     string
+	detail      string
+	hint        string
+	query       string
+	context     string
+	textPayload string
+}
 
-	// Extract timestamp
-	timestamp, err := extractTimestamp(obj)
+// extractFromResult resolves the CNPG envelope (if any) and produces
+// a LogEntry. Returns errSkipEntry for non-postgres CNPG noise and
+// Docker fragments.
+func (p *JsonParser) extractFromResult(root gjson.Result) (LogEntry, error) {
+	fields, err := p.resolveFields(root)
+	if err != nil {
+		return LogEntry{}, err
+	}
+	timestamp, err := p.parseTimestamp(fields.timestamp)
 	if err != nil {
 		return LogEntry{}, fmt.Errorf("timestamp extraction failed: %w", err)
 	}
-
-	// Extract and construct message
-	message := constructMessage(obj)
+	message := p.buildMessage(&fields)
 	if message == "" {
 		return LogEntry{}, fmt.Errorf("message extraction failed: no message content")
 	}
-
 	return NewLogEntry(timestamp, message, false), nil
 }
 
-// normalizeCNPGRecord converts CNPG record field names to standard PostgreSQL jsonlog names.
-func normalizeCNPGRecord(record map[string]interface{}) map[string]interface{} {
-	normalized := make(map[string]interface{}, len(record))
-
-	for k, v := range record {
-		switch k {
-		case "log_time":
-			normalized["timestamp"] = v
-		case "user_name":
-			normalized["user"] = v
-		case "database_name":
-			normalized["dbname"] = v
-		case "process_id":
-			normalized["pid"] = v
-		case "connection_from":
-			// Extract IP from "10.131.3.19:58258" or "[local]"
-			if s, ok := v.(string); ok {
-				if idx := strings.LastIndex(s, ":"); idx > 0 {
-					normalized["remote_host"] = s[:idx]
-				} else {
-					normalized["remote_host"] = s
-				}
-			}
-		case "sql_state_code":
-			normalized["state_code"] = v
-		default:
-			// Keep other fields as-is (error_severity, message, application_name, etc.)
-			normalized[k] = v
-		}
-	}
-
-	return normalized
-}
-
-// unwrapCNPG detects CloudNative-PG format and extracts the PostgreSQL log record.
-// Supports two formats:
-//   - Direct (kubectl logs): {"logger":"postgres","record":{...}} at top level
-//   - Wrapped (fluentd):     {"logtag":"F","message":{"logger":"postgres","record":{...}}}
-//
-// Returns the normalized record, nil to skip, or the original object if not CNPG.
-func unwrapCNPG(obj map[string]interface{}) map[string]interface{} {
+// resolveFields detects CNPG envelopes (direct or fluentd-wrapped) and
+// returns the flattened fields. Falls back to a top-level extraction
+// for standard postgres jsonlog / RDS / Cloud SQL.
+func (p *JsonParser) resolveFields(root gjson.Result) (effectiveFields, error) {
 	// === Format 1: Direct CNPG (kubectl logs / cnpg report) ===
-	// Top-level "logger" + "record" fields, no "message" wrapper
-	if logger, _ := obj["logger"].(string); logger != "" {
-		if logger == "postgres" || logger == "pgaudit" {
-			if record, ok := obj["record"].(map[string]interface{}); ok {
-				return normalizeCNPGRecord(record)
+	logger := root.Get("logger").String()
+	if logger == "postgres" || logger == "pgaudit" {
+		if record := root.Get("record"); record.IsObject() {
+			return fieldsFromRecordResult(record), nil
+		}
+	}
+	if logger != "" && logger != "postgres" && logger != "pgaudit" {
+		if root.Get("logging_pod").Exists() {
+			return effectiveFields{}, errSkipEntry
+		}
+	}
+
+	// === Format 2: Wrapped CNPG (fluentd / fluentbit) ===
+	if msgField := root.Get("message"); msgField.IsObject() {
+		innerLogger := msgField.Get("logger").String()
+		hasLogtag := root.Get("logtag").Exists()
+		hasInnerPod := msgField.Get("logging_pod").Exists()
+		hasInnerMsg := msgField.Get("msg").Exists()
+		isCNPGEnvelope := hasLogtag || hasInnerPod || hasInnerMsg
+
+		if isCNPGEnvelope {
+			if innerLogger != "" && innerLogger != "postgres" && innerLogger != "pgaudit" {
+				return effectiveFields{}, errSkipEntry
 			}
+			innerRecord := msgField.Get("record")
+			if !innerRecord.IsObject() {
+				return effectiveFields{}, errSkipEntry
+			}
+			return fieldsFromRecordResult(innerRecord), nil
 		}
-		// Other CNPG loggers (instance-manager, etc.) — skip
-		if _, hasLoggingPod := obj["logging_pod"]; hasLoggingPod {
-			return nil
-		}
+		// Not a CNPG envelope — fall through to top-level handling.
+	} else if root.Get("message").Type == gjson.String && root.Get("logtag").Exists() {
+		// Docker log fragment with no structured postgres content.
+		return effectiveFields{}, errSkipEntry
 	}
 
-	// === Format 2: Wrapped CNPG (fluentd/fluentbit) ===
-	// "message" field contains the CNPG object
-	msgRaw, hasMessage := obj["message"]
-	if !hasMessage {
-		return obj // Not CNPG format, try standard extraction
-	}
-
-	// Check for logtag field (Docker/fluentd log indicator)
-	_, hasLogtag := obj["logtag"].(string)
-
-	// If message is a string (truncated line or non-CNPG format)
-	if _, isString := msgRaw.(string); isString {
-		if hasLogtag {
-			return nil // Skip Docker log fragments
-		}
-		return obj // Let standard extraction handle it
-	}
-
-	// message is an object
-	msgField, ok := msgRaw.(map[string]interface{})
-	if !ok {
-		return obj
-	}
-
-	// Check if this looks like a CNPG envelope
-	_, hasLoggingPod := msgField["logging_pod"]
-	_, hasMsg := msgField["msg"]
-	isCNPGEnvelope := hasLogtag || hasLoggingPod || hasMsg
-
-	logger, _ := msgField["logger"].(string)
-
-	if isCNPGEnvelope && logger != "postgres" && logger != "pgaudit" {
-		return nil
-	}
-
-	if !isCNPGEnvelope {
-		return obj
-	}
-
-	record, ok := msgField["record"].(map[string]interface{})
-	if !ok {
-		return nil
-	}
-
-	return normalizeCNPGRecord(record)
+	// === Format 3: Standard PostgreSQL jsonlog (RDS / Cloud SQL inclusive) ===
+	return fieldsFromTopLevel(root), nil
 }
 
-// constructMessage builds a complete log message from PostgreSQL JSON log fields.
-// It combines various fields to reconstruct a message similar to stderr format:
-//   - Adds context prefix (user, database, application)
-//   - Includes severity level
-//   - Appends detail, hint, query, and context if present
-//
-// Special handling for Google Cloud SQL:
-//   - If "textPayload" field exists, use it directly (already formatted PostgreSQL log)
-func constructMessage(obj map[string]interface{}) string {
-	// Check for Google Cloud SQL format first
-	// Cloud SQL encapsulates PostgreSQL logs in "textPayload" field
-	textPayload := getStringField(obj, "textPayload")
-	if textPayload != "" {
-		// textPayload contains pre-formatted PostgreSQL log like:
-		// "[1234]: [1-1] db=production,user=webapp LOG: connection received..."
-		return textPayload
+// fieldsFromRecordResult flattens a CNPG record into effectiveFields,
+// mapping CNPG-renamed fields (log_time, user_name, …) to the standard
+// postgres jsonlog names.
+func fieldsFromRecordResult(r gjson.Result) effectiveFields {
+	timestamp := r.Get("log_time").String()
+	if timestamp == "" {
+		timestamp = r.Get("timestamp").String()
 	}
-
-	// Standard PostgreSQL JSON format
-	var parts []string
-
-	// Extract context fields
-	// PostgreSQL JSON format uses "dbname" not "database"
-	user := getStringField(obj, "user")
-	database := getStringField(obj, "dbname")
-	if database == "" {
-		database = getStringField(obj, "database") // fallback for compatibility
+	user := r.Get("user_name").String()
+	if user == "" {
+		user = r.Get("user").String()
 	}
-	appName := getStringField(obj, "application_name")
-	remoteHost := getStringField(obj, "remote_host")
-	severity := getStringField(obj, "error_severity")
-	pid := getStringField(obj, "pid")
-
-	// Build context prefix: [pid]: user=X,db=Y,app=Z,client=H SEVERITY:
-	var contextParts []string
-	if pid != "" {
-		contextParts = append(contextParts, fmt.Sprintf("[%s]:", pid))
+	dbname := r.Get("database_name").String()
+	if dbname == "" {
+		dbname = r.Get("dbname").String()
 	}
-	if user != "" || database != "" || appName != "" || remoteHost != "" {
-		var userDbApp []string
-		if user != "" {
-			userDbApp = append(userDbApp, fmt.Sprintf("user=%s", user))
-		}
-		if database != "" {
-			userDbApp = append(userDbApp, fmt.Sprintf("db=%s", database))
-		}
-		if appName != "" {
-			userDbApp = append(userDbApp, fmt.Sprintf("app=%s", appName))
-		}
-		if remoteHost != "" {
-			userDbApp = append(userDbApp, fmt.Sprintf("client=%s", remoteHost))
-		}
-		if len(userDbApp) > 0 {
-			contextParts = append(contextParts, strings.Join(userDbApp, ","))
-		}
+	pid := r.Get("process_id").String()
+	if pid == "" {
+		pid = r.Get("pid").String()
 	}
-
-	if len(contextParts) > 0 {
-		parts = append(parts, strings.Join(contextParts, " "))
+	remoteHost := extractIPHost(r.Get("connection_from").String())
+	if remoteHost == "" {
+		remoteHost = r.Get("remote_host").String()
 	}
-
-	// Add severity
-	if severity != "" {
-		parts = append(parts, severity+":")
+	stateCode := r.Get("sql_state_code").String()
+	if stateCode == "" {
+		stateCode = r.Get("state_code").String()
 	}
-
-	// Main message
-	message := getStringField(obj, "message")
-	if message != "" {
-		parts = append(parts, message)
-	}
-
-	// Additional detail fields
-	detail := getStringField(obj, "detail")
-	if detail != "" {
-		parts = append(parts, "DETAIL: "+detail)
-	}
-
-	hint := getStringField(obj, "hint")
-	if hint != "" {
-		parts = append(parts, "HINT: "+hint)
-	}
-
-	// Try "query" field first (some formats), then "statement" (PostgreSQL native jsonlog)
-	query := getStringField(obj, "query")
+	query := r.Get("query").String()
 	if query == "" {
-		query = getStringField(obj, "statement")
+		query = r.Get("statement").String()
 	}
-	if query != "" {
-		parts = append(parts, "STATEMENT: "+query)
+	return effectiveFields{
+		timestamp:  timestamp,
+		user:       user,
+		dbname:     dbname,
+		pid:        pid,
+		remoteHost: remoteHost,
+		severity:   r.Get("error_severity").String(),
+		stateCode:  stateCode,
+		appName:    r.Get("application_name").String(),
+		message:    r.Get("message").String(),
+		detail:     r.Get("detail").String(),
+		hint:       r.Get("hint").String(),
+		query:      query,
+		context:    r.Get("context").String(),
 	}
-
-	context := getStringField(obj, "context")
-	if context != "" {
-		parts = append(parts, "CONTEXT: "+context)
-	}
-
-	// Add SQLSTATE if present (for error classification)
-	// Skip 00000 (successful completion) as it's not an error
-	stateCode := getStringField(obj, "state_code")
-	if stateCode != "" && stateCode != "00000" {
-		parts = append(parts, fmt.Sprintf("SQLSTATE = '%s'", stateCode))
-	}
-
-	return strings.Join(parts, " ")
 }
 
-// getStringField safely extracts a string field from a map, returning empty string if not found or wrong type.
-func getStringField(obj map[string]interface{}, key string) string {
-	if val, ok := obj[key]; ok && val != nil {
-		if str, ok := val.(string); ok {
-			return str
-		}
-		// Handle numeric types (e.g., pid)
-		return fmt.Sprintf("%v", val)
+// fieldsFromTopLevel flattens a top-level postgres jsonlog into effectiveFields.
+func fieldsFromTopLevel(r gjson.Result) effectiveFields {
+	dbname := r.Get("dbname").String()
+	if dbname == "" {
+		dbname = r.Get("database").String()
 	}
-	return ""
+	timestamp := r.Get("timestamp").String()
+	if timestamp == "" {
+		timestamp = r.Get("time").String()
+	}
+	if timestamp == "" {
+		timestamp = r.Get("ts").String()
+	}
+	if timestamp == "" {
+		timestamp = r.Get("@timestamp").String()
+	}
+	var msg string
+	if mf := r.Get("message"); mf.Type == gjson.String {
+		msg = mf.String()
+	}
+	query := r.Get("query").String()
+	if query == "" {
+		query = r.Get("statement").String()
+	}
+	return effectiveFields{
+		timestamp:   timestamp,
+		user:        r.Get("user").String(),
+		dbname:      dbname,
+		pid:         r.Get("pid").String(),
+		remoteHost:  r.Get("remote_host").String(),
+		severity:    r.Get("error_severity").String(),
+		stateCode:   r.Get("state_code").String(),
+		appName:     r.Get("application_name").String(),
+		message:     msg,
+		detail:      r.Get("detail").String(),
+		hint:        r.Get("hint").String(),
+		query:       query,
+		context:     r.Get("context").String(),
+		textPayload: r.Get("textPayload").String(),
+	}
 }
 
-// extractTimestamp extracts and parses the timestamp from a JSON object.
-// Supports multiple field names and time formats.
-func extractTimestamp(obj map[string]interface{}) (time.Time, error) {
-	// Try different field names
-	timestampFields := []string{"timestamp", "time", "ts", "@timestamp"}
-
-	for _, field := range timestampFields {
-		if val, ok := obj[field]; ok && val != nil {
-			return parseTimestampValue(val)
-		}
+// extractIPHost mirrors the legacy CNPG handling: strip the port from
+// "10.131.3.19:58258" to leave "10.131.3.19". Pass-through for "[local]".
+func extractIPHost(s string) string {
+	if s == "" {
+		return ""
 	}
-
-	return time.Time{}, fmt.Errorf("no timestamp field found")
+	if idx := strings.LastIndex(s, ":"); idx > 0 {
+		return s[:idx]
+	}
+	return s
 }
 
-// parseTimestampValue parses a timestamp value from various formats.
-// Supports:
-//   - RFC3339 strings (2025-01-01T12:00:00Z)
-//   - Unix timestamps (seconds or milliseconds)
-//   - PostgreSQL format (2025-01-01 12:00:00 or 2025-01-01 12:00:00.123)
-//   - PostgreSQL with timezone (2025-01-01 12:00:00 CET, 2025-01-01 12:00:00.123 CET)
-func parseTimestampValue(val interface{}) (time.Time, error) {
-	switch v := val.(type) {
-	case string:
-		// Try RFC3339 format (ISO 8601)
-		if t, err := parseTime(time.RFC3339, v); err == nil {
-			return t, nil
-		}
-		// Try RFC3339Nano
-		if t, err := parseTime(time.RFC3339Nano, v); err == nil {
-			return t, nil
-		}
-		// Try PostgreSQL format with milliseconds and timezone
-		if t, err := parseTime("2006-01-02 15:04:05.999 MST", v); err == nil {
-			return t, nil
-		}
-		// Try PostgreSQL format with timezone
-		if t, err := parseTime("2006-01-02 15:04:05 MST", v); err == nil {
-			return t, nil
-		}
-		// Try PostgreSQL format with milliseconds
-		if t, err := parseTime("2006-01-02 15:04:05.999", v); err == nil {
-			return t, nil
-		}
-		// Try PostgreSQL format without timezone
-		if t, err := parseTime("2006-01-02 15:04:05", v); err == nil {
-			return t, nil
-		}
-		return time.Time{}, fmt.Errorf("unsupported timestamp format: %s", v)
-
-	case float64:
-		// Unix timestamp (seconds or milliseconds)
-		if v > 1e12 { // Likely milliseconds
-			return time.Unix(0, int64(v)*int64(time.Millisecond)), nil
-		}
-		return time.Unix(int64(v), 0), nil
-
-	case int64:
-		// Unix timestamp
-		return time.Unix(v, 0), nil
-
-	default:
-		return time.Time{}, fmt.Errorf("unsupported timestamp type: %T", val)
+// buildMessage rebuilds a stderr-style log line from the flattened fields,
+// writing into the parser's reusable scratch buffer.
+func (p *JsonParser) buildMessage(f *effectiveFields) string {
+	if f.textPayload != "" {
+		return f.textPayload
 	}
+
+	if cap(p.msgBuf) < 512 {
+		p.msgBuf = make([]byte, 0, 512)
+	} else {
+		p.msgBuf = p.msgBuf[:0]
+	}
+	b := p.msgBuf
+
+	wrote := false
+	if f.pid != "" {
+		b = append(b, '[')
+		b = append(b, f.pid...)
+		b = append(b, ']', ':')
+		wrote = true
+	}
+	if f.user != "" || f.dbname != "" || f.appName != "" || f.remoteHost != "" {
+		if wrote {
+			b = append(b, ' ')
+		}
+		hasField := false
+		if f.user != "" {
+			b = append(b, "user="...)
+			b = append(b, f.user...)
+			hasField = true
+		}
+		if f.dbname != "" {
+			if hasField {
+				b = append(b, ',')
+			}
+			b = append(b, "db="...)
+			b = append(b, f.dbname...)
+			hasField = true
+		}
+		if f.appName != "" {
+			if hasField {
+				b = append(b, ',')
+			}
+			b = append(b, "app="...)
+			b = append(b, f.appName...)
+			hasField = true
+		}
+		if f.remoteHost != "" {
+			if hasField {
+				b = append(b, ',')
+			}
+			b = append(b, "client="...)
+			b = append(b, f.remoteHost...)
+		}
+		wrote = true
+	}
+	if f.severity != "" {
+		if wrote {
+			b = append(b, ' ')
+		}
+		b = append(b, f.severity...)
+		b = append(b, ':')
+		wrote = true
+	}
+	if f.message != "" {
+		if wrote {
+			b = append(b, ' ')
+		}
+		b = append(b, f.message...)
+		wrote = true
+	}
+	if f.detail != "" {
+		if wrote {
+			b = append(b, ' ')
+		}
+		b = append(b, "DETAIL: "...)
+		b = append(b, f.detail...)
+		wrote = true
+	}
+	if f.hint != "" {
+		if wrote {
+			b = append(b, ' ')
+		}
+		b = append(b, "HINT: "...)
+		b = append(b, f.hint...)
+		wrote = true
+	}
+	if f.query != "" {
+		if wrote {
+			b = append(b, ' ')
+		}
+		b = append(b, "STATEMENT: "...)
+		b = append(b, f.query...)
+		wrote = true
+	}
+	if f.context != "" {
+		if wrote {
+			b = append(b, ' ')
+		}
+		b = append(b, "CONTEXT: "...)
+		b = append(b, f.context...)
+		wrote = true
+	}
+	if f.stateCode != "" && f.stateCode != "00000" {
+		if wrote {
+			b = append(b, ' ')
+		}
+		b = append(b, "SQLSTATE = '"...)
+		b = append(b, f.stateCode...)
+		b = append(b, '\'')
+	}
+
+	p.msgBuf = b
+	return string(b)
+}
+
+// jsonTimestampFormats lists the formats we observe in PostgreSQL JSON
+// logs and CNPG records, ordered by likelihood.
+var jsonTimestampFormats = [...]string{
+	time.RFC3339,
+	time.RFC3339Nano,
+	"2006-01-02 15:04:05.999 MST",
+	"2006-01-02 15:04:05 MST",
+	"2006-01-02 15:04:05.999",
+	"2006-01-02 15:04:05",
+}
+
+// parseTimestamp parses a timestamp from any of the supported formats.
+// Caches the most recently successful format so subsequent lines hit
+// the fast path without burning per-line errors on the wrong layouts.
+func (p *JsonParser) parseTimestamp(s string) (time.Time, error) {
+	if s == "" {
+		return time.Time{}, fmt.Errorf("no timestamp field found")
+	}
+	if p.cachedTSFmt != "" {
+		if t, err := parseTime(p.cachedTSFmt, s); err == nil {
+			return t, nil
+		}
+	}
+	for _, f := range jsonTimestampFormats {
+		if t, err := parseTime(f, s); err == nil {
+			p.cachedTSFmt = f
+			return t, nil
+		}
+	}
+	return time.Time{}, fmt.Errorf("unsupported timestamp format: %s", s)
 }
