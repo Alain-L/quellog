@@ -58,6 +58,7 @@ const (
 // See: https://www.postgresql.org/docs/current/runtime-config-logging.html#RUNTIME-CONFIG-LOGGING-CSVLOG
 type CsvParser struct {
 	cachedFormat string // last successful timestamp format (per-instance, no race)
+	msgBuf       []byte // reusable scratch for buildCSVMessage; survives across records
 }
 
 // Parse reads a PostgreSQL CSV format log file and streams parsed entries.
@@ -93,6 +94,10 @@ func (p *CsvParser) parseReader(r io.Reader, out chan<- []LogEntry) error {
 	// PostgreSQL CSV logs have 23 fields, but we'll be lenient
 	reader.FieldsPerRecord = -1 // Variable number of fields (lenient mode)
 	reader.TrimLeadingSpace = true
+	// ReuseRecord lets csv.Reader reuse the []string slice across calls.
+	// It does not eliminate per-field string allocations but it does
+	// drop the slice header churn — measurable on >100 MB inputs.
+	reader.ReuseRecord = true
 
 	lineNum := 0
 	for {
@@ -122,7 +127,7 @@ func (p *CsvParser) parseReader(r io.Reader, out chan<- []LogEntry) error {
 		}
 
 		// Build complete message with context
-		message := buildCSVMessage(record)
+		message := p.buildCSVMessage(record)
 
 		bs.Send(NewLogEntry(timestamp, message, false))
 	}
@@ -175,50 +180,59 @@ func (p *CsvParser) parseCSVTimestamp(timestampStr string) (time.Time, error) {
 //   - CONTEXT (if present)
 //
 // Format: "[pid]: user=X,db=Y,app=Z SEVERITY: message DETAIL: detail HINT: hint QUERY: query"
-func buildCSVMessage(record []string) string {
-	var b strings.Builder
-	b.Grow(512) // Pre-allocate for typical message with metadata
+//
+// Writes into the receiver's reusable scratch buffer to avoid the
+// per-record strings.Builder allocations that dominated CSV parsing
+// on multi-hundred-MB inputs (the 512-byte initial buffer + grow
+// cycles were leaking under tinygo gc=leaking).
+func (p *CsvParser) buildCSVMessage(record []string) string {
+	if cap(p.msgBuf) < 512 {
+		p.msgBuf = make([]byte, 0, 512)
+	} else {
+		p.msgBuf = p.msgBuf[:0]
+	}
+	b := p.msgBuf
 
 	// Add PID if present
 	if pid := getField(record, csvFieldPID); pid != "" {
-		b.WriteString("[")
-		b.WriteString(pid)
-		b.WriteString("]: ")
+		b = append(b, '[')
+		b = append(b, pid...)
+		b = append(b, ']', ':', ' ')
 	}
 
 	// Add user/db/app context (format: "user=X,db=Y,app=Z")
 	hasUserDbApp := false
 	if user := getField(record, csvFieldUser); user != "" {
-		b.WriteString("user=")
-		b.WriteString(user)
+		b = append(b, "user="...)
+		b = append(b, user...)
 		hasUserDbApp = true
 	}
 	if database := getField(record, csvFieldDatabase); database != "" {
 		if hasUserDbApp {
-			b.WriteByte(',')
+			b = append(b, ',')
 		}
-		b.WriteString("db=")
-		b.WriteString(database)
+		b = append(b, "db="...)
+		b = append(b, database...)
 		hasUserDbApp = true
 	}
 	if app := getField(record, csvFieldAppName); app != "" {
 		if hasUserDbApp {
-			b.WriteByte(',')
+			b = append(b, ',')
 		}
-		b.WriteString("app=")
-		b.WriteString(app)
+		b = append(b, "app="...)
+		b = append(b, app...)
 		hasUserDbApp = true
 	}
 	if clientAddr := getField(record, csvFieldClientAddr); clientAddr != "" {
 		if hasUserDbApp {
-			b.WriteByte(',')
+			b = append(b, ',')
 		}
-		b.WriteString("client=")
-		b.WriteString(clientAddr)
+		b = append(b, "client="...)
+		b = append(b, clientAddr...)
 		hasUserDbApp = true
 	}
 	if hasUserDbApp {
-		b.WriteByte(' ')
+		b = append(b, ' ')
 	}
 
 	// Add severity and main message
@@ -226,46 +240,47 @@ func buildCSVMessage(record []string) string {
 	message := getField(record, csvFieldMessage)
 
 	if severity != "" {
-		b.WriteString(severity)
-		b.WriteString(": ")
+		b = append(b, severity...)
+		b = append(b, ':', ' ')
 	}
 	if message != "" {
-		b.WriteString(message)
+		b = append(b, message...)
 	}
 
 	// Add DETAIL if present
 	if detail := getField(record, csvFieldDetail); detail != "" {
-		b.WriteString(" DETAIL: ")
-		b.WriteString(detail)
+		b = append(b, " DETAIL: "...)
+		b = append(b, detail...)
 	}
 
 	// Add HINT if present
 	if hint := getField(record, csvFieldHint); hint != "" {
-		b.WriteString(" HINT: ")
-		b.WriteString(hint)
+		b = append(b, " HINT: "...)
+		b = append(b, hint...)
 	}
 
 	// Add QUERY if present
 	if query := getField(record, csvFieldQuery); query != "" {
-		b.WriteString(" QUERY: ")
-		b.WriteString(query)
+		b = append(b, " QUERY: "...)
+		b = append(b, query...)
 	}
 
 	// Add CONTEXT if present (useful for debugging)
 	if context := getField(record, csvFieldContext); context != "" {
-		b.WriteString(" CONTEXT: ")
-		b.WriteString(context)
+		b = append(b, " CONTEXT: "...)
+		b = append(b, context...)
 	}
 
 	// Add SQLSTATE if present (for error classification)
 	// Skip 00000 (successful completion) as it's not an error
 	if sqlstate := getField(record, csvFieldSQLState); sqlstate != "" && sqlstate != "00000" {
-		b.WriteString(" SQLSTATE = '")
-		b.WriteString(sqlstate)
-		b.WriteString("'")
+		b = append(b, " SQLSTATE = '"...)
+		b = append(b, sqlstate...)
+		b = append(b, '\'')
 	}
 
-	return b.String()
+	p.msgBuf = b
+	return string(b)
 }
 
 // getField safely retrieves a field from a CSV record.
