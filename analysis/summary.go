@@ -270,11 +270,27 @@ type UniqueEntityAnalyzer struct {
 	// stays alive forever in TinyGo's gc=leaking runtime.
 	userDbCombos   map[entityCombo]int
 	userHostCombos map[entityCombo]int
+
+	// lastSeen amortizes consecutive identical-value inserts.
+	last lastSeenCache
 }
 
 // entityCombo is the keyed pair (user, db) or (user, host).
 type entityCombo struct {
 	a, b string
+}
+
+// lastSeenCache batches consecutive same-value inserts to amortize the
+// per-map-operation cost (~53 bytes/op in tinygo wasm gc=leaking,
+// confirmed via bisection on J_250mb). PG logs often have long runs of
+// the same user/db/host, so caching "value + run length" and flushing
+// only on transitions cuts map operations by 10-100×.
+type lastSeenCache struct {
+	user, db, app, host        string
+	userN, dbN, appN, hostN    int
+	userDb, userHost           entityCombo
+	userDbValid, userHostValid bool
+	userDbN, userHostN         int
 }
 
 // NewUniqueEntityAnalyzer creates a new unique entity analyzer.
@@ -399,26 +415,129 @@ func (a *UniqueEntityAnalyzer) Process(entry *parser.LogEntry) {
 		i = eqIdx + 1
 	}
 
-	// Count entities
-	if currentUser != "" {
-		a.userCounts[currentUser]++
+	// Count entities via lastSeen cache. Per-field: if the new value
+	// matches the cached one, just increment the local counter (no map
+	// op). On transition, flush the previous (value, count) into the
+	// map. This amortizes the per-op cost of tinygo wasm map runtime
+	// (~53 bytes/op leak on gc=leaking, dominant in J.log).
+	if currentUser == a.last.user {
+		if currentUser != "" {
+			a.last.userN++
+		}
+	} else {
+		if a.last.userN > 0 {
+			a.userCounts[a.last.user] += a.last.userN
+		}
+		a.last.user = currentUser
+		if currentUser != "" {
+			a.last.userN = 1
+		} else {
+			a.last.userN = 0
+		}
 	}
-	if currentDb != "" {
-		a.dbCounts[currentDb]++
+	if currentDb == a.last.db {
+		if currentDb != "" {
+			a.last.dbN++
+		}
+	} else {
+		if a.last.dbN > 0 {
+			a.dbCounts[a.last.db] += a.last.dbN
+		}
+		a.last.db = currentDb
+		if currentDb != "" {
+			a.last.dbN = 1
+		} else {
+			a.last.dbN = 0
+		}
 	}
-	if currentApp != "" {
-		a.appCounts[currentApp]++
+	if currentApp == a.last.app {
+		if currentApp != "" {
+			a.last.appN++
+		}
+	} else {
+		if a.last.appN > 0 {
+			a.appCounts[a.last.app] += a.last.appN
+		}
+		a.last.app = currentApp
+		if currentApp != "" {
+			a.last.appN = 1
+		} else {
+			a.last.appN = 0
+		}
 	}
-	if currentHost != "" {
-		a.hostCounts[currentHost]++
+	if currentHost == a.last.host {
+		if currentHost != "" {
+			a.last.hostN++
+		}
+	} else {
+		if a.last.hostN > 0 {
+			a.hostCounts[a.last.host] += a.last.hostN
+		}
+		a.last.host = currentHost
+		if currentHost != "" {
+			a.last.hostN = 1
+		} else {
+			a.last.hostN = 0
+		}
 	}
 
-	// Build combinations (struct key avoids per-entry string concatenation).
+	// Combos: same pattern, but only valid when both fields non-empty.
 	if currentUser != "" && currentDb != "" {
-		a.userDbCombos[entityCombo{currentUser, currentDb}]++
+		c := entityCombo{currentUser, currentDb}
+		if a.last.userDbValid && c == a.last.userDb {
+			a.last.userDbN++
+		} else {
+			if a.last.userDbValid && a.last.userDbN > 0 {
+				a.userDbCombos[a.last.userDb] += a.last.userDbN
+			}
+			a.last.userDb = c
+			a.last.userDbValid = true
+			a.last.userDbN = 1
+		}
 	}
 	if currentUser != "" && currentHost != "" {
-		a.userHostCombos[entityCombo{currentUser, currentHost}]++
+		c := entityCombo{currentUser, currentHost}
+		if a.last.userHostValid && c == a.last.userHost {
+			a.last.userHostN++
+		} else {
+			if a.last.userHostValid && a.last.userHostN > 0 {
+				a.userHostCombos[a.last.userHost] += a.last.userHostN
+			}
+			a.last.userHost = c
+			a.last.userHostValid = true
+			a.last.userHostN = 1
+		}
+	}
+}
+
+// flushLastSeen drains pending counters from the lastSeenCache into
+// the count maps. Must be called once at Finalize.
+func (a *UniqueEntityAnalyzer) flushLastSeen() {
+	if a.last.userN > 0 {
+		a.userCounts[a.last.user] += a.last.userN
+		a.last.userN = 0
+	}
+	if a.last.dbN > 0 {
+		a.dbCounts[a.last.db] += a.last.dbN
+		a.last.dbN = 0
+	}
+	if a.last.appN > 0 {
+		a.appCounts[a.last.app] += a.last.appN
+		a.last.appN = 0
+	}
+	if a.last.hostN > 0 {
+		a.hostCounts[a.last.host] += a.last.hostN
+		a.last.hostN = 0
+	}
+	if a.last.userDbValid && a.last.userDbN > 0 {
+		a.userDbCombos[a.last.userDb] += a.last.userDbN
+		a.last.userDbN = 0
+		a.last.userDbValid = false
+	}
+	if a.last.userHostValid && a.last.userHostN > 0 {
+		a.userHostCombos[a.last.userHost] += a.last.userHostN
+		a.last.userHostN = 0
+		a.last.userHostValid = false
 	}
 }
 
@@ -435,6 +554,7 @@ func flattenCombos(in map[entityCombo]int) map[string]int {
 
 // Finalize returns the unique entity metrics with sorted lists.
 func (a *UniqueEntityAnalyzer) Finalize() UniqueEntityMetrics {
+	a.flushLastSeen()
 	// Derive unique lists from count map keys (no need for separate sets)
 	return UniqueEntityMetrics{
 		UniqueDbs:      len(a.dbCounts),
@@ -543,20 +663,26 @@ func extractValueAt(msg string, startPos int, commaSep ...bool) string {
 // Without NOTICE / continuation markers the previous list missed
 // these patterns and pulled them into the extracted entity, producing
 // fake variants like "monitor-agent NOTICE: ... table" in TOP APPS.
+// severityMarkers is a package-level immutable list. Hoisted out of
+// findSeverityMarker because that function is called once per log
+// entry on logs with application_name= in the prefix; allocating a
+// 15-element []string literal per call leaked ~500 MB on J_250mb in
+// tinygo wasm gc=leaking (one of the dominant cumulative allocators).
+var severityMarkers = [...]string{
+	" LOG:", " ERROR:", " WARNING:", " FATAL:", " PANIC:",
+	" NOTICE:", " INFO:", " DEBUG:",
+	" DETAIL:", " HINT:", " CONTEXT:", " STATEMENT:", " QUERY:", " LOCATION:",
+	// PostgreSQL appends " SSL <state> (protocol=…, cipher=…, …)"
+	// after application_name in "connection authorized:" log
+	// messages. Without this marker the comma-aware extractor would
+	// pull the whole "favier SSL enabled (protocol=TLSv1.2" tail
+	// into the captured value.
+	" SSL ",
+}
+
 func findSeverityMarker(s string) int {
-	markers := []string{
-		" LOG:", " ERROR:", " WARNING:", " FATAL:", " PANIC:",
-		" NOTICE:", " INFO:", " DEBUG:",
-		" DETAIL:", " HINT:", " CONTEXT:", " STATEMENT:", " QUERY:", " LOCATION:",
-		// PostgreSQL appends " SSL <state> (protocol=…, cipher=…, …)"
-		// after application_name in "connection authorized:" log
-		// messages. Without this marker the comma-aware extractor would
-		// pull the whole "favier SSL enabled (protocol=TLSv1.2" tail
-		// into the captured value.
-		" SSL ",
-	}
 	earliest := -1
-	for _, sev := range markers {
+	for _, sev := range severityMarkers {
 		if pos := strings.Index(s, sev); pos != -1 {
 			if earliest == -1 || pos < earliest {
 				earliest = pos

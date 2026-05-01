@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unsafe"
 )
 
 // scannerBuffer is the initial buffer size for reading log lines (4 MB).
@@ -321,15 +322,45 @@ func (p *StderrParser) parseReader(r io.Reader, out chan<- []LogEntry) error {
 }
 
 // parseFromBytes parses stderr log data directly from a byte slice.
+// parseFromBytes parses log content from a stable byte slice (caller
+// guarantees the slice outlives all emitted LogEntries — true for the
+// WASM path where data comes from JS and stays alive for the whole call).
+//
+// Zero-copy strategy: for the common case of single-line entries (no
+// DETAIL/HINT/STATEMENT continuation), the message is exposed via
+// unsafe.String pointing directly into `data` — no string allocation,
+// no copy. Only entries with continuations fall back to the buffered
+// concat path, which is rare on real logs.
 func (p *StderrParser) parseFromBytes(data []byte, out chan<- []LogEntry) error {
 	bs := NewBatchSender(out)
 	defer bs.Flush()
 
+	// currentEntry is only populated when an entry has continuations
+	// (lazy copy on first continuation). For single-line entries we
+	// keep the bounds (entryStart, entryEnd) and zero-copy the slice.
 	var currentEntry []byte
 	currentEntry = make([]byte, 0, 8192)
 
 	dataLen := len(data)
 	lineStart := 0
+	entryStart := -1 // start offset of the current entry's first line in `data`
+	entryEnd := -1   // end offset (exclusive) of the current entry's first line in `data`
+	hasCont := false // continuations seen for the current entry
+
+	emit := func() {
+		var entryBytes []byte
+		if hasCont {
+			entryBytes = currentEntry
+		} else if entryStart >= 0 {
+			entryBytes = data[entryStart:entryEnd]
+		} else {
+			return
+		}
+		timestamp, message := p.parseEntryFromBytesZ(entryBytes, !hasCont)
+		if !timestamp.IsZero() {
+			bs.Send(NewLogEntry(timestamp, message, isContinuationMessage(message)))
+		}
+	}
 
 	for i := 0; i <= dataLen; i++ {
 		if i < dataLen && data[i] != '\n' {
@@ -342,52 +373,112 @@ func (p *StderrParser) parseFromBytes(data []byte, out chan<- []LogEntry) error 
 		}
 
 		lineBytes := data[lineStart:lineEnd]
+		origLineStart := lineStart
+		origLineEnd := lineEnd
 		lineStart = i + 1
 
 		if len(lineBytes) == 0 {
 			continue
 		}
 
+		// Syslog tab marker stripping rewrites the line into a fresh
+		// buffer — those bytes don't exist in `data`, so this entry
+		// can't use the zero-copy path.
+		syslogStripped := false
 		if idx := bytesIndex(lineBytes, []byte(syslogTabMarker)); idx != -1 {
 			newLine := make([]byte, 1+len(lineBytes)-idx-len(syslogTabMarker))
 			newLine[0] = ' '
 			copy(newLine[1:], lineBytes[idx+len(syslogTabMarker):])
 			lineBytes = newLine
+			syslogStripped = true
 		}
 
 		isContinuation := len(lineBytes) > 0 && (lineBytes[0] == ' ' || lineBytes[0] == '\t')
 
-		if !isContinuation && len(currentEntry) > 0 {
+		if !isContinuation && (entryStart >= 0 || hasCont || len(currentEntry) > 0) {
 			if !hasTimestampBytes(lineBytes) {
 				isContinuation = true
 			}
 		}
 
 		if isContinuation {
+			// Lazy materialize the previous entry's bytes into
+			// currentEntry on first continuation, then append.
+			if !hasCont {
+				if entryStart >= 0 {
+					currentEntry = append(currentEntry[:0], data[entryStart:entryEnd]...)
+				} else {
+					currentEntry = currentEntry[:0]
+				}
+				hasCont = true
+			}
 			if len(currentEntry) > 0 {
 				currentEntry = append(currentEntry, ' ')
 			}
 			currentEntry = append(currentEntry, trimSpaceBytes(lineBytes)...)
 		} else {
-			if len(currentEntry) > 0 {
-				timestamp, message := p.parseEntryFromBytes(currentEntry)
-				if !timestamp.IsZero() {
-					bs.Send(NewLogEntry(timestamp, message, isContinuationMessage(message)))
-				}
-				currentEntry = currentEntry[:0]
+			// Emit previous entry if any.
+			if entryStart >= 0 || hasCont {
+				emit()
 			}
-			currentEntry = append(currentEntry[:0], lineBytes...)
+			// Start a new entry.
+			hasCont = false
+			currentEntry = currentEntry[:0]
+			if syslogStripped {
+				// Syslog-stripped lines are in a fresh buffer, not
+				// in `data` — fall back to the copy path immediately.
+				entryStart = -1
+				entryEnd = -1
+				currentEntry = append(currentEntry[:0], lineBytes...)
+				hasCont = true
+			} else {
+				entryStart = origLineStart
+				entryEnd = origLineEnd
+			}
 		}
 	}
 
-	if len(currentEntry) > 0 {
-		timestamp, message := p.parseEntryFromBytes(currentEntry)
-		if !timestamp.IsZero() {
-			bs.Send(NewLogEntry(timestamp, message, isContinuationMessage(message)))
-		}
+	if entryStart >= 0 || hasCont {
+		emit()
 	}
 
 	return nil
+}
+
+// parseEntryFromBytesZ parses an entry's bytes and returns the message.
+// When zeroCopy is true, the returned string is a zero-copy view into
+// the bytes (caller must guarantee the bytes outlive the string).
+func (p *StderrParser) parseEntryFromBytesZ(entry []byte, zeroCopy bool) (time.Time, string) {
+	n := len(entry)
+	if n >= 20 && entry[4] == '-' && entry[7] == '-' && entry[10] == ' ' && entry[13] == ':' && entry[16] == ':' {
+		if timestamp, msgOffset, ok := parseStderrFormatFromBytes(entry); ok {
+			if msgOffset >= n {
+				return timestamp, ""
+			}
+			msgBytes := entry[msgOffset:]
+			if zeroCopy {
+				return timestamp, unsafeBytesToString(msgBytes)
+			}
+			return timestamp, string(msgBytes)
+		}
+	}
+
+	// Slow path (RDS/Azure/syslog formats and edge cases): the
+	// normalization step already allocates, so zero-copy is moot here.
+	entryStr := string(entry)
+	normalizedEntry := p.normalizeEntryBeforeParsing(entryStr)
+	return parseStderrLine(normalizedEntry)
+}
+
+// unsafeBytesToString returns a zero-copy string header pointing at b.
+// The Go GC traces the string's data pointer back to b's backing array,
+// so the array stays live as long as the returned string is reachable.
+// Caller must NOT mutate b after this call.
+func unsafeBytesToString(b []byte) string {
+	if len(b) == 0 {
+		return ""
+	}
+	return unsafe.String(unsafe.SliceData(b), len(b))
 }
 
 func (p *StderrParser) parseEntryFromBytes(entry []byte) (time.Time, string) {
