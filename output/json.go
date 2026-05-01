@@ -1,11 +1,13 @@
 package output
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
 	"sort"
+	"strconv"
 	"time"
 
 	"github.com/Alain-L/quellog/analysis"
@@ -28,16 +30,16 @@ type SummaryJSON struct {
 }
 
 type SQLPerformanceJSON struct {
-	TotalQueryDuration     string               `json:"total_query_duration"`
-	TotalQueriesParsed     int                  `json:"total_queries_parsed"`
-	TotalUniqueQueries     int                  `json:"total_unique_queries"`
-	Top1PercentSlowQueries int                  `json:"top_1_percent_slow_queries"`
-	QueryMaxDuration       string               `json:"query_max_duration"`
-	QueryMinDuration       string               `json:"query_min_duration"`
-	QueryMedianDuration    string               `json:"query_median_duration"`
-	Query99thPercentile    string               `json:"query_99th_percentile"`
-	Executions             []QueryExecutionJSON `json:"executions"`
-	Queries                []QueryStatJSON      `json:"queries"`
+	TotalQueryDuration     string          `json:"total_query_duration"`
+	TotalQueriesParsed     int             `json:"total_queries_parsed"`
+	TotalUniqueQueries     int             `json:"total_unique_queries"`
+	Top1PercentSlowQueries int             `json:"top_1_percent_slow_queries"`
+	QueryMaxDuration       string          `json:"query_max_duration"`
+	QueryMinDuration       string          `json:"query_min_duration"`
+	QueryMedianDuration    string          `json:"query_median_duration"`
+	Query99thPercentile    string          `json:"query_99th_percentile"`
+	Executions             lazyExecutions  `json:"executions"`
+	Queries                []QueryStatJSON `json:"queries"`
 }
 
 type QueryExecutionJSON struct {
@@ -157,8 +159,8 @@ type SQLPerformanceDetailJSON struct {
 	MostTimeConsuming   []QueryRankJSON `json:"most_time_consuming"`
 
 	// Full query data for HTML viewer
-	Queries    []QueryStatJSON      `json:"queries,omitempty"`
-	Executions []QueryExecutionJSON `json:"executions,omitempty"`
+	Queries    []QueryStatJSON `json:"queries,omitempty"`
+	Executions lazyExecutions  `json:"executions,omitempty"`
 }
 
 type DurationBucketJSON struct {
@@ -307,14 +309,459 @@ type ConnectionsJSON struct {
 	PeakConcurrentTime string `json:"peak_concurrent_timestamp,omitempty"`
 
 	// Raw events
-	Connections   []string           `json:"connections"`
-	SessionEvents []SessionEventJSON `json:"session_events,omitempty"`
+	Connections   lazyConnections   `json:"connections"`
+	SessionEvents lazySessionEvents `json:"session_events,omitempty"`
 }
 
-// SessionEventJSON represents a session with start and end times for client-side sweep-line.
-type SessionEventJSON struct {
-	Start string `json:"s"` // Short keys for smaller JSON
-	End   string `json:"e"`
+// lazySessionEvents marshals an []analysis.SessionEvent directly to JSON
+// without allocating an intermediate []SessionEventJSON slice. On large
+// logs the intermediate slice was the dominant transient cost (~400 MB
+// for 5.7M sessions on J.log) and required ~2M heap allocations. The
+// lazy wrapper does it in 2 allocations total.
+type lazySessionEvents struct {
+	events []analysis.SessionEvent
+}
+
+// lazyConnections marshals an []time.Time directly to JSON without an
+// intermediate []string slice. Same pattern as lazySessionEvents.
+type lazyConnections struct {
+	timestamps []time.Time
+}
+
+// lazyExecutions marshals an []analysis.QueryExecution directly to JSON
+// without an intermediate []QueryExecutionJSON slice. Biggest per-row
+// gain: 5M+ executions on J.log = ~300 MB intermediate avoided.
+//
+// tsFormat lets the same wrapper serve the two contexts that differ
+// only in timestamp separator: " " for the legacy --json output, "T"
+// for the --full / sql_performance detail output (RFC3339-ish).
+type lazyExecutions struct {
+	executions []analysis.QueryExecution
+	tsFormat   string
+}
+
+// MarshalJSON emits the JSON array of {"s":..,"e":..} objects. Returns
+// `null` for empty so the encoder honors `omitempty` on the field tag.
+//
+// Uses time.Time.AppendFormat into a flat []byte instead of bytes.Buffer
+// + Format(): zero intermediate string allocation per event.
+func (l lazySessionEvents) MarshalJSON() ([]byte, error) {
+	if len(l.events) == 0 {
+		return []byte("null"), nil
+	}
+	// Each event ≈ 52 bytes (`{"s":"...","e":"..."}`). +2 brackets.
+	buf := make([]byte, 0, len(l.events)*52+2)
+	buf = append(buf, '[')
+	first := true
+	for _, se := range l.events {
+		if se.StartTime.IsZero() || se.EndTime.IsZero() {
+			continue
+		}
+		if !first {
+			buf = append(buf, ',')
+		}
+		first = false
+		buf = append(buf, `{"s":"`...)
+		buf = se.StartTime.AppendFormat(buf, "2006-01-02T15:04:05")
+		buf = append(buf, `","e":"`...)
+		buf = se.EndTime.AppendFormat(buf, "2006-01-02T15:04:05")
+		buf = append(buf, `"}`...)
+	}
+	buf = append(buf, ']')
+	return buf, nil
+}
+
+// MarshalJSON for lazyConnections — array of "YYYY-MM-DD HH:MM:SS" strings.
+// Empty input → "[]" (the field tag has no omitempty).
+func (l lazyConnections) MarshalJSON() ([]byte, error) {
+	if len(l.timestamps) == 0 {
+		return []byte("[]"), nil
+	}
+	// Each timestamp ≈ 22 bytes (`"2006-01-02 15:04:05",`). +2 brackets.
+	buf := make([]byte, 0, len(l.timestamps)*22+2)
+	buf = append(buf, '[')
+	for i, t := range l.timestamps {
+		if i > 0 {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, '"')
+		buf = t.AppendFormat(buf, "2006-01-02 15:04:05")
+		buf = append(buf, '"')
+	}
+	buf = append(buf, ']')
+	return buf, nil
+}
+
+// fieldEmitter writes JSON object fields one at a time to bw with the
+// proper indent and comma framing — like a tiny manual encoder. Lets
+// section streamers emit each small field via json.Marshal (for the
+// value alone, kilobytes max) then call a stream helper for the big
+// arrays without ever buffering the section as a whole.
+type fieldEmitter struct {
+	bw      *bufio.Writer
+	inner   string // leading indent for each field line (depth-N)
+	compact bool
+	first   bool
+}
+
+// writeKey emits the comma+newline+indent prefix and the "key": part.
+func (e *fieldEmitter) writeKey(key string) {
+	if !e.first {
+		e.bw.WriteByte(',')
+	}
+	e.first = false
+	if !e.compact {
+		e.bw.WriteByte('\n')
+		e.bw.WriteString(e.inner)
+	}
+	e.bw.WriteString(strconv.Quote(key))
+	if e.compact {
+		e.bw.WriteByte(':')
+	} else {
+		e.bw.WriteString(": ")
+	}
+}
+
+// emitScalar emits a small key:value pair using json.Marshal on the
+// value (the marshaled bytes are kilobytes at most for scalars / small
+// objects).
+func (e *fieldEmitter) emitScalar(key string, value any) error {
+	e.writeKey(key)
+	var vb []byte
+	var err error
+	if e.compact {
+		vb, err = json.Marshal(value)
+	} else {
+		vb, err = json.MarshalIndent(value, e.inner, "  ")
+	}
+	if err != nil {
+		return err
+	}
+	e.bw.Write(vb)
+	return nil
+}
+
+// streamTimestampsJSON writes ts as a JSON array of "YYYY-MM-DD HH:MM:SS"
+// strings directly to bw — one item at a time, no intermediate buffer.
+// Peak memory = bufio buffer (~4 KB), regardless of len(ts).
+func streamTimestampsJSON(bw *bufio.Writer, ts []time.Time, prefix, indent string, compact bool) {
+	if len(ts) == 0 {
+		bw.WriteString("[]")
+		return
+	}
+	inner := prefix + indent
+	if compact {
+		bw.WriteByte('[')
+		for i, t := range ts {
+			if i > 0 {
+				bw.WriteByte(',')
+			}
+			bw.WriteByte('"')
+			var buf [20]byte
+			bw.Write(t.AppendFormat(buf[:0], "2006-01-02 15:04:05"))
+			bw.WriteByte('"')
+		}
+		bw.WriteByte(']')
+		return
+	}
+	bw.WriteString("[\n")
+	for i, t := range ts {
+		if i > 0 {
+			bw.WriteString(",\n")
+		}
+		bw.WriteString(inner)
+		bw.WriteByte('"')
+		var buf [20]byte
+		bw.Write(t.AppendFormat(buf[:0], "2006-01-02 15:04:05"))
+		bw.WriteByte('"')
+	}
+	bw.WriteByte('\n')
+	bw.WriteString(prefix)
+	bw.WriteByte(']')
+}
+
+// streamSessionEventsJSON writes events as a JSON array of {"s":..,"e":..}
+// objects directly to bw. Same zero-buffer streaming as
+// streamTimestampsJSON.
+func streamSessionEventsJSON(bw *bufio.Writer, events []analysis.SessionEvent, prefix, indent string, compact bool) {
+	if len(events) == 0 {
+		bw.WriteString("[]")
+		return
+	}
+	inner := prefix + indent
+	if compact {
+		bw.WriteByte('[')
+		first := true
+		for _, se := range events {
+			if se.StartTime.IsZero() || se.EndTime.IsZero() {
+				continue
+			}
+			if !first {
+				bw.WriteByte(',')
+			}
+			first = false
+			bw.WriteString(`{"s":"`)
+			var buf [20]byte
+			bw.Write(se.StartTime.AppendFormat(buf[:0], "2006-01-02T15:04:05"))
+			bw.WriteString(`","e":"`)
+			bw.Write(se.EndTime.AppendFormat(buf[:0], "2006-01-02T15:04:05"))
+			bw.WriteString(`"}`)
+		}
+		bw.WriteByte(']')
+		return
+	}
+	bw.WriteString("[\n")
+	first := true
+	for _, se := range events {
+		if se.StartTime.IsZero() || se.EndTime.IsZero() {
+			continue
+		}
+		if !first {
+			bw.WriteString(",\n")
+		}
+		first = false
+		bw.WriteString(inner)
+		bw.WriteString(`{`)
+		// inner+indent for sub-fields of the object
+		subInner := inner + indent
+		bw.WriteByte('\n')
+		bw.WriteString(subInner)
+		bw.WriteString(`"s": "`)
+		var buf [20]byte
+		bw.Write(se.StartTime.AppendFormat(buf[:0], "2006-01-02T15:04:05"))
+		bw.WriteString(`",`)
+		bw.WriteByte('\n')
+		bw.WriteString(subInner)
+		bw.WriteString(`"e": "`)
+		bw.Write(se.EndTime.AppendFormat(buf[:0], "2006-01-02T15:04:05"))
+		bw.WriteString(`"`)
+		bw.WriteByte('\n')
+		bw.WriteString(inner)
+		bw.WriteByte('}')
+	}
+	bw.WriteByte('\n')
+	bw.WriteString(prefix)
+	bw.WriteByte(']')
+}
+
+// streamExecutionsJSON writes executions as a JSON array of
+// {timestamp, duration_ms, query_id} objects directly to bw.
+func streamExecutionsJSON(bw *bufio.Writer, execs []analysis.QueryExecution, tsFormat, prefix, indent string, compact bool) {
+	if len(execs) == 0 {
+		bw.WriteString("[]")
+		return
+	}
+	if tsFormat == "" {
+		tsFormat = "2006-01-02 15:04:05"
+	}
+	inner := prefix + indent
+	if compact {
+		bw.WriteByte('[')
+		for i, e := range execs {
+			if i > 0 {
+				bw.WriteByte(',')
+			}
+			bw.WriteString(`{"timestamp":"`)
+			var tbuf [20]byte
+			bw.Write(e.Timestamp.AppendFormat(tbuf[:0], tsFormat))
+			bw.WriteString(`","duration_ms":`)
+			var nbuf [32]byte
+			bw.Write(strconv.AppendFloat(nbuf[:0], e.Duration, 'f', -1, 64))
+			bw.WriteString(`,"query_id":"`)
+			bw.WriteString(e.QueryID)
+			bw.WriteString(`"}`)
+		}
+		bw.WriteByte(']')
+		return
+	}
+	subInner := inner + indent
+	bw.WriteString("[\n")
+	for i, e := range execs {
+		if i > 0 {
+			bw.WriteString(",\n")
+		}
+		bw.WriteString(inner)
+		bw.WriteString("{\n")
+		bw.WriteString(subInner)
+		bw.WriteString(`"timestamp": "`)
+		var tbuf [20]byte
+		bw.Write(e.Timestamp.AppendFormat(tbuf[:0], tsFormat))
+		bw.WriteString(`",`)
+		bw.WriteByte('\n')
+		bw.WriteString(subInner)
+		bw.WriteString(`"duration_ms": `)
+		var nbuf [32]byte
+		bw.Write(strconv.AppendFloat(nbuf[:0], e.Duration, 'f', -1, 64))
+		bw.WriteString(`,`)
+		bw.WriteByte('\n')
+		bw.WriteString(subInner)
+		bw.WriteString(`"query_id": `)
+		qb, _ := json.Marshal(e.QueryID)
+		bw.Write(qb)
+		bw.WriteByte('\n')
+		bw.WriteString(inner)
+		bw.WriteByte('}')
+	}
+	bw.WriteByte('\n')
+	bw.WriteString(prefix)
+	bw.WriteByte(']')
+}
+
+// MarshalJSON for lazyExecutions — array of {timestamp, duration_ms,
+// query_id} objects. Returns "null" when empty (no omitempty on the
+// field tag means the encoder will respect what we return).
+func (l lazyExecutions) MarshalJSON() ([]byte, error) {
+	if len(l.executions) == 0 {
+		// Match the encoder default: a nil slice serializes to "null"
+		// while an empty slice serializes to "[]". Preserve the latter
+		// because the make([], len(...)) path always built an empty slice.
+		return []byte("[]"), nil
+	}
+	// Each execution ≈ 90 bytes (`{"timestamp":"...","duration_ms":NNN.NNN,"query_id":"se-XXX"}`).
+	buf := make([]byte, 0, len(l.executions)*90+2)
+	buf = append(buf, '[')
+	tsFormat := l.tsFormat
+	if tsFormat == "" {
+		tsFormat = "2006-01-02 15:04:05"
+	}
+	for i, exec := range l.executions {
+		if i > 0 {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, `{"timestamp":"`...)
+		buf = exec.Timestamp.AppendFormat(buf, tsFormat)
+		buf = append(buf, `","duration_ms":`...)
+		buf = strconv.AppendFloat(buf, exec.Duration, 'f', -1, 64)
+		buf = append(buf, `,"query_id":"`...)
+		buf = append(buf, exec.QueryID...) // QueryIDs are safe ASCII (e.g. "se-abc123")
+		buf = append(buf, `"}`...)
+	}
+	buf = append(buf, ']')
+	return buf, nil
+}
+
+// StreamSection emits a SQLPerformanceJSON to bw item-by-item for the
+// big Executions array, avoiding a per-section buffer. Implements
+// sectionStreamer.
+func (p SQLPerformanceJSON) StreamSection(bw *bufio.Writer, prefix, indent string, compact bool) error {
+	inner := prefix + indent
+	e := &fieldEmitter{bw: bw, inner: inner, compact: compact, first: true}
+
+	bw.WriteByte('{')
+
+	if err := e.emitScalar("total_query_duration", p.TotalQueryDuration); err != nil {
+		return err
+	}
+	if err := e.emitScalar("total_queries_parsed", p.TotalQueriesParsed); err != nil {
+		return err
+	}
+	if err := e.emitScalar("total_unique_queries", p.TotalUniqueQueries); err != nil {
+		return err
+	}
+	if err := e.emitScalar("top_1_percent_slow_queries", p.Top1PercentSlowQueries); err != nil {
+		return err
+	}
+	if err := e.emitScalar("query_max_duration", p.QueryMaxDuration); err != nil {
+		return err
+	}
+	if err := e.emitScalar("query_min_duration", p.QueryMinDuration); err != nil {
+		return err
+	}
+	if err := e.emitScalar("query_median_duration", p.QueryMedianDuration); err != nil {
+		return err
+	}
+	if err := e.emitScalar("query_99th_percentile", p.Query99thPercentile); err != nil {
+		return err
+	}
+
+	// Big array — stream item by item, never buffered as a whole.
+	e.writeKey("executions")
+	streamExecutionsJSON(bw, p.Executions.executions, p.Executions.tsFormat, inner, indent, compact)
+
+	if err := e.emitScalar("queries", p.Queries); err != nil {
+		return err
+	}
+
+	if !compact {
+		bw.WriteByte('\n')
+		bw.WriteString(prefix)
+	}
+	bw.WriteByte('}')
+	return nil
+}
+
+// StreamSection emits a ConnectionsJSON to bw item-by-item for the big
+// Connections and SessionEvents arrays. Implements sectionStreamer.
+func (c ConnectionsJSON) StreamSection(bw *bufio.Writer, prefix, indent string, compact bool) error {
+	inner := prefix + indent
+	e := &fieldEmitter{bw: bw, inner: inner, compact: compact, first: true}
+
+	bw.WriteByte('{')
+
+	if err := e.emitScalar("connection_count", c.ConnectionCount); err != nil {
+		return err
+	}
+	if err := e.emitScalar("avg_connections_per_hour", c.AvgConnectionsPerHour); err != nil {
+		return err
+	}
+	if err := e.emitScalar("disconnection_count", c.DisconnectionCount); err != nil {
+		return err
+	}
+	if err := e.emitScalar("avg_session_time", c.AvgSessionTime); err != nil {
+		return err
+	}
+
+	if c.SessionStats != nil {
+		if err := e.emitScalar("session_stats", c.SessionStats); err != nil {
+			return err
+		}
+	}
+	if len(c.SessionDistribution) > 0 {
+		if err := e.emitScalar("session_distribution", c.SessionDistribution); err != nil {
+			return err
+		}
+	}
+	if len(c.SessionsByUser) > 0 {
+		if err := e.emitScalar("sessions_by_user", c.SessionsByUser); err != nil {
+			return err
+		}
+	}
+	if len(c.SessionsByDatabase) > 0 {
+		if err := e.emitScalar("sessions_by_database", c.SessionsByDatabase); err != nil {
+			return err
+		}
+	}
+	if len(c.SessionsByHost) > 0 {
+		if err := e.emitScalar("sessions_by_host", c.SessionsByHost); err != nil {
+			return err
+		}
+	}
+	if c.PeakConcurrent > 0 {
+		if err := e.emitScalar("peak_concurrent_sessions", c.PeakConcurrent); err != nil {
+			return err
+		}
+	}
+	if c.PeakConcurrentTime != "" {
+		if err := e.emitScalar("peak_concurrent_timestamp", c.PeakConcurrentTime); err != nil {
+			return err
+		}
+	}
+
+	// Big arrays — stream items, never buffered as a whole.
+	e.writeKey("connections")
+	streamTimestampsJSON(bw, c.Connections.timestamps, inner, indent, compact)
+
+	if len(c.SessionEvents.events) > 0 {
+		e.writeKey("session_events")
+		streamSessionEventsJSON(bw, c.SessionEvents.events, inner, indent, compact)
+	}
+
+	if !compact {
+		bw.WriteByte('\n')
+		bw.WriteString(prefix)
+	}
+	bw.WriteByte('}')
+	return nil
 }
 
 type ClientsJSON struct {
@@ -356,15 +803,97 @@ type ErrorClassJSON struct {
 // When compact is true, outputs JSON without indentation (smaller, lower memory).
 func ExportJSON(w io.Writer, m analysis.AggregatedMetrics, sections []string, full bool, compact bool) {
 	data := buildJSONData(m, sections, full)
-
-	// Stream directly to writer - no intermediate []byte or string
-	enc := json.NewEncoder(w)
-	if !compact {
-		enc.SetIndent("", "  ")
-	}
-	if err := enc.Encode(data); err != nil {
+	if err := encodeMapStreaming(w, data, compact); err != nil {
 		fmt.Fprintf(w, "[ERROR] Failed to export JSON: %v\n", err)
 	}
+}
+
+// encodeMapStreaming writes a map[string]interface{} as a JSON object
+// **section by section** to w, instead of letting json.Encoder buffer
+// the entire output internally before flushing. The encoder's hidden
+// buffer was the dominant peak-RSS contributor during marshal phase
+// on big logs (~800 MB on J.log, all sections' marshaled bytes
+// coexisting until the final flush). Here each section's bytes are
+// written and released before the next section is marshaled, so peak
+// during marshal = max single section, not the sum.
+//
+// Top-level keys are emitted in sorted order to match json.Marshal's
+// default behavior on maps (the goldens depend on this).
+func encodeMapStreaming(w io.Writer, data map[string]interface{}, compact bool) error {
+	bw := bufio.NewWriter(w)
+	defer bw.Flush()
+
+	keys := make([]string, 0, len(data))
+	for k := range data {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	bw.WriteByte('{')
+	for i, k := range keys {
+		if i > 0 {
+			bw.WriteByte(',')
+		}
+		if !compact {
+			bw.WriteString("\n  ")
+		}
+		// Marshal the key (handles escaping properly).
+		kb, err := json.Marshal(k)
+		if err != nil {
+			return err
+		}
+		bw.Write(kb)
+		if compact {
+			bw.WriteByte(':')
+		} else {
+			bw.WriteString(": ")
+		}
+		// Sections that contain big arrays implement sectionStreamer
+		// to write themselves item-by-item to the writer, bypassing the
+		// MarshalJSON contract that forces a complete []byte buffer per
+		// section (~365 MB for connections on J.log). This avoids the
+		// last per-section buffer peak.
+		if streamer, ok := data[k].(sectionStreamer); ok {
+			if err := streamer.StreamSection(bw, "  ", "  ", compact); err != nil {
+				return err
+			}
+		} else {
+			// Marshal small sections normally — their per-section buffer
+			// is tiny (kilobytes) so no point streaming.
+			var vb []byte
+			if compact {
+				vb, err = json.Marshal(data[k])
+			} else {
+				vb, err = json.MarshalIndent(data[k], "  ", "  ")
+			}
+			if err != nil {
+				return err
+			}
+			bw.Write(vb)
+		}
+	}
+	if !compact {
+		bw.WriteByte('\n')
+	}
+	bw.WriteByte('}')
+	// Always trailing newline — matches json.Encoder.Encode behavior
+	// regardless of indent mode, so existing consumers (the wasm
+	// MetaInfo path among others) see byte-identical output.
+	bw.WriteByte('\n')
+	return nil
+}
+
+// sectionStreamer lets a section value emit its JSON form directly to a
+// writer instead of returning a full []byte through MarshalJSON. The
+// caller (encodeMapStreaming) provides the indent context: prefix is
+// the leading whitespace before the section's outer brace (matches
+// MarshalIndent's prefix arg), indent is the per-level indent unit.
+//
+// Used to avoid the big per-section buffer when the section contains
+// arrays of millions of items (sql_performance.executions,
+// connections.{connections,session_events}).
+type sectionStreamer interface {
+	StreamSection(w *bufio.Writer, prefix, indent string, compact bool) error
 }
 
 // ExportJSONString returns the JSON export as a string instead of printing.
@@ -391,13 +920,9 @@ func ExportJSONStringWithMeta(m analysis.AggregatedMetrics, sections []string, f
 		data["meta"] = meta
 	}
 
-	// Stream to buffer - avoids intermediate []byte from MarshalIndent
+	// Section-by-section streaming into a buffer (same path as ExportJSON).
 	var buf bytes.Buffer
-	enc := json.NewEncoder(&buf)
-	if !compact {
-		enc.SetIndent("", "  ")
-	}
-	if err := enc.Encode(data); err != nil {
+	if err := encodeMapStreaming(&buf, data, compact); err != nil {
 		return "", err
 	}
 	return buf.String(), nil
@@ -593,10 +1118,7 @@ func buildJSONData(m analysis.AggregatedMetrics, sections []string, full bool) m
 				}
 				return ""
 			}(),
-			Connections: []string{},
-		}
-		for _, t := range m.Connections.Connections {
-			conn.Connections = append(conn.Connections, t.Format("2006-01-02 15:04:05"))
+			Connections: lazyConnections{timestamps: m.Connections.Connections},
 		}
 		if m.Connections.SessionStats.Count > 0 {
 			stats := m.Connections.SessionStats
@@ -644,18 +1166,9 @@ func buildJSONData(m analysis.AggregatedMetrics, sections []string, full bool) m
 			conn.PeakConcurrent = m.Connections.PeakConcurrentSessions
 			conn.PeakConcurrentTime = m.Connections.PeakConcurrentTimestamp.Format("2006-01-02 15:04:05")
 		}
-		// Export session events for client-side sweep-line (allows bucket adjustment)
-		if len(m.Connections.SessionEvents) > 0 {
-			conn.SessionEvents = make([]SessionEventJSON, 0, len(m.Connections.SessionEvents))
-			for _, se := range m.Connections.SessionEvents {
-				if !se.StartTime.IsZero() && !se.EndTime.IsZero() {
-					conn.SessionEvents = append(conn.SessionEvents, SessionEventJSON{
-						Start: se.StartTime.Format("2006-01-02T15:04:05"),
-						End:   se.EndTime.Format("2006-01-02T15:04:05"),
-					})
-				}
-			}
-		}
+		// Export session events for client-side sweep-line — lazy wrapper
+		// avoids the per-event []SessionEventJSON intermediate slice.
+		conn.SessionEvents = lazySessionEvents{events: m.Connections.SessionEvents}
 		data["connections"] = conn
 	}
 
@@ -908,14 +1421,9 @@ func buildFullSQLPerformance(m analysis.SQLMetrics) SQLPerformanceDetailJSON {
 		})
 	}
 
-	// Executions for time charts
-	for _, exec := range m.Executions {
-		perf.Executions = append(perf.Executions, QueryExecutionJSON{
-			Timestamp:  exec.Timestamp.Format("2006-01-02T15:04:05"),
-			DurationMs: exec.Duration,
-			QueryID:    exec.QueryID,
-		})
-	}
+	// Executions for time charts — lazy wrapper, T separator for the
+	// detail format (RFC3339-ish) consumed by the HTML viewer.
+	perf.Executions = lazyExecutions{executions: m.Executions, tsFormat: "2006-01-02T15:04:05"}
 
 	return perf
 }
@@ -976,15 +1484,10 @@ func convertSQLPerformance(m analysis.SQLMetrics) SQLPerformanceJSON {
 		}
 	}
 
-	// SQL duration datas for each statement
-	executionsJSON := make([]QueryExecutionJSON, len(m.Executions))
-	for i, exec := range m.Executions {
-		executionsJSON[i] = QueryExecutionJSON{
-			Timestamp:  exec.Timestamp.Format("2006-01-02 15:04:05"),
-			DurationMs: exec.Duration,
-			QueryID:    exec.QueryID,
-		}
-	}
+	// SQL duration data for each statement — lazy wrapper avoids the
+	// per-execution []QueryExecutionJSON intermediate slice (was the
+	// dominant per-row cost on big logs).
+	executionsLazy := lazyExecutions{executions: m.Executions}
 
 	// Export all query stats (sorted by ID for deterministic output)
 	queriesJSON := make([]QueryStatJSON, 0, len(m.QueryStats))
@@ -1014,7 +1517,7 @@ func convertSQLPerformance(m analysis.SQLMetrics) SQLPerformanceJSON {
 		QueryMinDuration:       formatQueryDuration(m.MinQueryDuration),
 		QueryMedianDuration:    formatQueryDuration(m.MedianQueryDuration),
 		Query99thPercentile:    formatQueryDuration(m.P99QueryDuration),
-		Executions:             executionsJSON,
+		Executions:             executionsLazy,
 		Queries:                queriesJSON,
 	}
 }
