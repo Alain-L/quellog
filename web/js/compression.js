@@ -189,7 +189,12 @@ export async function extractTar(buffer) {
     return files.map(f => new TextDecoder().decode(f.content)).join('\n');
 }
 
-// Prepare file content: decompress and extract if needed
+// Prepare file content: decompress and extract if needed.
+// Returns Uint8Array for plain (non-archive) inputs so the wasm
+// pipeline can use quellogParseBytes (avoids string conversion +
+// []byte copy that doubled wasm linear memory pressure on big logs).
+// Archive paths (zip/tar) still return strings for legacy reasons —
+// they tend to be smaller anyway.
 export async function prepareContent(file) {
     const buffer = await file.arrayBuffer();
     const lname = file.name.toLowerCase();
@@ -208,5 +213,6 @@ export async function prepareContent(file) {
         return await extractTar(data.buffer);
     }
 
-    return new TextDecoder().decode(data);
+    // Return Uint8Array directly — caller decides whether to decode.
+    return data;
 }
