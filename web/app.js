@@ -79,9 +79,15 @@ import './js/components/ql-dropdown.js';
                 setCurrentFileSize(file.size);
                 setOriginalDimensions(null);  // Reset for new file
 
-                // Time the actual parsing
+                // Time the actual parsing. Use quellogParseBytes when
+                // content is a Uint8Array (plain logs, the new default
+                // path) — saves the JS-string-to-Go-[]byte double copy
+                // that was eating ~700 MB of wasm linear memory on big
+                // logs. Archive paths still pass a string.
                 const parseStart = performance.now();
-                const resultJson = quellogParse(content);
+                const resultJson = (content instanceof Uint8Array)
+                    ? quellogParseBytes(content)
+                    : quellogParse(content);
                 const parseEnd = performance.now();
                 const parseTimeMs = Math.round(parseEnd - parseStart);
 
@@ -2434,9 +2440,12 @@ function buildEventsSection(data) {
                     await reinitWasm();
                 }
 
-                // Time the parsing
+                // Time the parsing — same Uint8Array fast-path as the
+                // initial drop, see processFile.
                 const parseStart = performance.now();
-                const resultJson = quellogParse(currentFileContent, filtersJson);
+                const resultJson = (currentFileContent instanceof Uint8Array)
+                    ? quellogParseBytes(currentFileContent, filtersJson)
+                    : quellogParse(currentFileContent, filtersJson);
                 const parseEnd = performance.now();
                 const parseTimeMs = Math.round(parseEnd - parseStart);
 

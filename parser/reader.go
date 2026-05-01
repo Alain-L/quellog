@@ -2,8 +2,8 @@
 package parser
 
 import (
+	"bytes"
 	"io"
-	"strings"
 )
 
 // ParseFromReader parses log content from an io.Reader using the specified format.
@@ -47,12 +47,13 @@ func DetectFormatFromContent(sample string) string {
 //
 // For stderr format, uses the optimized direct byte parser
 // (StderrParser.parseFromBytes) which avoids scanner.Text() allocations.
-// For CSV and JSON, the parser reads from a strings.Reader since these
-// formats don't have a byte-level fast path.
+// For CSV and JSON, wrap the byte slice in a bytes.Reader so we don't
+// pay a string(data) copy upfront — that copy was 200-350 MB of wasm
+// linear memory leaked under tinygo gc=leaking on big JSON/CSV files.
 func ParseFromBytesStream(data []byte, format string, out chan<- []LogEntry) error {
 	if format == "stderr" || format == "log" {
 		p := &StderrParser{}
 		return p.parseFromBytes(data, out)
 	}
-	return ParseFromReader(strings.NewReader(string(data)), format, out)
+	return ParseFromReader(bytes.NewReader(data), format, out)
 }
