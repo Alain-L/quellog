@@ -111,7 +111,7 @@ type SQLDetailJSON struct {
 	Type            string                `json:"type"`
 	Category        string                `json:"category"`
 	Statistics      *QueryDetailStatsJSON `json:"statistics,omitempty"`
-	Executions      []QueryExecutionJSON  `json:"executions,omitempty"`
+	Executions      lazyExecutions        `json:"executions,omitempty"`
 	TempFiles       *QueryTempFilesJSON   `json:"temp_files,omitempty"`
 	Locks           *QueryLocksJSON       `json:"locks,omitempty"`
 	Plan            string                `json:"plan,omitempty"`
@@ -181,7 +181,7 @@ type TempFilesJSON struct {
 	TotalMessages int                     `json:"total_messages"`
 	TotalSize     string                  `json:"total_size"`
 	AvgSize       string                  `json:"avg_size"`
-	Events        []TempFileEventJSON     `json:"events"`
+	Events        lazyTempFileEvents      `json:"events"`
 	Queries       []TempFileQueryStatJSON `json:"queries,omitempty"`
 }
 
@@ -218,7 +218,7 @@ type LocksJSON struct {
 	LockTypeStats     map[string]int      `json:"lock_type_stats"`
 	ResourceTypeStats map[string]int      `json:"resource_type_stats"`
 	RelationStats     map[string]int      `json:"relation_stats,omitempty"`
-	Events            []LockEventJSON     `json:"events"`
+	Events            lazyLockEvents      `json:"events"`
 	Queries           []LockQueryStatJSON `json:"queries,omitempty"`
 }
 
@@ -338,6 +338,20 @@ type lazyConnections struct {
 type lazyExecutions struct {
 	executions []analysis.QueryExecution
 	tsFormat   string
+}
+
+// lazyLockEvents marshals an []analysis.LockEvent directly to JSON
+// without an intermediate []LockEventJSON slice. Per-row gain is
+// modest (16k events on J.log = ~4 MB) but pathological lock-storm
+// logs can grow to millions; the wrapper costs nothing when small.
+type lazyLockEvents struct {
+	events []analysis.LockEvent
+}
+
+// lazyTempFileEvents marshals an []analysis.TempFileEvent directly to
+// JSON without an intermediate []TempFileEventJSON slice.
+type lazyTempFileEvents struct {
+	events []analysis.TempFileEvent
 }
 
 // MarshalJSON emits the JSON array of {"s":..,"e":..} objects. Returns
@@ -542,6 +556,203 @@ func streamSessionEventsJSON(bw *bufio.Writer, events []analysis.SessionEvent, p
 	bw.WriteByte('\n')
 	bw.WriteString(prefix)
 	bw.WriteByte(']')
+}
+
+// streamLockEventsJSON writes events as a JSON array of LockEventJSON
+// objects directly to bw, one item at a time. BlockingQuery and
+// Relation can contain SQL text with quotes/backslashes/newlines, so
+// strings go through json.Marshal for proper escaping (small, per-call).
+func streamLockEventsJSON(bw *bufio.Writer, events []analysis.LockEvent, prefix, indent string, compact bool) {
+	if len(events) == 0 {
+		bw.WriteString("[]")
+		return
+	}
+	inner := prefix + indent
+	subInner := inner + indent
+
+	emitField := func(key, value string, omitempty bool) {
+		if omitempty && value == "" {
+			return
+		}
+		bw.WriteByte(',')
+		if !compact {
+			bw.WriteByte('\n')
+			bw.WriteString(subInner)
+		}
+		bw.WriteString(strconv.Quote(key))
+		if compact {
+			bw.WriteByte(':')
+		} else {
+			bw.WriteString(": ")
+		}
+		vb, _ := json.Marshal(value)
+		bw.Write(vb)
+	}
+	emitFirstField := func(key, value string) {
+		if !compact {
+			bw.WriteByte('\n')
+			bw.WriteString(subInner)
+		}
+		bw.WriteString(strconv.Quote(key))
+		if compact {
+			bw.WriteByte(':')
+		} else {
+			bw.WriteString(": ")
+		}
+		vb, _ := json.Marshal(value)
+		bw.Write(vb)
+	}
+
+	if compact {
+		bw.WriteByte('[')
+	} else {
+		bw.WriteString("[\n")
+	}
+	for i, ev := range events {
+		if i > 0 {
+			if compact {
+				bw.WriteByte(',')
+			} else {
+				bw.WriteString(",\n")
+			}
+		}
+		if !compact {
+			bw.WriteString(inner)
+		}
+		bw.WriteByte('{')
+
+		var tbuf [20]byte
+		ts := string(ev.Timestamp.AppendFormat(tbuf[:0], "2006-01-02 15:04:05"))
+		emitFirstField("timestamp", ts)
+		emitField("event_type", ev.EventType, false)
+		emitField("lock_type", ev.LockType, true)
+		emitField("resource_type", ev.ResourceType, true)
+		waitTime := ""
+		if ev.WaitTime > 0 {
+			waitTime = formatQueryDuration(ev.WaitTime)
+		}
+		emitField("wait_time", waitTime, true)
+		emitField("process_id", ev.ProcessID, false)
+		emitField("query_id", ev.QueryID, true)
+		emitField("blocking_pid", ev.BlockingPID, true)
+		emitField("blocking_query_id", ev.BlockingQueryID, true)
+		emitField("blocking_query", ev.BlockingQuery, true)
+		emitField("relation", ev.Relation, true)
+
+		if !compact {
+			bw.WriteByte('\n')
+			bw.WriteString(inner)
+		}
+		bw.WriteByte('}')
+	}
+	if !compact {
+		bw.WriteByte('\n')
+		bw.WriteString(prefix)
+	}
+	bw.WriteByte(']')
+}
+
+// streamTempFileEventsJSON writes events as a JSON array of
+// TempFileEventJSON objects directly to bw.
+func streamTempFileEventsJSON(bw *bufio.Writer, events []analysis.TempFileEvent, prefix, indent string, compact bool) {
+	if len(events) == 0 {
+		bw.WriteString("[]")
+		return
+	}
+	inner := prefix + indent
+	subInner := inner + indent
+
+	if compact {
+		bw.WriteByte('[')
+	} else {
+		bw.WriteString("[\n")
+	}
+	for i, ev := range events {
+		if i > 0 {
+			if compact {
+				bw.WriteByte(',')
+			} else {
+				bw.WriteString(",\n")
+			}
+		}
+		if !compact {
+			bw.WriteString(inner)
+		}
+		bw.WriteByte('{')
+		// timestamp
+		if !compact {
+			bw.WriteByte('\n')
+			bw.WriteString(subInner)
+		}
+		bw.WriteString(`"timestamp"`)
+		if compact {
+			bw.WriteByte(':')
+		} else {
+			bw.WriteString(": ")
+		}
+		bw.WriteByte('"')
+		var tbuf [20]byte
+		bw.Write(ev.Timestamp.AppendFormat(tbuf[:0], "2006-01-02 15:04:05"))
+		bw.WriteByte('"')
+		// size
+		if compact {
+			bw.WriteString(`,"size":`)
+		} else {
+			bw.WriteString(",\n")
+			bw.WriteString(subInner)
+			bw.WriteString(`"size": `)
+		}
+		sb, _ := json.Marshal(FormatBytes(int64(ev.Size)))
+		bw.Write(sb)
+		// query_id (omitempty)
+		if ev.QueryID != "" {
+			if compact {
+				bw.WriteString(`,"query_id":`)
+			} else {
+				bw.WriteString(",\n")
+				bw.WriteString(subInner)
+				bw.WriteString(`"query_id": `)
+			}
+			qb, _ := json.Marshal(ev.QueryID)
+			bw.Write(qb)
+		}
+		if !compact {
+			bw.WriteByte('\n')
+			bw.WriteString(inner)
+		}
+		bw.WriteByte('}')
+	}
+	if !compact {
+		bw.WriteByte('\n')
+		bw.WriteString(prefix)
+	}
+	bw.WriteByte(']')
+}
+
+// MarshalJSON for lazyLockEvents — minimal "[]" or "null" so json.Marshal
+// can be called on the wrapper independently. The streaming path goes
+// through StreamSection on LocksJSON, not through this method.
+func (l lazyLockEvents) MarshalJSON() ([]byte, error) {
+	if len(l.events) == 0 {
+		return []byte("[]"), nil
+	}
+	var buf bytes.Buffer
+	bw := bufio.NewWriter(&buf)
+	streamLockEventsJSON(bw, l.events, "", "  ", false)
+	bw.Flush()
+	return buf.Bytes(), nil
+}
+
+// MarshalJSON for lazyTempFileEvents — same fallback pattern.
+func (l lazyTempFileEvents) MarshalJSON() ([]byte, error) {
+	if len(l.events) == 0 {
+		return []byte("[]"), nil
+	}
+	var buf bytes.Buffer
+	bw := bufio.NewWriter(&buf)
+	streamTempFileEventsJSON(bw, l.events, "", "  ", false)
+	bw.Flush()
+	return buf.Bytes(), nil
 }
 
 // streamExecutionsJSON writes executions as a JSON array of
@@ -761,6 +972,282 @@ func (c ConnectionsJSON) StreamSection(bw *bufio.Writer, prefix, indent string, 
 		bw.WriteString(prefix)
 	}
 	bw.WriteByte('}')
+	return nil
+}
+
+// StreamSection emits a SQLPerformanceDetailJSON to bw item-by-item for
+// the big Executions array. Implements sectionStreamer. Used by both
+// the --full export (inside the top-level map) and the standalone
+// --sql-performance --json export (top-level document).
+func (p SQLPerformanceDetailJSON) StreamSection(bw *bufio.Writer, prefix, indent string, compact bool) error {
+	inner := prefix + indent
+	e := &fieldEmitter{bw: bw, inner: inner, compact: compact, first: true}
+
+	bw.WriteByte('{')
+
+	if err := e.emitScalar("total_query_duration", p.TotalQueryDuration); err != nil {
+		return err
+	}
+	if err := e.emitScalar("total_queries_parsed", p.TotalQueriesParsed); err != nil {
+		return err
+	}
+	if err := e.emitScalar("total_unique_queries", p.TotalUniqueQueries); err != nil {
+		return err
+	}
+	if err := e.emitScalar("top_1_percent_slow_queries", p.Top1PercentSlow); err != nil {
+		return err
+	}
+	if err := e.emitScalar("query_max_duration", p.QueryMaxDuration); err != nil {
+		return err
+	}
+	if err := e.emitScalar("query_min_duration", p.QueryMinDuration); err != nil {
+		return err
+	}
+	if err := e.emitScalar("query_median_duration", p.QueryMedianDuration); err != nil {
+		return err
+	}
+	if err := e.emitScalar("query_99th_percentile", p.Query99thPercentile); err != nil {
+		return err
+	}
+	if err := e.emitScalar("duration_distribution", p.DurationDistribution); err != nil {
+		return err
+	}
+	if err := e.emitScalar("slowest_queries", p.SlowestQueries); err != nil {
+		return err
+	}
+	if err := e.emitScalar("most_frequent_queries", p.MostFrequentQueries); err != nil {
+		return err
+	}
+	if err := e.emitScalar("most_time_consuming", p.MostTimeConsuming); err != nil {
+		return err
+	}
+	if len(p.Queries) > 0 {
+		if err := e.emitScalar("queries", p.Queries); err != nil {
+			return err
+		}
+	}
+	if len(p.Executions.executions) > 0 {
+		// Big array — stream item by item, never buffered as a whole.
+		e.writeKey("executions")
+		streamExecutionsJSON(bw, p.Executions.executions, p.Executions.tsFormat, inner, indent, compact)
+	}
+
+	if !compact {
+		bw.WriteByte('\n')
+		bw.WriteString(prefix)
+	}
+	bw.WriteByte('}')
+	return nil
+}
+
+// StreamSection emits a SQLOverviewJSON. No big arrays here (categories,
+// types, dimensional breakdowns are bounded by query type and unique
+// entity count — typically <100). Streamed for consistency so all
+// SQL-* JSON exports go through the same code path.
+func (o SQLOverviewJSON) StreamSection(bw *bufio.Writer, prefix, indent string, compact bool) error {
+	inner := prefix + indent
+	e := &fieldEmitter{bw: bw, inner: inner, compact: compact, first: true}
+
+	bw.WriteByte('{')
+
+	if err := e.emitScalar("total_queries", o.TotalQueries); err != nil {
+		return err
+	}
+	if err := e.emitScalar("categories", o.Categories); err != nil {
+		return err
+	}
+	if err := e.emitScalar("types", o.Types); err != nil {
+		return err
+	}
+	if len(o.ByDatabase) > 0 {
+		if err := e.emitScalar("by_database", o.ByDatabase); err != nil {
+			return err
+		}
+	}
+	if len(o.ByUser) > 0 {
+		if err := e.emitScalar("by_user", o.ByUser); err != nil {
+			return err
+		}
+	}
+	if len(o.ByHost) > 0 {
+		if err := e.emitScalar("by_host", o.ByHost); err != nil {
+			return err
+		}
+	}
+	if len(o.ByApp) > 0 {
+		if err := e.emitScalar("by_app", o.ByApp); err != nil {
+			return err
+		}
+	}
+
+	if !compact {
+		bw.WriteByte('\n')
+		bw.WriteString(prefix)
+	}
+	bw.WriteByte('}')
+	return nil
+}
+
+// StreamSection emits a SQLDetailJSON. The Executions array is filtered
+// to a single query — typically modest but can be hundreds of thousands
+// for hot queries. Stream it.
+func (d SQLDetailJSON) StreamSection(bw *bufio.Writer, prefix, indent string, compact bool) error {
+	inner := prefix + indent
+	e := &fieldEmitter{bw: bw, inner: inner, compact: compact, first: true}
+
+	bw.WriteByte('{')
+
+	if err := e.emitScalar("id", d.ID); err != nil {
+		return err
+	}
+	if err := e.emitScalar("normalized_query", d.NormalizedQuery); err != nil {
+		return err
+	}
+	if d.RawQuery != "" {
+		if err := e.emitScalar("raw_query", d.RawQuery); err != nil {
+			return err
+		}
+	}
+	if err := e.emitScalar("type", d.Type); err != nil {
+		return err
+	}
+	if err := e.emitScalar("category", d.Category); err != nil {
+		return err
+	}
+	if d.Statistics != nil {
+		if err := e.emitScalar("statistics", d.Statistics); err != nil {
+			return err
+		}
+	}
+	if len(d.Executions.executions) > 0 {
+		e.writeKey("executions")
+		streamExecutionsJSON(bw, d.Executions.executions, d.Executions.tsFormat, inner, indent, compact)
+	}
+	if d.TempFiles != nil {
+		if err := e.emitScalar("temp_files", d.TempFiles); err != nil {
+			return err
+		}
+	}
+	if d.Locks != nil {
+		if err := e.emitScalar("locks", d.Locks); err != nil {
+			return err
+		}
+	}
+	if d.Plan != "" {
+		if err := e.emitScalar("plan", d.Plan); err != nil {
+			return err
+		}
+	}
+
+	if !compact {
+		bw.WriteByte('\n')
+		bw.WriteString(prefix)
+	}
+	bw.WriteByte('}')
+	return nil
+}
+
+// StreamSection emits a LocksJSON to bw item-by-item for the big Events
+// array. Implements sectionStreamer.
+func (l LocksJSON) StreamSection(bw *bufio.Writer, prefix, indent string, compact bool) error {
+	inner := prefix + indent
+	e := &fieldEmitter{bw: bw, inner: inner, compact: compact, first: true}
+
+	bw.WriteByte('{')
+
+	if err := e.emitScalar("total_events", l.TotalEvents); err != nil {
+		return err
+	}
+	if err := e.emitScalar("waiting_events", l.WaitingEvents); err != nil {
+		return err
+	}
+	if err := e.emitScalar("acquired_events", l.AcquiredEvents); err != nil {
+		return err
+	}
+	if l.DeadlockEvents > 0 {
+		if err := e.emitScalar("deadlock_events", l.DeadlockEvents); err != nil {
+			return err
+		}
+	}
+	if err := e.emitScalar("total_wait_time", l.TotalWaitTime); err != nil {
+		return err
+	}
+	if err := e.emitScalar("avg_wait_time", l.AvgWaitTime); err != nil {
+		return err
+	}
+	if err := e.emitScalar("lock_type_stats", l.LockTypeStats); err != nil {
+		return err
+	}
+	if err := e.emitScalar("resource_type_stats", l.ResourceTypeStats); err != nil {
+		return err
+	}
+	if len(l.RelationStats) > 0 {
+		if err := e.emitScalar("relation_stats", l.RelationStats); err != nil {
+			return err
+		}
+	}
+	// Big array — stream item by item.
+	e.writeKey("events")
+	streamLockEventsJSON(bw, l.Events.events, inner, indent, compact)
+
+	if len(l.Queries) > 0 {
+		if err := e.emitScalar("queries", l.Queries); err != nil {
+			return err
+		}
+	}
+
+	if !compact {
+		bw.WriteByte('\n')
+		bw.WriteString(prefix)
+	}
+	bw.WriteByte('}')
+	return nil
+}
+
+// StreamSection emits a TempFilesJSON to bw item-by-item for the big
+// Events array. Implements sectionStreamer.
+func (t TempFilesJSON) StreamSection(bw *bufio.Writer, prefix, indent string, compact bool) error {
+	inner := prefix + indent
+	e := &fieldEmitter{bw: bw, inner: inner, compact: compact, first: true}
+
+	bw.WriteByte('{')
+
+	if err := e.emitScalar("total_messages", t.TotalMessages); err != nil {
+		return err
+	}
+	if err := e.emitScalar("total_size", t.TotalSize); err != nil {
+		return err
+	}
+	if err := e.emitScalar("avg_size", t.AvgSize); err != nil {
+		return err
+	}
+	// Big array — stream item by item.
+	e.writeKey("events")
+	streamTempFileEventsJSON(bw, t.Events.events, inner, indent, compact)
+
+	if len(t.Queries) > 0 {
+		if err := e.emitScalar("queries", t.Queries); err != nil {
+			return err
+		}
+	}
+
+	if !compact {
+		bw.WriteByte('\n')
+		bw.WriteString(prefix)
+	}
+	bw.WriteByte('}')
+	return nil
+}
+
+// streamTopLevel writes a sectionStreamer as a top-level JSON document
+// to w. Same trailing newline as json.Encoder.Encode.
+func streamTopLevel(w io.Writer, s sectionStreamer, compact bool) error {
+	bw := bufio.NewWriter(w)
+	defer bw.Flush()
+	if err := s.StreamSection(bw, "", "  ", compact); err != nil {
+		return err
+	}
+	bw.WriteByte('\n')
 	return nil
 }
 
@@ -992,15 +1479,9 @@ func buildJSONData(m analysis.AggregatedMetrics, sections []string, full bool) m
 			TotalMessages: m.TempFiles.Count,
 			TotalSize:     FormatBytes(m.TempFiles.TotalSize),
 			AvgSize:       FormatBytes(m.TempFiles.TotalSize / int64(m.TempFiles.Count)),
-			Events:        []TempFileEventJSON{},
-			Queries:       []TempFileQueryStatJSON{},
-		}
-		for _, event := range m.TempFiles.Events {
-			tf.Events = append(tf.Events, TempFileEventJSON{
-				Timestamp: event.Timestamp.Format("2006-01-02 15:04:05"),
-				Size:      FormatBytes(int64(event.Size)),
-				QueryID:   event.QueryID,
-			})
+			// Lazy wrapper — no intermediate []TempFileEventJSON slice.
+			Events:  lazyTempFileEvents{events: m.TempFiles.Events},
+			Queries: []TempFileQueryStatJSON{},
 		}
 		for _, stat := range m.TempFiles.QueryStats {
 			tf.Queries = append(tf.Queries, TempFileQueryStatJSON{
@@ -1534,27 +2015,8 @@ func convertLocks(m analysis.LockMetrics) LocksJSON {
 	// Format total wait time
 	totalWaitTime := formatQueryDuration(m.TotalWaitTime)
 
-	// Convert events
-	eventsJSON := make([]LockEventJSON, len(m.Events))
-	for i, event := range m.Events {
-		waitTime := ""
-		if event.WaitTime > 0 {
-			waitTime = formatQueryDuration(event.WaitTime)
-		}
-		eventsJSON[i] = LockEventJSON{
-			Timestamp:       event.Timestamp.Format("2006-01-02 15:04:05"),
-			EventType:       event.EventType,
-			LockType:        event.LockType,
-			ResourceType:    event.ResourceType,
-			WaitTime:        waitTime,
-			ProcessID:       event.ProcessID,
-			QueryID:         event.QueryID,
-			BlockingPID:     event.BlockingPID,
-			BlockingQueryID: event.BlockingQueryID,
-			BlockingQuery:   event.BlockingQuery,
-			Relation:        event.Relation,
-		}
-	}
+	// Lazy wrapper — no intermediate []LockEventJSON slice. The
+	// streamLockEventsJSON helper formats each event in place.
 
 	// Export all query stats (sorted by ID for deterministic output)
 	queriesJSON := make([]LockQueryStatJSON, 0, len(m.QueryStats))
@@ -1585,7 +2047,7 @@ func convertLocks(m analysis.LockMetrics) LocksJSON {
 		LockTypeStats:     m.LockTypeStats,
 		ResourceTypeStats: m.ResourceTypeStats,
 		RelationStats:     m.RelationStats,
-		Events:            eventsJSON,
+		Events:            lazyLockEvents{events: m.Events},
 		Queries:           queriesJSON,
 	}
 }
@@ -1648,13 +2110,10 @@ func ExportSQLOverviewJSON(w io.Writer, m analysis.SQLMetrics) {
 	overview.ByHost = convertDimensionBreakdown(m.QueryTypesByHost)
 	overview.ByApp = convertDimensionBreakdown(m.QueryTypesByApp)
 
-	// Marshal and output
-	jsonData, err := json.MarshalIndent(overview, "", "  ")
-	if err != nil {
+	// Stream the overview as a top-level document.
+	if err := streamTopLevel(w, overview, false); err != nil {
 		fmt.Fprintf(w, "[ERROR] Failed to export JSON: %v\n", err)
-		return
 	}
-	fmt.Fprintln(w, string(jsonData))
 }
 
 // ExportSQLPerformanceJSON exports detailed SQL performance data as JSON.
@@ -1787,13 +2246,13 @@ func ExportSQLPerformanceJSON(w io.Writer, m analysis.SQLMetrics) {
 		})
 	}
 
-	// Marshal and output
-	jsonData, err := json.MarshalIndent(perf, "", "  ")
-	if err != nil {
+	// Stream the perf as a top-level document. The Executions field is
+	// not populated by this function (caller --sql-performance --json
+	// only wants the aggregated stats and top queries), so the stream
+	// helper skips it via the omitempty equivalent inside StreamSection.
+	if err := streamTopLevel(w, perf, false); err != nil {
 		fmt.Fprintf(w, "[ERROR] Failed to export JSON: %v\n", err)
-		return
 	}
-	fmt.Fprintln(w, string(jsonData))
 }
 
 // convertDimensionBreakdown converts a dimension breakdown map to JSON format.
@@ -1873,15 +2332,18 @@ func ExportSQLDetailJSON(w io.Writer, m analysis.AggregatedMetrics, queryIDs []s
 				detail.Plan = foundStat.LastPlan
 			}
 
-			// Find executions for this query
+			// Filter executions for this query into a slice, then wrap
+			// into lazyExecutions so the StreamSection emits each item
+			// directly to the writer (avoids the per-row JSON struct
+			// intermediate even on hot queries with millions of rows).
+			var filtered []analysis.QueryExecution
 			for _, exec := range m.SQL.Executions {
 				if exec.QueryID == queryID {
-					detail.Executions = append(detail.Executions, QueryExecutionJSON{
-						Timestamp:  exec.Timestamp.Format("2006-01-02 15:04:05"),
-						DurationMs: exec.Duration,
-						QueryID:    exec.QueryID,
-					})
+					filtered = append(filtered, exec)
 				}
+			}
+			if len(filtered) > 0 {
+				detail.Executions = lazyExecutions{executions: filtered}
 			}
 		} else {
 			// Query not found in SQL stats, might be from locks or tempfiles only
@@ -1936,11 +2398,24 @@ func ExportSQLDetailJSON(w io.Writer, m analysis.AggregatedMetrics, queryIDs []s
 		}
 	}
 
-	// Marshal and output
-	jsonData, err := json.MarshalIndent(details, "", "  ")
-	if err != nil {
-		fmt.Fprintf(w, "[ERROR] Failed to export JSON: %v\n", err)
-		return
+	// Stream the array of details. Each detail emits its Executions
+	// item-by-item via StreamSection.
+	bw := bufio.NewWriter(w)
+	defer bw.Flush()
+	bw.WriteByte('[')
+	for i, d := range details {
+		if i > 0 {
+			bw.WriteByte(',')
+		}
+		bw.WriteString("\n  ")
+		if err := d.StreamSection(bw, "  ", "  ", false); err != nil {
+			fmt.Fprintf(w, "[ERROR] Failed to export JSON: %v\n", err)
+			return
+		}
 	}
-	fmt.Fprintln(w, string(jsonData))
+	if len(details) > 0 {
+		bw.WriteByte('\n')
+	}
+	bw.WriteByte(']')
+	bw.WriteByte('\n')
 }
