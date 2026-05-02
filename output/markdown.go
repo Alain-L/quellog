@@ -1137,17 +1137,10 @@ func printQueryStatsMarkdown(b *strings.Builder, stats map[string]*analysis.Quer
 
 // countSlowQueries returns the count of queries in the top 1% (P99)
 func countSlowQueries(sql analysis.SQLMetrics) int {
-	if len(sql.Executions) == 0 {
+	if sql.ExecutionCount() == 0 {
 		return 0
 	}
-	threshold := sql.P99QueryDuration
-	count := 0
-	for _, exec := range sql.Executions {
-		if exec.Duration >= threshold {
-			count++
-		}
-	}
-	return count
+	return sql.ExecutionsCountAbove(sql.P99QueryDuration)
 }
 
 // ============================================================================
@@ -1348,13 +1341,8 @@ func ExportSQLSummaryMarkdown(w io.Writer, m analysis.SQLMetrics, tempFiles anal
 
 	// Compute top 1% slowest queries
 	top1Slow := 0
-	if len(m.Executions) > 0 {
-		threshold := m.P99QueryDuration
-		for _, exec := range m.Executions {
-			if exec.Duration >= threshold {
-				top1Slow++
-			}
-		}
+	if m.ExecutionCount() > 0 {
+		top1Slow = m.ExecutionsCountAbove(m.P99QueryDuration)
 	}
 
 	// SQL PERFORMANCE section
@@ -1547,7 +1535,7 @@ func ExportSQLDetailMarkdown(w io.Writer, m analysis.AggregatedMetrics, queryIDs
 
 		// Execution histogram (if > 1 execution)
 		if sqlStat != nil && sqlStat.Count > 1 {
-			execHist, execUnit, execScale := computeSingleQueryExecutionHistogram(m.SQL.Executions, qid)
+			execHist, execUnit, execScale := computeSingleQueryExecutionHistogram(m.SQL, qid)
 			if execHist != nil {
 				printHistogramMarkdown(&b, execHist, "Query count", execUnit, execScale, nil)
 			}
@@ -1559,7 +1547,7 @@ func ExportSQLDetailMarkdown(w io.Writer, m analysis.AggregatedMetrics, queryIDs
 
 			// Cumulative time histogram (if > 1 execution)
 			if sqlStat.Count > 1 {
-				timeHist, timeUnit, timeScale := computeSingleQueryTimeHistogram(m.SQL.Executions, qid)
+				timeHist, timeUnit, timeScale := computeSingleQueryTimeHistogram(m.SQL, qid)
 				if timeHist != nil {
 					printHistogramMarkdown(&b, timeHist, "Cumulative time", timeUnit, timeScale, nil)
 				}
@@ -1567,7 +1555,7 @@ func ExportSQLDetailMarkdown(w io.Writer, m analysis.AggregatedMetrics, queryIDs
 
 			// Duration distribution histogram (if > 1 execution)
 			if sqlStat.Count > 1 {
-				durationHist, durationUnit, durationScale, durationLabels := computeSingleQueryDurationDistribution(m.SQL.Executions, qid)
+				durationHist, durationUnit, durationScale, durationLabels := computeSingleQueryDurationDistribution(m.SQL, qid)
 				if durationHist != nil {
 					printHistogramMarkdown(&b, durationHist, "Query duration distribution", durationUnit, durationScale, durationLabels)
 				}
@@ -1575,11 +1563,12 @@ func ExportSQLDetailMarkdown(w io.Writer, m analysis.AggregatedMetrics, queryIDs
 
 			// Calculate min duration
 			minDuration := sqlStat.MaxTime
-			for _, exec := range m.SQL.Executions {
-				if exec.QueryID == qid && exec.Duration < minDuration {
+			m.SQL.IterateExecutionsForID(qid, func(exec analysis.QueryExecution) bool {
+				if exec.Duration < minDuration {
 					minDuration = exec.Duration
 				}
-			}
+				return true
+			})
 
 			b.WriteString(fmt.Sprintf("- **Total Duration**: %s\n", formatQueryDuration(sqlStat.TotalTime)))
 			b.WriteString(fmt.Sprintf("- **Min Duration**: %s\n", formatQueryDuration(minDuration)))
@@ -1931,15 +1920,10 @@ func exportSQLOverviewMarkdownTo(b *strings.Builder, m analysis.SQLMetrics) {
 // exportSQLSummaryMarkdownTo writes SQL performance content to a strings.Builder.
 // Used by ExportMarkdown in full mode.
 func exportSQLSummaryMarkdownTo(b *strings.Builder, m analysis.SQLMetrics, tempFiles analysis.TempFileMetrics, locks analysis.LockMetrics) {
-	// Compute top 1% slowest queries
+	// Compute top 1% slowest queries via the compact storage helper.
 	top1Slow := 0
-	if len(m.Executions) > 0 {
-		threshold := m.P99QueryDuration
-		for _, exec := range m.Executions {
-			if exec.Duration >= threshold {
-				top1Slow++
-			}
-		}
+	if m.ExecutionCount() > 0 {
+		top1Slow = m.ExecutionsCountAbove(m.P99QueryDuration)
 	}
 
 	// Query load histogram

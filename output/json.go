@@ -336,8 +336,38 @@ type lazyConnections struct {
 // only in timestamp separator: " " for the legacy --json output, "T"
 // for the --full / sql_performance detail output (RFC3339-ish).
 type lazyExecutions struct {
+	// Source of executions — at most one is set:
+	//   metrics: full SQLMetrics, iterated via metrics.IterateExecutions.
+	//           Avoids materializing a []QueryExecution slice on hot
+	//           paths with tens of millions of events.
+	//   executions: pre-filtered slice (e.g. one query's events for
+	//           --sql-detail, where the slice is bounded and small).
+	metrics    *analysis.SQLMetrics
 	executions []analysis.QueryExecution
 	tsFormat   string
+}
+
+// iterate yields each execution event in order. Used by streamExecutionsJSON
+// and the StreamSection helpers — avoids forcing callers to know which
+// source backing is in use.
+func (l lazyExecutions) iterate(fn func(analysis.QueryExecution) bool) {
+	if l.metrics != nil {
+		l.metrics.IterateExecutions(fn)
+		return
+	}
+	for _, e := range l.executions {
+		if !fn(e) {
+			return
+		}
+	}
+}
+
+// count returns the number of execution events in either source.
+func (l lazyExecutions) count() int {
+	if l.metrics != nil {
+		return l.metrics.ExecutionCount()
+	}
+	return len(l.executions)
 }
 
 // lazyLockEvents marshals an []analysis.LockEvent directly to JSON
@@ -805,22 +835,28 @@ func streamQueriesJSON(bw *bufio.Writer, queries []QueryStatJSON, prefix, indent
 }
 
 // streamExecutionsJSON writes executions as a JSON array of
-// {timestamp, duration_ms, query_id} objects directly to bw.
-func streamExecutionsJSON(bw *bufio.Writer, execs []analysis.QueryExecution, tsFormat, prefix, indent string, compact bool) {
-	if len(execs) == 0 {
+// {timestamp, duration_ms, query_id} objects directly to bw, pulling
+// each event from the lazyExecutions iterator (compact storage on the
+// SQLAnalyzer side, or a pre-filtered slice for the sql_detail case).
+// No []QueryExecution is materialized here.
+func streamExecutionsJSON(bw *bufio.Writer, src lazyExecutions, prefix, indent string, compact bool) {
+	if src.count() == 0 {
 		bw.WriteString("[]")
 		return
 	}
+	tsFormat := src.tsFormat
 	if tsFormat == "" {
 		tsFormat = "2006-01-02 15:04:05"
 	}
 	inner := prefix + indent
 	if compact {
 		bw.WriteByte('[')
-		for i, e := range execs {
-			if i > 0 {
+		first := true
+		src.iterate(func(e analysis.QueryExecution) bool {
+			if !first {
 				bw.WriteByte(',')
 			}
+			first = false
 			bw.WriteString(`{"timestamp":"`)
 			var tbuf [20]byte
 			bw.Write(e.Timestamp.AppendFormat(tbuf[:0], tsFormat))
@@ -830,16 +866,19 @@ func streamExecutionsJSON(bw *bufio.Writer, execs []analysis.QueryExecution, tsF
 			bw.WriteString(`,"query_id":"`)
 			bw.WriteString(e.QueryID)
 			bw.WriteString(`"}`)
-		}
+			return true
+		})
 		bw.WriteByte(']')
 		return
 	}
 	subInner := inner + indent
 	bw.WriteString("[\n")
-	for i, e := range execs {
-		if i > 0 {
+	first := true
+	src.iterate(func(e analysis.QueryExecution) bool {
+		if !first {
 			bw.WriteString(",\n")
 		}
+		first = false
 		bw.WriteString(inner)
 		bw.WriteString("{\n")
 		bw.WriteString(subInner)
@@ -861,7 +900,8 @@ func streamExecutionsJSON(bw *bufio.Writer, execs []analysis.QueryExecution, tsF
 		bw.WriteByte('\n')
 		bw.WriteString(inner)
 		bw.WriteByte('}')
-	}
+		return true
+	})
 	bw.WriteByte('\n')
 	bw.WriteString(prefix)
 	bw.WriteByte(']')
@@ -871,23 +911,26 @@ func streamExecutionsJSON(bw *bufio.Writer, execs []analysis.QueryExecution, tsF
 // query_id} objects. Returns "null" when empty (no omitempty on the
 // field tag means the encoder will respect what we return).
 func (l lazyExecutions) MarshalJSON() ([]byte, error) {
-	if len(l.executions) == 0 {
+	n := l.count()
+	if n == 0 {
 		// Match the encoder default: a nil slice serializes to "null"
 		// while an empty slice serializes to "[]". Preserve the latter
 		// because the make([], len(...)) path always built an empty slice.
 		return []byte("[]"), nil
 	}
 	// Each execution ≈ 90 bytes (`{"timestamp":"...","duration_ms":NNN.NNN,"query_id":"se-XXX"}`).
-	buf := make([]byte, 0, len(l.executions)*90+2)
+	buf := make([]byte, 0, n*90+2)
 	buf = append(buf, '[')
 	tsFormat := l.tsFormat
 	if tsFormat == "" {
 		tsFormat = "2006-01-02 15:04:05"
 	}
-	for i, exec := range l.executions {
-		if i > 0 {
+	first := true
+	l.iterate(func(exec analysis.QueryExecution) bool {
+		if !first {
 			buf = append(buf, ',')
 		}
+		first = false
 		buf = append(buf, `{"timestamp":"`...)
 		buf = exec.Timestamp.AppendFormat(buf, tsFormat)
 		buf = append(buf, `","duration_ms":`...)
@@ -895,7 +938,8 @@ func (l lazyExecutions) MarshalJSON() ([]byte, error) {
 		buf = append(buf, `,"query_id":"`...)
 		buf = append(buf, exec.QueryID...) // QueryIDs are safe ASCII (e.g. "se-abc123")
 		buf = append(buf, `"}`...)
-	}
+		return true
+	})
 	buf = append(buf, ']')
 	return buf, nil
 }
@@ -936,7 +980,7 @@ func (p SQLPerformanceJSON) StreamSection(bw *bufio.Writer, prefix, indent strin
 
 	// Big array — stream item by item, never buffered as a whole.
 	e.writeKey("executions")
-	streamExecutionsJSON(bw, p.Executions.executions, p.Executions.tsFormat, inner, indent, compact)
+	streamExecutionsJSON(bw, p.Executions, inner, indent, compact)
 
 	// Queries can also be huge (26k × ~190 KB on Z) — stream item by item.
 	e.writeKey("queries")
@@ -1080,10 +1124,10 @@ func (p SQLPerformanceDetailJSON) StreamSection(bw *bufio.Writer, prefix, indent
 			return err
 		}
 	}
-	if len(p.Executions.executions) > 0 {
+	if p.Executions.count() > 0 {
 		// Big array — stream item by item, never buffered as a whole.
 		e.writeKey("executions")
-		streamExecutionsJSON(bw, p.Executions.executions, p.Executions.tsFormat, inner, indent, compact)
+		streamExecutionsJSON(bw, p.Executions, inner, indent, compact)
 	}
 
 	if !compact {
@@ -1173,9 +1217,9 @@ func (d SQLDetailJSON) StreamSection(bw *bufio.Writer, prefix, indent string, co
 			return err
 		}
 	}
-	if len(d.Executions.executions) > 0 {
+	if d.Executions.count() > 0 {
 		e.writeKey("executions")
-		streamExecutionsJSON(bw, d.Executions.executions, d.Executions.tsFormat, inner, indent, compact)
+		streamExecutionsJSON(bw, d.Executions, inner, indent, compact)
 	}
 	if d.TempFiles != nil {
 		if err := e.emitScalar("temp_files", d.TempFiles); err != nil {
@@ -1815,15 +1859,12 @@ func buildSQLOverviewData(m analysis.SQLMetrics) SQLOverviewJSON {
 // buildFullSQLPerformance builds enriched SQL performance data for --full mode.
 // Includes basic stats, duration distribution histogram, and top queries lists.
 func buildFullSQLPerformance(m analysis.SQLMetrics) SQLPerformanceDetailJSON {
-	// Top 1% slow computation
+	// Top 1% slow computation — count events whose duration exceeds the
+	// P99 threshold. Goes through the compact storage helper to avoid
+	// expanding 40M QueryExecution structs just to read the duration.
 	top1Slow := 0
-	if len(m.Executions) > 0 {
-		threshold := m.P99QueryDuration
-		for _, exec := range m.Executions {
-			if exec.Duration >= threshold {
-				top1Slow++
-			}
-		}
+	if m.ExecutionCount() > 0 {
+		top1Slow = m.ExecutionsCountAbove(m.P99QueryDuration)
 	}
 
 	perf := SQLPerformanceDetailJSON{
@@ -1851,14 +1892,15 @@ func buildFullSQLPerformance(m analysis.SQLMetrics) SQLPerformanceDetailJSON {
 	}
 
 	bucketCounts := make([]int, len(buckets))
-	for _, exec := range m.Executions {
+	m.IterateExecutions(func(exec analysis.QueryExecution) bool {
 		for i, b := range buckets {
 			if b.threshold < 0 || exec.Duration < b.threshold {
 				bucketCounts[i]++
 				break
 			}
 		}
-	}
+		return true
+	})
 
 	for i, b := range buckets {
 		perf.DurationDistribution = append(perf.DurationDistribution, DurationBucketJSON{
@@ -1958,7 +2000,7 @@ func buildFullSQLPerformance(m analysis.SQLMetrics) SQLPerformanceDetailJSON {
 
 	// Executions for time charts — lazy wrapper, T separator for the
 	// detail format (RFC3339-ish) consumed by the HTML viewer.
-	perf.Executions = lazyExecutions{executions: m.Executions, tsFormat: "2006-01-02T15:04:05"}
+	perf.Executions = lazyExecutions{metrics: &m, tsFormat: "2006-01-02T15:04:05"}
 
 	return perf
 }
@@ -2008,21 +2050,18 @@ func convertSummary(m analysis.AggregatedMetrics) SummaryJSON {
 // (those that exceed the 99th percentile threshold) and formats various durations.
 func convertSQLPerformance(m analysis.SQLMetrics) SQLPerformanceJSON {
 
-	// Top 1% slow computation
+	// Top 1% slow computation — count events whose duration exceeds the
+	// P99 threshold. Goes through the compact storage helper to avoid
+	// expanding 40M QueryExecution structs just to read the duration.
 	top1Slow := 0
-	if len(m.Executions) > 0 {
-		threshold := m.P99QueryDuration
-		for _, exec := range m.Executions {
-			if exec.Duration >= threshold {
-				top1Slow++
-			}
-		}
+	if m.ExecutionCount() > 0 {
+		top1Slow = m.ExecutionsCountAbove(m.P99QueryDuration)
 	}
 
 	// SQL duration data for each statement — lazy wrapper avoids the
 	// per-execution []QueryExecutionJSON intermediate slice (was the
 	// dominant per-row cost on big logs).
-	executionsLazy := lazyExecutions{executions: m.Executions}
+	executionsLazy := lazyExecutions{metrics: &m}
 
 	// Export all query stats (sorted by ID for deterministic output)
 	queriesJSON := make([]QueryStatJSON, 0, len(m.QueryStats))
@@ -2177,15 +2216,12 @@ func ExportSQLPerformanceJSON(w io.Writer, m analysis.SQLMetrics) {
 		return
 	}
 
-	// Top 1% slow computation
+	// Top 1% slow computation — count events whose duration exceeds the
+	// P99 threshold. Goes through the compact storage helper to avoid
+	// expanding 40M QueryExecution structs just to read the duration.
 	top1Slow := 0
-	if len(m.Executions) > 0 {
-		threshold := m.P99QueryDuration
-		for _, exec := range m.Executions {
-			if exec.Duration >= threshold {
-				top1Slow++
-			}
-		}
+	if m.ExecutionCount() > 0 {
+		top1Slow = m.ExecutionsCountAbove(m.P99QueryDuration)
 	}
 
 	perf := SQLPerformanceDetailJSON{
@@ -2213,14 +2249,15 @@ func ExportSQLPerformanceJSON(w io.Writer, m analysis.SQLMetrics) {
 	}
 
 	bucketCounts := make([]int, len(buckets))
-	for _, exec := range m.Executions {
+	m.IterateExecutions(func(exec analysis.QueryExecution) bool {
 		for i, b := range buckets {
 			if b.threshold < 0 || exec.Duration < b.threshold {
 				bucketCounts[i]++
 				break
 			}
 		}
-	}
+		return true
+	})
 
 	for i, b := range buckets {
 		perf.DurationDistribution = append(perf.DurationDistribution, DurationBucketJSON{
@@ -2391,11 +2428,10 @@ func ExportSQLDetailJSON(w io.Writer, m analysis.AggregatedMetrics, queryIDs []s
 			// directly to the writer (avoids the per-row JSON struct
 			// intermediate even on hot queries with millions of rows).
 			var filtered []analysis.QueryExecution
-			for _, exec := range m.SQL.Executions {
-				if exec.QueryID == queryID {
-					filtered = append(filtered, exec)
-				}
-			}
+			m.SQL.IterateExecutionsForID(queryID, func(exec analysis.QueryExecution) bool {
+				filtered = append(filtered, exec)
+				return true
+			})
 			if len(filtered) > 0 {
 				detail.Executions = lazyExecutions{executions: filtered}
 			}

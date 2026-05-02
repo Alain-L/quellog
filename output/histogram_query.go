@@ -16,14 +16,13 @@ import (
 //   - histogram: map of time range labels to execution count
 //   - unit: "executions"
 //   - scaleFactor: for proportional display
-func computeSingleQueryExecutionHistogram(executions []analysis.QueryExecution, queryID string) (map[string]int, string, int) {
-	// Filter executions for this query
+func computeSingleQueryExecutionHistogram(m analysis.SQLMetrics, queryID string) (map[string]int, string, int) {
+	// Filter executions for this query via the compact storage iterator.
 	var filtered []analysis.QueryExecution
-	for _, exec := range executions {
-		if exec.QueryID == queryID {
-			filtered = append(filtered, exec)
-		}
-	}
+	m.IterateExecutionsForID(queryID, func(exec analysis.QueryExecution) bool {
+		filtered = append(filtered, exec)
+		return true
+	})
 
 	if len(filtered) == 0 {
 		return nil, "", 0
@@ -101,14 +100,13 @@ func computeSingleQueryExecutionHistogram(executions []analysis.QueryExecution, 
 //   - histogram: map of time range labels to cumulative time
 //   - unit: "ms", "s", or "m" depending on scale
 //   - scaleFactor: for proportional display
-func computeSingleQueryTimeHistogram(executions []analysis.QueryExecution, queryID string) (map[string]int, string, int) {
-	// Filter executions for this query
+func computeSingleQueryTimeHistogram(m analysis.SQLMetrics, queryID string) (map[string]int, string, int) {
+	// Filter executions for this query via the compact storage iterator.
 	var filtered []analysis.QueryExecution
-	for _, exec := range executions {
-		if exec.QueryID == queryID {
-			filtered = append(filtered, exec)
-		}
-	}
+	m.IterateExecutionsForID(queryID, func(exec analysis.QueryExecution) bool {
+		filtered = append(filtered, exec)
+		return true
+	})
 
 	if len(filtered) == 0 {
 		return nil, "", 0
@@ -213,14 +211,13 @@ func computeSingleQueryTimeHistogram(executions []analysis.QueryExecution, query
 //   - histogram: map of duration ranges to query count
 //   - unit: "queries"
 //   - scaleFactor: for proportional display
-func computeSingleQueryDurationDistribution(executions []analysis.QueryExecution, queryID string) (map[string]int, string, int, []string) {
-	// Filter executions for this query
+func computeSingleQueryDurationDistribution(m analysis.SQLMetrics, queryID string) (map[string]int, string, int, []string) {
+	// Filter executions for this query via the compact storage iterator.
 	var filtered []analysis.QueryExecution
-	for _, exec := range executions {
-		if exec.QueryID == queryID {
-			filtered = append(filtered, exec)
-		}
-	}
+	m.IterateExecutionsForID(queryID, func(exec analysis.QueryExecution) bool {
+		filtered = append(filtered, exec)
+		return true
+	})
 
 	if len(filtered) == 0 {
 		return nil, "", 0, nil
