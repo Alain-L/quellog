@@ -207,25 +207,113 @@ type QueryStat struct {
 	LastPlan string
 }
 
-// QueryExecution is one SQL execution event.
+// QueryExecution is one SQL execution event. Returned by SQLMetrics
+// iteration helpers (IterateExecutions / ExecutionAt) — the metrics
+// struct stores events in compact parallel slices internally and
+// expands them to QueryExecution one at a time on access.
 type QueryExecution struct {
 	Timestamp time.Time
 	Duration  float64 // ms
 	QueryID   string  // short id (e.g. "se-abc123")
 }
 
+// ExecutionCount returns the number of recorded execution events.
+func (m *SQLMetrics) ExecutionCount() int {
+	if m.executions == nil {
+		return 0
+	}
+	return m.executions.Len()
+}
+
+// ExecutionAt expands the i-th event to a full QueryExecution.
+// Panics if i is out of bounds — guard with ExecutionCount.
+func (m *SQLMetrics) ExecutionAt(i int) QueryExecution {
+	return m.executions.At(i)
+}
+
+// IterateExecutions calls fn for each event in append order. Returning
+// false from fn stops iteration early. No []QueryExecution slice is
+// materialized.
+func (m *SQLMetrics) IterateExecutions(fn func(QueryExecution) bool) {
+	if m.executions == nil {
+		return
+	}
+	m.executions.ForEach(fn)
+}
+
+// ExecutionDurations returns a fresh []float64 of every event's
+// duration in append order. Cheaper than IterateExecutions when the
+// caller only needs durations (percentile / median compute).
+func (m *SQLMetrics) ExecutionDurations() []float64 {
+	if m.executions == nil {
+		return nil
+	}
+	return m.executions.Durations()
+}
+
+// ExecutionsCountAbove returns the number of events with
+// Duration >= threshold. Avoids the per-event QueryExecution
+// expansion that a manual loop would force.
+func (m *SQLMetrics) ExecutionsCountAbove(threshold float64) int {
+	if m.executions == nil {
+		return 0
+	}
+	return m.executions.CountAbove(threshold)
+}
+
+// IterateExecutionsForID is like IterateExecutions but only yields
+// events whose QueryID matches the given id. Implemented in terms of
+// the compact storage's queryID table — no full iteration over events
+// when the id is absent, and no intermediate slice when present.
+func (m *SQLMetrics) IterateExecutionsForID(id string, fn func(QueryExecution) bool) {
+	if m.executions == nil {
+		return
+	}
+	// Resolve the id to its compact index (linear scan over the small
+	// queryIDs table — typically a few hundred entries, not millions).
+	idx := uint32(0)
+	found := false
+	for i, qid := range m.executions.queryIDs {
+		if qid == id {
+			idx = uint32(i)
+			found = true
+			break
+		}
+	}
+	if !found {
+		return
+	}
+	loc := m.executions.location()
+	for i := range m.executions.tsNanos {
+		if m.executions.queryIDIdx[i] != idx {
+			continue
+		}
+		if !fn(QueryExecution{
+			Timestamp: time.Unix(0, m.executions.tsNanos[i]).In(loc),
+			Duration:  m.executions.durations[i],
+			QueryID:   id,
+		}) {
+			return
+		}
+	}
+}
+
 // SQLMetrics combines per-query stats and global SQL metrics.
 type SQLMetrics struct {
-	QueryStats          map[string]*QueryStat // normalized query → stats
-	TotalQueries        int
-	UniqueQueries       int
-	MinQueryDuration    float64
-	MaxQueryDuration    float64
-	SumQueryDuration    float64
-	StartTimestamp      time.Time
-	EndTimestamp        time.Time
-	Executions          []QueryExecution // all individual events (timeline, percentiles)
-	MedianQueryDuration float64          // 50th percentile
+	QueryStats       map[string]*QueryStat // normalized query → stats
+	TotalQueries     int
+	UniqueQueries    int
+	MinQueryDuration float64
+	MaxQueryDuration float64
+	SumQueryDuration float64
+	StartTimestamp   time.Time
+	EndTimestamp     time.Time
+	// executions is the compact storage of all execution events. Use
+	// IterateExecutions / ExecutionAt / ExecutionCount instead of
+	// reaching into the slice — the field is intentionally private to
+	// keep the parallel-slice layout opaque to consumers.
+	executions          *compactExecutions
+	MedianQueryDuration float64 // 50th percentile
 	P99QueryDuration    float64
 
 	// QueriesWithoutDurationCount tracks queries identified from logs
@@ -349,7 +437,7 @@ type SQLAnalyzer struct {
 	sumQueryDuration float64
 	startTimestamp   time.Time
 	endTimestamp     time.Time
-	executions       []QueryExecution
+	executions       *compactExecutions
 
 	// LRU cache to avoid re-normalizing identical raw queries
 	// Limited capacity to prevent unbounded memory growth
@@ -401,7 +489,7 @@ func NewSQLAnalyzerWithSize(inputBytes int64) *SQLAnalyzer {
 
 	return &SQLAnalyzer{
 		queryStats:           make(map[string]*QueryStat, 10000),
-		executions:           make([]QueryExecution, 0, execCap),
+		executions:           newCompactExecutions(execCap),
 		normalizationCache:   newLRUCache(5000), // LRU cache for raw→normalized mapping
 		queryTypesByDatabase: make(map[string]map[string]*QueryTypeCount),
 		queryTypesByUser:     make(map[string]map[string]*QueryTypeCount),
@@ -483,12 +571,9 @@ func (a *SQLAnalyzer) Process(entry *parser.LogEntry) {
 		}
 	}
 
-	// Add execution with query ID (after stats are created/retrieved)
-	a.executions = append(a.executions, QueryExecution{
-		Timestamp: entry.Timestamp,
-		Duration:  duration,
-		QueryID:   stats.ID,
-	})
+	// Add execution with query ID (after stats are created/retrieved).
+	// Compact storage: parallel slices + interned query IDs.
+	a.executions.append(entry.Timestamp, duration, stats.ID)
 
 	// Associate pending auto_explain plan (same PID, arrived just before)
 	pid := entry.PID
@@ -657,7 +742,7 @@ func (a *SQLAnalyzer) Finalize() SQLMetrics {
 		SumQueryDuration:     a.sumQueryDuration,
 		StartTimestamp:       a.startTimestamp,
 		EndTimestamp:         a.endTimestamp,
-		Executions:           a.executions,
+		executions:           a.executions,
 		QueryTypeStats:       make(map[string]*QueryTypeStat),
 		QueryTypesByDatabase: a.queryTypesByDatabase,
 		QueryTypesByUser:     a.queryTypesByUser,
@@ -698,11 +783,18 @@ func (a *SQLAnalyzer) Finalize() SQLMetrics {
 		}
 	}
 
-	// Calculate percentiles
-	if len(a.executions) > 0 {
-		metrics.MedianQueryDuration = calculateMedian(a.executions)
-		metrics.P99QueryDuration = calculatePercentile(a.executions, 99)
+	// Calculate percentiles. Pull durations once via the compact
+	// storage so we don't pay 48 B × N for the iteration.
+	if a.executions.Len() > 0 {
+		durs := a.executions.Durations()
+		sort.Float64s(durs)
+		metrics.MedianQueryDuration = medianFromSorted(durs)
+		metrics.P99QueryDuration = percentileFromSorted(durs, 99)
 	}
+
+	// queryIDIndex was only needed for the parser-side append path;
+	// release it now that no further events will be recorded.
+	a.executions.freeIndex()
 
 	return metrics
 }
@@ -711,25 +803,27 @@ func (a *SQLAnalyzer) Finalize() SQLMetrics {
 // Percentile calculation helpers
 // ============================================================================
 
-// calculateMedian computes the median (50th percentile) of query durations.
-func calculateMedian(executions []QueryExecution) float64 {
-	durations := extractDurations(executions)
-	sort.Float64s(durations)
-
-	n := len(durations)
-	if n%2 == 1 {
-		return durations[n/2]
+// medianFromSorted returns the median of an already-sorted []float64.
+// Caller is responsible for the sort — Finalize() does it once and
+// reuses the result for both median and P99.
+func medianFromSorted(sorted []float64) float64 {
+	n := len(sorted)
+	if n == 0 {
+		return 0
 	}
-	return (durations[n/2-1] + durations[n/2]) / 2.0
+	if n%2 == 1 {
+		return sorted[n/2]
+	}
+	return (sorted[n/2-1] + sorted[n/2]) / 2.0
 }
 
-// calculatePercentile computes the Nth percentile of query durations.
-// percentile should be between 0 and 100.
-func calculatePercentile(executions []QueryExecution, percentile int) float64 {
-	durations := extractDurations(executions)
-	sort.Float64s(durations)
-
-	n := len(durations)
+// percentileFromSorted returns the Nth percentile of an
+// already-sorted []float64. percentile should be between 0 and 100.
+func percentileFromSorted(sorted []float64, percentile int) float64 {
+	n := len(sorted)
+	if n == 0 {
+		return 0
+	}
 	index := int(float64(percentile) / 100.0 * float64(n))
 	if index >= n {
 		index = n - 1
@@ -737,17 +831,7 @@ func calculatePercentile(executions []QueryExecution, percentile int) float64 {
 	if index < 0 {
 		index = 0
 	}
-
-	return durations[index]
-}
-
-// extractDurations extracts duration values from query executions.
-func extractDurations(executions []QueryExecution) []float64 {
-	durations := make([]float64, len(executions))
-	for i, exec := range executions {
-		durations[i] = exec.Duration
-	}
-	return durations
+	return sorted[index]
 }
 
 // ============================================================================

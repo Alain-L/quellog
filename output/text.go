@@ -989,15 +989,10 @@ func PrintSQLSummaryWithContext(m analysis.SQLMetrics, tempFiles analysis.TempFi
 	bold := ansiBold
 	reset := ansiReset
 
-	// Compute top 1% slowest queries.
+	// Compute top 1% slowest queries via the compact storage helper.
 	top1Slow := 0
-	if len(m.Executions) > 0 {
-		threshold := m.P99QueryDuration
-		for _, exec := range m.Executions {
-			if exec.Duration >= threshold {
-				top1Slow++
-			}
-		}
+	if m.ExecutionCount() > 0 {
+		top1Slow = m.ExecutionsCountAbove(m.P99QueryDuration)
 	}
 
 	// ** SQL Summary Header **
@@ -1337,7 +1332,7 @@ func PrintSQLDetails(m analysis.AggregatedMetrics, queryDetails []string) {
 
 		// Execution histogram (if multiple executions)
 		if sqlStat != nil && sqlStat.Count > 1 {
-			execHist, execUnit, execScale := computeSingleQueryExecutionHistogram(m.SQL.Executions, qid)
+			execHist, execUnit, execScale := computeSingleQueryExecutionHistogram(m.SQL, qid)
 			if execHist != nil {
 				PrintHistogram(execHist, "Query count", execUnit, execScale, nil)
 			}
@@ -1357,7 +1352,7 @@ func PrintSQLDetails(m analysis.AggregatedMetrics, queryDetails []string) {
 
 			// Time histogram (if multiple executions)
 			if sqlStat.Count > 1 {
-				timeHist, timeUnit, timeScale := computeSingleQueryTimeHistogram(m.SQL.Executions, qid)
+				timeHist, timeUnit, timeScale := computeSingleQueryTimeHistogram(m.SQL, qid)
 				if timeHist != nil {
 					PrintHistogram(timeHist, "Cumulative time", timeUnit, timeScale, nil)
 				}
@@ -1365,7 +1360,7 @@ func PrintSQLDetails(m analysis.AggregatedMetrics, queryDetails []string) {
 
 			// Duration distribution histogram (if multiple executions)
 			if sqlStat.Count > 1 {
-				durationHist, durationUnit, durationScale, durationLabels := computeSingleQueryDurationDistribution(m.SQL.Executions, qid)
+				durationHist, durationUnit, durationScale, durationLabels := computeSingleQueryDurationDistribution(m.SQL, qid)
 				if durationHist != nil {
 					PrintHistogram(durationHist, "Query duration distribution", durationUnit, durationScale, durationLabels)
 				}
@@ -1373,11 +1368,12 @@ func PrintSQLDetails(m analysis.AggregatedMetrics, queryDetails []string) {
 
 			// Calculate min duration from executions
 			minDuration := sqlStat.MaxTime
-			for _, exec := range m.SQL.Executions {
-				if exec.QueryID == qid && exec.Duration < minDuration {
+			m.SQL.IterateExecutionsForID(qid, func(exec analysis.QueryExecution) bool {
+				if exec.Duration < minDuration {
 					minDuration = exec.Duration
 				}
-			}
+				return true
+			})
 
 			fmt.Printf("  Total Duration       : %s\n", formatQueryDuration(sqlStat.TotalTime))
 			fmt.Printf("  Min Duration         : %s\n", formatQueryDuration(minDuration))

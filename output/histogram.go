@@ -19,7 +19,7 @@ import (
 //   - unit: "ms", "s", or "m" depending on the scale
 //   - scaleFactor: for proportional display (max bar width = 40 chars)
 func computeQueryLoadHistogram(m analysis.SQLMetrics) (map[string]int, string, int) {
-	if m.StartTimestamp.IsZero() || m.EndTimestamp.IsZero() || len(m.Executions) == 0 {
+	if m.StartTimestamp.IsZero() || m.EndTimestamp.IsZero() || m.ExecutionCount() == 0 {
 		return nil, "", 0
 	}
 
@@ -43,7 +43,7 @@ func computeQueryLoadHistogram(m analysis.SQLMetrics) (map[string]int, string, i
 	}
 
 	// Distribute durations (in ms) into buckets based on each execution's timestamp.
-	for _, exec := range m.Executions {
+	m.IterateExecutions(func(exec analysis.QueryExecution) bool {
 		elapsed := exec.Timestamp.Sub(m.StartTimestamp)
 		bucketIndex := int(elapsed / bucketDuration)
 		if bucketIndex >= numBuckets {
@@ -53,7 +53,8 @@ func computeQueryLoadHistogram(m analysis.SQLMetrics) (map[string]int, string, i
 			bucketIndex = 0
 		}
 		histogramMs[bucketIndex] += int(exec.Duration)
-	}
+		return true
+	})
 
 	// Determine the unit and conversion factor based on the maximum bucket load.
 	maxBucketLoad := 0
@@ -133,7 +134,7 @@ func computeQueryDurationHistogram(m analysis.SQLMetrics) (map[string]int, strin
 	}
 
 	// Distribute queries into buckets.
-	for _, exec := range m.Executions {
+	m.IterateExecutions(func(exec analysis.QueryExecution) bool {
 		d := exec.Duration
 		for _, bucket := range bucketDefinitions {
 			if d >= bucket.lower && d < bucket.upper {
@@ -141,7 +142,8 @@ func computeQueryDurationHistogram(m analysis.SQLMetrics) (map[string]int, strin
 				break
 			}
 		}
-	}
+		return true
+	})
 
 	// Find the maximum query count in any bucket.
 	maxCount := 0
