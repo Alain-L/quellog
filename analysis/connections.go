@@ -436,36 +436,67 @@ func computePeakSweepline(events []SessionEvent) (int, time.Time) {
 	if len(events) == 0 {
 		return 0, time.Time{}
 	}
-	type tick struct {
-		t     time.Time
-		delta int
-	}
-	pts := make([]tick, 0, len(events)*2)
-	for _, e := range events {
+	// Two parallel uint32 index lists into events — one for StartTime
+	// order, one for EndTime order. Indices instead of materialized
+	// {time, delta} structs shrink the transient footprint 8× (4 B vs
+	// 32 B per entry). On J.log (5.7 M sessions) that's ~45 MB instead
+	// of ~365 MB for the temporary buffers held during Finalize.
+	n := len(events)
+	startIdx := make([]uint32, 0, n)
+	endIdx := make([]uint32, 0, n)
+	for i, e := range events {
 		if e.StartTime.IsZero() || e.EndTime.IsZero() {
 			continue
 		}
-		pts = append(pts, tick{e.StartTime, +1})
-		pts = append(pts, tick{e.EndTime, -1})
+		startIdx = append(startIdx, uint32(i))
+		endIdx = append(endIdx, uint32(i))
 	}
-	if len(pts) == 0 {
+	if len(startIdx) == 0 {
 		return 0, time.Time{}
 	}
-	sort.Slice(pts, func(i, j int) bool {
-		if !pts[i].t.Equal(pts[j].t) {
-			return pts[i].t.Before(pts[j].t)
-		}
-		// +1 before -1 at the same timestamp captures the local peak
-		return pts[i].delta > pts[j].delta
+	sort.Slice(startIdx, func(i, j int) bool {
+		return events[startIdx[i]].StartTime.Before(events[startIdx[j]].StartTime)
+	})
+	sort.Slice(endIdx, func(i, j int) bool {
+		return events[endIdx[i]].EndTime.Before(events[endIdx[j]].EndTime)
 	})
 
+	// Sweep both index lists in lockstep. At each step take the earlier
+	// pending timestamp; tie-break "starts (+1) before ends (-1)" so
+	// the local peak is captured before the matching decrement.
 	cur, peak := 0, 0
 	var peakT time.Time
-	for _, p := range pts {
-		cur += p.delta
+	s, e := 0, 0
+	for s < len(startIdx) || e < len(endIdx) {
+		var t time.Time
+		var delta int
+		switch {
+		case e >= len(endIdx):
+			t = events[startIdx[s]].StartTime
+			delta = +1
+			s++
+		case s >= len(startIdx):
+			t = events[endIdx[e]].EndTime
+			delta = -1
+			e++
+		default:
+			sT := events[startIdx[s]].StartTime
+			eT := events[endIdx[e]].EndTime
+			// sT <= eT → take start (covers tie: +1 before -1)
+			if !eT.Before(sT) {
+				t = sT
+				delta = +1
+				s++
+			} else {
+				t = eT
+				delta = -1
+				e++
+			}
+		}
+		cur += delta
 		if cur > peak {
 			peak = cur
-			peakT = p.t
+			peakT = t
 		}
 	}
 	return peak, peakT
