@@ -71,13 +71,24 @@ import './js/components/ql-dropdown.js';
 
                 // Handle compressed files and tar archives
                 const content = await prepareContent(file);
-                setProgress(50, 'Parsing log entries...');
+
+                // Single static "Crunching log entries…" message during the
+                // WASM parse. Cycling phrases were tried (CSS-only opacity
+                // keyframes, clip-path wipe, transform slides) but none
+                // animated reliably across the JS-thread freeze in our
+                // tinygo wasm setup. Spinner + static label is the honest
+                // fallback — at least the user knows something is running.
+                setProgress(50, 'Crunching log entries…');
 
                 // Store for re-filtering
                 setCurrentFileContent(content);
                 setCurrentFileName(file.name);
                 setCurrentFileSize(file.size);
                 setOriginalDimensions(null);  // Reset for new file
+
+                // Yield once with rAF so the label paints before the
+                // wasm call freezes the main thread.
+                await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
 
                 // Time the actual parsing. Use quellogParseBytes when
                 // content is a Uint8Array (plain logs, the new default
