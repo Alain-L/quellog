@@ -755,6 +755,55 @@ func (l lazyTempFileEvents) MarshalJSON() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+// streamQueriesJSON writes a []QueryStatJSON as a JSON array directly
+// to bw, marshalling one item at a time to avoid the multi-GB buffer
+// that json.MarshalIndent of the full slice produces on big corpora
+// (Z: 26k queries × ~190 KB each → ~5 GB peak just for this one
+// section). Per-item Marshal stays in the kilobyte range.
+//
+// Output is byte-identical to json.MarshalIndent(slice, prefix, indent)
+// — same item indentation, same comma framing, same trailing layout.
+// prefix is the indent of the array's closing ']' (matches the caller's
+// e.inner); indent is the per-level indent unit.
+func streamQueriesJSON(bw *bufio.Writer, queries []QueryStatJSON, prefix, indent string, compact bool) error {
+	if len(queries) == 0 {
+		bw.WriteString("[]")
+		return nil
+	}
+	if compact {
+		bw.WriteByte('[')
+		for i, q := range queries {
+			if i > 0 {
+				bw.WriteByte(',')
+			}
+			qb, err := json.Marshal(q)
+			if err != nil {
+				return err
+			}
+			bw.Write(qb)
+		}
+		bw.WriteByte(']')
+		return nil
+	}
+	inner := prefix + indent
+	bw.WriteString("[\n")
+	for i, q := range queries {
+		if i > 0 {
+			bw.WriteString(",\n")
+		}
+		bw.WriteString(inner)
+		qb, err := json.MarshalIndent(q, inner, indent)
+		if err != nil {
+			return err
+		}
+		bw.Write(qb)
+	}
+	bw.WriteByte('\n')
+	bw.WriteString(prefix)
+	bw.WriteByte(']')
+	return nil
+}
+
 // streamExecutionsJSON writes executions as a JSON array of
 // {timestamp, duration_ms, query_id} objects directly to bw.
 func streamExecutionsJSON(bw *bufio.Writer, execs []analysis.QueryExecution, tsFormat, prefix, indent string, compact bool) {
@@ -889,7 +938,9 @@ func (p SQLPerformanceJSON) StreamSection(bw *bufio.Writer, prefix, indent strin
 	e.writeKey("executions")
 	streamExecutionsJSON(bw, p.Executions.executions, p.Executions.tsFormat, inner, indent, compact)
 
-	if err := e.emitScalar("queries", p.Queries); err != nil {
+	// Queries can also be huge (26k × ~190 KB on Z) — stream item by item.
+	e.writeKey("queries")
+	if err := streamQueriesJSON(bw, p.Queries, inner, indent, compact); err != nil {
 		return err
 	}
 
@@ -1022,7 +1073,10 @@ func (p SQLPerformanceDetailJSON) StreamSection(bw *bufio.Writer, prefix, indent
 		return err
 	}
 	if len(p.Queries) > 0 {
-		if err := e.emitScalar("queries", p.Queries); err != nil {
+		// Queries can be huge (26k × ~190 KB on Z) — stream item by item
+		// instead of buffering the full slice through MarshalIndent.
+		e.writeKey("queries")
+		if err := streamQueriesJSON(bw, p.Queries, inner, indent, compact); err != nil {
 			return err
 		}
 	}
