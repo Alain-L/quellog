@@ -74,6 +74,11 @@ func executeParsing(cmd *cobra.Command, args []string) error {
 
 // runAnalysisCycle executes a single parsing and analysis pass.
 func runAnalysisCycle(ctx context.Context, args []string) error {
+	// Investigation hook: when QUELLOG_HEAP_SNAPSHOTS is set, dump heap
+	// pprof + MemStats at fixed intervals so we can audit memory growth
+	// trajectory through the parse. No-op otherwise.
+	defer startHeapSnapshots()()
+
 	startTime := time.Now()
 
 	// Step 1: Collect log files from arguments
