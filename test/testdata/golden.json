@@ -15414,49 +15414,76 @@
       "count": 2,
       "severity": "FATAL",
       "example": "[1262] 3D000: db=nonexistent,user=app_user,app=[unknown],client=172.20.0.10 FATAL:  database \"nonexistent\" does not exist",
-      "sql_state_class": "3D"
+      "sql_state_class": "3D",
+      "timestamps": [
+        1764537344596,
+        1764537363843
+      ]
     },
     {
       "message": "division by zero",
       "count": 2,
       "severity": "ERROR",
       "example": "[1264] 22012: db=app_db,user=app_user,app=psql,client=172.20.0.10 ERROR:  division by zero",
-      "sql_state_class": "22"
+      "sql_state_class": "22",
+      "timestamps": [
+        1764537346054,
+        1764537365222
+      ]
     },
     {
       "message": "duplicate key value violates unique constraint ?",
       "count": 2,
       "severity": "ERROR",
       "example": "[1259] 23505: db=app_db,user=app_user,app=psql,client=172.20.0.10 ERROR:  duplicate key value violates unique constraint \"users_username_key\"",
-      "sql_state_class": "23"
+      "sql_state_class": "23",
+      "timestamps": [
+        1764537343199,
+        1764537362442
+      ]
     },
     {
       "message": "insert or update on table ? violates foreign key constraint ?",
       "count": 2,
       "severity": "ERROR",
       "example": "[1258] 23503: db=app_db,user=app_user,app=psql,client=172.20.0.10 ERROR:  insert or update on table \"orders\" violates foreign key constraint \"orders_user_id_fkey\"",
-      "sql_state_class": "23"
+      "sql_state_class": "23",
+      "timestamps": [
+        1764537342529,
+        1764537361786
+      ]
     },
     {
       "message": "password authentication failed for user ?",
       "count": 2,
       "severity": "FATAL",
       "example": "[1261] 28P01: db=app_db,user=baduser,app=[unknown],client=172.20.0.10 FATAL:  password authentication failed for user \"baduser\"",
-      "sql_state_class": "28"
+      "sql_state_class": "28",
+      "timestamps": [
+        1764537343797,
+        1764537363048
+      ]
     },
     {
       "message": "syntax error at or near ?",
       "count": 2,
       "severity": "ERROR",
       "example": "[1263] 42601: db=app_db,user=app_user,app=psql,client=172.20.0.10 ERROR:  syntax error at or near \"SELEC\" at character 1",
-      "sql_state_class": "42"
+      "sql_state_class": "42",
+      "timestamps": [
+        1764537345323,
+        1764537364537
+      ]
     },
     {
       "message": "deadlock detected",
       "count": 1,
       "severity": "ERROR",
       "example": "[1361] 40P01: db=app_db,user=batch,app=psql,client=172.20.0.20 ERROR:  deadlock detected",
-      "sql_state_class": "40"
+      "sql_state_class": "40",
+      "timestamps": [
+        1764537375390
+      ]
     }
   ],
   "users": [

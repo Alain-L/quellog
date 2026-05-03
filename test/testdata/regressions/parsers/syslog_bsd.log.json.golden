@@ -174,7 +174,10 @@
       "message": "syntax error at or near ?",
       "count": 1,
       "severity": "ERROR",
-      "example": "dbhost01 postgres[30001]: [4-1] [30001]: [4-1] db=appdb,user=app,app=psql,client=10.0.0.70 ERROR:  syntax error at or near \"FORM\""
+      "example": "dbhost01 postgres[30001]: [4-1] [30001]: [4-1] db=appdb,user=app,app=psql,client=10.0.0.70 ERROR:  syntax error at or near \"FORM\"",
+      "timestamps": [
+        1776672002000
+      ]
     }
   ],
   "users": [

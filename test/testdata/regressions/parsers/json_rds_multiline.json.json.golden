@@ -112,14 +112,20 @@
       "count": 1,
       "severity": "ERROR",
       "example": "[1002]: user=app,db=appdb,app=app-worker ERROR: duplicate key value violates unique constraint \"orders_pkey\" DETAIL: Key (id)=(42) already exists. STATEMENT: INSERT INTO orders (id, user_id, total) VALUES (42, 7, 99.99) SQLSTATE = '23505'",
-      "sql_state_class": "23"
+      "sql_state_class": "23",
+      "timestamps": [
+        1776618001200
+      ]
     },
     {
       "message": "the database system is in recovery mode",
       "count": 1,
       "severity": "FATAL",
       "example": "[1004]: user=app,db=appdb,app=psql FATAL: the database system is in recovery mode SQLSTATE = '57P03'",
-      "sql_state_class": "57"
+      "sql_state_class": "57",
+      "timestamps": [
+        1776618003400
+      ]
     }
   ],
   "users": [

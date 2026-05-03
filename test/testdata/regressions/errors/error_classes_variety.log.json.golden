@@ -77,37 +77,55 @@
       "message": "canceling statement due to lock timeout",
       "count": 1,
       "severity": "ERROR",
-      "example": "[13004]: [1-1] user=app,db=appdb,app=psql,client=10.0.0.63 ERROR:  canceling statement due to lock timeout"
+      "example": "[13004]: [1-1] user=app,db=appdb,app=psql,client=10.0.0.63 ERROR:  canceling statement due to lock timeout",
+      "timestamps": [
+        1776632403400
+      ]
     },
     {
       "message": "insert or update on table ? violates foreign key constraint ?",
       "count": 1,
       "severity": "ERROR",
-      "example": "[13003]: [1-1] user=app,db=appdb,app=psql,client=10.0.0.62 ERROR:  insert or update on table \"orders\" violates foreign key constraint \"orders_user_id_fkey\""
+      "example": "[13003]: [1-1] user=app,db=appdb,app=psql,client=10.0.0.62 ERROR:  insert or update on table \"orders\" violates foreign key constraint \"orders_user_id_fkey\"",
+      "timestamps": [
+        1776632402300
+      ]
     },
     {
       "message": "password authentication failed for user ?",
       "count": 1,
       "severity": "FATAL",
-      "example": "[13006]: [1-1] user=app,db=appdb,app=psql,client=10.0.0.65 FATAL:  password authentication failed for user \"wronguser\""
+      "example": "[13006]: [1-1] user=app,db=appdb,app=psql,client=10.0.0.65 FATAL:  password authentication failed for user \"wronguser\"",
+      "timestamps": [
+        1776632405600
+      ]
     },
     {
       "message": "permission denied for table audit_logs",
       "count": 1,
       "severity": "ERROR",
-      "example": "[13002]: [1-1] user=app,db=appdb,app=psql,client=10.0.0.61 ERROR:  permission denied for table audit_logs"
+      "example": "[13002]: [1-1] user=app,db=appdb,app=psql,client=10.0.0.61 ERROR:  permission denied for table audit_logs",
+      "timestamps": [
+        1776632401200
+      ]
     },
     {
       "message": "syntax error at or near ?",
       "count": 1,
       "severity": "ERROR",
-      "example": "[13001]: [1-1] user=app,db=appdb,app=psql,client=10.0.0.60 ERROR:  syntax error at or near \"FORM\""
+      "example": "[13001]: [1-1] user=app,db=appdb,app=psql,client=10.0.0.60 ERROR:  syntax error at or near \"FORM\"",
+      "timestamps": [
+        1776632400100
+      ]
     },
     {
       "message": "there is no transaction in progress",
       "count": 1,
       "severity": "WARNING",
-      "example": "[13005]: [1-1] user=app,db=appdb,app=psql,client=10.0.0.64 WARNING:  there is no transaction in progress"
+      "example": "[13005]: [1-1] user=app,db=appdb,app=psql,client=10.0.0.64 WARNING:  there is no transaction in progress",
+      "timestamps": [
+        1776632404500
+      ]
     }
   ],
   "users": [

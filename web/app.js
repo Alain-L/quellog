@@ -1,5 +1,5 @@
 // ES Module imports
-import { fmt, fmtDuration, fmtBytes, fmtMs, fmtDur, parseDurToMs, esc, truncQuery, safeMax, safeMin } from './js/utils.js';
+import { fmt, fmtDuration, fmtBytes, fmtMs, fmtDur, parseDurToMs, esc, escForJsAttr, truncQuery, safeMax, safeMin } from './js/utils.js';
 import {
     wasmModule, wasmReady, analysisData, currentFileContent, currentFileName, currentFileSize, originalDimensions,
     charts, modalCharts, modalChartsData, modalChartCounter, chartIntervalMap, defaultInterval,
@@ -407,14 +407,17 @@ function buildEventsSection(data) {
 				else if (cls.length === 2) { code = cls; desc = ''; }
 
 				classEvents.forEach(e => {
+					// Resolve original index in data.top_events so the modal
+					// can grab the full Example + timestamps array.
+					const origIdx = topEvents.indexOf(e);
 					rows += `
-					<tr class="event-row">
+					<tr class="event-row" onclick="showEventDetail(${origIdx})" style="cursor:pointer;" title="Click for details">
 						<td style="width: 50px; vertical-align: top; padding: 0.25rem 0.5rem;">
 							${code ? `<span class="event-class-badge" style="border-color:${sevColor}; color:${sevColor};">${code}</span>` : ''}
 						</td>
 						<td style="vertical-align: top; padding: 0.25rem 0.5rem;">
 							${desc ? `<div style="font-size: 0.6rem; font-weight: 600; color: var(--text-muted); margin-bottom: 2px;">${esc(desc)}</div>` : ''}
-							<div class="event-msg-text" title="${esc(e.message)}">${esc(e.message)}</div>
+							<div class="event-msg-text">${esc(e.message)}</div>
 						</td>
 						<td class="num" style="width: 60px; vertical-align: top; padding: 0.25rem 0.5rem; font-weight: 600;">${fmt(e.count)}</td>
 					</tr>`;
@@ -1709,6 +1712,74 @@ function buildEventsSection(data) {
             alert('Query copied to clipboard');
         }
 
+        // Event detail modal — full message + occurrences-over-time sparkline
+        function showEventDetail(index) {
+            const e = analysisData.top_events?.[index];
+            if (!e) return;
+
+            const sevColor = e.severity === 'ERROR' ? 'var(--danger)'
+                : (e.severity === 'FATAL' || e.severity === 'PANIC') ? 'var(--purple)'
+                : e.severity === 'WARNING' ? 'var(--warning)' : 'var(--text-muted)';
+
+            const ts = e.timestamps || [];
+            let firstStr = '-', lastStr = '-', freqStr = '-';
+            if (ts.length > 0) {
+                const first = new Date(ts[0]);
+                const last = new Date(ts[ts.length - 1]);
+                firstStr = first.toISOString().slice(0, 19).replace('T', ' ');
+                lastStr = last.toISOString().slice(0, 19).replace('T', ' ');
+                const spanMin = Math.max(1, (last - first) / 60000);
+                freqStr = (ts.length / spanMin).toFixed(2) + ' /min';
+            }
+
+            const sqlClass = e.sql_state_class || '';
+            const sqlBadge = sqlClass ? `<span class="event-class-badge" style="border-color:${sevColor};color:${sevColor};margin-right:0.5rem;">${esc(sqlClass)}</span>` : '';
+
+            const chartTitle = `Event – ${e.severity}${sqlClass ? ' ' + sqlClass : ''}`;
+            // Copy-button helper: same inline pattern as SQL detail modal —
+            // shows "Copied!" feedback, reverts to "Copy" after 1.5 s.
+            // escForJsAttr handles all 4 escape layers so a message
+            // containing " or ' or \n doesn't break the attribute / JS string.
+            const copyBtn = (text) => `<button class="copy-btn-inline" onclick="navigator.clipboard.writeText('${escForJsAttr(text)}');this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)">Copy</button>`;
+
+            document.getElementById('eventModalBody').innerHTML = `
+                <div style="margin-bottom:1rem;">
+                    <div style="display:flex;align-items:center;margin-bottom:0.5rem;">
+                        ${sqlBadge}
+                        <span style="font-weight:600;color:${sevColor};">${esc(e.severity)}</span>
+                    </div>
+                </div>
+                <div class="qd-chart-container" style="margin-bottom:1rem;">
+                    <div class="qd-chart-header">
+                        <span class="qd-chart-title">Occurrences Over Time</span>
+                        <button class="btn-export-png" onclick="exportChartById('eventModalChart', '${chartTitle.replace(/'/g, "\\'")}')" title="Export as PNG">⬇ PNG</button>
+                    </div>
+                    <div id="eventModalChart" style="height:180px;"></div>
+                </div>
+                <div class="detail-stats" style="margin-bottom:1rem;">
+                    <div class="detail-stat"><div class="value">${fmt(e.count)}</div><div class="label">Occurrences</div></div>
+                    <div class="detail-stat"><div class="value">${esc(firstStr)}</div><div class="label">First seen</div></div>
+                    <div class="detail-stat"><div class="value">${esc(lastStr)}</div><div class="label">Last seen</div></div>
+                    <div class="detail-stat"><div class="value">${esc(freqStr)}</div><div class="label">Frequency</div></div>
+                </div>
+                <div class="qd-section-title" style="display:flex;justify-content:space-between;align-items:center;">Normalized Pattern${copyBtn(e.message)}</div>
+                <div class="query-detail-sql" style="margin-bottom:0.75rem;">${esc(e.message)}</div>
+                <div class="qd-section-title" style="display:flex;justify-content:space-between;align-items:center;">Example (raw message)${copyBtn(e.example || e.message)}</div>
+                <div class="query-detail-sql">${esc(e.example || e.message)}</div>
+            `;
+            document.getElementById('eventModal').open();
+
+            // Render the chart after the modal is on screen so the container
+            // width is known to uPlot. Reuse createTimeChart for visual parity
+            // with the other timestamp-based charts (median line, drag-zoom,
+            // tooltip plugin) — feeds it the per-event timestamps array.
+            const sevColorResolved = e.severity === 'ERROR' ? getComputedStyle(document.documentElement).getPropertyValue('--danger').trim()
+                : (e.severity === 'FATAL' || e.severity === 'PANIC') ? getComputedStyle(document.documentElement).getPropertyValue('--purple').trim()
+                : e.severity === 'WARNING' ? getComputedStyle(document.documentElement).getPropertyValue('--warning').trim()
+                : getComputedStyle(document.documentElement).getPropertyValue('--chart-bar').trim();
+            requestAnimationFrame(() => createTimeChart('eventModalChart', ts, { color: sevColorResolved, height: 180 }));
+        }
+
         function closeModal() {
             document.getElementById('queryModal').close();
         }
@@ -1874,7 +1945,7 @@ function buildEventsSection(data) {
             if (queryText) {
                 const copySource = q ? 'sql_performance.queries' : lockQ ? 'locks.queries' : 'temp_files.queries';
                 html += '<div class="qd-section">';
-                html += '<div class="qd-section-title" style="display: flex; justify-content: space-between; align-items: center;">Normalized Query<button class="copy-btn-inline" onclick="navigator.clipboard.writeText(\'' + esc(queryText).replace(/'/g, "\\'").replace(/\n/g, '\\n') + '\');this.textContent=\'Copied!\';setTimeout(()=>this.textContent=\'Copy\',1500)">Copy</button></div>';
+                html += '<div class="qd-section-title" style="display: flex; justify-content: space-between; align-items: center;">Normalized Query<button class="copy-btn-inline" onclick="navigator.clipboard.writeText(\'' + escForJsAttr(queryText) + '\');this.textContent=\'Copied!\';setTimeout(()=>this.textContent=\'Copy\',1500)">Copy</button></div>';
                 html += '<div class="query-detail-sql">';
                 html += formatSQL(queryText);
                 html += '</div>';
@@ -1884,7 +1955,7 @@ function buildEventsSection(data) {
             // RAW QUERY section (if different and available)
             if (q?.raw_query && q.raw_query !== q.normalized_query) {
                 html += '<div class="qd-section">';
-                html += '<div class="qd-section-title" style="display: flex; justify-content: space-between; align-items: center;">Example Query<button class="copy-btn-inline" onclick="navigator.clipboard.writeText(\'' + esc(q.raw_query).replace(/'/g, "\\'").replace(/\n/g, '\\n') + '\');this.textContent=\'Copied!\';setTimeout(()=>this.textContent=\'Copy\',1500)">Copy</button></div>';
+                html += '<div class="qd-section-title" style="display: flex; justify-content: space-between; align-items: center;">Example Query<button class="copy-btn-inline" onclick="navigator.clipboard.writeText(\'' + escForJsAttr(q.raw_query) + '\');this.textContent=\'Copied!\';setTimeout(()=>this.textContent=\'Copy\',1500)">Copy</button></div>';
                 html += '<div class="query-detail-sql">';
                 html += esc(q.raw_query);
                 html += '</div>';
@@ -2528,6 +2599,7 @@ function buildEventsSection(data) {
         window.visualizePlan = visualizePlan;
         window.showSqlOvView = showSqlOvView;
         window.copyQuery = copyQuery;
+        window.showEventDetail = showEventDetail;
         window.closeModal = closeModal;
         window.toggleTheme = toggleTheme;
         window.closeChartModal = closeChartModal;

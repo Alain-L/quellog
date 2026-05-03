@@ -22,6 +22,12 @@ type EventStat struct {
 	Severity      string
 	Example       string // raw example
 	SQLStateClass string // 2-char SQLSTATE class (e.g. "23", "42"), empty if N/A
+	// Timestamps captures every occurrence as Unix milliseconds. Used by
+	// the HTML report's per-event modal to render an occurrences-over-time
+	// sparkline. 8 B/event packed; on logs with the analyzer's 1000-pattern
+	// cap and typical occurrence skew this stays under 10 MB on the largest
+	// corpora we benchmark.
+	Timestamps []int64
 }
 
 // ============================================================================
@@ -300,8 +306,10 @@ func (a *EventAnalyzer) Process(entry *parser.LogEntry) {
 		if severity != "LOG" && severity != "INFO" && severity != "DEBUG" && severity != "NOTICE" {
 			pattern := NormalizeEvent(msg)
 			if pattern != "" {
+				ts := entry.Timestamp.UnixMilli()
 				if stat, ok := a.stats[pattern]; ok {
 					stat.Count++
+					stat.Timestamps = append(stat.Timestamps, ts)
 				} else if len(a.stats) < 1000 {
 					// Extract SQLSTATE class if present
 					sqlStateClass := ""
@@ -316,6 +324,7 @@ func (a *EventAnalyzer) Process(entry *parser.LogEntry) {
 						Severity:      severity,
 						Example:       msg,
 						SQLStateClass: sqlStateClass,
+						Timestamps:    []int64{ts},
 					}
 				}
 			}

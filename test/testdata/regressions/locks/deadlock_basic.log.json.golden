@@ -94,7 +94,10 @@
       "message": "deadlock detected",
       "count": 1,
       "severity": "ERROR",
-      "example": "[1001]: [5-1] user=app,db=appdb,app=psql,client=10.0.0.1 ERROR:  deadlock detected"
+      "example": "[1001]: [5-1] user=app,db=appdb,app=psql,client=10.0.0.1 ERROR:  deadlock detected",
+      "timestamps": [
+        1776585601500
+      ]
     }
   ],
   "users": [

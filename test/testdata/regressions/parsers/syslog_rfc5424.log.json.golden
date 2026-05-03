@@ -148,7 +148,10 @@
       "message": "permission denied for table audit_logs",
       "count": 1,
       "severity": "ERROR",
-      "example": "[4-1] db=appdb,user=app,app=psql,client=10.0.0.80 ERROR:  permission denied for table audit_logs"
+      "example": "[4-1] db=appdb,user=app,app=psql,client=10.0.0.80 ERROR:  permission denied for table audit_logs",
+      "timestamps": [
+        1776675602300
+      ]
     }
   ],
   "users": [

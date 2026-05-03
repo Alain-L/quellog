@@ -85,7 +85,10 @@
       "message": "syntax error at end of input",
       "count": 1,
       "severity": "ERROR",
-      "example": "[14001]: [1-1] user=app,db=appdb,app=psql,client=10.0.0.70 ERROR:  syntax error at end of input"
+      "example": "[14001]: [1-1] user=app,db=appdb,app=psql,client=10.0.0.70 ERROR:  syntax error at end of input",
+      "timestamps": [
+        1776636000100
+      ]
     }
   ],
   "users": [

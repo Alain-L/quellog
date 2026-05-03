@@ -96,7 +96,10 @@
       "count": 1,
       "severity": "ERROR",
       "example": "[90]: user=app,db=appdb,client=10.0.0.5:34567 ERROR: duplicate key value violates unique constraint \"users_email_key\" DETAIL: Key (email)=(test@example.com) already exists. SQLSTATE = '23505'",
-      "sql_state_class": "23"
+      "sql_state_class": "23",
+      "timestamps": [
+        1776614403400
+      ]
     }
   ],
   "users": [
