@@ -1,9 +1,13 @@
+//go:build !js
+
 // Package output: per-event-pattern detail renderers (--event-detail).
 //
 // CLI counterpart of the HTML report's per-event modal. Looks up one or
 // more EventStat patterns by their stable [<sev>-<4-char-hash>] ID and
 // renders the full picture: normalized pattern, raw example,
-// count/first/last/frequency, plus a small ASCII timeline.
+// count/first/last/frequency, plus a small ASCII timeline. Excluded
+// from the wasm build because PrintHistogram (text.go) is CLI-only —
+// the HTML report uses its own JS-side rendering.
 package output
 
 import (
