@@ -17,11 +17,22 @@ type EventSummary struct {
 
 // EventStat holds statistics for a unique normalized message pattern.
 type EventStat struct {
+	// ID is a stable short handle of the form <sev>-<4-char-hash>
+	// (e.g. wa-aBc1, er-Qr5p). Generated from severity + normalized
+	// message via GenerateEventID. Used as the CLI selector for
+	// `--event-detail` and as the click-target id in the HTML modal.
+	ID            string
 	Message       string // normalized message
 	Count         int
 	Severity      string
 	Example       string // raw example
 	SQLStateClass string // 2-char SQLSTATE class (e.g. "23", "42"), empty if N/A
+	// Timestamps captures every occurrence as Unix milliseconds. Used by
+	// the HTML report's per-event modal to render an occurrences-over-time
+	// sparkline. 8 B/event packed; on logs with the analyzer's 1000-pattern
+	// cap and typical occurrence skew this stays under 10 MB on the largest
+	// corpora we benchmark.
+	Timestamps []int64
 }
 
 // ============================================================================
@@ -300,8 +311,10 @@ func (a *EventAnalyzer) Process(entry *parser.LogEntry) {
 		if severity != "LOG" && severity != "INFO" && severity != "DEBUG" && severity != "NOTICE" {
 			pattern := NormalizeEvent(msg)
 			if pattern != "" {
+				ts := entry.Timestamp.UnixMilli()
 				if stat, ok := a.stats[pattern]; ok {
 					stat.Count++
+					stat.Timestamps = append(stat.Timestamps, ts)
 				} else if len(a.stats) < 1000 {
 					// Extract SQLSTATE class if present
 					sqlStateClass := ""
@@ -311,11 +324,13 @@ func (a *EventAnalyzer) Process(entry *parser.LogEntry) {
 
 					// Limit unique patterns to prevent memory explosion
 					a.stats[pattern] = &EventStat{
+						ID:            GenerateEventID(severity, pattern),
 						Message:       pattern,
 						Count:         1,
 						Severity:      severity,
 						Example:       msg,
 						SQLStateClass: sqlStateClass,
+						Timestamps:    []int64{ts},
 					}
 				}
 			}

@@ -52,7 +52,7 @@ This _quellog_ report summarizes **4** log entries collected between 19 Apr 2026
 
 - **ERROR**: 1 (25.0%)
   - **23 - Integrity Constraint Violation**
-    - `duplicate key value violates unique constraint ?` (1) [100.0%]
+  - *er-Enfg* `duplicate key value violates unique constraint ?` (1) [100.0%]
 
 - **LOG**: 3 (75.0%)
 

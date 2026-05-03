@@ -133,28 +133,44 @@
   },
   "top_events": [
     {
+      "id": "fa-HOhR",
       "message": "LDAP authentication failed for user ?",
       "count": 1,
       "severity": "FATAL",
-      "example": "[27004]: [1-1] user=ldapuser,db=appdb,app=[unknown],client=10.0.0.52 FATAL:  LDAP authentication failed for user \"ldapuser\""
+      "example": "[27004]: [1-1] user=ldapuser,db=appdb,app=[unknown],client=10.0.0.52 FATAL:  LDAP authentication failed for user \"ldapuser\"",
+      "timestamps": [
+        1776661203400
+      ]
     },
     {
+      "id": "fa-sl4I",
       "message": "Peer authentication failed for user ?",
       "count": 1,
       "severity": "FATAL",
-      "example": "[27003]: [1-1] user=postgres,db=postgres,app=[unknown],client=[local] FATAL:  Peer authentication failed for user \"postgres\""
+      "example": "[27003]: [1-1] user=postgres,db=postgres,app=[unknown],client=[local] FATAL:  Peer authentication failed for user \"postgres\"",
+      "timestamps": [
+        1776661202300
+      ]
     },
     {
+      "id": "fa-ZSl9",
       "message": "no pg_hba.conf entry for host ?, user ?, database ?, no encryption",
       "count": 1,
       "severity": "FATAL",
-      "example": "[27002]: [1-1] user=app,db=appdb,app=[unknown],client=10.0.0.51 FATAL:  no pg_hba.conf entry for host \"10.0.0.51\", user \"app\", database \"appdb\", no encryption"
+      "example": "[27002]: [1-1] user=app,db=appdb,app=[unknown],client=10.0.0.51 FATAL:  no pg_hba.conf entry for host \"10.0.0.51\", user \"app\", database \"appdb\", no encryption",
+      "timestamps": [
+        1776661201200
+      ]
     },
     {
+      "id": "fa-U26K",
       "message": "password authentication failed for user ?",
       "count": 1,
       "severity": "FATAL",
-      "example": "[27001]: [1-1] user=appuser,db=appdb,app=[unknown],client=10.0.0.50 FATAL:  password authentication failed for user \"appuser\""
+      "example": "[27001]: [1-1] user=appuser,db=appdb,app=[unknown],client=10.0.0.50 FATAL:  password authentication failed for user \"appuser\"",
+      "timestamps": [
+        1776661200100
+      ]
     }
   ],
   "users": [

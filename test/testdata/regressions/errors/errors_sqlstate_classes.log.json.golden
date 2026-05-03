@@ -53,88 +53,136 @@
   },
   "top_events": [
     {
+      "id": "er-ENBZ",
       "message": "canceling statement due to user request",
       "count": 1,
       "severity": "ERROR",
       "example": "[28012] 57014: user=app,db=appdb,app=psql,client=10.0.0.60 ERROR:  canceling statement due to user request",
-      "sql_state_class": "57"
+      "sql_state_class": "57",
+      "timestamps": [
+        1776664811200
+      ]
     },
     {
+      "id": "fa-zeJD",
       "message": "connection to server lost",
       "count": 1,
       "severity": "FATAL",
       "example": "[28001] 08006: user=app,db=appdb,app=psql,client=10.0.0.60 FATAL:  connection to server lost",
-      "sql_state_class": "08"
+      "sql_state_class": "08",
+      "timestamps": [
+        1776664800100
+      ]
     },
     {
+      "id": "er-6e2k",
       "message": "could not extend file ?: No space left on device",
       "count": 1,
       "severity": "ERROR",
       "example": "[28011] 53100: user=app,db=appdb,app=psql,client=10.0.0.60 ERROR:  could not extend file \"base/12345/16384\": No space left on device",
-      "sql_state_class": "53"
+      "sql_state_class": "53",
+      "timestamps": [
+        1776664810100
+      ]
     },
     {
+      "id": "er-PfC4",
       "message": "current transaction is aborted, commands ignored until end of transaction block",
       "count": 1,
       "severity": "ERROR",
       "example": "[28006] 25P02: user=app,db=appdb,app=psql,client=10.0.0.60 ERROR:  current transaction is aborted, commands ignored until end of transaction block",
-      "sql_state_class": "25"
+      "sql_state_class": "25",
+      "timestamps": [
+        1776664805600
+      ]
     },
     {
+      "id": "er-VHRD",
       "message": "division by zero",
       "count": 1,
       "severity": "ERROR",
       "example": "[28003] 22012: user=app,db=appdb,app=psql,client=10.0.0.60 ERROR:  division by zero",
-      "sql_state_class": "22"
+      "sql_state_class": "22",
+      "timestamps": [
+        1776664802300
+      ]
     },
     {
+      "id": "er-Enfg",
       "message": "duplicate key value violates unique constraint ?",
       "count": 1,
       "severity": "ERROR",
       "example": "[28004] 23505: user=app,db=appdb,app=psql,client=10.0.0.60 ERROR:  duplicate key value violates unique constraint \"users_email_key\"",
-      "sql_state_class": "23"
+      "sql_state_class": "23",
+      "timestamps": [
+        1776664803400
+      ]
     },
     {
+      "id": "er-Hakz",
       "message": "insert or update on table ? violates foreign key constraint ?",
       "count": 1,
       "severity": "ERROR",
       "example": "[28005] 23503: user=app,db=appdb,app=psql,client=10.0.0.60 ERROR:  insert or update on table \"orders\" violates foreign key constraint \"orders_user_id_fkey\"",
-      "sql_state_class": "23"
+      "sql_state_class": "23",
+      "timestamps": [
+        1776664804500
+      ]
     },
     {
+      "id": "fa-U26K",
       "message": "password authentication failed for user ?",
       "count": 1,
       "severity": "FATAL",
       "example": "[28007] 28P01: user=baduser,db=appdb,app=[unknown],client=10.0.0.61 FATAL:  password authentication failed for user \"baduser\"",
-      "sql_state_class": "28"
+      "sql_state_class": "28",
+      "timestamps": [
+        1776664806700
+      ]
     },
     {
+      "id": "er-OzwP",
       "message": "permission denied for table audit_logs",
       "count": 1,
       "severity": "ERROR",
       "example": "[28009] 42501: user=app,db=appdb,app=psql,client=10.0.0.60 ERROR:  permission denied for table audit_logs",
-      "sql_state_class": "42"
+      "sql_state_class": "42",
+      "timestamps": [
+        1776664808900
+      ]
     },
     {
+      "id": "er-b1aY",
       "message": "relation ? does not exist",
       "count": 1,
       "severity": "ERROR",
       "example": "[28010] 42P01: user=app,db=appdb,app=psql,client=10.0.0.60 ERROR:  relation \"missing_table\" does not exist",
-      "sql_state_class": "42"
+      "sql_state_class": "42",
+      "timestamps": [
+        1776664809000
+      ]
     },
     {
+      "id": "er-ihni",
       "message": "syntax error at or near ?",
       "count": 1,
       "severity": "ERROR",
       "example": "[28008] 42601: user=app,db=appdb,app=psql,client=10.0.0.60 ERROR:  syntax error at or near \"FORM\"",
-      "sql_state_class": "42"
+      "sql_state_class": "42",
+      "timestamps": [
+        1776664807800
+      ]
     },
     {
+      "id": "er-moke",
       "message": "value too long for type character varying(?)",
       "count": 1,
       "severity": "ERROR",
       "example": "[28002] 22001: user=app,db=appdb,app=psql,client=10.0.0.60 ERROR:  value too long for type character varying(50)",
-      "sql_state_class": "22"
+      "sql_state_class": "22",
+      "timestamps": [
+        1776664801200
+      ]
     }
   ],
   "users": [

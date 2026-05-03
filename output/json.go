@@ -1435,11 +1435,19 @@ type EventJSON struct {
 }
 
 type EventStatJSON struct {
-	Message       string `json:"message"`
-	Count         int    `json:"count"`
-	Severity      string `json:"severity"`
-	Example       string `json:"example"`
-	SQLStateClass string `json:"sql_state_class,omitempty"`
+	// ID is the stable short handle (e.g. "wa-aBc1") used as the CLI
+	// selector for `--event-detail` and as the click-target id in the
+	// HTML modal. Generated from severity + normalized message.
+	ID            string  `json:"id,omitempty"`
+	Message       string  `json:"message"`
+	Count         int     `json:"count"`
+	Severity      string  `json:"severity"`
+	Example       string  `json:"example"`
+	SQLStateClass string  `json:"sql_state_class,omitempty"`
+	// Timestamps lists every occurrence as Unix milliseconds. Consumed by
+	// the HTML report's per-event modal to render an occurrences-over-time
+	// sparkline. Omitted when empty.
+	Timestamps []int64 `json:"timestamps,omitempty"`
 }
 
 type ErrorClassJSON struct {
@@ -1619,11 +1627,13 @@ func buildJSONData(m analysis.AggregatedMetrics, sections []string, full bool) m
 			topEvents := make([]EventStatJSON, len(m.TopEvents))
 			for i, e := range m.TopEvents {
 				topEvents[i] = EventStatJSON{
+					ID:            e.ID,
 					Message:       e.Message,
 					Count:         e.Count,
 					Severity:      e.Severity,
 					Example:       e.Example,
 					SQLStateClass: e.SQLStateClass,
+					Timestamps:    e.Timestamps,
 				}
 			}
 			data["top_events"] = topEvents

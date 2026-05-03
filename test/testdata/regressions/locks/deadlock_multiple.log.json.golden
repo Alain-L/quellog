@@ -52,10 +52,16 @@
   },
   "top_events": [
     {
+      "id": "er-JY5d",
       "message": "deadlock detected",
       "count": 3,
       "severity": "ERROR",
-      "example": "[2001]: [1-1] user=app,db=appdb,app=psql,client=10.0.0.1 ERROR:  deadlock detected"
+      "example": "[2001]: [1-1] user=app,db=appdb,app=psql,client=10.0.0.1 ERROR:  deadlock detected",
+      "timestamps": [
+        1776589200100,
+        1776589530250,
+        1776589935700
+      ]
     }
   ],
   "users": [

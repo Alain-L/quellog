@@ -171,6 +171,23 @@ export function esc(s) {
     return d.innerHTML;
 }
 
+// escForJsAttr escapes a string so it can be safely embedded as a JS string
+// literal inside an HTML attribute (e.g. `onclick="...writeText('${x}')"`).
+// Order matters:
+//   1. esc() → neutralizes & < > for HTML
+//   2. " → &quot; so a quote in the text doesn't close the attribute
+//      (the bug that makes the leftover JS appear as button text when a
+//      message contains a double quote)
+//   3. ' → \' so the JS single-quoted string literal stays valid
+//   4. \n → \\n so newlines in messages don't break the JS line
+export function escForJsAttr(s) {
+    if (!s) return '';
+    return esc(s)
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, "\\'")
+        .replace(/\n/g, '\\n');
+}
+
 export function truncQuery(s, max = 120) {
     if (!s || s.length <= max) return s;
     return s.slice(0, max) + '…';
