@@ -51,7 +51,7 @@ This _quellog_ report summarizes **3** log entries collected between 19 Apr 2026
 ## EVENTS
 
 - **ERROR**: 1 (33.3%)
-  - `duplicate key value violates unique constraint ?` (1) [100.0%]
+  - *er-Enfg* `duplicate key value violates unique constraint ?` (1) [100.0%]
 
 - **LOG**: 2 (66.7%)
 

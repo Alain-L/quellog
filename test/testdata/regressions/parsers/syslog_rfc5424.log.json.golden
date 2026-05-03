@@ -145,6 +145,7 @@
   },
   "top_events": [
     {
+      "id": "er-OzwP",
       "message": "permission denied for table audit_logs",
       "count": 1,
       "severity": "ERROR",

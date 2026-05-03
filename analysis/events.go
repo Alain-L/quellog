@@ -17,6 +17,11 @@ type EventSummary struct {
 
 // EventStat holds statistics for a unique normalized message pattern.
 type EventStat struct {
+	// ID is a stable short handle of the form <sev>-<4-char-hash>
+	// (e.g. wa-aBc1, er-Qr5p). Generated from severity + normalized
+	// message via GenerateEventID. Used as the CLI selector for
+	// `--event-detail` and as the click-target id in the HTML modal.
+	ID            string
 	Message       string // normalized message
 	Count         int
 	Severity      string
@@ -319,6 +324,7 @@ func (a *EventAnalyzer) Process(entry *parser.LogEntry) {
 
 					// Limit unique patterns to prevent memory explosion
 					a.stats[pattern] = &EventStat{
+						ID:            GenerateEventID(severity, pattern),
 						Message:       pattern,
 						Count:         1,
 						Severity:      severity,

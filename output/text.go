@@ -1618,11 +1618,12 @@ func PrintEventsReport(summaries []analysis.EventSummary, topEvents []analysis.E
 					return classEvents[i].Count > classEvents[j].Count
 				})
 
-				// Print messages
-				indent := "      " // 6 spaces (2 for severity + 2 for class + 2 offset)
-				if classCode == "Unclassified" && len(classes) == 1 {
-					indent = "    " // 4 spaces if no class header
-				}
+				// Print messages at the same indent as the class header
+				// (4 spaces). Pattern IDs sit in the left margin
+				// instead of nested deeper — the third indent level
+				// crowded the layout and pushed the count column past
+				// the 80-col mark on long messages.
+				indent := "    "
 
 				for _, e := range classEvents {
 					msg := e.Message
@@ -1635,8 +1636,19 @@ func PrintEventsReport(summaries []analysis.EventSummary, topEvents []analysis.E
 						localPct = (float64(e.Count) / float64(summary.Count)) * 100
 					}
 
-					fmt.Printf("%s%-*s  %6d  %6.2f%%\n",
+					// Lead the row with the stable handle as a
+					// left-margin label, italic-grey to keep it
+					// secondary to the message. 7-char IDs (XX-XXXX)
+					// give a stable column. When no ID (severity not
+					// tracked as a pattern), pad with spaces so the
+					// message column stays aligned across rows.
+					idCol := strings.Repeat(" ", 7)
+					if e.ID != "" {
+						idCol = ansiMutedItalic + e.ID + ansiReset
+					}
+					fmt.Printf("%s%s  %-*s  %6d  %6.2f%%\n",
 						indent,
+						idCol,
 						msgWidth, msg,
 						e.Count, localPct)
 				}
@@ -1667,6 +1679,13 @@ func PrintHistogram(data map[string]int, title string, unit string, scaleFactor 
 	barWidth := termWidth - labelWidth - spacing - valueWidth
 	if barWidth < 10 {
 		barWidth = 10
+	}
+	// Cap the bar width even on very wide terminals — past ~40 chars
+	// the bars stop conveying ratio at a glance and just turn into a
+	// wall of blocks. The histogram is meant to be a quick visual cue,
+	// not a precise scale.
+	if barWidth > 80 {
+		barWidth = 40
 	}
 
 	// Label ordering: use explicit order if provided, otherwise sort by time.
@@ -1758,6 +1777,11 @@ func PrintCheckpointHistogram(data map[string]int, title string, scaleFactor int
 	barWidth := termWidth - labelWidth - spacing - valueWidth - freqWidth
 	if barWidth < 10 {
 		barWidth = 10
+	}
+	// Cap on very wide terminals — past ~40 chars the bars stop
+	// conveying ratio at a glance. Same rationale as PrintHistogram.
+	if barWidth > 80 {
+		barWidth = 40
 	}
 
 	// Sort labels by time
@@ -1932,6 +1956,11 @@ func PrintConcurrentHistogramWithTZ(data map[string]int, title string, scaleFact
 	barWidth := termWidth - labelWidth - spacing - valueWidth - peakTimeWidth
 	if barWidth < 10 {
 		barWidth = 10
+	}
+	// Cap on very wide terminals — past ~40 chars the bars stop
+	// conveying ratio at a glance. Same rationale as PrintHistogram.
+	if barWidth > 80 {
+		barWidth = 40
 	}
 
 	// Label ordering.

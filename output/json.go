@@ -1435,6 +1435,10 @@ type EventJSON struct {
 }
 
 type EventStatJSON struct {
+	// ID is the stable short handle (e.g. "wa-aBc1") used as the CLI
+	// selector for `--event-detail` and as the click-target id in the
+	// HTML modal. Generated from severity + normalized message.
+	ID            string  `json:"id,omitempty"`
 	Message       string  `json:"message"`
 	Count         int     `json:"count"`
 	Severity      string  `json:"severity"`
@@ -1623,6 +1627,7 @@ func buildJSONData(m analysis.AggregatedMetrics, sections []string, full bool) m
 			topEvents := make([]EventStatJSON, len(m.TopEvents))
 			for i, e := range m.TopEvents {
 				topEvents[i] = EventStatJSON{
+					ID:            e.ID,
 					Message:       e.Message,
 					Count:         e.Count,
 					Severity:      e.Severity,

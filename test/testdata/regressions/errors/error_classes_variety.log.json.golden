@@ -74,6 +74,7 @@
   },
   "top_events": [
     {
+      "id": "er-Wl9x",
       "message": "canceling statement due to lock timeout",
       "count": 1,
       "severity": "ERROR",
@@ -83,6 +84,7 @@
       ]
     },
     {
+      "id": "er-Hakz",
       "message": "insert or update on table ? violates foreign key constraint ?",
       "count": 1,
       "severity": "ERROR",
@@ -92,6 +94,7 @@
       ]
     },
     {
+      "id": "fa-U26K",
       "message": "password authentication failed for user ?",
       "count": 1,
       "severity": "FATAL",
@@ -101,6 +104,7 @@
       ]
     },
     {
+      "id": "er-OzwP",
       "message": "permission denied for table audit_logs",
       "count": 1,
       "severity": "ERROR",
@@ -110,6 +114,7 @@
       ]
     },
     {
+      "id": "er-ihni",
       "message": "syntax error at or near ?",
       "count": 1,
       "severity": "ERROR",
@@ -119,6 +124,7 @@
       ]
     },
     {
+      "id": "wa-0Em8",
       "message": "there is no transaction in progress",
       "count": 1,
       "severity": "WARNING",

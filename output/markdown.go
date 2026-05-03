@@ -163,7 +163,6 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 					// Level 2: Class
 					shouldPrintHeader := (classCode != "Unclassified") || (classCode == "Unclassified" && len(classes) > 1)
 
-					indent := "  "
 					if shouldPrintHeader {
 						classHeader := classCode
 						if classCode != "Unclassified" {
@@ -171,8 +170,11 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 							classHeader = fmt.Sprintf("%s - %s", classCode, desc)
 						}
 						b.WriteString(fmt.Sprintf("  - **%s**\n", classHeader))
-						indent = "    "
 					}
+					// Events at the same indent as the class header —
+					// pattern IDs in the left margin, flat under the
+					// class label.
+					indent := "  "
 
 					// Sort events by count
 					sort.Slice(classEvents, func(i, j int) bool {
@@ -193,8 +195,15 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 							localPct = (float64(e.Count) / float64(summary.Count)) * 100
 						}
 
-						b.WriteString(fmt.Sprintf("%s- `%s` (%d) [%.1f%%]\n",
-							indent, msg, e.Count, localPct))
+						idLead := ""
+						if e.ID != "" {
+							// Lead with the handle in italic — left
+							// margin label, mirrors the italic-grey
+							// column position used in text output.
+							idLead = "*" + e.ID + "* "
+						}
+						b.WriteString(fmt.Sprintf("%s- %s`%s` (%d) [%.1f%%]\n",
+							indent, idLead, msg, e.Count, localPct))
 					}
 				}
 			}

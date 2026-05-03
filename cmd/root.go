@@ -40,6 +40,7 @@ var (
 	sqlPerformanceFlag bool     // --sql-performance: Display detailed SQL performance report
 	sqlOverviewFlag    bool     // --sql-overview: Display query type overview with dimensional breakdown
 	sqlDetailFlag      []string // --sql-detail: Show details for specific SQL IDs
+	eventDetailFlag    []string // --event-detail: Show details for specific event pattern IDs (e.g. wa-aBc1)
 
 	// Section selection flags (print only specific sections)
 	summaryFlag     bool // --summary: Print only summary section
@@ -194,6 +195,8 @@ func init() {
 		"Display query type overview with breakdown by dimension")
 	rootCmd.PersistentFlags().StringSliceVarP(&sqlDetailFlag, "sql-detail", "Q", nil,
 		"Show details for specific SQL ID(s). Can be specified multiple times")
+	rootCmd.PersistentFlags().StringSliceVarP(&eventDetailFlag, "event-detail", "E", nil,
+		"Show details for specific event pattern ID(s) (e.g. wa-aBc1, er-Qr5p). Can be specified multiple times")
 
 	// Section selection flags
 	rootCmd.Flags().BoolVar(&summaryFlag, "summary", false,

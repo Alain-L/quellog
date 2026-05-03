@@ -91,6 +91,7 @@
   },
   "top_events": [
     {
+      "id": "er-JY5d",
       "message": "deadlock detected",
       "count": 1,
       "severity": "ERROR",

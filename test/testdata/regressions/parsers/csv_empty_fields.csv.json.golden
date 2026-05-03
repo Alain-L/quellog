@@ -92,6 +92,7 @@
   },
   "top_events": [
     {
+      "id": "er-Enfg",
       "message": "duplicate key value violates unique constraint ?",
       "count": 1,
       "severity": "ERROR",

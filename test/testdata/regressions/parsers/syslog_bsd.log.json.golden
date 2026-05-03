@@ -171,6 +171,7 @@
   },
   "top_events": [
     {
+      "id": "er-ihni",
       "message": "syntax error at or near ?",
       "count": 1,
       "severity": "ERROR",

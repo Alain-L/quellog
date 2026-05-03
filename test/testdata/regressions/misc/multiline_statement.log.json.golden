@@ -82,6 +82,7 @@
   },
   "top_events": [
     {
+      "id": "er-1GQz",
       "message": "syntax error at end of input",
       "count": 1,
       "severity": "ERROR",

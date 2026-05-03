@@ -53,6 +53,7 @@
   },
   "top_events": [
     {
+      "id": "er-ENBZ",
       "message": "canceling statement due to user request",
       "count": 1,
       "severity": "ERROR",
@@ -63,6 +64,7 @@
       ]
     },
     {
+      "id": "fa-zeJD",
       "message": "connection to server lost",
       "count": 1,
       "severity": "FATAL",
@@ -73,6 +75,7 @@
       ]
     },
     {
+      "id": "er-6e2k",
       "message": "could not extend file ?: No space left on device",
       "count": 1,
       "severity": "ERROR",
@@ -83,6 +86,7 @@
       ]
     },
     {
+      "id": "er-PfC4",
       "message": "current transaction is aborted, commands ignored until end of transaction block",
       "count": 1,
       "severity": "ERROR",
@@ -93,6 +97,7 @@
       ]
     },
     {
+      "id": "er-VHRD",
       "message": "division by zero",
       "count": 1,
       "severity": "ERROR",
@@ -103,6 +108,7 @@
       ]
     },
     {
+      "id": "er-Enfg",
       "message": "duplicate key value violates unique constraint ?",
       "count": 1,
       "severity": "ERROR",
@@ -113,6 +119,7 @@
       ]
     },
     {
+      "id": "er-Hakz",
       "message": "insert or update on table ? violates foreign key constraint ?",
       "count": 1,
       "severity": "ERROR",
@@ -123,6 +130,7 @@
       ]
     },
     {
+      "id": "fa-U26K",
       "message": "password authentication failed for user ?",
       "count": 1,
       "severity": "FATAL",
@@ -133,6 +141,7 @@
       ]
     },
     {
+      "id": "er-OzwP",
       "message": "permission denied for table audit_logs",
       "count": 1,
       "severity": "ERROR",
@@ -143,6 +152,7 @@
       ]
     },
     {
+      "id": "er-b1aY",
       "message": "relation ? does not exist",
       "count": 1,
       "severity": "ERROR",
@@ -153,6 +163,7 @@
       ]
     },
     {
+      "id": "er-ihni",
       "message": "syntax error at or near ?",
       "count": 1,
       "severity": "ERROR",
@@ -163,6 +174,7 @@
       ]
     },
     {
+      "id": "er-moke",
       "message": "value too long for type character varying(?)",
       "count": 1,
       "severity": "ERROR",

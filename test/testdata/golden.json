@@ -15410,6 +15410,7 @@
   },
   "top_events": [
     {
+      "id": "fa-Hcoq",
       "message": "database ? does not exist",
       "count": 2,
       "severity": "FATAL",
@@ -15421,6 +15422,7 @@
       ]
     },
     {
+      "id": "er-VHRD",
       "message": "division by zero",
       "count": 2,
       "severity": "ERROR",
@@ -15432,6 +15434,7 @@
       ]
     },
     {
+      "id": "er-Enfg",
       "message": "duplicate key value violates unique constraint ?",
       "count": 2,
       "severity": "ERROR",
@@ -15443,6 +15446,7 @@
       ]
     },
     {
+      "id": "er-Hakz",
       "message": "insert or update on table ? violates foreign key constraint ?",
       "count": 2,
       "severity": "ERROR",
@@ -15454,6 +15458,7 @@
       ]
     },
     {
+      "id": "fa-U26K",
       "message": "password authentication failed for user ?",
       "count": 2,
       "severity": "FATAL",
@@ -15465,6 +15470,7 @@
       ]
     },
     {
+      "id": "er-ihni",
       "message": "syntax error at or near ?",
       "count": 2,
       "severity": "ERROR",
@@ -15476,6 +15482,7 @@
       ]
     },
     {
+      "id": "er-JY5d",
       "message": "deadlock detected",
       "count": 1,
       "severity": "ERROR",

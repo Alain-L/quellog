@@ -283,17 +283,62 @@ func matchesKeyword(query, keyword string) bool {
 }
 
 func generateShortHash(hashBytes []byte) string {
+	return generateShortHashN(hashBytes, 6)
+}
+
+// generateShortHashN returns the first n base64 alphanumeric characters
+// from the hash, skipping +/= padding chars. Used at length 6 for SQL
+// query IDs (cardinality up to 100k+) and length 4 for event pattern
+// IDs (capped at 1000 patterns by EventAnalyzer, much smaller hash
+// space sufficient — see GenerateEventID).
+func generateShortHashN(hashBytes []byte, n int) string {
 	b64 := base64.StdEncoding.EncodeToString(hashBytes)
-	var shortHash [6]byte
+	out := make([]byte, n)
 	j := 0
-	for i := 0; i < len(b64) && j < 6; i++ {
+	for i := 0; i < len(b64) && j < n; i++ {
 		c := b64[i]
 		if c != '+' && c != '/' && c != '=' {
-			shortHash[j] = c
+			out[j] = c
 			j++
 		}
 	}
-	return string(shortHash[:])
+	return string(out)
+}
+
+// GenerateEventID builds a stable, short, human-typeable identifier for
+// an event pattern: <severity-prefix>-<4-char-hash>. The 4-char base64
+// suffix gives a 14.7 M space; with EventAnalyzer's hard 1000-pattern
+// cap (and ≤ 250 patterns expected per severity in the worst case),
+// the per-severity collision risk stays around 0.2 % — acceptable for a
+// CLI handle the user types into --event-detail. Severity prefixes:
+//   pa- PANIC, fa- FATAL, er- ERROR, wa- WARNING.
+// Returns "" for severities we don't track patterns for (LOG, INFO,
+// DEBUG, NOTICE).
+func GenerateEventID(severity, normalized string) string {
+	prefix := eventSeverityPrefix(severity)
+	if prefix == "" {
+		return ""
+	}
+	hashBytes := md5.Sum([]byte(normalized))
+	return prefix + "-" + generateShortHashN(hashBytes[:], 4)
+}
+
+// eventSeverityPrefix maps a PostgreSQL severity to its 2-char ID
+// prefix, or "" if the severity is informational and not tracked as a
+// distinct pattern by EventAnalyzer.
+func eventSeverityPrefix(severity string) string {
+	switch severity {
+	case "PANIC":
+		return "pa"
+	case "FATAL":
+		return "fa"
+	case "ERROR":
+		return "er"
+	case "WARNING":
+		return "wa"
+	default:
+		return ""
+	}
 }
 
 // ============================================================================

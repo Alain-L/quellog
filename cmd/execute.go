@@ -334,6 +334,31 @@ func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry
 		return nil
 	}
 
+	// Special case: event pattern details (lookup by ID like wa-aBc1)
+	if len(eventDetailFlag) > 0 {
+		metrics, processingDuration, err := requireMetrics(ctx, filteredLogs, totalFileSize, startTime, pb)
+		if err != nil {
+			return err
+		}
+		w, closer, err := createOutputWriter(outputFlag)
+		if err != nil {
+			return err
+		}
+		defer closer()
+
+		if jsonFlag {
+			output.ExportEventDetailJSON(w, metrics, eventDetailFlag)
+		} else if yamlFlag {
+			output.ExportEventDetailYAML(w, metrics, eventDetailFlag)
+		} else if mdFlag {
+			output.ExportEventDetailMarkdown(w, metrics, eventDetailFlag)
+		} else {
+			PrintProcessingSummary(metrics.SQL.TotalQueries, processingDuration, totalFileSize)
+			output.PrintEventDetails(metrics, eventDetailFlag)
+		}
+		return nil
+	}
+
 	// Special case: SQL performance (detailed aggregated query statistics)
 	// Skip if --full is set (will be included in full report)
 	if sqlPerformanceFlag && !fullFlag {

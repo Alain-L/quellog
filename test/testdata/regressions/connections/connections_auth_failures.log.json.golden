@@ -133,6 +133,7 @@
   },
   "top_events": [
     {
+      "id": "fa-HOhR",
       "message": "LDAP authentication failed for user ?",
       "count": 1,
       "severity": "FATAL",
@@ -142,6 +143,7 @@
       ]
     },
     {
+      "id": "fa-sl4I",
       "message": "Peer authentication failed for user ?",
       "count": 1,
       "severity": "FATAL",
@@ -151,6 +153,7 @@
       ]
     },
     {
+      "id": "fa-ZSl9",
       "message": "no pg_hba.conf entry for host ?, user ?, database ?, no encryption",
       "count": 1,
       "severity": "FATAL",
@@ -160,6 +163,7 @@
       ]
     },
     {
+      "id": "fa-U26K",
       "message": "password authentication failed for user ?",
       "count": 1,
       "severity": "FATAL",
