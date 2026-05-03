@@ -1438,12 +1438,12 @@ type EventStatJSON struct {
 	// ID is the stable short handle (e.g. "wa-aBc1") used as the CLI
 	// selector for `--event-detail` and as the click-target id in the
 	// HTML modal. Generated from severity + normalized message.
-	ID            string  `json:"id,omitempty"`
-	Message       string  `json:"message"`
-	Count         int     `json:"count"`
-	Severity      string  `json:"severity"`
-	Example       string  `json:"example"`
-	SQLStateClass string  `json:"sql_state_class,omitempty"`
+	ID            string `json:"id,omitempty"`
+	Message       string `json:"message"`
+	Count         int    `json:"count"`
+	Severity      string `json:"severity"`
+	Example       string `json:"example"`
+	SQLStateClass string `json:"sql_state_class,omitempty"`
 	// Timestamps lists every occurrence as Unix milliseconds. Consumed by
 	// the HTML report's per-event modal to render an occurrences-over-time
 	// sparkline. Omitted when empty.

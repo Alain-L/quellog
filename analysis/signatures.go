@@ -311,7 +311,9 @@ func generateShortHashN(hashBytes []byte, n int) string {
 // cap (and ≤ 250 patterns expected per severity in the worst case),
 // the per-severity collision risk stays around 0.2 % — acceptable for a
 // CLI handle the user types into --event-detail. Severity prefixes:
-//   pa- PANIC, fa- FATAL, er- ERROR, wa- WARNING.
+//
+//	pa- PANIC, fa- FATAL, er- ERROR, wa- WARNING.
+//
 // Returns "" for severities we don't track patterns for (LOG, INFO,
 // DEBUG, NOTICE).
 func GenerateEventID(severity, normalized string) string {
