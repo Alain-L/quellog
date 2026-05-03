@@ -490,13 +490,14 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 		isDetailedMode := full || !has("all")
 
 		// Concurrent sessions histogram (always shown, more buckets in detailed mode)
-		if len(m.Connections.SessionEvents) > 0 && !m.Global.MinTimestamp.IsZero() && !m.Global.MaxTimestamp.IsZero() {
+		if m.Connections.SessionEventsCount() > 0 && !m.Global.MinTimestamp.IsZero() && !m.Global.MaxTimestamp.IsZero() {
 			numBuckets := 6
 			if isDetailedMode {
 				numBuckets = 12
 			}
 			concurrentHist, labels, concurrentScale, peakTimes := computeConcurrentHistogram(
-				m.Connections.SessionEvents,
+				m.Connections.IterateSessionEvents,
+				m.Connections.SessionEventsCount(),
 				m.Global.MinTimestamp,
 				m.Global.MaxTimestamp,
 				numBuckets,
@@ -508,7 +509,7 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 
 		// Connection distribution histogram (only in detailed mode)
 		if isDetailedMode {
-			hist, _, scaleFactor := computeConnectionsHistogram(m.Connections.Connections, m.Global.MinTimestamp, m.Global.MaxTimestamp, 12)
+			hist, _, scaleFactor := computeConnectionsHistogram(m.Connections.IterateConnections, m.Connections.ConnectionsCount(), m.Global.MinTimestamp, m.Global.MaxTimestamp, 12)
 			PrintHistogram(hist, "Connection distribution", "", scaleFactor, nil)
 		}
 
