@@ -17,13 +17,26 @@ type SessionEvent struct {
 }
 
 // ConnectionMetrics aggregates statistics on database connections and sessions.
+//
+// Iterating connections and session events:
+//
+// The Connections []time.Time and SessionEvents []SessionEvent fields
+// are intentionally NOT materialized at Finalize on large logs (5.7 M
+// sessions on J.log = 410 MB transient peak). Use the iterator methods
+// IterateConnections / IterateSessionEvents and the count helpers
+// ConnectionsCount / SessionEventsCount instead. The deprecated slice
+// fields are still populated for the *_test paths that snapshot the
+// full set; see materializeSlices() and the lazy-on-first-access
+// behavior of the renderers.
 type ConnectionMetrics struct {
 	ConnectionReceivedCount int
 	DisconnectionCount      int
 	// TotalSessionTime: accumulated duration, only sessions with logged
 	// duration (requires log_disconnections = on).
 	TotalSessionTime time.Duration
-	// Connections: timestamps of all connection events.
+	// Connections: deprecated direct slice. Always nil after Finalize on
+	// the streaming path — call IterateConnections to walk events without
+	// allocating the full N×24 B slice.
 	Connections []time.Time
 	// SessionStats: count/min/max/avg/median. Median is estimated via P²
 	// (<5% error after 50 samples, <0.01% after 1000); the rest is exact.
@@ -33,14 +46,107 @@ type ConnectionMetrics struct {
 	// 30min", "30min - 2h", "2h - 5h", "> 5h"). Computed in streaming so
 	// the per-session slice can be discarded.
 	SessionDistribution map[string]int
-	// SessionEvents: start/end of every session, used for concurrent-
-	// sessions over time computations.
+	// SessionEvents: deprecated direct slice. Always nil after Finalize on
+	// the streaming path — call IterateSessionEvents to walk events
+	// without allocating the full N×48 B slice (273 MB on J.log).
 	SessionEvents           []SessionEvent
 	SessionsByUser          map[string]*StreamingDurationStats
 	SessionsByDatabase      map[string]*StreamingDurationStats
 	SessionsByHost          map[string]*StreamingDurationStats
 	PeakConcurrentSessions  int
 	PeakConcurrentTimestamp time.Time
+
+	// receivedChunksRef and sessionChunksRef are the compact backing
+	// storage moved from the analyzer at Finalize. The renderers iterate
+	// these via IterateConnections / IterateSessionEvents instead of
+	// allocating the full N×24 / N×48 B materialized slices, which on
+	// J.log saved a 410 MB transient peak at output time.
+	//
+	// locRef is the timezone captured from the first event observed by
+	// the analyzer; reused when expanding compact Unix-ms timestamps so
+	// the wall clock matches what the parser emitted.
+	receivedChunksRef [][]int64
+	sessionChunksRef  [][]compactSession
+	locRef            *time.Location
+}
+
+// IterateConnections yields every received-connection timestamp in
+// observed order. Returning false stops iteration early. No intermediate
+// []time.Time slice is built.
+func (m *ConnectionMetrics) IterateConnections(fn func(time.Time) bool) {
+	if len(m.receivedChunksRef) > 0 {
+		loc := m.locRef
+		if loc == nil {
+			loc = time.UTC
+		}
+		for _, chunk := range m.receivedChunksRef {
+			for _, ms := range chunk {
+				if !fn(time.UnixMilli(ms).In(loc)) {
+					return
+				}
+			}
+		}
+		return
+	}
+	// Fallback: legacy materialized slice (Mock metrics in tests, JSON
+	// inputs from --json-input, etc.).
+	for _, t := range m.Connections {
+		if !fn(t) {
+			return
+		}
+	}
+}
+
+// IterateSessionEvents yields every completed session in observed
+// order. Returning false stops iteration early.
+func (m *ConnectionMetrics) IterateSessionEvents(fn func(SessionEvent) bool) {
+	if len(m.sessionChunksRef) > 0 {
+		loc := m.locRef
+		if loc == nil {
+			loc = time.UTC
+		}
+		for _, chunk := range m.sessionChunksRef {
+			for _, s := range chunk {
+				if !fn(SessionEvent{
+					StartTime: time.UnixMilli(s.startUnixMs).In(loc),
+					EndTime:   time.UnixMilli(s.endUnixMs).In(loc),
+				}) {
+					return
+				}
+			}
+		}
+		return
+	}
+	for _, s := range m.SessionEvents {
+		if !fn(s) {
+			return
+		}
+	}
+}
+
+// ConnectionsCount returns the total number of received-connection
+// events stored, whether in compact chunks or in the legacy slice.
+func (m *ConnectionMetrics) ConnectionsCount() int {
+	if len(m.receivedChunksRef) > 0 {
+		n := 0
+		for _, c := range m.receivedChunksRef {
+			n += len(c)
+		}
+		return n
+	}
+	return len(m.Connections)
+}
+
+// SessionEventsCount returns the total number of session events stored.
+func (m *ConnectionMetrics) SessionEventsCount() int {
+	if len(m.sessionChunksRef) > 0 {
+		n := 0
+		for _, c := range m.sessionChunksRef {
+			n += len(c)
+		}
+		return n
+	}
+	return len(m.SessionEvents)
 }
 
 // ============================================================================
@@ -175,15 +281,6 @@ func (a *ConnectionAnalyzer) addSession(start, end time.Time) {
 		n++
 	}
 	a.sessionChunks[n-1] = append(a.sessionChunks[n-1], cs)
-}
-
-// totalSessions returns the total session count across all chunks.
-func (a *ConnectionAnalyzer) totalSessions() int {
-	n := 0
-	for _, c := range a.sessionChunks {
-		n += len(c)
-	}
-	return n
 }
 
 // newSessionDistribution returns a fresh distribution map with all
@@ -371,56 +468,35 @@ func (a *ConnectionAnalyzer) Finalize() ConnectionMetrics {
 		}
 	}
 
-	// Materialize compact storage back to API types. This happens once,
-	// at output time, so the during-Process heap stays compact (~6×
-	// denser) and the slice-doubling transients are gone.
+	// Hand the compact chunked storage off to the metrics struct without
+	// materializing the API-typed slices. Renderers iterate via
+	// IterateConnections / IterateSessionEvents on the chunks directly,
+	// avoiding the 410 MB transient peak that the previous N×24 / N×48 B
+	// allocations cost on J.log (5.7 M sessions).
 	loc := a.loc
 	if loc == nil {
 		loc = time.UTC
 	}
-	connections := make([]time.Time, 0, a.totalReceived())
-	for _, chunk := range a.receivedChunks {
-		for _, ms := range chunk {
-			connections = append(connections, time.UnixMilli(ms).In(loc))
-		}
-	}
 
-	sessionEvents := make([]SessionEvent, 0, a.totalSessions())
-	for _, chunk := range a.sessionChunks {
-		for _, s := range chunk {
-			sessionEvents = append(sessionEvents, SessionEvent{
-				StartTime: time.UnixMilli(s.startUnixMs).In(loc),
-				EndTime:   time.UnixMilli(s.endUnixMs).In(loc),
-			})
-		}
-	}
-
-	peakConcurrent, peakTimestamp := computePeakSweepline(sessionEvents)
+	peakConcurrent, peakTimestamp := computePeakSweepline(a.sessionChunks, loc)
 
 	return ConnectionMetrics{
 		ConnectionReceivedCount: a.connectionReceivedCount,
 		DisconnectionCount:      a.disconnectionCount,
 		TotalSessionTime:        a.totalSessionTime,
-		Connections:             connections,
 		SessionStats:            a.globalSessionStats.Stats(),
 		SessionCumulated:        a.globalSessionStats.Cumulated(),
 		SessionDistribution:     a.sessionDistribution,
-		SessionEvents:           sessionEvents,
 		SessionsByUser:          a.sessionsByUser,
 		SessionsByDatabase:      a.sessionsByDatabase,
 		SessionsByHost:          a.sessionsByHost,
 		PeakConcurrentSessions:  peakConcurrent,
 		PeakConcurrentTimestamp: peakTimestamp,
-	}
-}
 
-// totalReceived returns the total received-event count across chunks.
-func (a *ConnectionAnalyzer) totalReceived() int {
-	n := 0
-	for _, c := range a.receivedChunks {
-		n += len(c)
+		receivedChunksRef: a.receivedChunks,
+		sessionChunksRef:  a.sessionChunks,
+		locRef:            loc,
 	}
-	return n
 }
 
 // computePeakSweepline returns the maximum number of overlapping sessions
@@ -432,63 +508,77 @@ func (a *ConnectionAnalyzer) totalReceived() int {
 // The convention is "starts before ends at tied timestamps", same as
 // histogram.go's computeConcurrentHistogram, so the histogram peak and
 // this PeakConcurrentSessions value converge by construction.
-func computePeakSweepline(events []SessionEvent) (int, time.Time) {
-	if len(events) == 0 {
+func computePeakSweepline(chunks [][]compactSession, loc *time.Location) (int, time.Time) {
+	if len(chunks) == 0 {
 		return 0, time.Time{}
 	}
-	// Two parallel uint32 index lists into events — one for StartTime
-	// order, one for EndTime order. Indices instead of materialized
-	// {time, delta} structs shrink the transient footprint 8× (4 B vs
-	// 32 B per entry). On J.log (5.7 M sessions) that's ~45 MB instead
-	// of ~365 MB for the temporary buffers held during Finalize.
-	n := len(events)
+	if loc == nil {
+		loc = time.UTC
+	}
+	// Build flat uint32 indices into the chunk grid: hi 16 bits = chunk
+	// index, lo 16 bits = position inside the chunk (sessionsPerChunk =
+	// 1<<16). Two parallel lists — one for start order, one for end order
+	// — give the same 8× shrink (4 B vs 32 B per entry) the previous
+	// flat-slice version had, but without materializing the N×16 B
+	// compact slice nor the N×48 B SessionEvent slice. On J.log this
+	// drops the Finalize peak from ~410 MB to ~45 MB.
+	n := 0
+	for _, c := range chunks {
+		n += len(c)
+	}
 	startIdx := make([]uint32, 0, n)
 	endIdx := make([]uint32, 0, n)
-	for i, e := range events {
-		if e.StartTime.IsZero() || e.EndTime.IsZero() {
-			continue
+	for ci, chunk := range chunks {
+		base := uint32(ci) << 16
+		for ei, s := range chunk {
+			if s.startUnixMs == 0 || s.endUnixMs == 0 {
+				continue
+			}
+			idx := base | uint32(ei)
+			startIdx = append(startIdx, idx)
+			endIdx = append(endIdx, idx)
 		}
-		startIdx = append(startIdx, uint32(i))
-		endIdx = append(endIdx, uint32(i))
 	}
 	if len(startIdx) == 0 {
 		return 0, time.Time{}
 	}
+	startMs := func(idx uint32) int64 { return chunks[idx>>16][idx&0xFFFF].startUnixMs }
+	endMs := func(idx uint32) int64 { return chunks[idx>>16][idx&0xFFFF].endUnixMs }
 	sort.Slice(startIdx, func(i, j int) bool {
-		return events[startIdx[i]].StartTime.Before(events[startIdx[j]].StartTime)
+		return startMs(startIdx[i]) < startMs(startIdx[j])
 	})
 	sort.Slice(endIdx, func(i, j int) bool {
-		return events[endIdx[i]].EndTime.Before(events[endIdx[j]].EndTime)
+		return endMs(endIdx[i]) < endMs(endIdx[j])
 	})
 
 	// Sweep both index lists in lockstep. At each step take the earlier
 	// pending timestamp; tie-break "starts (+1) before ends (-1)" so
 	// the local peak is captured before the matching decrement.
 	cur, peak := 0, 0
-	var peakT time.Time
+	var peakMs int64
 	s, e := 0, 0
 	for s < len(startIdx) || e < len(endIdx) {
-		var t time.Time
+		var ms int64
 		var delta int
 		switch {
 		case e >= len(endIdx):
-			t = events[startIdx[s]].StartTime
+			ms = startMs(startIdx[s])
 			delta = +1
 			s++
 		case s >= len(startIdx):
-			t = events[endIdx[e]].EndTime
+			ms = endMs(endIdx[e])
 			delta = -1
 			e++
 		default:
-			sT := events[startIdx[s]].StartTime
-			eT := events[endIdx[e]].EndTime
-			// sT <= eT → take start (covers tie: +1 before -1)
-			if !eT.Before(sT) {
-				t = sT
+			sMs := startMs(startIdx[s])
+			eMs := endMs(endIdx[e])
+			// sMs <= eMs → take start (covers tie: +1 before -1)
+			if sMs <= eMs {
+				ms = sMs
 				delta = +1
 				s++
 			} else {
-				t = eT
+				ms = eMs
 				delta = -1
 				e++
 			}
@@ -496,10 +586,13 @@ func computePeakSweepline(events []SessionEvent) (int, time.Time) {
 		cur += delta
 		if cur > peak {
 			peak = cur
-			peakT = t
+			peakMs = ms
 		}
 	}
-	return peak, peakT
+	if peak == 0 {
+		return 0, time.Time{}
+	}
+	return peak, time.UnixMilli(peakMs).In(loc)
 }
 
 // ============================================================================

@@ -475,25 +475,33 @@ func computeWALDistanceHistogram(m analysis.CheckpointMetrics) []WALDistanceBuck
 //   - histogram: map of time range labels to connection count
 //   - unit: "connections"
 //   - scaleFactor: for proportional display (max bar width = 40 chars)
-func computeConnectionsHistogram(events []time.Time, logStart, logEnd time.Time, numBuckets ...int) (map[string]int, string, int) {
-	if len(events) == 0 {
+func computeConnectionsHistogram(iter func(fn func(time.Time) bool), count int, logStart, logEnd time.Time, numBuckets ...int) (map[string]int, string, int) {
+	if count == 0 {
 		return nil, "", 0
 	}
 
-	// Use log period if provided, otherwise derive from events
+	// Use log period if provided, otherwise derive from events.
+	// The derivation walks the iterator once; the bucketing pass walks
+	// it again. Callers always pass non-zero log bounds in production —
+	// the derivation path exists only for tests / future direct uses.
 	start := logStart
 	end := logEnd
 	if start.IsZero() || end.IsZero() {
-		start = events[0]
-		end = events[0]
-		for _, t := range events {
+		first := true
+		iter(func(t time.Time) bool {
+			if first {
+				start, end = t, t
+				first = false
+				return true
+			}
 			if t.Before(start) {
 				start = t
 			}
 			if t.After(end) {
 				end = t
 			}
-		}
+			return true
+		})
 	}
 
 	// Default to 6 buckets if not specified.
@@ -533,10 +541,10 @@ func computeConnectionsHistogram(events []time.Time, logStart, logEnd time.Time,
 	}
 
 	// Distribute events into buckets.
-	for _, t := range events {
+	iter(func(t time.Time) bool {
 		// Skip events outside the [start, end] range.
 		if t.Before(start) || t.After(end) {
-			continue
+			return true
 		}
 		elapsed := t.Sub(start)
 		bucketIndex := int(elapsed / bucketDuration)
@@ -544,7 +552,8 @@ func computeConnectionsHistogram(events []time.Time, logStart, logEnd time.Time,
 			bucketIndex = nBuckets - 1
 		}
 		histogram[bucketLabels[bucketIndex]]++
-	}
+		return true
+	})
 
 	// Compute scale factor for display (max 40 bar blocks).
 	maxValue := 0
@@ -565,8 +574,8 @@ func computeConnectionsHistogram(events []time.Time, logStart, logEnd time.Time,
 // computeConcurrentHistogram calculates concurrent sessions over time during the analyzed period.
 // It divides the log period (logStart to logEnd) into numBuckets buckets and counts concurrent sessions.
 // Returns: histogram data, ordered labels, scale factor, and peak times for each bucket.
-func computeConcurrentHistogram(sessions []analysis.SessionEvent, logStart, logEnd time.Time, numBuckets int) (map[string]int, []string, int, map[string]time.Time) {
-	if len(sessions) == 0 || logStart.IsZero() || logEnd.IsZero() {
+func computeConcurrentHistogram(iter func(fn func(analysis.SessionEvent) bool), count int, logStart, logEnd time.Time, numBuckets int) (map[string]int, []string, int, map[string]time.Time) {
+	if count == 0 || logStart.IsZero() || logEnd.IsZero() {
 		return nil, nil, 1, nil
 	}
 
@@ -624,13 +633,14 @@ func computeConcurrentHistogram(sessions []analysis.SessionEvent, logStart, logE
 		time  time.Time
 		delta int // +1 start, -1 end
 	}
-	events := make([]event, 0, len(sessions)*2)
-	for _, s := range sessions {
+	events := make([]event, 0, count*2)
+	iter(func(s analysis.SessionEvent) bool {
 		if !s.StartTime.IsZero() && !s.EndTime.IsZero() {
 			events = append(events, event{s.StartTime, +1})
 			events = append(events, event{s.EndTime, -1})
 		}
-	}
+		return true
+	})
 
 	// Sort events by time (starts before ends at same time for correct counting)
 	sort.Slice(events, func(i, j int) bool {

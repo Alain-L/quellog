@@ -313,19 +313,70 @@ type ConnectionsJSON struct {
 	SessionEvents lazySessionEvents `json:"session_events,omitempty"`
 }
 
-// lazySessionEvents marshals an []analysis.SessionEvent directly to JSON
-// without allocating an intermediate []SessionEventJSON slice. On large
-// logs the intermediate slice was the dominant transient cost (~400 MB
-// for 5.7M sessions on J.log) and required ~2M heap allocations. The
-// lazy wrapper does it in 2 allocations total.
+// lazySessionEvents marshals session events directly to JSON without
+// allocating an intermediate []SessionEventJSON slice. On large logs
+// the intermediate slice was the dominant transient cost (~400 MB for
+// 5.7M sessions on J.log) and required ~2M heap allocations.
+//
+// Source can be either a *analysis.ConnectionMetrics (chunked storage,
+// no full-slice materialization) or a flat []analysis.SessionEvent
+// (legacy / test paths). The metrics backing avoids materializing the
+// 273 MB API-typed slice on J.log entirely; the iterator walks the
+// internal compact chunks.
 type lazySessionEvents struct {
-	events []analysis.SessionEvent
+	metrics *analysis.ConnectionMetrics
+	events  []analysis.SessionEvent
 }
 
-// lazyConnections marshals an []time.Time directly to JSON without an
-// intermediate []string slice. Same pattern as lazySessionEvents.
+// iterate yields each session event in order from whichever backing is set.
+func (l lazySessionEvents) iterate(fn func(analysis.SessionEvent) bool) {
+	if l.metrics != nil {
+		l.metrics.IterateSessionEvents(fn)
+		return
+	}
+	for _, e := range l.events {
+		if !fn(e) {
+			return
+		}
+	}
+}
+
+// count returns the total number of session events in either backing.
+func (l lazySessionEvents) count() int {
+	if l.metrics != nil {
+		return l.metrics.SessionEventsCount()
+	}
+	return len(l.events)
+}
+
+// lazyConnections marshals received-connection timestamps directly to
+// JSON without an intermediate []string slice. Same dual-backing scheme
+// as lazySessionEvents — *ConnectionMetrics for chunked storage,
+// []time.Time for legacy/test paths.
 type lazyConnections struct {
+	metrics    *analysis.ConnectionMetrics
 	timestamps []time.Time
+}
+
+// iterate yields each connection timestamp in order from whichever backing is set.
+func (l lazyConnections) iterate(fn func(time.Time) bool) {
+	if l.metrics != nil {
+		l.metrics.IterateConnections(fn)
+		return
+	}
+	for _, t := range l.timestamps {
+		if !fn(t) {
+			return
+		}
+	}
+}
+
+// count returns the total number of timestamps in either backing.
+func (l lazyConnections) count() int {
+	if l.metrics != nil {
+		return l.metrics.ConnectionsCount()
+	}
+	return len(l.timestamps)
 }
 
 // lazyExecutions marshals an []analysis.QueryExecution directly to JSON
@@ -390,16 +441,17 @@ type lazyTempFileEvents struct {
 // Uses time.Time.AppendFormat into a flat []byte instead of bytes.Buffer
 // + Format(): zero intermediate string allocation per event.
 func (l lazySessionEvents) MarshalJSON() ([]byte, error) {
-	if len(l.events) == 0 {
+	n := l.count()
+	if n == 0 {
 		return []byte("null"), nil
 	}
 	// Each event ≈ 52 bytes (`{"s":"...","e":"..."}`). +2 brackets.
-	buf := make([]byte, 0, len(l.events)*52+2)
+	buf := make([]byte, 0, n*52+2)
 	buf = append(buf, '[')
 	first := true
-	for _, se := range l.events {
+	l.iterate(func(se analysis.SessionEvent) bool {
 		if se.StartTime.IsZero() || se.EndTime.IsZero() {
-			continue
+			return true
 		}
 		if !first {
 			buf = append(buf, ',')
@@ -410,7 +462,8 @@ func (l lazySessionEvents) MarshalJSON() ([]byte, error) {
 		buf = append(buf, `","e":"`...)
 		buf = se.EndTime.AppendFormat(buf, "2006-01-02T15:04:05")
 		buf = append(buf, `"}`...)
-	}
+		return true
+	})
 	buf = append(buf, ']')
 	return buf, nil
 }
@@ -418,20 +471,24 @@ func (l lazySessionEvents) MarshalJSON() ([]byte, error) {
 // MarshalJSON for lazyConnections — array of "YYYY-MM-DD HH:MM:SS" strings.
 // Empty input → "[]" (the field tag has no omitempty).
 func (l lazyConnections) MarshalJSON() ([]byte, error) {
-	if len(l.timestamps) == 0 {
+	n := l.count()
+	if n == 0 {
 		return []byte("[]"), nil
 	}
 	// Each timestamp ≈ 22 bytes (`"2006-01-02 15:04:05",`). +2 brackets.
-	buf := make([]byte, 0, len(l.timestamps)*22+2)
+	buf := make([]byte, 0, n*22+2)
 	buf = append(buf, '[')
-	for i, t := range l.timestamps {
-		if i > 0 {
+	first := true
+	l.iterate(func(t time.Time) bool {
+		if !first {
 			buf = append(buf, ',')
 		}
+		first = false
 		buf = append(buf, '"')
 		buf = t.AppendFormat(buf, "2006-01-02 15:04:05")
 		buf = append(buf, '"')
-	}
+		return true
+	})
 	buf = append(buf, ']')
 	return buf, nil
 }
@@ -485,50 +542,13 @@ func (e *fieldEmitter) emitScalar(key string, value any) error {
 	return nil
 }
 
-// streamTimestampsJSON writes ts as a JSON array of "YYYY-MM-DD HH:MM:SS"
-// strings directly to bw — one item at a time, no intermediate buffer.
-// Peak memory = bufio buffer (~4 KB), regardless of len(ts).
-func streamTimestampsJSON(bw *bufio.Writer, ts []time.Time, prefix, indent string, compact bool) {
-	if len(ts) == 0 {
-		bw.WriteString("[]")
-		return
-	}
-	inner := prefix + indent
-	if compact {
-		bw.WriteByte('[')
-		for i, t := range ts {
-			if i > 0 {
-				bw.WriteByte(',')
-			}
-			bw.WriteByte('"')
-			var buf [20]byte
-			bw.Write(t.AppendFormat(buf[:0], "2006-01-02 15:04:05"))
-			bw.WriteByte('"')
-		}
-		bw.WriteByte(']')
-		return
-	}
-	bw.WriteString("[\n")
-	for i, t := range ts {
-		if i > 0 {
-			bw.WriteString(",\n")
-		}
-		bw.WriteString(inner)
-		bw.WriteByte('"')
-		var buf [20]byte
-		bw.Write(t.AppendFormat(buf[:0], "2006-01-02 15:04:05"))
-		bw.WriteByte('"')
-	}
-	bw.WriteByte('\n')
-	bw.WriteString(prefix)
-	bw.WriteByte(']')
-}
-
-// streamSessionEventsJSON writes events as a JSON array of {"s":..,"e":..}
-// objects directly to bw. Same zero-buffer streaming as
-// streamTimestampsJSON.
-func streamSessionEventsJSON(bw *bufio.Writer, events []analysis.SessionEvent, prefix, indent string, compact bool) {
-	if len(events) == 0 {
+// streamTimestampsJSON writes connection timestamps as a JSON array of
+// "YYYY-MM-DD HH:MM:SS" strings directly to bw — one item at a time,
+// no intermediate buffer. Peak memory = bufio buffer (~4 KB), regardless
+// of how many connections are stored. Source can be either the chunked
+// metrics or a flat slice (legacy / test paths).
+func streamTimestampsJSON(bw *bufio.Writer, src lazyConnections, prefix, indent string, compact bool) {
+	if src.count() == 0 {
 		bw.WriteString("[]")
 		return
 	}
@@ -536,9 +556,55 @@ func streamSessionEventsJSON(bw *bufio.Writer, events []analysis.SessionEvent, p
 	if compact {
 		bw.WriteByte('[')
 		first := true
-		for _, se := range events {
+		src.iterate(func(t time.Time) bool {
+			if !first {
+				bw.WriteByte(',')
+			}
+			first = false
+			bw.WriteByte('"')
+			var buf [20]byte
+			bw.Write(t.AppendFormat(buf[:0], "2006-01-02 15:04:05"))
+			bw.WriteByte('"')
+			return true
+		})
+		bw.WriteByte(']')
+		return
+	}
+	bw.WriteString("[\n")
+	first := true
+	src.iterate(func(t time.Time) bool {
+		if !first {
+			bw.WriteString(",\n")
+		}
+		first = false
+		bw.WriteString(inner)
+		bw.WriteByte('"')
+		var buf [20]byte
+		bw.Write(t.AppendFormat(buf[:0], "2006-01-02 15:04:05"))
+		bw.WriteByte('"')
+		return true
+	})
+	bw.WriteByte('\n')
+	bw.WriteString(prefix)
+	bw.WriteByte(']')
+}
+
+// streamSessionEventsJSON writes session events as a JSON array of
+// {"s":..,"e":..} objects directly to bw. Same zero-buffer streaming as
+// streamTimestampsJSON; iterates either the chunked metrics or a flat
+// slice through the lazySessionEvents wrapper.
+func streamSessionEventsJSON(bw *bufio.Writer, src lazySessionEvents, prefix, indent string, compact bool) {
+	if src.count() == 0 {
+		bw.WriteString("[]")
+		return
+	}
+	inner := prefix + indent
+	if compact {
+		bw.WriteByte('[')
+		first := true
+		src.iterate(func(se analysis.SessionEvent) bool {
 			if se.StartTime.IsZero() || se.EndTime.IsZero() {
-				continue
+				return true
 			}
 			if !first {
 				bw.WriteByte(',')
@@ -550,15 +616,17 @@ func streamSessionEventsJSON(bw *bufio.Writer, events []analysis.SessionEvent, p
 			bw.WriteString(`","e":"`)
 			bw.Write(se.EndTime.AppendFormat(buf[:0], "2006-01-02T15:04:05"))
 			bw.WriteString(`"}`)
-		}
+			return true
+		})
 		bw.WriteByte(']')
 		return
 	}
 	bw.WriteString("[\n")
 	first := true
-	for _, se := range events {
+	subInner := inner + indent
+	src.iterate(func(se analysis.SessionEvent) bool {
 		if se.StartTime.IsZero() || se.EndTime.IsZero() {
-			continue
+			return true
 		}
 		if !first {
 			bw.WriteString(",\n")
@@ -566,8 +634,6 @@ func streamSessionEventsJSON(bw *bufio.Writer, events []analysis.SessionEvent, p
 		first = false
 		bw.WriteString(inner)
 		bw.WriteString(`{`)
-		// inner+indent for sub-fields of the object
-		subInner := inner + indent
 		bw.WriteByte('\n')
 		bw.WriteString(subInner)
 		bw.WriteString(`"s": "`)
@@ -582,7 +648,8 @@ func streamSessionEventsJSON(bw *bufio.Writer, events []analysis.SessionEvent, p
 		bw.WriteByte('\n')
 		bw.WriteString(inner)
 		bw.WriteByte('}')
-	}
+		return true
+	})
 	bw.WriteByte('\n')
 	bw.WriteString(prefix)
 	bw.WriteByte(']')
@@ -1055,11 +1122,11 @@ func (c ConnectionsJSON) StreamSection(bw *bufio.Writer, prefix, indent string, 
 
 	// Big arrays — stream items, never buffered as a whole.
 	e.writeKey("connections")
-	streamTimestampsJSON(bw, c.Connections.timestamps, inner, indent, compact)
+	streamTimestampsJSON(bw, c.Connections, inner, indent, compact)
 
-	if len(c.SessionEvents.events) > 0 {
+	if c.SessionEvents.count() > 0 {
 		e.writeKey("session_events")
-		streamSessionEventsJSON(bw, c.SessionEvents.events, inner, indent, compact)
+		streamSessionEventsJSON(bw, c.SessionEvents, inner, indent, compact)
 	}
 
 	if !compact {
@@ -1697,7 +1764,7 @@ func buildJSONData(m analysis.AggregatedMetrics, sections []string, full bool) m
 				}
 				return ""
 			}(),
-			Connections: lazyConnections{timestamps: m.Connections.Connections},
+			Connections: lazyConnections{metrics: &m.Connections},
 		}
 		if m.Connections.SessionStats.Count > 0 {
 			stats := m.Connections.SessionStats
@@ -1747,7 +1814,7 @@ func buildJSONData(m analysis.AggregatedMetrics, sections []string, full bool) m
 		}
 		// Export session events for client-side sweep-line — lazy wrapper
 		// avoids the per-event []SessionEventJSON intermediate slice.
-		conn.SessionEvents = lazySessionEvents{events: m.Connections.SessionEvents}
+		conn.SessionEvents = lazySessionEvents{metrics: &m.Connections}
 		data["connections"] = conn
 	}
 
