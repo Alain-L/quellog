@@ -283,19 +283,7 @@ func (m *SQLMetrics) IterateExecutionsForID(id string, fn func(QueryExecution) b
 	if !found {
 		return
 	}
-	loc := m.executions.location()
-	for i := range m.executions.tsNanos {
-		if m.executions.queryIDIdx[i] != idx {
-			continue
-		}
-		if !fn(QueryExecution{
-			Timestamp: time.Unix(0, m.executions.tsNanos[i]).In(loc),
-			Duration:  m.executions.durations[i],
-			QueryID:   id,
-		}) {
-			return
-		}
-	}
+	m.executions.ForEachID(idx, id, fn)
 }
 
 // SQLMetrics combines per-query stats and global SQL metrics.

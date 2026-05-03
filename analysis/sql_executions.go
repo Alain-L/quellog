@@ -5,20 +5,40 @@ import (
 	"time"
 )
 
-// compactExecutions stores query execution events in three parallel
-// slices instead of one slice of struct, plus a deduplicated string
-// table for query IDs. This shrinks the per-event footprint from 48 B
-// (Timestamp 24 + Duration 8 + QueryID string header 16) to 20 B
-// (tsNanos 8 + duration 8 + queryIDIdx 4).
+// execChunkSize is the fixed event count per chunk. Powers of two let
+// the divisor/modulo collapse to a shift+mask. 65 536 events per chunk
+// = ~1.25 MB (8 + 8 + 4 bytes per event), small enough to be friendly
+// to the allocator and large enough that per-chunk header overhead
+// stays negligible (24 B × 3 slice headers per chunk).
+const execChunkSize = 1 << 16
+
+// execChunk holds one fixed-size page of execution events. The slices
+// are allocated once at full capacity, then filled by append until they
+// reach execChunkSize, at which point a new chunk is allocated. Pages
+// are never reallocated, so the previous geometric-growth spike (the
+// final realloc on a 40 M-event slice was peaking at ~1.6 GB live: old
+// + new during the copy) is replaced by a single ~1.25 MB allocation
+// per page boundary.
+type execChunk struct {
+	tsNanos    []int64
+	durations  []float64
+	queryIDIdx []uint32
+}
+
+// compactExecutions stores query execution events in fixed-size chunks
+// of three parallel slices instead of one monolithic slice of struct,
+// plus a deduplicated string table for query IDs. The per-event
+// footprint is 20 B (tsNanos 8 + duration 8 + queryIDIdx 4) — same
+// as the previous monolithic layout — but allocation never doubles in
+// place, eliminating the transient peak that doubled the live set
+// during the last few growths on multi-million-event corpora.
 //
-// On the Z corpus (40 M executions) this reclaims ~1.1 GB of heap
-// versus the previous []QueryExecution slice. The QueryExecution type
-// itself is preserved for the public iteration API — callers see one
-// QueryExecution at a time, never an in-memory slice of them.
+// On the Z corpus (40 M executions) the steady-state heap is unchanged
+// (~760 MB across ~610 chunks) but the run-time peak drops by ~800 MB
+// since no realloc-and-copy ever happens.
 type compactExecutions struct {
-	tsNanos    []int64   // Unix nanos of each event timestamp
-	durations  []float64 // execution duration in milliseconds
-	queryIDIdx []uint32  // index into queryIDs for the event's query ID
+	chunks []execChunk
+	n      int // total event count across all chunks
 
 	// queryIDs is the deduplicated table of query IDs. Each unique ID
 	// is stored once — typical postgres logs have hundreds to thousands
@@ -39,18 +59,32 @@ type compactExecutions struct {
 	loc *time.Location
 }
 
-// newCompactExecutions returns a compactExecutions with capacity
-// pre-sized from the parser estimate. cap of 0 falls back to default.
+// newCompactExecutions returns a compactExecutions sized for the
+// expected event count. The hint is used to pre-allocate the chunks
+// header slice so the chunk list itself never reallocates on big
+// corpora; the chunks themselves are allocated lazily on first event.
 func newCompactExecutions(execCap int) *compactExecutions {
 	if execCap <= 0 {
 		execCap = 10000
 	}
+	chunkHint := (execCap + execChunkSize - 1) / execChunkSize
+	if chunkHint < 1 {
+		chunkHint = 1
+	}
 	return &compactExecutions{
-		tsNanos:      make([]int64, 0, execCap),
-		durations:    make([]float64, 0, execCap),
-		queryIDIdx:   make([]uint32, 0, execCap),
+		chunks:       make([]execChunk, 0, chunkHint),
 		queryIDs:     make([]string, 0, 1024),
 		queryIDIndex: make(map[string]uint32, 1024),
+	}
+}
+
+// newChunk allocates a fresh page at full capacity. Called when the
+// last chunk is full (or no chunk exists yet).
+func newChunk() execChunk {
+	return execChunk{
+		tsNanos:    make([]int64, 0, execChunkSize),
+		durations:  make([]float64, 0, execChunkSize),
+		queryIDIdx: make([]uint32, 0, execChunkSize),
 	}
 }
 
@@ -58,7 +92,7 @@ func newCompactExecutions(execCap int) *compactExecutions {
 // internal table so identical IDs across executions share a single
 // string allocation. The location of the first event is remembered
 // for round-trip reconstruction (postgres logs typically use one tz
-// throughout).
+// throughout). A new chunk is allocated when the current one fills.
 func (c *compactExecutions) append(ts time.Time, duration float64, queryID string) {
 	if c.loc == nil {
 		c.loc = ts.Location()
@@ -69,9 +103,14 @@ func (c *compactExecutions) append(ts time.Time, duration float64, queryID strin
 		c.queryIDs = append(c.queryIDs, queryID)
 		c.queryIDIndex[queryID] = idx
 	}
-	c.tsNanos = append(c.tsNanos, ts.UnixNano())
-	c.durations = append(c.durations, duration)
-	c.queryIDIdx = append(c.queryIDIdx, idx)
+	if len(c.chunks) == 0 || len(c.chunks[len(c.chunks)-1].tsNanos) == execChunkSize {
+		c.chunks = append(c.chunks, newChunk())
+	}
+	last := &c.chunks[len(c.chunks)-1]
+	last.tsNanos = append(last.tsNanos, ts.UnixNano())
+	last.durations = append(last.durations, duration)
+	last.queryIDIdx = append(last.queryIDIdx, idx)
+	c.n++
 }
 
 // location returns the captured timezone or UTC when no events were
@@ -92,18 +131,19 @@ func (c *compactExecutions) freeIndex() {
 
 // Len returns the number of stored execution events.
 func (c *compactExecutions) Len() int {
-	return len(c.tsNanos)
+	return c.n
 }
 
 // At expands the i-th event into a full QueryExecution. The returned
-// time.Time uses time.Local — postgres timestamps are stored as Unix
-// nanos so the wall clock is preserved across the round-trip; only the
-// location pointer is set to Local for display.
+// time.Time uses the captured location so the wall clock is preserved
+// across the round-trip.
 func (c *compactExecutions) At(i int) QueryExecution {
+	ch := &c.chunks[i>>16]
+	j := i & (execChunkSize - 1)
 	return QueryExecution{
-		Timestamp: time.Unix(0, c.tsNanos[i]).In(c.location()),
-		Duration:  c.durations[i],
-		QueryID:   c.queryIDs[c.queryIDIdx[i]],
+		Timestamp: time.Unix(0, ch.tsNanos[j]).In(c.location()),
+		Duration:  ch.durations[j],
+		QueryID:   c.queryIDs[ch.queryIDIdx[j]],
 	}
 }
 
@@ -111,35 +151,63 @@ func (c *compactExecutions) At(i int) QueryExecution {
 // receives a freshly constructed QueryExecution; returning false stops
 // iteration early. No intermediate []QueryExecution slice is built.
 func (c *compactExecutions) ForEach(fn func(QueryExecution) bool) {
-	for i := range c.tsNanos {
-		if !fn(QueryExecution{
-			Timestamp: time.Unix(0, c.tsNanos[i]).In(c.location()),
-			Duration:  c.durations[i],
-			QueryID:   c.queryIDs[c.queryIDIdx[i]],
-		}) {
-			return
+	loc := c.location()
+	for ci := range c.chunks {
+		ch := &c.chunks[ci]
+		for j := range ch.tsNanos {
+			if !fn(QueryExecution{
+				Timestamp: time.Unix(0, ch.tsNanos[j]).In(loc),
+				Duration:  ch.durations[j],
+				QueryID:   c.queryIDs[ch.queryIDIdx[j]],
+			}) {
+				return
+			}
+		}
+	}
+}
+
+// ForEachID is like ForEach but only yields events whose queryIDIdx
+// matches the given index. Used by IterateExecutionsForID after the
+// caller has resolved the public string id to its compact index.
+func (c *compactExecutions) ForEachID(idx uint32, id string, fn func(QueryExecution) bool) {
+	loc := c.location()
+	for ci := range c.chunks {
+		ch := &c.chunks[ci]
+		for j := range ch.tsNanos {
+			if ch.queryIDIdx[j] != idx {
+				continue
+			}
+			if !fn(QueryExecution{
+				Timestamp: time.Unix(0, ch.tsNanos[j]).In(loc),
+				Duration:  ch.durations[j],
+				QueryID:   id,
+			}) {
+				return
+			}
 		}
 	}
 }
 
 // Durations returns a fresh []float64 of every event's duration in
 // append order. Used by percentile / median computations that only
-// need durations and not the full event tuple. Allocates one slice of
-// 8 × Len() bytes — versus the previous code that copied 48 × Len() B
-// to extract durations.
+// need durations and not the full event tuple.
 func (c *compactExecutions) Durations() []float64 {
-	out := make([]float64, len(c.durations))
-	copy(out, c.durations)
+	out := make([]float64, 0, c.n)
+	for ci := range c.chunks {
+		out = append(out, c.chunks[ci].durations...)
+	}
 	return out
 }
 
 // CountAbove returns the number of events with Duration >= threshold.
-// Cheap O(N) iteration over the durations slice, no struct expansion.
+// Cheap O(N) iteration over the durations slices, no struct expansion.
 func (c *compactExecutions) CountAbove(threshold float64) int {
 	n := 0
-	for _, d := range c.durations {
-		if d >= threshold {
-			n++
+	for ci := range c.chunks {
+		for _, d := range c.chunks[ci].durations {
+			if d >= threshold {
+				n++
+			}
 		}
 	}
 	return n
