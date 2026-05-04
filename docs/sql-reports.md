@@ -1,6 +1,6 @@
 # SQL Analysis
 
-Three SQL analysis modes: `--sql-performance` for detailed performance analysis, `--sql-overview` for query type breakdowns, and `--sql-detail` for individual query inspection.
+Three SQL analysis modes: `--sql-performance` for detailed performance analysis, `--sql-overview` for query type breakdowns, and `--sql-detail` for individual query inspection. `--event-detail` (covered at the bottom of this page) gives the same drill-down for individual event patterns.
 
 ## --sql-performance
 
@@ -283,6 +283,67 @@ SELECT o.id, o.customer_id, o.total_amount, c.name FROM orders o JOIN customers 
 When `auto_explain` is enabled in PostgreSQL, execution plans are captured and displayed in the sql-detail output. In the HTML report, a **Visualize** button can be used to send the plan to [explain.dalibo.com](https://explain.dalibo.com) for interactive visualization.
 
 See [PostgreSQL Setup](postgresql-setup.md) for auto_explain configuration.
+
+## --event-detail
+
+Comprehensive report for a specific event pattern, identified by the
+short id displayed in the [`--events`](default-report.md#events-events)
+output (`<sev>-<4-char-hash>`).
+
+```bash
+quellog /var/log/postgresql/*.log --event-detail fa-6K1G
+
+# Multiple patterns
+quellog /var/log/postgresql/*.log --event-detail fa-6K1G --event-detail er-5GIv
+
+# Short form
+quellog /var/log/postgresql/*.log -E fa-6K1G
+```
+
+### Output
+
+```
+EVENT DETAILS
+
+  Event count | ■ = 1
+
+  16:56 - 16:57  ■ 1
+  16:57 - 16:57   -
+  16:57 - 16:58   -
+  16:58 - 16:59   -
+  16:59 - 17:00   -
+  17:00 - 17:01   -
+  17:01 - 17:02   -
+  17:02 - 17:03   -
+  17:03 - 17:04   -
+  17:04 - 17:05   -
+  17:05 - 17:06  ■■■■■■■■■■■■■■■■■■■■ 20
+  17:06 - 17:07  ■■■■■■■■■■■■■■■■■■■ 19
+
+  Id                   : fa-6K1G
+  Severity             : FATAL
+  SQLSTATE Class       : 53 - Insufficient Resources
+  Count                : 40
+  First Seen           : 2026-04-02 16:56:06 CEST
+  Last Seen            : 2026-04-02 17:07:14 CEST
+  Frequency            : 3.59 /min
+
+Normalized Pattern:
+
+ sorry, too many clients already
+
+Example:
+
+ [157] 53300: db=app_db,user=app_user,app=[unknown],client=172.28.0.10 FATAL:  sorry, too many clients already
+```
+
+The bar chart shows occurrences over time across 12 buckets between
+the first and last occurrence — useful to spot bursts vs steady drip.
+First/Last/Frequency are derived from the per-event timestamps. The
+Example is the raw log message before normalization.
+
+The HTML report exposes the same data through a click-to-detail modal
+on each event row.
 
 ## Combining with Filters
 

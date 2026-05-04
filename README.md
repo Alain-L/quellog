@@ -11,13 +11,15 @@ quellog /var/log/postgresql/*.log
 ```
 
 ```
-quellog – 835,059 entries processed in 0.90 s (100 MB)
+quellog – 155281 entries processed in 0.22 s (52.98 MB)
 
 SUMMARY
-  Start date                : 2025-12-31 23:00:08
-  End date                  : 2026-02-15 04:05:38
-  Duration                  : 1085h5m30s
-  Total entries             : 835059
+
+  Start date                : 2026-01-01 00:00:01 CET
+  End date                  : 2026-01-01 12:30:12 CET
+  Duration                  : 12h30m11s
+  Total entries             : 155281
+  Throughput                : 3.45 entries/s
 ```
 
 ## Features
@@ -25,11 +27,12 @@ SUMMARY
 - **Multi-format** -- stderr, CSV, JSON, syslog + cloud providers (AWS RDS, Cloud SQL, Azure, CNPG)
 - **Archives** -- gzip, zstd, tar, zip, 7z decompressed on the fly
 - **SQL analysis** -- per-query performance, execution plans (auto_explain), TCL separation
+- **Events & errors** -- per-pattern drill-down via stable IDs (`fa-XXXX`, `er-XXXX`), SQLSTATE class grouping, occurrences-over-time chart
 - **Locks** -- wait tracking, blocking query identification, deadlock detection
 - **Checkpoints** -- WAL distance/estimate, write rates, frequency warnings
 - **Connections** -- session durations, concurrent sessions, pre-log/in-log breakdown
 - **Filtering** -- by time range, database, user, application, host
-- **Export** -- JSON, YAML, Markdown, standalone HTML with interactive charts
+- **Export** -- JSON, YAML, Markdown, standalone HTML with click-to-detail modals
 - **Follow mode** -- real-time monitoring with periodic refresh
 
 ## Installation
@@ -64,7 +67,8 @@ go build -o quellog . && sudo install -m 755 quellog /usr/local/bin/quellog
 quellog /var/log/postgresql/*.log                        # Full report
 quellog /var/log/postgresql/*.log --html -o report.html  # Interactive HTML report
 quellog /var/log/postgresql/*.log --sql-performance      # SQL analysis
-quellog /var/log/postgresql/*.log --last 1h              # Last hour only
+quellog /var/log/postgresql/*.log -E fa-6K1G             # Drill into one event pattern
+quellog /var/log/postgresql/*.log --last 1d              # Last 24 hours
 quellog /var/log/postgresql/*.log -d mydb -u myuser      # Filter by db/user
 quellog /var/log/postgresql/*.log --follow               # Live monitoring
 quellog /var/log/postgresql/*.log --json                  # JSON export
