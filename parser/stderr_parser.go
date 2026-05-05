@@ -497,6 +497,31 @@ func (p *StderrParser) parseEntryFromBytes(entry []byte) (time.Time, string) {
 	return parseStderrLine(normalizedEntry)
 }
 
+// isCloudFormatLine reports whether the line begins with a cloud-provider
+// log prefix (AWS RDS / Aurora / Azure): an ISO date-time + uppercase TZ
+// followed immediately by `:` or `-` instead of a space. The cheap byte
+// check lets us bypass the stderr normalizer for these lines.
+func isCloudFormatLine(line string) bool {
+	n := len(line)
+	if n < 24 ||
+		line[4] != '-' || line[7] != '-' ||
+		line[10] != ' ' ||
+		line[13] != ':' || line[16] != ':' ||
+		line[19] != ' ' {
+		return false
+	}
+	tzStart := 20
+	i := tzStart
+	for i < n && line[i] >= 'A' && line[i] <= 'Z' {
+		i++
+	}
+	tzLen := i - tzStart
+	if tzLen < 2 || tzLen > 5 || i >= n {
+		return false
+	}
+	return line[i] == ':' || line[i] == '-'
+}
+
 func hasTimestampBytes(line []byte) bool {
 	n := len(line)
 	if n < 15 {
@@ -695,6 +720,17 @@ func (p *StderrParser) detectPrefixStructure(f *os.File) {
 
 func (p *StderrParser) normalizeEntryBeforeParsing(line string) string {
 	if p.prefixStructure == nil {
+		return line
+	}
+	// Cloud-provider formats (AWS RDS, Aurora, Azure) put metadata directly
+	// after the timezone with a `:` or `-` separator instead of a space:
+	//   2025-11-23 11:04:24 UTC:[local]:user@db:[pid]:LOG: ...
+	//   2024-01-15 10:00:01 UTC-session_id-LOG: ...
+	// parseRDSFormat / parseAzureFormat already extract user/db/host from
+	// these lines correctly. Running our stderr-tuned normalizer on them
+	// strips the timestamp (the matched prefix starts at offset 0, so
+	// timestampPart below is empty) and drops the entry. Skip normalization.
+	if isCloudFormatLine(line) {
 		return line
 	}
 	if strings.Contains(line, ":") && len(line) > 30 {
