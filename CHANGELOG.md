@@ -6,58 +6,44 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 - **Per-event drill-down**: every event pattern gets a stable short id (`<sev>-<4-char-hash>`, e.g. `fa-6K1G`, `er-Qr5p`) shown in the `--events` output. Use `--event-detail` (`-E`) to open a full report for one or more patterns: full raw message, occurrences-over-time bar chart, first/last seen, frequency. Same drill-down available in the HTML report as a click-to-detail modal with uPlot sparkline + copy buttons.
-- **`--last` / `--window` extended units**: `d` (days), `w` (weeks), `y` (years) in addition to the existing `s`/`m`/`h`. Example: `--last 1d`, `--last 5y`.
-- **`--quiet` / `-q`**: suppress INFO logs (keep WARN/ERROR). Useful for cron and CI invocations.
-- **`completion` subcommand**: `quellog completion bash|zsh|fish|powershell` writes a completion script to stdout (Cobra-generated).
-- **`--open`**: launches the generated HTML report in the default browser. Cross-platform (`open` / `xdg-open` / `cmd /C start`), skipped when stderr is not a TTY or `CI=` is set.
-- **`NO_COLOR` env var**: respected — disables ANSI codes in text output.
-- **Live progress bar** on stderr for large parses (TTY only, > 500 MB total input).
 - **Aggressive vacuum counter**: `automatic aggressive vacuum` operations counted separately, surfaced as an amber stat-card in the HTML maintenance section.
-- **Live structured logging**: stdlib `log` migrated to `slog`.
-- **Graceful shutdown**: `context.Context` propagated through the analysis orchestration; SIGINT no longer leaves goroutines hanging.
-- **Test fixture corpus**: 29 themed fixtures + 56 JSON/MD goldens regenerable via `go test -update`.
+- **`--last` / `--window` extended units**: `d` (days), `w` (weeks), `y` (years) in addition to the existing `s`/`m`/`h`. Example: `--last 1d`, `--last 5y`.
+- **Live progress bar** on stderr for large parses (TTY only, > 500 MB total input).
+- **`--open`**: launches the generated HTML report in the default browser. Cross-platform (`open` / `xdg-open` / `cmd /C start`), skipped when stderr is not a TTY or `CI=` is set.
+- **`completion` subcommand**: `quellog completion bash|zsh|fish|powershell` writes a completion script to stdout (Cobra-generated).
+- **`--quiet` / `-q`**: suppress INFO logs (keep WARN/ERROR). Useful for cron and CI invocations.
+- **`NO_COLOR` env var**: respected — disables ANSI codes in text output.
 
 ### Changed
-- **HTML report**: SQLSTATE class shown inline within the events section, grouped per severity. Click-to-detail modals for queries (cross-analyzer: SQL + locks + temp files) and events. Histogram bar charts capped at 40 chars wide regardless of terminal width. Concurrent sessions chart uses a true sweep-line peak (no more streaming-counter undercount).
-- **Parser pipeline**: zero-copy byte path through `StderrParser`, `parseReader` stays in `[]byte` (no Scanner.Text, no strings.Builder); zero-copy JSON via gjson; CSV msgBuf reuse. Workers now picked from file profile, not just file count.
-- **Always-on parallel analyzers**: 200 MB gate dropped — Locks, TempFiles and SQL run in dedicated goroutines for any input size.
-- **Streaming JSON output**: every big section (`sql_performance.queries`, executions, lock events, temp file events, sessions, connections) streams item-by-item to the writer instead of going through `MarshalIndent` on the full slice.
-- **Multiple `log.Fatalf` replaced by returned errors** so the follow-mode is resilient to transient failures (disk full, permission denied, empty time window).
-- **Documentation**: events / event-detail / `--last` units / shell completion / HTML click-to-detail modal added.
+- **HTML report**: per-event click-to-detail modal with occurrences-over-time sparkline + copy-id and copy-message buttons.
+- **Parser & analyzer pipeline**: zero-copy `[]byte` through `StderrParser`, zero-copy JSON via gjson, msgBuf reuse for CSV. Locks/TempFiles/SQL always run in dedicated goroutines (200 MB gate dropped). Worker count picked from file size profile.
+- **Streaming JSON output**: big sections (`sql_performance.queries`, executions, lock and temp-file events, sessions, connections) stream item-by-item instead of `MarshalIndent` on the full slice.
 
 ### Fixed
-- **Connection peak**: switched from streaming `len(activeConnections)` (silently undercounted re-used PIDs) to a sweep-line over session events; orphan sessions (received without a logged disconnect) flushed at Finalize so the histogram peak matches `Maximum simultaneous`.
-- **`application_name=` truncation**: long values with embedded spaces were truncated at the first space when not preceded by a comma. `findSeverityMarker` extended to 14 markers + ` SSL ` for the disconnection suffix.
-- **Histogram sort determinism**: time buckets in the same minute had a non-stable sort tie-break, producing different output between runs. Lexicographic fallback added.
+- **Connection peak**: now computed via sweep-line over session events instead of a streaming counter that undercounted re-used PIDs. Orphan sessions (received with no logged disconnect) flushed at Finalize.
+- **`application_name=` truncation**: long values with embedded spaces were cut at the first space.
+- **Histogram sort**: deterministic across runs (lexicographic tie-break on equal-minute buckets).
 - **`--errors --json` empty section**: the events section was hidden when `--errors` was selected; now it's surfaced (and YAML inherits).
-- **Lock counting**: dedup keyed by `(process_id, blocking_pid, lock_type)` so a single real wait that PG re-logs every `deadlock_timeout` is counted once, not 3-5 times.
+- **HTML Blocking Queries dedup**: the table aggregated raw lock events, so a single wait re-logged every `deadlock_timeout` (default 1s) appeared multiple times. Deduped by unique wait.
 - **Severity counts**: `summary.error_count` / `fatal_count` etc. were always zero; now aggregated from `EventAnalyzer`.
 - **Zero-offset timezones**: parser now normalizes `+0000` to UTC across platforms (was producing different goldens between macOS and Linux).
-- **`--full` text output**: the flag was plumbed but the text renderer never actually read it — `--full` text now enriches the output as documented (count histogram tempfiles, queries generating temp, waiting/blocking queries, detailed connection stats).
+- **`--full` text output**: the flag was plumbed but the text renderer never read it. Now it does.
 - **WASM progress bar**: replaced the CSS-animated bar (blocked by tinygo's cooperative scheduler during the parse) with a static "Crunching log entries…" label.
 
 ### Performance
-Layered improvements — measured on the J.log corpus (1 GB stderr, 5.7 M sessions, ~37 M events):
-
-| Stage (cumulative) | RSS J.log (default GOGC) |
-|---|---|
-| v0.9.0 baseline | ~3000 MB |
-| Drop mmap path, unify on bufio | 2029 MB |
-| Compact `SQLAnalyzer.executions` (parallel slices + queryID interning) | ~1351 MB |
-| Index-based sweepline + chunked compactExecutions | ~1162 MB |
-| No-materialize `ConnectionMetrics` (chunks/iterators) | **583 MB** |
-
-Net **−80 % RSS** (default) / **−87 %** with `GOGC=20`. The §2 Performance P0 of the April 2026 audit is closed.
-
-Other perf items: zero-copy stderr parser, streaming session distribution P², streaming JSON section emitters, `madvise(DONTNEED)` on prefix mmap (later obsolete after mmap removal), `pgzip` parallel decompression, batching channel entries (256-event batches), workers heuristic adaptive to file size profile.
+- **Memory footprint**: roughly −80 % RSS on multi-gigabyte stderr corpora (−87 % with `GOGC=20`). Heavy analyzers (SQL, connections) moved to chunked parallel-slice storage; connection metrics expose iterators instead of materializing slices.
+- **Streaming session distribution**: P² sketch replaces the materialized duration array — constant memory regardless of session count.
+- **WASM**: tinygo linear-memory ceiling pressure cut on big browser logs.
 
 ### Removed
-- **mmap parser path**: every optim that landed since (`bytes.IndexByte`, zero-copy, batched channels, fast-path timestamp) was applied to the bufferised path which has now overtaken mmap. `parser/mmap_parser.go` (-605 LOC) gone; bug-fixes shipped along the way (`normalizeEntryBeforeParsing` was stripping timestamps; `hasTimestampString` didn't recognize the ISO `T` separator).
+- **mmap parser path** (`parser/mmap_parser.go`, -605 LOC): the buffered path took over after a year of optims focused on it.
 
 ### Internal
-- **Test corpus**: 29 themed fixtures across 9 categories (parsers, errors, connections, locks, temp_files, sql, vacuum, misc, comprehensive). Each fixture has JSON + MD goldens regenerable via `-update`.
-- **CI hardening**: staticcheck step now bloquant (22 alerts cleaned at intro), CI on push + PR for `dev` branch, `gofmt -s` blocking step. `output.FormatBytes` deduplicated (was diverging between cmd/ and output/).
-- **Refactor**: `LockAnalyzer.Process` split from 385 → 47 LOC + 11 helpers; PID promoted to `LogEntry` (parsed once vs 8 call sites); WASM pipeline unified on `analysis.AggregateMetrics` + `parser.FilterStream` (470 → 177 LOC, 62 % cut).
+- **Structured logging**: `log` → `slog` (enables `--quiet`).
+- **Graceful shutdown**: `context.Context` propagated through the analysis orchestration; SIGINT no longer leaves goroutines hanging.
+- **Test corpus**: 29 themed fixtures + JSON/MD goldens regenerable via `go test -update`.
+- **CI hardening**: blocking `staticcheck` and `gofmt -s` steps; runs on push and PR for `dev`.
+- **Refactor**: `LockAnalyzer.Process` split (385 → 47 LOC + 11 helpers); WASM pipeline unified on `analysis.AggregateMetrics` + `parser.FilterStream` (-62 %).
 
 ## [0.9.0] - 2026-04-16
 
