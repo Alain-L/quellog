@@ -29,6 +29,8 @@ All notable changes to this project will be documented in this file.
 - **Zero-offset timezones**: parser now normalizes `+0000` to UTC across platforms (was producing different goldens between macOS and Linux).
 - **`--full` text output**: the flag was plumbed but the text renderer never read it. Now it does.
 - **WASM progress bar**: replaced the CSS-animated bar (blocked by tinygo's cooperative scheduler during the parse) with a static "Crunching log entries…" label.
+- **HTML chart dblclick reset**: uPlot's built-in dblclick auto-fitted to the current data extent, which after a zoom equals the zoomed range — so dblclick "reset" stayed stuck. Replaced with an explicit handler that mirrors the Reset button.
+- **HTML SQL chart tooltip**: missing `fmt` import surfaced as `ReferenceError` on every cursor move over the SQL Performance chart (silent in production, visible only in DevTools).
 
 ### Performance
 - **Memory footprint**: roughly −80 % RSS on multi-gigabyte stderr corpora (−87 % with `GOGC=20`). Heavy analyzers (SQL, connections) moved to chunked parallel-slice storage; connection metrics expose iterators instead of materializing slices.
