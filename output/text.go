@@ -1405,26 +1405,11 @@ func PrintSQLDetails(m analysis.AggregatedMetrics, queryDetails []string) {
 				}
 			}
 
-			// Calculate min/max/avg size from events
-			var minSize, maxSize int64
-			minSize = math.MaxInt64
-			maxSize = 0
-			for _, event := range m.TempFiles.Events {
-				if event.QueryID == qid {
-					size := int64(event.Size)
-					if size < minSize {
-						minSize = size
-					}
-					if size > maxSize {
-						maxSize = size
-					}
-				}
-			}
 			avgSize := tempStat.TotalSize / int64(tempStat.Count)
 
 			fmt.Printf("  Temp Files count     : %d\n", tempStat.Count)
-			fmt.Printf("  Temp File min size   : %s\n", FormatBytes(minSize))
-			fmt.Printf("  Temp File max size   : %s\n", FormatBytes(maxSize))
+			fmt.Printf("  Temp File min size   : %s\n", FormatBytes(tempStat.MinSize))
+			fmt.Printf("  Temp File max size   : %s\n", FormatBytes(tempStat.MaxSize))
 			fmt.Printf("  Temp File avg size   : %s\n", FormatBytes(avgSize))
 			fmt.Printf("  Temp Files size      : %s\n", FormatBytes(tempStat.TotalSize))
 		}

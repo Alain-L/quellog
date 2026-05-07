@@ -1607,25 +1607,11 @@ func ExportSQLDetailMarkdown(w io.Writer, m analysis.AggregatedMetrics, queryIDs
 				}
 			}
 
-			// Calculate min/max/avg sizes
-			var minSize, maxSize int64
-			minSize = 9223372036854775807 // MaxInt64
-			for _, event := range m.TempFiles.Events {
-				if event.QueryID == qid {
-					size := int64(event.Size)
-					if size < minSize {
-						minSize = size
-					}
-					if size > maxSize {
-						maxSize = size
-					}
-				}
-			}
 			avgSize := tempStat.TotalSize / int64(tempStat.Count)
 
 			b.WriteString(fmt.Sprintf("- **Temp Files count**: %d\n", tempStat.Count))
-			b.WriteString(fmt.Sprintf("- **Temp File min size**: %s\n", FormatBytes(minSize)))
-			b.WriteString(fmt.Sprintf("- **Temp File max size**: %s\n", FormatBytes(maxSize)))
+			b.WriteString(fmt.Sprintf("- **Temp File min size**: %s\n", FormatBytes(tempStat.MinSize)))
+			b.WriteString(fmt.Sprintf("- **Temp File max size**: %s\n", FormatBytes(tempStat.MaxSize)))
 			b.WriteString(fmt.Sprintf("- **Temp File avg size**: %s\n", FormatBytes(avgSize)))
 			b.WriteString(fmt.Sprintf("- **Temp Files size**: %s\n\n", FormatBytes(tempStat.TotalSize)))
 		}
