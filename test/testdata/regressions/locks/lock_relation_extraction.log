@@ -1,0 +1,12 @@
+2026-04-19 12:00:00.100 UTC [5001]: [1-1] user=app,db=appdb,app=psql,client=10.0.0.20 LOG:  process 5001 still waiting for ShareLock on transaction 7000 after 1100.000 ms
+2026-04-19 12:00:00.100 UTC [5001]: [2-1] user=app,db=appdb,app=psql,client=10.0.0.20 DETAIL:  Process holding the lock: 5002. Wait queue: 5001.
+2026-04-19 12:00:00.100 UTC [5001]: [3-1] user=app,db=appdb,app=psql,client=10.0.0.20 CONTEXT:  while updating tuple (10,5) in relation "orders"
+2026-04-19 12:00:00.100 UTC [5001]: [4-1] user=app,db=appdb,app=psql,client=10.0.0.20 STATEMENT:  UPDATE orders SET total = 99.99 WHERE id = 1
+2026-04-19 12:01:30.200 UTC [5010]: [1-1] user=app,db=appdb,app=psql,client=10.0.0.21 LOG:  process 5010 still waiting for ShareLock on transaction 7050 after 1050.000 ms
+2026-04-19 12:01:30.200 UTC [5010]: [2-1] user=app,db=appdb,app=psql,client=10.0.0.21 DETAIL:  Process holding the lock: 5011. Wait queue: 5010.
+2026-04-19 12:01:30.200 UTC [5010]: [3-1] user=app,db=appdb,app=psql,client=10.0.0.21 CONTEXT:  while updating tuple (3,2) in relation "orders"
+2026-04-19 12:01:30.200 UTC [5010]: [4-1] user=app,db=appdb,app=psql,client=10.0.0.21 STATEMENT:  UPDATE orders SET status = 'paid' WHERE id = 2
+2026-04-19 12:03:45.300 UTC [5020]: [1-1] user=app,db=appdb,app=psql,client=10.0.0.22 LOG:  process 5020 still waiting for ShareLock on transaction 7100 after 1200.000 ms
+2026-04-19 12:03:45.300 UTC [5020]: [2-1] user=app,db=appdb,app=psql,client=10.0.0.22 DETAIL:  Process holding the lock: 5021. Wait queue: 5020.
+2026-04-19 12:03:45.300 UTC [5020]: [3-1] user=app,db=appdb,app=psql,client=10.0.0.22 CONTEXT:  while updating tuple (1,1) in relation "customers"
+2026-04-19 12:03:45.300 UTC [5020]: [4-1] user=app,db=appdb,app=psql,client=10.0.0.22 STATEMENT:  UPDATE customers SET active = false WHERE id = 100

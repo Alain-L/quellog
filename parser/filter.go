@@ -2,6 +2,7 @@
 package parser
 
 import (
+	"context"
 	"strings"
 	"time"
 )
@@ -12,38 +13,13 @@ import (
 //
 // Zero values (empty slices, zero times) mean "no filtering for this criterion".
 type LogFilters struct {
-	// BeginT filters entries to only those at or after this time.
-	// Zero value means no lower bound.
-	BeginT time.Time
-
-	// EndT filters entries to only those at or before this time.
-	// Zero value means no upper bound.
-	EndT time.Time
-
-	// DbFilter is a whitelist of database names.
-	// If non-empty, only entries matching one of these databases are included.
-	// Database name is extracted from "db=<name>" in the message.
-	DbFilter []string
-
-	// UserFilter is a whitelist of database users.
-	// If non-empty, only entries matching one of these users are included.
-	// User name is extracted from "user=<name>" in the message.
-	UserFilter []string
-
-	// ExcludeUser is a blacklist of database users.
-	// If non-empty, entries matching any of these users are excluded.
-	// Takes precedence over UserFilter if a user appears in both.
-	ExcludeUser []string
-
-	// AppFilter is a whitelist of application names.
-	// If non-empty, only entries matching one of these applications are included.
-	// Application name is extracted from "app=<name>" in the message.
-	AppFilter []string
-
-	// GrepExpr is a list of patterns that must ALL be present in the message.
-	// All patterns are treated as literal strings (not regex).
-	// Empty slice means no grep filtering.
-	GrepExpr []string
+	BeginT      time.Time // entries at or after this time (zero = no lower bound)
+	EndT        time.Time // entries at or before this time (zero = no upper bound)
+	DbFilter    []string  // whitelist of database names (extracted from "db=<name>")
+	UserFilter  []string  // whitelist of users (extracted from "user=<name>")
+	ExcludeUser []string  // blacklist of users; takes precedence over UserFilter
+	AppFilter   []string  // whitelist of application names (extracted from "app=<name>")
+	GrepExpr    []string  // patterns that must ALL appear in the message (literal, not regex)
 }
 
 // FilterStream reads log entries from the input channel, applies filters,
@@ -60,6 +36,7 @@ type LogFilters struct {
 //  3. User name (including exclusions)
 //  4. Application name
 //  5. Grep patterns (slowest, requires multiple string searches)
+//
 // IsEmpty returns true if no filters are configured.
 func (f LogFilters) IsEmpty() bool {
 	return f.BeginT.IsZero() && f.EndT.IsZero() &&
@@ -67,14 +44,49 @@ func (f LogFilters) IsEmpty() bool {
 		len(f.ExcludeUser) == 0 && len(f.AppFilter) == 0
 }
 
-func FilterStream(in <-chan LogEntry, out chan<- LogEntry, filters LogFilters) {
+// FilterStream forwards entries that pass the filters from in to out,
+// closing out when in closes or when ctx is cancelled.
+//
+// On cancellation it stops forwarding immediately and drains any
+// remaining entries from in (without re-forwarding them) so that
+// upstream producers do not block on the channel send. This guarantees
+// the upstream goroutine can exit cleanly even if the consumer aborted.
+func FilterStream(ctx context.Context, in <-chan []LogEntry, out chan<- []LogEntry, filters LogFilters) {
 	defer close(out)
 
-	for entry := range in {
-		if !PassesFilters(entry, filters) {
-			continue
+	for {
+		select {
+		case <-ctx.Done():
+			// Drain remaining entries to unblock upstream producers, then exit.
+			for range in {
+			}
+			return
+		case batch, ok := <-in:
+			if !ok {
+				return
+			}
+			// Filter in place to avoid allocating a new slice when nothing
+			// is dropped. Most batches pass filters intact in the common case.
+			kept := batch[:0]
+			for _, e := range batch {
+				if PassesFilters(e, filters) {
+					kept = append(kept, e)
+				}
+			}
+			if len(kept) == 0 {
+				// Whole batch filtered out — return its backing storage to
+				// the pool so the producers can reuse it.
+				PutBatch(batch)
+				continue
+			}
+			select {
+			case out <- kept:
+			case <-ctx.Done():
+				for range in {
+				}
+				return
+			}
 		}
-		out <- entry
 	}
 }
 

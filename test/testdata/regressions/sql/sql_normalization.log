@@ -1,0 +1,10 @@
+2026-04-19 23:00:00.100 UTC [20001]: [1-1] user=app,db=appdb,app=psql,client=10.0.0.1 LOG:  duration: 1.234 ms  statement: INSERT INTO orders (user_id, total) VALUES (1, 99.99)
+2026-04-19 23:00:00.200 UTC [20001]: [2-1] user=app,db=appdb,app=psql,client=10.0.0.1 LOG:  duration: 1.345 ms  statement: INSERT INTO orders (user_id, total) VALUES (2, 150.00)
+2026-04-19 23:00:00.300 UTC [20001]: [3-1] user=app,db=appdb,app=psql,client=10.0.0.1 LOG:  duration: 1.456 ms  statement: INSERT INTO orders (user_id, total) VALUES (3, 25.50)
+2026-04-19 23:00:00.400 UTC [20001]: [4-1] user=app,db=appdb,app=psql,client=10.0.0.1 LOG:  duration: 1.567 ms  statement: INSERT INTO orders (user_id, total) VALUES (4, 1000.00)
+2026-04-19 23:00:00.500 UTC [20001]: [5-1] user=app,db=appdb,app=psql,client=10.0.0.1 LOG:  duration: 1.678 ms  statement: INSERT INTO orders (user_id, total) VALUES (5, 0.01)
+2026-04-19 23:00:00.600 UTC [20001]: [6-1] user=app,db=appdb,app=psql,client=10.0.0.1 LOG:  duration: 2.345 ms  statement: SELECT * FROM users WHERE id = 1
+2026-04-19 23:00:00.700 UTC [20001]: [7-1] user=app,db=appdb,app=psql,client=10.0.0.1 LOG:  duration: 2.456 ms  statement: SELECT * FROM users WHERE id = 42
+2026-04-19 23:00:00.800 UTC [20001]: [8-1] user=app,db=appdb,app=psql,client=10.0.0.1 LOG:  duration: 2.567 ms  statement: SELECT * FROM users WHERE id = 9999
+2026-04-19 23:00:00.900 UTC [20001]: [9-1] user=app,db=appdb,app=psql,client=10.0.0.1 LOG:  duration: 5.678 ms  statement: UPDATE users SET email = 'a@b.com' WHERE id = 1
+2026-04-19 23:00:01.000 UTC [20001]: [10-1] user=app,db=appdb,app=psql,client=10.0.0.1 LOG:  duration: 5.789 ms  statement: UPDATE users SET email = 'c@d.org' WHERE id = 2

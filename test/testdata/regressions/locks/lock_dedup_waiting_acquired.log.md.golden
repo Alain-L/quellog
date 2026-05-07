@@ -1,0 +1,78 @@
+## SUMMARY
+
+This _quellog_ report summarizes **2** log entries collected between 19 Apr 2026, 10:00 (UTC) — 19 Apr 2026, 10:00 (UTC), spanning 2s of activity.
+
+## EVENTS
+
+- **LOG**: 2 (100.0%)
+
+## LOCKS
+
+- **Total lock events**: 1
+- **Still waiting**: 0
+- **Acquired events**: 1
+- **Average wait time**: 3400.00 ms
+- **Total wait time**: 3.40 s
+
+### Lock Types
+
+| Lock Type | Count | Percentage |
+|---|---:|---:|
+| AccessExclusiveLock | 1 | 100.0% |
+
+### Resource Types
+
+| Resource Type | Count | Percentage |
+|---|---:|---:|
+| relation | 1 | 100.0% |
+
+### Waiting Queries
+
+| SQLID | Query | Acquired | Waiting | Total Wait |
+|---|---|---:|---:|---:|
+| al-D4BXuB | alter table customers add column email_verified boolean | 1 | 0 | 3.40 s |
+
+## CLIENTS
+
+- **Unique DBs**: 1
+- **Unique Users**: 1
+- **Unique Apps**: 1
+- **Unique Hosts**: 1
+
+### USERS
+
+| User | Count | % |
+|---|---:|---:|
+| app | 2 | 100.0% |
+
+### APPS
+
+| App | Count | % |
+|---|---:|---:|
+| psql | 2 | 100.0% |
+
+### DATABASES
+
+| Database | Count | % |
+|---|---:|---:|
+| appdb | 2 | 100.0% |
+
+### HOSTS
+
+| Host | Count | % |
+|---|---:|---:|
+| 10.0.0.5 | 2 | 100.0% |
+
+### USER × DATABASE
+
+| User | Database | Count | % |
+|---|---|---:|---:|
+| app | appdb | 2 | 100.0% |
+
+### USER × HOST
+
+| User | Host | Count | % |
+|---|---|---:|---:|
+| app | 10.0.0.5 | 2 | 100.0% |
+
+

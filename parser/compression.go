@@ -9,7 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -42,6 +42,32 @@ var (
 		},
 	}
 )
+
+// IsCompressed reports whether the filename has an extension that the
+// pipeline treats as compressed/archived (gzip, zstd, zip, 7z, tar and
+// the tar.{gz,zst,zstd} variants). Used by the cmd layer to decide
+// whether multi-file parallelism is profitable: compressed parsers are
+// CPU-bound on decompression, so spreading them over goroutines pays off
+// even on small individual files. Plain log files don't share that
+// property — see determineWorkerCount.
+func IsCompressed(filename string) bool {
+	lowerName := strings.ToLower(filename)
+	switch {
+	case strings.HasSuffix(lowerName, ".zip"),
+		strings.HasSuffix(lowerName, ".7z"),
+		strings.HasSuffix(lowerName, ".tar"),
+		strings.HasSuffix(lowerName, ".tar.gz"),
+		strings.HasSuffix(lowerName, ".tgz"),
+		strings.HasSuffix(lowerName, ".tar.zst"),
+		strings.HasSuffix(lowerName, ".tar.zstd"),
+		strings.HasSuffix(lowerName, ".tzst"),
+		strings.HasSuffix(lowerName, ".gz"),
+		strings.HasSuffix(lowerName, ".zst"),
+		strings.HasSuffix(lowerName, ".zstd"):
+		return true
+	}
+	return false
+}
 
 // detectCompressedFile checks if the file is compressed or a tar archive and returns the appropriate parser.
 // Returns (parser, error, handled). If handled is false, the caller should continue with normal detection.
@@ -89,34 +115,28 @@ func detectCompressedFile(filename string) (LogParser, error, bool) {
 	return nil, nil, false
 }
 
-// detectCompressedParser handles detection for compressed log files using the provided codec.
-func detectCompressedParser(filename, baseName string, codec compressionCodec) LogParser {
-	parser, _ := detectCompressedParserWithError(filename, baseName, codec)
-	return parser
-}
-
 // detectCompressedParserWithError handles detection for compressed log files using the provided codec.
 // Returns a LogParser and nil error on success, or nil parser and a typed error on failure.
 func detectCompressedParserWithError(filename, baseName string, codec compressionCodec) (LogParser, error) {
 	sample, err := readCompressedSample(filename, codec)
 	if err != nil {
-		log.Printf("[ERROR] Failed to read %s sample from %s: %v", codec.name, filename, err)
+		slog.Error("failed to read compressed sample", "codec", codec.name, "file", filename, "err", err)
 		return nil, fmt.Errorf("%w: %v", ErrCompressionFailed, err)
 	}
 
 	if isBinaryContent(sample) {
-		log.Printf("[ERROR] File %s appears to be binary after %s decompression. Binary formats are not supported.", filename, codec.name)
+		slog.Error("file appears to be binary after decompression", "file", filename, "codec", codec.name)
 		return nil, ErrBinaryFile
 	}
 
 	ext := strings.ToLower(strings.TrimPrefix(filepath.Ext(baseName), "."))
 
-	parser := detectByExtension(baseName, ext, sample, false)
+	parser := detectByExtension(baseName, ext, sample)
 	if parser == nil {
 		// Only try content detection if extension was unknown
 		// If extension was known but content didn't match, error already logged
 		if ext != "csv" && ext != "json" && ext != "log" {
-			parser = detectByContent(baseName, sample, false)
+			parser = detectByContent(baseName, sample)
 		} else {
 			return nil, ErrInvalidFormat
 		}
@@ -192,51 +212,49 @@ func wrapCompressedParser(parser LogParser, codec compressionCodec) LogParser {
 	switch parser.(type) {
 	case *JsonParser:
 		p := &JsonParser{}
-		return newCompressedParser(codec, func(r io.Reader, out chan<- LogEntry) error {
+		return newCompressedParser(codec, func(r io.Reader, out chan<- []LogEntry) error {
 			return p.parseReader(r, out)
 		})
 	case *CsvParser:
 		p := &CsvParser{}
-		return newCompressedParser(codec, func(r io.Reader, out chan<- LogEntry) error {
+		return newCompressedParser(codec, func(r io.Reader, out chan<- []LogEntry) error {
 			return p.parseReader(r, out)
 		})
 	case *StderrParser:
 		p := &StderrParser{}
-		return newCompressedParser(codec, func(r io.Reader, out chan<- LogEntry) error {
-			return p.parseReader(r, out)
-		})
-	case *MmapStderrParser:
-		// mmap is not supported with compressed streams; fall back to standard stderr parser
-		p := &StderrParser{}
-		return newCompressedParser(codec, func(r io.Reader, out chan<- LogEntry) error {
+		return newCompressedParser(codec, func(r io.Reader, out chan<- []LogEntry) error {
 			return p.parseReader(r, out)
 		})
 	default:
-		log.Printf("[ERROR] Unsupported parser type for %s compressed files: %T", codec.name, parser)
+		slog.Error("unsupported parser type for compressed files", "codec", codec.name, "parser_type", fmt.Sprintf("%T", parser))
 		return nil
 	}
 }
 
 type compressedLogParser struct {
-	parse func(io.Reader, chan<- LogEntry) error
+	parse func(io.Reader, chan<- []LogEntry) error
 	codec compressionCodec
 }
 
-func newCompressedParser(codec compressionCodec, parse func(io.Reader, chan<- LogEntry) error) LogParser {
+func newCompressedParser(codec compressionCodec, parse func(io.Reader, chan<- []LogEntry) error) LogParser {
 	return &compressedLogParser{
 		parse: parse,
 		codec: codec,
 	}
 }
 
-func (c *compressedLogParser) Parse(filename string, out chan<- LogEntry) error {
+func (c *compressedLogParser) Parse(filename string, out chan<- []LogEntry) error {
 	file, err := os.Open(filename)
 	if err != nil {
 		return fmt.Errorf("failed to open file %s: %w", filename, err)
 	}
 	defer file.Close()
 
-	reader, err := c.codec.opener(file)
+	// Wrap the on-disk reader BEFORE the decompressor so progress
+	// reflects compressed bytes consumed (= file size on disk = the
+	// denominator the CLI bar shows). Wrapping the decompressed
+	// stream would let the bar overshoot 100%.
+	reader, err := c.codec.opener(WithProgress(file))
 	if err != nil {
 		return fmt.Errorf("failed to open %s reader for %s: %w", c.codec.name, filename, err)
 	}

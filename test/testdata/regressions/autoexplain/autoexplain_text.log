@@ -1,0 +1,31 @@
+2026-04-19 13:00:00.100 UTC [6001]: [1-1] user=app,db=appdb,app=psql,client=10.0.0.30 LOG:  duration: 152.345 ms  plan:
+	Query Text: SELECT u.username, COUNT(o.id) AS order_count FROM users u LEFT JOIN orders o ON o.user_id = u.id WHERE u.created_at > '2026-01-01' GROUP BY u.username ORDER BY order_count DESC LIMIT 10
+	Limit  (cost=125.43..125.45 rows=10 width=42) (actual time=151.234..152.123 rows=10 loops=1)
+	  Output: u.username, count(o.id)
+	  Buffers: shared hit=523 read=12
+	  ->  Sort  (cost=125.43..127.93 rows=1000 width=42) (actual time=151.232..151.567 rows=10 loops=1)
+	        Output: u.username, (count(o.id))
+	        Sort Key: (count(o.id)) DESC
+	        Sort Method: top-N heapsort  Memory: 27kB
+	        Buffers: shared hit=523 read=12
+	        ->  HashAggregate  (cost=98.50..108.50 rows=1000 width=42) (actual time=140.123..145.789 rows=820 loops=1)
+	              Output: u.username, count(o.id)
+	              Group Key: u.username
+	              Buffers: shared hit=523 read=12
+	              ->  Hash Right Join  (cost=15.50..89.50 rows=1800 width=14) (actual time=2.345..120.456 rows=1820 loops=1)
+	                    Output: u.username, o.id
+	                    Hash Cond: (o.user_id = u.id)
+	                    Buffers: shared hit=523 read=12
+	                    ->  Seq Scan on public.orders o  (cost=0.00..62.00 rows=1800 width=8) (actual time=0.012..50.123 rows=1820 loops=1)
+	                          Output: o.id, o.user_id
+	                          Buffers: shared hit=200 read=8
+	                    ->  Hash  (cost=12.50..12.50 rows=240 width=14) (actual time=2.123..2.124 rows=240 loops=1)
+	                          Output: u.username, u.id
+	                          Buckets: 1024  Batches: 1  Memory Usage: 22kB
+	                          Buffers: shared hit=323 read=4
+	                          ->  Seq Scan on public.users u  (cost=0.00..12.50 rows=240 width=14) (actual time=0.020..1.987 rows=240 loops=1)
+	                                Output: u.username, u.id
+	                                Filter: (u.created_at > '2026-01-01'::date)
+	                                Rows Removed by Filter: 60
+	                                Buffers: shared hit=323 read=4
+2026-04-19 13:00:00.100 UTC [6001]: [2-1] user=app,db=appdb,app=psql,client=10.0.0.30 LOG:  duration: 152.345 ms  statement: SELECT u.username, COUNT(o.id) AS order_count FROM users u LEFT JOIN orders o ON o.user_id = u.id WHERE u.created_at > '2026-01-01' GROUP BY u.username ORDER BY order_count DESC LIMIT 10

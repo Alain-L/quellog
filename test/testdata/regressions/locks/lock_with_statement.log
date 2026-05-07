@@ -1,0 +1,6 @@
+2026-04-19 11:00:00.100 UTC [4001]: [1-1] user=app,db=appdb,app=psql,client=10.0.0.10 LOG:  process 4001 still waiting for ShareLock on transaction 5000 after 1500.000 ms
+2026-04-19 11:00:00.100 UTC [4001]: [2-1] user=app,db=appdb,app=psql,client=10.0.0.10 DETAIL:  Process holding the lock: 4002. Wait queue: 4001.
+2026-04-19 11:00:00.100 UTC [4001]: [3-1] user=app,db=appdb,app=psql,client=10.0.0.10 STATEMENT:  SELECT * FROM bookings WHERE id = 999 FOR UPDATE
+2026-04-19 11:00:01.700 UTC [4001]: [4-1] user=app,db=appdb,app=psql,client=10.0.0.10 LOG:  process 4001 acquired ShareLock on transaction 5000 after 3200.000 ms
+2026-04-19 11:00:01.700 UTC [4001]: [5-1] user=app,db=appdb,app=psql,client=10.0.0.10 STATEMENT:  SELECT * FROM bookings WHERE id = 999 FOR UPDATE
+2026-04-19 11:00:01.800 UTC [4001]: [6-1] user=app,db=appdb,app=psql,client=10.0.0.10 LOG:  duration: 3300.500 ms  statement: SELECT * FROM bookings WHERE id = 999 FOR UPDATE

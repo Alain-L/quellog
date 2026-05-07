@@ -2,7 +2,9 @@
 package cmd
 
 import (
-	"log"
+	"fmt"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -13,14 +15,15 @@ const (
 
 // parseDateTimes parses the begin and end datetime strings.
 // Returns zero time.Time values if the strings are empty.
-// Exits with fatal error if parsing fails.
-func parseDateTimes(beginStr, endStr string) (time.Time, time.Time) {
+// Returns an error if either string is non-empty and fails to parse.
+func parseDateTimes(beginStr, endStr string) (time.Time, time.Time, error) {
 	var begin, end time.Time
 
 	if beginStr != "" {
 		parsed, err := time.Parse(DateTimeFormat, beginStr)
 		if err != nil {
-			log.Fatalf("[ERROR] Invalid --begin datetime format. Expected: %s, Got: %s",
+			return time.Time{}, time.Time{}, fmt.Errorf(
+				"invalid --begin datetime format: expected %s, got %q",
 				DateTimeFormat, beginStr)
 		}
 		begin = parsed
@@ -29,60 +32,92 @@ func parseDateTimes(beginStr, endStr string) (time.Time, time.Time) {
 	if endStr != "" {
 		parsed, err := time.Parse(DateTimeFormat, endStr)
 		if err != nil {
-			log.Fatalf("[ERROR] Invalid --end datetime format. Expected: %s, Got: %s",
+			return time.Time{}, time.Time{}, fmt.Errorf(
+				"invalid --end datetime format: expected %s, got %q",
 				DateTimeFormat, endStr)
 		}
 		end = parsed
 	}
 
-	return begin, end
+	return begin, end, nil
 }
 
 // parseWindow converts the window flag string to a time.Duration.
-// Returns 0 if the string is empty.
-// Exits with fatal error if parsing fails.
-//
-// Examples of valid duration strings:
-//   - "30m" (30 minutes)
-//   - "2h" (2 hours)
-//   - "1h30m" (1 hour and 30 minutes)
-func parseWindow(windowStr string) time.Duration {
+// Returns 0 if the string is empty. Returns an error on parse failure.
+// Accepts the units recognised by parseDuration (see parseDuration doc).
+func parseWindow(windowStr string) (time.Duration, error) {
 	if windowStr == "" {
-		return 0
+		return 0, nil
 	}
 
-	duration, err := time.ParseDuration(windowStr)
+	duration, err := parseDuration(windowStr)
 	if err != nil {
-		log.Fatalf("[ERROR] Invalid --window duration: %v", err)
+		return 0, fmt.Errorf("invalid --window duration: %w", err)
 	}
 
-	return duration
+	return duration, nil
 }
 
 // parseLast converts the --last flag to begin/end timestamps.
 // Returns (begin, end) where end = now and begin = now - duration.
 // Returns zero time.Time values if the string is empty.
-// Exits with fatal error if parsing fails.
+// Returns an error on parse failure or non-positive duration.
 //
-// Examples of valid duration strings:
-//   - "1h" (last 1 hour)
-//   - "30m" (last 30 minutes)
-//   - "24h" (last 24 hours)
-func parseLast(lastStr string) (time.Time, time.Time) {
+// Accepts the units recognised by parseDuration (see parseDuration doc).
+func parseLast(lastStr string) (time.Time, time.Time, error) {
 	if lastStr == "" {
-		return time.Time{}, time.Time{}
+		return time.Time{}, time.Time{}, nil
 	}
 
-	duration, err := time.ParseDuration(lastStr)
+	duration, err := parseDuration(lastStr)
 	if err != nil {
-		log.Fatalf("[ERROR] Invalid --last duration: %v", err)
+		return time.Time{}, time.Time{}, fmt.Errorf("invalid --last duration: %w", err)
 	}
 
 	if duration <= 0 {
-		log.Fatalf("[ERROR] --last duration must be positive, got: %s", lastStr)
+		return time.Time{}, time.Time{}, fmt.Errorf("--last duration must be positive, got: %s", lastStr)
 	}
 
 	now := time.Now()
 	begin := now.Add(-duration)
-	return begin, now
+	return begin, now, nil
+}
+
+// parseDuration extends time.ParseDuration with the day ("d") and year
+// ("y") suffixes that DBAs naturally type. PostgreSQL log analysis is
+// usually done over windows like "1d" (last 24h) or "5y" (audit trail),
+// not "24h" or "43800h" — and the stdlib only accepts ns/us/ms/s/m/h.
+//
+// Supported single-unit suffixes:
+//   - "Nd" -> N * 24h          (1d, 7d, 30d, ...)
+//   - "Nw" -> N * 7 * 24h      (1w, 2w, ...)
+//   - "Ny" -> N * 365 * 24h    (1y, 5y, ...) - 365-day approximation
+//
+// Composite forms ("1d12h", "2w3d") are NOT supported here; they fall
+// through to time.ParseDuration which rejects them. Use the underlying
+// stdlib units for those (e.g. "36h", "17d" -> "408h").
+//
+// All other inputs are passed through to time.ParseDuration unchanged,
+// so existing usage ("1h", "30m", "1h30m") keeps working.
+func parseDuration(s string) (time.Duration, error) {
+	if s == "" {
+		return 0, fmt.Errorf("empty duration")
+	}
+	last := s[len(s)-1]
+	multiplier := time.Duration(0)
+	switch last {
+	case 'd':
+		multiplier = 24 * time.Hour
+	case 'w':
+		multiplier = 7 * 24 * time.Hour
+	case 'y':
+		multiplier = 365 * 24 * time.Hour
+	default:
+		return time.ParseDuration(s)
+	}
+	n, err := strconv.ParseInt(strings.TrimSuffix(s, string(last)), 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("time: invalid number before %q in duration %q", last, s)
+	}
+	return time.Duration(n) * multiplier, nil
 }

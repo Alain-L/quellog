@@ -76,3 +76,37 @@ sudo install -m 755 quellog /usr/local/bin/quellog
 ```bash
 quellog --version
 ```
+
+## Shell completion
+
+`quellog completion <shell>` writes a completion script to stdout for
+`bash`, `zsh`, `fish`, or `powershell`.
+
+=== "bash"
+
+    ```bash
+    # one-shot for the current shell
+    source <(quellog completion bash)
+
+    # persistent (system-wide on macOS with brew bash-completion)
+    quellog completion bash > $(brew --prefix)/etc/bash_completion.d/quellog
+    ```
+
+=== "zsh"
+
+    ```bash
+    # persistent (with compinit already enabled in your .zshrc)
+    quellog completion zsh > "${fpath[1]}/_quellog"
+    ```
+
+=== "fish"
+
+    ```bash
+    quellog completion fish > ~/.config/fish/completions/quellog.fish
+    ```
+
+=== "PowerShell"
+
+    ```powershell
+    quellog completion powershell | Out-String | Invoke-Expression
+    ```

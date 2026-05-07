@@ -4,9 +4,11 @@ on:
   push:
     branches:
       - main
+      - dev
   pull_request:
     branches:
       - main
+      - dev
   workflow_dispatch:
 
 jobs:
@@ -35,9 +37,25 @@ jobs:
       - name: Generate web assets
         run: go generate ./web/...
 
-      - name: Vet & Test
+      - name: Check formatting (gofmt -s)
+        run: |
+          unformatted=$(gofmt -s -l .)
+          if [ -n "$unformatted" ]; then
+            echo "::error::Files not gofmt -s'd:"
+            echo "$unformatted"
+            echo ""
+            echo "Diff:"
+            gofmt -s -d .
+            exit 1
+          fi
+
+      - name: Install staticcheck
+        run: go install honnef.co/go/tools/cmd/staticcheck@latest
+
+      - name: Vet, Lint & Test
         run: |
           go vet ./...
+          staticcheck ./...
           go test ./... -cover
 
       - name: Build CLI

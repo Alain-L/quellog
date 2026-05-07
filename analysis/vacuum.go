@@ -15,26 +15,20 @@ const (
 	pageSize int64 = 8192
 )
 
-// VacuumMetrics aggregates statistics for autovacuum and autoanalyze operations.
-// These operations are critical for PostgreSQL performance and space management.
+// VacuumMetrics aggregates autovacuum and autoanalyze stats.
 type VacuumMetrics struct {
-	// VacuumCount is the total number of automatic vacuum operations.
+	// VacuumCount counts every automatic vacuum (includes aggressive,
+	// which is just a type of vacuum).
 	VacuumCount int
-
-	// AnalyzeCount is the total number of automatic analyze operations.
-	AnalyzeCount int
-
-	// VacuumTableCounts maps table names to their vacuum operation count.
-	// Useful for identifying tables that are vacuumed frequently.
-	VacuumTableCounts map[string]int
-
-	// AnalyzeTableCounts maps table names to their analyze operation count.
-	// Useful for understanding statistics update patterns.
-	AnalyzeTableCounts map[string]int
-
-	// VacuumSpaceRecovered maps table names to total disk space recovered in bytes.
-	// This represents dead tuple space reclaimed by vacuum operations.
-	VacuumSpaceRecovered map[string]int64
+	// AggressiveVacuumCount counts "automatic aggressive vacuum" runs,
+	// i.e. anti-wraparound freezes. A high ratio vs VacuumCount means
+	// the cluster is under freeze pressure — worth surfacing when
+	// diagnosing autovacuum tuning.
+	AggressiveVacuumCount int
+	AnalyzeCount          int
+	VacuumTableCounts     map[string]int   // table → vacuum count
+	AnalyzeTableCounts    map[string]int   // table → analyze count
+	VacuumSpaceRecovered  map[string]int64 // table → bytes reclaimed (dead tuples)
 }
 
 // ============================================================================
@@ -43,10 +37,11 @@ type VacuumMetrics struct {
 
 // Vacuum log message patterns
 const (
-	autoVacuumMarker  = "automatic vacuum of table"
-	autoAnalyzeMarker = "automatic analyze of table"
-	pagesRemovedKey   = "pages: "
-	pagesRemovedWord  = " removed"
+	autoVacuumMarker           = "automatic vacuum of table"
+	autoAggressiveVacuumMarker = "automatic aggressive vacuum of table"
+	autoAnalyzeMarker          = "automatic analyze of table"
+	pagesRemovedKey            = "pages: "
+	pagesRemovedWord           = " removed"
 )
 
 // ============================================================================
@@ -64,11 +59,12 @@ const (
 //	}
 //	metrics := analyzer.Finalize()
 type VacuumAnalyzer struct {
-	vacuumCount          int
-	analyzeCount         int
-	vacuumTableCounts    map[string]int
-	analyzeTableCounts   map[string]int
-	vacuumSpaceRecovered map[string]int64
+	vacuumCount           int
+	aggressiveVacuumCount int
+	analyzeCount          int
+	vacuumTableCounts     map[string]int
+	analyzeTableCounts    map[string]int
+	vacuumSpaceRecovered  map[string]int64
 }
 
 // NewVacuumAnalyzer creates a new vacuum analyzer.
@@ -94,7 +90,7 @@ func (a *VacuumAnalyzer) Process(entry *parser.LogEntry) {
 
 	// Fast pre-filter: check for "uto" before expensive Index
 	// "uto" is highly specific to "automatic" and eliminates ~99%+ of messages
-	if strings.Index(msg, "uto") < 0 {
+	if !strings.Contains(msg, "uto") {
 		return
 	}
 
@@ -104,8 +100,24 @@ func (a *VacuumAnalyzer) Process(entry *parser.LogEntry) {
 		return
 	}
 
-	// Check what follows "automatic "
+	// Check what follows "automatic ". Handle three variants:
+	//   "automatic vacuum of table ..."
+	//   "automatic aggressive vacuum of table ..."  (anti-wraparound freeze)
+	//   "automatic analyze of table ..."
 	rest := msg[idx+10:]
+
+	// Aggressive vacuum checked first because it also matches as a vacuum
+	// (aggressive IS a type of vacuum, so we increment both counters).
+	if strings.HasPrefix(rest, "aggressive vacuum") {
+		tableName := extractTableName(msg)
+		a.vacuumCount++
+		a.aggressiveVacuumCount++
+		a.vacuumTableCounts[tableName]++
+		if removedPages := extractRemovedPages(msg); removedPages > 0 {
+			a.vacuumSpaceRecovered[tableName] += removedPages * pageSize
+		}
+		return
+	}
 
 	if strings.HasPrefix(rest, "vacuum") {
 		tableName := extractTableName(msg)
@@ -128,11 +140,12 @@ func (a *VacuumAnalyzer) Process(entry *parser.LogEntry) {
 // This should be called after all log entries have been processed.
 func (a *VacuumAnalyzer) Finalize() VacuumMetrics {
 	return VacuumMetrics{
-		VacuumCount:          a.vacuumCount,
-		AnalyzeCount:         a.analyzeCount,
-		VacuumTableCounts:    a.vacuumTableCounts,
-		AnalyzeTableCounts:   a.analyzeTableCounts,
-		VacuumSpaceRecovered: a.vacuumSpaceRecovered,
+		VacuumCount:           a.vacuumCount,
+		AggressiveVacuumCount: a.aggressiveVacuumCount,
+		AnalyzeCount:          a.analyzeCount,
+		VacuumTableCounts:     a.vacuumTableCounts,
+		AnalyzeTableCounts:    a.analyzeTableCounts,
+		VacuumSpaceRecovered:  a.vacuumSpaceRecovered,
 	}
 }
 

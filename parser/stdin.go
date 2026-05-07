@@ -5,32 +5,32 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"os"
 )
 
 // ParseStdin reads from standard input, detects the log format, and streams parsed entries.
 // It reads a sample to detect the format, then creates a combined reader with the sample
 // and remaining stdin data for streaming parsing.
-func ParseStdin(out chan<- LogEntry) error {
+func ParseStdin(out chan<- []LogEntry) error {
 	// Read a sample from stdin to detect format
 	sample, err := readStdinSample(os.Stdin)
 	if err != nil {
-		log.Printf("[ERROR] Failed to read sample from stdin: %v", err)
+		slog.Error("failed to read sample from stdin", "err", err)
 		return fmt.Errorf("stdin: %w", ErrUnknownFormat)
 	}
 
 	// Check for binary content
 	sampleStr := string(sample)
 	if isBinaryContent(sampleStr) {
-		log.Printf("[ERROR] stdin appears to contain binary data. Binary formats are not supported.")
+		slog.Error("stdin appears to contain binary data, binary formats not supported")
 		return fmt.Errorf("stdin: %w", ErrBinaryFile)
 	}
 
 	// Detect format from sample
 	parser := detectFormatFromSample(sampleStr)
 	if parser == nil {
-		log.Printf("[ERROR] Unable to detect log format from stdin")
+		slog.Error("unable to detect log format from stdin")
 		return fmt.Errorf("stdin: %w", ErrUnknownFormat)
 	}
 
@@ -58,19 +58,19 @@ func readStdinSample(r io.Reader) ([]byte, error) {
 func detectFormatFromSample(sample string) LogParser {
 	// Try CSV detection first (most structured)
 	if isCSVContent(sample) {
-		log.Printf("[INFO] Detected CSV format from stdin")
+		slog.Info("detected CSV format from stdin")
 		return &CsvParser{}
 	}
 
 	// Try JSON detection
 	if isJSONContent(sample) {
-		log.Printf("[INFO] Detected JSON format from stdin")
+		slog.Info("detected JSON format from stdin")
 		return &JsonParser{}
 	}
 
 	// Try stderr/syslog detection
 	if isLogContent(sample) {
-		log.Printf("[INFO] Detected stderr/syslog format from stdin")
+		slog.Info("detected stderr/syslog format from stdin")
 		return &StderrParser{}
 	}
 
@@ -79,7 +79,7 @@ func detectFormatFromSample(sample string) LogParser {
 
 // parseFromReader parses log entries from an io.Reader using the specified parser.
 // This is a generic parsing function that works with any LogParser implementation.
-func parseFromReader(parser LogParser, r io.Reader, out chan<- LogEntry) error {
+func parseFromReader(parser LogParser, r io.Reader, out chan<- []LogEntry) error {
 	switch p := parser.(type) {
 	case *CsvParser:
 		return p.parseReader(r, out)

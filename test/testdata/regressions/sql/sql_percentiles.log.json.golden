@@ -1,0 +1,330 @@
+{
+  "apps": [
+    {
+      "name": "psql",
+      "count": 51
+    }
+  ],
+  "clients": {
+    "unique_databases": 1,
+    "unique_users": 1,
+    "unique_apps": 1,
+    "unique_hosts": 1
+  },
+  "databases": [
+    {
+      "name": "appdb",
+      "count": 51
+    }
+  ],
+  "events": [
+    {
+      "type": "LOG",
+      "count": 51,
+      "percentage": 100
+    }
+  ],
+  "hosts": [
+    {
+      "name": "10.0.0.2",
+      "count": 51
+    }
+  ],
+  "sql_performance": {
+    "total_query_duration": "13.26 s",
+    "total_queries_parsed": 51,
+    "total_unique_queries": 1,
+    "top_1_percent_slow_queries": 1,
+    "query_max_duration": "510 ms",
+    "query_min_duration": "10 ms",
+    "query_median_duration": "260 ms",
+    "query_99th_percentile": "510 ms",
+    "executions": [
+      {
+        "timestamp": "2026-04-19 23:30:00",
+        "duration_ms": 10,
+        "query_id": "se-QcnnDD"
+      },
+      {
+        "timestamp": "2026-04-19 23:30:00",
+        "duration_ms": 20,
+        "query_id": "se-QcnnDD"
+      },
+      {
+        "timestamp": "2026-04-19 23:30:00",
+        "duration_ms": 30,
+        "query_id": "se-QcnnDD"
+      },
+      {
+        "timestamp": "2026-04-19 23:30:00",
+        "duration_ms": 40,
+        "query_id": "se-QcnnDD"
+      },
+      {
+        "timestamp": "2026-04-19 23:30:00",
+        "duration_ms": 50,
+        "query_id": "se-QcnnDD"
+      },
+      {
+        "timestamp": "2026-04-19 23:30:00",
+        "duration_ms": 60,
+        "query_id": "se-QcnnDD"
+      },
+      {
+        "timestamp": "2026-04-19 23:30:00",
+        "duration_ms": 70,
+        "query_id": "se-QcnnDD"
+      },
+      {
+        "timestamp": "2026-04-19 23:30:00",
+        "duration_ms": 80,
+        "query_id": "se-QcnnDD"
+      },
+      {
+        "timestamp": "2026-04-19 23:30:00",
+        "duration_ms": 90,
+        "query_id": "se-QcnnDD"
+      },
+      {
+        "timestamp": "2026-04-19 23:30:00",
+        "duration_ms": 100,
+        "query_id": "se-QcnnDD"
+      },
+      {
+        "timestamp": "2026-04-19 23:30:01",
+        "duration_ms": 110,
+        "query_id": "se-QcnnDD"
+      },
+      {
+        "timestamp": "2026-04-19 23:30:01",
+        "duration_ms": 120,
+        "query_id": "se-QcnnDD"
+      },
+      {
+        "timestamp": "2026-04-19 23:30:01",
+        "duration_ms": 130,
+        "query_id": "se-QcnnDD"
+      },
+      {
+        "timestamp": "2026-04-19 23:30:01",
+        "duration_ms": 140,
+        "query_id": "se-QcnnDD"
+      },
+      {
+        "timestamp": "2026-04-19 23:30:01",
+        "duration_ms": 150,
+        "query_id": "se-QcnnDD"
+      },
+      {
+        "timestamp": "2026-04-19 23:30:01",
+        "duration_ms": 160,
+        "query_id": "se-QcnnDD"
+      },
+      {
+        "timestamp": "2026-04-19 23:30:01",
+        "duration_ms": 170,
+        "query_id": "se-QcnnDD"
+      },
+      {
+        "timestamp": "2026-04-19 23:30:01",
+        "duration_ms": 180,
+        "query_id": "se-QcnnDD"
+      },
+      {
+        "timestamp": "2026-04-19 23:30:01",
+        "duration_ms": 190,
+        "query_id": "se-QcnnDD"
+      },
+      {
+        "timestamp": "2026-04-19 23:30:01",
+        "duration_ms": 200,
+        "query_id": "se-QcnnDD"
+      },
+      {
+        "timestamp": "2026-04-19 23:30:02",
+        "duration_ms": 210,
+        "query_id": "se-QcnnDD"
+      },
+      {
+        "timestamp": "2026-04-19 23:30:02",
+        "duration_ms": 220,
+        "query_id": "se-QcnnDD"
+      },
+      {
+        "timestamp": "2026-04-19 23:30:02",
+        "duration_ms": 230,
+        "query_id": "se-QcnnDD"
+      },
+      {
+        "timestamp": "2026-04-19 23:30:02",
+        "duration_ms": 240,
+        "query_id": "se-QcnnDD"
+      },
+      {
+        "timestamp": "2026-04-19 23:30:02",
+        "duration_ms": 250,
+        "query_id": "se-QcnnDD"
+      },
+      {
+        "timestamp": "2026-04-19 23:30:02",
+        "duration_ms": 260,
+        "query_id": "se-QcnnDD"
+      },
+      {
+        "timestamp": "2026-04-19 23:30:02",
+        "duration_ms": 270,
+        "query_id": "se-QcnnDD"
+      },
+      {
+        "timestamp": "2026-04-19 23:30:02",
+        "duration_ms": 280,
+        "query_id": "se-QcnnDD"
+      },
+      {
+        "timestamp": "2026-04-19 23:30:02",
+        "duration_ms": 290,
+        "query_id": "se-QcnnDD"
+      },
+      {
+        "timestamp": "2026-04-19 23:30:02",
+        "duration_ms": 300,
+        "query_id": "se-QcnnDD"
+      },
+      {
+        "timestamp": "2026-04-19 23:30:03",
+        "duration_ms": 310,
+        "query_id": "se-QcnnDD"
+      },
+      {
+        "timestamp": "2026-04-19 23:30:03",
+        "duration_ms": 320,
+        "query_id": "se-QcnnDD"
+      },
+      {
+        "timestamp": "2026-04-19 23:30:03",
+        "duration_ms": 330,
+        "query_id": "se-QcnnDD"
+      },
+      {
+        "timestamp": "2026-04-19 23:30:03",
+        "duration_ms": 340,
+        "query_id": "se-QcnnDD"
+      },
+      {
+        "timestamp": "2026-04-19 23:30:03",
+        "duration_ms": 350,
+        "query_id": "se-QcnnDD"
+      },
+      {
+        "timestamp": "2026-04-19 23:30:03",
+        "duration_ms": 360,
+        "query_id": "se-QcnnDD"
+      },
+      {
+        "timestamp": "2026-04-19 23:30:03",
+        "duration_ms": 370,
+        "query_id": "se-QcnnDD"
+      },
+      {
+        "timestamp": "2026-04-19 23:30:03",
+        "duration_ms": 380,
+        "query_id": "se-QcnnDD"
+      },
+      {
+        "timestamp": "2026-04-19 23:30:03",
+        "duration_ms": 390,
+        "query_id": "se-QcnnDD"
+      },
+      {
+        "timestamp": "2026-04-19 23:30:03",
+        "duration_ms": 400,
+        "query_id": "se-QcnnDD"
+      },
+      {
+        "timestamp": "2026-04-19 23:30:04",
+        "duration_ms": 410,
+        "query_id": "se-QcnnDD"
+      },
+      {
+        "timestamp": "2026-04-19 23:30:04",
+        "duration_ms": 420,
+        "query_id": "se-QcnnDD"
+      },
+      {
+        "timestamp": "2026-04-19 23:30:04",
+        "duration_ms": 430,
+        "query_id": "se-QcnnDD"
+      },
+      {
+        "timestamp": "2026-04-19 23:30:04",
+        "duration_ms": 440,
+        "query_id": "se-QcnnDD"
+      },
+      {
+        "timestamp": "2026-04-19 23:30:04",
+        "duration_ms": 450,
+        "query_id": "se-QcnnDD"
+      },
+      {
+        "timestamp": "2026-04-19 23:30:04",
+        "duration_ms": 460,
+        "query_id": "se-QcnnDD"
+      },
+      {
+        "timestamp": "2026-04-19 23:30:04",
+        "duration_ms": 470,
+        "query_id": "se-QcnnDD"
+      },
+      {
+        "timestamp": "2026-04-19 23:30:04",
+        "duration_ms": 480,
+        "query_id": "se-QcnnDD"
+      },
+      {
+        "timestamp": "2026-04-19 23:30:04",
+        "duration_ms": 490,
+        "query_id": "se-QcnnDD"
+      },
+      {
+        "timestamp": "2026-04-19 23:30:04",
+        "duration_ms": 500,
+        "query_id": "se-QcnnDD"
+      },
+      {
+        "timestamp": "2026-04-19 23:30:05",
+        "duration_ms": 510,
+        "query_id": "se-QcnnDD"
+      }
+    ],
+    "queries": [
+      {
+        "id": "se-QcnnDD",
+        "normalized_query": "select count(*) from events where created_at \u003e ?",
+        "raw_query": "SELECT count(*) FROM events WHERE created_at \u003e '2026-01-01'",
+        "type": "",
+        "count": 51,
+        "total_time_ms": 13260,
+        "avg_time_ms": 260,
+        "max_time_ms": 510
+      }
+    ]
+  },
+  "summary": {
+    "start_date": "2026-04-19 23:30:00",
+    "end_date": "2026-04-19 23:30:05",
+    "duration": "5s",
+    "total_logs": 51,
+    "throughput": "10.20 entries/s",
+    "error_count": 0,
+    "fatal_count": 0,
+    "panic_count": 0,
+    "warning_count": 0,
+    "log_count": 51
+  },
+  "users": [
+    {
+      "name": "app",
+      "count": 51
+    }
+  ]
+}

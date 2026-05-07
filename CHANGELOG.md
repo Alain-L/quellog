@@ -2,6 +2,51 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.10.0] - unreleased
+
+### Added
+- **Per-event drill-down**: every event pattern gets a stable short id (`<sev>-<4-char-hash>`, e.g. `fa-6K1G`, `er-Qr5p`) shown in the `--events` output. Use `--event-detail` (`-E`) to open a full report for one or more patterns: full raw message, occurrences-over-time bar chart, first/last seen, frequency. Same drill-down available in the HTML report as a click-to-detail modal with uPlot sparkline + copy buttons.
+- **Aggressive vacuum counter**: `automatic aggressive vacuum` operations counted separately, surfaced as an amber stat-card in the HTML maintenance section.
+- **`--last` / `--window` extended units**: `d` (days), `w` (weeks), `y` (years) in addition to the existing `s`/`m`/`h`. Example: `--last 1d`, `--last 5y`.
+- **Live progress bar** on stderr for large parses (TTY only, > 500 MB total input).
+- **`--open`**: launches the generated HTML report in the default browser. Cross-platform (`open` / `xdg-open` / `cmd /C start`), skipped when stderr is not a TTY or `CI=` is set.
+- **`completion` subcommand**: `quellog completion bash|zsh|fish|powershell` writes a completion script to stdout (Cobra-generated).
+- **`--quiet` / `-q`**: suppress INFO logs (keep WARN/ERROR). Useful for cron and CI invocations.
+- **`NO_COLOR` env var**: respected — disables ANSI codes in text output.
+
+### Changed
+- **HTML report**: per-event click-to-detail modal with occurrences-over-time sparkline + copy-id and copy-message buttons.
+- **Parser & analyzer pipeline**: zero-copy `[]byte` through `StderrParser`, zero-copy JSON via gjson, msgBuf reuse for CSV. Locks/TempFiles/SQL always run in dedicated goroutines (200 MB gate dropped). Worker count picked from file size profile.
+- **Streaming JSON output**: big sections (`sql_performance.queries`, executions, lock and temp-file events, sessions, connections) stream item-by-item instead of `MarshalIndent` on the full slice.
+
+### Fixed
+- **Connection peak**: now computed via sweep-line over session events instead of a streaming counter that undercounted re-used PIDs. Orphan sessions (received with no logged disconnect) flushed at Finalize.
+- **`application_name=` truncation**: long values with embedded spaces were cut at the first space.
+- **Histogram sort**: deterministic across runs (lexicographic tie-break on equal-minute buckets).
+- **`--errors --json` empty section**: the events section was hidden when `--errors` was selected; now it's surfaced (and YAML inherits).
+- **HTML Blocking Queries dedup**: the table aggregated raw lock events, so a single wait re-logged every `deadlock_timeout` (default 1s) appeared multiple times. Deduped by unique wait.
+- **Severity counts**: `summary.error_count` / `fatal_count` etc. were always zero; now aggregated from `EventAnalyzer`.
+- **Zero-offset timezones**: parser now normalizes `+0000` to UTC across platforms (was producing different goldens between macOS and Linux).
+- **`--full` text output**: the flag was plumbed but the text renderer never read it. Now it does.
+- **WASM progress bar**: replaced the CSS-animated bar (blocked by tinygo's cooperative scheduler during the parse) with a static "Crunching log entries…" label.
+- **HTML chart dblclick reset**: uPlot's built-in dblclick auto-fitted to the current data extent, which after a zoom equals the zoomed range — so dblclick "reset" stayed stuck. Replaced with an explicit handler that mirrors the Reset button.
+- **HTML SQL chart tooltip**: missing `fmt` import surfaced as `ReferenceError` on every cursor move over the SQL Performance chart (silent in production, visible only in DevTools).
+
+### Performance
+- **Memory footprint**: roughly −80 % RSS on multi-gigabyte stderr corpora (−87 % with `GOGC=20`). Heavy analyzers (SQL, connections) moved to chunked parallel-slice storage; connection metrics expose iterators instead of materializing slices.
+- **Streaming session distribution**: P² sketch replaces the materialized duration array — constant memory regardless of session count.
+- **WASM**: tinygo linear-memory ceiling pressure cut on big browser logs.
+
+### Removed
+- **mmap parser path** (`parser/mmap_parser.go`, -605 LOC): the buffered path took over after a year of optims focused on it.
+
+### Internal
+- **Structured logging**: `log` → `slog` (enables `--quiet`).
+- **Graceful shutdown**: `context.Context` propagated through the analysis orchestration; SIGINT no longer leaves goroutines hanging.
+- **Test corpus**: 29 themed fixtures + JSON/MD goldens regenerable via `go test -update`.
+- **CI hardening**: blocking `staticcheck` and `gofmt -s` steps; runs on push and PR for `dev`.
+- **Refactor**: `LockAnalyzer.Process` split (385 → 47 LOC + 11 helpers); WASM pipeline unified on `analysis.AggregateMetrics` + `parser.FilterStream` (-62 %).
+
 ## [0.9.0] - 2026-04-16
 
 ### Added

@@ -1,0 +1,132 @@
+## SUMMARY
+
+This _quellog_ report summarizes **5** log entries collected between 19 Apr 2026, 17:00 (UTC) — 19 Apr 2026, 17:00 (UTC), spanning 3s of activity.
+
+## SQL SUMMARY
+
+### Query load distribution
+
+```
+17:00 - 17:00 |  -
+```
+
+|  |  |  |  |
+|---|---:|---|---:|
+| Total query duration | 45 ms | Total queries parsed | 1 |
+| Total unique queries | 1 | Top 1% slow queries | 1 |
+| Query max duration | 45 ms | Query min duration | 45 ms |
+| Query median duration | 45 ms | Query 99% max duration | 45 ms |
+
+### Query duration distribution
+
+```
+  < 1 ms |  -
+ < 10 ms |  -
+< 100 ms | ■ 1 req
+   < 1 s |  -
+  < 10 s |  -
+ >= 10 s |  -
+```
+
+### Query Statistics
+
+**Slowest queries (top 10)**
+
+| SQLID | Max | Avg | Count | Query |
+|---|---:|---:|---:|---|
+| se-s970DF | 45 ms | 45 ms | 1 | select u.id, u.username, u.email from users u where u.created_at > ? order by... |
+
+**Most frequent queries (top 10)**
+
+| SQLID | Count | Avg | Max | Query |
+|---|---:|---:|---:|---|
+| se-s970DF | 1 | 45 ms | 45 ms | select u.id, u.username, u.email from users u where u.created_at > ? order by... |
+
+**Most time consuming queries (top 10)**
+
+| SQLID | Total | Avg | Count | Query |
+|---|---:|---:|---:|---|
+| se-s970DF | 45 ms | 45 ms | 1 | select u.id, u.username, u.email from users u where u.created_at > ? order by... |
+
+## EVENTS
+
+- **FATAL**: 1 (20.0%)
+  - **57 - Operator Intervention**
+  - *fa-ohpk* `the database system is in recovery mode` (1) [100.0%]
+
+- **ERROR**: 1 (20.0%)
+  - **23 - Integrity Constraint Violation**
+  - *er-Enfg* `duplicate key value violates unique constraint ?` (1) [100.0%]
+
+- **LOG**: 3 (60.0%)
+
+## CONNECTIONS & SESSIONS
+
+### Concurrent sessions
+
+```
+17:00 - 17:00 | -
+17:00 - 17:00 | -
+17:00 - 17:00 | -
+17:00 - 17:00 | -
+17:00 - 17:00 | -
+17:00 - 17:00 | -
+17:00 - 17:00 | -
+17:00 - 17:00 | -
+17:00 - 17:00 | -
+17:00 - 17:00 | -
+17:00 - 17:00 | -
+17:00 - 17:00 | -
+```
+
+### Connection distribution
+
+```
+17:00 - 17:00 | ■ 1 
+```
+
+- **Connection count**: 1
+- **Avg connections per hour**: 1090.91
+- **Disconnection count**: 0
+- **Peak concurrent sessions**: 1 (at 17:00:00)
+
+## CLIENTS
+
+- **Unique DBs**: 1
+- **Unique Users**: 1
+- **Unique Apps**: 3
+- **Unique Hosts**: 1
+
+### USERS
+
+| User | Count | % |
+|---|---:|---:|
+| app | 4 | 80.0% |
+
+### APPS
+
+| App | Count | % |
+|---|---:|---:|
+| psql | 2 | 40.0% |
+| app-worker | 1 | 20.0% |
+| long-task | 1 | 20.0% |
+
+### DATABASES
+
+| Database | Count | % |
+|---|---:|---:|
+| appdb | 4 | 80.0% |
+
+### HOSTS
+
+| Host | Count | % |
+|---|---:|---:|
+| 10.0.0.10 | 1 | 20.0% |
+
+### USER × DATABASE
+
+| User | Database | Count | % |
+|---|---|---:|---:|
+| app | appdb | 4 | 80.0% |
+
+

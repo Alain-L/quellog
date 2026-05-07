@@ -1,0 +1,116 @@
+{
+  "apps": [
+    {
+      "name": "psql",
+      "count": 1
+    }
+  ],
+  "clients": {
+    "unique_databases": 1,
+    "unique_users": 2,
+    "unique_apps": 1,
+    "unique_hosts": 2
+  },
+  "databases": [
+    {
+      "name": "appdb",
+      "count": 3
+    }
+  ],
+  "events": [
+    {
+      "type": "LOG",
+      "count": 3,
+      "percentage": 75
+    },
+    {
+      "type": "ERROR",
+      "count": 1,
+      "percentage": 25
+    }
+  ],
+  "hosts": [
+    {
+      "name": "10.0.0.5",
+      "count": 1
+    },
+    {
+      "name": "127.0.0.1",
+      "count": 1
+    }
+  ],
+  "maintenance": {
+    "vacuum_count": 1,
+    "aggressive_vacuum_count": 0,
+    "analyze_count": 0,
+    "vacuum_table_counts": {
+      "appdb.public.users": 1
+    },
+    "analyze_table_counts": {},
+    "vacuum_space_recovered": {}
+  },
+  "sql_performance": {
+    "total_query_duration": "12 ms",
+    "total_queries_parsed": 1,
+    "total_unique_queries": 1,
+    "top_1_percent_slow_queries": 1,
+    "query_max_duration": "12 ms",
+    "query_min_duration": "12 ms",
+    "query_median_duration": "12 ms",
+    "query_99th_percentile": "12 ms",
+    "executions": [
+      {
+        "timestamp": "2026-04-19 16:00:01",
+        "duration_ms": 12.345,
+        "query_id": "se-nX3z0O"
+      }
+    ],
+    "queries": [
+      {
+        "id": "se-nX3z0O",
+        "normalized_query": "select count(*) from users",
+        "raw_query": "SELECT count(*) FROM users",
+        "type": "",
+        "count": 1,
+        "total_time_ms": 12.345,
+        "avg_time_ms": 12.345,
+        "max_time_ms": 12.345
+      }
+    ]
+  },
+  "summary": {
+    "start_date": "2026-04-19 16:00:00",
+    "end_date": "2026-04-19 16:00:03",
+    "duration": "3.3s",
+    "total_logs": 4,
+    "throughput": "1.21 entries/s",
+    "error_count": 1,
+    "fatal_count": 0,
+    "panic_count": 0,
+    "warning_count": 0,
+    "log_count": 3
+  },
+  "top_events": [
+    {
+      "id": "er-Enfg",
+      "message": "duplicate key value violates unique constraint ?",
+      "count": 1,
+      "severity": "ERROR",
+      "example": "[90]: user=app,db=appdb,client=10.0.0.5:34567 ERROR: duplicate key value violates unique constraint \"users_email_key\" DETAIL: Key (email)=(test@example.com) already exists. SQLSTATE = '23505'",
+      "sql_state_class": "23",
+      "timestamps": [
+        1776614403400
+      ]
+    }
+  ],
+  "users": [
+    {
+      "name": "app",
+      "count": 1
+    },
+    {
+      "name": "postgres",
+      "count": 1
+    }
+  ]
+}

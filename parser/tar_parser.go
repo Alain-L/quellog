@@ -8,7 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -20,25 +20,28 @@ var errUnsupportedArchiveEntry = errors.New("unsupported archive entry")
 type TarParser struct{}
 
 // Parse reads a tar or tar.gz archive and parses any supported log files inside it.
-func (p *TarParser) Parse(filename string, out chan<- LogEntry) error {
+func (p *TarParser) Parse(filename string, out chan<- []LogEntry) error {
 	file, err := os.Open(filename)
 	if err != nil {
 		return fmt.Errorf("failed to open tar archive %s: %w", filename, err)
 	}
 	defer file.Close()
 
-	var reader io.Reader = file
+	// Wrap the on-disk reader so progress reports compressed bytes
+	// consumed (= file size on disk = the bar's denominator).
+	source := WithProgress(file)
+	var reader io.Reader = source
 	var closer io.Closer
 
 	if isGzipArchive(filename) {
-		gr, gzipErr := newParallelGzipReader(file)
+		gr, gzipErr := newParallelGzipReader(source)
 		if gzipErr != nil {
 			return fmt.Errorf("failed to open gzip reader for tar archive %s: %w", filename, gzipErr)
 		}
 		reader = gr
 		closer = gr
 	} else if isZstdArchive(filename) {
-		zr, zstdErr := newZstdDecoder(file)
+		zr, zstdErr := newZstdDecoder(source)
 		if zstdErr != nil {
 			return fmt.Errorf("failed to open zstd reader for tar archive %s: %w", filename, zstdErr)
 		}
@@ -65,7 +68,7 @@ func (p *TarParser) Parse(filename string, out chan<- LogEntry) error {
 			continue
 		}
 
-		if hdr.Typeflag != tar.TypeReg && hdr.Typeflag != tar.TypeRegA {
+		if hdr.Typeflag != tar.TypeReg {
 			continue
 		}
 
@@ -78,7 +81,7 @@ func (p *TarParser) Parse(filename string, out chan<- LogEntry) error {
 
 		// Path traversal protection
 		if strings.Contains(entryName, "..") {
-			log.Printf("[WARN] Skipping tar entry with suspicious path: %s", entryName)
+			slog.Warn("skipping tar entry with suspicious path", "entry", entryName)
 			if _, err := io.Copy(io.Discard, entryReader); err != nil {
 				return fmt.Errorf("discarding suspicious entry %s in %s: %w", entryName, filename, err)
 			}
@@ -93,15 +96,15 @@ func (p *TarParser) Parse(filename string, out chan<- LogEntry) error {
 			if _, err := io.Copy(io.Discard, entryReader); err != nil {
 				return fmt.Errorf("discarding unsupported entry %s in %s: %w", entryName, filename, err)
 			}
-			log.Printf("[INFO] Skipping unsupported file %s in archive %s", entryName, filename)
+			slog.Info("skipping unsupported file in archive", "entry", entryName, "archive", filename)
 			continue
 		}
 
 		if err := parseArchiveEntry(baseName, entryReader, out); err != nil {
 			if errors.Is(err, errUnsupportedArchiveEntry) {
-				log.Printf("[WARN] Unsupported log format %s in archive %s", entryName, filename)
+				slog.Warn("unsupported log format in archive", "entry", entryName, "archive", filename)
 			} else {
-				log.Printf("[ERROR] Failed to parse %s in archive %s: %v", entryName, filename, err)
+				slog.Error("failed to parse entry in archive", "entry", entryName, "archive", filename, "err", err)
 			}
 		}
 
@@ -168,7 +171,7 @@ func isRotatedLogFile(lower string) bool {
 }
 
 // parseArchiveEntry selects the correct parser for an archive entry.
-func parseArchiveEntry(name string, r io.Reader, out chan<- LogEntry) error {
+func parseArchiveEntry(name string, r io.Reader, out chan<- []LogEntry) error {
 	lower := strings.ToLower(name)
 
 	switch {
@@ -208,7 +211,7 @@ func parseArchiveEntry(name string, r io.Reader, out chan<- LogEntry) error {
 	}
 }
 
-func parseZstdArchiveEntry(name string, r io.Reader, suffix string, out chan<- LogEntry) error {
+func parseZstdArchiveEntry(name string, r io.Reader, suffix string, out chan<- []LogEntry) error {
 	zr, err := newZstdDecoder(r)
 	if err != nil {
 		return fmt.Errorf("failed to decompress %s: %w", name, err)

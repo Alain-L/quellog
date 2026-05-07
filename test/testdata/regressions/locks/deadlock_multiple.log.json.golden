@@ -1,0 +1,73 @@
+{
+  "apps": [
+    {
+      "name": "psql",
+      "count": 3
+    }
+  ],
+  "clients": {
+    "unique_databases": 1,
+    "unique_users": 1,
+    "unique_apps": 1,
+    "unique_hosts": 3
+  },
+  "databases": [
+    {
+      "name": "appdb",
+      "count": 3
+    }
+  ],
+  "events": [
+    {
+      "type": "ERROR",
+      "count": 3,
+      "percentage": 100
+    }
+  ],
+  "hosts": [
+    {
+      "name": "10.0.0.1",
+      "count": 1
+    },
+    {
+      "name": "10.0.0.2",
+      "count": 1
+    },
+    {
+      "name": "10.0.0.3",
+      "count": 1
+    }
+  ],
+  "summary": {
+    "start_date": "2026-04-19 09:00:00",
+    "end_date": "2026-04-19 09:12:15",
+    "duration": "12m15.6s",
+    "total_logs": 3,
+    "throughput": "0.00 entries/s",
+    "error_count": 3,
+    "fatal_count": 0,
+    "panic_count": 0,
+    "warning_count": 0,
+    "log_count": 0
+  },
+  "top_events": [
+    {
+      "id": "er-JY5d",
+      "message": "deadlock detected",
+      "count": 3,
+      "severity": "ERROR",
+      "example": "[2001]: [1-1] user=app,db=appdb,app=psql,client=10.0.0.1 ERROR:  deadlock detected",
+      "timestamps": [
+        1776589200100,
+        1776589530250,
+        1776589935700
+      ]
+    }
+  ],
+  "users": [
+    {
+      "name": "app",
+      "count": 3
+    }
+  ]
+}

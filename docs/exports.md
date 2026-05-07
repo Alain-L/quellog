@@ -110,6 +110,7 @@ quellog /var/log/postgresql/*.log --html -o my_report.html
 Features:
 
 - **Self-contained**: Single HTML file, no server required
-- **Interactive charts**: Zoomable time-series visualizations
+- **Interactive charts**: Zoomable time-series visualizations, double-click to reset zoom, expand to modal, PNG export
+- **Click-to-detail modals**: Click any query row (sql-performance, locks, temp files) for a cross-analyzer detail panel; click any event row for the per-pattern panel with full message + occurrences-over-time chart + copy buttons
 - **Client-side filtering**: Filter by database, user, application, host, and time range
 - **Offline**: Works without internet connection

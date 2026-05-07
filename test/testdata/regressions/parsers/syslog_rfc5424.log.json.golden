@@ -1,0 +1,164 @@
+{
+  "apps": [
+    {
+      "name": "psql",
+      "count": 5
+    }
+  ],
+  "clients": {
+    "unique_databases": 1,
+    "unique_users": 1,
+    "unique_apps": 1,
+    "unique_hosts": 1
+  },
+  "connections": {
+    "connection_count": 1,
+    "avg_connections_per_hour": "1090.91",
+    "disconnection_count": 1,
+    "avg_session_time": "3.3s",
+    "session_stats": {
+      "count": 1,
+      "min_duration": "3.3s",
+      "max_duration": "3.3s",
+      "avg_duration": "3.3s",
+      "median_duration": "3.3s",
+      "cumulated_duration": "3.3s"
+    },
+    "session_distribution": {
+      "1min - 30min": 0,
+      "1s - 1min": 1,
+      "2h - 5h": 0,
+      "30min - 2h": 0,
+      "\u003c 1s": 0,
+      "\u003e 5h": 0
+    },
+    "sessions_by_user": {
+      "app": {
+        "count": 1,
+        "min_duration": "3.3s",
+        "max_duration": "3.3s",
+        "avg_duration": "3.3s",
+        "median_duration": "3.3s",
+        "cumulated_duration": "3.3s"
+      }
+    },
+    "sessions_by_database": {
+      "appdb": {
+        "count": 1,
+        "min_duration": "3.3s",
+        "max_duration": "3.3s",
+        "avg_duration": "3.3s",
+        "median_duration": "3.3s",
+        "cumulated_duration": "3.3s"
+      }
+    },
+    "sessions_by_host": {
+      "10.0.0.80": {
+        "count": 1,
+        "min_duration": "3.3s",
+        "max_duration": "3.3s",
+        "avg_duration": "3.3s",
+        "median_duration": "3.3s",
+        "cumulated_duration": "3.3s"
+      }
+    },
+    "peak_concurrent_sessions": 2,
+    "peak_concurrent_timestamp": "2026-04-20 09:00:00",
+    "connections": [
+      "2026-04-20 09:00:00"
+    ],
+    "session_events": [
+      {
+        "s": "2026-04-20T09:00:00",
+        "e": "2026-04-20T09:00:03"
+      },
+      {
+        "s": "2026-04-20T09:00:00",
+        "e": "2026-04-20T09:00:03"
+      }
+    ]
+  },
+  "databases": [
+    {
+      "name": "appdb",
+      "count": 5
+    }
+  ],
+  "events": [
+    {
+      "type": "LOG",
+      "count": 4,
+      "percentage": 80
+    },
+    {
+      "type": "ERROR",
+      "count": 1,
+      "percentage": 20
+    }
+  ],
+  "hosts": [
+    {
+      "name": "10.0.0.80",
+      "count": 5
+    }
+  ],
+  "sql_performance": {
+    "total_query_duration": "5 ms",
+    "total_queries_parsed": 1,
+    "total_unique_queries": 1,
+    "top_1_percent_slow_queries": 1,
+    "query_max_duration": "5 ms",
+    "query_min_duration": "5 ms",
+    "query_median_duration": "5 ms",
+    "query_99th_percentile": "5 ms",
+    "executions": [
+      {
+        "timestamp": "2026-04-20 09:00:01",
+        "duration_ms": 5.678,
+        "query_id": "se-0KoGdb"
+      }
+    ],
+    "queries": [
+      {
+        "id": "se-0KoGdb",
+        "normalized_query": "select id from users where id = ?",
+        "raw_query": "SELECT id FROM users WHERE id = 42",
+        "type": "",
+        "count": 1,
+        "total_time_ms": 5.678,
+        "avg_time_ms": 5.678,
+        "max_time_ms": 5.678
+      }
+    ]
+  },
+  "summary": {
+    "start_date": "2026-04-20 09:00:00",
+    "end_date": "2026-04-20 09:00:03",
+    "duration": "3.3s",
+    "total_logs": 5,
+    "throughput": "1.52 entries/s",
+    "error_count": 1,
+    "fatal_count": 0,
+    "panic_count": 0,
+    "warning_count": 0,
+    "log_count": 4
+  },
+  "top_events": [
+    {
+      "id": "er-OzwP",
+      "message": "permission denied for table audit_logs",
+      "count": 1,
+      "severity": "ERROR",
+      "example": "[4-1] db=appdb,user=app,app=psql,client=10.0.0.80 ERROR:  permission denied for table audit_logs",
+      "timestamps": [
+        1776675602300
+      ]
+    }
+  ],
+  "users": [
+    {
+      "name": "app",
+      "count": 5
+    }
+  ]
+}

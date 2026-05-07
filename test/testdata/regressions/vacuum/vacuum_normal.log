@@ -1,0 +1,14 @@
+2026-04-19 15:00:00.100 UTC [9001]: [1-1] user=,db=,app=,client= LOG:  automatic vacuum of table "appdb.public.users": index scans: 0
+	pages: 0 removed, 230 remain, 0 skipped due to pins, 0 skipped frozen
+	tuples: 12 removed, 8500 remain, 3 are dead but not yet removable
+	buffer usage: 425 hits, 0 misses, 5 dirtied
+	avg read rate: 0.000 MB/s, avg write rate: 0.123 MB/s
+	system usage: CPU: user: 0.01 s, system: 0.00 s, elapsed: 0.32 s
+2026-04-19 15:10:00.100 UTC [9002]: [1-1] user=,db=,app=,client= LOG:  automatic vacuum of table "appdb.public.sessions": index scans: 1
+	pages: 5 removed, 450 remain, 0 skipped due to pins, 100 skipped frozen
+	tuples: 234 removed, 15000 remain, 12 are dead but not yet removable
+	buffer usage: 890 hits, 12 misses, 23 dirtied
+	avg read rate: 0.234 MB/s, avg write rate: 0.456 MB/s
+	system usage: CPU: user: 0.12 s, system: 0.03 s, elapsed: 0.78 s
+2026-04-19 15:20:00.100 UTC [9003]: [1-1] user=,db=,app=,client= LOG:  automatic analyze of table "appdb.public.users"
+	system usage: CPU: user: 0.02 s, system: 0.00 s, elapsed: 0.15 s

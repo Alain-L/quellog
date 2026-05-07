@@ -1,0 +1,81 @@
+{
+  "apps": [
+    {
+      "name": "psql",
+      "count": 2
+    }
+  ],
+  "clients": {
+    "unique_databases": 1,
+    "unique_users": 1,
+    "unique_apps": 1,
+    "unique_hosts": 1
+  },
+  "databases": [
+    {
+      "name": "appdb",
+      "count": 2
+    }
+  ],
+  "events": [
+    {
+      "type": "LOG",
+      "count": 2,
+      "percentage": 100
+    }
+  ],
+  "hosts": [
+    {
+      "name": "10.0.0.30",
+      "count": 2
+    }
+  ],
+  "sql_performance": {
+    "total_query_duration": "152 ms",
+    "total_queries_parsed": 1,
+    "total_unique_queries": 1,
+    "top_1_percent_slow_queries": 1,
+    "query_max_duration": "152 ms",
+    "query_min_duration": "152 ms",
+    "query_median_duration": "152 ms",
+    "query_99th_percentile": "152 ms",
+    "executions": [
+      {
+        "timestamp": "2026-04-19 13:00:00",
+        "duration_ms": 152.345,
+        "query_id": "se-EthI0e"
+      }
+    ],
+    "queries": [
+      {
+        "id": "se-EthI0e",
+        "normalized_query": "select u.username, count(o.id) as order_count from users u left join orders o on o.user_id = u.id where u.created_at \u003e ? group by u.username order by order_count desc limit ?",
+        "raw_query": "SELECT u.username, COUNT(o.id) AS order_count FROM users u LEFT JOIN orders o ON o.user_id = u.id WHERE u.created_at \u003e '2026-01-01' GROUP BY u.username ORDER BY order_count DESC LIMIT 10",
+        "type": "",
+        "count": 1,
+        "total_time_ms": 152.345,
+        "avg_time_ms": 152.345,
+        "max_time_ms": 152.345,
+        "plan": "Limit  (cost=125.43..125.45 rows=10 width=42) (actual time=151.234..152.123 rows=10 loops=1)\n  Output: u.username, count(o.id)\n  Buffers: shared hit=523 read=12\n  -\u003e  Sort  (cost=125.43..127.93 rows=1000 width=42) (actual time=151.232..151.567 rows=10 loops=1)\n    Output: u.username, (count(o.id))\n    Sort Key: (count(o.id)) DESC\n    Sort Method: top-N heapsort  Memory: 27kB\n    Buffers: shared hit=523 read=12\n    -\u003e  HashAggregate  (cost=98.50..108.50 rows=1000 width=42) (actual time=140.123..145.789 rows=820 loops=1)\n      Output: u.username, count(o.id)\n      Group Key: u.username\n      Buffers: shared hit=523 read=12\n      -\u003e  Hash Right Join  (cost=15.50..89.50 rows=1800 width=14) (actual time=2.345..120.456 rows=1820 loops=1)\n        Output: u.username, o.id\n        Hash Cond: (o.user_id = u.id)\n        Buffers: shared hit=523 read=12\n        -\u003e  Seq Scan on public.orders o  (cost=0.00..62.00 rows=1800 width=8) (actual time=0.012..50.123 rows=1820 loops=1)\n          Output: o.id, o.user_id\n          Buffers: shared hit=200 read=8\n          -\u003e  Hash  (cost=12.50..12.50 rows=240 width=14) (actual time=2.123..2.124 rows=240 loops=1)\n            Output: u.username, u.id\n            Buckets: 1024 \n            Batches: 1 \n            Memory Usage: 22kB\n            Buffers: shared hit=323 read=4\n            -\u003e  Seq Scan on public.users u  (cost=0.00..12.50 rows=240 width=14) (actual time=0.020..1.987 rows=240 loops=1)\n              Output: u.username, u.id\n              Filter: (u.created_at \u003e '2026-01-01'::date)\n              Rows Removed by\n              Filter: 60\n              Buffers: shared hit=323 read=4"
+      }
+    ]
+  },
+  "summary": {
+    "start_date": "2026-04-19 13:00:00",
+    "end_date": "2026-04-19 13:00:00",
+    "duration": "0s",
+    "total_logs": 2,
+    "throughput": "0.00 entries/s",
+    "error_count": 0,
+    "fatal_count": 0,
+    "panic_count": 0,
+    "warning_count": 0,
+    "log_count": 2
+  },
+  "users": [
+    {
+      "name": "app",
+      "count": 2
+    }
+  ]
+}

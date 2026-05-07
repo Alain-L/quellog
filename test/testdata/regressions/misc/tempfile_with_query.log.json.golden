@@ -1,0 +1,146 @@
+{
+  "apps": [
+    {
+      "name": "app-worker",
+      "count": 4
+    },
+    {
+      "name": "psql",
+      "count": 2
+    }
+  ],
+  "clients": {
+    "unique_databases": 1,
+    "unique_users": 1,
+    "unique_apps": 2,
+    "unique_hosts": 2
+  },
+  "databases": [
+    {
+      "name": "appdb",
+      "count": 6
+    }
+  ],
+  "events": [
+    {
+      "type": "LOG",
+      "count": 6,
+      "percentage": 100
+    }
+  ],
+  "hosts": [
+    {
+      "name": "10.0.0.41",
+      "count": 4
+    },
+    {
+      "name": "10.0.0.40",
+      "count": 2
+    }
+  ],
+  "sql_performance": {
+    "total_query_duration": "6.67 s",
+    "total_queries_parsed": 2,
+    "total_unique_queries": 2,
+    "top_1_percent_slow_queries": 1,
+    "query_max_duration": "5.43 s",
+    "query_min_duration": "1.23 s",
+    "query_median_duration": "3.33 s",
+    "query_99th_percentile": "5.43 s",
+    "executions": [
+      {
+        "timestamp": "2026-04-20 04:00:00",
+        "duration_ms": 1234.567,
+        "query_id": "se-bfosQn"
+      },
+      {
+        "timestamp": "2026-04-20 04:01:00",
+        "duration_ms": 5432.1,
+        "query_id": "se-1UDove"
+      }
+    ],
+    "queries": [
+      {
+        "id": "se-1UDove",
+        "normalized_query": "select * from big_table order by non_indexed_col",
+        "raw_query": "SELECT * FROM big_table ORDER BY non_indexed_col",
+        "type": "",
+        "count": 1,
+        "total_time_ms": 5432.1,
+        "avg_time_ms": 5432.1,
+        "max_time_ms": 5432.1
+      },
+      {
+        "id": "se-bfosQn",
+        "normalized_query": "select u.id, u.username, count(o.id) from users u left join orders o on o.user_id = u.id group by u.id order by count desc",
+        "raw_query": "SELECT u.id, u.username, COUNT(o.id) FROM users u LEFT JOIN orders o ON o.user_id = u.id GROUP BY u.id ORDER BY count DESC",
+        "type": "",
+        "count": 1,
+        "total_time_ms": 1234.567,
+        "avg_time_ms": 1234.567,
+        "max_time_ms": 1234.567
+      }
+    ]
+  },
+  "summary": {
+    "start_date": "2026-04-20 04:00:00",
+    "end_date": "2026-04-20 04:03:00",
+    "duration": "3m0.05s",
+    "total_logs": 6,
+    "throughput": "0.03 entries/s",
+    "error_count": 0,
+    "fatal_count": 0,
+    "panic_count": 0,
+    "warning_count": 0,
+    "log_count": 6
+  },
+  "temp_files": {
+    "total_messages": 4,
+    "total_size": "48.19 MB",
+    "avg_size": "12.05 MB",
+    "events": [
+      {
+        "timestamp": "2026-04-20 04:00:00",
+        "size": "20.19 MB",
+        "query_id": "se-bfosQn"
+      },
+      {
+        "timestamp": "2026-04-20 04:01:00",
+        "size": "4.00 MB",
+        "query_id": "se-1UDove"
+      },
+      {
+        "timestamp": "2026-04-20 04:02:00",
+        "size": "8.00 MB",
+        "query_id": "se-1UDove"
+      },
+      {
+        "timestamp": "2026-04-20 04:03:00",
+        "size": "16.00 MB",
+        "query_id": "se-1UDove"
+      }
+    ],
+    "queries": [
+      {
+        "id": "se-1UDove",
+        "normalized_query": "select * from big_table order by non_indexed_col",
+        "raw_query": "SELECT * FROM big_table ORDER BY non_indexed_col",
+        "count": 3,
+        "total_size": "28.00 MB"
+      },
+      {
+        "id": "se-bfosQn",
+        "normalized_query": "select u.id, u.username, count(o.id) from users u left join orders o on o.user_id = u.id group by u.id order by count desc",
+        "raw_query": "SELECT u.id, u.username, COUNT(o.id) FROM users u LEFT JOIN orders o ON o.user_id = u.id GROUP BY u.id ORDER BY count DESC",
+        "count": 1,
+        "total_size": "20.19 MB"
+      }
+    ]
+  },
+  "users": [
+    {
+      "name": "app",
+      "count": 6
+    }
+  ]
+}

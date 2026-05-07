@@ -1,5 +1,5 @@
 // ES Module imports
-import { fmt, fmtDuration, fmtBytes, fmtMs, fmtDur, parseDurToMs, esc, truncQuery, safeMax, safeMin } from './js/utils.js';
+import { fmt, fmtDuration, fmtBytes, fmtMs, fmtDur, parseDurToMs, esc, escForJsAttr, truncQuery, safeMax, safeMin } from './js/utils.js';
 import {
     wasmModule, wasmReady, analysisData, currentFileContent, currentFileName, currentFileSize, originalDimensions,
     charts, modalCharts, modalChartsData, modalChartCounter, chartIntervalMap, defaultInterval,
@@ -71,7 +71,14 @@ import './js/components/ql-dropdown.js';
 
                 // Handle compressed files and tar archives
                 const content = await prepareContent(file);
-                setProgress(50, 'Parsing log entries...');
+
+                // Single static "Crunching log entries…" message during the
+                // WASM parse. Cycling phrases were tried (CSS-only opacity
+                // keyframes, clip-path wipe, transform slides) but none
+                // animated reliably across the JS-thread freeze in our
+                // tinygo wasm setup. Spinner + static label is the honest
+                // fallback — at least the user knows something is running.
+                setProgress(50, 'Crunching log entries…');
 
                 // Store for re-filtering
                 setCurrentFileContent(content);
@@ -79,9 +86,19 @@ import './js/components/ql-dropdown.js';
                 setCurrentFileSize(file.size);
                 setOriginalDimensions(null);  // Reset for new file
 
-                // Time the actual parsing
+                // Yield once with rAF so the label paints before the
+                // wasm call freezes the main thread.
+                await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+                // Time the actual parsing. Use quellogParseBytes when
+                // content is a Uint8Array (plain logs, the new default
+                // path) — saves the JS-string-to-Go-[]byte double copy
+                // that was eating ~700 MB of wasm linear memory on big
+                // logs. Archive paths still pass a string.
                 const parseStart = performance.now();
-                const resultJson = quellogParse(content);
+                const resultJson = (content instanceof Uint8Array)
+                    ? quellogParseBytes(content)
+                    : quellogParse(content);
                 const parseEnd = performance.now();
                 const parseTimeMs = Math.round(parseEnd - parseStart);
 
@@ -390,14 +407,17 @@ function buildEventsSection(data) {
 				else if (cls.length === 2) { code = cls; desc = ''; }
 
 				classEvents.forEach(e => {
+					// Resolve original index in data.top_events so the modal
+					// can grab the full Example + timestamps array.
+					const origIdx = topEvents.indexOf(e);
 					rows += `
-					<tr class="event-row">
+					<tr class="event-row" onclick="showEventDetail(${origIdx})" style="cursor:pointer;" title="Click for details">
 						<td style="width: 50px; vertical-align: top; padding: 0.25rem 0.5rem;">
 							${code ? `<span class="event-class-badge" style="border-color:${sevColor}; color:${sevColor};">${code}</span>` : ''}
 						</td>
 						<td style="vertical-align: top; padding: 0.25rem 0.5rem;">
 							${desc ? `<div style="font-size: 0.6rem; font-weight: 600; color: var(--text-muted); margin-bottom: 2px;">${esc(desc)}</div>` : ''}
-							<div class="event-msg-text" title="${esc(e.message)}">${esc(e.message)}</div>
+							<div class="event-msg-text">${esc(e.message)}</div>
 						</td>
 						<td class="num" style="width: 60px; vertical-align: top; padding: 0.25rem 0.5rem; font-weight: 600;">${fmt(e.count)}</td>
 					</tr>`;
@@ -864,6 +884,7 @@ function buildEventsSection(data) {
                     <div class="section-body">
                         <div class="stat-grid">
                             <div class="stat-card"><div class="stat-value">${m.vacuum_count || 0}</div><div class="stat-label">Vacuum</div></div>
+                            ${(m.aggressive_vacuum_count || 0) > 0 ? `<div class="stat-card stat-card--warning"><div class="stat-value">${m.aggressive_vacuum_count}</div><div class="stat-label">Aggressive</div></div>` : ''}
                             ${totalRecovered > 0 ? `<div class="stat-card"><div class="stat-value">${fmtBytes(totalRecovered)}</div><div class="stat-label">Recovered</div></div>` : ''}
                             <div class="stat-card"><div class="stat-value">${m.analyze_count || 0}</div><div class="stat-label">Analyze</div></div>
                         </div>
@@ -1008,10 +1029,26 @@ function buildEventsSection(data) {
                             </div>
                         ` : ''}
                         ${(() => {
-                            // Aggregate blocking queries from events
-                            const blockers = {};
+                            // PG emits one "still waiting" every deadlock_timeout (default 1s)
+                            // plus one final "acquired" for each blocked transaction, so a single
+                            // real wait surfaces as 2–5 entries in `events[]`. Aggregating the
+                            // raw stream triple-counts "Blocked" and inflates "Total Wait" by
+                            // the sum of the intermediate still-waiting values.
+                            // Fold to one entry per unique wait — keyed by (process_id,
+                            // blocking_pid, lock_type) — preferring the final `acquired`
+                            // event when present (carries the true end-to-end wait time),
+                            // falling back to the latest `waiting` otherwise.
+                            const uniqueWaits = new Map();
                             (l.events || []).forEach(e => {
                                 if (!e.blocking_query_id || e.event_type === 'deadlock') return;
+                                const key = `${e.process_id}|${e.blocking_pid}|${e.lock_type}`;
+                                const prev = uniqueWaits.get(key);
+                                if (!prev || e.event_type === 'acquired') {
+                                    uniqueWaits.set(key, e);
+                                }
+                            });
+                            const blockers = {};
+                            uniqueWaits.forEach(e => {
                                 if (!blockers[e.blocking_query_id]) {
                                     blockers[e.blocking_query_id] = { id: e.blocking_query_id, query: e.blocking_query || '', count: 0, totalWaitMs: 0 };
                                 }
@@ -1675,6 +1712,74 @@ function buildEventsSection(data) {
             alert('Query copied to clipboard');
         }
 
+        // Event detail modal — full message + occurrences-over-time sparkline
+        function showEventDetail(index) {
+            const e = analysisData.top_events?.[index];
+            if (!e) return;
+
+            const sevColor = e.severity === 'ERROR' ? 'var(--danger)'
+                : (e.severity === 'FATAL' || e.severity === 'PANIC') ? 'var(--purple)'
+                : e.severity === 'WARNING' ? 'var(--warning)' : 'var(--text-muted)';
+
+            const ts = e.timestamps || [];
+            let firstStr = '-', lastStr = '-', freqStr = '-';
+            if (ts.length > 0) {
+                const first = new Date(ts[0]);
+                const last = new Date(ts[ts.length - 1]);
+                firstStr = first.toISOString().slice(0, 19).replace('T', ' ');
+                lastStr = last.toISOString().slice(0, 19).replace('T', ' ');
+                const spanMin = Math.max(1, (last - first) / 60000);
+                freqStr = (ts.length / spanMin).toFixed(2) + ' /min';
+            }
+
+            const sqlClass = e.sql_state_class || '';
+            const sqlBadge = sqlClass ? `<span class="event-class-badge" style="border-color:${sevColor};color:${sevColor};margin-right:0.5rem;">${esc(sqlClass)}</span>` : '';
+
+            const chartTitle = `Event – ${e.severity}${sqlClass ? ' ' + sqlClass : ''}`;
+            // Copy-button helper: same inline pattern as SQL detail modal —
+            // shows "Copied!" feedback, reverts to "Copy" after 1.5 s.
+            // escForJsAttr handles all 4 escape layers so a message
+            // containing " or ' or \n doesn't break the attribute / JS string.
+            const copyBtn = (text) => `<button class="copy-btn-inline" onclick="navigator.clipboard.writeText('${escForJsAttr(text)}');this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)">Copy</button>`;
+
+            document.getElementById('eventModalBody').innerHTML = `
+                <div style="margin-bottom:1rem;">
+                    <div style="display:flex;align-items:center;margin-bottom:0.5rem;">
+                        ${sqlBadge}
+                        <span style="font-weight:600;color:${sevColor};">${esc(e.severity)}</span>
+                    </div>
+                </div>
+                <div class="qd-chart-container" style="margin-bottom:1rem;">
+                    <div class="qd-chart-header">
+                        <span class="qd-chart-title">Occurrences Over Time</span>
+                        <button class="btn-export-png" onclick="exportChartById('eventModalChart', '${chartTitle.replace(/'/g, "\\'")}')" title="Export as PNG">⬇ PNG</button>
+                    </div>
+                    <div id="eventModalChart" style="height:180px;"></div>
+                </div>
+                <div class="detail-stats" style="margin-bottom:1rem;">
+                    <div class="detail-stat"><div class="value">${fmt(e.count)}</div><div class="label">Occurrences</div></div>
+                    <div class="detail-stat"><div class="value">${esc(firstStr)}</div><div class="label">First seen</div></div>
+                    <div class="detail-stat"><div class="value">${esc(lastStr)}</div><div class="label">Last seen</div></div>
+                    <div class="detail-stat"><div class="value">${esc(freqStr)}</div><div class="label">Frequency</div></div>
+                </div>
+                <div class="qd-section-title" style="display:flex;justify-content:space-between;align-items:center;">Normalized Pattern${copyBtn(e.message)}</div>
+                <div class="query-detail-sql" style="margin-bottom:0.75rem;">${esc(e.message)}</div>
+                <div class="qd-section-title" style="display:flex;justify-content:space-between;align-items:center;">Example (raw message)${copyBtn(e.example || e.message)}</div>
+                <div class="query-detail-sql">${esc(e.example || e.message)}</div>
+            `;
+            document.getElementById('eventModal').open();
+
+            // Render the chart after the modal is on screen so the container
+            // width is known to uPlot. Reuse createTimeChart for visual parity
+            // with the other timestamp-based charts (median line, drag-zoom,
+            // tooltip plugin) — feeds it the per-event timestamps array.
+            const sevColorResolved = e.severity === 'ERROR' ? getComputedStyle(document.documentElement).getPropertyValue('--danger').trim()
+                : (e.severity === 'FATAL' || e.severity === 'PANIC') ? getComputedStyle(document.documentElement).getPropertyValue('--purple').trim()
+                : e.severity === 'WARNING' ? getComputedStyle(document.documentElement).getPropertyValue('--warning').trim()
+                : getComputedStyle(document.documentElement).getPropertyValue('--chart-bar').trim();
+            requestAnimationFrame(() => createTimeChart('eventModalChart', ts, { color: sevColorResolved, height: 180 }));
+        }
+
         function closeModal() {
             document.getElementById('queryModal').close();
         }
@@ -1840,7 +1945,7 @@ function buildEventsSection(data) {
             if (queryText) {
                 const copySource = q ? 'sql_performance.queries' : lockQ ? 'locks.queries' : 'temp_files.queries';
                 html += '<div class="qd-section">';
-                html += '<div class="qd-section-title" style="display: flex; justify-content: space-between; align-items: center;">Normalized Query<button class="copy-btn-inline" onclick="navigator.clipboard.writeText(\'' + esc(queryText).replace(/'/g, "\\'").replace(/\n/g, '\\n') + '\');this.textContent=\'Copied!\';setTimeout(()=>this.textContent=\'Copy\',1500)">Copy</button></div>';
+                html += '<div class="qd-section-title" style="display: flex; justify-content: space-between; align-items: center;">Normalized Query<button class="copy-btn-inline" onclick="navigator.clipboard.writeText(\'' + escForJsAttr(queryText) + '\');this.textContent=\'Copied!\';setTimeout(()=>this.textContent=\'Copy\',1500)">Copy</button></div>';
                 html += '<div class="query-detail-sql">';
                 html += formatSQL(queryText);
                 html += '</div>';
@@ -1850,7 +1955,7 @@ function buildEventsSection(data) {
             // RAW QUERY section (if different and available)
             if (q?.raw_query && q.raw_query !== q.normalized_query) {
                 html += '<div class="qd-section">';
-                html += '<div class="qd-section-title" style="display: flex; justify-content: space-between; align-items: center;">Example Query<button class="copy-btn-inline" onclick="navigator.clipboard.writeText(\'' + esc(q.raw_query).replace(/'/g, "\\'").replace(/\n/g, '\\n') + '\');this.textContent=\'Copied!\';setTimeout(()=>this.textContent=\'Copy\',1500)">Copy</button></div>';
+                html += '<div class="qd-section-title" style="display: flex; justify-content: space-between; align-items: center;">Example Query<button class="copy-btn-inline" onclick="navigator.clipboard.writeText(\'' + escForJsAttr(q.raw_query) + '\');this.textContent=\'Copied!\';setTimeout(()=>this.textContent=\'Copy\',1500)">Copy</button></div>';
                 html += '<div class="query-detail-sql">';
                 html += esc(q.raw_query);
                 html += '</div>';
@@ -2417,9 +2522,12 @@ function buildEventsSection(data) {
                     await reinitWasm();
                 }
 
-                // Time the parsing
+                // Time the parsing — same Uint8Array fast-path as the
+                // initial drop, see processFile.
                 const parseStart = performance.now();
-                const resultJson = quellogParse(currentFileContent, filtersJson);
+                const resultJson = (currentFileContent instanceof Uint8Array)
+                    ? quellogParseBytes(currentFileContent, filtersJson)
+                    : quellogParse(currentFileContent, filtersJson);
                 const parseEnd = performance.now();
                 const parseTimeMs = Math.round(parseEnd - parseStart);
 
@@ -2491,6 +2599,7 @@ function buildEventsSection(data) {
         window.visualizePlan = visualizePlan;
         window.showSqlOvView = showSqlOvView;
         window.copyQuery = copyQuery;
+        window.showEventDetail = showEventDetail;
         window.closeModal = closeModal;
         window.toggleTheme = toggleTheme;
         window.closeChartModal = closeChartModal;

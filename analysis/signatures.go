@@ -20,9 +20,9 @@ var tempTableRegex = regexp.MustCompile(`pg_(temp|toast)(_\d+)+`)
 var locationRegex = regexp.MustCompile(`(?s) at character \d+.*`)
 var detailParamsRegex = regexp.MustCompile(`Key \([^)]+\)=\([^)]+\)`)
 
-// ============================================================================ 
+// ============================================================================
 // SQL Pattern Extraction (Normalization)
-// ============================================================================ 
+// ============================================================================
 
 // normalizeQuery parameterizes an SQL query by replacing literal values with '?'.
 func normalizeQuery(query string) string {
@@ -198,9 +198,9 @@ func normalizeWhitespace(s string) string {
 	return strings.TrimSpace(buf.String())
 }
 
-// ============================================================================ 
+// ============================================================================
 // Hash & ID Generation
-// ============================================================================ 
+// ============================================================================
 
 // GenerateQueryID creates a short, human-readable identifier for an SQL query.
 func GenerateQueryID(rawQuery, normalizedQuery string) (id, fullHash string) {
@@ -283,17 +283,64 @@ func matchesKeyword(query, keyword string) bool {
 }
 
 func generateShortHash(hashBytes []byte) string {
+	return generateShortHashN(hashBytes, 6)
+}
+
+// generateShortHashN returns the first n base64 alphanumeric characters
+// from the hash, skipping +/= padding chars. Used at length 6 for SQL
+// query IDs (cardinality up to 100k+) and length 4 for event pattern
+// IDs (capped at 1000 patterns by EventAnalyzer, much smaller hash
+// space sufficient — see GenerateEventID).
+func generateShortHashN(hashBytes []byte, n int) string {
 	b64 := base64.StdEncoding.EncodeToString(hashBytes)
-	var shortHash [6]byte
+	out := make([]byte, n)
 	j := 0
-	for i := 0; i < len(b64) && j < 6; i++ {
+	for i := 0; i < len(b64) && j < n; i++ {
 		c := b64[i]
 		if c != '+' && c != '/' && c != '=' {
-			shortHash[j] = c
+			out[j] = c
 			j++
 		}
 	}
-	return string(shortHash[:])
+	return string(out)
+}
+
+// GenerateEventID builds a stable, short, human-typeable identifier for
+// an event pattern: <severity-prefix>-<4-char-hash>. The 4-char base64
+// suffix gives a 14.7 M space; with EventAnalyzer's hard 1000-pattern
+// cap (and ≤ 250 patterns expected per severity in the worst case),
+// the per-severity collision risk stays around 0.2 % — acceptable for a
+// CLI handle the user types into --event-detail. Severity prefixes:
+//
+//	pa- PANIC, fa- FATAL, er- ERROR, wa- WARNING.
+//
+// Returns "" for severities we don't track patterns for (LOG, INFO,
+// DEBUG, NOTICE).
+func GenerateEventID(severity, normalized string) string {
+	prefix := eventSeverityPrefix(severity)
+	if prefix == "" {
+		return ""
+	}
+	hashBytes := md5.Sum([]byte(normalized))
+	return prefix + "-" + generateShortHashN(hashBytes[:], 4)
+}
+
+// eventSeverityPrefix maps a PostgreSQL severity to its 2-char ID
+// prefix, or "" if the severity is informational and not tracked as a
+// distinct pattern by EventAnalyzer.
+func eventSeverityPrefix(severity string) string {
+	switch severity {
+	case "PANIC":
+		return "pa"
+	case "FATAL":
+		return "fa"
+	case "ERROR":
+		return "er"
+	case "WARNING":
+		return "wa"
+	default:
+		return ""
+	}
 }
 
 // ============================================================================
@@ -301,8 +348,6 @@ func generateShortHash(hashBytes []byte) string {
 // Event Pattern Extraction (Normalization)
 
 // ============================================================================
-
-
 
 // NormalizeEvent transforms a raw log message into a generic fingerprint.
 
@@ -323,8 +368,6 @@ func NormalizeEvent(msg string) string {
 		return ""
 
 	}
-
-
 
 	// 1. Strip everything before known severity markers to focus on the core message.
 
@@ -348,8 +391,6 @@ func NormalizeEvent(msg string) string {
 
 	}
 
-
-
 	// If no severity marker found, check for a simple colon at the beginning (legacy/simple formats)
 
 	if start == 0 {
@@ -362,205 +403,80 @@ func NormalizeEvent(msg string) string {
 
 	}
 
+	msg = msg[start:]
 
+	// Skip extra spaces after the marker
 
-		msg = msg[start:]
+	for len(msg) > 0 && (msg[0] == ' ' || msg[0] == '\t') {
 
+		msg = msg[1:]
 
+	}
 
-		// Skip extra spaces after the marker
+	if len(msg) == 0 {
 
+		return ""
 
+	}
 
-		for len(msg) > 0 && (msg[0] == ' ' || msg[0] == '\t') {
+	// 2. Strip technical suffixes often appended by CSV/JSON parsers.
 
+	// We want the clean message signature, not the variable context.
 
+	// Look for standard PostgreSQL metadata keywords that might appear after the main message.
 
-			msg = msg[1:]
+	suffixes := []string{
 
+		" DETAIL:",
 
+		" HINT:",
 
-		}
+		" QUERY:",
 
+		" STATEMENT:",
 
+		" CONTEXT:",
 
-	
+		" SQLSTATE =",
 
+		" LOCATION:",
+	}
 
+	shortestIdx := -1
 
-		if len(msg) == 0 {
+	for _, suffix := range suffixes {
 
+		if idx := strings.Index(msg, suffix); idx != -1 {
 
+			if shortestIdx == -1 || idx < shortestIdx {
 
-			return ""
-
-
-
-		}
-
-
-
-	
-
-
-
-		// 2. Strip technical suffixes often appended by CSV/JSON parsers.
-
-
-
-		// We want the clean message signature, not the variable context.
-
-
-
-		// Look for standard PostgreSQL metadata keywords that might appear after the main message.
-
-
-
-		suffixes := []string{
-
-
-
-			" DETAIL:",
-
-
-
-			" HINT:",
-
-
-
-			" QUERY:",
-
-
-
-			" STATEMENT:",
-
-
-
-			" CONTEXT:",
-
-
-
-			" SQLSTATE =",
-
-
-
-			" LOCATION:",
-
-
-
-		}
-
-
-
-	
-
-
-
-		shortestIdx := -1
-
-
-
-		for _, suffix := range suffixes {
-
-
-
-			if idx := strings.Index(msg, suffix); idx != -1 {
-
-
-
-				if shortestIdx == -1 || idx < shortestIdx {
-
-
-
-					shortestIdx = idx
-
-
-
-				}
-
-
+				shortestIdx = idx
 
 			}
 
-
-
 		}
 
+	}
 
+	if shortestIdx != -1 {
 
-		if shortestIdx != -1 {
+		msg = msg[:shortestIdx]
 
+	}
 
+	// 3. Strip location info which prevents grouping
 
-			msg = msg[:shortestIdx]
+	// e.g. "syntax error at character 14" vs "syntax error at character 25"
 
+	msg = locationRegex.ReplaceAllString(msg, "")
 
+	// Mask variable details in unique constraint violations
 
-		}
+	// e.g. "Key (email)=(foo@bar.com) already exists." -> "Key (?)=(?) already exists."
 
+	msg = detailParamsRegex.ReplaceAllString(msg, "Key (?)=(?)")
 
-
-	
-
-
-
-		// 3. Strip location info which prevents grouping
-
-
-
-		// e.g. "syntax error at character 14" vs "syntax error at character 25"
-
-
-
-		msg = locationRegex.ReplaceAllString(msg, "")
-
-
-
-	
-
-
-
-		
-
-
-
-	
-
-
-
-			// Mask variable details in unique constraint violations
-
-
-
-	
-
-
-
-			// e.g. "Key (email)=(foo@bar.com) already exists." -> "Key (?)=(?) already exists."
-
-
-
-	
-
-
-
-			msg = detailParamsRegex.ReplaceAllString(msg, "Key (?)=(?)")
-
-
-
-	
-
-
-
-		
-
-
-
-	
-
-
-
-			buf := builderPool.Get().(*strings.Builder)
+	buf := builderPool.Get().(*strings.Builder)
 
 	buf.Reset()
 
@@ -568,17 +484,11 @@ func NormalizeEvent(msg string) string {
 
 	defer builderPool.Put(buf)
 
-
-
 	lastWasSpace := false
-
-
 
 	for i := 0; i < len(msg); i++ {
 
 		c := msg[i]
-
-
 
 		// Handle double-quoted identifiers ("users")
 
@@ -603,8 +513,6 @@ func NormalizeEvent(msg string) string {
 			continue
 
 		}
-
-
 
 		// Handle single-quoted values ('2025-01-01')
 		if c == '\'' {
@@ -634,8 +542,6 @@ func NormalizeEvent(msg string) string {
 			continue
 		}
 
-
-
 		// Handle numbers (isolated integers)
 
 		if c >= '0' && c <= '9' {
@@ -660,8 +566,6 @@ func NormalizeEvent(msg string) string {
 
 		}
 
-
-
 		// Handle whitespace
 
 		if c == '\n' || c == '\r' || c == '\t' || c == ' ' {
@@ -678,20 +582,12 @@ func NormalizeEvent(msg string) string {
 
 		}
 
-
-
 		buf.WriteByte(c)
 
 		lastWasSpace = false
 
 	}
 
-
-
 	return strings.TrimSpace(buf.String())
 
 }
-
-
-
-

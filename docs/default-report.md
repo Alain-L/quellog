@@ -45,17 +45,31 @@ Requires `log_min_duration_statement >= 0`.
 
 ## Events (`--events`)
 
-Log entry distribution by severity level.
+Per-severity counts, grouped by SQLSTATE class with one line per
+distinct event pattern. Each pattern is preceded by a stable short
+identifier (`<sev>-<4-char-hash>`) usable with `--event-detail`.
 
 ```
 EVENTS
 
-  LOG     : 1,180
-  WARNING : 3
-  ERROR   : 1
+  FATAL                     : 82 (2.1%)
+    28 - Invalid Authorization Specification
+    fa-U26K  password authentication failed for user ?                          3    3.66%
+    3D - Invalid Catalog Name
+    fa-Hcoq  database ? does not exist                                          3    3.66%
+    53 - Insufficient Resources
+    fa-6K1G  sorry, too many clients already                                   40   48.78%
+    fa-1bhf  remaining connection slots are reserved for roles with th...      36   43.90%
+  ERROR                     : 19 (0.5%)
+    22 - Data Exception
+    er-VHRD  division by zero                                                   3   15.79%
 ```
 
-Severity levels: LOG, WARNING, ERROR, FATAL, PANIC.
+Severity prefixes: `pa-` (PANIC), `fa-` (FATAL), `er-` (ERROR), `wa-`
+(WARNING). Open the per-pattern report with [`--event-detail`](sql-reports.md#-event-detail).
+
+LOG / INFO / DEBUG / NOTICE counts are reported but not broken down by
+pattern (no SQLSTATE, no actionable signal).
 
 ## Error Classes (`--errors`)
 

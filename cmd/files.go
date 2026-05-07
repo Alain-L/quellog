@@ -2,7 +2,7 @@
 package cmd
 
 import (
-	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -30,7 +30,7 @@ func collectFiles(args []string) []string {
 			// Scan directory for supported log files
 			dirFiles, err := gatherLogFiles(arg)
 			if err != nil {
-				log.Printf("[WARN] Failed to read directory %s: %v", arg, err)
+				slog.Warn("failed to read directory", "dir", arg, "err", err)
 				continue
 			}
 			files = append(files, dirFiles...)
@@ -40,12 +40,12 @@ func collectFiles(args []string) []string {
 		// Try to expand as glob pattern
 		matches, err := filepath.Glob(arg)
 		if err != nil {
-			log.Printf("[WARN] Invalid pattern %s: %v", arg, err)
+			slog.Warn("invalid pattern", "pattern", arg, "err", err)
 			continue
 		}
 
 		if len(matches) == 0 {
-			log.Printf("[WARN] No files match pattern: %s", arg)
+			slog.Warn("no files match pattern", "pattern", arg)
 			continue
 		}
 

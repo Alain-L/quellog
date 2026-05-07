@@ -1,0 +1,78 @@
+## SUMMARY
+
+This _quellog_ report summarizes **12** log entries collected between 20 Apr 2026, 06:00 (UTC) — 20 Apr 2026, 06:00 (UTC), spanning 11s of activity.
+
+## EVENTS
+
+- **FATAL**: 2 (16.7%)
+  - **08 - Connection Exception**
+  - *fa-zeJD* `connection to server lost` (1) [50.0%]
+  - **28 - Invalid Authorization Specification**
+  - *fa-U26K* `password authentication failed for user ?` (1) [50.0%]
+
+- **ERROR**: 10 (83.3%)
+  - **22 - Data Exception**
+  - *er-VHRD* `division by zero` (1) [10.0%]
+  - *er-moke* `value too long for type character varying(?)` (1) [10.0%]
+  - **23 - Integrity Constraint Violation**
+  - *er-Enfg* `duplicate key value violates unique constraint ?` (1) [10.0%]
+  - *er-Hakz* `insert or update on table ? violates foreign key constraint ?` (1) [10.0%]
+  - **25 - Invalid Transaction State**
+  - *er-PfC4* `current transaction is aborted, commands ignored until end of transaction block` (1) [10.0%]
+  - **42 - Syntax Error or Access Rule Violation**
+  - *er-OzwP* `permission denied for table audit_logs` (1) [10.0%]
+  - *er-b1aY* `relation ? does not exist` (1) [10.0%]
+  - *er-ihni* `syntax error at or near ?` (1) [10.0%]
+  - **53 - Insufficient Resources**
+  - *er-6e2k* `could not extend file ?: No space left on device` (1) [10.0%]
+  - **57 - Operator Intervention**
+  - *er-ENBZ* `canceling statement due to user request` (1) [10.0%]
+
+## CLIENTS
+
+- **Unique DBs**: 1
+- **Unique Users**: 2
+- **Unique Apps**: 1
+- **Unique Hosts**: 2
+
+### USERS
+
+| User | Count | % |
+|---|---:|---:|
+| app | 11 | 91.7% |
+| baduser | 1 | 8.3% |
+
+### APPS
+
+| App | Count | % |
+|---|---:|---:|
+| psql | 11 | 91.7% |
+
+### DATABASES
+
+| Database | Count | % |
+|---|---:|---:|
+| appdb | 12 | 100.0% |
+
+### HOSTS
+
+| Host | Count | % |
+|---|---:|---:|
+| 10.0.0.60 | 11 | 91.7% |
+| 10.0.0.61 | 1 | 8.3% |
+
+### USER × DATABASE
+
+| User | Database | Count | % |
+|---|---|---:|---:|
+| app | appdb | 11 | 91.7% |
+| baduser | appdb | 1 | 8.3% |
+
+### USER × HOST
+
+| User | Host | Count | % |
+|---|---|---:|---:|
+| app | 10.0.0.60 | 11 | 91.7% |
+| baduser | 10.0.0.61 | 1 | 8.3% |
+
+

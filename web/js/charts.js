@@ -1,7 +1,7 @@
 // Chart creation and management for quellog web app
 // Uses uPlot library for interactive time-series charts
 
-import { safeMax, safeMin } from './utils.js';
+import { safeMax, safeMin, fmt } from './utils.js';
 import {
     charts, modalCharts, modalChartsData, chartIntervalMap, defaultInterval,
     incrementModalChartCounter
@@ -14,6 +14,20 @@ export const chartData = new Map();
 let modalChart = null;
 let modalChartId = null;
 let modalInterval = 0;  // 0 = Auto
+
+// Bind double-click on a chart's overlay to a reset callback. uPlot's built-in
+// dblclick calls setScale('x', { min: null, max: null }), which auto-fits to
+// the *current* data — but our charts re-bin the data on zoom, so the data
+// extent equals the zoomed range and the built-in "reset" stays zoomed. We
+// install our handler in capture phase and stop propagation so uPlot's never
+// runs.
+function bindDblclickReset(chart, resetFn) {
+    chart.over.addEventListener('dblclick', (e) => {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        resetFn();
+    }, true);
+}
 
 // Compute optimal interval based on time range
 export function computeAutoInterval(rangeSeconds) {
@@ -369,7 +383,7 @@ export function createCheckpointChart(containerId, data, options = {}) {
     const opts = {
         width: container.clientWidth || 300,
         height: options.height || 120,
-        cursor: { drag: { x: true, y: false, setScale: true } },
+        cursor: { drag: { x: true, y: false, setScale: true }, bind: { dblclick: () => null } },
         select: { show: true },
         legend: { show: false },
         scales: {
@@ -487,6 +501,7 @@ export function createCheckpointChart(containerId, data, options = {}) {
 
     const chart = new uPlot(opts, [xData, series.time, series.wal, series.other], container);
     charts.set(containerId, chart);
+    bindDblclickReset(chart, () => resetChartZoom(containerId));
 
     // Store data for re-sampling
     chart._typeData = typeData;
@@ -581,7 +596,7 @@ export function createWALDistanceChart(containerId, data, options = {}) {
     const opts = {
         width: container.clientWidth || 300,
         height: options.height || 200,
-        cursor: { drag: { x: true, y: false, setScale: true } },
+        cursor: { drag: { x: true, y: false, setScale: true }, bind: { dblclick: () => null } },
         legend: { show: false },
         scales: {
             x: { time: true },
@@ -665,6 +680,7 @@ export function createWALDistanceChart(containerId, data, options = {}) {
 
     const chart = new uPlot(opts, [xData, distData, estData], container);
     charts.set(containerId, chart);
+    bindDblclickReset(chart, () => resetChartZoom(containerId));
 
     const minT = xData[0];
     const maxT = xData[xData.length - 1];
@@ -712,7 +728,7 @@ export function createTimeChart(containerId, timestamps, options = {}) {
     const opts = {
         width: container.clientWidth || 300,
         height: options.height || 120,
-        cursor: { drag: { x: true, y: false, setScale: true } },
+        cursor: { drag: { x: true, y: false, setScale: true }, bind: { dblclick: () => null } },
         select: { show: true },
         legend: { show: false },
         scales: {
@@ -834,6 +850,7 @@ export function createTimeChart(containerId, timestamps, options = {}) {
 
     const chart = new uPlot(opts, [xData, yData], container);
     charts.set(containerId, chart);
+    bindDblclickReset(chart, () => resetChartZoom(containerId));
 
     // Store data for re-sampling
     chart._times = times;
@@ -923,7 +940,7 @@ export function createDurationChart(containerId, executions, options = {}) {
     const opts = {
         width: container.clientWidth || 300,
         height: options.height || 120,
-        cursor: { drag: { x: true, y: false, setScale: true } },
+        cursor: { drag: { x: true, y: false, setScale: true }, bind: { dblclick: () => null } },
         select: { show: true },
         legend: { show: false },
         scales: {
@@ -1032,6 +1049,7 @@ export function createDurationChart(containerId, executions, options = {}) {
 
     const chart = new uPlot(opts, [xData, yData], container);
     charts.set(containerId, chart);
+    bindDblclickReset(chart, () => resetChartZoom(containerId));
 
     chart._executions = sorted;
     chart._interval = interval;
@@ -1130,7 +1148,7 @@ export function createCombinedSQLChart(containerId, rawData, options = {}) {
     const opts = {
         width: container.clientWidth || 300,
         height: options.height || 150,
-        cursor: { drag: { x: true, y: false, setScale: true } },
+        cursor: { drag: { x: true, y: false, setScale: true }, bind: { dblclick: () => null } },
         select: { show: true },
         legend: { show: false },
         scales: {
@@ -1275,6 +1293,7 @@ export function createCombinedSQLChart(containerId, rawData, options = {}) {
 
     const chart = new uPlot(opts, [xData, countData, durationData], container);
     charts.set(containerId, chart);
+    bindDblclickReset(chart, () => resetChartZoom(containerId));
 
     chart._rawData = rawData;
     chart._interval = interval;
@@ -1408,7 +1427,7 @@ export function createHistogramChart(containerId, histogram, options = {}) {
     const opts = {
         width: container.clientWidth || 300,
         height: options.height || 120,
-        cursor: { drag: { x: true, y: false, setScale: true } },
+        cursor: { drag: { x: true, y: false, setScale: true }, bind: { dblclick: () => null } },
         legend: { show: false },
         scales: {
             x: { time: true },
@@ -1518,6 +1537,7 @@ export function createHistogramChart(containerId, histogram, options = {}) {
 
     const chart = new uPlot(opts, [xData, yData], container);
     charts.set(containerId, chart);
+    bindDblclickReset(chart, () => resetChartZoom(containerId));
 
     // Store original range for reset
     chart._originalXRange = [xData[0], xData[xData.length - 1]];
@@ -1629,7 +1649,7 @@ export function createConcurrentChart(containerId, sessions, options = {}) {
     const opts = {
         width: container.clientWidth || 300,
         height: options.height || 120,
-        cursor: { drag: { x: true, y: false, setScale: true } },
+        cursor: { drag: { x: true, y: false, setScale: true }, bind: { dblclick: () => null } },
         legend: { show: false },
         scales: { x: { time: true }, y: { range: [0, null] } },
         axes: [
@@ -1763,6 +1783,7 @@ export function createConcurrentChart(containerId, sessions, options = {}) {
 
     const chart = new uPlot(opts, [xData, yData], container);
     charts.set(containerId, chart);
+    bindDblclickReset(chart, () => resetChartZoom(containerId));
 
     // Store data for re-sampling
     chart._events = events;
@@ -1865,7 +1886,7 @@ export function createCombinedTempFilesChart(containerId, events, options = {}) 
     const opts = {
         width: container.clientWidth || 300,
         height: options.height || 150,
-        cursor: { drag: { x: true, y: false, setScale: true } },
+        cursor: { drag: { x: true, y: false, setScale: true }, bind: { dblclick: () => null } },
         select: { show: true },
         legend: { show: false },
         scales: {
@@ -2005,6 +2026,7 @@ export function createCombinedTempFilesChart(containerId, events, options = {}) 
 
     const chart = new uPlot(opts, [xData, countData, sizeData], container);
     charts.set(containerId, chart);
+    bindDblclickReset(chart, () => resetChartZoom(containerId));
 
     chart._events = parsedEvents;
     chart._interval = interval;
@@ -2211,6 +2233,8 @@ export function renderModalChart() {
         });
     }
 
+    if (modalChart) bindDblclickReset(modalChart, resetModalZoom);
+
     // Add modal legend based on chart type
     let legendEl = document.getElementById('modal-chart-legend');
     if (!legendEl) {
@@ -2267,7 +2291,7 @@ export function createTimeChartLarge(container, timestamps, options = {}) {
     const opts = {
         width: container.clientWidth || 1100,
         height: height,
-        cursor: { drag: { x: true, y: false, setScale: true } },
+        cursor: { drag: { x: true, y: false, setScale: true }, bind: { dblclick: () => null } },
         select: { show: true },
         legend: { show: false },
         scales: {
@@ -2464,7 +2488,7 @@ export function createDurationChartLarge(container, executions, options = {}) {
     const opts = {
         width: container.clientWidth || 1100,
         height: height,
-        cursor: { drag: { x: true, y: false, setScale: true } },
+        cursor: { drag: { x: true, y: false, setScale: true }, bind: { dblclick: () => null } },
         select: { show: true },
         legend: { show: false },
         scales: {
@@ -2639,7 +2663,7 @@ export function createCombinedSQLChartLarge(container, rawData, options = {}) {
     const opts = {
         width: container.clientWidth || 1100,
         height: height,
-        cursor: { drag: { x: true, y: false, setScale: true } },
+        cursor: { drag: { x: true, y: false, setScale: true }, bind: { dblclick: () => null } },
         select: { show: true },
         legend: { show: false },
         scales: {
@@ -2847,7 +2871,7 @@ export function createCombinedTempFilesChartLarge(container, events, options = {
     const opts = {
         width: container.clientWidth || 600,
         height: options.height || 350,
-        cursor: { drag: { x: true, y: false, setScale: true } },
+        cursor: { drag: { x: true, y: false, setScale: true }, bind: { dblclick: () => null } },
         select: { show: true },
         legend: { show: false },
         scales: {
@@ -3090,7 +3114,7 @@ export function createConcurrentChartLarge(container, sessions, options = {}) {
     const opts = {
         width: container.clientWidth || 1100,
         height: height,
-        cursor: { drag: { x: true, y: false, setScale: true } },
+        cursor: { drag: { x: true, y: false, setScale: true }, bind: { dblclick: () => null } },
         select: { show: true },
         legend: { show: false },
         scales: {
@@ -3277,7 +3301,7 @@ export function createHistogramChartLarge(container, histData, options = {}) {
     const opts = {
         width: container.clientWidth || 1100,
         height: height,
-        cursor: { drag: { x: true, y: false, setScale: true } },
+        cursor: { drag: { x: true, y: false, setScale: true }, bind: { dblclick: () => null } },
         select: { show: true },
         legend: { show: false },
         scales: {
@@ -3452,7 +3476,7 @@ export function createCheckpointChartLarge(container, data, options = {}) {
     const opts = {
         width: container.clientWidth || 1100,
         height: height,
-        cursor: { drag: { x: true, y: false, setScale: true } },
+        cursor: { drag: { x: true, y: false, setScale: true }, bind: { dblclick: () => null } },
         select: { show: true },
         legend: { show: false },
         scales: {

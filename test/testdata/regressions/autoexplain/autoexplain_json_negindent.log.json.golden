@@ -1,0 +1,81 @@
+{
+  "apps": [
+    {
+      "name": "psql",
+      "count": 2
+    }
+  ],
+  "clients": {
+    "unique_databases": 1,
+    "unique_users": 1,
+    "unique_apps": 1,
+    "unique_hosts": 1
+  },
+  "databases": [
+    {
+      "name": "appdb",
+      "count": 2
+    }
+  ],
+  "events": [
+    {
+      "type": "LOG",
+      "count": 2,
+      "percentage": 100
+    }
+  ],
+  "hosts": [
+    {
+      "name": "10.0.0.40",
+      "count": 2
+    }
+  ],
+  "sql_performance": {
+    "total_query_duration": "87 ms",
+    "total_queries_parsed": 1,
+    "total_unique_queries": 1,
+    "top_1_percent_slow_queries": 1,
+    "query_max_duration": "87 ms",
+    "query_min_duration": "87 ms",
+    "query_median_duration": "87 ms",
+    "query_99th_percentile": "87 ms",
+    "executions": [
+      {
+        "timestamp": "2026-04-19 14:00:00",
+        "duration_ms": 87.123,
+        "query_id": "se-E3NACC"
+      }
+    ],
+    "queries": [
+      {
+        "id": "se-E3NACC",
+        "normalized_query": "select * from products where category = ? order by price desc limit ?",
+        "raw_query": "SELECT * FROM products WHERE category = 'electronics' ORDER BY price DESC LIMIT 5",
+        "type": "",
+        "count": 1,
+        "total_time_ms": 87.123,
+        "avg_time_ms": 87.123,
+        "max_time_ms": 87.123,
+        "plan": "{\n  \"Query Text\": \"SELECT * FROM products WHERE category = 'electronics' ORDER BY price DESC LIMIT 5\",\n  \"Plan\": {\n    \"Node Type\": \"Limit\",\n    \"Parallel Aware\": false,\n    \"Async Capable\": false,\n    \"Startup Cost\": 45.32,\n    \"Total Cost\": 45.34,\n    \"Plan Rows\": 5,\n    \"Plan Width\": 38,\n    \"Actual Startup Time\": 86.012,\n    \"Actual Total Time\": 87.012,\n    \"Actual Rows\": 5,\n    \"Actual Loops\": 1,\n    \"Output\": [\n      \"id\",\n      \"name\",\n      \"category\",\n      \"price\"\n    ],\n    \"Plans\": [\n      {\n        \"Node Type\": \"Sort\",\n        \"Parent Relationship\": \"Outer\",\n        \"Parallel Aware\": false,\n        \"Async Capable\": false,\n        \"Startup Cost\": 45.32,\n        \"Total Cost\": 47.82,\n        \"Plan Rows\": 1000,\n        \"Plan Width\": 38,\n        \"Actual Startup Time\": 86.010,\n        \"Actual Total Time\": 86.456,\n        \"Actual Rows\": 5,\n        \"Actual Loops\": 1,\n        \"Output\": [\n          \"id\",\n          \"name\",\n          \"category\",\n          \"price\"\n        ],\n        \"Sort Key\": [\n          \"products.price DESC\"\n        ],\n        \"Sort Method\": \"top-N heapsort\",\n        \"Sort Space Used\": 26,\n        \"Sort Space Type\": \"Memory\",\n        \"Plans\": [\n          {\n            \"Node Type\": \"Seq Scan\",\n            \"Parent Relationship\": \"Outer\",\n            \"Parallel Aware\": false,\n            \"Async Capable\": false,\n            \"Relation Name\": \"products\",\n            \"Schema\": \"public\",\n            \"Alias\": \"products\",\n            \"Startup Cost\": 0.00,\n            \"Total Cost\": 35.00,\n            \"Plan Rows\": 1000,\n            \"Plan Width\": 38,\n            \"Actual Startup Time\": 0.020,\n            \"Actual Total Time\": 80.123,\n            \"Actual Rows\": 1000,\n            \"Actual Loops\": 1,\n            \"Output\": [\n              \"id\",\n              \"name\",\n              \"category\",\n              \"price\"\n            ],\n            \"Filter\": \"((category)::text = 'electronics'::text)\",\n            \"Rows Removed by Filter\": 0\n          }\n        ]\n      }\n    ]\n  }\n}"
+      }
+    ]
+  },
+  "summary": {
+    "start_date": "2026-04-19 14:00:00",
+    "end_date": "2026-04-19 14:00:00",
+    "duration": "0s",
+    "total_logs": 2,
+    "throughput": "0.00 entries/s",
+    "error_count": 0,
+    "fatal_count": 0,
+    "panic_count": 0,
+    "warning_count": 0,
+    "log_count": 2
+  },
+  "users": [
+    {
+      "name": "app",
+      "count": 2
+    }
+  ]
+}

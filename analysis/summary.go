@@ -2,6 +2,7 @@
 package analysis
 
 import (
+	"context"
 	"sort"
 	"strings"
 	"sync"
@@ -12,415 +13,237 @@ import (
 
 // GlobalMetrics aggregates general statistics from PostgreSQL logs.
 type GlobalMetrics struct {
-	// Count is the total number of log entries processed.
-	Count int
-
-	// MinTimestamp is the timestamp of the earliest log entry.
-	MinTimestamp time.Time
-
-	// MaxTimestamp is the timestamp of the latest log entry.
-	MaxTimestamp time.Time
-
-	// ErrorCount is the number of ERROR-level messages.
-	ErrorCount int
-
-	// FatalCount is the number of FATAL-level messages.
-	FatalCount int
-
-	// PanicCount is the number of PANIC-level messages.
-	PanicCount int
-
-	// WarningCount is the number of WARNING-level messages.
+	Count        int       // total number of log entries processed
+	MinTimestamp time.Time // earliest entry
+	MaxTimestamp time.Time // latest entry
+	ErrorCount   int
+	FatalCount   int
+	PanicCount   int
 	WarningCount int
-
-	// LogCount is the number of LOG-level messages.
-	LogCount int
+	LogCount     int
 }
 
-// UniqueEntityMetrics tracks unique database entities (databases, users, applications, hosts).
-// This helps understand the scope of database usage and identify which components are active.
+// UniqueEntityMetrics tracks unique databases, users, applications and hosts.
 type UniqueEntityMetrics struct {
-	// UniqueDbs is the count of distinct databases referenced in logs.
-	UniqueDbs int
-
-	// UniqueUsers is the count of distinct users referenced in logs.
+	UniqueDbs   int
 	UniqueUsers int
-
-	// UniqueApps is the count of distinct applications referenced in logs.
-	UniqueApps int
-
-	// UniqueHosts is the count of distinct hosts/clients referenced in logs.
+	UniqueApps  int
 	UniqueHosts int
 
-	// DBs is the sorted list of all unique database names.
-	DBs []string
-
-	// Users is the sorted list of all unique user names.
+	DBs   []string // sorted lists, derived from the *Counts map keys
 	Users []string
-
-	// Apps is the sorted list of all unique application names.
-	Apps []string
-
-	// Hosts is the sorted list of all unique host/client addresses.
+	Apps  []string
 	Hosts []string
 
-	// DBCounts maps each database name to its occurrence count in logs.
-	DBCounts map[string]int
-
-	// UserCounts maps each username to its occurrence count in logs.
+	DBCounts   map[string]int // name → occurrences
 	UserCounts map[string]int
-
-	// AppCounts maps each application name to its occurrence count in logs.
-	AppCounts map[string]int
-
-	// HostCounts maps each host address to its occurrence count in logs.
+	AppCounts  map[string]int
 	HostCounts map[string]int
 
-	// UserDbCombos maps user×database combinations to their occurrence counts.
-	// Key format: "username|database"
-	UserDbCombos map[string]int
-
-	// UserHostCombos maps user×host combinations to their occurrence counts.
-	// Key format: "username|host"
-	UserHostCombos map[string]int
+	UserDbCombos   map[string]int // key format "user|db"
+	UserHostCombos map[string]int // key format "user|host"
 }
 
-// AggregatedMetrics combines all analysis metrics into a single structure.
-// This is the final output of log analysis, containing statistics from all analyzers.
+// AggregatedMetrics is the final output of log analysis — every analyzer's
+// metrics combined into one struct. EventSummaries is the severity-level
+// distribution (ERROR/FATAL/LOG/...); TopEvents are the most frequent
+// individual event signatures.
 type AggregatedMetrics struct {
-	// Global contains overall log statistics.
-	Global GlobalMetrics
-
-	// TempFiles contains temporary file usage statistics.
-	TempFiles TempFileMetrics
-
-	// Vacuum contains autovacuum and manual vacuum statistics.
-	Vacuum VacuumMetrics
-
-	// Checkpoints contains checkpoint statistics.
-	Checkpoints CheckpointMetrics
-
-	// Connections contains connection and session statistics.
-	Connections ConnectionMetrics
-
-	// Locks contains lock event statistics.
-	Locks LockMetrics
-
-	// UniqueEntities contains unique database entity statistics.
+	Global         GlobalMetrics
+	TempFiles      TempFileMetrics
+	Vacuum         VacuumMetrics
+	Checkpoints    CheckpointMetrics
+	Connections    ConnectionMetrics
+	Locks          LockMetrics
 	UniqueEntities UniqueEntityMetrics
-
-		// EventSummaries contains severity level distribution.
-
-		// This is the main severity level distribution (ERROR, FATAL, LOG, etc.).
-
-		EventSummaries []EventSummary
-
-	
-
-		// TopEvents contains the most frequent event signatures.
-
-		// This includes specific error messages, warnings, and log patterns.
-
-		TopEvents []EventStat
-
-	
-
-		// SQL contains SQL query statistics.
-
-		SQL SQLMetrics
-
-	}
-
-	
-
-	// ============================================================================
-
-	// Streaming analysis orchestrator
-
-	// ============================================================================
-
-	
-
-	// StreamingAnalyzer orchestrates multiple specialized analyzers to process
-
-	// log entries in streaming mode without loading all data into memory.
-
-	//
-
-	// Usage:
-
-	//
-
-	//	analyzer := NewStreamingAnalyzer()
-
-	//	for entry := range logEntries {
-
-	//	    analyzer.Process(&entry)
-
-	//	}
-
-	//	metrics := analyzer.Finalize()
-
-	type StreamingAnalyzer struct {
-
-		global         GlobalMetrics
-
-		tempFiles      *TempFileAnalyzer
-
-		vacuum         *VacuumAnalyzer
-
-		checkpoints    *CheckpointAnalyzer
-
-		connections    *ConnectionAnalyzer
-
-		locks          *LockAnalyzer
-
-		events         *EventAnalyzer
-
-		uniqueEntities *UniqueEntityAnalyzer
-
-		sql            *SQLAnalyzer
-
-	
-
-		// Parallel SQL processing
-
-		sqlChan    chan *parser.LogEntry
-
-		parallelWg sync.WaitGroup
-
-	}
-
-	
-
-	// NewStreamingAnalyzer creates a new streaming analyzer with all sub-analyzers initialized.
-
-	// If enableParallel is true, SQLAnalyzer runs in a dedicated goroutine for better performance
-
-	// on large files (>200MB). For smaller files, parallel overhead outweighs the gains.
-
-	func NewStreamingAnalyzer(enableParallel bool) *StreamingAnalyzer {
-
-		sa := &StreamingAnalyzer{
-
-			tempFiles:      NewTempFileAnalyzer(),
-
-			vacuum:         NewVacuumAnalyzer(),
-
-			checkpoints:    NewCheckpointAnalyzer(),
-
-			connections:    NewConnectionAnalyzer(),
-
-			locks:          NewLockAnalyzer(),
-
-			events:         NewEventAnalyzer(),
-
-			uniqueEntities: NewUniqueEntityAnalyzer(),
-
-			sql:            NewSQLAnalyzer(),
-
-		}
-
-	
-
-		if enableParallel {
-
-			// Start parallel SQL analyzer goroutine.
-
-			// This provides ~20% wall clock speedup (benchmarked on 1GB+ files) by offloading
-
-			// the most expensive analyzer to a dedicated goroutine, allowing better CPU utilization.
-
-			sa.sqlChan = make(chan *parser.LogEntry, 65536)
-
-			sa.parallelWg.Add(1)
-
-			go func() {
-
-				defer sa.parallelWg.Done()
-
-				for entry := range sa.sqlChan {
-
-					sa.sql.Process(entry)
-
-				}
-
-			}()
-
-		}
-
-	
-
-		return sa
-
-	}
-
-	
-
-	// Process analyzes a single log entry, dispatching it to all relevant sub-analyzers.
-
-	// Each sub-analyzer filters and processes only the entries relevant to it.
-
-	func (sa *StreamingAnalyzer) Process(entry *parser.LogEntry) {
-
-		// Update global metrics (skip continuation lines for accurate count)
-
-		if !entry.IsContinuation {
-
-			sa.global.Count++
-
-		}
-
-	
-
-		// Track timestamp range
-
-		if sa.global.MinTimestamp.IsZero() || entry.Timestamp.Before(sa.global.MinTimestamp) {
-
-			sa.global.MinTimestamp = entry.Timestamp
-
-		}
-
-		if sa.global.MaxTimestamp.IsZero() || entry.Timestamp.After(sa.global.MaxTimestamp) {
-
-			sa.global.MaxTimestamp = entry.Timestamp
-
-		}
-
-	
-
-		// Dispatch to specialized analyzers
-
-		// Each analyzer performs its own filtering
-
-		sa.vacuum.Process(entry)
-
-		sa.checkpoints.Process(entry)
-
-		sa.connections.Process(entry)
-
-		sa.locks.Process(entry)
-
-		sa.events.Process(entry)
-
-		sa.uniqueEntities.Process(entry)
-
-	
-
-		// TempFiles: always sequential (faster than channel overhead for typical logs)
-
-		sa.tempFiles.Process(entry)
-
-	
-
-		// SQL: parallel if enabled (most expensive analyzer)
-
-		if sa.sqlChan != nil {
-
-			sa.sqlChan <- entry
-
-		} else {
-
-			sa.sql.Process(entry)
-
-		}
-
-	}
-
-	
-
-	// Finalize computes final metrics after all log entries have been processed.
-
-	// This should be called once after processing all entries.
-
-	func (sa *StreamingAnalyzer) Finalize() AggregatedMetrics {
-
-		// Close SQL channel and wait for goroutine to finish
-
-		if sa.sqlChan != nil {
-
-			close(sa.sqlChan)
-
-			sa.parallelWg.Wait()
-
-		}
-
-	
-
-		// Finalize all metrics
-
-		tempFiles := sa.tempFiles.Finalize()
-
-		locks := sa.locks.Finalize()
-
-		sql := sa.sql.Finalize()
-
-		eventSummaries, topEvents := sa.events.Finalize()
-
-	
-
-		// Collect queries without duration metrics from locks and tempfiles
-
-		CollectQueriesWithoutDuration(&sql, &locks, &tempFiles)
-
-	
-
-		return AggregatedMetrics{
-
-			Global:         sa.global,
-
-			TempFiles:      tempFiles,
-
-			Vacuum:         sa.vacuum.Finalize(),
-
-			Checkpoints:    sa.checkpoints.Finalize(),
-
-			Connections:    sa.connections.Finalize(),
-
-			Locks:          locks,
-
-			EventSummaries: eventSummaries,
-
-			TopEvents:      topEvents,
-
-			UniqueEntities: sa.uniqueEntities.Finalize(),
-
-			SQL:            sql,
-
-		}
-
-	}
-
-// ============================================================================
-// Main analysis function
-// ============================================================================
-
-// AggregateMetrics processes a stream of log entries and returns aggregated metrics.
-// This is the main entry point for log analysis, using streaming processing
-// to avoid loading all entries into memory.
+	EventSummaries []EventSummary
+	TopEvents      []EventStat
+	SQL            SQLMetrics
+}
+
+// StreamingAnalyzer orchestrates the eight specialized analyzers in
+// streaming mode, without loading all entries into memory.
 //
-// The function reads entries from the input channel until it closes, then returns
-// the complete analysis results.
+// Usage:
 //
-// fileSize is used to determine whether to enable parallel SQL analysis:
-//   - Files > 200MB: parallel SQL analyzer (~20% speedup)
-//   - Files < 200MB: sequential processing (avoids goroutine overhead)
-func AggregateMetrics(in <-chan parser.LogEntry, fileSize int64) AggregatedMetrics {
-	// Enable parallel SQL analysis for large files to improve performance.
-	// Threshold of 200MB based on profiling: below this, goroutine overhead
-	// outweighs parallelization gains.
-	const thresholdMB = 200
-	enableParallel := fileSize > thresholdMB*1024*1024
+//	a := NewStreamingAnalyzer()
+//	for entry := range logEntries {
+//	    a.Process(&entry)
+//	}
+//	metrics := a.Finalize()
+//
+// SQL, Locks and TempFiles are dispatched to dedicated goroutines fed
+// by buffered channels — they were measured as the three most expensive
+// analyzers (sql/locks ~22% each, tempFiles 14-34% on >200 MB inputs).
+// uniqueEntities was tested as a 4th parallel goroutine but plafonned,
+// so it stays inline.
+type StreamingAnalyzer struct {
+	global         GlobalMetrics
+	tempFiles      *TempFileAnalyzer
+	vacuum         *VacuumAnalyzer
+	checkpoints    *CheckpointAnalyzer
+	connections    *ConnectionAnalyzer
+	locks          *LockAnalyzer
+	events         *EventAnalyzer
+	uniqueEntities *UniqueEntityAnalyzer
+	sql            *SQLAnalyzer
 
-	// DEBUG: log which mode is selected (disabled in production)
-	//fmt.Fprintf(os.Stderr, "[DEBUG] File size: %.1f MB, Parallel SQL: %v (threshold: %d MB)\n",
-	//	float64(fileSize)/(1024*1024), enableParallel, thresholdMB)
+	sqlChan    chan parser.LogEntry
+	locksChan  chan parser.LogEntry
+	tempChan   chan parser.LogEntry
+	parallelWg sync.WaitGroup
+}
 
-	analyzer := NewStreamingAnalyzer(enableParallel)
+// NewStreamingAnalyzer creates a streaming analyzer with all
+// sub-analyzers initialized and the three parallel dispatch goroutines
+// running.
+func NewStreamingAnalyzer() *StreamingAnalyzer {
+	sa := &StreamingAnalyzer{
+		tempFiles:      NewTempFileAnalyzer(),
+		vacuum:         NewVacuumAnalyzer(),
+		checkpoints:    NewCheckpointAnalyzer(),
+		connections:    NewConnectionAnalyzer(),
+		locks:          NewLockAnalyzer(),
+		events:         NewEventAnalyzer(),
+		uniqueEntities: NewUniqueEntityAnalyzer(),
+		sql:            NewSQLAnalyzer(),
+	}
 
-	// Process entries in streaming mode
-	for entry := range in {
-		analyzer.Process(&entry)
+	sa.sqlChan = make(chan parser.LogEntry, 65536)
+	sa.locksChan = make(chan parser.LogEntry, 65536)
+	sa.tempChan = make(chan parser.LogEntry, 65536)
+
+	sa.parallelWg.Add(3)
+	go func() {
+		defer sa.parallelWg.Done()
+		for entry := range sa.sqlChan {
+			sa.sql.Process(&entry)
+		}
+	}()
+	go func() {
+		defer sa.parallelWg.Done()
+		for entry := range sa.locksChan {
+			sa.locks.Process(&entry)
+		}
+	}()
+	go func() {
+		defer sa.parallelWg.Done()
+		for entry := range sa.tempChan {
+			sa.tempFiles.Process(&entry)
+		}
+	}()
+
+	return sa
+}
+
+// Process dispatches one log entry to every analyzer. The five inline
+// ones are cheap or stateful in a way that doesn't benefit from a
+// goroutine hand-off; the three remaining (locks, tempFiles, sql) are
+// channel-fed.
+func (sa *StreamingAnalyzer) Process(entry *parser.LogEntry) {
+	if !entry.IsContinuation {
+		sa.global.Count++
+	}
+	if sa.global.MinTimestamp.IsZero() || entry.Timestamp.Before(sa.global.MinTimestamp) {
+		sa.global.MinTimestamp = entry.Timestamp
+	}
+	if sa.global.MaxTimestamp.IsZero() || entry.Timestamp.After(sa.global.MaxTimestamp) {
+		sa.global.MaxTimestamp = entry.Timestamp
+	}
+
+	sa.vacuum.Process(entry)
+	sa.checkpoints.Process(entry)
+	sa.connections.Process(entry)
+	sa.events.Process(entry)
+	sa.uniqueEntities.Process(entry)
+
+	sa.locksChan <- *entry
+	sa.tempChan <- *entry
+	sa.sqlChan <- *entry
+}
+
+// Finalize computes final metrics after all log entries have been processed.
+
+// This should be called once after processing all entries.
+
+func (sa *StreamingAnalyzer) Finalize() AggregatedMetrics {
+
+	// Drain the parallel-analyzer goroutines before reading their state.
+	close(sa.sqlChan)
+	close(sa.locksChan)
+	close(sa.tempChan)
+	sa.parallelWg.Wait()
+
+	tempFiles := sa.tempFiles.Finalize()
+	locks := sa.locks.Finalize()
+	sql := sa.sql.Finalize()
+	eventSummaries, topEvents := sa.events.Finalize()
+	CollectQueriesWithoutDuration(&sql, &locks, &tempFiles)
+
+	// Roll severity counts from EventAnalyzer into the global summary.
+	// Without this, Global.{Error,Fatal,Panic,Warning,Log}Count stay at 0
+	// even when EventSummaries already has them — surprising for users
+	// reading summary.error_count.
+	for _, s := range eventSummaries {
+		switch s.Type {
+		case "ERROR":
+			sa.global.ErrorCount = s.Count
+		case "FATAL":
+			sa.global.FatalCount = s.Count
+		case "PANIC":
+			sa.global.PanicCount = s.Count
+		case "WARNING":
+			sa.global.WarningCount = s.Count
+		case "LOG":
+			sa.global.LogCount = s.Count
+		}
+	}
+
+	return AggregatedMetrics{
+		Global:         sa.global,
+		TempFiles:      tempFiles,
+		Vacuum:         sa.vacuum.Finalize(),
+		Checkpoints:    sa.checkpoints.Finalize(),
+		Connections:    sa.connections.Finalize(),
+		Locks:          locks,
+		EventSummaries: eventSummaries,
+		TopEvents:      topEvents,
+		UniqueEntities: sa.uniqueEntities.Finalize(),
+		SQL:            sql,
+	}
+}
+
+// AggregateMetrics processes a stream of log entries from `in` and
+// returns the aggregated result. Streaming — entries are not held in
+// memory beyond their current batch.
+//
+// On ctx cancellation it returns whatever has been processed so far,
+// after draining `in` so upstream producers can exit cleanly.
+func AggregateMetrics(ctx context.Context, in <-chan []parser.LogEntry) AggregatedMetrics {
+	analyzer := NewStreamingAnalyzer()
+
+	// Process batches in streaming mode. ctx checked once per batch so a
+	// cancelled run (CTRL+C, follow-mode shutdown) doesn't wait for full drain.
+loop:
+	for {
+		select {
+		case <-ctx.Done():
+			break loop
+		case batch, ok := <-in:
+			if !ok {
+				break loop
+			}
+			for i := range batch {
+				analyzer.Process(&batch[i])
+			}
+			parser.PutBatch(batch)
+		}
+	}
+
+	// If ctx was cancelled mid-stream, drain remaining batches.
+	if ctx.Err() != nil {
+		for range in {
+		}
 	}
 
 	return analyzer.Finalize()
@@ -441,8 +264,33 @@ type UniqueEntityAnalyzer struct {
 	appCounts  map[string]int
 	hostCounts map[string]int
 
-	userDbCombos   map[string]int
-	userHostCombos map[string]int
+	// Combos use struct keys to avoid allocating a fresh string
+	// (`user+"|"+db`) on every entry — that concatenation alone was
+	// 37 MB of cumulative heap on I_250mb (10% of total alloc), and
+	// stays alive forever in TinyGo's gc=leaking runtime.
+	userDbCombos   map[entityCombo]int
+	userHostCombos map[entityCombo]int
+
+	// lastSeen amortizes consecutive identical-value inserts.
+	last lastSeenCache
+}
+
+// entityCombo is the keyed pair (user, db) or (user, host).
+type entityCombo struct {
+	a, b string
+}
+
+// lastSeenCache batches consecutive same-value inserts to amortize the
+// per-map-operation cost (~53 bytes/op in tinygo wasm gc=leaking,
+// confirmed via bisection on J_250mb). PG logs often have long runs of
+// the same user/db/host, so caching "value + run length" and flushing
+// only on transitions cuts map operations by 10-100×.
+type lastSeenCache struct {
+	user, db, app, host        string
+	userN, dbN, appN, hostN    int
+	userDb, userHost           entityCombo
+	userDbValid, userHostValid bool
+	userDbN, userHostN         int
 }
 
 // NewUniqueEntityAnalyzer creates a new unique entity analyzer.
@@ -453,8 +301,8 @@ func NewUniqueEntityAnalyzer() *UniqueEntityAnalyzer {
 		appCounts:  make(map[string]int, 100),
 		hostCounts: make(map[string]int, 100),
 
-		userDbCombos:   make(map[string]int, 200),
-		userHostCombos: make(map[string]int, 200),
+		userDbCombos:   make(map[entityCombo]int, 200),
+		userHostCombos: make(map[entityCombo]int, 200),
 	}
 }
 
@@ -508,8 +356,17 @@ func (a *UniqueEntityAnalyzer) Process(entry *parser.LogEntry) {
 		if lastChar == 'e' {
 			if eqIdx >= 16 && msg[eqIdx-16:eqIdx] == "application_name" {
 				if currentApp == "" {
-					commaSep := eqIdx >= 17 && msg[eqIdx-17] == ','
-					if appName := extractValueAt(msg, eqIdx+1, commaSep); appName != "" {
+					// application_name is the long form, typically the
+					// last entity on a log_line_prefix or appended at the
+					// end of disconnection "session time: ..." messages.
+					// The value can legitimately contain spaces (e.g.
+					// "Envois Commande Baudu", "DBeaver 26 - SQLEditor
+					// <foo.sql>"). Always run with commaSep=true so it
+					// stops at commas, brackets, or a marker from
+					// findSeverityMarker (which also lists " SSL " to
+					// catch the PG "connection authorized: …
+					// application_name=NAME SSL enabled (…)" suffix).
+					if appName := extractValueAt(msg, eqIdx+1, true); appName != "" {
 						currentApp = appName
 					}
 				}
@@ -558,31 +415,146 @@ func (a *UniqueEntityAnalyzer) Process(entry *parser.LogEntry) {
 		i = eqIdx + 1
 	}
 
-	// Count entities
-	if currentUser != "" {
-		a.userCounts[currentUser]++
+	// Count entities via lastSeen cache. Per-field: if the new value
+	// matches the cached one, just increment the local counter (no map
+	// op). On transition, flush the previous (value, count) into the
+	// map. This amortizes the per-op cost of tinygo wasm map runtime
+	// (~53 bytes/op leak on gc=leaking, dominant in J.log).
+	if currentUser == a.last.user {
+		if currentUser != "" {
+			a.last.userN++
+		}
+	} else {
+		if a.last.userN > 0 {
+			a.userCounts[a.last.user] += a.last.userN
+		}
+		a.last.user = currentUser
+		if currentUser != "" {
+			a.last.userN = 1
+		} else {
+			a.last.userN = 0
+		}
 	}
-	if currentDb != "" {
-		a.dbCounts[currentDb]++
+	if currentDb == a.last.db {
+		if currentDb != "" {
+			a.last.dbN++
+		}
+	} else {
+		if a.last.dbN > 0 {
+			a.dbCounts[a.last.db] += a.last.dbN
+		}
+		a.last.db = currentDb
+		if currentDb != "" {
+			a.last.dbN = 1
+		} else {
+			a.last.dbN = 0
+		}
 	}
-	if currentApp != "" {
-		a.appCounts[currentApp]++
+	if currentApp == a.last.app {
+		if currentApp != "" {
+			a.last.appN++
+		}
+	} else {
+		if a.last.appN > 0 {
+			a.appCounts[a.last.app] += a.last.appN
+		}
+		a.last.app = currentApp
+		if currentApp != "" {
+			a.last.appN = 1
+		} else {
+			a.last.appN = 0
+		}
 	}
-	if currentHost != "" {
-		a.hostCounts[currentHost]++
+	if currentHost == a.last.host {
+		if currentHost != "" {
+			a.last.hostN++
+		}
+	} else {
+		if a.last.hostN > 0 {
+			a.hostCounts[a.last.host] += a.last.hostN
+		}
+		a.last.host = currentHost
+		if currentHost != "" {
+			a.last.hostN = 1
+		} else {
+			a.last.hostN = 0
+		}
 	}
 
-	// Build combinations
+	// Combos: same pattern, but only valid when both fields non-empty.
 	if currentUser != "" && currentDb != "" {
-		a.userDbCombos[currentUser+"|"+currentDb]++
+		c := entityCombo{currentUser, currentDb}
+		if a.last.userDbValid && c == a.last.userDb {
+			a.last.userDbN++
+		} else {
+			if a.last.userDbValid && a.last.userDbN > 0 {
+				a.userDbCombos[a.last.userDb] += a.last.userDbN
+			}
+			a.last.userDb = c
+			a.last.userDbValid = true
+			a.last.userDbN = 1
+		}
 	}
 	if currentUser != "" && currentHost != "" {
-		a.userHostCombos[currentUser+"|"+currentHost]++
+		c := entityCombo{currentUser, currentHost}
+		if a.last.userHostValid && c == a.last.userHost {
+			a.last.userHostN++
+		} else {
+			if a.last.userHostValid && a.last.userHostN > 0 {
+				a.userHostCombos[a.last.userHost] += a.last.userHostN
+			}
+			a.last.userHost = c
+			a.last.userHostValid = true
+			a.last.userHostN = 1
+		}
 	}
+}
+
+// flushLastSeen drains pending counters from the lastSeenCache into
+// the count maps. Must be called once at Finalize.
+func (a *UniqueEntityAnalyzer) flushLastSeen() {
+	if a.last.userN > 0 {
+		a.userCounts[a.last.user] += a.last.userN
+		a.last.userN = 0
+	}
+	if a.last.dbN > 0 {
+		a.dbCounts[a.last.db] += a.last.dbN
+		a.last.dbN = 0
+	}
+	if a.last.appN > 0 {
+		a.appCounts[a.last.app] += a.last.appN
+		a.last.appN = 0
+	}
+	if a.last.hostN > 0 {
+		a.hostCounts[a.last.host] += a.last.hostN
+		a.last.hostN = 0
+	}
+	if a.last.userDbValid && a.last.userDbN > 0 {
+		a.userDbCombos[a.last.userDb] += a.last.userDbN
+		a.last.userDbN = 0
+		a.last.userDbValid = false
+	}
+	if a.last.userHostValid && a.last.userHostN > 0 {
+		a.userHostCombos[a.last.userHost] += a.last.userHostN
+		a.last.userHostN = 0
+		a.last.userHostValid = false
+	}
+}
+
+// flattenCombos converts an internal entityCombo map into the public
+// "a|b" string-keyed map. Done once at Finalize so the per-entry hot
+// path stays allocation-free.
+func flattenCombos(in map[entityCombo]int) map[string]int {
+	out := make(map[string]int, len(in))
+	for k, v := range in {
+		out[k.a+"|"+k.b] = v
+	}
+	return out
 }
 
 // Finalize returns the unique entity metrics with sorted lists.
 func (a *UniqueEntityAnalyzer) Finalize() UniqueEntityMetrics {
+	a.flushLastSeen()
 	// Derive unique lists from count map keys (no need for separate sets)
 	return UniqueEntityMetrics{
 		UniqueDbs:      len(a.dbCounts),
@@ -597,8 +569,8 @@ func (a *UniqueEntityAnalyzer) Finalize() UniqueEntityMetrics {
 		UserCounts:     a.userCounts,
 		AppCounts:      a.appCounts,
 		HostCounts:     a.hostCounts,
-		UserDbCombos:   a.userDbCombos,
-		UserHostCombos: a.userHostCombos,
+		UserDbCombos:   flattenCombos(a.userDbCombos),
+		UserHostCombos: flattenCombos(a.userHostCombos),
 	}
 }
 
@@ -674,17 +646,53 @@ func extractValueAt(msg string, startPos int, commaSep ...bool) string {
 	return val
 }
 
-// normalizeHost removes the port from a host address.
-// findSeverityMarker returns the position of the first PostgreSQL severity
-// marker (" LOG:", " ERROR:", etc.) in s, or -1 if not found.
+// findSeverityMarker returns the position of the first PostgreSQL
+// severity (or continuation) marker in s, or -1 if not found. Used by
+// extractValueAt when running with commaSep=true to stop a value-with-
+// spaces from greedily swallowing the rest of the message. We include
+// every marker PostgreSQL emits after the prefix:
+//
+//   - The 8 severity levels (PANIC, FATAL, ERROR, WARNING, NOTICE,
+//     LOG, INFO, DEBUG). DEBUG actually has 5 numbered variants
+//     (DEBUG1..DEBUG5) but the marker scan only needs the prefix.
+//   - The 6 continuation markers (DETAIL, HINT, CONTEXT, STATEMENT,
+//     QUERY, LOCATION) which can appear inline on long composite
+//     log lines (typical of custom RAISE chains, e.g.
+//     "application_name=monitor-agent NOTICE: ... NOTICE: ...").
+//
+// Without NOTICE / continuation markers the previous list missed
+// these patterns and pulled them into the extracted entity, producing
+// fake variants like "monitor-agent NOTICE: ... table" in TOP APPS.
+// severityMarkers is a package-level immutable list. Hoisted out of
+// findSeverityMarker because that function is called once per log
+// entry on logs with application_name= in the prefix; allocating a
+// 15-element []string literal per call leaked ~500 MB on J_250mb in
+// tinygo wasm gc=leaking (one of the dominant cumulative allocators).
+var severityMarkers = [...]string{
+	" LOG:", " ERROR:", " WARNING:", " FATAL:", " PANIC:",
+	" NOTICE:", " INFO:", " DEBUG:",
+	" DETAIL:", " HINT:", " CONTEXT:", " STATEMENT:", " QUERY:", " LOCATION:",
+	// PostgreSQL appends " SSL <state> (protocol=…, cipher=…, …)"
+	// after application_name in "connection authorized:" log
+	// messages. Without this marker the comma-aware extractor would
+	// pull the whole "favier SSL enabled (protocol=TLSv1.2" tail
+	// into the captured value.
+	" SSL ",
+}
+
 func findSeverityMarker(s string) int {
-	for _, sev := range []string{" LOG:", " ERROR:", " WARNING:", " FATAL:", " PANIC:"} {
+	earliest := -1
+	for _, sev := range severityMarkers {
 		if pos := strings.Index(s, sev); pos != -1 {
-			return pos
+			if earliest == -1 || pos < earliest {
+				earliest = pos
+			}
 		}
 	}
-	return -1
+	return earliest
 }
+
+// normalizeHost removes the port from a host address.
 
 // Handles formats like "192.168.1.1(12345)" or "192.168.1.1:5432" or "[::1](12345)".
 // Returns just the IP/hostname part.
@@ -727,32 +735,3 @@ func countMapKeysAsSlice(m map[string]int) []string {
 	sort.Strings(keys)
 	return keys
 }
-
-// extractKeyValue extracts a value from a log message for a given key.
-// It handles common PostgreSQL log formats where key-value pairs are separated
-// by spaces, commas, brackets, or parentheses.
-//
-// Example patterns:
-//   - "db=mydb user=postgres"
-//   - "db=mydb,user=postgres"
-//   - "connection authorized: user=postgres database=mydb"
-//
-// Returns the extracted value and true if found, or empty string and false if not found.
-// Values of "unknown" or "[unknown]" are normalized to "UNKNOWN".
-func extractKeyValue(line, key string) (string, bool) {
-	// Find the key in the message
-	idx := strings.Index(line, key)
-	if idx == -1 {
-		return "", false
-	}
-
-	// Extract value starting after the key
-	val := extractValueAt(line, idx+len(key))
-	if val == "" {
-		return "", false
-	}
-
-	return val, true
-}
-
-

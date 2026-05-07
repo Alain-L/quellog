@@ -1,0 +1,27 @@
+## SUMMARY
+
+This _quellog_ report summarizes **3** log entries collected between 19 Apr 2026, 15:00 (UTC) — 19 Apr 2026, 15:20 (UTC), spanning 20m of activity.
+
+## EVENTS
+
+- **LOG**: 3 (100.0%)
+
+## MAINTENANCE
+
+- **Automatic vacuum count**: 2
+- **Automatic analyze count**: 1
+
+### Top automatic vacuum operations per table
+
+| Table | Count | % of total | Recovered |
+|---|---:|---:|---:|
+| appdb.public.sessions | 1 | 50.00% | 40.00 KB |
+| appdb.public.users | 1 | 50.00% | 0 B |
+
+### Top automatic analyze operations per table
+
+| Table | Count | % of total | Recovered |
+|---|---:|---:|---:|
+| appdb.public.users | 1 | 100.00% | 0 B |
+
+

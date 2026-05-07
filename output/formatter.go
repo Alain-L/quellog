@@ -1,10 +1,13 @@
 // output/formatter.go
 package output
 
-import "fmt"
+import (
+	"fmt"
+	"strconv"
+)
 
-// formatBytes converts a size in bytes to a human-readable string (TB, GB, MB, KB or B).
-func formatBytes(bytes int64) string {
+// FormatBytes converts a size in bytes to a human-readable string (TB, GB, MB, KB or B).
+func FormatBytes(bytes int64) string {
 	const (
 		KB = 1024
 		MB = 1024 * KB
@@ -23,6 +26,16 @@ func formatBytes(bytes int64) string {
 	default:
 		return fmt.Sprintf("%d B", bytes)
 	}
+}
+
+// FormatDurationMs renders a millisecond count as "Xms" (under 1 s) or
+// "X.XXs" (1 s and above). Used in MetaInfo.ParseTime so the WASM and
+// CLI paths emit the same human-readable shape for the JSON header.
+func FormatDurationMs(ms int64) string {
+	if ms < 1000 {
+		return strconv.FormatInt(ms, 10) + "ms"
+	}
+	return strconv.FormatFloat(float64(ms)/1000, 'f', 2, 64) + "s"
 }
 
 // formatRate converts a rate in bytes/s to a human-readable string (GB/s, MB/s, kB/s or B/s).

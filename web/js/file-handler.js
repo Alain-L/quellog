@@ -2,8 +2,11 @@
 
 import { wasmModule, setWasmModule, setWasmReady } from './state.js';
 
-// Maximum file size for in-memory parsing (250MB)
-export const MAX_FILE_SIZE = 250 * 1024 * 1024;
+// 500 MB cap: empirical browser ceiling for the wasm pipeline under
+// tinygo gc=leaking. J.log 500 MB and I.log 600 MB both succeed in
+// Chrome, but we keep the conservative bound so the browser tab stays
+// well under its 2 GB linear-memory limit across formats.
+export const MAX_FILE_SIZE = 500 * 1024 * 1024;
 
 // ===== Progress UI =====
 

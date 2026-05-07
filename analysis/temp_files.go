@@ -9,55 +9,30 @@ import (
 	"github.com/Alain-L/quellog/parser"
 )
 
-// TempFileMetrics aggregates statistics about PostgreSQL temporary file usage.
-// Temporary files are created when queries need more memory than work_mem allows.
+// TempFileMetrics aggregates PostgreSQL temporary-file usage. Temp
+// files are created when queries spill past work_mem.
 type TempFileMetrics struct {
-	// Count is the number of temporary file creation events.
-	Count int
-
-	// TotalSize is the cumulative size of all temporary files in bytes.
-	TotalSize int64
-
-	// Events contains individual temporary file creation events.
-	// Useful for timeline analysis and identifying memory pressure periods.
-	Events []TempFileEvent
-
-	// QueryStats maps normalized queries to their temp file statistics.
-	QueryStats map[string]*TempFileQueryStat
+	Count      int
+	TotalSize  int64                         // bytes
+	Events     []TempFileEvent               // each creation event (for timeline analysis)
+	QueryStats map[string]*TempFileQueryStat // normalized query → stats
 }
 
-// TempFileEvent represents a single temporary file creation event.
+// TempFileEvent is one temporary-file creation event.
 type TempFileEvent struct {
-	// Timestamp is when the temporary file was created.
 	Timestamp time.Time
-
-	// Size is the file size in bytes.
-	Size float64
-
-	// QueryID is the short identifier for the associated query (e.g., "se-abc123").
-	// May be empty if the query cannot be identified.
-	QueryID string
+	Size      float64 // bytes
+	QueryID   string  // short id (e.g. "se-abc123"), empty if not identifiable
 }
 
-// TempFileQueryStat stores aggregated temp file statistics for a single query pattern.
+// TempFileQueryStat aggregates temp-file events for one query pattern.
 type TempFileQueryStat struct {
-	// RawQuery is the original query text (first occurrence).
-	RawQuery string
-
-	// NormalizedQuery is the parameterized version used for grouping.
-	NormalizedQuery string
-
-	// Count is the number of temp file events for this query.
-	Count int
-
-	// TotalSize is the cumulative size of temp files for this query in bytes.
-	TotalSize int64
-
-	// ID is a short, user-friendly identifier.
-	ID string
-
-	// FullHash is the complete hash in hexadecimal.
-	FullHash string
+	RawQuery        string // first occurrence
+	NormalizedQuery string // parameterized form, used for grouping
+	Count           int
+	TotalSize       int64
+	ID              string
+	FullHash        string
 }
 
 // ============================================================================
@@ -88,29 +63,31 @@ const (
 //	    analyzer.Process(&entry)
 //	}
 //	metrics := analyzer.Finalize()
+//
+// TempFileAnalyzer uses a dual pattern to associate a temp-file event
+// with its query:
+//   - Pattern 1: temp → STATEMENT on the next line (log_statement configs)
+//   - Pattern 2: query → temp, via a per-PID cache of the last query
+//     seen (log_min_duration_statement configs)
 type TempFileAnalyzer struct {
 	count      int
 	totalSize  int64
 	events     []TempFileEvent
 	queryStats map[string]*TempFileQueryStat
 
-	// Dual-pattern approach:
-	// Pattern 1: temp → STATEMENT (next line) - for log_statement configs
-	// Pattern 2: query → temp (cache last query by PID) - for log_min_duration_statement configs
-
 	// Pattern 1 state
-	pendingSize        int64            // Size of last temp file awaiting statement association
-	pendingPID         string           // PID of last temp file seen (for immediate matching)
-	pendingEventIndex  int              // Index of the pending event in events slice
-	expectingStatement bool             // True if next line should be a STATEMENT
-	pendingByPID       map[string]int64 // Fallback: cumulative temp size per PID waiting for statement
+	pendingSize        int64
+	pendingPID         string
+	pendingEventIndex  int
+	expectingStatement bool
+	pendingByPID       map[string]int64 // fallback: cumulative size per PID waiting for STATEMENT
 
-	// Pattern 2 state (query before temp file)
-	lastQueryByPID map[string]string // Most recent query text seen for each PID
-	tempFilesExist bool              // True once we've seen at least one temp file
+	// Pattern 2 state
+	lastQueryByPID map[string]string // most recent query seen for each PID
+	tempFilesExist bool              // true once at least one temp file seen
 
-	// Performance optimization: cache normalized queries to avoid repeated normalization
-	normalizedCache map[string]cachedQueryID // Query text -> normalized + ID
+	// Cache normalized queries to avoid repeated normalization.
+	normalizedCache map[string]cachedQueryID
 }
 
 // cachedQueryID stores the normalized query and its ID to avoid recomputation
@@ -202,9 +179,10 @@ func (a *TempFileAnalyzer) Process(entry *parser.LogEntry) {
 		return
 	}
 
-	// OPTIMIZATION: Extract PID once and reuse it throughout
-	// This avoids multiple expensive ExtractPID() calls (up to 4× per entry)
-	pid := parser.ExtractPID(msg)
+	// PID is pre-populated by the parser layer (NewLogEntry) so we don't
+	// re-parse the message — this same PID is also used by the locks,
+	// connections and sql analyzers on the same entry.
+	pid := entry.PID
 
 	// === STEP 1: Check for STATEMENT/CONTEXT/query lines ===
 	// Support:

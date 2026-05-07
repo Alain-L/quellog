@@ -1,0 +1,57 @@
+## SUMMARY
+
+This _quellog_ report summarizes **3** log entries collected between 19 Apr 2026, 09:00 (UTC) — 19 Apr 2026, 09:12 (UTC), spanning 12m 15s of activity.
+
+## EVENTS
+
+- **ERROR**: 3 (100.0%)
+  - *er-JY5d* `deadlock detected` (3) [100.0%]
+
+## CLIENTS
+
+- **Unique DBs**: 1
+- **Unique Users**: 1
+- **Unique Apps**: 1
+- **Unique Hosts**: 3
+
+### USERS
+
+| User | Count | % |
+|---|---:|---:|
+| app | 3 | 100.0% |
+
+### APPS
+
+| App | Count | % |
+|---|---:|---:|
+| psql | 3 | 100.0% |
+
+### DATABASES
+
+| Database | Count | % |
+|---|---:|---:|
+| appdb | 3 | 100.0% |
+
+### HOSTS
+
+| Host | Count | % |
+|---|---:|---:|
+| 10.0.0.1 | 1 | 33.3% |
+| 10.0.0.2 | 1 | 33.3% |
+| 10.0.0.3 | 1 | 33.3% |
+
+### USER × DATABASE
+
+| User | Database | Count | % |
+|---|---|---:|---:|
+| app | appdb | 3 | 100.0% |
+
+### USER × HOST
+
+| User | Host | Count | % |
+|---|---|---:|---:|
+| app | 10.0.0.1 | 1 | 33.3% |
+| app | 10.0.0.2 | 1 | 33.3% |
+| app | 10.0.0.3 | 1 | 33.3% |
+
+

@@ -133,8 +133,8 @@ func PrintQueryTable(queryStats map[string]*analysis.QueryStat, config QueryTabl
 	// Choose display mode
 	wideMode := termWidth >= 120 && !config.CompactMode && config.ShowQueryText
 
-	bold := "\033[1m"
-	reset := "\033[0m"
+	bold := ansiBold
+	reset := ansiReset
 
 	if wideMode {
 		printWideQueryTable(rows, config, termWidth, bold, reset)
@@ -160,8 +160,8 @@ func PrintQueryTableWithTitle(title string, queryStats map[string]*analysis.Quer
 	}
 
 	// Display title
-	bold := "\033[1m"
-	reset := "\033[0m"
+	bold := ansiBold
+	reset := ansiReset
 	fmt.Println(bold + title + reset)
 
 	// Display table
@@ -249,12 +249,10 @@ func printWideQueryTable(rows []QueryRow, config QueryTableConfig, termWidth int
 
 	// Build header
 	var headerParts []string
-	var widthParts []int
 
 	for _, col := range config.Columns {
 		if col.Header == "Query" {
 			headerParts = append(headerParts, fmt.Sprintf("%-*s", queryWidth, col.Header))
-			widthParts = append(widthParts, queryWidth)
 		} else {
 			width := col.Width
 			if width == 0 {
@@ -265,7 +263,6 @@ func printWideQueryTable(rows []QueryRow, config QueryTableConfig, termWidth int
 			} else {
 				headerParts = append(headerParts, fmt.Sprintf("%-*s", width, col.Header))
 			}
-			widthParts = append(widthParts, width)
 		}
 	}
 
@@ -305,13 +302,11 @@ func printWideQueryTable(rows []QueryRow, config QueryTableConfig, termWidth int
 func printCompactQueryTable(rows []QueryRow, config QueryTableConfig, bold, reset string) {
 	// Build header
 	var headerParts []string
-	var widthParts []int
 
 	for _, col := range config.Columns {
 		if col.Header == "Query" {
 			// Replace with "Type" column
 			headerParts = append(headerParts, fmt.Sprintf("%-10s", "Type"))
-			widthParts = append(widthParts, 10)
 		} else {
 			width := col.Width
 			if width == 0 {
@@ -322,7 +317,6 @@ func printCompactQueryTable(rows []QueryRow, config QueryTableConfig, bold, rese
 			} else {
 				headerParts = append(headerParts, fmt.Sprintf("%-*s", width, col.Header))
 			}
-			widthParts = append(widthParts, width)
 		}
 	}
 
@@ -484,14 +478,14 @@ func ColumnType() QueryTableColumn {
 
 // printTCLSection prints TCL rows in wide mode with a "TCL" separator.
 func printTCLSection(tclRows []QueryRow, config QueryTableConfig, termWidth int) {
-	italic := "\033[3m"
-	reset := "\033[0m"
+	italic := ansiItalic
+	reset := ansiReset
 
 	tableWidth := calculateTableWidth(termWidth, config.TableWidthPercent)
 
 	// "-- TCL " + dashes to fill the line
-	muted := "\033[38;5;243m"
-	mutedBoldItalic := "\033[1;3;38;5;243m"
+	muted := ansiMuted
+	mutedBoldItalic := ansiMutedBoldItalic
 	label := "TCL"
 	dashes := strings.Repeat("-", tableWidth-len(label)-4)
 	fmt.Println(muted + "-- " + mutedBoldItalic + label + muted + " " + dashes + reset)
@@ -540,11 +534,11 @@ func printTCLSection(tclRows []QueryRow, config QueryTableConfig, termWidth int)
 
 // printTCLSectionCompact prints TCL rows in compact mode with a "TCL" separator.
 func printTCLSectionCompact(tclRows []QueryRow, config QueryTableConfig) {
-	italic := "\033[3m"
-	reset := "\033[0m"
+	italic := ansiItalic
+	reset := ansiReset
 
-	muted := "\033[38;5;243m"
-	mutedBoldItalic := "\033[1;3;38;5;243m"
+	muted := ansiMuted
+	mutedBoldItalic := ansiMutedBoldItalic
 	label := "TCL"
 	dashes := strings.Repeat("-", 80-len(label)-4)
 	fmt.Println(muted + "-- " + mutedBoldItalic + label + muted + " " + dashes + reset)

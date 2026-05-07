@@ -191,101 +191,133 @@ func QueryCategory(queryType string) string {
 	}
 }
 
-// QueryStat stores aggregated statistics for a single SQL query pattern.
-// Multiple executions of the same normalized query are aggregated into one QueryStat.
+// QueryStat aggregates stats for one normalized SQL query pattern
+// across all its executions.
 type QueryStat struct {
-	// RawQuery is the original query text (first occurrence).
-	RawQuery string
-
-	// NormalizedQuery is the parameterized version used for grouping.
-	// Example: "SELECT * FROM users WHERE id = $1"
-	NormalizedQuery string
-
-	// Count is the number of times this query was executed.
-	Count int
-
-	// TotalTime is the cumulative execution time in milliseconds.
-	TotalTime float64
-
-	// AvgTime is the average execution time in milliseconds.
-	// Calculated as TotalTime / Count.
-	AvgTime float64
-
-	// MaxTime is the maximum execution time observed in milliseconds.
-	MaxTime float64
-
-	// ID is a short, user-friendly identifier (e.g., "se-123xaB").
-	ID string
-
-	// FullHash is the complete hash in hexadecimal (e.g., 32-character MD5).
-	FullHash string
-
-	// LastPlan stores the most recent execution plan from auto_explain (if available).
-	// Only one plan per query signature is retained to keep memory bounded.
+	RawQuery        string // first occurrence (raw text)
+	NormalizedQuery string // parameterized form used for grouping (e.g. "SELECT * FROM users WHERE id = $1")
+	Count           int
+	TotalTime       float64 // cumulative execution time, ms
+	AvgTime         float64 // TotalTime / Count
+	MaxTime         float64
+	ID              string // short id (e.g. "se-123xaB")
+	FullHash        string // full MD5 hex
+	// LastPlan keeps only the most recent auto_explain plan per query
+	// signature (memory-bounded; older plans are discarded).
 	LastPlan string
 }
 
-// QueryExecution represents a single SQL query execution event.
+// QueryExecution is one SQL execution event. Returned by SQLMetrics
+// iteration helpers (IterateExecutions / ExecutionAt) — the metrics
+// struct stores events in compact parallel slices internally and
+// expands them to QueryExecution one at a time on access.
 type QueryExecution struct {
-	// Timestamp is when the query was executed.
 	Timestamp time.Time
-
-	// Duration is the execution time in milliseconds.
-	Duration float64
-
-	// QueryID is the short identifier for this query (e.g., "se-abc123").
-	QueryID string
+	Duration  float64 // ms
+	QueryID   string  // short id (e.g. "se-abc123")
 }
 
-// SQLMetrics aggregates SQL query statistics from log analysis.
-// It provides both per-query statistics and global metrics.
+// ExecutionCount returns the number of recorded execution events.
+func (m *SQLMetrics) ExecutionCount() int {
+	if m.executions == nil {
+		return 0
+	}
+	return m.executions.Len()
+}
+
+// ExecutionAt expands the i-th event to a full QueryExecution.
+// Panics if i is out of bounds — guard with ExecutionCount.
+func (m *SQLMetrics) ExecutionAt(i int) QueryExecution {
+	return m.executions.At(i)
+}
+
+// IterateExecutions calls fn for each event in append order. Returning
+// false from fn stops iteration early. No []QueryExecution slice is
+// materialized.
+func (m *SQLMetrics) IterateExecutions(fn func(QueryExecution) bool) {
+	if m.executions == nil {
+		return
+	}
+	m.executions.ForEach(fn)
+}
+
+// ExecutionDurations returns a fresh []float64 of every event's
+// duration in append order. Cheaper than IterateExecutions when the
+// caller only needs durations (percentile / median compute).
+func (m *SQLMetrics) ExecutionDurations() []float64 {
+	if m.executions == nil {
+		return nil
+	}
+	return m.executions.Durations()
+}
+
+// ExecutionsCountAbove returns the number of events with
+// Duration >= threshold. Avoids the per-event QueryExecution
+// expansion that a manual loop would force.
+func (m *SQLMetrics) ExecutionsCountAbove(threshold float64) int {
+	if m.executions == nil {
+		return 0
+	}
+	return m.executions.CountAbove(threshold)
+}
+
+// IterateExecutionsForID is like IterateExecutions but only yields
+// events whose QueryID matches the given id. Implemented in terms of
+// the compact storage's queryID table — no full iteration over events
+// when the id is absent, and no intermediate slice when present.
+func (m *SQLMetrics) IterateExecutionsForID(id string, fn func(QueryExecution) bool) {
+	if m.executions == nil {
+		return
+	}
+	// Resolve the id to its compact index (linear scan over the small
+	// queryIDs table — typically a few hundred entries, not millions).
+	idx := uint32(0)
+	found := false
+	for i, qid := range m.executions.queryIDs {
+		if qid == id {
+			idx = uint32(i)
+			found = true
+			break
+		}
+	}
+	if !found {
+		return
+	}
+	m.executions.ForEachID(idx, id, fn)
+}
+
+// SQLMetrics combines per-query stats and global SQL metrics.
 type SQLMetrics struct {
-	// QueryStats maps normalized queries to their aggregated statistics.
-	QueryStats map[string]*QueryStat
-
-	// TotalQueries is the total number of SQL queries executed.
-	TotalQueries int
-
-	// UniqueQueries is the number of distinct normalized queries.
-	UniqueQueries int
-
-	// MinQueryDuration is the fastest query duration in milliseconds.
+	QueryStats       map[string]*QueryStat // normalized query → stats
+	TotalQueries     int
+	UniqueQueries    int
 	MinQueryDuration float64
-
-	// MaxQueryDuration is the slowest query duration in milliseconds.
 	MaxQueryDuration float64
-
-	// SumQueryDuration is the total execution time of all queries in milliseconds.
 	SumQueryDuration float64
+	StartTimestamp   time.Time
+	EndTimestamp     time.Time
+	// executions is the compact storage of all execution events. Use
+	// IterateExecutions / ExecutionAt / ExecutionCount instead of
+	// reaching into the slice — the field is intentionally private to
+	// keep the parallel-slice layout opaque to consumers.
+	executions          *compactExecutions
+	MedianQueryDuration float64 // 50th percentile
+	P99QueryDuration    float64
 
-	// StartTimestamp is when the first query was executed.
-	StartTimestamp time.Time
-
-	// EndTimestamp is when the last query was executed.
-	EndTimestamp time.Time
-
-	// Executions contains all individual query executions.
-	// Useful for timeline analysis and percentile calculations.
-	Executions []QueryExecution
-
-	// MedianQueryDuration is the 50th percentile of query durations.
-	MedianQueryDuration float64
-
-	// P99QueryDuration is the 99th percentile of query durations.
-	P99QueryDuration float64
-
-	// QueriesWithoutDurationCount tracks queries identified from logs but without duration metrics.
+	// QueriesWithoutDurationCount tracks queries identified from logs
+	// (lock events, tempfile events) but without a duration recorded.
+	// Total may be < FromLocks + FromTempfiles when a query appears in
+	// both.
 	QueriesWithoutDurationCount struct {
-		FromLocks     int // Queries seen in lock events
-		FromTempfiles int // Queries seen in tempfile events
-		Total         int // Total unique queries (may be < FromLocks + FromTempfiles due to overlap)
+		FromLocks     int
+		FromTempfiles int
+		Total         int
 	}
 
-	// QueryTypeStats contains statistics grouped by SQL query type.
-	// Maps query type (SELECT, INSERT, etc.) to statistics.
+	// QueryTypeStats: type (SELECT, INSERT, ...) → stats.
 	QueryTypeStats map[string]*QueryTypeStat
 
-	// Query type breakdown by dimension (for --sql-overview)
+	// Query type breakdown by dimension (for --sql-overview).
 	QueryTypesByDatabase map[string]map[string]*QueryTypeCount
 	QueryTypesByUser     map[string]map[string]*QueryTypeCount
 	QueryTypesByHost     map[string]map[string]*QueryTypeCount
@@ -294,26 +326,13 @@ type SQLMetrics struct {
 
 // QueryTypeStat contains aggregated statistics for a specific query type.
 type QueryTypeStat struct {
-	// Type is the SQL command type (SELECT, INSERT, UPDATE, DELETE, etc.)
-	Type string
-
-	// Category is the high-level category (DML, DDL, TCL, etc.)
-	Category string
-
-	// Count is the total number of executions of this type.
-	Count int
-
-	// UniqueQueries is the number of distinct queries of this type.
-	UniqueQueries int
-
-	// TotalTime is the cumulative execution time in milliseconds.
-	TotalTime float64
-
-	// AvgTime is the average execution time per query.
-	AvgTime float64
-
-	// MaxTime is the maximum execution time for this type.
-	MaxTime float64
+	Type          string  // SELECT, INSERT, UPDATE, ...
+	Category      string  // DML, DDL, TCL, ...
+	Count         int     // executions of this type
+	UniqueQueries int     // distinct queries of this type
+	TotalTime     float64 // cumulative ms
+	AvgTime       float64 // ms per query
+	MaxTime       float64
 }
 
 // QueryTypeCount tracks count and total time for a query type in a specific dimension.
@@ -406,7 +425,7 @@ type SQLAnalyzer struct {
 	sumQueryDuration float64
 	startTimestamp   time.Time
 	endTimestamp     time.Time
-	executions       []QueryExecution
+	executions       *compactExecutions
 
 	// LRU cache to avoid re-normalizing identical raw queries
 	// Limited capacity to prevent unbounded memory growth
@@ -435,24 +454,30 @@ func NewSQLAnalyzer() *SQLAnalyzer {
 
 // NewSQLAnalyzerWithSize creates a SQL analyzer with capacity estimated from input size.
 // inputBytes is the size of the input data in bytes. If 0, uses default capacity.
-// Estimates ~1 query per 200 bytes for typical PostgreSQL logs.
+//
+// Heuristic: ~1 timed query per 1000 bytes. Calibrated on I_250mb.log
+// (260k executions / 250 MB = 1 per ~960 B). The earlier 1/200 ratio
+// over-allocated by ~5x — invisible in CLI (Go GC reclaims unused slots
+// fast) but a flat 48 MB cumulative-alloc waste in TinyGo's gc=leaking
+// runtime, where the empty preallocated slots stay alive forever.
+// Underestimating is cheap: the slice grows by doubling.
 func NewSQLAnalyzerWithSize(inputBytes int64) *SQLAnalyzer {
-	// Estimate capacity: ~1 query per 200 bytes, capped at reasonable limits
 	execCap := 10000
 	if inputBytes > 0 {
-		estimated := int(inputBytes / 200)
+		estimated := int(inputBytes / 1000)
 		if estimated > execCap {
 			execCap = estimated
 		}
-		// Cap at 10M to avoid excessive memory for huge files
-		if execCap > 10000000 {
-			execCap = 10000000
+		// Cap initial preallocation at 2M; the slice can still grow past
+		// this if the log actually has more queries.
+		if execCap > 2000000 {
+			execCap = 2000000
 		}
 	}
 
 	return &SQLAnalyzer{
 		queryStats:           make(map[string]*QueryStat, 10000),
-		executions:           make([]QueryExecution, 0, execCap),
+		executions:           newCompactExecutions(execCap),
 		normalizationCache:   newLRUCache(5000), // LRU cache for raw→normalized mapping
 		queryTypesByDatabase: make(map[string]map[string]*QueryTypeCount),
 		queryTypesByUser:     make(map[string]map[string]*QueryTypeCount),
@@ -475,7 +500,7 @@ func (a *SQLAnalyzer) Process(entry *parser.LogEntry) {
 	// Intercept auto_explain plan: messages before normal processing.
 	// These arrive BEFORE the corresponding statement: entry for the same PID.
 	if isPlanMessage(msg) {
-		pid := parser.ExtractPID(msg)
+		pid := entry.PID
 		if pid != "" {
 			if plan := extractPlanText(msg); plan != "" {
 				a.pendingPlanByPID[pid] = plan
@@ -534,15 +559,12 @@ func (a *SQLAnalyzer) Process(entry *parser.LogEntry) {
 		}
 	}
 
-	// Add execution with query ID (after stats are created/retrieved)
-	a.executions = append(a.executions, QueryExecution{
-		Timestamp: entry.Timestamp,
-		Duration:  duration,
-		QueryID:   stats.ID,
-	})
+	// Add execution with query ID (after stats are created/retrieved).
+	// Compact storage: parallel slices + interned query IDs.
+	a.executions.append(entry.Timestamp, duration, stats.ID)
 
 	// Associate pending auto_explain plan (same PID, arrived just before)
-	pid := parser.ExtractPID(msg)
+	pid := entry.PID
 	if pid != "" {
 		if plan, hasPlan := a.pendingPlanByPID[pid]; hasPlan {
 			stats.LastPlan = plan
@@ -691,7 +713,6 @@ func extractPrefixValueAt(s string, start int, skipSpace bool) string {
 	return s[start:end]
 }
 
-
 // Finalize returns the aggregated SQL metrics.
 // This should be called after all log entries have been processed.
 //
@@ -709,7 +730,7 @@ func (a *SQLAnalyzer) Finalize() SQLMetrics {
 		SumQueryDuration:     a.sumQueryDuration,
 		StartTimestamp:       a.startTimestamp,
 		EndTimestamp:         a.endTimestamp,
-		Executions:           a.executions,
+		executions:           a.executions,
 		QueryTypeStats:       make(map[string]*QueryTypeStat),
 		QueryTypesByDatabase: a.queryTypesByDatabase,
 		QueryTypesByUser:     a.queryTypesByUser,
@@ -750,11 +771,18 @@ func (a *SQLAnalyzer) Finalize() SQLMetrics {
 		}
 	}
 
-	// Calculate percentiles
-	if len(a.executions) > 0 {
-		metrics.MedianQueryDuration = calculateMedian(a.executions)
-		metrics.P99QueryDuration = calculatePercentile(a.executions, 99)
+	// Calculate percentiles. Pull durations once via the compact
+	// storage so we don't pay 48 B × N for the iteration.
+	if a.executions.Len() > 0 {
+		durs := a.executions.Durations()
+		sort.Float64s(durs)
+		metrics.MedianQueryDuration = medianFromSorted(durs)
+		metrics.P99QueryDuration = percentileFromSorted(durs, 99)
 	}
+
+	// queryIDIndex was only needed for the parser-side append path;
+	// release it now that no further events will be recorded.
+	a.executions.freeIndex()
 
 	return metrics
 }
@@ -763,25 +791,27 @@ func (a *SQLAnalyzer) Finalize() SQLMetrics {
 // Percentile calculation helpers
 // ============================================================================
 
-// calculateMedian computes the median (50th percentile) of query durations.
-func calculateMedian(executions []QueryExecution) float64 {
-	durations := extractDurations(executions)
-	sort.Float64s(durations)
-
-	n := len(durations)
-	if n%2 == 1 {
-		return durations[n/2]
+// medianFromSorted returns the median of an already-sorted []float64.
+// Caller is responsible for the sort — Finalize() does it once and
+// reuses the result for both median and P99.
+func medianFromSorted(sorted []float64) float64 {
+	n := len(sorted)
+	if n == 0 {
+		return 0
 	}
-	return (durations[n/2-1] + durations[n/2]) / 2.0
+	if n%2 == 1 {
+		return sorted[n/2]
+	}
+	return (sorted[n/2-1] + sorted[n/2]) / 2.0
 }
 
-// calculatePercentile computes the Nth percentile of query durations.
-// percentile should be between 0 and 100.
-func calculatePercentile(executions []QueryExecution, percentile int) float64 {
-	durations := extractDurations(executions)
-	sort.Float64s(durations)
-
-	n := len(durations)
+// percentileFromSorted returns the Nth percentile of an
+// already-sorted []float64. percentile should be between 0 and 100.
+func percentileFromSorted(sorted []float64, percentile int) float64 {
+	n := len(sorted)
+	if n == 0 {
+		return 0
+	}
 	index := int(float64(percentile) / 100.0 * float64(n))
 	if index >= n {
 		index = n - 1
@@ -789,17 +819,7 @@ func calculatePercentile(executions []QueryExecution, percentile int) float64 {
 	if index < 0 {
 		index = 0
 	}
-
-	return durations[index]
-}
-
-// extractDurations extracts duration values from query executions.
-func extractDurations(executions []QueryExecution) []float64 {
-	durations := make([]float64, len(executions))
-	for i, exec := range executions {
-		durations[i] = exec.Duration
-	}
-	return durations
+	return sorted[index]
 }
 
 // ============================================================================
@@ -920,7 +940,7 @@ func indexAfter(s, substr string, after int) int {
 // These contain "duration:" followed by "plan:" but NOT "statement:" or "execute:".
 func isPlanMessage(message string) bool {
 	// Fast reject: "plan:" is rare, check it first
-	if strings.Index(message, "plan:") == -1 {
+	if !strings.Contains(message, "plan:") {
 		return false
 	}
 	durIdx := strings.Index(message, "duration:")
@@ -929,7 +949,7 @@ func isPlanMessage(message string) bool {
 	}
 	rest := message[durIdx:]
 	// Exclude normal statement/execute entries that happen to contain "plan" in the query text
-	if strings.Index(rest, "statement:") != -1 || strings.Index(rest, "execute") != -1 {
+	if strings.Contains(rest, "statement:") || strings.Contains(rest, "execute") {
 		return false
 	}
 	return true

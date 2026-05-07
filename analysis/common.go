@@ -80,10 +80,10 @@ type StreamingDurationStats struct {
 
 	// P² algorithm state for median estimation
 	// 5 markers: q[0]=min, q[2]=median estimate, q[4]=max
-	q  [5]float64 // marker heights (values)
-	n  [5]int     // marker positions (actual)
-	np [5]float64 // desired marker positions
-	dn [5]float64 // desired position increments
+	q           [5]float64 // marker heights (values)
+	n           [5]int     // marker positions (actual)
+	np          [5]float64 // desired marker positions
+	dn          [5]float64 // desired position increments
 	initialized bool
 	initBuf     [5]float64 // buffer for first 5 observations
 	initCount   int

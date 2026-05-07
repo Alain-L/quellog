@@ -1,0 +1,145 @@
+{
+  "apps": [
+    {
+      "name": "psql",
+      "count": 10
+    }
+  ],
+  "clients": {
+    "unique_databases": 1,
+    "unique_users": 1,
+    "unique_apps": 1,
+    "unique_hosts": 1
+  },
+  "databases": [
+    {
+      "name": "appdb",
+      "count": 10
+    }
+  ],
+  "events": [
+    {
+      "type": "LOG",
+      "count": 10,
+      "percentage": 100
+    }
+  ],
+  "hosts": [
+    {
+      "name": "10.0.0.1",
+      "count": 10
+    }
+  ],
+  "sql_performance": {
+    "total_query_duration": "26 ms",
+    "total_queries_parsed": 10,
+    "total_unique_queries": 3,
+    "top_1_percent_slow_queries": 1,
+    "query_max_duration": "5 ms",
+    "query_min_duration": "1 ms",
+    "query_median_duration": "2 ms",
+    "query_99th_percentile": "5 ms",
+    "executions": [
+      {
+        "timestamp": "2026-04-19 23:00:00",
+        "duration_ms": 1.234,
+        "query_id": "in-hzD69N"
+      },
+      {
+        "timestamp": "2026-04-19 23:00:00",
+        "duration_ms": 1.345,
+        "query_id": "in-hzD69N"
+      },
+      {
+        "timestamp": "2026-04-19 23:00:00",
+        "duration_ms": 1.456,
+        "query_id": "in-hzD69N"
+      },
+      {
+        "timestamp": "2026-04-19 23:00:00",
+        "duration_ms": 1.567,
+        "query_id": "in-hzD69N"
+      },
+      {
+        "timestamp": "2026-04-19 23:00:00",
+        "duration_ms": 1.678,
+        "query_id": "in-hzD69N"
+      },
+      {
+        "timestamp": "2026-04-19 23:00:00",
+        "duration_ms": 2.345,
+        "query_id": "se-6h5jCe"
+      },
+      {
+        "timestamp": "2026-04-19 23:00:00",
+        "duration_ms": 2.456,
+        "query_id": "se-6h5jCe"
+      },
+      {
+        "timestamp": "2026-04-19 23:00:00",
+        "duration_ms": 2.567,
+        "query_id": "se-6h5jCe"
+      },
+      {
+        "timestamp": "2026-04-19 23:00:00",
+        "duration_ms": 5.678,
+        "query_id": "up-p2E83N"
+      },
+      {
+        "timestamp": "2026-04-19 23:00:01",
+        "duration_ms": 5.789,
+        "query_id": "up-p2E83N"
+      }
+    ],
+    "queries": [
+      {
+        "id": "in-hzD69N",
+        "normalized_query": "insert into orders (user_id, total) values (?, ?)",
+        "raw_query": "INSERT INTO orders (user_id, total) VALUES (1, 99.99)",
+        "type": "",
+        "count": 5,
+        "total_time_ms": 7.28,
+        "avg_time_ms": 1.456,
+        "max_time_ms": 1.678
+      },
+      {
+        "id": "se-6h5jCe",
+        "normalized_query": "select * from users where id = ?",
+        "raw_query": "SELECT * FROM users WHERE id = 1",
+        "type": "",
+        "count": 3,
+        "total_time_ms": 7.368,
+        "avg_time_ms": 2.456,
+        "max_time_ms": 2.567
+      },
+      {
+        "id": "up-p2E83N",
+        "normalized_query": "update users set email = ? where id = ?",
+        "raw_query": "UPDATE users SET email = 'a@b.com' WHERE id = 1",
+        "type": "",
+        "count": 2,
+        "total_time_ms": 11.466999999999999,
+        "avg_time_ms": 5.733499999999999,
+        "max_time_ms": 5.789
+      }
+    ]
+  },
+  "summary": {
+    "start_date": "2026-04-19 23:00:00",
+    "end_date": "2026-04-19 23:00:01",
+    "duration": "900ms",
+    "total_logs": 10,
+    "throughput": "11.11 entries/s",
+    "error_count": 0,
+    "fatal_count": 0,
+    "panic_count": 0,
+    "warning_count": 0,
+    "log_count": 10
+  },
+  "users": [
+    {
+      "name": "app",
+      "count": 10
+    }
+  ]
+}

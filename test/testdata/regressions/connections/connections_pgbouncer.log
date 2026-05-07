@@ -1,0 +1,16 @@
+2026-04-19 19:00:00.100 UTC [11001]: [1-1] user=,db=,app=,client= LOG:  connection received: host=10.0.1.10 port=43210
+2026-04-19 19:00:00.105 UTC [11001]: [2-1] user=app_pool,db=appdb,app=,client=10.0.1.10 LOG:  connection authorized: user=app_pool database=appdb application_name=pgbouncer
+2026-04-19 19:00:00.106 UTC [11001]: [3-1] user=app_pool,db=appdb,app=pgbouncer,client=10.0.1.10 LOG:  duration: 0.123 ms  statement: SET application_name = 'pgbouncer'
+2026-04-19 19:00:00.108 UTC [11001]: [4-1] user=app_pool,db=appdb,app=pgbouncer,client=10.0.1.10 LOG:  disconnection: session time: 0:00:00.008 user=app_pool database=appdb host=10.0.1.10
+2026-04-19 19:00:00.200 UTC [11002]: [1-1] user=,db=,app=,client= LOG:  connection received: host=10.0.1.10 port=43211
+2026-04-19 19:00:00.205 UTC [11002]: [2-1] user=app_pool,db=appdb,app=,client=10.0.1.10 LOG:  connection authorized: user=app_pool database=appdb application_name=pgbouncer
+2026-04-19 19:00:00.207 UTC [11002]: [3-1] user=app_pool,db=appdb,app=pgbouncer,client=10.0.1.10 LOG:  disconnection: session time: 0:00:00.007 user=app_pool database=appdb host=10.0.1.10
+2026-04-19 19:00:00.300 UTC [11003]: [1-1] user=,db=,app=,client= LOG:  connection received: host=10.0.1.10 port=43212
+2026-04-19 19:00:00.305 UTC [11003]: [2-1] user=app_pool,db=appdb,app=,client=10.0.1.10 LOG:  connection authorized: user=app_pool database=appdb application_name=pgbouncer
+2026-04-19 19:00:00.310 UTC [11003]: [3-1] user=app_pool,db=appdb,app=pgbouncer,client=10.0.1.10 LOG:  disconnection: session time: 0:00:00.005 user=app_pool database=appdb host=10.0.1.10
+2026-04-19 19:00:00.400 UTC [11004]: [1-1] user=,db=,app=,client= LOG:  connection received: host=10.0.1.10 port=43213
+2026-04-19 19:00:00.405 UTC [11004]: [2-1] user=app_pool,db=appdb,app=,client=10.0.1.10 LOG:  connection authorized: user=app_pool database=appdb application_name=pgbouncer
+2026-04-19 19:00:00.410 UTC [11004]: [3-1] user=app_pool,db=appdb,app=pgbouncer,client=10.0.1.10 LOG:  disconnection: session time: 0:00:00.005 user=app_pool database=appdb host=10.0.1.10
+2026-04-19 19:00:00.500 UTC [11005]: [1-1] user=,db=,app=,client= LOG:  connection received: host=10.0.1.11 port=51234
+2026-04-19 19:00:00.505 UTC [11005]: [2-1] user=admin,db=appdb,app=,client=10.0.1.11 LOG:  connection authorized: user=admin database=appdb application_name=psql
+2026-04-19 19:00:30.700 UTC [11005]: [3-1] user=admin,db=appdb,app=psql,client=10.0.1.11 LOG:  disconnection: session time: 0:00:30.195 user=admin database=appdb host=10.0.1.11

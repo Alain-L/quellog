@@ -1,0 +1,12 @@
+2026-04-19 08:00:00.100 UTC [1001]: [1-1] user=app,db=appdb,app=psql,client=10.0.0.1 LOG:  process 1001 still waiting for ShareLock on transaction 100 after 1000.000 ms
+2026-04-19 08:00:00.100 UTC [1001]: [2-1] user=app,db=appdb,app=psql,client=10.0.0.1 DETAIL:  Process holding the lock: 1002. Wait queue: 1001.
+2026-04-19 08:00:00.100 UTC [1001]: [3-1] user=app,db=appdb,app=psql,client=10.0.0.1 CONTEXT:  while updating tuple (0,1) in relation "accounts"
+2026-04-19 08:00:00.100 UTC [1001]: [4-1] user=app,db=appdb,app=psql,client=10.0.0.1 STATEMENT:  UPDATE accounts SET balance = balance - 10 WHERE id = 1
+2026-04-19 08:00:01.500 UTC [1001]: [5-1] user=app,db=appdb,app=psql,client=10.0.0.1 ERROR:  deadlock detected
+2026-04-19 08:00:01.500 UTC [1001]: [6-1] user=app,db=appdb,app=psql,client=10.0.0.1 DETAIL:  Process 1001 waits for ShareLock on transaction 100; blocked by process 1002.
+	Process 1002 waits for ShareLock on transaction 101; blocked by process 1001.
+	Process 1001: UPDATE accounts SET balance = balance - 10 WHERE id = 1
+	Process 1002: UPDATE accounts SET balance = balance + 10 WHERE id = 2
+2026-04-19 08:00:01.500 UTC [1001]: [7-1] user=app,db=appdb,app=psql,client=10.0.0.1 HINT:  See server log for query details.
+2026-04-19 08:00:01.500 UTC [1001]: [8-1] user=app,db=appdb,app=psql,client=10.0.0.1 CONTEXT:  while updating tuple (0,1) in relation "accounts"
+2026-04-19 08:00:01.500 UTC [1001]: [9-1] user=app,db=appdb,app=psql,client=10.0.0.1 STATEMENT:  UPDATE accounts SET balance = balance - 10 WHERE id = 1

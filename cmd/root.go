@@ -3,8 +3,12 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
-	"log"
+	"log/slog"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -36,6 +40,7 @@ var (
 	sqlPerformanceFlag bool     // --sql-performance: Display detailed SQL performance report
 	sqlOverviewFlag    bool     // --sql-overview: Display query type overview with dimensional breakdown
 	sqlDetailFlag      []string // --sql-detail: Show details for specific SQL IDs
+	eventDetailFlag    []string // --event-detail: Show details for specific event pattern IDs (e.g. wa-aBc1)
 
 	// Section selection flags (print only specific sections)
 	summaryFlag     bool // --summary: Print only summary section
@@ -55,6 +60,7 @@ var (
 	yamlFlag        bool // --yaml: Export results in YAML format
 	mdFlag          bool // --md: Export results in Markdown format
 	htmlFlag        bool // --html: Export results as standalone HTML report
+	openFlag        bool // --open: Open the generated HTML report in the default browser
 
 	// Report completeness flag
 	fullFlag bool // --full: Display comprehensive report with all sections and detailed SQL analysis
@@ -63,7 +69,51 @@ var (
 	followFlag   bool          // --follow: Continuous monitoring mode
 	intervalFlag time.Duration // --interval: Refresh interval for follow mode
 	outputFlag   string        // --output: Output file path (mandatory for follow mode with JSON/HTML)
+
+	// Logging verbosity
+	quietFlag bool // --quiet: suppress INFO logs, keep WARN and above
 )
+
+// completionCmd generates shell autocompletion scripts for bash, zsh,
+// fish and powershell. Cobra implements all four — we just expose the
+// subcommand. Install instructions are printed in the long help.
+var completionCmd = &cobra.Command{
+	Use:   "completion [bash|zsh|fish|powershell]",
+	Short: "Generate shell completion script",
+	Long: `Output a shell completion script to stdout.
+
+Examples:
+  # bash (one-shot for the current shell)
+  source <(quellog completion bash)
+
+  # bash (persistent, system-wide on macOS with brew bash-completion)
+  quellog completion bash > $(brew --prefix)/etc/bash_completion.d/quellog
+
+  # zsh (persistent, with compinit already enabled in your .zshrc)
+  quellog completion zsh > "${fpath[1]}/_quellog"
+
+  # fish
+  quellog completion fish > ~/.config/fish/completions/quellog.fish
+
+  # PowerShell
+  quellog completion powershell | Out-String | Invoke-Expression`,
+	DisableFlagsInUseLine: true,
+	ValidArgs:             []string{"bash", "zsh", "fish", "powershell"},
+	Args:                  cobra.MatchAll(cobra.ExactArgs(1), cobra.OnlyValidArgs),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		switch args[0] {
+		case "bash":
+			return cmd.Root().GenBashCompletion(os.Stdout)
+		case "zsh":
+			return cmd.Root().GenZshCompletion(os.Stdout)
+		case "fish":
+			return cmd.Root().GenFishCompletion(os.Stdout, true)
+		case "powershell":
+			return cmd.Root().GenPowerShellCompletionWithDesc(os.Stdout)
+		}
+		return nil
+	},
+}
 
 // rootCmd is the main command for the quellog CLI.
 var rootCmd = &cobra.Command{
@@ -79,19 +129,40 @@ It extracts insights about database operations including:
 
 Specify log files or directories as arguments, and use flags to filter
 and customize the output.`,
-	Run: executeParsing,
+	RunE:          executeParsing,
+	Args:          cobra.ArbitraryArgs, // file paths, glob patterns, "-" for stdin
+	SilenceErrors: true,                // we surface errors via slog in Execute()
+	SilenceUsage:  true,                // do not print usage on runtime errors
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		// Apply --quiet now that flags have been parsed.
+		if quietFlag {
+			setLogLevel(slog.LevelWarn)
+		}
+	},
 }
 
 // Execute runs the root command.
 // This is called by main.go to start the CLI application.
+//
+// A root context is installed with signal.NotifyContext so SIGINT and
+// SIGTERM cancel any in-flight pipeline (parsing, filtering, analysis)
+// without leaking goroutines. The cancellation reaches the orchestration
+// layer immediately; per-file parsers complete the file they are reading
+// before exiting.
 func Execute(v, c, d string) {
 	version = v
 	commit = c
 	date = d
 	rootCmd.Version = fmt.Sprintf("%s (commit: %s, built: %s)", version, commit, date)
 
-	if err := rootCmd.Execute(); err != nil {
-		log.Fatalf("Error: %v", err)
+	initLogger()
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	if err := rootCmd.ExecuteContext(ctx); err != nil {
+		slog.Error("command failed", "err", err)
+		os.Exit(1)
 	}
 }
 
@@ -103,9 +174,9 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&endTime, "end", "e", "",
 		"Filter entries before this datetime (format: YYYY-MM-DD HH:MM:SS)")
 	rootCmd.PersistentFlags().StringVarP(&windowFlag, "window", "W", "",
-		"Time window duration (e.g., 30m, 2h). Adjusts --begin or --end accordingly")
+		"Time window duration (e.g., 30m, 2h, 1d, 1w, 1y). Adjusts --begin or --end accordingly")
 	rootCmd.PersistentFlags().StringVarP(&lastFlag, "last", "L", "",
-		"Analyze last N duration from now (e.g., 1h, 30m, 24h)")
+		"Analyze last N duration from now (e.g., 1h, 30m, 1d, 1w, 5y)")
 
 	// Attribute filter flags
 	rootCmd.PersistentFlags().StringSliceVarP(&dbFilter, "dbname", "d", nil,
@@ -124,6 +195,8 @@ func init() {
 		"Display query type overview with breakdown by dimension")
 	rootCmd.PersistentFlags().StringSliceVarP(&sqlDetailFlag, "sql-detail", "Q", nil,
 		"Show details for specific SQL ID(s). Can be specified multiple times")
+	rootCmd.PersistentFlags().StringSliceVarP(&eventDetailFlag, "event-detail", "E", nil,
+		"Show details for specific event pattern ID(s) (e.g. wa-aBc1, er-Qr5p). Can be specified multiple times")
 
 	// Section selection flags
 	rootCmd.Flags().BoolVar(&summaryFlag, "summary", false,
@@ -158,6 +231,8 @@ func init() {
 		"Export results in Markdown format")
 	rootCmd.PersistentFlags().BoolVarP(&htmlFlag, "html", "H", false,
 		"Export results as standalone HTML report")
+	rootCmd.PersistentFlags().BoolVar(&openFlag, "open", false,
+		"Open the generated HTML report in the default browser (requires --html)")
 
 	// Report completeness flag
 	rootCmd.PersistentFlags().BoolVarP(&fullFlag, "full", "F", false,
@@ -170,4 +245,11 @@ func init() {
 		"Refresh interval for follow mode (e.g., 10s, 1m)")
 	rootCmd.PersistentFlags().StringVarP(&outputFlag, "output", "o", "",
 		"Output file path (recommended for follow mode with JSON or HTML formats)")
+
+	// Verbosity
+	rootCmd.PersistentFlags().BoolVarP(&quietFlag, "quiet", "q", false,
+		"Suppress INFO logs (keep WARN and ERROR)")
+
+	// Subcommands
+	rootCmd.AddCommand(completionCmd)
 }

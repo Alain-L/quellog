@@ -8,7 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -46,9 +46,6 @@ var (
 	// csvTimestampRegex matches PostgreSQL CSV log timestamp format
 	csvTimestampRegex = regexp.MustCompile(`^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:\.\d+)?(?: [A-Z]{2,5})?$`)
 
-	// jsonFieldRegex checks for required fields in JSON logs
-	jsonFieldRegex = regexp.MustCompile(`^\s*\{\s*"(timestamp|insertId)"\s*:`)
-
 	// logPatterns define various PostgreSQL log format patterns
 	logPatterns = []*regexp.Regexp{
 		// Pattern 1: ISO-style timestamp (2025-01-01 12:00:00 or 2025-01-01T12:00:00)
@@ -78,10 +75,7 @@ var (
 // ParseFile detects the log format and parses the file in streaming mode.
 // It automatically detects whether the file is in stderr/syslog, CSV, or JSON format.
 // Returns an error if the format is unknown or parsing fails.
-//
-// For stderr/syslog format, uses memory-mapped I/O by default with automatic
-// fallback to buffered I/O if mmap fails (network filesystems, pipes, etc.).
-func ParseFile(filename string, out chan<- LogEntry) error {
+func ParseFile(filename string, out chan<- []LogEntry) error {
 	parser, err := detectParser(filename)
 	if err != nil {
 		return fmt.Errorf("%s: %w", filename, err)
@@ -128,37 +122,37 @@ func detectParser(filename string) (LogParser, error) {
 	// Step 1: Validate file exists and is not empty
 	fi, err := os.Stat(filename)
 	if err != nil {
-		log.Printf("[ERROR] Cannot stat file %s: %v", filename, err)
+		slog.Error("cannot stat file", "file", filename, "err", err)
 		return nil, fmt.Errorf("%w: %v", ErrUnknownFormat, err)
 	}
 	if fi.Size() == 0 {
-		log.Printf("[WARN] File %s is empty", filename)
+		slog.Warn("file is empty", "file", filename)
 		return nil, ErrFileEmpty
 	}
 
 	// Step 2: Open file and read sample
 	f, err := os.Open(filename)
 	if err != nil {
-		log.Printf("[ERROR] Cannot open file %s: %v", filename, err)
+		slog.Error("cannot open file", "file", filename, "err", err)
 		return nil, fmt.Errorf("%w: %v", ErrUnknownFormat, err)
 	}
 	defer f.Close()
 
 	sample, err := readFileSample(f)
 	if err != nil {
-		log.Printf("[ERROR] Failed to read sample from %s: %v", filename, err)
+		slog.Error("failed to read sample", "file", filename, "err", err)
 		return nil, fmt.Errorf("%w: %v", ErrUnknownFormat, err)
 	}
 
 	// Step 3: Check for binary content
 	if isBinaryContent(sample) {
-		log.Printf("[ERROR] File %s appears to be binary. Binary formats are not supported.", filename)
+		slog.Error("file appears to be binary, binary formats not supported", "file", filename)
 		return nil, ErrBinaryFile
 	}
 
 	// Step 4: Try extension-based detection
 	ext := strings.ToLower(strings.TrimPrefix(filepath.Ext(filename), "."))
-	parser := detectByExtension(filename, ext, sample, true)
+	parser := detectByExtension(filename, ext, sample)
 	if parser != nil {
 		return parser, nil
 	}
@@ -171,7 +165,7 @@ func detectParser(filename string) (LogParser, error) {
 		return nil, ErrInvalidFormat
 	}
 
-	parser = detectByContent(filename, sample, true)
+	parser = detectByContent(filename, sample)
 	if parser != nil {
 		return parser, nil
 	}
@@ -235,30 +229,27 @@ func readUntilNLines(f *os.File, n int) (string, error) {
 
 // detectByExtension attempts to detect the parser based on file extension.
 // Returns nil if the extension doesn't match or content validation fails.
-func detectByExtension(filename, ext, sample string, allowMmap bool) LogParser {
+func detectByExtension(filename, ext, sample string) LogParser {
 	switch ext {
 	case "json", "jsonl":
 		if isJSONContent(sample) {
 			return &JsonParser{}
 		}
-		log.Printf("[ERROR] File %s has .json/.jsonl extension but content is not valid JSON", filename)
+		slog.Error("file has .json/.jsonl extension but content is not valid JSON", "file", filename)
 		return nil
 
 	case "csv":
 		if isCSVContent(sample) {
 			return &CsvParser{}
 		}
-		log.Printf("[ERROR] File %s has .csv extension but content is not valid CSV", filename)
+		slog.Error("file has .csv extension but content is not valid CSV", "file", filename)
 		return nil
 
 	case "log":
 		if isLogContent(sample) {
-			if allowMmap {
-				return &MmapStderrParser{}
-			}
 			return &StderrParser{}
 		}
-		log.Printf("[ERROR] File %s has .log extension but content is not valid log format", filename)
+		slog.Error("file has .log extension but content is not valid log format", "file", filename)
 		return nil
 
 	default:
@@ -268,25 +259,22 @@ func detectByExtension(filename, ext, sample string, allowMmap bool) LogParser {
 
 // detectByContent attempts to detect the parser based on file content.
 // This is used when the file extension doesn't provide enough information.
-func detectByContent(filename, sample string, allowMmap bool) LogParser {
+func detectByContent(filename, sample string) LogParser {
 	switch {
 	case isJSONContent(sample):
-		log.Printf("[INFO] Detected JSON format for %s (unknown extension)", filename)
+		slog.Info("detected JSON format (unknown extension)", "file", filename)
 		return &JsonParser{}
 
 	case isCSVContent(sample):
-		log.Printf("[INFO] Detected CSV format for %s (unknown extension)", filename)
+		slog.Info("detected CSV format (unknown extension)", "file", filename)
 		return &CsvParser{}
 
 	case isLogContent(sample):
-		log.Printf("[INFO] Detected stderr/syslog format for %s (unknown extension)", filename)
-		if allowMmap {
-			return &MmapStderrParser{}
-		}
+		slog.Info("detected stderr/syslog format (unknown extension)", "file", filename)
 		return &StderrParser{}
 
 	default:
-		log.Printf("[ERROR] Unknown log format for file: %s", filename)
+		slog.Error("unknown log format", "file", filename)
 		return nil
 	}
 }

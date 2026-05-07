@@ -1,0 +1,214 @@
+## SUMMARY
+
+This _quellog_ report summarizes **7** log entries collected between 20 Apr 2026, 08:00 (UTC) — 20 Apr 2026, 08:04 (UTC), spanning 4m 30s of activity.
+
+## SQL SUMMARY
+
+### Query load distribution
+
+```
+08:00 - 08:00 |  -
+```
+
+|  |  |  |  |
+|---|---:|---|---:|
+| Total query duration | 12 ms | Total queries parsed | 1 |
+| Total unique queries | 1 | Top 1% slow queries | 1 |
+| Query max duration | 12 ms | Query min duration | 12 ms |
+| Query median duration | 12 ms | Query 99% max duration | 12 ms |
+
+### Query duration distribution
+
+```
+  < 1 ms |  -
+ < 10 ms |  -
+< 100 ms | ■ 1 req
+   < 1 s |  -
+  < 10 s |  -
+ >= 10 s |  -
+```
+
+### Query Statistics
+
+**Slowest queries (top 10)**
+
+| SQLID | Max | Avg | Count | Query |
+|---|---:|---:|---:|---|
+| se-L7puXx | 12 ms | 12 ms | 1 | select count(*) from users where active = true |
+
+**Most frequent queries (top 10)**
+
+| SQLID | Count | Avg | Max | Query |
+|---|---:|---:|---:|---|
+| se-L7puXx | 1 | 12 ms | 12 ms | select count(*) from users where active = true |
+
+**Most time consuming queries (top 10)**
+
+| SQLID | Total | Avg | Count | Query |
+|---|---:|---:|---:|---|
+| se-L7puXx | 12 ms | 12 ms | 1 | select count(*) from users where active = true |
+
+## EVENTS
+
+- **ERROR**: 1 (14.3%)
+  - *er-ihni* `syntax error at or near ?` (1) [100.0%]
+
+- **LOG**: 6 (85.7%)
+
+## CHECKPOINTS
+
+### Checkpoint distribution
+
+```
+00:00 - 04:00 |  -
+04:00 - 08:00 |  -
+08:00 - 12:00 | ■ 1 
+12:00 - 16:00 |  -
+16:00 - 20:00 |  -
+20:00 - 00:00 |  -
+```
+
+- **Checkpoint count**: 1
+- **Avg checkpoint write time**: 4m30s
+- **Max checkpoint write time**: 4m30s
+- **WAL per checkpoint (avg)**: 2.0 MB
+- **WAL per checkpoint (max)**: 2.0 MB
+
+### Checkpoint types
+
+|  |  |  |  |
+|------|------:|--:|-----:|
+| time | 1 | 100.0% | 13.33/h |
+
+### WAL per checkpoint (avg)
+
+■ = 41 kB, □ = estimate margin
+
+```
+00:00 - 04:00  -
+04:00 - 08:00  -
+08:00 - 12:00 ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■  2 MB
+12:00 - 16:00  -
+16:00 - 20:00  -
+20:00 - 00:00  -
+```
+
+## CONNECTIONS & SESSIONS
+
+### Concurrent sessions
+
+```
+08:00 - 08:00 | -
+08:00 - 08:00 | -
+08:00 - 08:01 | -
+08:01 - 08:01 | -
+08:01 - 08:01 | -
+08:01 - 08:02 | -
+08:02 - 08:02 | -
+08:02 - 08:03 | -
+08:03 - 08:03 | -
+08:03 - 08:03 | -
+08:03 - 08:04 | -
+08:04 - 08:04 | -
+```
+
+### Connection distribution
+
+```
+08:00 - 08:00 | ■ 1 
+08:00 - 08:01 |  -
+08:01 - 08:02 |  -
+08:02 - 08:03 |  -
+08:03 - 08:03 |  -
+08:03 - 08:04 |  -
+```
+
+- **Connection count**: 1
+- **Avg connections per hour**: 13.33
+- **Disconnection count**: 1
+- **Avg session time**: 3s
+- **Median session time**: 3s
+- **Peak concurrent sessions**: 1 (at 07:59:59)
+
+### Session Duration Statistics
+
+- **Count**: 1
+- **Min**: 3s
+- **Max**: 3s
+- **Avg**: 3s
+- **Median**: 3s
+- **Cumulated**: 3s
+
+### Session duration distribution
+
+```
+< 1s |  -
+1s - 1min | ■ 1 sessions
+1min - 30min |  -
+30min - 2h |  -
+2h - 5h |  -
+> 5h |  -
+```
+
+### Session Duration by User
+
+| User | Sessions | Min | Max | Avg | Median | Cumulated |
+|---|---:|---|---|---|---|---:|
+| app | 1 | 3s | 3s | 3s | 3s | 3s |
+
+### Session Duration by Database
+
+| Database | Sessions | Min | Max | Avg | Median | Cumulated |
+|---|---:|---|---|---|---|---:|
+| appdb | 1 | 3s | 3s | 3s | 3s | 3s |
+
+### Session Duration by Host
+
+| Host | Sessions | Min | Max | Avg | Median | Cumulated |
+|---|---:|---|---|---|---|---:|
+| 10.0.0.70 | 1 | 3s | 3s | 3s | 3s | 3s |
+
+## CLIENTS
+
+- **Unique DBs**: 1
+- **Unique Users**: 1
+- **Unique Apps**: 1
+- **Unique Hosts**: 1
+
+### USERS
+
+| User | Count | % |
+|---|---:|---:|
+| app | 5 | 71.4% |
+
+### APPS
+
+| App | Count | % |
+|---|---:|---:|
+| psql | 5 | 71.4% |
+
+### DATABASES
+
+| Database | Count | % |
+|---|---:|---:|
+| appdb | 5 | 71.4% |
+
+### HOSTS
+
+| Host | Count | % |
+|---|---:|---:|
+| 10.0.0.70 | 5 | 71.4% |
+
+### USER × DATABASE
+
+| User | Database | Count | % |
+|---|---|---:|---:|
+| app | appdb | 5 | 71.4% |
+
+### USER × HOST
+
+| User | Host | Count | % |
+|---|---|---:|---:|
+| app | 10.0.0.70 | 5 | 71.4% |
+
+

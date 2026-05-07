@@ -162,8 +162,7 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 
 					// Level 2: Class
 					shouldPrintHeader := (classCode != "Unclassified") || (classCode == "Unclassified" && len(classes) > 1)
-					
-					indent := "  "
+
 					if shouldPrintHeader {
 						classHeader := classCode
 						if classCode != "Unclassified" {
@@ -171,8 +170,11 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 							classHeader = fmt.Sprintf("%s - %s", classCode, desc)
 						}
 						b.WriteString(fmt.Sprintf("  - **%s**\n", classHeader))
-						indent = "    "
 					}
+					// Events at the same indent as the class header —
+					// pattern IDs in the left margin, flat under the
+					// class label.
+					indent := "  "
 
 					// Sort events by count
 					sort.Slice(classEvents, func(i, j int) bool {
@@ -187,14 +189,21 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 						}
 						// Escape backticks in message for markdown code block
 						msg = strings.ReplaceAll(msg, "`", "'")
-						
+
 						localPct := 0.0
 						if summary.Count > 0 {
 							localPct = (float64(e.Count) / float64(summary.Count)) * 100
 						}
 
-						b.WriteString(fmt.Sprintf("%s- `%s` (%d) [%.1f%%]\n",
-							indent, msg, e.Count, localPct))
+						idLead := ""
+						if e.ID != "" {
+							// Lead with the handle in italic — left
+							// margin label, mirrors the italic-grey
+							// column position used in text output.
+							idLead = "*" + e.ID + "* "
+						}
+						b.WriteString(fmt.Sprintf("%s- %s`%s` (%d) [%.1f%%]\n",
+							indent, idLead, msg, e.Count, localPct))
 					}
 				}
 			}
@@ -217,8 +226,8 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 		}
 
 		b.WriteString(fmt.Sprintf("- **Temp file messages**: %d\n", m.TempFiles.Count))
-		b.WriteString(fmt.Sprintf("- **Cumulative temp file size**: %s\n", formatBytes(m.TempFiles.TotalSize)))
-		b.WriteString(fmt.Sprintf("- **Average temp file size**: %s\n\n", formatBytes(avgSize)))
+		b.WriteString(fmt.Sprintf("- **Cumulative temp file size**: %s\n", FormatBytes(m.TempFiles.TotalSize)))
+		b.WriteString(fmt.Sprintf("- **Average temp file size**: %s\n\n", FormatBytes(avgSize)))
 
 		// Queries generating temp files (in detailed/full mode)
 		if (full || !has("all")) && len(m.TempFiles.QueryStats) > 0 {
@@ -248,7 +257,7 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 					stat.ID,
 					truncateQuery(stat.NormalizedQuery, 50),
 					stat.Count,
-					formatBytes(stat.TotalSize)))
+					FormatBytes(stat.TotalSize)))
 			}
 			b.WriteString("\n")
 		}
@@ -412,6 +421,9 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 	if has("maintenance") && (m.Vacuum.VacuumCount > 0 || m.Vacuum.AnalyzeCount > 0) {
 		b.WriteString("## MAINTENANCE\n\n")
 		b.WriteString(fmt.Sprintf("- **Automatic vacuum count**: %d\n", m.Vacuum.VacuumCount))
+		if m.Vacuum.AggressiveVacuumCount > 0 {
+			b.WriteString(fmt.Sprintf("  - *of which aggressive*: %d\n", m.Vacuum.AggressiveVacuumCount))
+		}
 		b.WriteString(fmt.Sprintf("- **Automatic analyze count**: %d\n\n", m.Vacuum.AnalyzeCount))
 
 		if m.Vacuum.VacuumCount > 0 {
@@ -525,13 +537,14 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 		isDetailedMode := true
 
 		// Concurrent sessions histogram (always shown)
-		if len(m.Connections.SessionEvents) > 0 && !m.Global.MinTimestamp.IsZero() && !m.Global.MaxTimestamp.IsZero() {
+		if m.Connections.SessionEventsCount() > 0 && !m.Global.MinTimestamp.IsZero() && !m.Global.MaxTimestamp.IsZero() {
 			numBuckets := 6
 			if isDetailedMode {
 				numBuckets = 12
 			}
 			concurrentHist, labels, concurrentScale, peakTimes := computeConcurrentHistogram(
-				m.Connections.SessionEvents,
+				m.Connections.IterateSessionEvents,
+				m.Connections.SessionEventsCount(),
 				m.Global.MinTimestamp,
 				m.Global.MaxTimestamp,
 				numBuckets,
@@ -543,7 +556,7 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 
 		// Connection distribution histogram (in detailed mode)
 		if isDetailedMode {
-			hist, _, scale := computeConnectionsHistogram(m.Connections.Connections, m.Global.MinTimestamp, m.Global.MaxTimestamp)
+			hist, _, scale := computeConnectionsHistogram(m.Connections.IterateConnections, m.Connections.ConnectionsCount(), m.Global.MinTimestamp, m.Global.MaxTimestamp)
 			printHistogramMarkdown(&b, hist, "Connection distribution", "", scale, nil)
 		}
 
@@ -554,16 +567,12 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 		}
 		b.WriteString(fmt.Sprintf("- **Disconnection count**: %d\n", m.Connections.DisconnectionCount))
 
-		if len(m.Connections.SessionDurations) > 0 {
+		if m.Connections.SessionStats.Count > 0 {
 			// Average
 			avgSessionTime := time.Duration(float64(m.Connections.TotalSessionTime) / float64(m.Connections.DisconnectionCount))
 			b.WriteString(fmt.Sprintf("- **Avg session time**: %s\n", formatSessionDuration(avgSessionTime)))
-			// Median (more representative for skewed distributions)
-			sorted := make([]time.Duration, len(m.Connections.SessionDurations))
-			copy(sorted, m.Connections.SessionDurations)
-			sort.Slice(sorted, func(i, j int) bool { return sorted[i] < sorted[j] })
-			median := sorted[len(sorted)/2]
-			b.WriteString(fmt.Sprintf("- **Median session time**: %s\n", formatSessionDuration(median)))
+			// Median (P²-estimated; <5% error after 50 samples)
+			b.WriteString(fmt.Sprintf("- **Median session time**: %s\n", formatSessionDuration(m.Connections.SessionStats.Median)))
 		} else if m.Connections.DisconnectionCount > 0 {
 			b.WriteString("- **Avg session time**: N/A\n")
 		}
@@ -577,12 +586,8 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 		b.WriteString("\n")
 
 		// Session statistics
-		if len(m.Connections.SessionDurations) > 0 {
-			stats := analysis.CalculateDurationStats(m.Connections.SessionDurations)
-			var cumulated time.Duration
-			for _, d := range m.Connections.SessionDurations {
-				cumulated += d
-			}
+		if m.Connections.SessionStats.Count > 0 {
+			stats := m.Connections.SessionStats
 
 			b.WriteString("### Session Duration Statistics\n\n")
 			b.WriteString(fmt.Sprintf("- **Count**: %d\n", stats.Count))
@@ -590,10 +595,10 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 			b.WriteString(fmt.Sprintf("- **Max**: %s\n", stats.Max.Round(time.Second)))
 			b.WriteString(fmt.Sprintf("- **Avg**: %s\n", stats.Avg.Round(time.Second)))
 			b.WriteString(fmt.Sprintf("- **Median**: %s\n", stats.Median.Round(time.Second)))
-			b.WriteString(fmt.Sprintf("- **Cumulated**: %s\n\n", cumulated.Round(time.Second)))
+			b.WriteString(fmt.Sprintf("- **Cumulated**: %s\n\n", m.Connections.SessionCumulated.Round(time.Second)))
 
 			// Session duration distribution
-			dist := analysis.CalculateDurationDistribution(m.Connections.SessionDurations)
+			dist := m.Connections.SessionDistribution
 			// Calculate proper scale factor for histogram
 			maxVal := 0
 			for _, v := range dist {
@@ -906,7 +911,13 @@ func printHistogramMarkdown(b *strings.Builder, data map[string]int, title, unit
 		for k := range data {
 			labels = append(labels, k)
 		}
-		// Sort by time if labels are time ranges
+		// Sort by time if labels are time ranges. When two buckets share
+		// the same start minute (e.g. 30-second buckets at 04:00:00 and
+		// 04:00:30 both format to "04:00"), ti.Before(tj) is false both
+		// ways, which makes the sort unstable and the output order
+		// non-deterministic across runs. Fall back to the full label
+		// string as a tiebreaker — it is always unique (contains the
+		// bucket end time).
 		sort.Slice(labels, func(i, j int) bool {
 			pi := strings.Split(labels[i], " - ")
 			pj := strings.Split(labels[j], " - ")
@@ -914,7 +925,9 @@ func printHistogramMarkdown(b *strings.Builder, data map[string]int, title, unit
 				ti, err1 := time.Parse("15:04", pi[0])
 				tj, err2 := time.Parse("15:04", pj[0])
 				if err1 == nil && err2 == nil {
-					return ti.Before(tj)
+					if !ti.Equal(tj) {
+						return ti.Before(tj)
+					}
 				}
 			}
 			return labels[i] < labels[j]
@@ -964,7 +977,9 @@ func printConcurrentHistogramMarkdown(b *strings.Builder, data map[string]int, t
 				ti, err1 := time.Parse("15:04", pi[0])
 				tj, err2 := time.Parse("15:04", pj[0])
 				if err1 == nil && err2 == nil {
-					return ti.Before(tj)
+					if !ti.Equal(tj) {
+						return ti.Before(tj)
+					}
 				}
 			}
 			return labels[i] < labels[j]
@@ -1041,7 +1056,7 @@ func printTopTablesMarkdown(tableCounts map[string]int, total int, spaceRecovere
 		cum += p.Count
 
 		sb.WriteString(fmt.Sprintf("| %s | %d | %.2f%% | %s |\n",
-			p.Name, p.Count, percentage, formatBytes(p.Recovered)))
+			p.Name, p.Count, percentage, FormatBytes(p.Recovered)))
 
 		// Stop at 80% cumulative or 10 rows
 		cumPerc := 0.0
@@ -1132,17 +1147,10 @@ func printQueryStatsMarkdown(b *strings.Builder, stats map[string]*analysis.Quer
 
 // countSlowQueries returns the count of queries in the top 1% (P99)
 func countSlowQueries(sql analysis.SQLMetrics) int {
-	if len(sql.Executions) == 0 {
+	if sql.ExecutionCount() == 0 {
 		return 0
 	}
-	threshold := sql.P99QueryDuration
-	count := 0
-	for _, exec := range sql.Executions {
-		if exec.Duration >= threshold {
-			count++
-		}
-	}
-	return count
+	return sql.ExecutionsCountAbove(sql.P99QueryDuration)
 }
 
 // ============================================================================
@@ -1340,16 +1348,11 @@ func ExportSQLSummaryMarkdown(w io.Writer, m analysis.SQLMetrics, tempFiles anal
 
 	// ... (content) ...
 	// I'll be more specific to avoid error
-	
+
 	// Compute top 1% slowest queries
 	top1Slow := 0
-	if len(m.Executions) > 0 {
-		threshold := m.P99QueryDuration
-		for _, exec := range m.Executions {
-			if exec.Duration >= threshold {
-				top1Slow++
-			}
-		}
+	if m.ExecutionCount() > 0 {
+		top1Slow = m.ExecutionsCountAbove(m.P99QueryDuration)
 	}
 
 	// SQL PERFORMANCE section
@@ -1414,7 +1417,7 @@ func ExportSQLSummaryMarkdown(w io.Writer, m analysis.SQLMetrics, tempFiles anal
 				stat.ID,
 				truncatedQuery,
 				stat.Count,
-				formatBytes(stat.TotalSize)))
+				FormatBytes(stat.TotalSize)))
 		}
 		b.WriteString("\n")
 	}
@@ -1482,7 +1485,7 @@ func ExportSQLDetailMarkdown(w io.Writer, m analysis.AggregatedMetrics, queryIDs
 	for _, qid := range queryIDs {
 		// ... (content) ...
 		// I'll be more specific to avoid error
-		
+
 		// Collect metrics for this query ID
 		var sqlStat *analysis.QueryStat
 		var tempStat *analysis.TempFileQueryStat
@@ -1542,7 +1545,7 @@ func ExportSQLDetailMarkdown(w io.Writer, m analysis.AggregatedMetrics, queryIDs
 
 		// Execution histogram (if > 1 execution)
 		if sqlStat != nil && sqlStat.Count > 1 {
-			execHist, execUnit, execScale := computeSingleQueryExecutionHistogram(m.SQL.Executions, qid)
+			execHist, execUnit, execScale := computeSingleQueryExecutionHistogram(m.SQL, qid)
 			if execHist != nil {
 				printHistogramMarkdown(&b, execHist, "Query count", execUnit, execScale, nil)
 			}
@@ -1554,7 +1557,7 @@ func ExportSQLDetailMarkdown(w io.Writer, m analysis.AggregatedMetrics, queryIDs
 
 			// Cumulative time histogram (if > 1 execution)
 			if sqlStat.Count > 1 {
-				timeHist, timeUnit, timeScale := computeSingleQueryTimeHistogram(m.SQL.Executions, qid)
+				timeHist, timeUnit, timeScale := computeSingleQueryTimeHistogram(m.SQL, qid)
 				if timeHist != nil {
 					printHistogramMarkdown(&b, timeHist, "Cumulative time", timeUnit, timeScale, nil)
 				}
@@ -1562,7 +1565,7 @@ func ExportSQLDetailMarkdown(w io.Writer, m analysis.AggregatedMetrics, queryIDs
 
 			// Duration distribution histogram (if > 1 execution)
 			if sqlStat.Count > 1 {
-				durationHist, durationUnit, durationScale, durationLabels := computeSingleQueryDurationDistribution(m.SQL.Executions, qid)
+				durationHist, durationUnit, durationScale, durationLabels := computeSingleQueryDurationDistribution(m.SQL, qid)
 				if durationHist != nil {
 					printHistogramMarkdown(&b, durationHist, "Query duration distribution", durationUnit, durationScale, durationLabels)
 				}
@@ -1570,11 +1573,12 @@ func ExportSQLDetailMarkdown(w io.Writer, m analysis.AggregatedMetrics, queryIDs
 
 			// Calculate min duration
 			minDuration := sqlStat.MaxTime
-			for _, exec := range m.SQL.Executions {
-				if exec.QueryID == qid && exec.Duration < minDuration {
+			m.SQL.IterateExecutionsForID(qid, func(exec analysis.QueryExecution) bool {
+				if exec.Duration < minDuration {
 					minDuration = exec.Duration
 				}
-			}
+				return true
+			})
 
 			b.WriteString(fmt.Sprintf("- **Total Duration**: %s\n", formatQueryDuration(sqlStat.TotalTime)))
 			b.WriteString(fmt.Sprintf("- **Min Duration**: %s\n", formatQueryDuration(minDuration)))
@@ -1619,10 +1623,10 @@ func ExportSQLDetailMarkdown(w io.Writer, m analysis.AggregatedMetrics, queryIDs
 			avgSize := tempStat.TotalSize / int64(tempStat.Count)
 
 			b.WriteString(fmt.Sprintf("- **Temp Files count**: %d\n", tempStat.Count))
-			b.WriteString(fmt.Sprintf("- **Temp File min size**: %s\n", formatBytes(minSize)))
-			b.WriteString(fmt.Sprintf("- **Temp File max size**: %s\n", formatBytes(maxSize)))
-			b.WriteString(fmt.Sprintf("- **Temp File avg size**: %s\n", formatBytes(avgSize)))
-			b.WriteString(fmt.Sprintf("- **Temp Files size**: %s\n\n", formatBytes(tempStat.TotalSize)))
+			b.WriteString(fmt.Sprintf("- **Temp File min size**: %s\n", FormatBytes(minSize)))
+			b.WriteString(fmt.Sprintf("- **Temp File max size**: %s\n", FormatBytes(maxSize)))
+			b.WriteString(fmt.Sprintf("- **Temp File avg size**: %s\n", FormatBytes(avgSize)))
+			b.WriteString(fmt.Sprintf("- **Temp Files size**: %s\n\n", FormatBytes(tempStat.TotalSize)))
 		}
 
 		// LOCKS section
@@ -1672,7 +1676,7 @@ func ExportSQLOverviewMarkdown(w io.Writer, m analysis.SQLMetrics) {
 
 	// ... (rest of logic) ...
 	// Again, providing full body correctly to avoid corruption.
-	
+
 	// Global statistics
 	b.WriteString("## Global Statistics\n\n")
 	b.WriteString("|  |  |  |  |\n")
@@ -1926,15 +1930,10 @@ func exportSQLOverviewMarkdownTo(b *strings.Builder, m analysis.SQLMetrics) {
 // exportSQLSummaryMarkdownTo writes SQL performance content to a strings.Builder.
 // Used by ExportMarkdown in full mode.
 func exportSQLSummaryMarkdownTo(b *strings.Builder, m analysis.SQLMetrics, tempFiles analysis.TempFileMetrics, locks analysis.LockMetrics) {
-	// Compute top 1% slowest queries
+	// Compute top 1% slowest queries via the compact storage helper.
 	top1Slow := 0
-	if len(m.Executions) > 0 {
-		threshold := m.P99QueryDuration
-		for _, exec := range m.Executions {
-			if exec.Duration >= threshold {
-				top1Slow++
-			}
-		}
+	if m.ExecutionCount() > 0 {
+		top1Slow = m.ExecutionsCountAbove(m.P99QueryDuration)
 	}
 
 	// Query load histogram
@@ -1996,7 +1995,7 @@ func exportSQLSummaryMarkdownTo(b *strings.Builder, m analysis.SQLMetrics, tempF
 				stat.ID,
 				truncatedQuery,
 				stat.Count,
-				formatBytes(stat.TotalSize)))
+				FormatBytes(stat.TotalSize)))
 		}
 		b.WriteString("\n")
 	}

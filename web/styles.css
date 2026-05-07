@@ -734,21 +734,10 @@
             vertical-align: middle;
         }
 
-        .progress-bar {
-            width: 250px;
-            height: 5px;
-            background: var(--border);
-            border-radius: 3px;
-            margin: 0.75rem auto;
-            overflow: hidden;
-        }
-
-        .progress-bar-fill {
-            height: 100%;
-            background: var(--primary);
-            border-radius: 3px;
-            transition: width 0.3s;
-        }
+        /* Progress bar hidden — the WASM parse blocks the JS main thread,
+           so we can't poll real progress mid-parse. The static loading
+           text + spinner do the "something is happening" job. */
+        .progress-bar { display: none; }
 
         @keyframes spin { to { transform: rotate(360deg); } }
 
@@ -997,6 +986,14 @@
         }
         .stat-card--alert .stat-value {
             color: var(--danger);
+        }
+
+        /* Warning variant - amber, for "worth noting, not urgent" signals */
+        .stat-card--warning {
+            background: rgba(229, 165, 75, 0.08);
+        }
+        .stat-card--warning .stat-value {
+            color: var(--warning);
         }
 
         /* Sub-info line (optional, below label) */

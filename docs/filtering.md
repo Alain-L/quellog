@@ -24,9 +24,13 @@ Analyze the last N duration from now.
 quellog /var/log/postgresql/*.log --last 1h
 quellog /var/log/postgresql/*.log --last 30m
 quellog /var/log/postgresql/*.log --last 2h15m
+quellog /var/log/postgresql/*.log --last 1d
+quellog /var/log/postgresql/*.log --last 5y
 ```
 
-Valid units: `h` (hours), `m` (minutes), `s` (seconds). Cannot be combined with `--begin`, `--end`, or `--window`.
+Valid units: `s` (seconds), `m` (minutes), `h` (hours), `d` (days),
+`w` (weeks), `y` (years). Cannot be combined with `--begin`, `--end`,
+or `--window`.
 
 ## Attribute-Based Filtering
 
