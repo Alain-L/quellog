@@ -15398,14 +15398,20 @@
         "normalized_query": "insert into large_transactions (user_id, amount, status, metadata, description) select (random() * ? + ?)::integer, (random() * ?)::decimal(?,?), (array[?, ?, ?, ?])[floor(random() * ? + ?)::int], jsonb_build_object(?, ?, ?, gs, ?, now()), repeat(?, ?) from generate_series(?, ?) gs;",
         "raw_query": "INSERT INTO large_transactions (user_id, amount, status, metadata, description) SELECT (random() * 10 + 1)::INTEGER, (random() * 10000)::DECIMAL(15,2), (ARRAY['pending', 'completed', 'failed', 'refunded'])[floor(random() * 4 + 1)::int], jsonb_build_object('source', 'batch', 'batch_id', gs, 'timestamp', NOW()), repeat('Transaction data for analytics processing ', 5) FROM generate_series(1, 50000) gs;",
         "count": 1,
-        "total_size": "683.59 KB"
+        "total_size": "683.59 KB",
+        "min_size": "683.59 KB",
+        "max_size": "683.59 KB",
+        "avg_size": "683.59 KB"
       },
       {
         "id": "se-yQnLXV",
         "normalized_query": "select * from large_transactions order by amount desc, created_at, transaction_id limit ?;",
         "raw_query": "SELECT * FROM large_transactions ORDER BY amount DESC, created_at, transaction_id LIMIT 10000;",
         "count": 6,
-        "total_size": "55.41 MB"
+        "total_size": "55.41 MB",
+        "min_size": "8.32 MB",
+        "max_size": "10.15 MB",
+        "avg_size": "9.24 MB"
       }
     ]
   },

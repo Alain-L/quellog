@@ -32,6 +32,8 @@ type TempFileQueryStat struct {
 	NormalizedQuery string // parameterized form, used for grouping
 	Count           int
 	TotalSize       int64
+	MinSize         int64 // smallest single tempfile event for this query
+	MaxSize         int64 // largest single tempfile event for this query
 	ID              string
 	FullHash        string
 }
@@ -517,6 +519,8 @@ func (a *TempFileAnalyzer) associateQuery(query string, size int64, eventIndex i
 			NormalizedQuery: normalized,
 			Count:           0,
 			TotalSize:       0,
+			MinSize:         size,
+			MaxSize:         size,
 			ID:              id,
 			FullHash:        fullHash,
 		}
@@ -525,6 +529,12 @@ func (a *TempFileAnalyzer) associateQuery(query string, size int64, eventIndex i
 		// For deterministic JSON output, always keep the alphabetically first raw query
 		if query < stat.RawQuery {
 			stat.RawQuery = query
+		}
+		if size < stat.MinSize {
+			stat.MinSize = size
+		}
+		if size > stat.MaxSize {
+			stat.MaxSize = size
 		}
 	}
 

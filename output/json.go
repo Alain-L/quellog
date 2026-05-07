@@ -198,6 +198,9 @@ type TempFileQueryStatJSON struct {
 	RawQuery        string `json:"raw_query"`
 	Count           int    `json:"count"`
 	TotalSize       string `json:"total_size"`
+	MinSize         string `json:"min_size"`
+	MaxSize         string `json:"max_size"`
+	AvgSize         string `json:"avg_size"`
 }
 
 type MaintenanceJSON struct {
@@ -1664,12 +1667,19 @@ func buildJSONData(m analysis.AggregatedMetrics, sections []string, full bool) m
 			Queries: []TempFileQueryStatJSON{},
 		}
 		for _, stat := range m.TempFiles.QueryStats {
+			avg := int64(0)
+			if stat.Count > 0 {
+				avg = stat.TotalSize / int64(stat.Count)
+			}
 			tf.Queries = append(tf.Queries, TempFileQueryStatJSON{
 				ID:              stat.ID,
 				NormalizedQuery: stat.NormalizedQuery,
 				RawQuery:        stat.RawQuery,
 				Count:           stat.Count,
 				TotalSize:       FormatBytes(stat.TotalSize),
+				MinSize:         FormatBytes(stat.MinSize),
+				MaxSize:         FormatBytes(stat.MaxSize),
+				AvgSize:         FormatBytes(avg),
 			})
 		}
 		sort.Slice(tf.Queries, func(i, j int) bool {
