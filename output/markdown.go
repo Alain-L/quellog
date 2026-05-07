@@ -227,7 +227,8 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 
 		b.WriteString(fmt.Sprintf("- **Temp file messages**: %d\n", m.TempFiles.Count))
 		b.WriteString(fmt.Sprintf("- **Cumulative temp file size**: %s\n", FormatBytes(m.TempFiles.TotalSize)))
-		b.WriteString(fmt.Sprintf("- **Average temp file size**: %s\n\n", FormatBytes(avgSize)))
+		b.WriteString(fmt.Sprintf("- **Average temp file size**: %s\n", FormatBytes(avgSize)))
+		b.WriteString(fmt.Sprintf("- **Max temp file size**: %s\n\n", FormatBytes(m.TempFiles.MaxSize)))
 
 		// Queries generating temp files (in detailed/full mode)
 		if (full || !has("all")) && len(m.TempFiles.QueryStats) > 0 {

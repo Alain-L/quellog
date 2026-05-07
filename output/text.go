@@ -83,6 +83,7 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 			avgSize = m.TempFiles.TotalSize / int64(m.TempFiles.Count)
 		}
 		fmt.Printf("  %-25s : %s\n", "Average temp file size", FormatBytes(avgSize))
+		fmt.Printf("  %-25s : %s\n", "Max temp file size", FormatBytes(m.TempFiles.MaxSize))
 
 		// Queries generating temp files (shown with --tempfiles or --full)
 		if (full || !has("all")) && len(m.TempFiles.QueryStats) > 0 {

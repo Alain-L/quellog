@@ -14,6 +14,7 @@ import (
 type TempFileMetrics struct {
 	Count      int
 	TotalSize  int64                         // bytes
+	MaxSize    int64                         // bytes — largest single temp-file event
 	Events     []TempFileEvent               // each creation event (for timeline analysis)
 	QueryStats map[string]*TempFileQueryStat // normalized query → stats
 }
@@ -72,6 +73,7 @@ const (
 type TempFileAnalyzer struct {
 	count      int
 	totalSize  int64
+	maxSize    int64
 	events     []TempFileEvent
 	queryStats map[string]*TempFileQueryStat
 
@@ -313,6 +315,9 @@ func (a *TempFileAnalyzer) Process(entry *parser.LogEntry) {
 	size := extractTempFileSize(msg)
 	if size > 0 {
 		a.totalSize += size
+		if size > a.maxSize {
+			a.maxSize = size
+		}
 		eventIndex := len(a.events)
 		a.events = append(a.events, TempFileEvent{
 			Timestamp: entry.Timestamp,
@@ -533,6 +538,7 @@ func (a *TempFileAnalyzer) Finalize() TempFileMetrics {
 	return TempFileMetrics{
 		Count:      a.count,
 		TotalSize:  a.totalSize,
+		MaxSize:    a.maxSize,
 		Events:     a.events,
 		QueryStats: a.queryStats,
 	}

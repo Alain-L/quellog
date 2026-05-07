@@ -98,6 +98,7 @@
     "total_messages": 4,
     "total_size": "48.19 MB",
     "avg_size": "12.05 MB",
+    "max_size": "20.19 MB",
     "events": [
       {
         "timestamp": "2026-04-20 04:00:00",

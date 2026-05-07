@@ -15354,6 +15354,7 @@
     "total_messages": 7,
     "total_size": "56.08 MB",
     "avg_size": "8.01 MB",
+    "max_size": "10.15 MB",
     "events": [
       {
         "timestamp": "2025-11-30 21:10:50",

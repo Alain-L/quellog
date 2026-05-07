@@ -181,6 +181,7 @@ type TempFilesJSON struct {
 	TotalMessages int                     `json:"total_messages"`
 	TotalSize     string                  `json:"total_size"`
 	AvgSize       string                  `json:"avg_size"`
+	MaxSize       string                  `json:"max_size"`
 	Events        lazyTempFileEvents      `json:"events"`
 	Queries       []TempFileQueryStatJSON `json:"queries,omitempty"`
 }
@@ -1386,6 +1387,9 @@ func (t TempFilesJSON) StreamSection(bw *bufio.Writer, prefix, indent string, co
 	if err := e.emitScalar("avg_size", t.AvgSize); err != nil {
 		return err
 	}
+	if err := e.emitScalar("max_size", t.MaxSize); err != nil {
+		return err
+	}
 	// Big array — stream item by item.
 	e.writeKey("events")
 	streamTempFileEventsJSON(bw, t.Events.events, inner, indent, compact)
@@ -1654,6 +1658,7 @@ func buildJSONData(m analysis.AggregatedMetrics, sections []string, full bool) m
 			TotalMessages: m.TempFiles.Count,
 			TotalSize:     FormatBytes(m.TempFiles.TotalSize),
 			AvgSize:       FormatBytes(m.TempFiles.TotalSize / int64(m.TempFiles.Count)),
+			MaxSize:       FormatBytes(m.TempFiles.MaxSize),
 			// Lazy wrapper — no intermediate []TempFileEventJSON slice.
 			Events:  lazyTempFileEvents{events: m.TempFiles.Events},
 			Queries: []TempFileQueryStatJSON{},
