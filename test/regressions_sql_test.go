@@ -61,16 +61,17 @@ func findQuery(queries []map[string]any, substr string) map[string]any {
 func TestRegression_SQLQueryIDStability(t *testing.T) {
 	got := runFixtureJSON(t, "testdata/regressions/sql/sql_normalization.log")
 	sp := sqlSummary(t, got)
-	if total, _ := sp["total_queries_parsed"].(float64); total != 12 {
-		t.Errorf("total_queries_parsed = %v, want 12", total)
+	if total, _ := sp["total_queries_parsed"].(float64); total != 15 {
+		t.Errorf("total_queries_parsed = %v, want 15", total)
 	}
-	// Four distinct shapes after normalization:
+	// Five distinct shapes after normalization:
 	//   INSERT INTO orders (×5)
 	//   SELECT * FROM users WHERE id = ? (×3)
 	//   UPDATE users SET email (×2)
 	//   SELECT * FROM "MyTable" WHERE "UserId" = ? (×2) — case-preserved in dquotes
-	if uniq, _ := sp["total_unique_queries"].(float64); uniq != 4 {
-		t.Errorf("total_unique_queries = %v, want 4", uniq)
+	//   SELECT * FROM products WHERE id in (...) (×3) — IN-list collapsed
+	if uniq, _ := sp["total_unique_queries"].(float64); uniq != 5 {
+		t.Errorf("total_unique_queries = %v, want 5", uniq)
 	}
 	queries := sqlQueries(t, got)
 	insert := findQuery(queries, "insert into orders")
@@ -93,6 +94,16 @@ func TestRegression_SQLQueryIDStability(t *testing.T) {
 	nq, _ := mytable["normalized_query"].(string)
 	if !strings.Contains(nq, `"MyTable"`) || !strings.Contains(nq, `"UserId"`) {
 		t.Errorf(`normalized_query lost dquote case: %q`, nq)
+	}
+
+	// IN-list batches of different cardinalities must collapse to one
+	// signature, normalized as "in (...)" rather than "in (?, ?, ?)".
+	inq := findQuery(queries, "in (...)")
+	if inq == nil {
+		t.Fatal("query with collapsed IN-list not found — expected 'in (...)' in normalized_query")
+	}
+	if c := inq["count"].(float64); c != 3 {
+		t.Errorf("IN-list count = %v, want 3 (in (?), in (?,?,?), in (?,?,?,?,?) must collapse to one)", c)
 	}
 }
 
