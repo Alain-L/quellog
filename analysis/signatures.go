@@ -20,6 +20,13 @@ var tempTableRegex = regexp.MustCompile(`pg_(temp|toast)(_\d+)+`)
 var locationRegex = regexp.MustCompile(`(?s) at character \d+.*`)
 var detailParamsRegex = regexp.MustCompile(`Key \([^)]+\)=\([^)]+\)`)
 
+// inListRegex collapses IN-list placeholders. After the byte-pass below
+// every literal becomes "?", so "IN (1, 2, 3)" and "IN ('a', 'b')" both
+// reach this regex as "in (?, ?, ?)" / "in (?, ?)". They fold into the
+// same canonical form so ORM-generated batches of varying sizes share a
+// single signature instead of exploding into one signature per cardinality.
+var inListRegex = regexp.MustCompile(`\bin \(\?(\s*,\s*\?)*\s*\)`)
+
 // ============================================================================
 // SQL Pattern Extraction (Normalization)
 // ============================================================================
@@ -57,18 +64,14 @@ func normalizeQuery(query string) string {
 			continue
 		}
 
-		// Handle double-quoted identifiers - preserve but lowercase
+		// Handle double-quoted identifiers - preserve verbatim (PostgreSQL
+		// is case-sensitive inside double quotes: "User" != "user").
 		if c == '"' {
 			buf.WriteByte('"')
 			for i+1 < len(query) {
 				i++
-				c = query[i]
-				if c >= 'A' && c <= 'Z' {
-					buf.WriteByte(c + 32)
-				} else {
-					buf.WriteByte(c)
-				}
-				if c == '"' {
+				buf.WriteByte(query[i])
+				if query[i] == '"' {
 					break
 				}
 			}
@@ -124,7 +127,12 @@ func normalizeQuery(query string) string {
 	result := buf.String()
 	// Mask temporary tables (e.g. pg_temp_123 -> pg_temp_?)
 	// This helps grouping queries that use different temp tables but same structure.
-	return tempTableRegex.ReplaceAllString(result, "pg_$1_?")
+	result = tempTableRegex.ReplaceAllString(result, "pg_$1_?")
+	// Collapse IN-list placeholders (e.g. "in (?, ?, ?)" -> "in (...)")
+	// so the same query with batches of different cardinality groups under
+	// a single signature.
+	result = inListRegex.ReplaceAllString(result, "in (...)")
+	return result
 }
 
 func isIdentifierChar(c byte) bool {

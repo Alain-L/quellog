@@ -61,18 +61,49 @@ func findQuery(queries []map[string]any, substr string) map[string]any {
 func TestRegression_SQLQueryIDStability(t *testing.T) {
 	got := runFixtureJSON(t, "testdata/regressions/sql/sql_normalization.log")
 	sp := sqlSummary(t, got)
-	if total, _ := sp["total_queries_parsed"].(float64); total != 10 {
-		t.Errorf("total_queries_parsed = %v, want 10", total)
+	if total, _ := sp["total_queries_parsed"].(float64); total != 15 {
+		t.Errorf("total_queries_parsed = %v, want 15", total)
 	}
-	if uniq, _ := sp["total_unique_queries"].(float64); uniq != 3 {
-		t.Errorf("total_unique_queries = %v, want 3 (INSERT+SELECT+UPDATE shapes)", uniq)
+	// Five distinct shapes after normalization:
+	//   INSERT INTO orders (×5)
+	//   SELECT * FROM users WHERE id = ? (×3)
+	//   UPDATE users SET email (×2)
+	//   SELECT * FROM "MyTable" WHERE "UserId" = ? (×2) — case-preserved in dquotes
+	//   SELECT * FROM products WHERE id in (...) (×3) — IN-list collapsed
+	if uniq, _ := sp["total_unique_queries"].(float64); uniq != 5 {
+		t.Errorf("total_unique_queries = %v, want 5", uniq)
 	}
-	insert := findQuery(sqlQueries(t, got), "insert into orders")
+	queries := sqlQueries(t, got)
+	insert := findQuery(queries, "insert into orders")
 	if insert == nil {
 		t.Fatal("INSERT query not found in queries list")
 	}
 	if c := insert["count"].(float64); c != 5 {
 		t.Errorf("INSERT count = %v, want 5 (5 inserts with different literals must collapse to 1 ID)", c)
+	}
+
+	// Double-quoted identifiers must keep their original case
+	// ("MyTable" != "mytable" in PostgreSQL).
+	mytable := findQuery(queries, `"MyTable"`)
+	if mytable == nil {
+		t.Fatal(`query with "MyTable" not found — case was lost in normalization`)
+	}
+	if c := mytable["count"].(float64); c != 2 {
+		t.Errorf(`"MyTable" count = %v, want 2`, c)
+	}
+	nq, _ := mytable["normalized_query"].(string)
+	if !strings.Contains(nq, `"MyTable"`) || !strings.Contains(nq, `"UserId"`) {
+		t.Errorf(`normalized_query lost dquote case: %q`, nq)
+	}
+
+	// IN-list batches of different cardinalities must collapse to one
+	// signature, normalized as "in (...)" rather than "in (?, ?, ?)".
+	inq := findQuery(queries, "in (...)")
+	if inq == nil {
+		t.Fatal("query with collapsed IN-list not found — expected 'in (...)' in normalized_query")
+	}
+	if c := inq["count"].(float64); c != 3 {
+		t.Errorf("IN-list count = %v, want 3 (in (?), in (?,?,?), in (?,?,?,?,?) must collapse to one)", c)
 	}
 }
 
