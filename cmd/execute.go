@@ -296,14 +296,20 @@ func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry
 	if htmlFlag {
 		formatCount++
 	}
-	if formatCount > 1 {
-		return fmt.Errorf("--json, --json-compact, --yaml, --md, and --html are mutually exclusive")
-	}
 	if jsonFlag && jsonCompactFlag {
 		return fmt.Errorf("--json and --json-compact are mutually exclusive")
 	}
+	if formatCount > 1 && outputFlag != "" {
+		return fmt.Errorf("-o/--output is not compatible with multiple export formats (each format writes to its own default file)")
+	}
+	if formatCount > 1 && (len(sqlDetailFlag) > 0 || len(eventDetailFlag) > 0 || sqlPerformanceFlag || sqlOverviewFlag) {
+		return fmt.Errorf("multiple export formats are only supported for the full report (not with --sql-detail, --event-detail, --sql-performance, --sql-overview)")
+	}
 	if openFlag && !htmlFlag {
 		return fmt.Errorf("--open requires --html (nothing to open without an HTML report)")
+	}
+	if openFlag && formatCount > 1 {
+		return fmt.Errorf("--open is not supported with multiple export formats (ambiguous in batch context)")
 	}
 	if openFlag && followFlag {
 		return fmt.Errorf("--open is not supported with --follow (would re-open the browser every cycle)")
@@ -442,6 +448,11 @@ func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry
 		sections = buildSectionList()
 	}
 
+	// Multi-format export: render each selected format to its default file
+	if formatCount > 1 {
+		return renderMultipleFormats(metrics, sections, inputArgs, totalFileSize, processingDuration)
+	}
+
 	// Output in requested format
 	if jsonFlag || jsonCompactFlag {
 		w := os.Stdout
@@ -563,6 +574,87 @@ func generateHTMLFilename(args []string) string {
 		return base + ".html"
 	}
 	return "quellog_report.html"
+}
+
+// defaultExportName builds the default output filename for multi-format export.
+// Single input  -> "quellog-<stem>.<ext>" (stem strips the last extension only).
+// Multi / stdin -> "quellog.<ext>".
+func defaultExportName(ext string, inputArgs []string) string {
+	if len(inputArgs) != 1 || inputArgs[0] == "-" {
+		return "quellog." + ext
+	}
+	base := filepath.Base(inputArgs[0])
+	if dot := strings.LastIndex(base, "."); dot > 0 {
+		base = base[:dot]
+	}
+	if base == "" {
+		return "quellog." + ext
+	}
+	return "quellog-" + base + "." + ext
+}
+
+// renderMultipleFormats writes the full report to one file per selected format,
+// using default filenames. Called only when 2+ format flags are set.
+func renderMultipleFormats(metrics analysis.AggregatedMetrics, sections []string, inputArgs []string, totalFileSize int64, processingDuration time.Duration) error {
+	write := func(ext string, render func(io.Writer) error) error {
+		name := defaultExportName(ext, inputArgs)
+		f, err := os.Create(name)
+		if err != nil {
+			return fmt.Errorf("failed to create %s file %q: %w", ext, name, err)
+		}
+		defer f.Close()
+		if err := render(f); err != nil {
+			return fmt.Errorf("failed to write %s report: %w", ext, err)
+		}
+		if !followFlag {
+			fmt.Printf("Report saved to %s\n", name)
+		}
+		return nil
+	}
+
+	if jsonFlag || jsonCompactFlag {
+		if err := write("json", func(w io.Writer) error {
+			output.ExportJSON(w, metrics, sections, fullFlag, jsonCompactFlag)
+			return nil
+		}); err != nil {
+			return err
+		}
+	}
+	if yamlFlag {
+		if err := write("yaml", func(w io.Writer) error {
+			output.ExportYAML(w, metrics, sections, fullFlag)
+			return nil
+		}); err != nil {
+			return err
+		}
+	}
+	if mdFlag {
+		if err := write("md", func(w io.Writer) error {
+			output.ExportMarkdown(w, metrics, sections, fullFlag)
+			return nil
+		}); err != nil {
+			return err
+		}
+	}
+	if htmlFlag {
+		detectedFormat := ""
+		if len(inputArgs) > 0 {
+			detectedFormat = parser.DetectFileFormat(inputArgs[0])
+		}
+		reportInfo := output.HTMLReportInfo{
+			Filename:    generateInputDescription(inputArgs),
+			FileSize:    totalFileSize,
+			ProcessTime: float64(processingDuration.Milliseconds()),
+			Format:      detectedFormat,
+			Version:     version,
+		}
+		if err := write("html", func(w io.Writer) error {
+			return output.ExportHTML(w, metrics, reportInfo, sections)
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // buildSectionList returns the list of sections to display based on flags.

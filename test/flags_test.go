@@ -116,9 +116,14 @@ func TestFlagCompatibility(t *testing.T) {
 		}{
 			// Output format conflicts
 			{
-				name:        "json_and_md",
-				args:        []string{testFile, "--json", "--md"},
+				name:        "json_and_json_compact",
+				args:        []string{testFile, "--json", "--json-compact"},
 				errContains: "mutually exclusive",
+			},
+			{
+				name:        "multi_format_with_output",
+				args:        []string{testFile, "--json", "--md", "-o", "/tmp/foo"},
+				errContains: "not compatible with multiple export formats",
 			},
 
 			// Time filter conflicts
