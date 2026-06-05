@@ -1861,10 +1861,33 @@ function buildEventsSection(data) {
                     html += '<div class="qd-stat"><div class="qd-stat-label">Min</div><div class="qd-stat-value">' + fmtMsLong(q.min_time_ms) + '</div></div>';
                 }
                 if (q.prepared_names && q.prepared_names.length > 0) {
-                    const label = q.prepared_names.length === 1
-                        ? esc(q.prepared_names[0])
-                        : esc(q.prepared_names.join(', ')) + ' <span class="qd-stat-sub">(' + q.prepared_names.length + ' names)</span>';
-                    html += '<div class="qd-stat"><div class="qd-stat-label">Prepared as</div><div class="qd-stat-value">' + label + '</div></div>';
+                    const names = q.prepared_names;
+                    const single = names.length === 1;
+                    const labelMeta = single
+                        ? ''
+                        : '<span class="qd-meta">' + names.length + ' names</span>';
+                    let namesHtml;
+                    if (single) {
+                        namesHtml = esc(names[0]);
+                    } else {
+                        // Compact grid: 1 row when ≤8 names, 2 rows for 9-16,
+                        // capped at 8 columns beyond. Each cell gets a 3-tone
+                        // class so its 4 neighbours always differ visually.
+                        const n = names.length;
+                        const cols = n <= 8 ? n : Math.min(8, Math.ceil(n / 2));
+                        const cellClass = (i) => {
+                            const r = Math.floor(i / cols), c = i % cols;
+                            // even row: A B A B ... ; odd row: B C B C ...
+                            if (r % 2 === 0) return c % 2 === 0 ? 'qd-cell-a' : 'qd-cell-b';
+                            return c % 2 === 0 ? 'qd-cell-b' : 'qd-cell-c';
+                        };
+                        const cells = names.map((nm, i) =>
+                            '<span class="' + cellClass(i) + '">' + esc(nm) + '</span>'
+                        ).join('');
+                        namesHtml = '<div class="qd-names-grid" style="grid-template-columns: repeat(' + cols + ', 1fr)">' + cells + '</div>';
+                    }
+                    const cls = single ? 'qd-stat' : 'qd-stat qd-stat-wide';
+                    html += '<div class="' + cls + '"><div class="qd-stat-label">Prepared as' + labelMeta + '</div><div class="qd-stat-value">' + namesHtml + '</div></div>';
                 }
                 html += '</div>';
                 if (execs.length > 0) {
@@ -1971,9 +1994,11 @@ function buildEventsSection(data) {
                 if (dur) parts.push(dur);
                 if (ts) parts.push(ts);
                 if (pid) parts.push('pid=' + pid);
-                const label = 'Slowest Run' + (parts.length ? ' ' + parts.join(', ') : '');
+                const meta = parts.length
+                    ? '<span class="qd-meta">' + esc(parts.join(', ')) + '</span>'
+                    : '';
                 html += '<div class="qd-section">';
-                html += '<div class="qd-section-title" style="display: flex; justify-content: space-between; align-items: center;">' + esc(label) + '<button class="copy-btn-inline" onclick="navigator.clipboard.writeText(\'' + escForJsAttr(sr.query_with_params) + '\');this.textContent=\'Copied!\';setTimeout(()=>this.textContent=\'Copy\',1500)">Copy</button></div>';
+                html += '<div class="qd-section-title" style="display: flex; justify-content: space-between; align-items: center;"><span>Slowest Run' + meta + '</span><button class="copy-btn-inline" onclick="navigator.clipboard.writeText(\'' + escForJsAttr(sr.query_with_params) + '\');this.textContent=\'Copied!\';setTimeout(()=>this.textContent=\'Copy\',1500)">Copy</button></div>';
                 html += '<div class="query-detail-sql">';
                 html += esc(sr.query_with_params);
                 html += '</div>';
