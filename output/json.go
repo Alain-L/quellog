@@ -49,15 +49,43 @@ type QueryExecutionJSON struct {
 }
 
 type QueryStatJSON struct {
-	ID              string  `json:"id"`
-	NormalizedQuery string  `json:"normalized_query"`
-	RawQuery        string  `json:"raw_query"`
-	Type            string  `json:"type"`
-	Count           int     `json:"count"`
-	TotalTime       float64 `json:"total_time_ms"`
-	AvgTime         float64 `json:"avg_time_ms"`
-	MaxTime         float64 `json:"max_time_ms"`
-	Plan            string  `json:"plan,omitempty"`
+	ID              string          `json:"id"`
+	NormalizedQuery string          `json:"normalized_query"`
+	RawQuery        string          `json:"raw_query"`
+	Type            string          `json:"type"`
+	Count           int             `json:"count"`
+	TotalTime       float64         `json:"total_time_ms"`
+	AvgTime         float64         `json:"avg_time_ms"`
+	MaxTime         float64         `json:"max_time_ms"`
+	PreparedNames   []string        `json:"prepared_names,omitempty"`
+	SlowestRun      *SlowestRunJSON `json:"slowest_run,omitempty"`
+	Plan            string          `json:"plan,omitempty"`
+}
+
+// SlowestRunJSON exposes the parameter values of the slowest observed
+// execution (extended protocol, "DETAIL: parameters:" pairing).
+type SlowestRunJSON struct {
+	DurationMs      float64 `json:"duration_ms"`
+	Timestamp       string  `json:"timestamp"`
+	PID             string  `json:"pid"`
+	Parameters      string  `json:"parameters"`
+	QueryWithParams string  `json:"query_with_params"`
+}
+
+// slowestRunJSON builds a SlowestRunJSON from a QueryStat, returning nil
+// when no slowest-run information was paired with the query.
+func slowestRunJSON(s *analysis.QueryStat) *SlowestRunJSON {
+	if s == nil || s.SlowestRun == nil {
+		return nil
+	}
+	sr := s.SlowestRun
+	return &SlowestRunJSON{
+		DurationMs:      sr.DurationMs,
+		Timestamp:       sr.Timestamp.Format("2006-01-02T15:04:05"),
+		PID:             sr.PID,
+		Parameters:      sr.Parameters,
+		QueryWithParams: SubstituteParameters(s.RawQuery, sr.Parameters),
+	}
 }
 
 // SQL Overview JSON structures (for --sql-overview --json)
@@ -114,6 +142,8 @@ type SQLDetailJSON struct {
 	Executions      lazyExecutions        `json:"executions,omitempty"`
 	TempFiles       *QueryTempFilesJSON   `json:"temp_files,omitempty"`
 	Locks           *QueryLocksJSON       `json:"locks,omitempty"`
+	PreparedNames   []string              `json:"prepared_names,omitempty"`
+	SlowestRun      *SlowestRunJSON       `json:"slowest_run,omitempty"`
 	Plan            string                `json:"plan,omitempty"`
 }
 
@@ -2086,6 +2116,8 @@ func buildFullSQLPerformance(m analysis.SQLMetrics) SQLPerformanceDetailJSON {
 			TotalTime:       s.stat.TotalTime,
 			AvgTime:         s.stat.AvgTime,
 			MaxTime:         s.stat.MaxTime,
+			PreparedNames:   s.stat.PreparedNames,
+			SlowestRun:      slowestRunJSON(s.stat),
 			Plan:            s.stat.LastPlan,
 		})
 	}
@@ -2166,6 +2198,8 @@ func convertSQLPerformance(m analysis.SQLMetrics) SQLPerformanceJSON {
 			TotalTime:       stat.TotalTime,
 			AvgTime:         stat.AvgTime,
 			MaxTime:         stat.MaxTime,
+			PreparedNames:   stat.PreparedNames,
+			SlowestRun:      slowestRunJSON(stat),
 			Plan:            stat.LastPlan,
 		})
 	}
@@ -2504,6 +2538,8 @@ func ExportSQLDetailJSON(w io.Writer, m analysis.AggregatedMetrics, queryIDs []s
 			detail.RawQuery = foundStat.RawQuery
 			detail.Type = analysis.QueryTypeFromID(queryID)
 			detail.Category = analysis.QueryCategory(detail.Type)
+			detail.PreparedNames = foundStat.PreparedNames
+			detail.SlowestRun = slowestRunJSON(foundStat)
 			detail.Statistics = &QueryDetailStatsJSON{
 				Count:     foundStat.Count,
 				TotalTime: formatQueryDuration(foundStat.TotalTime),

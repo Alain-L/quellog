@@ -1541,6 +1541,9 @@ func ExportSQLDetailMarkdown(w io.Writer, m analysis.AggregatedMetrics, queryIDs
 		b.WriteString(fmt.Sprintf("- **Query Type**: %s\n", queryType))
 		if sqlStat != nil {
 			b.WriteString(fmt.Sprintf("- **Count**: %d\n", sqlStat.Count))
+			if len(sqlStat.PreparedNames) > 0 {
+				b.WriteString(fmt.Sprintf("- **Prepared as**: %s\n", formatPreparedNames(sqlStat.PreparedNames)))
+			}
 		}
 		b.WriteString("\n")
 
@@ -1634,12 +1637,31 @@ func ExportSQLDetailMarkdown(w io.Writer, m analysis.AggregatedMetrics, queryIDs
 			b.WriteString("\n```\n\n")
 		}
 
-		// Example query
+		// Example or slowest run — when DETAIL params are available we
+		// substitute them into the placeholders so the result is directly
+		// copy-pastable into psql.
 		if rawQuery != "" {
-			b.WriteString("### Example Query\n\n")
-			b.WriteString("```sql\n")
-			b.WriteString(rawQuery)
-			b.WriteString("\n```\n\n")
+			if sqlStat != nil && sqlStat.SlowestRun != nil {
+				sr := sqlStat.SlowestRun
+				b.WriteString(fmt.Sprintf("### Slowest Run — %s, %s, pid=%s\n\n",
+					formatQueryDuration(sr.DurationMs),
+					sr.Timestamp.Format("2006-01-02 15:04:05"),
+					sr.PID,
+				))
+				text, truncated, full := truncateForDisplay(SubstituteParameters(rawQuery, sr.Parameters), slowestRunDisplayCap)
+				b.WriteString("```sql\n")
+				b.WriteString(text)
+				if truncated {
+					b.WriteString("[…]")
+					b.WriteString(truncationHint(len(text), full))
+				}
+				b.WriteString("\n```\n\n")
+			} else {
+				b.WriteString("### Example Query\n\n")
+				b.WriteString("```sql\n")
+				b.WriteString(rawQuery)
+				b.WriteString("\n```\n\n")
+			}
 		}
 
 		// Execution plan (from auto_explain)

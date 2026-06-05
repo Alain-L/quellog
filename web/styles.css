@@ -1839,6 +1839,48 @@
             color: var(--text);
         }
 
+        /* Muted-italic suffix shown after a stat value or section title
+           (e.g. "16 names" after the prepared-names list, or the
+           "<duration>, <ts>, pid=<pid>" line after Slowest Run). */
+        .qd-meta {
+            font-size: 0.75rem;
+            font-weight: 400;
+            font-style: italic;
+            color: var(--text-muted);
+            text-transform: none;
+            letter-spacing: 0;
+            margin-left: 0.4rem;
+        }
+
+        /* Wide variant of qd-stat: breaks the flex row so the stat takes
+           the full container width, used by the prepared-names grid. */
+        .qd-stat-wide {
+            flex-basis: 100%;
+        }
+
+        /* Grid layout for the prepared-statement names list. The column
+           count is decided in JS at render time (1 row when ≤8 names,
+           2 rows for 9-16, capped at 8 columns beyond) — that way the
+           grid stays as compact as the data allows. The 3-tone
+           background alternation is also painted in JS so the contrast
+           rule holds regardless of column count. */
+        .qd-names-grid {
+            display: grid;
+            gap: 0;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 0.85rem;
+            font-weight: 500;
+            margin-top: 0.2rem;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        .qd-names-grid > span {
+            padding: 4px 8px;
+        }
+        .qd-names-grid > span.qd-cell-a { background: transparent; }
+        .qd-names-grid > span.qd-cell-b { background: var(--bg-alt); }
+        .qd-names-grid > span.qd-cell-c { background: var(--border); }
+
         .qd-hist {
             margin: 0.5rem 0;
         }

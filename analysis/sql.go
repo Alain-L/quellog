@@ -205,6 +205,33 @@ type QueryStat struct {
 	// LastPlan keeps only the most recent auto_explain plan per query
 	// signature (memory-bounded; older plans are discarded).
 	LastPlan string
+	// PreparedNames lists the distinct prepared-statement names seen for
+	// this query (extended protocol). "<unnamed>" for anonymous prepared
+	// statements; bare identifiers for named ones (JDBC-style "S_24").
+	// Empty when only simple-protocol "statement:" entries were observed.
+	PreparedNames []string
+	// SlowestRun captures the parameters of the slowest execution that
+	// had a matching "DETAIL: parameters:" line. Nil when no DETAIL was
+	// associated to any execution (simple protocol or DETAIL pairing miss).
+	SlowestRun *SlowestRun
+}
+
+// SlowestRun records the slowest observed execution of a query whose
+// parameters were logged via "DETAIL: parameters: $1 = ...".
+type SlowestRun struct {
+	DurationMs float64
+	Timestamp  time.Time
+	PID        string
+	Parameters string // raw DETAIL payload: "$1 = '393', $2 = '5', ..."
+}
+
+// pendingExec records the latest execute: entry seen on a PID, waiting
+// for an optional "DETAIL: parameters:" continuation that PostgreSQL
+// emits on the next log record from the same backend.
+type pendingExec struct {
+	statsKey  string  // normalized query key into queryStats
+	duration  float64 // ms
+	timestamp time.Time
 }
 
 // QueryExecution is one SQL execution event. Returned by SQLMetrics
@@ -442,6 +469,10 @@ type SQLAnalyzer struct {
 	// When a plan: entry arrives, we store it here. When the subsequent
 	// statement: entry arrives for the same PID, we attach the plan to the query.
 	pendingPlanByPID map[string]string
+
+	// pendingExecByPID stores the latest execute: per PID, waiting for an
+	// optional "DETAIL: parameters:" continuation on the same backend.
+	pendingExecByPID map[string]pendingExec
 }
 
 // NewSQLAnalyzer creates a new SQL analyzer with pre-allocated capacity.
@@ -484,6 +515,7 @@ func NewSQLAnalyzerWithSize(inputBytes int64) *SQLAnalyzer {
 		queryTypesByHost:     make(map[string]map[string]*QueryTypeCount),
 		queryTypesByApp:      make(map[string]map[string]*QueryTypeCount),
 		pendingPlanByPID:     make(map[string]string),
+		pendingExecByPID:     make(map[string]pendingExec),
 	}
 }
 
@@ -509,8 +541,35 @@ func (a *SQLAnalyzer) Process(entry *parser.LogEntry) {
 		return
 	}
 
-	// Extract duration and query from log message
-	duration, query, ok := extractDurationAndQuery(msg)
+	// Intercept "DETAIL: parameters:" entries. These follow an execute:
+	// entry on the same backend; pair them by PID with pendingExecByPID
+	// to remember the parameter values of the slowest run per query.
+	if isParamsMessage(msg) {
+		pid := entry.PID
+		if pid != "" {
+			if pe, ok := a.pendingExecByPID[pid]; ok {
+				if stat, found := a.queryStats[pe.statsKey]; found {
+					if stat.SlowestRun == nil || pe.duration > stat.SlowestRun.DurationMs {
+						params := extractParameters(msg)
+						if len(params) > slowestRunParamsCap {
+							params = params[:slowestRunParamsCap]
+						}
+						stat.SlowestRun = &SlowestRun{
+							DurationMs: pe.duration,
+							Timestamp:  pe.timestamp,
+							PID:        pid,
+							Parameters: params,
+						}
+					}
+				}
+				delete(a.pendingExecByPID, pid)
+			}
+		}
+		return
+	}
+
+	// Extract duration, query, and optional prepared-statement name.
+	duration, query, preparedName, ok := extractDurationAndQuery(msg)
 	if !ok {
 		return
 	}
@@ -569,6 +628,24 @@ func (a *SQLAnalyzer) Process(entry *parser.LogEntry) {
 		if plan, hasPlan := a.pendingPlanByPID[pid]; hasPlan {
 			stats.LastPlan = plan
 			delete(a.pendingPlanByPID, pid)
+		}
+	}
+
+	// Record the prepared-statement name (deduplicated). Cap the per-stat
+	// set to a small bound so a pathological workload that prepares under
+	// thousands of distinct names cannot blow up memory.
+	if preparedName != "" {
+		stats.PreparedNames = appendPreparedName(stats.PreparedNames, preparedName)
+	}
+
+	// Remember this execute for an optional "DETAIL: parameters:" follow-up
+	// on the same backend. Only stored when the entry has a PID — without
+	// it we cannot pair the next continuation reliably.
+	if pid != "" {
+		a.pendingExecByPID[pid] = pendingExec{
+			statsKey:  normalizedQuery,
+			duration:  duration,
+			timestamp: entry.Timestamp,
 		}
 	}
 
@@ -826,7 +903,8 @@ func percentileFromSorted(sorted []float64, percentile int) float64 {
 // Query extraction from log messages
 // ============================================================================
 
-// extractDurationAndQuery parses duration and query text from a PostgreSQL log message.
+// extractDurationAndQuery parses duration, query text, and the optional
+// prepared-statement name from a PostgreSQL log message.
 //
 // Expected format:
 //
@@ -836,22 +914,24 @@ func percentileFromSorted(sorted []float64, percentile int) float64 {
 // Returns:
 //   - duration: execution time in milliseconds
 //   - query: SQL query text
+//   - preparedName: name between "execute " and ":" ("" for simple-protocol
+//     "statement:" entries)
 //   - ok: true if parsing succeeded
 //
 // This function is optimized for performance:
 //   - Single pass parsing
 //   - No intermediate string allocations
 //   - Manual whitespace skipping
-func extractDurationAndQuery(message string) (duration float64, query string, ok bool) {
+func extractDurationAndQuery(message string) (duration float64, query, preparedName string, ok bool) {
 	// Quick length check
 	if len(message) < 20 {
-		return 0, "", false
+		return 0, "", "", false
 	}
 
 	// Find "duration:" marker
 	durIdx := strings.Index(message, "duration:")
 	if durIdx == -1 {
-		return 0, "", false
+		return 0, "", "", false
 	}
 
 	// Parse duration value
@@ -869,19 +949,20 @@ func extractDurationAndQuery(message string) (duration float64, query string, ok
 	}
 
 	if end == start {
-		return 0, "", false
+		return 0, "", "", false
 	}
 
 	// Parse float duration
 	dur, err := strconv.ParseFloat(message[start:end], 64)
 	if err != nil {
-		return 0, "", false
+		return 0, "", "", false
 	}
 
 	// Find query marker ("execute" or "statement")
 	// Search after duration marker for efficiency
 	var markerIdx int
 	var markerLen int
+	isExecute := false
 
 	execIdx := indexAfter(message, "execute", durIdx)
 	stmtIdx := indexAfter(message, "statement", durIdx)
@@ -889,11 +970,19 @@ func extractDurationAndQuery(message string) (duration float64, query string, ok
 	if execIdx != -1 && (stmtIdx == -1 || execIdx < stmtIdx) {
 		markerIdx = execIdx
 		markerLen = 7 // len("execute")
+		isExecute = true
 	} else if stmtIdx != -1 {
 		markerIdx = stmtIdx
 		markerLen = 9 // len("statement")
 	} else {
-		return dur, "", false
+		return dur, "", "", false
+	}
+
+	// For execute: capture the prepared-statement name between "execute "
+	// and the next ":". Skip a single leading space.
+	nameStart := markerIdx + markerLen
+	if isExecute && nameStart < len(message) && message[nameStart] == ' ' {
+		nameStart++
 	}
 
 	// Find ':' after marker
@@ -902,7 +991,10 @@ func extractDurationAndQuery(message string) (duration float64, query string, ok
 		queryStart++
 	}
 	if queryStart >= len(message) {
-		return dur, "", false
+		return dur, "", "", false
+	}
+	if isExecute && queryStart > nameStart {
+		preparedName = message[nameStart:queryStart]
 	}
 	queryStart++ // Skip ':'
 
@@ -912,11 +1004,11 @@ func extractDurationAndQuery(message string) (duration float64, query string, ok
 	}
 
 	if queryStart >= len(message) {
-		return dur, "", false
+		return dur, "", preparedName, false
 	}
 
 	query = message[queryStart:]
-	return dur, query, true
+	return dur, query, preparedName, true
 }
 
 // indexAfter finds the first occurrence of substr in s, starting after the given position.
@@ -935,6 +1027,57 @@ func indexAfter(s, substr string, after int) int {
 // ============================================================================
 // auto_explain plan extraction
 // ============================================================================
+
+// preparedNamesCap caps how many distinct prepared-statement names we
+// track per query. JDBC-style workloads usually map a query to a single
+// name (or just "<unnamed>"); the cap protects against pathological
+// generators that mint a fresh name per execution.
+const preparedNamesCap = 16
+
+// slowestRunParamsCap caps the raw "DETAIL: parameters:" payload we
+// retain per query stat. Pathological workloads can ship multi-MB
+// array literals (observed: 18 MB on a single bind on I.log); without
+// a cap we would keep one such string per slowest run and bloat the
+// process memory plus every downstream output. Anything beyond the
+// cap is truncated; the slowest-run header still pinpoints the original
+// log line via timestamp + PID.
+const slowestRunParamsCap = 8192
+
+// appendPreparedName adds name to the deduplicated set, preserving
+// observation order. Linear scan is fine — the set is bounded by
+// preparedNamesCap.
+func appendPreparedName(names []string, name string) []string {
+	for _, n := range names {
+		if n == name {
+			return names
+		}
+	}
+	if len(names) >= preparedNamesCap {
+		return names
+	}
+	return append(names, name)
+}
+
+// isParamsMessage returns true if the message is a "DETAIL: parameters:"
+// continuation. These follow an execute: entry on the same backend and
+// carry the actual values bound to the prepared-statement placeholders.
+func isParamsMessage(message string) bool {
+	if !strings.Contains(message, "parameters:") {
+		return false
+	}
+	return strings.Contains(message, "DETAIL")
+}
+
+// extractParameters returns the payload after "parameters:" in a DETAIL line.
+// Example input  : "... DETAIL:  parameters: $1 = '393', $2 = '5'"
+// Example output : "$1 = '393', $2 = '5'"
+func extractParameters(message string) string {
+	idx := strings.Index(message, "parameters:")
+	if idx == -1 {
+		return ""
+	}
+	return strings.TrimSpace(message[idx+len("parameters:"):])
+}
 
 // isPlanMessage returns true if the message is an auto_explain plan entry.
 // These contain "duration:" followed by "plan:" but NOT "statement:" or "execute:".
