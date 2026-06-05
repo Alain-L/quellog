@@ -57,18 +57,14 @@ func normalizeQuery(query string) string {
 			continue
 		}
 
-		// Handle double-quoted identifiers - preserve but lowercase
+		// Handle double-quoted identifiers - preserve verbatim (PostgreSQL
+		// is case-sensitive inside double quotes: "User" != "user").
 		if c == '"' {
 			buf.WriteByte('"')
 			for i+1 < len(query) {
 				i++
-				c = query[i]
-				if c >= 'A' && c <= 'Z' {
-					buf.WriteByte(c + 32)
-				} else {
-					buf.WriteByte(c)
-				}
-				if c == '"' {
+				buf.WriteByte(query[i])
+				if query[i] == '"' {
 					break
 				}
 			}

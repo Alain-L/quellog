@@ -8,3 +8,5 @@
 2026-04-19 23:00:00.800 UTC [20001]: [8-1] user=app,db=appdb,app=psql,client=10.0.0.1 LOG:  duration: 2.567 ms  statement: SELECT * FROM users WHERE id = 9999
 2026-04-19 23:00:00.900 UTC [20001]: [9-1] user=app,db=appdb,app=psql,client=10.0.0.1 LOG:  duration: 5.678 ms  statement: UPDATE users SET email = 'a@b.com' WHERE id = 1
 2026-04-19 23:00:01.000 UTC [20001]: [10-1] user=app,db=appdb,app=psql,client=10.0.0.1 LOG:  duration: 5.789 ms  statement: UPDATE users SET email = 'c@d.org' WHERE id = 2
+2026-04-19 23:00:02.000 UTC [20001]: [11-1] user=app,db=appdb,app=psql,client=10.0.0.1 LOG:  duration: 3.111 ms  statement: SELECT * FROM "MyTable" WHERE "UserId" = 1
+2026-04-19 23:00:02.100 UTC [20001]: [12-1] user=app,db=appdb,app=psql,client=10.0.0.1 LOG:  duration: 3.222 ms  statement: SELECT * FROM "MyTable" WHERE "UserId" = 42
