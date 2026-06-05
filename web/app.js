@@ -1965,7 +1965,7 @@ function buildEventsSection(data) {
                 const ts = sr.timestamp || '';
                 const pid = sr.pid || '';
                 const dur = (typeof sr.duration_ms === 'number')
-                    ? fmt.duration(sr.duration_ms)
+                    ? fmtMs(sr.duration_ms)
                     : '';
                 const parts = [];
                 if (dur) parts.push(dur);
