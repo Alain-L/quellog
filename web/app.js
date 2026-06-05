@@ -1860,6 +1860,12 @@ function buildEventsSection(data) {
                 if (q.min_time_ms != null) {
                     html += '<div class="qd-stat"><div class="qd-stat-label">Min</div><div class="qd-stat-value">' + fmtMsLong(q.min_time_ms) + '</div></div>';
                 }
+                if (q.prepared_names && q.prepared_names.length > 0) {
+                    const label = q.prepared_names.length === 1
+                        ? esc(q.prepared_names[0])
+                        : esc(q.prepared_names.join(', ')) + ' <span class="qd-stat-sub">(' + q.prepared_names.length + ' names)</span>';
+                    html += '<div class="qd-stat"><div class="qd-stat-label">Prepared as</div><div class="qd-stat-value">' + label + '</div></div>';
+                }
                 html += '</div>';
                 if (execs.length > 0) {
                     html += '<div class="qd-chart-container">';
@@ -1953,8 +1959,26 @@ function buildEventsSection(data) {
                 html += '</div>';
             }
 
-            // RAW QUERY section (if different and available)
-            if (q?.raw_query && q.raw_query !== q.normalized_query) {
+            // SLOWEST RUN section (params substituted) or RAW QUERY fallback
+            if (q?.slowest_run?.query_with_params) {
+                const sr = q.slowest_run;
+                const ts = sr.timestamp || '';
+                const pid = sr.pid || '';
+                const dur = (typeof sr.duration_ms === 'number')
+                    ? fmt.duration(sr.duration_ms)
+                    : '';
+                const parts = [];
+                if (dur) parts.push(dur);
+                if (ts) parts.push(ts);
+                if (pid) parts.push('pid=' + pid);
+                const label = 'Slowest Run' + (parts.length ? ' ' + parts.join(', ') : '');
+                html += '<div class="qd-section">';
+                html += '<div class="qd-section-title" style="display: flex; justify-content: space-between; align-items: center;">' + esc(label) + '<button class="copy-btn-inline" onclick="navigator.clipboard.writeText(\'' + escForJsAttr(sr.query_with_params) + '\');this.textContent=\'Copied!\';setTimeout(()=>this.textContent=\'Copy\',1500)">Copy</button></div>';
+                html += '<div class="query-detail-sql">';
+                html += esc(sr.query_with_params);
+                html += '</div>';
+                html += '</div>';
+            } else if (q?.raw_query && q.raw_query !== q.normalized_query) {
                 html += '<div class="qd-section">';
                 html += '<div class="qd-section-title" style="display: flex; justify-content: space-between; align-items: center;">Example Query<button class="copy-btn-inline" onclick="navigator.clipboard.writeText(\'' + escForJsAttr(q.raw_query) + '\');this.textContent=\'Copied!\';setTimeout(()=>this.textContent=\'Copy\',1500)">Copy</button></div>';
                 html += '<div class="query-detail-sql">';

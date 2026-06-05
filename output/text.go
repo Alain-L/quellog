@@ -1344,6 +1344,9 @@ func PrintSQLDetails(m analysis.AggregatedMetrics, queryDetails []string) {
 		fmt.Printf("  Query Type           : %s\n", queryType)
 		if sqlStat != nil {
 			fmt.Printf("  Count                : %d\n", sqlStat.Count)
+			if len(sqlStat.PreparedNames) > 0 {
+				fmt.Printf("  Prepared as          : %s\n", formatPreparedNames(sqlStat.PreparedNames))
+			}
 		}
 
 		// TIME section (if SQL metrics available)
@@ -1439,11 +1442,31 @@ func PrintSQLDetails(m analysis.AggregatedMetrics, queryDetails []string) {
 		}
 		fmt.Println()
 
-		// Optionally show one raw query as example
+		// Show one concrete execution. When we have parameter values (extended
+		// protocol + DETAIL pairing), display the slowest run with $N
+		// substituted; otherwise fall back to the placeholder form.
 		if rawQuery != "" {
-			fmt.Println("Example Query:")
-			fmt.Println()
-			fmt.Println(rawQuery)
+			if sqlStat != nil && sqlStat.SlowestRun != nil {
+				sr := sqlStat.SlowestRun
+				fmt.Printf("Slowest Run %s%s, %s, pid=%s%s\n",
+					ansiMutedItalic,
+					formatQueryDuration(sr.DurationMs),
+					sr.Timestamp.Format("2006-01-02 15:04:05"),
+					sr.PID,
+					ansiReset,
+				)
+				fmt.Println()
+				text, truncated, full := truncateForDisplay(SubstituteParameters(rawQuery, sr.Parameters), slowestRunDisplayCap)
+				if truncated {
+					fmt.Printf("%s[…]%s%s%s\n", text, ansiMutedItalic, truncationHint(len(text), full), ansiReset)
+				} else {
+					fmt.Println(text)
+				}
+			} else {
+				fmt.Println("Example Query:")
+				fmt.Println()
+				fmt.Println(rawQuery)
+			}
 		}
 
 		// Display execution plan if available (from auto_explain)
@@ -1459,6 +1482,20 @@ func PrintSQLDetails(m analysis.AggregatedMetrics, queryDetails []string) {
 }
 
 // Helpers
+
+// formatPreparedNames renders the set of distinct prepared-statement names
+// observed for a query: a single name is shown as-is; multiple names are
+// joined with ", " and suffixed by their count.
+func formatPreparedNames(names []string) string {
+	switch len(names) {
+	case 0:
+		return ""
+	case 1:
+		return names[0]
+	default:
+		return fmt.Sprintf("%s (%d names seen)", strings.Join(names, ", "), len(names))
+	}
+}
 
 // truncateQuery truncates the query string to the specified length, appending "..." if necessary.
 func truncateQuery(query string, length int) string {
