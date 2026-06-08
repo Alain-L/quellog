@@ -1683,6 +1683,205 @@ function buildEventsSection(data) {
             `;
         }
 
+        // --- Modal navigation (Event ↔ Query) -----------------------
+        // modalStack tracks the trail of cross-modal navigations so the
+        // "← Back" button in either modal can return to the previous
+        // one. Each entry is {kind:'event'|'query', id, childId} — the
+        // childId points to the row inside this modal that the user
+        // clicked to descend, so on the way back we can scroll + flash
+        // that row to anchor the user visually.
+        let modalStack = [];
+        // _suppressStackClear is set while we deliberately close a
+        // modal during in-flight navigation (so the modal-close
+        // listener below does not wipe the stack we just pushed).
+        let _suppressStackClear = false;
+
+        function navigateToQuery(queryId, fromKind, fromId) {
+            if (fromKind && fromId) {
+                const top = modalStack[modalStack.length - 1];
+                if (!top || top.kind !== fromKind || top.id !== fromId) {
+                    modalStack.push({ kind: fromKind, id: fromId, childId: queryId });
+                }
+            }
+            if (fromKind === 'event') {
+                _suppressStackClear = true;
+                document.getElementById('eventModal').close();
+                _suppressStackClear = false;
+            }
+            showQueryModal(queryId);
+        }
+
+        function navigateToEvent(eventIndex, fromKind, fromId) {
+            const ev = analysisData?.top_events?.[eventIndex];
+            const eid = ev?.id;
+            if (fromKind && fromId && eid) {
+                const top = modalStack[modalStack.length - 1];
+                if (!top || top.kind !== fromKind || top.id !== fromId) {
+                    modalStack.push({ kind: fromKind, id: fromId, childId: eid });
+                }
+            }
+            if (fromKind === 'query') {
+                _suppressStackClear = true;
+                document.getElementById('queryModal').close();
+                _suppressStackClear = false;
+            }
+            showEventDetail(eventIndex);
+        }
+
+        function modalBack() {
+            const prev = modalStack.pop();
+            if (!prev) return;
+            _suppressStackClear = true;
+            document.getElementById('queryModal').close();
+            document.getElementById('eventModal').close();
+            _suppressStackClear = false;
+            if (prev.kind === 'event') {
+                const idx = (analysisData?.top_events || []).findIndex(e => e.id === prev.id);
+                if (idx >= 0) showEventDetail(idx, { flashId: prev.childId });
+            } else if (prev.kind === 'query') {
+                showQueryModal(prev.id, { flashId: prev.childId });
+            }
+        }
+
+        // Returns the inline back-button bar to inject at the top of a
+        // modal body, or '' when the stack is empty (i.e. this modal was
+        // opened directly, not through a cross-modal navigation).
+        function renderBackBar() {
+            if (modalStack.length === 0) return '';
+            const prev = modalStack[modalStack.length - 1];
+            const label = prev.kind === 'event' ? 'event' : 'query';
+            return '<div class="modal-back-bar"><button class="modal-back-btn" onclick="modalBack()">← Back to ' + label + '</button></div>';
+        }
+
+        // Scroll the row whose data-flash-id matches flashId into view
+        // and flash a brief highlight on it so the user can anchor the
+        // navigation visually.
+        function flashAndScroll(flashId) {
+            if (!flashId) return;
+            requestAnimationFrame(() => {
+                const row = document.querySelector('[data-flash-id="' + (window.CSS?.escape ? CSS.escape(flashId) : flashId) + '"]');
+                if (!row) return;
+                row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                row.classList.add('modal-flash');
+                setTimeout(() => row.classList.remove('modal-flash'), 1800);
+            });
+        }
+
+        // Triggering-queries table for the event modal. Click a row →
+        // navigateToQuery which pushes the current event onto the modal
+        // stack so the user can hit "← Back" to return. Same column
+        // shape as buildQueryTable (no rank column; rows are pre-sorted
+        // desc by count). data-flash-id labels each row by its queryID
+        // so a return navigation can scroll + flash this row.
+        function buildEventTriggeringTable(triggers, eventTotal, eventId) {
+            if (!triggers?.length) return '<div class="empty">No triggering queries</div>';
+            const maxCount = triggers[0]?.count || 1;
+            return `
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Query</th>
+                                <th class="num">Count</th>
+                                <th class="num">%</th>
+                                <th class="num"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${triggers.slice(0, 50).map(t => {
+                                const pct = eventTotal > 0 ? (t.count / eventTotal * 100).toFixed(1) : 0;
+                                const qid = esc(t.id);
+                                const eid = esc(eventId || '');
+                                return `
+                                <tr onclick="navigateToQuery('${qid}', 'event', '${eid}')" data-flash-id="${qid}" style="cursor:pointer;" title="Click for query details">
+                                    <td class="query-cell">${esc(truncQuery(t.normalized_query))}</td>
+                                    <td class="num">${fmt(t.count)}</td>
+                                    <td class="num">${pct}%</td>
+                                    <td class="num">
+                                        <div class="duration-bar">
+                                            <div class="bar"><div class="bar-fill" style="width: ${t.count/maxCount*100}%"></div></div>
+                                        </div>
+                                    </td>
+                                </tr>
+                            `}).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+
+        // Walk top_events and collect the events whose
+        // triggering_queries entry includes queryId. Each result is the
+        // pair (event, triggerCount) so the renderer can show both the
+        // global event count and the share attributed to this query.
+        function findEventsTriggeredBy(queryId) {
+            if (!queryId || !analysisData?.top_events) return [];
+            const out = [];
+            for (const ev of analysisData.top_events) {
+                if (!ev.triggering_queries) continue;
+                const tq = ev.triggering_queries.find(t => t.id === queryId);
+                if (tq) out.push({ event: ev, triggerCount: tq.count });
+            }
+            // Sort by trigger count desc, tie-break on event count desc.
+            out.sort((a, b) => {
+                if (a.triggerCount !== b.triggerCount) return b.triggerCount - a.triggerCount;
+                return (b.event.count || 0) - (a.event.count || 0);
+            });
+            return out;
+        }
+
+        // severityColorVar maps a PostgreSQL severity string to the CSS
+        // variable used elsewhere in the report (event modal sparkline,
+        // event rows colouring) so the same colour palette is reused
+        // consistently when we tag severity cells.
+        function severityColorVar(sev) {
+            switch (sev) {
+                case 'ERROR':            return 'var(--danger)';
+                case 'FATAL':
+                case 'PANIC':            return 'var(--purple)';
+                case 'WARNING':          return 'var(--warning)';
+                default:                 return 'var(--text-muted)';
+            }
+        }
+
+        // "Events triggered" table for the Query Detail modal — the
+        // mirror image of buildEventTriggeringTable. Each row pivots from
+        // "this query → these events" and clicking it opens the matching
+        // event modal so the user can dive into samples/timeline.
+        // Rows are already sorted by trigger count desc upstream; no
+        // ranking column is displayed and the event ID stays implicit
+        // (the row click is the only thing the reader needs). The
+        // severity cell is bold + coloured so the row tells you what
+        // class of error this is at a glance.
+        function buildQueryEventsTable(rows, queryId) {
+            if (!rows.length) return '';
+            const qid = esc(queryId || '');
+            return `
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Severity</th>
+                                <th>Message</th>
+                                <th class="num">Triggered</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${rows.slice(0, 50).map(r => {
+                                const idx = analysisData.top_events.indexOf(r.event);
+                                return `
+                                <tr onclick="navigateToEvent(${idx}, 'query', '${qid}')" data-flash-id="${esc(r.event.id)}" style="cursor:pointer;" title="Click for event details">
+                                    <td style="color: ${severityColorVar(r.event.severity)}; font-weight: 700;">${esc(r.event.severity)}</td>
+                                    <td class="query-cell">${esc(truncQuery(r.event.message))}</td>
+                                    <td class="num">${fmt(r.triggerCount)}</td>
+                                </tr>
+                            `}).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+
         function buildHistogram(histogram) {
             if (!histogram || histogram.length === 0) return '';
             const max = Math.max(...histogram.map(h => h.count)) || 1;
@@ -1732,7 +1931,7 @@ function buildEventsSection(data) {
         }
 
         // Event detail modal — full message + occurrences-over-time sparkline
-        function showEventDetail(index) {
+        function showEventDetail(index, opts = {}) {
             const e = analysisData.top_events?.[index];
             if (!e) return;
 
@@ -1762,6 +1961,7 @@ function buildEventsSection(data) {
             const copyBtn = (text) => `<button class="copy-btn-inline" onclick="navigator.clipboard.writeText('${escForJsAttr(text)}');this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)">Copy</button>`;
 
             document.getElementById('eventModalBody').innerHTML = `
+                ${renderBackBar()}
                 <div style="margin-bottom:1rem;">
                     <div style="display:flex;align-items:center;margin-bottom:0.5rem;">
                         ${sqlBadge}
@@ -1784,7 +1984,11 @@ function buildEventsSection(data) {
                 <div class="qd-section-title" style="display:flex;justify-content:space-between;align-items:center;">Normalized Pattern${copyBtn(e.message)}</div>
                 <div class="query-detail-sql" style="margin-bottom:0.75rem;">${esc(e.message)}</div>
                 <div class="qd-section-title" style="display:flex;justify-content:space-between;align-items:center;">Example (raw message)${copyBtn(e.example || e.message)}</div>
-                <div class="query-detail-sql">${esc(e.example || e.message)}</div>
+                <div class="query-detail-sql" style="margin-bottom:0.75rem;">${esc(e.example || e.message)}</div>
+                ${(e.triggering_queries && e.triggering_queries.length > 0) ? `
+                    <div class="qd-section-title">Triggering Queries <span class="qd-meta">${e.triggering_queries.length} distinct</span></div>
+                    ${buildEventTriggeringTable(e.triggering_queries, e.count, e.id)}
+                ` : ''}
             `;
             document.getElementById('eventModal').open();
 
@@ -1797,6 +2001,7 @@ function buildEventsSection(data) {
                 : e.severity === 'WARNING' ? getComputedStyle(document.documentElement).getPropertyValue('--warning').trim()
                 : getComputedStyle(document.documentElement).getPropertyValue('--chart-bar').trim();
             requestAnimationFrame(() => createTimeChart('eventModalChart', ts, { color: sevColorResolved, height: 180 }));
+            if (opts.flashId) flashAndScroll(opts.flashId);
         }
 
         function closeModal() {
@@ -2060,7 +2265,7 @@ function buildEventsSection(data) {
             return svg + legend;
         }
 
-        function showQueryModal(queryId) {
+        function showQueryModal(queryId, opts = {}) {
             if (!analysisData) return;
 
             // 1. Search in sql_performance.queries
@@ -2084,10 +2289,39 @@ function buildEventsSection(data) {
                 tempQ = tempQueries.find(x => x.normalized_query === queryId);
             }
 
+            // 4. Fallback: a triggering-query entry inside top_events.
+            //    We promote it to a minimal q object so the detail view can
+            //    still render its normalized form and the cross-link to the
+            //    "Events triggered" section will fire even when the query
+            //    was never timed (no log_min_duration_statement on it).
+            if (!q && !lockQ && !tempQ) {
+                const topEvents = analysisData.top_events || [];
+                let tq = null;
+                for (const ev of topEvents) {
+                    if (!ev.triggering_queries) continue;
+                    tq = ev.triggering_queries.find(t => t.id === queryId);
+                    if (tq) break;
+                }
+                if (tq) {
+                    q = {
+                        id: tq.id,
+                        normalized_query: tq.normalized_query,
+                        // Synthesised so the existing detail renderer
+                        // shows a sensible header. Real metrics stay
+                        // absent so the modal does not pretend it has
+                        // information it does not.
+                        count: 0,
+                        type: '',
+                        _triggerOnly: true,
+                    };
+                }
+            }
+
             // If nothing found, show just the text
             if (!q && !lockQ && !tempQ) {
-                document.getElementById('queryModalBody').innerHTML = '<div class="query-detail-sql">' + esc(queryId) + '</div>';
+                document.getElementById('queryModalBody').innerHTML = renderBackBar() + '<div class="query-detail-sql">' + esc(queryId) + '</div>';
                 document.getElementById('queryModal').open();
+                if (opts.flashId) flashAndScroll(opts.flashId);
                 return;
             }
 
@@ -2098,8 +2332,9 @@ function buildEventsSection(data) {
             const tempEvents = q ? allTempEvents.filter(e => e.query_id === q.id) : [];
 
             // Build detailed view with all available data
-            document.getElementById('queryModalBody').innerHTML = buildQueryDetailHTML(q, execs, tempEvents, lockQ, tempQ);
+            document.getElementById('queryModalBody').innerHTML = renderBackBar() + buildQueryDetailHTML(q, execs, tempEvents, lockQ, tempQ);
             document.getElementById('queryModal').open();
+            if (opts.flashId) flashAndScroll(opts.flashId);
 
             // Render uPlot charts after DOM update and modal animation
             setTimeout(() => {
@@ -2177,6 +2412,20 @@ function buildEventsSection(data) {
                     html += '</div>';
                     html += buildQdDurationDistribution(execs);
                 }
+                html += '</div>';
+            }
+
+            // EVENTS section — promoted to right after Query Info so
+            // the operational signal ("this query triggers these
+            // errors") is the first thing a reader sees, before the
+            // LOCKS / TEMP FILES / Normalized Query / Slowest Run
+            // blocks. Same content as the old position below; just
+            // moved up.
+            const eventsForThisQueryEarly = findEventsTriggeredBy(q?.id);
+            if (eventsForThisQueryEarly.length > 0) {
+                html += '<div class="qd-section">';
+                html += '<div class="qd-section-title">Events triggered <span class="qd-meta">' + eventsForThisQueryEarly.length + ' distinct</span></div>';
+                html += buildQueryEventsTable(eventsForThisQueryEarly, q?.id);
                 html += '</div>';
             }
 
@@ -2772,6 +3021,18 @@ function buildEventsSection(data) {
             modalCharts.length = 0;
         });
 
+        // Modal navigation stack lifecycle — clear the trail whenever
+        // the user closes a modal "for real" (Escape, backdrop click,
+        // the × button). Programmatic closes triggered by our own
+        // navigateToX/modalBack set _suppressStackClear first so the
+        // stack survives the close event.
+        document.getElementById('queryModal').addEventListener('modal-close', () => {
+            if (!_suppressStackClear) modalStack = [];
+        });
+        document.getElementById('eventModal').addEventListener('modal-close', () => {
+            if (!_suppressStackClear) modalStack = [];
+        });
+
         // Local state for file info display
         let currentFileInfo = null;
 
@@ -2940,6 +3201,9 @@ function buildEventsSection(data) {
         window.showSqlOvView = showSqlOvView;
         window.copyQuery = copyQuery;
         window.showEventDetail = showEventDetail;
+        window.navigateToQuery = navigateToQuery;
+        window.navigateToEvent = navigateToEvent;
+        window.modalBack = modalBack;
         window.closeModal = closeModal;
         window.toggleTheme = toggleTheme;
         window.closeChartModal = closeChartModal;

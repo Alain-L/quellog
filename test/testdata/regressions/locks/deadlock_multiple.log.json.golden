@@ -61,6 +61,18 @@
         1776589200100,
         1776589530250,
         1776589935700
+      ],
+      "triggering_queries": [
+        {
+          "id": "up-ECQ1ze",
+          "normalized_query": "update orders set status = ? where id = ?",
+          "count": 2
+        },
+        {
+          "id": "up-1Cc6VC",
+          "normalized_query": "update inventory set stock = stock - ? where sku = ?",
+          "count": 1
+        }
       ]
     }
   ],

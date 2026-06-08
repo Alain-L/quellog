@@ -33,7 +33,33 @@ type EventStat struct {
 	// cap and typical occurrence skew this stays under 10 MB on the largest
 	// corpora we benchmark.
 	Timestamps []int64
+
+	// TriggeringQueries lists the normalized SQL queries that produced
+	// this event pattern, with their occurrence count. Filled from the
+	// STATEMENT continuation of each captured occurrence at flush time
+	// (normalized + queryID identical to sql_performance.queries so the
+	// HTML modal can hot-link from one section to the other). Sorted
+	// desc by count at Finalize. Cap at TriggeringQueriesCap.
+	TriggeringQueries []TriggeringQuery
 }
+
+// TriggeringQuery is the cross-link between an event pattern and the
+// normalized SQL queries that fired it. Each entry is the canonical
+// form of one distinct STATEMENT continuation observed for the parent
+// EventStat, with its own queryID (shared with sql_performance) and
+// the count of times it triggered the pattern.
+type TriggeringQuery struct {
+	ID              string
+	NormalizedQuery string
+	Count           int
+}
+
+// TriggeringQueriesCap is the maximum number of distinct normalized
+// queries tracked per EventStat. Bounds the memory at roughly
+// ~30 × ~200 B × 1000 patterns = 6 MB worst case while still keeping
+// the full Pareto distribution on every real-world error we have seen
+// (B.log's "relation does not exist" tops out at 11 distinct queries).
+const TriggeringQueriesCap = 30
 
 // ============================================================================
 // Event type definitions
@@ -233,25 +259,156 @@ type EventAnalyzer struct {
 
 	// stats tracks unique event signatures
 	stats map[string]*EventStat
+
+	// pendingByPID buffers a half-built sample while we wait for the
+	// DETAIL/HINT/CONTEXT/STATEMENT continuation lines that PostgreSQL
+	// emits right after an error on the same backend. Entries are
+	// evicted on the next non-continuation arriving on the same PID,
+	// and any remaining ones are flushed in Finalize().
+	pendingByPID map[string]*pendingEvent
+}
+
+// pendingEvent is the in-flight state for an ERROR/FATAL/WARNING/PANIC
+// while we wait for its STATEMENT continuation. statKey points back to
+// the matching EventStat in EventAnalyzer.stats — flushing the entry
+// folds the normalized STATEMENT into that EventStat's TriggeringQueries.
+// DETAIL/HINT/CONTEXT are not retained: the aggregated triggering-queries
+// view is what downstream code consumes, and keeping the raw textual
+// continuations adds memory without changing what a DBA can act on.
+type pendingEvent struct {
+	statKey   string
+	statement string
 }
 
 // NewEventAnalyzer creates a new event analyzer.
 func NewEventAnalyzer() *EventAnalyzer {
 	return &EventAnalyzer{
-		counts: make(map[string]int, len(PredefinedEventTypes)),
-		stats:  make(map[string]*EventStat),
+		counts:       make(map[string]int, len(PredefinedEventTypes)),
+		stats:        make(map[string]*EventStat),
+		pendingByPID: make(map[string]*pendingEvent),
 	}
 }
 
+// containsContinuationMarker reports whether marker appears in msg as
+// a free-standing severity token — i.e. immediately preceded by a
+// space or at the start of the message. This rejects the false
+// positive where "STATEMENT:" appears inside a normalized error
+// pattern instead of as the continuation severity.
+func containsContinuationMarker(msg, marker string) bool {
+	idx := strings.Index(msg, marker)
+	if idx < 0 {
+		return false
+	}
+	if idx == 0 {
+		return true
+	}
+	return msg[idx-1] == ' '
+}
+
+// extractAfter returns the trimmed substring of msg starting right
+// after the first occurrence of marker. Used to peel the continuation
+// payload out of "[pid]: user=… DETAIL:  Failing row …" style lines.
+func extractAfter(msg, marker string) string {
+	idx := strings.Index(msg, marker)
+	if idx < 0 {
+		return ""
+	}
+	return strings.TrimSpace(msg[idx+len(marker):])
+}
+
+// flushPending folds the buffered STATEMENT into the matching
+// EventStat's TriggeringQueries — the aggregate Pareto view of "which
+// queries caused this event". Bound by TriggeringQueriesCap.
+func (a *EventAnalyzer) flushPending(pe *pendingEvent) {
+	if pe == nil || pe.statKey == "" || pe.statement == "" {
+		return
+	}
+	stat, ok := a.stats[pe.statKey]
+	if !ok {
+		return
+	}
+	recordTriggeringQuery(stat, pe.statement, pe.statKey)
+}
+
+// recordTriggeringQuery normalises a raw STATEMENT, builds its queryID
+// (same hash used by sql_performance so the two sections cross-link by
+// id), and increments the count on the matching entry of
+// stat.TriggeringQueries. Insertion is capped at TriggeringQueriesCap;
+// when the cap is reached, only already-known queries keep counting and
+// new ones are dropped — the dominant queries (i.e. the ones we care
+// about) are already in the list by definition.
+func recordTriggeringQuery(stat *EventStat, statement, statKey string) {
+	raw := normalizeWhitespace(strings.TrimSpace(statement))
+	if raw == "" {
+		return
+	}
+	normalized := normalizeQuery(raw)
+	if normalized == "" {
+		return
+	}
+	id, _ := GenerateQueryID(raw, normalized)
+	for i := range stat.TriggeringQueries {
+		if stat.TriggeringQueries[i].ID == id {
+			stat.TriggeringQueries[i].Count++
+			return
+		}
+	}
+	if len(stat.TriggeringQueries) >= TriggeringQueriesCap {
+		return
+	}
+	stat.TriggeringQueries = append(stat.TriggeringQueries, TriggeringQuery{
+		ID:              id,
+		NormalizedQuery: normalized,
+		Count:           1,
+	})
+}
+
 // Process analyzes a single log entry to identify and count its event type.
+//
+// Continuation entries (DETAIL/HINT/CONTEXT/STATEMENT) are routed to
+// the per-PID pendingByPID buffer so they can be stitched back onto
+// the EventStat of the error they belong to. Non-continuation entries
+// flush any buffered continuation for the same PID first — the arrival
+// of a new main entry means no more continuations will follow.
 func (a *EventAnalyzer) Process(entry *parser.LogEntry) {
+	msg := entry.Message
+
 	if entry.IsContinuation {
+		pid := entry.PID
+		if pid == "" {
+			return
+		}
+		pe := a.pendingByPID[pid]
+		if pe == nil {
+			return
+		}
+		// PostgreSQL emits the continuation severity embedded in the
+		// log-line prefix, e.g.
+		//   "[12345]: user=app,db=appdb STATEMENT:  INSERT INTO …"
+		// so we look up the marker with strings.Index rather than
+		// HasPrefix. Only STATEMENT is retained — that is what feeds
+		// the per-event TriggeringQueries Pareto view. DETAIL / HINT /
+		// CONTEXT are intentionally ignored: the aggregated view is
+		// what downstream code consumes.
+		if containsContinuationMarker(msg, "STATEMENT:") {
+			pe.statement = extractAfter(msg, "STATEMENT:")
+		}
 		return
 	}
 
-	msg := entry.Message
 	if len(msg) < 3 {
 		return
+	}
+
+	// Non-continuation: any pending event on this PID closes here. A
+	// new main entry arriving means PostgreSQL has finished emitting
+	// continuations for the previous one (continuations always come
+	// immediately after their parent on the same backend).
+	if pid := entry.PID; pid != "" {
+		if pe := a.pendingByPID[pid]; pe != nil {
+			a.flushPending(pe)
+			delete(a.pendingByPID, pid)
+		}
 	}
 
 	severity := ""
@@ -312,9 +469,11 @@ func (a *EventAnalyzer) Process(entry *parser.LogEntry) {
 			pattern := NormalizeEvent(msg)
 			if pattern != "" {
 				ts := entry.Timestamp.UnixMilli()
+				tracked := false
 				if stat, ok := a.stats[pattern]; ok {
 					stat.Count++
 					stat.Timestamps = append(stat.Timestamps, ts)
+					tracked = true
 				} else if len(a.stats) < 1000 {
 					// Extract SQLSTATE class if present
 					sqlStateClass := ""
@@ -332,6 +491,17 @@ func (a *EventAnalyzer) Process(entry *parser.LogEntry) {
 						SQLStateClass: sqlStateClass,
 						Timestamps:    []int64{ts},
 					}
+					tracked = true
+				}
+				// Open a continuation buffer for this PID so the next
+				// STATEMENT line attaches to this event's triggering
+				// queries when it arrives.
+				if tracked {
+					if pid := entry.PID; pid != "" {
+						a.pendingByPID[pid] = &pendingEvent{
+							statKey: pattern,
+						}
+					}
 				}
 			}
 		}
@@ -340,6 +510,26 @@ func (a *EventAnalyzer) Process(entry *parser.LogEntry) {
 
 // Finalize returns the aggregated summaries and top event signatures.
 func (a *EventAnalyzer) Finalize() ([]EventSummary, []EventStat) {
+	// Flush any pending continuation buffers — the input stream has
+	// ended, so we won't see a "next main entry" that would otherwise
+	// trigger the eviction.
+	for pid, pe := range a.pendingByPID {
+		a.flushPending(pe)
+		delete(a.pendingByPID, pid)
+	}
+	// TriggeringQueries: rank by count desc, tie-break on ID so the same
+	// input always serialises the same way.
+	for _, stat := range a.stats {
+		if len(stat.TriggeringQueries) >= 2 {
+			sort.Slice(stat.TriggeringQueries, func(i, j int) bool {
+				if stat.TriggeringQueries[i].Count != stat.TriggeringQueries[j].Count {
+					return stat.TriggeringQueries[i].Count > stat.TriggeringQueries[j].Count
+				}
+				return stat.TriggeringQueries[i].ID < stat.TriggeringQueries[j].ID
+			})
+		}
+	}
+
 	summaries := make([]EventSummary, 0, len(PredefinedEventTypes))
 
 	for _, eventType := range PredefinedEventTypes {

@@ -93,6 +93,13 @@
       "example": "[2-1] 2026-04-19 18:00:01.200 UTC [10002] 23505: db=appdb,user=app,app=psql,client=10.0.0.51 ERROR:  duplicate key value violates unique constraint \"users_email_key\"",
       "timestamps": [
         1776621601000
+      ],
+      "triggering_queries": [
+        {
+          "id": "in-Nq0AzB",
+          "normalized_query": "insert into users (email, username) values (?, ?)",
+          "count": 1
+        }
       ]
     }
   ],

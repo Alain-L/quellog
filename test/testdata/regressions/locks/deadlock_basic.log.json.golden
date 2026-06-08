@@ -98,6 +98,13 @@
       "example": "[1001]: [5-1] user=app,db=appdb,app=psql,client=10.0.0.1 ERROR:  deadlock detected",
       "timestamps": [
         1776585601500
+      ],
+      "triggering_queries": [
+        {
+          "id": "up-pinkPO",
+          "normalized_query": "update accounts set balance = balance - ? where id = ?",
+          "count": 1
+        }
       ]
     }
   ],

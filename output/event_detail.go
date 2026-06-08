@@ -16,6 +16,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strings"
 	"time"
 
 	"github.com/Alain-L/quellog/analysis"
@@ -26,17 +27,18 @@ import (
 // so JSON consumers don't have to recompute them from the timestamps
 // array.
 type EventDetailJSON struct {
-	ID            string  `json:"id"`
-	Severity      string  `json:"severity"`
-	SQLStateClass string  `json:"sql_state_class,omitempty"`
-	SQLStateDesc  string  `json:"sql_state_description,omitempty"`
-	Message       string  `json:"normalized_message"`
-	Example       string  `json:"example"`
-	Count         int     `json:"count"`
-	FirstSeen     string  `json:"first_seen,omitempty"`
-	LastSeen      string  `json:"last_seen,omitempty"`
-	FrequencyMin  float64 `json:"frequency_per_minute,omitempty"`
-	Timestamps    []int64 `json:"timestamps,omitempty"`
+	ID                string                `json:"id"`
+	Severity          string                `json:"severity"`
+	SQLStateClass     string                `json:"sql_state_class,omitempty"`
+	SQLStateDesc      string                `json:"sql_state_description,omitempty"`
+	Message           string                `json:"normalized_message"`
+	Example           string                `json:"example"`
+	Count             int                   `json:"count"`
+	FirstSeen         string                `json:"first_seen,omitempty"`
+	LastSeen          string                `json:"last_seen,omitempty"`
+	FrequencyMin      float64               `json:"frequency_per_minute,omitempty"`
+	Timestamps        []int64               `json:"timestamps,omitempty"`
+	TriggeringQueries []TriggeringQueryJSON `json:"triggering_queries,omitempty"`
 }
 
 // findEventByID returns the matching EventStat from m.TopEvents or nil
@@ -132,8 +134,55 @@ func PrintEventDetails(m analysis.AggregatedMetrics, ids []string) {
 		fmt.Println(bold + "Example:" + reset)
 		fmt.Println()
 		fmt.Printf(" %s\n", e.Example)
+
+		// Triggering queries — the Pareto view of which normalised SQL
+		// signatures fired this pattern. Top of the list is the action
+		// item: fix that query, drop a large fraction of the errors.
+		if len(e.TriggeringQueries) > 0 {
+			fmt.Println()
+			fmt.Println(bold + "Triggering Queries:" + reset)
+			fmt.Println()
+			printTriggeringQueries(e.TriggeringQueries, e.Count)
+		}
+
 	}
 	fmt.Println()
+}
+
+// printTriggeringQueries renders the Pareto view of "which SQL
+// signatures triggered this event pattern". Rows are already sorted
+// desc by count upstream; no ranking column is rendered. eventTotal is
+// the parent EventStat.Count, used as the denominator for the share
+// column.
+func printTriggeringQueries(tqs []analysis.TriggeringQuery, eventTotal int) {
+	maxCount := 0
+	for _, t := range tqs {
+		if t.Count > maxCount {
+			maxCount = t.Count
+		}
+	}
+	if maxCount == 0 {
+		maxCount = 1
+	}
+	const queryWidth = 60
+	const barWidth = 20
+	fmt.Printf("  %-10s  %-*s  %5s  %6s\n", "QueryID", queryWidth, "QUERY", "COUNT", "%")
+	for _, t := range tqs {
+		share := 0.0
+		if eventTotal > 0 {
+			share = 100.0 * float64(t.Count) / float64(eventTotal)
+		}
+		q := t.NormalizedQuery
+		if len(q) > queryWidth {
+			q = q[:queryWidth-1] + "…"
+		}
+		filled := int(float64(barWidth) * float64(t.Count) / float64(maxCount))
+		if filled > barWidth {
+			filled = barWidth
+		}
+		bar := strings.Repeat("■", filled) + strings.Repeat(" ", barWidth-filled)
+		fmt.Printf("  %-10s  %-*s  %5d  %5.1f%%  %s\n", t.ID, queryWidth, q, t.Count, share, bar)
+	}
 }
 
 // computeEventOccurrenceHistogram bucketizes the per-pattern timestamps
@@ -200,15 +249,16 @@ func ExportEventDetailJSON(w io.Writer, m analysis.AggregatedMetrics, ids []stri
 			desc = analysis.GetErrorClassDescription(e.SQLStateClass)
 		}
 		ed := EventDetailJSON{
-			ID:            e.ID,
-			Severity:      e.Severity,
-			SQLStateClass: e.SQLStateClass,
-			SQLStateDesc:  desc,
-			Message:       e.Message,
-			Example:       e.Example,
-			Count:         e.Count,
-			FrequencyMin:  freq,
-			Timestamps:    e.Timestamps,
+			ID:                e.ID,
+			Severity:          e.Severity,
+			SQLStateClass:     e.SQLStateClass,
+			SQLStateDesc:      desc,
+			Message:           e.Message,
+			Example:           e.Example,
+			Count:             e.Count,
+			FrequencyMin:      freq,
+			Timestamps:        e.Timestamps,
+			TriggeringQueries: triggeringQueriesJSON(e.TriggeringQueries),
 		}
 		if !first.IsZero() {
 			ed.FirstSeen = first.Format("2006-01-02 15:04:05 MST")
@@ -262,6 +312,26 @@ func ExportEventDetailMarkdown(w io.Writer, m analysis.AggregatedMetrics, ids []
 			fmt.Fprintf(bw, "- **Last seen**: %s\n", last.Format("2006-01-02 15:04:05 MST"))
 			fmt.Fprintf(bw, "- **Frequency**: %.2f /min\n", freq)
 		}
+
+		if len(e.TriggeringQueries) > 0 {
+			fmt.Fprintln(bw)
+			fmt.Fprintln(bw, "### Triggering queries")
+			fmt.Fprintln(bw)
+			fmt.Fprintln(bw, "| QueryID | Query | Count | % |")
+			fmt.Fprintln(bw, "|---|---|---:|---:|")
+			for _, t := range e.TriggeringQueries {
+				share := 0.0
+				if e.Count > 0 {
+					share = 100.0 * float64(t.Count) / float64(e.Count)
+				}
+				normalized := t.NormalizedQuery
+				if len(normalized) > 80 {
+					normalized = normalized[:79] + "…"
+				}
+				fmt.Fprintf(bw, "| `%s` | `%s` | %d | %.1f%% |\n", t.ID, normalized, t.Count, share)
+			}
+		}
+
 		fmt.Fprintln(bw)
 	}
 }

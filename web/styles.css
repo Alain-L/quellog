@@ -1825,6 +1825,53 @@
 
         .qd-section:last-child { border-bottom: none; margin-bottom: 0; }
 
+        /* Cross-modal navigation: a single prominent "← Back to <kind>"
+           button injected at the top of the body when modalStack is
+           non-empty. Filled with the brand accent (same orange as the
+           chart palette) so it pops against the body content without
+           competing with the primary-coloured section titles. The
+           hover effect (left-shift + lift) reinforces the "going back"
+           affordance. */
+        .modal-back-bar {
+            margin: 0 0 1rem 0;
+        }
+        .modal-back-btn {
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            padding: 0.4rem 0.9rem 0.4rem 0.7rem;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 0.85rem;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+            transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+        }
+        .modal-back-btn:hover {
+            filter: brightness(1.08);
+            transform: translateX(-2px);
+            box-shadow: 0 3px 6px rgba(0, 0, 0, 0.18);
+        }
+        .modal-back-btn:active {
+            transform: translateX(-1px);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+        }
+
+        /* Row-flash animation: applied for ~1.6s on the row that the
+           user just clicked through, so when they "← Back" the trail
+           lands on the originating row instead of forcing them to
+           scroll/search. Animating on tr td (not tr) is more reliable
+           across browsers since cells have their own background. */
+        @keyframes modal-flash {
+            0%   { background-color: rgba(245, 158, 11, 0.45); }
+            100% { background-color: transparent; }
+        }
+        tr.modal-flash td {
+            animation: modal-flash 1.6s ease-out;
+        }
+
         .qd-section-title {
             font-size: 0.75rem;
             font-weight: 600;

@@ -1479,6 +1479,38 @@ func ExportSQLSummaryMarkdown(w io.Writer, m analysis.SQLMetrics, tempFiles anal
 	fmt.Fprintln(w, b.String())
 }
 
+// queryEventLinkMD is the markdown variant of queryEventLink — same
+// shape, kept local so the two output packages do not need a shared
+// view type.
+type queryEventLinkMD struct {
+	event      analysis.EventStat
+	triggerCnt int
+}
+
+// findEventsTriggeredByQueryMD mirrors the text-side helper but keeps
+// the local struct out of the public API surface.
+func findEventsTriggeredByQueryMD(events []analysis.EventStat, queryID string) []queryEventLinkMD {
+	if queryID == "" {
+		return nil
+	}
+	var out []queryEventLinkMD
+	for i := range events {
+		for _, tq := range events[i].TriggeringQueries {
+			if tq.ID == queryID {
+				out = append(out, queryEventLinkMD{event: events[i], triggerCnt: tq.Count})
+				break
+			}
+		}
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].triggerCnt != out[j].triggerCnt {
+			return out[i].triggerCnt > out[j].triggerCnt
+		}
+		return out[i].event.Count > out[j].event.Count
+	})
+	return out
+}
+
 // ExportSQLDetailMarkdown produces a markdown report for --sql-detail
 func ExportSQLDetailMarkdown(w io.Writer, m analysis.AggregatedMetrics, queryIDs []string) {
 	var b strings.Builder
@@ -1546,6 +1578,27 @@ func ExportSQLDetailMarkdown(w io.Writer, m analysis.AggregatedMetrics, queryIDs
 			}
 		}
 		b.WriteString("\n")
+
+		// EVENTS section — same early position as the text renderer:
+		// straight after Query Info so the operational signal is the
+		// first thing a DBA reads. Rows are sorted by trigger count
+		// descending; "#" and "Event total" are dropped to keep the
+		// table focused on the "this query caused N of these" answer.
+		eventsForMD := findEventsTriggeredByQueryMD(m.TopEvents, qid)
+		if len(eventsForMD) > 0 {
+			b.WriteString("### EVENTS\n\n")
+			b.WriteString("| Event ID | Severity | Message | Triggered |\n")
+			b.WriteString("|---|---|---|---:|\n")
+			for _, r := range eventsForMD {
+				msg := r.event.Message
+				if len(msg) > 90 {
+					msg = msg[:89] + "…"
+				}
+				b.WriteString(fmt.Sprintf("| `%s` | %s | %s | %d |\n",
+					r.event.ID, r.event.Severity, msg, r.triggerCnt))
+			}
+			b.WriteString("\n")
+		}
 
 		// Execution histogram (if > 1 execution)
 		if sqlStat != nil && sqlStat.Count > 1 {

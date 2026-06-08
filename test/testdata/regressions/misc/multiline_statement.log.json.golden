@@ -89,6 +89,13 @@
       "example": "[14001]: [1-1] user=app,db=appdb,app=psql,client=10.0.0.70 ERROR:  syntax error at end of input",
       "timestamps": [
         1776636000100
+      ],
+      "triggering_queries": [
+        {
+          "id": "se-OJZL9k",
+          "normalized_query": "select u.id, u.username, u.email, u.created_at, count(o.id) as order_count, sum(o.total) as total_spent from users u left join orders o on o.user_id = u.id where u.created_at \u003e ? and u.status = ? and exists ( select ? from subscriptions s where s.user_id = u.id and s.status = ? ) group by u.id order by total_spent desc",
+          "count": 1
+        }
       ]
     }
   ],

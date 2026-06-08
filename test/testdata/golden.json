@@ -15438,6 +15438,13 @@
       "timestamps": [
         1764537346054,
         1764537365222
+      ],
+      "triggering_queries": [
+        {
+          "id": "se-mb7H5B",
+          "normalized_query": "select ?/?;",
+          "count": 2
+        }
       ]
     },
     {
@@ -15450,6 +15457,13 @@
       "timestamps": [
         1764537343199,
         1764537362442
+      ],
+      "triggering_queries": [
+        {
+          "id": "in-WimP7r",
+          "normalized_query": "insert into users (username, email) values (?, ?);",
+          "count": 2
+        }
       ]
     },
     {
@@ -15462,6 +15476,13 @@
       "timestamps": [
         1764537342529,
         1764537361786
+      ],
+      "triggering_queries": [
+        {
+          "id": "in-dUGmvg",
+          "normalized_query": "insert into orders (user_id, amount) values (?, ?);",
+          "count": 2
+        }
       ]
     },
     {
@@ -15486,6 +15507,13 @@
       "timestamps": [
         1764537345323,
         1764537364537
+      ],
+      "triggering_queries": [
+        {
+          "id": "xx-iGMZ7o",
+          "normalized_query": "selec * form users;",
+          "count": 2
+        }
       ]
     },
     {
@@ -15497,6 +15525,13 @@
       "sql_state_class": "40",
       "timestamps": [
         1764537375390
+      ],
+      "triggering_queries": [
+        {
+          "id": "be-1ljNt0",
+          "normalized_query": "begin; update lock_test set value = value + ? where id = ?; select pg_sleep(?); update lock_test set value = value + ? where id = ?; commit;",
+          "count": 1
+        }
       ]
     }
   ],
