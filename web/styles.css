@@ -957,6 +957,51 @@
         /* Auto-adapt grid columns based on children count */
         .stat-grid { grid-template-columns: repeat(auto-fit, minmax(70px, 1fr)); }
 
+        /* Cross-highlight between cost-map dots and table rows. The row
+           background tints with the same alt color used elsewhere so the
+           hover origin (mouse on dot vs mouse on row) is consistent. */
+        tr.q-row-hover { background: var(--bg-alt); }
+
+        /* Per-row eye button that jumps straight to explain.dalibo.com.
+           Sits between the # column and the query text and only renders
+           when an execution plan is available for the query. */
+        .cell-plan-action {
+            width: 24px;
+            padding: 0 2px 0 0;
+            text-align: left;
+        }
+        .btn-explain {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 20px;
+            height: 20px;
+            padding: 0;
+            border: none;
+            border-radius: 4px;
+            background: var(--purple);
+            color: #fff;
+            cursor: pointer;
+            transition: opacity 0.15s, transform 0.15s;
+            vertical-align: middle;
+        }
+        .btn-explain:hover { opacity: 0.85; transform: scale(1.08); }
+        .btn-explain svg { display: block; }
+
+        /* SQL Performance section 2-column layout: cost map + stats on the
+           left (1/3 width), query activity + distribution + tabs on the
+           right (2/3 width). Collapses to a single column on narrow screens. */
+        .sql-perf-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+            gap: 1rem;
+            align-items: start;
+        }
+        .sql-perf-col-left, .sql-perf-col-right { min-width: 0; }
+        @media (max-width: 900px) {
+            .sql-perf-grid { grid-template-columns: 1fr; }
+        }
+
         .stat-card {
             text-align: center;
             padding: 0.5rem 0.4rem;
@@ -2440,8 +2485,8 @@
         .duration-stack-bar {
             display: flex;
             gap: 2px;
-            height: 12px;
-            border-radius: 4px;
+            height: 8px;
+            border-radius: 3px;
             overflow: hidden;
             background: var(--bg-alt);
         }
