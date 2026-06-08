@@ -966,9 +966,9 @@
            Sits between the # column and the query text and only renders
            when an execution plan is available for the query. */
         .cell-plan-action {
-            width: 28px;
-            padding: 0 4px;
-            text-align: center;
+            width: 24px;
+            padding: 0 2px 0 0;
+            text-align: left;
         }
         .btn-explain {
             display: inline-flex;
