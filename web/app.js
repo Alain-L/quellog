@@ -1647,6 +1647,7 @@ function buildEventsSection(data) {
                         <thead>
                             <tr>
                                 <th>#</th>
+                                <th></th>
                                 <th>Query</th>
                                 <th class="num">Count</th>
                                 <th class="num">Avg</th>
@@ -1662,6 +1663,7 @@ function buildEventsSection(data) {
                                 return `
                                 <tr data-q-id="${qid}" onmouseenter="highlightQuery('${qid}', true)" onmouseleave="highlightQuery('${qid}', false)">
                                     <td>${i + 1}</td>
+                                    <td class="cell-plan-action">${q.plan ? `<button class="btn-explain" onclick="event.stopPropagation(); visualizePlanFor('${qid}')" title="Visualize plan on explain.dalibo.com"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="9" y="2" width="6" height="6" rx="1"/><rect x="2" y="16" width="6" height="6" rx="1"/><rect x="16" y="16" width="6" height="6" rx="1"/><path d="M12 8 v4 M5 12 h14 M5 12 v4 M19 12 v4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg></button>` : ''}</td>
                                     <td class="query-cell" onclick="showQueryModal('${qid}')" title="Click for details">${esc(truncQuery(q.normalized_query))}</td>
                                     <td class="num">${fmt(q.count)}</td>
                                     <td class="num">${fmtMs(q.avg_time_ms)}</td>
@@ -2303,11 +2305,12 @@ function buildEventsSection(data) {
         }
 
         // Render modal charts after DOM update
-        function visualizePlan() {
-            const dataEl = document.getElementById('plan-data');
-            if (!dataEl) return;
-
-            // Show confirmation dialog
+        // Shared "Open on explain.dalibo.com?" confirmation + POST flow.
+        // Used both by the Visualize button inside the Query Detail modal
+        // (visualizePlan) and by the per-row eye button in the query table
+        // (visualizePlanFor) — only the plan/sql/title source differs.
+        function explainDaliboFlow(plan, sql, idForTitle) {
+            if (!plan) return;
             let overlay = document.getElementById('visualize-confirm');
             if (!overlay) {
                 overlay = document.createElement('div');
@@ -2328,15 +2331,12 @@ function buildEventsSection(data) {
 
             const cancel = document.getElementById('visualize-cancel');
             const ok = document.getElementById('visualize-ok');
-
             const cleanup = () => { overlay.classList.remove('active'); };
-
             cancel.onclick = cleanup;
             overlay.onclick = (e) => { if (e.target === overlay) cleanup(); };
 
             ok.onclick = () => {
                 cleanup();
-                const data = JSON.parse(dataEl.textContent);
                 const form = document.createElement('form');
                 form.method = 'POST';
                 form.action = 'https://explain.dalibo.com/new';
@@ -2344,26 +2344,41 @@ function buildEventsSection(data) {
                 const planInput = document.createElement('input');
                 planInput.type = 'hidden';
                 planInput.name = 'plan';
-                planInput.value = data.plan;
+                planInput.value = plan;
                 form.appendChild(planInput);
-                if (data.sql) {
+                if (sql) {
                     const sqlInput = document.createElement('input');
                     sqlInput.type = 'hidden';
                     sqlInput.name = 'sql';
-                    sqlInput.value = data.sql;
+                    sqlInput.value = sql;
                     form.appendChild(sqlInput);
                 }
-                if (data.id) {
+                if (idForTitle) {
                     const titleInput = document.createElement('input');
                     titleInput.type = 'hidden';
                     titleInput.name = 'title';
-                    titleInput.value = 'quellog_' + data.id;
+                    titleInput.value = 'quellog_' + idForTitle;
                     form.appendChild(titleInput);
                 }
                 document.body.appendChild(form);
                 form.submit();
                 document.body.removeChild(form);
             };
+        }
+
+        function visualizePlan() {
+            const dataEl = document.getElementById('plan-data');
+            if (!dataEl) return;
+            const data = JSON.parse(dataEl.textContent);
+            explainDaliboFlow(data.plan, data.sql, data.id);
+        }
+
+        // Triggered from the per-row eye button in the query table — looks
+        // up the query by id in analysisData and reuses the same flow.
+        function visualizePlanFor(queryId) {
+            const q = analysisData?.sql_performance?.queries?.find(x => x.id === queryId);
+            if (!q || !q.plan) return;
+            explainDaliboFlow(q.plan, q.normalized_query || '', queryId);
         }
 
         function renderModalCharts() {
@@ -2921,6 +2936,7 @@ function buildEventsSection(data) {
         window.showQueryModal = showQueryModal;
         window.highlightQuery = highlightQuery;
         window.visualizePlan = visualizePlan;
+        window.visualizePlanFor = visualizePlanFor;
         window.showSqlOvView = showSqlOvView;
         window.copyQuery = copyQuery;
         window.showEventDetail = showEventDetail;
