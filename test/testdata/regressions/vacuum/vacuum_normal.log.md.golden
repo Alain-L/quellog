@@ -10,6 +10,27 @@ This _quellog_ report summarizes **3** log entries collected between 19 Apr 2026
 
 - **Automatic vacuum count**: 2
 - **Automatic analyze count**: 1
+- **Cumulated vacuum time**: 1s
+- **Tuples removed**: 246
+- **Dead, not yet removable**: 15  _(xmin horizon — long-running transactions block cleanup)_
+- **Buffer usage (vacuum)**: hits=1315 misses=12 dirtied=28 written=0
+- **Slowest single vacuum**: 0s on `appdb.public.sessions`
+
+### Top tables by autovacuum elapsed time
+
+| Table | Vacuum count | Total elapsed |
+|---|---:|---:|
+| `appdb.public.sessions` | 1 | 0s |
+| `appdb.public.users` | 1 | 0s |
+
+### Tables most affected by stuck xmin horizon
+
+_Dead tuples that vacuum could not yet remove because a transaction still references them._
+
+| Table | Not-yet-removable rows | Vacuum count |
+|---|---:|---:|
+| `appdb.public.sessions` | 12 | 1 |
+| `appdb.public.users` | 3 | 1 |
 
 ### Top automatic vacuum operations per table
 

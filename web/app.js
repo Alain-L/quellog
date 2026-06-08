@@ -878,6 +878,12 @@ function buildEventsSection(data) {
             const maxAna = anaTables[0]?.count || 1;
             // Calculate total space recovered
             const totalRecovered = Object.values(spaceRecovered).reduce((sum, size) => sum + parseSizeToBytes(size), 0);
+            const elapsedTotalSec = m.total_vacuum_elapsed_seconds || 0;
+            const elapsedStr = elapsedTotalSec > 0 ? fmtDuration(elapsedTotalSec * 1000) : '';
+            const xminTotal = m.total_tuples_not_yet_removable || 0;
+            const slowest = m.slowest_vacuum;
+            const topVacTables = m.top_vacuum_tables || [];
+            const xminTables = m.xmin_blocked_tables || [];
             return `
                 <div class="section" id="maintenance">
                     <div class="section-header">Maintenance</div>
@@ -887,7 +893,19 @@ function buildEventsSection(data) {
                             ${(m.aggressive_vacuum_count || 0) > 0 ? `<div class="stat-card stat-card--warning"><div class="stat-value">${m.aggressive_vacuum_count}</div><div class="stat-label">Aggressive</div></div>` : ''}
                             ${totalRecovered > 0 ? `<div class="stat-card"><div class="stat-value">${fmtBytes(totalRecovered)}</div><div class="stat-label">Recovered</div></div>` : ''}
                             <div class="stat-card"><div class="stat-value">${m.analyze_count || 0}</div><div class="stat-label">Analyze</div></div>
+                            ${elapsedStr ? `<div class="stat-card"><div class="stat-value">${elapsedStr}</div><div class="stat-label">Vacuum Time</div></div>` : ''}
+                            ${xminTotal > 0 ? `<div class="stat-card stat-card--alert" title="Dead tuples vacuum could not yet remove — a long-running transaction is holding back the xmin horizon."><div class="stat-value">${fmt(xminTotal)}</div><div class="stat-label">Xmin-blocked</div></div>` : ''}
                         </div>
+                        ${slowest ? `
+                            <div class="subsection">
+                                <div class="subsection-title">Slowest single vacuum</div>
+                                <div style="font-size:0.85rem;color:var(--text-muted);">
+                                    <strong style="color:var(--text);">${fmtDuration(slowest.elapsed_seconds * 1000)}</strong>
+                                    on <code>${esc(slowest.table)}</code>${slowest.timestamp ? ` <span style="color:var(--text-muted);">at ${esc(slowest.timestamp)}</span>` : ''}
+                                    ${slowest.tuples_removed ? ` &middot; ${fmt(slowest.tuples_removed)} tuples removed` : ''}
+                                </div>
+                            </div>
+                        ` : ''}
                         ${hasVacTables ? `
                             <div class="subsection">
                                 <div class="subsection-title">Top Vacuum Tables</div>
@@ -913,6 +931,36 @@ function buildEventsSection(data) {
                                             <div class="bar"><div class="bar-fill" style="width: ${t.count/maxAna*100}%"></div></div>
                                             <span class="removed"></span>
                                             <span class="value">${fmt(t.count)}</span>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        ` : ''}
+                        ${topVacTables.length > 0 ? `
+                            <div class="subsection">
+                                <div class="subsection-title">Top Tables by Vacuum Time</div>
+                                <div class="scroll-list scroll-list--maintenance">
+                                    ${topVacTables.slice(0, 5).map(t => `
+                                        <div class="list-item">
+                                            <span class="name">${esc(t.table)}</span>
+                                            <div class="bar"><div class="bar-fill" style="width: ${t.total_elapsed_seconds/(topVacTables[0].total_elapsed_seconds||1)*100}%"></div></div>
+                                            <span class="removed">${t.vacuum_count}×</span>
+                                            <span class="value">${fmtDuration(t.total_elapsed_seconds * 1000)}</span>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        ` : ''}
+                        ${xminTables.length > 0 ? `
+                            <div class="subsection">
+                                <div class="subsection-title" title="Long-running transactions are blocking vacuum from removing these tuples — a stuck xmin horizon eventually leads to wraparound emergencies.">Tables blocked by stuck xmin horizon</div>
+                                <div class="scroll-list scroll-list--maintenance">
+                                    ${xminTables.slice(0, 5).map(t => `
+                                        <div class="list-item">
+                                            <span class="name">${esc(t.table)}</span>
+                                            <div class="bar"><div class="bar-fill" style="width: ${t.tuples_not_yet_removable/(xminTables[0].tuples_not_yet_removable||1)*100}%; background: var(--danger);"></div></div>
+                                            <span class="removed">${t.vacuum_count}×</span>
+                                            <span class="value">${fmt(t.tuples_not_yet_removable)} rows</span>
                                         </div>
                                     `).join('')}
                                 </div>

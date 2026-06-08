@@ -1,0 +1,48 @@
+## SUMMARY
+
+This _quellog_ report summarizes **4** log entries collected between 20 Apr 2026, 03:00 (UTC) — 20 Apr 2026, 03:01 (UTC), spanning 1m 5s of activity.
+
+## EVENTS
+
+- **LOG**: 4 (100.0%)
+
+## MAINTENANCE
+
+- **Automatic vacuum count**: 3
+- **Automatic analyze count**: 1
+- **Cumulated vacuum time**: 49s
+- **Tuples removed**: 10350
+- **Dead, not yet removable**: 1500000  _(xmin horizon — long-running transactions block cleanup)_
+- **Buffer usage (vacuum)**: hits=7100 misses=1555 dirtied=842 written=424
+- **WAL usage (vacuum)**: 3430 records, 896.95 KB
+- **Slowest single vacuum**: 45s on `appdb.public.events`
+
+### Top tables by autovacuum elapsed time
+
+| Table | Vacuum count | Total elapsed |
+|---|---:|---:|
+| `appdb.public.events` | 2 | 48s |
+| `appdb.public.orders` | 1 | 1s |
+
+### Tables most affected by stuck xmin horizon
+
+_Dead tuples that vacuum could not yet remove because a transaction still references them._
+
+| Table | Not-yet-removable rows | Vacuum count |
+|---|---:|---:|
+| `appdb.public.events` | 1500000 | 2 |
+
+### Top automatic vacuum operations per table
+
+| Table | Count | % of total | Recovered |
+|---|---:|---:|---:|
+| appdb.public.events | 2 | 66.67% | 40.00 KB |
+| appdb.public.orders | 1 | 33.33% | 0 B |
+
+### Top automatic analyze operations per table
+
+| Table | Count | % of total | Recovered |
+|---|---:|---:|---:|
+| appdb.public.users | 1 | 100.00% | 0 B |
+
+

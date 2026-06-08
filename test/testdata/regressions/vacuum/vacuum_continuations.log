@@ -1,0 +1,19 @@
+2026-04-20 03:00:00.100 UTC [10001]: [1-1] user=,db=,app=,client= LOG:  automatic vacuum of table "appdb.public.orders": index scans: 0
+	pages: 0 removed, 100 remain, 0 skipped due to pins, 0 skipped frozen
+	tuples: 250 removed, 9500 remain, 0 are dead but not yet removable
+	buffer usage: 200 hits, 50 misses, 30 dirtied, 12 written
+	WAL usage: records=180, full page records=15, bytes=23456
+	system usage: CPU: user: 0.10 s, system: 0.05 s, elapsed: 1.234 s
+2026-04-20 03:00:05.200 UTC [10002]: [1-1] user=,db=,app=,client= LOG:  automatic vacuum of table "appdb.public.events": index scans: 1
+	pages: 5 removed, 2000 remain, 100 skipped due to pins, 50 skipped frozen
+	tuples: 10000 removed, 500000 remain, 750000 are dead but not yet removable
+	buffer usage: 5000 hits, 1500 misses, 800 dirtied, 400 written
+	WAL usage: records=3200, full page records=120, bytes=890456
+	system usage: CPU: user: 1.20 s, system: 0.40 s, elapsed: 45.789 s
+2026-04-20 03:01:00.300 UTC [10003]: [1-1] user=,db=,app=,client= LOG:  automatic analyze of table "appdb.public.users" system usage: CPU: user: 0.01 s, system: 0.00 s, elapsed: 0.123 s
+2026-04-20 03:01:05.400 UTC [10004]: [1-1] user=,db=,app=,client= LOG:  automatic vacuum of table "appdb.public.events": index scans: 0
+	pages: 0 removed, 1950 remain, 0 skipped due to pins, 0 skipped frozen
+	tuples: 100 removed, 510000 remain, 750000 are dead but not yet removable
+	buffer usage: 1900 hits, 5 misses, 12 dirtied, 12 written
+	WAL usage: records=50, full page records=0, bytes=4567
+	system usage: CPU: user: 0.05 s, system: 0.01 s, elapsed: 2.456 s

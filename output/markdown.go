@@ -425,7 +425,9 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 		if m.Vacuum.AggressiveVacuumCount > 0 {
 			b.WriteString(fmt.Sprintf("  - *of which aggressive*: %d\n", m.Vacuum.AggressiveVacuumCount))
 		}
-		b.WriteString(fmt.Sprintf("- **Automatic analyze count**: %d\n\n", m.Vacuum.AnalyzeCount))
+		b.WriteString(fmt.Sprintf("- **Automatic analyze count**: %d\n", m.Vacuum.AnalyzeCount))
+		writeVacuumContinuationStatsMarkdown(&b, m.Vacuum)
+		b.WriteString("\n")
 
 		if m.Vacuum.VacuumCount > 0 {
 			b.WriteString("### Top automatic vacuum operations per table\n\n")
@@ -1014,6 +1016,54 @@ func printConcurrentHistogramMarkdown(b *strings.Builder, data map[string]int, t
 }
 
 // printTopTablesMarkdown produces a markdown table for vacuum/analyze operations
+// writeVacuumContinuationStatsMarkdown renders the autovacuum
+// continuation-line aggregates (elapsed, tuples, buffer/WAL usage,
+// xmin pressure) into b. Each line is emitted only when the underlying
+// metric is non-zero, so logs that never carry the continuation lines
+// keep the historical terse maintenance block.
+func writeVacuumContinuationStatsMarkdown(b *strings.Builder, v analysis.VacuumMetrics) {
+	if v.TotalVacuumElapsedSeconds > 0 {
+		dur := time.Duration(v.TotalVacuumElapsedSeconds * float64(time.Second)).Truncate(time.Second)
+		b.WriteString(fmt.Sprintf("- **Cumulated vacuum time**: %s\n", dur))
+	}
+	if v.TotalTuplesRemoved > 0 {
+		b.WriteString(fmt.Sprintf("- **Tuples removed**: %d\n", v.TotalTuplesRemoved))
+	}
+	if v.TotalTuplesNotYetRemovable > 0 {
+		b.WriteString(fmt.Sprintf("- **Dead, not yet removable**: %d  _(xmin horizon — long-running transactions block cleanup)_\n", v.TotalTuplesNotYetRemovable))
+	}
+	if v.TotalBufferHits+v.TotalBufferMisses > 0 {
+		b.WriteString(fmt.Sprintf("- **Buffer usage (vacuum)**: hits=%d misses=%d dirtied=%d written=%d\n",
+			v.TotalBufferHits, v.TotalBufferMisses, v.TotalBufferDirtied, v.TotalBufferWritten))
+	}
+	if v.TotalWALRecords > 0 || v.TotalWALBytes > 0 {
+		b.WriteString(fmt.Sprintf("- **WAL usage (vacuum)**: %d records, %s\n",
+			v.TotalWALRecords, FormatBytes(v.TotalWALBytes)))
+	}
+	if v.SlowestVacuum != nil && v.SlowestVacuum.ElapsedSeconds > 0 {
+		dur := time.Duration(v.SlowestVacuum.ElapsedSeconds * float64(time.Second)).Truncate(time.Second)
+		b.WriteString(fmt.Sprintf("- **Slowest single vacuum**: %s on `%s`\n", dur, v.SlowestVacuum.Table))
+	}
+	if len(v.TopVacuumTables) > 0 {
+		b.WriteString("\n### Top tables by autovacuum elapsed time\n\n")
+		b.WriteString("| Table | Vacuum count | Total elapsed |\n")
+		b.WriteString("|---|---:|---:|\n")
+		for _, t := range v.TopVacuumTables {
+			dur := time.Duration(t.TotalElapsedSeconds * float64(time.Second)).Truncate(time.Second)
+			b.WriteString(fmt.Sprintf("| `%s` | %d | %s |\n", t.Table, t.VacuumCount, dur))
+		}
+	}
+	if len(v.XminBlockedTables) > 0 {
+		b.WriteString("\n### Tables most affected by stuck xmin horizon\n\n")
+		b.WriteString("_Dead tuples that vacuum could not yet remove because a transaction still references them._\n\n")
+		b.WriteString("| Table | Not-yet-removable rows | Vacuum count |\n")
+		b.WriteString("|---|---:|---:|\n")
+		for _, t := range v.XminBlockedTables {
+			b.WriteString(fmt.Sprintf("| `%s` | %d | %d |\n", t.Table, t.TuplesNotYetRemovable, t.VacuumCount))
+		}
+	}
+}
+
 func printTopTablesMarkdown(tableCounts map[string]int, total int, spaceRecovered map[string]int64) string {
 	if len(tableCounts) == 0 {
 		return "(No tables)\n"

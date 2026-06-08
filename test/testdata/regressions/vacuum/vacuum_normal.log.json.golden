@@ -19,6 +19,66 @@
     },
     "vacuum_space_recovered": {
       "appdb.public.sessions": "40.00 KB"
+    },
+    "total_vacuum_elapsed_seconds": 1.1,
+    "total_tuples_removed": 246,
+    "total_tuples_not_yet_removable": 15,
+    "total_buffer_hits": 1315,
+    "total_buffer_misses": 12,
+    "total_buffer_dirtied": 28,
+    "top_vacuum_tables": [
+      {
+        "table": "appdb.public.sessions",
+        "vacuum_count": 1,
+        "total_elapsed_seconds": 0.78,
+        "max_elapsed_seconds": 0.78,
+        "tuples_removed": 234,
+        "tuples_not_yet_removable": 12,
+        "buffer_hits": 890,
+        "buffer_misses": 12,
+        "buffer_dirtied": 23
+      },
+      {
+        "table": "appdb.public.users",
+        "vacuum_count": 1,
+        "total_elapsed_seconds": 0.32,
+        "max_elapsed_seconds": 0.32,
+        "tuples_removed": 12,
+        "tuples_not_yet_removable": 3,
+        "buffer_hits": 425,
+        "buffer_dirtied": 5
+      }
+    ],
+    "xmin_blocked_tables": [
+      {
+        "table": "appdb.public.sessions",
+        "vacuum_count": 1,
+        "total_elapsed_seconds": 0.78,
+        "max_elapsed_seconds": 0.78,
+        "tuples_removed": 234,
+        "tuples_not_yet_removable": 12,
+        "buffer_hits": 890,
+        "buffer_misses": 12,
+        "buffer_dirtied": 23
+      },
+      {
+        "table": "appdb.public.users",
+        "vacuum_count": 1,
+        "total_elapsed_seconds": 0.32,
+        "max_elapsed_seconds": 0.32,
+        "tuples_removed": 12,
+        "tuples_not_yet_removable": 3,
+        "buffer_hits": 425,
+        "buffer_dirtied": 5
+      }
+    ],
+    "slowest_vacuum": {
+      "table": "appdb.public.sessions",
+      "timestamp": "2026-04-19 15:10:00",
+      "elapsed_seconds": 0.78,
+      "pages_removed": 5,
+      "tuples_removed": 234,
+      "tuples_not_yet_removable": 12
     }
   },
   "summary": {

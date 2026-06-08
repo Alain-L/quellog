@@ -7,6 +7,7 @@ import (
 	"math"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -376,6 +377,7 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 			fmt.Printf("  %-25s : %d\n", "  of which aggressive", m.Vacuum.AggressiveVacuumCount)
 		}
 		fmt.Printf("  %-25s : %d\n", "Automatic analyze count", m.Vacuum.AnalyzeCount)
+		printVacuumContinuationStats(m.Vacuum)
 		fmt.Println("  Top automatic vacuum operations per table:")
 		printTopTables(m.Vacuum.VacuumTableCounts, m.Vacuum.VacuumCount, m.Vacuum.VacuumSpaceRecovered)
 		fmt.Println("  Top automatic analyze operations per table:")
@@ -900,6 +902,93 @@ func formatSessionDuration(d time.Duration) string {
 		return fmt.Sprintf("%dh%dm", totalHours, mins)
 	}
 	return fmt.Sprintf("%dh", totalHours)
+}
+
+// printVacuumContinuationStats renders the autovacuum continuation-line
+// aggregates that bubble up from PG's "buffer usage / WAL usage /
+// system usage" lines. Each line is rendered only when the metric is
+// non-zero, so older PostgreSQL versions (which omit some of these
+// fields) keep the existing terse vacuum output.
+func printVacuumContinuationStats(v analysis.VacuumMetrics) {
+	if v.TotalVacuumElapsedSeconds > 0 {
+		dur := time.Duration(v.TotalVacuumElapsedSeconds * float64(time.Second)).Truncate(time.Second)
+		fmt.Printf("  %-25s : %s\n", "Cumulated vacuum time", dur)
+	}
+	if v.TotalTuplesRemoved > 0 {
+		fmt.Printf("  %-25s : %s\n", "Tuples removed", formatThousands(v.TotalTuplesRemoved))
+	}
+	if v.TotalTuplesNotYetRemovable > 0 {
+		fmt.Printf("  %-25s : %s   %s(xmin horizon — long-running transactions block cleanup)%s\n",
+			"Dead, not yet removable", formatThousands(v.TotalTuplesNotYetRemovable),
+			ansiMutedItalic, ansiReset)
+	}
+	if v.TotalBufferHits+v.TotalBufferMisses > 0 {
+		fmt.Printf("  %-25s : hits=%s misses=%s dirtied=%s written=%s\n",
+			"Buffer usage (vacuum)",
+			formatThousands(v.TotalBufferHits),
+			formatThousands(v.TotalBufferMisses),
+			formatThousands(v.TotalBufferDirtied),
+			formatThousands(v.TotalBufferWritten),
+		)
+	}
+	if v.TotalWALRecords > 0 || v.TotalWALBytes > 0 {
+		fmt.Printf("  %-25s : %s records, %s\n",
+			"WAL usage (vacuum)",
+			formatThousands(v.TotalWALRecords),
+			FormatBytes(v.TotalWALBytes),
+		)
+	}
+	if v.SlowestVacuum != nil && v.SlowestVacuum.ElapsedSeconds > 0 {
+		dur := time.Duration(v.SlowestVacuum.ElapsedSeconds * float64(time.Second)).Truncate(time.Second)
+		fmt.Printf("  %-25s : %s on %s\n", "Slowest single vacuum", dur, v.SlowestVacuum.Table)
+	}
+	if len(v.TopVacuumTables) > 0 {
+		fmt.Println("  Top tables by autovacuum elapsed time:")
+		for _, t := range v.TopVacuumTables {
+			dur := time.Duration(t.TotalElapsedSeconds * float64(time.Second)).Truncate(time.Second)
+			fmt.Printf("    %s %-3d× %s\n", padLeft(dur.String(), 9), t.VacuumCount, t.Table)
+		}
+	}
+	if len(v.XminBlockedTables) > 0 {
+		fmt.Printf("  %sTables most affected by stuck xmin horizon (dead but not yet removable):%s\n", ansiMutedItalic, ansiReset)
+		for _, t := range v.XminBlockedTables {
+			fmt.Printf("    %s rows   %s\n", padLeft(formatThousands(t.TuplesNotYetRemovable), 16), t.Table)
+		}
+	}
+}
+
+// formatThousands turns an int64 into a thousands-separated string.
+// Negative values are unsupported (the analyzer only emits >= 0 here).
+func formatThousands(v int64) string {
+	s := strconv.FormatInt(v, 10)
+	n := len(s)
+	if n <= 3 {
+		return s
+	}
+	out := make([]byte, 0, n+(n-1)/3)
+	pre := n % 3
+	if pre > 0 {
+		out = append(out, s[:pre]...)
+		if n > pre {
+			out = append(out, ',')
+		}
+	}
+	for i := pre; i < n; i += 3 {
+		out = append(out, s[i:i+3]...)
+		if i+3 < n {
+			out = append(out, ',')
+		}
+	}
+	return string(out)
+}
+
+// padLeft right-aligns s into a field of width n with leading spaces.
+// If s is wider than n it is returned unchanged.
+func padLeft(s string, n int) string {
+	if len(s) >= n {
+		return s
+	}
+	return strings.Repeat(" ", n-len(s)) + s
 }
 
 // printTopTables prints the top tables for a given operation (vacuum or analyze).
