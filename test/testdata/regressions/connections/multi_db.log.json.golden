@@ -188,6 +188,13 @@
       "example": "[40006]: [1-1] user=app,db=appdb,app=psql,client=10.0.0.90 ERROR:  syntax error at or near \"FORM\"",
       "timestamps": [
         1776679205100
+      ],
+      "triggering_queries": [
+        {
+          "id": "se-hIlAiz",
+          "normalized_query": "select * form users",
+          "count": 1
+        }
       ]
     }
   ],

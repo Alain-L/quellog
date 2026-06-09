@@ -81,6 +81,13 @@
       "example": "[13004]: [1-1] user=app,db=appdb,app=psql,client=10.0.0.63 ERROR:  canceling statement due to lock timeout",
       "timestamps": [
         1776632403400
+      ],
+      "triggering_queries": [
+        {
+          "id": "al-F2EyGc",
+          "normalized_query": "alter table customers add column phone text",
+          "count": 1
+        }
       ]
     },
     {
@@ -91,6 +98,13 @@
       "example": "[13003]: [1-1] user=app,db=appdb,app=psql,client=10.0.0.62 ERROR:  insert or update on table \"orders\" violates foreign key constraint \"orders_user_id_fkey\"",
       "timestamps": [
         1776632402300
+      ],
+      "triggering_queries": [
+        {
+          "id": "in-hzD69N",
+          "normalized_query": "insert into orders (user_id, total) values (?, ?)",
+          "count": 1
+        }
       ]
     },
     {
@@ -111,6 +125,13 @@
       "example": "[13002]: [1-1] user=app,db=appdb,app=psql,client=10.0.0.61 ERROR:  permission denied for table audit_logs",
       "timestamps": [
         1776632401200
+      ],
+      "triggering_queries": [
+        {
+          "id": "se-tnsEye",
+          "normalized_query": "select * from audit_logs limit ?",
+          "count": 1
+        }
       ]
     },
     {
@@ -121,6 +142,13 @@
       "example": "[13001]: [1-1] user=app,db=appdb,app=psql,client=10.0.0.60 ERROR:  syntax error at or near \"FORM\"",
       "timestamps": [
         1776632400100
+      ],
+      "triggering_queries": [
+        {
+          "id": "se-JwXONe",
+          "normalized_query": "select * form users where id = ?",
+          "count": 1
+        }
       ]
     },
     {

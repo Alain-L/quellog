@@ -133,18 +133,33 @@ type QueryTypeCountJSON struct {
 // SQL Detail JSON structures (for --sql-detail --json)
 
 type SQLDetailJSON struct {
-	ID              string                `json:"id"`
-	NormalizedQuery string                `json:"normalized_query"`
-	RawQuery        string                `json:"raw_query,omitempty"`
-	Type            string                `json:"type"`
-	Category        string                `json:"category"`
-	Statistics      *QueryDetailStatsJSON `json:"statistics,omitempty"`
-	Executions      lazyExecutions        `json:"executions,omitempty"`
-	TempFiles       *QueryTempFilesJSON   `json:"temp_files,omitempty"`
-	Locks           *QueryLocksJSON       `json:"locks,omitempty"`
-	PreparedNames   []string              `json:"prepared_names,omitempty"`
-	SlowestRun      *SlowestRunJSON       `json:"slowest_run,omitempty"`
-	Plan            string                `json:"plan,omitempty"`
+	ID              string   `json:"id"`
+	NormalizedQuery string   `json:"normalized_query"`
+	RawQuery        string   `json:"raw_query,omitempty"`
+	Type            string   `json:"type"`
+	Category        string   `json:"category"`
+	PreparedNames   []string `json:"prepared_names,omitempty"`
+	// Events promoted right after the identification block so the
+	// operational signal sits at the top of the JSON document, mirror
+	// of the text / markdown / HTML placement.
+	Events     []SQLDetailEventJSON  `json:"events,omitempty"`
+	Statistics *QueryDetailStatsJSON `json:"statistics,omitempty"`
+	Executions lazyExecutions        `json:"executions,omitempty"`
+	TempFiles  *QueryTempFilesJSON   `json:"temp_files,omitempty"`
+	Locks      *QueryLocksJSON       `json:"locks,omitempty"`
+	SlowestRun *SlowestRunJSON       `json:"slowest_run,omitempty"`
+	Plan       string                `json:"plan,omitempty"`
+}
+
+// SQLDetailEventJSON is one row of the EVENTS section in the
+// --sql-detail JSON output. event_id is shared with top_events[].id so
+// downstream tooling can join the two and look up the pattern's total
+// count on the events side without us duplicating it here.
+type SQLDetailEventJSON struct {
+	EventID      string `json:"event_id"`
+	Severity     string `json:"severity"`
+	Message      string `json:"message"`
+	TriggerCount int    `json:"triggered_by_query"`
 }
 
 type QueryDetailStatsJSON struct {
@@ -1485,6 +1500,23 @@ type EventStatJSON struct {
 	// the HTML report's per-event modal to render an occurrences-over-time
 	// sparkline. Omitted when empty.
 	Timestamps []int64 `json:"timestamps,omitempty"`
+	// TriggeringQueries exposes the Pareto view of which normalized
+	// queries fired this pattern. The IDs are stable across the report
+	// (shared with sql_performance.queries[].id) so the HTML modal can
+	// cross-link to the Query Detail panel.
+	TriggeringQueries []TriggeringQueryJSON `json:"triggering_queries,omitempty"`
+}
+
+// TriggeringQueryJSON exposes one (queryID, normalized_query, count)
+// row of an EventStat's triggering-queries table. The same ID is
+// emitted under sql_performance.queries[].id when the query was also
+// timed by log_min_duration_statement; consumers can join the two
+// sections on this field to enrich the event view with full query
+// metrics.
+type TriggeringQueryJSON struct {
+	ID              string `json:"id"`
+	NormalizedQuery string `json:"normalized_query"`
+	Count           int    `json:"count"`
 }
 
 type ErrorClassJSON struct {
@@ -1664,13 +1696,14 @@ func buildJSONData(m analysis.AggregatedMetrics, sections []string, full bool) m
 			topEvents := make([]EventStatJSON, len(m.TopEvents))
 			for i, e := range m.TopEvents {
 				topEvents[i] = EventStatJSON{
-					ID:            e.ID,
-					Message:       e.Message,
-					Count:         e.Count,
-					Severity:      e.Severity,
-					Example:       e.Example,
-					SQLStateClass: e.SQLStateClass,
-					Timestamps:    e.Timestamps,
+					ID:                e.ID,
+					Message:           e.Message,
+					Count:             e.Count,
+					Severity:          e.Severity,
+					Example:           e.Example,
+					SQLStateClass:     e.SQLStateClass,
+					Timestamps:        e.Timestamps,
+					TriggeringQueries: triggeringQueriesJSON(e.TriggeringQueries),
 				}
 			}
 			data["top_events"] = topEvents
@@ -2146,6 +2179,25 @@ func formatVacuumSpaceRecovered(space map[string]int64) map[string]string {
 	return formatted
 }
 
+// triggeringQueriesJSON converts the in-memory TriggeringQuery slice
+// into its JSON-friendly form. Returns nil (not an empty slice) when
+// the stat carries no triggering queries so the wire shape stays
+// "triggering_queries": absent rather than "triggering_queries": [].
+func triggeringQueriesJSON(qs []analysis.TriggeringQuery) []TriggeringQueryJSON {
+	if len(qs) == 0 {
+		return nil
+	}
+	out := make([]TriggeringQueryJSON, len(qs))
+	for i, q := range qs {
+		out[i] = TriggeringQueryJSON{
+			ID:              q.ID,
+			NormalizedQuery: q.NormalizedQuery,
+			Count:           q.Count,
+		}
+	}
+	return out
+}
+
 // convertSummary aggregates global metrics into a JSON-friendly format.
 // It calculates the total duration between the first and last log entry
 // and computes the throughput (logs per second).
@@ -2610,8 +2662,41 @@ func ExportSQLDetailJSON(w io.Writer, m analysis.AggregatedMetrics, queryIDs []s
 			}
 		}
 
+		// EVENTS rollup — every event pattern that has triggered this
+		// query. Sorted by per-query trigger count desc with a tie-break
+		// on the total event count, same logic as the text and markdown
+		// renderers. The relation is materialised here at output time
+		// rather than during analysis so the SQL data stays free of an
+		// events back-reference.
+		var events []SQLDetailEventJSON
+		for i := range m.TopEvents {
+			for _, tq := range m.TopEvents[i].TriggeringQueries {
+				if tq.ID != queryID {
+					continue
+				}
+				events = append(events, SQLDetailEventJSON{
+					EventID:      m.TopEvents[i].ID,
+					Severity:     m.TopEvents[i].Severity,
+					Message:      m.TopEvents[i].Message,
+					TriggerCount: tq.Count,
+				})
+				break
+			}
+		}
+		if len(events) > 1 {
+			sort.Slice(events, func(i, j int) bool {
+				if events[i].TriggerCount != events[j].TriggerCount {
+					return events[i].TriggerCount > events[j].TriggerCount
+				}
+				return events[i].EventID < events[j].EventID
+			})
+		}
+		if len(events) > 0 {
+			detail.Events = events
+		}
+
 		// Only add if we found something
-		if detail.NormalizedQuery != "" || detail.TempFiles != nil || detail.Locks != nil {
+		if detail.NormalizedQuery != "" || detail.TempFiles != nil || detail.Locks != nil || len(detail.Events) > 0 {
 			details = append(details, detail)
 		}
 	}

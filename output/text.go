@@ -1303,10 +1303,29 @@ func PrintSQLDetails(m analysis.AggregatedMetrics, queryDetails []string) {
 			}
 		}
 
-		// Check if query was found anywhere
+		// Fallback: a triggering-query entry inside top_events. The
+		// query was never timed by log_min_duration_statement but it
+		// still showed up as the STATEMENT continuation of one or more
+		// error patterns. We synthesise a minimal QueryStat so the
+		// detail view can still render the normalised form and the
+		// EVENTS section below picks up.
+		var triggerOnlyNormalized string
 		if sqlStat == nil && tempStat == nil && lockStat == nil {
-			fmt.Printf("\nQuery ID '%s' not found.\n", qid)
-			continue
+			for i := range m.TopEvents {
+				for _, tq := range m.TopEvents[i].TriggeringQueries {
+					if tq.ID == qid {
+						triggerOnlyNormalized = tq.NormalizedQuery
+						break
+					}
+				}
+				if triggerOnlyNormalized != "" {
+					break
+				}
+			}
+			if triggerOnlyNormalized == "" {
+				fmt.Printf("\nQuery ID '%s' not found.\n", qid)
+				continue
+			}
 		}
 
 		// Get query type and normalized query (from any available source)
@@ -1326,6 +1345,11 @@ func PrintSQLDetails(m analysis.AggregatedMetrics, queryDetails []string) {
 			queryType = analysis.QueryTypeFromID(tempStat.ID)
 			normalizedQuery = tempStat.NormalizedQuery
 			rawQuery = tempStat.RawQuery
+		} else if triggerOnlyNormalized != "" {
+			queryType = analysis.QueryTypeFromID(qid)
+			normalizedQuery = triggerOnlyNormalized
+			// No raw form — the only thing we have is the normalised
+			// signature from the STATEMENT continuation.
 		}
 
 		// SQL DETAILS section
@@ -1347,6 +1371,18 @@ func PrintSQLDetails(m analysis.AggregatedMetrics, queryDetails []string) {
 			if len(sqlStat.PreparedNames) > 0 {
 				fmt.Printf("  Prepared as          : %s\n", formatPreparedNames(sqlStat.PreparedNames))
 			}
+		}
+
+		// EVENTS section — surfaced right after the Query Info block so
+		// the operational signal ("this query triggers this error N
+		// times") is the first thing a DBA sees, before the time /
+		// tempfiles / locks drill-down.
+		eventsFor := findEventsTriggeredByQuery(m.TopEvents, qid)
+		if len(eventsFor) > 0 {
+			fmt.Println()
+			fmt.Println(bold + "EVENTS" + reset)
+			fmt.Println()
+			printQueryEvents(eventsFor)
 		}
 
 		// TIME section (if SQL metrics available)
@@ -1482,6 +1518,58 @@ func PrintSQLDetails(m analysis.AggregatedMetrics, queryDetails []string) {
 }
 
 // Helpers
+
+// queryEventLink pairs an EventStat with the count of times the query
+// under inspection triggered it, derived at render time from the
+// EventStat.TriggeringQueries slice.
+type queryEventLink struct {
+	Event      analysis.EventStat
+	TriggerCnt int
+}
+
+// findEventsTriggeredByQuery walks events looking for any pattern
+// whose TriggeringQueries list mentions queryID. Results are sorted by
+// per-query trigger count descending, with a tie-breaker on the total
+// event count so the most pressing pattern surfaces first.
+func findEventsTriggeredByQuery(events []analysis.EventStat, queryID string) []queryEventLink {
+	if queryID == "" {
+		return nil
+	}
+	var out []queryEventLink
+	for i := range events {
+		for _, tq := range events[i].TriggeringQueries {
+			if tq.ID == queryID {
+				out = append(out, queryEventLink{Event: events[i], TriggerCnt: tq.Count})
+				break
+			}
+		}
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].TriggerCnt != out[j].TriggerCnt {
+			return out[i].TriggerCnt > out[j].TriggerCnt
+		}
+		return out[i].Event.Count > out[j].Event.Count
+	})
+	return out
+}
+
+// printQueryEvents renders the EVENTS section table for --sql-detail.
+// Same column shape ideas as printTopTables / printQueryTable so the
+// section sits visually next to TEMP FILES and LOCKS. Rows are already
+// sorted by trigger count desc, which doubles as the implicit ranking
+// (no "#" column).
+func printQueryEvents(rows []queryEventLink) {
+	const msgWidth = 60
+	fmt.Printf("  %-10s  %-8s  %-*s  %9s\n", "EventID", "SEVERITY", msgWidth, "MESSAGE", "TRIGGERED")
+	for _, r := range rows {
+		msg := r.Event.Message
+		if len(msg) > msgWidth {
+			msg = msg[:msgWidth-1] + "…"
+		}
+		fmt.Printf("  %-10s  %-8s  %-*s  %9d\n",
+			r.Event.ID, r.Event.Severity, msgWidth, msg, r.TriggerCnt)
+	}
+}
 
 // formatPreparedNames renders the set of distinct prepared-statement names
 // observed for a query: a single name is shown as-is; multiple names are
