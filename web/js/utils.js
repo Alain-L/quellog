@@ -74,6 +74,24 @@ export function fmtBytes(b) {
 }
 
 /**
+ * Format large integer counts with SI-style suffixes (1.5M, 370M, 4.5G).
+ * Matches the CLI's formatCompact so the report's HTML and text outputs
+ * use the same units for buffer / WAL aggregate counts.
+ * @param {number} n
+ * @returns {string}
+ */
+export function fmtCompact(n) {
+    if (n == null || n < 0) return '-';
+    if (n < 1000) return String(n);
+    if (n < 10000) return (n / 1000).toFixed(1) + 'k';
+    if (n < 1_000_000) return Math.round(n / 1000) + 'k';
+    if (n < 10_000_000) return (n / 1_000_000).toFixed(1) + 'M';
+    if (n < 1_000_000_000) return Math.round(n / 1_000_000) + 'M';
+    if (n < 10_000_000_000) return (n / 1_000_000_000).toFixed(1) + 'G';
+    return Math.round(n / 1_000_000_000) + 'G';
+}
+
+/**
  * Format milliseconds (numeric) to compact display string.
  * @param {number|string} ms
  * @returns {string}

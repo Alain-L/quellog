@@ -1,5 +1,5 @@
 // ES Module imports
-import { fmt, fmtDuration, fmtBytes, fmtMs, fmtDur, parseDurToMs, esc, escForJsAttr, truncQuery, safeMax, safeMin } from './js/utils.js';
+import { fmt, fmtDuration, fmtBytes, fmtCompact, fmtMs, fmtDur, parseDurToMs, esc, escForJsAttr, truncQuery, safeMax, safeMin } from './js/utils.js';
 import {
     wasmModule, wasmReady, analysisData, currentFileContent, currentFileName, currentFileSize, originalDimensions,
     charts, modalCharts, modalChartsData, modalChartCounter, chartIntervalMap, defaultInterval,
@@ -866,109 +866,245 @@ function buildEventsSection(data) {
                     </div>
                 `;
             }
-            // JSON uses vacuum_count, analyze_count (not autovacuum/autoanalyze)
-            // vacuum_table_counts and analyze_table_counts are objects {table: count}
-            // vacuum_space_recovered is {table: "XX KB"} for tables that recovered space
+            // Split into AUTOVACUUM and AUTOANALYZE sibling blocks, mirroring
+            // the CLI layout. Each block carries its own stat-grid and a
+            // tab-switchable per-table view (elapsed / count / xmin) so the
+            // reader can pivot the same data without scrolling between 4
+            // separate lists.
             const spaceRecovered = m.vacuum_space_recovered || {};
-            const vacTables = m.vacuum_table_counts ? Object.entries(m.vacuum_table_counts).map(([t, c]) => ({table: t, count: c, removed: spaceRecovered[t]})).sort((a,b) => b.count - a.count) : [];
-            const anaTables = m.analyze_table_counts ? Object.entries(m.analyze_table_counts).map(([t, c]) => ({table: t, count: c})).sort((a,b) => b.count - a.count) : [];
-            const hasVacTables = vacTables.length > 0;
-            const hasAnaTables = anaTables.length > 0;
-            const maxVac = vacTables[0]?.count || 1;
-            const maxAna = anaTables[0]?.count || 1;
-            // Calculate total space recovered
-            const totalRecovered = Object.values(spaceRecovered).reduce((sum, size) => sum + parseSizeToBytes(size), 0);
-            const elapsedTotalSec = m.total_vacuum_elapsed_seconds || 0;
-            const elapsedStr = elapsedTotalSec > 0 ? fmtDuration(elapsedTotalSec * 1000) : '';
-            const xminTotal = m.total_tuples_not_yet_removable || 0;
-            const slowest = m.slowest_vacuum;
-            const topVacTables = m.top_vacuum_tables || [];
-            const xminTables = m.xmin_blocked_tables || [];
-            return `
+            const totalRecovered = Object.values(spaceRecovered).reduce((s, sz) => s + parseSizeToBytes(sz), 0);
+
+            let html = `
                 <div class="section" id="maintenance">
                     <div class="section-header">Maintenance</div>
                     <div class="section-body">
-                        <div class="stat-grid">
-                            <div class="stat-card"><div class="stat-value">${m.vacuum_count || 0}</div><div class="stat-label">Vacuum</div></div>
-                            ${(m.aggressive_vacuum_count || 0) > 0 ? `<div class="stat-card stat-card--warning"><div class="stat-value">${m.aggressive_vacuum_count}</div><div class="stat-label">Aggressive</div></div>` : ''}
-                            ${totalRecovered > 0 ? `<div class="stat-card"><div class="stat-value">${fmtBytes(totalRecovered)}</div><div class="stat-label">Recovered</div></div>` : ''}
-                            <div class="stat-card"><div class="stat-value">${m.analyze_count || 0}</div><div class="stat-label">Analyze</div></div>
-                            ${elapsedStr ? `<div class="stat-card"><div class="stat-value">${elapsedStr}</div><div class="stat-label">Vacuum Time</div></div>` : ''}
-                            ${xminTotal > 0 ? `<div class="stat-card stat-card--alert" title="Dead tuples vacuum could not yet remove — a long-running transaction is holding back the xmin horizon."><div class="stat-value">${fmt(xminTotal)}</div><div class="stat-label">Xmin-blocked</div></div>` : ''}
-                        </div>
-                        ${slowest ? `
-                            <div class="subsection">
-                                <div class="subsection-title">Slowest single vacuum</div>
-                                <div style="font-size:0.85rem;color:var(--text-muted);">
-                                    <strong style="color:var(--text);">${fmtDuration(slowest.elapsed_seconds * 1000)}</strong>
-                                    on <code>${esc(slowest.table)}</code>${slowest.timestamp ? ` <span style="color:var(--text-muted);">at ${esc(slowest.timestamp)}</span>` : ''}
-                                    ${slowest.tuples_removed ? ` &middot; ${fmt(slowest.tuples_removed)} tuples removed` : ''}
-                                </div>
-                            </div>
-                        ` : ''}
-                        ${hasVacTables ? `
-                            <div class="subsection">
-                                <div class="subsection-title">Top Vacuum Tables</div>
-                                <div class="scroll-list scroll-list--maintenance">
-                                    ${vacTables.slice(0, 5).map(t => `
-                                        <div class="list-item">
-                                            <span class="name">${esc(t.table)}</span>
-                                            <div class="bar"><div class="bar-fill" style="width: ${t.count/maxVac*100}%"></div></div>
-                                            <span class="removed">${t.removed ? t.removed + ' removed' : ''}</span>
-                                            <span class="value">${fmt(t.count)}</span>
-                                        </div>
-                                    `).join('')}
-                                </div>
-                            </div>
-                        ` : ''}
-                        ${hasAnaTables ? `
-                            <div class="subsection">
-                                <div class="subsection-title">Top Analyze Tables</div>
-                                <div class="scroll-list scroll-list--maintenance">
-                                    ${anaTables.slice(0, 5).map(t => `
-                                        <div class="list-item">
-                                            <span class="name">${esc(t.table)}</span>
-                                            <div class="bar"><div class="bar-fill" style="width: ${t.count/maxAna*100}%"></div></div>
-                                            <span class="removed"></span>
-                                            <span class="value">${fmt(t.count)}</span>
-                                        </div>
-                                    `).join('')}
-                                </div>
-                            </div>
-                        ` : ''}
-                        ${topVacTables.length > 0 ? `
-                            <div class="subsection">
-                                <div class="subsection-title">Top Tables by Vacuum Time</div>
-                                <div class="scroll-list scroll-list--maintenance">
-                                    ${topVacTables.slice(0, 5).map(t => `
-                                        <div class="list-item">
-                                            <span class="name">${esc(t.table)}</span>
-                                            <div class="bar"><div class="bar-fill" style="width: ${t.total_elapsed_seconds/(topVacTables[0].total_elapsed_seconds||1)*100}%"></div></div>
-                                            <span class="removed">${t.vacuum_count}×</span>
-                                            <span class="value">${fmtDuration(t.total_elapsed_seconds * 1000)}</span>
-                                        </div>
-                                    `).join('')}
-                                </div>
-                            </div>
-                        ` : ''}
-                        ${xminTables.length > 0 ? `
-                            <div class="subsection">
-                                <div class="subsection-title" title="Long-running transactions are blocking vacuum from removing these tuples — a stuck xmin horizon eventually leads to wraparound emergencies.">Tables blocked by stuck xmin horizon</div>
-                                <div class="scroll-list scroll-list--maintenance">
-                                    ${xminTables.slice(0, 5).map(t => `
-                                        <div class="list-item">
-                                            <span class="name">${esc(t.table)}</span>
-                                            <div class="bar"><div class="bar-fill" style="width: ${t.tuples_not_yet_removable/(xminTables[0].tuples_not_yet_removable||1)*100}%; background: var(--danger);"></div></div>
-                                            <span class="removed">${t.vacuum_count}×</span>
-                                            <span class="value">${fmt(t.tuples_not_yet_removable)} rows</span>
-                                        </div>
-                                    `).join('')}
-                                </div>
-                            </div>
-                        ` : ''}
+            `;
+            if ((m.vacuum_count || 0) > 0) {
+                html += buildAutovacuumBlock(m, spaceRecovered, totalRecovered);
+            }
+            if ((m.analyze_count || 0) > 0) {
+                html += buildAutoanalyzeBlock(m);
+            }
+            html += `
                     </div>
                 </div>
             `;
+            return html;
+        }
+
+        // Cache the live maintenance metrics so the tab switcher can
+        // re-render the table without re-walking analysisData each click.
+        let _vacTabsData = null;
+        let _anaTabsData = null;
+
+        function buildAutovacuumBlock(m, spaceRecovered, totalRecovered) {
+            const elapsedStr = (m.total_vacuum_elapsed_seconds || 0) > 0
+                ? fmtDuration(m.total_vacuum_elapsed_seconds * 1000)
+                : '';
+            const slowest = m.slowest_vacuum;
+            const topVacTables = m.top_vacuum_tables || [];
+            const xminTables = m.xmin_blocked_tables || [];
+            const xminTotal = m.total_tuples_not_yet_removable || 0;
+            const vacTables = m.vacuum_table_counts
+                ? Object.entries(m.vacuum_table_counts)
+                    .map(([t, c]) => ({ table: t, count: c }))
+                    .sort((a, b) => b.count - a.count)
+                : [];
+
+            _vacTabsData = { topElapsed: topVacTables, xmin: xminTables, byCount: vacTables, spaceRecovered, vacuumCount: m.vacuum_count || 0 };
+
+            const bufferTotal = (m.total_buffer_hits || 0) + (m.total_buffer_misses || 0);
+            const walTotal = (m.total_wal_records || 0) + (m.total_wal_bytes || 0);
+
+            return `
+                <div class="subsection">
+                    <div class="subsection-title">Autovacuum</div>
+                    <div class="stat-grid">
+                        <div class="stat-card"><div class="stat-value">${fmt(m.vacuum_count || 0)}</div><div class="stat-label">Vacuum count</div></div>
+                        ${(m.aggressive_vacuum_count || 0) > 0 ? `<div class="stat-card stat-card--warning"><div class="stat-value">${fmt(m.aggressive_vacuum_count)}</div><div class="stat-label">Aggressive</div></div>` : ''}
+                        ${elapsedStr ? `<div class="stat-card"><div class="stat-value">${elapsedStr}</div><div class="stat-label">Cumulated time</div></div>` : ''}
+                        ${(m.total_tuples_removed || 0) > 0 ? `<div class="stat-card"><div class="stat-value">${fmt(m.total_tuples_removed)}</div><div class="stat-label">Tuples removed</div></div>` : ''}
+                        ${totalRecovered > 0 ? `<div class="stat-card"><div class="stat-value">${fmtBytes(totalRecovered)}</div><div class="stat-label">Space recovered</div></div>` : ''}
+                        ${xminTotal > 0 ? `<div class="stat-card stat-card--alert" title="Dead tuples vacuum could not yet remove — a long-running transaction is holding back cleanup."><div class="stat-value">${fmt(xminTotal)}</div><div class="stat-label">Dead, not yet removable</div></div>` : ''}
+                        ${slowest && slowest.elapsed_seconds > 0 ? `<div class="stat-card" title="${esc(slowest.table)}"><div class="stat-value">${fmtDuration(slowest.elapsed_seconds * 1000)}</div><div class="stat-label">Slowest single run</div></div>` : ''}
+                    </div>
+                    ${bufferTotal > 0 || walTotal > 0 ? `
+                        <div class="metric-line">
+                            ${bufferTotal > 0 ? `<span class="metric-line-label">Buffer usage</span>
+                                <span class="metric-line-val">hits <strong>${fmtCompact(m.total_buffer_hits || 0)}</strong></span>
+                                <span class="metric-line-val">misses <strong>${fmtCompact(m.total_buffer_misses || 0)}</strong></span>
+                                <span class="metric-line-val">dirtied <strong>${fmtCompact(m.total_buffer_dirtied || 0)}</strong></span>
+                                <span class="metric-line-val">written <strong>${fmtCompact(m.total_buffer_written || 0)}</strong></span>` : ''}
+                        </div>
+                        ${walTotal > 0 ? `
+                            <div class="metric-line">
+                                <span class="metric-line-label">WAL usage</span>
+                                <span class="metric-line-val"><strong>${fmtCompact(m.total_wal_records || 0)}</strong> records</span>
+                                <span class="metric-line-val"><strong>${fmtBytes(m.total_wal_bytes || 0)}</strong></span>
+                            </div>
+                        ` : ''}
+                    ` : ''}
+                    <div class="subsection">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                            <div class="subsection-title" style="margin: 0;">Top tables</div>
+                            <div class="tabs" style="margin: 0;">
+                                <button class="tab active" onclick="showVacuumView(this, 'elapsed')">By elapsed</button>
+                                ${xminTables.length > 0 ? `<button class="tab" onclick="showVacuumView(this, 'xmin')">By xmin-blocked rows</button>` : ''}
+                                ${vacTables.length > 0 ? `<button class="tab" onclick="showVacuumView(this, 'count')">By count</button>` : ''}
+                            </div>
+                        </div>
+                        <div id="vacuum-table-container">
+                            ${renderVacuumTable('elapsed')}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function buildAutoanalyzeBlock(m) {
+            const elapsedStr = (m.total_analyze_elapsed_seconds || 0) > 0
+                ? fmtDuration(m.total_analyze_elapsed_seconds * 1000)
+                : '';
+            const topAnaTables = m.top_analyze_tables_by_elapsed || [];
+            const anaTables = m.analyze_table_counts
+                ? Object.entries(m.analyze_table_counts)
+                    .map(([t, c]) => ({ table: t, count: c }))
+                    .sort((a, b) => b.count - a.count)
+                : [];
+
+            _anaTabsData = { topElapsed: topAnaTables, byCount: anaTables, analyzeCount: m.analyze_count || 0 };
+
+            const showTabs = topAnaTables.length > 0 && anaTables.length > 0;
+            const defaultView = topAnaTables.length > 0 ? 'elapsed' : 'count';
+
+            return `
+                <div class="subsection">
+                    <div class="subsection-title">Autoanalyze</div>
+                    <div class="stat-grid">
+                        <div class="stat-card"><div class="stat-value">${fmt(m.analyze_count || 0)}</div><div class="stat-label">Analyze count</div></div>
+                        ${elapsedStr ? `<div class="stat-card"><div class="stat-value">${elapsedStr}</div><div class="stat-label">Cumulated time</div></div>` : ''}
+                    </div>
+                    ${(topAnaTables.length > 0 || anaTables.length > 0) ? `
+                        <div class="subsection">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                                <div class="subsection-title" style="margin: 0;">Top tables</div>
+                                ${showTabs ? `
+                                    <div class="tabs" style="margin: 0;">
+                                        <button class="tab active" onclick="showAnalyzeView(this, 'elapsed')">By elapsed</button>
+                                        <button class="tab" onclick="showAnalyzeView(this, 'count')">By count</button>
+                                    </div>
+                                ` : ''}
+                            </div>
+                            <div id="analyze-table-container">
+                                ${renderAnalyzeTable(defaultView)}
+                            </div>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        }
+
+        // Rendering primitives — same scroll-list shape the maintenance
+        // section has always used (name + bar + secondary + value) so
+        // the visual rhythm is preserved across tab switches. Lists are
+        // capped at 5 entries because the long tail (tables with 1-2
+        // operations) crowds the panel without adding signal — the CLI
+        // does the same.
+        const MAINT_TOP_N = 5;
+
+        function renderVacuumTable(view) {
+            const d = _vacTabsData;
+            if (!d) return '';
+            if (view === 'elapsed') {
+                const rows = d.topElapsed.filter(t => t.total_elapsed_seconds > 0).slice(0, MAINT_TOP_N);
+                if (!rows.length) return '<div class="empty">No elapsed data — older PG version or log_autovacuum_min_duration off.</div>';
+                const max = rows[0].total_elapsed_seconds || 1;
+                return `<div class="scroll-list scroll-list--maintenance">
+                    ${rows.map(t => {
+                        const rec = d.spaceRecovered[t.table];
+                        return `<div class="list-item">
+                            <span class="name">${esc(t.table)}</span>
+                            <div class="bar"><div class="bar-fill" style="width: ${t.total_elapsed_seconds/max*100}%"></div></div>
+                            <span class="removed">${t.vacuum_count}×${rec ? ' · ' + rec + ' recovered' : ''}</span>
+                            <span class="value">${fmtDuration(t.total_elapsed_seconds * 1000)}</span>
+                        </div>`;
+                    }).join('')}
+                </div>`;
+            }
+            if (view === 'xmin') {
+                const rows = d.xmin.slice(0, MAINT_TOP_N);
+                if (!rows.length) return '<div class="empty">No xmin-blocked tables.</div>';
+                const max = rows[0].tuples_not_yet_removable || 1;
+                return `<div class="scroll-list scroll-list--maintenance">
+                    ${rows.map(t => `<div class="list-item">
+                        <span class="name">${esc(t.table)}</span>
+                        <div class="bar"><div class="bar-fill" style="width: ${t.tuples_not_yet_removable/max*100}%; background: var(--danger);"></div></div>
+                        <span class="removed">${t.vacuum_count}×</span>
+                        <span class="value">${fmt(t.tuples_not_yet_removable)} rows</span>
+                    </div>`).join('')}
+                </div>`;
+            }
+            const rows = d.byCount.slice(0, MAINT_TOP_N);
+            if (!rows.length) return '<div class="empty">No vacuum operations recorded.</div>';
+            const max = rows[0].count || 1;
+            return `<div class="scroll-list scroll-list--maintenance">
+                ${rows.map(t => {
+                    const rec = d.spaceRecovered[t.table];
+                    const pct = d.vacuumCount > 0 ? (t.count / d.vacuumCount * 100).toFixed(1) : 0;
+                    return `<div class="list-item">
+                        <span class="name">${esc(t.table)}</span>
+                        <div class="bar"><div class="bar-fill" style="width: ${t.count/max*100}%"></div></div>
+                        <span class="removed">${pct}%${rec ? ' · ' + rec + ' recovered' : ''}</span>
+                        <span class="value">${fmt(t.count)}</span>
+                    </div>`;
+                }).join('')}
+            </div>`;
+        }
+
+        function renderAnalyzeTable(view) {
+            const d = _anaTabsData;
+            if (!d) return '';
+            if (view === 'elapsed') {
+                const rows = d.topElapsed.filter(t => t.total_elapsed_seconds > 0).slice(0, MAINT_TOP_N);
+                if (!rows.length) return '<div class="empty">No elapsed data — older PG version or log_autovacuum_min_duration off.</div>';
+                const max = rows[0].total_elapsed_seconds || 1;
+                return `<div class="scroll-list scroll-list--maintenance">
+                    ${rows.map(t => `<div class="list-item">
+                        <span class="name">${esc(t.table)}</span>
+                        <div class="bar"><div class="bar-fill" style="width: ${t.total_elapsed_seconds/max*100}%"></div></div>
+                        <span class="removed">${t.vacuum_count}×</span>
+                        <span class="value">${fmtDuration(t.total_elapsed_seconds * 1000)}</span>
+                    </div>`).join('')}
+                </div>`;
+            }
+            const rows = d.byCount.slice(0, MAINT_TOP_N);
+            if (!rows.length) return '<div class="empty">No analyze operations recorded.</div>';
+            const max = rows[0].count || 1;
+            return `<div class="scroll-list scroll-list--maintenance">
+                ${rows.map(t => {
+                    const pct = d.analyzeCount > 0 ? (t.count / d.analyzeCount * 100).toFixed(1) : 0;
+                    return `<div class="list-item">
+                        <span class="name">${esc(t.table)}</span>
+                        <div class="bar"><div class="bar-fill" style="width: ${t.count/max*100}%"></div></div>
+                        <span class="removed">${pct}%</span>
+                        <span class="value">${fmt(t.count)}</span>
+                    </div>`;
+                }).join('')}
+            </div>`;
+        }
+
+        function showVacuumView(btn, view) {
+            btn.parentElement.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            btn.classList.add('active');
+            const container = document.getElementById('vacuum-table-container');
+            if (container) container.innerHTML = renderVacuumTable(view);
+        }
+
+        function showAnalyzeView(btn, view) {
+            btn.parentElement.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            btn.classList.add('active');
+            const container = document.getElementById('analyze-table-container');
+            if (container) container.innerHTML = renderAnalyzeTable(view);
         }
 
         function buildLocksSection(data) {
@@ -3247,6 +3383,8 @@ function buildEventsSection(data) {
         window.visualizePlan = visualizePlan;
         window.visualizePlanFor = visualizePlanFor;
         window.showSqlOvView = showSqlOvView;
+        window.showVacuumView = showVacuumView;
+        window.showAnalyzeView = showAnalyzeView;
         window.copyQuery = copyQuery;
         window.showEventDetail = showEventDetail;
         window.navigateToQuery = navigateToQuery;

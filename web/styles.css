@@ -1498,22 +1498,61 @@
             flex-shrink: 0;
             text-align: right;
         }
-        /* Maintenance lists: narrower value column + removed column */
+        /* Maintenance lists: name fixed-width, then bar, then a muted-
+           italic "removed" column (count× / share% / "X recovered"),
+           then the value column (count / elapsed / rows). The value
+           column is wide enough for "784,509 rows" (worst observed) so
+           rows never wrap. Bars get a touch more height than the
+           generic list to read at a glance on dense reports. */
         .scroll-list--maintenance .list-item .value {
-            width: 50px;
+            width: 110px;
+            white-space: nowrap;
         }
         .scroll-list--maintenance .list-item .name {
-            width: 200px;
-            max-width: 200px;
+            width: 240px;
+            max-width: 240px;
         }
         .scroll-list--maintenance .list-item .removed {
             font-size: 0.72rem;
             font-style: italic;
             color: var(--text-muted);
-            width: 110px;
+            width: 170px;
             flex-shrink: 0;
             text-align: right;
             white-space: nowrap;
+        }
+        .scroll-list--maintenance .list-item .bar {
+            height: 8px;
+        }
+
+        /* metric-line: a tight horizontal stack of key/value chips,
+           used in the autovacuum block for "Buffer usage" / "WAL usage"
+           summaries. Sits between the stat-grid and the top-tables
+           table — visually lighter than another stat-card row, but
+           still easy to scan for a DBA who wants the hit/miss/dirtied
+           breakdown at a glance. */
+        .metric-line {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.4rem 1.2rem;
+            align-items: baseline;
+            margin: 0.4rem 0 0.6rem 0;
+            font-size: 0.78rem;
+            color: var(--text-muted);
+        }
+        .metric-line-label {
+            font-weight: 600;
+            color: var(--text);
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            font-size: 0.7rem;
+        }
+        .metric-line-val {
+            white-space: nowrap;
+        }
+        .metric-line-val strong {
+            color: var(--text);
+            font-weight: 600;
         }
 
         /* Error Classes - uses same layout as Clients but wider name */
