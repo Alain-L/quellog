@@ -60,6 +60,15 @@ type VacuumMetrics struct {
 	// SlowestVacuum captures the single worst-elapsed vacuum observed,
 	// useful as the headline "anomaly" line in the maintenance section.
 	SlowestVacuum *VacuumSample
+
+	// TotalAnalyzeElapsedSeconds is the global cumulative time spent in
+	// autoanalyze "system usage" blocks. TopAnalyzeTablesByElapsed
+	// reuses VacuumTableStat as a shape (its VacuumCount field carries
+	// the analyze occurrence count when the slice originates from the
+	// analyze branch). Both fields are zero when the log carries no
+	// autoanalyze system-usage line.
+	TotalAnalyzeElapsedSeconds float64
+	TopAnalyzeTablesByElapsed  []VacuumTableStat
 }
 
 // VacuumTableStat aggregates autovacuum continuation metrics for a
@@ -141,6 +150,9 @@ type VacuumAnalyzer struct {
 	totalWALRecords            int64
 	totalWALBytes              int64
 	slowestVacuum              *VacuumSample
+
+	analyzeTableStats          map[string]*VacuumTableStat
+	totalAnalyzeElapsedSeconds float64
 }
 
 // NewVacuumAnalyzer creates a new vacuum analyzer.
@@ -150,6 +162,7 @@ func NewVacuumAnalyzer() *VacuumAnalyzer {
 		analyzeTableCounts:   make(map[string]int, 100),
 		vacuumSpaceRecovered: make(map[string]int64, 100),
 		vacuumTableStats:     make(map[string]*VacuumTableStat, 100),
+		analyzeTableStats:    make(map[string]*VacuumTableStat, 100),
 	}
 }
 
@@ -214,6 +227,22 @@ func (a *VacuumAnalyzer) Process(entry *parser.LogEntry) {
 		tableName := extractTableName(msg)
 		a.analyzeCount++
 		a.analyzeTableCounts[tableName]++
+		// Analyze blocks only carry "system usage: CPU ... elapsed: X s"
+		// — no tuples, no buffer, no WAL. Track elapsed alone so we can
+		// rank tables by autoanalyze cost when the data is present.
+		if elapsed := extractElapsedSeconds(msg); elapsed > 0 {
+			stat := a.analyzeTableStats[tableName]
+			if stat == nil {
+				stat = &VacuumTableStat{Table: tableName}
+				a.analyzeTableStats[tableName] = stat
+			}
+			stat.VacuumCount++
+			stat.TotalElapsedSeconds += elapsed
+			if elapsed > stat.MaxElapsedSeconds {
+				stat.MaxElapsedSeconds = elapsed
+			}
+			a.totalAnalyzeElapsedSeconds += elapsed
+		}
 	}
 }
 
@@ -304,6 +333,8 @@ func (a *VacuumAnalyzer) Finalize() VacuumMetrics {
 		TopVacuumTables:            top,
 		XminBlockedTables:          xmin,
 		SlowestVacuum:              a.slowestVacuum,
+		TotalAnalyzeElapsedSeconds: a.totalAnalyzeElapsedSeconds,
+		TopAnalyzeTablesByElapsed:  topVacuumTablesByElapsed(a.analyzeTableStats, 10),
 	}
 }
 

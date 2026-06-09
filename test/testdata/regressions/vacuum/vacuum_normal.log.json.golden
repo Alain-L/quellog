@@ -79,7 +79,16 @@
       "pages_removed": 5,
       "tuples_removed": 234,
       "tuples_not_yet_removable": 12
-    }
+    },
+    "total_analyze_elapsed_seconds": 0.15,
+    "top_analyze_tables_by_elapsed": [
+      {
+        "table": "appdb.public.users",
+        "vacuum_count": 1,
+        "total_elapsed_seconds": 0.15,
+        "max_elapsed_seconds": 0.15
+      }
+    ]
   },
   "summary": {
     "start_date": "2026-04-19 15:00:00",

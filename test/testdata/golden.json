@@ -7636,7 +7636,70 @@
       "table": "app_db.public.large_transactions",
       "timestamp": "2025-11-30 21:11:03",
       "elapsed_seconds": 0.78
-    }
+    },
+    "total_analyze_elapsed_seconds": 28.259999999999998,
+    "top_analyze_tables_by_elapsed": [
+      {
+        "table": "app_db.public.large_transactions",
+        "vacuum_count": 5,
+        "total_elapsed_seconds": 17.21,
+        "max_elapsed_seconds": 5.16
+      },
+      {
+        "table": "app_db.public.event_log",
+        "vacuum_count": 7,
+        "total_elapsed_seconds": 7.5200000000000005,
+        "max_elapsed_seconds": 2.77
+      },
+      {
+        "table": "app_db.public.sessions",
+        "vacuum_count": 8,
+        "total_elapsed_seconds": 2.0799999999999996,
+        "max_elapsed_seconds": 0.81
+      },
+      {
+        "table": "app_db.public.orders",
+        "vacuum_count": 11,
+        "total_elapsed_seconds": 0.7500000000000002,
+        "max_elapsed_seconds": 0.13
+      },
+      {
+        "table": "analytics.pg_catalog.pg_attribute",
+        "vacuum_count": 1,
+        "total_elapsed_seconds": 0.23,
+        "max_elapsed_seconds": 0.23
+      },
+      {
+        "table": "app_db.pg_catalog.pg_attribute",
+        "vacuum_count": 1,
+        "total_elapsed_seconds": 0.21,
+        "max_elapsed_seconds": 0.21
+      },
+      {
+        "table": "analytics.pg_catalog.pg_class",
+        "vacuum_count": 1,
+        "total_elapsed_seconds": 0.07,
+        "max_elapsed_seconds": 0.07
+      },
+      {
+        "table": "app_db.pg_catalog.pg_class",
+        "vacuum_count": 1,
+        "total_elapsed_seconds": 0.07,
+        "max_elapsed_seconds": 0.07
+      },
+      {
+        "table": "analytics.pg_catalog.pg_depend",
+        "vacuum_count": 1,
+        "total_elapsed_seconds": 0.03,
+        "max_elapsed_seconds": 0.03
+      },
+      {
+        "table": "app_db.pg_catalog.pg_depend",
+        "vacuum_count": 1,
+        "total_elapsed_seconds": 0.03,
+        "max_elapsed_seconds": 0.03
+      }
+    ]
   },
   "sql_performance": {
     "total_query_duration": "4m 51s",

@@ -272,6 +272,14 @@ type MaintenanceJSON struct {
 	TopVacuumTables            []VacuumTableStatJSON  `json:"top_vacuum_tables,omitempty"`
 	XminBlockedTables          []VacuumTableStatJSON  `json:"xmin_blocked_tables,omitempty"`
 	SlowestVacuum              *VacuumSampleJSON      `json:"slowest_vacuum,omitempty"`
+
+	// Autoanalyze aggregates parsed from the system-usage continuation
+	// line PostgreSQL emits after autoanalyze blocks. analyze stats are
+	// kept distinct from vacuum stats because the underlying log block
+	// only carries elapsed (no buffer / WAL / tuples), so consumers can
+	// keep their renderers shape-symmetric with the vacuum side.
+	TotalAnalyzeElapsedSeconds float64               `json:"total_analyze_elapsed_seconds,omitempty"`
+	TopAnalyzeTablesByElapsed  []VacuumTableStatJSON `json:"top_analyze_tables_by_elapsed,omitempty"`
 }
 
 // VacuumTableStatJSON is the per-table aggregate exposed in the
@@ -2282,6 +2290,13 @@ func buildMaintenanceJSON(v analysis.VacuumMetrics) MaintenanceJSON {
 		}
 		if !s.Timestamp.IsZero() {
 			j.SlowestVacuum.Timestamp = s.Timestamp.Format("2006-01-02 15:04:05")
+		}
+	}
+	j.TotalAnalyzeElapsedSeconds = v.TotalAnalyzeElapsedSeconds
+	if len(v.TopAnalyzeTablesByElapsed) > 0 {
+		j.TopAnalyzeTablesByElapsed = make([]VacuumTableStatJSON, len(v.TopAnalyzeTablesByElapsed))
+		for i, t := range v.TopAnalyzeTablesByElapsed {
+			j.TopAnalyzeTablesByElapsed[i] = vacuumTableStatJSON(t)
 		}
 	}
 	return j
