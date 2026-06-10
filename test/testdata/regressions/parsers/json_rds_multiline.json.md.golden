@@ -32,21 +32,21 @@ This _quellog_ report summarizes **5** log entries collected between 19 Apr 2026
 
 **Slowest queries (top 10)**
 
-| SQLID | Max | Avg | Count | Query |
-|---|---:|---:|---:|---|
-| se-s970DF | 45 ms | 45 ms | 1 | select u.id, u.username, u.email from users u where u.created_at > ? order by... |
+| SQLID     |   Max |   Avg | Count | Query                                                                            |
+|-----------|------:|------:|------:|----------------------------------------------------------------------------------|
+| se-s970DF | 45 ms | 45 ms |     1 | select u.id, u.username, u.email from users u where u.created_at > ? order by... |
 
 **Most frequent queries (top 10)**
 
-| SQLID | Count | Avg | Max | Query |
-|---|---:|---:|---:|---|
-| se-s970DF | 1 | 45 ms | 45 ms | select u.id, u.username, u.email from users u where u.created_at > ? order by... |
+| SQLID     | Count |   Avg |   Max | Query                                                                            |
+|-----------|------:|------:|------:|----------------------------------------------------------------------------------|
+| se-s970DF |     1 | 45 ms | 45 ms | select u.id, u.username, u.email from users u where u.created_at > ? order by... |
 
 **Most time consuming queries (top 10)**
 
-| SQLID | Total | Avg | Count | Query |
-|---|---:|---:|---:|---|
-| se-s970DF | 45 ms | 45 ms | 1 | select u.id, u.username, u.email from users u where u.created_at > ? order by... |
+| SQLID     | Total |   Avg | Count | Query                                                                            |
+|-----------|------:|------:|------:|----------------------------------------------------------------------------------|
+| se-s970DF | 45 ms | 45 ms |     1 | select u.id, u.username, u.email from users u where u.created_at > ? order by... |
 
 ## EVENTS
 
@@ -99,34 +99,34 @@ This _quellog_ report summarizes **5** log entries collected between 19 Apr 2026
 
 ### USERS
 
-| User | Count | % |
-|---|---:|---:|
-| app | 4 | 80.0% |
+| User | Count |     % |
+|------|------:|------:|
+| app  |     4 | 80.0% |
 
 ### APPS
 
-| App | Count | % |
-|---|---:|---:|
-| psql | 2 | 40.0% |
-| app-worker | 1 | 20.0% |
-| long-task | 1 | 20.0% |
+| App        | Count |     % |
+|------------|------:|------:|
+| psql       |     2 | 40.0% |
+| app-worker |     1 | 20.0% |
+| long-task  |     1 | 20.0% |
 
 ### DATABASES
 
-| Database | Count | % |
-|---|---:|---:|
-| appdb | 4 | 80.0% |
+| Database | Count |     % |
+|----------|------:|------:|
+| appdb    |     4 | 80.0% |
 
 ### HOSTS
 
-| Host | Count | % |
-|---|---:|---:|
-| 10.0.0.10 | 1 | 20.0% |
+| Host      | Count |     % |
+|-----------|------:|------:|
+| 10.0.0.10 |     1 | 20.0% |
 
 ### USER × DATABASE
 
-| User | Database | Count | % |
-|---|---|---:|---:|
-| app | appdb | 4 | 80.0% |
+| User | Database | Count |     % |
+|------|----------|------:|------:|
+| app  | appdb    |     4 | 80.0% |
 
 

@@ -32,30 +32,30 @@ This _quellog_ report summarizes **6** log entries collected between 20 Apr 2026
 
 **Slowest queries (top 10)**
 
-| SQLID | Max | Avg | Count | Query |
-|---|---:|---:|---:|---|
-| de-DuYjtx | 100 ms | 100 ms | 1 | delete from old_audit_logs where created_at < ? |
-| up-CDrHeR | 25 ms | 25 ms | 1 | update customers set active = false where last_login < ? |
-| se-Sq8UWM | 12 ms | 12 ms | 1 | select * from products where category = ? |
-| se-bO3J6S | 5 ms | 5 ms | 1 | select id from users where email = ? |
+| SQLID     |    Max |    Avg | Count | Query                                                    |
+|-----------|-------:|-------:|------:|----------------------------------------------------------|
+| de-DuYjtx | 100 ms | 100 ms |     1 | delete from old_audit_logs where created_at < ?          |
+| up-CDrHeR |  25 ms |  25 ms |     1 | update customers set active = false where last_login < ? |
+| se-Sq8UWM |  12 ms |  12 ms |     1 | select * from products where category = ?                |
+| se-bO3J6S |   5 ms |   5 ms |     1 | select id from users where email = ?                     |
 
 **Most frequent queries (top 10)**
 
-| SQLID | Count | Avg | Max | Query |
-|---|---:|---:|---:|---|
-| de-DuYjtx | 1 | 100 ms | 100 ms | delete from old_audit_logs where created_at < ? |
-| up-CDrHeR | 1 | 25 ms | 25 ms | update customers set active = false where last_login < ? |
-| se-Sq8UWM | 1 | 12 ms | 12 ms | select * from products where category = ? |
-| se-bO3J6S | 1 | 5 ms | 5 ms | select id from users where email = ? |
+| SQLID     | Count |    Avg |    Max | Query                                                    |
+|-----------|------:|-------:|-------:|----------------------------------------------------------|
+| de-DuYjtx |     1 | 100 ms | 100 ms | delete from old_audit_logs where created_at < ?          |
+| up-CDrHeR |     1 |  25 ms |  25 ms | update customers set active = false where last_login < ? |
+| se-Sq8UWM |     1 |  12 ms |  12 ms | select * from products where category = ?                |
+| se-bO3J6S |     1 |   5 ms |   5 ms | select id from users where email = ?                     |
 
 **Most time consuming queries (top 10)**
 
-| SQLID | Total | Avg | Count | Query |
-|---|---:|---:|---:|---|
-| de-DuYjtx | 100 ms | 100 ms | 1 | delete from old_audit_logs where created_at < ? |
-| up-CDrHeR | 25 ms | 25 ms | 1 | update customers set active = false where last_login < ? |
-| se-Sq8UWM | 12 ms | 12 ms | 1 | select * from products where category = ? |
-| se-bO3J6S | 5 ms | 5 ms | 1 | select id from users where email = ? |
+| SQLID     |  Total |    Avg | Count | Query                                                    |
+|-----------|-------:|-------:|------:|----------------------------------------------------------|
+| de-DuYjtx | 100 ms | 100 ms |     1 | delete from old_audit_logs where created_at < ?          |
+| up-CDrHeR |  25 ms |  25 ms |     1 | update customers set active = false where last_login < ? |
+| se-Sq8UWM |  12 ms |  12 ms |     1 | select * from products where category = ?                |
+| se-bO3J6S |   5 ms |   5 ms |     1 | select id from users where email = ?                     |
 
 ## EVENTS
 
@@ -70,45 +70,45 @@ This _quellog_ report summarizes **6** log entries collected between 20 Apr 2026
 
 ### USERS
 
-| User | Count | % |
-|---|---:|---:|
-| app | 6 | 100.0% |
+| User | Count |      % |
+|------|------:|-------:|
+| app  |     6 | 100.0% |
 
 ### APPS
 
-| App | Count | % |
-|---|---:|---:|
-| app-worker | 3 | 50.0% |
-| psql | 3 | 50.0% |
+| App        | Count |     % |
+|------------|------:|------:|
+| app-worker |     3 | 50.0% |
+| psql       |     3 | 50.0% |
 
 ### DATABASES
 
-| Database | Count | % |
-|---|---:|---:|
-| appdb | 6 | 100.0% |
+| Database | Count |      % |
+|----------|------:|-------:|
+| appdb    |     6 | 100.0% |
 
 ### HOSTS
 
-| Host | Count | % |
-|---|---:|---:|
-| 10.0.0.21 | 3 | 50.0% |
-| 10.0.0.20 | 1 | 16.7% |
-| 10.0.0.22 | 1 | 16.7% |
-| 10.0.0.23 | 1 | 16.7% |
+| Host      | Count |     % |
+|-----------|------:|------:|
+| 10.0.0.21 |     3 | 50.0% |
+| 10.0.0.20 |     1 | 16.7% |
+| 10.0.0.22 |     1 | 16.7% |
+| 10.0.0.23 |     1 | 16.7% |
 
 ### USER × DATABASE
 
-| User | Database | Count | % |
-|---|---|---:|---:|
-| app | appdb | 6 | 100.0% |
+| User | Database | Count |      % |
+|------|----------|------:|-------:|
+| app  | appdb    |     6 | 100.0% |
 
 ### USER × HOST
 
-| User | Host | Count | % |
-|---|---|---:|---:|
-| app | 10.0.0.21 | 3 | 50.0% |
-| app | 10.0.0.20 | 1 | 16.7% |
-| app | 10.0.0.22 | 1 | 16.7% |
-| app | 10.0.0.23 | 1 | 16.7% |
+| User | Host      | Count |     % |
+|------|-----------|------:|------:|
+| app  | 10.0.0.21 |     3 | 50.0% |
+| app  | 10.0.0.20 |     1 | 16.7% |
+| app  | 10.0.0.22 |     1 | 16.7% |
+| app  | 10.0.0.23 |     1 | 16.7% |
 
 
