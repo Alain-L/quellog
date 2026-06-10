@@ -74,6 +74,38 @@ export function fmtBytes(b) {
 }
 
 /**
+ * Coarser duration formatter that keeps only the two most significant
+ * units (drops seconds once the value crosses an hour, drops minutes
+ * once it crosses a day). Better for stat-cards where "3h 59m 17s"
+ * adds noise to the headline reading — "3h 59m" lands faster.
+ * @param {number} ms
+ * @returns {string}
+ */
+export function fmtDurationCoarse(ms) {
+    if (!ms || ms < 0) return '0ms';
+    const totalSeconds = Math.floor(ms / 1000);
+    if (totalSeconds === 0) return Math.round(ms % 1000) + 'ms';
+    const days = Math.floor(totalSeconds / 86400);
+    const hours = Math.floor((totalSeconds % 86400) / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    const duration = {};
+    if (days > 0) {
+        duration.days = days;
+        if (hours > 0) duration.hours = hours;
+    } else if (hours > 0) {
+        duration.hours = hours;
+        if (minutes > 0) duration.minutes = minutes;
+    } else if (minutes > 0) {
+        duration.minutes = minutes;
+        if (seconds > 0) duration.seconds = seconds;
+    } else {
+        duration.seconds = seconds;
+    }
+    return durationFmt.format(duration);
+}
+
+/**
  * Format large integer counts with SI-style suffixes (1.5M, 370M, 4.5G).
  * Matches the CLI's formatCompact so the report's HTML and text outputs
  * use the same units for buffer / WAL aggregate counts.

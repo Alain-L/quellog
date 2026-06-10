@@ -1,5 +1,5 @@
 // ES Module imports
-import { fmt, fmtDuration, fmtBytes, fmtCompact, fmtMs, fmtDur, parseDurToMs, esc, escForJsAttr, truncQuery, safeMax, safeMin } from './js/utils.js';
+import { fmt, fmtDuration, fmtDurationCoarse, fmtBytes, fmtCompact, fmtMs, fmtDur, parseDurToMs, esc, escForJsAttr, truncQuery, safeMax, safeMin } from './js/utils.js';
 import {
     wasmModule, wasmReady, analysisData, currentFileContent, currentFileName, currentFileSize, originalDimensions,
     charts, modalCharts, modalChartsData, modalChartCounter, chartIntervalMap, defaultInterval,
@@ -866,30 +866,29 @@ function buildEventsSection(data) {
                     </div>
                 `;
             }
-            // Split into AUTOVACUUM and AUTOANALYZE sibling blocks, mirroring
-            // the CLI layout. Each block carries its own stat-grid and a
-            // tab-switchable per-table view (elapsed / count / xmin) so the
-            // reader can pivot the same data without scrolling between 4
-            // separate lists.
+            // Flat layout: one consolidated stat-grid at the top covers
+            // every headline (vacuum + analyze + buffer/WAL chips), then
+            // two sibling subsections each carry only their tab-switchable
+            // top-tables widget. Avoids the "two stat-grids stacked" look
+            // and keeps the eye moving downward through the panels rather
+            // than jumping between sibling blocks of headline numbers.
             const spaceRecovered = m.vacuum_space_recovered || {};
             const totalRecovered = Object.values(spaceRecovered).reduce((s, sz) => s + parseSizeToBytes(sz), 0);
+            primeMaintenanceCaches(m, spaceRecovered);
 
-            let html = `
+            const hasVac = (m.vacuum_count || 0) > 0;
+            const hasAna = (m.analyze_count || 0) > 0;
+
+            return `
                 <div class="section" id="maintenance">
                     <div class="section-header">Maintenance</div>
                     <div class="section-body">
-            `;
-            if ((m.vacuum_count || 0) > 0) {
-                html += buildAutovacuumBlock(m, spaceRecovered, totalRecovered);
-            }
-            if ((m.analyze_count || 0) > 0) {
-                html += buildAutoanalyzeBlock(m);
-            }
-            html += `
+                        ${buildMaintenanceStatGrid(m, totalRecovered)}
+                        ${hasVac ? buildAutovacuumPanel(m) : ''}
+                        ${hasAna ? buildAutoanalyzePanel(m) : ''}
                     </div>
                 </div>
             `;
-            return html;
         }
 
         // Cache the live maintenance metrics so the tab switcher can
@@ -897,214 +896,303 @@ function buildEventsSection(data) {
         let _vacTabsData = null;
         let _anaTabsData = null;
 
-        function buildAutovacuumBlock(m, spaceRecovered, totalRecovered) {
-            const elapsedStr = (m.total_vacuum_elapsed_seconds || 0) > 0
-                ? fmtDuration(m.total_vacuum_elapsed_seconds * 1000)
-                : '';
-            const slowest = m.slowest_vacuum;
+        function primeMaintenanceCaches(m, spaceRecovered) {
             const topVacTables = m.top_vacuum_tables || [];
             const xminTables = m.xmin_blocked_tables || [];
-            const xminTotal = m.total_tuples_not_yet_removable || 0;
             const vacTables = m.vacuum_table_counts
                 ? Object.entries(m.vacuum_table_counts)
                     .map(([t, c]) => ({ table: t, count: c }))
                     .sort((a, b) => b.count - a.count)
                 : [];
-
             _vacTabsData = { topElapsed: topVacTables, xmin: xminTables, byCount: vacTables, spaceRecovered, vacuumCount: m.vacuum_count || 0 };
 
-            const bufferTotal = (m.total_buffer_hits || 0) + (m.total_buffer_misses || 0);
-            const walTotal = (m.total_wal_records || 0) + (m.total_wal_bytes || 0);
-
-            return `
-                <div class="subsection">
-                    <div class="subsection-title">Autovacuum</div>
-                    <div class="stat-grid">
-                        <div class="stat-card"><div class="stat-value">${fmt(m.vacuum_count || 0)}</div><div class="stat-label">Vacuum count</div></div>
-                        ${(m.aggressive_vacuum_count || 0) > 0 ? `<div class="stat-card stat-card--warning"><div class="stat-value">${fmt(m.aggressive_vacuum_count)}</div><div class="stat-label">Aggressive</div></div>` : ''}
-                        ${elapsedStr ? `<div class="stat-card"><div class="stat-value">${elapsedStr}</div><div class="stat-label">Cumulated time</div></div>` : ''}
-                        ${(m.total_tuples_removed || 0) > 0 ? `<div class="stat-card"><div class="stat-value">${fmt(m.total_tuples_removed)}</div><div class="stat-label">Tuples removed</div></div>` : ''}
-                        ${totalRecovered > 0 ? `<div class="stat-card"><div class="stat-value">${fmtBytes(totalRecovered)}</div><div class="stat-label">Space recovered</div></div>` : ''}
-                        ${xminTotal > 0 ? `<div class="stat-card stat-card--alert" title="Dead tuples vacuum could not yet remove — a long-running transaction is holding back cleanup."><div class="stat-value">${fmt(xminTotal)}</div><div class="stat-label">Dead, not yet removable</div></div>` : ''}
-                        ${slowest && slowest.elapsed_seconds > 0 ? `<div class="stat-card" title="${esc(slowest.table)}"><div class="stat-value">${fmtDuration(slowest.elapsed_seconds * 1000)}</div><div class="stat-label">Slowest single run</div></div>` : ''}
-                    </div>
-                    ${bufferTotal > 0 || walTotal > 0 ? `
-                        <div class="metric-line">
-                            ${bufferTotal > 0 ? `<span class="metric-line-label">Buffer usage</span>
-                                <span class="metric-line-val">hits <strong>${fmtCompact(m.total_buffer_hits || 0)}</strong></span>
-                                <span class="metric-line-val">misses <strong>${fmtCompact(m.total_buffer_misses || 0)}</strong></span>
-                                <span class="metric-line-val">dirtied <strong>${fmtCompact(m.total_buffer_dirtied || 0)}</strong></span>
-                                <span class="metric-line-val">written <strong>${fmtCompact(m.total_buffer_written || 0)}</strong></span>` : ''}
-                        </div>
-                        ${walTotal > 0 ? `
-                            <div class="metric-line">
-                                <span class="metric-line-label">WAL usage</span>
-                                <span class="metric-line-val"><strong>${fmtCompact(m.total_wal_records || 0)}</strong> records</span>
-                                <span class="metric-line-val"><strong>${fmtBytes(m.total_wal_bytes || 0)}</strong></span>
-                            </div>
-                        ` : ''}
-                    ` : ''}
-                    <div class="subsection">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                            <div class="subsection-title" style="margin: 0;">Top tables</div>
-                            <div class="tabs" style="margin: 0;">
-                                <button class="tab active" onclick="showVacuumView(this, 'elapsed')">By elapsed</button>
-                                ${xminTables.length > 0 ? `<button class="tab" onclick="showVacuumView(this, 'xmin')">By xmin-blocked rows</button>` : ''}
-                                ${vacTables.length > 0 ? `<button class="tab" onclick="showVacuumView(this, 'count')">By count</button>` : ''}
-                            </div>
-                        </div>
-                        <div id="vacuum-table-container">
-                            ${renderVacuumTable('elapsed')}
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
-
-        function buildAutoanalyzeBlock(m) {
-            const elapsedStr = (m.total_analyze_elapsed_seconds || 0) > 0
-                ? fmtDuration(m.total_analyze_elapsed_seconds * 1000)
-                : '';
             const topAnaTables = m.top_analyze_tables_by_elapsed || [];
             const anaTables = m.analyze_table_counts
                 ? Object.entries(m.analyze_table_counts)
                     .map(([t, c]) => ({ table: t, count: c }))
                     .sort((a, b) => b.count - a.count)
                 : [];
-
             _anaTabsData = { topElapsed: topAnaTables, byCount: anaTables, analyzeCount: m.analyze_count || 0 };
+        }
 
-            const showTabs = topAnaTables.length > 0 && anaTables.length > 0;
-            const defaultView = topAnaTables.length > 0 ? 'elapsed' : 'count';
-
+        function buildMaintenanceStatGrid(m, _totalRecovered) {
+            // Trimmed to the metrics a DBA acts on first; per-table
+            // tuples removed / space recovered live in the table panel
+            // below since they're per-row anyway. Durations use the
+            // coarse formatter (drops seconds past 1h) so the headline
+            // reads at a glance.
+            const vacElapsedStr = (m.total_vacuum_elapsed_seconds || 0) > 0
+                ? fmtDurationCoarse(m.total_vacuum_elapsed_seconds * 1000) : '';
+            const anaElapsedStr = (m.total_analyze_elapsed_seconds || 0) > 0
+                ? fmtDurationCoarse(m.total_analyze_elapsed_seconds * 1000) : '';
+            const slowest = m.slowest_vacuum;
             return `
-                <div class="subsection">
-                    <div class="subsection-title">Autoanalyze</div>
-                    <div class="stat-grid">
-                        <div class="stat-card"><div class="stat-value">${fmt(m.analyze_count || 0)}</div><div class="stat-label">Analyze count</div></div>
-                        ${elapsedStr ? `<div class="stat-card"><div class="stat-value">${elapsedStr}</div><div class="stat-label">Cumulated time</div></div>` : ''}
-                    </div>
-                    ${(topAnaTables.length > 0 || anaTables.length > 0) ? `
-                        <div class="subsection">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                                <div class="subsection-title" style="margin: 0;">Top tables</div>
-                                ${showTabs ? `
-                                    <div class="tabs" style="margin: 0;">
-                                        <button class="tab active" onclick="showAnalyzeView(this, 'elapsed')">By elapsed</button>
-                                        <button class="tab" onclick="showAnalyzeView(this, 'count')">By count</button>
-                                    </div>
-                                ` : ''}
-                            </div>
-                            <div id="analyze-table-container">
-                                ${renderAnalyzeTable(defaultView)}
-                            </div>
-                        </div>
-                    ` : ''}
+                <div class="stat-grid">
+                    <div class="stat-card"><div class="stat-value">${fmt(m.vacuum_count || 0)}</div><div class="stat-label">Vacuum count</div></div>
+                    ${(m.aggressive_vacuum_count || 0) > 0 ? `<div class="stat-card stat-card--warning"><div class="stat-value">${fmt(m.aggressive_vacuum_count)}</div><div class="stat-label">Aggressive</div></div>` : ''}
+                    ${vacElapsedStr ? `<div class="stat-card"><div class="stat-value">${vacElapsedStr}</div><div class="stat-label">Vacuum time</div></div>` : ''}
+                    ${slowest && slowest.elapsed_seconds > 0 ? `<div class="stat-card" title="${esc(slowest.table)}"><div class="stat-value">${fmtDurationCoarse(slowest.elapsed_seconds * 1000)}</div><div class="stat-label">Slowest single run</div></div>` : ''}
+                    <div class="stat-card"><div class="stat-value">${fmt(m.analyze_count || 0)}</div><div class="stat-label">Analyze count</div></div>
+                    ${anaElapsedStr ? `<div class="stat-card"><div class="stat-value">${anaElapsedStr}</div><div class="stat-label">Analyze time</div></div>` : ''}
                 </div>
             `;
         }
 
-        // Rendering primitives — same scroll-list shape the maintenance
-        // section has always used (name + bar + secondary + value) so
-        // the visual rhythm is preserved across tab switches. Lists are
-        // capped at 5 entries because the long tail (tables with 1-2
-        // operations) crowds the panel without adding signal — the CLI
-        // does the same.
-        const MAINT_TOP_N = 5;
-
-        function renderVacuumTable(view) {
-            const d = _vacTabsData;
-            if (!d) return '';
-            if (view === 'elapsed') {
-                const rows = d.topElapsed.filter(t => t.total_elapsed_seconds > 0).slice(0, MAINT_TOP_N);
-                if (!rows.length) return '<div class="empty">No elapsed data — older PG version or log_autovacuum_min_duration off.</div>';
-                const max = rows[0].total_elapsed_seconds || 1;
-                return `<div class="scroll-list scroll-list--maintenance">
-                    ${rows.map(t => {
-                        const rec = d.spaceRecovered[t.table];
-                        return `<div class="list-item">
-                            <span class="name">${esc(t.table)}</span>
-                            <div class="bar"><div class="bar-fill" style="width: ${t.total_elapsed_seconds/max*100}%"></div></div>
-                            <span class="removed">${t.vacuum_count}×${rec ? ' · ' + rec + ' recovered' : ''}</span>
-                            <span class="value">${fmtDuration(t.total_elapsed_seconds * 1000)}</span>
-                        </div>`;
-                    }).join('')}
-                </div>`;
-            }
-            if (view === 'xmin') {
-                const rows = d.xmin.slice(0, MAINT_TOP_N);
-                if (!rows.length) return '<div class="empty">No xmin-blocked tables.</div>';
-                const max = rows[0].tuples_not_yet_removable || 1;
-                return `<div class="scroll-list scroll-list--maintenance">
-                    ${rows.map(t => `<div class="list-item">
-                        <span class="name">${esc(t.table)}</span>
-                        <div class="bar"><div class="bar-fill" style="width: ${t.tuples_not_yet_removable/max*100}%; background: var(--danger);"></div></div>
-                        <span class="removed">${t.vacuum_count}×</span>
-                        <span class="value">${fmt(t.tuples_not_yet_removable)} rows</span>
-                    </div>`).join('')}
-                </div>`;
-            }
-            const rows = d.byCount.slice(0, MAINT_TOP_N);
-            if (!rows.length) return '<div class="empty">No vacuum operations recorded.</div>';
-            const max = rows[0].count || 1;
-            return `<div class="scroll-list scroll-list--maintenance">
-                ${rows.map(t => {
-                    const rec = d.spaceRecovered[t.table];
-                    const pct = d.vacuumCount > 0 ? (t.count / d.vacuumCount * 100).toFixed(1) : 0;
-                    return `<div class="list-item">
-                        <span class="name">${esc(t.table)}</span>
-                        <div class="bar"><div class="bar-fill" style="width: ${t.count/max*100}%"></div></div>
-                        <span class="removed">${pct}%${rec ? ' · ' + rec + ' recovered' : ''}</span>
-                        <span class="value">${fmt(t.count)}</span>
-                    </div>`;
-                }).join('')}
-            </div>`;
+        function buildMaintenanceMetricLines(m) {
+            // Buffer-usage totals are intentionally not shown here
+            // anymore — the per-table "By buffer" tab carries the same
+            // breakdown (cluster-wide is just the column sum). WAL has
+            // no dedicated tab so we keep it as a one-line chip.
+            const walTotal = (m.total_wal_records || 0) + (m.total_wal_bytes || 0);
+            if (walTotal === 0) return '';
+            return `
+                <div class="metric-line">
+                    <span class="metric-line-label">WAL usage</span>
+                    <span class="metric-line-val"><strong>${fmtCompact(m.total_wal_records || 0)}</strong> records</span>
+                    <span class="metric-line-val"><strong>${fmtBytes(m.total_wal_bytes || 0)}</strong></span>
+                </div>
+            `;
         }
 
-        function renderAnalyzeTable(view) {
-            const d = _anaTabsData;
-            if (!d) return '';
-            if (view === 'elapsed') {
-                const rows = d.topElapsed.filter(t => t.total_elapsed_seconds > 0).slice(0, MAINT_TOP_N);
-                if (!rows.length) return '<div class="empty">No elapsed data — older PG version or log_autovacuum_min_duration off.</div>';
-                const max = rows[0].total_elapsed_seconds || 1;
-                return `<div class="scroll-list scroll-list--maintenance">
-                    ${rows.map(t => `<div class="list-item">
-                        <span class="name">${esc(t.table)}</span>
-                        <div class="bar"><div class="bar-fill" style="width: ${t.total_elapsed_seconds/max*100}%"></div></div>
-                        <span class="removed">${t.vacuum_count}×</span>
-                        <span class="value">${fmtDuration(t.total_elapsed_seconds * 1000)}</span>
-                    </div>`).join('')}
-                </div>`;
-            }
-            const rows = d.byCount.slice(0, MAINT_TOP_N);
-            if (!rows.length) return '<div class="empty">No analyze operations recorded.</div>';
-            const max = rows[0].count || 1;
-            return `<div class="scroll-list scroll-list--maintenance">
-                ${rows.map(t => {
-                    const pct = d.analyzeCount > 0 ? (t.count / d.analyzeCount * 100).toFixed(1) : 0;
-                    return `<div class="list-item">
-                        <span class="name">${esc(t.table)}</span>
-                        <div class="bar"><div class="bar-fill" style="width: ${t.count/max*100}%"></div></div>
-                        <span class="removed">${pct}%</span>
-                        <span class="value">${fmt(t.count)}</span>
-                    </div>`;
-                }).join('')}
-            </div>`;
+        function buildAutovacuumPanel(m) {
+            const topVacTables = _vacTabsData?.topElapsed || [];
+            const hasBufferData = topVacTables.some(t => (t.buffer_hits || 0) + (t.buffer_misses || 0) > 0);
+            return `
+                <div class="subsection">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                        <div class="subsection-title" style="margin: 0;">Autovacuum</div>
+                        ${hasBufferData ? `
+                            <div class="tabs" style="margin: 0;">
+                                <button class="tab active" onclick="showVacuumView(this, 'main')">Top tables</button>
+                                <button class="tab" onclick="showVacuumView(this, 'buffer')">Buffer usage</button>
+                            </div>
+                        ` : ''}
+                    </div>
+                    ${buildMaintenanceMetricLines(m)}
+                    <div id="vacuum-table-container">
+                        ${renderVacuumMainTable()}
+                    </div>
+                </div>
+            `;
         }
 
         function showVacuumView(btn, view) {
             btn.parentElement.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
             btn.classList.add('active');
             const container = document.getElementById('vacuum-table-container');
-            if (container) container.innerHTML = renderVacuumTable(view);
+            if (!container) return;
+            container.innerHTML = view === 'buffer' ? renderVacuumBufferTable() : renderVacuumMainTable();
         }
 
-        function showAnalyzeView(btn, view) {
-            btn.parentElement.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            btn.classList.add('active');
+        function buildAutoanalyzePanel(m) {
+            const topAnaTables = _anaTabsData?.topElapsed || [];
+            const anaTables = _anaTabsData?.byCount || [];
+            if (topAnaTables.length === 0 && anaTables.length === 0) return '';
+            return `
+                <div class="subsection">
+                    <div style="margin-bottom: 0.5rem;">
+                        <div class="subsection-title" style="margin: 0;">Autoanalyze</div>
+                    </div>
+                    <div id="analyze-table-container">
+                        ${renderAnalyzeTable()}
+                    </div>
+                </div>
+            `;
+        }
+
+        // Rendering primitives — same scroll-list shape the maintenance
+        // section has always used (name + bar + secondary + value) so
+        // the visual rhythm is preserved across tab switches. The cap
+        // is generous so the list scrolls (max-height + overflow-y on
+        // .scroll-list) rather than truncating: the user keeps the long
+        // tail one wheel-flick away. CLI keeps a tighter cut.
+        const MAINT_TOP_N = 20;
+
+        // Maintenance list-items use a wider 5-slot layout
+        // (name / wide bar / extra / removed / value): the bar takes the
+        // remaining flex space so progress reads at a glance even on
+        // dense reports, and the .extra slot reserves a fixed width so
+        // the bar never shifts horizontally when only some rows carry a
+        // "X KB recovered" annotation.
+
+        // Autovacuum: two stacked sortable tables — a main panel
+        // (elapsed / vacuums / dead rows / recovered) and a buffer
+        // panel (hits / misses / dirtied / written). Each has its own
+        // sort state so the user can rank tables independently on
+        // either side.
+        let _vacMainSortKey = 'elapsed';   // 'table' | 'elapsed' | 'count' | 'dead' | 'recovered'
+        let _vacMainSortDir = 'desc';
+        let _vacBufSortKey = 'misses';     // 'table' | 'hits' | 'misses' | 'dirtied' | 'written'
+        let _vacBufSortDir = 'desc';
+
+        function renderVacuumMainTable() {
+            const d = _vacTabsData;
+            if (!d) return '';
+            // Per-table metrics: count (from vacuum_table_counts, all
+            // tables), elapsed/dead (from top_vacuum_tables, capped
+            // higher now), recovered (from spaceRecovered map).
+            const elapsedByTable = {};
+            const deadByTable = {};
+            (d.topElapsed || []).forEach(t => {
+                elapsedByTable[t.table] = t.total_elapsed_seconds || 0;
+                deadByTable[t.table] = t.tuples_not_yet_removable || 0;
+            });
+            const parseRecov = s => s ? parseSizeToBytes(s) : 0;
+            const rows = (d.byCount || []).map(t => ({
+                table: t.table,
+                count: t.count,
+                elapsed: elapsedByTable[t.table] || 0,
+                dead: deadByTable[t.table] || 0,
+                recovered: parseRecov(d.spaceRecovered[t.table]),
+            }));
+            if (!rows.length) return '<div class="empty">No vacuum operations recorded.</div>';
+            const factor = _vacMainSortDir === 'desc' ? -1 : 1;
+            rows.sort((a, b) => {
+                const va = a[_vacMainSortKey], vb = b[_vacMainSortKey];
+                if (typeof va === 'string') return va.localeCompare(vb) * factor;
+                return (va - vb) * factor;
+            });
+            const limited = rows.slice(0, MAINT_TOP_N);
+            const barKey = _vacMainSortKey === 'table' ? 'elapsed' : _vacMainSortKey;
+            const maxBar = Math.max(...limited.map(r => r[barKey] || 0)) || 1;
+            const arrow = key => _vacMainSortKey === key ? `<span class="sort-arrow">${_vacMainSortDir === 'desc' ? '▼' : '▲'}</span>` : '';
+            const sortable = (key, label) => `<span data-sort onclick="showVacuumMainSort('${key}')">${label}${arrow(key)}</span>`;
+            return `<div class="scroll-list scroll-list--maintenance scroll-list--maintenance-vac-main">
+                <div class="list-header list-header--sortable">
+                    <span class="name">${sortable('table', 'Table')}</span>
+                    <div class="bar"></div>
+                    <span class="extra">${sortable('recovered', 'Recovered')}</span>
+                    <span class="dead-col">${sortable('dead', 'Dead rows')}</span>
+                    <span class="removed">${sortable('count', 'Vacuums')}</span>
+                    <span class="value">${sortable('elapsed', 'Elapsed')}</span>
+                </div>
+                ${limited.map(r => `<div class="list-item">
+                    <span class="name">${esc(r.table)}</span>
+                    <div class="bar"><div class="bar-fill" style="width: ${(r[barKey]||0)/maxBar*100}%${_vacMainSortKey === 'dead' ? '; background: var(--danger);' : ''}"></div></div>
+                    <span class="extra">${r.recovered > 0 ? fmtBytes(r.recovered) : '-'}</span>
+                    <span class="dead-col">${r.dead > 0 ? fmt(r.dead) : '-'}</span>
+                    <span class="removed">${r.count}×</span>
+                    <span class="value">${r.elapsed > 0 ? fmtDuration(r.elapsed * 1000) : '-'}</span>
+                </div>`).join('')}
+            </div>`;
+        }
+
+        function renderVacuumBufferTable() {
+            const d = _vacTabsData;
+            if (!d) return '';
+            const rows = (d.topElapsed || [])
+                .filter(t => (t.buffer_hits || 0) + (t.buffer_misses || 0) > 0)
+                .map(t => ({
+                    table: t.table,
+                    hits: t.buffer_hits || 0,
+                    misses: t.buffer_misses || 0,
+                    dirtied: t.buffer_dirtied || 0,
+                    written: t.buffer_written || 0,
+                }));
+            if (!rows.length) return '<div class="empty">No buffer data.</div>';
+            const factor = _vacBufSortDir === 'desc' ? -1 : 1;
+            rows.sort((a, b) => {
+                const va = a[_vacBufSortKey], vb = b[_vacBufSortKey];
+                if (typeof va === 'string') return va.localeCompare(vb) * factor;
+                return (va - vb) * factor;
+            });
+            const limited = rows.slice(0, MAINT_TOP_N);
+            const barKey = _vacBufSortKey === 'table' ? 'misses' : _vacBufSortKey;
+            const maxBar = Math.max(...limited.map(r => r[barKey] || 0)) || 1;
+            const arrow = key => _vacBufSortKey === key ? `<span class="sort-arrow">${_vacBufSortDir === 'desc' ? '▼' : '▲'}</span>` : '';
+            const sortable = (key, label) => `<span data-sort onclick="showVacuumBufferSort('${key}')">${label}${arrow(key)}</span>`;
+            const cell = n => (n || 0) > 0 ? fmtCompact(n) : '-';
+            return `<div class="scroll-list scroll-list--maintenance scroll-list--maintenance-buffer">
+                <div class="list-header list-header--sortable list-header--buffer">
+                    <span class="name">${sortable('table', 'Table')}</span>
+                    <div class="bar"></div>
+                    <span class="extra"><span class="buf-cells"><span>${sortable('hits', 'Hits')}</span><span>${sortable('misses', 'Misses')}</span><span>${sortable('dirtied', 'Dirtied')}</span><span>${sortable('written', 'Written')}</span></span></span>
+                </div>
+                ${limited.map(r => `<div class="list-item">
+                    <span class="name">${esc(r.table)}</span>
+                    <div class="bar"><div class="bar-fill" style="width: ${(r[barKey]||0)/maxBar*100}%"></div></div>
+                    <span class="extra"><span class="buf-cells"><span>${cell(r.hits)}</span><span>${cell(r.misses)}</span><span>${cell(r.dirtied)}</span><span>${cell(r.written)}</span></span></span>
+                </div>`).join('')}
+            </div>`;
+        }
+
+        function showVacuumMainSort(key) {
+            if (_vacMainSortKey === key) _vacMainSortDir = _vacMainSortDir === 'desc' ? 'asc' : 'desc';
+            else { _vacMainSortKey = key; _vacMainSortDir = 'desc'; }
+            const c = document.getElementById('vacuum-table-container');
+            if (c) c.innerHTML = renderVacuumMainTable();
+        }
+
+        function showVacuumBufferSort(key) {
+            if (_vacBufSortKey === key) _vacBufSortDir = _vacBufSortDir === 'desc' ? 'asc' : 'desc';
+            else { _vacBufSortKey = key; _vacBufSortDir = 'desc'; }
+            const c = document.getElementById('vacuum-table-container');
+            if (c) c.innerHTML = renderVacuumBufferTable();
+        }
+
+        // Autoanalyze uses a single unified table with sortable column
+        // headers (no tab toggle) — every row carries both elapsed and
+        // count, the user sorts on whichever dimension is most relevant
+        // at the moment. Bar is proportional to the currently-sorted
+        // numeric column, so the visual ranking always matches the sort.
+        let _anaSortKey = 'elapsed';   // 'table' | 'elapsed' | 'count' | 'share'
+        let _anaSortDir = 'desc';      // 'desc' | 'asc'
+
+        function renderAnalyzeTable() {
+            const d = _anaTabsData;
+            if (!d) return '';
+            // Merge per-table count (covers all tables that ran an
+            // analyze) with elapsed data (covers all tables PG emitted
+            // a system-usage line for — should be all on PG 13+ with
+            // log_autovacuum_min_duration). Tables missing elapsed get
+            // 0, which sorts to the bottom on desc.
+            const elapsedByTable = {};
+            (d.topElapsed || []).forEach(t => { elapsedByTable[t.table] = t.total_elapsed_seconds; });
+            const rows = (d.byCount || []).map(t => ({
+                table: t.table,
+                count: t.count,
+                elapsed: elapsedByTable[t.table] || 0,
+                share: d.analyzeCount > 0 ? (t.count / d.analyzeCount * 100) : 0,
+            }));
+            if (!rows.length) return '<div class="empty">No analyze operations recorded.</div>';
+            const factor = _anaSortDir === 'desc' ? -1 : 1;
+            rows.sort((a, b) => {
+                const va = a[_anaSortKey], vb = b[_anaSortKey];
+                if (typeof va === 'string') return va.localeCompare(vb) * factor;
+                return (va - vb) * factor;
+            });
+            const limited = rows.slice(0, MAINT_TOP_N);
+            const barKey = _anaSortKey === 'table' ? 'elapsed' : _anaSortKey;
+            const maxBar = Math.max(...limited.map(r => r[barKey] || 0)) || 1;
+            const arrow = key => _anaSortKey === key ? `<span class="sort-arrow">${_anaSortDir === 'desc' ? '▼' : '▲'}</span>` : '';
+            const sortable = (key, label) => `<span data-sort onclick="showAnalyzeSort('${key}')">${label}${arrow(key)}</span>`;
+            return `<div class="scroll-list scroll-list--maintenance">
+                <div class="list-header list-header--sortable">
+                    <span class="name">${sortable('table', 'Table')}</span>
+                    <div class="bar"></div>
+                    <span class="extra">${sortable('elapsed', 'Elapsed')}</span>
+                    <span class="removed">${sortable('count', 'Analyzes')}</span>
+                    <span class="value">${sortable('share', 'Share')}</span>
+                </div>
+                ${limited.map(r => `<div class="list-item">
+                    <span class="name">${esc(r.table)}</span>
+                    <div class="bar"><div class="bar-fill" style="width: ${(r[barKey] || 0) / maxBar * 100}%"></div></div>
+                    <span class="extra">${r.elapsed > 0 ? fmtDuration(r.elapsed * 1000) : '-'}</span>
+                    <span class="removed">${r.count}×</span>
+                    <span class="value">${r.share.toFixed(1)}%</span>
+                </div>`).join('')}
+            </div>`;
+        }
+
+        function showAnalyzeSort(key) {
+            if (_anaSortKey === key) {
+                _anaSortDir = _anaSortDir === 'desc' ? 'asc' : 'desc';
+            } else {
+                _anaSortKey = key;
+                _anaSortDir = 'desc';
+            }
             const container = document.getElementById('analyze-table-container');
-            if (container) container.innerHTML = renderAnalyzeTable(view);
+            if (container) container.innerHTML = renderAnalyzeTable();
         }
 
         function buildLocksSection(data) {
@@ -3383,8 +3471,10 @@ function buildEventsSection(data) {
         window.visualizePlan = visualizePlan;
         window.visualizePlanFor = visualizePlanFor;
         window.showSqlOvView = showSqlOvView;
+        window.showVacuumMainSort = showVacuumMainSort;
+        window.showVacuumBufferSort = showVacuumBufferSort;
         window.showVacuumView = showVacuumView;
-        window.showAnalyzeView = showAnalyzeView;
+        window.showAnalyzeSort = showAnalyzeSort;
         window.copyQuery = copyQuery;
         window.showEventDetail = showEventDetail;
         window.navigateToQuery = navigateToQuery;

@@ -1498,12 +1498,17 @@
             flex-shrink: 0;
             text-align: right;
         }
-        /* Maintenance lists: name fixed-width, then bar, then a muted-
-           italic "removed" column (count× / share% / "X recovered"),
-           then the value column (count / elapsed / rows). The value
-           column is wide enough for "784,509 rows" (worst observed) so
-           rows never wrap. Bars get a touch more height than the
-           generic list to read at a glance on dense reports. */
+        /* Maintenance lists: name fixed-width, then a wide bar that
+           stretches across the available space, then three tail
+           columns:
+             .extra   — fixed-width muted-italic suffix slot ("X KB
+                        recovered" or empty), reserved so the bar
+                        never shifts when only some rows carry it
+             .removed — fixed-width muted-italic count/percentage
+                        (always right-aligned at the same X position)
+             .value   — the headline numeric (elapsed / count / rows).
+           Bars get a touch more height than the generic list to read
+           at a glance on dense reports. */
         .scroll-list--maintenance .list-item .value {
             width: 110px;
             white-space: nowrap;
@@ -1512,17 +1517,159 @@
             width: 240px;
             max-width: 240px;
         }
+        .scroll-list--maintenance .list-item .extra {
+            font-size: 0.72rem;
+            font-style: italic;
+            color: var(--text-muted);
+            width: 130px;
+            flex-shrink: 0;
+            text-align: right;
+            white-space: nowrap;
+            margin-right: 0.5rem;
+        }
         .scroll-list--maintenance .list-item .removed {
             font-size: 0.72rem;
             font-style: italic;
             color: var(--text-muted);
-            width: 170px;
+            width: 60px;
             flex-shrink: 0;
             text-align: right;
             white-space: nowrap;
         }
         .scroll-list--maintenance .list-item .bar {
-            height: 8px;
+            height: 5px;
+        }
+
+        /* Vacuum main table adds a 4th numeric slot (.dead-col) between
+           .extra and .removed so the row carries the full
+           recovered/dead/vacuums/elapsed quartet without overflowing.
+           Slot widths trim accordingly (extra and value lose ~30px
+           each) so the bar still has room to read at a glance. */
+        .scroll-list--maintenance-vac-main .list-item .extra,
+        .scroll-list--maintenance-vac-main .list-header .extra {
+            width: 100px;
+        }
+        .scroll-list--maintenance-vac-main .list-item .dead-col,
+        .scroll-list--maintenance-vac-main .list-header .dead-col {
+            width: 90px;
+            flex-shrink: 0;
+            text-align: right;
+            white-space: nowrap;
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            font-style: italic;
+            margin-right: 0.5rem;
+        }
+        .scroll-list--maintenance-vac-main .list-header .dead-col {
+            font-style: normal;
+        }
+        .scroll-list--maintenance-vac-main .list-item .value,
+        .scroll-list--maintenance-vac-main .list-header .value {
+            width: 90px;
+        }
+
+        /* Maintenance lists carry up to MAINT_TOP_N rows and the
+           section card has plenty of vertical room before another
+           section follows. Override the generic 200px ceiling so the
+           full top-N is visible without scrolling on a normal-sized
+           viewport, and only the long tail triggers scrollbar use. */
+        .scroll-list--maintenance {
+            max-height: 280px;
+        }
+
+        /* Column header for maintenance scroll-lists, matching the
+           canonical "th" treatment of the <table>-based panels
+           (locks queries, temp files): uppercase muted small text,
+           sticky to the top of the scroll area so the headers stay
+           visible while the user scrolls through the long tail. */
+        .scroll-list--maintenance .list-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 0.6rem;
+            background: var(--bg-alt);
+            border-bottom: 2px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 5;
+            font-size: 0.65rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.02em;
+            color: var(--text-muted);
+        }
+        .scroll-list--maintenance .list-header .name {
+            width: 240px;
+            max-width: 240px;
+        }
+        .scroll-list--maintenance .list-header .bar {
+            flex: 1;
+            background: transparent;
+        }
+        .scroll-list--maintenance .list-header .extra {
+            width: 130px;
+            flex-shrink: 0;
+            text-align: right;
+            margin-right: 0.5rem;
+        }
+        .scroll-list--maintenance .list-header .removed {
+            width: 60px;
+            flex-shrink: 0;
+            text-align: right;
+        }
+        .scroll-list--maintenance .list-header .value {
+            width: 110px;
+            text-align: right;
+        }
+        .scroll-list--maintenance-buffer .list-header .extra {
+            width: 260px;
+        }
+        .scroll-list--maintenance-buffer .list-header .value {
+            width: 100px;
+        }
+        /* 4-cell sub-grid inside .extra for the buffer view, matching
+           the PG log column order: hits / misses / dirtied / written.
+           Each cell is right-aligned within its share of the .extra
+           width so the column headers line up with the values below. */
+        .scroll-list--maintenance-buffer .buf-cells {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr 1fr;
+            width: 100%;
+            gap: 0.4rem;
+        }
+        .scroll-list--maintenance-buffer .buf-cells > span {
+            text-align: right;
+        }
+
+        /* Sortable headers (currently used by the autoanalyze unified
+           table). Each [data-sort] span becomes a clickable target with
+           a tiny chevron showing the active sort direction. Hover
+           bumps brightness so the affordance reads as interactive
+           without competing with the row data below. */
+        .scroll-list--maintenance .list-header--sortable [data-sort] {
+            cursor: pointer;
+            user-select: none;
+        }
+        .scroll-list--maintenance .list-header--sortable [data-sort]:hover {
+            color: var(--primary);
+        }
+        .scroll-list--maintenance .sort-arrow {
+            margin-left: 0.2rem;
+            font-size: 0.6rem;
+            opacity: 0.7;
+        }
+
+        /* Buffer view: 4 metrics packed into .extra as a 4-column grid
+           matching the PG log order (hits / misses / dirtied / written).
+           The .value and .removed slots are unused and collapse — the
+           bar already encodes the misses ranking. */
+        .scroll-list--maintenance-buffer .list-item .extra,
+        .scroll-list--maintenance-buffer .list-header .extra {
+            width: 340px;
+        }
+        .scroll-list--maintenance-buffer .list-item .value,
+        .scroll-list--maintenance-buffer .list-item .removed {
+            display: none;
         }
 
         /* metric-line: a tight horizontal stack of key/value chips,
