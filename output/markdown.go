@@ -233,10 +233,6 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 		// Queries generating temp files (in detailed/full mode)
 		if (full || !has("all")) && len(m.TempFiles.QueryStats) > 0 {
 			b.WriteString("### Queries Generating Temp Files\n\n")
-			b.WriteString("| SQLID | Query | Count | Total Size |\n")
-			b.WriteString("|---|---|---:|---:|\n")
-
-			// Sort by total size descending
 			type queryWithSize struct {
 				stat *analysis.TempFileQueryStat
 			}
@@ -247,19 +243,16 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 			sort.Slice(queries, func(i, j int) bool {
 				return queries[i].stat.TotalSize > queries[j].stat.TotalSize
 			})
-
 			limit := 10
 			if len(queries) < limit {
 				limit = len(queries)
 			}
+			rows := make([][]string, 0, limit)
 			for i := 0; i < limit; i++ {
-				stat := queries[i].stat
-				b.WriteString(fmt.Sprintf("| %s | %s | %d | %s |\n",
-					stat.ID,
-					truncateQuery(stat.NormalizedQuery, 50),
-					stat.Count,
-					FormatBytes(stat.TotalSize)))
+				s := queries[i].stat
+				rows = append(rows, []string{s.ID, truncateQuery(s.NormalizedQuery, 50), fmt.Sprintf("%d", s.Count), FormatBytes(s.TotalSize)})
 			}
+			mdTable(&b, []string{"SQLID", "Query", "Count", "Total Size"}, "llrr", rows)
 			b.WriteString("\n")
 		}
 	}
@@ -334,17 +327,12 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 				}
 
 				b.WriteString("### Waiting Queries\n\n")
-				b.WriteString("| SQLID | Query | Acquired | Waiting | Total Wait |\n")
-				b.WriteString("|---|---|---:|---:|---:|\n")
+				rows := make([][]string, 0, limit)
 				for i := 0; i < limit; i++ {
-					stat := pairs[i].stat
-					b.WriteString(fmt.Sprintf("| %s | %s | %d | %d | %s |\n",
-						stat.ID,
-						truncateQuery(stat.NormalizedQuery, 60),
-						stat.AcquiredCount,
-						stat.StillWaitingCount,
-						formatQueryDuration(stat.TotalWaitTime)))
+					s := pairs[i].stat
+					rows = append(rows, []string{s.ID, truncateQuery(s.NormalizedQuery, 60), fmt.Sprintf("%d", s.AcquiredCount), fmt.Sprintf("%d", s.StillWaitingCount), formatQueryDuration(s.TotalWaitTime)})
 				}
+				mdTable(&b, []string{"SQLID", "Query", "Acquired", "Waiting", "Total Wait"}, "llrrr", rows)
 				b.WriteString("\n")
 			}
 		}
@@ -395,8 +383,7 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 				}
 
 				b.WriteString("### Blocking Queries\n\n")
-				b.WriteString("| SQLID | Query | Blocked | Avg Wait | Total Wait |\n")
-				b.WriteString("|---|---|---:|---:|---:|\n")
+				rows := make([][]string, 0, limit)
 				for i := 0; i < limit; i++ {
 					bs := pairs[i].stat
 					query := bs.query
@@ -404,13 +391,9 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 						query = "(unknown)"
 					}
 					avgWait := bs.totalWait / float64(bs.blockCount)
-					b.WriteString(fmt.Sprintf("| %s | %s | %d | %s | %s |\n",
-						bs.queryID,
-						truncateQuery(query, 60),
-						bs.blockCount,
-						formatQueryDuration(avgWait),
-						formatQueryDuration(bs.totalWait)))
+					rows = append(rows, []string{bs.queryID, truncateQuery(query, 60), fmt.Sprintf("%d", bs.blockCount), formatQueryDuration(avgWait), formatQueryDuration(bs.totalWait)})
 				}
+				mdTable(&b, []string{"SQLID", "Query", "Blocked", "Avg Wait", "Total Wait"}, "llrrr", rows)
 				b.WriteString("\n")
 			}
 		}
@@ -605,116 +588,43 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 				[]string{"< 1s", "1s - 1min", "1min - 30min", "30min - 2h", "2h - 5h", "> 5h"})
 		}
 
-		// Sessions by user
-		if len(m.Connections.SessionsByUser) > 0 {
-			b.WriteString("### Session Duration by User\n\n")
-			b.WriteString("| User | Sessions | Min | Max | Avg | Median | Cumulated |\n")
-			b.WriteString("|---|---:|---|---|---|---|---:|\n")
-
-			type userStats struct {
-				user      string
+		writeSessionTable := func(label string, src map[string]*analysis.StreamingDurationStats) {
+			if len(src) == 0 {
+				return
+			}
+			b.WriteString("### Session Duration by " + label + "\n\n")
+			type row struct {
+				key       string
 				stats     analysis.DurationStats
 				cumulated time.Duration
 			}
-			var sortedUsers []userStats
-			for user, s := range m.Connections.SessionsByUser {
-				stats := s.Stats()
-				sortedUsers = append(sortedUsers, userStats{
-					user: user, stats: stats, cumulated: s.Cumulated(),
+			var sorted []row
+			for k, s := range src {
+				sorted = append(sorted, row{key: k, stats: s.Stats(), cumulated: s.Cumulated()})
+			}
+			sort.Slice(sorted, func(i, j int) bool { return sorted[i].stats.Count > sorted[j].stats.Count })
+			end := len(sorted)
+			if end > 10 {
+				end = 10
+			}
+			rows := make([][]string, 0, end)
+			for _, r := range sorted[:end] {
+				rows = append(rows, []string{
+					r.key,
+					fmt.Sprintf("%d", r.stats.Count),
+					r.stats.Min.Round(time.Second).String(),
+					r.stats.Max.Round(time.Second).String(),
+					r.stats.Avg.Round(time.Second).String(),
+					r.stats.Median.Round(time.Second).String(),
+					r.cumulated.Round(time.Second).String(),
 				})
 			}
-			sort.Slice(sortedUsers, func(i, j int) bool {
-				return sortedUsers[i].stats.Count > sortedUsers[j].stats.Count
-			})
-
-			limit := 10
-			for i := 0; i < limit && i < len(sortedUsers); i++ {
-				u := sortedUsers[i]
-				b.WriteString(fmt.Sprintf("| %s | %d | %s | %s | %s | %s | %s |\n",
-					u.user,
-					u.stats.Count,
-					u.stats.Min.Round(time.Second),
-					u.stats.Max.Round(time.Second),
-					u.stats.Avg.Round(time.Second),
-					u.stats.Median.Round(time.Second),
-					u.cumulated.Round(time.Second)))
-			}
+			mdTable(&b, []string{label, "Sessions", "Min", "Max", "Avg", "Median", "Cumulated"}, "lrrrrrr", rows)
 			b.WriteString("\n")
 		}
-
-		// Sessions by database
-		if len(m.Connections.SessionsByDatabase) > 0 {
-			b.WriteString("### Session Duration by Database\n\n")
-			b.WriteString("| Database | Sessions | Min | Max | Avg | Median | Cumulated |\n")
-			b.WriteString("|---|---:|---|---|---|---|---:|\n")
-
-			type dbStats struct {
-				database  string
-				stats     analysis.DurationStats
-				cumulated time.Duration
-			}
-			var sortedDBs []dbStats
-			for db, s := range m.Connections.SessionsByDatabase {
-				stats := s.Stats()
-				sortedDBs = append(sortedDBs, dbStats{
-					database: db, stats: stats, cumulated: s.Cumulated(),
-				})
-			}
-			sort.Slice(sortedDBs, func(i, j int) bool {
-				return sortedDBs[i].stats.Count > sortedDBs[j].stats.Count
-			})
-
-			limit := 10
-			for i := 0; i < limit && i < len(sortedDBs); i++ {
-				d := sortedDBs[i]
-				b.WriteString(fmt.Sprintf("| %s | %d | %s | %s | %s | %s | %s |\n",
-					d.database,
-					d.stats.Count,
-					d.stats.Min.Round(time.Second),
-					d.stats.Max.Round(time.Second),
-					d.stats.Avg.Round(time.Second),
-					d.stats.Median.Round(time.Second),
-					d.cumulated.Round(time.Second)))
-			}
-			b.WriteString("\n")
-		}
-
-		// Sessions by host
-		if len(m.Connections.SessionsByHost) > 0 {
-			b.WriteString("### Session Duration by Host\n\n")
-			b.WriteString("| Host | Sessions | Min | Max | Avg | Median | Cumulated |\n")
-			b.WriteString("|---|---:|---|---|---|---|---:|\n")
-
-			type hostStats struct {
-				host      string
-				stats     analysis.DurationStats
-				cumulated time.Duration
-			}
-			var sortedHosts []hostStats
-			for host, s := range m.Connections.SessionsByHost {
-				stats := s.Stats()
-				sortedHosts = append(sortedHosts, hostStats{
-					host: host, stats: stats, cumulated: s.Cumulated(),
-				})
-			}
-			sort.Slice(sortedHosts, func(i, j int) bool {
-				return sortedHosts[i].stats.Count > sortedHosts[j].stats.Count
-			})
-
-			limit := 10
-			for i := 0; i < limit && i < len(sortedHosts); i++ {
-				h := sortedHosts[i]
-				b.WriteString(fmt.Sprintf("| %s | %d | %s | %s | %s | %s | %s |\n",
-					h.host,
-					h.stats.Count,
-					h.stats.Min.Round(time.Second),
-					h.stats.Max.Round(time.Second),
-					h.stats.Avg.Round(time.Second),
-					h.stats.Median.Round(time.Second),
-					h.cumulated.Round(time.Second)))
-			}
-			b.WriteString("\n")
-		}
+		writeSessionTable("User", m.Connections.SessionsByUser)
+		writeSessionTable("Database", m.Connections.SessionsByDatabase)
+		writeSessionTable("Host", m.Connections.SessionsByHost)
 	}
 
 	// ============================================================================
@@ -729,83 +639,52 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 
 		totalLogs := m.Global.Count
 
-		if m.UniqueEntities.UniqueUsers > 0 && m.UniqueEntities.UserCounts != nil {
-			b.WriteString("### USERS\n\n")
-			b.WriteString("| User | Count | % |\n")
-			b.WriteString("|---|---:|---:|\n")
-			sortedUsers := analysis.SortByCount(m.UniqueEntities.UserCounts)
-			for _, item := range sortedUsers {
-				percentage := float64(item.Count) * 100.0 / float64(totalLogs)
-				b.WriteString(fmt.Sprintf("| %s | %d | %.1f%% |\n", item.Name, item.Count, percentage))
+		writeEntityTable := func(title, colName string, counts map[string]int) {
+			if len(counts) == 0 {
+				return
 			}
+			b.WriteString("### " + title + "\n\n")
+			sorted := analysis.SortByCount(counts)
+			rows := make([][]string, 0, len(sorted))
+			for _, item := range sorted {
+				pct := float64(item.Count) * 100.0 / float64(totalLogs)
+				rows = append(rows, []string{item.Name, fmt.Sprintf("%d", item.Count), fmt.Sprintf("%.1f%%", pct)})
+			}
+			mdTable(&b, []string{colName, "Count", "%"}, "lrr", rows)
 			b.WriteString("\n")
 		}
-
-		if m.UniqueEntities.UniqueApps > 0 && m.UniqueEntities.AppCounts != nil {
-			b.WriteString("### APPS\n\n")
-			b.WriteString("| App | Count | % |\n")
-			b.WriteString("|---|---:|---:|\n")
-			sortedApps := analysis.SortByCount(m.UniqueEntities.AppCounts)
-			for _, item := range sortedApps {
-				percentage := float64(item.Count) * 100.0 / float64(totalLogs)
-				b.WriteString(fmt.Sprintf("| %s | %d | %.1f%% |\n", item.Name, item.Count, percentage))
+		writeComboTable := func(title, leftCol, rightCol string, counts map[string]int) {
+			if len(counts) == 0 {
+				return
 			}
-			b.WriteString("\n")
-		}
-
-		if m.UniqueEntities.UniqueDbs > 0 && m.UniqueEntities.DBCounts != nil {
-			b.WriteString("### DATABASES\n\n")
-			b.WriteString("| Database | Count | % |\n")
-			b.WriteString("|---|---:|---:|\n")
-			sortedDBs := analysis.SortByCount(m.UniqueEntities.DBCounts)
-			for _, item := range sortedDBs {
-				percentage := float64(item.Count) * 100.0 / float64(totalLogs)
-				b.WriteString(fmt.Sprintf("| %s | %d | %.1f%% |\n", item.Name, item.Count, percentage))
-			}
-			b.WriteString("\n")
-		}
-
-		if m.UniqueEntities.UniqueHosts > 0 && m.UniqueEntities.HostCounts != nil {
-			b.WriteString("### HOSTS\n\n")
-			b.WriteString("| Host | Count | % |\n")
-			b.WriteString("|---|---:|---:|\n")
-			sortedHosts := analysis.SortByCount(m.UniqueEntities.HostCounts)
-			for _, item := range sortedHosts {
-				percentage := float64(item.Count) * 100.0 / float64(totalLogs)
-				b.WriteString(fmt.Sprintf("| %s | %d | %.1f%% |\n", item.Name, item.Count, percentage))
-			}
-			b.WriteString("\n")
-		}
-
-		if len(m.UniqueEntities.UserDbCombos) > 0 {
-			b.WriteString("### USER × DATABASE\n\n")
-			b.WriteString("| User | Database | Count | % |\n")
-			b.WriteString("|---|---|---:|---:|\n")
-			sortedCombos := analysis.SortByCount(m.UniqueEntities.UserDbCombos)
-			for _, item := range sortedCombos {
-				percentage := float64(item.Count) * 100.0 / float64(totalLogs)
+			b.WriteString("### " + title + "\n\n")
+			sorted := analysis.SortByCount(counts)
+			rows := make([][]string, 0, len(sorted))
+			for _, item := range sorted {
 				parts := strings.SplitN(item.Name, "|", 2)
-				if len(parts) == 2 {
-					b.WriteString(fmt.Sprintf("| %s | %s | %d | %.1f%% |\n", parts[0], parts[1], item.Count, percentage))
+				if len(parts) != 2 {
+					continue
 				}
+				pct := float64(item.Count) * 100.0 / float64(totalLogs)
+				rows = append(rows, []string{parts[0], parts[1], fmt.Sprintf("%d", item.Count), fmt.Sprintf("%.1f%%", pct)})
 			}
+			mdTable(&b, []string{leftCol, rightCol, "Count", "%"}, "llrr", rows)
 			b.WriteString("\n")
 		}
-
-		if len(m.UniqueEntities.UserHostCombos) > 0 {
-			b.WriteString("### USER × HOST\n\n")
-			b.WriteString("| User | Host | Count | % |\n")
-			b.WriteString("|---|---|---:|---:|\n")
-			sortedCombos := analysis.SortByCount(m.UniqueEntities.UserHostCombos)
-			for _, item := range sortedCombos {
-				percentage := float64(item.Count) * 100.0 / float64(totalLogs)
-				parts := strings.SplitN(item.Name, "|", 2)
-				if len(parts) == 2 {
-					b.WriteString(fmt.Sprintf("| %s | %s | %d | %.1f%% |\n", parts[0], parts[1], item.Count, percentage))
-				}
-			}
-			b.WriteString("\n")
+		if m.UniqueEntities.UniqueUsers > 0 {
+			writeEntityTable("USERS", "User", m.UniqueEntities.UserCounts)
 		}
+		if m.UniqueEntities.UniqueApps > 0 {
+			writeEntityTable("APPS", "App", m.UniqueEntities.AppCounts)
+		}
+		if m.UniqueEntities.UniqueDbs > 0 {
+			writeEntityTable("DATABASES", "Database", m.UniqueEntities.DBCounts)
+		}
+		if m.UniqueEntities.UniqueHosts > 0 {
+			writeEntityTable("HOSTS", "Host", m.UniqueEntities.HostCounts)
+		}
+		writeComboTable("USER × DATABASE", "User", "Database", m.UniqueEntities.UserDbCombos)
+		writeComboTable("USER × HOST", "User", "Host", m.UniqueEntities.UserHostCombos)
 	}
 
 	// ============================================================================
@@ -1204,49 +1083,38 @@ func printQueryStatsMarkdown(b *strings.Builder, stats map[string]*analysis.Quer
 	}
 
 	// Slowest queries
-	sort.Slice(list, func(i, j int) bool { return list[i].MaxTime > list[j].MaxTime })
-	b.WriteString("**Slowest queries (top 10)**\n\n")
-	b.WriteString("| SQLID | Max | Avg | Count | Query |\n")
-	b.WriteString("|---|---:|---:|---:|---|\n")
-	for i, q := range list {
-		if i >= 10 {
-			break
+	emit := func(title string, sortFn func(i, j int) bool, headers []string, rowFn func(qinfo) []string) {
+		sort.Slice(list, sortFn)
+		b.WriteString("**" + title + "**\n\n")
+		end := len(list)
+		if end > 10 {
+			end = 10
 		}
-		b.WriteString(fmt.Sprintf("| %s | %s | %s | %d | %s |\n",
-			q.ID, formatQueryDuration(q.MaxTime), formatQueryDuration(q.AvgTime),
-			q.Count, truncateQuery(q.Query, 80)))
-	}
-	b.WriteString("\n")
-
-	// Most frequent queries
-	sort.Slice(list, func(i, j int) bool { return list[i].Count > list[j].Count })
-	b.WriteString("**Most frequent queries (top 10)**\n\n")
-	b.WriteString("| SQLID | Count | Avg | Max | Query |\n")
-	b.WriteString("|---|---:|---:|---:|---|\n")
-	for i, q := range list {
-		if i >= 10 {
-			break
+		rows := make([][]string, 0, end)
+		for _, q := range list[:end] {
+			rows = append(rows, rowFn(q))
 		}
-		b.WriteString(fmt.Sprintf("| %s | %d | %s | %s | %s |\n",
-			q.ID, q.Count, formatQueryDuration(q.AvgTime), formatQueryDuration(q.MaxTime),
-			truncateQuery(q.Query, 80)))
+		mdTable(b, headers, "lrrrl", rows)
+		b.WriteString("\n")
 	}
-	b.WriteString("\n")
-
-	// Time consuming queries
-	sort.Slice(list, func(i, j int) bool { return list[i].TotalTime > list[j].TotalTime })
-	b.WriteString("**Most time consuming queries (top 10)**\n\n")
-	b.WriteString("| SQLID | Total | Avg | Count | Query |\n")
-	b.WriteString("|---|---:|---:|---:|---|\n")
-	for i, q := range list {
-		if i >= 10 {
-			break
-		}
-		b.WriteString(fmt.Sprintf("| %s | %s | %s | %d | %s |\n",
-			q.ID, formatQueryDuration(q.TotalTime), formatQueryDuration(q.AvgTime),
-			q.Count, truncateQuery(q.Query, 80)))
-	}
-	b.WriteString("\n")
+	emit("Slowest queries (top 10)",
+		func(i, j int) bool { return list[i].MaxTime > list[j].MaxTime },
+		[]string{"SQLID", "Max", "Avg", "Count", "Query"},
+		func(q qinfo) []string {
+			return []string{q.ID, formatQueryDuration(q.MaxTime), formatQueryDuration(q.AvgTime), fmt.Sprintf("%d", q.Count), truncateQuery(q.Query, 80)}
+		})
+	emit("Most frequent queries (top 10)",
+		func(i, j int) bool { return list[i].Count > list[j].Count },
+		[]string{"SQLID", "Count", "Avg", "Max", "Query"},
+		func(q qinfo) []string {
+			return []string{q.ID, fmt.Sprintf("%d", q.Count), formatQueryDuration(q.AvgTime), formatQueryDuration(q.MaxTime), truncateQuery(q.Query, 80)}
+		})
+	emit("Most time consuming queries (top 10)",
+		func(i, j int) bool { return list[i].TotalTime > list[j].TotalTime },
+		[]string{"SQLID", "Total", "Avg", "Count", "Query"},
+		func(q qinfo) []string {
+			return []string{q.ID, formatQueryDuration(q.TotalTime), formatQueryDuration(q.AvgTime), fmt.Sprintf("%d", q.Count), truncateQuery(q.Query, 80)}
+		})
 }
 
 // countSlowQueries returns the count of queries in the top 1% (P99)
@@ -1341,110 +1209,79 @@ func printLockStatsMarkdown(b *strings.Builder, stats map[string]int, total int)
 
 // printAcquiredLockQueriesMarkdown prints queries with acquired locks in markdown table format.
 func printAcquiredLockQueriesMarkdown(b *strings.Builder, queryStats map[string]*analysis.LockQueryStat, limit int) {
-	// Convert map to slice and filter/sort by acquired wait time
-	type queryPair struct {
-		stat *analysis.LockQueryStat
-	}
-	var pairs []queryPair
-	for _, stat := range queryStats {
-		if stat.AcquiredCount > 0 {
-			pairs = append(pairs, queryPair{stat})
+	type pair struct{ stat *analysis.LockQueryStat }
+	var pairs []pair
+	for _, s := range queryStats {
+		if s.AcquiredCount > 0 {
+			pairs = append(pairs, pair{s})
 		}
 	}
-	sort.Slice(pairs, func(i, j int) bool {
-		return pairs[i].stat.AcquiredWaitTime > pairs[j].stat.AcquiredWaitTime
-	})
-
-	// Print top queries
+	sort.Slice(pairs, func(i, j int) bool { return pairs[i].stat.AcquiredWaitTime > pairs[j].stat.AcquiredWaitTime })
 	if limit > len(pairs) {
 		limit = len(pairs)
 	}
+	rows := make([][]string, 0, limit)
 	for i := 0; i < limit; i++ {
-		stat := pairs[i].stat
-		truncatedQuery := truncateQuery(stat.NormalizedQuery, 60)
-		avgWait := stat.AcquiredWaitTime / float64(stat.AcquiredCount)
-		b.WriteString(fmt.Sprintf("| %s | %s | %d | %.2f | %.2f |\n",
-			stat.ID,
-			truncatedQuery,
-			stat.AcquiredCount,
-			avgWait,
-			stat.AcquiredWaitTime))
+		s := pairs[i].stat
+		avgWait := s.AcquiredWaitTime / float64(s.AcquiredCount)
+		rows = append(rows, []string{s.ID, truncateQuery(s.NormalizedQuery, 60), fmt.Sprintf("%d", s.AcquiredCount), fmt.Sprintf("%.2f", avgWait), fmt.Sprintf("%.2f", s.AcquiredWaitTime)})
 	}
+	mdTable(b, lockQueryHeaders, "llrrr", rows)
 }
 
 // printStillWaitingLockQueriesMarkdown prints queries with locks still waiting in markdown table format.
 func printStillWaitingLockQueriesMarkdown(b *strings.Builder, queryStats map[string]*analysis.LockQueryStat, limit int) {
-	// Convert map to slice and filter/sort by still waiting time
-	type queryPair struct {
-		stat *analysis.LockQueryStat
-	}
-	var pairs []queryPair
-	for _, stat := range queryStats {
-		if stat.StillWaitingCount > 0 {
-			pairs = append(pairs, queryPair{stat})
+	type pair struct{ stat *analysis.LockQueryStat }
+	var pairs []pair
+	for _, s := range queryStats {
+		if s.StillWaitingCount > 0 {
+			pairs = append(pairs, pair{s})
 		}
 	}
-	sort.Slice(pairs, func(i, j int) bool {
-		return pairs[i].stat.StillWaitingTime > pairs[j].stat.StillWaitingTime
-	})
-
-	// Print top queries
+	sort.Slice(pairs, func(i, j int) bool { return pairs[i].stat.StillWaitingTime > pairs[j].stat.StillWaitingTime })
 	if limit > len(pairs) {
 		limit = len(pairs)
 	}
+	rows := make([][]string, 0, limit)
 	for i := 0; i < limit; i++ {
-		stat := pairs[i].stat
-		truncatedQuery := truncateQuery(stat.NormalizedQuery, 60)
-		avgWait := stat.StillWaitingTime / float64(stat.StillWaitingCount)
-		b.WriteString(fmt.Sprintf("| %s | %s | %d | %.2f | %.2f |\n",
-			stat.ID,
-			truncatedQuery,
-			stat.StillWaitingCount,
-			avgWait,
-			stat.StillWaitingTime))
+		s := pairs[i].stat
+		avgWait := s.StillWaitingTime / float64(s.StillWaitingCount)
+		rows = append(rows, []string{s.ID, truncateQuery(s.NormalizedQuery, 60), fmt.Sprintf("%d", s.StillWaitingCount), fmt.Sprintf("%.2f", avgWait), fmt.Sprintf("%.2f", s.StillWaitingTime)})
 	}
+	mdTable(b, lockQueryHeaders, "llrrr", rows)
 }
 
 // printMostFrequentWaitingQueriesMarkdown prints all queries that experienced lock waits in markdown table format.
 func printMostFrequentWaitingQueriesMarkdown(b *strings.Builder, queryStats map[string]*analysis.LockQueryStat, limit int) {
-	// Convert map to slice and filter/sort by total number of locks that waited
-	type queryPair struct {
+	type pair struct {
 		stat       *analysis.LockQueryStat
 		totalLocks int
 		totalWait  float64
 	}
-	var pairs []queryPair
-	for _, stat := range queryStats {
-		totalLocks := stat.AcquiredCount + stat.StillWaitingCount
+	var pairs []pair
+	for _, s := range queryStats {
+		totalLocks := s.AcquiredCount + s.StillWaitingCount
 		if totalLocks > 0 {
-			totalWait := stat.AcquiredWaitTime + stat.StillWaitingTime
-			pairs = append(pairs, queryPair{
-				stat:       stat,
-				totalLocks: totalLocks,
-				totalWait:  totalWait,
-			})
+			pairs = append(pairs, pair{stat: s, totalLocks: totalLocks, totalWait: s.AcquiredWaitTime + s.StillWaitingTime})
 		}
 	}
-	sort.Slice(pairs, func(i, j int) bool {
-		return pairs[i].totalLocks > pairs[j].totalLocks
-	})
-
-	// Print top queries
+	sort.Slice(pairs, func(i, j int) bool { return pairs[i].totalLocks > pairs[j].totalLocks })
 	if limit > len(pairs) {
 		limit = len(pairs)
 	}
+	rows := make([][]string, 0, limit)
 	for i := 0; i < limit; i++ {
-		pair := pairs[i]
-		truncatedQuery := truncateQuery(pair.stat.NormalizedQuery, 60)
-		avgWait := pair.totalWait / float64(pair.totalLocks)
-		b.WriteString(fmt.Sprintf("| %s | %s | %d | %.2f | %.2f |\n",
-			pair.stat.ID,
-			truncatedQuery,
-			pair.totalLocks,
-			avgWait,
-			pair.totalWait))
+		p := pairs[i]
+		avgWait := p.totalWait / float64(p.totalLocks)
+		rows = append(rows, []string{p.stat.ID, truncateQuery(p.stat.NormalizedQuery, 60), fmt.Sprintf("%d", p.totalLocks), fmt.Sprintf("%.2f", avgWait), fmt.Sprintf("%.2f", p.totalWait)})
 	}
+	mdTable(b, lockQueryHeaders, "llrrr", rows)
 }
+
+// lockQueryHeaders is the shared 5-column header used by the three
+// lock-query renderers — keeping the constant out of the functions
+// guarantees they stay in sync.
+var lockQueryHeaders = []string{"SQLID", "Normalized Query", "Locks", "Avg Wait (ms)", "Total Wait (ms)"}
 
 // ExportSQLSummaryMarkdown produces a markdown report for --sql-summary
 func ExportSQLSummaryMarkdown(w io.Writer, m analysis.SQLMetrics, tempFiles analysis.TempFileMetrics, locks analysis.LockMetrics) {
@@ -1494,10 +1331,6 @@ func ExportSQLSummaryMarkdown(w io.Writer, m analysis.SQLMetrics, tempFiles anal
 	// TEMP FILES section
 	if len(tempFiles.QueryStats) > 0 {
 		b.WriteString("## TEMP FILES\n\n")
-		b.WriteString("| SQLID | Normalized Query | Count | Total Size |\n")
-		b.WriteString("|---|---|---:|---:|\n")
-
-		// Sort by total size descending
 		type queryWithSize struct {
 			stat *analysis.TempFileQueryStat
 		}
@@ -1508,21 +1341,16 @@ func ExportSQLSummaryMarkdown(w io.Writer, m analysis.SQLMetrics, tempFiles anal
 		sort.Slice(queries, func(i, j int) bool {
 			return queries[i].stat.TotalSize > queries[j].stat.TotalSize
 		})
-
-		// Display top 10
 		limit := 10
 		if len(queries) < limit {
 			limit = len(queries)
 		}
+		rows := make([][]string, 0, limit)
 		for i := 0; i < limit; i++ {
-			stat := queries[i].stat
-			truncatedQuery := truncateQuery(stat.NormalizedQuery, 60)
-			b.WriteString(fmt.Sprintf("| %s | %s | %d | %s |\n",
-				stat.ID,
-				truncatedQuery,
-				stat.Count,
-				FormatBytes(stat.TotalSize)))
+			s := queries[i].stat
+			rows = append(rows, []string{s.ID, truncateQuery(s.NormalizedQuery, 60), fmt.Sprintf("%d", s.Count), FormatBytes(s.TotalSize)})
 		}
+		mdTable(&b, []string{"SQLID", "Normalized Query", "Count", "Total Size"}, "llrr", rows)
 		b.WriteString("\n")
 	}
 
@@ -1540,8 +1368,6 @@ func ExportSQLSummaryMarkdown(w io.Writer, m analysis.SQLMetrics, tempFiles anal
 		}
 		if hasAcquired {
 			b.WriteString("### Acquired Locks by Query\n\n")
-			b.WriteString("| SQLID | Normalized Query | Locks | Avg Wait (ms) | Total Wait (ms) |\n")
-			b.WriteString("|---|---|---:|---:|---:|\n")
 			printAcquiredLockQueriesMarkdown(&b, locks.QueryStats, 10)
 			b.WriteString("\n")
 		}
@@ -1556,8 +1382,6 @@ func ExportSQLSummaryMarkdown(w io.Writer, m analysis.SQLMetrics, tempFiles anal
 		}
 		if hasStillWaiting {
 			b.WriteString("### Locks Still Waiting by Query\n\n")
-			b.WriteString("| SQLID | Normalized Query | Locks | Avg Wait (ms) | Total Wait (ms) |\n")
-			b.WriteString("|---|---|---:|---:|---:|\n")
 			printStillWaitingLockQueriesMarkdown(&b, locks.QueryStats, 10)
 			b.WriteString("\n")
 		}
@@ -1572,8 +1396,6 @@ func ExportSQLSummaryMarkdown(w io.Writer, m analysis.SQLMetrics, tempFiles anal
 		}
 		if hasWaiting {
 			b.WriteString("### Most Frequent Waiting Queries\n\n")
-			b.WriteString("| SQLID | Normalized Query | Locks | Avg Wait (ms) | Total Wait (ms) |\n")
-			b.WriteString("|---|---|---:|---:|---:|\n")
 			printMostFrequentWaitingQueriesMarkdown(&b, locks.QueryStats, 10)
 			b.WriteString("\n")
 		}
@@ -2177,8 +1999,6 @@ func exportSQLSummaryMarkdownTo(b *strings.Builder, m analysis.SQLMetrics, tempF
 		}
 		if hasAcquired {
 			b.WriteString("### Acquired Locks by Query\n\n")
-			b.WriteString("| SQLID | Query | Locks | Avg Wait | Total Wait |\n")
-			b.WriteString("|---|---|---:|---:|---:|\n")
 			printAcquiredLockQueriesMarkdown(b, locks.QueryStats, 5)
 			b.WriteString("\n")
 		}
@@ -2193,8 +2013,6 @@ func exportSQLSummaryMarkdownTo(b *strings.Builder, m analysis.SQLMetrics, tempF
 		}
 		if hasStillWaiting {
 			b.WriteString("### Locks Still Waiting by Query\n\n")
-			b.WriteString("| SQLID | Query | Locks | Avg Wait | Total Wait |\n")
-			b.WriteString("|---|---|---:|---:|---:|\n")
 			printStillWaitingLockQueriesMarkdown(b, locks.QueryStats, 5)
 			b.WriteString("\n")
 		}
@@ -2209,8 +2027,6 @@ func exportSQLSummaryMarkdownTo(b *strings.Builder, m analysis.SQLMetrics, tempF
 		}
 		if hasWaiting {
 			b.WriteString("### Most Frequent Waiting Queries\n\n")
-			b.WriteString("| SQLID | Query | Locks | Avg Wait | Total Wait |\n")
-			b.WriteString("|---|---|---:|---:|---:|\n")
 			printMostFrequentWaitingQueriesMarkdown(b, locks.QueryStats, 5)
 			b.WriteString("\n")
 		}
@@ -2219,15 +2035,30 @@ func exportSQLSummaryMarkdownTo(b *strings.Builder, m analysis.SQLMetrics, tempF
 
 // mdTable writes a markdown table whose pipes align in raw view.
 // alignments is a per-column string using 'r' for right-aligned cells,
-// anything else (typically 'l') for left. Purely cosmetic — every MD
-// renderer ignores the padding — but lets a reader scan the raw file
-// without the columns sliding.
+// anything else (typically 'l') for left. Cell values are escaped
+// pre-emission: any embedded "|" becomes "\|" so it stays part of the
+// cell rather than starting a new column — a real footgun in this
+// codebase since query texts and error messages happily carry pipes.
+// The padding itself is purely cosmetic for a renderer but lets a
+// reader scan the raw file without the columns sliding row to row.
 func mdTable(b *strings.Builder, headers []string, alignments string, rows [][]string) {
+	escapeCells := func(cells []string) []string {
+		out := make([]string, len(cells))
+		for i, c := range cells {
+			out[i] = strings.ReplaceAll(c, "|", `\|`)
+		}
+		return out
+	}
+	hdr := escapeCells(headers)
+	esc := make([][]string, len(rows))
+	for i, r := range rows {
+		esc[i] = escapeCells(r)
+	}
 	widths := make([]int, len(headers))
-	for i, h := range headers {
+	for i, h := range hdr {
 		widths[i] = len(h)
 	}
-	for _, row := range rows {
+	for _, row := range esc {
 		for i := 0; i < len(widths) && i < len(row); i++ {
 			if l := len(row[i]); l > widths[i] {
 				widths[i] = l
@@ -2251,7 +2082,7 @@ func mdTable(b *strings.Builder, headers []string, alignments string, rows [][]s
 		}
 		b.WriteString("|\n")
 	}
-	writeRow(headers)
+	writeRow(hdr)
 	for i, w := range widths {
 		b.WriteByte('|')
 		if right(i) {
@@ -2262,7 +2093,7 @@ func mdTable(b *strings.Builder, headers []string, alignments string, rows [][]s
 		}
 	}
 	b.WriteString("|\n")
-	for _, row := range rows {
+	for _, row := range esc {
 		writeRow(row)
 	}
 }

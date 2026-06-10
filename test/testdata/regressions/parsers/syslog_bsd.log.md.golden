@@ -32,21 +32,21 @@ This _quellog_ report summarizes **7** log entries collected between 20 Apr 2026
 
 **Slowest queries (top 10)**
 
-| SQLID | Max | Avg | Count | Query |
-|---|---:|---:|---:|---|
-| se-L7puXx | 12 ms | 12 ms | 1 | select count(*) from users where active = true |
+| SQLID     |   Max |   Avg | Count | Query                                          |
+|-----------|------:|------:|------:|------------------------------------------------|
+| se-L7puXx | 12 ms | 12 ms |     1 | select count(*) from users where active = true |
 
 **Most frequent queries (top 10)**
 
-| SQLID | Count | Avg | Max | Query |
-|---|---:|---:|---:|---|
-| se-L7puXx | 1 | 12 ms | 12 ms | select count(*) from users where active = true |
+| SQLID     | Count |   Avg |   Max | Query                                          |
+|-----------|------:|------:|------:|------------------------------------------------|
+| se-L7puXx |     1 | 12 ms | 12 ms | select count(*) from users where active = true |
 
 **Most time consuming queries (top 10)**
 
-| SQLID | Total | Avg | Count | Query |
-|---|---:|---:|---:|---|
-| se-L7puXx | 12 ms | 12 ms | 1 | select count(*) from users where active = true |
+| SQLID     | Total |   Avg | Count | Query                                          |
+|-----------|------:|------:|------:|------------------------------------------------|
+| se-L7puXx | 12 ms | 12 ms |     1 | select count(*) from users where active = true |
 
 ## EVENTS
 
@@ -153,20 +153,20 @@ This _quellog_ report summarizes **7** log entries collected between 20 Apr 2026
 ### Session Duration by User
 
 | User | Sessions | Min | Max | Avg | Median | Cumulated |
-|---|---:|---|---|---|---|---:|
-| app | 1 | 3s | 3s | 3s | 3s | 3s |
+|------|---------:|----:|----:|----:|-------:|----------:|
+| app  |        1 |  3s |  3s |  3s |     3s |        3s |
 
 ### Session Duration by Database
 
 | Database | Sessions | Min | Max | Avg | Median | Cumulated |
-|---|---:|---|---|---|---|---:|
-| appdb | 1 | 3s | 3s | 3s | 3s | 3s |
+|----------|---------:|----:|----:|----:|-------:|----------:|
+| appdb    |        1 |  3s |  3s |  3s |     3s |        3s |
 
 ### Session Duration by Host
 
-| Host | Sessions | Min | Max | Avg | Median | Cumulated |
-|---|---:|---|---|---|---|---:|
-| 10.0.0.70 | 1 | 3s | 3s | 3s | 3s | 3s |
+| Host      | Sessions | Min | Max | Avg | Median | Cumulated |
+|-----------|---------:|----:|----:|----:|-------:|----------:|
+| 10.0.0.70 |        1 |  3s |  3s |  3s |     3s |        3s |
 
 ## CLIENTS
 
@@ -177,38 +177,38 @@ This _quellog_ report summarizes **7** log entries collected between 20 Apr 2026
 
 ### USERS
 
-| User | Count | % |
-|---|---:|---:|
-| app | 5 | 71.4% |
+| User | Count |     % |
+|------|------:|------:|
+| app  |     5 | 71.4% |
 
 ### APPS
 
-| App | Count | % |
-|---|---:|---:|
-| psql | 5 | 71.4% |
+| App  | Count |     % |
+|------|------:|------:|
+| psql |     5 | 71.4% |
 
 ### DATABASES
 
-| Database | Count | % |
-|---|---:|---:|
-| appdb | 5 | 71.4% |
+| Database | Count |     % |
+|----------|------:|------:|
+| appdb    |     5 | 71.4% |
 
 ### HOSTS
 
-| Host | Count | % |
-|---|---:|---:|
-| 10.0.0.70 | 5 | 71.4% |
+| Host      | Count |     % |
+|-----------|------:|------:|
+| 10.0.0.70 |     5 | 71.4% |
 
 ### USER × DATABASE
 
-| User | Database | Count | % |
-|---|---|---:|---:|
-| app | appdb | 5 | 71.4% |
+| User | Database | Count |     % |
+|------|----------|------:|------:|
+| app  | appdb    |     5 | 71.4% |
 
 ### USER × HOST
 
-| User | Host | Count | % |
-|---|---|---:|---:|
-| app | 10.0.0.70 | 5 | 71.4% |
+| User | Host      | Count |     % |
+|------|-----------|------:|------:|
+| app  | 10.0.0.70 |     5 | 71.4% |
 
 

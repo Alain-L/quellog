@@ -32,33 +32,33 @@ This _quellog_ report summarizes **15** log entries collected between 19 Apr 202
 
 **Slowest queries (top 10)**
 
-| SQLID | Max | Avg | Count | Query |
-|---|---:|---:|---:|---|
-| up-p2E83N | 5 ms | 5 ms | 2 | update users set email = ? where id = ? |
-| se-x0Bojn | 4 ms | 4 ms | 3 | select * from products where id in (...) |
-| se-RCQDYk | 3 ms | 3 ms | 2 | select * from "MyTable" where "UserId" = ? |
-| se-6h5jCe | 2 ms | 2 ms | 3 | select * from users where id = ? |
-| in-hzD69N | 1 ms | 1 ms | 5 | insert into orders (user_id, total) values (?, ?) |
+| SQLID     |  Max |  Avg | Count | Query                                             |
+|-----------|-----:|-----:|------:|---------------------------------------------------|
+| up-p2E83N | 5 ms | 5 ms |     2 | update users set email = ? where id = ?           |
+| se-x0Bojn | 4 ms | 4 ms |     3 | select * from products where id in (...)          |
+| se-RCQDYk | 3 ms | 3 ms |     2 | select * from "MyTable" where "UserId" = ?        |
+| se-6h5jCe | 2 ms | 2 ms |     3 | select * from users where id = ?                  |
+| in-hzD69N | 1 ms | 1 ms |     5 | insert into orders (user_id, total) values (?, ?) |
 
 **Most frequent queries (top 10)**
 
-| SQLID | Count | Avg | Max | Query |
-|---|---:|---:|---:|---|
-| in-hzD69N | 5 | 1 ms | 1 ms | insert into orders (user_id, total) values (?, ?) |
-| se-x0Bojn | 3 | 4 ms | 4 ms | select * from products where id in (...) |
-| se-6h5jCe | 3 | 2 ms | 2 ms | select * from users where id = ? |
-| up-p2E83N | 2 | 5 ms | 5 ms | update users set email = ? where id = ? |
-| se-RCQDYk | 2 | 3 ms | 3 ms | select * from "MyTable" where "UserId" = ? |
+| SQLID     | Count |  Avg |  Max | Query                                             |
+|-----------|------:|-----:|-----:|---------------------------------------------------|
+| in-hzD69N |     5 | 1 ms | 1 ms | insert into orders (user_id, total) values (?, ?) |
+| se-x0Bojn |     3 | 4 ms | 4 ms | select * from products where id in (...)          |
+| se-6h5jCe |     3 | 2 ms | 2 ms | select * from users where id = ?                  |
+| up-p2E83N |     2 | 5 ms | 5 ms | update users set email = ? where id = ?           |
+| se-RCQDYk |     2 | 3 ms | 3 ms | select * from "MyTable" where "UserId" = ?        |
 
 **Most time consuming queries (top 10)**
 
-| SQLID | Total | Avg | Count | Query |
-|---|---:|---:|---:|---|
-| se-x0Bojn | 12 ms | 4 ms | 3 | select * from products where id in (...) |
-| up-p2E83N | 11 ms | 5 ms | 2 | update users set email = ? where id = ? |
-| se-6h5jCe | 7 ms | 2 ms | 3 | select * from users where id = ? |
-| in-hzD69N | 7 ms | 1 ms | 5 | insert into orders (user_id, total) values (?, ?) |
-| se-RCQDYk | 6 ms | 3 ms | 2 | select * from "MyTable" where "UserId" = ? |
+| SQLID     | Total |  Avg | Count | Query                                             |
+|-----------|------:|-----:|------:|---------------------------------------------------|
+| se-x0Bojn | 12 ms | 4 ms |     3 | select * from products where id in (...)          |
+| up-p2E83N | 11 ms | 5 ms |     2 | update users set email = ? where id = ?           |
+| se-6h5jCe |  7 ms | 2 ms |     3 | select * from users where id = ?                  |
+| in-hzD69N |  7 ms | 1 ms |     5 | insert into orders (user_id, total) values (?, ?) |
+| se-RCQDYk |  6 ms | 3 ms |     2 | select * from "MyTable" where "UserId" = ?        |
 
 ## EVENTS
 
@@ -73,38 +73,38 @@ This _quellog_ report summarizes **15** log entries collected between 19 Apr 202
 
 ### USERS
 
-| User | Count | % |
-|---|---:|---:|
-| app | 15 | 100.0% |
+| User | Count |      % |
+|------|------:|-------:|
+| app  |    15 | 100.0% |
 
 ### APPS
 
-| App | Count | % |
-|---|---:|---:|
-| psql | 15 | 100.0% |
+| App  | Count |      % |
+|------|------:|-------:|
+| psql |    15 | 100.0% |
 
 ### DATABASES
 
-| Database | Count | % |
-|---|---:|---:|
-| appdb | 15 | 100.0% |
+| Database | Count |      % |
+|----------|------:|-------:|
+| appdb    |    15 | 100.0% |
 
 ### HOSTS
 
-| Host | Count | % |
-|---|---:|---:|
-| 10.0.0.1 | 15 | 100.0% |
+| Host     | Count |      % |
+|----------|------:|-------:|
+| 10.0.0.1 |    15 | 100.0% |
 
 ### USER × DATABASE
 
-| User | Database | Count | % |
-|---|---|---:|---:|
-| app | appdb | 15 | 100.0% |
+| User | Database | Count |      % |
+|------|----------|------:|-------:|
+| app  | appdb    |    15 | 100.0% |
 
 ### USER × HOST
 
-| User | Host | Count | % |
-|---|---|---:|---:|
-| app | 10.0.0.1 | 15 | 100.0% |
+| User | Host     | Count |      % |
+|------|----------|------:|-------:|
+| app  | 10.0.0.1 |    15 | 100.0% |
 
 
