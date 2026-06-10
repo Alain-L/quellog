@@ -7698,6 +7698,18 @@
         "vacuum_count": 1,
         "total_elapsed_seconds": 0.03,
         "max_elapsed_seconds": 0.03
+      },
+      {
+        "table": "app_db.pg_catalog.pg_index",
+        "vacuum_count": 1,
+        "total_elapsed_seconds": 0.03,
+        "max_elapsed_seconds": 0.03
+      },
+      {
+        "table": "template1.pg_catalog.pg_shdepend",
+        "vacuum_count": 1,
+        "total_elapsed_seconds": 0.03,
+        "max_elapsed_seconds": 0.03
       }
     ]
   },

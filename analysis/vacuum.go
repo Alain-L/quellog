@@ -311,8 +311,8 @@ func (a *VacuumAnalyzer) recordContinuationStats(table, msg string, ts time.Time
 // Finalize returns the aggregated vacuum metrics.
 // This should be called after all log entries have been processed.
 func (a *VacuumAnalyzer) Finalize() VacuumMetrics {
-	top := topVacuumTablesByElapsed(a.vacuumTableStats, 10)
-	xmin := topVacuumTablesByXminPressure(a.vacuumTableStats, 10)
+	top := topVacuumTablesByElapsed(a.vacuumTableStats, 200)
+	xmin := topVacuumTablesByXminPressure(a.vacuumTableStats, 200)
 	return VacuumMetrics{
 		VacuumCount:                a.vacuumCount,
 		AggressiveVacuumCount:      a.aggressiveVacuumCount,
@@ -334,7 +334,7 @@ func (a *VacuumAnalyzer) Finalize() VacuumMetrics {
 		XminBlockedTables:          xmin,
 		SlowestVacuum:              a.slowestVacuum,
 		TotalAnalyzeElapsedSeconds: a.totalAnalyzeElapsedSeconds,
-		TopAnalyzeTablesByElapsed:  topVacuumTablesByElapsed(a.analyzeTableStats, 10),
+		TopAnalyzeTablesByElapsed:  topVacuumTablesByElapsed(a.analyzeTableStats, 200),
 	}
 }
 
