@@ -19,23 +19,23 @@ This _quellog_ report summarizes **2** log entries collected between 19 Apr 2026
 
 ### Top tables by autovacuum elapsed time
 
-| Table | Vacuum count | Elapsed | Recovered |
-|---|---:|---:|---:|
-| `appdb.public.audit_logs` | 1 | 45s | 4.43 MB |
-| `appdb.public.large_events` | 1 | 12s | 1.91 MB |
+| Table                       | Vacuum count | Elapsed | Recovered |
+|-----------------------------|-------------:|--------:|----------:|
+| `appdb.public.audit_logs`   |            1 |     45s |   4.43 MB |
+| `appdb.public.large_events` |            1 |     12s |   1.91 MB |
 
 ### Tables with rows not yet removable
 
-| Table | Dead rows | Vacuum count |
-|---|---:|---:|
-| `appdb.public.audit_logs` | 5432 | 1 |
-| `appdb.public.large_events` | 1234 | 1 |
+| Table                       | Dead rows | Vacuum count |
+|-----------------------------|----------:|-------------:|
+| `appdb.public.audit_logs`   |      5432 |            1 |
+| `appdb.public.large_events` |      1234 |            1 |
 
 ### Top tables by autovacuum count
 
-| Table | Count | % of total | Recovered |
-|---|---:|---:|---:|
-| appdb.public.audit_logs | 1 | 50.00% | 4.43 MB |
-| appdb.public.large_events | 1 | 50.00% | 1.91 MB |
+| Table                     | Count | % of total | Recovered |
+|---------------------------|------:|-----------:|----------:|
+| appdb.public.audit_logs   |     1 |     50.00% |   4.43 MB |
+| appdb.public.large_events |     1 |     50.00% |   1.91 MB |
 
 

@@ -18,24 +18,24 @@ This _quellog_ report summarizes **3** log entries collected between 19 Apr 2026
 
 ### Top tables by autovacuum elapsed time
 
-| Table | Vacuum count | Elapsed | Recovered |
-|---|---:|---:|---:|
-| `appdb.public.sessions` | 1 | 0s | 40.00 KB |
-| `appdb.public.users` | 1 | 0s |  |
+| Table                   | Vacuum count | Elapsed | Recovered |
+|-------------------------|-------------:|--------:|----------:|
+| `appdb.public.sessions` |            1 |      0s |  40.00 KB |
+| `appdb.public.users`    |            1 |      0s |           |
 
 ### Tables with rows not yet removable
 
-| Table | Dead rows | Vacuum count |
-|---|---:|---:|
-| `appdb.public.sessions` | 12 | 1 |
-| `appdb.public.users` | 3 | 1 |
+| Table                   | Dead rows | Vacuum count |
+|-------------------------|----------:|-------------:|
+| `appdb.public.sessions` |        12 |            1 |
+| `appdb.public.users`    |         3 |            1 |
 
 ### Top tables by autovacuum count
 
-| Table | Count | % of total | Recovered |
-|---|---:|---:|---:|
-| appdb.public.sessions | 1 | 50.00% | 40.00 KB |
-| appdb.public.users | 1 | 50.00% | 0 B |
+| Table                 | Count | % of total | Recovered |
+|-----------------------|------:|-----------:|----------:|
+| appdb.public.sessions |     1 |     50.00% |  40.00 KB |
+| appdb.public.users    |     1 |     50.00% |       0 B |
 
 ## AUTOANALYZE
 
@@ -44,14 +44,14 @@ This _quellog_ report summarizes **3** log entries collected between 19 Apr 2026
 
 ### Top tables by autoanalyze elapsed time
 
-| Table | Analyze count | Elapsed |
-|---|---:|---:|
-| `appdb.public.users` | 1 | 0s |
+| Table                | Analyze count | Elapsed |
+|----------------------|--------------:|--------:|
+| `appdb.public.users` |             1 |      0s |
 
 ### Top tables by autoanalyze count
 
-| Table | Count | % of total | Recovered |
-|---|---:|---:|---:|
-| appdb.public.users | 1 | 100.00% | 0 B |
+| Table              | Count | % of total | Recovered |
+|--------------------|------:|-----------:|----------:|
+| appdb.public.users |     1 |    100.00% |       0 B |
 
 
