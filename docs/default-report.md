@@ -156,23 +156,56 @@ Requires `log_lock_waits = on`.
 
 ## Maintenance (`--maintenance`)
 
-Autovacuum and autoanalyze operations.
+Autovacuum and autoanalyze activity, split into two sibling sections so vacuum-specific signals (buffer/WAL, dead-not-removable rows, space reclaimed) stay separate from analyze.
 
 ```
-MAINTENANCE
+AUTOVACUUM
 
-  Automatic vacuum count    : 668
-  Automatic analyze count   : 353
-  Top automatic vacuum operations per table:
-    app_db.public.sessions                 422  63.17%
-    app_db.public.audit_log                216  32.34%       8.00 KB removed
-  Top automatic analyze operations per table:
-    app_db.public.sessions                         300  84.99%
+  Vacuum count              : 668
+  Cumulated time            : 3h59m17s
+  Tuples removed            : 212,590
+  Space recovered           : 64.00 KB
+  Dead, not yet removable   : 1,506,114
+  Buffer usage (vacuum)     : hits 12M  misses 12M  dirtied 261k  written 0
+  Slowest single run        : 29m33s on appdb.public.app_activity_feed
+
+  Top tables by autovacuum elapsed time:
+    appdb.public.app_activity_feed    8×  3h52m24s
+    appdb.public.app_lock           422×  5m23s
+    appdb.public.app_audit_entry    216×  44s    8.00 KB recovered
+
+  Tables with rows not yet removable:
+    appdb.public.app_activity_feed   784,509 rows
+    appdb.public.app_lock            696,246 rows
+    appdb.public.app_audit_entry      22,932 rows
+
+  Top tables by autovacuum count:
+    appdb.public.app_lock             422   63.2%
+    appdb.public.app_audit_entry      216   32.3%
+
+AUTOANALYZE
+
+  Analyze count             : 353
+  Cumulated time            : 1h2m3s
+
+  Top tables by autoanalyze elapsed time:
+    appdb.public.app_lock           300×  52m8s
+    appdb.public.app_activity_feed   13×  8m58s
+
+  Top tables by autoanalyze count:
+    appdb.public.app_lock             300   85.0%
 ```
 
-Tables sorted by operation count. Space recovered by VACUUM shown when available.
+The header block answers the cluster-wide questions a DBA usually asks first: how much vacuum work happened, how much time it cost, how much disk was reclaimed, whether the xmin horizon is letting dead tuples accumulate, and how the buffer/WAL pressure looked. Each entry is suppressed when its source metric is zero — older PostgreSQL versions or runs without `log_autovacuum_min_duration` keep a terse output.
 
-Requires `log_autovacuum_min_duration >= 0`.
+Each "Top tables" panel answers one specific question:
+
+- **By autovacuum elapsed time** — which tables cost the most vacuum time, with the "X recovered" suffix in muted italic on rows that actually reclaimed space.
+- **Tables with rows not yet removable** — where dead tuples are accumulating because PostgreSQL hasn't been able to remove them yet (same vocabulary the autovacuum log uses, so a DBA seeing the report recognises the term immediately).
+- **By autovacuum count** — hot tables driving the autovacuum workload by sheer frequency.
+- **By autoanalyze elapsed time** / **By autoanalyze count** — symmetric panels for the autoanalyze side; analyze blocks only carry system-usage (elapsed), so there is no buffer / WAL / tuples breakdown here.
+
+Requires `log_autovacuum_min_duration >= 0`. With it off you only get the header counts (vacuum / analyze) and the per-table count rankings — the elapsed / buffer / WAL / dead-row metrics need the continuation lines PostgreSQL writes after each operation.
 
 ## Checkpoints (`--checkpoints`)
 
