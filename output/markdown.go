@@ -1910,29 +1910,38 @@ func exportSQLSummaryMarkdownTo(b *strings.Builder, m analysis.SQLMetrics, tempF
 	}
 }
 
-// writeKVPairsTableMarkdown writes a 4-column markdown table where
-// each row is two (label, value) pairs side-by-side. The header row
-// is the deliberately empty "|  |  |  |  |" pattern used across the
-// SQL summary / overview blocks; the data rows are width-padded so
-// the pipes line up vertically — that's the whole point of routing
-// these blocks through here.
+// writeKVPairsTableMarkdown writes the SQL summary / overview key
+// metrics as a flat Markdown bullet list rather than a table — the
+// "|  |  |  |  |" empty-header pattern read worse in raw view than
+// labeled bullets. Labels get a trailing space-pad so the colons line
+// up vertically in raw view (renderers collapse the run, but the raw
+// file reads like a table of contents). Each row in rows is two
+// (label, value) pairs side-by-side; empty labels are skipped so the
+// dangling "99th percentile" / "" cell in the overview disappears
+// cleanly rather than emitting a "**:**" bullet.
 func writeKVPairsTableMarkdown(b *strings.Builder, rows [][4]string) {
-	if len(rows) == 0 {
-		return
-	}
-	var widths [4]int
+	type pair struct{ label, value string }
+	var pairs []pair
 	for _, r := range rows {
-		for i := 0; i < 4; i++ {
-			if l := len(r[i]); l > widths[i] {
-				widths[i] = l
-			}
+		if r[0] != "" {
+			pairs = append(pairs, pair{r[0], r[1]})
+		}
+		if r[2] != "" {
+			pairs = append(pairs, pair{r[2], r[3]})
 		}
 	}
-	b.WriteString("|  |  |  |  |\n")
-	b.WriteString("|---|---:|---|---:|\n")
-	for _, r := range rows {
-		b.WriteString(fmt.Sprintf("| %-*s | %*s | %-*s | %*s |\n",
-			widths[0], r[0], widths[1], r[1], widths[2], r[2], widths[3], r[3]))
+	if len(pairs) == 0 {
+		return
+	}
+	maxW := 0
+	for _, p := range pairs {
+		if l := len(p.label); l > maxW {
+			maxW = l
+		}
+	}
+	for _, p := range pairs {
+		b.WriteString(fmt.Sprintf("- **%s**%s : %s\n",
+			p.label, strings.Repeat(" ", maxW-len(p.label)), p.value))
 	}
 	b.WriteString("\n")
 }

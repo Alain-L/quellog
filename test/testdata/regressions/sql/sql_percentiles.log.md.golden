@@ -10,12 +10,14 @@ This _quellog_ report summarizes **51** log entries collected between 19 Apr 202
 23:30 - 23:30 | ■■■■■ 5 s
 ```
 
-|  |  |  |  |
-|---|---:|---|---:|
-| Total query duration  | 13.26 s | Total queries parsed   |     51 |
-| Total unique queries  |       1 | Top 1% slow queries    |      1 |
-| Query max duration    |  510 ms | Query min duration     |  10 ms |
-| Query median duration |  260 ms | Query 99% max duration | 510 ms |
+- **Total query duration**   : 13.26 s
+- **Total queries parsed**   : 51
+- **Total unique queries**   : 1
+- **Top 1% slow queries**    : 1
+- **Query max duration**     : 510 ms
+- **Query min duration**     : 10 ms
+- **Query median duration**  : 260 ms
+- **Query 99% max duration** : 510 ms
 
 ### Query duration distribution
 
