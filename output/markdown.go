@@ -1045,26 +1045,26 @@ func writeAutovacuumSectionMarkdown(b *strings.Builder, v analysis.VacuumMetrics
 
 	if len(v.TopVacuumTables) > 0 {
 		b.WriteString("### Top tables by autovacuum elapsed time\n\n")
-		b.WriteString("| Table | Vacuum count | Elapsed | Recovered |\n")
-		b.WriteString("|---|---:|---:|---:|\n")
+		rows := make([][]string, 0, len(v.TopVacuumTables))
 		for _, t := range v.TopVacuumTables {
 			dur := time.Duration(t.TotalElapsedSeconds * float64(time.Second)).Truncate(time.Second)
 			rec := ""
 			if r := v.VacuumSpaceRecovered[t.Table]; r > 0 {
 				rec = FormatBytes(r)
 			}
-			b.WriteString(fmt.Sprintf("| `%s` | %d | %s | %s |\n", t.Table, t.VacuumCount, dur, rec))
+			rows = append(rows, []string{"`" + t.Table + "`", fmt.Sprintf("%d", t.VacuumCount), dur.String(), rec})
 		}
+		mdTable(b, []string{"Table", "Vacuum count", "Elapsed", "Recovered"}, "lrrr", rows)
 		b.WriteString("\n")
 	}
 
 	if len(v.XminBlockedTables) > 0 {
 		b.WriteString("### Tables with rows not yet removable\n\n")
-		b.WriteString("| Table | Dead rows | Vacuum count |\n")
-		b.WriteString("|---|---:|---:|\n")
+		rows := make([][]string, 0, len(v.XminBlockedTables))
 		for _, t := range v.XminBlockedTables {
-			b.WriteString(fmt.Sprintf("| `%s` | %d | %d |\n", t.Table, t.TuplesNotYetRemovable, t.VacuumCount))
+			rows = append(rows, []string{"`" + t.Table + "`", fmt.Sprintf("%d", t.TuplesNotYetRemovable), fmt.Sprintf("%d", t.VacuumCount)})
 		}
+		mdTable(b, []string{"Table", "Dead rows", "Vacuum count"}, "lrr", rows)
 		b.WriteString("\n")
 	}
 
@@ -1089,17 +1089,18 @@ func writeAutoanalyzeSectionMarkdown(b *strings.Builder, v analysis.VacuumMetric
 
 	if len(v.TopAnalyzeTablesByElapsed) > 0 {
 		b.WriteString("### Top tables by autoanalyze elapsed time\n\n")
-		b.WriteString("| Table | Analyze count | Elapsed |\n")
-		b.WriteString("|---|---:|---:|\n")
 		// Cap at 10 rows in the markdown for readability — the JSON
 		// keeps the full list when consumers want more.
-		for i, t := range v.TopAnalyzeTablesByElapsed {
-			if i >= 10 {
-				break
-			}
-			dur := time.Duration(t.TotalElapsedSeconds * float64(time.Second)).Truncate(time.Second)
-			b.WriteString(fmt.Sprintf("| `%s` | %d | %s |\n", t.Table, t.VacuumCount, dur))
+		end := len(v.TopAnalyzeTablesByElapsed)
+		if end > 10 {
+			end = 10
 		}
+		rows := make([][]string, 0, end)
+		for _, t := range v.TopAnalyzeTablesByElapsed[:end] {
+			dur := time.Duration(t.TotalElapsedSeconds * float64(time.Second)).Truncate(time.Second)
+			rows = append(rows, []string{"`" + t.Table + "`", fmt.Sprintf("%d", t.VacuumCount), dur.String()})
+		}
+		mdTable(b, []string{"Table", "Analyze count", "Elapsed"}, "lrr", rows)
 		b.WriteString("\n")
 	}
 
@@ -1147,34 +1148,29 @@ func printTopTablesMarkdown(tableCounts map[string]int, total int, spaceRecovere
 		return pairs[i].Name < pairs[j].Name
 	})
 
-	var sb strings.Builder
-	sb.WriteString("| Table | Count | % of total | Recovered |\n")
-	sb.WriteString("|---|---:|---:|---:|\n")
-
+	var rows [][]string
 	cum := 0
 	for i, p := range pairs {
 		if i >= 10 {
 			break
 		}
-
 		percentage := 0.0
 		if total > 0 {
 			percentage = float64(p.Count) / float64(total) * 100
 		}
 		cum += p.Count
-
-		sb.WriteString(fmt.Sprintf("| %s | %d | %.2f%% | %s |\n",
-			p.Name, p.Count, percentage, FormatBytes(p.Recovered)))
-
-		// Stop at 80% cumulative or 10 rows
-		cumPerc := 0.0
-		if total > 0 {
-			cumPerc = float64(cum) / float64(total) * 100
-		}
-		if cumPerc >= 80 {
+		rows = append(rows, []string{
+			p.Name,
+			fmt.Sprintf("%d", p.Count),
+			fmt.Sprintf("%.2f%%", percentage),
+			FormatBytes(p.Recovered),
+		})
+		if total > 0 && float64(cum)/float64(total)*100 >= 80 {
 			break
 		}
 	}
+	var sb strings.Builder
+	mdTable(&sb, []string{"Table", "Count", "% of total", "Recovered"}, "lrrr", rows)
 	return sb.String()
 }
 
@@ -2218,5 +2214,55 @@ func exportSQLSummaryMarkdownTo(b *strings.Builder, m analysis.SQLMetrics, tempF
 			printMostFrequentWaitingQueriesMarkdown(b, locks.QueryStats, 5)
 			b.WriteString("\n")
 		}
+	}
+}
+
+// mdTable writes a markdown table whose pipes align in raw view.
+// alignments is a per-column string using 'r' for right-aligned cells,
+// anything else (typically 'l') for left. Purely cosmetic — every MD
+// renderer ignores the padding — but lets a reader scan the raw file
+// without the columns sliding.
+func mdTable(b *strings.Builder, headers []string, alignments string, rows [][]string) {
+	widths := make([]int, len(headers))
+	for i, h := range headers {
+		widths[i] = len(h)
+	}
+	for _, row := range rows {
+		for i := 0; i < len(widths) && i < len(row); i++ {
+			if l := len(row[i]); l > widths[i] {
+				widths[i] = l
+			}
+		}
+	}
+	right := func(i int) bool { return i < len(alignments) && alignments[i] == 'r' }
+	writeRow := func(cells []string) {
+		for i, c := range cells {
+			b.WriteByte('|')
+			b.WriteByte(' ')
+			pad := widths[i] - len(c)
+			if right(i) {
+				b.WriteString(strings.Repeat(" ", pad))
+				b.WriteString(c)
+			} else {
+				b.WriteString(c)
+				b.WriteString(strings.Repeat(" ", pad))
+			}
+			b.WriteByte(' ')
+		}
+		b.WriteString("|\n")
+	}
+	writeRow(headers)
+	for i, w := range widths {
+		b.WriteByte('|')
+		if right(i) {
+			b.WriteString(strings.Repeat("-", w+1))
+			b.WriteByte(':')
+		} else {
+			b.WriteString(strings.Repeat("-", w+2))
+		}
+	}
+	b.WriteString("|\n")
+	for _, row := range rows {
+		writeRow(row)
 	}
 }

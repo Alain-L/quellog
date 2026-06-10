@@ -62,9 +62,9 @@ This _quellog_ report summarizes **4** log entries collected between 19 Apr 2026
 
 ### Top tables by autovacuum count
 
-| Table | Count | % of total | Recovered |
-|---|---:|---:|---:|
-| appdb.public.users | 1 | 100.00% | 0 B |
+| Table              | Count | % of total | Recovered |
+|--------------------|------:|-----------:|----------:|
+| appdb.public.users |     1 |    100.00% |       0 B |
 
 ## CLIENTS
 
