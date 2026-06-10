@@ -317,8 +317,7 @@ func ExportEventDetailMarkdown(w io.Writer, m analysis.AggregatedMetrics, ids []
 			fmt.Fprintln(bw)
 			fmt.Fprintln(bw, "### Triggering queries")
 			fmt.Fprintln(bw)
-			fmt.Fprintln(bw, "| QueryID | Query | Count | % |")
-			fmt.Fprintln(bw, "|---|---|---:|---:|")
+			rows := make([][]string, 0, len(e.TriggeringQueries))
 			for _, t := range e.TriggeringQueries {
 				share := 0.0
 				if e.Count > 0 {
@@ -328,8 +327,11 @@ func ExportEventDetailMarkdown(w io.Writer, m analysis.AggregatedMetrics, ids []
 				if len(normalized) > 80 {
 					normalized = normalized[:79] + "…"
 				}
-				fmt.Fprintf(bw, "| `%s` | `%s` | %d | %.1f%% |\n", t.ID, normalized, t.Count, share)
+				rows = append(rows, []string{"`" + t.ID + "`", "`" + normalized + "`", fmt.Sprintf("%d", t.Count), fmt.Sprintf("%.1f%%", share)})
 			}
+			var sb strings.Builder
+			mdTable(&sb, []string{"QueryID", "Query", "Count", "%"}, "llrr", rows)
+			bw.WriteString(sb.String())
 		}
 
 		fmt.Fprintln(bw)
