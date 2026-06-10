@@ -1540,6 +1540,59 @@
             height: 5px;
         }
 
+        /* Click-to-reveal on the table-name cell: hover shows the full
+           name via the native title tooltip; clicking inserts a copy
+           ribbon directly above the row carrying the full identifier
+           on a single line, with its text pre-selected so Cmd+C is the
+           very next keystroke. The cell itself keeps its truncated
+           form so the row never reflows. */
+        .scroll-list--maintenance .list-item .name {
+            cursor: pointer;
+            transition: color 0.15s ease;
+        }
+        .scroll-list--maintenance .list-item .name:hover {
+            color: var(--primary);
+        }
+        /* Click-to-reveal: the .name cell keeps its 240px slot in the
+           flex layout (so bar/value cells never shift), but its inner
+           text span breaks out via position: absolute when expanded —
+           it stretches to its full max-content width on top of the
+           neighbouring cells, with an opaque background so they're
+           hidden behind. The cell auto-restores when the selection
+           moves away or the user clicks it again. */
+        .scroll-list--maintenance .list-item {
+            position: relative;
+        }
+        .scroll-list--maintenance .list-item .name {
+            display: inline-flex;
+            align-items: center;
+        }
+        .scroll-list--maintenance .list-item .name .name-inner {
+            display: inline-block;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 100%;
+        }
+        .scroll-list--maintenance .list-item .name.expanded {
+            overflow: visible;
+        }
+        .scroll-list--maintenance .list-item .name.expanded .name-inner {
+            position: absolute;
+            top: 50%;
+            left: 0;
+            transform: translateY(-50%);
+            z-index: 10;
+            width: max-content;
+            max-width: 800px;
+            overflow: visible;
+            text-overflow: clip;
+            white-space: nowrap;
+            background: var(--card-bg, #fff);
+            user-select: all;
+            color: var(--text);
+        }
+
         /* Vacuum main table adds a 4th numeric slot (.dead-col) between
            .extra and .removed so the row carries the full
            recovered/dead/vacuums/elapsed quartet without overflowing.

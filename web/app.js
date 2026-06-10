@@ -1067,7 +1067,7 @@ function buildEventsSection(data) {
                     <span class="value">${sortable('elapsed', 'Elapsed')}</span>
                 </div>
                 ${limited.map(r => `<div class="list-item">
-                    <span class="name">${esc(r.table)}</span>
+                    ${maintName(r.table)}
                     <div class="bar"><div class="bar-fill" style="width: ${(r[barKey]||0)/maxBar*100}%${_vacMainSortKey === 'dead' ? '; background: var(--danger);' : ''}"></div></div>
                     <span class="extra">${r.recovered > 0 ? fmtBytes(r.recovered) : '-'}</span>
                     <span class="dead-col">${r.dead > 0 ? fmt(r.dead) : '-'}</span>
@@ -1109,7 +1109,7 @@ function buildEventsSection(data) {
                     <span class="extra"><span class="buf-cells"><span>${sortable('hits', 'Hits')}</span><span>${sortable('misses', 'Misses')}</span><span>${sortable('dirtied', 'Dirtied')}</span><span>${sortable('written', 'Written')}</span></span></span>
                 </div>
                 ${limited.map(r => `<div class="list-item">
-                    <span class="name">${esc(r.table)}</span>
+                    ${maintName(r.table)}
                     <div class="bar"><div class="bar-fill" style="width: ${(r[barKey]||0)/maxBar*100}%"></div></div>
                     <span class="extra"><span class="buf-cells"><span>${cell(r.hits)}</span><span>${cell(r.misses)}</span><span>${cell(r.dirtied)}</span><span>${cell(r.written)}</span></span></span>
                 </div>`).join('')}
@@ -1128,6 +1128,51 @@ function buildEventsSection(data) {
             else { _vacBufSortKey = key; _vacBufSortDir = 'desc'; }
             const c = document.getElementById('vacuum-table-container');
             if (c) c.innerHTML = renderVacuumBufferTable();
+        }
+
+        // maintName renders a table-name cell with a native hover
+        // tooltip carrying the full identifier plus a click handler
+        // that inserts a one-line copy ribbon directly above the row
+        // — auto-selected, ready for Cmd+C. The cell itself keeps the
+        // truncated form so the row layout never reflows.
+        function maintName(table) {
+            const safe = esc(table);
+            return `<span class="name" title="${safe}" onclick="showMaintRibbon(this)"><span class="name-inner">${safe}</span></span>`;
+        }
+
+        function showMaintRibbon(el) {
+            // Toggle off when reclicking the same expanded cell.
+            if (el.classList.contains('expanded')) {
+                el.classList.remove('expanded');
+                window.getSelection().removeAllRanges();
+                return;
+            }
+            // Only one cell expanded at a time.
+            document.querySelectorAll('.scroll-list--maintenance .name.expanded')
+                .forEach(n => n.classList.remove('expanded'));
+            el.classList.add('expanded');
+            // Pre-select the inner span so the next keystroke is Cmd+C.
+            const inner = el.querySelector('.name-inner');
+            if (inner) {
+                const range = document.createRange();
+                range.selectNodeContents(inner);
+                const sel = window.getSelection();
+                sel.removeAllRanges();
+                sel.addRange(range);
+            }
+            // Re-truncate as soon as the selection leaves the cell —
+            // a click anywhere else, a Tab, ESC, etc. The setTimeout
+            // skips the initial selection event the opener just fired.
+            setTimeout(() => {
+                const onSelChange = () => {
+                    const s = window.getSelection();
+                    if (!s.anchorNode || !el.contains(s.anchorNode)) {
+                        el.classList.remove('expanded');
+                        document.removeEventListener('selectionchange', onSelChange);
+                    }
+                };
+                document.addEventListener('selectionchange', onSelChange);
+            }, 0);
         }
 
         // Autoanalyze uses a single unified table with sortable column
@@ -1175,7 +1220,7 @@ function buildEventsSection(data) {
                     <span class="value">${sortable('share', 'Share')}</span>
                 </div>
                 ${limited.map(r => `<div class="list-item">
-                    <span class="name">${esc(r.table)}</span>
+                    ${maintName(r.table)}
                     <div class="bar"><div class="bar-fill" style="width: ${(r[barKey] || 0) / maxBar * 100}%"></div></div>
                     <span class="extra">${r.elapsed > 0 ? fmtDuration(r.elapsed * 1000) : '-'}</span>
                     <span class="removed">${r.count}×</span>
@@ -3474,6 +3519,7 @@ function buildEventsSection(data) {
         window.showVacuumMainSort = showVacuumMainSort;
         window.showVacuumBufferSort = showVacuumBufferSort;
         window.showVacuumView = showVacuumView;
+        window.showMaintRibbon = showMaintRibbon;
         window.showAnalyzeSort = showAnalyzeSort;
         window.copyQuery = copyQuery;
         window.showEventDetail = showEventDetail;
