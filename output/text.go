@@ -7,6 +7,7 @@ import (
 	"math"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -368,18 +369,16 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 		}
 	}
 
-	// Maintenance Metrics section.
-	if has("maintenance") && (m.Vacuum.VacuumCount > 0 || m.Vacuum.AnalyzeCount > 0) {
-		fmt.Println(bold + "\nMAINTENANCE\n" + reset)
-		fmt.Printf("  %-25s : %d\n", "Automatic vacuum count", m.Vacuum.VacuumCount)
-		if m.Vacuum.AggressiveVacuumCount > 0 {
-			fmt.Printf("  %-25s : %d\n", "  of which aggressive", m.Vacuum.AggressiveVacuumCount)
+	// Maintenance Metrics: split into two sibling sections so the
+	// reader doesn't have to mentally separate vacuum from analyze
+	// inside one wall of text.
+	if has("maintenance") {
+		if m.Vacuum.VacuumCount > 0 {
+			printAutovacuumSection(m.Vacuum)
 		}
-		fmt.Printf("  %-25s : %d\n", "Automatic analyze count", m.Vacuum.AnalyzeCount)
-		fmt.Println("  Top automatic vacuum operations per table:")
-		printTopTables(m.Vacuum.VacuumTableCounts, m.Vacuum.VacuumCount, m.Vacuum.VacuumSpaceRecovered)
-		fmt.Println("  Top automatic analyze operations per table:")
-		printTopTables(m.Vacuum.AnalyzeTableCounts, m.Vacuum.AnalyzeCount, nil)
+		if m.Vacuum.AnalyzeCount > 0 {
+			printAutoanalyzeSection(m.Vacuum)
+		}
 	}
 
 	// Checkpoints section
@@ -902,69 +901,266 @@ func formatSessionDuration(d time.Duration) string {
 	return fmt.Sprintf("%dh", totalHours)
 }
 
-// printTopTables prints the top tables for a given operation (vacuum or analyze).
-// It stops when the cumulative count reaches at least 80% of the total, unless fewer than 10 tables are available.
-func printTopTables(tableCounts map[string]int, total int, spaceRecovered map[string]int64) {
-	// Convert the map into a slice of pairs.
-	type tablePair struct {
-		Name      string
-		Count     int
-		Recovered int64 // in bytes.
+// printAutovacuumSection renders the AUTOVACUUM panel: header k:v
+// block (count, cumulated time, tuples, dead-not-removable, buffer/WAL
+// usage, slowest single run) followed by three purpose-driven panels —
+// top tables by elapsed, tables blocked by xmin horizon, top tables by
+// count. Each line/panel is suppressed when its source metric is zero,
+// so older PG versions emitting no continuation lines degrade cleanly.
+func printAutovacuumSection(v analysis.VacuumMetrics) {
+	fmt.Println(ansiBold + "\nAUTOVACUUM\n" + ansiReset)
+
+	fmt.Printf("  %-25s : %s\n", "Vacuum count", formatThousands(int64(v.VacuumCount)))
+	if v.AggressiveVacuumCount > 0 {
+		fmt.Printf("  %-25s : %s\n", "  of which aggressive", formatThousands(int64(v.AggressiveVacuumCount)))
 	}
-	var pairs []tablePair
-	for name, count := range tableCounts {
-		p := tablePair{
-			Name:  name,
-			Count: count,
-		}
-		if spaceRecovered != nil {
-			p.Recovered = spaceRecovered[name]
-		}
-		pairs = append(pairs, p)
+	if v.TotalVacuumElapsedSeconds > 0 {
+		dur := time.Duration(v.TotalVacuumElapsedSeconds * float64(time.Second)).Truncate(time.Second)
+		fmt.Printf("  %-25s : %s\n", "Cumulated time", dur)
+	}
+	if v.TotalTuplesRemoved > 0 {
+		fmt.Printf("  %-25s : %s\n", "Tuples removed", formatThousands(v.TotalTuplesRemoved))
+	}
+	if total := sumSpaceRecovered(v.VacuumSpaceRecovered); total > 0 {
+		fmt.Printf("  %-25s : %s\n", "Space recovered", FormatBytes(total))
+	}
+	if v.TotalTuplesNotYetRemovable > 0 {
+		fmt.Printf("  %-25s : %s\n", "Dead, not yet removable", formatThousands(v.TotalTuplesNotYetRemovable))
+	}
+	if v.TotalBufferHits+v.TotalBufferMisses > 0 {
+		fmt.Printf("  %-25s : hits %s  misses %s  dirtied %s  written %s\n",
+			"Buffer usage",
+			formatCompact(v.TotalBufferHits),
+			formatCompact(v.TotalBufferMisses),
+			formatCompact(v.TotalBufferDirtied),
+			formatCompact(v.TotalBufferWritten),
+		)
+	}
+	if v.TotalWALRecords > 0 || v.TotalWALBytes > 0 {
+		fmt.Printf("  %-25s : %s records  %s\n",
+			"WAL usage",
+			formatCompact(v.TotalWALRecords),
+			FormatBytes(v.TotalWALBytes),
+		)
+	}
+	if v.SlowestVacuum != nil && v.SlowestVacuum.ElapsedSeconds > 0 {
+		dur := time.Duration(v.SlowestVacuum.ElapsedSeconds * float64(time.Second)).Truncate(time.Second)
+		fmt.Printf("  %-25s : %s on %s\n", "Slowest single run", dur, v.SlowestVacuum.Table)
 	}
 
-	// Sort by count in descending order, then by name alphabetically.
+	if len(v.TopVacuumTables) > 0 {
+		printTopVacuumElapsedTable(v.TopVacuumTables, v.VacuumSpaceRecovered)
+	}
+	if len(v.XminBlockedTables) > 0 {
+		printTopXminTable(v.XminBlockedTables)
+	}
+	if len(v.VacuumTableCounts) > 0 {
+		printTopCountTable("Top tables by count:", v.VacuumTableCounts, v.VacuumCount)
+	}
+}
+
+// printAutoanalyzeSection renders the AUTOANALYZE sibling panel.
+// Currently slimmer than autovacuum because PG's analyze blocks only
+// carry system-usage (elapsed) — no buffer, no WAL, no tuples.
+func printAutoanalyzeSection(v analysis.VacuumMetrics) {
+	fmt.Println(ansiBold + "\nAUTOANALYZE\n" + ansiReset)
+
+	fmt.Printf("  %-25s : %s\n", "Analyze count", formatThousands(int64(v.AnalyzeCount)))
+	if v.TotalAnalyzeElapsedSeconds > 0 {
+		dur := time.Duration(v.TotalAnalyzeElapsedSeconds * float64(time.Second)).Truncate(time.Second)
+		fmt.Printf("  %-25s : %s\n", "Cumulated time", dur)
+	}
+
+	if len(v.TopAnalyzeTablesByElapsed) > 0 {
+		printTopElapsedTable("Top tables by elapsed time:", v.TopAnalyzeTablesByElapsed)
+	}
+	if len(v.AnalyzeTableCounts) > 0 {
+		printTopCountTable("Top tables by count:", v.AnalyzeTableCounts, v.AnalyzeCount)
+	}
+}
+
+// printTopElapsedTable renders one maintenance target per row, table
+// name first so the eye scans the identifier column without parsing
+// numerics. The VacuumCount field is reused for analyze rows too —
+// semantically it is the per-table operation count, regardless of
+// which branch (vacuum or analyze) populated it.
+func printTopElapsedTable(title string, rows []analysis.VacuumTableStat) {
+	fmt.Println("\n  " + title)
+	durs := make([]string, len(rows))
+	maxDurW, maxNameW := 0, 0
+	for i, t := range rows {
+		durs[i] = time.Duration(t.TotalElapsedSeconds * float64(time.Second)).Truncate(time.Second).String()
+		if len(durs[i]) > maxDurW {
+			maxDurW = len(durs[i])
+		}
+		if len(t.Table) > maxNameW {
+			maxNameW = len(t.Table)
+		}
+	}
+	for i, t := range rows {
+		fmt.Printf("    %-*s  %3d×  %*s\n", maxNameW, t.Table, t.VacuumCount, maxDurW, durs[i])
+	}
+}
+
+// printTopVacuumElapsedTable is the autovacuum-specific variant of
+// printTopElapsedTable: same name-first layout (table → count → elapsed),
+// with the per-table bytes reclaimed appended in muted italic when
+// known. Suffixing rather than column-aligning keeps the trio clean on
+// xmin-blocked workloads where most rows reclaim nothing — only the
+// productive lines wear the trailing tag.
+func printTopVacuumElapsedTable(rows []analysis.VacuumTableStat, recovered map[string]int64) {
+	fmt.Println("\n  Top tables by elapsed time:")
+	durs := make([]string, len(rows))
+	maxDurW, maxNameW := 0, 0
+	for i, t := range rows {
+		durs[i] = time.Duration(t.TotalElapsedSeconds * float64(time.Second)).Truncate(time.Second).String()
+		if len(durs[i]) > maxDurW {
+			maxDurW = len(durs[i])
+		}
+		if len(t.Table) > maxNameW {
+			maxNameW = len(t.Table)
+		}
+	}
+	for i, t := range rows {
+		if r := recovered[t.Table]; r > 0 {
+			fmt.Printf("    %-*s  %3d×  %*s  %s%s recovered%s\n",
+				maxNameW, t.Table, t.VacuumCount, maxDurW, durs[i],
+				ansiMutedItalic, FormatBytes(r), ansiReset)
+		} else {
+			fmt.Printf("    %-*s  %3d×  %*s\n",
+				maxNameW, t.Table, t.VacuumCount, maxDurW, durs[i])
+		}
+	}
+}
+
+// sumSpaceRecovered totals the per-table reclaimed bytes so the
+// AUTOVACUUM header can carry a single global figure alongside
+// "Tuples removed". Returns 0 when no table reclaimed space — that's
+// the signal a renderer uses to skip the line entirely.
+func sumSpaceRecovered(m map[string]int64) int64 {
+	var total int64
+	for _, v := range m {
+		total += v
+	}
+	return total
+}
+
+// printTopXminTable lists tables where autovacuum saw dead tuples it
+// could not remove yet — same wording PostgreSQL uses in its own log
+// ("are dead but not yet removable") so a DBA seeing the report
+// recognises the term instantly. Read this list as "where the
+// freeze-pressure debt is accumulating".
+func printTopXminTable(rows []analysis.VacuumTableStat) {
+	fmt.Println("\n  Tables with rows not yet removable:")
+	nums := make([]string, len(rows))
+	maxNumW, maxNameW := 0, 0
+	for i, t := range rows {
+		nums[i] = formatThousands(t.TuplesNotYetRemovable)
+		if len(nums[i]) > maxNumW {
+			maxNumW = len(nums[i])
+		}
+		if len(t.Table) > maxNameW {
+			maxNameW = len(t.Table)
+		}
+	}
+	for i, t := range rows {
+		fmt.Printf("    %-*s  %*s rows\n", maxNameW, t.Table, maxNumW, nums[i])
+	}
+}
+
+// printTopCountTable ranks tables by their raw vacuum or analyze count.
+// Stops once the cumulative share crosses 80% (or 10 entries, whichever
+// comes first) so the panel doesn't bury the signal under a long tail
+// on workloads that touch hundreds of tables.
+func printTopCountTable(title string, counts map[string]int, total int) {
+	type pair struct {
+		Name  string
+		Count int
+	}
+	pairs := make([]pair, 0, len(counts))
+	for n, c := range counts {
+		pairs = append(pairs, pair{n, c})
+	}
 	sort.Slice(pairs, func(i, j int) bool {
 		if pairs[i].Count != pairs[j].Count {
 			return pairs[i].Count > pairs[j].Count
 		}
 		return pairs[i].Name < pairs[j].Name
 	})
-
-	// Determine maximum width for table names.
-	tableLen := 0
-	for _, p := range pairs {
-		if l := len(p.Name); l > tableLen {
-			tableLen = l
+	// Pre-walk to find the kept rows and their max name width before
+	// printing, so the table column aligns on the longest displayed
+	// table rather than the longest in the entire input.
+	cum, kept := 0, 0
+	maxNameW := 0
+	for i, p := range pairs {
+		cum += p.Count
+		kept = i + 1
+		if len(p.Name) > maxNameW {
+			maxNameW = len(p.Name)
 		}
-	}
-	if w, _, err := term.GetSize(int(os.Stdout.Fd())); err == nil {
-		if tableLen > int(float64(w)*0.4) {
-			tableLen = int(float64(w) * 0.4)
+		if i >= 9 {
+			break
 		}
-	}
-
-	cum := 0
-	n := 0
-	for _, pair := range pairs {
-		percentage := float64(pair.Count) / float64(total) * 100
-		cum += pair.Count
-		n++
-		cumPercentage := float64(cum) / float64(total) * 100
-
-		// Fixed alignment: table name (left, width = tableLen), count (right, width 6), percentage (right, width 6, 2 decimals).
-		if spaceRecovered != nil && pair.Recovered > 0 {
-			fmt.Printf("    %-*s %6d %6.2f%%  %12s removed\n",
-				tableLen, pair.Name, pair.Count, percentage, FormatBytes(pair.Recovered))
-		} else {
-			fmt.Printf("    %-*s %6d %6.2f%%\n",
-				tableLen, pair.Name, pair.Count, percentage)
-		}
-
-		if cumPercentage >= 80 || n >= 10 {
+		if float64(cum)/float64(total)*100 >= 80 && i >= 4 {
 			break
 		}
 	}
+	fmt.Println("\n  " + title)
+	for i := 0; i < kept; i++ {
+		p := pairs[i]
+		pct := float64(p.Count) / float64(total) * 100
+		fmt.Printf("    %-*s  %6d  %5.1f%%\n", maxNameW, p.Name, p.Count, pct)
+	}
+}
+
+// formatCompact renders large integer counts with SI-style suffixes
+// (1.5M, 370M, 4.5G). Used in the maintenance summary lines where
+// thousand-separated forms (e.g. "367,452,793") add noise without
+// telling the reader the order of magnitude any faster.
+func formatCompact(n int64) string {
+	switch {
+	case n < 0:
+		return "-"
+	case n < 1000:
+		return strconv.FormatInt(n, 10)
+	case n < 10_000:
+		return fmt.Sprintf("%.1fk", float64(n)/1000)
+	case n < 1_000_000:
+		return fmt.Sprintf("%dk", n/1000)
+	case n < 10_000_000:
+		return fmt.Sprintf("%.1fM", float64(n)/1_000_000)
+	case n < 1_000_000_000:
+		return fmt.Sprintf("%dM", n/1_000_000)
+	case n < 10_000_000_000:
+		return fmt.Sprintf("%.1fG", float64(n)/1_000_000_000)
+	default:
+		return fmt.Sprintf("%dG", n/1_000_000_000)
+	}
+}
+
+// formatThousands turns an int64 into a thousands-separated string.
+// Negative values are unsupported (the analyzer only emits >= 0 here).
+func formatThousands(v int64) string {
+	s := strconv.FormatInt(v, 10)
+	n := len(s)
+	if n <= 3 {
+		return s
+	}
+	out := make([]byte, 0, n+(n-1)/3)
+	pre := n % 3
+	if pre > 0 {
+		out = append(out, s[:pre]...)
+		if n > pre {
+			out = append(out, ',')
+		}
+	}
+	for i := pre; i < n; i += 3 {
+		out = append(out, s[i:i+3]...)
+		if i+3 < n {
+			out = append(out, ',')
+		}
+	}
+	return string(out)
 }
 
 // PrintSQLSummary displays an SQL performance report in the CLI.

@@ -54,7 +54,7 @@ Apply with `SELECT pg_reload_conf();`
 | `log_connections` | Connections | Connection counts and rates |
 | `log_disconnections` | Connections | Session durations, concurrent sessions chart |
 | `log_checkpoints` | Checkpoints | Checkpoint frequency, WAL distance, I/O stats |
-| `log_autovacuum_min_duration` | Maintenance | Vacuum/analyze frequency, table stats |
+| `log_autovacuum_min_duration` | Maintenance | Without it: vacuum/analyze counts and per-table rankings only. With `0`: also elapsed time per table, tuples removed / not-yet-removable, buffer & WAL usage, slowest single run. |
 | `log_temp_files` | Temp Files | Temp file count and sizes per query |
 | `log_lock_waits` | Locks | Lock contention, deadlocks, blocking queries |
 | `log_line_prefix` with `%e` | Events | SQLSTATE error class reporting |

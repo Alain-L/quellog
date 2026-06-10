@@ -306,9 +306,9 @@ func TestSectionFilters(t *testing.T) {
 	}{
 		{"--summary", "Start date", "CHECKPOINTS"},
 		{"--checkpoints", "CHECKPOINTS", "CONNECTIONS"},
-		{"--events", "EVENTS", "MAINTENANCE"},
+		{"--events", "EVENTS", "AUTOVACUUM"},
 		{"--connections", "CONNECTIONS", "LOCKS"},
-		{"--maintenance", "MAINTENANCE", "TEMPORARY"},
+		{"--maintenance", "AUTOVACUUM", "TEMPORARY"},
 	}
 
 	for _, sec := range sections {

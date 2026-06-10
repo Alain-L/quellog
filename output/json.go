@@ -255,6 +255,60 @@ type MaintenanceJSON struct {
 	VacuumTableCounts     map[string]int    `json:"vacuum_table_counts"`
 	AnalyzeTableCounts    map[string]int    `json:"analyze_table_counts"`
 	VacuumSpaceRecovered  map[string]string `json:"vacuum_space_recovered"`
+
+	// Continuation-line aggregates surfaced from PG's autovacuum log
+	// blocks. Every field is omitempty so logs that never carry the
+	// continuation lines (older PG versions, log_autovacuum_min_duration
+	// off, …) keep the same JSON shape they always had.
+	TotalVacuumElapsedSeconds  float64                `json:"total_vacuum_elapsed_seconds,omitempty"`
+	TotalTuplesRemoved         int64                  `json:"total_tuples_removed,omitempty"`
+	TotalTuplesNotYetRemovable int64                  `json:"total_tuples_not_yet_removable,omitempty"`
+	TotalBufferHits            int64                  `json:"total_buffer_hits,omitempty"`
+	TotalBufferMisses          int64                  `json:"total_buffer_misses,omitempty"`
+	TotalBufferDirtied         int64                  `json:"total_buffer_dirtied,omitempty"`
+	TotalBufferWritten         int64                  `json:"total_buffer_written,omitempty"`
+	TotalWALRecords            int64                  `json:"total_wal_records,omitempty"`
+	TotalWALBytes              int64                  `json:"total_wal_bytes,omitempty"`
+	TopVacuumTables            []VacuumTableStatJSON  `json:"top_vacuum_tables,omitempty"`
+	XminBlockedTables          []VacuumTableStatJSON  `json:"xmin_blocked_tables,omitempty"`
+	SlowestVacuum              *VacuumSampleJSON      `json:"slowest_vacuum,omitempty"`
+
+	// Autoanalyze aggregates parsed from the system-usage continuation
+	// line PostgreSQL emits after autoanalyze blocks. analyze stats are
+	// kept distinct from vacuum stats because the underlying log block
+	// only carries elapsed (no buffer / WAL / tuples), so consumers can
+	// keep their renderers shape-symmetric with the vacuum side.
+	TotalAnalyzeElapsedSeconds float64               `json:"total_analyze_elapsed_seconds,omitempty"`
+	TopAnalyzeTablesByElapsed  []VacuumTableStatJSON `json:"top_analyze_tables_by_elapsed,omitempty"`
+}
+
+// VacuumTableStatJSON is the per-table aggregate exposed in the
+// top-N table lists of the maintenance section.
+type VacuumTableStatJSON struct {
+	Table                  string  `json:"table"`
+	VacuumCount            int     `json:"vacuum_count"`
+	TotalElapsedSeconds    float64 `json:"total_elapsed_seconds"`
+	MaxElapsedSeconds      float64 `json:"max_elapsed_seconds,omitempty"`
+	TuplesRemoved          int64   `json:"tuples_removed,omitempty"`
+	TuplesNotYetRemovable  int64   `json:"tuples_not_yet_removable,omitempty"`
+	BufferHits             int64   `json:"buffer_hits,omitempty"`
+	BufferMisses           int64   `json:"buffer_misses,omitempty"`
+	BufferDirtied          int64   `json:"buffer_dirtied,omitempty"`
+	BufferWritten          int64   `json:"buffer_written,omitempty"`
+	WALRecords             int64   `json:"wal_records,omitempty"`
+	WALBytes               int64   `json:"wal_bytes,omitempty"`
+}
+
+// VacuumSampleJSON captures the worst-elapsed single autovacuum
+// observation, surfaced as the headline "anomaly" of the maintenance
+// section when the log carries continuation lines.
+type VacuumSampleJSON struct {
+	Table                  string  `json:"table"`
+	Timestamp              string  `json:"timestamp,omitempty"`
+	ElapsedSeconds         float64 `json:"elapsed_seconds"`
+	PagesRemoved           int64   `json:"pages_removed,omitempty"`
+	TuplesRemoved          int64   `json:"tuples_removed,omitempty"`
+	TuplesNotYetRemovable  int64   `json:"tuples_not_yet_removable,omitempty"`
 }
 
 type LocksJSON struct {
@@ -1756,14 +1810,7 @@ func buildJSONData(m analysis.AggregatedMetrics, sections []string, full bool) m
 	}
 
 	if has("maintenance") && (m.Vacuum.VacuumCount > 0 || m.Vacuum.AnalyzeCount > 0) {
-		data["maintenance"] = MaintenanceJSON{
-			VacuumCount:           m.Vacuum.VacuumCount,
-			AggressiveVacuumCount: m.Vacuum.AggressiveVacuumCount,
-			AnalyzeCount:          m.Vacuum.AnalyzeCount,
-			VacuumTableCounts:     m.Vacuum.VacuumTableCounts,
-			AnalyzeTableCounts:    m.Vacuum.AnalyzeTableCounts,
-			VacuumSpaceRecovered:  formatVacuumSpaceRecovered(m.Vacuum.VacuumSpaceRecovered),
-		}
+		data["maintenance"] = buildMaintenanceJSON(m.Vacuum)
 	}
 
 	if has("checkpoints") && (m.Checkpoints.CompleteCount > 0 || m.Checkpoints.WarningCount > 0) {
@@ -2196,6 +2243,80 @@ func triggeringQueriesJSON(qs []analysis.TriggeringQuery) []TriggeringQueryJSON 
 		}
 	}
 	return out
+}
+
+// buildMaintenanceJSON folds the analyzer's vacuum metrics — including
+// the newly parsed continuation-line aggregates — into the JSON struct.
+// The continuation fields are emitted with omitempty so logs that never
+// carry them keep the same JSON shape they had before this commit.
+func buildMaintenanceJSON(v analysis.VacuumMetrics) MaintenanceJSON {
+	j := MaintenanceJSON{
+		VacuumCount:                v.VacuumCount,
+		AggressiveVacuumCount:      v.AggressiveVacuumCount,
+		AnalyzeCount:               v.AnalyzeCount,
+		VacuumTableCounts:          v.VacuumTableCounts,
+		AnalyzeTableCounts:         v.AnalyzeTableCounts,
+		VacuumSpaceRecovered:       formatVacuumSpaceRecovered(v.VacuumSpaceRecovered),
+		TotalVacuumElapsedSeconds:  v.TotalVacuumElapsedSeconds,
+		TotalTuplesRemoved:         v.TotalTuplesRemoved,
+		TotalTuplesNotYetRemovable: v.TotalTuplesNotYetRemovable,
+		TotalBufferHits:            v.TotalBufferHits,
+		TotalBufferMisses:          v.TotalBufferMisses,
+		TotalBufferDirtied:         v.TotalBufferDirtied,
+		TotalBufferWritten:         v.TotalBufferWritten,
+		TotalWALRecords:            v.TotalWALRecords,
+		TotalWALBytes:              v.TotalWALBytes,
+	}
+	if len(v.TopVacuumTables) > 0 {
+		j.TopVacuumTables = make([]VacuumTableStatJSON, len(v.TopVacuumTables))
+		for i, t := range v.TopVacuumTables {
+			j.TopVacuumTables[i] = vacuumTableStatJSON(t)
+		}
+	}
+	if len(v.XminBlockedTables) > 0 {
+		j.XminBlockedTables = make([]VacuumTableStatJSON, len(v.XminBlockedTables))
+		for i, t := range v.XminBlockedTables {
+			j.XminBlockedTables[i] = vacuumTableStatJSON(t)
+		}
+	}
+	if v.SlowestVacuum != nil {
+		s := v.SlowestVacuum
+		j.SlowestVacuum = &VacuumSampleJSON{
+			Table:                 s.Table,
+			ElapsedSeconds:        s.ElapsedSeconds,
+			PagesRemoved:          s.PagesRemoved,
+			TuplesRemoved:         s.TuplesRemoved,
+			TuplesNotYetRemovable: s.TuplesNotYetRemovable,
+		}
+		if !s.Timestamp.IsZero() {
+			j.SlowestVacuum.Timestamp = s.Timestamp.Format("2006-01-02 15:04:05")
+		}
+	}
+	j.TotalAnalyzeElapsedSeconds = v.TotalAnalyzeElapsedSeconds
+	if len(v.TopAnalyzeTablesByElapsed) > 0 {
+		j.TopAnalyzeTablesByElapsed = make([]VacuumTableStatJSON, len(v.TopAnalyzeTablesByElapsed))
+		for i, t := range v.TopAnalyzeTablesByElapsed {
+			j.TopAnalyzeTablesByElapsed[i] = vacuumTableStatJSON(t)
+		}
+	}
+	return j
+}
+
+func vacuumTableStatJSON(t analysis.VacuumTableStat) VacuumTableStatJSON {
+	return VacuumTableStatJSON{
+		Table:                 t.Table,
+		VacuumCount:           t.VacuumCount,
+		TotalElapsedSeconds:   t.TotalElapsedSeconds,
+		MaxElapsedSeconds:     t.MaxElapsedSeconds,
+		TuplesRemoved:         t.TuplesRemoved,
+		TuplesNotYetRemovable: t.TuplesNotYetRemovable,
+		BufferHits:            t.BufferHits,
+		BufferMisses:          t.BufferMisses,
+		BufferDirtied:         t.BufferDirtied,
+		BufferWritten:         t.BufferWritten,
+		WALRecords:            t.WALRecords,
+		WALBytes:              t.WALBytes,
+	}
 }
 
 // convertSummary aggregates global metrics into a JSON-friendly format.

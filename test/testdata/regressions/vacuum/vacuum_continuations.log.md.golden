@@ -1,41 +1,41 @@
 ## SUMMARY
 
-This _quellog_ report summarizes **3** log entries collected between 19 Apr 2026, 15:00 (UTC) — 19 Apr 2026, 15:20 (UTC), spanning 20m of activity.
+This _quellog_ report summarizes **4** log entries collected between 20 Apr 2026, 03:00 (UTC) — 20 Apr 2026, 03:01 (UTC), spanning 1m 5s of activity.
 
 ## EVENTS
 
-- **LOG**: 3 (100.0%)
+- **LOG**: 4 (100.0%)
 
 ## AUTOVACUUM
 
-- **Vacuum count**: 2
-- **Cumulated time**: 1s
-- **Tuples removed**: 246
+- **Vacuum count**: 3
+- **Cumulated time**: 49s
+- **Tuples removed**: 10350
 - **Space recovered**: 40.00 KB
-- **Dead, not yet removable**: 15
-- **Buffer usage**: hits=1315 misses=12 dirtied=28 written=0
-- **Slowest single run**: 0s on `appdb.public.sessions`
+- **Dead, not yet removable**: 1500000
+- **Buffer usage**: hits=7100 misses=1555 dirtied=842 written=424
+- **WAL usage**: 3430 records, 896.95 KB
+- **Slowest single run**: 45s on `appdb.public.events`
 
 ### Top tables by autovacuum elapsed time
 
 | Table | Vacuum count | Elapsed | Recovered |
 |---|---:|---:|---:|
-| `appdb.public.sessions` | 1 | 0s | 40.00 KB |
-| `appdb.public.users` | 1 | 0s |  |
+| `appdb.public.events` | 2 | 48s | 40.00 KB |
+| `appdb.public.orders` | 1 | 1s |  |
 
 ### Tables with rows not yet removable
 
 | Table | Dead rows | Vacuum count |
 |---|---:|---:|
-| `appdb.public.sessions` | 12 | 1 |
-| `appdb.public.users` | 3 | 1 |
+| `appdb.public.events` | 1500000 | 2 |
 
 ### Top tables by autovacuum count
 
 | Table | Count | % of total | Recovered |
 |---|---:|---:|---:|
-| appdb.public.sessions | 1 | 50.00% | 40.00 KB |
-| appdb.public.users | 1 | 50.00% | 0 B |
+| appdb.public.events | 2 | 66.67% | 40.00 KB |
+| appdb.public.orders | 1 | 33.33% | 0 B |
 
 ## AUTOANALYZE
 

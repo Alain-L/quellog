@@ -232,3 +232,98 @@ func TestRegression_MultilineStatementAssembly(t *testing.T) {
 		t.Errorf("summary.total_logs = %v, want 2 (continuation lines should fold)", total)
 	}
 }
+
+// TestRegression_VacuumContinuationsParsed pins the parsing of the
+// "buffer usage / WAL usage / tuples / system usage" continuation lines
+// that PostgreSQL emits after "automatic vacuum of table". The fixture
+// has three vacuums (one on "orders" with mild numbers, two on "events"
+// where "dead but not yet removable" climbs into the xmin-pressure
+// range) plus one analyze.
+//
+// The test pins:
+//   - The global totals (elapsed, tuples removed, xmin-blocked count,
+//     buffer hits/misses/dirtied/written, WAL records/bytes) so the
+//     extractors don't silently drift across PostgreSQL log shapes.
+//   - The "top tables by elapsed" ordering puts the heaviest table
+//     first.
+//   - The xmin-blocked list surfaces "events" (not "orders"), capturing
+//     the wraparound-precursor signal we promised in the audit.
+//   - The "slowest single vacuum" sample points at "events" with the
+//     45-second elapsed it actually had.
+func TestRegression_VacuumContinuationsParsed(t *testing.T) {
+	got := runFixtureJSON(t, "testdata/regressions/vacuum/vacuum_continuations.log")
+	m, ok := got["maintenance"].(map[string]any)
+	if !ok {
+		t.Fatal("missing 'maintenance' section")
+	}
+
+	// Counts (existing, unchanged behaviour).
+	if v, _ := m["vacuum_count"].(float64); v != 3 {
+		t.Errorf("vacuum_count = %v, want 3", v)
+	}
+	if v, _ := m["analyze_count"].(float64); v != 1 {
+		t.Errorf("analyze_count = %v, want 1", v)
+	}
+
+	// Global continuation aggregates.
+	if v, _ := m["total_vacuum_elapsed_seconds"].(float64); v < 49.4 || v > 49.5 {
+		t.Errorf("total_vacuum_elapsed_seconds = %v, want ~49.479 (1.234 + 45.789 + 2.456)", v)
+	}
+	if v, _ := m["total_tuples_removed"].(float64); v != 10350 {
+		t.Errorf("total_tuples_removed = %v, want 10350 (250 + 10000 + 100)", v)
+	}
+	if v, _ := m["total_tuples_not_yet_removable"].(float64); v != 1_500_000 {
+		t.Errorf("total_tuples_not_yet_removable = %v, want 1500000 (two events vacuums report 750000 each)", v)
+	}
+	if v, _ := m["total_buffer_hits"].(float64); v != 7100 {
+		t.Errorf("total_buffer_hits = %v, want 7100", v)
+	}
+	if v, _ := m["total_buffer_misses"].(float64); v != 1555 {
+		t.Errorf("total_buffer_misses = %v, want 1555", v)
+	}
+	if v, _ := m["total_buffer_dirtied"].(float64); v != 842 {
+		t.Errorf("total_buffer_dirtied = %v, want 842", v)
+	}
+	if v, _ := m["total_buffer_written"].(float64); v != 424 {
+		t.Errorf("total_buffer_written = %v, want 424", v)
+	}
+	if v, _ := m["total_wal_records"].(float64); v != 3430 {
+		t.Errorf("total_wal_records = %v, want 3430", v)
+	}
+	if v, _ := m["total_wal_bytes"].(float64); v != 918479 {
+		t.Errorf("total_wal_bytes = %v, want 918479", v)
+	}
+
+	// Top-N ordering on elapsed: the two-run "events" table dominates
+	// "orders" since 45.789 + 2.456 > 1.234.
+	top, _ := m["top_vacuum_tables"].([]any)
+	if len(top) != 2 {
+		t.Fatalf("top_vacuum_tables length = %d, want 2 (events, orders)", len(top))
+	}
+	if first, _ := top[0].(map[string]any); first["table"] != "appdb.public.events" {
+		t.Errorf("top_vacuum_tables[0].table = %v, want appdb.public.events", first["table"])
+	}
+
+	// Xmin-blocked list only carries "events" (orders reports 0
+	// not-yet-removable tuples and must be filtered out).
+	xmin, _ := m["xmin_blocked_tables"].([]any)
+	if len(xmin) != 1 {
+		t.Fatalf("xmin_blocked_tables length = %d, want 1 (only events has not-yet-removable tuples)", len(xmin))
+	}
+	first, _ := xmin[0].(map[string]any)
+	if first["table"] != "appdb.public.events" {
+		t.Errorf("xmin_blocked_tables[0].table = %v, want appdb.public.events", first["table"])
+	}
+
+	// Slowest single vacuum: the 45.789s "events" run.
+	sl, ok := m["slowest_vacuum"].(map[string]any)
+	if !ok {
+		t.Fatal("missing slowest_vacuum")
+	}
+	if sl["table"] != "appdb.public.events" {
+		t.Errorf("slowest_vacuum.table = %v, want appdb.public.events", sl["table"])
+	}
+	if v, _ := sl["elapsed_seconds"].(float64); v < 45.7 || v > 45.9 {
+		t.Errorf("slowest_vacuum.elapsed_seconds = %v, want ~45.789", v)
+	}
+}

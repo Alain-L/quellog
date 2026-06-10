@@ -80,7 +80,7 @@ Control which sections are displayed. Without flags, all sections are shown.
 | `--sql-overview` | SQL Overview (query type breakdown) | See [SQL Analysis](sql-reports.md) |
 | `--tempfiles` | Temporary Files | |
 | `--locks` | Locks | |
-| `--maintenance` | Maintenance (vacuum/analyze) | |
+| `--maintenance` | Autovacuum + autoanalyze (elapsed, dead-not-removable, buffer/WAL) | |
 | `--checkpoints` | Checkpoints | |
 | `--connections` | Connections + session analytics | |
 | `--clients` | Clients (all entities, no top-10 limit) | |

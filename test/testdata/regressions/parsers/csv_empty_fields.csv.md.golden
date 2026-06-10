@@ -56,12 +56,11 @@ This _quellog_ report summarizes **4** log entries collected between 19 Apr 2026
 
 - **LOG**: 3 (75.0%)
 
-## MAINTENANCE
+## AUTOVACUUM
 
-- **Automatic vacuum count**: 1
-- **Automatic analyze count**: 0
+- **Vacuum count**: 1
 
-### Top automatic vacuum operations per table
+### Top tables by autovacuum count
 
 | Table | Count | % of total | Recovered |
 |---|---:|---:|---:|

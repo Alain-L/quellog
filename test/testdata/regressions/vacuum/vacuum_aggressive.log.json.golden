@@ -18,6 +18,68 @@
     "vacuum_space_recovered": {
       "appdb.public.audit_logs": "4.43 MB",
       "appdb.public.large_events": "1.91 MB"
+    },
+    "total_vacuum_elapsed_seconds": 58.45,
+    "total_tuples_removed": 106086,
+    "total_tuples_not_yet_removable": 6666,
+    "total_buffer_hits": 103523,
+    "total_buffer_misses": 1546,
+    "total_buffer_dirtied": 484,
+    "top_vacuum_tables": [
+      {
+        "table": "appdb.public.audit_logs",
+        "vacuum_count": 1,
+        "total_elapsed_seconds": 45.67,
+        "max_elapsed_seconds": 45.67,
+        "tuples_removed": 87654,
+        "tuples_not_yet_removable": 5432,
+        "buffer_hits": 89000,
+        "buffer_misses": 1234,
+        "buffer_dirtied": 456
+      },
+      {
+        "table": "appdb.public.large_events",
+        "vacuum_count": 1,
+        "total_elapsed_seconds": 12.78,
+        "max_elapsed_seconds": 12.78,
+        "tuples_removed": 18432,
+        "tuples_not_yet_removable": 1234,
+        "buffer_hits": 14523,
+        "buffer_misses": 312,
+        "buffer_dirtied": 28
+      }
+    ],
+    "xmin_blocked_tables": [
+      {
+        "table": "appdb.public.audit_logs",
+        "vacuum_count": 1,
+        "total_elapsed_seconds": 45.67,
+        "max_elapsed_seconds": 45.67,
+        "tuples_removed": 87654,
+        "tuples_not_yet_removable": 5432,
+        "buffer_hits": 89000,
+        "buffer_misses": 1234,
+        "buffer_dirtied": 456
+      },
+      {
+        "table": "appdb.public.large_events",
+        "vacuum_count": 1,
+        "total_elapsed_seconds": 12.78,
+        "max_elapsed_seconds": 12.78,
+        "tuples_removed": 18432,
+        "tuples_not_yet_removable": 1234,
+        "buffer_hits": 14523,
+        "buffer_misses": 312,
+        "buffer_dirtied": 28
+      }
+    ],
+    "slowest_vacuum": {
+      "table": "appdb.public.audit_logs",
+      "timestamp": "2026-04-19 15:30:00",
+      "elapsed_seconds": 45.67,
+      "pages_removed": 567,
+      "tuples_removed": 87654,
+      "tuples_not_yet_removable": 5432
     }
   },
   "summary": {
