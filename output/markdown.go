@@ -808,6 +808,16 @@ func printHistogramMarkdown(b *strings.Builder, data map[string]int, title, unit
 		scaleFactor = 1
 	}
 
+	// Pad labels to the widest one so the "|", bars and counts line
+	// up vertically in the code block — without this, variable label
+	// widths (e.g. "< 1s" vs "1min - 30min") slide everything around.
+	labelW := 0
+	for _, label := range labels {
+		if l := len(label); l > labelW {
+			labelW = l
+		}
+	}
+
 	b.WriteString(fmt.Sprintf("### %s\n\n```\n", title))
 	for _, label := range labels {
 		v := data[label]
@@ -821,7 +831,7 @@ func printHistogramMarkdown(b *strings.Builder, data map[string]int, title, unit
 		if v == 0 {
 			valueStr = "-"
 		}
-		b.WriteString(fmt.Sprintf("%s | %s %s\n", label, bar, valueStr))
+		b.WriteString(fmt.Sprintf("%-*s | %s %s\n", labelW, label, bar, valueStr))
 	}
 	b.WriteString("```\n\n")
 }
@@ -860,6 +870,13 @@ func printConcurrentHistogramMarkdown(b *strings.Builder, data map[string]int, t
 		scaleFactor = 1
 	}
 
+	labelW := 0
+	for _, label := range labels {
+		if l := len(label); l > labelW {
+			labelW = l
+		}
+	}
+
 	b.WriteString(fmt.Sprintf("### %s\n\n```\n", title))
 	for _, label := range labels {
 		v := data[label]
@@ -870,13 +887,13 @@ func printConcurrentHistogramMarkdown(b *strings.Builder, data map[string]int, t
 		bar := strings.Repeat("■", barLen)
 
 		if v == 0 {
-			b.WriteString(fmt.Sprintf("%s | -\n", label))
+			b.WriteString(fmt.Sprintf("%-*s | -\n", labelW, label))
 		} else {
 			peakStr := ""
 			if pt, ok := peakTimes[label]; ok && !pt.IsZero() {
 				peakStr = fmt.Sprintf("(%02d:%02d)", pt.Hour(), pt.Minute())
 			}
-			b.WriteString(fmt.Sprintf("%s | %s %d %s\n", label, bar, v, peakStr))
+			b.WriteString(fmt.Sprintf("%-*s | %s %d %s\n", labelW, label, bar, v, peakStr))
 		}
 	}
 	b.WriteString("```\n\n")

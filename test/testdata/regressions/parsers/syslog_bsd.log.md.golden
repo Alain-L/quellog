@@ -142,12 +142,12 @@ This _quellog_ report summarizes **7** log entries collected between 20 Apr 2026
 ### Session duration distribution
 
 ```
-< 1s |  -
-1s - 1min | ■ 1 sessions
+< 1s         |  -
+1s - 1min    | ■ 1 sessions
 1min - 30min |  -
-30min - 2h |  -
-2h - 5h |  -
-> 5h |  -
+30min - 2h   |  -
+2h - 5h      |  -
+> 5h         |  -
 ```
 
 ### Session Duration by User
