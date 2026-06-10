@@ -417,28 +417,16 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 	}
 
 	// ============================================================================
-	// MAINTENANCE
+	// MAINTENANCE — split into AUTOVACUUM / AUTOANALYZE sibling sections
+	// to mirror the CLI text layout. Each section emits its own header
+	// k:v block followed by purpose-driven top-tables panels.
 	// ============================================================================
-	if has("maintenance") && (m.Vacuum.VacuumCount > 0 || m.Vacuum.AnalyzeCount > 0) {
-		b.WriteString("## MAINTENANCE\n\n")
-		b.WriteString(fmt.Sprintf("- **Automatic vacuum count**: %d\n", m.Vacuum.VacuumCount))
-		if m.Vacuum.AggressiveVacuumCount > 0 {
-			b.WriteString(fmt.Sprintf("  - *of which aggressive*: %d\n", m.Vacuum.AggressiveVacuumCount))
-		}
-		b.WriteString(fmt.Sprintf("- **Automatic analyze count**: %d\n", m.Vacuum.AnalyzeCount))
-		writeVacuumContinuationStatsMarkdown(&b, m.Vacuum)
-		b.WriteString("\n")
-
+	if has("maintenance") {
 		if m.Vacuum.VacuumCount > 0 {
-			b.WriteString("### Top automatic vacuum operations per table\n\n")
-			b.WriteString(printTopTablesMarkdown(m.Vacuum.VacuumTableCounts, m.Vacuum.VacuumCount, m.Vacuum.VacuumSpaceRecovered))
-			b.WriteString("\n")
+			writeAutovacuumSectionMarkdown(&b, m.Vacuum)
 		}
-
 		if m.Vacuum.AnalyzeCount > 0 {
-			b.WriteString("### Top automatic analyze operations per table\n\n")
-			b.WriteString(printTopTablesMarkdown(m.Vacuum.AnalyzeTableCounts, m.Vacuum.AnalyzeCount, nil))
-			b.WriteString("\n")
+			writeAutoanalyzeSectionMarkdown(&b, m.Vacuum)
 		}
 	}
 
@@ -1016,52 +1004,121 @@ func printConcurrentHistogramMarkdown(b *strings.Builder, data map[string]int, t
 }
 
 // printTopTablesMarkdown produces a markdown table for vacuum/analyze operations
-// writeVacuumContinuationStatsMarkdown renders the autovacuum
-// continuation-line aggregates (elapsed, tuples, buffer/WAL usage,
-// xmin pressure) into b. Each line is emitted only when the underlying
-// metric is non-zero, so logs that never carry the continuation lines
-// keep the historical terse maintenance block.
-func writeVacuumContinuationStatsMarkdown(b *strings.Builder, v analysis.VacuumMetrics) {
+// writeAutovacuumSectionMarkdown renders the AUTOVACUUM section,
+// mirroring the CLI layout: header k:v block + three purpose-driven
+// top-tables panels (by elapsed, by rows-not-yet-removable, by count).
+// Each line and panel is suppressed when its source metric is zero so
+// older PostgreSQL versions emitting no continuation lines degrade
+// cleanly to a terse output.
+func writeAutovacuumSectionMarkdown(b *strings.Builder, v analysis.VacuumMetrics) {
+	b.WriteString("## AUTOVACUUM\n\n")
+	b.WriteString(fmt.Sprintf("- **Vacuum count**: %d\n", v.VacuumCount))
+	if v.AggressiveVacuumCount > 0 {
+		b.WriteString(fmt.Sprintf("  - *of which aggressive*: %d\n", v.AggressiveVacuumCount))
+	}
 	if v.TotalVacuumElapsedSeconds > 0 {
 		dur := time.Duration(v.TotalVacuumElapsedSeconds * float64(time.Second)).Truncate(time.Second)
-		b.WriteString(fmt.Sprintf("- **Cumulated vacuum time**: %s\n", dur))
+		b.WriteString(fmt.Sprintf("- **Cumulated time**: %s\n", dur))
 	}
 	if v.TotalTuplesRemoved > 0 {
 		b.WriteString(fmt.Sprintf("- **Tuples removed**: %d\n", v.TotalTuplesRemoved))
 	}
+	if total := sumSpaceRecoveredMD(v.VacuumSpaceRecovered); total > 0 {
+		b.WriteString(fmt.Sprintf("- **Space recovered**: %s\n", FormatBytes(total)))
+	}
 	if v.TotalTuplesNotYetRemovable > 0 {
-		b.WriteString(fmt.Sprintf("- **Dead, not yet removable**: %d  _(xmin horizon — long-running transactions block cleanup)_\n", v.TotalTuplesNotYetRemovable))
+		b.WriteString(fmt.Sprintf("- **Dead, not yet removable**: %d\n", v.TotalTuplesNotYetRemovable))
 	}
 	if v.TotalBufferHits+v.TotalBufferMisses > 0 {
-		b.WriteString(fmt.Sprintf("- **Buffer usage (vacuum)**: hits=%d misses=%d dirtied=%d written=%d\n",
+		b.WriteString(fmt.Sprintf("- **Buffer usage**: hits=%d misses=%d dirtied=%d written=%d\n",
 			v.TotalBufferHits, v.TotalBufferMisses, v.TotalBufferDirtied, v.TotalBufferWritten))
 	}
 	if v.TotalWALRecords > 0 || v.TotalWALBytes > 0 {
-		b.WriteString(fmt.Sprintf("- **WAL usage (vacuum)**: %d records, %s\n",
+		b.WriteString(fmt.Sprintf("- **WAL usage**: %d records, %s\n",
 			v.TotalWALRecords, FormatBytes(v.TotalWALBytes)))
 	}
 	if v.SlowestVacuum != nil && v.SlowestVacuum.ElapsedSeconds > 0 {
 		dur := time.Duration(v.SlowestVacuum.ElapsedSeconds * float64(time.Second)).Truncate(time.Second)
-		b.WriteString(fmt.Sprintf("- **Slowest single vacuum**: %s on `%s`\n", dur, v.SlowestVacuum.Table))
+		b.WriteString(fmt.Sprintf("- **Slowest single run**: %s on `%s`\n", dur, v.SlowestVacuum.Table))
 	}
+	b.WriteString("\n")
+
 	if len(v.TopVacuumTables) > 0 {
-		b.WriteString("\n### Top tables by autovacuum elapsed time\n\n")
-		b.WriteString("| Table | Vacuum count | Total elapsed |\n")
-		b.WriteString("|---|---:|---:|\n")
+		b.WriteString("### Top tables by autovacuum elapsed time\n\n")
+		b.WriteString("| Table | Vacuum count | Elapsed | Recovered |\n")
+		b.WriteString("|---|---:|---:|---:|\n")
 		for _, t := range v.TopVacuumTables {
 			dur := time.Duration(t.TotalElapsedSeconds * float64(time.Second)).Truncate(time.Second)
-			b.WriteString(fmt.Sprintf("| `%s` | %d | %s |\n", t.Table, t.VacuumCount, dur))
+			rec := ""
+			if r := v.VacuumSpaceRecovered[t.Table]; r > 0 {
+				rec = FormatBytes(r)
+			}
+			b.WriteString(fmt.Sprintf("| `%s` | %d | %s | %s |\n", t.Table, t.VacuumCount, dur, rec))
 		}
+		b.WriteString("\n")
 	}
+
 	if len(v.XminBlockedTables) > 0 {
-		b.WriteString("\n### Tables most affected by stuck xmin horizon\n\n")
-		b.WriteString("_Dead tuples that vacuum could not yet remove because a transaction still references them._\n\n")
-		b.WriteString("| Table | Not-yet-removable rows | Vacuum count |\n")
+		b.WriteString("### Tables with rows not yet removable\n\n")
+		b.WriteString("| Table | Dead rows | Vacuum count |\n")
 		b.WriteString("|---|---:|---:|\n")
 		for _, t := range v.XminBlockedTables {
 			b.WriteString(fmt.Sprintf("| `%s` | %d | %d |\n", t.Table, t.TuplesNotYetRemovable, t.VacuumCount))
 		}
+		b.WriteString("\n")
 	}
+
+	if len(v.VacuumTableCounts) > 0 {
+		b.WriteString("### Top tables by autovacuum count\n\n")
+		b.WriteString(printTopTablesMarkdown(v.VacuumTableCounts, v.VacuumCount, v.VacuumSpaceRecovered))
+		b.WriteString("\n")
+	}
+}
+
+// writeAutoanalyzeSectionMarkdown renders the AUTOANALYZE sibling
+// section. Slimmer than autovacuum because PostgreSQL's analyze blocks
+// only carry system-usage (elapsed) — no buffer, no WAL, no tuples.
+func writeAutoanalyzeSectionMarkdown(b *strings.Builder, v analysis.VacuumMetrics) {
+	b.WriteString("## AUTOANALYZE\n\n")
+	b.WriteString(fmt.Sprintf("- **Analyze count**: %d\n", v.AnalyzeCount))
+	if v.TotalAnalyzeElapsedSeconds > 0 {
+		dur := time.Duration(v.TotalAnalyzeElapsedSeconds * float64(time.Second)).Truncate(time.Second)
+		b.WriteString(fmt.Sprintf("- **Cumulated time**: %s\n", dur))
+	}
+	b.WriteString("\n")
+
+	if len(v.TopAnalyzeTablesByElapsed) > 0 {
+		b.WriteString("### Top tables by autoanalyze elapsed time\n\n")
+		b.WriteString("| Table | Analyze count | Elapsed |\n")
+		b.WriteString("|---|---:|---:|\n")
+		// Cap at 10 rows in the markdown for readability — the JSON
+		// keeps the full list when consumers want more.
+		for i, t := range v.TopAnalyzeTablesByElapsed {
+			if i >= 10 {
+				break
+			}
+			dur := time.Duration(t.TotalElapsedSeconds * float64(time.Second)).Truncate(time.Second)
+			b.WriteString(fmt.Sprintf("| `%s` | %d | %s |\n", t.Table, t.VacuumCount, dur))
+		}
+		b.WriteString("\n")
+	}
+
+	if len(v.AnalyzeTableCounts) > 0 {
+		b.WriteString("### Top tables by autoanalyze count\n\n")
+		b.WriteString(printTopTablesMarkdown(v.AnalyzeTableCounts, v.AnalyzeCount, nil))
+		b.WriteString("\n")
+	}
+}
+
+// sumSpaceRecoveredMD totals the per-table reclaimed bytes — mirrors
+// the helper in output/text.go so the AUTOVACUUM header can show one
+// cluster-wide "Space recovered" line above the per-table breakdown.
+func sumSpaceRecoveredMD(m map[string]int64) int64 {
+	var total int64
+	for _, v := range m {
+		total += v
+	}
+	return total
 }
 
 func printTopTablesMarkdown(tableCounts map[string]int, total int, spaceRecovered map[string]int64) string {

@@ -6,40 +6,49 @@ This _quellog_ report summarizes **3** log entries collected between 19 Apr 2026
 
 - **LOG**: 3 (100.0%)
 
-## MAINTENANCE
+## AUTOVACUUM
 
-- **Automatic vacuum count**: 2
-- **Automatic analyze count**: 1
-- **Cumulated vacuum time**: 1s
+- **Vacuum count**: 2
+- **Cumulated time**: 1s
 - **Tuples removed**: 246
-- **Dead, not yet removable**: 15  _(xmin horizon — long-running transactions block cleanup)_
-- **Buffer usage (vacuum)**: hits=1315 misses=12 dirtied=28 written=0
-- **Slowest single vacuum**: 0s on `appdb.public.sessions`
+- **Space recovered**: 40.00 KB
+- **Dead, not yet removable**: 15
+- **Buffer usage**: hits=1315 misses=12 dirtied=28 written=0
+- **Slowest single run**: 0s on `appdb.public.sessions`
 
 ### Top tables by autovacuum elapsed time
 
-| Table | Vacuum count | Total elapsed |
-|---|---:|---:|
-| `appdb.public.sessions` | 1 | 0s |
-| `appdb.public.users` | 1 | 0s |
+| Table | Vacuum count | Elapsed | Recovered |
+|---|---:|---:|---:|
+| `appdb.public.sessions` | 1 | 0s | 40.00 KB |
+| `appdb.public.users` | 1 | 0s |  |
 
-### Tables most affected by stuck xmin horizon
+### Tables with rows not yet removable
 
-_Dead tuples that vacuum could not yet remove because a transaction still references them._
-
-| Table | Not-yet-removable rows | Vacuum count |
+| Table | Dead rows | Vacuum count |
 |---|---:|---:|
 | `appdb.public.sessions` | 12 | 1 |
 | `appdb.public.users` | 3 | 1 |
 
-### Top automatic vacuum operations per table
+### Top tables by autovacuum count
 
 | Table | Count | % of total | Recovered |
 |---|---:|---:|---:|
 | appdb.public.sessions | 1 | 50.00% | 40.00 KB |
 | appdb.public.users | 1 | 50.00% | 0 B |
 
-### Top automatic analyze operations per table
+## AUTOANALYZE
+
+- **Analyze count**: 1
+- **Cumulated time**: 0s
+
+### Top tables by autoanalyze elapsed time
+
+| Table | Analyze count | Elapsed |
+|---|---:|---:|
+| `appdb.public.users` | 1 | 0s |
+
+### Top tables by autoanalyze count
 
 | Table | Count | % of total | Recovered |
 |---|---:|---:|---:|
