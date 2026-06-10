@@ -12,10 +12,10 @@ This _quellog_ report summarizes **7** log entries collected between 20 Apr 2026
 
 |  |  |  |  |
 |---|---:|---|---:|
-| Total query duration | 13 ms | Total queries parsed | 3 |
-| Total unique queries | 1 | Top 1% slow queries | 1 |
-| Query max duration | 4 ms | Query min duration | 4 ms |
-| Query median duration | 4 ms | Query 99% max duration | 4 ms |
+| Total query duration  | 13 ms | Total queries parsed   |    3 |
+| Total unique queries  |     1 | Top 1% slow queries    |    1 |
+| Query max duration    |  4 ms | Query min duration     | 4 ms |
+| Query median duration |  4 ms | Query 99% max duration | 4 ms |
 
 ### Query duration distribution
 

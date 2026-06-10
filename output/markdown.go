@@ -54,17 +54,7 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 		}
 
 		// Key metrics table
-		top1Slow := countSlowQueries(m.SQL)
-		b.WriteString("|  |  |  |  |\n")
-		b.WriteString("|---|---:|---|---:|\n")
-		b.WriteString(fmt.Sprintf("| Total query duration | %s | Total queries parsed | %d |\n",
-			formatQueryDuration(m.SQL.SumQueryDuration), m.SQL.TotalQueries))
-		b.WriteString(fmt.Sprintf("| Total unique queries | %d | Top 1%% slow queries | %d |\n",
-			m.SQL.UniqueQueries, top1Slow))
-		b.WriteString(fmt.Sprintf("| Query max duration | %s | Query min duration | %s |\n",
-			formatQueryDuration(m.SQL.MaxQueryDuration), formatQueryDuration(m.SQL.MinQueryDuration)))
-		b.WriteString(fmt.Sprintf("| Query median duration | %s | Query 99%% max duration | %s |\n\n",
-			formatQueryDuration(m.SQL.MedianQueryDuration), formatQueryDuration(m.SQL.P99QueryDuration)))
+		writeSQLKeyMetricsMarkdown(&b, m.SQL)
 
 		// Duration histogram
 		if !m.SQL.StartTimestamp.IsZero() && !m.SQL.EndTimestamp.IsZero() {
@@ -1305,14 +1295,6 @@ func ExportSQLSummaryMarkdown(w io.Writer, m analysis.SQLMetrics, tempFiles anal
 	var b strings.Builder
 
 	// ... (content) ...
-	// I'll be more specific to avoid error
-
-	// Compute top 1% slowest queries
-	top1Slow := 0
-	if m.ExecutionCount() > 0 {
-		top1Slow = m.ExecutionsCountAbove(m.P99QueryDuration)
-	}
-
 	// SQL PERFORMANCE section
 	b.WriteString("## SQL PERFORMANCE\n\n")
 
@@ -1323,16 +1305,7 @@ func ExportSQLSummaryMarkdown(w io.Writer, m analysis.SQLMetrics, tempFiles anal
 	}
 
 	// Key metrics table
-	b.WriteString("|  |  |  |  |\n")
-	b.WriteString("|---|---:|---|---:|\n")
-	b.WriteString(fmt.Sprintf("| Total query duration | %s | Total queries parsed | %d |\n",
-		formatQueryDuration(m.SumQueryDuration), m.TotalQueries))
-	b.WriteString(fmt.Sprintf("| Total unique queries | %d | Top 1%% slow queries | %d |\n",
-		m.UniqueQueries, top1Slow))
-	b.WriteString(fmt.Sprintf("| Query max duration | %s | Query min duration | %s |\n",
-		formatQueryDuration(m.MaxQueryDuration), formatQueryDuration(m.MinQueryDuration)))
-	b.WriteString(fmt.Sprintf("| Query median duration | %s | Query 99%% max duration | %s |\n\n",
-		formatQueryDuration(m.MedianQueryDuration), formatQueryDuration(m.P99QueryDuration)))
+	writeSQLKeyMetricsMarkdown(&b, m)
 
 	// Duration histogram
 	if !m.StartTimestamp.IsZero() && !m.EndTimestamp.IsZero() {
@@ -1683,16 +1656,7 @@ func ExportSQLOverviewMarkdown(w io.Writer, m analysis.SQLMetrics) {
 
 	// Global statistics
 	b.WriteString("## Global Statistics\n\n")
-	b.WriteString("|  |  |  |  |\n")
-	b.WriteString("|---|---:|---|---:|\n")
-	b.WriteString(fmt.Sprintf("| Total queries | %d | Unique queries | %d |\n",
-		m.TotalQueries, m.UniqueQueries))
-	b.WriteString(fmt.Sprintf("| Total duration | %s | Median duration | %s |\n",
-		formatQueryDuration(m.SumQueryDuration), formatQueryDuration(m.MedianQueryDuration)))
-	b.WriteString(fmt.Sprintf("| Min duration | %s | Max duration | %s |\n",
-		formatQueryDuration(m.MinQueryDuration), formatQueryDuration(m.MaxQueryDuration)))
-	b.WriteString(fmt.Sprintf("| 99th percentile | %s | | |\n\n",
-		formatQueryDuration(m.P99QueryDuration)))
+	writeSQLOverviewGlobalStatsMarkdown(&b, m)
 
 	if len(m.QueryTypeStats) > 0 {
 		b.WriteString("## Query Category Summary\n\n")
@@ -1827,16 +1791,7 @@ func writeQueryTypeDistributionMarkdown(b *strings.Builder, qts map[string]*anal
 func exportSQLOverviewMarkdownTo(b *strings.Builder, m analysis.SQLMetrics) {
 	// Global statistics
 	b.WriteString("### Global Statistics\n\n")
-	b.WriteString("|  |  |  |  |\n")
-	b.WriteString("|---|---:|---|---:|\n")
-	b.WriteString(fmt.Sprintf("| Total queries | %d | Unique queries | %d |\n",
-		m.TotalQueries, m.UniqueQueries))
-	b.WriteString(fmt.Sprintf("| Total duration | %s | Median duration | %s |\n",
-		formatQueryDuration(m.SumQueryDuration), formatQueryDuration(m.MedianQueryDuration)))
-	b.WriteString(fmt.Sprintf("| Min duration | %s | Max duration | %s |\n",
-		formatQueryDuration(m.MinQueryDuration), formatQueryDuration(m.MaxQueryDuration)))
-	b.WriteString(fmt.Sprintf("| 99th percentile | %s | | |\n\n",
-		formatQueryDuration(m.P99QueryDuration)))
+	writeSQLOverviewGlobalStatsMarkdown(b, m)
 
 	if len(m.QueryTypeStats) > 0 {
 		b.WriteString("### Query Category Summary\n\n")
@@ -1854,12 +1809,6 @@ func exportSQLOverviewMarkdownTo(b *strings.Builder, m analysis.SQLMetrics) {
 // exportSQLSummaryMarkdownTo writes SQL performance content to a strings.Builder.
 // Used by ExportMarkdown in full mode.
 func exportSQLSummaryMarkdownTo(b *strings.Builder, m analysis.SQLMetrics, tempFiles analysis.TempFileMetrics, locks analysis.LockMetrics) {
-	// Compute top 1% slowest queries via the compact storage helper.
-	top1Slow := 0
-	if m.ExecutionCount() > 0 {
-		top1Slow = m.ExecutionsCountAbove(m.P99QueryDuration)
-	}
-
 	// Query load histogram
 	if !m.StartTimestamp.IsZero() && !m.EndTimestamp.IsZero() {
 		queryLoad, unit, scale := computeQueryLoadHistogram(m)
@@ -1867,16 +1816,7 @@ func exportSQLSummaryMarkdownTo(b *strings.Builder, m analysis.SQLMetrics, tempF
 	}
 
 	// Key metrics table
-	b.WriteString("|  |  |  |  |\n")
-	b.WriteString("|---|---:|---|---:|\n")
-	b.WriteString(fmt.Sprintf("| Total query duration | %s | Total queries parsed | %d |\n",
-		formatQueryDuration(m.SumQueryDuration), m.TotalQueries))
-	b.WriteString(fmt.Sprintf("| Total unique queries | %d | Top 1%% slow queries | %d |\n",
-		m.UniqueQueries, top1Slow))
-	b.WriteString(fmt.Sprintf("| Query max duration | %s | Query min duration | %s |\n",
-		formatQueryDuration(m.MaxQueryDuration), formatQueryDuration(m.MinQueryDuration)))
-	b.WriteString(fmt.Sprintf("| Query median duration | %s | Query 99%% max duration | %s |\n\n",
-		formatQueryDuration(m.MedianQueryDuration), formatQueryDuration(m.P99QueryDuration)))
+	writeSQLKeyMetricsMarkdown(b, m)
 
 	// Duration histogram
 	if !m.StartTimestamp.IsZero() && !m.EndTimestamp.IsZero() {
@@ -1968,6 +1908,58 @@ func exportSQLSummaryMarkdownTo(b *strings.Builder, m analysis.SQLMetrics, tempF
 			b.WriteString("\n")
 		}
 	}
+}
+
+// writeKVPairsTableMarkdown writes a 4-column markdown table where
+// each row is two (label, value) pairs side-by-side. The header row
+// is the deliberately empty "|  |  |  |  |" pattern used across the
+// SQL summary / overview blocks; the data rows are width-padded so
+// the pipes line up vertically — that's the whole point of routing
+// these blocks through here.
+func writeKVPairsTableMarkdown(b *strings.Builder, rows [][4]string) {
+	if len(rows) == 0 {
+		return
+	}
+	var widths [4]int
+	for _, r := range rows {
+		for i := 0; i < 4; i++ {
+			if l := len(r[i]); l > widths[i] {
+				widths[i] = l
+			}
+		}
+	}
+	b.WriteString("|  |  |  |  |\n")
+	b.WriteString("|---|---:|---|---:|\n")
+	for _, r := range rows {
+		b.WriteString(fmt.Sprintf("| %-*s | %*s | %-*s | %*s |\n",
+			widths[0], r[0], widths[1], r[1], widths[2], r[2], widths[3], r[3]))
+	}
+	b.WriteString("\n")
+}
+
+// writeSQLKeyMetricsMarkdown emits the "Total query duration / Total
+// queries parsed / …" 4-row block — the one shown in the default
+// report, the --sql-summary export and the inline SQL PERFORMANCE
+// variant under the full report. Same content across all three.
+func writeSQLKeyMetricsMarkdown(b *strings.Builder, m analysis.SQLMetrics) {
+	top1Slow := countSlowQueries(m)
+	writeKVPairsTableMarkdown(b, [][4]string{
+		{"Total query duration", formatQueryDuration(m.SumQueryDuration), "Total queries parsed", fmt.Sprintf("%d", m.TotalQueries)},
+		{"Total unique queries", fmt.Sprintf("%d", m.UniqueQueries), "Top 1% slow queries", fmt.Sprintf("%d", top1Slow)},
+		{"Query max duration", formatQueryDuration(m.MaxQueryDuration), "Query min duration", formatQueryDuration(m.MinQueryDuration)},
+		{"Query median duration", formatQueryDuration(m.MedianQueryDuration), "Query 99% max duration", formatQueryDuration(m.P99QueryDuration)},
+	})
+}
+
+// writeSQLOverviewGlobalStatsMarkdown emits the Global Statistics
+// block at the top of --sql-overview (standalone and inline).
+func writeSQLOverviewGlobalStatsMarkdown(b *strings.Builder, m analysis.SQLMetrics) {
+	writeKVPairsTableMarkdown(b, [][4]string{
+		{"Total queries", fmt.Sprintf("%d", m.TotalQueries), "Unique queries", fmt.Sprintf("%d", m.UniqueQueries)},
+		{"Total duration", formatQueryDuration(m.SumQueryDuration), "Median duration", formatQueryDuration(m.MedianQueryDuration)},
+		{"Min duration", formatQueryDuration(m.MinQueryDuration), "Max duration", formatQueryDuration(m.MaxQueryDuration)},
+		{"99th percentile", formatQueryDuration(m.P99QueryDuration), "", ""},
+	})
 }
 
 // mdTable writes a markdown table whose pipes align in raw view.

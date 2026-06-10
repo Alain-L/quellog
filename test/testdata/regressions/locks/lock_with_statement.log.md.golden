@@ -12,9 +12,9 @@ This _quellog_ report summarizes **3** log entries collected between 19 Apr 2026
 
 |  |  |  |  |
 |---|---:|---|---:|
-| Total query duration | 3.30 s | Total queries parsed | 1 |
-| Total unique queries | 1 | Top 1% slow queries | 1 |
-| Query max duration | 3.30 s | Query min duration | 3.30 s |
+| Total query duration  | 3.30 s | Total queries parsed   |      1 |
+| Total unique queries  |      1 | Top 1% slow queries    |      1 |
+| Query max duration    | 3.30 s | Query min duration     | 3.30 s |
 | Query median duration | 3.30 s | Query 99% max duration | 3.30 s |
 
 ### Query duration distribution
