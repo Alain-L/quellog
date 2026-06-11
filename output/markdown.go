@@ -1155,6 +1155,47 @@ func formatIntWithCommas(n int64) string {
 	return res
 }
 
+// writeDimensionsMarkdownRow appends one line of the Dimensions
+// sub-section in --sql-detail markdown. Skips silently when the row
+// has no data so empty dimensions never appear at all.
+func writeDimensionsMarkdownRow(b *strings.Builder, label string, rows []analysis.DimensionCount) {
+	if len(rows) == 0 {
+		return
+	}
+	parts := make([]string, 0, len(rows))
+	for _, r := range rows {
+		parts = append(parts, fmt.Sprintf("%s (%s)", r.Name, formatIntWithCommas(int64(r.Count))))
+	}
+	b.WriteString(fmt.Sprintf("- **%s**: %s\n", label, strings.Join(parts, ", ")))
+}
+
+// formatSlowestRunDimensionsMD adds a ", db=X, user=Y, app=Z, host=W"
+// suffix to the Slowest Run header in markdown. Same contract as the
+// text version — returns "" when the slowest run carries no prefix
+// fields.
+func formatSlowestRunDimensionsMD(sr *analysis.SlowestRun) string {
+	if sr == nil {
+		return ""
+	}
+	var parts []string
+	if sr.Database != "" {
+		parts = append(parts, "db="+sr.Database)
+	}
+	if sr.User != "" {
+		parts = append(parts, "user="+sr.User)
+	}
+	if sr.App != "" {
+		parts = append(parts, "app="+sr.App)
+	}
+	if sr.Host != "" {
+		parts = append(parts, "host="+sr.Host)
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	return ", " + strings.Join(parts, ", ")
+}
+
 // humanDate returns a compact, human-friendly date/time string
 func humanDate(t time.Time) string {
 	if t.IsZero() {
@@ -1558,6 +1599,20 @@ func ExportSQLDetailMarkdown(w io.Writer, m analysis.AggregatedMetrics, queryIDs
 			b.WriteString(fmt.Sprintf("- **Max Duration**: %s\n\n", formatQueryDuration(sqlStat.MaxTime)))
 		}
 
+		// DIMENSIONS section — top-5 db/user/app/host that ran this
+		// query. Mirror of the CLI block, sub-section under SQL DETAILS.
+		if sqlStat != nil {
+			dims := m.SQL.TopDimensionsForID(qid, 5)
+			if !dims.IsEmpty() {
+				b.WriteString("### Dimensions\n\n")
+				writeDimensionsMarkdownRow(&b, "Databases", dims.Databases)
+				writeDimensionsMarkdownRow(&b, "Users", dims.Users)
+				writeDimensionsMarkdownRow(&b, "Apps", dims.Apps)
+				writeDimensionsMarkdownRow(&b, "Hosts", dims.Hosts)
+				b.WriteString("\n")
+			}
+		}
+
 		// TEMP FILES section
 		if tempStat != nil {
 			b.WriteString("### TEMP FILES\n\n")
@@ -1611,10 +1666,11 @@ func ExportSQLDetailMarkdown(w io.Writer, m analysis.AggregatedMetrics, queryIDs
 		if rawQuery != "" {
 			if sqlStat != nil && sqlStat.SlowestRun != nil {
 				sr := sqlStat.SlowestRun
-				b.WriteString(fmt.Sprintf("### Slowest Run — %s, %s, pid=%s\n\n",
+				b.WriteString(fmt.Sprintf("### Slowest Run — %s, %s, pid=%s%s\n\n",
 					formatQueryDuration(sr.DurationMs),
 					sr.Timestamp.Format("2006-01-02 15:04:05"),
 					sr.PID,
+					formatSlowestRunDimensionsMD(sr),
 				))
 				text, truncated, full := truncateForDisplay(SubstituteParameters(rawQuery, sr.Parameters), slowestRunDisplayCap)
 				b.WriteString("```sql\n")

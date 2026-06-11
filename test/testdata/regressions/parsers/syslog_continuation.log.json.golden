@@ -68,7 +68,31 @@
         "count": 1,
         "total_time_ms": 245.123,
         "avg_time_ms": 245.123,
-        "max_time_ms": 245.123
+        "max_time_ms": 245.123,
+        "top_databases": [
+          {
+            "name": "appdb",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "app",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 1
+          }
+        ],
+        "top_hosts": [
+          {
+            "name": "10.0.0.50",
+            "count": 1
+          }
+        ]
       }
     ]
   },

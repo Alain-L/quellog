@@ -19,10 +19,25 @@ const execChunkSize = 1 << 16
 // final realloc on a 40 M-event slice was peaking at ~1.6 GB live: old
 // + new during the copy) is replaced by a single ~1.25 MB allocation
 // per page boundary.
+//
+// Per-event dimension indices (db/user/app/host) live in dimChunk
+// stored separately so the four parallel slices can be promoted from
+// uint8 to uint16 in lockstep when a dictionary exceeds 255 entries.
 type execChunk struct {
 	tsNanos    []int64
 	durations  []float64
 	queryIDIdx []uint32
+}
+
+// dimChunk holds the per-event dimension indices for one execChunk.
+// Each dimension is independently either a []uint8 (most common; 255
+// distinct values is far above what real logs show for db/user/app/
+// host) or a []uint16 after promotion. Index 0 is reserved for "value
+// not present on the entry's log prefix"; real dictionary entries
+// start at index 1.
+type dimChunk struct {
+	dbU8, userU8, appU8, hostU8     []uint8
+	dbU16, userU16, appU16, hostU16 []uint16
 }
 
 // compactExecutions stores query execution events in fixed-size chunks
@@ -36,8 +51,14 @@ type execChunk struct {
 // On the Z corpus (40 M executions) the steady-state heap is unchanged
 // (~760 MB across ~610 chunks) but the run-time peak drops by ~800 MB
 // since no realloc-and-copy ever happens.
+//
+// Dimension dictionaries (databases/users/apps/hosts) sit alongside.
+// Per-event indices add 4 B/event in the steady-state uint8 case
+// (16 MB on 4 M executions) and up to 8 B/event after any dictionary
+// crosses 255 entries.
 type compactExecutions struct {
 	chunks []execChunk
+	dims   []dimChunk
 	n      int // total event count across all chunks
 
 	// queryIDs is the deduplicated table of query IDs. Each unique ID
@@ -50,6 +71,24 @@ type compactExecutions struct {
 	// new IDs arrive in append; cleared after the parser-side build to
 	// release the map memory before downstream consumers see the slice.
 	queryIDIndex map[string]uint32
+
+	// Dimension dictionaries. Index 0 of each slice is reserved for
+	// "unknown" (empty string). New entries are appended as encountered;
+	// the corresponding *Index map handles O(1) lookup during build.
+	databases []string
+	users     []string
+	apps      []string
+	hosts     []string
+
+	databasesIndex map[string]uint16
+	usersIndex     map[string]uint16
+	appsIndex      map[string]uint16
+	hostsIndex     map[string]uint16
+
+	// dbWide/userWide/appWide/hostWide flip to true once the
+	// corresponding dictionary crosses 255 entries and we promote the
+	// per-event slices to uint16.
+	dbWide, userWide, appWide, hostWide bool
 
 	// loc is the time.Location captured from the FIRST event appended
 	// (postgres logs are usually all in one timezone). Reused when
@@ -72,9 +111,18 @@ func newCompactExecutions(execCap int) *compactExecutions {
 		chunkHint = 1
 	}
 	return &compactExecutions{
-		chunks:       make([]execChunk, 0, chunkHint),
-		queryIDs:     make([]string, 0, 1024),
-		queryIDIndex: make(map[string]uint32, 1024),
+		chunks:         make([]execChunk, 0, chunkHint),
+		dims:           make([]dimChunk, 0, chunkHint),
+		queryIDs:       make([]string, 0, 1024),
+		queryIDIndex:   make(map[string]uint32, 1024),
+		databases:      []string{""}, // index 0 = unknown
+		users:          []string{""},
+		apps:           []string{""},
+		hosts:          []string{""},
+		databasesIndex: make(map[string]uint16, 16),
+		usersIndex:     make(map[string]uint16, 16),
+		appsIndex:      make(map[string]uint16, 16),
+		hostsIndex:     make(map[string]uint16, 16),
 	}
 }
 
@@ -88,12 +136,106 @@ func newChunk() execChunk {
 	}
 }
 
+// newDimChunk allocates a fresh dimension page. Each dimension starts
+// in uint8 mode; promotion to uint16 is per-dimension and back-fills
+// existing chunks lazily on demand.
+func newDimChunk(dbWide, userWide, appWide, hostWide bool) dimChunk {
+	var dc dimChunk
+	if dbWide {
+		dc.dbU16 = make([]uint16, 0, execChunkSize)
+	} else {
+		dc.dbU8 = make([]uint8, 0, execChunkSize)
+	}
+	if userWide {
+		dc.userU16 = make([]uint16, 0, execChunkSize)
+	} else {
+		dc.userU8 = make([]uint8, 0, execChunkSize)
+	}
+	if appWide {
+		dc.appU16 = make([]uint16, 0, execChunkSize)
+	} else {
+		dc.appU8 = make([]uint8, 0, execChunkSize)
+	}
+	if hostWide {
+		dc.hostU16 = make([]uint16, 0, execChunkSize)
+	} else {
+		dc.hostU8 = make([]uint8, 0, execChunkSize)
+	}
+	return dc
+}
+
+// internDim looks up name in the given dictionary (index/table), adding
+// it when absent. Returns the index. An empty name maps to index 0
+// (reserved "unknown"). When the dictionary grows past 255 entries it
+// signals promotion via *needsWiden; the caller is responsible for
+// walking the chunks to copy uint8→uint16 before appending the new
+// index.
+func internDim(table *[]string, index map[string]uint16, name string, wide bool, needsWiden *bool) uint16 {
+	if name == "" {
+		return 0
+	}
+	if idx, ok := index[name]; ok {
+		return idx
+	}
+	idx := uint16(len(*table))
+	*table = append(*table, name)
+	index[name] = idx
+	// 256 entries (indices 0..255) still fit in uint8. Promotion kicks
+	// in at the 257th entry (index 256), which is the first value that
+	// would not survive the uint8 cast.
+	if !wide && idx == 256 {
+		*needsWiden = true
+	}
+	return idx
+}
+
+// widenDim promotes every chunk's per-dimension slice from uint8 to
+// uint16 for the dimension selected by which. Called when the
+// corresponding dictionary just crossed 255 entries. Allocates one
+// new []uint16 per chunk and copies the existing values; the old
+// []uint8 backing arrays become eligible for GC.
+func (c *compactExecutions) widenDim(which int) {
+	for i := range c.dims {
+		dc := &c.dims[i]
+		switch which {
+		case 0:
+			out := make([]uint16, len(dc.dbU8), execChunkSize)
+			for j, v := range dc.dbU8 {
+				out[j] = uint16(v)
+			}
+			dc.dbU16 = out
+			dc.dbU8 = nil
+		case 1:
+			out := make([]uint16, len(dc.userU8), execChunkSize)
+			for j, v := range dc.userU8 {
+				out[j] = uint16(v)
+			}
+			dc.userU16 = out
+			dc.userU8 = nil
+		case 2:
+			out := make([]uint16, len(dc.appU8), execChunkSize)
+			for j, v := range dc.appU8 {
+				out[j] = uint16(v)
+			}
+			dc.appU16 = out
+			dc.appU8 = nil
+		case 3:
+			out := make([]uint16, len(dc.hostU8), execChunkSize)
+			for j, v := range dc.hostU8 {
+				out[j] = uint16(v)
+			}
+			dc.hostU16 = out
+			dc.hostU8 = nil
+		}
+	}
+}
+
 // append records one execution event. queryID is interned via the
 // internal table so identical IDs across executions share a single
 // string allocation. The location of the first event is remembered
 // for round-trip reconstruction (postgres logs typically use one tz
 // throughout). A new chunk is allocated when the current one fills.
-func (c *compactExecutions) append(ts time.Time, duration float64, queryID string) {
+func (c *compactExecutions) append(ts time.Time, duration float64, queryID string, database, user, app, host string) {
 	if c.loc == nil {
 		c.loc = ts.Location()
 	}
@@ -103,14 +245,89 @@ func (c *compactExecutions) append(ts time.Time, duration float64, queryID strin
 		c.queryIDs = append(c.queryIDs, queryID)
 		c.queryIDIndex[queryID] = idx
 	}
+
+	// Intern the four dimensions; widen the per-event slices in lockstep
+	// when a dictionary crosses 255 entries.
+	var widenDb, widenUser, widenApp, widenHost bool
+	dbIdx := internDim(&c.databases, c.databasesIndex, database, c.dbWide, &widenDb)
+	userIdx := internDim(&c.users, c.usersIndex, user, c.userWide, &widenUser)
+	appIdx := internDim(&c.apps, c.appsIndex, app, c.appWide, &widenApp)
+	hostIdx := internDim(&c.hosts, c.hostsIndex, host, c.hostWide, &widenHost)
+	if widenDb {
+		c.widenDim(0)
+		c.dbWide = true
+	}
+	if widenUser {
+		c.widenDim(1)
+		c.userWide = true
+	}
+	if widenApp {
+		c.widenDim(2)
+		c.appWide = true
+	}
+	if widenHost {
+		c.widenDim(3)
+		c.hostWide = true
+	}
+
 	if len(c.chunks) == 0 || len(c.chunks[len(c.chunks)-1].tsNanos) == execChunkSize {
 		c.chunks = append(c.chunks, newChunk())
+		c.dims = append(c.dims, newDimChunk(c.dbWide, c.userWide, c.appWide, c.hostWide))
 	}
 	last := &c.chunks[len(c.chunks)-1]
 	last.tsNanos = append(last.tsNanos, ts.UnixNano())
 	last.durations = append(last.durations, duration)
 	last.queryIDIdx = append(last.queryIDIdx, idx)
+
+	dc := &c.dims[len(c.dims)-1]
+	if c.dbWide {
+		dc.dbU16 = append(dc.dbU16, dbIdx)
+	} else {
+		dc.dbU8 = append(dc.dbU8, uint8(dbIdx))
+	}
+	if c.userWide {
+		dc.userU16 = append(dc.userU16, userIdx)
+	} else {
+		dc.userU8 = append(dc.userU8, uint8(userIdx))
+	}
+	if c.appWide {
+		dc.appU16 = append(dc.appU16, appIdx)
+	} else {
+		dc.appU8 = append(dc.appU8, uint8(appIdx))
+	}
+	if c.hostWide {
+		dc.hostU16 = append(dc.hostU16, hostIdx)
+	} else {
+		dc.hostU8 = append(dc.hostU8, uint8(hostIdx))
+	}
 	c.n++
+}
+
+// dimsAt returns the four dimension indices for event i. Used by the
+// At/ForEach helpers when expanding events back to QueryExecution.
+func (c *compactExecutions) dimsAt(ci, j int) (db, user, app, host uint16) {
+	dc := &c.dims[ci]
+	if c.dbWide {
+		db = dc.dbU16[j]
+	} else {
+		db = uint16(dc.dbU8[j])
+	}
+	if c.userWide {
+		user = dc.userU16[j]
+	} else {
+		user = uint16(dc.userU8[j])
+	}
+	if c.appWide {
+		app = dc.appU16[j]
+	} else {
+		app = uint16(dc.appU8[j])
+	}
+	if c.hostWide {
+		host = dc.hostU16[j]
+	} else {
+		host = uint16(dc.hostU8[j])
+	}
+	return
 }
 
 // location returns the captured timezone or UTC when no events were
@@ -127,6 +344,10 @@ func (c *compactExecutions) location() *time.Location {
 // Saves a few MB on corpora with thousands of unique queries.
 func (c *compactExecutions) freeIndex() {
 	c.queryIDIndex = nil
+	c.databasesIndex = nil
+	c.usersIndex = nil
+	c.appsIndex = nil
+	c.hostsIndex = nil
 }
 
 // Len returns the number of stored execution events.
@@ -138,12 +359,18 @@ func (c *compactExecutions) Len() int {
 // time.Time uses the captured location so the wall clock is preserved
 // across the round-trip.
 func (c *compactExecutions) At(i int) QueryExecution {
-	ch := &c.chunks[i>>16]
+	ci := i >> 16
 	j := i & (execChunkSize - 1)
+	ch := &c.chunks[ci]
+	db, user, app, host := c.dimsAt(ci, j)
 	return QueryExecution{
 		Timestamp: time.Unix(0, ch.tsNanos[j]).In(c.location()),
 		Duration:  ch.durations[j],
 		QueryID:   c.queryIDs[ch.queryIDIdx[j]],
+		Database:  c.databases[db],
+		User:      c.users[user],
+		App:       c.apps[app],
+		Host:      c.hosts[host],
 	}
 }
 
@@ -155,10 +382,15 @@ func (c *compactExecutions) ForEach(fn func(QueryExecution) bool) {
 	for ci := range c.chunks {
 		ch := &c.chunks[ci]
 		for j := range ch.tsNanos {
+			db, user, app, host := c.dimsAt(ci, j)
 			if !fn(QueryExecution{
 				Timestamp: time.Unix(0, ch.tsNanos[j]).In(loc),
 				Duration:  ch.durations[j],
 				QueryID:   c.queryIDs[ch.queryIDIdx[j]],
+				Database:  c.databases[db],
+				User:      c.users[user],
+				App:       c.apps[app],
+				Host:      c.hosts[host],
 			}) {
 				return
 			}
@@ -177,10 +409,15 @@ func (c *compactExecutions) ForEachID(idx uint32, id string, fn func(QueryExecut
 			if ch.queryIDIdx[j] != idx {
 				continue
 			}
+			db, user, app, host := c.dimsAt(ci, j)
 			if !fn(QueryExecution{
 				Timestamp: time.Unix(0, ch.tsNanos[j]).In(loc),
 				Duration:  ch.durations[j],
 				QueryID:   id,
+				Database:  c.databases[db],
+				User:      c.users[user],
+				App:       c.apps[app],
+				Host:      c.hosts[host],
 			}) {
 				return
 			}

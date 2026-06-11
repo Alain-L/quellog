@@ -14658,7 +14658,31 @@
         "count": 1,
         "total_time_ms": 2017.951,
         "avg_time_ms": 2017.951,
-        "max_time_ms": 2017.951
+        "max_time_ms": 2017.951,
+        "top_databases": [
+          {
+            "name": "app_db",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "app_user",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 1
+          }
+        ],
+        "top_hosts": [
+          {
+            "name": "172.20.0.10",
+            "count": 1
+          }
+        ]
       },
       {
         "id": "be-BQ2mOa",
@@ -14668,7 +14692,31 @@
         "count": 1,
         "total_time_ms": 2543.436,
         "avg_time_ms": 2543.436,
-        "max_time_ms": 2543.436
+        "max_time_ms": 2543.436,
+        "top_databases": [
+          {
+            "name": "app_db",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "batch",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 1
+          }
+        ],
+        "top_hosts": [
+          {
+            "name": "172.20.0.20",
+            "count": 1
+          }
+        ]
       },
       {
         "id": "be-kWUrQx",
@@ -14678,7 +14726,31 @@
         "count": 1,
         "total_time_ms": 3027.739,
         "avg_time_ms": 3027.739,
-        "max_time_ms": 3027.739
+        "max_time_ms": 3027.739,
+        "top_databases": [
+          {
+            "name": "app_db",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "app_user",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 1
+          }
+        ],
+        "top_hosts": [
+          {
+            "name": "172.20.0.10",
+            "count": 1
+          }
+        ]
       },
       {
         "id": "cr-2F3Ykn",
@@ -14688,7 +14760,25 @@
         "count": 1,
         "total_time_ms": 13.822,
         "avg_time_ms": 13.822,
-        "max_time_ms": 13.822
+        "max_time_ms": 13.822,
+        "top_databases": [
+          {
+            "name": "app_db",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "postgres",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 1
+          }
+        ]
       },
       {
         "id": "cr-2yRXzC",
@@ -14698,7 +14788,25 @@
         "count": 1,
         "total_time_ms": 17.578,
         "avg_time_ms": 17.578,
-        "max_time_ms": 17.578
+        "max_time_ms": 17.578,
+        "top_databases": [
+          {
+            "name": "app_db",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "postgres",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 1
+          }
+        ]
       },
       {
         "id": "cr-4F1vvf",
@@ -14708,7 +14816,25 @@
         "count": 1,
         "total_time_ms": 67.349,
         "avg_time_ms": 67.349,
-        "max_time_ms": 67.349
+        "max_time_ms": 67.349,
+        "top_databases": [
+          {
+            "name": "app_db",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "postgres",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 1
+          }
+        ]
       },
       {
         "id": "cr-7TWZ58",
@@ -14718,7 +14844,25 @@
         "count": 1,
         "total_time_ms": 14.688,
         "avg_time_ms": 14.688,
-        "max_time_ms": 14.688
+        "max_time_ms": 14.688,
+        "top_databases": [
+          {
+            "name": "app_db",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "postgres",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 1
+          }
+        ]
       },
       {
         "id": "cr-9WOt1h",
@@ -14728,7 +14872,25 @@
         "count": 1,
         "total_time_ms": 736.705,
         "avg_time_ms": 736.705,
-        "max_time_ms": 736.705
+        "max_time_ms": 736.705,
+        "top_databases": [
+          {
+            "name": "postgres",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "postgres",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 1
+          }
+        ]
       },
       {
         "id": "cr-ACN9oU",
@@ -14738,7 +14900,25 @@
         "count": 1,
         "total_time_ms": 42.908,
         "avg_time_ms": 42.908,
-        "max_time_ms": 42.908
+        "max_time_ms": 42.908,
+        "top_databases": [
+          {
+            "name": "analytics",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "postgres",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 1
+          }
+        ]
       },
       {
         "id": "cr-BG1QVU",
@@ -14748,7 +14928,25 @@
         "count": 1,
         "total_time_ms": 53.086,
         "avg_time_ms": 53.086,
-        "max_time_ms": 53.086
+        "max_time_ms": 53.086,
+        "top_databases": [
+          {
+            "name": "analytics",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "postgres",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 1
+          }
+        ]
       },
       {
         "id": "cr-Ct9JSy",
@@ -14758,7 +14956,25 @@
         "count": 1,
         "total_time_ms": 46.44,
         "avg_time_ms": 46.44,
-        "max_time_ms": 46.44
+        "max_time_ms": 46.44,
+        "top_databases": [
+          {
+            "name": "app_db",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "postgres",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 1
+          }
+        ]
       },
       {
         "id": "cr-DF2R37",
@@ -14768,7 +14984,25 @@
         "count": 1,
         "total_time_ms": 51.28,
         "avg_time_ms": 51.28,
-        "max_time_ms": 51.28
+        "max_time_ms": 51.28,
+        "top_databases": [
+          {
+            "name": "app_db",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "postgres",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 1
+          }
+        ]
       },
       {
         "id": "cr-Io3LmA",
@@ -14778,7 +15012,25 @@
         "count": 1,
         "total_time_ms": 20.618,
         "avg_time_ms": 20.618,
-        "max_time_ms": 20.618
+        "max_time_ms": 20.618,
+        "top_databases": [
+          {
+            "name": "analytics",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "postgres",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 1
+          }
+        ]
       },
       {
         "id": "cr-J32g10",
@@ -14788,7 +15040,25 @@
         "count": 1,
         "total_time_ms": 64.435,
         "avg_time_ms": 64.435,
-        "max_time_ms": 64.435
+        "max_time_ms": 64.435,
+        "top_databases": [
+          {
+            "name": "postgres",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "postgres",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 1
+          }
+        ]
       },
       {
         "id": "cr-K2Ehdd",
@@ -14798,7 +15068,25 @@
         "count": 1,
         "total_time_ms": 137.11,
         "avg_time_ms": 137.11,
-        "max_time_ms": 137.11
+        "max_time_ms": 137.11,
+        "top_databases": [
+          {
+            "name": "app_db",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "postgres",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 1
+          }
+        ]
       },
       {
         "id": "cr-KvlnJv",
@@ -14808,7 +15096,25 @@
         "count": 1,
         "total_time_ms": 21.777,
         "avg_time_ms": 21.777,
-        "max_time_ms": 21.777
+        "max_time_ms": 21.777,
+        "top_databases": [
+          {
+            "name": "app_db",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "postgres",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 1
+          }
+        ]
       },
       {
         "id": "cr-MUY6be",
@@ -14818,7 +15124,25 @@
         "count": 1,
         "total_time_ms": 15.637,
         "avg_time_ms": 15.637,
-        "max_time_ms": 15.637
+        "max_time_ms": 15.637,
+        "top_databases": [
+          {
+            "name": "analytics",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "postgres",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 1
+          }
+        ]
       },
       {
         "id": "cr-Ug7MiB",
@@ -14828,7 +15152,25 @@
         "count": 1,
         "total_time_ms": 14.2,
         "avg_time_ms": 14.2,
-        "max_time_ms": 14.2
+        "max_time_ms": 14.2,
+        "top_databases": [
+          {
+            "name": "analytics",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "postgres",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 1
+          }
+        ]
       },
       {
         "id": "cr-WOv8SO",
@@ -14838,7 +15180,25 @@
         "count": 1,
         "total_time_ms": 84.679,
         "avg_time_ms": 84.679,
-        "max_time_ms": 84.679
+        "max_time_ms": 84.679,
+        "top_databases": [
+          {
+            "name": "analytics",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "postgres",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 1
+          }
+        ]
       },
       {
         "id": "cr-Xn2AaM",
@@ -14848,7 +15208,25 @@
         "count": 1,
         "total_time_ms": 43.813,
         "avg_time_ms": 43.813,
-        "max_time_ms": 43.813
+        "max_time_ms": 43.813,
+        "top_databases": [
+          {
+            "name": "app_db",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "postgres",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 1
+          }
+        ]
       },
       {
         "id": "cr-ZoN45O",
@@ -14858,7 +15236,25 @@
         "count": 1,
         "total_time_ms": 19.461,
         "avg_time_ms": 19.461,
-        "max_time_ms": 19.461
+        "max_time_ms": 19.461,
+        "top_databases": [
+          {
+            "name": "analytics",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "postgres",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 1
+          }
+        ]
       },
       {
         "id": "cr-aRVLdU",
@@ -14868,7 +15264,25 @@
         "count": 1,
         "total_time_ms": 72.872,
         "avg_time_ms": 72.872,
-        "max_time_ms": 72.872
+        "max_time_ms": 72.872,
+        "top_databases": [
+          {
+            "name": "postgres",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "postgres",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 1
+          }
+        ]
       },
       {
         "id": "cr-aYA4va",
@@ -14878,7 +15292,25 @@
         "count": 1,
         "total_time_ms": 60.743,
         "avg_time_ms": 60.743,
-        "max_time_ms": 60.743
+        "max_time_ms": 60.743,
+        "top_databases": [
+          {
+            "name": "postgres",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "postgres",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 1
+          }
+        ]
       },
       {
         "id": "cr-c0717K",
@@ -14888,7 +15320,25 @@
         "count": 1,
         "total_time_ms": 12.749,
         "avg_time_ms": 12.749,
-        "max_time_ms": 12.749
+        "max_time_ms": 12.749,
+        "top_databases": [
+          {
+            "name": "app_db",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "postgres",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 1
+          }
+        ]
       },
       {
         "id": "cr-dXkZFn",
@@ -14898,7 +15348,25 @@
         "count": 1,
         "total_time_ms": 474.384,
         "avg_time_ms": 474.384,
-        "max_time_ms": 474.384
+        "max_time_ms": 474.384,
+        "top_databases": [
+          {
+            "name": "postgres",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "postgres",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 1
+          }
+        ]
       },
       {
         "id": "cr-euSbtG",
@@ -14908,7 +15376,25 @@
         "count": 1,
         "total_time_ms": 16.744,
         "avg_time_ms": 16.744,
-        "max_time_ms": 16.744
+        "max_time_ms": 16.744,
+        "top_databases": [
+          {
+            "name": "app_db",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "postgres",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 1
+          }
+        ]
       },
       {
         "id": "cr-fmIxjr",
@@ -14918,7 +15404,25 @@
         "count": 1,
         "total_time_ms": 36.031,
         "avg_time_ms": 36.031,
-        "max_time_ms": 36.031
+        "max_time_ms": 36.031,
+        "top_databases": [
+          {
+            "name": "analytics",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "postgres",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 1
+          }
+        ]
       },
       {
         "id": "cr-g2zKZj",
@@ -14928,7 +15432,25 @@
         "count": 1,
         "total_time_ms": 13.958,
         "avg_time_ms": 13.958,
-        "max_time_ms": 13.958
+        "max_time_ms": 13.958,
+        "top_databases": [
+          {
+            "name": "app_db",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "postgres",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 1
+          }
+        ]
       },
       {
         "id": "cr-gb2h0e",
@@ -14938,7 +15460,25 @@
         "count": 1,
         "total_time_ms": 17.039,
         "avg_time_ms": 17.039,
-        "max_time_ms": 17.039
+        "max_time_ms": 17.039,
+        "top_databases": [
+          {
+            "name": "app_db",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "postgres",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 1
+          }
+        ]
       },
       {
         "id": "cr-gkmvJi",
@@ -14948,7 +15488,25 @@
         "count": 1,
         "total_time_ms": 61.416,
         "avg_time_ms": 61.416,
-        "max_time_ms": 61.416
+        "max_time_ms": 61.416,
+        "top_databases": [
+          {
+            "name": "postgres",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "postgres",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 1
+          }
+        ]
       },
       {
         "id": "cr-iPsn9g",
@@ -14958,7 +15516,25 @@
         "count": 1,
         "total_time_ms": 17.333,
         "avg_time_ms": 17.333,
-        "max_time_ms": 17.333
+        "max_time_ms": 17.333,
+        "top_databases": [
+          {
+            "name": "app_db",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "postgres",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 1
+          }
+        ]
       },
       {
         "id": "cr-j8llBH",
@@ -14968,7 +15544,25 @@
         "count": 1,
         "total_time_ms": 13.331,
         "avg_time_ms": 13.331,
-        "max_time_ms": 13.331
+        "max_time_ms": 13.331,
+        "top_databases": [
+          {
+            "name": "app_db",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "postgres",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 1
+          }
+        ]
       },
       {
         "id": "cr-jwAN4A",
@@ -14978,7 +15572,25 @@
         "count": 1,
         "total_time_ms": 11.532,
         "avg_time_ms": 11.532,
-        "max_time_ms": 11.532
+        "max_time_ms": 11.532,
+        "top_databases": [
+          {
+            "name": "app_db",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "postgres",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 1
+          }
+        ]
       },
       {
         "id": "cr-k0OtUv",
@@ -14988,7 +15600,25 @@
         "count": 1,
         "total_time_ms": 13.409,
         "avg_time_ms": 13.409,
-        "max_time_ms": 13.409
+        "max_time_ms": 13.409,
+        "top_databases": [
+          {
+            "name": "analytics",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "postgres",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 1
+          }
+        ]
       },
       {
         "id": "cr-latiV2",
@@ -14998,7 +15628,25 @@
         "count": 1,
         "total_time_ms": 11.524,
         "avg_time_ms": 11.524,
-        "max_time_ms": 11.524
+        "max_time_ms": 11.524,
+        "top_databases": [
+          {
+            "name": "app_db",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "postgres",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 1
+          }
+        ]
       },
       {
         "id": "cr-leKIw0",
@@ -15008,7 +15656,25 @@
         "count": 1,
         "total_time_ms": 44.903,
         "avg_time_ms": 44.903,
-        "max_time_ms": 44.903
+        "max_time_ms": 44.903,
+        "top_databases": [
+          {
+            "name": "app_db",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "postgres",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 1
+          }
+        ]
       },
       {
         "id": "cr-lfGJdR",
@@ -15018,7 +15684,25 @@
         "count": 1,
         "total_time_ms": 16.714,
         "avg_time_ms": 16.714,
-        "max_time_ms": 16.714
+        "max_time_ms": 16.714,
+        "top_databases": [
+          {
+            "name": "analytics",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "postgres",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 1
+          }
+        ]
       },
       {
         "id": "cr-lxq44k",
@@ -15028,7 +15712,25 @@
         "count": 1,
         "total_time_ms": 56.618,
         "avg_time_ms": 56.618,
-        "max_time_ms": 56.618
+        "max_time_ms": 56.618,
+        "top_databases": [
+          {
+            "name": "app_db",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "postgres",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 1
+          }
+        ]
       },
       {
         "id": "cr-nU78gl",
@@ -15038,7 +15740,25 @@
         "count": 1,
         "total_time_ms": 34.797,
         "avg_time_ms": 34.797,
-        "max_time_ms": 34.797
+        "max_time_ms": 34.797,
+        "top_databases": [
+          {
+            "name": "app_db",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "postgres",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 1
+          }
+        ]
       },
       {
         "id": "cr-tTdVsU",
@@ -15048,7 +15768,25 @@
         "count": 1,
         "total_time_ms": 61.3,
         "avg_time_ms": 61.3,
-        "max_time_ms": 61.3
+        "max_time_ms": 61.3,
+        "top_databases": [
+          {
+            "name": "postgres",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "postgres",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 1
+          }
+        ]
       },
       {
         "id": "cr-uteypA",
@@ -15058,7 +15796,25 @@
         "count": 1,
         "total_time_ms": 12.24,
         "avg_time_ms": 12.24,
-        "max_time_ms": 12.24
+        "max_time_ms": 12.24,
+        "top_databases": [
+          {
+            "name": "app_db",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "postgres",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 1
+          }
+        ]
       },
       {
         "id": "de-k7G6sh",
@@ -15068,7 +15824,31 @@
         "count": 3,
         "total_time_ms": 419.009,
         "avg_time_ms": 139.66966666666667,
-        "max_time_ms": 144.245
+        "max_time_ms": 144.245,
+        "top_databases": [
+          {
+            "name": "app_db",
+            "count": 3
+          }
+        ],
+        "top_users": [
+          {
+            "name": "batch",
+            "count": 3
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 3
+          }
+        ],
+        "top_hosts": [
+          {
+            "name": "172.20.0.20",
+            "count": 3
+          }
+        ]
       },
       {
         "id": "dr-MPn6Fa",
@@ -15078,7 +15858,31 @@
         "count": 1,
         "total_time_ms": 79.154,
         "avg_time_ms": 79.154,
-        "max_time_ms": 79.154
+        "max_time_ms": 79.154,
+        "top_databases": [
+          {
+            "name": "app_db",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "admin",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 1
+          }
+        ],
+        "top_hosts": [
+          {
+            "name": "172.20.0.30",
+            "count": 1
+          }
+        ]
       },
       {
         "id": "dr-dlTWNh",
@@ -15088,7 +15892,31 @@
         "count": 1,
         "total_time_ms": 39.889,
         "avg_time_ms": 39.889,
-        "max_time_ms": 39.889
+        "max_time_ms": 39.889,
+        "top_databases": [
+          {
+            "name": "app_db",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "admin",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 1
+          }
+        ],
+        "top_hosts": [
+          {
+            "name": "172.20.0.30",
+            "count": 1
+          }
+        ]
       },
       {
         "id": "gr-2pmWjw",
@@ -15098,7 +15926,25 @@
         "count": 1,
         "total_time_ms": 7.625,
         "avg_time_ms": 7.625,
-        "max_time_ms": 7.625
+        "max_time_ms": 7.625,
+        "top_databases": [
+          {
+            "name": "app_db",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "postgres",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 1
+          }
+        ]
       },
       {
         "id": "gr-3PV5vU",
@@ -15108,7 +15954,25 @@
         "count": 1,
         "total_time_ms": 7.344,
         "avg_time_ms": 7.344,
-        "max_time_ms": 7.344
+        "max_time_ms": 7.344,
+        "top_databases": [
+          {
+            "name": "app_db",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "postgres",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 1
+          }
+        ]
       },
       {
         "id": "gr-76idFh",
@@ -15118,7 +15982,29 @@
         "count": 2,
         "total_time_ms": 16.632,
         "avg_time_ms": 8.316,
-        "max_time_ms": 9.502
+        "max_time_ms": 9.502,
+        "top_databases": [
+          {
+            "name": "analytics",
+            "count": 1
+          },
+          {
+            "name": "app_db",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "postgres",
+            "count": 2
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 2
+          }
+        ]
       },
       {
         "id": "gr-8bEdZ7",
@@ -15128,7 +16014,25 @@
         "count": 1,
         "total_time_ms": 6.313,
         "avg_time_ms": 6.313,
-        "max_time_ms": 6.313
+        "max_time_ms": 6.313,
+        "top_databases": [
+          {
+            "name": "app_db",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "postgres",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 1
+          }
+        ]
       },
       {
         "id": "gr-FSgLuE",
@@ -15138,7 +16042,29 @@
         "count": 2,
         "total_time_ms": 15.119,
         "avg_time_ms": 7.5595,
-        "max_time_ms": 8.221
+        "max_time_ms": 8.221,
+        "top_databases": [
+          {
+            "name": "analytics",
+            "count": 1
+          },
+          {
+            "name": "app_db",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "postgres",
+            "count": 2
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 2
+          }
+        ]
       },
       {
         "id": "gr-MUubNa",
@@ -15148,7 +16074,25 @@
         "count": 1,
         "total_time_ms": 6.592,
         "avg_time_ms": 6.592,
-        "max_time_ms": 6.592
+        "max_time_ms": 6.592,
+        "top_databases": [
+          {
+            "name": "analytics",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "postgres",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 1
+          }
+        ]
       },
       {
         "id": "gr-bDCeO2",
@@ -15158,7 +16102,25 @@
         "count": 1,
         "total_time_ms": 5.723,
         "avg_time_ms": 5.723,
-        "max_time_ms": 5.723
+        "max_time_ms": 5.723,
+        "top_databases": [
+          {
+            "name": "postgres",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "postgres",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 1
+          }
+        ]
       },
       {
         "id": "gr-bZfsY0",
@@ -15168,7 +16130,25 @@
         "count": 1,
         "total_time_ms": 9.917,
         "avg_time_ms": 9.917,
-        "max_time_ms": 9.917
+        "max_time_ms": 9.917,
+        "top_databases": [
+          {
+            "name": "analytics",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "postgres",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 1
+          }
+        ]
       },
       {
         "id": "gr-h5383C",
@@ -15178,7 +16158,29 @@
         "count": 2,
         "total_time_ms": 11.015,
         "avg_time_ms": 5.5075,
-        "max_time_ms": 6.701
+        "max_time_ms": 6.701,
+        "top_databases": [
+          {
+            "name": "analytics",
+            "count": 1
+          },
+          {
+            "name": "app_db",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "postgres",
+            "count": 2
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 2
+          }
+        ]
       },
       {
         "id": "gr-oEAnR9",
@@ -15188,7 +16190,25 @@
         "count": 1,
         "total_time_ms": 10.342,
         "avg_time_ms": 10.342,
-        "max_time_ms": 10.342
+        "max_time_ms": 10.342,
+        "top_databases": [
+          {
+            "name": "app_db",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "postgres",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 1
+          }
+        ]
       },
       {
         "id": "gr-ubjR7V",
@@ -15198,7 +16218,25 @@
         "count": 1,
         "total_time_ms": 3.15,
         "avg_time_ms": 3.15,
-        "max_time_ms": 3.15
+        "max_time_ms": 3.15,
+        "top_databases": [
+          {
+            "name": "postgres",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "postgres",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 1
+          }
+        ]
       },
       {
         "id": "in-CIXwVT",
@@ -15208,7 +16246,31 @@
         "count": 275,
         "total_time_ms": 69459.81099999993,
         "avg_time_ms": 252.58113090909066,
-        "max_time_ms": 898.251
+        "max_time_ms": 898.251,
+        "top_databases": [
+          {
+            "name": "app_db",
+            "count": 275
+          }
+        ],
+        "top_users": [
+          {
+            "name": "app_user",
+            "count": 275
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 275
+          }
+        ],
+        "top_hosts": [
+          {
+            "name": "172.20.0.10",
+            "count": 275
+          }
+        ]
       },
       {
         "id": "in-D1z6KP",
@@ -15218,7 +16280,31 @@
         "count": 1,
         "total_time_ms": 11187.129,
         "avg_time_ms": 11187.129,
-        "max_time_ms": 11187.129
+        "max_time_ms": 11187.129,
+        "top_databases": [
+          {
+            "name": "app_db",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "batch",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 1
+          }
+        ],
+        "top_hosts": [
+          {
+            "name": "172.20.0.20",
+            "count": 1
+          }
+        ]
       },
       {
         "id": "in-QH3nov",
@@ -15228,7 +16314,25 @@
         "count": 1,
         "total_time_ms": 17.159,
         "avg_time_ms": 17.159,
-        "max_time_ms": 17.159
+        "max_time_ms": 17.159,
+        "top_databases": [
+          {
+            "name": "app_db",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "postgres",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 1
+          }
+        ]
       },
       {
         "id": "in-clqlZf",
@@ -15238,7 +16342,25 @@
         "count": 1,
         "total_time_ms": 17.054,
         "avg_time_ms": 17.054,
-        "max_time_ms": 17.054
+        "max_time_ms": 17.054,
+        "top_databases": [
+          {
+            "name": "app_db",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "postgres",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 1
+          }
+        ]
       },
       {
         "id": "in-nk6Nue",
@@ -15248,7 +16370,31 @@
         "count": 275,
         "total_time_ms": 60493.82500000004,
         "avg_time_ms": 219.9775454545456,
-        "max_time_ms": 918.908
+        "max_time_ms": 918.908,
+        "top_databases": [
+          {
+            "name": "app_db",
+            "count": 275
+          }
+        ],
+        "top_users": [
+          {
+            "name": "app_user",
+            "count": 275
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 275
+          }
+        ],
+        "top_hosts": [
+          {
+            "name": "172.20.0.10",
+            "count": 275
+          }
+        ]
       },
       {
         "id": "in-wC4Jrq",
@@ -15258,7 +16404,31 @@
         "count": 6,
         "total_time_ms": 3249.4840000000004,
         "avg_time_ms": 541.5806666666667,
-        "max_time_ms": 863.749
+        "max_time_ms": 863.749,
+        "top_databases": [
+          {
+            "name": "app_db",
+            "count": 6
+          }
+        ],
+        "top_users": [
+          {
+            "name": "batch",
+            "count": 6
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 6
+          }
+        ],
+        "top_hosts": [
+          {
+            "name": "172.20.0.20",
+            "count": 6
+          }
+        ]
       },
       {
         "id": "pr-Kq9pjo",
@@ -15268,7 +16438,31 @@
         "count": 2,
         "total_time_ms": 52.429,
         "avg_time_ms": 26.2145,
-        "max_time_ms": 29.804
+        "max_time_ms": 29.804,
+        "top_databases": [
+          {
+            "name": "app_db",
+            "count": 2
+          }
+        ],
+        "top_users": [
+          {
+            "name": "app_user",
+            "count": 2
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 2
+          }
+        ],
+        "top_hosts": [
+          {
+            "name": "172.20.0.10",
+            "count": 2
+          }
+        ]
       },
       {
         "id": "pr-ymdp9s",
@@ -15278,7 +16472,31 @@
         "count": 2,
         "total_time_ms": 51.045,
         "avg_time_ms": 25.5225,
-        "max_time_ms": 26.289
+        "max_time_ms": 26.289,
+        "top_databases": [
+          {
+            "name": "app_db",
+            "count": 2
+          }
+        ],
+        "top_users": [
+          {
+            "name": "batch",
+            "count": 2
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 2
+          }
+        ],
+        "top_hosts": [
+          {
+            "name": "172.20.0.20",
+            "count": 2
+          }
+        ]
       },
       {
         "id": "ri-tYeMH2",
@@ -15288,7 +16506,31 @@
         "count": 1,
         "total_time_ms": 70.217,
         "avg_time_ms": 70.217,
-        "max_time_ms": 70.217
+        "max_time_ms": 70.217,
+        "top_databases": [
+          {
+            "name": "app_db",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "admin",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 1
+          }
+        ],
+        "top_hosts": [
+          {
+            "name": "172.20.0.30",
+            "count": 1
+          }
+        ]
       },
       {
         "id": "se-0vD1Jj",
@@ -15298,7 +16540,31 @@
         "count": 3,
         "total_time_ms": 733.1700000000001,
         "avg_time_ms": 244.39000000000001,
-        "max_time_ms": 350.112
+        "max_time_ms": 350.112,
+        "top_databases": [
+          {
+            "name": "app_db",
+            "count": 3
+          }
+        ],
+        "top_users": [
+          {
+            "name": "batch",
+            "count": 3
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 3
+          }
+        ],
+        "top_hosts": [
+          {
+            "name": "172.20.0.20",
+            "count": 3
+          }
+        ]
       },
       {
         "id": "se-2qUBb1",
@@ -15308,7 +16574,31 @@
         "count": 275,
         "total_time_ms": 35146.01699999998,
         "avg_time_ms": 127.8036981818181,
-        "max_time_ms": 555.963
+        "max_time_ms": 555.963,
+        "top_databases": [
+          {
+            "name": "app_db",
+            "count": 275
+          }
+        ],
+        "top_users": [
+          {
+            "name": "app_user",
+            "count": 275
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 275
+          }
+        ],
+        "top_hosts": [
+          {
+            "name": "172.20.0.10",
+            "count": 275
+          }
+        ]
       },
       {
         "id": "se-6BWFv3",
@@ -15318,7 +16608,25 @@
         "count": 1,
         "total_time_ms": 21.376,
         "avg_time_ms": 21.376,
-        "max_time_ms": 21.376
+        "max_time_ms": 21.376,
+        "top_databases": [
+          {
+            "name": "postgres",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "postgres",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 1
+          }
+        ]
       },
       {
         "id": "se-6RfpRu",
@@ -15328,7 +16636,31 @@
         "count": 8,
         "total_time_ms": 275.479,
         "avg_time_ms": 34.434875,
-        "max_time_ms": 76.898
+        "max_time_ms": 76.898,
+        "top_databases": [
+          {
+            "name": "postgres",
+            "count": 8
+          }
+        ],
+        "top_users": [
+          {
+            "name": "admin",
+            "count": 8
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 8
+          }
+        ],
+        "top_hosts": [
+          {
+            "name": "172.20.0.30",
+            "count": 8
+          }
+        ]
       },
       {
         "id": "se-FaZX77",
@@ -15338,7 +16670,31 @@
         "count": 27,
         "total_time_ms": 3916.9839999999995,
         "avg_time_ms": 145.07348148148145,
-        "max_time_ms": 386.15
+        "max_time_ms": 386.15,
+        "top_databases": [
+          {
+            "name": "app_db",
+            "count": 27
+          }
+        ],
+        "top_users": [
+          {
+            "name": "app_user",
+            "count": 27
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 27
+          }
+        ],
+        "top_hosts": [
+          {
+            "name": "172.20.0.10",
+            "count": 27
+          }
+        ]
       },
       {
         "id": "se-ORnOXZ",
@@ -15348,7 +16704,31 @@
         "count": 7,
         "total_time_ms": 16.207,
         "avg_time_ms": 2.3152857142857144,
-        "max_time_ms": 3.241
+        "max_time_ms": 3.241,
+        "top_databases": [
+          {
+            "name": "app_db",
+            "count": 7
+          }
+        ],
+        "top_users": [
+          {
+            "name": "app_user",
+            "count": 7
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 7
+          }
+        ],
+        "top_hosts": [
+          {
+            "name": "172.20.0.10",
+            "count": 7
+          }
+        ]
       },
       {
         "id": "se-Q7fRfX",
@@ -15358,7 +16738,31 @@
         "count": 8,
         "total_time_ms": 1165.998,
         "avg_time_ms": 145.74975,
-        "max_time_ms": 226.415
+        "max_time_ms": 226.415,
+        "top_databases": [
+          {
+            "name": "postgres",
+            "count": 8
+          }
+        ],
+        "top_users": [
+          {
+            "name": "admin",
+            "count": 8
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 8
+          }
+        ],
+        "top_hosts": [
+          {
+            "name": "172.20.0.30",
+            "count": 8
+          }
+        ]
       },
       {
         "id": "se-QVm6Tb",
@@ -15368,7 +16772,31 @@
         "count": 2,
         "total_time_ms": 240.048,
         "avg_time_ms": 120.024,
-        "max_time_ms": 158.569
+        "max_time_ms": 158.569,
+        "top_databases": [
+          {
+            "name": "app_db",
+            "count": 2
+          }
+        ],
+        "top_users": [
+          {
+            "name": "admin",
+            "count": 2
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 2
+          }
+        ],
+        "top_hosts": [
+          {
+            "name": "172.20.0.30",
+            "count": 2
+          }
+        ]
       },
       {
         "id": "se-hklnha",
@@ -15378,7 +16806,39 @@
         "count": 104,
         "total_time_ms": 1260.4769999999996,
         "avg_time_ms": 12.11997115384615,
-        "max_time_ms": 41.881
+        "max_time_ms": 41.881,
+        "top_databases": [
+          {
+            "name": "app_db",
+            "count": 104
+          }
+        ],
+        "top_users": [
+          {
+            "name": "app_user",
+            "count": 80
+          },
+          {
+            "name": "batch",
+            "count": 24
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 104
+          }
+        ],
+        "top_hosts": [
+          {
+            "name": "172.20.0.10",
+            "count": 80
+          },
+          {
+            "name": "172.20.0.20",
+            "count": 24
+          }
+        ]
       },
       {
         "id": "se-lR16hp",
@@ -15388,7 +16848,31 @@
         "count": 3,
         "total_time_ms": 1304.818,
         "avg_time_ms": 434.9393333333333,
-        "max_time_ms": 513.833
+        "max_time_ms": 513.833,
+        "top_databases": [
+          {
+            "name": "app_db",
+            "count": 3
+          }
+        ],
+        "top_users": [
+          {
+            "name": "batch",
+            "count": 3
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 3
+          }
+        ],
+        "top_hosts": [
+          {
+            "name": "172.20.0.20",
+            "count": 3
+          }
+        ]
       },
       {
         "id": "se-tPT0J9",
@@ -15398,7 +16882,31 @@
         "count": 27,
         "total_time_ms": 4828.151,
         "avg_time_ms": 178.8204074074074,
-        "max_time_ms": 368.32
+        "max_time_ms": 368.32,
+        "top_databases": [
+          {
+            "name": "app_db",
+            "count": 27
+          }
+        ],
+        "top_users": [
+          {
+            "name": "app_user",
+            "count": 27
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 27
+          }
+        ],
+        "top_hosts": [
+          {
+            "name": "172.20.0.10",
+            "count": 27
+          }
+        ]
       },
       {
         "id": "se-yQnLXV",
@@ -15408,7 +16916,31 @@
         "count": 3,
         "total_time_ms": 3904.009,
         "avg_time_ms": 1301.3363333333334,
-        "max_time_ms": 1508.253
+        "max_time_ms": 1508.253,
+        "top_databases": [
+          {
+            "name": "app_db",
+            "count": 3
+          }
+        ],
+        "top_users": [
+          {
+            "name": "batch",
+            "count": 3
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 3
+          }
+        ],
+        "top_hosts": [
+          {
+            "name": "172.20.0.20",
+            "count": 3
+          }
+        ]
       },
       {
         "id": "se-zaokCt",
@@ -15418,7 +16950,31 @@
         "count": 8,
         "total_time_ms": 456.92400000000004,
         "avg_time_ms": 57.115500000000004,
-        "max_time_ms": 93.626
+        "max_time_ms": 93.626,
+        "top_databases": [
+          {
+            "name": "postgres",
+            "count": 8
+          }
+        ],
+        "top_users": [
+          {
+            "name": "admin",
+            "count": 8
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 8
+          }
+        ],
+        "top_hosts": [
+          {
+            "name": "172.20.0.30",
+            "count": 8
+          }
+        ]
       },
       {
         "id": "up-PJoXYR",
@@ -15428,7 +16984,31 @@
         "count": 5,
         "total_time_ms": 3891.0119999999997,
         "avg_time_ms": 778.2023999999999,
-        "max_time_ms": 1100.755
+        "max_time_ms": 1100.755,
+        "top_databases": [
+          {
+            "name": "app_db",
+            "count": 5
+          }
+        ],
+        "top_users": [
+          {
+            "name": "batch",
+            "count": 5
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 5
+          }
+        ],
+        "top_hosts": [
+          {
+            "name": "172.20.0.20",
+            "count": 5
+          }
+        ]
       },
       {
         "id": "up-UXcfCG",
@@ -15438,7 +17018,31 @@
         "count": 275,
         "total_time_ms": 75443.02899999998,
         "avg_time_ms": 274.3382872727272,
-        "max_time_ms": 986.255
+        "max_time_ms": 986.255,
+        "top_databases": [
+          {
+            "name": "app_db",
+            "count": 275
+          }
+        ],
+        "top_users": [
+          {
+            "name": "app_user",
+            "count": 275
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 275
+          }
+        ],
+        "top_hosts": [
+          {
+            "name": "172.20.0.10",
+            "count": 275
+          }
+        ]
       },
       {
         "id": "va-KMvbff",
@@ -15448,7 +17052,31 @@
         "count": 1,
         "total_time_ms": 73.963,
         "avg_time_ms": 73.963,
-        "max_time_ms": 73.963
+        "max_time_ms": 73.963,
+        "top_databases": [
+          {
+            "name": "app_db",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "admin",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 1
+          }
+        ],
+        "top_hosts": [
+          {
+            "name": "172.20.0.30",
+            "count": 1
+          }
+        ]
       },
       {
         "id": "va-W2GlMn",
@@ -15458,7 +17086,31 @@
         "count": 1,
         "total_time_ms": 2240.422,
         "avg_time_ms": 2240.422,
-        "max_time_ms": 2240.422
+        "max_time_ms": 2240.422,
+        "top_databases": [
+          {
+            "name": "app_db",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "admin",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 1
+          }
+        ],
+        "top_hosts": [
+          {
+            "name": "172.20.0.30",
+            "count": 1
+          }
+        ]
       },
       {
         "id": "va-Yjgvvw",
@@ -15468,7 +17120,31 @@
         "count": 1,
         "total_time_ms": 845.757,
         "avg_time_ms": 845.757,
-        "max_time_ms": 845.757
+        "max_time_ms": 845.757,
+        "top_databases": [
+          {
+            "name": "app_db",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "admin",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 1
+          }
+        ],
+        "top_hosts": [
+          {
+            "name": "172.20.0.30",
+            "count": 1
+          }
+        ]
       },
       {
         "id": "xx-chVOHv",
@@ -15478,7 +17154,31 @@
         "count": 2,
         "total_time_ms": 262.19,
         "avg_time_ms": 131.095,
-        "max_time_ms": 158.152
+        "max_time_ms": 158.152,
+        "top_databases": [
+          {
+            "name": "postgres",
+            "count": 2
+          }
+        ],
+        "top_users": [
+          {
+            "name": "admin",
+            "count": 2
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 2
+          }
+        ],
+        "top_hosts": [
+          {
+            "name": "172.20.0.30",
+            "count": 2
+          }
+        ]
       }
     ]
   },

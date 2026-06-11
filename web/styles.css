@@ -2189,6 +2189,54 @@
             flex-basis: 100%;
         }
 
+        /* DIMENSIONS section grid — 4 small panels (databases / users /
+           apps / hosts) laid out responsively. Each panel lists the top
+           ranked names with their counts. Two columns on narrower
+           viewports, up to four when the modal is wide enough. */
+        .qd-dimensions {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 0.6rem;
+        }
+        .qd-dim-block {
+            background: var(--bg-alt);
+            border-radius: 4px;
+            padding: 0.5rem 0.6rem;
+            min-width: 0;
+        }
+        .qd-dim-label {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.3rem;
+        }
+        .qd-dim-rows {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            font-size: 0.8rem;
+        }
+        .qd-dim-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            gap: 0.5rem;
+        }
+        .qd-dim-name {
+            color: var(--text);
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            min-width: 0;
+        }
+        .qd-dim-count {
+            color: var(--text-muted);
+            font-variant-numeric: tabular-nums;
+            flex-shrink: 0;
+        }
+
         /* Grid layout for the prepared-statement names list. The column
            count is decided in JS at render time (1 row when ≤8 names,
            2 rows for 9-16, capped at 8 columns beyond) — that way the

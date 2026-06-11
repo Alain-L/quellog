@@ -1,0 +1,11 @@
+2026-04-19 23:00:00.100 UTC [20001]: [1-1] user=app_user,db=appdb,app=webapp,client=10.0.0.42 LOG:  duration: 1.234 ms  statement: SELECT name FROM users WHERE id = 1
+2026-04-19 23:00:00.200 UTC [20002]: [2-1] user=app_user,db=appdb,app=webapp,client=10.0.0.42 LOG:  duration: 1.345 ms  statement: SELECT name FROM users WHERE id = 2
+2026-04-19 23:00:00.300 UTC [20003]: [3-1] user=app_user,db=appdb,app=webapp,client=10.0.0.42 LOG:  duration: 1.456 ms  statement: SELECT name FROM users WHERE id = 3
+2026-04-19 23:00:00.400 UTC [20004]: [4-1] user=app_user,db=appdb,app=webapp,client=10.0.0.42 LOG:  duration: 1.567 ms  statement: SELECT name FROM users WHERE id = 4
+2026-04-19 23:00:00.500 UTC [20005]: [5-1] user=app_user,db=appdb,app=webapp,client=10.0.0.43 LOG:  duration: 1.678 ms  statement: SELECT name FROM users WHERE id = 5
+2026-04-19 23:00:00.600 UTC [20006]: [6-1] user=worker,db=appdb,app=cron,client=10.0.0.43 LOG:  duration: 2.345 ms  statement: SELECT name FROM users WHERE id = 6
+2026-04-19 23:00:00.700 UTC [20007]: [7-1] user=worker,db=appdb,app=cron,client=10.0.0.43 LOG:  duration: 2.456 ms  statement: SELECT name FROM users WHERE id = 7
+2026-04-19 23:00:00.800 UTC [20008]: [8-1] user=batch,db=webdb,app=psql,client=10.0.0.44 LOG:  duration: 5.678 ms  statement: SELECT name FROM users WHERE id = 8
+2026-04-19 23:00:00.900 UTC [20009]: [9-1] user=batch,db=analyticsdb,app=psql,client=10.0.0.44 LOG:  duration: 50.789 ms  statement: SELECT name FROM users WHERE id = 9
+2026-04-19 23:00:01.000 UTC [20010]: [10-1] user=app_user,db=appdb,app=webapp,client=10.0.0.42 LOG:  duration: 10.123 ms  execute <unnamed>: SELECT name FROM users WHERE id = $1
+2026-04-19 23:00:01.001 UTC [20010]: [10-2] user=app_user,db=appdb,app=webapp,client=10.0.0.42 DETAIL:  parameters: $1 = '42'

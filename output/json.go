@@ -60,6 +60,13 @@ type QueryStatJSON struct {
 	PreparedNames   []string        `json:"prepared_names,omitempty"`
 	SlowestRun      *SlowestRunJSON `json:"slowest_run,omitempty"`
 	Plan            string          `json:"plan,omitempty"`
+	// Top-N (db/user/app/host) that executed this query — surfaced
+	// in the HTML modal's DIMENSIONS block. Populated in a single
+	// pass over the executions storage by TopDimensionsByQuery.
+	TopDatabases []NamedCountJSON `json:"top_databases,omitempty"`
+	TopUsers     []NamedCountJSON `json:"top_users,omitempty"`
+	TopApps      []NamedCountJSON `json:"top_apps,omitempty"`
+	TopHosts     []NamedCountJSON `json:"top_hosts,omitempty"`
 }
 
 // SlowestRunJSON exposes the parameter values of the slowest observed
@@ -70,6 +77,12 @@ type SlowestRunJSON struct {
 	PID             string  `json:"pid"`
 	Parameters      string  `json:"parameters"`
 	QueryWithParams string  `json:"query_with_params"`
+	// Client identity behind the slowest run. Empty when the source
+	// log line did not carry the corresponding prefix field.
+	Database string `json:"database,omitempty"`
+	User     string `json:"user,omitempty"`
+	App      string `json:"app,omitempty"`
+	Host     string `json:"host,omitempty"`
 }
 
 // slowestRunJSON builds a SlowestRunJSON from a QueryStat, returning nil
@@ -85,7 +98,32 @@ func slowestRunJSON(s *analysis.QueryStat) *SlowestRunJSON {
 		PID:             sr.PID,
 		Parameters:      sr.Parameters,
 		QueryWithParams: SubstituteParameters(s.RawQuery, sr.Parameters),
+		Database:        sr.Database,
+		User:            sr.User,
+		App:             sr.App,
+		Host:            sr.Host,
 	}
+}
+
+// NamedCountJSON is the JSON shape of one DimensionCount row. Used in
+// SQLDetailJSON.TopDatabases/Users/Apps/Hosts.
+type NamedCountJSON struct {
+	Name  string `json:"name"`
+	Count int    `json:"count"`
+}
+
+// dimensionCountsJSON converts a slice of analysis.DimensionCount into
+// the JSON-friendly form. Returns nil when the source is empty so the
+// caller can rely on omitempty to keep the wire shape stable.
+func dimensionCountsJSON(rows []analysis.DimensionCount) []NamedCountJSON {
+	if len(rows) == 0 {
+		return nil
+	}
+	out := make([]NamedCountJSON, len(rows))
+	for i, r := range rows {
+		out[i] = NamedCountJSON{Name: r.Name, Count: r.Count}
+	}
+	return out
 }
 
 // SQL Overview JSON structures (for --sql-overview --json)
@@ -145,10 +183,16 @@ type SQLDetailJSON struct {
 	Events     []SQLDetailEventJSON  `json:"events,omitempty"`
 	Statistics *QueryDetailStatsJSON `json:"statistics,omitempty"`
 	Executions lazyExecutions        `json:"executions,omitempty"`
-	TempFiles  *QueryTempFilesJSON   `json:"temp_files,omitempty"`
-	Locks      *QueryLocksJSON       `json:"locks,omitempty"`
-	SlowestRun *SlowestRunJSON       `json:"slowest_run,omitempty"`
-	Plan       string                `json:"plan,omitempty"`
+	// Top-N (db/user/app/host) that ran this query. Populated by
+	// ExportSQLDetailJSON via SQLMetrics.TopDimensionsForID.
+	TopDatabases []NamedCountJSON    `json:"top_databases,omitempty"`
+	TopUsers     []NamedCountJSON    `json:"top_users,omitempty"`
+	TopApps      []NamedCountJSON    `json:"top_apps,omitempty"`
+	TopHosts     []NamedCountJSON    `json:"top_hosts,omitempty"`
+	TempFiles    *QueryTempFilesJSON `json:"temp_files,omitempty"`
+	Locks        *QueryLocksJSON     `json:"locks,omitempty"`
+	SlowestRun   *SlowestRunJSON     `json:"slowest_run,omitempty"`
+	Plan         string              `json:"plan,omitempty"`
 }
 
 // SQLDetailEventJSON is one row of the EVENTS section in the
@@ -1391,6 +1435,26 @@ func (d SQLDetailJSON) StreamSection(bw *bufio.Writer, prefix, indent string, co
 		e.writeKey("executions")
 		streamExecutionsJSON(bw, d.Executions, inner, indent, compact)
 	}
+	if len(d.TopDatabases) > 0 {
+		if err := e.emitScalar("top_databases", d.TopDatabases); err != nil {
+			return err
+		}
+	}
+	if len(d.TopUsers) > 0 {
+		if err := e.emitScalar("top_users", d.TopUsers); err != nil {
+			return err
+		}
+	}
+	if len(d.TopApps) > 0 {
+		if err := e.emitScalar("top_apps", d.TopApps); err != nil {
+			return err
+		}
+	}
+	if len(d.TopHosts) > 0 {
+		if err := e.emitScalar("top_hosts", d.TopHosts); err != nil {
+			return err
+		}
+	}
 	if d.TempFiles != nil {
 		if err := e.emitScalar("temp_files", d.TempFiles); err != nil {
 			return err
@@ -1398,6 +1462,11 @@ func (d SQLDetailJSON) StreamSection(bw *bufio.Writer, prefix, indent string, co
 	}
 	if d.Locks != nil {
 		if err := e.emitScalar("locks", d.Locks); err != nil {
+			return err
+		}
+	}
+	if d.SlowestRun != nil {
+		if err := e.emitScalar("slowest_run", d.SlowestRun); err != nil {
 			return err
 		}
 	}
@@ -2186,8 +2255,9 @@ func buildFullSQLPerformance(m analysis.SQLMetrics) SQLPerformanceDetailJSON {
 	sort.Slice(stats, func(i, j int) bool {
 		return stats[i].stat.TotalTime > stats[j].stat.TotalTime
 	})
+	dimsByQuery := m.TopDimensionsByQuery(5)
 	for _, s := range stats {
-		perf.Queries = append(perf.Queries, QueryStatJSON{
+		row := QueryStatJSON{
 			ID:              s.id,
 			NormalizedQuery: s.query,
 			RawQuery:        s.stat.RawQuery,
@@ -2199,7 +2269,14 @@ func buildFullSQLPerformance(m analysis.SQLMetrics) SQLPerformanceDetailJSON {
 			PreparedNames:   s.stat.PreparedNames,
 			SlowestRun:      slowestRunJSON(s.stat),
 			Plan:            s.stat.LastPlan,
-		})
+		}
+		if dims, ok := dimsByQuery[s.id]; ok {
+			row.TopDatabases = dimensionCountsJSON(dims.Databases)
+			row.TopUsers = dimensionCountsJSON(dims.Users)
+			row.TopApps = dimensionCountsJSON(dims.Apps)
+			row.TopHosts = dimensionCountsJSON(dims.Hosts)
+		}
+		perf.Queries = append(perf.Queries, row)
 	}
 
 	// Executions for time charts — lazy wrapper, T separator for the
@@ -2360,10 +2437,15 @@ func convertSQLPerformance(m analysis.SQLMetrics) SQLPerformanceJSON {
 	// dominant per-row cost on big logs).
 	executionsLazy := lazyExecutions{metrics: &m}
 
+	// Per-query top-5 dimensions in one pass — feeds the HTML modal's
+	// DIMENSIONS block. Cheap (~O(N) once vs O(N × K) for a per-query
+	// re-walk) and cleanly nilable when the log carried no prefix.
+	dimsByQuery := m.TopDimensionsByQuery(5)
+
 	// Export all query stats (sorted by ID for deterministic output)
 	queriesJSON := make([]QueryStatJSON, 0, len(m.QueryStats))
 	for _, stat := range m.QueryStats {
-		queriesJSON = append(queriesJSON, QueryStatJSON{
+		row := QueryStatJSON{
 			ID:              stat.ID,
 			NormalizedQuery: stat.NormalizedQuery,
 			RawQuery:        stat.RawQuery,
@@ -2374,7 +2456,14 @@ func convertSQLPerformance(m analysis.SQLMetrics) SQLPerformanceJSON {
 			PreparedNames:   stat.PreparedNames,
 			SlowestRun:      slowestRunJSON(stat),
 			Plan:            stat.LastPlan,
-		})
+		}
+		if dims, ok := dimsByQuery[stat.ID]; ok {
+			row.TopDatabases = dimensionCountsJSON(dims.Databases)
+			row.TopUsers = dimensionCountsJSON(dims.Users)
+			row.TopApps = dimensionCountsJSON(dims.Apps)
+			row.TopHosts = dimensionCountsJSON(dims.Hosts)
+		}
+		queriesJSON = append(queriesJSON, row)
 	}
 	// Sort by ID for deterministic JSON output
 	sort.Slice(queriesJSON, func(i, j int) bool {
@@ -2723,6 +2812,15 @@ func ExportSQLDetailJSON(w io.Writer, m analysis.AggregatedMetrics, queryIDs []s
 			if foundStat.LastPlan != "" {
 				detail.Plan = foundStat.LastPlan
 			}
+
+			// Top-5 dimensions (db/user/app/host) that ran this query.
+			// Same data the CLI/markdown/HTML renderers expose; computed
+			// here at output time from the compact executions storage.
+			dims := m.SQL.TopDimensionsForID(queryID, 5)
+			detail.TopDatabases = dimensionCountsJSON(dims.Databases)
+			detail.TopUsers = dimensionCountsJSON(dims.Users)
+			detail.TopApps = dimensionCountsJSON(dims.Apps)
+			detail.TopHosts = dimensionCountsJSON(dims.Hosts)
 
 			// Filter executions for this query into a slice, then wrap
 			// into lazyExecutions so the StreamSection emits each item

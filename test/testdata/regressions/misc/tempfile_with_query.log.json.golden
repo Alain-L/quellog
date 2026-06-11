@@ -68,7 +68,31 @@
         "count": 1,
         "total_time_ms": 5432.1,
         "avg_time_ms": 5432.1,
-        "max_time_ms": 5432.1
+        "max_time_ms": 5432.1,
+        "top_databases": [
+          {
+            "name": "appdb",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "app",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "app-worker",
+            "count": 1
+          }
+        ],
+        "top_hosts": [
+          {
+            "name": "10.0.0.41",
+            "count": 1
+          }
+        ]
       },
       {
         "id": "se-bfosQn",
@@ -78,7 +102,31 @@
         "count": 1,
         "total_time_ms": 1234.567,
         "avg_time_ms": 1234.567,
-        "max_time_ms": 1234.567
+        "max_time_ms": 1234.567,
+        "top_databases": [
+          {
+            "name": "appdb",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "app",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 1
+          }
+        ],
+        "top_hosts": [
+          {
+            "name": "10.0.0.40",
+            "count": 1
+          }
+        ]
       }
     ]
   },

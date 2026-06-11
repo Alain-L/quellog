@@ -1,0 +1,114 @@
+## SUMMARY
+
+This _quellog_ report summarizes **10** log entries collected between 19 Apr 2026, 23:00 (UTC) — 19 Apr 2026, 23:00 (UTC), spanning 0s of activity.
+
+## SQL SUMMARY
+
+### Query load distribution
+
+```
+23:00 - 23:00 | ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ 60 ms
+```
+
+- **Total query duration**   : 78 ms
+- **Total queries parsed**   : 10
+- **Total unique queries**   : 1
+- **Top 1% slow queries**    : 1
+- **Query max duration**     : 50 ms
+- **Query min duration**     : 1 ms
+- **Query median duration**  : 2 ms
+- **Query 99% max duration** : 50 ms
+
+### Query duration distribution
+
+```
+  < 1 ms |  -
+ < 10 ms |  -
+< 100 ms | ■■ 2 req
+   < 1 s |  -
+  < 10 s |  -
+ >= 10 s |  -
+```
+
+### Query Statistics
+
+**Slowest queries (top 10)**
+
+| SQLID     |   Max |  Avg | Count | Query                               |
+|-----------|------:|-----:|------:|-------------------------------------|
+| se-xzr4ZG | 50 ms | 7 ms |    10 | select name from users where id = ? |
+
+**Most frequent queries (top 10)**
+
+| SQLID     | Count |  Avg |   Max | Query                               |
+|-----------|------:|-----:|------:|-------------------------------------|
+| se-xzr4ZG |    10 | 7 ms | 50 ms | select name from users where id = ? |
+
+**Most time consuming queries (top 10)**
+
+| SQLID     | Total |  Avg | Count | Query                               |
+|-----------|------:|-----:|------:|-------------------------------------|
+| se-xzr4ZG | 78 ms | 7 ms |    10 | select name from users where id = ? |
+
+## EVENTS
+
+- **LOG**: 10 (100.0%)
+
+## CLIENTS
+
+- **Unique DBs**: 3
+- **Unique Users**: 3
+- **Unique Apps**: 3
+- **Unique Hosts**: 3
+
+### USERS
+
+| User     | Count |     % |
+|----------|------:|------:|
+| app_user |     6 | 60.0% |
+| batch    |     2 | 20.0% |
+| worker   |     2 | 20.0% |
+
+### APPS
+
+| App    | Count |     % |
+|--------|------:|------:|
+| webapp |     6 | 60.0% |
+| cron   |     2 | 20.0% |
+| psql   |     2 | 20.0% |
+
+### DATABASES
+
+| Database    | Count |     % |
+|-------------|------:|------:|
+| appdb       |     8 | 80.0% |
+| analyticsdb |     1 | 10.0% |
+| webdb       |     1 | 10.0% |
+
+### HOSTS
+
+| Host      | Count |     % |
+|-----------|------:|------:|
+| 10.0.0.42 |     5 | 50.0% |
+| 10.0.0.43 |     3 | 30.0% |
+| 10.0.0.44 |     2 | 20.0% |
+
+### USER × DATABASE
+
+| User     | Database    | Count |     % |
+|----------|-------------|------:|------:|
+| app_user | appdb       |     6 | 60.0% |
+| worker   | appdb       |     2 | 20.0% |
+| batch    | analyticsdb |     1 | 10.0% |
+| batch    | webdb       |     1 | 10.0% |
+
+### USER × HOST
+
+| User     | Host      | Count |     % |
+|----------|-----------|------:|------:|
+| app_user | 10.0.0.42 |     5 | 50.0% |
+| batch    | 10.0.0.44 |     2 | 20.0% |
+| worker   | 10.0.0.43 |     2 | 20.0% |
+| app_user | 10.0.0.43 |     1 | 10.0% |
+
+

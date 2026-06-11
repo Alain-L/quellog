@@ -218,11 +218,19 @@ type QueryStat struct {
 
 // SlowestRun records the slowest observed execution of a query whose
 // parameters were logged via "DETAIL: parameters: $1 = ...".
+//
+// Database/User/App/Host capture the client identity behind the
+// slowest run so operators can reproduce or trace it; they may be
+// empty when the log prefix did not include the corresponding field.
 type SlowestRun struct {
 	DurationMs float64
 	Timestamp  time.Time
 	PID        string
 	Parameters string // raw DETAIL payload: "$1 = '393', $2 = '5', ..."
+	Database   string
+	User       string
+	App        string
+	Host       string
 }
 
 // pendingExec records the latest execute: entry seen on a PID, waiting
@@ -232,16 +240,28 @@ type pendingExec struct {
 	statsKey  string  // normalized query key into queryStats
 	duration  float64 // ms
 	timestamp time.Time
+	database  string
+	user      string
+	app       string
+	host      string
 }
 
 // QueryExecution is one SQL execution event. Returned by SQLMetrics
 // iteration helpers (IterateExecutions / ExecutionAt) — the metrics
 // struct stores events in compact parallel slices internally and
 // expands them to QueryExecution one at a time on access.
+//
+// Database/User/App/Host are resolved from per-event dictionary
+// indices on read; empty when the source log line did not carry that
+// field on its prefix.
 type QueryExecution struct {
 	Timestamp time.Time
 	Duration  float64 // ms
 	QueryID   string  // short id (e.g. "se-abc123")
+	Database  string
+	User      string
+	App       string
+	Host      string
 }
 
 // ExecutionCount returns the number of recorded execution events.
@@ -311,6 +331,184 @@ func (m *SQLMetrics) IterateExecutionsForID(id string, fn func(QueryExecution) b
 		return
 	}
 	m.executions.ForEachID(idx, id, fn)
+}
+
+// DimensionCount is one (name, count) row produced by the per-query
+// dimension breakdown. Sorted by count desc, then name asc on ties.
+type DimensionCount struct {
+	Name  string
+	Count int
+}
+
+// QueryDimensions holds the top-N database/user/app/host names that
+// have executed a single query id. Each slice already truncated to
+// the limit requested by TopDimensionsForID; "" entries (no value on
+// the log prefix) are skipped.
+type QueryDimensions struct {
+	Databases []DimensionCount
+	Users     []DimensionCount
+	Apps      []DimensionCount
+	Hosts     []DimensionCount
+}
+
+// IsEmpty reports whether the breakdown has no rows at all. Output
+// renderers use it to skip the DIMENSIONS section when the log prefix
+// did not carry any of the four fields for this query.
+func (q QueryDimensions) IsEmpty() bool {
+	return len(q.Databases) == 0 && len(q.Users) == 0 && len(q.Apps) == 0 && len(q.Hosts) == 0
+}
+
+// TopDimensionsForID returns the top-`limit` (db/user/app/host) names
+// that have executed the query id, with their counts. Computed by
+// walking the compact executions for this id and tallying the
+// dimension indices into local maps. O(N) per dimension where N is
+// the number of executions of this specific query, not the full log.
+func (m *SQLMetrics) TopDimensionsForID(id string, limit int) QueryDimensions {
+	if m.executions == nil || limit <= 0 {
+		return QueryDimensions{}
+	}
+	idx := uint32(0)
+	found := false
+	for i, qid := range m.executions.queryIDs {
+		if qid == id {
+			idx = uint32(i)
+			found = true
+			break
+		}
+	}
+	if !found {
+		return QueryDimensions{}
+	}
+	dbCounts := make(map[uint16]int)
+	userCounts := make(map[uint16]int)
+	appCounts := make(map[uint16]int)
+	hostCounts := make(map[uint16]int)
+	c := m.executions
+	for ci := range c.chunks {
+		ch := &c.chunks[ci]
+		for j, qix := range ch.queryIDIdx {
+			if qix != idx {
+				continue
+			}
+			db, user, app, host := c.dimsAt(ci, j)
+			if db != 0 {
+				dbCounts[db]++
+			}
+			if user != 0 {
+				userCounts[user]++
+			}
+			if app != 0 {
+				appCounts[app]++
+			}
+			if host != 0 {
+				hostCounts[host]++
+			}
+		}
+	}
+	return QueryDimensions{
+		Databases: topDimensionEntries(dbCounts, c.databases, limit),
+		Users:     topDimensionEntries(userCounts, c.users, limit),
+		Apps:      topDimensionEntries(appCounts, c.apps, limit),
+		Hosts:     topDimensionEntries(hostCounts, c.hosts, limit),
+	}
+}
+
+// topDimensionEntries sorts the (index → count) tally by count desc,
+// then by name asc on ties, and truncates to limit. Returns nil when
+// the tally is empty.
+func topDimensionEntries(counts map[uint16]int, table []string, limit int) []DimensionCount {
+	if len(counts) == 0 {
+		return nil
+	}
+	out := make([]DimensionCount, 0, len(counts))
+	for k, v := range counts {
+		if int(k) >= len(table) {
+			continue
+		}
+		out = append(out, DimensionCount{Name: table[k], Count: v})
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Count != out[j].Count {
+			return out[i].Count > out[j].Count
+		}
+		return out[i].Name < out[j].Name
+	})
+	if limit < len(out) {
+		out = out[:limit]
+	}
+	return out
+}
+
+// TopDimensionsByQuery computes the top-`limit` (db/user/app/host)
+// breakdown for every query id, walking the executions in a single
+// pass. Returns a map keyed by query id, only populated for queries
+// that have at least one non-empty dimension. O(N) where N is the
+// total execution count — much cheaper than calling TopDimensionsForID
+// once per query (O(N × K) for K unique queries).
+//
+// Used by the JSON exporter to enrich the sql_performance.queries
+// array consumed by the HTML modal.
+func (m *SQLMetrics) TopDimensionsByQuery(limit int) map[string]QueryDimensions {
+	if m.executions == nil || limit <= 0 {
+		return nil
+	}
+	c := m.executions
+	// Per-query tallies: queryIDIdx → dimension → index → count.
+	dbCounts := make(map[uint32]map[uint16]int, len(c.queryIDs))
+	userCounts := make(map[uint32]map[uint16]int, len(c.queryIDs))
+	appCounts := make(map[uint32]map[uint16]int, len(c.queryIDs))
+	hostCounts := make(map[uint32]map[uint16]int, len(c.queryIDs))
+	for ci := range c.chunks {
+		ch := &c.chunks[ci]
+		for j, qix := range ch.queryIDIdx {
+			db, user, app, host := c.dimsAt(ci, j)
+			if db != 0 {
+				inner, ok := dbCounts[qix]
+				if !ok {
+					inner = make(map[uint16]int)
+					dbCounts[qix] = inner
+				}
+				inner[db]++
+			}
+			if user != 0 {
+				inner, ok := userCounts[qix]
+				if !ok {
+					inner = make(map[uint16]int)
+					userCounts[qix] = inner
+				}
+				inner[user]++
+			}
+			if app != 0 {
+				inner, ok := appCounts[qix]
+				if !ok {
+					inner = make(map[uint16]int)
+					appCounts[qix] = inner
+				}
+				inner[app]++
+			}
+			if host != 0 {
+				inner, ok := hostCounts[qix]
+				if !ok {
+					inner = make(map[uint16]int)
+					hostCounts[qix] = inner
+				}
+				inner[host]++
+			}
+		}
+	}
+	out := make(map[string]QueryDimensions, len(c.queryIDs))
+	for qix, id := range c.queryIDs {
+		dims := QueryDimensions{
+			Databases: topDimensionEntries(dbCounts[uint32(qix)], c.databases, limit),
+			Users:     topDimensionEntries(userCounts[uint32(qix)], c.users, limit),
+			Apps:      topDimensionEntries(appCounts[uint32(qix)], c.apps, limit),
+			Hosts:     topDimensionEntries(hostCounts[uint32(qix)], c.hosts, limit),
+		}
+		if !dims.IsEmpty() {
+			out[id] = dims
+		}
+	}
+	return out
 }
 
 // SQLMetrics combines per-query stats and global SQL metrics.
@@ -559,6 +757,10 @@ func (a *SQLAnalyzer) Process(entry *parser.LogEntry) {
 							Timestamp:  pe.timestamp,
 							PID:        pid,
 							Parameters: params,
+							Database:   pe.database,
+							User:       pe.user,
+							App:        pe.app,
+							Host:       pe.host,
 						}
 					}
 				}
@@ -618,9 +820,16 @@ func (a *SQLAnalyzer) Process(entry *parser.LogEntry) {
 		}
 	}
 
+	// Extract per-event prefix fields once. They feed three downstream
+	// sinks: the compact-storage dictionary indices, the pendingExec
+	// snapshot for SlowestRun pairing, and the legacy QueryTypesByX
+	// aggregation below.
+	database, user, host, app := extractPrefixFields(entry.Message)
+
 	// Add execution with query ID (after stats are created/retrieved).
-	// Compact storage: parallel slices + interned query IDs.
-	a.executions.append(entry.Timestamp, duration, stats.ID)
+	// Compact storage: parallel slices + interned query IDs + per-event
+	// dimension indices.
+	a.executions.append(entry.Timestamp, duration, stats.ID, database, user, app, host)
 
 	// Associate pending auto_explain plan (same PID, arrived just before)
 	pid := entry.PID
@@ -646,6 +855,10 @@ func (a *SQLAnalyzer) Process(entry *parser.LogEntry) {
 			statsKey:  normalizedQuery,
 			duration:  duration,
 			timestamp: entry.Timestamp,
+			database:  database,
+			user:      user,
+			app:       app,
+			host:      host,
 		}
 	}
 
@@ -666,9 +879,7 @@ func (a *SQLAnalyzer) Process(entry *parser.LogEntry) {
 	a.sumQueryDuration += duration
 
 	// Track query type breakdown by dimension (database, user, host, app)
-	// Extract all fields in a single pass for performance
 	queryType := QueryTypeFromID(stats.ID)
-	database, user, host, app := extractPrefixFields(entry.Message)
 
 	// Track query type breakdown by dimension - cache inner map refs
 	if database != "" {

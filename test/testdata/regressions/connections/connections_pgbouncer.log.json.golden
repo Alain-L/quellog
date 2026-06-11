@@ -162,7 +162,31 @@
         "count": 1,
         "total_time_ms": 0.123,
         "avg_time_ms": 0.123,
-        "max_time_ms": 0.123
+        "max_time_ms": 0.123,
+        "top_databases": [
+          {
+            "name": "appdb",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "app_pool",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "pgbouncer",
+            "count": 1
+          }
+        ],
+        "top_hosts": [
+          {
+            "name": "10.0.1.10",
+            "count": 1
+          }
+        ]
       }
     ]
   },

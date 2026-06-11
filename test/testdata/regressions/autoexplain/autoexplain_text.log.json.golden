@@ -56,7 +56,31 @@
         "total_time_ms": 152.345,
         "avg_time_ms": 152.345,
         "max_time_ms": 152.345,
-        "plan": "Limit  (cost=125.43..125.45 rows=10 width=42) (actual time=151.234..152.123 rows=10 loops=1)\n  Output: u.username, count(o.id)\n  Buffers: shared hit=523 read=12\n  -\u003e  Sort  (cost=125.43..127.93 rows=1000 width=42) (actual time=151.232..151.567 rows=10 loops=1)\n    Output: u.username, (count(o.id))\n    Sort Key: (count(o.id)) DESC\n    Sort Method: top-N heapsort  Memory: 27kB\n    Buffers: shared hit=523 read=12\n    -\u003e  HashAggregate  (cost=98.50..108.50 rows=1000 width=42) (actual time=140.123..145.789 rows=820 loops=1)\n      Output: u.username, count(o.id)\n      Group Key: u.username\n      Buffers: shared hit=523 read=12\n      -\u003e  Hash Right Join  (cost=15.50..89.50 rows=1800 width=14) (actual time=2.345..120.456 rows=1820 loops=1)\n        Output: u.username, o.id\n        Hash Cond: (o.user_id = u.id)\n        Buffers: shared hit=523 read=12\n        -\u003e  Seq Scan on public.orders o  (cost=0.00..62.00 rows=1800 width=8) (actual time=0.012..50.123 rows=1820 loops=1)\n          Output: o.id, o.user_id\n          Buffers: shared hit=200 read=8\n          -\u003e  Hash  (cost=12.50..12.50 rows=240 width=14) (actual time=2.123..2.124 rows=240 loops=1)\n            Output: u.username, u.id\n            Buckets: 1024 \n            Batches: 1 \n            Memory Usage: 22kB\n            Buffers: shared hit=323 read=4\n            -\u003e  Seq Scan on public.users u  (cost=0.00..12.50 rows=240 width=14) (actual time=0.020..1.987 rows=240 loops=1)\n              Output: u.username, u.id\n              Filter: (u.created_at \u003e '2026-01-01'::date)\n              Rows Removed by\n              Filter: 60\n              Buffers: shared hit=323 read=4"
+        "plan": "Limit  (cost=125.43..125.45 rows=10 width=42) (actual time=151.234..152.123 rows=10 loops=1)\n  Output: u.username, count(o.id)\n  Buffers: shared hit=523 read=12\n  -\u003e  Sort  (cost=125.43..127.93 rows=1000 width=42) (actual time=151.232..151.567 rows=10 loops=1)\n    Output: u.username, (count(o.id))\n    Sort Key: (count(o.id)) DESC\n    Sort Method: top-N heapsort  Memory: 27kB\n    Buffers: shared hit=523 read=12\n    -\u003e  HashAggregate  (cost=98.50..108.50 rows=1000 width=42) (actual time=140.123..145.789 rows=820 loops=1)\n      Output: u.username, count(o.id)\n      Group Key: u.username\n      Buffers: shared hit=523 read=12\n      -\u003e  Hash Right Join  (cost=15.50..89.50 rows=1800 width=14) (actual time=2.345..120.456 rows=1820 loops=1)\n        Output: u.username, o.id\n        Hash Cond: (o.user_id = u.id)\n        Buffers: shared hit=523 read=12\n        -\u003e  Seq Scan on public.orders o  (cost=0.00..62.00 rows=1800 width=8) (actual time=0.012..50.123 rows=1820 loops=1)\n          Output: o.id, o.user_id\n          Buffers: shared hit=200 read=8\n          -\u003e  Hash  (cost=12.50..12.50 rows=240 width=14) (actual time=2.123..2.124 rows=240 loops=1)\n            Output: u.username, u.id\n            Buckets: 1024 \n            Batches: 1 \n            Memory Usage: 22kB\n            Buffers: shared hit=323 read=4\n            -\u003e  Seq Scan on public.users u  (cost=0.00..12.50 rows=240 width=14) (actual time=0.020..1.987 rows=240 loops=1)\n              Output: u.username, u.id\n              Filter: (u.created_at \u003e '2026-01-01'::date)\n              Rows Removed by\n              Filter: 60\n              Buffers: shared hit=323 read=4",
+        "top_databases": [
+          {
+            "name": "appdb",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "app",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 1
+          }
+        ],
+        "top_hosts": [
+          {
+            "name": "10.0.0.30",
+            "count": 1
+          }
+        ]
       }
     ]
   },

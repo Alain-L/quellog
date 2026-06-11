@@ -74,7 +74,31 @@
         "count": 1,
         "total_time_ms": 12.345,
         "avg_time_ms": 12.345,
-        "max_time_ms": 12.345
+        "max_time_ms": 12.345,
+        "top_databases": [
+          {
+            "name": "appdb",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "postgres",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 1
+          }
+        ],
+        "top_hosts": [
+          {
+            "name": "127.0.0.1:54321",
+            "count": 1
+          }
+        ]
       }
     ]
   },

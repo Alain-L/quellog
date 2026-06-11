@@ -2732,6 +2732,20 @@ function buildEventsSection(data) {
                 html += '</div>';
             }
 
+            // DIMENSIONS section — top-5 db/user/app/host that have
+            // executed this query. Sits between Query Info and the
+            // operational EVENTS block so the "who runs this slow
+            // query" answer is visible up top.
+            if (q) {
+                const dimsHtml = buildQdDimensions(q);
+                if (dimsHtml) {
+                    html += '<div class="qd-section">';
+                    html += '<div class="qd-section-title">Dimensions</div>';
+                    html += dimsHtml;
+                    html += '</div>';
+                }
+            }
+
             // EVENTS section — promoted to right after Query Info so
             // the operational signal ("this query triggers these
             // errors") is the first thing a reader sees, before the
@@ -2835,6 +2849,10 @@ function buildEventsSection(data) {
                 if (dur) parts.push(dur);
                 if (ts) parts.push(ts);
                 if (pid) parts.push('pid=' + pid);
+                if (sr.database) parts.push('db=' + sr.database);
+                if (sr.user) parts.push('user=' + sr.user);
+                if (sr.app) parts.push('app=' + sr.app);
+                if (sr.host) parts.push('host=' + sr.host);
                 const meta = parts.length
                     ? '<span class="qd-meta">' + esc(parts.join(', ')) + '</span>'
                     : '';
@@ -3094,6 +3112,33 @@ function buildEventsSection(data) {
         }
 
         // Build time-based histogram container (renders with uPlot)
+        // buildQdDimensions renders the DIMENSIONS section body for the
+        // Query Detail modal. Each non-empty axis becomes a small block
+        // (label + ranked rows). Returns "" when none of the four axes
+        // carries data so the caller can drop the whole section.
+        function buildQdDimensions(q) {
+            const blocks = [
+                ['DATABASES', q?.top_databases],
+                ['USERS', q?.top_users],
+                ['APPS', q?.top_apps],
+                ['HOSTS', q?.top_hosts],
+            ];
+            const filled = blocks.filter(b => Array.isArray(b[1]) && b[1].length > 0);
+            if (filled.length === 0) return '';
+            let html = '<div class="qd-dimensions">';
+            for (const [label, rows] of filled) {
+                html += '<div class="qd-dim-block">';
+                html += '<div class="qd-dim-label">' + label + '</div>';
+                html += '<div class="qd-dim-rows">';
+                for (const r of rows) {
+                    html += '<div class="qd-dim-row"><span class="qd-dim-name" title="' + esc(r.name) + '">' + esc(r.name) + '</span><span class="qd-dim-count">' + fmt(r.count) + '</span></div>';
+                }
+                html += '</div></div>';
+            }
+            html += '</div>';
+            return html;
+        }
+
         function buildQdHistogram(timestamps, title, unit) {
             if (!timestamps || timestamps.length === 0) return '';
             const times = timestamps.map(t => new Date(t).getTime()).filter(t => !isNaN(t)).sort((a,b) => a - b);
