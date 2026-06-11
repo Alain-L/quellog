@@ -55,6 +55,7 @@ type AggregatedMetrics struct {
 	Checkpoints    CheckpointMetrics
 	Connections    ConnectionMetrics
 	Locks          LockMetrics
+	Replication    ReplicationMetrics
 	UniqueEntities UniqueEntityMetrics
 	EventSummaries []EventSummary
 	TopEvents      []EventStat
@@ -85,6 +86,7 @@ type StreamingAnalyzer struct {
 	checkpoints    *CheckpointAnalyzer
 	connections    *ConnectionAnalyzer
 	locks          *LockAnalyzer
+	replication    *ReplicationAnalyzer
 	events         *EventAnalyzer
 	uniqueEntities *UniqueEntityAnalyzer
 	sql            *SQLAnalyzer
@@ -106,6 +108,7 @@ func NewStreamingAnalyzer() *StreamingAnalyzer {
 		checkpoints:    NewCheckpointAnalyzer(),
 		connections:    NewConnectionAnalyzer(),
 		locks:          NewLockAnalyzer(),
+		replication:    NewReplicationAnalyzer(),
 		events:         NewEventAnalyzer(),
 		uniqueEntities: NewUniqueEntityAnalyzer(),
 		sql:            NewSQLAnalyzer(),
@@ -157,6 +160,7 @@ func (sa *StreamingAnalyzer) Process(entry *parser.LogEntry) {
 	sa.vacuum.Process(entry)
 	sa.checkpoints.Process(entry)
 	sa.connections.Process(entry)
+	sa.replication.Process(entry)
 	sa.events.Process(entry)
 	sa.uniqueEntities.Process(entry)
 	sa.server.Process(entry)
@@ -210,6 +214,7 @@ func (sa *StreamingAnalyzer) Finalize() AggregatedMetrics {
 		Checkpoints:    sa.checkpoints.Finalize(),
 		Connections:    sa.connections.Finalize(),
 		Locks:          locks,
+		Replication:    sa.replication.Finalize(),
 		EventSummaries: eventSummaries,
 		TopEvents:      topEvents,
 		UniqueEntities: sa.uniqueEntities.Finalize(),

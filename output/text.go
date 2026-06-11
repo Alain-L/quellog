@@ -489,6 +489,11 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 		}
 	}
 
+	// Replication section
+	if has("replication") && m.Replication.HasAny {
+		printReplicationSection(m.Replication)
+	}
+
 	// Connections & Sessions Metrics section.
 	if has("connections") && m.Connections.ConnectionReceivedCount > 0 {
 		fmt.Println(bold + "\nCONNECTIONS & SESSIONS\n" + reset)
@@ -1068,6 +1073,136 @@ func formatSessionDuration(d time.Duration) string {
 		return fmt.Sprintf("%dh%dm", totalHours, mins)
 	}
 	return fmt.Sprintf("%dh", totalHours)
+}
+
+// printReplicationSection renders the REPLICATION panel: a k:v block
+// for the headline counters (reconnects, terminations, conflicts) and
+// — when populated — a compact top-N list of queries killed by
+// conflict-with-recovery plus a stream-events-by-hour histogram. The
+// section header is only emitted when at least one marker was captured
+// (callers gate on HasAny).
+func printReplicationSection(r analysis.ReplicationMetrics) {
+	bold := ansiBold
+	reset := ansiReset
+	muted := ansiMutedItalic
+
+	fmt.Println(bold + "\nREPLICATION\n" + reset)
+
+	// Stream reconnects line carries the peak hour annotation when known.
+	reconnects := r.Markers["stream_started"]
+	if reconnects > 0 {
+		line := fmt.Sprintf("  %-25s : %d", "Stream reconnects", reconnects)
+		if r.PeakHourLabel != "" && r.PeakHourCount > 1 {
+			line += fmt.Sprintf("   %s(peak %d× in %s)%s", muted, r.PeakHourCount, r.PeakHourLabel, reset)
+		}
+		fmt.Println(line)
+	}
+
+	if v := r.Markers["recovery_paused"] + r.Markers["recovery_resuming"]; v > 0 {
+		fmt.Printf("  %-25s : %d\n", "Recovery pauses", r.Markers["recovery_paused"])
+	}
+
+	// Conflicts (the two recovery-conflict markers).
+	conflicts := r.Markers["conflict_terminate"] + r.Markers["conflict_cancel"]
+	if conflicts > 0 {
+		line := fmt.Sprintf("  %-25s : %d", "Conflicts with recovery", conflicts)
+		if n := len(r.ConflictQueries); n > 0 {
+			line += fmt.Sprintf("   %s(%d unique queries terminated, see top)%s", muted, n, reset)
+		}
+		fmt.Println(line)
+	}
+
+	if v := r.Markers["slot_invalidated"]; v > 0 {
+		fmt.Printf("  %-25s : %d\n", "Invalidated slots", v)
+	}
+
+	// Termination markers are summed under one headline; the most
+	// recent timestamp helps a DBA jump to the right window in their logs.
+	terminations := r.Markers["replication_term"] +
+		r.Markers["wal_receive_failed"] +
+		r.Markers["walsender_timeout"] +
+		r.Markers["unexpected_eof"]
+	if terminations > 0 {
+		line := fmt.Sprintf("  %-25s : %d", "Replication terminations", terminations)
+		if !r.LastTermination.IsZero() {
+			line += fmt.Sprintf("   %s(last: %s)%s", muted, r.LastTermination.Format("15:04:05"), reset)
+		}
+		fmt.Println(line)
+	}
+
+	// Top conflict queries (compact, max 5).
+	if n := len(r.ConflictQueries); n > 0 {
+		type pair struct {
+			stat *analysis.ReplicationConflictQueryStat
+		}
+		pairs := make([]pair, 0, n)
+		for _, s := range r.ConflictQueries {
+			pairs = append(pairs, pair{s})
+		}
+		sort.Slice(pairs, func(i, j int) bool {
+			if pairs[i].stat.Count != pairs[j].stat.Count {
+				return pairs[i].stat.Count > pairs[j].stat.Count
+			}
+			return pairs[i].stat.ID < pairs[j].stat.ID
+		})
+
+		fmt.Println()
+		fmt.Println("  Top queries killed by recovery conflict:")
+		limit := 5
+		if limit > len(pairs) {
+			limit = len(pairs)
+		}
+		for i := 0; i < limit; i++ {
+			s := pairs[i].stat
+			q := truncateQuery(s.NormalizedQuery, 60)
+			fmt.Printf("    %-9s  %3d×  %s\n", s.ID, s.Count, q)
+		}
+	}
+
+	// Stream events by hour histogram (only when there are reconnects).
+	if reconnects > 1 {
+		printReplicationHourHistogram(r)
+	}
+}
+
+// printReplicationHourHistogram renders a compact 24-row "events by
+// hour" histogram using only the hours that actually carry events.
+func printReplicationHourHistogram(r analysis.ReplicationMetrics) {
+	// Only emit if we have at least two distinct hours: a single hour
+	// is best expressed with the peak annotation alone.
+	hours := make([]string, 0, len(r.HourCounts))
+	maxV := 0
+	for h, c := range r.HourCounts {
+		if c == 0 {
+			continue
+		}
+		hours = append(hours, h)
+		if c > maxV {
+			maxV = c
+		}
+	}
+	if len(hours) < 2 || maxV == 0 {
+		return
+	}
+	sort.Strings(hours)
+
+	// Scale so the biggest bar is at most 30 chars.
+	const barWidth = 30
+	scale := 1
+	if maxV > barWidth {
+		scale = (maxV + barWidth - 1) / barWidth
+	}
+
+	fmt.Println()
+	fmt.Println("  Replication events by hour:")
+	for _, h := range hours {
+		c := r.HourCounts[h]
+		bar := strings.Repeat("■", c/scale)
+		if bar == "" && c > 0 {
+			bar = "·"
+		}
+		fmt.Printf("    %s:00  %-*s %d\n", h, barWidth, bar, c)
+	}
 }
 
 // printAutovacuumSection renders the AUTOVACUUM panel: header k:v

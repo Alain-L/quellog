@@ -500,6 +500,13 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 	}
 
 	// ============================================================================
+	// REPLICATION
+	// ============================================================================
+	if has("replication") && m.Replication.HasAny {
+		writeReplicationSectionMarkdown(&b, m.Replication)
+	}
+
+	// ============================================================================
 	// CONNECTIONS
 	// ============================================================================
 	if has("connections") && m.Connections.ConnectionReceivedCount > 0 {
@@ -953,6 +960,75 @@ func printConcurrentHistogramMarkdown(b *strings.Builder, data map[string]int, t
 		}
 	}
 	b.WriteString("```\n\n")
+}
+
+// writeReplicationSectionMarkdown renders the REPLICATION section in
+// markdown, mirroring the CLI layout: a bullet list of headline counters
+// (reconnects, conflicts, terminations) followed by a top conflict-queries
+// table when populated. Lines tied to zero markers are suppressed so the
+// section degrades cleanly on logs that only carry one or two markers.
+func writeReplicationSectionMarkdown(b *strings.Builder, r analysis.ReplicationMetrics) {
+	b.WriteString("## REPLICATION\n\n")
+
+	if v := r.Markers["stream_started"]; v > 0 {
+		line := fmt.Sprintf("- **Stream reconnects**: %d", v)
+		if r.PeakHourLabel != "" && r.PeakHourCount > 1 {
+			line += fmt.Sprintf(" (peak %d× in %s)", r.PeakHourCount, r.PeakHourLabel)
+		}
+		b.WriteString(line + "\n")
+	}
+	if v := r.Markers["recovery_paused"]; v > 0 {
+		b.WriteString(fmt.Sprintf("- **Recovery pauses**: %d\n", v))
+	}
+	if v := r.Markers["recovery_resuming"]; v > 0 {
+		b.WriteString(fmt.Sprintf("- **Recovery resumes**: %d\n", v))
+	}
+	if v := r.Markers["conflict_terminate"] + r.Markers["conflict_cancel"]; v > 0 {
+		b.WriteString(fmt.Sprintf("- **Conflicts with recovery**: %d\n", v))
+	}
+	if v := r.Markers["slot_invalidated"]; v > 0 {
+		b.WriteString(fmt.Sprintf("- **Invalidated slots**: %d\n", v))
+	}
+	terminations := r.Markers["replication_term"] +
+		r.Markers["wal_receive_failed"] +
+		r.Markers["walsender_timeout"] +
+		r.Markers["unexpected_eof"]
+	if terminations > 0 {
+		line := fmt.Sprintf("- **Replication terminations**: %d", terminations)
+		if !r.LastTermination.IsZero() {
+			line += fmt.Sprintf(" (last: %s)", r.LastTermination.Format("2006-01-02 15:04:05"))
+		}
+		b.WriteString(line + "\n")
+	}
+	b.WriteString("\n")
+
+	if len(r.ConflictQueries) > 0 {
+		b.WriteString("### Top queries killed by recovery conflict\n\n")
+		type pair struct {
+			stat *analysis.ReplicationConflictQueryStat
+		}
+		pairs := make([]pair, 0, len(r.ConflictQueries))
+		for _, s := range r.ConflictQueries {
+			pairs = append(pairs, pair{s})
+		}
+		sort.Slice(pairs, func(i, j int) bool {
+			if pairs[i].stat.Count != pairs[j].stat.Count {
+				return pairs[i].stat.Count > pairs[j].stat.Count
+			}
+			return pairs[i].stat.ID < pairs[j].stat.ID
+		})
+		rows := make([][]string, 0, len(pairs))
+		limit := len(pairs)
+		if limit > 10 {
+			limit = 10
+		}
+		for i := 0; i < limit; i++ {
+			s := pairs[i].stat
+			rows = append(rows, []string{s.ID, s.NormalizedQuery, fmt.Sprintf("%d", s.Count)})
+		}
+		mdTable(b, []string{"SQLID", "Query", "Count"}, "llr", rows)
+		b.WriteString("\n")
+	}
 }
 
 // printTopTablesMarkdown produces a markdown table for vacuum/analyze operations

@@ -405,3 +405,89 @@ func TestRegression_ServerSectionCapturesLifecycle(t *testing.T) {
 		}
 	}
 }
+// TestRegression_ReplicationSectionCapturesMarkers pins the parsing of
+// the small but operationally-critical replication marker set (stream
+// reconnects, WAL receive failures, replication terminations, recovery
+// conflicts, walsender timeouts). The fixture mixes the most common
+// real-world markers we see on Dalibo customer logs and asserts:
+//
+//   - per-marker counts in the markers map,
+//   - the rolled-up headline counters (stream_reconnects, terminations,
+//     conflicts) match the per-marker totals,
+//   - last_termination points at the latest of the four termination
+//     markers (here: the 12:01 walsender timeout),
+//   - peak_hour_label is set when two reconnects fall in the same hour,
+//   - conflict_queries resolve to a SQLID via the STATEMENT continuation
+//     line that follows a recovery-conflict event for the same PID.
+func TestRegression_ReplicationSectionCapturesMarkers(t *testing.T) {
+	got := runFixtureJSON(t, "testdata/regressions/replication/replication.log")
+	r, ok := got["replication"].(map[string]any)
+	if !ok {
+		t.Fatal("missing 'replication' section")
+	}
+
+	// Per-marker counts.
+	markers, _ := r["markers"].(map[string]any)
+	if v, _ := markers["stream_started"].(float64); v != 3 {
+		t.Errorf("markers.stream_started = %v, want 3", v)
+	}
+	if v, _ := markers["wal_receive_failed"].(float64); v != 1 {
+		t.Errorf("markers.wal_receive_failed = %v, want 1", v)
+	}
+	if v, _ := markers["replication_term"].(float64); v != 1 {
+		t.Errorf("markers.replication_term = %v, want 1", v)
+	}
+	if v, _ := markers["walsender_timeout"].(float64); v != 1 {
+		t.Errorf("markers.walsender_timeout = %v, want 1", v)
+	}
+	if v, _ := markers["conflict_cancel"].(float64); v != 1 {
+		t.Errorf("markers.conflict_cancel = %v, want 1", v)
+	}
+	if v, _ := markers["conflict_terminate"].(float64); v != 1 {
+		t.Errorf("markers.conflict_terminate = %v, want 1", v)
+	}
+
+	// Rolled-up headlines.
+	if v, _ := r["stream_reconnects"].(float64); v != 3 {
+		t.Errorf("stream_reconnects = %v, want 3", v)
+	}
+	if v, _ := r["conflicts_with_recovery"].(float64); v != 2 {
+		t.Errorf("conflicts_with_recovery = %v, want 2 (cancel + terminate)", v)
+	}
+	if v, _ := r["replication_terminations"].(float64); v != 3 {
+		t.Errorf("replication_terminations = %v, want 3 (wal_receive_failed + replication_term + walsender_timeout)", v)
+	}
+	if v, _ := r["total_events"].(float64); v != 8 {
+		t.Errorf("total_events = %v, want 8", v)
+	}
+
+	// Most recent termination is the 12:01 walsender timeout.
+	if v, _ := r["last_termination"].(string); v != "2026-04-20 12:01:05" {
+		t.Errorf("last_termination = %v, want 2026-04-20 12:01:05", v)
+	}
+
+	// Two reconnects fall in the same hour (04:16 + 04:32) → peak hour.
+	if v, _ := r["peak_hour_label"].(string); v != "04:00-05:00" {
+		t.Errorf("peak_hour_label = %v, want 04:00-05:00", v)
+	}
+	if v, _ := r["peak_hour_count"].(float64); v != 2 {
+		t.Errorf("peak_hour_count = %v, want 2", v)
+	}
+
+	// Two unique conflict queries; each resolved via STATEMENT continuation.
+	cq, _ := r["conflict_queries"].([]any)
+	if len(cq) != 2 {
+		t.Fatalf("conflict_queries length = %d, want 2", len(cq))
+	}
+	for i, qAny := range cq {
+		q, _ := qAny.(map[string]any)
+		id, _ := q["id"].(string)
+		if id == "" {
+			t.Errorf("conflict_queries[%d].id is empty (STATEMENT continuation not resolved)", i)
+		}
+		if c, _ := q["count"].(float64); c != 1 {
+			t.Errorf("conflict_queries[%d].count = %v, want 1", i, c)
+		}
+	}
+}
+

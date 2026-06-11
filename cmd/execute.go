@@ -695,6 +695,9 @@ func buildSectionList() []string {
 	if serverFlag {
 		sections = append(sections, "server")
 	}
+	if replicationFlag {
+		sections = append(sections, "replication")
+	}
 
 	// If no specific sections selected, show all
 	if len(sections) == 0 {

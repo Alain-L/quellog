@@ -472,6 +472,42 @@ type ServerTimelineEventJSON struct {
 	Detail    string `json:"detail"`
 }
 
+// ReplicationEventJSON is one captured replication marker hit.
+type ReplicationEventJSON struct {
+	Timestamp string `json:"timestamp"`
+	Marker    string `json:"marker"`
+	Severity  string `json:"severity,omitempty"`
+}
+
+// ReplicationConflictQueryJSON aggregates per-query stats for queries
+// killed by a recovery conflict (terminate or cancel).
+type ReplicationConflictQueryJSON struct {
+	ID              string `json:"id"`
+	NormalizedQuery string `json:"normalized_query"`
+	RawQuery        string `json:"raw_query"`
+	Count           int    `json:"count"`
+}
+
+// ReplicationJSON is the JSON shape of the REPLICATION section. The
+// section is emitted with omitempty so logs without any replication
+// markers keep their existing JSON shape.
+type ReplicationJSON struct {
+	TotalEvents             int                            `json:"total_events"`
+	StreamReconnects        int                            `json:"stream_reconnects,omitempty"`
+	RecoveryPauses          int                            `json:"recovery_pauses,omitempty"`
+	RecoveryResumes         int                            `json:"recovery_resumes,omitempty"`
+	ConflictsWithRecovery   int                            `json:"conflicts_with_recovery,omitempty"`
+	InvalidatedSlots        int                            `json:"invalidated_slots,omitempty"`
+	ReplicationTerminations int                            `json:"replication_terminations,omitempty"`
+	LastTermination         string                         `json:"last_termination,omitempty"`
+	PeakHourLabel           string                         `json:"peak_hour_label,omitempty"`
+	PeakHourCount           int                            `json:"peak_hour_count,omitempty"`
+	Markers                 map[string]int                 `json:"markers"`
+	HourCounts              map[string]int                 `json:"hour_counts,omitempty"`
+	ConflictQueries         []ReplicationConflictQueryJSON `json:"conflict_queries,omitempty"`
+	Events                  []ReplicationEventJSON         `json:"events,omitempty"`
+}
+
 type SessionStatsJSON struct {
 	Count     int    `json:"count"`
 	Min       string `json:"min_duration"`
@@ -1927,6 +1963,10 @@ func buildJSONData(m analysis.AggregatedMetrics, sections []string, full bool) m
 		data["maintenance"] = buildMaintenanceJSON(m.Vacuum)
 	}
 
+	if has("replication") && m.Replication.HasAny {
+		data["replication"] = buildReplicationJSON(m.Replication)
+	}
+
 	if has("checkpoints") && (m.Checkpoints.CompleteCount > 0 || m.Checkpoints.WarningCount > 0) {
 		cp := CheckpointsJSON{
 			TotalCheckpoints: m.Checkpoints.CompleteCount,
@@ -2492,6 +2532,67 @@ func vacuumTableStatJSON(t analysis.VacuumTableStat) VacuumTableStatJSON {
 		WALRecords:            t.WALRecords,
 		WALBytes:              t.WALBytes,
 	}
+}
+
+// buildReplicationJSON folds the analyzer's replication metrics into
+// the JSON struct. Only present in the output map when HasAny is true
+// (see buildJSONData), so the JSON shape for logs without replication
+// markers stays unchanged.
+func buildReplicationJSON(r analysis.ReplicationMetrics) ReplicationJSON {
+	out := ReplicationJSON{
+		Markers:                 r.Markers,
+		StreamReconnects:        r.Markers["stream_started"],
+		RecoveryPauses:          r.Markers["recovery_paused"],
+		RecoveryResumes:         r.Markers["recovery_resuming"],
+		ConflictsWithRecovery:   r.Markers["conflict_terminate"] + r.Markers["conflict_cancel"],
+		InvalidatedSlots:        r.Markers["slot_invalidated"],
+		ReplicationTerminations: r.Markers["replication_term"] + r.Markers["wal_receive_failed"] + r.Markers["walsender_timeout"] + r.Markers["unexpected_eof"],
+		PeakHourLabel:           r.PeakHourLabel,
+		PeakHourCount:           r.PeakHourCount,
+	}
+	for _, c := range r.Markers {
+		out.TotalEvents += c
+	}
+	if !r.LastTermination.IsZero() {
+		out.LastTermination = r.LastTermination.Format("2006-01-02 15:04:05")
+	}
+	if len(r.HourCounts) > 0 {
+		out.HourCounts = r.HourCounts
+	}
+	if len(r.ConflictQueries) > 0 {
+		qs := make([]ReplicationConflictQueryJSON, 0, len(r.ConflictQueries))
+		for _, s := range r.ConflictQueries {
+			qs = append(qs, ReplicationConflictQueryJSON{
+				ID:              s.ID,
+				NormalizedQuery: s.NormalizedQuery,
+				RawQuery:        s.RawQuery,
+				Count:           s.Count,
+			})
+		}
+		// Sort by count desc, then ID asc, for deterministic output.
+		sort.Slice(qs, func(i, j int) bool {
+			if qs[i].Count != qs[j].Count {
+				return qs[i].Count > qs[j].Count
+			}
+			return qs[i].ID < qs[j].ID
+		})
+		out.ConflictQueries = qs
+	}
+	if len(r.Events) > 0 {
+		evs := make([]ReplicationEventJSON, len(r.Events))
+		for i, e := range r.Events {
+			ev := ReplicationEventJSON{
+				Marker:   e.Marker,
+				Severity: e.Severity,
+			}
+			if !e.Timestamp.IsZero() {
+				ev.Timestamp = e.Timestamp.Format("2006-01-02 15:04:05")
+			}
+			evs[i] = ev
+		}
+		out.Events = evs
+	}
+	return out
 }
 
 // convertSummary aggregates global metrics into a JSON-friendly format.

@@ -190,6 +190,10 @@ import './js/components/ql-dropdown.js';
             html += buildMaintenanceSection(data);
             html += '</div>';
 
+            // Row 7: Replication (full width). Only rendered when the
+            // analyzer captured at least one marker — see buildReplicationSection.
+            html += buildReplicationSection(data);
+
             results.innerHTML = html;
 
             // Create uPlot charts after DOM is ready
@@ -855,6 +859,112 @@ function buildEventsSection(data) {
                             </div>
                             </div>
                         ` : ''}
+                    </div>
+                </div>
+            `;
+        }
+
+        // Replication section: surfaces walsender / walreceiver health.
+        // Empty when no replication markers were captured — same shape
+        // as the other "no data" sections, with a hint that the standby/
+        // primary side of the cluster needs to be parsed too.
+        function buildReplicationSection(data) {
+            const r = data.replication;
+            if (!r || !r.total_events) {
+                // No data: render a muted placeholder card so the user
+                // knows the section exists but had nothing to show.
+                return `
+                    <div class="section" id="replication">
+                        <div class="section-header muted">Replication</div>
+                        <div class="section-body">
+                            ${buildNoDataMessage('a standby / primary log with walsender / walreceiver entries')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            const cards = [];
+            const reconnects = r.stream_reconnects || 0;
+            if (reconnects > 0) {
+                const sub = (r.peak_hour_label && r.peak_hour_count > 1)
+                    ? `<div class="stat-sub">peak ${r.peak_hour_count}× in ${esc(r.peak_hour_label)}</div>` : '';
+                cards.push(`<div class="stat-card"><div class="stat-value">${fmtCompact(reconnects)}</div><div class="stat-label">Stream reconnects</div>${sub}</div>`);
+            }
+            if ((r.recovery_pauses || 0) > 0) {
+                cards.push(`<div class="stat-card"><div class="stat-value">${r.recovery_pauses}</div><div class="stat-label">Recovery pauses</div></div>`);
+            }
+            const conflicts = r.conflicts_with_recovery || 0;
+            if (conflicts > 0) {
+                const uniq = (r.conflict_queries || []).length;
+                const sub = uniq > 0 ? `<div class="stat-sub">${uniq} unique queries</div>` : '';
+                cards.push(`<div class="stat-card stat-card--warning"><div class="stat-value">${fmtCompact(conflicts)}</div><div class="stat-label">Conflicts w/ recovery</div>${sub}</div>`);
+            }
+            if ((r.invalidated_slots || 0) > 0) {
+                cards.push(`<div class="stat-card stat-card--alert"><div class="stat-value">${r.invalidated_slots}</div><div class="stat-label">Invalidated slots</div></div>`);
+            }
+            const terminations = r.replication_terminations || 0;
+            if (terminations > 0) {
+                const sub = r.last_termination ? `<div class="stat-sub">last: ${esc(r.last_termination.split(' ')[1] || r.last_termination)}</div>` : '';
+                cards.push(`<div class="stat-card stat-card--warning"><div class="stat-value">${fmtCompact(terminations)}</div><div class="stat-label">Terminations</div>${sub}</div>`);
+            }
+
+            // Top conflict queries list — same scroll-list shape as
+            // maintenance/locks so the rhythm is consistent.
+            let conflictList = '';
+            if ((r.conflict_queries || []).length > 0) {
+                const queries = (r.conflict_queries || []).slice(0, 10);
+                const maxCount = queries.reduce((m, q) => Math.max(m, q.count || 0), 0) || 1;
+                const items = queries.map(q => {
+                    const w = Math.round((q.count / maxCount) * 100);
+                    const truncated = truncQuery(q.normalized_query || '', 80);
+                    return `
+                        <div class="list-item" onclick="showQueryModal('${esc(q.id || '')}')">
+                            <div class="name">${esc(truncated)}</div>
+                            <div class="bar-container"><div class="bar"><div class="bar-fill" style="width:${w}%"></div></div></div>
+                            <div class="value">${fmtCompact(q.count)}×</div>
+                        </div>
+                    `;
+                }).join('');
+                conflictList = `
+                    <div class="subsection">
+                        <div class="subsection-title">Top queries killed by recovery conflict</div>
+                        <div class="scroll-list">${items}</div>
+                    </div>
+                `;
+            }
+
+            // Hourly histogram — only meaningful when ≥2 hours carry events.
+            let hourList = '';
+            const hourCounts = r.hour_counts || {};
+            const hours = Object.keys(hourCounts).filter(h => (hourCounts[h] || 0) > 0).sort();
+            if (hours.length >= 2) {
+                const maxV = Math.max(...hours.map(h => hourCounts[h]));
+                const items = hours.map(h => {
+                    const c = hourCounts[h];
+                    const w = Math.round((c / maxV) * 100);
+                    return `
+                        <div class="list-item">
+                            <div class="name">${esc(h)}:00</div>
+                            <div class="bar-container"><div class="bar"><div class="bar-fill" style="width:${w}%"></div></div></div>
+                            <div class="value">${fmtCompact(c)}</div>
+                        </div>
+                    `;
+                }).join('');
+                hourList = `
+                    <div class="subsection">
+                        <div class="subsection-title">Replication events by hour</div>
+                        <div class="scroll-list">${items}</div>
+                    </div>
+                `;
+            }
+
+            return `
+                <div class="section" id="replication">
+                    <div class="section-header">Replication</div>
+                    <div class="section-body">
+                        <div class="stat-grid">${cards.join('')}</div>
+                        ${conflictList}
+                        ${hourList}
                     </div>
                 </div>
             `;

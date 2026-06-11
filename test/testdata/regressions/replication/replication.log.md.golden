@@ -1,0 +1,75 @@
+## SUMMARY
+
+This _quellog_ report summarizes **8** log entries collected between 20 Apr 2026, 02:00 (UTC) — 20 Apr 2026, 12:01 (UTC), spanning 10h 1m 4s of activity.
+
+## EVENTS
+
+- **FATAL**: 1 (12.5%)
+  - *fa-6cmK* `terminating connection due to conflict with recovery` (1) [100.0%]
+
+- **ERROR**: 2 (25.0%)
+  - *er-KAnK* `canceling statement due to conflict with recovery` (1) [50.0%]
+  - *er-JZ96* `could not receive data from WAL stream: SSL connection has been closed unexpe...` (1) [50.0%]
+
+- **LOG**: 5 (62.5%)
+
+## REPLICATION
+
+- **Stream reconnects**: 3 (peak 2× in 04:00-05:00)
+- **Conflicts with recovery**: 2
+- **Replication terminations**: 3 (last: 2026-04-20 12:01:05)
+
+### Top queries killed by recovery conflict
+
+| SQLID     | Query                                                                    | Count |
+|-----------|--------------------------------------------------------------------------|------:|
+| se-EgBDzg | select count(*) from public.events where created_at > now() - interval ? |     1 |
+| up-5xrHIo | update public.app_node set last_seen = now() where id = ?                |     1 |
+
+## CLIENTS
+
+- **Unique DBs**: 1
+- **Unique Users**: 1
+- **Unique Apps**: 2
+- **Unique Hosts**: 2
+
+### USERS
+
+| User     | Count |     % |
+|----------|------:|------:|
+| postgres |     2 | 25.0% |
+
+### APPS
+
+| App     | Count |     % |
+|---------|------:|------:|
+| etl     |     1 | 12.5% |
+| reports |     1 | 12.5% |
+
+### DATABASES
+
+| Database | Count |     % |
+|----------|------:|------:|
+| appdb    |     2 | 25.0% |
+
+### HOSTS
+
+| Host     | Count |     % |
+|----------|------:|------:|
+| 10.0.0.5 |     1 | 12.5% |
+| 10.0.0.6 |     1 | 12.5% |
+
+### USER × DATABASE
+
+| User     | Database | Count |     % |
+|----------|----------|------:|------:|
+| postgres | appdb    |     2 | 25.0% |
+
+### USER × HOST
+
+| User     | Host     | Count |     % |
+|----------|----------|------:|------:|
+| postgres | 10.0.0.5 |     1 | 12.5% |
+| postgres | 10.0.0.6 |     1 | 12.5% |
+
+

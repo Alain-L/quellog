@@ -54,6 +54,7 @@ var (
 	connectionsFlag bool // --connections: Print only connections section
 	clientsFlag     bool // --clients: Print only clients section
 	serverFlag      bool // --server: Print only server lifecycle section
+	replicationFlag bool // --replication: Print only replication section
 
 	// Output format flags
 	jsonFlag        bool // --json: Export results in JSON format
@@ -222,6 +223,8 @@ func init() {
 		"Print only the clients section")
 	rootCmd.Flags().BoolVar(&serverFlag, "server", false,
 		"Print only the server lifecycle section")
+	rootCmd.Flags().BoolVar(&replicationFlag, "replication", false,
+		"Print only the replication section")
 
 	// Output format flags
 	rootCmd.PersistentFlags().BoolVarP(&jsonFlag, "json", "J", false,
