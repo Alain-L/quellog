@@ -1,0 +1,79 @@
+{
+  "events": [
+    {
+      "type": "LOG",
+      "count": 8,
+      "percentage": 100
+    }
+  ],
+  "server": {
+    "starts": 1,
+    "start_times": [
+      "2026-04-20 08:42:12"
+    ],
+    "reloads": 1,
+    "reload_times": [
+      "2026-04-20 14:22:08"
+    ],
+    "shutdowns_fast": 1,
+    "shutdowns_immediate": 0,
+    "shutdowns_smart": 0,
+    "shutdown_completed": 1,
+    "crash_recoveries": 1,
+    "backend_crashes": 1,
+    "signal_counts": {
+      "11": 1
+    },
+    "parameter_changes": [
+      {
+        "parameter": "work_mem",
+        "new": "16MB",
+        "timestamp": "2026-04-20 14:22:08"
+      },
+      {
+        "parameter": "log_min_duration_statement",
+        "new": "100",
+        "timestamp": "2026-04-20 14:22:08"
+      }
+    ],
+    "timeline": [
+      {
+        "timestamp": "2026-04-20 08:42:11",
+        "kind": "recovery",
+        "detail": "not properly shut down — automatic recovery"
+      },
+      {
+        "timestamp": "2026-04-20 08:42:12",
+        "kind": "start",
+        "detail": "database system is ready to accept connections"
+      },
+      {
+        "timestamp": "2026-04-20 14:22:08",
+        "kind": "sighup",
+        "detail": "reloading configuration files"
+      },
+      {
+        "timestamp": "2026-04-20 16:11:02",
+        "kind": "crash",
+        "detail": "PID 12345 terminated by signal 11"
+      },
+      {
+        "timestamp": "2026-04-20 23:55:00",
+        "kind": "shutdown",
+        "detail": "fast shutdown request"
+      }
+    ]
+  },
+  "summary": {
+    "start_date": "2026-04-20 08:42:11",
+    "end_date": "2026-04-20 23:55:02",
+    "duration": "15h12m51s",
+    "total_logs": 8,
+    "throughput": "0.00 entries/s",
+    "error_count": 0,
+    "fatal_count": 0,
+    "panic_count": 0,
+    "warning_count": 0,
+    "log_count": 8
+  }
+}

@@ -427,6 +427,51 @@ type CheckpointsJSON struct {
 	WarningEvents             []string `json:"warning_events,omitempty"`
 }
 
+// ServerJSON exposes server lifecycle metrics in the JSON output.
+// Counters are not omitempty (a zero is meaningful), slices and the
+// nested maps use omitempty so absent markers do not bloat the output.
+type ServerJSON struct {
+	Starts     int      `json:"starts"`
+	StartTimes []string `json:"start_times,omitempty"`
+
+	Reloads     int      `json:"reloads"`
+	ReloadTimes []string `json:"reload_times,omitempty"`
+
+	ShutdownsFast      int `json:"shutdowns_fast"`
+	ShutdownsImmediate int `json:"shutdowns_immediate"`
+	ShutdownsSmart     int `json:"shutdowns_smart"`
+
+	ShutdownCompleted int `json:"shutdown_completed,omitempty"`
+	CrashRecoveries   int `json:"crash_recoveries,omitempty"`
+	Interrupted       int `json:"interrupted,omitempty"`
+
+	BackendCrashes int            `json:"backend_crashes,omitempty"`
+	SignalCounts   map[string]int `json:"signal_counts,omitempty"`
+
+	AuxProcessExits int `json:"auxiliary_process_exits,omitempty"`
+
+	ParameterChanges []ServerParameterChangeJSON `json:"parameter_changes,omitempty"`
+	Timeline         []ServerTimelineEventJSON   `json:"timeline,omitempty"`
+}
+
+// ServerParameterChangeJSON is one row in the "parameter changes" table.
+// Old is empty for SIGHUP-driven changes (PG does not log the previous
+// value) but the field is kept so downstream tools see a consistent
+// schema.
+type ServerParameterChangeJSON struct {
+	Parameter string `json:"parameter"`
+	Old       string `json:"old,omitempty"`
+	New       string `json:"new"`
+	Timestamp string `json:"timestamp"`
+}
+
+// ServerTimelineEventJSON is one event in the compact timeline.
+type ServerTimelineEventJSON struct {
+	Timestamp string `json:"timestamp"`
+	Kind      string `json:"kind"`
+	Detail    string `json:"detail"`
+}
+
 type SessionStatsJSON struct {
 	Count     int    `json:"count"`
 	Min       string `json:"min_duration"`
@@ -2063,6 +2108,10 @@ func buildJSONData(m analysis.AggregatedMetrics, sections []string, full bool) m
 		}
 	}
 
+	if has("server") && m.Server.HasAny() {
+		data["server"] = buildServerJSON(m.Server)
+	}
+
 	// Full mode: add sql_overview and enriched sql_performance at the end
 	if full && m.SQL.TotalQueries > 0 {
 		// SQL overview (categories, types, dimensional breakdowns)
@@ -2073,6 +2122,55 @@ func buildJSONData(m analysis.AggregatedMetrics, sections []string, full bool) m
 	}
 
 	return data
+}
+
+// buildServerJSON folds the analyzer's server-lifecycle metrics into
+// the JSON struct used by --json output. Every counter is emitted (a
+// zero is meaningful — "no reload happened"); slice and map fields
+// stay omitempty so the JSON shape adapts to what the log actually
+// carried.
+func buildServerJSON(s analysis.ServerMetrics) ServerJSON {
+	const tsFmt = "2006-01-02 15:04:05"
+	j := ServerJSON{
+		Starts:             s.StartCount,
+		Reloads:            s.ReloadCount,
+		ShutdownsFast:      s.ShutdownFastCount,
+		ShutdownsImmediate: s.ShutdownImmediateCount,
+		ShutdownsSmart:     s.ShutdownSmartCount,
+		ShutdownCompleted:  s.ShutDownCompletedCount,
+		CrashRecoveries:    s.CrashRecoveryCount,
+		Interrupted:        s.InterruptedCount,
+		BackendCrashes:     s.BackendCrashCount,
+		AuxProcessExits:    s.AuxProcessExitCount,
+	}
+	for _, t := range s.StartTimes {
+		j.StartTimes = append(j.StartTimes, t.Format(tsFmt))
+	}
+	for _, t := range s.ReloadTimes {
+		j.ReloadTimes = append(j.ReloadTimes, t.Format(tsFmt))
+	}
+	if len(s.SignalCounts) > 0 {
+		j.SignalCounts = make(map[string]int, len(s.SignalCounts))
+		for k, v := range s.SignalCounts {
+			j.SignalCounts[k] = v
+		}
+	}
+	for _, c := range s.ParameterChanges {
+		j.ParameterChanges = append(j.ParameterChanges, ServerParameterChangeJSON{
+			Parameter: c.Parameter,
+			Old:       c.Old,
+			New:       c.New,
+			Timestamp: c.Timestamp.Format(tsFmt),
+		})
+	}
+	for _, ev := range s.Timeline {
+		j.Timeline = append(j.Timeline, ServerTimelineEventJSON{
+			Timestamp: ev.Timestamp.Format(tsFmt),
+			Kind:      ev.Kind,
+			Detail:    ev.Detail,
+		})
+	}
+	return j
 }
 
 // buildSQLOverviewData builds SQL overview data for JSON export.

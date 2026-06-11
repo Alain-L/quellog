@@ -704,12 +704,152 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 	}
 	fmt.Println()
 
+	// Server lifecycle section.
+	if has("server") && m.Server.HasAny() {
+		printServerSection(m.Server, bold, reset)
+	}
+
 	// Full mode: SQL OVERVIEW + SQL PERFORMANCE at the end. TempFiles
 	// and Locks are zeroed because they were already shown above as
 	// their own sections — passing them again would duplicate output.
 	if full && m.SQL.TotalQueries > 0 {
 		PrintSQLOverview(m.SQL)
 		PrintSQLSummaryWithContext(m.SQL, analysis.TempFileMetrics{}, analysis.LockMetrics{}, false)
+	}
+}
+
+// printServerSection renders the SERVER lifecycle section: counters
+// for starts / reloads / shutdowns / crashes, a "config parameter
+// changes" mini-table (when present), and a compact timeline. Nothing
+// is emitted when no markers were captured — checked by the caller.
+func printServerSection(s analysis.ServerMetrics, bold, reset string) {
+	fmt.Println(bold + "\nSERVER\n" + reset)
+
+	// Starts.
+	startDetail := ""
+	if len(s.StartTimes) > 0 {
+		startDetail = "   " + ansiMutedItalic + "(first: " + s.StartTimes[0].Format("2006-01-02 15:04:05") + ")" + reset
+	}
+	fmt.Printf("  %-25s : %d%s\n", "Starts", s.StartCount, startDetail)
+
+	// Reloads.
+	reloadDetail := ""
+	if len(s.ReloadTimes) > 0 {
+		reloadDetail = "   " + ansiMutedItalic + "(last: " + s.ReloadTimes[len(s.ReloadTimes)-1].Format("15:04:05") + ")" + reset
+	}
+	fmt.Printf("  %-25s : %d%s\n", "Reloads (SIGHUP)", s.ReloadCount, reloadDetail)
+
+	// Shutdowns.
+	if s.ShutdownFastCount+s.ShutdownImmediateCount+s.ShutdownSmartCount > 0 {
+		fmt.Printf("  %-25s : %d fast, %d immediate, %d smart\n",
+			"Shutdowns",
+			s.ShutdownFastCount, s.ShutdownImmediateCount, s.ShutdownSmartCount)
+	}
+
+	// Crash recoveries.
+	if s.CrashRecoveryCount > 0 {
+		fmt.Printf("  %-25s : %d   "+ansiMutedItalic+"(\"not properly shut down\")"+reset+"\n",
+			"Crash recoveries", s.CrashRecoveryCount)
+	}
+
+	// Backend crashes — render signal breakdown.
+	if s.BackendCrashCount > 0 {
+		fmt.Printf("  %-25s : %d   "+ansiMutedItalic+"%s"+reset+"\n",
+			"Backend crashes", s.BackendCrashCount, formatSignalCounts(s.SignalCounts))
+	}
+
+	// Auxiliary process exits.
+	if s.AuxProcessExitCount > 0 {
+		fmt.Printf("  %-25s : %d\n", "Auxiliary process exits", s.AuxProcessExitCount)
+	}
+
+	// Config parameter changes table.
+	if len(s.ParameterChanges) > 0 {
+		printParameterChangesTable(s.ParameterChanges)
+	}
+
+	// Timeline.
+	if len(s.Timeline) > 0 {
+		printServerTimeline(s.Timeline)
+	}
+}
+
+// formatSignalCounts renders the SignalCounts map as a human-readable
+// "(signals: 11×1, 6×1)" string. Sorted by signal number for stable
+// output.
+func formatSignalCounts(counts map[string]int) string {
+	if len(counts) == 0 {
+		return ""
+	}
+	sigs := make([]string, 0, len(counts))
+	for sig := range counts {
+		sigs = append(sigs, sig)
+	}
+	sort.Strings(sigs)
+	var b strings.Builder
+	b.WriteString("(signals: ")
+	for i, sig := range sigs {
+		if i > 0 {
+			b.WriteString(", ")
+		}
+		fmt.Fprintf(&b, "%s×%d", sig, counts[sig])
+	}
+	b.WriteByte(')')
+	return b.String()
+}
+
+// printParameterChangesTable emits the "Parameter / Old / New / When"
+// mini-table. Old is always empty for SIGHUP-driven changes (PG does
+// not log the previous value); the column is kept so the layout
+// matches a future "diff" enrichment without breaking consumers.
+func printParameterChangesTable(changes []analysis.ServerParameterChange) {
+	fmt.Println()
+	fmt.Println("  Config parameter changes:")
+	// Compute column widths.
+	paramW := len("Parameter")
+	oldW := len("Old")
+	newW := len("New")
+	for _, c := range changes {
+		if len(c.Parameter) > paramW {
+			paramW = len(c.Parameter)
+		}
+		if len(c.Old) > oldW {
+			oldW = len(c.Old)
+		}
+		if len(c.New) > newW {
+			newW = len(c.New)
+		}
+	}
+	if oldW < 3 {
+		oldW = 3
+	}
+	if newW < 3 {
+		newW = 3
+	}
+	fmt.Printf("    %-*s  %-*s  %-*s  %s\n", paramW, "Parameter", oldW, "Old", newW, "New", "When")
+	for _, c := range changes {
+		old := c.Old
+		if old == "" {
+			old = "-"
+		}
+		fmt.Printf("    %-*s  %-*s  %-*s  %s\n",
+			paramW, c.Parameter,
+			oldW, old,
+			newW, c.New,
+			c.Timestamp.Format("15:04:05"))
+	}
+}
+
+// printServerTimeline emits the compact timeline at the bottom of the
+// section: one line per event, "HH:MM:SS  event-tag  detail".
+func printServerTimeline(events []analysis.ServerTimelineEvent) {
+	fmt.Println()
+	fmt.Println("  Timeline:")
+	for _, ev := range events {
+		fmt.Printf("    %s  %-10s  %s\n",
+			ev.Timestamp.Format("15:04:05"),
+			ev.Kind,
+			ev.Detail)
 	}
 }
 

@@ -327,3 +327,81 @@ func TestRegression_VacuumContinuationsParsed(t *testing.T) {
 		t.Errorf("slowest_vacuum.elapsed_seconds = %v, want ~45.789", v)
 	}
 }
+
+// TestRegression_ServerSectionCapturesLifecycle pins the server-section
+// markers parser: starts, SIGHUP reloads, parameter changes, fast
+// shutdowns, backend signal crashes and crash-recovery announcements.
+//
+// The fixture mixes (in order):
+//   - 1 "not properly shut down" + 1 start (crash-recovery dance)
+//   - 1 SIGHUP that carries 2 "parameter X changed to Y" lines
+//   - 1 "server process terminated by signal 11" (backend crash)
+//   - 1 fast shutdown + 1 shutdown completed line
+//
+// The test pins the counts and the parameter-change extraction so a
+// future refactor of the prefix-stripping or the body matchers does
+// not silently lose a marker (each one represents real grep work a
+// DBA would otherwise redo manually during a post-mortem).
+func TestRegression_ServerSectionCapturesLifecycle(t *testing.T) {
+	got := runFixtureJSON(t, "testdata/regressions/server/server.log")
+	srv, ok := got["server"].(map[string]any)
+	if !ok {
+		t.Fatal("missing 'server' section in JSON output")
+	}
+
+	// Counters.
+	if v, _ := srv["starts"].(float64); v != 1 {
+		t.Errorf("starts = %v, want 1", v)
+	}
+	if v, _ := srv["reloads"].(float64); v != 1 {
+		t.Errorf("reloads = %v, want 1", v)
+	}
+	if v, _ := srv["shutdowns_fast"].(float64); v != 1 {
+		t.Errorf("shutdowns_fast = %v, want 1", v)
+	}
+	if v, _ := srv["crash_recoveries"].(float64); v != 1 {
+		t.Errorf("crash_recoveries = %v, want 1", v)
+	}
+	if v, _ := srv["backend_crashes"].(float64); v != 1 {
+		t.Errorf("backend_crashes = %v, want 1", v)
+	}
+	if v, _ := srv["shutdown_completed"].(float64); v != 1 {
+		t.Errorf("shutdown_completed = %v, want 1", v)
+	}
+
+	// Signal breakdown — signal 11 (SIGSEGV) is the test crash.
+	sigs, _ := srv["signal_counts"].(map[string]any)
+	if v, _ := sigs["11"].(float64); v != 1 {
+		t.Errorf("signal_counts[\"11\"] = %v, want 1", v)
+	}
+
+	// Parameter changes: 2 entries from the SIGHUP, "work_mem" first.
+	params, _ := srv["parameter_changes"].([]any)
+	if len(params) != 2 {
+		t.Fatalf("parameter_changes length = %d, want 2", len(params))
+	}
+	first, _ := params[0].(map[string]any)
+	if first["parameter"] != "work_mem" {
+		t.Errorf("parameter_changes[0].parameter = %v, want work_mem", first["parameter"])
+	}
+	if first["new"] != "16MB" {
+		t.Errorf("parameter_changes[0].new = %v, want 16MB", first["new"])
+	}
+	second, _ := params[1].(map[string]any)
+	if second["parameter"] != "log_min_duration_statement" {
+		t.Errorf("parameter_changes[1].parameter = %v, want log_min_duration_statement", second["parameter"])
+	}
+
+	// Timeline carries one entry per lifecycle event, in order.
+	timeline, _ := srv["timeline"].([]any)
+	if len(timeline) != 5 {
+		t.Fatalf("timeline length = %d, want 5 (recovery, start, sighup, crash, shutdown)", len(timeline))
+	}
+	kinds := []string{"recovery", "start", "sighup", "crash", "shutdown"}
+	for i, want := range kinds {
+		ev, _ := timeline[i].(map[string]any)
+		if ev["kind"] != want {
+			t.Errorf("timeline[%d].kind = %v, want %v", i, ev["kind"], want)
+		}
+	}
+}

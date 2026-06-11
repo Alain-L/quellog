@@ -184,6 +184,11 @@ import './js/components/ql-dropdown.js';
             html += buildMaintenanceSection(data);
             html += '</div>';
 
+            // Server (full width — typically a short panel, rendered
+            // last because lifecycle is the post-mortem index a DBA
+            // reaches for after seeing slow queries/errors above).
+            html += buildServerSection(data);
+
             results.innerHTML = html;
 
             // Create uPlot charts after DOM is ready
@@ -1238,6 +1243,84 @@ function buildEventsSection(data) {
             }
             const container = document.getElementById('analyze-table-container');
             if (container) container.innerHTML = renderAnalyzeTable();
+        }
+
+        function buildServerSection(data) {
+            const s = data.server;
+            if (!s) {
+                // Hide section entirely when no server-lifecycle marker
+                // was captured — most logs from a healthy steady-state
+                // server simply do not contain these messages, so a
+                // "no data" placeholder would be noise. We only render
+                // the placeholder when at least the structure was
+                // present but the markers were not (a weaker signal
+                // is still better than silence on the section).
+                return '';
+            }
+            // Counters — emit only the non-zero ones plus the "starts"
+            // baseline so the section never reads as empty.
+            const totalShutdowns = (s.shutdowns_fast || 0) + (s.shutdowns_immediate || 0) + (s.shutdowns_smart || 0);
+            const params = s.parameter_changes || [];
+            const timeline = s.timeline || [];
+            const hasParams = params.length > 0;
+            const hasTimeline = timeline.length > 0;
+            const sigCounts = s.signal_counts || {};
+            const sigLabel = Object.keys(sigCounts).sort().map(k => `${k}×${sigCounts[k]}`).join(', ');
+
+            return `
+                <div class="section" id="server">
+                    <div class="section-header">Server</div>
+                    <div class="section-body">
+                        <div class="stat-grid">
+                            <div class="stat-card"><div class="stat-value">${fmt(s.starts || 0)}</div><div class="stat-label">Starts</div></div>
+                            <div class="stat-card"><div class="stat-value">${fmt(s.reloads || 0)}</div><div class="stat-label">Reloads</div></div>
+                            ${totalShutdowns > 0 ? `<div class="stat-card"><div class="stat-value">${fmt(totalShutdowns)}</div><div class="stat-label">Shutdowns</div></div>` : ''}
+                            ${(s.crash_recoveries || 0) > 0 ? `<div class="stat-card stat-card--alert"><div class="stat-value">${fmt(s.crash_recoveries)}</div><div class="stat-label">Crash recoveries</div></div>` : ''}
+                            ${(s.backend_crashes || 0) > 0 ? `<div class="stat-card stat-card--warning" title="signals: ${esc(sigLabel)}"><div class="stat-value">${fmt(s.backend_crashes)}</div><div class="stat-label">Backend crashes</div></div>` : ''}
+                            ${(s.auxiliary_process_exits || 0) > 0 ? `<div class="stat-card stat-card--warning"><div class="stat-value">${fmt(s.auxiliary_process_exits)}</div><div class="stat-label">Aux exits</div></div>` : ''}
+                        </div>
+                        ${hasParams ? `
+                            <div class="subsection">
+                                <div class="subsection-title">Config parameter changes</div>
+                                <table>
+                                    <thead>
+                                        <tr><th>Parameter</th><th>Old</th><th>New</th><th>When</th></tr>
+                                    </thead>
+                                    <tbody>
+                                        ${params.map(p => `
+                                            <tr>
+                                                <td><code>${esc(p.parameter || '')}</code></td>
+                                                <td>${p.old ? `<code>${esc(p.old)}</code>` : '-'}</td>
+                                                <td><code>${esc(p.new || '')}</code></td>
+                                                <td>${esc(p.timestamp || '')}</td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        ` : ''}
+                        ${hasTimeline ? `
+                            <div class="subsection">
+                                <div class="subsection-title">Timeline</div>
+                                <table>
+                                    <thead>
+                                        <tr><th>Time</th><th>Event</th><th>Detail</th></tr>
+                                    </thead>
+                                    <tbody>
+                                        ${timeline.map(ev => `
+                                            <tr>
+                                                <td>${esc(ev.timestamp || '')}</td>
+                                                <td><code>${esc(ev.kind || '')}</code></td>
+                                                <td>${esc(ev.detail || '')}</td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
         }
 
         function buildLocksSection(data) {

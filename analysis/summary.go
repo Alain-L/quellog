@@ -59,6 +59,7 @@ type AggregatedMetrics struct {
 	EventSummaries []EventSummary
 	TopEvents      []EventStat
 	SQL            SQLMetrics
+	Server         ServerMetrics
 }
 
 // StreamingAnalyzer orchestrates the eight specialized analyzers in
@@ -87,6 +88,7 @@ type StreamingAnalyzer struct {
 	events         *EventAnalyzer
 	uniqueEntities *UniqueEntityAnalyzer
 	sql            *SQLAnalyzer
+	server         *ServerAnalyzer
 
 	sqlChan    chan parser.LogEntry
 	locksChan  chan parser.LogEntry
@@ -107,6 +109,7 @@ func NewStreamingAnalyzer() *StreamingAnalyzer {
 		events:         NewEventAnalyzer(),
 		uniqueEntities: NewUniqueEntityAnalyzer(),
 		sql:            NewSQLAnalyzer(),
+		server:         NewServerAnalyzer(),
 	}
 
 	sa.sqlChan = make(chan parser.LogEntry, 65536)
@@ -156,6 +159,7 @@ func (sa *StreamingAnalyzer) Process(entry *parser.LogEntry) {
 	sa.connections.Process(entry)
 	sa.events.Process(entry)
 	sa.uniqueEntities.Process(entry)
+	sa.server.Process(entry)
 
 	sa.locksChan <- *entry
 	sa.tempChan <- *entry
@@ -210,6 +214,7 @@ func (sa *StreamingAnalyzer) Finalize() AggregatedMetrics {
 		TopEvents:      topEvents,
 		UniqueEntities: sa.uniqueEntities.Finalize(),
 		SQL:            sql,
+		Server:         sa.server.Finalize(),
 	}
 }
 

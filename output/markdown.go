@@ -678,6 +678,13 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 	}
 
 	// ============================================================================
+	// SERVER
+	// ============================================================================
+	if has("server") && m.Server.HasAny() {
+		writeServerSectionMarkdown(&b, m.Server)
+	}
+
+	// ============================================================================
 	// FULL MODE: SQL OVERVIEW and SQL PERFORMANCE at the end
 	// ============================================================================
 	if full && m.SQL.TotalQueries > 0 {
@@ -692,6 +699,77 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 	}
 
 	fmt.Fprintln(w, b.String())
+}
+
+// writeServerSectionMarkdown emits the SERVER section: counters as a
+// bullet list, then sub-sections for parameter changes and timeline
+// (both using mdTable for clean alignment).
+func writeServerSectionMarkdown(b *strings.Builder, s analysis.ServerMetrics) {
+	b.WriteString("## SERVER\n\n")
+
+	b.WriteString(fmt.Sprintf("- **Starts**: %d\n", s.StartCount))
+	b.WriteString(fmt.Sprintf("- **Reloads (SIGHUP)**: %d\n", s.ReloadCount))
+	totalShutdowns := s.ShutdownFastCount + s.ShutdownImmediateCount + s.ShutdownSmartCount
+	if totalShutdowns > 0 {
+		b.WriteString(fmt.Sprintf("- **Shutdowns**: %d fast, %d immediate, %d smart\n",
+			s.ShutdownFastCount, s.ShutdownImmediateCount, s.ShutdownSmartCount))
+	}
+	if s.CrashRecoveryCount > 0 {
+		b.WriteString(fmt.Sprintf("- **Crash recoveries**: %d (\"not properly shut down\")\n", s.CrashRecoveryCount))
+	}
+	if s.BackendCrashCount > 0 {
+		// Render signal breakdown deterministically.
+		sigs := make([]string, 0, len(s.SignalCounts))
+		for sig := range s.SignalCounts {
+			sigs = append(sigs, sig)
+		}
+		sort.Strings(sigs)
+		var sb strings.Builder
+		for i, sig := range sigs {
+			if i > 0 {
+				sb.WriteString(", ")
+			}
+			fmt.Fprintf(&sb, "%s×%d", sig, s.SignalCounts[sig])
+		}
+		b.WriteString(fmt.Sprintf("- **Backend crashes**: %d (signals: %s)\n", s.BackendCrashCount, sb.String()))
+	}
+	if s.AuxProcessExitCount > 0 {
+		b.WriteString(fmt.Sprintf("- **Auxiliary process exits**: %d\n", s.AuxProcessExitCount))
+	}
+	b.WriteString("\n")
+
+	if len(s.ParameterChanges) > 0 {
+		b.WriteString("### Config parameter changes\n\n")
+		rows := make([][]string, 0, len(s.ParameterChanges))
+		for _, c := range s.ParameterChanges {
+			old := c.Old
+			if old == "" {
+				old = "-"
+			}
+			rows = append(rows, []string{
+				c.Parameter,
+				old,
+				c.New,
+				c.Timestamp.Format("2006-01-02 15:04:05"),
+			})
+		}
+		mdTable(b, []string{"Parameter", "Old", "New", "When"}, "llll", rows)
+		b.WriteString("\n")
+	}
+
+	if len(s.Timeline) > 0 {
+		b.WriteString("### Timeline\n\n")
+		rows := make([][]string, 0, len(s.Timeline))
+		for _, ev := range s.Timeline {
+			rows = append(rows, []string{
+				ev.Timestamp.Format("2006-01-02 15:04:05"),
+				ev.Kind,
+				ev.Detail,
+			})
+		}
+		mdTable(b, []string{"Time", "Event", "Detail"}, "lll", rows)
+		b.WriteString("\n")
+	}
 }
 
 // ============================================================================
