@@ -42,6 +42,14 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 	}
 
 	// ============================================================================
+	// SERVER (right after SUMMARY so the cluster lifecycle frames every
+	// section below it; auto-hides on steady-state logs).
+	// ============================================================================
+	if has("server") && m.Server.HasAny() {
+		writeServerSectionMarkdown(&b, m.Server)
+	}
+
+	// ============================================================================
 	// SQL SUMMARY (skip if full mode - enriched version added at the end)
 	// ============================================================================
 	if !full && has("sql_summary") && m.SQL.TotalQueries > 0 {
@@ -678,13 +686,6 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 	}
 
 	// ============================================================================
-	// SERVER
-	// ============================================================================
-	if has("server") && m.Server.HasAny() {
-		writeServerSectionMarkdown(&b, m.Server)
-	}
-
-	// ============================================================================
 	// FULL MODE: SQL OVERVIEW and SQL PERFORMANCE at the end
 	// ============================================================================
 	if full && m.SQL.TotalQueries > 0 {
@@ -718,20 +719,7 @@ func writeServerSectionMarkdown(b *strings.Builder, s analysis.ServerMetrics) {
 		b.WriteString(fmt.Sprintf("- **Crash recoveries**: %d (\"not properly shut down\")\n", s.CrashRecoveryCount))
 	}
 	if s.BackendCrashCount > 0 {
-		// Render signal breakdown deterministically.
-		sigs := make([]string, 0, len(s.SignalCounts))
-		for sig := range s.SignalCounts {
-			sigs = append(sigs, sig)
-		}
-		sort.Strings(sigs)
-		var sb strings.Builder
-		for i, sig := range sigs {
-			if i > 0 {
-				sb.WriteString(", ")
-			}
-			fmt.Fprintf(&sb, "%s×%d", sig, s.SignalCounts[sig])
-		}
-		b.WriteString(fmt.Sprintf("- **Backend crashes**: %d (signals: %s)\n", s.BackendCrashCount, sb.String()))
+		b.WriteString(fmt.Sprintf("- **Backend crashes**: %d %s\n", s.BackendCrashCount, formatSignalCounts(s.SignalCounts)))
 	}
 	if s.AuxProcessExitCount > 0 {
 		b.WriteString(fmt.Sprintf("- **Auxiliary process exits**: %d\n", s.AuxProcessExitCount))

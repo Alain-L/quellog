@@ -162,6 +162,12 @@ import './js/components/ql-dropdown.js';
             html += buildClientsSection(data);
             html += '</div>';
 
+            // Server (full width, right after the top row — the
+            // cluster lifecycle frames every section below it. Auto-
+            // hides on steady-state logs via the section's own
+            // no-data path).
+            html += buildServerSection(data);
+
             // Connections (full width)
             html += buildConnectionsSection(data);
 
@@ -183,11 +189,6 @@ import './js/components/ql-dropdown.js';
             html += buildLocksSection(data);
             html += buildMaintenanceSection(data);
             html += '</div>';
-
-            // Server (full width — typically a short panel, rendered
-            // last because lifecycle is the post-mortem index a DBA
-            // reaches for after seeing slow queries/errors above).
-            html += buildServerSection(data);
 
             results.innerHTML = html;
 
@@ -1264,8 +1265,15 @@ function buildEventsSection(data) {
             const timeline = s.timeline || [];
             const hasParams = params.length > 0;
             const hasTimeline = timeline.length > 0;
+            // Resolve signal numbers to their POSIX names so the
+            // tooltip on the Backend crashes card reads "SIGKILL ×1,
+            // SIGSEGV ×2" rather than "9×1, 11×2".
+            const signalNames = { '1':'SIGHUP','2':'SIGINT','3':'SIGQUIT','6':'SIGABRT','9':'SIGKILL','11':'SIGSEGV','13':'SIGPIPE','14':'SIGALRM','15':'SIGTERM' };
             const sigCounts = s.signal_counts || {};
-            const sigLabel = Object.keys(sigCounts).sort().map(k => `${k}×${sigCounts[k]}`).join(', ');
+            const sigLabel = Object.keys(sigCounts)
+                .sort((a, b) => Number(a) - Number(b))
+                .map(k => `${signalNames[k] || 'signal ' + k} ×${sigCounts[k]}`)
+                .join(', ');
 
             return `
                 <div class="section" id="server">

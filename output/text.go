@@ -50,6 +50,13 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 		}
 	}
 
+	// Server lifecycle: placed right after SUMMARY so the cluster
+	// context (crash at 14h, reload at 08h, etc.) frames every other
+	// section below it. Auto-hides on steady-state logs via HasAny.
+	if has("server") && m.Server.HasAny() {
+		printServerSection(m.Server, bold, reset)
+	}
+
 	// SQL summary section (skip in full mode — enriched version added at the end)
 	if !full && has("sql_summary") && m.SQL.TotalQueries > 0 {
 		PrintSQLSummary(m.SQL, true)
@@ -704,11 +711,6 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 	}
 	fmt.Println()
 
-	// Server lifecycle section.
-	if has("server") && m.Server.HasAny() {
-		printServerSection(m.Server, bold, reset)
-	}
-
 	// Full mode: SQL OVERVIEW + SQL PERFORMANCE at the end. TempFiles
 	// and Locks are zeroed because they were already shown above as
 	// their own sections — passing them again would duplicate output.
@@ -774,9 +776,25 @@ func printServerSection(s analysis.ServerMetrics, bold, reset string) {
 	}
 }
 
+// signalName maps the POSIX signal numbers PostgreSQL backends are
+// commonly terminated with to their canonical names. Unknown numbers
+// fall through to "signal N" so the renderer never lies — but in
+// practice 6/9/11/15 cover essentially every real backend crash log.
+var signalName = map[string]string{
+	"1":  "SIGHUP",
+	"2":  "SIGINT",
+	"3":  "SIGQUIT",
+	"6":  "SIGABRT", // assertion failure, abort()
+	"9":  "SIGKILL", // OOM killer, kill -9
+	"11": "SIGSEGV", // segfault
+	"13": "SIGPIPE",
+	"14": "SIGALRM",
+	"15": "SIGTERM", // pg_ctl stop, systemd
+}
+
 // formatSignalCounts renders the SignalCounts map as a human-readable
-// "(signals: 11×1, 6×1)" string. Sorted by signal number for stable
-// output.
+// "(SIGKILL ×1, SIGSEGV ×2)" string. Sorted by signal number so the
+// output is stable across runs.
 func formatSignalCounts(counts map[string]int) string {
 	if len(counts) == 0 {
 		return ""
@@ -785,14 +803,25 @@ func formatSignalCounts(counts map[string]int) string {
 	for sig := range counts {
 		sigs = append(sigs, sig)
 	}
-	sort.Strings(sigs)
+	sort.Slice(sigs, func(i, j int) bool {
+		ai, _ := strconv.Atoi(sigs[i])
+		aj, _ := strconv.Atoi(sigs[j])
+		if ai != aj {
+			return ai < aj
+		}
+		return sigs[i] < sigs[j]
+	})
 	var b strings.Builder
-	b.WriteString("(signals: ")
+	b.WriteByte('(')
 	for i, sig := range sigs {
 		if i > 0 {
 			b.WriteString(", ")
 		}
-		fmt.Fprintf(&b, "%s×%d", sig, counts[sig])
+		name, ok := signalName[sig]
+		if !ok {
+			name = "signal " + sig
+		}
+		fmt.Fprintf(&b, "%s ×%d", name, counts[sig])
 	}
 	b.WriteByte(')')
 	return b.String()
