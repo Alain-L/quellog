@@ -782,9 +782,14 @@ func (a *SQLAnalyzer) Process(entry *parser.LogEntry) {
 
 	// Intercept auto_explain plan: messages before normal processing.
 	// These arrive BEFORE the corresponding statement: entry for the
-	// same PID. Same predicate as the original isPlanMessage, with the
-	// duration position already known.
-	if strings.Contains(msg, "plan:") {
+	// same PID. auto_explain always emits "plan:" right after
+	// "duration: X.XXX ms " — probing a short window instead of the
+	// whole message saves a full scan of multi-KB SQL payloads on
+	// every timed execution. (A "plan:" buried deep inside a query
+	// text used to enter the old check only to be rejected by the
+	// statement:/execute exclusion below; with the window it does not
+	// even match — same classification, fewer scans.)
+	if windowEnd := min(durIdx+40, len(msg)); strings.Contains(msg[durIdx:windowEnd], "plan:") {
 		rest := msg[durIdx:]
 		if !strings.Contains(rest, "statement:") && !strings.Contains(rest, "execute") {
 			pid := entry.PID
@@ -1201,14 +1206,25 @@ func extractDurationAndQueryAt(message string, durIdx int) (duration float64, qu
 		return 0, "", "", false
 	}
 
-	// Find query marker ("execute" or "statement")
-	// Search after duration marker for efficiency
+	// Find query marker ("execute" or "statement"). In every real PG
+	// format the keyword sits right after "duration: X.XXX ms ", so the
+	// search is capped to a short window past the marker — without it,
+	// extended-protocol parse/bind lines (which carry NO keyword) cost
+	// two full scans of a multi-KB SQL payload each, and a query text
+	// containing the word "statement" far from the prefix could even
+	// fake a match. 64 bytes leaves ×2 margin over the longest
+	// realistic duration literal.
 	var markerIdx int
 	var markerLen int
 	isExecute := false
 
-	execIdx := indexAfter(message, "execute", durIdx)
-	stmtIdx := indexAfter(message, "statement", durIdx)
+	searchEnd := durIdx + 64
+	if searchEnd > len(message) {
+		searchEnd = len(message)
+	}
+	window := message[:searchEnd]
+	execIdx := indexAfter(window, "execute", durIdx)
+	stmtIdx := indexAfter(window, "statement", durIdx)
 
 	if execIdx != -1 && (stmtIdx == -1 || execIdx < stmtIdx) {
 		markerIdx = execIdx
@@ -1304,7 +1320,14 @@ func appendPreparedName(names []string, name string) []string {
 // isParamsMessage returns true if the message is a "DETAIL: parameters:"
 // continuation. These follow an execute: entry on the same backend and
 // carry the actual values bound to the prepared-statement placeholders.
+// Both markers live in the head of the message (after an optional
+// log_line_prefix); the scan cap skips the parameter payload itself,
+// which can run to kilobytes on wide INSERTs. 512 matches the margin
+// used by the replication prefilter for long prefixes.
 func isParamsMessage(message string) bool {
+	if len(message) > 512 {
+		message = message[:512]
+	}
 	if !strings.Contains(message, "parameters:") {
 		return false
 	}
