@@ -2687,6 +2687,28 @@ function buildEventsSection(data) {
                 if (q.min_time_ms != null) {
                     html += '<div class="qd-stat"><div class="qd-stat-label">Min</div><div class="qd-stat-value">' + fmtMsLong(q.min_time_ms) + '</div></div>';
                 }
+                // Dimensions inlined into the same flex row as
+                // TYPE / COUNT / TOTAL / AVG / MAX so the "who ran
+                // this" answer sits right next to the duration stats.
+                // Placed BEFORE Prepared as so the wide prepared-names
+                // grid (which forces a row break) doesn't push the
+                // dimensions below it.
+                const dimAxes = [
+                    ['Databases', q.top_databases],
+                    ['Users',     q.top_users],
+                    ['Apps',      q.top_apps],
+                    ['Hosts',     q.top_hosts],
+                ];
+                dimAxes.forEach(([label, rows]) => {
+                    if (!Array.isArray(rows) || rows.length === 0) return;
+                    const parts = rows.map(r =>
+                        '<span class="qd-dim-inline">'
+                        + '<span class="qd-dim-name">' + esc(r.name) + '</span>'
+                        + '<span class="qd-dim-count">' + fmt(r.count) + '</span>'
+                        + '</span>'
+                    ).join('<span class="qd-dim-sep">·</span>');
+                    html += '<div class="qd-stat qd-stat-dim"><div class="qd-stat-label">' + label + '</div><div class="qd-stat-value qd-stat-value-dims">' + parts + '</div></div>';
+                });
                 if (q.prepared_names && q.prepared_names.length > 0) {
                     const names = q.prepared_names;
                     const single = names.length === 1;
@@ -2835,6 +2857,10 @@ function buildEventsSection(data) {
                 if (dur) parts.push(dur);
                 if (ts) parts.push(ts);
                 if (pid) parts.push('pid=' + pid);
+                if (sr.database) parts.push('db=' + sr.database);
+                if (sr.user) parts.push('user=' + sr.user);
+                if (sr.app) parts.push('app=' + sr.app);
+                if (sr.host) parts.push('host=' + sr.host);
                 const meta = parts.length
                     ? '<span class="qd-meta">' + esc(parts.join(', ')) + '</span>'
                     : '';

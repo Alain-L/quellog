@@ -2189,6 +2189,39 @@
             flex-basis: 100%;
         }
 
+        /* Dimensions inlined in the Query Info flex row alongside
+           TYPE / COUNT / TOTAL / AVG / MAX. Value typography mirrors
+           the surrounding stats (1rem, weight 600, default font) so
+           the eye doesn't catch a different rhythm; the count is the
+           only visually-distinct element — muted and tabular. */
+        .qd-stat-dim {
+            min-width: 100px;
+        }
+        .qd-stat-value-dims {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: baseline;
+            gap: 0.2rem 0.45rem;
+        }
+        .qd-dim-inline {
+            white-space: nowrap;
+        }
+        .qd-dim-name {
+            color: var(--text);
+        }
+        .qd-dim-count {
+            color: var(--text-muted);
+            font-weight: 400;
+            font-size: 0.85em;
+            font-variant-numeric: tabular-nums;
+            margin-left: 0.3rem;
+        }
+        .qd-dim-sep {
+            color: var(--border);
+            font-weight: 400;
+            opacity: 0.6;
+        }
+
         /* Grid layout for the prepared-statement names list. The column
            count is decided in JS at render time (1 row when ≤8 names,
            2 rows for 9-16, capped at 8 columns beyond) — that way the

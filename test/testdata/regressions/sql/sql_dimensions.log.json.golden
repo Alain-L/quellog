@@ -1,0 +1,227 @@
+{
+  "apps": [
+    {
+      "name": "webapp",
+      "count": 6
+    },
+    {
+      "name": "cron",
+      "count": 2
+    },
+    {
+      "name": "psql",
+      "count": 2
+    }
+  ],
+  "clients": {
+    "unique_databases": 3,
+    "unique_users": 3,
+    "unique_apps": 3,
+    "unique_hosts": 3
+  },
+  "databases": [
+    {
+      "name": "appdb",
+      "count": 8
+    },
+    {
+      "name": "analyticsdb",
+      "count": 1
+    },
+    {
+      "name": "webdb",
+      "count": 1
+    }
+  ],
+  "events": [
+    {
+      "type": "LOG",
+      "count": 10,
+      "percentage": 100
+    }
+  ],
+  "hosts": [
+    {
+      "name": "10.0.0.42",
+      "count": 5
+    },
+    {
+      "name": "10.0.0.43",
+      "count": 3
+    },
+    {
+      "name": "10.0.0.44",
+      "count": 2
+    }
+  ],
+  "sql_performance": {
+    "total_query_duration": "78 ms",
+    "total_queries_parsed": 10,
+    "total_unique_queries": 1,
+    "top_1_percent_slow_queries": 1,
+    "query_max_duration": "50 ms",
+    "query_min_duration": "1 ms",
+    "query_median_duration": "2 ms",
+    "query_99th_percentile": "50 ms",
+    "executions": [
+      {
+        "timestamp": "2026-04-19 23:00:00",
+        "duration_ms": 1.234,
+        "query_id": "se-xzr4ZG"
+      },
+      {
+        "timestamp": "2026-04-19 23:00:00",
+        "duration_ms": 1.345,
+        "query_id": "se-xzr4ZG"
+      },
+      {
+        "timestamp": "2026-04-19 23:00:00",
+        "duration_ms": 1.456,
+        "query_id": "se-xzr4ZG"
+      },
+      {
+        "timestamp": "2026-04-19 23:00:00",
+        "duration_ms": 1.567,
+        "query_id": "se-xzr4ZG"
+      },
+      {
+        "timestamp": "2026-04-19 23:00:00",
+        "duration_ms": 1.678,
+        "query_id": "se-xzr4ZG"
+      },
+      {
+        "timestamp": "2026-04-19 23:00:00",
+        "duration_ms": 2.345,
+        "query_id": "se-xzr4ZG"
+      },
+      {
+        "timestamp": "2026-04-19 23:00:00",
+        "duration_ms": 2.456,
+        "query_id": "se-xzr4ZG"
+      },
+      {
+        "timestamp": "2026-04-19 23:00:00",
+        "duration_ms": 5.678,
+        "query_id": "se-xzr4ZG"
+      },
+      {
+        "timestamp": "2026-04-19 23:00:00",
+        "duration_ms": 50.789,
+        "query_id": "se-xzr4ZG"
+      },
+      {
+        "timestamp": "2026-04-19 23:00:01",
+        "duration_ms": 10.123,
+        "query_id": "se-xzr4ZG"
+      }
+    ],
+    "queries": [
+      {
+        "id": "se-xzr4ZG",
+        "normalized_query": "select name from users where id = ?",
+        "raw_query": "SELECT name FROM users WHERE id = $1",
+        "type": "",
+        "count": 10,
+        "total_time_ms": 78.671,
+        "avg_time_ms": 7.867100000000001,
+        "max_time_ms": 50.789,
+        "prepared_names": [
+          "\u003cunnamed\u003e"
+        ],
+        "slowest_run": {
+          "duration_ms": 10.123,
+          "timestamp": "2026-04-19T23:00:01",
+          "pid": "20010",
+          "parameters": "$1 = '42'",
+          "query_with_params": "SELECT name FROM users WHERE id = '42'",
+          "database": "appdb",
+          "user": "app_user",
+          "app": "webapp",
+          "host": "10.0.0.42"
+        },
+        "top_databases": [
+          {
+            "name": "appdb",
+            "count": 8
+          },
+          {
+            "name": "analyticsdb",
+            "count": 1
+          },
+          {
+            "name": "webdb",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "app_user",
+            "count": 6
+          },
+          {
+            "name": "batch",
+            "count": 2
+          },
+          {
+            "name": "worker",
+            "count": 2
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "webapp",
+            "count": 6
+          },
+          {
+            "name": "cron",
+            "count": 2
+          },
+          {
+            "name": "psql",
+            "count": 2
+          }
+        ],
+        "top_hosts": [
+          {
+            "name": "10.0.0.42",
+            "count": 5
+          },
+          {
+            "name": "10.0.0.43",
+            "count": 3
+          },
+          {
+            "name": "10.0.0.44",
+            "count": 2
+          }
+        ]
+      }
+    ]
+  },
+  "summary": {
+    "start_date": "2026-04-19 23:00:00",
+    "end_date": "2026-04-19 23:00:01",
+    "duration": "901ms",
+    "total_logs": 10,
+    "throughput": "11.10 entries/s",
+    "error_count": 0,
+    "fatal_count": 0,
+    "panic_count": 0,
+    "warning_count": 0,
+    "log_count": 10
+  },
+  "users": [
+    {
+      "name": "app_user",
+      "count": 6
+    },
+    {
+      "name": "batch",
+      "count": 2
+    },
+    {
+      "name": "worker",
+      "count": 2
+    }
+  ]
+}

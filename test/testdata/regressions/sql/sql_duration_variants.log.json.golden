@@ -86,7 +86,31 @@
         "count": 1,
         "total_time_ms": 100.123,
         "avg_time_ms": 100.123,
-        "max_time_ms": 100.123
+        "max_time_ms": 100.123,
+        "top_databases": [
+          {
+            "name": "appdb",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "app",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 1
+          }
+        ],
+        "top_hosts": [
+          {
+            "name": "10.0.0.23",
+            "count": 1
+          }
+        ]
       },
       {
         "id": "se-Sq8UWM",
@@ -96,7 +120,31 @@
         "count": 1,
         "total_time_ms": 12.345,
         "avg_time_ms": 12.345,
-        "max_time_ms": 12.345
+        "max_time_ms": 12.345,
+        "top_databases": [
+          {
+            "name": "appdb",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "app",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 1
+          }
+        ],
+        "top_hosts": [
+          {
+            "name": "10.0.0.20",
+            "count": 1
+          }
+        ]
       },
       {
         "id": "se-bO3J6S",
@@ -109,6 +157,30 @@
         "max_time_ms": 5.678,
         "prepared_names": [
           "stmt_a"
+        ],
+        "top_databases": [
+          {
+            "name": "appdb",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "app",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "app-worker",
+            "count": 1
+          }
+        ],
+        "top_hosts": [
+          {
+            "name": "10.0.0.21",
+            "count": 1
+          }
         ]
       },
       {
@@ -119,7 +191,31 @@
         "count": 1,
         "total_time_ms": 25.789,
         "avg_time_ms": 25.789,
-        "max_time_ms": 25.789
+        "max_time_ms": 25.789,
+        "top_databases": [
+          {
+            "name": "appdb",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "app",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 1
+          }
+        ],
+        "top_hosts": [
+          {
+            "name": "10.0.0.22",
+            "count": 1
+          }
+        ]
       }
     ]
   },

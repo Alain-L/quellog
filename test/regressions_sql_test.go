@@ -1,6 +1,7 @@
 package quellog_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"testing"
@@ -237,6 +238,88 @@ func TestRegression_SQLTopQueriesOrderedByMaxTime(t *testing.T) {
 	if !strings.Contains(third, "now()") {
 		t.Errorf("slowest[2] = %q, want now() third (most frequent but fastest)", third)
 	}
+}
+
+// TestRegression_SQLDetailExposesDimensions verifies the per-query
+// DIMENSIONS breakdown surfaced by --sql-detail --json. The fixture
+// runs the SAME normalized query under several db/user/app/host
+// combos and an extended-protocol DETAIL pair to also exercise the
+// SlowestRun enrichment.
+func TestRegression_SQLDetailExposesDimensions(t *testing.T) {
+	out := runHarness(t, false, "testdata/regressions/sql/sql_dimensions.log", "--json")
+	doc := mustJSON(t, out)
+	queries := sqlQueries(t, doc)
+	if len(queries) != 1 {
+		t.Fatalf("want 1 query in sql_performance.queries, got %d", len(queries))
+	}
+	queryID, _ := queries[0]["id"].(string)
+	if queryID == "" {
+		t.Fatal("query id missing on the single query row")
+	}
+
+	// Re-run with --sql-detail to get the per-id top dimensions.
+	out = runHarness(t, false, "testdata/regressions/sql/sql_dimensions.log", "--sql-detail", queryID, "--json")
+	var arr []map[string]any
+	if err := jsonUnmarshalArr(out, &arr); err != nil {
+		t.Fatalf("invalid --sql-detail JSON: %v\n%s", err, out)
+	}
+	if len(arr) != 1 {
+		t.Fatalf("want 1 detail entry, got %d", len(arr))
+	}
+	detail := arr[0]
+
+	// Top databases: appdb wins by far (8/10). Then webdb, analyticsdb.
+	dbs, _ := detail["top_databases"].([]any)
+	if len(dbs) == 0 {
+		t.Fatal("top_databases is empty — dimensions did not bubble up")
+	}
+	first := dbs[0].(map[string]any)
+	if first["name"] != "appdb" {
+		t.Errorf("top_databases[0].name = %v, want appdb", first["name"])
+	}
+	if first["count"].(float64) != 8 {
+		t.Errorf("top_databases[0].count = %v, want 8", first["count"])
+	}
+
+	// Users: app_user (6), then batch (2) and worker (2). Tie broken
+	// alphabetically — batch < worker.
+	users, _ := detail["top_users"].([]any)
+	if len(users) < 3 {
+		t.Fatalf("top_users len = %d, want at least 3", len(users))
+	}
+	if users[0].(map[string]any)["name"] != "app_user" {
+		t.Errorf("top_users[0] = %v, want app_user", users[0])
+	}
+
+	// All four dimensions should be present.
+	for _, key := range []string{"top_databases", "top_users", "top_apps", "top_hosts"} {
+		if _, ok := detail[key]; !ok {
+			t.Errorf("missing dimension %s in sql-detail output", key)
+		}
+	}
+
+	// SlowestRun should carry the (db/user/app/host) of its execution.
+	sr, _ := detail["slowest_run"].(map[string]any)
+	if sr == nil {
+		t.Fatal("slowest_run missing from sql-detail output")
+	}
+	if sr["database"] != "appdb" {
+		t.Errorf("slowest_run.database = %v, want appdb", sr["database"])
+	}
+	if sr["user"] != "app_user" {
+		t.Errorf("slowest_run.user = %v, want app_user", sr["user"])
+	}
+	if sr["app"] != "webapp" {
+		t.Errorf("slowest_run.app = %v, want webapp", sr["app"])
+	}
+	if sr["host"] != "10.0.0.42" {
+		t.Errorf("slowest_run.host = %v, want 10.0.0.42", sr["host"])
+	}
+}
+
+// jsonUnmarshalArr decodes a JSON array of objects from raw bytes.
+func jsonUnmarshalArr(data []byte, out *[]map[string]any) error {
+	return json.Unmarshal(data, out)
 }
 
 // looksBetween parses a duration string like "260 ms" or "1.20 s" and

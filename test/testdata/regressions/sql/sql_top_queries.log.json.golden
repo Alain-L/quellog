@@ -134,7 +134,31 @@
         "count": 10,
         "total_time_ms": 10,
         "avg_time_ms": 1,
-        "max_time_ms": 1
+        "max_time_ms": 1,
+        "top_databases": [
+          {
+            "name": "appdb",
+            "count": 10
+          }
+        ],
+        "top_users": [
+          {
+            "name": "app",
+            "count": 10
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 10
+          }
+        ],
+        "top_hosts": [
+          {
+            "name": "10.0.0.31",
+            "count": 10
+          }
+        ]
       },
       {
         "id": "se-gJPto2",
@@ -144,7 +168,31 @@
         "count": 1,
         "total_time_ms": 1000,
         "avg_time_ms": 1000,
-        "max_time_ms": 1000
+        "max_time_ms": 1000,
+        "top_databases": [
+          {
+            "name": "appdb",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "app",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 1
+          }
+        ],
+        "top_hosts": [
+          {
+            "name": "10.0.0.30",
+            "count": 1
+          }
+        ]
       },
       {
         "id": "se-gW0ABY",
@@ -154,7 +202,31 @@
         "count": 5,
         "total_time_ms": 500,
         "avg_time_ms": 100,
-        "max_time_ms": 100
+        "max_time_ms": 100,
+        "top_databases": [
+          {
+            "name": "appdb",
+            "count": 5
+          }
+        ],
+        "top_users": [
+          {
+            "name": "app",
+            "count": 5
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 5
+          }
+        ],
+        "top_hosts": [
+          {
+            "name": "10.0.0.30",
+            "count": 5
+          }
+        ]
       }
     ]
   },

@@ -56,7 +56,31 @@
         "total_time_ms": 87.123,
         "avg_time_ms": 87.123,
         "max_time_ms": 87.123,
-        "plan": "{\n  \"Query Text\": \"SELECT * FROM products WHERE category = 'electronics' ORDER BY price DESC LIMIT 5\",\n  \"Plan\": {\n    \"Node Type\": \"Limit\",\n    \"Parallel Aware\": false,\n    \"Async Capable\": false,\n    \"Startup Cost\": 45.32,\n    \"Total Cost\": 45.34,\n    \"Plan Rows\": 5,\n    \"Plan Width\": 38,\n    \"Actual Startup Time\": 86.012,\n    \"Actual Total Time\": 87.012,\n    \"Actual Rows\": 5,\n    \"Actual Loops\": 1,\n    \"Output\": [\n      \"id\",\n      \"name\",\n      \"category\",\n      \"price\"\n    ],\n    \"Plans\": [\n      {\n        \"Node Type\": \"Sort\",\n        \"Parent Relationship\": \"Outer\",\n        \"Parallel Aware\": false,\n        \"Async Capable\": false,\n        \"Startup Cost\": 45.32,\n        \"Total Cost\": 47.82,\n        \"Plan Rows\": 1000,\n        \"Plan Width\": 38,\n        \"Actual Startup Time\": 86.010,\n        \"Actual Total Time\": 86.456,\n        \"Actual Rows\": 5,\n        \"Actual Loops\": 1,\n        \"Output\": [\n          \"id\",\n          \"name\",\n          \"category\",\n          \"price\"\n        ],\n        \"Sort Key\": [\n          \"products.price DESC\"\n        ],\n        \"Sort Method\": \"top-N heapsort\",\n        \"Sort Space Used\": 26,\n        \"Sort Space Type\": \"Memory\",\n        \"Plans\": [\n          {\n            \"Node Type\": \"Seq Scan\",\n            \"Parent Relationship\": \"Outer\",\n            \"Parallel Aware\": false,\n            \"Async Capable\": false,\n            \"Relation Name\": \"products\",\n            \"Schema\": \"public\",\n            \"Alias\": \"products\",\n            \"Startup Cost\": 0.00,\n            \"Total Cost\": 35.00,\n            \"Plan Rows\": 1000,\n            \"Plan Width\": 38,\n            \"Actual Startup Time\": 0.020,\n            \"Actual Total Time\": 80.123,\n            \"Actual Rows\": 1000,\n            \"Actual Loops\": 1,\n            \"Output\": [\n              \"id\",\n              \"name\",\n              \"category\",\n              \"price\"\n            ],\n            \"Filter\": \"((category)::text = 'electronics'::text)\",\n            \"Rows Removed by Filter\": 0\n          }\n        ]\n      }\n    ]\n  }\n}"
+        "plan": "{\n  \"Query Text\": \"SELECT * FROM products WHERE category = 'electronics' ORDER BY price DESC LIMIT 5\",\n  \"Plan\": {\n    \"Node Type\": \"Limit\",\n    \"Parallel Aware\": false,\n    \"Async Capable\": false,\n    \"Startup Cost\": 45.32,\n    \"Total Cost\": 45.34,\n    \"Plan Rows\": 5,\n    \"Plan Width\": 38,\n    \"Actual Startup Time\": 86.012,\n    \"Actual Total Time\": 87.012,\n    \"Actual Rows\": 5,\n    \"Actual Loops\": 1,\n    \"Output\": [\n      \"id\",\n      \"name\",\n      \"category\",\n      \"price\"\n    ],\n    \"Plans\": [\n      {\n        \"Node Type\": \"Sort\",\n        \"Parent Relationship\": \"Outer\",\n        \"Parallel Aware\": false,\n        \"Async Capable\": false,\n        \"Startup Cost\": 45.32,\n        \"Total Cost\": 47.82,\n        \"Plan Rows\": 1000,\n        \"Plan Width\": 38,\n        \"Actual Startup Time\": 86.010,\n        \"Actual Total Time\": 86.456,\n        \"Actual Rows\": 5,\n        \"Actual Loops\": 1,\n        \"Output\": [\n          \"id\",\n          \"name\",\n          \"category\",\n          \"price\"\n        ],\n        \"Sort Key\": [\n          \"products.price DESC\"\n        ],\n        \"Sort Method\": \"top-N heapsort\",\n        \"Sort Space Used\": 26,\n        \"Sort Space Type\": \"Memory\",\n        \"Plans\": [\n          {\n            \"Node Type\": \"Seq Scan\",\n            \"Parent Relationship\": \"Outer\",\n            \"Parallel Aware\": false,\n            \"Async Capable\": false,\n            \"Relation Name\": \"products\",\n            \"Schema\": \"public\",\n            \"Alias\": \"products\",\n            \"Startup Cost\": 0.00,\n            \"Total Cost\": 35.00,\n            \"Plan Rows\": 1000,\n            \"Plan Width\": 38,\n            \"Actual Startup Time\": 0.020,\n            \"Actual Total Time\": 80.123,\n            \"Actual Rows\": 1000,\n            \"Actual Loops\": 1,\n            \"Output\": [\n              \"id\",\n              \"name\",\n              \"category\",\n              \"price\"\n            ],\n            \"Filter\": \"((category)::text = 'electronics'::text)\",\n            \"Rows Removed by Filter\": 0\n          }\n        ]\n      }\n    ]\n  }\n}",
+        "top_databases": [
+          {
+            "name": "appdb",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "app",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 1
+          }
+        ],
+        "top_hosts": [
+          {
+            "name": "10.0.0.40",
+            "count": 1
+          }
+        ]
       }
     ]
   },
