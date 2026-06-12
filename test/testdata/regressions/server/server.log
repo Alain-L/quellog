@@ -1,0 +1,8 @@
+2026-04-20 08:42:11.000 UTC [100]: [1-1] user=,db=,app=,client= LOG:  database system was not properly shut down; automatic recovery in progress
+2026-04-20 08:42:12.000 UTC [100]: [2-1] user=,db=,app=,client= LOG:  database system is ready to accept connections
+2026-04-20 14:22:08.000 UTC [100]: [3-1] user=,db=,app=,client= LOG:  received SIGHUP, reloading configuration files
+2026-04-20 14:22:08.100 UTC [100]: [4-1] user=,db=,app=,client= LOG:  parameter "work_mem" changed to "16MB"
+2026-04-20 14:22:08.200 UTC [100]: [5-1] user=,db=,app=,client= LOG:  parameter "log_min_duration_statement" changed to "100"
+2026-04-20 16:11:02.000 UTC [100]: [6-1] user=,db=,app=,client= LOG:  server process (PID 12345) was terminated by signal 11: Segmentation fault
+2026-04-20 23:55:00.000 UTC [100]: [7-1] user=,db=,app=,client= LOG:  received fast shutdown request
+2026-04-20 23:55:02.000 UTC [100]: [8-1] user=,db=,app=,client= LOG:  database system is shut down

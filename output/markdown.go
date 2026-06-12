@@ -42,6 +42,17 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 	}
 
 	// ============================================================================
+	// SERVER (right after SUMMARY so the cluster lifecycle frames every
+	// section below it; auto-hides on steady-state logs). Replication
+	// markers are folded in as a sub-zone so a server-less log that
+	// carries walreceiver/walsender events still gets a place to surface
+	// them.
+	// ============================================================================
+	if has("server") && (m.Server.HasAny() || m.Replication.HasAny) {
+		writeServerSectionMarkdown(&b, m.Server, m.Replication)
+	}
+
+	// ============================================================================
 	// SQL SUMMARY (skip if full mode - enriched version added at the end)
 	// ============================================================================
 	if !full && has("sql_summary") && m.SQL.TotalQueries > 0 {
@@ -692,6 +703,131 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 	}
 
 	fmt.Fprintln(w, b.String())
+}
+
+// writeServerSectionMarkdown emits the SERVER section: counters as a
+// bullet list, then sub-sections for parameter changes, timeline, and
+// the folded Replication block (when any marker fired). Lines for
+// counters that stayed at zero are omitted so a log carrying only
+// replication markers still renders a clean section.
+func writeServerSectionMarkdown(b *strings.Builder, s analysis.ServerMetrics, r analysis.ReplicationMetrics) {
+	b.WriteString("## SERVER\n\n")
+
+	if s.StartCount > 0 {
+		b.WriteString(fmt.Sprintf("- **Starts**: %d\n", s.StartCount))
+	}
+	if s.ReloadCount > 0 {
+		b.WriteString(fmt.Sprintf("- **Reloads (SIGHUP)**: %d\n", s.ReloadCount))
+	}
+	totalShutdowns := s.ShutdownFastCount + s.ShutdownImmediateCount + s.ShutdownSmartCount
+	if totalShutdowns > 0 {
+		b.WriteString(fmt.Sprintf("- **Shutdowns**: %d fast, %d immediate, %d smart\n",
+			s.ShutdownFastCount, s.ShutdownImmediateCount, s.ShutdownSmartCount))
+	}
+	if s.CrashRecoveryCount > 0 {
+		b.WriteString(fmt.Sprintf("- **Crash recoveries**: %d (\"not properly shut down\")\n", s.CrashRecoveryCount))
+	}
+	if s.BackendCrashCount > 0 {
+		b.WriteString(fmt.Sprintf("- **Backend crashes**: %d %s\n", s.BackendCrashCount, formatSignalCounts(s.SignalCounts)))
+	}
+	if s.AuxProcessExitCount > 0 {
+		b.WriteString(fmt.Sprintf("- **Auxiliary process exits**: %d\n", s.AuxProcessExitCount))
+	}
+	b.WriteString("\n")
+
+	if len(s.ParameterChanges) > 0 {
+		b.WriteString("### Config parameter changes\n\n")
+		rows := make([][]string, 0, len(s.ParameterChanges))
+		for _, c := range s.ParameterChanges {
+			old := c.Old
+			if old == "" {
+				old = "-"
+			}
+			rows = append(rows, []string{
+				c.Parameter,
+				old,
+				c.New,
+				c.Timestamp.Format("2006-01-02 15:04:05"),
+			})
+		}
+		mdTable(b, []string{"Parameter", "Old", "New", "When"}, "llll", rows)
+		b.WriteString("\n")
+	}
+
+	if len(s.Timeline) > 0 {
+		b.WriteString("### Timeline\n\n")
+		rows := make([][]string, 0, len(s.Timeline))
+		for _, ev := range s.Timeline {
+			rows = append(rows, []string{
+				ev.Timestamp.Format("2006-01-02 15:04:05"),
+				ev.Kind,
+				ev.Detail,
+			})
+		}
+		mdTable(b, []string{"Time", "Event", "Detail"}, "lll", rows)
+		b.WriteString("\n")
+	}
+
+	if r.HasAny {
+		writeReplicationSubZoneMarkdown(b, r)
+	}
+}
+
+// writeReplicationSubZoneMarkdown emits the folded "Replication" block:
+// a bullet list of categories that actually fired, with the most-recent
+// termination timestamp inlined so a DBA can jump to the right log
+// window without crawling the whole section.
+func writeReplicationSubZoneMarkdown(b *strings.Builder, r analysis.ReplicationMetrics) {
+	b.WriteString("### Replication\n\n")
+
+	if v := r.Markers["stream_started"]; v > 0 {
+		line := fmt.Sprintf("- **Stream reconnects**: %d", v)
+		if r.PeakHourLabel != "" && r.PeakHourCount > 1 {
+			line += fmt.Sprintf(" _(peak %d× in %s)_", r.PeakHourCount, r.PeakHourLabel)
+		}
+		b.WriteString(line + "\n")
+	}
+	if v := r.Markers["recovery_paused"]; v > 0 {
+		b.WriteString(fmt.Sprintf("- **Recovery pauses**: %d\n", v))
+	}
+	if v := r.Markers["conflict_terminate"] + r.Markers["conflict_cancel"]; v > 0 {
+		line := fmt.Sprintf("- **Conflicts with recovery**: %d", v)
+		if n := len(r.ConflictQueries); n > 0 {
+			line += fmt.Sprintf(" _(%d unique queries terminated)_", n)
+		}
+		b.WriteString(line + "\n")
+	}
+	if v := r.Markers["slot_invalidated"]; v > 0 {
+		b.WriteString(fmt.Sprintf("- **Invalidated slots**: %d\n", v))
+	}
+	// One bullet per termination cause — the four PG markers map to
+	// diametrically opposite scenarios (replica side vs primary side),
+	// so collapsing them would hide the diagnostic. Each bullet carries
+	// a short hint naming the side at fault; the LastTermination
+	// timestamp is appended to the last fired bullet only.
+	type termRow struct{ key, label, hint string }
+	termRows := []termRow{
+		{"wal_receive_failed", "WAL receive failures", "replica lost primary"},
+		{"walsender_timeout", "Walsender timeouts", "primary side — replica too slow"},
+		{"replication_term", "Replication terminations", "primary closed walsender"},
+		{"unexpected_eof", "Unexpected EOFs", "abrupt walsender disconnect"},
+	}
+	fired := make([]termRow, 0, len(termRows))
+	for _, t := range termRows {
+		if r.Markers[t.key] > 0 {
+			fired = append(fired, t)
+		}
+	}
+	for i, t := range fired {
+		line := fmt.Sprintf("- **%s**: %d", t.label, r.Markers[t.key])
+		suffix := t.hint
+		if i == len(fired)-1 && !r.LastTermination.IsZero() {
+			suffix += ", last " + r.LastTermination.Format("2006-01-02 15:04:05")
+		}
+		line += fmt.Sprintf(" _(%s)_", suffix)
+		b.WriteString(line + "\n")
+	}
+	b.WriteString("\n")
 }
 
 // ============================================================================

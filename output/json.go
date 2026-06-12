@@ -427,6 +427,87 @@ type CheckpointsJSON struct {
 	WarningEvents             []string `json:"warning_events,omitempty"`
 }
 
+// ServerJSON exposes server lifecycle metrics in the JSON output.
+// Counters are not omitempty (a zero is meaningful), slices and the
+// nested maps use omitempty so absent markers do not bloat the output.
+type ServerJSON struct {
+	Starts     int      `json:"starts"`
+	StartTimes []string `json:"start_times,omitempty"`
+
+	Reloads     int      `json:"reloads"`
+	ReloadTimes []string `json:"reload_times,omitempty"`
+
+	ShutdownsFast      int `json:"shutdowns_fast"`
+	ShutdownsImmediate int `json:"shutdowns_immediate"`
+	ShutdownsSmart     int `json:"shutdowns_smart"`
+
+	ShutdownCompleted int `json:"shutdown_completed,omitempty"`
+	CrashRecoveries   int `json:"crash_recoveries,omitempty"`
+	Interrupted       int `json:"interrupted,omitempty"`
+
+	BackendCrashes int            `json:"backend_crashes,omitempty"`
+	SignalCounts   map[string]int `json:"signal_counts,omitempty"`
+
+	AuxProcessExits int `json:"auxiliary_process_exits,omitempty"`
+
+	ParameterChanges []ServerParameterChangeJSON `json:"parameter_changes,omitempty"`
+	Timeline         []ServerTimelineEventJSON   `json:"timeline,omitempty"`
+}
+
+// ServerParameterChangeJSON is one row in the "parameter changes" table.
+// Old is empty for SIGHUP-driven changes (PG does not log the previous
+// value) but the field is kept so downstream tools see a consistent
+// schema.
+type ServerParameterChangeJSON struct {
+	Parameter string `json:"parameter"`
+	Old       string `json:"old,omitempty"`
+	New       string `json:"new"`
+	Timestamp string `json:"timestamp"`
+}
+
+// ServerTimelineEventJSON is one event in the compact timeline.
+type ServerTimelineEventJSON struct {
+	Timestamp string `json:"timestamp"`
+	Kind      string `json:"kind"`
+	Detail    string `json:"detail"`
+}
+
+// ReplicationEventJSON is one captured replication marker hit.
+type ReplicationEventJSON struct {
+	Timestamp string `json:"timestamp"`
+	Marker    string `json:"marker"`
+	Severity  string `json:"severity,omitempty"`
+}
+
+// ReplicationConflictQueryJSON aggregates per-query stats for queries
+// killed by a recovery conflict (terminate or cancel).
+type ReplicationConflictQueryJSON struct {
+	ID              string `json:"id"`
+	NormalizedQuery string `json:"normalized_query"`
+	RawQuery        string `json:"raw_query"`
+	Count           int    `json:"count"`
+}
+
+// ReplicationJSON is the JSON shape of the REPLICATION section. The
+// section is emitted with omitempty so logs without any replication
+// markers keep their existing JSON shape.
+type ReplicationJSON struct {
+	TotalEvents             int                            `json:"total_events"`
+	StreamReconnects        int                            `json:"stream_reconnects,omitempty"`
+	RecoveryPauses          int                            `json:"recovery_pauses,omitempty"`
+	RecoveryResumes         int                            `json:"recovery_resumes,omitempty"`
+	ConflictsWithRecovery   int                            `json:"conflicts_with_recovery,omitempty"`
+	InvalidatedSlots        int                            `json:"invalidated_slots,omitempty"`
+	ReplicationTerminations int                            `json:"replication_terminations,omitempty"`
+	LastTermination         string                         `json:"last_termination,omitempty"`
+	PeakHourLabel           string                         `json:"peak_hour_label,omitempty"`
+	PeakHourCount           int                            `json:"peak_hour_count,omitempty"`
+	Markers                 map[string]int                 `json:"markers"`
+	HourCounts              map[string]int                 `json:"hour_counts,omitempty"`
+	ConflictQueries         []ReplicationConflictQueryJSON `json:"conflict_queries,omitempty"`
+	Events                  []ReplicationEventJSON         `json:"events,omitempty"`
+}
+
 type SessionStatsJSON struct {
 	Count     int    `json:"count"`
 	Min       string `json:"min_duration"`
@@ -1882,6 +1963,14 @@ func buildJSONData(m analysis.AggregatedMetrics, sections []string, full bool) m
 		data["maintenance"] = buildMaintenanceJSON(m.Vacuum)
 	}
 
+	// Replication is gated on the server section: the --replication flag
+	// is gone and --server covers both scopes (the CLI/MD renderers fold
+	// replication into SERVER as a sub-zone). The JSON keys stay separate
+	// so downstream consumers can target either side independently.
+	if has("server") && m.Replication.HasAny {
+		data["replication"] = buildReplicationJSON(m.Replication)
+	}
+
 	if has("checkpoints") && (m.Checkpoints.CompleteCount > 0 || m.Checkpoints.WarningCount > 0) {
 		cp := CheckpointsJSON{
 			TotalCheckpoints: m.Checkpoints.CompleteCount,
@@ -2063,6 +2152,10 @@ func buildJSONData(m analysis.AggregatedMetrics, sections []string, full bool) m
 		}
 	}
 
+	if has("server") && m.Server.HasAny() {
+		data["server"] = buildServerJSON(m.Server)
+	}
+
 	// Full mode: add sql_overview and enriched sql_performance at the end
 	if full && m.SQL.TotalQueries > 0 {
 		// SQL overview (categories, types, dimensional breakdowns)
@@ -2073,6 +2166,55 @@ func buildJSONData(m analysis.AggregatedMetrics, sections []string, full bool) m
 	}
 
 	return data
+}
+
+// buildServerJSON folds the analyzer's server-lifecycle metrics into
+// the JSON struct used by --json output. Every counter is emitted (a
+// zero is meaningful — "no reload happened"); slice and map fields
+// stay omitempty so the JSON shape adapts to what the log actually
+// carried.
+func buildServerJSON(s analysis.ServerMetrics) ServerJSON {
+	const tsFmt = "2006-01-02 15:04:05"
+	j := ServerJSON{
+		Starts:             s.StartCount,
+		Reloads:            s.ReloadCount,
+		ShutdownsFast:      s.ShutdownFastCount,
+		ShutdownsImmediate: s.ShutdownImmediateCount,
+		ShutdownsSmart:     s.ShutdownSmartCount,
+		ShutdownCompleted:  s.ShutDownCompletedCount,
+		CrashRecoveries:    s.CrashRecoveryCount,
+		Interrupted:        s.InterruptedCount,
+		BackendCrashes:     s.BackendCrashCount,
+		AuxProcessExits:    s.AuxProcessExitCount,
+	}
+	for _, t := range s.StartTimes {
+		j.StartTimes = append(j.StartTimes, t.Format(tsFmt))
+	}
+	for _, t := range s.ReloadTimes {
+		j.ReloadTimes = append(j.ReloadTimes, t.Format(tsFmt))
+	}
+	if len(s.SignalCounts) > 0 {
+		j.SignalCounts = make(map[string]int, len(s.SignalCounts))
+		for k, v := range s.SignalCounts {
+			j.SignalCounts[k] = v
+		}
+	}
+	for _, c := range s.ParameterChanges {
+		j.ParameterChanges = append(j.ParameterChanges, ServerParameterChangeJSON{
+			Parameter: c.Parameter,
+			Old:       c.Old,
+			New:       c.New,
+			Timestamp: c.Timestamp.Format(tsFmt),
+		})
+	}
+	for _, ev := range s.Timeline {
+		j.Timeline = append(j.Timeline, ServerTimelineEventJSON{
+			Timestamp: ev.Timestamp.Format(tsFmt),
+			Kind:      ev.Kind,
+			Detail:    ev.Detail,
+		})
+	}
+	return j
 }
 
 // buildSQLOverviewData builds SQL overview data for JSON export.
@@ -2394,6 +2536,67 @@ func vacuumTableStatJSON(t analysis.VacuumTableStat) VacuumTableStatJSON {
 		WALRecords:            t.WALRecords,
 		WALBytes:              t.WALBytes,
 	}
+}
+
+// buildReplicationJSON folds the analyzer's replication metrics into
+// the JSON struct. Only present in the output map when HasAny is true
+// (see buildJSONData), so the JSON shape for logs without replication
+// markers stays unchanged.
+func buildReplicationJSON(r analysis.ReplicationMetrics) ReplicationJSON {
+	out := ReplicationJSON{
+		Markers:                 r.Markers,
+		StreamReconnects:        r.Markers["stream_started"],
+		RecoveryPauses:          r.Markers["recovery_paused"],
+		RecoveryResumes:         r.Markers["recovery_resuming"],
+		ConflictsWithRecovery:   r.Markers["conflict_terminate"] + r.Markers["conflict_cancel"],
+		InvalidatedSlots:        r.Markers["slot_invalidated"],
+		ReplicationTerminations: r.Markers["replication_term"] + r.Markers["wal_receive_failed"] + r.Markers["walsender_timeout"] + r.Markers["unexpected_eof"],
+		PeakHourLabel:           r.PeakHourLabel,
+		PeakHourCount:           r.PeakHourCount,
+	}
+	for _, c := range r.Markers {
+		out.TotalEvents += c
+	}
+	if !r.LastTermination.IsZero() {
+		out.LastTermination = r.LastTermination.Format("2006-01-02 15:04:05")
+	}
+	if len(r.HourCounts) > 0 {
+		out.HourCounts = r.HourCounts
+	}
+	if len(r.ConflictQueries) > 0 {
+		qs := make([]ReplicationConflictQueryJSON, 0, len(r.ConflictQueries))
+		for _, s := range r.ConflictQueries {
+			qs = append(qs, ReplicationConflictQueryJSON{
+				ID:              s.ID,
+				NormalizedQuery: s.NormalizedQuery,
+				RawQuery:        s.RawQuery,
+				Count:           s.Count,
+			})
+		}
+		// Sort by count desc, then ID asc, for deterministic output.
+		sort.Slice(qs, func(i, j int) bool {
+			if qs[i].Count != qs[j].Count {
+				return qs[i].Count > qs[j].Count
+			}
+			return qs[i].ID < qs[j].ID
+		})
+		out.ConflictQueries = qs
+	}
+	if len(r.Events) > 0 {
+		evs := make([]ReplicationEventJSON, len(r.Events))
+		for i, e := range r.Events {
+			ev := ReplicationEventJSON{
+				Marker:   e.Marker,
+				Severity: e.Severity,
+			}
+			if !e.Timestamp.IsZero() {
+				ev.Timestamp = e.Timestamp.Format("2006-01-02 15:04:05")
+			}
+			evs[i] = ev
+		}
+		out.Events = evs
+	}
+	return out
 }
 
 // convertSummary aggregates global metrics into a JSON-friendly format.

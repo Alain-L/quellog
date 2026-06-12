@@ -7713,6 +7713,35 @@
       }
     ]
   },
+  "server": {
+    "starts": 2,
+    "start_times": [
+      "2025-11-30 21:10:20",
+      "2025-11-30 21:10:21"
+    ],
+    "reloads": 0,
+    "shutdowns_fast": 1,
+    "shutdowns_immediate": 0,
+    "shutdowns_smart": 0,
+    "shutdown_completed": 1,
+    "timeline": [
+      {
+        "timestamp": "2025-11-30 21:10:20",
+        "kind": "start",
+        "detail": "database system is ready to accept connections"
+      },
+      {
+        "timestamp": "2025-11-30 21:10:20",
+        "kind": "shutdown",
+        "detail": "fast shutdown request"
+      },
+      {
+        "timestamp": "2025-11-30 21:10:21",
+        "kind": "start",
+        "detail": "database system is ready to accept connections"
+      }
+    ]
+  },
   "sql_performance": {
     "total_query_duration": "4m 51s",
     "total_queries_parsed": 1385,

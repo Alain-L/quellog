@@ -50,6 +50,14 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 		}
 	}
 
+	// Server lifecycle (incl. replication sub-zone): placed right after
+	// SUMMARY so the cluster context (crash at 14h, reload at 08h, lost
+	// walreceiver at 16h, etc.) frames every other section below it.
+	// Auto-hides on steady-state logs via HasAny on either side.
+	if has("server") && (m.Server.HasAny() || m.Replication.HasAny) {
+		printServerSection(m.Server, m.Replication, bold, reset)
+	}
+
 	// SQL summary section (skip in full mode — enriched version added at the end)
 	if !full && has("sql_summary") && m.SQL.TotalQueries > 0 {
 		PrintSQLSummary(m.SQL, true)
@@ -710,6 +718,249 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 	if full && m.SQL.TotalQueries > 0 {
 		PrintSQLOverview(m.SQL)
 		PrintSQLSummaryWithContext(m.SQL, analysis.TempFileMetrics{}, analysis.LockMetrics{}, false)
+	}
+}
+
+// printServerSection renders the SERVER lifecycle section: counters
+// for starts / reloads / shutdowns / crashes, a "config parameter
+// changes" mini-table (when present), a compact timeline, and a
+// "Replication" sub-zone aggregating walreceiver/walsender health.
+// Nothing is emitted when neither side captured a marker — checked by
+// the caller.
+func printServerSection(s analysis.ServerMetrics, r analysis.ReplicationMetrics, bold, reset string) {
+	fmt.Println(bold + "\nSERVER\n" + reset)
+
+	// Starts — hidden when zero so logs that only carry replication
+	// markers do not show a misleading "Starts: 0" line.
+	if s.StartCount > 0 {
+		startDetail := ""
+		if len(s.StartTimes) > 0 {
+			startDetail = "   " + ansiMutedItalic + "(first: " + s.StartTimes[0].Format("2006-01-02 15:04:05") + ")" + reset
+		}
+		fmt.Printf("  %-25s : %d%s\n", "Starts", s.StartCount, startDetail)
+	}
+
+	// Reloads — same auto-hide behavior.
+	if s.ReloadCount > 0 {
+		reloadDetail := ""
+		if len(s.ReloadTimes) > 0 {
+			reloadDetail = "   " + ansiMutedItalic + "(last: " + s.ReloadTimes[len(s.ReloadTimes)-1].Format("15:04:05") + ")" + reset
+		}
+		fmt.Printf("  %-25s : %d%s\n", "Reloads (SIGHUP)", s.ReloadCount, reloadDetail)
+	}
+
+	// Shutdowns.
+	if s.ShutdownFastCount+s.ShutdownImmediateCount+s.ShutdownSmartCount > 0 {
+		fmt.Printf("  %-25s : %d fast, %d immediate, %d smart\n",
+			"Shutdowns",
+			s.ShutdownFastCount, s.ShutdownImmediateCount, s.ShutdownSmartCount)
+	}
+
+	// Crash recoveries.
+	if s.CrashRecoveryCount > 0 {
+		fmt.Printf("  %-25s : %d   "+ansiMutedItalic+"(\"not properly shut down\")"+reset+"\n",
+			"Crash recoveries", s.CrashRecoveryCount)
+	}
+
+	// Backend crashes — render signal breakdown.
+	if s.BackendCrashCount > 0 {
+		fmt.Printf("  %-25s : %d   "+ansiMutedItalic+"%s"+reset+"\n",
+			"Backend crashes", s.BackendCrashCount, formatSignalCounts(s.SignalCounts))
+	}
+
+	// Auxiliary process exits.
+	if s.AuxProcessExitCount > 0 {
+		fmt.Printf("  %-25s : %d\n", "Auxiliary process exits", s.AuxProcessExitCount)
+	}
+
+	// Config parameter changes table.
+	if len(s.ParameterChanges) > 0 {
+		printParameterChangesTable(s.ParameterChanges)
+	}
+
+	// Timeline.
+	if len(s.Timeline) > 0 {
+		printServerTimeline(s.Timeline)
+	}
+
+	// Replication sub-zone — folded into SERVER because on real-world
+	// logs it rarely fires more than one or two markers, and the rhythm
+	// reads better next to the cluster lifecycle than in its own header.
+	if r.HasAny {
+		printReplicationSubZone(r, s.HasAny())
+	}
+}
+
+// printReplicationSubZone renders the compact "Replication" block
+// inside the SERVER section: one indented line per category that
+// actually fired. Termination markers are summed under one headline
+// with the most-recent timestamp inlined so a DBA jumps straight to
+// the right window in the raw logs. The blank-line separator is
+// suppressed when the parent SERVER section had no content of its own
+// (server-less log) so we don't pile two blank lines under the header.
+func printReplicationSubZone(r analysis.ReplicationMetrics, serverHasContent bool) {
+	muted := ansiMutedItalic
+	reset := ansiReset
+
+	if serverHasContent {
+		fmt.Println()
+	}
+	fmt.Println("  Replication:")
+
+	if v := r.Markers["stream_started"]; v > 0 {
+		line := fmt.Sprintf("    %-24s : %d", "Stream reconnects", v)
+		if r.PeakHourLabel != "" && r.PeakHourCount > 1 {
+			line += fmt.Sprintf("   %s(peak %d× in %s)%s", muted, r.PeakHourCount, r.PeakHourLabel, reset)
+		}
+		fmt.Println(line)
+	}
+	if v := r.Markers["recovery_paused"]; v > 0 {
+		fmt.Printf("    %-24s : %d\n", "Recovery pauses", v)
+	}
+	if v := r.Markers["conflict_terminate"] + r.Markers["conflict_cancel"]; v > 0 {
+		line := fmt.Sprintf("    %-24s : %d", "Conflicts with recovery", v)
+		if n := len(r.ConflictQueries); n > 0 {
+			line += fmt.Sprintf("   %s(%d unique queries terminated)%s", muted, n, reset)
+		}
+		fmt.Println(line)
+	}
+	if v := r.Markers["slot_invalidated"]; v > 0 {
+		fmt.Printf("    %-24s : %d\n", "Invalidated slots", v)
+	}
+	// One line per termination cause — the four PG markers map to four
+	// diametrically opposite scenarios (replica side vs primary side),
+	// so collapsing them would hide the diagnostic. Each row carries a
+	// short hint naming the side of the cluster at fault; the
+	// LastTermination timestamp is appended to the last fired row only
+	// so a DBA jumps to the right window without us repeating it on
+	// every line.
+	type termRow struct{ key, label, hint string }
+	termRows := []termRow{
+		{"wal_receive_failed", "WAL receive failures", "replica lost primary"},
+		{"walsender_timeout", "Walsender timeouts", "primary side — replica too slow"},
+		{"replication_term", "Replication terminations", "primary closed walsender"},
+		{"unexpected_eof", "Unexpected EOFs", "abrupt walsender disconnect"},
+	}
+	fired := make([]termRow, 0, len(termRows))
+	for _, t := range termRows {
+		if r.Markers[t.key] > 0 {
+			fired = append(fired, t)
+		}
+	}
+	for i, t := range fired {
+		line := fmt.Sprintf("    %-24s : %d", t.label, r.Markers[t.key])
+		suffix := t.hint
+		if i == len(fired)-1 && !r.LastTermination.IsZero() {
+			suffix += ", last " + r.LastTermination.Format("15:04:05")
+		}
+		line += fmt.Sprintf("   %s(%s)%s", muted, suffix, reset)
+		fmt.Println(line)
+	}
+}
+
+// signalName maps the POSIX signal numbers PostgreSQL backends are
+// commonly terminated with to their canonical names. Unknown numbers
+// fall through to "signal N" so the renderer never lies — but in
+// practice 6/9/11/15 cover essentially every real backend crash log.
+var signalName = map[string]string{
+	"1":  "SIGHUP",
+	"2":  "SIGINT",
+	"3":  "SIGQUIT",
+	"6":  "SIGABRT", // assertion failure, abort()
+	"9":  "SIGKILL", // OOM killer, kill -9
+	"11": "SIGSEGV", // segfault
+	"13": "SIGPIPE",
+	"14": "SIGALRM",
+	"15": "SIGTERM", // pg_ctl stop, systemd
+}
+
+// formatSignalCounts renders the SignalCounts map as a human-readable
+// "(SIGKILL ×1, SIGSEGV ×2)" string. Sorted by signal number so the
+// output is stable across runs.
+func formatSignalCounts(counts map[string]int) string {
+	if len(counts) == 0 {
+		return ""
+	}
+	sigs := make([]string, 0, len(counts))
+	for sig := range counts {
+		sigs = append(sigs, sig)
+	}
+	sort.Slice(sigs, func(i, j int) bool {
+		ai, _ := strconv.Atoi(sigs[i])
+		aj, _ := strconv.Atoi(sigs[j])
+		if ai != aj {
+			return ai < aj
+		}
+		return sigs[i] < sigs[j]
+	})
+	var b strings.Builder
+	b.WriteByte('(')
+	for i, sig := range sigs {
+		if i > 0 {
+			b.WriteString(", ")
+		}
+		name, ok := signalName[sig]
+		if !ok {
+			name = "signal " + sig
+		}
+		fmt.Fprintf(&b, "%s ×%d", name, counts[sig])
+	}
+	b.WriteByte(')')
+	return b.String()
+}
+
+// printParameterChangesTable emits the "Parameter / Old / New / When"
+// mini-table. Old is always empty for SIGHUP-driven changes (PG does
+// not log the previous value); the column is kept so the layout
+// matches a future "diff" enrichment without breaking consumers.
+func printParameterChangesTable(changes []analysis.ServerParameterChange) {
+	fmt.Println()
+	fmt.Println("  Config parameter changes:")
+	// Compute column widths.
+	paramW := len("Parameter")
+	oldW := len("Old")
+	newW := len("New")
+	for _, c := range changes {
+		if len(c.Parameter) > paramW {
+			paramW = len(c.Parameter)
+		}
+		if len(c.Old) > oldW {
+			oldW = len(c.Old)
+		}
+		if len(c.New) > newW {
+			newW = len(c.New)
+		}
+	}
+	if oldW < 3 {
+		oldW = 3
+	}
+	if newW < 3 {
+		newW = 3
+	}
+	fmt.Printf("    %-*s  %-*s  %-*s  %s\n", paramW, "Parameter", oldW, "Old", newW, "New", "When")
+	for _, c := range changes {
+		old := c.Old
+		if old == "" {
+			old = "-"
+		}
+		fmt.Printf("    %-*s  %-*s  %-*s  %s\n",
+			paramW, c.Parameter,
+			oldW, old,
+			newW, c.New,
+			c.Timestamp.Format("15:04:05"))
+	}
+}
+
+// printServerTimeline emits the compact timeline at the bottom of the
+// section: one line per event, "HH:MM:SS  event-tag  detail".
+func printServerTimeline(events []analysis.ServerTimelineEvent) {
+	fmt.Println()
+	fmt.Println("  Timeline:")
+	for _, ev := range events {
+		fmt.Printf("    %s  %-10s  %s\n",
+			ev.Timestamp.Format("15:04:05"),
+			ev.Kind,
+			ev.Detail)
 	}
 }
 

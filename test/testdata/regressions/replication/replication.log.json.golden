@@ -1,0 +1,194 @@
+{
+  "apps": [
+    {
+      "name": "etl",
+      "count": 1
+    },
+    {
+      "name": "reports",
+      "count": 1
+    }
+  ],
+  "clients": {
+    "unique_databases": 1,
+    "unique_users": 1,
+    "unique_apps": 2,
+    "unique_hosts": 2
+  },
+  "databases": [
+    {
+      "name": "appdb",
+      "count": 2
+    }
+  ],
+  "events": [
+    {
+      "type": "LOG",
+      "count": 5,
+      "percentage": 62.5
+    },
+    {
+      "type": "ERROR",
+      "count": 2,
+      "percentage": 25
+    },
+    {
+      "type": "FATAL",
+      "count": 1,
+      "percentage": 12.5
+    }
+  ],
+  "hosts": [
+    {
+      "name": "10.0.0.5",
+      "count": 1
+    },
+    {
+      "name": "10.0.0.6",
+      "count": 1
+    }
+  ],
+  "replication": {
+    "total_events": 8,
+    "stream_reconnects": 3,
+    "conflicts_with_recovery": 2,
+    "replication_terminations": 3,
+    "last_termination": "2026-04-20 12:01:05",
+    "peak_hour_label": "04:00-05:00",
+    "peak_hour_count": 2,
+    "markers": {
+      "conflict_cancel": 1,
+      "conflict_terminate": 1,
+      "replication_term": 1,
+      "stream_started": 3,
+      "wal_receive_failed": 1,
+      "walsender_timeout": 1
+    },
+    "hour_counts": {
+      "02": 1,
+      "04": 4,
+      "09": 2,
+      "12": 1
+    },
+    "conflict_queries": [
+      {
+        "id": "se-EgBDzg",
+        "normalized_query": "select count(*) from public.events where created_at \u003e now() - interval ?",
+        "raw_query": "select count(*) from public.events where created_at \u003e now() - interval '1 day'",
+        "count": 1
+      },
+      {
+        "id": "up-5xrHIo",
+        "normalized_query": "update public.app_node set last_seen = now() where id = ?",
+        "raw_query": "update public.app_node set last_seen = now() where id = 42",
+        "count": 1
+      }
+    ],
+    "events": [
+      {
+        "timestamp": "2026-04-20 02:00:01",
+        "marker": "stream_started",
+        "severity": "LOG"
+      },
+      {
+        "timestamp": "2026-04-20 04:15:33",
+        "marker": "wal_receive_failed",
+        "severity": "ERROR"
+      },
+      {
+        "timestamp": "2026-04-20 04:16:00",
+        "marker": "stream_started",
+        "severity": "LOG"
+      },
+      {
+        "timestamp": "2026-04-20 04:32:11",
+        "marker": "replication_term",
+        "severity": "LOG"
+      },
+      {
+        "timestamp": "2026-04-20 04:32:45",
+        "marker": "stream_started",
+        "severity": "LOG"
+      },
+      {
+        "timestamp": "2026-04-20 09:18:22",
+        "marker": "conflict_cancel",
+        "severity": "ERROR"
+      },
+      {
+        "timestamp": "2026-04-20 09:22:14",
+        "marker": "conflict_terminate",
+        "severity": "FATAL"
+      },
+      {
+        "timestamp": "2026-04-20 12:01:05",
+        "marker": "walsender_timeout",
+        "severity": "LOG"
+      }
+    ]
+  },
+  "summary": {
+    "start_date": "2026-04-20 02:00:01",
+    "end_date": "2026-04-20 12:01:05",
+    "duration": "10h1m4.7s",
+    "total_logs": 8,
+    "throughput": "0.00 entries/s",
+    "error_count": 2,
+    "fatal_count": 1,
+    "panic_count": 0,
+    "warning_count": 0,
+    "log_count": 5
+  },
+  "top_events": [
+    {
+      "id": "er-KAnK",
+      "message": "canceling statement due to conflict with recovery",
+      "count": 1,
+      "severity": "ERROR",
+      "example": "[20006]: [1-1] user=postgres,db=appdb,app=reports,client=10.0.0.5 ERROR:  canceling statement due to conflict with recovery",
+      "timestamps": [
+        1776676702600
+      ],
+      "triggering_queries": [
+        {
+          "id": "se-EgBDzg",
+          "normalized_query": "select count(*) from public.events where created_at \u003e now() - interval ?",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "er-JZ96",
+      "message": "could not receive data from WAL stream: SSL connection has been closed unexpectedly",
+      "count": 1,
+      "severity": "ERROR",
+      "example": "[20002]: [1-1] user=,db=,app=,client= ERROR:  could not receive data from WAL stream: SSL connection has been closed unexpectedly",
+      "timestamps": [
+        1776658533200
+      ]
+    },
+    {
+      "id": "fa-6cmK",
+      "message": "terminating connection due to conflict with recovery",
+      "count": 1,
+      "severity": "FATAL",
+      "example": "[20007]: [1-1] user=postgres,db=appdb,app=etl,client=10.0.0.6 FATAL:  terminating connection due to conflict with recovery",
+      "timestamps": [
+        1776676934700
+      ],
+      "triggering_queries": [
+        {
+          "id": "up-5xrHIo",
+          "normalized_query": "update public.app_node set last_seen = now() where id = ?",
+          "count": 1
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "name": "postgres",
+      "count": 2
+    }
+  ]
+}

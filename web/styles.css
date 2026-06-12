@@ -1117,18 +1117,23 @@
             white-space: nowrap;
         }
 
+        /* min-width: 0 lets the meta column shrink below its content's
+           intrinsic width inside the header flex row — without it the
+           filename/parsetime overflow the card edge on narrow layouts
+           instead of ellipsizing. */
         .summary-meta {
             display: flex;
             flex-direction: column;
             align-items: flex-end;
             gap: 0.1rem;
+            min-width: 0;
         }
 
         .summary-filename {
             font-size: 0.75rem;
             font-weight: 400;
             color: var(--text-muted);
-            max-width: 200px;
+            max-width: 100%;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
@@ -1137,12 +1142,94 @@
         .summary-parsetime {
             font-size: 0.75rem;
             color: var(--text-muted);
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
         .summary-separator {
             height: 1px;
             background: var(--border);
             margin-bottom: 1rem;
+        }
+
+        /* Tighter variant for the separator sitting right above the
+           server line — keeps the vertical list from inflating the
+           Summary card. */
+        .summary-separator--tight {
+            margin-bottom: 0.6rem;
+        }
+
+        /* Server health zone: a fixed two-column grid whatever the
+           fragment count, so the geometry is identical on every report
+           (one message sits top-left, more fill column-major — read
+           down the left column first). Tight line-height keeps four
+           rows under ~60px. */
+        .summary-server-line {
+            display: grid;
+            grid-auto-flow: column;
+            grid-template-columns: 1fr 1fr;
+            column-gap: 1.2rem;
+            row-gap: 0.1rem;
+            justify-items: start;
+            padding: 0 0.4rem;
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            margin: 0;
+            line-height: 1.4;
+            letter-spacing: 0.01em;
+            text-align: left;
+        }
+
+        .summary-server-row {
+            display: flex;
+            align-items: baseline;
+            gap: 0.45rem;
+            white-space: nowrap;
+        }
+
+        .summary-server-detail {
+            color: var(--text-muted);
+            opacity: 0.8;
+            font-size: 0.95em;
+        }
+
+        .summary-server-frag {
+            white-space: nowrap;
+        }
+
+        /* Fragments carrying a diagnostic tooltip get a subtle dotted
+           underline + help cursor so the hover affordance is
+           discoverable without adding visual weight. */
+        .summary-server-frag[title] {
+            cursor: help;
+            text-decoration: underline dotted;
+            text-decoration-thickness: 1px;
+            text-underline-offset: 3px;
+            text-decoration-color: var(--border);
+        }
+
+        .summary-server-info {
+            color: var(--text-muted);
+        }
+
+        /* Empty state — same zone, same top-left slot, dimmer voice.
+           Italic + reduced opacity so "nothing happened" never competes
+           with real fragments on neighbouring reports. */
+        .summary-server-empty {
+            color: var(--text-muted);
+            font-style: italic;
+            opacity: 0.65;
+        }
+
+        .summary-server-warning {
+            color: var(--warning);
+        }
+
+        .summary-server-alert {
+            color: var(--danger);
+            font-weight: 500;
         }
 
         .summary-tiles {
@@ -1176,7 +1263,7 @@
 
         /* Timeline with day context */
         .summary-timeline {
-            padding: 0.5rem 0;
+            padding: 0.5rem 0 0.15rem;
         }
 
         .summary-timeline-row {
@@ -1186,9 +1273,13 @@
             margin-bottom: 0.4rem;
         }
 
+        /* Same family as the rest of the card; tabular-nums keeps the
+           digits on a fixed pitch so the bounds stay visually stable
+           without the code-like monospace that broke the typographic
+           rhythm of the widget. */
         .summary-timeline-bound {
-            font-family: 'SF Mono', Monaco, Consolas, monospace;
             font-size: 0.65rem;
+            font-variant-numeric: tabular-nums;
             color: var(--text-muted);
             opacity: 0.6;
         }
@@ -1220,8 +1311,8 @@
         .summary-timeline-range {
             position: absolute;
             transform: translateX(-50%);
-            font-family: 'SF Mono', Monaco, Consolas, monospace;
             font-size: 0.72rem;
+            font-variant-numeric: tabular-nums;
             color: var(--text-muted);
             white-space: nowrap;
         }

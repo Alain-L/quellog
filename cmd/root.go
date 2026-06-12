@@ -53,6 +53,7 @@ var (
 	checkpointsFlag bool // --checkpoints: Print only checkpoints section
 	connectionsFlag bool // --connections: Print only connections section
 	clientsFlag     bool // --clients: Print only clients section
+	serverFlag bool // --server: Print only server lifecycle section (incl. replication sub-zone)
 
 	// Output format flags
 	jsonFlag        bool // --json: Export results in JSON format
@@ -219,6 +220,8 @@ func init() {
 		"Print only the connections section")
 	rootCmd.Flags().BoolVar(&clientsFlag, "clients", false,
 		"Print only the clients section")
+	rootCmd.Flags().BoolVar(&serverFlag, "server", false,
+		"Print only the server lifecycle section (incl. replication sub-zone)")
 
 	// Output format flags
 	rootCmd.PersistentFlags().BoolVarP(&jsonFlag, "json", "J", false,

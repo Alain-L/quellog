@@ -327,3 +327,167 @@ func TestRegression_VacuumContinuationsParsed(t *testing.T) {
 		t.Errorf("slowest_vacuum.elapsed_seconds = %v, want ~45.789", v)
 	}
 }
+
+// TestRegression_ServerSectionCapturesLifecycle pins the server-section
+// markers parser: starts, SIGHUP reloads, parameter changes, fast
+// shutdowns, backend signal crashes and crash-recovery announcements.
+//
+// The fixture mixes (in order):
+//   - 1 "not properly shut down" + 1 start (crash-recovery dance)
+//   - 1 SIGHUP that carries 2 "parameter X changed to Y" lines
+//   - 1 "server process terminated by signal 11" (backend crash)
+//   - 1 fast shutdown + 1 shutdown completed line
+//
+// The test pins the counts and the parameter-change extraction so a
+// future refactor of the prefix-stripping or the body matchers does
+// not silently lose a marker (each one represents real grep work a
+// DBA would otherwise redo manually during a post-mortem).
+func TestRegression_ServerSectionCapturesLifecycle(t *testing.T) {
+	got := runFixtureJSON(t, "testdata/regressions/server/server.log")
+	srv, ok := got["server"].(map[string]any)
+	if !ok {
+		t.Fatal("missing 'server' section in JSON output")
+	}
+
+	// Counters.
+	if v, _ := srv["starts"].(float64); v != 1 {
+		t.Errorf("starts = %v, want 1", v)
+	}
+	if v, _ := srv["reloads"].(float64); v != 1 {
+		t.Errorf("reloads = %v, want 1", v)
+	}
+	if v, _ := srv["shutdowns_fast"].(float64); v != 1 {
+		t.Errorf("shutdowns_fast = %v, want 1", v)
+	}
+	if v, _ := srv["crash_recoveries"].(float64); v != 1 {
+		t.Errorf("crash_recoveries = %v, want 1", v)
+	}
+	if v, _ := srv["backend_crashes"].(float64); v != 1 {
+		t.Errorf("backend_crashes = %v, want 1", v)
+	}
+	if v, _ := srv["shutdown_completed"].(float64); v != 1 {
+		t.Errorf("shutdown_completed = %v, want 1", v)
+	}
+
+	// Signal breakdown — signal 11 (SIGSEGV) is the test crash.
+	sigs, _ := srv["signal_counts"].(map[string]any)
+	if v, _ := sigs["11"].(float64); v != 1 {
+		t.Errorf("signal_counts[\"11\"] = %v, want 1", v)
+	}
+
+	// Parameter changes: 2 entries from the SIGHUP, "work_mem" first.
+	params, _ := srv["parameter_changes"].([]any)
+	if len(params) != 2 {
+		t.Fatalf("parameter_changes length = %d, want 2", len(params))
+	}
+	first, _ := params[0].(map[string]any)
+	if first["parameter"] != "work_mem" {
+		t.Errorf("parameter_changes[0].parameter = %v, want work_mem", first["parameter"])
+	}
+	if first["new"] != "16MB" {
+		t.Errorf("parameter_changes[0].new = %v, want 16MB", first["new"])
+	}
+	second, _ := params[1].(map[string]any)
+	if second["parameter"] != "log_min_duration_statement" {
+		t.Errorf("parameter_changes[1].parameter = %v, want log_min_duration_statement", second["parameter"])
+	}
+
+	// Timeline carries one entry per lifecycle event, in order.
+	timeline, _ := srv["timeline"].([]any)
+	if len(timeline) != 5 {
+		t.Fatalf("timeline length = %d, want 5 (recovery, start, sighup, crash, shutdown)", len(timeline))
+	}
+	kinds := []string{"recovery", "start", "sighup", "crash", "shutdown"}
+	for i, want := range kinds {
+		ev, _ := timeline[i].(map[string]any)
+		if ev["kind"] != want {
+			t.Errorf("timeline[%d].kind = %v, want %v", i, ev["kind"], want)
+		}
+	}
+}
+// TestRegression_ReplicationSectionCapturesMarkers pins the parsing of
+// the small but operationally-critical replication marker set (stream
+// reconnects, WAL receive failures, replication terminations, recovery
+// conflicts, walsender timeouts). The fixture mixes the most common
+// real-world markers we see on Dalibo customer logs and asserts:
+//
+//   - per-marker counts in the markers map,
+//   - the rolled-up headline counters (stream_reconnects, terminations,
+//     conflicts) match the per-marker totals,
+//   - last_termination points at the latest of the four termination
+//     markers (here: the 12:01 walsender timeout),
+//   - peak_hour_label is set when two reconnects fall in the same hour,
+//   - conflict_queries resolve to a SQLID via the STATEMENT continuation
+//     line that follows a recovery-conflict event for the same PID.
+func TestRegression_ReplicationSectionCapturesMarkers(t *testing.T) {
+	got := runFixtureJSON(t, "testdata/regressions/replication/replication.log")
+	r, ok := got["replication"].(map[string]any)
+	if !ok {
+		t.Fatal("missing 'replication' section")
+	}
+
+	// Per-marker counts.
+	markers, _ := r["markers"].(map[string]any)
+	if v, _ := markers["stream_started"].(float64); v != 3 {
+		t.Errorf("markers.stream_started = %v, want 3", v)
+	}
+	if v, _ := markers["wal_receive_failed"].(float64); v != 1 {
+		t.Errorf("markers.wal_receive_failed = %v, want 1", v)
+	}
+	if v, _ := markers["replication_term"].(float64); v != 1 {
+		t.Errorf("markers.replication_term = %v, want 1", v)
+	}
+	if v, _ := markers["walsender_timeout"].(float64); v != 1 {
+		t.Errorf("markers.walsender_timeout = %v, want 1", v)
+	}
+	if v, _ := markers["conflict_cancel"].(float64); v != 1 {
+		t.Errorf("markers.conflict_cancel = %v, want 1", v)
+	}
+	if v, _ := markers["conflict_terminate"].(float64); v != 1 {
+		t.Errorf("markers.conflict_terminate = %v, want 1", v)
+	}
+
+	// Rolled-up headlines.
+	if v, _ := r["stream_reconnects"].(float64); v != 3 {
+		t.Errorf("stream_reconnects = %v, want 3", v)
+	}
+	if v, _ := r["conflicts_with_recovery"].(float64); v != 2 {
+		t.Errorf("conflicts_with_recovery = %v, want 2 (cancel + terminate)", v)
+	}
+	if v, _ := r["replication_terminations"].(float64); v != 3 {
+		t.Errorf("replication_terminations = %v, want 3 (wal_receive_failed + replication_term + walsender_timeout)", v)
+	}
+	if v, _ := r["total_events"].(float64); v != 8 {
+		t.Errorf("total_events = %v, want 8", v)
+	}
+
+	// Most recent termination is the 12:01 walsender timeout.
+	if v, _ := r["last_termination"].(string); v != "2026-04-20 12:01:05" {
+		t.Errorf("last_termination = %v, want 2026-04-20 12:01:05", v)
+	}
+
+	// Two reconnects fall in the same hour (04:16 + 04:32) → peak hour.
+	if v, _ := r["peak_hour_label"].(string); v != "04:00-05:00" {
+		t.Errorf("peak_hour_label = %v, want 04:00-05:00", v)
+	}
+	if v, _ := r["peak_hour_count"].(float64); v != 2 {
+		t.Errorf("peak_hour_count = %v, want 2", v)
+	}
+
+	// Two unique conflict queries; each resolved via STATEMENT continuation.
+	cq, _ := r["conflict_queries"].([]any)
+	if len(cq) != 2 {
+		t.Fatalf("conflict_queries length = %d, want 2", len(cq))
+	}
+	for i, qAny := range cq {
+		q, _ := qAny.(map[string]any)
+		id, _ := q["id"].(string)
+		if id == "" {
+			t.Errorf("conflict_queries[%d].id is empty (STATEMENT continuation not resolved)", i)
+		}
+		if c, _ := q["count"].(float64); c != 1 {
+			t.Errorf("conflict_queries[%d].count = %v, want 1", i, c)
+		}
+	}
+}
+
