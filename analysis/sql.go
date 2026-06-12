@@ -724,54 +724,89 @@ func NewSQLAnalyzerWithSize(inputBytes int64) *SQLAnalyzer {
 //
 //	"LOG: duration: 5.123 ms execute <unnamed>: SELECT * FROM users WHERE id = 1"
 //	"LOG: duration: 10.456 ms statement: UPDATE users SET name = 'John' WHERE id = 1"
+//
+// handleParamsMessage pairs a "DETAIL: parameters:" continuation with
+// the pending execute: entry of the same PID and stores the bound
+// values on the query's SlowestRun when this run is the slowest seen.
+func (a *SQLAnalyzer) handleParamsMessage(entry *parser.LogEntry, msg string) {
+	pid := entry.PID
+	if pid == "" {
+		return
+	}
+	pe, ok := a.pendingExecByPID[pid]
+	if !ok {
+		return
+	}
+	if stat, found := a.queryStats[pe.statsKey]; found {
+		if stat.SlowestRun == nil || pe.duration > stat.SlowestRun.DurationMs {
+			params := extractParameters(msg)
+			if len(params) > slowestRunParamsCap {
+				params = params[:slowestRunParamsCap]
+			}
+			stat.SlowestRun = &SlowestRun{
+				DurationMs: pe.duration,
+				Timestamp:  pe.timestamp,
+				PID:        pid,
+				Parameters: params,
+				Database:   pe.database,
+				User:       pe.user,
+				App:        pe.app,
+				Host:       pe.host,
+			}
+		}
+	}
+	delete(a.pendingExecByPID, pid)
+}
+
 func (a *SQLAnalyzer) Process(entry *parser.LogEntry) {
 	msg := entry.Message
 
-	// Intercept auto_explain plan: messages before normal processing.
-	// These arrive BEFORE the corresponding statement: entry for the same PID.
-	if isPlanMessage(msg) {
-		pid := entry.PID
-		if pid != "" {
-			if plan := extractPlanText(msg); plan != "" {
-				a.pendingPlanByPID[pid] = plan
-			}
+	// One scan for "duration:" gates everything below: auto_explain
+	// plan messages carry it, and so does every timed execution. The
+	// only SQL-relevant entries WITHOUT it are the "DETAIL:
+	// parameters:" continuations — handled in the no-duration branch.
+	// This replaces three independent full-message scans per entry
+	// (plan, params, duration) with one on the dominant paths.
+	durIdx := strings.Index(msg, "duration:")
+
+	if durIdx == -1 {
+		// Intercept "DETAIL: parameters:" entries. These follow an
+		// execute: entry on the same backend; pair them by PID with
+		// pendingExecByPID to remember the parameter values of the
+		// slowest run per query.
+		if isParamsMessage(msg) {
+			a.handleParamsMessage(entry, msg)
 		}
 		return
 	}
 
-	// Intercept "DETAIL: parameters:" entries. These follow an execute:
-	// entry on the same backend; pair them by PID with pendingExecByPID
-	// to remember the parameter values of the slowest run per query.
-	if isParamsMessage(msg) {
-		pid := entry.PID
-		if pid != "" {
-			if pe, ok := a.pendingExecByPID[pid]; ok {
-				if stat, found := a.queryStats[pe.statsKey]; found {
-					if stat.SlowestRun == nil || pe.duration > stat.SlowestRun.DurationMs {
-						params := extractParameters(msg)
-						if len(params) > slowestRunParamsCap {
-							params = params[:slowestRunParamsCap]
-						}
-						stat.SlowestRun = &SlowestRun{
-							DurationMs: pe.duration,
-							Timestamp:  pe.timestamp,
-							PID:        pid,
-							Parameters: params,
-							Database:   pe.database,
-							User:       pe.user,
-							App:        pe.app,
-							Host:       pe.host,
-						}
-					}
+	// Intercept auto_explain plan: messages before normal processing.
+	// These arrive BEFORE the corresponding statement: entry for the
+	// same PID. Same predicate as the original isPlanMessage, with the
+	// duration position already known.
+	if strings.Contains(msg, "plan:") {
+		rest := msg[durIdx:]
+		if !strings.Contains(rest, "statement:") && !strings.Contains(rest, "execute") {
+			pid := entry.PID
+			if pid != "" {
+				if plan := extractPlanText(msg); plan != "" {
+					a.pendingPlanByPID[pid] = plan
 				}
-				delete(a.pendingExecByPID, pid)
 			}
+			return
 		}
+	}
+
+	// Preserve the original predicate order: a "DETAIL: parameters:"
+	// continuation wins over the execution path even in the unlikely
+	// case a parameter value embeds "duration:".
+	if isParamsMessage(msg) {
+		a.handleParamsMessage(entry, msg)
 		return
 	}
 
 	// Extract duration, query, and optional prepared-statement name.
-	duration, query, preparedName, ok := extractDurationAndQuery(msg)
+	duration, query, preparedName, ok := extractDurationAndQueryAt(msg, durIdx)
 	if !ok {
 		return
 	}
@@ -1114,8 +1149,12 @@ func percentileFromSorted(sorted []float64, percentile int) float64 {
 // Query extraction from log messages
 // ============================================================================
 
-// extractDurationAndQuery parses duration, query text, and the optional
-// prepared-statement name from a PostgreSQL log message.
+// extractDurationAndQueryAt parses duration, query text, and the
+// optional prepared-statement name from a PostgreSQL log message. The
+// position of the "duration:" marker is expected to be already known —
+// Process finds it once and shares it between the plan-message check,
+// the params check, and this extraction, saving full message scans
+// per entry on the hot path.
 //
 // Expected format:
 //
@@ -1133,14 +1172,7 @@ func percentileFromSorted(sorted []float64, percentile int) float64 {
 //   - Single pass parsing
 //   - No intermediate string allocations
 //   - Manual whitespace skipping
-func extractDurationAndQuery(message string) (duration float64, query, preparedName string, ok bool) {
-	// Quick length check
-	if len(message) < 20 {
-		return 0, "", "", false
-	}
-
-	// Find "duration:" marker
-	durIdx := strings.Index(message, "duration:")
+func extractDurationAndQueryAt(message string, durIdx int) (duration float64, query, preparedName string, ok bool) {
 	if durIdx == -1 {
 		return 0, "", "", false
 	}
@@ -1288,25 +1320,6 @@ func extractParameters(message string) string {
 		return ""
 	}
 	return strings.TrimSpace(message[idx+len("parameters:"):])
-}
-
-// isPlanMessage returns true if the message is an auto_explain plan entry.
-// These contain "duration:" followed by "plan:" but NOT "statement:" or "execute:".
-func isPlanMessage(message string) bool {
-	// Fast reject: "plan:" is rare, check it first
-	if !strings.Contains(message, "plan:") {
-		return false
-	}
-	durIdx := strings.Index(message, "duration:")
-	if durIdx == -1 {
-		return false
-	}
-	rest := message[durIdx:]
-	// Exclude normal statement/execute entries that happen to contain "plan" in the query text
-	if strings.Contains(rest, "statement:") || strings.Contains(rest, "execute") {
-		return false
-	}
-	return true
 }
 
 // extractPlanText extracts the execution plan text from an auto_explain message.
