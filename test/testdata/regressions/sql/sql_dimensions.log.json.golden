@@ -123,7 +123,7 @@
         "type": "",
         "count": 10,
         "total_time_ms": 78.671,
-        "avg_time_ms": 7.867100000000001,
+        "avg_time_ms": 7.867,
         "max_time_ms": 50.789,
         "prepared_names": [
           "\u003cunnamed\u003e"

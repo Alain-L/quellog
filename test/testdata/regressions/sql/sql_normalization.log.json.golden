@@ -192,7 +192,7 @@
         "type": "",
         "count": 2,
         "total_time_ms": 6.333,
-        "avg_time_ms": 3.1665,
+        "avg_time_ms": 3.167,
         "max_time_ms": 3.222,
         "top_databases": [
           {
@@ -259,8 +259,8 @@
         "raw_query": "UPDATE users SET email = 'a@b.com' WHERE id = 1",
         "type": "",
         "count": 2,
-        "total_time_ms": 11.466999999999999,
-        "avg_time_ms": 5.733499999999999,
+        "total_time_ms": 11.467,
+        "avg_time_ms": 5.733,
         "max_time_ms": 5.789,
         "top_databases": [
           {
