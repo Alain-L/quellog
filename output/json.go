@@ -1963,7 +1963,11 @@ func buildJSONData(m analysis.AggregatedMetrics, sections []string, full bool) m
 		data["maintenance"] = buildMaintenanceJSON(m.Vacuum)
 	}
 
-	if has("replication") && m.Replication.HasAny {
+	// Replication is gated on the server section: the --replication flag
+	// is gone and --server covers both scopes (the CLI/MD renderers fold
+	// replication into SERVER as a sub-zone). The JSON keys stay separate
+	// so downstream consumers can target either side independently.
+	if has("server") && m.Replication.HasAny {
 		data["replication"] = buildReplicationJSON(m.Replication)
 	}
 
