@@ -108,6 +108,18 @@ func (p *StderrParser) Parse(filename string, out chan<- []LogEntry) error {
 		return fmt.Errorf("failed to seek to start: %w", err)
 	}
 
+	// Large plain stderr files take the parallel segment path: segment
+	// boundaries are computed with the same entry-start predicate the
+	// sequential loop uses, so each segment is parsed by the unchanged
+	// parseReader and the ordered re-emission reproduces the sequential
+	// stream exactly. Syslog stays sequential (per-PID accumulation +
+	// final sort are global), as do small files.
+	if st, serr := file.Stat(); serr == nil && st.Size() >= stderrParallelMinSize {
+		if workers := parallelWorkers(); workers >= 2 {
+			return p.parseParallel(file, st.Size(), workers, out)
+		}
+	}
+
 	return p.parseReader(WithProgress(file), out)
 }
 
