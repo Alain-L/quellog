@@ -2687,6 +2687,28 @@ function buildEventsSection(data) {
                 if (q.min_time_ms != null) {
                     html += '<div class="qd-stat"><div class="qd-stat-label">Min</div><div class="qd-stat-value">' + fmtMsLong(q.min_time_ms) + '</div></div>';
                 }
+                // Dimensions inlined into the same flex row as
+                // TYPE / COUNT / TOTAL / AVG / MAX so the "who ran
+                // this" answer sits right next to the duration stats.
+                // Placed BEFORE Prepared as so the wide prepared-names
+                // grid (which forces a row break) doesn't push the
+                // dimensions below it.
+                const dimAxes = [
+                    ['Databases', q.top_databases],
+                    ['Users',     q.top_users],
+                    ['Apps',      q.top_apps],
+                    ['Hosts',     q.top_hosts],
+                ];
+                dimAxes.forEach(([label, rows]) => {
+                    if (!Array.isArray(rows) || rows.length === 0) return;
+                    const parts = rows.map(r =>
+                        '<span class="qd-dim-inline">'
+                        + '<span class="qd-dim-name">' + esc(r.name) + '</span>'
+                        + '<span class="qd-dim-count">' + fmt(r.count) + '</span>'
+                        + '</span>'
+                    ).join('<span class="qd-dim-sep">·</span>');
+                    html += '<div class="qd-stat qd-stat-dim"><div class="qd-stat-label">' + label + '</div><div class="qd-stat-value qd-stat-value-dims">' + parts + '</div></div>';
+                });
                 if (q.prepared_names && q.prepared_names.length > 0) {
                     const names = q.prepared_names;
                     const single = names.length === 1;
@@ -2730,20 +2752,6 @@ function buildEventsSection(data) {
                     html += buildQdDurationDistribution(execs);
                 }
                 html += '</div>';
-            }
-
-            // DIMENSIONS section — top-5 db/user/app/host that have
-            // executed this query. Sits between Query Info and the
-            // operational EVENTS block so the "who runs this slow
-            // query" answer is visible up top.
-            if (q) {
-                const dimsHtml = buildQdDimensions(q);
-                if (dimsHtml) {
-                    html += '<div class="qd-section">';
-                    html += '<div class="qd-section-title">Dimensions</div>';
-                    html += dimsHtml;
-                    html += '</div>';
-                }
             }
 
             // EVENTS section — promoted to right after Query Info so
@@ -3112,33 +3120,6 @@ function buildEventsSection(data) {
         }
 
         // Build time-based histogram container (renders with uPlot)
-        // buildQdDimensions renders the DIMENSIONS section body for the
-        // Query Detail modal. Each non-empty axis becomes a small block
-        // (label + ranked rows). Returns "" when none of the four axes
-        // carries data so the caller can drop the whole section.
-        function buildQdDimensions(q) {
-            const blocks = [
-                ['DATABASES', q?.top_databases],
-                ['USERS', q?.top_users],
-                ['APPS', q?.top_apps],
-                ['HOSTS', q?.top_hosts],
-            ];
-            const filled = blocks.filter(b => Array.isArray(b[1]) && b[1].length > 0);
-            if (filled.length === 0) return '';
-            let html = '<div class="qd-dimensions">';
-            for (const [label, rows] of filled) {
-                html += '<div class="qd-dim-block">';
-                html += '<div class="qd-dim-label">' + label + '</div>';
-                html += '<div class="qd-dim-rows">';
-                for (const r of rows) {
-                    html += '<div class="qd-dim-row"><span class="qd-dim-name" title="' + esc(r.name) + '">' + esc(r.name) + '</span><span class="qd-dim-count">' + fmt(r.count) + '</span></div>';
-                }
-                html += '</div></div>';
-            }
-            html += '</div>';
-            return html;
-        }
-
         function buildQdHistogram(timestamps, title, unit) {
             if (!timestamps || timestamps.length === 0) return '';
             const times = timestamps.map(t => new Date(t).getTime()).filter(t => !isNaN(t)).sort((a,b) => a - b);

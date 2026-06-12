@@ -2189,52 +2189,37 @@
             flex-basis: 100%;
         }
 
-        /* DIMENSIONS section grid — 4 small panels (databases / users /
-           apps / hosts) laid out responsively. Each panel lists the top
-           ranked names with their counts. Two columns on narrower
-           viewports, up to four when the modal is wide enough. */
-        .qd-dimensions {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            gap: 0.6rem;
+        /* Dimensions inlined in the Query Info flex row alongside
+           TYPE / COUNT / TOTAL / AVG / MAX. Value typography mirrors
+           the surrounding stats (1rem, weight 600, default font) so
+           the eye doesn't catch a different rhythm; the count is the
+           only visually-distinct element — muted and tabular. */
+        .qd-stat-dim {
+            min-width: 100px;
         }
-        .qd-dim-block {
-            background: var(--bg-alt);
-            border-radius: 4px;
-            padding: 0.5rem 0.6rem;
-            min-width: 0;
-        }
-        .qd-dim-label {
-            font-size: 0.65rem;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            margin-bottom: 0.3rem;
-        }
-        .qd-dim-rows {
+        .qd-stat-value-dims {
             display: flex;
-            flex-direction: column;
-            gap: 2px;
-            font-size: 0.8rem;
-        }
-        .qd-dim-row {
-            display: flex;
-            justify-content: space-between;
+            flex-wrap: wrap;
             align-items: baseline;
-            gap: 0.5rem;
+            gap: 0.2rem 0.45rem;
+        }
+        .qd-dim-inline {
+            white-space: nowrap;
         }
         .qd-dim-name {
             color: var(--text);
-            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            min-width: 0;
         }
         .qd-dim-count {
             color: var(--text-muted);
+            font-weight: 400;
+            font-size: 0.85em;
             font-variant-numeric: tabular-nums;
-            flex-shrink: 0;
+            margin-left: 0.3rem;
+        }
+        .qd-dim-sep {
+            color: var(--border);
+            font-weight: 400;
+            opacity: 0.6;
         }
 
         /* Grid layout for the prepared-statement names list. The column

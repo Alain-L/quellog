@@ -1567,6 +1567,17 @@ func PrintSQLDetails(m analysis.AggregatedMetrics, queryDetails []string) {
 			if len(sqlStat.PreparedNames) > 0 {
 				fmt.Printf("  Prepared as          : %s\n", formatPreparedNames(sqlStat.PreparedNames))
 			}
+			// Dimensions inlined into the Query Info block so the top-N
+			// db/user/app/host stay next to "who ran this how many
+			// times" without an extra header. Rows auto-hide when the
+			// axis is empty (e.g. logs without %a / %h prefixes).
+			dims := m.SQL.TopDimensionsForID(qid, 5)
+			if !dims.IsEmpty() {
+				printDimensionsRow("Databases", dims.Databases)
+				printDimensionsRow("Users", dims.Users)
+				printDimensionsRow("Apps", dims.Apps)
+				printDimensionsRow("Hosts", dims.Hosts)
+			}
 		}
 
 		// EVENTS section — surfaced right after the Query Info block so
@@ -1616,22 +1627,6 @@ func PrintSQLDetails(m analysis.AggregatedMetrics, queryDetails []string) {
 			fmt.Printf("  Min Duration         : %s\n", formatQueryDuration(minDuration))
 			fmt.Printf("  Median Duration      : %s\n", formatQueryDuration(sqlStat.AvgTime))
 			fmt.Printf("  Max Duration         : %s\n", formatQueryDuration(sqlStat.MaxTime))
-		}
-
-		// DIMENSIONS section — top-5 db/user/app/host that ran this
-		// query. Surfaces the "who calls this slow query" question
-		// every DBA asks in triage.
-		if sqlStat != nil {
-			dims := m.SQL.TopDimensionsForID(qid, 5)
-			if !dims.IsEmpty() {
-				fmt.Println()
-				fmt.Println(bold + "DIMENSIONS" + reset)
-				fmt.Println()
-				printDimensionsRow("Databases", dims.Databases)
-				printDimensionsRow("Users", dims.Users)
-				printDimensionsRow("Apps", dims.Apps)
-				printDimensionsRow("Hosts", dims.Hosts)
-			}
 		}
 
 		// TEMP FILES section (if tempfiles metrics available)
@@ -1811,19 +1806,21 @@ func formatSlowestRunDimensions(sr *analysis.SlowestRun) string {
 	return ", " + strings.Join(parts, ", ")
 }
 
-// printDimensionsRow renders one line of the DIMENSIONS section for
-// --sql-detail. Skips silently when the row has no data so empty
-// dimensions never appear at all. Label width is aligned with the
-// other Query Info lines (e.g. "Total Duration       :").
+// printDimensionsRow renders one line of the Dimensions sub-block
+// under --sql-detail. Skips silently when the row has no data so
+// empty axes never appear at all. Each entry reads "<name> <count>"
+// where <count> is muted italic — same convention as the inline
+// timestamps in SERVER / Replication. Label width is aligned with
+// the other Query Info lines (e.g. "Total Duration       :").
 func printDimensionsRow(label string, rows []analysis.DimensionCount) {
 	if len(rows) == 0 {
 		return
 	}
 	parts := make([]string, 0, len(rows))
 	for _, r := range rows {
-		parts = append(parts, fmt.Sprintf("%s (%s)", r.Name, formatThousands(int64(r.Count))))
+		parts = append(parts, fmt.Sprintf("%s %s%s%s", r.Name, ansiMutedItalic, formatThousands(int64(r.Count)), ansiReset))
 	}
-	fmt.Printf("  %-21s: %s\n", label, strings.Join(parts, ", "))
+	fmt.Printf("  %-21s: %s\n", label, strings.Join(parts, ", ")) // aligned with Query Info ":" column
 }
 
 // formatPreparedNames renders the set of distinct prepared-statement names

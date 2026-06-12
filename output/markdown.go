@@ -1156,15 +1156,17 @@ func formatIntWithCommas(n int64) string {
 }
 
 // writeDimensionsMarkdownRow appends one line of the Dimensions
-// sub-section in --sql-detail markdown. Skips silently when the row
-// has no data so empty dimensions never appear at all.
+// sub-section in --sql-detail markdown. Each entry reads "<name>
+// <count>" with the count italicised — same sobre convention as the
+// CLI (muted italic). Skips silently when the row has no data so
+// empty axes never appear at all.
 func writeDimensionsMarkdownRow(b *strings.Builder, label string, rows []analysis.DimensionCount) {
 	if len(rows) == 0 {
 		return
 	}
 	parts := make([]string, 0, len(rows))
 	for _, r := range rows {
-		parts = append(parts, fmt.Sprintf("%s (%s)", r.Name, formatIntWithCommas(int64(r.Count))))
+		parts = append(parts, fmt.Sprintf("%s *%s*", r.Name, formatIntWithCommas(int64(r.Count))))
 	}
 	b.WriteString(fmt.Sprintf("- **%s**: %s\n", label, strings.Join(parts, ", ")))
 }
@@ -1532,6 +1534,16 @@ func ExportSQLDetailMarkdown(w io.Writer, m analysis.AggregatedMetrics, queryIDs
 			if len(sqlStat.PreparedNames) > 0 {
 				b.WriteString(fmt.Sprintf("- **Prepared as**: %s\n", formatPreparedNames(sqlStat.PreparedNames)))
 			}
+			// Dimensions inlined into the Query Info block — same reason
+			// as the CLI: kept next to "who ran this how many times"
+			// instead of an extra sub-section header.
+			dims := m.SQL.TopDimensionsForID(qid, 5)
+			if !dims.IsEmpty() {
+				writeDimensionsMarkdownRow(&b, "Databases", dims.Databases)
+				writeDimensionsMarkdownRow(&b, "Users", dims.Users)
+				writeDimensionsMarkdownRow(&b, "Apps", dims.Apps)
+				writeDimensionsMarkdownRow(&b, "Hosts", dims.Hosts)
+			}
 		}
 		b.WriteString("\n")
 
@@ -1597,20 +1609,6 @@ func ExportSQLDetailMarkdown(w io.Writer, m analysis.AggregatedMetrics, queryIDs
 			b.WriteString(fmt.Sprintf("- **Min Duration**: %s\n", formatQueryDuration(minDuration)))
 			b.WriteString(fmt.Sprintf("- **Median Duration**: %s\n", formatQueryDuration(sqlStat.AvgTime)))
 			b.WriteString(fmt.Sprintf("- **Max Duration**: %s\n\n", formatQueryDuration(sqlStat.MaxTime)))
-		}
-
-		// DIMENSIONS section — top-5 db/user/app/host that ran this
-		// query. Mirror of the CLI block, sub-section under SQL DETAILS.
-		if sqlStat != nil {
-			dims := m.SQL.TopDimensionsForID(qid, 5)
-			if !dims.IsEmpty() {
-				b.WriteString("### Dimensions\n\n")
-				writeDimensionsMarkdownRow(&b, "Databases", dims.Databases)
-				writeDimensionsMarkdownRow(&b, "Users", dims.Users)
-				writeDimensionsMarkdownRow(&b, "Apps", dims.Apps)
-				writeDimensionsMarkdownRow(&b, "Hosts", dims.Hosts)
-				b.WriteString("\n")
-			}
 		}
 
 		// TEMP FILES section
