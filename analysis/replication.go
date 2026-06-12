@@ -67,9 +67,9 @@ const (
 
 	// Termination markers (LOG or FATAL/ERROR).
 	replMarkerWALReceiveFailed = "wal_receive_failed" // "could not receive data from WAL stream"
-	replMarkerReplicationTerm  = "replication_term"  // "replication terminated by primary server"
-	replMarkerWalsenderTimeout = "walsender_timeout" // "terminating walsender process due to replication timeout"
-	replMarkerUnexpectedEOF    = "unexpected_eof"    // "unexpected EOF on standby connection"
+	replMarkerReplicationTerm  = "replication_term"   // "replication terminated by primary server"
+	replMarkerWalsenderTimeout = "walsender_timeout"  // "terminating walsender process due to replication timeout"
+	replMarkerUnexpectedEOF    = "unexpected_eof"     // "unexpected EOF on standby connection"
 
 	// Recovery-conflict markers (WARNING or ERROR/FATAL).
 	replMarkerConflictTerminate = "conflict_terminate" // "terminating connection due to conflict with recovery"

@@ -74,29 +74,29 @@ type VacuumMetrics struct {
 // VacuumTableStat aggregates autovacuum continuation metrics for a
 // single table across every run observed in the log.
 type VacuumTableStat struct {
-	Table                      string
-	VacuumCount                int
-	TotalElapsedSeconds        float64
-	MaxElapsedSeconds          float64
-	TuplesRemoved              int64
-	TuplesNotYetRemovable      int64
-	BufferHits                 int64
-	BufferMisses               int64
-	BufferDirtied              int64
-	BufferWritten              int64
-	WALRecords                 int64
-	WALBytes                   int64
+	Table                 string
+	VacuumCount           int
+	TotalElapsedSeconds   float64
+	MaxElapsedSeconds     float64
+	TuplesRemoved         int64
+	TuplesNotYetRemovable int64
+	BufferHits            int64
+	BufferMisses          int64
+	BufferDirtied         int64
+	BufferWritten         int64
+	WALRecords            int64
+	WALBytes              int64
 }
 
 // VacuumSample is a single autovacuum observation, useful when surfacing
 // the worst-elapsed run as a headline anomaly.
 type VacuumSample struct {
-	Table                  string
-	Timestamp              time.Time
-	ElapsedSeconds         float64
-	TuplesRemoved          int64
-	TuplesNotYetRemovable  int64
-	PagesRemoved           int64
+	Table                 string
+	Timestamp             time.Time
+	ElapsedSeconds        float64
+	TuplesRemoved         int64
+	TuplesNotYetRemovable int64
+	PagesRemoved          int64
 }
 
 // ============================================================================

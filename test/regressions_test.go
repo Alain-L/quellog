@@ -405,6 +405,7 @@ func TestRegression_ServerSectionCapturesLifecycle(t *testing.T) {
 		}
 	}
 }
+
 // TestRegression_ReplicationSectionCapturesMarkers pins the parsing of
 // the small but operationally-critical replication marker set (stream
 // reconnects, WAL receive failures, replication terminations, recovery
@@ -490,4 +491,3 @@ func TestRegression_ReplicationSectionCapturesMarkers(t *testing.T) {
 		}
 	}
 }
-

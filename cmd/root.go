@@ -53,7 +53,7 @@ var (
 	checkpointsFlag bool // --checkpoints: Print only checkpoints section
 	connectionsFlag bool // --connections: Print only connections section
 	clientsFlag     bool // --clients: Print only clients section
-	serverFlag bool // --server: Print only server lifecycle section (incl. replication sub-zone)
+	serverFlag      bool // --server: Print only server lifecycle section (incl. replication sub-zone)
 
 	// Output format flags
 	jsonFlag        bool // --json: Export results in JSON format

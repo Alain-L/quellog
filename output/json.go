@@ -304,18 +304,18 @@ type MaintenanceJSON struct {
 	// blocks. Every field is omitempty so logs that never carry the
 	// continuation lines (older PG versions, log_autovacuum_min_duration
 	// off, …) keep the same JSON shape they always had.
-	TotalVacuumElapsedSeconds  float64                `json:"total_vacuum_elapsed_seconds,omitempty"`
-	TotalTuplesRemoved         int64                  `json:"total_tuples_removed,omitempty"`
-	TotalTuplesNotYetRemovable int64                  `json:"total_tuples_not_yet_removable,omitempty"`
-	TotalBufferHits            int64                  `json:"total_buffer_hits,omitempty"`
-	TotalBufferMisses          int64                  `json:"total_buffer_misses,omitempty"`
-	TotalBufferDirtied         int64                  `json:"total_buffer_dirtied,omitempty"`
-	TotalBufferWritten         int64                  `json:"total_buffer_written,omitempty"`
-	TotalWALRecords            int64                  `json:"total_wal_records,omitempty"`
-	TotalWALBytes              int64                  `json:"total_wal_bytes,omitempty"`
-	TopVacuumTables            []VacuumTableStatJSON  `json:"top_vacuum_tables,omitempty"`
-	XminBlockedTables          []VacuumTableStatJSON  `json:"xmin_blocked_tables,omitempty"`
-	SlowestVacuum              *VacuumSampleJSON      `json:"slowest_vacuum,omitempty"`
+	TotalVacuumElapsedSeconds  float64               `json:"total_vacuum_elapsed_seconds,omitempty"`
+	TotalTuplesRemoved         int64                 `json:"total_tuples_removed,omitempty"`
+	TotalTuplesNotYetRemovable int64                 `json:"total_tuples_not_yet_removable,omitempty"`
+	TotalBufferHits            int64                 `json:"total_buffer_hits,omitempty"`
+	TotalBufferMisses          int64                 `json:"total_buffer_misses,omitempty"`
+	TotalBufferDirtied         int64                 `json:"total_buffer_dirtied,omitempty"`
+	TotalBufferWritten         int64                 `json:"total_buffer_written,omitempty"`
+	TotalWALRecords            int64                 `json:"total_wal_records,omitempty"`
+	TotalWALBytes              int64                 `json:"total_wal_bytes,omitempty"`
+	TopVacuumTables            []VacuumTableStatJSON `json:"top_vacuum_tables,omitempty"`
+	XminBlockedTables          []VacuumTableStatJSON `json:"xmin_blocked_tables,omitempty"`
+	SlowestVacuum              *VacuumSampleJSON     `json:"slowest_vacuum,omitempty"`
 
 	// Autoanalyze aggregates parsed from the system-usage continuation
 	// line PostgreSQL emits after autoanalyze blocks. analyze stats are
@@ -329,30 +329,30 @@ type MaintenanceJSON struct {
 // VacuumTableStatJSON is the per-table aggregate exposed in the
 // top-N table lists of the maintenance section.
 type VacuumTableStatJSON struct {
-	Table                  string  `json:"table"`
-	VacuumCount            int     `json:"vacuum_count"`
-	TotalElapsedSeconds    float64 `json:"total_elapsed_seconds"`
-	MaxElapsedSeconds      float64 `json:"max_elapsed_seconds,omitempty"`
-	TuplesRemoved          int64   `json:"tuples_removed,omitempty"`
-	TuplesNotYetRemovable  int64   `json:"tuples_not_yet_removable,omitempty"`
-	BufferHits             int64   `json:"buffer_hits,omitempty"`
-	BufferMisses           int64   `json:"buffer_misses,omitempty"`
-	BufferDirtied          int64   `json:"buffer_dirtied,omitempty"`
-	BufferWritten          int64   `json:"buffer_written,omitempty"`
-	WALRecords             int64   `json:"wal_records,omitempty"`
-	WALBytes               int64   `json:"wal_bytes,omitempty"`
+	Table                 string  `json:"table"`
+	VacuumCount           int     `json:"vacuum_count"`
+	TotalElapsedSeconds   float64 `json:"total_elapsed_seconds"`
+	MaxElapsedSeconds     float64 `json:"max_elapsed_seconds,omitempty"`
+	TuplesRemoved         int64   `json:"tuples_removed,omitempty"`
+	TuplesNotYetRemovable int64   `json:"tuples_not_yet_removable,omitempty"`
+	BufferHits            int64   `json:"buffer_hits,omitempty"`
+	BufferMisses          int64   `json:"buffer_misses,omitempty"`
+	BufferDirtied         int64   `json:"buffer_dirtied,omitempty"`
+	BufferWritten         int64   `json:"buffer_written,omitempty"`
+	WALRecords            int64   `json:"wal_records,omitempty"`
+	WALBytes              int64   `json:"wal_bytes,omitempty"`
 }
 
 // VacuumSampleJSON captures the worst-elapsed single autovacuum
 // observation, surfaced as the headline "anomaly" of the maintenance
 // section when the log carries continuation lines.
 type VacuumSampleJSON struct {
-	Table                  string  `json:"table"`
-	Timestamp              string  `json:"timestamp,omitempty"`
-	ElapsedSeconds         float64 `json:"elapsed_seconds"`
-	PagesRemoved           int64   `json:"pages_removed,omitempty"`
-	TuplesRemoved          int64   `json:"tuples_removed,omitempty"`
-	TuplesNotYetRemovable  int64   `json:"tuples_not_yet_removable,omitempty"`
+	Table                 string  `json:"table"`
+	Timestamp             string  `json:"timestamp,omitempty"`
+	ElapsedSeconds        float64 `json:"elapsed_seconds"`
+	PagesRemoved          int64   `json:"pages_removed,omitempty"`
+	TuplesRemoved         int64   `json:"tuples_removed,omitempty"`
+	TuplesNotYetRemovable int64   `json:"tuples_not_yet_removable,omitempty"`
 }
 
 type LocksJSON struct {
