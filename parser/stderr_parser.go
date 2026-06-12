@@ -630,12 +630,17 @@ func parseStderrFormat(line string) (time.Time, string, bool) {
 		return time.Time{}, "", false
 	}
 
-	timestampStr := line[:tzEnd]
-	t, err := parseTime("2006-01-02 15:04:05.999 MST", timestampStr)
-	if err != nil {
-		t, err = parseTime("2006-01-02 15:04:05 MST", timestampStr)
+	// Fast path mirrors parseStderrFormatFromBytes — see there.
+	t, ok := fastParsePGTimestamp(line, tzStart, tzEnd)
+	if !ok {
+		timestampStr := line[:tzEnd]
+		var err error
+		t, err = parseTime("2006-01-02 15:04:05.999 MST", timestampStr)
 		if err != nil {
-			return time.Time{}, "", false
+			t, err = parseTime("2006-01-02 15:04:05 MST", timestampStr)
+			if err != nil {
+				return time.Time{}, "", false
+			}
 		}
 	}
 
@@ -680,12 +685,20 @@ func parseStderrFormatFromBytes(line []byte) (time.Time, int, bool) {
 		return time.Time{}, 0, false
 	}
 
-	timestampStr := string(line[:tzEnd])
-	t, err := parseTime("2006-01-02 15:04:05.999 MST", timestampStr)
-	if err != nil {
-		t, err = parseTime("2006-01-02 15:04:05 MST", timestampStr)
+	// Fast path: decode the canonical PG timestamp in place — no
+	// intermediate string, no time.Parse. Falls back to the layout-
+	// based path for anything it does not recognize (numeric offsets,
+	// exotic fractions) so behavior stays identical.
+	t, ok := fastParsePGTimestamp(line, tzStart, tzEnd)
+	if !ok {
+		timestampStr := string(line[:tzEnd])
+		var err error
+		t, err = parseTime("2006-01-02 15:04:05.999 MST", timestampStr)
 		if err != nil {
-			return time.Time{}, 0, false
+			t, err = parseTime("2006-01-02 15:04:05 MST", timestampStr)
+			if err != nil {
+				return time.Time{}, 0, false
+			}
 		}
 	}
 
