@@ -1145,6 +1145,41 @@
             margin-bottom: 1rem;
         }
 
+        .summary-server-line {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: baseline;
+            gap: 0.35rem 0.6rem;
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            margin: 0;
+            line-height: 1.45;
+            letter-spacing: 0.01em;
+        }
+
+        .summary-server-sep {
+            color: var(--border);
+            opacity: 0.6;
+        }
+
+        .summary-server-frag {
+            white-space: nowrap;
+        }
+
+        .summary-server-info {
+            color: var(--text-muted);
+        }
+
+        .summary-server-warning {
+            color: var(--warning);
+        }
+
+        .summary-server-alert {
+            color: var(--danger);
+            font-weight: 500;
+        }
+
         .summary-tiles {
             display: grid;
             grid-template-columns: repeat(4, 1fr);

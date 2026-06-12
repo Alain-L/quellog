@@ -2,6 +2,17 @@
 
 This _quellog_ report summarizes **8** log entries collected between 20 Apr 2026, 02:00 (UTC) — 20 Apr 2026, 12:01 (UTC), spanning 10h 1m 4s of activity.
 
+## SERVER
+
+
+### Replication
+
+- **Stream reconnects**: 3 _(peak 2× in 04:00-05:00)_
+- **Conflicts with recovery**: 2 _(2 unique queries terminated)_
+- **WAL receive failures**: 1 _(replica lost primary)_
+- **Walsender timeouts**: 1 _(primary side — replica too slow)_
+- **Replication terminations**: 1 _(primary closed walsender, last 2026-04-20 12:01:05)_
+
 ## EVENTS
 
 - **FATAL**: 1 (12.5%)
@@ -12,19 +23,6 @@ This _quellog_ report summarizes **8** log entries collected between 20 Apr 2026
   - *er-JZ96* `could not receive data from WAL stream: SSL connection has been closed unexpe...` (1) [50.0%]
 
 - **LOG**: 5 (62.5%)
-
-## REPLICATION
-
-- **Stream reconnects**: 3 (peak 2× in 04:00-05:00)
-- **Conflicts with recovery**: 2
-- **Replication terminations**: 3 (last: 2026-04-20 12:01:05)
-
-### Top queries killed by recovery conflict
-
-| SQLID     | Query                                                                    | Count |
-|-----------|--------------------------------------------------------------------------|------:|
-| se-EgBDzg | select count(*) from public.events where created_at > now() - interval ? |     1 |
-| up-5xrHIo | update public.app_node set last_seen = now() where id = ?                |     1 |
 
 ## CLIENTS
 

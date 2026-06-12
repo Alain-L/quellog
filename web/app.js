@@ -156,17 +156,14 @@ import './js/components/ql-dropdown.js';
             let html = '';
 
             // Row 1: Summary | Events | Error Classes | Clients (4 cols)
+            // Server lifecycle is folded into the Events section as a
+            // SERVER tab — on real-world logs it carries only a handful
+            // of events and a full-width panel reads as wasted space.
             html += `<div class="grid grid-top-row">`;
             html += buildSummarySection(data);
             html += buildEventsSection(data);
             html += buildClientsSection(data);
             html += '</div>';
-
-            // Server (full width, right after the top row — the
-            // cluster lifecycle frames every section below it. Auto-
-            // hides on steady-state logs via the section's own
-            // no-data path).
-            html += buildServerSection(data);
 
             // Connections (full width)
             html += buildConnectionsSection(data);
@@ -189,10 +186,6 @@ import './js/components/ql-dropdown.js';
             html += buildLocksSection(data);
             html += buildMaintenanceSection(data);
             html += '</div>';
-
-            // Row 7: Replication (full width). Only rendered when the
-            // analyzer captured at least one marker — see buildReplicationSection.
-            html += buildReplicationSection(data);
 
             results.innerHTML = html;
 
@@ -336,6 +329,7 @@ import './js/components/ql-dropdown.js';
                             </div>
                         </div>
                         <div class="summary-separator"></div>
+                        ${buildServerSummaryLine(data)}
                     </div>
                 </div>
             `;
@@ -864,110 +858,81 @@ function buildEventsSection(data) {
             `;
         }
 
-        // Replication section: surfaces walsender / walreceiver health.
-        // Empty when no replication markers were captured — same shape
-        // as the other "no data" sections, with a hint that the standby/
-        // primary side of the cluster needs to be parsed too.
-        function buildReplicationSection(data) {
-            const r = data.replication;
-            if (!r || !r.total_events) {
-                // No data: render a muted placeholder card so the user
-                // knows the section exists but had nothing to show.
-                return `
-                    <div class="section" id="replication">
-                        <div class="section-header muted">Replication</div>
-                        <div class="section-body">
-                            ${buildNoDataMessage('a standby / primary log with walsender / walreceiver entries')}
-                        </div>
-                    </div>
-                `;
+        // Builds the optional one-line SERVER summary that sits right
+        // under the Summary section's header. Each fragment is a single
+        // span styled by severity: neutral for benign counters (starts,
+        // shutdowns, reloads), warning for non-fatal anomalies (crash
+        // recoveries, walsender timeouts, WAL receive failures…), alert
+        // for the worst events (backend crashes, invalidated slots).
+        // Returns '' when nothing is worth surfacing — the line just
+        // disappears on healthy steady-state logs.
+        function buildServerSummaryLine(data) {
+            const s = data.server || {};
+            const r = data.replication || {};
+            const frags = [];
+            const push = (text, sev) => frags.push({ text, sev });
+            const plural = (n, sing, plur) => (n > 1 ? (plur || sing + 's') : sing);
+
+            // Server-lifecycle markers, ordered roughly chronologically
+            // (start → reload → shutdown → recovery → crash) so the
+            // line reads as a tiny narrative.
+            const starts = s.starts || 0;
+            if (starts > 0) push(`${starts} ${plural(starts, 'start')}`, 'info');
+            const reloads = s.reloads || 0;
+            if (reloads > 0) push(`${reloads} ${plural(reloads, 'reload')}`, 'info');
+            const totalShutdowns = (s.shutdowns_fast || 0) + (s.shutdowns_immediate || 0) + (s.shutdowns_smart || 0);
+            if (totalShutdowns > 0) push(`${totalShutdowns} ${plural(totalShutdowns, 'shutdown')}`, 'info');
+            const recoveries = s.crash_recoveries || 0;
+            if (recoveries > 0) push(`${recoveries} ${plural(recoveries, 'crash recovery', 'crash recoveries')}`, 'warning');
+            const crashes = s.backend_crashes || 0;
+            if (crashes > 0) {
+                const sigNames = { '1':'SIGHUP','2':'SIGINT','3':'SIGQUIT','6':'SIGABRT','9':'SIGKILL','11':'SIGSEGV','13':'SIGPIPE','14':'SIGALRM','15':'SIGTERM' };
+                const sigCounts = s.signal_counts || {};
+                const sigLabel = Object.keys(sigCounts)
+                    .sort((a, b) => Number(a) - Number(b))
+                    .map(k => sigNames[k] || 'signal ' + k)
+                    .join(', ');
+                const tail = sigLabel ? ` (${sigLabel})` : '';
+                push(`${crashes} backend ${plural(crashes, 'crash', 'crashes')}${tail}`, 'alert');
             }
 
-            const cards = [];
-            const reconnects = r.stream_reconnects || 0;
-            if (reconnects > 0) {
-                const sub = (r.peak_hour_label && r.peak_hour_count > 1)
-                    ? `<div class="stat-sub">peak ${r.peak_hour_count}× in ${esc(r.peak_hour_label)}</div>` : '';
-                cards.push(`<div class="stat-card"><div class="stat-value">${fmtCompact(reconnects)}</div><div class="stat-label">Stream reconnects</div>${sub}</div>`);
-            }
-            if ((r.recovery_pauses || 0) > 0) {
-                cards.push(`<div class="stat-card"><div class="stat-value">${r.recovery_pauses}</div><div class="stat-label">Recovery pauses</div></div>`);
-            }
+            // Replication markers — invalidated slots are the most
+            // operationally severe, then per-cause termination markers
+            // (named after the PG marker), then conflicts, then plain
+            // reconnects. The LastTermination timestamp is appended to
+            // the last fired termination so the line still gives a
+            // window even when several causes coexist.
+            const slots = r.invalidated_slots || 0;
+            if (slots > 0) push(`${slots} invalidated ${plural(slots, 'slot')}`, 'alert');
+            const markers = r.markers || {};
+            const termRows = [
+                ['wal_receive_failed', 'WAL receive failure'],
+                ['walsender_timeout',  'walsender timeout'],
+                ['replication_term',   'replication termination'],
+                ['unexpected_eof',     'unexpected EOF'],
+            ];
+            const firedTerms = termRows.filter(([k]) => (markers[k] || 0) > 0);
+            firedTerms.forEach(([k, label], i) => {
+                const n = markers[k];
+                const isLast = i === firedTerms.length - 1;
+                const lastT = isLast && r.last_termination
+                    ? ` (last ${r.last_termination.split(' ')[1] || r.last_termination})`
+                    : '';
+                push(`${n} ${plural(n, label)}${lastT}`, 'warning');
+            });
             const conflicts = r.conflicts_with_recovery || 0;
-            if (conflicts > 0) {
-                const uniq = (r.conflict_queries || []).length;
-                const sub = uniq > 0 ? `<div class="stat-sub">${uniq} unique queries</div>` : '';
-                cards.push(`<div class="stat-card stat-card--warning"><div class="stat-value">${fmtCompact(conflicts)}</div><div class="stat-label">Conflicts w/ recovery</div>${sub}</div>`);
-            }
-            if ((r.invalidated_slots || 0) > 0) {
-                cards.push(`<div class="stat-card stat-card--alert"><div class="stat-value">${r.invalidated_slots}</div><div class="stat-label">Invalidated slots</div></div>`);
-            }
-            const terminations = r.replication_terminations || 0;
-            if (terminations > 0) {
-                const sub = r.last_termination ? `<div class="stat-sub">last: ${esc(r.last_termination.split(' ')[1] || r.last_termination)}</div>` : '';
-                cards.push(`<div class="stat-card stat-card--warning"><div class="stat-value">${fmtCompact(terminations)}</div><div class="stat-label">Terminations</div>${sub}</div>`);
-            }
+            if (conflicts > 0) push(`${conflicts} ${plural(conflicts, 'conflict')} w/ recovery`, 'warning');
+            const reconnects = r.stream_reconnects || 0;
+            if (reconnects > 0) push(`${reconnects} stream ${plural(reconnects, 'reconnect')}`, 'info');
+            const pauses = r.recovery_pauses || 0;
+            if (pauses > 0) push(`${pauses} recovery ${plural(pauses, 'pause')}`, 'info');
 
-            // Top conflict queries list — same scroll-list shape as
-            // maintenance/locks so the rhythm is consistent.
-            let conflictList = '';
-            if ((r.conflict_queries || []).length > 0) {
-                const queries = (r.conflict_queries || []).slice(0, 10);
-                const maxCount = queries.reduce((m, q) => Math.max(m, q.count || 0), 0) || 1;
-                const items = queries.map(q => {
-                    const w = Math.round((q.count / maxCount) * 100);
-                    const truncated = truncQuery(q.normalized_query || '', 80);
-                    return `
-                        <div class="list-item" onclick="showQueryModal('${esc(q.id || '')}')">
-                            <div class="name">${esc(truncated)}</div>
-                            <div class="bar-container"><div class="bar"><div class="bar-fill" style="width:${w}%"></div></div></div>
-                            <div class="value">${fmtCompact(q.count)}×</div>
-                        </div>
-                    `;
-                }).join('');
-                conflictList = `
-                    <div class="subsection">
-                        <div class="subsection-title">Top queries killed by recovery conflict</div>
-                        <div class="scroll-list">${items}</div>
-                    </div>
-                `;
-            }
-
-            // Hourly histogram — only meaningful when ≥2 hours carry events.
-            let hourList = '';
-            const hourCounts = r.hour_counts || {};
-            const hours = Object.keys(hourCounts).filter(h => (hourCounts[h] || 0) > 0).sort();
-            if (hours.length >= 2) {
-                const maxV = Math.max(...hours.map(h => hourCounts[h]));
-                const items = hours.map(h => {
-                    const c = hourCounts[h];
-                    const w = Math.round((c / maxV) * 100);
-                    return `
-                        <div class="list-item">
-                            <div class="name">${esc(h)}:00</div>
-                            <div class="bar-container"><div class="bar"><div class="bar-fill" style="width:${w}%"></div></div></div>
-                            <div class="value">${fmtCompact(c)}</div>
-                        </div>
-                    `;
-                }).join('');
-                hourList = `
-                    <div class="subsection">
-                        <div class="subsection-title">Replication events by hour</div>
-                        <div class="scroll-list">${items}</div>
-                    </div>
-                `;
-            }
-
-            return `
-                <div class="section" id="replication">
-                    <div class="section-header">Replication</div>
-                    <div class="section-body">
-                        <div class="stat-grid">${cards.join('')}</div>
-                        ${conflictList}
-                        ${hourList}
-                    </div>
-                </div>
-            `;
+            if (frags.length === 0) return '';
+            const parts = frags.map((f, i) => {
+                const sep = i > 0 ? '<span class="summary-server-sep">·</span>' : '';
+                return `${sep}<span class="summary-server-frag summary-server-${f.sev}">${esc(f.text)}</span>`;
+            }).join('');
+            return `<div class="summary-server-line">${parts}</div>`;
         }
 
         function buildMaintenanceSection(data) {
@@ -1354,91 +1319,6 @@ function buildEventsSection(data) {
             }
             const container = document.getElementById('analyze-table-container');
             if (container) container.innerHTML = renderAnalyzeTable();
-        }
-
-        function buildServerSection(data) {
-            const s = data.server;
-            if (!s) {
-                // Hide section entirely when no server-lifecycle marker
-                // was captured — most logs from a healthy steady-state
-                // server simply do not contain these messages, so a
-                // "no data" placeholder would be noise. We only render
-                // the placeholder when at least the structure was
-                // present but the markers were not (a weaker signal
-                // is still better than silence on the section).
-                return '';
-            }
-            // Counters — emit only the non-zero ones plus the "starts"
-            // baseline so the section never reads as empty.
-            const totalShutdowns = (s.shutdowns_fast || 0) + (s.shutdowns_immediate || 0) + (s.shutdowns_smart || 0);
-            const params = s.parameter_changes || [];
-            const timeline = s.timeline || [];
-            const hasParams = params.length > 0;
-            const hasTimeline = timeline.length > 0;
-            // Resolve signal numbers to their POSIX names so the
-            // tooltip on the Backend crashes card reads "SIGKILL ×1,
-            // SIGSEGV ×2" rather than "9×1, 11×2".
-            const signalNames = { '1':'SIGHUP','2':'SIGINT','3':'SIGQUIT','6':'SIGABRT','9':'SIGKILL','11':'SIGSEGV','13':'SIGPIPE','14':'SIGALRM','15':'SIGTERM' };
-            const sigCounts = s.signal_counts || {};
-            const sigLabel = Object.keys(sigCounts)
-                .sort((a, b) => Number(a) - Number(b))
-                .map(k => `${signalNames[k] || 'signal ' + k} ×${sigCounts[k]}`)
-                .join(', ');
-
-            return `
-                <div class="section" id="server">
-                    <div class="section-header">Server</div>
-                    <div class="section-body">
-                        <div class="stat-grid">
-                            <div class="stat-card"><div class="stat-value">${fmt(s.starts || 0)}</div><div class="stat-label">Starts</div></div>
-                            <div class="stat-card"><div class="stat-value">${fmt(s.reloads || 0)}</div><div class="stat-label">Reloads</div></div>
-                            ${totalShutdowns > 0 ? `<div class="stat-card"><div class="stat-value">${fmt(totalShutdowns)}</div><div class="stat-label">Shutdowns</div></div>` : ''}
-                            ${(s.crash_recoveries || 0) > 0 ? `<div class="stat-card stat-card--alert"><div class="stat-value">${fmt(s.crash_recoveries)}</div><div class="stat-label">Crash recoveries</div></div>` : ''}
-                            ${(s.backend_crashes || 0) > 0 ? `<div class="stat-card stat-card--warning" title="signals: ${esc(sigLabel)}"><div class="stat-value">${fmt(s.backend_crashes)}</div><div class="stat-label">Backend crashes</div></div>` : ''}
-                            ${(s.auxiliary_process_exits || 0) > 0 ? `<div class="stat-card stat-card--warning"><div class="stat-value">${fmt(s.auxiliary_process_exits)}</div><div class="stat-label">Aux exits</div></div>` : ''}
-                        </div>
-                        ${hasParams ? `
-                            <div class="subsection">
-                                <div class="subsection-title">Config parameter changes</div>
-                                <table>
-                                    <thead>
-                                        <tr><th>Parameter</th><th>Old</th><th>New</th><th>When</th></tr>
-                                    </thead>
-                                    <tbody>
-                                        ${params.map(p => `
-                                            <tr>
-                                                <td><code>${esc(p.parameter || '')}</code></td>
-                                                <td>${p.old ? `<code>${esc(p.old)}</code>` : '-'}</td>
-                                                <td><code>${esc(p.new || '')}</code></td>
-                                                <td>${esc(p.timestamp || '')}</td>
-                                            </tr>
-                                        `).join('')}
-                                    </tbody>
-                                </table>
-                            </div>
-                        ` : ''}
-                        ${hasTimeline ? `
-                            <div class="subsection">
-                                <div class="subsection-title">Timeline</div>
-                                <table>
-                                    <thead>
-                                        <tr><th>Time</th><th>Event</th><th>Detail</th></tr>
-                                    </thead>
-                                    <tbody>
-                                        ${timeline.map(ev => `
-                                            <tr>
-                                                <td>${esc(ev.timestamp || '')}</td>
-                                                <td><code>${esc(ev.kind || '')}</code></td>
-                                                <td>${esc(ev.detail || '')}</td>
-                                            </tr>
-                                        `).join('')}
-                                    </tbody>
-                                </table>
-                            </div>
-                        ` : ''}
-                    </div>
-                </div>
-            `;
         }
 
         function buildLocksSection(data) {

@@ -50,11 +50,12 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 		}
 	}
 
-	// Server lifecycle: placed right after SUMMARY so the cluster
-	// context (crash at 14h, reload at 08h, etc.) frames every other
-	// section below it. Auto-hides on steady-state logs via HasAny.
-	if has("server") && m.Server.HasAny() {
-		printServerSection(m.Server, bold, reset)
+	// Server lifecycle (incl. replication sub-zone): placed right after
+	// SUMMARY so the cluster context (crash at 14h, reload at 08h, lost
+	// walreceiver at 16h, etc.) frames every other section below it.
+	// Auto-hides on steady-state logs via HasAny on either side.
+	if has("server") && (m.Server.HasAny() || m.Replication.HasAny) {
+		printServerSection(m.Server, m.Replication, bold, reset)
 	}
 
 	// SQL summary section (skip in full mode — enriched version added at the end)
@@ -489,11 +490,6 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 		}
 	}
 
-	// Replication section
-	if has("replication") && m.Replication.HasAny {
-		printReplicationSection(m.Replication)
-	}
-
 	// Connections & Sessions Metrics section.
 	if has("connections") && m.Connections.ConnectionReceivedCount > 0 {
 		fmt.Println(bold + "\nCONNECTIONS & SESSIONS\n" + reset)
@@ -727,24 +723,31 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 
 // printServerSection renders the SERVER lifecycle section: counters
 // for starts / reloads / shutdowns / crashes, a "config parameter
-// changes" mini-table (when present), and a compact timeline. Nothing
-// is emitted when no markers were captured — checked by the caller.
-func printServerSection(s analysis.ServerMetrics, bold, reset string) {
+// changes" mini-table (when present), a compact timeline, and a
+// "Replication" sub-zone aggregating walreceiver/walsender health.
+// Nothing is emitted when neither side captured a marker — checked by
+// the caller.
+func printServerSection(s analysis.ServerMetrics, r analysis.ReplicationMetrics, bold, reset string) {
 	fmt.Println(bold + "\nSERVER\n" + reset)
 
-	// Starts.
-	startDetail := ""
-	if len(s.StartTimes) > 0 {
-		startDetail = "   " + ansiMutedItalic + "(first: " + s.StartTimes[0].Format("2006-01-02 15:04:05") + ")" + reset
+	// Starts — hidden when zero so logs that only carry replication
+	// markers do not show a misleading "Starts: 0" line.
+	if s.StartCount > 0 {
+		startDetail := ""
+		if len(s.StartTimes) > 0 {
+			startDetail = "   " + ansiMutedItalic + "(first: " + s.StartTimes[0].Format("2006-01-02 15:04:05") + ")" + reset
+		}
+		fmt.Printf("  %-25s : %d%s\n", "Starts", s.StartCount, startDetail)
 	}
-	fmt.Printf("  %-25s : %d%s\n", "Starts", s.StartCount, startDetail)
 
-	// Reloads.
-	reloadDetail := ""
-	if len(s.ReloadTimes) > 0 {
-		reloadDetail = "   " + ansiMutedItalic + "(last: " + s.ReloadTimes[len(s.ReloadTimes)-1].Format("15:04:05") + ")" + reset
+	// Reloads — same auto-hide behavior.
+	if s.ReloadCount > 0 {
+		reloadDetail := ""
+		if len(s.ReloadTimes) > 0 {
+			reloadDetail = "   " + ansiMutedItalic + "(last: " + s.ReloadTimes[len(s.ReloadTimes)-1].Format("15:04:05") + ")" + reset
+		}
+		fmt.Printf("  %-25s : %d%s\n", "Reloads (SIGHUP)", s.ReloadCount, reloadDetail)
 	}
-	fmt.Printf("  %-25s : %d%s\n", "Reloads (SIGHUP)", s.ReloadCount, reloadDetail)
 
 	// Shutdowns.
 	if s.ShutdownFastCount+s.ShutdownImmediateCount+s.ShutdownSmartCount > 0 {
@@ -778,6 +781,80 @@ func printServerSection(s analysis.ServerMetrics, bold, reset string) {
 	// Timeline.
 	if len(s.Timeline) > 0 {
 		printServerTimeline(s.Timeline)
+	}
+
+	// Replication sub-zone — folded into SERVER because on real-world
+	// logs it rarely fires more than one or two markers, and the rhythm
+	// reads better next to the cluster lifecycle than in its own header.
+	if r.HasAny {
+		printReplicationSubZone(r, s.HasAny())
+	}
+}
+
+// printReplicationSubZone renders the compact "Replication" block
+// inside the SERVER section: one indented line per category that
+// actually fired. Termination markers are summed under one headline
+// with the most-recent timestamp inlined so a DBA jumps straight to
+// the right window in the raw logs. The blank-line separator is
+// suppressed when the parent SERVER section had no content of its own
+// (server-less log) so we don't pile two blank lines under the header.
+func printReplicationSubZone(r analysis.ReplicationMetrics, serverHasContent bool) {
+	muted := ansiMutedItalic
+	reset := ansiReset
+
+	if serverHasContent {
+		fmt.Println()
+	}
+	fmt.Println("  Replication:")
+
+	if v := r.Markers["stream_started"]; v > 0 {
+		line := fmt.Sprintf("    %-24s : %d", "Stream reconnects", v)
+		if r.PeakHourLabel != "" && r.PeakHourCount > 1 {
+			line += fmt.Sprintf("   %s(peak %d× in %s)%s", muted, r.PeakHourCount, r.PeakHourLabel, reset)
+		}
+		fmt.Println(line)
+	}
+	if v := r.Markers["recovery_paused"]; v > 0 {
+		fmt.Printf("    %-24s : %d\n", "Recovery pauses", v)
+	}
+	if v := r.Markers["conflict_terminate"] + r.Markers["conflict_cancel"]; v > 0 {
+		line := fmt.Sprintf("    %-24s : %d", "Conflicts with recovery", v)
+		if n := len(r.ConflictQueries); n > 0 {
+			line += fmt.Sprintf("   %s(%d unique queries terminated)%s", muted, n, reset)
+		}
+		fmt.Println(line)
+	}
+	if v := r.Markers["slot_invalidated"]; v > 0 {
+		fmt.Printf("    %-24s : %d\n", "Invalidated slots", v)
+	}
+	// One line per termination cause — the four PG markers map to four
+	// diametrically opposite scenarios (replica side vs primary side),
+	// so collapsing them would hide the diagnostic. Each row carries a
+	// short hint naming the side of the cluster at fault; the
+	// LastTermination timestamp is appended to the last fired row only
+	// so a DBA jumps to the right window without us repeating it on
+	// every line.
+	type termRow struct{ key, label, hint string }
+	termRows := []termRow{
+		{"wal_receive_failed", "WAL receive failures", "replica lost primary"},
+		{"walsender_timeout", "Walsender timeouts", "primary side — replica too slow"},
+		{"replication_term", "Replication terminations", "primary closed walsender"},
+		{"unexpected_eof", "Unexpected EOFs", "abrupt walsender disconnect"},
+	}
+	fired := make([]termRow, 0, len(termRows))
+	for _, t := range termRows {
+		if r.Markers[t.key] > 0 {
+			fired = append(fired, t)
+		}
+	}
+	for i, t := range fired {
+		line := fmt.Sprintf("    %-24s : %d", t.label, r.Markers[t.key])
+		suffix := t.hint
+		if i == len(fired)-1 && !r.LastTermination.IsZero() {
+			suffix += ", last " + r.LastTermination.Format("15:04:05")
+		}
+		line += fmt.Sprintf("   %s(%s)%s", muted, suffix, reset)
+		fmt.Println(line)
 	}
 }
 
@@ -1073,136 +1150,6 @@ func formatSessionDuration(d time.Duration) string {
 		return fmt.Sprintf("%dh%dm", totalHours, mins)
 	}
 	return fmt.Sprintf("%dh", totalHours)
-}
-
-// printReplicationSection renders the REPLICATION panel: a k:v block
-// for the headline counters (reconnects, terminations, conflicts) and
-// — when populated — a compact top-N list of queries killed by
-// conflict-with-recovery plus a stream-events-by-hour histogram. The
-// section header is only emitted when at least one marker was captured
-// (callers gate on HasAny).
-func printReplicationSection(r analysis.ReplicationMetrics) {
-	bold := ansiBold
-	reset := ansiReset
-	muted := ansiMutedItalic
-
-	fmt.Println(bold + "\nREPLICATION\n" + reset)
-
-	// Stream reconnects line carries the peak hour annotation when known.
-	reconnects := r.Markers["stream_started"]
-	if reconnects > 0 {
-		line := fmt.Sprintf("  %-25s : %d", "Stream reconnects", reconnects)
-		if r.PeakHourLabel != "" && r.PeakHourCount > 1 {
-			line += fmt.Sprintf("   %s(peak %d× in %s)%s", muted, r.PeakHourCount, r.PeakHourLabel, reset)
-		}
-		fmt.Println(line)
-	}
-
-	if v := r.Markers["recovery_paused"] + r.Markers["recovery_resuming"]; v > 0 {
-		fmt.Printf("  %-25s : %d\n", "Recovery pauses", r.Markers["recovery_paused"])
-	}
-
-	// Conflicts (the two recovery-conflict markers).
-	conflicts := r.Markers["conflict_terminate"] + r.Markers["conflict_cancel"]
-	if conflicts > 0 {
-		line := fmt.Sprintf("  %-25s : %d", "Conflicts with recovery", conflicts)
-		if n := len(r.ConflictQueries); n > 0 {
-			line += fmt.Sprintf("   %s(%d unique queries terminated, see top)%s", muted, n, reset)
-		}
-		fmt.Println(line)
-	}
-
-	if v := r.Markers["slot_invalidated"]; v > 0 {
-		fmt.Printf("  %-25s : %d\n", "Invalidated slots", v)
-	}
-
-	// Termination markers are summed under one headline; the most
-	// recent timestamp helps a DBA jump to the right window in their logs.
-	terminations := r.Markers["replication_term"] +
-		r.Markers["wal_receive_failed"] +
-		r.Markers["walsender_timeout"] +
-		r.Markers["unexpected_eof"]
-	if terminations > 0 {
-		line := fmt.Sprintf("  %-25s : %d", "Replication terminations", terminations)
-		if !r.LastTermination.IsZero() {
-			line += fmt.Sprintf("   %s(last: %s)%s", muted, r.LastTermination.Format("15:04:05"), reset)
-		}
-		fmt.Println(line)
-	}
-
-	// Top conflict queries (compact, max 5).
-	if n := len(r.ConflictQueries); n > 0 {
-		type pair struct {
-			stat *analysis.ReplicationConflictQueryStat
-		}
-		pairs := make([]pair, 0, n)
-		for _, s := range r.ConflictQueries {
-			pairs = append(pairs, pair{s})
-		}
-		sort.Slice(pairs, func(i, j int) bool {
-			if pairs[i].stat.Count != pairs[j].stat.Count {
-				return pairs[i].stat.Count > pairs[j].stat.Count
-			}
-			return pairs[i].stat.ID < pairs[j].stat.ID
-		})
-
-		fmt.Println()
-		fmt.Println("  Top queries killed by recovery conflict:")
-		limit := 5
-		if limit > len(pairs) {
-			limit = len(pairs)
-		}
-		for i := 0; i < limit; i++ {
-			s := pairs[i].stat
-			q := truncateQuery(s.NormalizedQuery, 60)
-			fmt.Printf("    %-9s  %3d×  %s\n", s.ID, s.Count, q)
-		}
-	}
-
-	// Stream events by hour histogram (only when there are reconnects).
-	if reconnects > 1 {
-		printReplicationHourHistogram(r)
-	}
-}
-
-// printReplicationHourHistogram renders a compact 24-row "events by
-// hour" histogram using only the hours that actually carry events.
-func printReplicationHourHistogram(r analysis.ReplicationMetrics) {
-	// Only emit if we have at least two distinct hours: a single hour
-	// is best expressed with the peak annotation alone.
-	hours := make([]string, 0, len(r.HourCounts))
-	maxV := 0
-	for h, c := range r.HourCounts {
-		if c == 0 {
-			continue
-		}
-		hours = append(hours, h)
-		if c > maxV {
-			maxV = c
-		}
-	}
-	if len(hours) < 2 || maxV == 0 {
-		return
-	}
-	sort.Strings(hours)
-
-	// Scale so the biggest bar is at most 30 chars.
-	const barWidth = 30
-	scale := 1
-	if maxV > barWidth {
-		scale = (maxV + barWidth - 1) / barWidth
-	}
-
-	fmt.Println()
-	fmt.Println("  Replication events by hour:")
-	for _, h := range hours {
-		c := r.HourCounts[h]
-		bar := strings.Repeat("■", c/scale)
-		if bar == "" && c > 0 {
-			bar = "·"
-		}
-		fmt.Printf("    %s:00  %-*s %d\n", h, barWidth, bar, c)
-	}
 }
 
 // printAutovacuumSection renders the AUTOVACUUM panel: header k:v
