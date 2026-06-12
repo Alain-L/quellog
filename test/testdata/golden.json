@@ -15852,7 +15852,7 @@
         "type": "",
         "count": 3,
         "total_time_ms": 419.009,
-        "avg_time_ms": 139.66966666666667,
+        "avg_time_ms": 139.67,
         "max_time_ms": 144.245,
         "top_databases": [
           {
@@ -16070,7 +16070,7 @@
         "type": "",
         "count": 2,
         "total_time_ms": 15.119,
-        "avg_time_ms": 7.5595,
+        "avg_time_ms": 7.56,
         "max_time_ms": 8.221,
         "top_databases": [
           {
@@ -16186,7 +16186,7 @@
         "type": "",
         "count": 2,
         "total_time_ms": 11.015,
-        "avg_time_ms": 5.5075,
+        "avg_time_ms": 5.508,
         "max_time_ms": 6.701,
         "top_databases": [
           {
@@ -16273,8 +16273,8 @@
         "raw_query": "INSERT INTO sessions (user_id, token, ip_address, expires_at) VALUES (1, md5(random()::text), '192.168.1.109', NOW() + interval '1 hour');",
         "type": "",
         "count": 275,
-        "total_time_ms": 69459.81099999993,
-        "avg_time_ms": 252.58113090909066,
+        "total_time_ms": 69459.811,
+        "avg_time_ms": 252.581,
         "max_time_ms": 898.251,
         "top_databases": [
           {
@@ -16397,8 +16397,8 @@
         "raw_query": "INSERT INTO orders (user_id, amount, status) VALUES (1, 105.99, 'pending') RETURNING id;",
         "type": "",
         "count": 275,
-        "total_time_ms": 60493.82500000004,
-        "avg_time_ms": 219.9775454545456,
+        "total_time_ms": 60493.825,
+        "avg_time_ms": 219.978,
         "max_time_ms": 918.908,
         "top_databases": [
           {
@@ -16431,8 +16431,8 @@
         "raw_query": "INSERT INTO event_log (event_type, event_data, source, severity) SELECT (ARRAY['click', 'view', 'purchase', 'error', 'login', 'logout'])[floor(random() * 6 + 1)::int], jsonb_build_object('user_id', floor(random() * 100), 'timestamp', NOW()), 'batch_import', (ARRAY['DEBUG', 'INFO', 'WARN', 'ERROR'])[floor(random() * 4 + 1)::int] FROM generate_series(1, 3000);",
         "type": "",
         "count": 6,
-        "total_time_ms": 3249.4840000000004,
-        "avg_time_ms": 541.5806666666667,
+        "total_time_ms": 3249.484,
+        "avg_time_ms": 541.581,
         "max_time_ms": 863.749,
         "top_databases": [
           {
@@ -16466,7 +16466,7 @@
         "type": "",
         "count": 2,
         "total_time_ms": 52.429,
-        "avg_time_ms": 26.2145,
+        "avg_time_ms": 26.215,
         "max_time_ms": 29.804,
         "top_databases": [
           {
@@ -16500,7 +16500,7 @@
         "type": "",
         "count": 2,
         "total_time_ms": 51.045,
-        "avg_time_ms": 25.5225,
+        "avg_time_ms": 25.523,
         "max_time_ms": 26.289,
         "top_databases": [
           {
@@ -16567,8 +16567,8 @@
         "raw_query": "SELECT a.transaction_id, b.amount FROM large_transactions a JOIN large_transactions b ON a.user_id = b.user_id AND a.status = b.status WHERE a.amount \u003e 5000 LIMIT 1000;",
         "type": "",
         "count": 3,
-        "total_time_ms": 733.1700000000001,
-        "avg_time_ms": 244.39000000000001,
+        "total_time_ms": 733.17,
+        "avg_time_ms": 244.39,
         "max_time_ms": 350.112,
         "top_databases": [
           {
@@ -16601,8 +16601,8 @@
         "raw_query": "SELECT id, username, email FROM users WHERE id = 10;",
         "type": "",
         "count": 275,
-        "total_time_ms": 35146.01699999998,
-        "avg_time_ms": 127.8036981818181,
+        "total_time_ms": 35146.017,
+        "avg_time_ms": 127.804,
         "max_time_ms": 555.963,
         "top_databases": [
           {
@@ -16664,7 +16664,7 @@
         "type": "",
         "count": 8,
         "total_time_ms": 275.479,
-        "avg_time_ms": 34.434875,
+        "avg_time_ms": 34.435,
         "max_time_ms": 76.898,
         "top_databases": [
           {
@@ -16697,8 +16697,8 @@
         "raw_query": "SELECT * FROM products WHERE category = 'widgets' ORDER BY price LIMIT 10;",
         "type": "",
         "count": 27,
-        "total_time_ms": 3916.9839999999995,
-        "avg_time_ms": 145.07348148148145,
+        "total_time_ms": 3916.984,
+        "avg_time_ms": 145.073,
         "max_time_ms": 386.15,
         "top_databases": [
           {
@@ -16732,7 +16732,7 @@
         "type": "",
         "count": 7,
         "total_time_ms": 16.207,
-        "avg_time_ms": 2.3152857142857144,
+        "avg_time_ms": 2.315,
         "max_time_ms": 3.241,
         "top_databases": [
           {
@@ -16766,7 +16766,7 @@
         "type": "",
         "count": 8,
         "total_time_ms": 1165.998,
-        "avg_time_ms": 145.74975,
+        "avg_time_ms": 145.75,
         "max_time_ms": 226.415,
         "top_databases": [
           {
@@ -16833,8 +16833,8 @@
         "raw_query": "SELECT pg_backend_pid();",
         "type": "",
         "count": 104,
-        "total_time_ms": 1260.4769999999996,
-        "avg_time_ms": 12.11997115384615,
+        "total_time_ms": 1260.477,
+        "avg_time_ms": 12.12,
         "max_time_ms": 41.881,
         "top_databases": [
           {
@@ -16876,7 +16876,7 @@
         "type": "",
         "count": 3,
         "total_time_ms": 1304.818,
-        "avg_time_ms": 434.9393333333333,
+        "avg_time_ms": 434.939,
         "max_time_ms": 513.833,
         "top_databases": [
           {
@@ -16910,7 +16910,7 @@
         "type": "",
         "count": 27,
         "total_time_ms": 4828.151,
-        "avg_time_ms": 178.8204074074074,
+        "avg_time_ms": 178.82,
         "max_time_ms": 368.32,
         "top_databases": [
           {
@@ -16944,7 +16944,7 @@
         "type": "",
         "count": 3,
         "total_time_ms": 3904.009,
-        "avg_time_ms": 1301.3363333333334,
+        "avg_time_ms": 1301.336,
         "max_time_ms": 1508.253,
         "top_databases": [
           {
@@ -16977,8 +16977,8 @@
         "raw_query": "SELECT pid, usename, datname, state, query_start, query FROM pg_stat_activity WHERE state != 'idle';",
         "type": "",
         "count": 8,
-        "total_time_ms": 456.92400000000004,
-        "avg_time_ms": 57.115500000000004,
+        "total_time_ms": 456.924,
+        "avg_time_ms": 57.116,
         "max_time_ms": 93.626,
         "top_databases": [
           {
@@ -17011,8 +17011,8 @@
         "raw_query": "UPDATE large_transactions SET processed_at = NOW(), status = 'archived' WHERE id IN ( SELECT id FROM large_transactions WHERE status = 'completed' AND processed_at IS NULL LIMIT 2000 );",
         "type": "",
         "count": 5,
-        "total_time_ms": 3891.0119999999997,
-        "avg_time_ms": 778.2023999999999,
+        "total_time_ms": 3891.012,
+        "avg_time_ms": 778.202,
         "max_time_ms": 1100.755,
         "top_databases": [
           {
@@ -17045,8 +17045,8 @@
         "raw_query": "UPDATE orders SET status = 'processing', updated_at = NOW() WHERE id = 1 AND status = 'pending';",
         "type": "",
         "count": 275,
-        "total_time_ms": 75443.02899999998,
-        "avg_time_ms": 274.3382872727272,
+        "total_time_ms": 75443.029,
+        "avg_time_ms": 274.338,
         "max_time_ms": 986.255,
         "top_databases": [
           {

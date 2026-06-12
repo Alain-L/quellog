@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"sort"
 	"strconv"
 	"time"
@@ -2405,8 +2406,8 @@ func buildFullSQLPerformance(m analysis.SQLMetrics) SQLPerformanceDetailJSON {
 			RawQuery:        s.stat.RawQuery,
 			Type:            analysis.QueryTypeFromID(s.id),
 			Count:           s.stat.Count,
-			TotalTime:       s.stat.TotalTime,
-			AvgTime:         s.stat.AvgTime,
+			TotalTime:       roundMicro(s.stat.TotalTime),
+			AvgTime:         roundMicro(s.stat.AvgTime),
 			MaxTime:         s.stat.MaxTime,
 			PreparedNames:   s.stat.PreparedNames,
 			SlowestRun:      slowestRunJSON(s.stat),
@@ -2653,8 +2654,8 @@ func convertSQLPerformance(m analysis.SQLMetrics) SQLPerformanceJSON {
 			NormalizedQuery: stat.NormalizedQuery,
 			RawQuery:        stat.RawQuery,
 			Count:           stat.Count,
-			TotalTime:       stat.TotalTime,
-			AvgTime:         stat.AvgTime,
+			TotalTime:       roundMicro(stat.TotalTime),
+			AvgTime:         roundMicro(stat.AvgTime),
 			MaxTime:         stat.MaxTime,
 			PreparedNames:   stat.PreparedNames,
 			SlowestRun:      slowestRunJSON(stat),
@@ -3143,4 +3144,13 @@ func ExportSQLDetailJSON(w io.Writer, m analysis.AggregatedMetrics, queryIDs []s
 	}
 	bw.WriteByte(']')
 	bw.WriteByte('\n')
+}
+
+// roundMicro rounds a millisecond value to the microsecond. Summed
+// durations carry float-association noise in their low bits (shard-
+// order-dependent since the SQL analyzer went parallel); source log
+// durations are microsecond-precise, so anything below 1 µs is noise,
+// and rounding keeps the JSON byte-stable regardless of fold order.
+func roundMicro(ms float64) float64 {
+	return math.Round(ms*1e3) / 1e3
 }
