@@ -34,9 +34,10 @@ const jsonSegmentSize = 8 << 20 // 8 MB
 // margin while bounding worst-case in-flight memory.
 const jsonSegmentQueueDepth = 128
 
-// jsonParallelWorkers picks the worker count for parallel JSON-lines
-// parsing. Capped at 8 like the multi-file worker pool.
-func jsonParallelWorkers() int {
+// parallelWorkers picks the worker count for parallel single-file
+// parsing (JSON-lines and stderr segments). Capped at 8 like the
+// multi-file worker pool.
+func parallelWorkers() int {
 	w := runtime.NumCPU() - 2
 	if w > 8 {
 		w = 8

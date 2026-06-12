@@ -64,7 +64,7 @@ func (p *JsonParser) Parse(filename string, out chan<- []LogEntry) error {
 	defer f.Close()
 
 	if st, err := f.Stat(); err == nil && st.Size() >= jsonParallelMinSize {
-		if workers := jsonParallelWorkers(); workers >= 2 {
+		if workers := parallelWorkers(); workers >= 2 {
 			// Dispatch on structure: '[' means a JSON array (rare,
 			// sequential); anything else is JSON-lines.
 			br := bufio.NewReader(f)
