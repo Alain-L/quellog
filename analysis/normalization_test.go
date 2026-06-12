@@ -73,3 +73,24 @@ func TestCollapseInLists_ParityWithRegex(t *testing.T) {
 		}
 	}
 }
+
+// TestReplPrefilter_LongPrefix pins the prefilter scan cap against the
+// real-world shape that broke a 128-byte cap: a rich log_line_prefix
+// (db=…,user=…,app=…,client=…) pushing the marker past byte 150.
+func TestReplPrefilter_LongPrefix(t *testing.T) {
+	longPrefix := "db=prf_germinal_v15,user=prf_germinal_v15_lantier,app=pg_1556260_sync_1547474_7600395482884909846,client=10.99.0.1(34102), LOG:  00000: "
+	cases := []struct {
+		msg  string
+		want bool
+	}{
+		{longPrefix + "terminating walsender process due to replication timeout", true},
+		{longPrefix + "started streaming WAL from primary at 0/3000000", true},
+		{longPrefix + "duration: 0.082 ms  statement: DISCARD ALL", false},
+		{"terminating walsender process due to replication timeout", true},
+	}
+	for _, c := range cases {
+		if got := replPrefilter(c.msg); got != c.want {
+			t.Errorf("replPrefilter(%.60q…) = %v, want %v", c.msg, got, c.want)
+		}
+	}
+}

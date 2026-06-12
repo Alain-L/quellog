@@ -212,10 +212,26 @@ func (a *ReplicationAnalyzer) Process(entry *parser.LogEntry) {
 	}
 }
 
-// replPrefilter is a cheap sniff over the message: at least one of the
-// short substrings below must be present for any replication marker
-// to match. Hand-picked from the actual marker patterns.
+// replPrefilterScanCap bounds the prefilter scan. Every replication
+// marker substring sits in the first bytes of the PG message BODY,
+// but entry.Message may still carry a rich log_line_prefix
+// (db=…,user=…,app=…,client=… runs ~160 bytes on real logs) before
+// the severity and body. 512 covers prefix + body for realistic
+// prefixes while still skipping the bulk of multi-KB SQL statements —
+// the unbounded five-substring scan cost ~4s of the inline group's
+// CPU on an extended-protocol log. Lowering this below ~256 loses
+// markers on long-prefix logs (seen at 128: walsender timeouts at
+// byte ~160 on a db=…,user=…,app=… prefix).
+const replPrefilterScanCap = 512
+
+// replPrefilter is a cheap sniff over the head of the message: at
+// least one of the short substrings below must be present for any
+// replication marker to match. Hand-picked from the actual marker
+// patterns.
 func replPrefilter(msg string) bool {
+	if len(msg) > replPrefilterScanCap {
+		msg = msg[:replPrefilterScanCap]
+	}
 	// "WAL", "walsender", "recovery", "replication", "standby"
 	return strings.Contains(msg, "WAL") ||
 		strings.Contains(msg, "walsender") ||
