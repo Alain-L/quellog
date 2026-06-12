@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/Alain-L/quellog/parser"
@@ -69,8 +70,8 @@ type AggregatedMetrics struct {
 // Usage:
 //
 //	a := NewStreamingAnalyzer()
-//	for entry := range logEntries {
-//	    a.Process(&entry)
+//	for batch := range logBatches {
+//	    a.ProcessBatch(batch)
 //	}
 //	metrics := a.Finalize()
 //
@@ -79,6 +80,15 @@ type AggregatedMetrics struct {
 // analyzers (sql/locks ~22% each, tempFiles 14-34% on >200 MB inputs).
 // uniqueEntities was tested as a 4th parallel goroutine but plafonned,
 // so it stays inline.
+//
+// The hand-off is per-batch, not per-entry: profiling on multi-GB
+// inputs showed three per-entry channel sends burning ~35% of total
+// CPU in scheduler spin (runqsteal → usleep) — four goroutines
+// parking/unparking around ~100M tiny sends. Forwarding the parser's
+// 256-entry batches divides the synchronization count by the batch
+// size; entries are shared read-only (no analyzer mutates them) and
+// the batch returns to the parser pool when the LAST consumer
+// releases it.
 type StreamingAnalyzer struct {
 	global         GlobalMetrics
 	tempFiles      *TempFileAnalyzer
@@ -92,10 +102,26 @@ type StreamingAnalyzer struct {
 	sql            *SQLAnalyzer
 	server         *ServerAnalyzer
 
-	sqlChan    chan parser.LogEntry
-	locksChan  chan parser.LogEntry
-	tempChan   chan parser.LogEntry
+	sqlChan    chan *sharedBatch
+	locksChan  chan *sharedBatch
+	tempChan   chan *sharedBatch
 	parallelWg sync.WaitGroup
+}
+
+// sharedBatch carries one parser batch through the three channel-fed
+// analyzers. refs starts at the number of consumers; the last release
+// returns the slice to the parser pool.
+type sharedBatch struct {
+	entries []parser.LogEntry
+	refs    atomic.Int32
+}
+
+// release decrements the reference count and recycles the underlying
+// slice once every consumer is done with it.
+func (b *sharedBatch) release() {
+	if b.refs.Add(-1) == 0 {
+		parser.PutBatch(b.entries)
+	}
 }
 
 // NewStreamingAnalyzer creates a streaming analyzer with all
@@ -115,59 +141,77 @@ func NewStreamingAnalyzer() *StreamingAnalyzer {
 		server:         NewServerAnalyzer(),
 	}
 
-	sa.sqlChan = make(chan parser.LogEntry, 65536)
-	sa.locksChan = make(chan parser.LogEntry, 65536)
-	sa.tempChan = make(chan parser.LogEntry, 65536)
+	// 256 in-flight batches ≈ 65k entries of buffering — same depth as
+	// the previous per-entry channels, ~256× fewer synchronizations.
+	sa.sqlChan = make(chan *sharedBatch, 256)
+	sa.locksChan = make(chan *sharedBatch, 256)
+	sa.tempChan = make(chan *sharedBatch, 256)
 
 	sa.parallelWg.Add(3)
 	go func() {
 		defer sa.parallelWg.Done()
-		for entry := range sa.sqlChan {
-			sa.sql.Process(&entry)
+		for sb := range sa.sqlChan {
+			for i := range sb.entries {
+				sa.sql.Process(&sb.entries[i])
+			}
+			sb.release()
 		}
 	}()
 	go func() {
 		defer sa.parallelWg.Done()
-		for entry := range sa.locksChan {
-			sa.locks.Process(&entry)
+		for sb := range sa.locksChan {
+			for i := range sb.entries {
+				sa.locks.Process(&sb.entries[i])
+			}
+			sb.release()
 		}
 	}()
 	go func() {
 		defer sa.parallelWg.Done()
-		for entry := range sa.tempChan {
-			sa.tempFiles.Process(&entry)
+		for sb := range sa.tempChan {
+			for i := range sb.entries {
+				sa.tempFiles.Process(&sb.entries[i])
+			}
+			sb.release()
 		}
 	}()
 
 	return sa
 }
 
-// Process dispatches one log entry to every analyzer. The five inline
-// ones are cheap or stateful in a way that doesn't benefit from a
-// goroutine hand-off; the three remaining (locks, tempFiles, sql) are
-// channel-fed.
-func (sa *StreamingAnalyzer) Process(entry *parser.LogEntry) {
-	if !entry.IsContinuation {
-		sa.global.Count++
-	}
-	if sa.global.MinTimestamp.IsZero() || entry.Timestamp.Before(sa.global.MinTimestamp) {
-		sa.global.MinTimestamp = entry.Timestamp
-	}
-	if sa.global.MaxTimestamp.IsZero() || entry.Timestamp.After(sa.global.MaxTimestamp) {
-		sa.global.MaxTimestamp = entry.Timestamp
+// ProcessBatch dispatches one parser batch to every analyzer. The
+// seven inline analyzers run on the calling goroutine; the three
+// channel-fed ones (sql, locks, tempFiles) receive the whole batch
+// and share its entries read-only. Ownership of the batch transfers
+// to the sharedBatch — the caller must NOT touch or recycle it after
+// this returns; the last consumer returns it to the parser pool.
+func (sa *StreamingAnalyzer) ProcessBatch(batch []parser.LogEntry) {
+	for i := range batch {
+		entry := &batch[i]
+		if !entry.IsContinuation {
+			sa.global.Count++
+		}
+		if sa.global.MinTimestamp.IsZero() || entry.Timestamp.Before(sa.global.MinTimestamp) {
+			sa.global.MinTimestamp = entry.Timestamp
+		}
+		if sa.global.MaxTimestamp.IsZero() || entry.Timestamp.After(sa.global.MaxTimestamp) {
+			sa.global.MaxTimestamp = entry.Timestamp
+		}
+
+		sa.vacuum.Process(entry)
+		sa.checkpoints.Process(entry)
+		sa.connections.Process(entry)
+		sa.replication.Process(entry)
+		sa.events.Process(entry)
+		sa.uniqueEntities.Process(entry)
+		sa.server.Process(entry)
 	}
 
-	sa.vacuum.Process(entry)
-	sa.checkpoints.Process(entry)
-	sa.connections.Process(entry)
-	sa.replication.Process(entry)
-	sa.events.Process(entry)
-	sa.uniqueEntities.Process(entry)
-	sa.server.Process(entry)
-
-	sa.locksChan <- *entry
-	sa.tempChan <- *entry
-	sa.sqlChan <- *entry
+	sb := &sharedBatch{entries: batch}
+	sb.refs.Store(3)
+	sa.locksChan <- sb
+	sa.tempChan <- sb
+	sa.sqlChan <- sb
 }
 
 // Finalize computes final metrics after all log entries have been processed.
@@ -243,10 +287,9 @@ loop:
 			if !ok {
 				break loop
 			}
-			for i := range batch {
-				analyzer.Process(&batch[i])
-			}
-			parser.PutBatch(batch)
+			// ProcessBatch takes ownership: the batch is recycled by
+			// the last of the three channel-fed analyzers, not here.
+			analyzer.ProcessBatch(batch)
 		}
 	}
 
