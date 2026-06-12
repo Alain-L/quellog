@@ -102,10 +102,12 @@ type StreamingAnalyzer struct {
 	sql            *SQLAnalyzer
 	server         *ServerAnalyzer
 
-	sqlChan    chan *sharedBatch
-	locksChan  chan *sharedBatch
-	tempChan   chan *sharedBatch
-	parallelWg sync.WaitGroup
+	sqlChan     chan *sharedBatch
+	locksChan   chan *sharedBatch
+	tempChan    chan *sharedBatch
+	inlineAChan chan *sharedBatch
+	inlineBChan chan *sharedBatch
+	parallelWg  sync.WaitGroup
 }
 
 // sharedBatch carries one parser batch through the three channel-fed
@@ -146,8 +148,10 @@ func NewStreamingAnalyzer() *StreamingAnalyzer {
 	sa.sqlChan = make(chan *sharedBatch, 256)
 	sa.locksChan = make(chan *sharedBatch, 256)
 	sa.tempChan = make(chan *sharedBatch, 256)
+	sa.inlineAChan = make(chan *sharedBatch, 256)
+	sa.inlineBChan = make(chan *sharedBatch, 256)
 
-	sa.parallelWg.Add(3)
+	sa.parallelWg.Add(5)
 	go func() {
 		defer sa.parallelWg.Done()
 		for sb := range sa.sqlChan {
@@ -175,16 +179,51 @@ func NewStreamingAnalyzer() *StreamingAnalyzer {
 			sb.release()
 		}
 	}()
+	// The seven "inline" analyzers are individually cheap (~1.2s of
+	// CPU each on a 4.4 GB log) but their SUM (~8s) exceeded the time
+	// budget the parser gives the consuming goroutine (~11s), making
+	// the old inline loop the pipeline's critical path. Split across
+	// two goroutines (~4s each) both groups hide behind the parser
+	// again. Each analyzer still sees the full stream in order (one
+	// goroutine per group, FIFO channel), so intra-analyzer pairing
+	// (PID continuations, session tracking) is unaffected.
+	go func() {
+		defer sa.parallelWg.Done()
+		for sb := range sa.inlineAChan {
+			for i := range sb.entries {
+				e := &sb.entries[i]
+				sa.vacuum.Process(e)
+				sa.checkpoints.Process(e)
+				sa.connections.Process(e)
+				sa.server.Process(e)
+			}
+			sb.release()
+		}
+	}()
+	go func() {
+		defer sa.parallelWg.Done()
+		for sb := range sa.inlineBChan {
+			for i := range sb.entries {
+				e := &sb.entries[i]
+				sa.replication.Process(e)
+				sa.events.Process(e)
+				sa.uniqueEntities.Process(e)
+			}
+			sb.release()
+		}
+	}()
 
 	return sa
 }
 
-// ProcessBatch dispatches one parser batch to every analyzer. The
-// seven inline analyzers run on the calling goroutine; the three
-// channel-fed ones (sql, locks, tempFiles) receive the whole batch
-// and share its entries read-only. Ownership of the batch transfers
-// to the sharedBatch — the caller must NOT touch or recycle it after
-// this returns; the last consumer returns it to the parser pool.
+// ProcessBatch dispatches one parser batch to every analyzer. Only
+// the cheap global counters run on the calling goroutine; everything
+// else is channel-fed — sql, locks and tempFiles individually, the
+// seven remaining analyzers grouped on two goroutines. All five
+// consumers share the batch entries read-only. Ownership of the
+// batch transfers to the sharedBatch — the caller must NOT touch or
+// recycle it after this returns; the last consumer returns it to the
+// parser pool.
 func (sa *StreamingAnalyzer) ProcessBatch(batch []parser.LogEntry) {
 	for i := range batch {
 		entry := &batch[i]
@@ -197,18 +236,12 @@ func (sa *StreamingAnalyzer) ProcessBatch(batch []parser.LogEntry) {
 		if sa.global.MaxTimestamp.IsZero() || entry.Timestamp.After(sa.global.MaxTimestamp) {
 			sa.global.MaxTimestamp = entry.Timestamp
 		}
-
-		sa.vacuum.Process(entry)
-		sa.checkpoints.Process(entry)
-		sa.connections.Process(entry)
-		sa.replication.Process(entry)
-		sa.events.Process(entry)
-		sa.uniqueEntities.Process(entry)
-		sa.server.Process(entry)
 	}
 
 	sb := &sharedBatch{entries: batch}
-	sb.refs.Store(3)
+	sb.refs.Store(5)
+	sa.inlineAChan <- sb
+	sa.inlineBChan <- sb
 	sa.locksChan <- sb
 	sa.tempChan <- sb
 	sa.sqlChan <- sb
@@ -224,6 +257,8 @@ func (sa *StreamingAnalyzer) Finalize() AggregatedMetrics {
 	close(sa.sqlChan)
 	close(sa.locksChan)
 	close(sa.tempChan)
+	close(sa.inlineAChan)
+	close(sa.inlineBChan)
 	sa.parallelWg.Wait()
 
 	tempFiles := sa.tempFiles.Finalize()
