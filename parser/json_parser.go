@@ -51,12 +51,32 @@ type JsonParser struct {
 
 // Parse reads a JSON format log file and streams parsed entries.
 // IMPORTANT: This function does NOT close the output channel.
+//
+// Large plain JSON-lines files take the parallel segment path —
+// jsonlog decoding is CPU-bound and strictly line-delimited, so byte
+// chunking parallelizes it safely (see parseJSONLinesParallel). JSON
+// arrays and small files keep the sequential reader.
 func (p *JsonParser) Parse(filename string, out chan<- []LogEntry) error {
 	f, err := os.Open(filename)
 	if err != nil {
 		return fmt.Errorf("failed to open file %s: %w", filename, err)
 	}
 	defer f.Close()
+
+	if st, err := f.Stat(); err == nil && st.Size() >= jsonParallelMinSize {
+		if workers := jsonParallelWorkers(); workers >= 2 {
+			// Dispatch on structure: '[' means a JSON array (rare,
+			// sequential); anything else is JSON-lines.
+			br := bufio.NewReader(f)
+			first, perr := peekFirstNonWhitespace(br)
+			if perr == nil && first != '[' {
+				return parseJSONLinesParallel(filename, st.Size(), workers, out)
+			}
+			if _, err := f.Seek(0, io.SeekStart); err != nil {
+				return fmt.Errorf("failed to rewind %s: %w", filename, err)
+			}
+		}
+	}
 	return p.parseReader(WithProgress(f), out)
 }
 
