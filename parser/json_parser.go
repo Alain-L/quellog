@@ -384,7 +384,16 @@ func extractIPHost(s string) string {
 // writing into the parser's reusable scratch buffer.
 func (p *JsonParser) buildMessage(f *effectiveFields) string {
 	if f.textPayload != "" {
-		return f.textPayload
+		// textPayload is returned verbatim (no rebuild), but gjson's
+		// String() sub-slices the parsed input for unescaped strings —
+		// here that input is unsafeString(scanner.Bytes()), the reusable
+		// scanner buffer. Returning it directly aliases that buffer, so
+		// the next Scan() (after a buffer refill, i.e. on inputs past the
+		// scanner's 4 MB window) silently overwrites already-emitted
+		// messages. Every other field path below copies into msgBuf and
+		// is safe; this one must Clone. Without it, a >4 MB Google Cloud
+		// SQL (textPayload) log corrupts the majority of its messages.
+		return strings.Clone(f.textPayload)
 	}
 
 	if cap(p.msgBuf) < 512 {
