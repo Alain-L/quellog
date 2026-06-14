@@ -303,13 +303,31 @@ func (a *LockAnalyzer) processBlockingDetail(entry *parser.LogEntry, msg string)
 			break
 		}
 	}
-	// Mirror the blocking PID into the active lock map.
+	// Mirror the blocking PID onto this backend's most recent waiting lock.
+	// The previous code did `for range a.activeLocks { ...; break }`, picking
+	// a random matching lock when a backend held several concurrent waiting
+	// locks (Go map iteration is randomized) — a pre-existing source of
+	// run-to-run non-determinism in the acquired event's blocking_pid /
+	// blocking_query. Selecting the largest waitingEventID is deterministic
+	// and matches the "most recent waiting" the DETAIL line refers to.
+	if target := a.mostRecentWaitingLock(waitingPID); target != nil {
+		target.blockingPID = bPID
+	}
+}
+
+// mostRecentWaitingLock returns pid's still-waiting active lock with the
+// largest waitingEventID (the most recently logged "still waiting"), or nil.
+// Deterministic regardless of map-iteration order.
+func (a *LockAnalyzer) mostRecentWaitingLock(pid string) *activeLock {
+	var target *activeLock
 	for _, lock := range a.activeLocks {
-		if lock.processID == waitingPID && !lock.acquired {
-			lock.blockingPID = bPID
-			break
+		if lock.processID == pid && !lock.acquired {
+			if target == nil || lock.waitingEventID > target.waitingEventID {
+				target = lock
+			}
 		}
 	}
+	return target
 }
 
 // processRelationContext handles a "CONTEXT: ... in relation \"X\"" line.
@@ -331,12 +349,22 @@ func (a *LockAnalyzer) processRelationContext(entry *parser.LogEntry, msg string
 			break
 		}
 	}
+	// Set the relation on this backend's most recent relation-less active lock
+	// (largest waitingEventID) rather than a random map-iteration match. This
+	// is deterministic and increments relationStats exactly once whenever a
+	// matching lock exists — identical count to the previous code, but a stable
+	// choice of which lock (and hence which acquired event) carries the relation.
+	var target *activeLock
 	for _, lock := range a.activeLocks {
 		if lock.processID == pid && lock.relation == "" {
-			lock.relation = rel
-			a.relationStats[rel]++
-			break
+			if target == nil || lock.waitingEventID > target.waitingEventID {
+				target = lock
+			}
 		}
+	}
+	if target != nil {
+		target.relation = rel
+		a.relationStats[rel]++
 	}
 }
 
