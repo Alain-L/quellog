@@ -2664,7 +2664,13 @@ func printLockStats(stats map[string]int, total int) {
 		pairs = append(pairs, statPair{name, count})
 	}
 	sort.Slice(pairs, func(i, j int) bool {
-		return pairs[i].count > pairs[j].count
+		if pairs[i].count != pairs[j].count {
+			return pairs[i].count > pairs[j].count
+		}
+		// Total tie-break on name: Go map iteration order is randomized, so
+		// without a secondary key equal-count entries (e.g. the "Relations"
+		// list) print in a non-deterministic order, differing run-to-run.
+		return pairs[i].name < pairs[j].name
 	})
 
 	// Print top entries
