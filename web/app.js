@@ -1523,8 +1523,8 @@ function buildEventsSection(data) {
                                                 <tr>
                                                     <td class="query-cell" onclick="showQueryModal('${esc(b.id)}')">${esc(b.query || b.id)}</td>
                                                     <td class="num">${b.count}</td>
-                                                    <td class="num">${fmtMs(b.totalWaitMs / b.count)}</td>
-                                                    <td class="num">${fmtMs(b.totalWaitMs)}</td>
+                                                    <td class="num">${fmtDuration(b.totalWaitMs / b.count)}</td>
+                                                    <td class="num">${fmtDuration(b.totalWaitMs)}</td>
                                                 </tr>
                                             `).join('')}
                                         </tbody>
