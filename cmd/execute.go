@@ -2,6 +2,7 @@
 package cmd
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"io"
@@ -337,7 +338,7 @@ func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry
 			PrintProcessingSummary(metrics.SQL.TotalQueries, processingDuration, totalFileSize)
 			output.PrintSQLDetails(metrics, sqlDetailFlag)
 		}
-		return nil
+		return closer()
 	}
 
 	// Special case: event pattern details (lookup by ID like wa-aBc1)
@@ -362,7 +363,7 @@ func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry
 			PrintProcessingSummary(metrics.SQL.TotalQueries, processingDuration, totalFileSize)
 			output.PrintEventDetails(metrics, eventDetailFlag)
 		}
-		return nil
+		return closer()
 	}
 
 	// Special case: SQL performance (detailed aggregated query statistics)
@@ -388,7 +389,7 @@ func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry
 			PrintProcessingSummary(metrics.SQL.TotalQueries, processingDuration, totalFileSize)
 			output.PrintSQLSummaryWithContext(metrics.SQL, metrics.TempFiles, metrics.Locks, false)
 		}
-		return nil
+		return closer()
 	}
 
 	// Special case: SQL overview (query type statistics with dimensional breakdown)
@@ -414,7 +415,7 @@ func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry
 			PrintProcessingSummary(metrics.SQL.TotalQueries, processingDuration, totalFileSize)
 			output.PrintSQLOverview(metrics.SQL)
 		}
-		return nil
+		return closer()
 	}
 
 	// Default: full analysis with all metrics
@@ -455,45 +456,33 @@ func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry
 
 	// Output in requested format
 	if jsonFlag || jsonCompactFlag {
-		w := os.Stdout
-		if outputFlag != "" {
-			f, err := os.Create(outputFlag)
-			if err != nil {
-				return fmt.Errorf("failed to create output file %q: %w", outputFlag, err)
-			}
-			defer f.Close()
-			w = f
+		w, closer, err := createOutputWriter(outputFlag)
+		if err != nil {
+			return err
 		}
+		defer closer()
 		output.ExportJSON(w, metrics, sections, fullFlag, jsonCompactFlag)
-		return nil
+		return closer()
 	}
 
 	if yamlFlag {
-		w := os.Stdout
-		if outputFlag != "" {
-			f, err := os.Create(outputFlag)
-			if err != nil {
-				return fmt.Errorf("failed to create output file %q: %w", outputFlag, err)
-			}
-			defer f.Close()
-			w = f
+		w, closer, err := createOutputWriter(outputFlag)
+		if err != nil {
+			return err
 		}
+		defer closer()
 		output.ExportYAML(w, metrics, sections, fullFlag)
-		return nil
+		return closer()
 	}
 
 	if mdFlag {
-		w := os.Stdout
-		if outputFlag != "" {
-			f, err := os.Create(outputFlag)
-			if err != nil {
-				return fmt.Errorf("failed to create output file %q: %w", outputFlag, err)
-			}
-			defer f.Close()
-			w = f
+		w, closer, err := createOutputWriter(outputFlag)
+		if err != nil {
+			return err
 		}
+		defer closer()
 		output.ExportMarkdown(w, metrics, sections, fullFlag)
-		return nil
+		return closer()
 	}
 
 	if htmlFlag {
@@ -503,11 +492,11 @@ func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry
 			outputName = generateHTMLFilename(inputArgs)
 		}
 
-		f, err := os.Create(outputName)
+		w, closer, err := createOutputWriter(outputName)
 		if err != nil {
-			return fmt.Errorf("failed to create HTML file %q: %w", outputName, err)
+			return err
 		}
-		defer f.Close()
+		defer closer()
 
 		// Detect format from first input file
 		detectedFormat := ""
@@ -524,8 +513,15 @@ func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry
 			Version:     version,
 		}
 
-		if err := output.ExportHTML(f, metrics, reportInfo, sections); err != nil {
+		if err := output.ExportHTML(w, metrics, reportInfo, sections); err != nil {
 			return fmt.Errorf("failed to write HTML report: %w", err)
+		}
+
+		// Flush and close before announcing or opening the file so the
+		// browser never reads a truncated report (and disk-full errors
+		// surface instead of a silent partial write).
+		if err := closer(); err != nil {
+			return err
 		}
 
 		// In follow mode, be less verbose about saved files
@@ -598,13 +594,16 @@ func defaultExportName(ext string, inputArgs []string) string {
 func renderMultipleFormats(metrics analysis.AggregatedMetrics, sections []string, inputArgs []string, totalFileSize int64, processingDuration time.Duration) error {
 	write := func(ext string, render func(io.Writer) error) error {
 		name := defaultExportName(ext, inputArgs)
-		f, err := os.Create(name)
+		w, closer, err := createOutputWriter(name)
 		if err != nil {
-			return fmt.Errorf("failed to create %s file %q: %w", ext, name, err)
+			return err
 		}
-		defer f.Close()
-		if err := render(f); err != nil {
+		defer closer()
+		if err := render(w); err != nil {
 			return fmt.Errorf("failed to write %s report: %w", ext, err)
+		}
+		if err := closer(); err != nil {
+			return err
 		}
 		if !followFlag {
 			fmt.Printf("Report saved to %s\n", name)
@@ -761,18 +760,37 @@ func PrintProcessingSummary(numEntries int, duration time.Duration, fileSize int
 		numEntries, duration.Seconds(), output.FormatBytes(fileSize))
 }
 
-// createOutputWriter returns an io.Writer for the given output path.
-// If path is empty, returns os.Stdout with a no-op closer and no error.
-// Otherwise, creates the file and returns it with a closer that closes it.
-func createOutputWriter(path string) (io.Writer, func(), error) {
+// createOutputWriter returns an io.Writer for the given output path and a
+// closer that MUST be checked on the success path.
+//
+// If path is empty, it returns os.Stdout with a no-op closer. Otherwise it
+// creates the file and wraps it in a bufio.Writer: the interposed buffer is
+// what makes error reporting reliable. The exporters wrap w in their own
+// buffered writer and swallow its Flush error; by writing into our bufio,
+// that swallowed flush becomes an in-memory copy that cannot fail, and the
+// real I/O happens at our checked Flush (catching disk-full / quota) and
+// Close (catching deferred errors on networked filesystems). Without this,
+// a report written to a full disk would silently truncate and quellog
+// would still exit 0.
+func createOutputWriter(path string) (io.Writer, func() error, error) {
 	if path == "" {
-		return os.Stdout, func() {}, nil
+		return os.Stdout, func() error { return nil }, nil
 	}
 	f, err := os.Create(path)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create output file %q: %w", path, err)
 	}
-	return f, func() { f.Close() }, nil
+	bw := bufio.NewWriter(f)
+	return bw, func() error {
+		if ferr := bw.Flush(); ferr != nil {
+			f.Close()
+			return fmt.Errorf("failed to write output file %q: %w", path, ferr)
+		}
+		if cerr := f.Close(); cerr != nil {
+			return fmt.Errorf("failed to close output file %q: %w", path, cerr)
+		}
+		return nil
+	}, nil
 }
 
 // requireMetrics aggregates metrics and returns an error if no log entries
