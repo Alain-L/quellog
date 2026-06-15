@@ -46,9 +46,9 @@ This _quellog_ report summarizes **6** log entries collected between 20 Apr 2026
 | SQLID     | Count |    Avg |    Max | Query                                                    |
 |-----------|------:|-------:|-------:|----------------------------------------------------------|
 | de-DuYjtx |     1 | 100 ms | 100 ms | delete from old_audit_logs where created_at < ?          |
-| up-CDrHeR |     1 |  25 ms |  25 ms | update customers set active = false where last_login < ? |
 | se-Sq8UWM |     1 |  12 ms |  12 ms | select * from products where category = ?                |
 | se-bO3J6S |     1 |   5 ms |   5 ms | select id from users where email = ?                     |
+| up-CDrHeR |     1 |  25 ms |  25 ms | update customers set active = false where last_login < ? |
 
 **Most time consuming queries (top 10)**
 

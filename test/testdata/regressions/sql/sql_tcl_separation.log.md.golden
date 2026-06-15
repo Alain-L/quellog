@@ -51,10 +51,10 @@ This _quellog_ report summarizes **10** log entries collected between 20 Apr 202
 | be-jViak3 |     3 |  0 ms |  0 ms | begin                                             |
 | ct-yk1n6g |     2 |  0 ms |  0 ms | commit                                            |
 | in-hzD69N |     1 | 15 ms | 15 ms | insert into orders (user_id, total) values (?, ?) |
+| rb-Zumz2W |     1 |  0 ms |  0 ms | rollback                                          |
 | se-Mc7IGz |     1 | 12 ms | 12 ms | select * from users where active = true           |
 | se-nAXqVo |     1 |  8 ms |  8 ms | select * from orders where id = ?                 |
 | up-DX6w97 |     1 |  5 ms |  5 ms | update users set last_seen = now() where id = ?   |
-| rb-Zumz2W |     1 |  0 ms |  0 ms | rollback                                          |
 
 **Most time consuming queries (top 10)**
 

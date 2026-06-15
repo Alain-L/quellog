@@ -2244,7 +2244,10 @@ func buildSQLOverviewData(m analysis.SQLMetrics) SQLOverviewJSON {
 		})
 	}
 	sort.Slice(overview.Categories, func(i, j int) bool {
-		return overview.Categories[i].Count > overview.Categories[j].Count
+		if overview.Categories[i].Count != overview.Categories[j].Count {
+			return overview.Categories[i].Count > overview.Categories[j].Count
+		}
+		return overview.Categories[i].Category < overview.Categories[j].Category
 	})
 
 	for qtype, stat := range m.QueryTypeStats {
@@ -2259,7 +2262,10 @@ func buildSQLOverviewData(m analysis.SQLMetrics) SQLOverviewJSON {
 		})
 	}
 	sort.Slice(overview.Types, func(i, j int) bool {
-		return overview.Types[i].Count > overview.Types[j].Count
+		if overview.Types[i].Count != overview.Types[j].Count {
+			return overview.Types[i].Count > overview.Types[j].Count
+		}
+		return overview.Types[i].Type < overview.Types[j].Type
 	})
 
 	overview.ByDatabase = convertDimensionBreakdown(m.QueryTypesByDatabase)
@@ -2336,7 +2342,10 @@ func buildFullSQLPerformance(m analysis.SQLMetrics) SQLPerformanceDetailJSON {
 
 	// Slowest queries (by max duration)
 	sort.Slice(stats, func(i, j int) bool {
-		return stats[i].stat.MaxTime > stats[j].stat.MaxTime
+		if stats[i].stat.MaxTime != stats[j].stat.MaxTime {
+			return stats[i].stat.MaxTime > stats[j].stat.MaxTime
+		}
+		return stats[i].id < stats[j].id
 	})
 	limit := 10
 	if len(stats) < limit {
@@ -2356,7 +2365,10 @@ func buildFullSQLPerformance(m analysis.SQLMetrics) SQLPerformanceDetailJSON {
 
 	// Most frequent queries (by count)
 	sort.Slice(stats, func(i, j int) bool {
-		return stats[i].stat.Count > stats[j].stat.Count
+		if stats[i].stat.Count != stats[j].stat.Count {
+			return stats[i].stat.Count > stats[j].stat.Count
+		}
+		return stats[i].id < stats[j].id
 	})
 	limit = 15
 	if len(stats) < limit {
@@ -2376,7 +2388,10 @@ func buildFullSQLPerformance(m analysis.SQLMetrics) SQLPerformanceDetailJSON {
 
 	// Most time consuming queries (by total time)
 	sort.Slice(stats, func(i, j int) bool {
-		return stats[i].stat.TotalTime > stats[j].stat.TotalTime
+		if stats[i].stat.TotalTime != stats[j].stat.TotalTime {
+			return stats[i].stat.TotalTime > stats[j].stat.TotalTime
+		}
+		return stats[i].id < stats[j].id
 	})
 	limit = 10
 	if len(stats) < limit {
@@ -2396,7 +2411,10 @@ func buildFullSQLPerformance(m analysis.SQLMetrics) SQLPerformanceDetailJSON {
 
 	// Full queries data for HTML viewer (all queries, sorted by total time)
 	sort.Slice(stats, func(i, j int) bool {
-		return stats[i].stat.TotalTime > stats[j].stat.TotalTime
+		if stats[i].stat.TotalTime != stats[j].stat.TotalTime {
+			return stats[i].stat.TotalTime > stats[j].stat.TotalTime
+		}
+		return stats[i].id < stats[j].id
 	})
 	dimsByQuery := m.TopDimensionsByQuery(5)
 	for _, s := range stats {
@@ -2770,7 +2788,10 @@ func ExportSQLOverviewJSON(w io.Writer, m analysis.SQLMetrics) {
 		})
 	}
 	sort.Slice(overview.Categories, func(i, j int) bool {
-		return overview.Categories[i].Count > overview.Categories[j].Count
+		if overview.Categories[i].Count != overview.Categories[j].Count {
+			return overview.Categories[i].Count > overview.Categories[j].Count
+		}
+		return overview.Categories[i].Category < overview.Categories[j].Category
 	})
 
 	// Build type statistics
@@ -2786,7 +2807,10 @@ func ExportSQLOverviewJSON(w io.Writer, m analysis.SQLMetrics) {
 		})
 	}
 	sort.Slice(overview.Types, func(i, j int) bool {
-		return overview.Types[i].Count > overview.Types[j].Count
+		if overview.Types[i].Count != overview.Types[j].Count {
+			return overview.Types[i].Count > overview.Types[j].Count
+		}
+		return overview.Types[i].Type < overview.Types[j].Type
 	})
 
 	// Build dimensional breakdowns
@@ -2871,7 +2895,10 @@ func ExportSQLPerformanceJSON(w io.Writer, m analysis.SQLMetrics) {
 
 	// Slowest queries (by max duration)
 	sort.Slice(stats, func(i, j int) bool {
-		return stats[i].stat.MaxTime > stats[j].stat.MaxTime
+		if stats[i].stat.MaxTime != stats[j].stat.MaxTime {
+			return stats[i].stat.MaxTime > stats[j].stat.MaxTime
+		}
+		return stats[i].id < stats[j].id
 	})
 	limit := 10
 	if len(stats) < limit {
@@ -2891,7 +2918,10 @@ func ExportSQLPerformanceJSON(w io.Writer, m analysis.SQLMetrics) {
 
 	// Most frequent queries (by count)
 	sort.Slice(stats, func(i, j int) bool {
-		return stats[i].stat.Count > stats[j].stat.Count
+		if stats[i].stat.Count != stats[j].stat.Count {
+			return stats[i].stat.Count > stats[j].stat.Count
+		}
+		return stats[i].id < stats[j].id
 	})
 	limit = 15
 	if len(stats) < limit {
@@ -2911,7 +2941,10 @@ func ExportSQLPerformanceJSON(w io.Writer, m analysis.SQLMetrics) {
 
 	// Most time consuming queries (by total time)
 	sort.Slice(stats, func(i, j int) bool {
-		return stats[i].stat.TotalTime > stats[j].stat.TotalTime
+		if stats[i].stat.TotalTime != stats[j].stat.TotalTime {
+			return stats[i].stat.TotalTime > stats[j].stat.TotalTime
+		}
+		return stats[i].id < stats[j].id
 	})
 	limit = 10
 	if len(stats) < limit {
@@ -2962,7 +2995,10 @@ func convertDimensionBreakdown(breakdown map[string]map[string]*analysis.QueryTy
 
 		// Sort query types by count descending
 		sort.Slice(queryTypes, func(i, j int) bool {
-			return queryTypes[i].Count > queryTypes[j].Count
+			if queryTypes[i].Count != queryTypes[j].Count {
+				return queryTypes[i].Count > queryTypes[j].Count
+			}
+			return queryTypes[i].Type < queryTypes[j].Type
 		})
 
 		result = append(result, DimensionBreakdownJSON{
@@ -2975,7 +3011,10 @@ func convertDimensionBreakdown(breakdown map[string]map[string]*analysis.QueryTy
 
 	// Sort dimensions by count descending
 	sort.Slice(result, func(i, j int) bool {
-		return result[i].Count > result[j].Count
+		if result[i].Count != result[j].Count {
+			return result[i].Count > result[j].Count
+		}
+		return result[i].Name < result[j].Name
 	})
 
 	return result

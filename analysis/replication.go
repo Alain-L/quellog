@@ -347,7 +347,9 @@ func (a *ReplicationAnalyzer) Finalize() ReplicationMetrics {
 		target = a.hourCounts
 	}
 	for h, c := range target {
-		if c > peakCount {
+		// Tie-break on the smaller hour so the peak is deterministic when
+		// several hours share the same count (map iteration is randomized).
+		if c > peakCount || (c == peakCount && (peakHour == "" || h < peakHour)) {
 			peakHour, peakCount = h, c
 		}
 	}
