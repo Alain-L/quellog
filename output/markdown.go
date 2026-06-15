@@ -242,7 +242,10 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 				queries = append(queries, queryWithSize{stat: stat})
 			}
 			sort.Slice(queries, func(i, j int) bool {
-				return queries[i].stat.TotalSize > queries[j].stat.TotalSize
+				if queries[i].stat.TotalSize != queries[j].stat.TotalSize {
+					return queries[i].stat.TotalSize > queries[j].stat.TotalSize
+				}
+				return queries[i].stat.ID < queries[j].stat.ID
 			})
 			limit := 10
 			if len(queries) < limit {
@@ -320,7 +323,10 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 			}
 			if len(pairs) > 0 {
 				sort.Slice(pairs, func(i, j int) bool {
-					return pairs[i].stat.TotalWaitTime > pairs[j].stat.TotalWaitTime
+					if pairs[i].stat.TotalWaitTime != pairs[j].stat.TotalWaitTime {
+						return pairs[i].stat.TotalWaitTime > pairs[j].stat.TotalWaitTime
+					}
+					return pairs[i].stat.ID < pairs[j].stat.ID
 				})
 				limit := 10
 				if limit > len(pairs) {
@@ -375,7 +381,10 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 					pairs = append(pairs, blockerPair{bs})
 				}
 				sort.Slice(pairs, func(i, j int) bool {
-					return pairs[i].stat.totalWait > pairs[j].stat.totalWait
+					if pairs[i].stat.totalWait != pairs[j].stat.totalWait {
+						return pairs[i].stat.totalWait > pairs[j].stat.totalWait
+					}
+					return pairs[i].stat.queryID < pairs[j].stat.queryID
 				})
 
 				limit := 10
@@ -603,7 +612,12 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 			for k, s := range src {
 				sorted = append(sorted, row{key: k, stats: s.Stats(), cumulated: s.Cumulated()})
 			}
-			sort.Slice(sorted, func(i, j int) bool { return sorted[i].stats.Count > sorted[j].stats.Count })
+			sort.Slice(sorted, func(i, j int) bool {
+				if sorted[i].stats.Count != sorted[j].stats.Count {
+					return sorted[i].stats.Count > sorted[j].stats.Count
+				}
+				return sorted[i].key < sorted[j].key
+			})
 			end := len(sorted)
 			if end > 10 {
 				end = 10
@@ -1241,19 +1255,34 @@ func printQueryStatsMarkdown(b *strings.Builder, stats map[string]*analysis.Quer
 		b.WriteString("\n")
 	}
 	emit("Slowest queries (top 10)",
-		func(i, j int) bool { return list[i].MaxTime > list[j].MaxTime },
+		func(i, j int) bool {
+			if list[i].MaxTime != list[j].MaxTime {
+				return list[i].MaxTime > list[j].MaxTime
+			}
+			return list[i].ID < list[j].ID
+		},
 		[]string{"SQLID", "Max", "Avg", "Count", "Query"},
 		func(q qinfo) []string {
 			return []string{q.ID, formatQueryDuration(q.MaxTime), formatQueryDuration(q.AvgTime), fmt.Sprintf("%d", q.Count), truncateQuery(q.Query, 80)}
 		})
 	emit("Most frequent queries (top 10)",
-		func(i, j int) bool { return list[i].Count > list[j].Count },
+		func(i, j int) bool {
+			if list[i].Count != list[j].Count {
+				return list[i].Count > list[j].Count
+			}
+			return list[i].ID < list[j].ID
+		},
 		[]string{"SQLID", "Count", "Avg", "Max", "Query"},
 		func(q qinfo) []string {
 			return []string{q.ID, fmt.Sprintf("%d", q.Count), formatQueryDuration(q.AvgTime), formatQueryDuration(q.MaxTime), truncateQuery(q.Query, 80)}
 		})
 	emit("Most time consuming queries (top 10)",
-		func(i, j int) bool { return list[i].TotalTime > list[j].TotalTime },
+		func(i, j int) bool {
+			if list[i].TotalTime != list[j].TotalTime {
+				return list[i].TotalTime > list[j].TotalTime
+			}
+			return list[i].ID < list[j].ID
+		},
 		[]string{"SQLID", "Total", "Avg", "Count", "Query"},
 		func(q qinfo) []string {
 			return []string{q.ID, formatQueryDuration(q.TotalTime), formatQueryDuration(q.AvgTime), fmt.Sprintf("%d", q.Count), truncateQuery(q.Query, 80)}
@@ -1383,7 +1412,10 @@ func printLockStatsMarkdown(b *strings.Builder, stats map[string]int, total int)
 		pairs = append(pairs, statPair{name, count})
 	}
 	sort.Slice(pairs, func(i, j int) bool {
-		return pairs[i].count > pairs[j].count
+		if pairs[i].count != pairs[j].count {
+			return pairs[i].count > pairs[j].count
+		}
+		return pairs[i].name < pairs[j].name
 	})
 
 	// Print entries
@@ -1402,7 +1434,12 @@ func printAcquiredLockQueriesMarkdown(b *strings.Builder, queryStats map[string]
 			pairs = append(pairs, pair{s})
 		}
 	}
-	sort.Slice(pairs, func(i, j int) bool { return pairs[i].stat.AcquiredWaitTime > pairs[j].stat.AcquiredWaitTime })
+	sort.Slice(pairs, func(i, j int) bool {
+		if pairs[i].stat.AcquiredWaitTime != pairs[j].stat.AcquiredWaitTime {
+			return pairs[i].stat.AcquiredWaitTime > pairs[j].stat.AcquiredWaitTime
+		}
+		return pairs[i].stat.ID < pairs[j].stat.ID
+	})
 	if limit > len(pairs) {
 		limit = len(pairs)
 	}
@@ -1424,7 +1461,12 @@ func printStillWaitingLockQueriesMarkdown(b *strings.Builder, queryStats map[str
 			pairs = append(pairs, pair{s})
 		}
 	}
-	sort.Slice(pairs, func(i, j int) bool { return pairs[i].stat.StillWaitingTime > pairs[j].stat.StillWaitingTime })
+	sort.Slice(pairs, func(i, j int) bool {
+		if pairs[i].stat.StillWaitingTime != pairs[j].stat.StillWaitingTime {
+			return pairs[i].stat.StillWaitingTime > pairs[j].stat.StillWaitingTime
+		}
+		return pairs[i].stat.ID < pairs[j].stat.ID
+	})
 	if limit > len(pairs) {
 		limit = len(pairs)
 	}
@@ -1451,7 +1493,12 @@ func printMostFrequentWaitingQueriesMarkdown(b *strings.Builder, queryStats map[
 			pairs = append(pairs, pair{stat: s, totalLocks: totalLocks, totalWait: s.AcquiredWaitTime + s.StillWaitingTime})
 		}
 	}
-	sort.Slice(pairs, func(i, j int) bool { return pairs[i].totalLocks > pairs[j].totalLocks })
+	sort.Slice(pairs, func(i, j int) bool {
+		if pairs[i].totalLocks != pairs[j].totalLocks {
+			return pairs[i].totalLocks > pairs[j].totalLocks
+		}
+		return pairs[i].stat.ID < pairs[j].stat.ID
+	})
 	if limit > len(pairs) {
 		limit = len(pairs)
 	}
@@ -1508,7 +1555,10 @@ func ExportSQLSummaryMarkdown(w io.Writer, m analysis.SQLMetrics, tempFiles anal
 			queries = append(queries, queryWithSize{stat: stat})
 		}
 		sort.Slice(queries, func(i, j int) bool {
-			return queries[i].stat.TotalSize > queries[j].stat.TotalSize
+			if queries[i].stat.TotalSize != queries[j].stat.TotalSize {
+				return queries[i].stat.TotalSize > queries[j].stat.TotalSize
+			}
+			return queries[i].stat.ID < queries[j].stat.ID
 		})
 		limit := 10
 		if len(queries) < limit {
@@ -1885,7 +1935,12 @@ func exportQueryTypeBreakdownMarkdown(b *strings.Builder, title string, breakdow
 		}
 		dimensions = append(dimensions, dimStats{dimName, totalCount, totalTime})
 	}
-	sort.Slice(dimensions, func(i, j int) bool { return dimensions[i].count > dimensions[j].count })
+	sort.Slice(dimensions, func(i, j int) bool {
+		if dimensions[i].count != dimensions[j].count {
+			return dimensions[i].count > dimensions[j].count
+		}
+		return dimensions[i].name < dimensions[j].name
+	})
 	for _, dim := range dimensions {
 		b.WriteString(fmt.Sprintf("### %s (%d queries, %s)\n\n", dim.name, dim.count, formatQueryDuration(dim.totalTime)))
 		types := breakdown[dim.name]
@@ -1898,7 +1953,12 @@ func exportQueryTypeBreakdownMarkdown(b *strings.Builder, title string, breakdow
 		for typeName, tc := range types {
 			typeList = append(typeList, entry{typeName, tc.Count, tc.TotalTime})
 		}
-		sort.Slice(typeList, func(i, j int) bool { return typeList[i].count > typeList[j].count })
+		sort.Slice(typeList, func(i, j int) bool {
+			if typeList[i].count != typeList[j].count {
+				return typeList[i].count > typeList[j].count
+			}
+			return typeList[i].name < typeList[j].name
+		})
 		rows := make([][]string, 0, len(typeList))
 		for _, t := range typeList {
 			rows = append(rows, []string{t.name, fmt.Sprintf("%d", t.count), formatQueryDuration(t.totalTime)})
@@ -1931,7 +1991,12 @@ func writeQueryCategorySummaryMarkdown(b *strings.Builder, qts map[string]*analy
 	for n := range cats {
 		names = append(names, n)
 	}
-	sort.Slice(names, func(i, j int) bool { return cats[names[i]].Count > cats[names[j]].Count })
+	sort.Slice(names, func(i, j int) bool {
+		if cats[names[i]].Count != cats[names[j]].Count {
+			return cats[names[i]].Count > cats[names[j]].Count
+		}
+		return names[i] < names[j]
+	})
 	rows := make([][]string, 0, len(names))
 	for _, n := range names {
 		c := cats[n]
@@ -1956,7 +2021,12 @@ func writeQueryTypeDistributionMarkdown(b *strings.Builder, qts map[string]*anal
 	for _, ts := range qts {
 		types = append(types, ts)
 	}
-	sort.Slice(types, func(i, j int) bool { return types[i].Count > types[j].Count })
+	sort.Slice(types, func(i, j int) bool {
+		if types[i].Count != types[j].Count {
+			return types[i].Count > types[j].Count
+		}
+		return types[i].Type < types[j].Type
+	})
 	rows := make([][]string, 0, len(types))
 	for _, ts := range types {
 		pct := 0.0
@@ -2034,7 +2104,10 @@ func exportSQLSummaryMarkdownTo(b *strings.Builder, m analysis.SQLMetrics, tempF
 			queries = append(queries, queryWithSize{stat: stat})
 		}
 		sort.Slice(queries, func(i, j int) bool {
-			return queries[i].stat.TotalSize > queries[j].stat.TotalSize
+			if queries[i].stat.TotalSize != queries[j].stat.TotalSize {
+				return queries[i].stat.TotalSize > queries[j].stat.TotalSize
+			}
+			return queries[i].stat.ID < queries[j].stat.ID
 		})
 
 		// Display top 10

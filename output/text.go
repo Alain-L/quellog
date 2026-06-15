@@ -112,7 +112,10 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 				queries = append(queries, queryWithSize{stat: stat})
 			}
 			sort.Slice(queries, func(i, j int) bool {
-				return queries[i].stat.TotalSize > queries[j].stat.TotalSize
+				if queries[i].stat.TotalSize != queries[j].stat.TotalSize {
+					return queries[i].stat.TotalSize > queries[j].stat.TotalSize
+				}
+				return queries[i].stat.ID < queries[j].stat.ID
 			})
 
 			// Display top 10
@@ -220,7 +223,10 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 			}
 			if len(pairs) > 0 {
 				sort.Slice(pairs, func(i, j int) bool {
-					return pairs[i].stat.TotalWaitTime > pairs[j].stat.TotalWaitTime
+					if pairs[i].stat.TotalWaitTime != pairs[j].stat.TotalWaitTime {
+						return pairs[i].stat.TotalWaitTime > pairs[j].stat.TotalWaitTime
+					}
+					return pairs[i].stat.ID < pairs[j].stat.ID
 				})
 
 				limit := 10
@@ -311,7 +317,10 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 					pairs = append(pairs, blockerPair{bs})
 				}
 				sort.Slice(pairs, func(i, j int) bool {
-					return pairs[i].stat.totalWait > pairs[j].stat.totalWait
+					if pairs[i].stat.totalWait != pairs[j].stat.totalWait {
+						return pairs[i].stat.totalWait > pairs[j].stat.totalWait
+					}
+					return pairs[i].stat.queryID < pairs[j].stat.queryID
 				})
 
 				termWidth, _, err := term.GetSize(int(os.Stdout.Fd()))
@@ -1008,7 +1017,10 @@ func printDetailedConnectionStats(m analysis.AggregatedMetrics, bold, reset stri
 			sortedUsers = append(sortedUsers, userStats{user: user, stats: stats, cumulated: s.Cumulated()})
 		}
 		sort.Slice(sortedUsers, func(i, j int) bool {
-			return sortedUsers[i].stats.Count > sortedUsers[j].stats.Count
+			if sortedUsers[i].stats.Count != sortedUsers[j].stats.Count {
+				return sortedUsers[i].stats.Count > sortedUsers[j].stats.Count
+			}
+			return sortedUsers[i].user < sortedUsers[j].user
 		})
 
 		// Display header
@@ -1049,7 +1061,10 @@ func printDetailedConnectionStats(m analysis.AggregatedMetrics, bold, reset stri
 			sortedDBs = append(sortedDBs, dbStats{database: db, stats: stats, cumulated: s.Cumulated()})
 		}
 		sort.Slice(sortedDBs, func(i, j int) bool {
-			return sortedDBs[i].stats.Count > sortedDBs[j].stats.Count
+			if sortedDBs[i].stats.Count != sortedDBs[j].stats.Count {
+				return sortedDBs[i].stats.Count > sortedDBs[j].stats.Count
+			}
+			return sortedDBs[i].database < sortedDBs[j].database
 		})
 
 		// Display header
@@ -1090,7 +1105,10 @@ func printDetailedConnectionStats(m analysis.AggregatedMetrics, bold, reset stri
 			sortedHosts = append(sortedHosts, hostStats{host: host, stats: stats, cumulated: s.Cumulated()})
 		}
 		sort.Slice(sortedHosts, func(i, j int) bool {
-			return sortedHosts[i].stats.Count > sortedHosts[j].stats.Count
+			if sortedHosts[i].stats.Count != sortedHosts[j].stats.Count {
+				return sortedHosts[i].stats.Count > sortedHosts[j].stats.Count
+			}
+			return sortedHosts[i].host < sortedHosts[j].host
 		})
 
 		// Display header
@@ -1544,7 +1562,10 @@ func PrintSQLSummaryWithContext(m analysis.SQLMetrics, tempFiles analysis.TempFi
 				queries = append(queries, queryWithSize{stat: stat})
 			}
 			sort.Slice(queries, func(i, j int) bool {
-				return queries[i].stat.TotalSize > queries[j].stat.TotalSize
+				if queries[i].stat.TotalSize != queries[j].stat.TotalSize {
+					return queries[i].stat.TotalSize > queries[j].stat.TotalSize
+				}
+				return queries[i].stat.ID < queries[j].stat.ID
 			})
 
 			// Display top 10
@@ -2693,7 +2714,10 @@ func printAcquiredLockQueries(queryStats map[string]*analysis.LockQueryStat, lim
 		}
 	}
 	sort.Slice(pairs, func(i, j int) bool {
-		return pairs[i].stat.AcquiredWaitTime > pairs[j].stat.AcquiredWaitTime
+		if pairs[i].stat.AcquiredWaitTime != pairs[j].stat.AcquiredWaitTime {
+			return pairs[i].stat.AcquiredWaitTime > pairs[j].stat.AcquiredWaitTime
+		}
+		return pairs[i].stat.ID < pairs[j].stat.ID
 	})
 
 	// Print top queries
@@ -2769,7 +2793,10 @@ func printStillWaitingLockQueries(queryStats map[string]*analysis.LockQueryStat,
 		}
 	}
 	sort.Slice(pairs, func(i, j int) bool {
-		return pairs[i].stat.StillWaitingTime > pairs[j].stat.StillWaitingTime
+		if pairs[i].stat.StillWaitingTime != pairs[j].stat.StillWaitingTime {
+			return pairs[i].stat.StillWaitingTime > pairs[j].stat.StillWaitingTime
+		}
+		return pairs[i].stat.ID < pairs[j].stat.ID
 	})
 
 	// Print top queries
@@ -2960,7 +2987,10 @@ func PrintSQLOverview(m analysis.SQLMetrics) {
 		catPairs = append(catPairs, catStatPair{cat, cs.count, cs.totalTime})
 	}
 	sort.Slice(catPairs, func(i, j int) bool {
-		return catPairs[i].count > catPairs[j].count
+		if catPairs[i].count != catPairs[j].count {
+			return catPairs[i].count > catPairs[j].count
+		}
+		return catPairs[i].category < catPairs[j].category
 	})
 
 	fmt.Println(bold + "  Query Category Summary" + reset)
@@ -2988,7 +3018,10 @@ func PrintSQLOverview(m analysis.SQLMetrics) {
 		pairs = append(pairs, typeStatPair{qtype, stat})
 	}
 	sort.Slice(pairs, func(i, j int) bool {
-		return pairs[i].stat.Count > pairs[j].stat.Count
+		if pairs[i].stat.Count != pairs[j].stat.Count {
+			return pairs[i].stat.Count > pairs[j].stat.Count
+		}
+		return pairs[i].qtype < pairs[j].qtype
 	})
 
 	// Print query type distribution - EN SECOND
@@ -3043,7 +3076,10 @@ func printQueryTypeBreakdown(title string, breakdown map[string]map[string]*anal
 		dimensions = append(dimensions, dimStats{dimName, totalCount, totalTime})
 	}
 	sort.Slice(dimensions, func(i, j int) bool {
-		return dimensions[i].count > dimensions[j].count
+		if dimensions[i].count != dimensions[j].count {
+			return dimensions[i].count > dimensions[j].count
+		}
+		return dimensions[i].name < dimensions[j].name
 	})
 
 	// Print each dimension with its query types
@@ -3073,7 +3109,10 @@ func printQueryTypeBreakdown(title string, breakdown map[string]map[string]*anal
 
 		// Sort by count descending
 		sort.Slice(typeList, func(i, j int) bool {
-			return typeList[i].count > typeList[j].count
+			if typeList[i].count != typeList[j].count {
+				return typeList[i].count > typeList[j].count
+			}
+			return typeList[i].name < typeList[j].name
 		})
 
 		// Print query types

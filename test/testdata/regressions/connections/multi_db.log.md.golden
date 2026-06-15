@@ -47,12 +47,12 @@ This _quellog_ report summarizes **7** log entries collected between 20 Apr 2026
 
 | SQLID     | Count |   Avg |   Max | Query                                                         |
 |-----------|------:|------:|------:|---------------------------------------------------------------|
-| se-18LQnR |     1 | 12 ms | 12 ms | select pg_database_size(?)                                    |
-| se-ibjHaN |     1 |  5 ms |  5 ms | select count(*) from events                                   |
 | in-zIya0f |     1 |  3 ms |  3 ms | insert into events (kind, payload) values (?, ?)              |
+| se-18LQnR |     1 | 12 ms | 12 ms | select pg_database_size(?)                                    |
+| se-4dSpXD |     1 |  0 ms |  0 ms | select version()                                              |
+| se-ibjHaN |     1 |  5 ms |  5 ms | select count(*) from events                                   |
 | se-sogiPC |     1 |  2 ms |  2 ms | select * from audit_log where created_at > now() - interval ? |
 | se-tFx8MM |     1 |  1 ms |  1 ms | select * from appdb_table where id = ?                        |
-| se-4dSpXD |     1 |  0 ms |  0 ms | select version()                                              |
 
 **Most time consuming queries (top 10)**
 

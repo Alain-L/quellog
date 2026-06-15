@@ -47,10 +47,10 @@ This _quellog_ report summarizes **15** log entries collected between 19 Apr 202
 | SQLID     | Count |  Avg |  Max | Query                                             |
 |-----------|------:|-----:|-----:|---------------------------------------------------|
 | in-hzD69N |     5 | 1 ms | 1 ms | insert into orders (user_id, total) values (?, ?) |
-| se-x0Bojn |     3 | 4 ms | 4 ms | select * from products where id in (...)          |
 | se-6h5jCe |     3 | 2 ms | 2 ms | select * from users where id = ?                  |
-| up-p2E83N |     2 | 5 ms | 5 ms | update users set email = ? where id = ?           |
+| se-x0Bojn |     3 | 4 ms | 4 ms | select * from products where id in (...)          |
 | se-RCQDYk |     2 | 3 ms | 3 ms | select * from "MyTable" where "UserId" = ?        |
+| up-p2E83N |     2 | 5 ms | 5 ms | update users set email = ? where id = ?           |
 
 **Most time consuming queries (top 10)**
 
