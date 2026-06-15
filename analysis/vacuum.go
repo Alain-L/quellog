@@ -2,6 +2,7 @@
 package analysis
 
 import (
+	"math"
 	"sort"
 	"strconv"
 	"strings"
@@ -204,7 +205,10 @@ func (a *VacuumAnalyzer) Process(entry *parser.LogEntry) {
 		a.aggressiveVacuumCount++
 		a.vacuumTableCounts[tableName]++
 		removedPages := extractRemovedPages(msg)
-		if removedPages > 0 {
+		// Guard the byte conversion against int64 overflow: a corrupt or
+		// absurd page count (> ~1.1e15) would wrap negative and poison the
+		// running total. Skip such values rather than report bogus bytes.
+		if removedPages > 0 && removedPages <= math.MaxInt64/pageSize {
 			a.vacuumSpaceRecovered[tableName] += removedPages * pageSize
 		}
 		a.recordContinuationStats(tableName, msg, entry.Timestamp, removedPages)
@@ -216,7 +220,10 @@ func (a *VacuumAnalyzer) Process(entry *parser.LogEntry) {
 		a.vacuumCount++
 		a.vacuumTableCounts[tableName]++
 		removedPages := extractRemovedPages(msg)
-		if removedPages > 0 {
+		// Guard the byte conversion against int64 overflow: a corrupt or
+		// absurd page count (> ~1.1e15) would wrap negative and poison the
+		// running total. Skip such values rather than report bogus bytes.
+		if removedPages > 0 && removedPages <= math.MaxInt64/pageSize {
 			a.vacuumSpaceRecovered[tableName] += removedPages * pageSize
 		}
 		a.recordContinuationStats(tableName, msg, entry.Timestamp, removedPages)

@@ -56,8 +56,11 @@ func detectSyslogFormat(data []byte) SyslogFormat {
 			}
 		}
 
-		// ISO format: starts with "YYYY-MM-DDTHH:MM:SS"
-		if line[4] == '-' && line[7] == '-' && line[10] == 'T' && line[13] == ':' && line[16] == ':' {
+		// ISO format: starts with "YYYY-MM-DDTHH:MM:SS". The len<15 guard
+		// above only covers indices 0..14, so guard line[16] explicitly —
+		// a line truncated right after the minute ("2026-06-13T14:30")
+		// matches the first four checks and would otherwise panic.
+		if len(line) >= 17 && line[4] == '-' && line[7] == '-' && line[10] == 'T' && line[13] == ':' && line[16] == ':' {
 			return SyslogISO
 		}
 
