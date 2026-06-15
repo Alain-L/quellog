@@ -1393,7 +1393,7 @@ function buildEventsSection(data) {
                             <div class="stat-card"><div class="stat-value">${l.waiting_events || 0}</div><div class="stat-label">Still Waiting</div></div>
                             <div class="stat-card"><div class="stat-value">${l.acquired_events || 0}</div><div class="stat-label">Acquired</div></div>
                             <div class="stat-card"><div class="stat-value">${fmtDur(l.avg_wait_time) || '-'}</div><div class="stat-label">Avg</div></div>
-                            <div class="stat-card"><div class="stat-value">${fmtDur(l.total_wait_time) || '-'}</div><div class="stat-label">Total</div></div>
+                            <div class="stat-card"><div class="stat-value">${l.total_wait_time || '-'}</div><div class="stat-label">Total</div></div>
                         </div>
                         ${hasLockTypes || hasResTypes || hasRelations ? `
                             <div class="subsection" style="display: flex; gap: 1rem; flex-wrap: wrap;">
@@ -1463,7 +1463,7 @@ function buildEventsSection(data) {
                                                     <td class="query-cell" onclick="showQueryModal('${esc(q.id)}')">${esc(truncQuery(q.normalized_query))}</td>
                                                     <td class="num">${q.acquired_count || 0}</td>
                                                     <td class="num">${q.still_waiting_count || 0}</td>
-                                                    <td class="num">${fmtDur(q.total_wait_time) || '-'}</td>
+                                                    <td class="num">${q.total_wait_time || '-'}</td>
                                                 </tr>
                                             `).join('')}
                                         </tbody>
@@ -2904,7 +2904,7 @@ function buildEventsSection(data) {
                 html += '<div class="qd-stats">';
                 html += '<div class="qd-stat"><div class="qd-stat-label">Acquired</div><div class="qd-stat-value">' + fmt(lockQ.acquired_count || 0) + '</div></div>';
                 html += '<div class="qd-stat"><div class="qd-stat-label">Still Waiting</div><div class="qd-stat-value">' + fmt(lockQ.still_waiting_count || 0) + '</div></div>';
-                html += '<div class="qd-stat"><div class="qd-stat-label">Total Wait</div><div class="qd-stat-value">' + fmtDur(lockQ.total_wait_time) + '</div></div>';
+                html += '<div class="qd-stat"><div class="qd-stat-label">Total Wait</div><div class="qd-stat-value">' + (lockQ.total_wait_time || '-') + '</div></div>';
                 if (lockQ.avg_wait_time) {
                     html += '<div class="qd-stat"><div class="qd-stat-label">Avg Wait</div><div class="qd-stat-value">' + fmtDur(lockQ.avg_wait_time) + '</div></div>';
                 }
