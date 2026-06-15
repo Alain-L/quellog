@@ -1403,7 +1403,7 @@ function buildEventsSection(data) {
                                         <div class="query-types">
                                             ${lockTypes.map(t => `
                                                 <span class="query-type">
-                                                    <span class="name">${t.type}</span>
+                                                    <span class="name">${esc(t.type)}</span>
                                                     <span class="count">${fmt(t.count)}</span>
                                                 </span>
                                             `).join('')}
@@ -1416,7 +1416,7 @@ function buildEventsSection(data) {
                                         <div class="query-types">
                                             ${resTypes.map(t => `
                                                 <span class="query-type">
-                                                    <span class="name">${t.type}</span>
+                                                    <span class="name">${esc(t.type)}</span>
                                                     <span class="count">${fmt(t.count)}</span>
                                                 </span>
                                             `).join('')}
@@ -1429,7 +1429,7 @@ function buildEventsSection(data) {
                                         <div class="query-types">
                                             ${relations.map(t => `
                                                 <span class="query-type">
-                                                    <span class="name">${t.type}</span>
+                                                    <span class="name">${esc(t.type)}</span>
                                                     <span class="count">${fmt(t.count)}</span>
                                                 </span>
                                             `).join('')}
@@ -1451,8 +1451,12 @@ function buildEventsSection(data) {
                                         </tr></thead>
                                         <tbody>
                                             ${[...l.queries].sort((a, b) => {
-                                                const wa = parseFloat(a.total_wait_time) || 0;
-                                                const wb = parseFloat(b.total_wait_time) || 0;
+                                                // parseDurToMs, not parseFloat: total_wait_time is a
+                                                // formatted duration ("1h 04m 17s"); parseFloat would
+                                                // read only the leading number and rank a 1h wait (→1)
+                                                // below a 25s wait (→25).
+                                                const wa = parseDurToMs(a.total_wait_time) || 0;
+                                                const wb = parseDurToMs(b.total_wait_time) || 0;
                                                 return wb - wa;
                                             }).slice(0, 10).map(q => `
                                                 <tr>
@@ -1767,7 +1771,7 @@ function buildEventsSection(data) {
             const sorted = [...rows].sort((a, b) => asc ? a[sortKey] - b[sortKey] : b[sortKey] - a[sortKey]);
             return sorted.map(t => `
                 <tr>
-                    <td><span class="query-type"><span class="name">${t.type}</span></span></td>
+                    <td><span class="query-type"><span class="name">${esc(t.type)}</span></span></td>
                     <td class="num">${fmt(t.count)}</td>
                     <td class="num">${t.pct.toFixed(1)}%</td>
                     <td class="num">${t.avg || '-'}</td>
@@ -1811,7 +1815,7 @@ function buildEventsSection(data) {
                                         <div class="query-types" style="justify-content: flex-start;">
                                             ${(d.query_types || []).slice(0, 4).map(t => `
                                                 <span class="query-type" style="padding: 0.15rem 0.35rem; font-size: 0.65rem;">
-                                                    <span class="name">${t.type}</span>
+                                                    <span class="name">${esc(t.type)}</span>
                                                     <span class="count">${fmt(t.count)}</span>
                                                 </span>
                                             `).join('')}
@@ -2522,10 +2526,13 @@ function buildEventsSection(data) {
             const ys = pts.map(p => Math.log10(p.avg));
             const halfFloor = v => Math.floor(v * 2) / 2;
             const halfCeil  = v => Math.ceil(v * 2) / 2;
-            let logXMin = halfFloor(Math.min(...xs));
-            let logXMax = Math.max(halfCeil(Math.max(...xs)), logXMin + 1);
-            let logYMin = halfFloor(Math.min(...ys));
-            let logYMax = Math.max(halfCeil(Math.max(...ys)), logYMin + 1);
+            // safeMin/safeMax (reduce), not Math.min(...spread): xs/ys span ALL
+            // queries — tens of thousands of args overflow the call stack
+            // (RangeError → blank report) on high-cardinality logs.
+            let logXMin = halfFloor(safeMin(xs));
+            let logXMax = Math.max(halfCeil(safeMax(xs)), logXMin + 1);
+            let logYMin = halfFloor(safeMin(ys));
+            let logYMax = Math.max(halfCeil(safeMax(ys)), logYMin + 1);
             const xRange = logXMax - logXMin;
             const yRange = logYMax - logYMin;
             const range = Math.max(xRange, yRange);
@@ -2561,8 +2568,8 @@ function buildEventsSection(data) {
                 { upTo: 1.01, color: 'var(--purple)' },
             ];
             const ts = pts.map(p => Math.log10(p.total));
-            const logTMin = Math.min(...ts);
-            const logTMax = Math.max(...ts);
+            const logTMin = safeMin(ts);
+            const logTMax = safeMax(ts);
             const colorFor = total => {
                 const t = logTMax === logTMin ? 0
                     : (Math.log10(total) - logTMin) / (logTMax - logTMin);
@@ -3011,7 +3018,12 @@ function buildEventsSection(data) {
                 html += '<div id="plan-text" class="query-detail-sql" style="white-space:pre;font-size:0.75rem;">';
                 html += esc(q.plan);
                 html += '</div>';
-                html += '<script type="application/json" id="plan-data">' + JSON.stringify({plan: q.plan, sql: q.normalized_query || '', id: q.id || ''}) + '<\/script>';
+                // Escape <, >, & in the embedded JSON so log-derived plan text
+                // containing "</script>" can't terminate the element early and
+                // inject HTML. JSON.parse decodes </>/& back.
+                const planJSON = JSON.stringify({plan: q.plan, sql: q.normalized_query || '', id: q.id || ''})
+                    .replace(/&/g, '\\u0026').replace(/</g, '\\u003c').replace(/>/g, '\\u003e');
+                html += '<script type="application/json" id="plan-data">' + planJSON + '<\/script>';
                 html += '</div>';
             }
 
@@ -3134,7 +3146,7 @@ function buildEventsSection(data) {
             // Calculate median and max for styling
             const sortedY = [...yData].filter(v => v > 0).sort((a, b) => a - b);
             const median = sortedY.length > 0 ? sortedY[Math.floor(sortedY.length / 2)] : 0;
-            const maxY = Math.max(...yData) || 1;
+            const maxY = safeMax(yData) || 1; // safeMax: yData (occurrence sparkline) can be large
 
             const opts = {
                 width: container.clientWidth || 500,

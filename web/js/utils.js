@@ -221,6 +221,20 @@ export function esc(s) {
     return d.innerHTML;
 }
 
+// escAttr escapes a string for safe interpolation inside a double-quoted HTML
+// attribute value. esc() (textContent→innerHTML) escapes & < > but NOT the
+// quote chars, so a log-derived value containing " could break out of an
+// attribute and inject a handler. escAttr handles the quotes too.
+export function escAttr(s) {
+    if (s === null || s === undefined) return '';
+    return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 // escForJsAttr escapes a string so it can be safely embedded as a JS string
 // literal inside an HTML attribute (e.g. `onclick="...writeText('${x}')"`).
 // Order matters:
