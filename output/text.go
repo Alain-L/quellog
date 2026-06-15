@@ -1876,7 +1876,7 @@ func PrintSQLDetails(m analysis.AggregatedMetrics, queryDetails []string) {
 
 			fmt.Printf("  Total Duration       : %s\n", formatQueryDuration(sqlStat.TotalTime))
 			fmt.Printf("  Min Duration         : %s\n", formatQueryDuration(minDuration))
-			fmt.Printf("  Median Duration      : %s\n", formatQueryDuration(sqlStat.AvgTime))
+			fmt.Printf("  Avg Duration         : %s\n", formatQueryDuration(sqlStat.AvgTime))
 			fmt.Printf("  Max Duration         : %s\n", formatQueryDuration(sqlStat.MaxTime))
 		}
 

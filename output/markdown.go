@@ -1743,7 +1743,7 @@ func ExportSQLDetailMarkdown(w io.Writer, m analysis.AggregatedMetrics, queryIDs
 
 			b.WriteString(fmt.Sprintf("- **Total Duration**: %s\n", formatQueryDuration(sqlStat.TotalTime)))
 			b.WriteString(fmt.Sprintf("- **Min Duration**: %s\n", formatQueryDuration(minDuration)))
-			b.WriteString(fmt.Sprintf("- **Median Duration**: %s\n", formatQueryDuration(sqlStat.AvgTime)))
+			b.WriteString(fmt.Sprintf("- **Avg Duration**: %s\n", formatQueryDuration(sqlStat.AvgTime)))
 			b.WriteString(fmt.Sprintf("- **Max Duration**: %s\n\n", formatQueryDuration(sqlStat.MaxTime)))
 		}
 
