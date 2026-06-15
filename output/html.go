@@ -139,7 +139,8 @@ func ExportHTML(w io.Writer, metrics analysis.AggregatedMetrics, info HTMLReport
 		return fmt.Errorf("failed to marshal metrics to JSON: %w", err)
 	}
 
-	// Compress JSON with zstd (level 19 for best compression)
+	// Compress JSON with zstd using klauspost's SpeedBestCompression
+	// preset (its strongest level, not the CLI's -19).
 	var zstdBuf bytes.Buffer
 	zstdWriter, err := zstd.NewWriter(&zstdBuf, zstd.WithEncoderLevel(zstd.SpeedBestCompression))
 	if err != nil {

@@ -64,7 +64,7 @@ type AggregatedMetrics struct {
 	Server         ServerMetrics
 }
 
-// StreamingAnalyzer orchestrates the eight specialized analyzers in
+// StreamingAnalyzer orchestrates the ten specialized analyzers in
 // streaming mode, without loading all entries into memory.
 //
 // Usage:
@@ -78,8 +78,9 @@ type AggregatedMetrics struct {
 // SQL, Locks and TempFiles are dispatched to dedicated goroutines fed
 // by buffered channels — they were measured as the three most expensive
 // analyzers (sql/locks ~22% each, tempFiles 14-34% on >200 MB inputs).
-// uniqueEntities was tested as a 4th parallel goroutine but plafonned,
-// so it stays inline.
+// The seven remaining analyzers are individually cheap but their sum is
+// not, so they are split across two more channel-fed goroutines (the
+// inlineA/inlineB groups below): five goroutines, five channels total.
 //
 // The hand-off is per-batch, not per-entry: profiling on multi-GB
 // inputs showed three per-entry channel sends burning ~35% of total
@@ -110,8 +111,8 @@ type StreamingAnalyzer struct {
 	parallelWg  sync.WaitGroup
 }
 
-// sharedBatch carries one parser batch through the three channel-fed
-// analyzers. refs starts at the number of consumers; the last release
+// sharedBatch carries one parser batch through the five channel-fed
+// consumers. refs starts at the number of consumers; the last release
 // returns the slice to the parser pool.
 type sharedBatch struct {
 	entries []parser.LogEntry
@@ -127,7 +128,7 @@ func (b *sharedBatch) release() {
 }
 
 // NewStreamingAnalyzer creates a streaming analyzer with all
-// sub-analyzers initialized and the three parallel dispatch goroutines
+// sub-analyzers initialized and the five parallel dispatch goroutines
 // running.
 func NewStreamingAnalyzer() *StreamingAnalyzer {
 	sa := &StreamingAnalyzer{
@@ -323,7 +324,7 @@ loop:
 				break loop
 			}
 			// ProcessBatch takes ownership: the batch is recycled by
-			// the last of the three channel-fed analyzers, not here.
+			// the last of the five channel-fed consumers, not here.
 			analyzer.ProcessBatch(batch)
 		}
 	}
