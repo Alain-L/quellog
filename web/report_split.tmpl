@@ -13,39 +13,26 @@
 .filter-bar .filter-status { display: none !important; }
 .filter-bar .filter-bar-content { gap: 0.5rem; }
 .filter-bar .filter-apply { margin-left: 0; }
-/* Period navigator (split reports) — sticky timeline of clickable periods */
-#ql-period-bar {
-  position: sticky; top: 0; z-index: 1000;
-  display: flex; align-items: center; gap: 1rem;
-  padding: 0.5rem 1rem;
-  background: var(--bg, #fff);
-  border-bottom: 1px solid var(--border, #e3e6ea);
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-}
-.ql-pb-nav { display: flex; align-items: center; gap: 0.4rem; white-space: nowrap; }
-.ql-pb-title {
-  font-weight: 600; font-size: 0.72rem; letter-spacing: 0.05em;
+/* Period navigator (split reports) — a compact heatmap of small squares
+   injected into the Summary tile. Square colour intensity encodes the entry
+   volume (danger hue when the period had errors); color-mix keeps it correct
+   in both light and dark themes. */
+.summary-periods { margin-top: 0.7rem; padding-top: 0.7rem; border-top: 1px solid var(--border, #e3e6ea); }
+.summary-periods-head { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.45rem; }
+.summary-periods-title {
+  font-size: 0.68rem; font-weight: 600; letter-spacing: 0.05em;
   text-transform: uppercase; color: var(--text-muted, #8a9099);
 }
-.ql-pb-current { font-weight: 700; font-variant-numeric: tabular-nums; min-width: 8.5ch; text-align: center; }
-.ql-pb-btn {
+.summary-periods-btn {
   cursor: pointer; border: 1px solid var(--border, #ddd); background: var(--bg-alt, #f5f6f8);
-  color: var(--text, #333); border-radius: 6px; width: 1.7rem; height: 1.7rem;
-  font-size: 1.05rem; line-height: 1; display: flex; align-items: center; justify-content: center;
+  color: var(--text, #333); border-radius: 5px; width: 1.25rem; height: 1.25rem;
+  font-size: 0.85rem; line-height: 1; display: flex; align-items: center; justify-content: center;
 }
-.ql-pb-btn:hover:not(:disabled) { border-color: var(--primary, #4a6ea9); color: var(--primary, #4a6ea9); }
-.ql-pb-btn:disabled { opacity: 0.3; cursor: default; }
-.ql-pb-timeline {
-  display: flex; align-items: center; gap: 3px; flex: 1;
-  overflow-x: auto; padding: 2px; scrollbar-width: thin;
-}
-.ql-seg {
-  flex: 0 0 auto; width: 18px; height: 18px;
-  background: none; border: 0; padding: 0; cursor: pointer;
-}
-/* Heatmap: bar height is uniform; the entry volume is encoded as colour
-   intensity (alpha) over the theme's primary, switching to danger when the
-   period had errors. color-mix keeps it correct in both light and dark. */
+.summary-periods-btn:hover:not(:disabled) { border-color: var(--primary, #4a6ea9); color: var(--primary, #4a6ea9); }
+.summary-periods-btn:disabled { opacity: 0.3; cursor: default; }
+.summary-periods-count { margin-left: auto; font-size: 0.72rem; color: var(--text-muted, #8a9099); font-variant-numeric: tabular-nums; }
+.summary-periods-grid { display: flex; flex-wrap: wrap; gap: 3px; max-height: 6.5rem; overflow-y: auto; }
+.ql-seg { flex: 0 0 auto; width: 14px; height: 14px; background: none; border: 0; padding: 0; cursor: pointer; }
 .ql-seg i {
   display: block; width: 100%; height: 100%; border-radius: 3px;
   outline: 1.5px solid transparent; outline-offset: -1px;
@@ -57,7 +44,6 @@
 }
 .ql-seg:hover i { outline-color: var(--text-muted, #8a9099); }
 .ql-seg.active i { outline-color: var(--text, #333); outline-width: 2px; }
-.ql-pb-meta { white-space: nowrap; color: var(--text-muted, #8a9099); font-size: 0.8rem; font-variant-numeric: tabular-nums; }
 </style>
 </head>
 <body>
@@ -109,11 +95,12 @@ async function decompressData(base64Data) {
 </script>
 <script>{{.AppJS}}</script>
 <script>
-// Period navigator: a sticky timeline of clickable periods. Each segment's
-// height encodes the period's entry count and turns red when it had errors,
-// so the busy / problematic windows stand out at a glance. Datasets are
-// decompressed lazily and cached; rendering reuses the report's global entry
-// points (no app.js change).
+// Period navigator: a compact heatmap embedded in the Summary tile. Each
+// square encodes a period's entry volume as colour intensity (danger hue when
+// it had errors). renderResults rebuilds the tile on every switch, so the
+// navigator is re-injected after each render. Datasets decompress lazily and
+// are cached; rendering reuses the report's global entry points (no app.js
+// change).
 const _periodCache = {};
 let _curPeriod = 0;
 
@@ -129,70 +116,56 @@ async function showPeriod(idx) {
         try { data = await decompressData(p.data); _periodCache[idx] = data; }
         catch (err) { console.error('Failed to load period', idx, err); alert('Failed to load period: ' + err.message); return; }
     }
-    syncNavUI(idx);
     setAnalysisData(data);
     data._parseTimeMs = (data.meta && data.meta.parse_time_ms) || 0;
     renderResults(data, (data.meta && data.meta.filename) || p.label, (data.meta && data.meta.filesize) || 0, true);
+    injectPeriodNav();
     window.scrollTo(0, 0);
 }
 
-function syncNavUI(idx) {
-    const p = REPORT_PERIODS[idx];
-    const cur = document.getElementById('ql-pb-current');
-    if (cur) cur.textContent = p.label;
-    const meta = document.getElementById('ql-pb-meta');
-    if (meta) {
-        meta.textContent = (idx + 1) + '/' + REPORT_PERIODS.length + ' · ' +
-            _fmtInt(p.entries) + ' entries' + (p.errors ? ' · ' + _fmtInt(p.errors) + ' err' : '');
-    }
-    const prev = document.getElementById('ql-pb-prev');
-    const next = document.getElementById('ql-pb-next');
-    if (prev) prev.disabled = idx === 0;
-    if (next) next.disabled = idx === REPORT_PERIODS.length - 1;
-    const segs = document.querySelectorAll('#ql-period-bar .ql-seg');
-    segs.forEach((s, i) => s.classList.toggle('active', i === idx));
-    if (segs[idx]) segs[idx].scrollIntoView({ inline: 'nearest', block: 'nearest' });
-}
+function injectPeriodNav() {
+    const host = document.querySelector('#summary .summary-body');
+    if (!host || host.querySelector('.summary-periods')) return;
 
-function buildPeriodNavigator() {
-    const bar = document.createElement('div');
-    bar.id = 'ql-period-bar';
+    const box = document.createElement('div');
+    box.className = 'summary-periods';
 
-    const nav = document.createElement('div');
-    nav.className = 'ql-pb-nav';
+    const head = document.createElement('div');
+    head.className = 'summary-periods-head';
     const title = document.createElement('span');
-    title.className = 'ql-pb-title';
-    title.textContent = 'Period';
+    title.className = 'summary-periods-title';
+    title.textContent = 'Periods';
     const prev = document.createElement('button');
-    prev.className = 'ql-pb-btn'; prev.id = 'ql-pb-prev'; prev.textContent = '‹';
-    prev.title = 'Previous period'; prev.onclick = () => showPeriod(_curPeriod - 1);
-    const cur = document.createElement('span');
-    cur.className = 'ql-pb-current'; cur.id = 'ql-pb-current';
+    prev.className = 'summary-periods-btn'; prev.textContent = '‹';
+    prev.title = 'Previous period'; prev.disabled = _curPeriod === 0;
+    prev.onclick = () => showPeriod(_curPeriod - 1);
     const next = document.createElement('button');
-    next.className = 'ql-pb-btn'; next.id = 'ql-pb-next'; next.textContent = '›';
-    next.title = 'Next period'; next.onclick = () => showPeriod(_curPeriod + 1);
-    nav.append(title, prev, cur, next);
+    next.className = 'summary-periods-btn'; next.textContent = '›';
+    next.title = 'Next period'; next.disabled = _curPeriod === REPORT_PERIODS.length - 1;
+    next.onclick = () => showPeriod(_curPeriod + 1);
+    const count = document.createElement('span');
+    count.className = 'summary-periods-count';
+    count.textContent = (_curPeriod + 1) + '/' + REPORT_PERIODS.length;
+    head.append(title, prev, next, count);
 
-    const tl = document.createElement('div');
-    tl.className = 'ql-pb-timeline';
+    const grid = document.createElement('div');
+    grid.className = 'summary-periods-grid';
     REPORT_PERIODS.forEach((p, i) => {
         const seg = document.createElement('button');
-        seg.className = 'ql-seg' + (p.errors ? ' has-err' : '');
+        seg.className = 'ql-seg' + (p.errors ? ' has-err' : '') + (i === _curPeriod ? ' active' : '');
         seg.title = p.label + ' · ' + _fmtInt(p.entries) + ' entries' +
             (p.errors ? ' · ' + _fmtInt(p.errors) + ' errors' : '');
         const fill = document.createElement('i');
-        // Encode entry volume as colour intensity (12%..100% alpha).
         fill.style.setProperty('--t', 12 + Math.round((p.entries || 0) / _maxEntries * 88));
         seg.appendChild(fill);
         seg.onclick = () => showPeriod(i);
-        tl.appendChild(seg);
+        grid.appendChild(seg);
     });
 
-    const meta = document.createElement('span');
-    meta.className = 'ql-pb-meta'; meta.id = 'ql-pb-meta';
-
-    bar.append(nav, tl, meta);
-    document.body.insertBefore(bar, document.body.firstChild);
+    box.append(head, grid);
+    host.appendChild(box);
+    const active = grid.children[_curPeriod];
+    if (active) active.scrollIntoView({ block: 'nearest', inline: 'nearest' });
 }
 
 document.addEventListener('keydown', (e) => {
@@ -203,10 +176,7 @@ document.addEventListener('keydown', (e) => {
 });
 
 document.addEventListener('DOMContentLoaded', () => {
-    if (REPORT_PERIODS.length) {
-        buildPeriodNavigator();
-        showPeriod(0);
-    }
+    if (REPORT_PERIODS.length) showPeriod(0);
 });
 </script>
 </body>
