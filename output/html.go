@@ -114,10 +114,13 @@ type templateValues struct {
 	Version        string
 }
 
-// splitPeriod is one selectable period in a split report.
+// splitPeriod is one selectable period in a split report. Entries and Errors
+// drive the timeline navigator (bar height and error tint).
 type splitPeriod struct {
-	Label string
-	Data  string // zstd + base64 compressed JSON for this period
+	Label   string
+	Entries int
+	Errors  int
+	Data    string // zstd + base64 compressed JSON for this period
 }
 
 // splitTemplateValues holds the values for the split (multi-period) report.
@@ -187,7 +190,13 @@ func ExportHTMLSplit(w io.Writer, buckets []analysis.SplitBucket, info HTMLRepor
 		if err != nil {
 			return err
 		}
-		periods = append(periods, splitPeriod{Label: b.Label, Data: compressed})
+		g := b.Metrics.Global
+		periods = append(periods, splitPeriod{
+			Label:   b.Label,
+			Entries: g.Count,
+			Errors:  g.ErrorCount + g.FatalCount + g.PanicCount,
+			Data:    compressed,
+		})
 	}
 
 	td := getTemplateData()

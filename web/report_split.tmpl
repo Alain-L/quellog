@@ -13,19 +13,49 @@
 .filter-bar .filter-status { display: none !important; }
 .filter-bar .filter-bar-content { gap: 0.5rem; }
 .filter-bar .filter-apply { margin-left: 0; }
-/* Period selector bar (split reports) */
+/* Period navigator (split reports) — sticky timeline of clickable periods */
 #ql-period-bar {
   position: sticky; top: 0; z-index: 1000;
-  display: flex; align-items: center; gap: 0.6rem;
+  display: flex; align-items: center; gap: 1rem;
   padding: 0.5rem 1rem;
   background: var(--bg, #fff);
-  border-bottom: 1px solid var(--border, #ddd);
-  font-size: 0.9rem;
+  border-bottom: 1px solid var(--border, #e3e6ea);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
 }
-#ql-period-bar label { font-weight: 600; }
-#ql-period-bar select { padding: 0.25rem 0.5rem; font-size: 0.9rem; }
-#ql-period-bar .ql-period-nav { cursor: pointer; user-select: none; padding: 0 0.4rem; font-weight: 700; }
-#ql-period-bar .ql-period-count { color: var(--text-muted, #888); }
+.ql-pb-nav { display: flex; align-items: center; gap: 0.4rem; white-space: nowrap; }
+.ql-pb-title {
+  font-weight: 600; font-size: 0.72rem; letter-spacing: 0.05em;
+  text-transform: uppercase; color: var(--text-muted, #8a9099);
+}
+.ql-pb-current { font-weight: 700; font-variant-numeric: tabular-nums; min-width: 8.5ch; text-align: center; }
+.ql-pb-btn {
+  cursor: pointer; border: 1px solid var(--border, #ddd); background: var(--bg-alt, #f5f6f8);
+  color: var(--text, #333); border-radius: 6px; width: 1.7rem; height: 1.7rem;
+  font-size: 1.05rem; line-height: 1; display: flex; align-items: center; justify-content: center;
+}
+.ql-pb-btn:hover:not(:disabled) { border-color: var(--primary, #4a6ea9); color: var(--primary, #4a6ea9); }
+.ql-pb-btn:disabled { opacity: 0.3; cursor: default; }
+.ql-pb-timeline {
+  display: flex; align-items: flex-end; gap: 2px; flex: 1;
+  height: 2.5rem; overflow-x: auto; padding-bottom: 1px; scrollbar-width: thin;
+}
+.ql-seg {
+  position: relative; flex: 1 1 0; min-width: 5px; height: 100%;
+  display: flex; align-items: flex-end; background: none; border: 0; padding: 0; cursor: pointer;
+}
+.ql-seg i {
+  display: block; width: 100%; min-height: 3px; border-radius: 2px 2px 0 0;
+  background: var(--text-muted, #c2c7cf); opacity: 0.6; transition: opacity .12s, background .12s;
+}
+.ql-seg:hover i { opacity: 1; background: var(--primary, #4a6ea9); }
+.ql-seg.has-err i { background: var(--danger, #cc4b4b); }
+.ql-seg.active i { opacity: 1; background: var(--primary, #4a6ea9); }
+.ql-seg.active.has-err i { opacity: 1; background: var(--danger, #cc4b4b); }
+.ql-seg.active::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px;
+  background: var(--text, #333);
+}
+.ql-pb-meta { white-space: nowrap; color: var(--text-muted, #8a9099); font-size: 0.8rem; font-variant-numeric: tabular-nums; }
 </style>
 </head>
 <body>
@@ -42,7 +72,7 @@ const ZSTD_DECODER_GZIP_B64 = "{{.FzstdB64}}";
 
 // Embedded per-period report data (each: zstd + base64, injected by Go).
 const REPORT_PERIODS = [
-{{range .Periods}}  { label: "{{.Label}}", data: "{{.Data}}" },
+{{range .Periods}}  { label: "{{.Label}}", entries: {{.Entries}}, errors: {{.Errors}}, data: "{{.Data}}" },
 {{end}}];
 
 let _zstdReady = null;
@@ -77,10 +107,16 @@ async function decompressData(base64Data) {
 </script>
 <script>{{.AppJS}}</script>
 <script>
-// Period selector: decompress lazily, cache decoded datasets, re-render on
-// change via the report's global render entry points.
+// Period navigator: a sticky timeline of clickable periods. Each segment's
+// height encodes the period's entry count and turns red when it had errors,
+// so the busy / problematic windows stand out at a glance. Datasets are
+// decompressed lazily and cached; rendering reuses the report's global entry
+// points (no app.js change).
 const _periodCache = {};
 let _curPeriod = 0;
+
+const _fmtInt = (n) => (n || 0).toLocaleString();
+const _maxEntries = REPORT_PERIODS.reduce((m, p) => Math.max(m, p.entries || 0), 1);
 
 async function showPeriod(idx) {
     if (idx < 0 || idx >= REPORT_PERIODS.length) return;
@@ -91,59 +127,81 @@ async function showPeriod(idx) {
         try { data = await decompressData(p.data); _periodCache[idx] = data; }
         catch (err) { console.error('Failed to load period', idx, err); alert('Failed to load period: ' + err.message); return; }
     }
-    const sel = document.getElementById('ql-period-select');
-    if (sel) sel.value = String(idx);
+    syncNavUI(idx);
     setAnalysisData(data);
     data._parseTimeMs = (data.meta && data.meta.parse_time_ms) || 0;
     renderResults(data, (data.meta && data.meta.filename) || p.label, (data.meta && data.meta.filesize) || 0, true);
     window.scrollTo(0, 0);
 }
 
-function buildPeriodSelector() {
+function syncNavUI(idx) {
+    const p = REPORT_PERIODS[idx];
+    const cur = document.getElementById('ql-pb-current');
+    if (cur) cur.textContent = p.label;
+    const meta = document.getElementById('ql-pb-meta');
+    if (meta) {
+        meta.textContent = (idx + 1) + '/' + REPORT_PERIODS.length + ' · ' +
+            _fmtInt(p.entries) + ' entries' + (p.errors ? ' · ' + _fmtInt(p.errors) + ' err' : '');
+    }
+    const prev = document.getElementById('ql-pb-prev');
+    const next = document.getElementById('ql-pb-next');
+    if (prev) prev.disabled = idx === 0;
+    if (next) next.disabled = idx === REPORT_PERIODS.length - 1;
+    const segs = document.querySelectorAll('#ql-period-bar .ql-seg');
+    segs.forEach((s, i) => s.classList.toggle('active', i === idx));
+    if (segs[idx]) segs[idx].scrollIntoView({ inline: 'nearest', block: 'nearest' });
+}
+
+function buildPeriodNavigator() {
     const bar = document.createElement('div');
     bar.id = 'ql-period-bar';
 
-    const label = document.createElement('label');
-    label.textContent = 'Period';
-    label.htmlFor = 'ql-period-select';
+    const nav = document.createElement('div');
+    nav.className = 'ql-pb-nav';
+    const title = document.createElement('span');
+    title.className = 'ql-pb-title';
+    title.textContent = 'Period';
+    const prev = document.createElement('button');
+    prev.className = 'ql-pb-btn'; prev.id = 'ql-pb-prev'; prev.textContent = '‹';
+    prev.title = 'Previous period'; prev.onclick = () => showPeriod(_curPeriod - 1);
+    const cur = document.createElement('span');
+    cur.className = 'ql-pb-current'; cur.id = 'ql-pb-current';
+    const next = document.createElement('button');
+    next.className = 'ql-pb-btn'; next.id = 'ql-pb-next'; next.textContent = '›';
+    next.title = 'Next period'; next.onclick = () => showPeriod(_curPeriod + 1);
+    nav.append(title, prev, cur, next);
 
-    const prev = document.createElement('span');
-    prev.className = 'ql-period-nav';
-    prev.textContent = '‹';
-    prev.title = 'Previous period';
-    prev.onclick = () => showPeriod(_curPeriod - 1);
-
-    const sel = document.createElement('select');
-    sel.id = 'ql-period-select';
+    const tl = document.createElement('div');
+    tl.className = 'ql-pb-timeline';
     REPORT_PERIODS.forEach((p, i) => {
-        const o = document.createElement('option');
-        o.value = String(i);
-        o.textContent = p.label;
-        sel.appendChild(o);
+        const seg = document.createElement('button');
+        seg.className = 'ql-seg' + (p.errors ? ' has-err' : '');
+        seg.title = p.label + ' · ' + _fmtInt(p.entries) + ' entries' +
+            (p.errors ? ' · ' + _fmtInt(p.errors) + ' errors' : '');
+        const fill = document.createElement('i');
+        fill.style.height = Math.max(6, Math.round((p.entries || 0) / _maxEntries * 100)) + '%';
+        seg.appendChild(fill);
+        seg.onclick = () => showPeriod(i);
+        tl.appendChild(seg);
     });
-    sel.addEventListener('change', () => showPeriod(parseInt(sel.value, 10)));
 
-    const next = document.createElement('span');
-    next.className = 'ql-period-nav';
-    next.textContent = '›';
-    next.title = 'Next period';
-    next.onclick = () => showPeriod(_curPeriod + 1);
+    const meta = document.createElement('span');
+    meta.className = 'ql-pb-meta'; meta.id = 'ql-pb-meta';
 
-    const count = document.createElement('span');
-    count.className = 'ql-period-count';
-    count.textContent = REPORT_PERIODS.length + ' periods';
-
-    bar.appendChild(label);
-    bar.appendChild(prev);
-    bar.appendChild(sel);
-    bar.appendChild(next);
-    bar.appendChild(count);
+    bar.append(nav, tl, meta);
     document.body.insertBefore(bar, document.body.firstChild);
 }
 
+document.addEventListener('keydown', (e) => {
+    const t = e.target;
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.tagName === 'TEXTAREA')) return;
+    if (e.key === 'ArrowLeft') { showPeriod(_curPeriod - 1); }
+    else if (e.key === 'ArrowRight') { showPeriod(_curPeriod + 1); }
+});
+
 document.addEventListener('DOMContentLoaded', () => {
     if (REPORT_PERIODS.length) {
-        buildPeriodSelector();
+        buildPeriodNavigator();
         showPeriod(0);
     }
 });
