@@ -20,13 +20,9 @@
 /* The big summary date is redundant with the period label below, so reclaim
    its vertical space: the per-period label lives in the navigator header. */
 #summary .summary-date { display: none; }
-.summary-periods { margin-top: 0.6rem; padding-top: 0.6rem; border-top: 1px solid var(--border, #e3e6ea); }
-.summary-periods-head { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.45rem; }
-.summary-periods-eyebrow {
-  font-size: 0.68rem; font-weight: 600; letter-spacing: 0.05em;
-  text-transform: uppercase; color: var(--text-muted, #8a9099);
-}
-.summary-periods-label { font-weight: 700; font-variant-numeric: tabular-nums; }
+.summary-periods { margin: 0 0 0.2rem; }
+.summary-periods-head { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.5rem; }
+.summary-periods-label { font-size: 1.15rem; font-weight: 700; font-variant-numeric: tabular-nums; }
 .summary-periods-btn {
   cursor: pointer; border: 1px solid var(--border, #ddd); background: var(--bg-alt, #f5f6f8);
   color: var(--text, #333); border-radius: 5px; width: 1.25rem; height: 1.25rem;
@@ -167,7 +163,7 @@ function injectPeriodNav() {
     });
 
     box.append(head, grid);
-    host.appendChild(box);
+    host.insertBefore(box, host.firstChild); // sits at the top, where the date was
     const active = grid.children[_curPeriod];
     if (active) active.scrollIntoView({ block: 'nearest', inline: 'nearest' });
 }
