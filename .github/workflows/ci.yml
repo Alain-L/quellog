@@ -56,7 +56,7 @@ jobs:
         run: |
           go vet ./...
           staticcheck ./...
-          go test ./... -cover
+          go test -race ./... -cover -timeout 15m
 
       - name: Build CLI
         run: go build -v .
