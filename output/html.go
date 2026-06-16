@@ -114,6 +114,98 @@ type templateValues struct {
 	Version        string
 }
 
+// splitPeriod is one selectable period in a split report.
+type splitPeriod struct {
+	Label string
+	Data  string // zstd + base64 compressed JSON for this period
+}
+
+// splitTemplateValues holds the values for the split (multi-period) report.
+type splitTemplateValues struct {
+	CSS      template.CSS
+	Body     template.HTML
+	UplotJS  template.JS
+	FzstdB64 string
+	AppJS    template.JS
+	Periods  []splitPeriod
+	Version  string
+}
+
+var splitTmpl *template.Template
+
+// getSplitTemplate returns the parsed split-report template (computed once).
+func getSplitTemplate() *template.Template {
+	if splitTmpl == nil {
+		splitTmpl = template.Must(template.New("report_split").Parse(web.ReportSplitTmpl))
+	}
+	return splitTmpl
+}
+
+// compressReportJSON builds the embedded-report JSON for one set of metrics and
+// returns it zstd-compressed and base64-encoded (the form the template embeds).
+func compressReportJSON(metrics analysis.AggregatedMetrics, info HTMLReportInfo, sections []string) (string, error) {
+	data := buildJSONData(metrics, []string{"all"}, true)
+	format := info.Format
+	if format == "" {
+		format = "stderr"
+	}
+	data["meta"] = map[string]interface{}{
+		"format":        format,
+		"entries":       metrics.Global.Count,
+		"filename":      info.Filename,
+		"filesize":      info.FileSize,
+		"parse_time_ms": info.ProcessTime,
+		"sections":      sections,
+	}
+	jsonBytes, err := json.Marshal(data)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal metrics to JSON: %w", err)
+	}
+	var zstdBuf bytes.Buffer
+	zstdWriter, err := zstd.NewWriter(&zstdBuf, zstd.WithEncoderLevel(zstd.SpeedBestCompression))
+	if err != nil {
+		return "", fmt.Errorf("failed to create zstd writer: %w", err)
+	}
+	if _, err := zstdWriter.Write(jsonBytes); err != nil {
+		return "", fmt.Errorf("failed to compress JSON: %w", err)
+	}
+	if err := zstdWriter.Close(); err != nil {
+		return "", fmt.Errorf("failed to close zstd writer: %w", err)
+	}
+	return base64.StdEncoding.EncodeToString(zstdBuf.Bytes()), nil
+}
+
+// ExportHTMLSplit exports a single standalone HTML report holding one embedded
+// dataset per time period, with a selector to switch between them.
+func ExportHTMLSplit(w io.Writer, buckets []analysis.SplitBucket, info HTMLReportInfo, sections []string) error {
+	periods := make([]splitPeriod, 0, len(buckets))
+	for _, b := range buckets {
+		bi := info
+		bi.Filename = info.Filename + " — " + b.Label
+		bi.FileSize = 0
+		compressed, err := compressReportJSON(b.Metrics, bi, sections)
+		if err != nil {
+			return err
+		}
+		periods = append(periods, splitPeriod{Label: b.Label, Data: compressed})
+	}
+
+	td := getTemplateData()
+	values := splitTemplateValues{
+		CSS:      td.CSS,
+		Body:     td.Body,
+		UplotJS:  td.UplotJS,
+		FzstdB64: td.FzstdB64,
+		AppJS:    td.AppJS,
+		Periods:  periods,
+		Version:  info.Version,
+	}
+	if err := getSplitTemplate().Execute(w, values); err != nil {
+		return fmt.Errorf("failed to execute split template: %w", err)
+	}
+	return nil
+}
+
 // ExportHTML exports metrics as a standalone HTML report with embedded data.
 func ExportHTML(w io.Writer, metrics analysis.AggregatedMetrics, info HTMLReportInfo, sections []string) error {
 	// Build full JSON data structure (same as JSON export with all sections)

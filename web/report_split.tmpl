@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>quellog Report</title>
+<style>{{.CSS}}</style>
+<style>
+/* Report mode: show only time filter */
+#fileInputSection, #newFileBtn { display: none !important; }
+.drop-zone { display: none !important; }
+.filter-bar ql-dropdown { display: none !important; }
+.filter-bar .filter-status { display: none !important; }
+.filter-bar .filter-bar-content { gap: 0.5rem; }
+.filter-bar .filter-apply { margin-left: 0; }
+/* Period selector bar (split reports) */
+#ql-period-bar {
+  position: sticky; top: 0; z-index: 1000;
+  display: flex; align-items: center; gap: 0.6rem;
+  padding: 0.5rem 1rem;
+  background: var(--bg, #fff);
+  border-bottom: 1px solid var(--border, #ddd);
+  font-size: 0.9rem;
+}
+#ql-period-bar label { font-weight: 600; }
+#ql-period-bar select { padding: 0.25rem 0.5rem; font-size: 0.9rem; }
+#ql-period-bar .ql-period-nav { cursor: pointer; user-select: none; padding: 0 0.4rem; font-weight: 700; }
+#ql-period-bar .ql-period-count { color: var(--text-muted, #888); }
+</style>
+</head>
+<body>
+{{.Body}}
+<script>{{.UplotJS}}</script>
+<script>
+window.REPORT_MODE = true;
+window.wasmReady = true;
+window.quellogVersion = function() { return '{{.Version}}'; };
+window.parseLogFile = function() { console.warn('WASM not available in report mode'); };
+</script>
+<script>
+const ZSTD_DECODER_GZIP_B64 = "{{.FzstdB64}}";
+
+// Embedded per-period report data (each: zstd + base64, injected by Go).
+const REPORT_PERIODS = [
+{{range .Periods}}  { label: "{{.Label}}", data: "{{.Data}}" },
+{{end}}];
+
+let _zstdReady = null;
+async function loadZstdDecoder() {
+    if (_zstdReady) return _zstdReady;
+    _zstdReady = (async () => {
+        const binaryString = atob(ZSTD_DECODER_GZIP_B64);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
+        const stream = new DecompressionStream('gzip');
+        const writer = stream.writable.getWriter();
+        writer.write(bytes); writer.close();
+        const reader = stream.readable.getReader();
+        const chunks = [];
+        while (true) { const { done, value } = await reader.read(); if (done) break; chunks.push(value); }
+        const total = chunks.reduce((a, c) => a + c.length, 0);
+        const out = new Uint8Array(total);
+        let off = 0; for (const c of chunks) { out.set(c, off); off += c.length; }
+        eval(new TextDecoder().decode(out));
+    })();
+    return _zstdReady;
+}
+
+async function decompressData(base64Data) {
+    await loadZstdDecoder();
+    const binaryString = atob(base64Data);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
+    const decompressed = fzstd.decompress(bytes);
+    return JSON.parse(new TextDecoder().decode(decompressed));
+}
+</script>
+<script>{{.AppJS}}</script>
+<script>
+// Period selector: decompress lazily, cache decoded datasets, re-render on
+// change via the report's global render entry points.
+const _periodCache = {};
+let _curPeriod = 0;
+
+async function showPeriod(idx) {
+    if (idx < 0 || idx >= REPORT_PERIODS.length) return;
+    _curPeriod = idx;
+    const p = REPORT_PERIODS[idx];
+    let data = _periodCache[idx];
+    if (!data) {
+        try { data = await decompressData(p.data); _periodCache[idx] = data; }
+        catch (err) { console.error('Failed to load period', idx, err); alert('Failed to load period: ' + err.message); return; }
+    }
+    const sel = document.getElementById('ql-period-select');
+    if (sel) sel.value = String(idx);
+    setAnalysisData(data);
+    data._parseTimeMs = (data.meta && data.meta.parse_time_ms) || 0;
+    renderResults(data, (data.meta && data.meta.filename) || p.label, (data.meta && data.meta.filesize) || 0, true);
+    window.scrollTo(0, 0);
+}
+
+function buildPeriodSelector() {
+    const bar = document.createElement('div');
+    bar.id = 'ql-period-bar';
+
+    const label = document.createElement('label');
+    label.textContent = 'Period';
+    label.htmlFor = 'ql-period-select';
+
+    const prev = document.createElement('span');
+    prev.className = 'ql-period-nav';
+    prev.textContent = '‹';
+    prev.title = 'Previous period';
+    prev.onclick = () => showPeriod(_curPeriod - 1);
+
+    const sel = document.createElement('select');
+    sel.id = 'ql-period-select';
+    REPORT_PERIODS.forEach((p, i) => {
+        const o = document.createElement('option');
+        o.value = String(i);
+        o.textContent = p.label;
+        sel.appendChild(o);
+    });
+    sel.addEventListener('change', () => showPeriod(parseInt(sel.value, 10)));
+
+    const next = document.createElement('span');
+    next.className = 'ql-period-nav';
+    next.textContent = '›';
+    next.title = 'Next period';
+    next.onclick = () => showPeriod(_curPeriod + 1);
+
+    const count = document.createElement('span');
+    count.className = 'ql-period-count';
+    count.textContent = REPORT_PERIODS.length + ' periods';
+
+    bar.appendChild(label);
+    bar.appendChild(prev);
+    bar.appendChild(sel);
+    bar.appendChild(next);
+    bar.appendChild(count);
+    document.body.insertBefore(bar, document.body.firstChild);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    if (REPORT_PERIODS.length) {
+        buildPeriodSelector();
+        showPeriod(0);
+    }
+});
+</script>
+</body>
+</html>

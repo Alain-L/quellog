@@ -315,6 +315,18 @@ func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry
 	if openFlag && followFlag {
 		return fmt.Errorf("--open is not supported with --follow (would re-open the browser every cycle)")
 	}
+	if splitFlag != "" {
+		if !htmlFlag {
+			return fmt.Errorf("--split requires --html")
+		}
+		if formatCount > 1 {
+			return fmt.Errorf("--split is only supported with --html (not alongside other export formats)")
+		}
+		if len(sqlDetailFlag) > 0 || len(eventDetailFlag) > 0 || sqlPerformanceFlag || sqlOverviewFlag {
+			return fmt.Errorf("--split is only supported for the full HTML report (not with --sql-detail, --event-detail, --sql-performance, --sql-overview)")
+		}
+		return runSplitHTML(ctx, filteredLogs, startTime, totalFileSize, inputArgs, pb)
+	}
 
 	// Special case: SQL query details (single query analysis)
 	if len(sqlDetailFlag) > 0 {
@@ -537,6 +549,60 @@ func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry
 	// Default: text output
 	PrintProcessingSummary(metrics.Global.Count, processingDuration, totalFileSize)
 	output.PrintMetrics(metrics, sections, fullFlag)
+	return nil
+}
+
+// runSplitHTML consumes the stream, aggregates it into per-interval periods and
+// writes a single HTML report with a period selector. Used for --split --html.
+func runSplitHTML(ctx context.Context, filteredLogs <-chan []parser.LogEntry, startTime time.Time, totalFileSize int64, inputArgs []string, pb *progressBar) error {
+	interval, err := parseDuration(splitFlag)
+	if err != nil || interval <= 0 {
+		return fmt.Errorf("invalid --split interval %q (use e.g. 1d, 3h, 5m): %v", splitFlag, err)
+	}
+
+	buckets, err := analysis.AggregateMetricsBySplit(ctx, filteredLogs, interval)
+	pb.Finish()
+	if err != nil {
+		return err
+	}
+	if len(buckets) == 0 {
+		return fmt.Errorf("no timestamped log entries to split into periods")
+	}
+	processingDuration := time.Since(startTime)
+
+	outputName := outputFlag
+	if outputName == "" {
+		outputName = generateHTMLFilename(inputArgs)
+	}
+	w, closer, err := createOutputWriter(outputName)
+	if err != nil {
+		return err
+	}
+	defer closer()
+
+	detectedFormat := ""
+	if len(inputArgs) > 0 {
+		detectedFormat = parser.DetectFileFormat(inputArgs[0])
+	}
+	reportInfo := output.HTMLReportInfo{
+		Filename:    generateInputDescription(inputArgs),
+		FileSize:    totalFileSize,
+		ProcessTime: float64(processingDuration.Milliseconds()),
+		Format:      detectedFormat,
+		Version:     version,
+	}
+	if err := output.ExportHTMLSplit(w, buckets, reportInfo, buildSectionList()); err != nil {
+		return fmt.Errorf("failed to write split HTML report: %w", err)
+	}
+	if err := closer(); err != nil {
+		return err
+	}
+	if !followFlag {
+		fmt.Printf("Report saved to %s (%d periods)\n", outputName, len(buckets))
+	}
+	if openFlag {
+		openInBrowser(outputName)
+	}
 	return nil
 }
 
