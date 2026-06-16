@@ -36,25 +36,27 @@
 .ql-pb-btn:hover:not(:disabled) { border-color: var(--primary, #4a6ea9); color: var(--primary, #4a6ea9); }
 .ql-pb-btn:disabled { opacity: 0.3; cursor: default; }
 .ql-pb-timeline {
-  display: flex; align-items: flex-end; gap: 2px; flex: 1;
-  height: 2.5rem; overflow-x: auto; padding-bottom: 1px; scrollbar-width: thin;
+  display: flex; align-items: stretch; gap: 2px; flex: 1;
+  height: 1.9rem; overflow-x: auto; padding: 1px; scrollbar-width: thin;
 }
 .ql-seg {
-  position: relative; flex: 1 1 0; min-width: 5px; height: 100%;
-  display: flex; align-items: flex-end; background: none; border: 0; padding: 0; cursor: pointer;
+  flex: 1 1 0; min-width: 6px; height: 100%;
+  background: none; border: 0; padding: 0; cursor: pointer;
 }
+/* Heatmap: bar height is uniform; the entry volume is encoded as colour
+   intensity (alpha) over the theme's primary, switching to danger when the
+   period had errors. color-mix keeps it correct in both light and dark. */
 .ql-seg i {
-  display: block; width: 100%; min-height: 3px; border-radius: 2px 2px 0 0;
-  background: var(--text-muted, #c2c7cf); opacity: 0.6; transition: opacity .12s, background .12s;
+  display: block; width: 100%; height: 100%; border-radius: 3px;
+  outline: 1.5px solid transparent; outline-offset: -1px;
+  background: color-mix(in srgb, var(--primary, #4a6ea9) calc(var(--t, 12) * 1%), transparent);
+  transition: outline-color .12s;
 }
-.ql-seg:hover i { opacity: 1; background: var(--primary, #4a6ea9); }
-.ql-seg.has-err i { background: var(--danger, #cc4b4b); }
-.ql-seg.active i { opacity: 1; background: var(--primary, #4a6ea9); }
-.ql-seg.active.has-err i { opacity: 1; background: var(--danger, #cc4b4b); }
-.ql-seg.active::after {
-  content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px;
-  background: var(--text, #333);
+.ql-seg.has-err i {
+  background: color-mix(in srgb, var(--danger, #cc4b4b) calc(var(--t, 12) * 1%), transparent);
 }
+.ql-seg:hover i { outline-color: var(--text-muted, #8a9099); }
+.ql-seg.active i { outline-color: var(--text, #333); outline-width: 2px; }
 .ql-pb-meta { white-space: nowrap; color: var(--text-muted, #8a9099); font-size: 0.8rem; font-variant-numeric: tabular-nums; }
 </style>
 </head>
@@ -179,7 +181,8 @@ function buildPeriodNavigator() {
         seg.title = p.label + ' · ' + _fmtInt(p.entries) + ' entries' +
             (p.errors ? ' · ' + _fmtInt(p.errors) + ' errors' : '');
         const fill = document.createElement('i');
-        fill.style.height = Math.max(6, Math.round((p.entries || 0) / _maxEntries * 100)) + '%';
+        // Encode entry volume as colour intensity (12%..100% alpha).
+        fill.style.setProperty('--t', 12 + Math.round((p.entries || 0) / _maxEntries * 88));
         seg.appendChild(fill);
         seg.onclick = () => showPeriod(i);
         tl.appendChild(seg);
