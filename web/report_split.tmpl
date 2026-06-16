@@ -17,12 +17,16 @@
    injected into the Summary tile. Square colour intensity encodes the entry
    volume (danger hue when the period had errors); color-mix keeps it correct
    in both light and dark themes. */
-.summary-periods { margin-top: 0.7rem; padding-top: 0.7rem; border-top: 1px solid var(--border, #e3e6ea); }
+/* The big summary date is redundant with the period label below, so reclaim
+   its vertical space: the per-period label lives in the navigator header. */
+#summary .summary-date { display: none; }
+.summary-periods { margin-top: 0.6rem; padding-top: 0.6rem; border-top: 1px solid var(--border, #e3e6ea); }
 .summary-periods-head { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.45rem; }
-.summary-periods-title {
+.summary-periods-eyebrow {
   font-size: 0.68rem; font-weight: 600; letter-spacing: 0.05em;
   text-transform: uppercase; color: var(--text-muted, #8a9099);
 }
+.summary-periods-label { font-weight: 700; font-variant-numeric: tabular-nums; }
 .summary-periods-btn {
   cursor: pointer; border: 1px solid var(--border, #ddd); background: var(--bg-alt, #f5f6f8);
   color: var(--text, #333); border-radius: 5px; width: 1.25rem; height: 1.25rem;
@@ -132,13 +136,13 @@ function injectPeriodNav() {
 
     const head = document.createElement('div');
     head.className = 'summary-periods-head';
-    const title = document.createElement('span');
-    title.className = 'summary-periods-title';
-    title.textContent = 'Periods';
     const prev = document.createElement('button');
     prev.className = 'summary-periods-btn'; prev.textContent = '‹';
     prev.title = 'Previous period'; prev.disabled = _curPeriod === 0;
     prev.onclick = () => showPeriod(_curPeriod - 1);
+    const label = document.createElement('span');
+    label.className = 'summary-periods-label';
+    label.textContent = REPORT_PERIODS[_curPeriod].label;
     const next = document.createElement('button');
     next.className = 'summary-periods-btn'; next.textContent = '›';
     next.title = 'Next period'; next.disabled = _curPeriod === REPORT_PERIODS.length - 1;
@@ -146,7 +150,7 @@ function injectPeriodNav() {
     const count = document.createElement('span');
     count.className = 'summary-periods-count';
     count.textContent = (_curPeriod + 1) + '/' + REPORT_PERIODS.length;
-    head.append(title, prev, next, count);
+    head.append(prev, label, next, count);
 
     const grid = document.createElement('div');
     grid.className = 'summary-periods-grid';
