@@ -43,6 +43,8 @@
   font-size: 0.72rem; color: var(--text-muted, #8a9099); font-variant-numeric: tabular-nums;
 }
 #summary .summary-tl-mark { position: absolute; white-space: nowrap; transform: translateX(-50%); }
+/* Axis ends are lighter than the real data start/end markers. */
+#summary .summary-tl-mark.is-start, #summary .summary-tl-mark.is-end { opacity: 0.5; }
 #summary .summary-tl-mark.is-start { transform: none; left: 0 !important; }
 #summary .summary-tl-mark.is-end { transform: none; left: auto !important; right: 0; }
 </style>
@@ -156,10 +158,14 @@ function harmonizeSummary() {
                 s.style.left = pct + '%';
                 marks.appendChild(s);
             };
-            mk('00:00', 0, 'is-start');
-            if (left > 1.5) mk(startT, left);
-            if (endPct < 98.5) mk(endT, endPct);
-            mk('24:00', 100, 'is-end');
+            const showStart = left > 1.5;
+            const showEnd = endPct < 98.5;
+            // Drop an axis end when the real start/end sits too close to it, so
+            // the labels never overlap (the real time wins).
+            if (!(showStart && left < 12)) mk('00:00', 0, 'is-start');
+            if (showStart) mk(startT, left);
+            if (showEnd) mk(endT, endPct);
+            if (!(showEnd && endPct > 88)) mk('24:00', 100, 'is-end');
             timeline.appendChild(marks);
         }
     }
