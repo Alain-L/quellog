@@ -31,13 +31,20 @@
 #summary .stat-grid { grid-template-columns: repeat(3, auto) !important; margin-bottom: 0.6rem !important; }
 #summary .stat-grid .stat-card:nth-child(2) { display: none; }
 #summary .summary-date--title { text-align: center; font-size: 1.3rem; font-weight: 700; margin: 0; }
-/* Mirror the split strip: full-width track (the 24h day) with the bounds moved
-   underneath. The fill still stops where the data ends (mid-afternoon here), so
-   the data extent stays readable. */
-#summary .summary-timeline-row { display: flex; flex-wrap: wrap; align-items: center; }
-#summary .summary-timeline-track { flex: 1 1 100%; order: 0; }
-#summary .summary-timeline-bound { order: 1; margin-top: 0.4rem; font-size: 0.72rem; color: var(--text-muted, #8a9099); }
-#summary .summary-timeline-bound:last-child { margin-left: auto; }
+/* Mirror the split strip: full-width track (the 24h day) with a single marker
+   row underneath holding the axis ends (00:00/24:00) plus the real data
+   start/end times positioned where they fall along the day. */
+#summary .summary-timeline-row { display: flex; }
+#summary .summary-timeline-track { flex: 1 1 100%; }
+#summary .summary-timeline-bound,
+#summary .summary-timeline-labels { display: none; }
+#summary .summary-tl-marks {
+  position: relative; height: 1rem; margin-top: 0.45rem;
+  font-size: 0.72rem; color: var(--text-muted, #8a9099); font-variant-numeric: tabular-nums;
+}
+#summary .summary-tl-mark { position: absolute; white-space: nowrap; transform: translateX(-50%); }
+#summary .summary-tl-mark.is-start { transform: none; left: 0 !important; }
+#summary .summary-tl-mark.is-end { transform: none; left: auto !important; right: 0; }
 </style>
 </head>
 <body>
@@ -128,6 +135,33 @@ function harmonizeSummary() {
     if (date && timeline && !date.classList.contains('summary-date--title')) {
         date.classList.add('summary-date--title');
         timeline.parentNode.insertBefore(date, timeline);
+    }
+    // One marker row under the track: 00:00 / 24:00 axis ends plus the real
+    // data start (only if not 00:00) and end times at their positions.
+    if (timeline) {
+        const seg = timeline.querySelector('.summary-timeline-segment');
+        const range = timeline.querySelector('.summary-timeline-range');
+        if (seg && range && !timeline.querySelector('.summary-tl-marks')) {
+            const left = parseFloat(seg.style.left) || 0;
+            const endPct = Math.min(100, left + (parseFloat(seg.style.width) || 0));
+            const parts = range.textContent.split('–').map((s) => s.trim());
+            const startT = parts[0] || '';
+            const endT = parts[1] || startT;
+            const marks = document.createElement('div');
+            marks.className = 'summary-tl-marks';
+            const mk = (txt, pct, cls) => {
+                const s = document.createElement('span');
+                s.className = 'summary-tl-mark' + (cls ? ' ' + cls : '');
+                s.textContent = txt;
+                s.style.left = pct + '%';
+                marks.appendChild(s);
+            };
+            mk('00:00', 0, 'is-start');
+            if (left > 1.5) mk(startT, left);
+            if (endPct < 98.5) mk(endT, endPct);
+            mk('24:00', 100, 'is-end');
+            timeline.appendChild(marks);
+        }
     }
 }
 
