@@ -13,32 +13,10 @@
 .filter-bar .filter-status { display: none !important; }
 .filter-bar .filter-bar-content { gap: 0.5rem; }
 .filter-bar .filter-apply { margin-left: 0; }
-/* Period navigator (split reports) — a compact heatmap of small squares
-   injected into the Summary tile. Square colour intensity encodes the entry
-   volume (danger hue when the period had errors); color-mix keeps it correct
-   in both light and dark themes. */
-/* Split layout: the big date is redundant with the period label, so drop it.
-   The source + parse time become a discreet eyebrow (the existing meta line),
-   and the period label is the tile heading, above the heatmap. */
+/* Split-specific layout. The shared eyebrow / 3-card harmonization lives in
+   styles.css (applied by harmonizeSummary); here the period navigator replaces
+   the date title and the heatmap replaces the time-of-day slider. */
 #summary .summary-date { display: none; }
-#summary .summary-header { justify-content: flex-start; }
-#summary .summary-meta {
-  display: flex; flex-direction: row; flex-wrap: nowrap; align-items: baseline;
-  gap: 0.5rem; white-space: nowrap; max-width: 100%;
-  text-align: left; font-size: 0.78rem; color: var(--text-muted, #8a9099);
-}
-/* Only the source name may be truncated; the size and parse time stay whole. */
-#summary .summary-meta .summary-filename { flex: 0 1 auto; min-width: 3ch; overflow: hidden; text-overflow: ellipsis; }
-#summary .summary-meta .summary-parsetime { flex: 0 0 auto; }
-/* The size is folded into the parse-time text ("9.87 MB parsed in 32ms"), so a
-   single dot separates the source from that one phrase. */
-#summary .summary-meta .summary-parsetime::before { content: "·"; margin-right: 0.5rem; }
-/* The per-period byte size is not tracked, so drop the SIZE stat card and
-   collapse the grid to three columns; the full input size goes in the eyebrow. */
-#summary .stat-grid { grid-template-columns: repeat(3, auto) !important; margin-bottom: 0.6rem !important; }
-#summary .stat-grid .stat-card:nth-child(2) { display: none; }
-/* The period heatmap doubles as the time axis, so the app.js time-of-day
-   slider is redundant — hide it; period bounds go under the heatmap. */
 #summary .summary-timeline { display: none; }
 .summary-periods { margin: 0; }
 .summary-periods-head { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 0.4rem; margin-bottom: 0.4rem; }
@@ -76,6 +54,7 @@
 <script>{{.UplotJS}}</script>
 <script>
 window.REPORT_MODE = true;
+window.QL_SPLIT = true; // the period navigator owns the date title + strip
 window.wasmReady = true;
 window.quellogVersion = function() { return '{{.Version}}'; };
 window.parseLogFile = function() { console.warn('WASM not available in report mode'); };
@@ -87,7 +66,6 @@ const ZSTD_DECODER_GZIP_B64 = "{{.FzstdB64}}";
 const REPORT_PERIODS = [
 {{range .Periods}}  { label: "{{.Label}}", entries: {{.Entries}}, errors: {{.Errors}}, data: "{{.Data}}" },
 {{end}}];
-const REPORT_TOTAL_SIZE = "{{.TotalSize}}";
 
 let _zstdReady = null;
 async function loadZstdDecoder() {
@@ -164,17 +142,7 @@ async function showPeriod(idx) {
 function injectPeriodNav() {
     const host = document.querySelector('#summary .summary-body');
     if (!host || host.querySelector('.summary-periods')) return;
-
-    // Fold the full input size into the parse-time text so size and chrono are
-    // one phrase in one span: "9.87 MB parsed in 32ms".
-    const meta = host.querySelector('.summary-meta');
-    if (meta && REPORT_TOTAL_SIZE) {
-        const pt = meta.querySelector('.summary-parsetime');
-        if (pt) pt.textContent = REPORT_TOTAL_SIZE + ' ' + pt.textContent;
-    }
-    // The source name may be ellipsized; expose the full value on hover.
-    const fn = meta && meta.querySelector('.summary-filename');
-    if (fn && !fn.title) fn.title = fn.textContent;
+    // The eyebrow (size fold + filename tooltip) is handled by harmonizeSummary.
 
     const box = document.createElement('div');
     box.className = 'summary-periods';

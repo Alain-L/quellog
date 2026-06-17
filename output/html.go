@@ -125,14 +125,13 @@ type splitPeriod struct {
 
 // splitTemplateValues holds the values for the split (multi-period) report.
 type splitTemplateValues struct {
-	CSS       template.CSS
-	Body      template.HTML
-	UplotJS   template.JS
-	FzstdB64  string
-	AppJS     template.JS
-	Periods   []splitPeriod
-	TotalSize string // human-readable total input size, shown in the eyebrow
-	Version   string
+	CSS      template.CSS
+	Body     template.HTML
+	UplotJS  template.JS
+	FzstdB64 string
+	AppJS    template.JS
+	Periods  []splitPeriod
+	Version  string
 }
 
 var splitTmpl *template.Template
@@ -184,11 +183,10 @@ func compressReportJSON(metrics analysis.AggregatedMetrics, info HTMLReportInfo,
 func ExportHTMLSplit(w io.Writer, buckets []analysis.SplitBucket, info HTMLReportInfo, sections []string) error {
 	periods := make([]splitPeriod, 0, len(buckets))
 	for _, b := range buckets {
-		bi := info
-		// Keep the source identity (e.g. "13 files") as the filename; the
-		// period label is shown by the navigator, not duplicated here.
-		bi.FileSize = 0
-		compressed, err := compressReportJSON(b.Metrics, bi, sections)
+		// Each period keeps the source identity and the total input size (it is
+		// the same source for every period); the eyebrow folds that size in via
+		// the SIZE stat card, and the period label is shown by the navigator.
+		compressed, err := compressReportJSON(b.Metrics, info, sections)
 		if err != nil {
 			return err
 		}
@@ -201,21 +199,15 @@ func ExportHTMLSplit(w io.Writer, buckets []analysis.SplitBucket, info HTMLRepor
 		})
 	}
 
-	totalSize := ""
-	if info.FileSize > 0 {
-		totalSize = FormatBytes(info.FileSize)
-	}
-
 	td := getTemplateData()
 	values := splitTemplateValues{
-		CSS:       td.CSS,
-		Body:      td.Body,
-		UplotJS:   td.UplotJS,
-		FzstdB64:  td.FzstdB64,
-		AppJS:     td.AppJS,
-		Periods:   periods,
-		TotalSize: totalSize,
-		Version:   info.Version,
+		CSS:      td.CSS,
+		Body:     td.Body,
+		UplotJS:  td.UplotJS,
+		FzstdB64: td.FzstdB64,
+		AppJS:    td.AppJS,
+		Periods:  periods,
+		Version:  info.Version,
 	}
 	if err := getSplitTemplate().Execute(w, values); err != nil {
 		return fmt.Errorf("failed to execute split template: %w", err)
