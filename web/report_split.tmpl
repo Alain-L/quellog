@@ -56,18 +56,18 @@
   display: flex; justify-content: space-between; margin-top: 0.4rem;
   font-size: 0.72rem; color: var(--text-muted, #8a9099); font-variant-numeric: tabular-nums;
 }
-.ql-seg { flex: 1 1 0; min-width: 7px; height: 18px; background: none; border: 0; padding: 0; cursor: pointer; }
+.ql-seg { flex: 1 1 0; min-width: 6px; height: 10px; background: none; border: 0; padding: 0; cursor: pointer; }
+/* Unselected periods are greyscale (intensity = volume); only the selected
+   period is in colour (danger hue when it had errors, primary otherwise). */
 .ql-seg i {
-  display: block; width: 100%; height: 100%; border-radius: 3px;
-  outline: 1.5px solid transparent; outline-offset: -1px;
-  background: color-mix(in srgb, var(--primary, #4a6ea9) calc(var(--t, 12) * 1%), transparent);
-  transition: outline-color .12s;
-}
-.ql-seg.has-err i {
-  background: color-mix(in srgb, var(--danger, #cc4b4b) calc(var(--t, 12) * 1%), transparent);
+  display: block; width: 100%; height: 100%; border-radius: 2px;
+  outline: 1px solid transparent; outline-offset: -1px;
+  background: color-mix(in srgb, var(--text-muted, #8a9099) calc(var(--t, 12) * 1%), transparent);
+  transition: background .12s, outline-color .12s;
 }
 .ql-seg:hover i { outline-color: var(--text-muted, #8a9099); }
-.ql-seg.active i { outline-color: var(--text, #333); outline-width: 2px; }
+.ql-seg.active i { background: var(--primary, #4a6ea9); outline-color: var(--text, #333); }
+.ql-seg.active.has-err i { background: var(--danger, #cc4b4b); }
 </style>
 </head>
 <body>
