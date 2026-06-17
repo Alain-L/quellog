@@ -45,7 +45,8 @@
    slider is redundant — hide it; period bounds go under the heatmap. */
 #summary .summary-timeline { display: none; }
 .summary-periods { margin: 0.2rem 0; }
-.summary-periods-head { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.5rem; }
+.summary-periods-head { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 0.4rem; margin-bottom: 0.5rem; }
+.summary-periods-nav { display: flex; align-items: center; gap: 0.4rem; justify-self: center; }
 .summary-periods-label { font-size: 1.3rem; font-weight: 700; font-variant-numeric: tabular-nums; }
 .summary-periods-btn {
   cursor: pointer; border: 1px solid var(--border, #ddd); background: var(--bg-alt, #f5f6f8);
@@ -54,7 +55,7 @@
 }
 .summary-periods-btn:hover:not(:disabled) { border-color: var(--primary, #4a6ea9); color: var(--primary, #4a6ea9); }
 .summary-periods-btn:disabled { opacity: 0.3; cursor: default; }
-.summary-periods-count { margin-left: auto; font-size: 0.72rem; color: var(--text-muted, #8a9099); font-variant-numeric: tabular-nums; }
+.summary-periods-count { justify-self: end; font-size: 0.72rem; color: var(--text-muted, #8a9099); font-variant-numeric: tabular-nums; }
 .summary-periods-grid { display: flex; gap: 3px; align-items: stretch; overflow-x: auto; scrollbar-width: thin; }
 .summary-periods-bounds {
   display: flex; justify-content: space-between; margin-top: 0.4rem;
@@ -174,6 +175,9 @@ function injectPeriodNav() {
 
     const head = document.createElement('div');
     head.className = 'summary-periods-head';
+    const spacer = document.createElement('span'); // balances the centered nav
+    const nav = document.createElement('div');
+    nav.className = 'summary-periods-nav';
     const prev = document.createElement('button');
     prev.className = 'summary-periods-btn'; prev.textContent = '‹';
     prev.title = 'Previous period'; prev.disabled = _curPeriod === 0;
@@ -185,10 +189,11 @@ function injectPeriodNav() {
     next.className = 'summary-periods-btn'; next.textContent = '›';
     next.title = 'Next period'; next.disabled = _curPeriod === REPORT_PERIODS.length - 1;
     next.onclick = () => showPeriod(_curPeriod + 1);
+    nav.append(prev, label, next);
     const count = document.createElement('span');
     count.className = 'summary-periods-count';
     count.textContent = (_curPeriod + 1) + '/' + REPORT_PERIODS.length;
-    head.append(prev, label, next, count);
+    head.append(spacer, nav, count);
 
     const grid = document.createElement('div');
     grid.className = 'summary-periods-grid';
