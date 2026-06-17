@@ -3727,6 +3727,18 @@ function buildEventsSection(data) {
             }
         };
 
+        // selectSplit handles a click on a Split menu item: mark it selected,
+        // show the interval in the trigger badge, close the menu, apply.
+        window.selectSplit = function(sec, el) {
+            const menu = el.closest('.filter-dropdown-menu');
+            if (menu) menu.querySelectorAll('.filter-dropdown-item').forEach(i => i.classList.remove('selected'));
+            el.classList.add('selected');
+            const count = document.getElementById('splitCount');
+            if (count) count.textContent = sec ? el.textContent.trim() : '';
+            document.querySelector('.filter-dropdown[data-category="split"]')?.classList.remove('open');
+            window.applySplit(sec);
+        };
+
         window.clearAllFilters = function() {
             resetTimeInputs();
             clearFilterSelections();

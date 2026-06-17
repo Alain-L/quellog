@@ -117,14 +117,19 @@
                         </div>
                     </div>
                 </div>
-                <div class="filter-split" id="splitControl">
-                    <select id="splitSelect" onchange="applySplit(parseInt(this.value, 10))">
-                        <option value="0">Split: off</option>
-                        <option value="3600">Split: 1 hour</option>
-                        <option value="10800">Split: 3 hours</option>
-                        <option value="21600">Split: 6 hours</option>
-                        <option value="86400">Split: 1 day</option>
-                    </select>
+                <div class="filter-dropdown" data-category="split" id="splitControl">
+                    <button class="filter-dropdown-trigger" onclick="toggleDropdown('split')">
+                        <span class="filter-dropdown-label">Split</span>
+                        <span class="filter-dropdown-count" id="splitCount"></span>
+                        <svg class="filter-dropdown-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                    </button>
+                    <div class="filter-dropdown-menu">
+                        <div class="filter-dropdown-item selected" onclick="selectSplit(0, this)"><span class="filter-dropdown-item-label">Off</span></div>
+                        <div class="filter-dropdown-item" onclick="selectSplit(3600, this)"><span class="filter-dropdown-item-label">1 hour</span></div>
+                        <div class="filter-dropdown-item" onclick="selectSplit(10800, this)"><span class="filter-dropdown-item-label">3 hours</span></div>
+                        <div class="filter-dropdown-item" onclick="selectSplit(21600, this)"><span class="filter-dropdown-item-label">6 hours</span></div>
+                        <div class="filter-dropdown-item" onclick="selectSplit(86400, this)"><span class="filter-dropdown-item-label">1 day</span></div>
+                    </div>
                 </div>
                 <button class="filter-apply" id="filterApply" onclick="applyFilters()">Apply</button>
                 <button class="filter-clear" id="filterClear" onclick="clearAllFilters()">Clear</button>
