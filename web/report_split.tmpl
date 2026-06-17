@@ -35,13 +35,13 @@
 #summary .summary-meta .summary-parsetime::before { content: "·"; margin-right: 0.5rem; }
 /* The per-period byte size is not tracked, so drop the SIZE stat card and
    collapse the grid to three columns; the full input size goes in the eyebrow. */
-#summary .stat-grid { grid-template-columns: repeat(3, auto) !important; }
+#summary .stat-grid { grid-template-columns: repeat(3, auto) !important; margin-bottom: 0.6rem !important; }
 #summary .stat-grid .stat-card:nth-child(2) { display: none; }
 /* The period heatmap doubles as the time axis, so the app.js time-of-day
    slider is redundant — hide it; period bounds go under the heatmap. */
 #summary .summary-timeline { display: none; }
-.summary-periods { margin: 0.2rem 0; }
-.summary-periods-head { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 0.4rem; margin-bottom: 0.5rem; }
+.summary-periods { margin: 0; }
+.summary-periods-head { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 0.4rem; margin-bottom: 0.4rem; }
 .summary-periods-nav { display: flex; align-items: center; gap: 0.4rem; justify-self: center; }
 .summary-periods-label { font-size: 1.3rem; font-weight: 700; font-variant-numeric: tabular-nums; }
 .summary-periods-btn {
@@ -131,6 +131,18 @@ const _periodCache = {};
 let _curPeriod = 0;
 
 const _fmtInt = (n) => (n || 0).toLocaleString();
+
+// Human-readable period title ("2026-02-04 00:00" -> "4 Feb 2026 · 00:00"),
+// matching the non-split report's date style.
+function formatPeriodLabel(lbl) {
+    const sp = lbl.indexOf(' ');
+    const datePart = sp > 0 ? lbl.slice(0, sp) : lbl;
+    const timePart = sp > 0 ? lbl.slice(sp + 1) : '';
+    const d = new Date(datePart + 'T00:00:00');
+    if (isNaN(d.getTime())) return lbl;
+    const human = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    return timePart ? human + ' · ' + timePart : human;
+}
 const _maxEntries = REPORT_PERIODS.reduce((m, p) => Math.max(m, p.entries || 0), 1);
 
 async function showPeriod(idx) {
@@ -178,7 +190,7 @@ function injectPeriodNav() {
     prev.onclick = () => showPeriod(_curPeriod - 1);
     const label = document.createElement('span');
     label.className = 'summary-periods-label';
-    label.textContent = REPORT_PERIODS[_curPeriod].label;
+    label.textContent = formatPeriodLabel(REPORT_PERIODS[_curPeriod].label);
     const next = document.createElement('button');
     next.className = 'summary-periods-btn'; next.textContent = '›';
     next.title = 'Next period'; next.disabled = _curPeriod === REPORT_PERIODS.length - 1;
