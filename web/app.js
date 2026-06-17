@@ -3692,6 +3692,41 @@ function buildEventsSection(data) {
             }
         };
 
+        // applySplit re-runs the parse splitting the stream by intervalSec and
+        // drives the shared period navigator with the resulting blobs. 0 = Off:
+        // leave split mode and re-render a single report.
+        window.applySplit = async function(intervalSec) {
+            if (!currentFileContent) return;
+            if (!intervalSec) {
+                window.QL_SPLIT = false;
+                document.documentElement.classList.remove('ql-split');
+                delete window.REPORT_PERIODS;
+                window.applyFilters();
+                return;
+            }
+            const filterStatus = document.getElementById('filterStatus');
+            filterStatus?.classList.add('active');
+            await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+            try {
+                if (typeof reinitWasm === 'function') await reinitWasm();
+                const filters = buildFiltersObject();
+                const filtersJson = JSON.stringify(filters);
+                const bytes = (currentFileContent instanceof Uint8Array)
+                    ? currentFileContent : new TextEncoder().encode(currentFileContent);
+                const resultJson = quellogSplitBytes(bytes, intervalSec, currentFileName, filtersJson);
+                const r = JSON.parse(resultJson);
+                if (r.error) throw new Error(r.error);
+                window.REPORT_PERIODS = r;
+                window.startPeriodNav();
+                console.log(`[quellog] Split into ${r.length} periods`);
+            } catch (err) {
+                console.error('Split failed:', err);
+                alert('Split failed: ' + err.message);
+            } finally {
+                filterStatus?.classList.remove('active');
+            }
+        };
+
         window.clearAllFilters = function() {
             resetTimeInputs();
             clearFilterSelections();
@@ -3728,6 +3763,17 @@ function buildEventsSection(data) {
         // Expose functions for inline onclick handlers and report mode
         window.renderResults = renderResults;
         window.setAnalysisData = setAnalysisData;
+        // Default per-period blob decoder used by the period navigator in the
+        // WASM tool. The standalone --split report overrides this with its own
+        // lazy fzstd loader (fzstd is bundled eagerly here).
+        if (!window.decompressData) {
+            window.decompressData = async function (b64) {
+                const bin = atob(b64);
+                const bytes = new Uint8Array(bin.length);
+                for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+                return JSON.parse(new TextDecoder().decode(unzstd(bytes)));
+            };
+        }
         window.showQueryModal = showQueryModal;
         window.highlightQuery = highlightQuery;
         window.visualizePlan = visualizePlan;

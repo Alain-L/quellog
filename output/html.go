@@ -215,6 +215,39 @@ func ExportHTMLSplit(w io.Writer, buckets []analysis.SplitBucket, info HTMLRepor
 	return nil
 }
 
+// SplitPeriodsJSON builds the period-navigator payload for a set of split
+// buckets: a JSON array [{label, entries, errors, data}] where data is the
+// zstd+base64 per-period blob (the same shape the split HTML template embeds as
+// REPORT_PERIODS). The WASM split mode returns this to JS so it can drive the
+// shared period navigator with live data.
+func SplitPeriodsJSON(buckets []analysis.SplitBucket, info HTMLReportInfo, sections []string) (string, error) {
+	type periodJSON struct {
+		Label   string `json:"label"`
+		Entries int    `json:"entries"`
+		Errors  int    `json:"errors"`
+		Data    string `json:"data"`
+	}
+	out := make([]periodJSON, 0, len(buckets))
+	for _, b := range buckets {
+		blob, err := compressReportJSON(b.Metrics, info, sections)
+		if err != nil {
+			return "", err
+		}
+		g := b.Metrics.Global
+		out = append(out, periodJSON{
+			Label:   b.Label,
+			Entries: g.Count,
+			Errors:  g.ErrorCount + g.FatalCount + g.PanicCount,
+			Data:    blob,
+		})
+	}
+	b, err := json.Marshal(out)
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
+}
+
 // ExportHTML exports metrics as a standalone HTML report with embedded data.
 func ExportHTML(w io.Writer, metrics analysis.AggregatedMetrics, info HTMLReportInfo, sections []string) error {
 	// Build full JSON data structure (same as JSON export with all sections)

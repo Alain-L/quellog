@@ -133,11 +133,94 @@ func parseAndAnalyze(data []byte, filters parser.LogFilters) string {
 	return jsonStr
 }
 
+// splitAndAnalyze runs the same parse pipeline as parseAndAnalyze but, instead
+// of one aggregate, buckets the stream by interval (AggregateMetricsBySplit) and
+// returns the period-navigator payload — a JSON array of per-period blobs,
+// exactly the REPORT_PERIODS shape the standalone --split report embeds. On
+// failure it returns a {"error": ...} object instead of an array.
+func splitAndAnalyze(data []byte, filters parser.LogFilters, interval time.Duration, filename string) string {
+	t0 := time.Now()
+
+	sampleSize := 32 * 1024
+	if len(data) < sampleSize {
+		sampleSize = len(data)
+	}
+	format := parser.DetectFormatFromContent(string(data[:sampleSize]))
+	if format == "" {
+		format = "stderr"
+	}
+
+	ctx := context.Background()
+	rawChan := make(chan []parser.LogEntry, 64)
+	var parseErr error
+	go func() {
+		parseErr = parser.ParseFromBytesStream(data, format, rawChan)
+		close(rawChan)
+	}()
+
+	var analyzeIn <-chan []parser.LogEntry
+	if filters.IsEmpty() {
+		analyzeIn = rawChan
+	} else {
+		filteredChan := make(chan []parser.LogEntry, 64)
+		go parser.FilterStream(ctx, rawChan, filteredChan, filters)
+		analyzeIn = filteredChan
+	}
+
+	buckets, err := analysis.AggregateMetricsBySplit(ctx, analyzeIn, interval)
+	if parseErr != nil {
+		return `{"error": "Parse error: ` + parseErr.Error() + `"}`
+	}
+	if err != nil {
+		return `{"error": "` + err.Error() + `"}`
+	}
+
+	info := output.HTMLReportInfo{
+		Filename:    filename,
+		FileSize:    int64(len(data)),
+		Format:      format,
+		ProcessTime: float64(time.Since(t0).Milliseconds()),
+	}
+	periods, err := output.SplitPeriodsJSON(buckets, info, []string{"all"})
+	if err != nil {
+		return `{"error": "Split export error: ` + err.Error() + `"}`
+	}
+	return periods
+}
+
 func main() {
 	js.Global().Set("quellogParse", js.FuncOf(parseLog))
 	js.Global().Set("quellogParseBytes", js.FuncOf(parseLogBytes)) // Accepts Uint8Array (faster)
+	js.Global().Set("quellogSplitBytes", js.FuncOf(splitLogBytes)) // Split into period blobs
 	js.Global().Set("quellogVersion", js.FuncOf(getVersion))
 	select {}
+}
+
+// splitLogBytes accepts a Uint8Array and produces per-period blobs.
+// Usage from JS: quellogSplitBytes(uint8Array, intervalSeconds, filename, filtersJson)
+func splitLogBytes(this js.Value, args []js.Value) interface{} {
+	if len(args) < 2 {
+		return `{"error": "split needs data and interval"}`
+	}
+	jsArray := args[0]
+	if jsArray.IsNull() || jsArray.IsUndefined() {
+		return `{"error": "Input is null or undefined"}`
+	}
+	length := jsArray.Get("length").Int()
+	if length == 0 {
+		return `{"error": "Empty input"}`
+	}
+	intervalSec := args[1].Int()
+	if intervalSec <= 0 {
+		return `{"error": "Invalid split interval"}`
+	}
+	data := make([]byte, length)
+	js.CopyBytesToGo(data, jsArray)
+	filename := ""
+	if len(args) > 2 && !args[2].IsNull() && !args[2].IsUndefined() {
+		filename = args[2].String()
+	}
+	return splitAndAnalyze(data, parseFiltersArg(args, 3), time.Duration(intervalSec)*time.Second, filename)
 }
 
 func getVersion(this js.Value, args []js.Value) interface{} {

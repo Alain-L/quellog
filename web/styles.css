@@ -3070,3 +3070,11 @@
 .ql-seg:hover i { outline-color: var(--text-muted, #8a9099); }
 .ql-seg.active i { background: var(--primary, #4a6ea9); }
 .ql-seg.active.has-err i { background: var(--danger, #cc4b4b); }
+
+/* Split control in the filter bar (live WASM tool). */
+.filter-split { display: flex; align-items: center; gap: 0.35rem; }
+.filter-split-label { font-size: 0.85rem; color: var(--text-muted, #8a9099); }
+.filter-split select {
+  padding: 0.3rem 0.5rem; border-radius: 6px; font-size: 0.85rem;
+  border: 1px solid var(--border, #ddd); background: var(--bg, #fff); color: var(--text, #333);
+}
