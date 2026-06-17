@@ -29,6 +29,10 @@
 }
 #summary .summary-meta .summary-parsetime::before,
 #summary .summary-meta .summary-totalsize::before { content: "·"; margin-right: 0.5rem; }
+/* When the size is shown it groups with the parse time ("94.69 MB parsed in
+   209ms"), so drop the separator between them — keep a single dot after the
+   source. */
+#summary .summary-meta .summary-totalsize + .summary-parsetime::before { content: none; }
 /* The per-period byte size is not tracked, so drop the SIZE stat card and
    collapse the grid to three columns; the full input size goes in the eyebrow. */
 #summary .stat-grid { grid-template-columns: repeat(3, auto) !important; }
