@@ -118,13 +118,12 @@
                     </div>
                 </div>
                 <div class="filter-split" id="splitControl">
-                    <label class="filter-split-label" for="splitSelect">Split</label>
                     <select id="splitSelect" onchange="applySplit(parseInt(this.value, 10))">
-                        <option value="0">Off</option>
-                        <option value="3600">1 hour</option>
-                        <option value="10800">3 hours</option>
-                        <option value="21600">6 hours</option>
-                        <option value="86400">1 day</option>
+                        <option value="0">Split: off</option>
+                        <option value="3600">Split: 1 hour</option>
+                        <option value="10800">Split: 3 hours</option>
+                        <option value="21600">Split: 6 hours</option>
+                        <option value="86400">Split: 1 day</option>
                     </select>
                 </div>
                 <button class="filter-apply" id="filterApply" onclick="applyFilters()">Apply</button>
