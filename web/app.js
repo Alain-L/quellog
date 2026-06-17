@@ -9,6 +9,7 @@ import {
 } from './js/state.js';
 import { initTheme, toggleTheme } from './js/theme.js';
 import { gunzipBuffer, unzstd, detectFormat, decompress, extractTar, prepareContent } from './js/compression.js';
+import './js/period-nav.js'; // shared period navigator (split reports + WASM)
 import {
     showFilterBar, hideFilterBar, initFilterBar, closeAllDropdowns,
     updateAllDropdownTriggers, updateApplyButton, updateTimeSlider,
