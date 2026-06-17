@@ -29,14 +29,10 @@
 }
 /* Only the source name may be truncated; the size and parse time stay whole. */
 #summary .summary-meta .summary-filename { flex: 0 1 auto; min-width: 3ch; overflow: hidden; text-overflow: ellipsis; }
-#summary .summary-meta .summary-totalsize,
 #summary .summary-meta .summary-parsetime { flex: 0 0 auto; }
-#summary .summary-meta .summary-parsetime::before,
-#summary .summary-meta .summary-totalsize::before { content: "·"; margin-right: 0.5rem; }
-/* When the size is shown it groups with the parse time ("94.69 MB parsed in
-   209ms"), so drop the separator between them — keep a single dot after the
-   source. */
-#summary .summary-meta .summary-totalsize + .summary-parsetime::before { content: none; }
+/* The size is folded into the parse-time text ("9.87 MB parsed in 32ms"), so a
+   single dot separates the source from that one phrase. */
+#summary .summary-meta .summary-parsetime::before { content: "·"; margin-right: 0.5rem; }
 /* The per-period byte size is not tracked, so drop the SIZE stat card and
    collapse the grid to three columns; the full input size goes in the eyebrow. */
 #summary .stat-grid { grid-template-columns: repeat(3, auto) !important; }
@@ -156,14 +152,12 @@ function injectPeriodNav() {
     const host = document.querySelector('#summary .summary-body');
     if (!host || host.querySelector('.summary-periods')) return;
 
-    // Add the full input size to the eyebrow, before "parsed in".
+    // Fold the full input size into the parse-time text so size and chrono are
+    // one phrase in one span: "9.87 MB parsed in 32ms".
     const meta = host.querySelector('.summary-meta');
-    if (meta && REPORT_TOTAL_SIZE && !meta.querySelector('.summary-totalsize')) {
-        const sz = document.createElement('span');
-        sz.className = 'summary-totalsize';
-        sz.textContent = REPORT_TOTAL_SIZE;
+    if (meta && REPORT_TOTAL_SIZE) {
         const pt = meta.querySelector('.summary-parsetime');
-        if (pt) meta.insertBefore(sz, pt); else meta.appendChild(sz);
+        if (pt) pt.textContent = REPORT_TOTAL_SIZE + ' ' + pt.textContent;
     }
     // The source name may be ellipsized; expose the full value on hover.
     const fn = meta && meta.querySelector('.summary-filename');
