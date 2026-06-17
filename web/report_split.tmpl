@@ -66,7 +66,8 @@
   transition: background .12s, outline-color .12s;
 }
 .ql-seg:hover i { outline-color: var(--text-muted, #8a9099); }
-.ql-seg.active i { background: var(--primary, #4a6ea9); outline-color: var(--text, #333); }
+/* The selected period is solid colour with a contrasting ring around it. */
+.ql-seg.active i { background: var(--primary, #4a6ea9); outline-color: transparent; box-shadow: 0 0 0 1.5px var(--text, #333); }
 .ql-seg.active.has-err i { background: var(--danger, #cc4b4b); }
 </style>
 </head>
