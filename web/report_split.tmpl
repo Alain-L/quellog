@@ -27,7 +27,12 @@
   gap: 0.5rem; white-space: nowrap;
   text-align: left; font-size: 0.78rem; color: var(--text-muted, #8a9099);
 }
-#summary .summary-meta .summary-parsetime::before { content: "·"; margin-right: 0.5rem; }
+#summary .summary-meta .summary-parsetime::before,
+#summary .summary-meta .summary-totalsize::before { content: "·"; margin-right: 0.5rem; }
+/* The per-period byte size is not tracked, so drop the SIZE stat card and
+   collapse the grid to three columns; the full input size goes in the eyebrow. */
+#summary .stat-grid { grid-template-columns: repeat(3, auto) !important; }
+#summary .stat-grid .stat-card:nth-child(2) { display: none; }
 .summary-periods { margin: 0.4rem 0 0.2rem; }
 .summary-periods-head { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.5rem; }
 .summary-periods-label { font-size: 1.3rem; font-weight: 700; font-variant-numeric: tabular-nums; }
@@ -70,6 +75,7 @@ const ZSTD_DECODER_GZIP_B64 = "{{.FzstdB64}}";
 const REPORT_PERIODS = [
 {{range .Periods}}  { label: "{{.Label}}", entries: {{.Entries}}, errors: {{.Errors}}, data: "{{.Data}}" },
 {{end}}];
+const REPORT_TOTAL_SIZE = "{{.TotalSize}}";
 
 let _zstdReady = null;
 async function loadZstdDecoder() {
@@ -134,6 +140,16 @@ async function showPeriod(idx) {
 function injectPeriodNav() {
     const host = document.querySelector('#summary .summary-body');
     if (!host || host.querySelector('.summary-periods')) return;
+
+    // Add the full input size to the eyebrow, before "parsed in".
+    const meta = host.querySelector('.summary-meta');
+    if (meta && REPORT_TOTAL_SIZE && !meta.querySelector('.summary-totalsize')) {
+        const sz = document.createElement('span');
+        sz.className = 'summary-totalsize';
+        sz.textContent = REPORT_TOTAL_SIZE;
+        const pt = meta.querySelector('.summary-parsetime');
+        if (pt) meta.insertBefore(sz, pt); else meta.appendChild(sz);
+    }
 
     const box = document.createElement('div');
     box.className = 'summary-periods';

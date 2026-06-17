@@ -125,13 +125,14 @@ type splitPeriod struct {
 
 // splitTemplateValues holds the values for the split (multi-period) report.
 type splitTemplateValues struct {
-	CSS      template.CSS
-	Body     template.HTML
-	UplotJS  template.JS
-	FzstdB64 string
-	AppJS    template.JS
-	Periods  []splitPeriod
-	Version  string
+	CSS       template.CSS
+	Body      template.HTML
+	UplotJS   template.JS
+	FzstdB64  string
+	AppJS     template.JS
+	Periods   []splitPeriod
+	TotalSize string // human-readable total input size, shown in the eyebrow
+	Version   string
 }
 
 var splitTmpl *template.Template
@@ -200,15 +201,21 @@ func ExportHTMLSplit(w io.Writer, buckets []analysis.SplitBucket, info HTMLRepor
 		})
 	}
 
+	totalSize := ""
+	if info.FileSize > 0 {
+		totalSize = FormatBytes(info.FileSize)
+	}
+
 	td := getTemplateData()
 	values := splitTemplateValues{
-		CSS:      td.CSS,
-		Body:     td.Body,
-		UplotJS:  td.UplotJS,
-		FzstdB64: td.FzstdB64,
-		AppJS:    td.AppJS,
-		Periods:  periods,
-		Version:  info.Version,
+		CSS:       td.CSS,
+		Body:      td.Body,
+		UplotJS:   td.UplotJS,
+		FzstdB64:  td.FzstdB64,
+		AppJS:     td.AppJS,
+		Periods:   periods,
+		TotalSize: totalSize,
+		Version:   info.Version,
 	}
 	if err := getSplitTemplate().Execute(w, values); err != nil {
 		return fmt.Errorf("failed to execute split template: %w", err)
