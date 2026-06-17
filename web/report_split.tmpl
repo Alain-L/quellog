@@ -17,12 +17,18 @@
    injected into the Summary tile. Square colour intensity encodes the entry
    volume (danger hue when the period had errors); color-mix keeps it correct
    in both light and dark themes. */
-/* The big summary date is redundant with the period label below, so reclaim
-   its vertical space: the per-period label lives in the navigator header. */
+/* Split layout: the big date is redundant with the period label, so drop it.
+   The source + parse time become a discreet eyebrow (the existing meta line),
+   and the period label is the tile heading, above the heatmap. */
 #summary .summary-date { display: none; }
-.summary-periods { margin: 0 0 0.2rem; }
+#summary .summary-header { justify-content: flex-start; }
+#summary .summary-meta {
+  display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 0.9rem; row-gap: 0.1rem;
+  text-align: left; font-size: 0.78rem; color: var(--text-muted, #8a9099);
+}
+.summary-periods { margin: 0.4rem 0 0.2rem; }
 .summary-periods-head { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.5rem; }
-.summary-periods-label { font-size: 1.15rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.summary-periods-label { font-size: 1.3rem; font-weight: 700; font-variant-numeric: tabular-nums; }
 .summary-periods-btn {
   cursor: pointer; border: 1px solid var(--border, #ddd); background: var(--bg-alt, #f5f6f8);
   color: var(--text, #333); border-radius: 5px; width: 1.25rem; height: 1.25rem;
@@ -163,7 +169,11 @@ function injectPeriodNav() {
     });
 
     box.append(head, grid);
-    host.insertBefore(box, host.firstChild); // sits at the top, where the date was
+    // Place the period block right after the source/chrono eyebrow (the meta
+    // line), above the rest of the tile.
+    const header = host.querySelector('.summary-header');
+    if (header) header.after(box);
+    else host.insertBefore(box, host.firstChild);
     const active = grid.children[_curPeriod];
     if (active) active.scrollIntoView({ block: 'nearest', inline: 'nearest' });
 }

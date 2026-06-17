@@ -184,7 +184,8 @@ func ExportHTMLSplit(w io.Writer, buckets []analysis.SplitBucket, info HTMLRepor
 	periods := make([]splitPeriod, 0, len(buckets))
 	for _, b := range buckets {
 		bi := info
-		bi.Filename = info.Filename + " — " + b.Label
+		// Keep the source identity (e.g. "13 files") as the filename; the
+		// period label is shown by the navigator, not duplicated here.
 		bi.FileSize = 0
 		compressed, err := compressReportJSON(b.Metrics, bi, sections)
 		if err != nil {
