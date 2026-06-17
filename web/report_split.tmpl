@@ -55,7 +55,6 @@
 }
 .summary-periods-btn:hover:not(:disabled) { border-color: var(--primary, #4a6ea9); color: var(--primary, #4a6ea9); }
 .summary-periods-btn:disabled { opacity: 0.3; cursor: default; }
-.summary-periods-count { justify-self: end; font-size: 0.72rem; color: var(--text-muted, #8a9099); font-variant-numeric: tabular-nums; }
 .summary-periods-grid { display: flex; gap: 3px; align-items: stretch; overflow-x: auto; scrollbar-width: thin; }
 .summary-periods-bounds {
   display: flex; justify-content: space-between; margin-top: 0.4rem;
@@ -190,10 +189,7 @@ function injectPeriodNav() {
     next.title = 'Next period'; next.disabled = _curPeriod === REPORT_PERIODS.length - 1;
     next.onclick = () => showPeriod(_curPeriod + 1);
     nav.append(prev, label, next);
-    const count = document.createElement('span');
-    count.className = 'summary-periods-count';
-    count.textContent = (_curPeriod + 1) + '/' + REPORT_PERIODS.length;
-    head.append(spacer, nav, count);
+    head.append(spacer, nav);
 
     const grid = document.createElement('div');
     grid.className = 'summary-periods-grid';
