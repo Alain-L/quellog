@@ -23,9 +23,11 @@
 #summary .summary-date { display: none; }
 #summary .summary-header { justify-content: flex-start; }
 #summary .summary-meta {
-  display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 0.9rem; row-gap: 0.1rem;
+  display: flex; flex-direction: row; flex-wrap: nowrap; align-items: baseline;
+  gap: 0.5rem; white-space: nowrap;
   text-align: left; font-size: 0.78rem; color: var(--text-muted, #8a9099);
 }
+#summary .summary-meta .summary-parsetime::before { content: "·"; margin-right: 0.5rem; }
 .summary-periods { margin: 0.4rem 0 0.2rem; }
 .summary-periods-head { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.5rem; }
 .summary-periods-label { font-size: 1.3rem; font-weight: 700; font-variant-numeric: tabular-nums; }
