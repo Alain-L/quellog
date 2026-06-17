@@ -24,9 +24,13 @@
 #summary .summary-header { justify-content: flex-start; }
 #summary .summary-meta {
   display: flex; flex-direction: row; flex-wrap: nowrap; align-items: baseline;
-  gap: 0.5rem; white-space: nowrap;
+  gap: 0.5rem; white-space: nowrap; max-width: 100%;
   text-align: left; font-size: 0.78rem; color: var(--text-muted, #8a9099);
 }
+/* Only the source name may be truncated; the size and parse time stay whole. */
+#summary .summary-meta .summary-filename { flex: 0 1 auto; min-width: 3ch; overflow: hidden; text-overflow: ellipsis; }
+#summary .summary-meta .summary-totalsize,
+#summary .summary-meta .summary-parsetime { flex: 0 0 auto; }
 #summary .summary-meta .summary-parsetime::before,
 #summary .summary-meta .summary-totalsize::before { content: "·"; margin-right: 0.5rem; }
 /* When the size is shown it groups with the parse time ("94.69 MB parsed in
@@ -154,6 +158,9 @@ function injectPeriodNav() {
         const pt = meta.querySelector('.summary-parsetime');
         if (pt) meta.insertBefore(sz, pt); else meta.appendChild(sz);
     }
+    // The source name may be ellipsized; expose the full value on hover.
+    const fn = meta && meta.querySelector('.summary-filename');
+    if (fn && !fn.title) fn.title = fn.textContent;
 
     const box = document.createElement('div');
     box.className = 'summary-periods';
