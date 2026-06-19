@@ -35,7 +35,6 @@ var (
 	appFilter   []string // --appname: Filter by application name(s)
 	userFilter  []string // --dbuser: Filter by database user(s)
 	excludeUser []string // --exclude-user: Exclude specific user(s)
-	grepFilter  []string // --grep: keep only messages containing these literal patterns (AND)
 
 	// SQL analysis flags
 	sqlPerformanceFlag bool     // --sql-performance: Display detailed SQL performance report
@@ -190,10 +189,6 @@ func init() {
 		"Exclude entries from specified user(s)")
 	rootCmd.PersistentFlags().StringSliceVarP(&appFilter, "appname", "N", nil,
 		"Filter by application name(s)")
-	// StringArray (not StringSlice): grep patterns are free text that may
-	// contain commas/spaces, so each -g is one literal pattern, never split.
-	rootCmd.PersistentFlags().StringArrayVarP(&grepFilter, "grep", "g", nil,
-		"Keep only entries whose message contains this literal pattern (case-sensitive). Repeat for AND")
 
 	// SQL analysis flags
 	rootCmd.PersistentFlags().BoolVar(&sqlPerformanceFlag, "sql-performance", false,
