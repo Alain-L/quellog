@@ -4,6 +4,7 @@ package cmd
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -170,10 +171,24 @@ func runAnalysisCycle(ctx context.Context, args []string) error {
 		return err
 	}
 
-	if !parsedAny.Load() {
+	// A file that parsed partially before erroring (e.g. a truncated gzip
+	// stream) still produced usable entries; ParsedEntries() catches that case
+	// so we don't claim "no files could be parsed" after already emitting an
+	// analysis for the recovered data.
+	if !parsedAny.Load() && parser.ParsedEntries() == 0 {
 		return fmt.Errorf("no files could be parsed: check that files exist, are readable, and in a supported format")
 	}
 	return nil
+}
+
+// isDetectionError reports whether err is a format-detection failure the parser
+// layer already logged with specifics, so parseFilesAsync doesn't double-log it.
+func isDetectionError(err error) bool {
+	return errors.Is(err, parser.ErrFileEmpty) ||
+		errors.Is(err, parser.ErrBinaryFile) ||
+		errors.Is(err, parser.ErrInvalidFormat) ||
+		errors.Is(err, parser.ErrUnknownFormat) ||
+		errors.Is(err, parser.ErrCompressionFailed)
 }
 
 // validateStdinUsage rejects mixing "-" (stdin) with regular file arguments.
@@ -237,7 +252,12 @@ func parseFilesAsync(ctx context.Context, files []string, out chan<- []parser.Lo
 			}
 			parser.ResetCurrentFileProgress()
 			if err := parser.ParseFile(file, out); err != nil {
-				// Error already logged in detectParser with specific details
+				// Detection failures are already logged with specifics; surface
+				// parse-stage failures (e.g. a stream that truncated mid-file)
+				// since those leave partial output.
+				if !isDetectionError(err) {
+					slog.Warn("file parsing ended early; output may be partial", "file", file, "err", err)
+				}
 				continue
 			}
 			// Reset the in-flight cursor to 0 before crediting the
@@ -267,7 +287,11 @@ func parseFilesAsync(ctx context.Context, files []string, out chan<- []parser.Lo
 					return
 				}
 				if err := parser.ParseFile(file, out); err != nil {
-					// Error already logged in detectParser with specific details
+					// Detection failures are already logged; surface parse-stage
+					// failures (partial output) as a warning.
+					if !isDetectionError(err) {
+						slog.Warn("file parsing ended early; output may be partial", "file", file, "err", err)
+					}
 					continue
 				}
 				pb.AddBytes(fileSize(file))

@@ -1,6 +1,37 @@
 package cmd
 
-import "testing"
+import (
+	"errors"
+	"fmt"
+	"testing"
+
+	"github.com/Alain-L/quellog/parser"
+)
+
+// TestIsDetectionError makes sure detection failures (already logged by the
+// parser layer) are recognised — even when wrapped — while raw parse-stage
+// errors (e.g. a truncated stream) are not, so the latter get a partial-output
+// warning instead of being swallowed.
+func TestIsDetectionError(t *testing.T) {
+	detection := []error{
+		parser.ErrFileEmpty,
+		parser.ErrBinaryFile,
+		parser.ErrInvalidFormat,
+		parser.ErrUnknownFormat,
+		parser.ErrCompressionFailed,
+		fmt.Errorf("file.gz: %w", parser.ErrCompressionFailed), // wrapped, as ParseFile returns
+	}
+	for _, err := range detection {
+		if !isDetectionError(err) {
+			t.Errorf("isDetectionError(%v) = false, want true", err)
+		}
+	}
+	for _, err := range []error{errors.New("unexpected EOF"), nil} {
+		if isDetectionError(err) {
+			t.Errorf("isDetectionError(%v) = true, want false", err)
+		}
+	}
+}
 
 // resetFlagState zeroes every flag validateFlagCombinations reads, so each
 // table case starts clean regardless of order.
