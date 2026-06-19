@@ -270,10 +270,15 @@ func parseFilesAsync(ctx context.Context, files []string, out chan<- []parser.Lo
 }
 
 // buildLogFilters creates a LogFilters struct from command-line flags.
+//
+// Time bounds are projected onto the wall-clock timeline so a naive
+// --begin/--end ("2026-02-04 09:00:00", no zone) and the now-relative
+// --last/--window bounds (machine-local) compare consistently against log
+// entries in any timezone. See parser.WallClock and PassesFilters.
 func buildLogFilters(beginT, endT time.Time) parser.LogFilters {
 	return parser.LogFilters{
-		BeginT:      beginT,
-		EndT:        endT,
+		BeginT:      parser.WallClock(beginT),
+		EndT:        parser.WallClock(endT),
 		DbFilter:    dbFilter,
 		UserFilter:  userFilter,
 		ExcludeUser: excludeUser,

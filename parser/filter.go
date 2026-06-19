@@ -93,13 +93,19 @@ func FilterStream(ctx context.Context, in <-chan []LogEntry, out chan<- []LogEnt
 // PassesFilters checks if a log entry matches all filter criteria.
 // Returns true if the entry should be included in the output.
 func PassesFilters(entry LogEntry, filters LogFilters) bool {
-	// Time range filters (fastest - direct time comparison, no allocations)
-	if !filters.BeginT.IsZero() && entry.Timestamp.Before(filters.BeginT) {
-		return false
-	}
-
-	if !filters.EndT.IsZero() && entry.Timestamp.After(filters.EndT) {
-		return false
+	// Time range filters. --begin/--end are wall-clock bounds: "09:00" means
+	// the instant the log clock reads 09:00, independent of the log's or the
+	// machine's timezone. BeginT/EndT are stored pre-projected onto that civil
+	// timeline (see buildLogFilters), so project the entry the same way before
+	// comparing. Skipped entirely when no time bound is set (the common path).
+	if !filters.BeginT.IsZero() || !filters.EndT.IsZero() {
+		wall := WallClock(entry.Timestamp)
+		if !filters.BeginT.IsZero() && wall.Before(filters.BeginT) {
+			return false
+		}
+		if !filters.EndT.IsZero() && wall.After(filters.EndT) {
+			return false
+		}
 	}
 
 	// Database filter

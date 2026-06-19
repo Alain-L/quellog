@@ -24,6 +24,20 @@ func normalizeZone(t time.Time) time.Time {
 	return t
 }
 
+// WallClock projects a timestamp onto its own wall clock, expressed as the
+// equivalent civil instant in UTC: a value whose UTC fields read exactly what
+// the original displayed in its zone (e.g. 09:00 CET -> 09:00 UTC). This lets
+// time-range filters compare a naive --begin/--end (which carries no zone) to
+// log entries regardless of the log's or the machine's timezone — the same
+// civil-time alignment the --split bucketing uses. Zero times pass through.
+func WallClock(t time.Time) time.Time {
+	if t.IsZero() {
+		return t
+	}
+	_, off := t.Zone()
+	return t.Add(time.Duration(off) * time.Second)
+}
+
 // parseTime wraps time.Parse and normalizes zero-offset zones to UTC.
 // All parsers should use this helper instead of time.Parse directly.
 func parseTime(layout, value string) (time.Time, error) {
