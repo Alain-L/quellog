@@ -69,3 +69,40 @@ func TestWallClock(t *testing.T) {
 		t.Error("WallClock(zero) must stay zero")
 	}
 }
+
+// TestPassesFiltersGrep covers the --grep filter: literal, case-sensitive
+// substring match against the message, AND semantics across multiple patterns.
+func TestPassesFiltersGrep(t *testing.T) {
+	entry := NewLogEntry(time.Now(), "ERROR:  duplicate key value violates unique constraint", false)
+	cases := []struct {
+		name string
+		grep []string
+		keep bool
+	}{
+		{"single match", []string{"duplicate"}, true},
+		{"single no-match", []string{"deadlock"}, false},
+		{"AND both present", []string{"ERROR", "duplicate"}, true},
+		{"AND one absent", []string{"ERROR", "deadlock"}, false},
+		{"case-sensitive miss", []string{"error"}, false},
+		{"literal with spaces", []string{"unique constraint"}, true},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := PassesFilters(entry, LogFilters{GrepExpr: c.grep}); got != c.keep {
+				t.Errorf("grep %v: got %v, want %v", c.grep, got, c.keep)
+			}
+		})
+	}
+}
+
+// TestIsEmptyGrep guards the wiring trap: a filter set holding only GrepExpr
+// must NOT be considered empty, otherwise FilterStream is skipped and --grep
+// is silently ignored.
+func TestIsEmptyGrep(t *testing.T) {
+	if (LogFilters{}).IsEmpty() != true {
+		t.Error("zero filters should be empty")
+	}
+	if (LogFilters{GrepExpr: []string{"x"}}).IsEmpty() {
+		t.Error("a filter with GrepExpr must not be empty")
+	}
+}

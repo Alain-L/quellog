@@ -63,10 +63,23 @@ quellog /var/log/postgresql/*.log --appname web_server
 quellog /var/log/postgresql/*.log --exclude-user health_check --exclude-user powa
 ```
 
+### --grep (-g)
+
+Keep only entries whose **message** contains a literal (case-sensitive)
+substring. Repeat the flag to require all patterns (AND). Patterns are matched
+verbatim — not split on commas and not regular expressions — so spaces and
+commas are part of the pattern.
+
+```bash
+quellog /var/log/postgresql/*.log --grep "deadlock"
+quellog /var/log/postgresql/*.log -g "duplicate key" -g "users_pkey"   # both must appear
+```
+
 ### Filter Logic
 
 - Multiple values of the **same type** → OR (`--dbname db1 --dbname db2` matches db1 OR db2)
 - **Different types** → AND (`--dbname production --dbuser app_user` matches both)
+- `--grep` is the exception: repeated patterns are **AND** (every pattern must appear)
 
 ## Output Section Flags
 

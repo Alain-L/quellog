@@ -316,6 +316,7 @@ func buildLogFilters(beginT, endT time.Time) parser.LogFilters {
 		UserFilter:  userFilter,
 		ExcludeUser: excludeUser,
 		AppFilter:   appFilter,
+		GrepExpr:    grepFilter,
 	}
 }
 

@@ -41,7 +41,8 @@ type LogFilters struct {
 func (f LogFilters) IsEmpty() bool {
 	return f.BeginT.IsZero() && f.EndT.IsZero() &&
 		len(f.DbFilter) == 0 && len(f.UserFilter) == 0 &&
-		len(f.ExcludeUser) == 0 && len(f.AppFilter) == 0
+		len(f.ExcludeUser) == 0 && len(f.AppFilter) == 0 &&
+		len(f.GrepExpr) == 0
 }
 
 // FilterStream forwards entries that pass the filters from in to out,
