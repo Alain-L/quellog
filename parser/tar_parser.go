@@ -5,6 +5,7 @@ package parser
 
 import (
 	"archive/tar"
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -91,20 +92,23 @@ func (p *TarParser) Parse(filename string, out chan<- []LogEntry) error {
 		// Use only the base filename for extension matching
 		baseName := filepath.Base(entryName)
 
-		if !isSupportedArchiveEntry(baseName) {
-			// Drain entry to reach next header.
-			if _, err := io.Copy(io.Discard, entryReader); err != nil {
-				return fmt.Errorf("discarding unsupported entry %s in %s: %w", entryName, filename, err)
+		if isSupportedArchiveEntry(baseName) {
+			if err := parseArchiveEntry(baseName, entryReader, out); err != nil {
+				if errors.Is(err, errUnsupportedArchiveEntry) {
+					slog.Warn("unsupported log format in archive", "entry", entryName, "archive", filename)
+				} else {
+					slog.Error("failed to parse entry in archive", "entry", entryName, "archive", filename, "err", err)
+				}
 			}
-			slog.Info("skipping unsupported file in archive", "entry", entryName, "archive", filename)
-			continue
-		}
-
-		if err := parseArchiveEntry(baseName, entryReader, out); err != nil {
-			if errors.Is(err, errUnsupportedArchiveEntry) {
-				slog.Warn("unsupported log format in archive", "entry", entryName, "archive", filename)
-			} else {
+		} else {
+			// Extension unrecognized — sniff the content so an extensionless
+			// but valid log member (a common real-world tar layout) isn't
+			// silently dropped. Genuinely unsupported/binary members are skipped.
+			parsed, err := sniffAndParseArchiveEntry(baseName, entryReader, out)
+			if err != nil {
 				slog.Error("failed to parse entry in archive", "entry", entryName, "archive", filename, "err", err)
+			} else if !parsed {
+				slog.Info("skipping unsupported file in archive", "entry", entryName, "archive", filename)
 			}
 		}
 
@@ -168,6 +172,39 @@ func isRotatedLogFile(lower string) bool {
 		}
 	}
 	return false
+}
+
+// sniffAndParseArchiveEntry handles an archive member whose name carries no
+// recognized extension. It buffers a sample, detects the format from content,
+// and parses the member (sample + remaining stream) when it looks like a log.
+// Returns parsed=false for binary or unrecognized content, so the caller skips
+// it. Compressed members without an extension are treated as binary and skipped.
+func sniffAndParseArchiveEntry(name string, r io.Reader, out chan<- []LogEntry) (bool, error) {
+	sample := make([]byte, sampleBufferSize)
+	n, err := io.ReadFull(r, sample)
+	if err != nil && err != io.ErrUnexpectedEOF && err != io.EOF {
+		return false, err
+	}
+	sample = bytes.TrimPrefix(sample[:n], utf8BOM)
+
+	if isBinaryContent(string(sample)) {
+		return false, nil
+	}
+	parser := detectByContent(name, string(sample))
+	if parser == nil {
+		return false, nil
+	}
+
+	// Replay the buffered sample ahead of the rest of the entry.
+	full := io.MultiReader(bytes.NewReader(sample), r)
+	switch parser.(type) {
+	case *CsvParser:
+		return true, (&CsvParser{}).parseReader(full, out)
+	case *JsonParser:
+		return true, (&JsonParser{}).parseReader(full, out)
+	default:
+		return true, (&StderrParser{}).parseReader(full, out)
+	}
 }
 
 // parseArchiveEntry selects the correct parser for an archive entry.
