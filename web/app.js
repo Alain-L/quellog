@@ -9,6 +9,7 @@ import {
 } from './js/state.js';
 import { initTheme, toggleTheme } from './js/theme.js';
 import { gunzipBuffer, unzstd, detectFormat, decompress, extractTar, prepareContent } from './js/compression.js';
+import './js/period-nav.js'; // shared period navigator (split reports + WASM)
 import {
     showFilterBar, hideFilterBar, initFilterBar, closeAllDropdowns,
     updateAllDropdownTriggers, updateApplyButton, updateTimeSlider,
@@ -126,6 +127,60 @@ import './js/components/ql-dropdown.js';
             }
         }
 
+        // harmonizeSummary restructures the Summary tile after each render: the
+        // source + size + parse time become a one-line eyebrow, the SIZE stat
+        // card is dropped, and (outside split mode) the date becomes a centered
+        // title above a full-width timeline bar carrying the real start/end
+        // marks. Split reports set window.QL_SPLIT so the period navigator owns
+        // the title and the strip. Shared by the standalone reports and the
+        // live WASM tool. CSS lives in styles.css.
+        function harmonizeSummary() {
+            const body = document.querySelector('#summary .summary-body');
+            if (!body) return;
+            const meta = body.querySelector('.summary-meta');
+            const pt = meta && meta.querySelector('.summary-parsetime');
+            const szVal = body.querySelector('.stat-grid .stat-card:nth-child(2) .stat-value');
+            if (pt && szVal && pt.textContent.indexOf(szVal.textContent) === -1) {
+                pt.textContent = szVal.textContent + ' ' + pt.textContent;
+            }
+            const fn = meta && meta.querySelector('.summary-filename');
+            if (fn && !fn.title) fn.title = fn.textContent;
+            if (window.QL_SPLIT) return; // the period navigator owns title + strip
+            const date = body.querySelector('.summary-date');
+            const timeline = body.querySelector('.summary-timeline');
+            if (date && timeline && !date.classList.contains('summary-date--title')) {
+                date.classList.add('summary-date--title');
+                timeline.parentNode.insertBefore(date, timeline);
+            }
+            if (timeline) {
+                const seg = timeline.querySelector('.summary-timeline-segment');
+                const range = timeline.querySelector('.summary-timeline-range');
+                if (seg && range && !timeline.querySelector('.summary-tl-marks')) {
+                    const left = parseFloat(seg.style.left) || 0;
+                    const endPct = Math.min(100, left + (parseFloat(seg.style.width) || 0));
+                    const parts = range.textContent.split('–').map((s) => s.trim());
+                    const startT = parts[0] || '';
+                    const endT = parts[1] || startT;
+                    const marks = document.createElement('div');
+                    marks.className = 'summary-tl-marks';
+                    const mk = (txt, pct, cls) => {
+                        const s = document.createElement('span');
+                        s.className = 'summary-tl-mark' + (cls ? ' ' + cls : '');
+                        s.textContent = txt;
+                        s.style.left = pct + '%';
+                        marks.appendChild(s);
+                    };
+                    const showStart = left > 1.5;
+                    const showEnd = endPct < 98.5;
+                    if (!(showStart && left < 12)) mk('00:00', 0, 'is-start');
+                    if (showStart) mk(startT, left);
+                    if (showEnd) mk(endT, endPct);
+                    if (!(showEnd && endPct > 88)) mk('24:00', 100, 'is-end');
+                    timeline.appendChild(marks);
+                }
+            }
+        }
+
         function renderResults(data, fileName, fileSize, isInitial = true) {
             results.classList.add('active');
 
@@ -188,6 +243,8 @@ import './js/components/ql-dropdown.js';
             html += '</div>';
 
             results.innerHTML = html;
+
+            harmonizeSummary();
 
             // Create uPlot charts after DOM is ready
             requestAnimationFrame(() => {
@@ -3528,6 +3585,17 @@ function buildEventsSection(data) {
         exposeFilterGlobals();
 
         window.applyFilters = async function() {
+            // A filter / Apply / Clear renders a single report, so leave split
+            // mode first (drop split state + reset the Split control to Off).
+            if (window.QL_SPLIT) {
+                window.stopPeriodNav();
+                delete window.REPORT_PERIODS;
+                const sc = document.getElementById('splitCount');
+                if (sc) sc.textContent = '';
+                document.querySelectorAll('#splitControl .filter-dropdown-item')
+                    .forEach((it, i) => it.classList.toggle('selected', i === 0));
+            }
+
             // Build filters object from current UI state
             const filters = buildFiltersObject();
 
@@ -3635,6 +3703,52 @@ function buildEventsSection(data) {
             }
         };
 
+        // applySplit re-runs the parse splitting the stream by intervalSec and
+        // drives the shared period navigator with the resulting blobs. 0 = Off:
+        // leave split mode and re-render a single report.
+        window.applySplit = async function(intervalSec) {
+            if (!currentFileContent) return;
+            if (!intervalSec) {
+                window.stopPeriodNav();
+                delete window.REPORT_PERIODS;
+                window.applyFilters();
+                return;
+            }
+            const filterStatus = document.getElementById('filterStatus');
+            filterStatus?.classList.add('active');
+            await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+            try {
+                if (typeof reinitWasm === 'function') await reinitWasm();
+                const filters = buildFiltersObject();
+                const filtersJson = JSON.stringify(filters);
+                const bytes = (currentFileContent instanceof Uint8Array)
+                    ? currentFileContent : new TextEncoder().encode(currentFileContent);
+                const resultJson = quellogSplitBytes(bytes, intervalSec, currentFileName, filtersJson);
+                const r = JSON.parse(resultJson);
+                if (r.error) throw new Error(r.error);
+                window.REPORT_PERIODS = r;
+                window.startPeriodNav();
+                console.log(`[quellog] Split into ${r.length} periods`);
+            } catch (err) {
+                console.error('Split failed:', err);
+                alert('Split failed: ' + err.message);
+            } finally {
+                filterStatus?.classList.remove('active');
+            }
+        };
+
+        // selectSplit handles a click on a Split menu item: mark it selected,
+        // show the interval in the trigger badge, close the menu, apply.
+        window.selectSplit = function(sec, el) {
+            const menu = el.closest('.filter-dropdown-menu');
+            if (menu) menu.querySelectorAll('.filter-dropdown-item').forEach(i => i.classList.remove('selected'));
+            el.classList.add('selected');
+            const count = document.getElementById('splitCount');
+            if (count) count.textContent = sec ? el.textContent.trim() : '';
+            document.querySelector('.filter-dropdown[data-category="split"]')?.classList.remove('open');
+            window.applySplit(sec);
+        };
+
         window.clearAllFilters = function() {
             resetTimeInputs();
             clearFilterSelections();
@@ -3671,6 +3785,17 @@ function buildEventsSection(data) {
         // Expose functions for inline onclick handlers and report mode
         window.renderResults = renderResults;
         window.setAnalysisData = setAnalysisData;
+        // Default per-period blob decoder used by the period navigator in the
+        // WASM tool. The standalone --split report overrides this with its own
+        // lazy fzstd loader (fzstd is bundled eagerly here).
+        if (!window.decompressData) {
+            window.decompressData = async function (b64) {
+                const bin = atob(b64);
+                const bytes = new Uint8Array(bin.length);
+                for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+                return JSON.parse(new TextDecoder().decode(unzstd(bytes)));
+            };
+        }
         window.showQueryModal = showQueryModal;
         window.highlightQuery = highlightQuery;
         window.visualizePlan = visualizePlan;

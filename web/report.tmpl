@@ -9,6 +9,7 @@
 /* Report mode: show only time filter */
 #fileInputSection, #newFileBtn { display: none !important; }
 .drop-zone { display: none !important; }
+#splitControl { display: none !important; }
 /* Hide dimension filters, keep only time filter */
 .filter-bar ql-dropdown { display: none !important; }
 .filter-bar .filter-status { display: none !important; }
@@ -86,7 +87,7 @@ async function decompressData(base64Data) {
 </script>
 <script>{{.AppJS}}</script>
 <script>
-// Auto-decompress and render on load
+// Auto-decompress and render on load (renderResults harmonizes the Summary).
 if (COMPRESSED_DATA) {
     console.log('Decompressing embedded report data...');
     decompressData(COMPRESSED_DATA).then(data => {

@@ -3005,3 +3005,71 @@
     text-align: center;
 }
 
+
+/* ---------------------------------------------------------------------------
+   Harmonized Summary tile (shared by standalone reports and the WASM tool).
+   Applied after each render by harmonizeSummary() in app.js. Split reports add
+   the period navigator on top (see .summary-periods-* below).
+   --------------------------------------------------------------------------- */
+#summary .summary-header { justify-content: flex-start; }
+#summary .summary-meta {
+  display: flex; flex-direction: row; flex-wrap: nowrap; align-items: baseline;
+  gap: 0.5rem; white-space: nowrap; max-width: 100%;
+  text-align: left; font-size: 0.78rem; color: var(--text-muted, #8a9099);
+}
+#summary .summary-meta .summary-filename { flex: 0 1 auto; min-width: 3ch; overflow: hidden; text-overflow: ellipsis; }
+#summary .summary-meta .summary-parsetime { flex: 0 0 auto; }
+#summary .summary-meta .summary-parsetime::before { content: "·"; margin-right: 0.5rem; }
+#summary .stat-grid { grid-template-columns: repeat(3, auto) !important; margin-bottom: 0.6rem !important; }
+#summary .stat-grid .stat-card:nth-child(2) { display: none; }
+#summary .summary-date--title { text-align: center; font-size: 1.3rem; font-weight: 700; margin: 0 0 0.4rem; }
+#summary .summary-timeline { margin-top: 0; padding-top: 0; }
+#summary .summary-timeline-row { display: flex; margin-bottom: 0; }
+#summary .summary-timeline-track { flex: 1 1 100%; height: 8px; }
+#summary .summary-timeline-bound,
+#summary .summary-timeline-labels { display: none; }
+#summary .summary-tl-marks {
+  position: relative; height: 1rem; margin-top: 0.4rem;
+  font-size: 0.72rem; color: var(--text-muted, #8a9099); font-variant-numeric: tabular-nums;
+}
+#summary .summary-tl-mark { position: absolute; white-space: nowrap; transform: translateX(-50%); }
+#summary .summary-tl-mark.is-start, #summary .summary-tl-mark.is-end { opacity: 0.5; }
+#summary .summary-tl-mark.is-start { transform: none; left: 0 !important; }
+#summary .summary-tl-mark.is-end { transform: none; left: auto !important; right: 0; }
+
+/* ---------------------------------------------------------------------------
+   Period navigator (split reports + WASM split). Injected by period-nav.js.
+   The .ql-split class (set by startPeriodNav) hides the single-period date
+   title and timeline; the heatmap replaces them.
+   --------------------------------------------------------------------------- */
+.ql-split #summary .summary-date { display: none; }
+.ql-split #summary .summary-timeline { display: none; }
+.summary-periods { margin: 0; }
+.summary-periods-head { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 0.4rem; margin-bottom: 0.4rem; }
+.summary-periods-nav { display: flex; align-items: center; gap: 0.4rem; justify-self: center; }
+.summary-periods-label { font-size: 1.3rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.summary-periods-btn {
+  cursor: pointer; border: 1px solid var(--border, #ddd); background: var(--bg-alt, #f5f6f8);
+  color: var(--text, #333); border-radius: 5px; width: 1.25rem; height: 1.25rem;
+  font-size: 0.85rem; line-height: 1; display: flex; align-items: center; justify-content: center;
+}
+.summary-periods-btn:hover:not(:disabled) { border-color: var(--primary, #4a6ea9); color: var(--primary, #4a6ea9); }
+.summary-periods-btn:disabled { opacity: 0.3; cursor: default; }
+.summary-periods-grid { display: flex; gap: 3px; align-items: stretch; overflow-x: auto; scrollbar-width: thin; }
+.summary-periods-bounds {
+  display: flex; justify-content: space-between; margin-top: 0.4rem;
+  font-size: 0.72rem; color: var(--text-muted, #8a9099); font-variant-numeric: tabular-nums;
+}
+.ql-seg { flex: 1 1 0; min-width: 6px; height: 8px; background: none; border: 0; padding: 0; cursor: pointer; }
+.ql-seg i {
+  display: block; width: 100%; height: 100%; border-radius: 2px;
+  outline: 1px solid transparent; outline-offset: -1px;
+  background: color-mix(in srgb, var(--text-muted, #8a9099) calc(var(--t, 12) * 1%), transparent);
+  transition: background .12s, outline-color .12s;
+}
+.ql-seg:hover i { outline-color: var(--text-muted, #8a9099); }
+.ql-seg.active i { background: var(--primary, #4a6ea9); }
+.ql-seg.active.has-err i { background: var(--danger, #cc4b4b); }
+
+/* The split control reuses the shared .filter-dropdown markup/styles, so it
+   matches the other filter pills and their open menus with no extra CSS. */

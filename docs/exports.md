@@ -131,3 +131,22 @@ Features:
 - **Click-to-detail modals**: Click any query row (sql-performance, locks, temp files) for a cross-analyzer detail panel; click any event row for the per-pattern panel with full message + occurrences-over-time chart + copy buttons
 - **Client-side filtering**: Filter by database, user, application, host, and time range
 - **Offline**: Works without internet connection
+
+### Period-split reports
+
+`--split <interval>` turns one run into a **single** HTML report partitioned into selectable time periods. A navigator at the top jumps between periods without reloading; each period is analyzed independently, so its numbers match a run scoped to that window with `--begin`/`--end`.
+
+```bash
+quellog /var/log/postgresql/*.log --html --split 1d   # one period per day
+quellog logs/2026-02-*.log        --html --split 3h   # 3-hour periods
+quellog busy-hour.log             --html --split 5m   # 5-minute periods
+```
+
+The interval accepts the same units as `--last` (`s`, `m`, `h`, `d`, `w`, `y`), a single unit at a time (`90m`, not `1h30m`). Periods align to the log's **wall clock** — `1d` to local midnight, `3h` to 00:00/03:00/06:00…, `5m` to :00/:05/:10 — independent of the machine timezone.
+
+Notes:
+
+- **Requires `--html`**, and cannot be combined with the other export formats or with `--follow`. Only the full report is supported (not `--sql-detail`, `--event-detail`, `--sql-performance`, or `--sql-overview`).
+- Filters (`--begin`/`--end`, `--dbname`, `--dbuser`, …) apply **before** splitting, so the periods cover only what passes the filters.
+- At most 400 periods are produced; a too-fine interval over a long range is rejected — use a coarser one.
+- `-o`/`--output` and `--open` work as usual.
