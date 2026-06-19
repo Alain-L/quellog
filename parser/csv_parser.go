@@ -91,7 +91,7 @@ func (p *CsvParser) parseReader(r io.Reader, out chan<- []LogEntry) error {
 	// rawsyscall time (the CSV hot path's single biggest cost). A 1 MB
 	// outer buffer brings the syscall count down by ~256×; the other
 	// parsers already size their scanners in megabytes.
-	reader := csv.NewReader(bufio.NewReaderSize(r, 1<<20))
+	reader := csv.NewReader(bufio.NewReaderSize(skipBOM(r), 1<<20))
 	// PostgreSQL CSV logs have 23 fields, but we'll be lenient
 	reader.FieldsPerRecord = -1 // Variable number of fields (lenient mode)
 	reader.TrimLeadingSpace = true

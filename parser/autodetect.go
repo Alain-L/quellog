@@ -4,16 +4,37 @@ package parser
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/csv"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 )
+
+// utf8BOM is the UTF-8 byte-order mark some editors/Windows tooling prepend.
+var utf8BOM = []byte{0xEF, 0xBB, 0xBF}
+
+// skipBOM returns a reader positioned just past a leading UTF-8 BOM, if one is
+// present. PostgreSQL never emits a BOM, but logs round-tripped through Windows
+// or PowerShell redirection often carry one; left in place it pushes the first
+// record off every parser's entry/timestamp heuristics (silently dropping it
+// for stderr, failing detection for CSV/JSON). All three parseReader paths wrap
+// their input with this, so the fix covers plain, compressed and tar inputs.
+func skipBOM(r io.Reader) io.Reader {
+	var head [3]byte
+	n, _ := io.ReadFull(r, head[:])
+	if n == 3 && bytes.Equal(head[:], utf8BOM) {
+		return r // BOM consumed; stream now starts at the first real byte
+	}
+	// Not a (complete) BOM — replay whatever we read ahead of the rest.
+	return io.MultiReader(bytes.NewReader(head[:n]), r)
+}
 
 // Detection errors - used to distinguish between different failure causes
 var (
@@ -143,6 +164,10 @@ func detectParser(filename string) (LogParser, error) {
 		slog.Error("failed to read sample", "file", filename, "err", err)
 		return nil, fmt.Errorf("%w: %v", ErrUnknownFormat, err)
 	}
+	// A leading UTF-8 BOM (common on Windows/PowerShell-redirected logs) must
+	// not leak into format detection — it would push the first line off the
+	// timestamp/CSV/JSON heuristics. The parsers strip it too (see skipBOM).
+	sample = strings.TrimPrefix(sample, "\ufeff")
 
 	// Step 3: Check for binary content
 	if isBinaryContent(sample) {

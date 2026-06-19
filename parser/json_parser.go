@@ -3,6 +3,7 @@ package parser
 
 import (
 	"bufio"
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -68,9 +69,15 @@ func (p *JsonParser) Parse(filename string, out chan<- []LogEntry) error {
 			// Dispatch on structure: '[' means a JSON array (rare,
 			// sequential); anything else is JSON-lines.
 			br := bufio.NewReader(f)
-			first, perr := peekFirstNonWhitespace(br)
-			if perr == nil && first != '[' {
-				return parseJSONLinesParallel(filename, st.Size(), workers, out)
+			// The offset-segmented parallel path can't strip a leading BOM
+			// (segment 0 starts at byte 0); fall back to the sequential
+			// reader, which does, when one is present.
+			bom, _ := br.Peek(3)
+			if !bytes.Equal(bom, utf8BOM) {
+				first, perr := peekFirstNonWhitespace(br)
+				if perr == nil && first != '[' {
+					return parseJSONLinesParallel(filename, st.Size(), workers, out)
+				}
 			}
 			if _, err := f.Seek(0, io.SeekStart); err != nil {
 				return fmt.Errorf("failed to rewind %s: %w", filename, err)
@@ -82,7 +89,7 @@ func (p *JsonParser) Parse(filename string, out chan<- []LogEntry) error {
 
 // parseReader detects the JSON structure and dispatches to the appropriate parser.
 func (p *JsonParser) parseReader(r io.Reader, out chan<- []LogEntry) error {
-	bufReader := bufio.NewReader(r)
+	bufReader := bufio.NewReader(skipBOM(r))
 	firstByte, err := peekFirstNonWhitespace(bufReader)
 	if err != nil {
 		if err == io.EOF {

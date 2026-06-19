@@ -123,6 +123,9 @@ func detectCompressedParserWithError(filename, baseName string, codec compressio
 		slog.Error("failed to read compressed sample", "codec", codec.name, "file", filename, "err", err)
 		return nil, fmt.Errorf("%w: %v", ErrCompressionFailed, err)
 	}
+	// A BOM inside the compressed payload would derail detection the same way
+	// it does for plain files; strip it (the parsers strip it again at parse).
+	sample = strings.TrimPrefix(sample, "\ufeff")
 
 	if isBinaryContent(sample) {
 		slog.Error("file appears to be binary after decompression", "file", filename, "codec", codec.name)
