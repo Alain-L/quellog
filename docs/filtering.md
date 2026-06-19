@@ -14,7 +14,10 @@ quellog /var/log/postgresql/*.log \
   --end "2025-01-13 15:00:00"
 ```
 
-Format: `YYYY-MM-DD HH:MM:SS`. Use the same timezone as your PostgreSQL logs.
+Format: `YYYY-MM-DD HH:MM:SS`, no timezone. The bound is matched against each
+entry's **wall clock** — `--begin "2025-01-13 14:00:00"` starts at the moment
+the log clock reads 14:00, whatever timezone the log was written in — so just
+copy the time as it appears in your logs.
 
 ### --last (-L)
 
