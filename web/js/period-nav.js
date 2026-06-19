@@ -12,7 +12,7 @@
 // decompressed lazily and cached. harmonizeSummary() (app.js) skips the date
 // title + timeline when window.QL_SPLIT is set, leaving them to this navigator.
 
-const _periodCache = {};
+let _periodCache = {};
 let _curPeriod = 0;
 let _maxEntries = 1;
 
@@ -89,8 +89,8 @@ function injectPeriodNav() {
     });
 
     // Bounds under the heatmap (first..last period): time-of-day for intraday
-    // splits, the date for daily+ splits.
-    const shortBound = (lbl) => { const i = lbl.indexOf(' '); return i > 0 ? lbl.slice(i + 1) : lbl; };
+    // splits, the humanized date for daily+ splits (matches the title style).
+    const shortBound = (lbl) => { const i = lbl.indexOf(' '); return i > 0 ? lbl.slice(i + 1) : formatPeriodLabel(lbl); };
     const bounds = document.createElement('div');
     bounds.className = 'summary-periods-bounds';
     const b0 = document.createElement('span');
@@ -116,17 +116,31 @@ function onKey(e) {
 
 // startPeriodNav switches the Summary tile into period mode and shows the first
 // period. Call after window.REPORT_PERIODS and window.decompressData are set.
+// It resets all per-session state (notably the decoded-period cache, which is
+// index-keyed and would otherwise return a previous split's datasets).
 export function startPeriodNav() {
     const periods = window.REPORT_PERIODS || [];
     if (!periods.length) return;
+    _periodCache = {};
+    _curPeriod = 0;
+    _maxEntries = periods.reduce((m, p) => Math.max(m, p.entries || 0), 1);
     window.QL_SPLIT = true; // harmonizeSummary leaves the title + strip to us
     document.documentElement.classList.add('ql-split');
-    _maxEntries = periods.reduce((m, p) => Math.max(m, p.entries || 0), 1);
-    _curPeriod = 0;
     document.removeEventListener('keydown', onKey);
     document.addEventListener('keydown', onKey);
     showPeriod(0);
 }
 
+// stopPeriodNav tears split mode down: drop the cache, the keyboard handler, the
+// QL_SPLIT flag and the .ql-split class so the next single render is normal.
+export function stopPeriodNav() {
+    _periodCache = {};
+    _curPeriod = 0;
+    document.removeEventListener('keydown', onKey);
+    window.QL_SPLIT = false;
+    document.documentElement.classList.remove('ql-split');
+}
+
 window.startPeriodNav = startPeriodNav;
+window.stopPeriodNav = stopPeriodNav;
 window.showPeriod = showPeriod;

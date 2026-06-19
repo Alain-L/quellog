@@ -3585,6 +3585,17 @@ function buildEventsSection(data) {
         exposeFilterGlobals();
 
         window.applyFilters = async function() {
+            // A filter / Apply / Clear renders a single report, so leave split
+            // mode first (drop split state + reset the Split control to Off).
+            if (window.QL_SPLIT) {
+                window.stopPeriodNav();
+                delete window.REPORT_PERIODS;
+                const sc = document.getElementById('splitCount');
+                if (sc) sc.textContent = '';
+                document.querySelectorAll('#splitControl .filter-dropdown-item')
+                    .forEach((it, i) => it.classList.toggle('selected', i === 0));
+            }
+
             // Build filters object from current UI state
             const filters = buildFiltersObject();
 
@@ -3698,8 +3709,7 @@ function buildEventsSection(data) {
         window.applySplit = async function(intervalSec) {
             if (!currentFileContent) return;
             if (!intervalSec) {
-                window.QL_SPLIT = false;
-                document.documentElement.classList.remove('ql-split');
+                window.stopPeriodNav();
                 delete window.REPORT_PERIODS;
                 window.applyFilters();
                 return;

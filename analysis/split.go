@@ -101,6 +101,9 @@ loop:
 					a.ProcessBatch(g)
 				}
 			}
+			// The incoming batch was copied into per-bucket group slices (each
+			// now owned by its analyzer), so recycle the original to the pool.
+			parser.PutBatch(batch)
 			if overflow {
 				break loop
 			}

@@ -319,6 +319,9 @@ func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry
 		if !htmlFlag {
 			return fmt.Errorf("--split requires --html")
 		}
+		if followFlag {
+			return fmt.Errorf("--split is not supported with --follow (it would regenerate a multi-period report every cycle)")
+		}
 		if formatCount > 1 {
 			return fmt.Errorf("--split is only supported with --html (not alongside other export formats)")
 		}
