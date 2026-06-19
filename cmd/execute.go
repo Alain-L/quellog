@@ -36,6 +36,15 @@ import (
 func executeParsing(cmd *cobra.Command, args []string) error {
 	ctx := cmd.Context()
 
+	// Flag-combination constraints are static (flag-only), so validate them
+	// once here. In follow mode the per-cycle error is logged and the loop
+	// continues; if these checks lived only inside the cycle, an invalid combo
+	// (e.g. --open --follow, --follow --split) would be re-reported every tick
+	// forever instead of failing cleanly with a non-zero exit.
+	if err := validateFlagCombinations(); err != nil {
+		return err
+	}
+
 	if !followFlag {
 		return runAnalysisCycle(ctx, args)
 	}
@@ -286,22 +295,30 @@ func buildLogFilters(beginT, endT time.Time) parser.LogFilters {
 	}
 }
 
-// processAndOutput analyzes filtered logs and outputs results in the requested format.
-func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry, startTime time.Time, totalFileSize int64, inputArgs []string, pb *progressBar) error {
-	// Validate flag compatibility
-	formatCount := 0
+// exportFormatCount counts how many distinct export formats are requested.
+func exportFormatCount() int {
+	n := 0
 	if jsonFlag || jsonCompactFlag {
-		formatCount++
+		n++
 	}
 	if yamlFlag {
-		formatCount++
+		n++
 	}
 	if mdFlag {
-		formatCount++
+		n++
 	}
 	if htmlFlag {
-		formatCount++
+		n++
 	}
+	return n
+}
+
+// validateFlagCombinations checks flag-combination constraints that depend only
+// on the flags, not on the input. Called once before follow mode starts so an
+// invalid combo aborts with a non-zero exit rather than being logged and
+// retried on every tick.
+func validateFlagCombinations() error {
+	formatCount := exportFormatCount()
 	if jsonFlag && jsonCompactFlag {
 		return fmt.Errorf("--json and --json-compact are mutually exclusive")
 	}
@@ -333,6 +350,17 @@ func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry
 		if len(sqlDetailFlag) > 0 || len(eventDetailFlag) > 0 || sqlPerformanceFlag || sqlOverviewFlag {
 			return fmt.Errorf("--split is only supported for the full HTML report (not with --sql-detail, --event-detail, --sql-performance, --sql-overview)")
 		}
+	}
+	return nil
+}
+
+// processAndOutput analyzes filtered logs and outputs results in the requested format.
+func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry, startTime time.Time, totalFileSize int64, inputArgs []string, pb *progressBar) error {
+	// Flag-combination constraints are validated once up front (see
+	// validateFlagCombinations, called from executeParsing). Here we only need
+	// the format count for dispatch and the --split short-circuit.
+	formatCount := exportFormatCount()
+	if splitFlag != "" {
 		return runSplitHTML(ctx, filteredLogs, startTime, totalFileSize, inputArgs, pb)
 	}
 
