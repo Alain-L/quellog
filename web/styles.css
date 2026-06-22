@@ -988,9 +988,9 @@
         .btn-explain:hover { opacity: 0.85; transform: scale(1.08); }
         .btn-explain svg { display: block; }
 
-        /* SQL Performance section 2-column layout: cost map + stats on the
-           left (1/3 width), query activity + distribution + tabs on the
-           right (2/3 width). Collapses to a single column on narrow screens. */
+        /* SQL Performance section 2-column layout: cost map on the left (1/3),
+           query activity + distribution + tabs on the right (2/3). The square
+           plot fills the left column. Single column on narrow screens. */
         .sql-perf-grid {
             display: grid;
             grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
@@ -2716,6 +2716,9 @@
             overflow: hidden;
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
         }
+        /* Cost map is a square plot — make its expand window square too so the
+           chart fills it instead of floating in a wide rectangle. */
+        .chart-modal-content.cm-square { max-width: 90vmin; }
         .chart-modal-header {
             display: flex;
             justify-content: space-between;

@@ -24,7 +24,8 @@ import {
     chartData, createTimeChart, createDurationChart, createCombinedSQLChart,
     createConcurrentChart, createHistogramChart, createCheckpointChart, createWALDistanceChart, createCombinedTempFilesChart,
     buildChartContainer, closeChartModal, updateModalInterval, resetModalZoom, exportChartPNG,
-    resetChartZoom, openChartModal, updateChartInterval, toggleCombinedSeries, exportChartById
+    resetChartZoom, openChartModal, updateChartInterval, toggleCombinedSeries, exportChartById,
+    createCostMapChart, resetCostMapZoom, openCostMapModal
 } from './js/charts.js';
 import {
     setOriginalReportData, getOriginalReportData, applyReportTimeFilter, resetReportTimeFilter
@@ -266,6 +267,8 @@ import './js/components/ql-dropdown.js';
                         createCombinedSQLChart(chartId, data.data);
                     } else if (data?.type === 'combined-tempfiles') {
                         createCombinedTempFilesChart(chartId, data.events);
+                    } else if (data?.type === 'costmap') {
+                        createCostMapChart(chartId, data.queries);
                     } else {
                         createTimeChart(chartId, data, { color });
                     }
@@ -1985,9 +1988,12 @@ function buildEventsSection(data) {
             // with the cost map for attention.
             const durationDist = buildDurationDistribution(queries);
 
-            // Cost-map data: every query with a real avg duration. Drawn
-            // inline in the left column rather than in a modal.
-            const costMapQueries = queries.filter(q => (q.count || 0) > 0 && (q.avg_time_ms || 0) > 0);
+            // Cost-map data: regular queries with a real avg duration. TCL
+            // (COMMIT/BEGIN/ROLLBACK…) is excluded — like the main query tables,
+            // which keep it in their own tab — so a high-volume COMMIT can't
+            // dominate and stretch the X axis, and every point cross-references
+            // a visible (non-TCL) table row.
+            const costMapQueries = regularQueries.filter(q => (q.count || 0) > 0 && (q.avg_time_ms || 0) > 0);
 
             return `
                 <div class="section" id="sql_performance">
@@ -2004,14 +2010,22 @@ function buildEventsSection(data) {
                         </div>
                         <div class="sql-perf-grid">
                             <div class="sql-perf-col-left">
-                                ${costMapQueries.length > 1 ? `
+                                ${costMapQueries.length > 1 ? (() => {
+                                    chartData.set('chart-costmap', { type: 'costmap', queries: costMapQueries });
+                                    return `
                                     <div class="chart-container">
                                         <div class="chart-controls">
-                                            <span class="subsection-title" style="margin: 0; font-size: 0.7rem;">Cost Map<ql-tooltip text="Each dot is a normalized query, positioned by execution count (X) and average duration (Y) on log-log scales. The 45° iso-curves mark constant cumulative time (count × avg). Click a dot to open its details.">i</ql-tooltip></span>
+                                            <span class="subsection-title" style="margin: 0; font-size: 0.7rem;">Cost Map<ql-tooltip text="Each dot is a normalized query, positioned by execution count (X) and average duration (Y) on log-log scales. The 45° iso-curves mark constant cumulative time (count × avg). Drag to zoom.">i</ql-tooltip></span>
+                                            <div style="display: flex; gap: 0.5rem; align-items: center;">
+                                                <span class="zoom-hint">drag to zoom</span>
+                                                <button onclick="resetCostMapZoom('chart-costmap')">Reset</button>
+                                                <button class="btn-expand" onclick="openCostMapModal('chart-costmap', 'Cost Map')" title="Expand chart">⛶</button>
+                                            </div>
                                         </div>
-                                        ${buildCostMapSvg(costMapQueries)}
+                                        <div id="chart-costmap" style="min-height: 120px;"></div>
                                     </div>
-                                ` : ''}
+                                    `;
+                                })() : ''}
                             </div>
                             <div class="sql-perf-col-right">
                                 ${hasExecutions ? `
@@ -2521,251 +2535,27 @@ function buildEventsSection(data) {
         // nudges the matching row into the visible area of its scrollable
         // container — when the row is already in view it is a no-op.
         function highlightQuery(id, on, scroll) {
-            // The cost-map dot for a cluster stores a space-separated id
-            // list, so the dot still matches when any of its members is
-            // hovered from the table side — the [attr~="value"] selector
-            // semantics give us that for free.
-            document.querySelectorAll('[data-q-id~="' + id + '"]').forEach(el => {
-                if (el.tagName === 'circle') {
-                    if (on) {
-                        if (!el.hasAttribute('data-r-orig')) el.setAttribute('data-r-orig', el.getAttribute('r'));
-                        el.setAttribute('r', '7');
-                        el.setAttribute('stroke', 'var(--text)');
-                        el.setAttribute('stroke-width', '1.5');
-                        el.setAttribute('opacity', '1');
-                    } else {
-                        el.setAttribute('r', el.getAttribute('data-r-orig') || '3');
-                        el.setAttribute('stroke', 'var(--bg)');
-                        el.setAttribute('stroke-width', '0.5');
-                        el.setAttribute('opacity', '0.85');
-                    }
-                } else if (el.tagName === 'TR') {
-                    el.classList.toggle('q-row-hover', on);
-                    if (on && scroll) {
-                        const c = el.closest('.table-container');
-                        if (c) {
-                            const rowTop = el.offsetTop;
-                            const rowBot = rowTop + el.offsetHeight;
-                            if (rowTop < c.scrollTop || rowBot > c.scrollTop + c.clientHeight) {
-                                c.scrollTo({
-                                    top: rowTop - (c.clientHeight - el.offsetHeight) / 2,
-                                    behavior: 'smooth',
-                                });
-                            }
+            // Query table rows tag themselves with data-q-id. Toggle the row's
+            // highlight and, when the trigger is a cost-map dot, scroll it into
+            // view. The cost-map point itself is enlarged via costMapHighlight.
+            document.querySelectorAll('tr[data-q-id~="' + id + '"]').forEach(el => {
+                el.classList.toggle('q-row-hover', on);
+                if (on && scroll) {
+                    const c = el.closest('.table-container');
+                    if (c) {
+                        const rowTop = el.offsetTop;
+                        const rowBot = rowTop + el.offsetHeight;
+                        if (rowTop < c.scrollTop || rowBot > c.scrollTop + c.clientHeight) {
+                            c.scrollTo({
+                                top: rowTop - (c.clientHeight - el.offsetHeight) / 2,
+                                behavior: 'smooth',
+                            });
                         }
                     }
                 }
             });
-        }
-
-        function buildCostMapSvg(queries) {
-            // Symmetric padding so the plot area is a perfect square (W == H).
-            // Axis tick labels still fit (~36 px on the left for "100ms"-class
-            // labels). No axis titles — the section's tooltip covers them.
-            const SIZE = 600;
-            const PAD_L = 40, PAD_R = 18, PAD_T = 18, PAD_B = 40;
-            const W = SIZE - PAD_L - PAD_R; // 542
-            const H = SIZE - PAD_T - PAD_B; // 542
-
-            const pts = queries.map(q => ({
-                id: q.id,
-                type: q.type || q.query_type || '',
-                count: q.count,
-                avg: q.avg_time_ms,
-                total: q.total_time_ms || (q.count * q.avg_time_ms),
-            }));
-
-            // Log-log domain padded to half-decade boundaries. We then expand
-            // the shorter axis so X and Y carry the same number of decades:
-            // with W = H, that forces every iso-cumulative line (slope -1 in
-            // log space) to render at exactly 45° on screen.
-            const xs = pts.map(p => Math.log10(p.count));
-            const ys = pts.map(p => Math.log10(p.avg));
-            const halfFloor = v => Math.floor(v * 2) / 2;
-            const halfCeil  = v => Math.ceil(v * 2) / 2;
-            // safeMin/safeMax (reduce), not Math.min(...spread): xs/ys span ALL
-            // queries — tens of thousands of args overflow the call stack
-            // (RangeError → blank report) on high-cardinality logs.
-            let logXMin = halfFloor(safeMin(xs));
-            let logXMax = Math.max(halfCeil(safeMax(xs)), logXMin + 1);
-            let logYMin = halfFloor(safeMin(ys));
-            let logYMax = Math.max(halfCeil(safeMax(ys)), logYMin + 1);
-            const xRange = logXMax - logXMin;
-            const yRange = logYMax - logYMin;
-            const range = Math.max(xRange, yRange);
-            if (xRange < range) {
-                const pad = (range - xRange) / 2;
-                logXMin -= pad;
-                logXMax += pad;
-            }
-            if (yRange < range) {
-                const pad = (range - yRange) / 2;
-                logYMin -= pad;
-                logYMax += pad;
-            }
-            // Counts are integers >= 1, so the X axis cannot legitimately drop
-            // below 10^0 = 1. If padding pushed it below 0, shift the whole
-            // X range upward so the minimum lands exactly at 1 — the range
-            // length (and thus the 45° iso-curves) stays intact.
-            if (logXMin < 0) {
-                logXMax -= logXMin;
-                logXMin = 0;
-            }
-            const x = v => PAD_L + ((Math.log10(v) - logXMin) / (logXMax - logXMin)) * W;
-            const y = v => PAD_T + H - ((Math.log10(v) - logYMin) / (logYMax - logYMin)) * H;
-
-            // Discrete 4-bucket coloring drawn from quellog's standard palette
-            // (--primary, --warning, --danger, --purple). Each point falls in
-            // one of four equal-width log-cumulative buckets — no gradient.
-            // Bucket thresholds will be tunable once the visual is validated.
-            const BUCKETS = [
-                { upTo: 0.25, color: 'var(--primary)' },
-                { upTo: 0.50, color: 'var(--warning)' },
-                { upTo: 0.75, color: 'var(--danger)' },
-                { upTo: 1.01, color: 'var(--purple)' },
-            ];
-            const ts = pts.map(p => Math.log10(p.total));
-            const logTMin = safeMin(ts);
-            const logTMax = safeMax(ts);
-            const colorFor = total => {
-                const t = logTMax === logTMin ? 0
-                    : (Math.log10(total) - logTMin) / (logTMax - logTMin);
-                return BUCKETS.find(b => t <= b.upTo).color;
-            };
-
-            const fmtAxisCount = v => {
-                if (v >= 1e6) return (v / 1e6).toFixed(v >= 1e7 ? 0 : 1).replace(/\.0$/, '') + 'M';
-                if (v >= 1e3) return (v / 1e3).toFixed(v >= 1e4 ? 0 : 1).replace(/\.0$/, '') + 'k';
-                return String(v);
-            };
-            const fmtAxisMs = v => {
-                if (v >= 3600000) return (v / 3600000).toFixed(0) + 'h';
-                if (v >= 60000) return (v / 60000).toFixed(0) + 'min';
-                if (v >= 1000) return (v / 1000).toFixed(0) + 's';
-                if (v >= 1) return v.toFixed(0) + 'ms';
-                return v.toFixed(1) + 'ms';
-            };
-
-            let svg = `<svg viewBox="0 0 ${SIZE} ${SIZE}" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:${SIZE}px;display:block;margin:0 auto;">`;
-            svg += `<rect x="${PAD_L}" y="${PAD_T}" width="${W}" height="${H}" fill="var(--bg-alt)"/>`;
-
-            // Grid + axis ticks at every decade
-            for (let d = Math.ceil(logXMin); d <= Math.floor(logXMax); d++) {
-                const v = Math.pow(10, d);
-                const xv = x(v);
-                svg += `<line x1="${xv}" y1="${PAD_T}" x2="${xv}" y2="${PAD_T + H}" stroke="var(--border)" stroke-width="0.5" stroke-dasharray="2,2"/>`;
-                svg += `<text x="${xv}" y="${PAD_T + H + 14}" text-anchor="middle" font-size="10" fill="var(--text-muted)">${fmtAxisCount(v)}</text>`;
-            }
-            for (let d = Math.ceil(logYMin); d <= Math.floor(logYMax); d++) {
-                const v = Math.pow(10, d);
-                const yv = y(v);
-                svg += `<line x1="${PAD_L}" y1="${yv}" x2="${PAD_L + W}" y2="${yv}" stroke="var(--border)" stroke-width="0.5" stroke-dasharray="2,2"/>`;
-                svg += `<text x="${PAD_L - 6}" y="${yv + 3}" text-anchor="end" font-size="10" fill="var(--text-muted)">${fmtAxisMs(v)}</text>`;
-            }
-
-            // Each diagonal we draw is an iso-cumulative-time line:
-            //   avg = T / count → in log-log a straight 45° line.
-            // The set of "ISO" anchors are decorative time landmarks; the
-            // two "PCT" diagonals (top 90% / top 99%) are computed from the
-            // data and surface where the long tail starts to add up.
-            const inRange = (l, lo, hi) => l >= lo - 1e-9 && l <= hi + 1e-9;
-            const clipDiagonal = T => {
-                const hits = [];
-                let yv = T / Math.pow(10, logXMin);
-                if (inRange(Math.log10(yv), logYMin, logYMax)) hits.push([Math.pow(10, logXMin), yv]);
-                yv = T / Math.pow(10, logXMax);
-                if (inRange(Math.log10(yv), logYMin, logYMax)) hits.push([Math.pow(10, logXMax), yv]);
-                let xv = T / Math.pow(10, logYMax);
-                if (inRange(Math.log10(xv), logXMin, logXMax)) hits.push([xv, Math.pow(10, logYMax)]);
-                xv = T / Math.pow(10, logYMin);
-                if (inRange(Math.log10(xv), logXMin, logXMax)) hits.push([xv, Math.pow(10, logYMin)]);
-                return hits;
-            };
-            const drawDiagonal = (T, label, opts) => {
-                const hits = clipDiagonal(T);
-                if (hits.length < 2) return;
-                const [p1, p2] = hits;
-                svg += `<line x1="${x(p1[0])}" y1="${y(p1[1])}" x2="${x(p2[0])}" y2="${y(p2[1])}" stroke="${opts.stroke}" stroke-width="${opts.width}" stroke-dasharray="${opts.dasharray}" opacity="${opts.opacity}"/>`;
-                const labelPt = hits.reduce((acc, p) => p[0] > acc[0] ? p : acc, hits[0]);
-                svg += `<text x="${x(labelPt[0]) - 6}" y="${y(labelPt[1]) - 4}" text-anchor="end" font-size="10" font-style="italic" fill="${opts.label}">${label}</text>`;
-            };
-
-            // Decorative cumulative-time landmarks
-            const ISO = [
-                { ms: 1000,     label: '1s' },
-                { ms: 60000,    label: '1min' },
-                { ms: 3600000,  label: '1h' },
-                { ms: 86400000, label: '1d' },
-            ];
-            ISO.forEach(iso => drawDiagonal(iso.ms, iso.label, {
-                stroke: 'var(--text-muted)', width: 0.7, dasharray: '4,3', opacity: 0.5,
-                label: 'var(--text-muted)',
-            }));
-
-            // "Top X%" diagonals — Pareto thresholds. The smallest per-query
-            // total T such that queries whose total exceeds T together sum
-            // to X% of the grand total. Above-and-right of the line = those
-            // heavy hitters; below-and-left = the remaining (100-X)% of
-            // cumulated time. We draw the 10% line ("top 10%": below-left
-            // contains 90% of time) and the 1% line ("top 1%": below-left
-            // contains 99%).
-            const sortedTotals = pts.map(p => p.total).sort((a, b) => b - a);
-            const grandTotal = sortedTotals.reduce((a, b) => a + b, 0);
-            const topShareThreshold = (frac) => {
-                let acc = 0;
-                for (let i = 0; i < sortedTotals.length; i++) {
-                    acc += sortedTotals[i];
-                    if (acc >= frac * grandTotal) return sortedTotals[i];
-                }
-                return sortedTotals[sortedTotals.length - 1];
-            };
-            if (grandTotal > 0 && pts.length > 1) {
-                const Ttop10 = topShareThreshold(0.10);
-                const Ttop1 = topShareThreshold(0.01);
-                // Solid green to contrast with the muted gray dashed ISOs.
-                drawDiagonal(Ttop1, 'top 1%', {
-                    stroke: 'var(--success)', width: 1.1, dasharray: 'none', opacity: 0.75,
-                    label: 'var(--success)',
-                });
-                if (Math.abs(Math.log10(Ttop10) - Math.log10(Ttop1)) > 0.05) {
-                    drawDiagonal(Ttop10, 'top 10%', {
-                        stroke: 'var(--success)', width: 1.1, dasharray: '6,2', opacity: 0.75,
-                        label: 'var(--success)',
-                    });
-                }
-            }
-
-            // Axis frame (no titles — the section tooltip describes the axes).
-            svg += `<line x1="${PAD_L}" y1="${PAD_T}" x2="${PAD_L}" y2="${PAD_T + H}" stroke="var(--text)" stroke-width="1"/>`;
-            svg += `<line x1="${PAD_L}" y1="${PAD_T + H}" x2="${PAD_L + W}" y2="${PAD_T + H}" stroke="var(--text)" stroke-width="1"/>`;
-
-            // Points are drawn small by default so the cloud feels light and
-            // overlapping queries don't visually merge into one blob; the
-            // hover handler bumps them up to a clearly-readable size.
-            pts.forEach(p => {
-                const head = p.type ? `${p.type} · ` : '';
-                const tip = `${head}${p.count}× · avg ${fmtAxisMs(p.avg)} · cumulated ${fmtAxisMs(p.total)}`;
-                const id = esc(p.id);
-                svg += `<circle data-q-id="${id}" cx="${x(p.count).toFixed(1)}" cy="${y(p.avg).toFixed(1)}" r="3" fill="${colorFor(p.total)}" stroke="var(--bg)" stroke-width="0.5" opacity="0.85" onclick="showQueryModal('${id}')" onmouseenter="highlightQuery('${id}', true, true)" onmouseleave="highlightQuery('${id}', false)" style="cursor:pointer"><title>${esc(tip)}</title></circle>`;
-            });
-
-            svg += `</svg>`;
-
-            // Legend below the chart — uses the shared .chart-legend styles
-            // (same look as Query Activity's legend underneath). Compact gap
-            // and short labels so it stays on a single line in the 1/3 column.
-            const dot = (bg) => `<span class="chart-legend-bar" style="background:${bg};border-radius:50%;width:8px;height:8px;"></span>`;
-            const dash = (color, solid) => `<span style="display:inline-block;width:14px;height:0;border-top:${solid ? '1.5px solid' : '1px dashed'} ${color};vertical-align:middle;"></span>`;
-            let legend = '<div class="chart-legend" style="gap:0.6rem;">';
-            legend += `<span class="chart-legend-item">${dot('var(--primary)')}low</span>`;
-            legend += `<span class="chart-legend-item">${dot('var(--warning)')}med</span>`;
-            legend += `<span class="chart-legend-item">${dot('var(--danger)')}high</span>`;
-            legend += `<span class="chart-legend-item">${dot('var(--purple)')}extreme</span>`;
-            legend += `<span class="chart-legend-item">${dash('var(--text-muted)', false)}iso</span>`;
-            legend += `<span class="chart-legend-item">${dash('var(--success)', true)}top 1% / 10%</span>`;
-            legend += '</div>';
-
-            return svg + legend;
+            // Mirror the highlight onto the uPlot cost map (enlarge its point).
+            if (window.costMapHighlight) window.costMapHighlight(id, on);
         }
 
         function showQueryModal(queryId, opts = {}) {
@@ -3822,4 +3612,6 @@ function buildEventsSection(data) {
         window.openChartModal = openChartModal;
         window.updateChartInterval = updateChartInterval;
         window.toggleCombinedSeries = toggleCombinedSeries;
+        window.resetCostMapZoom = resetCostMapZoom;
+        window.openCostMapModal = openCostMapModal;
 

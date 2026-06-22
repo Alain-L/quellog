@@ -2256,6 +2256,288 @@ export function renderModalChart() {
     legendEl.innerHTML = legends[data?.type] || defaultLegend;
 }
 
+// Cost map (uPlot port): log-log scatter of queries (count × avg duration).
+// uPlot's native log distr (distr:3) silently aborts the first draw in this
+// build, so instead the data is fed already log10-transformed onto LINEAR
+// scales — same visual, and uPlot still owns the grid, 2D drag-zoom, reset and
+// the expand modal. Axis ticks are placed at integer decades and formatted back
+// to real units. A draw hook paints the iso-cumulative + Pareto diagonals and
+// the colour-bucketed points (radius adapts to point count); a 2-point dummy
+// series only anchors the scale ranges — nothing of it is drawn.
+export function createCostMapChart(containerId, queries, options = {}) {
+    const container = typeof containerId === 'string' ? document.getElementById(containerId) : containerId;
+    if (!container) return null;
+
+    const pts = (queries || [])
+        .filter(q => (q.count || 0) > 0 && (q.avg_time_ms || 0) > 0)
+        .map(q => ({ id: q.id, type: q.type || q.query_type || '', count: q.count, avg: q.avg_time_ms, total: q.total_time_ms || q.count * q.avg_time_ms }));
+    if (pts.length === 0) return null;
+
+    // Log domains padded to half-decades, then the shorter axis is expanded so
+    // X and Y carry the same number of decades — with a square plot that keeps
+    // the iso-cumulative diagonals at 45°.
+    const xs = pts.map(p => Math.log10(p.count));
+    const ys = pts.map(p => Math.log10(p.avg));
+    const hf = v => Math.floor(v * 2) / 2, hc = v => Math.ceil(v * 2) / 2;
+    let logXMin = hf(safeMin(xs)), logXMax = Math.max(hc(safeMax(xs)), logXMin + 1);
+    let logYMin = hf(safeMin(ys)), logYMax = Math.max(hc(safeMax(ys)), logYMin + 1);
+    const range = Math.max(logXMax - logXMin, logYMax - logYMin);
+    if (logXMax - logXMin < range) { const p = (range - (logXMax - logXMin)) / 2; logXMin -= p; logXMax += p; }
+    if (logYMax - logYMin < range) { const p = (range - (logYMax - logYMin)) / 2; logYMin -= p; logYMax += p; }
+    // Counts are integers >= 1, so the X axis must not drop below 10^0 = 1
+    // (that would print meaningless sub-1 "0" ticks). Shift the whole X window
+    // up if padding pushed it negative; count=1 then sits on the left edge and
+    // the draw hook gives points an expanded clip so they aren't cut in half.
+    if (logXMin < 0) { logXMax -= logXMin; logXMin = 0; }
+
+    const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+    const BUCKETS = [
+        { upTo: 0.25, color: css('--primary') },
+        { upTo: 0.50, color: css('--warning') },
+        { upTo: 0.75, color: css('--danger') },
+        { upTo: 1.01, color: css('--purple') },
+    ];
+    const tlogs = pts.map(p => Math.log10(p.total));
+    const logTMin = safeMin(tlogs), logTMax = safeMax(tlogs);
+    const colorFor = total => {
+        const t = logTMax === logTMin ? 0 : (Math.log10(total) - logTMin) / (logTMax - logTMin);
+        return (BUCKETS.find(b => t <= b.upTo) || BUCKETS[3]).color;
+    };
+
+    const density = Math.min(1, Math.max(0, (Math.log10(pts.length) - 1) / (Math.log10(2000) - 1)));
+    const baseR = 4 - density * 2; // CSS px: ~4 (sparse) down to ~2 (dense)
+    let hoverId = null;
+
+    const fmtCount = v => v >= 1e6 ? (v / 1e6).toFixed(v >= 1e7 ? 0 : 1).replace(/\.0$/, '') + 'M'
+        : v >= 1e3 ? (v / 1e3).toFixed(v >= 1e4 ? 0 : 1).replace(/\.0$/, '') + 'k' : String(Math.round(v));
+    const fmtMs = v => v >= 3600000 ? (v / 3600000).toFixed(0) + 'h'
+        : v >= 60000 ? (v / 60000).toFixed(0) + 'min'
+            : v >= 1000 ? (v / 1000).toFixed(0) + 's'
+                : v >= 1 ? v.toFixed(0) + 'ms' : v.toFixed(1) + 'ms';
+
+    // Pareto thresholds: smallest per-query total T whose heavier queries sum
+    // to frac of the grand total.
+    const sortedTotals = pts.map(p => p.total).sort((a, b) => b - a);
+    const grandTotal = sortedTotals.reduce((a, b) => a + b, 0);
+    const topShare = frac => { let acc = 0; for (const t of sortedTotals) { acc += t; if (acc >= frac * grandTotal) return t; } return sortedTotals[sortedTotals.length - 1]; };
+
+    // Coordinates: scales are linear over log10 values, so real value v maps via
+    // log10(v) through valToPos. Scale min/max are in log space.
+    const drawCostMap = u => {
+        const ctx = u.ctx, b = u.bbox;
+        // u.bbox and valToPos(...,true) are in device pixels; uPlot does not
+        // scale the context, so every hard-coded size (radius, line width,
+        // font) must be multiplied by pxRatio to render at the intended CSS
+        // size — without this, points were ~half size on retina.
+        const dpr = u.pxRatio || window.devicePixelRatio || 1;
+        const X = v => u.valToPos(Math.log10(v), 'x', true);
+        const Y = v => u.valToPos(Math.log10(v), 'y', true);
+        const xMin = Math.pow(10, u.scales.x.min), xMax = Math.pow(10, u.scales.x.max);
+        const yMax = Math.pow(10, u.scales.y.max);
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(b.left, b.top, b.width, b.height);
+        ctx.clip();
+
+        const diagonal = (T, stroke, width, dash, opacity, label, labelColor) => {
+            ctx.save();
+            ctx.globalAlpha = opacity;
+            ctx.strokeStyle = stroke;
+            ctx.lineWidth = width * dpr;
+            ctx.setLineDash(dash.map(d => d * dpr));
+            ctx.beginPath();
+            ctx.moveTo(X(xMin), Y(T / xMin));
+            ctx.lineTo(X(xMax), Y(T / xMax));
+            ctx.stroke();
+            ctx.setLineDash([]);
+            if (label) {
+                let lx = xMax, ly = T / xMax;
+                if (Math.log10(ly) > Math.log10(yMax)) { ly = yMax; lx = T / yMax; }
+                ctx.globalAlpha = 1;
+                ctx.fillStyle = labelColor;
+                ctx.font = 'italic ' + (10 * dpr) + 'px system-ui';
+                ctx.textAlign = 'right';
+                ctx.fillText(label, X(lx) - 5 * dpr, Y(ly) - 4 * dpr);
+            }
+            ctx.restore();
+        };
+        const muted = css('--text-muted'), success = css('--success');
+        [[1000, '1s'], [60000, '1min'], [3600000, '1h'], [86400000, '1d']].forEach(([T, l]) =>
+            diagonal(T, muted, 0.7, [4, 3], 0.5, l, muted));
+        if (grandTotal > 0 && pts.length > 1) {
+            const t1 = topShare(0.01), t10 = topShare(0.10);
+            diagonal(t1, success, 1.1, [], 0.75, 'top 1%', success);
+            if (Math.abs(Math.log10(t10) - Math.log10(t1)) > 0.05) diagonal(t10, success, 1.1, [6, 2], 0.75, 'top 10%', success);
+        }
+
+        ctx.restore(); // end diagonal clip (strict bbox)
+
+        // Points get a clip expanded by their radius so boundary points (e.g.
+        // count=1 on the left edge) render whole instead of being sliced.
+        const m = (baseR * 1.8 + 2) * dpr;
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(b.left - m, b.top - m, b.width + 2 * m, b.height + 2 * m);
+        ctx.clip();
+        const bg = css('--bg'), textc = css('--text');
+        for (const p of pts) {
+            const hovered = p.id === hoverId;
+            ctx.beginPath();
+            ctx.arc(X(p.count), Y(p.avg), (hovered ? baseR * 1.8 : baseR) * dpr, 0, Math.PI * 2);
+            ctx.fillStyle = colorFor(p.total);
+            ctx.globalAlpha = hovered ? 1 : 0.85;
+            ctx.fill();
+            ctx.globalAlpha = 1;
+            ctx.lineWidth = (hovered ? 1.5 : 0.5) * dpr;
+            ctx.strokeStyle = hovered ? textc : bg;
+            ctx.stroke();
+        }
+        ctx.restore();
+    };
+
+    // Decade ticks: integer log values within the visible range.
+    const decadeSplits = (u, axisIdx, scaleMin, scaleMax) => {
+        const out = [];
+        for (let d = Math.ceil(scaleMin); d <= Math.floor(scaleMax); d++) out.push(d);
+        return out;
+    };
+    const text = css('--text');
+    const initW = container.clientWidth || 320;
+    const opts = {
+        width: initW,
+        height: options.height || initW,
+        cursor: { drag: { x: true, y: true, setScale: true }, bind: { dblclick: () => null } },
+        select: { show: true },
+        legend: { show: false },
+        scales: {
+            x: { range: (u, min, max) => [min, max] },
+            y: { range: (u, min, max) => [min, max] },
+        },
+        axes: [
+            { scale: 'x', stroke: text, font: '10px system-ui', size: 28, grid: { stroke: css('--border'), width: 0.5 }, ticks: { show: false }, splits: decadeSplits, values: (u, vals) => vals.map(v => fmtCount(Math.pow(10, v))) },
+            { scale: 'y', stroke: text, font: '10px system-ui', size: 40, grid: { stroke: css('--border'), width: 0.5 }, ticks: { show: false }, splits: decadeSplits, values: (u, vals) => vals.map(v => fmtMs(Math.pow(10, v))) },
+        ],
+        series: [
+            {},
+            { scale: 'y', paths: () => null, points: { show: false } },
+        ],
+        hooks: { draw: [drawCostMap] },
+    };
+
+    const id = typeof containerId === 'string' ? containerId : container.id;
+    const chart = new uPlot(opts, [[logXMin, logXMax], [logYMin, logYMax]], container);
+    charts.set(id, chart);
+    chart._cmXRange = [logXMin, logXMax];
+    chart._cmYRange = [logYMin, logYMax];
+    bindDblclickReset(chart, () => resetCostMapZoom(id));
+
+    // Cross-highlight bridge (inline chart only — the modal has no table next
+    // to it). highlightQuery (app.js) calls this to enlarge the matching point
+    // when a table row is hovered; the point's own hover calls highlightQuery
+    // the other way. costMapHighlight never calls back, so there is no loop.
+    const bridge = id === 'chart-costmap';
+    if (bridge) {
+        window.costMapHighlight = (qid, on) => {
+            const v = on ? qid : null;
+            if (hoverId !== v) { hoverId = v; chart.redraw(); }
+        };
+    }
+
+    // Keep the iso-cumulative diagonals at a true 45°: X and Y already span the
+    // same number of decades, so the plot AREA must be square. Resize the chart
+    // so bbox is square (fits the smaller available dimension) and centre it —
+    // this matters most in the wide expand modal.
+    chart.root.style.margin = '0 auto';
+    const squarePlot = () => {
+        const availW = container.clientWidth || initW;
+        const availH = options.height || availW;
+        const dpr = chart.pxRatio || window.devicePixelRatio || 1;
+        const gx = chart.width - chart.bbox.width / dpr;  // left+right gutters (CSS px)
+        const gy = chart.height - chart.bbox.height / dpr; // top+bottom gutters
+        const side = Math.max(80, Math.min(availW - gx, availH - gy));
+        const w = Math.round(side + gx), h = Math.round(side + gy);
+        if (w !== chart.width || h !== chart.height) chart.setSize({ width: w, height: h });
+    };
+    squarePlot();
+
+    // Click a point to open its detail modal (canvas hit-test, nearest point).
+    chart.over.addEventListener('click', e => {
+        const r = chart.over.getBoundingClientRect();
+        const mx = e.clientX - r.left, my = e.clientY - r.top;
+        let best = null, bd = Infinity;
+        for (const p of pts) {
+            const dx = chart.valToPos(Math.log10(p.count), 'x', false) - mx;
+            const dy = chart.valToPos(Math.log10(p.avg), 'y', false) - my;
+            const d = dx * dx + dy * dy;
+            if (d < bd) { bd = d; best = p; }
+        }
+        if (best && Math.sqrt(bd) <= baseR + 6 && window.showQueryModal) window.showQueryModal(best.id);
+    });
+    // Hover: enlarge the nearest point, show a tooltip, switch the cursor.
+    if (getComputedStyle(container).position === 'static') container.style.position = 'relative';
+    const tip = document.createElement('div');
+    tip.style.cssText = 'position:absolute;pointer-events:none;display:none;background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:3px 6px;font:11px system-ui;color:var(--text);box-shadow:0 2px 8px rgba(0,0,0,.18);z-index:5;white-space:nowrap;';
+    container.appendChild(tip);
+    const nearest = (mx, my) => {
+        let best = null, bd = (baseR + 6) * (baseR + 6);
+        for (const p of pts) {
+            const dx = chart.valToPos(Math.log10(p.count), 'x', false) - mx;
+            const dy = chart.valToPos(Math.log10(p.avg), 'y', false) - my;
+            const d = dx * dx + dy * dy;
+            if (d <= bd) { bd = d; best = p; }
+        }
+        return best;
+    };
+    let lastNid = null;
+    const setHover = (nid, scroll) => {
+        if (nid === lastNid) return;
+        if (bridge && window.highlightQuery) {
+            // Route through highlightQuery so the matching table row highlights
+            // (and scrolls into view); it calls back costMapHighlight to enlarge
+            // the point. Guarded by lastNid so it fires only on change.
+            if (lastNid) window.highlightQuery(lastNid, false);
+            if (nid) window.highlightQuery(nid, true, scroll);
+        } else if (hoverId !== nid) {
+            hoverId = nid; chart.redraw();
+        }
+        lastNid = nid;
+    };
+    chart.over.addEventListener('mousemove', e => {
+        const r = chart.over.getBoundingClientRect();
+        const mx = e.clientX - r.left, my = e.clientY - r.top;
+        const p = nearest(mx, my);
+        chart.over.style.cursor = p ? 'pointer' : 'default';
+        setHover(p ? p.id : null, true);
+        if (p) {
+            tip.innerHTML = (p.type ? p.type + ' · ' : '') + p.count + '× · avg ' + fmtMs(p.avg) + ' · cumulated ' + fmtMs(p.total);
+            tip.style.display = 'block';
+            let left = chart.over.offsetLeft + mx + 12;
+            let top = chart.over.offsetTop + my + 12;
+            if (left + tip.offsetWidth > container.clientWidth) left = container.clientWidth - tip.offsetWidth - 2;
+            tip.style.left = left + 'px';
+            tip.style.top = top + 'px';
+        } else {
+            tip.style.display = 'none';
+        }
+    });
+    chart.over.addEventListener('mouseleave', () => {
+        tip.style.display = 'none';
+        setHover(null, false);
+    });
+
+    const ro = new ResizeObserver(() => { if (container.clientWidth > 0) squarePlot(); });
+    ro.observe(container);
+    return chart;
+}
+
+// Reset a cost-map chart to its auto-fit (log-space) domain on both axes.
+export function resetCostMapZoom(id) {
+    const chart = charts.get(id);
+    if (!chart || !chart._cmXRange) return;
+    chart.setScale('x', { min: chart._cmXRange[0], max: chart._cmXRange[1] });
+    chart.setScale('y', { min: chart._cmYRange[0], max: chart._cmYRange[1] });
+}
+
 // Create large time chart for modal
 export function createTimeChartLarge(container, timestamps, options = {}) {
     if (!timestamps?.length) return null;
@@ -3586,6 +3868,11 @@ export function createCheckpointChartLarge(container, data, options = {}) {
 export function closeChartModal() {
     document.getElementById('chartModal').classList.remove('active');
     document.body.style.overflow = '';
+    // Undo cost-map-specific modal tweaks so the next chart opens normally.
+    const content = document.querySelector('#chartModal .chart-modal-content');
+    if (content) content.classList.remove('cm-square');
+    const sel = document.getElementById('modalBucketSelect');
+    if (sel) sel.style.display = '';
     if (modalChart) {
         modalChart.destroy();
         modalChart = null;
@@ -3601,12 +3888,41 @@ export function updateModalInterval(intervalValue) {
 
 // Reset modal zoom and re-sample to original range
 export function resetModalZoom() {
+    if (modalChart && modalChart._cmXRange) {
+        // Cost map: reset both log axes to the auto-fit domain.
+        modalChart.setScale('x', { min: modalChart._cmXRange[0], max: modalChart._cmXRange[1] });
+        modalChart.setScale('y', { min: modalChart._cmYRange[0], max: modalChart._cmYRange[1] });
+        return;
+    }
     if (modalChart && modalChart._originalXRange) {
         const [min, max] = modalChart._originalXRange;
         // Clear lastRange to force re-sampling
         modalChart._lastRange = null;
         modalChart.setScale('x', { min, max });
     }
+}
+
+// Open the cost map in the shared chart modal, sized square (the plot is
+// square, so a square window wastes no space). Sets modalChart so the modal's
+// Reset/Export/close act on it.
+export function openCostMapModal(srcId, title) {
+    const data = chartData.get(srcId);
+    if (!data) return;
+    document.getElementById('modalChartTitle').textContent = title;
+    const sel = document.getElementById('modalBucketSelect');
+    if (sel) sel.style.display = 'none';
+    const content = document.querySelector('#chartModal .chart-modal-content');
+    if (content) content.classList.add('cm-square');
+    document.getElementById('chartModal').classList.add('active');
+    document.body.style.overflow = 'hidden';
+    setTimeout(() => {
+        const c = document.getElementById('modal-chart-container');
+        c.innerHTML = '';
+        // Leave room for the modal header + paddings (~200px) so the chart's
+        // own bottom axis labels stay inside the body instead of being clipped.
+        const side = Math.min(c.clientWidth || 480, Math.round(window.innerHeight - 200));
+        modalChart = createCostMapChart('modal-chart-container', data.queries, { height: side });
+    }, 50);
 }
 
 // Export chart as PNG (for modal chart)
