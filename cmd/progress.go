@@ -27,9 +27,11 @@ const (
 var transitionShades = [...]int{0, 240, 242, 244, 246, 248, 249, 250}
 
 // progressBar streams a one-line indicator to stderr while a long
-// parse runs. Only created when stderr is a TTY, --quiet is unset,
-// the output format is text (machine formats keep stderr clean),
-// and total input ≥ progressMinSize. Outside those conditions
+// parse runs. Only created when stderr is a TTY, --quiet is unset, and
+// total input ≥ progressMinSize. The output format is irrelevant: the
+// bar lives on stderr while the report goes to stdout or a file, so they
+// never share a stream — and the bar prints only during the parse, then
+// clears itself before any output. Outside those conditions
 // newProgressBar returns nil; every method is a no-op on nil.
 type progressBar struct {
 	totalBytes int64
@@ -39,10 +41,16 @@ type progressBar struct {
 	done       chan struct{}
 }
 
+// progressBarSuppressed reports whether the bar must stay off independently of
+// the terminal: input too small to be worth it, or --quiet. Output format does
+// NOT suppress it — the bar is stderr-only and clears before output, so it is
+// safe (and useful) even for --html/--json/--yaml/--md.
+func progressBarSuppressed(totalBytes int64) bool {
+	return totalBytes < progressMinSize || quietFlag
+}
+
 func newProgressBar(totalBytes int64) *progressBar {
-	if totalBytes < progressMinSize || quietFlag ||
-		jsonFlag || jsonCompactFlag || yamlFlag || mdFlag || htmlFlag ||
-		!term.IsTerminal(int(os.Stderr.Fd())) {
+	if progressBarSuppressed(totalBytes) || !term.IsTerminal(int(os.Stderr.Fd())) {
 		return nil
 	}
 	return &progressBar{
