@@ -242,6 +242,26 @@ Additional metrics when available:
 
 Requires `log_checkpoints = on`.
 
+## Server lifecycle (`--server`)
+
+Server-level events reconstructed as a timeline — starts, restarts, shutdown types, backend crashes (with the signal), crash recovery — plus hot configuration changes (`parameter "X" changed`). Replication health is folded in as a sub-zone.
+
+```
+SERVER
+
+  Starts                    : 2   (first: 2026-01-01 16:00:54)
+
+  Timeline:
+    16:00:54  start       database system is ready to accept connections
+    16:20:04  start       database system is ready to accept connections
+
+  Replication:
+    Stream reconnects        : 1
+    Replication terminations : 1   (primary closed walsender, last 16:20:02)
+```
+
+Lines are suppressed when their metric is zero. Other entries appear when present: shutdowns (fast/immediate/smart), reloads (SIGHUP) and the parameters they changed, backend crashes (`SIGSEGV ×N`), crash recovery, and replication signals such as WAL receive failures and conflicts with recovery.
+
 ## Connections (`--connections`)
 
 Connection patterns and session durations. The default report shows summary metrics. With `--connections`, additional session analytics are displayed: duration distribution histogram, and session duration tables by user, database, and host.
