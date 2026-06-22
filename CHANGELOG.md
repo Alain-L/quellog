@@ -2,7 +2,39 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.10.0] - unreleased
+## [0.11.0] - 2026-06-26
+
+### Added
+- **SERVER section**: a server-lifecycle timeline — starts, restarts, shutdown types, backend crashes (by signal), crash recovery and hot configuration changes — together with replication health (stream reconnects, conflicts with recovery and the queries they cancelled, invalidated slots, terminations).
+- **Split reports** (`--split <interval>`): partition an HTML report into selectable time periods (`1d`, `3h`, `5m`, …) with a period navigator and a volume heatmap, in a single self-contained file.
+- **Cost map** (SQL Performance, HTML): an interactive log-log scatter of every query by execution count × average duration, coloured by cumulative time, with iso-cost and top-1%/10% Pareto reference lines.
+- **Maintenance detail**: AUTOVACUUM and AUTOANALYZE as separate sections; autovacuum continuation lines parsed (buffer/WAL/tuple/system usage, per-table elapsed); per-table stats for up to 200 tables; sortable tables in HTML.
+- **Prepared statements**: capture prepared-statement names and the parameters of each query's slowest run, shown in `--sql-detail`.
+- **`--sql-detail` dimensions**: top databases, users, applications and hosts for the selected query.
+- **Event triggering queries**: the queries that most often triggered each event pattern (Pareto), in `--event-detail` and the HTML event modal.
+- **Temp files per query**: min/max/average temp-file size per query, plus the largest single temp file.
+- **Multi-format export in one pass**: combine `--html`/`--md`/`--json`/`--yaml` in a single run — parsing and analysis happen once.
+- **Plan shortcut**: a per-row button in the HTML query table to open a query on explain.dalibo.com.
+
+### Changed
+- **`in (...)` normalization**: long `IN ($1, $2, …)` lists collapse to `in (...)` so identical queries aggregate together.
+- **Progress bar for every format**: the live progress bar now shows for `--html`/`--json`/`--yaml`/`--md` on a TTY for large inputs, not just text output.
+- **Markdown tables** aligned across the report so the raw Markdown reads cleanly.
+- **Normalization** preserves the case of double-quoted identifiers.
+
+### Fixed
+- **`--begin` / `--end` are wall-clock bounds**: a zoneless timestamp matches the moment the log clock reads it, in any timezone (was treated as UTC).
+- **Input robustness**: strip a leading UTF-8 BOM; detect gzip/zstd by magic bytes when the extension is wrong or missing; detect tar members by content; report a truncated/partial file as a partial success (warning) instead of "no files could be parsed"; overflow-safe parsing; reject overflowing `d`/`w`/`y` durations instead of wrapping.
+- **`--errors` in JSON/YAML**: restricted to the error classes, like text and Markdown.
+- **`--follow`**: invalid flag combinations fail up front instead of looping every cycle.
+- **HTML report**: escape log-derived content (XSS); fix a crash on very large logs, lock-duration sorting, and lock-wait formatting (now matches the CLI).
+- **Determinism**: stable tie-breaks for map-derived sorts and cross-PID lock resolution.
+- **Misc**: `FormatBytes` TB scale; a mislabeled `--sql-detail` average; write/close errors surfaced on output files; a JSON buffer-aliasing bug.
+
+### Performance
+- **Parallel segment parsing** of large stderr and JSON-lines inputs: up to **1.5× faster on multi-gigabyte stderr** logs and **up to 6× on gigabyte-scale JSON-lines** logs. Plus a fast-path decoder for canonical PostgreSQL timestamps, the inline analyzers sharded across goroutines and fed in batches, bounded SQL marker scans, and 1 MB CSV read buffering.
+
+## [0.10.0] - 2026-05-07
 
 ### Added
 - **Per-event drill-down**: every event pattern gets a stable short id (`<sev>-<4-char-hash>`, e.g. `fa-6K1G`, `er-Qr5p`) shown in the `--events` output. Use `--event-detail` (`-E`) to open a full report for one or more patterns: full raw message, occurrences-over-time bar chart, first/last seen, frequency. Same drill-down available in the HTML report as a click-to-detail modal with uPlot sparkline + copy buttons.
