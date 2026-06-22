@@ -8,7 +8,7 @@ import (
 )
 
 // LogFilters defines criteria for filtering log entries.
-// Filters are applied in the order: time range, database, user, application, grep patterns.
+// Filters are applied in the order: time range, database, user, application.
 // An entry must match ALL specified filters to pass through.
 //
 // Zero values (empty slices, zero times) mean "no filtering for this criterion".
@@ -19,7 +19,6 @@ type LogFilters struct {
 	UserFilter  []string  // whitelist of users (extracted from "user=<name>")
 	ExcludeUser []string  // blacklist of users; takes precedence over UserFilter
 	AppFilter   []string  // whitelist of application names (extracted from "app=<name>")
-	GrepExpr    []string  // patterns that must ALL appear in the message (literal, not regex)
 }
 
 // FilterStream reads log entries from the input channel, applies filters,
@@ -35,7 +34,6 @@ type LogFilters struct {
 //  2. Database name
 //  3. User name (including exclusions)
 //  4. Application name
-//  5. Grep patterns (slowest, requires multiple string searches)
 //
 // IsEmpty returns true if no filters are configured.
 func (f LogFilters) IsEmpty() bool {
@@ -140,13 +138,6 @@ func PassesFilters(entry LogEntry, filters LogFilters) bool {
 		}
 	}
 
-	// Grep pattern filter (slowest - multiple string searches)
-	if len(filters.GrepExpr) > 0 {
-		if !containsAllPatterns(entry.Message, filters.GrepExpr) {
-			return false
-		}
-	}
-
 	return true
 }
 
@@ -217,21 +208,4 @@ func contains(slice []string, str string) bool {
 		}
 	}
 	return false
-}
-
-// containsAllPatterns checks if a string contains all specified patterns.
-// All patterns are treated as literal strings (case-sensitive).
-//
-// Returns true if:
-//   - patterns is empty (no filtering)
-//   - all patterns are found in the string
-//
-// Returns false if any pattern is missing.
-func containsAllPatterns(text string, patterns []string) bool {
-	for _, pattern := range patterns {
-		if !strings.Contains(text, pattern) {
-			return false
-		}
-	}
-	return true
 }

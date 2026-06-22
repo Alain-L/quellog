@@ -4,6 +4,7 @@ package cmd
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -35,6 +36,15 @@ import (
 // (delivered via cmd.Context() cancellation, set up in Execute()).
 func executeParsing(cmd *cobra.Command, args []string) error {
 	ctx := cmd.Context()
+
+	// Flag-combination constraints are static (flag-only), so validate them
+	// once here. In follow mode the per-cycle error is logged and the loop
+	// continues; if these checks lived only inside the cycle, an invalid combo
+	// (e.g. --open --follow, --follow --split) would be re-reported every tick
+	// forever instead of failing cleanly with a non-zero exit.
+	if err := validateFlagCombinations(); err != nil {
+		return err
+	}
 
 	if !followFlag {
 		return runAnalysisCycle(ctx, args)
@@ -161,10 +171,24 @@ func runAnalysisCycle(ctx context.Context, args []string) error {
 		return err
 	}
 
-	if !parsedAny.Load() {
+	// A file that parsed partially before erroring (e.g. a truncated gzip
+	// stream) still produced usable entries; ParsedEntries() catches that case
+	// so we don't claim "no files could be parsed" after already emitting an
+	// analysis for the recovered data.
+	if !parsedAny.Load() && parser.ParsedEntries() == 0 {
 		return fmt.Errorf("no files could be parsed: check that files exist, are readable, and in a supported format")
 	}
 	return nil
+}
+
+// isDetectionError reports whether err is a format-detection failure the parser
+// layer already logged with specifics, so parseFilesAsync doesn't double-log it.
+func isDetectionError(err error) bool {
+	return errors.Is(err, parser.ErrFileEmpty) ||
+		errors.Is(err, parser.ErrBinaryFile) ||
+		errors.Is(err, parser.ErrInvalidFormat) ||
+		errors.Is(err, parser.ErrUnknownFormat) ||
+		errors.Is(err, parser.ErrCompressionFailed)
 }
 
 // validateStdinUsage rejects mixing "-" (stdin) with regular file arguments.
@@ -228,7 +252,12 @@ func parseFilesAsync(ctx context.Context, files []string, out chan<- []parser.Lo
 			}
 			parser.ResetCurrentFileProgress()
 			if err := parser.ParseFile(file, out); err != nil {
-				// Error already logged in detectParser with specific details
+				// Detection failures are already logged with specifics; surface
+				// parse-stage failures (e.g. a stream that truncated mid-file)
+				// since those leave partial output.
+				if !isDetectionError(err) {
+					slog.Warn("file parsing ended early; output may be partial", "file", file, "err", err)
+				}
 				continue
 			}
 			// Reset the in-flight cursor to 0 before crediting the
@@ -258,7 +287,11 @@ func parseFilesAsync(ctx context.Context, files []string, out chan<- []parser.Lo
 					return
 				}
 				if err := parser.ParseFile(file, out); err != nil {
-					// Error already logged in detectParser with specific details
+					// Detection failures are already logged; surface parse-stage
+					// failures (partial output) as a warning.
+					if !isDetectionError(err) {
+						slog.Warn("file parsing ended early; output may be partial", "file", file, "err", err)
+					}
 					continue
 				}
 				pb.AddBytes(fileSize(file))
@@ -286,22 +319,30 @@ func buildLogFilters(beginT, endT time.Time) parser.LogFilters {
 	}
 }
 
-// processAndOutput analyzes filtered logs and outputs results in the requested format.
-func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry, startTime time.Time, totalFileSize int64, inputArgs []string, pb *progressBar) error {
-	// Validate flag compatibility
-	formatCount := 0
+// exportFormatCount counts how many distinct export formats are requested.
+func exportFormatCount() int {
+	n := 0
 	if jsonFlag || jsonCompactFlag {
-		formatCount++
+		n++
 	}
 	if yamlFlag {
-		formatCount++
+		n++
 	}
 	if mdFlag {
-		formatCount++
+		n++
 	}
 	if htmlFlag {
-		formatCount++
+		n++
 	}
+	return n
+}
+
+// validateFlagCombinations checks flag-combination constraints that depend only
+// on the flags, not on the input. Called once before follow mode starts so an
+// invalid combo aborts with a non-zero exit rather than being logged and
+// retried on every tick.
+func validateFlagCombinations() error {
+	formatCount := exportFormatCount()
 	if jsonFlag && jsonCompactFlag {
 		return fmt.Errorf("--json and --json-compact are mutually exclusive")
 	}
@@ -333,6 +374,17 @@ func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry
 		if len(sqlDetailFlag) > 0 || len(eventDetailFlag) > 0 || sqlPerformanceFlag || sqlOverviewFlag {
 			return fmt.Errorf("--split is only supported for the full HTML report (not with --sql-detail, --event-detail, --sql-performance, --sql-overview)")
 		}
+	}
+	return nil
+}
+
+// processAndOutput analyzes filtered logs and outputs results in the requested format.
+func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry, startTime time.Time, totalFileSize int64, inputArgs []string, pb *progressBar) error {
+	// Flag-combination constraints are validated once up front (see
+	// validateFlagCombinations, called from executeParsing). Here we only need
+	// the format count for dispatch and the --split short-circuit.
+	formatCount := exportFormatCount()
+	if splitFlag != "" {
 		return runSplitHTML(ctx, filteredLogs, startTime, totalFileSize, inputArgs, pb)
 	}
 

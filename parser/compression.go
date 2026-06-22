@@ -112,7 +112,38 @@ func detectCompressedFile(filename string) (LogParser, error, bool) {
 		return parser, err, true
 	}
 
+	// No known compression extension — sniff the leading magic bytes so a
+	// gzip/zstd stream with a plain or wrong extension (e.g. a renamed .log)
+	// is still decompressed instead of being rejected as binary. The base
+	// name keeps the full filename so inner-format detection falls back to
+	// the decompressed content.
+	if codec, ok := sniffCompressionMagic(filename); ok {
+		parser, err := detectCompressedParserWithError(filename, filename, codec)
+		return parser, err, true
+	}
+
 	return nil, nil, false
+}
+
+// sniffCompressionMagic returns the codec matching the file's leading magic
+// bytes (gzip: 1F 8B, zstd: 28 B5 2F FD), or ok=false if neither matches.
+// PostgreSQL text logs never start with these bytes, so the check is safe.
+func sniffCompressionMagic(filename string) (compressionCodec, bool) {
+	f, err := os.Open(filename)
+	if err != nil {
+		return compressionCodec{}, false
+	}
+	defer f.Close()
+
+	var magic [4]byte
+	n, _ := io.ReadFull(f, magic[:])
+	switch {
+	case n >= 2 && magic[0] == 0x1F && magic[1] == 0x8B:
+		return gzipCodec, true
+	case n >= 4 && magic[0] == 0x28 && magic[1] == 0xB5 && magic[2] == 0x2F && magic[3] == 0xFD:
+		return zstdCodec, true
+	}
+	return compressionCodec{}, false
 }
 
 // detectCompressedParserWithError handles detection for compressed log files using the provided codec.
@@ -123,6 +154,9 @@ func detectCompressedParserWithError(filename, baseName string, codec compressio
 		slog.Error("failed to read compressed sample", "codec", codec.name, "file", filename, "err", err)
 		return nil, fmt.Errorf("%w: %v", ErrCompressionFailed, err)
 	}
+	// A BOM inside the compressed payload would derail detection the same way
+	// it does for plain files; strip it (the parsers strip it again at parse).
+	sample = strings.TrimPrefix(sample, "\ufeff")
 
 	if isBinaryContent(sample) {
 		slog.Error("file appears to be binary after decompression", "file", filename, "codec", codec.name)

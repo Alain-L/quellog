@@ -2168,11 +2168,8 @@ func PrintEventsReport(summaries []analysis.EventSummary, topEvents []analysis.E
 		}
 
 		// Filter non-error severities if onlyErrors is true
-		if onlyErrors {
-			s := summary.Type
-			if s == "LOG" || s == "INFO" || s == "DEBUG" || s == "NOTICE" {
-				continue
-			}
+		if onlyErrors && nonErrorSeverity(summary.Type) {
+			continue
 		}
 
 		// Print Severity Main Line

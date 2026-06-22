@@ -1691,6 +1691,18 @@ type EventJSON struct {
 	Percentage float64 `json:"percentage"`
 }
 
+// nonErrorSeverity reports whether a severity sits below the error classes
+// (LOG/INFO/DEBUG/NOTICE). The --errors section drops these; --events keeps
+// every severity. Shared by the text and JSON renderers so the two never drift.
+func nonErrorSeverity(s string) bool {
+	switch s {
+	case "LOG", "INFO", "DEBUG", "NOTICE":
+		return true
+	default:
+		return false
+	}
+}
+
 type EventStatJSON struct {
 	// ID is the stable short handle (e.g. "wa-aBc1") used as the CLI
 	// selector for `--event-detail` and as the click-target id in the
@@ -1887,20 +1899,31 @@ func buildJSONData(m analysis.AggregatedMetrics, sections []string, full bool) m
 	// JSON we emit the full structure for both so downstream callers
 	// always see the same shape.
 	if (has("events") || has("errors")) && len(m.EventSummaries) > 0 {
-		events := make([]EventJSON, len(m.EventSummaries))
-		for i, ev := range m.EventSummaries {
-			events[i] = EventJSON{
+		// --errors restricts the section to the error classes (drop
+		// LOG/INFO/DEBUG/NOTICE), matching the text and markdown renderers;
+		// --events keeps every severity. Without this, --errors --json/--yaml
+		// silently emitted the full events list, identical to --events.
+		onlyErrors := has("errors") && !has("events")
+		events := make([]EventJSON, 0, len(m.EventSummaries))
+		for _, ev := range m.EventSummaries {
+			if onlyErrors && nonErrorSeverity(ev.Type) {
+				continue
+			}
+			events = append(events, EventJSON{
 				Type:       ev.Type,
 				Count:      ev.Count,
 				Percentage: ev.Percentage,
-			}
+			})
 		}
 		data["events"] = events
 
 		if len(m.TopEvents) > 0 {
-			topEvents := make([]EventStatJSON, len(m.TopEvents))
-			for i, e := range m.TopEvents {
-				topEvents[i] = EventStatJSON{
+			topEvents := make([]EventStatJSON, 0, len(m.TopEvents))
+			for _, e := range m.TopEvents {
+				if onlyErrors && nonErrorSeverity(e.Severity) {
+					continue
+				}
+				topEvents = append(topEvents, EventStatJSON{
 					ID:                e.ID,
 					Message:           e.Message,
 					Count:             e.Count,
@@ -1909,9 +1932,11 @@ func buildJSONData(m analysis.AggregatedMetrics, sections []string, full bool) m
 					SQLStateClass:     e.SQLStateClass,
 					Timestamps:        e.Timestamps,
 					TriggeringQueries: triggeringQueriesJSON(e.TriggeringQueries),
-				}
+				})
 			}
-			data["top_events"] = topEvents
+			if len(topEvents) > 0 {
+				data["top_events"] = topEvents
+			}
 		}
 	}
 

@@ -193,7 +193,7 @@ func parseSyslogReader(r io.Reader, format SyslogFormat, out chan<- []LogEntry) 
 		})
 	}
 
-	scanner := bufio.NewScanner(r)
+	scanner := bufio.NewScanner(skipBOM(r))
 	buf := make([]byte, scannerBuffer)
 	scanner.Buffer(buf, math.MaxInt32)
 
@@ -279,7 +279,7 @@ func (p *StderrParser) parseReader(r io.Reader, out chan<- []LogEntry) error {
 	bs := NewBatchSender(out)
 	defer bs.Flush()
 
-	scanner := bufio.NewScanner(r)
+	scanner := bufio.NewScanner(skipBOM(r))
 	buf := make([]byte, scannerBuffer)
 	scanner.Buffer(buf, math.MaxInt32)
 
