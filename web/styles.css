@@ -751,20 +751,22 @@
             align-items: center;
         }
 
+        /* The noise counters (NOTICE/LOG/INFO/DEBUG) sit on their own row above
+           the severity tab strip. They are NOT overlaid on the tabs: counter
+           widths vary with the data (e.g. "LOG 1845743"), so any side-by-side
+           overlay eventually collides with a tab (WARNING slipping under
+           NOTICE). A dedicated row never overlaps, at any width or count size.
+           Both groups wrap so they stay readable on narrow tiles too. */
         .events-section {
-            display: grid;
-        }
-
-        .events-section > ql-tabs {
-            grid-area: 1 / 1;
+            display: block;
         }
 
         .events-indicators {
-            grid-area: 1 / 1;
-            justify-self: end;
-            align-self: start;
-            z-index: 1;
+            margin-bottom: 0.5rem;
         }
+
+        .events-indicators .indicators-group,
+        .events-section ql-tabs > .tabs { flex-wrap: wrap; }
 
         /* Section */
         .section {
