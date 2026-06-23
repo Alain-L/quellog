@@ -20,6 +20,13 @@ var tempTableRegex = regexp.MustCompile(`pg_(temp|toast)(_\d+)+`)
 var locationRegex = regexp.MustCompile(`(?s) at character \d+.*`)
 var detailParamsRegex = regexp.MustCompile(`Key \([^)]+\)=\([^)]+\)`)
 
+// inListRegex collapses IN-list placeholders. After the byte-pass below
+// every literal becomes "?", so "IN (1, 2, 3)" and "IN ('a', 'b')" both
+// reach this regex as "in (?, ?, ?)" / "in (?, ?)". They fold into the
+// same canonical form so ORM-generated batches of varying sizes share a
+// single signature instead of exploding into one signature per cardinality.
+var inListRegex = regexp.MustCompile(`\bin \(\?(\s*,\s*\?)*\s*\)`)
+
 // ============================================================================
 // SQL Pattern Extraction (Normalization)
 // ============================================================================
@@ -57,18 +64,14 @@ func normalizeQuery(query string) string {
 			continue
 		}
 
-		// Handle double-quoted identifiers - preserve but lowercase
+		// Handle double-quoted identifiers - preserve verbatim (PostgreSQL
+		// is case-sensitive inside double quotes: "User" != "user").
 		if c == '"' {
 			buf.WriteByte('"')
 			for i+1 < len(query) {
 				i++
-				c = query[i]
-				if c >= 'A' && c <= 'Z' {
-					buf.WriteByte(c + 32)
-				} else {
-					buf.WriteByte(c)
-				}
-				if c == '"' {
+				buf.WriteByte(query[i])
+				if query[i] == '"' {
 					break
 				}
 			}
@@ -124,7 +127,90 @@ func normalizeQuery(query string) string {
 	result := buf.String()
 	// Mask temporary tables (e.g. pg_temp_123 -> pg_temp_?)
 	// This helps grouping queries that use different temp tables but same structure.
-	return tempTableRegex.ReplaceAllString(result, "pg_$1_?")
+	// The Contains guard skips the regex engine on the overwhelmingly
+	// common no-match case: a vectorized substring scan is ~30× cheaper
+	// than an NFA pass over a long query, and this runs once per
+	// normalized execution on the SQL hot path.
+	if strings.Contains(result, "pg_t") {
+		result = tempTableRegex.ReplaceAllString(result, "pg_$1_?")
+	}
+	// Collapse IN-list placeholders (e.g. "in (?, ?, ?)" -> "in (...)")
+	// so the same query with batches of different cardinality groups under
+	// a single signature. Same guard rationale: the pattern can only
+	// match when the literal "in (?" is present. The collapse itself is
+	// a hand-rolled byte scan: ORM batches routinely carry hundreds of
+	// placeholders per list and the regex NFA was the single hottest
+	// spot of the SQL goroutine on extended-protocol logs.
+	if strings.Contains(result, "in (?") {
+		result = collapseInLists(result)
+	}
+	return result
+}
+
+// collapseInLists rewrites every "in (?, ?, …, ?)" placeholder list as
+// "in (...)". Byte-level equivalent of inListRegex
+// (`\bin \(\?(\s*,\s*\?)*\s*\)`): the match starts at a word-bounded
+// "in (", the first character inside the parens must be '?', then any
+// number of ",\s*?" groups and optional trailing whitespace before the
+// closing ')'. Anything else leaves the segment untouched.
+func collapseInLists(s string) string {
+	var b strings.Builder
+	out := 0 // bytes of s already flushed to b (b empty until first match)
+	i := 0
+	for {
+		rel := strings.Index(s[i:], "in (?")
+		if rel == -1 {
+			break
+		}
+		start := i + rel
+		// Word boundary: "join (?" must not match.
+		if start > 0 && isIdentifierChar(s[start-1]) {
+			i = start + 2
+			continue
+		}
+		// Scan the list body: s[start+4] == '?', then (\s*,\s*\?)*\s*')'.
+		j := start + 5 // first byte after the leading '?'
+		valid := false
+		for j < len(s) {
+			// Skip whitespace.
+			for j < len(s) && (s[j] == ' ' || s[j] == '\t' || s[j] == '\n' || s[j] == '\r') {
+				j++
+			}
+			if j >= len(s) {
+				break
+			}
+			if s[j] == ')' {
+				valid = true
+				j++
+				break
+			}
+			if s[j] != ',' {
+				break
+			}
+			j++ // consume ','
+			for j < len(s) && (s[j] == ' ' || s[j] == '\t' || s[j] == '\n' || s[j] == '\r') {
+				j++
+			}
+			if j >= len(s) || s[j] != '?' {
+				break
+			}
+			j++ // consume '?'
+		}
+		if !valid {
+			i = start + 5
+			continue
+		}
+		// Flush the prefix and the canonical replacement.
+		b.WriteString(s[out:start])
+		b.WriteString("in (...)")
+		out = j
+		i = j
+	}
+	if out == 0 {
+		return s // no match — zero allocation
+	}
+	b.WriteString(s[out:])
+	return b.String()
 }
 
 func isIdentifierChar(c byte) bool {

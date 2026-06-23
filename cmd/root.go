@@ -53,14 +53,16 @@ var (
 	checkpointsFlag bool // --checkpoints: Print only checkpoints section
 	connectionsFlag bool // --connections: Print only connections section
 	clientsFlag     bool // --clients: Print only clients section
+	serverFlag      bool // --server: Print only server lifecycle section (incl. replication sub-zone)
 
 	// Output format flags
-	jsonFlag        bool // --json: Export results in JSON format
-	jsonCompactFlag bool // --json-compact: Export JSON without indentation (smaller output)
-	yamlFlag        bool // --yaml: Export results in YAML format
-	mdFlag          bool // --md: Export results in Markdown format
-	htmlFlag        bool // --html: Export results as standalone HTML report
-	openFlag        bool // --open: Open the generated HTML report in the default browser
+	jsonFlag        bool   // --json: Export results in JSON format
+	jsonCompactFlag bool   // --json-compact: Export JSON without indentation (smaller output)
+	yamlFlag        bool   // --yaml: Export results in YAML format
+	mdFlag          bool   // --md: Export results in Markdown format
+	htmlFlag        bool   // --html: Export results as standalone HTML report
+	splitFlag       string // --split: split the HTML report into selectable periods (e.g. 1d, 3h, 5m)
+	openFlag        bool   // --open: Open the generated HTML report in the default browser
 
 	// Report completeness flag
 	fullFlag bool // --full: Display comprehensive report with all sections and detailed SQL analysis
@@ -219,6 +221,8 @@ func init() {
 		"Print only the connections section")
 	rootCmd.Flags().BoolVar(&clientsFlag, "clients", false,
 		"Print only the clients section")
+	rootCmd.Flags().BoolVar(&serverFlag, "server", false,
+		"Print only the server lifecycle section (incl. replication sub-zone)")
 
 	// Output format flags
 	rootCmd.PersistentFlags().BoolVarP(&jsonFlag, "json", "J", false,
@@ -231,6 +235,8 @@ func init() {
 		"Export results in Markdown format")
 	rootCmd.PersistentFlags().BoolVarP(&htmlFlag, "html", "H", false,
 		"Export results as standalone HTML report")
+	rootCmd.PersistentFlags().StringVar(&splitFlag, "split", "",
+		"Split the HTML report into selectable periods of this interval (e.g. 1d, 3h, 5m); requires --html")
 	rootCmd.PersistentFlags().BoolVar(&openFlag, "open", false,
 		"Open the generated HTML report in the default browser (requires --html)")
 

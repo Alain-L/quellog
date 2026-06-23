@@ -10,12 +10,14 @@ This _quellog_ report summarizes **16** log entries collected between 20 Apr 202
 03:00 - 03:00 | ■ 1 s
 ```
 
-|  |  |  |  |
-|---|---:|---|---:|
-| Total query duration | 1.51 s | Total queries parsed | 16 |
-| Total unique queries | 3 | Top 1% slow queries | 1 |
-| Query max duration | 1.00 s | Query min duration | 1 ms |
-| Query median duration | 1 ms | Query 99% max duration | 1.00 s |
+- **Total query duration**   : 1.51 s
+- **Total queries parsed**   : 16
+- **Total unique queries**   : 3
+- **Top 1% slow queries**    : 1
+- **Query max duration**     : 1.00 s
+- **Query min duration**     : 1 ms
+- **Query median duration**  : 1 ms
+- **Query 99% max duration** : 1.00 s
 
 ### Query duration distribution
 
@@ -32,27 +34,27 @@ This _quellog_ report summarizes **16** log entries collected between 20 Apr 202
 
 **Slowest queries (top 10)**
 
-| SQLID | Max | Avg | Count | Query |
-|---|---:|---:|---:|---|
-| se-gJPto2 | 1.00 s | 1.00 s | 1 | select pg_sleep(?) |
-| se-gW0ABY | 100 ms | 100 ms | 5 | select id from big_table where indexed_col = ? |
-| se-DAI8zf | 1 ms | 1 ms | 10 | select now() |
+| SQLID     |    Max |    Avg | Count | Query                                          |
+|-----------|-------:|-------:|------:|------------------------------------------------|
+| se-gJPto2 | 1.00 s | 1.00 s |     1 | select pg_sleep(?)                             |
+| se-gW0ABY | 100 ms | 100 ms |     5 | select id from big_table where indexed_col = ? |
+| se-DAI8zf |   1 ms |   1 ms |    10 | select now()                                   |
 
 **Most frequent queries (top 10)**
 
-| SQLID | Count | Avg | Max | Query |
-|---|---:|---:|---:|---|
-| se-DAI8zf | 10 | 1 ms | 1 ms | select now() |
-| se-gW0ABY | 5 | 100 ms | 100 ms | select id from big_table where indexed_col = ? |
-| se-gJPto2 | 1 | 1.00 s | 1.00 s | select pg_sleep(?) |
+| SQLID     | Count |    Avg |    Max | Query                                          |
+|-----------|------:|-------:|-------:|------------------------------------------------|
+| se-DAI8zf |    10 |   1 ms |   1 ms | select now()                                   |
+| se-gW0ABY |     5 | 100 ms | 100 ms | select id from big_table where indexed_col = ? |
+| se-gJPto2 |     1 | 1.00 s | 1.00 s | select pg_sleep(?)                             |
 
 **Most time consuming queries (top 10)**
 
-| SQLID | Total | Avg | Count | Query |
-|---|---:|---:|---:|---|
-| se-gJPto2 | 1.00 s | 1.00 s | 1 | select pg_sleep(?) |
-| se-gW0ABY | 500 ms | 100 ms | 5 | select id from big_table where indexed_col = ? |
-| se-DAI8zf | 10 ms | 1 ms | 10 | select now() |
+| SQLID     |  Total |    Avg | Count | Query                                          |
+|-----------|-------:|-------:|------:|------------------------------------------------|
+| se-gJPto2 | 1.00 s | 1.00 s |     1 | select pg_sleep(?)                             |
+| se-gW0ABY | 500 ms | 100 ms |     5 | select id from big_table where indexed_col = ? |
+| se-DAI8zf |  10 ms |   1 ms |    10 | select now()                                   |
 
 ## EVENTS
 
@@ -67,40 +69,40 @@ This _quellog_ report summarizes **16** log entries collected between 20 Apr 202
 
 ### USERS
 
-| User | Count | % |
-|---|---:|---:|
-| app | 16 | 100.0% |
+| User | Count |      % |
+|------|------:|-------:|
+| app  |    16 | 100.0% |
 
 ### APPS
 
-| App | Count | % |
-|---|---:|---:|
-| psql | 16 | 100.0% |
+| App  | Count |      % |
+|------|------:|-------:|
+| psql |    16 | 100.0% |
 
 ### DATABASES
 
-| Database | Count | % |
-|---|---:|---:|
-| appdb | 16 | 100.0% |
+| Database | Count |      % |
+|----------|------:|-------:|
+| appdb    |    16 | 100.0% |
 
 ### HOSTS
 
-| Host | Count | % |
-|---|---:|---:|
-| 10.0.0.31 | 10 | 62.5% |
-| 10.0.0.30 | 6 | 37.5% |
+| Host      | Count |     % |
+|-----------|------:|------:|
+| 10.0.0.31 |    10 | 62.5% |
+| 10.0.0.30 |     6 | 37.5% |
 
 ### USER × DATABASE
 
-| User | Database | Count | % |
-|---|---|---:|---:|
-| app | appdb | 16 | 100.0% |
+| User | Database | Count |      % |
+|------|----------|------:|-------:|
+| app  | appdb    |    16 | 100.0% |
 
 ### USER × HOST
 
-| User | Host | Count | % |
-|---|---|---:|---:|
-| app | 10.0.0.31 | 10 | 62.5% |
-| app | 10.0.0.30 | 6 | 37.5% |
+| User | Host      | Count |     % |
+|------|-----------|------:|------:|
+| app  | 10.0.0.31 |    10 | 62.5% |
+| app  | 10.0.0.30 |     6 | 37.5% |
 
 

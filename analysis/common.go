@@ -38,38 +38,6 @@ type DurationStats struct {
 	Median time.Duration
 }
 
-// CalculateDurationStats computes min, max, avg, and median for a set of durations.
-func CalculateDurationStats(durations []time.Duration) DurationStats {
-	if len(durations) == 0 {
-		return DurationStats{}
-	}
-
-	min := durations[0]
-	max := durations[0]
-	var sum time.Duration
-
-	for _, d := range durations {
-		if d < min {
-			min = d
-		}
-		if d > max {
-			max = d
-		}
-		sum += d
-	}
-
-	avg := sum / time.Duration(len(durations))
-	median := CalculateMedian(durations)
-
-	return DurationStats{
-		Count:  len(durations),
-		Min:    min,
-		Max:    max,
-		Avg:    avg,
-		Median: median,
-	}
-}
-
 // StreamingDurationStats accumulates duration statistics in O(1) memory.
 // Uses the P² algorithm (Jain & Chlamtac, 1985) for streaming median estimation.
 type StreamingDurationStats struct {
@@ -237,35 +205,4 @@ func CalculateMedian(durations []time.Duration) time.Duration {
 		return sorted[n/2]
 	}
 	return (sorted[n/2-1] + sorted[n/2]) / 2
-}
-
-// CalculateDurationDistribution groups durations into buckets.
-func CalculateDurationDistribution(durations []time.Duration) map[string]int {
-	dist := map[string]int{
-		"< 1s":         0,
-		"1s - 1min":    0,
-		"1min - 30min": 0,
-		"30min - 2h":   0,
-		"2h - 5h":      0,
-		"> 5h":         0,
-	}
-
-	for _, d := range durations {
-		switch {
-		case d < time.Second:
-			dist["< 1s"]++
-		case d < time.Minute:
-			dist["1s - 1min"]++
-		case d < 30*time.Minute:
-			dist["1min - 30min"]++
-		case d < 2*time.Hour:
-			dist["30min - 2h"]++
-		case d < 5*time.Hour:
-			dist["2h - 5h"]++
-		default:
-			dist["> 5h"]++
-		}
-	}
-
-	return dist
 }

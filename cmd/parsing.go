@@ -119,5 +119,13 @@ func parseDuration(s string) (time.Duration, error) {
 	if err != nil {
 		return 0, fmt.Errorf("time: invalid number before %q in duration %q", last, s)
 	}
-	return time.Duration(n) * multiplier, nil
+	d := time.Duration(n) * multiplier
+	// Guard against int64-nanosecond overflow: time.Duration tops out near
+	// 292 years, so a large N with d/w/y wraps around. Without this check
+	// "9999y" silently becomes ~55y (positive wrap) and absurd values can
+	// flip negative — both yield a wrong window instead of a clean error.
+	if n != 0 && d/multiplier != time.Duration(n) {
+		return 0, fmt.Errorf("duration %q is too large", s)
+	}
+	return d, nil
 }

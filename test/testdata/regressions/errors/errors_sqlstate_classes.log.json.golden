@@ -61,6 +61,13 @@
       "sql_state_class": "57",
       "timestamps": [
         1776664811200
+      ],
+      "triggering_queries": [
+        {
+          "id": "se-gJPto2",
+          "normalized_query": "select pg_sleep(?)",
+          "count": 1
+        }
       ]
     },
     {
@@ -105,6 +112,13 @@
       "sql_state_class": "22",
       "timestamps": [
         1776664802300
+      ],
+      "triggering_queries": [
+        {
+          "id": "se-5UEm9M",
+          "normalized_query": "select ? / ?",
+          "count": 1
+        }
       ]
     },
     {
@@ -171,6 +185,13 @@
       "sql_state_class": "42",
       "timestamps": [
         1776664807800
+      ],
+      "triggering_queries": [
+        {
+          "id": "se-hIlAiz",
+          "normalized_query": "select * form users",
+          "count": 1
+        }
       ]
     },
     {
@@ -182,6 +203,13 @@
       "sql_state_class": "22",
       "timestamps": [
         1776664801200
+      ],
+      "triggering_queries": [
+        {
+          "id": "in-OZYL9z",
+          "normalized_query": "insert into short_col values (?)",
+          "count": 1
+        }
       ]
     }
   ],

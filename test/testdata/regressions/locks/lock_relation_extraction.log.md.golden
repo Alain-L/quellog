@@ -33,11 +33,11 @@ This _quellog_ report summarizes **3** log entries collected between 19 Apr 2026
 
 ### Waiting Queries
 
-| SQLID | Query | Acquired | Waiting | Total Wait |
-|---|---|---:|---:|---:|
-| up-L2dNae | update customers set active = false where id = ? | 0 | 1 | 1.20 s |
-| up-dWz4qk | update orders set total = ? where id = ? | 0 | 1 | 1.10 s |
-| up-ECQ1ze | update orders set status = ? where id = ? | 0 | 1 | 1.05 s |
+| SQLID     | Query                                            | Acquired | Waiting | Total Wait |
+|-----------|--------------------------------------------------|---------:|--------:|-----------:|
+| up-L2dNae | update customers set active = false where id = ? |        0 |       1 |     1.20 s |
+| up-dWz4qk | update orders set total = ? where id = ?         |        0 |       1 |     1.10 s |
+| up-ECQ1ze | update orders set status = ? where id = ?        |        0 |       1 |     1.05 s |
 
 ## CLIENTS
 
@@ -48,42 +48,42 @@ This _quellog_ report summarizes **3** log entries collected between 19 Apr 2026
 
 ### USERS
 
-| User | Count | % |
-|---|---:|---:|
-| app | 3 | 100.0% |
+| User | Count |      % |
+|------|------:|-------:|
+| app  |     3 | 100.0% |
 
 ### APPS
 
-| App | Count | % |
-|---|---:|---:|
-| psql | 3 | 100.0% |
+| App  | Count |      % |
+|------|------:|-------:|
+| psql |     3 | 100.0% |
 
 ### DATABASES
 
-| Database | Count | % |
-|---|---:|---:|
-| appdb | 3 | 100.0% |
+| Database | Count |      % |
+|----------|------:|-------:|
+| appdb    |     3 | 100.0% |
 
 ### HOSTS
 
-| Host | Count | % |
-|---|---:|---:|
-| 10.0.0.20 | 1 | 33.3% |
-| 10.0.0.21 | 1 | 33.3% |
-| 10.0.0.22 | 1 | 33.3% |
+| Host      | Count |     % |
+|-----------|------:|------:|
+| 10.0.0.20 |     1 | 33.3% |
+| 10.0.0.21 |     1 | 33.3% |
+| 10.0.0.22 |     1 | 33.3% |
 
 ### USER × DATABASE
 
-| User | Database | Count | % |
-|---|---|---:|---:|
-| app | appdb | 3 | 100.0% |
+| User | Database | Count |      % |
+|------|----------|------:|-------:|
+| app  | appdb    |     3 | 100.0% |
 
 ### USER × HOST
 
-| User | Host | Count | % |
-|---|---|---:|---:|
-| app | 10.0.0.20 | 1 | 33.3% |
-| app | 10.0.0.21 | 1 | 33.3% |
-| app | 10.0.0.22 | 1 | 33.3% |
+| User | Host      | Count |     % |
+|------|-----------|------:|------:|
+| app  | 10.0.0.20 |     1 | 33.3% |
+| app  | 10.0.0.21 |     1 | 33.3% |
+| app  | 10.0.0.22 |     1 | 33.3% |
 
 

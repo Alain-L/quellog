@@ -36,9 +36,9 @@ This _quellog_ report summarizes **2** log entries collected between 19 Apr 2026
 
 ### Waiting Queries
 
-| SQLID | Query | Acquired | Waiting | Total Wait |
-|---|---|---:|---:|---:|
-| up-pinkPO | update accounts set balance = balance - ? where id = ? | 0 | 1 | 1.00 s |
+| SQLID     | Query                                                  | Acquired | Waiting | Total Wait |
+|-----------|--------------------------------------------------------|---------:|--------:|-----------:|
+| up-pinkPO | update accounts set balance = balance - ? where id = ? |        0 |       1 |     1.00 s |
 
 ## CLIENTS
 
@@ -49,38 +49,38 @@ This _quellog_ report summarizes **2** log entries collected between 19 Apr 2026
 
 ### USERS
 
-| User | Count | % |
-|---|---:|---:|
-| app | 2 | 100.0% |
+| User | Count |      % |
+|------|------:|-------:|
+| app  |     2 | 100.0% |
 
 ### APPS
 
-| App | Count | % |
-|---|---:|---:|
-| psql | 2 | 100.0% |
+| App  | Count |      % |
+|------|------:|-------:|
+| psql |     2 | 100.0% |
 
 ### DATABASES
 
-| Database | Count | % |
-|---|---:|---:|
-| appdb | 2 | 100.0% |
+| Database | Count |      % |
+|----------|------:|-------:|
+| appdb    |     2 | 100.0% |
 
 ### HOSTS
 
-| Host | Count | % |
-|---|---:|---:|
-| 10.0.0.1 | 2 | 100.0% |
+| Host     | Count |      % |
+|----------|------:|-------:|
+| 10.0.0.1 |     2 | 100.0% |
 
 ### USER × DATABASE
 
-| User | Database | Count | % |
-|---|---|---:|---:|
-| app | appdb | 2 | 100.0% |
+| User | Database | Count |      % |
+|------|----------|------:|-------:|
+| app  | appdb    |     2 | 100.0% |
 
 ### USER × HOST
 
-| User | Host | Count | % |
-|---|---|---:|---:|
-| app | 10.0.0.1 | 2 | 100.0% |
+| User | Host     | Count |      % |
+|------|----------|------:|-------:|
+| app  | 10.0.0.1 |     2 | 100.0% |
 
 

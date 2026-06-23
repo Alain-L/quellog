@@ -1,6 +1,6 @@
 // Filter bar UI and logic for quellog web app
 
-import { esc } from './utils.js';
+import { esc, escAttr } from './utils.js';
 import {
     originalDimensions, currentFilters, appliedFilters, availableDimensions, openDropdown,
     timeFilterMode, timeFilterStartTs, timeFilterEndTs, timeFilterDurationMins,
@@ -215,9 +215,9 @@ export function populateDropdown(category, values) {
     list.innerHTML = values.map(v => {
         const name = typeof v === 'object' ? v.name : v;
         const selected = currentFilters[category]?.includes(name) ? 'selected' : '';
-        return `<div class="filter-dropdown-item ${selected}" data-value="${esc(name)}">
+        return `<div class="filter-dropdown-item ${selected}" data-value="${escAttr(name)}">
             <input type="checkbox" class="filter-item-checkbox" ${selected ? 'checked' : ''} tabindex="-1">
-            <span class="filter-dropdown-item-label" title="${esc(name)}">${esc(name)}</span>
+            <span class="filter-dropdown-item-label" title="${escAttr(name)}">${esc(name)}</span>
         </div>`;
     }).join('');
     updateToggleAllCheckbox(category);

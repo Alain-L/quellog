@@ -1,0 +1,13 @@
+2026-04-20 09:00:00.000 UTC [55001]: [1-1] user=app,db=appdb LOG:  duration: 0.5 ms  statement: SELECT 1
+2026-04-20 09:00:01.000 UTC [55001]: [2-1] user=app,db=appdb ERROR:  invalid input syntax for type integer: "foo"
+2026-04-20 09:00:01.000 UTC [55001]: [3-1] user=app,db=appdb DETAIL:  Failing row contains (1, 2, foo).
+2026-04-20 09:00:01.000 UTC [55001]: [4-1] user=app,db=appdb HINT:  Use INT4 for the column.
+2026-04-20 09:00:01.000 UTC [55001]: [5-1] user=app,db=appdb STATEMENT:  INSERT INTO orders VALUES (1, 2, 'foo')
+2026-04-20 09:00:02.000 UTC [55002]: [1-1] user=app,db=appdb ERROR:  invalid input syntax for type integer: "bar"
+2026-04-20 09:00:02.000 UTC [55002]: [2-1] user=app,db=appdb DETAIL:  Failing row contains (3, 4, bar).
+2026-04-20 09:00:02.000 UTC [55002]: [3-1] user=app,db=appdb STATEMENT:  INSERT INTO orders VALUES (3, 4, 'bar')
+2026-04-20 09:00:03.000 UTC [55003]: [1-1] user=app,db=appdb ERROR:  invalid input syntax for type integer: "baz"
+2026-04-20 09:00:03.000 UTC [55003]: [2-1] user=app,db=appdb STATEMENT:  INSERT INTO orders VALUES (3, 4, 'bar')
+2026-04-20 09:00:04.000 UTC [55004]: [1-1] user=app,db=appdb ERROR:  relation "users" does not exist
+2026-04-20 09:00:04.000 UTC [55004]: [2-1] user=app,db=appdb STATEMENT:  SELECT * FROM users WHERE id = 7
+2026-04-20 09:00:05.000 UTC [55005]: [1-1] user=app,db=appdb WARNING:  there is no transaction in progress

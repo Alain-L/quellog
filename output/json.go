@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"sort"
 	"strconv"
 	"time"
@@ -49,15 +50,81 @@ type QueryExecutionJSON struct {
 }
 
 type QueryStatJSON struct {
-	ID              string  `json:"id"`
-	NormalizedQuery string  `json:"normalized_query"`
-	RawQuery        string  `json:"raw_query"`
-	Type            string  `json:"type"`
-	Count           int     `json:"count"`
-	TotalTime       float64 `json:"total_time_ms"`
-	AvgTime         float64 `json:"avg_time_ms"`
-	MaxTime         float64 `json:"max_time_ms"`
-	Plan            string  `json:"plan,omitempty"`
+	ID              string          `json:"id"`
+	NormalizedQuery string          `json:"normalized_query"`
+	RawQuery        string          `json:"raw_query"`
+	Type            string          `json:"type"`
+	Count           int             `json:"count"`
+	TotalTime       float64         `json:"total_time_ms"`
+	AvgTime         float64         `json:"avg_time_ms"`
+	MaxTime         float64         `json:"max_time_ms"`
+	PreparedNames   []string        `json:"prepared_names,omitempty"`
+	SlowestRun      *SlowestRunJSON `json:"slowest_run,omitempty"`
+	Plan            string          `json:"plan,omitempty"`
+	// Top-N (db/user/app/host) that executed this query — surfaced
+	// in the HTML modal's DIMENSIONS block. Populated in a single
+	// pass over the executions storage by TopDimensionsByQuery.
+	TopDatabases []NamedCountJSON `json:"top_databases,omitempty"`
+	TopUsers     []NamedCountJSON `json:"top_users,omitempty"`
+	TopApps      []NamedCountJSON `json:"top_apps,omitempty"`
+	TopHosts     []NamedCountJSON `json:"top_hosts,omitempty"`
+}
+
+// SlowestRunJSON exposes the parameter values of the slowest observed
+// execution (extended protocol, "DETAIL: parameters:" pairing).
+type SlowestRunJSON struct {
+	DurationMs      float64 `json:"duration_ms"`
+	Timestamp       string  `json:"timestamp"`
+	PID             string  `json:"pid"`
+	Parameters      string  `json:"parameters"`
+	QueryWithParams string  `json:"query_with_params"`
+	// Client identity behind the slowest run. Empty when the source
+	// log line did not carry the corresponding prefix field.
+	Database string `json:"database,omitempty"`
+	User     string `json:"user,omitempty"`
+	App      string `json:"app,omitempty"`
+	Host     string `json:"host,omitempty"`
+}
+
+// slowestRunJSON builds a SlowestRunJSON from a QueryStat, returning nil
+// when no slowest-run information was paired with the query.
+func slowestRunJSON(s *analysis.QueryStat) *SlowestRunJSON {
+	if s == nil || s.SlowestRun == nil {
+		return nil
+	}
+	sr := s.SlowestRun
+	return &SlowestRunJSON{
+		DurationMs:      sr.DurationMs,
+		Timestamp:       sr.Timestamp.Format("2006-01-02T15:04:05"),
+		PID:             sr.PID,
+		Parameters:      sr.Parameters,
+		QueryWithParams: SubstituteParameters(s.RawQuery, sr.Parameters),
+		Database:        sr.Database,
+		User:            sr.User,
+		App:             sr.App,
+		Host:            sr.Host,
+	}
+}
+
+// NamedCountJSON is the JSON shape of one DimensionCount row. Used in
+// SQLDetailJSON.TopDatabases/Users/Apps/Hosts.
+type NamedCountJSON struct {
+	Name  string `json:"name"`
+	Count int    `json:"count"`
+}
+
+// dimensionCountsJSON converts a slice of analysis.DimensionCount into
+// the JSON-friendly form. Returns nil when the source is empty so the
+// caller can rely on omitempty to keep the wire shape stable.
+func dimensionCountsJSON(rows []analysis.DimensionCount) []NamedCountJSON {
+	if len(rows) == 0 {
+		return nil
+	}
+	out := make([]NamedCountJSON, len(rows))
+	for i, r := range rows {
+		out[i] = NamedCountJSON{Name: r.Name, Count: r.Count}
+	}
+	return out
 }
 
 // SQL Overview JSON structures (for --sql-overview --json)
@@ -105,16 +172,39 @@ type QueryTypeCountJSON struct {
 // SQL Detail JSON structures (for --sql-detail --json)
 
 type SQLDetailJSON struct {
-	ID              string                `json:"id"`
-	NormalizedQuery string                `json:"normalized_query"`
-	RawQuery        string                `json:"raw_query,omitempty"`
-	Type            string                `json:"type"`
-	Category        string                `json:"category"`
-	Statistics      *QueryDetailStatsJSON `json:"statistics,omitempty"`
-	Executions      lazyExecutions        `json:"executions,omitempty"`
-	TempFiles       *QueryTempFilesJSON   `json:"temp_files,omitempty"`
-	Locks           *QueryLocksJSON       `json:"locks,omitempty"`
-	Plan            string                `json:"plan,omitempty"`
+	ID              string   `json:"id"`
+	NormalizedQuery string   `json:"normalized_query"`
+	RawQuery        string   `json:"raw_query,omitempty"`
+	Type            string   `json:"type"`
+	Category        string   `json:"category"`
+	PreparedNames   []string `json:"prepared_names,omitempty"`
+	// Events promoted right after the identification block so the
+	// operational signal sits at the top of the JSON document, mirror
+	// of the text / markdown / HTML placement.
+	Events     []SQLDetailEventJSON  `json:"events,omitempty"`
+	Statistics *QueryDetailStatsJSON `json:"statistics,omitempty"`
+	Executions lazyExecutions        `json:"executions,omitempty"`
+	// Top-N (db/user/app/host) that ran this query. Populated by
+	// ExportSQLDetailJSON via SQLMetrics.TopDimensionsForID.
+	TopDatabases []NamedCountJSON    `json:"top_databases,omitempty"`
+	TopUsers     []NamedCountJSON    `json:"top_users,omitempty"`
+	TopApps      []NamedCountJSON    `json:"top_apps,omitempty"`
+	TopHosts     []NamedCountJSON    `json:"top_hosts,omitempty"`
+	TempFiles    *QueryTempFilesJSON `json:"temp_files,omitempty"`
+	Locks        *QueryLocksJSON     `json:"locks,omitempty"`
+	SlowestRun   *SlowestRunJSON     `json:"slowest_run,omitempty"`
+	Plan         string              `json:"plan,omitempty"`
+}
+
+// SQLDetailEventJSON is one row of the EVENTS section in the
+// --sql-detail JSON output. event_id is shared with top_events[].id so
+// downstream tooling can join the two and look up the pattern's total
+// count on the events side without us duplicating it here.
+type SQLDetailEventJSON struct {
+	EventID      string `json:"event_id"`
+	Severity     string `json:"severity"`
+	Message      string `json:"message"`
+	TriggerCount int    `json:"triggered_by_query"`
 }
 
 type QueryDetailStatsJSON struct {
@@ -181,6 +271,7 @@ type TempFilesJSON struct {
 	TotalMessages int                     `json:"total_messages"`
 	TotalSize     string                  `json:"total_size"`
 	AvgSize       string                  `json:"avg_size"`
+	MaxSize       string                  `json:"max_size"`
 	Events        lazyTempFileEvents      `json:"events"`
 	Queries       []TempFileQueryStatJSON `json:"queries,omitempty"`
 }
@@ -197,6 +288,9 @@ type TempFileQueryStatJSON struct {
 	RawQuery        string `json:"raw_query"`
 	Count           int    `json:"count"`
 	TotalSize       string `json:"total_size"`
+	MinSize         string `json:"min_size"`
+	MaxSize         string `json:"max_size"`
+	AvgSize         string `json:"avg_size"`
 }
 
 type MaintenanceJSON struct {
@@ -206,6 +300,60 @@ type MaintenanceJSON struct {
 	VacuumTableCounts     map[string]int    `json:"vacuum_table_counts"`
 	AnalyzeTableCounts    map[string]int    `json:"analyze_table_counts"`
 	VacuumSpaceRecovered  map[string]string `json:"vacuum_space_recovered"`
+
+	// Continuation-line aggregates surfaced from PG's autovacuum log
+	// blocks. Every field is omitempty so logs that never carry the
+	// continuation lines (older PG versions, log_autovacuum_min_duration
+	// off, …) keep the same JSON shape they always had.
+	TotalVacuumElapsedSeconds  float64               `json:"total_vacuum_elapsed_seconds,omitempty"`
+	TotalTuplesRemoved         int64                 `json:"total_tuples_removed,omitempty"`
+	TotalTuplesNotYetRemovable int64                 `json:"total_tuples_not_yet_removable,omitempty"`
+	TotalBufferHits            int64                 `json:"total_buffer_hits,omitempty"`
+	TotalBufferMisses          int64                 `json:"total_buffer_misses,omitempty"`
+	TotalBufferDirtied         int64                 `json:"total_buffer_dirtied,omitempty"`
+	TotalBufferWritten         int64                 `json:"total_buffer_written,omitempty"`
+	TotalWALRecords            int64                 `json:"total_wal_records,omitempty"`
+	TotalWALBytes              int64                 `json:"total_wal_bytes,omitempty"`
+	TopVacuumTables            []VacuumTableStatJSON `json:"top_vacuum_tables,omitempty"`
+	XminBlockedTables          []VacuumTableStatJSON `json:"xmin_blocked_tables,omitempty"`
+	SlowestVacuum              *VacuumSampleJSON     `json:"slowest_vacuum,omitempty"`
+
+	// Autoanalyze aggregates parsed from the system-usage continuation
+	// line PostgreSQL emits after autoanalyze blocks. analyze stats are
+	// kept distinct from vacuum stats because the underlying log block
+	// only carries elapsed (no buffer / WAL / tuples), so consumers can
+	// keep their renderers shape-symmetric with the vacuum side.
+	TotalAnalyzeElapsedSeconds float64               `json:"total_analyze_elapsed_seconds,omitempty"`
+	TopAnalyzeTablesByElapsed  []VacuumTableStatJSON `json:"top_analyze_tables_by_elapsed,omitempty"`
+}
+
+// VacuumTableStatJSON is the per-table aggregate exposed in the
+// top-N table lists of the maintenance section.
+type VacuumTableStatJSON struct {
+	Table                 string  `json:"table"`
+	VacuumCount           int     `json:"vacuum_count"`
+	TotalElapsedSeconds   float64 `json:"total_elapsed_seconds"`
+	MaxElapsedSeconds     float64 `json:"max_elapsed_seconds,omitempty"`
+	TuplesRemoved         int64   `json:"tuples_removed,omitempty"`
+	TuplesNotYetRemovable int64   `json:"tuples_not_yet_removable,omitempty"`
+	BufferHits            int64   `json:"buffer_hits,omitempty"`
+	BufferMisses          int64   `json:"buffer_misses,omitempty"`
+	BufferDirtied         int64   `json:"buffer_dirtied,omitempty"`
+	BufferWritten         int64   `json:"buffer_written,omitempty"`
+	WALRecords            int64   `json:"wal_records,omitempty"`
+	WALBytes              int64   `json:"wal_bytes,omitempty"`
+}
+
+// VacuumSampleJSON captures the worst-elapsed single autovacuum
+// observation, surfaced as the headline "anomaly" of the maintenance
+// section when the log carries continuation lines.
+type VacuumSampleJSON struct {
+	Table                 string  `json:"table"`
+	Timestamp             string  `json:"timestamp,omitempty"`
+	ElapsedSeconds        float64 `json:"elapsed_seconds"`
+	PagesRemoved          int64   `json:"pages_removed,omitempty"`
+	TuplesRemoved         int64   `json:"tuples_removed,omitempty"`
+	TuplesNotYetRemovable int64   `json:"tuples_not_yet_removable,omitempty"`
 }
 
 type LocksJSON struct {
@@ -278,6 +426,87 @@ type CheckpointsJSON struct {
 	WarningMinIntervalSeconds int      `json:"warning_min_interval_seconds,omitempty"`
 	WarningMaxIntervalSeconds int      `json:"warning_max_interval_seconds,omitempty"`
 	WarningEvents             []string `json:"warning_events,omitempty"`
+}
+
+// ServerJSON exposes server lifecycle metrics in the JSON output.
+// Counters are not omitempty (a zero is meaningful), slices and the
+// nested maps use omitempty so absent markers do not bloat the output.
+type ServerJSON struct {
+	Starts     int      `json:"starts"`
+	StartTimes []string `json:"start_times,omitempty"`
+
+	Reloads     int      `json:"reloads"`
+	ReloadTimes []string `json:"reload_times,omitempty"`
+
+	ShutdownsFast      int `json:"shutdowns_fast"`
+	ShutdownsImmediate int `json:"shutdowns_immediate"`
+	ShutdownsSmart     int `json:"shutdowns_smart"`
+
+	ShutdownCompleted int `json:"shutdown_completed,omitempty"`
+	CrashRecoveries   int `json:"crash_recoveries,omitempty"`
+	Interrupted       int `json:"interrupted,omitempty"`
+
+	BackendCrashes int            `json:"backend_crashes,omitempty"`
+	SignalCounts   map[string]int `json:"signal_counts,omitempty"`
+
+	AuxProcessExits int `json:"auxiliary_process_exits,omitempty"`
+
+	ParameterChanges []ServerParameterChangeJSON `json:"parameter_changes,omitempty"`
+	Timeline         []ServerTimelineEventJSON   `json:"timeline,omitempty"`
+}
+
+// ServerParameterChangeJSON is one row in the "parameter changes" table.
+// Old is empty for SIGHUP-driven changes (PG does not log the previous
+// value) but the field is kept so downstream tools see a consistent
+// schema.
+type ServerParameterChangeJSON struct {
+	Parameter string `json:"parameter"`
+	Old       string `json:"old,omitempty"`
+	New       string `json:"new"`
+	Timestamp string `json:"timestamp"`
+}
+
+// ServerTimelineEventJSON is one event in the compact timeline.
+type ServerTimelineEventJSON struct {
+	Timestamp string `json:"timestamp"`
+	Kind      string `json:"kind"`
+	Detail    string `json:"detail"`
+}
+
+// ReplicationEventJSON is one captured replication marker hit.
+type ReplicationEventJSON struct {
+	Timestamp string `json:"timestamp"`
+	Marker    string `json:"marker"`
+	Severity  string `json:"severity,omitempty"`
+}
+
+// ReplicationConflictQueryJSON aggregates per-query stats for queries
+// killed by a recovery conflict (terminate or cancel).
+type ReplicationConflictQueryJSON struct {
+	ID              string `json:"id"`
+	NormalizedQuery string `json:"normalized_query"`
+	RawQuery        string `json:"raw_query"`
+	Count           int    `json:"count"`
+}
+
+// ReplicationJSON is the JSON shape of the REPLICATION section. The
+// section is emitted with omitempty so logs without any replication
+// markers keep their existing JSON shape.
+type ReplicationJSON struct {
+	TotalEvents             int                            `json:"total_events"`
+	StreamReconnects        int                            `json:"stream_reconnects,omitempty"`
+	RecoveryPauses          int                            `json:"recovery_pauses,omitempty"`
+	RecoveryResumes         int                            `json:"recovery_resumes,omitempty"`
+	ConflictsWithRecovery   int                            `json:"conflicts_with_recovery,omitempty"`
+	InvalidatedSlots        int                            `json:"invalidated_slots,omitempty"`
+	ReplicationTerminations int                            `json:"replication_terminations,omitempty"`
+	LastTermination         string                         `json:"last_termination,omitempty"`
+	PeakHourLabel           string                         `json:"peak_hour_label,omitempty"`
+	PeakHourCount           int                            `json:"peak_hour_count,omitempty"`
+	Markers                 map[string]int                 `json:"markers"`
+	HourCounts              map[string]int                 `json:"hour_counts,omitempty"`
+	ConflictQueries         []ReplicationConflictQueryJSON `json:"conflict_queries,omitempty"`
+	Events                  []ReplicationEventJSON         `json:"events,omitempty"`
 }
 
 type SessionStatsJSON struct {
@@ -1288,6 +1517,26 @@ func (d SQLDetailJSON) StreamSection(bw *bufio.Writer, prefix, indent string, co
 		e.writeKey("executions")
 		streamExecutionsJSON(bw, d.Executions, inner, indent, compact)
 	}
+	if len(d.TopDatabases) > 0 {
+		if err := e.emitScalar("top_databases", d.TopDatabases); err != nil {
+			return err
+		}
+	}
+	if len(d.TopUsers) > 0 {
+		if err := e.emitScalar("top_users", d.TopUsers); err != nil {
+			return err
+		}
+	}
+	if len(d.TopApps) > 0 {
+		if err := e.emitScalar("top_apps", d.TopApps); err != nil {
+			return err
+		}
+	}
+	if len(d.TopHosts) > 0 {
+		if err := e.emitScalar("top_hosts", d.TopHosts); err != nil {
+			return err
+		}
+	}
 	if d.TempFiles != nil {
 		if err := e.emitScalar("temp_files", d.TempFiles); err != nil {
 			return err
@@ -1295,6 +1544,11 @@ func (d SQLDetailJSON) StreamSection(bw *bufio.Writer, prefix, indent string, co
 	}
 	if d.Locks != nil {
 		if err := e.emitScalar("locks", d.Locks); err != nil {
+			return err
+		}
+	}
+	if d.SlowestRun != nil {
+		if err := e.emitScalar("slowest_run", d.SlowestRun); err != nil {
 			return err
 		}
 	}
@@ -1386,6 +1640,9 @@ func (t TempFilesJSON) StreamSection(bw *bufio.Writer, prefix, indent string, co
 	if err := e.emitScalar("avg_size", t.AvgSize); err != nil {
 		return err
 	}
+	if err := e.emitScalar("max_size", t.MaxSize); err != nil {
+		return err
+	}
 	// Big array — stream item by item.
 	e.writeKey("events")
 	streamTempFileEventsJSON(bw, t.Events.events, inner, indent, compact)
@@ -1434,6 +1691,18 @@ type EventJSON struct {
 	Percentage float64 `json:"percentage"`
 }
 
+// nonErrorSeverity reports whether a severity sits below the error classes
+// (LOG/INFO/DEBUG/NOTICE). The --errors section drops these; --events keeps
+// every severity. Shared by the text and JSON renderers so the two never drift.
+func nonErrorSeverity(s string) bool {
+	switch s {
+	case "LOG", "INFO", "DEBUG", "NOTICE":
+		return true
+	default:
+		return false
+	}
+}
+
 type EventStatJSON struct {
 	// ID is the stable short handle (e.g. "wa-aBc1") used as the CLI
 	// selector for `--event-detail` and as the click-target id in the
@@ -1448,6 +1717,23 @@ type EventStatJSON struct {
 	// the HTML report's per-event modal to render an occurrences-over-time
 	// sparkline. Omitted when empty.
 	Timestamps []int64 `json:"timestamps,omitempty"`
+	// TriggeringQueries exposes the Pareto view of which normalized
+	// queries fired this pattern. The IDs are stable across the report
+	// (shared with sql_performance.queries[].id) so the HTML modal can
+	// cross-link to the Query Detail panel.
+	TriggeringQueries []TriggeringQueryJSON `json:"triggering_queries,omitempty"`
+}
+
+// TriggeringQueryJSON exposes one (queryID, normalized_query, count)
+// row of an EventStat's triggering-queries table. The same ID is
+// emitted under sql_performance.queries[].id when the query was also
+// timed by log_min_duration_statement; consumers can join the two
+// sections on this field to enrich the event view with full query
+// metrics.
+type TriggeringQueryJSON struct {
+	ID              string `json:"id"`
+	NormalizedQuery string `json:"normalized_query"`
+	Count           int    `json:"count"`
 }
 
 type ErrorClassJSON struct {
@@ -1613,30 +1899,44 @@ func buildJSONData(m analysis.AggregatedMetrics, sections []string, full bool) m
 	// JSON we emit the full structure for both so downstream callers
 	// always see the same shape.
 	if (has("events") || has("errors")) && len(m.EventSummaries) > 0 {
-		events := make([]EventJSON, len(m.EventSummaries))
-		for i, ev := range m.EventSummaries {
-			events[i] = EventJSON{
+		// --errors restricts the section to the error classes (drop
+		// LOG/INFO/DEBUG/NOTICE), matching the text and markdown renderers;
+		// --events keeps every severity. Without this, --errors --json/--yaml
+		// silently emitted the full events list, identical to --events.
+		onlyErrors := has("errors") && !has("events")
+		events := make([]EventJSON, 0, len(m.EventSummaries))
+		for _, ev := range m.EventSummaries {
+			if onlyErrors && nonErrorSeverity(ev.Type) {
+				continue
+			}
+			events = append(events, EventJSON{
 				Type:       ev.Type,
 				Count:      ev.Count,
 				Percentage: ev.Percentage,
-			}
+			})
 		}
 		data["events"] = events
 
 		if len(m.TopEvents) > 0 {
-			topEvents := make([]EventStatJSON, len(m.TopEvents))
-			for i, e := range m.TopEvents {
-				topEvents[i] = EventStatJSON{
-					ID:            e.ID,
-					Message:       e.Message,
-					Count:         e.Count,
-					Severity:      e.Severity,
-					Example:       e.Example,
-					SQLStateClass: e.SQLStateClass,
-					Timestamps:    e.Timestamps,
+			topEvents := make([]EventStatJSON, 0, len(m.TopEvents))
+			for _, e := range m.TopEvents {
+				if onlyErrors && nonErrorSeverity(e.Severity) {
+					continue
 				}
+				topEvents = append(topEvents, EventStatJSON{
+					ID:                e.ID,
+					Message:           e.Message,
+					Count:             e.Count,
+					Severity:          e.Severity,
+					Example:           e.Example,
+					SQLStateClass:     e.SQLStateClass,
+					Timestamps:        e.Timestamps,
+					TriggeringQueries: triggeringQueriesJSON(e.TriggeringQueries),
+				})
 			}
-			data["top_events"] = topEvents
+			if len(topEvents) > 0 {
+				data["top_events"] = topEvents
+			}
 		}
 	}
 
@@ -1654,17 +1954,25 @@ func buildJSONData(m analysis.AggregatedMetrics, sections []string, full bool) m
 			TotalMessages: m.TempFiles.Count,
 			TotalSize:     FormatBytes(m.TempFiles.TotalSize),
 			AvgSize:       FormatBytes(m.TempFiles.TotalSize / int64(m.TempFiles.Count)),
+			MaxSize:       FormatBytes(m.TempFiles.MaxSize),
 			// Lazy wrapper — no intermediate []TempFileEventJSON slice.
 			Events:  lazyTempFileEvents{events: m.TempFiles.Events},
 			Queries: []TempFileQueryStatJSON{},
 		}
 		for _, stat := range m.TempFiles.QueryStats {
+			avg := int64(0)
+			if stat.Count > 0 {
+				avg = stat.TotalSize / int64(stat.Count)
+			}
 			tf.Queries = append(tf.Queries, TempFileQueryStatJSON{
 				ID:              stat.ID,
 				NormalizedQuery: stat.NormalizedQuery,
 				RawQuery:        stat.RawQuery,
 				Count:           stat.Count,
 				TotalSize:       FormatBytes(stat.TotalSize),
+				MinSize:         FormatBytes(stat.MinSize),
+				MaxSize:         FormatBytes(stat.MaxSize),
+				AvgSize:         FormatBytes(avg),
 			})
 		}
 		sort.Slice(tf.Queries, func(i, j int) bool {
@@ -1678,14 +1986,15 @@ func buildJSONData(m analysis.AggregatedMetrics, sections []string, full bool) m
 	}
 
 	if has("maintenance") && (m.Vacuum.VacuumCount > 0 || m.Vacuum.AnalyzeCount > 0) {
-		data["maintenance"] = MaintenanceJSON{
-			VacuumCount:           m.Vacuum.VacuumCount,
-			AggressiveVacuumCount: m.Vacuum.AggressiveVacuumCount,
-			AnalyzeCount:          m.Vacuum.AnalyzeCount,
-			VacuumTableCounts:     m.Vacuum.VacuumTableCounts,
-			AnalyzeTableCounts:    m.Vacuum.AnalyzeTableCounts,
-			VacuumSpaceRecovered:  formatVacuumSpaceRecovered(m.Vacuum.VacuumSpaceRecovered),
-		}
+		data["maintenance"] = buildMaintenanceJSON(m.Vacuum)
+	}
+
+	// Replication is gated on the server section: the --replication flag
+	// is gone and --server covers both scopes (the CLI/MD renderers fold
+	// replication into SERVER as a sub-zone). The JSON keys stay separate
+	// so downstream consumers can target either side independently.
+	if has("server") && m.Replication.HasAny {
+		data["replication"] = buildReplicationJSON(m.Replication)
 	}
 
 	if has("checkpoints") && (m.Checkpoints.CompleteCount > 0 || m.Checkpoints.WarningCount > 0) {
@@ -1869,6 +2178,10 @@ func buildJSONData(m analysis.AggregatedMetrics, sections []string, full bool) m
 		}
 	}
 
+	if has("server") && m.Server.HasAny() {
+		data["server"] = buildServerJSON(m.Server)
+	}
+
 	// Full mode: add sql_overview and enriched sql_performance at the end
 	if full && m.SQL.TotalQueries > 0 {
 		// SQL overview (categories, types, dimensional breakdowns)
@@ -1879,6 +2192,55 @@ func buildJSONData(m analysis.AggregatedMetrics, sections []string, full bool) m
 	}
 
 	return data
+}
+
+// buildServerJSON folds the analyzer's server-lifecycle metrics into
+// the JSON struct used by --json output. Every counter is emitted (a
+// zero is meaningful — "no reload happened"); slice and map fields
+// stay omitempty so the JSON shape adapts to what the log actually
+// carried.
+func buildServerJSON(s analysis.ServerMetrics) ServerJSON {
+	const tsFmt = "2006-01-02 15:04:05"
+	j := ServerJSON{
+		Starts:             s.StartCount,
+		Reloads:            s.ReloadCount,
+		ShutdownsFast:      s.ShutdownFastCount,
+		ShutdownsImmediate: s.ShutdownImmediateCount,
+		ShutdownsSmart:     s.ShutdownSmartCount,
+		ShutdownCompleted:  s.ShutDownCompletedCount,
+		CrashRecoveries:    s.CrashRecoveryCount,
+		Interrupted:        s.InterruptedCount,
+		BackendCrashes:     s.BackendCrashCount,
+		AuxProcessExits:    s.AuxProcessExitCount,
+	}
+	for _, t := range s.StartTimes {
+		j.StartTimes = append(j.StartTimes, t.Format(tsFmt))
+	}
+	for _, t := range s.ReloadTimes {
+		j.ReloadTimes = append(j.ReloadTimes, t.Format(tsFmt))
+	}
+	if len(s.SignalCounts) > 0 {
+		j.SignalCounts = make(map[string]int, len(s.SignalCounts))
+		for k, v := range s.SignalCounts {
+			j.SignalCounts[k] = v
+		}
+	}
+	for _, c := range s.ParameterChanges {
+		j.ParameterChanges = append(j.ParameterChanges, ServerParameterChangeJSON{
+			Parameter: c.Parameter,
+			Old:       c.Old,
+			New:       c.New,
+			Timestamp: c.Timestamp.Format(tsFmt),
+		})
+	}
+	for _, ev := range s.Timeline {
+		j.Timeline = append(j.Timeline, ServerTimelineEventJSON{
+			Timestamp: ev.Timestamp.Format(tsFmt),
+			Kind:      ev.Kind,
+			Detail:    ev.Detail,
+		})
+	}
+	return j
 }
 
 // buildSQLOverviewData builds SQL overview data for JSON export.
@@ -1907,7 +2269,10 @@ func buildSQLOverviewData(m analysis.SQLMetrics) SQLOverviewJSON {
 		})
 	}
 	sort.Slice(overview.Categories, func(i, j int) bool {
-		return overview.Categories[i].Count > overview.Categories[j].Count
+		if overview.Categories[i].Count != overview.Categories[j].Count {
+			return overview.Categories[i].Count > overview.Categories[j].Count
+		}
+		return overview.Categories[i].Category < overview.Categories[j].Category
 	})
 
 	for qtype, stat := range m.QueryTypeStats {
@@ -1922,7 +2287,10 @@ func buildSQLOverviewData(m analysis.SQLMetrics) SQLOverviewJSON {
 		})
 	}
 	sort.Slice(overview.Types, func(i, j int) bool {
-		return overview.Types[i].Count > overview.Types[j].Count
+		if overview.Types[i].Count != overview.Types[j].Count {
+			return overview.Types[i].Count > overview.Types[j].Count
+		}
+		return overview.Types[i].Type < overview.Types[j].Type
 	})
 
 	overview.ByDatabase = convertDimensionBreakdown(m.QueryTypesByDatabase)
@@ -1999,7 +2367,10 @@ func buildFullSQLPerformance(m analysis.SQLMetrics) SQLPerformanceDetailJSON {
 
 	// Slowest queries (by max duration)
 	sort.Slice(stats, func(i, j int) bool {
-		return stats[i].stat.MaxTime > stats[j].stat.MaxTime
+		if stats[i].stat.MaxTime != stats[j].stat.MaxTime {
+			return stats[i].stat.MaxTime > stats[j].stat.MaxTime
+		}
+		return stats[i].id < stats[j].id
 	})
 	limit := 10
 	if len(stats) < limit {
@@ -2019,7 +2390,10 @@ func buildFullSQLPerformance(m analysis.SQLMetrics) SQLPerformanceDetailJSON {
 
 	// Most frequent queries (by count)
 	sort.Slice(stats, func(i, j int) bool {
-		return stats[i].stat.Count > stats[j].stat.Count
+		if stats[i].stat.Count != stats[j].stat.Count {
+			return stats[i].stat.Count > stats[j].stat.Count
+		}
+		return stats[i].id < stats[j].id
 	})
 	limit = 15
 	if len(stats) < limit {
@@ -2039,7 +2413,10 @@ func buildFullSQLPerformance(m analysis.SQLMetrics) SQLPerformanceDetailJSON {
 
 	// Most time consuming queries (by total time)
 	sort.Slice(stats, func(i, j int) bool {
-		return stats[i].stat.TotalTime > stats[j].stat.TotalTime
+		if stats[i].stat.TotalTime != stats[j].stat.TotalTime {
+			return stats[i].stat.TotalTime > stats[j].stat.TotalTime
+		}
+		return stats[i].id < stats[j].id
 	})
 	limit = 10
 	if len(stats) < limit {
@@ -2059,20 +2436,33 @@ func buildFullSQLPerformance(m analysis.SQLMetrics) SQLPerformanceDetailJSON {
 
 	// Full queries data for HTML viewer (all queries, sorted by total time)
 	sort.Slice(stats, func(i, j int) bool {
-		return stats[i].stat.TotalTime > stats[j].stat.TotalTime
+		if stats[i].stat.TotalTime != stats[j].stat.TotalTime {
+			return stats[i].stat.TotalTime > stats[j].stat.TotalTime
+		}
+		return stats[i].id < stats[j].id
 	})
+	dimsByQuery := m.TopDimensionsByQuery(5)
 	for _, s := range stats {
-		perf.Queries = append(perf.Queries, QueryStatJSON{
+		row := QueryStatJSON{
 			ID:              s.id,
 			NormalizedQuery: s.query,
 			RawQuery:        s.stat.RawQuery,
 			Type:            analysis.QueryTypeFromID(s.id),
 			Count:           s.stat.Count,
-			TotalTime:       s.stat.TotalTime,
-			AvgTime:         s.stat.AvgTime,
+			TotalTime:       roundMicro(s.stat.TotalTime),
+			AvgTime:         roundMicro(s.stat.AvgTime),
 			MaxTime:         s.stat.MaxTime,
+			PreparedNames:   s.stat.PreparedNames,
+			SlowestRun:      slowestRunJSON(s.stat),
 			Plan:            s.stat.LastPlan,
-		})
+		}
+		if dims, ok := dimsByQuery[s.id]; ok {
+			row.TopDatabases = dimensionCountsJSON(dims.Databases)
+			row.TopUsers = dimensionCountsJSON(dims.Users)
+			row.TopApps = dimensionCountsJSON(dims.Apps)
+			row.TopHosts = dimensionCountsJSON(dims.Hosts)
+		}
+		perf.Queries = append(perf.Queries, row)
 	}
 
 	// Executions for time charts — lazy wrapper, T separator for the
@@ -2097,6 +2487,160 @@ func formatVacuumSpaceRecovered(space map[string]int64) map[string]string {
 		formatted[table] = FormatBytes(size)
 	}
 	return formatted
+}
+
+// triggeringQueriesJSON converts the in-memory TriggeringQuery slice
+// into its JSON-friendly form. Returns nil (not an empty slice) when
+// the stat carries no triggering queries so the wire shape stays
+// "triggering_queries": absent rather than "triggering_queries": [].
+func triggeringQueriesJSON(qs []analysis.TriggeringQuery) []TriggeringQueryJSON {
+	if len(qs) == 0 {
+		return nil
+	}
+	out := make([]TriggeringQueryJSON, len(qs))
+	for i, q := range qs {
+		out[i] = TriggeringQueryJSON{
+			ID:              q.ID,
+			NormalizedQuery: q.NormalizedQuery,
+			Count:           q.Count,
+		}
+	}
+	return out
+}
+
+// buildMaintenanceJSON folds the analyzer's vacuum metrics — including
+// the newly parsed continuation-line aggregates — into the JSON struct.
+// The continuation fields are emitted with omitempty so logs that never
+// carry them keep the same JSON shape they had before this commit.
+func buildMaintenanceJSON(v analysis.VacuumMetrics) MaintenanceJSON {
+	j := MaintenanceJSON{
+		VacuumCount:                v.VacuumCount,
+		AggressiveVacuumCount:      v.AggressiveVacuumCount,
+		AnalyzeCount:               v.AnalyzeCount,
+		VacuumTableCounts:          v.VacuumTableCounts,
+		AnalyzeTableCounts:         v.AnalyzeTableCounts,
+		VacuumSpaceRecovered:       formatVacuumSpaceRecovered(v.VacuumSpaceRecovered),
+		TotalVacuumElapsedSeconds:  v.TotalVacuumElapsedSeconds,
+		TotalTuplesRemoved:         v.TotalTuplesRemoved,
+		TotalTuplesNotYetRemovable: v.TotalTuplesNotYetRemovable,
+		TotalBufferHits:            v.TotalBufferHits,
+		TotalBufferMisses:          v.TotalBufferMisses,
+		TotalBufferDirtied:         v.TotalBufferDirtied,
+		TotalBufferWritten:         v.TotalBufferWritten,
+		TotalWALRecords:            v.TotalWALRecords,
+		TotalWALBytes:              v.TotalWALBytes,
+	}
+	if len(v.TopVacuumTables) > 0 {
+		j.TopVacuumTables = make([]VacuumTableStatJSON, len(v.TopVacuumTables))
+		for i, t := range v.TopVacuumTables {
+			j.TopVacuumTables[i] = vacuumTableStatJSON(t)
+		}
+	}
+	if len(v.XminBlockedTables) > 0 {
+		j.XminBlockedTables = make([]VacuumTableStatJSON, len(v.XminBlockedTables))
+		for i, t := range v.XminBlockedTables {
+			j.XminBlockedTables[i] = vacuumTableStatJSON(t)
+		}
+	}
+	if v.SlowestVacuum != nil {
+		s := v.SlowestVacuum
+		j.SlowestVacuum = &VacuumSampleJSON{
+			Table:                 s.Table,
+			ElapsedSeconds:        s.ElapsedSeconds,
+			PagesRemoved:          s.PagesRemoved,
+			TuplesRemoved:         s.TuplesRemoved,
+			TuplesNotYetRemovable: s.TuplesNotYetRemovable,
+		}
+		if !s.Timestamp.IsZero() {
+			j.SlowestVacuum.Timestamp = s.Timestamp.Format("2006-01-02 15:04:05")
+		}
+	}
+	j.TotalAnalyzeElapsedSeconds = v.TotalAnalyzeElapsedSeconds
+	if len(v.TopAnalyzeTablesByElapsed) > 0 {
+		j.TopAnalyzeTablesByElapsed = make([]VacuumTableStatJSON, len(v.TopAnalyzeTablesByElapsed))
+		for i, t := range v.TopAnalyzeTablesByElapsed {
+			j.TopAnalyzeTablesByElapsed[i] = vacuumTableStatJSON(t)
+		}
+	}
+	return j
+}
+
+func vacuumTableStatJSON(t analysis.VacuumTableStat) VacuumTableStatJSON {
+	return VacuumTableStatJSON{
+		Table:                 t.Table,
+		VacuumCount:           t.VacuumCount,
+		TotalElapsedSeconds:   t.TotalElapsedSeconds,
+		MaxElapsedSeconds:     t.MaxElapsedSeconds,
+		TuplesRemoved:         t.TuplesRemoved,
+		TuplesNotYetRemovable: t.TuplesNotYetRemovable,
+		BufferHits:            t.BufferHits,
+		BufferMisses:          t.BufferMisses,
+		BufferDirtied:         t.BufferDirtied,
+		BufferWritten:         t.BufferWritten,
+		WALRecords:            t.WALRecords,
+		WALBytes:              t.WALBytes,
+	}
+}
+
+// buildReplicationJSON folds the analyzer's replication metrics into
+// the JSON struct. Only present in the output map when HasAny is true
+// (see buildJSONData), so the JSON shape for logs without replication
+// markers stays unchanged.
+func buildReplicationJSON(r analysis.ReplicationMetrics) ReplicationJSON {
+	out := ReplicationJSON{
+		Markers:                 r.Markers,
+		StreamReconnects:        r.Markers["stream_started"],
+		RecoveryPauses:          r.Markers["recovery_paused"],
+		RecoveryResumes:         r.Markers["recovery_resuming"],
+		ConflictsWithRecovery:   r.Markers["conflict_terminate"] + r.Markers["conflict_cancel"],
+		InvalidatedSlots:        r.Markers["slot_invalidated"],
+		ReplicationTerminations: r.Markers["replication_term"] + r.Markers["wal_receive_failed"] + r.Markers["walsender_timeout"] + r.Markers["unexpected_eof"],
+		PeakHourLabel:           r.PeakHourLabel,
+		PeakHourCount:           r.PeakHourCount,
+	}
+	for _, c := range r.Markers {
+		out.TotalEvents += c
+	}
+	if !r.LastTermination.IsZero() {
+		out.LastTermination = r.LastTermination.Format("2006-01-02 15:04:05")
+	}
+	if len(r.HourCounts) > 0 {
+		out.HourCounts = r.HourCounts
+	}
+	if len(r.ConflictQueries) > 0 {
+		qs := make([]ReplicationConflictQueryJSON, 0, len(r.ConflictQueries))
+		for _, s := range r.ConflictQueries {
+			qs = append(qs, ReplicationConflictQueryJSON{
+				ID:              s.ID,
+				NormalizedQuery: s.NormalizedQuery,
+				RawQuery:        s.RawQuery,
+				Count:           s.Count,
+			})
+		}
+		// Sort by count desc, then ID asc, for deterministic output.
+		sort.Slice(qs, func(i, j int) bool {
+			if qs[i].Count != qs[j].Count {
+				return qs[i].Count > qs[j].Count
+			}
+			return qs[i].ID < qs[j].ID
+		})
+		out.ConflictQueries = qs
+	}
+	if len(r.Events) > 0 {
+		evs := make([]ReplicationEventJSON, len(r.Events))
+		for i, e := range r.Events {
+			ev := ReplicationEventJSON{
+				Marker:   e.Marker,
+				Severity: e.Severity,
+			}
+			if !e.Timestamp.IsZero() {
+				ev.Timestamp = e.Timestamp.Format("2006-01-02 15:04:05")
+			}
+			evs[i] = ev
+		}
+		out.Events = evs
+	}
+	return out
 }
 
 // convertSummary aggregates global metrics into a JSON-friendly format.
@@ -2140,19 +2684,33 @@ func convertSQLPerformance(m analysis.SQLMetrics) SQLPerformanceJSON {
 	// dominant per-row cost on big logs).
 	executionsLazy := lazyExecutions{metrics: &m}
 
+	// Per-query top-5 dimensions in one pass — feeds the HTML modal's
+	// DIMENSIONS block. Cheap (~O(N) once vs O(N × K) for a per-query
+	// re-walk) and cleanly nilable when the log carried no prefix.
+	dimsByQuery := m.TopDimensionsByQuery(5)
+
 	// Export all query stats (sorted by ID for deterministic output)
 	queriesJSON := make([]QueryStatJSON, 0, len(m.QueryStats))
 	for _, stat := range m.QueryStats {
-		queriesJSON = append(queriesJSON, QueryStatJSON{
+		row := QueryStatJSON{
 			ID:              stat.ID,
 			NormalizedQuery: stat.NormalizedQuery,
 			RawQuery:        stat.RawQuery,
 			Count:           stat.Count,
-			TotalTime:       stat.TotalTime,
-			AvgTime:         stat.AvgTime,
+			TotalTime:       roundMicro(stat.TotalTime),
+			AvgTime:         roundMicro(stat.AvgTime),
 			MaxTime:         stat.MaxTime,
+			PreparedNames:   stat.PreparedNames,
+			SlowestRun:      slowestRunJSON(stat),
 			Plan:            stat.LastPlan,
-		})
+		}
+		if dims, ok := dimsByQuery[stat.ID]; ok {
+			row.TopDatabases = dimensionCountsJSON(dims.Databases)
+			row.TopUsers = dimensionCountsJSON(dims.Users)
+			row.TopApps = dimensionCountsJSON(dims.Apps)
+			row.TopHosts = dimensionCountsJSON(dims.Hosts)
+		}
+		queriesJSON = append(queriesJSON, row)
 	}
 	// Sort by ID for deterministic JSON output
 	sort.Slice(queriesJSON, func(i, j int) bool {
@@ -2255,7 +2813,10 @@ func ExportSQLOverviewJSON(w io.Writer, m analysis.SQLMetrics) {
 		})
 	}
 	sort.Slice(overview.Categories, func(i, j int) bool {
-		return overview.Categories[i].Count > overview.Categories[j].Count
+		if overview.Categories[i].Count != overview.Categories[j].Count {
+			return overview.Categories[i].Count > overview.Categories[j].Count
+		}
+		return overview.Categories[i].Category < overview.Categories[j].Category
 	})
 
 	// Build type statistics
@@ -2271,7 +2832,10 @@ func ExportSQLOverviewJSON(w io.Writer, m analysis.SQLMetrics) {
 		})
 	}
 	sort.Slice(overview.Types, func(i, j int) bool {
-		return overview.Types[i].Count > overview.Types[j].Count
+		if overview.Types[i].Count != overview.Types[j].Count {
+			return overview.Types[i].Count > overview.Types[j].Count
+		}
+		return overview.Types[i].Type < overview.Types[j].Type
 	})
 
 	// Build dimensional breakdowns
@@ -2356,7 +2920,10 @@ func ExportSQLPerformanceJSON(w io.Writer, m analysis.SQLMetrics) {
 
 	// Slowest queries (by max duration)
 	sort.Slice(stats, func(i, j int) bool {
-		return stats[i].stat.MaxTime > stats[j].stat.MaxTime
+		if stats[i].stat.MaxTime != stats[j].stat.MaxTime {
+			return stats[i].stat.MaxTime > stats[j].stat.MaxTime
+		}
+		return stats[i].id < stats[j].id
 	})
 	limit := 10
 	if len(stats) < limit {
@@ -2376,7 +2943,10 @@ func ExportSQLPerformanceJSON(w io.Writer, m analysis.SQLMetrics) {
 
 	// Most frequent queries (by count)
 	sort.Slice(stats, func(i, j int) bool {
-		return stats[i].stat.Count > stats[j].stat.Count
+		if stats[i].stat.Count != stats[j].stat.Count {
+			return stats[i].stat.Count > stats[j].stat.Count
+		}
+		return stats[i].id < stats[j].id
 	})
 	limit = 15
 	if len(stats) < limit {
@@ -2396,7 +2966,10 @@ func ExportSQLPerformanceJSON(w io.Writer, m analysis.SQLMetrics) {
 
 	// Most time consuming queries (by total time)
 	sort.Slice(stats, func(i, j int) bool {
-		return stats[i].stat.TotalTime > stats[j].stat.TotalTime
+		if stats[i].stat.TotalTime != stats[j].stat.TotalTime {
+			return stats[i].stat.TotalTime > stats[j].stat.TotalTime
+		}
+		return stats[i].id < stats[j].id
 	})
 	limit = 10
 	if len(stats) < limit {
@@ -2447,7 +3020,10 @@ func convertDimensionBreakdown(breakdown map[string]map[string]*analysis.QueryTy
 
 		// Sort query types by count descending
 		sort.Slice(queryTypes, func(i, j int) bool {
-			return queryTypes[i].Count > queryTypes[j].Count
+			if queryTypes[i].Count != queryTypes[j].Count {
+				return queryTypes[i].Count > queryTypes[j].Count
+			}
+			return queryTypes[i].Type < queryTypes[j].Type
 		})
 
 		result = append(result, DimensionBreakdownJSON{
@@ -2460,7 +3036,10 @@ func convertDimensionBreakdown(breakdown map[string]map[string]*analysis.QueryTy
 
 	// Sort dimensions by count descending
 	sort.Slice(result, func(i, j int) bool {
-		return result[i].Count > result[j].Count
+		if result[i].Count != result[j].Count {
+			return result[i].Count > result[j].Count
+		}
+		return result[i].Name < result[j].Name
 	})
 
 	return result
@@ -2489,6 +3068,8 @@ func ExportSQLDetailJSON(w io.Writer, m analysis.AggregatedMetrics, queryIDs []s
 			detail.RawQuery = foundStat.RawQuery
 			detail.Type = analysis.QueryTypeFromID(queryID)
 			detail.Category = analysis.QueryCategory(detail.Type)
+			detail.PreparedNames = foundStat.PreparedNames
+			detail.SlowestRun = slowestRunJSON(foundStat)
 			detail.Statistics = &QueryDetailStatsJSON{
 				Count:     foundStat.Count,
 				TotalTime: formatQueryDuration(foundStat.TotalTime),
@@ -2499,6 +3080,15 @@ func ExportSQLDetailJSON(w io.Writer, m analysis.AggregatedMetrics, queryIDs []s
 			if foundStat.LastPlan != "" {
 				detail.Plan = foundStat.LastPlan
 			}
+
+			// Top-5 dimensions (db/user/app/host) that ran this query.
+			// Same data the CLI/markdown/HTML renderers expose; computed
+			// here at output time from the compact executions storage.
+			dims := m.SQL.TopDimensionsForID(queryID, 5)
+			detail.TopDatabases = dimensionCountsJSON(dims.Databases)
+			detail.TopUsers = dimensionCountsJSON(dims.Users)
+			detail.TopApps = dimensionCountsJSON(dims.Apps)
+			detail.TopHosts = dimensionCountsJSON(dims.Hosts)
 
 			// Filter executions for this query into a slice, then wrap
 			// into lazyExecutions so the StreamSection emits each item
@@ -2559,8 +3149,41 @@ func ExportSQLDetailJSON(w io.Writer, m analysis.AggregatedMetrics, queryIDs []s
 			}
 		}
 
+		// EVENTS rollup — every event pattern that has triggered this
+		// query. Sorted by per-query trigger count desc with a tie-break
+		// on the total event count, same logic as the text and markdown
+		// renderers. The relation is materialised here at output time
+		// rather than during analysis so the SQL data stays free of an
+		// events back-reference.
+		var events []SQLDetailEventJSON
+		for i := range m.TopEvents {
+			for _, tq := range m.TopEvents[i].TriggeringQueries {
+				if tq.ID != queryID {
+					continue
+				}
+				events = append(events, SQLDetailEventJSON{
+					EventID:      m.TopEvents[i].ID,
+					Severity:     m.TopEvents[i].Severity,
+					Message:      m.TopEvents[i].Message,
+					TriggerCount: tq.Count,
+				})
+				break
+			}
+		}
+		if len(events) > 1 {
+			sort.Slice(events, func(i, j int) bool {
+				if events[i].TriggerCount != events[j].TriggerCount {
+					return events[i].TriggerCount > events[j].TriggerCount
+				}
+				return events[i].EventID < events[j].EventID
+			})
+		}
+		if len(events) > 0 {
+			detail.Events = events
+		}
+
 		// Only add if we found something
-		if detail.NormalizedQuery != "" || detail.TempFiles != nil || detail.Locks != nil {
+		if detail.NormalizedQuery != "" || detail.TempFiles != nil || detail.Locks != nil || len(detail.Events) > 0 {
 			details = append(details, detail)
 		}
 	}
@@ -2585,4 +3208,13 @@ func ExportSQLDetailJSON(w io.Writer, m analysis.AggregatedMetrics, queryIDs []s
 	}
 	bw.WriteByte(']')
 	bw.WriteByte('\n')
+}
+
+// roundMicro rounds a millisecond value to the microsecond. Summed
+// durations carry float-association noise in their low bits (shard-
+// order-dependent since the SQL analyzer went parallel); source log
+// durations are microsecond-precise, so anything below 1 µs is noise,
+// and rounding keeps the JSON byte-stable regardless of fold order.
+func roundMicro(ms float64) float64 {
+	return math.Round(ms*1e3) / 1e3
 }

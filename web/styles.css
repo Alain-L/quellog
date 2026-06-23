@@ -751,6 +751,11 @@
             align-items: center;
         }
 
+        /* container-type lives on the parent (#events) so the @container query
+           below can restyle .events-section itself — an element can't query its
+           own size. */
+        #events { container-type: inline-size; }
+
         .events-section {
             display: grid;
         }
@@ -759,11 +764,25 @@
             grid-area: 1 / 1;
         }
 
+        /* Wide tiles: the noise counters (NOTICE/LOG/INFO/DEBUG) overlay the
+           top-right corner of the severity tab strip, clear of the tabs. */
         .events-indicators {
             grid-area: 1 / 1;
             justify-self: end;
             align-self: start;
             z-index: 1;
+        }
+
+        /* Narrow tiles (e.g. the 3-column layout): the counters would otherwise
+           collide with the tabs — drop the overlay and give them their own row
+           above the strip. Wide tiles keep the original overlay untouched. */
+        @container (max-width: 760px) {
+            .events-section { display: block; }
+            .events-indicators {
+                justify-self: auto;
+                align-self: auto;
+                margin-bottom: 0.5rem;
+            }
         }
 
         /* Section */
@@ -957,6 +976,51 @@
         /* Auto-adapt grid columns based on children count */
         .stat-grid { grid-template-columns: repeat(auto-fit, minmax(70px, 1fr)); }
 
+        /* Cross-highlight between cost-map dots and table rows. The row
+           background tints with the same alt color used elsewhere so the
+           hover origin (mouse on dot vs mouse on row) is consistent. */
+        tr.q-row-hover { background: var(--bg-alt); }
+
+        /* Per-row eye button that jumps straight to explain.dalibo.com.
+           Sits between the # column and the query text and only renders
+           when an execution plan is available for the query. */
+        .cell-plan-action {
+            width: 24px;
+            padding: 0 2px 0 0;
+            text-align: left;
+        }
+        .btn-explain {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 20px;
+            height: 20px;
+            padding: 0;
+            border: none;
+            border-radius: 4px;
+            background: var(--purple);
+            color: #fff;
+            cursor: pointer;
+            transition: opacity 0.15s, transform 0.15s;
+            vertical-align: middle;
+        }
+        .btn-explain:hover { opacity: 0.85; transform: scale(1.08); }
+        .btn-explain svg { display: block; }
+
+        /* SQL Performance section 2-column layout: cost map on the left (1/3),
+           query activity + distribution + tabs on the right (2/3). The square
+           plot fills the left column. Single column on narrow screens. */
+        .sql-perf-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+            gap: 1rem;
+            align-items: start;
+        }
+        .sql-perf-col-left, .sql-perf-col-right { min-width: 0; }
+        @media (max-width: 900px) {
+            .sql-perf-grid { grid-template-columns: 1fr; }
+        }
+
         .stat-card {
             text-align: center;
             padding: 0.5rem 0.4rem;
@@ -1072,18 +1136,23 @@
             white-space: nowrap;
         }
 
+        /* min-width: 0 lets the meta column shrink below its content's
+           intrinsic width inside the header flex row — without it the
+           filename/parsetime overflow the card edge on narrow layouts
+           instead of ellipsizing. */
         .summary-meta {
             display: flex;
             flex-direction: column;
             align-items: flex-end;
             gap: 0.1rem;
+            min-width: 0;
         }
 
         .summary-filename {
             font-size: 0.75rem;
             font-weight: 400;
             color: var(--text-muted);
-            max-width: 200px;
+            max-width: 100%;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
@@ -1092,12 +1161,94 @@
         .summary-parsetime {
             font-size: 0.75rem;
             color: var(--text-muted);
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
         .summary-separator {
             height: 1px;
             background: var(--border);
             margin-bottom: 1rem;
+        }
+
+        /* Tighter variant for the separator sitting right above the
+           server line — keeps the vertical list from inflating the
+           Summary card. */
+        .summary-separator--tight {
+            margin-bottom: 0.6rem;
+        }
+
+        /* Server health zone: a fixed two-column grid whatever the
+           fragment count, so the geometry is identical on every report
+           (one message sits top-left, more fill column-major — read
+           down the left column first). Tight line-height keeps four
+           rows under ~60px. */
+        .summary-server-line {
+            display: grid;
+            grid-auto-flow: column;
+            grid-template-columns: 1fr 1fr;
+            column-gap: 1.2rem;
+            row-gap: 0.1rem;
+            justify-items: start;
+            padding: 0 0.4rem;
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            margin: 0;
+            line-height: 1.4;
+            letter-spacing: 0.01em;
+            text-align: left;
+        }
+
+        .summary-server-row {
+            display: flex;
+            align-items: baseline;
+            gap: 0.45rem;
+            white-space: nowrap;
+        }
+
+        .summary-server-detail {
+            color: var(--text-muted);
+            opacity: 0.8;
+            font-size: 0.95em;
+        }
+
+        .summary-server-frag {
+            white-space: nowrap;
+        }
+
+        /* Fragments carrying a diagnostic tooltip get a subtle dotted
+           underline + help cursor so the hover affordance is
+           discoverable without adding visual weight. */
+        .summary-server-frag[title] {
+            cursor: help;
+            text-decoration: underline dotted;
+            text-decoration-thickness: 1px;
+            text-underline-offset: 3px;
+            text-decoration-color: var(--border);
+        }
+
+        .summary-server-info {
+            color: var(--text-muted);
+        }
+
+        /* Empty state — same zone, same top-left slot, dimmer voice.
+           Italic + reduced opacity so "nothing happened" never competes
+           with real fragments on neighbouring reports. */
+        .summary-server-empty {
+            color: var(--text-muted);
+            font-style: italic;
+            opacity: 0.65;
+        }
+
+        .summary-server-warning {
+            color: var(--warning);
+        }
+
+        .summary-server-alert {
+            color: var(--danger);
+            font-weight: 500;
         }
 
         .summary-tiles {
@@ -1131,7 +1282,7 @@
 
         /* Timeline with day context */
         .summary-timeline {
-            padding: 0.5rem 0;
+            padding: 0.5rem 0 0.15rem;
         }
 
         .summary-timeline-row {
@@ -1141,9 +1292,13 @@
             margin-bottom: 0.4rem;
         }
 
+        /* Same family as the rest of the card; tabular-nums keeps the
+           digits on a fixed pitch so the bounds stay visually stable
+           without the code-like monospace that broke the typographic
+           rhythm of the widget. */
         .summary-timeline-bound {
-            font-family: 'SF Mono', Monaco, Consolas, monospace;
             font-size: 0.65rem;
+            font-variant-numeric: tabular-nums;
             color: var(--text-muted);
             opacity: 0.6;
         }
@@ -1175,8 +1330,8 @@
         .summary-timeline-range {
             position: absolute;
             transform: translateX(-50%);
-            font-family: 'SF Mono', Monaco, Consolas, monospace;
             font-size: 0.72rem;
+            font-variant-numeric: tabular-nums;
             color: var(--text-muted);
             white-space: nowrap;
         }
@@ -1453,22 +1608,261 @@
             flex-shrink: 0;
             text-align: right;
         }
-        /* Maintenance lists: narrower value column + removed column */
+        /* Maintenance lists: name fixed-width, then a wide bar that
+           stretches across the available space, then three tail
+           columns:
+             .extra   — fixed-width muted-italic suffix slot ("X KB
+                        recovered" or empty), reserved so the bar
+                        never shifts when only some rows carry it
+             .removed — fixed-width muted-italic count/percentage
+                        (always right-aligned at the same X position)
+             .value   — the headline numeric (elapsed / count / rows).
+           Bars get a touch more height than the generic list to read
+           at a glance on dense reports. */
         .scroll-list--maintenance .list-item .value {
-            width: 50px;
+            width: 110px;
+            white-space: nowrap;
         }
         .scroll-list--maintenance .list-item .name {
-            width: 200px;
-            max-width: 200px;
+            width: 240px;
+            max-width: 240px;
+        }
+        .scroll-list--maintenance .list-item .extra {
+            font-size: 0.72rem;
+            font-style: italic;
+            color: var(--text-muted);
+            width: 130px;
+            flex-shrink: 0;
+            text-align: right;
+            white-space: nowrap;
+            margin-right: 0.5rem;
         }
         .scroll-list--maintenance .list-item .removed {
             font-size: 0.72rem;
             font-style: italic;
             color: var(--text-muted);
-            width: 110px;
+            width: 60px;
             flex-shrink: 0;
             text-align: right;
             white-space: nowrap;
+        }
+        .scroll-list--maintenance .list-item .bar {
+            height: 5px;
+        }
+
+        /* Click-to-reveal on the table-name cell: hover shows the full
+           name via the native title tooltip; clicking inserts a copy
+           ribbon directly above the row carrying the full identifier
+           on a single line, with its text pre-selected so Cmd+C is the
+           very next keystroke. The cell itself keeps its truncated
+           form so the row never reflows. */
+        .scroll-list--maintenance .list-item .name {
+            cursor: pointer;
+            transition: color 0.15s ease;
+        }
+        .scroll-list--maintenance .list-item .name:hover {
+            color: var(--primary);
+        }
+        /* Click-to-reveal: the .name cell keeps its 240px slot in the
+           flex layout (so bar/value cells never shift), but its inner
+           text span breaks out via position: absolute when expanded —
+           it stretches to its full max-content width on top of the
+           neighbouring cells, with an opaque background so they're
+           hidden behind. The cell auto-restores when the selection
+           moves away or the user clicks it again. */
+        .scroll-list--maintenance .list-item {
+            position: relative;
+        }
+        .scroll-list--maintenance .list-item .name {
+            display: inline-flex;
+            align-items: center;
+        }
+        .scroll-list--maintenance .list-item .name .name-inner {
+            display: inline-block;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 100%;
+        }
+        .scroll-list--maintenance .list-item .name.expanded {
+            overflow: visible;
+        }
+        .scroll-list--maintenance .list-item .name.expanded .name-inner {
+            position: absolute;
+            top: 50%;
+            left: 0;
+            transform: translateY(-50%);
+            z-index: 10;
+            width: max-content;
+            max-width: 800px;
+            overflow: visible;
+            text-overflow: clip;
+            white-space: nowrap;
+            background: var(--card-bg, #fff);
+            user-select: all;
+            color: var(--text);
+        }
+
+        /* Vacuum main table adds a 4th numeric slot (.dead-col) between
+           .extra and .removed so the row carries the full
+           recovered/dead/vacuums/elapsed quartet without overflowing.
+           Slot widths trim accordingly (extra and value lose ~30px
+           each) so the bar still has room to read at a glance. */
+        .scroll-list--maintenance-vac-main .list-item .extra,
+        .scroll-list--maintenance-vac-main .list-header .extra {
+            width: 100px;
+        }
+        .scroll-list--maintenance-vac-main .list-item .dead-col,
+        .scroll-list--maintenance-vac-main .list-header .dead-col {
+            width: 90px;
+            flex-shrink: 0;
+            text-align: right;
+            white-space: nowrap;
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            font-style: italic;
+            margin-right: 0.5rem;
+        }
+        .scroll-list--maintenance-vac-main .list-header .dead-col {
+            font-style: normal;
+        }
+        .scroll-list--maintenance-vac-main .list-item .value,
+        .scroll-list--maintenance-vac-main .list-header .value {
+            width: 90px;
+        }
+
+        /* Maintenance lists carry up to MAINT_TOP_N rows and the
+           section card has plenty of vertical room before another
+           section follows. Override the generic 200px ceiling so the
+           full top-N is visible without scrolling on a normal-sized
+           viewport, and only the long tail triggers scrollbar use. */
+        .scroll-list--maintenance {
+            max-height: 280px;
+        }
+
+        /* Column header for maintenance scroll-lists, matching the
+           canonical "th" treatment of the <table>-based panels
+           (locks queries, temp files): uppercase muted small text,
+           sticky to the top of the scroll area so the headers stay
+           visible while the user scrolls through the long tail. */
+        .scroll-list--maintenance .list-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 0.6rem;
+            background: var(--bg-alt);
+            border-bottom: 2px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 5;
+            font-size: 0.65rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.02em;
+            color: var(--text-muted);
+        }
+        .scroll-list--maintenance .list-header .name {
+            width: 240px;
+            max-width: 240px;
+        }
+        .scroll-list--maintenance .list-header .bar {
+            flex: 1;
+            background: transparent;
+        }
+        .scroll-list--maintenance .list-header .extra {
+            width: 130px;
+            flex-shrink: 0;
+            text-align: right;
+            margin-right: 0.5rem;
+        }
+        .scroll-list--maintenance .list-header .removed {
+            width: 60px;
+            flex-shrink: 0;
+            text-align: right;
+        }
+        .scroll-list--maintenance .list-header .value {
+            width: 110px;
+            text-align: right;
+        }
+        .scroll-list--maintenance-buffer .list-header .extra {
+            width: 260px;
+        }
+        .scroll-list--maintenance-buffer .list-header .value {
+            width: 100px;
+        }
+        /* 4-cell sub-grid inside .extra for the buffer view, matching
+           the PG log column order: hits / misses / dirtied / written.
+           Each cell is right-aligned within its share of the .extra
+           width so the column headers line up with the values below. */
+        .scroll-list--maintenance-buffer .buf-cells {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr 1fr;
+            width: 100%;
+            gap: 0.4rem;
+        }
+        .scroll-list--maintenance-buffer .buf-cells > span {
+            text-align: right;
+        }
+
+        /* Sortable headers (currently used by the autoanalyze unified
+           table). Each [data-sort] span becomes a clickable target with
+           a tiny chevron showing the active sort direction. Hover
+           bumps brightness so the affordance reads as interactive
+           without competing with the row data below. */
+        .scroll-list--maintenance .list-header--sortable [data-sort] {
+            cursor: pointer;
+            user-select: none;
+        }
+        .scroll-list--maintenance .list-header--sortable [data-sort]:hover {
+            color: var(--primary);
+        }
+        .scroll-list--maintenance .sort-arrow {
+            margin-left: 0.2rem;
+            font-size: 0.6rem;
+            opacity: 0.7;
+        }
+
+        /* Buffer view: 4 metrics packed into .extra as a 4-column grid
+           matching the PG log order (hits / misses / dirtied / written).
+           The .value and .removed slots are unused and collapse — the
+           bar already encodes the misses ranking. */
+        .scroll-list--maintenance-buffer .list-item .extra,
+        .scroll-list--maintenance-buffer .list-header .extra {
+            width: 340px;
+        }
+        .scroll-list--maintenance-buffer .list-item .value,
+        .scroll-list--maintenance-buffer .list-item .removed {
+            display: none;
+        }
+
+        /* metric-line: a tight horizontal stack of key/value chips,
+           used in the autovacuum block for "Buffer usage" / "WAL usage"
+           summaries. Sits between the stat-grid and the top-tables
+           table — visually lighter than another stat-card row, but
+           still easy to scan for a DBA who wants the hit/miss/dirtied
+           breakdown at a glance. */
+        .metric-line {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.4rem 1.2rem;
+            align-items: baseline;
+            margin: 0.4rem 0 0.6rem 0;
+            font-size: 0.78rem;
+            color: var(--text-muted);
+        }
+        .metric-line-label {
+            font-weight: 600;
+            color: var(--text);
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            font-size: 0.7rem;
+        }
+        .metric-line-val {
+            white-space: nowrap;
+        }
+        .metric-line-val strong {
+            color: var(--text);
+            font-weight: 600;
         }
 
         /* Error Classes - uses same layout as Clients but wider name */
@@ -1780,6 +2174,53 @@
 
         .qd-section:last-child { border-bottom: none; margin-bottom: 0; }
 
+        /* Cross-modal navigation: a single prominent "← Back to <kind>"
+           button injected at the top of the body when modalStack is
+           non-empty. Filled with the brand accent (same orange as the
+           chart palette) so it pops against the body content without
+           competing with the primary-coloured section titles. The
+           hover effect (left-shift + lift) reinforces the "going back"
+           affordance. */
+        .modal-back-bar {
+            margin: 0 0 1rem 0;
+        }
+        .modal-back-btn {
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            padding: 0.4rem 0.9rem 0.4rem 0.7rem;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 0.85rem;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+            transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+        }
+        .modal-back-btn:hover {
+            filter: brightness(1.08);
+            transform: translateX(-2px);
+            box-shadow: 0 3px 6px rgba(0, 0, 0, 0.18);
+        }
+        .modal-back-btn:active {
+            transform: translateX(-1px);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+        }
+
+        /* Row-flash animation: applied for ~1.6s on the row that the
+           user just clicked through, so when they "← Back" the trail
+           lands on the originating row instead of forcing them to
+           scroll/search. Animating on tr td (not tr) is more reliable
+           across browsers since cells have their own background. */
+        @keyframes modal-flash {
+            0%   { background-color: rgba(245, 158, 11, 0.45); }
+            100% { background-color: transparent; }
+        }
+        tr.modal-flash td {
+            animation: modal-flash 1.6s ease-out;
+        }
+
         .qd-section-title {
             font-size: 0.75rem;
             font-weight: 600;
@@ -1838,6 +2279,81 @@
             font-weight: 600;
             color: var(--text);
         }
+
+        /* Muted-italic suffix shown after a stat value or section title
+           (e.g. "16 names" after the prepared-names list, or the
+           "<duration>, <ts>, pid=<pid>" line after Slowest Run). */
+        .qd-meta {
+            font-size: 0.75rem;
+            font-weight: 400;
+            font-style: italic;
+            color: var(--text-muted);
+            text-transform: none;
+            letter-spacing: 0;
+            margin-left: 0.4rem;
+        }
+
+        /* Wide variant of qd-stat: breaks the flex row so the stat takes
+           the full container width, used by the prepared-names grid. */
+        .qd-stat-wide {
+            flex-basis: 100%;
+        }
+
+        /* Dimensions inlined in the Query Info flex row alongside
+           TYPE / COUNT / TOTAL / AVG / MAX. Value typography mirrors
+           the surrounding stats (1rem, weight 600, default font) so
+           the eye doesn't catch a different rhythm; the count is the
+           only visually-distinct element — muted and tabular. */
+        .qd-stat-dim {
+            min-width: 100px;
+        }
+        .qd-stat-value-dims {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: baseline;
+            gap: 0.2rem 0.45rem;
+        }
+        .qd-dim-inline {
+            white-space: nowrap;
+        }
+        .qd-dim-name {
+            color: var(--text);
+        }
+        .qd-dim-count {
+            color: var(--text-muted);
+            font-weight: 400;
+            font-size: 0.85em;
+            font-variant-numeric: tabular-nums;
+            margin-left: 0.3rem;
+        }
+        .qd-dim-sep {
+            color: var(--border);
+            font-weight: 400;
+            opacity: 0.6;
+        }
+
+        /* Grid layout for the prepared-statement names list. The column
+           count is decided in JS at render time (1 row when ≤8 names,
+           2 rows for 9-16, capped at 8 columns beyond) — that way the
+           grid stays as compact as the data allows. The 3-tone
+           background alternation is also painted in JS so the contrast
+           rule holds regardless of column count. */
+        .qd-names-grid {
+            display: grid;
+            gap: 0;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 0.85rem;
+            font-weight: 500;
+            margin-top: 0.2rem;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        .qd-names-grid > span {
+            padding: 4px 8px;
+        }
+        .qd-names-grid > span.qd-cell-a { background: transparent; }
+        .qd-names-grid > span.qd-cell-b { background: var(--bg-alt); }
+        .qd-names-grid > span.qd-cell-c { background: var(--border); }
 
         .qd-hist {
             margin: 0.5rem 0;
@@ -2219,6 +2735,9 @@
             overflow: hidden;
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
         }
+        /* Cost map is a square plot — make its expand window square too so the
+           chart fills it instead of floating in a wide rectangle. */
+        .chart-modal-content.cm-square { max-width: 90vmin; }
         .chart-modal-header {
             display: flex;
             justify-content: space-between;
@@ -2398,8 +2917,8 @@
         .duration-stack-bar {
             display: flex;
             gap: 2px;
-            height: 12px;
-            border-radius: 4px;
+            height: 8px;
+            border-radius: 3px;
             overflow: hidden;
             background: var(--bg-alt);
         }
@@ -2508,3 +3027,71 @@
     text-align: center;
 }
 
+
+/* ---------------------------------------------------------------------------
+   Harmonized Summary tile (shared by standalone reports and the WASM tool).
+   Applied after each render by harmonizeSummary() in app.js. Split reports add
+   the period navigator on top (see .summary-periods-* below).
+   --------------------------------------------------------------------------- */
+#summary .summary-header { justify-content: flex-start; }
+#summary .summary-meta {
+  display: flex; flex-direction: row; flex-wrap: nowrap; align-items: baseline;
+  gap: 0.5rem; white-space: nowrap; max-width: 100%;
+  text-align: left; font-size: 0.78rem; color: var(--text-muted, #8a9099);
+}
+#summary .summary-meta .summary-filename { flex: 0 1 auto; min-width: 3ch; overflow: hidden; text-overflow: ellipsis; }
+#summary .summary-meta .summary-parsetime { flex: 0 0 auto; }
+#summary .summary-meta .summary-parsetime::before { content: "·"; margin-right: 0.5rem; }
+#summary .stat-grid { grid-template-columns: repeat(3, auto) !important; margin-bottom: 0.6rem !important; }
+#summary .stat-grid .stat-card:nth-child(2) { display: none; }
+#summary .summary-date--title { text-align: center; font-size: 1.3rem; font-weight: 700; margin: 0 0 0.4rem; }
+#summary .summary-timeline { margin-top: 0; padding-top: 0; }
+#summary .summary-timeline-row { display: flex; margin-bottom: 0; }
+#summary .summary-timeline-track { flex: 1 1 100%; height: 8px; }
+#summary .summary-timeline-bound,
+#summary .summary-timeline-labels { display: none; }
+#summary .summary-tl-marks {
+  position: relative; height: 1rem; margin-top: 0.4rem;
+  font-size: 0.72rem; color: var(--text-muted, #8a9099); font-variant-numeric: tabular-nums;
+}
+#summary .summary-tl-mark { position: absolute; white-space: nowrap; transform: translateX(-50%); }
+#summary .summary-tl-mark.is-start, #summary .summary-tl-mark.is-end { opacity: 0.5; }
+#summary .summary-tl-mark.is-start { transform: none; left: 0 !important; }
+#summary .summary-tl-mark.is-end { transform: none; left: auto !important; right: 0; }
+
+/* ---------------------------------------------------------------------------
+   Period navigator (split reports + WASM split). Injected by period-nav.js.
+   The .ql-split class (set by startPeriodNav) hides the single-period date
+   title and timeline; the heatmap replaces them.
+   --------------------------------------------------------------------------- */
+.ql-split #summary .summary-date { display: none; }
+.ql-split #summary .summary-timeline { display: none; }
+.summary-periods { margin: 0; }
+.summary-periods-head { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 0.4rem; margin-bottom: 0.4rem; }
+.summary-periods-nav { display: flex; align-items: center; gap: 0.4rem; justify-self: center; }
+.summary-periods-label { font-size: 1.3rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.summary-periods-btn {
+  cursor: pointer; border: 1px solid var(--border, #ddd); background: var(--bg-alt, #f5f6f8);
+  color: var(--text, #333); border-radius: 5px; width: 1.25rem; height: 1.25rem;
+  font-size: 0.85rem; line-height: 1; display: flex; align-items: center; justify-content: center;
+}
+.summary-periods-btn:hover:not(:disabled) { border-color: var(--primary, #4a6ea9); color: var(--primary, #4a6ea9); }
+.summary-periods-btn:disabled { opacity: 0.3; cursor: default; }
+.summary-periods-grid { display: flex; gap: 3px; align-items: stretch; overflow-x: auto; scrollbar-width: thin; }
+.summary-periods-bounds {
+  display: flex; justify-content: space-between; margin-top: 0.4rem;
+  font-size: 0.72rem; color: var(--text-muted, #8a9099); font-variant-numeric: tabular-nums;
+}
+.ql-seg { flex: 1 1 0; min-width: 6px; height: 8px; background: none; border: 0; padding: 0; cursor: pointer; }
+.ql-seg i {
+  display: block; width: 100%; height: 100%; border-radius: 2px;
+  outline: 1px solid transparent; outline-offset: -1px;
+  background: color-mix(in srgb, var(--text-muted, #8a9099) calc(var(--t, 12) * 1%), transparent);
+  transition: background .12s, outline-color .12s;
+}
+.ql-seg:hover i { outline-color: var(--text-muted, #8a9099); }
+.ql-seg.active i { background: var(--primary, #4a6ea9); }
+.ql-seg.active.has-err i { background: var(--danger, #cc4b4b); }
+
+/* The split control reuses the shared .filter-dropdown markup/styles, so it
+   matches the other filter pills and their open menus with no extra CSS. */

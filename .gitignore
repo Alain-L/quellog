@@ -67,4 +67,5 @@ package-lock.json
 # Profiling artifacts
 *.svg
 ROADMAP*.md
+AUDIT_*.md
 _REFACTOR.md

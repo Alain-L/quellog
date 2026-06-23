@@ -384,16 +384,6 @@ func SortByCount(rows []QueryRow) {
 	})
 }
 
-// SortByTotalSize sorts query rows by total size (descending).
-func SortByTotalSize(rows []QueryRow) {
-	sort.Slice(rows, func(i, j int) bool {
-		if rows[i].TotalSize != rows[j].TotalSize {
-			return rows[i].TotalSize > rows[j].TotalSize
-		}
-		return rows[i].Query < rows[j].Query
-	})
-}
-
 // Standard column definitions
 
 // ColumnSQLID returns the SQLID column.
@@ -463,16 +453,6 @@ func ColumnDuration() QueryTableColumn {
 		Width:     12,
 		Alignment: "right",
 		ValueFunc: func(row QueryRow) string { return formatQueryDuration(row.MaxTime) },
-	}
-}
-
-// ColumnType returns the query type column (SELECT, INSERT, etc.).
-func ColumnType() QueryTableColumn {
-	return QueryTableColumn{
-		Header:    "Type",
-		Width:     8,
-		Alignment: "left",
-		ValueFunc: func(row QueryRow) string { return row.QueryType },
 	}
 }
 

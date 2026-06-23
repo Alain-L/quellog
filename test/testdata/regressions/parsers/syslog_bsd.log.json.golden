@@ -153,7 +153,31 @@
         "count": 1,
         "total_time_ms": 12.345,
         "avg_time_ms": 12.345,
-        "max_time_ms": 12.345
+        "max_time_ms": 12.345,
+        "top_databases": [
+          {
+            "name": "appdb",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "app",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 1
+          }
+        ],
+        "top_hosts": [
+          {
+            "name": "10.0.0.70",
+            "count": 1
+          }
+        ]
       }
     ]
   },
@@ -178,6 +202,13 @@
       "example": "dbhost01 postgres[30001]: [4-1] [30001]: [4-1] db=appdb,user=app,app=psql,client=10.0.0.70 ERROR:  syntax error at or near \"FORM\"",
       "timestamps": [
         1776672002000
+      ],
+      "triggering_queries": [
+        {
+          "id": "se-hIlAiz",
+          "normalized_query": "select * form users",
+          "count": 1
+        }
       ]
     }
   ],

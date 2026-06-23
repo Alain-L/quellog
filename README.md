@@ -66,6 +66,7 @@ go build -o quellog . && sudo install -m 755 quellog /usr/local/bin/quellog
 ```bash
 quellog /var/log/postgresql/*.log                        # Full report
 quellog /var/log/postgresql/*.log --html -o report.html  # Interactive HTML report
+quellog /var/log/postgresql/*.log --html --split 1d      # HTML report, one period per day
 quellog /var/log/postgresql/*.log --sql-performance      # SQL analysis
 quellog /var/log/postgresql/*.log -E fa-6K1G             # Drill into one event pattern
 quellog /var/log/postgresql/*.log --last 1d              # Last 24 hours

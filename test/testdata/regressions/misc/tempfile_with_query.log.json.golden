@@ -68,7 +68,31 @@
         "count": 1,
         "total_time_ms": 5432.1,
         "avg_time_ms": 5432.1,
-        "max_time_ms": 5432.1
+        "max_time_ms": 5432.1,
+        "top_databases": [
+          {
+            "name": "appdb",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "app",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "app-worker",
+            "count": 1
+          }
+        ],
+        "top_hosts": [
+          {
+            "name": "10.0.0.41",
+            "count": 1
+          }
+        ]
       },
       {
         "id": "se-bfosQn",
@@ -78,7 +102,31 @@
         "count": 1,
         "total_time_ms": 1234.567,
         "avg_time_ms": 1234.567,
-        "max_time_ms": 1234.567
+        "max_time_ms": 1234.567,
+        "top_databases": [
+          {
+            "name": "appdb",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "app",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 1
+          }
+        ],
+        "top_hosts": [
+          {
+            "name": "10.0.0.40",
+            "count": 1
+          }
+        ]
       }
     ]
   },
@@ -98,6 +146,7 @@
     "total_messages": 4,
     "total_size": "48.19 MB",
     "avg_size": "12.05 MB",
+    "max_size": "20.19 MB",
     "events": [
       {
         "timestamp": "2026-04-20 04:00:00",
@@ -126,14 +175,20 @@
         "normalized_query": "select * from big_table order by non_indexed_col",
         "raw_query": "SELECT * FROM big_table ORDER BY non_indexed_col",
         "count": 3,
-        "total_size": "28.00 MB"
+        "total_size": "28.00 MB",
+        "min_size": "4.00 MB",
+        "max_size": "16.00 MB",
+        "avg_size": "9.33 MB"
       },
       {
         "id": "se-bfosQn",
         "normalized_query": "select u.id, u.username, count(o.id) from users u left join orders o on o.user_id = u.id group by u.id order by count desc",
         "raw_query": "SELECT u.id, u.username, COUNT(o.id) FROM users u LEFT JOIN orders o ON o.user_id = u.id GROUP BY u.id ORDER BY count DESC",
         "count": 1,
-        "total_size": "20.19 MB"
+        "total_size": "20.19 MB",
+        "min_size": "20.19 MB",
+        "max_size": "20.19 MB",
+        "avg_size": "20.19 MB"
       }
     ]
   },

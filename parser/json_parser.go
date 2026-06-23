@@ -3,6 +3,7 @@ package parser
 
 import (
 	"bufio"
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -51,18 +52,44 @@ type JsonParser struct {
 
 // Parse reads a JSON format log file and streams parsed entries.
 // IMPORTANT: This function does NOT close the output channel.
+//
+// Large plain JSON-lines files take the parallel segment path —
+// jsonlog decoding is CPU-bound and strictly line-delimited, so byte
+// chunking parallelizes it safely (see parseJSONLinesParallel). JSON
+// arrays and small files keep the sequential reader.
 func (p *JsonParser) Parse(filename string, out chan<- []LogEntry) error {
 	f, err := os.Open(filename)
 	if err != nil {
 		return fmt.Errorf("failed to open file %s: %w", filename, err)
 	}
 	defer f.Close()
+
+	if st, err := f.Stat(); err == nil && st.Size() >= jsonParallelMinSize {
+		if workers := parallelWorkers(); workers >= 2 {
+			// Dispatch on structure: '[' means a JSON array (rare,
+			// sequential); anything else is JSON-lines.
+			br := bufio.NewReader(f)
+			// The offset-segmented parallel path can't strip a leading BOM
+			// (segment 0 starts at byte 0); fall back to the sequential
+			// reader, which does, when one is present.
+			bom, _ := br.Peek(3)
+			if !bytes.Equal(bom, utf8BOM) {
+				first, perr := peekFirstNonWhitespace(br)
+				if perr == nil && first != '[' {
+					return parseJSONLinesParallel(filename, st.Size(), workers, out)
+				}
+			}
+			if _, err := f.Seek(0, io.SeekStart); err != nil {
+				return fmt.Errorf("failed to rewind %s: %w", filename, err)
+			}
+		}
+	}
 	return p.parseReader(WithProgress(f), out)
 }
 
 // parseReader detects the JSON structure and dispatches to the appropriate parser.
 func (p *JsonParser) parseReader(r io.Reader, out chan<- []LogEntry) error {
-	bufReader := bufio.NewReader(r)
+	bufReader := bufio.NewReader(skipBOM(r))
 	firstByte, err := peekFirstNonWhitespace(bufReader)
 	if err != nil {
 		if err == io.EOF {
@@ -364,7 +391,16 @@ func extractIPHost(s string) string {
 // writing into the parser's reusable scratch buffer.
 func (p *JsonParser) buildMessage(f *effectiveFields) string {
 	if f.textPayload != "" {
-		return f.textPayload
+		// textPayload is returned verbatim (no rebuild), but gjson's
+		// String() sub-slices the parsed input for unescaped strings —
+		// here that input is unsafeString(scanner.Bytes()), the reusable
+		// scanner buffer. Returning it directly aliases that buffer, so
+		// the next Scan() (after a buffer refill, i.e. on inputs past the
+		// scanner's 4 MB window) silently overwrites already-emitted
+		// messages. Every other field path below copies into msgBuf and
+		// is safe; this one must Clone. Without it, a >4 MB Google Cloud
+		// SQL (textPayload) log corrupts the majority of its messages.
+		return strings.Clone(f.textPayload)
 	}
 
 	if cap(p.msgBuf) < 512 {

@@ -65,7 +65,45 @@
         "count": 3,
         "total_time_ms": 13.59,
         "avg_time_ms": 4.53,
-        "max_time_ms": 4.789
+        "max_time_ms": 4.789,
+        "prepared_names": [
+          "\u003cunnamed\u003e"
+        ],
+        "slowest_run": {
+          "duration_ms": 4.789,
+          "timestamp": "2026-04-20T01:00:01",
+          "pid": "23001",
+          "parameters": "$1 = '99'",
+          "query_with_params": "SELECT u.id, u.username, u.email FROM users u WHERE u.id = '99'",
+          "database": "appdb",
+          "user": "app",
+          "app": "app-worker",
+          "host": "10.0.0.10"
+        },
+        "top_databases": [
+          {
+            "name": "appdb",
+            "count": 3
+          }
+        ],
+        "top_users": [
+          {
+            "name": "app",
+            "count": 3
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "app-worker",
+            "count": 3
+          }
+        ],
+        "top_hosts": [
+          {
+            "name": "10.0.0.10",
+            "count": 3
+          }
+        ]
       }
     ]
   },

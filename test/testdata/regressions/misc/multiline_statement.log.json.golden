@@ -64,7 +64,31 @@
         "count": 1,
         "total_time_ms": 543.21,
         "avg_time_ms": 543.21,
-        "max_time_ms": 543.21
+        "max_time_ms": 543.21,
+        "top_databases": [
+          {
+            "name": "appdb",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "app",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 1
+          }
+        ],
+        "top_hosts": [
+          {
+            "name": "10.0.0.71",
+            "count": 1
+          }
+        ]
       }
     ]
   },
@@ -89,6 +113,13 @@
       "example": "[14001]: [1-1] user=app,db=appdb,app=psql,client=10.0.0.70 ERROR:  syntax error at end of input",
       "timestamps": [
         1776636000100
+      ],
+      "triggering_queries": [
+        {
+          "id": "se-OJZL9k",
+          "normalized_query": "select u.id, u.username, u.email, u.created_at, count(o.id) as order_count, sum(o.total) as total_spent from users u left join orders o on o.user_id = u.id where u.created_at \u003e ? and u.status = ? and exists ( select ? from subscriptions s where s.user_id = u.id and s.status = ? ) group by u.id order by total_spent desc",
+          "count": 1
+        }
       ]
     }
   ],

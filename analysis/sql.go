@@ -205,16 +205,63 @@ type QueryStat struct {
 	// LastPlan keeps only the most recent auto_explain plan per query
 	// signature (memory-bounded; older plans are discarded).
 	LastPlan string
+	// PreparedNames lists the distinct prepared-statement names seen for
+	// this query (extended protocol). "<unnamed>" for anonymous prepared
+	// statements; bare identifiers for named ones (JDBC-style "S_24").
+	// Empty when only simple-protocol "statement:" entries were observed.
+	PreparedNames []string
+	// SlowestRun captures the parameters of the slowest execution that
+	// had a matching "DETAIL: parameters:" line. Nil when no DETAIL was
+	// associated to any execution (simple protocol or DETAIL pairing miss).
+	SlowestRun *SlowestRun
+}
+
+// SlowestRun records the slowest observed execution of a query whose
+// parameters were logged via "DETAIL: parameters: $1 = ...".
+//
+// Database/User/App/Host capture the client identity behind the
+// slowest run so operators can reproduce or trace it; they may be
+// empty when the log prefix did not include the corresponding field.
+type SlowestRun struct {
+	DurationMs float64
+	Timestamp  time.Time
+	PID        string
+	Parameters string // raw DETAIL payload: "$1 = '393', $2 = '5', ..."
+	Database   string
+	User       string
+	App        string
+	Host       string
+}
+
+// pendingExec records the latest execute: entry seen on a PID, waiting
+// for an optional "DETAIL: parameters:" continuation that PostgreSQL
+// emits on the next log record from the same backend.
+type pendingExec struct {
+	statsKey  string  // normalized query key into queryStats
+	duration  float64 // ms
+	timestamp time.Time
+	database  string
+	user      string
+	app       string
+	host      string
 }
 
 // QueryExecution is one SQL execution event. Returned by SQLMetrics
 // iteration helpers (IterateExecutions / ExecutionAt) — the metrics
 // struct stores events in compact parallel slices internally and
 // expands them to QueryExecution one at a time on access.
+//
+// Database/User/App/Host are resolved from per-event dictionary
+// indices on read; empty when the source log line did not carry that
+// field on its prefix.
 type QueryExecution struct {
 	Timestamp time.Time
 	Duration  float64 // ms
 	QueryID   string  // short id (e.g. "se-abc123")
+	Database  string
+	User      string
+	App       string
+	Host      string
 }
 
 // ExecutionCount returns the number of recorded execution events.
@@ -284,6 +331,184 @@ func (m *SQLMetrics) IterateExecutionsForID(id string, fn func(QueryExecution) b
 		return
 	}
 	m.executions.ForEachID(idx, id, fn)
+}
+
+// DimensionCount is one (name, count) row produced by the per-query
+// dimension breakdown. Sorted by count desc, then name asc on ties.
+type DimensionCount struct {
+	Name  string
+	Count int
+}
+
+// QueryDimensions holds the top-N database/user/app/host names that
+// have executed a single query id. Each slice already truncated to
+// the limit requested by TopDimensionsForID; "" entries (no value on
+// the log prefix) are skipped.
+type QueryDimensions struct {
+	Databases []DimensionCount
+	Users     []DimensionCount
+	Apps      []DimensionCount
+	Hosts     []DimensionCount
+}
+
+// IsEmpty reports whether the breakdown has no rows at all. Output
+// renderers use it to skip the DIMENSIONS section when the log prefix
+// did not carry any of the four fields for this query.
+func (q QueryDimensions) IsEmpty() bool {
+	return len(q.Databases) == 0 && len(q.Users) == 0 && len(q.Apps) == 0 && len(q.Hosts) == 0
+}
+
+// TopDimensionsForID returns the top-`limit` (db/user/app/host) names
+// that have executed the query id, with their counts. Computed by
+// walking the compact executions for this id and tallying the
+// dimension indices into local maps. O(N) per dimension where N is
+// the number of executions of this specific query, not the full log.
+func (m *SQLMetrics) TopDimensionsForID(id string, limit int) QueryDimensions {
+	if m.executions == nil || limit <= 0 {
+		return QueryDimensions{}
+	}
+	idx := uint32(0)
+	found := false
+	for i, qid := range m.executions.queryIDs {
+		if qid == id {
+			idx = uint32(i)
+			found = true
+			break
+		}
+	}
+	if !found {
+		return QueryDimensions{}
+	}
+	dbCounts := make(map[uint16]int)
+	userCounts := make(map[uint16]int)
+	appCounts := make(map[uint16]int)
+	hostCounts := make(map[uint16]int)
+	c := m.executions
+	for ci := range c.chunks {
+		ch := &c.chunks[ci]
+		for j, qix := range ch.queryIDIdx {
+			if qix != idx {
+				continue
+			}
+			db, user, app, host := c.dimsAt(ci, j)
+			if db != 0 {
+				dbCounts[db]++
+			}
+			if user != 0 {
+				userCounts[user]++
+			}
+			if app != 0 {
+				appCounts[app]++
+			}
+			if host != 0 {
+				hostCounts[host]++
+			}
+		}
+	}
+	return QueryDimensions{
+		Databases: topDimensionEntries(dbCounts, c.databases, limit),
+		Users:     topDimensionEntries(userCounts, c.users, limit),
+		Apps:      topDimensionEntries(appCounts, c.apps, limit),
+		Hosts:     topDimensionEntries(hostCounts, c.hosts, limit),
+	}
+}
+
+// topDimensionEntries sorts the (index → count) tally by count desc,
+// then by name asc on ties, and truncates to limit. Returns nil when
+// the tally is empty.
+func topDimensionEntries(counts map[uint16]int, table []string, limit int) []DimensionCount {
+	if len(counts) == 0 {
+		return nil
+	}
+	out := make([]DimensionCount, 0, len(counts))
+	for k, v := range counts {
+		if int(k) >= len(table) {
+			continue
+		}
+		out = append(out, DimensionCount{Name: table[k], Count: v})
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Count != out[j].Count {
+			return out[i].Count > out[j].Count
+		}
+		return out[i].Name < out[j].Name
+	})
+	if limit < len(out) {
+		out = out[:limit]
+	}
+	return out
+}
+
+// TopDimensionsByQuery computes the top-`limit` (db/user/app/host)
+// breakdown for every query id, walking the executions in a single
+// pass. Returns a map keyed by query id, only populated for queries
+// that have at least one non-empty dimension. O(N) where N is the
+// total execution count — much cheaper than calling TopDimensionsForID
+// once per query (O(N × K) for K unique queries).
+//
+// Used by the JSON exporter to enrich the sql_performance.queries
+// array consumed by the HTML modal.
+func (m *SQLMetrics) TopDimensionsByQuery(limit int) map[string]QueryDimensions {
+	if m.executions == nil || limit <= 0 {
+		return nil
+	}
+	c := m.executions
+	// Per-query tallies: queryIDIdx → dimension → index → count.
+	dbCounts := make(map[uint32]map[uint16]int, len(c.queryIDs))
+	userCounts := make(map[uint32]map[uint16]int, len(c.queryIDs))
+	appCounts := make(map[uint32]map[uint16]int, len(c.queryIDs))
+	hostCounts := make(map[uint32]map[uint16]int, len(c.queryIDs))
+	for ci := range c.chunks {
+		ch := &c.chunks[ci]
+		for j, qix := range ch.queryIDIdx {
+			db, user, app, host := c.dimsAt(ci, j)
+			if db != 0 {
+				inner, ok := dbCounts[qix]
+				if !ok {
+					inner = make(map[uint16]int)
+					dbCounts[qix] = inner
+				}
+				inner[db]++
+			}
+			if user != 0 {
+				inner, ok := userCounts[qix]
+				if !ok {
+					inner = make(map[uint16]int)
+					userCounts[qix] = inner
+				}
+				inner[user]++
+			}
+			if app != 0 {
+				inner, ok := appCounts[qix]
+				if !ok {
+					inner = make(map[uint16]int)
+					appCounts[qix] = inner
+				}
+				inner[app]++
+			}
+			if host != 0 {
+				inner, ok := hostCounts[qix]
+				if !ok {
+					inner = make(map[uint16]int)
+					hostCounts[qix] = inner
+				}
+				inner[host]++
+			}
+		}
+	}
+	out := make(map[string]QueryDimensions, len(c.queryIDs))
+	for qix, id := range c.queryIDs {
+		dims := QueryDimensions{
+			Databases: topDimensionEntries(dbCounts[uint32(qix)], c.databases, limit),
+			Users:     topDimensionEntries(userCounts[uint32(qix)], c.users, limit),
+			Apps:      topDimensionEntries(appCounts[uint32(qix)], c.apps, limit),
+			Hosts:     topDimensionEntries(hostCounts[uint32(qix)], c.hosts, limit),
+		}
+		if !dims.IsEmpty() {
+			out[id] = dims
+		}
+	}
+	return out
 }
 
 // SQLMetrics combines per-query stats and global SQL metrics.
@@ -442,6 +667,10 @@ type SQLAnalyzer struct {
 	// When a plan: entry arrives, we store it here. When the subsequent
 	// statement: entry arrives for the same PID, we attach the plan to the query.
 	pendingPlanByPID map[string]string
+
+	// pendingExecByPID stores the latest execute: per PID, waiting for an
+	// optional "DETAIL: parameters:" continuation on the same backend.
+	pendingExecByPID map[string]pendingExec
 }
 
 // NewSQLAnalyzer creates a new SQL analyzer with pre-allocated capacity.
@@ -484,6 +713,7 @@ func NewSQLAnalyzerWithSize(inputBytes int64) *SQLAnalyzer {
 		queryTypesByHost:     make(map[string]map[string]*QueryTypeCount),
 		queryTypesByApp:      make(map[string]map[string]*QueryTypeCount),
 		pendingPlanByPID:     make(map[string]string),
+		pendingExecByPID:     make(map[string]pendingExec),
 	}
 }
 
@@ -494,23 +724,94 @@ func NewSQLAnalyzerWithSize(inputBytes int64) *SQLAnalyzer {
 //
 //	"LOG: duration: 5.123 ms execute <unnamed>: SELECT * FROM users WHERE id = 1"
 //	"LOG: duration: 10.456 ms statement: UPDATE users SET name = 'John' WHERE id = 1"
+//
+// handleParamsMessage pairs a "DETAIL: parameters:" continuation with
+// the pending execute: entry of the same PID and stores the bound
+// values on the query's SlowestRun when this run is the slowest seen.
+func (a *SQLAnalyzer) handleParamsMessage(entry *parser.LogEntry, msg string) {
+	pid := entry.PID
+	if pid == "" {
+		return
+	}
+	pe, ok := a.pendingExecByPID[pid]
+	if !ok {
+		return
+	}
+	if stat, found := a.queryStats[pe.statsKey]; found {
+		if stat.SlowestRun == nil || pe.duration > stat.SlowestRun.DurationMs {
+			params := extractParameters(msg)
+			if len(params) > slowestRunParamsCap {
+				params = params[:slowestRunParamsCap]
+			}
+			stat.SlowestRun = &SlowestRun{
+				DurationMs: pe.duration,
+				Timestamp:  pe.timestamp,
+				PID:        pid,
+				Parameters: params,
+				Database:   pe.database,
+				User:       pe.user,
+				App:        pe.app,
+				Host:       pe.host,
+			}
+		}
+	}
+	delete(a.pendingExecByPID, pid)
+}
+
 func (a *SQLAnalyzer) Process(entry *parser.LogEntry) {
 	msg := entry.Message
 
-	// Intercept auto_explain plan: messages before normal processing.
-	// These arrive BEFORE the corresponding statement: entry for the same PID.
-	if isPlanMessage(msg) {
-		pid := entry.PID
-		if pid != "" {
-			if plan := extractPlanText(msg); plan != "" {
-				a.pendingPlanByPID[pid] = plan
-			}
+	// One scan for "duration:" gates everything below: auto_explain
+	// plan messages carry it, and so does every timed execution. The
+	// only SQL-relevant entries WITHOUT it are the "DETAIL:
+	// parameters:" continuations — handled in the no-duration branch.
+	// This replaces three independent full-message scans per entry
+	// (plan, params, duration) with one on the dominant paths.
+	durIdx := strings.Index(msg, "duration:")
+
+	if durIdx == -1 {
+		// Intercept "DETAIL: parameters:" entries. These follow an
+		// execute: entry on the same backend; pair them by PID with
+		// pendingExecByPID to remember the parameter values of the
+		// slowest run per query.
+		if isParamsMessage(msg) {
+			a.handleParamsMessage(entry, msg)
 		}
 		return
 	}
 
-	// Extract duration and query from log message
-	duration, query, ok := extractDurationAndQuery(msg)
+	// Intercept auto_explain plan: messages before normal processing.
+	// These arrive BEFORE the corresponding statement: entry for the
+	// same PID. auto_explain always emits "plan:" right after
+	// "duration: X.XXX ms " — probing a short window instead of the
+	// whole message saves a full scan of multi-KB SQL payloads on
+	// every timed execution. (A "plan:" buried deep inside a query
+	// text used to enter the old check only to be rejected by the
+	// statement:/execute exclusion below; with the window it does not
+	// even match — same classification, fewer scans.)
+	if windowEnd := min(durIdx+40, len(msg)); strings.Contains(msg[durIdx:windowEnd], "plan:") {
+		rest := msg[durIdx:]
+		if !strings.Contains(rest, "statement:") && !strings.Contains(rest, "execute") {
+			pid := entry.PID
+			if pid != "" {
+				if plan := extractPlanText(msg); plan != "" {
+					a.pendingPlanByPID[pid] = plan
+				}
+			}
+			return
+		}
+	}
+
+	// Preserve the original predicate order: a "DETAIL: parameters:"
+	// continuation wins over the execution path even in the unlikely
+	// case a parameter value embeds "duration:".
+	if isParamsMessage(msg) {
+		a.handleParamsMessage(entry, msg)
+		return
+	}
+
+	// Extract duration, query, and optional prepared-statement name.
+	duration, query, preparedName, ok := extractDurationAndQueryAt(msg, durIdx)
 	if !ok {
 		return
 	}
@@ -559,9 +860,16 @@ func (a *SQLAnalyzer) Process(entry *parser.LogEntry) {
 		}
 	}
 
+	// Extract per-event prefix fields once. They feed three downstream
+	// sinks: the compact-storage dictionary indices, the pendingExec
+	// snapshot for SlowestRun pairing, and the legacy QueryTypesByX
+	// aggregation below.
+	database, user, host, app := extractPrefixFields(entry.Message)
+
 	// Add execution with query ID (after stats are created/retrieved).
-	// Compact storage: parallel slices + interned query IDs.
-	a.executions.append(entry.Timestamp, duration, stats.ID)
+	// Compact storage: parallel slices + interned query IDs + per-event
+	// dimension indices.
+	a.executions.append(entry.Timestamp, duration, stats.ID, database, user, app, host)
 
 	// Associate pending auto_explain plan (same PID, arrived just before)
 	pid := entry.PID
@@ -569,6 +877,28 @@ func (a *SQLAnalyzer) Process(entry *parser.LogEntry) {
 		if plan, hasPlan := a.pendingPlanByPID[pid]; hasPlan {
 			stats.LastPlan = plan
 			delete(a.pendingPlanByPID, pid)
+		}
+	}
+
+	// Record the prepared-statement name (deduplicated). Cap the per-stat
+	// set to a small bound so a pathological workload that prepares under
+	// thousands of distinct names cannot blow up memory.
+	if preparedName != "" {
+		stats.PreparedNames = appendPreparedName(stats.PreparedNames, preparedName)
+	}
+
+	// Remember this execute for an optional "DETAIL: parameters:" follow-up
+	// on the same backend. Only stored when the entry has a PID — without
+	// it we cannot pair the next continuation reliably.
+	if pid != "" {
+		a.pendingExecByPID[pid] = pendingExec{
+			statsKey:  normalizedQuery,
+			duration:  duration,
+			timestamp: entry.Timestamp,
+			database:  database,
+			user:      user,
+			app:       app,
+			host:      host,
 		}
 	}
 
@@ -589,9 +919,7 @@ func (a *SQLAnalyzer) Process(entry *parser.LogEntry) {
 	a.sumQueryDuration += duration
 
 	// Track query type breakdown by dimension (database, user, host, app)
-	// Extract all fields in a single pass for performance
 	queryType := QueryTypeFromID(stats.ID)
-	database, user, host, app := extractPrefixFields(entry.Message)
 
 	// Track query type breakdown by dimension - cache inner map refs
 	if database != "" {
@@ -826,7 +1154,12 @@ func percentileFromSorted(sorted []float64, percentile int) float64 {
 // Query extraction from log messages
 // ============================================================================
 
-// extractDurationAndQuery parses duration and query text from a PostgreSQL log message.
+// extractDurationAndQueryAt parses duration, query text, and the
+// optional prepared-statement name from a PostgreSQL log message. The
+// position of the "duration:" marker is expected to be already known —
+// Process finds it once and shares it between the plan-message check,
+// the params check, and this extraction, saving full message scans
+// per entry on the hot path.
 //
 // Expected format:
 //
@@ -836,22 +1169,17 @@ func percentileFromSorted(sorted []float64, percentile int) float64 {
 // Returns:
 //   - duration: execution time in milliseconds
 //   - query: SQL query text
+//   - preparedName: name between "execute " and ":" ("" for simple-protocol
+//     "statement:" entries)
 //   - ok: true if parsing succeeded
 //
 // This function is optimized for performance:
 //   - Single pass parsing
 //   - No intermediate string allocations
 //   - Manual whitespace skipping
-func extractDurationAndQuery(message string) (duration float64, query string, ok bool) {
-	// Quick length check
-	if len(message) < 20 {
-		return 0, "", false
-	}
-
-	// Find "duration:" marker
-	durIdx := strings.Index(message, "duration:")
+func extractDurationAndQueryAt(message string, durIdx int) (duration float64, query, preparedName string, ok bool) {
 	if durIdx == -1 {
-		return 0, "", false
+		return 0, "", "", false
 	}
 
 	// Parse duration value
@@ -869,31 +1197,51 @@ func extractDurationAndQuery(message string) (duration float64, query string, ok
 	}
 
 	if end == start {
-		return 0, "", false
+		return 0, "", "", false
 	}
 
 	// Parse float duration
 	dur, err := strconv.ParseFloat(message[start:end], 64)
 	if err != nil {
-		return 0, "", false
+		return 0, "", "", false
 	}
 
-	// Find query marker ("execute" or "statement")
-	// Search after duration marker for efficiency
+	// Find query marker ("execute" or "statement"). In every real PG
+	// format the keyword sits right after "duration: X.XXX ms ", so the
+	// search is capped to a short window past the marker — without it,
+	// extended-protocol parse/bind lines (which carry NO keyword) cost
+	// two full scans of a multi-KB SQL payload each, and a query text
+	// containing the word "statement" far from the prefix could even
+	// fake a match. 64 bytes leaves ×2 margin over the longest
+	// realistic duration literal.
 	var markerIdx int
 	var markerLen int
+	isExecute := false
 
-	execIdx := indexAfter(message, "execute", durIdx)
-	stmtIdx := indexAfter(message, "statement", durIdx)
+	searchEnd := durIdx + 64
+	if searchEnd > len(message) {
+		searchEnd = len(message)
+	}
+	window := message[:searchEnd]
+	execIdx := indexAfter(window, "execute", durIdx)
+	stmtIdx := indexAfter(window, "statement", durIdx)
 
 	if execIdx != -1 && (stmtIdx == -1 || execIdx < stmtIdx) {
 		markerIdx = execIdx
 		markerLen = 7 // len("execute")
+		isExecute = true
 	} else if stmtIdx != -1 {
 		markerIdx = stmtIdx
 		markerLen = 9 // len("statement")
 	} else {
-		return dur, "", false
+		return dur, "", "", false
+	}
+
+	// For execute: capture the prepared-statement name between "execute "
+	// and the next ":". Skip a single leading space.
+	nameStart := markerIdx + markerLen
+	if isExecute && nameStart < len(message) && message[nameStart] == ' ' {
+		nameStart++
 	}
 
 	// Find ':' after marker
@@ -902,7 +1250,10 @@ func extractDurationAndQuery(message string) (duration float64, query string, ok
 		queryStart++
 	}
 	if queryStart >= len(message) {
-		return dur, "", false
+		return dur, "", "", false
+	}
+	if isExecute && queryStart > nameStart {
+		preparedName = message[nameStart:queryStart]
 	}
 	queryStart++ // Skip ':'
 
@@ -912,11 +1263,11 @@ func extractDurationAndQuery(message string) (duration float64, query string, ok
 	}
 
 	if queryStart >= len(message) {
-		return dur, "", false
+		return dur, "", preparedName, false
 	}
 
 	query = message[queryStart:]
-	return dur, query, true
+	return dur, query, preparedName, true
 }
 
 // indexAfter finds the first occurrence of substr in s, starting after the given position.
@@ -936,23 +1287,62 @@ func indexAfter(s, substr string, after int) int {
 // auto_explain plan extraction
 // ============================================================================
 
-// isPlanMessage returns true if the message is an auto_explain plan entry.
-// These contain "duration:" followed by "plan:" but NOT "statement:" or "execute:".
-func isPlanMessage(message string) bool {
-	// Fast reject: "plan:" is rare, check it first
-	if !strings.Contains(message, "plan:") {
+// preparedNamesCap caps how many distinct prepared-statement names we
+// track per query. JDBC-style workloads usually map a query to a single
+// name (or just "<unnamed>"); the cap protects against pathological
+// generators that mint a fresh name per execution.
+const preparedNamesCap = 16
+
+// slowestRunParamsCap caps the raw "DETAIL: parameters:" payload we
+// retain per query stat. Pathological workloads can ship multi-MB
+// array literals (observed: 18 MB on a single bind on I.log); without
+// a cap we would keep one such string per slowest run and bloat the
+// process memory plus every downstream output. Anything beyond the
+// cap is truncated; the slowest-run header still pinpoints the original
+// log line via timestamp + PID.
+const slowestRunParamsCap = 8192
+
+// appendPreparedName adds name to the deduplicated set, preserving
+// observation order. Linear scan is fine — the set is bounded by
+// preparedNamesCap.
+func appendPreparedName(names []string, name string) []string {
+	for _, n := range names {
+		if n == name {
+			return names
+		}
+	}
+	if len(names) >= preparedNamesCap {
+		return names
+	}
+	return append(names, name)
+}
+
+// isParamsMessage returns true if the message is a "DETAIL: parameters:"
+// continuation. These follow an execute: entry on the same backend and
+// carry the actual values bound to the prepared-statement placeholders.
+// Both markers live in the head of the message (after an optional
+// log_line_prefix); the scan cap skips the parameter payload itself,
+// which can run to kilobytes on wide INSERTs. 512 matches the margin
+// used by the replication prefilter for long prefixes.
+func isParamsMessage(message string) bool {
+	if len(message) > 512 {
+		message = message[:512]
+	}
+	if !strings.Contains(message, "parameters:") {
 		return false
 	}
-	durIdx := strings.Index(message, "duration:")
-	if durIdx == -1 {
-		return false
+	return strings.Contains(message, "DETAIL")
+}
+
+// extractParameters returns the payload after "parameters:" in a DETAIL line.
+// Example input  : "... DETAIL:  parameters: $1 = '393', $2 = '5'"
+// Example output : "$1 = '393', $2 = '5'"
+func extractParameters(message string) string {
+	idx := strings.Index(message, "parameters:")
+	if idx == -1 {
+		return ""
 	}
-	rest := message[durIdx:]
-	// Exclude normal statement/execute entries that happen to contain "plan" in the query text
-	if strings.Contains(rest, "statement:") || strings.Contains(rest, "execute") {
-		return false
-	}
-	return true
+	return strings.TrimSpace(message[idx+len("parameters:"):])
 }
 
 // extractPlanText extracts the execution plan text from an auto_explain message.

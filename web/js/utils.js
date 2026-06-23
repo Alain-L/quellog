@@ -74,6 +74,56 @@ export function fmtBytes(b) {
 }
 
 /**
+ * Coarser duration formatter that keeps only the two most significant
+ * units (drops seconds once the value crosses an hour, drops minutes
+ * once it crosses a day). Better for stat-cards where "3h 59m 17s"
+ * adds noise to the headline reading — "3h 59m" lands faster.
+ * @param {number} ms
+ * @returns {string}
+ */
+export function fmtDurationCoarse(ms) {
+    if (!ms || ms < 0) return '0ms';
+    const totalSeconds = Math.floor(ms / 1000);
+    if (totalSeconds === 0) return Math.round(ms % 1000) + 'ms';
+    const days = Math.floor(totalSeconds / 86400);
+    const hours = Math.floor((totalSeconds % 86400) / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    const duration = {};
+    if (days > 0) {
+        duration.days = days;
+        if (hours > 0) duration.hours = hours;
+    } else if (hours > 0) {
+        duration.hours = hours;
+        if (minutes > 0) duration.minutes = minutes;
+    } else if (minutes > 0) {
+        duration.minutes = minutes;
+        if (seconds > 0) duration.seconds = seconds;
+    } else {
+        duration.seconds = seconds;
+    }
+    return durationFmt.format(duration);
+}
+
+/**
+ * Format large integer counts with SI-style suffixes (1.5M, 370M, 4.5G).
+ * Matches the CLI's formatCompact so the report's HTML and text outputs
+ * use the same units for buffer / WAL aggregate counts.
+ * @param {number} n
+ * @returns {string}
+ */
+export function fmtCompact(n) {
+    if (n == null || n < 0) return '-';
+    if (n < 1000) return String(n);
+    if (n < 10000) return (n / 1000).toFixed(1) + 'k';
+    if (n < 1_000_000) return Math.round(n / 1000) + 'k';
+    if (n < 10_000_000) return (n / 1_000_000).toFixed(1) + 'M';
+    if (n < 1_000_000_000) return Math.round(n / 1_000_000) + 'M';
+    if (n < 10_000_000_000) return (n / 1_000_000_000).toFixed(1) + 'G';
+    return Math.round(n / 1_000_000_000) + 'G';
+}
+
+/**
  * Format milliseconds (numeric) to compact display string.
  * @param {number|string} ms
  * @returns {string}
@@ -169,6 +219,20 @@ export function esc(s) {
     const d = document.createElement('div');
     d.textContent = s;
     return d.innerHTML;
+}
+
+// escAttr escapes a string for safe interpolation inside a double-quoted HTML
+// attribute value. esc() (textContent→innerHTML) escapes & < > but NOT the
+// quote chars, so a log-derived value containing " could break out of an
+// attribute and inject a handler. escAttr handles the quotes too.
+export function escAttr(s) {
+    if (s === null || s === undefined) return '';
+    return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
 }
 
 // escForJsAttr escapes a string so it can be safely embedded as a JS string

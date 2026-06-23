@@ -11,12 +11,14 @@ This _quellog_ report summarizes **6** log entries collected between 20 Apr 2026
 04:00 - 04:01 | ■■■■■■ 6 s
 ```
 
-|  |  |  |  |
-|---|---:|---|---:|
-| Total query duration | 6.67 s | Total queries parsed | 2 |
-| Total unique queries | 2 | Top 1% slow queries | 1 |
-| Query max duration | 5.43 s | Query min duration | 1.23 s |
-| Query median duration | 3.33 s | Query 99% max duration | 5.43 s |
+- **Total query duration**   : 6.67 s
+- **Total queries parsed**   : 2
+- **Total unique queries**   : 2
+- **Top 1% slow queries**    : 1
+- **Query max duration**     : 5.43 s
+- **Query min duration**     : 1.23 s
+- **Query median duration**  : 3.33 s
+- **Query 99% max duration** : 5.43 s
 
 ### Query duration distribution
 
@@ -33,24 +35,24 @@ This _quellog_ report summarizes **6** log entries collected between 20 Apr 2026
 
 **Slowest queries (top 10)**
 
-| SQLID | Max | Avg | Count | Query |
-|---|---:|---:|---:|---|
-| se-1UDove | 5.43 s | 5.43 s | 1 | select * from big_table order by non_indexed_col |
-| se-bfosQn | 1.23 s | 1.23 s | 1 | select u.id, u.username, count(o.id) from users u left join orders o on o.use... |
+| SQLID     |    Max |    Avg | Count | Query                                                                            |
+|-----------|-------:|-------:|------:|----------------------------------------------------------------------------------|
+| se-1UDove | 5.43 s | 5.43 s |     1 | select * from big_table order by non_indexed_col                                 |
+| se-bfosQn | 1.23 s | 1.23 s |     1 | select u.id, u.username, count(o.id) from users u left join orders o on o.use... |
 
 **Most frequent queries (top 10)**
 
-| SQLID | Count | Avg | Max | Query |
-|---|---:|---:|---:|---|
-| se-1UDove | 1 | 5.43 s | 5.43 s | select * from big_table order by non_indexed_col |
-| se-bfosQn | 1 | 1.23 s | 1.23 s | select u.id, u.username, count(o.id) from users u left join orders o on o.use... |
+| SQLID     | Count |    Avg |    Max | Query                                                                            |
+|-----------|------:|-------:|-------:|----------------------------------------------------------------------------------|
+| se-1UDove |     1 | 5.43 s | 5.43 s | select * from big_table order by non_indexed_col                                 |
+| se-bfosQn |     1 | 1.23 s | 1.23 s | select u.id, u.username, count(o.id) from users u left join orders o on o.use... |
 
 **Most time consuming queries (top 10)**
 
-| SQLID | Total | Avg | Count | Query |
-|---|---:|---:|---:|---|
-| se-1UDove | 5.43 s | 5.43 s | 1 | select * from big_table order by non_indexed_col |
-| se-bfosQn | 1.23 s | 1.23 s | 1 | select u.id, u.username, count(o.id) from users u left join orders o on o.use... |
+| SQLID     |  Total |    Avg | Count | Query                                                                            |
+|-----------|-------:|-------:|------:|----------------------------------------------------------------------------------|
+| se-1UDove | 5.43 s | 5.43 s |     1 | select * from big_table order by non_indexed_col                                 |
+| se-bfosQn | 1.23 s | 1.23 s |     1 | select u.id, u.username, count(o.id) from users u left join orders o on o.use... |
 
 ## EVENTS
 
@@ -72,6 +74,7 @@ This _quellog_ report summarizes **6** log entries collected between 20 Apr 2026
 - **Temp file messages**: 4
 - **Cumulative temp file size**: 48.19 MB
 - **Average temp file size**: 12.05 MB
+- **Max temp file size**: 20.19 MB
 
 ## CLIENTS
 
@@ -82,41 +85,41 @@ This _quellog_ report summarizes **6** log entries collected between 20 Apr 2026
 
 ### USERS
 
-| User | Count | % |
-|---|---:|---:|
-| app | 6 | 100.0% |
+| User | Count |      % |
+|------|------:|-------:|
+| app  |     6 | 100.0% |
 
 ### APPS
 
-| App | Count | % |
-|---|---:|---:|
-| app-worker | 4 | 66.7% |
-| psql | 2 | 33.3% |
+| App        | Count |     % |
+|------------|------:|------:|
+| app-worker |     4 | 66.7% |
+| psql       |     2 | 33.3% |
 
 ### DATABASES
 
-| Database | Count | % |
-|---|---:|---:|
-| appdb | 6 | 100.0% |
+| Database | Count |      % |
+|----------|------:|-------:|
+| appdb    |     6 | 100.0% |
 
 ### HOSTS
 
-| Host | Count | % |
-|---|---:|---:|
-| 10.0.0.41 | 4 | 66.7% |
-| 10.0.0.40 | 2 | 33.3% |
+| Host      | Count |     % |
+|-----------|------:|------:|
+| 10.0.0.41 |     4 | 66.7% |
+| 10.0.0.40 |     2 | 33.3% |
 
 ### USER × DATABASE
 
-| User | Database | Count | % |
-|---|---|---:|---:|
-| app | appdb | 6 | 100.0% |
+| User | Database | Count |      % |
+|------|----------|------:|-------:|
+| app  | appdb    |     6 | 100.0% |
 
 ### USER × HOST
 
-| User | Host | Count | % |
-|---|---|---:|---:|
-| app | 10.0.0.41 | 4 | 66.7% |
-| app | 10.0.0.40 | 2 | 33.3% |
+| User | Host      | Count |     % |
+|------|-----------|------:|------:|
+| app  | 10.0.0.41 |     4 | 66.7% |
+| app  | 10.0.0.40 |     2 | 33.3% |
 
 

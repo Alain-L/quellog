@@ -1,6 +1,7 @@
 package quellog_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"testing"
@@ -61,18 +62,49 @@ func findQuery(queries []map[string]any, substr string) map[string]any {
 func TestRegression_SQLQueryIDStability(t *testing.T) {
 	got := runFixtureJSON(t, "testdata/regressions/sql/sql_normalization.log")
 	sp := sqlSummary(t, got)
-	if total, _ := sp["total_queries_parsed"].(float64); total != 10 {
-		t.Errorf("total_queries_parsed = %v, want 10", total)
+	if total, _ := sp["total_queries_parsed"].(float64); total != 15 {
+		t.Errorf("total_queries_parsed = %v, want 15", total)
 	}
-	if uniq, _ := sp["total_unique_queries"].(float64); uniq != 3 {
-		t.Errorf("total_unique_queries = %v, want 3 (INSERT+SELECT+UPDATE shapes)", uniq)
+	// Five distinct shapes after normalization:
+	//   INSERT INTO orders (×5)
+	//   SELECT * FROM users WHERE id = ? (×3)
+	//   UPDATE users SET email (×2)
+	//   SELECT * FROM "MyTable" WHERE "UserId" = ? (×2) — case-preserved in dquotes
+	//   SELECT * FROM products WHERE id in (...) (×3) — IN-list collapsed
+	if uniq, _ := sp["total_unique_queries"].(float64); uniq != 5 {
+		t.Errorf("total_unique_queries = %v, want 5", uniq)
 	}
-	insert := findQuery(sqlQueries(t, got), "insert into orders")
+	queries := sqlQueries(t, got)
+	insert := findQuery(queries, "insert into orders")
 	if insert == nil {
 		t.Fatal("INSERT query not found in queries list")
 	}
 	if c := insert["count"].(float64); c != 5 {
 		t.Errorf("INSERT count = %v, want 5 (5 inserts with different literals must collapse to 1 ID)", c)
+	}
+
+	// Double-quoted identifiers must keep their original case
+	// ("MyTable" != "mytable" in PostgreSQL).
+	mytable := findQuery(queries, `"MyTable"`)
+	if mytable == nil {
+		t.Fatal(`query with "MyTable" not found — case was lost in normalization`)
+	}
+	if c := mytable["count"].(float64); c != 2 {
+		t.Errorf(`"MyTable" count = %v, want 2`, c)
+	}
+	nq, _ := mytable["normalized_query"].(string)
+	if !strings.Contains(nq, `"MyTable"`) || !strings.Contains(nq, `"UserId"`) {
+		t.Errorf(`normalized_query lost dquote case: %q`, nq)
+	}
+
+	// IN-list batches of different cardinalities must collapse to one
+	// signature, normalized as "in (...)" rather than "in (?, ?, ?)".
+	inq := findQuery(queries, "in (...)")
+	if inq == nil {
+		t.Fatal("query with collapsed IN-list not found — expected 'in (...)' in normalized_query")
+	}
+	if c := inq["count"].(float64); c != 3 {
+		t.Errorf("IN-list count = %v, want 3 (in (?), in (?,?,?), in (?,?,?,?,?) must collapse to one)", c)
 	}
 }
 
@@ -206,6 +238,88 @@ func TestRegression_SQLTopQueriesOrderedByMaxTime(t *testing.T) {
 	if !strings.Contains(third, "now()") {
 		t.Errorf("slowest[2] = %q, want now() third (most frequent but fastest)", third)
 	}
+}
+
+// TestRegression_SQLDetailExposesDimensions verifies the per-query
+// DIMENSIONS breakdown surfaced by --sql-detail --json. The fixture
+// runs the SAME normalized query under several db/user/app/host
+// combos and an extended-protocol DETAIL pair to also exercise the
+// SlowestRun enrichment.
+func TestRegression_SQLDetailExposesDimensions(t *testing.T) {
+	out := runHarness(t, false, "testdata/regressions/sql/sql_dimensions.log", "--json")
+	doc := mustJSON(t, out)
+	queries := sqlQueries(t, doc)
+	if len(queries) != 1 {
+		t.Fatalf("want 1 query in sql_performance.queries, got %d", len(queries))
+	}
+	queryID, _ := queries[0]["id"].(string)
+	if queryID == "" {
+		t.Fatal("query id missing on the single query row")
+	}
+
+	// Re-run with --sql-detail to get the per-id top dimensions.
+	out = runHarness(t, false, "testdata/regressions/sql/sql_dimensions.log", "--sql-detail", queryID, "--json")
+	var arr []map[string]any
+	if err := jsonUnmarshalArr(out, &arr); err != nil {
+		t.Fatalf("invalid --sql-detail JSON: %v\n%s", err, out)
+	}
+	if len(arr) != 1 {
+		t.Fatalf("want 1 detail entry, got %d", len(arr))
+	}
+	detail := arr[0]
+
+	// Top databases: appdb wins by far (8/10). Then webdb, analyticsdb.
+	dbs, _ := detail["top_databases"].([]any)
+	if len(dbs) == 0 {
+		t.Fatal("top_databases is empty — dimensions did not bubble up")
+	}
+	first := dbs[0].(map[string]any)
+	if first["name"] != "appdb" {
+		t.Errorf("top_databases[0].name = %v, want appdb", first["name"])
+	}
+	if first["count"].(float64) != 8 {
+		t.Errorf("top_databases[0].count = %v, want 8", first["count"])
+	}
+
+	// Users: app_user (6), then batch (2) and worker (2). Tie broken
+	// alphabetically — batch < worker.
+	users, _ := detail["top_users"].([]any)
+	if len(users) < 3 {
+		t.Fatalf("top_users len = %d, want at least 3", len(users))
+	}
+	if users[0].(map[string]any)["name"] != "app_user" {
+		t.Errorf("top_users[0] = %v, want app_user", users[0])
+	}
+
+	// All four dimensions should be present.
+	for _, key := range []string{"top_databases", "top_users", "top_apps", "top_hosts"} {
+		if _, ok := detail[key]; !ok {
+			t.Errorf("missing dimension %s in sql-detail output", key)
+		}
+	}
+
+	// SlowestRun should carry the (db/user/app/host) of its execution.
+	sr, _ := detail["slowest_run"].(map[string]any)
+	if sr == nil {
+		t.Fatal("slowest_run missing from sql-detail output")
+	}
+	if sr["database"] != "appdb" {
+		t.Errorf("slowest_run.database = %v, want appdb", sr["database"])
+	}
+	if sr["user"] != "app_user" {
+		t.Errorf("slowest_run.user = %v, want app_user", sr["user"])
+	}
+	if sr["app"] != "webapp" {
+		t.Errorf("slowest_run.app = %v, want webapp", sr["app"])
+	}
+	if sr["host"] != "10.0.0.42" {
+		t.Errorf("slowest_run.host = %v, want 10.0.0.42", sr["host"])
+	}
+}
+
+// jsonUnmarshalArr decodes a JSON array of objects from raw bytes.
+func jsonUnmarshalArr(data []byte, out *[]map[string]any) error {
+	return json.Unmarshal(data, out)
 }
 
 // looksBetween parses a duration string like "260 ms" or "1.20 s" and

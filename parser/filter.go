@@ -8,7 +8,7 @@ import (
 )
 
 // LogFilters defines criteria for filtering log entries.
-// Filters are applied in the order: time range, database, user, application, grep patterns.
+// Filters are applied in the order: time range, database, user, application.
 // An entry must match ALL specified filters to pass through.
 //
 // Zero values (empty slices, zero times) mean "no filtering for this criterion".
@@ -19,7 +19,6 @@ type LogFilters struct {
 	UserFilter  []string  // whitelist of users (extracted from "user=<name>")
 	ExcludeUser []string  // blacklist of users; takes precedence over UserFilter
 	AppFilter   []string  // whitelist of application names (extracted from "app=<name>")
-	GrepExpr    []string  // patterns that must ALL appear in the message (literal, not regex)
 }
 
 // FilterStream reads log entries from the input channel, applies filters,
@@ -35,7 +34,6 @@ type LogFilters struct {
 //  2. Database name
 //  3. User name (including exclusions)
 //  4. Application name
-//  5. Grep patterns (slowest, requires multiple string searches)
 //
 // IsEmpty returns true if no filters are configured.
 func (f LogFilters) IsEmpty() bool {
@@ -93,13 +91,19 @@ func FilterStream(ctx context.Context, in <-chan []LogEntry, out chan<- []LogEnt
 // PassesFilters checks if a log entry matches all filter criteria.
 // Returns true if the entry should be included in the output.
 func PassesFilters(entry LogEntry, filters LogFilters) bool {
-	// Time range filters (fastest - direct time comparison, no allocations)
-	if !filters.BeginT.IsZero() && entry.Timestamp.Before(filters.BeginT) {
-		return false
-	}
-
-	if !filters.EndT.IsZero() && entry.Timestamp.After(filters.EndT) {
-		return false
+	// Time range filters. --begin/--end are wall-clock bounds: "09:00" means
+	// the instant the log clock reads 09:00, independent of the log's or the
+	// machine's timezone. BeginT/EndT are stored pre-projected onto that civil
+	// timeline (see buildLogFilters), so project the entry the same way before
+	// comparing. Skipped entirely when no time bound is set (the common path).
+	if !filters.BeginT.IsZero() || !filters.EndT.IsZero() {
+		wall := WallClock(entry.Timestamp)
+		if !filters.BeginT.IsZero() && wall.Before(filters.BeginT) {
+			return false
+		}
+		if !filters.EndT.IsZero() && wall.After(filters.EndT) {
+			return false
+		}
 	}
 
 	// Database filter
@@ -130,13 +134,6 @@ func PassesFilters(entry LogEntry, filters LogFilters) bool {
 	if len(filters.AppFilter) > 0 {
 		appName := extractValue(entry.Message, "app=")
 		if appName == "" || !contains(filters.AppFilter, appName) {
-			return false
-		}
-	}
-
-	// Grep pattern filter (slowest - multiple string searches)
-	if len(filters.GrepExpr) > 0 {
-		if !containsAllPatterns(entry.Message, filters.GrepExpr) {
 			return false
 		}
 	}
@@ -211,21 +208,4 @@ func contains(slice []string, str string) bool {
 		}
 	}
 	return false
-}
-
-// containsAllPatterns checks if a string contains all specified patterns.
-// All patterns are treated as literal strings (case-sensitive).
-//
-// Returns true if:
-//   - patterns is empty (no filtering)
-//   - all patterns are found in the string
-//
-// Returns false if any pattern is missing.
-func containsAllPatterns(text string, patterns []string) bool {
-	for _, pattern := range patterns {
-		if !strings.Contains(text, pattern) {
-			return false
-		}
-	}
-	return true
 }

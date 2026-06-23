@@ -14,6 +14,7 @@ import (
 type TempFileMetrics struct {
 	Count      int
 	TotalSize  int64                         // bytes
+	MaxSize    int64                         // bytes — largest single temp-file event
 	Events     []TempFileEvent               // each creation event (for timeline analysis)
 	QueryStats map[string]*TempFileQueryStat // normalized query → stats
 }
@@ -31,6 +32,8 @@ type TempFileQueryStat struct {
 	NormalizedQuery string // parameterized form, used for grouping
 	Count           int
 	TotalSize       int64
+	MinSize         int64 // smallest single tempfile event for this query
+	MaxSize         int64 // largest single tempfile event for this query
 	ID              string
 	FullHash        string
 }
@@ -72,6 +75,7 @@ const (
 type TempFileAnalyzer struct {
 	count      int
 	totalSize  int64
+	maxSize    int64
 	events     []TempFileEvent
 	queryStats map[string]*TempFileQueryStat
 
@@ -313,6 +317,9 @@ func (a *TempFileAnalyzer) Process(entry *parser.LogEntry) {
 	size := extractTempFileSize(msg)
 	if size > 0 {
 		a.totalSize += size
+		if size > a.maxSize {
+			a.maxSize = size
+		}
 		eventIndex := len(a.events)
 		a.events = append(a.events, TempFileEvent{
 			Timestamp: entry.Timestamp,
@@ -512,6 +519,8 @@ func (a *TempFileAnalyzer) associateQuery(query string, size int64, eventIndex i
 			NormalizedQuery: normalized,
 			Count:           0,
 			TotalSize:       0,
+			MinSize:         size,
+			MaxSize:         size,
 			ID:              id,
 			FullHash:        fullHash,
 		}
@@ -520,6 +529,12 @@ func (a *TempFileAnalyzer) associateQuery(query string, size int64, eventIndex i
 		// For deterministic JSON output, always keep the alphabetically first raw query
 		if query < stat.RawQuery {
 			stat.RawQuery = query
+		}
+		if size < stat.MinSize {
+			stat.MinSize = size
+		}
+		if size > stat.MaxSize {
+			stat.MaxSize = size
 		}
 	}
 
@@ -533,6 +548,7 @@ func (a *TempFileAnalyzer) Finalize() TempFileMetrics {
 	return TempFileMetrics{
 		Count:      a.count,
 		TotalSize:  a.totalSize,
+		MaxSize:    a.maxSize,
 		Events:     a.events,
 		QueryStats: a.queryStats,
 	}

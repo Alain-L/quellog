@@ -10,12 +10,14 @@ This _quellog_ report summarizes **7** log entries collected between 20 Apr 2026
 01:00 - 01:00 | ■■■■ 4 ms
 ```
 
-|  |  |  |  |
-|---|---:|---|---:|
-| Total query duration | 13 ms | Total queries parsed | 3 |
-| Total unique queries | 1 | Top 1% slow queries | 1 |
-| Query max duration | 4 ms | Query min duration | 4 ms |
-| Query median duration | 4 ms | Query 99% max duration | 4 ms |
+- **Total query duration**   : 13 ms
+- **Total queries parsed**   : 3
+- **Total unique queries**   : 1
+- **Top 1% slow queries**    : 1
+- **Query max duration**     : 4 ms
+- **Query min duration**     : 4 ms
+- **Query median duration**  : 4 ms
+- **Query 99% max duration** : 4 ms
 
 ### Query duration distribution
 
@@ -32,21 +34,21 @@ This _quellog_ report summarizes **7** log entries collected between 20 Apr 2026
 
 **Slowest queries (top 10)**
 
-| SQLID | Max | Avg | Count | Query |
-|---|---:|---:|---:|---|
-| se-0gCNFx | 4 ms | 4 ms | 3 | select u.id, u.username, u.email from users u where u.id = ? |
+| SQLID     |  Max |  Avg | Count | Query                                                        |
+|-----------|-----:|-----:|------:|--------------------------------------------------------------|
+| se-0gCNFx | 4 ms | 4 ms |     3 | select u.id, u.username, u.email from users u where u.id = ? |
 
 **Most frequent queries (top 10)**
 
-| SQLID | Count | Avg | Max | Query |
-|---|---:|---:|---:|---|
-| se-0gCNFx | 3 | 4 ms | 4 ms | select u.id, u.username, u.email from users u where u.id = ? |
+| SQLID     | Count |  Avg |  Max | Query                                                        |
+|-----------|------:|-----:|-----:|--------------------------------------------------------------|
+| se-0gCNFx |     3 | 4 ms | 4 ms | select u.id, u.username, u.email from users u where u.id = ? |
 
 **Most time consuming queries (top 10)**
 
-| SQLID | Total | Avg | Count | Query |
-|---|---:|---:|---:|---|
-| se-0gCNFx | 13 ms | 4 ms | 3 | select u.id, u.username, u.email from users u where u.id = ? |
+| SQLID     | Total |  Avg | Count | Query                                                        |
+|-----------|------:|-----:|------:|--------------------------------------------------------------|
+| se-0gCNFx | 13 ms | 4 ms |     3 | select u.id, u.username, u.email from users u where u.id = ? |
 
 ## EVENTS
 
@@ -61,38 +63,38 @@ This _quellog_ report summarizes **7** log entries collected between 20 Apr 2026
 
 ### USERS
 
-| User | Count | % |
-|---|---:|---:|
-| app | 7 | 100.0% |
+| User | Count |      % |
+|------|------:|-------:|
+| app  |     7 | 100.0% |
 
 ### APPS
 
-| App | Count | % |
-|---|---:|---:|
-| app-worker | 7 | 100.0% |
+| App        | Count |      % |
+|------------|------:|-------:|
+| app-worker |     7 | 100.0% |
 
 ### DATABASES
 
-| Database | Count | % |
-|---|---:|---:|
-| appdb | 7 | 100.0% |
+| Database | Count |      % |
+|----------|------:|-------:|
+| appdb    |     7 | 100.0% |
 
 ### HOSTS
 
-| Host | Count | % |
-|---|---:|---:|
-| 10.0.0.10 | 7 | 100.0% |
+| Host      | Count |      % |
+|-----------|------:|-------:|
+| 10.0.0.10 |     7 | 100.0% |
 
 ### USER × DATABASE
 
-| User | Database | Count | % |
-|---|---|---:|---:|
-| app | appdb | 7 | 100.0% |
+| User | Database | Count |      % |
+|------|----------|------:|-------:|
+| app  | appdb    |     7 | 100.0% |
 
 ### USER × HOST
 
-| User | Host | Count | % |
-|---|---|---:|---:|
-| app | 10.0.0.10 | 7 | 100.0% |
+| User | Host      | Count |      % |
+|------|-----------|------:|-------:|
+| app  | 10.0.0.10 |     7 | 100.0% |
 
 

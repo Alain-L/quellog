@@ -7,6 +7,7 @@ import (
 	"math"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -49,6 +50,14 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 		}
 	}
 
+	// Server lifecycle (incl. replication sub-zone): placed right after
+	// SUMMARY so the cluster context (crash at 14h, reload at 08h, lost
+	// walreceiver at 16h, etc.) frames every other section below it.
+	// Auto-hides on steady-state logs via HasAny on either side.
+	if has("server") && (m.Server.HasAny() || m.Replication.HasAny) {
+		printServerSection(m.Server, m.Replication, bold, reset)
+	}
+
 	// SQL summary section (skip in full mode — enriched version added at the end)
 	if !full && has("sql_summary") && m.SQL.TotalQueries > 0 {
 		PrintSQLSummary(m.SQL, true)
@@ -83,6 +92,7 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 			avgSize = m.TempFiles.TotalSize / int64(m.TempFiles.Count)
 		}
 		fmt.Printf("  %-25s : %s\n", "Average temp file size", FormatBytes(avgSize))
+		fmt.Printf("  %-25s : %s\n", "Max temp file size", FormatBytes(m.TempFiles.MaxSize))
 
 		// Queries generating temp files (shown with --tempfiles or --full)
 		if (full || !has("all")) && len(m.TempFiles.QueryStats) > 0 {
@@ -102,7 +112,10 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 				queries = append(queries, queryWithSize{stat: stat})
 			}
 			sort.Slice(queries, func(i, j int) bool {
-				return queries[i].stat.TotalSize > queries[j].stat.TotalSize
+				if queries[i].stat.TotalSize != queries[j].stat.TotalSize {
+					return queries[i].stat.TotalSize > queries[j].stat.TotalSize
+				}
+				return queries[i].stat.ID < queries[j].stat.ID
 			})
 
 			// Display top 10
@@ -210,7 +223,10 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 			}
 			if len(pairs) > 0 {
 				sort.Slice(pairs, func(i, j int) bool {
-					return pairs[i].stat.TotalWaitTime > pairs[j].stat.TotalWaitTime
+					if pairs[i].stat.TotalWaitTime != pairs[j].stat.TotalWaitTime {
+						return pairs[i].stat.TotalWaitTime > pairs[j].stat.TotalWaitTime
+					}
+					return pairs[i].stat.ID < pairs[j].stat.ID
 				})
 
 				limit := 10
@@ -301,7 +317,10 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 					pairs = append(pairs, blockerPair{bs})
 				}
 				sort.Slice(pairs, func(i, j int) bool {
-					return pairs[i].stat.totalWait > pairs[j].stat.totalWait
+					if pairs[i].stat.totalWait != pairs[j].stat.totalWait {
+						return pairs[i].stat.totalWait > pairs[j].stat.totalWait
+					}
+					return pairs[i].stat.queryID < pairs[j].stat.queryID
 				})
 
 				termWidth, _, err := term.GetSize(int(os.Stdout.Fd()))
@@ -367,18 +386,16 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 		}
 	}
 
-	// Maintenance Metrics section.
-	if has("maintenance") && (m.Vacuum.VacuumCount > 0 || m.Vacuum.AnalyzeCount > 0) {
-		fmt.Println(bold + "\nMAINTENANCE\n" + reset)
-		fmt.Printf("  %-25s : %d\n", "Automatic vacuum count", m.Vacuum.VacuumCount)
-		if m.Vacuum.AggressiveVacuumCount > 0 {
-			fmt.Printf("  %-25s : %d\n", "  of which aggressive", m.Vacuum.AggressiveVacuumCount)
+	// Maintenance Metrics: split into two sibling sections so the
+	// reader doesn't have to mentally separate vacuum from analyze
+	// inside one wall of text.
+	if has("maintenance") {
+		if m.Vacuum.VacuumCount > 0 {
+			printAutovacuumSection(m.Vacuum)
 		}
-		fmt.Printf("  %-25s : %d\n", "Automatic analyze count", m.Vacuum.AnalyzeCount)
-		fmt.Println("  Top automatic vacuum operations per table:")
-		printTopTables(m.Vacuum.VacuumTableCounts, m.Vacuum.VacuumCount, m.Vacuum.VacuumSpaceRecovered)
-		fmt.Println("  Top automatic analyze operations per table:")
-		printTopTables(m.Vacuum.AnalyzeTableCounts, m.Vacuum.AnalyzeCount, nil)
+		if m.Vacuum.AnalyzeCount > 0 {
+			printAutoanalyzeSection(m.Vacuum)
+		}
 	}
 
 	// Checkpoints section
@@ -713,6 +730,249 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 	}
 }
 
+// printServerSection renders the SERVER lifecycle section: counters
+// for starts / reloads / shutdowns / crashes, a "config parameter
+// changes" mini-table (when present), a compact timeline, and a
+// "Replication" sub-zone aggregating walreceiver/walsender health.
+// Nothing is emitted when neither side captured a marker — checked by
+// the caller.
+func printServerSection(s analysis.ServerMetrics, r analysis.ReplicationMetrics, bold, reset string) {
+	fmt.Println(bold + "\nSERVER\n" + reset)
+
+	// Starts — hidden when zero so logs that only carry replication
+	// markers do not show a misleading "Starts: 0" line.
+	if s.StartCount > 0 {
+		startDetail := ""
+		if len(s.StartTimes) > 0 {
+			startDetail = "   " + ansiMutedItalic + "(first: " + s.StartTimes[0].Format("2006-01-02 15:04:05") + ")" + reset
+		}
+		fmt.Printf("  %-25s : %d%s\n", "Starts", s.StartCount, startDetail)
+	}
+
+	// Reloads — same auto-hide behavior.
+	if s.ReloadCount > 0 {
+		reloadDetail := ""
+		if len(s.ReloadTimes) > 0 {
+			reloadDetail = "   " + ansiMutedItalic + "(last: " + s.ReloadTimes[len(s.ReloadTimes)-1].Format("15:04:05") + ")" + reset
+		}
+		fmt.Printf("  %-25s : %d%s\n", "Reloads (SIGHUP)", s.ReloadCount, reloadDetail)
+	}
+
+	// Shutdowns.
+	if s.ShutdownFastCount+s.ShutdownImmediateCount+s.ShutdownSmartCount > 0 {
+		fmt.Printf("  %-25s : %d fast, %d immediate, %d smart\n",
+			"Shutdowns",
+			s.ShutdownFastCount, s.ShutdownImmediateCount, s.ShutdownSmartCount)
+	}
+
+	// Crash recoveries.
+	if s.CrashRecoveryCount > 0 {
+		fmt.Printf("  %-25s : %d   "+ansiMutedItalic+"(\"not properly shut down\")"+reset+"\n",
+			"Crash recoveries", s.CrashRecoveryCount)
+	}
+
+	// Backend crashes — render signal breakdown.
+	if s.BackendCrashCount > 0 {
+		fmt.Printf("  %-25s : %d   "+ansiMutedItalic+"%s"+reset+"\n",
+			"Backend crashes", s.BackendCrashCount, formatSignalCounts(s.SignalCounts))
+	}
+
+	// Auxiliary process exits.
+	if s.AuxProcessExitCount > 0 {
+		fmt.Printf("  %-25s : %d\n", "Auxiliary process exits", s.AuxProcessExitCount)
+	}
+
+	// Config parameter changes table.
+	if len(s.ParameterChanges) > 0 {
+		printParameterChangesTable(s.ParameterChanges)
+	}
+
+	// Timeline.
+	if len(s.Timeline) > 0 {
+		printServerTimeline(s.Timeline)
+	}
+
+	// Replication sub-zone — folded into SERVER because on real-world
+	// logs it rarely fires more than one or two markers, and the rhythm
+	// reads better next to the cluster lifecycle than in its own header.
+	if r.HasAny {
+		printReplicationSubZone(r, s.HasAny())
+	}
+}
+
+// printReplicationSubZone renders the compact "Replication" block
+// inside the SERVER section: one indented line per category that
+// actually fired. Termination markers are summed under one headline
+// with the most-recent timestamp inlined so a DBA jumps straight to
+// the right window in the raw logs. The blank-line separator is
+// suppressed when the parent SERVER section had no content of its own
+// (server-less log) so we don't pile two blank lines under the header.
+func printReplicationSubZone(r analysis.ReplicationMetrics, serverHasContent bool) {
+	muted := ansiMutedItalic
+	reset := ansiReset
+
+	if serverHasContent {
+		fmt.Println()
+	}
+	fmt.Println("  Replication:")
+
+	if v := r.Markers["stream_started"]; v > 0 {
+		line := fmt.Sprintf("    %-24s : %d", "Stream reconnects", v)
+		if r.PeakHourLabel != "" && r.PeakHourCount > 1 {
+			line += fmt.Sprintf("   %s(peak %d× in %s)%s", muted, r.PeakHourCount, r.PeakHourLabel, reset)
+		}
+		fmt.Println(line)
+	}
+	if v := r.Markers["recovery_paused"]; v > 0 {
+		fmt.Printf("    %-24s : %d\n", "Recovery pauses", v)
+	}
+	if v := r.Markers["conflict_terminate"] + r.Markers["conflict_cancel"]; v > 0 {
+		line := fmt.Sprintf("    %-24s : %d", "Conflicts with recovery", v)
+		if n := len(r.ConflictQueries); n > 0 {
+			line += fmt.Sprintf("   %s(%d unique queries terminated)%s", muted, n, reset)
+		}
+		fmt.Println(line)
+	}
+	if v := r.Markers["slot_invalidated"]; v > 0 {
+		fmt.Printf("    %-24s : %d\n", "Invalidated slots", v)
+	}
+	// One line per termination cause — the four PG markers map to four
+	// diametrically opposite scenarios (replica side vs primary side),
+	// so collapsing them would hide the diagnostic. Each row carries a
+	// short hint naming the side of the cluster at fault; the
+	// LastTermination timestamp is appended to the last fired row only
+	// so a DBA jumps to the right window without us repeating it on
+	// every line.
+	type termRow struct{ key, label, hint string }
+	termRows := []termRow{
+		{"wal_receive_failed", "WAL receive failures", "replica lost primary"},
+		{"walsender_timeout", "Walsender timeouts", "primary side — replica too slow"},
+		{"replication_term", "Replication terminations", "primary closed walsender"},
+		{"unexpected_eof", "Unexpected EOFs", "abrupt walsender disconnect"},
+	}
+	fired := make([]termRow, 0, len(termRows))
+	for _, t := range termRows {
+		if r.Markers[t.key] > 0 {
+			fired = append(fired, t)
+		}
+	}
+	for i, t := range fired {
+		line := fmt.Sprintf("    %-24s : %d", t.label, r.Markers[t.key])
+		suffix := t.hint
+		if i == len(fired)-1 && !r.LastTermination.IsZero() {
+			suffix += ", last " + r.LastTermination.Format("15:04:05")
+		}
+		line += fmt.Sprintf("   %s(%s)%s", muted, suffix, reset)
+		fmt.Println(line)
+	}
+}
+
+// signalName maps the POSIX signal numbers PostgreSQL backends are
+// commonly terminated with to their canonical names. Unknown numbers
+// fall through to "signal N" so the renderer never lies — but in
+// practice 6/9/11/15 cover essentially every real backend crash log.
+var signalName = map[string]string{
+	"1":  "SIGHUP",
+	"2":  "SIGINT",
+	"3":  "SIGQUIT",
+	"6":  "SIGABRT", // assertion failure, abort()
+	"9":  "SIGKILL", // OOM killer, kill -9
+	"11": "SIGSEGV", // segfault
+	"13": "SIGPIPE",
+	"14": "SIGALRM",
+	"15": "SIGTERM", // pg_ctl stop, systemd
+}
+
+// formatSignalCounts renders the SignalCounts map as a human-readable
+// "(SIGKILL ×1, SIGSEGV ×2)" string. Sorted by signal number so the
+// output is stable across runs.
+func formatSignalCounts(counts map[string]int) string {
+	if len(counts) == 0 {
+		return ""
+	}
+	sigs := make([]string, 0, len(counts))
+	for sig := range counts {
+		sigs = append(sigs, sig)
+	}
+	sort.Slice(sigs, func(i, j int) bool {
+		ai, _ := strconv.Atoi(sigs[i])
+		aj, _ := strconv.Atoi(sigs[j])
+		if ai != aj {
+			return ai < aj
+		}
+		return sigs[i] < sigs[j]
+	})
+	var b strings.Builder
+	b.WriteByte('(')
+	for i, sig := range sigs {
+		if i > 0 {
+			b.WriteString(", ")
+		}
+		name, ok := signalName[sig]
+		if !ok {
+			name = "signal " + sig
+		}
+		fmt.Fprintf(&b, "%s ×%d", name, counts[sig])
+	}
+	b.WriteByte(')')
+	return b.String()
+}
+
+// printParameterChangesTable emits the "Parameter / Old / New / When"
+// mini-table. Old is always empty for SIGHUP-driven changes (PG does
+// not log the previous value); the column is kept so the layout
+// matches a future "diff" enrichment without breaking consumers.
+func printParameterChangesTable(changes []analysis.ServerParameterChange) {
+	fmt.Println()
+	fmt.Println("  Config parameter changes:")
+	// Compute column widths.
+	paramW := len("Parameter")
+	oldW := len("Old")
+	newW := len("New")
+	for _, c := range changes {
+		if len(c.Parameter) > paramW {
+			paramW = len(c.Parameter)
+		}
+		if len(c.Old) > oldW {
+			oldW = len(c.Old)
+		}
+		if len(c.New) > newW {
+			newW = len(c.New)
+		}
+	}
+	if oldW < 3 {
+		oldW = 3
+	}
+	if newW < 3 {
+		newW = 3
+	}
+	fmt.Printf("    %-*s  %-*s  %-*s  %s\n", paramW, "Parameter", oldW, "Old", newW, "New", "When")
+	for _, c := range changes {
+		old := c.Old
+		if old == "" {
+			old = "-"
+		}
+		fmt.Printf("    %-*s  %-*s  %-*s  %s\n",
+			paramW, c.Parameter,
+			oldW, old,
+			newW, c.New,
+			c.Timestamp.Format("15:04:05"))
+	}
+}
+
+// printServerTimeline emits the compact timeline at the bottom of the
+// section: one line per event, "HH:MM:SS  event-tag  detail".
+func printServerTimeline(events []analysis.ServerTimelineEvent) {
+	fmt.Println()
+	fmt.Println("  Timeline:")
+	for _, ev := range events {
+		fmt.Printf("    %s  %-10s  %s\n",
+			ev.Timestamp.Format("15:04:05"),
+			ev.Kind,
+			ev.Detail)
+	}
+}
+
 // printDetailedConnectionStats displays detailed connection and session statistics.
 // This is shown only when --connections is explicitly used (not as part of "all").
 func printDetailedConnectionStats(m analysis.AggregatedMetrics, bold, reset string, showAll bool) {
@@ -757,7 +1017,10 @@ func printDetailedConnectionStats(m analysis.AggregatedMetrics, bold, reset stri
 			sortedUsers = append(sortedUsers, userStats{user: user, stats: stats, cumulated: s.Cumulated()})
 		}
 		sort.Slice(sortedUsers, func(i, j int) bool {
-			return sortedUsers[i].stats.Count > sortedUsers[j].stats.Count
+			if sortedUsers[i].stats.Count != sortedUsers[j].stats.Count {
+				return sortedUsers[i].stats.Count > sortedUsers[j].stats.Count
+			}
+			return sortedUsers[i].user < sortedUsers[j].user
 		})
 
 		// Display header
@@ -798,7 +1061,10 @@ func printDetailedConnectionStats(m analysis.AggregatedMetrics, bold, reset stri
 			sortedDBs = append(sortedDBs, dbStats{database: db, stats: stats, cumulated: s.Cumulated()})
 		}
 		sort.Slice(sortedDBs, func(i, j int) bool {
-			return sortedDBs[i].stats.Count > sortedDBs[j].stats.Count
+			if sortedDBs[i].stats.Count != sortedDBs[j].stats.Count {
+				return sortedDBs[i].stats.Count > sortedDBs[j].stats.Count
+			}
+			return sortedDBs[i].database < sortedDBs[j].database
 		})
 
 		// Display header
@@ -839,7 +1105,10 @@ func printDetailedConnectionStats(m analysis.AggregatedMetrics, bold, reset stri
 			sortedHosts = append(sortedHosts, hostStats{host: host, stats: stats, cumulated: s.Cumulated()})
 		}
 		sort.Slice(sortedHosts, func(i, j int) bool {
-			return sortedHosts[i].stats.Count > sortedHosts[j].stats.Count
+			if sortedHosts[i].stats.Count != sortedHosts[j].stats.Count {
+				return sortedHosts[i].stats.Count > sortedHosts[j].stats.Count
+			}
+			return sortedHosts[i].host < sortedHosts[j].host
 		})
 
 		// Display header
@@ -901,69 +1170,266 @@ func formatSessionDuration(d time.Duration) string {
 	return fmt.Sprintf("%dh", totalHours)
 }
 
-// printTopTables prints the top tables for a given operation (vacuum or analyze).
-// It stops when the cumulative count reaches at least 80% of the total, unless fewer than 10 tables are available.
-func printTopTables(tableCounts map[string]int, total int, spaceRecovered map[string]int64) {
-	// Convert the map into a slice of pairs.
-	type tablePair struct {
-		Name      string
-		Count     int
-		Recovered int64 // in bytes.
+// printAutovacuumSection renders the AUTOVACUUM panel: header k:v
+// block (count, cumulated time, tuples, dead-not-removable, buffer/WAL
+// usage, slowest single run) followed by three purpose-driven panels —
+// top tables by elapsed, tables blocked by xmin horizon, top tables by
+// count. Each line/panel is suppressed when its source metric is zero,
+// so older PG versions emitting no continuation lines degrade cleanly.
+func printAutovacuumSection(v analysis.VacuumMetrics) {
+	fmt.Println(ansiBold + "\nAUTOVACUUM\n" + ansiReset)
+
+	fmt.Printf("  %-25s : %s\n", "Vacuum count", formatThousands(int64(v.VacuumCount)))
+	if v.AggressiveVacuumCount > 0 {
+		fmt.Printf("  %-25s : %s\n", "  of which aggressive", formatThousands(int64(v.AggressiveVacuumCount)))
 	}
-	var pairs []tablePair
-	for name, count := range tableCounts {
-		p := tablePair{
-			Name:  name,
-			Count: count,
-		}
-		if spaceRecovered != nil {
-			p.Recovered = spaceRecovered[name]
-		}
-		pairs = append(pairs, p)
+	if v.TotalVacuumElapsedSeconds > 0 {
+		dur := time.Duration(v.TotalVacuumElapsedSeconds * float64(time.Second)).Truncate(time.Second)
+		fmt.Printf("  %-25s : %s\n", "Cumulated time", dur)
+	}
+	if v.TotalTuplesRemoved > 0 {
+		fmt.Printf("  %-25s : %s\n", "Tuples removed", formatThousands(v.TotalTuplesRemoved))
+	}
+	if total := sumSpaceRecovered(v.VacuumSpaceRecovered); total > 0 {
+		fmt.Printf("  %-25s : %s\n", "Space recovered", FormatBytes(total))
+	}
+	if v.TotalTuplesNotYetRemovable > 0 {
+		fmt.Printf("  %-25s : %s\n", "Dead, not yet removable", formatThousands(v.TotalTuplesNotYetRemovable))
+	}
+	if v.TotalBufferHits+v.TotalBufferMisses > 0 {
+		fmt.Printf("  %-25s : hits %s  misses %s  dirtied %s  written %s\n",
+			"Buffer usage",
+			formatCompact(v.TotalBufferHits),
+			formatCompact(v.TotalBufferMisses),
+			formatCompact(v.TotalBufferDirtied),
+			formatCompact(v.TotalBufferWritten),
+		)
+	}
+	if v.TotalWALRecords > 0 || v.TotalWALBytes > 0 {
+		fmt.Printf("  %-25s : %s records  %s\n",
+			"WAL usage",
+			formatCompact(v.TotalWALRecords),
+			FormatBytes(v.TotalWALBytes),
+		)
+	}
+	if v.SlowestVacuum != nil && v.SlowestVacuum.ElapsedSeconds > 0 {
+		dur := time.Duration(v.SlowestVacuum.ElapsedSeconds * float64(time.Second)).Truncate(time.Second)
+		fmt.Printf("  %-25s : %s on %s\n", "Slowest single run", dur, v.SlowestVacuum.Table)
 	}
 
-	// Sort by count in descending order, then by name alphabetically.
+	if len(v.TopVacuumTables) > 0 {
+		printTopVacuumElapsedTable(v.TopVacuumTables, v.VacuumSpaceRecovered)
+	}
+	if len(v.XminBlockedTables) > 0 {
+		printTopXminTable(v.XminBlockedTables)
+	}
+	if len(v.VacuumTableCounts) > 0 {
+		printTopCountTable("Top tables by count:", v.VacuumTableCounts, v.VacuumCount)
+	}
+}
+
+// printAutoanalyzeSection renders the AUTOANALYZE sibling panel.
+// Currently slimmer than autovacuum because PG's analyze blocks only
+// carry system-usage (elapsed) — no buffer, no WAL, no tuples.
+func printAutoanalyzeSection(v analysis.VacuumMetrics) {
+	fmt.Println(ansiBold + "\nAUTOANALYZE\n" + ansiReset)
+
+	fmt.Printf("  %-25s : %s\n", "Analyze count", formatThousands(int64(v.AnalyzeCount)))
+	if v.TotalAnalyzeElapsedSeconds > 0 {
+		dur := time.Duration(v.TotalAnalyzeElapsedSeconds * float64(time.Second)).Truncate(time.Second)
+		fmt.Printf("  %-25s : %s\n", "Cumulated time", dur)
+	}
+
+	if len(v.TopAnalyzeTablesByElapsed) > 0 {
+		printTopElapsedTable("Top tables by elapsed time:", v.TopAnalyzeTablesByElapsed)
+	}
+	if len(v.AnalyzeTableCounts) > 0 {
+		printTopCountTable("Top tables by count:", v.AnalyzeTableCounts, v.AnalyzeCount)
+	}
+}
+
+// printTopElapsedTable renders one maintenance target per row, table
+// name first so the eye scans the identifier column without parsing
+// numerics. The VacuumCount field is reused for analyze rows too —
+// semantically it is the per-table operation count, regardless of
+// which branch (vacuum or analyze) populated it.
+func printTopElapsedTable(title string, rows []analysis.VacuumTableStat) {
+	fmt.Println("\n  " + title)
+	durs := make([]string, len(rows))
+	maxDurW, maxNameW := 0, 0
+	for i, t := range rows {
+		durs[i] = time.Duration(t.TotalElapsedSeconds * float64(time.Second)).Truncate(time.Second).String()
+		if len(durs[i]) > maxDurW {
+			maxDurW = len(durs[i])
+		}
+		if len(t.Table) > maxNameW {
+			maxNameW = len(t.Table)
+		}
+	}
+	for i, t := range rows {
+		fmt.Printf("    %-*s  %3d×  %*s\n", maxNameW, t.Table, t.VacuumCount, maxDurW, durs[i])
+	}
+}
+
+// printTopVacuumElapsedTable is the autovacuum-specific variant of
+// printTopElapsedTable: same name-first layout (table → count → elapsed),
+// with the per-table bytes reclaimed appended in muted italic when
+// known. Suffixing rather than column-aligning keeps the trio clean on
+// xmin-blocked workloads where most rows reclaim nothing — only the
+// productive lines wear the trailing tag.
+func printTopVacuumElapsedTable(rows []analysis.VacuumTableStat, recovered map[string]int64) {
+	fmt.Println("\n  Top tables by elapsed time:")
+	durs := make([]string, len(rows))
+	maxDurW, maxNameW := 0, 0
+	for i, t := range rows {
+		durs[i] = time.Duration(t.TotalElapsedSeconds * float64(time.Second)).Truncate(time.Second).String()
+		if len(durs[i]) > maxDurW {
+			maxDurW = len(durs[i])
+		}
+		if len(t.Table) > maxNameW {
+			maxNameW = len(t.Table)
+		}
+	}
+	for i, t := range rows {
+		if r := recovered[t.Table]; r > 0 {
+			fmt.Printf("    %-*s  %3d×  %*s  %s%s recovered%s\n",
+				maxNameW, t.Table, t.VacuumCount, maxDurW, durs[i],
+				ansiMutedItalic, FormatBytes(r), ansiReset)
+		} else {
+			fmt.Printf("    %-*s  %3d×  %*s\n",
+				maxNameW, t.Table, t.VacuumCount, maxDurW, durs[i])
+		}
+	}
+}
+
+// sumSpaceRecovered totals the per-table reclaimed bytes so the
+// AUTOVACUUM header can carry a single global figure alongside
+// "Tuples removed". Returns 0 when no table reclaimed space — that's
+// the signal a renderer uses to skip the line entirely.
+func sumSpaceRecovered(m map[string]int64) int64 {
+	var total int64
+	for _, v := range m {
+		total += v
+	}
+	return total
+}
+
+// printTopXminTable lists tables where autovacuum saw dead tuples it
+// could not remove yet — same wording PostgreSQL uses in its own log
+// ("are dead but not yet removable") so a DBA seeing the report
+// recognises the term instantly. Read this list as "where the
+// freeze-pressure debt is accumulating".
+func printTopXminTable(rows []analysis.VacuumTableStat) {
+	fmt.Println("\n  Tables with rows not yet removable:")
+	nums := make([]string, len(rows))
+	maxNumW, maxNameW := 0, 0
+	for i, t := range rows {
+		nums[i] = formatThousands(t.TuplesNotYetRemovable)
+		if len(nums[i]) > maxNumW {
+			maxNumW = len(nums[i])
+		}
+		if len(t.Table) > maxNameW {
+			maxNameW = len(t.Table)
+		}
+	}
+	for i, t := range rows {
+		fmt.Printf("    %-*s  %*s rows\n", maxNameW, t.Table, maxNumW, nums[i])
+	}
+}
+
+// printTopCountTable ranks tables by their raw vacuum or analyze count.
+// Stops once the cumulative share crosses 80% (or 10 entries, whichever
+// comes first) so the panel doesn't bury the signal under a long tail
+// on workloads that touch hundreds of tables.
+func printTopCountTable(title string, counts map[string]int, total int) {
+	type pair struct {
+		Name  string
+		Count int
+	}
+	pairs := make([]pair, 0, len(counts))
+	for n, c := range counts {
+		pairs = append(pairs, pair{n, c})
+	}
 	sort.Slice(pairs, func(i, j int) bool {
 		if pairs[i].Count != pairs[j].Count {
 			return pairs[i].Count > pairs[j].Count
 		}
 		return pairs[i].Name < pairs[j].Name
 	})
-
-	// Determine maximum width for table names.
-	tableLen := 0
-	for _, p := range pairs {
-		if l := len(p.Name); l > tableLen {
-			tableLen = l
+	// Pre-walk to find the kept rows and their max name width before
+	// printing, so the table column aligns on the longest displayed
+	// table rather than the longest in the entire input.
+	cum, kept := 0, 0
+	maxNameW := 0
+	for i, p := range pairs {
+		cum += p.Count
+		kept = i + 1
+		if len(p.Name) > maxNameW {
+			maxNameW = len(p.Name)
 		}
-	}
-	if w, _, err := term.GetSize(int(os.Stdout.Fd())); err == nil {
-		if tableLen > int(float64(w)*0.4) {
-			tableLen = int(float64(w) * 0.4)
+		if i >= 9 {
+			break
 		}
-	}
-
-	cum := 0
-	n := 0
-	for _, pair := range pairs {
-		percentage := float64(pair.Count) / float64(total) * 100
-		cum += pair.Count
-		n++
-		cumPercentage := float64(cum) / float64(total) * 100
-
-		// Fixed alignment: table name (left, width = tableLen), count (right, width 6), percentage (right, width 6, 2 decimals).
-		if spaceRecovered != nil && pair.Recovered > 0 {
-			fmt.Printf("    %-*s %6d %6.2f%%  %12s removed\n",
-				tableLen, pair.Name, pair.Count, percentage, FormatBytes(pair.Recovered))
-		} else {
-			fmt.Printf("    %-*s %6d %6.2f%%\n",
-				tableLen, pair.Name, pair.Count, percentage)
-		}
-
-		if cumPercentage >= 80 || n >= 10 {
+		if float64(cum)/float64(total)*100 >= 80 && i >= 4 {
 			break
 		}
 	}
+	fmt.Println("\n  " + title)
+	for i := 0; i < kept; i++ {
+		p := pairs[i]
+		pct := float64(p.Count) / float64(total) * 100
+		fmt.Printf("    %-*s  %6d  %5.1f%%\n", maxNameW, p.Name, p.Count, pct)
+	}
+}
+
+// formatCompact renders large integer counts with SI-style suffixes
+// (1.5M, 370M, 4.5G). Used in the maintenance summary lines where
+// thousand-separated forms (e.g. "367,452,793") add noise without
+// telling the reader the order of magnitude any faster.
+func formatCompact(n int64) string {
+	switch {
+	case n < 0:
+		return "-"
+	case n < 1000:
+		return strconv.FormatInt(n, 10)
+	case n < 10_000:
+		return fmt.Sprintf("%.1fk", float64(n)/1000)
+	case n < 1_000_000:
+		return fmt.Sprintf("%dk", n/1000)
+	case n < 10_000_000:
+		return fmt.Sprintf("%.1fM", float64(n)/1_000_000)
+	case n < 1_000_000_000:
+		return fmt.Sprintf("%dM", n/1_000_000)
+	case n < 10_000_000_000:
+		return fmt.Sprintf("%.1fG", float64(n)/1_000_000_000)
+	default:
+		return fmt.Sprintf("%dG", n/1_000_000_000)
+	}
+}
+
+// formatThousands turns an int64 into a thousands-separated string.
+// Negative values are unsupported (the analyzer only emits >= 0 here).
+func formatThousands(v int64) string {
+	s := strconv.FormatInt(v, 10)
+	n := len(s)
+	if n <= 3 {
+		return s
+	}
+	out := make([]byte, 0, n+(n-1)/3)
+	pre := n % 3
+	if pre > 0 {
+		out = append(out, s[:pre]...)
+		if n > pre {
+			out = append(out, ',')
+		}
+	}
+	for i := pre; i < n; i += 3 {
+		out = append(out, s[i:i+3]...)
+		if i+3 < n {
+			out = append(out, ',')
+		}
+	}
+	return string(out)
 }
 
 // PrintSQLSummary displays an SQL performance report in the CLI.
@@ -1096,7 +1562,10 @@ func PrintSQLSummaryWithContext(m analysis.SQLMetrics, tempFiles analysis.TempFi
 				queries = append(queries, queryWithSize{stat: stat})
 			}
 			sort.Slice(queries, func(i, j int) bool {
-				return queries[i].stat.TotalSize > queries[j].stat.TotalSize
+				if queries[i].stat.TotalSize != queries[j].stat.TotalSize {
+					return queries[i].stat.TotalSize > queries[j].stat.TotalSize
+				}
+				return queries[i].stat.ID < queries[j].stat.ID
 			})
 
 			// Display top 10
@@ -1302,10 +1771,29 @@ func PrintSQLDetails(m analysis.AggregatedMetrics, queryDetails []string) {
 			}
 		}
 
-		// Check if query was found anywhere
+		// Fallback: a triggering-query entry inside top_events. The
+		// query was never timed by log_min_duration_statement but it
+		// still showed up as the STATEMENT continuation of one or more
+		// error patterns. We synthesise a minimal QueryStat so the
+		// detail view can still render the normalised form and the
+		// EVENTS section below picks up.
+		var triggerOnlyNormalized string
 		if sqlStat == nil && tempStat == nil && lockStat == nil {
-			fmt.Printf("\nQuery ID '%s' not found.\n", qid)
-			continue
+			for i := range m.TopEvents {
+				for _, tq := range m.TopEvents[i].TriggeringQueries {
+					if tq.ID == qid {
+						triggerOnlyNormalized = tq.NormalizedQuery
+						break
+					}
+				}
+				if triggerOnlyNormalized != "" {
+					break
+				}
+			}
+			if triggerOnlyNormalized == "" {
+				fmt.Printf("\nQuery ID '%s' not found.\n", qid)
+				continue
+			}
 		}
 
 		// Get query type and normalized query (from any available source)
@@ -1325,6 +1813,11 @@ func PrintSQLDetails(m analysis.AggregatedMetrics, queryDetails []string) {
 			queryType = analysis.QueryTypeFromID(tempStat.ID)
 			normalizedQuery = tempStat.NormalizedQuery
 			rawQuery = tempStat.RawQuery
+		} else if triggerOnlyNormalized != "" {
+			queryType = analysis.QueryTypeFromID(qid)
+			normalizedQuery = triggerOnlyNormalized
+			// No raw form — the only thing we have is the normalised
+			// signature from the STATEMENT continuation.
 		}
 
 		// SQL DETAILS section
@@ -1343,6 +1836,32 @@ func PrintSQLDetails(m analysis.AggregatedMetrics, queryDetails []string) {
 		fmt.Printf("  Query Type           : %s\n", queryType)
 		if sqlStat != nil {
 			fmt.Printf("  Count                : %d\n", sqlStat.Count)
+			if len(sqlStat.PreparedNames) > 0 {
+				fmt.Printf("  Prepared as          : %s\n", formatPreparedNames(sqlStat.PreparedNames))
+			}
+			// Dimensions inlined into the Query Info block so the top-N
+			// db/user/app/host stay next to "who ran this how many
+			// times" without an extra header. Rows auto-hide when the
+			// axis is empty (e.g. logs without %a / %h prefixes).
+			dims := m.SQL.TopDimensionsForID(qid, 5)
+			if !dims.IsEmpty() {
+				printDimensionsRow("Databases", dims.Databases)
+				printDimensionsRow("Users", dims.Users)
+				printDimensionsRow("Apps", dims.Apps)
+				printDimensionsRow("Hosts", dims.Hosts)
+			}
+		}
+
+		// EVENTS section — surfaced right after the Query Info block so
+		// the operational signal ("this query triggers this error N
+		// times") is the first thing a DBA sees, before the time /
+		// tempfiles / locks drill-down.
+		eventsFor := findEventsTriggeredByQuery(m.TopEvents, qid)
+		if len(eventsFor) > 0 {
+			fmt.Println()
+			fmt.Println(bold + "EVENTS" + reset)
+			fmt.Println()
+			printQueryEvents(eventsFor)
 		}
 
 		// TIME section (if SQL metrics available)
@@ -1378,7 +1897,7 @@ func PrintSQLDetails(m analysis.AggregatedMetrics, queryDetails []string) {
 
 			fmt.Printf("  Total Duration       : %s\n", formatQueryDuration(sqlStat.TotalTime))
 			fmt.Printf("  Min Duration         : %s\n", formatQueryDuration(minDuration))
-			fmt.Printf("  Median Duration      : %s\n", formatQueryDuration(sqlStat.AvgTime))
+			fmt.Printf("  Avg Duration         : %s\n", formatQueryDuration(sqlStat.AvgTime))
 			fmt.Printf("  Max Duration         : %s\n", formatQueryDuration(sqlStat.MaxTime))
 		}
 
@@ -1404,26 +1923,11 @@ func PrintSQLDetails(m analysis.AggregatedMetrics, queryDetails []string) {
 				}
 			}
 
-			// Calculate min/max/avg size from events
-			var minSize, maxSize int64
-			minSize = math.MaxInt64
-			maxSize = 0
-			for _, event := range m.TempFiles.Events {
-				if event.QueryID == qid {
-					size := int64(event.Size)
-					if size < minSize {
-						minSize = size
-					}
-					if size > maxSize {
-						maxSize = size
-					}
-				}
-			}
 			avgSize := tempStat.TotalSize / int64(tempStat.Count)
 
 			fmt.Printf("  Temp Files count     : %d\n", tempStat.Count)
-			fmt.Printf("  Temp File min size   : %s\n", FormatBytes(minSize))
-			fmt.Printf("  Temp File max size   : %s\n", FormatBytes(maxSize))
+			fmt.Printf("  Temp File min size   : %s\n", FormatBytes(tempStat.MinSize))
+			fmt.Printf("  Temp File max size   : %s\n", FormatBytes(tempStat.MaxSize))
 			fmt.Printf("  Temp File avg size   : %s\n", FormatBytes(avgSize))
 			fmt.Printf("  Temp Files size      : %s\n", FormatBytes(tempStat.TotalSize))
 		}
@@ -1453,11 +1957,32 @@ func PrintSQLDetails(m analysis.AggregatedMetrics, queryDetails []string) {
 		}
 		fmt.Println()
 
-		// Optionally show one raw query as example
+		// Show one concrete execution. When we have parameter values (extended
+		// protocol + DETAIL pairing), display the slowest run with $N
+		// substituted; otherwise fall back to the placeholder form.
 		if rawQuery != "" {
-			fmt.Println("Example Query:")
-			fmt.Println()
-			fmt.Println(rawQuery)
+			if sqlStat != nil && sqlStat.SlowestRun != nil {
+				sr := sqlStat.SlowestRun
+				fmt.Printf("Slowest Run %s%s, %s, pid=%s%s%s\n",
+					ansiMutedItalic,
+					formatQueryDuration(sr.DurationMs),
+					sr.Timestamp.Format("2006-01-02 15:04:05"),
+					sr.PID,
+					formatSlowestRunDimensions(sr),
+					ansiReset,
+				)
+				fmt.Println()
+				text, truncated, full := truncateForDisplay(SubstituteParameters(rawQuery, sr.Parameters), slowestRunDisplayCap)
+				if truncated {
+					fmt.Printf("%s[…]%s%s%s\n", text, ansiMutedItalic, truncationHint(len(text), full), ansiReset)
+				} else {
+					fmt.Println(text)
+				}
+			} else {
+				fmt.Println("Example Query:")
+				fmt.Println()
+				fmt.Println(rawQuery)
+			}
 		}
 
 		// Display execution plan if available (from auto_explain)
@@ -1473,6 +1998,116 @@ func PrintSQLDetails(m analysis.AggregatedMetrics, queryDetails []string) {
 }
 
 // Helpers
+
+// queryEventLink pairs an EventStat with the count of times the query
+// under inspection triggered it, derived at render time from the
+// EventStat.TriggeringQueries slice.
+type queryEventLink struct {
+	Event      analysis.EventStat
+	TriggerCnt int
+}
+
+// findEventsTriggeredByQuery walks events looking for any pattern
+// whose TriggeringQueries list mentions queryID. Results are sorted by
+// per-query trigger count descending, with a tie-breaker on the total
+// event count so the most pressing pattern surfaces first.
+func findEventsTriggeredByQuery(events []analysis.EventStat, queryID string) []queryEventLink {
+	if queryID == "" {
+		return nil
+	}
+	var out []queryEventLink
+	for i := range events {
+		for _, tq := range events[i].TriggeringQueries {
+			if tq.ID == queryID {
+				out = append(out, queryEventLink{Event: events[i], TriggerCnt: tq.Count})
+				break
+			}
+		}
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].TriggerCnt != out[j].TriggerCnt {
+			return out[i].TriggerCnt > out[j].TriggerCnt
+		}
+		return out[i].Event.Count > out[j].Event.Count
+	})
+	return out
+}
+
+// printQueryEvents renders the EVENTS section table for --sql-detail.
+// Same column shape ideas as printTopTables / printQueryTable so the
+// section sits visually next to TEMP FILES and LOCKS. Rows are already
+// sorted by trigger count desc, which doubles as the implicit ranking
+// (no "#" column).
+func printQueryEvents(rows []queryEventLink) {
+	const msgWidth = 60
+	fmt.Printf("  %-10s  %-8s  %-*s  %9s\n", "EventID", "SEVERITY", msgWidth, "MESSAGE", "TRIGGERED")
+	for _, r := range rows {
+		msg := r.Event.Message
+		if len(msg) > msgWidth {
+			msg = msg[:msgWidth-1] + "…"
+		}
+		fmt.Printf("  %-10s  %-8s  %-*s  %9d\n",
+			r.Event.ID, r.Event.Severity, msgWidth, msg, r.TriggerCnt)
+	}
+}
+
+// formatSlowestRunDimensions appends a ", db=X, user=Y, app=Z, host=W"
+// suffix to the slowest-run header line. Empty fields are skipped so
+// noisy logs without all four prefix values still produce readable
+// output. Returns "" when none of the dimensions are populated.
+func formatSlowestRunDimensions(sr *analysis.SlowestRun) string {
+	if sr == nil {
+		return ""
+	}
+	var parts []string
+	if sr.Database != "" {
+		parts = append(parts, "db="+sr.Database)
+	}
+	if sr.User != "" {
+		parts = append(parts, "user="+sr.User)
+	}
+	if sr.App != "" {
+		parts = append(parts, "app="+sr.App)
+	}
+	if sr.Host != "" {
+		parts = append(parts, "host="+sr.Host)
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	return ", " + strings.Join(parts, ", ")
+}
+
+// printDimensionsRow renders one line of the Dimensions sub-block
+// under --sql-detail. Skips silently when the row has no data so
+// empty axes never appear at all. Each entry reads "<name> <count>"
+// where <count> is muted italic — same convention as the inline
+// timestamps in SERVER / Replication. Label width is aligned with
+// the other Query Info lines (e.g. "Total Duration       :").
+func printDimensionsRow(label string, rows []analysis.DimensionCount) {
+	if len(rows) == 0 {
+		return
+	}
+	parts := make([]string, 0, len(rows))
+	for _, r := range rows {
+		parts = append(parts, fmt.Sprintf("%s %s%s%s", r.Name, ansiMutedItalic, formatThousands(int64(r.Count)), ansiReset))
+	}
+	fmt.Printf("  %-21s: %s\n", label, strings.Join(parts, ", ")) // aligned with Query Info ":" column
+}
+
+// formatPreparedNames renders the set of distinct prepared-statement names
+// observed for a query: a single name is shown as-is; multiple names are
+// joined with ", " and suffixed by their count.
+func formatPreparedNames(names []string) string {
+	switch len(names) {
+	case 0:
+		return ""
+	case 1:
+		return names[0]
+	default:
+		return fmt.Sprintf("%s (%d names seen)", strings.Join(names, ", "), len(names))
+	}
+}
 
 // truncateQuery truncates the query string to the specified length, appending "..." if necessary.
 func truncateQuery(query string, length int) string {
@@ -1533,11 +2168,8 @@ func PrintEventsReport(summaries []analysis.EventSummary, topEvents []analysis.E
 		}
 
 		// Filter non-error severities if onlyErrors is true
-		if onlyErrors {
-			s := summary.Type
-			if s == "LOG" || s == "INFO" || s == "DEBUG" || s == "NOTICE" {
-				continue
-			}
+		if onlyErrors && nonErrorSeverity(summary.Type) {
+			continue
 		}
 
 		// Print Severity Main Line
@@ -2050,7 +2682,13 @@ func printLockStats(stats map[string]int, total int) {
 		pairs = append(pairs, statPair{name, count})
 	}
 	sort.Slice(pairs, func(i, j int) bool {
-		return pairs[i].count > pairs[j].count
+		if pairs[i].count != pairs[j].count {
+			return pairs[i].count > pairs[j].count
+		}
+		// Total tie-break on name: Go map iteration order is randomized, so
+		// without a secondary key equal-count entries (e.g. the "Relations"
+		// list) print in a non-deterministic order, differing run-to-run.
+		return pairs[i].name < pairs[j].name
 	})
 
 	// Print top entries
@@ -2073,7 +2711,10 @@ func printAcquiredLockQueries(queryStats map[string]*analysis.LockQueryStat, lim
 		}
 	}
 	sort.Slice(pairs, func(i, j int) bool {
-		return pairs[i].stat.AcquiredWaitTime > pairs[j].stat.AcquiredWaitTime
+		if pairs[i].stat.AcquiredWaitTime != pairs[j].stat.AcquiredWaitTime {
+			return pairs[i].stat.AcquiredWaitTime > pairs[j].stat.AcquiredWaitTime
+		}
+		return pairs[i].stat.ID < pairs[j].stat.ID
 	})
 
 	// Print top queries
@@ -2149,7 +2790,10 @@ func printStillWaitingLockQueries(queryStats map[string]*analysis.LockQueryStat,
 		}
 	}
 	sort.Slice(pairs, func(i, j int) bool {
-		return pairs[i].stat.StillWaitingTime > pairs[j].stat.StillWaitingTime
+		if pairs[i].stat.StillWaitingTime != pairs[j].stat.StillWaitingTime {
+			return pairs[i].stat.StillWaitingTime > pairs[j].stat.StillWaitingTime
+		}
+		return pairs[i].stat.ID < pairs[j].stat.ID
 	})
 
 	// Print top queries
@@ -2340,7 +2984,10 @@ func PrintSQLOverview(m analysis.SQLMetrics) {
 		catPairs = append(catPairs, catStatPair{cat, cs.count, cs.totalTime})
 	}
 	sort.Slice(catPairs, func(i, j int) bool {
-		return catPairs[i].count > catPairs[j].count
+		if catPairs[i].count != catPairs[j].count {
+			return catPairs[i].count > catPairs[j].count
+		}
+		return catPairs[i].category < catPairs[j].category
 	})
 
 	fmt.Println(bold + "  Query Category Summary" + reset)
@@ -2368,7 +3015,10 @@ func PrintSQLOverview(m analysis.SQLMetrics) {
 		pairs = append(pairs, typeStatPair{qtype, stat})
 	}
 	sort.Slice(pairs, func(i, j int) bool {
-		return pairs[i].stat.Count > pairs[j].stat.Count
+		if pairs[i].stat.Count != pairs[j].stat.Count {
+			return pairs[i].stat.Count > pairs[j].stat.Count
+		}
+		return pairs[i].qtype < pairs[j].qtype
 	})
 
 	// Print query type distribution - EN SECOND
@@ -2423,7 +3073,10 @@ func printQueryTypeBreakdown(title string, breakdown map[string]map[string]*anal
 		dimensions = append(dimensions, dimStats{dimName, totalCount, totalTime})
 	}
 	sort.Slice(dimensions, func(i, j int) bool {
-		return dimensions[i].count > dimensions[j].count
+		if dimensions[i].count != dimensions[j].count {
+			return dimensions[i].count > dimensions[j].count
+		}
+		return dimensions[i].name < dimensions[j].name
 	})
 
 	// Print each dimension with its query types
@@ -2453,7 +3106,10 @@ func printQueryTypeBreakdown(title string, breakdown map[string]map[string]*anal
 
 		// Sort by count descending
 		sort.Slice(typeList, func(i, j int) bool {
-			return typeList[i].count > typeList[j].count
+			if typeList[i].count != typeList[j].count {
+				return typeList[i].count > typeList[j].count
+			}
+			return typeList[i].name < typeList[j].name
 		})
 
 		// Print query types

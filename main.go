@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"runtime/pprof"
+	"runtime/trace"
 
 	"github.com/Alain-L/quellog/cmd"
 )
@@ -31,6 +32,20 @@ func main() {
 			log.Fatal(err)
 		}
 		defer pprof.StopCPUProfile()
+	}
+
+	// Execution tracing (go tool trace) — investigation hook, same
+	// contract as CPUPROFILE/MEMPROFILE.
+	if traceFile := os.Getenv("TRACEPROFILE"); traceFile != "" {
+		f, err := os.Create(traceFile)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer f.Close()
+		if err := trace.Start(f); err != nil {
+			log.Fatal(err)
+		}
+		defer trace.Stop()
 	}
 
 	// Memory profiling

@@ -108,6 +108,18 @@ func (p *StderrParser) Parse(filename string, out chan<- []LogEntry) error {
 		return fmt.Errorf("failed to seek to start: %w", err)
 	}
 
+	// Large plain stderr files take the parallel segment path: segment
+	// boundaries are computed with the same entry-start predicate the
+	// sequential loop uses, so each segment is parsed by the unchanged
+	// parseReader and the ordered re-emission reproduces the sequential
+	// stream exactly. Syslog stays sequential (per-PID accumulation +
+	// final sort are global), as do small files.
+	if st, serr := file.Stat(); serr == nil && st.Size() >= stderrParallelMinSize {
+		if workers := parallelWorkers(); workers >= 2 {
+			return p.parseParallel(file, st.Size(), workers, out)
+		}
+	}
+
 	return p.parseReader(WithProgress(file), out)
 }
 
@@ -181,7 +193,7 @@ func parseSyslogReader(r io.Reader, format SyslogFormat, out chan<- []LogEntry) 
 		})
 	}
 
-	scanner := bufio.NewScanner(r)
+	scanner := bufio.NewScanner(skipBOM(r))
 	buf := make([]byte, scannerBuffer)
 	scanner.Buffer(buf, math.MaxInt32)
 
@@ -267,7 +279,7 @@ func (p *StderrParser) parseReader(r io.Reader, out chan<- []LogEntry) error {
 	bs := NewBatchSender(out)
 	defer bs.Flush()
 
-	scanner := bufio.NewScanner(r)
+	scanner := bufio.NewScanner(skipBOM(r))
 	buf := make([]byte, scannerBuffer)
 	scanner.Buffer(buf, math.MaxInt32)
 
@@ -630,12 +642,17 @@ func parseStderrFormat(line string) (time.Time, string, bool) {
 		return time.Time{}, "", false
 	}
 
-	timestampStr := line[:tzEnd]
-	t, err := parseTime("2006-01-02 15:04:05.999 MST", timestampStr)
-	if err != nil {
-		t, err = parseTime("2006-01-02 15:04:05 MST", timestampStr)
+	// Fast path mirrors parseStderrFormatFromBytes — see there.
+	t, ok := fastParsePGTimestamp(line, tzStart, tzEnd)
+	if !ok {
+		timestampStr := line[:tzEnd]
+		var err error
+		t, err = parseTime("2006-01-02 15:04:05.999 MST", timestampStr)
 		if err != nil {
-			return time.Time{}, "", false
+			t, err = parseTime("2006-01-02 15:04:05 MST", timestampStr)
+			if err != nil {
+				return time.Time{}, "", false
+			}
 		}
 	}
 
@@ -680,12 +697,20 @@ func parseStderrFormatFromBytes(line []byte) (time.Time, int, bool) {
 		return time.Time{}, 0, false
 	}
 
-	timestampStr := string(line[:tzEnd])
-	t, err := parseTime("2006-01-02 15:04:05.999 MST", timestampStr)
-	if err != nil {
-		t, err = parseTime("2006-01-02 15:04:05 MST", timestampStr)
+	// Fast path: decode the canonical PG timestamp in place — no
+	// intermediate string, no time.Parse. Falls back to the layout-
+	// based path for anything it does not recognize (numeric offsets,
+	// exotic fractions) so behavior stays identical.
+	t, ok := fastParsePGTimestamp(line, tzStart, tzEnd)
+	if !ok {
+		timestampStr := string(line[:tzEnd])
+		var err error
+		t, err = parseTime("2006-01-02 15:04:05.999 MST", timestampStr)
 		if err != nil {
-			return time.Time{}, 0, false
+			t, err = parseTime("2006-01-02 15:04:05 MST", timestampStr)
+			if err != nil {
+				return time.Time{}, 0, false
+			}
 		}
 	}
 

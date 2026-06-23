@@ -37,42 +37,42 @@ This _quellog_ report summarizes **12** log entries collected between 20 Apr 202
 
 ### USERS
 
-| User | Count | % |
-|---|---:|---:|
-| app | 11 | 91.7% |
-| baduser | 1 | 8.3% |
+| User    | Count |     % |
+|---------|------:|------:|
+| app     |    11 | 91.7% |
+| baduser |     1 |  8.3% |
 
 ### APPS
 
-| App | Count | % |
-|---|---:|---:|
-| psql | 11 | 91.7% |
+| App  | Count |     % |
+|------|------:|------:|
+| psql |    11 | 91.7% |
 
 ### DATABASES
 
-| Database | Count | % |
-|---|---:|---:|
-| appdb | 12 | 100.0% |
+| Database | Count |      % |
+|----------|------:|-------:|
+| appdb    |    12 | 100.0% |
 
 ### HOSTS
 
-| Host | Count | % |
-|---|---:|---:|
-| 10.0.0.60 | 11 | 91.7% |
-| 10.0.0.61 | 1 | 8.3% |
+| Host      | Count |     % |
+|-----------|------:|------:|
+| 10.0.0.60 |    11 | 91.7% |
+| 10.0.0.61 |     1 |  8.3% |
 
 ### USER × DATABASE
 
-| User | Database | Count | % |
-|---|---|---:|---:|
-| app | appdb | 11 | 91.7% |
-| baduser | appdb | 1 | 8.3% |
+| User    | Database | Count |     % |
+|---------|----------|------:|------:|
+| app     | appdb    |    11 | 91.7% |
+| baduser | appdb    |     1 |  8.3% |
 
 ### USER × HOST
 
-| User | Host | Count | % |
-|---|---|---:|---:|
-| app | 10.0.0.60 | 11 | 91.7% |
-| baduser | 10.0.0.61 | 1 | 8.3% |
+| User    | Host      | Count |     % |
+|---------|-----------|------:|------:|
+| app     | 10.0.0.60 |    11 | 91.7% |
+| baduser | 10.0.0.61 |     1 |  8.3% |
 
 

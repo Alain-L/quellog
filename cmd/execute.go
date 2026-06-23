@@ -2,7 +2,9 @@
 package cmd
 
 import (
+	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -34,6 +36,15 @@ import (
 // (delivered via cmd.Context() cancellation, set up in Execute()).
 func executeParsing(cmd *cobra.Command, args []string) error {
 	ctx := cmd.Context()
+
+	// Flag-combination constraints are static (flag-only), so validate them
+	// once here. In follow mode the per-cycle error is logged and the loop
+	// continues; if these checks lived only inside the cycle, an invalid combo
+	// (e.g. --open --follow, --follow --split) would be re-reported every tick
+	// forever instead of failing cleanly with a non-zero exit.
+	if err := validateFlagCombinations(); err != nil {
+		return err
+	}
 
 	if !followFlag {
 		return runAnalysisCycle(ctx, args)
@@ -160,10 +171,24 @@ func runAnalysisCycle(ctx context.Context, args []string) error {
 		return err
 	}
 
-	if !parsedAny.Load() {
+	// A file that parsed partially before erroring (e.g. a truncated gzip
+	// stream) still produced usable entries; ParsedEntries() catches that case
+	// so we don't claim "no files could be parsed" after already emitting an
+	// analysis for the recovered data.
+	if !parsedAny.Load() && parser.ParsedEntries() == 0 {
 		return fmt.Errorf("no files could be parsed: check that files exist, are readable, and in a supported format")
 	}
 	return nil
+}
+
+// isDetectionError reports whether err is a format-detection failure the parser
+// layer already logged with specifics, so parseFilesAsync doesn't double-log it.
+func isDetectionError(err error) bool {
+	return errors.Is(err, parser.ErrFileEmpty) ||
+		errors.Is(err, parser.ErrBinaryFile) ||
+		errors.Is(err, parser.ErrInvalidFormat) ||
+		errors.Is(err, parser.ErrUnknownFormat) ||
+		errors.Is(err, parser.ErrCompressionFailed)
 }
 
 // validateStdinUsage rejects mixing "-" (stdin) with regular file arguments.
@@ -227,7 +252,12 @@ func parseFilesAsync(ctx context.Context, files []string, out chan<- []parser.Lo
 			}
 			parser.ResetCurrentFileProgress()
 			if err := parser.ParseFile(file, out); err != nil {
-				// Error already logged in detectParser with specific details
+				// Detection failures are already logged with specifics; surface
+				// parse-stage failures (e.g. a stream that truncated mid-file)
+				// since those leave partial output.
+				if !isDetectionError(err) {
+					slog.Warn("file parsing ended early; output may be partial", "file", file, "err", err)
+				}
 				continue
 			}
 			// Reset the in-flight cursor to 0 before crediting the
@@ -257,7 +287,11 @@ func parseFilesAsync(ctx context.Context, files []string, out chan<- []parser.Lo
 					return
 				}
 				if err := parser.ParseFile(file, out); err != nil {
-					// Error already logged in detectParser with specific details
+					// Detection failures are already logged; surface parse-stage
+					// failures (partial output) as a warning.
+					if !isDetectionError(err) {
+						slog.Warn("file parsing ended early; output may be partial", "file", file, "err", err)
+					}
 					continue
 				}
 				pb.AddBytes(fileSize(file))
@@ -269,10 +303,15 @@ func parseFilesAsync(ctx context.Context, files []string, out chan<- []parser.Lo
 }
 
 // buildLogFilters creates a LogFilters struct from command-line flags.
+//
+// Time bounds are projected onto the wall-clock timeline so a naive
+// --begin/--end ("2026-02-04 09:00:00", no zone) and the now-relative
+// --last/--window bounds (machine-local) compare consistently against log
+// entries in any timezone. See parser.WallClock and PassesFilters.
 func buildLogFilters(beginT, endT time.Time) parser.LogFilters {
 	return parser.LogFilters{
-		BeginT:      beginT,
-		EndT:        endT,
+		BeginT:      parser.WallClock(beginT),
+		EndT:        parser.WallClock(endT),
 		DbFilter:    dbFilter,
 		UserFilter:  userFilter,
 		ExcludeUser: excludeUser,
@@ -280,33 +319,73 @@ func buildLogFilters(beginT, endT time.Time) parser.LogFilters {
 	}
 }
 
-// processAndOutput analyzes filtered logs and outputs results in the requested format.
-func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry, startTime time.Time, totalFileSize int64, inputArgs []string, pb *progressBar) error {
-	// Validate flag compatibility
-	formatCount := 0
+// exportFormatCount counts how many distinct export formats are requested.
+func exportFormatCount() int {
+	n := 0
 	if jsonFlag || jsonCompactFlag {
-		formatCount++
+		n++
 	}
 	if yamlFlag {
-		formatCount++
+		n++
 	}
 	if mdFlag {
-		formatCount++
+		n++
 	}
 	if htmlFlag {
-		formatCount++
+		n++
 	}
-	if formatCount > 1 {
-		return fmt.Errorf("--json, --json-compact, --yaml, --md, and --html are mutually exclusive")
-	}
+	return n
+}
+
+// validateFlagCombinations checks flag-combination constraints that depend only
+// on the flags, not on the input. Called once before follow mode starts so an
+// invalid combo aborts with a non-zero exit rather than being logged and
+// retried on every tick.
+func validateFlagCombinations() error {
+	formatCount := exportFormatCount()
 	if jsonFlag && jsonCompactFlag {
 		return fmt.Errorf("--json and --json-compact are mutually exclusive")
+	}
+	if formatCount > 1 && outputFlag != "" {
+		return fmt.Errorf("-o/--output is not compatible with multiple export formats (each format writes to its own default file)")
+	}
+	if formatCount > 1 && (len(sqlDetailFlag) > 0 || len(eventDetailFlag) > 0 || sqlPerformanceFlag || sqlOverviewFlag) {
+		return fmt.Errorf("multiple export formats are only supported for the full report (not with --sql-detail, --event-detail, --sql-performance, --sql-overview)")
 	}
 	if openFlag && !htmlFlag {
 		return fmt.Errorf("--open requires --html (nothing to open without an HTML report)")
 	}
+	if openFlag && formatCount > 1 {
+		return fmt.Errorf("--open is not supported with multiple export formats (ambiguous in batch context)")
+	}
 	if openFlag && followFlag {
 		return fmt.Errorf("--open is not supported with --follow (would re-open the browser every cycle)")
+	}
+	if splitFlag != "" {
+		if !htmlFlag {
+			return fmt.Errorf("--split requires --html")
+		}
+		if followFlag {
+			return fmt.Errorf("--split is not supported with --follow (it would regenerate a multi-period report every cycle)")
+		}
+		if formatCount > 1 {
+			return fmt.Errorf("--split is only supported with --html (not alongside other export formats)")
+		}
+		if len(sqlDetailFlag) > 0 || len(eventDetailFlag) > 0 || sqlPerformanceFlag || sqlOverviewFlag {
+			return fmt.Errorf("--split is only supported for the full HTML report (not with --sql-detail, --event-detail, --sql-performance, --sql-overview)")
+		}
+	}
+	return nil
+}
+
+// processAndOutput analyzes filtered logs and outputs results in the requested format.
+func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry, startTime time.Time, totalFileSize int64, inputArgs []string, pb *progressBar) error {
+	// Flag-combination constraints are validated once up front (see
+	// validateFlagCombinations, called from executeParsing). Here we only need
+	// the format count for dispatch and the --split short-circuit.
+	formatCount := exportFormatCount()
+	if splitFlag != "" {
+		return runSplitHTML(ctx, filteredLogs, startTime, totalFileSize, inputArgs, pb)
 	}
 
 	// Special case: SQL query details (single query analysis)
@@ -331,7 +410,7 @@ func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry
 			PrintProcessingSummary(metrics.SQL.TotalQueries, processingDuration, totalFileSize)
 			output.PrintSQLDetails(metrics, sqlDetailFlag)
 		}
-		return nil
+		return closer()
 	}
 
 	// Special case: event pattern details (lookup by ID like wa-aBc1)
@@ -356,7 +435,7 @@ func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry
 			PrintProcessingSummary(metrics.SQL.TotalQueries, processingDuration, totalFileSize)
 			output.PrintEventDetails(metrics, eventDetailFlag)
 		}
-		return nil
+		return closer()
 	}
 
 	// Special case: SQL performance (detailed aggregated query statistics)
@@ -382,7 +461,7 @@ func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry
 			PrintProcessingSummary(metrics.SQL.TotalQueries, processingDuration, totalFileSize)
 			output.PrintSQLSummaryWithContext(metrics.SQL, metrics.TempFiles, metrics.Locks, false)
 		}
-		return nil
+		return closer()
 	}
 
 	// Special case: SQL overview (query type statistics with dimensional breakdown)
@@ -408,7 +487,7 @@ func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry
 			PrintProcessingSummary(metrics.SQL.TotalQueries, processingDuration, totalFileSize)
 			output.PrintSQLOverview(metrics.SQL)
 		}
-		return nil
+		return closer()
 	}
 
 	// Default: full analysis with all metrics
@@ -442,47 +521,40 @@ func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry
 		sections = buildSectionList()
 	}
 
+	// Multi-format export: render each selected format to its default file
+	if formatCount > 1 {
+		return renderMultipleFormats(metrics, sections, inputArgs, totalFileSize, processingDuration)
+	}
+
 	// Output in requested format
 	if jsonFlag || jsonCompactFlag {
-		w := os.Stdout
-		if outputFlag != "" {
-			f, err := os.Create(outputFlag)
-			if err != nil {
-				return fmt.Errorf("failed to create output file %q: %w", outputFlag, err)
-			}
-			defer f.Close()
-			w = f
+		w, closer, err := createOutputWriter(outputFlag)
+		if err != nil {
+			return err
 		}
+		defer closer()
 		output.ExportJSON(w, metrics, sections, fullFlag, jsonCompactFlag)
-		return nil
+		return closer()
 	}
 
 	if yamlFlag {
-		w := os.Stdout
-		if outputFlag != "" {
-			f, err := os.Create(outputFlag)
-			if err != nil {
-				return fmt.Errorf("failed to create output file %q: %w", outputFlag, err)
-			}
-			defer f.Close()
-			w = f
+		w, closer, err := createOutputWriter(outputFlag)
+		if err != nil {
+			return err
 		}
+		defer closer()
 		output.ExportYAML(w, metrics, sections, fullFlag)
-		return nil
+		return closer()
 	}
 
 	if mdFlag {
-		w := os.Stdout
-		if outputFlag != "" {
-			f, err := os.Create(outputFlag)
-			if err != nil {
-				return fmt.Errorf("failed to create output file %q: %w", outputFlag, err)
-			}
-			defer f.Close()
-			w = f
+		w, closer, err := createOutputWriter(outputFlag)
+		if err != nil {
+			return err
 		}
+		defer closer()
 		output.ExportMarkdown(w, metrics, sections, fullFlag)
-		return nil
+		return closer()
 	}
 
 	if htmlFlag {
@@ -492,11 +564,11 @@ func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry
 			outputName = generateHTMLFilename(inputArgs)
 		}
 
-		f, err := os.Create(outputName)
+		w, closer, err := createOutputWriter(outputName)
 		if err != nil {
-			return fmt.Errorf("failed to create HTML file %q: %w", outputName, err)
+			return err
 		}
-		defer f.Close()
+		defer closer()
 
 		// Detect format from first input file
 		detectedFormat := ""
@@ -513,8 +585,15 @@ func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry
 			Version:     version,
 		}
 
-		if err := output.ExportHTML(f, metrics, reportInfo, sections); err != nil {
+		if err := output.ExportHTML(w, metrics, reportInfo, sections); err != nil {
 			return fmt.Errorf("failed to write HTML report: %w", err)
+		}
+
+		// Flush and close before announcing or opening the file so the
+		// browser never reads a truncated report (and disk-full errors
+		// surface instead of a silent partial write).
+		if err := closer(); err != nil {
+			return err
 		}
 
 		// In follow mode, be less verbose about saved files
@@ -530,6 +609,60 @@ func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry
 	// Default: text output
 	PrintProcessingSummary(metrics.Global.Count, processingDuration, totalFileSize)
 	output.PrintMetrics(metrics, sections, fullFlag)
+	return nil
+}
+
+// runSplitHTML consumes the stream, aggregates it into per-interval periods and
+// writes a single HTML report with a period selector. Used for --split --html.
+func runSplitHTML(ctx context.Context, filteredLogs <-chan []parser.LogEntry, startTime time.Time, totalFileSize int64, inputArgs []string, pb *progressBar) error {
+	interval, err := parseDuration(splitFlag)
+	if err != nil || interval <= 0 {
+		return fmt.Errorf("invalid --split interval %q (use e.g. 1d, 3h, 5m): %v", splitFlag, err)
+	}
+
+	buckets, err := analysis.AggregateMetricsBySplit(ctx, filteredLogs, interval)
+	pb.Finish()
+	if err != nil {
+		return err
+	}
+	if len(buckets) == 0 {
+		return fmt.Errorf("no timestamped log entries to split into periods")
+	}
+	processingDuration := time.Since(startTime)
+
+	outputName := outputFlag
+	if outputName == "" {
+		outputName = generateHTMLFilename(inputArgs)
+	}
+	w, closer, err := createOutputWriter(outputName)
+	if err != nil {
+		return err
+	}
+	defer closer()
+
+	detectedFormat := ""
+	if len(inputArgs) > 0 {
+		detectedFormat = parser.DetectFileFormat(inputArgs[0])
+	}
+	reportInfo := output.HTMLReportInfo{
+		Filename:    generateInputDescription(inputArgs),
+		FileSize:    totalFileSize,
+		ProcessTime: float64(processingDuration.Milliseconds()),
+		Format:      detectedFormat,
+		Version:     version,
+	}
+	if err := output.ExportHTMLSplit(w, buckets, reportInfo, buildSectionList()); err != nil {
+		return fmt.Errorf("failed to write split HTML report: %w", err)
+	}
+	if err := closer(); err != nil {
+		return err
+	}
+	if !followFlag {
+		fmt.Printf("Report saved to %s (%d periods)\n", outputName, len(buckets))
+	}
+	if openFlag {
+		openInBrowser(outputName)
+	}
 	return nil
 }
 
@@ -563,6 +696,90 @@ func generateHTMLFilename(args []string) string {
 		return base + ".html"
 	}
 	return "quellog_report.html"
+}
+
+// defaultExportName builds the default output filename for multi-format export.
+// Single input  -> "quellog-<stem>.<ext>" (stem strips the last extension only).
+// Multi / stdin -> "quellog.<ext>".
+func defaultExportName(ext string, inputArgs []string) string {
+	if len(inputArgs) != 1 || inputArgs[0] == "-" {
+		return "quellog." + ext
+	}
+	base := filepath.Base(inputArgs[0])
+	if dot := strings.LastIndex(base, "."); dot > 0 {
+		base = base[:dot]
+	}
+	if base == "" {
+		return "quellog." + ext
+	}
+	return "quellog-" + base + "." + ext
+}
+
+// renderMultipleFormats writes the full report to one file per selected format,
+// using default filenames. Called only when 2+ format flags are set.
+func renderMultipleFormats(metrics analysis.AggregatedMetrics, sections []string, inputArgs []string, totalFileSize int64, processingDuration time.Duration) error {
+	write := func(ext string, render func(io.Writer) error) error {
+		name := defaultExportName(ext, inputArgs)
+		w, closer, err := createOutputWriter(name)
+		if err != nil {
+			return err
+		}
+		defer closer()
+		if err := render(w); err != nil {
+			return fmt.Errorf("failed to write %s report: %w", ext, err)
+		}
+		if err := closer(); err != nil {
+			return err
+		}
+		if !followFlag {
+			fmt.Printf("Report saved to %s\n", name)
+		}
+		return nil
+	}
+
+	if jsonFlag || jsonCompactFlag {
+		if err := write("json", func(w io.Writer) error {
+			output.ExportJSON(w, metrics, sections, fullFlag, jsonCompactFlag)
+			return nil
+		}); err != nil {
+			return err
+		}
+	}
+	if yamlFlag {
+		if err := write("yaml", func(w io.Writer) error {
+			output.ExportYAML(w, metrics, sections, fullFlag)
+			return nil
+		}); err != nil {
+			return err
+		}
+	}
+	if mdFlag {
+		if err := write("md", func(w io.Writer) error {
+			output.ExportMarkdown(w, metrics, sections, fullFlag)
+			return nil
+		}); err != nil {
+			return err
+		}
+	}
+	if htmlFlag {
+		detectedFormat := ""
+		if len(inputArgs) > 0 {
+			detectedFormat = parser.DetectFileFormat(inputArgs[0])
+		}
+		reportInfo := output.HTMLReportInfo{
+			Filename:    generateInputDescription(inputArgs),
+			FileSize:    totalFileSize,
+			ProcessTime: float64(processingDuration.Milliseconds()),
+			Format:      detectedFormat,
+			Version:     version,
+		}
+		if err := write("html", func(w io.Writer) error {
+			return output.ExportHTML(w, metrics, reportInfo, sections)
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // buildSectionList returns the list of sections to display based on flags.
@@ -599,6 +816,9 @@ func buildSectionList() []string {
 	}
 	if clientsFlag {
 		sections = append(sections, "clients")
+	}
+	if serverFlag {
+		sections = append(sections, "server")
 	}
 
 	// If no specific sections selected, show all
@@ -666,18 +886,37 @@ func PrintProcessingSummary(numEntries int, duration time.Duration, fileSize int
 		numEntries, duration.Seconds(), output.FormatBytes(fileSize))
 }
 
-// createOutputWriter returns an io.Writer for the given output path.
-// If path is empty, returns os.Stdout with a no-op closer and no error.
-// Otherwise, creates the file and returns it with a closer that closes it.
-func createOutputWriter(path string) (io.Writer, func(), error) {
+// createOutputWriter returns an io.Writer for the given output path and a
+// closer that MUST be checked on the success path.
+//
+// If path is empty, it returns os.Stdout with a no-op closer. Otherwise it
+// creates the file and wraps it in a bufio.Writer: the interposed buffer is
+// what makes error reporting reliable. The exporters wrap w in their own
+// buffered writer and swallow its Flush error; by writing into our bufio,
+// that swallowed flush becomes an in-memory copy that cannot fail, and the
+// real I/O happens at our checked Flush (catching disk-full / quota) and
+// Close (catching deferred errors on networked filesystems). Without this,
+// a report written to a full disk would silently truncate and quellog
+// would still exit 0.
+func createOutputWriter(path string) (io.Writer, func() error, error) {
 	if path == "" {
-		return os.Stdout, func() {}, nil
+		return os.Stdout, func() error { return nil }, nil
 	}
 	f, err := os.Create(path)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create output file %q: %w", path, err)
 	}
-	return f, func() { f.Close() }, nil
+	bw := bufio.NewWriter(f)
+	return bw, func() error {
+		if ferr := bw.Flush(); ferr != nil {
+			f.Close()
+			return fmt.Errorf("failed to write output file %q: %w", path, ferr)
+		}
+		if cerr := f.Close(); cerr != nil {
+			return fmt.Errorf("failed to close output file %q: %w", path, cerr)
+		}
+		return nil
+	}, nil
 }
 
 // requireMetrics aggregates metrics and returns an error if no log entries

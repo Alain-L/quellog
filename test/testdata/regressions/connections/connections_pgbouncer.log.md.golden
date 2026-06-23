@@ -10,12 +10,14 @@ This _quellog_ report summarizes **16** log entries collected between 19 Apr 202
 19:00 - 19:00 |  -
 ```
 
-|  |  |  |  |
-|---|---:|---|---:|
-| Total query duration | 0 ms | Total queries parsed | 1 |
-| Total unique queries | 1 | Top 1% slow queries | 1 |
-| Query max duration | 0 ms | Query min duration | 0 ms |
-| Query median duration | 0 ms | Query 99% max duration | 0 ms |
+- **Total query duration**   : 0 ms
+- **Total queries parsed**   : 1
+- **Total unique queries**   : 1
+- **Top 1% slow queries**    : 1
+- **Query max duration**     : 0 ms
+- **Query min duration**     : 0 ms
+- **Query median duration**  : 0 ms
+- **Query 99% max duration** : 0 ms
 
 ### Query duration distribution
 
@@ -32,21 +34,21 @@ This _quellog_ report summarizes **16** log entries collected between 19 Apr 202
 
 **Slowest queries (top 10)**
 
-| SQLID | Max | Avg | Count | Query |
-|---|---:|---:|---:|---|
-| se-5SQJla | 0 ms | 0 ms | 1 | set application_name = ? |
+| SQLID     |  Max |  Avg | Count | Query                    |
+|-----------|-----:|-----:|------:|--------------------------|
+| se-5SQJla | 0 ms | 0 ms |     1 | set application_name = ? |
 
 **Most frequent queries (top 10)**
 
-| SQLID | Count | Avg | Max | Query |
-|---|---:|---:|---:|---|
-| se-5SQJla | 1 | 0 ms | 0 ms | set application_name = ? |
+| SQLID     | Count |  Avg |  Max | Query                    |
+|-----------|------:|-----:|-----:|--------------------------|
+| se-5SQJla |     1 | 0 ms | 0 ms | set application_name = ? |
 
 **Most time consuming queries (top 10)**
 
-| SQLID | Total | Avg | Count | Query |
-|---|---:|---:|---:|---|
-| se-5SQJla | 0 ms | 0 ms | 1 | set application_name = ? |
+| SQLID     | Total |  Avg | Count | Query                    |
+|-----------|------:|-----:|------:|--------------------------|
+| se-5SQJla |  0 ms | 0 ms |     1 | set application_name = ? |
 
 ## EVENTS
 
@@ -96,33 +98,33 @@ This _quellog_ report summarizes **16** log entries collected between 19 Apr 202
 ### Session duration distribution
 
 ```
-< 1s | ■■■■ 4 sessions
-1s - 1min | ■ 1 sessions
+< 1s         | ■■■■ 4 sessions
+1s - 1min    | ■ 1 sessions
 1min - 30min |  -
-30min - 2h |  -
-2h - 5h |  -
-> 5h |  -
+30min - 2h   |  -
+2h - 5h      |  -
+> 5h         |  -
 ```
 
 ### Session Duration by User
 
-| User | Sessions | Min | Max | Avg | Median | Cumulated |
-|---|---:|---|---|---|---|---:|
-| app_pool | 4 | 0s | 0s | 0s | 0s | 0s |
-| admin | 1 | 30s | 30s | 30s | 30s | 30s |
+| User     | Sessions | Min | Max | Avg | Median | Cumulated |
+|----------|---------:|----:|----:|----:|-------:|----------:|
+| app_pool |        4 |  0s |  0s |  0s |     0s |        0s |
+| admin    |        1 | 30s | 30s | 30s |    30s |       30s |
 
 ### Session Duration by Database
 
 | Database | Sessions | Min | Max | Avg | Median | Cumulated |
-|---|---:|---|---|---|---|---:|
-| appdb | 5 | 0s | 30s | 6s | 0s | 30s |
+|----------|---------:|----:|----:|----:|-------:|----------:|
+| appdb    |        5 |  0s | 30s |  6s |     0s |       30s |
 
 ### Session Duration by Host
 
-| Host | Sessions | Min | Max | Avg | Median | Cumulated |
-|---|---:|---|---|---|---|---:|
-| 10.0.1.10 | 4 | 0s | 0s | 0s | 0s | 0s |
-| 10.0.1.11 | 1 | 30s | 30s | 30s | 30s | 30s |
+| Host      | Sessions | Min | Max | Avg | Median | Cumulated |
+|-----------|---------:|----:|----:|----:|-------:|----------:|
+| 10.0.1.10 |        4 |  0s |  0s |  0s |     0s |        0s |
+| 10.0.1.11 |        1 | 30s | 30s | 30s |    30s |       30s |
 
 ## CLIENTS
 
@@ -133,43 +135,43 @@ This _quellog_ report summarizes **16** log entries collected between 19 Apr 202
 
 ### USERS
 
-| User | Count | % |
-|---|---:|---:|
-| app_pool | 9 | 56.2% |
-| admin | 2 | 12.5% |
+| User     | Count |     % |
+|----------|------:|------:|
+| app_pool |     9 | 56.2% |
+| admin    |     2 | 12.5% |
 
 ### APPS
 
-| App | Count | % |
-|---|---:|---:|
-| pgbouncer | 9 | 56.2% |
-| psql | 2 | 12.5% |
+| App       | Count |     % |
+|-----------|------:|------:|
+| pgbouncer |     9 | 56.2% |
+| psql      |     2 | 12.5% |
 
 ### DATABASES
 
-| Database | Count | % |
-|---|---:|---:|
-| appdb | 11 | 68.8% |
+| Database | Count |     % |
+|----------|------:|------:|
+| appdb    |    11 | 68.8% |
 
 ### HOSTS
 
-| Host | Count | % |
-|---|---:|---:|
-| 10.0.1.10 | 13 | 81.2% |
-| 10.0.1.11 | 3 | 18.8% |
+| Host      | Count |     % |
+|-----------|------:|------:|
+| 10.0.1.10 |    13 | 81.2% |
+| 10.0.1.11 |     3 | 18.8% |
 
 ### USER × DATABASE
 
-| User | Database | Count | % |
-|---|---|---:|---:|
-| app_pool | appdb | 9 | 56.2% |
-| admin | appdb | 2 | 12.5% |
+| User     | Database | Count |     % |
+|----------|----------|------:|------:|
+| app_pool | appdb    |     9 | 56.2% |
+| admin    | appdb    |     2 | 12.5% |
 
 ### USER × HOST
 
-| User | Host | Count | % |
-|---|---|---:|---:|
-| app_pool | 10.0.1.10 | 9 | 56.2% |
-| admin | 10.0.1.11 | 2 | 12.5% |
+| User     | Host      | Count |     % |
+|----------|-----------|------:|------:|
+| app_pool | 10.0.1.10 |     9 | 56.2% |
+| admin    | 10.0.1.11 |     2 | 12.5% |
 
 

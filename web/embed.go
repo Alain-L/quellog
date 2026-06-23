@@ -22,3 +22,6 @@ var FzstdJS string
 
 //go:embed report.tmpl
 var ReportTmpl string
+
+//go:embed report_split.tmpl
+var ReportSplitTmpl string

@@ -1,5 +1,5 @@
 // ES Module imports
-import { fmt, fmtDuration, fmtBytes, fmtMs, fmtDur, parseDurToMs, esc, escForJsAttr, truncQuery, safeMax, safeMin } from './js/utils.js';
+import { fmt, fmtDuration, fmtDurationCoarse, fmtBytes, fmtCompact, fmtMs, fmtDur, parseDurToMs, esc, escForJsAttr, truncQuery, safeMax, safeMin } from './js/utils.js';
 import {
     wasmModule, wasmReady, analysisData, currentFileContent, currentFileName, currentFileSize, originalDimensions,
     charts, modalCharts, modalChartsData, modalChartCounter, chartIntervalMap, defaultInterval,
@@ -9,6 +9,7 @@ import {
 } from './js/state.js';
 import { initTheme, toggleTheme } from './js/theme.js';
 import { gunzipBuffer, unzstd, detectFormat, decompress, extractTar, prepareContent } from './js/compression.js';
+import './js/period-nav.js'; // shared period navigator (split reports + WASM)
 import {
     showFilterBar, hideFilterBar, initFilterBar, closeAllDropdowns,
     updateAllDropdownTriggers, updateApplyButton, updateTimeSlider,
@@ -23,7 +24,8 @@ import {
     chartData, createTimeChart, createDurationChart, createCombinedSQLChart,
     createConcurrentChart, createHistogramChart, createCheckpointChart, createWALDistanceChart, createCombinedTempFilesChart,
     buildChartContainer, closeChartModal, updateModalInterval, resetModalZoom, exportChartPNG,
-    resetChartZoom, openChartModal, updateChartInterval, toggleCombinedSeries, exportChartById
+    resetChartZoom, openChartModal, updateChartInterval, toggleCombinedSeries, exportChartById,
+    createCostMapChart, resetCostMapZoom, openCostMapModal
 } from './js/charts.js';
 import {
     setOriginalReportData, getOriginalReportData, applyReportTimeFilter, resetReportTimeFilter
@@ -126,6 +128,60 @@ import './js/components/ql-dropdown.js';
             }
         }
 
+        // harmonizeSummary restructures the Summary tile after each render: the
+        // source + size + parse time become a one-line eyebrow, the SIZE stat
+        // card is dropped, and (outside split mode) the date becomes a centered
+        // title above a full-width timeline bar carrying the real start/end
+        // marks. Split reports set window.QL_SPLIT so the period navigator owns
+        // the title and the strip. Shared by the standalone reports and the
+        // live WASM tool. CSS lives in styles.css.
+        function harmonizeSummary() {
+            const body = document.querySelector('#summary .summary-body');
+            if (!body) return;
+            const meta = body.querySelector('.summary-meta');
+            const pt = meta && meta.querySelector('.summary-parsetime');
+            const szVal = body.querySelector('.stat-grid .stat-card:nth-child(2) .stat-value');
+            if (pt && szVal && pt.textContent.indexOf(szVal.textContent) === -1) {
+                pt.textContent = szVal.textContent + ' ' + pt.textContent;
+            }
+            const fn = meta && meta.querySelector('.summary-filename');
+            if (fn && !fn.title) fn.title = fn.textContent;
+            if (window.QL_SPLIT) return; // the period navigator owns title + strip
+            const date = body.querySelector('.summary-date');
+            const timeline = body.querySelector('.summary-timeline');
+            if (date && timeline && !date.classList.contains('summary-date--title')) {
+                date.classList.add('summary-date--title');
+                timeline.parentNode.insertBefore(date, timeline);
+            }
+            if (timeline) {
+                const seg = timeline.querySelector('.summary-timeline-segment');
+                const range = timeline.querySelector('.summary-timeline-range');
+                if (seg && range && !timeline.querySelector('.summary-tl-marks')) {
+                    const left = parseFloat(seg.style.left) || 0;
+                    const endPct = Math.min(100, left + (parseFloat(seg.style.width) || 0));
+                    const parts = range.textContent.split('–').map((s) => s.trim());
+                    const startT = parts[0] || '';
+                    const endT = parts[1] || startT;
+                    const marks = document.createElement('div');
+                    marks.className = 'summary-tl-marks';
+                    const mk = (txt, pct, cls) => {
+                        const s = document.createElement('span');
+                        s.className = 'summary-tl-mark' + (cls ? ' ' + cls : '');
+                        s.textContent = txt;
+                        s.style.left = pct + '%';
+                        marks.appendChild(s);
+                    };
+                    const showStart = left > 1.5;
+                    const showEnd = endPct < 98.5;
+                    if (!(showStart && left < 12)) mk('00:00', 0, 'is-start');
+                    if (showStart) mk(startT, left);
+                    if (showEnd) mk(endT, endPct);
+                    if (!(showEnd && endPct > 88)) mk('24:00', 100, 'is-end');
+                    timeline.appendChild(marks);
+                }
+            }
+        }
+
         function renderResults(data, fileName, fileSize, isInitial = true) {
             results.classList.add('active');
 
@@ -156,6 +212,9 @@ import './js/components/ql-dropdown.js';
             let html = '';
 
             // Row 1: Summary | Events | Error Classes | Clients (4 cols)
+            // Server lifecycle is folded into the Events section as a
+            // SERVER tab — on real-world logs it carries only a handful
+            // of events and a full-width panel reads as wasted space.
             html += `<div class="grid grid-top-row">`;
             html += buildSummarySection(data);
             html += buildEventsSection(data);
@@ -186,6 +245,8 @@ import './js/components/ql-dropdown.js';
 
             results.innerHTML = html;
 
+            harmonizeSummary();
+
             // Create uPlot charts after DOM is ready
             requestAnimationFrame(() => {
                 chartData.forEach((data, chartId) => {
@@ -206,6 +267,8 @@ import './js/components/ql-dropdown.js';
                         createCombinedSQLChart(chartId, data.data);
                     } else if (data?.type === 'combined-tempfiles') {
                         createCombinedTempFilesChart(chartId, data.events);
+                    } else if (data?.type === 'costmap') {
+                        createCostMapChart(chartId, data.queries);
                     } else {
                         createTimeChart(chartId, data, { color });
                     }
@@ -278,10 +341,15 @@ import './js/components/ql-dropdown.js';
             const segmentWidth = Math.max(endPercent - startPercent, 1);
             const segmentCenter = startPercent + segmentWidth / 2;
 
-            // Time range label (centered under segment)
+            // Time range label (centered under segment). The header
+            // already carries the full dates ("13 Feb 2026 → 14 Feb
+            // 2026"), so the multi-day form reuses the same short
+            // vocabulary and drops seconds — "13 Feb 11:59 → 14 Feb
+            // 00:00" instead of repeating two full timestamps.
+            const shortDay = (dateStr) => formatDateHuman(dateStr).replace(/ \d{4}$/, '');
             const timeRangeLabel = sameDay
                 ? `${startTime.slice(0, 5)} – ${endTime.slice(0, 5)}`
-                : `${startDate} → ${endDate}`;
+                : `${shortDay(startDay)} ${startTime.slice(0, 5)} → ${shortDay(endDay)} ${endTime.slice(0, 5)}`;
 
             return `
                 <div class="section" id="summary">
@@ -325,7 +393,7 @@ import './js/components/ql-dropdown.js';
                                 <span class="summary-timeline-range" style="left: ${segmentCenter}%">${timeRangeLabel}</span>
                             </div>
                         </div>
-                        <div class="summary-separator"></div>
+                        ${buildServerSummaryLine(data)}
                     </div>
                 </div>
             `;
@@ -854,6 +922,120 @@ function buildEventsSection(data) {
             `;
         }
 
+        // Builds the optional one-line SERVER summary that sits right
+        // under the Summary section's header. Each fragment is a single
+        // span styled by severity: neutral for benign counters (starts,
+        // shutdowns, reloads), warning for non-fatal anomalies (crash
+        // recoveries, walsender timeouts, WAL receive failures…), alert
+        // for the worst events (backend crashes, invalidated slots).
+        // Fragments stay terse on purpose; the diagnostic detail (which
+        // signals, which params changed, which side of the replication
+        // broke) lives in the fragment's title= tooltip so the line is
+        // scannable at a glance and explorable on hover. Returns ''
+        // when nothing is worth surfacing — the line just disappears on
+        // healthy steady-state logs.
+        function buildServerSummaryLine(data) {
+            const s = data.server || {};
+            const r = data.replication || {};
+            const frags = [];
+            const push = (text, sev, tip, detail) => frags.push({ text, sev, tip, detail });
+            const plural = (n, sing, plur) => (n > 1 ? (plur || sing + 's') : sing);
+
+            // Server-lifecycle markers, ordered roughly chronologically
+            // (start → reload+config → shutdown → recovery → crash) so
+            // the line reads as a tiny narrative.
+            const starts = s.starts || 0;
+            if (starts > 0) push(`${starts} ${plural(starts, 'start')}`, 'info');
+            const reloads = s.reloads || 0;
+            if (reloads > 0) push(`${reloads} ${plural(reloads, 'reload')}`, 'info');
+            // Parameter changes ride along the reload that carried them —
+            // the tooltip lists the actual settings so a DBA sees "what
+            // changed" without opening the raw log.
+            const params = s.parameter_changes || [];
+            if (params.length > 0) {
+                const shown = params.slice(0, 6).map(p => `${p.parameter} → ${p.new}`);
+                if (params.length > 6) shown.push(`… +${params.length - 6} more`);
+                push(`${params.length} param ${plural(params.length, 'change')}`, 'info', shown.join('\n'));
+            }
+            const totalShutdowns = (s.shutdowns_fast || 0) + (s.shutdowns_immediate || 0) + (s.shutdowns_smart || 0);
+            if (totalShutdowns > 0) {
+                const kinds = [];
+                if (s.shutdowns_fast) kinds.push(`${s.shutdowns_fast} fast`);
+                if (s.shutdowns_immediate) kinds.push(`${s.shutdowns_immediate} immediate`);
+                if (s.shutdowns_smart) kinds.push(`${s.shutdowns_smart} smart`);
+                push(`${totalShutdowns} ${plural(totalShutdowns, 'shutdown')}`, 'info', kinds.join(', '));
+            }
+            const recoveries = s.crash_recoveries || 0;
+            if (recoveries > 0) push(`${recoveries} ${plural(recoveries, 'crash recovery', 'crash recoveries')}`, 'warning', 'database system was not properly shut down — automatic recovery');
+            const crashes = s.backend_crashes || 0;
+            if (crashes > 0) {
+                const sigNames = { '1':'SIGHUP','2':'SIGINT','3':'SIGQUIT','6':'SIGABRT','9':'SIGKILL','11':'SIGSEGV','13':'SIGPIPE','14':'SIGALRM','15':'SIGTERM' };
+                const sigCounts = s.signal_counts || {};
+                const sigKeys = Object.keys(sigCounts).sort((a, b) => Number(a) - Number(b));
+                const sigShort = sigKeys.map(k => sigNames[k] || 'signal ' + k).join(', ');
+                const sigDetail = sigKeys.map(k => `${sigNames[k] || 'signal ' + k} ×${sigCounts[k]}`).join(', ');
+                push(`${crashes} backend ${plural(crashes, 'crash', 'crashes')}`, 'alert', sigDetail, sigShort);
+            }
+            const auxExits = s.auxiliary_process_exits || 0;
+            if (auxExits > 0) push(`${auxExits} aux ${plural(auxExits, 'exit')}`, 'warning', 'auxiliary process (bgwriter, walwriter, …) exited abnormally');
+
+            // Replication markers — invalidated slots are the most
+            // operationally severe, then per-cause termination markers
+            // (named after the PG marker, diagnostic hint in tooltip),
+            // then conflicts, then plain reconnects. The LastTermination
+            // timestamp is appended to the last fired termination so the
+            // line still gives a window even when several causes coexist.
+            const slots = r.invalidated_slots || 0;
+            if (slots > 0) push(`${slots} invalidated ${plural(slots, 'slot')}`, 'alert', 'replication slot dropped — standby must be rebuilt or resynced');
+            const markers = r.markers || {};
+            const termRows = [
+                ['wal_receive_failed', 'WAL receive failure', 'replica lost primary'],
+                ['walsender_timeout',  'walsender timeout',   'primary side — replica too slow'],
+                ['replication_term',   'replication termination', 'primary closed walsender'],
+                ['unexpected_eof',     'unexpected EOF',      'abrupt walsender disconnect'],
+            ];
+            const firedTerms = termRows.filter(([k]) => (markers[k] || 0) > 0);
+            firedTerms.forEach(([k, label, hint], i) => {
+                const n = markers[k];
+                const isLast = i === firedTerms.length - 1;
+                const lastT = isLast && r.last_termination
+                    ? `last ${r.last_termination.split(' ')[1] || r.last_termination}`
+                    : '';
+                push(`${n} ${plural(n, label)}`, 'warning', hint, lastT);
+            });
+            const conflicts = r.conflicts_with_recovery || 0;
+            if (conflicts > 0) push(`${conflicts} ${plural(conflicts, 'conflict')} w/ recovery`, 'warning', 'queries killed/cancelled because they blocked WAL replay');
+            const reconnects = r.stream_reconnects || 0;
+            if (reconnects > 0) push(`${reconnects} stream ${plural(reconnects, 'reconnect')}`, 'info');
+            const pauses = r.recovery_pauses || 0;
+            if (pauses > 0) push(`${pauses} recovery ${plural(pauses, 'pause')}`, 'info');
+
+            // The health zone is a permanent part of the Summary card —
+            // when nothing fired it shows an explicit "no server events"
+            // so an absence reads as a positive signal (steady cluster)
+            // rather than missing data, and the card keeps the same
+            // structure whatever the log contains.
+            if (frags.length === 0) {
+                push('no server incidents', 'empty');
+                frags[0].tip = 'no start / shutdown / crash / replication marker in this log';
+            }
+            // Fixed two-column grid whatever the fragment count, so the
+            // zone has the same geometry on every report: one message
+            // sits top-left, two split left/right, more fill column-
+            // major (read down the left column first — same narrative
+            // order as the CLI). Label left, optional muted detail
+            // (signal names, last-termination time) as a plain suffix —
+            // no parentheses.
+            const parts = frags.map(f => {
+                const tip = f.tip ? ` title="${esc(f.tip)}"` : '';
+                const detail = f.detail ? `<span class="summary-server-detail">${esc(f.detail)}</span>` : '';
+                return `<div class="summary-server-row"><span class="summary-server-frag summary-server-${f.sev}"${tip}>${esc(f.text)}</span>${detail}</div>`;
+            }).join('');
+            const rows = Math.max(1, Math.ceil(frags.length / 2));
+            return `<div class="summary-separator summary-separator--tight"></div>
+                <div class="summary-server-line" style="grid-template-rows: repeat(${rows}, auto)">${parts}</div>`;
+        }
+
         function buildMaintenanceSection(data) {
             const m = data.maintenance;
             if (!m || ((m.vacuum_count || 0) + (m.analyze_count || 0)) === 0) {
@@ -866,61 +1048,378 @@ function buildEventsSection(data) {
                     </div>
                 `;
             }
-            // JSON uses vacuum_count, analyze_count (not autovacuum/autoanalyze)
-            // vacuum_table_counts and analyze_table_counts are objects {table: count}
-            // vacuum_space_recovered is {table: "XX KB"} for tables that recovered space
+            // Flat layout: one consolidated stat-grid at the top covers
+            // every headline (vacuum + analyze + buffer/WAL chips), then
+            // two sibling subsections each carry only their tab-switchable
+            // top-tables widget. Avoids the "two stat-grids stacked" look
+            // and keeps the eye moving downward through the panels rather
+            // than jumping between sibling blocks of headline numbers.
             const spaceRecovered = m.vacuum_space_recovered || {};
-            const vacTables = m.vacuum_table_counts ? Object.entries(m.vacuum_table_counts).map(([t, c]) => ({table: t, count: c, removed: spaceRecovered[t]})).sort((a,b) => b.count - a.count) : [];
-            const anaTables = m.analyze_table_counts ? Object.entries(m.analyze_table_counts).map(([t, c]) => ({table: t, count: c})).sort((a,b) => b.count - a.count) : [];
-            const hasVacTables = vacTables.length > 0;
-            const hasAnaTables = anaTables.length > 0;
-            const maxVac = vacTables[0]?.count || 1;
-            const maxAna = anaTables[0]?.count || 1;
-            // Calculate total space recovered
-            const totalRecovered = Object.values(spaceRecovered).reduce((sum, size) => sum + parseSizeToBytes(size), 0);
+            const totalRecovered = Object.values(spaceRecovered).reduce((s, sz) => s + parseSizeToBytes(sz), 0);
+            primeMaintenanceCaches(m, spaceRecovered);
+
+            const hasVac = (m.vacuum_count || 0) > 0;
+            const hasAna = (m.analyze_count || 0) > 0;
+
             return `
                 <div class="section" id="maintenance">
                     <div class="section-header">Maintenance</div>
                     <div class="section-body">
-                        <div class="stat-grid">
-                            <div class="stat-card"><div class="stat-value">${m.vacuum_count || 0}</div><div class="stat-label">Vacuum</div></div>
-                            ${(m.aggressive_vacuum_count || 0) > 0 ? `<div class="stat-card stat-card--warning"><div class="stat-value">${m.aggressive_vacuum_count}</div><div class="stat-label">Aggressive</div></div>` : ''}
-                            ${totalRecovered > 0 ? `<div class="stat-card"><div class="stat-value">${fmtBytes(totalRecovered)}</div><div class="stat-label">Recovered</div></div>` : ''}
-                            <div class="stat-card"><div class="stat-value">${m.analyze_count || 0}</div><div class="stat-label">Analyze</div></div>
-                        </div>
-                        ${hasVacTables ? `
-                            <div class="subsection">
-                                <div class="subsection-title">Top Vacuum Tables</div>
-                                <div class="scroll-list scroll-list--maintenance">
-                                    ${vacTables.slice(0, 5).map(t => `
-                                        <div class="list-item">
-                                            <span class="name">${esc(t.table)}</span>
-                                            <div class="bar"><div class="bar-fill" style="width: ${t.count/maxVac*100}%"></div></div>
-                                            <span class="removed">${t.removed ? t.removed + ' removed' : ''}</span>
-                                            <span class="value">${fmt(t.count)}</span>
-                                        </div>
-                                    `).join('')}
-                                </div>
-                            </div>
-                        ` : ''}
-                        ${hasAnaTables ? `
-                            <div class="subsection">
-                                <div class="subsection-title">Top Analyze Tables</div>
-                                <div class="scroll-list scroll-list--maintenance">
-                                    ${anaTables.slice(0, 5).map(t => `
-                                        <div class="list-item">
-                                            <span class="name">${esc(t.table)}</span>
-                                            <div class="bar"><div class="bar-fill" style="width: ${t.count/maxAna*100}%"></div></div>
-                                            <span class="removed"></span>
-                                            <span class="value">${fmt(t.count)}</span>
-                                        </div>
-                                    `).join('')}
-                                </div>
-                            </div>
-                        ` : ''}
+                        ${buildMaintenanceStatGrid(m, totalRecovered)}
+                        ${hasVac ? buildAutovacuumPanel(m) : ''}
+                        ${hasAna ? buildAutoanalyzePanel(m) : ''}
                     </div>
                 </div>
             `;
+        }
+
+        // Cache the live maintenance metrics so the tab switcher can
+        // re-render the table without re-walking analysisData each click.
+        let _vacTabsData = null;
+        let _anaTabsData = null;
+
+        function primeMaintenanceCaches(m, spaceRecovered) {
+            const topVacTables = m.top_vacuum_tables || [];
+            const xminTables = m.xmin_blocked_tables || [];
+            const vacTables = m.vacuum_table_counts
+                ? Object.entries(m.vacuum_table_counts)
+                    .map(([t, c]) => ({ table: t, count: c }))
+                    .sort((a, b) => b.count - a.count)
+                : [];
+            _vacTabsData = { topElapsed: topVacTables, xmin: xminTables, byCount: vacTables, spaceRecovered, vacuumCount: m.vacuum_count || 0 };
+
+            const topAnaTables = m.top_analyze_tables_by_elapsed || [];
+            const anaTables = m.analyze_table_counts
+                ? Object.entries(m.analyze_table_counts)
+                    .map(([t, c]) => ({ table: t, count: c }))
+                    .sort((a, b) => b.count - a.count)
+                : [];
+            _anaTabsData = { topElapsed: topAnaTables, byCount: anaTables, analyzeCount: m.analyze_count || 0 };
+        }
+
+        function buildMaintenanceStatGrid(m, _totalRecovered) {
+            // Trimmed to the metrics a DBA acts on first; per-table
+            // tuples removed / space recovered live in the table panel
+            // below since they're per-row anyway. Durations use the
+            // coarse formatter (drops seconds past 1h) so the headline
+            // reads at a glance.
+            const vacElapsedStr = (m.total_vacuum_elapsed_seconds || 0) > 0
+                ? fmtDurationCoarse(m.total_vacuum_elapsed_seconds * 1000) : '';
+            const anaElapsedStr = (m.total_analyze_elapsed_seconds || 0) > 0
+                ? fmtDurationCoarse(m.total_analyze_elapsed_seconds * 1000) : '';
+            const slowest = m.slowest_vacuum;
+            return `
+                <div class="stat-grid">
+                    <div class="stat-card"><div class="stat-value">${fmt(m.vacuum_count || 0)}</div><div class="stat-label">Vacuum count</div></div>
+                    ${(m.aggressive_vacuum_count || 0) > 0 ? `<div class="stat-card stat-card--warning"><div class="stat-value">${fmt(m.aggressive_vacuum_count)}</div><div class="stat-label">Aggressive</div></div>` : ''}
+                    ${vacElapsedStr ? `<div class="stat-card"><div class="stat-value">${vacElapsedStr}</div><div class="stat-label">Vacuum time</div></div>` : ''}
+                    ${slowest && slowest.elapsed_seconds > 0 ? `<div class="stat-card" title="${esc(slowest.table)}"><div class="stat-value">${fmtDurationCoarse(slowest.elapsed_seconds * 1000)}</div><div class="stat-label">Slowest single run</div></div>` : ''}
+                    <div class="stat-card"><div class="stat-value">${fmt(m.analyze_count || 0)}</div><div class="stat-label">Analyze count</div></div>
+                    ${anaElapsedStr ? `<div class="stat-card"><div class="stat-value">${anaElapsedStr}</div><div class="stat-label">Analyze time</div></div>` : ''}
+                </div>
+            `;
+        }
+
+        function buildMaintenanceMetricLines(m) {
+            // Buffer-usage totals are intentionally not shown here
+            // anymore — the per-table "By buffer" tab carries the same
+            // breakdown (cluster-wide is just the column sum). WAL has
+            // no dedicated tab so we keep it as a one-line chip.
+            const walTotal = (m.total_wal_records || 0) + (m.total_wal_bytes || 0);
+            if (walTotal === 0) return '';
+            return `
+                <div class="metric-line">
+                    <span class="metric-line-label">WAL usage</span>
+                    <span class="metric-line-val"><strong>${fmtCompact(m.total_wal_records || 0)}</strong> records</span>
+                    <span class="metric-line-val"><strong>${fmtBytes(m.total_wal_bytes || 0)}</strong></span>
+                </div>
+            `;
+        }
+
+        function buildAutovacuumPanel(m) {
+            const topVacTables = _vacTabsData?.topElapsed || [];
+            const hasBufferData = topVacTables.some(t => (t.buffer_hits || 0) + (t.buffer_misses || 0) > 0);
+            return `
+                <div class="subsection">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                        <div class="subsection-title" style="margin: 0;">Autovacuum</div>
+                        ${hasBufferData ? `
+                            <div class="tabs" style="margin: 0;">
+                                <button class="tab active" onclick="showVacuumView(this, 'main')">Top tables</button>
+                                <button class="tab" onclick="showVacuumView(this, 'buffer')">Buffer usage</button>
+                            </div>
+                        ` : ''}
+                    </div>
+                    ${buildMaintenanceMetricLines(m)}
+                    <div id="vacuum-table-container">
+                        ${renderVacuumMainTable()}
+                    </div>
+                </div>
+            `;
+        }
+
+        function showVacuumView(btn, view) {
+            btn.parentElement.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            btn.classList.add('active');
+            const container = document.getElementById('vacuum-table-container');
+            if (!container) return;
+            container.innerHTML = view === 'buffer' ? renderVacuumBufferTable() : renderVacuumMainTable();
+        }
+
+        function buildAutoanalyzePanel(m) {
+            const topAnaTables = _anaTabsData?.topElapsed || [];
+            const anaTables = _anaTabsData?.byCount || [];
+            if (topAnaTables.length === 0 && anaTables.length === 0) return '';
+            return `
+                <div class="subsection">
+                    <div style="margin-bottom: 0.5rem;">
+                        <div class="subsection-title" style="margin: 0;">Autoanalyze</div>
+                    </div>
+                    <div id="analyze-table-container">
+                        ${renderAnalyzeTable()}
+                    </div>
+                </div>
+            `;
+        }
+
+        // Rendering primitives — same scroll-list shape the maintenance
+        // section has always used (name + bar + secondary + value) so
+        // the visual rhythm is preserved across tab switches. The cap
+        // is generous so the list scrolls (max-height + overflow-y on
+        // .scroll-list) rather than truncating: the user keeps the long
+        // tail one wheel-flick away. CLI keeps a tighter cut.
+        const MAINT_TOP_N = 20;
+
+        // Maintenance list-items use a wider 5-slot layout
+        // (name / wide bar / extra / removed / value): the bar takes the
+        // remaining flex space so progress reads at a glance even on
+        // dense reports, and the .extra slot reserves a fixed width so
+        // the bar never shifts horizontally when only some rows carry a
+        // "X KB recovered" annotation.
+
+        // Autovacuum: two stacked sortable tables — a main panel
+        // (elapsed / vacuums / dead rows / recovered) and a buffer
+        // panel (hits / misses / dirtied / written). Each has its own
+        // sort state so the user can rank tables independently on
+        // either side.
+        let _vacMainSortKey = 'elapsed';   // 'table' | 'elapsed' | 'count' | 'dead' | 'recovered'
+        let _vacMainSortDir = 'desc';
+        let _vacBufSortKey = 'misses';     // 'table' | 'hits' | 'misses' | 'dirtied' | 'written'
+        let _vacBufSortDir = 'desc';
+
+        function renderVacuumMainTable() {
+            const d = _vacTabsData;
+            if (!d) return '';
+            // Per-table metrics: count (from vacuum_table_counts, all
+            // tables), elapsed/dead (from top_vacuum_tables, capped
+            // higher now), recovered (from spaceRecovered map).
+            const elapsedByTable = {};
+            const deadByTable = {};
+            (d.topElapsed || []).forEach(t => {
+                elapsedByTable[t.table] = t.total_elapsed_seconds || 0;
+                deadByTable[t.table] = t.tuples_not_yet_removable || 0;
+            });
+            const parseRecov = s => s ? parseSizeToBytes(s) : 0;
+            const rows = (d.byCount || []).map(t => ({
+                table: t.table,
+                count: t.count,
+                elapsed: elapsedByTable[t.table] || 0,
+                dead: deadByTable[t.table] || 0,
+                recovered: parseRecov(d.spaceRecovered[t.table]),
+            }));
+            if (!rows.length) return '<div class="empty">No vacuum operations recorded.</div>';
+            const factor = _vacMainSortDir === 'desc' ? -1 : 1;
+            rows.sort((a, b) => {
+                const va = a[_vacMainSortKey], vb = b[_vacMainSortKey];
+                if (typeof va === 'string') return va.localeCompare(vb) * factor;
+                return (va - vb) * factor;
+            });
+            const limited = rows.slice(0, MAINT_TOP_N);
+            const barKey = _vacMainSortKey === 'table' ? 'elapsed' : _vacMainSortKey;
+            const maxBar = Math.max(...limited.map(r => r[barKey] || 0)) || 1;
+            const arrow = key => _vacMainSortKey === key ? `<span class="sort-arrow">${_vacMainSortDir === 'desc' ? '▼' : '▲'}</span>` : '';
+            const sortable = (key, label) => `<span data-sort onclick="showVacuumMainSort('${key}')">${label}${arrow(key)}</span>`;
+            return `<div class="scroll-list scroll-list--maintenance scroll-list--maintenance-vac-main">
+                <div class="list-header list-header--sortable">
+                    <span class="name">${sortable('table', 'Table')}</span>
+                    <div class="bar"></div>
+                    <span class="extra">${sortable('recovered', 'Recovered')}</span>
+                    <span class="dead-col">${sortable('dead', 'Dead rows')}</span>
+                    <span class="removed">${sortable('count', 'Vacuums')}</span>
+                    <span class="value">${sortable('elapsed', 'Elapsed')}</span>
+                </div>
+                ${limited.map(r => `<div class="list-item">
+                    ${maintName(r.table)}
+                    <div class="bar"><div class="bar-fill" style="width: ${(r[barKey]||0)/maxBar*100}%${_vacMainSortKey === 'dead' ? '; background: var(--danger);' : ''}"></div></div>
+                    <span class="extra">${r.recovered > 0 ? fmtBytes(r.recovered) : '-'}</span>
+                    <span class="dead-col">${r.dead > 0 ? fmt(r.dead) : '-'}</span>
+                    <span class="removed">${r.count}×</span>
+                    <span class="value">${r.elapsed > 0 ? fmtDuration(r.elapsed * 1000) : '-'}</span>
+                </div>`).join('')}
+            </div>`;
+        }
+
+        function renderVacuumBufferTable() {
+            const d = _vacTabsData;
+            if (!d) return '';
+            const rows = (d.topElapsed || [])
+                .filter(t => (t.buffer_hits || 0) + (t.buffer_misses || 0) > 0)
+                .map(t => ({
+                    table: t.table,
+                    hits: t.buffer_hits || 0,
+                    misses: t.buffer_misses || 0,
+                    dirtied: t.buffer_dirtied || 0,
+                    written: t.buffer_written || 0,
+                }));
+            if (!rows.length) return '<div class="empty">No buffer data.</div>';
+            const factor = _vacBufSortDir === 'desc' ? -1 : 1;
+            rows.sort((a, b) => {
+                const va = a[_vacBufSortKey], vb = b[_vacBufSortKey];
+                if (typeof va === 'string') return va.localeCompare(vb) * factor;
+                return (va - vb) * factor;
+            });
+            const limited = rows.slice(0, MAINT_TOP_N);
+            const barKey = _vacBufSortKey === 'table' ? 'misses' : _vacBufSortKey;
+            const maxBar = Math.max(...limited.map(r => r[barKey] || 0)) || 1;
+            const arrow = key => _vacBufSortKey === key ? `<span class="sort-arrow">${_vacBufSortDir === 'desc' ? '▼' : '▲'}</span>` : '';
+            const sortable = (key, label) => `<span data-sort onclick="showVacuumBufferSort('${key}')">${label}${arrow(key)}</span>`;
+            const cell = n => (n || 0) > 0 ? fmtCompact(n) : '-';
+            return `<div class="scroll-list scroll-list--maintenance scroll-list--maintenance-buffer">
+                <div class="list-header list-header--sortable list-header--buffer">
+                    <span class="name">${sortable('table', 'Table')}</span>
+                    <div class="bar"></div>
+                    <span class="extra"><span class="buf-cells"><span>${sortable('hits', 'Hits')}</span><span>${sortable('misses', 'Misses')}</span><span>${sortable('dirtied', 'Dirtied')}</span><span>${sortable('written', 'Written')}</span></span></span>
+                </div>
+                ${limited.map(r => `<div class="list-item">
+                    ${maintName(r.table)}
+                    <div class="bar"><div class="bar-fill" style="width: ${(r[barKey]||0)/maxBar*100}%"></div></div>
+                    <span class="extra"><span class="buf-cells"><span>${cell(r.hits)}</span><span>${cell(r.misses)}</span><span>${cell(r.dirtied)}</span><span>${cell(r.written)}</span></span></span>
+                </div>`).join('')}
+            </div>`;
+        }
+
+        function showVacuumMainSort(key) {
+            if (_vacMainSortKey === key) _vacMainSortDir = _vacMainSortDir === 'desc' ? 'asc' : 'desc';
+            else { _vacMainSortKey = key; _vacMainSortDir = 'desc'; }
+            const c = document.getElementById('vacuum-table-container');
+            if (c) c.innerHTML = renderVacuumMainTable();
+        }
+
+        function showVacuumBufferSort(key) {
+            if (_vacBufSortKey === key) _vacBufSortDir = _vacBufSortDir === 'desc' ? 'asc' : 'desc';
+            else { _vacBufSortKey = key; _vacBufSortDir = 'desc'; }
+            const c = document.getElementById('vacuum-table-container');
+            if (c) c.innerHTML = renderVacuumBufferTable();
+        }
+
+        // maintName renders a table-name cell with a native hover
+        // tooltip carrying the full identifier plus a click handler
+        // that inserts a one-line copy ribbon directly above the row
+        // — auto-selected, ready for Cmd+C. The cell itself keeps the
+        // truncated form so the row layout never reflows.
+        function maintName(table) {
+            const safe = esc(table);
+            return `<span class="name" title="${safe}" onclick="showMaintRibbon(this)"><span class="name-inner">${safe}</span></span>`;
+        }
+
+        function showMaintRibbon(el) {
+            // Toggle off when reclicking the same expanded cell.
+            if (el.classList.contains('expanded')) {
+                el.classList.remove('expanded');
+                window.getSelection().removeAllRanges();
+                return;
+            }
+            // Only one cell expanded at a time.
+            document.querySelectorAll('.scroll-list--maintenance .name.expanded')
+                .forEach(n => n.classList.remove('expanded'));
+            el.classList.add('expanded');
+            // Pre-select the inner span so the next keystroke is Cmd+C.
+            const inner = el.querySelector('.name-inner');
+            if (inner) {
+                const range = document.createRange();
+                range.selectNodeContents(inner);
+                const sel = window.getSelection();
+                sel.removeAllRanges();
+                sel.addRange(range);
+            }
+            // Re-truncate as soon as the selection leaves the cell —
+            // a click anywhere else, a Tab, ESC, etc. The setTimeout
+            // skips the initial selection event the opener just fired.
+            setTimeout(() => {
+                const onSelChange = () => {
+                    const s = window.getSelection();
+                    if (!s.anchorNode || !el.contains(s.anchorNode)) {
+                        el.classList.remove('expanded');
+                        document.removeEventListener('selectionchange', onSelChange);
+                    }
+                };
+                document.addEventListener('selectionchange', onSelChange);
+            }, 0);
+        }
+
+        // Autoanalyze uses a single unified table with sortable column
+        // headers (no tab toggle) — every row carries both elapsed and
+        // count, the user sorts on whichever dimension is most relevant
+        // at the moment. Bar is proportional to the currently-sorted
+        // numeric column, so the visual ranking always matches the sort.
+        let _anaSortKey = 'elapsed';   // 'table' | 'elapsed' | 'count' | 'share'
+        let _anaSortDir = 'desc';      // 'desc' | 'asc'
+
+        function renderAnalyzeTable() {
+            const d = _anaTabsData;
+            if (!d) return '';
+            // Merge per-table count (covers all tables that ran an
+            // analyze) with elapsed data (covers all tables PG emitted
+            // a system-usage line for — should be all on PG 13+ with
+            // log_autovacuum_min_duration). Tables missing elapsed get
+            // 0, which sorts to the bottom on desc.
+            const elapsedByTable = {};
+            (d.topElapsed || []).forEach(t => { elapsedByTable[t.table] = t.total_elapsed_seconds; });
+            const rows = (d.byCount || []).map(t => ({
+                table: t.table,
+                count: t.count,
+                elapsed: elapsedByTable[t.table] || 0,
+                share: d.analyzeCount > 0 ? (t.count / d.analyzeCount * 100) : 0,
+            }));
+            if (!rows.length) return '<div class="empty">No analyze operations recorded.</div>';
+            const factor = _anaSortDir === 'desc' ? -1 : 1;
+            rows.sort((a, b) => {
+                const va = a[_anaSortKey], vb = b[_anaSortKey];
+                if (typeof va === 'string') return va.localeCompare(vb) * factor;
+                return (va - vb) * factor;
+            });
+            const limited = rows.slice(0, MAINT_TOP_N);
+            const barKey = _anaSortKey === 'table' ? 'elapsed' : _anaSortKey;
+            const maxBar = Math.max(...limited.map(r => r[barKey] || 0)) || 1;
+            const arrow = key => _anaSortKey === key ? `<span class="sort-arrow">${_anaSortDir === 'desc' ? '▼' : '▲'}</span>` : '';
+            const sortable = (key, label) => `<span data-sort onclick="showAnalyzeSort('${key}')">${label}${arrow(key)}</span>`;
+            return `<div class="scroll-list scroll-list--maintenance">
+                <div class="list-header list-header--sortable">
+                    <span class="name">${sortable('table', 'Table')}</span>
+                    <div class="bar"></div>
+                    <span class="extra">${sortable('elapsed', 'Elapsed')}</span>
+                    <span class="removed">${sortable('count', 'Analyzes')}</span>
+                    <span class="value">${sortable('share', 'Share')}</span>
+                </div>
+                ${limited.map(r => `<div class="list-item">
+                    ${maintName(r.table)}
+                    <div class="bar"><div class="bar-fill" style="width: ${(r[barKey] || 0) / maxBar * 100}%"></div></div>
+                    <span class="extra">${r.elapsed > 0 ? fmtDuration(r.elapsed * 1000) : '-'}</span>
+                    <span class="removed">${r.count}×</span>
+                    <span class="value">${r.share.toFixed(1)}%</span>
+                </div>`).join('')}
+            </div>`;
+        }
+
+        function showAnalyzeSort(key) {
+            if (_anaSortKey === key) {
+                _anaSortDir = _anaSortDir === 'desc' ? 'asc' : 'desc';
+            } else {
+                _anaSortKey = key;
+                _anaSortDir = 'desc';
+            }
+            const container = document.getElementById('analyze-table-container');
+            if (container) container.innerHTML = renderAnalyzeTable();
         }
 
         function buildLocksSection(data) {
@@ -954,7 +1453,7 @@ function buildEventsSection(data) {
                             <div class="stat-card"><div class="stat-value">${l.waiting_events || 0}</div><div class="stat-label">Still Waiting</div></div>
                             <div class="stat-card"><div class="stat-value">${l.acquired_events || 0}</div><div class="stat-label">Acquired</div></div>
                             <div class="stat-card"><div class="stat-value">${fmtDur(l.avg_wait_time) || '-'}</div><div class="stat-label">Avg</div></div>
-                            <div class="stat-card"><div class="stat-value">${fmtDur(l.total_wait_time) || '-'}</div><div class="stat-label">Total</div></div>
+                            <div class="stat-card"><div class="stat-value">${l.total_wait_time || '-'}</div><div class="stat-label">Total</div></div>
                         </div>
                         ${hasLockTypes || hasResTypes || hasRelations ? `
                             <div class="subsection" style="display: flex; gap: 1rem; flex-wrap: wrap;">
@@ -964,7 +1463,7 @@ function buildEventsSection(data) {
                                         <div class="query-types">
                                             ${lockTypes.map(t => `
                                                 <span class="query-type">
-                                                    <span class="name">${t.type}</span>
+                                                    <span class="name">${esc(t.type)}</span>
                                                     <span class="count">${fmt(t.count)}</span>
                                                 </span>
                                             `).join('')}
@@ -977,7 +1476,7 @@ function buildEventsSection(data) {
                                         <div class="query-types">
                                             ${resTypes.map(t => `
                                                 <span class="query-type">
-                                                    <span class="name">${t.type}</span>
+                                                    <span class="name">${esc(t.type)}</span>
                                                     <span class="count">${fmt(t.count)}</span>
                                                 </span>
                                             `).join('')}
@@ -990,7 +1489,7 @@ function buildEventsSection(data) {
                                         <div class="query-types">
                                             ${relations.map(t => `
                                                 <span class="query-type">
-                                                    <span class="name">${t.type}</span>
+                                                    <span class="name">${esc(t.type)}</span>
                                                     <span class="count">${fmt(t.count)}</span>
                                                 </span>
                                             `).join('')}
@@ -1012,15 +1511,19 @@ function buildEventsSection(data) {
                                         </tr></thead>
                                         <tbody>
                                             ${[...l.queries].sort((a, b) => {
-                                                const wa = parseFloat(a.total_wait_time) || 0;
-                                                const wb = parseFloat(b.total_wait_time) || 0;
+                                                // parseDurToMs, not parseFloat: total_wait_time is a
+                                                // formatted duration ("1h 04m 17s"); parseFloat would
+                                                // read only the leading number and rank a 1h wait (→1)
+                                                // below a 25s wait (→25).
+                                                const wa = parseDurToMs(a.total_wait_time) || 0;
+                                                const wb = parseDurToMs(b.total_wait_time) || 0;
                                                 return wb - wa;
                                             }).slice(0, 10).map(q => `
                                                 <tr>
                                                     <td class="query-cell" onclick="showQueryModal('${esc(q.id)}')">${esc(truncQuery(q.normalized_query))}</td>
                                                     <td class="num">${q.acquired_count || 0}</td>
                                                     <td class="num">${q.still_waiting_count || 0}</td>
-                                                    <td class="num">${fmtDur(q.total_wait_time) || '-'}</td>
+                                                    <td class="num">${q.total_wait_time || '-'}</td>
                                                 </tr>
                                             `).join('')}
                                         </tbody>
@@ -1080,8 +1583,8 @@ function buildEventsSection(data) {
                                                 <tr>
                                                     <td class="query-cell" onclick="showQueryModal('${esc(b.id)}')">${esc(b.query || b.id)}</td>
                                                     <td class="num">${b.count}</td>
-                                                    <td class="num">${fmtMs(b.totalWaitMs / b.count)}</td>
-                                                    <td class="num">${fmtMs(b.totalWaitMs)}</td>
+                                                    <td class="num">${fmtDuration(b.totalWaitMs / b.count)}</td>
+                                                    <td class="num">${fmtDuration(b.totalWaitMs)}</td>
                                                 </tr>
                                             `).join('')}
                                         </tbody>
@@ -1121,6 +1624,7 @@ function buildEventsSection(data) {
                             <div class="stat-card"><div class="stat-value">${fmt(tf.total_messages)}</div><div class="stat-label">Count</div></div>
                             <div class="stat-card"><div class="stat-value">${tf.total_size}</div><div class="stat-label">Total</div></div>
                             <div class="stat-card"><div class="stat-value">${tf.avg_size}</div><div class="stat-label">Avg</div></div>
+                            <div class="stat-card"><div class="stat-value">${tf.max_size || '-'}</div><div class="stat-label">Max</div></div>
                         </div>
                         ${hasEvents ? `
                             ${buildChartContainer('chart-tempfiles', 'Temp File Activity', { showFilterBtn: true, tooltip: 'Temp file count and cumulative size over time. Created when queries exceed work_mem.' })}
@@ -1327,7 +1831,7 @@ function buildEventsSection(data) {
             const sorted = [...rows].sort((a, b) => asc ? a[sortKey] - b[sortKey] : b[sortKey] - a[sortKey]);
             return sorted.map(t => `
                 <tr>
-                    <td><span class="query-type"><span class="name">${t.type}</span></span></td>
+                    <td><span class="query-type"><span class="name">${esc(t.type)}</span></span></td>
                     <td class="num">${fmt(t.count)}</td>
                     <td class="num">${t.pct.toFixed(1)}%</td>
                     <td class="num">${t.avg || '-'}</td>
@@ -1371,7 +1875,7 @@ function buildEventsSection(data) {
                                         <div class="query-types" style="justify-content: flex-start;">
                                             ${(d.query_types || []).slice(0, 4).map(t => `
                                                 <span class="query-type" style="padding: 0.15rem 0.35rem; font-size: 0.65rem;">
-                                                    <span class="name">${t.type}</span>
+                                                    <span class="name">${esc(t.type)}</span>
                                                     <span class="count">${fmt(t.count)}</span>
                                                 </span>
                                             `).join('')}
@@ -1477,8 +1981,19 @@ function buildEventsSection(data) {
                 });
             }
 
-            // Build duration distribution from queries
+            // Slim duration distribution stacked-bar — same data as the
+            // previous "Duration Distribution" subsection, but rendered
+            // inline (no title, no border) so it just fills a thin band
+            // between the activity chart and the tabs without competing
+            // with the cost map for attention.
             const durationDist = buildDurationDistribution(queries);
+
+            // Cost-map data: regular queries with a real avg duration. TCL
+            // (COMMIT/BEGIN/ROLLBACK…) is excluded — like the main query tables,
+            // which keep it in their own tab — so a high-volume COMMIT can't
+            // dominate and stretch the X axis, and every point cross-references
+            // a visible (non-TCL) table row.
+            const costMapQueries = regularQueries.filter(q => (q.count || 0) > 0 && (q.avg_time_ms || 0) > 0);
 
             return `
                 <div class="section" id="sql_performance">
@@ -1487,40 +2002,55 @@ function buildEventsSection(data) {
                         <div class="stat-grid">
                             <div class="stat-card"><div class="stat-value">${fmt(sql.total_queries_parsed)}</div><div class="stat-label">Queries</div></div>
                             <div class="stat-card"><div class="stat-value">${fmt(sql.total_unique_queries)}</div><div class="stat-label">Unique</div></div>
+                            ${(sql.top_1_percent_slow_queries || 0) > 0 ? `<div class="stat-card stat-card--alert"><div class="stat-value">${sql.top_1_percent_slow_queries}</div><div class="stat-label">Top 1%</div></div>` : ''}
                             <div class="stat-card"><div class="stat-value">${fmtDur(sql.query_min_duration) || '-'}</div><div class="stat-label">Min</div></div>
                             <div class="stat-card"><div class="stat-value">${fmtDur(sql.query_median_duration) || '-'}</div><div class="stat-label">Median</div></div>
                             <div class="stat-card stat-card--alert"><div class="stat-value">${fmtDur(sql.query_99th_percentile) || '-'}</div><div class="stat-label">P99</div></div>
                             <div class="stat-card stat-card--alert"><div class="stat-value">${fmtDur(sql.query_max_duration) || '-'}</div><div class="stat-label">Max</div></div>
-                            ${(sql.top_1_percent_slow_queries || 0) > 0 ? `<div class="stat-card stat-card--alert"><div class="stat-value">${sql.top_1_percent_slow_queries}</div><div class="stat-label">Top 1%</div></div>` : ''}
                         </div>
-
-                        ${hasExecutions ? `
-                            <div style="margin-top: 0.75rem;">
-                                ${buildChartContainer('chart-sql-combined', 'Query Activity', { showFilterBtn: true, tooltip: 'Query count and cumulated duration over time.' })}
-                                <div class="chart-legend">
-                                    <span class="chart-legend-item" data-chart="chart-sql-combined" data-series="count" onclick="toggleCombinedSeries('chart-sql-combined', 'count')"><span class="chart-legend-bar chart-legend-bar--count"></span>Count</span>
-                                    <span class="chart-legend-item" data-chart="chart-sql-combined" data-series="duration" onclick="toggleCombinedSeries('chart-sql-combined', 'duration')"><span class="chart-legend-bar chart-legend-bar--duration"></span>Duration</span>
-                                    <span><span style="display:inline-block;width:16px;height:0;border-top:2px dashed var(--text-muted);vertical-align:middle;margin-right:4px;"></span>Median</span>
-                                </div>
+                        <div class="sql-perf-grid">
+                            <div class="sql-perf-col-left">
+                                ${costMapQueries.length > 1 ? (() => {
+                                    chartData.set('chart-costmap', { type: 'costmap', queries: costMapQueries });
+                                    return `
+                                    <div class="chart-container">
+                                        <div class="chart-controls">
+                                            <span class="subsection-title" style="margin: 0; font-size: 0.7rem;">Cost Map<ql-tooltip text="Each dot is a normalized query, positioned by execution count (X) and average duration (Y) on log-log scales. The 45° iso-curves mark constant cumulative time (count × avg). Drag to zoom.">i</ql-tooltip></span>
+                                            <div style="display: flex; gap: 0.5rem; align-items: center;">
+                                                <span class="zoom-hint">drag to zoom</span>
+                                                <button onclick="resetCostMapZoom('chart-costmap')">Reset</button>
+                                                <button class="btn-expand" onclick="openCostMapModal('chart-costmap', 'Cost Map')" title="Expand chart">⛶</button>
+                                            </div>
+                                        </div>
+                                        <div id="chart-costmap" style="min-height: 120px;"></div>
+                                    </div>
+                                    `;
+                                })() : ''}
                             </div>
-                        ` : ''}
-                        ${durationDist.some(d => d.count > 0) ? `
-                            <div class="subsection" style="margin-top: 0.75rem;">
-                                <div class="subsection-title">Duration Distribution</div>
-                                ${buildCompactDurationDist(durationDist)}
+                            <div class="sql-perf-col-right">
+                                ${hasExecutions ? `
+                                    <div>
+                                        ${buildChartContainer('chart-sql-combined', 'Query Activity', { showFilterBtn: true, tooltip: 'Query count and cumulated duration over time.' })}
+                                        <div class="chart-legend">
+                                            <span class="chart-legend-item" data-chart="chart-sql-combined" data-series="count" onclick="toggleCombinedSeries('chart-sql-combined', 'count')"><span class="chart-legend-bar chart-legend-bar--count"></span>Count</span>
+                                            <span class="chart-legend-item" data-chart="chart-sql-combined" data-series="duration" onclick="toggleCombinedSeries('chart-sql-combined', 'duration')"><span class="chart-legend-bar chart-legend-bar--duration"></span>Duration</span>
+                                            <span><span style="display:inline-block;width:16px;height:0;border-top:2px dashed var(--text-muted);vertical-align:middle;margin-right:4px;"></span>Median</span>
+                                        </div>
+                                    </div>
+                                ` : ''}
+                                ${durationDist.some(d => d.count > 0) ? `<div style="margin-top:0.5rem;">${buildCompactDurationDist(durationDist)}</div>` : ''}
+                                <ql-tabs style="margin-top: 0.75rem;">
+                                    <ql-tab selected>By Total Time</ql-tab>
+                                    <ql-tab>Slowest (Max)</ql-tab>
+                                    <ql-tab>Most Frequent</ql-tab>
+                                    ${tclQueries.length > 0 ? '<ql-tab>TCL</ql-tab>' : ''}
+                                    <ql-panel>${buildQueryTable(byTotal, maxTime, 'total')}</ql-panel>
+                                    <ql-panel>${buildQueryTable(bySlowest, maxTime, 'max')}</ql-panel>
+                                    <ql-panel>${buildQueryTable(byFrequent, maxTime, 'count')}</ql-panel>
+                                    ${tclQueries.length > 0 ? `<ql-panel>${buildTCLTable(tclQueries)}</ql-panel>` : ''}
+                                </ql-tabs>
                             </div>
-                        ` : ''}
-
-                        <ql-tabs style="margin-top: 1rem;">
-                            <ql-tab selected>By Total Time</ql-tab>
-                            <ql-tab>Slowest (Max)</ql-tab>
-                            <ql-tab>Most Frequent</ql-tab>
-                            ${tclQueries.length > 0 ? '<ql-tab>TCL</ql-tab>' : ''}
-                            <ql-panel>${buildQueryTable(byTotal, maxTime, 'total')}</ql-panel>
-                            <ql-panel>${buildQueryTable(bySlowest, maxTime, 'max')}</ql-panel>
-                            <ql-panel>${buildQueryTable(byFrequent, maxTime, 'count')}</ql-panel>
-                            ${tclQueries.length > 0 ? `<ql-panel>${buildTCLTable(tclQueries)}</ql-panel>` : ''}
-                        </ql-tabs>
+                        </div>
                     </div>
                 </div>
             `;
@@ -1631,6 +2161,7 @@ function buildEventsSection(data) {
                         <thead>
                             <tr>
                                 <th>#</th>
+                                <th></th>
                                 <th>Query</th>
                                 <th class="num">Count</th>
                                 <th class="num">Avg</th>
@@ -1642,10 +2173,12 @@ function buildEventsSection(data) {
                         <tbody>
                             ${queries.slice(0, 50).map((q, i) => {
                                 const pct = totalTime > 0 ? (q.total_time_ms / totalTime * 100).toFixed(1) : 0;
+                                const qid = esc(q.id);
                                 return `
-                                <tr>
+                                <tr data-q-id="${qid}" onmouseenter="highlightQuery('${qid}', true)" onmouseleave="highlightQuery('${qid}', false)">
                                     <td>${i + 1}</td>
-                                    <td class="query-cell" onclick="showQueryModal('${esc(q.id)}')" title="Click for details">${esc(truncQuery(q.normalized_query))}</td>
+                                    <td class="cell-plan-action">${q.plan ? `<button class="btn-explain" onclick="event.stopPropagation(); visualizePlanFor('${qid}')" title="Visualize plan on explain.dalibo.com"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="9" y="2" width="6" height="6" rx="1"/><rect x="2" y="16" width="6" height="6" rx="1"/><rect x="16" y="16" width="6" height="6" rx="1"/><path d="M12 8 v4 M5 12 h14 M5 12 v4 M19 12 v4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg></button>` : ''}</td>
+                                    <td class="query-cell" onclick="showQueryModal('${qid}')" title="Click for details">${esc(truncQuery(q.normalized_query))}</td>
                                     <td class="num">${fmt(q.count)}</td>
                                     <td class="num">${fmtMs(q.avg_time_ms)}</td>
                                     <td class="num">${fmtMs(q.max_time_ms)}</td>
@@ -1656,6 +2189,205 @@ function buildEventsSection(data) {
                                             <span>${fmtMsLong(q.total_time_ms)}</span>
                                         </div>
                                     </td>
+                                </tr>
+                            `}).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+
+        // --- Modal navigation (Event ↔ Query) -----------------------
+        // modalStack tracks the trail of cross-modal navigations so the
+        // "← Back" button in either modal can return to the previous
+        // one. Each entry is {kind:'event'|'query', id, childId} — the
+        // childId points to the row inside this modal that the user
+        // clicked to descend, so on the way back we can scroll + flash
+        // that row to anchor the user visually.
+        let modalStack = [];
+        // _suppressStackClear is set while we deliberately close a
+        // modal during in-flight navigation (so the modal-close
+        // listener below does not wipe the stack we just pushed).
+        let _suppressStackClear = false;
+
+        function navigateToQuery(queryId, fromKind, fromId) {
+            if (fromKind && fromId) {
+                const top = modalStack[modalStack.length - 1];
+                if (!top || top.kind !== fromKind || top.id !== fromId) {
+                    modalStack.push({ kind: fromKind, id: fromId, childId: queryId });
+                }
+            }
+            if (fromKind === 'event') {
+                _suppressStackClear = true;
+                document.getElementById('eventModal').close();
+                _suppressStackClear = false;
+            }
+            showQueryModal(queryId);
+        }
+
+        function navigateToEvent(eventIndex, fromKind, fromId) {
+            const ev = analysisData?.top_events?.[eventIndex];
+            const eid = ev?.id;
+            if (fromKind && fromId && eid) {
+                const top = modalStack[modalStack.length - 1];
+                if (!top || top.kind !== fromKind || top.id !== fromId) {
+                    modalStack.push({ kind: fromKind, id: fromId, childId: eid });
+                }
+            }
+            if (fromKind === 'query') {
+                _suppressStackClear = true;
+                document.getElementById('queryModal').close();
+                _suppressStackClear = false;
+            }
+            showEventDetail(eventIndex);
+        }
+
+        function modalBack() {
+            const prev = modalStack.pop();
+            if (!prev) return;
+            _suppressStackClear = true;
+            document.getElementById('queryModal').close();
+            document.getElementById('eventModal').close();
+            _suppressStackClear = false;
+            if (prev.kind === 'event') {
+                const idx = (analysisData?.top_events || []).findIndex(e => e.id === prev.id);
+                if (idx >= 0) showEventDetail(idx, { flashId: prev.childId });
+            } else if (prev.kind === 'query') {
+                showQueryModal(prev.id, { flashId: prev.childId });
+            }
+        }
+
+        // Returns the inline back-button bar to inject at the top of a
+        // modal body, or '' when the stack is empty (i.e. this modal was
+        // opened directly, not through a cross-modal navigation).
+        function renderBackBar() {
+            if (modalStack.length === 0) return '';
+            const prev = modalStack[modalStack.length - 1];
+            const label = prev.kind === 'event' ? 'event' : 'query';
+            return '<div class="modal-back-bar"><button class="modal-back-btn" onclick="modalBack()">← Back to ' + label + '</button></div>';
+        }
+
+        // Scroll the row whose data-flash-id matches flashId into view
+        // and flash a brief highlight on it so the user can anchor the
+        // navigation visually.
+        function flashAndScroll(flashId) {
+            if (!flashId) return;
+            requestAnimationFrame(() => {
+                const row = document.querySelector('[data-flash-id="' + (window.CSS?.escape ? CSS.escape(flashId) : flashId) + '"]');
+                if (!row) return;
+                row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                row.classList.add('modal-flash');
+                setTimeout(() => row.classList.remove('modal-flash'), 1800);
+            });
+        }
+
+        // Triggering-queries table for the event modal. Click a row →
+        // navigateToQuery which pushes the current event onto the modal
+        // stack so the user can hit "← Back" to return. Same column
+        // shape as buildQueryTable (no rank column; rows are pre-sorted
+        // desc by count). data-flash-id labels each row by its queryID
+        // so a return navigation can scroll + flash this row.
+        function buildEventTriggeringTable(triggers, eventTotal, eventId) {
+            if (!triggers?.length) return '<div class="empty">No triggering queries</div>';
+            const maxCount = triggers[0]?.count || 1;
+            return `
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Query</th>
+                                <th class="num">Count</th>
+                                <th class="num">%</th>
+                                <th class="num"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${triggers.slice(0, 50).map(t => {
+                                const pct = eventTotal > 0 ? (t.count / eventTotal * 100).toFixed(1) : 0;
+                                const qid = esc(t.id);
+                                const eid = esc(eventId || '');
+                                return `
+                                <tr onclick="navigateToQuery('${qid}', 'event', '${eid}')" data-flash-id="${qid}" style="cursor:pointer;" title="Click for query details">
+                                    <td class="query-cell">${esc(truncQuery(t.normalized_query))}</td>
+                                    <td class="num">${fmt(t.count)}</td>
+                                    <td class="num">${pct}%</td>
+                                    <td class="num">
+                                        <div class="duration-bar">
+                                            <div class="bar"><div class="bar-fill" style="width: ${t.count/maxCount*100}%"></div></div>
+                                        </div>
+                                    </td>
+                                </tr>
+                            `}).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+
+        // Walk top_events and collect the events whose
+        // triggering_queries entry includes queryId. Each result is the
+        // pair (event, triggerCount) so the renderer can show both the
+        // global event count and the share attributed to this query.
+        function findEventsTriggeredBy(queryId) {
+            if (!queryId || !analysisData?.top_events) return [];
+            const out = [];
+            for (const ev of analysisData.top_events) {
+                if (!ev.triggering_queries) continue;
+                const tq = ev.triggering_queries.find(t => t.id === queryId);
+                if (tq) out.push({ event: ev, triggerCount: tq.count });
+            }
+            // Sort by trigger count desc, tie-break on event count desc.
+            out.sort((a, b) => {
+                if (a.triggerCount !== b.triggerCount) return b.triggerCount - a.triggerCount;
+                return (b.event.count || 0) - (a.event.count || 0);
+            });
+            return out;
+        }
+
+        // severityColorVar maps a PostgreSQL severity string to the CSS
+        // variable used elsewhere in the report (event modal sparkline,
+        // event rows colouring) so the same colour palette is reused
+        // consistently when we tag severity cells.
+        function severityColorVar(sev) {
+            switch (sev) {
+                case 'ERROR':            return 'var(--danger)';
+                case 'FATAL':
+                case 'PANIC':            return 'var(--purple)';
+                case 'WARNING':          return 'var(--warning)';
+                default:                 return 'var(--text-muted)';
+            }
+        }
+
+        // "Events triggered" table for the Query Detail modal — the
+        // mirror image of buildEventTriggeringTable. Each row pivots from
+        // "this query → these events" and clicking it opens the matching
+        // event modal so the user can dive into samples/timeline.
+        // Rows are already sorted by trigger count desc upstream; no
+        // ranking column is displayed and the event ID stays implicit
+        // (the row click is the only thing the reader needs). The
+        // severity cell is bold + coloured so the row tells you what
+        // class of error this is at a glance.
+        function buildQueryEventsTable(rows, queryId) {
+            if (!rows.length) return '';
+            const qid = esc(queryId || '');
+            return `
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Severity</th>
+                                <th>Message</th>
+                                <th class="num">Triggered</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${rows.slice(0, 50).map(r => {
+                                const idx = analysisData.top_events.indexOf(r.event);
+                                return `
+                                <tr onclick="navigateToEvent(${idx}, 'query', '${qid}')" data-flash-id="${esc(r.event.id)}" style="cursor:pointer;" title="Click for event details">
+                                    <td style="color: ${severityColorVar(r.event.severity)}; font-weight: 700;">${esc(r.event.severity)}</td>
+                                    <td class="query-cell">${esc(truncQuery(r.event.message))}</td>
+                                    <td class="num">${fmt(r.triggerCount)}</td>
                                 </tr>
                             `}).join('')}
                         </tbody>
@@ -1713,7 +2445,7 @@ function buildEventsSection(data) {
         }
 
         // Event detail modal — full message + occurrences-over-time sparkline
-        function showEventDetail(index) {
+        function showEventDetail(index, opts = {}) {
             const e = analysisData.top_events?.[index];
             if (!e) return;
 
@@ -1743,6 +2475,7 @@ function buildEventsSection(data) {
             const copyBtn = (text) => `<button class="copy-btn-inline" onclick="navigator.clipboard.writeText('${escForJsAttr(text)}');this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)">Copy</button>`;
 
             document.getElementById('eventModalBody').innerHTML = `
+                ${renderBackBar()}
                 <div style="margin-bottom:1rem;">
                     <div style="display:flex;align-items:center;margin-bottom:0.5rem;">
                         ${sqlBadge}
@@ -1765,7 +2498,11 @@ function buildEventsSection(data) {
                 <div class="qd-section-title" style="display:flex;justify-content:space-between;align-items:center;">Normalized Pattern${copyBtn(e.message)}</div>
                 <div class="query-detail-sql" style="margin-bottom:0.75rem;">${esc(e.message)}</div>
                 <div class="qd-section-title" style="display:flex;justify-content:space-between;align-items:center;">Example (raw message)${copyBtn(e.example || e.message)}</div>
-                <div class="query-detail-sql">${esc(e.example || e.message)}</div>
+                <div class="query-detail-sql" style="margin-bottom:0.75rem;">${esc(e.example || e.message)}</div>
+                ${(e.triggering_queries && e.triggering_queries.length > 0) ? `
+                    <div class="qd-section-title">Triggering Queries <span class="qd-meta">${e.triggering_queries.length} distinct</span></div>
+                    ${buildEventTriggeringTable(e.triggering_queries, e.count, e.id)}
+                ` : ''}
             `;
             document.getElementById('eventModal').open();
 
@@ -1778,13 +2515,50 @@ function buildEventsSection(data) {
                 : e.severity === 'WARNING' ? getComputedStyle(document.documentElement).getPropertyValue('--warning').trim()
                 : getComputedStyle(document.documentElement).getPropertyValue('--chart-bar').trim();
             requestAnimationFrame(() => createTimeChart('eventModalChart', ts, { color: sevColorResolved, height: 180 }));
+            if (opts.flashId) flashAndScroll(opts.flashId);
         }
 
         function closeModal() {
             document.getElementById('queryModal').close();
         }
 
-        function showQueryModal(queryId) {
+        // Cost map: log-log scatter of every normalized query, positioned by
+        // execution count (X) × avg duration (Y). The diagonals of constant
+        // cumulative time (count * avg) render as 45° iso-lines (axes are
+        // forced to share a decade range so the geometry is exact). Each
+        // point is coloured by which bucket of cumulative time it falls in.
+        // Cross-highlight between cost-map dots and query table rows. Both
+        // sides tag their element with data-q-id="<query.id>"; this handler
+        // is wired through inline onmouseenter/onmouseleave to avoid having
+        // to re-attach listeners every time the SQL Performance section is
+        // re-rendered. The optional `scroll` flag (passed only by the dots)
+        // nudges the matching row into the visible area of its scrollable
+        // container — when the row is already in view it is a no-op.
+        function highlightQuery(id, on, scroll) {
+            // Query table rows tag themselves with data-q-id. Toggle the row's
+            // highlight and, when the trigger is a cost-map dot, scroll it into
+            // view. The cost-map point itself is enlarged via costMapHighlight.
+            document.querySelectorAll('tr[data-q-id~="' + id + '"]').forEach(el => {
+                el.classList.toggle('q-row-hover', on);
+                if (on && scroll) {
+                    const c = el.closest('.table-container');
+                    if (c) {
+                        const rowTop = el.offsetTop;
+                        const rowBot = rowTop + el.offsetHeight;
+                        if (rowTop < c.scrollTop || rowBot > c.scrollTop + c.clientHeight) {
+                            c.scrollTo({
+                                top: rowTop - (c.clientHeight - el.offsetHeight) / 2,
+                                behavior: 'smooth',
+                            });
+                        }
+                    }
+                }
+            });
+            // Mirror the highlight onto the uPlot cost map (enlarge its point).
+            if (window.costMapHighlight) window.costMapHighlight(id, on);
+        }
+
+        function showQueryModal(queryId, opts = {}) {
             if (!analysisData) return;
 
             // 1. Search in sql_performance.queries
@@ -1808,10 +2582,39 @@ function buildEventsSection(data) {
                 tempQ = tempQueries.find(x => x.normalized_query === queryId);
             }
 
+            // 4. Fallback: a triggering-query entry inside top_events.
+            //    We promote it to a minimal q object so the detail view can
+            //    still render its normalized form and the cross-link to the
+            //    "Events triggered" section will fire even when the query
+            //    was never timed (no log_min_duration_statement on it).
+            if (!q && !lockQ && !tempQ) {
+                const topEvents = analysisData.top_events || [];
+                let tq = null;
+                for (const ev of topEvents) {
+                    if (!ev.triggering_queries) continue;
+                    tq = ev.triggering_queries.find(t => t.id === queryId);
+                    if (tq) break;
+                }
+                if (tq) {
+                    q = {
+                        id: tq.id,
+                        normalized_query: tq.normalized_query,
+                        // Synthesised so the existing detail renderer
+                        // shows a sensible header. Real metrics stay
+                        // absent so the modal does not pretend it has
+                        // information it does not.
+                        count: 0,
+                        type: '',
+                        _triggerOnly: true,
+                    };
+                }
+            }
+
             // If nothing found, show just the text
             if (!q && !lockQ && !tempQ) {
-                document.getElementById('queryModalBody').innerHTML = '<div class="query-detail-sql">' + esc(queryId) + '</div>';
+                document.getElementById('queryModalBody').innerHTML = renderBackBar() + '<div class="query-detail-sql">' + esc(queryId) + '</div>';
                 document.getElementById('queryModal').open();
+                if (opts.flashId) flashAndScroll(opts.flashId);
                 return;
             }
 
@@ -1822,8 +2625,9 @@ function buildEventsSection(data) {
             const tempEvents = q ? allTempEvents.filter(e => e.query_id === q.id) : [];
 
             // Build detailed view with all available data
-            document.getElementById('queryModalBody').innerHTML = buildQueryDetailHTML(q, execs, tempEvents, lockQ, tempQ);
+            document.getElementById('queryModalBody').innerHTML = renderBackBar() + buildQueryDetailHTML(q, execs, tempEvents, lockQ, tempQ);
             document.getElementById('queryModal').open();
+            if (opts.flashId) flashAndScroll(opts.flashId);
 
             // Render uPlot charts after DOM update and modal animation
             setTimeout(() => {
@@ -1859,6 +2663,57 @@ function buildEventsSection(data) {
                 if (q.min_time_ms != null) {
                     html += '<div class="qd-stat"><div class="qd-stat-label">Min</div><div class="qd-stat-value">' + fmtMsLong(q.min_time_ms) + '</div></div>';
                 }
+                // Dimensions inlined into the same flex row as
+                // TYPE / COUNT / TOTAL / AVG / MAX so the "who ran
+                // this" answer sits right next to the duration stats.
+                // Placed BEFORE Prepared as so the wide prepared-names
+                // grid (which forces a row break) doesn't push the
+                // dimensions below it.
+                const dimAxes = [
+                    ['Databases', q.top_databases],
+                    ['Users',     q.top_users],
+                    ['Apps',      q.top_apps],
+                    ['Hosts',     q.top_hosts],
+                ];
+                dimAxes.forEach(([label, rows]) => {
+                    if (!Array.isArray(rows) || rows.length === 0) return;
+                    const parts = rows.map(r =>
+                        '<span class="qd-dim-inline">'
+                        + '<span class="qd-dim-name">' + esc(r.name) + '</span>'
+                        + '<span class="qd-dim-count">' + fmt(r.count) + '</span>'
+                        + '</span>'
+                    ).join('<span class="qd-dim-sep">·</span>');
+                    html += '<div class="qd-stat qd-stat-dim"><div class="qd-stat-label">' + label + '</div><div class="qd-stat-value qd-stat-value-dims">' + parts + '</div></div>';
+                });
+                if (q.prepared_names && q.prepared_names.length > 0) {
+                    const names = q.prepared_names;
+                    const single = names.length === 1;
+                    const labelMeta = single
+                        ? ''
+                        : '<span class="qd-meta">' + names.length + ' names</span>';
+                    let namesHtml;
+                    if (single) {
+                        namesHtml = esc(names[0]);
+                    } else {
+                        // Compact grid: 1 row when ≤8 names, 2 rows for 9-16,
+                        // capped at 8 columns beyond. Each cell gets a 3-tone
+                        // class so its 4 neighbours always differ visually.
+                        const n = names.length;
+                        const cols = n <= 8 ? n : Math.min(8, Math.ceil(n / 2));
+                        const cellClass = (i) => {
+                            const r = Math.floor(i / cols), c = i % cols;
+                            // even row: A B A B ... ; odd row: B C B C ...
+                            if (r % 2 === 0) return c % 2 === 0 ? 'qd-cell-a' : 'qd-cell-b';
+                            return c % 2 === 0 ? 'qd-cell-b' : 'qd-cell-c';
+                        };
+                        const cells = names.map((nm, i) =>
+                            '<span class="' + cellClass(i) + '">' + esc(nm) + '</span>'
+                        ).join('');
+                        namesHtml = '<div class="qd-names-grid" style="grid-template-columns: repeat(' + cols + ', 1fr)">' + cells + '</div>';
+                    }
+                    const cls = single ? 'qd-stat' : 'qd-stat qd-stat-wide';
+                    html += '<div class="' + cls + '"><div class="qd-stat-label">Prepared as' + labelMeta + '</div><div class="qd-stat-value">' + namesHtml + '</div></div>';
+                }
                 html += '</div>';
                 if (execs.length > 0) {
                     html += '<div class="qd-chart-container">';
@@ -1875,6 +2730,20 @@ function buildEventsSection(data) {
                 html += '</div>';
             }
 
+            // EVENTS section — promoted to right after Query Info so
+            // the operational signal ("this query triggers these
+            // errors") is the first thing a reader sees, before the
+            // LOCKS / TEMP FILES / Normalized Query / Slowest Run
+            // blocks. Same content as the old position below; just
+            // moved up.
+            const eventsForThisQueryEarly = findEventsTriggeredBy(q?.id);
+            if (eventsForThisQueryEarly.length > 0) {
+                html += '<div class="qd-section">';
+                html += '<div class="qd-section-title">Events triggered <span class="qd-meta">' + eventsForThisQueryEarly.length + ' distinct</span></div>';
+                html += buildQueryEventsTable(eventsForThisQueryEarly, q?.id);
+                html += '</div>';
+            }
+
             // LOCKS section (from locks.queries)
             if (lockQ) {
                 html += '<div class="qd-section">';
@@ -1882,7 +2751,7 @@ function buildEventsSection(data) {
                 html += '<div class="qd-stats">';
                 html += '<div class="qd-stat"><div class="qd-stat-label">Acquired</div><div class="qd-stat-value">' + fmt(lockQ.acquired_count || 0) + '</div></div>';
                 html += '<div class="qd-stat"><div class="qd-stat-label">Still Waiting</div><div class="qd-stat-value">' + fmt(lockQ.still_waiting_count || 0) + '</div></div>';
-                html += '<div class="qd-stat"><div class="qd-stat-label">Total Wait</div><div class="qd-stat-value">' + fmtDur(lockQ.total_wait_time) + '</div></div>';
+                html += '<div class="qd-stat"><div class="qd-stat-label">Total Wait</div><div class="qd-stat-value">' + (lockQ.total_wait_time || '-') + '</div></div>';
                 if (lockQ.avg_wait_time) {
                     html += '<div class="qd-stat"><div class="qd-stat-label">Avg Wait</div><div class="qd-stat-value">' + fmtDur(lockQ.avg_wait_time) + '</div></div>';
                 }
@@ -1952,8 +2821,32 @@ function buildEventsSection(data) {
                 html += '</div>';
             }
 
-            // RAW QUERY section (if different and available)
-            if (q?.raw_query && q.raw_query !== q.normalized_query) {
+            // SLOWEST RUN section (params substituted) or RAW QUERY fallback
+            if (q?.slowest_run?.query_with_params) {
+                const sr = q.slowest_run;
+                const ts = sr.timestamp || '';
+                const pid = sr.pid || '';
+                const dur = (typeof sr.duration_ms === 'number')
+                    ? fmtMs(sr.duration_ms)
+                    : '';
+                const parts = [];
+                if (dur) parts.push(dur);
+                if (ts) parts.push(ts);
+                if (pid) parts.push('pid=' + pid);
+                if (sr.database) parts.push('db=' + sr.database);
+                if (sr.user) parts.push('user=' + sr.user);
+                if (sr.app) parts.push('app=' + sr.app);
+                if (sr.host) parts.push('host=' + sr.host);
+                const meta = parts.length
+                    ? '<span class="qd-meta">' + esc(parts.join(', ')) + '</span>'
+                    : '';
+                html += '<div class="qd-section">';
+                html += '<div class="qd-section-title" style="display: flex; justify-content: space-between; align-items: center;"><span>Slowest Run' + meta + '</span><button class="copy-btn-inline" onclick="navigator.clipboard.writeText(\'' + escForJsAttr(sr.query_with_params) + '\');this.textContent=\'Copied!\';setTimeout(()=>this.textContent=\'Copy\',1500)">Copy</button></div>';
+                html += '<div class="query-detail-sql">';
+                html += esc(sr.query_with_params);
+                html += '</div>';
+                html += '</div>';
+            } else if (q?.raw_query && q.raw_query !== q.normalized_query) {
                 html += '<div class="qd-section">';
                 html += '<div class="qd-section-title" style="display: flex; justify-content: space-between; align-items: center;">Example Query<button class="copy-btn-inline" onclick="navigator.clipboard.writeText(\'' + escForJsAttr(q.raw_query) + '\');this.textContent=\'Copied!\';setTimeout(()=>this.textContent=\'Copy\',1500)">Copy</button></div>';
                 html += '<div class="query-detail-sql">';
@@ -1972,7 +2865,12 @@ function buildEventsSection(data) {
                 html += '<div id="plan-text" class="query-detail-sql" style="white-space:pre;font-size:0.75rem;">';
                 html += esc(q.plan);
                 html += '</div>';
-                html += '<script type="application/json" id="plan-data">' + JSON.stringify({plan: q.plan, sql: q.normalized_query || '', id: q.id || ''}) + '<\/script>';
+                // Escape <, >, & in the embedded JSON so log-derived plan text
+                // containing "</script>" can't terminate the element early and
+                // inject HTML. JSON.parse decodes </>/& back.
+                const planJSON = JSON.stringify({plan: q.plan, sql: q.normalized_query || '', id: q.id || ''})
+                    .replace(/&/g, '\\u0026').replace(/</g, '\\u003c').replace(/>/g, '\\u003e');
+                html += '<script type="application/json" id="plan-data">' + planJSON + '<\/script>';
                 html += '</div>';
             }
 
@@ -1980,11 +2878,12 @@ function buildEventsSection(data) {
         }
 
         // Render modal charts after DOM update
-        function visualizePlan() {
-            const dataEl = document.getElementById('plan-data');
-            if (!dataEl) return;
-
-            // Show confirmation dialog
+        // Shared "Open on explain.dalibo.com?" confirmation + POST flow.
+        // Used both by the Visualize button inside the Query Detail modal
+        // (visualizePlan) and by the per-row eye button in the query table
+        // (visualizePlanFor) — only the plan/sql/title source differs.
+        function explainDaliboFlow(plan, sql, idForTitle) {
+            if (!plan) return;
             let overlay = document.getElementById('visualize-confirm');
             if (!overlay) {
                 overlay = document.createElement('div');
@@ -2005,15 +2904,12 @@ function buildEventsSection(data) {
 
             const cancel = document.getElementById('visualize-cancel');
             const ok = document.getElementById('visualize-ok');
-
             const cleanup = () => { overlay.classList.remove('active'); };
-
             cancel.onclick = cleanup;
             overlay.onclick = (e) => { if (e.target === overlay) cleanup(); };
 
             ok.onclick = () => {
                 cleanup();
-                const data = JSON.parse(dataEl.textContent);
                 const form = document.createElement('form');
                 form.method = 'POST';
                 form.action = 'https://explain.dalibo.com/new';
@@ -2021,26 +2917,41 @@ function buildEventsSection(data) {
                 const planInput = document.createElement('input');
                 planInput.type = 'hidden';
                 planInput.name = 'plan';
-                planInput.value = data.plan;
+                planInput.value = plan;
                 form.appendChild(planInput);
-                if (data.sql) {
+                if (sql) {
                     const sqlInput = document.createElement('input');
                     sqlInput.type = 'hidden';
                     sqlInput.name = 'sql';
-                    sqlInput.value = data.sql;
+                    sqlInput.value = sql;
                     form.appendChild(sqlInput);
                 }
-                if (data.id) {
+                if (idForTitle) {
                     const titleInput = document.createElement('input');
                     titleInput.type = 'hidden';
                     titleInput.name = 'title';
-                    titleInput.value = 'quellog_' + data.id;
+                    titleInput.value = 'quellog_' + idForTitle;
                     form.appendChild(titleInput);
                 }
                 document.body.appendChild(form);
                 form.submit();
                 document.body.removeChild(form);
             };
+        }
+
+        function visualizePlan() {
+            const dataEl = document.getElementById('plan-data');
+            if (!dataEl) return;
+            const data = JSON.parse(dataEl.textContent);
+            explainDaliboFlow(data.plan, data.sql, data.id);
+        }
+
+        // Triggered from the per-row eye button in the query table — looks
+        // up the query by id in analysisData and reuses the same flow.
+        function visualizePlanFor(queryId) {
+            const q = analysisData?.sql_performance?.queries?.find(x => x.id === queryId);
+            if (!q || !q.plan) return;
+            explainDaliboFlow(q.plan, q.normalized_query || '', queryId);
         }
 
         function renderModalCharts() {
@@ -2082,7 +2993,7 @@ function buildEventsSection(data) {
             // Calculate median and max for styling
             const sortedY = [...yData].filter(v => v > 0).sort((a, b) => a - b);
             const median = sortedY.length > 0 ? sortedY[Math.floor(sortedY.length / 2)] : 0;
-            const maxY = Math.max(...yData) || 1;
+            const maxY = safeMax(yData) || 1; // safeMax: yData (occurrence sparkline) can be large
 
             const opts = {
                 width: container.clientWidth || 500,
@@ -2434,6 +3345,18 @@ function buildEventsSection(data) {
             modalCharts.length = 0;
         });
 
+        // Modal navigation stack lifecycle — clear the trail whenever
+        // the user closes a modal "for real" (Escape, backdrop click,
+        // the × button). Programmatic closes triggered by our own
+        // navigateToX/modalBack set _suppressStackClear first so the
+        // stack survives the close event.
+        document.getElementById('queryModal').addEventListener('modal-close', () => {
+            if (!_suppressStackClear) modalStack = [];
+        });
+        document.getElementById('eventModal').addEventListener('modal-close', () => {
+            if (!_suppressStackClear) modalStack = [];
+        });
+
         // Local state for file info display
         let currentFileInfo = null;
 
@@ -2452,6 +3375,17 @@ function buildEventsSection(data) {
         exposeFilterGlobals();
 
         window.applyFilters = async function() {
+            // A filter / Apply / Clear renders a single report, so leave split
+            // mode first (drop split state + reset the Split control to Off).
+            if (window.QL_SPLIT) {
+                window.stopPeriodNav();
+                delete window.REPORT_PERIODS;
+                const sc = document.getElementById('splitCount');
+                if (sc) sc.textContent = '';
+                document.querySelectorAll('#splitControl .filter-dropdown-item')
+                    .forEach((it, i) => it.classList.toggle('selected', i === 0));
+            }
+
             // Build filters object from current UI state
             const filters = buildFiltersObject();
 
@@ -2559,6 +3493,52 @@ function buildEventsSection(data) {
             }
         };
 
+        // applySplit re-runs the parse splitting the stream by intervalSec and
+        // drives the shared period navigator with the resulting blobs. 0 = Off:
+        // leave split mode and re-render a single report.
+        window.applySplit = async function(intervalSec) {
+            if (!currentFileContent) return;
+            if (!intervalSec) {
+                window.stopPeriodNav();
+                delete window.REPORT_PERIODS;
+                window.applyFilters();
+                return;
+            }
+            const filterStatus = document.getElementById('filterStatus');
+            filterStatus?.classList.add('active');
+            await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+            try {
+                if (typeof reinitWasm === 'function') await reinitWasm();
+                const filters = buildFiltersObject();
+                const filtersJson = JSON.stringify(filters);
+                const bytes = (currentFileContent instanceof Uint8Array)
+                    ? currentFileContent : new TextEncoder().encode(currentFileContent);
+                const resultJson = quellogSplitBytes(bytes, intervalSec, currentFileName, filtersJson);
+                const r = JSON.parse(resultJson);
+                if (r.error) throw new Error(r.error);
+                window.REPORT_PERIODS = r;
+                window.startPeriodNav();
+                console.log(`[quellog] Split into ${r.length} periods`);
+            } catch (err) {
+                console.error('Split failed:', err);
+                alert('Split failed: ' + err.message);
+            } finally {
+                filterStatus?.classList.remove('active');
+            }
+        };
+
+        // selectSplit handles a click on a Split menu item: mark it selected,
+        // show the interval in the trigger badge, close the menu, apply.
+        window.selectSplit = function(sec, el) {
+            const menu = el.closest('.filter-dropdown-menu');
+            if (menu) menu.querySelectorAll('.filter-dropdown-item').forEach(i => i.classList.remove('selected'));
+            el.classList.add('selected');
+            const count = document.getElementById('splitCount');
+            if (count) count.textContent = sec ? el.textContent.trim() : '';
+            document.querySelector('.filter-dropdown[data-category="split"]')?.classList.remove('open');
+            window.applySplit(sec);
+        };
+
         window.clearAllFilters = function() {
             resetTimeInputs();
             clearFilterSelections();
@@ -2595,11 +3575,32 @@ function buildEventsSection(data) {
         // Expose functions for inline onclick handlers and report mode
         window.renderResults = renderResults;
         window.setAnalysisData = setAnalysisData;
+        // Default per-period blob decoder used by the period navigator in the
+        // WASM tool. The standalone --split report overrides this with its own
+        // lazy fzstd loader (fzstd is bundled eagerly here).
+        if (!window.decompressData) {
+            window.decompressData = async function (b64) {
+                const bin = atob(b64);
+                const bytes = new Uint8Array(bin.length);
+                for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+                return JSON.parse(new TextDecoder().decode(unzstd(bytes)));
+            };
+        }
         window.showQueryModal = showQueryModal;
+        window.highlightQuery = highlightQuery;
         window.visualizePlan = visualizePlan;
+        window.visualizePlanFor = visualizePlanFor;
         window.showSqlOvView = showSqlOvView;
+        window.showVacuumMainSort = showVacuumMainSort;
+        window.showVacuumBufferSort = showVacuumBufferSort;
+        window.showVacuumView = showVacuumView;
+        window.showMaintRibbon = showMaintRibbon;
+        window.showAnalyzeSort = showAnalyzeSort;
         window.copyQuery = copyQuery;
         window.showEventDetail = showEventDetail;
+        window.navigateToQuery = navigateToQuery;
+        window.navigateToEvent = navigateToEvent;
+        window.modalBack = modalBack;
         window.closeModal = closeModal;
         window.toggleTheme = toggleTheme;
         window.closeChartModal = closeChartModal;
@@ -2611,4 +3612,6 @@ function buildEventsSection(data) {
         window.openChartModal = openChartModal;
         window.updateChartInterval = updateChartInterval;
         window.toggleCombinedSeries = toggleCombinedSeries;
+        window.resetCostMapZoom = resetCostMapZoom;
+        window.openCostMapModal = openCostMapModal;
 

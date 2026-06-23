@@ -6,22 +6,52 @@ This _quellog_ report summarizes **3** log entries collected between 19 Apr 2026
 
 - **LOG**: 3 (100.0%)
 
-## MAINTENANCE
+## AUTOVACUUM
 
-- **Automatic vacuum count**: 2
-- **Automatic analyze count**: 1
+- **Vacuum count**: 2
+- **Cumulated time**: 1s
+- **Tuples removed**: 246
+- **Space recovered**: 40.00 KB
+- **Dead, not yet removable**: 15
+- **Buffer usage**: hits=1315 misses=12 dirtied=28 written=0
+- **Slowest single run**: 0s on `appdb.public.sessions`
 
-### Top automatic vacuum operations per table
+### Top tables by autovacuum elapsed time
 
-| Table | Count | % of total | Recovered |
-|---|---:|---:|---:|
-| appdb.public.sessions | 1 | 50.00% | 40.00 KB |
-| appdb.public.users | 1 | 50.00% | 0 B |
+| Table                   | Vacuum count | Elapsed | Recovered |
+|-------------------------|-------------:|--------:|----------:|
+| `appdb.public.sessions` |            1 |      0s |  40.00 KB |
+| `appdb.public.users`    |            1 |      0s |           |
 
-### Top automatic analyze operations per table
+### Tables with rows not yet removable
 
-| Table | Count | % of total | Recovered |
-|---|---:|---:|---:|
-| appdb.public.users | 1 | 100.00% | 0 B |
+| Table                   | Dead rows | Vacuum count |
+|-------------------------|----------:|-------------:|
+| `appdb.public.sessions` |        12 |            1 |
+| `appdb.public.users`    |         3 |            1 |
+
+### Top tables by autovacuum count
+
+| Table                 | Count | % of total | Recovered |
+|-----------------------|------:|-----------:|----------:|
+| appdb.public.sessions |     1 |     50.00% |  40.00 KB |
+| appdb.public.users    |     1 |     50.00% |       0 B |
+
+## AUTOANALYZE
+
+- **Analyze count**: 1
+- **Cumulated time**: 0s
+
+### Top tables by autoanalyze elapsed time
+
+| Table                | Analyze count | Elapsed |
+|----------------------|--------------:|--------:|
+| `appdb.public.users` |             1 |      0s |
+
+### Top tables by autoanalyze count
+
+| Table              | Count | % of total | Recovered |
+|--------------------|------:|-----------:|----------:|
+| appdb.public.users |     1 |    100.00% |       0 B |
 
 

@@ -9,6 +9,23 @@ quellog /var/log/postgresql/*.log --md -o report.md     # Markdown to file
 quellog /var/log/postgresql/*.log --html                # HTML (auto-named)
 ```
 
+## Multi-format export
+
+Combine flags to produce several files in a single pass — parsing and analysis run only once.
+
+```bash
+quellog demo.json --html --md            # quellog-demo.html, quellog-demo.md
+quellog demo.json --html --md --json     # quellog-demo.html, quellog-demo.md, quellog-demo.json
+quellog logs/*.log --html --json         # quellog.html, quellog.json (multi-input)
+```
+
+Default filenames:
+
+- Single input: `quellog-<stem>.<ext>` (stem = basename with the last extension stripped).
+- Multiple inputs or stdin: `quellog.<ext>`.
+
+Files are written in the current working directory. `-o`/`--output` is rejected when more than one format flag is set — every format goes to its default name. Multi-format is supported only for the full report, not for `--sql-detail`, `--event-detail`, `--sql-performance`, or `--sql-overview`.
+
 ## JSON
 
 Structured output for automation, scripting, and integration with tools like `jq`.
@@ -92,25 +109,8 @@ quellog logs/ --md --checkpoints      # Checkpoint data only
 
 ## HTML
 
-!!! tip "Try it now"
-    **[Open the interactive demo →](https://alain-l.github.io/quellog/demo.html)** — Drop a PostgreSQL log file and explore the report. All processing happens locally in your browser.
-
-Standalone, self-contained HTML reports with interactive charts and client-side filtering.
+Standalone, self-contained, interactive reports — charts, drill-down modals, client-side filters, the cost map, and period splitting. These have their own page: **[HTML Report](html-report.md)**.
 
 ```bash
-quellog /var/log/postgresql/postgres.log --html
-# → Creates postgres.html
-
-quellog /var/log/postgresql/*.log --html --full
-# → Creates quellog_report.html
-
-quellog /var/log/postgresql/*.log --html -o my_report.html
+quellog /var/log/postgresql/*.log --html
 ```
-
-Features:
-
-- **Self-contained**: Single HTML file, no server required
-- **Interactive charts**: Zoomable time-series visualizations, double-click to reset zoom, expand to modal, PNG export
-- **Click-to-detail modals**: Click any query row (sql-performance, locks, temp files) for a cross-analyzer detail panel; click any event row for the per-pattern panel with full message + occurrences-over-time chart + copy buttons
-- **Client-side filtering**: Filter by database, user, application, host, and time range
-- **Offline**: Works without internet connection

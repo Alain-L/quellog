@@ -6,17 +6,36 @@ This _quellog_ report summarizes **2** log entries collected between 19 Apr 2026
 
 - **LOG**: 2 (100.0%)
 
-## MAINTENANCE
+## AUTOVACUUM
 
-- **Automatic vacuum count**: 2
+- **Vacuum count**: 2
   - *of which aggressive*: 2
-- **Automatic analyze count**: 0
+- **Cumulated time**: 58s
+- **Tuples removed**: 106086
+- **Space recovered**: 6.34 MB
+- **Dead, not yet removable**: 6666
+- **Buffer usage**: hits=103523 misses=1546 dirtied=484 written=0
+- **Slowest single run**: 45s on `appdb.public.audit_logs`
 
-### Top automatic vacuum operations per table
+### Top tables by autovacuum elapsed time
 
-| Table | Count | % of total | Recovered |
-|---|---:|---:|---:|
-| appdb.public.audit_logs | 1 | 50.00% | 4.43 MB |
-| appdb.public.large_events | 1 | 50.00% | 1.91 MB |
+| Table                       | Vacuum count | Elapsed | Recovered |
+|-----------------------------|-------------:|--------:|----------:|
+| `appdb.public.audit_logs`   |            1 |     45s |   4.43 MB |
+| `appdb.public.large_events` |            1 |     12s |   1.91 MB |
+
+### Tables with rows not yet removable
+
+| Table                       | Dead rows | Vacuum count |
+|-----------------------------|----------:|-------------:|
+| `appdb.public.audit_logs`   |      5432 |            1 |
+| `appdb.public.large_events` |      1234 |            1 |
+
+### Top tables by autovacuum count
+
+| Table                     | Count | % of total | Recovered |
+|---------------------------|------:|-----------:|----------:|
+| appdb.public.audit_logs   |     1 |     50.00% |   4.43 MB |
+| appdb.public.large_events |     1 |     50.00% |   1.91 MB |
 
 

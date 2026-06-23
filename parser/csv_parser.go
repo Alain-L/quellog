@@ -2,6 +2,7 @@
 package parser
 
 import (
+	"bufio"
 	"encoding/csv"
 	"fmt"
 	"io"
@@ -37,11 +38,6 @@ const (
 	csvFieldQueryPos      = 20 // query_pos
 	csvFieldLocation      = 21 // location
 	csvFieldAppName       = 22 // application_name
-
-	// PostgreSQL 13+ added fields
-	csvFieldBackendType = 23 // backend_type
-	csvFieldLeaderPID   = 24 // leader_pid (parallel group leader)
-	csvFieldQueryID     = 25 // query_id
 )
 
 // CsvParser parses PostgreSQL logs in CSV format.
@@ -90,7 +86,12 @@ func (p *CsvParser) parseReader(r io.Reader, out chan<- []LogEntry) error {
 	bs := NewBatchSender(out)
 	defer bs.Flush()
 
-	reader := csv.NewReader(r)
+	// csv.NewReader's internal bufio defaults to 4 KB reads — ~300k
+	// read(2) syscalls on a 1 GB file, which profiling showed as 4s of
+	// rawsyscall time (the CSV hot path's single biggest cost). A 1 MB
+	// outer buffer brings the syscall count down by ~256×; the other
+	// parsers already size their scanners in megabytes.
+	reader := csv.NewReader(bufio.NewReaderSize(skipBOM(r), 1<<20))
 	// PostgreSQL CSV logs have 23 fields, but we'll be lenient
 	reader.FieldsPerRecord = -1 // Variable number of fields (lenient mode)
 	reader.TrimLeadingSpace = true
@@ -296,47 +297,4 @@ func getField(record []string, index int) string {
 		return s
 	}
 	return strings.TrimRight(s, " ")
-}
-
-// ExtractCSVFields extracts structured fields from a CSV record for filtering.
-// This is useful for applying filters on database, user, app, etc.
-//
-// Returns a map with available fields:
-//   - "db": database name
-//   - "user": user name
-//   - "app": application name
-//   - "severity": error severity
-//   - "pid": process ID
-//   - "backend_type": backend type (PostgreSQL >= 13)
-//   - "query_id": query ID (PostgreSQL >= 13)
-//
-// This function is exported for use by the filtering logic.
-func ExtractCSVFields(record []string) map[string]string {
-	fields := make(map[string]string)
-
-	if db := getField(record, csvFieldDatabase); db != "" {
-		fields["db"] = db
-	}
-	if user := getField(record, csvFieldUser); user != "" {
-		fields["user"] = user
-	}
-	if app := getField(record, csvFieldAppName); app != "" {
-		fields["app"] = app
-	}
-	if severity := getField(record, csvFieldErrorSeverity); severity != "" {
-		fields["severity"] = severity
-	}
-	if pid := getField(record, csvFieldPID); pid != "" {
-		fields["pid"] = pid
-	}
-
-	// PostgreSQL 13+ fields (optional)
-	if backendType := getField(record, csvFieldBackendType); backendType != "" {
-		fields["backend_type"] = backendType
-	}
-	if queryID := getField(record, csvFieldQueryID); queryID != "" {
-		fields["query_id"] = queryID
-	}
-
-	return fields
 }

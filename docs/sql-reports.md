@@ -44,6 +44,8 @@ SQL PERFORMANCE
   >= 10 s         ■■ 23 req
 ```
 
+The HTML report adds a **cost map** — a log-log scatter of every query by execution count × average duration — to spot the heaviest queries at a glance. See [HTML Report → Cost map](html-report.md#cost-map).
+
 ### Query Tables
 
 ```
@@ -102,6 +104,8 @@ SELECT * FROM users WHERE id = 42
 -- Normalized as
 select * from users where id = ?
 ```
+
+Long `IN ($1, $2, $3, …)` placeholder lists collapse to `in (...)` so the same query with different list lengths aggregates as one. Identifiers in double quotes keep their case.
 
 ### SQLID Format
 
@@ -201,6 +205,11 @@ SQL DETAILS
   Id                   : se-a1b2c3
   Query Type           : select
   Count                : 338
+  Databases            : app_db 320, reporting 18
+  Users                : app_user 338
+  Apps                 : webapp 300, psql 38
+  Hosts                : 10.0.0.12 338
+  Prepared as          : S_3, <unnamed> (2 names seen)
 
 TIME
 
@@ -278,6 +287,8 @@ Example Query:
 SELECT o.id, o.customer_id, o.total_amount, c.name FROM orders o JOIN customers c ON o.customer_id = c.id WHERE o.status = 'pending' AND o.created_at >= '2025-01-13 00:00:00' AND o.created_at < '2025-01-14 00:00:00' ORDER BY o.created_at DESC LIMIT 100
 ```
 
+The **Query Info** block lists the top databases, users, applications and hosts for the query, and — for extended-protocol queries — the prepared-statement name(s) (`Prepared as`; `<unnamed>` when none were assigned). When parameter values are logged (via `DETAIL: parameters:` or auto_explain), a **Slowest Run** block adds that run's timestamp and PID followed by the query with its real parameter values substituted in.
+
 ### Execution Plans (auto_explain)
 
 When `auto_explain` is enabled in PostgreSQL, execution plans are captured and displayed in the sql-detail output. In the HTML report, a **Visualize** button can be used to send the plan to [explain.dalibo.com](https://explain.dalibo.com) for interactive visualization.
@@ -335,6 +346,16 @@ Normalized Pattern:
 Example:
 
  [157] 53300: db=app_db,user=app_user,app=[unknown],client=172.28.0.10 FATAL:  sorry, too many clients already
+```
+
+When PostgreSQL logged the statements behind the events (via `STATEMENT`
+continuation lines), a **Triggering Queries** table lists them ranked by
+share (Pareto):
+
+```
+Triggering Queries:
+  QueryID     QUERY                                            COUNT       %
+  se-Xskzeq   set statement_timeout = ?; select pg_sleep(?);       3  100.0%  ■■■■■■■■■■
 ```
 
 The bar chart shows occurrences over time across 12 buckets between

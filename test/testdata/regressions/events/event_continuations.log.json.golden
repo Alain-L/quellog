@@ -1,0 +1,138 @@
+{
+  "clients": {
+    "unique_databases": 1,
+    "unique_users": 1,
+    "unique_apps": 0,
+    "unique_hosts": 0
+  },
+  "databases": [
+    {
+      "name": "appdb",
+      "count": 6
+    }
+  ],
+  "events": [
+    {
+      "type": "ERROR",
+      "count": 4,
+      "percentage": 66.66666666666666
+    },
+    {
+      "type": "WARNING",
+      "count": 1,
+      "percentage": 16.666666666666664
+    },
+    {
+      "type": "LOG",
+      "count": 1,
+      "percentage": 16.666666666666664
+    }
+  ],
+  "sql_performance": {
+    "total_query_duration": "0 ms",
+    "total_queries_parsed": 1,
+    "total_unique_queries": 1,
+    "top_1_percent_slow_queries": 1,
+    "query_max_duration": "0 ms",
+    "query_min_duration": "0 ms",
+    "query_median_duration": "0 ms",
+    "query_99th_percentile": "0 ms",
+    "executions": [
+      {
+        "timestamp": "2026-04-20 09:00:00",
+        "duration_ms": 0.5,
+        "query_id": "se-HE3nKj"
+      }
+    ],
+    "queries": [
+      {
+        "id": "se-HE3nKj",
+        "normalized_query": "select ?",
+        "raw_query": "SELECT 1",
+        "type": "",
+        "count": 1,
+        "total_time_ms": 0.5,
+        "avg_time_ms": 0.5,
+        "max_time_ms": 0.5,
+        "top_databases": [
+          {
+            "name": "appdb",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "app",
+            "count": 1
+          }
+        ]
+      }
+    ]
+  },
+  "summary": {
+    "start_date": "2026-04-20 09:00:00",
+    "end_date": "2026-04-20 09:00:05",
+    "duration": "5s",
+    "total_logs": 6,
+    "throughput": "1.20 entries/s",
+    "error_count": 4,
+    "fatal_count": 0,
+    "panic_count": 0,
+    "warning_count": 1,
+    "log_count": 1
+  },
+  "top_events": [
+    {
+      "id": "er-n4uz",
+      "message": "invalid input syntax for type integer: ?",
+      "count": 3,
+      "severity": "ERROR",
+      "example": "[55001]: [2-1] user=app,db=appdb ERROR:  invalid input syntax for type integer: \"foo\"",
+      "timestamps": [
+        1776675601000,
+        1776675602000,
+        1776675603000
+      ],
+      "triggering_queries": [
+        {
+          "id": "in-77QbVd",
+          "normalized_query": "insert into orders values (?, ?, ?)",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "id": "er-b1aY",
+      "message": "relation ? does not exist",
+      "count": 1,
+      "severity": "ERROR",
+      "example": "[55004]: [1-1] user=app,db=appdb ERROR:  relation \"users\" does not exist",
+      "timestamps": [
+        1776675604000
+      ],
+      "triggering_queries": [
+        {
+          "id": "se-6h5jCe",
+          "normalized_query": "select * from users where id = ?",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "wa-0Em8",
+      "message": "there is no transaction in progress",
+      "count": 1,
+      "severity": "WARNING",
+      "example": "[55005]: [1-1] user=app,db=appdb WARNING:  there is no transaction in progress",
+      "timestamps": [
+        1776675605000
+      ]
+    }
+  ],
+  "users": [
+    {
+      "name": "app",
+      "count": 6
+    }
+  ]
+}

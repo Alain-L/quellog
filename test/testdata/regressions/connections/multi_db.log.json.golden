@@ -113,7 +113,31 @@
         "count": 1,
         "total_time_ms": 3.456,
         "avg_time_ms": 3.456,
-        "max_time_ms": 3.456
+        "max_time_ms": 3.456,
+        "top_databases": [
+          {
+            "name": "analytics",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "app",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "app-worker",
+            "count": 1
+          }
+        ],
+        "top_hosts": [
+          {
+            "name": "10.0.0.91",
+            "count": 1
+          }
+        ]
       },
       {
         "id": "se-18LQnR",
@@ -123,7 +147,31 @@
         "count": 1,
         "total_time_ms": 12.345,
         "avg_time_ms": 12.345,
-        "max_time_ms": 12.345
+        "max_time_ms": 12.345,
+        "top_databases": [
+          {
+            "name": "audit",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "admin",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 1
+          }
+        ],
+        "top_hosts": [
+          {
+            "name": "10.0.0.92",
+            "count": 1
+          }
+        ]
       },
       {
         "id": "se-4dSpXD",
@@ -133,7 +181,31 @@
         "count": 1,
         "total_time_ms": 0.567,
         "avg_time_ms": 0.567,
-        "max_time_ms": 0.567
+        "max_time_ms": 0.567,
+        "top_databases": [
+          {
+            "name": "appdb",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "admin",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 1
+          }
+        ],
+        "top_hosts": [
+          {
+            "name": "10.0.0.90",
+            "count": 1
+          }
+        ]
       },
       {
         "id": "se-ibjHaN",
@@ -143,7 +215,31 @@
         "count": 1,
         "total_time_ms": 5.678,
         "avg_time_ms": 5.678,
-        "max_time_ms": 5.678
+        "max_time_ms": 5.678,
+        "top_databases": [
+          {
+            "name": "analytics",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "analyst",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "tableau",
+            "count": 1
+          }
+        ],
+        "top_hosts": [
+          {
+            "name": "10.0.0.91",
+            "count": 1
+          }
+        ]
       },
       {
         "id": "se-sogiPC",
@@ -153,7 +249,31 @@
         "count": 1,
         "total_time_ms": 2.345,
         "avg_time_ms": 2.345,
-        "max_time_ms": 2.345
+        "max_time_ms": 2.345,
+        "top_databases": [
+          {
+            "name": "audit",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "auditor",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "auditd",
+            "count": 1
+          }
+        ],
+        "top_hosts": [
+          {
+            "name": "10.0.0.92",
+            "count": 1
+          }
+        ]
       },
       {
         "id": "se-tFx8MM",
@@ -163,7 +283,31 @@
         "count": 1,
         "total_time_ms": 1.234,
         "avg_time_ms": 1.234,
-        "max_time_ms": 1.234
+        "max_time_ms": 1.234,
+        "top_databases": [
+          {
+            "name": "appdb",
+            "count": 1
+          }
+        ],
+        "top_users": [
+          {
+            "name": "app",
+            "count": 1
+          }
+        ],
+        "top_apps": [
+          {
+            "name": "psql",
+            "count": 1
+          }
+        ],
+        "top_hosts": [
+          {
+            "name": "10.0.0.90",
+            "count": 1
+          }
+        ]
       }
     ]
   },
@@ -188,6 +332,13 @@
       "example": "[40006]: [1-1] user=app,db=appdb,app=psql,client=10.0.0.90 ERROR:  syntax error at or near \"FORM\"",
       "timestamps": [
         1776679205100
+      ],
+      "triggering_queries": [
+        {
+          "id": "se-hIlAiz",
+          "normalized_query": "select * form users",
+          "count": 1
+        }
       ]
     }
   ],

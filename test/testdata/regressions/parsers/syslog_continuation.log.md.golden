@@ -10,12 +10,14 @@ This _quellog_ report summarizes **3** log entries collected between 19 Apr 2026
 18:00 - 18:00 |  -
 ```
 
-|  |  |  |  |
-|---|---:|---|---:|
-| Total query duration | 245 ms | Total queries parsed | 1 |
-| Total unique queries | 1 | Top 1% slow queries | 1 |
-| Query max duration | 245 ms | Query min duration | 245 ms |
-| Query median duration | 245 ms | Query 99% max duration | 245 ms |
+- **Total query duration**   : 245 ms
+- **Total queries parsed**   : 1
+- **Total unique queries**   : 1
+- **Top 1% slow queries**    : 1
+- **Query max duration**     : 245 ms
+- **Query min duration**     : 245 ms
+- **Query median duration**  : 245 ms
+- **Query 99% max duration** : 245 ms
 
 ### Query duration distribution
 
@@ -32,21 +34,21 @@ This _quellog_ report summarizes **3** log entries collected between 19 Apr 2026
 
 **Slowest queries (top 10)**
 
-| SQLID | Max | Avg | Count | Query |
-|---|---:|---:|---:|---|
-| se-MQdMoB | 245 ms | 245 ms | 1 | select u.id, u.username, count(o.id) from users u left join orders o on o.use... |
+| SQLID     |    Max |    Avg | Count | Query                                                                            |
+|-----------|-------:|-------:|------:|----------------------------------------------------------------------------------|
+| se-MQdMoB | 245 ms | 245 ms |     1 | select u.id, u.username, count(o.id) from users u left join orders o on o.use... |
 
 **Most frequent queries (top 10)**
 
-| SQLID | Count | Avg | Max | Query |
-|---|---:|---:|---:|---|
-| se-MQdMoB | 1 | 245 ms | 245 ms | select u.id, u.username, count(o.id) from users u left join orders o on o.use... |
+| SQLID     | Count |    Avg |    Max | Query                                                                            |
+|-----------|------:|-------:|-------:|----------------------------------------------------------------------------------|
+| se-MQdMoB |     1 | 245 ms | 245 ms | select u.id, u.username, count(o.id) from users u left join orders o on o.use... |
 
 **Most time consuming queries (top 10)**
 
-| SQLID | Total | Avg | Count | Query |
-|---|---:|---:|---:|---|
-| se-MQdMoB | 245 ms | 245 ms | 1 | select u.id, u.username, count(o.id) from users u left join orders o on o.use... |
+| SQLID     |  Total |    Avg | Count | Query                                                                            |
+|-----------|-------:|-------:|------:|----------------------------------------------------------------------------------|
+| se-MQdMoB | 245 ms | 245 ms |     1 | select u.id, u.username, count(o.id) from users u left join orders o on o.use... |
 
 ## EVENTS
 
@@ -64,42 +66,42 @@ This _quellog_ report summarizes **3** log entries collected between 19 Apr 2026
 
 ### USERS
 
-| User | Count | % |
-|---|---:|---:|
-| app | 3 | 100.0% |
+| User | Count |      % |
+|------|------:|-------:|
+| app  |     3 | 100.0% |
 
 ### APPS
 
-| App | Count | % |
-|---|---:|---:|
-| psql | 3 | 100.0% |
+| App  | Count |      % |
+|------|------:|-------:|
+| psql |     3 | 100.0% |
 
 ### DATABASES
 
-| Database | Count | % |
-|---|---:|---:|
-| appdb | 3 | 100.0% |
+| Database | Count |      % |
+|----------|------:|-------:|
+| appdb    |     3 | 100.0% |
 
 ### HOSTS
 
-| Host | Count | % |
-|---|---:|---:|
-| 10.0.0.50 | 1 | 33.3% |
-| 10.0.0.51 | 1 | 33.3% |
-| 10.0.0.52 | 1 | 33.3% |
+| Host      | Count |     % |
+|-----------|------:|------:|
+| 10.0.0.50 |     1 | 33.3% |
+| 10.0.0.51 |     1 | 33.3% |
+| 10.0.0.52 |     1 | 33.3% |
 
 ### USER × DATABASE
 
-| User | Database | Count | % |
-|---|---|---:|---:|
-| app | appdb | 3 | 100.0% |
+| User | Database | Count |      % |
+|------|----------|------:|-------:|
+| app  | appdb    |     3 | 100.0% |
 
 ### USER × HOST
 
-| User | Host | Count | % |
-|---|---|---:|---:|
-| app | 10.0.0.50 | 1 | 33.3% |
-| app | 10.0.0.51 | 1 | 33.3% |
-| app | 10.0.0.52 | 1 | 33.3% |
+| User | Host      | Count |     % |
+|------|-----------|------:|------:|
+| app  | 10.0.0.50 |     1 | 33.3% |
+| app  | 10.0.0.51 |     1 | 33.3% |
+| app  | 10.0.0.52 |     1 | 33.3% |
 
 

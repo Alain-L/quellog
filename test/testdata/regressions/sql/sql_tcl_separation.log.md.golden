@@ -10,12 +10,14 @@ This _quellog_ report summarizes **10** log entries collected between 20 Apr 202
 00:00 - 00:00 | ■■■■■■■■■■■■■■■ 15 ms
 ```
 
-|  |  |  |  |
-|---|---:|---|---:|
-| Total query duration | 43 ms | Total queries parsed | 10 |
-| Total unique queries | 7 | Top 1% slow queries | 1 |
-| Query max duration | 15 ms | Query min duration | 0 ms |
-| Query median duration | 0 ms | Query 99% max duration | 15 ms |
+- **Total query duration**   : 43 ms
+- **Total queries parsed**   : 10
+- **Total unique queries**   : 7
+- **Top 1% slow queries**    : 1
+- **Query max duration**     : 15 ms
+- **Query min duration**     : 0 ms
+- **Query median duration**  : 0 ms
+- **Query 99% max duration** : 15 ms
 
 ### Query duration distribution
 
@@ -32,39 +34,39 @@ This _quellog_ report summarizes **10** log entries collected between 20 Apr 202
 
 **Slowest queries (top 10)**
 
-| SQLID | Max | Avg | Count | Query |
-|---|---:|---:|---:|---|
-| in-hzD69N | 15 ms | 15 ms | 1 | insert into orders (user_id, total) values (?, ?) |
-| se-Mc7IGz | 12 ms | 12 ms | 1 | select * from users where active = true |
-| se-nAXqVo | 8 ms | 8 ms | 1 | select * from orders where id = ? |
-| up-DX6w97 | 5 ms | 5 ms | 1 | update users set last_seen = now() where id = ? |
-| be-jViak3 | 0 ms | 0 ms | 3 | begin |
-| rb-Zumz2W | 0 ms | 0 ms | 1 | rollback |
-| ct-yk1n6g | 0 ms | 0 ms | 2 | commit |
+| SQLID     |   Max |   Avg | Count | Query                                             |
+|-----------|------:|------:|------:|---------------------------------------------------|
+| in-hzD69N | 15 ms | 15 ms |     1 | insert into orders (user_id, total) values (?, ?) |
+| se-Mc7IGz | 12 ms | 12 ms |     1 | select * from users where active = true           |
+| se-nAXqVo |  8 ms |  8 ms |     1 | select * from orders where id = ?                 |
+| up-DX6w97 |  5 ms |  5 ms |     1 | update users set last_seen = now() where id = ?   |
+| be-jViak3 |  0 ms |  0 ms |     3 | begin                                             |
+| rb-Zumz2W |  0 ms |  0 ms |     1 | rollback                                          |
+| ct-yk1n6g |  0 ms |  0 ms |     2 | commit                                            |
 
 **Most frequent queries (top 10)**
 
-| SQLID | Count | Avg | Max | Query |
-|---|---:|---:|---:|---|
-| be-jViak3 | 3 | 0 ms | 0 ms | begin |
-| ct-yk1n6g | 2 | 0 ms | 0 ms | commit |
-| in-hzD69N | 1 | 15 ms | 15 ms | insert into orders (user_id, total) values (?, ?) |
-| se-Mc7IGz | 1 | 12 ms | 12 ms | select * from users where active = true |
-| se-nAXqVo | 1 | 8 ms | 8 ms | select * from orders where id = ? |
-| up-DX6w97 | 1 | 5 ms | 5 ms | update users set last_seen = now() where id = ? |
-| rb-Zumz2W | 1 | 0 ms | 0 ms | rollback |
+| SQLID     | Count |   Avg |   Max | Query                                             |
+|-----------|------:|------:|------:|---------------------------------------------------|
+| be-jViak3 |     3 |  0 ms |  0 ms | begin                                             |
+| ct-yk1n6g |     2 |  0 ms |  0 ms | commit                                            |
+| in-hzD69N |     1 | 15 ms | 15 ms | insert into orders (user_id, total) values (?, ?) |
+| rb-Zumz2W |     1 |  0 ms |  0 ms | rollback                                          |
+| se-Mc7IGz |     1 | 12 ms | 12 ms | select * from users where active = true           |
+| se-nAXqVo |     1 |  8 ms |  8 ms | select * from orders where id = ?                 |
+| up-DX6w97 |     1 |  5 ms |  5 ms | update users set last_seen = now() where id = ?   |
 
 **Most time consuming queries (top 10)**
 
-| SQLID | Total | Avg | Count | Query |
-|---|---:|---:|---:|---|
-| in-hzD69N | 15 ms | 15 ms | 1 | insert into orders (user_id, total) values (?, ?) |
-| se-Mc7IGz | 12 ms | 12 ms | 1 | select * from users where active = true |
-| se-nAXqVo | 8 ms | 8 ms | 1 | select * from orders where id = ? |
-| up-DX6w97 | 5 ms | 5 ms | 1 | update users set last_seen = now() where id = ? |
-| be-jViak3 | 1 ms | 0 ms | 3 | begin |
-| ct-yk1n6g | 0 ms | 0 ms | 2 | commit |
-| rb-Zumz2W | 0 ms | 0 ms | 1 | rollback |
+| SQLID     | Total |   Avg | Count | Query                                             |
+|-----------|------:|------:|------:|---------------------------------------------------|
+| in-hzD69N | 15 ms | 15 ms |     1 | insert into orders (user_id, total) values (?, ?) |
+| se-Mc7IGz | 12 ms | 12 ms |     1 | select * from users where active = true           |
+| se-nAXqVo |  8 ms |  8 ms |     1 | select * from orders where id = ?                 |
+| up-DX6w97 |  5 ms |  5 ms |     1 | update users set last_seen = now() where id = ?   |
+| be-jViak3 |  1 ms |  0 ms |     3 | begin                                             |
+| ct-yk1n6g |  0 ms |  0 ms |     2 | commit                                            |
+| rb-Zumz2W |  0 ms |  0 ms |     1 | rollback                                          |
 
 ## EVENTS
 
@@ -79,42 +81,42 @@ This _quellog_ report summarizes **10** log entries collected between 20 Apr 202
 
 ### USERS
 
-| User | Count | % |
-|---|---:|---:|
-| app | 10 | 100.0% |
+| User | Count |      % |
+|------|------:|-------:|
+| app  |    10 | 100.0% |
 
 ### APPS
 
-| App | Count | % |
-|---|---:|---:|
-| psql | 10 | 100.0% |
+| App  | Count |      % |
+|------|------:|-------:|
+| psql |    10 | 100.0% |
 
 ### DATABASES
 
-| Database | Count | % |
-|---|---:|---:|
-| appdb | 10 | 100.0% |
+| Database | Count |      % |
+|----------|------:|-------:|
+| appdb    |    10 | 100.0% |
 
 ### HOSTS
 
-| Host | Count | % |
-|---|---:|---:|
-| 10.0.0.3 | 4 | 40.0% |
-| 10.0.0.4 | 3 | 30.0% |
-| 10.0.0.5 | 3 | 30.0% |
+| Host     | Count |     % |
+|----------|------:|------:|
+| 10.0.0.3 |     4 | 40.0% |
+| 10.0.0.4 |     3 | 30.0% |
+| 10.0.0.5 |     3 | 30.0% |
 
 ### USER × DATABASE
 
-| User | Database | Count | % |
-|---|---|---:|---:|
-| app | appdb | 10 | 100.0% |
+| User | Database | Count |      % |
+|------|----------|------:|-------:|
+| app  | appdb    |    10 | 100.0% |
 
 ### USER × HOST
 
-| User | Host | Count | % |
-|---|---|---:|---:|
-| app | 10.0.0.3 | 4 | 40.0% |
-| app | 10.0.0.4 | 3 | 30.0% |
-| app | 10.0.0.5 | 3 | 30.0% |
+| User | Host     | Count |     % |
+|------|----------|------:|------:|
+| app  | 10.0.0.3 |     4 | 40.0% |
+| app  | 10.0.0.4 |     3 | 30.0% |
+| app  | 10.0.0.5 |     3 | 30.0% |
 
 

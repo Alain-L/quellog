@@ -1,0 +1,10 @@
+2026-04-20 02:00:01.100 UTC [20001]: [1-1] user=,db=,app=,client= LOG:  started streaming WAL from primary at 0/1000000 on timeline 1
+2026-04-20 04:15:33.200 UTC [20002]: [1-1] user=,db=,app=,client= ERROR:  could not receive data from WAL stream: SSL connection has been closed unexpectedly
+2026-04-20 04:16:00.300 UTC [20003]: [1-1] user=,db=,app=,client= LOG:  started streaming WAL from primary at 0/1500000 on timeline 1
+2026-04-20 04:32:11.400 UTC [20004]: [1-1] user=,db=,app=,client= LOG:  replication terminated by primary server
+2026-04-20 04:32:45.500 UTC [20005]: [1-1] user=,db=,app=,client= LOG:  started streaming WAL from primary at 0/1600000 on timeline 1
+2026-04-20 09:18:22.600 UTC [20006]: [1-1] user=postgres,db=appdb,app=reports,client=10.0.0.5 ERROR:  canceling statement due to conflict with recovery
+2026-04-20 09:18:22.601 UTC [20006]: [2-1] user=postgres,db=appdb,app=reports,client=10.0.0.5 STATEMENT:  select count(*) from public.events where created_at > now() - interval '1 day'
+2026-04-20 09:22:14.700 UTC [20007]: [1-1] user=postgres,db=appdb,app=etl,client=10.0.0.6 FATAL:  terminating connection due to conflict with recovery
+2026-04-20 09:22:14.701 UTC [20007]: [2-1] user=postgres,db=appdb,app=etl,client=10.0.0.6 STATEMENT:  update public.app_node set last_seen = now() where id = 42
+2026-04-20 12:01:05.800 UTC [20008]: [1-1] user=,db=,app=,client= LOG:  terminating walsender process due to replication timeout

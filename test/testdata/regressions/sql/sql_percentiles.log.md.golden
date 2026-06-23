@@ -10,12 +10,14 @@ This _quellog_ report summarizes **51** log entries collected between 19 Apr 202
 23:30 - 23:30 | ■■■■■ 5 s
 ```
 
-|  |  |  |  |
-|---|---:|---|---:|
-| Total query duration | 13.26 s | Total queries parsed | 51 |
-| Total unique queries | 1 | Top 1% slow queries | 1 |
-| Query max duration | 510 ms | Query min duration | 10 ms |
-| Query median duration | 260 ms | Query 99% max duration | 510 ms |
+- **Total query duration**   : 13.26 s
+- **Total queries parsed**   : 51
+- **Total unique queries**   : 1
+- **Top 1% slow queries**    : 1
+- **Query max duration**     : 510 ms
+- **Query min duration**     : 10 ms
+- **Query median duration**  : 260 ms
+- **Query 99% max duration** : 510 ms
 
 ### Query duration distribution
 
@@ -32,21 +34,21 @@ This _quellog_ report summarizes **51** log entries collected between 19 Apr 202
 
 **Slowest queries (top 10)**
 
-| SQLID | Max | Avg | Count | Query |
-|---|---:|---:|---:|---|
-| se-QcnnDD | 510 ms | 260 ms | 51 | select count(*) from events where created_at > ? |
+| SQLID     |    Max |    Avg | Count | Query                                            |
+|-----------|-------:|-------:|------:|--------------------------------------------------|
+| se-QcnnDD | 510 ms | 260 ms |    51 | select count(*) from events where created_at > ? |
 
 **Most frequent queries (top 10)**
 
-| SQLID | Count | Avg | Max | Query |
-|---|---:|---:|---:|---|
-| se-QcnnDD | 51 | 260 ms | 510 ms | select count(*) from events where created_at > ? |
+| SQLID     | Count |    Avg |    Max | Query                                            |
+|-----------|------:|-------:|-------:|--------------------------------------------------|
+| se-QcnnDD |    51 | 260 ms | 510 ms | select count(*) from events where created_at > ? |
 
 **Most time consuming queries (top 10)**
 
-| SQLID | Total | Avg | Count | Query |
-|---|---:|---:|---:|---|
-| se-QcnnDD | 13.26 s | 260 ms | 51 | select count(*) from events where created_at > ? |
+| SQLID     |   Total |    Avg | Count | Query                                            |
+|-----------|--------:|-------:|------:|--------------------------------------------------|
+| se-QcnnDD | 13.26 s | 260 ms |    51 | select count(*) from events where created_at > ? |
 
 ## EVENTS
 
@@ -61,38 +63,38 @@ This _quellog_ report summarizes **51** log entries collected between 19 Apr 202
 
 ### USERS
 
-| User | Count | % |
-|---|---:|---:|
-| app | 51 | 100.0% |
+| User | Count |      % |
+|------|------:|-------:|
+| app  |    51 | 100.0% |
 
 ### APPS
 
-| App | Count | % |
-|---|---:|---:|
-| psql | 51 | 100.0% |
+| App  | Count |      % |
+|------|------:|-------:|
+| psql |    51 | 100.0% |
 
 ### DATABASES
 
-| Database | Count | % |
-|---|---:|---:|
-| appdb | 51 | 100.0% |
+| Database | Count |      % |
+|----------|------:|-------:|
+| appdb    |    51 | 100.0% |
 
 ### HOSTS
 
-| Host | Count | % |
-|---|---:|---:|
-| 10.0.0.2 | 51 | 100.0% |
+| Host     | Count |      % |
+|----------|------:|-------:|
+| 10.0.0.2 |    51 | 100.0% |
 
 ### USER × DATABASE
 
-| User | Database | Count | % |
-|---|---|---:|---:|
-| app | appdb | 51 | 100.0% |
+| User | Database | Count |      % |
+|------|----------|------:|-------:|
+| app  | appdb    |    51 | 100.0% |
 
 ### USER × HOST
 
-| User | Host | Count | % |
-|---|---|---:|---:|
-| app | 10.0.0.2 | 51 | 100.0% |
+| User | Host     | Count |      % |
+|------|----------|------:|-------:|
+| app  | 10.0.0.2 |    51 | 100.0% |
 
 

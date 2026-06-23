@@ -56,31 +56,31 @@ This _quellog_ report summarizes **10** log entries collected between 20 Apr 202
 ### Session duration distribution
 
 ```
-< 1s |  -
-1s - 1min | ■■ 2 sessions
+< 1s         |  -
+1s - 1min    | ■■ 2 sessions
 1min - 30min |  -
-30min - 2h |  -
-2h - 5h |  -
-> 5h |  -
+30min - 2h   |  -
+2h - 5h      |  -
+> 5h         |  -
 ```
 
 ### Session Duration by User
 
 | User | Sessions | Min | Max | Avg | Median | Cumulated |
-|---|---:|---|---|---|---|---:|
-| app | 2 | 1s | 10s | 6s | 6s | 11s |
+|------|---------:|----:|----:|----:|-------:|----------:|
+| app  |        2 |  1s | 10s |  6s |     6s |       11s |
 
 ### Session Duration by Database
 
 | Database | Sessions | Min | Max | Avg | Median | Cumulated |
-|---|---:|---|---|---|---|---:|
-| appdb | 2 | 1s | 10s | 6s | 6s | 11s |
+|----------|---------:|----:|----:|----:|-------:|----------:|
+| appdb    |        2 |  1s | 10s |  6s |     6s |       11s |
 
 ### Session Duration by Host
 
-| Host | Sessions | Min | Max | Avg | Median | Cumulated |
-|---|---:|---|---|---|---|---:|
-| fe80::1234:5678 | 1 | 10s | 10s | 10s | 10s | 10s |
+| Host            | Sessions | Min | Max | Avg | Median | Cumulated |
+|-----------------|---------:|----:|----:|----:|-------:|----------:|
+| fe80::1234:5678 |        1 | 10s | 10s | 10s |    10s |       10s |
 
 ## CLIENTS
 
@@ -91,51 +91,51 @@ This _quellog_ report summarizes **10** log entries collected between 20 Apr 202
 
 ### USERS
 
-| User | Count | % |
-|---|---:|---:|
-| app | 7 | 70.0% |
-| appuser | 1 | 10.0% |
-| ldapuser | 1 | 10.0% |
-| postgres | 1 | 10.0% |
+| User     | Count |     % |
+|----------|------:|------:|
+| app      |     7 | 70.0% |
+| appuser  |     1 | 10.0% |
+| ldapuser |     1 | 10.0% |
+| postgres |     1 | 10.0% |
 
 ### APPS
 
-| App | Count | % |
-|---|---:|---:|
-| psql | 5 | 50.0% |
+| App  | Count |     % |
+|------|------:|------:|
+| psql |     5 | 50.0% |
 
 ### DATABASES
 
-| Database | Count | % |
-|---|---:|---:|
-| appdb | 9 | 90.0% |
-| postgres | 1 | 10.0% |
+| Database | Count |     % |
+|----------|------:|------:|
+| appdb    |     9 | 90.0% |
+| postgres |     1 | 10.0% |
 
 ### HOSTS
 
-| Host | Count | % |
-|---|---:|---:|
-| fe80::1234:5678 | 3 | 30.0% |
-| 10.0.0.50 | 1 | 10.0% |
-| 10.0.0.51 | 1 | 10.0% |
-| 10.0.0.52 | 1 | 10.0% |
+| Host            | Count |     % |
+|-----------------|------:|------:|
+| fe80::1234:5678 |     3 | 30.0% |
+| 10.0.0.50       |     1 | 10.0% |
+| 10.0.0.51       |     1 | 10.0% |
+| 10.0.0.52       |     1 | 10.0% |
 
 ### USER × DATABASE
 
-| User | Database | Count | % |
-|---|---|---:|---:|
-| app | appdb | 7 | 70.0% |
-| appuser | appdb | 1 | 10.0% |
-| ldapuser | appdb | 1 | 10.0% |
-| postgres | postgres | 1 | 10.0% |
+| User     | Database | Count |     % |
+|----------|----------|------:|------:|
+| app      | appdb    |     7 | 70.0% |
+| appuser  | appdb    |     1 | 10.0% |
+| ldapuser | appdb    |     1 | 10.0% |
+| postgres | postgres |     1 | 10.0% |
 
 ### USER × HOST
 
-| User | Host | Count | % |
-|---|---|---:|---:|
-| app | fe80::1234:5678 | 3 | 30.0% |
-| appuser | 10.0.0.50 | 1 | 10.0% |
-| app | 10.0.0.51 | 1 | 10.0% |
-| ldapuser | 10.0.0.52 | 1 | 10.0% |
+| User     | Host            | Count |     % |
+|----------|-----------------|------:|------:|
+| app      | fe80::1234:5678 |     3 | 30.0% |
+| appuser  | 10.0.0.50       |     1 | 10.0% |
+| app      | 10.0.0.51       |     1 | 10.0% |
+| ldapuser | 10.0.0.52       |     1 | 10.0% |
 
 
