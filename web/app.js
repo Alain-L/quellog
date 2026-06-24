@@ -50,6 +50,22 @@ import './js/components/ql-dropdown.js';
         // Setup drag and drop with processFile callback
         setupDragDrop(dropZone, fileInput, processFile);
 
+        // Wire the bundled-demo entry points (standalone build only). The sample
+        // log is injected by web/standalone.go into window.DEMO_LOG_ZST_B64; when
+        // it is absent (unbundled dev page) the button stays hidden. The ?demo
+        // URL param auto-loads the example once the wasm is ready, for shareable
+        // links.
+        const demoBtn = document.getElementById('demoBtn');
+        if (demoBtn && window.DEMO_LOG_ZST_B64) {
+            demoBtn.style.display = '';
+            if (/[?&]demo\b/.test(location.search)) {
+                (async function () {
+                    while (!window.wasmReady) await new Promise(r => setTimeout(r, 50));
+                    loadDemo();
+                })();
+            }
+        }
+
         async function processFile(file) {
             // Check both module state and window (standalone mode uses window.wasmReady)
             if (!wasmReady && !window.wasmReady) { alert('WASM not ready'); return; }
@@ -60,6 +76,31 @@ import './js/components/ql-dropdown.js';
                 return;
             }
 
+            await runAnalysis(() => prepareContent(file), file.name, file.size);
+        }
+
+        // Load the bundled example log — the standalone "See example report"
+        // button and the ?demo URL param. The sample ships zstd-compressed +
+        // base64 in window.DEMO_LOG_ZST_B64 (injected by web/standalone.go);
+        // decompress it with the same fzstd path used for the wasm payload, then
+        // run the normal analysis pipeline so the demo behaves exactly like a
+        // dropped file. Absent in the unbundled dev page → the button stays hidden.
+        async function loadDemo() {
+            if (!wasmReady && !window.wasmReady) { alert('WASM not ready'); return; }
+            const b64 = window.DEMO_LOG_ZST_B64;
+            if (!b64) { alert('No example log is bundled in this build.'); return; }
+            const name = window.DEMO_LOG_NAME || 'demo.log';
+            await runAnalysis(() => {
+                const zst = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+                return unzstd(zst.buffer);
+            }, name, 0);
+        }
+
+        // Shared analysis pipeline for both a dropped/selected File and the
+        // bundled demo. getContent is an (async) producer returning either a
+        // Uint8Array (fast quellogParseBytes path) or a string (archive path);
+        // size is the on-disk byte count, or 0 to derive it from the content.
+        async function runAnalysis(getContent, name, size) {
             showLoading(dropZone, loading, results);
             clearAllCharts();
             setProgress(5, 'Initializing...');
@@ -68,11 +109,10 @@ import './js/components/ql-dropdown.js';
                 // Reinitialize WASM to free previous memory (gc=leaking workaround)
                 await initWasmInstance();
 
-                console.log(`[quellog] Parsing: ${file.name} (${fmtBytes(file.size)})`);
                 setProgress(10, 'Reading file...');
 
-                // Handle compressed files and tar archives
-                const content = await prepareContent(file);
+                // Handle compressed files / archives / the embedded demo blob.
+                const content = await getContent();
 
                 // Single static "Crunching log entries…" message during the
                 // WASM parse. Cycling phrases were tried (CSS-only opacity
@@ -84,9 +124,11 @@ import './js/components/ql-dropdown.js';
 
                 // Store for re-filtering
                 setCurrentFileContent(content);
-                setCurrentFileName(file.name);
-                setCurrentFileSize(file.size);
+                setCurrentFileName(name);
+                setCurrentFileSize(size || (content instanceof Uint8Array ? content.byteLength : content.length));
                 setOriginalDimensions(null);  // Reset for new file
+
+                console.log(`[quellog] Parsing: ${name} (${fmtBytes(currentFileSize)})`);
 
                 // Yield once with rAF so the label paints before the
                 // wasm call freezes the main thread.
@@ -3614,4 +3656,5 @@ function buildEventsSection(data) {
         window.toggleCombinedSeries = toggleCombinedSeries;
         window.resetCostMapZoom = resetCostMapZoom;
         window.openCostMapModal = openCostMapModal;
+        window.loadDemo = loadDemo;
 

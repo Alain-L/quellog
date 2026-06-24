@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Added
+- **Full example report in demo mode**: a "See example report" link on the drop zone loads a bundled example log through the normal pipeline, so the report (cost map, split, every section) can be explored without supplying a file.
+
 ## [0.11.0] - 2026-06-23
 
 ### Added
