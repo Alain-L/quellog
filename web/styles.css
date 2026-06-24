@@ -303,6 +303,10 @@
         .drop-zone h2 { margin-bottom: 0.5rem; font-size: 1.1rem; }
         .drop-zone p { color: var(--text-muted); margin-bottom: 1rem; font-size: 0.85rem; }
         .drop-zone input[type="file"] { display: none; }
+        .drop-zone .btn { min-width: 190px; }
+        .demo-hint { margin-top: 0.75rem; font-size: 0.8rem; }
+        .demo-hint a { color: var(--text-muted); text-decoration: underline; cursor: pointer; }
+        .demo-hint a:hover { color: var(--primary); }
 
         .btn {
             display: inline-block;
