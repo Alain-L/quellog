@@ -7,6 +7,9 @@ All notable changes to this project will be documented in this file.
 ### Added
 - **Full example report in demo mode**: a "See example report" link on the drop zone loads a bundled example log through the normal pipeline, so the report (cost map, split, every section) can be explored without supplying a file.
 
+### Performance
+- **CSV parsing allocates ~half as much memory**: a single-pass, zero-copy CSV scanner replaces the standard-library reader, cutting CSV-path allocations by roughly 50%. Larger CSV logs now fit under the browser's WebAssembly memory ceiling.
+
 ## [0.11.0] - 2026-06-23
 
 ### Added
