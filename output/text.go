@@ -2687,7 +2687,8 @@ func printLockStats(stats map[string]int, total int) {
 		}
 		// Total tie-break on name: Go map iteration order is randomized, so
 		// without a secondary key equal-count entries (e.g. the "Relations"
-		// list) print in a non-deterministic order, differing run-to-run.
+		// list) print in a non-deterministic order, differing run-to-run and
+		// between single-pass and PID-sharded runs.
 		return pairs[i].name < pairs[j].name
 	})
 

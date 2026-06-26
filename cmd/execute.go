@@ -10,6 +10,8 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -388,9 +390,14 @@ func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry
 		return runSplitHTML(ctx, filteredLogs, startTime, totalFileSize, inputArgs, pb)
 	}
 
+	// Analysis PID-shard count: > 1 only for large, uncompressed plain
+	// stderr (where LogEntry.PID is the backend PID). Computed once and
+	// threaded into every metrics build.
+	workers := shardWorkers(inputArgs, totalFileSize)
+
 	// Special case: SQL query details (single query analysis)
 	if len(sqlDetailFlag) > 0 {
-		metrics, processingDuration, err := requireMetrics(ctx, filteredLogs, totalFileSize, startTime, pb)
+		metrics, processingDuration, err := requireMetrics(ctx, filteredLogs, totalFileSize, startTime, pb, workers)
 		if err != nil {
 			return err
 		}
@@ -415,7 +422,7 @@ func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry
 
 	// Special case: event pattern details (lookup by ID like wa-aBc1)
 	if len(eventDetailFlag) > 0 {
-		metrics, processingDuration, err := requireMetrics(ctx, filteredLogs, totalFileSize, startTime, pb)
+		metrics, processingDuration, err := requireMetrics(ctx, filteredLogs, totalFileSize, startTime, pb, workers)
 		if err != nil {
 			return err
 		}
@@ -441,7 +448,7 @@ func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry
 	// Special case: SQL performance (detailed aggregated query statistics)
 	// Skip if --full is set (will be included in full report)
 	if sqlPerformanceFlag && !fullFlag {
-		metrics, processingDuration, err := requireMetrics(ctx, filteredLogs, totalFileSize, startTime, pb)
+		metrics, processingDuration, err := requireMetrics(ctx, filteredLogs, totalFileSize, startTime, pb, workers)
 		if err != nil {
 			return err
 		}
@@ -467,7 +474,7 @@ func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry
 	// Special case: SQL overview (query type statistics with dimensional breakdown)
 	// Skip if --full is set (will be included in full report)
 	if sqlOverviewFlag && !fullFlag {
-		metrics, processingDuration, err := requireMetrics(ctx, filteredLogs, totalFileSize, startTime, pb)
+		metrics, processingDuration, err := requireMetrics(ctx, filteredLogs, totalFileSize, startTime, pb, workers)
 		if err != nil {
 			return err
 		}
@@ -491,7 +498,7 @@ func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry
 	}
 
 	// Default: full analysis with all metrics
-	metrics := analysis.AggregateMetrics(ctx, filteredLogs)
+	metrics := analysis.AggregateMetricsWithWorkers(ctx, filteredLogs, workers)
 	// Aggregation drained the input — parse is done. Clear the bar
 	// before any subsequent stderr/stdout write (PrintProcessingSummary
 	// and the section renderers below). The defer in runAnalysisCycle
@@ -919,10 +926,42 @@ func createOutputWriter(path string) (io.Writer, func() error, error) {
 	}, nil
 }
 
+// shardWorkers picks the analysis PID-shard count for an input set. It
+// returns > 1 only for large, uncompressed plain-stderr inputs where
+// LogEntry.PID is the PostgreSQL backend PID (the data-parallel fan-out's
+// precondition); everything else stays single-shard (always correct).
+//
+// QUELLOG_SHARD_WORKERS overrides the count for benchmarking — it bypasses
+// the format/size gate, so only point it at plain stderr.
+func shardWorkers(inputArgs []string, totalFileSize int64) int {
+	if v := os.Getenv("QUELLOG_SHARD_WORKERS"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n >= 1 {
+			return n
+		}
+	}
+	const minSize = 256 << 20 // below this, fan-out overhead isn't worth it
+	if totalFileSize < minSize || len(inputArgs) == 0 {
+		return 1
+	}
+	for _, f := range inputArgs {
+		if !parser.SupportsPIDSharding(f) {
+			return 1
+		}
+	}
+	n := runtime.NumCPU() - 2
+	if n < 2 {
+		n = 2
+	}
+	if n > 8 {
+		n = 8
+	}
+	return n
+}
+
 // requireMetrics aggregates metrics and returns an error if no log entries
 // were parsed.
-func requireMetrics(ctx context.Context, filteredLogs <-chan []parser.LogEntry, totalFileSize int64, startTime time.Time, pb *progressBar) (analysis.AggregatedMetrics, time.Duration, error) {
-	metrics := analysis.AggregateMetrics(ctx, filteredLogs)
+func requireMetrics(ctx context.Context, filteredLogs <-chan []parser.LogEntry, totalFileSize int64, startTime time.Time, pb *progressBar, workers int) (analysis.AggregatedMetrics, time.Duration, error) {
+	metrics := analysis.AggregateMetricsWithWorkers(ctx, filteredLogs, workers)
 	// Aggregation has drained the input channel — parsing is fully
 	// done. Clear the progress bar before any subsequent stderr write
 	// (PrintProcessingSummary, slog warnings, …) so the redrawn line

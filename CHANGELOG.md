@@ -8,7 +8,11 @@ All notable changes to this project will be documented in this file.
 - **Full example report in demo mode**: a "See example report" link on the drop zone loads a bundled example log through the normal pipeline, so the report (cost map, split, every section) can be explored without supplying a file.
 
 ### Performance
+- **Large plain-stderr logs analyze 15-25% faster**: a data-parallel analysis engine shards backends across CPU cores (by PID), lifting the previous parallelism ceiling. Engages automatically on large uncompressed stderr; every other input (smaller files, CSV/JSON, syslog, compressed) keeps the function-parallel engine, so nothing regresses.
 - **CSV parsing allocates ~half as much memory**: a single-pass, zero-copy CSV scanner replaces the standard-library reader, cutting CSV-path allocations by roughly 50%.
+
+### Changed
+- **`--json` per-execution and per-event lists are now deterministically ordered** (executions by timestamp, query id, then duration; event occurrences ascending), so the output no longer depends on how the analysis was parallelized.
 
 ## [0.11.0] - 2026-06-23
 

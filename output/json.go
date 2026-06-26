@@ -650,6 +650,48 @@ func (l lazyExecutions) count() int {
 	return len(l.executions)
 }
 
+// execRow is the minimal projection of a QueryExecution needed to emit the
+// executions JSON array. Materializing three fields instead of the full
+// QueryExecution roughly halves the transient footprint when the array is
+// sorted for deterministic output (see sortedRows).
+type execRow struct {
+	ts  time.Time
+	dur float64
+	qid string
+}
+
+// sortedRows materializes every execution ordered by (timestamp, query_id,
+// duration). The compact executions store appends in stream order within a
+// shard, so a PID-sharded analyzer's fold concatenates per-shard runs in
+// shard order; sorting restores a single canonical order identical
+// regardless of the shard count. The key need not be a strict total order:
+// rows tying on all three fields serialize byte-for-byte the same, so their
+// relative order is immaterial. Cost is one O(n log n) sort plus a
+// three-field copy per event, paid only when an executions array is
+// rendered.
+func (l lazyExecutions) sortedRows() []execRow {
+	n := l.count()
+	if n == 0 {
+		return nil
+	}
+	rows := make([]execRow, 0, n)
+	l.iterate(func(e analysis.QueryExecution) bool {
+		rows = append(rows, execRow{ts: e.Timestamp, dur: e.Duration, qid: e.QueryID})
+		return true
+	})
+	sort.Slice(rows, func(i, j int) bool {
+		a, b := rows[i], rows[j]
+		if !a.ts.Equal(b.ts) {
+			return a.ts.Before(b.ts)
+		}
+		if a.qid != b.qid {
+			return a.qid < b.qid
+		}
+		return a.dur < b.dur
+	})
+	return rows
+}
+
 // lazyLockEvents marshals an []analysis.LockEvent directly to JSON
 // without an intermediate []LockEventJSON slice. Per-row gain is
 // modest (16k events on J.log = ~4 MB) but pathological lock-storm
@@ -1145,59 +1187,57 @@ func streamExecutionsJSON(bw *bufio.Writer, src lazyExecutions, prefix, indent s
 		tsFormat = "2006-01-02 15:04:05"
 	}
 	inner := prefix + indent
+	// Sorted for deterministic, shard-count-independent output (see sortedRows).
+	rows := src.sortedRows()
 	if compact {
 		bw.WriteByte('[')
-		first := true
-		src.iterate(func(e analysis.QueryExecution) bool {
-			if !first {
+		for i := range rows {
+			e := &rows[i]
+			if i > 0 {
 				bw.WriteByte(',')
 			}
-			first = false
 			bw.WriteString(`{"timestamp":"`)
 			var tbuf [20]byte
-			bw.Write(e.Timestamp.AppendFormat(tbuf[:0], tsFormat))
+			bw.Write(e.ts.AppendFormat(tbuf[:0], tsFormat))
 			bw.WriteString(`","duration_ms":`)
 			var nbuf [32]byte
-			bw.Write(strconv.AppendFloat(nbuf[:0], e.Duration, 'f', -1, 64))
+			bw.Write(strconv.AppendFloat(nbuf[:0], e.dur, 'f', -1, 64))
 			bw.WriteString(`,"query_id":"`)
-			bw.WriteString(e.QueryID)
+			bw.WriteString(e.qid)
 			bw.WriteString(`"}`)
-			return true
-		})
+		}
 		bw.WriteByte(']')
 		return
 	}
 	subInner := inner + indent
 	bw.WriteString("[\n")
-	first := true
-	src.iterate(func(e analysis.QueryExecution) bool {
-		if !first {
+	for i := range rows {
+		e := &rows[i]
+		if i > 0 {
 			bw.WriteString(",\n")
 		}
-		first = false
 		bw.WriteString(inner)
 		bw.WriteString("{\n")
 		bw.WriteString(subInner)
 		bw.WriteString(`"timestamp": "`)
 		var tbuf [20]byte
-		bw.Write(e.Timestamp.AppendFormat(tbuf[:0], tsFormat))
+		bw.Write(e.ts.AppendFormat(tbuf[:0], tsFormat))
 		bw.WriteString(`",`)
 		bw.WriteByte('\n')
 		bw.WriteString(subInner)
 		bw.WriteString(`"duration_ms": `)
 		var nbuf [32]byte
-		bw.Write(strconv.AppendFloat(nbuf[:0], e.Duration, 'f', -1, 64))
+		bw.Write(strconv.AppendFloat(nbuf[:0], e.dur, 'f', -1, 64))
 		bw.WriteString(`,`)
 		bw.WriteByte('\n')
 		bw.WriteString(subInner)
 		bw.WriteString(`"query_id": `)
-		qb, _ := json.Marshal(e.QueryID)
+		qb, _ := json.Marshal(e.qid)
 		bw.Write(qb)
 		bw.WriteByte('\n')
 		bw.WriteString(inner)
 		bw.WriteByte('}')
-		return true
-	})
+	}
 	bw.WriteByte('\n')
 	bw.WriteString(prefix)
 	bw.WriteByte(']')
@@ -1221,21 +1261,19 @@ func (l lazyExecutions) MarshalJSON() ([]byte, error) {
 	if tsFormat == "" {
 		tsFormat = "2006-01-02 15:04:05"
 	}
-	first := true
-	l.iterate(func(exec analysis.QueryExecution) bool {
-		if !first {
+	// Sorted for deterministic, shard-count-independent output (see sortedRows).
+	for i, exec := range l.sortedRows() {
+		if i > 0 {
 			buf = append(buf, ',')
 		}
-		first = false
 		buf = append(buf, `{"timestamp":"`...)
-		buf = exec.Timestamp.AppendFormat(buf, tsFormat)
+		buf = exec.ts.AppendFormat(buf, tsFormat)
 		buf = append(buf, `","duration_ms":`...)
-		buf = strconv.AppendFloat(buf, exec.Duration, 'f', -1, 64)
+		buf = strconv.AppendFloat(buf, exec.dur, 'f', -1, 64)
 		buf = append(buf, `,"query_id":"`...)
-		buf = append(buf, exec.QueryID...) // QueryIDs are safe ASCII (e.g. "se-abc123")
+		buf = append(buf, exec.qid...) // QueryIDs are safe ASCII (e.g. "se-abc123")
 		buf = append(buf, `"}`...)
-		return true
-	})
+	}
 	buf = append(buf, ']')
 	return buf, nil
 }

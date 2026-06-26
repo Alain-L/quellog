@@ -98,6 +98,7 @@ type VacuumSample struct {
 	TuplesRemoved         int64
 	TuplesNotYetRemovable int64
 	PagesRemoved          int64
+	seq                   int64 // stream position (unexported: not serialized), for stable cross-shard merge
 }
 
 // ============================================================================
@@ -154,6 +155,11 @@ type VacuumAnalyzer struct {
 
 	analyzeTableStats          map[string]*VacuumTableStat
 	totalAnalyzeElapsedSeconds float64
+
+	// curSeq is the stream position of the entry being processed, stamped
+	// onto slowestVacuum so the cross-shard merge breaks elapsed-time ties
+	// deterministically (earliest stream position wins, as a single pass does).
+	curSeq int64
 }
 
 // NewVacuumAnalyzer creates a new vacuum analyzer.
@@ -178,6 +184,7 @@ func (a *VacuumAnalyzer) Process(entry *parser.LogEntry) {
 	if len(msg) < 18 {
 		return
 	}
+	a.curSeq = entry.Seq
 
 	// Fast pre-filter: check for "uto" before expensive Index
 	// "uto" is highly specific to "automatic" and eliminates ~99%+ of messages
@@ -283,6 +290,7 @@ func (a *VacuumAnalyzer) recordContinuationStats(table, msg string, ts time.Time
 				PagesRemoved:          pagesRemoved,
 				TuplesRemoved:         extractTuplesRemoved(msg),
 				TuplesNotYetRemovable: extractTuplesNotYetRemovable(msg),
+				seq:                   a.curSeq,
 			}
 		}
 	}
@@ -317,7 +325,31 @@ func (a *VacuumAnalyzer) recordContinuationStats(table, msg string, ts time.Time
 
 // Finalize returns the aggregated vacuum metrics.
 // This should be called after all log entries have been processed.
+// roundMicroSec drops sub-microsecond noise from a summed seconds value.
+// Cumulative elapsed times are float64 sums whose low bits depend on the
+// summation order; once the analyzer is PID-sharded the per-shard partial
+// sums fold in a different order than the sequential pass, so the last ULPs
+// differ. Source vacuum/analyze "elapsed: N.NN s" lines are at best
+// microsecond-precise, so anything below 1 µs is noise — rounding keeps the
+// per-table ordering and the rendered totals identical regardless of fold
+// order (text and JSON alike).
+func roundMicroSec(s float64) float64 {
+	return math.Round(s*1e6) / 1e6
+}
+
 func (a *VacuumAnalyzer) Finalize() VacuumMetrics {
+	// Stabilize summed elapsed times against shard-fold order before any
+	// ordering or rendering reads them (see roundMicroSec). Max values are
+	// order-independent and left untouched.
+	a.totalElapsedSeconds = roundMicroSec(a.totalElapsedSeconds)
+	a.totalAnalyzeElapsedSeconds = roundMicroSec(a.totalAnalyzeElapsedSeconds)
+	for _, s := range a.vacuumTableStats {
+		s.TotalElapsedSeconds = roundMicroSec(s.TotalElapsedSeconds)
+	}
+	for _, s := range a.analyzeTableStats {
+		s.TotalElapsedSeconds = roundMicroSec(s.TotalElapsedSeconds)
+	}
+
 	top := topVacuumTablesByElapsed(a.vacuumTableStats, 200)
 	xmin := topVacuumTablesByXminPressure(a.vacuumTableStats, 200)
 	return VacuumMetrics{

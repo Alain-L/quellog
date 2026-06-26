@@ -122,6 +122,36 @@ func DetectFileFormat(filename string) string {
 	}
 }
 
+// SupportsPIDSharding reports whether entries parsed from filename will carry
+// the PostgreSQL backend PID in LogEntry.PID — the precondition for the
+// analysis layer's PID-sharded fan-out. True ONLY for uncompressed, plain
+// (non-syslog) stderr:
+//
+//   - CSV/JSON return false: they are parser-CPU bound (already parallelized),
+//     not the memory-bound analysis fan-out's target.
+//   - syslog returns false: LogEntry.PID is the message sequence number, not
+//     the backend PID, so PID-sharding would split a backend's correlated
+//     lines (wait→acquire, error→continuation) across shards.
+//   - compressed/archived inputs return false: the syslog probe samples raw
+//     bytes and cannot see through compression, so we stay safe.
+func SupportsPIDSharding(filename string) bool {
+	lower := strings.ToLower(filename)
+	for _, ext := range []string{".gz", ".zst", ".zstd", ".tar", ".tgz", ".tzst", ".tar.gz", ".tar.zst"} {
+		if strings.HasSuffix(lower, ext) {
+			return false
+		}
+	}
+	if DetectFileFormat(filename) != "stderr" {
+		return false
+	}
+	f, err := os.Open(filename)
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+	return detectSyslogFormatFromFile(f) == SyslogNone
+}
+
 // detectParser reads a sample from the file to identify its format.
 // It tries to detect the format based on file extension first, then falls back
 // to content-based detection.
