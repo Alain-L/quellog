@@ -8074,12 +8074,12 @@
       },
       {
         "timestamp": "2025-11-30 21:10:52",
-        "duration_ms": 214.682,
+        "duration_ms": 152.886,
         "query_id": "se-FaZX77"
       },
       {
         "timestamp": "2025-11-30 21:10:52",
-        "duration_ms": 152.886,
+        "duration_ms": 214.682,
         "query_id": "se-FaZX77"
       },
       {
@@ -8454,13 +8454,13 @@
       },
       {
         "timestamp": "2025-11-30 21:11:36",
-        "duration_ms": 377.804,
-        "query_id": "se-2qUBb1"
+        "duration_ms": 690.448,
+        "query_id": "up-UXcfCG"
       },
       {
         "timestamp": "2025-11-30 21:11:36",
-        "duration_ms": 690.448,
-        "query_id": "up-UXcfCG"
+        "duration_ms": 377.804,
+        "query_id": "se-2qUBb1"
       },
       {
         "timestamp": "2025-11-30 21:11:36",
@@ -8469,13 +8469,13 @@
       },
       {
         "timestamp": "2025-11-30 21:11:36",
-        "duration_ms": 195.755,
-        "query_id": "up-UXcfCG"
+        "duration_ms": 191.687,
+        "query_id": "in-nk6Nue"
       },
       {
         "timestamp": "2025-11-30 21:11:36",
-        "duration_ms": 191.687,
-        "query_id": "in-nk6Nue"
+        "duration_ms": 195.755,
+        "query_id": "up-UXcfCG"
       },
       {
         "timestamp": "2025-11-30 21:11:36",
@@ -8529,13 +8529,13 @@
       },
       {
         "timestamp": "2025-11-30 21:11:37",
-        "duration_ms": 226.226,
-        "query_id": "se-2qUBb1"
+        "duration_ms": 238.721,
+        "query_id": "in-nk6Nue"
       },
       {
         "timestamp": "2025-11-30 21:11:37",
-        "duration_ms": 238.721,
-        "query_id": "in-nk6Nue"
+        "duration_ms": 226.226,
+        "query_id": "se-2qUBb1"
       },
       {
         "timestamp": "2025-11-30 21:11:37",
@@ -8634,12 +8634,12 @@
       },
       {
         "timestamp": "2025-11-30 21:11:49",
-        "duration_ms": 63.054,
+        "duration_ms": 142.117,
         "query_id": "up-UXcfCG"
       },
       {
         "timestamp": "2025-11-30 21:11:49",
-        "duration_ms": 142.117,
+        "duration_ms": 63.054,
         "query_id": "up-UXcfCG"
       },
       {
@@ -8714,13 +8714,13 @@
       },
       {
         "timestamp": "2025-11-30 21:11:50",
-        "duration_ms": 301.288,
-        "query_id": "se-2qUBb1"
+        "duration_ms": 298.878,
+        "query_id": "in-nk6Nue"
       },
       {
         "timestamp": "2025-11-30 21:11:50",
-        "duration_ms": 298.878,
-        "query_id": "in-nk6Nue"
+        "duration_ms": 301.288,
+        "query_id": "se-2qUBb1"
       },
       {
         "timestamp": "2025-11-30 21:11:50",
@@ -8864,12 +8864,12 @@
       },
       {
         "timestamp": "2025-11-30 21:12:09",
-        "duration_ms": 81.333,
+        "duration_ms": 128.896,
         "query_id": "se-2qUBb1"
       },
       {
         "timestamp": "2025-11-30 21:12:09",
-        "duration_ms": 128.896,
+        "duration_ms": 81.333,
         "query_id": "se-2qUBb1"
       },
       {
@@ -9099,8 +9099,8 @@
       },
       {
         "timestamp": "2025-11-30 21:12:18",
-        "duration_ms": 562.601,
-        "query_id": "up-UXcfCG"
+        "duration_ms": 567.466,
+        "query_id": "in-CIXwVT"
       },
       {
         "timestamp": "2025-11-30 21:12:18",
@@ -9114,8 +9114,8 @@
       },
       {
         "timestamp": "2025-11-30 21:12:18",
-        "duration_ms": 567.466,
-        "query_id": "in-CIXwVT"
+        "duration_ms": 562.601,
+        "query_id": "up-UXcfCG"
       },
       {
         "timestamp": "2025-11-30 21:12:18",
@@ -9309,13 +9309,13 @@
       },
       {
         "timestamp": "2025-11-30 21:12:31",
-        "duration_ms": 331.31,
-        "query_id": "in-CIXwVT"
+        "duration_ms": 332.347,
+        "query_id": "up-UXcfCG"
       },
       {
         "timestamp": "2025-11-30 21:12:31",
-        "duration_ms": 332.347,
-        "query_id": "up-UXcfCG"
+        "duration_ms": 331.31,
+        "query_id": "in-CIXwVT"
       },
       {
         "timestamp": "2025-11-30 21:12:31",
@@ -9369,12 +9369,12 @@
       },
       {
         "timestamp": "2025-11-30 21:12:37",
-        "duration_ms": 12.335,
+        "duration_ms": 5.265,
         "query_id": "se-hklnha"
       },
       {
         "timestamp": "2025-11-30 21:12:37",
-        "duration_ms": 5.265,
+        "duration_ms": 12.335,
         "query_id": "se-hklnha"
       },
       {
@@ -9384,12 +9384,12 @@
       },
       {
         "timestamp": "2025-11-30 21:12:37",
-        "duration_ms": 5.135,
+        "duration_ms": 6.796,
         "query_id": "se-hklnha"
       },
       {
         "timestamp": "2025-11-30 21:12:37",
-        "duration_ms": 6.796,
+        "duration_ms": 5.135,
         "query_id": "se-hklnha"
       },
       {
@@ -9614,17 +9614,12 @@
       },
       {
         "timestamp": "2025-11-30 21:12:56",
-        "duration_ms": 87.932,
-        "query_id": "se-2qUBb1"
-      },
-      {
-        "timestamp": "2025-11-30 21:12:56",
         "duration_ms": 58.492,
         "query_id": "se-2qUBb1"
       },
       {
         "timestamp": "2025-11-30 21:12:56",
-        "duration_ms": 182.984,
+        "duration_ms": 87.932,
         "query_id": "se-2qUBb1"
       },
       {
@@ -9636,6 +9631,11 @@
         "timestamp": "2025-11-30 21:12:56",
         "duration_ms": 433.839,
         "query_id": "up-UXcfCG"
+      },
+      {
+        "timestamp": "2025-11-30 21:12:56",
+        "duration_ms": 182.984,
+        "query_id": "se-2qUBb1"
       },
       {
         "timestamp": "2025-11-30 21:12:56",
@@ -10009,13 +10009,13 @@
       },
       {
         "timestamp": "2025-11-30 21:13:33",
-        "duration_ms": 182.639,
-        "query_id": "in-CIXwVT"
+        "duration_ms": 75.217,
+        "query_id": "se-2qUBb1"
       },
       {
         "timestamp": "2025-11-30 21:13:33",
-        "duration_ms": 75.217,
-        "query_id": "se-2qUBb1"
+        "duration_ms": 182.639,
+        "query_id": "in-CIXwVT"
       },
       {
         "timestamp": "2025-11-30 21:13:34",
@@ -10384,13 +10384,13 @@
       },
       {
         "timestamp": "2025-11-30 21:14:01",
-        "duration_ms": 59.994,
-        "query_id": "se-FaZX77"
+        "duration_ms": 84.872,
+        "query_id": "se-tPT0J9"
       },
       {
         "timestamp": "2025-11-30 21:14:01",
-        "duration_ms": 84.872,
-        "query_id": "se-tPT0J9"
+        "duration_ms": 59.994,
+        "query_id": "se-FaZX77"
       },
       {
         "timestamp": "2025-11-30 21:14:02",
@@ -10874,13 +10874,13 @@
       },
       {
         "timestamp": "2025-11-30 21:14:40",
-        "duration_ms": 207.215,
-        "query_id": "se-2qUBb1"
+        "duration_ms": 353.095,
+        "query_id": "up-UXcfCG"
       },
       {
         "timestamp": "2025-11-30 21:14:40",
-        "duration_ms": 353.095,
-        "query_id": "up-UXcfCG"
+        "duration_ms": 207.215,
+        "query_id": "se-2qUBb1"
       },
       {
         "timestamp": "2025-11-30 21:14:40",
@@ -11224,13 +11224,13 @@
       },
       {
         "timestamp": "2025-11-30 21:15:02",
-        "duration_ms": 507.091,
-        "query_id": "in-nk6Nue"
+        "duration_ms": 808.85,
+        "query_id": "in-CIXwVT"
       },
       {
         "timestamp": "2025-11-30 21:15:02",
-        "duration_ms": 808.85,
-        "query_id": "in-CIXwVT"
+        "duration_ms": 507.091,
+        "query_id": "in-nk6Nue"
       },
       {
         "timestamp": "2025-11-30 21:15:02",
@@ -11239,13 +11239,13 @@
       },
       {
         "timestamp": "2025-11-30 21:15:02",
-        "duration_ms": 438.396,
-        "query_id": "se-2qUBb1"
+        "duration_ms": 729.168,
+        "query_id": "up-UXcfCG"
       },
       {
         "timestamp": "2025-11-30 21:15:02",
-        "duration_ms": 729.168,
-        "query_id": "up-UXcfCG"
+        "duration_ms": 438.396,
+        "query_id": "se-2qUBb1"
       },
       {
         "timestamp": "2025-11-30 21:15:02",
@@ -11729,12 +11729,12 @@
       },
       {
         "timestamp": "2025-11-30 21:15:41",
-        "duration_ms": 315.175,
+        "duration_ms": 151.53,
         "query_id": "se-2qUBb1"
       },
       {
         "timestamp": "2025-11-30 21:15:41",
-        "duration_ms": 151.53,
+        "duration_ms": 315.175,
         "query_id": "se-2qUBb1"
       },
       {
@@ -12389,12 +12389,12 @@
       },
       {
         "timestamp": "2025-11-30 21:17:03",
-        "duration_ms": 278.707,
+        "duration_ms": 154.99,
         "query_id": "se-2qUBb1"
       },
       {
         "timestamp": "2025-11-30 21:17:03",
-        "duration_ms": 154.99,
+        "duration_ms": 278.707,
         "query_id": "se-2qUBb1"
       },
       {
@@ -12624,13 +12624,13 @@
       },
       {
         "timestamp": "2025-11-30 21:17:21",
-        "duration_ms": 45.542,
-        "query_id": "se-2qUBb1"
+        "duration_ms": 503.542,
+        "query_id": "in-nk6Nue"
       },
       {
         "timestamp": "2025-11-30 21:17:21",
-        "duration_ms": 503.542,
-        "query_id": "in-nk6Nue"
+        "duration_ms": 45.542,
+        "query_id": "se-2qUBb1"
       },
       {
         "timestamp": "2025-11-30 21:17:21",
@@ -12704,13 +12704,13 @@
       },
       {
         "timestamp": "2025-11-30 21:17:22",
-        "duration_ms": 692.202,
-        "query_id": "up-UXcfCG"
+        "duration_ms": 409.978,
+        "query_id": "se-2qUBb1"
       },
       {
         "timestamp": "2025-11-30 21:17:22",
-        "duration_ms": 409.978,
-        "query_id": "se-2qUBb1"
+        "duration_ms": 692.202,
+        "query_id": "up-UXcfCG"
       },
       {
         "timestamp": "2025-11-30 21:17:22",
@@ -13004,12 +13004,12 @@
       },
       {
         "timestamp": "2025-11-30 21:17:46",
-        "duration_ms": 548.403,
+        "duration_ms": 130.548,
         "query_id": "up-UXcfCG"
       },
       {
         "timestamp": "2025-11-30 21:17:46",
-        "duration_ms": 130.548,
+        "duration_ms": 548.403,
         "query_id": "up-UXcfCG"
       },
       {
@@ -13269,13 +13269,13 @@
       },
       {
         "timestamp": "2025-11-30 21:18:03",
-        "duration_ms": 187.953,
-        "query_id": "se-2qUBb1"
+        "duration_ms": 260.309,
+        "query_id": "in-CIXwVT"
       },
       {
         "timestamp": "2025-11-30 21:18:03",
-        "duration_ms": 260.309,
-        "query_id": "in-CIXwVT"
+        "duration_ms": 187.953,
+        "query_id": "se-2qUBb1"
       },
       {
         "timestamp": "2025-11-30 21:18:04",
@@ -13354,13 +13354,13 @@
       },
       {
         "timestamp": "2025-11-30 21:18:05",
-        "duration_ms": 676.333,
-        "query_id": "up-UXcfCG"
+        "duration_ms": 628.832,
+        "query_id": "in-nk6Nue"
       },
       {
         "timestamp": "2025-11-30 21:18:05",
-        "duration_ms": 628.832,
-        "query_id": "in-nk6Nue"
+        "duration_ms": 676.333,
+        "query_id": "up-UXcfCG"
       },
       {
         "timestamp": "2025-11-30 21:18:05",
@@ -13734,13 +13734,13 @@
       },
       {
         "timestamp": "2025-11-30 21:18:30",
-        "duration_ms": 269.187,
-        "query_id": "se-2qUBb1"
+        "duration_ms": 631.932,
+        "query_id": "in-nk6Nue"
       },
       {
         "timestamp": "2025-11-30 21:18:30",
-        "duration_ms": 631.932,
-        "query_id": "in-nk6Nue"
+        "duration_ms": 269.187,
+        "query_id": "se-2qUBb1"
       },
       {
         "timestamp": "2025-11-30 21:18:30",
@@ -14019,13 +14019,13 @@
       },
       {
         "timestamp": "2025-11-30 21:18:48",
-        "duration_ms": 19.924,
-        "query_id": "se-2qUBb1"
+        "duration_ms": 306.411,
+        "query_id": "in-nk6Nue"
       },
       {
         "timestamp": "2025-11-30 21:18:48",
-        "duration_ms": 306.411,
-        "query_id": "in-nk6Nue"
+        "duration_ms": 19.924,
+        "query_id": "se-2qUBb1"
       },
       {
         "timestamp": "2025-11-30 21:18:48",
@@ -14369,13 +14369,13 @@
       },
       {
         "timestamp": "2025-11-30 21:19:14",
-        "duration_ms": 218.78,
-        "query_id": "up-UXcfCG"
+        "duration_ms": 297.176,
+        "query_id": "in-nk6Nue"
       },
       {
         "timestamp": "2025-11-30 21:19:14",
-        "duration_ms": 297.176,
-        "query_id": "in-nk6Nue"
+        "duration_ms": 218.78,
+        "query_id": "up-UXcfCG"
       },
       {
         "timestamp": "2025-11-30 21:19:14",

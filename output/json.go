@@ -660,6 +660,34 @@ type execRow struct {
 	qid string
 }
 
+// needsSort reports whether the executions must be materialized and sorted
+// before emitting. True for the bounded sql-detail slice (cheap) and for a
+// metrics source folded from several PID shards; false for a single-pass /
+// function-parallel run, whose events are already in stream order and stream
+// out directly — no sort buffer (which matters for the leaking-GC WASM build).
+func (l lazyExecutions) needsSort() bool {
+	if l.metrics != nil {
+		return l.metrics.ExecutionsNeedSort()
+	}
+	return true
+}
+
+// emit yields each execution's (timestamp, duration, query id) to fn in the
+// order it should be serialized: sorted when needsSort, otherwise streamed
+// straight from the compact store with no intermediate allocation.
+func (l lazyExecutions) emit(fn func(ts time.Time, dur float64, qid string)) {
+	if l.needsSort() {
+		for _, r := range l.sortedRows() {
+			fn(r.ts, r.dur, r.qid)
+		}
+		return
+	}
+	l.iterate(func(e analysis.QueryExecution) bool {
+		fn(e.Timestamp, e.Duration, e.QueryID)
+		return true
+	})
+}
+
 // sortedRows materializes every execution ordered by (timestamp, query_id,
 // duration). The compact executions store appends in stream order within a
 // shard, so a PID-sharded analyzer's fold concatenates per-shard runs in
@@ -667,8 +695,8 @@ type execRow struct {
 // regardless of the shard count. The key need not be a strict total order:
 // rows tying on all three fields serialize byte-for-byte the same, so their
 // relative order is immaterial. Cost is one O(n log n) sort plus a
-// three-field copy per event, paid only when an executions array is
-// rendered.
+// three-field copy per event, paid only when an executions array actually
+// needs reordering (see needsSort).
 func (l lazyExecutions) sortedRows() []execRow {
 	n := l.count()
 	if n == 0 {
@@ -1187,57 +1215,58 @@ func streamExecutionsJSON(bw *bufio.Writer, src lazyExecutions, prefix, indent s
 		tsFormat = "2006-01-02 15:04:05"
 	}
 	inner := prefix + indent
-	// Sorted for deterministic, shard-count-independent output (see sortedRows).
-	rows := src.sortedRows()
+	// Streamed in stream order, or sorted when folded from PID shards (see emit).
 	if compact {
 		bw.WriteByte('[')
-		for i := range rows {
-			e := &rows[i]
-			if i > 0 {
+		first := true
+		src.emit(func(ts time.Time, dur float64, qid string) {
+			if !first {
 				bw.WriteByte(',')
 			}
+			first = false
 			bw.WriteString(`{"timestamp":"`)
 			var tbuf [20]byte
-			bw.Write(e.ts.AppendFormat(tbuf[:0], tsFormat))
+			bw.Write(ts.AppendFormat(tbuf[:0], tsFormat))
 			bw.WriteString(`","duration_ms":`)
 			var nbuf [32]byte
-			bw.Write(strconv.AppendFloat(nbuf[:0], e.dur, 'f', -1, 64))
+			bw.Write(strconv.AppendFloat(nbuf[:0], dur, 'f', -1, 64))
 			bw.WriteString(`,"query_id":"`)
-			bw.WriteString(e.qid)
+			bw.WriteString(qid)
 			bw.WriteString(`"}`)
-		}
+		})
 		bw.WriteByte(']')
 		return
 	}
 	subInner := inner + indent
 	bw.WriteString("[\n")
-	for i := range rows {
-		e := &rows[i]
-		if i > 0 {
+	first := true
+	src.emit(func(ts time.Time, dur float64, qid string) {
+		if !first {
 			bw.WriteString(",\n")
 		}
+		first = false
 		bw.WriteString(inner)
 		bw.WriteString("{\n")
 		bw.WriteString(subInner)
 		bw.WriteString(`"timestamp": "`)
 		var tbuf [20]byte
-		bw.Write(e.ts.AppendFormat(tbuf[:0], tsFormat))
+		bw.Write(ts.AppendFormat(tbuf[:0], tsFormat))
 		bw.WriteString(`",`)
 		bw.WriteByte('\n')
 		bw.WriteString(subInner)
 		bw.WriteString(`"duration_ms": `)
 		var nbuf [32]byte
-		bw.Write(strconv.AppendFloat(nbuf[:0], e.dur, 'f', -1, 64))
+		bw.Write(strconv.AppendFloat(nbuf[:0], dur, 'f', -1, 64))
 		bw.WriteString(`,`)
 		bw.WriteByte('\n')
 		bw.WriteString(subInner)
 		bw.WriteString(`"query_id": `)
-		qb, _ := json.Marshal(e.qid)
+		qb, _ := json.Marshal(qid)
 		bw.Write(qb)
 		bw.WriteByte('\n')
 		bw.WriteString(inner)
 		bw.WriteByte('}')
-	}
+	})
 	bw.WriteByte('\n')
 	bw.WriteString(prefix)
 	bw.WriteByte(']')
@@ -1261,19 +1290,21 @@ func (l lazyExecutions) MarshalJSON() ([]byte, error) {
 	if tsFormat == "" {
 		tsFormat = "2006-01-02 15:04:05"
 	}
-	// Sorted for deterministic, shard-count-independent output (see sortedRows).
-	for i, exec := range l.sortedRows() {
-		if i > 0 {
+	// Streamed in stream order, or sorted when folded from PID shards (see emit).
+	first := true
+	l.emit(func(ts time.Time, dur float64, qid string) {
+		if !first {
 			buf = append(buf, ',')
 		}
+		first = false
 		buf = append(buf, `{"timestamp":"`...)
-		buf = exec.ts.AppendFormat(buf, tsFormat)
+		buf = ts.AppendFormat(buf, tsFormat)
 		buf = append(buf, `","duration_ms":`...)
-		buf = strconv.AppendFloat(buf, exec.dur, 'f', -1, 64)
+		buf = strconv.AppendFloat(buf, dur, 'f', -1, 64)
 		buf = append(buf, `,"query_id":"`...)
-		buf = append(buf, exec.qid...) // QueryIDs are safe ASCII (e.g. "se-abc123")
+		buf = append(buf, qid...) // QueryIDs are safe ASCII (e.g. "se-abc123")
 		buf = append(buf, `"}`...)
-	}
+	})
 	buf = append(buf, ']')
 	return buf, nil
 }

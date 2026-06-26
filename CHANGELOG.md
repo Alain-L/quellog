@@ -12,7 +12,7 @@ All notable changes to this project will be documented in this file.
 - **CSV parsing allocates ~half as much memory**: a single-pass, zero-copy CSV scanner replaces the standard-library reader, cutting CSV-path allocations by roughly 50%.
 
 ### Changed
-- **`--json` per-execution and per-event lists are now deterministically ordered** (executions by timestamp, query id, then duration; event occurrences ascending), so the output no longer depends on how the analysis was parallelized.
+- **`--json` output is stable run-to-run and across machines**: event-occurrence lists are sorted ascending, and PID-sharded runs order per-execution lists canonically (timestamp, query id, duration) so they don't depend on the core count.
 
 ### Fixed
 - **Maintenance elapsed times rounded to the microsecond**: a cumulative vacuum/analyze time could display e.g. `2s` for a true `3.0s` total due to float-summation noise; the rounded value is now correct and stable.

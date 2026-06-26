@@ -88,11 +88,14 @@ func (a *SQLAnalyzer) Merge(src *SQLAnalyzer) {
 	// append path so the dictionary-encoded dimensions and interned query
 	// IDs are re-mapped into dst's tables. Order does not matter (see the
 	// method doc): Finalize sorts durations and tallies dimensions.
-	if src.executions != nil {
+	if src.executions != nil && src.executions.Len() > 0 {
 		src.executions.ForEach(func(e QueryExecution) bool {
 			a.executions.append(e.Timestamp, e.Duration, e.QueryID, e.Database, e.User, e.App, e.Host)
 			return true
 		})
+		// dst now holds several per-shard runs back to back — no longer in
+		// global stream order, so the JSON dump must sort before emitting.
+		a.executions.needsSort = true
 	}
 
 	// Per-PID in-flight state: keys are disjoint across shards, so copy

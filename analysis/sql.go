@@ -278,6 +278,14 @@ func (m *SQLMetrics) ExecutionCount() int {
 	return m.executions.Len()
 }
 
+// ExecutionsNeedSort reports whether the raw execution dump must be sorted to
+// be deterministic — true only when several PID shards were folded together.
+// A single-pass / function-parallel run keeps events in stream order, so the
+// JSON output can stream them directly without materializing a sort buffer.
+func (m *SQLMetrics) ExecutionsNeedSort() bool {
+	return m.executions != nil && m.executions.needsSort
+}
+
 // ExecutionAt expands the i-th event to a full QueryExecution.
 // Panics if i is out of bounds — guard with ExecutionCount.
 func (m *SQLMetrics) ExecutionAt(i int) QueryExecution {
