@@ -393,7 +393,7 @@ func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry
 	// Analysis PID-shard count: > 1 only for large, uncompressed plain
 	// stderr (where LogEntry.PID is the backend PID). Computed once and
 	// threaded into every metrics build.
-	workers := shardWorkers(inputArgs, totalFileSize)
+	workers := shardWorkers(inputArgs)
 
 	// Special case: SQL query details (single query analysis)
 	if len(sqlDetailFlag) > 0 {
@@ -933,14 +933,21 @@ func createOutputWriter(path string) (io.Writer, func() error, error) {
 //
 // QUELLOG_SHARD_WORKERS overrides the count for benchmarking — it bypasses
 // the format/size gate, so only point it at plain stderr.
-func shardWorkers(inputArgs []string, totalFileSize int64) int {
+func shardWorkers(inputArgs []string) int {
 	if v := os.Getenv("QUELLOG_SHARD_WORKERS"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n >= 1 {
 			return n
 		}
 	}
-	const minSize = 256 << 20 // below this, fan-out overhead isn't worth it
-	if totalFileSize < minSize || len(inputArgs) == 0 {
+	if len(inputArgs) == 0 {
+		return 1
+	}
+	// Sharding pays off above ~256 MB of DECOMPRESSED content, since analysis
+	// work scales with decompressed size — not the on-disk size. Compressed
+	// inputs are scaled up by a conservative log-expansion factor first, so a
+	// 245 MB .gz (≈ 4.5 GB decompressed) shards while a small one does not.
+	const minSize = 256 << 20
+	if estimatedDecompressedSize(inputArgs) < minSize {
 		return 1
 	}
 	for _, f := range inputArgs {
@@ -956,6 +963,45 @@ func shardWorkers(inputArgs []string, totalFileSize int64) int {
 		n = 8
 	}
 	return n
+}
+
+// logExpansionFactor is a conservative estimate of how much a compressed
+// PostgreSQL log expands when decompressed. Measured ratios are ~14-18x (gzip
+// 18x, zstd 14x on a 4.5 GB log); 8 is a deliberate floor so we never
+// over-estimate — at worst a poorly-compressing input shards slightly below
+// the 256 MB target, which only costs the bounded fan-out setup.
+const logExpansionFactor = 8
+
+// estimatedDecompressedSize sums the byte volume the analysis stage will
+// process: compressed inputs scaled up by logExpansionFactor, plain inputs
+// (including uncompressed tar) counted at their on-disk size.
+func estimatedDecompressedSize(inputArgs []string) int64 {
+	var total int64
+	for _, f := range inputArgs {
+		fi, err := os.Stat(f)
+		if err != nil {
+			continue
+		}
+		sz := fi.Size()
+		if isCompressedInput(f) {
+			sz *= logExpansionFactor
+		}
+		total += sz
+	}
+	return total
+}
+
+// isCompressedInput reports whether a file is gzip/zstd-compressed (including
+// compressed tar) and therefore expands when decompressed. A plain .tar is a
+// 1:1 container and is not counted as compressed.
+func isCompressedInput(name string) bool {
+	lower := strings.ToLower(name)
+	for _, ext := range []string{".gz", ".zst", ".zstd", ".tgz", ".tzst"} {
+		if strings.HasSuffix(lower, ext) {
+			return true
+		}
+	}
+	return false
 }
 
 // requireMetrics aggregates metrics and returns an error if no log entries

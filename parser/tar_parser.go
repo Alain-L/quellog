@@ -272,3 +272,75 @@ func isZstdArchive(name string) bool {
 		strings.HasSuffix(lower, ".tar.zstd") ||
 		strings.HasSuffix(lower, ".tzst")
 }
+
+// tarFirstEntryShardable reports whether the first supported entry of a tar
+// archive (plain or gzip/zstd-compressed) is non-syslog stderr — the
+// PID-sharding precondition. Archives are assumed homogeneous: the first
+// entry's format stands in for the whole input; anything else (CSV/JSON,
+// syslog, unreadable) conservatively returns false.
+func tarFirstEntryShardable(filename string) bool {
+	file, err := os.Open(filename)
+	if err != nil {
+		return false
+	}
+	defer file.Close()
+
+	var reader io.Reader = file
+	if isGzipArchive(filename) {
+		gr, gzErr := newParallelGzipReader(file)
+		if gzErr != nil {
+			return false
+		}
+		defer gr.Close()
+		reader = gr
+	} else if isZstdArchive(filename) {
+		zr, zErr := newZstdDecoder(file)
+		if zErr != nil {
+			return false
+		}
+		defer zr.Close()
+		reader = zr
+	}
+
+	tr := tar.NewReader(reader)
+	for {
+		hdr, err := tr.Next()
+		if err != nil {
+			return false // EOF or read error: no shardable entry found
+		}
+		if hdr.Typeflag != tar.TypeReg || !isSupportedArchiveEntry(hdr.Name) {
+			continue
+		}
+		// Sample this entry, transparently decompressing a nested member.
+		name := hdr.Name
+		var er io.Reader = tr
+		lower := strings.ToLower(name)
+		switch {
+		case strings.HasSuffix(lower, ".gz"):
+			gr, gzErr := newParallelGzipReader(tr)
+			if gzErr != nil {
+				return false
+			}
+			defer gr.Close()
+			er, name = gr, name[:len(name)-3]
+		case strings.HasSuffix(lower, ".zstd"):
+			zr, zErr := newZstdDecoder(tr)
+			if zErr != nil {
+				return false
+			}
+			defer zr.Close()
+			er, name = zr, name[:len(name)-5]
+		case strings.HasSuffix(lower, ".zst"):
+			zr, zErr := newZstdDecoder(tr)
+			if zErr != nil {
+				return false
+			}
+			defer zr.Close()
+			er, name = zr, name[:len(name)-4]
+		}
+		buf := make([]byte, sampleBufferSize)
+		n, _ := io.ReadFull(er, buf)
+		sample := strings.TrimPrefix(string(buf[:n]), string(utf8BOM))
+		return sampleShardable(filepath.Base(name), sample)
+	}
+}

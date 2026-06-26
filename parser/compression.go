@@ -183,6 +183,20 @@ func detectCompressedParserWithError(filename, baseName string, codec compressio
 	return wrapCompressedParser(parser, codec), nil
 }
 
+// compressedSampleShardable reports whether the decompressed content of a
+// single-file gzip/zstd input is non-syslog stderr — i.e. whether the analysis
+// of this input benefits from PID-sharding (see sampleShardable). baseName is
+// filename with the compression suffix stripped, so the inner extension drives
+// format detection.
+func compressedSampleShardable(filename string, codec compressionCodec, baseName string) bool {
+	sample, err := readCompressedSample(filename, codec)
+	if err != nil {
+		return false
+	}
+	sample = strings.TrimPrefix(sample, string(utf8BOM))
+	return sampleShardable(filepath.Base(baseName), sample)
+}
+
 // readCompressedSample streams the first portion of the compressed file and returns it as text.
 func readCompressedSample(filename string, codec compressionCodec) (string, error) {
 	file, err := os.Open(filename)
