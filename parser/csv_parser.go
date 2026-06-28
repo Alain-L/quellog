@@ -75,20 +75,34 @@ func (p *CsvParser) Parse(filename string, out chan<- []LogEntry) error {
 	}
 	defer f.Close()
 
+	// Large plain CSV takes the parallel record-aligned segment path: CSV
+	// parsing is otherwise the wall-clock bottleneck (~95% of the wall on a
+	// 1.2 GB file). parseReader strips a leading BOM per-segment, so segment 0
+	// needs no special handling.
+	if st, err := f.Stat(); err == nil && st.Size() >= csvParallelMinSize {
+		if workers := parallelWorkers(); workers >= 2 {
+			return p.parseParallel(f, st.Size(), workers, out)
+		}
+	}
 	return p.parseReader(WithProgress(f), out)
 }
 
 // parseReader processes CSV records from any io.Reader.
+//
+// Custom zero-copy scanner replaces encoding/csv on the hot path: it yields
+// field views into its own 1 MB read buffer instead of a per-field heap string,
+// cutting CSV-path allocations roughly in half (profiled). buildCSVMessage
+// copies what it keeps, so the views never outlive the next Next() call.
 func (p *CsvParser) parseReader(r io.Reader, out chan<- []LogEntry) error {
+	return p.parseScanner(newCSVScanner(skipBOM(r)), out)
+}
+
+// parseScanner drives an already-bound scanner. Split out so the parallel path
+// can hand a worker-reused scanner (and CsvParser) across segments instead of
+// allocating fresh per segment.
+func (p *CsvParser) parseScanner(sc *csvScanner, out chan<- []LogEntry) error {
 	bs := NewBatchSender(out)
 	defer bs.Flush()
-
-	// Custom zero-copy scanner replaces encoding/csv on the hot path: it
-	// yields field views into its own 1 MB read buffer instead of a per-field
-	// heap string, cutting CSV-path allocations roughly in half (profiled).
-	// buildCSVMessage copies what it keeps, so the views never outlive the
-	// next Next() call.
-	sc := newCSVScanner(skipBOM(r))
 
 	lineNum := 0
 	for {

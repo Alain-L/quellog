@@ -81,6 +81,18 @@ func newCSVScanner(r io.Reader) *csvScanner {
 	return &csvScanner{r: r, buf: make([]byte, csvScannerInitialBuf)}
 }
 
+// Reset rebinds the scanner to r and clears its cursors so the read buffer and
+// span slice are reused across inputs. A parallel worker parsing many segments
+// then allocates them once instead of once per segment; a buffer grown for a
+// giant record is kept, amortizing across later segments.
+func (s *csvScanner) Reset(r io.Reader) {
+	s.r = r
+	s.start = 0
+	s.end = 0
+	s.eof = false
+	s.spans = s.spans[:0]
+}
+
 // fill reads more data into buf, growing it when full. It loops past
 // zero-length non-EOF reads so callers never spin.
 func (s *csvScanner) fill() error {
