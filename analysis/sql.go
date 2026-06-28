@@ -3,6 +3,7 @@ package analysis
 
 import (
 	"container/list"
+	"math"
 	"sort"
 	"strconv"
 	"strings"
@@ -205,6 +206,11 @@ type QueryStat struct {
 	// LastPlan keeps only the most recent auto_explain plan per query
 	// signature (memory-bounded; older plans are discarded).
 	LastPlan string
+	// lastPlanSeq is the stream position of the execution that set LastPlan.
+	// Unexported (not serialized): it lets a PID-sharded Merge pick the
+	// chronologically-last plan across shards (largest seq), reproducing the
+	// single pass which overwrites LastPlan in stream order.
+	lastPlanSeq int64
 	// PreparedNames lists the distinct prepared-statement names seen for
 	// this query (extended protocol). "<unnamed>" for anonymous prepared
 	// statements; bare identifiers for named ones (JDBC-style "S_24").
@@ -270,6 +276,14 @@ func (m *SQLMetrics) ExecutionCount() int {
 		return 0
 	}
 	return m.executions.Len()
+}
+
+// ExecutionsNeedSort reports whether the raw execution dump must be sorted to
+// be deterministic — true only when several PID shards were folded together.
+// A single-pass / function-parallel run keeps events in stream order, so the
+// JSON output can stream them directly without materializing a sort buffer.
+func (m *SQLMetrics) ExecutionsNeedSort() bool {
+	return m.executions != nil && m.executions.needsSort
 }
 
 // ExecutionAt expands the i-th event to a full QueryExecution.
@@ -876,6 +890,7 @@ func (a *SQLAnalyzer) Process(entry *parser.LogEntry) {
 	if pid != "" {
 		if plan, hasPlan := a.pendingPlanByPID[pid]; hasPlan {
 			stats.LastPlan = plan
+			stats.lastPlanSeq = entry.Seq
 			delete(a.pendingPlanByPID, pid)
 		}
 	}
@@ -1068,6 +1083,15 @@ func (a *SQLAnalyzer) Finalize() SQLMetrics {
 
 	// Calculate average time for each query and aggregate by type
 	for _, stat := range a.queryStats {
+		// Stabilize the summed time against shard-fold order before deriving
+		// the average: TotalTime is a float sum whose low bits depend on the
+		// summation order, so a PID-sharded fold can differ from the
+		// sequential pass by a sub-µs ULP. Source durations are µs-precise, so
+		// rounding to the µs drops only noise — and keeps AvgTime (and its
+		// rounded JSON form) identical regardless of shard count. The output
+		// layer already µs-rounds TotalTime, so this does not change its
+		// rendered value.
+		stat.TotalTime = math.Round(stat.TotalTime*1e3) / 1e3
 		stat.AvgTime = stat.TotalTime / float64(stat.Count)
 
 		// Get query type from ID
@@ -1302,9 +1326,14 @@ const preparedNamesCap = 16
 // log line via timestamp + PID.
 const slowestRunParamsCap = 8192
 
-// appendPreparedName adds name to the deduplicated set, preserving
-// observation order. Linear scan is fine — the set is bounded by
-// preparedNamesCap.
+// appendPreparedName folds name into the deduplicated set, keeping it
+// sorted ascending and capped at the preparedNamesCap lexicographically
+// smallest names. Selecting the smallest-K rather than the first-K-seen
+// makes the retained set independent of arrival order, so a PID-sharded
+// analyzer (whose shards each see a different subset of executions, then
+// fold via this same function) converges to the exact same set as a
+// single sequential pass. Linear scan/insert is fine — the set is bounded
+// by preparedNamesCap.
 func appendPreparedName(names []string, name string) []string {
 	for _, n := range names {
 		if n == name {
@@ -1312,9 +1341,20 @@ func appendPreparedName(names []string, name string) []string {
 		}
 	}
 	if len(names) >= preparedNamesCap {
-		return names
+		// Set is full: only a name smaller than the current largest can
+		// belong to the smallest-K, displacing that largest.
+		if name >= names[len(names)-1] {
+			return names
+		}
+		names[len(names)-1] = name
+	} else {
+		names = append(names, name)
 	}
-	return append(names, name)
+	// Bubble the new name left into sorted position (K <= 16).
+	for i := len(names) - 1; i > 0 && names[i] < names[i-1]; i-- {
+		names[i], names[i-1] = names[i-1], names[i]
+	}
+	return names
 }
 
 // isParamsMessage returns true if the message is a "DETAIL: parameters:"

@@ -7,6 +7,16 @@ All notable changes to this project will be documented in this file.
 ### Added
 - **Full example report in demo mode**: a "See example report" link on the drop zone loads a bundled example log through the normal pipeline, so the report (cost map, split, every section) can be explored without supplying a file.
 
+### Performance
+- **Large stderr logs analyze 15-25% faster**: data-parallel analysis engine shards backends across CPU cores by PID. Engages automatically on large stderr files.
+- **CSV parsing allocates ~half as much memory**: a single-pass, zero-copy CSV scanner replaces the standard-library reader, cutting CSV-path allocations by roughly 50%.
+
+### Changed
+- **`--json` output is stable run-to-run and across machines**: event-occurrence lists are sorted ascending, and PID-sharded runs order per-execution lists canonically (timestamp, query id, duration) so they don't depend on the core count.
+
+### Fixed
+- **Maintenance elapsed times rounded to the microsecond**: a cumulative vacuum/analyze time could display e.g. `2s` for a true `3.0s` total due to float-summation noise; the rounded value is now correct and stable.
+
 ## [0.11.0] - 2026-06-23
 
 ### Added

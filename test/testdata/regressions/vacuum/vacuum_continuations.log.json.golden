@@ -20,7 +20,7 @@
     "vacuum_space_recovered": {
       "appdb.public.events": "40.00 KB"
     },
-    "total_vacuum_elapsed_seconds": 49.479000000000006,
+    "total_vacuum_elapsed_seconds": 49.479,
     "total_tuples_removed": 10350,
     "total_tuples_not_yet_removable": 1500000,
     "total_buffer_hits": 7100,
@@ -33,7 +33,7 @@
       {
         "table": "appdb.public.events",
         "vacuum_count": 2,
-        "total_elapsed_seconds": 48.245000000000005,
+        "total_elapsed_seconds": 48.245,
         "max_elapsed_seconds": 45.789,
         "tuples_removed": 10100,
         "tuples_not_yet_removable": 1500000,
@@ -62,7 +62,7 @@
       {
         "table": "appdb.public.events",
         "vacuum_count": 2,
-        "total_elapsed_seconds": 48.245000000000005,
+        "total_elapsed_seconds": 48.245,
         "max_elapsed_seconds": 45.789,
         "tuples_removed": 10100,
         "tuples_not_yet_removable": 1500000,

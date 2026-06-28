@@ -27,6 +27,13 @@ type LogEntry struct {
 	// populated once at construction so the eight analyzers don't each
 	// re-parse the prefix. Empty if not extractable.
 	PID string
+	// Seq is a monotonic stream position assigned by the analysis
+	// dispatcher before PID-sharding. Analyzers that build ordered
+	// per-occurrence event slices stamp it onto each event so the
+	// sharded merge can reproduce the exact single-pass (stream) order
+	// when timestamps tie. Zero outside the dispatcher (e.g. unit tests
+	// constructing entries directly), which is harmless.
+	Seq int64
 }
 
 // NewLogEntry builds a LogEntry with its PID field pre-populated from

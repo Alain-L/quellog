@@ -7568,7 +7568,7 @@
       "template1.pg_catalog.pg_shdepend": 1
     },
     "vacuum_space_recovered": {},
-    "total_vacuum_elapsed_seconds": 2.4899999999999998,
+    "total_vacuum_elapsed_seconds": 2.49,
     "total_tuples_removed": 18178,
     "total_tuples_not_yet_removable": 87,
     "total_buffer_hits": 18231,
@@ -7637,7 +7637,7 @@
       "timestamp": "2025-11-30 21:11:03",
       "elapsed_seconds": 0.78
     },
-    "total_analyze_elapsed_seconds": 28.259999999999998,
+    "total_analyze_elapsed_seconds": 28.26,
     "top_analyze_tables_by_elapsed": [
       {
         "table": "app_db.public.large_transactions",
@@ -7648,19 +7648,19 @@
       {
         "table": "app_db.public.event_log",
         "vacuum_count": 7,
-        "total_elapsed_seconds": 7.5200000000000005,
+        "total_elapsed_seconds": 7.52,
         "max_elapsed_seconds": 2.77
       },
       {
         "table": "app_db.public.sessions",
         "vacuum_count": 8,
-        "total_elapsed_seconds": 2.0799999999999996,
+        "total_elapsed_seconds": 2.08,
         "max_elapsed_seconds": 0.81
       },
       {
         "table": "app_db.public.orders",
         "vacuum_count": 11,
-        "total_elapsed_seconds": 0.7500000000000002,
+        "total_elapsed_seconds": 0.75,
         "max_elapsed_seconds": 0.13
       },
       {

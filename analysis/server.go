@@ -16,6 +16,7 @@ type ServerTimelineEvent struct {
 	Timestamp time.Time
 	Kind      string
 	Detail    string
+	seq       int64 // stream position (unexported: not serialized), for stable cross-shard merge
 }
 
 // ServerParameterChange records one "parameter X changed to Y" line.
@@ -28,6 +29,7 @@ type ServerParameterChange struct {
 	Old       string
 	New       string
 	Timestamp time.Time
+	seq       int64 // stream position (unexported: not serialized), for stable cross-shard merge
 }
 
 // ServerMetrics aggregates the PostgreSQL server lifecycle events:
@@ -129,6 +131,10 @@ const (
 //	metrics := analyzer.Finalize()
 type ServerAnalyzer struct {
 	m ServerMetrics
+	// curSeq is the stream position of the entry currently being processed,
+	// stamped onto each timeline/parameter event so the cross-shard merge
+	// can restore exact single-pass order on equal timestamps.
+	curSeq int64
 }
 
 // NewServerAnalyzer creates a new server-lifecycle analyzer.
@@ -147,6 +153,7 @@ func (a *ServerAnalyzer) Process(entry *parser.LogEntry) {
 	if entry.IsContinuation {
 		return
 	}
+	a.curSeq = entry.Seq
 	msg := entry.Message
 	if len(msg) < 12 {
 		return
@@ -276,6 +283,7 @@ func (a *ServerAnalyzer) recordParameterChange(t time.Time, body string) {
 		Parameter: param,
 		New:       newVal,
 		Timestamp: t,
+		seq:       a.curSeq,
 	})
 }
 
@@ -336,6 +344,7 @@ func (a *ServerAnalyzer) pushTimeline(t time.Time, kind, detail string) {
 		Timestamp: t,
 		Kind:      kind,
 		Detail:    detail,
+		seq:       a.curSeq,
 	})
 }
 

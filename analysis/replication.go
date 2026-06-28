@@ -43,6 +43,7 @@ type ReplicationEvent struct {
 	Timestamp time.Time
 	Marker    string // pattern key (see replMarker* constants)
 	Severity  string // LOG / WARNING / ERROR / FATAL
+	seq       int64  // stream position (unexported: not serialized), for stable cross-shard merge
 }
 
 // ReplicationConflictQueryStat aggregates per-query stats for queries
@@ -250,6 +251,7 @@ func (a *ReplicationAnalyzer) recordMarker(entry *parser.LogEntry, key string) {
 		Timestamp: entry.Timestamp,
 		Marker:    key,
 		Severity:  severity,
+		seq:       entry.Seq,
 	})
 
 	if !entry.Timestamp.IsZero() {
