@@ -888,9 +888,11 @@ func calculateTotalFileSize(files []string) int64 {
 }
 
 // PrintProcessingSummary displays a summary line showing processing statistics.
+// The build version is prefixed so pasted output is self-identifying ("dev" for
+// local builds, the real tag for goreleaser builds).
 func PrintProcessingSummary(numEntries int, duration time.Duration, fileSize int64) {
-	fmt.Printf("quellog – %d entries processed in %.2f s (%s)\n",
-		numEntries, duration.Seconds(), output.FormatBytes(fileSize))
+	fmt.Printf("quellog %s – %d entries processed in %.2f s (%s)\n",
+		version, numEntries, duration.Seconds(), output.FormatBytes(fileSize))
 }
 
 // createOutputWriter returns an io.Writer for the given output path and a
