@@ -60,3 +60,11 @@ jobs:
 
       - name: Build CLI
         run: go build -v .
+
+      - name: Install TinyGo
+        run: |
+          wget -q https://github.com/tinygo-org/tinygo/releases/download/v0.39.0/tinygo_0.39.0_amd64.deb
+          sudo dpkg -i tinygo_0.39.0_amd64.deb
+
+      - name: WASM build check (TinyGo, gc=leaking)
+        run: tinygo build -o /tmp/quellog_tiny.wasm -target wasm -gc=leaking -no-debug ./web/wasm/main.go
