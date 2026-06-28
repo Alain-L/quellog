@@ -111,8 +111,8 @@ func (p *progressBar) loop() {
 // final summary printed by PrintProcessingSummary so the eye reads
 // the transition as one element settling:
 //
-//	live:  quellog – ■■■■■□□□□□□□  41.7% – 216.00 MB/s
-//	final: quellog – 1597770 entries processed in 5.83 s (1.18 GB)
+//	live:  quellog v0.12.0 – ■■■■■□□□□□□□  41.7% – 216.00 MB/s
+//	final: quellog v0.12.0 – 1597770 entries processed in 5.83 s (1.18 GB)
 func (p *progressBar) render() {
 	done := p.bytesDone.Load() + parser.CurrentFileProgress()
 	if done > p.totalBytes {
@@ -124,8 +124,8 @@ func (p *progressBar) render() {
 	}
 	rate := float64(done) / time.Since(p.startTime).Seconds()
 	fmt.Fprintf(os.Stderr,
-		"\r\x1b[2Kquellog – %s %5.1f%% – %9s/s",
-		renderBar(done, p.totalBytes, barWidth),
+		"\r\x1b[2Kquellog %s – %s %5.1f%% – %9s/s",
+		version, renderBar(done, p.totalBytes, barWidth),
 		pct, output.FormatBytes(int64(rate)),
 	)
 }

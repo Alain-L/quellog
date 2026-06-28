@@ -172,8 +172,8 @@ func normalizeOutput(output, format string) string {
 	ansiRegex := regexp.MustCompile(`\x1b\[[0-9;]*m`)
 	normalized = ansiRegex.ReplaceAllString(normalized, "")
 
-	// Remove the header line (processing time and file size vary per run)
-	headerRegex := regexp.MustCompile("quellog \xe2\x80\x93 \\d+ entries processed in [0-9.]+ s \\([^)]+\\)")
+	// Remove the header line (version, processing time and file size vary per run)
+	headerRegex := regexp.MustCompile("quellog \\S+ \xe2\x80\x93 \\d+ entries processed in [0-9.]+ s \\([^)]+\\)")
 	normalized = headerRegex.ReplaceAllString(normalized, "HEADER")
 
 	// Normalize query IDs (e.g., "be-BQ2mOa", "se-yQnLXV", "in-D1z6KP")
