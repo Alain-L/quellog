@@ -585,6 +585,8 @@
             position: relative;
             height: 6px;
             margin: 0.75rem 0;
+            background: var(--border);
+            border-radius: 3px;
         }
         .filter-time-slider-track input[type="range"] {
             position: absolute;
@@ -595,40 +597,62 @@
             -webkit-appearance: none;
             appearance: none;
             margin: 0;
+            z-index: 2; /* thumbs (and their halo) paint above the fill bar */
         }
         .filter-time-slider-track input[type="range"]::-webkit-slider-runnable-track {
             height: 6px;
-            background: var(--border);
+            background: transparent; /* grey bar drawn by the parent track */
             border-radius: 3px;
         }
+        /* Handles: a small solid dot at rest with a soft translucent halo that
+           grows on hover and while dragging (Material-style). The halo is the
+           second box-shadow layer (spread, primary at low alpha); the first
+           layer is a subtle drop shadow kept in every state. */
         .filter-time-slider-track input[type="range"]::-webkit-slider-thumb {
             -webkit-appearance: none;
             appearance: none;
-            width: 16px;
-            height: 16px;
+            width: 10px;
+            height: 10px;
             background: var(--primary);
-            border: 2px solid white;
+            border: none;
             border-radius: 50%;
             cursor: pointer;
             pointer-events: auto;
-            margin-top: -5px;
-            box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+            margin-top: -2px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3), 0 0 0 0 color-mix(in srgb, var(--primary) 22%, transparent);
+            transition: box-shadow 0.15s ease;
+        }
+        .filter-time-slider-track input[type="range"]:hover::-webkit-slider-thumb {
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3), 0 0 0 6px color-mix(in srgb, var(--primary) 22%, transparent);
+        }
+        .filter-time-slider-track input[type="range"]:active::-webkit-slider-thumb,
+        .filter-time-slider-track input[type="range"]:focus-visible::-webkit-slider-thumb {
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3), 0 0 0 8px color-mix(in srgb, var(--primary) 30%, transparent);
         }
         .filter-time-slider-track input[type="range"]::-moz-range-track {
             height: 6px;
-            background: var(--border);
+            background: transparent; /* grey bar drawn by the parent track */
             border-radius: 3px;
         }
         .filter-time-slider-track input[type="range"]::-moz-range-thumb {
-            width: 16px;
-            height: 16px;
+            width: 10px;
+            height: 10px;
             background: var(--primary);
-            border: 2px solid white;
+            border: none;
             border-radius: 50%;
             cursor: pointer;
             pointer-events: auto;
-            box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3), 0 0 0 0 color-mix(in srgb, var(--primary) 22%, transparent);
+            transition: box-shadow 0.15s ease;
         }
+        .filter-time-slider-track input[type="range"]:hover::-moz-range-thumb {
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3), 0 0 0 6px color-mix(in srgb, var(--primary) 22%, transparent);
+        }
+        .filter-time-slider-track input[type="range"]:active::-moz-range-thumb,
+        .filter-time-slider-track input[type="range"]:focus-visible::-moz-range-thumb {
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3), 0 0 0 8px color-mix(in srgb, var(--primary) 30%, transparent);
+        }
+        .filter-time-slider-track input[type="range"]:focus { outline: none; }
         .filter-time-slider-range {
             position: absolute;
             top: 0;
@@ -636,6 +660,7 @@
             background: var(--primary);
             border-radius: 3px;
             pointer-events: none;
+            z-index: 1; /* below the thumbs so the handle halo stays whole */
         }
         .filter-time-slider-day {
             text-align: center;
@@ -1338,6 +1363,68 @@
             font-variant-numeric: tabular-nums;
             color: var(--text-muted);
             white-space: nowrap;
+        }
+
+        /* Interactive time control hosted in the Summary card (replaces the old
+           read-only timeline). Mirrors .summary-timeline-row layout, but the
+           track holds the dual-handle slider instead of a static segment. */
+        .summary-time {
+            padding: 0.15rem 0 0.7rem;
+        }
+        .summary-time-row {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .summary-time-bound {
+            font-size: 0.65rem;
+            font-variant-numeric: tabular-nums;
+            color: var(--text-muted);
+            opacity: 0.6;
+        }
+        .summary-time-row .filter-time-slider-track {
+            flex: 1;
+            margin: 0;
+        }
+        @media (max-width: 600px) {
+            .summary-time-day-label { font-size: 0.55rem; }
+            .summary-time-bound { font-size: 0.58rem; }
+        }
+
+        /* Ephemeral pulse on the selected window when a filter is applied — a
+           brief accent ripple that draws the eye, then settles. */
+        @keyframes timeRangePulse {
+            0%   { box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 70%, transparent); background: var(--primary-light); }
+            55%  { background: var(--primary-light); }
+            100% { box-shadow: 0 0 0 9px color-mix(in srgb, var(--primary) 0%, transparent); }
+        }
+        .filter-time-slider-range.pulse {
+            animation: timeRangePulse 0.6s ease-out;
+        }
+
+        /* Multi-day: per-day date labels above the track + midnight dividers. */
+        .summary-time--multiday {
+            padding-top: 1.4rem;
+        }
+        .summary-time-day-label {
+            position: absolute;
+            top: -1.15rem;
+            transform: translateX(-50%);
+            font-size: 0.62rem;
+            font-variant-numeric: tabular-nums;
+            color: var(--text-muted);
+            white-space: nowrap;
+            pointer-events: none;
+        }
+        .summary-time-day-divider {
+            position: absolute;
+            top: 0;
+            width: 1px;
+            height: 100%;
+            transform: translateX(-50%);
+            background: var(--card-bg);
+            pointer-events: none;
+            z-index: 1;
         }
 
         /* Event bars - Compact */

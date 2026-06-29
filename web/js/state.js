@@ -18,10 +18,18 @@ export let availableDimensions = null; // Available filter dimensions
 export let openDropdown = null;       // Currently open dropdown category
 
 // Time filter state
-export let timeFilterMode = 'slider'; // 'slider' or 'pickers'
-export let timeFilterStartTs = null;  // Start timestamp for slider offset
-export let timeFilterEndTs = null;    // End timestamp
-export let timeFilterDurationMins = 0;
+export let timeFilterStartTs = null;  // Start timestamp for slider offset (original span)
+export let timeFilterEndTs = null;    // End timestamp (original span)
+export let timeFilterDurationMins = 0; // Slider axis length, in minutes (original span)
+// Current handle selection, in minutes from the original start. Persisted across
+// re-renders because the slider now lives inside the rebuilt Summary card.
+export let timeFilterSelMin = 0;
+export let timeFilterSelMax = 0;
+// Baseline selection = "no filter" extent (data span within the axis). For a
+// single day it's 0..duration; for a multi-day full-calendar-days axis it's the
+// real data offsets, so the default handles mark the actual data coverage.
+export let timeFilterDefMin = 0;
+export let timeFilterDefMax = 0;
 
 // Chart management
 export const charts = new Map();  // Store chart instances by ID
@@ -57,8 +65,11 @@ export function setCurrentFilters(filters) { currentFilters = filters; }
 export function setAppliedFilters(filters) { appliedFilters = filters; }
 export function setAvailableDimensions(dims) { availableDimensions = dims; }
 export function setOpenDropdown(dropdown) { openDropdown = dropdown; }
-export function setTimeFilterMode(mode) { timeFilterMode = mode; }
 export function setTimeFilterStartTs(ts) { timeFilterStartTs = ts; }
 export function setTimeFilterEndTs(ts) { timeFilterEndTs = ts; }
 export function setTimeFilterDurationMins(mins) { timeFilterDurationMins = mins; }
+export function setTimeFilterSelMin(v) { timeFilterSelMin = v; }
+export function setTimeFilterSelMax(v) { timeFilterSelMax = v; }
+export function setTimeFilterDefMin(v) { timeFilterDefMin = v; }
+export function setTimeFilterDefMax(v) { timeFilterDefMax = v; }
 export function clearCurrentFilters() { currentFilters = {}; }

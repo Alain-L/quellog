@@ -3,15 +3,25 @@
 import { esc, escAttr } from './utils.js';
 import {
     originalDimensions, currentFilters, appliedFilters, availableDimensions, openDropdown,
-    timeFilterMode, timeFilterStartTs, timeFilterEndTs, timeFilterDurationMins,
+    timeFilterStartTs, timeFilterDurationMins,
+    timeFilterSelMin, timeFilterSelMax, timeFilterDefMin, timeFilterDefMax,
     setOriginalDimensions, setCurrentFilters, setAvailableDimensions, setOpenDropdown,
-    setTimeFilterMode, setTimeFilterStartTs, setTimeFilterEndTs, setTimeFilterDurationMins,
+    setTimeFilterStartTs, setTimeFilterEndTs, setTimeFilterDurationMins,
+    setTimeFilterSelMin, setTimeFilterSelMax, setTimeFilterDefMin, setTimeFilterDefMax,
     clearCurrentFilters
 } from './state.js';
 
 // ===== Filter Bar Show/Hide =====
 
 export function showFilterBar() {
+    // A CLI-generated static report can only filter by time, now hosted in the
+    // Summary card; everything in the filter bar (dimension dropdowns, split,
+    // Apply/Clear) drives WASM re-parsing against the raw file, which a static
+    // report doesn't carry — so the whole bar is hidden there.
+    if (window.REPORT_MODE) {
+        document.getElementById('filterBar')?.classList.remove('active');
+        return;
+    }
     document.getElementById('filterBar')?.classList.add('active');
 }
 
@@ -53,76 +63,113 @@ export function initFilterBar(data, isInitial = false) {
 
 // ===== Time Filter =====
 
-export function initTimeFilter(startDate, endDate) {
-    const slider = document.getElementById('filterTimeSlider');
-    const pickers = document.getElementById('filterTimePickers');
-    const begin = document.getElementById('filterBegin');
-    const end = document.getElementById('filterEnd');
+const DAY_MS = 86400000;
+// Above this many days the per-day labels collide on the track, so the time
+// filter switches to From/To date pickers. Shared by initTimeFilter and the
+// Summary renderer (app.js) so both agree on the cutoff.
+export const MAX_CANVAS_DAYS = 8;
+// A leading/trailing calendar day with less coverage than this is folded away,
+// so a log ending at e.g. 00:00:01 doesn't add a near-empty extra day.
+const NEGLIGIBLE_DAY_MS = 5 * 60 * 1000;
 
-    if (!startDate || !endDate) return;
-
-    // Parse timestamps
+// computeDayAxis turns the dataset bounds into the full-calendar-days axis used by
+// the Summary time slider: each touched day is a full 24h of equal width, offsets
+// are measured from midnight of the first day, and the default selection marks the
+// real data extent. A leading/trailing day whose coverage is negligible is dropped
+// (guard-rail). Shared by initTimeFilter and the Summary renderer so both agree.
+export function computeDayAxis(startDate, endDate) {
     const startTs = new Date(startDate.replace(' ', 'T')).getTime();
     const endTs = new Date(endDate.replace(' ', 'T')).getTime();
-    const durationMs = endTs - startTs;
-    const durationHours = durationMs / (1000 * 60 * 60);
+    const sd = new Date(startTs);
+    let axisStart = new Date(sd.getFullYear(), sd.getMonth(), sd.getDate()).getTime();
+    const ed = new Date(endTs);
+    let axisEnd = new Date(ed.getFullYear(), ed.getMonth(), ed.getDate() + 1).getTime();
 
-    if (durationHours <= 24) {
-        // Slider mode - offset from start
-        setTimeFilterMode('slider');
-        setTimeFilterStartTs(startTs);
-        setTimeFilterEndTs(endTs);
-        const durationMins = Math.ceil(durationMs / (1000 * 60));
-        setTimeFilterDurationMins(durationMins);
-
-        slider.style.display = 'block';
-        pickers.style.display = 'none';
-
-        // Set slider range
-        const minSlider = document.getElementById('filterTimeMin');
-        const maxSlider = document.getElementById('filterTimeMax');
-        minSlider.min = 0;
-        minSlider.max = durationMins;
-        maxSlider.min = 0;
-        maxSlider.max = durationMins;
-        minSlider.value = 0;
-        maxSlider.value = durationMins;
-        minSlider.setAttribute('data-original', '0');
-        maxSlider.setAttribute('data-original', String(durationMins));
-
-        // Set day label
-        const startDay = startDate.split(' ')[0];
-        const endDay = endDate.split(' ')[0];
-        if (startDay === endDay) {
-            document.getElementById('filterTimeDay').textContent = formatDateHuman(startDay);
-        } else {
-            document.getElementById('filterTimeDay').textContent = formatDateHuman(startDay) + ' – ' + formatDateHuman(endDay);
-        }
-
-        // Update display
-        updateTimeSlider();
-
-        // Add event listeners
-        minSlider.oninput = () => { enforceMinMax(); updateTimeSlider(); updateApplyButton(); updateTimeDropdownTrigger(); };
-        maxSlider.oninput = () => { enforceMinMax(); updateTimeSlider(); updateApplyButton(); updateTimeDropdownTrigger(); };
-    } else {
-        // Pickers mode
-        setTimeFilterMode('pickers');
-        setTimeFilterStartTs(null);
-        setTimeFilterEndTs(null);
-        slider.style.display = 'none';
-        pickers.style.display = 'grid';
-
-        if (begin) {
-            begin.value = startDate.slice(0, 16).replace(' ', 'T');
-            begin.setAttribute('data-original', begin.value);
-        }
-        if (end) {
-            end.value = endDate.slice(0, 16).replace(' ', 'T');
-            end.setAttribute('data-original', end.value);
-        }
+    // Fold away a negligible trailing day, then a negligible leading day.
+    if (axisEnd - axisStart > DAY_MS && endTs - (axisEnd - DAY_MS) < NEGLIGIBLE_DAY_MS) {
+        axisEnd -= DAY_MS;
     }
+    if (axisEnd - axisStart > DAY_MS && (axisStart + DAY_MS) - startTs < NEGLIGIBLE_DAY_MS) {
+        axisStart += DAY_MS;
+    }
+
+    const nDays = Math.round((axisEnd - axisStart) / DAY_MS);
+    const durMins = nDays * 1440;
+    let defMin = Math.round((startTs - axisStart) / 60000);
+    let defMax = Math.round((endTs - axisStart) / 60000);
+    if (defMin < 0) defMin = 0;
+    if (defMax > durMins) defMax = durMins;
+    return { startTs, endTs, axisStart, axisEnd, nDays, durMins, defMin, defMax };
 }
+
+// initTimeFilter computes the slider axis from the dataset bounds. DOM-free and
+// run once per dataset (initial render): the time control lives in the Summary
+// card, which is rebuilt on every render, so wireTimeFilter() does the DOM
+// binding after each render.
+export function initTimeFilter(startDate, endDate) {
+    if (!startDate || !endDate) return;
+
+    const a = computeDayAxis(startDate, endDate);
+
+    // Always the slider — beyond MAX_CANVAS_DAYS we just drop the per-day labels
+    // and show the start/end dates at the ends instead (handled in the renderer).
+    setTimeFilterStartTs(a.axisStart);
+    setTimeFilterEndTs(a.axisEnd);
+    setTimeFilterDurationMins(a.durMins);
+    setTimeFilterDefMin(a.defMin);
+    setTimeFilterDefMax(a.defMax);
+    setTimeFilterSelMin(a.defMin);
+    setTimeFilterSelMax(a.defMax);
+}
+
+// wireTimeFilter binds the in-Summary time control after each render. The axis
+// (min/max) is the original span from state; the handles restore the persisted
+// selection so applying a time filter — which rebuilds the Summary — does not
+// reset the user's range.
+export function wireTimeFilter() {
+    const slider = document.getElementById('filterTimeSlider');
+    if (!slider) return;
+    slider.style.display = 'block';
+
+    const dur = timeFilterDurationMins || 1;
+    const minSlider = document.getElementById('filterTimeMin');
+    const maxSlider = document.getElementById('filterTimeMax');
+    minSlider.min = maxSlider.min = 0;
+    minSlider.max = maxSlider.max = dur;
+    minSlider.value = timeFilterSelMin;
+    maxSlider.value = timeFilterSelMax;
+    // data-original = the no-filter baseline (data extent), so change detection
+    // treats "handles at the data extent" as unfiltered.
+    minSlider.setAttribute('data-original', String(timeFilterDefMin));
+    maxSlider.setAttribute('data-original', String(timeFilterDefMax));
+
+    updateTimeSlider();
+
+    // oninput = live visual only; onchange (fires on release) = auto-apply.
+    minSlider.oninput = () => { enforceMinMax(); updateTimeSlider(); };
+    maxSlider.oninput = () => { enforceMinMax(); updateTimeSlider(); };
+    minSlider.onchange = autoApplyTime;
+    maxSlider.onchange = autoApplyTime;
+}
+
+// autoApplyTime persists the current selection and applies the time filter on
+// release, debounced. Time filtering is client-side (cheap); dimension filters
+// still go through the explicit Apply button.
+let timeApplyTimer = null;
+function autoApplyTime() {
+    const minSlider = document.getElementById('filterTimeMin');
+    const maxSlider = document.getElementById('filterTimeMax');
+    setTimeFilterSelMin(parseInt(minSlider.value));
+    setTimeFilterSelMax(parseInt(maxSlider.value));
+    updateApplyButton();
+    clearTimeout(timeApplyTimer);
+    timeApplyTimer = setTimeout(() => {
+        if (typeof window.applyFilters === 'function') window.applyFilters();
+    }, 200);
+}
+
+// Month abbreviations for compact date labels.
+const MON_ABBR = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 // ===== Time Utilities =====
 
@@ -151,14 +198,20 @@ export function formatDateHuman(dateStr) {
 export function enforceMinMax() {
     const minSlider = document.getElementById('filterTimeMin');
     const maxSlider = document.getElementById('filterTimeMax');
-    const minVal = parseInt(minSlider.value);
-    const maxVal = parseInt(maxSlider.value);
-    if (minVal > maxVal - 5) {
-        minSlider.value = maxVal - 5;
-    }
-    if (maxVal < minVal + 5) {
-        maxSlider.value = minVal + 5;
-    }
+    if (!minSlider || !maxSlider) return;
+    const lo = timeFilterDefMin;
+    const hi = timeFilterDefMax;
+    let minVal = parseInt(minSlider.value);
+    let maxVal = parseInt(maxSlider.value);
+    // Confine the selection to the data extent — handles can't move into the
+    // empty (no-data) parts of the calendar canvas.
+    if (minVal < lo) minVal = lo;
+    if (maxVal > hi) maxVal = hi;
+    // Keep a 5-minute minimum window without crossing the bounds.
+    if (minVal > maxVal - 5) minVal = Math.max(lo, maxVal - 5);
+    if (maxVal < minVal + 5) maxVal = Math.min(hi, minVal + 5);
+    minSlider.value = minVal;
+    maxSlider.value = maxVal;
 }
 
 export function updateTimeSlider() {
@@ -176,16 +229,26 @@ export function updateTimeSlider() {
     range.style.left = minPercent + '%';
     range.style.width = (maxPercent - minPercent) + '%';
 
-    // Convert offset to actual time
-    const startTime = offsetToTimeStr(minVal);
-    const endTime = offsetToTimeStr(maxVal);
-    label.textContent = startTime + ' – ' + endTime;
+    // Convert offset to actual time. Beyond the per-day-label span, the bounds
+    // show dates (not 00:00/24:00), so the selection label carries the date too.
+    const wide = (timeFilterDurationMins / 1440) > MAX_CANVAS_DAYS;
+    const fmt = wide ? offsetToDateTimeStr : offsetToTimeStr;
+    if (label) label.textContent = fmt(minVal) + ' – ' + fmt(maxVal);
 }
 
 export function offsetToTimeStr(offsetMins) {
     if (!timeFilterStartTs) return minutesToTime(offsetMins);
     const ts = new Date(timeFilterStartTs + offsetMins * 60 * 1000);
     return ts.getHours().toString().padStart(2, '0') + ':' + ts.getMinutes().toString().padStart(2, '0');
+}
+
+// "3 Jan 08:00" — date + time, for selections on a multi-day (no per-day labels) axis.
+function offsetToDateTimeStr(offsetMins) {
+    if (!timeFilterStartTs) return minutesToTime(offsetMins);
+    const d = new Date(timeFilterStartTs + offsetMins * 60 * 1000);
+    const hh = d.getHours().toString().padStart(2, '0');
+    const mm = d.getMinutes().toString().padStart(2, '0');
+    return `${d.getDate()} ${MON_ABBR[d.getMonth()]} ${hh}:${mm}`;
 }
 
 export function offsetToDatetime(offsetMins) {
@@ -448,19 +511,11 @@ export function updateTimeDropdownTrigger() {
 // ===== Filter State Checking =====
 
 export function hasTimeFilterChanged() {
-    if (timeFilterMode === 'slider') {
-        const minSlider = document.getElementById('filterTimeMin');
-        const maxSlider = document.getElementById('filterTimeMax');
-        const minOrig = minSlider?.getAttribute('data-original') || '0';
-        const maxOrig = maxSlider?.getAttribute('data-original') || String(timeFilterDurationMins);
-        return minSlider?.value !== minOrig || maxSlider?.value !== maxOrig;
-    } else {
-        const begin = document.getElementById('filterBegin');
-        const end = document.getElementById('filterEnd');
-        const beginOrig = begin?.getAttribute('data-original') || '';
-        const endOrig = end?.getAttribute('data-original') || '';
-        return (begin?.value || '') !== beginOrig || (end?.value || '') !== endOrig;
-    }
+    const minSlider = document.getElementById('filterTimeMin');
+    const maxSlider = document.getElementById('filterTimeMax');
+    const minOrig = minSlider?.getAttribute('data-original') || '0';
+    const maxOrig = maxSlider?.getAttribute('data-original') || String(timeFilterDurationMins);
+    return minSlider?.value !== minOrig || maxSlider?.value !== maxOrig;
 }
 
 export function filtersHaveChanged() {
@@ -483,31 +538,14 @@ export function filtersHaveChanged() {
     // Check time filters
     let currBegin = null, currEnd = null;
 
-    if (timeFilterMode === 'slider') {
-        const minSlider = document.getElementById('filterTimeMin');
-        const maxSlider = document.getElementById('filterTimeMax');
-        const minOrig = minSlider?.getAttribute('data-original') || '0';
-        const maxOrig = maxSlider?.getAttribute('data-original') || String(timeFilterDurationMins);
-        const minVal = minSlider?.value || '0';
-        const maxVal = maxSlider?.value || String(timeFilterDurationMins);
-
-        if (minVal !== minOrig) {
-            currBegin = offsetToDatetime(parseInt(minVal));
-        }
-        if (maxVal !== maxOrig) {
-            currEnd = offsetToDatetime(parseInt(maxVal));
-        }
-    } else {
-        const begin = document.getElementById('filterBegin');
-        const end = document.getElementById('filterEnd');
-        const beginOrig = begin?.getAttribute('data-original') || '';
-        const endOrig = end?.getAttribute('data-original') || '';
-        const beginVal = begin?.value || '';
-        const endVal = end?.value || '';
-
-        currBegin = beginVal !== beginOrig ? beginVal : null;
-        currEnd = endVal !== endOrig ? endVal : null;
-    }
+    const minSlider = document.getElementById('filterTimeMin');
+    const maxSlider = document.getElementById('filterTimeMax');
+    const minOrig = minSlider?.getAttribute('data-original') || '0';
+    const maxOrig = maxSlider?.getAttribute('data-original') || String(timeFilterDurationMins);
+    const minVal = minSlider?.value || '0';
+    const maxVal = maxSlider?.value || String(timeFilterDurationMins);
+    if (minVal !== minOrig) currBegin = offsetToDatetime(parseInt(minVal));
+    if (maxVal !== maxOrig) currEnd = offsetToDatetime(parseInt(maxVal));
 
     if (currBegin !== (appliedFilters._begin || null)) return true;
     if (currEnd !== (appliedFilters._end || null)) return true;
@@ -535,30 +573,14 @@ export function updateApplyButton() {
 export function buildFiltersObject() {
     const filters = { ...currentFilters };
 
-    // Add time range based on mode
-    if (timeFilterMode === 'slider') {
-        const minSlider = document.getElementById('filterTimeMin');
-        const maxSlider = document.getElementById('filterTimeMax');
-        const minOrig = minSlider?.getAttribute('data-original') || '0';
-        const maxOrig = maxSlider?.getAttribute('data-original') || String(timeFilterDurationMins);
-        const minVal = minSlider?.value || '0';
-        const maxVal = maxSlider?.value || String(timeFilterDurationMins);
-
-        if (minVal !== minOrig) {
-            filters.begin = offsetToDatetime(parseInt(minVal));
-        }
-        if (maxVal !== maxOrig) {
-            filters.end = offsetToDatetime(parseInt(maxVal));
-        }
-    } else {
-        const begin = document.getElementById('filterBegin')?.value;
-        const end = document.getElementById('filterEnd')?.value;
-        const beginOrig = document.getElementById('filterBegin')?.getAttribute('data-original') || '';
-        const endOrig = document.getElementById('filterEnd')?.getAttribute('data-original') || '';
-
-        if (begin && begin !== beginOrig) filters.begin = begin.replace('T', ' ');
-        if (end && end !== endOrig) filters.end = end.replace('T', ' ');
-    }
+    const minSlider = document.getElementById('filterTimeMin');
+    const maxSlider = document.getElementById('filterTimeMax');
+    const minOrig = minSlider?.getAttribute('data-original') || '0';
+    const maxOrig = maxSlider?.getAttribute('data-original') || String(timeFilterDurationMins);
+    const minVal = minSlider?.value || '0';
+    const maxVal = maxSlider?.value || String(timeFilterDurationMins);
+    if (minVal !== minOrig) filters.begin = offsetToDatetime(parseInt(minVal));
+    if (maxVal !== maxOrig) filters.end = offsetToDatetime(parseInt(maxVal));
 
     return filters;
 }
@@ -566,18 +588,13 @@ export function buildFiltersObject() {
 // ===== Reset Time Inputs =====
 
 export function resetTimeInputs() {
-    if (timeFilterMode === 'slider') {
-        const minSlider = document.getElementById('filterTimeMin');
-        const maxSlider = document.getElementById('filterTimeMax');
-        if (minSlider) minSlider.value = minSlider.getAttribute('data-original') || '0';
-        if (maxSlider) maxSlider.value = maxSlider.getAttribute('data-original') || String(timeFilterDurationMins);
-        updateTimeSlider();
-    } else {
-        const begin = document.getElementById('filterBegin');
-        const end = document.getElementById('filterEnd');
-        if (begin) begin.value = begin.getAttribute('data-original') || '';
-        if (end) end.value = end.getAttribute('data-original') || '';
-    }
+    setTimeFilterSelMin(timeFilterDefMin);
+    setTimeFilterSelMax(timeFilterDefMax);
+    const minSlider = document.getElementById('filterTimeMin');
+    const maxSlider = document.getElementById('filterTimeMax');
+    if (minSlider) minSlider.value = String(timeFilterDefMin);
+    if (maxSlider) maxSlider.value = String(timeFilterDefMax);
+    updateTimeSlider();
 }
 
 // ===== Clear All UI State =====

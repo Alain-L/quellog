@@ -14,9 +14,12 @@ All notable changes to this project will be documented in this file.
 - **CSV parsing allocates ~half as much memory**: a single-pass, zero-copy CSV scanner replaces the standard-library reader, cutting CSV-path allocations by roughly 50%.
 
 ### Changed
+- **Time filter is an always-visible range slider in the Summary card**: replaces the Time dropdown and re-filters on release. Multi-day logs show as a per-day calendar canvas; CLI reports hide the filter bar (only time filtering applies there).
 - **`--json` output is stable run-to-run and across machines**: event-occurrence lists are sorted ascending, and PID-sharded runs order per-execution lists canonically (timestamp, query id, duration) so they don't depend on the core count.
 
 ### Fixed
+- **Time-series charts show the date on multi-day spans**: their x-axes were time-only (`00:00`, `06:00`, …), ambiguous across days; they now add the date at each day boundary, like the concurrent-sessions chart already did.
+- **Report duration tile no longer shows `0s` for spans of 24h or more**: the HTML report's duration now renders days (e.g. `1d`, `2d3h`) instead of dropping a day-formatted value.
 - **Maintenance elapsed times rounded to the microsecond**: a cumulative vacuum/analyze time could display e.g. `2s` for a true `3.0s` total due to float-summation noise; the rounded value is now correct and stable.
 
 ## [0.11.0] - 2026-06-23

@@ -10,6 +10,30 @@ import {
 // Store chart data for re-creation and modal expansion
 export const chartData = new Map();
 
+// Shared x-axis tick formatting for time series. Shows HH:MM, and adds a short
+// date ("3 Jan") on the first tick of each day — but only when the visible span
+// is multi-day, so single-day charts are unchanged. timeAxisSize reserves the
+// extra height for the date line in that case. Both read the live x-scale so
+// they stay correct on zoom.
+function timeAxisMultiDay(u) {
+    const xs = u && u.scales && u.scales.x;
+    return !!(xs && xs.max != null && xs.min != null && (xs.max - xs.min) > 86400);
+}
+function timeAxisValues(u, vals) {
+    const multiDay = timeAxisMultiDay(u);
+    return vals.map((v, i) => {
+        const d = new Date(v * 1000);
+        const time = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+        if (!multiDay) return time;
+        const prevDay = i > 0 ? new Date(vals[i - 1] * 1000).getDate() : -1;
+        if (i === 0 || d.getDate() !== prevDay) {
+            return time + '\n' + d.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
+        }
+        return time;
+    });
+}
+function timeAxisSize(u) { return timeAxisMultiDay(u) ? 36 : 20; }
+
 // Modal state (local to charts module)
 let modalChart = null;
 let modalChartId = null;
@@ -395,11 +419,8 @@ export function createCheckpointChart(containerId, data, options = {}) {
                 stroke: getComputedStyle(document.documentElement).getPropertyValue('--text').trim(),
                 grid: { show: false },
                 ticks: { show: false },
-                values: (u, vals) => vals.map(v => {
-                    const d = new Date(v * 1000);
-                    return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
-                }),
-                size: 20,
+                values: timeAxisValues,
+                size: timeAxisSize,
                 font: '10px system-ui'
             },
             {
@@ -603,8 +624,8 @@ export function createWALDistanceChart(containerId, data, options = {}) {
             y: { range: (u, min, max) => [0, max * 1.1] }
         },
         axes: [
-            { stroke: '#888', grid: { stroke: '#8881' }, ticks: { show: false }, gap: 2, size: 20,
-              values: (u, vals) => vals.map(v => { const d = new Date(v * 1000); return d.getHours() + ':' + String(d.getMinutes()).padStart(2, '0'); })
+            { stroke: '#888', grid: { stroke: '#8881' }, ticks: { show: false }, gap: 2, size: timeAxisSize,
+              values: timeAxisValues
             },
             {
                 stroke: '#888',
@@ -740,11 +761,8 @@ export function createTimeChart(containerId, timestamps, options = {}) {
                 stroke: getComputedStyle(document.documentElement).getPropertyValue('--text').trim(),
                 grid: { show: false },
                 ticks: { show: false },
-                values: (u, vals) => vals.map(v => {
-                    const d = new Date(v * 1000);
-                    return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
-                }),
-                size: 20,
+                values: timeAxisValues,
+                size: timeAxisSize,
                 font: '10px system-ui'
             },
             {
@@ -952,11 +970,8 @@ export function createDurationChart(containerId, executions, options = {}) {
                 stroke: getComputedStyle(document.documentElement).getPropertyValue('--text').trim(),
                 grid: { show: false },
                 ticks: { show: false },
-                values: (u, vals) => vals.map(v => {
-                    const d = new Date(v * 1000);
-                    return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
-                }),
-                size: 20,
+                values: timeAxisValues,
+                size: timeAxisSize,
                 font: '10px system-ui'
             },
             {
@@ -1161,11 +1176,8 @@ export function createCombinedSQLChart(containerId, rawData, options = {}) {
                 stroke: textColor,
                 grid: { show: false },
                 ticks: { show: false },
-                values: (u, vals) => vals.map(v => {
-                    const d = new Date(v * 1000);
-                    return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
-                }),
-                size: 20,
+                values: timeAxisValues,
+                size: timeAxisSize,
                 font: '10px system-ui'
             },
             {
@@ -1438,11 +1450,8 @@ export function createHistogramChart(containerId, histogram, options = {}) {
                 stroke: getComputedStyle(document.documentElement).getPropertyValue('--text').trim(),
                 grid: { show: false },
                 ticks: { show: false },
-                values: (u, vals) => vals.map(v => {
-                    const d = new Date(v * 1000);
-                    return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
-                }),
-                size: 20,
+                values: timeAxisValues,
+                size: timeAxisSize,
                 font: '10px system-ui'
             },
             {
@@ -1899,11 +1908,8 @@ export function createCombinedTempFilesChart(containerId, events, options = {}) 
                 stroke: textColor,
                 grid: { show: false },
                 ticks: { show: false },
-                values: (u, vals) => vals.map(v => {
-                    const d = new Date(v * 1000);
-                    return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
-                }),
-                size: 20,
+                values: timeAxisValues,
+                size: timeAxisSize,
                 font: '10px system-ui'
             },
             {
@@ -3166,11 +3172,8 @@ export function createCombinedTempFilesChartLarge(container, events, options = {
                 stroke: textColor,
                 grid: { stroke: borderColor, width: 1 },
                 ticks: { stroke: borderColor },
-                values: (u, vals) => vals.map(v => {
-                    const d = new Date(v * 1000);
-                    return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
-                }),
-                size: 30,
+                values: timeAxisValues,
+                size: timeAxisSize,
                 font: '11px system-ui'
             },
             {

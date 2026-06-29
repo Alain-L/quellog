@@ -12,9 +12,9 @@ import { gunzipBuffer, unzstd, detectFormat, decompress, extractTar, prepareCont
 import './js/period-nav.js'; // shared period navigator (split reports + WASM)
 import {
     showFilterBar, hideFilterBar, initFilterBar, closeAllDropdowns,
-    updateAllDropdownTriggers, updateApplyButton, updateTimeSlider,
+    updateAllDropdownTriggers, updateApplyButton, updateTimeSlider, wireTimeFilter,
     buildFiltersObject, resetTimeInputs, clearFilterSelections,
-    setupFilterEventListeners, exposeFilterGlobals
+    setupFilterEventListeners, exposeFilterGlobals, computeDayAxis, MAX_CANVAS_DAYS
 } from './js/filters.js';
 import {
     MAX_FILE_SIZE, setProgress, initWasmInstance, loadWasm,
@@ -30,6 +30,7 @@ import {
 import {
     setOriginalReportData, getOriginalReportData, applyReportTimeFilter, resetReportTimeFilter
 } from './js/report-filter.js';
+import { timeFilterStartTs, timeFilterDurationMins } from './js/state.js';
 
 // Web Components (self-registering)
 import './js/components/ql-tabs.js';
@@ -289,6 +290,9 @@ import './js/components/ql-dropdown.js';
 
             harmonizeSummary();
 
+            // The time control lives in the freshly-rebuilt Summary card; bind it.
+            wireTimeFilter();
+
             // Create uPlot charts after DOM is ready
             requestAnimationFrame(() => {
                 chartData.forEach((data, chartId) => {
@@ -328,16 +332,20 @@ import './js/components/ql-dropdown.js';
             const parseTime = f.parseTimeMs || 0;
             const parseTimeStr = parseTime < 1000 ? `${parseTime}ms` : `${(parseTime/1000).toFixed(2)}s`;
 
-            // Format duration: h:m if >= 1h, m:s otherwise (with proper rollover)
+            // Format duration: d:h / h:m / m:s with rollover. Handles the "d" unit
+            // that fmtDur introduces for spans >= 24h (e.g. "1d", "2d3h").
             const formatDuration = (durStr) => {
                 if (!durStr || durStr === '-') return '-';
-                // Parse duration like "12h 30m 11s" or "5m 23s" or "45s"
+                // Parse "2d3h", "12h 30m 11s", "5m 23s" or "45s"
+                let d = parseInt(durStr.match(/(\d+)d/)?.[1] || 0);
                 let h = parseInt(durStr.match(/(\d+)h/)?.[1] || 0);
                 let m = parseInt(durStr.match(/(\d+)m/)?.[1] || 0);
                 let sec = parseInt(durStr.match(/(\d+)s/)?.[1] || 0);
-                // Rollover seconds to minutes
+                // Rollover
                 if (sec >= 60) { m += Math.floor(sec / 60); sec = sec % 60; }
                 if (m >= 60) { h += Math.floor(m / 60); m = m % 60; }
+                if (h >= 24) { d += Math.floor(h / 24); h = h % 24; }
+                if (d > 0) return h > 0 ? `${d}d${h}h` : `${d}d`;
                 if (h > 0) return `${h}h${m.toString().padStart(2, '0')}`;
                 if (m > 0) return `${m}m${sec.toString().padStart(2, '0')}s`;
                 return `${sec}s`;
@@ -364,26 +372,54 @@ import './js/components/ql-dropdown.js';
             const endTime = endDate.split(' ')[1] || '';
             const sameDay = startDay === endDay;
 
-            // Human readable date for header
-            const dateDisplay = sameDay
-                ? formatDateHuman(startDay)
-                : `${formatDateHuman(startDay)} → ${formatDateHuman(endDay)}`;
-
-            // Calculate timeline position (percentage of day)
-            const timeToPercent = (timeStr) => {
-                if (!timeStr) return 0;
-                const parts = timeStr.split(':');
-                const h = parseInt(parts[0] || 0);
-                const m = parseInt(parts[1] || 0);
-                const sec = parseInt(parts[2] || 0);
-                return ((h * 3600 + m * 60 + sec) / 86400) * 100;
+            // Human readable date for header, collapsing the month/year shared by
+            // both bounds: "1 → 2 Jan 2026", "1 Jan → 2 Feb 2026", or the full
+            // "1 Jan 2026 → 2 Jan 2027" when the years differ.
+            const formatDateRange = (sd, ed) => {
+                const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                const sp = sd.split('-');
+                const ep = ed.split('-');
+                if (sp.length !== 3 || ep.length !== 3) {
+                    return `${formatDateHuman(sd)} → ${formatDateHuman(ed)}`;
+                }
+                const sDay = parseInt(sp[2]), eDay = parseInt(ep[2]);
+                const sMon = months[parseInt(sp[1]) - 1] || sp[1];
+                const eMon = months[parseInt(ep[1]) - 1] || ep[1];
+                const sYear = sp[0], eYear = ep[0];
+                if (sYear === eYear && sp[1] === ep[1]) {
+                    return `${sDay} → ${eDay} ${eMon} ${eYear}`;
+                }
+                if (sYear === eYear) {
+                    return `${sDay} ${sMon} → ${eDay} ${eMon} ${eYear}`;
+                }
+                return `${sDay} ${sMon} ${sYear} → ${eDay} ${eMon} ${eYear}`;
             };
-            const startPercent = sameDay ? timeToPercent(startTime) : 0;
-            const endPercent = sameDay ? timeToPercent(endTime) : 100;
-            const segmentWidth = Math.max(endPercent - startPercent, 1);
-            const segmentCenter = startPercent + segmentWidth / 2;
+            // Derive the header date(s) from the same guarded day axis as the
+            // slider, so a folded near-empty day doesn't show in the header either.
+            const tsToDayStr = (ts) => {
+                const d = new Date(ts);
+                const p = (n) => String(n).padStart(2, '0');
+                return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+            };
+            // Canvas axis from the slider's STATE (set once at initial load), not
+            // from data.summary which carries the *filtered* bounds after a drag —
+            // otherwise the day canvas/header would reshape on every filter.
+            let axis = null;
+            if (timeFilterStartTs && timeFilterDurationMins > 0) {
+                axis = { axisStart: timeFilterStartTs, nDays: Math.max(1, Math.round(timeFilterDurationMins / 1440)) };
+            } else if (startDate && endDate) {
+                axis = computeDayAxis(startDate, endDate);
+            }
+            let dateDisplay;
+            if (axis) {
+                const firstDay = tsToDayStr(axis.axisStart);
+                const lastDay = tsToDayStr(axis.axisStart + (axis.nDays - 1) * 86400000);
+                dateDisplay = axis.nDays === 1 ? formatDateHuman(firstDay) : formatDateRange(firstDay, lastDay);
+            } else {
+                dateDisplay = sameDay ? formatDateHuman(startDay) : formatDateRange(startDay, endDay);
+            }
 
-            // Time range label (centered under segment). The header
+            // Time range label. The header
             // already carries the full dates ("13 Feb 2026 → 14 Feb
             // 2026"), so the multi-day form reuses the same short
             // vocabulary and drops seconds — "13 Feb 11:59 → 14 Feb
@@ -392,6 +428,39 @@ import './js/components/ql-dropdown.js';
             const timeRangeLabel = sameDay
                 ? `${startTime.slice(0, 5)} – ${endTime.slice(0, 5)}`
                 : `${shortDay(startDay)} ${startTime.slice(0, 5)} → ${shortDay(endDay)} ${endTime.slice(0, 5)}`;
+
+            // Multi-day: the track is each touched calendar day as a full 24h of
+            // EQUAL width. Overlay a grey date (day/month) centred on each day and
+            // a thin divider at each midnight. The filled bar (default selection =
+            // data extent) then shows how far the log reaches into each day.
+            // Midnight dividers for any multi-day span (up to ~3 months, beyond
+            // which they'd be too dense); per-day date labels only while they fit
+            // (<= MAX_CANVAS_DAYS), otherwise the start/end dates sit at the bounds.
+            const hasDayLabels = !!(axis && axis.nDays > 1 && axis.nDays <= MAX_CANVAS_DAYS);
+            let dayMarkers = '';
+            if (axis && axis.nDays > 1 && axis.nDays <= 92) {
+                const monthsAbbr = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                const labels = [];
+                const dividers = [];
+                for (let k = 0; k < axis.nDays; k++) {
+                    if (hasDayLabels) {
+                        const dd = new Date(axis.axisStart + k * 86400000);
+                        labels.push(`<span class="summary-time-day-label" style="left:${(k + 0.5) / axis.nDays * 100}%">${dd.getDate()} ${monthsAbbr[dd.getMonth()]}</span>`);
+                    }
+                    if (k > 0) dividers.push(`<i class="summary-time-day-divider" style="left:${k / axis.nDays * 100}%"></i>`);
+                }
+                dayMarkers = labels.join('') + dividers.join('');
+            }
+
+            // Bound labels: midnight-to-midnight by default, but for a span too
+            // wide for per-day labels, show the start/end dates at the ends instead.
+            let boundLeft = '00:00', boundRight = '24:00';
+            if (axis && axis.nDays > MAX_CANVAS_DAYS) {
+                const monthsAbbr = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                const fmtDay = (ts) => { const d = new Date(ts); return `${d.getDate()} ${monthsAbbr[d.getMonth()]}`; };
+                boundLeft = fmtDay(axis.axisStart);
+                boundRight = fmtDay(axis.axisStart + (axis.nDays - 1) * 86400000);
+            }
 
             return `
                 <div class="section" id="summary">
@@ -423,16 +492,22 @@ import './js/components/ql-dropdown.js';
                                 <div class="stat-label">duration</div>
                             </div>
                         </div>
-                        <div class="summary-timeline">
-                            <div class="summary-timeline-row">
-                                <span class="summary-timeline-bound">00:00</span>
-                                <div class="summary-timeline-track">
-                                    <div class="summary-timeline-segment" style="left: ${startPercent}%; width: ${segmentWidth}%;"></div>
+                        <div class="summary-time${hasDayLabels ? ' summary-time--multiday' : ''}" id="summaryTime">
+                            <!-- Slider mode (single day, <= 24h): interactive replacement
+                                 for the old read-only timeline. Same IDs as the former Time
+                                 dropdown so initTimeFilter()/updateTimeSlider() keep working. -->
+                            <div class="filter-time-slider" id="filterTimeSlider">
+                                <div class="summary-time-row">
+                                    <span class="summary-time-bound">${boundLeft}</span>
+                                    <div class="filter-time-slider-track">
+                                        <input type="range" id="filterTimeMin" min="0" max="1440" value="0" step="1">
+                                        <input type="range" id="filterTimeMax" min="0" max="1440" value="1440" step="1">
+                                        <div class="filter-time-slider-range" id="filterTimeRange"></div>
+                                        ${dayMarkers}
+                                    </div>
+                                    <span class="summary-time-bound">${boundRight}</span>
                                 </div>
-                                <span class="summary-timeline-bound">24:00</span>
-                            </div>
-                            <div class="summary-timeline-labels">
-                                <span class="summary-timeline-range" style="left: ${segmentCenter}%">${timeRangeLabel}</span>
+                                <div class="filter-time-slider-label" id="filterTimeLabel">${timeRangeLabel}</div>
                             </div>
                         </div>
                         ${buildServerSummaryLine(data)}
@@ -3470,6 +3545,12 @@ function buildEventsSection(data) {
                         const filesize = window.REPORT_MODE ? (data.meta?.filesize || 0) : currentFileSize;
                         renderResults(data, filename, filesize, false);
                         console.log('[quellog] Time filtered (client-side)');
+                        // Ephemeral pulse on the freshly-rendered selection to
+                        // signal the report just refreshed.
+                        requestAnimationFrame(() => {
+                            const r = document.getElementById('filterTimeRange');
+                            if (r) { r.classList.remove('pulse'); void r.offsetWidth; r.classList.add('pulse'); }
+                        });
                     }
                 } catch (err) {
                     console.error('Client-side filter failed:', err);

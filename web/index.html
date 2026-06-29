@@ -91,32 +91,7 @@
                         <div class="filter-dropdown-list" id="dropdownList-host"></div>
                     </div>
                 </ql-dropdown>
-                <div class="filter-dropdown filter-dropdown-time" data-category="time">
-                    <button class="filter-dropdown-trigger" onclick="toggleDropdown('time')">
-                        <span class="filter-dropdown-label">Time</span>
-                        <span class="filter-dropdown-count"></span>
-                        <svg class="filter-dropdown-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
-                    </button>
-                    <div class="filter-dropdown-menu filter-dropdown-menu-time">
-                        <!-- Slider mode (single day) -->
-                        <div class="filter-time-slider" id="filterTimeSlider">
-                            <div class="filter-time-slider-track">
-                                <input type="range" id="filterTimeMin" min="0" max="1440" value="0" step="1">
-                                <input type="range" id="filterTimeMax" min="0" max="1440" value="1440" step="1">
-                                <div class="filter-time-slider-range" id="filterTimeRange"></div>
-                            </div>
-                            <div class="filter-time-slider-label" id="filterTimeLabel">00:00 – 24:00</div>
-                            <div class="filter-time-slider-day" id="filterTimeDay"></div>
-                        </div>
-                        <!-- Date picker mode (multi-day) -->
-                        <div class="filter-time-pickers" id="filterTimePickers" style="display: none;">
-                            <label>From</label>
-                            <input type="datetime-local" class="filter-time-input" id="filterBegin">
-                            <label>To</label>
-                            <input type="datetime-local" class="filter-time-input" id="filterEnd">
-                        </div>
-                    </div>
-                </div>
+                <!-- Time filter lives in the Summary card (see buildSummarySection). -->
                 <div class="filter-dropdown" data-category="split" id="splitControl">
                     <button class="filter-dropdown-trigger" onclick="toggleDropdown('split')">
                         <span class="filter-dropdown-label">Split</span>
