@@ -1676,64 +1676,6 @@ func PrintSQLSummaryWithContext(m analysis.SQLMetrics, tempFiles analysis.TempFi
 	}
 }
 
-// PrintTimeConsumingQueries sorts and displays the top 10 queries based on total execution time.
-// The display adapts to the terminal width, switching between full and simplified modes.
-// PrintTimeConsumingQueries displays queries sorted by total time consumed.
-// Returns true if any data was printed.
-func PrintTimeConsumingQueries(queryStats map[string]*analysis.QueryStat) bool {
-	return PrintQueryTable(queryStats, QueryTableConfig{
-		Columns: []QueryTableColumn{
-			ColumnSQLID(),
-			ColumnQuery(),
-			ColumnCount(),
-			ColumnMaxTime(),
-			ColumnAvgTime(),
-			ColumnTotalTime(),
-		},
-		SortFunc:      SortByTotalTime,
-		Limit:         10,
-		ShowQueryText: true,
-	})
-}
-
-// PrintSlowestQueries displays the top 10 slowest individual queries,
-// showing three columns: SQLID, truncated Query, and Duration.
-// Returns true if any data was printed.
-func PrintSlowestQueries(queryStats map[string]*analysis.QueryStat) bool {
-	return PrintQueryTable(queryStats, QueryTableConfig{
-		Columns: []QueryTableColumn{
-			ColumnSQLID(),
-			ColumnQuery(),
-			ColumnDuration(),
-		},
-		SortFunc:          SortByMaxTime,
-		Limit:             10,
-		ShowQueryText:     true,
-		TableWidthPercent: 70, // Narrower table for simple 3-column layout
-	})
-}
-
-// PrintMostFrequentQueries displays the top queries by frequency (sorted descending by count).
-// The display stops if a query was executed only once or if the execution count drops by more than a factor of 10.
-// Returns true if any data was printed.
-func PrintMostFrequentQueries(queryStats map[string]*analysis.QueryStat) bool {
-	return PrintQueryTable(queryStats, QueryTableConfig{
-		Columns: []QueryTableColumn{
-			ColumnSQLID(),
-			ColumnQuery(),
-			ColumnCount(),
-		},
-		SortFunc: SortByCount,
-		FilterFunc: func(row QueryRow) bool {
-			// Don't show queries executed only once
-			return row.Count > 1
-		},
-		Limit:             15,
-		ShowQueryText:     true,
-		TableWidthPercent: 70, // Narrower table for simple 3-column layout
-	})
-}
-
 // PrintSQLDetails iterates over the QueryStats and displays details for each query
 // whose SQLID matches one of the provided queryDetails.
 // It consolidates metrics from SQL performance, tempfiles, and locks into a unified view.
