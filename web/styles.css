@@ -1309,65 +1309,8 @@
             margin-top: 0.2rem;
         }
 
-        /* Timeline with day context */
-        .summary-timeline {
-            padding: 0.5rem 0 0.15rem;
-        }
-
-        .summary-timeline-row {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            margin-bottom: 0.4rem;
-        }
-
-        /* Same family as the rest of the card; tabular-nums keeps the
-           digits on a fixed pitch so the bounds stay visually stable
-           without the code-like monospace that broke the typographic
-           rhythm of the widget. */
-        .summary-timeline-bound {
-            font-size: 0.65rem;
-            font-variant-numeric: tabular-nums;
-            color: var(--text-muted);
-            opacity: 0.6;
-        }
-
-        .summary-timeline-track {
-            position: relative;
-            flex: 1;
-            height: 6px;
-            background: var(--border);
-            border-radius: 3px;
-        }
-
-        .summary-timeline-segment {
-            position: absolute;
-            top: 0;
-            height: 100%;
-            background: var(--primary);
-            border-radius: 3px;
-            min-width: 4px;
-        }
-
-        .summary-timeline-labels {
-            position: relative;
-            height: 1.4rem;
-            margin: 0 2.5rem; /* Same as bound width + gap */
-            margin-bottom: 0.5rem;
-        }
-
-        .summary-timeline-range {
-            position: absolute;
-            transform: translateX(-50%);
-            font-size: 0.72rem;
-            font-variant-numeric: tabular-nums;
-            color: var(--text-muted);
-            white-space: nowrap;
-        }
-
-        /* Interactive time control hosted in the Summary card (replaces the old
-           read-only timeline). Mirrors .summary-timeline-row layout, but the
-           track holds the dual-handle slider instead of a static segment. */
+        /* Interactive time control hosted in the Summary card. The track holds a
+           dual-handle slider; multi-day spans split it by day. */
         .summary-time {
             padding: 0.15rem 0 0.7rem;
         }
@@ -3135,20 +3078,6 @@
 #summary .summary-meta .summary-parsetime::before { content: "·"; margin-right: 0.5rem; }
 #summary .stat-grid { grid-template-columns: repeat(3, auto) !important; margin-bottom: 0.6rem !important; }
 #summary .stat-grid .stat-card:nth-child(2) { display: none; }
-#summary .summary-date--title { text-align: center; font-size: 1.3rem; font-weight: 700; margin: 0 0 0.4rem; }
-#summary .summary-timeline { margin-top: 0; padding-top: 0; }
-#summary .summary-timeline-row { display: flex; margin-bottom: 0; }
-#summary .summary-timeline-track { flex: 1 1 100%; height: 8px; }
-#summary .summary-timeline-bound,
-#summary .summary-timeline-labels { display: none; }
-#summary .summary-tl-marks {
-  position: relative; height: 1rem; margin-top: 0.4rem;
-  font-size: 0.72rem; color: var(--text-muted, #8a9099); font-variant-numeric: tabular-nums;
-}
-#summary .summary-tl-mark { position: absolute; white-space: nowrap; transform: translateX(-50%); }
-#summary .summary-tl-mark.is-start, #summary .summary-tl-mark.is-end { opacity: 0.5; }
-#summary .summary-tl-mark.is-start { transform: none; left: 0 !important; }
-#summary .summary-tl-mark.is-end { transform: none; left: auto !important; right: 0; }
 
 /* ---------------------------------------------------------------------------
    Period navigator (split reports + WASM split). Injected by period-nav.js.
@@ -3156,7 +3085,6 @@
    title and timeline; the heatmap replaces them.
    --------------------------------------------------------------------------- */
 .ql-split #summary .summary-date { display: none; }
-.ql-split #summary .summary-timeline { display: none; }
 .summary-periods { margin: 0; }
 .summary-periods-head { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 0.4rem; margin-bottom: 0.4rem; }
 .summary-periods-nav { display: flex; align-items: center; gap: 0.4rem; justify-self: center; }

@@ -171,13 +171,9 @@ import './js/components/ql-dropdown.js';
             }
         }
 
-        // harmonizeSummary restructures the Summary tile after each render: the
-        // source + size + parse time become a one-line eyebrow, the SIZE stat
-        // card is dropped, and (outside split mode) the date becomes a centered
-        // title above a full-width timeline bar carrying the real start/end
-        // marks. Split reports set window.QL_SPLIT so the period navigator owns
-        // the title and the strip. Shared by the standalone reports and the
-        // live WASM tool. CSS lives in styles.css.
+        // harmonizeSummary folds the source + size + parse time into a one-line
+        // eyebrow and gives the filename a tooltip, after each render. Shared by
+        // the standalone reports and the live WASM tool.
         function harmonizeSummary() {
             const body = document.querySelector('#summary .summary-body');
             if (!body) return;
@@ -189,40 +185,6 @@ import './js/components/ql-dropdown.js';
             }
             const fn = meta && meta.querySelector('.summary-filename');
             if (fn && !fn.title) fn.title = fn.textContent;
-            if (window.QL_SPLIT) return; // the period navigator owns title + strip
-            const date = body.querySelector('.summary-date');
-            const timeline = body.querySelector('.summary-timeline');
-            if (date && timeline && !date.classList.contains('summary-date--title')) {
-                date.classList.add('summary-date--title');
-                timeline.parentNode.insertBefore(date, timeline);
-            }
-            if (timeline) {
-                const seg = timeline.querySelector('.summary-timeline-segment');
-                const range = timeline.querySelector('.summary-timeline-range');
-                if (seg && range && !timeline.querySelector('.summary-tl-marks')) {
-                    const left = parseFloat(seg.style.left) || 0;
-                    const endPct = Math.min(100, left + (parseFloat(seg.style.width) || 0));
-                    const parts = range.textContent.split('–').map((s) => s.trim());
-                    const startT = parts[0] || '';
-                    const endT = parts[1] || startT;
-                    const marks = document.createElement('div');
-                    marks.className = 'summary-tl-marks';
-                    const mk = (txt, pct, cls) => {
-                        const s = document.createElement('span');
-                        s.className = 'summary-tl-mark' + (cls ? ' ' + cls : '');
-                        s.textContent = txt;
-                        s.style.left = pct + '%';
-                        marks.appendChild(s);
-                    };
-                    const showStart = left > 1.5;
-                    const showEnd = endPct < 98.5;
-                    if (!(showStart && left < 12)) mk('00:00', 0, 'is-start');
-                    if (showStart) mk(startT, left);
-                    if (showEnd) mk(endT, endPct);
-                    if (!(showEnd && endPct > 88)) mk('24:00', 100, 'is-end');
-                    timeline.appendChild(marks);
-                }
-            }
         }
 
         function renderResults(data, fileName, fileSize, isInitial = true) {
