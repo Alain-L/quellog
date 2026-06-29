@@ -14,7 +14,7 @@ All notable changes to this project will be documented in this file.
 - **CSV parsing allocates ~half as much memory**: a single-pass, zero-copy CSV scanner replaces the standard-library reader, cutting CSV-path allocations by roughly 50%.
 
 ### Changed
-- **Time filter is an always-visible range slider in the Summary card**: replaces the Time dropdown and re-filters on release. Multi-day logs show as a per-day calendar canvas; CLI reports hide the filter bar (only time filtering applies there).
+- **Time filter is an always-visible range slider in the Summary card**: replaces the Time dropdown and re-filters on release. Multi-day logs split the slider by day.
 - **`--json` output is stable run-to-run and across machines**: event-occurrence lists are sorted ascending, and PID-sharded runs order per-execution lists canonically (timestamp, query id, duration) so they don't depend on the core count.
 
 ### Fixed
