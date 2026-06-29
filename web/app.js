@@ -8,7 +8,7 @@ import {
     setOriginalDimensions, incrementModalChartCounter, setAppliedFilters, clearAllCharts
 } from './js/state.js';
 import { initTheme, toggleTheme } from './js/theme.js';
-import { gunzipBuffer, unzstd, detectFormat, decompress, extractTar, prepareContent } from './js/compression.js';
+import { unzstd, decompress, prepareContent } from './js/compression.js';
 import './js/period-nav.js'; // shared period navigator (split reports + WASM)
 import {
     showFilterBar, hideFilterBar, initFilterBar, closeAllDropdowns,
@@ -1718,51 +1718,6 @@ function buildEventsSection(data) {
             `;
         }
 
-        // Build time histogram from array of timestamp strings
-        function buildTimeHistogram(timestamps, buckets = 24) {
-            if (!timestamps || timestamps.length === 0) return [];
-            const times = timestamps.map(t => new Date(t).getTime()).filter(t => !isNaN(t));
-            if (times.length === 0) return [];
-            // Use reduce instead of spread to avoid "too many arguments" error
-            const min = times.reduce((a, b) => a < b ? a : b, times[0]);
-            const max = times.reduce((a, b) => a > b ? a : b, times[0]);
-            const range = max - min || 1;
-            const bucketSize = range / buckets;
-            const hist = Array(buckets).fill(0);
-            times.forEach(t => {
-                const idx = Math.min(Math.floor((t - min) / bucketSize), buckets - 1);
-                hist[idx]++;
-            });
-            const startDate = new Date(min);
-            const endDate = new Date(max);
-            return hist.map((count, i) => ({
-                count,
-                start: i === 0 ? formatTime(startDate) : '',
-                end: i === buckets - 1 ? formatTime(endDate) : ''
-            }));
-        }
-
-        function formatTime(d) {
-            return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
-        }
-
-        function buildHistogramHTML(histogram, colorVar = '--chart-bar') {
-            const max = Math.max(...histogram.map(h => h.count)) || 1;
-            return `
-                <div class="histogram">
-                    ${histogram.map(h => `
-                        <div class="histogram-bar" style="height: ${Math.max(3, h.count/max*100)}%; background: var(${colorVar});">
-                            <div class="tooltip">${h.count}</div>
-                        </div>
-                    `).join('')}
-                </div>
-                <div class="histogram-labels">
-                    <span>${histogram[0]?.start || ''}</span>
-                    <span>${histogram[histogram.length-1]?.end || ''}</span>
-                </div>
-            `;
-        }
-
         function buildSQLOverviewSection(data) {
             const ov = data.sql_overview;
             // Check if we have any SQL data
@@ -2139,46 +2094,6 @@ function buildEventsSection(data) {
             return buckets.map((b, i) => ({ label: b.label, count: counts[i] }));
         }
 
-        function buildDurationDistChart(dist) {
-            const total = dist.reduce((sum, d) => sum + d.count, 0) || 1;
-
-            // Calculate max and second max for truncation logic
-            const counts = dist.map(d => d.count).filter(c => c > 0).sort((a, b) => b - a);
-            const maxCount = counts[0] || 1;
-            const secondMax = counts[1] || maxCount;
-            const needsTruncation = maxCount > secondMax * 5 && secondMax > 0;
-            const secondMaxWidth = needsTruncation ? 75 : 100;
-
-            const getBarWidth = (count) => {
-                if (count === 0) return 0;
-                if (needsTruncation && count === maxCount) return 100;
-                const scaleMax = needsTruncation ? secondMax : maxCount;
-                return Math.max((count / scaleMax) * secondMaxWidth, 5);
-            };
-
-            return `
-                <div class="sql-category-bars">
-                    ${dist.map(d => {
-                        const pct = ((d.count / total) * 100).toFixed(1);
-                        const width = getBarWidth(d.count);
-                        const isTruncated = needsTruncation && d.count === maxCount;
-                        const hatchStart = secondMaxWidth;
-                        return `
-                            <div class="sql-category-bar${d.count === 0 ? ' disabled' : ''}">
-                                <span class="label" style="width: 70px;">${d.label}</span>
-                                <div class="bar-bg">
-                                    <div class="bar${isTruncated ? ' truncated' : ''}"
-                                         style="width: ${width}%;${isTruncated ? ` --hatch-start: ${hatchStart}%;` : ''}"></div>
-                                </div>
-                                <span class="count">${fmt(d.count)}</span>
-                                <span class="pct">${pct}%</span>
-                            </div>
-                        `;
-                    }).join('')}
-                </div>
-            `;
-        }
-
         // Compact horizontal duration distribution
         function buildCompactDurationDist(dist) {
             const total = dist.reduce((sum, d) => sum + d.count, 0) || 1;
@@ -2470,28 +2385,6 @@ function buildEventsSection(data) {
                     </div>
                 </div>
             `;
-        }
-
-        // Query detail modal
-        function showQueryDetail(index) {
-            const q = analysisData.sql_performance.queries[index];
-            document.getElementById('queryModalBody').innerHTML = `
-                <div class="query-detail-sql">
-                    <button class="copy-btn" onclick="copyQuery(${index})">Copy</button>
-                    ${esc(q.full_query || q.normalized_query)}
-                </div>
-                <div class="detail-stats">
-                    <div class="detail-stat"><div class="value">${fmt(q.count)}</div><div class="label">Executions</div></div>
-                    <div class="detail-stat"><div class="value">${fmtMs(q.total_time_ms)}</div><div class="label">Total Time</div></div>
-                    <div class="detail-stat"><div class="value">${fmtMs(q.avg_time_ms)}</div><div class="label">Avg Time</div></div>
-                    <div class="detail-stat"><div class="value">${fmtMs(q.min_time_ms)}</div><div class="label">Min Time</div></div>
-                    <div class="detail-stat"><div class="value">${fmtMs(q.max_time_ms)}</div><div class="label">Max Time</div></div>
-                    <div class="detail-stat"><div class="value">${q.percentage?.toFixed(2) || '-'}%</div><div class="label">% of Total</div></div>
-                    <div class="detail-stat"><div class="value">${q.query_type || '-'}</div><div class="label">Type</div></div>
-                    <div class="detail-stat"><div class="value">${q.category || '-'}</div><div class="label">Category</div></div>
-                </div>
-            `;
-            document.getElementById('queryModal').open();
         }
 
         function copyQuery(index) {
@@ -3154,40 +3047,6 @@ function buildEventsSection(data) {
                     }
                 }
             };
-        }
-
-        // Build time-based histogram container (renders with uPlot)
-        function buildQdHistogram(timestamps, title, unit) {
-            if (!timestamps || timestamps.length === 0) return '';
-            const times = timestamps.map(t => new Date(t).getTime()).filter(t => !isNaN(t)).sort((a,b) => a - b);
-            if (times.length === 0) return '';
-
-            const buckets = 12;
-            const min = times[0], max = times[times.length - 1];
-            const range = (max - min) || 1;
-            const bucketSize = range / buckets;
-            const hist = Array(buckets).fill(0);
-            times.forEach(t => {
-                const idx = Math.min(Math.floor((t - min) / bucketSize), buckets - 1);
-                hist[idx]++;
-            });
-
-            const xData = new Float64Array(buckets);
-            const yData = new Float64Array(buckets);
-            for (let i = 0; i < buckets; i++) {
-                xData[i] = (min + (i + 0.5) * bucketSize) / 1000;
-                yData[i] = hist[i];
-            }
-
-            const containerId = 'modal-chart-' + incrementModalChartCounter();
-            modalChartsData.set(containerId, {
-                xData, yData,
-                color: 'var(--primary)',
-                height: 100,
-                valueFormatter: v => v + ' queries'
-            });
-
-            return `<div id="${containerId}" style="min-height: 100px; margin-top: 0.5rem;"></div>`;
         }
 
         // Build duration distribution (horizontal bars - keep as HTML for categories)
