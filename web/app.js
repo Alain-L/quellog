@@ -787,29 +787,6 @@ function buildEventsSection(data) {
             `;
         }
 
-        // Build concurrent sessions vertical bar chart
-        function buildConcurrentSessionsChart(histogram) {
-            if (!histogram || histogram.length === 0) return '';
-            const max = Math.max(...histogram.map(h => h.count)) || 1;
-            const firstLabel = histogram[0]?.label?.split(' - ')[0] || '';
-            const lastLabel = histogram[histogram.length - 1]?.label?.split(' - ')[1] || '';
-            return `
-                <div class="histogram-container">
-                    <div class="histogram">
-                        ${histogram.map(h => `
-                            <div class="histogram-bar" style="height: ${Math.max(3, h.count/max*100)}%; background: var(--accent);">
-                                <div class="tooltip">${h.count} (${h.peak_time || h.label})</div>
-                            </div>
-                        `).join('')}
-                    </div>
-                    <div class="histogram-labels">
-                        <span>${firstLabel}</span>
-                        <span>${lastLabel}</span>
-                    </div>
-                </div>
-            `;
-        }
-
         function buildSessionTable(sessions, label) {
             if (!sessions || Object.keys(sessions).length === 0) return '<div class="empty">No session data</div>';
             const tableId = 'session-table-' + label.toLowerCase().replace(/\s+/g, '-');
@@ -3251,44 +3228,6 @@ function buildEventsSection(data) {
             return `<div id="${containerId}" style="min-height: 100px; margin-top: 0.5rem;"></div>`;
         }
 
-        // Build cumulative time histogram container
-        function buildQdCumulativeTimeHistogram(execs) {
-            if (!execs || execs.length === 0) return '';
-            const times = execs.map(e => ({ ts: new Date(e.timestamp).getTime(), dur: parseDurationToMs(e.duration) }))
-                .filter(x => !isNaN(x.ts) && x.dur > 0).sort((a,b) => a.ts - b.ts);
-            if (times.length === 0) return '';
-
-            const buckets = 12;
-            const min = times[0].ts, max = times[times.length - 1].ts;
-            const range = (max - min) || 1;
-            const bucketSize = range / buckets;
-            const hist = Array(buckets).fill(0);
-            times.forEach(t => {
-                const idx = Math.min(Math.floor((t.ts - min) / bucketSize), buckets - 1);
-                hist[idx] += t.dur;
-            });
-
-            const xData = new Float64Array(buckets);
-            const yData = new Float64Array(buckets);
-            for (let i = 0; i < buckets; i++) {
-                xData[i] = (min + (i + 0.5) * bucketSize) / 1000;
-                yData[i] = hist[i];
-            }
-
-            const containerId = 'modal-chart-' + incrementModalChartCounter();
-            modalChartsData.set(containerId, {
-                xData, yData,
-                color: 'var(--accent)',
-                height: 100,
-                valueFormatter: fmtMsLong
-            });
-
-            return `
-                <div style="font-size: 0.7rem; color: var(--text-muted); margin: 0.75rem 0 0.25rem;">Cumulative time</div>
-                <div id="${containerId}" style="min-height: 100px;"></div>
-            `;
-        }
-
         // Build duration distribution (horizontal bars - keep as HTML for categories)
         function buildQdDurationDistribution(execs) {
             const durations = execs.map(e => parseDurationToMs(e.duration)).filter(d => d > 0);
@@ -3379,10 +3318,6 @@ function buildEventsSection(data) {
                 <div style="font-size: 0.7rem; color: var(--text-muted); margin: 0.75rem 0 0.25rem;">Temp files count</div>
                 <div id="${countContainerId}" style="min-height: 100px;"></div>
             `;
-        }
-
-        function formatTimeShort(d) {
-            return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
         }
 
         function fmtMsLong(ms) {

@@ -13,12 +13,6 @@ function applyTheme(theme) {
     if (iconMoon) iconMoon.style.display = theme === 'light' ? 'block' : 'none';
 }
 
-export function getPreferredTheme() {
-    const saved = localStorage.getItem(THEME_KEY);
-    if (saved) return saved;
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-}
-
 export function setTheme(theme) {
     applyTheme(theme);
     localStorage.setItem(THEME_KEY, theme);
