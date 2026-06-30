@@ -22,6 +22,9 @@ All notable changes to this project will be documented in this file.
 - **Report duration tile no longer shows `0s` for spans of 24h or more**: the HTML report's duration now renders days (e.g. `1d`, `2d3h`) instead of dropping a day-formatted value.
 - **Maintenance elapsed times rounded to the microsecond**: a cumulative vacuum/analyze time could display e.g. `2s` for a true `3.0s` total due to float-summation noise; the rounded value is now correct and stable.
 
+### Internal
+- **Internal cleanup**: removed dead code and de-duplicated the `output/` renderers into shared helpers, with no change to any output (byte-identical on the sample matrix).
+
 ## [0.11.0] - 2026-06-23
 
 ### Added
