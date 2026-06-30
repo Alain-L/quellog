@@ -555,9 +555,22 @@ type ConnectionsJSON struct {
 	PeakConcurrent     int    `json:"peak_concurrent_sessions,omitempty"`
 	PeakConcurrentTime string `json:"peak_concurrent_timestamp,omitempty"`
 
+	// Client I/O failures ("could not send/receive data ... client: reason").
+	ClientIOFailures *ClientIOFailuresJSON `json:"client_io_failures,omitempty"`
+
 	// Raw events
 	Connections   lazyConnections   `json:"connections"`
 	SessionEvents lazySessionEvents `json:"session_events,omitempty"`
+}
+
+// ClientIOFailuresJSON breaks the client I/O failures down by direction
+// (receiving from vs sending to the client) — each a normalized strerror to
+// its count — plus a by-database tally. Present only when failures occurred.
+type ClientIOFailuresJSON struct {
+	Total               int            `json:"total"`
+	ReceivingFromClient map[string]int `json:"receiving_from_client,omitempty"`
+	SendingToClient     map[string]int `json:"sending_to_client,omitempty"`
+	ByDatabase          map[string]int `json:"by_database,omitempty"`
 }
 
 // lazySessionEvents marshals session events directly to JSON without
@@ -1435,6 +1448,11 @@ func (c ConnectionsJSON) StreamSection(bw *bufio.Writer, prefix, indent string, 
 			return err
 		}
 	}
+	if c.ClientIOFailures != nil {
+		if err := e.emitScalar("client_io_failures", c.ClientIOFailures); err != nil {
+			return err
+		}
+	}
 
 	// Big arrays — stream items, never buffered as a whole.
 	e.writeKey("connections")
@@ -2154,7 +2172,7 @@ func buildJSONData(m analysis.AggregatedMetrics, sections []string, full bool) m
 		data["checkpoints"] = cp
 	}
 
-	if has("connections") && (m.Connections.ConnectionReceivedCount > 0 || m.Connections.DisconnectionCount > 0) {
+	if has("connections") && (m.Connections.ConnectionReceivedCount > 0 || m.Connections.DisconnectionCount > 0 || m.Connections.ClientIOFailureCount > 0) {
 		duration := m.Global.MaxTimestamp.Sub(m.Global.MinTimestamp)
 		durationHours := duration.Hours()
 		if durationHours == 0 {
@@ -2217,6 +2235,14 @@ func buildJSONData(m analysis.AggregatedMetrics, sections []string, full bool) m
 		if m.Connections.PeakConcurrentSessions > 0 {
 			conn.PeakConcurrent = m.Connections.PeakConcurrentSessions
 			conn.PeakConcurrentTime = m.Connections.PeakConcurrentTimestamp.Format("2006-01-02 15:04:05")
+		}
+		if m.Connections.ClientIOFailureCount > 0 {
+			conn.ClientIOFailures = &ClientIOFailuresJSON{
+				Total:               m.Connections.ClientIOFailureCount,
+				ReceivingFromClient: m.Connections.ClientIORecv,
+				SendingToClient:     m.Connections.ClientIOSend,
+				ByDatabase:          m.Connections.ClientIOByDatabase,
+			}
 		}
 		// Export session events for client-side sweep-line — lazy wrapper
 		// avoids the per-event []SessionEventJSON intermediate slice.

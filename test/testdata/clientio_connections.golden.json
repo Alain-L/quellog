@@ -1,0 +1,23 @@
+{
+  "connections": {
+    "connection_count": 0,
+    "avg_connections_per_hour": "0.00",
+    "disconnection_count": 0,
+    "avg_session_time": "",
+    "client_io_failures": {
+      "total": 4,
+      "receiving_from_client": {
+        "connection reset by peer": 1,
+        "connection timed out": 1
+      },
+      "sending_to_client": {
+        "broken pipe": 2
+      },
+      "by_database": {
+        "appdb": 3,
+        "other": 1
+      }
+    },
+    "connections": []
+  }
+}

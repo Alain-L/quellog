@@ -559,6 +559,15 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 		writeSessionTable("User", m.Connections.SessionsByUser)
 		writeSessionTable("Database", m.Connections.SessionsByDatabase)
 		writeSessionTable("Host", m.Connections.SessionsByHost)
+
+		writeClientIOFailuresMarkdown(&b, m.Connections)
+	}
+
+	// Client I/O failures on logs that do not log connections at all (so the
+	// section above is skipped) but still report broken pipes / resets.
+	if has("connections") && m.Connections.ConnectionReceivedCount == 0 && m.Connections.ClientIOFailureCount > 0 {
+		b.WriteString("## CONNECTIONS & SESSIONS\n\n")
+		writeClientIOFailuresMarkdown(&b, m.Connections)
 	}
 
 	// ============================================================================
@@ -1121,6 +1130,53 @@ func writeSkippedTablesMarkdown(b *strings.Builder, title string, skips []analys
 		b.WriteString(fmt.Sprintf("\n_… and %d more_\n", len(skips)-len(shown)))
 	}
 	b.WriteString("\n")
+}
+
+// writeClientIOFailuresMarkdown renders the client I/O failure breakdown:
+// a count headline, then the reasons grouped by direction (receiving from /
+// sending to the client) as aligned tables, then the top databases. Mirrors
+// the text/JSON grouping so the abbreviation-free heading disambiguates flow.
+func writeClientIOFailuresMarkdown(b *strings.Builder, c analysis.ConnectionMetrics) {
+	if c.ClientIOFailureCount == 0 {
+		return
+	}
+	b.WriteString(fmt.Sprintf("### Client I/O failures: %d\n\n", c.ClientIOFailureCount))
+
+	dirTable := func(title string, counts map[string]int, limit int, cols []string) {
+		if len(counts) == 0 {
+			return
+		}
+		type pair struct {
+			Name  string
+			Count int
+		}
+		pairs := make([]pair, 0, len(counts))
+		for n, cnt := range counts {
+			pairs = append(pairs, pair{n, cnt})
+		}
+		sort.Slice(pairs, func(i, j int) bool {
+			if pairs[i].Count != pairs[j].Count {
+				return pairs[i].Count > pairs[j].Count
+			}
+			return pairs[i].Name < pairs[j].Name
+		})
+		if limit > 0 && limit < len(pairs) {
+			pairs = pairs[:limit]
+		}
+		rows := make([][]string, 0, len(pairs))
+		for _, p := range pairs {
+			rows = append(rows, []string{p.Name, fmt.Sprintf("%d", p.Count)})
+		}
+		if title != "" {
+			b.WriteString("**" + title + "**\n\n")
+		}
+		mdTable(b, cols, "lr", rows)
+		b.WriteString("\n")
+	}
+
+	dirTable("Receiving from client", c.ClientIORecv, 0, []string{"Reason", "Count"})
+	dirTable("Sending to client", c.ClientIOSend, 0, []string{"Reason", "Count"})
+	dirTable("By database", c.ClientIOByDatabase, 5, []string{"Database", "Failures"})
 }
 
 func printTopTablesMarkdown(tableCounts map[string]int, total int, spaceRecovered map[string]int64) string {
