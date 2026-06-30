@@ -2068,164 +2068,75 @@ func PrintEventsReport(summaries []analysis.EventSummary, topEvents []analysis.E
 	// Print title in bold.
 	fmt.Println(bold + "\nEVENTS\n" + reset)
 
-	// Re-sort summaries by severity order (PANIC -> FATAL -> ERROR ...)
-	severityRank := make(map[string]int)
-	for i, s := range analysis.PredefinedEventTypes {
-		severityRank[s] = i
-	}
-
-	sort.Slice(summaries, func(i, j int) bool {
-		rankI, okI := severityRank[summaries[i].Type]
-		rankJ, okJ := severityRank[summaries[j].Type]
-		if okI && okJ {
-			return rankI < rankJ
-		}
-		if okI {
-			return true
-		}
-		if okJ {
-			return false
-		}
-		return summaries[i].Type < summaries[j].Type
-	})
-
-	// Group top events by severity
-	eventsBySeverity := make(map[string][]analysis.EventStat)
-	for _, e := range topEvents {
-		eventsBySeverity[e.Severity] = append(eventsBySeverity[e.Severity], e)
-	}
-
-	// Determine terminal width
-	termWidth, _, err := term.GetSize(int(os.Stdout.Fd()))
-	if err != nil || termWidth <= 0 {
-		termWidth = 80
-	}
-
 	// Constants for layout
 	severityLabelWidth := 25
 
-	for _, summary := range summaries {
-		if summary.Count == 0 {
-			continue
-		}
-
-		// Filter non-error severities if onlyErrors is true
-		if onlyErrors && nonErrorSeverity(summary.Type) {
-			continue
-		}
-
+	for _, blk := range groupEventsBySeverityAndClass(summaries, topEvents, onlyErrors) {
 		// Print Severity Main Line
 		fmt.Printf("  %-*s : %d (%.1f%%)\n",
-			severityLabelWidth, summary.Type,
-			summary.Count, summary.Percentage)
+			severityLabelWidth, blk.Summary.Type,
+			blk.Summary.Count, blk.Summary.Percentage)
 
-		// Process detailed events for this severity
-		if events, ok := eventsBySeverity[summary.Type]; ok {
+		if len(blk.Classes) == 0 {
+			continue
+		}
 
-			// 1. Group by Error Class
-			// Map: ClassCode -> []EventStat
-			byClass := make(map[string][]analysis.EventStat)
-			for _, e := range events {
-				class := e.SQLStateClass
-				if class == "" || class == "00" {
-					class = "Unclassified"
-				}
-				byClass[class] = append(byClass[class], e)
-			}
-
-			// 2. Sort classes
-			// We want named classes first, then Unclassified at the end
-			var classes []string
-			for c := range byClass {
-				classes = append(classes, c)
-			}
-			sort.Slice(classes, func(i, j int) bool {
-				if classes[i] == "Unclassified" {
-					return false // Unclassified goes last
-				}
-				if classes[j] == "Unclassified" {
-					return true
-				}
-				return classes[i] < classes[j] // Sort by Class Code (e.g. 23 before 42)
-			})
-
-			// Find max message width for consistent alignment within this severity block
-			msgWidth := 0
-			for _, e := range events {
+		// Find max message width for consistent alignment within this
+		// severity block.
+		msgWidth := 0
+		for _, c := range blk.Classes {
+			for _, e := range c.Events {
 				if len(e.Message) > msgWidth {
 					msgWidth = len(e.Message)
 				}
 			}
-			if msgWidth < 30 {
-				msgWidth = 30
+		}
+		if msgWidth < 30 {
+			msgWidth = 30
+		}
+		if msgWidth > 60 {
+			msgWidth = 60
+		}
+
+		for _, c := range blk.Classes {
+			// If ALL events are unclassified (common for LOG), skip the
+			// "Unclassified" header to keep the section a flat list.
+			if !(c.Code == "Unclassified" && len(blk.Classes) == 1) {
+				fmt.Printf("    %s\n", c.Header)
 			}
-			if msgWidth > 60 {
-				msgWidth = 60
-			}
 
-			// 3. Print each class block
-			for _, classCode := range classes {
-				classEvents := byClass[classCode]
+			// Print messages at the same indent as the class header
+			// (4 spaces). Pattern IDs sit in the left margin instead of
+			// nested deeper — the third indent level crowded the layout
+			// and pushed the count column past the 80-col mark on long
+			// messages.
+			indent := "    "
 
-				// Calculate class header
-				classHeader := classCode
-				if classCode != "Unclassified" {
-					desc := analysis.GetErrorClassDescription(classCode)
-					classHeader = fmt.Sprintf("%s - %s", classCode, desc)
+			for _, e := range c.Events {
+				msg := e.Message
+				if len(msg) > msgWidth {
+					msg = msg[:msgWidth-3] + "..."
 				}
 
-				// Only print class header if we are in an error-like severity
-				// (ERROR, FATAL, PANIC, WARNING) where SQLSTATEs are relevant.
-
-				// If strictly Unclassified and not an Error severity, we might skip the "Unclassified" header
-				// to keep LOG/INFO sections cleaner (flat list).
-				// But user requested hierarchy. Let's keep it clean:
-				// If ALL events are unclassified (common for LOG), skip the header.
-				if classCode == "Unclassified" && len(classes) == 1 {
-					// Just print events directly
-				} else {
-					fmt.Printf("    %s\n", classHeader)
+				localPct := 0.0
+				if blk.Summary.Count > 0 {
+					localPct = (float64(e.Count) / float64(blk.Summary.Count)) * 100
 				}
 
-				// Sort events by count
-				sort.Slice(classEvents, func(i, j int) bool {
-					return classEvents[i].Count > classEvents[j].Count
-				})
-
-				// Print messages at the same indent as the class header
-				// (4 spaces). Pattern IDs sit in the left margin
-				// instead of nested deeper — the third indent level
-				// crowded the layout and pushed the count column past
-				// the 80-col mark on long messages.
-				indent := "    "
-
-				for _, e := range classEvents {
-					msg := e.Message
-					if len(msg) > msgWidth {
-						msg = msg[:msgWidth-3] + "..."
-					}
-
-					localPct := 0.0
-					if summary.Count > 0 {
-						localPct = (float64(e.Count) / float64(summary.Count)) * 100
-					}
-
-					// Lead the row with the stable handle as a
-					// left-margin label, italic-grey to keep it
-					// secondary to the message. 7-char IDs (XX-XXXX)
-					// give a stable column. When no ID (severity not
-					// tracked as a pattern), pad with spaces so the
-					// message column stays aligned across rows.
-					idCol := strings.Repeat(" ", 7)
-					if e.ID != "" {
-						idCol = ansiMutedItalic + e.ID + ansiReset
-					}
-					fmt.Printf("%s%s  %-*s  %6d  %6.2f%%\n",
-						indent,
-						idCol,
-						msgWidth, msg,
-						e.Count, localPct)
+				// Lead the row with the stable handle as a left-margin
+				// label, italic-grey to keep it secondary to the message.
+				// 7-char IDs (XX-XXXX) give a stable column. When no ID
+				// (severity not tracked as a pattern), pad with spaces so
+				// the message column stays aligned across rows.
+				idCol := strings.Repeat(" ", 7)
+				if e.ID != "" {
+					idCol = ansiMutedItalic + e.ID + ansiReset
 				}
+				fmt.Printf("%s%s  %-*s  %6d  %6.2f%%\n",
+					indent,
+					idCol,
+					msgWidth, msg,
+					e.Count, localPct)
 			}
 		}
 	}

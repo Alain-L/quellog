@@ -87,125 +87,44 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 
 		onlyErrors := has("errors") && !has("events")
 
-		// Re-sort summaries by severity order (PANIC -> FATAL -> ERROR ...)
-		severityRank := make(map[string]int)
-		for i, s := range analysis.PredefinedEventTypes {
-			severityRank[s] = i
-		}
-
-		sort.Slice(m.EventSummaries, func(i, j int) bool {
-			rankI, okI := severityRank[m.EventSummaries[i].Type]
-			rankJ, okJ := severityRank[m.EventSummaries[j].Type]
-			if okI && okJ {
-				return rankI < rankJ
-			}
-			if okI {
-				return true
-			}
-			if okJ {
-				return false
-			}
-			return m.EventSummaries[i].Type < m.EventSummaries[j].Type
-		})
-
-		// Group top events by severity
-		eventsBySeverity := make(map[string][]analysis.EventStat)
-		for _, e := range m.TopEvents {
-			eventsBySeverity[e.Severity] = append(eventsBySeverity[e.Severity], e)
-		}
-
-		for _, summary := range m.EventSummaries {
-			if summary.Count == 0 {
-				continue
-			}
-
-			// Filter non-error severities if requested
-			if onlyErrors {
-				s := summary.Type
-				if s == "LOG" || s == "INFO" || s == "DEBUG" || s == "NOTICE" {
-					continue
-				}
-			}
-
+		for _, blk := range groupEventsBySeverityAndClass(m.EventSummaries, m.TopEvents, onlyErrors) {
 			// Level 1: Severity
 			b.WriteString(fmt.Sprintf("- **%s**: %d (%.1f%%)\n",
-				summary.Type, summary.Count, summary.Percentage))
+				blk.Summary.Type, blk.Summary.Count, blk.Summary.Percentage))
 
-			// Detailed events
-			if events, ok := eventsBySeverity[summary.Type]; ok {
-				// Group by Error Class
-				byClass := make(map[string][]analysis.EventStat)
-				for _, e := range events {
-					class := e.SQLStateClass
-					if class == "" || class == "00" {
-						class = "Unclassified"
-					}
-					byClass[class] = append(byClass[class], e)
+			for _, c := range blk.Classes {
+				// Level 2: Class — skip a lone "Unclassified" header.
+				if (c.Code != "Unclassified") || len(blk.Classes) > 1 {
+					b.WriteString(fmt.Sprintf("  - **%s**\n", c.Header))
 				}
+				// Events at the same indent as the class header —
+				// pattern IDs in the left margin, flat under the
+				// class label.
+				indent := "  "
 
-				// Sort classes
-				var classes []string
-				for c := range byClass {
-					classes = append(classes, c)
-				}
-				sort.Slice(classes, func(i, j int) bool {
-					if classes[i] == "Unclassified" {
-						return false
+				// Level 3: Message
+				for _, e := range c.Events {
+					msg := e.Message
+					if len(msg) > 80 {
+						msg = msg[:77] + "..."
 					}
-					if classes[j] == "Unclassified" {
-						return true
+					// Escape backticks in message for markdown code block
+					msg = strings.ReplaceAll(msg, "`", "'")
+
+					localPct := 0.0
+					if blk.Summary.Count > 0 {
+						localPct = (float64(e.Count) / float64(blk.Summary.Count)) * 100
 					}
-					return classes[i] < classes[j]
-				})
 
-				for _, classCode := range classes {
-					classEvents := byClass[classCode]
-
-					// Level 2: Class
-					shouldPrintHeader := (classCode != "Unclassified") || (classCode == "Unclassified" && len(classes) > 1)
-
-					if shouldPrintHeader {
-						classHeader := classCode
-						if classCode != "Unclassified" {
-							desc := analysis.GetErrorClassDescription(classCode)
-							classHeader = fmt.Sprintf("%s - %s", classCode, desc)
-						}
-						b.WriteString(fmt.Sprintf("  - **%s**\n", classHeader))
+					idLead := ""
+					if e.ID != "" {
+						// Lead with the handle in italic — left
+						// margin label, mirrors the italic-grey
+						// column position used in text output.
+						idLead = "*" + e.ID + "* "
 					}
-					// Events at the same indent as the class header —
-					// pattern IDs in the left margin, flat under the
-					// class label.
-					indent := "  "
-
-					// Sort events by count
-					sort.Slice(classEvents, func(i, j int) bool {
-						return classEvents[i].Count > classEvents[j].Count
-					})
-
-					// Level 3: Message
-					for _, e := range classEvents {
-						msg := e.Message
-						if len(msg) > 80 {
-							msg = msg[:77] + "..."
-						}
-						// Escape backticks in message for markdown code block
-						msg = strings.ReplaceAll(msg, "`", "'")
-
-						localPct := 0.0
-						if summary.Count > 0 {
-							localPct = (float64(e.Count) / float64(summary.Count)) * 100
-						}
-
-						idLead := ""
-						if e.ID != "" {
-							// Lead with the handle in italic — left
-							// margin label, mirrors the italic-grey
-							// column position used in text output.
-							idLead = "*" + e.ID + "* "
-						}
-						b.WriteString(fmt.Sprintf("%s- %s`%s` (%d) [%.1f%%]\n",
-							indent, idLead, msg, e.Count, localPct))
-					}
+					b.WriteString(fmt.Sprintf("%s- %s`%s` (%d) [%.1f%%]\n",
+						indent, idLead, msg, e.Count, localPct))
 				}
 			}
 			b.WriteString("\n")
