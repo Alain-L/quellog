@@ -2504,12 +2504,6 @@ func PrintWALDistanceHistogram(buckets []WALDistanceBucket) {
 	fmt.Println()
 }
 
-// PrintConcurrentHistogram displays a histogram with peak times for each bucket.
-// Similar to PrintHistogram but adds the time when the peak occurred.
-func PrintConcurrentHistogram(data map[string]int, title string, scaleFactor int, orderedLabels []string, peakTimes map[string]time.Time) {
-	PrintConcurrentHistogramWithTZ(data, title, scaleFactor, orderedLabels, peakTimes, nil)
-}
-
 func PrintConcurrentHistogramWithTZ(data map[string]int, title string, scaleFactor int, orderedLabels []string, peakTimes map[string]time.Time, refTime *time.Time) {
 	if len(data) == 0 {
 		fmt.Printf("\n  (No data available)\n")

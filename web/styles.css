@@ -726,7 +726,6 @@
             padding: 0.05rem 0.3rem;
             font-size: 0.58rem;
             font-weight: 600;
-            background: var(--bg-tertiary);
             color: var(--text-muted);
             border-radius: 8px;
             min-width: 1.2em;
@@ -739,7 +738,6 @@
         }
 
         .indicator:hover .tab-badge {
-            background: var(--bg-tertiary) !important;
             color: var(--text-muted) !important;
         }
 
@@ -887,12 +885,6 @@
             color: var(--warning);
         }
 
-        /* Sub-info line (optional, below label) */
-        .stat-sub {
-            font-size: 0.55rem;
-            color: var(--text-muted);
-            margin-top: 0.1rem;
-        }
         .stat-card.danger .stat-value { color: var(--danger); }
         .stat-card.accent .stat-value { color: var(--text); }
 
@@ -1113,135 +1105,6 @@
             background: var(--card-bg);
             pointer-events: none;
             z-index: 1;
-        }
-
-        /* SQL Category bars (similar to event-bars) */
-        .sql-category-bars {
-            display: flex;
-            flex-direction: column;
-            gap: 0.35rem;
-            max-width: 550px;
-        }
-
-        .sql-category-bar {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .sql-category-bar .label {
-            width: 55px;
-            font-size: 0.72rem;
-            color: var(--text);
-            font-weight: 600;
-        }
-
-        .sql-category-bar .bar-bg {
-            flex: 1;
-            height: 14px;
-            background: var(--bg-alt);
-            border-radius: 3px;
-            overflow: hidden;
-        }
-
-        .sql-category-bar .bar {
-            height: 100%;
-            background: var(--chart-bar);
-            border-radius: 3px;
-            transition: width 0.5s;
-        }
-
-        .sql-category-bar .bar.truncated {
-            position: relative;
-        }
-        .sql-category-bar .bar.truncated::after {
-            content: '';
-            position: absolute;
-            left: calc(var(--hatch-start, 75%) - 4px);
-            top: 0;
-            width: 8px;
-            height: 100%;
-            background: var(--bg);
-            clip-path: polygon(
-                0% 0%, 50% 25%, 0% 50%, 50% 75%, 0% 100%,
-                50% 100%, 100% 75%, 50% 50%, 100% 25%, 50% 0%
-            );
-        }
-
-        .sql-category-bar .count {
-            width: 50px;
-            text-align: right;
-            font-size: 0.72rem;
-            font-weight: 600;
-            color: var(--text);
-        }
-
-        .sql-category-bar .pct {
-            width: 40px;
-            text-align: right;
-            font-size: 0.65rem;
-            color: var(--text-muted);
-        }
-
-        .sql-category-bar .time {
-            width: 50px;
-            text-align: right;
-            font-size: 0.65rem;
-            color: var(--text-muted);
-        }
-
-        .sql-category-bar.disabled {
-            opacity: 0.4;
-        }
-        .sql-category-bar.disabled .bar-bg {
-            background: transparent;
-        }
-
-        /* Histogram - Compact */
-        .histogram-container { margin-top: 0.75rem; }
-
-        .histogram {
-            display: flex;
-            align-items: flex-end;
-            gap: 1px;
-            height: 80px;
-            padding: 0.3rem 0;
-        }
-
-        .histogram-bar {
-            flex: 1;
-            background: var(--chart-bar);
-            border-radius: 2px 2px 0 0;
-            min-height: 2px;
-            opacity: 0.8;
-            transition: opacity 0.15s;
-        }
-
-        .histogram-bar:hover { opacity: 1; }
-
-        .histogram-bar .tooltip {
-            display: none;
-            position: absolute;
-            bottom: 100%;
-            left: 50%;
-            transform: translateX(-50%);
-            background: var(--text);
-            color: white;
-            padding: 0.2rem 0.4rem;
-            border-radius: 4px;
-            font-size: 0.65rem;
-            white-space: nowrap;
-            z-index: 10;
-            margin-bottom: 4px;
-        }
-
-        .histogram-bar:hover .tooltip { display: block; }
-
-        .histogram-labels {
-            display: flex;
-            justify-content: space-between;
-            font-size: 0.58rem;
-            color: var(--text-light);
         }
 
         /* Scrollable list */

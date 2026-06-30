@@ -2367,26 +2367,6 @@ function buildEventsSection(data) {
             `;
         }
 
-        function buildHistogram(histogram) {
-            if (!histogram || histogram.length === 0) return '';
-            const max = Math.max(...histogram.map(h => h.count)) || 1;
-            return `
-                <div class="histogram-container">
-                    <div class="histogram">
-                        ${histogram.map(h => `
-                            <div class="histogram-bar" style="height: ${Math.max(3, h.count/max*100)}%">
-                                <div class="tooltip">${h.start}-${h.end}: ${fmt(h.count)}</div>
-                            </div>
-                        `).join('')}
-                    </div>
-                    <div class="histogram-labels">
-                        <span>${histogram[0]?.start || ''}</span>
-                        <span>${histogram[histogram.length-1]?.end || ''}</span>
-                    </div>
-                </div>
-            `;
-        }
-
         function copyQuery(index) {
             const q = analysisData.sql_performance.queries[index];
             navigator.clipboard.writeText(q.full_query || q.normalized_query);
@@ -3074,7 +3054,7 @@ function buildEventsSection(data) {
                 const pct = maxVal > 0 ? (counts[i] / maxVal * 100) : 0;
                 html += '<div style="display: flex; align-items: center; gap: 8px; font-size: 0.75rem;">';
                 html += '<span style="width: 60px; text-align: right; color: var(--text-muted);">' + buckets[i].label + '</span>';
-                html += '<div style="flex: 1; height: 18px; background: var(--bg-tertiary); border-radius: 4px; overflow: hidden;">';
+                html += '<div style="flex: 1; height: 18px; border-radius: 4px; overflow: hidden;">';
                 html += '<div style="width: ' + pct + '%; height: 100%; background: var(--chart-bar); border-radius: 4px;"></div>';
                 html += '</div>';
                 html += '<span style="width: 70px; text-align: right;">' + (counts[i] > 0 ? fmt(counts[i]) + ' queries' : '-') + '</span>';
