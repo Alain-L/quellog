@@ -989,8 +989,10 @@ func printServerTimeline(events []analysis.ServerTimelineEvent) {
 }
 
 // printClientIOFailures renders the client I/O failure breakdown inside the
-// CONNECTIONS section: the total, each reason+direction by count, then the
-// top databases. All sub-lists are count-desc, name-asc tie-broken.
+// CONNECTIONS section: the total, then the reasons grouped by direction
+// ("receiving from client" vs "sending to client") so the abbreviation-free
+// heading disambiguates the flow, then the top databases. All sub-lists are
+// count-desc, name-asc tie-broken.
 func printClientIOFailures(m analysis.ConnectionMetrics) {
 	fmt.Printf("  %-25s : %d\n", "Client I/O failures", m.ClientIOFailureCount)
 
@@ -1023,7 +1025,14 @@ func printClientIOFailures(m analysis.ConnectionMetrics) {
 		}
 	}
 
-	printIOCounts("    ", m.ClientIOByCategory, 0)
+	if len(m.ClientIORecv) > 0 {
+		fmt.Println("    receiving from client")
+		printIOCounts("      ", m.ClientIORecv, 0)
+	}
+	if len(m.ClientIOSend) > 0 {
+		fmt.Println("    sending to client")
+		printIOCounts("      ", m.ClientIOSend, 0)
+	}
 	if len(m.ClientIOByDatabase) > 0 {
 		fmt.Println("    by database:")
 		printIOCounts("      ", m.ClientIOByDatabase, 5)

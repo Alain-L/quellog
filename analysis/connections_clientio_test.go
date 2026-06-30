@@ -31,14 +31,14 @@ func TestClientIOFailureDetection(t *testing.T) {
 	if m.ClientIOFailureCount != 4 {
 		t.Fatalf("ClientIOFailureCount = %d, want 4", m.ClientIOFailureCount)
 	}
-	if got := m.ClientIOByCategory["broken pipe (send)"]; got != 2 {
-		t.Errorf("broken pipe (send) = %d, want 2", got)
+	if got := m.ClientIOSend["broken pipe"]; got != 2 {
+		t.Errorf("send broken pipe = %d, want 2", got)
 	}
-	if got := m.ClientIOByCategory["connection reset by peer (recv)"]; got != 1 {
-		t.Errorf("connection reset by peer (recv) = %d, want 1", got)
+	if got := m.ClientIORecv["connection reset by peer"]; got != 1 {
+		t.Errorf("recv connection reset by peer = %d, want 1", got)
 	}
-	if got := m.ClientIOByCategory["connection timed out (recv)"]; got != 1 {
-		t.Errorf("connection timed out (recv) = %d, want 1", got)
+	if got := m.ClientIORecv["connection timed out"]; got != 1 {
+		t.Errorf("recv connection timed out = %d, want 1", got)
 	}
 	if got := m.ClientIOByDatabase["appdb"]; got != 3 {
 		t.Errorf("appdb failures = %d, want 3", got)
@@ -69,11 +69,11 @@ func TestClientIOFailureNormalizesCursorPosition(t *testing.T) {
 	if m.ClientIOFailureCount != 3 {
 		t.Fatalf("ClientIOFailureCount = %d, want 3", m.ClientIOFailureCount)
 	}
-	if len(m.ClientIOByCategory) != 1 {
-		t.Errorf("expected a single category, got %d: %v", len(m.ClientIOByCategory), m.ClientIOByCategory)
+	if len(m.ClientIOSend) != 1 {
+		t.Errorf("expected a single send category, got %d: %v", len(m.ClientIOSend), m.ClientIOSend)
 	}
-	if got := m.ClientIOByCategory["connection timed out (send)"]; got != 3 {
-		t.Errorf("connection timed out (send) = %d, want 3 (cursor position not stripped?)", got)
+	if got := m.ClientIOSend["connection timed out"]; got != 3 {
+		t.Errorf("send connection timed out = %d, want 3 (cursor position not stripped?)", got)
 	}
 }
 

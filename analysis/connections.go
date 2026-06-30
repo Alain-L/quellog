@@ -57,10 +57,13 @@ type ConnectionMetrics struct {
 	PeakConcurrentTimestamp time.Time
 
 	// Client I/O failures ("could not send/receive data ... client: reason").
-	// ClientIOFailureCount is the total; the maps break it down by normalized
-	// reason+direction and by database. Renderers sort them.
+	// ClientIOFailureCount is the total; the breakdown is split by direction
+	// — ClientIORecv (could not receive *from* the client) vs ClientIOSend
+	// (could not send *to* the client) — each mapping a normalized strerror
+	// to its count, plus a by-database tally. Renderers sort them.
 	ClientIOFailureCount int
-	ClientIOByCategory   map[string]int
+	ClientIORecv         map[string]int
+	ClientIOSend         map[string]int
 	ClientIOByDatabase   map[string]int
 
 	// receivedChunksRef and sessionChunksRef are the compact backing
@@ -239,7 +242,8 @@ type ConnectionAnalyzer struct {
 	// lost" (FATAL) is intentionally left to the EVENTS panel to avoid
 	// double-counting. Detected on the non-"connection" bail path.
 	clientIOFailureCount int
-	clientIOByCategory   map[string]int // "broken pipe (send)" -> count
+	clientIORecv         map[string]int // reason -> count (could not receive from client)
+	clientIOSend         map[string]int // reason -> count (could not send to client)
 	clientIOByDatabase   map[string]int // db -> count
 
 	// activeConnections tracks live receiveds so the orphan-flush at
@@ -267,7 +271,8 @@ func NewConnectionAnalyzer() *ConnectionAnalyzer {
 		sessionsByDatabase:  make(map[string]*StreamingDurationStats, 50),
 		sessionsByHost:      make(map[string]*StreamingDurationStats, 100),
 		activeConnections:   make(map[string]time.Time, 1000),
-		clientIOByCategory:  make(map[string]int, 8),
+		clientIORecv:        make(map[string]int, 8),
+		clientIOSend:        make(map[string]int, 8),
 		clientIOByDatabase:  make(map[string]int, 16),
 	}
 }
@@ -519,7 +524,8 @@ func (a *ConnectionAnalyzer) Finalize() ConnectionMetrics {
 		PeakConcurrentTimestamp: peakTimestamp,
 
 		ClientIOFailureCount: a.clientIOFailureCount,
-		ClientIOByCategory:   a.clientIOByCategory,
+		ClientIORecv:         a.clientIORecv,
+		ClientIOSend:         a.clientIOSend,
 		ClientIOByDatabase:   a.clientIOByDatabase,
 
 		receivedChunksRef: a.receivedChunks,
@@ -722,18 +728,16 @@ func (a *ConnectionAnalyzer) recordClientIOFailure(msg string) {
 	// something else and is rejected.
 	body := clientErrorBody(msg)
 
-	var label string
 	switch {
 	case strings.HasPrefix(body, "could not send data to client: "):
-		label = clientIOLabel("send", body[len("could not send data to client: "):])
+		a.clientIOSend[clientIOReason(body[len("could not send data to client: "):])]++
 	case strings.HasPrefix(body, "could not receive data from client: "):
-		label = clientIOLabel("recv", body[len("could not receive data from client: "):])
+		a.clientIORecv[clientIOReason(body[len("could not receive data from client: "):])]++
 	default:
 		return
 	}
 
 	a.clientIOFailureCount++
-	a.clientIOByCategory[label]++
 	if db := extractEntityFromMessage(msg, "database"); db != "" {
 		a.clientIOByDatabase[db]++
 	}
@@ -775,9 +779,10 @@ func isSQLState(s string) bool {
 	return true
 }
 
-// clientIOLabel normalizes a strerror reason into a stable display label,
-// e.g. ("send", "Broken pipe") -> "broken pipe (send)".
-func clientIOLabel(direction, reason string) string {
+// clientIOReason normalizes a strerror into a stable category key, e.g.
+// "Broken pipe" -> "broken pipe". The direction is tracked by which map the
+// caller increments, so it is not part of the key.
+func clientIOReason(reason string) string {
 	r := strings.ToLower(strings.TrimSpace(reason))
 	// PostgreSQL sometimes decorates the strerror with the current statement's
 	// cursor position ("... at character N"). That position is per-query noise
@@ -789,7 +794,7 @@ func clientIOLabel(direction, reason string) string {
 	if len(r) > 40 {
 		r = r[:40]
 	}
-	return r + " (" + direction + ")"
+	return r
 }
 
 // extractEntityFromMessage extracts a specific entity (user, database, host, or application) from a log message.
