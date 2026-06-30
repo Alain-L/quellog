@@ -84,11 +84,7 @@ func computeSingleQueryExecutionHistogram(m analysis.SQLMetrics, queryID string)
 			maxValue = count
 		}
 	}
-	histogramWidth := 40
-	scaleFactor := int(math.Ceil(float64(maxValue) / float64(histogramWidth)))
-	if scaleFactor < 1 {
-		scaleFactor = 1
-	}
+	scaleFactor := scaleFactorFor(maxValue)
 
 	return result, "", scaleFactor
 }
@@ -195,11 +191,7 @@ func computeSingleQueryTimeHistogram(m analysis.SQLMetrics, queryID string) (map
 			maxValue = v
 		}
 	}
-	histogramWidth := 40
-	scaleFactor := int(math.Ceil(float64(maxValue) / float64(histogramWidth)))
-	if scaleFactor < 1 {
-		scaleFactor = 1
-	}
+	scaleFactor := scaleFactorFor(maxValue)
 
 	return result, unit, scaleFactor
 }
@@ -263,11 +255,7 @@ func computeSingleQueryDurationDistribution(m analysis.SQLMetrics, queryID strin
 			maxCount = count
 		}
 	}
-	histogramWidth := 40
-	scaleFactor := int(math.Ceil(float64(maxCount) / float64(histogramWidth)))
-	if scaleFactor < 1 {
-		scaleFactor = 1
-	}
+	scaleFactor := scaleFactorFor(maxCount)
 
 	return histogram, "queries", scaleFactor, orderedLabels
 }
@@ -392,11 +380,7 @@ func computeSingleQueryTempFileHistogram(events []analysis.TempFileEvent, queryI
 			maxValue = v
 		}
 	}
-	histogramWidth := 40
-	scaleFactor := int(math.Ceil(float64(maxValue) / float64(histogramWidth)))
-	if scaleFactor < 1 {
-		scaleFactor = 1
-	}
+	scaleFactor := scaleFactorFor(maxValue)
 
 	return result, unit, scaleFactor
 }

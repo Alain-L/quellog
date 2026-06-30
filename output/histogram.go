@@ -10,6 +10,17 @@ import (
 	"github.com/Alain-L/quellog/analysis"
 )
 
+// scaleFactorFor returns the bar-scaling divisor that keeps the longest
+// histogram bar within 40 characters. It never returns less than 1, so a
+// caller can divide a bucket value by it without guarding against zero.
+func scaleFactorFor(maxValue int) int {
+	scaleFactor := int(math.Ceil(float64(maxValue) / 40.0))
+	if scaleFactor < 1 {
+		scaleFactor = 1
+	}
+	return scaleFactor
+}
+
 // computeQueryLoadHistogram calculates a histogram of query load over time.
 // It divides the time range into 6 equal buckets and sums query durations
 // in each bucket.
@@ -96,11 +107,7 @@ func computeQueryLoadHistogram(m analysis.SQLMetrics) (map[string]int, string, i
 			maxValue = v
 		}
 	}
-	histogramWidth := 40
-	scaleFactor := int(math.Ceil(float64(maxValue) / float64(histogramWidth)))
-	if scaleFactor < 1 {
-		scaleFactor = 1
-	}
+	scaleFactor := scaleFactorFor(maxValue)
 
 	return histogram, unit, scaleFactor
 }
@@ -156,11 +163,7 @@ func computeQueryDurationHistogram(m analysis.SQLMetrics) (map[string]int, strin
 	// Unit is "req" (number of requests).
 	unit := "req"
 
-	// Compute scale factor to limit the longest bar to 40 characters.
-	scaleFactor := int(math.Ceil(float64(maxCount) / 40.0))
-	if scaleFactor < 1 {
-		scaleFactor = 1
-	}
+	scaleFactor := scaleFactorFor(maxCount)
 
 	return histogram, unit, scaleFactor
 }
@@ -259,7 +262,6 @@ func computeTempFileHistogram(m analysis.TempFileMetrics) (map[string]int, strin
 	}
 
 	// Compute scale factor for display (max 40 bar blocks).
-	histogramWidth := 40
 	maxValue := 0
 	for _, v := range histogram {
 		if v > maxValue {
@@ -267,10 +269,7 @@ func computeTempFileHistogram(m analysis.TempFileMetrics) (map[string]int, strin
 		}
 	}
 
-	scaleFactor := int(math.Ceil(float64(maxValue) / float64(histogramWidth)))
-	if scaleFactor < 1 {
-		scaleFactor = 1
-	}
+	scaleFactor := scaleFactorFor(maxValue)
 
 	return histogram, unit, scaleFactor
 }
@@ -348,11 +347,7 @@ func computeTempFileCountHistogramFromEvents(events []analysis.TempFileEvent) (m
 			maxValue = count
 		}
 	}
-	histogramWidth := 40
-	scaleFactor := int(math.Ceil(float64(maxValue) / float64(histogramWidth)))
-	if scaleFactor < 1 {
-		scaleFactor = 1
-	}
+	scaleFactor := scaleFactorFor(maxValue)
 
 	return result, "", scaleFactor
 }
@@ -403,11 +398,7 @@ func computeCheckpointHistogram(m analysis.CheckpointMetrics) (map[string]int, s
 			maxValue = count
 		}
 	}
-	histogramWidth := 40
-	scaleFactor := int(math.Ceil(float64(maxValue) / float64(histogramWidth)))
-	if scaleFactor < 1 {
-		scaleFactor = 1
-	}
+	scaleFactor := scaleFactorFor(maxValue)
 
 	return histogram, "checkpoints", scaleFactor
 }
@@ -562,11 +553,7 @@ func computeConnectionsHistogram(iter func(fn func(time.Time) bool), count int, 
 			maxValue = count
 		}
 	}
-	histogramWidth := 40
-	scaleFactor := int(math.Ceil(float64(maxValue) / float64(histogramWidth)))
-	if scaleFactor < 1 {
-		scaleFactor = 1
-	}
+	scaleFactor := scaleFactorFor(maxValue)
 
 	return histogram, "connections", scaleFactor
 }
@@ -710,11 +697,7 @@ func computeConcurrentHistogram(iter func(fn func(analysis.SessionEvent) bool), 
 			maxValue = count
 		}
 	}
-	histogramWidth := 40
-	scaleFactor := int(math.Ceil(float64(maxValue) / float64(histogramWidth)))
-	if scaleFactor < 1 {
-		scaleFactor = 1
-	}
+	scaleFactor := scaleFactorFor(maxValue)
 
 	return hist, labels, scaleFactor, peakTimes
 }
