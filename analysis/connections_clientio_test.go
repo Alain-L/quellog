@@ -57,6 +57,26 @@ func TestClientIOFailureRejectsSQLText(t *testing.T) {
 	}
 }
 
+// TestClientIOFailureNormalizesCursorPosition locks the reason normalization:
+// PostgreSQL's "... at character N" cursor-position decoration must not
+// fragment one category into per-position variants.
+func TestClientIOFailureNormalizesCursorPosition(t *testing.T) {
+	m := runClientIO([]string{
+		`[100] db=app,user=u,app=x,client=1.2.3.4 LOG:  could not send data to client: Connection timed out at character 13`,
+		`[101] db=app,user=u,app=x,client=1.2.3.4 LOG:  could not send data to client: Connection timed out at character 25`,
+		`[102] db=app,user=u,app=x,client=1.2.3.4 LOG:  could not send data to client: Connection timed out`,
+	})
+	if m.ClientIOFailureCount != 3 {
+		t.Fatalf("ClientIOFailureCount = %d, want 3", m.ClientIOFailureCount)
+	}
+	if len(m.ClientIOByCategory) != 1 {
+		t.Errorf("expected a single category, got %d: %v", len(m.ClientIOByCategory), m.ClientIOByCategory)
+	}
+	if got := m.ClientIOByCategory["connection timed out (send)"]; got != 3 {
+		t.Errorf("connection timed out (send) = %d, want 3 (cursor position not stripped?)", got)
+	}
+}
+
 // TestClientIOFailureConnectionInPrefix locks the false-negative fix: a
 // lowercase "connection" in the prefix must not route the I/O error away
 // from detection.

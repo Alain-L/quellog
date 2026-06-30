@@ -779,6 +779,13 @@ func isSQLState(s string) bool {
 // e.g. ("send", "Broken pipe") -> "broken pipe (send)".
 func clientIOLabel(direction, reason string) string {
 	r := strings.ToLower(strings.TrimSpace(reason))
+	// PostgreSQL sometimes decorates the strerror with the current statement's
+	// cursor position ("... at character N"). That position is per-query noise
+	// here and would fragment one category into per-position variants, so drop
+	// it and keep just the OS error.
+	if i := strings.Index(r, " at character "); i >= 0 {
+		r = r[:i]
+	}
 	if len(r) > 40 {
 		r = r[:40]
 	}
