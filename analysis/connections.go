@@ -346,12 +346,14 @@ func (a *ConnectionAnalyzer) Process(entry *parser.LogEntry) {
 
 	// OPTIMIZATION: Use single Index call to find "connection" then check context
 	// This reduces CPU time from 220ms to ~110ms on I1.log
+	// Client I/O failures ("could not send/receive data ... client: <reason>")
+	// are checked independently of the "connection" gate below: their message
+	// carries no lowercase "connection", but the prefix might (e.g.
+	// app=connection-pool), which would otherwise route them past this check.
+	a.recordClientIOFailure(msg)
+
 	idx := strings.Index(msg, "connection")
 	if idx == -1 {
-		// Not a connection/disconnection line. It may be a client I/O error
-		// ("could not send/receive data ... client: <reason>"), whose only
-		// "connection" is the capitalised strerror text, so it lands here.
-		a.recordClientIOFailure(msg)
 		return
 	}
 
@@ -712,13 +714,21 @@ func (a *ConnectionAnalyzer) recordClientIOFailure(msg string) {
 	if !strings.Contains(msg, " client: ") {
 		return
 	}
+	// Anchor on the message body: a genuine I/O error IS the whole message
+	// ("LOG:  could not send data to client: <reason>"), so the pattern must
+	// sit at the start of the body — right after the severity marker and an
+	// optional inline SQLSTATE. A query whose text merely contains "could not
+	// send data to client:" (in a duration:/statement: line) starts with
+	// something else and is rejected.
+	body := clientErrorBody(msg)
 
 	var label string
-	if i := strings.Index(msg, "could not send data to client: "); i >= 0 {
-		label = clientIOLabel("send", msg[i+len("could not send data to client: "):])
-	} else if i := strings.Index(msg, "could not receive data from client: "); i >= 0 {
-		label = clientIOLabel("recv", msg[i+len("could not receive data from client: "):])
-	} else {
+	switch {
+	case strings.HasPrefix(body, "could not send data to client: "):
+		label = clientIOLabel("send", body[len("could not send data to client: "):])
+	case strings.HasPrefix(body, "could not receive data from client: "):
+		label = clientIOLabel("recv", body[len("could not receive data from client: "):])
+	default:
 		return
 	}
 
@@ -727,6 +737,42 @@ func (a *ConnectionAnalyzer) recordClientIOFailure(msg string) {
 	if db := extractEntityFromMessage(msg, "database"); db != "" {
 		a.clientIOByDatabase[db]++
 	}
+}
+
+// clientErrorBody returns the message text right after the severity marker
+// (e.g. " LOG:") and an optional inline 5-character SQLSTATE ("08006: "),
+// i.e. the start of what PostgreSQL actually logged. Returns "" when no
+// severity marker is present.
+func clientErrorBody(msg string) string {
+	m := findSeverityMarker(msg)
+	if m < 0 {
+		return ""
+	}
+	body := msg[m:]
+	colon := strings.IndexByte(body, ':') // end of the " LOG:" / " FATAL:" marker
+	if colon < 0 {
+		return ""
+	}
+	body = strings.TrimLeft(body[colon+1:], " ")
+	if len(body) >= 7 && body[5] == ':' && body[6] == ' ' && isSQLState(body[:5]) {
+		body = body[7:]
+	}
+	return body
+}
+
+// isSQLState reports whether s is five alphanumerics (a PostgreSQL SQLSTATE
+// like "08006" or "00000").
+func isSQLState(s string) bool {
+	if len(s) != 5 {
+		return false
+	}
+	for i := 0; i < 5; i++ {
+		c := s[i]
+		if !((c >= '0' && c <= '9') || (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')) {
+			return false
+		}
+	}
+	return true
 }
 
 // clientIOLabel normalizes a strerror reason into a stable display label,
