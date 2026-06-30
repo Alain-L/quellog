@@ -318,6 +318,11 @@ type MaintenanceJSON struct {
 	XminBlockedTables          []VacuumTableStatJSON `json:"xmin_blocked_tables,omitempty"`
 	SlowestVacuum              *VacuumSampleJSON     `json:"slowest_vacuum,omitempty"`
 
+	// Skipped autovacuums ("skipping vacuum of ... --- reason"). omitempty
+	// keeps logs without skips byte-identical.
+	SkippedVacuumCount  int              `json:"skipped_vacuum_count,omitempty"`
+	SkippedVacuumTables []VacuumSkipJSON `json:"skipped_vacuum_tables,omitempty"`
+
 	// Autoanalyze aggregates parsed from the system-usage continuation
 	// line PostgreSQL emits after autoanalyze blocks. analyze stats are
 	// kept distinct from vacuum stats because the underlying log block
@@ -325,6 +330,19 @@ type MaintenanceJSON struct {
 	// keep their renderers shape-symmetric with the vacuum side.
 	TotalAnalyzeElapsedSeconds float64               `json:"total_analyze_elapsed_seconds,omitempty"`
 	TopAnalyzeTablesByElapsed  []VacuumTableStatJSON `json:"top_analyze_tables_by_elapsed,omitempty"`
+
+	// Skipped autoanalyzes ("skipping analyze of ... --- reason").
+	SkippedAnalyzeCount  int              `json:"skipped_analyze_count,omitempty"`
+	SkippedAnalyzeTables []VacuumSkipJSON `json:"skipped_analyze_tables,omitempty"`
+}
+
+// VacuumSkipJSON is one relation autovacuum/autoanalyze skipped, with the
+// reason PostgreSQL reported (almost always "lock not available"; renderers
+// may suppress that default and surface only deviations).
+type VacuumSkipJSON struct {
+	Table  string `json:"table"`
+	Count  int    `json:"count"`
+	Reason string `json:"reason,omitempty"`
 }
 
 // VacuumTableStatJSON is the per-table aggregate exposed in the
@@ -2601,7 +2619,25 @@ func buildMaintenanceJSON(v analysis.VacuumMetrics) MaintenanceJSON {
 			j.TopAnalyzeTablesByElapsed[i] = vacuumTableStatJSON(t)
 		}
 	}
+
+	j.SkippedVacuumCount = v.SkippedVacuumCount
+	j.SkippedVacuumTables = vacuumSkipsJSON(v.SkippedVacuumTables)
+	j.SkippedAnalyzeCount = v.SkippedAnalyzeCount
+	j.SkippedAnalyzeTables = vacuumSkipsJSON(v.SkippedAnalyzeTables)
 	return j
+}
+
+// vacuumSkipsJSON projects the analyzer's skip slice into its JSON shape,
+// returning nil for an empty input so omitempty drops the field entirely.
+func vacuumSkipsJSON(skips []analysis.VacuumSkip) []VacuumSkipJSON {
+	if len(skips) == 0 {
+		return nil
+	}
+	out := make([]VacuumSkipJSON, len(skips))
+	for i, s := range skips {
+		out[i] = VacuumSkipJSON{Table: s.Table, Count: s.Count, Reason: s.Reason}
+	}
+	return out
 }
 
 func vacuumTableStatJSON(t analysis.VacuumTableStat) VacuumTableStatJSON {

@@ -25,6 +25,10 @@ func (a *VacuumAnalyzer) Merge(src *VacuumAnalyzer) {
 	a.vacuumCount += src.vacuumCount
 	a.aggressiveVacuumCount += src.aggressiveVacuumCount
 	a.analyzeCount += src.analyzeCount
+	a.skippedVacuumCount += src.skippedVacuumCount
+	a.skippedAnalyzeCount += src.skippedAnalyzeCount
+	mergeSkipMaps(a.skippedVacuumTables, src.skippedVacuumTables)
+	mergeSkipMaps(a.skippedAnalyzeTables, src.skippedAnalyzeTables)
 
 	// Per-table count / space maps.
 	for table, c := range src.vacuumTableCounts {
@@ -92,5 +96,23 @@ func vacuumMergeTableStats(dst, src map[string]*VacuumTableStat) {
 		d.BufferWritten += s.BufferWritten
 		d.WALRecords += s.WALRecords
 		d.WALBytes += s.WALBytes
+	}
+}
+
+// mergeSkipMaps folds src's per-table skip counts into dst: shared keys sum
+// their counts and keep dst's reason (filling it from src only when empty),
+// src-only keys are deep-copied so the two analyzers never alias.
+func mergeSkipMaps(dst, src map[string]*VacuumSkip) {
+	for table, s := range src {
+		d, ok := dst[table]
+		if !ok {
+			cp := *s
+			dst[table] = &cp
+			continue
+		}
+		d.Count += s.Count
+		if d.Reason == "" {
+			d.Reason = s.Reason
+		}
 	}
 }

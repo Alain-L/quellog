@@ -1142,7 +1142,7 @@ function buildEventsSection(data) {
                     .map(([t, c]) => ({ table: t, count: c }))
                     .sort((a, b) => b.count - a.count)
                 : [];
-            _vacTabsData = { topElapsed: topVacTables, xmin: xminTables, byCount: vacTables, spaceRecovered, vacuumCount: m.vacuum_count || 0 };
+            _vacTabsData = { topElapsed: topVacTables, xmin: xminTables, byCount: vacTables, spaceRecovered, vacuumCount: m.vacuum_count || 0, skipped: m.skipped_vacuum_tables || [] };
 
             const topAnaTables = m.top_analyze_tables_by_elapsed || [];
             const anaTables = m.analyze_table_counts
@@ -1150,7 +1150,7 @@ function buildEventsSection(data) {
                     .map(([t, c]) => ({ table: t, count: c }))
                     .sort((a, b) => b.count - a.count)
                 : [];
-            _anaTabsData = { topElapsed: topAnaTables, byCount: anaTables, analyzeCount: m.analyze_count || 0 };
+            _anaTabsData = { topElapsed: topAnaTables, byCount: anaTables, analyzeCount: m.analyze_count || 0, skipped: m.skipped_analyze_tables || [] };
         }
 
         function buildMaintenanceStatGrid(m, _totalRecovered) {
@@ -1195,20 +1195,27 @@ function buildEventsSection(data) {
         function buildAutovacuumPanel(m) {
             const topVacTables = _vacTabsData?.topElapsed || [];
             const hasBufferData = topVacTables.some(t => (t.buffer_hits || 0) + (t.buffer_misses || 0) > 0);
+            const hasSkipped = (_vacTabsData?.skipped || []).length > 0;
+            const hasMain = (_vacTabsData?.byCount || []).length > 0;
+            // Default to the skipped view only when there is nothing else to
+            // show (autovacuum fully lock-blocked: zero completed runs).
+            const skippedOnly = hasSkipped && !hasMain;
+            const showTabs = hasBufferData || hasSkipped;
             return `
                 <div class="subsection">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
                         <div class="subsection-title" style="margin: 0;">Autovacuum</div>
-                        ${hasBufferData ? `
+                        ${showTabs ? `
                             <div class="tabs" style="margin: 0;">
-                                <button class="tab active" onclick="showVacuumView(this, 'main')">Top tables</button>
-                                <button class="tab" onclick="showVacuumView(this, 'buffer')">Buffer usage</button>
+                                <button class="tab${skippedOnly ? '' : ' active'}" onclick="showVacuumView(this, 'main')">Top tables</button>
+                                ${hasBufferData ? `<button class="tab" onclick="showVacuumView(this, 'buffer')">Buffer usage</button>` : ''}
+                                ${hasSkipped ? `<button class="tab skipped${skippedOnly ? ' active' : ''}" onclick="showVacuumView(this, 'skipped')">Skipped <span class="tab-badge">${fmt(m.skipped_vacuum_count || 0)}</span></button>` : ''}
                             </div>
                         ` : ''}
                     </div>
                     ${buildMaintenanceMetricLines(m)}
                     <div id="vacuum-table-container">
-                        ${renderVacuumMainTable()}
+                        ${skippedOnly ? renderVacuumSkippedTable() : renderVacuumMainTable()}
                     </div>
                 </div>
             `;
@@ -1219,23 +1226,45 @@ function buildEventsSection(data) {
             btn.classList.add('active');
             const container = document.getElementById('vacuum-table-container');
             if (!container) return;
-            container.innerHTML = view === 'buffer' ? renderVacuumBufferTable() : renderVacuumMainTable();
+            container.innerHTML = view === 'buffer' ? renderVacuumBufferTable()
+                : view === 'skipped' ? renderVacuumSkippedTable()
+                : renderVacuumMainTable();
         }
 
         function buildAutoanalyzePanel(m) {
             const topAnaTables = _anaTabsData?.topElapsed || [];
             const anaTables = _anaTabsData?.byCount || [];
-            if (topAnaTables.length === 0 && anaTables.length === 0) return '';
+            const hasMain = topAnaTables.length > 0 || anaTables.length > 0;
+            const hasSkipped = (_anaTabsData?.skipped || []).length > 0;
+            if (!hasMain && !hasSkipped) return '';
+            // Autoanalyze had no tab bar before; introduce one whenever there
+            // are skips (mirrors autovacuum so the warning badge always shows).
+            const showTabs = hasSkipped;
+            const skippedOnly = hasSkipped && !hasMain;
             return `
                 <div class="subsection">
-                    <div style="margin-bottom: 0.5rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
                         <div class="subsection-title" style="margin: 0;">Autoanalyze</div>
+                        ${showTabs ? `
+                            <div class="tabs" style="margin: 0;">
+                                <button class="tab${skippedOnly ? '' : ' active'}" onclick="showAnalyzeView(this, 'main')">Top tables</button>
+                                <button class="tab skipped${skippedOnly ? ' active' : ''}" onclick="showAnalyzeView(this, 'skipped')">Skipped <span class="tab-badge">${fmt(m.skipped_analyze_count || 0)}</span></button>
+                            </div>
+                        ` : ''}
                     </div>
                     <div id="analyze-table-container">
-                        ${renderAnalyzeTable()}
+                        ${skippedOnly ? renderAnalyzeSkippedTable() : renderAnalyzeTable()}
                     </div>
                 </div>
             `;
+        }
+
+        function showAnalyzeView(btn, view) {
+            btn.parentElement.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            btn.classList.add('active');
+            const container = document.getElementById('analyze-table-container');
+            if (!container) return;
+            container.innerHTML = view === 'skipped' ? renderAnalyzeSkippedTable() : renderAnalyzeTable();
         }
 
         // Rendering primitives — same scroll-list shape the maintenance
@@ -1367,6 +1396,39 @@ function buildEventsSection(data) {
             const c = document.getElementById('vacuum-table-container');
             if (c) c.innerHTML = renderVacuumBufferTable();
         }
+
+        // Skipped tables: a simple count-ranked list (relation / red bar /
+        // count), shared by autovacuum and autoanalyze. The reason is shown
+        // only when it deviates from the universal "lock not available"
+        // default — matching the CLI, which suppresses that noise.
+        const SKIP_REASON_DEFAULT = 'lock not available';
+
+        function renderSkippedTable(skips) {
+            if (!skips || !skips.length) return '<div class="empty">No skipped operations.</div>';
+            const rows = skips.slice().sort((a, b) => (b.count - a.count) || a.table.localeCompare(b.table));
+            const limited = rows.slice(0, MAINT_TOP_N);
+            const maxBar = Math.max(...limited.map(r => r.count || 0)) || 1;
+            return `<div class="scroll-list scroll-list--maintenance">
+                <div class="list-header">
+                    <span class="name">Table</span>
+                    <div class="bar"></div>
+                    <span class="extra"></span>
+                    <span class="value">Skipped</span>
+                </div>
+                ${limited.map(r => {
+                    const reason = (r.reason && r.reason !== SKIP_REASON_DEFAULT) ? esc(r.reason) : '';
+                    return `<div class="list-item">
+                        ${maintName(r.table)}
+                        <div class="bar"><div class="bar-fill" style="width: ${(r.count || 0) / maxBar * 100}%; background: var(--danger);"></div></div>
+                        <span class="extra">${reason ? `<span style="color: var(--danger);">${reason}</span>` : ''}</span>
+                        <span class="value">${r.count}×</span>
+                    </div>`;
+                }).join('')}
+            </div>`;
+        }
+
+        function renderVacuumSkippedTable() { return renderSkippedTable(_vacTabsData?.skipped); }
+        function renderAnalyzeSkippedTable() { return renderSkippedTable(_anaTabsData?.skipped); }
 
         // maintName renders a table-name cell with a native hover
         // tooltip carrying the full identifier plus a click handler
@@ -3453,6 +3515,7 @@ function buildEventsSection(data) {
         window.showVacuumMainSort = showVacuumMainSort;
         window.showVacuumBufferSort = showVacuumBufferSort;
         window.showVacuumView = showVacuumView;
+        window.showAnalyzeView = showAnalyzeView;
         window.showMaintRibbon = showMaintRibbon;
         window.showAnalyzeSort = showAnalyzeSort;
         window.copyQuery = copyQuery;

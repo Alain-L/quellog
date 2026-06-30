@@ -1,0 +1,7 @@
+2025-11-30 21:00:00.000 UTC [100] 00000: db=app,user=auto,app=[unknown],client=[local] LOG:  automatic vacuum of table "app.public.t1": index scans: 1, pages: 10 removed, 90 remain, tuples: 5 removed, 95 remain
+2025-11-30 21:00:01.000 UTC [101] 00000: db=app,user=auto,app=[unknown],client=[local] LOG:  automatic analyze of table "app.public.t1"
+2025-11-30 21:00:02.000 UTC [102] 00000: db=app,user=auto,app=[unknown],client=[local] LOG:  skipping vacuum of "t_big" --- lock not available
+2025-11-30 21:00:03.000 UTC [103] 00000: db=app,user=auto,app=[unknown],client=[local] LOG:  skipping vacuum of "t_big" --- lock not available
+2025-11-30 21:00:04.000 UTC [104] 00000: db=app,user=auto,app=[unknown],client=[local] LOG:  skipping vacuum of "t_other" --- lock not available
+2025-11-30 21:00:05.000 UTC [105] 00000: db=app,user=auto,app=[unknown],client=[local] LOG:  skipping vacuum of "t_gone" --- relation no longer exists
+2025-11-30 21:00:06.000 UTC [106] 00000: db=app,user=auto,app=[unknown],client=[local] LOG:  skipping analyze of "t_big" --- lock not available

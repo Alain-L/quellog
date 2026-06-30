@@ -390,10 +390,13 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 	// reader doesn't have to mentally separate vacuum from analyze
 	// inside one wall of text.
 	if has("maintenance") {
-		if m.Vacuum.VacuumCount > 0 {
+		// Render even when no run succeeded: a stream of skips with zero
+		// completed vacuums/analyzes is the worst case (autovacuum fully
+		// blocked), exactly when the skip info must show.
+		if m.Vacuum.VacuumCount > 0 || m.Vacuum.SkippedVacuumCount > 0 {
 			printAutovacuumSection(m.Vacuum)
 		}
-		if m.Vacuum.AnalyzeCount > 0 {
+		if m.Vacuum.AnalyzeCount > 0 || m.Vacuum.SkippedAnalyzeCount > 0 {
 			printAutoanalyzeSection(m.Vacuum)
 		}
 	}
@@ -1183,6 +1186,9 @@ func printAutovacuumSection(v analysis.VacuumMetrics) {
 	if v.AggressiveVacuumCount > 0 {
 		fmt.Printf("  %-25s : %s\n", "  of which aggressive", formatThousands(int64(v.AggressiveVacuumCount)))
 	}
+	if v.SkippedVacuumCount > 0 {
+		fmt.Printf("  %-25s : %s\n", "Vacuum skipped", formatThousands(int64(v.SkippedVacuumCount)))
+	}
 	if v.TotalVacuumElapsedSeconds > 0 {
 		dur := time.Duration(v.TotalVacuumElapsedSeconds * float64(time.Second)).Truncate(time.Second)
 		fmt.Printf("  %-25s : %s\n", "Cumulated time", dur)
@@ -1226,6 +1232,53 @@ func printAutovacuumSection(v analysis.VacuumMetrics) {
 	if len(v.VacuumTableCounts) > 0 {
 		printTopCountTable("Top tables by count:", v.VacuumTableCounts, v.VacuumCount)
 	}
+	if len(v.SkippedVacuumTables) > 0 {
+		printTopSkippedTable(v.SkippedVacuumTables)
+	}
+}
+
+// skipReasonDefault is the reason PostgreSQL attaches to essentially every
+// autovacuum/autoanalyze skip (the conditional-lock failure). It is suppressed
+// in the per-row output as noise; any other reason is surfaced as the
+// exception it is.
+const skipReasonDefault = "lock not available"
+
+// maxSkippedDisplay caps how many skipped relations the text/markdown
+// renderers list before collapsing the tail into a "… and N more" line,
+// matching the HTML cap (MAINT_TOP_N) and the other maintenance tables.
+const maxSkippedDisplay = 20
+
+// printTopSkippedTable lists the relations autovacuum/autoanalyze skipped,
+// ranked by skip count. The reason column is shown only when it deviates from
+// the universal "lock not available" default. Mirrors the xmin/elapsed table
+// layout: aligned name column, right-aligned count, optional trailing reason.
+func printTopSkippedTable(rows []analysis.VacuumSkip) {
+	fmt.Println("\n  Top tables skipped:")
+	shown := rows
+	if len(shown) > maxSkippedDisplay {
+		shown = shown[:maxSkippedDisplay]
+	}
+	nums := make([]string, len(shown))
+	maxNumW, maxNameW := 0, 0
+	for i, t := range shown {
+		nums[i] = formatThousands(int64(t.Count))
+		if len(nums[i]) > maxNumW {
+			maxNumW = len(nums[i])
+		}
+		if len(t.Table) > maxNameW {
+			maxNameW = len(t.Table)
+		}
+	}
+	for i, t := range shown {
+		if t.Reason != "" && t.Reason != skipReasonDefault {
+			fmt.Printf("    %-*s  %*s×  %s\n", maxNameW, t.Table, maxNumW, nums[i], t.Reason)
+		} else {
+			fmt.Printf("    %-*s  %*s×\n", maxNameW, t.Table, maxNumW, nums[i])
+		}
+	}
+	if len(rows) > len(shown) {
+		fmt.Printf("    … and %d more\n", len(rows)-len(shown))
+	}
 }
 
 // printAutoanalyzeSection renders the AUTOANALYZE sibling panel.
@@ -1235,6 +1288,9 @@ func printAutoanalyzeSection(v analysis.VacuumMetrics) {
 	fmt.Println(ansiBold + "\nAUTOANALYZE\n" + ansiReset)
 
 	fmt.Printf("  %-25s : %s\n", "Analyze count", formatThousands(int64(v.AnalyzeCount)))
+	if v.SkippedAnalyzeCount > 0 {
+		fmt.Printf("  %-25s : %s\n", "Analyze skipped", formatThousands(int64(v.SkippedAnalyzeCount)))
+	}
 	if v.TotalAnalyzeElapsedSeconds > 0 {
 		dur := time.Duration(v.TotalAnalyzeElapsedSeconds * float64(time.Second)).Truncate(time.Second)
 		fmt.Printf("  %-25s : %s\n", "Cumulated time", dur)
@@ -1245,6 +1301,9 @@ func printAutoanalyzeSection(v analysis.VacuumMetrics) {
 	}
 	if len(v.AnalyzeTableCounts) > 0 {
 		printTopCountTable("Top tables by count:", v.AnalyzeTableCounts, v.AnalyzeCount)
+	}
+	if len(v.SkippedAnalyzeTables) > 0 {
+		printTopSkippedTable(v.SkippedAnalyzeTables)
 	}
 }
 
