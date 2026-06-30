@@ -971,6 +971,9 @@ func writeAutovacuumSectionMarkdown(b *strings.Builder, v analysis.VacuumMetrics
 	if v.AggressiveVacuumCount > 0 {
 		b.WriteString(fmt.Sprintf("  - *of which aggressive*: %d\n", v.AggressiveVacuumCount))
 	}
+	if v.SkippedVacuumCount > 0 {
+		b.WriteString(fmt.Sprintf("- **Vacuum skipped**: %d\n", v.SkippedVacuumCount))
+	}
 	if v.TotalVacuumElapsedSeconds > 0 {
 		dur := time.Duration(v.TotalVacuumElapsedSeconds * float64(time.Second)).Truncate(time.Second)
 		b.WriteString(fmt.Sprintf("- **Cumulated time**: %s\n", dur))
@@ -1028,6 +1031,8 @@ func writeAutovacuumSectionMarkdown(b *strings.Builder, v analysis.VacuumMetrics
 		b.WriteString(printTopTablesMarkdown(v.VacuumTableCounts, v.VacuumCount, v.VacuumSpaceRecovered))
 		b.WriteString("\n")
 	}
+
+	writeSkippedTablesMarkdown(b, "### Tables skipped by autovacuum", v.SkippedVacuumTables)
 }
 
 // writeAutoanalyzeSectionMarkdown renders the AUTOANALYZE sibling
@@ -1036,6 +1041,9 @@ func writeAutovacuumSectionMarkdown(b *strings.Builder, v analysis.VacuumMetrics
 func writeAutoanalyzeSectionMarkdown(b *strings.Builder, v analysis.VacuumMetrics) {
 	b.WriteString("## AUTOANALYZE\n\n")
 	b.WriteString(fmt.Sprintf("- **Analyze count**: %d\n", v.AnalyzeCount))
+	if v.SkippedAnalyzeCount > 0 {
+		b.WriteString(fmt.Sprintf("- **Analyze skipped**: %d\n", v.SkippedAnalyzeCount))
+	}
 	if v.TotalAnalyzeElapsedSeconds > 0 {
 		dur := time.Duration(v.TotalAnalyzeElapsedSeconds * float64(time.Second)).Truncate(time.Second)
 		b.WriteString(fmt.Sprintf("- **Cumulated time**: %s\n", dur))
@@ -1064,6 +1072,55 @@ func writeAutoanalyzeSectionMarkdown(b *strings.Builder, v analysis.VacuumMetric
 		b.WriteString(printTopTablesMarkdown(v.AnalyzeTableCounts, v.AnalyzeCount, nil))
 		b.WriteString("\n")
 	}
+
+	writeSkippedTablesMarkdown(b, "### Tables skipped by autoanalyze", v.SkippedAnalyzeTables)
+}
+
+// writeSkippedTablesMarkdown renders a skipped-relations table as aligned
+// markdown. The Reason column appears only when at least one reason deviates
+// from the universal "lock not available" default — matching the CLI/HTML,
+// which suppress that noise — so the common case stays a clean two-column
+// table.
+func writeSkippedTablesMarkdown(b *strings.Builder, title string, skips []analysis.VacuumSkip) {
+	if len(skips) == 0 {
+		return
+	}
+	b.WriteString(title + "\n\n")
+
+	shown := skips
+	if len(shown) > maxSkippedDisplay {
+		shown = shown[:maxSkippedDisplay]
+	}
+
+	withReason := false
+	for _, s := range shown {
+		if s.Reason != "" && s.Reason != skipReasonDefault {
+			withReason = true
+			break
+		}
+	}
+
+	if withReason {
+		rows := make([][]string, 0, len(shown))
+		for _, s := range shown {
+			reason := ""
+			if s.Reason != skipReasonDefault {
+				reason = s.Reason
+			}
+			rows = append(rows, []string{"`" + s.Table + "`", fmt.Sprintf("%d", s.Count), reason})
+		}
+		mdTable(b, []string{"Table", "Skipped", "Reason"}, "lrl", rows)
+	} else {
+		rows := make([][]string, 0, len(shown))
+		for _, s := range shown {
+			rows = append(rows, []string{"`" + s.Table + "`", fmt.Sprintf("%d", s.Count)})
+		}
+		mdTable(b, []string{"Table", "Skipped"}, "lr", rows)
+	}
+	if len(skips) > len(shown) {
+		b.WriteString(fmt.Sprintf("\n_… and %d more_\n", len(skips)-len(shown)))
+	}
+	b.WriteString("\n")
 }
 
 func printTopTablesMarkdown(tableCounts map[string]int, total int, spaceRecovered map[string]int64) string {

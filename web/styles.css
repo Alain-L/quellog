@@ -2326,6 +2326,12 @@
 .tab.warning.active { background: var(--warning); }
 .tab.panic.active { background: #000; }
 
+/* Skipped-maintenance tab: grey at rest, amber tint on hover, amber
+   background when active — same treatment as the Events warning tab. The
+   count badge carries the total (replacing the stat-card). */
+.tab.skipped.active { background: var(--warning); }
+.tab.skipped:hover:not(.active) { color: var(--warning); background: rgba(229, 165, 75, 0.1); }
+
 .tab.error:hover:not(.active) { color: var(--danger); background: rgba(220, 53, 69, 0.1); }
 .tab.fatal:hover:not(.active) { color: var(--purple); background: rgba(111, 66, 193, 0.1); }
 .tab.warning:hover:not(.active) { color: var(--warning); background: rgba(229, 165, 75, 0.1); }

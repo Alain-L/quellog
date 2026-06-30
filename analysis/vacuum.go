@@ -62,6 +62,15 @@ type VacuumMetrics struct {
 	// useful as the headline "anomaly" line in the maintenance section.
 	SlowestVacuum *VacuumSample
 
+	// SkippedVacuumCount / SkippedAnalyzeCount are the totals of "skipping
+	// vacuum of ..." / "skipping analyze of ..." events; the *Tables slices
+	// rank the affected relations (count desc). Surfaced in the AUTOVACUUM
+	// and AUTOANALYZE panels respectively.
+	SkippedVacuumCount   int
+	SkippedVacuumTables  []VacuumSkip
+	SkippedAnalyzeCount  int
+	SkippedAnalyzeTables []VacuumSkip
+
 	// TotalAnalyzeElapsedSeconds is the global cumulative time spent in
 	// autoanalyze "system usage" blocks. TopAnalyzeTablesByElapsed
 	// reuses VacuumTableStat as a shape (its VacuumCount field carries
@@ -87,6 +96,19 @@ type VacuumTableStat struct {
 	BufferWritten         int64
 	WALRecords            int64
 	WALBytes              int64
+}
+
+// VacuumSkip aggregates "skipping vacuum of \"table\" --- reason" (and the
+// analyze sibling) events for a single relation. PostgreSQL logs these (LOG
+// level, no "automatic" keyword) when autovacuum reaches a table it cannot
+// process — most often "lock not available" (a long transaction holds a
+// conflicting lock), so a table piling up skips is being starved of
+// maintenance and risks bloat / wraparound. Surfaced in the AUTOVACUUM /
+// AUTOANALYZE panels.
+type VacuumSkip struct {
+	Table  string
+	Count  int
+	Reason string // text after "--- ", e.g. "lock not available"
 }
 
 // VacuumSample is a single autovacuum observation, useful when surfacing
@@ -156,6 +178,15 @@ type VacuumAnalyzer struct {
 	analyzeTableStats          map[string]*VacuumTableStat
 	totalAnalyzeElapsedSeconds float64
 
+	// Skipped maintenance events ("skipping vacuum of ..." / "skipping
+	// analyze of ... --- reason"). These carry no "automatic"/"uto" marker,
+	// so Process detects them on its own cheap path before the autovacuum
+	// pre-filter returns.
+	skippedVacuumCount   int
+	skippedVacuumTables  map[string]*VacuumSkip
+	skippedAnalyzeCount  int
+	skippedAnalyzeTables map[string]*VacuumSkip
+
 	// curSeq is the stream position of the entry being processed, stamped
 	// onto slowestVacuum so the cross-shard merge breaks elapsed-time ties
 	// deterministically (earliest stream position wins, as a single pass does).
@@ -170,6 +201,8 @@ func NewVacuumAnalyzer() *VacuumAnalyzer {
 		vacuumSpaceRecovered: make(map[string]int64, 100),
 		vacuumTableStats:     make(map[string]*VacuumTableStat, 100),
 		analyzeTableStats:    make(map[string]*VacuumTableStat, 100),
+		skippedVacuumTables:  make(map[string]*VacuumSkip, 16),
+		skippedAnalyzeTables: make(map[string]*VacuumSkip, 16),
 	}
 }
 
@@ -185,6 +218,16 @@ func (a *VacuumAnalyzer) Process(entry *parser.LogEntry) {
 		return
 	}
 	a.curSeq = entry.Seq
+
+	// "skipping vacuum of ..." / "skipping analyze of ... --- reason" carry no
+	// "automatic" marker, and "uto" can appear elsewhere in the line (e.g.
+	// user=auto, an app or table name), so they MUST be checked independently
+	// of the autovacuum pre-filter — gating them behind it would silently miss
+	// every skip on such logs. The "skipping " prefix dispatches vacuum vs
+	// analyze; recordSkipped's strict shape check rejects non-skip lines.
+	if i := strings.Index(msg, "skipping "); i >= 0 {
+		a.recordSkipped(msg[i:])
+	}
 
 	// Fast pre-filter: check for "uto" before expensive Index
 	// "uto" is highly specific to "automatic" and eliminates ~99%+ of messages
@@ -372,6 +415,10 @@ func (a *VacuumAnalyzer) Finalize() VacuumMetrics {
 		TopVacuumTables:            top,
 		XminBlockedTables:          xmin,
 		SlowestVacuum:              a.slowestVacuum,
+		SkippedVacuumCount:         a.skippedVacuumCount,
+		SkippedVacuumTables:        topSkipped(a.skippedVacuumTables, 200),
+		SkippedAnalyzeCount:        a.skippedAnalyzeCount,
+		SkippedAnalyzeTables:       topSkipped(a.skippedAnalyzeTables, 200),
 		TotalAnalyzeElapsedSeconds: a.totalAnalyzeElapsedSeconds,
 		TopAnalyzeTablesByElapsed:  topVacuumTablesByElapsed(a.analyzeTableStats, 200),
 	}
@@ -577,6 +624,91 @@ func extractWALUsage(msg string) (records, bytes int64, ok bool) {
 		return 0, 0, false
 	}
 	return records, bytes, true
+}
+
+// recordSkipped folds a "skipping vacuum of \"table\" --- reason" or
+// "skipping analyze of \"table\" --- reason" message into the matching
+// per-table skip aggregates. s must start at the "skipping " token. The
+// relation name PostgreSQL prints here is unqualified
+// (RelationGetRelationName), so it is kept verbatim rather than matched
+// against the schema-qualified autovacuum table keys.
+func (a *VacuumAnalyzer) recordSkipped(s string) {
+	var (
+		count  *int
+		tables map[string]*VacuumSkip
+		rest   string
+	)
+	switch {
+	case strings.HasPrefix(s, "skipping vacuum of "):
+		count, tables = &a.skippedVacuumCount, a.skippedVacuumTables
+		rest = s[len("skipping vacuum of "):]
+	case strings.HasPrefix(s, "skipping analyze of "):
+		count, tables = &a.skippedAnalyzeCount, a.skippedAnalyzeTables
+		rest = s[len("skipping analyze of "):]
+	default:
+		return
+	}
+
+	table, reason, ok := parseSkippedTarget(rest)
+	if !ok {
+		return
+	}
+	*count++
+	v := tables[table]
+	if v == nil {
+		tables[table] = &VacuumSkip{Table: table, Count: 1, Reason: reason}
+		return
+	}
+	v.Count++
+	if v.Reason == "" {
+		v.Reason = reason
+	}
+}
+
+// parseSkippedTarget extracts the relation name and reason from the
+// "\"table\" --- reason" tail of a genuine skip message. PostgreSQL always
+// double-quotes the relation and follows it with " --- <reason>", so the
+// parser requires that exact shape and returns ok=false otherwise — this
+// rejects SQL statements that merely contain the words "skipping vacuum of"
+// (e.g. a query string in a `duration: ... statement:` line), which must not
+// be miscounted as maintenance skips.
+func parseSkippedTarget(rest string) (table, reason string, ok bool) {
+	if len(rest) == 0 || rest[0] != '"' {
+		return "", "", false
+	}
+	const sep = `" --- `
+	end := strings.Index(rest[1:], sep)
+	if end < 0 {
+		return "", "", false
+	}
+	table = rest[1 : 1+end]
+	reason = rest[1+end+len(sep):]
+	if table == "" {
+		return "", "", false
+	}
+	return table, reason, true
+}
+
+// topSkipped returns the n most-skipped relations, sorted by skip count desc
+// and tie-broken on the table name for deterministic output.
+func topSkipped(stats map[string]*VacuumSkip, n int) []VacuumSkip {
+	if len(stats) == 0 {
+		return nil
+	}
+	out := make([]VacuumSkip, 0, len(stats))
+	for _, s := range stats {
+		out = append(out, *s)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Count != out[j].Count {
+			return out[i].Count > out[j].Count
+		}
+		return out[i].Table < out[j].Table
+	})
+	if n < len(out) {
+		out = out[:n]
+	}
+	return out
 }
 
 // parseLeadingInt64 reads the leading integer from s, stopping at the
