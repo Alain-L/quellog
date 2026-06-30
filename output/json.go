@@ -2370,9 +2370,12 @@ func buildSQLOverviewData(m analysis.SQLMetrics) SQLOverviewJSON {
 	return overview
 }
 
-// buildFullSQLPerformance builds enriched SQL performance data for --full mode.
-// Includes basic stats, duration distribution histogram, and top queries lists.
-func buildFullSQLPerformance(m analysis.SQLMetrics) SQLPerformanceDetailJSON {
+// buildSQLPerformanceBase builds the shared SQL performance payload: aggregate
+// stats, the duration distribution histogram, and the three top-query rankings
+// (slowest, most frequent, most time consuming). buildFullSQLPerformance
+// enriches it with per-query rows and lazy executions for the HTML viewer;
+// ExportSQLPerformanceJSON streams it as-is.
+func buildSQLPerformanceBase(m analysis.SQLMetrics) SQLPerformanceDetailJSON {
 	// Top 1% slow computation — count events whose duration exceeds the
 	// P99 threshold. Goes through the compact storage helper to avoid
 	// expanding 40M QueryExecution structs just to read the duration.
@@ -2501,6 +2504,26 @@ func buildFullSQLPerformance(m analysis.SQLMetrics) SQLPerformanceDetailJSON {
 			AvgTime:         formatQueryDuration(s.stat.AvgTime),
 			MaxTime:         formatQueryDuration(s.stat.MaxTime),
 		})
+	}
+
+	return perf
+}
+
+// buildFullSQLPerformance builds enriched SQL performance data for --full mode.
+// It extends the shared base payload with per-query rows and lazy executions
+// consumed by the HTML viewer.
+func buildFullSQLPerformance(m analysis.SQLMetrics) SQLPerformanceDetailJSON {
+	perf := buildSQLPerformanceBase(m)
+
+	// Convert QueryStats to slice for sorting
+	type queryStat struct {
+		id    string
+		query string
+		stat  *analysis.QueryStat
+	}
+	var stats []queryStat
+	for _, s := range m.QueryStats {
+		stats = append(stats, queryStat{s.ID, s.NormalizedQuery, s})
 	}
 
 	// Full queries data for HTML viewer (all queries, sorted by total time)
@@ -2856,62 +2879,7 @@ func ExportSQLOverviewJSON(w io.Writer, m analysis.SQLMetrics) {
 		return
 	}
 
-	overview := SQLOverviewJSON{
-		TotalQueries: m.TotalQueries,
-	}
-
-	// Build category statistics
-	categoryStats := make(map[string]struct {
-		count     int
-		totalTime float64
-	})
-	for _, stat := range m.QueryTypeStats {
-		cs := categoryStats[stat.Category]
-		cs.count += stat.Count
-		cs.totalTime += stat.TotalTime
-		categoryStats[stat.Category] = cs
-	}
-
-	// Convert to sorted slice
-	for cat, cs := range categoryStats {
-		overview.Categories = append(overview.Categories, CategoryStatJSON{
-			Category:   cat,
-			Count:      cs.count,
-			Percentage: float64(cs.count) / float64(m.TotalQueries) * 100,
-			TotalTime:  formatQueryDuration(cs.totalTime),
-		})
-	}
-	sort.Slice(overview.Categories, func(i, j int) bool {
-		if overview.Categories[i].Count != overview.Categories[j].Count {
-			return overview.Categories[i].Count > overview.Categories[j].Count
-		}
-		return overview.Categories[i].Category < overview.Categories[j].Category
-	})
-
-	// Build type statistics
-	for qtype, stat := range m.QueryTypeStats {
-		overview.Types = append(overview.Types, TypeStatJSON{
-			Type:       qtype,
-			Category:   stat.Category,
-			Count:      stat.Count,
-			Percentage: float64(stat.Count) / float64(m.TotalQueries) * 100,
-			TotalTime:  formatQueryDuration(stat.TotalTime),
-			AvgTime:    formatQueryDuration(stat.AvgTime),
-			MaxTime:    formatQueryDuration(stat.MaxTime),
-		})
-	}
-	sort.Slice(overview.Types, func(i, j int) bool {
-		if overview.Types[i].Count != overview.Types[j].Count {
-			return overview.Types[i].Count > overview.Types[j].Count
-		}
-		return overview.Types[i].Type < overview.Types[j].Type
-	})
-
-	// Build dimensional breakdowns
-	overview.ByDatabase = convertDimensionBreakdown(m.QueryTypesByDatabase)
-	overview.ByUser = convertDimensionBreakdown(m.QueryTypesByUser)
-	overview.ByHost = convertDimensionBreakdown(m.QueryTypesByHost)
-	overview.ByApp = convertDimensionBreakdown(m.QueryTypesByApp)
+	overview := buildSQLOverviewData(m)
 
 	// Stream the overview as a top-level document.
 	if err := streamTopLevel(w, overview, false); err != nil {
@@ -2926,135 +2894,7 @@ func ExportSQLPerformanceJSON(w io.Writer, m analysis.SQLMetrics) {
 		return
 	}
 
-	// Top 1% slow computation — count events whose duration exceeds the
-	// P99 threshold. Goes through the compact storage helper to avoid
-	// expanding 40M QueryExecution structs just to read the duration.
-	top1Slow := 0
-	if m.ExecutionCount() > 0 {
-		top1Slow = m.ExecutionsCountAbove(m.P99QueryDuration)
-	}
-
-	perf := SQLPerformanceDetailJSON{
-		TotalQueryDuration:  formatQueryDuration(m.SumQueryDuration),
-		TotalQueriesParsed:  m.TotalQueries,
-		TotalUniqueQueries:  m.UniqueQueries,
-		Top1PercentSlow:     top1Slow,
-		QueryMaxDuration:    formatQueryDuration(m.MaxQueryDuration),
-		QueryMinDuration:    formatQueryDuration(m.MinQueryDuration),
-		QueryMedianDuration: formatQueryDuration(m.MedianQueryDuration),
-		Query99thPercentile: formatQueryDuration(m.P99QueryDuration),
-	}
-
-	// Duration distribution histogram
-	buckets := []struct {
-		label     string
-		threshold float64
-	}{
-		{"< 1 ms", 1},
-		{"< 10 ms", 10},
-		{"< 100 ms", 100},
-		{"< 1 s", 1000},
-		{"< 10 s", 10000},
-		{">= 10 s", -1},
-	}
-
-	bucketCounts := make([]int, len(buckets))
-	m.IterateExecutions(func(exec analysis.QueryExecution) bool {
-		for i, b := range buckets {
-			if b.threshold < 0 || exec.Duration < b.threshold {
-				bucketCounts[i]++
-				break
-			}
-		}
-		return true
-	})
-
-	for i, b := range buckets {
-		perf.DurationDistribution = append(perf.DurationDistribution, DurationBucketJSON{
-			Bucket: b.label,
-			Count:  bucketCounts[i],
-		})
-	}
-
-	// Convert QueryStats to slice for sorting
-	type queryStat struct {
-		id    string
-		query string
-		stat  *analysis.QueryStat
-	}
-	var stats []queryStat
-	for _, s := range m.QueryStats {
-		stats = append(stats, queryStat{s.ID, s.NormalizedQuery, s})
-	}
-
-	// Slowest queries (by max duration)
-	sort.Slice(stats, func(i, j int) bool {
-		if stats[i].stat.MaxTime != stats[j].stat.MaxTime {
-			return stats[i].stat.MaxTime > stats[j].stat.MaxTime
-		}
-		return stats[i].id < stats[j].id
-	})
-	limit := 10
-	if len(stats) < limit {
-		limit = len(stats)
-	}
-	for i := 0; i < limit; i++ {
-		s := stats[i]
-		perf.SlowestQueries = append(perf.SlowestQueries, QueryRankJSON{
-			ID:              s.id,
-			NormalizedQuery: s.query,
-			Count:           s.stat.Count,
-			TotalTime:       formatQueryDuration(s.stat.TotalTime),
-			AvgTime:         formatQueryDuration(s.stat.AvgTime),
-			MaxTime:         formatQueryDuration(s.stat.MaxTime),
-		})
-	}
-
-	// Most frequent queries (by count)
-	sort.Slice(stats, func(i, j int) bool {
-		if stats[i].stat.Count != stats[j].stat.Count {
-			return stats[i].stat.Count > stats[j].stat.Count
-		}
-		return stats[i].id < stats[j].id
-	})
-	limit = 15
-	if len(stats) < limit {
-		limit = len(stats)
-	}
-	for i := 0; i < limit; i++ {
-		s := stats[i]
-		perf.MostFrequentQueries = append(perf.MostFrequentQueries, QueryRankJSON{
-			ID:              s.id,
-			NormalizedQuery: s.query,
-			Count:           s.stat.Count,
-			TotalTime:       formatQueryDuration(s.stat.TotalTime),
-			AvgTime:         formatQueryDuration(s.stat.AvgTime),
-			MaxTime:         formatQueryDuration(s.stat.MaxTime),
-		})
-	}
-
-	// Most time consuming queries (by total time)
-	sort.Slice(stats, func(i, j int) bool {
-		if stats[i].stat.TotalTime != stats[j].stat.TotalTime {
-			return stats[i].stat.TotalTime > stats[j].stat.TotalTime
-		}
-		return stats[i].id < stats[j].id
-	})
-	limit = 10
-	if len(stats) < limit {
-		limit = len(stats)
-	}
-	for i := 0; i < limit; i++ {
-		s := stats[i]
-		perf.MostTimeConsuming = append(perf.MostTimeConsuming, QueryRankJSON{
-			ID:              s.id,
-			NormalizedQuery: s.query,
-			Count:           s.stat.Count,
-			TotalTime:       formatQueryDuration(s.stat.TotalTime),
-			AvgTime:         formatQueryDuration(s.stat.AvgTime),
-			MaxTime:         formatQueryDuration(s.stat.MaxTime),
-		})
-	}
+	perf := buildSQLPerformanceBase(m)
 
 	// Stream the perf as a top-level document. The Executions field is
 	// not populated by this function (caller --sql-performance --json
