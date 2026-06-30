@@ -70,14 +70,6 @@ export function computeBuckets(rangeSeconds, intervalSeconds) {
     return Math.min(buckets, 200);  // Cap at 200 buckets max
 }
 
-// Format interval for display
-export function formatInterval(seconds) {
-    if (seconds === 0) return 'Auto';
-    if (seconds < 60) return seconds + 's';
-    if (seconds < 3600) return (seconds / 60) + ' min';
-    return (seconds / 3600) + 'h';
-}
-
 // Global tooltip plugin for uPlot charts
 export function tooltipPlugin() {
     let tooltip = null;

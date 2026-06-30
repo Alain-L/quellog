@@ -8,7 +8,7 @@ import {
     setOriginalDimensions, incrementModalChartCounter, setAppliedFilters, clearAllCharts
 } from './js/state.js';
 import { initTheme, toggleTheme } from './js/theme.js';
-import { gunzipBuffer, unzstd, detectFormat, decompress, extractTar, prepareContent } from './js/compression.js';
+import { unzstd, decompress, prepareContent } from './js/compression.js';
 import './js/period-nav.js'; // shared period navigator (split reports + WASM)
 import {
     showFilterBar, hideFilterBar, initFilterBar, closeAllDropdowns,
@@ -171,13 +171,9 @@ import './js/components/ql-dropdown.js';
             }
         }
 
-        // harmonizeSummary restructures the Summary tile after each render: the
-        // source + size + parse time become a one-line eyebrow, the SIZE stat
-        // card is dropped, and (outside split mode) the date becomes a centered
-        // title above a full-width timeline bar carrying the real start/end
-        // marks. Split reports set window.QL_SPLIT so the period navigator owns
-        // the title and the strip. Shared by the standalone reports and the
-        // live WASM tool. CSS lives in styles.css.
+        // harmonizeSummary folds the source + size + parse time into a one-line
+        // eyebrow and gives the filename a tooltip, after each render. Shared by
+        // the standalone reports and the live WASM tool.
         function harmonizeSummary() {
             const body = document.querySelector('#summary .summary-body');
             if (!body) return;
@@ -189,40 +185,6 @@ import './js/components/ql-dropdown.js';
             }
             const fn = meta && meta.querySelector('.summary-filename');
             if (fn && !fn.title) fn.title = fn.textContent;
-            if (window.QL_SPLIT) return; // the period navigator owns title + strip
-            const date = body.querySelector('.summary-date');
-            const timeline = body.querySelector('.summary-timeline');
-            if (date && timeline && !date.classList.contains('summary-date--title')) {
-                date.classList.add('summary-date--title');
-                timeline.parentNode.insertBefore(date, timeline);
-            }
-            if (timeline) {
-                const seg = timeline.querySelector('.summary-timeline-segment');
-                const range = timeline.querySelector('.summary-timeline-range');
-                if (seg && range && !timeline.querySelector('.summary-tl-marks')) {
-                    const left = parseFloat(seg.style.left) || 0;
-                    const endPct = Math.min(100, left + (parseFloat(seg.style.width) || 0));
-                    const parts = range.textContent.split('–').map((s) => s.trim());
-                    const startT = parts[0] || '';
-                    const endT = parts[1] || startT;
-                    const marks = document.createElement('div');
-                    marks.className = 'summary-tl-marks';
-                    const mk = (txt, pct, cls) => {
-                        const s = document.createElement('span');
-                        s.className = 'summary-tl-mark' + (cls ? ' ' + cls : '');
-                        s.textContent = txt;
-                        s.style.left = pct + '%';
-                        marks.appendChild(s);
-                    };
-                    const showStart = left > 1.5;
-                    const showEnd = endPct < 98.5;
-                    if (!(showStart && left < 12)) mk('00:00', 0, 'is-start');
-                    if (showStart) mk(startT, left);
-                    if (showEnd) mk(endT, endPct);
-                    if (!(showEnd && endPct > 88)) mk('24:00', 100, 'is-end');
-                    timeline.appendChild(marks);
-                }
-            }
         }
 
         function renderResults(data, fileName, fileSize, isInitial = true) {
@@ -782,29 +744,6 @@ function buildEventsSection(data) {
                             const pct = (e.count / total) * 100;
                             return `<span class="duration-stack-item"><span class="duration-stack-dot" style="background: ${colors[e.idx]};"></span>${e.label} ${pct > 0 && pct < 1 ? '< 1' : pct.toFixed(0)}%</span>`;
                         }).join('')}
-                    </div>
-                </div>
-            `;
-        }
-
-        // Build concurrent sessions vertical bar chart
-        function buildConcurrentSessionsChart(histogram) {
-            if (!histogram || histogram.length === 0) return '';
-            const max = Math.max(...histogram.map(h => h.count)) || 1;
-            const firstLabel = histogram[0]?.label?.split(' - ')[0] || '';
-            const lastLabel = histogram[histogram.length - 1]?.label?.split(' - ')[1] || '';
-            return `
-                <div class="histogram-container">
-                    <div class="histogram">
-                        ${histogram.map(h => `
-                            <div class="histogram-bar" style="height: ${Math.max(3, h.count/max*100)}%; background: var(--accent);">
-                                <div class="tooltip">${h.count} (${h.peak_time || h.label})</div>
-                            </div>
-                        `).join('')}
-                    </div>
-                    <div class="histogram-labels">
-                        <span>${firstLabel}</span>
-                        <span>${lastLabel}</span>
                     </div>
                 </div>
             `;
@@ -1779,51 +1718,6 @@ function buildEventsSection(data) {
             `;
         }
 
-        // Build time histogram from array of timestamp strings
-        function buildTimeHistogram(timestamps, buckets = 24) {
-            if (!timestamps || timestamps.length === 0) return [];
-            const times = timestamps.map(t => new Date(t).getTime()).filter(t => !isNaN(t));
-            if (times.length === 0) return [];
-            // Use reduce instead of spread to avoid "too many arguments" error
-            const min = times.reduce((a, b) => a < b ? a : b, times[0]);
-            const max = times.reduce((a, b) => a > b ? a : b, times[0]);
-            const range = max - min || 1;
-            const bucketSize = range / buckets;
-            const hist = Array(buckets).fill(0);
-            times.forEach(t => {
-                const idx = Math.min(Math.floor((t - min) / bucketSize), buckets - 1);
-                hist[idx]++;
-            });
-            const startDate = new Date(min);
-            const endDate = new Date(max);
-            return hist.map((count, i) => ({
-                count,
-                start: i === 0 ? formatTime(startDate) : '',
-                end: i === buckets - 1 ? formatTime(endDate) : ''
-            }));
-        }
-
-        function formatTime(d) {
-            return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
-        }
-
-        function buildHistogramHTML(histogram, colorVar = '--chart-bar') {
-            const max = Math.max(...histogram.map(h => h.count)) || 1;
-            return `
-                <div class="histogram">
-                    ${histogram.map(h => `
-                        <div class="histogram-bar" style="height: ${Math.max(3, h.count/max*100)}%; background: var(${colorVar});">
-                            <div class="tooltip">${h.count}</div>
-                        </div>
-                    `).join('')}
-                </div>
-                <div class="histogram-labels">
-                    <span>${histogram[0]?.start || ''}</span>
-                    <span>${histogram[histogram.length-1]?.end || ''}</span>
-                </div>
-            `;
-        }
-
         function buildSQLOverviewSection(data) {
             const ov = data.sql_overview;
             // Check if we have any SQL data
@@ -2200,46 +2094,6 @@ function buildEventsSection(data) {
             return buckets.map((b, i) => ({ label: b.label, count: counts[i] }));
         }
 
-        function buildDurationDistChart(dist) {
-            const total = dist.reduce((sum, d) => sum + d.count, 0) || 1;
-
-            // Calculate max and second max for truncation logic
-            const counts = dist.map(d => d.count).filter(c => c > 0).sort((a, b) => b - a);
-            const maxCount = counts[0] || 1;
-            const secondMax = counts[1] || maxCount;
-            const needsTruncation = maxCount > secondMax * 5 && secondMax > 0;
-            const secondMaxWidth = needsTruncation ? 75 : 100;
-
-            const getBarWidth = (count) => {
-                if (count === 0) return 0;
-                if (needsTruncation && count === maxCount) return 100;
-                const scaleMax = needsTruncation ? secondMax : maxCount;
-                return Math.max((count / scaleMax) * secondMaxWidth, 5);
-            };
-
-            return `
-                <div class="sql-category-bars">
-                    ${dist.map(d => {
-                        const pct = ((d.count / total) * 100).toFixed(1);
-                        const width = getBarWidth(d.count);
-                        const isTruncated = needsTruncation && d.count === maxCount;
-                        const hatchStart = secondMaxWidth;
-                        return `
-                            <div class="sql-category-bar${d.count === 0 ? ' disabled' : ''}">
-                                <span class="label" style="width: 70px;">${d.label}</span>
-                                <div class="bar-bg">
-                                    <div class="bar${isTruncated ? ' truncated' : ''}"
-                                         style="width: ${width}%;${isTruncated ? ` --hatch-start: ${hatchStart}%;` : ''}"></div>
-                                </div>
-                                <span class="count">${fmt(d.count)}</span>
-                                <span class="pct">${pct}%</span>
-                            </div>
-                        `;
-                    }).join('')}
-                </div>
-            `;
-        }
-
         // Compact horizontal duration distribution
         function buildCompactDurationDist(dist) {
             const total = dist.reduce((sum, d) => sum + d.count, 0) || 1;
@@ -2511,48 +2365,6 @@ function buildEventsSection(data) {
                     </table>
                 </div>
             `;
-        }
-
-        function buildHistogram(histogram) {
-            if (!histogram || histogram.length === 0) return '';
-            const max = Math.max(...histogram.map(h => h.count)) || 1;
-            return `
-                <div class="histogram-container">
-                    <div class="histogram">
-                        ${histogram.map(h => `
-                            <div class="histogram-bar" style="height: ${Math.max(3, h.count/max*100)}%">
-                                <div class="tooltip">${h.start}-${h.end}: ${fmt(h.count)}</div>
-                            </div>
-                        `).join('')}
-                    </div>
-                    <div class="histogram-labels">
-                        <span>${histogram[0]?.start || ''}</span>
-                        <span>${histogram[histogram.length-1]?.end || ''}</span>
-                    </div>
-                </div>
-            `;
-        }
-
-        // Query detail modal
-        function showQueryDetail(index) {
-            const q = analysisData.sql_performance.queries[index];
-            document.getElementById('queryModalBody').innerHTML = `
-                <div class="query-detail-sql">
-                    <button class="copy-btn" onclick="copyQuery(${index})">Copy</button>
-                    ${esc(q.full_query || q.normalized_query)}
-                </div>
-                <div class="detail-stats">
-                    <div class="detail-stat"><div class="value">${fmt(q.count)}</div><div class="label">Executions</div></div>
-                    <div class="detail-stat"><div class="value">${fmtMs(q.total_time_ms)}</div><div class="label">Total Time</div></div>
-                    <div class="detail-stat"><div class="value">${fmtMs(q.avg_time_ms)}</div><div class="label">Avg Time</div></div>
-                    <div class="detail-stat"><div class="value">${fmtMs(q.min_time_ms)}</div><div class="label">Min Time</div></div>
-                    <div class="detail-stat"><div class="value">${fmtMs(q.max_time_ms)}</div><div class="label">Max Time</div></div>
-                    <div class="detail-stat"><div class="value">${q.percentage?.toFixed(2) || '-'}%</div><div class="label">% of Total</div></div>
-                    <div class="detail-stat"><div class="value">${q.query_type || '-'}</div><div class="label">Type</div></div>
-                    <div class="detail-stat"><div class="value">${q.category || '-'}</div><div class="label">Category</div></div>
-                </div>
-            `;
-            document.getElementById('queryModal').open();
         }
 
         function copyQuery(index) {
@@ -3217,78 +3029,6 @@ function buildEventsSection(data) {
             };
         }
 
-        // Build time-based histogram container (renders with uPlot)
-        function buildQdHistogram(timestamps, title, unit) {
-            if (!timestamps || timestamps.length === 0) return '';
-            const times = timestamps.map(t => new Date(t).getTime()).filter(t => !isNaN(t)).sort((a,b) => a - b);
-            if (times.length === 0) return '';
-
-            const buckets = 12;
-            const min = times[0], max = times[times.length - 1];
-            const range = (max - min) || 1;
-            const bucketSize = range / buckets;
-            const hist = Array(buckets).fill(0);
-            times.forEach(t => {
-                const idx = Math.min(Math.floor((t - min) / bucketSize), buckets - 1);
-                hist[idx]++;
-            });
-
-            const xData = new Float64Array(buckets);
-            const yData = new Float64Array(buckets);
-            for (let i = 0; i < buckets; i++) {
-                xData[i] = (min + (i + 0.5) * bucketSize) / 1000;
-                yData[i] = hist[i];
-            }
-
-            const containerId = 'modal-chart-' + incrementModalChartCounter();
-            modalChartsData.set(containerId, {
-                xData, yData,
-                color: 'var(--primary)',
-                height: 100,
-                valueFormatter: v => v + ' queries'
-            });
-
-            return `<div id="${containerId}" style="min-height: 100px; margin-top: 0.5rem;"></div>`;
-        }
-
-        // Build cumulative time histogram container
-        function buildQdCumulativeTimeHistogram(execs) {
-            if (!execs || execs.length === 0) return '';
-            const times = execs.map(e => ({ ts: new Date(e.timestamp).getTime(), dur: parseDurationToMs(e.duration) }))
-                .filter(x => !isNaN(x.ts) && x.dur > 0).sort((a,b) => a.ts - b.ts);
-            if (times.length === 0) return '';
-
-            const buckets = 12;
-            const min = times[0].ts, max = times[times.length - 1].ts;
-            const range = (max - min) || 1;
-            const bucketSize = range / buckets;
-            const hist = Array(buckets).fill(0);
-            times.forEach(t => {
-                const idx = Math.min(Math.floor((t.ts - min) / bucketSize), buckets - 1);
-                hist[idx] += t.dur;
-            });
-
-            const xData = new Float64Array(buckets);
-            const yData = new Float64Array(buckets);
-            for (let i = 0; i < buckets; i++) {
-                xData[i] = (min + (i + 0.5) * bucketSize) / 1000;
-                yData[i] = hist[i];
-            }
-
-            const containerId = 'modal-chart-' + incrementModalChartCounter();
-            modalChartsData.set(containerId, {
-                xData, yData,
-                color: 'var(--accent)',
-                height: 100,
-                valueFormatter: fmtMsLong
-            });
-
-            return `
-                <div style="font-size: 0.7rem; color: var(--text-muted); margin: 0.75rem 0 0.25rem;">Cumulative time</div>
-                <div id="${containerId}" style="min-height: 100px;"></div>
-            `;
-        }
-
         // Build duration distribution (horizontal bars - keep as HTML for categories)
         function buildQdDurationDistribution(execs) {
             const durations = execs.map(e => parseDurationToMs(e.duration)).filter(d => d > 0);
@@ -3314,7 +3054,7 @@ function buildEventsSection(data) {
                 const pct = maxVal > 0 ? (counts[i] / maxVal * 100) : 0;
                 html += '<div style="display: flex; align-items: center; gap: 8px; font-size: 0.75rem;">';
                 html += '<span style="width: 60px; text-align: right; color: var(--text-muted);">' + buckets[i].label + '</span>';
-                html += '<div style="flex: 1; height: 18px; background: var(--bg-tertiary); border-radius: 4px; overflow: hidden;">';
+                html += '<div style="flex: 1; height: 18px; border-radius: 4px; overflow: hidden;">';
                 html += '<div style="width: ' + pct + '%; height: 100%; background: var(--chart-bar); border-radius: 4px;"></div>';
                 html += '</div>';
                 html += '<span style="width: 70px; text-align: right;">' + (counts[i] > 0 ? fmt(counts[i]) + ' queries' : '-') + '</span>';
@@ -3379,10 +3119,6 @@ function buildEventsSection(data) {
                 <div style="font-size: 0.7rem; color: var(--text-muted); margin: 0.75rem 0 0.25rem;">Temp files count</div>
                 <div id="${countContainerId}" style="min-height: 100px;"></div>
             `;
-        }
-
-        function formatTimeShort(d) {
-            return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
         }
 
         function fmtMsLong(ms) {

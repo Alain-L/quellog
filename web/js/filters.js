@@ -173,11 +173,6 @@ const MON_ABBR = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep',
 
 // ===== Time Utilities =====
 
-export function timeToMinutes(timeStr) {
-    const parts = timeStr.split(':');
-    return parseInt(parts[0] || 0) * 60 + parseInt(parts[1] || 0);
-}
-
 export function minutesToTime(mins) {
     const h = Math.floor(mins / 60);
     const m = mins % 60;
