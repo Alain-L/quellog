@@ -34,7 +34,7 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 	if has("summary") {
 		b.WriteString("## SUMMARY\n\n")
 		b.WriteString(fmt.Sprintf("This _quellog_ report summarizes **%s** log entries collected between %s — %s, spanning %s of activity.\n\n",
-			formatIntWithCommas(int64(m.Global.Count)),
+			formatThousands(int64(m.Global.Count)),
 			humanDate(m.Global.MinTimestamp),
 			humanDate(m.Global.MaxTimestamp),
 			humanDuration(duration),
@@ -1059,7 +1059,7 @@ func writeAutovacuumSectionMarkdown(b *strings.Builder, v analysis.VacuumMetrics
 	if v.TotalTuplesRemoved > 0 {
 		b.WriteString(fmt.Sprintf("- **Tuples removed**: %d\n", v.TotalTuplesRemoved))
 	}
-	if total := sumSpaceRecoveredMD(v.VacuumSpaceRecovered); total > 0 {
+	if total := sumSpaceRecovered(v.VacuumSpaceRecovered); total > 0 {
 		b.WriteString(fmt.Sprintf("- **Space recovered**: %s\n", FormatBytes(total)))
 	}
 	if v.TotalTuplesNotYetRemovable > 0 {
@@ -1145,17 +1145,6 @@ func writeAutoanalyzeSectionMarkdown(b *strings.Builder, v analysis.VacuumMetric
 		b.WriteString(printTopTablesMarkdown(v.AnalyzeTableCounts, v.AnalyzeCount, nil))
 		b.WriteString("\n")
 	}
-}
-
-// sumSpaceRecoveredMD totals the per-table reclaimed bytes — mirrors
-// the helper in output/text.go so the AUTOVACUUM header can show one
-// cluster-wide "Space recovered" line above the per-table breakdown.
-func sumSpaceRecoveredMD(m map[string]int64) int64 {
-	var total int64
-	for _, v := range m {
-		total += v
-	}
-	return total
 }
 
 func printTopTablesMarkdown(tableCounts map[string]int, total int, spaceRecovered map[string]int64) string {
@@ -1301,25 +1290,6 @@ func countSlowQueries(sql analysis.SQLMetrics) int {
 // FORMATTING HELPERS (reused from text.go)
 // ============================================================================
 
-// formatIntWithCommas formats an integer with thousands separators
-func formatIntWithCommas(n int64) string {
-	s := fmt.Sprintf("%d", n)
-	if n < 0 {
-		s = s[1:]
-	}
-	var parts []string
-	for len(s) > 3 {
-		parts = append([]string{s[len(s)-3:]}, parts...)
-		s = s[:len(s)-3]
-	}
-	parts = append([]string{s}, parts...)
-	res := strings.Join(parts, ",")
-	if n < 0 {
-		res = "-" + res
-	}
-	return res
-}
-
 // writeDimensionsMarkdownRow appends one line of the Dimensions
 // sub-section in --sql-detail markdown. Each entry reads "<name>
 // <count>" with the count italicised — same sobre convention as the
@@ -1331,36 +1301,9 @@ func writeDimensionsMarkdownRow(b *strings.Builder, label string, rows []analysi
 	}
 	parts := make([]string, 0, len(rows))
 	for _, r := range rows {
-		parts = append(parts, fmt.Sprintf("%s *%s*", r.Name, formatIntWithCommas(int64(r.Count))))
+		parts = append(parts, fmt.Sprintf("%s *%s*", r.Name, formatThousands(int64(r.Count))))
 	}
 	b.WriteString(fmt.Sprintf("- **%s**: %s\n", label, strings.Join(parts, ", ")))
-}
-
-// formatSlowestRunDimensionsMD adds a ", db=X, user=Y, app=Z, host=W"
-// suffix to the Slowest Run header in markdown. Same contract as the
-// text version — returns "" when the slowest run carries no prefix
-// fields.
-func formatSlowestRunDimensionsMD(sr *analysis.SlowestRun) string {
-	if sr == nil {
-		return ""
-	}
-	var parts []string
-	if sr.Database != "" {
-		parts = append(parts, "db="+sr.Database)
-	}
-	if sr.User != "" {
-		parts = append(parts, "user="+sr.User)
-	}
-	if sr.App != "" {
-		parts = append(parts, "app="+sr.App)
-	}
-	if sr.Host != "" {
-		parts = append(parts, "host="+sr.Host)
-	}
-	if len(parts) == 0 {
-		return ""
-	}
-	return ", " + strings.Join(parts, ", ")
 }
 
 // humanDate returns a compact, human-friendly date/time string
@@ -1623,38 +1566,6 @@ func ExportSQLSummaryMarkdown(w io.Writer, m analysis.SQLMetrics, tempFiles anal
 	fmt.Fprintln(w, b.String())
 }
 
-// queryEventLinkMD is the markdown variant of queryEventLink — same
-// shape, kept local so the two output packages do not need a shared
-// view type.
-type queryEventLinkMD struct {
-	event      analysis.EventStat
-	triggerCnt int
-}
-
-// findEventsTriggeredByQueryMD mirrors the text-side helper but keeps
-// the local struct out of the public API surface.
-func findEventsTriggeredByQueryMD(events []analysis.EventStat, queryID string) []queryEventLinkMD {
-	if queryID == "" {
-		return nil
-	}
-	var out []queryEventLinkMD
-	for i := range events {
-		for _, tq := range events[i].TriggeringQueries {
-			if tq.ID == queryID {
-				out = append(out, queryEventLinkMD{event: events[i], triggerCnt: tq.Count})
-				break
-			}
-		}
-	}
-	sort.Slice(out, func(i, j int) bool {
-		if out[i].triggerCnt != out[j].triggerCnt {
-			return out[i].triggerCnt > out[j].triggerCnt
-		}
-		return out[i].event.Count > out[j].event.Count
-	})
-	return out
-}
-
 // ExportSQLDetailMarkdown produces a markdown report for --sql-detail
 func ExportSQLDetailMarkdown(w io.Writer, m analysis.AggregatedMetrics, queryIDs []string) {
 	var b strings.Builder
@@ -1738,18 +1649,18 @@ func ExportSQLDetailMarkdown(w io.Writer, m analysis.AggregatedMetrics, queryIDs
 		// first thing a DBA reads. Rows are sorted by trigger count
 		// descending; "#" and "Event total" are dropped to keep the
 		// table focused on the "this query caused N of these" answer.
-		eventsForMD := findEventsTriggeredByQueryMD(m.TopEvents, qid)
+		eventsForMD := findEventsTriggeredByQuery(m.TopEvents, qid)
 		if len(eventsForMD) > 0 {
 			b.WriteString("### EVENTS\n\n")
 			b.WriteString("| Event ID | Severity | Message | Triggered |\n")
 			b.WriteString("|---|---|---|---:|\n")
 			for _, r := range eventsForMD {
-				msg := r.event.Message
+				msg := r.Event.Message
 				if len(msg) > 90 {
 					msg = msg[:89] + "…"
 				}
 				b.WriteString(fmt.Sprintf("| `%s` | %s | %s | %d |\n",
-					r.event.ID, r.event.Severity, msg, r.triggerCnt))
+					r.Event.ID, r.Event.Severity, msg, r.TriggerCnt))
 			}
 			b.WriteString("\n")
 		}
@@ -1854,7 +1765,7 @@ func ExportSQLDetailMarkdown(w io.Writer, m analysis.AggregatedMetrics, queryIDs
 					formatQueryDuration(sr.DurationMs),
 					sr.Timestamp.Format("2006-01-02 15:04:05"),
 					sr.PID,
-					formatSlowestRunDimensionsMD(sr),
+					formatSlowestRunDimensions(sr),
 				))
 				text, truncated, full := truncateForDisplay(SubstituteParameters(rawQuery, sr.Parameters), slowestRunDisplayCap)
 				b.WriteString("```sql\n")
