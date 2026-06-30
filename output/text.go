@@ -567,11 +567,23 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 			fmt.Println()
 		}
 
+		if m.Connections.ClientIOFailureCount > 0 {
+			printClientIOFailures(m.Connections)
+		}
+
 		// Detailed mode: --connections explicit or --full
 		isExplicit := full || !has("all")
 		if isExplicit && m.Connections.SessionStats.Count > 0 {
 			printDetailedConnectionStats(m, bold, reset, true)
 		}
+	}
+
+	// Client I/O failures on logs that do not log connections at all (so the
+	// section above is skipped) but still report broken pipes / resets.
+	if has("connections") && m.Connections.ConnectionReceivedCount == 0 &&
+		m.Connections.ClientIOFailureCount > 0 {
+		fmt.Println(bold + "\nCONNECTIONS & SESSIONS\n" + reset)
+		printClientIOFailures(m.Connections)
 	}
 
 	// Unique Clients section.
@@ -973,6 +985,48 @@ func printServerTimeline(events []analysis.ServerTimelineEvent) {
 			ev.Timestamp.Format("15:04:05"),
 			ev.Kind,
 			ev.Detail)
+	}
+}
+
+// printClientIOFailures renders the client I/O failure breakdown inside the
+// CONNECTIONS section: the total, each reason+direction by count, then the
+// top databases. All sub-lists are count-desc, name-asc tie-broken.
+func printClientIOFailures(m analysis.ConnectionMetrics) {
+	fmt.Printf("  %-25s : %d\n", "Client I/O failures", m.ClientIOFailureCount)
+
+	printIOCounts := func(indent string, counts map[string]int, limit int) {
+		type pair struct {
+			Name  string
+			Count int
+		}
+		pairs := make([]pair, 0, len(counts))
+		for n, c := range counts {
+			pairs = append(pairs, pair{n, c})
+		}
+		sort.Slice(pairs, func(i, j int) bool {
+			if pairs[i].Count != pairs[j].Count {
+				return pairs[i].Count > pairs[j].Count
+			}
+			return pairs[i].Name < pairs[j].Name
+		})
+		if limit > 0 && limit < len(pairs) {
+			pairs = pairs[:limit]
+		}
+		nameW := 0
+		for _, p := range pairs {
+			if len(p.Name) > nameW {
+				nameW = len(p.Name)
+			}
+		}
+		for _, p := range pairs {
+			fmt.Printf("%s%-*s  %s\n", indent, nameW, p.Name, formatThousands(int64(p.Count)))
+		}
+	}
+
+	printIOCounts("    ", m.ClientIOByCategory, 0)
+	if len(m.ClientIOByDatabase) > 0 {
+		fmt.Println("    by database:")
+		printIOCounts("      ", m.ClientIOByDatabase, 5)
 	}
 }
 

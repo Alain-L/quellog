@@ -56,6 +56,13 @@ type ConnectionMetrics struct {
 	PeakConcurrentSessions  int
 	PeakConcurrentTimestamp time.Time
 
+	// Client I/O failures ("could not send/receive data ... client: reason").
+	// ClientIOFailureCount is the total; the maps break it down by normalized
+	// reason+direction and by database. Renderers sort them.
+	ClientIOFailureCount int
+	ClientIOByCategory   map[string]int
+	ClientIOByDatabase   map[string]int
+
 	// receivedChunksRef and sessionChunksRef are the compact backing
 	// storage moved from the analyzer at Finalize. The renderers iterate
 	// these via IterateConnections / IterateSessionEvents instead of
@@ -225,6 +232,16 @@ type ConnectionAnalyzer struct {
 	sessionsByDatabase map[string]*StreamingDurationStats
 	sessionsByHost     map[string]*StreamingDurationStats
 
+	// Client I/O failures: "could not send/receive data to/from client:
+	// <reason>" (LOG level). These signal abnormal client disconnects
+	// (broken pipe, connection reset, timeout) — network/app instability
+	// that no other section surfaces. The terminal "connection to client
+	// lost" (FATAL) is intentionally left to the EVENTS panel to avoid
+	// double-counting. Detected on the non-"connection" bail path.
+	clientIOFailureCount int
+	clientIOByCategory   map[string]int // "broken pipe (send)" -> count
+	clientIOByDatabase   map[string]int // db -> count
+
 	// activeConnections tracks live receiveds so the orphan-flush at
 	// Finalize knows what's left dangling. The peak itself is computed
 	// at Finalize via sweep-line on sessionEvents — the streaming
@@ -250,6 +267,8 @@ func NewConnectionAnalyzer() *ConnectionAnalyzer {
 		sessionsByDatabase:  make(map[string]*StreamingDurationStats, 50),
 		sessionsByHost:      make(map[string]*StreamingDurationStats, 100),
 		activeConnections:   make(map[string]time.Time, 1000),
+		clientIOByCategory:  make(map[string]int, 8),
+		clientIOByDatabase:  make(map[string]int, 16),
 	}
 }
 
@@ -329,7 +348,11 @@ func (a *ConnectionAnalyzer) Process(entry *parser.LogEntry) {
 	// This reduces CPU time from 220ms to ~110ms on I1.log
 	idx := strings.Index(msg, "connection")
 	if idx == -1 {
-		return // Neither connection nor disconnection present
+		// Not a connection/disconnection line. It may be a client I/O error
+		// ("could not send/receive data ... client: <reason>"), whose only
+		// "connection" is the capitalised strerror text, so it lands here.
+		a.recordClientIOFailure(msg)
+		return
 	}
 
 	// PID is pre-populated by the parser layer.
@@ -492,6 +515,10 @@ func (a *ConnectionAnalyzer) Finalize() ConnectionMetrics {
 		SessionsByHost:          a.sessionsByHost,
 		PeakConcurrentSessions:  peakConcurrent,
 		PeakConcurrentTimestamp: peakTimestamp,
+
+		ClientIOFailureCount: a.clientIOFailureCount,
+		ClientIOByCategory:   a.clientIOByCategory,
+		ClientIOByDatabase:   a.clientIOByDatabase,
 
 		receivedChunksRef: a.receivedChunks,
 		sessionChunksRef:  a.sessionChunks,
@@ -674,6 +701,42 @@ func parsePostgreSQLDuration(s string) time.Duration {
 		time.Duration(seconds*float64(time.Second))
 
 	return duration
+}
+
+// recordClientIOFailure folds a "could not send/receive data ... client:
+// <reason>" message into the client-I/O aggregates, attributing it to its
+// database when the prefix carries one. The " client: " guard fails fast on
+// the SQL-duration lines that dominate this bail path, so the two Index
+// probes run only on the handful of messages that actually mention a client.
+func (a *ConnectionAnalyzer) recordClientIOFailure(msg string) {
+	if !strings.Contains(msg, " client: ") {
+		return
+	}
+
+	var label string
+	if i := strings.Index(msg, "could not send data to client: "); i >= 0 {
+		label = clientIOLabel("send", msg[i+len("could not send data to client: "):])
+	} else if i := strings.Index(msg, "could not receive data from client: "); i >= 0 {
+		label = clientIOLabel("recv", msg[i+len("could not receive data from client: "):])
+	} else {
+		return
+	}
+
+	a.clientIOFailureCount++
+	a.clientIOByCategory[label]++
+	if db := extractEntityFromMessage(msg, "database"); db != "" {
+		a.clientIOByDatabase[db]++
+	}
+}
+
+// clientIOLabel normalizes a strerror reason into a stable display label,
+// e.g. ("send", "Broken pipe") -> "broken pipe (send)".
+func clientIOLabel(direction, reason string) string {
+	r := strings.ToLower(strings.TrimSpace(reason))
+	if len(r) > 40 {
+		r = r[:40]
+	}
+	return r + " (" + direction + ")"
 }
 
 // extractEntityFromMessage extracts a specific entity (user, database, host, or application) from a log message.
