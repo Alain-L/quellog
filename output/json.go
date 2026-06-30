@@ -2370,6 +2370,19 @@ func buildSQLOverviewData(m analysis.SQLMetrics) SQLOverviewJSON {
 	return overview
 }
 
+// queryRankJSON renders a ranked query into the JSON top-N row shape,
+// formatting the three durations as human-readable strings.
+func queryRankJSON(q rankedQuery) QueryRankJSON {
+	return QueryRankJSON{
+		ID:              q.ID,
+		NormalizedQuery: q.Query,
+		Count:           q.Count,
+		TotalTime:       formatQueryDuration(q.TotalTime),
+		AvgTime:         formatQueryDuration(q.AvgTime),
+		MaxTime:         formatQueryDuration(q.MaxTime),
+	}
+}
+
 // buildSQLPerformanceBase builds the shared SQL performance payload: aggregate
 // stats, the duration distribution histogram, and the three top-query rankings
 // (slowest, most frequent, most time consuming). buildFullSQLPerformance
@@ -2426,84 +2439,18 @@ func buildSQLPerformanceBase(m analysis.SQLMetrics) SQLPerformanceDetailJSON {
 		})
 	}
 
-	// Convert QueryStats to slice for sorting
-	type queryStat struct {
-		id    string
-		query string
-		stat  *analysis.QueryStat
+	// Top-N rankings: flatten the query stats once, then re-rank the
+	// shared slice per metric. Each pass is fully consumed before the
+	// next one re-sorts the slice.
+	ranking := flattenQueryStats(m.QueryStats)
+	for _, q := range topRankedQueries(ranking, rankByMaxTime, 10) {
+		perf.SlowestQueries = append(perf.SlowestQueries, queryRankJSON(q))
 	}
-	var stats []queryStat
-	for _, s := range m.QueryStats {
-		stats = append(stats, queryStat{s.ID, s.NormalizedQuery, s})
+	for _, q := range topRankedQueries(ranking, rankByCount, 15) {
+		perf.MostFrequentQueries = append(perf.MostFrequentQueries, queryRankJSON(q))
 	}
-
-	// Slowest queries (by max duration)
-	sort.Slice(stats, func(i, j int) bool {
-		if stats[i].stat.MaxTime != stats[j].stat.MaxTime {
-			return stats[i].stat.MaxTime > stats[j].stat.MaxTime
-		}
-		return stats[i].id < stats[j].id
-	})
-	limit := 10
-	if len(stats) < limit {
-		limit = len(stats)
-	}
-	for i := 0; i < limit; i++ {
-		s := stats[i]
-		perf.SlowestQueries = append(perf.SlowestQueries, QueryRankJSON{
-			ID:              s.id,
-			NormalizedQuery: s.query,
-			Count:           s.stat.Count,
-			TotalTime:       formatQueryDuration(s.stat.TotalTime),
-			AvgTime:         formatQueryDuration(s.stat.AvgTime),
-			MaxTime:         formatQueryDuration(s.stat.MaxTime),
-		})
-	}
-
-	// Most frequent queries (by count)
-	sort.Slice(stats, func(i, j int) bool {
-		if stats[i].stat.Count != stats[j].stat.Count {
-			return stats[i].stat.Count > stats[j].stat.Count
-		}
-		return stats[i].id < stats[j].id
-	})
-	limit = 15
-	if len(stats) < limit {
-		limit = len(stats)
-	}
-	for i := 0; i < limit; i++ {
-		s := stats[i]
-		perf.MostFrequentQueries = append(perf.MostFrequentQueries, QueryRankJSON{
-			ID:              s.id,
-			NormalizedQuery: s.query,
-			Count:           s.stat.Count,
-			TotalTime:       formatQueryDuration(s.stat.TotalTime),
-			AvgTime:         formatQueryDuration(s.stat.AvgTime),
-			MaxTime:         formatQueryDuration(s.stat.MaxTime),
-		})
-	}
-
-	// Most time consuming queries (by total time)
-	sort.Slice(stats, func(i, j int) bool {
-		if stats[i].stat.TotalTime != stats[j].stat.TotalTime {
-			return stats[i].stat.TotalTime > stats[j].stat.TotalTime
-		}
-		return stats[i].id < stats[j].id
-	})
-	limit = 10
-	if len(stats) < limit {
-		limit = len(stats)
-	}
-	for i := 0; i < limit; i++ {
-		s := stats[i]
-		perf.MostTimeConsuming = append(perf.MostTimeConsuming, QueryRankJSON{
-			ID:              s.id,
-			NormalizedQuery: s.query,
-			Count:           s.stat.Count,
-			TotalTime:       formatQueryDuration(s.stat.TotalTime),
-			AvgTime:         formatQueryDuration(s.stat.AvgTime),
-			MaxTime:         formatQueryDuration(s.stat.MaxTime),
-		})
+	for _, q := range topRankedQueries(ranking, rankByTotalTime, 10) {
+		perf.MostTimeConsuming = append(perf.MostTimeConsuming, queryRankJSON(q))
 	}
 
 	return perf

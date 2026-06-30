@@ -1125,74 +1125,30 @@ func printQueryStatsMarkdown(b *strings.Builder, stats map[string]*analysis.Quer
 		return
 	}
 
-	type qinfo struct {
-		ID        string
-		Query     string
-		Count     int
-		TotalTime float64
-		AvgTime   float64
-		MaxTime   float64
-	}
+	list := flattenQueryStats(stats)
 
-	var list []qinfo
-	for _, s := range stats {
-		// Use the pre-computed ID instead of recalculating.
-		list = append(list, qinfo{
-			ID:        s.ID,
-			Query:     s.NormalizedQuery,
-			Count:     s.Count,
-			TotalTime: s.TotalTime,
-			AvgTime:   s.AvgTime,
-			MaxTime:   s.MaxTime,
-		})
-	}
-
-	// Slowest queries
-	emit := func(title string, sortFn func(i, j int) bool, headers []string, rowFn func(qinfo) []string) {
-		sort.Slice(list, sortFn)
+	emit := func(title string, ranked []rankedQuery, headers []string, rowFn func(rankedQuery) []string) {
 		b.WriteString("**" + title + "**\n\n")
-		end := len(list)
-		if end > 10 {
-			end = 10
-		}
-		rows := make([][]string, 0, end)
-		for _, q := range list[:end] {
+		rows := make([][]string, 0, len(ranked))
+		for _, q := range ranked {
 			rows = append(rows, rowFn(q))
 		}
 		mdTable(b, headers, "lrrrl", rows)
 		b.WriteString("\n")
 	}
-	emit("Slowest queries (top 10)",
-		func(i, j int) bool {
-			if list[i].MaxTime != list[j].MaxTime {
-				return list[i].MaxTime > list[j].MaxTime
-			}
-			return list[i].ID < list[j].ID
-		},
+	emit("Slowest queries (top 10)", topRankedQueries(list, rankByMaxTime, 10),
 		[]string{"SQLID", "Max", "Avg", "Count", "Query"},
-		func(q qinfo) []string {
+		func(q rankedQuery) []string {
 			return []string{q.ID, formatQueryDuration(q.MaxTime), formatQueryDuration(q.AvgTime), fmt.Sprintf("%d", q.Count), truncateQuery(q.Query, 80)}
 		})
-	emit("Most frequent queries (top 10)",
-		func(i, j int) bool {
-			if list[i].Count != list[j].Count {
-				return list[i].Count > list[j].Count
-			}
-			return list[i].ID < list[j].ID
-		},
+	emit("Most frequent queries (top 10)", topRankedQueries(list, rankByCount, 10),
 		[]string{"SQLID", "Count", "Avg", "Max", "Query"},
-		func(q qinfo) []string {
+		func(q rankedQuery) []string {
 			return []string{q.ID, fmt.Sprintf("%d", q.Count), formatQueryDuration(q.AvgTime), formatQueryDuration(q.MaxTime), truncateQuery(q.Query, 80)}
 		})
-	emit("Most time consuming queries (top 10)",
-		func(i, j int) bool {
-			if list[i].TotalTime != list[j].TotalTime {
-				return list[i].TotalTime > list[j].TotalTime
-			}
-			return list[i].ID < list[j].ID
-		},
+	emit("Most time consuming queries (top 10)", topRankedQueries(list, rankByTotalTime, 10),
 		[]string{"SQLID", "Total", "Avg", "Count", "Query"},
-		func(q qinfo) []string {
+		func(q rankedQuery) []string {
 			return []string{q.ID, formatQueryDuration(q.TotalTime), formatQueryDuration(q.AvgTime), fmt.Sprintf("%d", q.Count), truncateQuery(q.Query, 80)}
 		})
 }
