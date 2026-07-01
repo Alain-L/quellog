@@ -2337,6 +2337,32 @@
 .tab.warning:hover:not(.active) { color: var(--warning); background: rgba(229, 165, 75, 0.1); }
 .tab.panic:hover:not(.active) { color: #000; background: rgba(0, 0, 0, 0.05); }
 
+/* Client I/O failures panel (Connections card): the amber banner carries the
+   alert line plus a direction-header grid row; the expanded grey detail reuses
+   the SAME grid so each reason column sits exactly under its receiving/sending
+   header — the direction label is written once. Per-database sub-rows are grey
+   italic (shown only when a reason spans more than one database). */
+.cio { margin-top: 0.6rem; border-radius: var(--radius); overflow: hidden; }
+.cio-banner { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 14px;
+    background: rgba(229, 165, 75, 0.10); cursor: pointer; user-select: none; font-size: 13px; }
+.cio-lead { font-weight: 600; color: var(--warning); }
+.cio-inline b { font-variant-numeric: tabular-nums; }
+.cio-inline .cio-dot { opacity: .35; margin: 0 4px; }
+.cio.open .cio-inline { display: none; }
+.cio-arrow { margin-left: auto; opacity: .6; font-size: 12px; transition: transform .15s; }
+.cio.open .cio-arrow { transform: rotate(180deg); }
+.cio-detail { padding: 6px 14px 10px; font-size: 13px; background: var(--bg-alt); }
+.cio-detail[hidden] { display: none; }
+/* Header grid and reason grid share one column template so they line up. */
+.cio-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 4px 48px; }
+.cio-grid + .cio-grid { margin-top: 3px; }
+.cio-dir { display: flex; align-items: baseline; font-weight: 600; }
+.cio-tot { margin-left: auto; font-variant-numeric: tabular-nums; }
+.cio-block { display: grid; grid-template-columns: 1fr auto; column-gap: 18px; row-gap: 3px; align-content: start; }
+.cio-db { padding-left: 16px; font-style: italic; color: var(--text-muted); }
+.cio-v { text-align: right; font-variant-numeric: tabular-nums; }
+.cio-v.cio-sub { color: var(--text-muted); }
+
 /* Indicator style (read-only tab) */
 .tab.indicator { cursor: default; } 
 
