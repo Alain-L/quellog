@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Client I/O failures**: the Connections section now reports clients that vanished mid-exchange (`could not send/receive data to/from client`), broken down by direction, reason and database.
 - **Skipped autovacuums/autoanalyzes**: the maintenance sections now surface relations whose autovacuum/autoanalyze was skipped on a lock (count + affected tables), flagging tables starved of maintenance.
 - **Full example report in demo mode**: a "See example report" link on the drop zone loads a bundled example log through the normal pipeline, so the report (cost map, split, every section) can be explored without supplying a file.
 - **Build version on the processing line**: the CLI output now starts with the version (e.g. `quellog v0.12.0 – …`), so saved output identifies its build.
