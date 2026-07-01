@@ -5,17 +5,20 @@
     "disconnection_count": 0,
     "avg_session_time": "",
     "client_io_failures": {
-      "total": 4,
+      "total": 5,
       "receiving_from_client": {
-        "connection reset by peer": 1,
-        "connection timed out": 1
+        "connection reset by peer": {
+          "appdb": 1,
+          "other": 1
+        },
+        "connection timed out": {
+          "other": 1
+        }
       },
       "sending_to_client": {
-        "broken pipe": 2
-      },
-      "by_database": {
-        "appdb": 3,
-        "other": 1
+        "broken pipe": {
+          "appdb": 2
+        }
       }
     },
     "connections": []

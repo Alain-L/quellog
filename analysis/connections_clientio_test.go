@@ -31,17 +31,14 @@ func TestClientIOFailureDetection(t *testing.T) {
 	if m.ClientIOFailureCount != 4 {
 		t.Fatalf("ClientIOFailureCount = %d, want 4", m.ClientIOFailureCount)
 	}
-	if got := m.ClientIOSend["broken pipe"]; got != 2 {
-		t.Errorf("send broken pipe = %d, want 2", got)
+	if got := m.ClientIOSend["broken pipe"]["appdb"]; got != 2 {
+		t.Errorf("send broken pipe on appdb = %d, want 2", got)
 	}
-	if got := m.ClientIORecv["connection reset by peer"]; got != 1 {
-		t.Errorf("recv connection reset by peer = %d, want 1", got)
+	if got := m.ClientIORecv["connection reset by peer"]["appdb"]; got != 1 {
+		t.Errorf("recv connection reset by peer on appdb = %d, want 1", got)
 	}
-	if got := m.ClientIORecv["connection timed out"]; got != 1 {
-		t.Errorf("recv connection timed out = %d, want 1", got)
-	}
-	if got := m.ClientIOByDatabase["appdb"]; got != 3 {
-		t.Errorf("appdb failures = %d, want 3", got)
+	if got := m.ClientIORecv["connection timed out"]["other"]; got != 1 {
+		t.Errorf("recv connection timed out on other = %d, want 1", got)
 	}
 }
 
@@ -72,8 +69,20 @@ func TestClientIOFailureNormalizesCursorPosition(t *testing.T) {
 	if len(m.ClientIOSend) != 1 {
 		t.Errorf("expected a single send category, got %d: %v", len(m.ClientIOSend), m.ClientIOSend)
 	}
-	if got := m.ClientIOSend["connection timed out"]; got != 3 {
-		t.Errorf("send connection timed out = %d, want 3 (cursor position not stripped?)", got)
+	if got := m.ClientIOSend["connection timed out"]["app"]; got != 3 {
+		t.Errorf("send connection timed out on app = %d, want 3 (cursor position not stripped?)", got)
+	}
+}
+
+// TestClientIOFailureStripsSQLState locks the reason cleanup: the csv/json
+// parsers fold the SQLSTATE back into the message, and it must not leak into
+// the category key.
+func TestClientIOFailureStripsSQLState(t *testing.T) {
+	m := runClientIO([]string{
+		`[100] db=app,user=u,app=x,client=1.2.3.4 LOG:  could not receive data from client: Connection reset by peer SQLSTATE = '08006'`,
+	})
+	if got := m.ClientIORecv["connection reset by peer"]["app"]; got != 1 {
+		t.Errorf("reason not cleaned of SQLSTATE: %v", m.ClientIORecv)
 	}
 }
 

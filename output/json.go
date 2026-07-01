@@ -564,13 +564,13 @@ type ConnectionsJSON struct {
 }
 
 // ClientIOFailuresJSON breaks the client I/O failures down by direction
-// (receiving from vs sending to the client) — each a normalized strerror to
-// its count — plus a by-database tally. Present only when failures occurred.
+// (receiving from vs sending to the client), each cross-tabulating a
+// normalized strerror against the database it happened on
+// (reason -> database -> count). Present only when failures occurred.
 type ClientIOFailuresJSON struct {
-	Total               int            `json:"total"`
-	ReceivingFromClient map[string]int `json:"receiving_from_client,omitempty"`
-	SendingToClient     map[string]int `json:"sending_to_client,omitempty"`
-	ByDatabase          map[string]int `json:"by_database,omitempty"`
+	Total               int                       `json:"total"`
+	ReceivingFromClient map[string]map[string]int `json:"receiving_from_client,omitempty"`
+	SendingToClient     map[string]map[string]int `json:"sending_to_client,omitempty"`
 }
 
 // lazySessionEvents marshals session events directly to JSON without
@@ -2241,7 +2241,6 @@ func buildJSONData(m analysis.AggregatedMetrics, sections []string, full bool) m
 				Total:               m.Connections.ClientIOFailureCount,
 				ReceivingFromClient: m.Connections.ClientIORecv,
 				SendingToClient:     m.Connections.ClientIOSend,
-				ByDatabase:          m.Connections.ClientIOByDatabase,
 			}
 		}
 		// Export session events for client-side sweep-line — lazy wrapper

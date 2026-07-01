@@ -2,3 +2,4 @@
 2026-01-01 00:00:01.000 UTC [101] 00000: db=appdb,user=u,app=x,client=10.0.0.1 LOG:  could not receive data from client: Connection reset by peer
 2026-01-01 00:00:02.000 UTC [102] 00000: db=other,user=u,app=x,client=10.0.0.2 LOG:  could not receive data from client: Connection timed out at character 13
 2026-01-01 00:00:03.000 UTC [103] 00000: db=appdb,user=u,app=connection-pool,client=10.0.0.1 LOG:  could not send data to client: Broken pipe
+2026-01-01 00:00:04.000 UTC [104] 00000: db=other,user=u,app=x,client=10.0.0.3 LOG:  could not receive data from client: Connection reset by peer

@@ -59,12 +59,13 @@ type ConnectionMetrics struct {
 	// Client I/O failures ("could not send/receive data ... client: reason").
 	// ClientIOFailureCount is the total; the breakdown is split by direction
 	// — ClientIORecv (could not receive *from* the client) vs ClientIOSend
-	// (could not send *to* the client) — each mapping a normalized strerror
-	// to its count, plus a by-database tally. Renderers sort them.
+	// (could not send *to* the client) — each cross-tabulating a normalized
+	// strerror against the database it happened on (reason -> database ->
+	// count). Renderers sort and, when a reason spans a single database,
+	// collapse the database level away.
 	ClientIOFailureCount int
-	ClientIORecv         map[string]int
-	ClientIOSend         map[string]int
-	ClientIOByDatabase   map[string]int
+	ClientIORecv         map[string]map[string]int
+	ClientIOSend         map[string]map[string]int
 
 	// receivedChunksRef and sessionChunksRef are the compact backing
 	// storage moved from the analyzer at Finalize. The renderers iterate
@@ -242,9 +243,8 @@ type ConnectionAnalyzer struct {
 	// lost" (FATAL) is intentionally left to the EVENTS panel to avoid
 	// double-counting. Detected on the non-"connection" bail path.
 	clientIOFailureCount int
-	clientIORecv         map[string]int // reason -> count (could not receive from client)
-	clientIOSend         map[string]int // reason -> count (could not send to client)
-	clientIOByDatabase   map[string]int // db -> count
+	clientIORecv         map[string]map[string]int // reason -> database -> count (receive)
+	clientIOSend         map[string]map[string]int // reason -> database -> count (send)
 
 	// activeConnections tracks live receiveds so the orphan-flush at
 	// Finalize knows what's left dangling. The peak itself is computed
@@ -271,9 +271,8 @@ func NewConnectionAnalyzer() *ConnectionAnalyzer {
 		sessionsByDatabase:  make(map[string]*StreamingDurationStats, 50),
 		sessionsByHost:      make(map[string]*StreamingDurationStats, 100),
 		activeConnections:   make(map[string]time.Time, 1000),
-		clientIORecv:        make(map[string]int, 8),
-		clientIOSend:        make(map[string]int, 8),
-		clientIOByDatabase:  make(map[string]int, 16),
+		clientIORecv:        make(map[string]map[string]int, 8),
+		clientIOSend:        make(map[string]map[string]int, 8),
 	}
 }
 
@@ -526,7 +525,6 @@ func (a *ConnectionAnalyzer) Finalize() ConnectionMetrics {
 		ClientIOFailureCount: a.clientIOFailureCount,
 		ClientIORecv:         a.clientIORecv,
 		ClientIOSend:         a.clientIOSend,
-		ClientIOByDatabase:   a.clientIOByDatabase,
 
 		receivedChunksRef: a.receivedChunks,
 		sessionChunksRef:  a.sessionChunks,
@@ -728,19 +726,28 @@ func (a *ConnectionAnalyzer) recordClientIOFailure(msg string) {
 	// something else and is rejected.
 	body := clientErrorBody(msg)
 
+	var (
+		dir    map[string]map[string]int
+		reason string
+	)
 	switch {
 	case strings.HasPrefix(body, "could not send data to client: "):
-		a.clientIOSend[clientIOReason(body[len("could not send data to client: "):])]++
+		dir, reason = a.clientIOSend, clientIOReason(body[len("could not send data to client: "):])
 	case strings.HasPrefix(body, "could not receive data from client: "):
-		a.clientIORecv[clientIOReason(body[len("could not receive data from client: "):])]++
+		dir, reason = a.clientIORecv, clientIOReason(body[len("could not receive data from client: "):])
 	default:
 		return
 	}
 
-	a.clientIOFailureCount++
-	if db := extractEntityFromMessage(msg, "database"); db != "" {
-		a.clientIOByDatabase[db]++
+	db := extractEntityFromMessage(msg, "database")
+	if db == "" {
+		db = "[unknown]"
 	}
+	if dir[reason] == nil {
+		dir[reason] = make(map[string]int, 2)
+	}
+	dir[reason][db]++
+	a.clientIOFailureCount++
 }
 
 // clientErrorBody returns the message text right after the severity marker
@@ -784,13 +791,17 @@ func isSQLState(s string) bool {
 // caller increments, so it is not part of the key.
 func clientIOReason(reason string) string {
 	r := strings.ToLower(strings.TrimSpace(reason))
-	// PostgreSQL sometimes decorates the strerror with the current statement's
-	// cursor position ("... at character N"). That position is per-query noise
-	// here and would fragment one category into per-position variants, so drop
-	// it and keep just the OS error.
-	if i := strings.Index(r, " at character "); i >= 0 {
-		r = r[:i]
+	// Trim metadata that trails the strerror in some inputs and would fragment
+	// or pollute the category: the statement's cursor position that stderr
+	// appends ("... at character N"), and the SQLSTATE that the csv/json
+	// parsers fold back into the message ("... SQLSTATE = 'XXXXX'"). Keep just
+	// the OS error.
+	for _, cut := range []string{" at character ", " sqlstate"} {
+		if i := strings.Index(r, cut); i >= 0 {
+			r = r[:i]
+		}
 	}
+	r = strings.TrimSpace(r)
 	if len(r) > 40 {
 		r = r[:40]
 	}

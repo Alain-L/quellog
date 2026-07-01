@@ -1142,41 +1142,60 @@ func writeClientIOFailuresMarkdown(b *strings.Builder, c analysis.ConnectionMetr
 	}
 	b.WriteString(fmt.Sprintf("### Client I/O failures: %d\n\n", c.ClientIOFailureCount))
 
-	dirTable := func(title string, counts map[string]int, limit int, cols []string) {
-		if len(counts) == 0 {
+	// One exhaustive table per direction: a row per reason × database, ordered
+	// by reason total desc then database count desc.
+	dirTable := func(title string, byReason map[string]map[string]int) {
+		if len(byReason) == 0 {
 			return
 		}
-		type pair struct {
-			Name  string
-			Count int
+		type row struct {
+			reason string
+			total  int
+			db     string
+			count  int
 		}
-		pairs := make([]pair, 0, len(counts))
-		for n, cnt := range counts {
-			pairs = append(pairs, pair{n, cnt})
-		}
-		sort.Slice(pairs, func(i, j int) bool {
-			if pairs[i].Count != pairs[j].Count {
-				return pairs[i].Count > pairs[j].Count
+		var rows []row
+		reasons := make([]string, 0, len(byReason))
+		totals := make(map[string]int, len(byReason))
+		for r, dbs := range byReason {
+			reasons = append(reasons, r)
+			for _, cnt := range dbs {
+				totals[r] += cnt
 			}
-			return pairs[i].Name < pairs[j].Name
+		}
+		sort.Slice(reasons, func(i, j int) bool {
+			if totals[reasons[i]] != totals[reasons[j]] {
+				return totals[reasons[i]] > totals[reasons[j]]
+			}
+			return reasons[i] < reasons[j]
 		})
-		if limit > 0 && limit < len(pairs) {
-			pairs = pairs[:limit]
+		for _, r := range reasons {
+			dbs := byReason[r]
+			names := make([]string, 0, len(dbs))
+			for d := range dbs {
+				names = append(names, d)
+			}
+			sort.Slice(names, func(i, j int) bool {
+				if dbs[names[i]] != dbs[names[j]] {
+					return dbs[names[i]] > dbs[names[j]]
+				}
+				return names[i] < names[j]
+			})
+			for _, d := range names {
+				rows = append(rows, row{r, totals[r], d, dbs[d]})
+			}
 		}
-		rows := make([][]string, 0, len(pairs))
-		for _, p := range pairs {
-			rows = append(rows, []string{p.Name, fmt.Sprintf("%d", p.Count)})
+		out := make([][]string, 0, len(rows))
+		for _, rw := range rows {
+			out = append(out, []string{rw.reason, "`" + rw.db + "`", fmt.Sprintf("%d", rw.count)})
 		}
-		if title != "" {
-			b.WriteString("**" + title + "**\n\n")
-		}
-		mdTable(b, cols, "lr", rows)
+		b.WriteString("**" + title + "**\n\n")
+		mdTable(b, []string{"Reason", "Database", "Count"}, "llr", out)
 		b.WriteString("\n")
 	}
 
-	dirTable("Receiving from client", c.ClientIORecv, 0, []string{"Reason", "Count"})
-	dirTable("Sending to client", c.ClientIOSend, 0, []string{"Reason", "Count"})
-	dirTable("By database", c.ClientIOByDatabase, 5, []string{"Database", "Failures"})
+	dirTable("Receiving from client", c.ClientIORecv)
+	dirTable("Sending to client", c.ClientIOSend)
 }
 
 func printTopTablesMarkdown(tableCounts map[string]int, total int, spaceRecovered map[string]int64) string {
