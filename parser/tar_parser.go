@@ -197,13 +197,21 @@ func sniffAndParseArchiveEntry(name string, r io.Reader, out chan<- []LogEntry) 
 
 	// Replay the buffered sample ahead of the rest of the entry.
 	full := io.MultiReader(bytes.NewReader(sample), r)
-	switch parser.(type) {
+	switch src := parser.(type) {
 	case *CsvParser:
 		return true, (&CsvParser{}).parseReader(full, out)
 	case *JsonParser:
 		return true, (&JsonParser{}).parseReader(full, out)
 	default:
-		return true, (&StderrParser{}).parseReader(full, out)
+		// Carry the detected leading-prefix offset so a prefixed log inside
+		// an archive parses like its plain counterpart instead of silently
+		// yielding zero entries.
+		sp, _ := src.(*StderrParser)
+		prefixLen := 0
+		if sp != nil {
+			prefixLen = sp.prefixLen
+		}
+		return true, (&StderrParser{prefixLen: prefixLen}).parseReader(full, out)
 	}
 }
 

@@ -32,6 +32,13 @@ const stderrSegmentQueueDepth = 64
 // computed with the same predicate make parallel parsing equivalent
 // to sequential by construction: parser state never has to cross a
 // boundary.
+//
+// This is deliberately prefix-unaware (it never strips a StderrParser
+// literal prefix). Files needing a prefix offset never reach this path:
+// Parse skips the parallel segment engine when prefixLen > 0 and uses
+// the prefix-aware sequential parseReader instead. Keeping the boundary
+// predicate prefix-free avoids threading prefixLen through the segment
+// scan for a rare non-standard format.
 func isEntryStart(line []byte) bool {
 	if len(line) == 0 {
 		return false

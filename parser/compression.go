@@ -257,7 +257,7 @@ func readUntilNLinesCompressed(r io.Reader, n int) (string, error) {
 
 // wrapCompressedParser converts an existing parser into a codec-aware parser.
 func wrapCompressedParser(parser LogParser, codec compressionCodec) LogParser {
-	switch parser.(type) {
+	switch src := parser.(type) {
 	case *JsonParser:
 		p := &JsonParser{}
 		return newCompressedParser(codec, func(r io.Reader, out chan<- []LogEntry) error {
@@ -269,7 +269,10 @@ func wrapCompressedParser(parser LogParser, codec compressionCodec) LogParser {
 			return p.parseReader(r, out)
 		})
 	case *StderrParser:
-		p := &StderrParser{}
+		// Carry the detected leading-prefix offset into the decompression
+		// wrapper; otherwise a prefixed log would detect the prefix on its
+		// sample and then silently parse zero entries from the stream.
+		p := &StderrParser{prefixLen: src.prefixLen}
 		return newCompressedParser(codec, func(r io.Reader, out chan<- []LogEntry) error {
 			return p.parseReader(r, out)
 		})
