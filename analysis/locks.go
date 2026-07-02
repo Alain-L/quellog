@@ -500,8 +500,21 @@ func (a *LockAnalyzer) handleWaiting(
 		if relation != "" {
 			a.relationStats[relation]++
 		}
+	} else if lock.acquired {
+		// A "still waiting" on an already-acquired key means the same backend
+		// re-locked the same resource: a NEW lock episode, not a repeat. Rearm
+		// and recount, otherwise the following "acquired" inflates
+		// acquiredEvents without a matching totalEvents.
+		lock.acquired = false
+		lock.lastWaitTime = waitTime
+		a.totalEvents++
+		a.lockTypeStats[lockType]++
+		a.resourceTypeStats[resourceType]++
+		if relation != "" {
+			a.relationStats[relation]++
+		}
 	} else {
-		// Repeated "still waiting" for same lock — refresh wait time only.
+		// Repeated "still waiting" for same pending lock — refresh wait time only.
 		lock.lastWaitTime = waitTime
 	}
 
@@ -548,7 +561,11 @@ func (a *LockAnalyzer) handleAcquired(
 	blockingPID, relation string,
 ) {
 	lock, exists := a.activeLocks[lockKey]
-	if exists {
+	// A re-acquisition of an already-acquired key (a fresh fast-lock episode on
+	// the same resource, no intervening "still waiting") is a new lock, not a
+	// promotion of the stale entry.
+	newEpisode := !exists || lock.acquired
+	if !newEpisode {
 		lock.acquired = true
 		lock.lastWaitTime = waitTime
 	} else {
@@ -568,8 +585,8 @@ func (a *LockAnalyzer) handleAcquired(
 
 	a.totalWaitTime += waitTime
 	a.acquiredEvents++
-	if !exists {
-		// Direct acquisition (no prior "waiting") — count as a new lock.
+	if newEpisode {
+		// New lock episode (direct acquisition or re-lock) — count it.
 		a.totalEvents++
 		a.lockTypeStats[lockType]++
 		a.resourceTypeStats[resourceType]++
