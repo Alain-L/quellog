@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Client I/O failures**: the Connections section now reports clients that vanished mid-exchange (`could not send/receive data to/from client`), broken down by direction, reason and database.
 - **Skipped autovacuums/autoanalyzes**: the maintenance sections now surface relations whose autovacuum/autoanalyze was skipped on a lock (count + affected tables), flagging tables starved of maintenance.
 - **Logs with a literal prefix before the timestamp now parse**: a `log_line_prefix` with a constant literal ahead of `%t`/`%m` previously defeated format detection; the shared prefix is now detected and stripped automatically.
 - **Full example report in demo mode**: a "See example report" link on the drop zone loads a bundled example log through the normal pipeline, so the report (cost map, split, every section) can be explored without supplying a file.

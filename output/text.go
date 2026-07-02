@@ -567,11 +567,23 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 			fmt.Println()
 		}
 
+		if m.Connections.ClientIOFailureCount > 0 {
+			printClientIOFailures(m.Connections)
+		}
+
 		// Detailed mode: --connections explicit or --full
 		isExplicit := full || !has("all")
 		if isExplicit && m.Connections.SessionStats.Count > 0 {
 			printDetailedConnectionStats(m, bold, reset, true)
 		}
+	}
+
+	// Client I/O failures on logs that do not log connections at all (so the
+	// section above is skipped) but still report broken pipes / resets.
+	if has("connections") && m.Connections.ConnectionReceivedCount == 0 &&
+		m.Connections.ClientIOFailureCount > 0 {
+		fmt.Println(bold + "\nCONNECTIONS & SESSIONS\n" + reset)
+		printClientIOFailures(m.Connections)
 	}
 
 	// Unique Clients section.
@@ -974,6 +986,116 @@ func printServerTimeline(events []analysis.ServerTimelineEvent) {
 			ev.Kind,
 			ev.Detail)
 	}
+}
+
+// printClientIOFailures renders the client I/O failure breakdown inside the
+// CONNECTIONS section: the total, then the reasons grouped by direction
+// ("receiving from client" vs "sending to client") so the abbreviation-free
+// heading disambiguates the flow. A reason spanning several databases lists
+// them underneath; a single-database reason collapses to just its row.
+func printClientIOFailures(m analysis.ConnectionMetrics) {
+	fmt.Printf("  %-25s : %d\n", "Client I/O failures", m.ClientIOFailureCount)
+
+	// A line is either a direction header (muted italic, no count) or a data
+	// row: a reason (bold count) or a plain per-database sub-row shown only
+	// when a reason spans more than one database.
+	type line struct {
+		indent string
+		name   string
+		count  int
+		header bool
+		db     bool
+	}
+	var lines []line
+	addDir := func(header string, byReason map[string]map[string]int) {
+		if len(byReason) == 0 {
+			return
+		}
+		lines = append(lines, line{indent: "    ", name: header, header: true})
+		for _, r := range sortedByTotal(byReason) {
+			lines = append(lines, line{indent: "      ", name: r.name, count: r.total})
+			if len(r.sub) > 1 {
+				for _, d := range sortedCountPairs(r.sub) {
+					lines = append(lines, line{indent: "        ", name: d.name, count: d.count, db: true})
+				}
+			}
+		}
+	}
+	addDir("receiving from client", m.ClientIORecv)
+	addDir("sending to client", m.ClientIOSend)
+
+	// Align every count into one right-hand column across the whole block.
+	maxLabel, maxCount := 0, 0
+	for _, l := range lines {
+		if l.header {
+			continue
+		}
+		if w := len(l.indent) + len(l.name); w > maxLabel {
+			maxLabel = w
+		}
+		if w := len(formatThousands(int64(l.count))); w > maxCount {
+			maxCount = w
+		}
+	}
+	for _, l := range lines {
+		if l.header {
+			fmt.Printf("%s%s%s%s\n", l.indent, ansiMutedItalic, l.name, ansiReset)
+			continue
+		}
+		pad := strings.Repeat(" ", maxLabel-len(l.indent)-len(l.name))
+		num := fmt.Sprintf("%*s", maxCount, formatThousands(int64(l.count)))
+		if l.db {
+			fmt.Printf("%s%s%s  %s\n", l.indent, l.name, pad, num)
+		} else {
+			fmt.Printf("%s%s%s  %s%s%s\n", l.indent, l.name, pad, ansiBold, num, ansiReset)
+		}
+	}
+}
+
+type reasonRow struct {
+	name  string
+	total int
+	sub   map[string]int
+}
+
+// sortedByTotal flattens a reason->db->count map into reason rows sorted by
+// total desc, name asc.
+func sortedByTotal(m map[string]map[string]int) []reasonRow {
+	rows := make([]reasonRow, 0, len(m))
+	for name, sub := range m {
+		t := 0
+		for _, c := range sub {
+			t += c
+		}
+		rows = append(rows, reasonRow{name, t, sub})
+	}
+	sort.Slice(rows, func(i, j int) bool {
+		if rows[i].total != rows[j].total {
+			return rows[i].total > rows[j].total
+		}
+		return rows[i].name < rows[j].name
+	})
+	return rows
+}
+
+type countPair struct {
+	name  string
+	count int
+}
+
+// sortedCountPairs sorts a name->count map by count desc, name asc.
+func sortedCountPairs(m map[string]int) []countPair {
+	out := make([]countPair, 0, len(m))
+	for n, c := range m {
+		out = append(out, countPair{n, c})
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].count != out[j].count {
+			return out[i].count > out[j].count
+		}
+		return out[i].name < out[j].name
+	})
+	return out
 }
 
 // printDetailedConnectionStats displays detailed connection and session statistics.

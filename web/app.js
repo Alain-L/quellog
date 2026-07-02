@@ -610,12 +610,24 @@ function buildEventsSection(data) {
 
         function buildConnectionsSection(data) {
             const c = data.connections;
-            if (!c || c.connection_count === 0) {
+            if (!c || (c.connection_count === 0 && !c.client_io_failures)) {
                 return `
                     <div class="section" id="connections">
                         <div class="section-header muted">Connections</div>
                         <div class="section-body">
                             ${buildNoDataMessage('<code>log_connections = on</code>')}
+                        </div>
+                    </div>
+                `;
+            }
+            // No connection logging, but client I/O failures were still seen:
+            // render a minimal section carrying just the failures panel.
+            if (c.connection_count === 0 && c.client_io_failures) {
+                return `
+                    <div class="section" id="connections">
+                        <div class="section-header">Connections</div>
+                        <div class="section-body">
+                            ${renderClientIOFailures(c.client_io_failures)}
                         </div>
                     </div>
                 `;
@@ -672,6 +684,7 @@ function buildEventsSection(data) {
                                 </div>
                             ` : ''}
                         </div>
+                        ${c.client_io_failures ? renderClientIOFailures(c.client_io_failures) : ''}
                         <div class="grid grid-2" style="margin-top: 0.5rem;">
                             ${c.session_events?.length > 0 ? `
                                 <div>
@@ -712,6 +725,68 @@ function buildEventsSection(data) {
                     </div>
                 </div>
             `;
+        }
+
+        // ---- Client I/O failures panel (collapsible amber banner + detail) ----
+        function cioSum(m) { let s = 0; for (const k in m) s += m[k]; return s; }
+        function cioDirTotal(byReason) { let s = 0; for (const r in byReason) s += cioSum(byReason[r]); return s; }
+
+        // renderIODirBlock renders one direction's reasons as a single
+        // two-column grid (reason | count) — no direction header (that lives in
+        // the banner; left column is receiving, right is sending, matching the
+        // banner order). Per-database sub-rows appear only when a reason spans
+        // more than one database.
+        function renderIODirBlock(byReason) {
+            const reasons = Object.keys(byReason).map(r => ({ name: r, dbs: byReason[r], total: cioSum(byReason[r]) }));
+            if (!reasons.length) return '<div></div>';
+            reasons.sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));
+            let cells = '';
+            for (const rz of reasons) {
+                cells += `<div class="cio-rsn">${esc(rz.name)}</div><div class="cio-v">${fmt(rz.total)}</div>`;
+                const dbs = Object.keys(rz.dbs);
+                if (dbs.length > 1) {
+                    dbs.map(d => ({ d, c: rz.dbs[d] }))
+                       .sort((a, b) => b.c - a.c || a.d.localeCompare(b.d))
+                       .forEach(x => { cells += `<div class="cio-db">${esc(x.d)}</div><div class="cio-v cio-sub">${fmt(x.c)}</div>`; });
+                }
+            }
+            return `<div class="cio-block">${cells}</div>`;
+        }
+
+        function renderClientIOFailures(cio) {
+            const dirs = [
+                ['receiving from client', cio.receiving_from_client || {}],
+                ['sending to client', cio.sending_to_client || {}],
+            ].filter(([, m]) => cioDirTotal(m) > 0);
+            // Collapsed: the split is inline on one line. Expanded: that inline
+            // is hidden and the same directions reappear as an aligned header
+            // grid row atop the reason blocks, so each column sits under its
+            // header. Never both at once — one-line compact, aligned detail,
+            // direction label shown once.
+            const inline = dirs.map(([label, m]) => `${label} <b>${fmt(cioDirTotal(m))}</b>`)
+                .join(' <span class="cio-dot">·</span> ');
+            const heads = dirs.map(([label, m]) =>
+                `<div class="cio-dir">${esc(label)}<span class="cio-tot">${fmt(cioDirTotal(m))}</span></div>`).join('');
+            const blocks = dirs.map(([, m]) => renderIODirBlock(m)).join('');
+            return `
+                <div class="cio">
+                    <div class="cio-banner" onclick="toggleClientIO(this)">
+                        <span class="cio-lead">⚠ ${fmt(cio.total)} client I/O failures</span>
+                        <span class="cio-inline">${inline}</span>
+                        <span class="cio-arrow">▾</span>
+                    </div>
+                    <div class="cio-detail" hidden>
+                        <div class="cio-grid cio-heads">${heads}</div>
+                        <div class="cio-grid">${blocks}</div>
+                    </div>
+                </div>`;
+        }
+
+        function toggleClientIO(banner) {
+            const w = banner.parentElement;
+            w.classList.toggle('open');
+            const d = w.querySelector('.cio-detail');
+            if (d) d.hidden = !d.hidden;
         }
 
         // Build session duration distribution as stacked bar (same style as SQL duration dist)
@@ -3516,6 +3591,7 @@ function buildEventsSection(data) {
         window.showVacuumBufferSort = showVacuumBufferSort;
         window.showVacuumView = showVacuumView;
         window.showAnalyzeView = showAnalyzeView;
+        window.toggleClientIO = toggleClientIO;
         window.showMaintRibbon = showMaintRibbon;
         window.showAnalyzeSort = showAnalyzeSort;
         window.copyQuery = copyQuery;

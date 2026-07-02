@@ -56,6 +56,17 @@ type ConnectionMetrics struct {
 	PeakConcurrentSessions  int
 	PeakConcurrentTimestamp time.Time
 
+	// Client I/O failures ("could not send/receive data ... client: reason").
+	// ClientIOFailureCount is the total; the breakdown is split by direction
+	// — ClientIORecv (could not receive *from* the client) vs ClientIOSend
+	// (could not send *to* the client) — each cross-tabulating a normalized
+	// strerror against the database it happened on (reason -> database ->
+	// count). Renderers sort and, when a reason spans a single database,
+	// collapse the database level away.
+	ClientIOFailureCount int
+	ClientIORecv         map[string]map[string]int
+	ClientIOSend         map[string]map[string]int
+
 	// receivedChunksRef and sessionChunksRef are the compact backing
 	// storage moved from the analyzer at Finalize. The renderers iterate
 	// these via IterateConnections / IterateSessionEvents instead of
@@ -225,6 +236,16 @@ type ConnectionAnalyzer struct {
 	sessionsByDatabase map[string]*StreamingDurationStats
 	sessionsByHost     map[string]*StreamingDurationStats
 
+	// Client I/O failures: "could not send/receive data to/from client:
+	// <reason>" (LOG level). These signal abnormal client disconnects
+	// (broken pipe, connection reset, timeout) — network/app instability
+	// that no other section surfaces. The terminal "connection to client
+	// lost" (FATAL) is intentionally left to the EVENTS panel to avoid
+	// double-counting. Detected on the non-"connection" bail path.
+	clientIOFailureCount int
+	clientIORecv         map[string]map[string]int // reason -> database -> count (receive)
+	clientIOSend         map[string]map[string]int // reason -> database -> count (send)
+
 	// activeConnections tracks live receiveds so the orphan-flush at
 	// Finalize knows what's left dangling. The peak itself is computed
 	// at Finalize via sweep-line on sessionEvents — the streaming
@@ -250,6 +271,8 @@ func NewConnectionAnalyzer() *ConnectionAnalyzer {
 		sessionsByDatabase:  make(map[string]*StreamingDurationStats, 50),
 		sessionsByHost:      make(map[string]*StreamingDurationStats, 100),
 		activeConnections:   make(map[string]time.Time, 1000),
+		clientIORecv:        make(map[string]map[string]int, 8),
+		clientIOSend:        make(map[string]map[string]int, 8),
 	}
 }
 
@@ -327,9 +350,15 @@ func (a *ConnectionAnalyzer) Process(entry *parser.LogEntry) {
 
 	// OPTIMIZATION: Use single Index call to find "connection" then check context
 	// This reduces CPU time from 220ms to ~110ms on I1.log
+	// Client I/O failures ("could not send/receive data ... client: <reason>")
+	// are checked independently of the "connection" gate below: their message
+	// carries no lowercase "connection", but the prefix might (e.g.
+	// app=connection-pool), which would otherwise route them past this check.
+	a.recordClientIOFailure(msg)
+
 	idx := strings.Index(msg, "connection")
 	if idx == -1 {
-		return // Neither connection nor disconnection present
+		return
 	}
 
 	// PID is pre-populated by the parser layer.
@@ -492,6 +521,10 @@ func (a *ConnectionAnalyzer) Finalize() ConnectionMetrics {
 		SessionsByHost:          a.sessionsByHost,
 		PeakConcurrentSessions:  peakConcurrent,
 		PeakConcurrentTimestamp: peakTimestamp,
+
+		ClientIOFailureCount: a.clientIOFailureCount,
+		ClientIORecv:         a.clientIORecv,
+		ClientIOSend:         a.clientIOSend,
 
 		receivedChunksRef: a.receivedChunks,
 		sessionChunksRef:  a.sessionChunks,
@@ -674,6 +707,105 @@ func parsePostgreSQLDuration(s string) time.Duration {
 		time.Duration(seconds*float64(time.Second))
 
 	return duration
+}
+
+// recordClientIOFailure folds a "could not send/receive data ... client:
+// <reason>" message into the client-I/O aggregates, attributing it to its
+// database when the prefix carries one. The " client: " guard fails fast on
+// the SQL-duration lines that dominate this bail path, so the two Index
+// probes run only on the handful of messages that actually mention a client.
+func (a *ConnectionAnalyzer) recordClientIOFailure(msg string) {
+	if !strings.Contains(msg, " client: ") {
+		return
+	}
+	// Anchor on the message body: a genuine I/O error IS the whole message
+	// ("LOG:  could not send data to client: <reason>"), so the pattern must
+	// sit at the start of the body — right after the severity marker and an
+	// optional inline SQLSTATE. A query whose text merely contains "could not
+	// send data to client:" (in a duration:/statement: line) starts with
+	// something else and is rejected.
+	body := clientErrorBody(msg)
+
+	var (
+		dir    map[string]map[string]int
+		reason string
+	)
+	switch {
+	case strings.HasPrefix(body, "could not send data to client: "):
+		dir, reason = a.clientIOSend, clientIOReason(body[len("could not send data to client: "):])
+	case strings.HasPrefix(body, "could not receive data from client: "):
+		dir, reason = a.clientIORecv, clientIOReason(body[len("could not receive data from client: "):])
+	default:
+		return
+	}
+
+	db := extractEntityFromMessage(msg, "database")
+	if db == "" {
+		db = "[unknown]"
+	}
+	if dir[reason] == nil {
+		dir[reason] = make(map[string]int, 2)
+	}
+	dir[reason][db]++
+	a.clientIOFailureCount++
+}
+
+// clientErrorBody returns the message text right after the severity marker
+// (e.g. " LOG:") and an optional inline 5-character SQLSTATE ("08006: "),
+// i.e. the start of what PostgreSQL actually logged. Returns "" when no
+// severity marker is present.
+func clientErrorBody(msg string) string {
+	m := findSeverityMarker(msg)
+	if m < 0 {
+		return ""
+	}
+	body := msg[m:]
+	colon := strings.IndexByte(body, ':') // end of the " LOG:" / " FATAL:" marker
+	if colon < 0 {
+		return ""
+	}
+	body = strings.TrimLeft(body[colon+1:], " ")
+	if len(body) >= 7 && body[5] == ':' && body[6] == ' ' && isSQLState(body[:5]) {
+		body = body[7:]
+	}
+	return body
+}
+
+// isSQLState reports whether s is five alphanumerics (a PostgreSQL SQLSTATE
+// like "08006" or "00000").
+func isSQLState(s string) bool {
+	if len(s) != 5 {
+		return false
+	}
+	for i := 0; i < 5; i++ {
+		c := s[i]
+		if !((c >= '0' && c <= '9') || (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')) {
+			return false
+		}
+	}
+	return true
+}
+
+// clientIOReason normalizes a strerror into a stable category key, e.g.
+// "Broken pipe" -> "broken pipe". The direction is tracked by which map the
+// caller increments, so it is not part of the key.
+func clientIOReason(reason string) string {
+	r := strings.ToLower(strings.TrimSpace(reason))
+	// Trim metadata that trails the strerror in some inputs and would fragment
+	// or pollute the category: the statement's cursor position that stderr
+	// appends ("... at character N"), and the SQLSTATE that the csv/json
+	// parsers fold back into the message ("... SQLSTATE = 'XXXXX'"). Keep just
+	// the OS error.
+	for _, cut := range []string{" at character ", " sqlstate"} {
+		if i := strings.Index(r, cut); i >= 0 {
+			r = r[:i]
+		}
+	}
+	r = strings.TrimSpace(r)
+	if len(r) > 40 {
+		r = r[:40]
+	}
+	return r
 }
 
 // extractEntityFromMessage extracts a specific entity (user, database, host, or application) from a log message.
