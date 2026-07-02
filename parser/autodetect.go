@@ -91,6 +91,11 @@ var (
 		// Example: 2025-11-30T21:10:20+00:00 172.20.0.2 postgres[55]: ...LOG:
 		regexp.MustCompile(`^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}\s+\S+\s+\S+\[\d+\]:.*?\b(?:LOG|WARNING|ERROR|FATAL|PANIC|DETAIL|STATEMENT|HINT|CONTEXT):\s+`),
 	}
+
+	// anyTimestampRegex matches a PostgreSQL date-time anywhere in a line (not
+	// anchored). Used by detectLeadingPrefix to locate a timestamp that a
+	// custom log_line_prefix pushed off column 0 with a literal prefix.
+	anyTimestampRegex = regexp.MustCompile(`\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}`)
 )
 
 // ParseFile detects the log format and parses the file in streaming mode.
@@ -274,6 +279,10 @@ func detectByExtension(filename, ext, sample string) LogParser {
 		if isLogContent(sample) {
 			return &StderrParser{}
 		}
+		if n := detectLeadingPrefix(sample); n > 0 {
+			slog.Warn("literal prefix before timestamp detected and stripped", "file", filename, "prefix_len", n)
+			return &StderrParser{prefixLen: n}
+		}
 		slog.Error("file has .log extension but content is not valid log format", "file", filename)
 		return nil
 
@@ -299,6 +308,10 @@ func detectByContent(filename, sample string) LogParser {
 		return &StderrParser{}
 
 	default:
+		if n := detectLeadingPrefix(sample); n > 0 {
+			slog.Info("detected stderr format with a literal prefix (unknown extension)", "file", filename, "prefix_len", n)
+			return &StderrParser{prefixLen: n}
+		}
 		slog.Error("unknown log format", "file", filename)
 		return nil
 	}
@@ -458,16 +471,68 @@ func isLogContent(sample string) bool {
 		if trimmed == "" {
 			continue
 		}
-
-		// Check if line matches any of the known log patterns
-		for _, pattern := range logPatterns {
-			if pattern.MatchString(trimmed) {
-				return true
-			}
+		if matchesLogPattern(trimmed) {
+			return true
 		}
 	}
 
 	return false
+}
+
+// matchesLogPattern reports whether line matches any known stderr/syslog
+// pattern (timestamp + severity). The patterns are anchored at the start.
+func matchesLogPattern(line string) bool {
+	for _, pattern := range logPatterns {
+		if pattern.MatchString(line) {
+			return true
+		}
+	}
+	return false
+}
+
+// detectLeadingPrefix salvages logs whose custom log_line_prefix puts a
+// constant literal before the timestamp (e.g. "T" ahead of %t), which shifts
+// every line off the timestamp-anchored patterns. It returns the byte length
+// of that shared prefix, or 0 when there is no consistent short prefix — so it
+// only ever helps files isLogContent already rejected, never the normal path.
+//
+// A line "votes" for a prefix when a PostgreSQL timestamp sits at a small
+// offset (>0) and the line stripped of that offset matches a real log pattern
+// (timestamp + severity). If one prefix wins a strong majority of those votes,
+// it is the log_line_prefix literal and its length is returned.
+func detectLeadingPrefix(sample string) int {
+	const maxPrefixLen = 16
+	counts := map[string]int{}
+	total := 0
+	for _, line := range strings.Split(sample, "\n") {
+		if line == "" {
+			continue
+		}
+		loc := anyTimestampRegex.FindStringIndex(line)
+		if loc == nil || loc[0] <= 0 || loc[0] > maxPrefixLen {
+			continue
+		}
+		if !matchesLogPattern(line[loc[0]:]) {
+			continue
+		}
+		counts[line[:loc[0]]]++
+		total++
+	}
+	if total == 0 {
+		return 0
+	}
+	bestPrefix, bestN := "", 0
+	for p, n := range counts {
+		if n > bestN {
+			bestPrefix, bestN = p, n
+		}
+	}
+	// Require a real consensus (>=90% of prefixed-log lines share it) and a
+	// small absolute floor, so a text file with a few stray dates can't pass.
+	if bestN >= 3 && bestN*100 >= total*90 {
+		return len(bestPrefix)
+	}
+	return 0
 }
 
 // isBinaryContent checks if the sample contains non-printable characters

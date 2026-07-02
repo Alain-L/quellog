@@ -79,6 +79,28 @@ func isContinuationMessage(message string) bool {
 // StderrParser parses PostgreSQL logs in stderr/syslog format.
 type StderrParser struct {
 	prefixStructure *PrefixStructure // Detected prefix structure (nil if not detected or disabled)
+
+	// prefixLen is the byte length of a constant literal that a custom
+	// log_line_prefix places before the timestamp (e.g. "T" ahead of %t),
+	// as detected by detectLeadingPrefix. Zero for standard logs. When set,
+	// the parser strips it from lines that carry it (see stripLeadingPrefix),
+	// leaving continuation lines — which lack the prefix — untouched.
+	prefixLen int
+}
+
+// stripLeadingPrefix removes the detected literal prefix from a line, but only
+// when a timestamp actually follows it at that offset. Continuation lines
+// (tab-indented message wrap, no prefix) fail the check and pass through
+// unchanged, so the normal continuation handling still applies.
+func (p *StderrParser) stripLeadingPrefix(entry []byte) []byte {
+	n := p.prefixLen
+	if n <= 0 || len(entry) < n+17 {
+		return entry
+	}
+	if entry[n+4] == '-' && entry[n+7] == '-' && (entry[n+10] == ' ' || entry[n+10] == 'T') && entry[n+13] == ':' && entry[n+16] == ':' {
+		return entry[n:]
+	}
+	return entry
 }
 
 // Parse reads a PostgreSQL stderr/syslog format log file and streams parsed entries.
@@ -114,9 +136,17 @@ func (p *StderrParser) Parse(filename string, out chan<- []LogEntry) error {
 	// parseReader and the ordered re-emission reproduces the sequential
 	// stream exactly. Syslog stays sequential (per-PID accumulation +
 	// final sort are global), as do small files.
-	if st, serr := file.Stat(); serr == nil && st.Size() >= stderrParallelMinSize {
-		if workers := parallelWorkers(); workers >= 2 {
-			return p.parseParallel(file, st.Size(), workers, out)
+	// A detected leading prefix skips the parallel segment path: the
+	// segment-boundary predicate is prefix-unaware, so a prefixed file
+	// would waste a full boundary scan (finding none) before falling
+	// back anyway — and any boundary it did find would spawn workers
+	// that don't carry prefixLen. The prefix-aware sequential parseReader
+	// is correct and prefixed files are a rare non-standard format.
+	if p.prefixLen == 0 {
+		if st, serr := file.Stat(); serr == nil && st.Size() >= stderrParallelMinSize {
+			if workers := parallelWorkers(); workers >= 2 {
+				return p.parseParallel(file, st.Size(), workers, out)
+			}
 		}
 	}
 
@@ -298,7 +328,7 @@ func (p *StderrParser) parseReader(r io.Reader, out chan<- []LogEntry) error {
 		isContinuation := len(lineBytes) > 0 && (lineBytes[0] == ' ' || lineBytes[0] == '\t')
 
 		if !isContinuation && len(currentEntry) > 0 {
-			if !hasTimestampBytes(lineBytes) {
+			if !hasTimestampBytes(p.stripLeadingPrefix(lineBytes)) {
 				isContinuation = true
 			}
 		}
@@ -408,7 +438,7 @@ func (p *StderrParser) parseFromBytes(data []byte, out chan<- []LogEntry) error 
 		isContinuation := len(lineBytes) > 0 && (lineBytes[0] == ' ' || lineBytes[0] == '\t')
 
 		if !isContinuation && (entryStart >= 0 || hasCont || len(currentEntry) > 0) {
-			if !hasTimestampBytes(lineBytes) {
+			if !hasTimestampBytes(p.stripLeadingPrefix(lineBytes)) {
 				isContinuation = true
 			}
 		}
@@ -461,6 +491,9 @@ func (p *StderrParser) parseFromBytes(data []byte, out chan<- []LogEntry) error 
 // When zeroCopy is true, the returned string is a zero-copy view into
 // the bytes (caller must guarantee the bytes outlive the string).
 func (p *StderrParser) parseEntryFromBytesZ(entry []byte, zeroCopy bool) (time.Time, string) {
+	if p.prefixLen > 0 {
+		entry = p.stripLeadingPrefix(entry)
+	}
 	n := len(entry)
 	if n >= 20 && entry[4] == '-' && entry[7] == '-' && entry[10] == ' ' && entry[13] == ':' && entry[16] == ':' {
 		if timestamp, msgOffset, ok := parseStderrFormatFromBytes(entry); ok {
@@ -494,6 +527,9 @@ func unsafeBytesToString(b []byte) string {
 }
 
 func (p *StderrParser) parseEntryFromBytes(entry []byte) (time.Time, string) {
+	if p.prefixLen > 0 {
+		entry = p.stripLeadingPrefix(entry)
+	}
 	n := len(entry)
 	if n >= 20 && entry[4] == '-' && entry[7] == '-' && entry[10] == ' ' && entry[13] == ':' && entry[16] == ':' {
 		if timestamp, msgOffset, ok := parseStderrFormatFromBytes(entry); ok {
