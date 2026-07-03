@@ -229,6 +229,10 @@ func (sa *StreamingAnalyzer) ProcessBatch(batch []parser.LogEntry) {
 		if sa.global.MaxTimestamp.IsZero() || entry.Timestamp.After(sa.global.MaxTimestamp) {
 			sa.global.MaxTimestamp = entry.Timestamp
 		}
+		// Stamp the body offset once, like PID at construction, so the
+		// full-stream analyzers can anchor their pattern gates in O(1)
+		// instead of each scanning the whole message.
+		entry.BodyOffset = messageBodyOffset(entry.Message)
 	}
 
 	sb := &sharedBatch{entries: batch}
@@ -833,6 +837,53 @@ var severityMarkers = [...]string{
 	// pull the whole "favier SSL enabled (protocol=TLSv1.2" tail
 	// into the captured value.
 	" SSL ",
+}
+
+// messageBodyOffset returns the byte offset of the message body: the text
+// right after the first severity marker (" LOG: ", " ERROR: ", …), its
+// following spaces and an optional verbose-mode SQLSTATE token ("00000: ").
+// Returns 0 when no marker is found (continuation lines carry DETAIL:/
+// STATEMENT:/… instead) so callers fall back to their unanchored path.
+// Single pass, unlike findSeverityMarker: it walks ':' occurrences and
+// inspects the uppercase token preceding each one.
+func messageBodyOffset(msg string) int32 {
+	for i := 0; i < len(msg); {
+		c := strings.IndexByte(msg[i:], ':')
+		if c < 0 {
+			return 0
+		}
+		p := i + c
+		// Scan back over the [A-Z0-9] token preceding the colon
+		// (digits cover DEBUG1..DEBUG5).
+		s := p
+		for s > 0 && (msg[s-1] >= 'A' && msg[s-1] <= 'Z' || msg[s-1] >= '0' && msg[s-1] <= '9') {
+			s--
+		}
+		if s < p && (s == 0 || msg[s-1] == ' ') && isSeverityWord(msg[s:p]) {
+			b := p + 1
+			for b < len(msg) && msg[b] == ' ' {
+				b++
+			}
+			// log_error_verbosity=verbose inserts the SQLSTATE right
+			// after the marker: "LOG:  00000: body…" — skip it.
+			if len(msg)-b >= 7 && msg[b+5] == ':' && msg[b+6] == ' ' && isSQLState(msg[b:b+5]) {
+				b += 7
+			}
+			return int32(b)
+		}
+		i = p + 1
+	}
+	return 0
+}
+
+// isSeverityWord reports whether tok is a PostgreSQL severity keyword.
+func isSeverityWord(tok string) bool {
+	switch tok {
+	case "LOG", "ERROR", "WARNING", "FATAL", "PANIC", "NOTICE", "INFO", "DEBUG",
+		"DEBUG1", "DEBUG2", "DEBUG3", "DEBUG4", "DEBUG5":
+		return true
+	}
+	return false
 }
 
 func findSeverityMarker(s string) int {

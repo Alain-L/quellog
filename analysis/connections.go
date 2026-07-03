@@ -354,7 +354,16 @@ func (a *ConnectionAnalyzer) Process(entry *parser.LogEntry) {
 	// are checked independently of the "connection" gate below: their message
 	// carries no lowercase "connection", but the prefix might (e.g.
 	// app=connection-pool), which would otherwise route them past this check.
-	a.recordClientIOFailure(msg)
+	// Their body always starts with "could not ": when the dispatcher stamped
+	// a body offset, anchor the gate there in O(1) instead of scanning the
+	// whole message for " client: " on every entry.
+	if off := int(entry.BodyOffset); off > 0 && off < len(msg) {
+		if strings.HasPrefix(msg[off:], "could not ") {
+			a.recordClientIOFailure(msg)
+		}
+	} else {
+		a.recordClientIOFailure(msg)
+	}
 
 	idx := strings.Index(msg, "connection")
 	if idx == -1 {

@@ -157,6 +157,22 @@ func (a *LockAnalyzer) Process(entry *parser.LogEntry) {
 		return
 	}
 
+	// Body-anchored fast gate: PostgreSQL emits every lock event with the
+	// pattern at the start of the message body ("process N still waiting…",
+	// "process N acquired…", "deadlock detected"). When the dispatcher
+	// stamped a body offset, reject other lines in O(1) instead of running
+	// detectPatterns' full-message scans. Continuation lines (DETAIL:/
+	// STATEMENT:/CONTEXT:/QUERY:) carry no severity marker, keep offset 0
+	// and stay on the unanchored path below.
+	if off := int(entry.BodyOffset); off > 0 && off < len(msg) {
+		body := msg[off:]
+		if !strings.HasPrefix(body, "process ") &&
+			!strings.HasPrefix(body, "deadlock") &&
+			!strings.HasPrefix(body, "Process ") {
+			return
+		}
+	}
+
 	// State-machine short-circuit: until we've seen the first lock event,
 	// only look for lock events (skip STATEMENT / DETAIL / CONTEXT lines).
 	// This saves a lot of work on logs that contain no lock contention.
