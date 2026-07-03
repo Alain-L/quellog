@@ -83,18 +83,34 @@ func parseJSONLinesParallel(filename string, size int64, workers int, out chan<-
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
+			// Per-worker reuse (mirrors the CSV path): the file handle, the
+			// 1 MB bufio buffer and the JsonParser (cachedTSFmt, msgBuf) are
+			// opened/allocated once and reused across this worker's
+			// segments, not once per segment — neutralizing the per-segment
+			// churn.
+			var br *bufio.Reader
+			p := &JsonParser{}
+			f, openErr := os.Open(filename)
+			if openErr == nil {
+				defer f.Close()
+			}
 			for {
 				i := int(cursor.Add(1)) - 1
 				if i >= numSegs {
 					return
 				}
 				window <- struct{}{} // released by the fan-in below
+				if openErr != nil {
+					errs[i] = openErr
+					close(queues[i])
+					continue
+				}
 				start := int64(i) * jsonSegmentSize
 				end := start + jsonSegmentSize
 				if end > size {
 					end = size
 				}
-				errs[i] = parseJSONSegment(filename, start, end, queues[i])
+				errs[i] = parseJSONSegment(f, &br, p, start, end, queues[i])
 				close(queues[i])
 			}
 		}()
@@ -118,26 +134,23 @@ func parseJSONLinesParallel(filename string, size int64, workers int, out chan<-
 }
 
 // parseJSONSegment parses the lines of one byte segment [start, end)
-// of filename into out. See parseJSONLinesParallel for the boundary
-// rule.
-func parseJSONSegment(filename string, start, end int64, out chan<- []LogEntry) error {
-	f, err := os.Open(filename)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
+// of the worker's file handle into out. See parseJSONLinesParallel
+// for the boundary rule. The caller owns f, *br and p and reuses them
+// across its segments; *br is lazily allocated on the first segment.
+func parseJSONSegment(f *os.File, br **bufio.Reader, p *JsonParser, start, end int64, out chan<- []LogEntry) error {
 	if _, err := f.Seek(start, io.SeekStart); err != nil {
 		return err
 	}
 
 	// Per-segment progress wrapper: the global counter sums the
 	// segments to the file size, same denominator as sequential.
-	rd := bufio.NewReaderSize(WithProgress(f), 1<<20)
+	if *br == nil {
+		*br = bufio.NewReaderSize(WithProgress(f), 1<<20)
+	} else {
+		(*br).Reset(WithProgress(f))
+	}
+	rd := *br
 
-	// Per-segment parser instance: cachedTSFmt and msgBuf are mutable
-	// state; format detection is idempotent so each segment just
-	// re-learns it on its first line.
-	p := &JsonParser{}
 	bs := NewBatchSender(out)
 	defer bs.Flush()
 

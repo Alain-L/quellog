@@ -186,6 +186,10 @@ func (p *StderrParser) parseParallel(f *os.File, size int64, workers int, out ch
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
+			// Per-worker reuse (mirrors the CSV path): the 1 MB bufio buffer
+			// is allocated once and Reset per segment, not once per segment —
+			// neutralizing the per-segment buffer churn.
+			var br *bufio.Reader
 			for {
 				i := int(cursor.Add(1)) - 1
 				if i >= numSegs {
@@ -195,8 +199,14 @@ func (p *StderrParser) parseParallel(f *os.File, size int64, workers int, out ch
 				// ReadAt on *os.File is concurrency-safe, so all the
 				// SectionReaders share one descriptor.
 				sec := io.NewSectionReader(f, boundaries[i], boundaries[i+1]-boundaries[i])
+				rd := WithProgress(sec)
+				if br == nil {
+					br = bufio.NewReaderSize(rd, 1<<20)
+				} else {
+					br.Reset(rd)
+				}
 				wp := &StderrParser{prefixStructure: p.prefixStructure}
-				errs[i] = wp.parseReader(bufio.NewReaderSize(WithProgress(sec), 1<<20), queues[i])
+				errs[i] = wp.parseReader(br, queues[i])
 				close(queues[i])
 			}
 		}()
