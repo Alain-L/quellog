@@ -211,7 +211,14 @@ func sniffAndParseArchiveEntry(name string, r io.Reader, out chan<- []LogEntry) 
 		if sp != nil {
 			prefixLen = sp.prefixLen
 		}
-		return true, (&StderrParser{prefixLen: prefixLen}).parseReader(full, out)
+		parser := &StderrParser{prefixLen: prefixLen}
+		// Parallelize the parse of a prefix-less stderr member the same way as
+		// compressed plain streams; a detected prefix keeps the sequential
+		// prefix-aware reader (mirrors wrapCompressedParser's routing).
+		if workers := parallelWorkers(); workers >= 2 && prefixLen == 0 {
+			return true, parser.parseStreamParallel(full, workers, out)
+		}
+		return true, parser.parseReader(full, out)
 	}
 }
 
@@ -222,6 +229,13 @@ func parseArchiveEntry(name string, r io.Reader, out chan<- []LogEntry) error {
 	switch {
 	case strings.HasSuffix(lower, ".log"):
 		parser := &StderrParser{}
+		// Archive members are non-seekable, so the segment engine doesn't
+		// apply — but the stream-chunked sibling parallelizes the parse the
+		// same way as compressed plain streams. Archives don't carry a
+		// detected prefix (prefixLen is always 0 here), so no prefix guard.
+		if workers := parallelWorkers(); workers >= 2 {
+			return parser.parseStreamParallel(r, workers, out)
+		}
 		return parser.parseReader(r, out)
 	case strings.HasSuffix(lower, ".csv"):
 		parser := &CsvParser{}
@@ -246,6 +260,11 @@ func parseArchiveEntry(name string, r io.Reader, out chan<- []LogEntry) error {
 	case strings.Contains(lower, ".log."):
 		// Rotated PostgreSQL log files (e.g. postgresql.log.2026-03-23-10)
 		parser := &StderrParser{}
+		// Same stream-chunked parallelization as the plain ".log" case above;
+		// archive members carry no detected prefix.
+		if workers := parallelWorkers(); workers >= 2 {
+			return parser.parseStreamParallel(r, workers, out)
+		}
 		return parser.parseReader(r, out)
 	case strings.Contains(lower, ".csv."):
 		// Rotated CSV log files
