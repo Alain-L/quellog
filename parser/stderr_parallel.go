@@ -348,7 +348,10 @@ func (p *StderrParser) parseStreamParallel(r io.Reader, workers int, out chan<- 
 				if err := wp.parseReader(&cr, j.q); err != nil {
 					errOnce.Do(func() { parseErr = err })
 				}
-				streamChunkPool.Put(j.data[:0]) //nolint:staticcheck // slice, not pointer: cap is what's recycled
+				// The boxing allocation SA6002 warns about is one interface
+				// header per 4 MB chunk — noise next to the buffer it recycles.
+				//lint:ignore SA6002 slice-in-pool is intentional, see above
+				streamChunkPool.Put(j.data[:0])
 				close(j.q)
 			}
 		}()

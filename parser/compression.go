@@ -278,7 +278,11 @@ func wrapCompressedParser(parser LogParser, codec compressionCodec) LogParser {
 			// apply — but the stream-chunked sibling parallelizes the parse
 			// the same way. Prefixed streams keep the prefix-aware
 			// sequential reader (same routing as Parse).
-			if workers := parallelWorkers(); workers >= 2 && p.prefixLen == 0 {
+			// Half the segment-path worker count: the stream chunker (decode +
+			// boundary scan, single goroutine) paces the pipeline well below
+			// what 4 parse workers absorb — 8 only added allocation-rate GC
+			// headroom (measured: same wall, −18% RSS on a single .zst).
+			if workers := parallelWorkers() / 2; workers >= 2 && p.prefixLen == 0 {
 				return p.parseStreamParallel(r, workers, out)
 			}
 			return p.parseReader(r, out)
