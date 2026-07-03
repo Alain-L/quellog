@@ -15,6 +15,7 @@ All notable changes to this project will be documented in this file.
 - **Large stderr logs analyze 15-25% faster**: data-parallel analysis engine shards backends across CPU cores by PID. Engages automatically on large stderr files.
 - **Large CSV logs parse ~40% faster**: a parallel segment parser splits big CSV files, mirroring the stderr/JSON parallel paths.
 - **CSV parsing allocates ~half as much memory**: a single-pass, zero-copy CSV scanner replaces the standard-library reader, cutting CSV-path allocations by roughly 50%.
+- **Faster reports on session- and lock-heavy logs**: anchored analyzer gates, per-worker buffer reuse and callback-free sweep-line sorts cut wall time by up to a third on large stderr files.
 
 ### Changed
 - **Time filter is an always-visible range slider in the Summary card**: replaces the Time dropdown and re-filters on release. Multi-day logs split the slider by day.
