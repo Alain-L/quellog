@@ -2,6 +2,7 @@
 package analysis
 
 import (
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -557,41 +558,34 @@ func computePeakSweepline(chunks [][]compactSession, loc *time.Location) (int, t
 	if loc == nil {
 		loc = time.UTC
 	}
-	// Build flat uint32 indices into the chunk grid: hi 16 bits = chunk
-	// index, lo 16 bits = position inside the chunk (sessionsPerChunk =
-	// 1<<16). Two parallel lists — one for start order, one for end order
-	// — give the same 8× shrink (4 B vs 32 B per entry) the previous
-	// flat-slice version had, but without materializing the N×16 B
-	// compact slice nor the N×48 B SessionEvent slice. On J.log this
-	// drops the Finalize peak from ~410 MB to ~45 MB.
+	// Flatten the chunk grid into two plain []int64 lists — one of start
+	// timestamps, one of end timestamps. The sweep below only ever reads
+	// the millisecond VALUES, so sorting values directly with slices.Sort
+	// (branch-free int64 pdqsort) replaces the previous uint32-index sort
+	// whose comparator chased two pointers through the chunk grid on
+	// every comparison. ~2× the transient footprint of the index version
+	// (16 B vs 8 B per session) but still ~4× below the old SessionEvent
+	// slice, and the sort drops from seconds to a fraction.
 	n := 0
 	for _, c := range chunks {
 		n += len(c)
 	}
-	startIdx := make([]uint32, 0, n)
-	endIdx := make([]uint32, 0, n)
-	for ci, chunk := range chunks {
-		base := uint32(ci) << 16
-		for ei, s := range chunk {
+	startMs := make([]int64, 0, n)
+	endMs := make([]int64, 0, n)
+	for _, chunk := range chunks {
+		for _, s := range chunk {
 			if s.startUnixMs == 0 || s.endUnixMs == 0 {
 				continue
 			}
-			idx := base | uint32(ei)
-			startIdx = append(startIdx, idx)
-			endIdx = append(endIdx, idx)
+			startMs = append(startMs, s.startUnixMs)
+			endMs = append(endMs, s.endUnixMs)
 		}
 	}
-	if len(startIdx) == 0 {
+	if len(startMs) == 0 {
 		return 0, time.Time{}
 	}
-	startMs := func(idx uint32) int64 { return chunks[idx>>16][idx&0xFFFF].startUnixMs }
-	endMs := func(idx uint32) int64 { return chunks[idx>>16][idx&0xFFFF].endUnixMs }
-	sort.Slice(startIdx, func(i, j int) bool {
-		return startMs(startIdx[i]) < startMs(startIdx[j])
-	})
-	sort.Slice(endIdx, func(i, j int) bool {
-		return endMs(endIdx[i]) < endMs(endIdx[j])
-	})
+	slices.Sort(startMs)
+	slices.Sort(endMs)
 
 	// Sweep both index lists in lockstep. At each step take the earlier
 	// pending timestamp; tie-break "starts (+1) before ends (-1)" so
@@ -599,28 +593,26 @@ func computePeakSweepline(chunks [][]compactSession, loc *time.Location) (int, t
 	cur, peak := 0, 0
 	var peakMs int64
 	s, e := 0, 0
-	for s < len(startIdx) || e < len(endIdx) {
+	for s < len(startMs) || e < len(endMs) {
 		var ms int64
 		var delta int
 		switch {
-		case e >= len(endIdx):
-			ms = startMs(startIdx[s])
+		case e >= len(endMs):
+			ms = startMs[s]
 			delta = +1
 			s++
-		case s >= len(startIdx):
-			ms = endMs(endIdx[e])
+		case s >= len(startMs):
+			ms = endMs[e]
 			delta = -1
 			e++
 		default:
-			sMs := startMs(startIdx[s])
-			eMs := endMs(endIdx[e])
-			// sMs <= eMs → take start (covers tie: +1 before -1)
-			if sMs <= eMs {
-				ms = sMs
+			// startMs[s] <= endMs[e] → take start (covers tie: +1 before -1)
+			if startMs[s] <= endMs[e] {
+				ms = startMs[s]
 				delta = +1
 				s++
 			} else {
-				ms = eMs
+				ms = endMs[e]
 				delta = -1
 				e++
 			}

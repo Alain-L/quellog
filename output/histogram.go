@@ -4,7 +4,7 @@ package output
 import (
 	"fmt"
 	"math"
-	"sort"
+	"slices"
 	"time"
 
 	"github.com/Alain-L/quellog/analysis"
@@ -614,40 +614,43 @@ func computeConcurrentHistogram(iter func(fn func(analysis.SessionEvent) bool), 
 		}
 	}
 
-	// Use sweep line algorithm O(n log n) instead of O(intervals * sessions)
-	// Create events: +1 for session start, -1 for session end
-	type event struct {
-		time  time.Time
-		delta int // +1 start, -1 end
-	}
-	events := make([]event, 0, count*2)
+	// Sweep line over two flat, independently sorted timestamp lists (ns).
+	// Replaces the old []event{time.Time, delta} slice + sort.Slice: the
+	// lockstep merge below yields the exact same event order ("starts
+	// before ends at tied timestamps" — the merge takes the start side on
+	// ties), but the sorts run on plain int64 without comparator callbacks
+	// and the transient footprint drops ~4× (16 B vs 32 B per session).
+	startNs := make([]int64, 0, count)
+	endNs := make([]int64, 0, count)
+	var loc *time.Location
 	iter(func(s analysis.SessionEvent) bool {
 		if !s.StartTime.IsZero() && !s.EndTime.IsZero() {
-			events = append(events, event{s.StartTime, +1})
-			events = append(events, event{s.EndTime, -1})
+			if loc == nil {
+				loc = s.StartTime.Location()
+			}
+			startNs = append(startNs, s.StartTime.UnixNano())
+			endNs = append(endNs, s.EndTime.UnixNano())
 		}
 		return true
 	})
+	slices.Sort(startNs)
+	slices.Sort(endNs)
 
-	// Sort events by time (starts before ends at same time for correct counting)
-	sort.Slice(events, func(i, j int) bool {
-		if events[i].time.Equal(events[j].time) {
-			return events[i].delta > events[j].delta // +1 before -1
-		}
-		return events[i].time.Before(events[j].time)
-	})
+	minNs := minTime.UnixNano()
 
 	// Track max concurrency and peak time per bucket
 	bucketMax := make([]int, numBuckets)
 	bucketPeakTime := make([]time.Time, numBuckets)
 
 	current := 0
-	eventIdx := 0
+	si, ei := 0, 0
 
 	// Process each bucket
 	for b := 0; b < numBuckets; b++ {
 		bucketStart := minTime.Add(time.Duration(b) * bucketDuration)
 		bucketEnd := bucketStart.Add(bucketDuration)
+		bucketStartNs := bucketStart.UnixNano()
+		bucketEndNs := bucketEnd.UnixNano()
 
 		// Initialize bucket max with current count (carried over from previous bucket)
 		if current > bucketMax[b] {
@@ -656,29 +659,40 @@ func computeConcurrentHistogram(iter func(fn func(analysis.SessionEvent) bool), 
 		}
 
 		// Process all events within this bucket
-		for eventIdx < len(events) && events[eventIdx].time.Before(bucketEnd) {
-			e := events[eventIdx]
+		for si < len(startNs) || ei < len(endNs) {
+			var ns int64
+			var delta int
+			if ei >= len(endNs) || (si < len(startNs) && startNs[si] <= endNs[ei]) {
+				ns, delta = startNs[si], +1
+			} else {
+				ns, delta = endNs[ei], -1
+			}
+			if ns >= bucketEndNs {
+				break
+			}
+			if delta > 0 {
+				si++
+			} else {
+				ei++
+			}
 
 			// Skip events before minTime
-			if e.time.Before(minTime) {
-				current += e.delta
-				eventIdx++
+			if ns < minNs {
+				current += delta
 				continue
 			}
 
 			// Apply delta
-			current += e.delta
+			current += delta
 			if current < 0 {
 				current = 0
 			}
 
 			// Update max if this event is in our bucket
-			if !e.time.Before(bucketStart) && current > bucketMax[b] {
+			if ns >= bucketStartNs && current > bucketMax[b] {
 				bucketMax[b] = current
-				bucketPeakTime[b] = e.time
+				bucketPeakTime[b] = time.Unix(0, ns).In(loc)
 			}
-
-			eventIdx++
 		}
 	}
 
