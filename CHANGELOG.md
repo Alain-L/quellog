@@ -15,12 +15,15 @@ All notable changes to this project will be documented in this file.
 - **Large stderr logs analyze 15-25% faster**: data-parallel analysis engine shards backends across CPU cores by PID. Engages automatically on large stderr files.
 - **Large CSV logs parse ~40% faster**: a parallel segment parser splits big CSV files, mirroring the stderr/JSON parallel paths.
 - **CSV parsing allocates ~half as much memory**: a single-pass, zero-copy CSV scanner replaces the standard-library reader, cutting CSV-path allocations by roughly 50%.
+- **Faster reports on session- and lock-heavy logs**: anchored analyzer gates, per-worker buffer reuse and callback-free sweep-line sorts cut wall time by up to a third on large stderr files.
+- **Compressed logs parse in parallel**: gzip/zstd stderr logs are parsed by a worker pool, up to ~30% faster.
 
 ### Changed
 - **Time filter is an always-visible range slider in the Summary card**: replaces the Time dropdown and re-filters on release. Multi-day logs split the slider by day.
 - **`--json` output is stable run-to-run and across machines**: event-occurrence lists are sorted ascending, and PID-sharded runs order per-execution lists canonically (timestamp, query id, duration) so they don't depend on the core count.
 
 ### Fixed
+- **Analyzing multiple files at once is now deterministic**: rotated log sets were parsed with non-deterministic interleaving; files are now analyzed in order, so output is byte-stable.
 - **Lock metrics count each re-lock of the same resource as its own episode**: when a backend re-locks the same object, `total_events` and `acquired_events` stay in step.
 - **Time-series charts show the date on multi-day spans**: their x-axes were time-only (`00:00`, `06:00`, …), ambiguous across days; they now add the date at each day boundary, like the concurrent-sessions chart already did.
 - **Report duration tile no longer shows `0s` for spans of 24h or more**: the HTML report's duration now renders days (e.g. `1d`, `2d3h`) instead of dropping a day-formatted value.

@@ -86,6 +86,21 @@ type StderrParser struct {
 	// the parser strips it from lines that carry it (see stripLeadingPrefix),
 	// leaving continuation lines — which lack the prefix — untouched.
 	prefixLen int
+
+	// scanBuf is the bufio.Scanner backing buffer, lazily allocated and
+	// reused across parseReader calls on the same instance. The segment
+	// and stream-chunk engines call parseReader hundreds of times per
+	// input; a fresh 4 MB buffer per call was their top allocator.
+	scanBuf []byte
+}
+
+// scannerBuf returns the reusable scanner backing buffer, allocating it
+// on first use.
+func (p *StderrParser) scannerBuf() []byte {
+	if p.scanBuf == nil {
+		p.scanBuf = make([]byte, scannerBuffer)
+	}
+	return p.scanBuf
 }
 
 // stripLeadingPrefix removes the detected literal prefix from a line, but only
@@ -310,8 +325,7 @@ func (p *StderrParser) parseReader(r io.Reader, out chan<- []LogEntry) error {
 	defer bs.Flush()
 
 	scanner := bufio.NewScanner(skipBOM(r))
-	buf := make([]byte, scannerBuffer)
-	scanner.Buffer(buf, math.MaxInt32)
+	scanner.Buffer(p.scannerBuf(), math.MaxInt32)
 
 	currentEntry := make([]byte, 0, 8192)
 
@@ -756,7 +770,7 @@ func parseStderrFormatFromBytes(line []byte) (time.Time, int, bool) {
 	return t, i, true
 }
 
-func (p *StderrParser) detectPrefixStructure(f *os.File) {
+func (p *StderrParser) detectPrefixStructure(f io.Reader) {
 	const sampleSize = 50
 	scanner := bufio.NewScanner(f)
 	buf := make([]byte, scannerBuffer)

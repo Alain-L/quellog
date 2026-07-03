@@ -272,37 +272,74 @@ func parseFilesAsync(ctx context.Context, files []string, out chan<- []parser.Lo
 		return
 	}
 
-	// Multiple files: use worker pool
-	fileChan := make(chan string, len(files))
-	for _, file := range files {
-		fileChan <- file
+	// Multiple files: worker pool with an ordered per-file fan-in, the same
+	// pattern as the in-file segment fan-ins (stderr/CSV/JSON). Workers
+	// claim file indices in list order and parse each file into its own
+	// bounded queue; the drain below forwards the queues in file order.
+	// Without this, all workers pushed into the shared out channel and the
+	// files interleaved non-deterministically, which shuffled Seq stamping,
+	// scrambled per-occurrence event lists and let cross-file state pairing
+	// (e.g. checkpoint "starting" → "complete") mismatch run-to-run. The
+	// window semaphore bounds in-flight files, so memory stays bounded even
+	// when a queue fills and its parser blocks.
+	queues := make([]chan []parser.LogEntry, len(files))
+	for i := range queues {
+		queues[i] = make(chan []parser.LogEntry, fileQueueDepth)
 	}
-	close(fileChan)
-
+	// Window of 3: the drained file plus two prefetching. Pool files are
+	// big or compressed (determineWorkerCount), so each saturates the CPU
+	// through its own intra-file parallelism — file-level concurrency past
+	// the prefetch would only stack blocked pipelines and their in-flight
+	// chunks/queues (measured: it inflates RSS without moving wall).
+	window := make(chan struct{}, 2)
+	var cursor atomic.Int64
 	var wg sync.WaitGroup
-	for i := 0; i < numWorkers; i++ {
+	for w := 0; w < numWorkers; w++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			for file := range fileChan {
-				if ctx.Err() != nil {
+			for {
+				i := int(cursor.Add(1)) - 1
+				if i >= len(files) {
 					return
 				}
-				if err := parser.ParseFile(file, out); err != nil {
-					// Detection failures are already logged; surface parse-stage
-					// failures (partial output) as a warning.
-					if !isDetectionError(err) {
-						slog.Warn("file parsing ended early; output may be partial", "file", file, "err", err)
+				window <- struct{}{} // released by the drain below
+				// The queue must always be closed, even on cancellation,
+				// or the ordered drain would block forever on this index.
+				if ctx.Err() == nil {
+					file := files[i]
+					if err := parser.ParseFile(file, queues[i]); err != nil {
+						// Detection failures are already logged; surface
+						// parse-stage failures (partial output) as a warning.
+						if !isDetectionError(err) {
+							slog.Warn("file parsing ended early; output may be partial", "file", file, "err", err)
+						}
+					} else {
+						pb.AddBytes(fileSize(file))
+						parsedAny.Store(true)
 					}
-					continue
 				}
-				pb.AddBytes(fileSize(file))
-				parsedAny.Store(true)
+				close(queues[i])
 			}
 		}()
 	}
+
+	// Ordered fan-in: forward each file's batches in list order.
+	for i := range queues {
+		for batch := range queues[i] {
+			out <- batch
+		}
+		<-window
+	}
 	wg.Wait()
 }
+
+// fileQueueDepth bounds one file's output queue in the multi-file ordered
+// fan-in, in batches (256 × 256-entry batches ≈ 64k entries ≈ ~15 MB).
+// Deep enough that the drain switches files without a pipeline stall,
+// small enough that a parser running ahead of the drain blocks early and
+// keeps in-flight memory bounded.
+const fileQueueDepth = 256
 
 // buildLogFilters creates a LogFilters struct from command-line flags.
 //
