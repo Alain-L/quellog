@@ -756,7 +756,7 @@ func parseStderrFormatFromBytes(line []byte) (time.Time, int, bool) {
 	return t, i, true
 }
 
-func (p *StderrParser) detectPrefixStructure(f *os.File) {
+func (p *StderrParser) detectPrefixStructure(f io.Reader) {
 	const sampleSize = 50
 	scanner := bufio.NewScanner(f)
 	buf := make([]byte, scannerBuffer)

@@ -2,6 +2,7 @@ package parser
 
 import (
 	"bufio"
+	"bytes"
 	"io"
 	"os"
 	"sync"
@@ -226,4 +227,143 @@ func (p *StderrParser) parseParallel(f *os.File, size int64, workers int, out ch
 		}
 	}
 	return nil
+}
+
+// streamChunkSize is the target in-memory chunk length for the stream
+// (compressed-input) parallel path. Same order of magnitude as the
+// seekable path's segments: big enough to amortize worker dispatch,
+// small enough that (workers+2) in-flight chunks stay tens of MB.
+const streamChunkSize = 4 << 20
+
+// streamChunkQueueDepth bounds one chunk's output queue, in batches —
+// same sizing rationale as stderrSegmentQueueDepth.
+const streamChunkQueueDepth = 32
+
+// streamChunkPool recycles chunk buffers between the chunker and the
+// workers: a chunk is dead as soon as its worker parsed it (parseReader
+// copies every message out), so pooling caps the chunker's allocation
+// churn at the in-flight window instead of the whole stream. Headroom
+// past streamChunkSize absorbs the boundary extension without a
+// realloc in the common case.
+var streamChunkPool = sync.Pool{
+	New: func() any { return make([]byte, 0, streamChunkSize+(512<<10)) },
+}
+
+// parseStreamParallel is the non-seekable sibling of parseParallel: it
+// parses a decompressed stderr stream by cutting it into entry-aligned
+// in-memory chunks parsed by a worker pool, then re-emits batches in
+// chunk order. Chunk boundaries use the same isEntryStart predicate as
+// the seekable segment path, so the emitted stream reproduces the
+// sequential parse exactly. Syslog and prefixed streams fall back to
+// the sequential reader (same routing as Parse).
+func (p *StderrParser) parseStreamParallel(r io.Reader, workers int, out chan<- []LogEntry) error {
+	// The stream can't seek: sample the head for format detection, then
+	// replay the sample ahead of the remainder.
+	sample := make([]byte, 64<<10)
+	n, err := io.ReadFull(r, sample)
+	if err != nil && err != io.ErrUnexpectedEOF && err != io.EOF {
+		return err
+	}
+	sample = sample[:n]
+	full := io.MultiReader(bytes.NewReader(sample), r)
+	if f := detectSyslogFormat(sample); f != SyslogNone {
+		return parseSyslogReader(full, f, out)
+	}
+	p.detectPrefixStructure(bytes.NewReader(sample))
+
+	br := bufio.NewReaderSize(full, 1<<20)
+
+	type job struct {
+		data []byte
+		q    chan []LogEntry
+	}
+	jobs := make(chan job, workers)
+	// queueCh streams the per-chunk output queues to the ordered drain
+	// below. Its capacity is the window: the chunker blocks creating
+	// chunk k+workers+2 until the drain finished chunk k, bounding
+	// in-flight memory to (workers+2) chunks.
+	queueCh := make(chan chan []LogEntry, workers+2)
+
+	var readErr error
+	go func() {
+		defer close(jobs)
+		defer close(queueCh)
+		for {
+			data := streamChunkPool.Get().([]byte)[:streamChunkSize]
+			n, err := io.ReadFull(br, data)
+			data = data[:n]
+			if err == nil {
+				// Stream continues: extend the chunk to the next entry
+				// boundary. First complete the line the bulk read cut
+				// mid-way, then append whole lines until one starts a
+				// new entry — that line belongs to the next chunk and
+				// stays buffered in br.
+				rest, e := br.ReadBytes('\n')
+				data = append(data, rest...)
+				err = e
+				for err == nil {
+					pk, e := br.Peek(64)
+					if len(pk) == 0 {
+						err = e
+						break
+					}
+					if isEntryStart(pk) {
+						break
+					}
+					line, e := br.ReadBytes('\n')
+					data = append(data, line...)
+					err = e
+				}
+			}
+			if len(data) > 0 {
+				q := make(chan []LogEntry, streamChunkQueueDepth)
+				queueCh <- q
+				jobs <- job{data: data, q: q}
+			}
+			if err != nil {
+				if err != io.EOF && err != io.ErrUnexpectedEOF {
+					readErr = err
+				}
+				return
+			}
+		}
+	}()
+
+	var wg sync.WaitGroup
+	var parseErr error
+	var errOnce sync.Once
+	for w := 0; w < workers; w++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			// parseReader (not parseFromBytes): it copies each entry's
+			// message out of the chunk, so the 8 MB buffer is released as
+			// soon as the chunk is parsed. The zero-copy variant would pin
+			// one whole chunk per in-flight or retained message — measured
+			// ~10× RSS on an 880 MB stream.
+			var cr bytes.Reader
+			for j := range jobs {
+				wp := &StderrParser{prefixStructure: p.prefixStructure}
+				cr.Reset(j.data)
+				if err := wp.parseReader(&cr, j.q); err != nil {
+					errOnce.Do(func() { parseErr = err })
+				}
+				streamChunkPool.Put(j.data[:0]) //nolint:staticcheck // slice, not pointer: cap is what's recycled
+				close(j.q)
+			}
+		}()
+	}
+
+	// Ordered fan-in: forward each chunk's batches in chunk order.
+	for q := range queueCh {
+		for batch := range q {
+			out <- batch
+		}
+	}
+	wg.Wait()
+
+	if readErr != nil {
+		return readErr
+	}
+	return parseErr
 }

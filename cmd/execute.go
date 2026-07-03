@@ -286,7 +286,12 @@ func parseFilesAsync(ctx context.Context, files []string, out chan<- []parser.Lo
 	for i := range queues {
 		queues[i] = make(chan []parser.LogEntry, fileQueueDepth)
 	}
-	window := make(chan struct{}, numWorkers+2)
+	// Window of 3: the drained file plus two prefetching. Pool files are
+	// big or compressed (determineWorkerCount), so each saturates the CPU
+	// through its own intra-file parallelism — file-level concurrency past
+	// the prefetch would only stack blocked pipelines and their in-flight
+	// chunks/queues (measured: it inflates RSS without moving wall).
+	window := make(chan struct{}, 3)
 	var cursor atomic.Int64
 	var wg sync.WaitGroup
 	for w := 0; w < numWorkers; w++ {

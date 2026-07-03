@@ -274,6 +274,13 @@ func wrapCompressedParser(parser LogParser, codec compressionCodec) LogParser {
 		// sample and then silently parse zero entries from the stream.
 		p := &StderrParser{prefixLen: src.prefixLen}
 		return newCompressedParser(codec, func(r io.Reader, out chan<- []LogEntry) error {
+			// Compressed streams can't seek, so the segment engine doesn't
+			// apply — but the stream-chunked sibling parallelizes the parse
+			// the same way. Prefixed streams keep the prefix-aware
+			// sequential reader (same routing as Parse).
+			if workers := parallelWorkers(); workers >= 2 && p.prefixLen == 0 {
+				return p.parseStreamParallel(r, workers, out)
+			}
 			return p.parseReader(r, out)
 		})
 	default:
