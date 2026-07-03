@@ -191,6 +191,7 @@ func (p *StderrParser) parseParallel(f *os.File, size int64, workers int, out ch
 			// is allocated once and Reset per segment, not once per segment —
 			// neutralizing the per-segment buffer churn.
 			var br *bufio.Reader
+			wp := &StderrParser{prefixStructure: p.prefixStructure}
 			for {
 				i := int(cursor.Add(1)) - 1
 				if i >= numSegs {
@@ -206,7 +207,6 @@ func (p *StderrParser) parseParallel(f *os.File, size int64, workers int, out ch
 				} else {
 					br.Reset(rd)
 				}
-				wp := &StderrParser{prefixStructure: p.prefixStructure}
 				errs[i] = wp.parseReader(br, queues[i])
 				close(queues[i])
 			}
@@ -342,8 +342,8 @@ func (p *StderrParser) parseStreamParallel(r io.Reader, workers int, out chan<- 
 			// one whole chunk per in-flight or retained message — measured
 			// ~10× RSS on an 880 MB stream.
 			var cr bytes.Reader
+			wp := &StderrParser{prefixStructure: p.prefixStructure}
 			for j := range jobs {
-				wp := &StderrParser{prefixStructure: p.prefixStructure}
 				cr.Reset(j.data)
 				if err := wp.parseReader(&cr, j.q); err != nil {
 					errOnce.Do(func() { parseErr = err })
