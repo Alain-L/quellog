@@ -509,12 +509,11 @@ export function createWALDistanceChart(containerId, data, options = {}) {
     return chart;
 }
 
-// Create interactive time chart with uPlot
-export function createTimeChart(containerId, timestamps, options = {}) {
-    const container = document.getElementById(containerId);
-    if (!container || !timestamps || timestamps.length === 0) return null;
-
-    // Clear previous chart
+// Destroy and deregister any chart already mounted at containerId, then clear
+// its container markup. Shared by all inline Cluster-A builders (time,
+// duration, concurrent sessions) ahead of a rebuild — interval change, filter
+// reset, or full reload all recreate the chart in place.
+function clearPreviousChart(containerId, container) {
     if (charts.has(containerId)) {
         const prev = charts.get(containerId);
         prev._ro?.disconnect();
@@ -522,6 +521,207 @@ export function createTimeChart(containerId, timestamps, options = {}) {
         charts.delete(containerId);
     }
     container.innerHTML = '';
+}
+
+// Shared factory for the three single-series bar-chart builders (time,
+// duration, concurrent sessions) and their modal "Large" twins (Cluster A).
+// Callers — the thin per-chart wrappers below — resolve everything that
+// legitimately differs per builder or per variant: parsed/sorted source
+// data, colors, axis descriptors, the tooltip plugin instance, and
+// select/onSelect wiring. This factory owns only what is byte-identical
+// across all six call sites: the uPlot option skeleton (cursor, legend,
+// the `[0, null]` y-scale anchor, the invisible anchor series), the
+// rounded-bar canvas draw hook (also handles the concurrent chart's stacked
+// grey/colored bars — when `yPre` is absent every bucket's "pre" share is 0,
+// which collapses the stacked draw to the plain single-color bar, so one
+// hook serves both shapes), the setScale re-bin block (with the
+// `_resampling` reentrancy guard), instance prop stamping, and — inline
+// only — chart registry bookkeeping + ResizeObserver.
+function makeBarChart({
+    variant,             // 'inline' | 'large'
+    container,           // resolved DOM element to mount into
+    containerId,         // string id (inline only: registry key + reset target)
+    width, height,
+    axes,                // fully-built 2-element uPlot axes array
+    baseColor,           // resolved bar fill color, captured once like the originals
+    getMedianColor,      // () => string, invoked at draw time (mirrors each site's original expression)
+    radiusCap,           // rounded-bar corner-radius cap: 3 inline, 4 large
+    xData, yData,        // initial binned series
+    yPre,                // initial pre-log stacked series (concurrent only; else undefined)
+    tooltipPlugin: chartTooltipPlugin, // ready-made plugin instance
+    enableSelect,        // include `select: { show: true }` in opts
+    enableOnSelect,      // install the setSelect hook (createTimeChart inline only)
+    onSelect,            // callback forwarded by that hook, or null
+    rebinProp,           // '_times' | '_executions' | '_events'
+    rebinValue,          // array stashed on chart[rebinProp] and fed back into rebinFn on zoom
+    rebinFn,             // binTimestamps | binDurations | binConcurrentSessions
+    minT, maxT, interval, median,
+}) {
+    const opts = {
+        width, height,
+        cursor: { drag: { x: true, y: false, setScale: true }, bind: { dblclick: () => null } },
+        legend: { show: false },
+        scales: {
+            x: { time: true },
+            y: { range: [0, null] }
+        },
+        axes,
+        series: [
+            {},
+            {
+                fill: 'transparent',
+                stroke: 'transparent',
+                width: 0,
+                points: { show: false },
+                paths: () => null
+            }
+        ],
+        plugins: [chartTooltipPlugin],
+        hooks: {
+            draw: [u => {
+                const ctx = u.ctx;
+                ctx.save();
+                const xd = u.data[0];
+                const yd = u.data[1];
+                const barWidth = Math.max(2, (u.bbox.width / xd.length) * 0.75);
+                const radius = Math.min(radiusCap, barWidth / 3);
+
+                // Draw median line first (behind bars)
+                const currentMedian = u._median || 0;
+                if (currentMedian > 0) {
+                    const yMed = u.valToPos(currentMedian, 'y', true);
+                    const { left, width } = u.bbox;
+                    ctx.strokeStyle = getMedianColor();
+                    ctx.lineWidth = 1;
+                    ctx.setLineDash([4, 4]);
+                    ctx.beginPath();
+                    ctx.moveTo(left, yMed);
+                    ctx.lineTo(left + width, yMed);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                }
+
+                // Draw bars (stacked: grey pre-log, colored new — pre-log share is
+                // 0 for time/duration charts since they never set `_yPre`, which
+                // collapses this to the plain single-color rounded bar)
+                const preData = u._yPre;
+                const preColor = getComputedStyle(document.documentElement).getPropertyValue('--text-muted')?.trim() || '#999';
+                for (let i = 0; i < xd.length; i++) {
+                    const x = u.valToPos(xd[i], 'x', true);
+                    const y0 = u.valToPos(0, 'y', true);
+                    const total = yd[i];
+                    const pre = preData ? preData[i] : 0;
+                    const newVal = total - pre;
+
+                    if (pre > 0) {
+                        const yPreY = u.valToPos(pre, 'y', true);
+                        ctx.fillStyle = preColor;
+                        ctx.beginPath();
+                        if (newVal > 0) {
+                            ctx.rect(x - barWidth/2, yPreY, barWidth, y0 - yPreY);
+                        } else {
+                            ctx.moveTo(x - barWidth/2, y0);
+                            ctx.lineTo(x - barWidth/2, yPreY + radius);
+                            ctx.quadraticCurveTo(x - barWidth/2, yPreY, x - barWidth/2 + radius, yPreY);
+                            ctx.lineTo(x + barWidth/2 - radius, yPreY);
+                            ctx.quadraticCurveTo(x + barWidth/2, yPreY, x + barWidth/2, yPreY + radius);
+                            ctx.lineTo(x + barWidth/2, y0);
+                            ctx.closePath();
+                        }
+                        ctx.fill();
+                    }
+
+                    if (newVal > 0) {
+                        const yTop = u.valToPos(total, 'y', true);
+                        const yBottom = pre > 0 ? u.valToPos(pre, 'y', true) : y0;
+                        ctx.fillStyle = baseColor;
+                        ctx.beginPath();
+                        ctx.moveTo(x - barWidth/2, yBottom);
+                        ctx.lineTo(x - barWidth/2, yTop + radius);
+                        ctx.quadraticCurveTo(x - barWidth/2, yTop, x - barWidth/2 + radius, yTop);
+                        ctx.lineTo(x + barWidth/2 - radius, yTop);
+                        ctx.quadraticCurveTo(x + barWidth/2, yTop, x + barWidth/2, yTop + radius);
+                        ctx.lineTo(x + barWidth/2, yBottom);
+                        ctx.closePath();
+                        ctx.fill();
+                    }
+                }
+                ctx.restore();
+            }],
+            setScale: [u => {
+                // Re-sample on zoom
+                if (!u[rebinProp] || u._resampling) return;
+                const xScale = u.scales.x;
+                const newMin = xScale.min;
+                const newMax = xScale.max;
+                if (newMin == null || newMax == null) return;
+
+                const rangeChanged = !u._lastRange || Math.abs(u._lastRange[0] - newMin) > 1 || Math.abs(u._lastRange[1] - newMax) > 1;
+
+                if (rangeChanged) {
+                    u._lastRange = [newMin, newMax];
+                    // Re-bin for the visible range
+                    const { xData: newX, yData: newY, yPre: newYPre, median: newMedian } = rebinFn(u[rebinProp], newMin, newMax, u._interval);
+                    u._median = newMedian;
+                    u._yPre = newYPre;
+                    u._resampling = true;
+                    u.setData([newX, newY], false);
+                    u._resampling = false;
+                    // Force batch/commit cycle to reset cursor state
+                    u.batch(() => {
+                        u.setScale('x', { min: newMin, max: newMax });
+                    });
+                }
+            }]
+        }
+    };
+    if (enableSelect) opts.select = { show: true };
+    if (enableOnSelect) {
+        opts.hooks.setSelect = [u => {
+            if (onSelect && u.select.width > 10) {
+                const minX = u.posToVal(u.select.left, 'x');
+                const maxX = u.posToVal(u.select.left + u.select.width, 'x');
+                onSelect(new Date(minX * 1000), new Date(maxX * 1000));
+            }
+        }];
+    }
+
+    const chart = new uPlot(opts, [xData, yData], container);
+
+    if (variant === 'inline') {
+        charts.set(containerId, chart);
+        bindDblclickReset(chart, () => resetChartZoom(containerId));
+    }
+
+    // Store data for re-sampling
+    chart[rebinProp] = rebinValue;
+    chart._interval = interval;
+    chart._originalXRange = [minT, maxT];
+    chart._lastRange = null;
+    chart.setScale('x', { min: minT, max: maxT });
+    chart._median = median;
+    if (yPre !== undefined) chart._yPre = yPre;
+
+    if (variant === 'inline') {
+        // Handle resize
+        const resizeObserver = new ResizeObserver(() => {
+            if (container.clientWidth > 0) {
+                chart.setSize({ width: container.clientWidth, height });
+            }
+        });
+        resizeObserver.observe(container);
+        chart._ro = resizeObserver;
+    }
+
+    return chart;
+}
+
+// Create interactive time chart with uPlot
+export function createTimeChart(containerId, timestamps, options = {}) {
+    const container = document.getElementById(containerId);
+    if (!container || !timestamps || timestamps.length === 0) return null;
+
+    clearPreviousChart(containerId, container);
 
     // Parse timestamps
     const times = timestamps.map(t => new Date(t).getTime() / 1000).filter(t => !isNaN(t)).sort((a, b) => a - b);
@@ -540,16 +740,11 @@ export function createTimeChart(containerId, timestamps, options = {}) {
     // Range selection callback for filtering
     const onSelect = options.onSelect || null;
 
-    const opts = {
+    return makeBarChart({
+        variant: 'inline',
+        container, containerId,
         width: container.clientWidth || 300,
         height: options.height || 120,
-        cursor: { drag: { x: true, y: false, setScale: true }, bind: { dblclick: () => null } },
-        select: { show: true },
-        legend: { show: false },
-        scales: {
-            x: { time: true },
-            y: { range: [0, null] }
-        },
         axes: [
             {
                 stroke: getComputedStyle(document.documentElement).getPropertyValue('--text').trim(),
@@ -567,121 +762,19 @@ export function createTimeChart(containerId, timestamps, options = {}) {
                 font: '10px system-ui'
             }
         ],
-        series: [
-            {},
-            {
-                fill: 'transparent',
-                stroke: 'transparent',
-                width: 0,
-                points: { show: false },
-                paths: () => null
-            }
-        ],
-        plugins: [tooltipPlugin()],
-        hooks: {
-            draw: [u => {
-                const ctx = u.ctx;
-                ctx.save();
-                const xd = u.data[0];
-                const yd = u.data[1];
-                const barWidth = Math.max(2, (u.bbox.width / xd.length) * 0.75);
-                const radius = Math.min(3, barWidth / 3);
-
-                // Draw median line first (behind bars)
-                const currentMedian = u._median || 0;
-                if (currentMedian > 0) {
-                    const yMed = u.valToPos(currentMedian, 'y', true);
-                    const { left, width } = u.bbox;
-                    ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim();
-                    ctx.lineWidth = 1;
-                    ctx.setLineDash([4, 4]);
-                    ctx.beginPath();
-                    ctx.moveTo(left, yMed);
-                    ctx.lineTo(left + width, yMed);
-                    ctx.stroke();
-                    ctx.setLineDash([]);
-                }
-
-                // Draw bars with gradient colors
-                for (let i = 0; i < xd.length; i++) {
-                    const x = u.valToPos(xd[i], 'x', true);
-                    const y = u.valToPos(yd[i], 'y', true);
-                    const y0 = u.valToPos(0, 'y', true);
-                    const h = y0 - y;
-                    if (h > 0) {
-                        ctx.fillStyle = baseColor;
-                        ctx.beginPath();
-                        ctx.moveTo(x - barWidth/2, y0);
-                        ctx.lineTo(x - barWidth/2, y + radius);
-                        ctx.quadraticCurveTo(x - barWidth/2, y, x - barWidth/2 + radius, y);
-                        ctx.lineTo(x + barWidth/2 - radius, y);
-                        ctx.quadraticCurveTo(x + barWidth/2, y, x + barWidth/2, y + radius);
-                        ctx.lineTo(x + barWidth/2, y0);
-                        ctx.closePath();
-                        ctx.fill();
-                    }
-                }
-                ctx.restore();
-            }],
-            setSelect: [u => {
-                if (onSelect && u.select.width > 10) {
-                    const minX = u.posToVal(u.select.left, 'x');
-                    const maxX = u.posToVal(u.select.left + u.select.width, 'x');
-                    onSelect(new Date(minX * 1000), new Date(maxX * 1000));
-                }
-            }],
-            setScale: [u => {
-                // Re-sample on zoom
-                if (!u._times || u._resampling) return;
-                const xScale = u.scales.x;
-                const newMin = xScale.min;
-                const newMax = xScale.max;
-                if (newMin == null || newMax == null) return;
-
-                // Check if zoomed (not at original range)
-                const [origMin, origMax] = u._originalXRange;
-                const isZoomed = Math.abs(newMin - origMin) > 1 || Math.abs(newMax - origMax) > 1;
-                const rangeChanged = !u._lastRange || Math.abs(u._lastRange[0] - newMin) > 1 || Math.abs(u._lastRange[1] - newMax) > 1;
-
-                if (rangeChanged) {
-                    u._lastRange = [newMin, newMax];
-                    // Re-bin for the visible range
-                    const { xData: newX, yData: newY, median: newMedian } = binTimestamps(u._times, newMin, newMax, u._interval);
-                    u._median = newMedian;
-                    u._resampling = true;
-                    u.setData([newX, newY], false);
-                    u._resampling = false;
-                    // Force batch/commit cycle to reset cursor state
-                    u.batch(() => {
-                        u.setScale('x', { min: newMin, max: newMax });
-                    });
-                }
-            }]
-        }
-    };
-
-    const chart = new uPlot(opts, [xData, yData], container);
-    charts.set(containerId, chart);
-    bindDblclickReset(chart, () => resetChartZoom(containerId));
-
-    // Store data for re-sampling
-    chart._times = times;
-    chart._interval = interval;
-    chart._originalXRange = [minT, maxT];
-    chart._lastRange = null;
-    chart.setScale('x', { min: minT, max: maxT });
-    chart._median = median;
-
-    // Handle resize
-    const resizeObserver = new ResizeObserver(() => {
-        if (container.clientWidth > 0) {
-            chart.setSize({ width: container.clientWidth, height: opts.height });
-        }
+        baseColor,
+        getMedianColor: () => getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim(),
+        radiusCap: 3,
+        xData, yData,
+        tooltipPlugin: tooltipPlugin(),
+        enableSelect: true,
+        enableOnSelect: true,
+        onSelect,
+        rebinProp: '_times',
+        rebinValue: times,
+        rebinFn: binTimestamps,
+        minT, maxT, interval, median,
     });
-    resizeObserver.observe(container);
-    chart._ro = resizeObserver;
-
-    return chart;
 }
 
 // Create duration distribution chart (sum of query durations per time bucket)
@@ -689,14 +782,7 @@ export function createDurationChart(containerId, executions, options = {}) {
     const container = document.getElementById(containerId);
     if (!container || !executions || executions.length === 0) return null;
 
-    // Clear previous chart
-    if (charts.has(containerId)) {
-        const prev = charts.get(containerId);
-        prev._ro?.disconnect();
-        prev.destroy();
-        charts.delete(containerId);
-    }
-    container.innerHTML = '';
+    clearPreviousChart(containerId, container);
 
     // Sort by timestamp
     const sorted = [...executions].sort((a, b) => a.t - b.t);
@@ -752,16 +838,11 @@ export function createDurationChart(containerId, executions, options = {}) {
         };
     }
 
-    const opts = {
+    return makeBarChart({
+        variant: 'inline',
+        container, containerId,
         width: container.clientWidth || 300,
         height: options.height || 120,
-        cursor: { drag: { x: true, y: false, setScale: true }, bind: { dblclick: () => null } },
-        select: { show: true },
-        legend: { show: false },
-        scales: {
-            x: { time: true },
-            y: { range: [0, null] }
-        },
         axes: [
             {
                 stroke: getComputedStyle(document.documentElement).getPropertyValue('--text').trim(),
@@ -780,105 +861,17 @@ export function createDurationChart(containerId, executions, options = {}) {
                 values: (u, vals) => vals.map(v => v >= 60 ? `${(v/60).toFixed(0)}m` : `${v.toFixed(0)}s`)
             }
         ],
-        series: [
-            {},
-            {
-                fill: 'transparent',
-                stroke: 'transparent',
-                width: 0,
-                points: { show: false },
-                paths: () => null
-            }
-        ],
-        plugins: [durationTooltipPlugin()],
-        hooks: {
-            draw: [u => {
-                const ctx = u.ctx;
-                ctx.save();
-                const xd = u.data[0];
-                const yd = u.data[1];
-                const barWidth = Math.max(2, (u.bbox.width / xd.length) * 0.75);
-                const radius = Math.min(3, barWidth / 3);
-
-                // Draw median line first (behind bars)
-                const currentMedian = u._median || 0;
-                if (currentMedian > 0) {
-                    const yMed = u.valToPos(currentMedian, 'y', true);
-                    const { left, width } = u.bbox;
-                    ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim();
-                    ctx.lineWidth = 1;
-                    ctx.setLineDash([4, 4]);
-                    ctx.beginPath();
-                    ctx.moveTo(left, yMed);
-                    ctx.lineTo(left + width, yMed);
-                    ctx.stroke();
-                    ctx.setLineDash([]);
-                }
-
-                for (let i = 0; i < xd.length; i++) {
-                    const x = u.valToPos(xd[i], 'x', true);
-                    const y = u.valToPos(yd[i], 'y', true);
-                    const y0 = u.valToPos(0, 'y', true);
-                    const h = y0 - y;
-                    if (h > 0) {
-                        ctx.fillStyle = baseColor;
-                        ctx.beginPath();
-                        ctx.moveTo(x - barWidth/2, y0);
-                        ctx.lineTo(x - barWidth/2, y + radius);
-                        ctx.quadraticCurveTo(x - barWidth/2, y, x - barWidth/2 + radius, y);
-                        ctx.lineTo(x + barWidth/2 - radius, y);
-                        ctx.quadraticCurveTo(x + barWidth/2, y, x + barWidth/2, y + radius);
-                        ctx.lineTo(x + barWidth/2, y0);
-                        ctx.closePath();
-                        ctx.fill();
-                    }
-                }
-                ctx.restore();
-            }],
-            setScale: [u => {
-                if (!u._executions || u._resampling) return;
-                const xScale = u.scales.x;
-                const newMin = xScale.min;
-                const newMax = xScale.max;
-                if (newMin == null || newMax == null) return;
-
-                const rangeChanged = !u._lastRange || Math.abs(u._lastRange[0] - newMin) > 1 || Math.abs(u._lastRange[1] - newMax) > 1;
-
-                if (rangeChanged) {
-                    u._lastRange = [newMin, newMax];
-                    const { xData: newX, yData: newY, median: newMedian } = binDurations(u._executions, newMin, newMax, u._interval);
-                    u._median = newMedian;
-                    u._resampling = true;
-                    u.setData([newX, newY], false);
-                    u._resampling = false;
-                    u.batch(() => {
-                        u.setScale('x', { min: newMin, max: newMax });
-                    });
-                }
-            }]
-        }
-    };
-
-    const chart = new uPlot(opts, [xData, yData], container);
-    charts.set(containerId, chart);
-    bindDblclickReset(chart, () => resetChartZoom(containerId));
-
-    chart._executions = sorted;
-    chart._interval = interval;
-    chart._originalXRange = [minT, maxT];
-    chart._lastRange = null;
-    chart.setScale('x', { min: minT, max: maxT });
-    chart._median = median;
-
-    const resizeObserver = new ResizeObserver(() => {
-        if (container.clientWidth > 0) {
-            chart.setSize({ width: container.clientWidth, height: opts.height });
-        }
+        baseColor,
+        getMedianColor: () => getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim(),
+        radiusCap: 3,
+        xData, yData,
+        tooltipPlugin: durationTooltipPlugin(),
+        enableSelect: true,
+        rebinProp: '_executions',
+        rebinValue: sorted,
+        rebinFn: binDurations,
+        minT, maxT, interval, median,
     });
-    resizeObserver.observe(container);
-    chart._ro = resizeObserver;
-
-    return chart;
 }
 
 // Create combined SQL chart with grouped bars (count + duration side by side)
@@ -1141,18 +1134,74 @@ export function toggleCombinedSeries(chartId, series) {
 }
 
 // Create concurrent sessions chart using sweep-line algorithm
+// Shared x-axis tick formatter for the concurrent-sessions chart (inline and
+// Large). Unlike timeAxisValues/timeAxisSize (which read the *live* x-scale
+// so ticks adapt while zooming), this closes over `multiDay` computed once
+// from the full original range at chart-creation time — a pre-existing
+// quirk carried over verbatim: this chart's tick density does not adapt on
+// zoom, unlike the time/duration charts.
+function concurrentAxisTickValues(multiDay) {
+    return (u, vals) => vals.map((v, i) => {
+        const d = new Date(v * 1000);
+        const time = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+        if (!multiDay) return time;
+        const prevDay = i > 0 ? new Date(vals[i - 1] * 1000).getDate() : -1;
+        if (i === 0 || d.getDate() !== prevDay) {
+            return time + '\n' + d.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
+        }
+        return time;
+    });
+}
+
+// Tooltip for sessions - no _resampling check, rely on data validation.
+// Shared verbatim between createConcurrentChart and createConcurrentChartLarge.
+function sessionsTooltipPlugin() {
+    let tooltip = null;
+    return {
+        hooks: {
+            init: u => {
+                tooltip = document.createElement('div');
+                tooltip.className = 'chart-tooltip';
+                tooltip.style.display = 'none';
+                u.over.appendChild(tooltip);
+            },
+            setCursor: u => {
+                const { idx } = u.cursor;
+                if (idx == null) { tooltip.style.display = 'none'; return; }
+                const data0 = u.data?.[0];
+                const data1 = u.data?.[1];
+                if (!data0 || !data1 || idx < 0 || idx >= data0.length) {
+                    tooltip.style.display = 'none';
+                    return;
+                }
+                const x = data0[idx];
+                const y = data1[idx];
+                if (!Number.isFinite(x) || !Number.isFinite(y)) {
+                    tooltip.style.display = 'none';
+                    return;
+                }
+                const left = u.valToPos(x, 'x');
+                const top = u.valToPos(y, 'y');
+                if (!Number.isFinite(left) || !Number.isFinite(top)) {
+                    tooltip.style.display = 'none';
+                    return;
+                }
+                const d = new Date(x * 1000);
+                const timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+                tooltip.innerHTML = `${timeStr} · ${Math.round(y)} sessions`;
+                tooltip.style.display = 'block';
+                tooltip.style.left = Math.min(left, u.over.clientWidth - 100) + 'px';
+                tooltip.style.top = Math.max(0, top - 40) + 'px';
+            }
+        }
+    };
+}
+
 export function createConcurrentChart(containerId, sessions, options = {}) {
     const container = document.getElementById(containerId);
     if (!container || !sessions || sessions.length === 0) return null;
 
-    // Clear previous chart
-    if (charts.has(containerId)) {
-        const prev = charts.get(containerId);
-        prev._ro?.disconnect();
-        prev.destroy();
-        charts.delete(containerId);
-    }
-    container.innerHTML = '';
+    clearPreviousChart(containerId, container);
 
     // Parse session events first to get time range
     const logStartT = options.logStart ? new Date(options.logStart).getTime() : null;
@@ -1189,73 +1238,19 @@ export function createConcurrentChart(containerId, sessions, options = {}) {
     };
     const baseColor = resolveColor(options.color) || getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#f47920';
 
-    // Tooltip for sessions - no _resampling check, rely on data validation
-    function sessionsTooltipPlugin() {
-        let tooltip = null;
-        return {
-            hooks: {
-                init: u => {
-                    tooltip = document.createElement('div');
-                    tooltip.className = 'chart-tooltip';
-                    tooltip.style.display = 'none';
-                    u.over.appendChild(tooltip);
-                },
-                setCursor: u => {
-                    const { idx } = u.cursor;
-                    if (idx == null) { tooltip.style.display = 'none'; return; }
-                    const data0 = u.data?.[0];
-                    const data1 = u.data?.[1];
-                    if (!data0 || !data1 || idx < 0 || idx >= data0.length) {
-                        tooltip.style.display = 'none';
-                        return;
-                    }
-                    const x = data0[idx];
-                    const y = data1[idx];
-                    if (!Number.isFinite(x) || !Number.isFinite(y)) {
-                        tooltip.style.display = 'none';
-                        return;
-                    }
-                    const left = u.valToPos(x, 'x');
-                    const top = u.valToPos(y, 'y');
-                    if (!Number.isFinite(left) || !Number.isFinite(top)) {
-                        tooltip.style.display = 'none';
-                        return;
-                    }
-                    const d = new Date(x * 1000);
-                    const timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
-                    tooltip.innerHTML = `${timeStr} · ${Math.round(y)} sessions`;
-                    tooltip.style.display = 'block';
-                    tooltip.style.left = Math.min(left, u.over.clientWidth - 100) + 'px';
-                    tooltip.style.top = Math.max(0, top - 40) + 'px';
-                }
-            }
-        };
-    }
+    const multiDay = (maxT - minT) > 86400;
 
-    const opts = {
+    return makeBarChart({
+        variant: 'inline',
+        container, containerId,
         width: container.clientWidth || 300,
         height: options.height || 120,
-        cursor: { drag: { x: true, y: false, setScale: true }, bind: { dblclick: () => null } },
-        legend: { show: false },
-        scales: { x: { time: true }, y: { range: [0, null] } },
         axes: [
             {
                 stroke: getComputedStyle(document.documentElement).getPropertyValue('--text').trim(),
                 grid: { show: false }, ticks: { show: false },
-                values: (u, vals) => {
-                    const multiDay = (maxT - minT) > 86400;
-                    return vals.map((v, i) => {
-                        const d = new Date(v * 1000);
-                        const time = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
-                        if (!multiDay) return time;
-                        const prevDay = i > 0 ? new Date(vals[i-1] * 1000).getDate() : -1;
-                        if (i === 0 || d.getDate() !== prevDay) {
-                            return time + '\n' + d.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
-                        }
-                        return time;
-                    });
-                },
-                size: (maxT - minT) > 86400 ? 36 : 20, font: '10px system-ui'
+                values: concurrentAxisTickValues(multiDay),
+                size: multiDay ? 36 : 20, font: '10px system-ui'
             },
             {
                 stroke: getComputedStyle(document.documentElement).getPropertyValue('--text').trim(),
@@ -1263,130 +1258,17 @@ export function createConcurrentChart(containerId, sessions, options = {}) {
                 size: 30, font: '10px system-ui'
             }
         ],
-        series: [
-            {},
-            {
-                fill: 'transparent', stroke: 'transparent', width: 0,
-                points: { show: false },
-                paths: () => null
-            }
-        ],
-        plugins: [sessionsTooltipPlugin()],
-        hooks: {
-            draw: [u => {
-                const ctx = u.ctx;
-                ctx.save();
-                const xd = u.data[0], yd = u.data[1];
-                const barWidth = Math.max(2, (u.bbox.width / xd.length) * 0.75);
-                const radius = Math.min(3, barWidth / 3);
-
-                // Draw median line first (behind bars)
-                const currentMedian = u._median || 0;
-                if (currentMedian > 0) {
-                    const yMed = u.valToPos(currentMedian, 'y', true);
-                    const { left, width } = u.bbox;
-                    ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim();
-                    ctx.lineWidth = 1;
-                    ctx.setLineDash([4, 4]);
-                    ctx.beginPath();
-                    ctx.moveTo(left, yMed);
-                    ctx.lineTo(left + width, yMed);
-                    ctx.stroke();
-                    ctx.setLineDash([]);
-                }
-
-                // Draw bars (stacked: grey pre-log, orange new)
-                const preData = u._yPre;
-                const preColor = getComputedStyle(document.documentElement).getPropertyValue('--text-muted')?.trim() || '#999';
-                for (let i = 0; i < xd.length; i++) {
-                    const x = u.valToPos(xd[i], 'x', true);
-                    const y0 = u.valToPos(0, 'y', true);
-                    const total = yd[i];
-                    const pre = preData ? preData[i] : 0;
-                    const newVal = total - pre;
-
-                    if (pre > 0) {
-                        const yPre = u.valToPos(pre, 'y', true);
-                        ctx.fillStyle = preColor;
-                        ctx.beginPath();
-                        if (newVal > 0) {
-                            ctx.rect(x - barWidth/2, yPre, barWidth, y0 - yPre);
-                        } else {
-                            ctx.moveTo(x - barWidth/2, y0);
-                            ctx.lineTo(x - barWidth/2, yPre + radius);
-                            ctx.quadraticCurveTo(x - barWidth/2, yPre, x - barWidth/2 + radius, yPre);
-                            ctx.lineTo(x + barWidth/2 - radius, yPre);
-                            ctx.quadraticCurveTo(x + barWidth/2, yPre, x + barWidth/2, yPre + radius);
-                            ctx.lineTo(x + barWidth/2, y0);
-                            ctx.closePath();
-                        }
-                        ctx.fill();
-                    }
-
-                    if (newVal > 0) {
-                        const yTop = u.valToPos(total, 'y', true);
-                        const yBottom = pre > 0 ? u.valToPos(pre, 'y', true) : y0;
-                        ctx.fillStyle = baseColor;
-                        ctx.beginPath();
-                        ctx.moveTo(x - barWidth/2, yBottom);
-                        ctx.lineTo(x - barWidth/2, yTop + radius);
-                        ctx.quadraticCurveTo(x - barWidth/2, yTop, x - barWidth/2 + radius, yTop);
-                        ctx.lineTo(x + barWidth/2 - radius, yTop);
-                        ctx.quadraticCurveTo(x + barWidth/2, yTop, x + barWidth/2, yTop + radius);
-                        ctx.lineTo(x + barWidth/2, yBottom);
-                        ctx.closePath();
-                        ctx.fill();
-                    }
-                }
-                ctx.restore();
-            }],
-            setScale: [u => {
-                // Re-sample on zoom
-                if (!u._events || u._resampling) return;
-                const xScale = u.scales.x;
-                const newMin = xScale.min;
-                const newMax = xScale.max;
-                if (newMin == null || newMax == null) return;
-
-                const rangeChanged = !u._lastRange || Math.abs(u._lastRange[0] - newMin) > 1 || Math.abs(u._lastRange[1] - newMax) > 1;
-
-                if (rangeChanged) {
-                    u._lastRange = [newMin, newMax];
-                    const { xData: newX, yData: newY, yPre: newYPre, median: newMedian } = binConcurrentSessions(u._events, newMin, newMax, u._interval);
-                    u._median = newMedian;
-                    u._yPre = newYPre;
-                    u._resampling = true;
-                    u.setData([newX, newY], false);
-                    u._resampling = false;
-                    // Force batch/commit cycle to reset internal state
-                    u.batch(() => {
-                        u.setScale('x', { min: newMin, max: newMax });
-                    });
-                }
-            }]
-        }
-    };
-
-    const chart = new uPlot(opts, [xData, yData], container);
-    charts.set(containerId, chart);
-    bindDblclickReset(chart, () => resetChartZoom(containerId));
-
-    // Store data for re-sampling
-    chart._events = events;
-    chart._interval = interval;
-    chart._originalXRange = [minT, maxT];
-    chart._lastRange = null;
-    chart.setScale('x', { min: minT, max: maxT });
-    chart._median = median;
-    chart._yPre = yPre;
-
-    const resizeObserver = new ResizeObserver(() => {
-        if (container.clientWidth > 0) chart.setSize({ width: container.clientWidth, height: opts.height });
+        baseColor,
+        getMedianColor: () => getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim(),
+        radiusCap: 3,
+        xData, yData, yPre,
+        tooltipPlugin: sessionsTooltipPlugin(),
+        enableSelect: false,
+        rebinProp: '_events',
+        rebinValue: events,
+        rebinFn: binConcurrentSessions,
+        minT, maxT, interval, median,
     });
-    resizeObserver.observe(container);
-    chart._ro = resizeObserver;
-
-    return chart;
 }
 
 // Create combined temp files chart (count + size)
@@ -2125,140 +2007,26 @@ export function createTimeChartLarge(container, timestamps, options = {}) {
     const textColor = resolveColor('var(--text)');
     const borderColor = resolveColor('var(--border)');
 
-    // Add padding to prevent bars from being cut off
-    const xPadding = (xData[xData.length - 1] - xData[0]) / (xData.length * 2);
-    const xMin = xData[0] - xPadding;
-    const xMax = xData[xData.length - 1] + xPadding;
-
-    const opts = {
+    return makeBarChart({
+        variant: 'large',
+        container,
         width: container.clientWidth || 1100,
-        height: height,
-        cursor: { drag: { x: true, y: false, setScale: true }, bind: { dblclick: () => null } },
-        select: { show: true },
-        legend: { show: false },
-        scales: {
-            x: { time: true },
-            y: { range: [0, null] }
-        },
+        height,
         axes: [
             { stroke: textColor, grid: { stroke: borderColor, width: 1 }, size: 50, font: '12px sans-serif', ticks: { stroke: borderColor } },
             { stroke: textColor, grid: { stroke: borderColor, width: 1 }, size: 50, font: '12px sans-serif', ticks: { stroke: borderColor } }
         ],
-        series: [
-            {},
-            {
-                fill: 'transparent',
-                stroke: 'transparent',
-                width: 0,
-                points: { show: false },
-                paths: () => null
-            }
-        ],
-        plugins: [tooltipPlugin()],
-        hooks: {
-            draw: [u => {
-                const ctx = u.ctx;
-                ctx.save();
-                const xd = u.data[0], yd = u.data[1];
-                const barWidth = Math.max(2, (u.bbox.width / xd.length) * 0.75);
-                const radius = Math.min(4, barWidth / 3);
-
-                // Draw median line first (behind bars)
-                const currentMedian = u._median || 0;
-                if (currentMedian > 0) {
-                    const yMed = u.valToPos(currentMedian, 'y', true);
-                    const { left, width } = u.bbox;
-                    ctx.strokeStyle = textColor;
-                    ctx.lineWidth = 1;
-                    ctx.setLineDash([4, 4]);
-                    ctx.beginPath();
-                    ctx.moveTo(left, yMed);
-                    ctx.lineTo(left + width, yMed);
-                    ctx.stroke();
-                    ctx.setLineDash([]);
-                }
-
-                // Draw bars (stacked: grey pre-log, orange new)
-                const preData = u._yPre;
-                const preColor = getComputedStyle(document.documentElement).getPropertyValue('--text-muted')?.trim() || '#999';
-                for (let i = 0; i < xd.length; i++) {
-                    const x = u.valToPos(xd[i], 'x', true);
-                    const y0 = u.valToPos(0, 'y', true);
-                    const total = yd[i];
-                    const pre = preData ? preData[i] : 0;
-                    const newVal = total - pre;
-
-                    if (pre > 0) {
-                        const yPre = u.valToPos(pre, 'y', true);
-                        ctx.fillStyle = preColor;
-                        ctx.beginPath();
-                        if (newVal > 0) {
-                            ctx.rect(x - barWidth/2, yPre, barWidth, y0 - yPre);
-                        } else {
-                            ctx.moveTo(x - barWidth/2, y0);
-                            ctx.lineTo(x - barWidth/2, yPre + radius);
-                            ctx.quadraticCurveTo(x - barWidth/2, yPre, x - barWidth/2 + radius, yPre);
-                            ctx.lineTo(x + barWidth/2 - radius, yPre);
-                            ctx.quadraticCurveTo(x + barWidth/2, yPre, x + barWidth/2, yPre + radius);
-                            ctx.lineTo(x + barWidth/2, y0);
-                            ctx.closePath();
-                        }
-                        ctx.fill();
-                    }
-
-                    if (newVal > 0) {
-                        const yTop = u.valToPos(total, 'y', true);
-                        const yBottom = pre > 0 ? u.valToPos(pre, 'y', true) : y0;
-                        ctx.fillStyle = baseColor;
-                        ctx.beginPath();
-                        ctx.moveTo(x - barWidth/2, yBottom);
-                        ctx.lineTo(x - barWidth/2, yTop + radius);
-                        ctx.quadraticCurveTo(x - barWidth/2, yTop, x - barWidth/2 + radius, yTop);
-                        ctx.lineTo(x + barWidth/2 - radius, yTop);
-                        ctx.quadraticCurveTo(x + barWidth/2, yTop, x + barWidth/2, yTop + radius);
-                        ctx.lineTo(x + barWidth/2, yBottom);
-                        ctx.closePath();
-                        ctx.fill();
-                    }
-                }
-                ctx.restore();
-            }],
-            setScale: [u => {
-                // Re-sample on zoom
-                if (!u._times || u._resampling) return;
-                const xScale = u.scales.x;
-                const newMin = xScale.min;
-                const newMax = xScale.max;
-                if (newMin == null || newMax == null) return;
-
-                const rangeChanged = !u._lastRange || Math.abs(u._lastRange[0] - newMin) > 1 || Math.abs(u._lastRange[1] - newMax) > 1;
-
-                if (rangeChanged) {
-                    u._lastRange = [newMin, newMax];
-                    const { xData: newX, yData: newY, median: newMedian } = binTimestamps(u._times, newMin, newMax, u._interval);
-                    u._median = newMedian;
-                    u._resampling = true;
-                    u.setData([newX, newY], false);
-                    u._resampling = false;
-                    // Force batch/commit cycle to reset cursor state
-                    u.batch(() => {
-                        u.setScale('x', { min: newMin, max: newMax });
-                    });
-                }
-            }]
-        }
-    };
-
-    const chart = new uPlot(opts, [xData, yData], container);
-
-    // Store data for re-sampling
-    chart._times = times;
-    chart._interval = interval;
-    chart._originalXRange = [minT, maxT];
-    chart._lastRange = null;
-    chart.setScale('x', { min: minT, max: maxT });
-    chart._median = median;
-    return chart;
+        baseColor,
+        getMedianColor: () => textColor,
+        radiusCap: 4,
+        xData, yData,
+        tooltipPlugin: tooltipPlugin(),
+        enableSelect: true,
+        rebinProp: '_times',
+        rebinValue: times,
+        rebinFn: binTimestamps,
+        minT, maxT, interval, median,
+    });
 }
 
 // Create large duration chart for modal
@@ -2327,108 +2095,27 @@ export function createDurationChartLarge(container, executions, options = {}) {
         };
     }
 
-    const opts = {
+    return makeBarChart({
+        variant: 'large',
+        container,
         width: container.clientWidth || 1100,
-        height: height,
-        cursor: { drag: { x: true, y: false, setScale: true }, bind: { dblclick: () => null } },
-        select: { show: true },
-        legend: { show: false },
-        scales: {
-            x: { time: true },
-            y: { range: [0, null] }
-        },
+        height,
         axes: [
             { stroke: textColor, grid: { stroke: borderColor, width: 1 }, size: 50, font: '12px sans-serif', ticks: { stroke: borderColor } },
             { stroke: textColor, grid: { stroke: borderColor, width: 1 }, size: 50, font: '12px sans-serif', ticks: { stroke: borderColor },
               values: (u, vals) => vals.map(v => v >= 60 ? `${(v/60).toFixed(0)}m` : `${v.toFixed(0)}s`) }
         ],
-        series: [
-            {},
-            {
-                fill: 'transparent',
-                stroke: 'transparent',
-                width: 0,
-                points: { show: false },
-                paths: () => null
-            }
-        ],
-        plugins: [durationTooltipPlugin()],
-        hooks: {
-            draw: [u => {
-                const ctx = u.ctx;
-                ctx.save();
-                const xd = u.data[0], yd = u.data[1];
-                const barWidth = Math.max(2, (u.bbox.width / xd.length) * 0.75);
-                const radius = Math.min(4, barWidth / 3);
-
-                // Draw median line first (behind bars)
-                const currentMedian = u._median || 0;
-                if (currentMedian > 0) {
-                    const yMed = u.valToPos(currentMedian, 'y', true);
-                    const { left, width } = u.bbox;
-                    ctx.strokeStyle = resolveColor('var(--text-muted)');
-                    ctx.lineWidth = 1;
-                    ctx.setLineDash([4, 4]);
-                    ctx.beginPath();
-                    ctx.moveTo(left, yMed);
-                    ctx.lineTo(left + width, yMed);
-                    ctx.stroke();
-                    ctx.setLineDash([]);
-                }
-
-                for (let i = 0; i < xd.length; i++) {
-                    const x = u.valToPos(xd[i], 'x', true);
-                    const y = u.valToPos(yd[i], 'y', true);
-                    const y0 = u.valToPos(0, 'y', true);
-                    const h = y0 - y;
-                    if (h > 0) {
-                        ctx.fillStyle = baseColor;
-                        ctx.beginPath();
-                        ctx.moveTo(x - barWidth/2, y0);
-                        ctx.lineTo(x - barWidth/2, y + radius);
-                        ctx.quadraticCurveTo(x - barWidth/2, y, x - barWidth/2 + radius, y);
-                        ctx.lineTo(x + barWidth/2 - radius, y);
-                        ctx.quadraticCurveTo(x + barWidth/2, y, x + barWidth/2, y + radius);
-                        ctx.lineTo(x + barWidth/2, y0);
-                        ctx.closePath();
-                        ctx.fill();
-                    }
-                }
-                ctx.restore();
-            }],
-            setScale: [u => {
-                if (!u._executions || u._resampling) return;
-                const xScale = u.scales.x;
-                const newMin = xScale.min;
-                const newMax = xScale.max;
-                if (newMin == null || newMax == null) return;
-
-                const rangeChanged = !u._lastRange || Math.abs(u._lastRange[0] - newMin) > 1 || Math.abs(u._lastRange[1] - newMax) > 1;
-
-                if (rangeChanged) {
-                    u._lastRange = [newMin, newMax];
-                    const { xData: newX, yData: newY, median: newMedian } = binDurations(u._executions, newMin, newMax, u._interval);
-                    u._median = newMedian;
-                    u._resampling = true;
-                    u.setData([newX, newY], false);
-                    u._resampling = false;
-                    u.batch(() => {
-                        u.setScale('x', { min: newMin, max: newMax });
-                    });
-                }
-            }]
-        }
-    };
-
-    const chart = new uPlot(opts, [xData, yData], container);
-
-    chart._executions = sorted;
-    chart._interval = interval;
-    chart._originalXRange = [minT, maxT];
-    chart._lastRange = null;
-    chart.setScale('x', { min: minT, max: maxT });
-    chart._median = median;
-    return chart;
+        baseColor,
+        getMedianColor: () => resolveColor('var(--text-muted)'),
+        radiusCap: 4,
+        xData, yData,
+        tooltipPlugin: durationTooltipPlugin(),
+        enableSelect: true,
+        rebinProp: '_executions',
+        rebinValue: sorted,
+        rebinFn: binDurations,
+        minT, maxT, interval, median,
+    });
 }
 
 // Create large combined SQL chart for modal (grouped bars)
@@ -2901,204 +2588,41 @@ export function createConcurrentChartLarge(container, sessions, options = {}) {
     const borderColor = resolveColor('var(--border)');
     const height = options.height || 350;
 
-    // Tooltip for sessions (modal) - no _resampling check
-    function sessionsTooltipPlugin() {
-        let tooltip = null;
-        return {
-            hooks: {
-                init: u => {
-                    tooltip = document.createElement('div');
-                    tooltip.className = 'chart-tooltip';
-                    tooltip.style.display = 'none';
-                    u.over.appendChild(tooltip);
-                },
-                setCursor: u => {
-                    const { idx } = u.cursor;
-                    if (idx == null) { tooltip.style.display = 'none'; return; }
-                    const data0 = u.data?.[0];
-                    const data1 = u.data?.[1];
-                    if (!data0 || !data1 || idx < 0 || idx >= data0.length) {
-                        tooltip.style.display = 'none';
-                        return;
-                    }
-                    const x = data0[idx];
-                    const y = data1[idx];
-                    if (!Number.isFinite(x) || !Number.isFinite(y)) {
-                        tooltip.style.display = 'none';
-                        return;
-                    }
-                    const left = u.valToPos(x, 'x');
-                    const top = u.valToPos(y, 'y');
-                    if (!Number.isFinite(left) || !Number.isFinite(top)) {
-                        tooltip.style.display = 'none';
-                        return;
-                    }
-                    const d = new Date(x * 1000);
-                    const timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
-                    tooltip.innerHTML = `${timeStr} · ${Math.round(y)} sessions`;
-                    tooltip.style.display = 'block';
-                    tooltip.style.left = Math.min(left, u.over.clientWidth - 100) + 'px';
-                    tooltip.style.top = Math.max(0, top - 40) + 'px';
-                }
-            }
-        };
-    }
-
-    // Add padding to prevent bars from being cut off
-    const xPadding = (xData[xData.length - 1] - xData[0]) / (xData.length * 2);
-    const xMin = xData[0] - xPadding;
-    const xMax = xData[xData.length - 1] + xPadding;
-
     const multiDay = (maxT - minT) > 86400;
-    const opts = {
+
+    const chart = makeBarChart({
+        variant: 'large',
+        container,
         width: container.clientWidth || 1100,
-        height: height,
-        cursor: { drag: { x: true, y: false, setScale: true }, bind: { dblclick: () => null } },
-        select: { show: true },
-        legend: { show: false },
-        scales: {
-            x: { time: true },
-            y: { range: [0, null] }
-        },
+        height,
         axes: [
             {
                 stroke: textColor, grid: { stroke: borderColor, width: 1 }, size: multiDay ? 60 : 50, font: '12px sans-serif', ticks: { stroke: borderColor },
-                values: (u, vals) => vals.map((v, i) => {
-                    const d = new Date(v * 1000);
-                    const time = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
-                    if (!multiDay) return time;
-                    const prevDay = i > 0 ? new Date(vals[i-1] * 1000).getDate() : -1;
-                    if (i === 0 || d.getDate() !== prevDay) {
-                        return time + '\n' + d.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
-                    }
-                    return time;
-                })
+                values: concurrentAxisTickValues(multiDay)
             },
             { stroke: textColor, grid: { stroke: borderColor, width: 1 }, size: 50, font: '12px sans-serif', ticks: { stroke: borderColor } }
         ],
-        series: [
-            {},
-            {
-                fill: 'transparent',
-                stroke: 'transparent',
-                width: 0,
-                points: { show: false },
-                paths: () => null
-            }
-        ],
-        plugins: [sessionsTooltipPlugin()],
-        hooks: {
-            draw: [u => {
-                const ctx = u.ctx;
-                ctx.save();
-                const xd = u.data[0], yd = u.data[1];
-                const barWidth = Math.max(2, (u.bbox.width / xd.length) * 0.75);
-                const radius = Math.min(4, barWidth / 3);
+        baseColor,
+        getMedianColor: () => textColor,
+        radiusCap: 4,
+        xData, yData, yPre,
+        tooltipPlugin: sessionsTooltipPlugin(),
+        enableSelect: true,
+        rebinProp: '_events',
+        rebinValue: events,
+        rebinFn: binConcurrentSessions,
+        minT, maxT, interval, median,
+    });
 
-                // Draw median line first (behind bars)
-                const currentMedian = u._median || 0;
-                if (currentMedian > 0) {
-                    const yMed = u.valToPos(currentMedian, 'y', true);
-                    const { left, width } = u.bbox;
-                    ctx.strokeStyle = textColor;
-                    ctx.lineWidth = 1;
-                    ctx.setLineDash([4, 4]);
-                    ctx.beginPath();
-                    ctx.moveTo(left, yMed);
-                    ctx.lineTo(left + width, yMed);
-                    ctx.stroke();
-                    ctx.setLineDash([]);
-                }
-
-                // Draw bars (stacked: grey pre-log, orange new)
-                const preData = u._yPre;
-                const preColor = getComputedStyle(document.documentElement).getPropertyValue('--text-muted')?.trim() || '#999';
-                for (let i = 0; i < xd.length; i++) {
-                    const x = u.valToPos(xd[i], 'x', true);
-                    const y0 = u.valToPos(0, 'y', true);
-                    const total = yd[i];
-                    const pre = preData ? preData[i] : 0;
-                    const newVal = total - pre;
-
-                    if (pre > 0) {
-                        const yPre = u.valToPos(pre, 'y', true);
-                        ctx.fillStyle = preColor;
-                        ctx.beginPath();
-                        if (newVal > 0) {
-                            ctx.rect(x - barWidth/2, yPre, barWidth, y0 - yPre);
-                        } else {
-                            ctx.moveTo(x - barWidth/2, y0);
-                            ctx.lineTo(x - barWidth/2, yPre + radius);
-                            ctx.quadraticCurveTo(x - barWidth/2, yPre, x - barWidth/2 + radius, yPre);
-                            ctx.lineTo(x + barWidth/2 - radius, yPre);
-                            ctx.quadraticCurveTo(x + barWidth/2, yPre, x + barWidth/2, yPre + radius);
-                            ctx.lineTo(x + barWidth/2, y0);
-                            ctx.closePath();
-                        }
-                        ctx.fill();
-                    }
-
-                    if (newVal > 0) {
-                        const yTop = u.valToPos(total, 'y', true);
-                        const yBottom = pre > 0 ? u.valToPos(pre, 'y', true) : y0;
-                        ctx.fillStyle = baseColor;
-                        ctx.beginPath();
-                        ctx.moveTo(x - barWidth/2, yBottom);
-                        ctx.lineTo(x - barWidth/2, yTop + radius);
-                        ctx.quadraticCurveTo(x - barWidth/2, yTop, x - barWidth/2 + radius, yTop);
-                        ctx.lineTo(x + barWidth/2 - radius, yTop);
-                        ctx.quadraticCurveTo(x + barWidth/2, yTop, x + barWidth/2, yTop + radius);
-                        ctx.lineTo(x + barWidth/2, yBottom);
-                        ctx.closePath();
-                        ctx.fill();
-                    }
-                }
-                ctx.restore();
-            }],
-            setScale: [u => {
-                // Re-sample on zoom
-                if (!u._events || u._resampling) return;
-                const xScale = u.scales.x;
-                const newMin = xScale.min;
-                const newMax = xScale.max;
-                if (newMin == null || newMax == null) return;
-
-                const rangeChanged = !u._lastRange || Math.abs(u._lastRange[0] - newMin) > 1 || Math.abs(u._lastRange[1] - newMax) > 1;
-
-                if (rangeChanged) {
-                    u._lastRange = [newMin, newMax];
-                    const { xData: newX, yData: newY, yPre: newYPre, median: newMedian } = binConcurrentSessions(u._events, newMin, newMax, u._interval);
-                    u._median = newMedian;
-                    u._yPre = newYPre;
-                    u._resampling = true;
-                    u.setData([newX, newY], false);
-                    u._resampling = false;
-                    // Force batch/commit cycle to reset internal state
-                    u.batch(() => {
-                        u.setScale('x', { min: newMin, max: newMax });
-                    });
-                }
-            }]
+    if (chart) {
+        if (options.logStart) {
+            const t = new Date(options.logStart).getTime() / 1000;
+            if (!isNaN(t)) chart._logStart = t;
         }
-    };
-
-    const chart = new uPlot(opts, [xData, yData], container);
-
-    // Store data for re-sampling
-    chart._events = events;
-    chart._interval = interval;
-    chart._originalXRange = [minT, maxT];
-    chart._lastRange = null;
-    chart.setScale('x', { min: minT, max: maxT });
-    chart._median = median;
-    chart._yPre = yPre;
-    if (options.logStart) {
-        const t = new Date(options.logStart).getTime() / 1000;
-        if (!isNaN(t)) chart._logStart = t;
-    }
-    if (options.logEnd) {
-        const t = new Date(options.logEnd).getTime() / 1000;
-        if (!isNaN(t)) chart._logEnd = t;
+        if (options.logEnd) {
+            const t = new Date(options.logEnd).getTime() / 1000;
+            if (!isNaN(t)) chart._logEnd = t;
+        }
     }
     return chart;
 }
