@@ -17,9 +17,15 @@ const FIXTURE = join(REPO_ROOT, 'test', 'testdata', 'comprehensive', 'stderr.log
 const TMP = join(REPO_ROOT, 'web', 'tests', 'contracts', 'tmp');
 const MAX_DEPTH = 4;
 
-// Renderer files that read the payload (per the audit).
-const RENDERERS = ['app.js', 'js/charts.js', 'js/report-filter.js', 'js/period-nav.js']
-  .map((f) => join(REPO_ROOT, 'web', f));
+// Renderer files that read the payload (per the audit). app.js was split
+// into per-section modules (AUDIT_WEB.md phase 4); list them explicitly
+// alongside the files that still read the payload directly.
+const RENDERERS = [
+  'app.js', 'js/charts.js', 'js/report-filter.js', 'js/period-nav.js',
+  'js/sections/summary.js', 'js/sections/events.js', 'js/sections/connections.js',
+  'js/sections/checkpoints.js', 'js/sections/maintenance.js', 'js/sections/locks.js',
+  'js/sections/tempfiles.js', 'js/sections/sql.js', 'js/sections/modals.js',
+].map((f) => join(REPO_ROOT, 'web', f));
 
 // Heuristic (documented): local variables named `data` are ALSO used for
 // chartData entries, WASM/worker messages and modal payloads. Chains whose

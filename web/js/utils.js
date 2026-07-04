@@ -262,3 +262,39 @@ export function truncQuery(s, max = 120) {
     if (!s || s.length <= max) return s;
     return s.slice(0, max) + '…';
 }
+
+/**
+ * Longer-form millisecond duration formatter used by the query-detail
+ * views (query table "Total" column, query detail modal stats). Unlike
+ * fmtMs, always spells out unit suffixes down to seconds/minutes/hours
+ * and never abbreviates to a single decimal beyond 1000ms.
+ * @param {number} ms
+ * @returns {string}
+ */
+export function fmtMsLong(ms) {
+    if (ms == null || isNaN(ms)) return '-';
+    if (ms < 1000) return ms.toFixed(0) + 'ms';
+    if (ms < 60000) return (ms / 1000).toFixed(2) + 's';
+    if (ms < 3600000) return Math.floor(ms / 60000) + 'm ' + Math.round((ms % 60000) / 1000) + 's';
+    const h = Math.floor(ms / 3600000);
+    const m = Math.floor((ms % 3600000) / 60000);
+    const s = Math.round((ms % 60000) / 1000);
+    if (h < 24) return h + 'h ' + m + 'm ' + s + 's';
+    const d = Math.floor(h / 24);
+    return d + 'd ' + (h % 24) + 'h ' + m + 'm';
+}
+
+/**
+ * Build the shared "No data available" placeholder for a section whose
+ * source data is absent (e.g. the relevant log_* setting is off).
+ * @param {string} hint - HTML hint fragment naming the setting to check
+ * @returns {string}
+ */
+export function buildNoDataMessage(hint) {
+    return `
+        <div class="no-data-message">
+            <div class="no-data-text">No data available</div>
+            <div class="no-data-hint">Check: ${hint}</div>
+        </div>
+    `;
+}
