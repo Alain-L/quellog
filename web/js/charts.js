@@ -874,6 +874,196 @@ export function createDurationChart(containerId, executions, options = {}) {
     });
 }
 
+// Paint one rounded-top bar (flat bottom at y0, quarter-round top corners at
+// yTop) in `color`. Local to makeDualAxisChart: its two visible series (count
+// and the right-axis metric) are drawn side by side rather than stacked, so
+// each needs exactly this shape — unlike makeBarChart's stacked pre/new
+// draw, which stays untouched and separate (see module notes on Cluster B).
+function drawRoundedTopBar(ctx, x, barWidth, y0, yTop, radius, color) {
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(x - barWidth / 2, y0);
+    ctx.lineTo(x - barWidth / 2, yTop + radius);
+    ctx.quadraticCurveTo(x - barWidth / 2, yTop, x - barWidth / 2 + radius, yTop);
+    ctx.lineTo(x + barWidth / 2 - radius, yTop);
+    ctx.quadraticCurveTo(x + barWidth / 2, yTop, x + barWidth / 2, yTop + radius);
+    ctx.lineTo(x + barWidth / 2, y0);
+    ctx.closePath();
+    ctx.fill();
+}
+
+// Shared factory for the two dual-axis "combined" bar-chart builders (SQL:
+// count+duration, temp files: count+size) and their modal "Large" twins
+// (Cluster B). Callers resolve everything that legitimately differs per
+// builder or per variant: parsed/sorted source data, colors, the fully-built
+// 3-axis descriptor array, the tooltip plugin instance, and the re-bin
+// adapter over binCombinedData/binTempFilesData. This factory owns only what
+// is byte-identical (modulo those parameters) across all four call sites:
+// the uPlot option skeleton (cursor, select, legend, the two dual-axis
+// `[0, null]` scales, the two invisible anchor series), the side-by-side
+// rounded-bar draw hook (count on the left half, the right-axis metric on
+// the right half, collapsing to a full-width bar when the other series is
+// hidden via the legend toggle), the setScale re-bin block, instance prop
+// stamping (including `_seriesVisible`, keyed generically by `y2Scale` so
+// `toggleCombinedSeries` and the legend markup — 'duration' for SQL, 'size'
+// for temp files — keep working unmodified), and — inline only — chart
+// registry bookkeeping + ResizeObserver.
+//
+// One real behavioral asymmetry predates this refactor and is preserved via
+// `rebinDebounce`: the SQL combined charts guard re-binning with a
+// `_lastRange` delta check (only re-bin if the visible range actually moved
+// by more than a second), while the temp-files combined charts re-bin on
+// every setScale where the visible span exceeds a second, with no such
+// debounce. This is carried over verbatim, not "fixed", per the
+// render/behavior-neutral mandate.
+function makeDualAxisChart({
+    variant,             // 'inline' | 'large'
+    container,           // resolved DOM element to mount into
+    containerId,         // string id (inline only: registry key + reset target)
+    width, height,
+    axes,                // fully-built 3-element uPlot axes array (x, y-left, y2-right)
+    y2Scale,             // 'duration' | 'size' — scale name, _seriesVisible key, and series[2].scale
+    y2Label,             // 'Duration' | 'Size' — series[2].label
+    countColor, y2Color, mutedColor, // resolved colors used by the draw hook
+    radiusCap,           // rounded-bar corner-radius cap: 2 inline, 3 large
+    minBarWidth,         // Math.max floor for totalBarWidth: 4 (SQL both, temp files inline), 6 (temp files large)
+    xData, countData, y2Data, medianCount, // initial binned series
+    tooltipPlugin: chartTooltipPlugin, // ready-made plugin instance
+    sourceProp,          // '_rawData' | '_events' — instance prop the re-bin hook reads from
+    sourceValue,         // stashed on chart[sourceProp]
+    rebinFn,             // (source, newMin, newMax, interval) => { xData, countData, y2Data, medianCount }
+    rebinDebounce,       // true: SQL-style `_lastRange` guard; false: temp-files-style width>1 only
+    minT, maxT, interval,
+}) {
+    const opts = {
+        width, height,
+        cursor: { drag: { x: true, y: false, setScale: true }, bind: { dblclick: () => null } },
+        select: { show: true },
+        legend: { show: false },
+        scales: {
+            x: { time: true },
+            y: { range: [0, null] },
+            [y2Scale]: { range: [0, null] }
+        },
+        axes,
+        series: [
+            {},
+            { label: 'Count', scale: 'y', stroke: 'transparent', fill: 'transparent', points: { show: false }, paths: () => null },
+            { label: y2Label, scale: y2Scale, stroke: 'transparent', fill: 'transparent', points: { show: false }, paths: () => null }
+        ],
+        plugins: [chartTooltipPlugin],
+        hooks: {
+            draw: [u => {
+                const ctx = u.ctx;
+                ctx.save();
+                const xd = u.data[0];
+                const countY = u.data[1];
+                const y2Y = u.data[2];
+                const bothVisible = u._seriesVisible.count && u._seriesVisible[y2Scale];
+                const totalBarWidth = Math.max(minBarWidth, (u.bbox.width / xd.length) * 0.7);
+                const barWidth = bothVisible ? totalBarWidth / 2 - 1 : totalBarWidth;
+                const radius = Math.min(radiusCap, barWidth / 4);
+
+                // Draw median line first (behind bars)
+                if (u._seriesVisible.count) {
+                    const currentMedian = u._medianCount || 0;
+                    if (currentMedian > 0) {
+                        const yMed = u.valToPos(currentMedian, 'y', true);
+                        const { left, width } = u.bbox;
+                        ctx.strokeStyle = mutedColor;
+                        ctx.lineWidth = 1;
+                        ctx.setLineDash([4, 4]);
+                        ctx.beginPath();
+                        ctx.moveTo(left, yMed);
+                        ctx.lineTo(left + width, yMed);
+                        ctx.stroke();
+                        ctx.setLineDash([]);
+                    }
+                }
+
+                for (let i = 0; i < xd.length; i++) {
+                    const xCenter = u.valToPos(xd[i], 'x', true);
+                    const y0Count = u.valToPos(0, 'y', true);
+                    const y0Y2 = u.valToPos(0, y2Scale, true);
+
+                    // Draw count bar (left side if both visible)
+                    if (u._seriesVisible.count && countY[i] > 0) {
+                        const x = bothVisible ? xCenter - barWidth / 2 - 0.5 : xCenter;
+                        const y = u.valToPos(countY[i], 'y', true);
+                        const h = y0Count - y;
+                        if (h > 0) drawRoundedTopBar(ctx, x, barWidth, y0Count, y, radius, countColor);
+                    }
+
+                    // Draw y2 bar (right side if both visible)
+                    if (u._seriesVisible[y2Scale] && y2Y[i] > 0) {
+                        const x = bothVisible ? xCenter + barWidth / 2 + 0.5 : xCenter;
+                        const y = u.valToPos(y2Y[i], y2Scale, true);
+                        const h = y0Y2 - y;
+                        if (h > 0) drawRoundedTopBar(ctx, x, barWidth, y0Y2, y, radius, y2Color);
+                    }
+                }
+                ctx.restore();
+            }],
+            setScale: [u => {
+                if (u._resampling) return;
+                const xScale = u.scales.x;
+                const newMin = xScale.min;
+                const newMax = xScale.max;
+                if (newMin == null || newMax == null) return;
+
+                let shouldRebin;
+                if (rebinDebounce) {
+                    if (!u[sourceProp]) return;
+                    shouldRebin = !u._lastRange || Math.abs(u._lastRange[0] - newMin) > 1 || Math.abs(u._lastRange[1] - newMax) > 1;
+                } else {
+                    shouldRebin = (newMax - newMin) > 1;
+                }
+                if (!shouldRebin) return;
+
+                if (rebinDebounce) u._lastRange = [newMin, newMax];
+                const { xData: newX, countData: newCount, y2Data: newY2, medianCount: newMed } = rebinFn(u[sourceProp], newMin, newMax, u._interval);
+                u._medianCount = newMed;
+                u._resampling = true;
+                u.setData([newX, newCount, newY2], false);
+                u._resampling = false;
+                u.batch(() => {
+                    u.setScale('x', { min: newMin, max: newMax });
+                });
+            }]
+        }
+    };
+
+    const chart = new uPlot(opts, [xData, countData, y2Data], container);
+
+    if (variant === 'inline') {
+        charts.set(containerId, chart);
+        bindDblclickReset(chart, () => resetChartZoom(containerId));
+    }
+
+    // Store data for re-sampling
+    chart[sourceProp] = sourceValue;
+    chart._interval = interval;
+    chart._originalXRange = [minT, maxT];
+    chart._lastRange = null;
+    chart.setScale('x', { min: minT, max: maxT });
+    chart._medianCount = medianCount;
+    chart._seriesVisible = { count: true, [y2Scale]: true };
+
+    if (variant === 'inline') {
+        chart._containerId = containerId;
+        // Handle resize
+        const resizeObserver = new ResizeObserver(() => {
+            if (container.clientWidth > 0) {
+                chart.setSize({ width: container.clientWidth, height });
+            }
+        });
+        resizeObserver.observe(container);
+        chart._ro = resizeObserver;
+    }
+
+    return chart;
+}
+
 // Create combined SQL chart with grouped bars (count + duration side by side)
 export function createCombinedSQLChart(containerId, rawData, options = {}) {
     const container = document.getElementById(containerId);
@@ -882,29 +1072,19 @@ export function createCombinedSQLChart(containerId, rawData, options = {}) {
     const { times, executions } = rawData;
     if (!times || times.length === 0) return null;
 
-    // Clear previous chart
-    if (charts.has(containerId)) {
-        const prev = charts.get(containerId);
-        prev._ro?.disconnect();
-        prev.destroy();
-        charts.delete(containerId);
-    }
-    container.innerHTML = '';
+    clearPreviousChart(containerId, container);
 
     const minT = times[0];
     const maxT = times[times.length - 1];
     const interval = options.interval !== undefined ? options.interval : (chartIntervalMap.get(containerId) ?? defaultInterval);
 
     // Initial binning
-    const { xData, countData, durationData, medianCount } = binCombinedData(times, executions, minT, maxT, interval);
+    const { xData, countData, durationData: y2Data, medianCount } = binCombinedData(times, executions, minT, maxT, interval);
 
     const countColor = getComputedStyle(document.documentElement).getPropertyValue('--chart-bar').trim() || '#5a9bd5';
     const durationColor = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#f5a623';
     const textColor = getComputedStyle(document.documentElement).getPropertyValue('--text').trim();
     const mutedColor = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim();
-
-    // Series visibility state
-    const seriesVisible = { count: true, duration: true };
 
     // Custom tooltip for combined chart
     function combinedTooltipPlugin() {
@@ -953,17 +1133,11 @@ export function createCombinedSQLChart(containerId, rawData, options = {}) {
         };
     }
 
-    const opts = {
+    return makeDualAxisChart({
+        variant: 'inline',
+        container, containerId,
         width: container.clientWidth || 300,
         height: options.height || 150,
-        cursor: { drag: { x: true, y: false, setScale: true }, bind: { dblclick: () => null } },
-        select: { show: true },
-        legend: { show: false },
-        scales: {
-            x: { time: true },
-            y: { range: [0, null] },
-            duration: { range: [0, null] }
-        },
         axes: [
             {
                 stroke: textColor,
@@ -992,132 +1166,21 @@ export function createCombinedSQLChart(containerId, rawData, options = {}) {
                 values: (u, vals) => vals.map(v => v >= 60 ? `${(v/60).toFixed(0)}m` : `${v.toFixed(0)}s`)
             }
         ],
-        series: [
-            {},
-            { label: 'Count', scale: 'y', stroke: 'transparent', fill: 'transparent', points: { show: false }, paths: () => null },
-            { label: 'Duration', scale: 'duration', stroke: 'transparent', fill: 'transparent', points: { show: false }, paths: () => null }
-        ],
-        plugins: [combinedTooltipPlugin()],
-        hooks: {
-            draw: [u => {
-                const ctx = u.ctx;
-                ctx.save();
-                const xd = u.data[0];
-                const countY = u.data[1];
-                const durY = u.data[2];
-                const bothVisible = u._seriesVisible.count && u._seriesVisible.duration;
-                const totalBarWidth = Math.max(4, (u.bbox.width / xd.length) * 0.7);
-                const barWidth = bothVisible ? totalBarWidth / 2 - 1 : totalBarWidth;
-                const radius = Math.min(2, barWidth / 4);
-
-                // Draw median line first (behind bars)
-                if (u._seriesVisible.count) {
-                    const currentMedian = u._medianCount || 0;
-                    if (currentMedian > 0) {
-                        const yMed = u.valToPos(currentMedian, 'y', true);
-                        const { left, width } = u.bbox;
-                        ctx.strokeStyle = mutedColor;
-                        ctx.lineWidth = 1;
-                        ctx.setLineDash([4, 4]);
-                        ctx.beginPath();
-                        ctx.moveTo(left, yMed);
-                        ctx.lineTo(left + width, yMed);
-                        ctx.stroke();
-                        ctx.setLineDash([]);
-                    }
-                }
-
-                for (let i = 0; i < xd.length; i++) {
-                    const xCenter = u.valToPos(xd[i], 'x', true);
-                    const y0Count = u.valToPos(0, 'y', true);
-                    const y0Dur = u.valToPos(0, 'duration', true);
-
-                    // Draw count bar (left side if both visible)
-                    if (u._seriesVisible.count && countY[i] > 0) {
-                        const x = bothVisible ? xCenter - barWidth/2 - 0.5 : xCenter;
-                        const y = u.valToPos(countY[i], 'y', true);
-                        const h = y0Count - y;
-                        if (h > 0) {
-                            ctx.fillStyle = countColor;
-                            ctx.beginPath();
-                            ctx.moveTo(x - barWidth/2, y0Count);
-                            ctx.lineTo(x - barWidth/2, y + radius);
-                            ctx.quadraticCurveTo(x - barWidth/2, y, x - barWidth/2 + radius, y);
-                            ctx.lineTo(x + barWidth/2 - radius, y);
-                            ctx.quadraticCurveTo(x + barWidth/2, y, x + barWidth/2, y + radius);
-                            ctx.lineTo(x + barWidth/2, y0Count);
-                            ctx.closePath();
-                            ctx.fill();
-                        }
-                    }
-
-                    // Draw duration bar (right side if both visible)
-                    if (u._seriesVisible.duration && durY[i] > 0) {
-                        const x = bothVisible ? xCenter + barWidth/2 + 0.5 : xCenter;
-                        const y = u.valToPos(durY[i], 'duration', true);
-                        const h = y0Dur - y;
-                        if (h > 0) {
-                            ctx.fillStyle = durationColor;
-                            ctx.beginPath();
-                            ctx.moveTo(x - barWidth/2, y0Dur);
-                            ctx.lineTo(x - barWidth/2, y + radius);
-                            ctx.quadraticCurveTo(x - barWidth/2, y, x - barWidth/2 + radius, y);
-                            ctx.lineTo(x + barWidth/2 - radius, y);
-                            ctx.quadraticCurveTo(x + barWidth/2, y, x + barWidth/2, y + radius);
-                            ctx.lineTo(x + barWidth/2, y0Dur);
-                            ctx.closePath();
-                            ctx.fill();
-                        }
-                    }
-                }
-                ctx.restore();
-            }],
-            setScale: [u => {
-                if (!u._rawData || u._resampling) return;
-                const xScale = u.scales.x;
-                const newMin = xScale.min;
-                const newMax = xScale.max;
-                if (newMin == null || newMax == null) return;
-
-                const rangeChanged = !u._lastRange || Math.abs(u._lastRange[0] - newMin) > 1 || Math.abs(u._lastRange[1] - newMax) > 1;
-
-                if (rangeChanged) {
-                    u._lastRange = [newMin, newMax];
-                    const { xData: newX, countData: newCount, durationData: newDur, medianCount: newMed } = binCombinedData(u._rawData.times, u._rawData.executions, newMin, newMax, u._interval);
-                    u._medianCount = newMed;
-                    u._resampling = true;
-                    u.setData([newX, newCount, newDur], false);
-                    u._resampling = false;
-                    u.batch(() => {
-                        u.setScale('x', { min: newMin, max: newMax });
-                    });
-                }
-            }]
-        }
-    };
-
-    const chart = new uPlot(opts, [xData, countData, durationData], container);
-    charts.set(containerId, chart);
-    bindDblclickReset(chart, () => resetChartZoom(containerId));
-
-    chart._rawData = rawData;
-    chart._interval = interval;
-    chart._originalXRange = [minT, maxT];
-    chart._lastRange = null;
-    chart.setScale('x', { min: minT, max: maxT });
-    chart._medianCount = medianCount;
-    chart._seriesVisible = seriesVisible;
-    chart._containerId = containerId;
-
-    const resizeObserver = new ResizeObserver(() => {
-        if (container.clientWidth > 0) {
-            chart.setSize({ width: container.clientWidth, height: opts.height });
-        }
+        y2Scale: 'duration',
+        y2Label: 'Duration',
+        countColor, y2Color: durationColor, mutedColor,
+        radiusCap: 2, minBarWidth: 4,
+        xData, countData, y2Data, medianCount,
+        tooltipPlugin: combinedTooltipPlugin(),
+        sourceProp: '_rawData',
+        sourceValue: rawData,
+        rebinFn: (source, newMin, newMax, iv) => {
+            const r = binCombinedData(source.times, source.executions, newMin, newMax, iv);
+            return { xData: r.xData, countData: r.countData, y2Data: r.durationData, medianCount: r.medianCount };
+        },
+        rebinDebounce: true,
+        minT, maxT, interval,
     });
-    resizeObserver.observe(container);
-    chart._ro = resizeObserver;
-
-    return chart;
 }
 
 // Toggle series visibility for combined chart
@@ -1284,29 +1347,19 @@ export function createCombinedTempFilesChart(containerId, events, options = {}) 
 
     if (parsedEvents.length === 0) return null;
 
-    // Clear previous chart
-    if (charts.has(containerId)) {
-        const prev = charts.get(containerId);
-        prev._ro?.disconnect();
-        prev.destroy();
-        charts.delete(containerId);
-    }
-    container.innerHTML = '';
+    clearPreviousChart(containerId, container);
 
     const minT = parsedEvents[0].ts;
     const maxT = parsedEvents[parsedEvents.length - 1].ts;
     const interval = options.interval !== undefined ? options.interval : (chartIntervalMap.get(containerId) ?? defaultInterval);
 
     // Initial binning
-    const { xData, countData, sizeData, medianCount } = binTempFilesData(parsedEvents, minT, maxT, interval);
+    const { xData, countData, sizeData: y2Data, medianCount } = binTempFilesData(parsedEvents, minT, maxT, interval);
 
     const countColor = getComputedStyle(document.documentElement).getPropertyValue('--chart-bar').trim() || '#5a9bd5';
     const sizeColor = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#f5a623';
     const textColor = getComputedStyle(document.documentElement).getPropertyValue('--text').trim();
     const mutedColor = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim();
-
-    // Series visibility state
-    const seriesVisible = { count: true, size: true };
 
     // Custom tooltip
     function tempFilesTooltipPlugin() {
@@ -1354,17 +1407,11 @@ export function createCombinedTempFilesChart(containerId, events, options = {}) 
         };
     }
 
-    const opts = {
+    return makeDualAxisChart({
+        variant: 'inline',
+        container, containerId,
         width: container.clientWidth || 300,
         height: options.height || 150,
-        cursor: { drag: { x: true, y: false, setScale: true }, bind: { dblclick: () => null } },
-        select: { show: true },
-        legend: { show: false },
-        scales: {
-            x: { time: true },
-            y: { range: [0, null] },
-            size: { range: [0, null] }
-        },
         axes: [
             {
                 stroke: textColor,
@@ -1393,127 +1440,21 @@ export function createCombinedTempFilesChart(containerId, events, options = {}) 
                 values: (u, vals) => vals.map(v => fmtBytesShort(v))
             }
         ],
-        series: [
-            {},
-            { label: 'Count', scale: 'y', stroke: 'transparent', fill: 'transparent', points: { show: false }, paths: () => null },
-            { label: 'Size', scale: 'size', stroke: 'transparent', fill: 'transparent', points: { show: false }, paths: () => null }
-        ],
-        plugins: [tempFilesTooltipPlugin()],
-        hooks: {
-            draw: [u => {
-                const ctx = u.ctx;
-                ctx.save();
-                const xd = u.data[0];
-                const countY = u.data[1];
-                const sizeY = u.data[2];
-                const bothVisible = u._seriesVisible.count && u._seriesVisible.size;
-                const totalBarWidth = Math.max(4, (u.bbox.width / xd.length) * 0.7);
-                const barWidth = bothVisible ? totalBarWidth / 2 - 1 : totalBarWidth;
-                const radius = Math.min(2, barWidth / 4);
-
-                // Draw median line (behind bars)
-                if (u._seriesVisible.count) {
-                    const currentMedian = u._medianCount || 0;
-                    if (currentMedian > 0) {
-                        const yMed = u.valToPos(currentMedian, 'y', true);
-                        const { left, width } = u.bbox;
-                        ctx.strokeStyle = mutedColor;
-                        ctx.lineWidth = 1;
-                        ctx.setLineDash([4, 4]);
-                        ctx.beginPath();
-                        ctx.moveTo(left, yMed);
-                        ctx.lineTo(left + width, yMed);
-                        ctx.stroke();
-                        ctx.setLineDash([]);
-                    }
-                }
-
-                for (let i = 0; i < xd.length; i++) {
-                    const xCenter = u.valToPos(xd[i], 'x', true);
-                    const y0Count = u.valToPos(0, 'y', true);
-                    const y0Size = u.valToPos(0, 'size', true);
-
-                    // Draw count bar (left side if both visible)
-                    if (u._seriesVisible.count && countY[i] > 0) {
-                        const x = bothVisible ? xCenter - barWidth/2 - 0.5 : xCenter;
-                        const y = u.valToPos(countY[i], 'y', true);
-                        const h = y0Count - y;
-                        if (h > 0) {
-                            ctx.fillStyle = countColor;
-                            ctx.beginPath();
-                            ctx.moveTo(x - barWidth/2, y0Count);
-                            ctx.lineTo(x - barWidth/2, y + radius);
-                            ctx.quadraticCurveTo(x - barWidth/2, y, x - barWidth/2 + radius, y);
-                            ctx.lineTo(x + barWidth/2 - radius, y);
-                            ctx.quadraticCurveTo(x + barWidth/2, y, x + barWidth/2, y + radius);
-                            ctx.lineTo(x + barWidth/2, y0Count);
-                            ctx.closePath();
-                            ctx.fill();
-                        }
-                    }
-
-                    // Draw size bar (right side if both visible)
-                    if (u._seriesVisible.size && sizeY[i] > 0) {
-                        const x = bothVisible ? xCenter + barWidth/2 + 0.5 : xCenter;
-                        const y = u.valToPos(sizeY[i], 'size', true);
-                        const h = y0Size - y;
-                        if (h > 0) {
-                            ctx.fillStyle = sizeColor;
-                            ctx.beginPath();
-                            ctx.moveTo(x - barWidth/2, y0Size);
-                            ctx.lineTo(x - barWidth/2, y + radius);
-                            ctx.quadraticCurveTo(x - barWidth/2, y, x - barWidth/2 + radius, y);
-                            ctx.lineTo(x + barWidth/2 - radius, y);
-                            ctx.quadraticCurveTo(x + barWidth/2, y, x + barWidth/2, y + radius);
-                            ctx.lineTo(x + barWidth/2, y0Size);
-                            ctx.closePath();
-                            ctx.fill();
-                        }
-                    }
-                }
-                ctx.restore();
-            }],
-            setScale: [u => {
-                if (u._resampling) return;
-                const xScale = u.scales.x;
-                const newMin = xScale.min;
-                const newMax = xScale.max;
-                if (newMin != null && newMax != null && (newMax - newMin) > 1) {
-                    const { xData: newX, countData: newCount, sizeData: newSize, medianCount: newMed } = binTempFilesData(u._events, newMin, newMax, u._interval);
-                    u._medianCount = newMed;
-                    u._resampling = true;
-                    u.setData([newX, newCount, newSize], false);
-                    u._resampling = false;
-                    u.batch(() => {
-                        u.setScale('x', { min: newMin, max: newMax });
-                    });
-                }
-            }]
-        }
-    };
-
-    const chart = new uPlot(opts, [xData, countData, sizeData], container);
-    charts.set(containerId, chart);
-    bindDblclickReset(chart, () => resetChartZoom(containerId));
-
-    chart._events = parsedEvents;
-    chart._interval = interval;
-    chart._originalXRange = [minT, maxT];
-    chart._lastRange = null;
-    chart.setScale('x', { min: minT, max: maxT });
-    chart._medianCount = medianCount;
-    chart._seriesVisible = seriesVisible;
-    chart._containerId = containerId;
-
-    const resizeObserver = new ResizeObserver(() => {
-        if (container.clientWidth > 0) {
-            chart.setSize({ width: container.clientWidth, height: opts.height });
-        }
+        y2Scale: 'size',
+        y2Label: 'Size',
+        countColor, y2Color: sizeColor, mutedColor,
+        radiusCap: 2, minBarWidth: 4,
+        xData, countData, y2Data, medianCount,
+        tooltipPlugin: tempFilesTooltipPlugin(),
+        sourceProp: '_events',
+        sourceValue: parsedEvents,
+        rebinFn: (source, newMin, newMax, iv) => {
+            const r = binTempFilesData(source, newMin, newMax, iv);
+            return { xData: r.xData, countData: r.countData, y2Data: r.sizeData, medianCount: r.medianCount };
+        },
+        rebinDebounce: false,
+        minT, maxT, interval,
     });
-    resizeObserver.observe(container);
-    chart._ro = resizeObserver;
-
-    return chart;
 }
 
 // Build chart container HTML with controls
@@ -2118,7 +2059,7 @@ export function createDurationChartLarge(container, executions, options = {}) {
     });
 }
 
-// Create large combined SQL chart for modal (grouped bars)
+// Create large combined SQL chart for modal
 export function createCombinedSQLChartLarge(container, rawData, options = {}) {
     if (!rawData?.times?.length) return null;
 
@@ -2128,7 +2069,7 @@ export function createCombinedSQLChartLarge(container, rawData, options = {}) {
     const interval = options.interval ?? 0;
     const height = options.height || 350;
 
-    const { xData, countData, durationData, medianCount } = binCombinedData(times, executions, minT, maxT, interval);
+    const { xData, countData, durationData: y2Data, medianCount } = binCombinedData(times, executions, minT, maxT, interval);
 
     const resolveColor = (c) => {
         if (c && c.startsWith('var(')) {
@@ -2142,9 +2083,6 @@ export function createCombinedSQLChartLarge(container, rawData, options = {}) {
     const textColor = resolveColor('var(--text)');
     const borderColor = resolveColor('var(--border)');
     const mutedColor = resolveColor('var(--text-muted)');
-
-    // Series visibility state (always both visible in modal for now)
-    const seriesVisible = { count: true, duration: true };
 
     function combinedTooltipPlugin() {
         let tooltip = null;
@@ -2189,137 +2127,32 @@ export function createCombinedSQLChartLarge(container, rawData, options = {}) {
         };
     }
 
-    const opts = {
+    return makeDualAxisChart({
+        variant: 'large',
+        container,
         width: container.clientWidth || 1100,
-        height: height,
-        cursor: { drag: { x: true, y: false, setScale: true }, bind: { dblclick: () => null } },
-        select: { show: true },
-        legend: { show: false },
-        scales: {
-            x: { time: true },
-            y: { range: [0, null] },
-            duration: { range: [0, null] }
-        },
+        height,
         axes: [
             { stroke: textColor, grid: { stroke: borderColor, width: 1 }, size: 50, font: '12px sans-serif', ticks: { stroke: borderColor } },
             { stroke: countColor, grid: { stroke: borderColor, width: 1 }, size: 50, font: '12px sans-serif', ticks: { stroke: borderColor }, side: 3 },
             { scale: 'duration', stroke: durationColor, grid: { show: false }, size: 50, font: '12px sans-serif', ticks: { stroke: borderColor }, side: 1,
               values: (u, vals) => vals.map(v => v >= 60 ? `${(v/60).toFixed(0)}m` : `${v.toFixed(0)}s`) }
         ],
-        series: [
-            {},
-            { label: 'Count', scale: 'y', stroke: 'transparent', fill: 'transparent', points: { show: false }, paths: () => null },
-            { label: 'Duration', scale: 'duration', stroke: 'transparent', fill: 'transparent', points: { show: false }, paths: () => null }
-        ],
-        plugins: [combinedTooltipPlugin()],
-        hooks: {
-            draw: [u => {
-                const ctx = u.ctx;
-                ctx.save();
-                const xd = u.data[0];
-                const countY = u.data[1];
-                const durY = u.data[2];
-                const bothVisible = u._seriesVisible.count && u._seriesVisible.duration;
-                const totalBarWidth = Math.max(4, (u.bbox.width / xd.length) * 0.7);
-                const barWidth = bothVisible ? totalBarWidth / 2 - 1 : totalBarWidth;
-                const radius = Math.min(3, barWidth / 4);
-
-                // Draw median line first (behind bars)
-                if (u._seriesVisible.count) {
-                    const currentMedian = u._medianCount || 0;
-                    if (currentMedian > 0) {
-                        const yMed = u.valToPos(currentMedian, 'y', true);
-                        const { left, width } = u.bbox;
-                        ctx.strokeStyle = mutedColor;
-                        ctx.lineWidth = 1;
-                        ctx.setLineDash([4, 4]);
-                        ctx.beginPath();
-                        ctx.moveTo(left, yMed);
-                        ctx.lineTo(left + width, yMed);
-                        ctx.stroke();
-                        ctx.setLineDash([]);
-                    }
-                }
-
-                for (let i = 0; i < xd.length; i++) {
-                    const xCenter = u.valToPos(xd[i], 'x', true);
-                    const y0Count = u.valToPos(0, 'y', true);
-                    const y0Dur = u.valToPos(0, 'duration', true);
-
-                    // Draw count bar (left side)
-                    if (u._seriesVisible.count && countY[i] > 0) {
-                        const x = bothVisible ? xCenter - barWidth/2 - 0.5 : xCenter;
-                        const y = u.valToPos(countY[i], 'y', true);
-                        const h = y0Count - y;
-                        if (h > 0) {
-                            ctx.fillStyle = countColor;
-                            ctx.beginPath();
-                            ctx.moveTo(x - barWidth/2, y0Count);
-                            ctx.lineTo(x - barWidth/2, y + radius);
-                            ctx.quadraticCurveTo(x - barWidth/2, y, x - barWidth/2 + radius, y);
-                            ctx.lineTo(x + barWidth/2 - radius, y);
-                            ctx.quadraticCurveTo(x + barWidth/2, y, x + barWidth/2, y + radius);
-                            ctx.lineTo(x + barWidth/2, y0Count);
-                            ctx.closePath();
-                            ctx.fill();
-                        }
-                    }
-
-                    // Draw duration bar (right side)
-                    if (u._seriesVisible.duration && durY[i] > 0) {
-                        const x = bothVisible ? xCenter + barWidth/2 + 0.5 : xCenter;
-                        const y = u.valToPos(durY[i], 'duration', true);
-                        const h = y0Dur - y;
-                        if (h > 0) {
-                            ctx.fillStyle = durationColor;
-                            ctx.beginPath();
-                            ctx.moveTo(x - barWidth/2, y0Dur);
-                            ctx.lineTo(x - barWidth/2, y + radius);
-                            ctx.quadraticCurveTo(x - barWidth/2, y, x - barWidth/2 + radius, y);
-                            ctx.lineTo(x + barWidth/2 - radius, y);
-                            ctx.quadraticCurveTo(x + barWidth/2, y, x + barWidth/2, y + radius);
-                            ctx.lineTo(x + barWidth/2, y0Dur);
-                            ctx.closePath();
-                            ctx.fill();
-                        }
-                    }
-                }
-                ctx.restore();
-            }],
-            setScale: [u => {
-                if (!u._rawData || u._resampling) return;
-                const xScale = u.scales.x;
-                const newMin = xScale.min;
-                const newMax = xScale.max;
-                if (newMin == null || newMax == null) return;
-
-                const rangeChanged = !u._lastRange || Math.abs(u._lastRange[0] - newMin) > 1 || Math.abs(u._lastRange[1] - newMax) > 1;
-
-                if (rangeChanged) {
-                    u._lastRange = [newMin, newMax];
-                    const { xData: newX, countData: newCount, durationData: newDur, medianCount: newMed } = binCombinedData(u._rawData.times, u._rawData.executions, newMin, newMax, u._interval);
-                    u._medianCount = newMed;
-                    u._resampling = true;
-                    u.setData([newX, newCount, newDur], false);
-                    u._resampling = false;
-                    u.batch(() => {
-                        u.setScale('x', { min: newMin, max: newMax });
-                    });
-                }
-            }]
-        }
-    };
-
-    const chart = new uPlot(opts, [xData, countData, durationData], container);
-
-    chart._rawData = rawData;
-    chart._interval = interval;
-    chart._originalXRange = [minT, maxT];
-    chart._lastRange = null;
-    chart.setScale('x', { min: minT, max: maxT });
-    chart._medianCount = medianCount;
-    chart._seriesVisible = seriesVisible;
-    return chart;
+        y2Scale: 'duration',
+        y2Label: 'Duration',
+        countColor, y2Color: durationColor, mutedColor,
+        radiusCap: 3, minBarWidth: 4,
+        xData, countData, y2Data, medianCount,
+        tooltipPlugin: combinedTooltipPlugin(),
+        sourceProp: '_rawData',
+        sourceValue: rawData,
+        rebinFn: (source, newMin, newMax, iv) => {
+            const r = binCombinedData(source.times, source.executions, newMin, newMax, iv);
+            return { xData: r.xData, countData: r.countData, y2Data: r.durationData, medianCount: r.medianCount };
+        },
+        rebinDebounce: true,
+        minT, maxT, interval,
+    });
 }
 
 // Create large combined temp files chart for modal
@@ -2338,7 +2171,7 @@ export function createCombinedTempFilesChartLarge(container, events, options = {
     const maxT = parsedEvents[parsedEvents.length - 1].ts;
     const interval = options.interval !== undefined ? options.interval : 0;
 
-    const { xData, countData, sizeData, medianCount } = binTempFilesData(parsedEvents, minT, maxT, interval);
+    const { xData, countData, sizeData: y2Data, medianCount } = binTempFilesData(parsedEvents, minT, maxT, interval);
 
     const resolveColor = (c) => {
         if (c && c.startsWith('var(')) {
@@ -2352,8 +2185,6 @@ export function createCombinedTempFilesChartLarge(container, events, options = {
     const textColor = resolveColor('var(--text)');
     const borderColor = resolveColor('var(--border)');
     const mutedColor = resolveColor('var(--text-muted)');
-
-    const seriesVisible = { count: true, size: true };
 
     function tempFilesTooltipPlugin() {
         let tooltip = null;
@@ -2397,17 +2228,11 @@ export function createCombinedTempFilesChartLarge(container, events, options = {
         };
     }
 
-    const opts = {
+    return makeDualAxisChart({
+        variant: 'large',
+        container,
         width: container.clientWidth || 600,
         height: options.height || 350,
-        cursor: { drag: { x: true, y: false, setScale: true }, bind: { dblclick: () => null } },
-        select: { show: true },
-        legend: { show: false },
-        scales: {
-            x: { time: true },
-            y: { range: [0, null] },
-            size: { range: [0, null] }
-        },
         axes: [
             {
                 stroke: textColor,
@@ -2442,113 +2267,21 @@ export function createCombinedTempFilesChartLarge(container, events, options = {
                 values: (u, vals) => vals.map(v => fmtBytesShort(v))
             }
         ],
-        series: [
-            {},
-            { label: 'Count', scale: 'y', stroke: 'transparent', fill: 'transparent', points: { show: false }, paths: () => null },
-            { label: 'Size', scale: 'size', stroke: 'transparent', fill: 'transparent', points: { show: false }, paths: () => null }
-        ],
-        plugins: [tempFilesTooltipPlugin()],
-        hooks: {
-            draw: [u => {
-                const ctx = u.ctx;
-                ctx.save();
-                const xd = u.data[0];
-                const countY = u.data[1];
-                const sizeY = u.data[2];
-                const bothVisible = u._seriesVisible.count && u._seriesVisible.size;
-                const totalBarWidth = Math.max(6, (u.bbox.width / xd.length) * 0.7);
-                const barWidth = bothVisible ? totalBarWidth / 2 - 1 : totalBarWidth;
-                const radius = Math.min(3, barWidth / 4);
-
-                // Draw median line
-                if (u._seriesVisible.count) {
-                    const currentMedian = u._medianCount || 0;
-                    if (currentMedian > 0) {
-                        const yMed = u.valToPos(currentMedian, 'y', true);
-                        const { left, width } = u.bbox;
-                        ctx.strokeStyle = mutedColor;
-                        ctx.lineWidth = 1;
-                        ctx.setLineDash([4, 4]);
-                        ctx.beginPath();
-                        ctx.moveTo(left, yMed);
-                        ctx.lineTo(left + width, yMed);
-                        ctx.stroke();
-                        ctx.setLineDash([]);
-                    }
-                }
-
-                for (let i = 0; i < xd.length; i++) {
-                    const xCenter = u.valToPos(xd[i], 'x', true);
-                    const y0Count = u.valToPos(0, 'y', true);
-                    const y0Size = u.valToPos(0, 'size', true);
-
-                    if (u._seriesVisible.count && countY[i] > 0) {
-                        const x = bothVisible ? xCenter - barWidth/2 - 0.5 : xCenter;
-                        const y = u.valToPos(countY[i], 'y', true);
-                        const h = y0Count - y;
-                        if (h > 0) {
-                            ctx.fillStyle = countColor;
-                            ctx.beginPath();
-                            ctx.moveTo(x - barWidth/2, y0Count);
-                            ctx.lineTo(x - barWidth/2, y + radius);
-                            ctx.quadraticCurveTo(x - barWidth/2, y, x - barWidth/2 + radius, y);
-                            ctx.lineTo(x + barWidth/2 - radius, y);
-                            ctx.quadraticCurveTo(x + barWidth/2, y, x + barWidth/2, y + radius);
-                            ctx.lineTo(x + barWidth/2, y0Count);
-                            ctx.closePath();
-                            ctx.fill();
-                        }
-                    }
-
-                    if (u._seriesVisible.size && sizeY[i] > 0) {
-                        const x = bothVisible ? xCenter + barWidth/2 + 0.5 : xCenter;
-                        const y = u.valToPos(sizeY[i], 'size', true);
-                        const h = y0Size - y;
-                        if (h > 0) {
-                            ctx.fillStyle = sizeColor;
-                            ctx.beginPath();
-                            ctx.moveTo(x - barWidth/2, y0Size);
-                            ctx.lineTo(x - barWidth/2, y + radius);
-                            ctx.quadraticCurveTo(x - barWidth/2, y, x - barWidth/2 + radius, y);
-                            ctx.lineTo(x + barWidth/2 - radius, y);
-                            ctx.quadraticCurveTo(x + barWidth/2, y, x + barWidth/2, y + radius);
-                            ctx.lineTo(x + barWidth/2, y0Size);
-                            ctx.closePath();
-                            ctx.fill();
-                        }
-                    }
-                }
-                ctx.restore();
-            }],
-            setScale: [u => {
-                if (u._resampling) return;
-                const xScale = u.scales.x;
-                const newMin = xScale.min;
-                const newMax = xScale.max;
-                if (newMin != null && newMax != null && (newMax - newMin) > 1) {
-                    const { xData: newX, countData: newCount, sizeData: newSize, medianCount: newMed } = binTempFilesData(u._events, newMin, newMax, u._interval);
-                    u._medianCount = newMed;
-                    u._resampling = true;
-                    u.setData([newX, newCount, newSize], false);
-                    u._resampling = false;
-                    u.batch(() => {
-                        u.setScale('x', { min: newMin, max: newMax });
-                    });
-                }
-            }]
-        }
-    };
-
-    const chart = new uPlot(opts, [xData, countData, sizeData], container);
-
-    chart._events = parsedEvents;
-    chart._interval = interval;
-    chart._originalXRange = [minT, maxT];
-    chart._lastRange = null;
-    chart.setScale('x', { min: minT, max: maxT });
-    chart._medianCount = medianCount;
-    chart._seriesVisible = seriesVisible;
-    return chart;
+        y2Scale: 'size',
+        y2Label: 'Size',
+        countColor, y2Color: sizeColor, mutedColor,
+        radiusCap: 3, minBarWidth: 6,
+        xData, countData, y2Data, medianCount,
+        tooltipPlugin: tempFilesTooltipPlugin(),
+        sourceProp: '_events',
+        sourceValue: parsedEvents,
+        rebinFn: (source, newMin, newMax, iv) => {
+            const r = binTempFilesData(source, newMin, newMax, iv);
+            return { xData: r.xData, countData: r.countData, y2Data: r.sizeData, medianCount: r.medianCount };
+        },
+        rebinDebounce: false,
+        minT, maxT, interval,
+    });
 }
 
 // Create large concurrent chart for modal
