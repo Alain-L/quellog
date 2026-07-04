@@ -1,12 +1,20 @@
 {
   "name": "quellog-web",
   "private": true,
+  "type": "module",
   "scripts": {
     "build": "esbuild web/app.js --bundle --outfile=web/app.bundle.js --format=iife",
     "build:minify": "esbuild web/app.js --bundle --outfile=web/app.bundle.js --format=iife --minify",
-    "watch": "esbuild web/app.js --bundle --outfile=web/app.bundle.js --format=iife --watch"
+    "watch": "esbuild web/app.js --bundle --outfile=web/app.bundle.js --format=iife --watch",
+    "test:unit": "node --test 'web/tests/unit/*.test.js'",
+    "test:visual": "node web/tests/visual/run.mjs",
+    "test:contracts": "node web/tests/contracts/run.mjs",
+    "test:web": "npm run test:unit && npm run test:contracts && npm run test:visual"
   },
   "devDependencies": {
-    "esbuild": "^0.27.2"
+    "esbuild": "^0.27.2",
+    "pixelmatch": "^7.2.0",
+    "playwright-core": "^1.61.1",
+    "pngjs": "^7.0.0"
   }
 }

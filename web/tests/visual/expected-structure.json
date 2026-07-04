@@ -1,0 +1,25 @@
+{
+  "sections": [
+    "summary",
+    "events",
+    "clients",
+    "connections",
+    "sql_overview",
+    "sql_performance",
+    "checkpoints",
+    "temp_files",
+    "locks",
+    "maintenance"
+  ],
+  "canvasCount": 7,
+  "statCards": 43,
+  "tables": 14,
+  "cards": {
+    "summary": true,
+    "sql": true,
+    "checkpoints": true,
+    "connections": true,
+    "tempfiles": true,
+    "events": true
+  }
+}
