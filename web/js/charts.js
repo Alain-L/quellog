@@ -1496,9 +1496,8 @@ export function updateChartInterval(chartId, intervalValue) {
     const data = chartData.get(chartId);
     if (data) {
         const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
-        const color = chartId.includes('tempfiles') ? accentColor : null;
         if (data?.type === 'sessions') {
-            createConcurrentChart(chartId, data.data, { color: color || 'var(--accent)', interval, logStart: data.logStart, logEnd: data.logEnd });
+            createConcurrentChart(chartId, data.data, { color: 'var(--accent)', interval, logStart: data.logStart, logEnd: data.logEnd });
         } else if (data?.type === 'duration') {
             createDurationChart(chartId, data.data, { color: accentColor, interval });
         } else if (data?.type === 'combined') {
@@ -1508,7 +1507,7 @@ export function updateChartInterval(chartId, intervalValue) {
         } else if (data?.type === 'combined-tempfiles') {
             createCombinedTempFilesChart(chartId, data.events, { interval });
         } else {
-            createTimeChart(chartId, data, { color, interval });
+            createTimeChart(chartId, data, { color: null, interval });
         }
     }
 }
@@ -1562,7 +1561,6 @@ export function renderModalChart() {
     if (!data) return;
 
     const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
-    const color = modalChartId.includes('tempfiles') ? accentColor : null;
 
     // Create larger chart
     if (data?.type === 'wal-distance') {
@@ -1574,7 +1572,7 @@ export function renderModalChart() {
         });
     } else if (data?.type === 'sessions') {
         modalChart = createConcurrentChartLarge(container, data.data, {
-            color: color || 'var(--accent)',
+            color: 'var(--accent)',
             interval: modalInterval,
             height: 500,
             logStart: data.logStart,
@@ -1598,7 +1596,7 @@ export function renderModalChart() {
         });
     } else {
         modalChart = createTimeChartLarge(container, data, {
-            color,
+            color: null,
             interval: modalInterval,
             height: 500
         });
@@ -1816,7 +1814,9 @@ export function createCostMapChart(containerId, queries, options = {}) {
     // to it). highlightQuery (app.js) calls this to enlarge the matching point
     // when a table row is hovered; the point's own hover calls highlightQuery
     // the other way. costMapHighlight never calls back, so there is no loop.
-    const bridge = id === 'chart-costmap';
+    // Enabled explicitly by the caller (the inline builder passes
+    // crossHighlight:true; the modal builder omits it) instead of sniffing id.
+    const bridge = options.crossHighlight === true;
     if (bridge) {
         window.costMapHighlight = (qid, on) => {
             const v = on ? qid : null;

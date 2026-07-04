@@ -287,14 +287,13 @@ function renderResults(data, fileName, fileSize, isInitial = true) {
 function buildAllCharts() {
     chartData.forEach((data, chartId) => {
         const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
-        const color = chartId.includes('tempfiles') ? accentColor : null;
         // Check data type: checkpoints (stacked), sessions (sweep-line), duration, combined, tempfiles, costmap, or timestamps
         if (data?.type === 'wal-distance') {
             createWALDistanceChart(chartId, data);
         } else if (data?.type === 'checkpoints') {
             createCheckpointChart(chartId, data);
         } else if (data?.type === 'sessions') {
-            createConcurrentChart(chartId, data.data, { color: color || 'var(--accent)', logStart: data.logStart, logEnd: data.logEnd });
+            createConcurrentChart(chartId, data.data, { color: 'var(--accent)', logStart: data.logStart, logEnd: data.logEnd });
         } else if (data?.type === 'duration') {
             createDurationChart(chartId, data.data, { color: accentColor });
         } else if (data?.type === 'combined') {
@@ -302,9 +301,9 @@ function buildAllCharts() {
         } else if (data?.type === 'combined-tempfiles') {
             createCombinedTempFilesChart(chartId, data.events);
         } else if (data?.type === 'costmap') {
-            createCostMapChart(chartId, data.queries);
+            createCostMapChart(chartId, data.queries, { crossHighlight: true });
         } else {
-            createTimeChart(chartId, data, { color });
+            createTimeChart(chartId, data, { color: null });
         }
     });
 }
