@@ -2,7 +2,7 @@
 
 import { esc, escAttr } from './utils.js';
 import {
-    originalDimensions, currentFilters, appliedFilters, availableDimensions, openDropdown,
+    originalDimensions, currentFilters, appliedFilters,
     timeFilterStartTs, timeFilterDurationMins,
     timeFilterSelMin, timeFilterSelMax, timeFilterDefMin, timeFilterDefMax,
     setOriginalDimensions, setCurrentFilters, setAvailableDimensions, setOpenDropdown,
@@ -335,122 +335,29 @@ export function searchDropdown(category, query) {
 
 // ===== Filter Value Management =====
 
-export function toggleFilterValue(category, value, element) {
-    // Toggle selection
-    const filters = { ...currentFilters };
-    if (!filters[category]) filters[category] = [];
-
-    const idx = filters[category].indexOf(value);
-    if (idx >= 0) {
-        filters[category].splice(idx, 1);
-        if (filters[category].length === 0) delete filters[category];
-        element?.classList.remove('selected');
-        const cb = element?.querySelector('.filter-item-checkbox');
-        if (cb) cb.checked = false;
-    } else {
-        filters[category].push(value);
-        element?.classList.add('selected');
-        const cb = element?.querySelector('.filter-item-checkbox');
-        if (cb) cb.checked = true;
-    }
-
-    setCurrentFilters(filters);
-    updateDropdownTrigger(category);
-    updateToggleAllCheckbox(category);
-    updateApplyButton();
-}
+// Every dimension dropdown is a <ql-dropdown> component (see index.html);
+// the functions below drive the component API. Selection state flows back
+// through the component's change event (handleDropdownChange).
 
 export function toggleAllFilterValues(category, checked) {
     const dropdown = document.querySelector(`ql-dropdown[data-category="${category}"]`);
-
-    // Use component API if available
     if (dropdown && typeof dropdown.selectAll === 'function') {
         dropdown.selectAll(checked);
-        // State update happens via change event handler
-        return;
     }
-
-    // Fallback for non-component dropdowns
-    const list = document.getElementById(`dropdownList-${category}`);
-    if (!list) return;
-
-    const items = list.querySelectorAll('.filter-dropdown-item');
-    const values = Array.from(items).map(item => item.dataset.value);
-    const filters = { ...currentFilters };
-
-    if (checked) {
-        // Select all
-        filters[category] = [...values];
-        items.forEach(item => {
-            item.classList.add('selected');
-            const cb = item.querySelector('.filter-item-checkbox');
-            if (cb) cb.checked = true;
-        });
-    } else {
-        // Deselect all
-        delete filters[category];
-        items.forEach(item => {
-            item.classList.remove('selected');
-            const cb = item.querySelector('.filter-item-checkbox');
-            if (cb) cb.checked = false;
-        });
-    }
-
-    setCurrentFilters(filters);
-    updateDropdownTrigger(category);
-    updateApplyButton();
 }
 
 export function updateToggleAllCheckbox(category) {
     const dropdown = document.querySelector(`ql-dropdown[data-category="${category}"]`);
-
-    // Use component's internal method if available
     if (dropdown && typeof dropdown._updateToggleAll === 'function') {
         dropdown._updateToggleAll();
-        return;
     }
-
-    // Fallback for non-component dropdowns
-    const legacyDropdown = document.querySelector(`.filter-dropdown[data-category="${category}"]`);
-    const checkbox = legacyDropdown?.querySelector('.filter-dropdown-toggle-all');
-    const list = document.getElementById(`dropdownList-${category}`);
-    if (!checkbox || !list) return;
-
-    const items = list.querySelectorAll('.filter-dropdown-item');
-    const selectedCount = currentFilters[category]?.length || 0;
-
-    checkbox.checked = selectedCount === items.length && items.length > 0;
-    checkbox.indeterminate = selectedCount > 0 && selectedCount < items.length;
 }
 
 export function clearCategoryFilter(category) {
     const dropdown = document.querySelector(`ql-dropdown[data-category="${category}"]`);
-
-    // Use component API if available
     if (dropdown && typeof dropdown.clearSelection === 'function') {
         dropdown.clearSelection();
-        // State update happens via change event handler
-        return;
     }
-
-    // Fallback for non-component dropdowns
-    const filters = { ...currentFilters };
-    delete filters[category];
-    setCurrentFilters(filters);
-
-    // Update UI - unselect items in this dropdown
-    const list = document.getElementById(`dropdownList-${category}`);
-    if (list) {
-        list.querySelectorAll('.filter-dropdown-item.selected').forEach(item => {
-            item.classList.remove('selected');
-            const cb = item.querySelector('.filter-item-checkbox');
-            if (cb) cb.checked = false;
-        });
-    }
-
-    updateToggleAllCheckbox(category);
-    updateDropdownTrigger(category);
-    updateApplyButton();
 }
 
 // ===== Dropdown Trigger Updates =====
@@ -459,24 +366,11 @@ export function updateDropdownTrigger(category) {
     const dropdown = document.querySelector(`.filter-dropdown[data-category="${category}"]`);
     if (!dropdown) return;
 
-    const count = currentFilters[category]?.length || 0;
-
-    // Use component API if available (ql-dropdown)
+    // Component API only: the count setter updates the trigger badge and the
+    // has-selection styling. Non-component elements (e.g. the split control)
+    // manage their own count display.
     if ('count' in dropdown) {
-        dropdown.count = count;
-    } else {
-        // Fallback for non-component dropdowns
-        const trigger = dropdown.querySelector('.filter-dropdown-trigger');
-        const countEl = dropdown.querySelector('.filter-dropdown-count');
-        if (count > 0) {
-            dropdown.classList.add('has-selection');
-            trigger?.classList.add('has-selection');
-            if (countEl) countEl.textContent = `(${count})`;
-        } else {
-            dropdown.classList.remove('has-selection');
-            trigger?.classList.remove('has-selection');
-            if (countEl) countEl.textContent = '';
-        }
+        dropdown.count = currentFilters[category]?.length || 0;
     }
 }
 
@@ -665,8 +559,6 @@ function handleDropdownChange(e) {
 export function exposeFilterGlobals() {
     window.toggleDropdown = toggleDropdown;
     window.searchDropdown = searchDropdown;
-    window.toggleFilterValue = toggleFilterValue;
     window.toggleAllFilterValues = toggleAllFilterValues;
     window.clearCategoryFilter = clearCategoryFilter;
-    window.applyTimeFilter = () => { closeAllDropdowns(); updateApplyButton(); };
 }

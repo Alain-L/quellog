@@ -197,9 +197,8 @@ describe('fmtDur (Go duration strings)', () => {
     });
 
     it('cleans up fractional-second Go durations', () => {
-        // TODO(bug): the doc-comment in utils.js:141 promises
-        // "2m7.663353305s" -> "2m 7s" but seconds are Math.round()ed,
-        // giving "2m 8s". Doc and code disagree; encoding current behavior.
+        // Seconds are Math.round()ed when combined with larger units,
+        // as documented in the fmtDur doc-comment.
         assert.equal(fmtDur('2m7.663353305s'), '2m 8s');
         assert.equal(fmtDur('1.5s'), '1.50s');
     });

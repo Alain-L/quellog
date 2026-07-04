@@ -12,8 +12,21 @@ export function fmt(n) {
     return n?.toLocaleString() ?? '0';
 }
 
-// Duration formatter (native Intl API)
-const durationFmt = new Intl.DurationFormat('en', { style: 'narrow' });
+// Duration formatter (native Intl API when available). Older browsers lack
+// Intl.DurationFormat; fall back to a small formatter approximating the
+// narrow style ("1h 2m 3s") so module load doesn't throw.
+const durationFmt = typeof Intl !== 'undefined' && typeof Intl.DurationFormat === 'function'
+    ? new Intl.DurationFormat('en', { style: 'narrow' })
+    : {
+        format(d) {
+            const parts = [];
+            if (d.days) parts.push(d.days + 'd');
+            if (d.hours) parts.push(d.hours + 'h');
+            if (d.minutes) parts.push(d.minutes + 'm');
+            if (d.seconds) parts.push(d.seconds + 's');
+            return parts.join(' ');
+        }
+    };
 
 /**
  * Format milliseconds to human-readable duration using native Intl.DurationFormat.
@@ -138,7 +151,9 @@ export function fmtMs(ms) {
 }
 
 /**
- * Format/clean duration strings from Go backend (e.g. "2m7.663353305s" -> "2m 7s").
+ * Format/clean duration strings from Go backend. Fractional seconds are
+ * rounded to the nearest whole second when combined with larger units
+ * (e.g. "2m7.663353305s" -> "2m 8s").
  * @param {string} s - Duration string in Go format
  * @returns {string}
  */

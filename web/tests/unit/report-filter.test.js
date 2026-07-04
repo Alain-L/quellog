@@ -184,11 +184,9 @@ describe('applyReportTimeFilter', () => {
         assert.equal(sql.query_99th_percentile, '500.0ms'); // idx floor(4*0.99)=3
         assert.equal(sql.top_1_percent_slow_queries, 1);    // only the 500ms one
 
-        // TODO(bug): report-filter.js:132 computes
-        // fmtDuration(stats.total / 1000) — stats.total is already in ms, so
-        // the displayed grand total is 1000x too small: 1100ms shows as "1ms"
-        // instead of ~"1s". Encoding current (wrong) behavior.
-        assert.equal(sql.total_query_duration, '1ms');
+        // stats.total is in ms; 1100ms formats as "1s" (fmtDuration floors
+        // to whole seconds above the sub-second range).
+        assert.equal(sql.total_query_duration, '1s');
     });
 
     it('re-aggregates per-query stats and drops out-of-range queries', () => {

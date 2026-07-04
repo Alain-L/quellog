@@ -129,7 +129,7 @@ function reaggregateSqlPerformance(original, filteredExecutions) {
     const stats = calculateDurationStats(durations);
     result.total_queries_parsed = filteredExecutions.length;
     result.total_unique_queries = queryStats.size;
-    result.total_query_duration = fmtDuration(stats.total / 1000);
+    result.total_query_duration = fmtDuration(stats.total);
     result.query_min_duration = fmtMs(stats.min);
     result.query_max_duration = fmtMs(stats.max);
     result.query_median_duration = fmtMs(stats.median);

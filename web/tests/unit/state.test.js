@@ -129,6 +129,23 @@ describe('clearAllCharts', () => {
         state.clearAllCharts(); // leave a clean slate
     });
 
+    it('disconnects a chart ResizeObserver (_ro) before destroy', () => {
+        const calls = [];
+        state.charts.set('with-ro', {
+            _ro: { disconnect() { calls.push('disconnect'); } },
+            destroy() { calls.push('destroy'); }
+        });
+        state.charts.set('without-ro', { destroy() { calls.push('plain-destroy'); } });
+
+        state.clearAllCharts();
+
+        // Observer disconnected before its chart is destroyed; charts without
+        // an observer are tolerated.
+        assert.deepEqual(calls.filter(c => c !== 'plain-destroy'), ['disconnect', 'destroy']);
+        assert.ok(calls.includes('plain-destroy'));
+        assert.equal(state.charts.size, 0);
+    });
+
     it('swallows a throwing destroy() and still clears everything', () => {
         const destroyed = [];
         state.charts.set('bad', { destroy() { throw new Error('boom'); } });

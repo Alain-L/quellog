@@ -21,8 +21,8 @@ import {
     setupDragDrop, showLoading, hideLoading, showDropZone
 } from './js/file-handler.js';
 import {
-    chartData, createTimeChart, createDurationChart, createCombinedSQLChart,
-    createConcurrentChart, createHistogramChart, createCheckpointChart, createWALDistanceChart, createCombinedTempFilesChart,
+    chartData, clearChartData, createTimeChart, createDurationChart, createCombinedSQLChart,
+    createConcurrentChart, createCheckpointChart, createWALDistanceChart, createCombinedTempFilesChart,
     buildChartContainer, closeChartModal, updateModalInterval, resetModalZoom, exportChartPNG,
     resetChartZoom, openChartModal, updateChartInterval, toggleCombinedSeries, exportChartById,
     createCostMapChart, resetCostMapZoom, openCostMapModal
@@ -104,6 +104,7 @@ import './js/components/ql-dropdown.js';
         async function runAnalysis(getContent, name, size) {
             showLoading(dropZone, loading, results);
             clearAllCharts();
+            clearChartData();
             setProgress(5, 'Initializing...');
 
             try {
@@ -192,7 +193,7 @@ import './js/components/ql-dropdown.js';
 
             // Clear previous chart data
             chartData.clear();
-            charts.forEach(c => c.destroy());
+            charts.forEach(c => { c._ro?.disconnect(); c.destroy(); });
             charts.clear();
 
             // In report mode, store original data for client-side filtering
@@ -256,33 +257,37 @@ import './js/components/ql-dropdown.js';
             wireTimeFilter();
 
             // Create uPlot charts after DOM is ready
-            requestAnimationFrame(() => {
-                chartData.forEach((data, chartId) => {
-                    const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
-                    const color = chartId.includes('tempfiles') ? accentColor : null;
-                    // Check data type: checkpoints (stacked), sessions (sweep-line), histogram (pre-computed), duration, combined, tempfiles, or timestamps
-                    if (data?.type === 'wal-distance') {
-                        createWALDistanceChart(chartId, data);
-                    } else if (data?.type === 'checkpoints') {
-                        createCheckpointChart(chartId, data);
-                    } else if (data?.type === 'sessions') {
-                        createConcurrentChart(chartId, data.data, { color: color || 'var(--accent)', logStart: data.logStart, logEnd: data.logEnd });
-                    } else if (data?.type === 'histogram') {
-                        createHistogramChart(chartId, data.data, { color: color || 'var(--accent)' });
-                    } else if (data?.type === 'duration') {
-                        createDurationChart(chartId, data.data, { color: accentColor });
-                    } else if (data?.type === 'combined') {
-                        createCombinedSQLChart(chartId, data.data);
-                    } else if (data?.type === 'combined-tempfiles') {
-                        createCombinedTempFilesChart(chartId, data.events);
-                    } else if (data?.type === 'costmap') {
-                        createCostMapChart(chartId, data.queries);
-                    } else {
-                        createTimeChart(chartId, data, { color });
-                    }
-                });
-            });
+            requestAnimationFrame(buildAllCharts);
 
+        }
+
+        // Build (or rebuild) every inline chart from the chartData registry.
+        // Runs after renderResults populates the DOM, and again on theme
+        // toggle: chart colors are resolved at build time, so a palette change
+        // needs a rebuild (each builder destroys its previous instance first).
+        function buildAllCharts() {
+            chartData.forEach((data, chartId) => {
+                const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+                const color = chartId.includes('tempfiles') ? accentColor : null;
+                // Check data type: checkpoints (stacked), sessions (sweep-line), duration, combined, tempfiles, costmap, or timestamps
+                if (data?.type === 'wal-distance') {
+                    createWALDistanceChart(chartId, data);
+                } else if (data?.type === 'checkpoints') {
+                    createCheckpointChart(chartId, data);
+                } else if (data?.type === 'sessions') {
+                    createConcurrentChart(chartId, data.data, { color: color || 'var(--accent)', logStart: data.logStart, logEnd: data.logEnd });
+                } else if (data?.type === 'duration') {
+                    createDurationChart(chartId, data.data, { color: accentColor });
+                } else if (data?.type === 'combined') {
+                    createCombinedSQLChart(chartId, data.data);
+                } else if (data?.type === 'combined-tempfiles') {
+                    createCombinedTempFilesChart(chartId, data.events);
+                } else if (data?.type === 'costmap') {
+                    createCostMapChart(chartId, data.queries);
+                } else {
+                    createTimeChart(chartId, data, { color });
+                }
+            });
         }
 
         // Section builders
@@ -2504,12 +2509,6 @@ function buildEventsSection(data) {
             `;
         }
 
-        function copyQuery(index) {
-            const q = analysisData.sql_performance.queries[index];
-            navigator.clipboard.writeText(q.full_query || q.normalized_query);
-            alert('Query copied to clipboard');
-        }
-
         // Event detail modal — full message + occurrences-over-time sparkline
         function showEventDetail(index, opts = {}) {
             const e = analysisData.top_events?.[index];
@@ -2582,10 +2581,6 @@ function buildEventsSection(data) {
                 : getComputedStyle(document.documentElement).getPropertyValue('--chart-bar').trim();
             requestAnimationFrame(() => createTimeChart('eventModalChart', ts, { color: sevColorResolved, height: 180 }));
             if (opts.flashId) flashAndScroll(opts.flashId);
-        }
-
-        function closeModal() {
-            document.getElementById('queryModal').close();
         }
 
         // Cost map: log-log scatter of every normalized query, positioned by
@@ -3594,13 +3589,17 @@ function buildEventsSection(data) {
         window.toggleClientIO = toggleClientIO;
         window.showMaintRibbon = showMaintRibbon;
         window.showAnalyzeSort = showAnalyzeSort;
-        window.copyQuery = copyQuery;
         window.showEventDetail = showEventDetail;
         window.navigateToQuery = navigateToQuery;
         window.navigateToEvent = navigateToEvent;
         window.modalBack = modalBack;
-        window.closeModal = closeModal;
-        window.toggleTheme = toggleTheme;
+        window.toggleTheme = () => {
+            toggleTheme();
+            // Chart colors are resolved at build time; rebuild the inline
+            // charts so they pick up the new theme palette. Modal charts are
+            // rebuilt on open, so they need no special handling here.
+            if (chartData.size > 0) requestAnimationFrame(buildAllCharts);
+        };
         window.closeChartModal = closeChartModal;
         window.updateModalInterval = updateModalInterval;
         window.resetModalZoom = resetModalZoom;
