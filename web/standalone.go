@@ -251,8 +251,9 @@ window.reinitWasm=async function(){
 })();
 `, uplotJS, wasmB64, fzstdB64, demoB64, demoName, wasmExecMin)
 
-	// Extract body content from template
-	bodyRe := regexp.MustCompile(`(?s)<body>(.*?)<!-- Scripts -->`)
+	// Extract body content from template, delimited by the explicit QL:BODY
+	// markers (kept in sync with output/html.go).
+	bodyRe := regexp.MustCompile(`(?s)<!-- QL:BODY:BEGIN -->(.*?)<!-- QL:BODY:END -->`)
 	bodyMatch := bodyRe.FindStringSubmatch(html)
 	bodyContent := ""
 	if len(bodyMatch) > 1 {

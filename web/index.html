@@ -7,6 +7,8 @@
     <link rel="stylesheet" href="styles.css?v=2">
 </head>
 <body>
+<!-- Report body is extracted between the QL:BODY markers by output/html.go and web/standalone.go; do not remove or rename them. -->
+<!-- QL:BODY:BEGIN -->
 <!-- Chart Modal -->
     <div class="chart-modal" id="chartModal" onclick="if(event.target === this) closeChartModal()">
         <div class="chart-modal-content">
@@ -156,6 +158,7 @@
         <span slot="title">Event Detail</span>
         <div slot="body" id="eventModalBody"></div>
     </ql-modal>
+<!-- QL:BODY:END -->
 
     <!-- Scripts -->
     <script src="uplot.min.js"></script>

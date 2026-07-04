@@ -56,9 +56,12 @@ func minifyCSS(css string) string {
 	return strings.TrimSpace(css)
 }
 
-// extractBodyContent extracts content between <body> and <script from index.html
+// extractBodyContent extracts the report body from index.html, delimited by the
+// explicit QL:BODY markers (kept in sync with web/standalone.go). Using markers
+// rather than scanning to the first <script>/comment keeps the extraction stable
+// if scripts or comments move within the body.
 func extractBodyContent(html string) string {
-	re := regexp.MustCompile(`(?s)<body>(.*?)<script`)
+	re := regexp.MustCompile(`(?s)<!-- QL:BODY:BEGIN -->(.*?)<!-- QL:BODY:END -->`)
 	match := re.FindStringSubmatch(html)
 	if len(match) > 1 {
 		body := strings.TrimSpace(match[1])
