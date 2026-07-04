@@ -200,6 +200,13 @@ export function fmtDur(s) {
     return parts.length > 0 ? parts.join(' ') : s;
 }
 
+/**
+ * Parse a duration string (Go format or fmtDur output, e.g. "1h 2m 3s",
+ * "2m7.66s", "153 ms") into milliseconds. Missing units contribute 0;
+ * non-string input is coerced with Number().
+ * @param {string|number} s - Duration string (or already-numeric ms)
+ * @returns {number} Duration in milliseconds
+ */
 export function parseDurToMs(s) {
     if (!s || s === '-') return 0;
     if (typeof s !== 'string') return Number(s) || 0;
@@ -227,10 +234,15 @@ export function esc(s) {
     return d.innerHTML;
 }
 
-// escAttr escapes a string for safe interpolation inside a double-quoted HTML
-// attribute value. esc() (textContent→innerHTML) escapes & < > but NOT the
-// quote chars, so a log-derived value containing " could break out of an
-// attribute and inject a handler. escAttr handles the quotes too.
+/**
+ * Escape a string for safe interpolation inside a double-quoted HTML
+ * attribute value. esc() (textContent→innerHTML) escapes & < > but NOT the
+ * quote chars, so a log-derived value containing " could break out of an
+ * attribute and inject a handler. escAttr handles the quotes too.
+ * Pure string replacement — no DOM.
+ * @param {*} s - Value to escape (stringified; null/undefined -> '')
+ * @returns {string}
+ */
 export function escAttr(s) {
     if (s === null || s === undefined) return '';
     return String(s)
@@ -258,6 +270,12 @@ export function escForJsAttr(s) {
         .replace(/\n/g, '\\n');
 }
 
+/**
+ * Truncate a query string to `max` characters, appending an ellipsis.
+ * @param {string} s - Query text
+ * @param {number} [max=120] - Maximum length before truncation
+ * @returns {string}
+ */
 export function truncQuery(s, max = 120) {
     if (!s || s.length <= max) return s;
     return s.slice(0, max) + '…';
