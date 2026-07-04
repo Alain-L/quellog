@@ -2,6 +2,7 @@
 // This module handles time range filtering for the HTML report export
 
 import { fmtBytes, fmtDuration, fmtMs } from './utils.js';
+import { parseSizeToBytesStrict } from './format.js';
 
 // Store original unfiltered data
 let originalData = null;
@@ -50,22 +51,6 @@ function filterEventsByTime(events, beginDate, endDate, tsField = 'timestamp') {
         if (!ts) return false;
         return ts >= beginDate && ts <= endDate;
     });
-}
-
-/**
- * Parse size string to bytes (e.g., "50 MB" -> 52428800)
- * @param {string} sizeStr - Size string with unit
- * @returns {number} Size in bytes
- */
-function parseSizeToBytes(sizeStr) {
-    if (!sizeStr || typeof sizeStr !== 'string') return 0;
-    const match = sizeStr.match(/^([\d.]+)\s*(B|KB|MB|GB|TB)?$/i);
-    if (!match) return 0;
-
-    const value = parseFloat(match[1]);
-    const unit = (match[2] || 'B').toUpperCase();
-    const multipliers = { B: 1, KB: 1024, MB: 1024**2, GB: 1024**3, TB: 1024**4 };
-    return Math.round(value * (multipliers[unit] || 1));
 }
 
 /**
@@ -175,7 +160,7 @@ function reaggregateTempFiles(original, filteredEvents) {
     // Recalculate totals
     let totalBytes = 0;
     for (const event of filteredEvents) {
-        totalBytes += parseSizeToBytes(event.size);
+        totalBytes += parseSizeToBytesStrict(event.size);
     }
 
     result.total_messages = filteredEvents.length;

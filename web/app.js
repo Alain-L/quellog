@@ -1,5 +1,6 @@
 // ES Module imports
 import { fmt, fmtDuration, fmtDurationCoarse, fmtBytes, fmtCompact, fmtMs, fmtDur, parseDurToMs, esc, escForJsAttr, truncQuery, safeMax, safeMin } from './js/utils.js';
+import { parseSizeToBytes } from './js/format.js';
 import {
     wasmModule, wasmReady, analysisData, currentFileContent, currentFileName, currentFileSize, originalDimensions,
     charts, modalCharts, modalChartsData, modalChartCounter, chartIntervalMap, defaultInterval,
@@ -3278,19 +3279,6 @@ function buildEventsSection(data) {
             if (sMatch) ms += parseFloat(sMatch[1]) * 1000;
             if (msMatch) ms += parseFloat(msMatch[1]);
             return ms;
-        }
-
-        function parseSizeToBytes(size) {
-            if (!size || typeof size !== 'string') return 0;
-            const match = size.match(/([\d.]+)\s*(KB|MB|GB|TB|B)/i);
-            if (!match) return parseFloat(size) || 0;
-            const val = parseFloat(match[1]);
-            const unit = match[2].toUpperCase();
-            if (unit === 'TB') return val * 1024 * 1024 * 1024 * 1024;
-            if (unit === 'GB') return val * 1024 * 1024 * 1024;
-            if (unit === 'MB') return val * 1024 * 1024;
-            if (unit === 'KB') return val * 1024;
-            return val;
         }
 
         function formatSQL(sql) {

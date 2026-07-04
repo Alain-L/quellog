@@ -73,18 +73,9 @@ export function safeMin(arr) {
     return arr.length === 0 ? 0 : arr.reduce((a, b) => a < b ? a : b, arr[0]);
 }
 
-/**
- * Format bytes to human-readable size.
- * @param {number} b - Bytes
- * @returns {string}
- */
-export function fmtBytes(b) {
-    const strip = v => v.replace(/\.0$/, '');
-    if (b < 1024) return b + ' B';
-    if (b < 1024 * 1024) return Math.round(b / 1024) + ' KB';
-    if (b < 1024 * 1024 * 1024) return Math.round(b / 1024 / 1024) + ' MB';
-    return strip((b / 1024 / 1024 / 1024).toFixed(1)) + ' GB';
-}
+// Byte formatting lives in format.js (single unit table); re-exported here
+// for back-compat so existing importers keep working unchanged.
+export { fmtBytes } from './format.js';
 
 /**
  * Coarser duration formatter that keeps only the two most significant
