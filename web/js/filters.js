@@ -539,6 +539,10 @@ export function setupFilterEventListeners() {
 
 // Handle selection change from ql-dropdown component
 function handleDropdownChange(e) {
+    // A ql-dropdown selection dispatches a CustomEvent carrying {category, values}.
+    // The dropdown's inner native checkbox/input also fires a bubbling 'change'
+    // with no detail; ignore it rather than throwing on the destructure below.
+    if (!e.detail) return;
     const { category, values } = e.detail;
     if (!category) return;
 
