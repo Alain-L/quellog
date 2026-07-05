@@ -44,7 +44,7 @@ export function loadWasm() {
         return Promise.resolve();
     }
 
-    return fetch('quellog.wasm')
+    return fetch('quellog_tiny.wasm')
         .then(response => response.arrayBuffer())
         .then(buffer => WebAssembly.compile(buffer))
         .then(module => {
