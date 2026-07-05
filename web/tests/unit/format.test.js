@@ -7,7 +7,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-    fmtBytes, fmtBytesPrecise, fmtBytesShort,
+    fmtBytes, fmtBytesPrecise, fmtBytesShort, fmtBytesFull,
     parseSizeToBytes, parseSizeToBytesStrict
 } from '../../js/format.js';
 
@@ -181,5 +181,23 @@ describe('parseSizeToBytesStrict (report-filter variant)', () => {
         assert.equal(parseSizeToBytesStrict(' 1 KB'), 0);      // leading space fails ^
         assert.equal(parseSizeToBytesStrict('-5 KB'), 0);
         assert.equal(parseSizeToBytesStrict('abc'), 0);
+    });
+});
+
+describe('fmtBytesFull (backend FormatBytes parity)', () => {
+    it('formats bytes below 1 KiB as an integer', () => {
+        assert.equal(fmtBytesFull(0), '0 B');
+        assert.equal(fmtBytesFull(512), '512 B');
+        assert.equal(fmtBytesFull(1023), '1023 B');
+    });
+    it('formats KB/MB/GB/TB with two decimals (1024-based)', () => {
+        assert.equal(fmtBytesFull(1024), '1.00 KB');
+        assert.equal(fmtBytesFull(1536), '1.50 KB');
+        assert.equal(fmtBytesFull(1024 ** 2), '1.00 MB');
+        assert.equal(fmtBytesFull(1024 ** 3), '1.00 GB');
+        assert.equal(fmtBytesFull(1024 ** 4), '1.00 TB');
+    });
+    it('keeps a TB tier (unlike the GB-capped formatters)', () => {
+        assert.equal(fmtBytesFull(2.5 * 1024 ** 4), '2.50 TB');
     });
 });

@@ -1,8 +1,8 @@
 // Report mode time filtering - client-side filtering and re-aggregation
 // This module handles time range filtering for the HTML report export
 
-import { fmtBytes, fmtDuration, fmtMs } from './utils.js';
-import { parseSizeToBytesStrict } from './format.js';
+import { fmtQueryDuration } from './utils.js';
+import { parseSizeToBytesStrict, fmtBytesFull } from './format.js';
 
 /**
  * One logged query execution from the payload's
@@ -135,11 +135,13 @@ function reaggregateSqlPerformance(original, filteredExecutions) {
     const stats = calculateDurationStats(durations);
     result.total_queries_parsed = filteredExecutions.length;
     result.total_unique_queries = queryStats.size;
-    result.total_query_duration = fmtDuration(stats.total);
-    result.query_min_duration = fmtMs(stats.min);
-    result.query_max_duration = fmtMs(stats.max);
-    result.query_median_duration = fmtMs(stats.median);
-    result.query_99th_percentile = fmtMs(stats.p99);
+    // Match the backend's formatQueryDuration so the re-aggregated stat cards
+    // render identically to the unfiltered ones (no lost hour/day tiers).
+    result.total_query_duration = fmtQueryDuration(stats.total);
+    result.query_min_duration = fmtQueryDuration(stats.min);
+    result.query_max_duration = fmtQueryDuration(stats.max);
+    result.query_median_duration = fmtQueryDuration(stats.median);
+    result.query_99th_percentile = fmtQueryDuration(stats.p99);
 
     // Top 1% slow queries
     const p99Threshold = stats.p99;
@@ -179,15 +181,20 @@ function reaggregateTempFiles(original, filteredEvents) {
     const result = { ...original };
     result.events = filteredEvents;
 
-    // Recalculate totals
-    let totalBytes = 0;
+    // Recalculate totals (max is recomputed too — it was previously left stale).
+    let totalBytes = 0, maxBytes = 0;
     for (const event of filteredEvents) {
-        totalBytes += parseSizeToBytesStrict(event.size);
+        const b = parseSizeToBytesStrict(event.size);
+        totalBytes += b;
+        if (b > maxBytes) maxBytes = b;
     }
 
     result.total_messages = filteredEvents.length;
-    result.total_size = fmtBytes(totalBytes);
-    result.avg_size = filteredEvents.length > 0 ? fmtBytes(totalBytes / filteredEvents.length) : '0 B';
+    // fmtBytesFull matches the backend FormatBytes (2 decimals) so the cards,
+    // which render these raw, keep their format after filtering.
+    result.total_size = fmtBytesFull(totalBytes);
+    result.avg_size = filteredEvents.length > 0 ? fmtBytesFull(totalBytes / filteredEvents.length) : '0 B';
+    result.max_size = filteredEvents.length > 0 ? fmtBytesFull(maxBytes) : '-';
 
     return result;
 }
@@ -216,11 +223,14 @@ function reaggregateCheckpoints(original, filteredEvents, beginDate, endDate) {
         );
     }
 
-    // Filter warning events by time range
+    // Filter warning events by time range, and keep warning_count in step —
+    // the "Too Frequent" card reads warning_count, which used to stay at the
+    // full-log value while its events were filtered (contradictory card).
     if (original.warning_events) {
         result.warning_events = filterEventsByTime(
             original.warning_events, beginDate, endDate
         );
+        result.warning_count = result.warning_events.length;
     }
 
     // Recalculate types from filtered events

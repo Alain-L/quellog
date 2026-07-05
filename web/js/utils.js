@@ -223,6 +223,29 @@ export function parseDurToMs(s) {
 }
 
 /**
+ * Format a millisecond duration exactly like the Go backend's
+ * formatQueryDuration (output/format.go): "512 ms" / "42.50 s" /
+ * "42m 05s" / "1h 12m 50s" / "2d 3h 04m". Used by the report time-filter
+ * re-aggregation so recomputed durations render identically to the
+ * originals produced by the backend (the stat cards re-parse via fmtDur).
+ * @param {number} ms - Duration in milliseconds
+ * @returns {string}
+ */
+export function fmtQueryDuration(ms) {
+    const S = 1000, M = 60 * S, H = 60 * M, D = 24 * H;
+    if (ms < S) return `${Math.trunc(ms)} ms`;
+    if (ms < M) return `${(ms / S).toFixed(2)} s`;
+    const pad = n => String(n).padStart(2, '0');
+    if (ms < H) {
+        return `${Math.trunc(ms / M)}m ${pad(Math.trunc((ms % M) / S))}s`;
+    }
+    if (ms < D) {
+        return `${Math.trunc(ms / H)}h ${pad(Math.trunc((ms % H) / M))}m ${pad(Math.trunc((ms % M) / S))}s`;
+    }
+    return `${Math.trunc(ms / D)}d ${Math.trunc((ms % D) / H)}h ${pad(Math.trunc((ms % H) / M))}m`;
+}
+
+/**
  * Escape HTML special characters.
  * @param {string} s
  * @returns {string}

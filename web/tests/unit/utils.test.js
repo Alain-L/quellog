@@ -11,7 +11,8 @@ import assert from 'node:assert/strict';
 
 import {
     fmt, fmtDuration, fmtDurationCoarse, fmtBytes, fmtCompact,
-    fmtMs, fmtDur, parseDurToMs, safeMax, safeMin, escAttr, truncQuery
+    fmtMs, fmtDur, parseDurToMs, safeMax, safeMin, escAttr, truncQuery,
+    fmtQueryDuration
 } from '../../js/utils.js';
 
 // Same formatter the module uses internally.
@@ -325,5 +326,25 @@ describe('truncQuery', () => {
     it('honors a custom max', () => {
         assert.equal(truncQuery('abcdefgh', 5), 'abcde…');
         assert.equal(truncQuery('abcde', 5), 'abcde');
+    });
+});
+
+describe('fmtQueryDuration (backend formatQueryDuration parity)', () => {
+    it('renders sub-second as whole milliseconds', () => {
+        assert.equal(fmtQueryDuration(0), '0 ms');
+        assert.equal(fmtQueryDuration(512), '512 ms');
+        assert.equal(fmtQueryDuration(999), '999 ms');
+    });
+    it('renders the second tier with two decimals', () => {
+        assert.equal(fmtQueryDuration(1000), '1.00 s');
+        assert.equal(fmtQueryDuration(42500), '42.50 s');
+    });
+    it('renders minute and hour tiers with zero-padded lower units', () => {
+        assert.equal(fmtQueryDuration(60000), '1m 00s');
+        assert.equal(fmtQueryDuration(2525000), '42m 05s');   // 42m 5s
+        assert.equal(fmtQueryDuration(4370000), '1h 12m 50s');
+    });
+    it('renders the day tier without seconds', () => {
+        assert.equal(fmtQueryDuration(90061000), '1d 1h 01m');
     });
 });

@@ -28,7 +28,11 @@ All notable changes to this project will be documented in this file.
 - **Time-series charts show the date on multi-day spans**: their x-axes were time-only (`00:00`, `06:00`, …), ambiguous across days; they now add the date at each day boundary, like the concurrent-sessions chart already did.
 - **Report duration tile no longer shows `0s` for spans of 24h or more**: the HTML report's duration now renders days (e.g. `1d`, `2d3h`) instead of dropping a day-formatted value.
 - **Maintenance elapsed times rounded to the microsecond**: a cumulative vacuum/analyze time could display e.g. `2s` for a true `3.0s` total due to float-summation noise; the rounded value is now correct and stable.
-- **Time-filtered reports showed the total query duration 1000× too small**: filtering by time divided the recomputed total by an extra 1000 (e.g. `1s` shown as `1ms`); it now matches.
+- **Time-filtering the report kept several cards on stale or reformatted values**: after moving the time slider, SQL min/max/median/p99 lost their hour tier (a `1h 12m 50s` max showed as `72m`), temp-file totals changed number format, and the checkpoints "Too Frequent" count stayed at the full-log value while its section shrank. They are re-aggregated correctly now.
+- **The SQL duration-distribution band disagreed with the CLI**: the HTML re-bucketed queries by their average duration instead of using the exact per-execution distribution the report already carries; it now matches the `--full` text output.
+- **The query-detail modal's duration histogram never rendered**: it read a field that no longer exists, so every value was zero and the block was dropped.
+- **Event-detail "First seen" / "Last seen" were shown in UTC**: they shifted the day for non-UTC logs; now shown in the log's own clock, like the rest of the report.
+- **Split-report period-heatmap bounds could read "00:00 … 00:00"**: an intraday split spanning more than one day rendered both ends dateless; they now carry the date when the split crosses days.
 - **Charts kept stale colors after a theme switch**: toggling dark/light left existing charts mixing old and new colors until the next reload; they now repaint on toggle.
 - **HTML report could fail to load on older browsers**: it relied on `Intl.DurationFormat` with no fallback; a local formatter now covers browsers that lack it.
 
