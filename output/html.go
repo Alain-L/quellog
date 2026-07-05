@@ -45,8 +45,8 @@ type HTMLReportInfo struct {
 
 // minifyCSS performs basic CSS minification.
 func minifyCSS(css string) string {
-	// Remove comments
-	css = regexp.MustCompile(`/\*.*?\*/`).ReplaceAllString(css, "")
+	// Remove comments (?s so multi-line comments are matched, not just single-line)
+	css = regexp.MustCompile(`(?s)/\*.*?\*/`).ReplaceAllString(css, "")
 	// Collapse whitespace
 	css = regexp.MustCompile(`\s+`).ReplaceAllString(css, " ")
 	// Remove space around punctuation
