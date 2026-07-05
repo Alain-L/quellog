@@ -74,8 +74,10 @@ func minifyCSS(css string) string {
 	css = regexp.MustCompile(`/\*[\s\S]*?\*/`).ReplaceAllString(css, "")
 	// Collapse whitespace
 	css = regexp.MustCompile(`\s+`).ReplaceAllString(css, " ")
-	// Remove space around punctuation
-	css = regexp.MustCompile(`\s*([{};:,>~+])\s*`).ReplaceAllString(css, "$1")
+	// Remove space around punctuation. '+' is intentionally excluded: it is
+	// ambiguous with calc() addition (calc(100% + 4px)), where CSS requires the
+	// spaces and Chrome drops the whole declaration without them.
+	css = regexp.MustCompile(`\s*([{};:,>~])\s*`).ReplaceAllString(css, "$1")
 	return strings.TrimSpace(css)
 }
 
