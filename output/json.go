@@ -561,6 +561,16 @@ type ConnectionsJSON struct {
 	// Raw events
 	Connections   lazyConnections   `json:"connections"`
 	SessionEvents lazySessionEvents `json:"session_events,omitempty"`
+
+	// Reverse lookup tables for the interned per-session entity indices
+	// (u/db/h) carried by each session_events item — index 0 is always ""
+	// (unknown). Lets the report's time filter re-scope
+	// sessions_by_user/database/host from session_events alone, without the
+	// backend retaining an entity string per session. Omitted when no
+	// session ever carried an entity.
+	SessionUsers     []string `json:"session_users,omitempty"`
+	SessionDatabases []string `json:"session_databases,omitempty"`
+	SessionHosts     []string `json:"session_hosts,omitempty"`
 }
 
 // ClientIOFailuresJSON breaks the client I/O failures down by direction
@@ -765,8 +775,9 @@ type lazyTempFileEvents struct {
 	events []analysis.TempFileEvent
 }
 
-// MarshalJSON emits the JSON array of {"s":..,"e":..} objects. Returns
-// `null` for empty so the encoder honors `omitempty` on the field tag.
+// MarshalJSON emits the JSON array of {"s":..,"e":..,"d":..,"u":..,"db":..,
+// "h":..} objects. Returns `null` for empty so the encoder honors
+// `omitempty` on the field tag.
 //
 // Uses time.Time.AppendFormat into a flat []byte instead of bytes.Buffer
 // + Format(): zero intermediate string allocation per event.
@@ -775,8 +786,8 @@ func (l lazySessionEvents) MarshalJSON() ([]byte, error) {
 	if n == 0 {
 		return []byte("null"), nil
 	}
-	// Each event ≈ 52 bytes (`{"s":"...","e":"..."}`). +2 brackets.
-	buf := make([]byte, 0, n*52+2)
+	// Each event ≈ 95 bytes (`{"s":"...","e":"...","d":N,"u":N,"db":N,"h":N}`). +2 brackets.
+	buf := make([]byte, 0, n*95+2)
 	buf = append(buf, '[')
 	first := true
 	l.iterate(func(se analysis.SessionEvent) bool {
@@ -791,7 +802,22 @@ func (l lazySessionEvents) MarshalJSON() ([]byte, error) {
 		buf = se.StartTime.AppendFormat(buf, "2006-01-02T15:04:05")
 		buf = append(buf, `","e":"`...)
 		buf = se.EndTime.AppendFormat(buf, "2006-01-02T15:04:05")
-		buf = append(buf, `"}`...)
+		// d = exact session duration in ms (endMs - startMs). Emitted so the
+		// report's time filter can re-aggregate session stats: the s/e strings
+		// are second-truncated, but d keeps PostgreSQL's sub-second precision.
+		buf = append(buf, `","d":`...)
+		buf = strconv.AppendInt(buf, se.EndTime.Sub(se.StartTime).Milliseconds(), 10)
+		// u/db/h = interned user/database/host indices (0 = unknown); look up
+		// the name via connections.session_users/session_databases/session_hosts.
+		// Lets the report's time filter re-scope the per-entity session
+		// tables without the backend retaining an entity string per session.
+		buf = append(buf, `,"u":`...)
+		buf = strconv.AppendInt(buf, int64(se.UserIdx), 10)
+		buf = append(buf, `,"db":`...)
+		buf = strconv.AppendInt(buf, int64(se.DatabaseIdx), 10)
+		buf = append(buf, `,"h":`...)
+		buf = strconv.AppendInt(buf, int64(se.HostIdx), 10)
+		buf = append(buf, '}')
 		return true
 	})
 	buf = append(buf, ']')
@@ -920,9 +946,9 @@ func streamTimestampsJSON(bw *bufio.Writer, src lazyConnections, prefix, indent 
 }
 
 // streamSessionEventsJSON writes session events as a JSON array of
-// {"s":..,"e":..} objects directly to bw. Same zero-buffer streaming as
-// streamTimestampsJSON; iterates either the chunked metrics or a flat
-// slice through the lazySessionEvents wrapper.
+// {"s":..,"e":..,"d":..,"u":..,"db":..,"h":..} objects directly to bw. Same
+// zero-buffer streaming as streamTimestampsJSON; iterates either the
+// chunked metrics or a flat slice through the lazySessionEvents wrapper.
 func streamSessionEventsJSON(bw *bufio.Writer, src lazySessionEvents, prefix, indent string, compact bool) {
 	if src.count() == 0 {
 		bw.WriteString("[]")
@@ -945,7 +971,17 @@ func streamSessionEventsJSON(bw *bufio.Writer, src lazySessionEvents, prefix, in
 			bw.Write(se.StartTime.AppendFormat(buf[:0], "2006-01-02T15:04:05"))
 			bw.WriteString(`","e":"`)
 			bw.Write(se.EndTime.AppendFormat(buf[:0], "2006-01-02T15:04:05"))
-			bw.WriteString(`"}`)
+			bw.WriteString(`","d":`)
+			bw.Write(strconv.AppendInt(buf[:0], se.EndTime.Sub(se.StartTime).Milliseconds(), 10))
+			// u/db/h = interned user/database/host indices (0 = unknown);
+			// resolved via connections.session_users/session_databases/session_hosts.
+			bw.WriteString(`,"u":`)
+			bw.Write(strconv.AppendInt(buf[:0], int64(se.UserIdx), 10))
+			bw.WriteString(`,"db":`)
+			bw.Write(strconv.AppendInt(buf[:0], int64(se.DatabaseIdx), 10))
+			bw.WriteString(`,"h":`)
+			bw.Write(strconv.AppendInt(buf[:0], int64(se.HostIdx), 10))
+			bw.WriteString(`}`)
 			return true
 		})
 		bw.WriteByte(']')
@@ -974,7 +1010,26 @@ func streamSessionEventsJSON(bw *bufio.Writer, src lazySessionEvents, prefix, in
 		bw.WriteString(subInner)
 		bw.WriteString(`"e": "`)
 		bw.Write(se.EndTime.AppendFormat(buf[:0], "2006-01-02T15:04:05"))
-		bw.WriteString(`"`)
+		bw.WriteString(`",`)
+		bw.WriteByte('\n')
+		bw.WriteString(subInner)
+		bw.WriteString(`"d": `)
+		bw.Write(strconv.AppendInt(buf[:0], se.EndTime.Sub(se.StartTime).Milliseconds(), 10))
+		bw.WriteString(`,`)
+		bw.WriteByte('\n')
+		bw.WriteString(subInner)
+		bw.WriteString(`"u": `)
+		bw.Write(strconv.AppendInt(buf[:0], int64(se.UserIdx), 10))
+		bw.WriteString(`,`)
+		bw.WriteByte('\n')
+		bw.WriteString(subInner)
+		bw.WriteString(`"db": `)
+		bw.Write(strconv.AppendInt(buf[:0], int64(se.DatabaseIdx), 10))
+		bw.WriteString(`,`)
+		bw.WriteByte('\n')
+		bw.WriteString(subInner)
+		bw.WriteString(`"h": `)
+		bw.Write(strconv.AppendInt(buf[:0], int64(se.HostIdx), 10))
 		bw.WriteByte('\n')
 		bw.WriteString(inner)
 		bw.WriteByte('}')
@@ -1461,6 +1516,24 @@ func (c ConnectionsJSON) StreamSection(bw *bufio.Writer, prefix, indent string, 
 	if c.SessionEvents.count() > 0 {
 		e.writeKey("session_events")
 		streamSessionEventsJSON(bw, c.SessionEvents, inner, indent, compact)
+	}
+
+	// Reverse lookup tables for the u/db/h indices embedded in session_events
+	// (small — bounded by distinct entity cardinality, never per-session).
+	if len(c.SessionUsers) > 0 {
+		if err := e.emitScalar("session_users", c.SessionUsers); err != nil {
+			return err
+		}
+	}
+	if len(c.SessionDatabases) > 0 {
+		if err := e.emitScalar("session_databases", c.SessionDatabases); err != nil {
+			return err
+		}
+	}
+	if len(c.SessionHosts) > 0 {
+		if err := e.emitScalar("session_hosts", c.SessionHosts); err != nil {
+			return err
+		}
 	}
 
 	if !compact {
@@ -2246,6 +2319,11 @@ func buildJSONData(m analysis.AggregatedMetrics, sections []string, full bool) m
 		// Export session events for client-side sweep-line — lazy wrapper
 		// avoids the per-event []SessionEventJSON intermediate slice.
 		conn.SessionEvents = lazySessionEvents{metrics: &m.Connections}
+		// Reverse tables for the u/db/h indices embedded in each
+		// session_events item (nil when no session ever carried an entity).
+		conn.SessionUsers = m.Connections.SessionUserNames
+		conn.SessionDatabases = m.Connections.SessionDatabaseNames
+		conn.SessionHosts = m.Connections.SessionHostNames
 		data["connections"] = conn
 	}
 

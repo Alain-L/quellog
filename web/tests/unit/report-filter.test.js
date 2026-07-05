@@ -92,14 +92,21 @@ function makeDataset() {
                 '2025-01-01 11:00:00', // exactly at end (inclusive)
                 '2025-01-01 11:00:01'  // one second past
             ],
+            // d = precise duration in ms (kept even though s/e are second-level).
+            // u/db/h = interned user/database/host indices (0 = unknown),
+            // resolved via session_users/session_databases/session_hosts below.
             session_events: [
-                { s: '2025-01-01 09:00:00', e: '2025-01-01 09:30:00' }, // ends before window
-                { s: '2025-01-01 09:30:00', e: '2025-01-01 10:30:00' }, // overlaps start
-                { s: '2025-01-01 10:15:00', e: '2025-01-01 10:45:00' }, // fully inside
-                { s: '2025-01-01 09:00:00', e: '2025-01-01 12:00:00' }, // spans the window
-                { s: '2025-01-01 11:30:00', e: '2025-01-01 12:00:00' }, // starts after window
-                { s: '2025-01-01 10:20:00', e: null }                    // missing end
-            ]
+                { s: '2025-01-01 09:00:00', e: '2025-01-01 09:30:00', d: 1800000, u: 1, db: 1, h: 0 },  // ends before window
+                { s: '2025-01-01 09:30:00', e: '2025-01-01 10:30:00', d: 3600000, u: 2, db: 1, h: 1 },  // ends in window (60m)
+                { s: '2025-01-01 10:15:00', e: '2025-01-01 10:45:00', d: 1800000, u: 1, db: 2, h: 1 },  // ends in window (30m)
+                { s: '2025-01-01 09:00:00', e: '2025-01-01 12:00:00', d: 10800000, u: 2, db: 1, h: 2 }, // ends after window
+                { s: '2025-01-01 11:30:00', e: '2025-01-01 12:00:00', d: 1800000, u: 1, db: 1, h: 0 },  // ends after window
+                { s: '2025-01-01 10:20:00', e: null, d: 60000, u: 2, db: 1, h: 1 }                       // missing end
+            ],
+            // Reverse lookup tables — index 0 is always "" (unknown).
+            session_users: ['', 'admin', 'app_user'],
+            session_databases: ['', 'app_db', 'reporting_db'],
+            session_hosts: ['', 'host_a', 'host_b']
         },
         // A section the filter does not know about must pass through untouched.
         locks: { total_waits: 7 }
@@ -289,6 +296,73 @@ describe('applyReportTimeFilter', () => {
             '2025-01-01 09:00:00'  // spans the whole window
         ]);
         // The session with e: null was dropped (both bounds required).
+    });
+
+    it('recomputes session stats from precise durations of in-window disconnects', () => {
+        const out = quiet(() => applyReportTimeFilter(BEGIN, END));
+        const cn = out.connections;
+        // Only the sessions whose e falls in [10:00, 11:00] count: the 60m and
+        // the 30m ones (the 3h and post-window ones disconnect later).
+        assert.equal(cn.disconnection_count, 2);
+        assert.equal(cn.session_stats.count, 2);
+        assert.equal(cn.session_stats.min_duration, '30m0s');
+        assert.equal(cn.session_stats.max_duration, '1h0m0s');
+        assert.equal(cn.session_stats.avg_duration, '45m0s');
+        assert.equal(cn.session_stats.median_duration, '45m0s');
+        assert.equal(cn.session_stats.cumulated_duration, '1h30m0s');
+        assert.equal(cn.avg_session_time, '45m0s');
+        assert.equal(cn.session_distribution['30min - 2h'], 2);
+        assert.equal(cn.session_distribution['< 1s'], 0);
+        // Peak concurrency within the window: at 10:15 the 60m, 30m and 3h
+        // sessions all overlap.
+        assert.equal(cn.peak_concurrent_sessions, 3);
+    });
+
+    it('rebuilds sessions_by_user/database/host from the in-window disconnects', () => {
+        const out = quiet(() => applyReportTimeFilter(BEGIN, END));
+        const cn = out.connections;
+        // Only the two in-window disconnects contribute: the 60m one
+        // (app_user/app_db/host_a) and the 30m one (admin/reporting_db/host_a).
+        assert.deepEqual(Object.keys(cn.sessions_by_user).sort(), ['admin', 'app_user']);
+        assert.equal(cn.sessions_by_user.admin.count, 1);
+        assert.equal(cn.sessions_by_user.admin.avg_duration, '30m0s');
+        assert.equal(cn.sessions_by_user.app_user.count, 1);
+        assert.equal(cn.sessions_by_user.app_user.avg_duration, '1h0m0s');
+
+        assert.deepEqual(Object.keys(cn.sessions_by_database).sort(), ['app_db', 'reporting_db']);
+        assert.equal(cn.sessions_by_database.app_db.count, 1);
+        assert.equal(cn.sessions_by_database.app_db.avg_duration, '1h0m0s');
+        assert.equal(cn.sessions_by_database.reporting_db.count, 1);
+        assert.equal(cn.sessions_by_database.reporting_db.avg_duration, '30m0s');
+
+        // Both in-window disconnects share host_a: one entity, two sessions,
+        // aggregated stats identical to the overall session_stats above.
+        assert.deepEqual(Object.keys(cn.sessions_by_host), ['host_a']);
+        assert.equal(cn.sessions_by_host.host_a.count, 2);
+        assert.equal(cn.sessions_by_host.host_a.min_duration, '30m0s');
+        assert.equal(cn.sessions_by_host.host_a.max_duration, '1h0m0s');
+        assert.equal(cn.sessions_by_host.host_a.cumulated_duration, '1h30m0s');
+    });
+
+    it('skips index-0 (unknown) entities and tolerates a payload with no lookup tables', () => {
+        setOriginalReportData({
+            summary: { start_date: BEGIN, end_date: END, duration: '1h0m0s' },
+            connections: {
+                connection_count: 0,
+                connections: [],
+                session_events: [
+                    // No session_users/session_databases/session_hosts at all —
+                    // the recompute must not throw and must skip the unknowns.
+                    { s: '2025-01-01 10:00:00', e: '2025-01-01 10:30:00', d: 1800000, u: 0, db: 0, h: 0 }
+                ]
+            }
+        });
+        const out = quiet(() => applyReportTimeFilter(BEGIN, END));
+        const cn = out.connections;
+        assert.equal(cn.disconnection_count, 1);
+        assert.deepEqual(cn.sessions_by_user, {});
+        assert.deepEqual(cn.sessions_by_database, {});
+        assert.deepEqual(cn.sessions_by_host, {});
     });
 
     it('handles a dataset with only a summary section', () => {

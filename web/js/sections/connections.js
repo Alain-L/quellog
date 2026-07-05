@@ -7,6 +7,13 @@ import { chartData, buildChartContainer } from '../charts.js';
 
 export function buildConnectionsSection(data) {
     const c = data.connections;
+    // Under a time filter everything re-scopes from the payload, including
+    // the per-user/database/host session tables: each session_events item
+    // carries interned user/database/host indices (u/db/h), resolved via
+    // session_users/session_databases/session_hosts, so report-filter.js can
+    // rebuild sessions_by_user/database/host for the window (see
+    // reaggregateConnections). Durations re-scope via the precise per-session
+    // `d` field; concurrency + peak are time-based.
     if (!c || (c.connection_count === 0 && !c.client_io_failures)) {
         return `
             <div class="section" id="connections">
@@ -39,7 +46,9 @@ export function buildConnectionsSection(data) {
     if (hasConnections) {
         chartData.set('chart-connections', c.connections);
     }
-    // Store session events for client-side sweep-line (allows bucket adjustment)
+    // Store session events for client-side sweep-line (allows bucket adjustment).
+    // Concurrency is time-based, so it survives a time filter (session_events is
+    // re-scoped by reaggregateConnections).
     if (c.session_events?.length > 0) {
         chartData.set('chart-concurrent', {
             type: 'sessions',

@@ -264,11 +264,81 @@ function reaggregateCheckpoints(original, filteredEvents, beginDate, endDate) {
     return result;
 }
 
+// Format a session duration (ms) as a Go-Duration-like string that fmtDur
+// re-renders like the backend's time.Duration.String() (fractional seconds
+// preserved so fmtDur rounds the same way).
+function fmtSessionDuration(ms) {
+    if (ms < 1000) return Math.round(ms) + 'ms';
+    const totalSec = ms / 1000;
+    const h = Math.floor(totalSec / 3600);
+    const m = Math.floor((totalSec % 3600) / 60);
+    const s = totalSec % 60;
+    const sStr = (Number.isInteger(s) ? String(s) : s.toFixed(3)) + 's';
+    return (h ? h + 'h' : '') + (h || m ? m + 'm' : '') + sStr;
+}
+
+// Session-duration histogram buckets — same boundaries/labels the backend
+// emits (analysis/connections.go newSessionDistribution).
+const SESSION_BUCKETS = [
+    { label: '< 1s', max: 1000 },
+    { label: '1s - 1min', max: 60000 },
+    { label: '1min - 30min', max: 1800000 },
+    { label: '30min - 2h', max: 7200000 },
+    { label: '2h - 5h', max: 18000000 },
+    { label: '> 5h', max: Infinity },
+];
+
+function bucketSessionDurations(durationsMs) {
+    const dist = {};
+    for (const b of SESSION_BUCKETS) dist[b.label] = 0;
+    for (const d of durationsMs) {
+        for (const b of SESSION_BUCKETS) { if (d < b.max) { dist[b.label]++; break; } }
+    }
+    return dist;
+}
+
+/**
+ * Build a session-stats object ({count, min/max/avg/median/cumulated
+ * duration}, formatted strings) from a list of durations in ms — same shape
+ * as the backend's SessionStatsJSON. Shared by the overall `session_stats`
+ * and the per-user/database/host recompute so both use identical rounding.
+ * @param {number[]} durationsMs
+ * @returns {{count: number, min_duration: string, max_duration: string,
+ *   avg_duration: string, median_duration: string, cumulated_duration: string}}
+ */
+function computeSessionStats(durationsMs) {
+    const n = durationsMs.length;
+    if (!n) {
+        const zero = '0s';
+        return {
+            count: 0, min_duration: zero, max_duration: zero,
+            avg_duration: zero, median_duration: zero, cumulated_duration: zero,
+        };
+    }
+    const sorted = [...durationsMs].sort((a, b) => a - b);
+    const sum = sorted.reduce((a, b) => a + b, 0);
+    const median = n % 2
+        ? sorted[(n - 1) / 2]
+        : (sorted[n / 2 - 1] + sorted[n / 2]) / 2;
+    return {
+        count: n,
+        min_duration: fmtSessionDuration(sorted[0]),
+        max_duration: fmtSessionDuration(sorted[n - 1]),
+        avg_duration: fmtSessionDuration(sum / n),
+        median_duration: fmtSessionDuration(median),
+        cumulated_duration: fmtSessionDuration(sum),
+    };
+}
+
 /**
  * Re-aggregate connections data: connection count and hourly rate are
  * recomputed; session_events are kept when they OVERLAP the range
  * (start <= end-of-range and end >= start-of-range), not only when fully
- * contained.
+ * contained. The per-user/database/host session tables are rebuilt too, via
+ * the interned entity indices (`u`/`db`/`h`) each session_events item
+ * carries — resolved against the payload's session_users/session_databases/
+ * session_hosts reverse tables — so they re-scope like every other stat
+ * instead of staying pinned to the full log.
  * @param {Object} original - Original connections object
  * @param {string[]} filteredConnections - Connection timestamps in range
  * @param {Date} beginDate - Filter start
@@ -288,14 +358,85 @@ function reaggregateConnections(original, filteredConnections, beginDate, endDat
         ? (filteredConnections.length / durationHours).toFixed(2)
         : '0';
 
-    // Filter session events if present (fields: s=start, e=end)
+    // Session events overlapping the window drive the concurrent-sessions
+    // chart and its peak. These are TIME-based (who is connected when), so a
+    // second-precision session_events array re-scopes them faithfully.
     if (original.session_events) {
-        result.session_events = original.session_events.filter(ev => {
+        const overlap = original.session_events.filter(ev => {
             const start = parseTimestamp(ev.s);
             const end = parseTimestamp(ev.e);
-            if (!start || !end) return false;
-            return start <= endDate && end >= beginDate;
+            return start && end && start <= endDate && end >= beginDate;
         });
+        result.session_events = overlap;
+
+        // Peak concurrency within the window: sweep start/end events clipped to
+        // [begin, end] and track the running maximum.
+        const sweep = [];
+        for (const ev of overlap) {
+            const s = parseTimestamp(ev.s), e = parseTimestamp(ev.e);
+            const start = s < beginDate ? beginDate : s;
+            const end = e > endDate ? endDate : e;
+            if (end < start) continue;
+            sweep.push({ t: start.getTime(), d: 1 });
+            sweep.push({ t: end.getTime(), d: -1 });
+        }
+        // At a tie, a disconnect frees its slot before a new connect counts.
+        sweep.sort((a, b) => a.t - b.t || a.d - b.d);
+        let cur = 0, peak = 0, peakT = null;
+        for (const ev of sweep) { cur += ev.d; if (cur > peak) { peak = cur; peakT = ev.t; } }
+        result.peak_concurrent_sessions = peak;
+        if (peakT != null) {
+            const d = new Date(peakT), p = n => String(n).padStart(2, '0');
+            result.peak_concurrent_timestamp = `${d.getFullYear()}-${p(d.getMonth() + 1)}-` +
+                `${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+        }
+
+        // Duration stats from the precise per-session `d` (ms) — the s/e strings
+        // are second-truncated, but `d` keeps PostgreSQL's sub-second precision.
+        // Count sessions that DISCONNECTED in the window (e in range), skipping
+        // orphans still open at the log's end (e at the original log end, no
+        // real disconnect) so the numbers track the backend's methodology.
+        const logEnd = originalData?.summary?.end_date
+            ? parseTimestamp(originalData.summary.end_date) : null;
+        const users = original.session_users || [];
+        const databases = original.session_databases || [];
+        const hosts = original.session_hosts || [];
+        const durations = [];
+        const byUser = new Map(), byDatabase = new Map(), byHost = new Map();
+        const bucket = (map, name, ms) => {
+            let arr = map.get(name);
+            if (!arr) map.set(name, arr = []);
+            arr.push(ms);
+        };
+        for (const ev of original.session_events) {
+            if (typeof ev.d !== 'number') continue;
+            const e = parseTimestamp(ev.e);
+            if (!e || e < beginDate || e > endDate) continue;
+            if (logEnd && e >= logEnd) continue;
+            durations.push(ev.d);
+
+            // Per-entity breakdown, keyed by name resolved from the interned
+            // index. Index 0 ("unknown") is skipped in each dimension
+            // independently, matching the backend's per-entity maps, which
+            // only ever hold sessions with a known entity for that dimension.
+            if (ev.u > 0 && users[ev.u]) bucket(byUser, users[ev.u], ev.d);
+            if (ev.db > 0 && databases[ev.db]) bucket(byDatabase, databases[ev.db], ev.d);
+            if (ev.h > 0 && hosts[ev.h]) bucket(byHost, hosts[ev.h], ev.d);
+        }
+        result.disconnection_count = durations.length;
+        const stats = computeSessionStats(durations);
+        result.session_stats = stats;
+        result.avg_session_time = stats.avg_duration;
+        result.session_distribution = bucketSessionDurations(durations);
+
+        const toStatsMap = (byEntity) => {
+            const out = {};
+            for (const [name, arr] of byEntity) out[name] = computeSessionStats(arr);
+            return out;
+        };
+        result.sessions_by_user = toStatsMap(byUser);
+        result.sessions_by_database = toStatsMap(byDatabase);
+        result.sessions_by_host = toStatsMap(byHost);
     }
 
     return result;
