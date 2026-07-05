@@ -37,6 +37,8 @@ All notable changes to this project will be documented in this file.
 - **Split-report period-heatmap bounds could read "00:00 … 00:00"**: an intraday split spanning more than one day rendered both ends dateless; they now carry the date when the split crosses days.
 - **Charts kept stale colors after a theme switch**: toggling dark/light left existing charts mixing old and new colors until the next reload; they now repaint on toggle.
 - **HTML report could fail to load on older browsers**: it relied on `Intl.DurationFormat` with no fallback; a local formatter now covers browsers that lack it.
+- **Standalone report: tooltips and the filter dropdown are positioned correctly again**: the standalone CSS minifier stripped the spaces inside `calc(100% + 4px)`, which Chrome then dropped, mispositioning them (the CLI report was unaffected).
+- **In-browser WASM tool handles more uploads**: tar archives no longer ingest macOS `._*` sidecar files (which corrupted format detection), and the dev build loads its WASM module and zstd decoder again.
 
 ### Internal
 - **Internal cleanup**: removed dead code and de-duplicated the `output/` renderers into shared helpers, with no change to any output (byte-identical on the sample matrix).
