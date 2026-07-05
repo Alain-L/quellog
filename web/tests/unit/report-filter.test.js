@@ -177,16 +177,16 @@ describe('applyReportTimeFilter', () => {
         // The no-query_id execution counts in totals but not unique queries.
         assert.equal(sql.total_unique_queries, 2);
 
-        // durations kept: [100, 300, 500, 200] -> sorted [100, 200, 300, 500]
-        assert.equal(sql.query_min_duration, '100.0ms');
-        assert.equal(sql.query_max_duration, '500.0ms');
-        assert.equal(sql.query_median_duration, '250.0ms'); // (200+300)/2
-        assert.equal(sql.query_99th_percentile, '500.0ms'); // idx floor(4*0.99)=3
+        // durations kept: [100, 300, 500, 200] -> sorted [100, 200, 300, 500].
+        // Formatted with fmtQueryDuration (backend parity): sub-second -> "N ms".
+        assert.equal(sql.query_min_duration, '100 ms');
+        assert.equal(sql.query_max_duration, '500 ms');
+        assert.equal(sql.query_median_duration, '250 ms'); // (200+300)/2
+        assert.equal(sql.query_99th_percentile, '500 ms'); // idx floor(4*0.99)=3
         assert.equal(sql.top_1_percent_slow_queries, 1);    // only the 500ms one
 
-        // stats.total is in ms; 1100ms formats as "1s" (fmtDuration floors
-        // to whole seconds above the sub-second range).
-        assert.equal(sql.total_query_duration, '1s');
+        // stats.total is in ms; 1100ms -> "1.10 s" (fmtQueryDuration second tier).
+        assert.equal(sql.total_query_duration, '1.10 s');
     });
 
     it('re-aggregates per-query stats and drops out-of-range queries', () => {
@@ -213,9 +213,11 @@ describe('applyReportTimeFilter', () => {
         const tf = out.temp_files;
         assert.equal(tf.events.length, 2); // the 1 GB event at 23:00 is out
         assert.equal(tf.total_messages, 2);
-        // 1 KB (1024 B) + "3072" (unitless -> 3072 B) = 4096 B
-        assert.equal(tf.total_size, '4 KB');
-        assert.equal(tf.avg_size, '2 KB');
+        // 1 KB (1024 B) + "3072" (unitless -> 3072 B) = 4096 B. fmtBytesFull
+        // (backend parity) keeps 2 decimals; max is recomputed (was left stale).
+        assert.equal(tf.total_size, '4.00 KB');
+        assert.equal(tf.avg_size, '2.00 KB');
+        assert.equal(tf.max_size, '3.00 KB'); // max(1024, 3072) B
     });
 
     it('reports 0 B totals when no temp file event survives', () => {
@@ -259,6 +261,8 @@ describe('applyReportTimeFilter', () => {
         assert.equal(cp.wal_distances[0].mb, 12);
         assert.equal(cp.warning_events.length, 1);
         assert.equal(cp.warning_events[0].message, 'checkpoints too frequent');
+        // warning_count is recomputed to match the filtered events (was stale).
+        assert.equal(cp.warning_count, 1);
     });
 
     it('slices connections with inclusive bounds and recomputes the rate', () => {

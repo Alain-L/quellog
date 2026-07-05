@@ -75,6 +75,23 @@ export function fmtBytesShort(b) {
 }
 
 /**
+ * Format bytes exactly like the Go backend's FormatBytes
+ * (output/formatter.go): 2 decimals for KB/MB/GB/TB, "%d B" below 1 KB.
+ * Unlike the other formatters here it keeps a TB tier. Used by the report
+ * time-filter re-aggregation so recomputed sizes render identically to the
+ * originals produced by the backend (the temp-file cards show them raw).
+ * @param {number} b - Bytes
+ * @returns {string}
+ */
+export function fmtBytesFull(b) {
+    if (b >= BYTE_UNITS.TB) return (b / BYTE_UNITS.TB).toFixed(2) + ' TB';
+    if (b >= BYTE_UNITS.GB) return (b / BYTE_UNITS.GB).toFixed(2) + ' GB';
+    if (b >= BYTE_UNITS.MB) return (b / BYTE_UNITS.MB).toFixed(2) + ' MB';
+    if (b >= BYTE_UNITS.KB) return (b / BYTE_UNITS.KB).toFixed(2) + ' KB';
+    return Math.trunc(b) + ' B';
+}
+
+/**
  * Parse a size string to bytes, loosely: the number+unit may appear anywhere
  * in the string, the result keeps fractions, and unit-less input falls back
  * to parseFloat (e.g. "1.5 KB" -> 1536, "1234" -> 1234).
