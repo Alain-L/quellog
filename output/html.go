@@ -81,7 +81,7 @@ func gzipBase64(data string) string {
 	gz, _ := gzip.NewWriterLevel(&buf, gzip.BestCompression)
 	gz.Write([]byte(data))
 	gz.Close()
-	return base64.StdEncoding.EncodeToString(buf.Bytes())
+	return base64.URLEncoding.EncodeToString(buf.Bytes())
 }
 
 // getTemplateData returns cached template data (computed once).
@@ -178,7 +178,7 @@ func compressReportJSON(metrics analysis.AggregatedMetrics, info HTMLReportInfo,
 	if err := zstdWriter.Close(); err != nil {
 		return "", fmt.Errorf("failed to close zstd writer: %w", err)
 	}
-	return base64.StdEncoding.EncodeToString(zstdBuf.Bytes()), nil
+	return base64.URLEncoding.EncodeToString(zstdBuf.Bytes()), nil
 }
 
 // ExportHTMLSplit exports a single standalone HTML report holding one embedded
@@ -291,7 +291,7 @@ func ExportHTML(w io.Writer, metrics analysis.AggregatedMetrics, info HTMLReport
 	}
 
 	// Encode to base64
-	compressed := base64.StdEncoding.EncodeToString(zstdBuf.Bytes())
+	compressed := base64.URLEncoding.EncodeToString(zstdBuf.Bytes())
 
 	// Get cached template data
 	td := getTemplateData()
