@@ -33,6 +33,10 @@
  *   modal-close  - Fired when modal closes
  */
 
+// Monotonic counter for unique title ids; Date.now() collides when two modals
+// are built within the same millisecond.
+let modalTitleSeq = 0;
+
 class QlModal extends HTMLElement {
     constructor() {
         super();
@@ -71,7 +75,7 @@ class QlModal extends HTMLElement {
         const bodySlot = this.querySelector('[slot="body"]');
 
         // Generate unique ID for title
-        const titleId = `ql-modal-title-${Date.now()}`;
+        const titleId = `ql-modal-title-${++modalTitleSeq}`;
 
         // Build header
         const header = document.createElement('div');
