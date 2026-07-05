@@ -90,7 +90,16 @@ function injectPeriodNav() {
 
     // Bounds under the heatmap (first..last period): time-of-day for intraday
     // splits, the humanized date for daily+ splits (matches the title style).
-    const shortBound = (lbl) => { const i = lbl.indexOf(' '); return i > 0 ? lbl.slice(i + 1) : formatPeriodLabel(lbl); };
+    // Bound labels: keep them compact (time-of-day) for an intraday split
+    // within a single day, but show the full humanized date once the first and
+    // last periods fall on different days — otherwise both ends read "00:00".
+    const crossDay = (periods[0].label.split(' ')[0]
+        !== periods[periods.length - 1].label.split(' ')[0]);
+    const shortBound = (lbl) => {
+        const i = lbl.indexOf(' ');
+        if (i < 0 || crossDay) return formatPeriodLabel(lbl);
+        return lbl.slice(i + 1);
+    };
     const bounds = document.createElement('div');
     bounds.className = 'summary-periods-bounds';
     const b0 = document.createElement('span');

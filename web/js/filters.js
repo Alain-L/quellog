@@ -129,6 +129,11 @@ export function initTimeFilter(startDate, endDate) {
 export function wireTimeFilter() {
     const slider = document.getElementById('filterTimeSlider');
     if (!slider) return;
+    // A split report navigates by period; the global time slider is mutually
+    // exclusive with it. Releasing the slider runs applyFilters(), which drops
+    // window.REPORT_PERIODS and tears the navigator down (only a reload brings
+    // it back). Hide it and skip wiring while in split mode.
+    if (window.QL_SPLIT) { slider.style.display = 'none'; return; }
     slider.style.display = 'block';
 
     const dur = timeFilterDurationMins || 1;
