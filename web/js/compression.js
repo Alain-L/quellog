@@ -171,15 +171,22 @@ export async function extractTar(buffer) {
 
         // Regular file (type '0' or '\0')
         if ((typeFlag === 48 || typeFlag === 0) && size > 0) {
-            let content = data.slice(offset, offset + size);
-            // Decompress nested files
-            const lname = name.toLowerCase();
-            if (lname.endsWith('.gz') || lname.endsWith('.gzip')) {
-                content = await gunzipBuffer(content.buffer);
-            } else if (lname.endsWith('.zst') || lname.endsWith('.zstd')) {
-                content = unzstd(content.buffer);
+            const baseName = name.includes('/') ? name.substring(name.lastIndexOf('/') + 1) : name;
+            // Only keep supported log entries, mirroring extractZip. Skip macOS
+            // AppleDouble sidecars (._foo, which end in .log yet hold binary
+            // resource-fork data) and path-traversal names; concatenating them
+            // would poison format detection and the log content.
+            if (!baseName.startsWith('._') && !name.includes('..') && isSupportedEntry(baseName)) {
+                let content = data.slice(offset, offset + size);
+                // Decompress nested files
+                const lname = baseName.toLowerCase();
+                if (lname.endsWith('.gz') || lname.endsWith('.gzip')) {
+                    content = await gunzipBuffer(content.buffer);
+                } else if (lname.endsWith('.zst') || lname.endsWith('.zstd')) {
+                    content = unzstd(content.buffer);
+                }
+                files.push({ name: baseName, content });
             }
-            files.push({ name, content });
         }
 
         offset += Math.ceil(size / 512) * 512;

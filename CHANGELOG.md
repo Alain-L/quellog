@@ -17,6 +17,7 @@ All notable changes to this project will be documented in this file.
 - **CSV parsing allocates ~half as much memory**: a single-pass, zero-copy CSV scanner replaces the standard-library reader, cutting CSV-path allocations by roughly 50%.
 - **Faster reports on session- and lock-heavy logs**: anchored analyzer gates, per-worker buffer reuse and callback-free sweep-line sorts cut wall time by up to a third on large stderr files.
 - **Compressed logs parse in parallel**: gzip/zstd stderr logs are parsed by a worker pool, up to ~30% faster.
+- **The HTML report is a few percent smaller**: multi-line CSS comments are now stripped from the embedded stylesheet, and the compressed payload is base64url-encoded so its bytes are no longer escaped inside the template's JS string.
 
 ### Changed
 - **Time filter is an always-visible range slider in the Summary card**: replaces the Time dropdown and re-filters on release. Multi-day logs split the slider by day.
@@ -36,6 +37,8 @@ All notable changes to this project will be documented in this file.
 - **Split-report period-heatmap bounds could read "00:00 … 00:00"**: an intraday split spanning more than one day rendered both ends dateless; they now carry the date when the split crosses days.
 - **Charts kept stale colors after a theme switch**: toggling dark/light left existing charts mixing old and new colors until the next reload; they now repaint on toggle.
 - **HTML report could fail to load on older browsers**: it relied on `Intl.DurationFormat` with no fallback; a local formatter now covers browsers that lack it.
+- **Standalone report: tooltips and the filter dropdown are positioned correctly again**: the standalone CSS minifier stripped the spaces inside `calc(100% + 4px)`, which Chrome then dropped, mispositioning them (the CLI report was unaffected).
+- **In-browser WASM tool handles more uploads**: tar archives no longer ingest macOS `._*` sidecar files (which corrupted format detection), and the dev build loads its WASM module and zstd decoder again.
 
 ### Internal
 - **Internal cleanup**: removed dead code and de-duplicated the `output/` renderers into shared helpers, with no change to any output (byte-identical on the sample matrix).

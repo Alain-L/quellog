@@ -525,7 +525,8 @@ window.setAnalysisData = setAnalysisData;
 // lazy fzstd loader (fzstd is bundled eagerly here).
 if (!window.decompressData) {
     window.decompressData = async function (b64) {
-        const bin = atob(b64);
+        // base64url (Go base64.URLEncoding) -> std for atob; a no-op on std input.
+        const bin = atob(b64.replace(/-/g, '+').replace(/_/g, '/'));
         const bytes = new Uint8Array(bin.length);
         for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
         return JSON.parse(new TextDecoder().decode(unzstd(bytes)));

@@ -335,7 +335,7 @@ export function buildSQLPerformanceSection(data) {
                     <div class="sql-perf-col-right">
                         ${hasExecutions ? `
                             <div>
-                                ${buildChartContainer('chart-sql-combined', 'Query Activity', { showFilterBtn: true, tooltip: 'Query count and cumulated duration over time.' })}
+                                ${buildChartContainer('chart-sql-combined', 'Query Activity', { tooltip: 'Query count and cumulated duration over time.' })}
                                 <div class="chart-legend">
                                     <span class="chart-legend-item" data-chart="chart-sql-combined" data-series="count" onclick="toggleCombinedSeries('chart-sql-combined', 'count')"><span class="chart-legend-bar chart-legend-bar--count"></span>Count</span>
                                     <span class="chart-legend-item" data-chart="chart-sql-combined" data-series="duration" onclick="toggleCombinedSeries('chart-sql-combined', 'duration')"><span class="chart-legend-bar chart-legend-bar--duration"></span>Duration</span>
