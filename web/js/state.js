@@ -51,7 +51,12 @@ export function incrementModalChartCounter() { return ++modalChartCounter; }
 
 // Chart cleanup (call before loading a new file)
 export function clearAllCharts() {
-    charts.forEach(chart => { try { chart.destroy(); } catch (_) {} });
+    charts.forEach(chart => {
+        try {
+            chart._ro?.disconnect();
+            chart.destroy();
+        } catch (_) {}
+    });
     charts.clear();
     modalCharts.forEach(chart => { try { chart.destroy(); } catch (_) {} });
     modalCharts.length = 0;

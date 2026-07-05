@@ -1,4 +1,4 @@
-.PHONY: build generate clean test wasm standalone
+.PHONY: build generate clean test test-web wasm standalone
 
 # Get current branch name (sanitized for filename)
 BRANCH := $(shell git rev-parse --abbrev-ref HEAD | tr '/' '-')
@@ -29,6 +29,10 @@ standalone: wasm
 # Run regression tests (golden file comparison)
 test:
 	go test ./test/... -v
+
+# Run web-layer tests (JS unit + contract linters + headless visual)
+test-web:
+	npm run test:web
 
 # Clean generated files
 clean:

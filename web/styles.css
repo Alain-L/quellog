@@ -660,14 +660,6 @@
         .section-header.danger { background: var(--danger); }
         .section-header.muted { background: var(--text-muted); }
 
-        .section-header .badge {
-            background: rgba(255,255,255,0.2);
-            padding: 0.15rem 0.45rem;
-            border-radius: 4px;
-            font-size: 0.68rem;
-            font-weight: 500;
-        }
-
         .section-body { padding: 0.9rem; }
 
         /* Web Components - Custom Elements */
@@ -791,7 +783,7 @@
             .grid-top-row:has(.section:nth-child(4)) { grid-template-columns: repeat(2, 1fr); }}
 
         @media (max-width: 768px) {
-            .grid-2, .grid-3, .grid-4, .grid-top-row { grid-template-columns: 1fr; }}
+            .grid-2, .grid-top-row { grid-template-columns: 1fr; }}
 
         /* Unified Stat Cards System */
         .stat-grid {
@@ -1548,23 +1540,6 @@
             text-align: right;
         }
 
-        /* Categories - Compact */
-        .categories {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.5rem;
-        }
-
-        .category {
-            text-align: center;
-            padding: 0.5rem 0.75rem;
-            background: var(--bg-alt);
-            border-radius: var(--radius);
-            border-left: 3px solid var(--primary);
-            min-width: 80px;
-        }
-
-
         /* Query types */
         .query-types {
             display: flex;
@@ -1889,21 +1864,6 @@
             overflow-x: auto;
         }
 
-        .copy-btn {
-            position: absolute;
-            top: 0.5rem;
-            right: 0.5rem;
-            background: rgba(255,255,255,0.1);
-            border: none;
-            color: white;
-            padding: 0.3rem 0.6rem;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 0.75rem;
-        }
-
-        .copy-btn:hover { background: rgba(255,255,255,0.2); }
-
         .copy-btn-inline {
             background: var(--bg-alt);
             border: 1px solid var(--border);
@@ -1955,11 +1915,6 @@
             align-items: center;
             gap: 0.5rem;
         }
-        .full-width { grid-column: span 2; }
-
-        @media (max-width: 1200px) {
-            .full-width { grid-column: span 1; }}
-
         /* uPlot base styles */
         .uplot, .uplot *, .uplot *::before, .uplot *::after {box-sizing: border-box;}.uplot {font-family: inherit;line-height: 1.5;width: 100%;}.u-title {text-align: center;font-size: 14px;font-weight: bold;}.u-wrap {position: relative;user-select: none;}.u-over, .u-under {position: absolute;}.u-under {overflow: hidden;}.uplot canvas {display: block;position: relative;width: 100%;height: 100%;}.u-axis {position: absolute;}.u-legend {display: none;}.u-inline {display: block;}.u-inline * {display: inline-block;}.u-inline tr {margin-right: 16px;}.u-legend th {font-weight: 600;}.u-legend th > * {vertical-align: middle;display: inline-block;}.u-legend .u-marker {width: 1em;height: 1em;margin-right: 4px;background-clip: padding-box !important;}.u-inline.u-live th::after {content: ":";vertical-align: middle;}.u-inline:not(.u-live) .u-value {display: none;}.u-series > * {padding: 4px;}.u-series th {cursor: pointer;}.u-legend .u-off > * {opacity: 0.3;}.u-select {background: rgba(51,103,145,0.15);position: absolute;pointer-events: none;}.u-cursor-x, .u-cursor-y {position: absolute;left: 0;top: 0;pointer-events: none;will-change: transform;}.u-hz .u-cursor-x, .u-vt .u-cursor-y {height: 100%;border-right: 1px dashed var(--primary);}.u-hz .u-cursor-y, .u-vt .u-cursor-x {width: 100%;border-bottom: 1px dashed var(--primary);}.u-cursor-pt {position: absolute;top: 0;left: 0;border-radius: 50%;border: 0 solid;pointer-events: none;will-change: transform;background-clip: padding-box !important;}.u-axis.u-off, .u-select.u-off, .u-cursor-x.u-off, .u-cursor-y.u-off, .u-cursor-pt.u-off {display: none;}
 
@@ -2073,15 +2028,6 @@
             z-index: 100;
             white-space: nowrap;
         }
-        .chart-tooltip .tt-time {
-            color: var(--text-muted);
-            font-size: 0.65rem;
-        }
-        .chart-tooltip .tt-value {
-            font-weight: 600;
-            color: var(--primary);
-        }
-
         /* Chart Modal */
         .chart-modal {
             display: none;

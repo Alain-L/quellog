@@ -28,9 +28,13 @@ All notable changes to this project will be documented in this file.
 - **Time-series charts show the date on multi-day spans**: their x-axes were time-only (`00:00`, `06:00`, …), ambiguous across days; they now add the date at each day boundary, like the concurrent-sessions chart already did.
 - **Report duration tile no longer shows `0s` for spans of 24h or more**: the HTML report's duration now renders days (e.g. `1d`, `2d3h`) instead of dropping a day-formatted value.
 - **Maintenance elapsed times rounded to the microsecond**: a cumulative vacuum/analyze time could display e.g. `2s` for a true `3.0s` total due to float-summation noise; the rounded value is now correct and stable.
+- **Time-filtered reports showed the total query duration 1000× too small**: filtering by time divided the recomputed total by an extra 1000 (e.g. `1s` shown as `1ms`); it now matches.
+- **Charts kept stale colors after a theme switch**: toggling dark/light left existing charts mixing old and new colors until the next reload; they now repaint on toggle.
+- **HTML report could fail to load on older browsers**: it relied on `Intl.DurationFormat` with no fallback; a local formatter now covers browsers that lack it.
 
 ### Internal
 - **Internal cleanup**: removed dead code and de-duplicated the `output/` renderers into shared helpers, with no change to any output (byte-identical on the sample matrix).
+- **Web report internals restructured**: the report's JavaScript was split into per-section modules and its chart builders unified behind shared factories, under a new JS test net, with no change to the rendered report (0-pixel diff on the sample matrix).
 
 ## [0.11.0] - 2026-06-23
 

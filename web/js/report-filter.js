@@ -2,13 +2,30 @@
 // This module handles time range filtering for the HTML report export
 
 import { fmtBytes, fmtDuration, fmtMs } from './utils.js';
+import { parseSizeToBytesStrict } from './format.js';
+
+/**
+ * One logged query execution from the payload's
+ * `sql_performance.executions` (see docs/web-data-contract.md).
+ * @typedef {Object} Execution
+ * @property {string} timestamp - ISO timestamp ("YYYY-MM-DDTHH:MM:SS")
+ * @property {number} duration_ms - Execution duration in milliseconds
+ * @property {string} query_id - Stable query handle (e.g. "se-aehiJm")
+ */
+
+/**
+ * One completed session from the payload's `connections.session_events`.
+ * @typedef {Object} SessionEvent
+ * @property {string} s - Session start (ISO timestamp)
+ * @property {string} e - Session end (ISO timestamp)
+ */
 
 // Store original unfiltered data
 let originalData = null;
 
 /**
  * Store the original data for filtering
- * @param {Object} data - The original analysis data
+ * @param {Object} data - The original analysis data (decompressed payload)
  */
 export function setOriginalReportData(data) {
     // Deep clone to avoid mutations
@@ -17,7 +34,7 @@ export function setOriginalReportData(data) {
 
 /**
  * Get the original unfiltered data
- * @returns {Object} The original data
+ * @returns {Object|null} The original data (null before setOriginalReportData)
  */
 export function getOriginalReportData() {
     return originalData;
@@ -25,8 +42,9 @@ export function getOriginalReportData() {
 
 /**
  * Parse a timestamp string to Date object
- * @param {string} ts - Timestamp string (e.g., "2025-01-01 12:00:00")
- * @returns {Date} Date object
+ * @param {string} ts - Timestamp string, display ("2025-01-01 12:00:00")
+ *   or ISO ("2025-01-01T12:00:00") format
+ * @returns {Date|null} Date object, or null for empty input
  */
 function parseTimestamp(ts) {
     if (!ts) return null;
@@ -35,12 +53,13 @@ function parseTimestamp(ts) {
 }
 
 /**
- * Filter events by time range
- * @param {Array} events - Array of events with timestamp property
- * @param {Date} beginDate - Start of time range
- * @param {Date} endDate - End of time range
- * @param {string} tsField - Name of timestamp field (default: 'timestamp')
- * @returns {Array} Filtered events
+ * Filter events by time range. Events may be bare timestamp strings
+ * (e.g. `checkpoints.events`) or objects carrying a timestamp field.
+ * @param {Array<string|Object>} events - Events to filter
+ * @param {Date} beginDate - Start of time range (inclusive)
+ * @param {Date} endDate - End of time range (inclusive)
+ * @param {string} [tsField='timestamp'] - Timestamp field name for objects
+ * @returns {Array<string|Object>} Filtered events (same element shape)
  */
 function filterEventsByTime(events, beginDate, endDate, tsField = 'timestamp') {
     if (!events || !Array.isArray(events)) return [];
@@ -53,25 +72,10 @@ function filterEventsByTime(events, beginDate, endDate, tsField = 'timestamp') {
 }
 
 /**
- * Parse size string to bytes (e.g., "50 MB" -> 52428800)
- * @param {string} sizeStr - Size string with unit
- * @returns {number} Size in bytes
- */
-function parseSizeToBytes(sizeStr) {
-    if (!sizeStr || typeof sizeStr !== 'string') return 0;
-    const match = sizeStr.match(/^([\d.]+)\s*(B|KB|MB|GB|TB)?$/i);
-    if (!match) return 0;
-
-    const value = parseFloat(match[1]);
-    const unit = (match[2] || 'B').toUpperCase();
-    const multipliers = { B: 1, KB: 1024, MB: 1024**2, GB: 1024**3, TB: 1024**4 };
-    return Math.round(value * (multipliers[unit] || 1));
-}
-
-/**
  * Calculate statistics from an array of durations
- * @param {Array<number>} durations - Array of duration values in ms
- * @returns {Object} Statistics object
+ * @param {number[]} durations - Duration values in milliseconds
+ * @returns {{total: number, min: number, max: number, avg: number,
+ *   median: number, p99: number}} All values in milliseconds
  */
 function calculateDurationStats(durations) {
     if (!durations || durations.length === 0) {
@@ -96,10 +100,12 @@ function calculateDurationStats(durations) {
 }
 
 /**
- * Re-aggregate SQL performance data from filtered executions
+ * Re-aggregate SQL performance data from filtered executions: totals,
+ * percentiles and per-query stats are recomputed; queries with no
+ * execution left in range are dropped.
  * @param {Object} original - Original sql_performance object
- * @param {Array} filteredExecutions - Filtered executions
- * @returns {Object} Re-aggregated sql_performance
+ * @param {Execution[]} filteredExecutions - Executions kept by the filter
+ * @returns {Object|null} Re-aggregated sql_performance (null if no original)
  */
 function reaggregateSqlPerformance(original, filteredExecutions) {
     if (!original) return null;
@@ -129,7 +135,7 @@ function reaggregateSqlPerformance(original, filteredExecutions) {
     const stats = calculateDurationStats(durations);
     result.total_queries_parsed = filteredExecutions.length;
     result.total_unique_queries = queryStats.size;
-    result.total_query_duration = fmtDuration(stats.total / 1000);
+    result.total_query_duration = fmtDuration(stats.total);
     result.query_min_duration = fmtMs(stats.min);
     result.query_max_duration = fmtMs(stats.max);
     result.query_median_duration = fmtMs(stats.median);
@@ -161,10 +167,11 @@ function reaggregateSqlPerformance(original, filteredExecutions) {
 }
 
 /**
- * Re-aggregate temp files data from filtered events
+ * Re-aggregate temp files data from filtered events (message count,
+ * total and average size; sizes are re-parsed from their display strings).
  * @param {Object} original - Original temp_files object
- * @param {Array} filteredEvents - Filtered events
- * @returns {Object} Re-aggregated temp_files
+ * @param {Array<{timestamp: string, size: string, query_id: string}>} filteredEvents - Filtered events
+ * @returns {Object|null} Re-aggregated temp_files (null if no original)
  */
 function reaggregateTempFiles(original, filteredEvents) {
     if (!original) return null;
@@ -175,7 +182,7 @@ function reaggregateTempFiles(original, filteredEvents) {
     // Recalculate totals
     let totalBytes = 0;
     for (const event of filteredEvents) {
-        totalBytes += parseSizeToBytes(event.size);
+        totalBytes += parseSizeToBytesStrict(event.size);
     }
 
     result.total_messages = filteredEvents.length;
@@ -186,12 +193,14 @@ function reaggregateTempFiles(original, filteredEvents) {
 }
 
 /**
- * Re-aggregate checkpoints data from filtered events
+ * Re-aggregate checkpoints data from filtered events: total count,
+ * wal_distances, warning_events and the per-trigger `types` map (count,
+ * percentage, rate_per_hour) are recomputed; empty types are dropped.
  * @param {Object} original - Original checkpoints object
- * @param {Array} filteredEvents - Filtered timestamp strings
+ * @param {string[]} filteredEvents - Checkpoint timestamps kept in range
  * @param {Date} beginDate - Filter start
  * @param {Date} endDate - Filter end
- * @returns {Object} Re-aggregated checkpoints
+ * @returns {Object|null} Re-aggregated checkpoints (null if no original)
  */
 function reaggregateCheckpoints(original, filteredEvents, beginDate, endDate) {
     if (!original) return null;
@@ -246,12 +255,15 @@ function reaggregateCheckpoints(original, filteredEvents, beginDate, endDate) {
 }
 
 /**
- * Re-aggregate connections data from filtered events
+ * Re-aggregate connections data: connection count and hourly rate are
+ * recomputed; session_events are kept when they OVERLAP the range
+ * (start <= end-of-range and end >= start-of-range), not only when fully
+ * contained.
  * @param {Object} original - Original connections object
- * @param {Array} filteredConnections - Filtered connection timestamps
+ * @param {string[]} filteredConnections - Connection timestamps in range
  * @param {Date} beginDate - Filter start
  * @param {Date} endDate - Filter end
- * @returns {Object} Re-aggregated connections
+ * @returns {Object|null} Re-aggregated connections (null if no original)
  */
 function reaggregateConnections(original, filteredConnections, beginDate, endDate) {
     if (!original) return null;
@@ -280,10 +292,15 @@ function reaggregateConnections(original, filteredConnections, beginDate, endDat
 }
 
 /**
- * Apply time filter to report data
- * @param {string} beginStr - Begin timestamp string
- * @param {string} endStr - End timestamp string
- * @returns {Object} Filtered and re-aggregated data
+ * Apply a time filter to the stored report data. Re-aggregates
+ * sql_performance, temp_files, checkpoints and connections from their
+ * event arrays and rewrites the summary time range; other sections
+ * (locks, maintenance, events, ...) are passed through unchanged.
+ * The result carries `_timeFiltered: true` and `_filterRange`.
+ * @param {string} beginStr - Begin timestamp string ("YYYY-MM-DD HH:MM:SS")
+ * @param {string} endStr - End timestamp string (same format)
+ * @returns {Object|null} Filtered and re-aggregated copy of the payload;
+ *   the original on an invalid range; null when nothing was stored
  */
 export function applyReportTimeFilter(beginStr, endStr) {
     if (!originalData) {
@@ -381,7 +398,7 @@ export function applyReportTimeFilter(beginStr, endStr) {
 
 /**
  * Reset to original unfiltered data
- * @returns {Object} Original data
+ * @returns {Object|null} Original data (null before setOriginalReportData)
  */
 export function resetReportTimeFilter() {
     return originalData;
