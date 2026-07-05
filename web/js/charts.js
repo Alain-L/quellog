@@ -2454,11 +2454,6 @@ export function createCheckpointChartLarge(container, data, options = {}) {
         }
     });
 
-    // Add padding to prevent bars from being cut off
-    const xPadding = (xData[xData.length - 1] - xData[0]) / (xData.length * 2);
-    const xMin = xData[0] - xPadding;
-    const xMax = xData[xData.length - 1] + xPadding;
-
     const opts = {
         width: container.clientWidth || 1100,
         height: height,

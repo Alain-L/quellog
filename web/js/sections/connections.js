@@ -94,7 +94,7 @@ export function buildConnectionsSection(data) {
                 <div class="grid grid-2" style="margin-top: 0.5rem;">
                     ${c.session_events?.length > 0 ? `
                         <div>
-                        ${buildChartContainer('chart-concurrent', 'Concurrent Sessions', { showFilterBtn: false, tooltip: 'Number of active database connections at a given time. High values indicate more database activity.' })}
+                        ${buildChartContainer('chart-concurrent', 'Concurrent Sessions', { tooltip: 'Number of active database connections at a given time. High values indicate more database activity.' })}
                         <div class="chart-legend" style="display:flex;gap:16px;justify-content:center;margin-top:4px;font-size:12px;">
                             <span><span style="display:inline-block;width:12px;height:12px;background:var(--accent);border-radius:2px;vertical-align:middle;margin-right:4px;"></span>Sessions</span>
                             <span><span style="display:inline-block;width:12px;height:12px;background:var(--text-muted);border-radius:2px;vertical-align:middle;margin-right:4px;"></span>Pre-log</span>
@@ -104,7 +104,7 @@ export function buildConnectionsSection(data) {
                     ` : ''}
                     ${hasConnections ? `
                         <div>
-                        ${buildChartContainer('chart-connections', 'Connection Distribution', { showFilterBtn: true, tooltip: 'Timeline of connection events. High values indicate heavy traffic.' })}
+                        ${buildChartContainer('chart-connections', 'Connection Distribution', { tooltip: 'Timeline of connection events. High values indicate heavy traffic.' })}
                         <div class="chart-legend" style="display:flex;gap:16px;justify-content:center;margin-top:4px;font-size:12px;">
                             <span><span style="display:inline-block;width:12px;height:12px;background:var(--chart-bar);border-radius:2px;vertical-align:middle;margin-right:4px;"></span>Connections</span>
                             <span><span style="display:inline-block;width:16px;height:0;border-top:2px dashed var(--text-muted);vertical-align:middle;margin-right:4px;"></span>Median</span>

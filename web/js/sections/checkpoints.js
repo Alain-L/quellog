@@ -79,18 +79,18 @@ export function buildCheckpointsSection(data) {
                     ${cp.warning_count ? `<div class="stat-card stat-card--alert"><div class="stat-value">${cp.warning_count}</div><div class="stat-label">Too Frequent</div></div>` : ''}
                 </div>
                 ${hasEvents ? `
-                    ${buildChartContainer('chart-checkpoints', 'Checkpoint Distribution', { showFilterBtn: false, tooltip: 'Checkpoint writes over time. Timed is normal, WAL indicates heavy write load.' })}
+                    ${buildChartContainer('chart-checkpoints', 'Checkpoint Distribution', { tooltip: 'Checkpoint writes over time. Timed is normal, WAL indicates heavy write load.' })}
                     <div class="chart-legend" style="display:flex;gap:16px;justify-content:center;margin-top:8px;font-size:12px;">
                         <span><span style="display:inline-block;width:12px;height:12px;background:var(--chart-bar);border-radius:2px;vertical-align:middle;margin-right:4px;"></span>Timed</span>
                         <span><span style="display:inline-block;width:12px;height:12px;background:var(--accent);border-radius:2px;vertical-align:middle;margin-right:4px;"></span>WAL</span>
                         <span><span style="display:inline-block;width:12px;height:12px;background:#909399;border-radius:2px;vertical-align:middle;margin-right:4px;"></span>Other</span>
                     </div>
                 ` : hasWarnings ? `
-                    ${buildChartContainer('chart-checkpoints', 'Checkpoint Frequency Warnings', { showFilterBtn: false })}
+                    ${buildChartContainer('chart-checkpoints', 'Checkpoint Frequency Warnings', {})}
                 ` : ''}
                 ${hasWALDistances ? `
                     <div style="margin-top:-0.5rem;">
-                    ${buildChartContainer('chart-wal-distance', 'WAL Distance vs Estimate', { showFilterBtn: false, showBucketControl: false, tooltip: 'WAL generated between checkpoints. The estimate is PostgreSQL prediction for the next cycle.' })}
+                    ${buildChartContainer('chart-wal-distance', 'WAL Distance vs Estimate', { showBucketControl: false, tooltip: 'WAL generated between checkpoints. The estimate is PostgreSQL prediction for the next cycle.' })}
                     <div class="chart-legend" style="display:flex;gap:16px;justify-content:center;margin-top:4px;font-size:12px;">
                         <span><span style="display:inline-block;width:12px;height:12px;background:var(--chart-bar);border-radius:2px;vertical-align:middle;margin-right:4px;"></span>Distance</span>
                         <span><span style="display:inline-block;width:16px;height:0;border-top:2px dashed var(--accent);vertical-align:middle;margin-right:4px;"></span>Estimate</span>

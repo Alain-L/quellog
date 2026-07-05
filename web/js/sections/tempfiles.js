@@ -34,7 +34,7 @@ export function buildTempFilesSection(data) {
                     <div class="stat-card"><div class="stat-value">${tf.max_size || '-'}</div><div class="stat-label">Max</div></div>
                 </div>
                 ${hasEvents ? `
-                    ${buildChartContainer('chart-tempfiles', 'Temp File Activity', { showFilterBtn: true, tooltip: 'Temp file count and cumulative size over time. Created when queries exceed work_mem.' })}
+                    ${buildChartContainer('chart-tempfiles', 'Temp File Activity', { tooltip: 'Temp file count and cumulative size over time. Created when queries exceed work_mem.' })}
                     <div class="chart-legend" style="display:flex;gap:16px;justify-content:center;margin-top:4px;font-size:12px;">
                         <span><span style="display:inline-block;width:12px;height:12px;background:var(--chart-bar);border-radius:2px;vertical-align:middle;margin-right:4px;"></span>Count</span>
                         <span><span style="display:inline-block;width:12px;height:12px;background:var(--accent);border-radius:2px;vertical-align:middle;margin-right:4px;"></span>Size</span>
