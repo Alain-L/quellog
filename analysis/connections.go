@@ -11,10 +11,18 @@ import (
 	"github.com/Alain-L/quellog/parser"
 )
 
-// SessionEvent represents a session with its start and end times.
+// SessionEvent represents a session with its start and end times, plus the
+// interned indices of the user/database/host that owned it (0 = unknown —
+// either no entity was extractable, e.g. a disconnect with no parseable
+// session_time, or an orphan session closed at Finalize). Resolve a nonzero
+// index through the sibling ConnectionMetrics.SessionUserNames /
+// SessionDatabaseNames / SessionHostNames reverse tables.
 type SessionEvent struct {
-	StartTime time.Time
-	EndTime   time.Time
+	StartTime   time.Time
+	EndTime     time.Time
+	UserIdx     int
+	DatabaseIdx int
+	HostIdx     int
 }
 
 // ConnectionMetrics aggregates statistics on database connections and sessions.
@@ -49,7 +57,7 @@ type ConnectionMetrics struct {
 	SessionDistribution map[string]int
 	// SessionEvents: deprecated direct slice. Always nil after Finalize on
 	// the streaming path — call IterateSessionEvents to walk events
-	// without allocating the full N×48 B slice (273 MB on J.log).
+	// without allocating the full N×72 B slice (~410 MB on J.log).
 	SessionEvents           []SessionEvent
 	SessionsByUser          map[string]*StreamingDurationStats
 	SessionsByDatabase      map[string]*StreamingDurationStats
@@ -71,8 +79,10 @@ type ConnectionMetrics struct {
 	// receivedChunksRef and sessionChunksRef are the compact backing
 	// storage moved from the analyzer at Finalize. The renderers iterate
 	// these via IterateConnections / IterateSessionEvents instead of
-	// allocating the full N×24 / N×48 B materialized slices, which on
-	// J.log saved a 410 MB transient peak at output time.
+	// allocating the full N×24 / N×72 B materialized slices, which on
+	// J.log saved a 410 MB transient peak at output time. The per-session
+	// entity indices ride for free in the unused high bits of each
+	// compactSession timestamp (see compactSession) — no parallel array.
 	//
 	// locRef is the timezone captured from the first event observed by
 	// the analyzer; reused when expanding compact Unix-ms timestamps so
@@ -80,6 +90,14 @@ type ConnectionMetrics struct {
 	receivedChunksRef [][]int64
 	sessionChunksRef  [][]compactSession
 	locRef            *time.Location
+
+	// SessionUserNames / SessionDatabaseNames / SessionHostNames: reverse
+	// lookup tables for the interned indices carried by SessionEvent
+	// (UserIdx / DatabaseIdx / HostIdx). Index 0 is always "" (unknown).
+	// nil when no session ever had an extractable entity.
+	SessionUserNames     []string
+	SessionDatabaseNames []string
+	SessionHostNames     []string
 }
 
 // IterateConnections yields every received-connection timestamp in
@@ -110,7 +128,9 @@ func (m *ConnectionMetrics) IterateConnections(fn func(time.Time) bool) {
 }
 
 // IterateSessionEvents yields every completed session in observed
-// order. Returning false stops iteration early.
+// order. Returning false stops iteration early. The timestamps and the
+// entity indices are unpacked from the SAME compactSession — the indices
+// live in its timestamps' unused high bits (see compactSession).
 func (m *ConnectionMetrics) IterateSessionEvents(fn func(SessionEvent) bool) {
 	if len(m.sessionChunksRef) > 0 {
 		loc := m.locRef
@@ -119,9 +139,13 @@ func (m *ConnectionMetrics) IterateSessionEvents(fn func(SessionEvent) bool) {
 		}
 		for _, chunk := range m.sessionChunksRef {
 			for _, s := range chunk {
+				user, db, host := s.entities()
 				if !fn(SessionEvent{
-					StartTime: time.UnixMilli(s.startUnixMs).In(loc),
-					EndTime:   time.UnixMilli(s.endUnixMs).In(loc),
+					StartTime:   time.UnixMilli(s.startMs()).In(loc),
+					EndTime:     time.UnixMilli(s.endMs()).In(loc),
+					UserIdx:     int(user),
+					DatabaseIdx: int(db),
+					HostIdx:     int(host),
 				}) {
 					return
 				}
@@ -187,15 +211,50 @@ const (
 //	}
 //	metrics := analyzer.Finalize()
 //
-// compactSession stores a completed session as Unix-millisecond
-// timestamps. 16 bytes vs 48 for SessionEvent (×3 denser) — the
-// time.Location pointer is dropped, all materializations resolve in
-// the local zone. Millisecond precision is required so the sweep-line
-// peak counts correctly when many short sessions cluster within the
-// same wall-clock second (cf. connection-pool fixtures).
+// compactSession stores a completed session as two Unix-millisecond
+// timestamps, 16 bytes vs 72 for SessionEvent (×4.5 denser). The
+// time.Location pointer is dropped, all materializations resolve in the
+// local zone. Millisecond precision is required so the sweep-line peak
+// counts correctly when many short sessions cluster within the same
+// wall-clock second (cf. connection-pool fixtures).
+//
+// Bit-packing: Unix-ms fits in ~43 bits (dates run to year 2248), so the
+// top 21 bits of each int64 are free — 42 bits total, enough to carry the
+// session's interned user/database/host indices for FREE (no parallel
+// array). Layout:
+//
+//	startUnixMs: [63..54]=dbIdx(10b) [53..43]=userIdx(11b) [42..0]=start ms
+//	endUnixMs:   [63..43]=hostIdx(21b)                     [42..0]=end ms
+//
+// host is the high-cardinality dimension, so it gets the wide 21-bit field.
+// Read the real timestamps and indices ONLY through the masked accessors
+// below — a raw field read leaks the entity bits into the ms value. All bit
+// ops cast through uint64 so the shifts never sign-extend bit 63.
 type compactSession struct {
 	startUnixMs int64
 	endUnixMs   int64
+}
+
+// tsBits is the number of low bits of each packed timestamp that hold the
+// real Unix-millisecond value; tsMask isolates them.
+const (
+	tsBits = 43
+	tsMask = int64(1)<<tsBits - 1
+)
+
+// startMs / endMs return the real Unix-millisecond timestamps with the
+// packed entity bits masked away.
+func (c compactSession) startMs() int64 { return int64(uint64(c.startUnixMs) & uint64(tsMask)) }
+func (c compactSession) endMs() int64   { return int64(uint64(c.endUnixMs) & uint64(tsMask)) }
+
+// entities unpacks the interned user/database/host indices (0 = unknown in
+// each dimension) from the timestamps' high bits. host is uint32 because its
+// 21-bit field exceeds uint16's range.
+func (c compactSession) entities() (user, db uint16, host uint32) {
+	user = uint16(uint64(c.startUnixMs) >> tsBits & 0x7FF)
+	db = uint16(uint64(c.startUnixMs) >> 54 & 0x3FF)
+	host = uint32(uint64(c.endUnixMs) >> tsBits & 0x1FFFFF)
+	return
 }
 
 // sessionsPerChunk is the fixed capacity of each compact-storage chunk.
@@ -214,8 +273,24 @@ type ConnectionAnalyzer struct {
 	// than the previous []time.Time storage on long captures.
 	receivedChunks [][]int64
 
-	// Same scheme for completed sessions.
+	// Same scheme for completed sessions. The per-session entity indices are
+	// packed into the timestamps' unused high bits (see compactSession), so
+	// there is no parallel entity array to retain.
 	sessionChunks [][]compactSession
+
+	// userIndex/userNames, databaseIndex/databaseNames, hostIndex/hostNames
+	// intern the user/database/host strings extracted at a disconnect (see
+	// extractEntityFromMessage) into small integer indices, which then ride
+	// for free in the compactSession high bits instead of being retained as
+	// strings. *Names[0] is the "" placeholder for index 0 ("unknown"); real
+	// entities are interned from index 1. The per-dimension caps (see
+	// internEntity) match the bit budgets: user 2047, db 1023, host 2097151.
+	userIndex     map[string]uint32
+	userNames     []string
+	databaseIndex map[string]uint32
+	databaseNames []string
+	hostIndex     map[string]uint32
+	hostNames     []string
 
 	// loc is the location of the first event observed. Used to
 	// materialize compact Unix-ms timestamps back into the same zone
@@ -271,10 +346,41 @@ func NewConnectionAnalyzer() *ConnectionAnalyzer {
 		sessionsByUser:      make(map[string]*StreamingDurationStats, 100),
 		sessionsByDatabase:  make(map[string]*StreamingDurationStats, 50),
 		sessionsByHost:      make(map[string]*StreamingDurationStats, 100),
+		userIndex:           make(map[string]uint32, 100),
+		databaseIndex:       make(map[string]uint32, 50),
+		hostIndex:           make(map[string]uint32, 100),
 		activeConnections:   make(map[string]time.Time, 1000),
 		clientIORecv:        make(map[string]map[string]int, 8),
 		clientIOSend:        make(map[string]map[string]int, 8),
 	}
+}
+
+// internEntity returns the 1-based interned index for name in the given
+// (index, names) pair, allocating a new entry on first sight. Returns 0
+// ("unknown") for an empty name. names[0] is lazily reserved as the ""
+// placeholder for index 0 the first time a real name is interned, so a
+// dimension that never sees an entity keeps names nil (omitted from JSON).
+// Bounded at maxIdx distinct values — the width of the compactSession bit
+// field this dimension packs into (user 2047, db 1023, host 2097151). A log
+// whose entity cardinality overflows the field just stops interning past
+// that point (returns 0), unrealistic for user/database/host in practice.
+func internEntity(name string, index map[string]uint32, names *[]string, maxIdx uint32) uint32 {
+	if name == "" {
+		return 0
+	}
+	if idx, ok := index[name]; ok {
+		return idx
+	}
+	if len(*names) == 0 {
+		*names = append(*names, "") // reserve index 0 for "unknown"
+	}
+	if uint32(len(*names)) > maxIdx {
+		return 0
+	}
+	idx := uint32(len(*names))
+	*names = append(*names, name)
+	index[name] = idx
+	return idx
 }
 
 // addReceived appends a received-timestamp (as Unix milliseconds) to
@@ -292,13 +398,18 @@ func (a *ConnectionAnalyzer) addReceived(t time.Time) {
 	a.receivedChunks[n-1] = append(a.receivedChunks[n-1], ms)
 }
 
-// addSession appends a completed session (Unix-millisecond start/end)
-// to the compact chunked storage.
-func (a *ConnectionAnalyzer) addSession(start, end time.Time) {
+// addSession appends a completed session to the compact chunked storage,
+// packing the interned user/database/host indices into the timestamps'
+// unused high bits (see compactSession). All-zero indices ("unknown") mean
+// the ms values are stored verbatim — the case for the receivedAt-only
+// disconnect fallback and the Finalize orphan-flush.
+func (a *ConnectionAnalyzer) addSession(start, end time.Time, userIdx, dbIdx, hostIdx uint32) {
 	if a.loc == nil {
 		a.loc = start.Location()
 	}
-	cs := compactSession{startUnixMs: start.UnixMilli(), endUnixMs: end.UnixMilli()}
+	s := uint64(start.UnixMilli())&uint64(tsMask) | uint64(userIdx)<<tsBits | uint64(dbIdx)<<54
+	e := uint64(end.UnixMilli())&uint64(tsMask) | uint64(hostIdx)<<tsBits
+	cs := compactSession{startUnixMs: int64(s), endUnixMs: int64(e)}
 	n := len(a.sessionChunks)
 	if n == 0 || len(a.sessionChunks[n-1]) == sessionsPerChunk {
 		a.sessionChunks = append(a.sessionChunks, make([]compactSession, 0, sessionsPerChunk))
@@ -404,14 +515,22 @@ func (a *ConnectionAnalyzer) Process(entry *parser.LogEntry) {
 			a.globalSessionStats.Add(duration)
 			a.addToSessionDistribution(duration)
 
-			// Store session event for concurrent tracking
-			startTime := entry.Timestamp.Add(-duration)
-			a.addSession(startTime, entry.Timestamp)
-
-			// Extract user, database, and host from disconnection message
+			// Extract user, database, and host from disconnection message,
+			// and intern them into small integer indices — the indices ride
+			// for free in the compact session storage (packed into the
+			// timestamps' high bits), so the report's time filter can
+			// re-scope the per-user/database/host tables without retaining
+			// entity strings per session. Caps match the packing bit budgets.
 			user := extractEntityFromMessage(msg, "user")
 			database := extractEntityFromMessage(msg, "database")
 			host := extractEntityFromMessage(msg, "host")
+			userIdx := internEntity(user, a.userIndex, &a.userNames, 2047)
+			dbIdx := internEntity(database, a.databaseIndex, &a.databaseNames, 1023)
+			hostIdx := internEntity(host, a.hostIndex, &a.hostNames, 2097151)
+
+			// Store session event for concurrent tracking
+			startTime := entry.Timestamp.Add(-duration)
+			a.addSession(startTime, entry.Timestamp, userIdx, dbIdx, hostIdx)
 
 			// Store duration by user
 			if user != "" {
@@ -448,8 +567,10 @@ func (a *ConnectionAnalyzer) Process(entry *parser.LogEntry) {
 			// `connection received` timestamp so this session still
 			// shows up on the concurrent-sessions histogram. We do NOT
 			// feed the duration stats in this path: we have no reliable
-			// PG-reported duration, only a coarse observed window.
-			a.addSession(receivedAt, entry.Timestamp)
+			// PG-reported duration, only a coarse observed window. No
+			// entity was extracted either, so this session's indices are
+			// all "unknown" (zero value).
+			a.addSession(receivedAt, entry.Timestamp, 0, 0, 0)
 		}
 	} else if idx+10 < len(msg) && msg[idx:idx+10] == "connection" {
 		// Check if followed by " received"
@@ -503,7 +624,7 @@ func (a *ConnectionAnalyzer) Finalize() ConnectionMetrics {
 			return orphans[i].Before(orphans[j])
 		})
 		for _, receivedAt := range orphans {
-			a.addSession(receivedAt, a.lastSeenTimestamp)
+			a.addSession(receivedAt, a.lastSeenTimestamp, 0, 0, 0)
 		}
 	}
 
@@ -535,6 +656,10 @@ func (a *ConnectionAnalyzer) Finalize() ConnectionMetrics {
 		ClientIOFailureCount: a.clientIOFailureCount,
 		ClientIORecv:         a.clientIORecv,
 		ClientIOSend:         a.clientIOSend,
+
+		SessionUserNames:     a.userNames,
+		SessionDatabaseNames: a.databaseNames,
+		SessionHostNames:     a.hostNames,
 
 		receivedChunksRef: a.receivedChunks,
 		sessionChunksRef:  a.sessionChunks,
@@ -574,11 +699,13 @@ func computePeakSweepline(chunks [][]compactSession, loc *time.Location) (int, t
 	endMs := make([]int64, 0, n)
 	for _, chunk := range chunks {
 		for _, s := range chunk {
-			if s.startUnixMs == 0 || s.endUnixMs == 0 {
+			// Mask off the packed entity bits — the sweep needs the real ms.
+			sm, em := s.startMs(), s.endMs()
+			if sm == 0 || em == 0 {
 				continue
 			}
-			startMs = append(startMs, s.startUnixMs)
-			endMs = append(endMs, s.endUnixMs)
+			startMs = append(startMs, sm)
+			endMs = append(endMs, em)
 		}
 	}
 	if len(startMs) == 0 {
