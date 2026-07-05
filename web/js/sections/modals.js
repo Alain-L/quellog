@@ -210,6 +210,15 @@ function buildQueryEventsTable(rows, queryId) {
     `;
 }
 
+// Format a Date as local wall-clock "YYYY-MM-DD HH:MM:SS" — the same clock
+// as the modal's own sparkline (toLocaleTimeString) and the report's other
+// sections, instead of UTC (toISOString shifted the day for non-UTC logs).
+function localDateTime(d) {
+    const p = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ` +
+        `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+}
+
 // Event detail modal — full message + occurrences-over-time sparkline
 export function showEventDetail(index, opts = {}) {
     const e = analysisData.top_events?.[index];
@@ -224,8 +233,8 @@ export function showEventDetail(index, opts = {}) {
     if (ts.length > 0) {
         const first = new Date(ts[0]);
         const last = new Date(ts[ts.length - 1]);
-        firstStr = first.toISOString().slice(0, 19).replace('T', ' ');
-        lastStr = last.toISOString().slice(0, 19).replace('T', ' ');
+        firstStr = localDateTime(first);
+        lastStr = localDateTime(last);
         const spanMin = Math.max(1, (last - first) / 60000);
         freqStr = (ts.length / spanMin).toFixed(2) + ' /min';
     }
@@ -829,7 +838,10 @@ function modalTooltipPlugin(valueFormatter) {
 
 // Build duration distribution (horizontal bars - keep as HTML for categories)
 function buildQdDurationDistribution(execs) {
-    const durations = execs.map(e => parseDurationToMs(e.duration)).filter(d => d > 0);
+    // Executions carry duration_ms (a number). The old code read a
+    // non-existent `duration` string, so every value was 0 and the block
+    // never rendered.
+    const durations = execs.map(e => e.duration_ms).filter(d => typeof d === 'number');
     if (durations.length === 0) return '';
     const buckets = [
         { label: '< 1 ms', max: 1 },
@@ -917,20 +929,6 @@ function buildQdTempFilesHistogram(events) {
         <div style="font-size: 0.7rem; color: var(--text-muted); margin: 0.75rem 0 0.25rem;">Temp files count</div>
         <div id="${countContainerId}" style="min-height: 100px;"></div>
     `;
-}
-
-function parseDurationToMs(dur) {
-    if (!dur || typeof dur !== 'string') return 0;
-    let ms = 0;
-    const hMatch = dur.match(/(\d+)\s*h/);
-    const mMatch = dur.match(/(\d+)\s*m(?!s)/);
-    const sMatch = dur.match(/([\d.]+)\s*s(?![\d])/);
-    const msMatch = dur.match(/([\d.]+)\s*ms/);
-    if (hMatch) ms += parseInt(hMatch[1]) * 3600000;
-    if (mMatch) ms += parseInt(mMatch[1]) * 60000;
-    if (sMatch) ms += parseFloat(sMatch[1]) * 1000;
-    if (msMatch) ms += parseFloat(msMatch[1]);
-    return ms;
 }
 
 function formatSQL(sql) {

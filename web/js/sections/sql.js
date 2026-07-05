@@ -286,12 +286,12 @@ export function buildSQLPerformanceSection(data) {
         });
     }
 
-    // Slim duration distribution stacked-bar — same data as the
-    // previous "Duration Distribution" subsection, but rendered
-    // inline (no title, no border) so it just fills a thin band
-    // between the activity chart and the tabs without competing
-    // with the cost map for attention.
-    const durationDist = buildDurationDistribution(queries);
+    // Slim duration distribution stacked-bar. Use the backend's exact
+    // per-execution distribution (sql_performance.duration_distribution)
+    // rather than re-bucketing queries by their average — the latter drops
+    // a whole query's count into one bucket and disagrees with the CLI.
+    const durationDist = (sql.duration_distribution || [])
+        .map(b => ({ label: b.bucket, count: b.count }));
 
     // Cost-map data: regular queries with a real avg duration. TCL
     // (COMMIT/BEGIN/ROLLBACK…) is excluded — like the main query tables,
@@ -359,33 +359,6 @@ export function buildSQLPerformanceSection(data) {
             </div>
         </div>
     `;
-}
-
-// Build duration distribution buckets from queries
-function buildDurationDistribution(queries) {
-    if (!queries?.length) return [];
-    // Duration buckets in ms
-    const buckets = [
-        { label: '< 1ms', max: 1 },
-        { label: '1-10ms', max: 10 },
-        { label: '10-100ms', max: 100 },
-        { label: '100ms-1s', max: 1000 },
-        { label: '1-10s', max: 10000 },
-        { label: '> 10s', max: Infinity }
-    ];
-    const counts = buckets.map(() => 0);
-    queries.forEach(q => {
-        // Use avg_time_ms for distribution
-        const ms = q.avg_time_ms || 0;
-        for (let i = 0; i < buckets.length; i++) {
-            if (ms < buckets[i].max) {
-                counts[i] += q.count || 1;
-                break;
-            }
-        }
-    });
-    // Return all buckets (including zeros for grayed display)
-    return buckets.map((b, i) => ({ label: b.label, count: counts[i] }));
 }
 
 // Compact horizontal duration distribution
