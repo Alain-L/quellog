@@ -24,7 +24,6 @@ type TempFileEvent struct {
 	Timestamp time.Time
 	Size      float64 // bytes
 	QueryID   string  // short id (e.g. "se-abc123"), empty if not identifiable
-	seq       int64   // stream position (unexported: not serialized), for stable cross-shard merge
 }
 
 // TempFileQueryStat aggregates temp-file events for one query pattern.
@@ -326,7 +325,6 @@ func (a *TempFileAnalyzer) Process(entry *parser.LogEntry) {
 			Timestamp: entry.Timestamp,
 			Size:      float64(size),
 			QueryID:   "", // Will be filled later if query is found
-			seq:       entry.Seq,
 		})
 
 		// Use cached PID (already extracted above)

@@ -36,7 +36,6 @@ type LockEvent struct {
 	BlockingQueryID string
 	BlockingQuery   string // normalized blocking query, if known
 	Relation        string // table from CONTEXT ("while locking tuple ... in relation X")
-	seq             int64  // stream position (unexported: not serialized), for stable cross-shard merge
 }
 
 // LockQueryStat aggregates lock stats for one query pattern.
@@ -560,7 +559,6 @@ func (a *LockAnalyzer) handleWaiting(
 		BlockingPID:     blockingPID,
 		BlockingQueryID: blockingQueryID,
 		Relation:        relation,
-		seq:             entry.Seq,
 	})
 	// Remember the event index so a later STATEMENT line can update
 	// query_id in place.
@@ -638,7 +636,6 @@ func (a *LockAnalyzer) handleAcquired(
 		QueryID:      queryID,
 		BlockingPID:  acquiredBlockingPID,
 		Relation:     acquiredRelation,
-		seq:          entry.Seq,
 	})
 }
 
