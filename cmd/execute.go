@@ -286,7 +286,7 @@ func parseFilesAsync(ctx context.Context, files []string, out chan<- []parser.Lo
 	for i := range queues {
 		queues[i] = make(chan []parser.LogEntry, fileQueueDepth)
 	}
-	// Window of 3: the drained file plus two prefetching. Pool files are
+	// Window of 2: the drained file plus one prefetching. Pool files are
 	// big or compressed (determineWorkerCount), so each saturates the CPU
 	// through its own intra-file parallelism — file-level concurrency past
 	// the prefetch would only stack blocked pipelines and their in-flight
