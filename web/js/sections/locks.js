@@ -137,13 +137,10 @@ export function buildLocksSection(data) {
                             blockers[e.blocking_query_id] = { id: e.blocking_query_id, query: e.blocking_query || '', count: 0, totalWaitMs: 0 };
                         }
                         blockers[e.blocking_query_id].count++;
-                        // Parse "1.00 s" or "2m 30s" wait_time string to ms
-                        const wt = e.wait_time || '';
-                        const sMatch = wt.match(/([\d.]+)\s*s/);
-                        const mMatch = wt.match(/([\d.]+)\s*m/);
-                        let ms = 0;
-                        if (mMatch) ms += parseFloat(mMatch[1]) * 60000;
-                        if (sMatch) ms += parseFloat(sMatch[1]) * 1000;
+                        // parseDurToMs, not an ad-hoc regex: the old /([\d.]+)\s*m/
+                        // read "512 ms" as 512 minutes (matched the 'm' in 'ms')
+                        // and "1h 05m 33s" dropped the hours entirely.
+                        const ms = parseDurToMs(e.wait_time);
                         blockers[e.blocking_query_id].totalWaitMs += ms;
                     });
                     const sorted = Object.values(blockers).sort((a, b) => b.totalWaitMs - a.totalWaitMs).slice(0, 10);

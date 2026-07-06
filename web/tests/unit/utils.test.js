@@ -348,3 +348,20 @@ describe('fmtQueryDuration (backend formatQueryDuration parity)', () => {
         assert.equal(fmtQueryDuration(90061000), '1d 1h 01m');
     });
 });
+
+describe('sub-millisecond durations (Go Duration.String: µs / ns)', () => {
+    it('fmtDur keeps µs / ns verbatim instead of reading them as seconds', () => {
+        assert.equal(fmtDur('738µs'), '738µs');
+        assert.equal(fmtDur('12ns'), '12ns');
+        // regression: previously "738µs" rendered as "738.00s"
+        assert.notEqual(fmtDur('738µs'), '738.00s');
+    });
+    it('parseDurToMs converts µs / ns to fractional ms (was 0)', () => {
+        assert.equal(parseDurToMs('738µs'), 0.738);
+        assert.equal(parseDurToMs('500ns'), 0.0005);
+    });
+    it('parseDurToMs still reads ms/s/m correctly (µs path does not steal them)', () => {
+        assert.equal(parseDurToMs('512 ms'), 512);
+        assert.equal(parseDurToMs('2m 30s'), 150000);
+    });
+});

@@ -72,6 +72,29 @@ export const MAX_CANVAS_DAYS = 8;
 // so a log ending at e.g. 00:00:01 doesn't add a near-empty extra day.
 const NEGLIGIBLE_DAY_MS = 5 * 60 * 1000;
 
+// Calendar-grid mapping between a slider offset (a uniform 1440 minutes per
+// screen day) and a real timestamp: each screen day maps to one real calendar
+// day, local midnight to local midnight. A 23h/25h day across a DST change
+// still lines up with its date label and the axis extent. On days that are
+// exactly 24h (everywhere except a DST boundary) these are identical to the
+// plain `axisStart + offset*60000` / `(ts - axisStart)/60000`. axisStart is a
+// local midnight.
+function offsetToTs(axisStart, offsetMins) {
+    const dayIdx = Math.floor(offsetMins / 1440);
+    const minsInDay = offsetMins - dayIdx * 1440;
+    const a = new Date(axisStart);
+    const dayMidnight = new Date(a.getFullYear(), a.getMonth(), a.getDate() + dayIdx).getTime();
+    return dayMidnight + minsInDay * 60000;
+}
+function tsToOffset(axisStart, ts) {
+    const t = new Date(ts);
+    const localMidnight = new Date(t.getFullYear(), t.getMonth(), t.getDate()).getTime();
+    const a = new Date(axisStart);
+    const axisMidnight = new Date(a.getFullYear(), a.getMonth(), a.getDate()).getTime();
+    const dayIdx = Math.round((localMidnight - axisMidnight) / DAY_MS);
+    return dayIdx * 1440 + Math.round((ts - localMidnight) / 60000);
+}
+
 // computeDayAxis turns the dataset bounds into the full-calendar-days axis used by
 // the Summary time slider: each touched day is a full 24h of equal width, offsets
 // are measured from midnight of the first day, and the default selection marks the
@@ -95,8 +118,8 @@ export function computeDayAxis(startDate, endDate) {
 
     const nDays = Math.round((axisEnd - axisStart) / DAY_MS);
     const durMins = nDays * 1440;
-    let defMin = Math.round((startTs - axisStart) / 60000);
-    let defMax = Math.round((endTs - axisStart) / 60000);
+    let defMin = tsToOffset(axisStart, startTs);
+    let defMax = tsToOffset(axisStart, endTs);
     if (defMin < 0) defMin = 0;
     if (defMax > durMins) defMax = durMins;
     return { startTs, endTs, axisStart, axisEnd, nDays, durMins, defMin, defMax };
@@ -238,14 +261,14 @@ export function updateTimeSlider() {
 
 export function offsetToTimeStr(offsetMins) {
     if (!timeFilterStartTs) return minutesToTime(offsetMins);
-    const ts = new Date(timeFilterStartTs + offsetMins * 60 * 1000);
+    const ts = new Date(offsetToTs(timeFilterStartTs, offsetMins));
     return ts.getHours().toString().padStart(2, '0') + ':' + ts.getMinutes().toString().padStart(2, '0');
 }
 
 // "3 Jan 08:00" — date + time, for selections on a multi-day (no per-day labels) axis.
 function offsetToDateTimeStr(offsetMins) {
     if (!timeFilterStartTs) return minutesToTime(offsetMins);
-    const d = new Date(timeFilterStartTs + offsetMins * 60 * 1000);
+    const d = new Date(offsetToTs(timeFilterStartTs, offsetMins));
     const hh = d.getHours().toString().padStart(2, '0');
     const mm = d.getMinutes().toString().padStart(2, '0');
     return `${d.getDate()} ${MON_ABBR[d.getMonth()]} ${hh}:${mm}`;
@@ -253,7 +276,7 @@ function offsetToDateTimeStr(offsetMins) {
 
 export function offsetToDatetime(offsetMins) {
     if (!timeFilterStartTs) return null;
-    const ts = new Date(timeFilterStartTs + offsetMins * 60 * 1000);
+    const ts = new Date(offsetToTs(timeFilterStartTs, offsetMins));
     const y = ts.getFullYear();
     const m = (ts.getMonth() + 1).toString().padStart(2, '0');
     const d = ts.getDate().toString().padStart(2, '0');
