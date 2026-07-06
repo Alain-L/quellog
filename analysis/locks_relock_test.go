@@ -60,3 +60,42 @@ func TestLockRelockCountsAsNewEpisode(t *testing.T) {
 		}
 	})
 }
+
+// TestLockRepeatedWaitingDedupsToOneEvent guards the re-ping dedup: PostgreSQL
+// re-logs "still waiting" once per deadlock_timeout for the same pending lock.
+// That is one wait episode, so the counters count it once and the Events detail
+// array must hold a single "waiting" row (refreshed to the latest wait time),
+// not one row per re-log.
+func TestLockRepeatedWaitingDedupsToOneEvent(t *testing.T) {
+	base := time.Unix(1700000000, 0).UTC()
+	a := NewLockAnalyzer()
+	msgs := []string{
+		"process 100 still waiting for ShareLock on transaction 42 after 1000.000 ms",
+		"process 100 still waiting for ShareLock on transaction 42 after 2000.000 ms",
+		"process 100 still waiting for ShareLock on transaction 42 after 3000.000 ms",
+	}
+	for i, msg := range msgs {
+		e := parser.LogEntry{Timestamp: base.Add(time.Duration(i) * time.Second), Message: msg, PID: "100"}
+		a.Process(&e)
+	}
+	m := a.Finalize()
+
+	if m.TotalEvents != 1 || m.WaitingEvents != 1 || m.AcquiredEvents != 0 {
+		t.Fatalf("got total=%d waiting=%d acquired=%d, want 1/1/0", m.TotalEvents, m.WaitingEvents, m.AcquiredEvents)
+	}
+
+	waiting := 0
+	var lastWait float64
+	for _, ev := range m.Events {
+		if ev.EventType == "waiting" {
+			waiting++
+			lastWait = ev.WaitTime
+		}
+	}
+	if waiting != 1 {
+		t.Fatalf("got %d waiting rows, want 1 (re-pings must not append duplicates)", waiting)
+	}
+	if lastWait != 3000.0 {
+		t.Fatalf("waiting event WaitTime=%v, want 3000 (refreshed in place on each re-ping)", lastWait)
+	}
+}

@@ -36,7 +36,34 @@ type LockEvent struct {
 	BlockingQueryID string
 	BlockingQuery   string // normalized blocking query, if known
 	Relation        string // table from CONTEXT ("while locking tuple ... in relation X")
-	seq             int64  // stream position (unexported: not serialized), for stable cross-shard merge
+}
+
+// Preloaded interning indices for the fixed event-type strings (see the strs
+// table in NewLockAnalyzer). Index 0 is the empty string.
+const (
+	lockEvtWaiting  uint32 = 1
+	lockEvtAcquired uint32 = 2
+	lockEvtDeadlock uint32 = 3
+)
+
+// compactLockEvent is the retained per-event form during parsing. Every string
+// field of LockEvent becomes a uint32 index into a shared interned-string
+// table, and the timestamp a millisecond int64 — ~56 bytes instead of ~176,
+// and, because the interned strings are cloned, no field is a substring of
+// entry.Message pinning the whole log line alive. Materialized into the public
+// LockEvent only at Finalize, keeping the exported API and output unchanged.
+type compactLockEvent struct {
+	tsUnixMs        int64
+	waitTime        float64
+	eventType       uint32
+	lockType        uint32
+	resourceType    uint32
+	processID       uint32
+	queryID         uint32
+	blockingPID     uint32
+	blockingQueryID uint32
+	blockingQuery   uint32
+	relation        uint32
 }
 
 // LockQueryStat aggregates lock stats for one query pattern.
@@ -97,7 +124,10 @@ type LockAnalyzer struct {
 	relationStats     map[string]int
 
 	// Pre-allocated structures (initialized at creation)
-	events             []LockEvent
+	events             []compactLockEvent
+	strs               []string          // interned strings; index 0 is ""
+	strIndex           map[string]uint32 // string -> index into strs
+	locRef             *time.Location    // log timezone, captured from the first event
 	queryStats         map[string]*LockQueryStat
 	lastQueryByPID     map[string]string
 	pendingBlockingPID map[string]string // Maps waiting PID → blocking PID (from DETAIL line)
@@ -127,13 +157,29 @@ func NewLockAnalyzer() *LockAnalyzer {
 		lockTypeStats:      make(map[string]int, 20),
 		resourceTypeStats:  make(map[string]int, 10),
 		relationStats:      make(map[string]int, 50),
-		events:             make([]LockEvent, 0, 1000),
+		events:             make([]compactLockEvent, 0, 1000),
+		strs:               []string{"", "waiting", "acquired", "deadlock"},
+		strIndex:           map[string]uint32{"": 0, "waiting": lockEvtWaiting, "acquired": lockEvtAcquired, "deadlock": lockEvtDeadlock},
 		queryStats:         make(map[string]*LockQueryStat, 100),
 		lastQueryByPID:     make(map[string]string, 100),
 		pendingBlockingPID: make(map[string]string, 50),
 		activeLocks:        make(map[string]*activeLock, 200),
 		locksExist:         false,
 	}
+}
+
+// intern returns the index of s in the shared interned-string table, adding it
+// when new. The stored copy is cloned so that a field sliced out of
+// entry.Message does not keep the whole log line alive. Index 0 is "".
+func (a *LockAnalyzer) intern(s string) uint32 {
+	if idx, ok := a.strIndex[s]; ok {
+		return idx
+	}
+	s = strings.Clone(s)
+	idx := uint32(len(a.strs))
+	a.strs = append(a.strs, s)
+	a.strIndex[s] = idx
+	return idx
 }
 
 // Process analyzes a single log entry for lock events.
@@ -308,14 +354,16 @@ func (a *LockAnalyzer) processBlockingDetail(entry *parser.LogEntry, msg string)
 	}
 
 	// Update the last waiting event for this PID.
+	wantPID := a.intern(waitingPID)
 	for i := len(a.events) - 1; i >= 0; i-- {
-		if a.events[i].ProcessID == waitingPID && a.events[i].EventType == "waiting" {
-			a.events[i].BlockingPID = bPID
+		if a.events[i].processID == wantPID && a.events[i].eventType == lockEvtWaiting {
+			a.events[i].blockingPID = a.intern(bPID)
 			// Try to resolve blocking query (text + ID together).
 			if bQuery, ok := a.lastQueryByPID[bPID]; ok {
 				normalized := normalizeQuery(bQuery)
-				a.events[i].BlockingQueryID, _ = GenerateQueryID(bQuery, normalized)
-				a.events[i].BlockingQuery = normalized
+				id, _ := GenerateQueryID(bQuery, normalized)
+				a.events[i].blockingQueryID = a.intern(id)
+				a.events[i].blockingQuery = a.intern(normalized)
 			}
 			break
 		}
@@ -360,9 +408,10 @@ func (a *LockAnalyzer) processRelationContext(entry *parser.LogEntry, msg string
 		return
 	}
 
+	wantPID := a.intern(pid)
 	for i := len(a.events) - 1; i >= 0; i-- {
-		if a.events[i].ProcessID == pid && a.events[i].EventType == "waiting" && a.events[i].Relation == "" {
-			a.events[i].Relation = rel
+		if a.events[i].processID == wantPID && a.events[i].eventType == lockEvtWaiting && a.events[i].relation == 0 {
+			a.events[i].relation = a.intern(rel)
 			break
 		}
 	}
@@ -437,7 +486,7 @@ func (a *LockAnalyzer) processQueryContinuation(entry *parser.LogEntry, msg stri
 			if lock.waitingEventID >= 0 && lock.waitingEventID < len(a.events) {
 				normalized := normalizeQuery(query)
 				queryID, _ := GenerateQueryID(query, normalized)
-				a.events[lock.waitingEventID].QueryID = queryID
+				a.events[lock.waitingEventID].queryID = a.intern(queryID)
 			}
 		}
 	}
@@ -453,9 +502,10 @@ func (a *LockAnalyzer) processDeadlock(entry *parser.LogEntry) {
 	if pid == "" {
 		return
 	}
+	wantPID := a.intern(pid)
 	for i := len(a.events) - 1; i >= 0; i-- {
-		if a.events[i].ProcessID == pid && a.events[i].EventType == "waiting" {
-			a.events[i].EventType = "deadlock"
+		if a.events[i].processID == wantPID && a.events[i].eventType == lockEvtWaiting {
+			a.events[i].eventType = lockEvtDeadlock
 			break
 		}
 	}
@@ -530,8 +580,16 @@ func (a *LockAnalyzer) handleWaiting(
 			a.relationStats[relation]++
 		}
 	} else {
-		// Repeated "still waiting" for same pending lock — refresh wait time only.
+		// Repeated "still waiting" for the same pending lock. PostgreSQL re-logs
+		// this once per deadlock_timeout; it is one wait episode, not many (the
+		// counters already treat it that way). Refresh the existing event's wait
+		// time in place instead of appending a duplicate, and skip recomputing the
+		// query id (unchanged for the same episode).
 		lock.lastWaitTime = waitTime
+		if lock.waitingEventID >= 0 && lock.waitingEventID < len(a.events) {
+			a.events[lock.waitingEventID].waitTime = waitTime
+		}
+		return
 	}
 
 	queryID := ""
@@ -548,19 +606,21 @@ func (a *LockAnalyzer) handleWaiting(
 		}
 	}
 
+	if a.locRef == nil {
+		a.locRef = entry.Timestamp.Location()
+	}
 	eventIdx := len(a.events)
-	a.events = append(a.events, LockEvent{
-		Timestamp:       entry.Timestamp,
-		EventType:       "waiting",
-		LockType:        lockType,
-		ResourceType:    resourceType,
-		WaitTime:        waitTime,
-		ProcessID:       processID,
-		QueryID:         queryID,
-		BlockingPID:     blockingPID,
-		BlockingQueryID: blockingQueryID,
-		Relation:        relation,
-		seq:             entry.Seq,
+	a.events = append(a.events, compactLockEvent{
+		tsUnixMs:        entry.Timestamp.UnixMilli(),
+		eventType:       lockEvtWaiting,
+		lockType:        a.intern(lockType),
+		resourceType:    a.intern(resourceType),
+		waitTime:        waitTime,
+		processID:       a.intern(processID),
+		queryID:         a.intern(queryID),
+		blockingPID:     a.intern(blockingPID),
+		blockingQueryID: a.intern(blockingQueryID),
+		relation:        a.intern(relation),
 	})
 	// Remember the event index so a later STATEMENT line can update
 	// query_id in place.
@@ -628,17 +688,19 @@ func (a *LockAnalyzer) handleAcquired(
 		acquiredRelation = lock.relation
 	}
 
-	a.events = append(a.events, LockEvent{
-		Timestamp:    entry.Timestamp,
-		EventType:    "acquired",
-		LockType:     lockType,
-		ResourceType: resourceType,
-		WaitTime:     waitTime,
-		ProcessID:    processID,
-		QueryID:      queryID,
-		BlockingPID:  acquiredBlockingPID,
-		Relation:     acquiredRelation,
-		seq:          entry.Seq,
+	if a.locRef == nil {
+		a.locRef = entry.Timestamp.Location()
+	}
+	a.events = append(a.events, compactLockEvent{
+		tsUnixMs:     entry.Timestamp.UnixMilli(),
+		eventType:    lockEvtAcquired,
+		lockType:     a.intern(lockType),
+		resourceType: a.intern(resourceType),
+		waitTime:     waitTime,
+		processID:    a.intern(processID),
+		queryID:      a.intern(queryID),
+		blockingPID:  a.intern(acquiredBlockingPID),
+		relation:     a.intern(acquiredRelation),
 	})
 }
 
@@ -834,11 +896,12 @@ func (a *LockAnalyzer) Finalize() LockMetrics {
 	// Only resolve events that have NO blocking query yet — events resolved
 	// during streaming already have the correct query from that point in time.
 	for i := range a.events {
-		if a.events[i].BlockingPID != "" && a.events[i].BlockingQueryID == "" {
-			if bQuery, ok := a.lastQueryByPID[a.events[i].BlockingPID]; ok {
+		if a.events[i].blockingPID != 0 && a.events[i].blockingQueryID == 0 {
+			if bQuery, ok := a.lastQueryByPID[a.strs[a.events[i].blockingPID]]; ok {
 				normalized := normalizeQuery(bQuery)
-				a.events[i].BlockingQueryID, _ = GenerateQueryID(bQuery, normalized)
-				a.events[i].BlockingQuery = normalized
+				id, _ := GenerateQueryID(bQuery, normalized)
+				a.events[i].blockingQueryID = a.intern(id)
+				a.events[i].blockingQuery = a.intern(normalized)
 			}
 		}
 	}
@@ -896,6 +959,29 @@ func (a *LockAnalyzer) Finalize() LockMetrics {
 		stillWaiting = 0
 	}
 
+	// Materialize the compact events into the public LockEvent slice here, after
+	// parsing, so the exported shape and JSON output are unchanged.
+	loc := a.locRef
+	if loc == nil {
+		loc = time.UTC
+	}
+	events := make([]LockEvent, len(a.events))
+	for i, e := range a.events {
+		events[i] = LockEvent{
+			Timestamp:       time.UnixMilli(e.tsUnixMs).In(loc),
+			EventType:       a.strs[e.eventType],
+			LockType:        a.strs[e.lockType],
+			ResourceType:    a.strs[e.resourceType],
+			WaitTime:        e.waitTime,
+			ProcessID:       a.strs[e.processID],
+			QueryID:         a.strs[e.queryID],
+			BlockingPID:     a.strs[e.blockingPID],
+			BlockingQueryID: a.strs[e.blockingQueryID],
+			BlockingQuery:   a.strs[e.blockingQuery],
+			Relation:        a.strs[e.relation],
+		}
+	}
+
 	return LockMetrics{
 		TotalEvents:       a.totalEvents,
 		WaitingEvents:     stillWaiting,
@@ -905,7 +991,7 @@ func (a *LockAnalyzer) Finalize() LockMetrics {
 		LockTypeStats:     a.lockTypeStats,
 		ResourceTypeStats: a.resourceTypeStats,
 		RelationStats:     a.relationStats,
-		Events:            a.events,
+		Events:            events,
 		QueryStats:        queryStats,
 	}
 }

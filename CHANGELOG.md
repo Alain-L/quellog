@@ -18,6 +18,7 @@ All notable changes to this project will be documented in this file.
 - **Faster reports on session- and lock-heavy logs**: anchored analyzer gates, per-worker buffer reuse and callback-free sweep-line sorts cut wall time by up to a third on large stderr files.
 - **Compressed logs parse in parallel**: gzip/zstd stderr logs are parsed by a worker pool, up to ~30% faster.
 - **The HTML report is a few percent smaller**: multi-line CSS comments are now stripped from the embedded stylesheet, and the compressed payload is base64url-encoded so its bytes are no longer escaped inside the template's JS string.
+- **Lock and temp-file analysis retain less memory on busy logs**: lock events are stored with interned fields and no longer pin their source log line — ~30% lower peak retention on a lock-heavy capture — and temp-file events are compacted the same way. Output is unchanged.
 
 ### Changed
 - **Time filter is an always-visible range slider in the Summary card**: replaces the Time dropdown and re-filters on release. Multi-day logs split the slider by day.
@@ -26,6 +27,7 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 - **Analyzing multiple files at once is now deterministic**: rotated log sets were parsed with non-deterministic interleaving; files are now analyzed in order, so output is byte-stable.
 - **Lock metrics count each re-lock of the same resource as its own episode**: when a backend re-locks the same object, `total_events` and `acquired_events` stay in step.
+- **Lock timeline no longer repeats "still waiting" re-logs**: PostgreSQL re-logs "still waiting" once per deadlock_timeout while a backend waits; the events list held a row per re-log instead of one per wait episode (the counts were already per-episode). Now consistent.
 - **Time-series charts show the date on multi-day spans**: their x-axes were time-only (`00:00`, `06:00`, …), ambiguous across days; they now add the date at each day boundary, like the concurrent-sessions chart already did.
 - **Report duration tile no longer shows `0s` for spans of 24h or more**: the HTML report's duration now renders days (e.g. `1d`, `2d3h`) instead of dropping a day-formatted value.
 - **Maintenance elapsed times rounded to the microsecond**: a cumulative vacuum/analyze time could display e.g. `2s` for a true `3.0s` total due to float-summation noise; the rounded value is now correct and stable.
