@@ -196,6 +196,17 @@ describe('applyReportTimeFilter', () => {
         assert.equal(sql.total_query_duration, '1.10 s');
     });
 
+    it('re-buckets the SQL duration distribution from the filtered executions', () => {
+        const out = quiet(() => applyReportTimeFilter(BEGIN, END));
+        const dist = out.sql_performance.duration_distribution;
+        const count = (label) => (dist.find(b => b.bucket === label) || {}).count;
+        // kept durations 100/300/500/200 ms are all >=100 and <1000 -> "< 1 s".
+        assert.equal(count('< 1 s'), 4);
+        assert.equal(count('< 100 ms'), 0);
+        // the dropped 9999 ms execution (would be "< 10 s") must NOT leak in.
+        assert.equal(count('< 10 s'), 0);
+    });
+
     it('re-aggregates per-query stats and drops out-of-range queries', () => {
         const out = quiet(() => applyReportTimeFilter(BEGIN, END));
         const queries = out.sql_performance.queries;

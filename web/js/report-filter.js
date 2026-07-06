@@ -165,6 +165,27 @@ function reaggregateSqlPerformance(original, filteredExecutions) {
         }).filter(q => q.count > 0);
     }
 
+    // Re-bucket the filtered executions into the backend's exact distribution
+    // buckets (mirrors output/json.go). Without this, result.duration_distribution
+    // stays the full-log copy spread from {...original}, so the distribution band
+    // shows the whole log while every other SQL card re-scopes under the filter.
+    const distBuckets = [
+        { bucket: '< 1 ms', threshold: 1 },
+        { bucket: '< 10 ms', threshold: 10 },
+        { bucket: '< 100 ms', threshold: 100 },
+        { bucket: '< 1 s', threshold: 1000 },
+        { bucket: '< 10 s', threshold: 10000 },
+        { bucket: '>= 10 s', threshold: -1 },
+    ];
+    const distCounts = new Array(distBuckets.length).fill(0);
+    for (const exec of filteredExecutions) {
+        for (let i = 0; i < distBuckets.length; i++) {
+            const t = distBuckets[i].threshold;
+            if (t < 0 || exec.duration_ms < t) { distCounts[i]++; break; }
+        }
+    }
+    result.duration_distribution = distBuckets.map((b, i) => ({ bucket: b.bucket, count: distCounts[i] }));
+
     return result;
 }
 
