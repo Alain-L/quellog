@@ -80,7 +80,10 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          # 24, not 22: the unit tests exercise Intl.DurationFormat (the module's
+          # preferred path; it has a fallback for older engines), which the
+          # runner's Node 22 lacks.
+          node-version: '24'
 
       - name: Web unit + contract tests
         run: |
