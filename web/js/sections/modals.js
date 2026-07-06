@@ -5,7 +5,7 @@
 // modal's "<- Back" button unwind a chain of cross-modal navigations.
 
 import {
-    fmt, esc, escForJsAttr, truncQuery, safeMax, safeMin, fmtMs, fmtDur, fmtBytes, fmtMsLong
+    fmt, esc, escForJsAttr, truncQuery, safeMax, safeMin, fmtMs, fmtBytes, fmtMsLong
 } from '../utils.js';
 import { parseSizeToBytes } from '../format.js';
 import { analysisData, modalCharts, modalChartsData, incrementModalChartCounter } from '../state.js';
@@ -488,23 +488,13 @@ function buildQueryDetailHTML(q, execs, tempEvents, lockQ, tempQ) {
         html += '<div class="qd-stat"><div class="qd-stat-label">Acquired</div><div class="qd-stat-value">' + fmt(lockQ.acquired_count || 0) + '</div></div>';
         html += '<div class="qd-stat"><div class="qd-stat-label">Still Waiting</div><div class="qd-stat-value">' + fmt(lockQ.still_waiting_count || 0) + '</div></div>';
         html += '<div class="qd-stat"><div class="qd-stat-label">Total Wait</div><div class="qd-stat-value">' + (lockQ.total_wait_time || '-') + '</div></div>';
-        if (lockQ.avg_wait_time) {
-            html += '<div class="qd-stat"><div class="qd-stat-label">Avg Wait</div><div class="qd-stat-value">' + fmtDur(lockQ.avg_wait_time) + '</div></div>';
+        if (lockQ.acquired_wait_time) {
+            html += '<div class="qd-stat"><div class="qd-stat-label">Acquired Wait</div><div class="qd-stat-value">' + lockQ.acquired_wait_time + '</div></div>';
         }
-        if (lockQ.max_wait_time) {
-            html += '<div class="qd-stat"><div class="qd-stat-label">Max Wait</div><div class="qd-stat-value">' + fmtDur(lockQ.max_wait_time) + '</div></div>';
+        if (lockQ.still_waiting_time) {
+            html += '<div class="qd-stat"><div class="qd-stat-label">Still Waiting Time</div><div class="qd-stat-value">' + lockQ.still_waiting_time + '</div></div>';
         }
         html += '</div>';
-        // Lock types breakdown
-        if (lockQ.lock_types && Object.keys(lockQ.lock_types).length > 0) {
-            html += '<div style="margin-top: 0.75rem;">';
-            html += '<div style="font-size: 0.7rem; color: var(--text-muted); margin-bottom: 0.3rem;">Lock Types</div>';
-            html += '<div class="query-types">';
-            for (const [type, count] of Object.entries(lockQ.lock_types)) {
-                html += '<span class="query-type"><span class="name">' + type + '</span><span class="count">' + fmt(count) + '</span></span>';
-            }
-            html += '</div></div>';
-        }
         html += '</div>';
     }
 

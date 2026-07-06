@@ -41,6 +41,9 @@ All notable changes to this project will be documented in this file.
 - **HTML report could fail to load on older browsers**: it relied on `Intl.DurationFormat` with no fallback; a local formatter now covers browsers that lack it.
 - **Standalone report: tooltips and the filter dropdown are positioned correctly again**: the standalone CSS minifier stripped the spaces inside `calc(100% + 4px)`, which Chrome then dropped, mispositioning them (the CLI report was unaffected).
 - **In-browser WASM tool handles more uploads**: tar archives no longer ingest macOS `._*` sidecar files (which corrupted format detection), stream-written zips (Java `ZipOutputStream`, server-side "download as zip", …) now extract correctly by reading the zip's central directory instead of the zeroed local headers, and the dev build loads its WASM module and zstd decoder again.
+- **Checkpoint chart's "Other" series now counts every non-timed/WAL trigger**: it hardcoded two trigger names, so others (e.g. `immediate force wait wal`) were dropped from the chart while the Other stat card still counted them; chart and card now agree.
+- **Query-detail modal's Lock Waits block renders again**: it read per-query fields that don't exist (average/max wait, lock-type breakdown); it now shows the real acquired- and still-waiting wait times.
+- **Duration/time parsing in the report UI**: the Blocking Queries table mis-read a sub-second wait (`512 ms` as 512 minutes) and dropped hours from multi-hour waits, skewing its sort and totals; microsecond/nanosecond session durations rendered as seconds and sorted as zero; and the multi-day time slider's day labels could drift up to an hour across a daylight-saving change. All corrected.
 
 ### Internal
 - **Internal cleanup**: removed dead code and de-duplicated the `output/` renderers into shared helpers, with no change to any output (byte-identical on the sample matrix).

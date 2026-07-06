@@ -152,6 +152,13 @@ export function fmtDur(s) {
     if (!s || s === '-') return '-';
     if (typeof s !== 'string') return String(s);
 
+    // Sub-millisecond units from Go's Duration.String() (e.g. session times):
+    // "738µs" / "738ns". Keep them verbatim — the h/m/s parser below would read
+    // the number as seconds (rendering "738µs" as "738.00s").
+    if ((s.includes('µs') || s.includes('μs') || s.includes('ns')) && !s.includes('ms')) {
+        return s;
+    }
+
     // Check for ms first (msIdx is position where 'ms' starts)
     const msIdx = s.indexOf('ms');
     if (msIdx > 0 && s.indexOf('h') < 0 && s.indexOf('m') === msIdx) {
@@ -215,10 +222,17 @@ export function parseDurToMs(s) {
     const mMatch = s.match(/(\d+)\s*m(?!s)/);
     const sMatch = s.match(/([\d.]+)\s*s(?!.*ms)/);
     const msMatch = s.match(/([\d.]+)\s*ms/);
+    // Sub-millisecond units from Go's Duration.String() (µ is U+00B5; some
+    // toolchains emit U+03BC). Without these, "738µs" parsed to 0 and broke
+    // the session min/avg sort keys.
+    const usMatch = s.match(/([\d.]+)\s*[µμ]s/);
+    const nsMatch = s.match(/([\d.]+)\s*ns/);
     if (hMatch) ms += parseInt(hMatch[1]) * 3600000;
     if (mMatch) ms += parseInt(mMatch[1]) * 60000;
     if (sMatch) ms += parseFloat(sMatch[1]) * 1000;
     if (msMatch) ms += parseFloat(msMatch[1]);
+    if (usMatch) ms += parseFloat(usMatch[1]) / 1000;
+    if (nsMatch) ms += parseFloat(nsMatch[1]) / 1000000;
     return ms;
 }
 

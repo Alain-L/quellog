@@ -93,7 +93,9 @@ Read by: `js/sections/sql.js`, `js/sections/modals.js`; re-aggregated by
   `query_min_duration`, `query_median_duration`, `query_99th_percentile`.
 - `duration_distribution`: `[{bucket, count}]` with labels like `"< 1 ms"`.
 - `slowest_queries` / `most_frequent_queries` / `most_time_consuming`:
-  `[{id, normalized_query, count, total_time, avg_time, max_time}]`.
+  `[{id, normalized_query, count, total_time, avg_time, max_time}]` — present in
+  the payload but NOT read by the report (it ranks from `queries` / `executions`
+  itself); retained for `--json` CLI consumers.
 - `queries` (full mode): per-query detail `[{id, normalized_query, raw_query,
   type, count, total_time_ms, avg_time_ms, max_time_ms, top_databases,
   top_users, top_apps, top_hosts}]` — the `top_*` lists are `[{name, count}]`.
@@ -134,21 +136,23 @@ Totals `total_events`, `waiting_events`, `acquired_events`, `deadlock_events`,
 `total_wait_time`, `avg_wait_time`; breakdown maps `lock_type_stats`,
 `resource_type_stats`, `relation_stats` (name → count); `events`
 `[{timestamp, event_type, lock_type, resource_type, wait_time, process_id,
-query_id, blocking_pid, relation}]`; `queries` — same per-query shape as
-`temp_files.queries` (id, normalized/raw query, count).
+query_id, blocking_pid, blocking_query_id, blocking_query, relation}]`;
+`queries` `[{id, normalized_query, raw_query, acquired_count,
+acquired_wait_time, still_waiting_count, still_waiting_time, total_wait_time}]`
+(backs the query-detail modal's Lock Waits block).
 
 ### maintenance — vacuum & analyze
 Read by: `js/sections/maintenance.js`.
 - Counters: `vacuum_count`, `aggressive_vacuum_count`, `analyze_count`,
   `total_vacuum_elapsed_seconds`, `total_analyze_elapsed_seconds`,
   `total_tuples_removed`, `total_tuples_not_yet_removable`,
-  `total_buffer_hits`, `total_buffer_dirtied`.
+  `total_buffer_hits`, `total_buffer_misses`, `total_buffer_dirtied`.
 - `vacuum_table_counts` / `analyze_table_counts`: map of
   `db.schema.table` → run count.
 - `vacuum_space_recovered`: map of table → formatted size.
 - `top_vacuum_tables` / `xmin_blocked_tables`: `[{table, vacuum_count,
   total_elapsed_seconds, max_elapsed_seconds, tuples_removed,
-  tuples_not_yet_removable, buffer_hits, buffer_dirtied}]`.
+  tuples_not_yet_removable, buffer_hits, buffer_misses, buffer_dirtied}]`.
 - `top_analyze_tables_by_elapsed`: same minus the tuple/buffer fields.
 - `slowest_vacuum`: `{table, timestamp, elapsed_seconds,
   tuples_not_yet_removable}`.

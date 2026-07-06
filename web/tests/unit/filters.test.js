@@ -210,3 +210,20 @@ describe('offsetToDatetime', () => {
         assert.match(offsetToDatetime(123), /:00$/);
     });
 });
+
+describe('computeDayAxis DST safety', () => {
+    it('data-end offset lands on the calendar grid, not real elapsed minutes', () => {
+        // Across a DST spring-forward/fall-back a calendar day is 23h/25h, so
+        // real elapsed minutes drift from the uniform 1440-min-per-day grid the
+        // labels use. The offset must be dayIndex*1440 + minutes-since-local-
+        // midnight. Deterministic in any timezone: expected is computed the same
+        // (calendar) way; in a DST zone the old (ts-axisStart)/60000 would differ.
+        const a = computeDayAxis('2026-03-28 10:15:00', '2026-03-30 14:30:00');
+        const startMidnight = new Date(2026, 2, 28).getTime();
+        const endMidnight = new Date(2026, 2, 30).getTime();
+        const dayIdx = Math.round((endMidnight - startMidnight) / 86400000);
+        const expected = dayIdx * 1440 +
+            Math.round((new Date(2026, 2, 30, 14, 30).getTime() - endMidnight) / 60000);
+        assert.equal(a.defMax, expected);
+    });
+});
