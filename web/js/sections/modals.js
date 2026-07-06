@@ -5,7 +5,8 @@
 // modal's "<- Back" button unwind a chain of cross-modal navigations.
 
 import {
-    fmt, esc, escForJsAttr, truncQuery, safeMax, safeMin, fmtMs, fmtBytes, fmtMsLong
+    fmt, esc, escForJsAttr, truncQuery, safeMax, safeMin, fmtMs, fmtBytes, fmtMsLong,
+    localDateTime, qdDurationBuckets
 } from '../utils.js';
 import { parseSizeToBytes } from '../format.js';
 import { analysisData, modalCharts, modalChartsData, incrementModalChartCounter } from '../state.js';
@@ -208,15 +209,6 @@ function buildQueryEventsTable(rows, queryId) {
             </table>
         </div>
     `;
-}
-
-// Format a Date as local wall-clock "YYYY-MM-DD HH:MM:SS" — the same clock
-// as the modal's own sparkline (toLocaleTimeString) and the report's other
-// sections, instead of UTC (toISOString shifted the day for non-UTC logs).
-function localDateTime(d) {
-    const p = n => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ` +
-        `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
 }
 
 // Event detail modal — full message + occurrences-over-time sparkline
@@ -828,32 +820,16 @@ function modalTooltipPlugin(valueFormatter) {
 
 // Build duration distribution (horizontal bars - keep as HTML for categories)
 function buildQdDurationDistribution(execs) {
-    // Executions carry duration_ms (a number). The old code read a
-    // non-existent `duration` string, so every value was 0 and the block
-    // never rendered.
-    const durations = execs.map(e => e.duration_ms).filter(d => typeof d === 'number');
-    if (durations.length === 0) return '';
-    const buckets = [
-        { label: '< 1 ms', max: 1 },
-        { label: '< 10 ms', max: 10 },
-        { label: '< 100 ms', max: 100 },
-        { label: '< 1 s', max: 1000 },
-        { label: '< 10 s', max: 10000 },
-        { label: '>= 10 s', max: Infinity }
-    ];
-    const counts = buckets.map(() => 0);
-    durations.forEach(d => {
-        for (let i = 0; i < buckets.length; i++) {
-            if (d < buckets[i].max) { counts[i]++; break; }
-        }
-    });
+    const dist = qdDurationBuckets(execs);
+    if (dist.every(b => b.count === 0)) return '';
+    const counts = dist.map(b => b.count);
     const maxVal = Math.max(...counts);
     let html = '<div style="font-size: 0.7rem; color: var(--text-muted); margin: 0.75rem 0 0.25rem;">Duration distribution</div>';
     html += '<div style="display: flex; flex-direction: column; gap: 4px;">';
-    for (let i = 0; i < buckets.length; i++) {
+    for (let i = 0; i < dist.length; i++) {
         const pct = maxVal > 0 ? (counts[i] / maxVal * 100) : 0;
         html += '<div style="display: flex; align-items: center; gap: 8px; font-size: 0.75rem;">';
-        html += '<span style="width: 60px; text-align: right; color: var(--text-muted);">' + buckets[i].label + '</span>';
+        html += '<span style="width: 60px; text-align: right; color: var(--text-muted);">' + dist[i].label + '</span>';
         html += '<div style="flex: 1; height: 18px; border-radius: 4px; overflow: hidden;">';
         html += '<div style="width: ' + pct + '%; height: 100%; background: var(--chart-bar); border-radius: 4px;"></div>';
         html += '</div>';

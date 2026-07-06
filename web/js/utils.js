@@ -236,6 +236,40 @@ export function parseDurToMs(s) {
     return ms;
 }
 
+// Format a Date as local wall-clock "YYYY-MM-DD HH:MM:SS" — the same clock as
+// the report's other sections, instead of UTC (toISOString shifted the day for
+// non-UTC logs in the event-detail modal). Homed here (DOM-free) so it stays
+// testable; the modal module pulls DOM-bound deps that node cannot import.
+export function localDateTime(d) {
+    const p = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ` +
+        `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+}
+
+// Bucket a query's executions by duration into the backend's fixed distribution
+// buckets. Reads duration_ms (a number); the query-detail modal used to read a
+// non-existent `duration` string, so every value was 0 and the block never
+// rendered.
+export function qdDurationBuckets(execs) {
+    const buckets = [
+        { label: '< 1 ms', max: 1 },
+        { label: '< 10 ms', max: 10 },
+        { label: '< 100 ms', max: 100 },
+        { label: '< 1 s', max: 1000 },
+        { label: '< 10 s', max: 10000 },
+        { label: '>= 10 s', max: Infinity }
+    ];
+    const counts = buckets.map(() => 0);
+    for (const e of execs) {
+        const d = e.duration_ms;
+        if (typeof d !== 'number') continue;
+        for (let i = 0; i < buckets.length; i++) {
+            if (d < buckets[i].max) { counts[i]++; break; }
+        }
+    }
+    return buckets.map((b, i) => ({ label: b.label, count: counts[i] }));
+}
+
 /**
  * Format a millisecond duration exactly like the Go backend's
  * formatQueryDuration (output/format.go): "512 ms" / "42.50 s" /
