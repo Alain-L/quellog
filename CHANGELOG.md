@@ -34,6 +34,7 @@ All notable changes to this project will be documented in this file.
 - **Time-filtering the report kept several cards on stale or reformatted values**: after moving the time slider, SQL min/max/median/p99 lost their hour tier (a `1h 12m 50s` max showed as `72m`), temp-file totals changed number format, and the checkpoints "Too Frequent" count stayed at the full-log value while its section shrank. They are re-aggregated correctly now.
 - **Connections now fully re-scope under the report's time filter**: previously only the connection count re-scoped while the session stats and the per-user/database/host tables stayed on full-log values.
 - **The SQL duration-distribution band disagreed with the CLI**: the HTML re-bucketed queries by their average duration instead of using the exact per-execution distribution the report already carries; it now matches the `--full` text output.
+- **The SQL duration-distribution band now re-scopes under the time filter too**: it kept showing the whole-log distribution while every other SQL card re-scoped after moving the slider; it is re-bucketed from the filtered executions now.
 - **The query-detail modal's duration histogram never rendered**: it read a field that no longer exists, so every value was zero and the block was dropped.
 - **Event-detail "First seen" / "Last seen" were shown in UTC**: they shifted the day for non-UTC logs; now shown in the log's own clock, like the rest of the report.
 - **Split-report period-heatmap bounds could read "00:00 … 00:00"**: an intraday split spanning more than one day rendered both ends dateless; they now carry the date when the split crosses days.
@@ -48,6 +49,7 @@ All notable changes to this project will be documented in this file.
 ### Internal
 - **Internal cleanup**: removed dead code and de-duplicated the `output/` renderers into shared helpers, with no change to any output (byte-identical on the sample matrix).
 - **Web report internals restructured**: the report's JavaScript was split into per-section modules and its chart builders unified behind shared factories, under a new JS test net, with no change to the rendered report (0-pixel diff on the sample matrix).
+- **CI runs the web JS test net**: the JavaScript unit tests and the window-ABI / CSS / data-key contract linters now gate merges (previously local-only via `make test-web`); the pixel-visual harness stays local (system Chrome + macOS baselines).
 
 ## [0.11.0] - 2026-06-23
 
