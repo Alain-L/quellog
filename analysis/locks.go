@@ -529,8 +529,16 @@ func (a *LockAnalyzer) handleWaiting(
 			a.relationStats[relation]++
 		}
 	} else {
-		// Repeated "still waiting" for same pending lock — refresh wait time only.
+		// Repeated "still waiting" for the same pending lock. PostgreSQL re-logs
+		// this once per deadlock_timeout; it is one wait episode, not many (the
+		// counters already treat it that way). Refresh the existing event's wait
+		// time in place instead of appending a duplicate, and skip recomputing the
+		// query id (unchanged for the same episode).
 		lock.lastWaitTime = waitTime
+		if lock.waitingEventID >= 0 && lock.waitingEventID < len(a.events) {
+			a.events[lock.waitingEventID].WaitTime = waitTime
+		}
+		return
 	}
 
 	queryID := ""
