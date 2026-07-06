@@ -80,59 +80,75 @@ function isSupportedEntry(name) {
     );
 }
 
-// Extract ZIP archive and concatenate file contents
-// Parses local file headers; supports stored (method 0) and deflate (method 8)
+// Extract ZIP archive and concatenate supported log entries.
+//
+// Driven by the central directory (the table at the end of the archive), not by
+// the local file headers. Stream-written zips (general-purpose bit 3 / data
+// descriptor) leave the size and CRC fields in the local header at 0 and only
+// record the true values afterwards, so walking local headers extracts nothing;
+// the central directory always carries the correct sizes. This mirrors Go's
+// archive/zip, used by the CLI. Supports stored (method 0) and deflate (8).
+// ZIP64 is not handled (unrealistic for a browser-uploaded log archive).
 export async function extractZip(buffer) {
     const data = new Uint8Array(buffer);
     const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+    const td = new TextDecoder();
+
+    // Locate the End of Central Directory record (PK\x05\x06), scanning back
+    // from the end since its trailing comment can be up to 65535 bytes.
+    let eocd = -1;
+    const scanFrom = Math.max(0, data.length - (22 + 0xffff));
+    for (let i = data.length - 22; i >= scanFrom; i--) {
+        if (view.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+    }
+    if (eocd < 0) {
+        console.warn('[quellog] zip: no end-of-central-directory record found');
+        return '';
+    }
+
+    const entryCount = view.getUint16(eocd + 10, true);
+    let cd = view.getUint32(eocd + 16, true); // offset of the central directory
+
     const files = [];
-    let offset = 0;
+    for (let e = 0; e < entryCount && cd + 46 <= data.length; e++) {
+        if (view.getUint32(cd, true) !== 0x02014b50) break; // not a CD file header
 
-    while (offset + 30 <= data.length) {
-        const sig = view.getUint32(offset, true);
-        if (sig !== 0x04034b50) break; // Not a local file header
+        const method = view.getUint16(cd + 10, true);
+        const compSize = view.getUint32(cd + 20, true); // authoritative, unlike the local header
+        const nameLen = view.getUint16(cd + 28, true);
+        const extraLen = view.getUint16(cd + 30, true);
+        const commentLen = view.getUint16(cd + 32, true);
+        const localOff = view.getUint32(cd + 42, true);
+        const name = td.decode(data.subarray(cd + 46, cd + 46 + nameLen));
+        cd += 46 + nameLen + extraLen + commentLen;
 
-        const method = view.getUint16(offset + 8, true);
-        const compSize = view.getUint32(offset + 18, true);
-        const nameLen = view.getUint16(offset + 26, true);
-        const extraLen = view.getUint16(offset + 28, true);
-
-        // Validate that name and extra fields fit within the buffer
-        if (offset + 30 + nameLen + extraLen > data.length) {
-            console.warn('[quellog] Truncated zip entry header');
-            break;
-        }
-
-        const name = new TextDecoder().decode(data.subarray(offset + 30, offset + 30 + nameLen));
-
-        const dataStart = offset + 30 + nameLen + extraLen;
-
-        // Validate that compressed data fits within the buffer
-        if (dataStart + compSize > data.length) {
-            console.warn(`[quellog] Truncated zip entry: ${name}`);
-            break;
-        }
-
-        offset = dataStart + compSize;
-
-        // Skip directories and unsupported files
-        if (name.endsWith('/') || compSize === 0) continue;
-
+        if (name.endsWith('/')) continue; // directory
         const baseName = name.includes('/') ? name.substring(name.lastIndexOf('/') + 1) : name;
-        if (!isSupportedEntry(baseName)) continue;
+        // Keep only supported log entries; skip macOS AppleDouble sidecars
+        // (._foo, which end in .log yet hold binary data) and path traversal.
+        if (!isSupportedEntry(baseName) || baseName.startsWith('._') || name.includes('..')) continue;
 
-        // Path traversal protection
-        if (name.includes('..')) continue;
+        // The local header's name/extra lengths can differ from the central
+        // directory's, so read them from the local header to find the data.
+        if (localOff + 30 > data.length || view.getUint32(localOff, true) !== 0x04034b50) {
+            console.warn(`[quellog] zip: bad local header for ${name}`);
+            continue;
+        }
+        const lNameLen = view.getUint16(localOff + 26, true);
+        const lExtraLen = view.getUint16(localOff + 28, true);
+        const dataStart = localOff + 30 + lNameLen + lExtraLen;
+        if (dataStart + compSize > data.length) {
+            console.warn(`[quellog] zip: truncated entry ${name}`);
+            continue;
+        }
 
         let content;
         if (method === 0) {
-            // Stored (no compression)
-            content = data.slice(dataStart, dataStart + compSize);
+            content = data.slice(dataStart, dataStart + compSize); // stored
         } else if (method === 8) {
-            // Deflate
-            content = await inflateRaw(data.slice(dataStart, dataStart + compSize));
+            content = await inflateRaw(data.slice(dataStart, dataStart + compSize)); // deflate
         } else {
-            console.warn(`[quellog] Skipping ${name}: unsupported compression method ${method}`);
+            console.warn(`[quellog] zip: skipping ${name}, unsupported method ${method}`);
             continue;
         }
 
@@ -147,7 +163,7 @@ export async function extractZip(buffer) {
         files.push({ name: baseName, content });
     }
 
-    return files.map(f => new TextDecoder().decode(f.content)).join('\n');
+    return files.map(f => td.decode(f.content)).join('\n');
 }
 
 // Extract tar archive and concatenate file contents
