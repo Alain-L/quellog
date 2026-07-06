@@ -46,10 +46,12 @@ export function buildCheckpointsSection(data) {
             types: {
                 time: types.time?.events || [],
                 wal: types.wal?.events || [],
-                other: [
-                    ...(types['shutdown immediate']?.events || []),
-                    ...(types['immediate force wait']?.events || [])
-                ]
+                // Every trigger type other than time/wal, so the chart's Other
+                // series matches the Other stat card (total - timed - wal)
+                // rather than only two hardcoded trigger strings.
+                other: Object.entries(types)
+                    .filter(([k]) => k !== 'time' && k !== 'wal')
+                    .flatMap(([, v]) => v?.events || [])
             }
         });
     } else if (hasWarnings) {
