@@ -364,6 +364,11 @@ func NewConnectionAnalyzer() *ConnectionAnalyzer {
 // field this dimension packs into (user 2047, db 1023, host 2097151). A log
 // whose entity cardinality overflows the field just stops interning past
 // that point (returns 0), unrealistic for user/database/host in practice.
+// The overflow degrades gracefully: past-cap entities collapse onto index 0
+// ("unknown"), so the unfiltered totals still count them but they drop out of
+// the report's client-side time-filtered per-entity breakdown (rebuilt from
+// the interned indices, which no longer distinguish them). The cardinality
+// ceilings are set so wide this cannot happen on any real cluster.
 func internEntity(name string, index map[string]uint32, names *[]string, maxIdx uint32) uint32 {
 	if name == "" {
 		return 0
