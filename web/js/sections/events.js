@@ -1,7 +1,7 @@
 // Events section: severity tabs (ERROR/FATAL/PANIC/WARNING) with grouped
 // event tables, plus the muted noise-severity indicator row.
 
-import { fmt, esc } from '../utils.js';
+import { fmt, esc, wholeLogBadge } from '../utils.js';
 
 export function buildEventsSection(data) {
 	// Filter logic
@@ -119,9 +119,16 @@ export function buildEventsSection(data) {
 		indicatorsHtml += '</div></div>';
 	}
 
+	// Under a report time filter the message tables/sparklines re-scope (from
+	// top_events[].timestamps) but the severity distribution + noise counters
+	// are whole-log population counts with no per-item timestamps — annotate.
+	const wholeLogNote = data._wholeLog?.events
+		? wholeLogBadge('Severity totals and the noise counters cover the whole log; the message tables and charts are time-scoped.')
+		: '';
+
 	return `
 	<div class="section" id="events">
-		<div class="section-header">Events</div>
+		<div class="section-header">Events${wholeLogNote}</div>
 		<div class="section-body events-section">
 			${indicatorsHtml}
 			<ql-tabs>

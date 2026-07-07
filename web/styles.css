@@ -660,6 +660,25 @@
         .section-header.danger { background: var(--danger); }
         .section-header.muted { background: var(--text-muted); }
 
+        /* "whole-log" annotation: marks a section (or sub-table) whose figures
+           are NOT re-scoped by an applied report time filter. Uses currentColor
+           so it reads on both the coloured section header (white text) and the
+           muted subsection titles; the tooltip explains what stays whole-log. */
+        .whole-log-badge {
+            display: inline-block;
+            font-size: 0.6rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            padding: 0.05rem 0.35rem;
+            border: 1px solid currentColor;
+            border-radius: 999px;
+            opacity: 0.75;
+            vertical-align: middle;
+            white-space: nowrap;
+            cursor: help;
+        }
+
         .section-body { padding: 0.9rem; }
 
         /* Web Components - Custom Elements */

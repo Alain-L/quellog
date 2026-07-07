@@ -1,7 +1,7 @@
 // Locks section: deadlock/waiting/acquired stats, lock/resource/relation
 // type breakdowns, and the waiting-queries + blocking-queries tables.
 
-import { fmt, fmtDur, fmtDuration, parseDurToMs, truncQuery, esc, buildNoDataMessage } from '../utils.js';
+import { fmt, fmtDur, fmtDuration, parseDurToMs, truncQuery, esc, buildNoDataMessage, wholeLogBadge } from '../utils.js';
 
 export function buildLocksSection(data) {
     const l = data.locks;
@@ -25,9 +25,14 @@ export function buildLocksSection(data) {
     const hasQueries = l.queries?.length > 0;
     const relations = l.relation_stats ? Object.entries(l.relation_stats).map(([t, c]) => ({type: t, count: c})).sort((a,b) => b.count - a.count) : [];
     const hasRelations = relations.length > 0;
+    // Locks headline counts depend on the backend's wait-episode collapsing
+    // (one real wait surfaces as several raw events), which the payload's
+    // events[] cannot reproduce client-side, so this whole section stays
+    // whole-log under a time filter — annotate rather than mislead.
+    const wholeLogNote = data._wholeLog?.locks ? wholeLogBadge() : '';
     return `
         <div class="section" id="locks">
-            <div class="section-header">Locks</div>
+            <div class="section-header">Locks${wholeLogNote}</div>
             <div class="section-body">
                 <div class="stat-grid">
                     <div class="stat-card ${deadlocks > 0 ? 'stat-card--alert' : ''}"><div class="stat-value">${deadlocks}</div><div class="stat-label">Deadlocks</div></div>

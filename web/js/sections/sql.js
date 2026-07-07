@@ -6,7 +6,7 @@
 // query-types-table id counter.
 
 import {
-    fmt, esc, fmtDur, fmtMs, fmtMsLong, parseDurToMs, safeMax, truncQuery, buildNoDataMessage
+    fmt, esc, fmtDur, fmtMs, fmtMsLong, parseDurToMs, safeMax, truncQuery, buildNoDataMessage, wholeLogBadge
 } from '../utils.js';
 import { chartData, buildChartContainer } from '../charts.js';
 
@@ -54,7 +54,7 @@ export function buildSQLOverviewSection(data) {
 
                 <div class="subsection">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                        <div class="subsection-title" style="margin: 0;">Query Types</div>
+                        <div class="subsection-title" style="margin: 0;">Query Types${data._wholeLog?.sql_dimensions ? wholeLogBadge('The By-Database / By-User / By-Host / By-App breakdowns are not re-scoped by the time filter; the category and type totals are.') : ''}</div>
                         <div class="tabs" style="margin: 0;">
                             <button class="tab active" onclick="showSqlOvView(this, 'global')">Global</button>
                             ${hasByDb ? '<button class="tab" onclick="showSqlOvView(this, \'database\')">By Database</button>' : ''}
