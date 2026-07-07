@@ -233,9 +233,34 @@ func (s *csvScanner) Next() (bool, error) {
 			if pos < s.end && s.buf[pos] == '"' {
 				pos++ // consume closing quote
 			}
-			// Lenient: skip anything between the closing quote and the delimiter.
-			for pos < s.end && s.buf[pos] != ',' && s.buf[pos] != '\n' {
-				pos++
+			// Lenient: skip anything between the closing quote and the
+			// delimiter. Like its sibling scan loops, refill (and compact)
+			// at the buffer boundary so garbage straddling the 1 MB buffer
+			// doesn't prematurely terminate the record. sp.start/sp.end are
+			// already frozen here, so compaction must shift both by the same
+			// delta the earlier fields (in s.spans) were shifted by.
+			for {
+				if pos >= s.end {
+					if s.eof {
+						break
+					}
+					d := s.compact()
+					pos -= d
+					sp.start -= d
+					sp.end -= d
+					if err := s.fill(); err != nil {
+						return false, err
+					}
+					if pos >= s.end && s.eof {
+						break
+					}
+					continue
+				}
+				if s.buf[pos] != ',' && s.buf[pos] != '\n' {
+					pos++
+					continue
+				}
+				break
 			}
 		} else {
 			sp.start = pos

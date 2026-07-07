@@ -47,11 +47,14 @@ All notable changes to this project will be documented in this file.
 - **Duration/time parsing in the report UI**: the Blocking Queries table mis-read a sub-second wait (`512 ms` as 512 minutes) and dropped hours from multi-hour waits, skewing its sort and totals; microsecond/nanosecond session durations rendered as seconds and sorted as zero; and the multi-day time slider's day labels could drift up to an hour across a daylight-saving change. All corrected.
 - **Analyzing three or more compressed or archived logs could hang**: the ordered multi-file fan-in bounded in-flight files with a two-slot window that workers acquired out of file order but the drain released in order, so a scheduling race could deadlock with no output and no error; files are now admitted through per-index prefetch permits tied to the drain order.
 - **PID-sharding now engages for a directory argument**: the decompressed-size estimate ran on the raw arguments, so a directory measured its inode size and fell under the sharding threshold; it now measures the expanded file list, so pointing quellog at a log directory gets the same speed-up as a glob.
+- **A mislabeled `.log` member in a tar archive no longer risks running out of memory**: a member named `*.log` whose content is not recognizable stderr (JSON, a shifted timestamp prefix, foreign text) was read to end-of-file into a single allocation before yielding nothing — a multi-gigabyte spike on large archives; the stream parser now caps the boundary buffer and warns once.
 
 ### Internal
 - **Internal cleanup**: removed dead code and de-duplicated the `output/` renderers into shared helpers, with no change to any output (byte-identical on the sample matrix).
 - **Web report internals restructured**: the report's JavaScript was split into per-section modules and its chart builders unified behind shared factories, under a new JS test net, with no change to the rendered report (0-pixel diff on the sample matrix).
 - **CI runs the web JS test net**: the JavaScript unit tests and the window-ABI / CSS / data-key contract linters now gate merges (previously local-only via `make test-web`); the pixel-visual harness stays local (system Chrome + macOS baselines).
+- **CSV scanner boundary parity**: the lenient post-quote skip now refills at the read-buffer boundary like its sibling loops, so malformed quoting that straddles the boundary no longer truncates the record.
+- **Stream chunk pool releases oversized buffers**: after one giant log entry grew a chunk buffer past the base size, it is dropped instead of being returned to the pool and pinned across the in-flight window until the next GC.
 
 ## [0.11.0] - 2026-06-23
 

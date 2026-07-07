@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"io"
+	"log/slog"
 	"os"
 	"sync"
 	"sync/atomic"
@@ -239,6 +240,28 @@ const streamChunkSize = 4 << 20
 // same sizing rationale as stderrSegmentQueueDepth.
 const streamChunkQueueDepth = 32
 
+// streamChunkMaxSize caps the boundary-extension buffer for one stream
+// chunk. The extension normally reaches the next entry-start a few lines
+// past streamChunkSize; but a member with no column-0 entry-start line
+// (JSON or foreign text mislabeled .log, a literal-prefixed log) would
+// otherwise append line after line to EOF, buffering the whole
+// decompressed member in one growing allocation before yielding a single
+// zero-entry chunk. Capping the extension degrades such a member to
+// bounded per-chunk memory; the remainder is picked up by the next
+// bounded bulk read. 64 MB sits far above any real multi-line stderr
+// entry, so well-formed logs never reach it. A var (not const) so tests
+// can shrink it to exercise the cap with a small fixture.
+var streamChunkMaxSize = 64 << 20
+
+// streamChunkPoolMaxCap is the largest backing array returned to
+// streamChunkPool. A chunk whose backing array grew past this — a giant
+// single-line entry completed by ReadBytes, or a capped no-boundary run —
+// is dropped rather than pooled, so one oversized array can't stay pinned
+// across the whole in-flight window until GC. 2× the base capacity
+// (streamChunkSize + 512 KB headroom) still recycles the common
+// extend-into-headroom case.
+const streamChunkPoolMaxCap = 2 * (streamChunkSize + (512 << 10))
+
 // streamChunkPool recycles chunk buffers between the chunker and the
 // workers: a chunk is dead as soon as its worker parsed it (parseReader
 // copies every message out), so pooling caps the chunker's allocation
@@ -288,6 +311,7 @@ func (p *StderrParser) parseStreamParallel(r io.Reader, workers int, out chan<- 
 	go func() {
 		defer close(jobs)
 		defer close(queueCh)
+		capWarned := false // single chunker goroutine: a plain flag is race-free
 		for {
 			data := streamChunkPool.Get().([]byte)[:streamChunkSize]
 			n, err := io.ReadFull(br, data)
@@ -302,6 +326,21 @@ func (p *StderrParser) parseStreamParallel(r io.Reader, workers int, out chan<- 
 				data = append(data, rest...)
 				err = e
 				for err == nil {
+					// Cap the extension: without a boundary, a member that
+					// never yields a column-0 entry-start would buffer to
+					// EOF here. Stop at streamChunkMaxSize and dispatch what
+					// we have; the remainder is read in the next bounded
+					// chunk. A member that truly never yields an entry-start
+					// then parses to zero entries either way, so cutting the
+					// run mid-way changes nothing but the memory ceiling.
+					if len(data) >= streamChunkMaxSize {
+						if !capWarned {
+							slog.Warn("stderr member has no entry boundary within the size cap; parsing in bounded chunks (mislabeled or foreign content?)",
+								"cap_bytes", streamChunkMaxSize)
+							capWarned = true
+						}
+						break
+					}
 					pk, e := br.Peek(64)
 					if len(pk) == 0 {
 						err = e
@@ -348,10 +387,18 @@ func (p *StderrParser) parseStreamParallel(r io.Reader, workers int, out chan<- 
 				if err := wp.parseReader(&cr, j.q); err != nil {
 					errOnce.Do(func() { parseErr = err })
 				}
-				// The boxing allocation SA6002 warns about is one interface
-				// header per 4 MB chunk — noise next to the buffer it recycles.
-				//lint:ignore SA6002 slice-in-pool is intentional, see above
-				streamChunkPool.Put(j.data[:0])
+				// Return the buffer to the pool unless append grew its
+				// backing array far past the base size (a giant single-line
+				// entry, or a capped no-boundary run). Recycling an oversized
+				// array would pin tens of MB across the in-flight window;
+				// dropping it lets New() mint a fresh base-sized buffer while
+				// the common case still recycles.
+				if cap(j.data) <= streamChunkPoolMaxCap {
+					// The boxing allocation SA6002 warns about is one interface
+					// header per 4 MB chunk — noise next to the buffer it recycles.
+					//lint:ignore SA6002 slice-in-pool is intentional, see above
+					streamChunkPool.Put(j.data[:0])
+				}
 				close(j.q)
 			}
 		}()
