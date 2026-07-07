@@ -168,8 +168,17 @@ func runAnalysisCycle(ctx context.Context, args []string) error {
 		analyzeInput = filteredLogs
 	}
 
+	// Analysis PID-shard count: > 1 only for large, uncompressed plain
+	// stderr. Decide it from the EXPANDED file list (allFiles), not the raw
+	// args: a directory or glob argument stats to a tiny inode, which would
+	// always fall below the size gate and silently disable sharding for
+	// `quellog /var/log/postgresql/`. The expanded files carry the real
+	// bytes the analysis stage will process. Computed once and threaded into
+	// every metrics build below.
+	workers := shardWorkers(allFiles)
+
 	// Step 5: Process and output results based on flags
-	if err := processAndOutput(ctx, analyzeInput, startTime, totalFileSize, args, pb); err != nil {
+	if err := processAndOutput(ctx, analyzeInput, startTime, totalFileSize, args, workers, pb); err != nil {
 		return err
 	}
 
@@ -291,7 +300,28 @@ func parseFilesAsync(ctx context.Context, files []string, out chan<- []parser.Lo
 	// through its own intra-file parallelism — file-level concurrency past
 	// the prefetch would only stack blocked pipelines and their in-flight
 	// chunks/queues (measured: it inflates RSS without moving wall).
-	window := make(chan struct{}, 2)
+	//
+	// The window is enforced with per-index START PERMITS, not a shared
+	// counting semaphore. Workers claim indices out of order (the cursor
+	// hands them out first-come), but the drain consumes queues in strict
+	// index order. A shared semaphore acquired by workers yet released by
+	// the drain could be held entirely by higher indices while the lowest
+	// un-drained index blocks before parsing — the drain then waits forever
+	// on that index's queue and the worker waits forever for a slot, a
+	// circular wait that hangs the pipeline (silent, no output). Gating each
+	// index with its own single-slot permit ties admission to the drain's
+	// order: gate[i] is posted only when the drain is ready for index i to
+	// be in flight (i itself, or its one prefetch), so the lowest un-drained
+	// index always holds a permit and the cycle cannot form. Pre-signalling
+	// the first two indices reproduces the 2-file (drained + prefetch) bound.
+	gate := make([]chan struct{}, len(files))
+	for i := range gate {
+		gate[i] = make(chan struct{}, 1)
+	}
+	gate[0] <- struct{}{} // pre-signal the window: the drained file...
+	if len(files) > 1 {
+		gate[1] <- struct{}{} // ...plus one prefetching
+	}
 	var cursor atomic.Int64
 	var wg sync.WaitGroup
 	for w := 0; w < numWorkers; w++ {
@@ -303,7 +333,7 @@ func parseFilesAsync(ctx context.Context, files []string, out chan<- []parser.Lo
 				if i >= len(files) {
 					return
 				}
-				window <- struct{}{} // released by the drain below
+				<-gate[i] // admission in index order; posted by the drain below
 				// The queue must always be closed, even on cancellation,
 				// or the ordered drain would block forever on this index.
 				if ctx.Err() == nil {
@@ -324,12 +354,17 @@ func parseFilesAsync(ctx context.Context, files []string, out chan<- []parser.Lo
 		}()
 	}
 
-	// Ordered fan-in: forward each file's batches in list order.
+	// Ordered fan-in: forward each file's batches in list order. Once a
+	// file is fully drained, admit the next index to prefetch (i+2 keeps two
+	// files in flight: the one now draining plus one ahead), matching the
+	// two pre-signalled permits above. This is what releases the window.
 	for i := range queues {
 		for batch := range queues[i] {
 			out <- batch
 		}
-		<-window
+		if i+2 < len(files) {
+			gate[i+2] <- struct{}{}
+		}
 	}
 	wg.Wait()
 }
@@ -417,8 +452,12 @@ func validateFlagCombinations() error {
 	return nil
 }
 
-// processAndOutput analyzes filtered logs and outputs results in the requested format.
-func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry, startTime time.Time, totalFileSize int64, inputArgs []string, pb *progressBar) error {
+// processAndOutput analyzes filtered logs and outputs results in the requested
+// format. workers is the analysis PID-shard count, decided by the caller from
+// the expanded file list (see runAnalysisCycle) and threaded into every metrics
+// build; inputArgs stays the raw arguments, used only for display (filenames,
+// input description, first-file format detection).
+func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry, startTime time.Time, totalFileSize int64, inputArgs []string, workers int, pb *progressBar) error {
 	// Flag-combination constraints are validated once up front (see
 	// validateFlagCombinations, called from executeParsing). Here we only need
 	// the format count for dispatch and the --split short-circuit.
@@ -426,11 +465,6 @@ func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry
 	if splitFlag != "" {
 		return runSplitHTML(ctx, filteredLogs, startTime, totalFileSize, inputArgs, pb)
 	}
-
-	// Analysis PID-shard count: > 1 only for large, uncompressed plain
-	// stderr (where LogEntry.PID is the backend PID). Computed once and
-	// threaded into every metrics build.
-	workers := shardWorkers(inputArgs)
 
 	// Special case: SQL query details (single query analysis)
 	if len(sqlDetailFlag) > 0 {
