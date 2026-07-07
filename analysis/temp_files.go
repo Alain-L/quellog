@@ -30,10 +30,19 @@ type TempFileEvent struct {
 // millisecond timestamp (8B) and an interned query-id index (4B) instead of a
 // time.Time (24B) and a string header (16B). It is materialized into the
 // public TempFileEvent only at Finalize, keeping the exported API unchanged.
+//
+// offsetMin is the event's own UTC offset in minutes, captured from the log
+// line's timestamp so Finalize can restore the original local wall-clock even
+// when the input mixes zones (a DST-crossing offset-bearing syslog, or a
+// multi-file set mixing e.g. CEST and UTC lines). It occupies the struct's
+// existing tail padding for free: tsUnixMs(8)+size(8)+queryIdx(4)=20B already
+// rounds up to 24B on an 8-byte alignment, so int16 offsetMin lands at offset
+// 20 and the struct stays 24 bytes — no memory delta.
 type compactTempEvent struct {
-	tsUnixMs int64
-	size     float64
-	queryIdx uint32
+	tsUnixMs  int64
+	size      float64
+	queryIdx  uint32
+	offsetMin int16
 }
 
 // TempFileQueryStat aggregates temp-file events for one query pattern.
@@ -89,7 +98,6 @@ type TempFileAnalyzer struct {
 	events     []compactTempEvent
 	queryIDs   []string          // interned query ids; index 0 is ""
 	queryIndex map[string]uint32 // query id -> index into queryIDs
-	locRef     *time.Location    // log timezone, captured from the first event
 	queryStats map[string]*TempFileQueryStat
 
 	// Pattern 1 state
@@ -347,14 +355,15 @@ func (a *TempFileAnalyzer) Process(entry *parser.LogEntry) {
 		if size > a.maxSize {
 			a.maxSize = size
 		}
-		if a.locRef == nil {
-			a.locRef = entry.Timestamp.Location()
-		}
+		// Capture this event's own UTC offset (whole minutes) so Finalize can
+		// restore its original local wall-clock even on mixed-zone input.
+		_, offsetSec := entry.Timestamp.Zone()
 		eventIndex := len(a.events)
 		a.events = append(a.events, compactTempEvent{
-			tsUnixMs: entry.Timestamp.UnixMilli(),
-			size:     float64(size),
-			queryIdx: 0, // empty; filled later if a query is found
+			tsUnixMs:  entry.Timestamp.UnixMilli(),
+			size:      float64(size),
+			queryIdx:  0, // empty; filled later if a query is found
+			offsetMin: int16(offsetSec / 60),
 		})
 
 		// Use cached PID (already extracted above)
@@ -577,12 +586,22 @@ func (a *TempFileAnalyzer) associateQuery(query string, size int64, eventIndex i
 // per-event storage is materialized into the public TempFileEvent slice here,
 // after parsing, so the exported shape is unchanged for output consumers.
 func (a *TempFileAnalyzer) Finalize() TempFileMetrics {
-	loc := a.locRef
-	if loc == nil {
-		loc = time.UTC
-	}
 	events := make([]TempFileEvent, len(a.events))
+	// Materialize each event at its OWN captured offset so the displayed
+	// wall-clock matches the original log line even when the input mixes zones.
+	// The zone-name is left empty: the outputs render these timestamps with the
+	// zone-less "2006-01-02 15:04:05" layout, so only the offset affects the
+	// digits. On a single-zone log every offset is identical, so the digits are
+	// byte-identical to the previous shared-location code. FixedZone values are
+	// memoized by offset (usually one or two distinct) to avoid a per-event
+	// Location allocation.
+	zones := make(map[int16]*time.Location, 2)
 	for i, e := range a.events {
+		loc := zones[e.offsetMin]
+		if loc == nil {
+			loc = time.FixedZone("", int(e.offsetMin)*60)
+			zones[e.offsetMin] = loc
+		}
 		events[i] = TempFileEvent{
 			Timestamp: time.UnixMilli(e.tsUnixMs).In(loc),
 			Size:      e.size,
