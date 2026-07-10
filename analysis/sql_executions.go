@@ -23,15 +23,6 @@ const execChunkSize = 1 << 16
 // Per-event dimension indices (db/user/app/host) live in dimChunk
 // stored separately so the four parallel slices can be promoted from
 // uint8 to uint16 in lockstep when a dictionary exceeds 255 entries.
-//
-// tsNanos holds the event's WALL-CLOCK-AS-UTC nanoseconds — the true
-// instant shifted by the log line's own UTC offset at ingest — so a
-// mixed-timezone corpus (a DST crossing, or a multi-file set mixing e.g.
-// CEST and UTC lines) reconstructs each event's own local wall-clock by
-// rendering it in UTC, with no per-event offset stored (zero extra bytes,
-// mirroring the events analyzer). The trade-off: ordering across events is
-// by wall-clock rather than by absolute instant, which is deterministic and
-// matches the displayed strings.
 type execChunk struct {
 	tsNanos    []int64
 	durations  []float64
@@ -52,11 +43,10 @@ type dimChunk struct {
 // compactExecutions stores query execution events in fixed-size chunks
 // of three parallel slices instead of one monolithic slice of struct,
 // plus a deduplicated string table for query IDs. The per-event
-// footprint is 20 B (tsNanos 8 + duration 8 + queryIDIdx 4) — the
-// wall-clock-as-UTC timestamp packing carries the timezone for free — but
-// allocation never doubles in place, eliminating the transient peak that
-// doubled the live set during the last few growths on multi-million-event
-// corpora.
+// footprint is 20 B (tsNanos 8 + duration 8 + queryIDIdx 4) — same
+// as the previous monolithic layout — but allocation never doubles in
+// place, eliminating the transient peak that doubled the live set
+// during the last few growths on multi-million-event corpora.
 //
 // On the Z corpus (40 M executions) the steady-state heap is unchanged
 // (~760 MB across ~610 chunks) but the run-time peak drops by ~800 MB
@@ -107,6 +97,13 @@ type compactExecutions struct {
 	// corresponding dictionary crosses 255 entries and we promote the
 	// per-event slices to uint16.
 	dbWide, userWide, appWide, hostWide bool
+
+	// loc is the time.Location captured from the FIRST event appended
+	// (postgres logs are usually all in one timezone). Reused when
+	// expanding events back to QueryExecution so callers see the same
+	// wall-clock display they would have gotten from the original
+	// time.Time. Falls back to time.UTC when nothing was appended.
+	loc *time.Location
 }
 
 // newCompactExecutions returns a compactExecutions sized for the
@@ -243,14 +240,13 @@ func (c *compactExecutions) widenDim(which int) {
 
 // append records one execution event. queryID is interned via the
 // internal table so identical IDs across executions share a single
-// string allocation. The timestamp is stored as wall-clock-as-UTC
-// nanoseconds (the true instant shifted by ts's own UTC offset) so a
-// mixed-timezone corpus round-trips each event's local wall-clock by
-// rendering in UTC, with no per-event offset stored. A row round-tripped
-// through the sharded Merge arrives as a UTC time (offset 0), so this
-// shift is applied exactly once — see sql_merge.go. A new chunk is
-// allocated when the current one fills.
+// string allocation. The location of the first event is remembered
+// for round-trip reconstruction (postgres logs typically use one tz
+// throughout). A new chunk is allocated when the current one fills.
 func (c *compactExecutions) append(ts time.Time, duration float64, queryID string, database, user, app, host string) {
+	if c.loc == nil {
+		c.loc = ts.Location()
+	}
 	idx, ok := c.queryIDIndex[queryID]
 	if !ok {
 		idx = uint32(len(c.queryIDs))
@@ -287,8 +283,7 @@ func (c *compactExecutions) append(ts time.Time, duration float64, queryID strin
 		c.dims = append(c.dims, newDimChunk(c.dbWide, c.userWide, c.appWide, c.hostWide))
 	}
 	last := &c.chunks[len(c.chunks)-1]
-	_, offSec := ts.Zone()
-	last.tsNanos = append(last.tsNanos, ts.UnixNano()+int64(offSec)*int64(time.Second))
+	last.tsNanos = append(last.tsNanos, ts.UnixNano())
 	last.durations = append(last.durations, duration)
 	last.queryIDIdx = append(last.queryIDIdx, idx)
 
@@ -343,6 +338,15 @@ func (c *compactExecutions) dimsAt(ci, j int) (db, user, app, host uint16) {
 	return
 }
 
+// location returns the captured timezone or UTC when no events were
+// appended.
+func (c *compactExecutions) location() *time.Location {
+	if c.loc == nil {
+		return time.UTC
+	}
+	return c.loc
+}
+
 // freeIndex releases the queryIDIndex map after the parser-side build.
 // The table itself (queryIDs slice) is kept for output decoding.
 // Saves a few MB on corpora with thousands of unique queries.
@@ -359,16 +363,16 @@ func (c *compactExecutions) Len() int {
 	return c.n
 }
 
-// At expands the i-th event into a full QueryExecution. tsNanos already
-// holds the wall-clock-as-UTC instant, so rendering it in UTC prints the
-// event's own local wall-clock even on mixed-timezone input.
+// At expands the i-th event into a full QueryExecution. The returned
+// time.Time uses the captured location so the wall clock is preserved
+// across the round-trip.
 func (c *compactExecutions) At(i int) QueryExecution {
 	ci := i >> 16
 	j := i & (execChunkSize - 1)
 	ch := &c.chunks[ci]
 	db, user, app, host := c.dimsAt(ci, j)
 	return QueryExecution{
-		Timestamp: time.Unix(0, ch.tsNanos[j]).UTC(),
+		Timestamp: time.Unix(0, ch.tsNanos[j]).In(c.location()),
 		Duration:  ch.durations[j],
 		QueryID:   c.queryIDs[ch.queryIDIdx[j]],
 		Database:  c.databases[db],
@@ -382,12 +386,13 @@ func (c *compactExecutions) At(i int) QueryExecution {
 // receives a freshly constructed QueryExecution; returning false stops
 // iteration early. No intermediate []QueryExecution slice is built.
 func (c *compactExecutions) ForEach(fn func(QueryExecution) bool) {
+	loc := c.location()
 	for ci := range c.chunks {
 		ch := &c.chunks[ci]
 		for j := range ch.tsNanos {
 			db, user, app, host := c.dimsAt(ci, j)
 			if !fn(QueryExecution{
-				Timestamp: time.Unix(0, ch.tsNanos[j]).UTC(),
+				Timestamp: time.Unix(0, ch.tsNanos[j]).In(loc),
 				Duration:  ch.durations[j],
 				QueryID:   c.queryIDs[ch.queryIDIdx[j]],
 				Database:  c.databases[db],
@@ -405,6 +410,7 @@ func (c *compactExecutions) ForEach(fn func(QueryExecution) bool) {
 // matches the given index. Used by IterateExecutionsForID after the
 // caller has resolved the public string id to its compact index.
 func (c *compactExecutions) ForEachID(idx uint32, id string, fn func(QueryExecution) bool) {
+	loc := c.location()
 	for ci := range c.chunks {
 		ch := &c.chunks[ci]
 		for j := range ch.tsNanos {
@@ -413,7 +419,7 @@ func (c *compactExecutions) ForEachID(idx uint32, id string, fn func(QueryExecut
 			}
 			db, user, app, host := c.dimsAt(ci, j)
 			if !fn(QueryExecution{
-				Timestamp: time.Unix(0, ch.tsNanos[j]).UTC(),
+				Timestamp: time.Unix(0, ch.tsNanos[j]).In(loc),
 				Duration:  ch.durations[j],
 				QueryID:   id,
 				Database:  c.databases[db],

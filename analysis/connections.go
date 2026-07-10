@@ -91,12 +91,12 @@ type ConnectionMetrics struct {
 	// entity indices ride for free in the unused high bits of each
 	// compactSession timestamp (see compactSession) — no parallel array.
 	//
-	// The stored millisecond values are WALL-CLOCK-AS-UTC (the true instant
-	// shifted by each event's own UTC offset at ingest), so the iterators
-	// render them in UTC to reconstruct each event's own local wall-clock
-	// on mixed-timezone input — no per-event offset array, zero extra bytes.
+	// locRef is the timezone captured from the first event observed by
+	// the analyzer; reused when expanding compact Unix-ms timestamps so
+	// the wall clock matches what the parser emitted.
 	receivedChunksRef [][]int64
 	sessionChunksRef  [][]compactSession
+	locRef            *time.Location
 	// sessionOrphanStart is the flat index into the session grid at which
 	// the Finalize orphan-flush began: sessions at this index and beyond
 	// are orphans (SessionEvent.Orphan == true). Real disconnects, all
@@ -117,11 +117,13 @@ type ConnectionMetrics struct {
 // []time.Time slice is built.
 func (m *ConnectionMetrics) IterateConnections(fn func(time.Time) bool) {
 	if len(m.receivedChunksRef) > 0 {
+		loc := m.locRef
+		if loc == nil {
+			loc = time.UTC
+		}
 		for _, chunk := range m.receivedChunksRef {
 			for _, ms := range chunk {
-				// ms is wall-clock-as-UTC; render in UTC to print the
-				// event's own local wall-clock (zero-cost, no offset array).
-				if !fn(time.UnixMilli(ms).UTC()) {
+				if !fn(time.UnixMilli(ms).In(loc)) {
 					return
 				}
 			}
@@ -143,16 +145,17 @@ func (m *ConnectionMetrics) IterateConnections(fn func(time.Time) bool) {
 // live in its timestamps' unused high bits (see compactSession).
 func (m *ConnectionMetrics) IterateSessionEvents(fn func(SessionEvent) bool) {
 	if len(m.sessionChunksRef) > 0 {
+		loc := m.locRef
+		if loc == nil {
+			loc = time.UTC
+		}
 		flat := 0
 		for _, chunk := range m.sessionChunksRef {
 			for _, s := range chunk {
 				user, db, host := s.entities()
-				// start/end ms are wall-clock-as-UTC; render in UTC. Both
-				// were shifted by the session's own offset at ingest, so the
-				// duration (EndTime-StartTime) stays exact.
 				if !fn(SessionEvent{
-					StartTime:   time.UnixMilli(s.startMs()).UTC(),
-					EndTime:     time.UnixMilli(s.endMs()).UTC(),
+					StartTime:   time.UnixMilli(s.startMs()).In(loc),
+					EndTime:     time.UnixMilli(s.endMs()).In(loc),
 					UserIdx:     int(user),
 					DatabaseIdx: int(db),
 					HostIdx:     int(host),
@@ -279,17 +282,15 @@ type ConnectionAnalyzer struct {
 	disconnectionCount      int
 	totalSessionTime        time.Duration
 
-	// Compact chunked storage for received timestamps. WALL-CLOCK-AS-UTC
-	// milliseconds (the true instant shifted by the event's own UTC offset
-	// at ingest, so IterateConnections renders in UTC to recover the local
-	// wall-clock — no offset array) in fixed-capacity chunks to avoid
-	// append-doubling transient peaks. ×3 denser than []time.Time.
+	// Compact chunked storage for received timestamps. Unix milliseconds
+	// in fixed-capacity chunks to avoid append-doubling transient peaks.
+	// Materialized to []time.Time at Finalize for the API. ×3 denser
+	// than the previous []time.Time storage on long captures.
 	receivedChunks [][]int64
 
-	// Same scheme for completed sessions: both packed timestamps are
-	// wall-clock-as-UTC (shifted by the session's own offset). The per-session
-	// entity indices are packed into the timestamps' unused high bits (see
-	// compactSession), so there is no parallel entity array to retain.
+	// Same scheme for completed sessions. The per-session entity indices are
+	// packed into the timestamps' unused high bits (see compactSession), so
+	// there is no parallel entity array to retain.
 	sessionChunks [][]compactSession
 
 	// userIndex/userNames, databaseIndex/databaseNames, hostIndex/hostNames
@@ -305,6 +306,12 @@ type ConnectionAnalyzer struct {
 	databaseNames []string
 	hostIndex     map[string]uint32
 	hostNames     []string
+
+	// loc is the location of the first event observed. Used to
+	// materialize compact Unix-ms timestamps back into the same zone
+	// the parser produced (typically UTC for PG default log_timezone),
+	// so the JSON output keeps reading "19:00:00 UTC" not "21:00:00 CEST".
+	loc *time.Location
 
 	// Streaming accumulators that replace the previous full slice of
 	// per-session durations. The slice held one time.Duration per session
@@ -396,13 +403,13 @@ func internEntity(name string, index map[string]uint32, names *[]string, maxIdx 
 	return idx
 }
 
-// addReceived appends a received-timestamp to the compact chunked storage
-// as wall-clock-as-UTC milliseconds: the true instant shifted by t's own
-// UTC offset, so IterateConnections renders it in UTC to recover the local
-// wall-clock without storing any offset (zero extra bytes).
+// addReceived appends a received-timestamp (as Unix milliseconds) to
+// the compact chunked storage.
 func (a *ConnectionAnalyzer) addReceived(t time.Time) {
-	_, offSec := t.Zone()
-	ms := t.UnixMilli() + int64(offSec)*1000
+	if a.loc == nil {
+		a.loc = t.Location()
+	}
+	ms := t.UnixMilli()
 	n := len(a.receivedChunks)
 	if n == 0 || len(a.receivedChunks[n-1]) == sessionsPerChunk {
 		a.receivedChunks = append(a.receivedChunks, make([]int64, 0, sessionsPerChunk))
@@ -413,17 +420,15 @@ func (a *ConnectionAnalyzer) addReceived(t time.Time) {
 
 // addSession appends a completed session to the compact chunked storage,
 // packing the interned user/database/host indices into the timestamps'
-// unused high bits (see compactSession). Both start and end are stored as
-// wall-clock-as-UTC milliseconds, shifted by the SAME offset (the session's
-// start), so IterateSessionEvents renders them in UTC to recover the local
-// wall-clock while the exact duration (end-start) is preserved.
+// unused high bits (see compactSession). All-zero indices ("unknown") mean
+// the ms values are stored verbatim — the case for the receivedAt-only
+// disconnect fallback and the Finalize orphan-flush.
 func (a *ConnectionAnalyzer) addSession(start, end time.Time, userIdx, dbIdx, hostIdx uint32) {
-	_, offSec := start.Zone()
-	shift := int64(offSec) * 1000
-	startMs := start.UnixMilli() + shift
-	endMs := end.UnixMilli() + shift
-	s := uint64(startMs)&uint64(tsMask) | uint64(userIdx)<<tsBits | uint64(dbIdx)<<54
-	e := uint64(endMs)&uint64(tsMask) | uint64(hostIdx)<<tsBits
+	if a.loc == nil {
+		a.loc = start.Location()
+	}
+	s := uint64(start.UnixMilli())&uint64(tsMask) | uint64(userIdx)<<tsBits | uint64(dbIdx)<<54
+	e := uint64(end.UnixMilli())&uint64(tsMask) | uint64(hostIdx)<<tsBits
 	cs := compactSession{startUnixMs: int64(s), endUnixMs: int64(e)}
 	n := len(a.sessionChunks)
 	if n == 0 || len(a.sessionChunks[n-1]) == sessionsPerChunk {
@@ -659,7 +664,12 @@ func (a *ConnectionAnalyzer) Finalize() ConnectionMetrics {
 	// IterateConnections / IterateSessionEvents on the chunks directly,
 	// avoiding the 410 MB transient peak that the previous N×24 / N×48 B
 	// allocations cost on J.log (5.7 M sessions).
-	peakConcurrent, peakTimestamp := computePeakSweepline(a.sessionChunks)
+	loc := a.loc
+	if loc == nil {
+		loc = time.UTC
+	}
+
+	peakConcurrent, peakTimestamp := computePeakSweepline(a.sessionChunks, loc)
 
 	return ConnectionMetrics{
 		ConnectionReceivedCount: a.connectionReceivedCount,
@@ -684,6 +694,7 @@ func (a *ConnectionAnalyzer) Finalize() ConnectionMetrics {
 
 		receivedChunksRef:  a.receivedChunks,
 		sessionChunksRef:   a.sessionChunks,
+		locRef:             loc,
 		sessionOrphanStart: sessionOrphanStart,
 	}
 }
@@ -697,14 +708,12 @@ func (a *ConnectionAnalyzer) Finalize() ConnectionMetrics {
 // The convention is "starts before ends at tied timestamps", same as
 // histogram.go's computeConcurrentHistogram, so the histogram peak and
 // this PeakConcurrentSessions value converge by construction.
-//
-// The packed ms are wall-clock-as-UTC, so the sweep runs on wall-clock
-// values (identical to instant-based on the single-offset logs that
-// dominate) and the peak timestamp is rendered in UTC to print the log's
-// own wall-clock.
-func computePeakSweepline(chunks [][]compactSession) (int, time.Time) {
+func computePeakSweepline(chunks [][]compactSession, loc *time.Location) (int, time.Time) {
 	if len(chunks) == 0 {
 		return 0, time.Time{}
+	}
+	if loc == nil {
+		loc = time.UTC
 	}
 	// Flatten the chunk grid into two plain []int64 lists — one of start
 	// timestamps, one of end timestamps. The sweep below only ever reads
@@ -776,7 +785,7 @@ func computePeakSweepline(chunks [][]compactSession) (int, time.Time) {
 	if peak == 0 {
 		return 0, time.Time{}
 	}
-	return peak, time.UnixMilli(peakMs).UTC()
+	return peak, time.UnixMilli(peakMs).In(loc)
 }
 
 // ============================================================================
