@@ -6,7 +6,7 @@
 
 import {
     fmt, esc, escForJsAttr, truncQuery, safeMax, safeMin, fmtMs, fmtBytes, fmtMsLong,
-    utcDateTime, qdDurationBuckets
+    qdDurationBuckets
 } from '../utils.js';
 import { parseSizeToBytes } from '../format.js';
 import { analysisData, modalCharts, modalChartsData, incrementModalChartCounter } from '../state.js';
@@ -225,11 +225,8 @@ export function showEventDetail(index, opts = {}) {
     if (ts.length > 0) {
         const first = new Date(ts[0]);
         const last = new Date(ts[ts.length - 1]);
-        // utcDateTime (not the viewer-local getters) so First/Last-seen render
-        // in the log's own zone-less wall-clock, agreeing with the section
-        // tables regardless of the viewer's timezone.
-        firstStr = utcDateTime(first);
-        lastStr = utcDateTime(last);
+        firstStr = first.toISOString().slice(0, 19).replace('T', ' ');
+        lastStr = last.toISOString().slice(0, 19).replace('T', ' ');
         const spanMin = Math.max(1, (last - first) / 60000);
         freqStr = (ts.length / spanMin).toFixed(2) + ' /min';
     }

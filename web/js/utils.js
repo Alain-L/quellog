@@ -236,20 +236,6 @@ export function parseDurToMs(s) {
     return ms;
 }
 
-// Format a Date's UTC wall-clock as "YYYY-MM-DD HH:MM:SS". The event/query
-// modals receive occurrence timestamps as epoch-ms built from the log's own,
-// zone-normalized-to-UTC wall-clock (parser/timestamp.go), and the rest of the
-// report renders those wall-clock strings zone-lessly. Reading the UTC
-// components reproduces the same wall-clock regardless of the VIEWER's
-// timezone — the local getters shifted the modal's First/Last-seen by the
-// viewer's offset, disagreeing with the section tables. Homed here (DOM-free)
-// so it stays testable; the modal module pulls DOM-bound deps node can't import.
-export function utcDateTime(d) {
-    const p = n => String(n).padStart(2, '0');
-    return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())} ` +
-        `${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:${p(d.getUTCSeconds())}`;
-}
-
 /**
  * Small inline "whole-log" badge for section headers whose figures are NOT
  * re-scoped by an applied report time filter (they carry no re-scopable

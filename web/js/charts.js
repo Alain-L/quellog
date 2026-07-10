@@ -18,22 +18,6 @@ export function clearChartData() {
     chartData.clear();
 }
 
-// Time-axis and tooltip formatting for every time-series chart. The backend
-// emits occurrence timestamps as the log's own zone-normalized-to-UTC
-// wall-clock, and the report renders those clock values verbatim everywhere
-// (e.g. the event modal's First/Last-seen cards via utils.js utcDateTime).
-// These helpers therefore format in UTC so chart axes and tooltips show the
-// SAME wall-clock as the cards and the rest of the report, regardless of the
-// viewer's local timezone (without timeZone:'UTC', toLocale* renders in the
-// viewer's zone, so Paris viewers saw axes an hour off from the cards).
-// Pure (Date in, string out) so they stay unit-testable outside the DOM.
-export function utcTimeHM(d) {
-    return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'UTC' });
-}
-export function utcDateShort(d) {
-    return d.toLocaleDateString('en-US', { day: 'numeric', month: 'short', timeZone: 'UTC' });
-}
-
 // Shared x-axis tick formatting for time series. Shows HH:MM, and adds a short
 // date ("3 Jan") on the first tick of each day — but only when the visible span
 // is multi-day, so single-day charts are unchanged. timeAxisSize reserves the
@@ -47,11 +31,11 @@ function timeAxisValues(u, vals) {
     const multiDay = timeAxisMultiDay(u);
     return vals.map((v, i) => {
         const d = new Date(v * 1000);
-        const time = utcTimeHM(d);
+        const time = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
         if (!multiDay) return time;
-        const prevDay = i > 0 ? new Date(vals[i - 1] * 1000).getUTCDate() : -1;
-        if (i === 0 || d.getUTCDate() !== prevDay) {
-            return time + '\n' + utcDateShort(d);
+        const prevDay = i > 0 ? new Date(vals[i - 1] * 1000).getDate() : -1;
+        if (i === 0 || d.getDate() !== prevDay) {
+            return time + '\n' + d.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
         }
         return time;
     });
@@ -105,7 +89,7 @@ export function tooltipPlugin() {
                     return;
                 }
                 const d = new Date(x * 1000);
-                const timeStr = utcTimeHM(d);
+                const timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
                 tooltip.innerHTML = `${timeStr} · ${y} events`;
                 const left = u.valToPos(x, 'x');
                 const top = u.valToPos(y, 'y');
@@ -188,7 +172,7 @@ export function createCheckpointChart(containerId, data, options = {}) {
                     return;
                 }
                 const d = new Date(x * 1000);
-                const timeStr = utcTimeHM(d);
+                const timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
                 let parts = [];
                 if (timeVal > 0) parts.push(`<span style="color:${colors.time}">${timeVal} timed</span>`);
                 if (xlogVal > 0) parts.push(`<span style="color:${colors.wal}">${xlogVal} WAL</span>`);
@@ -405,7 +389,7 @@ export function createWALDistanceChart(containerId, data, options = {}) {
                     return;
                 }
                 const d = new Date(u.data[0][idx] * 1000);
-                const timeStr = utcTimeHM(d);
+                const timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
                 tooltip.innerHTML = `<strong>${timeStr}</strong><br>` +
                     `<span style="color:${barColor}">distance: ${dist.toFixed(1)} MB</span><br>` +
                     `<span style="color:${estColor}">estimate: ${est.toFixed(1)} MB</span>`;
@@ -840,7 +824,7 @@ export function createDurationChart(containerId, executions, options = {}) {
                         return;
                     }
                     const d = new Date(x * 1000);
-                    const timeStr = utcTimeHM(d);
+                    const timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
                     // Format duration nicely
                     const durStr = y >= 60 ? `${(y/60).toFixed(1)}m` : `${y.toFixed(1)}s`;
                     tooltip.innerHTML = `${timeStr} · ${durStr}`;
@@ -1131,7 +1115,7 @@ export function createCombinedSQLChart(containerId, rawData, options = {}) {
                         return;
                     }
                     const d = new Date(x * 1000);
-                    const timeStr = utcTimeHM(d);
+                    const timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
                     const durStr = dur >= 60 ? `${(dur/60).toFixed(1)}m` : `${dur.toFixed(1)}s`;
                     let parts = [timeStr];
                     if (u._seriesVisible.count) parts.push(`${fmt(count)} queries`);
@@ -1222,11 +1206,11 @@ export function toggleCombinedSeries(chartId, series) {
 function concurrentAxisTickValues(multiDay) {
     return (u, vals) => vals.map((v, i) => {
         const d = new Date(v * 1000);
-        const time = utcTimeHM(d);
+        const time = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
         if (!multiDay) return time;
-        const prevDay = i > 0 ? new Date(vals[i - 1] * 1000).getUTCDate() : -1;
-        if (i === 0 || d.getUTCDate() !== prevDay) {
-            return time + '\n' + utcDateShort(d);
+        const prevDay = i > 0 ? new Date(vals[i - 1] * 1000).getDate() : -1;
+        if (i === 0 || d.getDate() !== prevDay) {
+            return time + '\n' + d.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
         }
         return time;
     });
@@ -1266,7 +1250,7 @@ function sessionsTooltipPlugin() {
                     return;
                 }
                 const d = new Date(x * 1000);
-                const timeStr = utcTimeHM(d);
+                const timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
                 tooltip.innerHTML = `${timeStr} · ${Math.round(y)} sessions`;
                 tooltip.style.display = 'block';
                 tooltip.style.left = Math.min(left, u.over.clientWidth - 100) + 'px';
@@ -1406,7 +1390,7 @@ export function createCombinedTempFilesChart(containerId, events, options = {}) 
                         return;
                     }
                     const d = new Date(x * 1000);
-                    const timeStr = utcTimeHM(d);
+                    const timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
                     let parts = [timeStr];
                     if (u._seriesVisible.count) parts.push(`${Math.round(count)} files`);
                     if (u._seriesVisible.size) parts.push(fmtBytesPrecise(size));
@@ -2041,7 +2025,7 @@ export function createDurationChartLarge(container, executions, options = {}) {
                         return;
                     }
                     const d = new Date(x * 1000);
-                    const timeStr = utcTimeHM(d);
+                    const timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
                     const durStr = y >= 60 ? `${(y/60).toFixed(1)}m` : `${y.toFixed(1)}s`;
                     tooltip.innerHTML = `${timeStr} · ${durStr}`;
                     tooltip.style.display = 'block';
@@ -2128,7 +2112,7 @@ export function createCombinedSQLChartLarge(container, rawData, options = {}) {
                         return;
                     }
                     const d = new Date(x * 1000);
-                    const timeStr = utcTimeHM(d);
+                    const timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
                     const durStr = dur >= 60 ? `${(dur/60).toFixed(1)}m` : `${dur.toFixed(1)}s`;
                     tooltip.innerHTML = `${timeStr} · ${fmt(count)} queries · ${durStr}`;
                     const left = u.valToPos(x, 'x');
@@ -2230,7 +2214,7 @@ export function createCombinedTempFilesChartLarge(container, events, options = {
                         return;
                     }
                     const d = new Date(x * 1000);
-                    const timeStr = utcTimeHM(d);
+                    const timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
                     let parts = [timeStr];
                     if (u._seriesVisible.count) parts.push(`${Math.round(count)} files`);
                     if (u._seriesVisible.size) parts.push(fmtBytesPrecise(size));
@@ -2450,7 +2434,7 @@ export function createCheckpointChartLarge(container, data, options = {}) {
                     return;
                 }
                 const d = new Date(x * 1000);
-                const timeStr = utcTimeHM(d);
+                const timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
                 let parts = [];
                 if (timeVal > 0) parts.push(`<span style="color:${colors.time}">${timeVal} timed</span>`);
                 if (xlogVal > 0) parts.push(`<span style="color:${colors.wal}">${xlogVal} WAL</span>`);
@@ -2696,8 +2680,8 @@ function exportChartToPNG(chart, title) {
 }
 
 // Keyboard handler for modal. Guarded so the module can be imported in a
-// DOM-free environment (e.g. node --test for the pure formatting helpers)
-// without a ReferenceError at load; in the browser this is always registered.
+// DOM-free environment (node --test) without a ReferenceError at load;
+// in the browser this is always registered.
 if (typeof document !== 'undefined') {
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && document.getElementById('chartModal').classList.contains('active')) {
