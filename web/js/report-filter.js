@@ -18,6 +18,9 @@ import { parseSizeToBytesStrict, fmtBytesFull } from './format.js';
  * @typedef {Object} SessionEvent
  * @property {string} s - Session start (ISO timestamp)
  * @property {string} e - Session end (ISO timestamp)
+ * @property {boolean} [orphan] - True when the session never saw a real
+ *   disconnect line and was flushed at Finalize (excluded from disconnection
+ *   counts / session-duration stats, matching the backend).
  */
 
 // Store original unfiltered data
@@ -191,13 +194,14 @@ function reaggregateSqlPerformance(original, filteredExecutions) {
 
 /**
  * Re-aggregate temp files data from filtered events (message count,
- * total and average size; sizes are re-parsed from their display strings).
+ * total and average size; sizes come from each event's exact `size_bytes`
+ * integer, falling back to parsing the display string only for legacy payloads).
  * The Top-Queries table (`queries`) is rebuilt from the filtered events
  * joined by `query_id` — mirroring reaggregateSqlPerformance.queries — so it
  * re-scopes with its own header cards instead of staying pinned to the full
  * log (queries with no temp event left in range are dropped).
  * @param {Object} original - Original temp_files object
- * @param {Array<{timestamp: string, size: string, query_id: string}>} filteredEvents - Filtered events
+ * @param {Array<{timestamp: string, size: string, size_bytes: number, query_id: string}>} filteredEvents - Filtered events
  * @returns {Object|null} Re-aggregated temp_files (null if no original)
  */
 function reaggregateTempFiles(original, filteredEvents) {
@@ -211,7 +215,14 @@ function reaggregateTempFiles(original, filteredEvents) {
     let totalBytes = 0, maxBytes = 0;
     const perQuery = new Map();
     for (const event of filteredEvents) {
-        const b = parseSizeToBytesStrict(event.size);
+        // Sum the exact integer byte count the backend now emits alongside the
+        // 2-decimal display string. Re-parsing the display string ("1.00 KB")
+        // would round each event (lossy), so the filtered total drifts below
+        // the byte-exact backend sum. Fall back to the string only for older
+        // payloads that predate `size_bytes`.
+        const b = typeof event.size_bytes === 'number'
+            ? event.size_bytes
+            : parseSizeToBytesStrict(event.size);
         totalBytes += b;
         if (b > maxBytes) maxBytes = b;
         if (event.query_id) {
@@ -553,8 +564,12 @@ function reaggregateConnections(original, filteredConnections, beginDate, endDat
             sweep.push({ t: start.getTime(), d: 1 });
             sweep.push({ t: end.getTime(), d: -1 });
         }
-        // At a tie, a disconnect frees its slot before a new connect counts.
-        sweep.sort((a, b) => a.t - b.t || a.d - b.d);
+        // At a tie, a connect (+1) is applied before a disconnect (-1) so two
+        // sessions that touch on the same (second-truncated) instant count as
+        // overlapping — matching the backend's starts-before-ends ordering
+        // (computePeakSweepline in analysis/connections.go). Sorting the delta
+        // DESCENDING at equal t puts +1 ahead of -1.
+        sweep.sort((a, b) => a.t - b.t || b.d - a.d);
         let cur = 0, peak = 0, peakT = null;
         for (const ev of sweep) { cur += ev.d; if (cur > peak) { peak = cur; peakT = ev.t; } }
         result.peak_concurrent_sessions = peak;
@@ -567,10 +582,11 @@ function reaggregateConnections(original, filteredConnections, beginDate, endDat
         // Duration stats from the precise per-session `d` (ms) — the s/e strings
         // are second-truncated, but `d` keeps PostgreSQL's sub-second precision.
         // Count sessions that DISCONNECTED in the window (e in range), skipping
-        // orphans still open at the log's end (e at the original log end, no
-        // real disconnect) so the numbers track the backend's methodology.
-        const logEnd = originalData?.summary?.end_date
-            ? parseTimestamp(originalData.summary.end_date) : null;
+        // orphans (no real disconnect line, flushed at Finalize) via the
+        // backend's explicit `orphan` flag so the numbers track its methodology.
+        // The former timestamp heuristic (e >= summary.end_date) both
+        // over-counted an orphan whose last-seen was < end_date and dropped a
+        // genuine final-second disconnect whose e == end_date.
         const users = original.session_users || [];
         const databases = original.session_databases || [];
         const hosts = original.session_hosts || [];
@@ -583,9 +599,9 @@ function reaggregateConnections(original, filteredConnections, beginDate, endDat
         };
         for (const ev of original.session_events) {
             if (typeof ev.d !== 'number') continue;
+            if (ev.orphan === true) continue; // never disconnected — excluded like the backend
             const e = parseTimestamp(ev.e);
             if (!e || e < beginDate || e > endDate) continue;
-            if (logEnd && e >= logEnd) continue;
             durations.push(ev.d);
 
             // Per-entity breakdown, keyed by name resolved from the interned

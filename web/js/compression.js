@@ -72,12 +72,30 @@ async function inflateRaw(buffer) {
 // Supported log file extensions for archive extraction
 const SUPPORTED_EXTS = ['.log', '.csv', '.json', '.jsonl'];
 
+// Base extensions that PostgreSQL rotates (e.g. postgresql.log.1). Mirrors the
+// CLI's isRotatedLogFile (parser/tar_parser.go), which only rotates .log/.csv.
+const ROTATED_BASE_EXTS = ['.log', '.csv'];
+
 function isSupportedEntry(name) {
     const lower = name.toLowerCase();
-    return SUPPORTED_EXTS.some(ext =>
+    // Direct match: a supported base extension, optionally followed by a nested
+    // compression extension.
+    if (SUPPORTED_EXTS.some(ext =>
         lower.endsWith(ext) || lower.endsWith(ext + '.gz') ||
         lower.endsWith(ext + '.zst') || lower.endsWith(ext + '.zstd')
-    );
+    )) return true;
+    // Rotated PostgreSQL logs: a supported base extension immediately followed
+    // by a rotation suffix ("." + a digit), e.g. postgresql.log.1,
+    // postgresql.log.2.gz, postgresql.log.2026-03-23-10, postgresql-16-main.log.1.
+    // Mirrors the CLI's isRotatedLogFile so the browser keeps the same rotated
+    // history the CLI parses instead of silently dropping it.
+    return ROTATED_BASE_EXTS.some(base => {
+        const marker = base + '.';
+        const idx = lower.lastIndexOf(marker);
+        if (idx === -1) return false;
+        const after = lower.slice(idx + marker.length);
+        return after.length > 0 && after[0] >= '0' && after[0] <= '9';
+    });
 }
 
 // Extract ZIP archive and concatenate supported log entries.
@@ -188,11 +206,13 @@ export async function extractTar(buffer) {
         // Regular file (type '0' or '\0')
         if ((typeFlag === 48 || typeFlag === 0) && size > 0) {
             const baseName = name.includes('/') ? name.substring(name.lastIndexOf('/') + 1) : name;
-            // Only keep supported log entries, mirroring extractZip. Skip macOS
-            // AppleDouble sidecars (._foo, which end in .log yet hold binary
-            // resource-fork data) and path-traversal names; concatenating them
-            // would poison format detection and the log content.
-            if (!baseName.startsWith('._') && !name.includes('..') && isSupportedEntry(baseName)) {
+            // Skip macOS AppleDouble sidecars (._foo, which end in .log yet hold
+            // binary resource-fork data) and path-traversal names; concatenating
+            // them would poison format detection and the log content. These are
+            // deliberate junk filters, not "unsupported" logs, so they stay quiet.
+            if (baseName.startsWith('._') || name.includes('..')) {
+                // dropped on purpose — no warning
+            } else if (isSupportedEntry(baseName)) {
                 let content = data.slice(offset, offset + size);
                 // Decompress nested files
                 const lname = baseName.toLowerCase();
@@ -202,6 +222,11 @@ export async function extractTar(buffer) {
                     content = unzstd(content.buffer);
                 }
                 files.push({ name: baseName, content });
+            } else {
+                // Warn instead of silently dropping: an unrecognized name may be
+                // a mislabeled or unexpectedly-rotated log the user meant to
+                // include (rotated .log/.csv are now kept by isSupportedEntry).
+                console.warn(`[quellog] tar: skipping unsupported entry ${name}`);
             }
         }
 
