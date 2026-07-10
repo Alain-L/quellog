@@ -54,6 +54,7 @@ All notable changes to this project will be documented in this file.
 - **The event modal's First/Last-seen and its activity sparkline now show the same clock**: the cards used the log's clock while the chart axis used the viewer's browser timezone; every time-axis chart renders in the log's clock now.
 - **The time slider's connection figures now match the CLI**: orphan sessions (no disconnect line) were counted as disconnections and genuine last-second disconnects were dropped, and the peak-concurrent tie-break was inverted; the re-aggregation now uses the backend's explicit orphan flag and the backend tie-break.
 - **Time-filtered temp-file totals are byte-exact**: they were rebuilt by re-parsing rounded display strings and drifted from the CLI; they now sum the exact byte sizes the payload carries.
+- **Prefixed logs inside a tar archive parse again**: a log carrying a literal prefix before its timestamp parsed correctly as a plain or compressed file but yielded zero entries as a `.log` member inside a tar; the archive path now runs the same leading-prefix detection the plain path uses.
 
 ### Internal
 - **Internal cleanup**: removed dead code and de-duplicated the `output/` renderers into shared helpers, with no change to any output (byte-identical on the sample matrix).
