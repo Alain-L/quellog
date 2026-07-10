@@ -88,6 +88,12 @@ func (a *SQLAnalyzer) Merge(src *SQLAnalyzer) {
 	// append path so the dictionary-encoded dimensions and interned query
 	// IDs are re-mapped into dst's tables. Order does not matter (see the
 	// method doc): Finalize sorts durations and tallies dimensions.
+	//
+	// Exactly-one-shift invariant: append stores wall-clock-as-UTC by
+	// adding e.Timestamp's own offset. ForEach already materializes each
+	// row as a UTC time (offset 0) built from the stored, already-shifted
+	// value, so dst's append adds 0 here — the wall value is preserved
+	// verbatim and never double-shifted.
 	if src.executions != nil && src.executions.Len() > 0 {
 		src.executions.ForEach(func(e QueryExecution) bool {
 			a.executions.append(e.Timestamp, e.Duration, e.QueryID, e.Database, e.User, e.App, e.Host)

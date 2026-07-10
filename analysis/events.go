@@ -474,7 +474,15 @@ func (a *EventAnalyzer) Process(entry *parser.LogEntry) {
 		if severity != "LOG" && severity != "INFO" && severity != "DEBUG" && severity != "NOTICE" {
 			pattern := NormalizeEvent(msg)
 			if pattern != "" {
-				ts := entry.Timestamp.UnixMilli()
+				// Store the wall-clock-as-UTC epoch, not the true instant:
+				// the web report reads top_events[].timestamps with UTC
+				// getters (utcDateTime), so shifting by the event's own UTC
+				// offset makes its modal/slider render the log's own clock —
+				// consistent with the per-event offsets now carried by the
+				// lock and temp-file events. On a UTC log (offSec == 0) this
+				// is a no-op, so single-offset epochs stay byte-identical.
+				_, offSec := entry.Timestamp.Zone()
+				ts := entry.Timestamp.UnixMilli() + int64(offSec)*1000
 				tracked := false
 				if stat, ok := a.stats[pattern]; ok {
 					stat.Count++

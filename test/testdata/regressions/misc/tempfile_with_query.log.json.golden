@@ -151,21 +151,25 @@
       {
         "timestamp": "2026-04-20 04:00:00",
         "size": "20.19 MB",
+        "size_bytes": 21168128,
         "query_id": "se-bfosQn"
       },
       {
         "timestamp": "2026-04-20 04:01:00",
         "size": "4.00 MB",
+        "size_bytes": 4194304,
         "query_id": "se-1UDove"
       },
       {
         "timestamp": "2026-04-20 04:02:00",
         "size": "8.00 MB",
+        "size_bytes": 8388608,
         "query_id": "se-1UDove"
       },
       {
         "timestamp": "2026-04-20 04:03:00",
         "size": "16.00 MB",
+        "size_bytes": 16777216,
         "query_id": "se-1UDove"
       }
     ],
