@@ -295,12 +295,18 @@ func parseFilesAsync(ctx context.Context, files []string, out chan<- []parser.Lo
 	for i := range queues {
 		queues[i] = make(chan []parser.LogEntry, fileQueueDepth)
 	}
-	// Window of 2: the drained file plus one prefetching. Pool files are
-	// big or compressed (determineWorkerCount), so each saturates the CPU
-	// through its own intra-file parallelism — file-level concurrency past
-	// the prefetch would only stack blocked pipelines and their in-flight
-	// chunks/queues (measured: it inflates RSS without moving wall).
-	//
+	// window bounds how many files are in flight at once. It is a pure
+	// throughput/memory knob: the drain below forwards queues in strict index
+	// order for ANY window >= 1, so output (Seq stamping, per-occurrence event
+	// lists, cross-file state pairing) is identical whatever the value.
+	// fanInWindow keeps the small drained+prefetch bound only when every input
+	// is self-parallel stderr (each already saturates the CPU and fans out
+	// in-flight chunks/queues, so more files at once just inflates RSS); for
+	// single-goroutine inputs (compressed CSV/JSON, prefixed compressed stderr,
+	// plain sub-threshold files) it returns numWorkers so up to numWorkers
+	// files parse concurrently — the pre-window v0.11.0 worker pool.
+	window := fanInWindow(files, numWorkers)
+
 	// The window is enforced with per-index START PERMITS, not a shared
 	// counting semaphore. Workers claim indices out of order (the cursor
 	// hands them out first-come), but the drain consumes queues in strict
@@ -310,17 +316,20 @@ func parseFilesAsync(ctx context.Context, files []string, out chan<- []parser.Lo
 	// on that index's queue and the worker waits forever for a slot, a
 	// circular wait that hangs the pipeline (silent, no output). Gating each
 	// index with its own single-slot permit ties admission to the drain's
-	// order: gate[i] is posted only when the drain is ready for index i to
-	// be in flight (i itself, or its one prefetch), so the lowest un-drained
-	// index always holds a permit and the cycle cannot form. Pre-signalling
-	// the first two indices reproduces the 2-file (drained + prefetch) bound.
+	// order: gate[i] is posted exactly once — pre-signalled when i < window,
+	// otherwise by the drain the instant it finishes index i-window — so the
+	// lowest un-drained index always holds a permit and the cycle cannot form.
+	// (With window >= numWorkers every gate a worker can claim is pre-signalled,
+	// so that regime is trivially deadlock-free; the small window relies on the
+	// per-index ordering above.)
 	gate := make([]chan struct{}, len(files))
 	for i := range gate {
 		gate[i] = make(chan struct{}, 1)
 	}
-	gate[0] <- struct{}{} // pre-signal the window: the drained file...
-	if len(files) > 1 {
-		gate[1] <- struct{}{} // ...plus one prefetching
+	// Pre-signal the first `window` indices (capped at the file count); the
+	// remaining gates are posted by the drain as it advances.
+	for i := 0; i < window && i < len(files); i++ {
+		gate[i] <- struct{}{}
 	}
 	var cursor atomic.Int64
 	var wg sync.WaitGroup
@@ -354,16 +363,16 @@ func parseFilesAsync(ctx context.Context, files []string, out chan<- []parser.Lo
 		}()
 	}
 
-	// Ordered fan-in: forward each file's batches in list order. Once a
-	// file is fully drained, admit the next index to prefetch (i+2 keeps two
-	// files in flight: the one now draining plus one ahead), matching the
-	// two pre-signalled permits above. This is what releases the window.
+	// Ordered fan-in: forward each file's batches in list order. Once a file
+	// is fully drained, admit index i+window so exactly `window` files stay in
+	// flight (the one now draining plus window-1 ahead), matching the
+	// pre-signalled permits above. This is what releases the window.
 	for i := range queues {
 		for batch := range queues[i] {
 			out <- batch
 		}
-		if i+2 < len(files) {
-			gate[i+2] <- struct{}{}
+		if i+window < len(files) {
+			gate[i+window] <- struct{}{}
 		}
 	}
 	wg.Wait()
@@ -375,6 +384,41 @@ func parseFilesAsync(ctx context.Context, files []string, out chan<- []parser.Lo
 // small enough that a parser running ahead of the drain blocks early and
 // keeps in-flight memory bounded.
 const fileQueueDepth = 256
+
+// smallFanInWindow is the in-flight file count for self-parallel stderr
+// inputs: the file the drain is consuming plus one prefetching. Anything
+// larger only stacks blocked, already-CPU-saturated pipelines and their
+// in-flight chunks/queues (measured: it inflates RSS without moving wall).
+const smallFanInWindow = 2
+
+// fanInWindow sizes the ordered fan-in's in-flight window (see
+// parseFilesAsync). Determinism is independent of the result — the drain
+// forwards queues in strict index order for any window >= 1 — so this only
+// trades file-level concurrency against in-flight memory.
+//
+// The small window is used ONLY when a self-parallel stderr input could be in
+// flight. Those are the files SupportsPIDSharding flags: large plain stderr
+// (parseParallel) and non-prefixed compressed stderr (parseStreamParallel),
+// each of which already saturates the CPU on its own and fans out chunks/queues,
+// so admitting many at once multiplies RSS without improving wall time — the
+// real memory bound the window exists to hold.
+//
+// Otherwise every input parses on a single goroutine (compressed CSV/JSON,
+// prefixed compressed stderr, plain sub-threshold files). Those need up to
+// numWorkers files running concurrently to keep the pool busy, exactly as the
+// pre-window v0.11.0 worker pool did; returning numWorkers removes the file-
+// level throttle (with window >= numWorkers every worker's gate is pre-signalled,
+// so the pipeline is trivially deadlock-free). Shrinking the window as soon as
+// ANY input is self-parallel keeps a mixed set memory-safe: the small bound
+// applies whenever a fan-out-heavy file could be in flight.
+func fanInWindow(files []string, numWorkers int) int {
+	for _, f := range files {
+		if parser.SupportsPIDSharding(f) {
+			return smallFanInWindow
+		}
+	}
+	return numWorkers
+}
 
 // buildLogFilters creates a LogFilters struct from command-line flags.
 //
