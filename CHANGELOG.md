@@ -22,7 +22,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 - **Time filter is an always-visible range slider in the Summary card**: replaces the Time dropdown and re-filters on release. Multi-day logs split the slider by day.
-- **`--json` output is stable run-to-run and across machines**: event-occurrence lists are sorted ascending, and PID-sharded runs order per-execution lists canonically (timestamp, query id, duration) so they don't depend on the core count.
+- **`--json` output is stable run-to-run and across machines**: event-occurrence lists are sorted ascending, PID-sharded runs order per-execution lists canonically (timestamp, query id, duration), prepared-statement name lists are kept in a canonical order, and vacuum/analyze elapsed totals are rounded to the source precision — so the output no longer depends on the core count or on float-summation order. (These canonicalizations change a few serialized values versus v0.11.0.)
 
 ### Fixed
 - **Analyzing multiple files at once is now deterministic**: rotated log sets were parsed with non-deterministic interleaving; files are now analyzed in order, so output is byte-stable.
@@ -36,7 +36,6 @@ All notable changes to this project will be documented in this file.
 - **The SQL duration-distribution band disagreed with the CLI**: the HTML re-bucketed queries by their average duration instead of using the exact per-execution distribution the report already carries; it now matches the `--full` text output.
 - **The SQL duration-distribution band now re-scopes under the time filter too**: it kept showing the whole-log distribution while every other SQL card re-scoped after moving the slider; it is re-bucketed from the filtered executions now.
 - **The query-detail modal's duration histogram never rendered**: it read a field that no longer exists, so every value was zero and the block was dropped.
-- **Event-detail "First seen" / "Last seen" were shown in UTC**: they shifted the day for non-UTC logs; now shown in the log's own clock, like the rest of the report.
 - **Split-report period-heatmap bounds could read "00:00 … 00:00"**: an intraday split spanning more than one day rendered both ends dateless; they now carry the date when the split crosses days.
 - **Charts kept stale colors after a theme switch**: toggling dark/light left existing charts mixing old and new colors until the next reload; they now repaint on toggle.
 - **HTML report could fail to load on older browsers**: it relied on `Intl.DurationFormat` with no fallback; a local formatter now covers browsers that lack it.
