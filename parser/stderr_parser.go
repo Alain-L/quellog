@@ -92,13 +92,25 @@ type StderrParser struct {
 	// and stream-chunk engines call parseReader hundreds of times per
 	// input; a fresh 4 MB buffer per call was their top allocator.
 	scanBuf []byte
+
+	// scanBufInit overrides the INITIAL scanBuf size (bytes) when > 0; the
+	// scanner's max token size stays math.MaxInt32, so a longer line still
+	// grows the buffer on demand. The stream-chunk workers set a smaller
+	// initial size than the 4 MB default: each in-flight worker holds one
+	// buffer and their chunks are only a few MB, so 4 MB per worker was pure
+	// RSS overhead for lines that are almost always a few KB.
+	scanBufInit int
 }
 
 // scannerBuf returns the reusable scanner backing buffer, allocating it
 // on first use.
 func (p *StderrParser) scannerBuf() []byte {
 	if p.scanBuf == nil {
-		p.scanBuf = make([]byte, scannerBuffer)
+		size := scannerBuffer
+		if p.scanBufInit > 0 {
+			size = p.scanBufInit
+		}
+		p.scanBuf = make([]byte, size)
 	}
 	return p.scanBuf
 }

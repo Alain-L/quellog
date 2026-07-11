@@ -397,23 +397,30 @@ const smallFanInWindow = 2
 // trades file-level concurrency against in-flight memory.
 //
 // The small window is used ONLY when a self-parallel stderr input could be in
-// flight. Those are the files SupportsPIDSharding flags: large plain stderr
-// (parseParallel) and non-prefixed compressed stderr (parseStreamParallel),
+// flight — the files parser.UsesStreamParallelStderr flags: large plain stderr
+// (parseParallel) and large non-prefixed compressed stderr (parseStreamParallel),
 // each of which already saturates the CPU on its own and fans out chunks/queues,
 // so admitting many at once multiplies RSS without improving wall time — the
 // real memory bound the window exists to hold.
 //
 // Otherwise every input parses on a single goroutine (compressed CSV/JSON,
-// prefixed compressed stderr, plain sub-threshold files). Those need up to
-// numWorkers files running concurrently to keep the pool busy, exactly as the
-// pre-window v0.11.0 worker pool did; returning numWorkers removes the file-
-// level throttle (with window >= numWorkers every worker's gate is pre-signalled,
-// so the pipeline is trivially deadlock-free). Shrinking the window as soon as
-// ANY input is self-parallel keeps a mixed set memory-safe: the small bound
-// applies whenever a fan-out-heavy file could be in flight.
+// prefixed compressed stderr, plain sub-threshold files, and — crucially —
+// compressed stderr sets below the parallel-parse size gate, which now fall back
+// to the sequential reader). Those need up to numWorkers files running
+// concurrently to keep the pool busy, exactly as the pre-window v0.11.0 worker
+// pool did; returning numWorkers removes the file-level throttle (with window >=
+// numWorkers every worker's gate is pre-signalled, so the pipeline is trivially
+// deadlock-free). Keying off the SAME predicate as the parse router guarantees a
+// file that parses sequentially gets the wide window (v0.11.0 throughput, low RSS
+// since each file is one goroutine), while a file that self-parallelizes gets the
+// small window (RSS bound) — the two decisions can never disagree.
 func fanInWindow(files []string, numWorkers int) int {
 	for _, f := range files {
-		if parser.SupportsPIDSharding(f) {
+		var size int64
+		if st, err := os.Stat(f); err == nil {
+			size = st.Size()
+		}
+		if parser.UsesStreamParallelStderr(f, size) {
 			return smallFanInWindow
 		}
 	}

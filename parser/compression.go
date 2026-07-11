@@ -69,6 +69,40 @@ func IsCompressed(filename string) bool {
 	return false
 }
 
+// UsesStreamParallelStderr reports whether the input named filename, whose
+// on-disk size is `size`, will be parsed by the entry-sharded parallel stderr
+// engine (parseParallel for plain, parseStreamParallel for compressed) rather
+// than the sequential single-goroutine reader. It is the single source of truth
+// for two decisions that must agree, so they can never diverge:
+//
+//   - the compressed parse router (wrapCompressedParser), and
+//   - the multi-file fan-in window (cmd.fanInWindow).
+//
+// A file self-parallelizes only when it is stream-parallel-eligible stderr
+// (non-syslog stderr, per SupportsPIDSharding) AND large enough to clear the
+// size gate (reachesStreamParallelSize). The fan-in window shrinks only for such
+// files — they already saturate the CPU and fan out in-flight chunks — while a
+// sub-gate stderr set (now parsed sequentially, one goroutine per file) keeps the
+// wide window that keeps the worker pool busy at low RSS.
+//
+// Native-only (!js): it reaches into SupportsPIDSharding, which samples the
+// gzip/zstd/tar codecs. The WASM build never multi-files and never calls this.
+func UsesStreamParallelStderr(filename string, size int64) bool {
+	if !SupportsPIDSharding(filename) {
+		return false
+	}
+	// Tar members self-parallelize inside TarParser (routeStderrStream) with no
+	// size gate, so a stderr-bearing archive always warrants the small window —
+	// its members fan out regardless of the archive's on-disk size. Keep the
+	// pre-existing behavior for tar and apply the size gate only to the direct
+	// plain/compressed stderr paths, which are the ones that now fall back to
+	// the sequential reader below the gate.
+	if isTarArchiveName(strings.ToLower(filename)) {
+		return true
+	}
+	return reachesStreamParallelSize(IsCompressed(filename), size)
+}
+
 // detectCompressedFile checks if the file is compressed or a tar archive and returns the appropriate parser.
 // Returns (parser, error, handled). If handled is false, the caller should continue with normal detection.
 func detectCompressedFile(filename string) (LogParser, error, bool) {
@@ -260,12 +294,12 @@ func wrapCompressedParser(parser LogParser, codec compressionCodec) LogParser {
 	switch src := parser.(type) {
 	case *JsonParser:
 		p := &JsonParser{}
-		return newCompressedParser(codec, func(r io.Reader, out chan<- []LogEntry) error {
+		return newCompressedParser(codec, func(r io.Reader, size int64, out chan<- []LogEntry) error {
 			return p.parseReader(r, out)
 		})
 	case *CsvParser:
 		p := &CsvParser{}
-		return newCompressedParser(codec, func(r io.Reader, out chan<- []LogEntry) error {
+		return newCompressedParser(codec, func(r io.Reader, size int64, out chan<- []LogEntry) error {
 			return p.parseReader(r, out)
 		})
 	case *StderrParser:
@@ -273,16 +307,27 @@ func wrapCompressedParser(parser LogParser, codec compressionCodec) LogParser {
 		// wrapper; otherwise a prefixed log would detect the prefix on its
 		// sample and then silently parse zero entries from the stream.
 		p := &StderrParser{prefixLen: src.prefixLen}
-		return newCompressedParser(codec, func(r io.Reader, out chan<- []LogEntry) error {
+		return newCompressedParser(codec, func(r io.Reader, size int64, out chan<- []LogEntry) error {
 			// Compressed streams can't seek, so the segment engine doesn't
 			// apply — but the stream-chunked sibling parallelizes the parse
-			// the same way. Prefixed streams keep the prefix-aware
-			// sequential reader (same routing as Parse).
+			// the same way. Prefixed streams keep the prefix-aware sequential
+			// reader (same routing as Parse). Small streams also stay
+			// sequential: the parallel path's (workers+2) in-flight 4 MB
+			// chunks cost peak RSS for a negligible wall win when the
+			// single-threaded decode paces the pipeline, so gate it on the
+			// estimated decompressed size exactly as the plain seekable path
+			// gates parseParallel on file size (reachesStreamParallelSize).
+			// Below the gate we fall back to the pre-parallel single-goroutine
+			// reader — the behavior small compressed sets had before the
+			// stream engine existed. The fan-in window keys off the same gate
+			// (UsesStreamParallelStderr), so a sequential file gets the wide
+			// window that keeps the worker pool busy.
 			// Half the segment-path worker count: the stream chunker (decode +
 			// boundary scan, single goroutine) paces the pipeline well below
 			// what 4 parse workers absorb — 8 only added allocation-rate GC
 			// headroom (measured: same wall, −18% RSS on a single .zst).
-			if workers := parallelWorkers() / 2; workers >= 2 && p.prefixLen == 0 {
+			if workers := parallelWorkers() / 2; workers >= 2 && p.prefixLen == 0 &&
+				reachesStreamParallelSize(true, size) {
 				return p.parseStreamParallel(r, workers, out)
 			}
 			return p.parseReader(r, out)
@@ -294,11 +339,14 @@ func wrapCompressedParser(parser LogParser, codec compressionCodec) LogParser {
 }
 
 type compressedLogParser struct {
-	parse func(io.Reader, chan<- []LogEntry) error
+	// parse runs a format parser over the decompressed stream. size is the
+	// on-disk (compressed) byte size, threaded through so the stderr router
+	// can gate the parallel engine on the estimated decompressed size.
+	parse func(r io.Reader, size int64, out chan<- []LogEntry) error
 	codec compressionCodec
 }
 
-func newCompressedParser(codec compressionCodec, parse func(io.Reader, chan<- []LogEntry) error) LogParser {
+func newCompressedParser(codec compressionCodec, parse func(r io.Reader, size int64, out chan<- []LogEntry) error) LogParser {
 	return &compressedLogParser{
 		parse: parse,
 		codec: codec,
@@ -312,6 +360,14 @@ func (c *compressedLogParser) Parse(filename string, out chan<- []LogEntry) erro
 	}
 	defer file.Close()
 
+	// On-disk (compressed) size feeds the stderr router's decompressed-size
+	// gate. A stat failure leaves size 0, which reads as "below the gate" —
+	// the safe, sequential-parse default.
+	var size int64
+	if st, serr := file.Stat(); serr == nil {
+		size = st.Size()
+	}
+
 	// Wrap the on-disk reader BEFORE the decompressor so progress
 	// reflects compressed bytes consumed (= file size on disk = the
 	// denominator the CLI bar shows). Wrapping the decompressed
@@ -322,7 +378,7 @@ func (c *compressedLogParser) Parse(filename string, out chan<- []LogEntry) erro
 	}
 	defer reader.Close()
 
-	return c.parse(reader, out)
+	return c.parse(reader, size, out)
 }
 
 // newParallelGzipReader returns a pgzip reader configured for parallel decompression.

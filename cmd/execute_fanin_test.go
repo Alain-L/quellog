@@ -249,22 +249,37 @@ func TestFanInWindowByFormat(t *testing.T) {
 		}
 	}
 
-	// Self-parallel stderr set: small window bounds RSS regardless of pool size.
-	if got := fanInWindow(stderrFiles, numWorkers); got != smallFanInWindow {
-		t.Fatalf("fanInWindow(stderr) = %d, want %d (small window for self-parallel stderr)", got, smallFanInWindow)
+	// A genuinely large plain stderr file, above the stream-parallel size gate.
+	// ~1 MB of real stderr content at the head (so format detection samples
+	// stderr, not the sparse tail), then extended sparse to 128 MB so os.Stat
+	// clears the gate without writing 128 MB. This one self-parallelizes.
+	largeStderr := filepath.Join(dir, "large-stderr.log")
+	if err := os.WriteFile(largeStderr, []byte(strings.Repeat(stderrBuf.String(), 4096)), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Truncate(largeStderr, 128<<20); err != nil {
+		t.Fatal(err)
 	}
 
-	// Single-goroutine set: the R2 regression. The window MUST open to
-	// numWorkers (v0.11.0 behavior), not stay pinned at 2.
+	// Small stderr and small CSV are all BELOW the gate: they parse on a single
+	// goroutine, so the window must open to numWorkers (v0.11.0 throughput).
+	// This is the R2 fix and the RSS size-gate working together — a rotation of
+	// small compressed/plain logs is not throttled to 2.
+	if got := fanInWindow(stderrFiles, numWorkers); got != numWorkers {
+		t.Fatalf("fanInWindow(small stderr) = %d, want %d (below the gate: parses sequentially, must not be throttled)", got, numWorkers)
+	}
 	if got := fanInWindow(csvFiles, numWorkers); got != numWorkers {
-		t.Fatalf("fanInWindow(csv) = %d, want %d (R2: single-goroutine inputs must not be throttled to %d)", got, numWorkers, smallFanInWindow)
+		t.Fatalf("fanInWindow(csv) = %d, want %d (single-goroutine inputs must not be throttled)", got, numWorkers)
 	}
 
-	// A mixed set stays conservative: any self-parallel file present pulls the
-	// whole window down to the small RSS bound.
-	mixed := append(append([]string{}, csvFiles...), stderrFiles...)
+	// The large stderr file self-parallelizes (chunked segment engine), so the
+	// window stays small to bound RSS; a mixed set containing it is pulled down.
+	if got := fanInWindow([]string{largeStderr}, numWorkers); got != smallFanInWindow {
+		t.Fatalf("fanInWindow(large stderr) = %d, want %d (above the gate: self-parallel, small window bounds RSS)", got, smallFanInWindow)
+	}
+	mixed := append(append([]string{}, csvFiles...), largeStderr)
 	if got := fanInWindow(mixed, numWorkers); got != smallFanInWindow {
-		t.Fatalf("fanInWindow(mixed) = %d, want %d (a self-parallel file forces the small window)", got, smallFanInWindow)
+		t.Fatalf("fanInWindow(mixed with large stderr) = %d, want %d (a self-parallel file forces the small window)", got, smallFanInWindow)
 	}
 }
 

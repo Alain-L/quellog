@@ -16,7 +16,7 @@ All notable changes to this project will be documented in this file.
 - **Large CSV logs parse ~40% faster**: a parallel segment parser splits big CSV files, mirroring the stderr/JSON parallel paths.
 - **CSV parsing allocates ~half as much memory**: a single-pass, zero-copy CSV scanner replaces the standard-library reader, cutting CSV-path allocations by roughly 50%.
 - **Faster reports on session- and lock-heavy logs**: anchored analyzer gates, per-worker buffer reuse and callback-free sweep-line sorts cut wall time by up to a third on large stderr files.
-- **Compressed logs parse in parallel**: gzip/zstd stderr logs are parsed by a worker pool, up to ~30% faster.
+- **Compressed logs parse in parallel**: large gzip/zstd stderr logs are parsed by a worker pool, up to ~30% faster; smaller (rotated) logs stay on the low-memory sequential path, so a directory of small `*.log.zst` no longer multiplies peak memory.
 - **The HTML report is a few percent smaller**: multi-line CSS comments are now stripped from the embedded stylesheet, and the compressed payload is base64url-encoded so its bytes are no longer escaped inside the template's JS string.
 - **Lock and temp-file analysis retain less memory on busy logs**: lock events are stored with interned fields and no longer pin their source log line — ~30% lower peak retention on a lock-heavy capture — and temp-file events are compacted the same way. Output is unchanged.
 

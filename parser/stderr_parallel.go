@@ -11,8 +11,54 @@ import (
 )
 
 // stderrParallelMinSize is the file size below which the sequential
-// stderr path is kept — same rationale as the JSON threshold.
+// stderr path is kept — same rationale as the JSON threshold. This is
+// the floor on the number of bytes to PARSE: for a plain file it is the
+// file size, for a compressed file it is the estimated decompressed size
+// (see reachesStreamParallelSize).
 const stderrParallelMinSize = 64 << 20 // 64 MB
+
+// streamExpansionFactor is a conservative floor for how much a compressed
+// PostgreSQL log expands when decompressed (measured ratios run 14-23x;
+// mirrors cmd.logExpansionFactor). Used to estimate the decompressed byte
+// volume — what the parser actually processes — from the on-disk size, so
+// the stream-parallel gate keys off parse work rather than disk size.
+const streamExpansionFactor = 8
+
+// streamParallelMinDecompressed is the estimated-decompressed-size floor
+// above which COMPRESSED stderr uses the entry-sharded parallel engine
+// (parseStreamParallel); below it the input is parsed by the sequential
+// single-goroutine reader instead. It is deliberately higher than
+// stderrParallelMinSize because a compressed stream's single-threaded
+// decode — not the parse — paces the pipeline: on a 256 MB-decompressed
+// single-frame .zst the parallel parse buys only a few percent of wall
+// while its (workers+2) in-flight 4 MB chunks cost ~2.9x peak RSS
+// (measured). The floor matches the analysis-sharding gate (256 MB), so a
+// compressed input parses sequentially exactly when it is too small to
+// shard and in parallel exactly when it shards.
+const streamParallelMinDecompressed = 256 << 20
+
+// streamWorkerScanBuf is the INITIAL bufio.Scanner buffer given to each
+// stream-chunk parse worker (see parseStreamParallel). Smaller than the
+// 4 MB default because a worker parses only a few-MB chunk and real log
+// lines are a few KB; the scanner still grows to math.MaxInt32 on a longer
+// line, so output is unchanged.
+const streamWorkerScanBuf = 1 << 20
+
+// reachesStreamParallelSize reports whether an input whose on-disk size is
+// `size` has enough content to parse to justify the entry-sharded parallel
+// stderr engine. It is pure (no I/O) so the routing decision is unit-testable
+// with synthetic sizes, and it is the single size-gate both the parse router
+// (wrapCompressedParser) and the multi-file fan-in window (UsesStreamParallelStderr)
+// consult, so the two can never diverge. Plain inputs gate on their file size at
+// stderrParallelMinSize (matching StderrParser.Parse's parseParallel routing);
+// compressed inputs gate on their estimated decompressed size at the higher
+// streamParallelMinDecompressed (see that constant for why).
+func reachesStreamParallelSize(compressed bool, size int64) bool {
+	if compressed {
+		return size*streamExpansionFactor >= streamParallelMinDecompressed
+	}
+	return size >= stderrParallelMinSize
+}
 
 // stderrSegmentSize is the micro-segment length. Same design as the
 // JSON path: segments far smaller than fileSize/workers keep every
@@ -381,7 +427,7 @@ func (p *StderrParser) parseStreamParallel(r io.Reader, workers int, out chan<- 
 			// one whole chunk per in-flight or retained message — measured
 			// ~10× RSS on an 880 MB stream.
 			var cr bytes.Reader
-			wp := &StderrParser{prefixStructure: p.prefixStructure}
+			wp := &StderrParser{prefixStructure: p.prefixStructure, scanBufInit: streamWorkerScanBuf}
 			for j := range jobs {
 				cr.Reset(j.data)
 				if err := wp.parseReader(&cr, j.q); err != nil {
