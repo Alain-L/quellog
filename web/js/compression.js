@@ -185,17 +185,29 @@ export async function extractZip(buffer) {
 }
 
 // looksLikeLogContent sniffs the head of an extension-less tar member: keep it
-// only if it opens like a PostgreSQL log — an ISO timestamp at a line start
-// (stderr / csvlog) or a leading '{' (jsonlog) — so a genuine log with no
-// recognized name is parsed (as the CLI does), while binary/foreign junk that
-// would poison detection is still skipped.
+// only if it opens like a PostgreSQL log, so a genuine log with no recognized
+// name is parsed (as the CLI does), while binary/foreign junk that would poison
+// detection is still skipped. The accepted line-prefix shapes mirror the CLI's
+// content detector (parser/autodetect.go logPatterns): ISO stderr/csvlog, a
+// leading '{' (jsonlog), syslog (BSD or RFC5424), and epoch-second prefixes —
+// not just ISO/JSON, which silently dropped syslog/epoch members. Several
+// leading lines are checked (not only the first) to tolerate a rotation banner
+// or a blank/continuation line at the top.
+const LOG_PREFIX_PATTERNS = [
+    /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}/,             // ISO stderr / csvlog
+    /^[A-Z][a-z]{2}\s+\d+\s+\d{2}:\d{2}:\d{2}\s/,          // syslog BSD (Mon DD HH:MM:SS)
+    /^<\d+>\d+\s+\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/,     // syslog RFC5424 (<pri>1 ISO)
+    /^\d{10}\.\d{3}\b/,                                    // epoch seconds.millis
+];
 export function looksLikeLogContent(sampleBytes) {
     const s = new TextDecoder('utf-8', { fatal: false }).decode(sampleBytes);
-    for (const line of s.split('\n', 8)) {
+    let checked = 0;
+    for (const line of s.split('\n')) {
         const t = line.replace(/^\s+/, '');
         if (!t) continue;
-        if (t[0] === '{') return true;
-        return /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}/.test(t);
+        if (t[0] === '{') return true; // jsonlog
+        if (LOG_PREFIX_PATTERNS.some((re) => re.test(t))) return true;
+        if (++checked >= 8) break;
     }
     return false;
 }

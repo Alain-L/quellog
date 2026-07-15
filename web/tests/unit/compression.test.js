@@ -70,6 +70,28 @@ test('extractTar keeps extension-less members that look like logs, drops junk', 
   assert.ok(!out.includes('free text'), 'drops extension-less free text');
 });
 
+// Regression — the content sniff (looksLikeLogContent) must recognize the same
+// line-prefix shapes the CLI does (parser/autodetect.go logPatterns), not just
+// ISO/JSON: an extension-less syslog (BSD or RFC5424) or epoch-prefixed member
+// (e.g. a tar of /var/log where the file is named `postgresql` or `messages`)
+// was dropped silently, though v0.11.0's extractTar kept every member and the
+// CLI parses these formats.
+test('extractTar keeps extension-less syslog/epoch/rfc5424 members, still drops junk', async () => {
+  const tar = buildTar([
+    ['syslog',   'Mar 23 12:34:56 host postgres[123]: [5-1] user=u,db=d LOG:  syslog bsd member\n'],
+    ['pg_epoch', '1711193696.123 CET [42]: [1-1] LOG:  epoch prefixed member\n'],
+    ['messages', '<134>1 2026-03-23T12:34:56.789Z host postgres 123 - - LOG:  rfc5424 member\n'],
+    ['NOTICE',   'plain english release notes, definitely not a log at all\n'],
+  ]);
+
+  const out = await extractTar(tar.buffer);
+
+  assert.ok(out.includes('syslog bsd member'), 'keeps an extension-less syslog BSD member');
+  assert.ok(out.includes('epoch prefixed member'), 'keeps an extension-less epoch-prefixed member');
+  assert.ok(out.includes('rfc5424 member'), 'keeps an extension-less RFC5424 syslog member');
+  assert.ok(!out.includes('release notes'), 'still drops extension-less free text');
+});
+
 // FIX #1 — tar extraction must keep ROTATED PostgreSQL logs (postgresql.log.1,
 // .log.2.gz, postgresql-16-main.log.1, postgresql.log.2026-03-23-10), which the
 // old isSupportedEntry matched only as exact endings so it silently dropped
