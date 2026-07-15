@@ -137,7 +137,8 @@
     "fatal_count": 1,
     "panic_count": 0,
     "warning_count": 0,
-    "log_count": 5
+    "log_count": 5,
+    "utc_offset_minutes": 0
   },
   "top_events": [
     {

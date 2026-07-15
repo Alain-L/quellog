@@ -28,6 +28,12 @@ type SummaryJSON struct {
 	PanicCount   int    `json:"panic_count"`
 	WarningCount int    `json:"warning_count"`
 	LogCount     int    `json:"log_count"`
+	// UTCOffsetMinutes is the log's UTC offset (minutes east of UTC) from the
+	// first entry. The client time filter uses it to convert its wall-clock
+	// slider bounds to the true-instant epoch basis that top_events[].timestamps
+	// use, so the Events section re-scopes on the same window as every other
+	// (wall-clock-compared) section. 0 for UTC logs.
+	UTCOffsetMinutes int `json:"utc_offset_minutes"`
 }
 
 type SQLPerformanceJSON struct {
@@ -2860,17 +2866,19 @@ func convertSummary(m analysis.AggregatedMetrics) SummaryJSON {
 	if duration.Seconds() > 0 {
 		throughput = float64(m.Global.Count) / duration.Seconds()
 	}
+	_, offSec := m.Global.MinTimestamp.Zone()
 	return SummaryJSON{
-		StartDate:    m.Global.MinTimestamp.Format("2006-01-02 15:04:05"),
-		EndDate:      m.Global.MaxTimestamp.Format("2006-01-02 15:04:05"),
-		Duration:     duration.String(),
-		TotalLogs:    m.Global.Count,
-		Throughput:   fmt.Sprintf("%.2f entries/s", throughput),
-		ErrorCount:   m.Global.ErrorCount,
-		FatalCount:   m.Global.FatalCount,
-		PanicCount:   m.Global.PanicCount,
-		WarningCount: m.Global.WarningCount,
-		LogCount:     m.Global.LogCount,
+		StartDate:        m.Global.MinTimestamp.Format("2006-01-02 15:04:05"),
+		EndDate:          m.Global.MaxTimestamp.Format("2006-01-02 15:04:05"),
+		Duration:         duration.String(),
+		TotalLogs:        m.Global.Count,
+		Throughput:       fmt.Sprintf("%.2f entries/s", throughput),
+		ErrorCount:       m.Global.ErrorCount,
+		FatalCount:       m.Global.FatalCount,
+		PanicCount:       m.Global.PanicCount,
+		WarningCount:     m.Global.WarningCount,
+		LogCount:         m.Global.LogCount,
+		UTCOffsetMinutes: offSec / 60,
 	}
 }
 

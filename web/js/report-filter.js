@@ -284,8 +284,9 @@ function reaggregateTempFiles(original, filteredEvents) {
  * ts.length`) — i.e. the whole-log counts are still exactly correct, so the
  * unfiltered / full-range modal is unchanged.
  * @param {Array<Object>} original - Original top_events array
- * @param {number} beginMs - Window start (Unix ms, UTC wall-clock)
- * @param {number} endMs - Window end (Unix ms, UTC wall-clock)
+ * @param {number} beginMs - Window start as a true-instant Unix ms (the log's
+ *   wall-clock bound already shifted by the UTC offset to match the event epochs)
+ * @param {number} endMs - Window end as a true-instant Unix ms
  * @returns {Array<Object>} Re-scoped top_events (new array)
  */
 function reaggregateTopEvents(original, beginMs, endMs) {
@@ -721,8 +722,13 @@ export function applyReportTimeFilter(beginStr, endStr) {
     // the epoch-ms basis and stays timezone-stable (matching the modal's
     // First/Last-seen rendering).
     if (Array.isArray(originalData.top_events)) {
-        const beginMs = Date.parse(beginStr.replace(' ', 'T') + 'Z');
-        const endMs = Date.parse(endStr.replace(' ', 'T') + 'Z');
+        // top_events[].timestamps are true-instant epochs (Go UnixMilli), but the
+        // slider bounds are the log's wall-clock. Convert the bounds to the same
+        // true-instant basis by subtracting the log's UTC offset — otherwise the
+        // Events window is shifted by the offset on a non-UTC log. 0 for UTC.
+        const offMs = (originalData.summary?.utc_offset_minutes || 0) * 60000;
+        const beginMs = Date.parse(beginStr.replace(' ', 'T') + 'Z') - offMs;
+        const endMs = Date.parse(endStr.replace(' ', 'T') + 'Z') - offMs;
         if (!Number.isNaN(beginMs) && !Number.isNaN(endMs)) {
             filtered.top_events = reaggregateTopEvents(
                 originalData.top_events, beginMs, endMs
