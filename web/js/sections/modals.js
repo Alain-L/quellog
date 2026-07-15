@@ -237,12 +237,16 @@ export function showEventDetail(index, opts = {}) {
         : e.severity === 'WARNING' ? 'var(--warning)' : 'var(--text-muted)';
 
     const ts = e.timestamps || [];
+    // ts are true-instant epochs; shift by the log's UTC offset so First/Last-seen
+    // read in the log's own wall-clock — matching the section tables (and the
+    // sparkline below) — instead of UTC. 0 for UTC logs.
+    const offMs = (analysisData?.summary?.utc_offset_minutes || 0) * 60000;
     let firstStr = '-', lastStr = '-', freqStr = '-';
     if (ts.length > 0) {
         const first = new Date(ts[0]);
         const last = new Date(ts[ts.length - 1]);
-        firstStr = first.toISOString().slice(0, 19).replace('T', ' ');
-        lastStr = last.toISOString().slice(0, 19).replace('T', ' ');
+        firstStr = new Date(ts[0] + offMs).toISOString().slice(0, 19).replace('T', ' ');
+        lastStr = new Date(ts[ts.length - 1] + offMs).toISOString().slice(0, 19).replace('T', ' ');
         const spanMin = Math.max(1, (last - first) / 60000);
         freqStr = (ts.length / spanMin).toFixed(2) + ' /min';
     }
@@ -300,7 +304,10 @@ export function showEventDetail(index, opts = {}) {
         : (e.severity === 'FATAL' || e.severity === 'PANIC') ? getComputedStyle(document.documentElement).getPropertyValue('--purple').trim()
         : e.severity === 'WARNING' ? getComputedStyle(document.documentElement).getPropertyValue('--warning').trim()
         : getComputedStyle(document.documentElement).getPropertyValue('--chart-bar').trim();
-    requestAnimationFrame(() => createTimeChart('eventModalChart', ts, { color: sevColorResolved, height: 180 }));
+    // Feed wall-clock-as-UTC epochs (ts + offset) with utc:true so the sparkline
+    // axis reads in the log's clock, consistent with the First/Last cards above.
+    const chartTs = ts.map(t => t + offMs);
+    requestAnimationFrame(() => createTimeChart('eventModalChart', chartTs, { color: sevColorResolved, height: 180, utc: true }));
     if (opts.flashId) flashAndScroll(opts.flashId);
 }
 
