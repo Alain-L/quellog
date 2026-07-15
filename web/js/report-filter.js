@@ -272,8 +272,17 @@ function reaggregateTempFiles(original, filteredEvents) {
  * to the window; events with no occurrence left in range are dropped. The
  * severity *distribution* (`events`) is a whole-log population count with no
  * per-item timestamps, so it is left untouched and annotated by the renderer.
- * `triggering_queries` counts are whole-log too (no timestamps) and pass
- * through unchanged.
+ *
+ * `triggering_queries` carries whole-log per-query counts with NO per-query
+ * timestamps, so it cannot be faithfully re-scoped client-side. When the
+ * window drops any of an event's occurrences the event's own count shrinks
+ * while these whole-log trigger counts would not, producing a modal that shows
+ * a per-query count larger than the (scoped) event total and a percentage over
+ * 100 %. So we drop `triggering_queries` to `[]` for any event the window
+ * actually narrows (hiding the table is the honest fix), and preserve it
+ * untouched only when the window keeps every occurrence (`kept.length ===
+ * ts.length`) — i.e. the whole-log counts are still exactly correct, so the
+ * unfiltered / full-range modal is unchanged.
  * @param {Array<Object>} original - Original top_events array
  * @param {number} beginMs - Window start (Unix ms, UTC wall-clock)
  * @param {number} endMs - Window end (Unix ms, UTC wall-clock)
@@ -291,7 +300,13 @@ function reaggregateTopEvents(original, beginMs, endMs) {
         }
         const kept = ts.filter(t => t >= beginMs && t <= endMs);
         if (kept.length === 0) continue; // no occurrence in range → drop
-        out.push({ ...ev, count: kept.length, timestamps: kept });
+        const next = { ...ev, count: kept.length, timestamps: kept };
+        // Whole-log trigger counts are only valid when nothing was dropped.
+        // Once the window narrows the event, they can no longer be reconciled
+        // with the scoped count, so hide the table rather than show impossible
+        // figures (percentages > 100 %, counts > the event total).
+        if (kept.length !== ts.length) next.triggering_queries = [];
+        out.push(next);
     }
     return out;
 }

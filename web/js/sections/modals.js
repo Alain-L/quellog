@@ -96,13 +96,29 @@ function flashAndScroll(flashId) {
     });
 }
 
+// Reconcile one triggering-query row against the event's own occurrence total.
+// The per-query counts are whole-log (no per-query timestamps to re-scope), so
+// under a stale/edge payload they can exceed a time-scoped event total and yield
+// an impossible percentage. Belt-and-suspenders: cap the displayed count at the
+// event total and clamp the percentage to 100 % so the modal can never render a
+// count > the event's occurrences or a share > 100 %. report-filter.js already
+// drops triggering_queries under a narrowing filter; this guards every other
+// path (direct/unfiltered render, legacy payloads).
+export function triggerRowStat(triggerCount, eventTotal) {
+    const raw = Number(triggerCount) || 0;
+    const total = Number(eventTotal) || 0;
+    const count = total > 0 ? Math.min(raw, total) : raw;
+    const pct = total > 0 ? Math.min(100, count / total * 100).toFixed(1) : '0.0';
+    return { count, pct };
+}
+
 // Triggering-queries table for the event modal. Click a row →
 // navigateToQuery which pushes the current event onto the modal
 // stack so the user can hit "← Back" to return. Same column
 // shape as buildQueryTable (no rank column; rows are pre-sorted
 // desc by count). data-flash-id labels each row by its queryID
 // so a return navigation can scroll + flash this row.
-function buildEventTriggeringTable(triggers, eventTotal, eventId) {
+export function buildEventTriggeringTable(triggers, eventTotal, eventId) {
     if (!triggers?.length) return '<div class="empty">No triggering queries</div>';
     const maxCount = triggers[0]?.count || 1;
     return `
@@ -118,17 +134,17 @@ function buildEventTriggeringTable(triggers, eventTotal, eventId) {
                 </thead>
                 <tbody>
                     ${triggers.slice(0, 50).map(t => {
-                        const pct = eventTotal > 0 ? (t.count / eventTotal * 100).toFixed(1) : 0;
+                        const { count, pct } = triggerRowStat(t.count, eventTotal);
                         const qid = esc(t.id);
                         const eid = esc(eventId || '');
                         return `
                         <tr onclick="navigateToQuery('${qid}', 'event', '${eid}')" data-flash-id="${qid}" style="cursor:pointer;" title="Click for query details">
                             <td class="query-cell">${esc(truncQuery(t.normalized_query))}</td>
-                            <td class="num">${fmt(t.count)}</td>
+                            <td class="num">${fmt(count)}</td>
                             <td class="num">${pct}%</td>
                             <td class="num">
                                 <div class="duration-bar">
-                                    <div class="bar"><div class="bar-fill" style="width: ${t.count/maxCount*100}%"></div></div>
+                                    <div class="bar"><div class="bar-fill" style="width: ${Math.min(100, count/maxCount*100)}%"></div></div>
                                 </div>
                             </td>
                         </tr>
@@ -269,7 +285,10 @@ export function showEventDetail(index, opts = {}) {
         ${(e.triggering_queries && e.triggering_queries.length > 0) ? `
             <div class="qd-section-title">Triggering Queries <span class="qd-meta">${e.triggering_queries.length} distinct</span></div>
             ${buildEventTriggeringTable(e.triggering_queries, e.count, e.id)}
-        ` : ''}
+        ` : (analysisData?._timeFiltered ? `
+            <div class="qd-section-title">Triggering Queries <span class="qd-meta">not available under time filter</span></div>
+            <div class="empty">Per-query counts are whole-log and can't be re-scoped to the selected window.</div>
+        ` : '')}
     `;
     document.getElementById('eventModal').open();
 
@@ -928,20 +947,24 @@ function formatSQL(sql) {
     return s;
 }
 
-// Cleanup modal charts when modal closes
-document.getElementById('queryModal').addEventListener('modal-close', () => {
-    modalCharts.forEach(c => c.destroy());
-    modalCharts.length = 0;
-});
+// Modal lifecycle listeners. Guarded so the module can be imported in a
+// DOM-free environment (node --test) without a TypeError at load; in the
+// browser the modal elements always exist and these are always registered.
+if (typeof document !== 'undefined' && document.getElementById('queryModal')) {
+    // Cleanup modal charts when the query modal closes.
+    document.getElementById('queryModal').addEventListener('modal-close', () => {
+        modalCharts.forEach(c => c.destroy());
+        modalCharts.length = 0;
+    });
 
-// Modal navigation stack lifecycle — clear the trail whenever
-// the user closes a modal "for real" (Escape, backdrop click,
-// the × button). Programmatic closes triggered by our own
-// navigateToX/modalBack set _suppressStackClear first so the
-// stack survives the close event.
-document.getElementById('queryModal').addEventListener('modal-close', () => {
-    if (!_suppressStackClear) modalStack = [];
-});
-document.getElementById('eventModal').addEventListener('modal-close', () => {
-    if (!_suppressStackClear) modalStack = [];
-});
+    // Modal navigation stack lifecycle — clear the trail whenever the user
+    // closes a modal "for real" (Escape, backdrop click, the × button).
+    // Programmatic closes triggered by our own navigateToX/modalBack set
+    // _suppressStackClear first so the stack survives the close event.
+    document.getElementById('queryModal').addEventListener('modal-close', () => {
+        if (!_suppressStackClear) modalStack = [];
+    });
+    document.getElementById('eventModal').addEventListener('modal-close', () => {
+        if (!_suppressStackClear) modalStack = [];
+    });
+}
