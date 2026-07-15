@@ -368,18 +368,23 @@ func (p *StderrParser) parseStreamParallel(r io.Reader, workers int, out chan<- 
 				// mid-way, then append whole lines until one starts a
 				// new entry — that line belongs to the next chunk and
 				// stays buffered in br.
+				// Whether this chunk begins at a real entry-start decides if the
+				// size cap below may fire (see there).
+				startsWithEntry := isEntryStart(data)
 				rest, e := br.ReadBytes('\n')
 				data = append(data, rest...)
 				err = e
 				for err == nil {
-					// Cap the extension: without a boundary, a member that
-					// never yields a column-0 entry-start would buffer to
-					// EOF here. Stop at streamChunkMaxSize and dispatch what
-					// we have; the remainder is read in the next bounded
-					// chunk. A member that truly never yields an entry-start
-					// then parses to zero entries either way, so cutting the
-					// run mid-way changes nothing but the memory ceiling.
-					if len(data) >= streamChunkMaxSize {
+					// Cap the extension ONLY for a run that did NOT begin at a
+					// valid entry-start: mislabeled/foreign content that never
+					// yields a boundary would otherwise buffer to EOF. Stop at
+					// streamChunkMaxSize and dispatch; the remainder reads in the
+					// next bounded chunk (it parses to zero entries either way).
+					// A legitimate giant entry (one statement/CONTEXT larger than
+					// the cap) begins at an entry-start and must be buffered whole,
+					// exactly as the sequential reader does — capping it would
+					// silently drop its tail.
+					if !startsWithEntry && len(data) >= streamChunkMaxSize {
 						if !capWarned {
 							slog.Warn("stderr member has no entry boundary within the size cap; parsing in bounded chunks (mislabeled or foreign content?)",
 								"cap_bytes", streamChunkMaxSize)

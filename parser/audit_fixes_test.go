@@ -25,19 +25,18 @@ func (c *chunkReader) Read(p []byte) (int, error) {
 	return n, nil
 }
 
-// TestStreamParallel_NoBoundaryBounded is the regression for the R2 OOM:
-// a stderr member whose only entry-start is the first line followed by a
-// long run of no-timestamp lines (JSON/foreign text mislabeled .log, a
-// literal-prefixed log) must NOT buffer the whole decompressed member in
-// one growing allocation. Before the boundary-extension cap the chunker
-// read the run to EOF into a single chunk; now it stops at
-// streamChunkMaxSize and dispatches bounded chunks.
+// TestStreamParallel_GiantMultilineEntryNotCapped is the R-4 regression: a
+// legitimate multi-line stderr entry (a header followed by a long run of
+// continuation lines — a giant statement/CONTEXT) begins at a valid
+// entry-start, so the boundary-extension cap must NOT fire and the entry
+// must be kept whole, exactly as the sequential reader does. The size cap
+// only guards content that never begins at an entry-start (see
+// TestStreamParallel_ForeignContentCapped).
 //
-// The observable is the emitted entry's message length: the leading
-// header absorbs the no-timestamp lines as continuations, so an uncapped
-// run yields a message ~= the whole stream, while a capped run yields a
-// message bounded near streamChunkMaxSize.
-func TestStreamParallel_NoBoundaryBounded(t *testing.T) {
+// The observable is the emitted entry's message length: the header absorbs
+// the continuation lines, so a correctly-uncapped run yields a message
+// spanning the whole run.
+func TestStreamParallel_GiantMultilineEntryNotCapped(t *testing.T) {
 	// Shrink the cap so a small (few-MB) fixture exercises it. The bulk
 	// read is always streamChunkSize (4 MB), so the cap only bites in the
 	// extension when it sits at or below the running chunk length; a value
@@ -63,22 +62,48 @@ func TestStreamParallel_NoBoundaryBounded(t *testing.T) {
 		return p.parseStreamParallel(readOnly{strings.NewReader(stream)}, 4, out)
 	})
 
-	// Exactly the header entry survives: later chunks are pure no-timestamp
-	// content and parse to nothing (same as the sequential degenerate case).
+	// R-4: the run begins at a valid entry-start (the header), so it is one
+	// legitimate multi-line entry whose continuations must be kept WHOLE, as
+	// the sequential reader does. The cap must NOT fire on a run that began at
+	// an entry-start — capping it would silently truncate the entry.
 	if len(entries) != 1 {
-		t.Fatalf("got %d entries, want 1 (header only)", len(entries))
+		t.Fatalf("got %d entries, want 1 (one giant multi-line entry)", len(entries))
 	}
 	msgLen := len(entries[0].Message)
-	// Bounded: the message must not have absorbed the whole 10 MB run. Allow
-	// a small margin over the cap for the completion line and word joins.
-	if msgLen >= streamChunkMaxSize+(256<<10) {
-		t.Fatalf("message length %d not bounded by cap %d (+margin) — extension buffered unboundedly",
-			msgLen, streamChunkMaxSize)
+	if msgLen < contBytes {
+		t.Fatalf("message length %d < %d — the giant multi-line entry was truncated (cap fired on a run that began at an entry-start)",
+			msgLen, contBytes)
 	}
-	// Sanity: it did absorb a chunk's worth (proves it parsed the header,
-	// not that it emitted an empty message).
-	if msgLen < streamChunkSize/2 {
-		t.Fatalf("message length %d implausibly small; expected ~chunk-sized", msgLen)
+}
+
+// TestStreamParallel_ForeignContentCapped covers the actual R2 OOM scenario:
+// a member whose content NEVER begins at a valid entry-start (JSON/foreign
+// text mislabeled .log) must not buffer to EOF in one allocation. No chunk
+// begins at an entry-start, so the size cap fires and the run is processed in
+// bounded chunks; with no entry-start anywhere it parses to zero entries.
+func TestStreamParallel_ForeignContentCapped(t *testing.T) {
+	orig := streamChunkMaxSize
+	streamChunkMaxSize = streamChunkSize + (512 << 10) // ~4.5 MB
+	defer func() { streamChunkMaxSize = orig }()
+
+	// ~10 MB of JSON-shaped lines: none begins with a column-0 PostgreSQL
+	// timestamp, so isEntryStart is false across the whole stream.
+	var b strings.Builder
+	line := `{"level":"info","msg":"` + strings.Repeat("x", 100) + `"}` + "\n"
+	const total = 10 << 20
+	for b.Len() < total {
+		b.WriteString(line)
+	}
+	stream := b.String()
+
+	entries := collectEntries(t, func(out chan<- []LogEntry) error {
+		p := &StderrParser{}
+		return p.parseStreamParallel(readOnly{strings.NewReader(stream)}, 4, out)
+	})
+	// No entry-start anywhere -> zero entries, and the run terminated (the cap
+	// kept the chunker from buffering the whole 10 MB into one allocation).
+	if len(entries) != 0 {
+		t.Fatalf("got %d entries, want 0 (foreign content has no entry-start)", len(entries))
 	}
 }
 
