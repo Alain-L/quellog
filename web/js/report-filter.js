@@ -672,8 +672,6 @@ export function applyReportTimeFilter(beginStr, endStr) {
         return originalData;
     }
 
-    console.log('[report-filter] Filtering:', beginStr, 'to', endStr);
-
     // Start with a copy of original data
     const filtered = JSON.parse(JSON.stringify(originalData));
 
