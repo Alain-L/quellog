@@ -184,6 +184,22 @@ export async function extractZip(buffer) {
     return files.map(f => td.decode(f.content)).join('\n');
 }
 
+// looksLikeLogContent sniffs the head of an extension-less tar member: keep it
+// only if it opens like a PostgreSQL log — an ISO timestamp at a line start
+// (stderr / csvlog) or a leading '{' (jsonlog) — so a genuine log with no
+// recognized name is parsed (as the CLI does), while binary/foreign junk that
+// would poison detection is still skipped.
+export function looksLikeLogContent(sampleBytes) {
+    const s = new TextDecoder('utf-8', { fatal: false }).decode(sampleBytes);
+    for (const line of s.split('\n', 8)) {
+        const t = line.replace(/^\s+/, '');
+        if (!t) continue;
+        if (t[0] === '{') return true;
+        return /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}/.test(t);
+    }
+    return false;
+}
+
 // Extract tar archive and concatenate file contents
 export async function extractTar(buffer) {
     const data = new Uint8Array(buffer);
@@ -222,6 +238,12 @@ export async function extractTar(buffer) {
                     content = unzstd(content.buffer);
                 }
                 files.push({ name: baseName, content });
+            } else if (looksLikeLogContent(data.slice(offset, offset + Math.min(size, 8192)))) {
+                // Extension-less member whose head sniffs as a PostgreSQL log
+                // (e.g. `postgresql`, `pg_log_20260320`): keep it, as the CLI
+                // does by content — a plain tar member carries no compression
+                // extension, so its bytes are the log text.
+                files.push({ name: baseName, content: data.slice(offset, offset + size) });
             } else {
                 // Warn instead of silently dropping: an unrecognized name may be
                 // a mislabeled or unexpectedly-rotated log the user meant to

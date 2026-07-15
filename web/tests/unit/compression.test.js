@@ -51,6 +51,25 @@ test('extractTar keeps supported logs, skips AppleDouble and unsupported entries
   assert.ok(!out.includes('not a log file'), 'drops an unsupported .txt entry');
 });
 
+// R-7 — an extension-less tar member whose content sniffs as a PostgreSQL log
+// (postgresql, pg_log_20260320, a jsonlog) must be kept, mirroring the CLI's
+// content detection; genuinely foreign content stays dropped.
+test('extractTar keeps extension-less members that look like logs, drops junk', async () => {
+  const tar = buildTar([
+    ['postgresql', '2026-01-01 12:00:00 UTC LOG:  extensionless stderr\n'],
+    ['pg_log_20260320', '2026-01-01 12:00:01 UTC LOG:  dated rotation\n'],
+    ['events_jsonlog', '{"log_time":"2026-01-01 12:00:02","message":"jsonlog line"}\n'],
+    ['notes', 'just some free text, definitely not a log\n'],
+  ]);
+
+  const out = await extractTar(tar.buffer);
+
+  assert.ok(out.includes('extensionless stderr'), 'keeps an extension-less stderr member');
+  assert.ok(out.includes('dated rotation'), 'keeps a dated extension-less rotation');
+  assert.ok(out.includes('jsonlog line'), 'keeps an extension-less jsonlog member');
+  assert.ok(!out.includes('free text'), 'drops extension-less free text');
+});
+
 // FIX #1 — tar extraction must keep ROTATED PostgreSQL logs (postgresql.log.1,
 // .log.2.gz, postgresql-16-main.log.1, postgresql.log.2026-03-23-10), which the
 // old isSupportedEntry matched only as exact endings so it silently dropped
