@@ -34,13 +34,11 @@ export async function initWasmInstance() {
 export function loadWasm() {
     // Skip WASM loading in report mode (data is pre-embedded)
     if (window.REPORT_MODE) {
-        console.log('[quellog] Report mode - WASM loading skipped');
         return Promise.resolve();
     }
 
     // Skip WASM loading in standalone mode (WASM loaded by loader script)
     if (window.STANDALONE_MODE) {
-        console.log('[quellog] Standalone mode - WASM loading handled by loader');
         return Promise.resolve();
     }
 
@@ -53,7 +51,6 @@ export function loadWasm() {
         })
         .then(() => {
             setWasmReady(true);
-            console.log('quellog WASM ready:', quellogVersion());
             // Update footer version now that WASM is loaded
             const versionEl = document.getElementById('quellog-version');
             if (versionEl) versionEl.textContent = 'quellog ' + quellogVersion();

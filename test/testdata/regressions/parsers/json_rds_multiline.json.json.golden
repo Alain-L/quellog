@@ -36,7 +36,8 @@
         "d": 0,
         "u": 0,
         "db": 0,
-        "h": 0
+        "h": 0,
+        "orphan": true
       }
     ]
   },
@@ -126,7 +127,8 @@
     "fatal_count": 1,
     "panic_count": 0,
     "warning_count": 0,
-    "log_count": 3
+    "log_count": 3,
+    "utc_offset_minutes": 0
   },
   "top_events": [
     {

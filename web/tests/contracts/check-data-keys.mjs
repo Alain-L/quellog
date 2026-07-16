@@ -35,6 +35,10 @@ const IGNORED_ROOTS = new Set([
   'type', 'data', 'error', 'all', 'warningsOnly', 'warnings', 'length', 'id',
   'xData', 'yData', 'valueFormatter', 'plan', 'sql', 'logStart', 'logEnd',
   '_parseTimeMs', 'distances', 'types', 'queries', 'color', 'height',
+  // Client-side-only markers written by js/report-filter.js on the filtered
+  // payload (never in the backend JSON) — read by the section renderers to
+  // annotate whole-log sections under a time filter.
+  '_wholeLog', '_timeFiltered', '_filterRange',
 ]);
 
 // Array/string built-ins: when a chain's last segment is a method call

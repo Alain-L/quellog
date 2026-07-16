@@ -211,15 +211,49 @@ func sniffAndParseArchiveEntry(name string, r io.Reader, out chan<- []LogEntry) 
 		if sp != nil {
 			prefixLen = sp.prefixLen
 		}
-		parser := &StderrParser{prefixLen: prefixLen}
-		// Parallelize the parse of a prefix-less stderr member the same way as
-		// compressed plain streams; a detected prefix keeps the sequential
-		// prefix-aware reader (mirrors wrapCompressedParser's routing).
-		if workers := parallelWorkers(); workers >= 2 && prefixLen == 0 {
-			return true, parser.parseStreamParallel(full, workers, out)
-		}
-		return true, parser.parseReader(full, out)
+		return true, routeStderrStream(full, prefixLen, out)
 	}
+}
+
+// routeStderrStream parses a fully-buffered stderr stream. A prefix-less member
+// takes the parallel stream-chunked fast path (same as compressed plain
+// streams); a detected literal prefix keeps the sequential prefix-aware reader,
+// which mirrors wrapCompressedParser's routing.
+func routeStderrStream(full io.Reader, prefixLen int, out chan<- []LogEntry) error {
+	parser := &StderrParser{prefixLen: prefixLen}
+	if workers := parallelWorkers(); workers >= 2 && prefixLen == 0 {
+		return parser.parseStreamParallel(full, workers, out)
+	}
+	return parser.parseReader(full, out)
+}
+
+// parseStderrArchiveEntry parses a plain-stderr archive member (a ".log" or
+// rotated ".log.<date>" entry), salvaging a literal log_line_prefix the same
+// way the plain/compressed path does in autodetect.go's detectByExtension.
+// Archive members are non-seekable, so it buffers a head sample, runs the
+// isLogContent -> detectLeadingPrefix probe, then replays the sample ahead of
+// the rest of the stream so no bytes are lost. Without this, a log carrying a
+// constant literal prefix before its timestamp parses fine as a plain/compressed
+// file but yields zero entries when the same bytes live inside a tar.
+func parseStderrArchiveEntry(r io.Reader, out chan<- []LogEntry) error {
+	sample := make([]byte, sampleBufferSize)
+	n, err := io.ReadFull(r, sample)
+	if err != nil && err != io.ErrUnexpectedEOF && err != io.EOF {
+		return err
+	}
+	sample = bytes.TrimPrefix(sample[:n], utf8BOM)
+
+	// Only probe for a literal prefix when the sample doesn't already look like
+	// a normal PostgreSQL log — mirrors detectByExtension's "log" branch, so a
+	// well-formed member keeps prefixLen 0 and the common no-prefix fast path.
+	prefixLen := 0
+	if s := string(sample); !isLogContent(s) {
+		prefixLen = detectLeadingPrefix(s)
+	}
+
+	// Replay the buffered sample ahead of the remaining stream, then route.
+	full := io.MultiReader(bytes.NewReader(sample), r)
+	return routeStderrStream(full, prefixLen, out)
 }
 
 // parseArchiveEntry selects the correct parser for an archive entry.
@@ -228,15 +262,10 @@ func parseArchiveEntry(name string, r io.Reader, out chan<- []LogEntry) error {
 
 	switch {
 	case strings.HasSuffix(lower, ".log"):
-		parser := &StderrParser{}
-		// Archive members are non-seekable, so the segment engine doesn't
-		// apply — but the stream-chunked sibling parallelizes the parse the
-		// same way as compressed plain streams. Archives don't carry a
-		// detected prefix (prefixLen is always 0 here), so no prefix guard.
-		if workers := parallelWorkers(); workers >= 2 {
-			return parser.parseStreamParallel(r, workers, out)
-		}
-		return parser.parseReader(r, out)
+		// Buffer a head sample so a literal log_line_prefix is salvaged the
+		// same way the plain/compressed path does, then parse (parallel when
+		// prefix-less, sequential when a prefix was detected).
+		return parseStderrArchiveEntry(r, out)
 	case strings.HasSuffix(lower, ".csv"):
 		parser := &CsvParser{}
 		return parser.parseReader(r, out)
@@ -258,14 +287,9 @@ func parseArchiveEntry(name string, r io.Reader, out chan<- []LogEntry) error {
 	case strings.HasSuffix(lower, ".zstd"):
 		return parseZstdArchiveEntry(name, r, ".zstd", out)
 	case strings.Contains(lower, ".log."):
-		// Rotated PostgreSQL log files (e.g. postgresql.log.2026-03-23-10)
-		parser := &StderrParser{}
-		// Same stream-chunked parallelization as the plain ".log" case above;
-		// archive members carry no detected prefix.
-		if workers := parallelWorkers(); workers >= 2 {
-			return parser.parseStreamParallel(r, workers, out)
-		}
-		return parser.parseReader(r, out)
+		// Rotated PostgreSQL log files (e.g. postgresql.log.2026-03-23-10).
+		// Same literal-prefix salvage as the plain ".log" case above.
+		return parseStderrArchiveEntry(r, out)
 	case strings.Contains(lower, ".csv."):
 		// Rotated CSV log files
 		parser := &CsvParser{}

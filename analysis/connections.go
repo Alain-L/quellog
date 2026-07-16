@@ -23,6 +23,13 @@ type SessionEvent struct {
 	UserIdx     int
 	DatabaseIdx int
 	HostIdx     int
+	// Orphan marks a session that never saw a matching disconnect line and
+	// was closed at Finalize at the last observed timestamp (see
+	// ConnectionAnalyzer.Finalize). It is NOT a real disconnect and is
+	// excluded from DisconnectionCount; the report's time-slider
+	// re-aggregation reads this flag to tell an orphan from a genuine
+	// disconnect instead of guessing from the end timestamp.
+	Orphan bool
 }
 
 // ConnectionMetrics aggregates statistics on database connections and sessions.
@@ -90,6 +97,11 @@ type ConnectionMetrics struct {
 	receivedChunksRef [][]int64
 	sessionChunksRef  [][]compactSession
 	locRef            *time.Location
+	// sessionOrphanStart is the flat index into the session grid at which
+	// the Finalize orphan-flush began: sessions at this index and beyond
+	// are orphans (SessionEvent.Orphan == true). Real disconnects, all
+	// appended during Process, occupy the lower indices.
+	sessionOrphanStart int
 
 	// SessionUserNames / SessionDatabaseNames / SessionHostNames: reverse
 	// lookup tables for the interned indices carried by SessionEvent
@@ -137,6 +149,7 @@ func (m *ConnectionMetrics) IterateSessionEvents(fn func(SessionEvent) bool) {
 		if loc == nil {
 			loc = time.UTC
 		}
+		flat := 0
 		for _, chunk := range m.sessionChunksRef {
 			for _, s := range chunk {
 				user, db, host := s.entities()
@@ -146,9 +159,11 @@ func (m *ConnectionMetrics) IterateSessionEvents(fn func(SessionEvent) bool) {
 					UserIdx:     int(user),
 					DatabaseIdx: int(db),
 					HostIdx:     int(host),
+					Orphan:      flat >= m.sessionOrphanStart,
 				}) {
 					return
 				}
+				flat++
 			}
 		}
 		return
@@ -616,6 +631,17 @@ func (a *ConnectionAnalyzer) Finalize() ConnectionMetrics {
 	// ends up well below PeakConcurrentSessions on any log that gets
 	// truncated mid-session (common in real captures: the last hour
 	// holds connections still open when the operator stopped tailing).
+	//
+	// Record where the flush begins first: every session appended so far is
+	// a real disconnect, everything appended from here on is an orphan. That
+	// boundary index is what IterateSessionEvents reads to set
+	// SessionEvent.Orphan, so the report can exclude orphans by flag instead
+	// of guessing from the end timestamp (an orphan's end is the last
+	// observed timestamp, which can sit below the global end_date).
+	sessionOrphanStart := 0
+	for _, c := range a.sessionChunks {
+		sessionOrphanStart += len(c)
+	}
 	if !a.lastSeenTimestamp.IsZero() && len(a.activeConnections) > 0 {
 		// Collect the orphan received-times and sort them so the
 		// resulting sessions are appended in deterministic order —
@@ -666,9 +692,10 @@ func (a *ConnectionAnalyzer) Finalize() ConnectionMetrics {
 		SessionDatabaseNames: a.databaseNames,
 		SessionHostNames:     a.hostNames,
 
-		receivedChunksRef: a.receivedChunks,
-		sessionChunksRef:  a.sessionChunks,
-		locRef:            loc,
+		receivedChunksRef:  a.receivedChunks,
+		sessionChunksRef:   a.sessionChunks,
+		locRef:             loc,
+		sessionOrphanStart: sessionOrphanStart,
 	}
 }
 

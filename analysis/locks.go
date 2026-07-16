@@ -52,6 +52,13 @@ const (
 // and, because the interned strings are cloned, no field is a substring of
 // entry.Message pinning the whole log line alive. Materialized into the public
 // LockEvent only at Finalize, keeping the exported API and output unchanged.
+//
+// offsetMin is the event's own UTC offset in minutes, captured from the log
+// line's timestamp so Finalize can restore the original local wall-clock even
+// on mixed-zone input. It occupies the struct's existing tail padding for free:
+// the ten uint32s + two 8-byte fields total 52B, which already rounds up to 56B
+// on an 8-byte alignment, so int16 offsetMin lands at offset 52 and the struct
+// stays 56 bytes — no memory delta.
 type compactLockEvent struct {
 	tsUnixMs        int64
 	waitTime        float64
@@ -64,6 +71,7 @@ type compactLockEvent struct {
 	blockingQueryID uint32
 	blockingQuery   uint32
 	relation        uint32
+	offsetMin       int16
 }
 
 // LockQueryStat aggregates lock stats for one query pattern.
@@ -127,7 +135,6 @@ type LockAnalyzer struct {
 	events             []compactLockEvent
 	strs               []string          // interned strings; index 0 is ""
 	strIndex           map[string]uint32 // string -> index into strs
-	locRef             *time.Location    // log timezone, captured from the first event
 	queryStats         map[string]*LockQueryStat
 	lastQueryByPID     map[string]string
 	pendingBlockingPID map[string]string // Maps waiting PID → blocking PID (from DETAIL line)
@@ -606,9 +613,9 @@ func (a *LockAnalyzer) handleWaiting(
 		}
 	}
 
-	if a.locRef == nil {
-		a.locRef = entry.Timestamp.Location()
-	}
+	// Capture this event's own UTC offset (whole minutes) so Finalize can
+	// restore its original local wall-clock even on mixed-zone input.
+	_, offsetSec := entry.Timestamp.Zone()
 	eventIdx := len(a.events)
 	a.events = append(a.events, compactLockEvent{
 		tsUnixMs:        entry.Timestamp.UnixMilli(),
@@ -621,6 +628,7 @@ func (a *LockAnalyzer) handleWaiting(
 		blockingPID:     a.intern(blockingPID),
 		blockingQueryID: a.intern(blockingQueryID),
 		relation:        a.intern(relation),
+		offsetMin:       int16(offsetSec / 60),
 	})
 	// Remember the event index so a later STATEMENT line can update
 	// query_id in place.
@@ -688,9 +696,9 @@ func (a *LockAnalyzer) handleAcquired(
 		acquiredRelation = lock.relation
 	}
 
-	if a.locRef == nil {
-		a.locRef = entry.Timestamp.Location()
-	}
+	// Capture this event's own UTC offset (whole minutes) so Finalize can
+	// restore its original local wall-clock even on mixed-zone input.
+	_, offsetSec := entry.Timestamp.Zone()
 	a.events = append(a.events, compactLockEvent{
 		tsUnixMs:     entry.Timestamp.UnixMilli(),
 		eventType:    lockEvtAcquired,
@@ -701,6 +709,7 @@ func (a *LockAnalyzer) handleAcquired(
 		queryID:      a.intern(queryID),
 		blockingPID:  a.intern(acquiredBlockingPID),
 		relation:     a.intern(acquiredRelation),
+		offsetMin:    int16(offsetSec / 60),
 	})
 }
 
@@ -960,13 +969,21 @@ func (a *LockAnalyzer) Finalize() LockMetrics {
 	}
 
 	// Materialize the compact events into the public LockEvent slice here, after
-	// parsing, so the exported shape and JSON output are unchanged.
-	loc := a.locRef
-	if loc == nil {
-		loc = time.UTC
-	}
+	// parsing, so the exported shape and JSON output are unchanged. Each event
+	// is materialized at its OWN captured offset so the displayed wall-clock
+	// matches the original log line even when the input mixes zones; the empty
+	// zone-name is invisible under the zone-less "2006-01-02 15:04:05" layout
+	// the outputs use, and on a single-zone log every offset is identical, so
+	// the digits are byte-identical to the previous shared-location code.
+	// FixedZone values are memoized by offset (usually one or two distinct).
+	zones := make(map[int16]*time.Location, 2)
 	events := make([]LockEvent, len(a.events))
 	for i, e := range a.events {
+		loc := zones[e.offsetMin]
+		if loc == nil {
+			loc = time.FixedZone("", int(e.offsetMin)*60)
+			zones[e.offsetMin] = loc
+		}
 		events[i] = LockEvent{
 			Timestamp:       time.UnixMilli(e.tsUnixMs).In(loc),
 			EventType:       a.strs[e.eventType],

@@ -2,6 +2,7 @@ package parser
 
 import (
 	"bufio"
+	"bytes"
 	"io"
 	"os"
 	"sync"
@@ -22,144 +23,94 @@ const csvSegmentSize = 8 << 20 // 8 MB
 // margin while bounding in-flight memory.
 const csvSegmentQueueDepth = 64
 
-// isCSVRecordStart reports whether line begins a new PostgreSQL csvlog record.
-// Field 0 (log_time) is an UNQUOTED ISO timestamp immediately followed by the
-// field separator: "YYYY-MM-DD HH:MM:SS[.ffffff][ TZ],". This is the segment
-// equivalent of stderr's isEntryStart. A regex-free, fixed-position + range
-// check keeps the boundary scan O(window) while being strong enough that a
-// newline inside a quoted field (the only thing that could split a record
-// mid-way) practically never matches: it would need the quoted text to contain
-// "\n<a calendar-valid ISO timestamp>,". The residual (a genuinely valid
-// timestamp embedded in a quoted message) is the same rare, accepted class of
-// false positive as stderr's isEntryStart.
-func isCSVRecordStart(line []byte) bool {
-	if len(line) < 20 || line[0] == '"' {
-		return false
-	}
-	// Fixed-position date-time skeleton: YYYY-MM-DD HH:MM:SS
-	if line[4] != '-' || line[7] != '-' || line[10] != ' ' ||
-		line[13] != ':' || line[16] != ':' {
-		return false
-	}
-	for _, i := range [...]int{0, 1, 2, 3} { // year digits, any value
-		if line[i] < '0' || line[i] > '9' {
-			return false
-		}
-	}
-	// Calendar ranges reject coincidental digit runs inside quoted text.
-	mo, day := twoDigit(line, 5), twoDigit(line, 8)
-	hh, mi, ss := twoDigit(line, 11), twoDigit(line, 14), twoDigit(line, 17)
-	if mo < 1 || mo > 12 || day < 1 || day > 31 ||
-		hh < 0 || hh > 23 || mi < 0 || mi > 59 || ss < 0 || ss > 59 {
-		return false
-	}
-	// Optional ".fraction", optional " TZ", then the field-0 comma.
-	j := 19
-	if j < len(line) && line[j] == '.' {
-		j++
-		for j < len(line) && line[j] >= '0' && line[j] <= '9' {
-			j++
-		}
-	}
-	if j < len(line) && line[j] == ' ' {
-		j++
-		for j < len(line) && line[j] >= 'A' && line[j] <= 'Z' {
-			j++
-		}
-	}
-	return j < len(line) && line[j] == ','
-}
-
-// twoDigit reads the two ASCII digits at line[i:i+2] as an int, or -1 if either
-// byte is not a digit. Callers have already bounds-checked len(line).
-func twoDigit(line []byte, i int) int {
-	a, b := line[i], line[i+1]
-	if a < '0' || a > '9' || b < '0' || b > '9' {
-		return -1
-	}
-	return int(a-'0')*10 + int(b-'0')
-}
-
-// computeCSVBoundaries returns record-aligned segment offsets, exactly like
-// stderr's computeEntryBoundaries but with the CSV record-start predicate:
-// boundaries[0]=0, boundaries[last]=size, intermediates at the first record
-// start at or after k×csvSegmentSize. Segments with no record start in their
-// window (one record larger than a segment) collapse and are dropped.
+// computeCSVBoundaries returns record-aligned segment offsets for a plain CSV
+// file: boundaries[0]=0, boundaries[last]=size, and each intermediate is the
+// first TRUE record boundary at or after k×csvSegmentSize. Unlike a local
+// heuristic scan, it sweeps the whole file once while tracking the running
+// double-quote parity, so a boundary is only ever placed on an offset that is
+// outside any quoted field. A newline inside a quoted, multi-line message field
+// — even one whose text begins with a valid PostgreSQL timestamp and a comma
+// (a multi-line SQL statement, an echoed COPY/CSV payload, a multi-row VALUES) —
+// is never mistaken for a record start.
+//
+// Why parity is authoritative: PostgreSQL always emits well-formed csvlog.
+// Every quoted field is wrapped in a pair of double quotes and each internal
+// quote is doubled ("") — quotes therefore only ever occur in pairs, so the
+// number of double quotes seen from the start of the file is EVEN exactly when
+// the cursor sits outside a quoted field. Field 0 (log_time) is never quoted,
+// so a record always begins immediately after a newline seen at even parity.
+// This is the same record-structure invariant the sequential scanner relies on,
+// which is why the parallel parse it feeds reproduces the sequential parse
+// byte-for-byte.
+//
+// Cost: this is a single byte-scanning pass (SIMD IndexByte/Count, no field
+// parsing, no allocation). The expensive per-record work (field extraction,
+// message building, timestamp parsing) stays fully parallel across segments;
+// only the cheap boundary sweep is serial. This replaces the previous
+// timestamp-shaped line heuristic (isCSVRecordStart), which placed boundaries
+// mid-record whenever a quoted field contained an embedded timestamp line and
+// silently corrupted the analysis on files ≥ csvParallelMinSize.
+//
+// Segments with no record boundary in their window (one record larger than a
+// segment) collapse and are dropped, so every returned segment is non-empty.
 func computeCSVBoundaries(f *os.File, size int64) ([]int64, error) {
 	numSegs := int((size + csvSegmentSize - 1) / csvSegmentSize)
 	boundaries := make([]int64, 0, numSegs+1)
 	boundaries = append(boundaries, 0)
-	for k := 1; k < numSegs; k++ {
-		b, err := findCSVBoundary(f, int64(k)*csvSegmentSize, size)
-		if err != nil {
+
+	const window = 256 << 10
+	buf := make([]byte, window)
+	var base int64   // absolute offset of buf[0]
+	quoteParity := 0 // count of '"' seen so far, mod 2 (0 == outside a field)
+	nextTarget := int64(csvSegmentSize)
+	for base < size {
+		n, err := f.ReadAt(buf, base)
+		if n == 0 {
+			if err == io.EOF {
+				break
+			}
 			return nil, err
 		}
-		if b >= size {
+		chunk := buf[:n]
+		i := 0
+		for i < n {
+			rel := bytes.IndexByte(chunk[i:n], '\n')
+			if rel < 0 {
+				// Line continues past this window: fold in its quotes and carry
+				// the parity into the next read.
+				quoteParity ^= bytes.Count(chunk[i:n], quoteSep) & 1
+				break
+			}
+			nl := i + rel
+			quoteParity ^= bytes.Count(chunk[i:nl], quoteSep) & 1 // quotes on the line, excl. '\n'
+			if quoteParity == 0 {
+				// Even parity at this newline: it terminates a record, so the
+				// next byte starts a new one — a valid segment boundary.
+				recordStart := base + int64(nl) + 1
+				if recordStart >= nextTarget && recordStart < size {
+					boundaries = append(boundaries, recordStart)
+					// Advance past this start so a record larger than a segment
+					// spans several targets instead of yielding empty segments.
+					for nextTarget <= recordStart {
+						nextTarget += csvSegmentSize
+					}
+				}
+			}
+			i = nl + 1
+		}
+		base += int64(n)
+		if err == io.EOF {
 			break
 		}
-		if b > boundaries[len(boundaries)-1] {
-			boundaries = append(boundaries, b)
-		}
 	}
+
 	boundaries = append(boundaries, size)
 	return boundaries, nil
 }
 
-// findCSVBoundary scans forward from offset and returns the absolute offset of
-// the first line start satisfying isCSVRecordStart. Same scan as stderr's
-// findEntryBoundary (the line at offset is skipped; boundaries only move
-// forward), with the CSV predicate.
-func findCSVBoundary(f *os.File, offset, size int64) (int64, error) {
-	const window = 256 << 10
-	buf := make([]byte, window)
-	pos := offset
-	lineStart := int64(-1)
-
-	for pos < size {
-		n, err := f.ReadAt(buf, pos)
-		if n == 0 {
-			if err == io.EOF {
-				return size, nil
-			}
-			return 0, err
-		}
-		chunk := buf[:n]
-		i := 0
-		for {
-			if lineStart >= 0 {
-				rel := int(lineStart - pos)
-				if rel >= n {
-					break // line start beyond this chunk: refill from it
-				}
-				line := chunk[rel:]
-				if len(line) >= 32 || pos+int64(n) >= size {
-					if isCSVRecordStart(line) {
-						return lineStart, nil
-					}
-				} else {
-					break // too short to decide: refill from lineStart
-				}
-				i = rel
-			}
-			nl := indexByteFrom(chunk, i, '\n')
-			if nl == -1 {
-				lineStart = -1
-				break
-			}
-			lineStart = pos + int64(nl) + 1
-			i = nl + 1
-		}
-		if lineStart >= 0 && lineStart > pos {
-			pos = lineStart
-		} else {
-			pos += int64(n)
-		}
-		if err == io.EOF && pos >= size {
-			return size, nil
-		}
-	}
-	return size, nil
-}
+// quoteSep is the single-byte separator handed to bytes.Count/IndexByte in the
+// boundary sweep; a package-level value avoids reallocating it per call.
+var quoteSep = []byte{'"'}
 
 // parseParallel parses a plain CSV file by record-aligned segments, re-emitting
 // batches in file order. Same engine as the stderr/JSON paths: workers claim

@@ -16,13 +16,13 @@ All notable changes to this project will be documented in this file.
 - **Large CSV logs parse ~40% faster**: a parallel segment parser splits big CSV files, mirroring the stderr/JSON parallel paths.
 - **CSV parsing allocates ~half as much memory**: a single-pass, zero-copy CSV scanner replaces the standard-library reader, cutting CSV-path allocations by roughly 50%.
 - **Faster reports on session- and lock-heavy logs**: anchored analyzer gates, per-worker buffer reuse and callback-free sweep-line sorts cut wall time by up to a third on large stderr files.
-- **Compressed logs parse in parallel**: gzip/zstd stderr logs are parsed by a worker pool, up to ~30% faster.
+- **Compressed logs parse in parallel**: large gzip/zstd stderr logs are parsed by a worker pool, up to ~30% faster; smaller (rotated) logs stay on the low-memory sequential path, so a directory of small `*.log.zst` no longer multiplies peak memory.
 - **The HTML report is a few percent smaller**: multi-line CSS comments are now stripped from the embedded stylesheet, and the compressed payload is base64url-encoded so its bytes are no longer escaped inside the template's JS string.
 - **Lock and temp-file analysis retain less memory on busy logs**: lock events are stored with interned fields and no longer pin their source log line — ~30% lower peak retention on a lock-heavy capture — and temp-file events are compacted the same way. Output is unchanged.
 
 ### Changed
 - **Time filter is an always-visible range slider in the Summary card**: replaces the Time dropdown and re-filters on release. Multi-day logs split the slider by day.
-- **`--json` output is stable run-to-run and across machines**: event-occurrence lists are sorted ascending, and PID-sharded runs order per-execution lists canonically (timestamp, query id, duration) so they don't depend on the core count.
+- **`--json` output is stable run-to-run and across machines**: event-occurrence lists are sorted ascending, PID-sharded runs order per-execution lists canonically (timestamp, query id, duration), prepared-statement name lists are kept in a canonical order, and vacuum/analyze elapsed totals are rounded to the source precision — so the output no longer depends on the core count or on float-summation order. (These canonicalizations change a few serialized values versus v0.11.0.)
 
 ### Fixed
 - **Analyzing multiple files at once is now deterministic**: rotated log sets were parsed with non-deterministic interleaving; files are now analyzed in order, so output is byte-stable.
@@ -36,7 +36,6 @@ All notable changes to this project will be documented in this file.
 - **The SQL duration-distribution band disagreed with the CLI**: the HTML re-bucketed queries by their average duration instead of using the exact per-execution distribution the report already carries; it now matches the `--full` text output.
 - **The SQL duration-distribution band now re-scopes under the time filter too**: it kept showing the whole-log distribution while every other SQL card re-scoped after moving the slider; it is re-bucketed from the filtered executions now.
 - **The query-detail modal's duration histogram never rendered**: it read a field that no longer exists, so every value was zero and the block was dropped.
-- **Event-detail "First seen" / "Last seen" were shown in UTC**: they shifted the day for non-UTC logs; now shown in the log's own clock, like the rest of the report.
 - **Split-report period-heatmap bounds could read "00:00 … 00:00"**: an intraday split spanning more than one day rendered both ends dateless; they now carry the date when the split crosses days.
 - **Charts kept stale colors after a theme switch**: toggling dark/light left existing charts mixing old and new colors until the next reload; they now repaint on toggle.
 - **HTML report could fail to load on older browsers**: it relied on `Intl.DurationFormat` with no fallback; a local formatter now covers browsers that lack it.
@@ -45,11 +44,23 @@ All notable changes to this project will be documented in this file.
 - **Checkpoint chart's "Other" series now counts every non-timed/WAL trigger**: it hardcoded two trigger names, so others (e.g. `immediate force wait wal`) were dropped from the chart while the Other stat card still counted them; chart and card now agree.
 - **Query-detail modal's Lock Waits block renders again**: it read per-query fields that don't exist (average/max wait, lock-type breakdown); it now shows the real acquired- and still-waiting wait times.
 - **Duration/time parsing in the report UI**: the Blocking Queries table mis-read a sub-second wait (`512 ms` as 512 minutes) and dropped hours from multi-hour waits, skewing its sort and totals; microsecond/nanosecond session durations rendered as seconds and sorted as zero; and the multi-day time slider's day labels could drift up to an hour across a daylight-saving change. All corrected.
+- **A mislabeled `.log` member in a tar archive no longer risks running out of memory**: a member named `*.log` whose content is not recognizable stderr (JSON, a shifted timestamp prefix, foreign text) was read to end-of-file into a single allocation before yielding nothing — a multi-gigabyte spike on large archives; the stream parser now caps the boundary buffer and warns once.
+- **Logs mixing timezone offsets render each event in its own offset**: lock and temp-file events were all rebased into the timezone of the first event seen, shifting the displayed clock of later events across a daylight-saving change or a mixed-offset multi-file set (the absolute instant and ordering were always correct).
+- **The event-detail modal showed timestamps in the wrong clock**: its First/Last-seen cards rendered in UTC and its occurrences sparkline in the viewer's local timezone, so on any non-UTC log the three references (cards, sparkline, section tables) disagreed — near midnight the cards could even land on the previous day. All three now use the log's own clock.
+- **More report sections re-scope under the time slider, and the rest are flagged**: the temp-file top-queries table, the top events and the SQL query mix now re-aggregate to the selected window; sections that cannot be recomputed in the browser (the events severity distribution, locks, maintenance, and the per-user/database/host tables) are marked "whole-log" instead of silently showing full-log figures as filtered.
+- **The in-browser analyzer no longer silently drops rotated logs from a tar upload**: it accepted only exact `.log`/`.csv`/`.json` names, so a `/var/log/postgresql/` tarball kept the live log and dropped `postgresql.log.1`, `postgresql.log.2.gz`, the Debian `…-main.log.1`, etc.; rotated names are accepted now (matching the CLI) and any skipped entry is logged to the console.
+- **The time slider's connection figures now match the CLI**: orphan sessions (no disconnect line) were counted as disconnections and genuine last-second disconnects were dropped, and the peak-concurrent tie-break was inverted; the re-aggregation now uses the backend's explicit orphan flag and the backend tie-break.
+- **Time-filtered temp-file totals are byte-exact**: they were rebuilt by re-parsing rounded display strings and drifted from the CLI; they now sum the exact byte sizes the payload carries.
+- **Prefixed logs inside a tar archive parse again**: a log carrying a literal prefix before its timestamp parsed correctly as a plain or compressed file but yielded zero entries as a `.log` member inside a tar; the archive path now runs the same leading-prefix detection the plain path uses.
+- **The filtered-view SQL grand total was 1000x too small**: the total query duration was divided by 1000 a second time (the value was already in milliseconds); it renders correctly under the time filter now.
+- **Charts leaked observers and the cost map could fail to repaint**: chart rebuilds now disconnect their ResizeObservers (stale observers had kept firing `setSize` on destroyed charts) and the cost map destroys before it recreates.
 
 ### Internal
 - **Internal cleanup**: removed dead code and de-duplicated the `output/` renderers into shared helpers, with no change to any output (byte-identical on the sample matrix).
 - **Web report internals restructured**: the report's JavaScript was split into per-section modules and its chart builders unified behind shared factories, under a new JS test net, with no change to the rendered report (0-pixel diff on the sample matrix).
 - **CI runs the web JS test net**: the JavaScript unit tests and the window-ABI / CSS / data-key contract linters now gate merges (previously local-only via `make test-web`); the pixel-visual harness stays local (system Chrome + macOS baselines).
+- **CSV scanner boundary parity**: the lenient post-quote skip now refills at the read-buffer boundary like its sibling loops, so malformed quoting that straddles the boundary no longer truncates the record.
+- **Stream chunk pool releases oversized buffers**: after one giant log entry grew a chunk buffer past the base size, it is dropped instead of being returned to the pool and pinned across the in-flight window until the next GC.
 
 ## [0.11.0] - 2026-06-23
 

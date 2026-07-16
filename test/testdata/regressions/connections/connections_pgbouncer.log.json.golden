@@ -234,7 +234,8 @@
     "fatal_count": 0,
     "panic_count": 0,
     "warning_count": 0,
-    "log_count": 16
+    "log_count": 16,
+    "utc_offset_minutes": 0
   },
   "users": [
     {

@@ -112,6 +112,111 @@ func TestCSVParallel_EquivalenceWithSequential(t *testing.T) {
 	assertCSVEquivalent(t, writeSyntheticCSV(t, 18<<20))
 }
 
+// writePathologicalCSV builds the R-1 regression fixture: filler records, then
+// one huge record whose quoted, multi-line message (an echoed COPY payload) has
+// EVERY physical line begin with a valid PostgreSQL timestamp + comma — each one
+// a false positive for the retired isCSVRecordStart heuristic. The huge record
+// is sized (~10 MB) and positioned (after ~10 MB of fillers) to straddle an
+// 8 MB segment boundary, so a mid-field split is forced if boundaries are not
+// quote-aware. It returns the fixture path and the unique tail marker that sits
+// at the very end of the huge record's message (the field value a mid-field
+// split would drop).
+func writePathologicalCSV(t *testing.T, msgSize int) (path, tailMarker string) {
+	t.Helper()
+	tailMarker = "END_OF_COPY_TAIL_MARKER_7f3a9c"
+	ts := "2026-01-02 03:04:05.123 UTC"
+	var b strings.Builder
+
+	i := 0
+	for b.Len() < 10<<20 { // fillers so the huge record crosses the 16 MB (2×8 MB) boundary
+		b.WriteString(csvRow(ts, 1000+i, fmt.Sprintf("duration: %d.%03d ms  statement: SELECT %d", i%50, i%1000, i)))
+		i++
+	}
+
+	var msg strings.Builder
+	msg.WriteString("duration: 12.500 ms  statement: COPY events FROM stdin WITH (FORMAT csv);")
+	for msg.Len() < msgSize {
+		// A full 23-field csvlog-shaped line living INSIDE the quoted message:
+		// it starts with a valid timestamp + comma (old-heuristic false positive)
+		// and has >= 14 fields (would be counted as a record if mis-split).
+		fmt.Fprintf(&msg, "\n2026-01-01 12:00:00.000 UTC,evil,evildb,9999,10.9.9.9,x,1,INSERT,%s,1/9,0,LOG,00000,injected row %d,,,,,,,,,evilapp", ts, msg.Len())
+	}
+	msg.WriteString("\n" + tailMarker)
+	b.WriteString(csvRow(ts, 424242, msg.String()))
+
+	for j := 0; j < 5000; j++ { // fillers after the huge record
+		b.WriteString(csvRow(ts, 2000+i, fmt.Sprintf("duration: %d.%03d ms  statement: UPDATE t SET x=%d", i%50, i%1000, i)))
+		i++
+	}
+
+	path = filepath.Join(t.TempDir(), "pathological.csv")
+	if err := os.WriteFile(path, []byte(b.String()), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return path, tailMarker
+}
+
+func countMessagesContaining(entries []LogEntry, sub string) int {
+	n := 0
+	for _, e := range entries {
+		if strings.Contains(e.Message, sub) {
+			n++
+		}
+	}
+	return n
+}
+
+// TestCSVParallel_QuotedMultilineTimestampBoundary is the R-1 regression guard.
+// The huge record's quoted message is a multi-line COPY echo whose every line
+// begins with a valid PostgreSQL timestamp + comma. With the old
+// timestamp-shaped-line boundary heuristic a segment boundary landed inside that
+// quoted field: the record lost its tail and the embedded lines became thousands
+// of bogus records, silently corrupting the analysis of any CSV ≥ csvParallelMinSize.
+// The quote-parity-aware boundary computation keeps the record whole, so the
+// parallel parse matches the sequential (stdlib-equivalent, v0.11.0) parse in
+// both record count and content.
+func TestCSVParallel_QuotedMultilineTimestampBoundary(t *testing.T) {
+	path, tailMarker := writePathologicalCSV(t, 10<<20)
+	st, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	seq := collectEntries(t, func(out chan<- []LogEntry) error {
+		f, err := os.Open(path)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		return (&CsvParser{}).parseReader(WithProgress(f), out)
+	})
+	// Oracle: the whole quoted field is ONE record, so its tail marker is present
+	// in exactly one entry.
+	if got := countMessagesContaining(seq, tailMarker); got != 1 {
+		t.Fatalf("oracle: tail marker in %d entries, want 1", got)
+	}
+
+	for _, workers := range []int{2, 3, 7, 16} {
+		par := collectEntries(t, func(out chan<- []LogEntry) error {
+			f, err := os.Open(path)
+			if err != nil {
+				return err
+			}
+			defer f.Close()
+			return (&CsvParser{}).parseParallel(f, st.Size(), workers, out)
+		})
+		if len(par) != len(seq) {
+			t.Fatalf("workers=%d: parallel produced %d records, oracle has %d (boundary split a quoted field)",
+				workers, len(par), len(seq))
+		}
+		// The huge record's tail must survive intact in exactly one entry.
+		if got := countMessagesContaining(par, tailMarker); got != 1 {
+			t.Fatalf("workers=%d: tail marker in %d entries, want 1 (huge record lost its tail)",
+				workers, got)
+		}
+	}
+}
+
 // TestCSVParallel_RealFile validates equivalence on a real CSV when PARSEBENCH
 // points at one (gated so it never runs in CI):
 //

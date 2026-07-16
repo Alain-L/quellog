@@ -18,6 +18,9 @@ import { parseSizeToBytesStrict, fmtBytesFull } from './format.js';
  * @typedef {Object} SessionEvent
  * @property {string} s - Session start (ISO timestamp)
  * @property {string} e - Session end (ISO timestamp)
+ * @property {boolean} [orphan] - True when the session never saw a real
+ *   disconnect line and was flushed at Finalize (excluded from disconnection
+ *   counts / session-duration stats, matching the backend).
  */
 
 // Store original unfiltered data
@@ -191,9 +194,14 @@ function reaggregateSqlPerformance(original, filteredExecutions) {
 
 /**
  * Re-aggregate temp files data from filtered events (message count,
- * total and average size; sizes are re-parsed from their display strings).
+ * total and average size; sizes come from each event's exact `size_bytes`
+ * integer, falling back to parsing the display string only for legacy payloads).
+ * The Top-Queries table (`queries`) is rebuilt from the filtered events
+ * joined by `query_id` — mirroring reaggregateSqlPerformance.queries — so it
+ * re-scopes with its own header cards instead of staying pinned to the full
+ * log (queries with no temp event left in range are dropped).
  * @param {Object} original - Original temp_files object
- * @param {Array<{timestamp: string, size: string, query_id: string}>} filteredEvents - Filtered events
+ * @param {Array<{timestamp: string, size: string, size_bytes: number, query_id: string}>} filteredEvents - Filtered events
  * @returns {Object|null} Re-aggregated temp_files (null if no original)
  */
 function reaggregateTempFiles(original, filteredEvents) {
@@ -202,12 +210,29 @@ function reaggregateTempFiles(original, filteredEvents) {
     const result = { ...original };
     result.events = filteredEvents;
 
-    // Recalculate totals (max is recomputed too — it was previously left stale).
+    // Recalculate totals (max is recomputed too — it was previously left stale)
+    // and tally per-query stats keyed by query_id for the Top-Queries table.
     let totalBytes = 0, maxBytes = 0;
+    const perQuery = new Map();
     for (const event of filteredEvents) {
-        const b = parseSizeToBytesStrict(event.size);
+        // Sum the exact integer byte count the backend now emits alongside the
+        // 2-decimal display string. Re-parsing the display string ("1.00 KB")
+        // would round each event (lossy), so the filtered total drifts below
+        // the byte-exact backend sum. Fall back to the string only for older
+        // payloads that predate `size_bytes`.
+        const b = typeof event.size_bytes === 'number'
+            ? event.size_bytes
+            : parseSizeToBytesStrict(event.size);
         totalBytes += b;
         if (b > maxBytes) maxBytes = b;
+        if (event.query_id) {
+            let s = perQuery.get(event.query_id);
+            if (!s) perQuery.set(event.query_id, s = { count: 0, total: 0, min: Infinity, max: 0 });
+            s.count++;
+            s.total += b;
+            if (b < s.min) s.min = b;
+            if (b > s.max) s.max = b;
+        }
     }
 
     result.total_messages = filteredEvents.length;
@@ -216,6 +241,160 @@ function reaggregateTempFiles(original, filteredEvents) {
     result.total_size = fmtBytesFull(totalBytes);
     result.avg_size = filteredEvents.length > 0 ? fmtBytesFull(totalBytes / filteredEvents.length) : '0 B';
     result.max_size = filteredEvents.length > 0 ? fmtBytesFull(maxBytes) : '-';
+
+    // Rebuild the Top-Queries table from the per-query tallies. Same contract
+    // as sql_performance.queries: preserve the query identity (id/normalized_
+    // query/raw_query), recompute count/size stats, and drop queries with no
+    // event left in range. Sizes use fmtBytesFull so the table keeps the
+    // backend's 2-decimal format.
+    if (Array.isArray(original.queries)) {
+        result.queries = original.queries.map(q => {
+            const s = perQuery.get(q.id);
+            if (!s) return { ...q, count: 0 };
+            return {
+                ...q,
+                count: s.count,
+                total_size: fmtBytesFull(s.total),
+                min_size: fmtBytesFull(s.min === Infinity ? 0 : s.min),
+                max_size: fmtBytesFull(s.max),
+                avg_size: fmtBytesFull(s.total / s.count),
+            };
+        }).filter(q => q.count > 0);
+    }
+
+    return result;
+}
+
+/**
+ * Re-aggregate the top-events tables/sparklines from each event's per-
+ * occurrence `timestamps` (Unix ms of the log's own, zone-normalized-to-UTC
+ * wall-clock). Each surviving event's count and timestamps array are clipped
+ * to the window; events with no occurrence left in range are dropped. The
+ * severity *distribution* (`events`) is a whole-log population count with no
+ * per-item timestamps, so it is left untouched and annotated by the renderer.
+ *
+ * `triggering_queries` carries whole-log per-query counts with NO per-query
+ * timestamps, so it cannot be faithfully re-scoped client-side. When the
+ * window drops any of an event's occurrences the event's own count shrinks
+ * while these whole-log trigger counts would not, producing a modal that shows
+ * a per-query count larger than the (scoped) event total and a percentage over
+ * 100 %. So we drop `triggering_queries` to `[]` for any event the window
+ * actually narrows (hiding the table is the honest fix), and preserve it
+ * untouched only when the window keeps every occurrence (`kept.length ===
+ * ts.length`) — i.e. the whole-log counts are still exactly correct, so the
+ * unfiltered / full-range modal is unchanged.
+ * @param {Array<Object>} original - Original top_events array
+ * @param {number} beginMs - Window start as a true-instant Unix ms (the log's
+ *   wall-clock bound already shifted by the UTC offset to match the event epochs)
+ * @param {number} endMs - Window end as a true-instant Unix ms
+ * @returns {Array<Object>} Re-scoped top_events (new array)
+ */
+function reaggregateTopEvents(original, beginMs, endMs) {
+    if (!Array.isArray(original)) return original;
+    const out = [];
+    for (const ev of original) {
+        const ts = Array.isArray(ev.timestamps) ? ev.timestamps : null;
+        if (!ts) {
+            // No per-occurrence timestamps — cannot re-scope; keep as-is.
+            out.push(ev);
+            continue;
+        }
+        const kept = ts.filter(t => t >= beginMs && t <= endMs);
+        if (kept.length === 0) continue; // no occurrence in range → drop
+        const next = { ...ev, count: kept.length, timestamps: kept };
+        // Whole-log trigger counts are only valid when nothing was dropped.
+        // Once the window narrows the event, they can no longer be reconciled
+        // with the scoped count, so hide the table rather than show impossible
+        // figures (percentages > 100 %, counts > the event total).
+        if (kept.length !== ts.length) next.triggering_queries = [];
+        out.push(next);
+    }
+    return out;
+}
+
+/**
+ * Re-aggregate the SQL Overview headline query mix from the filtered
+ * executions. Category and per-type counts/durations are recomputed by
+ * joining each execution's `query_id` to its type (via sql_performance.
+ * queries) and mapping the type to its category (via the original overview
+ * types). The per-dimension tables (by_database/by_user/by_host/by_app)
+ * carry no per-execution db/user/host/app in the payload and so cannot be
+ * re-scoped — they are left whole-log and flagged for the renderer to
+ * annotate. Durations use fmtQueryDuration to match reaggregateSqlPerformance
+ * and the backend's formatQueryDuration.
+ * @param {Object} original - Original sql_overview object
+ * @param {Execution[]} filteredExecutions - Executions kept by the filter
+ * @param {Array<Object>} queries - sql_performance.queries (query_id → type)
+ * @returns {Object|null} Re-aggregated sql_overview (null if no original)
+ */
+function reaggregateSqlOverview(original, filteredExecutions, queries) {
+    if (!original) return null;
+    const result = { ...original };
+
+    // query_id → type, and type → category lookups.
+    const typeById = new Map();
+    for (const q of (queries || [])) {
+        if (q && q.id) typeById.set(q.id, q.type || q.query_type || '');
+    }
+    const catByType = new Map();
+    for (const t of (original.types || original.query_types || [])) {
+        if (t && t.type) catByType.set(t.type, t.category || '');
+    }
+
+    // Tally count / total-ms / max-ms per type and per category from the
+    // filtered executions (durations come from exec.duration_ms).
+    const perType = new Map(); // type → {count, total, max}
+    const perCat = new Map();  // category → {count, total}
+    for (const exec of filteredExecutions) {
+        const type = typeById.get(exec.query_id);
+        if (type == null) continue; // execution with no known query → skip
+        const d = exec.duration_ms || 0;
+        let ts = perType.get(type);
+        if (!ts) perType.set(type, ts = { count: 0, total: 0, max: 0 });
+        ts.count++; ts.total += d; if (d > ts.max) ts.max = d;
+
+        const cat = catByType.get(type);
+        if (cat) {
+            let cs = perCat.get(cat);
+            if (!cs) perCat.set(cat, cs = { count: 0, total: 0 });
+            cs.count++; cs.total += d;
+        }
+    }
+
+    const total = filteredExecutions.length;
+    result.total_queries = total;
+
+    // Rebuild categories: keep the original entries so the fixed stat-grid
+    // (DML/DDL/TCL/…) stays laid out, recomputing count / % / total_time.
+    // Entries with no filtered query drop to 0 (the renderer mutes them).
+    if (Array.isArray(original.categories)) {
+        result.categories = original.categories.map(c => {
+            const cs = perCat.get(c.category || c.name);
+            const count = cs ? cs.count : 0;
+            return {
+                ...c,
+                count,
+                percentage: total > 0 ? (count / total) * 100 : 0,
+                total_time: fmtQueryDuration(cs ? cs.total : 0),
+            };
+        });
+    }
+
+    // Rebuild types: recompute stats; drop types with no filtered query.
+    const rebuildTypes = (arr) => arr.map(t => {
+        const ts = perType.get(t.type);
+        if (!ts) return null;
+        return {
+            ...t,
+            count: ts.count,
+            percentage: total > 0 ? (ts.count / total) * 100 : 0,
+            total_time: fmtQueryDuration(ts.total),
+            avg_time: fmtQueryDuration(ts.count > 0 ? ts.total / ts.count : 0),
+            max_time: fmtQueryDuration(ts.max),
+        };
+    }).filter(Boolean);
+    if (Array.isArray(original.types)) result.types = rebuildTypes(original.types);
+    if (Array.isArray(original.query_types)) result.query_types = rebuildTypes(original.query_types);
 
     return result;
 }
@@ -401,8 +580,12 @@ function reaggregateConnections(original, filteredConnections, beginDate, endDat
             sweep.push({ t: start.getTime(), d: 1 });
             sweep.push({ t: end.getTime(), d: -1 });
         }
-        // At a tie, a disconnect frees its slot before a new connect counts.
-        sweep.sort((a, b) => a.t - b.t || a.d - b.d);
+        // At a tie, a connect (+1) is applied before a disconnect (-1) so two
+        // sessions that touch on the same (second-truncated) instant count as
+        // overlapping — matching the backend's starts-before-ends ordering
+        // (computePeakSweepline in analysis/connections.go). Sorting the delta
+        // DESCENDING at equal t puts +1 ahead of -1.
+        sweep.sort((a, b) => a.t - b.t || b.d - a.d);
         let cur = 0, peak = 0, peakT = null;
         for (const ev of sweep) { cur += ev.d; if (cur > peak) { peak = cur; peakT = ev.t; } }
         result.peak_concurrent_sessions = peak;
@@ -415,10 +598,11 @@ function reaggregateConnections(original, filteredConnections, beginDate, endDat
         // Duration stats from the precise per-session `d` (ms) — the s/e strings
         // are second-truncated, but `d` keeps PostgreSQL's sub-second precision.
         // Count sessions that DISCONNECTED in the window (e in range), skipping
-        // orphans still open at the log's end (e at the original log end, no
-        // real disconnect) so the numbers track the backend's methodology.
-        const logEnd = originalData?.summary?.end_date
-            ? parseTimestamp(originalData.summary.end_date) : null;
+        // orphans (no real disconnect line, flushed at Finalize) via the
+        // backend's explicit `orphan` flag so the numbers track its methodology.
+        // The former timestamp heuristic (e >= summary.end_date) both
+        // over-counted an orphan whose last-seen was < end_date and dropped a
+        // genuine final-second disconnect whose e == end_date.
         const users = original.session_users || [];
         const databases = original.session_databases || [];
         const hosts = original.session_hosts || [];
@@ -431,9 +615,9 @@ function reaggregateConnections(original, filteredConnections, beginDate, endDat
         };
         for (const ev of original.session_events) {
             if (typeof ev.d !== 'number') continue;
+            if (ev.orphan === true) continue; // never disconnected — excluded like the backend
             const e = parseTimestamp(ev.e);
             if (!e || e < beginDate || e > endDate) continue;
-            if (logEnd && e >= logEnd) continue;
             durations.push(ev.d);
 
             // Per-entity breakdown, keyed by name resolved from the interned
@@ -488,8 +672,6 @@ export function applyReportTimeFilter(beginStr, endStr) {
         return originalData;
     }
 
-    console.log('[report-filter] Filtering:', beginStr, 'to', endStr);
-
     // Start with a copy of original data
     const filtered = JSON.parse(JSON.stringify(originalData));
 
@@ -505,9 +687,12 @@ export function applyReportTimeFilter(beginStr, endStr) {
         filtered.summary.duration = `${hours}h${mins}m${secs}s`;
     }
 
-    // Filter SQL performance executions
+    // Filter SQL performance executions (shared with the SQL Overview
+    // re-scope below, which joins the same filtered executions to their
+    // query types/categories).
+    let filteredExecs = null;
     if (originalData.sql_performance?.executions) {
-        const filteredExecs = filterEventsByTime(
+        filteredExecs = filterEventsByTime(
             originalData.sql_performance.executions,
             beginDate,
             endDate
@@ -516,6 +701,37 @@ export function applyReportTimeFilter(beginStr, endStr) {
             originalData.sql_performance,
             filteredExecs
         );
+    }
+
+    // Re-scope the SQL Overview headline query mix (categories + types) from
+    // the same filtered executions. The per-dimension tables stay whole-log
+    // (flagged below) — executions carry no per-execution dimension.
+    if (originalData.sql_overview && filteredExecs) {
+        filtered.sql_overview = reaggregateSqlOverview(
+            originalData.sql_overview,
+            filteredExecs,
+            originalData.sql_performance?.queries || []
+        );
+    }
+
+    // Re-scope the top-events tables/sparklines from each event's per-
+    // occurrence timestamps (Unix ms of the log's own, zone-normalized-to-UTC
+    // wall-clock). The window bounds are read as UTC so the comparison shares
+    // the epoch-ms basis and stays timezone-stable (matching the modal's
+    // First/Last-seen rendering).
+    if (Array.isArray(originalData.top_events)) {
+        // top_events[].timestamps are true-instant epochs (Go UnixMilli), but the
+        // slider bounds are the log's wall-clock. Convert the bounds to the same
+        // true-instant basis by subtracting the log's UTC offset — otherwise the
+        // Events window is shifted by the offset on a non-UTC log. 0 for UTC.
+        const offMs = (originalData.summary?.utc_offset_minutes || 0) * 60000;
+        const beginMs = Date.parse(beginStr.replace(' ', 'T') + 'Z') - offMs;
+        const endMs = Date.parse(endStr.replace(' ', 'T') + 'Z') - offMs;
+        if (!Number.isNaN(beginMs) && !Number.isNaN(endMs)) {
+            filtered.top_events = reaggregateTopEvents(
+                originalData.top_events, beginMs, endMs
+            );
+        }
     }
 
     // Filter temp files events
@@ -561,9 +777,29 @@ export function applyReportTimeFilter(beginStr, endStr) {
         );
     }
 
-    // Mark as filtered
+    // Mark as filtered, and flag the sections that carry no re-scopable
+    // per-item timestamp in the payload as whole-log so their renderers
+    // annotate them instead of silently presenting full-log figures as if
+    // they were time-scoped (the report reads these flags — see the section
+    // renderers' wholeLogBadge() calls).
     filtered._timeFiltered = true;
     filtered._filterRange = { begin: beginStr, end: endStr };
+    filtered._wholeLog = {
+        // Severity distribution + noise counters: population counts with no
+        // per-item timestamps (only top_events carry them, re-scoped above).
+        events: !!filtered.events,
+        // Locks headline counts depend on the backend's wait-episode
+        // collapsing, which the raw events[] cannot reproduce faithfully
+        // client-side; re-tallying naively would triple-count waits.
+        locks: !!filtered.locks,
+        // Maintenance carries counters/table maps only — no timestamped events.
+        maintenance: !!filtered.maintenance,
+        // SQL Overview per-dimension tables (by_database/user/host/app): the
+        // executions carry no per-execution dimension to re-scope them.
+        sql_dimensions: !!(filtered.sql_overview && (
+            filtered.sql_overview.by_database || filtered.sql_overview.by_user ||
+            filtered.sql_overview.by_host || filtered.sql_overview.by_app)),
+    };
 
     return filtered;
 }

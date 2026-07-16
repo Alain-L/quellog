@@ -20,7 +20,6 @@ export function buildCheckpointsSection(data) {
     const types = cp.types || {};
     const timed = types.time?.count || 0;
     const wal = types.wal?.count || 0;
-    const req = (types['shutdown immediate']?.count || 0) + (types['immediate force wait']?.count || 0);
     const hasEvents = cp.events?.length > 0;
     const hasWarnings = cp.warning_events?.length > 0;
     const other = cp.total_checkpoints - timed - wal;

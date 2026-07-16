@@ -13176,7 +13176,8 @@
         "d": 278577,
         "u": 0,
         "db": 0,
-        "h": 0
+        "h": 0,
+        "orphan": true
       },
       {
         "s": "2025-11-30T21:15:44",
@@ -13184,7 +13185,8 @@
         "d": 277815,
         "u": 0,
         "db": 0,
-        "h": 0
+        "h": 0,
+        "orphan": true
       },
       {
         "s": "2025-11-30T21:16:02",
@@ -13192,7 +13194,8 @@
         "d": 259327,
         "u": 0,
         "db": 0,
-        "h": 0
+        "h": 0,
+        "orphan": true
       },
       {
         "s": "2025-11-30T21:16:03",
@@ -13200,7 +13203,8 @@
         "d": 258552,
         "u": 0,
         "db": 0,
-        "h": 0
+        "h": 0,
+        "orphan": true
       }
     ],
     "session_users": [
@@ -23004,7 +23008,8 @@
     "fatal_count": 4,
     "panic_count": 0,
     "warning_count": 0,
-    "log_count": 7238
+    "log_count": 7238,
+    "utc_offset_minutes": 0
   },
   "temp_files": {
     "total_messages": 7,
@@ -23015,36 +23020,43 @@
       {
         "timestamp": "2025-11-30 21:10:50",
         "size": "683.59 KB",
+        "size_bytes": 700000,
         "query_id": "in-D1z6KP"
       },
       {
         "timestamp": "2025-11-30 21:13:13",
         "size": "8.46 MB",
+        "size_bytes": 8871936,
         "query_id": "se-yQnLXV"
       },
       {
         "timestamp": "2025-11-30 21:13:13",
         "size": "10.02 MB",
+        "size_bytes": 10502144,
         "query_id": "se-yQnLXV"
       },
       {
         "timestamp": "2025-11-30 21:16:20",
         "size": "8.44 MB",
+        "size_bytes": 8847360,
         "query_id": "se-yQnLXV"
       },
       {
         "timestamp": "2025-11-30 21:16:20",
         "size": "10.03 MB",
+        "size_bytes": 10518528,
         "query_id": "se-yQnLXV"
       },
       {
         "timestamp": "2025-11-30 21:16:31",
         "size": "8.32 MB",
+        "size_bytes": 8724480,
         "query_id": "se-yQnLXV"
       },
       {
         "timestamp": "2025-11-30 21:16:31",
         "size": "10.15 MB",
+        "size_bytes": 10641408,
         "query_id": "se-yQnLXV"
       }
     ],

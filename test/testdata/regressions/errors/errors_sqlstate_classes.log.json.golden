@@ -49,7 +49,8 @@
     "fatal_count": 2,
     "panic_count": 0,
     "warning_count": 0,
-    "log_count": 0
+    "log_count": 0,
+    "utc_offset_minutes": 0
   },
   "top_events": [
     {

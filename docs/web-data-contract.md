@@ -189,7 +189,23 @@ skips a key when its section has no data, so renderers must null-check:
 | `sql_performance` at all | at least one parsed query |
 
 `js/report-filter.js` keeps a deep copy of the original payload and, on time
-filtering, re-aggregates `sql_performance` (from `executions`), `temp_files`,
-`checkpoints` and `connections` from their event arrays, and rewrites
-`summary.start_date/end_date/duration`. Fields without a backing event array
-(e.g. `locks`, `maintenance`) are left untouched by the time filter.
+filtering, re-aggregates every section that carries per-item timestamps:
+`sql_performance` (from `executions`, including its `queries` table),
+`temp_files` (totals **and** the `queries` table, from the temp events),
+`checkpoints`, `connections`, `top_events` (clipping each event's
+`timestamps[]` to the window), and `sql_overview` category/type/total counts
+(joining the filtered executions back to `sql_performance.queries`). It also
+rewrites `summary.start_date/end_date/duration`.
+
+Sections whose figures cannot be rebuilt client-side from the payload are left
+at whole-log values and explicitly flagged so the UI can annotate them, rather
+than silently presenting stale numbers as scoped. The filter sets
+`_timeFiltered`/`_filterRange` and a `_wholeLog` marker listing them; their
+renderers show a "whole-log" badge (`wholeLogBadge()` in `js/utils.js`). These
+are: `events` severity distribution and noise counters (only `top_events`
+carry per-occurrence timestamps), `locks` (headline counts depend on the
+backend's wait-episode collapsing, which the raw event array cannot reproduce),
+`maintenance` (counter maps only), and `sql_overview`'s
+`by_database/by_user/by_host/by_app` tables (executions carry no per-execution
+dimension). `_timeFiltered`/`_filterRange`/`_wholeLog` are client-side-only
+markers, absent from the Go payload.

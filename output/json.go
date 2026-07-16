@@ -28,6 +28,12 @@ type SummaryJSON struct {
 	PanicCount   int    `json:"panic_count"`
 	WarningCount int    `json:"warning_count"`
 	LogCount     int    `json:"log_count"`
+	// UTCOffsetMinutes is the log's UTC offset (minutes east of UTC) from the
+	// first entry. The client time filter uses it to convert its wall-clock
+	// slider bounds to the true-instant epoch basis that top_events[].timestamps
+	// use, so the Events section re-scopes on the same window as every other
+	// (wall-clock-compared) section. 0 for UTC logs.
+	UTCOffsetMinutes int `json:"utc_offset_minutes"`
 }
 
 type SQLPerformanceJSON struct {
@@ -817,6 +823,12 @@ func (l lazySessionEvents) MarshalJSON() ([]byte, error) {
 		buf = strconv.AppendInt(buf, int64(se.DatabaseIdx), 10)
 		buf = append(buf, `,"h":`...)
 		buf = strconv.AppendInt(buf, int64(se.HostIdx), 10)
+		// orphan = flushed at logEnd with no matching disconnect line.
+		// Emitted only when true so genuine disconnects stay byte-identical;
+		// the report's time filter excludes orphans by this flag.
+		if se.Orphan {
+			buf = append(buf, `,"orphan":true`...)
+		}
 		buf = append(buf, '}')
 		return true
 	})
@@ -981,6 +993,10 @@ func streamSessionEventsJSON(bw *bufio.Writer, src lazySessionEvents, prefix, in
 			bw.Write(strconv.AppendInt(buf[:0], int64(se.DatabaseIdx), 10))
 			bw.WriteString(`,"h":`)
 			bw.Write(strconv.AppendInt(buf[:0], int64(se.HostIdx), 10))
+			// orphan flag: emitted only when true (see lazySessionEvents).
+			if se.Orphan {
+				bw.WriteString(`,"orphan":true`)
+			}
 			bw.WriteString(`}`)
 			return true
 		})
@@ -1030,6 +1046,14 @@ func streamSessionEventsJSON(bw *bufio.Writer, src lazySessionEvents, prefix, in
 		bw.WriteString(subInner)
 		bw.WriteString(`"h": `)
 		bw.Write(strconv.AppendInt(buf[:0], int64(se.HostIdx), 10))
+		// orphan flag: emitted only when true (see lazySessionEvents), so a
+		// genuine disconnect keeps "h" as its last field, byte-for-byte.
+		if se.Orphan {
+			bw.WriteString(`,`)
+			bw.WriteByte('\n')
+			bw.WriteString(subInner)
+			bw.WriteString(`"orphan": true`)
+		}
 		bw.WriteByte('\n')
 		bw.WriteString(inner)
 		bw.WriteByte('}')
@@ -1186,6 +1210,18 @@ func streamTempFileEventsJSON(bw *bufio.Writer, events []analysis.TempFileEvent,
 		}
 		sb, _ := json.Marshal(FormatBytes(int64(ev.Size)))
 		bw.Write(sb)
+		// size_bytes: the exact integer byte count, emitted alongside the
+		// 2-decimal "size" display string so the report's time filter can
+		// re-sum temp-file bytes losslessly instead of re-parsing "683.59 KB".
+		if compact {
+			bw.WriteString(`,"size_bytes":`)
+		} else {
+			bw.WriteString(",\n")
+			bw.WriteString(subInner)
+			bw.WriteString(`"size_bytes": `)
+		}
+		var nb [20]byte
+		bw.Write(strconv.AppendInt(nb[:0], int64(ev.Size), 10))
 		// query_id (omitempty)
 		if ev.QueryID != "" {
 			if compact {
@@ -2830,17 +2866,19 @@ func convertSummary(m analysis.AggregatedMetrics) SummaryJSON {
 	if duration.Seconds() > 0 {
 		throughput = float64(m.Global.Count) / duration.Seconds()
 	}
+	_, offSec := m.Global.MinTimestamp.Zone()
 	return SummaryJSON{
-		StartDate:    m.Global.MinTimestamp.Format("2006-01-02 15:04:05"),
-		EndDate:      m.Global.MaxTimestamp.Format("2006-01-02 15:04:05"),
-		Duration:     duration.String(),
-		TotalLogs:    m.Global.Count,
-		Throughput:   fmt.Sprintf("%.2f entries/s", throughput),
-		ErrorCount:   m.Global.ErrorCount,
-		FatalCount:   m.Global.FatalCount,
-		PanicCount:   m.Global.PanicCount,
-		WarningCount: m.Global.WarningCount,
-		LogCount:     m.Global.LogCount,
+		StartDate:        m.Global.MinTimestamp.Format("2006-01-02 15:04:05"),
+		EndDate:          m.Global.MaxTimestamp.Format("2006-01-02 15:04:05"),
+		Duration:         duration.String(),
+		TotalLogs:        m.Global.Count,
+		Throughput:       fmt.Sprintf("%.2f entries/s", throughput),
+		ErrorCount:       m.Global.ErrorCount,
+		FatalCount:       m.Global.FatalCount,
+		PanicCount:       m.Global.PanicCount,
+		WarningCount:     m.Global.WarningCount,
+		LogCount:         m.Global.LogCount,
+		UTCOffsetMinutes: offSec / 60,
 	}
 }
 

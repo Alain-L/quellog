@@ -40,6 +40,24 @@ function timeAxisValues(u, vals) {
         return time;
     });
 }
+// UTC variant of timeAxisValues: used when the caller feeds wall-clock-as-UTC
+// epochs (e.g. the event modal sparkline, shifted by the log's offset) so the
+// axis reads in the log's own clock — matching the modal's First/Last-seen
+// cards and the section tables — regardless of the viewer's timezone.
+function timeAxisValuesUTC(u, vals) {
+    const multiDay = timeAxisMultiDay(u);
+    return vals.map((v, i) => {
+        const d = new Date(v * 1000);
+        const time = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'UTC' });
+        if (!multiDay) return time;
+        const prevDay = i > 0 ? new Date(vals[i - 1] * 1000).getUTCDate() : -1;
+        if (i === 0 || d.getUTCDate() !== prevDay) {
+            return time + '\n' + d.toLocaleDateString('en-US', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+        }
+        return time;
+    });
+}
+
 function timeAxisSize(u) { return timeAxisMultiDay(u) ? 36 : 20; }
 
 // Modal state (local to charts module)
@@ -62,7 +80,7 @@ function bindDblclickReset(chart, resetFn) {
 }
 
 // Global tooltip plugin for uPlot charts
-export function tooltipPlugin() {
+export function tooltipPlugin(opts = {}) {
     let tooltip = null;
     return {
         hooks: {
@@ -89,7 +107,7 @@ export function tooltipPlugin() {
                     return;
                 }
                 const d = new Date(x * 1000);
-                const timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+                const timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, ...(opts.utc && { timeZone: 'UTC' }) });
                 tooltip.innerHTML = `${timeStr} · ${y} events`;
                 const left = u.valToPos(x, 'x');
                 const top = u.valToPos(y, 'y');
@@ -750,7 +768,7 @@ export function createTimeChart(containerId, timestamps, options = {}) {
                 stroke: getComputedStyle(document.documentElement).getPropertyValue('--text').trim(),
                 grid: { show: false },
                 ticks: { show: false },
-                values: timeAxisValues,
+                values: options.utc ? timeAxisValuesUTC : timeAxisValues,
                 size: timeAxisSize,
                 font: '10px system-ui'
             },
@@ -766,7 +784,7 @@ export function createTimeChart(containerId, timestamps, options = {}) {
         getMedianColor: () => getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim(),
         radiusCap: 3,
         xData, yData,
-        tooltipPlugin: tooltipPlugin(),
+        tooltipPlugin: tooltipPlugin({ utc: options.utc }),
         enableSelect: true,
         enableOnSelect: true,
         onSelect,
@@ -2679,9 +2697,13 @@ function exportChartToPNG(chart, title) {
     link.click();
 }
 
-// Keyboard handler for modal
-document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && document.getElementById('chartModal').classList.contains('active')) {
-        closeChartModal();
-    }
-});
+// Keyboard handler for modal. Guarded so the module can be imported in a
+// DOM-free environment (node --test) without a ReferenceError at load;
+// in the browser this is always registered.
+if (typeof document !== 'undefined') {
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && document.getElementById('chartModal').classList.contains('active')) {
+            closeChartModal();
+        }
+    });
+}

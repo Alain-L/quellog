@@ -4,14 +4,61 @@ import (
 	"bufio"
 	"bytes"
 	"io"
+	"log/slog"
 	"os"
 	"sync"
 	"sync/atomic"
 )
 
 // stderrParallelMinSize is the file size below which the sequential
-// stderr path is kept — same rationale as the JSON threshold.
+// stderr path is kept — same rationale as the JSON threshold. This is
+// the floor on the number of bytes to PARSE: for a plain file it is the
+// file size, for a compressed file it is the estimated decompressed size
+// (see reachesStreamParallelSize).
 const stderrParallelMinSize = 64 << 20 // 64 MB
+
+// streamExpansionFactor is a conservative floor for how much a compressed
+// PostgreSQL log expands when decompressed (measured ratios run 14-23x;
+// mirrors cmd.logExpansionFactor). Used to estimate the decompressed byte
+// volume — what the parser actually processes — from the on-disk size, so
+// the stream-parallel gate keys off parse work rather than disk size.
+const streamExpansionFactor = 8
+
+// streamParallelMinDecompressed is the estimated-decompressed-size floor
+// above which COMPRESSED stderr uses the entry-sharded parallel engine
+// (parseStreamParallel); below it the input is parsed by the sequential
+// single-goroutine reader instead. It is deliberately higher than
+// stderrParallelMinSize because a compressed stream's single-threaded
+// decode — not the parse — paces the pipeline: on a 256 MB-decompressed
+// single-frame .zst the parallel parse buys only a few percent of wall
+// while its (workers+2) in-flight 4 MB chunks cost ~2.9x peak RSS
+// (measured). The floor matches the analysis-sharding gate (256 MB), so a
+// compressed input parses sequentially exactly when it is too small to
+// shard and in parallel exactly when it shards.
+const streamParallelMinDecompressed = 256 << 20
+
+// streamWorkerScanBuf is the INITIAL bufio.Scanner buffer given to each
+// stream-chunk parse worker (see parseStreamParallel). Smaller than the
+// 4 MB default because a worker parses only a few-MB chunk and real log
+// lines are a few KB; the scanner still grows to math.MaxInt32 on a longer
+// line, so output is unchanged.
+const streamWorkerScanBuf = 1 << 20
+
+// reachesStreamParallelSize reports whether an input whose on-disk size is
+// `size` has enough content to parse to justify the entry-sharded parallel
+// stderr engine. It is pure (no I/O) so the routing decision is unit-testable
+// with synthetic sizes, and it is the single size-gate both the parse router
+// (wrapCompressedParser) and the multi-file fan-in window (UsesStreamParallelStderr)
+// consult, so the two can never diverge. Plain inputs gate on their file size at
+// stderrParallelMinSize (matching StderrParser.Parse's parseParallel routing);
+// compressed inputs gate on their estimated decompressed size at the higher
+// streamParallelMinDecompressed (see that constant for why).
+func reachesStreamParallelSize(compressed bool, size int64) bool {
+	if compressed {
+		return size*streamExpansionFactor >= streamParallelMinDecompressed
+	}
+	return size >= stderrParallelMinSize
+}
 
 // stderrSegmentSize is the micro-segment length. Same design as the
 // JSON path: segments far smaller than fileSize/workers keep every
@@ -239,6 +286,28 @@ const streamChunkSize = 4 << 20
 // same sizing rationale as stderrSegmentQueueDepth.
 const streamChunkQueueDepth = 32
 
+// streamChunkMaxSize caps the boundary-extension buffer for one stream
+// chunk. The extension normally reaches the next entry-start a few lines
+// past streamChunkSize; but a member with no column-0 entry-start line
+// (JSON or foreign text mislabeled .log, a literal-prefixed log) would
+// otherwise append line after line to EOF, buffering the whole
+// decompressed member in one growing allocation before yielding a single
+// zero-entry chunk. Capping the extension degrades such a member to
+// bounded per-chunk memory; the remainder is picked up by the next
+// bounded bulk read. 64 MB sits far above any real multi-line stderr
+// entry, so well-formed logs never reach it. A var (not const) so tests
+// can shrink it to exercise the cap with a small fixture.
+var streamChunkMaxSize = 64 << 20
+
+// streamChunkPoolMaxCap is the largest backing array returned to
+// streamChunkPool. A chunk whose backing array grew past this — a giant
+// single-line entry completed by ReadBytes, or a capped no-boundary run —
+// is dropped rather than pooled, so one oversized array can't stay pinned
+// across the whole in-flight window until GC. 2× the base capacity
+// (streamChunkSize + 512 KB headroom) still recycles the common
+// extend-into-headroom case.
+const streamChunkPoolMaxCap = 2 * (streamChunkSize + (512 << 10))
+
 // streamChunkPool recycles chunk buffers between the chunker and the
 // workers: a chunk is dead as soon as its worker parsed it (parseReader
 // copies every message out), so pooling caps the chunker's allocation
@@ -288,6 +357,7 @@ func (p *StderrParser) parseStreamParallel(r io.Reader, workers int, out chan<- 
 	go func() {
 		defer close(jobs)
 		defer close(queueCh)
+		capWarned := false // single chunker goroutine: a plain flag is race-free
 		for {
 			data := streamChunkPool.Get().([]byte)[:streamChunkSize]
 			n, err := io.ReadFull(br, data)
@@ -298,10 +368,30 @@ func (p *StderrParser) parseStreamParallel(r io.Reader, workers int, out chan<- 
 				// mid-way, then append whole lines until one starts a
 				// new entry — that line belongs to the next chunk and
 				// stays buffered in br.
+				// Whether this chunk begins at a real entry-start decides if the
+				// size cap below may fire (see there).
+				startsWithEntry := isEntryStart(data)
 				rest, e := br.ReadBytes('\n')
 				data = append(data, rest...)
 				err = e
 				for err == nil {
+					// Cap the extension ONLY for a run that did NOT begin at a
+					// valid entry-start: mislabeled/foreign content that never
+					// yields a boundary would otherwise buffer to EOF. Stop at
+					// streamChunkMaxSize and dispatch; the remainder reads in the
+					// next bounded chunk (it parses to zero entries either way).
+					// A legitimate giant entry (one statement/CONTEXT larger than
+					// the cap) begins at an entry-start and must be buffered whole,
+					// exactly as the sequential reader does — capping it would
+					// silently drop its tail.
+					if !startsWithEntry && len(data) >= streamChunkMaxSize {
+						if !capWarned {
+							slog.Warn("stderr member has no entry boundary within the size cap; parsing in bounded chunks (mislabeled or foreign content?)",
+								"cap_bytes", streamChunkMaxSize)
+							capWarned = true
+						}
+						break
+					}
 					pk, e := br.Peek(64)
 					if len(pk) == 0 {
 						err = e
@@ -342,16 +432,24 @@ func (p *StderrParser) parseStreamParallel(r io.Reader, workers int, out chan<- 
 			// one whole chunk per in-flight or retained message — measured
 			// ~10× RSS on an 880 MB stream.
 			var cr bytes.Reader
-			wp := &StderrParser{prefixStructure: p.prefixStructure}
+			wp := &StderrParser{prefixStructure: p.prefixStructure, scanBufInit: streamWorkerScanBuf}
 			for j := range jobs {
 				cr.Reset(j.data)
 				if err := wp.parseReader(&cr, j.q); err != nil {
 					errOnce.Do(func() { parseErr = err })
 				}
-				// The boxing allocation SA6002 warns about is one interface
-				// header per 4 MB chunk — noise next to the buffer it recycles.
-				//lint:ignore SA6002 slice-in-pool is intentional, see above
-				streamChunkPool.Put(j.data[:0])
+				// Return the buffer to the pool unless append grew its
+				// backing array far past the base size (a giant single-line
+				// entry, or a capped no-boundary run). Recycling an oversized
+				// array would pin tens of MB across the in-flight window;
+				// dropping it lets New() mint a fresh base-sized buffer while
+				// the common case still recycles.
+				if cap(j.data) <= streamChunkPoolMaxCap {
+					// The boxing allocation SA6002 warns about is one interface
+					// header per 4 MB chunk — noise next to the buffer it recycles.
+					//lint:ignore SA6002 slice-in-pool is intentional, see above
+					streamChunkPool.Put(j.data[:0])
+				}
 				close(j.q)
 			}
 		}()

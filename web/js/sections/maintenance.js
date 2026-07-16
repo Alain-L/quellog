@@ -4,7 +4,7 @@
 // switches can re-render without re-walking the full analysis payload.
 
 import {
-    fmt, fmtDuration, fmtDurationCoarse, fmtBytes, fmtCompact, esc, buildNoDataMessage
+    fmt, fmtDuration, fmtDurationCoarse, fmtBytes, fmtCompact, esc, buildNoDataMessage, wholeLogBadge
 } from '../utils.js';
 import { parseSizeToBytes } from '../format.js';
 
@@ -33,9 +33,12 @@ export function buildMaintenanceSection(data) {
     const hasVac = (m.vacuum_count || 0) > 0;
     const hasAna = (m.analyze_count || 0) > 0;
 
+    // Maintenance carries counters/table maps only (no timestamped events in
+    // the payload), so it cannot be re-scoped by a time filter — annotate.
+    const wholeLogNote = data._wholeLog?.maintenance ? wholeLogBadge() : '';
     return `
         <div class="section" id="maintenance">
-            <div class="section-header">Maintenance</div>
+            <div class="section-header">Maintenance${wholeLogNote}</div>
             <div class="section-body">
                 ${buildMaintenanceStatGrid(m, totalRecovered)}
                 ${hasVac ? buildAutovacuumPanel(m) : ''}

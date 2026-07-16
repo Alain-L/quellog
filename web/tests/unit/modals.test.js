@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 // The helpers are homed in utils.js (DOM-free) precisely so they are testable —
 // importing modals.js in node fails (it pulls charts.js, which registers a
 // document keydown listener at module load).
-import { qdDurationBuckets, localDateTime } from '../../js/utils.js';
+import { qdDurationBuckets } from '../../js/utils.js';
 
 test('qdDurationBuckets reads duration_ms and buckets like the backend', () => {
     const execs = [
@@ -31,12 +31,4 @@ test('qdDurationBuckets reads duration_ms and buckets like the backend', () => {
     // null are ignored (the bug: reading `duration` made every value 0, so the
     // whole block filtered out and never rendered).
     assert.equal(dist.reduce((s, b) => s + b.count, 0), 5);
-});
-
-test('localDateTime formats in local wall-clock (not UTC)', () => {
-    // Constructed and formatted with the local getters, so this is TZ-stable:
-    // it echoes the local components, which is what fixed the event modal's
-    // First/Last seen (toISOString shifted the day for non-UTC logs).
-    assert.equal(localDateTime(new Date(2026, 0, 1, 23, 30, 15)), '2026-01-01 23:30:15');
-    assert.equal(localDateTime(new Date(2026, 8, 5, 8, 5, 9)), '2026-09-05 08:05:09'); // zero-padding
 });

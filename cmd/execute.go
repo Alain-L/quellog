@@ -168,8 +168,17 @@ func runAnalysisCycle(ctx context.Context, args []string) error {
 		analyzeInput = filteredLogs
 	}
 
+	// Analysis PID-shard count: > 1 only for large, uncompressed plain
+	// stderr. Decide it from the EXPANDED file list (allFiles), not the raw
+	// args: a directory or glob argument stats to a tiny inode, which would
+	// always fall below the size gate and silently disable sharding for
+	// `quellog /var/log/postgresql/`. The expanded files carry the real
+	// bytes the analysis stage will process. Computed once and threaded into
+	// every metrics build below.
+	workers := shardWorkers(allFiles)
+
 	// Step 5: Process and output results based on flags
-	if err := processAndOutput(ctx, analyzeInput, startTime, totalFileSize, args, pb); err != nil {
+	if err := processAndOutput(ctx, analyzeInput, startTime, totalFileSize, args, workers, pb); err != nil {
 		return err
 	}
 
@@ -286,12 +295,42 @@ func parseFilesAsync(ctx context.Context, files []string, out chan<- []parser.Lo
 	for i := range queues {
 		queues[i] = make(chan []parser.LogEntry, fileQueueDepth)
 	}
-	// Window of 2: the drained file plus one prefetching. Pool files are
-	// big or compressed (determineWorkerCount), so each saturates the CPU
-	// through its own intra-file parallelism — file-level concurrency past
-	// the prefetch would only stack blocked pipelines and their in-flight
-	// chunks/queues (measured: it inflates RSS without moving wall).
-	window := make(chan struct{}, 2)
+	// window bounds how many files are in flight at once. It is a pure
+	// throughput/memory knob: the drain below forwards queues in strict index
+	// order for ANY window >= 1, so output (Seq stamping, per-occurrence event
+	// lists, cross-file state pairing) is identical whatever the value.
+	// fanInWindow keeps the small drained+prefetch bound only when every input
+	// is self-parallel stderr (each already saturates the CPU and fans out
+	// in-flight chunks/queues, so more files at once just inflates RSS); for
+	// single-goroutine inputs (compressed CSV/JSON, prefixed compressed stderr,
+	// plain sub-threshold files) it returns numWorkers so up to numWorkers
+	// files parse concurrently — the pre-window v0.11.0 worker pool.
+	window := fanInWindow(files, numWorkers)
+
+	// The window is enforced with per-index START PERMITS, not a shared
+	// counting semaphore. Workers claim indices out of order (the cursor
+	// hands them out first-come), but the drain consumes queues in strict
+	// index order. A shared semaphore acquired by workers yet released by
+	// the drain could be held entirely by higher indices while the lowest
+	// un-drained index blocks before parsing — the drain then waits forever
+	// on that index's queue and the worker waits forever for a slot, a
+	// circular wait that hangs the pipeline (silent, no output). Gating each
+	// index with its own single-slot permit ties admission to the drain's
+	// order: gate[i] is posted exactly once — pre-signalled when i < window,
+	// otherwise by the drain the instant it finishes index i-window — so the
+	// lowest un-drained index always holds a permit and the cycle cannot form.
+	// (With window >= numWorkers every gate a worker can claim is pre-signalled,
+	// so that regime is trivially deadlock-free; the small window relies on the
+	// per-index ordering above.)
+	gate := make([]chan struct{}, len(files))
+	for i := range gate {
+		gate[i] = make(chan struct{}, 1)
+	}
+	// Pre-signal the first `window` indices (capped at the file count); the
+	// remaining gates are posted by the drain as it advances.
+	for i := 0; i < window && i < len(files); i++ {
+		gate[i] <- struct{}{}
+	}
 	var cursor atomic.Int64
 	var wg sync.WaitGroup
 	for w := 0; w < numWorkers; w++ {
@@ -303,7 +342,7 @@ func parseFilesAsync(ctx context.Context, files []string, out chan<- []parser.Lo
 				if i >= len(files) {
 					return
 				}
-				window <- struct{}{} // released by the drain below
+				<-gate[i] // admission in index order; posted by the drain below
 				// The queue must always be closed, even on cancellation,
 				// or the ordered drain would block forever on this index.
 				if ctx.Err() == nil {
@@ -324,12 +363,17 @@ func parseFilesAsync(ctx context.Context, files []string, out chan<- []parser.Lo
 		}()
 	}
 
-	// Ordered fan-in: forward each file's batches in list order.
+	// Ordered fan-in: forward each file's batches in list order. Once a file
+	// is fully drained, admit index i+window so exactly `window` files stay in
+	// flight (the one now draining plus window-1 ahead), matching the
+	// pre-signalled permits above. This is what releases the window.
 	for i := range queues {
 		for batch := range queues[i] {
 			out <- batch
 		}
-		<-window
+		if i+window < len(files) {
+			gate[i+window] <- struct{}{}
+		}
 	}
 	wg.Wait()
 }
@@ -340,6 +384,48 @@ func parseFilesAsync(ctx context.Context, files []string, out chan<- []parser.Lo
 // small enough that a parser running ahead of the drain blocks early and
 // keeps in-flight memory bounded.
 const fileQueueDepth = 256
+
+// smallFanInWindow is the in-flight file count for self-parallel stderr
+// inputs: the file the drain is consuming plus one prefetching. Anything
+// larger only stacks blocked, already-CPU-saturated pipelines and their
+// in-flight chunks/queues (measured: it inflates RSS without moving wall).
+const smallFanInWindow = 2
+
+// fanInWindow sizes the ordered fan-in's in-flight window (see
+// parseFilesAsync). Determinism is independent of the result — the drain
+// forwards queues in strict index order for any window >= 1 — so this only
+// trades file-level concurrency against in-flight memory.
+//
+// The small window is used ONLY when a self-parallel stderr input could be in
+// flight — the files parser.UsesStreamParallelStderr flags: large plain stderr
+// (parseParallel) and large non-prefixed compressed stderr (parseStreamParallel),
+// each of which already saturates the CPU on its own and fans out chunks/queues,
+// so admitting many at once multiplies RSS without improving wall time — the
+// real memory bound the window exists to hold.
+//
+// Otherwise every input parses on a single goroutine (compressed CSV/JSON,
+// prefixed compressed stderr, plain sub-threshold files, and — crucially —
+// compressed stderr sets below the parallel-parse size gate, which now fall back
+// to the sequential reader). Those need up to numWorkers files running
+// concurrently to keep the pool busy, exactly as the pre-window v0.11.0 worker
+// pool did; returning numWorkers removes the file-level throttle (with window >=
+// numWorkers every worker's gate is pre-signalled, so the pipeline is trivially
+// deadlock-free). Keying off the SAME predicate as the parse router guarantees a
+// file that parses sequentially gets the wide window (v0.11.0 throughput, low RSS
+// since each file is one goroutine), while a file that self-parallelizes gets the
+// small window (RSS bound) — the two decisions can never disagree.
+func fanInWindow(files []string, numWorkers int) int {
+	for _, f := range files {
+		var size int64
+		if st, err := os.Stat(f); err == nil {
+			size = st.Size()
+		}
+		if parser.UsesStreamParallelStderr(f, size) {
+			return smallFanInWindow
+		}
+	}
+	return numWorkers
+}
 
 // buildLogFilters creates a LogFilters struct from command-line flags.
 //
@@ -417,8 +503,12 @@ func validateFlagCombinations() error {
 	return nil
 }
 
-// processAndOutput analyzes filtered logs and outputs results in the requested format.
-func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry, startTime time.Time, totalFileSize int64, inputArgs []string, pb *progressBar) error {
+// processAndOutput analyzes filtered logs and outputs results in the requested
+// format. workers is the analysis PID-shard count, decided by the caller from
+// the expanded file list (see runAnalysisCycle) and threaded into every metrics
+// build; inputArgs stays the raw arguments, used only for display (filenames,
+// input description, first-file format detection).
+func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry, startTime time.Time, totalFileSize int64, inputArgs []string, workers int, pb *progressBar) error {
 	// Flag-combination constraints are validated once up front (see
 	// validateFlagCombinations, called from executeParsing). Here we only need
 	// the format count for dispatch and the --split short-circuit.
@@ -426,11 +516,6 @@ func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry
 	if splitFlag != "" {
 		return runSplitHTML(ctx, filteredLogs, startTime, totalFileSize, inputArgs, pb)
 	}
-
-	// Analysis PID-shard count: > 1 only for large, uncompressed plain
-	// stderr (where LogEntry.PID is the backend PID). Computed once and
-	// threaded into every metrics build.
-	workers := shardWorkers(inputArgs)
 
 	// Special case: SQL query details (single query analysis)
 	if len(sqlDetailFlag) > 0 {
