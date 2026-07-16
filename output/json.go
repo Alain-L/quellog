@@ -2199,7 +2199,8 @@ func buildJSONData(m analysis.AggregatedMetrics, sections []string, full bool) m
 		data["locks"] = convertLocks(m.Locks)
 	}
 
-	if has("maintenance") && (m.Vacuum.VacuumCount > 0 || m.Vacuum.AnalyzeCount > 0) {
+	if has("maintenance") && (m.Vacuum.VacuumCount > 0 || m.Vacuum.AnalyzeCount > 0 ||
+		m.Vacuum.SkippedVacuumCount > 0 || m.Vacuum.SkippedAnalyzeCount > 0) {
 		data["maintenance"] = buildMaintenanceJSON(m.Vacuum)
 	}
 
