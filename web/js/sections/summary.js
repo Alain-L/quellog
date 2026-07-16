@@ -1,7 +1,7 @@
 // Summary section: header stat grid, date range, and interactive time slider.
 
 import { fmt, fmtBytes, fmtDur, esc } from '../utils.js';
-import { computeDayAxis, MAX_CANVAS_DAYS } from '../filters.js';
+import { computeDayAxis, MAX_CANVAS_DAYS, offsetToTs } from '../filters.js';
 import { timeFilterStartTs, timeFilterDurationMins } from '../state.js';
 import { buildServerSummaryLine } from './checkpoints.js';
 
@@ -94,7 +94,7 @@ export function buildSummarySection(data, fileInfo) {
     let dateDisplay;
     if (axis) {
         const firstDay = tsToDayStr(axis.axisStart);
-        const lastDay = tsToDayStr(axis.axisStart + (axis.nDays - 1) * 86400000);
+        const lastDay = tsToDayStr(offsetToTs(axis.axisStart, (axis.nDays - 1) * 1440));
         dateDisplay = axis.nDays === 1 ? formatDateHuman(firstDay) : formatDateRange(firstDay, lastDay);
     } else {
         dateDisplay = sameDay ? formatDateHuman(startDay) : formatDateRange(startDay, endDay);
@@ -125,7 +125,7 @@ export function buildSummarySection(data, fileInfo) {
         const dividers = [];
         for (let k = 0; k < axis.nDays; k++) {
             if (hasDayLabels) {
-                const dd = new Date(axis.axisStart + k * 86400000);
+                const dd = new Date(offsetToTs(axis.axisStart, k * 1440));
                 labels.push(`<span class="summary-time-day-label" style="left:${(k + 0.5) / axis.nDays * 100}%">${dd.getDate()} ${monthsAbbr[dd.getMonth()]}</span>`);
             }
             if (k > 0) dividers.push(`<i class="summary-time-day-divider" style="left:${k / axis.nDays * 100}%"></i>`);
@@ -140,7 +140,7 @@ export function buildSummarySection(data, fileInfo) {
         const monthsAbbr = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
         const fmtDay = (ts) => { const d = new Date(ts); return `${d.getDate()} ${monthsAbbr[d.getMonth()]}`; };
         boundLeft = fmtDay(axis.axisStart);
-        boundRight = fmtDay(axis.axisStart + (axis.nDays - 1) * 86400000);
+        boundRight = fmtDay(offsetToTs(axis.axisStart, (axis.nDays - 1) * 1440));
     }
 
     return `
