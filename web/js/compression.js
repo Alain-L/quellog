@@ -85,16 +85,21 @@ function isSupportedEntry(name) {
         lower.endsWith(ext + '.zst') || lower.endsWith(ext + '.zstd')
     )) return true;
     // Rotated PostgreSQL logs: a supported base extension immediately followed
-    // by a rotation suffix ("." + a digit), e.g. postgresql.log.1,
-    // postgresql.log.2.gz, postgresql.log.2026-03-23-10, postgresql-16-main.log.1.
-    // Mirrors the CLI's isRotatedLogFile so the browser keeps the same rotated
-    // history the CLI parses instead of silently dropping it.
+    // by a rotation suffix — a separator ('.' for numeric/date-dot rotation,
+    // '-' for logrotate "dateext") then a digit — e.g. postgresql.log.1,
+    // postgresql.log.2.gz, postgresql.log.2026-03-23-10, postgresql-16-main.log.1,
+    // postgresql.log-20260320.gz. Mirrors the CLI's isRotatedLogFile so the
+    // browser keeps the same rotated history the CLI parses instead of silently
+    // dropping it (a compressed dateext member cannot be sniffed by content).
     return ROTATED_BASE_EXTS.some(base => {
-        const marker = base + '.';
-        const idx = lower.lastIndexOf(marker);
-        if (idx === -1) return false;
-        const after = lower.slice(idx + marker.length);
-        return after.length > 0 && after[0] >= '0' && after[0] <= '9';
+        for (let from = 0; ;) {
+            const idx = lower.indexOf(base, from);
+            if (idx === -1) return false;
+            const rest = lower.slice(idx + base.length);
+            if (rest.length >= 2 && (rest[0] === '.' || rest[0] === '-') &&
+                rest[1] >= '0' && rest[1] <= '9') return true;
+            from = idx + 1;
+        }
     });
 }
 
@@ -201,13 +206,15 @@ const LOG_PREFIX_PATTERNS = [
 ];
 export function looksLikeLogContent(sampleBytes) {
     const s = new TextDecoder('utf-8', { fatal: false }).decode(sampleBytes);
-    let checked = 0;
+    // Scan the whole sample (the caller bounds it to 8 KB), like the CLI's
+    // isLogContent: a member whose head is several continuation/banner lines
+    // before the first real log line must still be recognized, so a fixed
+    // few-line cap would drop it.
     for (const line of s.split('\n')) {
         const t = line.replace(/^\s+/, '');
         if (!t) continue;
         if (t[0] === '{') return true; // jsonlog
         if (LOG_PREFIX_PATTERNS.some((re) => re.test(t))) return true;
-        if (++checked >= 8) break;
     }
     return false;
 }
