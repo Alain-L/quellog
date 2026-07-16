@@ -334,10 +334,10 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 	// k:v block followed by purpose-driven top-tables panels.
 	// ============================================================================
 	if has("maintenance") {
-		if m.Vacuum.VacuumCount > 0 {
+		if m.Vacuum.VacuumCount > 0 || m.Vacuum.SkippedVacuumCount > 0 {
 			writeAutovacuumSectionMarkdown(&b, m.Vacuum)
 		}
-		if m.Vacuum.AnalyzeCount > 0 {
+		if m.Vacuum.AnalyzeCount > 0 || m.Vacuum.SkippedAnalyzeCount > 0 {
 			writeAutoanalyzeSectionMarkdown(&b, m.Vacuum)
 		}
 	}

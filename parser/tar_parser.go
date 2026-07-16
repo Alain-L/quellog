@@ -157,21 +157,30 @@ func isSupportedArchiveEntry(name string) bool {
 	return false
 }
 
-// isRotatedLogFile detects PostgreSQL rotated log files where a date/number
-// suffix follows the base extension (e.g. "postgresql.log.2026-03-23-10").
-func isRotatedLogFile(lower string) bool {
-	for _, base := range []string{".log.", ".csv."} {
-		idx := strings.LastIndex(lower, base)
+// hasRotatedBase reports whether lower carries a rotation suffix on the base
+// extension: the base immediately followed by a separator ('.' for numeric or
+// date-dot rotation, '-' for logrotate "dateext") then a digit — e.g.
+// postgresql.log.1, postgresql.log.2026-03-23-10, postgresql.log-20260320.
+func hasRotatedBase(lower, base string) bool {
+	for from := 0; ; {
+		idx := strings.Index(lower[from:], base)
 		if idx == -1 {
-			continue
+			return false
 		}
-		// Verify the suffix after ".log." starts with a digit (date rotation)
-		after := lower[idx+len(base):]
-		if len(after) > 0 && after[0] >= '0' && after[0] <= '9' {
+		idx += from
+		rest := lower[idx+len(base):]
+		if len(rest) >= 2 && (rest[0] == '.' || rest[0] == '-') && rest[1] >= '0' && rest[1] <= '9' {
 			return true
 		}
+		from = idx + 1
 	}
-	return false
+}
+
+// isRotatedLogFile detects PostgreSQL rotated log/csv files (any rotation
+// naming hasRotatedBase recognizes), so a rotated member is accepted for
+// parsing instead of being dropped as an unsupported archive entry.
+func isRotatedLogFile(lower string) bool {
+	return hasRotatedBase(lower, ".log") || hasRotatedBase(lower, ".csv")
 }
 
 // sniffAndParseArchiveEntry handles an archive member whose name carries no
@@ -286,12 +295,13 @@ func parseArchiveEntry(name string, r io.Reader, out chan<- []LogEntry) error {
 		return parseZstdArchiveEntry(name, r, ".zst", out)
 	case strings.HasSuffix(lower, ".zstd"):
 		return parseZstdArchiveEntry(name, r, ".zstd", out)
-	case strings.Contains(lower, ".log."):
-		// Rotated PostgreSQL log files (e.g. postgresql.log.2026-03-23-10).
-		// Same literal-prefix salvage as the plain ".log" case above.
+	case hasRotatedBase(lower, ".log"):
+		// Rotated PostgreSQL log files, including logrotate dateext
+		// (e.g. postgresql.log.2026-03-23-10, postgresql.log-20260320 after
+		// nested decompression). Same literal-prefix salvage as ".log" above.
 		return parseStderrArchiveEntry(r, out)
-	case strings.Contains(lower, ".csv."):
-		// Rotated CSV log files
+	case hasRotatedBase(lower, ".csv"):
+		// Rotated CSV log files (numeric, date-dot or dateext).
 		parser := &CsvParser{}
 		return parser.parseReader(r, out)
 	default:

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import zlib from 'node:zlib';
-import { extractTar, extractZip } from '../../js/compression.js';
+import { extractTar, extractZip, looksLikeLogContent } from '../../js/compression.js';
 
 const enc = new TextEncoder();
 
@@ -90,6 +90,38 @@ test('extractTar keeps extension-less syslog/epoch/rfc5424 members, still drops 
   assert.ok(out.includes('epoch prefixed member'), 'keeps an extension-less epoch-prefixed member');
   assert.ok(out.includes('rfc5424 member'), 'keeps an extension-less RFC5424 syslog member');
   assert.ok(!out.includes('release notes'), 'still drops extension-less free text');
+});
+
+// Regression — logrotate "dateext" naming (base + '-' + date) must be kept like
+// the classic numeric/date-dot rotation, especially when compressed: a
+// `postgresql.log-20260320.gz` member matched neither the '.log.' rotation rule
+// nor the content sniff (which reads raw gzip bytes), so the whole rotated
+// history was silently dropped though v0.11.0's extractTar kept every member.
+test('extractTar keeps logrotate dateext members, including compressed ones', async () => {
+  const line = (m) => enc.encode(`2026-03-20 10:00:00.100 CET [1] LOG:  ${m}\n`);
+  const tar = buildTarBin([
+    ['postgresql.log-20260320',    line('DATEEXT_PLAIN')],
+    ['postgresql.log-20260320.gz', new Uint8Array(zlib.gzipSync(Buffer.from(line('DATEEXT_GZ'))))],
+    ['postgresql.log.1.gz',        new Uint8Array(zlib.gzipSync(Buffer.from(line('NUMERIC_GZ'))))], // control
+  ]);
+
+  const out = await extractTar(tar.buffer);
+
+  assert.ok(out.includes('DATEEXT_PLAIN'), 'keeps a plain dateext member');
+  assert.ok(out.includes('DATEEXT_GZ'), 'keeps a gzip-compressed dateext member (was dropped)');
+  assert.ok(out.includes('NUMERIC_GZ'), 'still keeps a numeric-rotation compressed member');
+});
+
+// Regression — the content sniff must scan the whole sample (as the CLI does),
+// not only the first few lines: a member whose head is a long continuation or
+// banner run before the first real log line was dropped by a fixed line cap.
+test('looksLikeLogContent scans past a multi-line header, still rejects pure junk', () => {
+  const banner = Array.from({ length: 12 }, (_, i) => `\tcontinuation detail line ${i}`).join('\n');
+  const withLog = enc.encode(banner + '\n2026-03-20 10:00:00.100 CET [1] LOG:  real line after banner\n');
+  assert.equal(looksLikeLogContent(withLog), true, 'finds a log line after a 12-line header');
+
+  const junk = enc.encode('just some text\nmore text\nnothing log-like here\n');
+  assert.equal(looksLikeLogContent(junk), false, 'still rejects content with no log line anywhere');
 });
 
 // FIX #1 — tar extraction must keep ROTATED PostgreSQL logs (postgresql.log.1,

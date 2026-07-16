@@ -79,7 +79,7 @@ const NEGLIGIBLE_DAY_MS = 5 * 60 * 1000;
 // exactly 24h (everywhere except a DST boundary) these are identical to the
 // plain `axisStart + offset*60000` / `(ts - axisStart)/60000`. axisStart is a
 // local midnight.
-function offsetToTs(axisStart, offsetMins) {
+export function offsetToTs(axisStart, offsetMins) {
     const dayIdx = Math.floor(offsetMins / 1440);
     const minsInDay = offsetMins - dayIdx * 1440;
     const a = new Date(axisStart);
