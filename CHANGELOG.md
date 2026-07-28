@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [0.12.0] - 2026-07-29
 
 ### Added
 - **Client I/O failures**: the Connections section now reports clients that vanished mid-exchange (`could not send/receive data to/from client`), broken down by direction, reason and database.
