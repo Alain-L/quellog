@@ -59,4 +59,33 @@ jobs:
           go test -race ./... -cover -timeout 15m
 
       - name: Build CLI
-        run: go build -v .
+        run: go build -v -o bin/quellog .
+
+      - name: Install TinyGo
+        run: |
+          wget -q https://github.com/tinygo-org/tinygo/releases/download/v0.39.0/tinygo_0.39.0_amd64.deb
+          sudo dpkg -i tinygo_0.39.0_amd64.deb
+
+      - name: WASM build check (TinyGo, gc=leaking)
+        run: tinygo build -o /tmp/quellog_tiny.wasm -target wasm -gc=leaking -no-debug ./web/wasm/main.go
+
+      # Web JS safety net. Unit tests + contract linters are platform-independent
+      # and browser-free, so they gate merges here. The visual (pixel) harness
+      # stays local-only: it drives system Chrome and its baselines are rendered
+      # on macOS, so Linux font rendering would diff.
+      # Only node itself is needed: the unit tests and contract linters import
+      # node builtins + local files (the npm deps — esbuild/pixelmatch/playwright
+      # — are for bundling and the local-only visual harness), and this repo does
+      # not track package-lock.json, so there is nothing to `npm ci`.
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          # 24, not 22: the unit tests exercise Intl.DurationFormat (the module's
+          # preferred path; it has a fallback for older engines), which the
+          # runner's Node 22 lacks.
+          node-version: '24'
+
+      - name: Web unit + contract tests
+        run: |
+          npm run test:unit
+          npm run test:contracts

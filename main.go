@@ -6,6 +6,7 @@ package main
 import (
 	"log"
 	"os"
+	"runtime"
 	"runtime/pprof"
 	"runtime/trace"
 
@@ -46,6 +47,20 @@ func main() {
 			log.Fatal(err)
 		}
 		defer trace.Stop()
+	}
+
+	// Block profiling (where goroutines block on channels/mutexes) —
+	// investigation hook; inflates wall, read only the blocking distribution.
+	if blockProfile := os.Getenv("BLOCKPROFILE"); blockProfile != "" {
+		runtime.SetBlockProfileRate(1)
+		f, err := os.Create(blockProfile)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer func() {
+			_ = pprof.Lookup("block").WriteTo(f, 0)
+			f.Close()
+		}()
 	}
 
 	// Memory profiling

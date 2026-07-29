@@ -58,6 +58,88 @@ func TestSummaryJSONOutput(t *testing.T) {
 	}
 }
 
+// TestSkipMaintenanceGolden locks the skipped-vacuum/analyze output against a
+// golden, on a dedicated fixture (stderr.log carries no skips). It exercises
+// the count + per-table aggregation, an exceptional reason surfaced alongside
+// the suppressed "lock not available" default, and a "user=auto" prefix that
+// must not let the "uto" pre-filter swallow the skip lines.
+func TestSkipMaintenanceGolden(t *testing.T) {
+	buildCmd := exec.Command("go", "build", "-o", "quellog_test", ".")
+	buildCmd.Dir = ".."
+	if err := buildCmd.Run(); err != nil {
+		t.Fatalf("Failed to build binary: %v", err)
+	}
+	defer os.Remove("../quellog_test")
+
+	goldenJSON, err := os.ReadFile("testdata/skip_maintenance.golden.json")
+	if err != nil {
+		t.Fatalf("Failed to read golden file: %v", err)
+	}
+	var baseline interface{}
+	if err := json.Unmarshal(goldenJSON, &baseline); err != nil {
+		t.Fatalf("Failed to unmarshal golden file: %v", err)
+	}
+
+	cmd := exec.Command("../quellog_test", "testdata/skip.log", "--maintenance", "--json")
+	var stdout bytes.Buffer
+	cmd.Stdout = &stdout
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to run quellog: %v", err)
+	}
+	var got interface{}
+	if err := json.Unmarshal(stdout.Bytes(), &got); err != nil {
+		t.Fatalf("invalid JSON: %v\n%s", err, stdout.String())
+	}
+
+	if !reflect.DeepEqual(baseline, got) {
+		bs, _ := json.MarshalIndent(baseline, "", "  ")
+		gs, _ := json.MarshalIndent(got, "", "  ")
+		t.Errorf("skip maintenance JSON diverges from golden:\n--- golden ---\n%s\n--- got ---\n%s",
+			string(bs), string(gs))
+	}
+}
+
+// TestClientIOConnectionsGolden locks the client I/O failure JSON against a
+// golden, on a dedicated fixture. It exercises both directions, the cursor-
+// position normalization ("at character N"), a "connection-pool" app name
+// (guarding the connection-gate false negative), and a log that logs no
+// connections at all (so the section renders only because of the failures).
+func TestClientIOConnectionsGolden(t *testing.T) {
+	buildCmd := exec.Command("go", "build", "-o", "quellog_test", ".")
+	buildCmd.Dir = ".."
+	if err := buildCmd.Run(); err != nil {
+		t.Fatalf("Failed to build binary: %v", err)
+	}
+	defer os.Remove("../quellog_test")
+
+	goldenJSON, err := os.ReadFile("testdata/clientio_connections.golden.json")
+	if err != nil {
+		t.Fatalf("Failed to read golden file: %v", err)
+	}
+	var baseline interface{}
+	if err := json.Unmarshal(goldenJSON, &baseline); err != nil {
+		t.Fatalf("Failed to unmarshal golden file: %v", err)
+	}
+
+	cmd := exec.Command("../quellog_test", "testdata/clientio.log", "--connections", "--json")
+	var stdout bytes.Buffer
+	cmd.Stdout = &stdout
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to run quellog: %v", err)
+	}
+	var got interface{}
+	if err := json.Unmarshal(stdout.Bytes(), &got); err != nil {
+		t.Fatalf("invalid JSON: %v\n%s", err, stdout.String())
+	}
+
+	if !reflect.DeepEqual(baseline, got) {
+		bs, _ := json.MarshalIndent(baseline, "", "  ")
+		gs, _ := json.MarshalIndent(got, "", "  ")
+		t.Errorf("client I/O JSON diverges from golden:\n--- golden ---\n%s\n--- got ---\n%s",
+			string(bs), string(gs))
+	}
+}
+
 // TestAllSectionsJSONOutput verifies that all section flags produce valid JSON output.
 // Each section is tested individually with --json to ensure proper JSON structure.
 func TestAllSectionsJSONOutput(t *testing.T) {

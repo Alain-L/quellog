@@ -36,13 +36,20 @@ window.REPORT_PERIODS = [
 {{range .Periods}}  { label: "{{.Label}}", entries: {{.Entries}}, errors: {{.Errors}}, data: "{{.Data}}" },
 {{end}}];
 
+// Base64url -> bytes. Payloads use Go base64.URLEncoding so their '+' and '/'
+// are not JS-string-escaped in the template (smaller report); convert for atob.
+function b64ToBytes(b64) {
+    const bin = atob(b64.replace(/-/g, '+').replace(/_/g, '/'));
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return bytes;
+}
+
 let _zstdReady = null;
 async function loadZstdDecoder() {
     if (_zstdReady) return _zstdReady;
     _zstdReady = (async () => {
-        const binaryString = atob(ZSTD_DECODER_GZIP_B64);
-        const bytes = new Uint8Array(binaryString.length);
-        for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
+        const bytes = b64ToBytes(ZSTD_DECODER_GZIP_B64);
         const stream = new DecompressionStream('gzip');
         const writer = stream.writable.getWriter();
         writer.write(bytes); writer.close();
@@ -59,10 +66,7 @@ async function loadZstdDecoder() {
 
 async function decompressData(base64Data) {
     await loadZstdDecoder();
-    const binaryString = atob(base64Data);
-    const bytes = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
-    const decompressed = fzstd.decompress(bytes);
+    const decompressed = fzstd.decompress(b64ToBytes(base64Data));
     return JSON.parse(new TextDecoder().decode(decompressed));
 }
 </script>

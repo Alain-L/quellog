@@ -2,16 +2,26 @@
 
 import { esc, escAttr } from './utils.js';
 import {
-    originalDimensions, currentFilters, appliedFilters, availableDimensions, openDropdown,
-    timeFilterMode, timeFilterStartTs, timeFilterEndTs, timeFilterDurationMins,
+    originalDimensions, currentFilters, appliedFilters,
+    timeFilterStartTs, timeFilterDurationMins,
+    timeFilterSelMin, timeFilterSelMax, timeFilterDefMin, timeFilterDefMax,
     setOriginalDimensions, setCurrentFilters, setAvailableDimensions, setOpenDropdown,
-    setTimeFilterMode, setTimeFilterStartTs, setTimeFilterEndTs, setTimeFilterDurationMins,
+    setTimeFilterStartTs, setTimeFilterEndTs, setTimeFilterDurationMins,
+    setTimeFilterSelMin, setTimeFilterSelMax, setTimeFilterDefMin, setTimeFilterDefMax,
     clearCurrentFilters
 } from './state.js';
 
 // ===== Filter Bar Show/Hide =====
 
 export function showFilterBar() {
+    // A CLI-generated static report can only filter by time, now hosted in the
+    // Summary card; everything in the filter bar (dimension dropdowns, split,
+    // Apply/Clear) drives WASM re-parsing against the raw file, which a static
+    // report doesn't carry — so the whole bar is hidden there.
+    if (window.REPORT_MODE) {
+        document.getElementById('filterBar')?.classList.remove('active');
+        return;
+    }
     document.getElementById('filterBar')?.classList.add('active');
 }
 
@@ -53,83 +63,143 @@ export function initFilterBar(data, isInitial = false) {
 
 // ===== Time Filter =====
 
-export function initTimeFilter(startDate, endDate) {
-    const slider = document.getElementById('filterTimeSlider');
-    const pickers = document.getElementById('filterTimePickers');
-    const begin = document.getElementById('filterBegin');
-    const end = document.getElementById('filterEnd');
+const DAY_MS = 86400000;
+// Above this many days the per-day labels collide on the track, so the time
+// filter switches to From/To date pickers. Shared by initTimeFilter and the
+// Summary renderer (app.js) so both agree on the cutoff.
+export const MAX_CANVAS_DAYS = 8;
+// A leading/trailing calendar day with less coverage than this is folded away,
+// so a log ending at e.g. 00:00:01 doesn't add a near-empty extra day.
+const NEGLIGIBLE_DAY_MS = 5 * 60 * 1000;
 
-    if (!startDate || !endDate) return;
+// Calendar-grid mapping between a slider offset (a uniform 1440 minutes per
+// screen day) and a real timestamp: each screen day maps to one real calendar
+// day, local midnight to local midnight. A 23h/25h day across a DST change
+// still lines up with its date label and the axis extent. On days that are
+// exactly 24h (everywhere except a DST boundary) these are identical to the
+// plain `axisStart + offset*60000` / `(ts - axisStart)/60000`. axisStart is a
+// local midnight.
+export function offsetToTs(axisStart, offsetMins) {
+    const dayIdx = Math.floor(offsetMins / 1440);
+    const minsInDay = offsetMins - dayIdx * 1440;
+    const a = new Date(axisStart);
+    const dayMidnight = new Date(a.getFullYear(), a.getMonth(), a.getDate() + dayIdx).getTime();
+    return dayMidnight + minsInDay * 60000;
+}
+function tsToOffset(axisStart, ts) {
+    const t = new Date(ts);
+    const localMidnight = new Date(t.getFullYear(), t.getMonth(), t.getDate()).getTime();
+    const a = new Date(axisStart);
+    const axisMidnight = new Date(a.getFullYear(), a.getMonth(), a.getDate()).getTime();
+    const dayIdx = Math.round((localMidnight - axisMidnight) / DAY_MS);
+    return dayIdx * 1440 + Math.round((ts - localMidnight) / 60000);
+}
 
-    // Parse timestamps
+// computeDayAxis turns the dataset bounds into the full-calendar-days axis used by
+// the Summary time slider: each touched day is a full 24h of equal width, offsets
+// are measured from midnight of the first day, and the default selection marks the
+// real data extent. A leading/trailing day whose coverage is negligible is dropped
+// (guard-rail). Shared by initTimeFilter and the Summary renderer so both agree.
+export function computeDayAxis(startDate, endDate) {
     const startTs = new Date(startDate.replace(' ', 'T')).getTime();
     const endTs = new Date(endDate.replace(' ', 'T')).getTime();
-    const durationMs = endTs - startTs;
-    const durationHours = durationMs / (1000 * 60 * 60);
+    const sd = new Date(startTs);
+    let axisStart = new Date(sd.getFullYear(), sd.getMonth(), sd.getDate()).getTime();
+    const ed = new Date(endTs);
+    let axisEnd = new Date(ed.getFullYear(), ed.getMonth(), ed.getDate() + 1).getTime();
 
-    if (durationHours <= 24) {
-        // Slider mode - offset from start
-        setTimeFilterMode('slider');
-        setTimeFilterStartTs(startTs);
-        setTimeFilterEndTs(endTs);
-        const durationMins = Math.ceil(durationMs / (1000 * 60));
-        setTimeFilterDurationMins(durationMins);
-
-        slider.style.display = 'block';
-        pickers.style.display = 'none';
-
-        // Set slider range
-        const minSlider = document.getElementById('filterTimeMin');
-        const maxSlider = document.getElementById('filterTimeMax');
-        minSlider.min = 0;
-        minSlider.max = durationMins;
-        maxSlider.min = 0;
-        maxSlider.max = durationMins;
-        minSlider.value = 0;
-        maxSlider.value = durationMins;
-        minSlider.setAttribute('data-original', '0');
-        maxSlider.setAttribute('data-original', String(durationMins));
-
-        // Set day label
-        const startDay = startDate.split(' ')[0];
-        const endDay = endDate.split(' ')[0];
-        if (startDay === endDay) {
-            document.getElementById('filterTimeDay').textContent = formatDateHuman(startDay);
-        } else {
-            document.getElementById('filterTimeDay').textContent = formatDateHuman(startDay) + ' – ' + formatDateHuman(endDay);
-        }
-
-        // Update display
-        updateTimeSlider();
-
-        // Add event listeners
-        minSlider.oninput = () => { enforceMinMax(); updateTimeSlider(); updateApplyButton(); updateTimeDropdownTrigger(); };
-        maxSlider.oninput = () => { enforceMinMax(); updateTimeSlider(); updateApplyButton(); updateTimeDropdownTrigger(); };
-    } else {
-        // Pickers mode
-        setTimeFilterMode('pickers');
-        setTimeFilterStartTs(null);
-        setTimeFilterEndTs(null);
-        slider.style.display = 'none';
-        pickers.style.display = 'grid';
-
-        if (begin) {
-            begin.value = startDate.slice(0, 16).replace(' ', 'T');
-            begin.setAttribute('data-original', begin.value);
-        }
-        if (end) {
-            end.value = endDate.slice(0, 16).replace(' ', 'T');
-            end.setAttribute('data-original', end.value);
-        }
+    // Fold away a negligible trailing day, then a negligible leading day.
+    if (axisEnd - axisStart > DAY_MS && endTs - (axisEnd - DAY_MS) < NEGLIGIBLE_DAY_MS) {
+        axisEnd -= DAY_MS;
     }
+    if (axisEnd - axisStart > DAY_MS && (axisStart + DAY_MS) - startTs < NEGLIGIBLE_DAY_MS) {
+        axisStart += DAY_MS;
+    }
+
+    const nDays = Math.round((axisEnd - axisStart) / DAY_MS);
+    const durMins = nDays * 1440;
+    let defMin = tsToOffset(axisStart, startTs);
+    let defMax = tsToOffset(axisStart, endTs);
+    if (defMin < 0) defMin = 0;
+    if (defMax > durMins) defMax = durMins;
+    return { startTs, endTs, axisStart, axisEnd, nDays, durMins, defMin, defMax };
 }
+
+// initTimeFilter computes the slider axis from the dataset bounds. DOM-free and
+// run once per dataset (initial render): the time control lives in the Summary
+// card, which is rebuilt on every render, so wireTimeFilter() does the DOM
+// binding after each render.
+export function initTimeFilter(startDate, endDate) {
+    if (!startDate || !endDate) return;
+
+    const a = computeDayAxis(startDate, endDate);
+
+    // Always the slider — beyond MAX_CANVAS_DAYS we just drop the per-day labels
+    // and show the start/end dates at the ends instead (handled in the renderer).
+    setTimeFilterStartTs(a.axisStart);
+    setTimeFilterEndTs(a.axisEnd);
+    setTimeFilterDurationMins(a.durMins);
+    setTimeFilterDefMin(a.defMin);
+    setTimeFilterDefMax(a.defMax);
+    setTimeFilterSelMin(a.defMin);
+    setTimeFilterSelMax(a.defMax);
+}
+
+// wireTimeFilter binds the in-Summary time control after each render. The axis
+// (min/max) is the original span from state; the handles restore the persisted
+// selection so applying a time filter — which rebuilds the Summary — does not
+// reset the user's range.
+export function wireTimeFilter() {
+    const slider = document.getElementById('filterTimeSlider');
+    if (!slider) return;
+    // A split report navigates by period; the global time slider is mutually
+    // exclusive with it. Releasing the slider runs applyFilters(), which drops
+    // window.REPORT_PERIODS and tears the navigator down (only a reload brings
+    // it back). Hide it and skip wiring while in split mode.
+    if (window.QL_SPLIT) { slider.style.display = 'none'; return; }
+    slider.style.display = 'block';
+
+    const dur = timeFilterDurationMins || 1;
+    const minSlider = document.getElementById('filterTimeMin');
+    const maxSlider = document.getElementById('filterTimeMax');
+    minSlider.min = maxSlider.min = 0;
+    minSlider.max = maxSlider.max = dur;
+    minSlider.value = timeFilterSelMin;
+    maxSlider.value = timeFilterSelMax;
+    // data-original = the no-filter baseline (data extent), so change detection
+    // treats "handles at the data extent" as unfiltered.
+    minSlider.setAttribute('data-original', String(timeFilterDefMin));
+    maxSlider.setAttribute('data-original', String(timeFilterDefMax));
+
+    updateTimeSlider();
+
+    // oninput = live visual only; onchange (fires on release) = auto-apply.
+    minSlider.oninput = () => { enforceMinMax(); updateTimeSlider(); };
+    maxSlider.oninput = () => { enforceMinMax(); updateTimeSlider(); };
+    minSlider.onchange = autoApplyTime;
+    maxSlider.onchange = autoApplyTime;
+}
+
+// autoApplyTime persists the current selection and applies the time filter on
+// release, debounced. Time filtering is client-side (cheap); dimension filters
+// still go through the explicit Apply button.
+let timeApplyTimer = null;
+function autoApplyTime() {
+    const minSlider = document.getElementById('filterTimeMin');
+    const maxSlider = document.getElementById('filterTimeMax');
+    setTimeFilterSelMin(parseInt(minSlider.value));
+    setTimeFilterSelMax(parseInt(maxSlider.value));
+    updateApplyButton();
+    clearTimeout(timeApplyTimer);
+    timeApplyTimer = setTimeout(() => {
+        if (typeof window.applyFilters === 'function') window.applyFilters();
+    }, 200);
+}
+
+// Month abbreviations for compact date labels.
+const MON_ABBR = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 // ===== Time Utilities =====
-
-export function timeToMinutes(timeStr) {
-    const parts = timeStr.split(':');
-    return parseInt(parts[0] || 0) * 60 + parseInt(parts[1] || 0);
-}
 
 export function minutesToTime(mins) {
     const h = Math.floor(mins / 60);
@@ -151,14 +221,20 @@ export function formatDateHuman(dateStr) {
 export function enforceMinMax() {
     const minSlider = document.getElementById('filterTimeMin');
     const maxSlider = document.getElementById('filterTimeMax');
-    const minVal = parseInt(minSlider.value);
-    const maxVal = parseInt(maxSlider.value);
-    if (minVal > maxVal - 5) {
-        minSlider.value = maxVal - 5;
-    }
-    if (maxVal < minVal + 5) {
-        maxSlider.value = minVal + 5;
-    }
+    if (!minSlider || !maxSlider) return;
+    const lo = timeFilterDefMin;
+    const hi = timeFilterDefMax;
+    let minVal = parseInt(minSlider.value);
+    let maxVal = parseInt(maxSlider.value);
+    // Confine the selection to the data extent — handles can't move into the
+    // empty (no-data) parts of the calendar canvas.
+    if (minVal < lo) minVal = lo;
+    if (maxVal > hi) maxVal = hi;
+    // Keep a 5-minute minimum window without crossing the bounds.
+    if (minVal > maxVal - 5) minVal = Math.max(lo, maxVal - 5);
+    if (maxVal < minVal + 5) maxVal = Math.min(hi, minVal + 5);
+    minSlider.value = minVal;
+    maxSlider.value = maxVal;
 }
 
 export function updateTimeSlider() {
@@ -176,21 +252,31 @@ export function updateTimeSlider() {
     range.style.left = minPercent + '%';
     range.style.width = (maxPercent - minPercent) + '%';
 
-    // Convert offset to actual time
-    const startTime = offsetToTimeStr(minVal);
-    const endTime = offsetToTimeStr(maxVal);
-    label.textContent = startTime + ' – ' + endTime;
+    // Convert offset to actual time. Beyond the per-day-label span, the bounds
+    // show dates (not 00:00/24:00), so the selection label carries the date too.
+    const wide = (timeFilterDurationMins / 1440) > MAX_CANVAS_DAYS;
+    const fmt = wide ? offsetToDateTimeStr : offsetToTimeStr;
+    if (label) label.textContent = fmt(minVal) + ' – ' + fmt(maxVal);
 }
 
 export function offsetToTimeStr(offsetMins) {
     if (!timeFilterStartTs) return minutesToTime(offsetMins);
-    const ts = new Date(timeFilterStartTs + offsetMins * 60 * 1000);
+    const ts = new Date(offsetToTs(timeFilterStartTs, offsetMins));
     return ts.getHours().toString().padStart(2, '0') + ':' + ts.getMinutes().toString().padStart(2, '0');
+}
+
+// "3 Jan 08:00" — date + time, for selections on a multi-day (no per-day labels) axis.
+function offsetToDateTimeStr(offsetMins) {
+    if (!timeFilterStartTs) return minutesToTime(offsetMins);
+    const d = new Date(offsetToTs(timeFilterStartTs, offsetMins));
+    const hh = d.getHours().toString().padStart(2, '0');
+    const mm = d.getMinutes().toString().padStart(2, '0');
+    return `${d.getDate()} ${MON_ABBR[d.getMonth()]} ${hh}:${mm}`;
 }
 
 export function offsetToDatetime(offsetMins) {
     if (!timeFilterStartTs) return null;
-    const ts = new Date(timeFilterStartTs + offsetMins * 60 * 1000);
+    const ts = new Date(offsetToTs(timeFilterStartTs, offsetMins));
     const y = ts.getFullYear();
     const m = (ts.getMonth() + 1).toString().padStart(2, '0');
     const d = ts.getDate().toString().padStart(2, '0');
@@ -277,122 +363,29 @@ export function searchDropdown(category, query) {
 
 // ===== Filter Value Management =====
 
-export function toggleFilterValue(category, value, element) {
-    // Toggle selection
-    const filters = { ...currentFilters };
-    if (!filters[category]) filters[category] = [];
-
-    const idx = filters[category].indexOf(value);
-    if (idx >= 0) {
-        filters[category].splice(idx, 1);
-        if (filters[category].length === 0) delete filters[category];
-        element?.classList.remove('selected');
-        const cb = element?.querySelector('.filter-item-checkbox');
-        if (cb) cb.checked = false;
-    } else {
-        filters[category].push(value);
-        element?.classList.add('selected');
-        const cb = element?.querySelector('.filter-item-checkbox');
-        if (cb) cb.checked = true;
-    }
-
-    setCurrentFilters(filters);
-    updateDropdownTrigger(category);
-    updateToggleAllCheckbox(category);
-    updateApplyButton();
-}
+// Every dimension dropdown is a <ql-dropdown> component (see index.html);
+// the functions below drive the component API. Selection state flows back
+// through the component's change event (handleDropdownChange).
 
 export function toggleAllFilterValues(category, checked) {
     const dropdown = document.querySelector(`ql-dropdown[data-category="${category}"]`);
-
-    // Use component API if available
     if (dropdown && typeof dropdown.selectAll === 'function') {
         dropdown.selectAll(checked);
-        // State update happens via change event handler
-        return;
     }
-
-    // Fallback for non-component dropdowns
-    const list = document.getElementById(`dropdownList-${category}`);
-    if (!list) return;
-
-    const items = list.querySelectorAll('.filter-dropdown-item');
-    const values = Array.from(items).map(item => item.dataset.value);
-    const filters = { ...currentFilters };
-
-    if (checked) {
-        // Select all
-        filters[category] = [...values];
-        items.forEach(item => {
-            item.classList.add('selected');
-            const cb = item.querySelector('.filter-item-checkbox');
-            if (cb) cb.checked = true;
-        });
-    } else {
-        // Deselect all
-        delete filters[category];
-        items.forEach(item => {
-            item.classList.remove('selected');
-            const cb = item.querySelector('.filter-item-checkbox');
-            if (cb) cb.checked = false;
-        });
-    }
-
-    setCurrentFilters(filters);
-    updateDropdownTrigger(category);
-    updateApplyButton();
 }
 
 export function updateToggleAllCheckbox(category) {
     const dropdown = document.querySelector(`ql-dropdown[data-category="${category}"]`);
-
-    // Use component's internal method if available
     if (dropdown && typeof dropdown._updateToggleAll === 'function') {
         dropdown._updateToggleAll();
-        return;
     }
-
-    // Fallback for non-component dropdowns
-    const legacyDropdown = document.querySelector(`.filter-dropdown[data-category="${category}"]`);
-    const checkbox = legacyDropdown?.querySelector('.filter-dropdown-toggle-all');
-    const list = document.getElementById(`dropdownList-${category}`);
-    if (!checkbox || !list) return;
-
-    const items = list.querySelectorAll('.filter-dropdown-item');
-    const selectedCount = currentFilters[category]?.length || 0;
-
-    checkbox.checked = selectedCount === items.length && items.length > 0;
-    checkbox.indeterminate = selectedCount > 0 && selectedCount < items.length;
 }
 
 export function clearCategoryFilter(category) {
     const dropdown = document.querySelector(`ql-dropdown[data-category="${category}"]`);
-
-    // Use component API if available
     if (dropdown && typeof dropdown.clearSelection === 'function') {
         dropdown.clearSelection();
-        // State update happens via change event handler
-        return;
     }
-
-    // Fallback for non-component dropdowns
-    const filters = { ...currentFilters };
-    delete filters[category];
-    setCurrentFilters(filters);
-
-    // Update UI - unselect items in this dropdown
-    const list = document.getElementById(`dropdownList-${category}`);
-    if (list) {
-        list.querySelectorAll('.filter-dropdown-item.selected').forEach(item => {
-            item.classList.remove('selected');
-            const cb = item.querySelector('.filter-item-checkbox');
-            if (cb) cb.checked = false;
-        });
-    }
-
-    updateToggleAllCheckbox(category);
-    updateDropdownTrigger(category);
-    updateApplyButton();
 }
 
 // ===== Dropdown Trigger Updates =====
@@ -401,24 +394,11 @@ export function updateDropdownTrigger(category) {
     const dropdown = document.querySelector(`.filter-dropdown[data-category="${category}"]`);
     if (!dropdown) return;
 
-    const count = currentFilters[category]?.length || 0;
-
-    // Use component API if available (ql-dropdown)
+    // Component API only: the count setter updates the trigger badge and the
+    // has-selection styling. Non-component elements (e.g. the split control)
+    // manage their own count display.
     if ('count' in dropdown) {
-        dropdown.count = count;
-    } else {
-        // Fallback for non-component dropdowns
-        const trigger = dropdown.querySelector('.filter-dropdown-trigger');
-        const countEl = dropdown.querySelector('.filter-dropdown-count');
-        if (count > 0) {
-            dropdown.classList.add('has-selection');
-            trigger?.classList.add('has-selection');
-            if (countEl) countEl.textContent = `(${count})`;
-        } else {
-            dropdown.classList.remove('has-selection');
-            trigger?.classList.remove('has-selection');
-            if (countEl) countEl.textContent = '';
-        }
+        dropdown.count = currentFilters[category]?.length || 0;
     }
 }
 
@@ -448,19 +428,11 @@ export function updateTimeDropdownTrigger() {
 // ===== Filter State Checking =====
 
 export function hasTimeFilterChanged() {
-    if (timeFilterMode === 'slider') {
-        const minSlider = document.getElementById('filterTimeMin');
-        const maxSlider = document.getElementById('filterTimeMax');
-        const minOrig = minSlider?.getAttribute('data-original') || '0';
-        const maxOrig = maxSlider?.getAttribute('data-original') || String(timeFilterDurationMins);
-        return minSlider?.value !== minOrig || maxSlider?.value !== maxOrig;
-    } else {
-        const begin = document.getElementById('filterBegin');
-        const end = document.getElementById('filterEnd');
-        const beginOrig = begin?.getAttribute('data-original') || '';
-        const endOrig = end?.getAttribute('data-original') || '';
-        return (begin?.value || '') !== beginOrig || (end?.value || '') !== endOrig;
-    }
+    const minSlider = document.getElementById('filterTimeMin');
+    const maxSlider = document.getElementById('filterTimeMax');
+    const minOrig = minSlider?.getAttribute('data-original') || '0';
+    const maxOrig = maxSlider?.getAttribute('data-original') || String(timeFilterDurationMins);
+    return minSlider?.value !== minOrig || maxSlider?.value !== maxOrig;
 }
 
 export function filtersHaveChanged() {
@@ -483,31 +455,14 @@ export function filtersHaveChanged() {
     // Check time filters
     let currBegin = null, currEnd = null;
 
-    if (timeFilterMode === 'slider') {
-        const minSlider = document.getElementById('filterTimeMin');
-        const maxSlider = document.getElementById('filterTimeMax');
-        const minOrig = minSlider?.getAttribute('data-original') || '0';
-        const maxOrig = maxSlider?.getAttribute('data-original') || String(timeFilterDurationMins);
-        const minVal = minSlider?.value || '0';
-        const maxVal = maxSlider?.value || String(timeFilterDurationMins);
-
-        if (minVal !== minOrig) {
-            currBegin = offsetToDatetime(parseInt(minVal));
-        }
-        if (maxVal !== maxOrig) {
-            currEnd = offsetToDatetime(parseInt(maxVal));
-        }
-    } else {
-        const begin = document.getElementById('filterBegin');
-        const end = document.getElementById('filterEnd');
-        const beginOrig = begin?.getAttribute('data-original') || '';
-        const endOrig = end?.getAttribute('data-original') || '';
-        const beginVal = begin?.value || '';
-        const endVal = end?.value || '';
-
-        currBegin = beginVal !== beginOrig ? beginVal : null;
-        currEnd = endVal !== endOrig ? endVal : null;
-    }
+    const minSlider = document.getElementById('filterTimeMin');
+    const maxSlider = document.getElementById('filterTimeMax');
+    const minOrig = minSlider?.getAttribute('data-original') || '0';
+    const maxOrig = maxSlider?.getAttribute('data-original') || String(timeFilterDurationMins);
+    const minVal = minSlider?.value || '0';
+    const maxVal = maxSlider?.value || String(timeFilterDurationMins);
+    if (minVal !== minOrig) currBegin = offsetToDatetime(parseInt(minVal));
+    if (maxVal !== maxOrig) currEnd = offsetToDatetime(parseInt(maxVal));
 
     if (currBegin !== (appliedFilters._begin || null)) return true;
     if (currEnd !== (appliedFilters._end || null)) return true;
@@ -535,30 +490,14 @@ export function updateApplyButton() {
 export function buildFiltersObject() {
     const filters = { ...currentFilters };
 
-    // Add time range based on mode
-    if (timeFilterMode === 'slider') {
-        const minSlider = document.getElementById('filterTimeMin');
-        const maxSlider = document.getElementById('filterTimeMax');
-        const minOrig = minSlider?.getAttribute('data-original') || '0';
-        const maxOrig = maxSlider?.getAttribute('data-original') || String(timeFilterDurationMins);
-        const minVal = minSlider?.value || '0';
-        const maxVal = maxSlider?.value || String(timeFilterDurationMins);
-
-        if (minVal !== minOrig) {
-            filters.begin = offsetToDatetime(parseInt(minVal));
-        }
-        if (maxVal !== maxOrig) {
-            filters.end = offsetToDatetime(parseInt(maxVal));
-        }
-    } else {
-        const begin = document.getElementById('filterBegin')?.value;
-        const end = document.getElementById('filterEnd')?.value;
-        const beginOrig = document.getElementById('filterBegin')?.getAttribute('data-original') || '';
-        const endOrig = document.getElementById('filterEnd')?.getAttribute('data-original') || '';
-
-        if (begin && begin !== beginOrig) filters.begin = begin.replace('T', ' ');
-        if (end && end !== endOrig) filters.end = end.replace('T', ' ');
-    }
+    const minSlider = document.getElementById('filterTimeMin');
+    const maxSlider = document.getElementById('filterTimeMax');
+    const minOrig = minSlider?.getAttribute('data-original') || '0';
+    const maxOrig = maxSlider?.getAttribute('data-original') || String(timeFilterDurationMins);
+    const minVal = minSlider?.value || '0';
+    const maxVal = maxSlider?.value || String(timeFilterDurationMins);
+    if (minVal !== minOrig) filters.begin = offsetToDatetime(parseInt(minVal));
+    if (maxVal !== maxOrig) filters.end = offsetToDatetime(parseInt(maxVal));
 
     return filters;
 }
@@ -566,18 +505,13 @@ export function buildFiltersObject() {
 // ===== Reset Time Inputs =====
 
 export function resetTimeInputs() {
-    if (timeFilterMode === 'slider') {
-        const minSlider = document.getElementById('filterTimeMin');
-        const maxSlider = document.getElementById('filterTimeMax');
-        if (minSlider) minSlider.value = minSlider.getAttribute('data-original') || '0';
-        if (maxSlider) maxSlider.value = maxSlider.getAttribute('data-original') || String(timeFilterDurationMins);
-        updateTimeSlider();
-    } else {
-        const begin = document.getElementById('filterBegin');
-        const end = document.getElementById('filterEnd');
-        if (begin) begin.value = begin.getAttribute('data-original') || '';
-        if (end) end.value = end.getAttribute('data-original') || '';
-    }
+    setTimeFilterSelMin(timeFilterDefMin);
+    setTimeFilterSelMax(timeFilterDefMax);
+    const minSlider = document.getElementById('filterTimeMin');
+    const maxSlider = document.getElementById('filterTimeMax');
+    if (minSlider) minSlider.value = String(timeFilterDefMin);
+    if (maxSlider) maxSlider.value = String(timeFilterDefMax);
+    updateTimeSlider();
 }
 
 // ===== Clear All UI State =====
@@ -633,6 +567,10 @@ export function setupFilterEventListeners() {
 
 // Handle selection change from ql-dropdown component
 function handleDropdownChange(e) {
+    // A ql-dropdown selection dispatches a CustomEvent carrying {category, values}.
+    // The dropdown's inner native checkbox/input also fires a bubbling 'change'
+    // with no detail; ignore it rather than throwing on the destructure below.
+    if (!e.detail) return;
     const { category, values } = e.detail;
     if (!category) return;
 
@@ -653,8 +591,6 @@ function handleDropdownChange(e) {
 export function exposeFilterGlobals() {
     window.toggleDropdown = toggleDropdown;
     window.searchDropdown = searchDropdown;
-    window.toggleFilterValue = toggleFilterValue;
     window.toggleAllFilterValues = toggleAllFilterValues;
     window.clearCategoryFilter = clearCategoryFilter;
-    window.applyTimeFilter = () => { closeAllDropdowns(); updateApplyButton(); };
 }

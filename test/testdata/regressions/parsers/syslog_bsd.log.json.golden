@@ -100,8 +100,24 @@
     "session_events": [
       {
         "s": "2026-04-20T07:59:59",
-        "e": "2026-04-20T08:00:03"
+        "e": "2026-04-20T08:00:03",
+        "d": 3123,
+        "u": 1,
+        "db": 1,
+        "h": 1
       }
+    ],
+    "session_users": [
+      "",
+      "app"
+    ],
+    "session_databases": [
+      "",
+      "appdb"
+    ],
+    "session_hosts": [
+      "",
+      "10.0.0.70"
     ]
   },
   "databases": [
@@ -191,7 +207,8 @@
     "fatal_count": 0,
     "panic_count": 0,
     "warning_count": 0,
-    "log_count": 6
+    "log_count": 6,
+    "utc_offset_minutes": 0
   },
   "top_events": [
     {

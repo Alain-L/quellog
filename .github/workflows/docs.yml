@@ -26,7 +26,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # need tags for `git describe` in the WASM version stamp
+          fetch-depth: 0  # full git history for the docs build
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -62,7 +62,12 @@ jobs:
 
       - name: Build WASM demo
         run: |
-          VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo dev)
+          # Version stamp comes from the CHANGELOG's top released section, which is
+          # set before the release merge — so the demo footer is correct on the merge
+          # to main without waiting for the git tag (created afterwards, and not in
+          # dev's ancestry for `git describe`).
+          VERSION=$(grep -m1 -oE '^## \[[0-9]+\.[0-9]+\.[0-9]+\]' CHANGELOG.md | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
+          VERSION="v${VERSION:-0.0.0}"
           go generate ./web/...
           sed -i "s/var version = \".*\"/var version = \"$VERSION\"/" web/wasm/main.go
           tinygo build -o web/quellog_tiny.wasm -target wasm -gc=leaking -no-debug ./web/wasm/main.go

@@ -34,7 +34,7 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 	if has("summary") {
 		b.WriteString("## SUMMARY\n\n")
 		b.WriteString(fmt.Sprintf("This _quellog_ report summarizes **%s** log entries collected between %s — %s, spanning %s of activity.\n\n",
-			formatIntWithCommas(int64(m.Global.Count)),
+			formatThousands(int64(m.Global.Count)),
 			humanDate(m.Global.MinTimestamp),
 			humanDate(m.Global.MaxTimestamp),
 			humanDuration(duration),
@@ -87,125 +87,44 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 
 		onlyErrors := has("errors") && !has("events")
 
-		// Re-sort summaries by severity order (PANIC -> FATAL -> ERROR ...)
-		severityRank := make(map[string]int)
-		for i, s := range analysis.PredefinedEventTypes {
-			severityRank[s] = i
-		}
-
-		sort.Slice(m.EventSummaries, func(i, j int) bool {
-			rankI, okI := severityRank[m.EventSummaries[i].Type]
-			rankJ, okJ := severityRank[m.EventSummaries[j].Type]
-			if okI && okJ {
-				return rankI < rankJ
-			}
-			if okI {
-				return true
-			}
-			if okJ {
-				return false
-			}
-			return m.EventSummaries[i].Type < m.EventSummaries[j].Type
-		})
-
-		// Group top events by severity
-		eventsBySeverity := make(map[string][]analysis.EventStat)
-		for _, e := range m.TopEvents {
-			eventsBySeverity[e.Severity] = append(eventsBySeverity[e.Severity], e)
-		}
-
-		for _, summary := range m.EventSummaries {
-			if summary.Count == 0 {
-				continue
-			}
-
-			// Filter non-error severities if requested
-			if onlyErrors {
-				s := summary.Type
-				if s == "LOG" || s == "INFO" || s == "DEBUG" || s == "NOTICE" {
-					continue
-				}
-			}
-
+		for _, blk := range groupEventsBySeverityAndClass(m.EventSummaries, m.TopEvents, onlyErrors) {
 			// Level 1: Severity
 			b.WriteString(fmt.Sprintf("- **%s**: %d (%.1f%%)\n",
-				summary.Type, summary.Count, summary.Percentage))
+				blk.Summary.Type, blk.Summary.Count, blk.Summary.Percentage))
 
-			// Detailed events
-			if events, ok := eventsBySeverity[summary.Type]; ok {
-				// Group by Error Class
-				byClass := make(map[string][]analysis.EventStat)
-				for _, e := range events {
-					class := e.SQLStateClass
-					if class == "" || class == "00" {
-						class = "Unclassified"
-					}
-					byClass[class] = append(byClass[class], e)
+			for _, c := range blk.Classes {
+				// Level 2: Class — skip a lone "Unclassified" header.
+				if (c.Code != "Unclassified") || len(blk.Classes) > 1 {
+					b.WriteString(fmt.Sprintf("  - **%s**\n", c.Header))
 				}
+				// Events at the same indent as the class header —
+				// pattern IDs in the left margin, flat under the
+				// class label.
+				indent := "  "
 
-				// Sort classes
-				var classes []string
-				for c := range byClass {
-					classes = append(classes, c)
-				}
-				sort.Slice(classes, func(i, j int) bool {
-					if classes[i] == "Unclassified" {
-						return false
+				// Level 3: Message
+				for _, e := range c.Events {
+					msg := e.Message
+					if len(msg) > 80 {
+						msg = msg[:77] + "..."
 					}
-					if classes[j] == "Unclassified" {
-						return true
+					// Escape backticks in message for markdown code block
+					msg = strings.ReplaceAll(msg, "`", "'")
+
+					localPct := 0.0
+					if blk.Summary.Count > 0 {
+						localPct = (float64(e.Count) / float64(blk.Summary.Count)) * 100
 					}
-					return classes[i] < classes[j]
-				})
 
-				for _, classCode := range classes {
-					classEvents := byClass[classCode]
-
-					// Level 2: Class
-					shouldPrintHeader := (classCode != "Unclassified") || (classCode == "Unclassified" && len(classes) > 1)
-
-					if shouldPrintHeader {
-						classHeader := classCode
-						if classCode != "Unclassified" {
-							desc := analysis.GetErrorClassDescription(classCode)
-							classHeader = fmt.Sprintf("%s - %s", classCode, desc)
-						}
-						b.WriteString(fmt.Sprintf("  - **%s**\n", classHeader))
+					idLead := ""
+					if e.ID != "" {
+						// Lead with the handle in italic — left
+						// margin label, mirrors the italic-grey
+						// column position used in text output.
+						idLead = "*" + e.ID + "* "
 					}
-					// Events at the same indent as the class header —
-					// pattern IDs in the left margin, flat under the
-					// class label.
-					indent := "  "
-
-					// Sort events by count
-					sort.Slice(classEvents, func(i, j int) bool {
-						return classEvents[i].Count > classEvents[j].Count
-					})
-
-					// Level 3: Message
-					for _, e := range classEvents {
-						msg := e.Message
-						if len(msg) > 80 {
-							msg = msg[:77] + "..."
-						}
-						// Escape backticks in message for markdown code block
-						msg = strings.ReplaceAll(msg, "`", "'")
-
-						localPct := 0.0
-						if summary.Count > 0 {
-							localPct = (float64(e.Count) / float64(summary.Count)) * 100
-						}
-
-						idLead := ""
-						if e.ID != "" {
-							// Lead with the handle in italic — left
-							// margin label, mirrors the italic-grey
-							// column position used in text output.
-							idLead = "*" + e.ID + "* "
-						}
-						b.WriteString(fmt.Sprintf("%s- %s`%s` (%d) [%.1f%%]\n",
-							indent, idLead, msg, e.Count, localPct))
-					}
+					b.WriteString(fmt.Sprintf("%s- %s`%s` (%d) [%.1f%%]\n",
+						indent, idLead, msg, e.Count, localPct))
 				}
 			}
 			b.WriteString("\n")
@@ -415,10 +334,10 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 	// k:v block followed by purpose-driven top-tables panels.
 	// ============================================================================
 	if has("maintenance") {
-		if m.Vacuum.VacuumCount > 0 {
+		if m.Vacuum.VacuumCount > 0 || m.Vacuum.SkippedVacuumCount > 0 {
 			writeAutovacuumSectionMarkdown(&b, m.Vacuum)
 		}
-		if m.Vacuum.AnalyzeCount > 0 {
+		if m.Vacuum.AnalyzeCount > 0 || m.Vacuum.SkippedAnalyzeCount > 0 {
 			writeAutoanalyzeSectionMarkdown(&b, m.Vacuum)
 		}
 	}
@@ -640,6 +559,15 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 		writeSessionTable("User", m.Connections.SessionsByUser)
 		writeSessionTable("Database", m.Connections.SessionsByDatabase)
 		writeSessionTable("Host", m.Connections.SessionsByHost)
+
+		writeClientIOFailuresMarkdown(&b, m.Connections)
+	}
+
+	// Client I/O failures on logs that do not log connections at all (so the
+	// section above is skipped) but still report broken pipes / resets.
+	if has("connections") && m.Connections.ConnectionReceivedCount == 0 && m.Connections.ClientIOFailureCount > 0 {
+		b.WriteString("## CONNECTIONS & SESSIONS\n\n")
+		writeClientIOFailuresMarkdown(&b, m.Connections)
 	}
 
 	// ============================================================================
@@ -1052,6 +980,9 @@ func writeAutovacuumSectionMarkdown(b *strings.Builder, v analysis.VacuumMetrics
 	if v.AggressiveVacuumCount > 0 {
 		b.WriteString(fmt.Sprintf("  - *of which aggressive*: %d\n", v.AggressiveVacuumCount))
 	}
+	if v.SkippedVacuumCount > 0 {
+		b.WriteString(fmt.Sprintf("- **Vacuum skipped**: %d\n", v.SkippedVacuumCount))
+	}
 	if v.TotalVacuumElapsedSeconds > 0 {
 		dur := time.Duration(v.TotalVacuumElapsedSeconds * float64(time.Second)).Truncate(time.Second)
 		b.WriteString(fmt.Sprintf("- **Cumulated time**: %s\n", dur))
@@ -1059,7 +990,7 @@ func writeAutovacuumSectionMarkdown(b *strings.Builder, v analysis.VacuumMetrics
 	if v.TotalTuplesRemoved > 0 {
 		b.WriteString(fmt.Sprintf("- **Tuples removed**: %d\n", v.TotalTuplesRemoved))
 	}
-	if total := sumSpaceRecoveredMD(v.VacuumSpaceRecovered); total > 0 {
+	if total := sumSpaceRecovered(v.VacuumSpaceRecovered); total > 0 {
 		b.WriteString(fmt.Sprintf("- **Space recovered**: %s\n", FormatBytes(total)))
 	}
 	if v.TotalTuplesNotYetRemovable > 0 {
@@ -1109,6 +1040,8 @@ func writeAutovacuumSectionMarkdown(b *strings.Builder, v analysis.VacuumMetrics
 		b.WriteString(printTopTablesMarkdown(v.VacuumTableCounts, v.VacuumCount, v.VacuumSpaceRecovered))
 		b.WriteString("\n")
 	}
+
+	writeSkippedTablesMarkdown(b, "### Tables skipped by autovacuum", v.SkippedVacuumTables)
 }
 
 // writeAutoanalyzeSectionMarkdown renders the AUTOANALYZE sibling
@@ -1117,6 +1050,9 @@ func writeAutovacuumSectionMarkdown(b *strings.Builder, v analysis.VacuumMetrics
 func writeAutoanalyzeSectionMarkdown(b *strings.Builder, v analysis.VacuumMetrics) {
 	b.WriteString("## AUTOANALYZE\n\n")
 	b.WriteString(fmt.Sprintf("- **Analyze count**: %d\n", v.AnalyzeCount))
+	if v.SkippedAnalyzeCount > 0 {
+		b.WriteString(fmt.Sprintf("- **Analyze skipped**: %d\n", v.SkippedAnalyzeCount))
+	}
 	if v.TotalAnalyzeElapsedSeconds > 0 {
 		dur := time.Duration(v.TotalAnalyzeElapsedSeconds * float64(time.Second)).Truncate(time.Second)
 		b.WriteString(fmt.Sprintf("- **Cumulated time**: %s\n", dur))
@@ -1145,17 +1081,121 @@ func writeAutoanalyzeSectionMarkdown(b *strings.Builder, v analysis.VacuumMetric
 		b.WriteString(printTopTablesMarkdown(v.AnalyzeTableCounts, v.AnalyzeCount, nil))
 		b.WriteString("\n")
 	}
+
+	writeSkippedTablesMarkdown(b, "### Tables skipped by autoanalyze", v.SkippedAnalyzeTables)
 }
 
-// sumSpaceRecoveredMD totals the per-table reclaimed bytes — mirrors
-// the helper in output/text.go so the AUTOVACUUM header can show one
-// cluster-wide "Space recovered" line above the per-table breakdown.
-func sumSpaceRecoveredMD(m map[string]int64) int64 {
-	var total int64
-	for _, v := range m {
-		total += v
+// writeSkippedTablesMarkdown renders a skipped-relations table as aligned
+// markdown. The Reason column appears only when at least one reason deviates
+// from the universal "lock not available" default — matching the CLI/HTML,
+// which suppress that noise — so the common case stays a clean two-column
+// table.
+func writeSkippedTablesMarkdown(b *strings.Builder, title string, skips []analysis.VacuumSkip) {
+	if len(skips) == 0 {
+		return
 	}
-	return total
+	b.WriteString(title + "\n\n")
+
+	shown := skips
+	if len(shown) > maxSkippedDisplay {
+		shown = shown[:maxSkippedDisplay]
+	}
+
+	withReason := false
+	for _, s := range shown {
+		if s.Reason != "" && s.Reason != skipReasonDefault {
+			withReason = true
+			break
+		}
+	}
+
+	if withReason {
+		rows := make([][]string, 0, len(shown))
+		for _, s := range shown {
+			reason := ""
+			if s.Reason != skipReasonDefault {
+				reason = s.Reason
+			}
+			rows = append(rows, []string{"`" + s.Table + "`", fmt.Sprintf("%d", s.Count), reason})
+		}
+		mdTable(b, []string{"Table", "Skipped", "Reason"}, "lrl", rows)
+	} else {
+		rows := make([][]string, 0, len(shown))
+		for _, s := range shown {
+			rows = append(rows, []string{"`" + s.Table + "`", fmt.Sprintf("%d", s.Count)})
+		}
+		mdTable(b, []string{"Table", "Skipped"}, "lr", rows)
+	}
+	if len(skips) > len(shown) {
+		b.WriteString(fmt.Sprintf("\n_… and %d more_\n", len(skips)-len(shown)))
+	}
+	b.WriteString("\n")
+}
+
+// writeClientIOFailuresMarkdown renders the client I/O failure breakdown:
+// a count headline, then the reasons grouped by direction (receiving from /
+// sending to the client) as aligned tables, then the top databases. Mirrors
+// the text/JSON grouping so the abbreviation-free heading disambiguates flow.
+func writeClientIOFailuresMarkdown(b *strings.Builder, c analysis.ConnectionMetrics) {
+	if c.ClientIOFailureCount == 0 {
+		return
+	}
+	b.WriteString(fmt.Sprintf("### Client I/O failures: %d\n\n", c.ClientIOFailureCount))
+
+	// One exhaustive table per direction: a row per reason × database, ordered
+	// by reason total desc then database count desc.
+	dirTable := func(title string, byReason map[string]map[string]int) {
+		if len(byReason) == 0 {
+			return
+		}
+		type row struct {
+			reason string
+			total  int
+			db     string
+			count  int
+		}
+		var rows []row
+		reasons := make([]string, 0, len(byReason))
+		totals := make(map[string]int, len(byReason))
+		for r, dbs := range byReason {
+			reasons = append(reasons, r)
+			for _, cnt := range dbs {
+				totals[r] += cnt
+			}
+		}
+		sort.Slice(reasons, func(i, j int) bool {
+			if totals[reasons[i]] != totals[reasons[j]] {
+				return totals[reasons[i]] > totals[reasons[j]]
+			}
+			return reasons[i] < reasons[j]
+		})
+		for _, r := range reasons {
+			dbs := byReason[r]
+			names := make([]string, 0, len(dbs))
+			for d := range dbs {
+				names = append(names, d)
+			}
+			sort.Slice(names, func(i, j int) bool {
+				if dbs[names[i]] != dbs[names[j]] {
+					return dbs[names[i]] > dbs[names[j]]
+				}
+				return names[i] < names[j]
+			})
+			for _, d := range names {
+				rows = append(rows, row{r, totals[r], d, dbs[d]})
+			}
+		}
+		out := make([][]string, 0, len(rows))
+		for _, rw := range rows {
+			out = append(out, []string{rw.reason, "`" + rw.db + "`", fmt.Sprintf("%d", rw.count)})
+		}
+		b.WriteString("**" + title + "**\n\n")
+		mdTable(b, []string{"Reason", "Database", "Count"}, "llr", out)
+		b.WriteString("\n")
+	}
+
+	dirTable("Receiving from client", c.ClientIORecv)
+	dirTable("Sending to client", c.ClientIOSend)
 }
 
 func printTopTablesMarkdown(tableCounts map[string]int, total int, spaceRecovered map[string]int64) string {
@@ -1217,74 +1257,30 @@ func printQueryStatsMarkdown(b *strings.Builder, stats map[string]*analysis.Quer
 		return
 	}
 
-	type qinfo struct {
-		ID        string
-		Query     string
-		Count     int
-		TotalTime float64
-		AvgTime   float64
-		MaxTime   float64
-	}
+	list := flattenQueryStats(stats)
 
-	var list []qinfo
-	for _, s := range stats {
-		// Use the pre-computed ID instead of recalculating.
-		list = append(list, qinfo{
-			ID:        s.ID,
-			Query:     s.NormalizedQuery,
-			Count:     s.Count,
-			TotalTime: s.TotalTime,
-			AvgTime:   s.AvgTime,
-			MaxTime:   s.MaxTime,
-		})
-	}
-
-	// Slowest queries
-	emit := func(title string, sortFn func(i, j int) bool, headers []string, rowFn func(qinfo) []string) {
-		sort.Slice(list, sortFn)
+	emit := func(title string, ranked []rankedQuery, headers []string, rowFn func(rankedQuery) []string) {
 		b.WriteString("**" + title + "**\n\n")
-		end := len(list)
-		if end > 10 {
-			end = 10
-		}
-		rows := make([][]string, 0, end)
-		for _, q := range list[:end] {
+		rows := make([][]string, 0, len(ranked))
+		for _, q := range ranked {
 			rows = append(rows, rowFn(q))
 		}
 		mdTable(b, headers, "lrrrl", rows)
 		b.WriteString("\n")
 	}
-	emit("Slowest queries (top 10)",
-		func(i, j int) bool {
-			if list[i].MaxTime != list[j].MaxTime {
-				return list[i].MaxTime > list[j].MaxTime
-			}
-			return list[i].ID < list[j].ID
-		},
+	emit("Slowest queries (top 10)", topRankedQueries(list, rankByMaxTime, 10),
 		[]string{"SQLID", "Max", "Avg", "Count", "Query"},
-		func(q qinfo) []string {
+		func(q rankedQuery) []string {
 			return []string{q.ID, formatQueryDuration(q.MaxTime), formatQueryDuration(q.AvgTime), fmt.Sprintf("%d", q.Count), truncateQuery(q.Query, 80)}
 		})
-	emit("Most frequent queries (top 10)",
-		func(i, j int) bool {
-			if list[i].Count != list[j].Count {
-				return list[i].Count > list[j].Count
-			}
-			return list[i].ID < list[j].ID
-		},
+	emit("Most frequent queries (top 10)", topRankedQueries(list, rankByCount, 10),
 		[]string{"SQLID", "Count", "Avg", "Max", "Query"},
-		func(q qinfo) []string {
+		func(q rankedQuery) []string {
 			return []string{q.ID, fmt.Sprintf("%d", q.Count), formatQueryDuration(q.AvgTime), formatQueryDuration(q.MaxTime), truncateQuery(q.Query, 80)}
 		})
-	emit("Most time consuming queries (top 10)",
-		func(i, j int) bool {
-			if list[i].TotalTime != list[j].TotalTime {
-				return list[i].TotalTime > list[j].TotalTime
-			}
-			return list[i].ID < list[j].ID
-		},
+	emit("Most time consuming queries (top 10)", topRankedQueries(list, rankByTotalTime, 10),
 		[]string{"SQLID", "Total", "Avg", "Count", "Query"},
-		func(q qinfo) []string {
+		func(q rankedQuery) []string {
 			return []string{q.ID, formatQueryDuration(q.TotalTime), formatQueryDuration(q.AvgTime), fmt.Sprintf("%d", q.Count), truncateQuery(q.Query, 80)}
 		})
 }
@@ -1301,25 +1297,6 @@ func countSlowQueries(sql analysis.SQLMetrics) int {
 // FORMATTING HELPERS (reused from text.go)
 // ============================================================================
 
-// formatIntWithCommas formats an integer with thousands separators
-func formatIntWithCommas(n int64) string {
-	s := fmt.Sprintf("%d", n)
-	if n < 0 {
-		s = s[1:]
-	}
-	var parts []string
-	for len(s) > 3 {
-		parts = append([]string{s[len(s)-3:]}, parts...)
-		s = s[:len(s)-3]
-	}
-	parts = append([]string{s}, parts...)
-	res := strings.Join(parts, ",")
-	if n < 0 {
-		res = "-" + res
-	}
-	return res
-}
-
 // writeDimensionsMarkdownRow appends one line of the Dimensions
 // sub-section in --sql-detail markdown. Each entry reads "<name>
 // <count>" with the count italicised — same sobre convention as the
@@ -1331,36 +1308,9 @@ func writeDimensionsMarkdownRow(b *strings.Builder, label string, rows []analysi
 	}
 	parts := make([]string, 0, len(rows))
 	for _, r := range rows {
-		parts = append(parts, fmt.Sprintf("%s *%s*", r.Name, formatIntWithCommas(int64(r.Count))))
+		parts = append(parts, fmt.Sprintf("%s *%s*", r.Name, formatThousands(int64(r.Count))))
 	}
 	b.WriteString(fmt.Sprintf("- **%s**: %s\n", label, strings.Join(parts, ", ")))
-}
-
-// formatSlowestRunDimensionsMD adds a ", db=X, user=Y, app=Z, host=W"
-// suffix to the Slowest Run header in markdown. Same contract as the
-// text version — returns "" when the slowest run carries no prefix
-// fields.
-func formatSlowestRunDimensionsMD(sr *analysis.SlowestRun) string {
-	if sr == nil {
-		return ""
-	}
-	var parts []string
-	if sr.Database != "" {
-		parts = append(parts, "db="+sr.Database)
-	}
-	if sr.User != "" {
-		parts = append(parts, "user="+sr.User)
-	}
-	if sr.App != "" {
-		parts = append(parts, "app="+sr.App)
-	}
-	if sr.Host != "" {
-		parts = append(parts, "host="+sr.Host)
-	}
-	if len(parts) == 0 {
-		return ""
-	}
-	return ", " + strings.Join(parts, ", ")
 }
 
 // humanDate returns a compact, human-friendly date/time string
@@ -1623,38 +1573,6 @@ func ExportSQLSummaryMarkdown(w io.Writer, m analysis.SQLMetrics, tempFiles anal
 	fmt.Fprintln(w, b.String())
 }
 
-// queryEventLinkMD is the markdown variant of queryEventLink — same
-// shape, kept local so the two output packages do not need a shared
-// view type.
-type queryEventLinkMD struct {
-	event      analysis.EventStat
-	triggerCnt int
-}
-
-// findEventsTriggeredByQueryMD mirrors the text-side helper but keeps
-// the local struct out of the public API surface.
-func findEventsTriggeredByQueryMD(events []analysis.EventStat, queryID string) []queryEventLinkMD {
-	if queryID == "" {
-		return nil
-	}
-	var out []queryEventLinkMD
-	for i := range events {
-		for _, tq := range events[i].TriggeringQueries {
-			if tq.ID == queryID {
-				out = append(out, queryEventLinkMD{event: events[i], triggerCnt: tq.Count})
-				break
-			}
-		}
-	}
-	sort.Slice(out, func(i, j int) bool {
-		if out[i].triggerCnt != out[j].triggerCnt {
-			return out[i].triggerCnt > out[j].triggerCnt
-		}
-		return out[i].event.Count > out[j].event.Count
-	})
-	return out
-}
-
 // ExportSQLDetailMarkdown produces a markdown report for --sql-detail
 func ExportSQLDetailMarkdown(w io.Writer, m analysis.AggregatedMetrics, queryIDs []string) {
 	var b strings.Builder
@@ -1738,18 +1656,18 @@ func ExportSQLDetailMarkdown(w io.Writer, m analysis.AggregatedMetrics, queryIDs
 		// first thing a DBA reads. Rows are sorted by trigger count
 		// descending; "#" and "Event total" are dropped to keep the
 		// table focused on the "this query caused N of these" answer.
-		eventsForMD := findEventsTriggeredByQueryMD(m.TopEvents, qid)
+		eventsForMD := findEventsTriggeredByQuery(m.TopEvents, qid)
 		if len(eventsForMD) > 0 {
 			b.WriteString("### EVENTS\n\n")
 			b.WriteString("| Event ID | Severity | Message | Triggered |\n")
 			b.WriteString("|---|---|---|---:|\n")
 			for _, r := range eventsForMD {
-				msg := r.event.Message
+				msg := r.Event.Message
 				if len(msg) > 90 {
 					msg = msg[:89] + "…"
 				}
 				b.WriteString(fmt.Sprintf("| `%s` | %s | %s | %d |\n",
-					r.event.ID, r.event.Severity, msg, r.triggerCnt))
+					r.Event.ID, r.Event.Severity, msg, r.TriggerCnt))
 			}
 			b.WriteString("\n")
 		}
@@ -1854,7 +1772,7 @@ func ExportSQLDetailMarkdown(w io.Writer, m analysis.AggregatedMetrics, queryIDs
 					formatQueryDuration(sr.DurationMs),
 					sr.Timestamp.Format("2006-01-02 15:04:05"),
 					sr.PID,
-					formatSlowestRunDimensionsMD(sr),
+					formatSlowestRunDimensions(sr),
 				))
 				text, truncated, full := truncateForDisplay(SubstituteParameters(rawQuery, sr.Parameters), slowestRunDisplayCap)
 				b.WriteString("```sql\n")

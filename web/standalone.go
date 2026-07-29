@@ -74,8 +74,10 @@ func minifyCSS(css string) string {
 	css = regexp.MustCompile(`/\*[\s\S]*?\*/`).ReplaceAllString(css, "")
 	// Collapse whitespace
 	css = regexp.MustCompile(`\s+`).ReplaceAllString(css, " ")
-	// Remove space around punctuation
-	css = regexp.MustCompile(`\s*([{};:,>~+])\s*`).ReplaceAllString(css, "$1")
+	// Remove space around punctuation. '+' is intentionally excluded: it is
+	// ambiguous with calc() addition (calc(100% + 4px)), where CSS requires the
+	// spaces and Chrome drops the whole declaration without them.
+	css = regexp.MustCompile(`\s*([{};:,>~])\s*`).ReplaceAllString(css, "$1")
 	return strings.TrimSpace(css)
 }
 
@@ -166,6 +168,18 @@ func main() {
 	}
 	fmt.Printf("  app.bundle.js: %d bytes (pre-bundled)\n", len(appJS))
 
+	// Optional bundled demo log (zstd-compressed, base64-embedded) powering the
+	// standalone "See example report" button and the ?demo URL param. Absent →
+	// the button stays hidden in the generated page.
+	demoB64 := ""
+	demoName := "demo.json"
+	if demoZst, err := readBinary("demo-sample.json.zst"); err == nil {
+		demoB64 = base64.StdEncoding.EncodeToString(demoZst)
+		fmt.Printf("  demo-sample.json.zst: %d (zstd) → %d (b64)\n", len(demoZst), len(demoB64))
+	} else {
+		fmt.Println("  demo-sample.json.zst: not found — demo button disabled")
+	}
+
 	// 3. Read HTML template
 	fmt.Println("\n[3/5] Reading HTML template...")
 	html, err := readFile("index.html")
@@ -186,6 +200,10 @@ func main() {
 
 const WASM_ZST_B64="%s";
 const FZSTD_GZ_B64="%s";
+
+// Bundled example log (empty when none was committed → demo button stays hidden)
+window.DEMO_LOG_ZST_B64="%s";
+window.DEMO_LOG_NAME="%s";
 
 // Decompress and eval fzstd
 (function(){
@@ -233,10 +251,11 @@ window.reinitWasm=async function(){
         alert('WASM initialization failed: '+e.message);
     }
 })();
-`, uplotJS, wasmB64, fzstdB64, wasmExecMin)
+`, uplotJS, wasmB64, fzstdB64, demoB64, demoName, wasmExecMin)
 
-	// Extract body content from template
-	bodyRe := regexp.MustCompile(`(?s)<body>(.*?)<!-- Scripts -->`)
+	// Extract body content from template, delimited by the explicit QL:BODY
+	// markers (kept in sync with output/html.go).
+	bodyRe := regexp.MustCompile(`(?s)<!-- QL:BODY:BEGIN -->(.*?)<!-- QL:BODY:END -->`)
 	bodyMatch := bodyRe.FindStringSubmatch(html)
 	bodyContent := ""
 	if len(bodyMatch) > 1 {

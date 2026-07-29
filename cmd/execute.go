@@ -10,6 +10,8 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -166,8 +168,17 @@ func runAnalysisCycle(ctx context.Context, args []string) error {
 		analyzeInput = filteredLogs
 	}
 
+	// Analysis PID-shard count: > 1 only for large, uncompressed plain
+	// stderr. Decide it from the EXPANDED file list (allFiles), not the raw
+	// args: a directory or glob argument stats to a tiny inode, which would
+	// always fall below the size gate and silently disable sharding for
+	// `quellog /var/log/postgresql/`. The expanded files carry the real
+	// bytes the analysis stage will process. Computed once and threaded into
+	// every metrics build below.
+	workers := shardWorkers(allFiles)
+
 	// Step 5: Process and output results based on flags
-	if err := processAndOutput(ctx, analyzeInput, startTime, totalFileSize, args, pb); err != nil {
+	if err := processAndOutput(ctx, analyzeInput, startTime, totalFileSize, args, workers, pb); err != nil {
 		return err
 	}
 
@@ -270,36 +281,150 @@ func parseFilesAsync(ctx context.Context, files []string, out chan<- []parser.Lo
 		return
 	}
 
-	// Multiple files: use worker pool
-	fileChan := make(chan string, len(files))
-	for _, file := range files {
-		fileChan <- file
+	// Multiple files: worker pool with an ordered per-file fan-in, the same
+	// pattern as the in-file segment fan-ins (stderr/CSV/JSON). Workers
+	// claim file indices in list order and parse each file into its own
+	// bounded queue; the drain below forwards the queues in file order.
+	// Without this, all workers pushed into the shared out channel and the
+	// files interleaved non-deterministically, which shuffled Seq stamping,
+	// scrambled per-occurrence event lists and let cross-file state pairing
+	// (e.g. checkpoint "starting" → "complete") mismatch run-to-run. The
+	// window semaphore bounds in-flight files, so memory stays bounded even
+	// when a queue fills and its parser blocks.
+	queues := make([]chan []parser.LogEntry, len(files))
+	for i := range queues {
+		queues[i] = make(chan []parser.LogEntry, fileQueueDepth)
 	}
-	close(fileChan)
+	// window bounds how many files are in flight at once. It is a pure
+	// throughput/memory knob: the drain below forwards queues in strict index
+	// order for ANY window >= 1, so output (Seq stamping, per-occurrence event
+	// lists, cross-file state pairing) is identical whatever the value.
+	// fanInWindow keeps the small drained+prefetch bound only when every input
+	// is self-parallel stderr (each already saturates the CPU and fans out
+	// in-flight chunks/queues, so more files at once just inflates RSS); for
+	// single-goroutine inputs (compressed CSV/JSON, prefixed compressed stderr,
+	// plain sub-threshold files) it returns numWorkers so up to numWorkers
+	// files parse concurrently — the pre-window v0.11.0 worker pool.
+	window := fanInWindow(files, numWorkers)
 
+	// The window is enforced with per-index START PERMITS, not a shared
+	// counting semaphore. Workers claim indices out of order (the cursor
+	// hands them out first-come), but the drain consumes queues in strict
+	// index order. A shared semaphore acquired by workers yet released by
+	// the drain could be held entirely by higher indices while the lowest
+	// un-drained index blocks before parsing — the drain then waits forever
+	// on that index's queue and the worker waits forever for a slot, a
+	// circular wait that hangs the pipeline (silent, no output). Gating each
+	// index with its own single-slot permit ties admission to the drain's
+	// order: gate[i] is posted exactly once — pre-signalled when i < window,
+	// otherwise by the drain the instant it finishes index i-window — so the
+	// lowest un-drained index always holds a permit and the cycle cannot form.
+	// (With window >= numWorkers every gate a worker can claim is pre-signalled,
+	// so that regime is trivially deadlock-free; the small window relies on the
+	// per-index ordering above.)
+	gate := make([]chan struct{}, len(files))
+	for i := range gate {
+		gate[i] = make(chan struct{}, 1)
+	}
+	// Pre-signal the first `window` indices (capped at the file count); the
+	// remaining gates are posted by the drain as it advances.
+	for i := 0; i < window && i < len(files); i++ {
+		gate[i] <- struct{}{}
+	}
+	var cursor atomic.Int64
 	var wg sync.WaitGroup
-	for i := 0; i < numWorkers; i++ {
+	for w := 0; w < numWorkers; w++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			for file := range fileChan {
-				if ctx.Err() != nil {
+			for {
+				i := int(cursor.Add(1)) - 1
+				if i >= len(files) {
 					return
 				}
-				if err := parser.ParseFile(file, out); err != nil {
-					// Detection failures are already logged; surface parse-stage
-					// failures (partial output) as a warning.
-					if !isDetectionError(err) {
-						slog.Warn("file parsing ended early; output may be partial", "file", file, "err", err)
+				<-gate[i] // admission in index order; posted by the drain below
+				// The queue must always be closed, even on cancellation,
+				// or the ordered drain would block forever on this index.
+				if ctx.Err() == nil {
+					file := files[i]
+					if err := parser.ParseFile(file, queues[i]); err != nil {
+						// Detection failures are already logged; surface
+						// parse-stage failures (partial output) as a warning.
+						if !isDetectionError(err) {
+							slog.Warn("file parsing ended early; output may be partial", "file", file, "err", err)
+						}
+					} else {
+						pb.AddBytes(fileSize(file))
+						parsedAny.Store(true)
 					}
-					continue
 				}
-				pb.AddBytes(fileSize(file))
-				parsedAny.Store(true)
+				close(queues[i])
 			}
 		}()
 	}
+
+	// Ordered fan-in: forward each file's batches in list order. Once a file
+	// is fully drained, admit index i+window so exactly `window` files stay in
+	// flight (the one now draining plus window-1 ahead), matching the
+	// pre-signalled permits above. This is what releases the window.
+	for i := range queues {
+		for batch := range queues[i] {
+			out <- batch
+		}
+		if i+window < len(files) {
+			gate[i+window] <- struct{}{}
+		}
+	}
 	wg.Wait()
+}
+
+// fileQueueDepth bounds one file's output queue in the multi-file ordered
+// fan-in, in batches (256 × 256-entry batches ≈ 64k entries ≈ ~15 MB).
+// Deep enough that the drain switches files without a pipeline stall,
+// small enough that a parser running ahead of the drain blocks early and
+// keeps in-flight memory bounded.
+const fileQueueDepth = 256
+
+// smallFanInWindow is the in-flight file count for self-parallel stderr
+// inputs: the file the drain is consuming plus one prefetching. Anything
+// larger only stacks blocked, already-CPU-saturated pipelines and their
+// in-flight chunks/queues (measured: it inflates RSS without moving wall).
+const smallFanInWindow = 2
+
+// fanInWindow sizes the ordered fan-in's in-flight window (see
+// parseFilesAsync). Determinism is independent of the result — the drain
+// forwards queues in strict index order for any window >= 1 — so this only
+// trades file-level concurrency against in-flight memory.
+//
+// The small window is used ONLY when a self-parallel stderr input could be in
+// flight — the files parser.UsesStreamParallelStderr flags: large plain stderr
+// (parseParallel) and large non-prefixed compressed stderr (parseStreamParallel),
+// each of which already saturates the CPU on its own and fans out chunks/queues,
+// so admitting many at once multiplies RSS without improving wall time — the
+// real memory bound the window exists to hold.
+//
+// Otherwise every input parses on a single goroutine (compressed CSV/JSON,
+// prefixed compressed stderr, plain sub-threshold files, and — crucially —
+// compressed stderr sets below the parallel-parse size gate, which now fall back
+// to the sequential reader). Those need up to numWorkers files running
+// concurrently to keep the pool busy, exactly as the pre-window v0.11.0 worker
+// pool did; returning numWorkers removes the file-level throttle (with window >=
+// numWorkers every worker's gate is pre-signalled, so the pipeline is trivially
+// deadlock-free). Keying off the SAME predicate as the parse router guarantees a
+// file that parses sequentially gets the wide window (v0.11.0 throughput, low RSS
+// since each file is one goroutine), while a file that self-parallelizes gets the
+// small window (RSS bound) — the two decisions can never disagree.
+func fanInWindow(files []string, numWorkers int) int {
+	for _, f := range files {
+		var size int64
+		if st, err := os.Stat(f); err == nil {
+			size = st.Size()
+		}
+		if parser.UsesStreamParallelStderr(f, size) {
+			return smallFanInWindow
+		}
+	}
+	return numWorkers
 }
 
 // buildLogFilters creates a LogFilters struct from command-line flags.
@@ -378,8 +503,12 @@ func validateFlagCombinations() error {
 	return nil
 }
 
-// processAndOutput analyzes filtered logs and outputs results in the requested format.
-func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry, startTime time.Time, totalFileSize int64, inputArgs []string, pb *progressBar) error {
+// processAndOutput analyzes filtered logs and outputs results in the requested
+// format. workers is the analysis PID-shard count, decided by the caller from
+// the expanded file list (see runAnalysisCycle) and threaded into every metrics
+// build; inputArgs stays the raw arguments, used only for display (filenames,
+// input description, first-file format detection).
+func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry, startTime time.Time, totalFileSize int64, inputArgs []string, workers int, pb *progressBar) error {
 	// Flag-combination constraints are validated once up front (see
 	// validateFlagCombinations, called from executeParsing). Here we only need
 	// the format count for dispatch and the --split short-circuit.
@@ -390,7 +519,7 @@ func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry
 
 	// Special case: SQL query details (single query analysis)
 	if len(sqlDetailFlag) > 0 {
-		metrics, processingDuration, err := requireMetrics(ctx, filteredLogs, totalFileSize, startTime, pb)
+		metrics, processingDuration, err := requireMetrics(ctx, filteredLogs, totalFileSize, startTime, pb, workers)
 		if err != nil {
 			return err
 		}
@@ -415,7 +544,7 @@ func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry
 
 	// Special case: event pattern details (lookup by ID like wa-aBc1)
 	if len(eventDetailFlag) > 0 {
-		metrics, processingDuration, err := requireMetrics(ctx, filteredLogs, totalFileSize, startTime, pb)
+		metrics, processingDuration, err := requireMetrics(ctx, filteredLogs, totalFileSize, startTime, pb, workers)
 		if err != nil {
 			return err
 		}
@@ -441,7 +570,7 @@ func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry
 	// Special case: SQL performance (detailed aggregated query statistics)
 	// Skip if --full is set (will be included in full report)
 	if sqlPerformanceFlag && !fullFlag {
-		metrics, processingDuration, err := requireMetrics(ctx, filteredLogs, totalFileSize, startTime, pb)
+		metrics, processingDuration, err := requireMetrics(ctx, filteredLogs, totalFileSize, startTime, pb, workers)
 		if err != nil {
 			return err
 		}
@@ -467,7 +596,7 @@ func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry
 	// Special case: SQL overview (query type statistics with dimensional breakdown)
 	// Skip if --full is set (will be included in full report)
 	if sqlOverviewFlag && !fullFlag {
-		metrics, processingDuration, err := requireMetrics(ctx, filteredLogs, totalFileSize, startTime, pb)
+		metrics, processingDuration, err := requireMetrics(ctx, filteredLogs, totalFileSize, startTime, pb, workers)
 		if err != nil {
 			return err
 		}
@@ -491,7 +620,7 @@ func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry
 	}
 
 	// Default: full analysis with all metrics
-	metrics := analysis.AggregateMetrics(ctx, filteredLogs)
+	metrics := analysis.AggregateMetricsWithWorkers(ctx, filteredLogs, workers)
 	// Aggregation drained the input — parse is done. Clear the bar
 	// before any subsequent stderr/stdout write (PrintProcessingSummary
 	// and the section renderers below). The defer in runAnalysisCycle
@@ -881,9 +1010,11 @@ func calculateTotalFileSize(files []string) int64 {
 }
 
 // PrintProcessingSummary displays a summary line showing processing statistics.
+// The build version is prefixed so pasted output is self-identifying ("dev" for
+// local builds, the real tag for goreleaser builds).
 func PrintProcessingSummary(numEntries int, duration time.Duration, fileSize int64) {
-	fmt.Printf("quellog – %d entries processed in %.2f s (%s)\n",
-		numEntries, duration.Seconds(), output.FormatBytes(fileSize))
+	fmt.Printf("quellog %s – %d entries processed in %.2f s (%s)\n",
+		version, numEntries, duration.Seconds(), output.FormatBytes(fileSize))
 }
 
 // createOutputWriter returns an io.Writer for the given output path and a
@@ -919,10 +1050,88 @@ func createOutputWriter(path string) (io.Writer, func() error, error) {
 	}, nil
 }
 
+// shardWorkers picks the analysis PID-shard count for an input set. It
+// returns > 1 only for large, uncompressed plain-stderr inputs where
+// LogEntry.PID is the PostgreSQL backend PID (the data-parallel fan-out's
+// precondition); everything else stays single-shard (always correct).
+//
+// QUELLOG_SHARD_WORKERS overrides the count for benchmarking — it bypasses
+// the format/size gate, so only point it at plain stderr.
+func shardWorkers(inputArgs []string) int {
+	if v := os.Getenv("QUELLOG_SHARD_WORKERS"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n >= 1 {
+			return n
+		}
+	}
+	if len(inputArgs) == 0 {
+		return 1
+	}
+	// Sharding pays off above ~256 MB of DECOMPRESSED content, since analysis
+	// work scales with decompressed size — not the on-disk size. Compressed
+	// inputs are scaled up by a conservative log-expansion factor first, so a
+	// 245 MB .gz (≈ 4.5 GB decompressed) shards while a small one does not.
+	const minSize = 256 << 20
+	if estimatedDecompressedSize(inputArgs) < minSize {
+		return 1
+	}
+	for _, f := range inputArgs {
+		if !parser.SupportsPIDSharding(f) {
+			return 1
+		}
+	}
+	n := runtime.NumCPU() - 2
+	if n < 2 {
+		n = 2
+	}
+	if n > 8 {
+		n = 8
+	}
+	return n
+}
+
+// logExpansionFactor is a conservative estimate of how much a compressed
+// PostgreSQL log expands when decompressed. Measured ratios are ~14-18x (gzip
+// 18x, zstd 14x on a 4.5 GB log); 8 is a deliberate floor so we never
+// over-estimate — at worst a poorly-compressing input shards slightly below
+// the 256 MB target, which only costs the bounded fan-out setup.
+const logExpansionFactor = 8
+
+// estimatedDecompressedSize sums the byte volume the analysis stage will
+// process: compressed inputs scaled up by logExpansionFactor, plain inputs
+// (including uncompressed tar) counted at their on-disk size.
+func estimatedDecompressedSize(inputArgs []string) int64 {
+	var total int64
+	for _, f := range inputArgs {
+		fi, err := os.Stat(f)
+		if err != nil {
+			continue
+		}
+		sz := fi.Size()
+		if isCompressedInput(f) {
+			sz *= logExpansionFactor
+		}
+		total += sz
+	}
+	return total
+}
+
+// isCompressedInput reports whether a file is gzip/zstd-compressed (including
+// compressed tar) and therefore expands when decompressed. A plain .tar is a
+// 1:1 container and is not counted as compressed.
+func isCompressedInput(name string) bool {
+	lower := strings.ToLower(name)
+	for _, ext := range []string{".gz", ".zst", ".zstd", ".tgz", ".tzst"} {
+		if strings.HasSuffix(lower, ext) {
+			return true
+		}
+	}
+	return false
+}
+
 // requireMetrics aggregates metrics and returns an error if no log entries
 // were parsed.
-func requireMetrics(ctx context.Context, filteredLogs <-chan []parser.LogEntry, totalFileSize int64, startTime time.Time, pb *progressBar) (analysis.AggregatedMetrics, time.Duration, error) {
-	metrics := analysis.AggregateMetrics(ctx, filteredLogs)
+func requireMetrics(ctx context.Context, filteredLogs <-chan []parser.LogEntry, totalFileSize int64, startTime time.Time, pb *progressBar, workers int) (analysis.AggregatedMetrics, time.Duration, error) {
+	metrics := analysis.AggregateMetricsWithWorkers(ctx, filteredLogs, workers)
 	// Aggregation has drained the input channel — parsing is fully
 	// done. Clear the progress bar before any subsequent stderr write
 	// (PrintProcessingSummary, slog warnings, …) so the redrawn line

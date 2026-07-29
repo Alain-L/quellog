@@ -1,0 +1,101 @@
+package analysis
+
+import (
+	"testing"
+	"time"
+
+	"github.com/Alain-L/quellog/parser"
+)
+
+// TestLockRelockCountsAsNewEpisode guards the counter fix: a backend that
+// re-locks the same resource in a later episode must count as a NEW lock, not
+// as a repeat of the stale activeLock entry. Before the fix, the stale entry
+// (never purged after acquisition) made the second "acquired" bump
+// acquiredEvents without bumping totalEvents, so acquiredEvents > totalEvents
+// and the invariant total >= acquired broke (masked by a clamp on the derived
+// WaitingEvents).
+func TestLockRelockCountsAsNewEpisode(t *testing.T) {
+	base := time.Unix(1700000000, 0).UTC()
+
+	run := func(msgs []string) LockMetrics {
+		a := NewLockAnalyzer()
+		for i, m := range msgs {
+			e := parser.LogEntry{
+				Timestamp: base.Add(time.Duration(i) * time.Second),
+				Message:   m,
+				PID:       "100",
+			}
+			a.Process(&e)
+		}
+		return a.Finalize()
+	}
+
+	t.Run("relock with waiting", func(t *testing.T) {
+		// Same PID + AccessExclusiveLock + relation 16384, twice.
+		m := run([]string{
+			"process 100 still waiting for AccessExclusiveLock on relation 16384 of database 5 after 1000.000 ms",
+			"process 100 acquired AccessExclusiveLock on relation 16384 of database 5 after 3000.000 ms",
+			"process 100 still waiting for AccessExclusiveLock on relation 16384 of database 5 after 1000.000 ms",
+			"process 100 acquired AccessExclusiveLock on relation 16384 of database 5 after 5000.000 ms",
+		})
+		if m.TotalEvents < m.AcquiredEvents {
+			t.Fatalf("invariant broken: total=%d < acquired=%d", m.TotalEvents, m.AcquiredEvents)
+		}
+		if m.TotalEvents != 2 || m.AcquiredEvents != 2 || m.WaitingEvents != 0 {
+			t.Fatalf("got total=%d acquired=%d waiting=%d, want 2/2/0", m.TotalEvents, m.AcquiredEvents, m.WaitingEvents)
+		}
+	})
+
+	t.Run("direct re-acquire without waiting", func(t *testing.T) {
+		// Fast acquisitions (no "still waiting") of the same key, twice.
+		m := run([]string{
+			"process 100 acquired ShareLock on transaction 42 after 0.100 ms",
+			"process 100 acquired ShareLock on transaction 42 after 0.200 ms",
+		})
+		if m.TotalEvents < m.AcquiredEvents {
+			t.Fatalf("invariant broken: total=%d < acquired=%d", m.TotalEvents, m.AcquiredEvents)
+		}
+		if m.TotalEvents != 2 || m.AcquiredEvents != 2 {
+			t.Fatalf("got total=%d acquired=%d, want 2/2", m.TotalEvents, m.AcquiredEvents)
+		}
+	})
+}
+
+// TestLockRepeatedWaitingDedupsToOneEvent guards the re-ping dedup: PostgreSQL
+// re-logs "still waiting" once per deadlock_timeout for the same pending lock.
+// That is one wait episode, so the counters count it once and the Events detail
+// array must hold a single "waiting" row (refreshed to the latest wait time),
+// not one row per re-log.
+func TestLockRepeatedWaitingDedupsToOneEvent(t *testing.T) {
+	base := time.Unix(1700000000, 0).UTC()
+	a := NewLockAnalyzer()
+	msgs := []string{
+		"process 100 still waiting for ShareLock on transaction 42 after 1000.000 ms",
+		"process 100 still waiting for ShareLock on transaction 42 after 2000.000 ms",
+		"process 100 still waiting for ShareLock on transaction 42 after 3000.000 ms",
+	}
+	for i, msg := range msgs {
+		e := parser.LogEntry{Timestamp: base.Add(time.Duration(i) * time.Second), Message: msg, PID: "100"}
+		a.Process(&e)
+	}
+	m := a.Finalize()
+
+	if m.TotalEvents != 1 || m.WaitingEvents != 1 || m.AcquiredEvents != 0 {
+		t.Fatalf("got total=%d waiting=%d acquired=%d, want 1/1/0", m.TotalEvents, m.WaitingEvents, m.AcquiredEvents)
+	}
+
+	waiting := 0
+	var lastWait float64
+	for _, ev := range m.Events {
+		if ev.EventType == "waiting" {
+			waiting++
+			lastWait = ev.WaitTime
+		}
+	}
+	if waiting != 1 {
+		t.Fatalf("got %d waiting rows, want 1 (re-pings must not append duplicates)", waiting)
+	}
+	if lastWait != 3000.0 {
+		t.Fatalf("waiting event WaitTime=%v, want 3000 (refreshed in place on each re-ping)", lastWait)
+	}
+}

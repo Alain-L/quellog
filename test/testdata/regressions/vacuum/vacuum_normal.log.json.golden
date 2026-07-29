@@ -100,6 +100,7 @@
     "fatal_count": 0,
     "panic_count": 0,
     "warning_count": 0,
-    "log_count": 3
+    "log_count": 3,
+    "utc_offset_minutes": 0
   }
 }

@@ -12,8 +12,21 @@ export function fmt(n) {
     return n?.toLocaleString() ?? '0';
 }
 
-// Duration formatter (native Intl API)
-const durationFmt = new Intl.DurationFormat('en', { style: 'narrow' });
+// Duration formatter (native Intl API when available). Older browsers lack
+// Intl.DurationFormat; fall back to a small formatter approximating the
+// narrow style ("1h 2m 3s") so module load doesn't throw.
+const durationFmt = typeof Intl !== 'undefined' && typeof Intl.DurationFormat === 'function'
+    ? new Intl.DurationFormat('en', { style: 'narrow' })
+    : {
+        format(d) {
+            const parts = [];
+            if (d.days) parts.push(d.days + 'd');
+            if (d.hours) parts.push(d.hours + 'h');
+            if (d.minutes) parts.push(d.minutes + 'm');
+            if (d.seconds) parts.push(d.seconds + 's');
+            return parts.join(' ');
+        }
+    };
 
 /**
  * Format milliseconds to human-readable duration using native Intl.DurationFormat.
@@ -60,18 +73,9 @@ export function safeMin(arr) {
     return arr.length === 0 ? 0 : arr.reduce((a, b) => a < b ? a : b, arr[0]);
 }
 
-/**
- * Format bytes to human-readable size.
- * @param {number} b - Bytes
- * @returns {string}
- */
-export function fmtBytes(b) {
-    const strip = v => v.replace(/\.0$/, '');
-    if (b < 1024) return b + ' B';
-    if (b < 1024 * 1024) return Math.round(b / 1024) + ' KB';
-    if (b < 1024 * 1024 * 1024) return Math.round(b / 1024 / 1024) + ' MB';
-    return strip((b / 1024 / 1024 / 1024).toFixed(1)) + ' GB';
-}
+// Byte formatting lives in format.js (single unit table); re-exported here
+// for back-compat so existing importers keep working unchanged.
+export { fmtBytes } from './format.js';
 
 /**
  * Coarser duration formatter that keeps only the two most significant
@@ -138,13 +142,22 @@ export function fmtMs(ms) {
 }
 
 /**
- * Format/clean duration strings from Go backend (e.g. "2m7.663353305s" -> "2m 7s").
+ * Format/clean duration strings from Go backend. Fractional seconds are
+ * rounded to the nearest whole second when combined with larger units
+ * (e.g. "2m7.663353305s" -> "2m 8s").
  * @param {string} s - Duration string in Go format
  * @returns {string}
  */
 export function fmtDur(s) {
     if (!s || s === '-') return '-';
     if (typeof s !== 'string') return String(s);
+
+    // Sub-millisecond units from Go's Duration.String() (e.g. session times):
+    // "738µs" / "738ns". Keep them verbatim — the h/m/s parser below would read
+    // the number as seconds (rendering "738µs" as "738.00s").
+    if ((s.includes('µs') || s.includes('μs') || s.includes('ns')) && !s.includes('ms')) {
+        return s;
+    }
 
     // Check for ms first (msIdx is position where 'ms' starts)
     const msIdx = s.indexOf('ms');
@@ -194,6 +207,13 @@ export function fmtDur(s) {
     return parts.length > 0 ? parts.join(' ') : s;
 }
 
+/**
+ * Parse a duration string (Go format or fmtDur output, e.g. "1h 2m 3s",
+ * "2m7.66s", "153 ms") into milliseconds. Missing units contribute 0;
+ * non-string input is coerced with Number().
+ * @param {string|number} s - Duration string (or already-numeric ms)
+ * @returns {number} Duration in milliseconds
+ */
 export function parseDurToMs(s) {
     if (!s || s === '-') return 0;
     if (typeof s !== 'string') return Number(s) || 0;
@@ -202,11 +222,78 @@ export function parseDurToMs(s) {
     const mMatch = s.match(/(\d+)\s*m(?!s)/);
     const sMatch = s.match(/([\d.]+)\s*s(?!.*ms)/);
     const msMatch = s.match(/([\d.]+)\s*ms/);
+    // Sub-millisecond units from Go's Duration.String() (µ is U+00B5; some
+    // toolchains emit U+03BC). Without these, "738µs" parsed to 0 and broke
+    // the session min/avg sort keys.
+    const usMatch = s.match(/([\d.]+)\s*[µμ]s/);
+    const nsMatch = s.match(/([\d.]+)\s*ns/);
     if (hMatch) ms += parseInt(hMatch[1]) * 3600000;
     if (mMatch) ms += parseInt(mMatch[1]) * 60000;
     if (sMatch) ms += parseFloat(sMatch[1]) * 1000;
     if (msMatch) ms += parseFloat(msMatch[1]);
+    if (usMatch) ms += parseFloat(usMatch[1]) / 1000;
+    if (nsMatch) ms += parseFloat(nsMatch[1]) / 1000000;
     return ms;
+}
+
+/**
+ * Small inline "whole-log" badge for section headers whose figures are NOT
+ * re-scoped by an applied report time filter (they carry no re-scopable
+ * per-item timestamp in the payload — see js/report-filter.js `_wholeLog`).
+ * Rendered only when a filter is active so un-scoped numbers never silently
+ * masquerade as time-scoped. Pure string (DOM-free) so it stays unit-testable.
+ * @param {string} [title] - Tooltip explaining what is whole-log
+ * @returns {string} Badge HTML (leading space so it detaches from the label)
+ */
+export function wholeLogBadge(title = 'Not re-scoped by the time filter — these figures cover the whole log.') {
+    return ` <span class="whole-log-badge" title="${escAttr(title)}">whole-log</span>`;
+}
+
+// Bucket a query's executions by duration into the backend's fixed distribution
+// buckets. Reads duration_ms (a number); the query-detail modal used to read a
+// non-existent `duration` string, so every value was 0 and the block never
+// rendered.
+export function qdDurationBuckets(execs) {
+    const buckets = [
+        { label: '< 1 ms', max: 1 },
+        { label: '< 10 ms', max: 10 },
+        { label: '< 100 ms', max: 100 },
+        { label: '< 1 s', max: 1000 },
+        { label: '< 10 s', max: 10000 },
+        { label: '>= 10 s', max: Infinity }
+    ];
+    const counts = buckets.map(() => 0);
+    for (const e of execs) {
+        const d = e.duration_ms;
+        if (typeof d !== 'number') continue;
+        for (let i = 0; i < buckets.length; i++) {
+            if (d < buckets[i].max) { counts[i]++; break; }
+        }
+    }
+    return buckets.map((b, i) => ({ label: b.label, count: counts[i] }));
+}
+
+/**
+ * Format a millisecond duration exactly like the Go backend's
+ * formatQueryDuration (output/format.go): "512 ms" / "42.50 s" /
+ * "42m 05s" / "1h 12m 50s" / "2d 3h 04m". Used by the report time-filter
+ * re-aggregation so recomputed durations render identically to the
+ * originals produced by the backend (the stat cards re-parse via fmtDur).
+ * @param {number} ms - Duration in milliseconds
+ * @returns {string}
+ */
+export function fmtQueryDuration(ms) {
+    const S = 1000, M = 60 * S, H = 60 * M, D = 24 * H;
+    if (ms < S) return `${Math.trunc(ms)} ms`;
+    if (ms < M) return `${(ms / S).toFixed(2)} s`;
+    const pad = n => String(n).padStart(2, '0');
+    if (ms < H) {
+        return `${Math.trunc(ms / M)}m ${pad(Math.trunc((ms % M) / S))}s`;
+    }
+    if (ms < D) {
+        return `${Math.trunc(ms / H)}h ${pad(Math.trunc((ms % H) / M))}m ${pad(Math.trunc((ms % M) / S))}s`;
+    }
+    return `${Math.trunc(ms / D)}d ${Math.trunc((ms % D) / H)}h ${pad(Math.trunc((ms % H) / M))}m`;
 }
 
 /**
@@ -221,10 +308,15 @@ export function esc(s) {
     return d.innerHTML;
 }
 
-// escAttr escapes a string for safe interpolation inside a double-quoted HTML
-// attribute value. esc() (textContent→innerHTML) escapes & < > but NOT the
-// quote chars, so a log-derived value containing " could break out of an
-// attribute and inject a handler. escAttr handles the quotes too.
+/**
+ * Escape a string for safe interpolation inside a double-quoted HTML
+ * attribute value. esc() (textContent→innerHTML) escapes & < > but NOT the
+ * quote chars, so a log-derived value containing " could break out of an
+ * attribute and inject a handler. escAttr handles the quotes too.
+ * Pure string replacement — no DOM.
+ * @param {*} s - Value to escape (stringified; null/undefined -> '')
+ * @returns {string}
+ */
 export function escAttr(s) {
     if (s === null || s === undefined) return '';
     return String(s)
@@ -252,7 +344,49 @@ export function escForJsAttr(s) {
         .replace(/\n/g, '\\n');
 }
 
+/**
+ * Truncate a query string to `max` characters, appending an ellipsis.
+ * @param {string} s - Query text
+ * @param {number} [max=120] - Maximum length before truncation
+ * @returns {string}
+ */
 export function truncQuery(s, max = 120) {
     if (!s || s.length <= max) return s;
     return s.slice(0, max) + '…';
+}
+
+/**
+ * Longer-form millisecond duration formatter used by the query-detail
+ * views (query table "Total" column, query detail modal stats). Unlike
+ * fmtMs, always spells out unit suffixes down to seconds/minutes/hours
+ * and never abbreviates to a single decimal beyond 1000ms.
+ * @param {number} ms
+ * @returns {string}
+ */
+export function fmtMsLong(ms) {
+    if (ms == null || isNaN(ms)) return '-';
+    if (ms < 1000) return ms.toFixed(0) + 'ms';
+    if (ms < 60000) return (ms / 1000).toFixed(2) + 's';
+    if (ms < 3600000) return Math.floor(ms / 60000) + 'm ' + Math.round((ms % 60000) / 1000) + 's';
+    const h = Math.floor(ms / 3600000);
+    const m = Math.floor((ms % 3600000) / 60000);
+    const s = Math.round((ms % 60000) / 1000);
+    if (h < 24) return h + 'h ' + m + 'm ' + s + 's';
+    const d = Math.floor(h / 24);
+    return d + 'd ' + (h % 24) + 'h ' + m + 'm';
+}
+
+/**
+ * Build the shared "No data available" placeholder for a section whose
+ * source data is absent (e.g. the relevant log_* setting is off).
+ * @param {string} hint - HTML hint fragment naming the setting to check
+ * @returns {string}
+ */
+export function buildNoDataMessage(hint) {
+    return `
+        <div class="no-data-message">
+            <div class="no-data-text">No data available</div>
+            <div class="no-data-hint">Check: ${hint}</div>
+        </div>
+    `;
 }

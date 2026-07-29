@@ -65,7 +65,7 @@ func TestSplitPeriodsJSON(t *testing.T) {
 			t.Errorf("period %d = {%q,%d,%d}, want {%q,%d,%d}",
 				i, p.Label, p.Entries, p.Errors, w.label, w.entries, w.errors)
 		}
-		raw, err := base64.StdEncoding.DecodeString(p.Data)
+		raw, err := base64.URLEncoding.DecodeString(p.Data)
 		if err != nil {
 			t.Fatalf("period %d data not base64: %v", i, err)
 		}

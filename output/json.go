@@ -28,6 +28,12 @@ type SummaryJSON struct {
 	PanicCount   int    `json:"panic_count"`
 	WarningCount int    `json:"warning_count"`
 	LogCount     int    `json:"log_count"`
+	// UTCOffsetMinutes is the log's UTC offset (minutes east of UTC) from the
+	// first entry. The client time filter uses it to convert its wall-clock
+	// slider bounds to the true-instant epoch basis that top_events[].timestamps
+	// use, so the Events section re-scopes on the same window as every other
+	// (wall-clock-compared) section. 0 for UTC logs.
+	UTCOffsetMinutes int `json:"utc_offset_minutes"`
 }
 
 type SQLPerformanceJSON struct {
@@ -318,6 +324,11 @@ type MaintenanceJSON struct {
 	XminBlockedTables          []VacuumTableStatJSON `json:"xmin_blocked_tables,omitempty"`
 	SlowestVacuum              *VacuumSampleJSON     `json:"slowest_vacuum,omitempty"`
 
+	// Skipped autovacuums ("skipping vacuum of ... --- reason"). omitempty
+	// keeps logs without skips byte-identical.
+	SkippedVacuumCount  int              `json:"skipped_vacuum_count,omitempty"`
+	SkippedVacuumTables []VacuumSkipJSON `json:"skipped_vacuum_tables,omitempty"`
+
 	// Autoanalyze aggregates parsed from the system-usage continuation
 	// line PostgreSQL emits after autoanalyze blocks. analyze stats are
 	// kept distinct from vacuum stats because the underlying log block
@@ -325,6 +336,19 @@ type MaintenanceJSON struct {
 	// keep their renderers shape-symmetric with the vacuum side.
 	TotalAnalyzeElapsedSeconds float64               `json:"total_analyze_elapsed_seconds,omitempty"`
 	TopAnalyzeTablesByElapsed  []VacuumTableStatJSON `json:"top_analyze_tables_by_elapsed,omitempty"`
+
+	// Skipped autoanalyzes ("skipping analyze of ... --- reason").
+	SkippedAnalyzeCount  int              `json:"skipped_analyze_count,omitempty"`
+	SkippedAnalyzeTables []VacuumSkipJSON `json:"skipped_analyze_tables,omitempty"`
+}
+
+// VacuumSkipJSON is one relation autovacuum/autoanalyze skipped, with the
+// reason PostgreSQL reported (almost always "lock not available"; renderers
+// may suppress that default and surface only deviations).
+type VacuumSkipJSON struct {
+	Table  string `json:"table"`
+	Count  int    `json:"count"`
+	Reason string `json:"reason,omitempty"`
 }
 
 // VacuumTableStatJSON is the per-table aggregate exposed in the
@@ -537,9 +561,32 @@ type ConnectionsJSON struct {
 	PeakConcurrent     int    `json:"peak_concurrent_sessions,omitempty"`
 	PeakConcurrentTime string `json:"peak_concurrent_timestamp,omitempty"`
 
+	// Client I/O failures ("could not send/receive data ... client: reason").
+	ClientIOFailures *ClientIOFailuresJSON `json:"client_io_failures,omitempty"`
+
 	// Raw events
 	Connections   lazyConnections   `json:"connections"`
 	SessionEvents lazySessionEvents `json:"session_events,omitempty"`
+
+	// Reverse lookup tables for the interned per-session entity indices
+	// (u/db/h) carried by each session_events item — index 0 is always ""
+	// (unknown). Lets the report's time filter re-scope
+	// sessions_by_user/database/host from session_events alone, without the
+	// backend retaining an entity string per session. Omitted when no
+	// session ever carried an entity.
+	SessionUsers     []string `json:"session_users,omitempty"`
+	SessionDatabases []string `json:"session_databases,omitempty"`
+	SessionHosts     []string `json:"session_hosts,omitempty"`
+}
+
+// ClientIOFailuresJSON breaks the client I/O failures down by direction
+// (receiving from vs sending to the client), each cross-tabulating a
+// normalized strerror against the database it happened on
+// (reason -> database -> count). Present only when failures occurred.
+type ClientIOFailuresJSON struct {
+	Total               int                       `json:"total"`
+	ReceivingFromClient map[string]map[string]int `json:"receiving_from_client,omitempty"`
+	SendingToClient     map[string]map[string]int `json:"sending_to_client,omitempty"`
 }
 
 // lazySessionEvents marshals session events directly to JSON without
@@ -650,6 +697,76 @@ func (l lazyExecutions) count() int {
 	return len(l.executions)
 }
 
+// execRow is the minimal projection of a QueryExecution needed to emit the
+// executions JSON array. Materializing three fields instead of the full
+// QueryExecution roughly halves the transient footprint when the array is
+// sorted for deterministic output (see sortedRows).
+type execRow struct {
+	ts  time.Time
+	dur float64
+	qid string
+}
+
+// needsSort reports whether the executions must be materialized and sorted
+// before emitting. True for the bounded sql-detail slice (cheap) and for a
+// metrics source folded from several PID shards; false for a single-pass /
+// function-parallel run, whose events are already in stream order and stream
+// out directly — no sort buffer (which matters for the leaking-GC WASM build).
+func (l lazyExecutions) needsSort() bool {
+	if l.metrics != nil {
+		return l.metrics.ExecutionsNeedSort()
+	}
+	return true
+}
+
+// emit yields each execution's (timestamp, duration, query id) to fn in the
+// order it should be serialized: sorted when needsSort, otherwise streamed
+// straight from the compact store with no intermediate allocation.
+func (l lazyExecutions) emit(fn func(ts time.Time, dur float64, qid string)) {
+	if l.needsSort() {
+		for _, r := range l.sortedRows() {
+			fn(r.ts, r.dur, r.qid)
+		}
+		return
+	}
+	l.iterate(func(e analysis.QueryExecution) bool {
+		fn(e.Timestamp, e.Duration, e.QueryID)
+		return true
+	})
+}
+
+// sortedRows materializes every execution ordered by (timestamp, query_id,
+// duration). The compact executions store appends in stream order within a
+// shard, so a PID-sharded analyzer's fold concatenates per-shard runs in
+// shard order; sorting restores a single canonical order identical
+// regardless of the shard count. The key need not be a strict total order:
+// rows tying on all three fields serialize byte-for-byte the same, so their
+// relative order is immaterial. Cost is one O(n log n) sort plus a
+// three-field copy per event, paid only when an executions array actually
+// needs reordering (see needsSort).
+func (l lazyExecutions) sortedRows() []execRow {
+	n := l.count()
+	if n == 0 {
+		return nil
+	}
+	rows := make([]execRow, 0, n)
+	l.iterate(func(e analysis.QueryExecution) bool {
+		rows = append(rows, execRow{ts: e.Timestamp, dur: e.Duration, qid: e.QueryID})
+		return true
+	})
+	sort.Slice(rows, func(i, j int) bool {
+		a, b := rows[i], rows[j]
+		if !a.ts.Equal(b.ts) {
+			return a.ts.Before(b.ts)
+		}
+		if a.qid != b.qid {
+			return a.qid < b.qid
+		}
+		return a.dur < b.dur
+	})
+	return rows
+}
+
 // lazyLockEvents marshals an []analysis.LockEvent directly to JSON
 // without an intermediate []LockEventJSON slice. Per-row gain is
 // modest (16k events on J.log = ~4 MB) but pathological lock-storm
@@ -664,8 +781,9 @@ type lazyTempFileEvents struct {
 	events []analysis.TempFileEvent
 }
 
-// MarshalJSON emits the JSON array of {"s":..,"e":..} objects. Returns
-// `null` for empty so the encoder honors `omitempty` on the field tag.
+// MarshalJSON emits the JSON array of {"s":..,"e":..,"d":..,"u":..,"db":..,
+// "h":..} objects. Returns `null` for empty so the encoder honors
+// `omitempty` on the field tag.
 //
 // Uses time.Time.AppendFormat into a flat []byte instead of bytes.Buffer
 // + Format(): zero intermediate string allocation per event.
@@ -674,8 +792,8 @@ func (l lazySessionEvents) MarshalJSON() ([]byte, error) {
 	if n == 0 {
 		return []byte("null"), nil
 	}
-	// Each event ≈ 52 bytes (`{"s":"...","e":"..."}`). +2 brackets.
-	buf := make([]byte, 0, n*52+2)
+	// Each event ≈ 95 bytes (`{"s":"...","e":"...","d":N,"u":N,"db":N,"h":N}`). +2 brackets.
+	buf := make([]byte, 0, n*95+2)
 	buf = append(buf, '[')
 	first := true
 	l.iterate(func(se analysis.SessionEvent) bool {
@@ -690,7 +808,28 @@ func (l lazySessionEvents) MarshalJSON() ([]byte, error) {
 		buf = se.StartTime.AppendFormat(buf, "2006-01-02T15:04:05")
 		buf = append(buf, `","e":"`...)
 		buf = se.EndTime.AppendFormat(buf, "2006-01-02T15:04:05")
-		buf = append(buf, `"}`...)
+		// d = exact session duration in ms (endMs - startMs). Emitted so the
+		// report's time filter can re-aggregate session stats: the s/e strings
+		// are second-truncated, but d keeps PostgreSQL's sub-second precision.
+		buf = append(buf, `","d":`...)
+		buf = strconv.AppendInt(buf, se.EndTime.Sub(se.StartTime).Milliseconds(), 10)
+		// u/db/h = interned user/database/host indices (0 = unknown); look up
+		// the name via connections.session_users/session_databases/session_hosts.
+		// Lets the report's time filter re-scope the per-entity session
+		// tables without the backend retaining an entity string per session.
+		buf = append(buf, `,"u":`...)
+		buf = strconv.AppendInt(buf, int64(se.UserIdx), 10)
+		buf = append(buf, `,"db":`...)
+		buf = strconv.AppendInt(buf, int64(se.DatabaseIdx), 10)
+		buf = append(buf, `,"h":`...)
+		buf = strconv.AppendInt(buf, int64(se.HostIdx), 10)
+		// orphan = flushed at logEnd with no matching disconnect line.
+		// Emitted only when true so genuine disconnects stay byte-identical;
+		// the report's time filter excludes orphans by this flag.
+		if se.Orphan {
+			buf = append(buf, `,"orphan":true`...)
+		}
+		buf = append(buf, '}')
 		return true
 	})
 	buf = append(buf, ']')
@@ -819,9 +958,9 @@ func streamTimestampsJSON(bw *bufio.Writer, src lazyConnections, prefix, indent 
 }
 
 // streamSessionEventsJSON writes session events as a JSON array of
-// {"s":..,"e":..} objects directly to bw. Same zero-buffer streaming as
-// streamTimestampsJSON; iterates either the chunked metrics or a flat
-// slice through the lazySessionEvents wrapper.
+// {"s":..,"e":..,"d":..,"u":..,"db":..,"h":..} objects directly to bw. Same
+// zero-buffer streaming as streamTimestampsJSON; iterates either the
+// chunked metrics or a flat slice through the lazySessionEvents wrapper.
 func streamSessionEventsJSON(bw *bufio.Writer, src lazySessionEvents, prefix, indent string, compact bool) {
 	if src.count() == 0 {
 		bw.WriteString("[]")
@@ -844,7 +983,21 @@ func streamSessionEventsJSON(bw *bufio.Writer, src lazySessionEvents, prefix, in
 			bw.Write(se.StartTime.AppendFormat(buf[:0], "2006-01-02T15:04:05"))
 			bw.WriteString(`","e":"`)
 			bw.Write(se.EndTime.AppendFormat(buf[:0], "2006-01-02T15:04:05"))
-			bw.WriteString(`"}`)
+			bw.WriteString(`","d":`)
+			bw.Write(strconv.AppendInt(buf[:0], se.EndTime.Sub(se.StartTime).Milliseconds(), 10))
+			// u/db/h = interned user/database/host indices (0 = unknown);
+			// resolved via connections.session_users/session_databases/session_hosts.
+			bw.WriteString(`,"u":`)
+			bw.Write(strconv.AppendInt(buf[:0], int64(se.UserIdx), 10))
+			bw.WriteString(`,"db":`)
+			bw.Write(strconv.AppendInt(buf[:0], int64(se.DatabaseIdx), 10))
+			bw.WriteString(`,"h":`)
+			bw.Write(strconv.AppendInt(buf[:0], int64(se.HostIdx), 10))
+			// orphan flag: emitted only when true (see lazySessionEvents).
+			if se.Orphan {
+				bw.WriteString(`,"orphan":true`)
+			}
+			bw.WriteString(`}`)
 			return true
 		})
 		bw.WriteByte(']')
@@ -873,7 +1026,34 @@ func streamSessionEventsJSON(bw *bufio.Writer, src lazySessionEvents, prefix, in
 		bw.WriteString(subInner)
 		bw.WriteString(`"e": "`)
 		bw.Write(se.EndTime.AppendFormat(buf[:0], "2006-01-02T15:04:05"))
-		bw.WriteString(`"`)
+		bw.WriteString(`",`)
+		bw.WriteByte('\n')
+		bw.WriteString(subInner)
+		bw.WriteString(`"d": `)
+		bw.Write(strconv.AppendInt(buf[:0], se.EndTime.Sub(se.StartTime).Milliseconds(), 10))
+		bw.WriteString(`,`)
+		bw.WriteByte('\n')
+		bw.WriteString(subInner)
+		bw.WriteString(`"u": `)
+		bw.Write(strconv.AppendInt(buf[:0], int64(se.UserIdx), 10))
+		bw.WriteString(`,`)
+		bw.WriteByte('\n')
+		bw.WriteString(subInner)
+		bw.WriteString(`"db": `)
+		bw.Write(strconv.AppendInt(buf[:0], int64(se.DatabaseIdx), 10))
+		bw.WriteString(`,`)
+		bw.WriteByte('\n')
+		bw.WriteString(subInner)
+		bw.WriteString(`"h": `)
+		bw.Write(strconv.AppendInt(buf[:0], int64(se.HostIdx), 10))
+		// orphan flag: emitted only when true (see lazySessionEvents), so a
+		// genuine disconnect keeps "h" as its last field, byte-for-byte.
+		if se.Orphan {
+			bw.WriteString(`,`)
+			bw.WriteByte('\n')
+			bw.WriteString(subInner)
+			bw.WriteString(`"orphan": true`)
+		}
 		bw.WriteByte('\n')
 		bw.WriteString(inner)
 		bw.WriteByte('}')
@@ -1030,6 +1210,18 @@ func streamTempFileEventsJSON(bw *bufio.Writer, events []analysis.TempFileEvent,
 		}
 		sb, _ := json.Marshal(FormatBytes(int64(ev.Size)))
 		bw.Write(sb)
+		// size_bytes: the exact integer byte count, emitted alongside the
+		// 2-decimal "size" display string so the report's time filter can
+		// re-sum temp-file bytes losslessly instead of re-parsing "683.59 KB".
+		if compact {
+			bw.WriteString(`,"size_bytes":`)
+		} else {
+			bw.WriteString(",\n")
+			bw.WriteString(subInner)
+			bw.WriteString(`"size_bytes": `)
+		}
+		var nb [20]byte
+		bw.Write(strconv.AppendInt(nb[:0], int64(ev.Size), 10))
 		// query_id (omitempty)
 		if ev.QueryID != "" {
 			if compact {
@@ -1145,24 +1337,24 @@ func streamExecutionsJSON(bw *bufio.Writer, src lazyExecutions, prefix, indent s
 		tsFormat = "2006-01-02 15:04:05"
 	}
 	inner := prefix + indent
+	// Streamed in stream order, or sorted when folded from PID shards (see emit).
 	if compact {
 		bw.WriteByte('[')
 		first := true
-		src.iterate(func(e analysis.QueryExecution) bool {
+		src.emit(func(ts time.Time, dur float64, qid string) {
 			if !first {
 				bw.WriteByte(',')
 			}
 			first = false
 			bw.WriteString(`{"timestamp":"`)
 			var tbuf [20]byte
-			bw.Write(e.Timestamp.AppendFormat(tbuf[:0], tsFormat))
+			bw.Write(ts.AppendFormat(tbuf[:0], tsFormat))
 			bw.WriteString(`","duration_ms":`)
 			var nbuf [32]byte
-			bw.Write(strconv.AppendFloat(nbuf[:0], e.Duration, 'f', -1, 64))
+			bw.Write(strconv.AppendFloat(nbuf[:0], dur, 'f', -1, 64))
 			bw.WriteString(`,"query_id":"`)
-			bw.WriteString(e.QueryID)
+			bw.WriteString(qid)
 			bw.WriteString(`"}`)
-			return true
 		})
 		bw.WriteByte(']')
 		return
@@ -1170,7 +1362,7 @@ func streamExecutionsJSON(bw *bufio.Writer, src lazyExecutions, prefix, indent s
 	subInner := inner + indent
 	bw.WriteString("[\n")
 	first := true
-	src.iterate(func(e analysis.QueryExecution) bool {
+	src.emit(func(ts time.Time, dur float64, qid string) {
 		if !first {
 			bw.WriteString(",\n")
 		}
@@ -1180,23 +1372,22 @@ func streamExecutionsJSON(bw *bufio.Writer, src lazyExecutions, prefix, indent s
 		bw.WriteString(subInner)
 		bw.WriteString(`"timestamp": "`)
 		var tbuf [20]byte
-		bw.Write(e.Timestamp.AppendFormat(tbuf[:0], tsFormat))
+		bw.Write(ts.AppendFormat(tbuf[:0], tsFormat))
 		bw.WriteString(`",`)
 		bw.WriteByte('\n')
 		bw.WriteString(subInner)
 		bw.WriteString(`"duration_ms": `)
 		var nbuf [32]byte
-		bw.Write(strconv.AppendFloat(nbuf[:0], e.Duration, 'f', -1, 64))
+		bw.Write(strconv.AppendFloat(nbuf[:0], dur, 'f', -1, 64))
 		bw.WriteString(`,`)
 		bw.WriteByte('\n')
 		bw.WriteString(subInner)
 		bw.WriteString(`"query_id": `)
-		qb, _ := json.Marshal(e.QueryID)
+		qb, _ := json.Marshal(qid)
 		bw.Write(qb)
 		bw.WriteByte('\n')
 		bw.WriteString(inner)
 		bw.WriteByte('}')
-		return true
 	})
 	bw.WriteByte('\n')
 	bw.WriteString(prefix)
@@ -1221,20 +1412,20 @@ func (l lazyExecutions) MarshalJSON() ([]byte, error) {
 	if tsFormat == "" {
 		tsFormat = "2006-01-02 15:04:05"
 	}
+	// Streamed in stream order, or sorted when folded from PID shards (see emit).
 	first := true
-	l.iterate(func(exec analysis.QueryExecution) bool {
+	l.emit(func(ts time.Time, dur float64, qid string) {
 		if !first {
 			buf = append(buf, ',')
 		}
 		first = false
 		buf = append(buf, `{"timestamp":"`...)
-		buf = exec.Timestamp.AppendFormat(buf, tsFormat)
+		buf = ts.AppendFormat(buf, tsFormat)
 		buf = append(buf, `","duration_ms":`...)
-		buf = strconv.AppendFloat(buf, exec.Duration, 'f', -1, 64)
+		buf = strconv.AppendFloat(buf, dur, 'f', -1, 64)
 		buf = append(buf, `,"query_id":"`...)
-		buf = append(buf, exec.QueryID...) // QueryIDs are safe ASCII (e.g. "se-abc123")
+		buf = append(buf, qid...) // QueryIDs are safe ASCII (e.g. "se-abc123")
 		buf = append(buf, `"}`...)
-		return true
 	})
 	buf = append(buf, ']')
 	return buf, nil
@@ -1348,6 +1539,11 @@ func (c ConnectionsJSON) StreamSection(bw *bufio.Writer, prefix, indent string, 
 			return err
 		}
 	}
+	if c.ClientIOFailures != nil {
+		if err := e.emitScalar("client_io_failures", c.ClientIOFailures); err != nil {
+			return err
+		}
+	}
 
 	// Big arrays — stream items, never buffered as a whole.
 	e.writeKey("connections")
@@ -1356,6 +1552,24 @@ func (c ConnectionsJSON) StreamSection(bw *bufio.Writer, prefix, indent string, 
 	if c.SessionEvents.count() > 0 {
 		e.writeKey("session_events")
 		streamSessionEventsJSON(bw, c.SessionEvents, inner, indent, compact)
+	}
+
+	// Reverse lookup tables for the u/db/h indices embedded in session_events
+	// (small — bounded by distinct entity cardinality, never per-session).
+	if len(c.SessionUsers) > 0 {
+		if err := e.emitScalar("session_users", c.SessionUsers); err != nil {
+			return err
+		}
+	}
+	if len(c.SessionDatabases) > 0 {
+		if err := e.emitScalar("session_databases", c.SessionDatabases); err != nil {
+			return err
+		}
+	}
+	if len(c.SessionHosts) > 0 {
+		if err := e.emitScalar("session_hosts", c.SessionHosts); err != nil {
+			return err
+		}
 	}
 
 	if !compact {
@@ -1985,7 +2199,8 @@ func buildJSONData(m analysis.AggregatedMetrics, sections []string, full bool) m
 		data["locks"] = convertLocks(m.Locks)
 	}
 
-	if has("maintenance") && (m.Vacuum.VacuumCount > 0 || m.Vacuum.AnalyzeCount > 0) {
+	if has("maintenance") && (m.Vacuum.VacuumCount > 0 || m.Vacuum.AnalyzeCount > 0 ||
+		m.Vacuum.SkippedVacuumCount > 0 || m.Vacuum.SkippedAnalyzeCount > 0) {
 		data["maintenance"] = buildMaintenanceJSON(m.Vacuum)
 	}
 
@@ -2067,7 +2282,7 @@ func buildJSONData(m analysis.AggregatedMetrics, sections []string, full bool) m
 		data["checkpoints"] = cp
 	}
 
-	if has("connections") && (m.Connections.ConnectionReceivedCount > 0 || m.Connections.DisconnectionCount > 0) {
+	if has("connections") && (m.Connections.ConnectionReceivedCount > 0 || m.Connections.DisconnectionCount > 0 || m.Connections.ClientIOFailureCount > 0) {
 		duration := m.Global.MaxTimestamp.Sub(m.Global.MinTimestamp)
 		durationHours := duration.Hours()
 		if durationHours == 0 {
@@ -2131,9 +2346,21 @@ func buildJSONData(m analysis.AggregatedMetrics, sections []string, full bool) m
 			conn.PeakConcurrent = m.Connections.PeakConcurrentSessions
 			conn.PeakConcurrentTime = m.Connections.PeakConcurrentTimestamp.Format("2006-01-02 15:04:05")
 		}
+		if m.Connections.ClientIOFailureCount > 0 {
+			conn.ClientIOFailures = &ClientIOFailuresJSON{
+				Total:               m.Connections.ClientIOFailureCount,
+				ReceivingFromClient: m.Connections.ClientIORecv,
+				SendingToClient:     m.Connections.ClientIOSend,
+			}
+		}
 		// Export session events for client-side sweep-line — lazy wrapper
 		// avoids the per-event []SessionEventJSON intermediate slice.
 		conn.SessionEvents = lazySessionEvents{metrics: &m.Connections}
+		// Reverse tables for the u/db/h indices embedded in each
+		// session_events item (nil when no session ever carried an entity).
+		conn.SessionUsers = m.Connections.SessionUserNames
+		conn.SessionDatabases = m.Connections.SessionDatabaseNames
+		conn.SessionHosts = m.Connections.SessionHostNames
 		data["connections"] = conn
 	}
 
@@ -2301,9 +2528,25 @@ func buildSQLOverviewData(m analysis.SQLMetrics) SQLOverviewJSON {
 	return overview
 }
 
-// buildFullSQLPerformance builds enriched SQL performance data for --full mode.
-// Includes basic stats, duration distribution histogram, and top queries lists.
-func buildFullSQLPerformance(m analysis.SQLMetrics) SQLPerformanceDetailJSON {
+// queryRankJSON renders a ranked query into the JSON top-N row shape,
+// formatting the three durations as human-readable strings.
+func queryRankJSON(q rankedQuery) QueryRankJSON {
+	return QueryRankJSON{
+		ID:              q.ID,
+		NormalizedQuery: q.Query,
+		Count:           q.Count,
+		TotalTime:       formatQueryDuration(q.TotalTime),
+		AvgTime:         formatQueryDuration(q.AvgTime),
+		MaxTime:         formatQueryDuration(q.MaxTime),
+	}
+}
+
+// buildSQLPerformanceBase builds the shared SQL performance payload: aggregate
+// stats, the duration distribution histogram, and the three top-query rankings
+// (slowest, most frequent, most time consuming). buildFullSQLPerformance
+// enriches it with per-query rows and lazy executions for the HTML viewer;
+// ExportSQLPerformanceJSON streams it as-is.
+func buildSQLPerformanceBase(m analysis.SQLMetrics) SQLPerformanceDetailJSON {
 	// Top 1% slow computation — count events whose duration exceeds the
 	// P99 threshold. Goes through the compact storage helper to avoid
 	// expanding 40M QueryExecution structs just to read the duration.
@@ -2354,6 +2597,29 @@ func buildFullSQLPerformance(m analysis.SQLMetrics) SQLPerformanceDetailJSON {
 		})
 	}
 
+	// Top-N rankings: flatten the query stats once, then re-rank the
+	// shared slice per metric. Each pass is fully consumed before the
+	// next one re-sorts the slice.
+	ranking := flattenQueryStats(m.QueryStats)
+	for _, q := range topRankedQueries(ranking, rankByMaxTime, 10) {
+		perf.SlowestQueries = append(perf.SlowestQueries, queryRankJSON(q))
+	}
+	for _, q := range topRankedQueries(ranking, rankByCount, 15) {
+		perf.MostFrequentQueries = append(perf.MostFrequentQueries, queryRankJSON(q))
+	}
+	for _, q := range topRankedQueries(ranking, rankByTotalTime, 10) {
+		perf.MostTimeConsuming = append(perf.MostTimeConsuming, queryRankJSON(q))
+	}
+
+	return perf
+}
+
+// buildFullSQLPerformance builds enriched SQL performance data for --full mode.
+// It extends the shared base payload with per-query rows and lazy executions
+// consumed by the HTML viewer.
+func buildFullSQLPerformance(m analysis.SQLMetrics) SQLPerformanceDetailJSON {
+	perf := buildSQLPerformanceBase(m)
+
 	// Convert QueryStats to slice for sorting
 	type queryStat struct {
 		id    string
@@ -2363,75 +2629,6 @@ func buildFullSQLPerformance(m analysis.SQLMetrics) SQLPerformanceDetailJSON {
 	var stats []queryStat
 	for _, s := range m.QueryStats {
 		stats = append(stats, queryStat{s.ID, s.NormalizedQuery, s})
-	}
-
-	// Slowest queries (by max duration)
-	sort.Slice(stats, func(i, j int) bool {
-		if stats[i].stat.MaxTime != stats[j].stat.MaxTime {
-			return stats[i].stat.MaxTime > stats[j].stat.MaxTime
-		}
-		return stats[i].id < stats[j].id
-	})
-	limit := 10
-	if len(stats) < limit {
-		limit = len(stats)
-	}
-	for i := 0; i < limit; i++ {
-		s := stats[i]
-		perf.SlowestQueries = append(perf.SlowestQueries, QueryRankJSON{
-			ID:              s.id,
-			NormalizedQuery: s.query,
-			Count:           s.stat.Count,
-			TotalTime:       formatQueryDuration(s.stat.TotalTime),
-			AvgTime:         formatQueryDuration(s.stat.AvgTime),
-			MaxTime:         formatQueryDuration(s.stat.MaxTime),
-		})
-	}
-
-	// Most frequent queries (by count)
-	sort.Slice(stats, func(i, j int) bool {
-		if stats[i].stat.Count != stats[j].stat.Count {
-			return stats[i].stat.Count > stats[j].stat.Count
-		}
-		return stats[i].id < stats[j].id
-	})
-	limit = 15
-	if len(stats) < limit {
-		limit = len(stats)
-	}
-	for i := 0; i < limit; i++ {
-		s := stats[i]
-		perf.MostFrequentQueries = append(perf.MostFrequentQueries, QueryRankJSON{
-			ID:              s.id,
-			NormalizedQuery: s.query,
-			Count:           s.stat.Count,
-			TotalTime:       formatQueryDuration(s.stat.TotalTime),
-			AvgTime:         formatQueryDuration(s.stat.AvgTime),
-			MaxTime:         formatQueryDuration(s.stat.MaxTime),
-		})
-	}
-
-	// Most time consuming queries (by total time)
-	sort.Slice(stats, func(i, j int) bool {
-		if stats[i].stat.TotalTime != stats[j].stat.TotalTime {
-			return stats[i].stat.TotalTime > stats[j].stat.TotalTime
-		}
-		return stats[i].id < stats[j].id
-	})
-	limit = 10
-	if len(stats) < limit {
-		limit = len(stats)
-	}
-	for i := 0; i < limit; i++ {
-		s := stats[i]
-		perf.MostTimeConsuming = append(perf.MostTimeConsuming, QueryRankJSON{
-			ID:              s.id,
-			NormalizedQuery: s.query,
-			Count:           s.stat.Count,
-			TotalTime:       formatQueryDuration(s.stat.TotalTime),
-			AvgTime:         formatQueryDuration(s.stat.AvgTime),
-			MaxTime:         formatQueryDuration(s.stat.MaxTime),
-		})
 	}
 
 	// Full queries data for HTML viewer (all queries, sorted by total time)
@@ -2562,7 +2759,25 @@ func buildMaintenanceJSON(v analysis.VacuumMetrics) MaintenanceJSON {
 			j.TopAnalyzeTablesByElapsed[i] = vacuumTableStatJSON(t)
 		}
 	}
+
+	j.SkippedVacuumCount = v.SkippedVacuumCount
+	j.SkippedVacuumTables = vacuumSkipsJSON(v.SkippedVacuumTables)
+	j.SkippedAnalyzeCount = v.SkippedAnalyzeCount
+	j.SkippedAnalyzeTables = vacuumSkipsJSON(v.SkippedAnalyzeTables)
 	return j
+}
+
+// vacuumSkipsJSON projects the analyzer's skip slice into its JSON shape,
+// returning nil for an empty input so omitempty drops the field entirely.
+func vacuumSkipsJSON(skips []analysis.VacuumSkip) []VacuumSkipJSON {
+	if len(skips) == 0 {
+		return nil
+	}
+	out := make([]VacuumSkipJSON, len(skips))
+	for i, s := range skips {
+		out[i] = VacuumSkipJSON{Table: s.Table, Count: s.Count, Reason: s.Reason}
+	}
+	return out
 }
 
 func vacuumTableStatJSON(t analysis.VacuumTableStat) VacuumTableStatJSON {
@@ -2652,17 +2867,19 @@ func convertSummary(m analysis.AggregatedMetrics) SummaryJSON {
 	if duration.Seconds() > 0 {
 		throughput = float64(m.Global.Count) / duration.Seconds()
 	}
+	_, offSec := m.Global.MinTimestamp.Zone()
 	return SummaryJSON{
-		StartDate:    m.Global.MinTimestamp.Format("2006-01-02 15:04:05"),
-		EndDate:      m.Global.MaxTimestamp.Format("2006-01-02 15:04:05"),
-		Duration:     duration.String(),
-		TotalLogs:    m.Global.Count,
-		Throughput:   fmt.Sprintf("%.2f entries/s", throughput),
-		ErrorCount:   m.Global.ErrorCount,
-		FatalCount:   m.Global.FatalCount,
-		PanicCount:   m.Global.PanicCount,
-		WarningCount: m.Global.WarningCount,
-		LogCount:     m.Global.LogCount,
+		StartDate:        m.Global.MinTimestamp.Format("2006-01-02 15:04:05"),
+		EndDate:          m.Global.MaxTimestamp.Format("2006-01-02 15:04:05"),
+		Duration:         duration.String(),
+		TotalLogs:        m.Global.Count,
+		Throughput:       fmt.Sprintf("%.2f entries/s", throughput),
+		ErrorCount:       m.Global.ErrorCount,
+		FatalCount:       m.Global.FatalCount,
+		PanicCount:       m.Global.PanicCount,
+		WarningCount:     m.Global.WarningCount,
+		LogCount:         m.Global.LogCount,
+		UTCOffsetMinutes: offSec / 60,
 	}
 }
 
@@ -2787,62 +3004,7 @@ func ExportSQLOverviewJSON(w io.Writer, m analysis.SQLMetrics) {
 		return
 	}
 
-	overview := SQLOverviewJSON{
-		TotalQueries: m.TotalQueries,
-	}
-
-	// Build category statistics
-	categoryStats := make(map[string]struct {
-		count     int
-		totalTime float64
-	})
-	for _, stat := range m.QueryTypeStats {
-		cs := categoryStats[stat.Category]
-		cs.count += stat.Count
-		cs.totalTime += stat.TotalTime
-		categoryStats[stat.Category] = cs
-	}
-
-	// Convert to sorted slice
-	for cat, cs := range categoryStats {
-		overview.Categories = append(overview.Categories, CategoryStatJSON{
-			Category:   cat,
-			Count:      cs.count,
-			Percentage: float64(cs.count) / float64(m.TotalQueries) * 100,
-			TotalTime:  formatQueryDuration(cs.totalTime),
-		})
-	}
-	sort.Slice(overview.Categories, func(i, j int) bool {
-		if overview.Categories[i].Count != overview.Categories[j].Count {
-			return overview.Categories[i].Count > overview.Categories[j].Count
-		}
-		return overview.Categories[i].Category < overview.Categories[j].Category
-	})
-
-	// Build type statistics
-	for qtype, stat := range m.QueryTypeStats {
-		overview.Types = append(overview.Types, TypeStatJSON{
-			Type:       qtype,
-			Category:   stat.Category,
-			Count:      stat.Count,
-			Percentage: float64(stat.Count) / float64(m.TotalQueries) * 100,
-			TotalTime:  formatQueryDuration(stat.TotalTime),
-			AvgTime:    formatQueryDuration(stat.AvgTime),
-			MaxTime:    formatQueryDuration(stat.MaxTime),
-		})
-	}
-	sort.Slice(overview.Types, func(i, j int) bool {
-		if overview.Types[i].Count != overview.Types[j].Count {
-			return overview.Types[i].Count > overview.Types[j].Count
-		}
-		return overview.Types[i].Type < overview.Types[j].Type
-	})
-
-	// Build dimensional breakdowns
-	overview.ByDatabase = convertDimensionBreakdown(m.QueryTypesByDatabase)
-	overview.ByUser = convertDimensionBreakdown(m.QueryTypesByUser)
-	overview.ByHost = convertDimensionBreakdown(m.QueryTypesByHost)
-	overview.ByApp = convertDimensionBreakdown(m.QueryTypesByApp)
+	overview := buildSQLOverviewData(m)
 
 	// Stream the overview as a top-level document.
 	if err := streamTopLevel(w, overview, false); err != nil {
@@ -2857,135 +3019,7 @@ func ExportSQLPerformanceJSON(w io.Writer, m analysis.SQLMetrics) {
 		return
 	}
 
-	// Top 1% slow computation — count events whose duration exceeds the
-	// P99 threshold. Goes through the compact storage helper to avoid
-	// expanding 40M QueryExecution structs just to read the duration.
-	top1Slow := 0
-	if m.ExecutionCount() > 0 {
-		top1Slow = m.ExecutionsCountAbove(m.P99QueryDuration)
-	}
-
-	perf := SQLPerformanceDetailJSON{
-		TotalQueryDuration:  formatQueryDuration(m.SumQueryDuration),
-		TotalQueriesParsed:  m.TotalQueries,
-		TotalUniqueQueries:  m.UniqueQueries,
-		Top1PercentSlow:     top1Slow,
-		QueryMaxDuration:    formatQueryDuration(m.MaxQueryDuration),
-		QueryMinDuration:    formatQueryDuration(m.MinQueryDuration),
-		QueryMedianDuration: formatQueryDuration(m.MedianQueryDuration),
-		Query99thPercentile: formatQueryDuration(m.P99QueryDuration),
-	}
-
-	// Duration distribution histogram
-	buckets := []struct {
-		label     string
-		threshold float64
-	}{
-		{"< 1 ms", 1},
-		{"< 10 ms", 10},
-		{"< 100 ms", 100},
-		{"< 1 s", 1000},
-		{"< 10 s", 10000},
-		{">= 10 s", -1},
-	}
-
-	bucketCounts := make([]int, len(buckets))
-	m.IterateExecutions(func(exec analysis.QueryExecution) bool {
-		for i, b := range buckets {
-			if b.threshold < 0 || exec.Duration < b.threshold {
-				bucketCounts[i]++
-				break
-			}
-		}
-		return true
-	})
-
-	for i, b := range buckets {
-		perf.DurationDistribution = append(perf.DurationDistribution, DurationBucketJSON{
-			Bucket: b.label,
-			Count:  bucketCounts[i],
-		})
-	}
-
-	// Convert QueryStats to slice for sorting
-	type queryStat struct {
-		id    string
-		query string
-		stat  *analysis.QueryStat
-	}
-	var stats []queryStat
-	for _, s := range m.QueryStats {
-		stats = append(stats, queryStat{s.ID, s.NormalizedQuery, s})
-	}
-
-	// Slowest queries (by max duration)
-	sort.Slice(stats, func(i, j int) bool {
-		if stats[i].stat.MaxTime != stats[j].stat.MaxTime {
-			return stats[i].stat.MaxTime > stats[j].stat.MaxTime
-		}
-		return stats[i].id < stats[j].id
-	})
-	limit := 10
-	if len(stats) < limit {
-		limit = len(stats)
-	}
-	for i := 0; i < limit; i++ {
-		s := stats[i]
-		perf.SlowestQueries = append(perf.SlowestQueries, QueryRankJSON{
-			ID:              s.id,
-			NormalizedQuery: s.query,
-			Count:           s.stat.Count,
-			TotalTime:       formatQueryDuration(s.stat.TotalTime),
-			AvgTime:         formatQueryDuration(s.stat.AvgTime),
-			MaxTime:         formatQueryDuration(s.stat.MaxTime),
-		})
-	}
-
-	// Most frequent queries (by count)
-	sort.Slice(stats, func(i, j int) bool {
-		if stats[i].stat.Count != stats[j].stat.Count {
-			return stats[i].stat.Count > stats[j].stat.Count
-		}
-		return stats[i].id < stats[j].id
-	})
-	limit = 15
-	if len(stats) < limit {
-		limit = len(stats)
-	}
-	for i := 0; i < limit; i++ {
-		s := stats[i]
-		perf.MostFrequentQueries = append(perf.MostFrequentQueries, QueryRankJSON{
-			ID:              s.id,
-			NormalizedQuery: s.query,
-			Count:           s.stat.Count,
-			TotalTime:       formatQueryDuration(s.stat.TotalTime),
-			AvgTime:         formatQueryDuration(s.stat.AvgTime),
-			MaxTime:         formatQueryDuration(s.stat.MaxTime),
-		})
-	}
-
-	// Most time consuming queries (by total time)
-	sort.Slice(stats, func(i, j int) bool {
-		if stats[i].stat.TotalTime != stats[j].stat.TotalTime {
-			return stats[i].stat.TotalTime > stats[j].stat.TotalTime
-		}
-		return stats[i].id < stats[j].id
-	})
-	limit = 10
-	if len(stats) < limit {
-		limit = len(stats)
-	}
-	for i := 0; i < limit; i++ {
-		s := stats[i]
-		perf.MostTimeConsuming = append(perf.MostTimeConsuming, QueryRankJSON{
-			ID:              s.id,
-			NormalizedQuery: s.query,
-			Count:           s.stat.Count,
-			TotalTime:       formatQueryDuration(s.stat.TotalTime),
-			AvgTime:         formatQueryDuration(s.stat.AvgTime),
-			MaxTime:         formatQueryDuration(s.stat.MaxTime),
-		})
-	}
+	perf := buildSQLPerformanceBase(m)
 
 	// Stream the perf as a top-level document. The Executions field is
 	// not populated by this function (caller --sql-performance --json

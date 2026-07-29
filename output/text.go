@@ -390,10 +390,13 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 	// reader doesn't have to mentally separate vacuum from analyze
 	// inside one wall of text.
 	if has("maintenance") {
-		if m.Vacuum.VacuumCount > 0 {
+		// Render even when no run succeeded: a stream of skips with zero
+		// completed vacuums/analyzes is the worst case (autovacuum fully
+		// blocked), exactly when the skip info must show.
+		if m.Vacuum.VacuumCount > 0 || m.Vacuum.SkippedVacuumCount > 0 {
 			printAutovacuumSection(m.Vacuum)
 		}
-		if m.Vacuum.AnalyzeCount > 0 {
+		if m.Vacuum.AnalyzeCount > 0 || m.Vacuum.SkippedAnalyzeCount > 0 {
 			printAutoanalyzeSection(m.Vacuum)
 		}
 	}
@@ -564,11 +567,23 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 			fmt.Println()
 		}
 
+		if m.Connections.ClientIOFailureCount > 0 {
+			printClientIOFailures(m.Connections)
+		}
+
 		// Detailed mode: --connections explicit or --full
 		isExplicit := full || !has("all")
 		if isExplicit && m.Connections.SessionStats.Count > 0 {
 			printDetailedConnectionStats(m, bold, reset, true)
 		}
+	}
+
+	// Client I/O failures on logs that do not log connections at all (so the
+	// section above is skipped) but still report broken pipes / resets.
+	if has("connections") && m.Connections.ConnectionReceivedCount == 0 &&
+		m.Connections.ClientIOFailureCount > 0 {
+		fmt.Println(bold + "\nCONNECTIONS & SESSIONS\n" + reset)
+		printClientIOFailures(m.Connections)
 	}
 
 	// Unique Clients section.
@@ -973,6 +988,116 @@ func printServerTimeline(events []analysis.ServerTimelineEvent) {
 	}
 }
 
+// printClientIOFailures renders the client I/O failure breakdown inside the
+// CONNECTIONS section: the total, then the reasons grouped by direction
+// ("receiving from client" vs "sending to client") so the abbreviation-free
+// heading disambiguates the flow. A reason spanning several databases lists
+// them underneath; a single-database reason collapses to just its row.
+func printClientIOFailures(m analysis.ConnectionMetrics) {
+	fmt.Printf("  %-25s : %d\n", "Client I/O failures", m.ClientIOFailureCount)
+
+	// A line is either a direction header (muted italic, no count) or a data
+	// row: a reason (bold count) or a plain per-database sub-row shown only
+	// when a reason spans more than one database.
+	type line struct {
+		indent string
+		name   string
+		count  int
+		header bool
+		db     bool
+	}
+	var lines []line
+	addDir := func(header string, byReason map[string]map[string]int) {
+		if len(byReason) == 0 {
+			return
+		}
+		lines = append(lines, line{indent: "    ", name: header, header: true})
+		for _, r := range sortedByTotal(byReason) {
+			lines = append(lines, line{indent: "      ", name: r.name, count: r.total})
+			if len(r.sub) > 1 {
+				for _, d := range sortedCountPairs(r.sub) {
+					lines = append(lines, line{indent: "        ", name: d.name, count: d.count, db: true})
+				}
+			}
+		}
+	}
+	addDir("receiving from client", m.ClientIORecv)
+	addDir("sending to client", m.ClientIOSend)
+
+	// Align every count into one right-hand column across the whole block.
+	maxLabel, maxCount := 0, 0
+	for _, l := range lines {
+		if l.header {
+			continue
+		}
+		if w := len(l.indent) + len(l.name); w > maxLabel {
+			maxLabel = w
+		}
+		if w := len(formatThousands(int64(l.count))); w > maxCount {
+			maxCount = w
+		}
+	}
+	for _, l := range lines {
+		if l.header {
+			fmt.Printf("%s%s%s%s\n", l.indent, ansiMutedItalic, l.name, ansiReset)
+			continue
+		}
+		pad := strings.Repeat(" ", maxLabel-len(l.indent)-len(l.name))
+		num := fmt.Sprintf("%*s", maxCount, formatThousands(int64(l.count)))
+		if l.db {
+			fmt.Printf("%s%s%s  %s\n", l.indent, l.name, pad, num)
+		} else {
+			fmt.Printf("%s%s%s  %s%s%s\n", l.indent, l.name, pad, ansiBold, num, ansiReset)
+		}
+	}
+}
+
+type reasonRow struct {
+	name  string
+	total int
+	sub   map[string]int
+}
+
+// sortedByTotal flattens a reason->db->count map into reason rows sorted by
+// total desc, name asc.
+func sortedByTotal(m map[string]map[string]int) []reasonRow {
+	rows := make([]reasonRow, 0, len(m))
+	for name, sub := range m {
+		t := 0
+		for _, c := range sub {
+			t += c
+		}
+		rows = append(rows, reasonRow{name, t, sub})
+	}
+	sort.Slice(rows, func(i, j int) bool {
+		if rows[i].total != rows[j].total {
+			return rows[i].total > rows[j].total
+		}
+		return rows[i].name < rows[j].name
+	})
+	return rows
+}
+
+type countPair struct {
+	name  string
+	count int
+}
+
+// sortedCountPairs sorts a name->count map by count desc, name asc.
+func sortedCountPairs(m map[string]int) []countPair {
+	out := make([]countPair, 0, len(m))
+	for n, c := range m {
+		out = append(out, countPair{n, c})
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].count != out[j].count {
+			return out[i].count > out[j].count
+		}
+		return out[i].name < out[j].name
+	})
+	return out
+}
+
 // printDetailedConnectionStats displays detailed connection and session statistics.
 // This is shown only when --connections is explicitly used (not as part of "all").
 func printDetailedConnectionStats(m analysis.AggregatedMetrics, bold, reset string, showAll bool) {
@@ -1183,6 +1308,9 @@ func printAutovacuumSection(v analysis.VacuumMetrics) {
 	if v.AggressiveVacuumCount > 0 {
 		fmt.Printf("  %-25s : %s\n", "  of which aggressive", formatThousands(int64(v.AggressiveVacuumCount)))
 	}
+	if v.SkippedVacuumCount > 0 {
+		fmt.Printf("  %-25s : %s\n", "Vacuum skipped", formatThousands(int64(v.SkippedVacuumCount)))
+	}
 	if v.TotalVacuumElapsedSeconds > 0 {
 		dur := time.Duration(v.TotalVacuumElapsedSeconds * float64(time.Second)).Truncate(time.Second)
 		fmt.Printf("  %-25s : %s\n", "Cumulated time", dur)
@@ -1226,6 +1354,53 @@ func printAutovacuumSection(v analysis.VacuumMetrics) {
 	if len(v.VacuumTableCounts) > 0 {
 		printTopCountTable("Top tables by count:", v.VacuumTableCounts, v.VacuumCount)
 	}
+	if len(v.SkippedVacuumTables) > 0 {
+		printTopSkippedTable(v.SkippedVacuumTables)
+	}
+}
+
+// skipReasonDefault is the reason PostgreSQL attaches to essentially every
+// autovacuum/autoanalyze skip (the conditional-lock failure). It is suppressed
+// in the per-row output as noise; any other reason is surfaced as the
+// exception it is.
+const skipReasonDefault = "lock not available"
+
+// maxSkippedDisplay caps how many skipped relations the text/markdown
+// renderers list before collapsing the tail into a "… and N more" line,
+// matching the HTML cap (MAINT_TOP_N) and the other maintenance tables.
+const maxSkippedDisplay = 20
+
+// printTopSkippedTable lists the relations autovacuum/autoanalyze skipped,
+// ranked by skip count. The reason column is shown only when it deviates from
+// the universal "lock not available" default. Mirrors the xmin/elapsed table
+// layout: aligned name column, right-aligned count, optional trailing reason.
+func printTopSkippedTable(rows []analysis.VacuumSkip) {
+	fmt.Println("\n  Top tables skipped:")
+	shown := rows
+	if len(shown) > maxSkippedDisplay {
+		shown = shown[:maxSkippedDisplay]
+	}
+	nums := make([]string, len(shown))
+	maxNumW, maxNameW := 0, 0
+	for i, t := range shown {
+		nums[i] = formatThousands(int64(t.Count))
+		if len(nums[i]) > maxNumW {
+			maxNumW = len(nums[i])
+		}
+		if len(t.Table) > maxNameW {
+			maxNameW = len(t.Table)
+		}
+	}
+	for i, t := range shown {
+		if t.Reason != "" && t.Reason != skipReasonDefault {
+			fmt.Printf("    %-*s  %*s×  %s\n", maxNameW, t.Table, maxNumW, nums[i], t.Reason)
+		} else {
+			fmt.Printf("    %-*s  %*s×\n", maxNameW, t.Table, maxNumW, nums[i])
+		}
+	}
+	if len(rows) > len(shown) {
+		fmt.Printf("    … and %d more\n", len(rows)-len(shown))
+	}
 }
 
 // printAutoanalyzeSection renders the AUTOANALYZE sibling panel.
@@ -1235,6 +1410,9 @@ func printAutoanalyzeSection(v analysis.VacuumMetrics) {
 	fmt.Println(ansiBold + "\nAUTOANALYZE\n" + ansiReset)
 
 	fmt.Printf("  %-25s : %s\n", "Analyze count", formatThousands(int64(v.AnalyzeCount)))
+	if v.SkippedAnalyzeCount > 0 {
+		fmt.Printf("  %-25s : %s\n", "Analyze skipped", formatThousands(int64(v.SkippedAnalyzeCount)))
+	}
 	if v.TotalAnalyzeElapsedSeconds > 0 {
 		dur := time.Duration(v.TotalAnalyzeElapsedSeconds * float64(time.Second)).Truncate(time.Second)
 		fmt.Printf("  %-25s : %s\n", "Cumulated time", dur)
@@ -1245,6 +1423,9 @@ func printAutoanalyzeSection(v analysis.VacuumMetrics) {
 	}
 	if len(v.AnalyzeTableCounts) > 0 {
 		printTopCountTable("Top tables by count:", v.AnalyzeTableCounts, v.AnalyzeCount)
+	}
+	if len(v.SkippedAnalyzeTables) > 0 {
+		printTopSkippedTable(v.SkippedAnalyzeTables)
 	}
 }
 
@@ -1676,64 +1857,6 @@ func PrintSQLSummaryWithContext(m analysis.SQLMetrics, tempFiles analysis.TempFi
 	}
 }
 
-// PrintTimeConsumingQueries sorts and displays the top 10 queries based on total execution time.
-// The display adapts to the terminal width, switching between full and simplified modes.
-// PrintTimeConsumingQueries displays queries sorted by total time consumed.
-// Returns true if any data was printed.
-func PrintTimeConsumingQueries(queryStats map[string]*analysis.QueryStat) bool {
-	return PrintQueryTable(queryStats, QueryTableConfig{
-		Columns: []QueryTableColumn{
-			ColumnSQLID(),
-			ColumnQuery(),
-			ColumnCount(),
-			ColumnMaxTime(),
-			ColumnAvgTime(),
-			ColumnTotalTime(),
-		},
-		SortFunc:      SortByTotalTime,
-		Limit:         10,
-		ShowQueryText: true,
-	})
-}
-
-// PrintSlowestQueries displays the top 10 slowest individual queries,
-// showing three columns: SQLID, truncated Query, and Duration.
-// Returns true if any data was printed.
-func PrintSlowestQueries(queryStats map[string]*analysis.QueryStat) bool {
-	return PrintQueryTable(queryStats, QueryTableConfig{
-		Columns: []QueryTableColumn{
-			ColumnSQLID(),
-			ColumnQuery(),
-			ColumnDuration(),
-		},
-		SortFunc:          SortByMaxTime,
-		Limit:             10,
-		ShowQueryText:     true,
-		TableWidthPercent: 70, // Narrower table for simple 3-column layout
-	})
-}
-
-// PrintMostFrequentQueries displays the top queries by frequency (sorted descending by count).
-// The display stops if a query was executed only once or if the execution count drops by more than a factor of 10.
-// Returns true if any data was printed.
-func PrintMostFrequentQueries(queryStats map[string]*analysis.QueryStat) bool {
-	return PrintQueryTable(queryStats, QueryTableConfig{
-		Columns: []QueryTableColumn{
-			ColumnSQLID(),
-			ColumnQuery(),
-			ColumnCount(),
-		},
-		SortFunc: SortByCount,
-		FilterFunc: func(row QueryRow) bool {
-			// Don't show queries executed only once
-			return row.Count > 1
-		},
-		Limit:             15,
-		ShowQueryText:     true,
-		TableWidthPercent: 70, // Narrower table for simple 3-column layout
-	})
-}
-
 // PrintSQLDetails iterates over the QueryStats and displays details for each query
 // whose SQLID matches one of the provided queryDetails.
 // It consolidates metrics from SQL performance, tempfiles, and locks into a unified view.
@@ -2126,164 +2249,75 @@ func PrintEventsReport(summaries []analysis.EventSummary, topEvents []analysis.E
 	// Print title in bold.
 	fmt.Println(bold + "\nEVENTS\n" + reset)
 
-	// Re-sort summaries by severity order (PANIC -> FATAL -> ERROR ...)
-	severityRank := make(map[string]int)
-	for i, s := range analysis.PredefinedEventTypes {
-		severityRank[s] = i
-	}
-
-	sort.Slice(summaries, func(i, j int) bool {
-		rankI, okI := severityRank[summaries[i].Type]
-		rankJ, okJ := severityRank[summaries[j].Type]
-		if okI && okJ {
-			return rankI < rankJ
-		}
-		if okI {
-			return true
-		}
-		if okJ {
-			return false
-		}
-		return summaries[i].Type < summaries[j].Type
-	})
-
-	// Group top events by severity
-	eventsBySeverity := make(map[string][]analysis.EventStat)
-	for _, e := range topEvents {
-		eventsBySeverity[e.Severity] = append(eventsBySeverity[e.Severity], e)
-	}
-
-	// Determine terminal width
-	termWidth, _, err := term.GetSize(int(os.Stdout.Fd()))
-	if err != nil || termWidth <= 0 {
-		termWidth = 80
-	}
-
 	// Constants for layout
 	severityLabelWidth := 25
 
-	for _, summary := range summaries {
-		if summary.Count == 0 {
-			continue
-		}
-
-		// Filter non-error severities if onlyErrors is true
-		if onlyErrors && nonErrorSeverity(summary.Type) {
-			continue
-		}
-
+	for _, blk := range groupEventsBySeverityAndClass(summaries, topEvents, onlyErrors) {
 		// Print Severity Main Line
 		fmt.Printf("  %-*s : %d (%.1f%%)\n",
-			severityLabelWidth, summary.Type,
-			summary.Count, summary.Percentage)
+			severityLabelWidth, blk.Summary.Type,
+			blk.Summary.Count, blk.Summary.Percentage)
 
-		// Process detailed events for this severity
-		if events, ok := eventsBySeverity[summary.Type]; ok {
+		if len(blk.Classes) == 0 {
+			continue
+		}
 
-			// 1. Group by Error Class
-			// Map: ClassCode -> []EventStat
-			byClass := make(map[string][]analysis.EventStat)
-			for _, e := range events {
-				class := e.SQLStateClass
-				if class == "" || class == "00" {
-					class = "Unclassified"
-				}
-				byClass[class] = append(byClass[class], e)
-			}
-
-			// 2. Sort classes
-			// We want named classes first, then Unclassified at the end
-			var classes []string
-			for c := range byClass {
-				classes = append(classes, c)
-			}
-			sort.Slice(classes, func(i, j int) bool {
-				if classes[i] == "Unclassified" {
-					return false // Unclassified goes last
-				}
-				if classes[j] == "Unclassified" {
-					return true
-				}
-				return classes[i] < classes[j] // Sort by Class Code (e.g. 23 before 42)
-			})
-
-			// Find max message width for consistent alignment within this severity block
-			msgWidth := 0
-			for _, e := range events {
+		// Find max message width for consistent alignment within this
+		// severity block.
+		msgWidth := 0
+		for _, c := range blk.Classes {
+			for _, e := range c.Events {
 				if len(e.Message) > msgWidth {
 					msgWidth = len(e.Message)
 				}
 			}
-			if msgWidth < 30 {
-				msgWidth = 30
+		}
+		if msgWidth < 30 {
+			msgWidth = 30
+		}
+		if msgWidth > 60 {
+			msgWidth = 60
+		}
+
+		for _, c := range blk.Classes {
+			// If ALL events are unclassified (common for LOG), skip the
+			// "Unclassified" header to keep the section a flat list.
+			if !(c.Code == "Unclassified" && len(blk.Classes) == 1) {
+				fmt.Printf("    %s\n", c.Header)
 			}
-			if msgWidth > 60 {
-				msgWidth = 60
-			}
 
-			// 3. Print each class block
-			for _, classCode := range classes {
-				classEvents := byClass[classCode]
+			// Print messages at the same indent as the class header
+			// (4 spaces). Pattern IDs sit in the left margin instead of
+			// nested deeper — the third indent level crowded the layout
+			// and pushed the count column past the 80-col mark on long
+			// messages.
+			indent := "    "
 
-				// Calculate class header
-				classHeader := classCode
-				if classCode != "Unclassified" {
-					desc := analysis.GetErrorClassDescription(classCode)
-					classHeader = fmt.Sprintf("%s - %s", classCode, desc)
+			for _, e := range c.Events {
+				msg := e.Message
+				if len(msg) > msgWidth {
+					msg = msg[:msgWidth-3] + "..."
 				}
 
-				// Only print class header if we are in an error-like severity
-				// (ERROR, FATAL, PANIC, WARNING) where SQLSTATEs are relevant.
-
-				// If strictly Unclassified and not an Error severity, we might skip the "Unclassified" header
-				// to keep LOG/INFO sections cleaner (flat list).
-				// But user requested hierarchy. Let's keep it clean:
-				// If ALL events are unclassified (common for LOG), skip the header.
-				if classCode == "Unclassified" && len(classes) == 1 {
-					// Just print events directly
-				} else {
-					fmt.Printf("    %s\n", classHeader)
+				localPct := 0.0
+				if blk.Summary.Count > 0 {
+					localPct = (float64(e.Count) / float64(blk.Summary.Count)) * 100
 				}
 
-				// Sort events by count
-				sort.Slice(classEvents, func(i, j int) bool {
-					return classEvents[i].Count > classEvents[j].Count
-				})
-
-				// Print messages at the same indent as the class header
-				// (4 spaces). Pattern IDs sit in the left margin
-				// instead of nested deeper — the third indent level
-				// crowded the layout and pushed the count column past
-				// the 80-col mark on long messages.
-				indent := "    "
-
-				for _, e := range classEvents {
-					msg := e.Message
-					if len(msg) > msgWidth {
-						msg = msg[:msgWidth-3] + "..."
-					}
-
-					localPct := 0.0
-					if summary.Count > 0 {
-						localPct = (float64(e.Count) / float64(summary.Count)) * 100
-					}
-
-					// Lead the row with the stable handle as a
-					// left-margin label, italic-grey to keep it
-					// secondary to the message. 7-char IDs (XX-XXXX)
-					// give a stable column. When no ID (severity not
-					// tracked as a pattern), pad with spaces so the
-					// message column stays aligned across rows.
-					idCol := strings.Repeat(" ", 7)
-					if e.ID != "" {
-						idCol = ansiMutedItalic + e.ID + ansiReset
-					}
-					fmt.Printf("%s%s  %-*s  %6d  %6.2f%%\n",
-						indent,
-						idCol,
-						msgWidth, msg,
-						e.Count, localPct)
+				// Lead the row with the stable handle as a left-margin
+				// label, italic-grey to keep it secondary to the message.
+				// 7-char IDs (XX-XXXX) give a stable column. When no ID
+				// (severity not tracked as a pattern), pad with spaces so
+				// the message column stays aligned across rows.
+				idCol := strings.Repeat(" ", 7)
+				if e.ID != "" {
+					idCol = ansiMutedItalic + e.ID + ansiReset
 				}
+				fmt.Printf("%s%s  %-*s  %6d  %6.2f%%\n",
+					indent,
+					idCol,
+					msgWidth, msg,
+					e.Count, localPct)
 			}
 		}
 	}
@@ -2562,12 +2596,6 @@ func PrintWALDistanceHistogram(buckets []WALDistanceBucket) {
 	fmt.Println()
 }
 
-// PrintConcurrentHistogram displays a histogram with peak times for each bucket.
-// Similar to PrintHistogram but adds the time when the peak occurred.
-func PrintConcurrentHistogram(data map[string]int, title string, scaleFactor int, orderedLabels []string, peakTimes map[string]time.Time) {
-	PrintConcurrentHistogramWithTZ(data, title, scaleFactor, orderedLabels, peakTimes, nil)
-}
-
 func PrintConcurrentHistogramWithTZ(data map[string]int, title string, scaleFactor int, orderedLabels []string, peakTimes map[string]time.Time, refTime *time.Time) {
 	if len(data) == 0 {
 		fmt.Printf("\n  (No data available)\n")
@@ -2687,7 +2715,8 @@ func printLockStats(stats map[string]int, total int) {
 		}
 		// Total tie-break on name: Go map iteration order is randomized, so
 		// without a secondary key equal-count entries (e.g. the "Relations"
-		// list) print in a non-deterministic order, differing run-to-run.
+		// list) print in a non-deterministic order, differing run-to-run and
+		// between single-pass and PID-sharded runs.
 		return pairs[i].name < pairs[j].name
 	})
 

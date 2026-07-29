@@ -75,159 +75,151 @@ type AggregatedMetrics struct {
 //	}
 //	metrics := a.Finalize()
 //
-// SQL, Locks and TempFiles are dispatched to dedicated goroutines fed
-// by buffered channels — they were measured as the three most expensive
-// analyzers (sql/locks ~22% each, tempFiles 14-34% on >200 MB inputs).
-// The seven remaining analyzers are individually cheap but their sum is
-// not, so they are split across two more channel-fed goroutines (the
-// inlineA/inlineB groups below): five goroutines, five channels total.
+// Every parser batch is broadcast to a set of consumer goroutines; their
+// layout is chosen at construction by the worker count:
 //
-// The hand-off is per-batch, not per-entry: profiling on multi-GB
-// inputs showed three per-entry channel sends burning ~35% of total
-// CPU in scheduler spin (runqsteal → usleep) — four goroutines
-// parking/unparking around ~100M tiny sends. Forwarding the parser's
-// 256-entry batches divides the synchronization count by the batch
-// size; entries are shared read-only (no analyzer mutates them) and
-// the batch returns to the parser pool when the LAST consumer
-// releases it.
+//   - workers == 1 (function-parallel): the seven mergeable analyzers run as a
+//     single shard split across three goroutines — SQL alone (it dominates),
+//     plus two cheap groups — each seeing the full stream in order. The safe
+//     default for every input format.
+//   - workers > 1 (PID-sharded): the seven mergeable analyzers run as `workers`
+//     shards, each processing only the entries whose PID hashes to it, folded
+//     together in Finalize. The opt-in fast path for large plain stderr, where
+//     analysis (not parsing) is the bottleneck.
+//
+// connections, locks and tempFiles always run as their own full-stream
+// goroutines: they are not mergeable (streaming median, cross-PID blocking,
+// global pattern automaton), so each must see every entry in stream order.
+//
+// The hand-off is per-batch, not per-entry: profiling on multi-GB inputs
+// showed per-entry channel sends burning ~35% of CPU in scheduler churn.
+// Forwarding the parser's 256-entry batches divides the synchronization count
+// by the batch size; entries are shared read-only (no analyzer mutates them)
+// and the batch returns to the parser pool when the LAST consumer releases it.
 type StreamingAnalyzer struct {
-	global         GlobalMetrics
-	tempFiles      *TempFileAnalyzer
-	vacuum         *VacuumAnalyzer
-	checkpoints    *CheckpointAnalyzer
-	connections    *ConnectionAnalyzer
-	locks          *LockAnalyzer
-	replication    *ReplicationAnalyzer
-	events         *EventAnalyzer
-	uniqueEntities *UniqueEntityAnalyzer
-	sql            *SQLAnalyzer
-	server         *ServerAnalyzer
+	global  GlobalMetrics
+	nextSeq int64
 
-	sqlChan     chan *sharedBatch
-	locksChan   chan *sharedBatch
-	tempChan    chan *sharedBatch
-	inlineAChan chan *sharedBatch
-	inlineBChan chan *sharedBatch
-	parallelWg  sync.WaitGroup
+	// The seven mergeable analyzers. workers == 1 → one shard (run
+	// function-parallel, no PID filter); workers > 1 → one shard per worker
+	// (PID-routed), folded into shard 0 in Finalize.
+	workers int
+	shards  []*analyzerShard
+
+	// Full-stream single-instance analyzers — never sharded.
+	connections *ConnectionAnalyzer
+	locks       *LockAnalyzer
+	tempFiles   *TempFileAnalyzer
+
+	// One channel per consumer goroutine; ProcessBatch broadcasts each batch to
+	// all of them and the last consumer to release recycles it.
+	consumers []chan *sharedBatch
+	wg        sync.WaitGroup
 }
 
-// sharedBatch carries one parser batch through the five channel-fed
-// consumers. refs starts at the number of consumers; the last release
-// returns the slice to the parser pool.
-type sharedBatch struct {
-	entries []parser.LogEntry
-	refs    atomic.Int32
-}
-
-// release decrements the reference count and recycles the underlying
-// slice once every consumer is done with it.
-func (b *sharedBatch) release() {
-	if b.refs.Add(-1) == 0 {
-		parser.PutBatch(b.entries)
-	}
-}
-
-// NewStreamingAnalyzer creates a streaming analyzer with all
-// sub-analyzers initialized and the five parallel dispatch goroutines
-// running.
+// NewStreamingAnalyzer returns a function-parallel analyzer (workers == 1),
+// the safe default for every input format. Used by split reports and the WASM
+// build.
 func NewStreamingAnalyzer() *StreamingAnalyzer {
+	return NewStreamingAnalyzerWithWorkers(1)
+}
+
+// NewStreamingAnalyzerWithWorkers builds the analyzer and starts its consumer
+// goroutines. workers is clamped to >= 1; workers == 1 runs function-parallel,
+// workers > 1 runs PID-sharded (see StreamingAnalyzer). Both share the same
+// ProcessBatch/Finalize and produce identical output.
+func NewStreamingAnalyzerWithWorkers(workers int) *StreamingAnalyzer {
+	if workers < 1 {
+		workers = 1
+	}
 	sa := &StreamingAnalyzer{
-		tempFiles:      NewTempFileAnalyzer(),
-		vacuum:         NewVacuumAnalyzer(),
-		checkpoints:    NewCheckpointAnalyzer(),
-		connections:    NewConnectionAnalyzer(),
-		locks:          NewLockAnalyzer(),
-		replication:    NewReplicationAnalyzer(),
-		events:         NewEventAnalyzer(),
-		uniqueEntities: NewUniqueEntityAnalyzer(),
-		sql:            NewSQLAnalyzer(),
-		server:         NewServerAnalyzer(),
+		workers:     workers,
+		shards:      make([]*analyzerShard, workers),
+		connections: NewConnectionAnalyzer(),
+		locks:       NewLockAnalyzer(),
+		tempFiles:   NewTempFileAnalyzer(),
+	}
+	for k := range sa.shards {
+		sa.shards[k] = newAnalyzerShard()
 	}
 
-	// 256 in-flight batches ≈ 65k entries of buffering — same depth as
-	// the previous per-entry channels, ~256× fewer synchronizations.
-	sa.sqlChan = make(chan *sharedBatch, 256)
-	sa.locksChan = make(chan *sharedBatch, 256)
-	sa.tempChan = make(chan *sharedBatch, 256)
-	sa.inlineAChan = make(chan *sharedBatch, 256)
-	sa.inlineBChan = make(chan *sharedBatch, 256)
+	// start registers a consumer goroutine: it owns a buffered channel (256
+	// in-flight batches ≈ 65k entries) and applies fn to each batch in stream
+	// order, releasing it afterwards. ProcessBatch broadcasts to every channel.
+	start := func(fn func(*sharedBatch)) {
+		ch := make(chan *sharedBatch, 256)
+		sa.consumers = append(sa.consumers, ch)
+		sa.wg.Add(1)
+		go func() {
+			defer sa.wg.Done()
+			for sb := range ch {
+				fn(sb)
+				sb.release()
+			}
+		}()
+	}
+	forEach := func(sb *sharedBatch, do func(*parser.LogEntry)) {
+		for i := range sb.entries {
+			do(&sb.entries[i])
+		}
+	}
 
-	sa.parallelWg.Add(5)
-	go func() {
-		defer sa.parallelWg.Done()
-		for sb := range sa.sqlChan {
-			for i := range sb.entries {
-				sa.sql.Process(&sb.entries[i])
-			}
-			sb.release()
+	// Full-stream consumers — single-instance, every entry, both modes.
+	start(func(sb *sharedBatch) { forEach(sb, sa.connections.Process) })
+	start(func(sb *sharedBatch) { forEach(sb, sa.locks.Process) })
+	start(func(sb *sharedBatch) { forEach(sb, sa.tempFiles.Process) })
+
+	if workers == 1 {
+		// Function-parallel: the single shard's seven analyzers, split so the
+		// heavy SQL analyzer runs concurrently with the two cheap groups. Each
+		// goroutine sees the full stream in order.
+		s := sa.shards[0]
+		start(func(sb *sharedBatch) { forEach(sb, s.sql.Process) })
+		start(func(sb *sharedBatch) {
+			forEach(sb, func(e *parser.LogEntry) {
+				s.vacuum.Process(e)
+				s.checkpoints.Process(e)
+				s.server.Process(e)
+			})
+		})
+		start(func(sb *sharedBatch) {
+			forEach(sb, func(e *parser.LogEntry) {
+				s.replication.Process(e)
+				s.events.Process(e)
+				s.uniqueEntities.Process(e)
+			})
+		})
+	} else {
+		// PID-sharded: one consumer per shard, each processing only the entries
+		// whose PID hashes to it, so every message string is read exactly once.
+		n := workers
+		for k := 0; k < workers; k++ {
+			k, shard := k, sa.shards[k]
+			start(func(sb *sharedBatch) {
+				forEach(sb, func(e *parser.LogEntry) {
+					if shardForPID(e.PID, n) == k {
+						shard.process(e)
+					}
+				})
+			})
 		}
-	}()
-	go func() {
-		defer sa.parallelWg.Done()
-		for sb := range sa.locksChan {
-			for i := range sb.entries {
-				sa.locks.Process(&sb.entries[i])
-			}
-			sb.release()
-		}
-	}()
-	go func() {
-		defer sa.parallelWg.Done()
-		for sb := range sa.tempChan {
-			for i := range sb.entries {
-				sa.tempFiles.Process(&sb.entries[i])
-			}
-			sb.release()
-		}
-	}()
-	// The seven "inline" analyzers are individually cheap (~1.2s of
-	// CPU each on a 4.4 GB log) but their SUM (~8s) exceeded the time
-	// budget the parser gives the consuming goroutine (~11s), making
-	// the old inline loop the pipeline's critical path. Split across
-	// two goroutines (~4s each) both groups hide behind the parser
-	// again. Each analyzer still sees the full stream in order (one
-	// goroutine per group, FIFO channel), so intra-analyzer pairing
-	// (PID continuations, session tracking) is unaffected.
-	go func() {
-		defer sa.parallelWg.Done()
-		for sb := range sa.inlineAChan {
-			for i := range sb.entries {
-				e := &sb.entries[i]
-				sa.vacuum.Process(e)
-				sa.checkpoints.Process(e)
-				sa.connections.Process(e)
-				sa.server.Process(e)
-			}
-			sb.release()
-		}
-	}()
-	go func() {
-		defer sa.parallelWg.Done()
-		for sb := range sa.inlineBChan {
-			for i := range sb.entries {
-				e := &sb.entries[i]
-				sa.replication.Process(e)
-				sa.events.Process(e)
-				sa.uniqueEntities.Process(e)
-			}
-			sb.release()
-		}
-	}()
+	}
 
 	return sa
 }
 
-// ProcessBatch dispatches one parser batch to every analyzer. Only
-// the cheap global counters run on the calling goroutine; everything
-// else is channel-fed — sql, locks and tempFiles individually, the
-// seven remaining analyzers grouped on two goroutines. All five
-// consumers share the batch entries read-only. Ownership of the
-// batch transfers to the sharedBatch — the caller must NOT touch or
-// recycle it after this returns; the last consumer returns it to the
-// parser pool.
+// ProcessBatch broadcasts one parser batch to every consumer goroutine. Only
+// the cheap global counters (and the stream-position stamp) run on the calling
+// goroutine. Ownership of the batch transfers to the sharedBatch; the last
+// consumer returns it to the parser pool, so the caller must NOT touch or
+// recycle it after this returns.
 func (sa *StreamingAnalyzer) ProcessBatch(batch []parser.LogEntry) {
 	for i := range batch {
 		entry := &batch[i]
+		// Stamp the global stream position before fan-out so each shard's
+		// ordered events carry it and the merge can restore stream order.
+		entry.Seq = sa.nextSeq
+		sa.nextSeq++
 		if !entry.IsContinuation {
 			sa.global.Count++
 		}
@@ -237,41 +229,41 @@ func (sa *StreamingAnalyzer) ProcessBatch(batch []parser.LogEntry) {
 		if sa.global.MaxTimestamp.IsZero() || entry.Timestamp.After(sa.global.MaxTimestamp) {
 			sa.global.MaxTimestamp = entry.Timestamp
 		}
+		// Stamp the body offset once, like PID at construction, so the
+		// full-stream analyzers can anchor their pattern gates in O(1)
+		// instead of each scanning the whole message.
+		entry.BodyOffset = messageBodyOffset(entry.Message)
 	}
 
 	sb := &sharedBatch{entries: batch}
-	sb.refs.Store(5)
-	sa.inlineAChan <- sb
-	sa.inlineBChan <- sb
-	sa.locksChan <- sb
-	sa.tempChan <- sb
-	sa.sqlChan <- sb
+	sb.refs.Store(int32(len(sa.consumers)))
+	for _, ch := range sa.consumers {
+		ch <- sb
+	}
 }
 
-// Finalize computes final metrics after all log entries have been processed.
-
-// This should be called once after processing all entries.
-
+// Finalize drains the consumer goroutines, folds the shards together and
+// assembles the aggregated result. The shard fold is a no-op when workers == 1.
 func (sa *StreamingAnalyzer) Finalize() AggregatedMetrics {
+	for _, ch := range sa.consumers {
+		close(ch)
+	}
+	sa.wg.Wait()
 
-	// Drain the parallel-analyzer goroutines before reading their state.
-	close(sa.sqlChan)
-	close(sa.locksChan)
-	close(sa.tempChan)
-	close(sa.inlineAChan)
-	close(sa.inlineBChan)
-	sa.parallelWg.Wait()
+	// Fold every shard into shard 0 so a single Finalize per analyzer
+	// reproduces the single-pass result (proven byte-parity per analyzer).
+	merged := sa.shards[0]
+	for k := 1; k < sa.workers; k++ {
+		merged.merge(sa.shards[k])
+	}
 
 	tempFiles := sa.tempFiles.Finalize()
 	locks := sa.locks.Finalize()
-	sql := sa.sql.Finalize()
-	eventSummaries, topEvents := sa.events.Finalize()
+	sql := merged.sql.Finalize()
+	eventSummaries, topEvents := merged.events.Finalize()
 	CollectQueriesWithoutDuration(&sql, &locks, &tempFiles)
 
 	// Roll severity counts from EventAnalyzer into the global summary.
-	// Without this, Global.{Error,Fatal,Panic,Warning,Log}Count stay at 0
-	// even when EventSummaries already has them — surprising for users
-	// reading summary.error_count.
 	for _, s := range eventSummaries {
 		switch s.Type {
 		case "ERROR":
@@ -290,16 +282,83 @@ func (sa *StreamingAnalyzer) Finalize() AggregatedMetrics {
 	return AggregatedMetrics{
 		Global:         sa.global,
 		TempFiles:      tempFiles,
-		Vacuum:         sa.vacuum.Finalize(),
-		Checkpoints:    sa.checkpoints.Finalize(),
+		Vacuum:         merged.vacuum.Finalize(),
+		Checkpoints:    merged.checkpoints.Finalize(),
 		Connections:    sa.connections.Finalize(),
 		Locks:          locks,
-		Replication:    sa.replication.Finalize(),
+		Replication:    merged.replication.Finalize(),
 		EventSummaries: eventSummaries,
 		TopEvents:      topEvents,
-		UniqueEntities: sa.uniqueEntities.Finalize(),
+		UniqueEntities: merged.uniqueEntities.Finalize(),
 		SQL:            sql,
-		Server:         sa.server.Finalize(),
+		Server:         merged.server.Finalize(),
+	}
+}
+
+// analyzerShard is one independent copy of the seven cleanly-mergeable
+// analyzers that recombine across PID shards. connections, locks and
+// tempFiles are intentionally excluded — they run as hybrid full-stream
+// consumers (see StreamingAnalyzer).
+type analyzerShard struct {
+	vacuum         *VacuumAnalyzer
+	checkpoints    *CheckpointAnalyzer
+	replication    *ReplicationAnalyzer
+	events         *EventAnalyzer
+	uniqueEntities *UniqueEntityAnalyzer
+	sql            *SQLAnalyzer
+	server         *ServerAnalyzer
+}
+
+func newAnalyzerShard() *analyzerShard {
+	return &analyzerShard{
+		vacuum:         NewVacuumAnalyzer(),
+		checkpoints:    NewCheckpointAnalyzer(),
+		replication:    NewReplicationAnalyzer(),
+		events:         NewEventAnalyzer(),
+		uniqueEntities: NewUniqueEntityAnalyzer(),
+		sql:            NewSQLAnalyzer(),
+		server:         NewServerAnalyzer(),
+	}
+}
+
+// process runs every sharded analyzer on one entry, in a fixed order.
+// Intra-analyzer per-PID pairing is preserved because PID-sharding routes a
+// backend's full line sequence to the same shard in stream order.
+func (s *analyzerShard) process(e *parser.LogEntry) {
+	s.vacuum.Process(e)
+	s.checkpoints.Process(e)
+	s.replication.Process(e)
+	s.events.Process(e)
+	s.uniqueEntities.Process(e)
+	s.sql.Process(e)
+	s.server.Process(e)
+}
+
+// merge folds src's analyzers into s. Each Merge is proven byte-parity with
+// single-pass processing (see analysis/*_merge_test.go).
+func (s *analyzerShard) merge(src *analyzerShard) {
+	s.vacuum.Merge(src.vacuum)
+	s.checkpoints.Merge(src.checkpoints)
+	s.replication.Merge(src.replication)
+	s.events.Merge(src.events)
+	s.uniqueEntities.Merge(src.uniqueEntities)
+	s.sql.Merge(src.sql)
+	s.server.Merge(src.server)
+}
+
+// sharedBatch carries one parser batch through the consumer goroutines. refs
+// starts at the number of consumers; the last release returns the slice to the
+// parser pool.
+type sharedBatch struct {
+	entries []parser.LogEntry
+	refs    atomic.Int32
+}
+
+// release decrements the reference count and recycles the underlying
+// slice once every consumer is done with it.
+func (b *sharedBatch) release() {
+	if b.refs.Add(-1) == 0 {
+		parser.PutBatch(b.entries)
 	}
 }
 
@@ -309,8 +368,19 @@ func (sa *StreamingAnalyzer) Finalize() AggregatedMetrics {
 //
 // On ctx cancellation it returns whatever has been processed so far,
 // after draining `in` so upstream producers can exit cleanly.
+//
+// Function-parallel (workers == 1) — safe for every input format.
 func AggregateMetrics(ctx context.Context, in <-chan []parser.LogEntry) AggregatedMetrics {
-	analyzer := NewStreamingAnalyzer()
+	return AggregateMetricsWithWorkers(ctx, in, 1)
+}
+
+// AggregateMetricsWithWorkers aggregates with `workers` analysis workers:
+// workers > 1 runs PID-sharded (data-parallel — only safe when LogEntry.PID is
+// the PostgreSQL backend PID, i.e. large plain stderr); workers == 1 runs
+// function-parallel, the correct default for every other format. Both produce
+// identical output (see StreamingAnalyzer).
+func AggregateMetricsWithWorkers(ctx context.Context, in <-chan []parser.LogEntry, workers int) AggregatedMetrics {
+	analyzer := NewStreamingAnalyzerWithWorkers(workers)
 
 	// Process batches in streaming mode. ctx checked once per batch so a
 	// cancelled run (CTRL+C, follow-mode shutdown) doesn't wait for full drain.
@@ -323,8 +393,8 @@ loop:
 			if !ok {
 				break loop
 			}
-			// ProcessBatch takes ownership: the batch is recycled by
-			// the last of the five channel-fed consumers, not here.
+			// ProcessBatch takes ownership: the batch is recycled by the last
+			// consumer to release it, not here.
 			analyzer.ProcessBatch(batch)
 		}
 	}
@@ -767,6 +837,53 @@ var severityMarkers = [...]string{
 	// pull the whole "favier SSL enabled (protocol=TLSv1.2" tail
 	// into the captured value.
 	" SSL ",
+}
+
+// messageBodyOffset returns the byte offset of the message body: the text
+// right after the first severity marker (" LOG: ", " ERROR: ", …), its
+// following spaces and an optional verbose-mode SQLSTATE token ("00000: ").
+// Returns 0 when no marker is found (continuation lines carry DETAIL:/
+// STATEMENT:/… instead) so callers fall back to their unanchored path.
+// Single pass, unlike findSeverityMarker: it walks ':' occurrences and
+// inspects the uppercase token preceding each one.
+func messageBodyOffset(msg string) int32 {
+	for i := 0; i < len(msg); {
+		c := strings.IndexByte(msg[i:], ':')
+		if c < 0 {
+			return 0
+		}
+		p := i + c
+		// Scan back over the [A-Z0-9] token preceding the colon
+		// (digits cover DEBUG1..DEBUG5).
+		s := p
+		for s > 0 && (msg[s-1] >= 'A' && msg[s-1] <= 'Z' || msg[s-1] >= '0' && msg[s-1] <= '9') {
+			s--
+		}
+		if s < p && (s == 0 || msg[s-1] == ' ') && isSeverityWord(msg[s:p]) {
+			b := p + 1
+			for b < len(msg) && msg[b] == ' ' {
+				b++
+			}
+			// log_error_verbosity=verbose inserts the SQLSTATE right
+			// after the marker: "LOG:  00000: body…" — skip it.
+			if len(msg)-b >= 7 && msg[b+5] == ':' && msg[b+6] == ' ' && isSQLState(msg[b:b+5]) {
+				b += 7
+			}
+			return int32(b)
+		}
+		i = p + 1
+	}
+	return 0
+}
+
+// isSeverityWord reports whether tok is a PostgreSQL severity keyword.
+func isSeverityWord(tok string) bool {
+	switch tok {
+	case "LOG", "ERROR", "WARNING", "FATAL", "PANIC", "NOTICE", "INFO", "DEBUG",
+		"DEBUG1", "DEBUG2", "DEBUG3", "DEBUG4", "DEBUG5":
+		return true
+	}
+	return false
 }
 
 func findSeverityMarker(s string) int {

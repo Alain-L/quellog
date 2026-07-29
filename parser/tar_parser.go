@@ -157,21 +157,30 @@ func isSupportedArchiveEntry(name string) bool {
 	return false
 }
 
-// isRotatedLogFile detects PostgreSQL rotated log files where a date/number
-// suffix follows the base extension (e.g. "postgresql.log.2026-03-23-10").
-func isRotatedLogFile(lower string) bool {
-	for _, base := range []string{".log.", ".csv."} {
-		idx := strings.LastIndex(lower, base)
+// hasRotatedBase reports whether lower carries a rotation suffix on the base
+// extension: the base immediately followed by a separator ('.' for numeric or
+// date-dot rotation, '-' for logrotate "dateext") then a digit — e.g.
+// postgresql.log.1, postgresql.log.2026-03-23-10, postgresql.log-20260320.
+func hasRotatedBase(lower, base string) bool {
+	for from := 0; ; {
+		idx := strings.Index(lower[from:], base)
 		if idx == -1 {
-			continue
+			return false
 		}
-		// Verify the suffix after ".log." starts with a digit (date rotation)
-		after := lower[idx+len(base):]
-		if len(after) > 0 && after[0] >= '0' && after[0] <= '9' {
+		idx += from
+		rest := lower[idx+len(base):]
+		if len(rest) >= 2 && (rest[0] == '.' || rest[0] == '-') && rest[1] >= '0' && rest[1] <= '9' {
 			return true
 		}
+		from = idx + 1
 	}
-	return false
+}
+
+// isRotatedLogFile detects PostgreSQL rotated log/csv files (any rotation
+// naming hasRotatedBase recognizes), so a rotated member is accepted for
+// parsing instead of being dropped as an unsupported archive entry.
+func isRotatedLogFile(lower string) bool {
+	return hasRotatedBase(lower, ".log") || hasRotatedBase(lower, ".csv")
 }
 
 // sniffAndParseArchiveEntry handles an archive member whose name carries no
@@ -197,14 +206,63 @@ func sniffAndParseArchiveEntry(name string, r io.Reader, out chan<- []LogEntry) 
 
 	// Replay the buffered sample ahead of the rest of the entry.
 	full := io.MultiReader(bytes.NewReader(sample), r)
-	switch parser.(type) {
+	switch src := parser.(type) {
 	case *CsvParser:
 		return true, (&CsvParser{}).parseReader(full, out)
 	case *JsonParser:
 		return true, (&JsonParser{}).parseReader(full, out)
 	default:
-		return true, (&StderrParser{}).parseReader(full, out)
+		// Carry the detected leading-prefix offset so a prefixed log inside
+		// an archive parses like its plain counterpart instead of silently
+		// yielding zero entries.
+		sp, _ := src.(*StderrParser)
+		prefixLen := 0
+		if sp != nil {
+			prefixLen = sp.prefixLen
+		}
+		return true, routeStderrStream(full, prefixLen, out)
 	}
+}
+
+// routeStderrStream parses a fully-buffered stderr stream. A prefix-less member
+// takes the parallel stream-chunked fast path (same as compressed plain
+// streams); a detected literal prefix keeps the sequential prefix-aware reader,
+// which mirrors wrapCompressedParser's routing.
+func routeStderrStream(full io.Reader, prefixLen int, out chan<- []LogEntry) error {
+	parser := &StderrParser{prefixLen: prefixLen}
+	if workers := parallelWorkers(); workers >= 2 && prefixLen == 0 {
+		return parser.parseStreamParallel(full, workers, out)
+	}
+	return parser.parseReader(full, out)
+}
+
+// parseStderrArchiveEntry parses a plain-stderr archive member (a ".log" or
+// rotated ".log.<date>" entry), salvaging a literal log_line_prefix the same
+// way the plain/compressed path does in autodetect.go's detectByExtension.
+// Archive members are non-seekable, so it buffers a head sample, runs the
+// isLogContent -> detectLeadingPrefix probe, then replays the sample ahead of
+// the rest of the stream so no bytes are lost. Without this, a log carrying a
+// constant literal prefix before its timestamp parses fine as a plain/compressed
+// file but yields zero entries when the same bytes live inside a tar.
+func parseStderrArchiveEntry(r io.Reader, out chan<- []LogEntry) error {
+	sample := make([]byte, sampleBufferSize)
+	n, err := io.ReadFull(r, sample)
+	if err != nil && err != io.ErrUnexpectedEOF && err != io.EOF {
+		return err
+	}
+	sample = bytes.TrimPrefix(sample[:n], utf8BOM)
+
+	// Only probe for a literal prefix when the sample doesn't already look like
+	// a normal PostgreSQL log — mirrors detectByExtension's "log" branch, so a
+	// well-formed member keeps prefixLen 0 and the common no-prefix fast path.
+	prefixLen := 0
+	if s := string(sample); !isLogContent(s) {
+		prefixLen = detectLeadingPrefix(s)
+	}
+
+	// Replay the buffered sample ahead of the remaining stream, then route.
+	full := io.MultiReader(bytes.NewReader(sample), r)
+	return routeStderrStream(full, prefixLen, out)
 }
 
 // parseArchiveEntry selects the correct parser for an archive entry.
@@ -213,8 +271,10 @@ func parseArchiveEntry(name string, r io.Reader, out chan<- []LogEntry) error {
 
 	switch {
 	case strings.HasSuffix(lower, ".log"):
-		parser := &StderrParser{}
-		return parser.parseReader(r, out)
+		// Buffer a head sample so a literal log_line_prefix is salvaged the
+		// same way the plain/compressed path does, then parse (parallel when
+		// prefix-less, sequential when a prefix was detected).
+		return parseStderrArchiveEntry(r, out)
 	case strings.HasSuffix(lower, ".csv"):
 		parser := &CsvParser{}
 		return parser.parseReader(r, out)
@@ -235,12 +295,13 @@ func parseArchiveEntry(name string, r io.Reader, out chan<- []LogEntry) error {
 		return parseZstdArchiveEntry(name, r, ".zst", out)
 	case strings.HasSuffix(lower, ".zstd"):
 		return parseZstdArchiveEntry(name, r, ".zstd", out)
-	case strings.Contains(lower, ".log."):
-		// Rotated PostgreSQL log files (e.g. postgresql.log.2026-03-23-10)
-		parser := &StderrParser{}
-		return parser.parseReader(r, out)
-	case strings.Contains(lower, ".csv."):
-		// Rotated CSV log files
+	case hasRotatedBase(lower, ".log"):
+		// Rotated PostgreSQL log files, including logrotate dateext
+		// (e.g. postgresql.log.2026-03-23-10, postgresql.log-20260320 after
+		// nested decompression). Same literal-prefix salvage as ".log" above.
+		return parseStderrArchiveEntry(r, out)
+	case hasRotatedBase(lower, ".csv"):
+		// Rotated CSV log files (numeric, date-dot or dateext).
 		parser := &CsvParser{}
 		return parser.parseReader(r, out)
 	default:
@@ -271,4 +332,76 @@ func isZstdArchive(name string) bool {
 	return strings.HasSuffix(lower, ".tar.zst") ||
 		strings.HasSuffix(lower, ".tar.zstd") ||
 		strings.HasSuffix(lower, ".tzst")
+}
+
+// tarFirstEntryShardable reports whether the first supported entry of a tar
+// archive (plain or gzip/zstd-compressed) is non-syslog stderr — the
+// PID-sharding precondition. Archives are assumed homogeneous: the first
+// entry's format stands in for the whole input; anything else (CSV/JSON,
+// syslog, unreadable) conservatively returns false.
+func tarFirstEntryShardable(filename string) bool {
+	file, err := os.Open(filename)
+	if err != nil {
+		return false
+	}
+	defer file.Close()
+
+	var reader io.Reader = file
+	if isGzipArchive(filename) {
+		gr, gzErr := newParallelGzipReader(file)
+		if gzErr != nil {
+			return false
+		}
+		defer gr.Close()
+		reader = gr
+	} else if isZstdArchive(filename) {
+		zr, zErr := newZstdDecoder(file)
+		if zErr != nil {
+			return false
+		}
+		defer zr.Close()
+		reader = zr
+	}
+
+	tr := tar.NewReader(reader)
+	for {
+		hdr, err := tr.Next()
+		if err != nil {
+			return false // EOF or read error: no shardable entry found
+		}
+		if hdr.Typeflag != tar.TypeReg || !isSupportedArchiveEntry(hdr.Name) {
+			continue
+		}
+		// Sample this entry, transparently decompressing a nested member.
+		name := hdr.Name
+		var er io.Reader = tr
+		lower := strings.ToLower(name)
+		switch {
+		case strings.HasSuffix(lower, ".gz"):
+			gr, gzErr := newParallelGzipReader(tr)
+			if gzErr != nil {
+				return false
+			}
+			defer gr.Close()
+			er, name = gr, name[:len(name)-3]
+		case strings.HasSuffix(lower, ".zstd"):
+			zr, zErr := newZstdDecoder(tr)
+			if zErr != nil {
+				return false
+			}
+			defer zr.Close()
+			er, name = zr, name[:len(name)-5]
+		case strings.HasSuffix(lower, ".zst"):
+			zr, zErr := newZstdDecoder(tr)
+			if zErr != nil {
+				return false
+			}
+			defer zr.Close()
+			er, name = zr, name[:len(name)-4]
+		}
+		buf := make([]byte, sampleBufferSize)
+		n, _ := io.ReadFull(er, buf)
+		sample := strings.TrimPrefix(string(buf[:n]), string(utf8BOM))
+		return sampleShardable(filepath.Base(name), sample)
+	}
 }

@@ -26,6 +26,25 @@ type TempFileEvent struct {
 	QueryID   string  // short id (e.g. "se-abc123"), empty if not identifiable
 }
 
+// compactTempEvent is the retained per-event form during parsing: a
+// millisecond timestamp (8B) and an interned query-id index (4B) instead of a
+// time.Time (24B) and a string header (16B). It is materialized into the
+// public TempFileEvent only at Finalize, keeping the exported API unchanged.
+//
+// offsetMin is the event's own UTC offset in minutes, captured from the log
+// line's timestamp so Finalize can restore the original local wall-clock even
+// when the input mixes zones (a DST-crossing offset-bearing syslog, or a
+// multi-file set mixing e.g. CEST and UTC lines). It occupies the struct's
+// existing tail padding for free: tsUnixMs(8)+size(8)+queryIdx(4)=20B already
+// rounds up to 24B on an 8-byte alignment, so int16 offsetMin lands at offset
+// 20 and the struct stays 24 bytes — no memory delta.
+type compactTempEvent struct {
+	tsUnixMs  int64
+	size      float64
+	queryIdx  uint32
+	offsetMin int16
+}
+
 // TempFileQueryStat aggregates temp-file events for one query pattern.
 type TempFileQueryStat struct {
 	RawQuery        string // first occurrence
@@ -76,7 +95,9 @@ type TempFileAnalyzer struct {
 	count      int
 	totalSize  int64
 	maxSize    int64
-	events     []TempFileEvent
+	events     []compactTempEvent
+	queryIDs   []string          // interned query ids; index 0 is ""
+	queryIndex map[string]uint32 // query id -> index into queryIDs
 	queryStats map[string]*TempFileQueryStat
 
 	// Pattern 1 state
@@ -104,12 +125,26 @@ type cachedQueryID struct {
 // NewTempFileAnalyzer creates a new temporary file analyzer.
 func NewTempFileAnalyzer() *TempFileAnalyzer {
 	return &TempFileAnalyzer{
-		events:          make([]TempFileEvent, 0, 1000),
+		events:          make([]compactTempEvent, 0, 1000),
+		queryIDs:        []string{""}, // index 0 = empty query id
+		queryIndex:      map[string]uint32{"": 0},
 		queryStats:      make(map[string]*TempFileQueryStat, 100),
 		pendingByPID:    make(map[string]int64, 50),          // Pattern 1: fallback cache
 		lastQueryByPID:  make(map[string]string, 100),        // Pattern 2: query cache
 		normalizedCache: make(map[string]cachedQueryID, 100), // Query normalization cache
 	}
+}
+
+// internTempQueryID returns the index of id in the interned query-id table,
+// adding it when new. Index 0 is the empty id.
+func (a *TempFileAnalyzer) internTempQueryID(id string) uint32 {
+	if idx, ok := a.queryIndex[id]; ok {
+		return idx
+	}
+	idx := uint32(len(a.queryIDs))
+	a.queryIDs = append(a.queryIDs, id)
+	a.queryIndex[id] = idx
+	return idx
 }
 
 // Process analyzes a single log entry for temporary file creation events.
@@ -320,11 +355,15 @@ func (a *TempFileAnalyzer) Process(entry *parser.LogEntry) {
 		if size > a.maxSize {
 			a.maxSize = size
 		}
+		// Capture this event's own UTC offset (whole minutes) so Finalize can
+		// restore its original local wall-clock even on mixed-zone input.
+		_, offsetSec := entry.Timestamp.Zone()
 		eventIndex := len(a.events)
-		a.events = append(a.events, TempFileEvent{
-			Timestamp: entry.Timestamp,
-			Size:      float64(size),
-			QueryID:   "", // Will be filled later if query is found
+		a.events = append(a.events, compactTempEvent{
+			tsUnixMs:  entry.Timestamp.UnixMilli(),
+			size:      float64(size),
+			queryIdx:  0, // empty; filled later if a query is found
+			offsetMin: int16(offsetSec / 60),
 		})
 
 		// Use cached PID (already extracted above)
@@ -508,7 +547,7 @@ func (a *TempFileAnalyzer) associateQuery(query string, size int64, eventIndex i
 
 	// Update event's QueryID if we have a valid index
 	if eventIndex >= 0 && eventIndex < len(a.events) {
-		a.events[eventIndex].QueryID = id
+		a.events[eventIndex].queryIdx = a.internTempQueryID(id)
 	}
 
 	// Get or create stat entry
@@ -543,13 +582,37 @@ func (a *TempFileAnalyzer) associateQuery(query string, size int64, eventIndex i
 	stat.TotalSize += size
 }
 
-// Finalize computes and returns the final temporary file metrics.
+// Finalize computes and returns the final temporary file metrics. The compact
+// per-event storage is materialized into the public TempFileEvent slice here,
+// after parsing, so the exported shape is unchanged for output consumers.
 func (a *TempFileAnalyzer) Finalize() TempFileMetrics {
+	events := make([]TempFileEvent, len(a.events))
+	// Materialize each event at its OWN captured offset so the displayed
+	// wall-clock matches the original log line even when the input mixes zones.
+	// The zone-name is left empty: the outputs render these timestamps with the
+	// zone-less "2006-01-02 15:04:05" layout, so only the offset affects the
+	// digits. On a single-zone log every offset is identical, so the digits are
+	// byte-identical to the previous shared-location code. FixedZone values are
+	// memoized by offset (usually one or two distinct) to avoid a per-event
+	// Location allocation.
+	zones := make(map[int16]*time.Location, 2)
+	for i, e := range a.events {
+		loc := zones[e.offsetMin]
+		if loc == nil {
+			loc = time.FixedZone("", int(e.offsetMin)*60)
+			zones[e.offsetMin] = loc
+		}
+		events[i] = TempFileEvent{
+			Timestamp: time.UnixMilli(e.tsUnixMs).In(loc),
+			Size:      e.size,
+			QueryID:   a.queryIDs[e.queryIdx],
+		}
+	}
 	return TempFileMetrics{
 		Count:      a.count,
 		TotalSize:  a.totalSize,
 		MaxSize:    a.maxSize,
-		Events:     a.events,
+		Events:     events,
 		QueryStats: a.queryStats,
 	}
 }

@@ -2,13 +2,10 @@
 package parser
 
 import (
-	"bufio"
-	"encoding/csv"
 	"fmt"
 	"io"
 	"log/slog"
 	"os"
-	"strings"
 	"time"
 )
 
@@ -78,50 +75,58 @@ func (p *CsvParser) Parse(filename string, out chan<- []LogEntry) error {
 	}
 	defer f.Close()
 
+	// Large plain CSV takes the parallel record-aligned segment path: CSV
+	// parsing is otherwise the wall-clock bottleneck (~95% of the wall on a
+	// 1.2 GB file). parseReader strips a leading BOM per-segment, so segment 0
+	// needs no special handling.
+	if st, err := f.Stat(); err == nil && st.Size() >= csvParallelMinSize {
+		if workers := parallelWorkers(); workers >= 2 {
+			return p.parseParallel(f, st.Size(), workers, out)
+		}
+	}
 	return p.parseReader(WithProgress(f), out)
 }
 
 // parseReader processes CSV records from any io.Reader.
+//
+// Custom zero-copy scanner replaces encoding/csv on the hot path: it yields
+// field views into its own 1 MB read buffer instead of a per-field heap string,
+// cutting CSV-path allocations roughly in half (profiled). buildCSVMessage
+// copies what it keeps, so the views never outlive the next Next() call.
 func (p *CsvParser) parseReader(r io.Reader, out chan<- []LogEntry) error {
+	return p.parseScanner(newCSVScanner(skipBOM(r)), out)
+}
+
+// parseScanner drives an already-bound scanner. Split out so the parallel path
+// can hand a worker-reused scanner (and CsvParser) across segments instead of
+// allocating fresh per segment.
+func (p *CsvParser) parseScanner(sc *csvScanner, out chan<- []LogEntry) error {
 	bs := NewBatchSender(out)
 	defer bs.Flush()
 
-	// csv.NewReader's internal bufio defaults to 4 KB reads — ~300k
-	// read(2) syscalls on a 1 GB file, which profiling showed as 4s of
-	// rawsyscall time (the CSV hot path's single biggest cost). A 1 MB
-	// outer buffer brings the syscall count down by ~256×; the other
-	// parsers already size their scanners in megabytes.
-	reader := csv.NewReader(bufio.NewReaderSize(skipBOM(r), 1<<20))
-	// PostgreSQL CSV logs have 23 fields, but we'll be lenient
-	reader.FieldsPerRecord = -1 // Variable number of fields (lenient mode)
-	reader.TrimLeadingSpace = true
-	// ReuseRecord lets csv.Reader reuse the []string slice across calls.
-	// It does not eliminate per-field string allocations but it does
-	// drop the slice header churn — measurable on >100 MB inputs.
-	reader.ReuseRecord = true
-
 	lineNum := 0
 	for {
-		record, err := reader.Read()
-		if err == io.EOF {
+		ok, err := sc.Next()
+		if err != nil {
+			slog.Warn("CSV read error", "line", lineNum, "err", err)
 			break
 		}
-		if err != nil {
-			slog.Warn("CSV parsing error", "line", lineNum, "err", err)
-			continue
+		if !ok {
+			break
 		}
+		record := sc.record()
 
 		lineNum++
 
 		// Validate minimum fields (need at least timestamp and message)
-		if len(record) < csvFieldMessage+1 {
+		if record.len() < csvFieldMessage+1 {
 			slog.Warn("skipping CSV record: insufficient fields",
-				"line", lineNum, "got", len(record), "need", csvFieldMessage+1)
+				"line", lineNum, "got", record.len(), "need", csvFieldMessage+1)
 			continue
 		}
 
-		// Extract and parse timestamp
-		timestamp, err := p.parseCSVTimestamp(record[csvFieldTimestamp])
+		// Extract and parse timestamp (field 0 is never quoted/escaped)
+		timestamp, err := p.parseCSVTimestamp(record.field(csvFieldTimestamp).raw)
 		if err != nil {
 			slog.Warn("skipping CSV record: invalid timestamp", "line", lineNum, "err", err)
 			continue
@@ -186,7 +191,11 @@ func (p *CsvParser) parseCSVTimestamp(timestampStr string) (time.Time, error) {
 // per-record strings.Builder allocations that dominated CSV parsing
 // on multi-hundred-MB inputs (the 512-byte initial buffer + grow
 // cycles were leaking under tinygo gc=leaking).
-func (p *CsvParser) buildCSVMessage(record []string) string {
+// Field values arrive as csvField views into the scanner buffer; appendField
+// copies them into msgBuf (collapsing "" escapes on the way), and the final
+// string(b) is the one owned allocation per record. The scanner already trims
+// leading/trailing spaces, so emptiness is a plain raw=="" check.
+func (p *CsvParser) buildCSVMessage(record csvRecord) string {
 	if cap(p.msgBuf) < 512 {
 		p.msgBuf = make([]byte, 0, 512)
 	} else {
@@ -195,41 +204,41 @@ func (p *CsvParser) buildCSVMessage(record []string) string {
 	b := p.msgBuf
 
 	// Add PID if present
-	if pid := getField(record, csvFieldPID); pid != "" {
+	if pid := record.field(csvFieldPID); pid.raw != "" {
 		b = append(b, '[')
-		b = append(b, pid...)
+		b = appendField(b, pid)
 		b = append(b, ']', ':', ' ')
 	}
 
 	// Add user/db/app context (format: "user=X,db=Y,app=Z")
 	hasUserDbApp := false
-	if user := getField(record, csvFieldUser); user != "" {
+	if user := record.field(csvFieldUser); user.raw != "" {
 		b = append(b, "user="...)
-		b = append(b, user...)
+		b = appendField(b, user)
 		hasUserDbApp = true
 	}
-	if database := getField(record, csvFieldDatabase); database != "" {
+	if database := record.field(csvFieldDatabase); database.raw != "" {
 		if hasUserDbApp {
 			b = append(b, ',')
 		}
 		b = append(b, "db="...)
-		b = append(b, database...)
+		b = appendField(b, database)
 		hasUserDbApp = true
 	}
-	if app := getField(record, csvFieldAppName); app != "" {
+	if app := record.field(csvFieldAppName); app.raw != "" {
 		if hasUserDbApp {
 			b = append(b, ',')
 		}
 		b = append(b, "app="...)
-		b = append(b, app...)
+		b = appendField(b, app)
 		hasUserDbApp = true
 	}
-	if clientAddr := getField(record, csvFieldClientAddr); clientAddr != "" {
+	if clientAddr := record.field(csvFieldClientAddr); clientAddr.raw != "" {
 		if hasUserDbApp {
 			b = append(b, ',')
 		}
 		b = append(b, "client="...)
-		b = append(b, clientAddr...)
+		b = appendField(b, clientAddr)
 		hasUserDbApp = true
 	}
 	if hasUserDbApp {
@@ -237,64 +246,49 @@ func (p *CsvParser) buildCSVMessage(record []string) string {
 	}
 
 	// Add severity and main message
-	severity := getField(record, csvFieldErrorSeverity)
-	message := getField(record, csvFieldMessage)
+	severity := record.field(csvFieldErrorSeverity)
+	message := record.field(csvFieldMessage)
 
-	if severity != "" {
-		b = append(b, severity...)
+	if severity.raw != "" {
+		b = appendField(b, severity)
 		b = append(b, ':', ' ')
 	}
-	if message != "" {
-		b = append(b, message...)
+	if message.raw != "" {
+		b = appendField(b, message)
 	}
 
 	// Add DETAIL if present
-	if detail := getField(record, csvFieldDetail); detail != "" {
+	if detail := record.field(csvFieldDetail); detail.raw != "" {
 		b = append(b, " DETAIL: "...)
-		b = append(b, detail...)
+		b = appendField(b, detail)
 	}
 
 	// Add HINT if present
-	if hint := getField(record, csvFieldHint); hint != "" {
+	if hint := record.field(csvFieldHint); hint.raw != "" {
 		b = append(b, " HINT: "...)
-		b = append(b, hint...)
+		b = appendField(b, hint)
 	}
 
 	// Add QUERY if present
-	if query := getField(record, csvFieldQuery); query != "" {
+	if query := record.field(csvFieldQuery); query.raw != "" {
 		b = append(b, " QUERY: "...)
-		b = append(b, query...)
+		b = appendField(b, query)
 	}
 
 	// Add CONTEXT if present (useful for debugging)
-	if context := getField(record, csvFieldContext); context != "" {
+	if context := record.field(csvFieldContext); context.raw != "" {
 		b = append(b, " CONTEXT: "...)
-		b = append(b, context...)
+		b = appendField(b, context)
 	}
 
 	// Add SQLSTATE if present (for error classification)
 	// Skip 00000 (successful completion) as it's not an error
-	if sqlstate := getField(record, csvFieldSQLState); sqlstate != "" && sqlstate != "00000" {
+	if sqlstate := record.field(csvFieldSQLState); sqlstate.raw != "" && sqlstate.raw != "00000" {
 		b = append(b, " SQLSTATE = '"...)
-		b = append(b, sqlstate...)
+		b = appendField(b, sqlstate)
 		b = append(b, '\'')
 	}
 
 	p.msgBuf = b
 	return string(b)
-}
-
-// getField safely retrieves a field from a CSV record.
-// Returns empty string if the index is out of bounds or the field is empty.
-// Note: CSV reader already trims leading space, we only trim trailing for safety.
-func getField(record []string, index int) string {
-	if index >= len(record) {
-		return ""
-	}
-	s := record[index]
-	// Fast path: most fields don't have trailing spaces
-	if len(s) == 0 || s[len(s)-1] != ' ' {
-		return s
-	}
-	return strings.TrimRight(s, " ")
 }

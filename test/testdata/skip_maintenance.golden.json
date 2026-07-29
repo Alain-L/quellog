@@ -1,0 +1,43 @@
+{
+  "maintenance": {
+    "vacuum_count": 1,
+    "aggressive_vacuum_count": 0,
+    "analyze_count": 1,
+    "vacuum_table_counts": {
+      "app.public.t1": 1
+    },
+    "analyze_table_counts": {
+      "app.public.t1": 1
+    },
+    "vacuum_space_recovered": {
+      "app.public.t1": "80.00 KB"
+    },
+    "total_tuples_removed": 5,
+    "skipped_vacuum_count": 4,
+    "skipped_vacuum_tables": [
+      {
+        "table": "t_big",
+        "count": 2,
+        "reason": "lock not available"
+      },
+      {
+        "table": "t_gone",
+        "count": 1,
+        "reason": "relation no longer exists"
+      },
+      {
+        "table": "t_other",
+        "count": 1,
+        "reason": "lock not available"
+      }
+    ],
+    "skipped_analyze_count": 1,
+    "skipped_analyze_tables": [
+      {
+        "table": "t_big",
+        "count": 1,
+        "reason": "lock not available"
+      }
+    ]
+  }
+}

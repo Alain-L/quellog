@@ -2,6 +2,7 @@ package parser
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -105,6 +106,65 @@ func TestStderrParallel_EquivalenceWithSequential(t *testing.T) {
 
 	for _, workers := range []int{2, 3, 8} {
 		par := parallelStderrForTest(t, path, workers)
+		if len(par) != len(seq) {
+			t.Fatalf("workers=%d: %d entries, sequential had %d", workers, len(par), len(seq))
+		}
+		for i := range seq {
+			if !seq[i].Timestamp.Equal(par[i].Timestamp) ||
+				seq[i].Message != par[i].Message ||
+				seq[i].PID != par[i].PID ||
+				seq[i].IsContinuation != par[i].IsContinuation {
+				t.Fatalf("workers=%d: entry %d differs\nseq: %+v\npar: %+v", workers, i, seq[i], par[i])
+			}
+		}
+	}
+}
+
+// readOnly hides Seek/ReaderAt so a *os.File is seen as a plain stream,
+// forcing the non-seekable parseStreamParallel path (as gzip/zstd/tar do).
+type readOnly struct{ r io.Reader }
+
+func (ro readOnly) Read(p []byte) (int, error) { return ro.r.Read(p) }
+
+// TestStderrStreamParallel_EquivalenceWithSequential covers parseStreamParallel,
+// the non-seekable sibling used for compressed/tar stderr at workers>=2. The
+// existing equivalence test drives the seekable parseParallel; this one drives
+// the stream (in-memory 4 MB chunk) path so its chunk boundary-extension and
+// ordered cross-chunk fan-in actually run. The synthetic log spans several 4 MB
+// chunks with 3 MB giants straddling the boundaries; the stream must match the
+// sequential reader entry for entry.
+func TestStderrStreamParallel_EquivalenceWithSequential(t *testing.T) {
+	path := writeSyntheticStderr(t, 1000) // giants dominate -> ~30 MB, several 4 MB chunks
+
+	seq := collectEntries(t, func(out chan<- []LogEntry) error {
+		f, err := os.Open(path)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		p := &StderrParser{}
+		p.detectPrefixStructure(f)
+		if _, err := f.Seek(0, 0); err != nil {
+			return err
+		}
+		return p.parseReader(f, out)
+	})
+	if len(seq) == 0 {
+		t.Fatal("sequential parse produced no entries")
+	}
+
+	for _, workers := range []int{2, 3, 8} {
+		par := collectEntries(t, func(out chan<- []LogEntry) error {
+			f, err := os.Open(path)
+			if err != nil {
+				return err
+			}
+			defer f.Close()
+			// A fresh parser: parseStreamParallel detects the prefix from its
+			// own head sample, so no pre-seek/detect is needed (and can't be).
+			p := &StderrParser{}
+			return p.parseStreamParallel(readOnly{f}, workers, out)
+		})
 		if len(par) != len(seq) {
 			t.Fatalf("workers=%d: %d entries, sequential had %d", workers, len(par), len(seq))
 		}

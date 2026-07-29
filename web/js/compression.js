@@ -72,67 +72,106 @@ async function inflateRaw(buffer) {
 // Supported log file extensions for archive extraction
 const SUPPORTED_EXTS = ['.log', '.csv', '.json', '.jsonl'];
 
+// Base extensions that PostgreSQL rotates (e.g. postgresql.log.1). Mirrors the
+// CLI's isRotatedLogFile (parser/tar_parser.go), which only rotates .log/.csv.
+const ROTATED_BASE_EXTS = ['.log', '.csv'];
+
 function isSupportedEntry(name) {
     const lower = name.toLowerCase();
-    return SUPPORTED_EXTS.some(ext =>
+    // Direct match: a supported base extension, optionally followed by a nested
+    // compression extension.
+    if (SUPPORTED_EXTS.some(ext =>
         lower.endsWith(ext) || lower.endsWith(ext + '.gz') ||
         lower.endsWith(ext + '.zst') || lower.endsWith(ext + '.zstd')
-    );
+    )) return true;
+    // Rotated PostgreSQL logs: a supported base extension immediately followed
+    // by a rotation suffix — a separator ('.' for numeric/date-dot rotation,
+    // '-' for logrotate "dateext") then a digit — e.g. postgresql.log.1,
+    // postgresql.log.2.gz, postgresql.log.2026-03-23-10, postgresql-16-main.log.1,
+    // postgresql.log-20260320.gz. Mirrors the CLI's isRotatedLogFile so the
+    // browser keeps the same rotated history the CLI parses instead of silently
+    // dropping it (a compressed dateext member cannot be sniffed by content).
+    return ROTATED_BASE_EXTS.some(base => {
+        for (let from = 0; ;) {
+            const idx = lower.indexOf(base, from);
+            if (idx === -1) return false;
+            const rest = lower.slice(idx + base.length);
+            if (rest.length >= 2 && (rest[0] === '.' || rest[0] === '-') &&
+                rest[1] >= '0' && rest[1] <= '9') return true;
+            from = idx + 1;
+        }
+    });
 }
 
-// Extract ZIP archive and concatenate file contents
-// Parses local file headers; supports stored (method 0) and deflate (method 8)
+// Extract ZIP archive and concatenate supported log entries.
+//
+// Driven by the central directory (the table at the end of the archive), not by
+// the local file headers. Stream-written zips (general-purpose bit 3 / data
+// descriptor) leave the size and CRC fields in the local header at 0 and only
+// record the true values afterwards, so walking local headers extracts nothing;
+// the central directory always carries the correct sizes. This mirrors Go's
+// archive/zip, used by the CLI. Supports stored (method 0) and deflate (8).
+// ZIP64 is not handled (unrealistic for a browser-uploaded log archive).
 export async function extractZip(buffer) {
     const data = new Uint8Array(buffer);
     const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+    const td = new TextDecoder();
+
+    // Locate the End of Central Directory record (PK\x05\x06), scanning back
+    // from the end since its trailing comment can be up to 65535 bytes.
+    let eocd = -1;
+    const scanFrom = Math.max(0, data.length - (22 + 0xffff));
+    for (let i = data.length - 22; i >= scanFrom; i--) {
+        if (view.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+    }
+    if (eocd < 0) {
+        console.warn('[quellog] zip: no end-of-central-directory record found');
+        return '';
+    }
+
+    const entryCount = view.getUint16(eocd + 10, true);
+    let cd = view.getUint32(eocd + 16, true); // offset of the central directory
+
     const files = [];
-    let offset = 0;
+    for (let e = 0; e < entryCount && cd + 46 <= data.length; e++) {
+        if (view.getUint32(cd, true) !== 0x02014b50) break; // not a CD file header
 
-    while (offset + 30 <= data.length) {
-        const sig = view.getUint32(offset, true);
-        if (sig !== 0x04034b50) break; // Not a local file header
+        const method = view.getUint16(cd + 10, true);
+        const compSize = view.getUint32(cd + 20, true); // authoritative, unlike the local header
+        const nameLen = view.getUint16(cd + 28, true);
+        const extraLen = view.getUint16(cd + 30, true);
+        const commentLen = view.getUint16(cd + 32, true);
+        const localOff = view.getUint32(cd + 42, true);
+        const name = td.decode(data.subarray(cd + 46, cd + 46 + nameLen));
+        cd += 46 + nameLen + extraLen + commentLen;
 
-        const method = view.getUint16(offset + 8, true);
-        const compSize = view.getUint32(offset + 18, true);
-        const nameLen = view.getUint16(offset + 26, true);
-        const extraLen = view.getUint16(offset + 28, true);
-
-        // Validate that name and extra fields fit within the buffer
-        if (offset + 30 + nameLen + extraLen > data.length) {
-            console.warn('[quellog] Truncated zip entry header');
-            break;
-        }
-
-        const name = new TextDecoder().decode(data.subarray(offset + 30, offset + 30 + nameLen));
-
-        const dataStart = offset + 30 + nameLen + extraLen;
-
-        // Validate that compressed data fits within the buffer
-        if (dataStart + compSize > data.length) {
-            console.warn(`[quellog] Truncated zip entry: ${name}`);
-            break;
-        }
-
-        offset = dataStart + compSize;
-
-        // Skip directories and unsupported files
-        if (name.endsWith('/') || compSize === 0) continue;
-
+        if (name.endsWith('/')) continue; // directory
         const baseName = name.includes('/') ? name.substring(name.lastIndexOf('/') + 1) : name;
-        if (!isSupportedEntry(baseName)) continue;
+        // Keep only supported log entries; skip macOS AppleDouble sidecars
+        // (._foo, which end in .log yet hold binary data) and path traversal.
+        if (!isSupportedEntry(baseName) || baseName.startsWith('._') || name.includes('..')) continue;
 
-        // Path traversal protection
-        if (name.includes('..')) continue;
+        // The local header's name/extra lengths can differ from the central
+        // directory's, so read them from the local header to find the data.
+        if (localOff + 30 > data.length || view.getUint32(localOff, true) !== 0x04034b50) {
+            console.warn(`[quellog] zip: bad local header for ${name}`);
+            continue;
+        }
+        const lNameLen = view.getUint16(localOff + 26, true);
+        const lExtraLen = view.getUint16(localOff + 28, true);
+        const dataStart = localOff + 30 + lNameLen + lExtraLen;
+        if (dataStart + compSize > data.length) {
+            console.warn(`[quellog] zip: truncated entry ${name}`);
+            continue;
+        }
 
         let content;
         if (method === 0) {
-            // Stored (no compression)
-            content = data.slice(dataStart, dataStart + compSize);
+            content = data.slice(dataStart, dataStart + compSize); // stored
         } else if (method === 8) {
-            // Deflate
-            content = await inflateRaw(data.slice(dataStart, dataStart + compSize));
+            content = await inflateRaw(data.slice(dataStart, dataStart + compSize)); // deflate
         } else {
-            console.warn(`[quellog] Skipping ${name}: unsupported compression method ${method}`);
+            console.warn(`[quellog] zip: skipping ${name}, unsupported method ${method}`);
             continue;
         }
 
@@ -147,7 +186,37 @@ export async function extractZip(buffer) {
         files.push({ name: baseName, content });
     }
 
-    return files.map(f => new TextDecoder().decode(f.content)).join('\n');
+    return files.map(f => td.decode(f.content)).join('\n');
+}
+
+// looksLikeLogContent sniffs the head of an extension-less tar member: keep it
+// only if it opens like a PostgreSQL log, so a genuine log with no recognized
+// name is parsed (as the CLI does), while binary/foreign junk that would poison
+// detection is still skipped. The accepted line-prefix shapes mirror the CLI's
+// content detector (parser/autodetect.go logPatterns): ISO stderr/csvlog, a
+// leading '{' (jsonlog), syslog (BSD or RFC5424), and epoch-second prefixes —
+// not just ISO/JSON, which silently dropped syslog/epoch members. Several
+// leading lines are checked (not only the first) to tolerate a rotation banner
+// or a blank/continuation line at the top.
+const LOG_PREFIX_PATTERNS = [
+    /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}/,             // ISO stderr / csvlog
+    /^[A-Z][a-z]{2}\s+\d+\s+\d{2}:\d{2}:\d{2}\s/,          // syslog BSD (Mon DD HH:MM:SS)
+    /^<\d+>\d+\s+\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/,     // syslog RFC5424 (<pri>1 ISO)
+    /^\d{10}\.\d{3}\b/,                                    // epoch seconds.millis
+];
+export function looksLikeLogContent(sampleBytes) {
+    const s = new TextDecoder('utf-8', { fatal: false }).decode(sampleBytes);
+    // Scan the whole sample (the caller bounds it to 8 KB), like the CLI's
+    // isLogContent: a member whose head is several continuation/banner lines
+    // before the first real log line must still be recognized, so a fixed
+    // few-line cap would drop it.
+    for (const line of s.split('\n')) {
+        const t = line.replace(/^\s+/, '');
+        if (!t) continue;
+        if (t[0] === '{') return true; // jsonlog
+        if (LOG_PREFIX_PATTERNS.some((re) => re.test(t))) return true;
+    }
+    return false;
 }
 
 // Extract tar archive and concatenate file contents
@@ -171,15 +240,35 @@ export async function extractTar(buffer) {
 
         // Regular file (type '0' or '\0')
         if ((typeFlag === 48 || typeFlag === 0) && size > 0) {
-            let content = data.slice(offset, offset + size);
-            // Decompress nested files
-            const lname = name.toLowerCase();
-            if (lname.endsWith('.gz') || lname.endsWith('.gzip')) {
-                content = await gunzipBuffer(content.buffer);
-            } else if (lname.endsWith('.zst') || lname.endsWith('.zstd')) {
-                content = unzstd(content.buffer);
+            const baseName = name.includes('/') ? name.substring(name.lastIndexOf('/') + 1) : name;
+            // Skip macOS AppleDouble sidecars (._foo, which end in .log yet hold
+            // binary resource-fork data) and path-traversal names; concatenating
+            // them would poison format detection and the log content. These are
+            // deliberate junk filters, not "unsupported" logs, so they stay quiet.
+            if (baseName.startsWith('._') || name.includes('..')) {
+                // dropped on purpose — no warning
+            } else if (isSupportedEntry(baseName)) {
+                let content = data.slice(offset, offset + size);
+                // Decompress nested files
+                const lname = baseName.toLowerCase();
+                if (lname.endsWith('.gz') || lname.endsWith('.gzip')) {
+                    content = await gunzipBuffer(content.buffer);
+                } else if (lname.endsWith('.zst') || lname.endsWith('.zstd')) {
+                    content = unzstd(content.buffer);
+                }
+                files.push({ name: baseName, content });
+            } else if (looksLikeLogContent(data.slice(offset, offset + Math.min(size, 8192)))) {
+                // Extension-less member whose head sniffs as a PostgreSQL log
+                // (e.g. `postgresql`, `pg_log_20260320`): keep it, as the CLI
+                // does by content — a plain tar member carries no compression
+                // extension, so its bytes are the log text.
+                files.push({ name: baseName, content: data.slice(offset, offset + size) });
+            } else {
+                // Warn instead of silently dropping: an unrecognized name may be
+                // a mislabeled or unexpectedly-rotated log the user meant to
+                // include (rotated .log/.csv are now kept by isSupportedEntry).
+                console.warn(`[quellog] tar: skipping unsupported entry ${name}`);
             }
-            files.push({ name, content });
         }
 
         offset += Math.ceil(size / 512) * 512;

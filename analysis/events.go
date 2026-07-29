@@ -27,6 +27,12 @@ type EventStat struct {
 	Severity      string
 	Example       string // raw example
 	SQLStateClass string // 2-char SQLSTATE class (e.g. "23", "42"), empty if N/A
+	// exampleSeq is the stream position of the occurrence that set Example /
+	// SQLStateClass (the first one seen). Unexported (not serialized): it lets
+	// a PID-sharded Merge keep the globally-first example by smallest seq,
+	// reproducing the single pass. Stream order is only near-chronological, so
+	// the first occurrence's timestamp is not always the minimum — seq is.
+	exampleSeq int64
 	// Timestamps captures every occurrence as Unix milliseconds. Used by
 	// the HTML report's per-event modal to render an occurrences-over-time
 	// sparkline. 8 B/event packed; on logs with the analyzer's 1000-pattern
@@ -489,6 +495,7 @@ func (a *EventAnalyzer) Process(entry *parser.LogEntry) {
 						Severity:      severity,
 						Example:       msg,
 						SQLStateClass: sqlStateClass,
+						exampleSeq:    entry.Seq,
 						Timestamps:    []int64{ts},
 					}
 					tracked = true
@@ -506,6 +513,110 @@ func (a *EventAnalyzer) Process(entry *parser.LogEntry) {
 			}
 		}
 	}
+}
+
+// Merge folds the fully-processed state of src into a. It is the
+// data-parallel counterpart of Process: when the entry stream is sharded
+// by PID across several EventAnalyzers, Merge recombines their partial
+// states so a single Finalize reproduces the single-pass result.
+//
+// Preconditions / invariants this relies on:
+//   - Sharding is by PID, so pendingByPID keys are DISJOINT across shards
+//     (every entry of a given backend lands on the same shard). The last
+//     pending per PID can therefore be copied verbatim and flushed by the
+//     merged analyzer's Finalize, exactly as the single-pass Finalize does.
+//   - Per-shard Timestamps are ascending (entries processed in stream =
+//     chronological order). Merging two ascending lists reproduces the
+//     global chronological order a single pass would have built.
+//   - Example/SQLStateClass must reflect the globally-FIRST occurrence of
+//     the pattern; we keep whichever shard saw it earliest (min first ts).
+//
+// Two memory guards are NOT bit-reproducible across shards in pathological
+// cases (and intentionally so): the 1000 distinct-pattern cap and the
+// per-stat TriggeringQueriesCap. Each shard caps locally, so a union past
+// the cap may keep a different subset than a single pass would. On real
+// corpora these caps are never reached (distinct error patterns and
+// triggering queries per pattern stay well under them), and Finalize's
+// top-100 truncation masks the pattern cap regardless.
+func (a *EventAnalyzer) Merge(src *EventAnalyzer) {
+	a.total += src.total
+	for k, v := range src.counts {
+		a.counts[k] += v
+	}
+	for pattern, s := range src.stats {
+		if dst, ok := a.stats[pattern]; ok {
+			mergeEventStat(dst, s)
+			continue
+		}
+		if len(a.stats) >= 1000 {
+			continue // honor the Process-time pattern cap
+		}
+		cp := *s
+		cp.Timestamps = append([]int64(nil), s.Timestamps...)
+		cp.TriggeringQueries = append([]TriggeringQuery(nil), s.TriggeringQueries...)
+		a.stats[pattern] = &cp
+	}
+	// PID-disjoint by construction: a backend's pending lives in exactly
+	// one shard, so no key collides here.
+	for pid, pe := range src.pendingByPID {
+		a.pendingByPID[pid] = pe
+	}
+}
+
+// mergeEventStat folds src into dst for the same normalized pattern.
+func mergeEventStat(dst, src *EventStat) {
+	// Keep the globally-first occurrence's raw example + SQLSTATE class, ranked
+	// by stream position (seq). Timestamps[0] is only near-chronological, so a
+	// timestamp comparison can disagree with the single pass when entries are
+	// logged slightly out of order; seq is the exact stream order.
+	if src.Example != "" && (dst.Example == "" || src.exampleSeq < dst.exampleSeq) {
+		dst.Example = src.Example
+		dst.SQLStateClass = src.SQLStateClass
+		dst.exampleSeq = src.exampleSeq
+	}
+	dst.Count += src.Count
+	dst.Timestamps = mergeSortedInt64(dst.Timestamps, src.Timestamps)
+	for _, tq := range src.TriggeringQueries {
+		merged := false
+		for i := range dst.TriggeringQueries {
+			if dst.TriggeringQueries[i].ID == tq.ID {
+				dst.TriggeringQueries[i].Count += tq.Count
+				merged = true
+				break
+			}
+		}
+		if merged {
+			continue
+		}
+		if len(dst.TriggeringQueries) >= TriggeringQueriesCap {
+			continue
+		}
+		dst.TriggeringQueries = append(dst.TriggeringQueries, tq)
+	}
+}
+
+// mergeSortedInt64 merges two ascending slices into one ascending slice.
+func mergeSortedInt64(x, y []int64) []int64 {
+	if len(y) == 0 {
+		return x
+	}
+	if len(x) == 0 {
+		return append([]int64(nil), y...)
+	}
+	out := make([]int64, 0, len(x)+len(y))
+	i, j := 0, 0
+	for i < len(x) && j < len(y) {
+		if x[i] <= y[j] {
+			out = append(out, x[i])
+			i++
+		} else {
+			out = append(out, y[j])
+			j++
+		}
+	}
+	out = append(out, x[i:]...)
+	out = append(out, y[j:]...)
+	return out
 }
 
 // Finalize returns the aggregated summaries and top event signatures.
@@ -526,6 +637,17 @@ func (a *EventAnalyzer) Finalize() ([]EventSummary, []EventStat) {
 					return stat.TriggeringQueries[i].Count > stat.TriggeringQueries[j].Count
 				}
 				return stat.TriggeringQueries[i].ID < stat.TriggeringQueries[j].ID
+			})
+		}
+		// Timestamps: occurrence times are appended in log order, which is only
+		// near-chronological (PostgreSQL can log entries a few ms out of order).
+		// A single pass keeps that log order; a PID-sharded fold interleaves the
+		// shards' subsequences differently. Sort ascending so the occurrence
+		// list is deterministic and identical regardless of shard count — the
+		// natural order for a list of occurrence timestamps.
+		if len(stat.Timestamps) >= 2 {
+			sort.Slice(stat.Timestamps, func(i, j int) bool {
+				return stat.Timestamps[i] < stat.Timestamps[j]
 			})
 		}
 	}

@@ -16,11 +16,120 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"sort"
 	"strings"
 	"time"
 
 	"github.com/Alain-L/quellog/analysis"
 )
+
+// eventClassBlock is one SQLSTATE class within a severity level, with its
+// events already ordered by count descending and a display-ready header.
+type eventClassBlock struct {
+	Code   string // SQLSTATE class ("23", "42", ...) or "Unclassified"
+	Header string // "23 - Integrity Constraint Violation" or "Unclassified"
+	Events []analysis.EventStat
+}
+
+// eventSeverityBlock is one severity level (PANIC, FATAL, ...) with its
+// classes ordered named-first then Unclassified-last. Classes is empty
+// when the level has a non-zero summary count but no detailed top events.
+type eventSeverityBlock struct {
+	Summary analysis.EventSummary
+	Classes []eventClassBlock
+}
+
+// groupEventsBySeverityAndClass turns the raw summaries and top events into
+// the ordered structure the text and markdown EVENTS renderers both walk:
+// summaries sorted by severity rank, zero-count and (when onlyErrors)
+// non-error levels dropped, each surviving level's top events grouped into
+// SQLSTATE classes (named first, Unclassified last) and ordered by count.
+// Per-format concerns — column widths, truncation, markup — stay in the
+// renderers; only the grouping and ordering live here so the two outputs
+// cannot silently drift. summaries is sorted in place, matching the prior
+// behaviour of both callers.
+func groupEventsBySeverityAndClass(summaries []analysis.EventSummary, topEvents []analysis.EventStat, onlyErrors bool) []eventSeverityBlock {
+	severityRank := make(map[string]int)
+	for i, s := range analysis.PredefinedEventTypes {
+		severityRank[s] = i
+	}
+	sort.Slice(summaries, func(i, j int) bool {
+		rankI, okI := severityRank[summaries[i].Type]
+		rankJ, okJ := severityRank[summaries[j].Type]
+		if okI && okJ {
+			return rankI < rankJ
+		}
+		if okI {
+			return true
+		}
+		if okJ {
+			return false
+		}
+		return summaries[i].Type < summaries[j].Type
+	})
+
+	eventsBySeverity := make(map[string][]analysis.EventStat)
+	for _, e := range topEvents {
+		eventsBySeverity[e.Severity] = append(eventsBySeverity[e.Severity], e)
+	}
+
+	var blocks []eventSeverityBlock
+	for _, summary := range summaries {
+		if summary.Count == 0 {
+			continue
+		}
+		if onlyErrors && nonErrorSeverity(summary.Type) {
+			continue
+		}
+
+		block := eventSeverityBlock{Summary: summary}
+
+		if events, ok := eventsBySeverity[summary.Type]; ok {
+			byClass := make(map[string][]analysis.EventStat)
+			for _, e := range events {
+				class := e.SQLStateClass
+				if class == "" || class == "00" {
+					class = "Unclassified"
+				}
+				byClass[class] = append(byClass[class], e)
+			}
+
+			var classes []string
+			for c := range byClass {
+				classes = append(classes, c)
+			}
+			sort.Slice(classes, func(i, j int) bool {
+				if classes[i] == "Unclassified" {
+					return false
+				}
+				if classes[j] == "Unclassified" {
+					return true
+				}
+				return classes[i] < classes[j]
+			})
+
+			for _, classCode := range classes {
+				classEvents := byClass[classCode]
+				sort.Slice(classEvents, func(i, j int) bool {
+					return classEvents[i].Count > classEvents[j].Count
+				})
+
+				header := classCode
+				if classCode != "Unclassified" {
+					header = fmt.Sprintf("%s - %s", classCode, analysis.GetErrorClassDescription(classCode))
+				}
+				block.Classes = append(block.Classes, eventClassBlock{
+					Code:   classCode,
+					Header: header,
+					Events: classEvents,
+				})
+			}
+		}
+
+		blocks = append(blocks, block)
+	}
+	return blocks
+}
 
 // EventDetailJSON is the per-pattern payload for --event-detail --json.
 // Mirrors EventStatJSON but adds derived stats (first/last/frequency)

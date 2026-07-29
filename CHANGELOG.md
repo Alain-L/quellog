@@ -2,6 +2,61 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.12.0] - 2026-07-29
+
+### Added
+- **Client I/O failures**: the Connections section now reports clients that vanished mid-exchange (`could not send/receive data to/from client`), broken down by direction, reason and database.
+- **Skipped autovacuums/autoanalyzes**: the maintenance sections now surface relations whose autovacuum/autoanalyze was skipped on a lock (count + affected tables), flagging tables starved of maintenance.
+- **Logs with a literal prefix before the timestamp now parse**: a `log_line_prefix` with a constant literal ahead of `%t`/`%m` previously defeated format detection; the shared prefix is now detected and stripped automatically.
+- **Full example report in demo mode**: a "See example report" link on the drop zone loads a bundled example log through the normal pipeline, so the report (cost map, split, every section) can be explored without supplying a file.
+- **Build version on the processing line**: the CLI output now starts with the version (e.g. `quellog v0.12.0 – …`), so saved output identifies its build.
+
+### Performance
+- **Large stderr logs analyze 15-25% faster**: data-parallel analysis engine shards backends across CPU cores by PID. Engages automatically on large stderr files.
+- **Large CSV logs parse ~40% faster**: a parallel segment parser splits big CSV files, mirroring the stderr/JSON parallel paths.
+- **CSV parsing allocates ~half as much memory**: a single-pass, zero-copy CSV scanner replaces the standard-library reader, cutting CSV-path allocations by roughly 50%.
+- **Faster reports on session- and lock-heavy logs**: anchored analyzer gates, per-worker buffer reuse and callback-free sweep-line sorts cut wall time by up to a third on large stderr files.
+- **Compressed logs parse in parallel**: large gzip/zstd stderr logs are parsed by a worker pool, up to ~30% faster; smaller (rotated) logs stay on the sequential path, so a directory of small `*.log.zst` isn't fanned out across many concurrent decoders.
+- **The HTML report is a few percent smaller**: multi-line CSS comments are now stripped from the embedded stylesheet, and the compressed payload is base64url-encoded so its bytes are no longer escaped inside the template's JS string.
+- **Lock and temp-file analysis retain less memory on busy logs**: lock events are stored with interned fields and no longer pin their source log line — ~30% lower peak retention on a lock-heavy capture — and temp-file events are compacted the same way. Output is unchanged.
+
+### Changed
+- **Time filter is an always-visible range slider in the Summary card**: replaces the Time dropdown and re-filters on release. Multi-day logs split the slider by day.
+- **`--json` output is stable run-to-run and across machines**: event-occurrence lists are sorted ascending, PID-sharded runs order per-execution lists canonically (timestamp, query id, duration), prepared-statement name lists are kept in a canonical order, and vacuum/analyze elapsed totals are rounded to the source precision — so the output no longer depends on the core count or on float-summation order. (These canonicalizations change a few serialized values versus v0.11.0.)
+
+### Fixed
+- **Analyzing multiple files at once is now deterministic**: rotated log sets were parsed with non-deterministic interleaving; files are now analyzed in order, so output is byte-stable.
+- **Lock metrics count each re-lock of the same resource as its own episode**: when a backend re-locks the same object, `total_events` and `acquired_events` stay in step.
+- **Lock timeline no longer repeats "still waiting" re-logs**: PostgreSQL re-logs "still waiting" once per deadlock_timeout while a backend waits; the events list held a row per re-log instead of one per wait episode (the counts were already per-episode). Now consistent.
+- **Time-series charts show the date on multi-day spans**: their x-axes were time-only (`00:00`, `06:00`, …), ambiguous across days; they now add the date at each day boundary, like the concurrent-sessions chart already did.
+- **Report duration tile no longer shows `0s` for spans of 24h or more**: the HTML report's duration now renders days (e.g. `1d`, `2d3h`) instead of dropping a day-formatted value.
+- **Maintenance elapsed times rounded to the microsecond**: a cumulative vacuum/analyze time could display e.g. `2s` for a true `3.0s` total due to float-summation noise; the rounded value is now correct and stable.
+- **Time-filtering the report kept several cards on stale or reformatted values**: after moving the time slider, SQL min/max/median/p99 lost their hour tier (a `1h 12m 50s` max showed as `72m`), temp-file totals changed number format, and the checkpoints "Too Frequent" count stayed at the full-log value while its section shrank. They are re-aggregated correctly now.
+- **Connections now fully re-scope under the report's time filter**: previously only the connection count re-scoped while the session stats and the per-user/database/host tables stayed on full-log values.
+- **The SQL duration-distribution band disagreed with the CLI**: the HTML re-bucketed queries by their average duration instead of using the exact per-execution distribution the report already carries; it now matches the `--full` text output.
+- **The query-detail modal's duration histogram never rendered**: it read a field that no longer exists, so every value was zero and the block was dropped.
+- **Split-report period-heatmap bounds could read "00:00 … 00:00"**: an intraday split spanning more than one day rendered both ends dateless; they now carry the date when the split crosses days.
+- **Charts kept stale colors after a theme switch**: toggling dark/light left existing charts mixing old and new colors until the next reload; they now repaint on toggle.
+- **HTML report could fail to load on older browsers**: it relied on `Intl.DurationFormat` with no fallback; a local formatter now covers browsers that lack it.
+- **Standalone report: tooltips and the filter dropdown are positioned correctly again**: the standalone CSS minifier stripped the spaces inside `calc(100% + 4px)`, which Chrome then dropped, mispositioning them (the CLI report was unaffected).
+- **In-browser WASM tool handles more uploads**: tar archives no longer ingest macOS `._*` sidecar files (which corrupted format detection), stream-written zips (Java `ZipOutputStream`, server-side "download as zip", …) now extract correctly by reading the zip's central directory instead of the zeroed local headers, and the dev build loads its WASM module and zstd decoder again.
+- **Checkpoint chart's "Other" series now counts every non-timed/WAL trigger**: it hardcoded two trigger names, so others (e.g. `immediate force wait wal`) were dropped from the chart while the Other stat card still counted them; chart and card now agree.
+- **Query-detail modal's Lock Waits block renders again**: it read per-query fields that don't exist (average/max wait, lock-type breakdown); it now shows the real acquired- and still-waiting wait times.
+- **Duration/time parsing in the report UI**: the Blocking Queries table mis-read a sub-second wait (`512 ms` as 512 minutes) and dropped hours from multi-hour waits, skewing its sort and totals; microsecond/nanosecond session durations rendered as seconds and sorted as zero. All corrected.
+- **Logs mixing timezone offsets render each event in its own offset**: lock and temp-file events were all rebased into the timezone of the first event seen, shifting the displayed clock of later events across a daylight-saving change or a mixed-offset multi-file set (the absolute instant and ordering were always correct).
+- **The event-detail modal showed timestamps in the wrong clock**: its First/Last-seen cards rendered in UTC and its occurrences sparkline in the viewer's local timezone, so on any non-UTC log the three references (cards, sparkline, section tables) disagreed — near midnight the cards could even land on the previous day. All three now use the log's own clock.
+- **More report sections re-scope under the time slider, and the rest are flagged**: the temp-file top-queries table, the top events and the SQL query mix now re-aggregate to the selected window; sections that cannot be recomputed in the browser (the events severity distribution, locks, maintenance, and the SQL Overview per-dimension tables — by database, user, host and application) are marked "whole-log" instead of silently showing full-log figures as filtered.
+- **The in-browser analyzer no longer silently drops rotated logs from a zip upload**: it accepted only exact `.log`/`.csv`/`.json` names, so a zip of `/var/log/postgresql/` kept the live log but dropped `postgresql.log.1`, `postgresql.log.2.gz`, the Debian `…-main.log.1`, etc.; rotated names are recognized now, the same rotated history the CLI parses.
+- **logrotate `dateext` rotated logs in tar archives are parsed**: a member named with logrotate's `dateext` convention (`postgresql.log-20260320`, `postgresql.log-20260320.gz`) was skipped as unsupported — the rotation matcher only accepted a `.`-separated numeric/date suffix, and a compressed dateext member cannot be recognized by content — so a dateext-rotated history in a tarball was dropped. The `-` separator is recognized now, in the CLI and in the browser.
+- **Time-filtered temp-file totals are byte-exact**: they were rebuilt by re-parsing rounded display strings and drifted from the CLI; they now sum the exact byte sizes the payload carries.
+- **The filtered-view SQL grand total was 1000x too small**: the total query duration was divided by 1000 a second time (the value was already in milliseconds); it renders correctly under the time filter now.
+- **Charts leaked observers and the cost map could fail to repaint**: chart rebuilds now disconnect their ResizeObservers (stale observers had kept firing `setSize` on destroyed charts) and the cost map destroys before it recreates.
+
+### Internal
+- **Internal cleanup**: removed dead code and de-duplicated the `output/` renderers into shared helpers, with no change to any output (byte-identical on the sample matrix).
+- **Web report internals restructured**: the report's JavaScript was split into per-section modules and its chart builders unified behind shared factories, under a new JS test net, with no change to the rendered report (0-pixel diff on the sample matrix).
+- **CI runs the web JS test net**: the JavaScript unit tests and the window-ABI / CSS / data-key contract linters now gate merges (previously local-only via `make test-web`); the pixel-visual harness stays local (system Chrome + macOS baselines).
+
 ## [0.11.0] - 2026-06-23
 
 ### Added

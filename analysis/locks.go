@@ -38,6 +38,42 @@ type LockEvent struct {
 	Relation        string // table from CONTEXT ("while locking tuple ... in relation X")
 }
 
+// Preloaded interning indices for the fixed event-type strings (see the strs
+// table in NewLockAnalyzer). Index 0 is the empty string.
+const (
+	lockEvtWaiting  uint32 = 1
+	lockEvtAcquired uint32 = 2
+	lockEvtDeadlock uint32 = 3
+)
+
+// compactLockEvent is the retained per-event form during parsing. Every string
+// field of LockEvent becomes a uint32 index into a shared interned-string
+// table, and the timestamp a millisecond int64 — ~56 bytes instead of ~176,
+// and, because the interned strings are cloned, no field is a substring of
+// entry.Message pinning the whole log line alive. Materialized into the public
+// LockEvent only at Finalize, keeping the exported API and output unchanged.
+//
+// offsetMin is the event's own UTC offset in minutes, captured from the log
+// line's timestamp so Finalize can restore the original local wall-clock even
+// on mixed-zone input. It occupies the struct's existing tail padding for free:
+// the ten uint32s + two 8-byte fields total 52B, which already rounds up to 56B
+// on an 8-byte alignment, so int16 offsetMin lands at offset 52 and the struct
+// stays 56 bytes — no memory delta.
+type compactLockEvent struct {
+	tsUnixMs        int64
+	waitTime        float64
+	eventType       uint32
+	lockType        uint32
+	resourceType    uint32
+	processID       uint32
+	queryID         uint32
+	blockingPID     uint32
+	blockingQueryID uint32
+	blockingQuery   uint32
+	relation        uint32
+	offsetMin       int16
+}
+
 // LockQueryStat aggregates lock stats for one query pattern.
 type LockQueryStat struct {
 	RawQuery          string
@@ -96,7 +132,9 @@ type LockAnalyzer struct {
 	relationStats     map[string]int
 
 	// Pre-allocated structures (initialized at creation)
-	events             []LockEvent
+	events             []compactLockEvent
+	strs               []string          // interned strings; index 0 is ""
+	strIndex           map[string]uint32 // string -> index into strs
 	queryStats         map[string]*LockQueryStat
 	lastQueryByPID     map[string]string
 	pendingBlockingPID map[string]string // Maps waiting PID → blocking PID (from DETAIL line)
@@ -126,13 +164,29 @@ func NewLockAnalyzer() *LockAnalyzer {
 		lockTypeStats:      make(map[string]int, 20),
 		resourceTypeStats:  make(map[string]int, 10),
 		relationStats:      make(map[string]int, 50),
-		events:             make([]LockEvent, 0, 1000),
+		events:             make([]compactLockEvent, 0, 1000),
+		strs:               []string{"", "waiting", "acquired", "deadlock"},
+		strIndex:           map[string]uint32{"": 0, "waiting": lockEvtWaiting, "acquired": lockEvtAcquired, "deadlock": lockEvtDeadlock},
 		queryStats:         make(map[string]*LockQueryStat, 100),
 		lastQueryByPID:     make(map[string]string, 100),
 		pendingBlockingPID: make(map[string]string, 50),
 		activeLocks:        make(map[string]*activeLock, 200),
 		locksExist:         false,
 	}
+}
+
+// intern returns the index of s in the shared interned-string table, adding it
+// when new. The stored copy is cloned so that a field sliced out of
+// entry.Message does not keep the whole log line alive. Index 0 is "".
+func (a *LockAnalyzer) intern(s string) uint32 {
+	if idx, ok := a.strIndex[s]; ok {
+		return idx
+	}
+	s = strings.Clone(s)
+	idx := uint32(len(a.strs))
+	a.strs = append(a.strs, s)
+	a.strIndex[s] = idx
+	return idx
 }
 
 // Process analyzes a single log entry for lock events.
@@ -154,6 +208,22 @@ func (a *LockAnalyzer) Process(entry *parser.LogEntry) {
 	// Fast path: reject lines too short to carry any lock pattern.
 	if len(msg) < 20 {
 		return
+	}
+
+	// Body-anchored fast gate: PostgreSQL emits every lock event with the
+	// pattern at the start of the message body ("process N still waiting…",
+	// "process N acquired…", "deadlock detected"). When the dispatcher
+	// stamped a body offset, reject other lines in O(1) instead of running
+	// detectPatterns' full-message scans. Continuation lines (DETAIL:/
+	// STATEMENT:/CONTEXT:/QUERY:) carry no severity marker, keep offset 0
+	// and stay on the unanchored path below.
+	if off := int(entry.BodyOffset); off > 0 && off < len(msg) {
+		body := msg[off:]
+		if !strings.HasPrefix(body, "process ") &&
+			!strings.HasPrefix(body, "deadlock") &&
+			!strings.HasPrefix(body, "Process ") {
+			return
+		}
 	}
 
 	// State-machine short-circuit: until we've seen the first lock event,
@@ -291,14 +361,16 @@ func (a *LockAnalyzer) processBlockingDetail(entry *parser.LogEntry, msg string)
 	}
 
 	// Update the last waiting event for this PID.
+	wantPID := a.intern(waitingPID)
 	for i := len(a.events) - 1; i >= 0; i-- {
-		if a.events[i].ProcessID == waitingPID && a.events[i].EventType == "waiting" {
-			a.events[i].BlockingPID = bPID
+		if a.events[i].processID == wantPID && a.events[i].eventType == lockEvtWaiting {
+			a.events[i].blockingPID = a.intern(bPID)
 			// Try to resolve blocking query (text + ID together).
 			if bQuery, ok := a.lastQueryByPID[bPID]; ok {
 				normalized := normalizeQuery(bQuery)
-				a.events[i].BlockingQueryID, _ = GenerateQueryID(bQuery, normalized)
-				a.events[i].BlockingQuery = normalized
+				id, _ := GenerateQueryID(bQuery, normalized)
+				a.events[i].blockingQueryID = a.intern(id)
+				a.events[i].blockingQuery = a.intern(normalized)
 			}
 			break
 		}
@@ -343,9 +415,10 @@ func (a *LockAnalyzer) processRelationContext(entry *parser.LogEntry, msg string
 		return
 	}
 
+	wantPID := a.intern(pid)
 	for i := len(a.events) - 1; i >= 0; i-- {
-		if a.events[i].ProcessID == pid && a.events[i].EventType == "waiting" && a.events[i].Relation == "" {
-			a.events[i].Relation = rel
+		if a.events[i].processID == wantPID && a.events[i].eventType == lockEvtWaiting && a.events[i].relation == 0 {
+			a.events[i].relation = a.intern(rel)
 			break
 		}
 	}
@@ -420,7 +493,7 @@ func (a *LockAnalyzer) processQueryContinuation(entry *parser.LogEntry, msg stri
 			if lock.waitingEventID >= 0 && lock.waitingEventID < len(a.events) {
 				normalized := normalizeQuery(query)
 				queryID, _ := GenerateQueryID(query, normalized)
-				a.events[lock.waitingEventID].QueryID = queryID
+				a.events[lock.waitingEventID].queryID = a.intern(queryID)
 			}
 		}
 	}
@@ -436,9 +509,10 @@ func (a *LockAnalyzer) processDeadlock(entry *parser.LogEntry) {
 	if pid == "" {
 		return
 	}
+	wantPID := a.intern(pid)
 	for i := len(a.events) - 1; i >= 0; i-- {
-		if a.events[i].ProcessID == pid && a.events[i].EventType == "waiting" {
-			a.events[i].EventType = "deadlock"
+		if a.events[i].processID == wantPID && a.events[i].eventType == lockEvtWaiting {
+			a.events[i].eventType = lockEvtDeadlock
 			break
 		}
 	}
@@ -499,9 +573,30 @@ func (a *LockAnalyzer) handleWaiting(
 		if relation != "" {
 			a.relationStats[relation]++
 		}
-	} else {
-		// Repeated "still waiting" for same lock — refresh wait time only.
+	} else if lock.acquired {
+		// A "still waiting" on an already-acquired key means the same backend
+		// re-locked the same resource: a NEW lock episode, not a repeat. Rearm
+		// and recount, otherwise the following "acquired" inflates
+		// acquiredEvents without a matching totalEvents.
+		lock.acquired = false
 		lock.lastWaitTime = waitTime
+		a.totalEvents++
+		a.lockTypeStats[lockType]++
+		a.resourceTypeStats[resourceType]++
+		if relation != "" {
+			a.relationStats[relation]++
+		}
+	} else {
+		// Repeated "still waiting" for the same pending lock. PostgreSQL re-logs
+		// this once per deadlock_timeout; it is one wait episode, not many (the
+		// counters already treat it that way). Refresh the existing event's wait
+		// time in place instead of appending a duplicate, and skip recomputing the
+		// query id (unchanged for the same episode).
+		lock.lastWaitTime = waitTime
+		if lock.waitingEventID >= 0 && lock.waitingEventID < len(a.events) {
+			a.events[lock.waitingEventID].waitTime = waitTime
+		}
+		return
 	}
 
 	queryID := ""
@@ -518,18 +613,22 @@ func (a *LockAnalyzer) handleWaiting(
 		}
 	}
 
+	// Capture this event's own UTC offset (whole minutes) so Finalize can
+	// restore its original local wall-clock even on mixed-zone input.
+	_, offsetSec := entry.Timestamp.Zone()
 	eventIdx := len(a.events)
-	a.events = append(a.events, LockEvent{
-		Timestamp:       entry.Timestamp,
-		EventType:       "waiting",
-		LockType:        lockType,
-		ResourceType:    resourceType,
-		WaitTime:        waitTime,
-		ProcessID:       processID,
-		QueryID:         queryID,
-		BlockingPID:     blockingPID,
-		BlockingQueryID: blockingQueryID,
-		Relation:        relation,
+	a.events = append(a.events, compactLockEvent{
+		tsUnixMs:        entry.Timestamp.UnixMilli(),
+		eventType:       lockEvtWaiting,
+		lockType:        a.intern(lockType),
+		resourceType:    a.intern(resourceType),
+		waitTime:        waitTime,
+		processID:       a.intern(processID),
+		queryID:         a.intern(queryID),
+		blockingPID:     a.intern(blockingPID),
+		blockingQueryID: a.intern(blockingQueryID),
+		relation:        a.intern(relation),
+		offsetMin:       int16(offsetSec / 60),
 	})
 	// Remember the event index so a later STATEMENT line can update
 	// query_id in place.
@@ -546,7 +645,11 @@ func (a *LockAnalyzer) handleAcquired(
 	blockingPID, relation string,
 ) {
 	lock, exists := a.activeLocks[lockKey]
-	if exists {
+	// A re-acquisition of an already-acquired key (a fresh fast-lock episode on
+	// the same resource, no intervening "still waiting") is a new lock, not a
+	// promotion of the stale entry.
+	newEpisode := !exists || lock.acquired
+	if !newEpisode {
 		lock.acquired = true
 		lock.lastWaitTime = waitTime
 	} else {
@@ -566,8 +669,8 @@ func (a *LockAnalyzer) handleAcquired(
 
 	a.totalWaitTime += waitTime
 	a.acquiredEvents++
-	if !exists {
-		// Direct acquisition (no prior "waiting") — count as a new lock.
+	if newEpisode {
+		// New lock episode (direct acquisition or re-lock) — count it.
 		a.totalEvents++
 		a.lockTypeStats[lockType]++
 		a.resourceTypeStats[resourceType]++
@@ -593,16 +696,20 @@ func (a *LockAnalyzer) handleAcquired(
 		acquiredRelation = lock.relation
 	}
 
-	a.events = append(a.events, LockEvent{
-		Timestamp:    entry.Timestamp,
-		EventType:    "acquired",
-		LockType:     lockType,
-		ResourceType: resourceType,
-		WaitTime:     waitTime,
-		ProcessID:    processID,
-		QueryID:      queryID,
-		BlockingPID:  acquiredBlockingPID,
-		Relation:     acquiredRelation,
+	// Capture this event's own UTC offset (whole minutes) so Finalize can
+	// restore its original local wall-clock even on mixed-zone input.
+	_, offsetSec := entry.Timestamp.Zone()
+	a.events = append(a.events, compactLockEvent{
+		tsUnixMs:     entry.Timestamp.UnixMilli(),
+		eventType:    lockEvtAcquired,
+		lockType:     a.intern(lockType),
+		resourceType: a.intern(resourceType),
+		waitTime:     waitTime,
+		processID:    a.intern(processID),
+		queryID:      a.intern(queryID),
+		blockingPID:  a.intern(acquiredBlockingPID),
+		relation:     a.intern(acquiredRelation),
+		offsetMin:    int16(offsetSec / 60),
 	})
 }
 
@@ -798,11 +905,12 @@ func (a *LockAnalyzer) Finalize() LockMetrics {
 	// Only resolve events that have NO blocking query yet — events resolved
 	// during streaming already have the correct query from that point in time.
 	for i := range a.events {
-		if a.events[i].BlockingPID != "" && a.events[i].BlockingQueryID == "" {
-			if bQuery, ok := a.lastQueryByPID[a.events[i].BlockingPID]; ok {
+		if a.events[i].blockingPID != 0 && a.events[i].blockingQueryID == 0 {
+			if bQuery, ok := a.lastQueryByPID[a.strs[a.events[i].blockingPID]]; ok {
 				normalized := normalizeQuery(bQuery)
-				a.events[i].BlockingQueryID, _ = GenerateQueryID(bQuery, normalized)
-				a.events[i].BlockingQuery = normalized
+				id, _ := GenerateQueryID(bQuery, normalized)
+				a.events[i].blockingQueryID = a.intern(id)
+				a.events[i].blockingQuery = a.intern(normalized)
 			}
 		}
 	}
@@ -860,6 +968,37 @@ func (a *LockAnalyzer) Finalize() LockMetrics {
 		stillWaiting = 0
 	}
 
+	// Materialize the compact events into the public LockEvent slice here, after
+	// parsing, so the exported shape and JSON output are unchanged. Each event
+	// is materialized at its OWN captured offset so the displayed wall-clock
+	// matches the original log line even when the input mixes zones; the empty
+	// zone-name is invisible under the zone-less "2006-01-02 15:04:05" layout
+	// the outputs use, and on a single-zone log every offset is identical, so
+	// the digits are byte-identical to the previous shared-location code.
+	// FixedZone values are memoized by offset (usually one or two distinct).
+	zones := make(map[int16]*time.Location, 2)
+	events := make([]LockEvent, len(a.events))
+	for i, e := range a.events {
+		loc := zones[e.offsetMin]
+		if loc == nil {
+			loc = time.FixedZone("", int(e.offsetMin)*60)
+			zones[e.offsetMin] = loc
+		}
+		events[i] = LockEvent{
+			Timestamp:       time.UnixMilli(e.tsUnixMs).In(loc),
+			EventType:       a.strs[e.eventType],
+			LockType:        a.strs[e.lockType],
+			ResourceType:    a.strs[e.resourceType],
+			WaitTime:        e.waitTime,
+			ProcessID:       a.strs[e.processID],
+			QueryID:         a.strs[e.queryID],
+			BlockingPID:     a.strs[e.blockingPID],
+			BlockingQueryID: a.strs[e.blockingQueryID],
+			BlockingQuery:   a.strs[e.blockingQuery],
+			Relation:        a.strs[e.relation],
+		}
+	}
+
 	return LockMetrics{
 		TotalEvents:       a.totalEvents,
 		WaitingEvents:     stillWaiting,
@@ -869,7 +1008,7 @@ func (a *LockAnalyzer) Finalize() LockMetrics {
 		LockTypeStats:     a.lockTypeStats,
 		ResourceTypeStats: a.resourceTypeStats,
 		RelationStats:     a.relationStats,
-		Events:            a.events,
+		Events:            events,
 		QueryStats:        queryStats,
 	}
 }

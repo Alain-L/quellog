@@ -61,6 +61,14 @@ type compactExecutions struct {
 	dims   []dimChunk
 	n      int // total event count across all chunks
 
+	// needsSort is set when events from several PID shards were folded in
+	// (their per-shard runs are each in stream order but the concatenation is
+	// not), so the JSON dump must sort before emitting to stay deterministic.
+	// A single-pass / function-parallel run leaves it false — events are
+	// already in stream order and stream straight out, with no materialization
+	// (important for the leaking-GC WASM build).
+	needsSort bool
+
 	// queryIDs is the deduplicated table of query IDs. Each unique ID
 	// is stored once — typical postgres logs have hundreds to thousands
 	// of unique queries vs millions of executions, so per-event indexing

@@ -45,8 +45,8 @@ type HTMLReportInfo struct {
 
 // minifyCSS performs basic CSS minification.
 func minifyCSS(css string) string {
-	// Remove comments
-	css = regexp.MustCompile(`/\*.*?\*/`).ReplaceAllString(css, "")
+	// Remove comments (?s so multi-line comments are matched, not just single-line)
+	css = regexp.MustCompile(`(?s)/\*.*?\*/`).ReplaceAllString(css, "")
 	// Collapse whitespace
 	css = regexp.MustCompile(`\s+`).ReplaceAllString(css, " ")
 	// Remove space around punctuation
@@ -56,9 +56,12 @@ func minifyCSS(css string) string {
 	return strings.TrimSpace(css)
 }
 
-// extractBodyContent extracts content between <body> and <script from index.html
+// extractBodyContent extracts the report body from index.html, delimited by the
+// explicit QL:BODY markers (kept in sync with web/standalone.go). Using markers
+// rather than scanning to the first <script>/comment keeps the extraction stable
+// if scripts or comments move within the body.
 func extractBodyContent(html string) string {
-	re := regexp.MustCompile(`(?s)<body>(.*?)<script`)
+	re := regexp.MustCompile(`(?s)<!-- QL:BODY:BEGIN -->(.*?)<!-- QL:BODY:END -->`)
 	match := re.FindStringSubmatch(html)
 	if len(match) > 1 {
 		body := strings.TrimSpace(match[1])
@@ -78,7 +81,7 @@ func gzipBase64(data string) string {
 	gz, _ := gzip.NewWriterLevel(&buf, gzip.BestCompression)
 	gz.Write([]byte(data))
 	gz.Close()
-	return base64.StdEncoding.EncodeToString(buf.Bytes())
+	return base64.URLEncoding.EncodeToString(buf.Bytes())
 }
 
 // getTemplateData returns cached template data (computed once).
@@ -175,7 +178,7 @@ func compressReportJSON(metrics analysis.AggregatedMetrics, info HTMLReportInfo,
 	if err := zstdWriter.Close(); err != nil {
 		return "", fmt.Errorf("failed to close zstd writer: %w", err)
 	}
-	return base64.StdEncoding.EncodeToString(zstdBuf.Bytes()), nil
+	return base64.URLEncoding.EncodeToString(zstdBuf.Bytes()), nil
 }
 
 // ExportHTMLSplit exports a single standalone HTML report holding one embedded
@@ -288,7 +291,7 @@ func ExportHTML(w io.Writer, metrics analysis.AggregatedMetrics, info HTMLReport
 	}
 
 	// Encode to base64
-	compressed := base64.StdEncoding.EncodeToString(zstdBuf.Bytes())
+	compressed := base64.URLEncoding.EncodeToString(zstdBuf.Bytes())
 
 	// Get cached template data
 	td := getTemplateData()
