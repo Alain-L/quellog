@@ -1192,86 +1192,52 @@
             flex-shrink: 0;
             text-align: right;
         }
-        /* Maintenance lists: name fixed-width, then a wide bar that
-           stretches across the available space, then three tail
-           columns:
-             .extra   — fixed-width muted-italic suffix slot ("X KB
-                        recovered" or empty), reserved so the bar
-                        never shifts when only some rows carry it
-             .removed — fixed-width muted-italic count/percentage
-                        (always right-aligned at the same X position)
-             .value   — the headline numeric (elapsed / count / rows).
-           Bars get a touch more height than the generic list to read
-           at a glance on dense reports. */
-        .scroll-list--maintenance .list-item .value {
-            width: 110px;
-            white-space: nowrap;
+        /* Maintenance tables reuse the shared <table>/.table-container
+           chrome (identical headers, borders and row height to the Locks
+           and SQL panels). Only three things stay table-specific: a
+           leading bar column, the sortable-header affordance, and the
+           click-to-copy behaviour on the truncated table-name cell. */
+        .maint-table td { vertical-align: middle; }
+        .maint-table th.bar-col { width: 26%; }
+        .maint-table td.bar-cell { width: 26%; }
+        .maint-table td.bar-cell .bar {
+            width: 100%;
+            height: 6px;
+            background: var(--bg-alt);
+            overflow: hidden;
         }
-        .scroll-list--maintenance .list-item .name {
-            width: 240px;
-            max-width: 240px;
+        .maint-table td.bar-cell .bar-fill {
+            height: 100%;
+            background: var(--chart-bar);
         }
-        .scroll-list--maintenance .list-item .extra {
-            font-size: 0.72rem;
-            font-style: italic;
-            color: var(--text-muted);
-            width: 130px;
-            flex-shrink: 0;
-            text-align: right;
-            white-space: nowrap;
-            margin-right: 0.5rem;
-        }
-        .scroll-list--maintenance .list-item .removed {
-            font-size: 0.72rem;
-            font-style: italic;
-            color: var(--text-muted);
-            width: 60px;
-            flex-shrink: 0;
-            text-align: right;
-            white-space: nowrap;
-        }
-        .scroll-list--maintenance .list-item .bar {
-            height: 5px;
-        }
+        .maint-table th { white-space: nowrap; }
+        .maint-table th[data-sort] { cursor: pointer; user-select: none; }
+        .maint-table th[data-sort]:hover { color: var(--primary); }
+        .maint-table .sort-arrow { margin-left: 0.2rem; font-size: 0.6rem; opacity: 0.7; }
 
-        /* Click-to-reveal on the table-name cell: hover shows the full
-           name via the native title tooltip; clicking inserts a copy
-           ribbon directly above the row carrying the full identifier
-           on a single line, with its text pre-selected so Cmd+C is the
-           very next keystroke. The cell itself keeps its truncated
-           form so the row never reflows. */
-        .scroll-list--maintenance .list-item .name {
+        /* Click-to-reveal on the truncated table-name cell: hover shows the
+           full name via the native title tooltip; clicking breaks the inner
+           span out over the neighbouring cells (opaque background) with its
+           text pre-selected so Cmd+C is the next keystroke. The cell keeps
+           its slot so the row never reflows. */
+        .maint-table td.name-cell { position: relative; max-width: 240px; }
+        .maint-table .name {
             cursor: pointer;
-            transition: color 0.15s ease;
-        }
-        .scroll-list--maintenance .list-item .name:hover {
-            color: var(--primary);
-        }
-        /* Click-to-reveal: the .name cell keeps its 240px slot in the
-           flex layout (so bar/value cells never shift), but its inner
-           text span breaks out via position: absolute when expanded —
-           it stretches to its full max-content width on top of the
-           neighbouring cells, with an opaque background so they're
-           hidden behind. The cell auto-restores when the selection
-           moves away or the user clicks it again. */
-        .scroll-list--maintenance .list-item {
-            position: relative;
-        }
-        .scroll-list--maintenance .list-item .name {
             display: inline-flex;
             align-items: center;
+            max-width: 100%;
+            transition: color 0.15s ease;
         }
-        .scroll-list--maintenance .list-item .name .name-inner {
+        .maint-table .name:hover { color: var(--primary); }
+        .maint-table .name .name-inner {
             display: inline-block;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
             max-width: 100%;
         }
-        .scroll-list--maintenance .list-item .name.expanded {
-            overflow: visible;
-        }
-        .scroll-list--maintenance .list-item .name.expanded .name-inner {
+        .maint-table .name.expanded { overflow: visible; }
+        .maint-table .name.expanded .name-inner {
             position: absolute;
             top: 50%;
             left: 0;
@@ -1279,144 +1245,11 @@
             z-index: 10;
             width: max-content;
             max-width: 800px;
-            overflow: visible;
-            text-overflow: clip;
             white-space: nowrap;
             background: var(--card-bg, #fff);
             user-select: all;
             color: var(--text);
-        }
-
-        /* Vacuum main table adds a 4th numeric slot (.dead-col) between
-           .extra and .removed so the row carries the full
-           recovered/dead/vacuums/elapsed quartet without overflowing.
-           Slot widths trim accordingly (extra and value lose ~30px
-           each) so the bar still has room to read at a glance. */
-        .scroll-list--maintenance-vac-main .list-item .extra,
-        .scroll-list--maintenance-vac-main .list-header .extra {
-            width: 100px;
-        }
-        .scroll-list--maintenance-vac-main .list-item .dead-col,
-        .scroll-list--maintenance-vac-main .list-header .dead-col {
-            width: 90px;
-            flex-shrink: 0;
-            text-align: right;
-            white-space: nowrap;
-            font-size: 0.72rem;
-            color: var(--text-muted);
-            font-style: italic;
-            margin-right: 0.5rem;
-        }
-        .scroll-list--maintenance-vac-main .list-header .dead-col {
-            font-style: normal;
-        }
-        .scroll-list--maintenance-vac-main .list-item .value,
-        .scroll-list--maintenance-vac-main .list-header .value {
-            width: 90px;
-        }
-
-        /* Maintenance lists carry up to MAINT_TOP_N rows and the
-           section card has plenty of vertical room before another
-           section follows. Override the generic 200px ceiling so the
-           full top-N is visible without scrolling on a normal-sized
-           viewport, and only the long tail triggers scrollbar use. */
-        .scroll-list--maintenance {
-            max-height: 280px;
-        }
-
-        /* Column header for maintenance scroll-lists, matching the
-           canonical "th" treatment of the <table>-based panels
-           (locks queries, temp files): uppercase muted small text,
-           sticky to the top of the scroll area so the headers stay
-           visible while the user scrolls through the long tail. */
-        .scroll-list--maintenance .list-header {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 0.5rem 0.6rem;
-            background: var(--bg-alt);
-            border-bottom: 2px solid var(--border);
-            position: sticky;
-            top: 0;
-            z-index: 5;
-            font-size: 0.65rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.02em;
-            color: var(--text-muted);
-        }
-        .scroll-list--maintenance .list-header .name {
-            width: 240px;
-            max-width: 240px;
-        }
-        .scroll-list--maintenance .list-header .bar {
-            flex: 1;
-            background: transparent;
-        }
-        .scroll-list--maintenance .list-header .extra {
-            width: 130px;
-            flex-shrink: 0;
-            text-align: right;
-            margin-right: 0.5rem;
-        }
-        .scroll-list--maintenance .list-header .removed {
-            width: 60px;
-            flex-shrink: 0;
-            text-align: right;
-        }
-        .scroll-list--maintenance .list-header .value {
-            width: 110px;
-            text-align: right;
-        }
-        .scroll-list--maintenance-buffer .list-header .extra {
-            width: 260px;
-        }
-        .scroll-list--maintenance-buffer .list-header .value {
-            width: 100px;
-        }
-        /* 4-cell sub-grid inside .extra for the buffer view, matching
-           the PG log column order: hits / misses / dirtied / written.
-           Each cell is right-aligned within its share of the .extra
-           width so the column headers line up with the values below. */
-        .scroll-list--maintenance-buffer .buf-cells {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr 1fr;
-            width: 100%;
-            gap: 0.4rem;
-        }
-        .scroll-list--maintenance-buffer .buf-cells > span {
-            text-align: right;
-        }
-
-        /* Sortable headers (currently used by the autoanalyze unified
-           table). Each [data-sort] span becomes a clickable target with
-           a tiny chevron showing the active sort direction. Hover
-           bumps brightness so the affordance reads as interactive
-           without competing with the row data below. */
-        .scroll-list--maintenance .list-header--sortable [data-sort] {
-            cursor: pointer;
-            user-select: none;
-        }
-        .scroll-list--maintenance .list-header--sortable [data-sort]:hover {
-            color: var(--primary);
-        }
-        .scroll-list--maintenance .sort-arrow {
-            margin-left: 0.2rem;
-            font-size: 0.6rem;
-            opacity: 0.7;
-        }
-
-        /* Buffer view: 4 metrics packed into .extra as a 4-column grid
-           matching the PG log order (hits / misses / dirtied / written).
-           The .value and .removed slots are unused and collapse — the
-           bar already encodes the misses ranking. */
-        .scroll-list--maintenance-buffer .list-item .extra,
-        .scroll-list--maintenance-buffer .list-header .extra {
-            width: 340px;
-        }
-        .scroll-list--maintenance-buffer .list-item .value,
-        .scroll-list--maintenance-buffer .list-item .removed {
-            display: none;
+            padding-right: 0.5rem;
         }
 
         /* metric-line: a tight horizontal stack of key/value chips,
