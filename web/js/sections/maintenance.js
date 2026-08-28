@@ -186,20 +186,14 @@ export function showAnalyzeView(btn, view) {
     container.innerHTML = view === 'skipped' ? renderAnalyzeSkippedTable() : renderAnalyzeTable();
 }
 
-// Rendering primitives — same scroll-list shape the maintenance
-// section has always used (name + bar + secondary + value) so
-// the visual rhythm is preserved across tab switches. The cap
-// is generous so the list scrolls (max-height + overflow-y on
-// .scroll-list) rather than truncating: the user keeps the long
-// tail one wheel-flick away. CLI keeps a tighter cut.
+// Rendering primitives — every panel renders a real <table> inside a
+// .table-container, sharing the exact header/border/row-height chrome of
+// the other sections (Locks, SQL, Temp files). Each table carries a
+// leading bar column (proportional to the currently-sorted metric) plus
+// sortable <th> headers. The cap is generous so the .table-container
+// scrolls (max-height + overflow-y) rather than truncating: the user
+// keeps the long tail one wheel-flick away. CLI keeps a tighter cut.
 const MAINT_TOP_N = 20;
-
-// Maintenance list-items use a wider 5-slot layout
-// (name / wide bar / extra / removed / value): the bar takes the
-// remaining flex space so progress reads at a glance even on
-// dense reports, and the .extra slot reserves a fixed width so
-// the bar never shifts horizontally when only some rows carry a
-// "X KB recovered" annotation.
 
 // Autovacuum: two stacked sortable tables — a main panel
 // (elapsed / vacuums / dead rows / recovered) and a buffer
@@ -242,24 +236,30 @@ function renderVacuumMainTable() {
     const barKey = _vacMainSortKey === 'table' ? 'elapsed' : _vacMainSortKey;
     const maxBar = Math.max(...limited.map(r => r[barKey] || 0)) || 1;
     const arrow = key => _vacMainSortKey === key ? `<span class="sort-arrow">${_vacMainSortDir === 'desc' ? '▼' : '▲'}</span>` : '';
-    const sortable = (key, label) => `<span data-sort onclick="showVacuumMainSort('${key}')">${label}${arrow(key)}</span>`;
-    return `<div class="scroll-list scroll-list--maintenance scroll-list--maintenance-vac-main">
-        <div class="list-header list-header--sortable">
-            <span class="name">${sortable('table', 'Table')}</span>
-            <div class="bar"></div>
-            <span class="extra">${sortable('recovered', 'Recovered')}</span>
-            <span class="dead-col">${sortable('dead', 'Dead rows')}</span>
-            <span class="removed">${sortable('count', 'Vacuums')}</span>
-            <span class="value">${sortable('elapsed', 'Elapsed')}</span>
-        </div>
-        ${limited.map(r => `<div class="list-item">
-            ${maintName(r.table)}
-            <div class="bar"><div class="bar-fill" style="width: ${(r[barKey]||0)/maxBar*100}%${_vacMainSortKey === 'dead' ? '; background: var(--danger);' : ''}"></div></div>
-            <span class="extra">${r.recovered > 0 ? fmtBytes(r.recovered) : '-'}</span>
-            <span class="dead-col">${r.dead > 0 ? fmt(r.dead) : '-'}</span>
-            <span class="removed">${r.count}×</span>
-            <span class="value">${r.elapsed > 0 ? fmtDuration(r.elapsed * 1000) : '-'}</span>
-        </div>`).join('')}
+    const th = (key, label) => `<th class="num" data-sort="${key}" onclick="showVacuumMainSort('${key}')">${label}${arrow(key)}</th>`;
+    return `<div class="table-container">
+        <table class="maint-table">
+            <thead>
+                <tr>
+                    <th data-sort="table" onclick="showVacuumMainSort('table')">Table${arrow('table')}</th>
+                    <th class="bar-col"></th>
+                    ${th('recovered', 'Recovered')}
+                    ${th('dead', 'Dead rows')}
+                    ${th('count', 'Vacuums')}
+                    ${th('elapsed', 'Elapsed')}
+                </tr>
+            </thead>
+            <tbody>
+                ${limited.map(r => `<tr>
+                    <td class="name-cell">${maintName(r.table)}</td>
+                    <td class="bar-cell"><div class="bar"><div class="bar-fill" style="width: ${(r[barKey]||0)/maxBar*100}%${_vacMainSortKey === 'dead' ? '; background: var(--danger);' : ''}"></div></div></td>
+                    <td class="num">${r.recovered > 0 ? fmtBytes(r.recovered) : '-'}</td>
+                    <td class="num">${r.dead > 0 ? fmt(r.dead) : '-'}</td>
+                    <td class="num">${r.count}×</td>
+                    <td class="num">${r.elapsed > 0 ? fmtDuration(r.elapsed * 1000) : '-'}</td>
+                </tr>`).join('')}
+            </tbody>
+        </table>
     </div>`;
 }
 
@@ -286,19 +286,31 @@ function renderVacuumBufferTable() {
     const barKey = _vacBufSortKey === 'table' ? 'misses' : _vacBufSortKey;
     const maxBar = Math.max(...limited.map(r => r[barKey] || 0)) || 1;
     const arrow = key => _vacBufSortKey === key ? `<span class="sort-arrow">${_vacBufSortDir === 'desc' ? '▼' : '▲'}</span>` : '';
-    const sortable = (key, label) => `<span data-sort onclick="showVacuumBufferSort('${key}')">${label}${arrow(key)}</span>`;
+    const th = (key, label) => `<th class="num" data-sort="${key}" onclick="showVacuumBufferSort('${key}')">${label}${arrow(key)}</th>`;
     const cell = n => (n || 0) > 0 ? fmtCompact(n) : '-';
-    return `<div class="scroll-list scroll-list--maintenance scroll-list--maintenance-buffer">
-        <div class="list-header list-header--sortable list-header--buffer">
-            <span class="name">${sortable('table', 'Table')}</span>
-            <div class="bar"></div>
-            <span class="extra"><span class="buf-cells"><span>${sortable('hits', 'Hits')}</span><span>${sortable('misses', 'Misses')}</span><span>${sortable('dirtied', 'Dirtied')}</span><span>${sortable('written', 'Written')}</span></span></span>
-        </div>
-        ${limited.map(r => `<div class="list-item">
-            ${maintName(r.table)}
-            <div class="bar"><div class="bar-fill" style="width: ${(r[barKey]||0)/maxBar*100}%"></div></div>
-            <span class="extra"><span class="buf-cells"><span>${cell(r.hits)}</span><span>${cell(r.misses)}</span><span>${cell(r.dirtied)}</span><span>${cell(r.written)}</span></span></span>
-        </div>`).join('')}
+    return `<div class="table-container">
+        <table class="maint-table">
+            <thead>
+                <tr>
+                    <th data-sort="table" onclick="showVacuumBufferSort('table')">Table${arrow('table')}</th>
+                    <th class="bar-col"></th>
+                    ${th('hits', 'Hits')}
+                    ${th('misses', 'Misses')}
+                    ${th('dirtied', 'Dirtied')}
+                    ${th('written', 'Written')}
+                </tr>
+            </thead>
+            <tbody>
+                ${limited.map(r => `<tr>
+                    <td class="name-cell">${maintName(r.table)}</td>
+                    <td class="bar-cell"><div class="bar"><div class="bar-fill" style="width: ${(r[barKey]||0)/maxBar*100}%"></div></div></td>
+                    <td class="num">${cell(r.hits)}</td>
+                    <td class="num">${cell(r.misses)}</td>
+                    <td class="num">${cell(r.dirtied)}</td>
+                    <td class="num">${cell(r.written)}</td>
+                </tr>`).join('')}
+            </tbody>
+        </table>
     </div>`;
 }
 
@@ -327,22 +339,28 @@ function renderSkippedTable(skips) {
     const rows = skips.slice().sort((a, b) => (b.count - a.count) || a.table.localeCompare(b.table));
     const limited = rows.slice(0, MAINT_TOP_N);
     const maxBar = Math.max(...limited.map(r => r.count || 0)) || 1;
-    return `<div class="scroll-list scroll-list--maintenance">
-        <div class="list-header">
-            <span class="name">Table</span>
-            <div class="bar"></div>
-            <span class="extra"></span>
-            <span class="value">Skipped</span>
-        </div>
-        ${limited.map(r => {
-            const reason = (r.reason && r.reason !== SKIP_REASON_DEFAULT) ? esc(r.reason) : '';
-            return `<div class="list-item">
-                ${maintName(r.table)}
-                <div class="bar"><div class="bar-fill" style="width: ${(r.count || 0) / maxBar * 100}%; background: var(--danger);"></div></div>
-                <span class="extra">${reason ? `<span style="color: var(--danger);">${reason}</span>` : ''}</span>
-                <span class="value">${r.count}×</span>
-            </div>`;
-        }).join('')}
+    return `<div class="table-container">
+        <table class="maint-table">
+            <thead>
+                <tr>
+                    <th>Table</th>
+                    <th class="bar-col"></th>
+                    <th>Reason</th>
+                    <th class="num">Skipped</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${limited.map(r => {
+                    const reason = (r.reason && r.reason !== SKIP_REASON_DEFAULT) ? esc(r.reason) : '';
+                    return `<tr>
+                    <td class="name-cell">${maintName(r.table)}</td>
+                    <td class="bar-cell"><div class="bar"><div class="bar-fill" style="width: ${(r.count || 0) / maxBar * 100}%; background: var(--danger);"></div></div></td>
+                    <td>${reason ? `<span style="color: var(--danger);">${reason}</span>` : '-'}</td>
+                    <td class="num">${r.count}×</td>
+                </tr>`;
+                }).join('')}
+            </tbody>
+        </table>
     </div>`;
 }
 
@@ -367,7 +385,7 @@ export function showMaintRibbon(el) {
         return;
     }
     // Only one cell expanded at a time.
-    document.querySelectorAll('.scroll-list--maintenance .name.expanded')
+    document.querySelectorAll('.maint-table .name.expanded')
         .forEach(n => n.classList.remove('expanded'));
     el.classList.add('expanded');
     // Pre-select the inner span so the next keystroke is Cmd+C.
@@ -429,22 +447,28 @@ function renderAnalyzeTable() {
     const barKey = _anaSortKey === 'table' ? 'elapsed' : _anaSortKey;
     const maxBar = Math.max(...limited.map(r => r[barKey] || 0)) || 1;
     const arrow = key => _anaSortKey === key ? `<span class="sort-arrow">${_anaSortDir === 'desc' ? '▼' : '▲'}</span>` : '';
-    const sortable = (key, label) => `<span data-sort onclick="showAnalyzeSort('${key}')">${label}${arrow(key)}</span>`;
-    return `<div class="scroll-list scroll-list--maintenance">
-        <div class="list-header list-header--sortable">
-            <span class="name">${sortable('table', 'Table')}</span>
-            <div class="bar"></div>
-            <span class="extra">${sortable('elapsed', 'Elapsed')}</span>
-            <span class="removed">${sortable('count', 'Analyzes')}</span>
-            <span class="value">${sortable('share', 'Share')}</span>
-        </div>
-        ${limited.map(r => `<div class="list-item">
-            ${maintName(r.table)}
-            <div class="bar"><div class="bar-fill" style="width: ${(r[barKey] || 0) / maxBar * 100}%"></div></div>
-            <span class="extra">${r.elapsed > 0 ? fmtDuration(r.elapsed * 1000) : '-'}</span>
-            <span class="removed">${r.count}×</span>
-            <span class="value">${r.share.toFixed(1)}%</span>
-        </div>`).join('')}
+    const th = (key, label) => `<th class="num" data-sort="${key}" onclick="showAnalyzeSort('${key}')">${label}${arrow(key)}</th>`;
+    return `<div class="table-container">
+        <table class="maint-table">
+            <thead>
+                <tr>
+                    <th data-sort="table" onclick="showAnalyzeSort('table')">Table${arrow('table')}</th>
+                    <th class="bar-col"></th>
+                    ${th('elapsed', 'Elapsed')}
+                    ${th('count', 'Analyzes')}
+                    ${th('share', 'Share')}
+                </tr>
+            </thead>
+            <tbody>
+                ${limited.map(r => `<tr>
+                    <td class="name-cell">${maintName(r.table)}</td>
+                    <td class="bar-cell"><div class="bar"><div class="bar-fill" style="width: ${(r[barKey] || 0) / maxBar * 100}%"></div></div></td>
+                    <td class="num">${r.elapsed > 0 ? fmtDuration(r.elapsed * 1000) : '-'}</td>
+                    <td class="num">${r.count}×</td>
+                    <td class="num">${r.share.toFixed(1)}%</td>
+                </tr>`).join('')}
+            </tbody>
+        </table>
     </div>`;
 }
 
