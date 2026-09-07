@@ -58,7 +58,7 @@ var queryPrefixes = [...]queryPrefix{
 	{"NOTIFY", "no-"},
 	{"DISCARD", "di-"},
 	{"RESET", "re-"},
-	{"SET", "se-"},
+	{"SET", "et-"},
 	{"SHOW", "sh-"},
 	{"LOAD", "lo-"},
 	{"CALL", "ca-"},
@@ -77,6 +77,8 @@ func QueryTypeFromID(id string) string {
 	switch id[:3] {
 	case "se-":
 		return "SELECT"
+	case "et-":
+		return "SET"
 	case "in-":
 		return "INSERT"
 	case "up-":

@@ -1,0 +1,9 @@
+2025-01-15 10:00:00.100 CET [1001] LOG:  duration: 11.500 ms  statement: SET work_mem = '256MB'
+2025-01-15 10:00:00.200 CET [1001] LOG:  duration: 12.250 ms  statement: SET search_path TO public
+2025-01-15 10:00:00.300 CET [1001] LOG:  duration: 13.750 ms  statement: SET statement_timeout = 5000
+2025-01-15 10:00:00.400 CET [1001] LOG:  duration: 14.125 ms  statement: SET TIME ZONE 'UTC'
+2025-01-15 10:00:00.500 CET [1001] LOG:  duration: 21.000 ms  statement: SELECT 1
+2025-01-15 10:00:00.600 CET [1001] LOG:  duration: 22.000 ms  statement: SELECT * FROM users WHERE id = 5
+2025-01-15 10:00:00.700 CET [1001] LOG:  duration: 23.000 ms  statement: SELECT name FROM products
+2025-01-15 10:00:00.800 CET [1001] LOG:  duration: 31.000 ms  statement: INSERT INTO logs (msg) VALUES ('a')
+2025-01-15 10:00:00.900 CET [1001] LOG:  duration: 32.000 ms  statement: INSERT INTO logs (msg) VALUES ('b')
