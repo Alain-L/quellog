@@ -140,9 +140,11 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 		hist, unit, scale := computeTempFileHistogram(m.TempFiles)
 		printHistogramMarkdown(&b, hist, "Temp file distribution", unit, scale, nil)
 
+		// Average over sized files only: TotalSize sums lines with a size>0,
+		// so divide by SizeCount, not Count (all temp-file lines).
 		avgSize := int64(0)
-		if m.TempFiles.Count > 0 {
-			avgSize = m.TempFiles.TotalSize / int64(m.TempFiles.Count)
+		if m.TempFiles.SizeCount > 0 {
+			avgSize = m.TempFiles.TotalSize / int64(m.TempFiles.SizeCount)
 		}
 
 		b.WriteString(fmt.Sprintf("- **Temp file messages**: %d\n", m.TempFiles.Count))
@@ -186,9 +188,11 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 	if has("locks") && m.Locks.TotalEvents > 0 {
 		b.WriteString("## LOCKS\n\n")
 
+		// TotalWaitTime sums the wait of acquired locks only, so the mean
+		// divides by AcquiredEvents, not by the total event count.
 		avgWaitTime := 0.0
-		if m.Locks.TotalEvents > 0 {
-			avgWaitTime = m.Locks.TotalWaitTime / float64(m.Locks.TotalEvents)
+		if m.Locks.AcquiredEvents > 0 {
+			avgWaitTime = m.Locks.TotalWaitTime / float64(m.Locks.AcquiredEvents)
 		}
 
 		b.WriteString(fmt.Sprintf("- **Total lock events**: %d\n", m.Locks.TotalEvents))
@@ -471,8 +475,10 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 		b.WriteString(fmt.Sprintf("- **Disconnection count**: %d\n", m.Connections.DisconnectionCount))
 
 		if m.Connections.SessionStats.Count > 0 {
-			// Average
-			avgSessionTime := time.Duration(float64(m.Connections.TotalSessionTime) / float64(m.Connections.DisconnectionCount))
+			// Average over timed sessions only: TotalSessionTime sums the
+			// duration of sessions with a parseable "session time:", so divide
+			// by that count, not the raw disconnection count.
+			avgSessionTime := time.Duration(float64(m.Connections.TotalSessionTime) / float64(m.Connections.SessionStats.Count))
 			b.WriteString(fmt.Sprintf("- **Avg session time**: %s\n", formatSessionDuration(avgSessionTime)))
 			// Median (P²-estimated; <5% error after 50 samples)
 			b.WriteString(fmt.Sprintf("- **Median session time**: %s\n", formatSessionDuration(m.Connections.SessionStats.Median)))

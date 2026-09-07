@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"os"
 	"os/exec"
+	"strings"
 	"testing"
 )
 
@@ -134,6 +135,47 @@ func TestCounters(t *testing.T) {
 			tc.check(t, root)
 		})
 	}
+
+	// Renderer parity: the three averaging fixes (H3, H4, M6) live not only in
+	// the JSON/HTML path but were duplicated in the text and markdown
+	// renderers, which recomputed them with the wrong denominator. Pin the
+	// corrected value in every renderer so the arithmetic can never diverge
+	// between output formats again. Substrings differ per format only in unit
+	// formatting (e.g. markdown renders the lock wait in ms).
+	parity := []struct {
+		name    string
+		fixture string
+		section string
+		text    string // required substring in the default text render
+		md      string // required substring in the --md render
+	}{
+		{"H3_lock_wait", "testdata/counter_h3.log", "--locks", "Avg wait time             : 2.00 s", "**Average wait time**: 2000.00 ms"},
+		{"H4_session_time", "testdata/counter_h4.log", "--connections", "Avg session time          : 20s", "**Avg session time**: 20s"},
+		{"M6_temp_size", "testdata/counter_m6.log", "--tempfiles", "Average temp file size    : 2.00 MB", "**Average temp file size**: 2.00 MB"},
+	}
+	for _, p := range parity {
+		t.Run("parity/"+p.name, func(t *testing.T) {
+			if out := runRender(t, p.fixture, p.section); !strings.Contains(out, p.text) {
+				t.Errorf("text render missing %q\n---\n%s", p.text, out)
+			}
+			if out := runRender(t, p.fixture, p.section, "--md"); !strings.Contains(out, p.md) {
+				t.Errorf("markdown render missing %q\n---\n%s", p.md, out)
+			}
+		})
+	}
+}
+
+// runRender runs the freshly-built binary and returns its stdout.
+func runRender(t *testing.T, fixture string, flags ...string) string {
+	t.Helper()
+	cmd := exec.Command("../quellog_test", append([]string{fixture}, flags...)...)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("render failed: %v\nstderr: %s", err, stderr.String())
+	}
+	return stdout.String()
 }
 
 // --- JSON navigation helpers ------------------------------------------------

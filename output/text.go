@@ -87,9 +87,11 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 
 		fmt.Printf("  %-25s : %d\n", "Temp file messages", m.TempFiles.Count)
 		fmt.Printf("  %-25s : %s\n", "Cumulative temp file size", FormatBytes(m.TempFiles.TotalSize))
+		// Average over sized files only: TotalSize sums lines with a size>0,
+		// so divide by SizeCount, not Count (all temp-file lines).
 		avgSize := int64(0)
-		if m.TempFiles.Count > 0 {
-			avgSize = m.TempFiles.TotalSize / int64(m.TempFiles.Count)
+		if m.TempFiles.SizeCount > 0 {
+			avgSize = m.TempFiles.TotalSize / int64(m.TempFiles.SizeCount)
 		}
 		fmt.Printf("  %-25s : %s\n", "Average temp file size", FormatBytes(avgSize))
 		fmt.Printf("  %-25s : %s\n", "Max temp file size", FormatBytes(m.TempFiles.MaxSize))
@@ -181,8 +183,10 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 		if m.Locks.DeadlockEvents > 0 {
 			fmt.Printf("  %-25s : %d\n", "Deadlock events", m.Locks.DeadlockEvents)
 		}
-		if m.Locks.TotalWaitTime > 0 {
-			avgWaitTime := m.Locks.TotalWaitTime / float64(m.Locks.WaitingEvents+m.Locks.AcquiredEvents)
+		if m.Locks.AcquiredEvents > 0 {
+			// TotalWaitTime sums the wait of acquired locks only, so the mean
+			// divides by AcquiredEvents, not by the total event count.
+			avgWaitTime := m.Locks.TotalWaitTime / float64(m.Locks.AcquiredEvents)
 			fmt.Printf("  %-25s : %s\n", "Avg wait time", formatQueryDuration(avgWaitTime))
 			fmt.Printf("  %-25s : %s\n", "Total wait time", formatQueryDuration(m.Locks.TotalWaitTime))
 		}
@@ -540,8 +544,10 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 			fmt.Printf("  %-25s : %.2f\n", "Avg connections per hour", avgConnPerHour)
 		}
 		if m.Connections.SessionStats.Count > 0 {
-			// Average
-			avgSessionTime := time.Duration(float64(m.Connections.TotalSessionTime) / float64(m.Connections.DisconnectionCount))
+			// Average over timed sessions only: TotalSessionTime sums the
+			// duration of sessions with a parseable "session time:", so divide
+			// by that count, not the raw disconnection count.
+			avgSessionTime := time.Duration(float64(m.Connections.TotalSessionTime) / float64(m.Connections.SessionStats.Count))
 			fmt.Printf("  %-25s : %s\n", "Avg session time", formatSessionDuration(avgSessionTime))
 			// Median (P²-estimated; <5% error after 50 samples)
 			fmt.Printf("  %-25s : %s\n", "Median session time", formatSessionDuration(m.Connections.SessionStats.Median))
