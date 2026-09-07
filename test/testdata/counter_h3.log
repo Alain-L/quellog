@@ -1,0 +1,8 @@
+2026-03-15 08:00:00.000 UTC [5101] 00000: db=sales,user=etl,app=worker,client=10.0.0.5 LOG:  process 5101 still waiting for ShareLock on relation 40001 after 300.000 ms
+2026-03-15 08:00:00.500 UTC [5101] 00000: db=sales,user=etl,app=worker,client=10.0.0.5 LOG:  process 5101 acquired ShareLock on relation 40001 after 500.000 ms
+2026-03-15 08:00:02.000 UTC [5102] 00000: db=sales,user=etl,app=worker,client=10.0.0.6 LOG:  process 5102 still waiting for ShareLock on relation 40002 after 1000.000 ms
+2026-03-15 08:00:03.500 UTC [5102] 00000: db=sales,user=etl,app=worker,client=10.0.0.6 LOG:  process 5102 acquired ShareLock on relation 40002 after 1500.000 ms
+2026-03-15 08:00:05.000 UTC [5103] 00000: db=sales,user=etl,app=worker,client=10.0.0.7 LOG:  process 5103 still waiting for ShareLock on relation 40003 after 2000.000 ms
+2026-03-15 08:00:09.000 UTC [5103] 00000: db=sales,user=etl,app=worker,client=10.0.0.7 LOG:  process 5103 acquired ShareLock on relation 40003 after 4000.000 ms
+2026-03-15 08:00:11.000 UTC [5104] 00000: db=sales,user=etl,app=worker,client=10.0.0.8 LOG:  process 5104 still waiting for ShareLock on relation 40004 after 9000.000 ms
+2026-03-15 08:00:13.000 UTC [5105] 00000: db=sales,user=etl,app=worker,client=10.0.0.9 LOG:  process 5105 still waiting for ShareLock on relation 40005 after 10000.000 ms

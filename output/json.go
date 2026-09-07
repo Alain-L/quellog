@@ -2950,10 +2950,12 @@ func convertSQLPerformance(m analysis.SQLMetrics) SQLPerformanceJSON {
 
 // convertLocks processes lock metrics to create a JSON structure.
 func convertLocks(m analysis.LockMetrics) LocksJSON {
-	// Calculate average wait time
+	// Average wait over ACQUIRED locks only: TotalWaitTime sums the wait of
+	// acquired locks (still-waiting locks are deliberately excluded from it),
+	// so the denominator must be AcquiredEvents, not the total event count.
 	avgWaitTime := "0 ms"
-	if m.WaitingEvents+m.AcquiredEvents > 0 {
-		avg := m.TotalWaitTime / float64(m.WaitingEvents+m.AcquiredEvents)
+	if m.AcquiredEvents > 0 {
+		avg := m.TotalWaitTime / float64(m.AcquiredEvents)
 		avgWaitTime = formatQueryDuration(avg)
 	}
 
