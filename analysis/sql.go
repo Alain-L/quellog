@@ -662,6 +662,7 @@ type SQLAnalyzer struct {
 	queryStats       map[string]*QueryStat
 	totalQueries     int
 	minQueryDuration float64
+	minQuerySeen     bool
 	maxQueryDuration float64
 	sumQueryDuration float64
 	startTimestamp   time.Time
@@ -927,8 +928,9 @@ func (a *SQLAnalyzer) Process(entry *parser.LogEntry) {
 	}
 
 	// Update global duration statistics
-	if a.minQueryDuration == 0 || duration < a.minQueryDuration {
+	if !a.minQuerySeen || duration < a.minQueryDuration {
 		a.minQueryDuration = duration
+		a.minQuerySeen = true
 	}
 	if duration > a.maxQueryDuration {
 		a.maxQueryDuration = duration

@@ -44,12 +44,11 @@ func (a *SQLAnalyzer) Merge(src *SQLAnalyzer) {
 	// Plain counter.
 	a.totalQueries += src.totalQueries
 
-	// Global duration extremes. minQueryDuration uses 0 as the "unset"
-	// sentinel exactly like Process (it also leaves a genuine 0 ms run at 0),
-	// so only adopt a non-zero src min, and only when it is smaller than
-	// (or replaces an unset) dst min.
-	if src.minQueryDuration != 0 && (a.minQueryDuration == 0 || src.minQueryDuration < a.minQueryDuration) {
+	// Global duration extremes. minQuerySeen distinguishes "no query yet"
+	// from a genuine 0 ms run, so a real 0 ms minimum survives the fold.
+	if src.minQuerySeen && (!a.minQuerySeen || src.minQueryDuration < a.minQueryDuration) {
 		a.minQueryDuration = src.minQueryDuration
+		a.minQuerySeen = true
 	}
 	if src.maxQueryDuration > a.maxQueryDuration {
 		a.maxQueryDuration = src.maxQueryDuration

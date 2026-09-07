@@ -1,0 +1,5 @@
+2025-01-15 10:00:00.100 CET [2001] LOG:  duration: 47.300 ms  statement: SELECT a FROM t1
+2025-01-15 10:00:00.200 CET [2001] LOG:  duration: 5.900 ms  statement: SELECT b FROM t2
+2025-01-15 10:00:00.300 CET [2001] LOG:  duration: 0.000 ms  statement: SELECT c FROM t3
+2025-01-15 10:00:00.400 CET [2001] LOG:  duration: 18.600 ms  statement: SELECT d FROM t4
+2025-01-15 10:00:00.500 CET [2001] LOG:  duration: 2.100 ms  statement: SELECT e FROM t5
