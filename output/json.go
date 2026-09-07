@@ -808,9 +808,12 @@ func (l lazySessionEvents) MarshalJSON() ([]byte, error) {
 		buf = se.StartTime.AppendFormat(buf, "2006-01-02T15:04:05")
 		buf = append(buf, `","e":"`...)
 		buf = se.EndTime.AppendFormat(buf, "2006-01-02T15:04:05")
-		// d = exact session duration in ms (endMs - startMs). Emitted so the
-		// report's time filter can re-aggregate session stats: the s/e strings
-		// are second-truncated, but d keeps PostgreSQL's sub-second precision.
+		// d = session duration in ms, the difference of the two endpoints. Both
+		// endpoints are stored at whole-millisecond resolution (compactSession
+		// packs Unix-ms), so d is accurate to ~1 ms — enough for the report's
+		// time filter to re-aggregate session stats, but NOT the sub-millisecond
+		// "session time:" value that feeds session_stats. Emitted because the
+		// s/e strings above are only second-truncated.
 		buf = append(buf, `","d":`...)
 		buf = strconv.AppendInt(buf, se.EndTime.Sub(se.StartTime).Milliseconds(), 10)
 		// u/db/h = interned user/database/host indices (0 = unknown); look up
