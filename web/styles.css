@@ -19,7 +19,6 @@
             --border: #dee2e6;
             --border-strong: #ced4da;
             --shadow: 0 2px 8px rgba(0,0,0,0.08);
-            --shadow-hover: 0 4px 12px rgba(0,0,0,0.12);
 
             /* Chart colors */
             --chart-bar: #5a9bd5;
@@ -41,7 +40,6 @@
             --border: #30363d;
             --border-strong: #484f58;
             --shadow: 0 2px 8px rgba(0,0,0,0.3);
-            --shadow-hover: 0 4px 12px rgba(0,0,0,0.4);
             --chart-bar: #6a9fcf;
         }
 
@@ -627,11 +625,11 @@
         /* Section */
         .section {
             background: var(--card-bg);
-            border-radius: var(--radius-lg);
+            border-radius: 0;
             box-shadow: var(--shadow);
-            margin-bottom: 1rem;
+            margin-bottom: 0.6rem;
             overflow: hidden;
-            transition: background-color 0.2s, box-shadow 0.2s;
+            transition: background-color 0.2s;
             border: 1px solid transparent;
         }
 
@@ -639,14 +637,10 @@
             border-color: var(--border);
         }
 
-        .section:hover {
-            box-shadow: var(--shadow-hover);
-        }
-
         .section-header {
-            background: var(--primary);
-            color: white;
-            padding: 0.6rem 0.9rem;
+            background: transparent;
+            color: var(--text-muted);
+            padding: 0.45rem 0.7rem 0.2rem;
             font-weight: 600;
             font-size: 0.78rem;
             display: flex;
@@ -654,16 +648,10 @@
             align-items: center;
         }
 
-        .section-header.accent { background: var(--accent); }
-        .section-header.success { background: var(--success); }
-        .section-header.warning { background: #856404; }
-        .section-header.danger { background: var(--danger); }
-        .section-header.muted { background: var(--text-muted); }
-
         /* "whole-log" annotation: marks a section (or sub-table) whose figures
            are NOT re-scoped by an applied report time filter. Uses currentColor
-           so it reads on both the coloured section header (white text) and the
-           muted subsection titles; the tooltip explains what stays whole-log. */
+           so it inherits the muted tone of the section and subsection titles;
+           the tooltip explains what stays whole-log. */
         .whole-log-badge {
             display: inline-block;
             font-size: 0.6rem;
@@ -679,7 +667,7 @@
             cursor: help;
         }
 
-        .section-body { padding: 0.9rem; }
+        .section-body { padding: 0.7rem; }
 
         /* Web Components - Custom Elements */
         ql-tabs { display: block; }
@@ -775,8 +763,8 @@
             text-align: left;
         }
         .data-table th {
-            background: var(--bg-alt);
-            font-weight: 600;
+            background: var(--card-bg);
+            font-weight: 500;
             font-size: 0.65rem;
             text-transform: uppercase;
             letter-spacing: 0.02em;
@@ -861,7 +849,7 @@
             text-align: center;
             padding: 0.5rem 0.4rem;
             background: var(--bg-alt);
-            border-radius: var(--radius);
+            border-radius: 0;
         }
 
         .stat-value {
@@ -1327,11 +1315,11 @@
         }
 
         th {
-            background: var(--bg-alt);
+            background: var(--card-bg);
             padding: 0.5rem 0.6rem;
             text-align: left;
-            font-weight: 600;
-            border-bottom: 2px solid var(--border);
+            font-weight: 500;
+            border-bottom: 1px solid var(--border);
             position: sticky;
             top: 0;
             z-index: 5;
@@ -1515,8 +1503,8 @@
 
         /* Query detail sections */
         .qd-section {
-            margin-bottom: 1.25rem;
-            padding-bottom: 1rem;
+            margin-bottom: 0.6rem;
+            padding-bottom: 0.6rem;
             border-bottom: 1px solid var(--border);
         }
 
@@ -1754,8 +1742,8 @@
 
         /* Subsection */
         .subsection {
-            margin-top: 1rem;
-            padding-top: 1rem;
+            margin-top: 0.6rem;
+            padding-top: 0.6rem;
             border-top: 1px solid var(--border);
         }
 
