@@ -1,0 +1,5 @@
+2026-03-15 11:00:00.000 UTC [8001] 00000: db=analytics,user=rpt,app=psql,client=10.3.0.1 LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp8001.0", size 1048576
+2026-03-15 11:00:01.000 UTC [8002] 00000: db=analytics,user=rpt,app=psql,client=10.3.0.2 LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp8002.0", size 2097152
+2026-03-15 11:00:02.000 UTC [8003] 00000: db=analytics,user=rpt,app=psql,client=10.3.0.3 LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp8003.0", size 3145728
+2026-03-15 11:00:03.000 UTC [8004] 00000: db=analytics,user=rpt,app=psql,client=10.3.0.4 LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp8004.0"
+2026-03-15 11:00:04.000 UTC [8005] 00000: db=analytics,user=rpt,app=psql,client=10.3.0.5 LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp8005.0"

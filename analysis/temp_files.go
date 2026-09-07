@@ -13,6 +13,7 @@ import (
 // files are created when queries spill past work_mem.
 type TempFileMetrics struct {
 	Count      int
+	SizeCount  int                           // temp-file events carrying a parseable size (>0)
 	TotalSize  int64                         // bytes
 	MaxSize    int64                         // bytes — largest single temp-file event
 	Events     []TempFileEvent               // each creation event (for timeline analysis)
@@ -93,6 +94,7 @@ const (
 //     seen (log_min_duration_statement configs)
 type TempFileAnalyzer struct {
 	count      int
+	sizeCount  int // temp-file events carrying a parseable size (>0)
 	totalSize  int64
 	maxSize    int64
 	events     []compactTempEvent
@@ -351,6 +353,7 @@ func (a *TempFileAnalyzer) Process(entry *parser.LogEntry) {
 	a.count++
 	size := extractTempFileSize(msg)
 	if size > 0 {
+		a.sizeCount++
 		a.totalSize += size
 		if size > a.maxSize {
 			a.maxSize = size
@@ -610,6 +613,7 @@ func (a *TempFileAnalyzer) Finalize() TempFileMetrics {
 	}
 	return TempFileMetrics{
 		Count:      a.count,
+		SizeCount:  a.sizeCount,
 		TotalSize:  a.totalSize,
 		MaxSize:    a.maxSize,
 		Events:     events,
