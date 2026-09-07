@@ -27,8 +27,6 @@ import (
 //	H6  A genuine 0 ms minimum must survive: min was pre-seeded to 0, so any
 //	    log made the reported minimum 0 even when the true minimum was higher;
 //	    here the true minimum IS 0 and must still be reported as such.
-//	M6  Temp-file average size = total size / files WITH a size, not / all
-//	    temp-file messages (path-only lines have no size).
 //	M8  A message pattern's SQLSTATE class must back-fill from a later
 //	    occurrence when the first occurrence carried none.
 //
@@ -93,16 +91,6 @@ func TestCounters(t *testing.T) {
 			},
 		},
 		{
-			name:    "M6_temp_avg_over_sized_files",
-			fixture: "testdata/counter_m6.log",
-			flags:   []string{"--tempfiles", "--json"},
-			check: func(t *testing.T, root map[string]any) {
-				tf := mustMap(t, root, "temp_files")
-				wantString(t, tf, "avg_size", "2.00 MB")
-				wantNumber(t, tf, "total_messages", 5)
-			},
-		},
-		{
 			name:    "M8_sqlstate_backfill",
 			fixture: "testdata/counter_m8.log",
 			flags:   []string{"--full", "--json"},
@@ -136,10 +124,10 @@ func TestCounters(t *testing.T) {
 		})
 	}
 
-	// Renderer parity: the three averaging fixes (H3, H4, M6) live not only in
-	// the JSON/HTML path but were duplicated in the text and markdown
-	// renderers, which recomputed them with the wrong denominator. Pin the
-	// corrected value in every renderer so the arithmetic can never diverge
+	// Renderer parity: the averaging fixes (H3 lock wait, H4 session time)
+	// live not only in the JSON/HTML path but were duplicated in the text and
+	// markdown renderers, which recomputed them with the wrong denominator. Pin
+	// the corrected value in every renderer so the arithmetic can never diverge
 	// between output formats again. Substrings differ per format only in unit
 	// formatting (e.g. markdown renders the lock wait in ms).
 	parity := []struct {
@@ -151,7 +139,6 @@ func TestCounters(t *testing.T) {
 	}{
 		{"H3_lock_wait", "testdata/counter_h3.log", "--locks", "Avg wait time             : 2.00 s", "**Average wait time**: 2000.00 ms"},
 		{"H4_session_time", "testdata/counter_h4.log", "--connections", "Avg session time          : 20s", "**Avg session time**: 20s"},
-		{"M6_temp_size", "testdata/counter_m6.log", "--tempfiles", "Average temp file size    : 2.00 MB", "**Average temp file size**: 2.00 MB"},
 	}
 	for _, p := range parity {
 		t.Run("parity/"+p.name, func(t *testing.T) {

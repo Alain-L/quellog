@@ -140,11 +140,9 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 		hist, unit, scale := computeTempFileHistogram(m.TempFiles)
 		printHistogramMarkdown(&b, hist, "Temp file distribution", unit, scale, nil)
 
-		// Average over sized files only: TotalSize sums lines with a size>0,
-		// so divide by SizeCount, not Count (all temp-file lines).
 		avgSize := int64(0)
-		if m.TempFiles.SizeCount > 0 {
-			avgSize = m.TempFiles.TotalSize / int64(m.TempFiles.SizeCount)
+		if m.TempFiles.Count > 0 {
+			avgSize = m.TempFiles.TotalSize / int64(m.TempFiles.Count)
 		}
 
 		b.WriteString(fmt.Sprintf("- **Temp file messages**: %d\n", m.TempFiles.Count))

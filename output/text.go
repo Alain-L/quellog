@@ -87,11 +87,9 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 
 		fmt.Printf("  %-25s : %d\n", "Temp file messages", m.TempFiles.Count)
 		fmt.Printf("  %-25s : %s\n", "Cumulative temp file size", FormatBytes(m.TempFiles.TotalSize))
-		// Average over sized files only: TotalSize sums lines with a size>0,
-		// so divide by SizeCount, not Count (all temp-file lines).
 		avgSize := int64(0)
-		if m.TempFiles.SizeCount > 0 {
-			avgSize = m.TempFiles.TotalSize / int64(m.TempFiles.SizeCount)
+		if m.TempFiles.Count > 0 {
+			avgSize = m.TempFiles.TotalSize / int64(m.TempFiles.Count)
 		}
 		fmt.Printf("  %-25s : %s\n", "Average temp file size", FormatBytes(avgSize))
 		fmt.Printf("  %-25s : %s\n", "Max temp file size", FormatBytes(m.TempFiles.MaxSize))

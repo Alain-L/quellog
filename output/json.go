@@ -2170,16 +2170,8 @@ func buildJSONData(m analysis.AggregatedMetrics, sections []string, full bool) m
 		tf := TempFilesJSON{
 			TotalMessages: m.TempFiles.Count,
 			TotalSize:     FormatBytes(m.TempFiles.TotalSize),
-			// Average over events that carry a size: TotalSize only sums lines
-			// with a parseable size>0, so divide by that sized count — not by
-			// Count (all temp-file lines), which would understate the average.
-			AvgSize: func() string {
-				if m.TempFiles.SizeCount > 0 {
-					return FormatBytes(m.TempFiles.TotalSize / int64(m.TempFiles.SizeCount))
-				}
-				return FormatBytes(0)
-			}(),
-			MaxSize: FormatBytes(m.TempFiles.MaxSize),
+			AvgSize:       FormatBytes(m.TempFiles.TotalSize / int64(m.TempFiles.Count)),
+			MaxSize:       FormatBytes(m.TempFiles.MaxSize),
 			// Lazy wrapper — no intermediate []TempFileEventJSON slice.
 			Events:  lazyTempFileEvents{events: m.TempFiles.Events},
 			Queries: []TempFileQueryStatJSON{},
