@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Changed
+- **The HTML report has a flatter visual style**: section titles are muted headings instead of solid coloured bands, the section and stat cards have squared corners and no hover shadow, tables use a hairline header instead of a filled band, and the vertical rhythm is denser. Presentation only — no data or structural changes.
+
+### Fixed
+- **The Autovacuum "Elapsed" column rendered blank, and the maintenance panels looked unlike the other tables**: the Autovacuum/Autoanalyze panels were built from a bespoke list layout rather than the report's table component, so the Autovacuum top-tables Elapsed column (its own sort key) showed nothing and the panels' headers and row spacing diverged from every other section. They are proper tables now, consistent with the rest, with Elapsed populated.
+
 ## [0.12.0] - 2026-07-29
 
 ### Added
