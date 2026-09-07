@@ -1,0 +1,11 @@
+2026-03-15 09:00:00.000 UTC [6001] 00000: db=shop,user=web,app=app,client=10.1.0.1 LOG:  connection received: host=10.1.0.1 port=5001
+2026-03-15 09:00:05.000 UTC [6001] 00000: db=shop,user=web,app=app,client=10.1.0.1 LOG:  disconnection: session time: 0:00:05.000 user=web database=shop host=10.1.0.1
+2026-03-15 09:00:01.000 UTC [6002] 00000: db=shop,user=web,app=app,client=10.1.0.2 LOG:  connection received: host=10.1.0.2 port=5002
+2026-03-15 09:00:16.000 UTC [6002] 00000: db=shop,user=web,app=app,client=10.1.0.2 LOG:  disconnection: session time: 0:00:15.000 user=web database=shop host=10.1.0.2
+2026-03-15 09:00:02.000 UTC [6003] 00000: db=shop,user=web,app=app,client=10.1.0.3 LOG:  connection received: host=10.1.0.3 port=5003
+2026-03-15 09:00:27.000 UTC [6003] 00000: db=shop,user=web,app=app,client=10.1.0.3 LOG:  disconnection: session time: 0:00:25.000 user=web database=shop host=10.1.0.3
+2026-03-15 09:00:03.000 UTC [6004] 00000: db=shop,user=web,app=app,client=10.1.0.4 LOG:  connection received: host=10.1.0.4 port=5004
+2026-03-15 09:00:38.000 UTC [6004] 00000: db=shop,user=web,app=app,client=10.1.0.4 LOG:  disconnection: session time: 0:00:35.000 user=web database=shop host=10.1.0.4
+2026-03-15 09:00:40.000 UTC [6005] 00000: db=shop,user=web,app=app,client=10.1.0.5 LOG:  disconnection: user=web database=shop host=10.1.0.5
+2026-03-15 09:00:41.000 UTC [6006] 00000: db=shop,user=web,app=app,client=10.1.0.6 LOG:  disconnection: user=web database=shop host=10.1.0.6
+2026-03-15 09:00:42.000 UTC [6007] 00000: db=shop,user=web,app=app,client=10.1.0.7 LOG:  disconnection: user=web database=shop host=10.1.0.7

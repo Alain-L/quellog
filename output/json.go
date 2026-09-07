@@ -2293,8 +2293,12 @@ func buildJSONData(m analysis.AggregatedMetrics, sections []string, full bool) m
 			AvgConnectionsPerHour: fmt.Sprintf("%.2f", float64(m.Connections.ConnectionReceivedCount)/durationHours),
 			DisconnectionCount:    m.Connections.DisconnectionCount,
 			AvgSessionTime: func() string {
-				if m.Connections.DisconnectionCount > 0 {
-					return (m.Connections.TotalSessionTime / time.Duration(m.Connections.DisconnectionCount)).String()
+				// Mean over timed sessions only: TotalSessionTime sums the
+				// duration of sessions that carried a parseable "session time:",
+				// so the denominator must be that same timed count — not the raw
+				// disconnection count, which also includes untimed disconnects.
+				if m.Connections.SessionStats.Count > 0 {
+					return (m.Connections.TotalSessionTime / time.Duration(m.Connections.SessionStats.Count)).String()
 				}
 				return ""
 			}(),
