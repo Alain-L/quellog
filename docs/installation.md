@@ -62,14 +62,19 @@ Download from the [releases page](https://github.com/Alain-L/quellog/releases).
 
 ## Build from Source
 
-Requires Go 1.21+ and Git.
+Requires Go 1.21+ and Git. Building needs only the Go toolchain: the embedded
+web assets are bundled by esbuild's Go API through `go generate`, so no Node.js
+or `npm install` is involved (the `package.json` is the web test suite only).
 
 ```bash
 git clone https://github.com/Alain-L/quellog.git
 cd quellog
+go generate ./web/...   # bundle the embedded web assets (required before build)
 go build -o quellog .
 sudo install -m 755 quellog /usr/local/bin/quellog
 ```
+
+Or simply `make build`, which runs both steps.
 
 ## Verify
 

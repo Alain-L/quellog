@@ -58,7 +58,7 @@ Download from the [releases page](https://github.com/Alain-L/quellog/releases) o
 
 ```bash
 git clone https://github.com/Alain-L/quellog.git && cd quellog
-go build -o quellog . && sudo install -m 755 quellog /usr/local/bin/quellog
+go generate ./web/... && go build -o quellog . && sudo install -m 755 quellog /usr/local/bin/quellog
 ```
 
 ## Usage
