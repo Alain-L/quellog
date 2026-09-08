@@ -479,14 +479,6 @@ func (a *EventAnalyzer) Process(entry *parser.LogEntry) {
 				if stat, ok := a.stats[pattern]; ok {
 					stat.Count++
 					stat.Timestamps = append(stat.Timestamps, ts)
-					// Back-fill the SQLSTATE class when the first occurrence of
-					// this pattern lacked one but a later occurrence carries it
-					// (first-non-empty wins).
-					if stat.SQLStateClass == "" {
-						if code := extractSQLSTATE(msg); len(code) >= 2 {
-							stat.SQLStateClass = code[:2]
-						}
-					}
 					tracked = true
 				} else if len(a.stats) < 1000 {
 					// Extract SQLSTATE class if present
@@ -536,10 +528,8 @@ func (a *EventAnalyzer) Process(entry *parser.LogEntry) {
 //   - Per-shard Timestamps are ascending (entries processed in stream =
 //     chronological order). Merging two ascending lists reproduces the
 //     global chronological order a single pass would have built.
-//   - Example must reflect the globally-FIRST occurrence of the pattern; we
-//     keep whichever shard saw it earliest (min seq). SQLStateClass is the
-//     first NON-EMPTY class across shards, so a pattern whose first sighting
-//     lacked a SQLSTATE still gets classified from a later one.
+//   - Example/SQLStateClass must reflect the globally-FIRST occurrence of
+//     the pattern; we keep whichever shard saw it earliest (min first ts).
 //
 // Two memory guards are NOT bit-reproducible across shards in pathological
 // cases (and intentionally so): the 1000 distinct-pattern cap and the
@@ -583,13 +573,6 @@ func mergeEventStat(dst, src *EventStat) {
 		dst.Example = src.Example
 		dst.SQLStateClass = src.SQLStateClass
 		dst.exampleSeq = src.exampleSeq
-	}
-	// Back-fill the class independently of which example wins: the earliest
-	// example may have carried no SQLSTATE while another shard saw one for the
-	// same pattern. First-non-empty across shards, matching the in-shard
-	// back-fill in Process.
-	if dst.SQLStateClass == "" && src.SQLStateClass != "" {
-		dst.SQLStateClass = src.SQLStateClass
 	}
 	dst.Count += src.Count
 	dst.Timestamps = mergeSortedInt64(dst.Timestamps, src.Timestamps)

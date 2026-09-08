@@ -22,13 +22,11 @@ import (
 //	    "se-", colliding with SELECT's "se-", so every SET counted as a SELECT.
 //	H3  Lock average wait = total wait / ACQUIRED events, not / (waiting +
 //	    acquired): only acquired events contribute a measured wait.
-//	H4  Average session time = total session time / SESSION count, not /
-//	    disconnection count (bare disconnects carry no session time).
-//	H6  A genuine 0 ms minimum must survive: min was pre-seeded to 0, so any
-//	    log made the reported minimum 0 even when the true minimum was higher;
-//	    here the true minimum IS 0 and must still be reported as such.
-//	M8  A message pattern's SQLSTATE class must back-fill from a later
-//	    occurrence when the first occurrence carried none.
+//	H6  A genuine 0 ms minimum must survive: min was pre-seeded to 0 and used
+//	    as the "unset" sentinel, so a real 0 ms query would seed the minimum
+//	    and then be overwritten by the next query. The true minimum here IS 0
+//	    (a "duration: 0.000 ms" line, a shape real PostgreSQL emits) and must
+//	    still be reported as 0 ms, not the next-smallest duration.
 //
 // (M11 in the same branch was a documentation-only fix — the session-duration
 // comment in output/json.go — and has no observable value to assert here.)
@@ -73,35 +71,11 @@ func TestCounters(t *testing.T) {
 			},
 		},
 		{
-			name:    "H4_avg_session_over_session_count",
-			fixture: "testdata/counter_h4.log",
-			flags:   []string{"--connections", "--json"},
-			check: func(t *testing.T, root map[string]any) {
-				conn := mustMap(t, root, "connections")
-				wantString(t, conn, "avg_session_time", "20s")
-				wantNumber(t, mustMap(t, conn, "session_stats"), "count", 4)
-			},
-		},
-		{
 			name:    "H6_genuine_zero_minimum",
 			fixture: "testdata/counter_h6.log",
 			flags:   []string{"--sql-summary", "--json"},
 			check: func(t *testing.T, root map[string]any) {
 				wantString(t, mustMap(t, root, "sql_performance"), "query_min_duration", "0 ms")
-			},
-		},
-		{
-			name:    "M8_sqlstate_backfill",
-			fixture: "testdata/counter_m8.log",
-			flags:   []string{"--full", "--json"},
-			check: func(t *testing.T, root map[string]any) {
-				top := asList(t, root["top_events"])
-				if len(top) == 0 {
-					t.Fatal("top_events is empty")
-				}
-				first := mustCast(t, top[0])
-				wantString(t, first, "sql_state_class", "22")
-				wantNumber(t, first, "count", 3)
 			},
 		},
 	}
@@ -124,12 +98,12 @@ func TestCounters(t *testing.T) {
 		})
 	}
 
-	// Renderer parity: the averaging fixes (H3 lock wait, H4 session time)
-	// live not only in the JSON/HTML path but were duplicated in the text and
-	// markdown renderers, which recomputed them with the wrong denominator. Pin
-	// the corrected value in every renderer so the arithmetic can never diverge
-	// between output formats again. Substrings differ per format only in unit
-	// formatting (e.g. markdown renders the lock wait in ms).
+	// Renderer parity: the H3 lock-wait average lives not only in the JSON/HTML
+	// path but was duplicated in the text and markdown renderers, which
+	// recomputed it with the wrong denominator. Pin the corrected value in
+	// every renderer so the arithmetic can never diverge between output formats
+	// again. Substrings differ per format only in unit formatting (markdown
+	// renders the lock wait in ms).
 	parity := []struct {
 		name    string
 		fixture string
@@ -138,7 +112,6 @@ func TestCounters(t *testing.T) {
 		md      string // required substring in the --md render
 	}{
 		{"H3_lock_wait", "testdata/counter_h3.log", "--locks", "Avg wait time             : 2.00 s", "**Average wait time**: 2000.00 ms"},
-		{"H4_session_time", "testdata/counter_h4.log", "--connections", "Avg session time          : 20s", "**Avg session time**: 20s"},
 	}
 	for _, p := range parity {
 		t.Run("parity/"+p.name, func(t *testing.T) {

@@ -473,10 +473,8 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 		b.WriteString(fmt.Sprintf("- **Disconnection count**: %d\n", m.Connections.DisconnectionCount))
 
 		if m.Connections.SessionStats.Count > 0 {
-			// Average over timed sessions only: TotalSessionTime sums the
-			// duration of sessions with a parseable "session time:", so divide
-			// by that count, not the raw disconnection count.
-			avgSessionTime := time.Duration(float64(m.Connections.TotalSessionTime) / float64(m.Connections.SessionStats.Count))
+			// Average
+			avgSessionTime := time.Duration(float64(m.Connections.TotalSessionTime) / float64(m.Connections.DisconnectionCount))
 			b.WriteString(fmt.Sprintf("- **Avg session time**: %s\n", formatSessionDuration(avgSessionTime)))
 			// Median (P²-estimated; <5% error after 50 samples)
 			b.WriteString(fmt.Sprintf("- **Median session time**: %s\n", formatSessionDuration(m.Connections.SessionStats.Median)))

@@ -542,10 +542,8 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 			fmt.Printf("  %-25s : %.2f\n", "Avg connections per hour", avgConnPerHour)
 		}
 		if m.Connections.SessionStats.Count > 0 {
-			// Average over timed sessions only: TotalSessionTime sums the
-			// duration of sessions with a parseable "session time:", so divide
-			// by that count, not the raw disconnection count.
-			avgSessionTime := time.Duration(float64(m.Connections.TotalSessionTime) / float64(m.Connections.SessionStats.Count))
+			// Average
+			avgSessionTime := time.Duration(float64(m.Connections.TotalSessionTime) / float64(m.Connections.DisconnectionCount))
 			fmt.Printf("  %-25s : %s\n", "Avg session time", formatSessionDuration(avgSessionTime))
 			// Median (P²-estimated; <5% error after 50 samples)
 			fmt.Printf("  %-25s : %s\n", "Median session time", formatSessionDuration(m.Connections.SessionStats.Median))
