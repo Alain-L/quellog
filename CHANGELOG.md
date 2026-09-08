@@ -8,6 +8,9 @@ All notable changes to this project will be documented in this file.
 - **The HTML report has a flatter visual style**: section titles are muted headings instead of solid coloured bands, the section and stat cards have squared corners and no hover shadow, tables use a hairline header instead of a filled band, and the vertical rhythm is denser. Presentation only — no data or structural changes.
 
 ### Fixed
+- **Average lock wait time was understated**: the mean divided the total wait by every lock event (still-waiting plus acquired) instead of only the acquired locks that carry a measured wait, so a log with many waiters reported a fraction of the real average (on one sample, 1m18s instead of 7m43s). Now divided by acquired locks, in the JSON/HTML report and the text and Markdown output alike.
+- **`SET` statements were counted as `SELECT`**: a query-type prefix collision filed every `SET` under SELECT/DML instead of UTILITY, skewing the query-type breakdown and per-type totals. `SET` is now UTILITY.
+- **A genuine 0 ms minimum query duration was dropped**: the minimum was tracked with a zero as its "unset" marker, so a real `0.000 ms` query seeded the minimum and was then overwritten by the next query, leaving a wrong reported minimum. A true 0 ms minimum now survives.
 - **The Autovacuum "Elapsed" column rendered blank, and the maintenance panels looked unlike the other tables**: the Autovacuum/Autoanalyze panels were built from a bespoke list layout rather than the report's table component, so the Autovacuum top-tables Elapsed column (its own sort key) showed nothing and the panels' headers and row spacing diverged from every other section. They are proper tables now, consistent with the rest, with Elapsed populated.
 
 ## [0.12.0] - 2026-07-29

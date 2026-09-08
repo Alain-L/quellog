@@ -181,8 +181,10 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 		if m.Locks.DeadlockEvents > 0 {
 			fmt.Printf("  %-25s : %d\n", "Deadlock events", m.Locks.DeadlockEvents)
 		}
-		if m.Locks.TotalWaitTime > 0 {
-			avgWaitTime := m.Locks.TotalWaitTime / float64(m.Locks.WaitingEvents+m.Locks.AcquiredEvents)
+		if m.Locks.AcquiredEvents > 0 {
+			// TotalWaitTime sums the wait of acquired locks only, so the mean
+			// divides by AcquiredEvents, not by the total event count.
+			avgWaitTime := m.Locks.TotalWaitTime / float64(m.Locks.AcquiredEvents)
 			fmt.Printf("  %-25s : %s\n", "Avg wait time", formatQueryDuration(avgWaitTime))
 			fmt.Printf("  %-25s : %s\n", "Total wait time", formatQueryDuration(m.Locks.TotalWaitTime))
 		}

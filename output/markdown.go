@@ -186,9 +186,11 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 	if has("locks") && m.Locks.TotalEvents > 0 {
 		b.WriteString("## LOCKS\n\n")
 
+		// TotalWaitTime sums the wait of acquired locks only, so the mean
+		// divides by AcquiredEvents, not by the total event count.
 		avgWaitTime := 0.0
-		if m.Locks.TotalEvents > 0 {
-			avgWaitTime = m.Locks.TotalWaitTime / float64(m.Locks.TotalEvents)
+		if m.Locks.AcquiredEvents > 0 {
+			avgWaitTime = m.Locks.TotalWaitTime / float64(m.Locks.AcquiredEvents)
 		}
 
 		b.WriteString(fmt.Sprintf("- **Total lock events**: %d\n", m.Locks.TotalEvents))

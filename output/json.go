@@ -808,9 +808,12 @@ func (l lazySessionEvents) MarshalJSON() ([]byte, error) {
 		buf = se.StartTime.AppendFormat(buf, "2006-01-02T15:04:05")
 		buf = append(buf, `","e":"`...)
 		buf = se.EndTime.AppendFormat(buf, "2006-01-02T15:04:05")
-		// d = exact session duration in ms (endMs - startMs). Emitted so the
-		// report's time filter can re-aggregate session stats: the s/e strings
-		// are second-truncated, but d keeps PostgreSQL's sub-second precision.
+		// d = session duration in ms, the difference of the two endpoints. Both
+		// endpoints are stored at whole-millisecond resolution (compactSession
+		// packs Unix-ms), so d is accurate to ~1 ms — enough for the report's
+		// time filter to re-aggregate session stats, but NOT the sub-millisecond
+		// "session time:" value that feeds session_stats. Emitted because the
+		// s/e strings above are only second-truncated.
 		buf = append(buf, `","d":`...)
 		buf = strconv.AppendInt(buf, se.EndTime.Sub(se.StartTime).Milliseconds(), 10)
 		// u/db/h = interned user/database/host indices (0 = unknown); look up
@@ -2225,6 +2228,8 @@ func buildJSONData(m analysis.AggregatedMetrics, sections []string, full bool) m
 		}
 		if len(m.Checkpoints.TypeCounts) > 0 {
 			cp.Types = make(map[string]CheckpointTypeJSON)
+			// Rate over the whole log span, not the checkpoint window (they
+			// coincide on a continuous log).
 			duration := m.Global.MaxTimestamp.Sub(m.Global.MinTimestamp)
 			durationHours := duration.Hours()
 			for cpType, count := range m.Checkpoints.TypeCounts {
@@ -2262,6 +2267,7 @@ func buildJSONData(m analysis.AggregatedMetrics, sections []string, full bool) m
 		if m.Checkpoints.TotalBuffersWritten > 0 {
 			cp.TotalBuffersWritten = m.Checkpoints.TotalBuffersWritten
 		}
+		// WAL rate averaged over the whole log span (same denominator).
 		duration := m.Global.MaxTimestamp.Sub(m.Global.MinTimestamp)
 		if duration.Seconds() > 0 && m.Checkpoints.TotalDistanceKB > 0 {
 			walRateBytesPerSec := float64(m.Checkpoints.TotalDistanceKB*1024) / duration.Seconds()
@@ -2950,10 +2956,12 @@ func convertSQLPerformance(m analysis.SQLMetrics) SQLPerformanceJSON {
 
 // convertLocks processes lock metrics to create a JSON structure.
 func convertLocks(m analysis.LockMetrics) LocksJSON {
-	// Calculate average wait time
+	// Average wait over ACQUIRED locks only: TotalWaitTime sums the wait of
+	// acquired locks (still-waiting locks are deliberately excluded from it),
+	// so the denominator must be AcquiredEvents, not the total event count.
 	avgWaitTime := "0 ms"
-	if m.WaitingEvents+m.AcquiredEvents > 0 {
-		avg := m.TotalWaitTime / float64(m.WaitingEvents+m.AcquiredEvents)
+	if m.AcquiredEvents > 0 {
+		avg := m.TotalWaitTime / float64(m.AcquiredEvents)
 		avgWaitTime = formatQueryDuration(avg)
 	}
 

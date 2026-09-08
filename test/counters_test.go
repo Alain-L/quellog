@@ -1,0 +1,219 @@
+// test/counters_test.go
+package quellog_test
+
+import (
+	"bytes"
+	"encoding/json"
+	"os"
+	"os/exec"
+	"strings"
+	"testing"
+)
+
+// TestCounters regression-locks a batch of counter/calculation fixes made on
+// the fix/counter-calculations branch. Each case is a hand-crafted stderr
+// fixture that isolates one arithmetic or classification bug; the assertion
+// pins the corrected JSON value so the bug cannot silently return.
+//
+// One fixture per bug, values independently recomputed from the fixture and
+// (where a comparable definition exists) corroborated by pgBadger:
+//
+//	H1  SET must be UTILITY, not SELECT. The prefix table mapped "SET" to
+//	    "se-", colliding with SELECT's "se-", so every SET counted as a SELECT.
+//	H3  Lock average wait = total wait / ACQUIRED events, not / (waiting +
+//	    acquired): only acquired events contribute a measured wait.
+//	H6  A genuine 0 ms minimum must survive: min was pre-seeded to 0 and used
+//	    as the "unset" sentinel, so a real 0 ms query would seed the minimum
+//	    and then be overwritten by the next query. The true minimum here IS 0
+//	    (a "duration: 0.000 ms" line, a shape real PostgreSQL emits) and must
+//	    still be reported as 0 ms, not the next-smallest duration.
+//
+// (M11 in the same branch was a documentation-only fix — the session-duration
+// comment in output/json.go — and has no observable value to assert here.)
+func TestCounters(t *testing.T) {
+	buildCmd := exec.Command("go", "build", "-o", "quellog_test", ".")
+	buildCmd.Dir = ".."
+	if err := buildCmd.Run(); err != nil {
+		t.Fatalf("Failed to build binary: %v", err)
+	}
+	defer os.Remove("../quellog_test")
+
+	cases := []struct {
+		name    string
+		fixture string
+		flags   []string
+		check   func(t *testing.T, root map[string]any)
+	}{
+		{
+			name:    "H1_set_is_utility",
+			fixture: "testdata/counter_h1.log",
+			flags:   []string{"--full", "--json"},
+			check: func(t *testing.T, root map[string]any) {
+				qt := mustMap(t, root, "sql_overview")
+				cats := asCountByKey(t, qt["categories"], "category")
+				wantCount(t, cats, "DML", 5)
+				wantCount(t, cats, "UTILITY", 4)
+				types := asFieldByKey(t, qt["types"], "type", "category")
+				if got := types["SET"]; got != "UTILITY" {
+					t.Errorf("SET category = %q, want %q", got, "UTILITY")
+				}
+			},
+		},
+		{
+			name:    "H3_lock_avg_wait_over_acquired",
+			fixture: "testdata/counter_h3.log",
+			flags:   []string{"--locks", "--json"},
+			check: func(t *testing.T, root map[string]any) {
+				locks := mustMap(t, root, "locks")
+				wantString(t, locks, "avg_wait_time", "2.00 s")
+				wantNumber(t, locks, "acquired_events", 3)
+				wantNumber(t, locks, "waiting_events", 2)
+			},
+		},
+		{
+			name:    "H6_genuine_zero_minimum",
+			fixture: "testdata/counter_h6.log",
+			flags:   []string{"--sql-summary", "--json"},
+			check: func(t *testing.T, root map[string]any) {
+				wantString(t, mustMap(t, root, "sql_performance"), "query_min_duration", "0 ms")
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			args := append([]string{tc.fixture}, tc.flags...)
+			cmd := exec.Command("../quellog_test", args...)
+			var stdout, stderr bytes.Buffer
+			cmd.Stdout = &stdout
+			cmd.Stderr = &stderr
+			if err := cmd.Run(); err != nil {
+				t.Fatalf("run failed: %v\nstderr: %s", err, stderr.String())
+			}
+			var root map[string]any
+			if err := json.Unmarshal(stdout.Bytes(), &root); err != nil {
+				t.Fatalf("invalid JSON: %v\n%s", err, stdout.String())
+			}
+			tc.check(t, root)
+		})
+	}
+
+	// Renderer parity: the H3 lock-wait average lives not only in the JSON/HTML
+	// path but was duplicated in the text and markdown renderers, which
+	// recomputed it with the wrong denominator. Pin the corrected value in
+	// every renderer so the arithmetic can never diverge between output formats
+	// again. Substrings differ per format only in unit formatting (markdown
+	// renders the lock wait in ms).
+	parity := []struct {
+		name    string
+		fixture string
+		section string
+		text    string // required substring in the default text render
+		md      string // required substring in the --md render
+	}{
+		{"H3_lock_wait", "testdata/counter_h3.log", "--locks", "Avg wait time             : 2.00 s", "**Average wait time**: 2000.00 ms"},
+	}
+	for _, p := range parity {
+		t.Run("parity/"+p.name, func(t *testing.T) {
+			if out := runRender(t, p.fixture, p.section); !strings.Contains(out, p.text) {
+				t.Errorf("text render missing %q\n---\n%s", p.text, out)
+			}
+			if out := runRender(t, p.fixture, p.section, "--md"); !strings.Contains(out, p.md) {
+				t.Errorf("markdown render missing %q\n---\n%s", p.md, out)
+			}
+		})
+	}
+}
+
+// runRender runs the freshly-built binary and returns its stdout.
+func runRender(t *testing.T, fixture string, flags ...string) string {
+	t.Helper()
+	cmd := exec.Command("../quellog_test", append([]string{fixture}, flags...)...)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("render failed: %v\nstderr: %s", err, stderr.String())
+	}
+	return stdout.String()
+}
+
+// --- JSON navigation helpers ------------------------------------------------
+
+func mustMap(t *testing.T, m map[string]any, key string) map[string]any {
+	t.Helper()
+	v, ok := m[key]
+	if !ok {
+		t.Fatalf("missing key %q", key)
+	}
+	return mustCast(t, v)
+}
+
+func mustCast(t *testing.T, v any) map[string]any {
+	t.Helper()
+	m, ok := v.(map[string]any)
+	if !ok {
+		t.Fatalf("value is %T, want object", v)
+	}
+	return m
+}
+
+func asList(t *testing.T, v any) []any {
+	t.Helper()
+	l, ok := v.([]any)
+	if !ok {
+		t.Fatalf("value is %T, want array", v)
+	}
+	return l
+}
+
+func wantString(t *testing.T, m map[string]any, key, want string) {
+	t.Helper()
+	got, ok := m[key].(string)
+	if !ok {
+		t.Fatalf("key %q is %T, want string", key, m[key])
+	}
+	if got != want {
+		t.Errorf("%s = %q, want %q", key, got, want)
+	}
+}
+
+func wantNumber(t *testing.T, m map[string]any, key string, want float64) {
+	t.Helper()
+	got, ok := m[key].(float64)
+	if !ok {
+		t.Fatalf("key %q is %T, want number", key, m[key])
+	}
+	if got != want {
+		t.Errorf("%s = %v, want %v", key, got, want)
+	}
+}
+
+// asCountByKey turns a list of objects into keyField -> count(float64).
+func asCountByKey(t *testing.T, v any, keyField string) map[string]float64 {
+	t.Helper()
+	out := map[string]float64{}
+	for _, e := range asList(t, v) {
+		m := mustCast(t, e)
+		out[m[keyField].(string)] = m["count"].(float64)
+	}
+	return out
+}
+
+// asFieldByKey turns a list of objects into keyField -> valField(string).
+func asFieldByKey(t *testing.T, v any, keyField, valField string) map[string]string {
+	t.Helper()
+	out := map[string]string{}
+	for _, e := range asList(t, v) {
+		m := mustCast(t, e)
+		out[m[keyField].(string)] = m[valField].(string)
+	}
+	return out
+}
+
+func wantCount(t *testing.T, m map[string]float64, key string, want float64) {
+	t.Helper()
+	if got := m[key]; got != want {
+		t.Errorf("%s count = %v, want %v", key, got, want)
+	}
+}

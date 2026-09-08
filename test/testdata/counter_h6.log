@@ -1,0 +1,5 @@
+2026-01-01 10:00:00 CET [2001]: [1-1] user=app,db=app LOG:  duration: 47.300 ms  statement: SELECT a FROM t1
+2026-01-01 10:00:00 CET [2001]: [2-1] user=app,db=app LOG:  duration: 5.900 ms  statement: SELECT b FROM t2
+2026-01-01 10:00:00 CET [2001]: [3-1] user=app,db=app LOG:  duration: 0.000 ms  statement: SELECT 1
+2026-01-01 10:00:00 CET [2001]: [4-1] user=app,db=app LOG:  duration: 18.600 ms  statement: SELECT d FROM t4
+2026-01-01 10:00:00 CET [2001]: [5-1] user=app,db=app LOG:  duration: 2.100 ms  statement: SELECT e FROM t5
