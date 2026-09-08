@@ -2228,6 +2228,8 @@ func buildJSONData(m analysis.AggregatedMetrics, sections []string, full bool) m
 		}
 		if len(m.Checkpoints.TypeCounts) > 0 {
 			cp.Types = make(map[string]CheckpointTypeJSON)
+			// Rate over the whole log span, not the checkpoint window (they
+			// coincide on a continuous log).
 			duration := m.Global.MaxTimestamp.Sub(m.Global.MinTimestamp)
 			durationHours := duration.Hours()
 			for cpType, count := range m.Checkpoints.TypeCounts {
@@ -2265,6 +2267,7 @@ func buildJSONData(m analysis.AggregatedMetrics, sections []string, full bool) m
 		if m.Checkpoints.TotalBuffersWritten > 0 {
 			cp.TotalBuffersWritten = m.Checkpoints.TotalBuffersWritten
 		}
+		// WAL rate averaged over the whole log span (same denominator).
 		duration := m.Global.MaxTimestamp.Sub(m.Global.MinTimestamp)
 		if duration.Seconds() > 0 && m.Checkpoints.TotalDistanceKB > 0 {
 			walRateBytesPerSec := float64(m.Checkpoints.TotalDistanceKB*1024) / duration.Seconds()
