@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 - **The HTML report has a flatter visual style**: section titles are muted headings instead of solid coloured bands, the section and stat cards have squared corners and no hover shadow, tables use a hairline header instead of a filled band, and the vertical rhythm is denser. Presentation only — no data or structural changes.
+- **Documentation audited and realigned with current behaviour**: user pages were checked page-by-page against the actual CLI output and corrected where they had drifted (report labels, SQL/filtering/format details); the build-from-source instructions now include the required `go generate ./web/...` step; and the HTML-report screenshots were regenerated for the flat style.
 
 ### Fixed
 - **Average lock wait time was understated**: the mean divided the total wait by every lock event (still-waiting plus acquired) instead of only the acquired locks that carry a measured wait, so a log with many waiters reported a fraction of the real average (on one sample, 1m18s instead of 7m43s). Now divided by acquired locks, in the JSON/HTML report and the text and Markdown output alike.
