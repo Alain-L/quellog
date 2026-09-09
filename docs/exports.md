@@ -39,17 +39,20 @@ quellog /var/log/postgresql/*.log --json --full    # All sections
 ### Section filtering
 
 ```bash
-quellog logs/ --sql-performance --json  # SQL data only
+quellog logs/ --summary --json          # One section
 quellog logs/ --summary --events --json # Multiple sections
 ```
 
 Section flags control which data is included in all formats, including JSON.
+(The detail flags — `--sql-performance`, `--sql-overview`, `--sql-detail`,
+`--event-detail` — are not section filters: each emits its own dedicated
+schema, which is why they can't be combined with other export formats.)
 
 ### Using with jq
 
 ```bash
 # Top 5 slowest queries
-quellog logs/ --json | jq '.sql_performance.queries | sort_by(-.max_time_ms) | .[0:5] | .[] | {id, type, max_time_ms}'
+quellog logs/ --json --full | jq '.sql_performance.queries | sort_by(-.max_time_ms) | .[0:5] | .[] | {id, type, max_time_ms}'
 
 # Error count
 quellog logs/ --json | jq '.events[] | select(.type == "ERROR") | .count'

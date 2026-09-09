@@ -36,8 +36,11 @@ Read by: `app.js`, `js/period-nav.js`, `js/sections/events.js`.
 Read by: `app.js`, `js/filters.js`, `js/sections/summary.js`, `js/sections/connections.js`;
 rewritten by `js/report-filter.js` when a time filter is applied.
 `start_date`/`end_date` (display strings), `duration`, `total_logs`,
-`throughput` (`"N entries/s"`), and severity counters `error_count`,
-`fatal_count`, `panic_count`, `warning_count`, `log_count`.
+`throughput` (`"N entries/s"`), severity counters `error_count`,
+`fatal_count`, `panic_count`, `warning_count`, `log_count`, and
+`utc_offset_minutes` (always present, int minutes east of UTC, 0 for UTC
+logs) — the time filter uses it to convert slider bounds to the epoch basis
+of `top_events[].timestamps`.
 
 ### events — severity distribution
 Read by: `app.js`, `js/charts.js`, `js/sections/events.js`.
@@ -51,7 +54,8 @@ triggering_queries?}`. `id` is the stable short handle (e.g. `"fa-6K1G"`) used
 as modal click-target and `--event-detail` selector. `timestamps` is Unix
 milliseconds per occurrence (drives the modal sparkline). `sql_state_class` is
 the two-char SQLSTATE class (omitted when unknown). `triggering_queries`
-(omitted when empty) links events to query ids for the modal cross-reference.
+(omitted when empty) is an array of `{id, count, normalized_query}` linking the
+event to the query ids for the modal cross-reference.
 
 ### connections
 Read by: `js/sections/connections.js`; re-aggregated by `js/report-filter.js`.
@@ -68,8 +72,14 @@ Read by: `js/sections/connections.js`; re-aggregated by `js/report-filter.js`.
   sending_to_client}` — only when client I/O failures were seen.
 - `connections`: array of display-string timestamps, one per connection
   received (feeds the connections/hour chart and time re-filtering).
-- `session_events`: array of `{s, e}` ISO start/end pairs, one per completed
-  session (feeds the concurrent-sessions chart).
+- `session_events`: array of `{s, e, d, u, db, h, orphan?}`, one per session
+  (feeds the concurrent-sessions chart). `s`/`e` = ISO start/end; `d` =
+  duration in ms; `u`/`db`/`h` = interned user/database/host **indices**
+  (0 = unknown) resolved via the lookup tables below; `orphan: true` marks a
+  session flushed at log end with no matching disconnect.
+- `session_users` / `session_databases` / `session_hosts` (omitted when empty):
+  `[]string` reverse-lookup tables for the `u`/`db`/`h` indices in
+  `session_events` (index 0 is always `""`/unknown).
 
 ### clients / users / apps / databases / hosts
 Read by: `js/sections/connections.js`, `js/filters.js` (dropdown population).
@@ -127,7 +137,9 @@ Read by: `js/sections/checkpoints.js` (rendered inside the checkpoints card).
 Read by: `js/sections/tempfiles.js`, `js/sections/modals.js`; re-aggregated by
 `js/report-filter.js`.
 `total_messages`, `total_size`, `avg_size`, `max_size` (formatted strings);
-`events` `[{timestamp, size, query_id}]`; `queries` `[{id, normalized_query,
+`events` `[{timestamp, size, size_bytes, query_id?}]` (`size` is the formatted
+string, `size_bytes` the exact integer for lossless re-summing, `query_id`
+omitted when absent); `queries` `[{id, normalized_query,
 raw_query, count, total_size, min_size, max_size, avg_size}]`.
 
 ### locks
@@ -146,13 +158,13 @@ Read by: `js/sections/maintenance.js`.
 - Counters: `vacuum_count`, `aggressive_vacuum_count`, `analyze_count`,
   `total_vacuum_elapsed_seconds`, `total_analyze_elapsed_seconds`,
   `total_tuples_removed`, `total_tuples_not_yet_removable`,
-  `total_buffer_hits`, `total_buffer_misses`, `total_buffer_dirtied`.
+  `total_buffer_hits`, `total_buffer_misses` (omitted when 0), `total_buffer_dirtied`.
 - `vacuum_table_counts` / `analyze_table_counts`: map of
   `db.schema.table` → run count.
 - `vacuum_space_recovered`: map of table → formatted size.
 - `top_vacuum_tables` / `xmin_blocked_tables`: `[{table, vacuum_count,
   total_elapsed_seconds, max_elapsed_seconds, tuples_removed,
-  tuples_not_yet_removable, buffer_hits, buffer_misses, buffer_dirtied}]`.
+  tuples_not_yet_removable, buffer_hits, buffer_misses (omitted when 0), buffer_dirtied}]`.
 - `top_analyze_tables_by_elapsed`: same minus the tuple/buffer fields.
 - `slowest_vacuum`: `{table, timestamp, elapsed_seconds,
   tuples_not_yet_removable}`.

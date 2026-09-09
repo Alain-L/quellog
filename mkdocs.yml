@@ -81,5 +81,4 @@ nav:
       - Troubleshooting Slow Queries: howtos/slow-queries.md
       - Incident Triage: howtos/incident-triage.md
       - Generating Reports: howtos/generating-reports.md
-      - Using jq with JSON Export: howtos/jq-recipes.md
       - Continuous Monitoring: howtos/continuous-monitoring.md
