@@ -118,7 +118,7 @@ Each query gets a short identifier: `se-a1b2c3` (select), `up-x4y5z6` (update), 
 
 ### TCL Statements
 
-Transaction control statements (BEGIN, COMMIT, ROLLBACK, SAVEPOINT) are separated into a dedicated **TCL** tab in the query tables, keeping DML/DDL queries uncluttered.
+Transaction control statements (BEGIN, COMMIT, ROLLBACK, SAVEPOINT) are separated out in the query tables — an inline `-- TCL ---` rule in the text report, a dedicated **TCL** tab in the HTML report — keeping DML/DDL queries uncluttered.
 
 ## --sql-overview
 

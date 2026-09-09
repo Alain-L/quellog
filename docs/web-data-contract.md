@@ -158,13 +158,13 @@ Read by: `js/sections/maintenance.js`.
 - Counters: `vacuum_count`, `aggressive_vacuum_count`, `analyze_count`,
   `total_vacuum_elapsed_seconds`, `total_analyze_elapsed_seconds`,
   `total_tuples_removed`, `total_tuples_not_yet_removable`,
-  `total_buffer_hits`, `total_buffer_misses`, `total_buffer_dirtied`.
+  `total_buffer_hits`, `total_buffer_misses` (omitted when 0), `total_buffer_dirtied`.
 - `vacuum_table_counts` / `analyze_table_counts`: map of
   `db.schema.table` → run count.
 - `vacuum_space_recovered`: map of table → formatted size.
 - `top_vacuum_tables` / `xmin_blocked_tables`: `[{table, vacuum_count,
   total_elapsed_seconds, max_elapsed_seconds, tuples_removed,
-  tuples_not_yet_removable, buffer_hits, buffer_misses, buffer_dirtied}]`.
+  tuples_not_yet_removable, buffer_hits, buffer_misses (omitted when 0), buffer_dirtied}]`.
 - `top_analyze_tables_by_elapsed`: same minus the tuple/buffer fields.
 - `slowest_vacuum`: `{table, timestamp, elapsed_seconds,
   tuples_not_yet_removable}`.

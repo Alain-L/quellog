@@ -56,7 +56,7 @@ Apply with `SELECT pg_reload_conf();`
 | `log_checkpoints` | Checkpoints | Checkpoint frequency, WAL distance, I/O stats |
 | `log_autovacuum_min_duration` | Maintenance | Controls coverage, not detail: the default `-1` logs no autovacuum at all (empty Maintenance section); a positive value logs only operations exceeding it; `0` logs every autovacuum/analyze. Each logged line already carries the full detail (elapsed time, tuples removed / not-yet-removable, buffer & WAL usage). |
 | `log_temp_files` | Temp Files | Temp file count and sizes per query |
-| `log_lock_waits` | Locks | Lock contention, deadlocks, blocking queries |
+| `log_lock_waits` | Locks | Lock-wait contention and blocking queries (deadlocks are logged as ERRORs regardless of this setting) |
 | `log_line_prefix` with `%e` | Events | SQLSTATE error class reporting |
 | `log_line_prefix` with `%d,%u,%a,%h` | Clients, Filtering | Per-database/user/app/host breakdown (host is breakdown-only; filtering covers db/user/app) |
-| `auto_explain` extension | SQL Analysis | Execution plans attached to slow queries |
+| `auto_explain` extension | SQL Performance (query detail) | Execution plans attached to slow queries |

@@ -51,7 +51,7 @@ Under SQL Performance, the **cost map** plots every query (TCL excluded) on log-
 ![Cost map](img/cost-map.png){ width="560" }
 
 - Each dot is a normalized query, coloured by its **cumulative** time (count × avg) in four buckets (low → extreme).
-- The dashed **iso-cost** diagonals mark constant cumulative time (1s / 1min / 1h / 1d); the solid green **top 1% / 10%** lines are Pareto thresholds — dots above and to the right account for that share of total query time.
+- The dashed **iso-cost** diagonals mark constant cumulative time (1s / 1min / 1h / 1d); the green **top 1%** (solid) and **10%** (dashed) lines are Pareto thresholds — dots above and to the right account for that share of total query time.
 - Hover a dot for its figures and to highlight its row in the query table (and the reverse); click to open its detail. Drag to zoom, double-click to reset, **⛶** to expand.
 
 Heavy hitters sit toward the top-right, so the map answers "which queries cost the most overall?" at a glance.
