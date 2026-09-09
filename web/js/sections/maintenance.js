@@ -87,6 +87,7 @@ function buildMaintenanceStatGrid(m, _totalRecovered) {
         <div class="stat-grid">
             <div class="stat-card"><div class="stat-value">${fmt(m.vacuum_count || 0)}</div><div class="stat-label">Vacuum count</div></div>
             ${(m.aggressive_vacuum_count || 0) > 0 ? `<div class="stat-card stat-card--warning"><div class="stat-value">${fmt(m.aggressive_vacuum_count)}</div><div class="stat-label">Aggressive</div></div>` : ''}
+            ${(m.anti_wraparound_vacuum_count || 0) > 0 ? `<div class="stat-card stat-card--alert" title="Forced anti-wraparound freezes (to prevent transaction ID wraparound)"><div class="stat-value">${fmt(m.anti_wraparound_vacuum_count)}</div><div class="stat-label">Anti-wraparound</div></div>` : ''}
             ${vacElapsedStr ? `<div class="stat-card"><div class="stat-value">${vacElapsedStr}</div><div class="stat-label">Vacuum time</div></div>` : ''}
             ${slowest && slowest.elapsed_seconds > 0 ? `<div class="stat-card" title="${esc(slowest.table)}"><div class="stat-value">${fmtDurationCoarse(slowest.elapsed_seconds * 1000)}</div><div class="stat-label">Slowest single run</div></div>` : ''}
             <div class="stat-card"><div class="stat-value">${fmt(m.analyze_count || 0)}</div><div class="stat-label">Analyze count</div></div>

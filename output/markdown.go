@@ -982,6 +982,9 @@ func writeAutovacuumSectionMarkdown(b *strings.Builder, v analysis.VacuumMetrics
 	if v.AggressiveVacuumCount > 0 {
 		b.WriteString(fmt.Sprintf("  - *of which aggressive*: %d\n", v.AggressiveVacuumCount))
 	}
+	if v.AntiWraparoundVacuumCount > 0 {
+		b.WriteString(fmt.Sprintf("    - *anti-wraparound*: %d\n", v.AntiWraparoundVacuumCount))
+	}
 	if v.SkippedVacuumCount > 0 {
 		b.WriteString(fmt.Sprintf("- **Vacuum skipped**: %d\n", v.SkippedVacuumCount))
 	}

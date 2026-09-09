@@ -300,12 +300,13 @@ type TempFileQueryStatJSON struct {
 }
 
 type MaintenanceJSON struct {
-	VacuumCount           int               `json:"vacuum_count"`
-	AggressiveVacuumCount int               `json:"aggressive_vacuum_count"`
-	AnalyzeCount          int               `json:"analyze_count"`
-	VacuumTableCounts     map[string]int    `json:"vacuum_table_counts"`
-	AnalyzeTableCounts    map[string]int    `json:"analyze_table_counts"`
-	VacuumSpaceRecovered  map[string]string `json:"vacuum_space_recovered"`
+	VacuumCount               int               `json:"vacuum_count"`
+	AggressiveVacuumCount     int               `json:"aggressive_vacuum_count"`
+	AntiWraparoundVacuumCount int               `json:"anti_wraparound_vacuum_count,omitempty"`
+	AnalyzeCount              int               `json:"analyze_count"`
+	VacuumTableCounts         map[string]int    `json:"vacuum_table_counts"`
+	AnalyzeTableCounts        map[string]int    `json:"analyze_table_counts"`
+	VacuumSpaceRecovered      map[string]string `json:"vacuum_space_recovered"`
 
 	// Continuation-line aggregates surfaced from PG's autovacuum log
 	// blocks. Every field is omitempty so logs that never carry the
@@ -2719,6 +2720,7 @@ func buildMaintenanceJSON(v analysis.VacuumMetrics) MaintenanceJSON {
 	j := MaintenanceJSON{
 		VacuumCount:                v.VacuumCount,
 		AggressiveVacuumCount:      v.AggressiveVacuumCount,
+		AntiWraparoundVacuumCount:  v.AntiWraparoundVacuumCount,
 		AnalyzeCount:               v.AnalyzeCount,
 		VacuumTableCounts:          v.VacuumTableCounts,
 		AnalyzeTableCounts:         v.AnalyzeTableCounts,

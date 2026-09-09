@@ -10,3 +10,9 @@
 	buffer usage: 89000 hits, 1234 misses, 456 dirtied
 	avg read rate: 5.123 MB/s, avg write rate: 0.987 MB/s
 	system usage: CPU: user: 8.45 s, system: 2.34 s, elapsed: 45.67 s
+2026-04-19 16:00:00.100 UTC [8003]: [1-1] user=,db=,app=,client= LOG:  automatic aggressive vacuum to prevent wraparound of table "appdb.public.billing": index scans: 1
+	pages: 120 removed, 78000 remain, 0 skipped due to pins, 60000 skipped frozen
+	tuples: 4321 removed, 4100000 remain, 210 are dead but not yet removable
+	buffer usage: 150000 hits, 2100 misses, 890 dirtied
+	avg read rate: 3.456 MB/s, avg write rate: 1.234 MB/s
+	system usage: CPU: user: 15.67 s, system: 3.21 s, elapsed: 88.12 s
