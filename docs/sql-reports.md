@@ -154,10 +154,13 @@ quellog /var/log/postgresql/*.log --sql-overview
 
 Categories:
 
-- **DML** — SELECT, INSERT, UPDATE, DELETE
+- **DML** — SELECT, INSERT, UPDATE, DELETE, MERGE
+- **COPY** — COPY
+- **CTE** — WITH
 - **DDL** — CREATE, ALTER, DROP
+- **CURSOR** — DECLARE, FETCH, CLOSE, MOVE
 - **TCL** — BEGIN, COMMIT, ROLLBACK
-- **UTILITY** — VACUUM, ANALYZE, SET, COPY
+- **UTILITY** — VACUUM, ANALYZE, SET
 - **OTHER** — statement types that don't fall into the above
 
 ### Dimension Breakdowns

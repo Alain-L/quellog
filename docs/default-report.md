@@ -117,6 +117,12 @@ TEMP FILES
   04:01 - 04:58  ■■■■■■■■■■■■■■■■■ 170 MB
   04:58 - 05:55  ■■■■■■■■■■■■■■■■■■■ 194 MB
 
+  Temp file count | ■ = 500
+
+  00:15 - 01:11  ■■■■■■■■■■■■ 6012
+  01:11 - 02:08  ■■■■■■■■■■■■■■■■■■ 9211
+  02:08 - 05:55  ■■■■■■■■■ 4416
+
   Temp file messages        : 11639
   Cumulative temp file size : 48.34 GB
   Average temp file size    : 4.25 MB
@@ -151,6 +157,10 @@ LOCKS
   Resource types:
     relation                     194  100.0%
 
+  Relations:
+    orders                       118   60.8%
+    inventory                     76   39.2%
+
 Waiting queries:
 SQLID      Query                                                       Acquired     Waiting    Total Wait
 ---------------------------------------------------------------------------------------------------------
@@ -162,6 +172,8 @@ SQLID      Query                                                       Blocked  
 ---------------------------------------------------------------------------------------------------------
 up-Tj7bQe  update inventory set quantity = quantity - ? where pr...          8      15m 08s       45m 26s
 ```
+
+A `Deadlock events` line appears under `Acquired events` when deadlocks were logged (SQLSTATE 40P01), and a `Relations:` breakdown follows `Resource types:` when the locked objects are named.
 
 **Waiting queries**: queries that waited for locks, with acquired/still-waiting counts. **Blocking queries**: queries that held locks causing others to wait (requires `DETAIL: Process holding the lock` in logs).
 
@@ -240,9 +252,9 @@ CHECKPOINTS
   Avg checkpoint write time : 29s
   Max checkpoint write time : 2m31s
   Checkpoint types:
-    wal                   171   60.6%  (18.03/h)
-    time                  110   39.0%  (11.60/h)
-    immediate force wait    1    0.4%  (0.11/h)
+    wal                   171   60.6%   18.03/h
+    time                  110   39.0%   11.60/h
+    immediate force wait    1    0.4%    0.11/h
 ```
 
 Types: **time** (by `checkpoint_timeout`), **wal** (by `max_wal_size`), **shutdown**, **immediate** (manual).

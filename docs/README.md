@@ -43,6 +43,7 @@ The output will be in the `site/` directory.
 - `sql-reports.md` - SQL analysis deep dive
 - `exports.md` - Export formats (JSON, YAML, Markdown)
 - `html-report.md` - Interactive HTML report
+- `web-data-contract.md` - Web/HTML report JSON data contract (Go → JS)
 - `howtos/` - Task-oriented how-to guides
 
 ## Contributing

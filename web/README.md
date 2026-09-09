@@ -54,7 +54,7 @@ const json = quellogParse(logContent, filtersJson);
 const json = quellogParseBytes(uint8Array, filtersJson);
 
 // Split into per-period report blobs
-const json = quellogSplitBytes(uint8Array, interval, filtersJson);
+const json = quellogSplitBytes(uint8Array, intervalSeconds, filename, filtersJson);
 
 // Version
 quellogVersion()

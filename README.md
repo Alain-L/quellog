@@ -31,7 +31,7 @@ SUMMARY
 - **Locks** -- wait tracking, blocking query identification, deadlock detection
 - **Checkpoints** -- WAL distance/estimate, write rates, frequency warnings
 - **Connections** -- session durations, concurrent sessions, pre-log/in-log breakdown
-- **Filtering** -- by time range, database, user, application, host
+- **Filtering** -- by time range, database, user, application
 - **Export** -- JSON, YAML, Markdown, standalone HTML with click-to-detail modals
 - **Follow mode** -- real-time monitoring with periodic refresh
 
