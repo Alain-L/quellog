@@ -61,7 +61,7 @@ GitHub. Include as much detail as possible:
   gofmt -s -l .        # formatting (must be empty)
   go vet ./...
   staticcheck ./...
-  go test -race ./... -cover
+  go test -race ./... -cover -timeout 15m
   ```
   CI also builds the TinyGo WASM module and runs the web JS tests
   (`npm run test:unit` / `npm run test:contracts`).

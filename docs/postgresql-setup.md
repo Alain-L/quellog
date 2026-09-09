@@ -54,7 +54,7 @@ Apply with `SELECT pg_reload_conf();`
 | `log_connections` | Connections | Connection counts and rates |
 | `log_disconnections` | Connections | Session durations, concurrent sessions chart |
 | `log_checkpoints` | Checkpoints | Checkpoint frequency, WAL distance, I/O stats |
-| `log_autovacuum_min_duration` | Maintenance | Controls coverage, not detail: the default `-1` logs no autovacuum at all (empty Maintenance section); a positive value logs only operations exceeding it; `0` logs every autovacuum/analyze. Each logged line already carries the full detail (elapsed time, tuples removed / not-yet-removable, buffer & WAL usage). |
+| `log_autovacuum_min_duration` | Maintenance | Controls coverage, not detail: since PostgreSQL 15 the default is `10min` (only autovacuums slower than that are logged; on PG ≤14 the default `-1` logs none); `-1` disables logging entirely; `0` logs every autovacuum/analyze. Each logged line already carries the full detail (elapsed time, tuples removed / not-yet-removable, buffer & WAL usage). |
 | `log_temp_files` | Temp Files | Temp file count and sizes per query |
 | `log_lock_waits` | Locks | Lock-wait contention and blocking queries (deadlocks are logged as ERRORs regardless of this setting) |
 | `log_line_prefix` with `%e` | Events | SQLSTATE error class reporting |
