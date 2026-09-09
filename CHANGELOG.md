@@ -4,6 +4,9 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **Anti-wraparound autovacuums are counted separately**: the Maintenance section now breaks out the forced anti-wraparound freezes (logged "to prevent wraparound") as their own count under the aggressive-vacuum total — the real transaction-ID-exhaustion warning sign, previously indistinguishable within the aggressive count. Shown in the text, Markdown, JSON (`anti_wraparound_vacuum_count`) and HTML report.
+
 ### Changed
 - **The HTML report has a flatter visual style**: section titles are muted headings instead of solid coloured bands, the section and stat cards have squared corners and no hover shadow, tables use a hairline header instead of a filled band, and the vertical rhythm is denser. Presentation only — no data or structural changes.
 - **Documentation audited and realigned with current behaviour**: user pages were checked page-by-page against the actual CLI output and corrected where they had drifted (report labels, SQL/filtering/format details); the build-from-source instructions now include the required `go generate ./web/...` step; and the HTML-report screenshots were regenerated for the flat style.

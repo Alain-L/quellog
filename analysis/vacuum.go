@@ -23,15 +23,21 @@ type VacuumMetrics struct {
 	// VacuumCount counts every automatic vacuum (includes aggressive,
 	// which is just a type of vacuum).
 	VacuumCount int
-	// AggressiveVacuumCount counts "automatic aggressive vacuum" runs,
-	// i.e. anti-wraparound freezes. A high ratio vs VacuumCount means
-	// the cluster is under freeze pressure — worth surfacing when
-	// diagnosing autovacuum tuning.
+	// AggressiveVacuumCount counts "automatic aggressive vacuum" runs — the
+	// freeze-scan variant that visits every page. It covers BOTH the normal
+	// aggressive freeze (vacuum_freeze_table_age) and the forced anti-
+	// wraparound freeze (autovacuum_freeze_max_age). A high ratio vs
+	// VacuumCount means the cluster is under freeze pressure.
 	AggressiveVacuumCount int
-	AnalyzeCount          int
-	VacuumTableCounts     map[string]int   // table → vacuum count
-	AnalyzeTableCounts    map[string]int   // table → analyze count
-	VacuumSpaceRecovered  map[string]int64 // table → bytes reclaimed (dead tuples)
+	// AntiWraparoundVacuumCount is the subset of AggressiveVacuumCount whose
+	// log line carries "to prevent wraparound" — the forced anti-wraparound
+	// freezes that block other autovacuums and are the real xid-exhaustion
+	// warning sign.
+	AntiWraparoundVacuumCount int
+	AnalyzeCount              int
+	VacuumTableCounts         map[string]int   // table → vacuum count
+	AnalyzeTableCounts        map[string]int   // table → analyze count
+	VacuumSpaceRecovered      map[string]int64 // table → bytes reclaimed (dead tuples)
 
 	// Aggregated continuation-line metrics. PostgreSQL emits the autovacuum
 	// "system usage", "buffer usage", "WAL usage" and "tuples: removed/
@@ -151,12 +157,13 @@ const (
 //	}
 //	metrics := analyzer.Finalize()
 type VacuumAnalyzer struct {
-	vacuumCount           int
-	aggressiveVacuumCount int
-	analyzeCount          int
-	vacuumTableCounts     map[string]int
-	analyzeTableCounts    map[string]int
-	vacuumSpaceRecovered  map[string]int64
+	vacuumCount               int
+	aggressiveVacuumCount     int
+	antiWraparoundVacuumCount int
+	analyzeCount              int
+	vacuumTableCounts         map[string]int
+	analyzeTableCounts        map[string]int
+	vacuumSpaceRecovered      map[string]int64
 
 	// Continuation-line aggregates. Populated from the same Process()
 	// call as the existing counters — the stderr parser has already
@@ -243,7 +250,7 @@ func (a *VacuumAnalyzer) Process(entry *parser.LogEntry) {
 
 	// Check what follows "automatic ". Handle three variants:
 	//   "automatic vacuum of table ..."
-	//   "automatic aggressive vacuum of table ..."  (anti-wraparound freeze)
+	//   "automatic aggressive vacuum [to prevent wraparound] of table ..."
 	//   "automatic analyze of table ..."
 	rest := msg[idx+10:]
 
@@ -253,6 +260,11 @@ func (a *VacuumAnalyzer) Process(entry *parser.LogEntry) {
 		tableName := extractTableName(msg)
 		a.vacuumCount++
 		a.aggressiveVacuumCount++
+		// The forced anti-wraparound freeze carries "to prevent wraparound";
+		// the plain freeze-age aggressive vacuum does not.
+		if strings.Contains(rest, "to prevent wraparound") {
+			a.antiWraparoundVacuumCount++
+		}
 		a.vacuumTableCounts[tableName]++
 		removedPages := extractRemovedPages(msg)
 		// Guard the byte conversion against int64 overflow: a corrupt or
@@ -398,6 +410,7 @@ func (a *VacuumAnalyzer) Finalize() VacuumMetrics {
 	return VacuumMetrics{
 		VacuumCount:                a.vacuumCount,
 		AggressiveVacuumCount:      a.aggressiveVacuumCount,
+		AntiWraparoundVacuumCount:  a.antiWraparoundVacuumCount,
 		AnalyzeCount:               a.analyzeCount,
 		VacuumTableCounts:          a.vacuumTableCounts,
 		AnalyzeTableCounts:         a.analyzeTableCounts,

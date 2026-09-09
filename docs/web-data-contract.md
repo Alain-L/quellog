@@ -155,7 +155,7 @@ acquired_wait_time, still_waiting_count, still_waiting_time, total_wait_time}]`
 
 ### maintenance — vacuum & analyze
 Read by: `js/sections/maintenance.js`.
-- Counters: `vacuum_count`, `aggressive_vacuum_count`, `analyze_count`,
+- Counters: `vacuum_count`, `aggressive_vacuum_count`, `anti_wraparound_vacuum_count` (omitted when 0), `analyze_count`,
   `total_vacuum_elapsed_seconds`, `total_analyze_elapsed_seconds`,
   `total_tuples_removed`, `total_tuples_not_yet_removable`,
   `total_buffer_hits`, `total_buffer_misses` (omitted when 0), `total_buffer_dirtied`.

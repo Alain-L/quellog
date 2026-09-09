@@ -221,7 +221,7 @@ AUTOANALYZE
     appdb.public.app_lock              300   85.0%
 ```
 
-The header block answers the cluster-wide questions a DBA usually asks first: how much vacuum work happened, how much time it cost, how much disk was reclaimed, whether the xmin horizon is letting dead tuples accumulate, and how the buffer/WAL pressure looked. Each entry is suppressed when its source metric is zero — older PostgreSQL versions or runs without `log_autovacuum_min_duration` keep a terse output. When PostgreSQL ran an anti-wraparound freeze, an `of which aggressive : N` line appears right under `Vacuum count`.
+The header block answers the cluster-wide questions a DBA usually asks first: how much vacuum work happened, how much time it cost, how much disk was reclaimed, whether the xmin horizon is letting dead tuples accumulate, and how the buffer/WAL pressure looked. Each entry is suppressed when its source metric is zero — older PostgreSQL versions or runs without `log_autovacuum_min_duration` keep a terse output. When PostgreSQL ran aggressive (freeze-scan) vacuums, an `of which aggressive : N` line appears right under `Vacuum count`; a further `anti-wraparound : N` line breaks out the subset that were forced anti-wraparound freezes ("to prevent wraparound") — the real transaction-ID-exhaustion warning sign.
 
 Each panel below the header answers one specific question:
 

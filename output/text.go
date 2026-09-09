@@ -1310,6 +1310,9 @@ func printAutovacuumSection(v analysis.VacuumMetrics) {
 	if v.AggressiveVacuumCount > 0 {
 		fmt.Printf("  %-25s : %s\n", "  of which aggressive", formatThousands(int64(v.AggressiveVacuumCount)))
 	}
+	if v.AntiWraparoundVacuumCount > 0 {
+		fmt.Printf("  %-25s : %s\n", "  anti-wraparound", formatThousands(int64(v.AntiWraparoundVacuumCount)))
+	}
 	if v.SkippedVacuumCount > 0 {
 		fmt.Printf("  %-25s : %s\n", "Vacuum skipped", formatThousands(int64(v.SkippedVacuumCount)))
 	}
