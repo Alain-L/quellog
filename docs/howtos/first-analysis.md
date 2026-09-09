@@ -12,16 +12,20 @@ quellog /var/log/postgresql/*.log
 ```
 
 quellog auto-detects the log format (stderr, CSV, or JSON) and prints a
-report with these sections:
+report with sections such as:
 
-| Section        | What it tells you                                      |
-|----------------|--------------------------------------------------------|
-| **Summary**    | Time range, entry count, throughput                    |
-| **SQL Summary**| Query load histogram, duration stats, percentiles      |
-| **Events**     | Errors and fatals grouped by SQL error class           |
-| **Temp Files** | Queries spilling to disk (work_mem pressure)           |
-| **Locks**      | Lock waits and deadlocks                               |
-| **Maintenance**| VACUUM and ANALYZE activity                            |
+| Section                    | What it tells you                                      |
+|----------------------------|--------------------------------------------------------|
+| **Summary**                | Time range, entry count, throughput                    |
+| **SQL Summary**            | Query load histogram, duration stats, percentiles      |
+| **Events**                 | Errors and fatals grouped by SQL error class           |
+| **Temp Files**             | Queries spilling to disk (work_mem pressure)           |
+| **Locks**                  | Lock waits and deadlocks                               |
+| **Autovacuum / Autoanalyze** | Maintenance activity (two sibling sections)          |
+| **Checkpoints**            | Checkpoint frequency and write times                   |
+| **Connections & Sessions** | Connection/session counts and concurrency              |
+| **Clients**                | Top users, apps, databases, hosts                      |
+| **Server**                 | Starts, shutdowns, replication                         |
 
 ## Analyze recent logs only
 
@@ -31,8 +35,9 @@ Use `--last` to restrict analysis to a rolling time window:
 quellog /var/log/postgresql/*.log --last 1h
 ```
 
-This keeps only entries from the last hour relative to the newest
-timestamp in the files.
+This keeps only entries from the last hour relative to the current system
+time (now) — so `--last` is meant for recent/live logs. On an older archive
+it may filter out everything; use `--begin`/`--end` to target a past window.
 
 ## Generate an HTML report
 

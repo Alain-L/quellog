@@ -20,9 +20,10 @@ changes.
 Create your own fork of the project on GitHub.
 
 ### 2. Create a Feature Branch  
-Use a **descriptive** branch name, such as:  
-- `feature/improve-parsing`  
-- `bugfix/fix-date-filter`  
+Use a **descriptive** branch name with a conventional prefix, such as:  
+- `feat/improve-parsing`  
+- `fix/date-filter`  
+- `docs/update-installation`  
 
 ### 3. Write Your Code
 - Keep the code consistent with what’s already there.
@@ -31,7 +32,7 @@ Use a **descriptive** branch name, such as:
 
 ### 4. Commit Your Changes  
 - Write **clear** and **concise** commit messages.  
-- Follow a structured format to describe changes accurately.  
+- Follow [Conventional Commits](https://www.conventionalcommits.org/) (e.g. `fix(analysis): …`, `docs(changelog): …`).  
 
 ### 5. Submit a Pull Request  
 - Open a pull request (PR) to the main repository.  
@@ -48,11 +49,22 @@ GitHub. Include as much detail as possible:
 
 ## Additional Notes
 
-- **Testing:**  
-  Before submitting a PR, ensure all tests pass:  
+- **Building & testing:**  
+  The embedded web assets are generated and gitignored, so generate them once
+  before building or testing (otherwise the `web` package fails to compile):  
   ```sh
+  go generate ./web/...   # or: make build
   go test ./...
   ```
+- **Match the CI gates locally** before pushing — CI blocks on all of:  
+  ```sh
+  gofmt -s -l .        # formatting (must be empty)
+  go vet ./...
+  staticcheck ./...
+  go test -race ./... -cover
+  ```
+  CI also builds the TinyGo WASM module and runs the web JS tests
+  (`npm run test:unit` / `npm run test:contracts`).
 - **Documentation:**  
   If your changes impact usage, update the documentation accordingly.  
 

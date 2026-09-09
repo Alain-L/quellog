@@ -14,7 +14,7 @@ quellog /var/log/postgresql/*.log --html --full          # all sections
 quellog /var/log/postgresql/*.log --html --open          # open it in the browser
 ```
 
-The default name is `<stem>.html` for a single input, `quellog.html` for multiple inputs or stdin. `--open` launches the default browser (skipped when stderr is not a TTY or `CI` is set). The HTML report can also be produced alongside other formats in a single pass — see [Export Formats](exports.md).
+The default name is `<stem>.html` for a single input, `quellog_report.html` for multiple inputs or stdin. `--open` launches the default browser (skipped when stderr is not a TTY or `CI` is set). The HTML report can also be produced alongside other formats in a single pass — see [Export Formats](exports.md).
 
 ## Anatomy
 
@@ -90,7 +90,7 @@ quellog logs/2026-02-*.log        --html --split 3h   # 3-hour periods
 quellog busy-hour.log             --html --split 5m   # 5-minute periods
 ```
 
-The interval takes the same units as `--last` (`s`, `m`, `h`, `d`, `w`, `y`), one unit at a time (`90m`, not `1h30m`). Periods align to the log's **wall clock** — `1d` to local midnight, `3h` to 00:00/03:00/06:00…, `5m` to :00/:05/:10 — independent of the machine timezone.
+The interval takes the same units as `--last` (`s`, `m`, `h`, `d`, `w`, `y`). Composite standard-unit forms like `1h30m` are accepted; only the custom `d`/`w`/`y` suffixes can't be combined (use `36h`, not `1d12h`). Periods align to the log's **wall clock** — `1d` to local midnight, `3h` to 00:00/03:00/06:00…, `5m` to :00/:05/:10 — independent of the machine timezone.
 
 - **Requires `--html`**, and cannot be combined with the other export formats or with `--follow`. Only the full report is supported (not `--sql-detail`, `--event-detail`, `--sql-performance`, `--sql-overview`).
 - Filters (`--begin`/`--end`, `--dbname`, …) apply **before** splitting, so periods cover only what passes the filters.

@@ -10,7 +10,8 @@ quellog --follow /var/log/postgresql/*.log
 ```
 
 By default, this analyzes the last 24 hours and refreshes every 30
-seconds. The terminal output updates in place. Press `Ctrl+C` to stop.
+seconds. The full report is re-printed to the terminal on each cycle.
+Press `Ctrl+C` to stop.
 
 ## Custom interval and time window
 
@@ -26,8 +27,9 @@ entries.
 
 ## HTML dashboard
 
-Combine `--follow` with `--html` and `-o` to produce a self-refreshing
-HTML dashboard:
+Combine `--follow` with `--html` and `-o` to produce a regularly-rewritten
+HTML dashboard (reload the browser to see updates — the page does not
+auto-refresh):
 
 ```bash
 quellog --follow --interval 5m --html \

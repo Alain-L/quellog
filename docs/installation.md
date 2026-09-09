@@ -47,7 +47,7 @@ Download from the [releases page](https://github.com/Alain-L/quellog/releases).
 
     ```bash
     LATEST=$(curl -s https://api.github.com/repos/Alain-L/quellog/releases/latest | grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/\1/')
-    ARCH=$(uname -m | sed 's/x86_64/amd64/' | sed 's/arm64/arm64/')
+    ARCH=$(uname -m | sed 's/x86_64/amd64/')
     curl -LO "https://github.com/Alain-L/quellog/releases/download/v${LATEST}/quellog_${LATEST}_darwin_${ARCH}.tar.gz"
     tar -xzf quellog_${LATEST}_darwin_${ARCH}.tar.gz
     sudo install -m 755 quellog /usr/local/bin/quellog
@@ -62,7 +62,7 @@ Download from the [releases page](https://github.com/Alain-L/quellog/releases).
 
 ## Build from Source
 
-Requires Go 1.21+ and Git. Building needs only the Go toolchain: the embedded
+Requires Go 1.24+ and Git. Building needs only the Go toolchain: the embedded
 web assets are bundled by esbuild's Go API through `go generate`, so no Node.js
 or `npm install` is involved (the `package.json` is the web test suite only).
 

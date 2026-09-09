@@ -1,6 +1,6 @@
 # Log Formats
 
-All formats are auto-detected from file content — no configuration needed.
+All formats are auto-detected — by extension first, falling back to content inspection — so no configuration is needed.
 
 ### stderr/syslog
 
@@ -24,7 +24,7 @@ The dedicated `query` field (column 20) ensures complete SQL text capture.
 
 ### JSON
 
-JSON format from `log_destination = 'jsonlog'` (PostgreSQL 15+) or cloud providers (GCP Cloud SQL, Azure Database for PostgreSQL, AWS RDS).
+JSON format from `log_destination = 'jsonlog'` (PostgreSQL 15+) or cloud providers (GCP Cloud SQL, AWS RDS). (Azure Database for PostgreSQL logs are stderr-formatted — see the Cloud Providers table below.)
 
 ```json
 {
@@ -93,7 +93,7 @@ quellog /backups/postgresql.log.zst
 
 Faster decompression and better compression ratios than gzip.
 
-### Archives (.tar, .tar.gz, .tgz, .tar.zst, .tzst)
+### Archives (.tar, .tar.gz, .tgz, .tar.zst, .tar.zstd, .tzst)
 
 ```bash
 quellog /backups/postgresql-january.tar.gz
@@ -115,5 +115,7 @@ Extracts and processes all log entries from ZIP archives. Handles nested compres
 quellog /backups/postgresql-logs.7z
 ```
 
-Extracts and processes log entries from 7z archives (LZMA/LZMA2 compression). Provides excellent compression ratios, especially for large log files. CLI-only — not supported in browser/WASM mode.
+Extracts and processes log entries from 7z archives (LZMA/LZMA2 compression). Provides excellent compression ratios, especially for large log files.
+
+> Archive handling (tar, zip, 7z) is CLI-only. In the browser/WASM build, plain `.gz`/`.zst` files are decompressed client-side in JavaScript, but archives are not extracted.
 

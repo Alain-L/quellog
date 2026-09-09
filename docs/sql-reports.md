@@ -13,7 +13,7 @@ quellog /var/log/postgresql/*.log --sql-performance
 ### SQL Performance
 
 ```
-SQL PERFORMANCE
+SQL SUMMARY
 
   Query load distribution | ■ = 10 s
 
@@ -85,11 +85,16 @@ se-y1z2a3  select * from large_table order by created_at desc...                
 
 LOCKS
 
-Waiting queries:
-SQLID      Query                                                       Acquired     Waiting       Total Wait
-------------------------------------------------------------------------------------------------------------
-up-bG8qBk  update alf_node set version = ? , transaction_id...              259           0          12m 25s
-in-79Lxjd  insert into alf_content_url (id, content_url, co...              130           0           6m 26s
+Acquired locks by query:
+SQLID      Query                                                       Locks     Avg Wait     Total Wait
+--------------------------------------------------------------------------------------------------------
+up-bG8qBk  update alf_node set version = ? , transaction_id...           259        2.88 s        12m 25s
+in-79Lxjd  insert into alf_content_url (id, content_url, co...           130        2.97 s         6m 26s
+
+Most frequent waiting queries:
+SQLID      Query                                                       Locks     Avg Wait     Total Wait
+--------------------------------------------------------------------------------------------------------
+se-Wd9pLa  select * from inventory where product_id = ? for...            8        1.51 s         12m 04s
 ```
 
 ### Query Normalization
@@ -109,7 +114,7 @@ Long `IN ($1, $2, $3, …)` placeholder lists collapse to `in (...)` so the same
 
 ### SQLID Format
 
-Each query gets a short identifier: `se-a1b2c3` (select), `up-x4y5z6` (update), `in-m7n8o9` (insert), `de-p1q2r3` (delete). Use this ID with `--sql-detail`.
+Each query gets a short identifier: `se-a1b2c3` (select), `up-x4y5z6` (update), `in-m7n8o9` (insert), `de-p1q2r3` (delete). Use this ID with `--sql-detail`. Each statement type gets its own two-letter prefix — about 46 in all, and the prefix isn't always the first two letters (e.g. `SET` → `et-`, `COMMIT` → `ct-`, `MERGE` → `me-`).
 
 ### TCL Statements
 
@@ -128,22 +133,23 @@ quellog /var/log/postgresql/*.log --sql-overview
 ```
   Query Category Summary
 
-    DML          : 1,234     (78.5%)
-    UTILITY      : 245       (15.6%)
-    DDL          : 78        (5.0%)
-    TCL          : 14        (0.9%)
+  Category         Count         %    Total Time
+  ----------------------------------------------
+  DML               1318     95.2%        4m 37s
+  DDL                 40      2.9%        2.64 s
+  UTILITY             18      1.3%        3.33 s
+  TCL                  7      0.5%        7.69 s
+  OTHER                2      0.1%        262 ms
 
   Query Type Distribution
 
-    SELECT       : 890       (56.6%)
-    INSERT       : 234       (14.9%)
-    UPDATE       : 110       (7.0%)
-    DELETE       : 45        (2.9%)
-    BEGIN        : 78        (5.0%)
-    COMMIT       : 65        (4.1%)
-    CREATE TABLE : 12        (0.8%)
-    VACUUM       : 23        (1.5%)
-    ...
+  Type               Count         %    Total Time      Avg Time    Max Time
+  ------------------------------------------------------------------------
+  INSERT               559     40.4%        2m 24s        258 ms     11.19 s
+  SELECT               476     34.4%       53.27 s        111 ms      1.51 s
+  UPDATE               280     20.2%        1m 19s        283 ms      1.10 s
+  CREATE                38      2.7%        2.53 s         66 ms      736 ms
+  ...
 ```
 
 Categories:
@@ -152,25 +158,26 @@ Categories:
 - **DDL** — CREATE, ALTER, DROP
 - **TCL** — BEGIN, COMMIT, ROLLBACK
 - **UTILITY** — VACUUM, ANALYZE, SET, COPY
+- **OTHER** — statement types that don't fall into the above
 
 ### Dimension Breakdowns
 
 Query types broken down per database, user, host, and application:
 
 ```
-  Queries per Database
+  Per Database
 
-    mydb (1,234 queries, 45m 23s)
-      SELECT         890      38m 12s
-      INSERT         234       5m 45s
-      UPDATE         110       1m 26s
+  mydb (1234 queries, 45m 23s)
+    SELECT         890      38m 12s
+    INSERT         234       5m 45s
+    UPDATE         110       1m 26s
 
-    analytics_db (523 queries, 12m 45s)
-      SELECT         487      11m 30s
-      INSERT          36       1m 15s
+  analytics_db (523 queries, 12m 45s)
+    SELECT         487      11m 30s
+    INSERT          36       1m 15s
 ```
 
-Same structure for Queries per User, per Host, and per Application.
+Same structure for **Per User**, **Per Host**, and **Per Application**.
 
 ## --sql-detail
 
@@ -203,7 +210,7 @@ SQL DETAILS
   19:00 - 21:00  5
 
   Id                   : se-a1b2c3
-  Query Type           : select
+  Query Type           : SELECT
   Count                : 338
   Databases            : app_db 320, reporting 18
   Users                : app_user 338
@@ -233,7 +240,7 @@ TIME
 
   Total Duration       : 1h 05m 32s
   Min Duration         : 1 ms
-  Median Duration      : 234 ms
+  Avg Duration         : 234 ms
   Max Duration         : 15.23 s
 
 TEMP FILES

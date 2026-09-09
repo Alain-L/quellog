@@ -11,7 +11,7 @@ quellog /var/log/postgresql/*.log
 ```
 
 ```
-quellog v0.12.0 – 155281 entries processed in 0.22 s (52.98 MB)
+quellog 0.12.0 – 155281 entries processed in 0.22 s (52.98 MB)
 
 SUMMARY
 

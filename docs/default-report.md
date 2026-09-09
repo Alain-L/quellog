@@ -10,8 +10,8 @@ SUMMARY
   Start date                : 2025-01-13 00:00:00 UTC
   End date                  : 2025-01-13 23:59:59 UTC
   Duration                  : 23h59m59s
-  Total entries             : 1,234
-  Throughput                : 8,227 entries/s
+  Total entries             : 1234
+  Throughput                : 0.01 entries/s
 ```
 
 ## SQL Summary (`--sql-summary`)
@@ -71,23 +71,35 @@ Severity prefixes: `pa-` (PANIC), `fa-` (FATAL), `er-` (ERROR), `wa-`
 LOG / INFO / DEBUG / NOTICE counts are reported but not broken down by
 pattern (no SQLSTATE, no actionable signal).
 
-## Error Classes (`--errors`)
+## Errors (`--errors`)
 
-PostgreSQL error distribution by SQLSTATE class code.
+The Events section restricted to error severities (ERROR/FATAL/PANIC). Patterns
+are grouped under their SQLSTATE class, each with a stable id and an occurrence
+count.
 
 ```
-ERROR CLASSES
+EVENTS
 
-  42 – Syntax Error or Access Rule Violation   : 125
-  23 – Integrity Constraint Violation          : 18
-  22 – Data Exception                          : 5
-  53 – Insufficient Resources                  : 2
+  FATAL                     : 4 (0.1%)
+    28 - Invalid Authorization Specification
+    fa-U26K  password authentication failed for user ?       2   50.00%
+    3D - Invalid Catalog Name
+    fa-Hcoq  database ? does not exist                        2   50.00%
+  ERROR                     : 9 (0.1%)
+    22 - Data Exception
+    er-VHRD  division by zero                                 2   22.22%
+    23 - Integrity Constraint Violation
+    er-Enfg  duplicate key value violates unique constraint ? 2   22.22%
+    40 - Transaction Rollback
+    er-JY5d  deadlock detected                                1   11.11%
+    42 - Syntax Error or Access Rule Violation
+    er-ihni  syntax error at or near ?                        2   22.22%
 ```
 
 Common classes: **42** (syntax/permissions), **23** (constraint violations), **22** (invalid input), **53** (resources), **08** (connections), **40** (deadlocks).
 
 !!! info
-    Requires SQLSTATE codes in logs: `%e` in `log_line_prefix`, or csvlog/jsonlog format.
+    SQLSTATE class grouping requires the class code in logs: `%e` in `log_line_prefix`, or csvlog/jsonlog format.
 
 ## Temporary Files (`--tempfiles`)
 
@@ -96,7 +108,7 @@ Queries that exceeded `work_mem` and spilled to disk.
 ```
 TEMP FILES
 
-  Temp file distribution | ■ = 10 MB
+  Temp file size | ■ = 10 MB
 
   00:15 - 01:11  ■■■■■■■■■■■■■■■■■■■■■■■■ 249 MB
   01:11 - 02:08  ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ 389 MB
@@ -108,6 +120,7 @@ TEMP FILES
   Temp file messages        : 11639
   Cumulative temp file size : 48.34 GB
   Average temp file size    : 4.25 MB
+  Max temp file size        : 512.00 MB
 
 Queries generating temp files:
 SQLID      Query                                                                         Count    Total Size
@@ -129,7 +142,7 @@ Lock contention, wait times, and queries involved.
 LOCKS
 
   Total lock events         : 194
-  Waiting events            : 171
+  Still waiting             : 171
   Acquired events           : 23
   Avg wait time             : 54.92 s
   Total wait time           : 2h 57m 34s
@@ -236,9 +249,8 @@ Types: **time** (by `checkpoint_timeout`), **wal** (by `max_wal_size`), **shutdo
 
 Additional metrics when available:
 
-- **WAL distance / estimate**: WAL generated between checkpoints vs PostgreSQL's prediction for the next cycle
-- **WAL rate / flush rate**: I/O throughput during checkpoint writes
-- **Too Frequent warnings**: alerts when checkpoints occur faster than `checkpoint_warning` threshold
+- **WAL per checkpoint (avg / max)**: WAL generated between checkpoints, with an estimate-margin overlay on the histogram
+- **Too frequent warnings**: alerts when checkpoints occur faster than the `checkpoint_warning` threshold
 
 Requires `log_checkpoints = on`.
 
@@ -269,7 +281,7 @@ Connection patterns and session durations. The default report shows summary metr
 ```
 CONNECTIONS & SESSIONS
 
-  Connection distribution | ■ = 1
+  Concurrent sessions | ■ = 1
 
   00:00 - 00:58  ■■■■■■■■■■■■■■■ 15
   00:58 - 01:56  ■■■■■ 5
@@ -279,11 +291,11 @@ CONNECTIONS & SESSIONS
   04:51 - 05:50  ■■■■ 4
 
   Connection count          : 36
-  Avg connections per hour  : 1.50
   Disconnection count       : 23
+  Avg connections per hour  : 1.50
   Avg session time          : 1h14m7s
-  Avg concurrent sessions   : 13.45
-  Peak concurrent sessions  : 36 (at 05:50:00)
+  Median session time       : 52m10s
+  Maximum simultaneous      : 36     (at 2025-01-13 05:50:00)
 ```
 
 Requires `log_connections = on`. Session durations require `log_disconnections = on`.

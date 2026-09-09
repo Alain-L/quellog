@@ -38,13 +38,12 @@ The output will be in the `site/` directory.
 - `installation.md` - Detailed installation instructions
 - `postgresql-setup.md` - PostgreSQL configuration guide
 - `formats.md` - Supported log formats documentation
-- `filtering-logs.md` - Log filtering options
-- `filtering-output.md` - Output section filtering
+- `filtering.md` - Log and output-section filtering options
 - `default-report.md` - Default report sections explained
 - `sql-reports.md` - SQL analysis deep dive
-- `json-export.md` - JSON export format and usage
-- `yaml-export.md` - YAML export format and gomplate integration
-- `markdown-export.md` - Markdown export format and usage
+- `exports.md` - Export formats (JSON, YAML, Markdown)
+- `html-report.md` - Interactive HTML report
+- `howtos/` - Task-oriented how-to guides
 
 ## Contributing
 

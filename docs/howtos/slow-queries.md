@@ -33,7 +33,7 @@ quellog /var/log/postgresql/*.log --sql-detail up-UXcfCG
 
 The detail view shows:
 
-- **Execution count and duration stats** (min / median / max)
+- **Execution count and duration stats** (total / min / avg / max)
 - **Temp file usage** for this query (indicates `work_mem` pressure)
 - **Normalized query** (parameters replaced with `?`)
 - **Example query** (one real execution with actual values)
