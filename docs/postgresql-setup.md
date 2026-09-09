@@ -37,7 +37,9 @@ log_min_messages = warning
 # auto_explain.log_analyze = on           # Include actual row counts
 ```
 
-Apply with `SELECT pg_reload_conf();`
+Apply with `SELECT pg_reload_conf();`. Note that `logging_collector` and
+`shared_preload_libraries` (auto_explain) can only be set at server start, so
+enabling those requires a **restart**; the rest take effect on reload.
 
 !!! tip "Automatic log_line_prefix detection"
     The format above is recommended, but **quellog adapts to most `log_line_prefix` configurations**. CSV and JSON log formats include all metadata by default.
