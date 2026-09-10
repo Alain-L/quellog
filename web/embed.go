@@ -25,3 +25,9 @@ var ReportTmpl string
 
 //go:embed report_split.tmpl
 var ReportSplitTmpl string
+
+//go:embed pgbouncer.tmpl
+var PgBouncerTmpl string
+
+//go:embed pgbouncer_charts.js
+var PgBouncerChartsJS string
