@@ -10,6 +10,17 @@ quellog /var/log/pgbouncer/pgbouncer.log --json
 
 Time filters (`--begin`, `--end`, `--last`, `--window`) apply. The SQL-specific flags (`--sql-summary`, `--sql-detail`, `--split`, …) do not apply to pgBouncer logs.
 
+## Combining with PostgreSQL logs
+
+pgBouncer and PostgreSQL logs are always separate files (separate daemons). When a single invocation mixes both, quellog partitions the inputs by detected format and analyzes each on its own track — the report is the PostgreSQL report followed by a pgBouncer section:
+
+```bash
+quellog /var/log/postgresql/*.log /var/log/pgbouncer/pgbouncer.log
+quellog /var/log/postgresql/*.log /var/log/pgbouncer/pgbouncer.log --html -o report.html
+```
+
+In text and Markdown the pgBouncer report is appended after the PostgreSQL one; in JSON it is a top-level `pgbouncer` key; in HTML it is a section in the same report, sharing the report's chrome and theme. (`--split` is PostgreSQL-only and is rejected when pgBouncer files are present.)
+
 ## What is parsed
 
 pgBouncer log lines are single-line records with a `timestamp [PID] SEVERITY` prefix. quellog reads four kinds of line:

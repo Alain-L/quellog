@@ -169,6 +169,25 @@ Read by: `js/sections/maintenance.js`.
 - `slowest_vacuum`: `{table, timestamp, elapsed_seconds,
   tuples_not_yet_removable}`.
 
+### pgbouncer — pooler report (gated)
+Read by: `js/sections/pgbouncer.js`. Present only when the run included
+pgBouncer log files (see [pgBouncer Reports](pgbouncer.md)). A sibling
+top-level `pgbouncer_only` boolean (present only for a pure pgBouncer run)
+tells `app.js` to render just this section and suppress the empty
+PostgreSQL sections.
+- Traffic: `stats_sample_count`, `avg_/max_xacts_per_sec`,
+  `avg_/max_queries_per_sec`, `avg_/max_in_bytes_per_sec`,
+  `avg_/max_out_bytes_per_sec`, `avg_/max_xact_us`, `avg_/max_query_us`,
+  `avg_/max_wait_us`.
+- `stats_series`: `[{time, xacts_per_sec, queries_per_sec, in_bytes_per_sec,
+  out_bytes_per_sec, xact_us, query_us, wait_us}]` — feeds the three
+  time-series charts (`pgb-series` type in `js/charts.js`).
+- Connections/sessions: `login_attempts`, `server_connections`, `sessions`,
+  `total_session_seconds`, `session_distribution` (bucket → count).
+- Breakdowns: `connections_per_database/user/host`,
+  `sessions_per_database/user/host` (name → count).
+- `reserve_pool_activations`, `errors` (reason → count), `total_errors`.
+
 ### replication — gated, absent from this fixture
 Read by: `js/sections/checkpoints.js` (sub-zone of the server area).
 Emitted only when the log contains replication markers
