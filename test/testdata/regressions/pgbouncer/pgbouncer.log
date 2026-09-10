@@ -1,0 +1,440 @@
+2026-09-09 20:58:58.651 UTC [1] LOG kernel file descriptor limit: 524288 (hard: 524288); max_client_conn: 200, max expected fd use: 242
+2026-09-09 20:58:58.651 UTC [1] LOG listening on 0.0.0.0:6432
+2026-09-09 20:58:58.653 UTC [1] LOG listening on unix:/tmp/.s.PGSQL.6432
+2026-09-09 20:58:58.653 UTC [1] LOG process up: PgBouncer 1.25.2, libevent 2.1.12-stable (epoll), adns: evdns2, tls: OpenSSL 3.5.6 7 Apr 2026
+2026-09-09 20:58:59.655 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 20:59:00.655 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 20:59:01.655 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 20:59:02.655 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 20:59:03.655 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 20:59:04.655 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 20:59:05.655 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 20:59:06.655 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 20:59:07.655 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 20:59:08.655 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 20:59:09.655 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 20:59:10.655 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 20:59:11.655 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 20:59:12.655 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 20:59:13.571 UTC [1] LOG C-0x7f3b3ad2f3c0: app/app_user@10.89.0.4:35088 login attempt: db=app user=app_user tls=no replication=no
+2026-09-09 20:59:13.574 UTC [1] LOG S-0x7f3b3acaa5b0: app/app_user@10.89.0.2:5432 new connection to server (from 10.89.0.3:35472)
+2026-09-09 20:59:13.575 UTC [1] ERROR S-0x7f3b3acaa5b0: app/app_user@10.89.0.2:5432 cannot do SCRAM authentication: wrong password type
+2026-09-09 20:59:13.575 UTC [1] LOG C-0x7f3b3ad2f3c0: app/app_user@10.89.0.4:35088 closing because: server login failed: wrong password type (age=0s)
+2026-09-09 20:59:13.575 UTC [1] WARNING C-0x7f3b3ad2f3c0: app/app_user@10.89.0.4:35088 pooler error: server login failed: wrong password type
+2026-09-09 20:59:13.575 UTC [1] LOG S-0x7f3b3acaa5b0: app/app_user@10.89.0.2:5432 closing because: failed to answer authreq (age=0s)
+2026-09-09 20:59:13.656 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 20:59:14.656 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 20:59:15.656 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 20:59:16.656 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 20:59:17.655 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 20:59:18.656 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 20:59:19.656 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 20:59:20.656 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 20:59:21.656 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 20:59:22.656 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 20:59:23.655 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 20:59:24.656 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 20:59:25.655 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 20:59:26.656 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 20:59:27.656 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 20:59:28.656 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 20:59:29.656 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 20:59:30.655 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 20:59:31.656 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 20:59:32.655 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 20:59:33.655 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 20:59:34.656 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 20:59:35.656 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 20:59:36.656 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 20:59:37.656 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 20:59:38.655 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 20:59:39.644 UTC [1] LOG C-0x7f3b3ad2f3c0: app/app_user@10.89.0.5:44416 login attempt: db=app user=app_user tls=no replication=no
+2026-09-09 20:59:39.646 UTC [1] LOG S-0x7f3b3acaa5b0: app/app_user@10.89.0.2:5432 new connection to server (from 10.89.0.3:51020)
+2026-09-09 20:59:39.650 UTC [1] LOG C-0x7f3b3ad2f3c0: app/app_user@10.89.0.5:44416 closing because: client close request (age=0s)
+2026-09-09 20:59:39.656 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 19 B/s, out 101 B/s, xact 437 us, query 437 us, wait 3447 us
+2026-09-09 20:59:40.656 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 20:59:41.655 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 20:59:42.655 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 20:59:43.655 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 20:59:44.655 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 20:59:45.655 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 20:59:46.655 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 20:59:47.656 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 20:59:48.656 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 20:59:49.655 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 20:59:50.656 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 20:59:51.656 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 20:59:52.656 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 20:59:53.655 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 20:59:54.655 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 20:59:55.655 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 20:59:56.655 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 20:59:57.655 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 20:59:58.655 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 20:59:59.655 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 21:00:00.655 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 21:00:01.656 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 21:00:02.655 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 21:00:03.656 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 21:00:04.656 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 21:00:05.655 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 21:00:06.656 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 21:00:07.655 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 21:00:08.656 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 21:00:09.655 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 21:00:10.656 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 21:00:11.656 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 21:00:12.656 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 21:00:13.656 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 21:00:14.655 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 21:00:15.655 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 21:00:16.655 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 21:00:17.655 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 21:00:18.655 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 21:00:19.655 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 21:00:20.655 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 21:00:21.655 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 21:00:22.655 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 21:00:23.655 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 21:00:24.655 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 21:00:25.655 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 21:00:26.655 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 21:00:27.655 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 21:00:28.656 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 21:00:29.655 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 21:00:30.655 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 21:00:31.656 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 21:00:32.656 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 21:00:32.832 UTC [1] LOG C-0x7f3b3ad2f3c0: app/readonly@10.89.0.6:38808 login attempt: db=app user=readonly tls=no replication=no
+2026-09-09 21:00:32.832 UTC [1] LOG C-0x7f3b3ad2f6a8: analytics/batch@10.89.0.6:38806 login attempt: db=analytics user=batch tls=no replication=no
+2026-09-09 21:00:32.832 UTC [1] LOG C-0x7f3b3ad2f990: billing/app_user@10.89.0.6:38826 login attempt: db=billing user=app_user tls=no replication=no
+2026-09-09 21:00:32.833 UTC [1] LOG S-0x7f3b3acaa898: analytics/batch@10.89.0.2:5432 new connection to server (from 10.89.0.3:57474)
+2026-09-09 21:00:32.833 UTC [1] LOG S-0x7f3b3acaab80: billing/app_user@10.89.0.2:5432 new connection to server (from 10.89.0.3:57480)
+2026-09-09 21:00:32.833 UTC [1] LOG S-0x7f3b3acaae68: app/readonly@10.89.0.2:5432 new connection to server (from 10.89.0.3:57494)
+2026-09-09 21:00:32.838 UTC [1] LOG C-0x7f3b3ad2f6a8: analytics/batch@10.89.0.6:38806 closing because: client close request (age=0s)
+2026-09-09 21:00:32.839 UTC [1] LOG C-0x7f3b3ad2f990: billing/app_user@10.89.0.6:38826 closing because: client close request (age=0s)
+2026-09-09 21:00:32.839 UTC [1] LOG C-0x7f3b3ad2f3c0: app/readonly@10.89.0.6:38808 closing because: client close request (age=0s)
+2026-09-09 21:00:33.236 UTC [1] LOG C-0x7f3b3ad2f3c0: analytics/batch@10.89.0.6:38832 login attempt: db=analytics user=batch tls=no replication=no
+2026-09-09 21:00:33.236 UTC [1] LOG C-0x7f3b3ad2f990: app/readonly@10.89.0.6:38830 login attempt: db=app user=readonly tls=no replication=no
+2026-09-09 21:00:33.236 UTC [1] LOG C-0x7f3b3ad2f6a8: app/app_user@10.89.0.6:38828 login attempt: db=app user=app_user tls=no replication=no
+2026-09-09 21:00:33.247 UTC [1] LOG C-0x7f3b3ad2f990: app/readonly@10.89.0.6:38830 closing because: client close request (age=0s)
+2026-09-09 21:00:33.247 UTC [1] LOG C-0x7f3b3ad2f6a8: app/app_user@10.89.0.6:38828 closing because: client close request (age=0s)
+2026-09-09 21:00:33.247 UTC [1] LOG C-0x7f3b3ad2f3c0: analytics/batch@10.89.0.6:38832 closing because: client close request (age=0s)
+2026-09-09 21:00:33.649 UTC [1] LOG C-0x7f3b3ad2f3c0: app/batch@10.89.0.6:38844 login attempt: db=app user=batch tls=no replication=no
+2026-09-09 21:00:33.649 UTC [1] LOG C-0x7f3b3ad2f6a8: billing/readonly@10.89.0.6:38848 login attempt: db=billing user=readonly tls=no replication=no
+2026-09-09 21:00:33.649 UTC [1] LOG C-0x7f3b3ad2f990: billing/app_user@10.89.0.6:38846 login attempt: db=billing user=app_user tls=no replication=no
+2026-09-09 21:00:33.650 UTC [1] LOG S-0x7f3b3acab150: app/batch@10.89.0.2:5432 new connection to server (from 10.89.0.3:57506)
+2026-09-09 21:00:33.650 UTC [1] LOG S-0x7f3b3acab438: billing/readonly@10.89.0.2:5432 new connection to server (from 10.89.0.3:57508)
+2026-09-09 21:00:33.656 UTC [1] LOG stats: 17 xacts/s, 44 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 1742 B/s, out 1641 B/s, xact 2384 us, query 944 us, wait 618 us
+2026-09-09 21:00:33.660 UTC [1] LOG C-0x7f3b3ad2f990: billing/app_user@10.89.0.6:38846 closing because: client close request (age=0s)
+2026-09-09 21:00:33.673 UTC [1] LOG C-0x7f3b3ad2f6a8: billing/readonly@10.89.0.6:38848 closing because: client close request (age=0s)
+2026-09-09 21:00:33.674 UTC [1] LOG C-0x7f3b3ad2f3c0: app/batch@10.89.0.6:38844 closing because: client close request (age=0s)
+2026-09-09 21:00:34.042 UTC [1] LOG C-0x7f3b3ad2f3c0: analytics/batch@10.89.0.6:38888 login attempt: db=analytics user=batch tls=no replication=no
+2026-09-09 21:00:34.042 UTC [1] LOG C-0x7f3b3ad2f6a8: app/app_user@10.89.0.6:38886 login attempt: db=app user=app_user tls=no replication=no
+2026-09-09 21:00:34.042 UTC [1] LOG C-0x7f3b3ad2f990: billing/readonly@10.89.0.6:38870 login attempt: db=billing user=readonly tls=no replication=no
+2026-09-09 21:00:34.054 UTC [1] LOG C-0x7f3b3ad2f990: billing/readonly@10.89.0.6:38870 closing because: client close request (age=0s)
+2026-09-09 21:00:34.054 UTC [1] LOG C-0x7f3b3ad2f6a8: app/app_user@10.89.0.6:38886 closing because: client close request (age=0s)
+2026-09-09 21:00:34.054 UTC [1] LOG C-0x7f3b3ad2f3c0: analytics/batch@10.89.0.6:38888 closing because: client close request (age=0s)
+2026-09-09 21:00:34.445 UTC [1] LOG C-0x7f3b3ad2f3c0: analytics/app_user@10.89.0.6:38902 login attempt: db=analytics user=app_user tls=no replication=no
+2026-09-09 21:00:34.445 UTC [1] LOG C-0x7f3b3ad2f6a8: billing/batch@10.89.0.6:38904 login attempt: db=billing user=batch tls=no replication=no
+2026-09-09 21:00:34.445 UTC [1] LOG C-0x7f3b3ad2f990: billing/readonly@10.89.0.6:38900 login attempt: db=billing user=readonly tls=no replication=no
+2026-09-09 21:00:34.447 UTC [1] LOG S-0x7f3b3acab720: analytics/app_user@10.89.0.2:5432 new connection to server (from 10.89.0.3:57514)
+2026-09-09 21:00:34.447 UTC [1] LOG S-0x7f3b3acaba08: billing/batch@10.89.0.2:5432 new connection to server (from 10.89.0.3:57518)
+2026-09-09 21:00:34.458 UTC [1] LOG C-0x7f3b3ad2f990: billing/readonly@10.89.0.6:38900 closing because: client close request (age=0s)
+2026-09-09 21:00:34.458 UTC [1] LOG C-0x7f3b3ad2f3c0: analytics/app_user@10.89.0.6:38902 closing because: client close request (age=0s)
+2026-09-09 21:00:34.458 UTC [1] LOG C-0x7f3b3ad2f6a8: billing/batch@10.89.0.6:38904 closing because: client close request (age=0s)
+2026-09-09 21:00:34.656 UTC [1] LOG stats: 12 xacts/s, 30 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 1160 B/s, out 1129 B/s, xact 8908 us, query 3425 us, wait 356 us
+2026-09-09 21:00:34.846 UTC [1] LOG C-0x7f3b3ad2f6a8: billing/app_user@10.89.0.6:38922 login attempt: db=billing user=app_user tls=no replication=no
+2026-09-09 21:00:34.846 UTC [1] LOG C-0x7f3b3ad2f3c0: billing/readonly@10.89.0.6:38934 login attempt: db=billing user=readonly tls=no replication=no
+2026-09-09 21:00:34.846 UTC [1] LOG C-0x7f3b3ad2f990: app/batch@10.89.0.6:38936 login attempt: db=app user=batch tls=no replication=no
+2026-09-09 21:00:34.857 UTC [1] LOG C-0x7f3b3ad2f3c0: billing/readonly@10.89.0.6:38934 closing because: client close request (age=0s)
+2026-09-09 21:00:34.870 UTC [1] LOG C-0x7f3b3ad2f990: app/batch@10.89.0.6:38936 closing because: client close request (age=0s)
+2026-09-09 21:00:34.870 UTC [1] LOG C-0x7f3b3ad2f6a8: billing/app_user@10.89.0.6:38922 closing because: client close request (age=0s)
+2026-09-09 21:00:35.251 UTC [1] LOG C-0x7f3b3ad2f6a8: billing/app_user@10.89.0.6:38958 login attempt: db=billing user=app_user tls=no replication=no
+2026-09-09 21:00:35.251 UTC [1] LOG C-0x7f3b3ad2f990: app/readonly@10.89.0.6:38956 login attempt: db=app user=readonly tls=no replication=no
+2026-09-09 21:00:35.251 UTC [1] LOG C-0x7f3b3ad2f3c0: app/batch@10.89.0.6:38954 login attempt: db=app user=batch tls=no replication=no
+2026-09-09 21:00:35.262 UTC [1] LOG C-0x7f3b3ad2f3c0: app/batch@10.89.0.6:38954 closing because: client close request (age=0s)
+2026-09-09 21:00:35.263 UTC [1] LOG C-0x7f3b3ad2f6a8: billing/app_user@10.89.0.6:38958 closing because: client close request (age=0s)
+2026-09-09 21:00:35.263 UTC [1] LOG C-0x7f3b3ad2f990: app/readonly@10.89.0.6:38956 closing because: client close request (age=0s)
+2026-09-09 21:00:35.654 UTC [1] LOG C-0x7f3b3ad2f990: billing/readonly@10.89.0.6:38990 login attempt: db=billing user=readonly tls=no replication=no
+2026-09-09 21:00:35.654 UTC [1] LOG C-0x7f3b3ad2f6a8: analytics/app_user@10.89.0.6:38984 login attempt: db=analytics user=app_user tls=no replication=no
+2026-09-09 21:00:35.654 UTC [1] LOG C-0x7f3b3ad2f3c0: billing/batch@10.89.0.6:38998 login attempt: db=billing user=batch tls=no replication=no
+2026-09-09 21:00:35.655 UTC [1] LOG stats: 13 xacts/s, 31 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 1214 B/s, out 1120 B/s, xact 6610 us, query 2716 us, wait 0 us
+2026-09-09 21:00:35.665 UTC [1] LOG C-0x7f3b3ad2f3c0: billing/batch@10.89.0.6:38998 closing because: client close request (age=0s)
+2026-09-09 21:00:35.666 UTC [1] LOG C-0x7f3b3ad2f6a8: analytics/app_user@10.89.0.6:38984 closing because: client close request (age=0s)
+2026-09-09 21:00:35.666 UTC [1] LOG C-0x7f3b3ad2f990: billing/readonly@10.89.0.6:38990 closing because: client close request (age=0s)
+2026-09-09 21:00:36.057 UTC [1] LOG C-0x7f3b3ad2f990: app/app_user@10.89.0.6:39006 login attempt: db=app user=app_user tls=no replication=no
+2026-09-09 21:00:36.058 UTC [1] LOG C-0x7f3b3ad2f6a8: billing/readonly@10.89.0.6:39020 login attempt: db=billing user=readonly tls=no replication=no
+2026-09-09 21:00:36.058 UTC [1] LOG C-0x7f3b3ad2f3c0: app/batch@10.89.0.6:39022 login attempt: db=app user=batch tls=no replication=no
+2026-09-09 21:00:36.069 UTC [1] LOG C-0x7f3b3ad2f6a8: billing/readonly@10.89.0.6:39020 closing because: client close request (age=0s)
+2026-09-09 21:00:36.070 UTC [1] LOG C-0x7f3b3ad2f990: app/app_user@10.89.0.6:39006 closing because: client close request (age=0s)
+2026-09-09 21:00:36.070 UTC [1] LOG C-0x7f3b3ad2f3c0: app/batch@10.89.0.6:39022 closing because: client close request (age=0s)
+2026-09-09 21:00:36.460 UTC [1] LOG C-0x7f3b3ad2f3c0: billing/readonly@10.89.0.6:39028 login attempt: db=billing user=readonly tls=no replication=no
+2026-09-09 21:00:36.460 UTC [1] LOG C-0x7f3b3ad2f990: app/app_user@10.89.0.6:39032 login attempt: db=app user=app_user tls=no replication=no
+2026-09-09 21:00:36.460 UTC [1] LOG C-0x7f3b3ad2f6a8: analytics/batch@10.89.0.6:39030 login attempt: db=analytics user=batch tls=no replication=no
+2026-09-09 21:00:36.471 UTC [1] LOG C-0x7f3b3ad2f990: app/app_user@10.89.0.6:39032 closing because: client close request (age=0s)
+2026-09-09 21:00:36.490 UTC [1] LOG C-0x7f3b3ad2f6a8: analytics/batch@10.89.0.6:39030 closing because: client close request (age=0s)
+2026-09-09 21:00:36.490 UTC [1] LOG C-0x7f3b3ad2f3c0: billing/readonly@10.89.0.6:39028 closing because: client close request (age=0s)
+2026-09-09 21:00:36.655 UTC [1] LOG stats: 16 xacts/s, 43 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 1690 B/s, out 1457 B/s, xact 7456 us, query 2828 us, wait 0 us
+2026-09-09 21:00:36.863 UTC [1] LOG C-0x7f3b3ad2f3c0: analytics/readonly@10.89.0.6:39056 login attempt: db=analytics user=readonly tls=no replication=no
+2026-09-09 21:00:36.863 UTC [1] LOG C-0x7f3b3ad2f6a8: app/app_user@10.89.0.6:39044 login attempt: db=app user=app_user tls=no replication=no
+2026-09-09 21:00:36.863 UTC [1] LOG C-0x7f3b3ad2f990: billing/batch@10.89.0.6:39054 login attempt: db=billing user=batch tls=no replication=no
+2026-09-09 21:00:36.865 UTC [1] LOG S-0x7f3b3acabcf0: analytics/readonly@10.89.0.2:5432 new connection to server (from 10.89.0.3:57530)
+2026-09-09 21:00:36.867 UTC [1] LOG C-0x7f3b3ad2f990: billing/batch@10.89.0.6:39054 closing because: client close request (age=0s)
+2026-09-09 21:00:36.879 UTC [1] LOG C-0x7f3b3ad2f6a8: app/app_user@10.89.0.6:39044 closing because: client close request (age=0s)
+2026-09-09 21:00:36.879 UTC [1] LOG C-0x7f3b3ad2f3c0: analytics/readonly@10.89.0.6:39056 closing because: client close request (age=0s)
+2026-09-09 21:00:37.266 UTC [1] LOG C-0x7f3b3ad2f3c0: app/batch@10.89.0.6:39070 login attempt: db=app user=batch tls=no replication=no
+2026-09-09 21:00:37.267 UTC [1] LOG C-0x7f3b3ad2f6a8: app/readonly@10.89.0.6:39074 login attempt: db=app user=readonly tls=no replication=no
+2026-09-09 21:00:37.267 UTC [1] LOG C-0x7f3b3ad2f990: app/app_user@10.89.0.6:39072 login attempt: db=app user=app_user tls=no replication=no
+2026-09-09 21:00:37.270 UTC [1] LOG C-0x7f3b3ad2f990: app/app_user@10.89.0.6:39072 closing because: client close request (age=0s)
+2026-09-09 21:00:37.290 UTC [1] LOG C-0x7f3b3ad2f3c0: app/batch@10.89.0.6:39070 closing because: client close request (age=0s)
+2026-09-09 21:00:37.290 UTC [1] LOG C-0x7f3b3ad2f6a8: app/readonly@10.89.0.6:39074 closing because: client close request (age=0s)
+2026-09-09 21:00:37.655 UTC [1] LOG stats: 11 xacts/s, 29 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 1165 B/s, out 1069 B/s, xact 6168 us, query 2408 us, wait 168 us
+2026-09-09 21:00:37.670 UTC [1] LOG C-0x7f3b3ad2f6a8: app/app_user@10.89.0.6:39094 login attempt: db=app user=app_user tls=no replication=no
+2026-09-09 21:00:37.671 UTC [1] LOG C-0x7f3b3ad2f6a8: app/app_user@10.89.0.6:39094 closing because: password authentication failed (age=0s)
+2026-09-09 21:00:37.671 UTC [1] WARNING C-0x7f3b3ad2f6a8: app/app_user@10.89.0.6:39094 pooler error: password authentication failed
+2026-09-09 21:00:37.691 UTC [1] LOG C-0x7f3b3ad2f6a8: billing/batch@10.89.0.6:39100 login attempt: db=billing user=batch tls=no replication=no
+2026-09-09 21:00:37.692 UTC [1] LOG C-0x7f3b3ad2f6a8: billing/batch@10.89.0.6:39100 closing because: password authentication failed (age=0s)
+2026-09-09 21:00:37.692 UTC [1] WARNING C-0x7f3b3ad2f6a8: billing/batch@10.89.0.6:39100 pooler error: password authentication failed
+2026-09-09 21:00:38.016 UTC [1] LOG C-0x7f3b3ad2f6a8: app/app_user@10.89.0.6:39116 login attempt: db=app user=app_user tls=no replication=no
+2026-09-09 21:00:38.017 UTC [1] LOG C-0x7f3b3ad2f6a8: app/app_user@10.89.0.6:39116 closing because: password authentication failed (age=0s)
+2026-09-09 21:00:38.017 UTC [1] WARNING C-0x7f3b3ad2f6a8: app/app_user@10.89.0.6:39116 pooler error: password authentication failed
+2026-09-09 21:00:38.038 UTC [1] LOG C-0x7f3b3ad2f6a8: billing/batch@10.89.0.6:39126 login attempt: db=billing user=batch tls=no replication=no
+2026-09-09 21:00:38.039 UTC [1] LOG C-0x7f3b3ad2f6a8: billing/batch@10.89.0.6:39126 closing because: password authentication failed (age=0s)
+2026-09-09 21:00:38.039 UTC [1] WARNING C-0x7f3b3ad2f6a8: billing/batch@10.89.0.6:39126 pooler error: password authentication failed
+2026-09-09 21:00:38.374 UTC [1] LOG C-0x7f3b3ad2f6a8: app/app_user@10.89.0.6:39132 login attempt: db=app user=app_user tls=no replication=no
+2026-09-09 21:00:38.376 UTC [1] LOG C-0x7f3b3ad2f6a8: app/app_user@10.89.0.6:39132 closing because: password authentication failed (age=0s)
+2026-09-09 21:00:38.376 UTC [1] WARNING C-0x7f3b3ad2f6a8: app/app_user@10.89.0.6:39132 pooler error: password authentication failed
+2026-09-09 21:00:38.395 UTC [1] LOG C-0x7f3b3ad2f6a8: billing/batch@10.89.0.6:39148 login attempt: db=billing user=batch tls=no replication=no
+2026-09-09 21:00:38.396 UTC [1] LOG C-0x7f3b3ad2f6a8: billing/batch@10.89.0.6:39148 closing because: password authentication failed (age=0s)
+2026-09-09 21:00:38.396 UTC [1] WARNING C-0x7f3b3ad2f6a8: billing/batch@10.89.0.6:39148 pooler error: password authentication failed
+2026-09-09 21:00:38.656 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 21:00:38.731 UTC [1] LOG C-0x7f3b3ad2f6a8: app/app_user@10.89.0.6:39154 login attempt: db=app user=app_user tls=no replication=no
+2026-09-09 21:00:38.733 UTC [1] LOG C-0x7f3b3ad2f6a8: app/app_user@10.89.0.6:39154 closing because: password authentication failed (age=0s)
+2026-09-09 21:00:38.733 UTC [1] WARNING C-0x7f3b3ad2f6a8: app/app_user@10.89.0.6:39154 pooler error: password authentication failed
+2026-09-09 21:00:38.752 UTC [1] LOG C-0x7f3b3ad2f6a8: billing/batch@10.89.0.6:39168 login attempt: db=billing user=batch tls=no replication=no
+2026-09-09 21:00:38.753 UTC [1] LOG C-0x7f3b3ad2f6a8: billing/batch@10.89.0.6:39168 closing because: password authentication failed (age=0s)
+2026-09-09 21:00:38.753 UTC [1] WARNING C-0x7f3b3ad2f6a8: billing/batch@10.89.0.6:39168 pooler error: password authentication failed
+2026-09-09 21:00:39.077 UTC [1] LOG C-0x7f3b3ad2f6a8: app/app_user@10.89.0.6:39180 login attempt: db=app user=app_user tls=no replication=no
+2026-09-09 21:00:39.079 UTC [1] LOG C-0x7f3b3ad2f6a8: app/app_user@10.89.0.6:39180 closing because: password authentication failed (age=0s)
+2026-09-09 21:00:39.079 UTC [1] WARNING C-0x7f3b3ad2f6a8: app/app_user@10.89.0.6:39180 pooler error: password authentication failed
+2026-09-09 21:00:39.099 UTC [1] LOG C-0x7f3b3ad2f6a8: billing/batch@10.89.0.6:39182 login attempt: db=billing user=batch tls=no replication=no
+2026-09-09 21:00:39.100 UTC [1] LOG C-0x7f3b3ad2f6a8: billing/batch@10.89.0.6:39182 closing because: password authentication failed (age=0s)
+2026-09-09 21:00:39.100 UTC [1] WARNING C-0x7f3b3ad2f6a8: billing/batch@10.89.0.6:39182 pooler error: password authentication failed
+2026-09-09 21:00:39.436 UTC [1] LOG C-0x7f3b3ad2f6a8: app/app_user@10.89.0.6:39184 login attempt: db=app user=app_user tls=no replication=no
+2026-09-09 21:00:39.437 UTC [1] LOG C-0x7f3b3ad2f6a8: app/app_user@10.89.0.6:39184 closing because: password authentication failed (age=0s)
+2026-09-09 21:00:39.437 UTC [1] WARNING C-0x7f3b3ad2f6a8: app/app_user@10.89.0.6:39184 pooler error: password authentication failed
+2026-09-09 21:00:39.456 UTC [1] LOG C-0x7f3b3ad2f6a8: billing/batch@10.89.0.6:39192 login attempt: db=billing user=batch tls=no replication=no
+2026-09-09 21:00:39.457 UTC [1] LOG C-0x7f3b3ad2f6a8: billing/batch@10.89.0.6:39192 closing because: password authentication failed (age=0s)
+2026-09-09 21:00:39.457 UTC [1] WARNING C-0x7f3b3ad2f6a8: billing/batch@10.89.0.6:39192 pooler error: password authentication failed
+2026-09-09 21:00:39.655 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 21:00:39.793 UTC [1] LOG C-0x7f3b3ad2f6a8: (nodb)/(nouser)@10.89.0.6:51510 no such user: ghost
+2026-09-09 21:00:39.793 UTC [1] LOG C-0x7f3b3ad2f6a8: (nodb)/ghost@10.89.0.6:51510 login attempt: db=app user=ghost tls=no replication=no
+2026-09-09 21:00:39.794 UTC [1] LOG C-0x7f3b3ad2f6a8: (nodb)/ghost@10.89.0.6:51510 closing because: password authentication failed (age=0s)
+2026-09-09 21:00:39.794 UTC [1] WARNING C-0x7f3b3ad2f6a8: (nodb)/ghost@10.89.0.6:51510 pooler error: password authentication failed
+2026-09-09 21:00:39.909 UTC [1] LOG C-0x7f3b3ad2f6a8: analytics/batch@10.89.0.6:51518 login attempt: db=analytics user=batch tls=no replication=no
+2026-09-09 21:00:39.916 UTC [1] LOG C-0x7f3b3ad2f3c0: analytics/batch@10.89.0.6:51532 login attempt: db=analytics user=batch tls=no replication=no
+2026-09-09 21:00:39.917 UTC [1] LOG C-0x7f3b3ad2f990: analytics/batch@10.89.0.6:51548 login attempt: db=analytics user=batch tls=no replication=no
+2026-09-09 21:00:39.922 UTC [1] LOG S-0x7f3b3acabfd8: analytics/batch@10.89.0.2:5432 new connection to server (from 10.89.0.3:35168)
+2026-09-09 21:00:39.923 UTC [1] LOG C-0x7f3b3ad2fc78: analytics/batch@10.89.0.6:51558 login attempt: db=analytics user=batch tls=no replication=no
+2026-09-09 21:00:39.932 UTC [1] LOG C-0x7f3b3ad2ff60: analytics/batch@10.89.0.6:51566 login attempt: db=analytics user=batch tls=no replication=no
+2026-09-09 21:00:39.937 UTC [1] LOG C-0x7f3b3ad30248: analytics/batch@10.89.0.6:51576 login attempt: db=analytics user=batch tls=no replication=no
+2026-09-09 21:00:39.950 UTC [1] LOG C-0x7f3b3ad30530: analytics/batch@10.89.0.6:51590 login attempt: db=analytics user=batch tls=no replication=no
+2026-09-09 21:00:39.951 UTC [1] LOG C-0x7f3b3ad30b00: app/app_user@10.89.0.6:51620 login attempt: db=app user=app_user tls=no replication=no
+2026-09-09 21:00:39.951 UTC [1] LOG C-0x7f3b3ad30818: analytics/batch@10.89.0.6:51606 login attempt: db=analytics user=batch tls=no replication=no
+2026-09-09 21:00:39.952 UTC [1] LOG C-0x7f3b3ad310d0: analytics/batch@10.89.0.6:51644 login attempt: db=analytics user=batch tls=no replication=no
+2026-09-09 21:00:39.954 UTC [1] LOG C-0x7f3b3ad313b8: app/app_user@10.89.0.6:51656 login attempt: db=app user=app_user tls=no replication=no
+2026-09-09 21:00:39.958 UTC [1] LOG S-0x7f3b3acac2c0: app/app_user@10.89.0.2:5432 new connection to server (from 10.89.0.3:35172)
+2026-09-09 21:00:39.958 UTC [1] LOG C-0x7f3b3ad31988: app/app_user@10.89.0.6:51692 login attempt: db=app user=app_user tls=no replication=no
+2026-09-09 21:00:39.958 UTC [1] LOG C-0x7f3b3ad31f58: analytics/batch@10.89.0.6:51708 login attempt: db=analytics user=batch tls=no replication=no
+2026-09-09 21:00:39.959 UTC [1] LOG C-0x7f3b3ad30de8: analytics/batch@10.89.0.6:51632 login attempt: db=analytics user=batch tls=no replication=no
+2026-09-09 21:00:39.960 UTC [1] LOG C-0x7f3b3ad316a0: analytics/batch@10.89.0.6:51664 login attempt: db=analytics user=batch tls=no replication=no
+2026-09-09 21:00:39.960 UTC [1] LOG C-0x7f3b3ad31c70: analytics/batch@10.89.0.6:51676 login attempt: db=analytics user=batch tls=no replication=no
+2026-09-09 21:00:39.961 UTC [1] LOG C-0x7f3b3ad32240: analytics/batch@10.89.0.6:51724 login attempt: db=analytics user=batch tls=no replication=no
+2026-09-09 21:00:39.961 UTC [1] LOG C-0x7f3b3ad32528: analytics/batch@10.89.0.6:51732 login attempt: db=analytics user=batch tls=no replication=no
+2026-09-09 21:00:39.962 UTC [1] LOG C-0x7f3b3ad32810: analytics/batch@10.89.0.6:51744 login attempt: db=analytics user=batch tls=no replication=no
+2026-09-09 21:00:39.965 UTC [1] LOG C-0x7f3b3ad32de0: analytics/batch@10.89.0.6:51762 login attempt: db=analytics user=batch tls=no replication=no
+2026-09-09 21:00:39.965 UTC [1] LOG C-0x7f3b3ad330c8: analytics/batch@10.89.0.6:51776 login attempt: db=analytics user=batch tls=no replication=no
+2026-09-09 21:00:39.965 UTC [1] LOG C-0x7f3b3ad333b0: app/app_user@10.89.0.6:51788 login attempt: db=app user=app_user tls=no replication=no
+2026-09-09 21:00:39.967 UTC [1] LOG C-0x7f3b3ad33698: app/app_user@10.89.0.6:51798 login attempt: db=app user=app_user tls=no replication=no
+2026-09-09 21:00:39.967 UTC [1] LOG C-0x7f3b3ad32af8: app/app_user@10.89.0.6:51754 login attempt: db=app user=app_user tls=no replication=no
+2026-09-09 21:00:39.970 UTC [1] LOG C-0x7f3b3ad33980: analytics/batch@10.89.0.6:51814 login attempt: db=analytics user=batch tls=no replication=no
+2026-09-09 21:00:39.972 UTC [1] LOG C-0x7f3b3ad33c68: analytics/batch@10.89.0.6:51820 login attempt: db=analytics user=batch tls=no replication=no
+2026-09-09 21:00:39.972 UTC [1] LOG C-0x7f3b3ad33f50: analytics/batch@10.89.0.6:51828 login attempt: db=analytics user=batch tls=no replication=no
+2026-09-09 21:00:39.980 UTC [1] LOG C-0x7f3b3ad34238: app/app_user@10.89.0.6:51844 login attempt: db=app user=app_user tls=no replication=no
+2026-09-09 21:00:39.980 UTC [1] LOG C-0x7f3b3ad34808: app/app_user@10.89.0.6:51856 login attempt: db=app user=app_user tls=no replication=no
+2026-09-09 21:00:39.980 UTC [1] LOG C-0x7f3b3ad34af0: analytics/batch@10.89.0.6:51862 login attempt: db=analytics user=batch tls=no replication=no
+2026-09-09 21:00:39.982 UTC [1] LOG C-0x7f3b3ad34520: analytics/batch@10.89.0.6:51846 login attempt: db=analytics user=batch tls=no replication=no
+2026-09-09 21:00:39.982 UTC [1] LOG C-0x7f3b3ad34dd8: analytics/batch@10.89.0.6:51864 login attempt: db=analytics user=batch tls=no replication=no
+2026-09-09 21:00:39.982 UTC [1] LOG C-0x7f3b3ad350c0: app/app_user@10.89.0.6:51872 login attempt: db=app user=app_user tls=no replication=no
+2026-09-09 21:00:39.987 UTC [1] LOG C-0x7f3b3ad353a8: app/app_user@10.89.0.6:51880 login attempt: db=app user=app_user tls=no replication=no
+2026-09-09 21:00:39.988 UTC [1] LOG C-0x7f3b3ad35978: analytics/batch@10.89.0.6:51884 login attempt: db=analytics user=batch tls=no replication=no
+2026-09-09 21:00:39.988 UTC [1] LOG C-0x7f3b3ad35690: app/app_user@10.89.0.6:51882 login attempt: db=app user=app_user tls=no replication=no
+2026-09-09 21:00:39.988 UTC [1] LOG C-0x7f3b3ad35c60: app/app_user@10.89.0.6:51890 login attempt: db=app user=app_user tls=no replication=no
+2026-09-09 21:00:39.988 UTC [1] LOG C-0x7f3b3ad35f48: analytics/batch@10.89.0.6:51888 login attempt: db=analytics user=batch tls=no replication=no
+2026-09-09 21:00:39.988 UTC [1] LOG C-0x7f3b3ad36230: analytics/batch@10.89.0.6:51906 login attempt: db=analytics user=batch tls=no replication=no
+2026-09-09 21:00:39.990 UTC [1] LOG C-0x7f3b3ad36518: analytics/batch@10.89.0.6:51916 login attempt: db=analytics user=batch tls=no replication=no
+2026-09-09 21:00:39.995 UTC [1] LOG C-0x7f3b3ad36800: app/app_user@10.89.0.6:51932 login attempt: db=app user=app_user tls=no replication=no
+2026-09-09 21:00:39.995 UTC [1] LOG C-0x7f3b3ad36ae8: app/app_user@10.89.0.6:51934 login attempt: db=app user=app_user tls=no replication=no
+2026-09-09 21:00:39.995 UTC [1] LOG C-0x7f3b3ad36dd0: app/app_user@10.89.0.6:51944 login attempt: db=app user=app_user tls=no replication=no
+2026-09-09 21:00:40.656 UTC [1] LOG stats: 42 xacts/s, 48 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 237 B/s, out 420 B/s, xact 0 us, query 472 us, wait 3423 us
+2026-09-09 21:00:40.765 UTC [1] LOG C-0x7f3b3ad313b8: app/app_user@10.89.0.6:51656 closing because: client close request (age=0s)
+2026-09-09 21:00:40.772 UTC [1] LOG C-0x7f3b3ad30b00: app/app_user@10.89.0.6:51620 closing because: client close request (age=0s)
+2026-09-09 21:00:41.150 UTC [1] LOG C-0x7f3b3ad2f6a8: analytics/batch@10.89.0.6:51518 closing because: client close request (age=1s)
+2026-09-09 21:00:41.151 UTC [1] LOG C-0x7f3b3ad2f990: analytics/batch@10.89.0.6:51548 closing because: client close request (age=1s)
+2026-09-09 21:00:41.569 UTC [1] LOG C-0x7f3b3ad31988: app/app_user@10.89.0.6:51692 closing because: client close request (age=1s)
+2026-09-09 21:00:41.574 UTC [1] LOG C-0x7f3b3ad32af8: app/app_user@10.89.0.6:51754 closing because: client close request (age=1s)
+2026-09-09 21:00:41.656 UTC [1] LOG stats: 0 xacts/s, 20 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 631 B/s, out 1128 B/s, xact 0 us, query 643919 us, wait 1206525 us
+2026-09-09 21:00:42.365 UTC [1] LOG C-0x7f3b3ad2f3c0: analytics/batch@10.89.0.6:51532 closing because: client close request (age=2s)
+2026-09-09 21:00:42.374 UTC [1] LOG C-0x7f3b3ad333b0: app/app_user@10.89.0.6:51788 closing because: client close request (age=2s)
+2026-09-09 21:00:42.377 UTC [1] LOG C-0x7f3b3ad30248: analytics/batch@10.89.0.6:51576 closing because: client close request (age=2s)
+2026-09-09 21:00:42.377 UTC [1] LOG C-0x7f3b3ad33698: app/app_user@10.89.0.6:51798 closing because: client close request (age=2s)
+2026-09-09 21:00:42.656 UTC [1] LOG stats: 0 xacts/s, 13 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 462 B/s, out 795 B/s, xact 0 us, query 977751 us, wait 2410599 us
+2026-09-09 21:00:42.986 UTC [1] WARNING C-0x7f3b3ad310d0: analytics/batch@10.89.0.6:51644 taking connection from reserve_pool
+2026-09-09 21:00:42.986 UTC [1] LOG S-0x7f3b3acac5a8: analytics/batch@10.89.0.2:5432 new connection to server (from 10.89.0.3:35188)
+2026-09-09 21:00:42.988 UTC [1] WARNING C-0x7f3b3ad350c0: app/app_user@10.89.0.6:51872 taking connection from reserve_pool
+2026-09-09 21:00:42.989 UTC [1] LOG S-0x7f3b3acac890: app/app_user@10.89.0.2:5432 new connection to server (from 10.89.0.3:35196)
+2026-09-09 21:00:43.178 UTC [1] LOG C-0x7f3b3ad34238: app/app_user@10.89.0.6:51844 closing because: client close request (age=3s)
+2026-09-09 21:00:43.181 UTC [1] LOG C-0x7f3b3ad34808: app/app_user@10.89.0.6:51856 closing because: client close request (age=3s)
+2026-09-09 21:00:43.581 UTC [1] LOG C-0x7f3b3ad2ff60: analytics/batch@10.89.0.6:51566 closing because: client close request (age=3s)
+2026-09-09 21:00:43.589 UTC [1] LOG C-0x7f3b3ad2fc78: analytics/batch@10.89.0.6:51558 closing because: client close request (age=3s)
+2026-09-09 21:00:43.656 UTC [1] LOG stats: 0 xacts/s, 16 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 579 B/s, out 1029 B/s, xact 0 us, query 1394646 us, wait 3279134 us
+2026-09-09 21:00:43.801 UTC [1] LOG C-0x7f3b3ad350c0: app/app_user@10.89.0.6:51872 closing because: client close request (age=3s)
+2026-09-09 21:00:43.984 UTC [1] LOG C-0x7f3b3ad353a8: app/app_user@10.89.0.6:51880 closing because: client close request (age=4s)
+2026-09-09 21:00:43.986 UTC [1] LOG C-0x7f3b3ad35690: app/app_user@10.89.0.6:51882 closing because: client close request (age=3s)
+2026-09-09 21:00:44.210 UTC [1] LOG C-0x7f3b3ad310d0: analytics/batch@10.89.0.6:51644 closing because: client close request (age=4s)
+2026-09-09 21:00:44.606 UTC [1] LOG C-0x7f3b3ad35c60: app/app_user@10.89.0.6:51890 closing because: client close request (age=4s)
+2026-09-09 21:00:44.655 UTC [1] LOG stats: 0 xacts/s, 16 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 484 B/s, out 896 B/s, xact 0 us, query 1567212 us, wait 4128589 us
+2026-09-09 21:00:44.789 UTC [1] LOG C-0x7f3b3ad36dd0: app/app_user@10.89.0.6:51944 closing because: client close request (age=4s)
+2026-09-09 21:00:44.791 UTC [1] LOG C-0x7f3b3ad36ae8: app/app_user@10.89.0.6:51934 closing because: client close request (age=4s)
+2026-09-09 21:00:44.795 UTC [1] LOG C-0x7f3b3ad30818: analytics/batch@10.89.0.6:51606 closing because: client close request (age=4s)
+2026-09-09 21:00:44.797 UTC [1] LOG C-0x7f3b3ad30530: analytics/batch@10.89.0.6:51590 closing because: client close request (age=4s)
+2026-09-09 21:00:45.411 UTC [1] LOG C-0x7f3b3ad36800: app/app_user@10.89.0.6:51932 closing because: client close request (age=5s)
+2026-09-09 21:00:45.425 UTC [1] LOG C-0x7f3b3ad31f58: analytics/batch@10.89.0.6:51708 closing because: client close request (age=5s)
+2026-09-09 21:00:45.656 UTC [1] LOG stats: 0 xacts/s, 17 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 584 B/s, out 1142 B/s, xact 0 us, query 1176019 us, wait 5040996 us
+2026-09-09 21:00:46.011 UTC [1] LOG C-0x7f3b3ad31c70: analytics/batch@10.89.0.6:51676 closing because: client close request (age=6s)
+2026-09-09 21:00:46.011 UTC [1] LOG C-0x7f3b3ad316a0: analytics/batch@10.89.0.6:51664 closing because: client close request (age=6s)
+2026-09-09 21:00:46.642 UTC [1] LOG C-0x7f3b3ad32240: analytics/batch@10.89.0.6:51724 closing because: client close request (age=6s)
+2026-09-09 21:00:46.655 UTC [1] LOG stats: 0 xacts/s, 12 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 443 B/s, out 696 B/s, xact 0 us, query 1867023 us, wait 6254043 us
+2026-09-09 21:00:47.226 UTC [1] LOG C-0x7f3b3ad32810: analytics/batch@10.89.0.6:51744 closing because: client close request (age=7s)
+2026-09-09 21:00:47.234 UTC [1] LOG C-0x7f3b3ad330c8: analytics/batch@10.89.0.6:51776 closing because: client close request (age=7s)
+2026-09-09 21:00:47.656 UTC [1] LOG stats: 0 xacts/s, 7 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 294 B/s, out 463 B/s, xact 0 us, query 2119227 us, wait 7259314 us
+2026-09-09 21:00:47.858 UTC [1] LOG C-0x7f3b3ad32de0: analytics/batch@10.89.0.6:51762 closing because: client close request (age=7s)
+2026-09-09 21:00:48.441 UTC [1] LOG C-0x7f3b3ad32528: analytics/batch@10.89.0.6:51732 closing because: client close request (age=8s)
+2026-09-09 21:00:48.443 UTC [1] LOG C-0x7f3b3ad33980: analytics/batch@10.89.0.6:51814 closing because: client close request (age=8s)
+2026-09-09 21:00:48.656 UTC [1] LOG stats: 0 xacts/s, 12 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 444 B/s, out 696 B/s, xact 0 us, query 2370590 us, wait 8270613 us
+2026-09-09 21:00:49.073 UTC [1] LOG C-0x7f3b3ad33f50: analytics/batch@10.89.0.6:51828 closing because: client close request (age=9s)
+2026-09-09 21:00:49.656 UTC [1] LOG stats: 0 xacts/s, 8 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 291 B/s, out 420 B/s, xact 0 us, query 1590062 us, wait 9381629 us
+2026-09-09 21:00:49.656 UTC [1] LOG C-0x7f3b3ad30de8: analytics/batch@10.89.0.6:51632 closing because: client close request (age=9s)
+2026-09-09 21:00:49.675 UTC [1] LOG C-0x7f3b3ad33c68: analytics/batch@10.89.0.6:51820 closing because: client close request (age=9s)
+2026-09-09 21:00:50.290 UTC [1] LOG C-0x7f3b3ad34af0: analytics/batch@10.89.0.6:51862 closing because: client close request (age=10s)
+2026-09-09 21:00:50.655 UTC [1] LOG stats: 0 xacts/s, 8 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 300 B/s, out 508 B/s, xact 0 us, query 3863304 us, wait 9995063 us
+2026-09-09 21:00:50.872 UTC [1] LOG C-0x7f3b3ad34520: analytics/batch@10.89.0.6:51846 closing because: client close request (age=10s)
+2026-09-09 21:00:50.882 UTC [1] LOG C-0x7f3b3ad34dd8: analytics/batch@10.89.0.6:51864 closing because: client close request (age=10s)
+2026-09-09 21:00:51.505 UTC [1] LOG C-0x7f3b3ad36230: analytics/batch@10.89.0.6:51906 closing because: client close request (age=11s)
+2026-09-09 21:00:51.656 UTC [1] LOG stats: 0 xacts/s, 11 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 443 B/s, out 695 B/s, xact 0 us, query 3075816 us, wait 11091050 us
+2026-09-09 21:00:52.086 UTC [1] LOG C-0x7f3b3ad35978: analytics/batch@10.89.0.6:51884 closing because: client close request (age=12s)
+2026-09-09 21:00:52.091 UTC [1] LOG C-0x7f3b3ad35f48: analytics/batch@10.89.0.6:51888 closing because: client close request (age=12s)
+2026-09-09 21:00:52.656 UTC [1] LOG stats: 0 xacts/s, 4 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 131 B/s, out 206 B/s, xact 0 us, query 604256 us, wait 0 us
+2026-09-09 21:00:52.722 UTC [1] LOG C-0x7f3b3ad36518: analytics/batch@10.89.0.6:51916 closing because: client close request (age=12s)
+2026-09-09 21:00:52.749 UTC [1] LOG C-0x7f3b3ad36518: billing/app_user@10.89.0.6:49782 login attempt: db=billing user=app_user tls=no replication=no
+2026-09-09 21:00:52.751 UTC [1] LOG C-0x7f3b3ad36518: billing/app_user@10.89.0.6:49782 closing because: client close request (age=0s)
+2026-09-09 21:00:52.901 UTC [1] LOG C-0x7f3b3ad36518: app/app_user@10.89.0.6:49794 login attempt: db=app user=app_user tls=no replication=no
+2026-09-09 21:00:52.902 UTC [1] LOG C-0x7f3b3ad36518: app/app_user@10.89.0.6:49794 closing because: client close request (age=0s)
+2026-09-09 21:00:53.065 UTC [1] LOG C-0x7f3b3ad36518: analytics/app_user@10.89.0.6:49796 login attempt: db=analytics user=app_user tls=no replication=no
+2026-09-09 21:00:53.066 UTC [1] LOG C-0x7f3b3ad36518: analytics/app_user@10.89.0.6:49796 closing because: client close request (age=0s)
+2026-09-09 21:00:53.217 UTC [1] LOG C-0x7f3b3ad36518: billing/app_user@10.89.0.6:49812 login attempt: db=billing user=app_user tls=no replication=no
+2026-09-09 21:00:53.219 UTC [1] LOG C-0x7f3b3ad36518: billing/app_user@10.89.0.6:49812 closing because: client close request (age=0s)
+2026-09-09 21:00:53.366 UTC [1] LOG C-0x7f3b3ad36518: analytics/app_user@10.89.0.6:49828 login attempt: db=analytics user=app_user tls=no replication=no
+2026-09-09 21:00:53.367 UTC [1] LOG C-0x7f3b3ad36518: analytics/app_user@10.89.0.6:49828 closing because: client close request (age=0s)
+2026-09-09 21:00:53.523 UTC [1] LOG C-0x7f3b3ad36518: app/app_user@10.89.0.6:49838 login attempt: db=app user=app_user tls=no replication=no
+2026-09-09 21:00:53.524 UTC [1] LOG C-0x7f3b3ad36518: app/app_user@10.89.0.6:49838 closing because: client close request (age=0s)
+2026-09-09 21:00:53.656 UTC [1] LOG stats: 5 xacts/s, 7 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 173 B/s, out 893 B/s, xact 2121374 us, query 151831 us, wait 0 us
+2026-09-09 21:00:53.676 UTC [1] LOG C-0x7f3b3ad36518: app/app_user@10.89.0.6:49842 login attempt: db=app user=app_user tls=no replication=no
+2026-09-09 21:00:53.677 UTC [1] LOG C-0x7f3b3ad36518: app/app_user@10.89.0.6:49842 closing because: client close request (age=0s)
+2026-09-09 21:00:53.827 UTC [1] LOG C-0x7f3b3ad36518: billing/app_user@10.89.0.6:49852 login attempt: db=billing user=app_user tls=no replication=no
+2026-09-09 21:00:53.829 UTC [1] LOG C-0x7f3b3ad36518: billing/app_user@10.89.0.6:49852 closing because: client close request (age=0s)
+2026-09-09 21:00:53.970 UTC [1] LOG C-0x7f3b3ad36518: app/app_user@10.89.0.6:49864 login attempt: db=app user=app_user tls=no replication=no
+2026-09-09 21:00:53.972 UTC [1] LOG C-0x7f3b3ad36518: app/app_user@10.89.0.6:49864 closing because: client close request (age=0s)
+2026-09-09 21:00:54.122 UTC [1] LOG C-0x7f3b3ad36518: app/app_user@10.89.0.6:49876 login attempt: db=app user=app_user tls=no replication=no
+2026-09-09 21:00:54.124 UTC [1] LOG C-0x7f3b3ad36518: app/app_user@10.89.0.6:49876 closing because: client close request (age=0s)
+2026-09-09 21:00:54.286 UTC [1] LOG C-0x7f3b3ad36518: billing/app_user@10.89.0.6:49890 login attempt: db=billing user=app_user tls=no replication=no
+2026-09-09 21:00:54.288 UTC [1] LOG C-0x7f3b3ad36518: billing/app_user@10.89.0.6:49890 closing because: client close request (age=0s)
+2026-09-09 21:00:54.428 UTC [1] LOG C-0x7f3b3ad36518: analytics/app_user@10.89.0.6:49904 login attempt: db=analytics user=app_user tls=no replication=no
+2026-09-09 21:00:54.430 UTC [1] LOG C-0x7f3b3ad36518: analytics/app_user@10.89.0.6:49904 closing because: client close request (age=0s)
+2026-09-09 21:00:54.592 UTC [1] LOG C-0x7f3b3ad36518: app/app_user@10.89.0.6:49912 login attempt: db=app user=app_user tls=no replication=no
+2026-09-09 21:00:54.594 UTC [1] LOG C-0x7f3b3ad36518: app/app_user@10.89.0.6:49912 closing because: client close request (age=0s)
+2026-09-09 21:00:54.656 UTC [1] LOG stats: 6 xacts/s, 6 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 125 B/s, out 879 B/s, xact 387 us, query 387 us, wait 0 us
+2026-09-09 21:00:54.744 UTC [1] LOG C-0x7f3b3ad36518: analytics/app_user@10.89.0.6:49928 login attempt: db=analytics user=app_user tls=no replication=no
+2026-09-09 21:00:54.746 UTC [1] LOG C-0x7f3b3ad36518: analytics/app_user@10.89.0.6:49928 closing because: client close request (age=0s)
+2026-09-09 21:00:54.897 UTC [1] LOG C-0x7f3b3ad36518: analytics/app_user@10.89.0.6:49936 login attempt: db=analytics user=app_user tls=no replication=no
+2026-09-09 21:00:54.899 UTC [1] LOG C-0x7f3b3ad36518: analytics/app_user@10.89.0.6:49936 closing because: client close request (age=0s)
+2026-09-09 21:00:55.049 UTC [1] LOG C-0x7f3b3ad36518: app/app_user@10.89.0.6:49942 login attempt: db=app user=app_user tls=no replication=no
+2026-09-09 21:00:55.051 UTC [1] LOG C-0x7f3b3ad36518: app/app_user@10.89.0.6:49942 closing because: client close request (age=0s)
+2026-09-09 21:00:55.202 UTC [1] LOG C-0x7f3b3ad36518: app/app_user@10.89.0.6:49954 login attempt: db=app user=app_user tls=no replication=no
+2026-09-09 21:00:55.204 UTC [1] LOG C-0x7f3b3ad36518: app/app_user@10.89.0.6:49954 closing because: client close request (age=0s)
+2026-09-09 21:00:55.354 UTC [1] LOG C-0x7f3b3ad36518: analytics/app_user@10.89.0.6:49966 login attempt: db=analytics user=app_user tls=no replication=no
+2026-09-09 21:00:55.356 UTC [1] LOG C-0x7f3b3ad36518: analytics/app_user@10.89.0.6:49966 closing because: client close request (age=0s)
+2026-09-09 21:00:55.508 UTC [1] LOG C-0x7f3b3ad36518: billing/app_user@10.89.0.6:49972 login attempt: db=billing user=app_user tls=no replication=no
+2026-09-09 21:00:55.510 UTC [1] LOG C-0x7f3b3ad36518: billing/app_user@10.89.0.6:49972 closing because: client close request (age=0s)
+2026-09-09 21:00:55.655 UTC [1] LOG stats: 6 xacts/s, 6 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 108 B/s, out 750 B/s, xact 332 us, query 332 us, wait 0 us
+2026-09-09 21:00:55.660 UTC [1] LOG C-0x7f3b3ad36518: billing/app_user@10.89.0.6:49984 login attempt: db=billing user=app_user tls=no replication=no
+2026-09-09 21:00:55.662 UTC [1] LOG C-0x7f3b3ad36518: billing/app_user@10.89.0.6:49984 closing because: client close request (age=0s)
+2026-09-09 21:00:55.805 UTC [1] LOG C-0x7f3b3ad36518: analytics/readonly@10.89.0.6:49994 login attempt: db=analytics user=readonly tls=no replication=no
+2026-09-09 21:00:55.807 UTC [1] LOG C-0x7f3b3ad36518: analytics/readonly@10.89.0.6:49994 closing because: client close request (age=0s)
+2026-09-09 21:00:56.655 UTC [1] LOG stats: 1 xacts/s, 1 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 52 B/s, out 244 B/s, xact 649 us, query 649 us, wait 0 us
+2026-09-09 21:00:56.829 UTC [1] LOG C-0x7f3b3ad36518: analytics/readonly@10.89.0.6:50002 login attempt: db=analytics user=readonly tls=no replication=no
+2026-09-09 21:00:56.831 UTC [1] LOG C-0x7f3b3ad36518: analytics/readonly@10.89.0.6:50002 closing because: client close request (age=0s)
+2026-09-09 21:00:57.656 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 34 B/s, out 69 B/s, xact 620 us, query 620 us, wait 0 us
+2026-09-09 21:00:57.855 UTC [1] LOG C-0x7f3b3ad36518: analytics/readonly@10.89.0.6:50012 login attempt: db=analytics user=readonly tls=no replication=no
+2026-09-09 21:00:57.858 UTC [1] LOG C-0x7f3b3ad36518: analytics/readonly@10.89.0.6:50012 closing because: client close request (age=0s)
+2026-09-09 21:00:58.654 UTC [1] LOG stats: 1 xacts/s, 1 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 35 B/s, out 70 B/s, xact 981 us, query 981 us, wait 0 us
+2026-09-09 21:00:58.882 UTC [1] LOG C-0x7f3b3ad36518: analytics/readonly@10.89.0.6:50016 login attempt: db=analytics user=readonly tls=no replication=no
+2026-09-09 21:00:58.885 UTC [1] LOG C-0x7f3b3ad36518: analytics/readonly@10.89.0.6:50016 closing because: client close request (age=0s)
+2026-09-09 21:00:59.655 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 34 B/s, out 69 B/s, xact 1065 us, query 1065 us, wait 0 us
+2026-09-09 21:00:59.909 UTC [1] LOG C-0x7f3b3ad36518: analytics/readonly@10.89.0.6:54840 login attempt: db=analytics user=readonly tls=no replication=no
+2026-09-09 21:00:59.911 UTC [1] LOG C-0x7f3b3ad36518: analytics/readonly@10.89.0.6:54840 closing because: client close request (age=0s)
+2026-09-09 21:01:00.656 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 34 B/s, out 69 B/s, xact 1125 us, query 1125 us, wait 0 us
+2026-09-09 21:01:00.934 UTC [1] LOG C-0x7f3b3ad36518: analytics/readonly@10.89.0.6:54850 login attempt: db=analytics user=readonly tls=no replication=no
+2026-09-09 21:01:00.936 UTC [1] LOG C-0x7f3b3ad36518: analytics/readonly@10.89.0.6:54850 closing because: client close request (age=0s)
+2026-09-09 21:01:01.654 UTC [1] LOG stats: 1 xacts/s, 1 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 35 B/s, out 70 B/s, xact 709 us, query 709 us, wait 0 us
+2026-09-09 21:01:01.960 UTC [1] LOG C-0x7f3b3ad36518: analytics/readonly@10.89.0.6:54864 login attempt: db=analytics user=readonly tls=no replication=no
+2026-09-09 21:01:01.962 UTC [1] LOG C-0x7f3b3ad36518: analytics/readonly@10.89.0.6:54864 closing because: client close request (age=0s)
+2026-09-09 21:01:02.654 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 34 B/s, out 69 B/s, xact 749 us, query 749 us, wait 0 us
+2026-09-09 21:01:02.986 UTC [1] LOG C-0x7f3b3ad36518: analytics/readonly@10.89.0.6:54872 login attempt: db=analytics user=readonly tls=no replication=no
+2026-09-09 21:01:02.988 UTC [1] LOG C-0x7f3b3ad36518: analytics/readonly@10.89.0.6:54872 closing because: client close request (age=0s)
+2026-09-09 21:01:03.655 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 34 B/s, out 69 B/s, xact 722 us, query 722 us, wait 0 us
+2026-09-09 21:01:04.011 UTC [1] LOG C-0x7f3b3ad36518: analytics/readonly@10.89.0.6:54880 login attempt: db=analytics user=readonly tls=no replication=no
+2026-09-09 21:01:04.013 UTC [1] LOG C-0x7f3b3ad36518: analytics/readonly@10.89.0.6:54880 closing because: client close request (age=0s)
+2026-09-09 21:01:04.655 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 34 B/s, out 69 B/s, xact 767 us, query 767 us, wait 0 us
+2026-09-09 21:01:05.049 UTC [1] LOG C-0x7f3b3ad36518: analytics/readonly@10.89.0.6:54892 login attempt: db=analytics user=readonly tls=no replication=no
+2026-09-09 21:01:05.051 UTC [1] LOG C-0x7f3b3ad36518: analytics/readonly@10.89.0.6:54892 closing because: client close request (age=0s)
+2026-09-09 21:01:05.655 UTC [1] LOG stats: 1 xacts/s, 1 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 35 B/s, out 70 B/s, xact 625 us, query 625 us, wait 0 us
+2026-09-09 21:01:06.075 UTC [1] LOG C-0x7f3b3ad36518: analytics/readonly@10.89.0.6:54898 login attempt: db=analytics user=readonly tls=no replication=no
+2026-09-09 21:01:06.077 UTC [1] LOG C-0x7f3b3ad36518: analytics/readonly@10.89.0.6:54898 closing because: client close request (age=0s)
+2026-09-09 21:01:06.655 UTC [1] LOG stats: 1 xacts/s, 1 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 35 B/s, out 70 B/s, xact 914 us, query 914 us, wait 0 us
+2026-09-09 21:01:07.101 UTC [1] LOG C-0x7f3b3ad36518: analytics/readonly@10.89.0.6:54900 login attempt: db=analytics user=readonly tls=no replication=no
+2026-09-09 21:01:07.104 UTC [1] LOG C-0x7f3b3ad36518: analytics/readonly@10.89.0.6:54900 closing because: client close request (age=0s)
+2026-09-09 21:01:07.654 UTC [1] LOG stats: 1 xacts/s, 1 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 35 B/s, out 70 B/s, xact 790 us, query 790 us, wait 0 us
+2026-09-09 21:01:08.129 UTC [1] LOG C-0x7f3b3ad36518: analytics/readonly@10.89.0.6:54912 login attempt: db=analytics user=readonly tls=no replication=no
+2026-09-09 21:01:08.131 UTC [1] LOG C-0x7f3b3ad36518: analytics/readonly@10.89.0.6:54912 closing because: client close request (age=0s)
+2026-09-09 21:01:08.656 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 34 B/s, out 69 B/s, xact 730 us, query 730 us, wait 0 us
+2026-09-09 21:01:09.154 UTC [1] LOG C-0x7f3b3ad36518: analytics/readonly@10.89.0.6:54914 login attempt: db=analytics user=readonly tls=no replication=no
+2026-09-09 21:01:09.156 UTC [1] LOG C-0x7f3b3ad36518: analytics/readonly@10.89.0.6:54914 closing because: client close request (age=0s)
+2026-09-09 21:01:09.654 UTC [1] LOG stats: 1 xacts/s, 1 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 35 B/s, out 70 B/s, xact 784 us, query 784 us, wait 0 us
+2026-09-09 21:01:10.181 UTC [1] LOG C-0x7f3b3ad36518: analytics/readonly@10.89.0.6:53376 login attempt: db=analytics user=readonly tls=no replication=no
+2026-09-09 21:01:10.182 UTC [1] LOG C-0x7f3b3ad36518: analytics/readonly@10.89.0.6:53376 closing because: client close request (age=0s)
+2026-09-09 21:01:10.656 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 34 B/s, out 69 B/s, xact 621 us, query 621 us, wait 0 us
+2026-09-09 21:01:11.656 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 21:01:12.656 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 21:01:13.655 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 21:01:14.656 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 21:01:15.655 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 21:01:16.655 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 21:01:17.654 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 21:01:18.655 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 21:01:19.656 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 21:01:20.656 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 21:01:21.655 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 21:01:22.654 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 21:01:23.656 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
