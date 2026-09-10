@@ -180,28 +180,26 @@ export function buildPgBouncerSection(data) {
                         ${chartLegend([['transaction', 'var(--accent)'], ['query', 'var(--purple)'], ['wait', 'var(--danger)']])}
                     </div>
                 ` : ''}
-                ${hasSessions ? `
-                    ${sessionHistogram(p.session_distribution, p.sessions)}
-                    <div class="subsection">
-                        <div class="subsection-title">Sessions by</div>
-                        ${dimTabs([
+                ${(hasSessions || hasConns) ? `
+                    <div class="grid grid-2" style="margin-top:0.5rem;">
+                        <div>${hasSessions ? `<div class="subsection-title">Sessions by</div>${dimTabs([
                             { label: 'Database', map: p.sessions_per_database },
                             { label: 'User', map: p.sessions_per_user },
                             { label: 'Host', map: p.sessions_per_host },
-                        ], p.sessions)}
-                    </div>
-                ` : ''}
-                ${hasConns ? `
-                    <div class="subsection">
-                        <div class="subsection-title">Connections by</div>
-                        ${dimTabs([
+                        ], p.sessions)}` : ''}</div>
+                        <div>${hasConns ? `<div class="subsection-title">Connections by</div>${dimTabs([
                             { label: 'Database', map: p.connections_per_database },
                             { label: 'User', map: p.connections_per_user },
                             { label: 'Host', map: p.connections_per_host },
-                        ], p.login_attempts)}
+                        ], p.login_attempts)}` : ''}</div>
                     </div>
                 ` : ''}
-                ${hasErrors ? `<div style="margin-top:0.5rem;">${errorsTable(p.errors, p.total_errors)}</div>` : ''}
+                ${(hasSessions || hasErrors) ? `
+                    <div class="grid grid-2" style="margin-top:0.5rem;">
+                        <div>${hasSessions ? sessionHistogram(p.session_distribution, p.sessions) : ''}</div>
+                        <div>${hasErrors ? errorsTable(p.errors, p.total_errors) : ''}</div>
+                    </div>
+                ` : ''}
             </div>
         </div>
     `;
