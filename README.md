@@ -25,6 +25,7 @@ SUMMARY
 ## Features
 
 - **Multi-format** -- stderr, CSV, JSON, syslog + cloud providers (AWS RDS, Cloud SQL, Azure, CNPG)
+- **pgBouncer** -- auto-detects connection-pooler logs and renders a dedicated pooler report
 - **Archives** -- gzip, zstd, tar, zip, 7z decompressed on the fly
 - **SQL analysis** -- per-query performance, execution plans (auto_explain), TCL separation
 - **Events & errors** -- per-pattern drill-down via stable IDs (`fa-XXXX`, `er-XXXX`), SQLSTATE class grouping, occurrences-over-time chart

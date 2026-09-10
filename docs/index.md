@@ -9,6 +9,7 @@ A high-performance PostgreSQL log analyzer. Processes gigabytes of logs in secon
 
 - **Fast** — high throughput, streaming architecture, bounded memory
 - **Multi-format** — stderr, CSV, JSON, syslog + cloud providers (RDS, Cloud SQL, Azure, CNPG)
+- **pgBouncer** — auto-detects connection-pooler logs and renders a dedicated pooler report
 - **Archives** — gzip, zstd, tar, zip, 7z — decompressed on the fly
 - **Filtering** — by time range, database, user, application
 - **Interactive HTML** — standalone reports with charts, filtering, query drill-down

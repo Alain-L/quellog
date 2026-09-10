@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **pgBouncer log support**: quellog now auto-detects [pgBouncer](https://www.pgbouncer.org/) connection-pooler logs and renders a dedicated pooler report in every output (text, Markdown, JSON, and a self-contained HTML report with interactive charts). It surfaces request throughput and network I/O, transaction/query/wait timing at microsecond resolution, client connections and completed sessions with a session-time histogram, per-database/user/host breakdowns, reserve-pool activations, and a ranked error list. The PostgreSQL and pgBouncer reports never mix: the format is chosen from the log content, and the SQL-specific flags do not apply to pgBouncer logs.
 - **Anti-wraparound autovacuums are counted separately**: the Maintenance section now breaks out the forced anti-wraparound freezes (logged "to prevent wraparound") as their own count under the aggressive-vacuum total — the real transaction-ID-exhaustion warning sign, previously indistinguishable within the aggressive count. Shown in the text, Markdown, JSON (`anti_wraparound_vacuum_count`) and HTML report.
 
 ### Changed

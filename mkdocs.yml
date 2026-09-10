@@ -73,6 +73,7 @@ nav:
       - Log Formats: formats.md
       - Report Sections: default-report.md
       - SQL Analysis: sql-reports.md
+      - pgBouncer Reports: pgbouncer.md
       - Filtering: filtering.md
       - Export Formats: exports.md
       - HTML Report: html-report.md
