@@ -153,10 +153,11 @@ func runAnalysisCycle(ctx context.Context, args []string) error {
 		return renderPgBouncerStandalone(*pgb, startTime, calculateTotalFileSize(pgbFiles), args)
 	}
 
-	// Combined HTML/split reports are not wired through the web app yet;
-	// fail loud rather than dropping the pgBouncer data silently.
-	if pgb != nil && (htmlFlag || splitFlag != "") {
-		return fmt.Errorf("combined PostgreSQL + pgBouncer report is not available for HTML yet; use --json or --md, or analyze the pgBouncer logs separately")
+	// --split partitions PostgreSQL logs by time into per-period reports;
+	// it has no meaning for pgBouncer telemetry. Reject the combination
+	// rather than silently dropping the pgBouncer data.
+	if pgb != nil && splitFlag != "" {
+		return fmt.Errorf("--split is not supported with pgBouncer logs; analyze the pgBouncer logs separately")
 	}
 
 	// Calculate total file size for throughput reporting (PostgreSQL track).
@@ -742,7 +743,7 @@ func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry
 			Version:     version,
 		}
 
-		if err := output.ExportHTML(w, metrics, reportInfo, sections); err != nil {
+		if err := output.ExportHTMLCombined(w, metrics, pgb, reportInfo, sections, false); err != nil {
 			return fmt.Errorf("failed to write HTML report: %w", err)
 		}
 
@@ -931,7 +932,7 @@ func renderMultipleFormats(metrics analysis.AggregatedMetrics, pgb *analysis.PgB
 			Version:     version,
 		}
 		if err := write("html", func(w io.Writer) error {
-			return output.ExportHTML(w, metrics, reportInfo, sections)
+			return output.ExportHTMLCombined(w, metrics, pgb, reportInfo, sections, false)
 		}); err != nil {
 			return err
 		}

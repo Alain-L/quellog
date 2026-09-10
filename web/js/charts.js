@@ -1612,6 +1612,8 @@ export function renderModalChart() {
             interval: modalInterval,
             height: 500
         });
+    } else if (data?.type === 'pgb-series') {
+        modalChart = createPgBouncerSeriesChart('modal-chart-container', data, { height: 500 });
     } else {
         modalChart = createTimeChartLarge(container, data, {
             color: null,
@@ -1640,7 +1642,81 @@ export function renderModalChart() {
         'combined-tempfiles': `<span>${dot('var(--chart-bar)')}Count</span><span>${dot('var(--accent)')}Size</span><span>${dash('var(--text-muted)')}Median</span>`,
     };
     const defaultLegend = `<span>${dot('var(--chart-bar)')}Connections</span><span>${dash('var(--text-muted)')}Median</span>`;
+    // pgBouncer series charts draw uPlot's own legend; no external one.
+    if (data?.type === 'pgb-series') { legendEl.innerHTML = ''; return; }
     legendEl.innerHTML = legends[data?.type] || defaultLegend;
+}
+
+// resolvePgbColor turns a "var(--x)" token into a concrete color, since
+// the canvas cannot resolve CSS custom properties in stroke/fill.
+function resolvePgbColor(c) {
+    const m = /^var\((--[\w-]+)\)$/.exec(c || '');
+    if (!m) return c;
+    return getComputedStyle(document.documentElement).getPropertyValue(m[1]).trim() || '#888';
+}
+
+// createPgBouncerSeriesChart draws a multi-series line chart from a spec
+// { t: [unixSecs], values: [{key:val,…}], series: [{label,key,color,fmt}], fmt }.
+// Used both inline (buildAllCharts) and in the expand modal. Unlike the
+// bar builders it plots sampled values directly (no binning), so the
+// interval control is hidden by its container.
+export function createPgBouncerSeriesChart(containerId, spec, options = {}) {
+    const container = document.getElementById(containerId);
+    if (!container || !spec || !spec.t || spec.t.length === 0) return null;
+    clearPreviousChart(containerId, container);
+
+    const height = options.height || 200;
+    const textCol = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim() || '#888';
+    const gridCol = 'rgba(128,128,128,0.15)';
+
+    const fmtFns = {
+        bytes: (v) => {
+            if (v == null) return '';
+            const u = ['B', 'kB', 'MB', 'GB']; let i = 0;
+            while (v >= 1024 && i < u.length - 1) { v /= 1024; i++; }
+            return (i === 0 ? v : v.toFixed(1)) + ' ' + u[i] + '/s';
+        },
+        micros: (v) => {
+            if (v == null) return '';
+            if (v < 1000) return Math.round(v) + ' µs';
+            if (v < 1e6) return (v / 1000).toFixed(1) + ' ms';
+            return (v / 1e6).toFixed(2) + ' s';
+        },
+    };
+    const yfmt = fmtFns[spec.fmt];
+
+    const udata = [spec.t, ...spec.series.map(s => spec.values.map(v => v[s.key] ?? 0))];
+    const useries = [{}, ...spec.series.map(s => ({
+        label: s.label,
+        stroke: resolvePgbColor(s.color),
+        width: 2,
+        points: { show: false },
+        value: fmtFns[s.fmt] ? (u, val) => fmtFns[s.fmt](val) : undefined,
+    }))];
+
+    const opts = {
+        width: container.clientWidth || 400,
+        height,
+        cursor: { drag: { x: true, y: false, setScale: true }, focus: { prox: 16 } },
+        legend: { show: true },
+        scales: { x: { time: true }, y: { range: [0, null] } },
+        axes: [
+            { stroke: textCol, grid: { stroke: gridCol }, ticks: { stroke: gridCol }, font: '10px system-ui' },
+            {
+                stroke: textCol, grid: { stroke: gridCol }, ticks: { stroke: gridCol }, size: 60, font: '10px system-ui',
+                values: yfmt ? (u, splits) => splits.map(yfmt) : undefined,
+            },
+        ],
+        series: useries,
+    };
+
+    const chart = new uPlot(opts, udata, container);
+    chart._originalXRange = [spec.t[0], spec.t[spec.t.length - 1]];
+    const ro = new ResizeObserver(() => chart.setSize({ width: container.clientWidth || 400, height }));
+    ro.observe(container);
+    chart._ro = ro;
+    charts.set(containerId, chart);
+    return chart;
 }
 
 // Cost map (uPlot port): log-log scatter of queries (count × avg duration).

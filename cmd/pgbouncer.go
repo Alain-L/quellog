@@ -60,6 +60,42 @@ func renderPgBouncerStandalone(m analysis.PgBouncerMetrics, startTime time.Time,
 		return fmt.Errorf("no pgBouncer log entries could be parsed: check that files are readable and in pgBouncer log format")
 	}
 
+	// HTML goes through the shared web app in pgBouncer-only mode: an
+	// empty PostgreSQL payload plus the pgbouncer key, with the app
+	// suppressing the empty PostgreSQL sections. This keeps the standalone
+	// pooler report visually identical to the PostgreSQL report.
+	if htmlFlag {
+		outputName := outputFlag
+		if outputName == "" {
+			outputName = generateHTMLFilename(inputArgs)
+		}
+		w, closer, err := createOutputWriter(outputName)
+		if err != nil {
+			return err
+		}
+		reportInfo := output.HTMLReportInfo{
+			Filename:    generateInputDescription(inputArgs),
+			FileSize:    totalFileSize,
+			ProcessTime: float64(processingDuration.Milliseconds()),
+			Format:      "pgbouncer",
+			Version:     version,
+		}
+		if err := output.ExportHTMLCombined(w, analysis.AggregatedMetrics{}, &m, reportInfo, []string{"all"}, true); err != nil {
+			closer()
+			return fmt.Errorf("failed to write HTML report: %w", err)
+		}
+		if err := closer(); err != nil {
+			return err
+		}
+		if !followFlag {
+			fmt.Printf("Report saved to %s\n", outputName)
+		}
+		if openFlag {
+			openInBrowser(outputName)
+		}
+		return nil
+	}
+
 	w, closer, err := createOutputWriter(outputFlag)
 	if err != nil {
 		return err
@@ -71,17 +107,6 @@ func renderPgBouncerStandalone(m analysis.PgBouncerMetrics, startTime time.Time,
 		output.ExportPgBouncerJSON(w, m, jsonCompactFlag)
 	case mdFlag:
 		output.ExportPgBouncerMarkdown(w, m)
-	case htmlFlag:
-		reportInfo := output.HTMLReportInfo{
-			Filename:    generateInputDescription(inputArgs),
-			FileSize:    totalFileSize,
-			ProcessTime: float64(processingDuration.Milliseconds()),
-			Format:      "pgbouncer",
-			Version:     version,
-		}
-		if err := output.ExportPgBouncerHTML(w, m, reportInfo); err != nil {
-			return err
-		}
 	default:
 		PrintProcessingSummary(m.Lines, processingDuration, totalFileSize)
 		output.PrintPgBouncer(m)
