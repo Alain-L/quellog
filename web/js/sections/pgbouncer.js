@@ -73,8 +73,6 @@ function errorsTable(m, total) {
     const rows = Object.entries(m).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 10);
     if (rows.length === 0) return '';
     return `
-        <div class="subsection">
-            <div class="subsection-title">Most frequent errors</div>
             <div class="table-container" style="max-height: 220px;">
                 <table>
                     <thead><tr>
@@ -93,15 +91,15 @@ function errorsTable(m, total) {
                     </tbody>
                 </table>
             </div>
-        </div>
     `;
 }
 
 // sessionHistogram renders the fixed-bucket session-time distribution
-// using the same bar-list markup, in bucket order.
+// using the same bar-list markup, in bucket order (title handled by the
+// caller so it aligns with the other grouped subsection titles).
 function sessionHistogram(dist, total) {
     if (!dist) return '';
-    return barList('Session time', SESSION_BUCKETS.map(b => [b, dist[b] || 0]), total, true);
+    return barList('', SESSION_BUCKETS.map(b => [b, dist[b] || 0]), total, true);
 }
 
 export function buildPgBouncerSection(data) {
@@ -181,23 +179,27 @@ export function buildPgBouncerSection(data) {
                     </div>
                 ` : ''}
                 ${(hasSessions || hasConns) ? `
-                    <div class="grid grid-2" style="margin-top:0.5rem;">
-                        <div>${hasSessions ? `<div class="subsection-title">Sessions by</div>${dimTabs([
-                            { label: 'Database', map: p.sessions_per_database },
-                            { label: 'User', map: p.sessions_per_user },
-                            { label: 'Host', map: p.sessions_per_host },
-                        ], p.sessions)}` : ''}</div>
-                        <div>${hasConns ? `<div class="subsection-title">Connections by</div>${dimTabs([
-                            { label: 'Database', map: p.connections_per_database },
-                            { label: 'User', map: p.connections_per_user },
-                            { label: 'Host', map: p.connections_per_host },
-                        ], p.login_attempts)}` : ''}</div>
+                    <div class="subsection">
+                        <div class="grid grid-2">
+                            <div>${hasSessions ? `<div class="subsection-title" style="margin-top:0">Sessions by</div>${dimTabs([
+                                { label: 'Database', map: p.sessions_per_database },
+                                { label: 'User', map: p.sessions_per_user },
+                                { label: 'Host', map: p.sessions_per_host },
+                            ], p.sessions)}` : ''}</div>
+                            <div>${hasConns ? `<div class="subsection-title" style="margin-top:0">Connections by</div>${dimTabs([
+                                { label: 'Database', map: p.connections_per_database },
+                                { label: 'User', map: p.connections_per_user },
+                                { label: 'Host', map: p.connections_per_host },
+                            ], p.login_attempts)}` : ''}</div>
+                        </div>
                     </div>
                 ` : ''}
                 ${(hasSessions || hasErrors) ? `
-                    <div class="grid grid-2" style="margin-top:0.5rem;">
-                        <div>${hasSessions ? sessionHistogram(p.session_distribution, p.sessions) : ''}</div>
-                        <div>${hasErrors ? errorsTable(p.errors, p.total_errors) : ''}</div>
+                    <div class="subsection">
+                        <div class="grid grid-2">
+                            <div>${hasSessions ? `<div class="subsection-title" style="margin-top:0">Session Time</div>${sessionHistogram(p.session_distribution, p.sessions)}` : ''}</div>
+                            <div>${hasErrors ? `<div class="subsection-title" style="margin-top:0">Most Frequent Errors</div>${errorsTable(p.errors, p.total_errors)}` : ''}</div>
+                        </div>
                     </div>
                 ` : ''}
             </div>
