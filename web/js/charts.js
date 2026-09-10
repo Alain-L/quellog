@@ -1655,64 +1655,90 @@ function resolvePgbColor(c) {
     return getComputedStyle(document.documentElement).getPropertyValue(m[1]).trim() || '#888';
 }
 
+// pgbValueFmt formats a y value for the pgBouncer series charts by unit.
+function pgbValueFmt(kind) {
+    if (kind === 'bytes') return (v) => {
+        if (v == null) return '';
+        const u = ['B', 'kB', 'MB', 'GB']; let i = 0;
+        while (v >= 1024 && i < u.length - 1) { v /= 1024; i++; }
+        return (i === 0 ? Math.round(v) : v.toFixed(1)) + ' ' + u[i] + '/s';
+    };
+    if (kind === 'micros') return (v) => {
+        if (v == null) return '';
+        if (v < 1000) return Math.round(v) + ' µs';
+        if (v < 1e6) return (v / 1000).toFixed(1) + ' ms';
+        return (v / 1e6).toFixed(2) + ' s';
+    };
+    return (v) => (v == null ? '' : String(v));
+}
+
+// pgbTooltipPlugin is a multi-series variant of tooltipPlugin styled with
+// the same .chart-tooltip class: one row per series at the cursor index.
+function pgbTooltipPlugin(spec, valFmt) {
+    let tip = null;
+    return {
+        hooks: {
+            init: u => { tip = document.createElement('div'); tip.className = 'chart-tooltip'; tip.style.display = 'none'; u.over.appendChild(tip); },
+            setCursor: u => {
+                const { idx } = u.cursor;
+                const xs = u.data[0];
+                if (idx == null || !xs || idx < 0 || idx >= xs.length || !Number.isFinite(xs[idx])) { tip.style.display = 'none'; return; }
+                const d = new Date(xs[idx] * 1000);
+                const timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+                let rows = `<div style="font-weight:600;margin-bottom:2px;">${timeStr}</div>`;
+                spec.series.forEach((s, si) => {
+                    const y = u.data[si + 1][idx];
+                    const col = resolvePgbColor(s.color);
+                    rows += `<div><span style="display:inline-block;width:8px;height:8px;background:${col};border-radius:2px;margin-right:5px;"></span>${s.label}: ${valFmt(y)}</div>`;
+                });
+                tip.innerHTML = rows;
+                tip.style.display = 'block';
+                tip.style.left = Math.min(u.valToPos(xs[idx], 'x'), u.over.clientWidth - 120) + 'px';
+                tip.style.top = '4px';
+            }
+        }
+    };
+}
+
 // createPgBouncerSeriesChart draws a multi-series line chart from a spec
-// { t: [unixSecs], values: [{key:val,…}], series: [{label,key,color,fmt}], fmt }.
-// Used both inline (buildAllCharts) and in the expand modal. Unlike the
-// bar builders it plots sampled values directly (no binning), so the
-// interval control is hidden by its container.
+// { t: [unixSecs], values: [{key:val,…}], series: [{label,key,color}], fmt }.
+// Styled to match quellog's other time charts (WAL distance in
+// particular): faint grid, no ticks, hidden native legend (the section
+// renders an external dotted legend), shared .chart-tooltip. Used both
+// inline (buildAllCharts) and in the expand modal; plots sampled values
+// directly (no binning), so its container hides the interval control.
 export function createPgBouncerSeriesChart(containerId, spec, options = {}) {
     const container = document.getElementById(containerId);
     if (!container || !spec || !spec.t || spec.t.length === 0) return null;
     clearPreviousChart(containerId, container);
 
     const height = options.height || 200;
-    const textCol = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim() || '#888';
-    const gridCol = 'rgba(128,128,128,0.15)';
-
-    const fmtFns = {
-        bytes: (v) => {
-            if (v == null) return '';
-            const u = ['B', 'kB', 'MB', 'GB']; let i = 0;
-            while (v >= 1024 && i < u.length - 1) { v /= 1024; i++; }
-            return (i === 0 ? v : v.toFixed(1)) + ' ' + u[i] + '/s';
-        },
-        micros: (v) => {
-            if (v == null) return '';
-            if (v < 1000) return Math.round(v) + ' µs';
-            if (v < 1e6) return (v / 1000).toFixed(1) + ' ms';
-            return (v / 1e6).toFixed(2) + ' s';
-        },
-    };
-    const yfmt = fmtFns[spec.fmt];
-
+    const valFmt = pgbValueFmt(spec.fmt);
     const udata = [spec.t, ...spec.series.map(s => spec.values.map(v => v[s.key] ?? 0))];
     const useries = [{}, ...spec.series.map(s => ({
         label: s.label,
         stroke: resolvePgbColor(s.color),
         width: 2,
         points: { show: false },
-        value: fmtFns[s.fmt] ? (u, val) => fmtFns[s.fmt](val) : undefined,
     }))];
 
     const opts = {
-        width: container.clientWidth || 400,
+        width: container.clientWidth || 300,
         height,
-        cursor: { drag: { x: true, y: false, setScale: true }, focus: { prox: 16 } },
-        legend: { show: true },
-        scales: { x: { time: true }, y: { range: [0, null] } },
+        cursor: { drag: { x: true, y: false, setScale: true }, bind: { dblclick: () => null } },
+        legend: { show: false },
+        scales: { x: { time: true }, y: { range: (u, min, max) => [0, (max || 1) * 1.1] } },
         axes: [
-            { stroke: textCol, grid: { stroke: gridCol }, ticks: { stroke: gridCol }, font: '10px system-ui' },
-            {
-                stroke: textCol, grid: { stroke: gridCol }, ticks: { stroke: gridCol }, size: 60, font: '10px system-ui',
-                values: yfmt ? (u, splits) => splits.map(yfmt) : undefined,
-            },
+            { stroke: '#888', grid: { stroke: '#8881' }, ticks: { show: false }, gap: 2, size: timeAxisSize, values: timeAxisValues },
+            { stroke: '#888', grid: { stroke: '#8881' }, ticks: { show: false }, gap: 2, size: 52, values: (u, vals) => vals.map(valFmt) },
         ],
         series: useries,
+        plugins: [pgbTooltipPlugin(spec, valFmt)],
     };
 
     const chart = new uPlot(opts, udata, container);
     chart._originalXRange = [spec.t[0], spec.t[spec.t.length - 1]];
-    const ro = new ResizeObserver(() => chart.setSize({ width: container.clientWidth || 400, height }));
+    const ro = new ResizeObserver(() => chart.setSize({ width: container.clientWidth || 300, height }));
     ro.observe(container);
     chart._ro = ro;
     charts.set(containerId, chart);

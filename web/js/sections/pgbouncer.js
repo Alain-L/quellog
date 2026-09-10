@@ -9,6 +9,15 @@ import { chartData, buildChartContainer } from '../charts.js';
 
 const SESSION_BUCKETS = ['< 1s', '1s - 1min', '1min - 30min', '30min - 2h', '2h - 5h', '> 5h'];
 
+// chartLegend renders an external dotted legend below a chart, matching
+// the Temp Files / Connections legend style (uPlot's own legend is hidden).
+function chartLegend(items) {
+    const dot = (c) => `<span style="display:inline-block;width:12px;height:12px;background:${c};border-radius:2px;vertical-align:middle;margin-right:4px;"></span>`;
+    return `<div class="chart-legend" style="display:flex;gap:16px;justify-content:center;margin-top:4px;font-size:12px;">`
+        + items.map(([label, c]) => `<span>${dot(c)}${label}</span>`).join('')
+        + `</div>`;
+}
+
 // breakdownTable renders a top-10 name/count/% table.
 function breakdownTable(title, m, total) {
     if (!m) return '';
@@ -119,10 +128,19 @@ export function buildPgBouncerSection(data) {
                 </div>
                 ${hasStats ? `
                     <div class="grid grid-2" style="margin-top:0.5rem;">
-                        <div>${buildChartContainer('chart-pgb-throughput', 'Request Throughput', { tooltip: 'Transactions and queries per second, sampled from pgBouncer stats lines.', showBucketControl: false })}</div>
-                        <div>${buildChartContainer('chart-pgb-io', 'Network I/O', { tooltip: 'Bytes received and sent per second.', showBucketControl: false })}</div>
+                        <div>
+                            ${buildChartContainer('chart-pgb-throughput', 'Request Throughput', { tooltip: 'Transactions and queries per second, sampled from pgBouncer stats lines.', showBucketControl: false })}
+                            ${chartLegend([['xacts/s', 'var(--accent)'], ['queries/s', 'var(--purple)']])}
+                        </div>
+                        <div>
+                            ${buildChartContainer('chart-pgb-io', 'Network I/O', { tooltip: 'Bytes received and sent per second.', showBucketControl: false })}
+                            ${chartLegend([['in', 'var(--accent)'], ['out', 'var(--success)']])}
+                        </div>
                     </div>
-                    <div style="margin-top:0.5rem;">${buildChartContainer('chart-pgb-timing', 'Transaction / Query / Wait Time', { tooltip: 'Average transaction, query, and pool-wait time (microsecond resolution).', showBucketControl: false })}</div>
+                    <div style="margin-top:0.5rem;">
+                        ${buildChartContainer('chart-pgb-timing', 'Transaction / Query / Wait Time', { tooltip: 'Average transaction, query, and pool-wait time (microsecond resolution).', showBucketControl: false })}
+                        ${chartLegend([['transaction', 'var(--accent)'], ['query', 'var(--purple)'], ['wait', 'var(--danger)']])}
+                    </div>
                 ` : ''}
                 ${hasSessions ? `
                     ${sessionHistogram(p.session_distribution, p.sessions)}
