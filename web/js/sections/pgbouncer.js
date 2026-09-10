@@ -64,9 +64,10 @@ function dimTabs(dims, total) {
     return `<ql-tabs>${tabs}${panels}</ql-tabs>`;
 }
 
-// errorsTable renders the ranked errors as a data-table (the Events
-// section's markup), so long error messages wrap and stay readable
-// rather than being truncated like the short-label bar lists.
+// errorsTable renders the ranked errors as a standard report table (the
+// bare <table> in a .table-container that Locks/Temp Files use: uppercase
+// header, .num columns, no inline styling), so long error messages wrap
+// and stay readable rather than being truncated like the bar lists.
 function errorsTable(m, total) {
     if (!m) return '';
     const rows = Object.entries(m).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 10);
@@ -75,13 +76,18 @@ function errorsTable(m, total) {
         <div class="subsection">
             <div class="subsection-title">Most frequent errors</div>
             <div class="table-container" style="max-height: 220px;">
-                <table class="data-table" style="width: 100%;">
+                <table>
+                    <thead><tr>
+                        <th>Error</th>
+                        <th class="num">Count</th>
+                        <th class="num">%</th>
+                    </tr></thead>
                     <tbody>
                         ${rows.map(([name, count]) => `
                             <tr>
-                                <td style="padding: 0.25rem 0.5rem;">${esc(name)}</td>
-                                <td class="num" style="width: 60px; padding: 0.25rem 0.5rem; font-weight: 600;">${fmt(count)}</td>
-                                <td class="num" style="width: 60px; padding: 0.25rem 0.5rem; color: var(--text-muted);">${total ? (count / total * 100).toFixed(1) : '0.0'}%</td>
+                                <td>${esc(name)}</td>
+                                <td class="num">${fmt(count)}</td>
+                                <td class="num">${total ? (count / total * 100).toFixed(1) : '0.0'}%</td>
                             </tr>
                         `).join('')}
                     </tbody>
