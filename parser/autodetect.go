@@ -110,8 +110,8 @@ func ParseFile(filename string, out chan<- []LogEntry) error {
 }
 
 // DetectFileFormat detects the log format of a file without parsing it.
-// Returns "csv", "json", or "stderr" (for stderr/syslog formats).
-// Returns empty string if the format cannot be detected.
+// Returns "csv", "json", "pgbouncer", or "stderr" (for stderr/syslog
+// formats). Returns empty string if the format cannot be detected.
 func DetectFileFormat(filename string) string {
 	parser, err := detectParser(filename)
 	if err != nil {
@@ -122,6 +122,8 @@ func DetectFileFormat(filename string) string {
 		return "csv"
 	case *JsonParser:
 		return "json"
+	case *PgBouncerParser:
+		return "pgbouncer"
 	default:
 		return "stderr"
 	}
@@ -276,6 +278,10 @@ func detectByExtension(filename, ext, sample string) LogParser {
 		return nil
 
 	case "log":
+		if looksLikePgBouncer(sample) {
+			slog.Info("detected pgBouncer format", "file", filename)
+			return &PgBouncerParser{}
+		}
 		if isLogContent(sample) {
 			return &StderrParser{}
 		}
@@ -295,6 +301,10 @@ func detectByExtension(filename, ext, sample string) LogParser {
 // This is used when the file extension doesn't provide enough information.
 func detectByContent(filename, sample string) LogParser {
 	switch {
+	case looksLikePgBouncer(sample):
+		slog.Info("detected pgBouncer format (unknown extension)", "file", filename)
+		return &PgBouncerParser{}
+
 	case isJSONContent(sample):
 		slog.Info("detected JSON format (unknown extension)", "file", filename)
 		return &JsonParser{}

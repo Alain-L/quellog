@@ -1,0 +1,107 @@
+# pgBouncer Report
+
+## Summary
+
+| Metric | Value |
+|---|---|
+| Start date | 2026-09-09 20:58:58 UTC |
+| End date | 2026-09-09 21:01:23 UTC |
+| Duration | 2m25.005s |
+| Log lines | 440 |
+| Stats snapshots | 145 |
+| Login attempts | 129 |
+| Server connections | 14 |
+| Completed sessions | 130 |
+| Reserve pool activations | 2 |
+| Errors | 17 |
+
+## Request Throughput
+
+| Metric | Average | Peak |
+|---|---|---|
+| Transactions/s | 0.9 | 42 |
+| Queries/s | 2.7 | 48 |
+| Network in | 91 B/s | 1.70 KB/s |
+| Network out | 133 B/s | 1.60 KB/s |
+
+## Query Timing
+
+| Metric | Average | Peak |
+|---|---|---|
+| Transaction time | 14.9 ms | 2.12 s |
+| Query time | 147.8 ms | 3.86 s |
+| Wait time | 471.2 ms | 11.09 s |
+
+## Sessions
+
+- Completed sessions: **130**
+- Average session time: **2s**
+
+| Session time | Count |
+|---|---|
+| < 1s | 89 |
+| 1s - 1min | 41 |
+
+### Sessions per database
+
+| Name | Count | % |
+|---|---|---|
+| analytics | 56 | 43.1% |
+| app | 47 | 36.2% |
+| billing | 26 | 20.0% |
+| (nodb) | 1 | 0.8% |
+
+### Sessions per user
+
+| Name | Count | % |
+|---|---|---|
+| app_user | 56 | 43.1% |
+| batch | 46 | 35.4% |
+| readonly | 27 | 20.8% |
+| ghost | 1 | 0.8% |
+
+### Sessions per host
+
+| Name | Count | % |
+|---|---|---|
+| 10.89.0.6 | 127 | 97.7% |
+| 10.89.0.2 | 1 | 0.8% |
+| 10.89.0.4 | 1 | 0.8% |
+| 10.89.0.5 | 1 | 0.8% |
+
+## Connections
+
+### Connections per database
+
+| Name | Count | % |
+|---|---|---|
+| analytics | 56 | 43.4% |
+| app | 46 | 35.7% |
+| billing | 26 | 20.2% |
+| (nodb) | 1 | 0.8% |
+
+### Connections per user
+
+| Name | Count | % |
+|---|---|---|
+| app_user | 55 | 42.6% |
+| batch | 46 | 35.7% |
+| readonly | 27 | 20.9% |
+| ghost | 1 | 0.8% |
+
+### Connections per host
+
+| Name | Count | % |
+|---|---|---|
+| 10.89.0.6 | 127 | 98.4% |
+| 10.89.0.4 | 1 | 0.8% |
+| 10.89.0.5 | 1 | 0.8% |
+
+## Most Frequent Errors
+
+| Error | Count | % |
+|---|---|---|
+| pooler error: password authentication failed | 13 | 76.5% |
+| taking connection from reserve_pool | 2 | 11.8% |
+| cannot do SCRAM authentication: wrong password type | 1 | 5.9% |
+| pooler error: server login failed: wrong password type | 1 | 5.9% |

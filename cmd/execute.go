@@ -177,6 +177,20 @@ func runAnalysisCycle(ctx context.Context, args []string) error {
 	// every metrics build below.
 	workers := shardWorkers(allFiles)
 
+	// pgBouncer logs share the timestamp/PID shape of PostgreSQL logs but
+	// carry no SQL, checkpoints, or vacuum events — the PostgreSQL report
+	// would be mostly empty. When the first input is detected as pgBouncer,
+	// route to the dedicated pgBouncer pipeline instead.
+	if parser.DetectFileFormat(allFiles[0]) == "pgbouncer" {
+		if err := processPgBouncerOutput(ctx, analyzeInput, startTime, totalFileSize, args, pb); err != nil {
+			return err
+		}
+		if !parsedAny.Load() && parser.ParsedEntries() == 0 {
+			return fmt.Errorf("no files could be parsed: check that files exist, are readable, and in a supported format")
+		}
+		return nil
+	}
+
 	// Step 5: Process and output results based on flags
 	if err := processAndOutput(ctx, analyzeInput, startTime, totalFileSize, args, workers, pb); err != nil {
 		return err
