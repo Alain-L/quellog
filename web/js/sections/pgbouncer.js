@@ -48,9 +48,20 @@ function barList(title, rows, total, ordered) {
     `;
 }
 
-function breakdownTable(title, m, total) {
-    if (!m) return '';
-    return barList(title, Object.entries(m), total, false);
+// dimTabs groups per-database / per-user / per-host breakdowns into a
+// single tabbed widget (ql-tabs), the same affordance the Clients section
+// uses. `dims` is [{label, map}]; each becomes a tab (with a unique-count
+// badge) and a panel holding the shared bar-list.
+function dimTabs(dims, total) {
+    const shown = dims.filter(d => d.map && Object.keys(d.map).length > 0);
+    if (shown.length === 0) return '';
+    const tabs = shown.map((d, i) =>
+        `<ql-tab${i === 0 ? ' selected' : ''}>${d.label} <ql-badge>${Object.keys(d.map).length}</ql-badge></ql-tab>`
+    ).join('');
+    const panels = shown.map(d =>
+        `<ql-panel>${barList('', Object.entries(d.map), total, false)}</ql-panel>`
+    ).join('');
+    return `<ql-tabs>${tabs}${panels}</ql-tabs>`;
 }
 
 // errorsTable renders the ranked errors as a data-table (the Events
@@ -165,16 +176,23 @@ export function buildPgBouncerSection(data) {
                 ` : ''}
                 ${hasSessions ? `
                     ${sessionHistogram(p.session_distribution, p.sessions)}
-                    <div class="grid grid-2" style="margin-top:0.5rem;">
-                        ${breakdownTable('Sessions per database', p.sessions_per_database, p.sessions)}
-                        ${breakdownTable('Sessions per user', p.sessions_per_user, p.sessions)}
+                    <div class="subsection">
+                        <div class="subsection-title">Sessions by</div>
+                        ${dimTabs([
+                            { label: 'Database', map: p.sessions_per_database },
+                            { label: 'User', map: p.sessions_per_user },
+                            { label: 'Host', map: p.sessions_per_host },
+                        ], p.sessions)}
                     </div>
-                    <div style="margin-top:0.5rem;">${breakdownTable('Sessions per host', p.sessions_per_host, p.sessions)}</div>
                 ` : ''}
                 ${hasConns ? `
-                    <div class="grid grid-2" style="margin-top:0.5rem;">
-                        ${breakdownTable('Connections per database', p.connections_per_database, p.login_attempts)}
-                        ${breakdownTable('Connections per user', p.connections_per_user, p.login_attempts)}
+                    <div class="subsection">
+                        <div class="subsection-title">Connections by</div>
+                        ${dimTabs([
+                            { label: 'Database', map: p.connections_per_database },
+                            { label: 'User', map: p.connections_per_user },
+                            { label: 'Host', map: p.connections_per_host },
+                        ], p.login_attempts)}
                     </div>
                 ` : ''}
                 ${hasErrors ? `<div style="margin-top:0.5rem;">${errorsTable(p.errors, p.total_errors)}</div>` : ''}
