@@ -18,22 +18,59 @@ function chartLegend(items) {
         + `</div>`;
 }
 
-// breakdownTable renders a top-10 name/count/% table.
+// barList renders name→count rows as the report's shared bar-list (the
+// same .scroll-list / .list-item / .bar-fill markup the Clients section
+// uses), so the pgBouncer breakdowns look identical to the rest.
+// `rows` is an array of [name, count]; when `ordered` is false they are
+// sorted by count descending and clipped to the top 10.
+function barList(title, rows, total, ordered) {
+    if (!ordered) {
+        rows = rows.slice().sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 10);
+    }
+    rows = rows.filter(([, c]) => c > 0);
+    if (rows.length === 0) return '';
+    const max = Math.max(1, ...rows.map(([, c]) => c));
+    return `
+        <div>
+            ${title ? `<div class="subsection-title">${esc(title)}</div>` : ''}
+            <div class="scroll-list">
+                ${rows.map(([name, count]) => {
+                    const pct = total > 0 ? (count / total * 100).toFixed(1) : '0.0';
+                    return `
+                    <div class="list-item">
+                        <span class="name">${esc(name)}</span>
+                        <div class="bar-container"><div class="bar"><div class="bar-fill" style="width: ${count / max * 100}%"></div></div></div>
+                        <span class="value">${fmt(count)} <small style="color: var(--text-muted)">(${pct}%)</small></span>
+                    </div>`;
+                }).join('')}
+            </div>
+        </div>
+    `;
+}
+
 function breakdownTable(title, m, total) {
+    if (!m) return '';
+    return barList(title, Object.entries(m), total, false);
+}
+
+// errorsTable renders the ranked errors as a data-table (the Events
+// section's markup), so long error messages wrap and stay readable
+// rather than being truncated like the short-label bar lists.
+function errorsTable(m, total) {
     if (!m) return '';
     const rows = Object.entries(m).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 10);
     if (rows.length === 0) return '';
     return `
-        <div>
-            <div class="subsection-title">${esc(title)}</div>
-            <div class="table-container" style="max-height:200px;">
-                <table>
+        <div class="subsection">
+            <div class="subsection-title">Most frequent errors</div>
+            <div class="table-container" style="max-height: 220px;">
+                <table class="data-table" style="width: 100%;">
                     <tbody>
                         ${rows.map(([name, count]) => `
                             <tr>
-                                <td>${esc(name)}</td>
-                                <td class="num">${fmt(count)}</td>
-                                <td class="num">${total ? (count / total * 100).toFixed(1) : '0.0'}%</td>
+                                <td style="padding: 0.25rem 0.5rem;">${esc(name)}</td>
+                                <td class="num" style="width: 60px; padding: 0.25rem 0.5rem; font-weight: 600;">${fmt(count)}</td>
+                                <td class="num" style="width: 60px; padding: 0.25rem 0.5rem; color: var(--text-muted);">${total ? (count / total * 100).toFixed(1) : '0.0'}%</td>
                             </tr>
                         `).join('')}
                     </tbody>
@@ -43,27 +80,11 @@ function breakdownTable(title, m, total) {
     `;
 }
 
-// sessionHistogram renders the fixed-bucket session-time distribution as
-// inline proportional bars (no uPlot — categorical, like the PostgreSQL
-// session distribution).
+// sessionHistogram renders the fixed-bucket session-time distribution
+// using the same bar-list markup, in bucket order.
 function sessionHistogram(dist, total) {
     if (!dist) return '';
-    const max = Math.max(1, ...SESSION_BUCKETS.map(b => dist[b] || 0));
-    const rows = SESSION_BUCKETS.filter(b => (dist[b] || 0) > 0).map(b => {
-        const c = dist[b] || 0;
-        const w = Math.round(c / max * 100);
-        return `
-            <div style="display:flex;align-items:center;gap:8px;margin:2px 0;font-size:12px;">
-                <span style="width:90px;color:var(--text-muted);">${esc(b)}</span>
-                <span style="flex:1;background:var(--bg-alt);border-radius:2px;overflow:hidden;">
-                    <span style="display:block;height:10px;width:${w}%;background:var(--chart-bar);"></span>
-                </span>
-                <span style="width:44px;text-align:right;">${fmt(c)}</span>
-                <span style="width:48px;text-align:right;color:var(--text-muted);">${total ? (c / total * 100).toFixed(1) : '0.0'}%</span>
-            </div>
-        `;
-    }).join('');
-    return `<div class="subsection"><div class="subsection-title">Session time</div>${rows}</div>`;
+    return barList('Session time', SESSION_BUCKETS.map(b => [b, dist[b] || 0]), total, true);
 }
 
 export function buildPgBouncerSection(data) {
@@ -156,7 +177,7 @@ export function buildPgBouncerSection(data) {
                         ${breakdownTable('Connections per user', p.connections_per_user, p.login_attempts)}
                     </div>
                 ` : ''}
-                ${hasErrors ? `<div style="margin-top:0.5rem;">${breakdownTable('Most frequent errors', p.errors, p.total_errors)}</div>` : ''}
+                ${hasErrors ? `<div style="margin-top:0.5rem;">${errorsTable(p.errors, p.total_errors)}</div>` : ''}
             </div>
         </div>
     `;
