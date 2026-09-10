@@ -1972,6 +1972,19 @@ func ExportJSON(w io.Writer, m analysis.AggregatedMetrics, sections []string, fu
 	}
 }
 
+// ExportJSONCombined writes the PostgreSQL JSON payload with an added
+// top-level "pgbouncer" key when pgBouncer files were part of the same
+// run. With pgb nil (a pure PostgreSQL run) it is identical to ExportJSON.
+func ExportJSONCombined(w io.Writer, m analysis.AggregatedMetrics, pgb *analysis.PgBouncerMetrics, sections []string, full bool, compact bool) {
+	data := buildJSONData(m, sections, full)
+	if pgb != nil && pgb.Lines > 0 {
+		data["pgbouncer"] = pgb
+	}
+	if err := encodeMapStreaming(w, data, compact); err != nil {
+		fmt.Fprintf(w, "[ERROR] Failed to export JSON: %v\n", err)
+	}
+}
+
 // encodeMapStreaming writes a map[string]interface{} as a JSON object
 // **section by section** to w, instead of letting json.Encoder buffer
 // the entire output internally before flushing. The encoder's hidden

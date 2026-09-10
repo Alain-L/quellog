@@ -85,3 +85,37 @@ func TestPgBouncerJSONRoundTrip(t *testing.T) {
 		t.Errorf("total_errors = %v, want 3", got["total_errors"])
 	}
 }
+
+// TestExportJSONCombined checks the pgBouncer sub-object is added to the
+// PostgreSQL payload only when pgBouncer metrics are present.
+func TestExportJSONCombined(t *testing.T) {
+	m := analysis.AggregatedMetrics{}
+	m.Global.Count = 1
+
+	// With pgb: a top-level "pgbouncer" key carries the pooler metrics.
+	var withPgb bytes.Buffer
+	pgb := samplePgBouncerMetrics()
+	ExportJSONCombined(&withPgb, m, &pgb, []string{"all"}, true, true)
+	var got map[string]interface{}
+	if err := json.Unmarshal(withPgb.Bytes(), &got); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+	pb, ok := got["pgbouncer"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected pgbouncer object, got %T", got["pgbouncer"])
+	}
+	if pb["login_attempts"].(float64) != 10 {
+		t.Errorf("pgbouncer.login_attempts = %v, want 10", pb["login_attempts"])
+	}
+
+	// Without pgb (pure PostgreSQL run): no pgbouncer key.
+	var noPgb bytes.Buffer
+	ExportJSONCombined(&noPgb, m, nil, []string{"all"}, true, true)
+	var got2 map[string]interface{}
+	if err := json.Unmarshal(noPgb.Bytes(), &got2); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+	if _, present := got2["pgbouncer"]; present {
+		t.Error("pgbouncer key present in a pure PostgreSQL payload")
+	}
+}

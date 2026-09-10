@@ -107,9 +107,6 @@ func runAnalysisCycle(ctx context.Context, args []string) error {
 		return err
 	}
 
-	// Calculate total file size for throughput reporting
-	totalFileSize := calculateTotalFileSize(allFiles)
-
 	// Step 2: Validate and parse time filter options
 	if err := validateTimeFilters(); err != nil {
 		return err
@@ -136,6 +133,35 @@ func runAnalysisCycle(ctx context.Context, args []string) error {
 		beginT, endT = applyTimeWindow(beginT, endT, windowDur)
 	}
 
+	// Partition inputs by detected format. pgBouncer logs (always their
+	// own files — a separate daemon) are analyzed on a separate track so a
+	// mixed batch produces the PostgreSQL report plus a pgBouncer section,
+	// instead of silently feeding one analyzer the other's lines.
+	pgFiles, pgbFiles := partitionInputsByFormat(allFiles)
+
+	// pgBouncer metrics, when any pgBouncer file is present. Its own parse
+	// pass (pgBouncer logs are small; no progress bar needed).
+	var pgb *analysis.PgBouncerMetrics
+	if len(pgbFiles) > 0 {
+		m := computePgBouncerMetrics(ctx, pgbFiles, beginT, endT)
+		pgb = &m
+	}
+
+	// Pure pgBouncer run: no PostgreSQL files at all — render the
+	// standalone pooler report.
+	if len(pgFiles) == 0 {
+		return renderPgBouncerStandalone(*pgb, startTime, calculateTotalFileSize(pgbFiles), args)
+	}
+
+	// Combined HTML/split reports are not wired through the web app yet;
+	// fail loud rather than dropping the pgBouncer data silently.
+	if pgb != nil && (htmlFlag || splitFlag != "") {
+		return fmt.Errorf("combined PostgreSQL + pgBouncer report is not available for HTML yet; use --json or --md, or analyze the pgBouncer logs separately")
+	}
+
+	// Calculate total file size for throughput reporting (PostgreSQL track).
+	totalFileSize := calculateTotalFileSize(pgFiles)
+
 	// Step 3: Set up streaming pipeline
 	rawLogs := make(chan []parser.LogEntry, 64)
 
@@ -154,8 +180,8 @@ func runAnalysisCycle(ctx context.Context, args []string) error {
 	pb.Start()
 	defer pb.Finish()
 
-	// Launch parallel file parsing
-	go parseFilesAsync(ctx, allFiles, rawLogs, &parsedAny, pb)
+	// Launch parallel file parsing (PostgreSQL track).
+	go parseFilesAsync(ctx, pgFiles, rawLogs, &parsedAny, pb)
 
 	// Step 4: Apply filters (skip channel hop when no filters are active)
 	filters := buildLogFilters(beginT, endT)
@@ -169,30 +195,18 @@ func runAnalysisCycle(ctx context.Context, args []string) error {
 	}
 
 	// Analysis PID-shard count: > 1 only for large, uncompressed plain
-	// stderr. Decide it from the EXPANDED file list (allFiles), not the raw
+	// stderr. Decide it from the EXPANDED file list (pgFiles), not the raw
 	// args: a directory or glob argument stats to a tiny inode, which would
 	// always fall below the size gate and silently disable sharding for
 	// `quellog /var/log/postgresql/`. The expanded files carry the real
 	// bytes the analysis stage will process. Computed once and threaded into
 	// every metrics build below.
-	workers := shardWorkers(allFiles)
+	workers := shardWorkers(pgFiles)
 
-	// pgBouncer logs share the timestamp/PID shape of PostgreSQL logs but
-	// carry no SQL, checkpoints, or vacuum events — the PostgreSQL report
-	// would be mostly empty. When the first input is detected as pgBouncer,
-	// route to the dedicated pgBouncer pipeline instead.
-	if parser.DetectFileFormat(allFiles[0]) == "pgbouncer" {
-		if err := processPgBouncerOutput(ctx, analyzeInput, startTime, totalFileSize, args, pb); err != nil {
-			return err
-		}
-		if !parsedAny.Load() && parser.ParsedEntries() == 0 {
-			return fmt.Errorf("no files could be parsed: check that files exist, are readable, and in a supported format")
-		}
-		return nil
-	}
-
-	// Step 5: Process and output results based on flags
-	if err := processAndOutput(ctx, analyzeInput, startTime, totalFileSize, args, workers, pb); err != nil {
+	// Step 5: Process and output results based on flags. pgb carries the
+	// optional pgBouncer section appended to the report (nil for a pure
+	// PostgreSQL run).
+	if err := processAndOutput(ctx, analyzeInput, startTime, totalFileSize, args, workers, pb, pgb); err != nil {
 		return err
 	}
 
@@ -522,7 +536,7 @@ func validateFlagCombinations() error {
 // the expanded file list (see runAnalysisCycle) and threaded into every metrics
 // build; inputArgs stays the raw arguments, used only for display (filenames,
 // input description, first-file format detection).
-func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry, startTime time.Time, totalFileSize int64, inputArgs []string, workers int, pb *progressBar) error {
+func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry, startTime time.Time, totalFileSize int64, inputArgs []string, workers int, pb *progressBar, pgb *analysis.PgBouncerMetrics) error {
 	// Flag-combination constraints are validated once up front (see
 	// validateFlagCombinations, called from executeParsing). Here we only need
 	// the format count for dispatch and the --split short-circuit.
@@ -666,7 +680,7 @@ func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry
 
 	// Multi-format export: render each selected format to its default file
 	if formatCount > 1 {
-		return renderMultipleFormats(metrics, sections, inputArgs, totalFileSize, processingDuration)
+		return renderMultipleFormats(metrics, pgb, sections, inputArgs, totalFileSize, processingDuration)
 	}
 
 	// Output in requested format
@@ -676,7 +690,7 @@ func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry
 			return err
 		}
 		defer closer()
-		output.ExportJSON(w, metrics, sections, fullFlag, jsonCompactFlag)
+		output.ExportJSONCombined(w, metrics, pgb, sections, fullFlag, jsonCompactFlag)
 		return closer()
 	}
 
@@ -696,7 +710,7 @@ func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry
 			return err
 		}
 		defer closer()
-		output.ExportMarkdown(w, metrics, sections, fullFlag)
+		output.ExportMarkdownCombined(w, metrics, pgb, sections, fullFlag)
 		return closer()
 	}
 
@@ -751,7 +765,7 @@ func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry
 
 	// Default: text output
 	PrintProcessingSummary(metrics.Global.Count, processingDuration, totalFileSize)
-	output.PrintMetrics(metrics, sections, fullFlag)
+	output.PrintMetricsCombined(metrics, pgb, sections, fullFlag)
 	return nil
 }
 
@@ -860,7 +874,7 @@ func defaultExportName(ext string, inputArgs []string) string {
 
 // renderMultipleFormats writes the full report to one file per selected format,
 // using default filenames. Called only when 2+ format flags are set.
-func renderMultipleFormats(metrics analysis.AggregatedMetrics, sections []string, inputArgs []string, totalFileSize int64, processingDuration time.Duration) error {
+func renderMultipleFormats(metrics analysis.AggregatedMetrics, pgb *analysis.PgBouncerMetrics, sections []string, inputArgs []string, totalFileSize int64, processingDuration time.Duration) error {
 	write := func(ext string, render func(io.Writer) error) error {
 		name := defaultExportName(ext, inputArgs)
 		w, closer, err := createOutputWriter(name)
@@ -882,7 +896,7 @@ func renderMultipleFormats(metrics analysis.AggregatedMetrics, sections []string
 
 	if jsonFlag || jsonCompactFlag {
 		if err := write("json", func(w io.Writer) error {
-			output.ExportJSON(w, metrics, sections, fullFlag, jsonCompactFlag)
+			output.ExportJSONCombined(w, metrics, pgb, sections, fullFlag, jsonCompactFlag)
 			return nil
 		}); err != nil {
 			return err
@@ -898,7 +912,7 @@ func renderMultipleFormats(metrics analysis.AggregatedMetrics, sections []string
 	}
 	if mdFlag {
 		if err := write("md", func(w io.Writer) error {
-			output.ExportMarkdown(w, metrics, sections, fullFlag)
+			output.ExportMarkdownCombined(w, metrics, pgb, sections, fullFlag)
 			return nil
 		}); err != nil {
 			return err
