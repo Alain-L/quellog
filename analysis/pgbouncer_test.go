@@ -1,0 +1,220 @@
+package analysis
+
+import (
+	"math"
+	"strconv"
+	"testing"
+	"time"
+
+	"github.com/Alain-L/quellog/parser"
+)
+
+// statsLine builds the message part of a "LOG stats:" entry the way the
+// stderr parser hands it over (severity word first).
+func statsLine(xacts, queries, in, out int, xactUs, queryUs, waitUs string) string {
+	return "LOG stats: " + strconv.Itoa(xacts) + " xacts/s, " + strconv.Itoa(queries) +
+		" queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in " +
+		strconv.Itoa(in) + " B/s, out " + strconv.Itoa(out) + " B/s, xact " + xactUs +
+		" us, query " + queryUs + " us, wait " + waitUs + " us"
+}
+
+func feed(a *PgBouncerAnalyzer, base time.Time, msgs ...string) {
+	for i, m := range msgs {
+		e := parser.LogEntry{Timestamp: base.Add(time.Duration(i) * time.Minute), Message: m}
+		a.Process(&e)
+	}
+}
+
+func almost(t *testing.T, name string, got, want float64) {
+	t.Helper()
+	if math.Abs(got-want) > 1e-9 {
+		t.Errorf("%s = %v, want %v", name, got, want)
+	}
+}
+
+// TestPgBouncerWeightedAverages pins the central defect: pgBouncer logs
+// "0 us" as a "no operation in this period" sentinel, so a quiet period
+// must not drag the reported latency down. Ground truth for this pair of
+// snapshots is simply the first snapshot's own means (1990 / 261 / 331),
+// because the second one describes zero operations.
+func TestPgBouncerWeightedAverages(t *testing.T) {
+	base := time.Date(2026, 9, 20, 13, 41, 13, 0, time.UTC)
+	a := NewPgBouncerAnalyzer()
+	feed(a, base,
+		statsLine(3, 21, 1291, 565, "1990", "261", "331"),
+		statsLine(0, 0, 0, 0, "0", "0", "0"),
+	)
+	m := a.Finalize()
+
+	almost(t, "AvgXactMicros", m.AvgXactMicros, 1990)
+	almost(t, "AvgQueryMicros", m.AvgQueryMicros, 261)
+	almost(t, "AvgWaitMicros", m.AvgWaitMicros, 331)
+
+	// Rates are genuine per-second rates: an idle period really does
+	// contribute a zero, so their plain mean stays untouched.
+	almost(t, "AvgXactsPerSec", m.AvgXactsPerSec, 1.5)
+	almost(t, "AvgQueriesPerSec", m.AvgQueriesPerSec, 10.5)
+}
+
+// TestPgBouncerWeightedByCount checks the weighting itself: two
+// snapshots with very different volumes must not weigh the same.
+func TestPgBouncerWeightedByCount(t *testing.T) {
+	base := time.Date(2026, 9, 20, 13, 0, 0, 0, time.UTC)
+	a := NewPgBouncerAnalyzer()
+	feed(a, base,
+		statsLine(1, 1, 0, 0, "1000", "1000", "1000"),
+		statsLine(9, 9, 0, 0, "2000", "2000", "2000"),
+	)
+	m := a.Finalize()
+
+	// (1000*1 + 2000*9) / 10 = 1900, not the unweighted 1500.
+	almost(t, "AvgXactMicros", m.AvgXactMicros, 1900)
+	almost(t, "AvgQueryMicros", m.AvgQueryMicros, 1900)
+	almost(t, "AvgWaitMicros", m.AvgWaitMicros, 1900)
+}
+
+// TestPgBouncerAllSnapshotsEmpty guards the division by zero: when every
+// snapshot is a sentinel there is no operation to average over.
+func TestPgBouncerAllSnapshotsEmpty(t *testing.T) {
+	base := time.Date(2026, 9, 20, 13, 0, 0, 0, time.UTC)
+	a := NewPgBouncerAnalyzer()
+	feed(a, base,
+		statsLine(0, 0, 0, 0, "0", "0", "0"),
+		statsLine(0, 0, 0, 0, "0", "0", "0"),
+	)
+	m := a.Finalize()
+
+	if m.StatsSampleCount != 2 {
+		t.Fatalf("StatsSampleCount = %d, want 2", m.StatsSampleCount)
+	}
+	for name, got := range map[string]float64{
+		"AvgXactMicros": m.AvgXactMicros, "AvgQueryMicros": m.AvgQueryMicros,
+		"AvgWaitMicros": m.AvgWaitMicros,
+	} {
+		if got != 0 || math.IsNaN(got) {
+			t.Errorf("%s = %v, want 0", name, got)
+		}
+	}
+}
+
+// TestPgBouncerTruncatedRateStillCounts covers pgBouncer's integer
+// truncation of the per-second rates: a period with a single transaction
+// can log "0 xacts/s" next to a real "xact 620 us". Dropping such a
+// snapshot for a zero weight would discard a genuine measurement.
+func TestPgBouncerTruncatedRateStillCounts(t *testing.T) {
+	base := time.Date(2026, 9, 20, 13, 0, 0, 0, time.UTC)
+	a := NewPgBouncerAnalyzer()
+	feed(a, base, statsLine(0, 0, 34, 69, "620", "620", "0"))
+	m := a.Finalize()
+
+	almost(t, "AvgXactMicros", m.AvgXactMicros, 620)
+	almost(t, "AvgQueryMicros", m.AvgQueryMicros, 620)
+	almost(t, "AvgWaitMicros", m.AvgWaitMicros, 0)
+}
+
+// TestPgBouncerStatsSeriesSorted covers the chart axis: uPlot requires a
+// strictly increasing X, and the multi-file fan-in can hand snapshots
+// over out of order.
+func TestPgBouncerStatsSeriesSorted(t *testing.T) {
+	a := NewPgBouncerAnalyzer()
+	for _, min := range []int{58, 59, 41, 42} {
+		ts := time.Date(2026, 9, 20, 13, min, 0, 0, time.UTC)
+		e := parser.LogEntry{Timestamp: ts, Message: statsLine(1, 1, 0, 0, "1", "1", "1")}
+		a.Process(&e)
+	}
+	m := a.Finalize()
+
+	if len(m.StatsSeries) != 4 {
+		t.Fatalf("series length = %d, want 4", len(m.StatsSeries))
+	}
+	for i := 1; i < len(m.StatsSeries); i++ {
+		if m.StatsSeries[i].Time.Before(m.StatsSeries[i-1].Time) {
+			t.Fatalf("series is not monotonic at %d: %v then %v",
+				i, m.StatsSeries[i-1].Time, m.StatsSeries[i].Time)
+		}
+	}
+}
+
+// TestPgBouncerStatsSeriesSortStable pins determinism: equal timestamps
+// must keep their arrival order so two runs agree byte for byte.
+func TestPgBouncerStatsSeriesSortStable(t *testing.T) {
+	ts := time.Date(2026, 9, 20, 13, 0, 0, 0, time.UTC)
+	a := NewPgBouncerAnalyzer()
+	for _, q := range []int{7, 3, 5, 1} {
+		e := parser.LogEntry{Timestamp: ts, Message: statsLine(1, q, 0, 0, "1", "1", "1")}
+		a.Process(&e)
+	}
+	m := a.Finalize()
+
+	want := []int{7, 3, 5, 1}
+	for i, w := range want {
+		if m.StatsSeries[i].Queries != w {
+			t.Fatalf("series[%d].Queries = %d, want %d (sort is not stable)",
+				i, m.StatsSeries[i].Queries, w)
+		}
+	}
+}
+
+// TestPgBouncerOutOfRangeInteger covers a truncated or interleaved line:
+// strconv.Atoi returns math.MaxInt64 together with ErrRange, and keeping
+// that value overflows the sums into a negative average.
+func TestPgBouncerOutOfRangeInteger(t *testing.T) {
+	base := time.Date(2026, 9, 20, 13, 0, 0, 0, time.UTC)
+	a := NewPgBouncerAnalyzer()
+	feed(a, base,
+		statsLine(10, 10, 100, 100, "1000", "1000", "1000"),
+		"LOG stats: 99999999999999999999 xacts/s, 99999999999999999999 queries/s, "+
+			"in 99999999999999999999 B/s, out 99999999999999999999 B/s, "+
+			"xact 99999999999999999999 us, query 99999999999999999999 us, "+
+			"wait 99999999999999999999 us",
+	)
+	m := a.Finalize()
+
+	for name, got := range map[string]float64{
+		"AvgXactMicros": m.AvgXactMicros, "AvgQueryMicros": m.AvgQueryMicros,
+		"AvgWaitMicros": m.AvgWaitMicros, "AvgXactsPerSec": m.AvgXactsPerSec,
+		"AvgQueriesPerSec": m.AvgQueriesPerSec, "AvgInBytesPerSec": m.AvgInBytesPerSec,
+		"AvgOutBytesPerSec": m.AvgOutBytesPerSec,
+	} {
+		if got < 0 || math.IsNaN(got) || math.IsInf(got, 0) {
+			t.Errorf("%s = %v, want a finite non-negative value", name, got)
+		}
+	}
+	// The unreadable fields are treated as absent, so the readable
+	// snapshot is the only one that carries weight.
+	almost(t, "AvgXactMicros", m.AvgXactMicros, 1000)
+	if m.MaxXactMicros != 1000 {
+		t.Errorf("MaxXactMicros = %d, want 1000", m.MaxXactMicros)
+	}
+}
+
+// TestPgBouncerNegativeAge rejects a corrupt "(age=-42s)": a session
+// cannot last a negative time, and accepting it yields a negative total
+// and a negative mean.
+func TestPgBouncerNegativeAge(t *testing.T) {
+	if d, ok := parseAge("closing because: client close request (age=-42s)"); ok {
+		t.Errorf("parseAge accepted a negative age: %v", d)
+	}
+	if d, ok := parseAge("closing because: client close request (age=42s)"); !ok || d != 42*time.Second {
+		t.Errorf("parseAge(42s) = %v, %v; want 42s, true", d, ok)
+	}
+	if d, ok := parseAge("closing because: client close request (age=0s)"); !ok || d != 0 {
+		t.Errorf("parseAge(0s) = %v, %v; want 0s, true", d, ok)
+	}
+
+	base := time.Date(2026, 9, 20, 13, 0, 0, 0, time.UTC)
+	a := NewPgBouncerAnalyzer()
+	feed(a, base,
+		"LOG C-0x1: db/user@10.0.0.1:5000 closing because: client close request (age=-42s)",
+		"LOG C-0x2: db/user@10.0.0.1:5001 closing because: client close request (age=10s)",
+	)
+	m := a.Finalize()
+
+	if m.TotalSessionSeconds < 0 || m.AvgSessionSeconds() < 0 {
+		t.Errorf("negative session time: total=%d avg=%v",
+			m.TotalSessionSeconds, m.AvgSessionSeconds())
+	}
+	if m.Sessions != 1 || m.TotalSessionSeconds != 10 {
+		t.Errorf("sessions=%d total=%d, want 1 and 10", m.Sessions, m.TotalSessionSeconds)
+	}
+}

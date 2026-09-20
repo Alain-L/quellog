@@ -11,11 +11,11 @@
   "max_in_bytes_per_sec": 2247,
   "avg_out_bytes_per_sec": 1812.3333333333333,
   "max_out_bytes_per_sec": 2210,
-  "avg_xact_us": 2475000.3333333335,
+  "avg_xact_us": 2446859.1666666665,
   "max_xact_us": 2756412,
-  "avg_query_us": 538293.3333333334,
+  "avg_query_us": 528466.7379310345,
   "max_query_us": 640373,
-  "avg_wait_us": 2400485,
+  "avg_wait_us": 2317873.972413793,
   "max_wait_us": 3221746,
   "stats_series": [
     {

@@ -2,6 +2,7 @@ package analysis
 
 import (
 	"context"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -11,8 +12,8 @@ import (
 
 // PgBouncerStatsPoint is one "LOG stats:" telemetry snapshot. pgBouncer
 // emits one per stats_period (default 60s, often 1s in verbose setups),
-// each reporting per-second averages over that interval. Kept in stream
-// order for the time-series charts.
+// each reporting per-second averages over that interval. Finalize sorts
+// the series by time for the time-series charts.
 type PgBouncerStatsPoint struct {
 	Time        time.Time `json:"time"`
 	Xacts       int       `json:"xacts_per_sec"`
@@ -87,10 +88,15 @@ func (m PgBouncerMetrics) AvgSessionSeconds() float64 {
 type PgBouncerAnalyzer struct {
 	m PgBouncerMetrics
 
-	sumXacts, sumQueries  int64
-	sumIn, sumOut         int64
-	sumXactUs, sumQueryUs int64
-	sumWaitUs             int64
+	sumXacts, sumQueries int64
+	sumIn, sumOut        int64
+
+	// Weighted accumulators for the three per-operation averages. See
+	// accumulateWeighted for why a plain mean of the logged means is
+	// wrong.
+	sumXactUs, sumXactW   int64
+	sumQueryUs, sumQueryW int64
+	sumWaitUs, sumWaitW   int64
 }
 
 // NewPgBouncerAnalyzer returns an analyzer with its maps initialized.
@@ -194,9 +200,12 @@ func (a *PgBouncerAnalyzer) processStats(t time.Time, body string) {
 	a.sumQueries += int64(pt.Queries)
 	a.sumIn += int64(pt.InBytes)
 	a.sumOut += int64(pt.OutBytes)
-	a.sumXactUs += pt.XactMicros
-	a.sumQueryUs += pt.QueryMicros
-	a.sumWaitUs += pt.WaitMicros
+	accumulateWeighted(&a.sumXactUs, &a.sumXactW, pt.XactMicros, pt.Xacts)
+	accumulateWeighted(&a.sumQueryUs, &a.sumQueryW, pt.QueryMicros, pt.Queries)
+	// "wait" is averaged over server assignments, a counter pgBouncer
+	// never puts in the log line; queries/s is the closest proxy we do
+	// have. See accumulateWeighted.
+	accumulateWeighted(&a.sumWaitUs, &a.sumWaitW, pt.WaitMicros, pt.Queries)
 
 	if pt.Xacts > a.m.MaxXactsPerSec {
 		a.m.MaxXactsPerSec = pt.Xacts
@@ -241,17 +250,73 @@ func (a *PgBouncerAnalyzer) processClosing(peer, verb string) {
 	inc(a.m.SessionsPerHost, host)
 }
 
-// Finalize computes the averages and returns the metrics.
+// accumulateWeighted folds one snapshot into a weighted average of a
+// per-operation duration.
+//
+// pgBouncer's calc_average (src/stats.c) divides each accumulated time
+// by its own counter -- transactions for "xact", queries for "query",
+// server assignments for "wait" -- and leaves the mean at 0 when that
+// counter is zero for the period. Two consequences:
+//
+//  1. A "0 us" field is a "no operation in this period" sentinel, not a
+//     measurement. Averaging it in would let an idle night halve the
+//     reported latency. Skipping it drops it from both the numerator and
+//     the denominator, which is exactly what a weighted mean does.
+//  2. The snapshots must be weighted by their operation count, otherwise
+//     a period that summarises three transactions counts as much as one
+//     that summarises three thousand. Every snapshot covers the same
+//     stats_period, so the logged per-second rate is proportional to the
+//     count and works as the weight.
+//
+// The weight is floored at 1 because pgBouncer truncates the rate to an
+// integer: a period with a single transaction logs "0 xacts/s" next to a
+// perfectly real "xact 620 us", and a zero weight would silently discard
+// that measurement.
+func accumulateWeighted(sumUs, sumWeight *int64, us int64, rate int) {
+	if us <= 0 {
+		return
+	}
+	weight := int64(rate)
+	if weight < 1 {
+		weight = 1
+	}
+	*sumUs += us * weight
+	*sumWeight += weight
+}
+
+// weightedMean divides an accumulated numerator by its weight, returning
+// 0 when no snapshot reported a single operation.
+func weightedMean(sumUs, sumWeight int64) float64 {
+	if sumWeight <= 0 {
+		return 0
+	}
+	return float64(sumUs) / float64(sumWeight)
+}
+
+// Finalize computes the averages, orders the time series and returns the
+// metrics.
 func (a *PgBouncerAnalyzer) Finalize() PgBouncerMetrics {
 	if n := float64(a.m.StatsSampleCount); n > 0 {
+		// Rates, unlike the per-operation means above, are true
+		// per-second figures: an idle period really did carry zero
+		// transactions, so it belongs in a plain mean.
 		a.m.AvgXactsPerSec = float64(a.sumXacts) / n
 		a.m.AvgQueriesPerSec = float64(a.sumQueries) / n
 		a.m.AvgInBytesPerSec = float64(a.sumIn) / n
 		a.m.AvgOutBytesPerSec = float64(a.sumOut) / n
-		a.m.AvgXactMicros = float64(a.sumXactUs) / n
-		a.m.AvgQueryMicros = float64(a.sumQueryUs) / n
-		a.m.AvgWaitMicros = float64(a.sumWaitUs) / n
 	}
+	a.m.AvgXactMicros = weightedMean(a.sumXactUs, a.sumXactW)
+	a.m.AvgQueryMicros = weightedMean(a.sumQueryUs, a.sumQueryW)
+	a.m.AvgWaitMicros = weightedMean(a.sumWaitUs, a.sumWaitW)
+
+	// Snapshots arrive in stream order, which a multi-file fan-in can
+	// interleave across files. The charts plot this series on a time
+	// axis and need it increasing; the sort is stable so equal
+	// timestamps keep their arrival order and the output stays
+	// byte-reproducible.
+	sort.SliceStable(a.m.StatsSeries, func(i, j int) bool {
+		return a.m.StatsSeries[i].Time.Before(a.m.StatsSeries[j].Time)
+	})
 	return a.m
 }
 
@@ -342,7 +407,9 @@ func parseAge(verb string) (time.Duration, bool) {
 	token := verb[i+len("(age=") : i+j] // e.g. "42s"
 	token = strings.TrimSuffix(token, "s")
 	secs, err := strconv.Atoi(strings.TrimSpace(token))
-	if err != nil {
+	if err != nil || secs < 0 {
+		// A negative age is a corrupt line, never a session: keeping
+		// it would drag the total and the mean below zero.
 		return 0, false
 	}
 	return time.Duration(secs) * time.Second, true
@@ -390,25 +457,36 @@ func inc(m map[string]int, k string) {
 }
 
 // leadingInt parses the integer at the start of a fragment like
-// "17 xacts/s".
+// "17 xacts/s". An unreadable number -- a line cut short by a rotation,
+// or two writers interleaved -- yields 0, i.e. the field is treated as
+// absent. Atoi's value must be discarded on error: out of range it
+// returns math.MaxInt64 alongside ErrRange, which overflows the running
+// sums and turns the averages negative.
 func leadingInt(frag string) int {
 	sp := strings.IndexByte(frag, ' ')
 	if sp == -1 {
 		return 0
 	}
-	n, _ := strconv.Atoi(frag[:sp])
+	n, err := strconv.Atoi(frag[:sp])
+	if err != nil {
+		return 0
+	}
 	return n
 }
 
 // trailingIntBefore parses the integer that precedes the given unit
 // suffix, e.g. trailingIntBefore("in 1742 B/s", "B/s") == 1742 and
-// trailingIntBefore("xact 2384 us", "us") == 2384.
+// trailingIntBefore("xact 2384 us", "us") == 2384. Like leadingInt, an
+// unreadable number yields 0 rather than Atoi's out-of-range sentinel.
 func trailingIntBefore(frag, unit string) int {
 	frag = strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(frag), unit))
 	sp := strings.LastIndexByte(frag, ' ')
 	if sp == -1 {
 		return 0
 	}
-	n, _ := strconv.Atoi(strings.TrimSpace(frag[sp+1:]))
+	n, err := strconv.Atoi(strings.TrimSpace(frag[sp+1:]))
+	if err != nil {
+		return 0
+	}
 	return n
 }

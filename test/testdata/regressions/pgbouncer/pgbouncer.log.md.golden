@@ -28,9 +28,9 @@
 
 | Metric | Average | Peak |
 |---|---|---|
-| Transaction time | 14.9 ms | 2.12 s |
-| Query time | 147.8 ms | 3.86 s |
-| Wait time | 471.2 ms | 11.09 s |
+| Transaction time | 108.3 ms | 2.12 s |
+| Query time | 594.2 ms | 3.86 s |
+| Wait time | 2.61 s | 11.09 s |
 
 ## Sessions
 
