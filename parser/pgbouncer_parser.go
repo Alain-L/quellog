@@ -37,12 +37,51 @@ var pgbouncerSignatureRe = regexp.MustCompile(
 	`\[\d+\] (?:LOG|WARNING|ERROR|FATAL|DEBUG|NOISE) (?:stats:|[CS]-0x[0-9a-f]+:)`,
 )
 
-// looksLikePgBouncer reports whether a content sample is a pgBouncer
-// log. It requires both the pgBouncer prefix shape and a pgBouncer-only
-// marker (stats line or socket id) so ordinary PostgreSQL logs — which
-// share the timestamp/PID shape — are never misclassified.
+// pgbouncerShapeMinLines is the number of prefix-shaped lines the shape
+// vote needs before it may decide on its own, so a stray line in a text
+// file cannot carry a whole file into the pgBouncer track.
+const pgbouncerShapeMinLines = 2
+
+// pgbouncerShapeRatioNum / pgbouncerShapeRatioDen express the share of the
+// sampled lines that must be prefix-shaped: 90%, the same consensus bar
+// detectLeadingPrefix uses.
+const (
+	pgbouncerShapeRatioNum = 9
+	pgbouncerShapeRatioDen = 10
+)
+
+// looksLikePgBouncer reports whether a content sample is a pgBouncer log.
+// A pgBouncer-only marker (stats line or socket id) settles it outright,
+// which also covers a sample where pooler lines are in the minority.
+// Otherwise the sample must be made, near enough entirely, of lines in the
+// pgBouncer prefix shape — the discriminator being that pgBouncer writes
+// "[PID] LOG " where PostgreSQL always writes a severity followed by a
+// colon ("LOG:  "), so a PostgreSQL log scores zero on this vote. Without
+// the shape vote, an authentic capture holding no socket line inside the
+// detection sample — a restart, a fresh rotation, a supervision snapshot,
+// a verbose=2 head — was rejected outright.
 func looksLikePgBouncer(sample string) bool {
-	return pgbouncerSignatureRe.MatchString(sample)
+	if pgbouncerSignatureRe.MatchString(sample) {
+		return true
+	}
+	var shaped, total int
+	for len(sample) > 0 {
+		line := sample
+		if i := strings.IndexByte(sample, '\n'); i >= 0 {
+			line, sample = sample[:i], sample[i+1:]
+		} else {
+			sample = ""
+		}
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		total++
+		if pgbouncerPrefixRe.MatchString(line) {
+			shaped++
+		}
+	}
+	return shaped >= pgbouncerShapeMinLines &&
+		shaped*pgbouncerShapeRatioDen >= total*pgbouncerShapeRatioNum
 }
 
 // Parse reads a pgBouncer log file and streams batches of LogEntry

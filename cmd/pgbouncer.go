@@ -17,12 +17,31 @@ import (
 // section — instead of silently feeding one analyzer foreign lines.
 // stdin ("-") cannot be sampled by path and is treated as PostgreSQL.
 func partitionInputsByFormat(files []string) (pgFiles, pgbFiles []string) {
+	var undetected []string
 	for _, f := range files {
-		if f != "-" && parser.DetectFileFormat(f) == "pgbouncer" {
-			pgbFiles = append(pgbFiles, f)
+		if f == "-" {
+			pgFiles = append(pgFiles, f)
 			continue
 		}
-		pgFiles = append(pgFiles, f)
+		switch parser.DetectFileFormat(f) {
+		case "pgbouncer":
+			pgbFiles = append(pgbFiles, f)
+		case "":
+			undetected = append(undetected, f)
+		default:
+			pgFiles = append(pgFiles, f)
+		}
+	}
+	// A file the detector rejected belongs to no track: it was already
+	// reported on stderr, by name, by the detector. It joins the PostgreSQL
+	// track, where the run-level "no log entries could be parsed" error
+	// covers an input list holding nothing else — but only when no pgBouncer
+	// file was recognized. Otherwise that track would fail on the rejected
+	// file alone and take down a pooler report that did parse, turning one
+	// unreadable input into an empty report and a non-zero exit for the
+	// whole run.
+	if len(pgbFiles) == 0 {
+		pgFiles = append(pgFiles, undetected...)
 	}
 	return pgFiles, pgbFiles
 }

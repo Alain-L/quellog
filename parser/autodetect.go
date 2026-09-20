@@ -235,12 +235,28 @@ func detectParser(filename string) (LogParser, error) {
 // If no newlines are found in the initial buffer, it extends the read.
 func readFileSample(f *os.File) (string, error) {
 	buf := make([]byte, sampleBufferSize)
-	n, err := f.Read(buf)
-	if err != nil && n == 0 {
+	// io.ReadFull, not a bare Read: only a genuine end of file may shorten
+	// the read, which is what the whole-file shortcut below relies on.
+	n, err := io.ReadFull(f, buf)
+	atEOF := errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF)
+	if err != nil && !atEOF {
 		return "", err
+	}
+	if n == 0 {
+		return "", io.EOF
 	}
 
 	rawSample := string(buf[:n])
+
+	// The file ended inside the buffer, so whatever follows the last newline
+	// is a complete final line, not a truncated one — keep it. Trimming it
+	// unconditionally threw away the last line of every file written without
+	// a trailing newline, which on a two-line log is half the content and
+	// enough to fail detection.
+	if atEOF {
+		return rawSample, nil
+	}
+
 	lastNewline := strings.LastIndex(rawSample, "\n")
 
 	// If no newlines found, try to read more lines
