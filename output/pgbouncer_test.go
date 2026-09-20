@@ -89,7 +89,7 @@ func TestExportJSONCombined(t *testing.T) {
 	// With pgb: a top-level "pgbouncer" key carries the pooler metrics.
 	var withPgb bytes.Buffer
 	pgb := samplePgBouncerMetrics()
-	ExportJSONCombined(&withPgb, m, &pgb, []string{"all"}, true, true)
+	ExportJSONCombined(&withPgb, m, &pgb, []string{"all"}, true, true, false)
 	var got map[string]interface{}
 	if err := json.Unmarshal(withPgb.Bytes(), &got); err != nil {
 		t.Fatalf("invalid JSON: %v", err)
@@ -104,12 +104,26 @@ func TestExportJSONCombined(t *testing.T) {
 
 	// Without pgb (pure PostgreSQL run): no pgbouncer key.
 	var noPgb bytes.Buffer
-	ExportJSONCombined(&noPgb, m, nil, []string{"all"}, true, true)
+	ExportJSONCombined(&noPgb, m, nil, []string{"all"}, true, true, false)
 	var got2 map[string]interface{}
 	if err := json.Unmarshal(noPgb.Bytes(), &got2); err != nil {
 		t.Fatalf("invalid JSON: %v", err)
 	}
 	if _, present := got2["pgbouncer"]; present {
 		t.Error("pgbouncer key present in a pure PostgreSQL payload")
+	}
+
+	// Pure pgBouncer run: the flat pooler document, not a nested key.
+	var only bytes.Buffer
+	ExportJSONCombined(&only, analysis.AggregatedMetrics{}, &pgb, []string{"all"}, true, true, true)
+	var got3 map[string]interface{}
+	if err := json.Unmarshal(only.Bytes(), &got3); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+	if _, present := got3["pgbouncer"]; present {
+		t.Error("pgbouncer key nested in a pure pgBouncer payload (schema must stay flat)")
+	}
+	if got3["login_attempts"].(float64) != 10 {
+		t.Errorf("login_attempts = %v, want 10", got3["login_attempts"])
 	}
 }

@@ -1975,7 +1975,15 @@ func ExportJSON(w io.Writer, m analysis.AggregatedMetrics, sections []string, fu
 // ExportJSONCombined writes the PostgreSQL JSON payload with an added
 // top-level "pgbouncer" key when pgBouncer files were part of the same
 // run. With pgb nil (a pure PostgreSQL run) it is identical to ExportJSON.
-func ExportJSONCombined(w io.Writer, m analysis.AggregatedMetrics, pgb *analysis.PgBouncerMetrics, sections []string, full bool, compact bool) {
+// pgbOnly marks a pure pgBouncer run: there is no PostgreSQL payload to
+// nest under, so the flat pooler document is written instead.
+func ExportJSONCombined(w io.Writer, m analysis.AggregatedMetrics, pgb *analysis.PgBouncerMetrics, sections []string, full bool, compact bool, pgbOnly bool) {
+	if pgbOnly {
+		if pgb != nil {
+			ExportPgBouncerJSON(w, *pgb, compact)
+		}
+		return
+	}
 	data := buildJSONData(m, sections, full)
 	if pgb != nil && pgb.Lines > 0 {
 		data["pgbouncer"] = pgb

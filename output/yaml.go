@@ -28,13 +28,17 @@ func jsonToYAML(w io.Writer, jsonBytes []byte) {
 
 // ExportYAML writes the full analysis results as YAML.
 func ExportYAML(w io.Writer, m analysis.AggregatedMetrics, sections []string, full bool) {
-	data := buildJSONData(m, sections, full)
-	jsonBytes, err := json.Marshal(data)
-	if err != nil {
-		fmt.Fprintf(w, "# ERROR: Failed to marshal data: %v\n", err)
-		return
-	}
-	jsonToYAML(w, jsonBytes)
+	ExportYAMLCombined(w, m, nil, sections, full, false)
+}
+
+// ExportYAMLCombined writes the YAML report for the same three shapes
+// ExportJSONCombined produces — PostgreSQL only, PostgreSQL with a
+// "pgbouncer" key, and the flat pooler document (pgbOnly) — reusing it as
+// the source document.
+func ExportYAMLCombined(w io.Writer, m analysis.AggregatedMetrics, pgb *analysis.PgBouncerMetrics, sections []string, full, pgbOnly bool) {
+	var buf bytes.Buffer
+	ExportJSONCombined(&buf, m, pgb, sections, full, true, pgbOnly)
+	jsonToYAML(w, buf.Bytes())
 }
 
 // ExportSQLPerformanceYAML writes SQL performance metrics as YAML.

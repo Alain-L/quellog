@@ -8,7 +8,7 @@ quellog /var/log/pgbouncer/pgbouncer.log --html -o report.html
 quellog /var/log/pgbouncer/pgbouncer.log --json
 ```
 
-Time filters (`--begin`, `--end`, `--last`, `--window`) apply. The SQL-specific flags (`--sql-summary`, `--sql-detail`, `--split`, …) do not apply to pgBouncer logs.
+Time filters (`--begin`, `--end`, `--last`, `--window`) apply. The attribute filters (`--dbname`, `--dbuser`, `--appname`) select PostgreSQL backends through the `log_line_prefix` and are not applied to the pooler track. The SQL-specific flags (`--sql-summary`, `--sql-detail`, …) have nothing to report on pooler telemetry and are ignored; `--split` is rejected (see below).
 
 ## Combining with PostgreSQL logs
 
