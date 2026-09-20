@@ -8,6 +8,10 @@ quellog /var/log/pgbouncer/pgbouncer.log --html -o report.html
 quellog /var/log/pgbouncer/pgbouncer.log --json
 ```
 
+Compressed and archived inputs work as they do for PostgreSQL logs: `.gz`, `.zst`, and `.tar`/`.tgz`/`.tzst`/`.zip`/`.7z` archives are read in place and produce the same report as the plain file. A log read from standard input (`-`) is not: the format is detected from the path, so a pooler log piped in is not recognized and the run fails. Point quellog at the file instead.
+
+pgBouncer running with `syslog = 1` is not supported in this release. The syslog envelope replaces the severity word with the protocol priority, so those lines match neither the pooler format nor the PostgreSQL one and the file is rejected outright.
+
 Time filters (`--begin`, `--end`, `--last`, `--window`) apply. The attribute filters (`--dbname`, `--dbuser`, `--appname`) select PostgreSQL backends through the `log_line_prefix` and are not applied to the pooler track. The SQL-specific flags (`--sql-summary`, `--sql-detail`, …) have nothing to report on pooler telemetry and are ignored; `--split` is rejected (see below).
 
 ## Combining with PostgreSQL logs
@@ -27,7 +31,7 @@ pgBouncer log lines are single-line records with a `timestamp [PID] SEVERITY` pr
 
 | Line | Contributes to |
 |------|----------------|
-| `LOG stats: <n> xacts/s, <n> queries/s, …, in <n> B/s, out <n> B/s, xact <n> us, query <n> us, wait <n> us` | Request throughput, network I/O, and transaction/query/wait timing (per-second averages over the pooler's `stats_period`) |
+| `LOG stats: <n> xacts/s, <n> queries/s, …, in <n> B/s, out <n> B/s, xact <n> us, query <n> us, wait <n> us` | Request throughput, network I/O, and transaction/query/wait timing. The `/s` and `B/s` fields are rates averaged over the pooler's `stats_period`; `xact`, `query` and `wait` are not rates but mean durations per operation, each over its own counter (transactions, queries, and server assignments respectively) |
 | `LOG C-0x…: db/user@host login attempt: …` | Client connections (login attempts) and the per-database/user/host breakdown |
 | `LOG S-0x…: … new connection to server …` | Server connections |
 | `LOG …: … closing because: <reason> (age=Ns)` | Completed sessions, the session-time histogram, and per-database/user/host breakdown |
@@ -35,22 +39,22 @@ pgBouncer log lines are single-line records with a `timestamp [PID] SEVERITY` pr
 
 ## Report sections
 
-Text (default), Markdown (`--md`), JSON (`--json`), and HTML (`--html`) all expose the same information:
+Text (default), Markdown (`--md`), JSON (`--json`), YAML (`--yaml`), and HTML (`--html`) carry the same figures. The section names below are the text and Markdown ones; HTML groups them into cards and charts, and the serialized formats expose them as the keys listed further down.
 
 - **Summary** — time range, lines read, entries understood (plus the lines no parser could decode and the DEBUG/NOISE share of the rest), stats snapshots, login attempts, server connections, completed sessions, reserve-pool activations, errors.
-- **Request throughput** — average and peak transactions/s and queries/s.
-- **Network I/O** — average and peak bytes in/out per second.
+- **Request throughput** — average and peak transactions/s and queries/s, and average and peak bytes in/out per second. (Network I/O is not a section of its own in text or Markdown; it is a separate chart in HTML.) Like the timings, these peaks are the highest snapshot average, not the busiest instant: pgBouncer logs one rate per `stats_period`, so at the default 60 s a real spike is flattened across the minute.
 - **Query timing** — transaction, query, and wait time. pgBouncer only ever logs one average per snapshot, so the averages are weighted by each snapshot's operation count and skip the snapshots that timed none of that kind (which is why they can rest on fewer snapshots than the summary counts), and the figure beside them is the highest snapshot average, never the slowest single operation. pgBouncer reports these in microseconds; quellog keeps that resolution (`842 µs`, `3.4 ms`, `2.4 s`) rather than rounding to milliseconds.
 - **Sessions** — completed session count, average session time, a session-time histogram (same buckets as the PostgreSQL connection report), and sessions per database/user/host.
 - **Connections** — login attempts and server connections, plus connections per database/user/host.
-- **Most frequent errors** — errors and warnings ranked by frequency, with the variable socket id, peer, and session age stripped so the same failure collapses into one bucket.
+- **Most frequent errors** — errors and warnings ranked by frequency, with the variable socket id, peer, and session age stripped so the same failure collapses into one bucket. Reserve-pool activations (`taking connection from reserve_pool`) are ranked here and included in the error total, although they report a capacity event rather than a failure; they are also counted on their own line in the summary.
 
 The HTML report adds three interactive time-series charts (throughput, network I/O, timing) drawn from the `stats:` snapshots.
 
 ## JSON keys
 
-`--json` emits a flat object. Notable keys:
+The keys below are those of a pgBouncer-only run, where `--json` and `--yaml` emit a flat object. When the same invocation also holds PostgreSQL files, the document is the PostgreSQL one and these keys sit nested under a top-level `pgbouncer` key instead. Notable keys:
 
+- `min_timestamp`, `max_timestamp` — the first and last record kept, after any time filter
 - `lines_read`, `lines`, `lines_unrecognized`, `debug_lines` — lines scanned, entries understood, lines no parser could decode, and how many entries are DEBUG/NOISE
 - `stats_sample_count`, `avg_xacts_per_sec`, `max_xacts_per_sec`, `avg_queries_per_sec`, `max_queries_per_sec`
 - `avg_in_bytes_per_sec`, `max_in_bytes_per_sec`, `avg_out_bytes_per_sec`, `max_out_bytes_per_sec`
@@ -59,4 +63,10 @@ The HTML report adds three interactive time-series charts (throughput, network I
 - `connections_per_database`, `connections_per_user`, `connections_per_host`
 - `sessions_per_database`, `sessions_per_user`, `sessions_per_host`
 - `reserve_pool_activations`, `errors`, `total_errors`
-- `stats_series` — the full per-snapshot time series (used to draw the HTML charts)
+- `stats_series` — the full per-snapshot time series, ordered by time (used to draw the HTML charts)
+
+## Limitations
+
+- The browser demo does not read pgBouncer logs. Its WebAssembly build carries the PostgreSQL parsers only, so a pooler log dropped on the page is not recognized; the command-line tool reads it normally.
+- `syslog = 1` captures are not detected (see above).
+- A log read from standard input is not detected as a pooler log (see above).
