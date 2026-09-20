@@ -106,7 +106,27 @@ func ParseFile(filename string, out chan<- []LogEntry) error {
 	if err != nil {
 		return fmt.Errorf("%s: %w", filename, err)
 	}
+	// A detector returning (nil, nil) would segfault on the call below. No
+	// path does today — the compression router reports an error instead of
+	// handing back a nil parser — but the contract is one new format away
+	// from being broken again, so report the file rather than crash the run.
+	if parser == nil {
+		return fmt.Errorf("%s: %w", filename, ErrUnknownFormat)
+	}
 	return parser.Parse(filename, out)
+}
+
+// formatWrapper is implemented by the parsers that stand in front of a
+// payload whose real format only becomes visible once the wrapper is
+// opened: the compression wrapper and the archive parsers. Detection
+// resolves the wrapper, so DetectFileFormat asks it what it holds instead
+// of reporting every compressed or archived input as "stderr" — which sent
+// a pgBouncer log in a .gz or a .tgz straight to the PostgreSQL analyzer.
+type formatWrapper interface {
+	// innerFormat returns "csv", "json", "pgbouncer" or "stderr" for the
+	// wrapped payload, or "" when it cannot be determined. filename is the
+	// wrapper's own path, for the implementations that must reopen it.
+	innerFormat(filename string) string
 }
 
 // DetectFileFormat detects the log format of a file without parsing it.
@@ -117,13 +137,18 @@ func DetectFileFormat(filename string) string {
 	if err != nil {
 		return ""
 	}
-	switch parser.(type) {
+	switch p := parser.(type) {
 	case *CsvParser:
 		return "csv"
 	case *JsonParser:
 		return "json"
 	case *PgBouncerParser:
 		return "pgbouncer"
+	case formatWrapper:
+		if format := p.innerFormat(filename); format != "" {
+			return format
+		}
+		return "stderr"
 	default:
 		return "stderr"
 	}

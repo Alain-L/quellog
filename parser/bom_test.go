@@ -43,6 +43,7 @@ func TestParseFileBOM(t *testing.T) {
 		"../test/testdata/stderr.log",
 		"../test/testdata/csvlog.csv",
 		"../test/testdata/jsonlog.json",
+		"../test/testdata/regressions/pgbouncer/pgbouncer.log",
 	}
 	for _, src := range fixtures {
 		src := src

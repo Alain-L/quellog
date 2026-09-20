@@ -30,26 +30,10 @@ func (p *TarParser) Parse(filename string, out chan<- []LogEntry) error {
 
 	// Wrap the on-disk reader so progress reports compressed bytes
 	// consumed (= file size on disk = the bar's denominator).
-	source := WithProgress(file)
-	var reader io.Reader = source
-	var closer io.Closer
-
-	if isGzipArchive(filename) {
-		gr, gzipErr := newParallelGzipReader(source)
-		if gzipErr != nil {
-			return fmt.Errorf("failed to open gzip reader for tar archive %s: %w", filename, gzipErr)
-		}
-		reader = gr
-		closer = gr
-	} else if isZstdArchive(filename) {
-		zr, zstdErr := newZstdDecoder(source)
-		if zstdErr != nil {
-			return fmt.Errorf("failed to open zstd reader for tar archive %s: %w", filename, zstdErr)
-		}
-		reader = zr
-		closer = zr
+	reader, closer, err := openTarStream(filename, WithProgress(file))
+	if err != nil {
+		return err
 	}
-
 	if closer != nil {
 		defer closer.Close()
 	}
@@ -119,6 +103,126 @@ func (p *TarParser) Parse(filename string, out chan<- []LogEntry) error {
 	}
 
 	return nil
+}
+
+// openTarStream wraps the raw archive reader with the decompressor its name
+// implies, and returns the tar-level reader plus the closer to release (nil
+// for an uncompressed .tar).
+func openTarStream(filename string, r io.Reader) (io.Reader, io.Closer, error) {
+	switch {
+	case isGzipArchive(filename):
+		gr, err := newParallelGzipReader(r)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to open gzip reader for tar archive %s: %w", filename, err)
+		}
+		return gr, gr, nil
+	case isZstdArchive(filename):
+		zr, err := newZstdDecoder(r)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to open zstd reader for tar archive %s: %w", filename, err)
+		}
+		return zr, zr, nil
+	}
+	return r, nil, nil
+}
+
+// innerFormat implements formatWrapper: it names the format of the first
+// member the archive holds that we can parse, so the cmd layer routes a
+// pgBouncer archive to the pooler analyzer instead of feeding pooler lines
+// to the PostgreSQL one. An archive mixing both formats resolves to its
+// first parsable member, like any other single input.
+func (p *TarParser) innerFormat(filename string) string {
+	file, err := os.Open(filename)
+	if err != nil {
+		return ""
+	}
+	defer file.Close()
+
+	reader, closer, err := openTarStream(filename, file)
+	if err != nil {
+		return ""
+	}
+	if closer != nil {
+		defer closer.Close()
+	}
+
+	tr := tar.NewReader(reader)
+	for {
+		hdr, err := tr.Next()
+		if err != nil || hdr == nil {
+			return ""
+		}
+		if hdr.Typeflag != tar.TypeReg || hdr.Size == 0 || strings.Contains(hdr.Name, "..") {
+			continue
+		}
+		if format := archiveMemberFormat(filepath.Base(hdr.Name), io.LimitReader(tr, hdr.Size)); format != "" {
+			return format
+		}
+	}
+}
+
+// archiveMemberFormat names the format of one archive member ("csv",
+// "json", "pgbouncer" or "stderr"), or "" when the member is not a log we
+// can parse. It mirrors parseArchiveEntry's routing: a nested gzip/zstd
+// member is decompressed first, then its head is sampled and run through
+// the same content discriminators the plain path uses.
+func archiveMemberFormat(name string, r io.Reader) string {
+	lower := strings.ToLower(name)
+	switch {
+	case strings.HasSuffix(lower, ".gz"):
+		gr, err := newParallelGzipReader(r)
+		if err != nil {
+			return ""
+		}
+		defer gr.Close()
+		return archiveMemberFormat(name[:len(name)-len(".gz")], gr)
+	case strings.HasSuffix(lower, ".zst"):
+		return nestedArchiveMemberFormat(name, r, ".zst")
+	case strings.HasSuffix(lower, ".zstd"):
+		return nestedArchiveMemberFormat(name, r, ".zstd")
+	}
+
+	sample := make([]byte, sampleBufferSize)
+	n, err := io.ReadFull(r, sample)
+	if err != nil && err != io.ErrUnexpectedEOF && err != io.EOF {
+		return ""
+	}
+	text := string(bytes.TrimPrefix(sample[:n], utf8BOM))
+	if isBinaryContent(text) {
+		return ""
+	}
+	return sampleFormat(text)
+}
+
+// nestedArchiveMemberFormat decompresses a zstd member and re-runs the
+// format probe on the inner name.
+func nestedArchiveMemberFormat(name string, r io.Reader, suffix string) string {
+	zr, err := newZstdDecoder(r)
+	if err != nil {
+		return ""
+	}
+	defer zr.Close()
+	return archiveMemberFormat(name[:len(name)-len(suffix)], zr)
+}
+
+// sampleFormat names the format of a content sample using the same
+// discriminators as the plain detection path, in the same order as
+// detectByContent. Unlike detectByContent it builds no parser and logs
+// nothing: it only answers which analyzer the content belongs to. Returns
+// "" when nothing matches.
+func sampleFormat(sample string) string {
+	switch {
+	case looksLikePgBouncer(sample):
+		return "pgbouncer"
+	case isJSONContent(sample):
+		return "json"
+	case isCSVContent(sample):
+		return "csv"
+	case isLogContent(sample):
+		return "stderr"
+	default:
+		return ""
+	}
 }
 
 // isSupportedArchiveEntry reports whether the archive entry should be parsed.
@@ -211,6 +315,8 @@ func sniffAndParseArchiveEntry(name string, r io.Reader, out chan<- []LogEntry) 
 		return true, (&CsvParser{}).parseReader(full, out)
 	case *JsonParser:
 		return true, (&JsonParser{}).parseReader(full, out)
+	case *PgBouncerParser:
+		return true, (&PgBouncerParser{}).parseReader(full, out)
 	default:
 		// Carry the detected leading-prefix offset so a prefixed log inside
 		// an archive parses like its plain counterpart instead of silently
@@ -236,15 +342,15 @@ func routeStderrStream(full io.Reader, prefixLen int, out chan<- []LogEntry) err
 	return parser.parseReader(full, out)
 }
 
-// parseStderrArchiveEntry parses a plain-stderr archive member (a ".log" or
-// rotated ".log.<date>" entry), salvaging a literal log_line_prefix the same
-// way the plain/compressed path does in autodetect.go's detectByExtension.
-// Archive members are non-seekable, so it buffers a head sample, runs the
-// isLogContent -> detectLeadingPrefix probe, then replays the sample ahead of
-// the rest of the stream so no bytes are lost. Without this, a log carrying a
-// constant literal prefix before its timestamp parses fine as a plain/compressed
-// file but yields zero entries when the same bytes live inside a tar.
-func parseStderrArchiveEntry(r io.Reader, out chan<- []LogEntry) error {
+// parseLogArchiveEntry parses a text-log archive member (a ".log" or rotated
+// ".log.<date>" entry), running the same probes the plain/compressed path
+// runs in autodetect.go's detectByExtension: pgBouncer content first, then a
+// literal log_line_prefix salvage for stderr. Archive members are
+// non-seekable, so it buffers a head sample, probes it, then replays the
+// sample ahead of the rest of the stream so no bytes are lost. Without the
+// pgBouncer probe a pooler log inside an archive was parsed as PostgreSQL;
+// without the prefix salvage a prefixed log yielded zero entries.
+func parseLogArchiveEntry(r io.Reader, out chan<- []LogEntry) error {
 	sample := make([]byte, sampleBufferSize)
 	n, err := io.ReadFull(r, sample)
 	if err != nil && err != io.ErrUnexpectedEOF && err != io.EOF {
@@ -252,16 +358,25 @@ func parseStderrArchiveEntry(r io.Reader, out chan<- []LogEntry) error {
 	}
 	sample = bytes.TrimPrefix(sample[:n], utf8BOM)
 
+	// Replay the buffered sample ahead of the remaining stream, then route
+	// it in detectByExtension's own order.
+	s := string(sample)
+	full := io.MultiReader(bytes.NewReader(sample), r)
+
+	// pgBouncer first: a pooler log shares PostgreSQL's timestamp/PID shape,
+	// so the stderr reader would happily swallow it and report it as a
+	// PostgreSQL log.
+	if looksLikePgBouncer(s) {
+		return (&PgBouncerParser{}).parseReader(full, out)
+	}
+
 	// Only probe for a literal prefix when the sample doesn't already look like
 	// a normal PostgreSQL log — mirrors detectByExtension's "log" branch, so a
 	// well-formed member keeps prefixLen 0 and the common no-prefix fast path.
 	prefixLen := 0
-	if s := string(sample); !isLogContent(s) {
+	if !isLogContent(s) {
 		prefixLen = detectLeadingPrefix(s)
 	}
-
-	// Replay the buffered sample ahead of the remaining stream, then route.
-	full := io.MultiReader(bytes.NewReader(sample), r)
 	return routeStderrStream(full, prefixLen, out)
 }
 
@@ -274,7 +389,7 @@ func parseArchiveEntry(name string, r io.Reader, out chan<- []LogEntry) error {
 		// Buffer a head sample so a literal log_line_prefix is salvaged the
 		// same way the plain/compressed path does, then parse (parallel when
 		// prefix-less, sequential when a prefix was detected).
-		return parseStderrArchiveEntry(r, out)
+		return parseLogArchiveEntry(r, out)
 	case strings.HasSuffix(lower, ".csv"):
 		parser := &CsvParser{}
 		return parser.parseReader(r, out)
@@ -299,7 +414,7 @@ func parseArchiveEntry(name string, r io.Reader, out chan<- []LogEntry) error {
 		// Rotated PostgreSQL log files, including logrotate dateext
 		// (e.g. postgresql.log.2026-03-23-10, postgresql.log-20260320 after
 		// nested decompression). Same literal-prefix salvage as ".log" above.
-		return parseStderrArchiveEntry(r, out)
+		return parseLogArchiveEntry(r, out)
 	case hasRotatedBase(lower, ".csv"):
 		// Rotated CSV log files (numeric, date-dot or dateext).
 		parser := &CsvParser{}

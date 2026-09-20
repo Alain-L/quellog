@@ -70,3 +70,35 @@ func (p *SevenZipParser) Parse(filename string, out chan<- []LogEntry) error {
 
 	return nil
 }
+
+// innerFormat implements formatWrapper: it names the format of the first
+// supported member, so the cmd layer routes a pgBouncer archive to the
+// pooler analyzer instead of feeding pooler lines to the PostgreSQL one.
+// It considers exactly the members Parse parses.
+func (p *SevenZipParser) innerFormat(filename string) string {
+	r, err := sevenzip.OpenReader(filename)
+	if err != nil {
+		return ""
+	}
+	defer r.Close()
+
+	for _, f := range r.File {
+		if f.FileInfo().IsDir() || f.UncompressedSize == 0 || strings.Contains(f.Name, "..") {
+			continue
+		}
+		baseName := filepath.Base(f.Name)
+		if !isSupportedArchiveEntry(baseName) {
+			continue
+		}
+		rc, err := f.Open()
+		if err != nil {
+			continue
+		}
+		format := archiveMemberFormat(baseName, rc)
+		rc.Close()
+		if format != "" {
+			return format
+		}
+	}
+	return ""
+}

@@ -22,6 +22,13 @@ import (
 // ErrCompressionFailed indicates a failure reading compressed content.
 var ErrCompressionFailed = errors.New("failed to read compressed file")
 
+// ErrUnsupportedCompressedParser indicates a format detected inside a
+// compressed file that the compression router cannot stream. It exists so
+// wrapCompressedParser can never return a nil parser with a nil error —
+// that pair used to travel up to ParseFile and segfault on the first method
+// call (a pgBouncer log in a .gz did exactly that).
+var ErrUnsupportedCompressedParser = errors.New("detected format cannot be read from a compressed file")
+
 // compressionCodec defines how to create a streaming reader for a compressed format.
 type compressionCodec struct {
 	name   string
@@ -214,7 +221,7 @@ func detectCompressedParserWithError(filename, baseName string, codec compressio
 		return nil, ErrUnknownFormat
 	}
 
-	return wrapCompressedParser(parser, codec), nil
+	return wrapCompressedParser(parser, codec)
 }
 
 // compressedSampleShardable reports whether the decompressed content of a
@@ -290,24 +297,31 @@ func readUntilNLinesCompressed(r io.Reader, n int) (string, error) {
 }
 
 // wrapCompressedParser converts an existing parser into a codec-aware parser.
-func wrapCompressedParser(parser LogParser, codec compressionCodec) LogParser {
+// It returns an error — never a nil parser with a nil error — for a format it
+// cannot stream, so the caller reports the file instead of dereferencing nil.
+func wrapCompressedParser(parser LogParser, codec compressionCodec) (LogParser, error) {
 	switch src := parser.(type) {
 	case *JsonParser:
 		p := &JsonParser{}
-		return newCompressedParser(codec, func(r io.Reader, size int64, out chan<- []LogEntry) error {
+		return newCompressedParser(codec, "json", func(r io.Reader, size int64, out chan<- []LogEntry) error {
 			return p.parseReader(r, out)
-		})
+		}), nil
 	case *CsvParser:
 		p := &CsvParser{}
-		return newCompressedParser(codec, func(r io.Reader, size int64, out chan<- []LogEntry) error {
+		return newCompressedParser(codec, "csv", func(r io.Reader, size int64, out chan<- []LogEntry) error {
 			return p.parseReader(r, out)
-		})
+		}), nil
+	case *PgBouncerParser:
+		p := &PgBouncerParser{}
+		return newCompressedParser(codec, "pgbouncer", func(r io.Reader, size int64, out chan<- []LogEntry) error {
+			return p.parseReader(r, out)
+		}), nil
 	case *StderrParser:
 		// Carry the detected leading-prefix offset into the decompression
 		// wrapper; otherwise a prefixed log would detect the prefix on its
 		// sample and then silently parse zero entries from the stream.
 		p := &StderrParser{prefixLen: src.prefixLen}
-		return newCompressedParser(codec, func(r io.Reader, size int64, out chan<- []LogEntry) error {
+		return newCompressedParser(codec, "stderr", func(r io.Reader, size int64, out chan<- []LogEntry) error {
 			// Compressed streams can't seek, so the segment engine doesn't
 			// apply — but the stream-chunked sibling parallelizes the parse
 			// the same way. Prefixed streams keep the prefix-aware sequential
@@ -331,10 +345,10 @@ func wrapCompressedParser(parser LogParser, codec compressionCodec) LogParser {
 				return p.parseStreamParallel(r, workers, out)
 			}
 			return p.parseReader(r, out)
-		})
+		}), nil
 	default:
 		slog.Error("unsupported parser type for compressed files", "codec", codec.name, "parser_type", fmt.Sprintf("%T", parser))
-		return nil
+		return nil, fmt.Errorf("%w: %T (codec %s)", ErrUnsupportedCompressedParser, parser, codec.name)
 	}
 }
 
@@ -344,13 +358,25 @@ type compressedLogParser struct {
 	// can gate the parallel engine on the estimated decompressed size.
 	parse func(r io.Reader, size int64, out chan<- []LogEntry) error
 	codec compressionCodec
+	// format names the payload behind the codec ("csv", "json",
+	// "pgbouncer", "stderr"), as detected on the decompressed sample.
+	format string
 }
 
-func newCompressedParser(codec compressionCodec, parse func(r io.Reader, size int64, out chan<- []LogEntry) error) LogParser {
+func newCompressedParser(codec compressionCodec, format string, parse func(r io.Reader, size int64, out chan<- []LogEntry) error) LogParser {
 	return &compressedLogParser{
-		parse: parse,
-		codec: codec,
+		parse:  parse,
+		codec:  codec,
+		format: format,
 	}
+}
+
+// innerFormat implements formatWrapper: the payload format was already
+// resolved on the decompressed sample at detection time, so the filename is
+// not needed. Without it DetectFileFormat reported every compressed file as
+// "stderr" and a pgBouncer .gz was handed to the PostgreSQL analyzer.
+func (c *compressedLogParser) innerFormat(string) string {
+	return c.format
 }
 
 func (c *compressedLogParser) Parse(filename string, out chan<- []LogEntry) error {

@@ -4,6 +4,7 @@ package parser
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"regexp"
 	"strings"
@@ -55,10 +56,22 @@ func (p *PgBouncerParser) Parse(filename string, out chan<- []LogEntry) error {
 	}
 	defer file.Close()
 
+	if err := p.parseReader(WithProgress(file), out); err != nil {
+		return fmt.Errorf("%s: %w", filename, err)
+	}
+	return nil
+}
+
+// parseReader runs the pgBouncer parsing logic against any io.Reader, so
+// the compressed (gzip/zstd) and archive (tar/zip/7z) routers can feed it
+// a decompressed stream exactly as they do for the other formats. Like
+// every other parseReader path it strips a leading UTF-8 BOM, which would
+// otherwise push the first record off the prefix regex.
+func (p *PgBouncerParser) parseReader(r io.Reader, out chan<- []LogEntry) error {
 	bs := NewBatchSender(out)
 	defer bs.Flush()
 
-	scanner := bufio.NewScanner(WithProgress(file))
+	scanner := bufio.NewScanner(skipBOM(r))
 	scanner.Buffer(make([]byte, 0, 256*1024), scannerBuffer)
 
 	for scanner.Scan() {
@@ -78,7 +91,7 @@ func (p *PgBouncerParser) Parse(filename string, out chan<- []LogEntry) error {
 		bs.Send(LogEntry{Timestamp: ts, Message: msg})
 	}
 	if err := scanner.Err(); err != nil {
-		return fmt.Errorf("error reading pgBouncer log %s: %w", filename, err)
+		return fmt.Errorf("error reading pgBouncer log: %w", err)
 	}
 	return nil
 }
