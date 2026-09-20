@@ -25,7 +25,14 @@ func PrintPgBouncer(m analysis.PgBouncerMetrics) {
 	fmt.Printf("  %-25s : %s\n", "Start date", m.MinTimestamp.Format("2006-01-02 15:04:05 MST"))
 	fmt.Printf("  %-25s : %s\n", "End date", m.MaxTimestamp.Format("2006-01-02 15:04:05 MST"))
 	fmt.Printf("  %-25s : %s\n", "Duration", duration)
-	fmt.Printf("  %-25s : %d\n", "Log lines", m.Lines)
+	fmt.Printf("  %-25s : %d\n", "Log lines read", m.LinesRead)
+	fmt.Printf("  %-25s : %d\n", "Log entries", m.Lines)
+	if m.LinesUnrecognized > 0 {
+		fmt.Printf("  %-25s : %d\n", "Unrecognized lines", m.LinesUnrecognized)
+	}
+	if m.DebugLines > 0 {
+		fmt.Printf("  %-25s : %d\n", "Debug/noise entries", m.DebugLines)
+	}
 	fmt.Printf("  %-25s : %d\n", "Stats snapshots", m.StatsSampleCount)
 	fmt.Printf("  %-25s : %d\n", "Login attempts", m.LoginAttempts)
 	fmt.Printf("  %-25s : %d\n", "Server connections", m.ServerConnections)
@@ -44,9 +51,12 @@ func PrintPgBouncer(m analysis.PgBouncerMetrics) {
 		fmt.Printf("  %-25s : %s  (max %s)\n", "Network out", bytesPerSec(m.AvgOutBytesPerSec), bytesPerSec(float64(m.MaxOutBytesPerSec)))
 
 		fmt.Println(bold + "\nQUERY TIMING\n" + reset)
-		fmt.Printf("  %-25s : %s  (max %s)\n", "Avg transaction time", micros(m.AvgXactMicros), microsI(m.MaxXactMicros))
-		fmt.Printf("  %-25s : %s  (max %s)\n", "Avg query time", micros(m.AvgQueryMicros), microsI(m.MaxQueryMicros))
-		fmt.Printf("  %-25s : %s  (max %s)\n", "Avg wait time", micros(m.AvgWaitMicros), microsI(m.MaxWaitMicros))
+		fmt.Printf("  %-25s : %s  (max snapshot avg %s)\n", "Avg transaction time", micros(m.AvgXactMicros), microsI(m.MaxXactMicros))
+		fmt.Printf("  %-25s : %s  (max snapshot avg %s)\n", "Avg query time", micros(m.AvgQueryMicros), microsI(m.MaxQueryMicros))
+		fmt.Printf("  %-25s : %s  (max snapshot avg %s)\n", "Avg wait time", micros(m.AvgWaitMicros), microsI(m.MaxWaitMicros))
+		fmt.Println()
+		fmt.Println("  " + pgbTimingNote[0])
+		fmt.Println("  " + pgbTimingNote[1])
 	}
 
 	// Sessions.
@@ -89,6 +99,17 @@ func PrintPgBouncer(m analysis.PgBouncerMetrics) {
 	}
 
 	fmt.Println()
+}
+
+// pgbTimingNote states what the timing figures are, in the two formats
+// that show them. pgBouncer only ever logs one average per snapshot, so
+// the averages are weighted by each snapshot's operation count and skip
+// the snapshots that timed none of that kind (which is why they can
+// rest on fewer snapshots than the summary counts), and the column next
+// to them is the highest snapshot average, never a slowest operation.
+var pgbTimingNote = [2]string{
+	"Averages skip the snapshots that timed none and weight the rest by",
+	"operation count; the max is the highest snapshot average, not a peak.",
 }
 
 // bytesPerSec formats a per-second byte rate, e.g. "1.7 kB/s".

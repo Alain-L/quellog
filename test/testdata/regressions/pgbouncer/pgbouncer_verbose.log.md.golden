@@ -7,7 +7,9 @@
 | Start date | 2026-09-20 13:42:33 CEST |
 | End date | 2026-09-20 13:42:47 CEST |
 | Duration | 14.285s |
-| Log lines | 1686 |
+| Log lines read | 1686 |
+| Log entries | 1686 |
+| Debug/noise entries | 1673 |
 | Stats snapshots | 0 |
 | Login attempts | 4 |
 | Server connections | 2 |

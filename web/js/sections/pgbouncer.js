@@ -154,8 +154,9 @@ export function buildPgBouncerSection(data) {
             <div class="section-header">pgBouncer</div>
             <div class="section-body">
                 <div class="stat-grid">
+                    ${hasStats ? `
                     <div class="stat-card"><div class="stat-value">${p.avg_queries_per_sec != null ? p.avg_queries_per_sec.toFixed(1) : '0'}/s</div><div class="stat-label">Avg Queries</div></div>
-                    <div class="stat-card"><div class="stat-value">${fmt(p.max_queries_per_sec || 0)}/s</div><div class="stat-label">Peak Queries</div></div>
+                    <div class="stat-card"><div class="stat-value">${fmt(p.max_queries_per_sec || 0)}/s</div><div class="stat-label">Peak Queries</div></div>` : ''}
                     <div class="stat-card"><div class="stat-value">${fmt(p.login_attempts || 0)}</div><div class="stat-label">Login Attempts</div></div>
                     <div class="stat-card"><div class="stat-value">${fmt(p.sessions || 0)}</div><div class="stat-label">Sessions</div></div>
                     <div class="stat-card"><div class="stat-value">${fmt(p.server_connections || 0)}</div><div class="stat-label">Server Conns</div></div>
@@ -174,7 +175,7 @@ export function buildPgBouncerSection(data) {
                         </div>
                     </div>
                     <div style="margin-top:0.5rem;">
-                        ${buildChartContainer('chart-pgb-timing', 'Transaction / Query / Wait Time', { tooltip: 'Average transaction, query, and pool-wait time (microsecond resolution).', showBucketControl: false })}
+                        ${buildChartContainer('chart-pgb-timing', 'Transaction / Query / Wait Time', { tooltip: 'Transaction, query, and pool-wait time (microsecond resolution). pgBouncer logs one average per snapshot, never a single operation, so each point is an interval average.', showBucketControl: false })}
                         ${chartLegend([['transaction', 'var(--accent)'], ['query', 'var(--purple)'], ['wait', 'var(--danger)']])}
                     </div>
                 ` : ''}

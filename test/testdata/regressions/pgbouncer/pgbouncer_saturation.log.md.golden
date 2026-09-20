@@ -7,7 +7,8 @@
 | Start date | 2026-09-20 13:57:57 CEST |
 | End date | 2026-09-20 13:58:43 CEST |
 | Duration | 45.723s |
-| Log lines | 211 |
+| Log lines read | 211 |
+| Log entries | 211 |
 | Stats snapshots | 3 |
 | Login attempts | 69 |
 | Server connections | 10 |
@@ -26,7 +27,9 @@
 
 ## Query Timing
 
-| Metric | Average | Peak |
+*Averages skip the snapshots that timed none and weight the rest by operation count; the max is the highest snapshot average, not a peak.*
+
+| Metric | Weighted average | Max snapshot average |
 |---|---|---|
 | Transaction time | 2.44 s | 2.75 s |
 | Query time | 527.7 ms | 639.8 ms |

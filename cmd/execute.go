@@ -784,7 +784,7 @@ func renderReport(metrics analysis.AggregatedMetrics, pgb *analysis.PgBouncerMet
 	}
 
 	// Default: text output. The header counts log entries, or pgBouncer
-	// log lines when that is all there is.
+	// records when that is all there is.
 	entries := metrics.Global.Count
 	if pgbOnly {
 		entries = pgb.Lines

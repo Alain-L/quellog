@@ -32,7 +32,18 @@ type PgBouncerStatsPoint struct {
 type PgBouncerMetrics struct {
 	MinTimestamp time.Time `json:"min_timestamp"`
 	MaxTimestamp time.Time `json:"max_timestamp"`
-	Lines        int       `json:"lines"`
+	// Lines is the number of records the analyzer understood. LinesRead
+	// is what the parser scanned and LinesUnrecognized what it could not
+	// decode, so a report can show a loss instead of always stating that
+	// it parsed everything it parsed. LinesRead may exceed the two of
+	// them combined: a time filter drops decoded records too.
+	Lines             int `json:"lines"`
+	LinesRead         int `json:"lines_read"`
+	LinesUnrecognized int `json:"lines_unrecognized"`
+	// DebugLines is how many of Lines are DEBUG or NOISE records. Under
+	// verbose=2 they are the overwhelming majority, so the headline
+	// count means little until it is split from the operational signal.
+	DebugLines int `json:"debug_lines"`
 
 	// Traffic: aggregates over the "LOG stats:" snapshots.
 	StatsSampleCount  int                   `json:"stats_sample_count"`
@@ -126,6 +137,9 @@ func (a *PgBouncerAnalyzer) Process(entry *parser.LogEntry) {
 	a.trackTime(entry.Timestamp)
 
 	severity, rest := splitSeverity(msg)
+	if severity == "DEBUG" || severity == "NOISE" {
+		a.m.DebugLines++
+	}
 
 	// "LOG stats:" telemetry snapshot.
 	if severity == "LOG" && strings.HasPrefix(rest, "stats:") {

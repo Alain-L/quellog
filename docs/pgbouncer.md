@@ -37,10 +37,10 @@ pgBouncer log lines are single-line records with a `timestamp [PID] SEVERITY` pr
 
 Text (default), Markdown (`--md`), JSON (`--json`), and HTML (`--html`) all expose the same information:
 
-- **Summary** — time range, log lines, stats snapshots, login attempts, server connections, completed sessions, reserve-pool activations, errors.
+- **Summary** — time range, lines read, entries understood (plus the lines no parser could decode and the DEBUG/NOISE share of the rest), stats snapshots, login attempts, server connections, completed sessions, reserve-pool activations, errors.
 - **Request throughput** — average and peak transactions/s and queries/s.
 - **Network I/O** — average and peak bytes in/out per second.
-- **Query timing** — average and peak transaction, query, and wait time. pgBouncer reports these in microseconds; quellog keeps that resolution (`842 µs`, `3.4 ms`, `2.4 s`) rather than rounding to milliseconds.
+- **Query timing** — transaction, query, and wait time. pgBouncer only ever logs one average per snapshot, so the averages are weighted by each snapshot's operation count and skip the snapshots that timed none of that kind (which is why they can rest on fewer snapshots than the summary counts), and the figure beside them is the highest snapshot average, never the slowest single operation. pgBouncer reports these in microseconds; quellog keeps that resolution (`842 µs`, `3.4 ms`, `2.4 s`) rather than rounding to milliseconds.
 - **Sessions** — completed session count, average session time, a session-time histogram (same buckets as the PostgreSQL connection report), and sessions per database/user/host.
 - **Connections** — login attempts and server connections, plus connections per database/user/host.
 - **Most frequent errors** — errors and warnings ranked by frequency, with the variable socket id, peer, and session age stripped so the same failure collapses into one bucket.
@@ -51,6 +51,7 @@ The HTML report adds three interactive time-series charts (throughput, network I
 
 `--json` emits a flat object. Notable keys:
 
+- `lines_read`, `lines`, `lines_unrecognized`, `debug_lines` — lines scanned, entries understood, lines no parser could decode, and how many entries are DEBUG/NOISE
 - `stats_sample_count`, `avg_xacts_per_sec`, `max_xacts_per_sec`, `avg_queries_per_sec`, `max_queries_per_sec`
 - `avg_in_bytes_per_sec`, `max_in_bytes_per_sec`, `avg_out_bytes_per_sec`, `max_out_bytes_per_sec`
 - `avg_xact_us`, `max_xact_us`, `avg_query_us`, `max_query_us`, `avg_wait_us`, `max_wait_us`

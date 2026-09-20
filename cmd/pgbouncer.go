@@ -57,6 +57,7 @@ func partitionInputsByFormat(files []string) (pgFiles, pgbFiles []string) {
 // tokens of their own (connection endpoints), so applying them here
 // silently amputated the pooler report instead of filtering it.
 func computePgBouncerMetrics(ctx context.Context, files []string, beginT, endT time.Time, parsedAny *atomic.Bool) analysis.PgBouncerMetrics {
+	parser.ResetPgBouncerLineCounts()
 	raw := make(chan []parser.LogEntry, 64)
 	go parseFilesAsync(ctx, files, raw, parsedAny, nil)
 
@@ -67,5 +68,10 @@ func computePgBouncerMetrics(ctx context.Context, files []string, beginT, endT t
 		go parser.FilterStream(ctx, raw, filtered, filters)
 		in = filtered
 	}
-	return analysis.AggregatePgBouncerMetrics(ctx, in)
+	m := analysis.AggregatePgBouncerMetrics(ctx, in)
+	// What the parser scanned and what it threw away: the analyzer only
+	// ever sees the records that survived, so it cannot report a loss.
+	read, unrecognized := parser.PgBouncerLineCounts()
+	m.LinesRead, m.LinesUnrecognized = int(read), int(unrecognized)
+	return m
 }

@@ -26,7 +26,14 @@ func ExportPgBouncerMarkdown(w io.Writer, m analysis.PgBouncerMetrics) {
 	fmt.Fprintf(w, "| Start date | %s |\n", m.MinTimestamp.Format("2006-01-02 15:04:05 MST"))
 	fmt.Fprintf(w, "| End date | %s |\n", m.MaxTimestamp.Format("2006-01-02 15:04:05 MST"))
 	fmt.Fprintf(w, "| Duration | %s |\n", duration)
-	fmt.Fprintf(w, "| Log lines | %d |\n", m.Lines)
+	fmt.Fprintf(w, "| Log lines read | %d |\n", m.LinesRead)
+	fmt.Fprintf(w, "| Log entries | %d |\n", m.Lines)
+	if m.LinesUnrecognized > 0 {
+		fmt.Fprintf(w, "| Unrecognized lines | %d |\n", m.LinesUnrecognized)
+	}
+	if m.DebugLines > 0 {
+		fmt.Fprintf(w, "| Debug/noise entries | %d |\n", m.DebugLines)
+	}
 	fmt.Fprintf(w, "| Stats snapshots | %d |\n", m.StatsSampleCount)
 	fmt.Fprintf(w, "| Login attempts | %d |\n", m.LoginAttempts)
 	fmt.Fprintf(w, "| Server connections | %d |\n", m.ServerConnections)
@@ -50,7 +57,9 @@ func ExportPgBouncerMarkdown(w io.Writer, m analysis.PgBouncerMetrics) {
 		fmt.Fprintln(w)
 		fmt.Fprintln(w, "## Query Timing")
 		fmt.Fprintln(w)
-		fmt.Fprintln(w, "| Metric | Average | Peak |")
+		fmt.Fprintf(w, "*%s %s*\n", pgbTimingNote[0], pgbTimingNote[1])
+		fmt.Fprintln(w)
+		fmt.Fprintln(w, "| Metric | Weighted average | Max snapshot average |")
 		fmt.Fprintln(w, "|---|---|---|")
 		fmt.Fprintf(w, "| Transaction time | %s | %s |\n", microsMD(m.AvgXactMicros), microsMD(float64(m.MaxXactMicros)))
 		fmt.Fprintf(w, "| Query time | %s | %s |\n", microsMD(m.AvgQueryMicros), microsMD(float64(m.MaxQueryMicros)))

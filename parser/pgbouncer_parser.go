@@ -8,6 +8,7 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"sync/atomic"
 	"time"
 )
 
@@ -36,6 +37,30 @@ var pgbouncerPrefixRe = regexp.MustCompile(
 var pgbouncerSignatureRe = regexp.MustCompile(
 	`\[\d+\] (?:LOG|WARNING|ERROR|FATAL|DEBUG|NOISE) (?:stats:|[CS]-0x[0-9a-f]+:)`,
 )
+
+// pgbouncerLinesRead and pgbouncerLinesUnrecognized record what the
+// pooler parser actually saw, so the report can state how much of the
+// input it failed to decode instead of publishing "parsed == parsed".
+// Package-level for the same reason as the progress counters in
+// progress.go: ParseFile hands the caller entries, not statistics, and
+// quellog runs a single parse pass per process. The cmd layer resets
+// them before the pooler pass and reads them after.
+var (
+	pgbouncerLinesRead         atomic.Int64
+	pgbouncerLinesUnrecognized atomic.Int64
+)
+
+// ResetPgBouncerLineCounts zeroes the pooler line counters.
+func ResetPgBouncerLineCounts() {
+	pgbouncerLinesRead.Store(0)
+	pgbouncerLinesUnrecognized.Store(0)
+}
+
+// PgBouncerLineCounts returns the lines the pooler parser scanned and,
+// among them, those it could not turn into an entry.
+func PgBouncerLineCounts() (read, unrecognized int64) {
+	return pgbouncerLinesRead.Load(), pgbouncerLinesUnrecognized.Load()
+}
 
 // pgbouncerShapeMinLines is the number of prefix-shaped lines the shape
 // vote needs before it may decide on its own, so a stray line in a text
@@ -113,15 +138,21 @@ func (p *PgBouncerParser) parseReader(r io.Reader, out chan<- []LogEntry) error 
 	scanner := bufio.NewScanner(skipBOM(r))
 	scanner.Buffer(make([]byte, 0, 256*1024), scannerBuffer)
 
+	// Tallied locally and published once, so the loop stays free of
+	// atomics; every file adds its own totals to the package counters.
+	var read, unrecognized int64
 	for scanner.Scan() {
 		line := scanner.Text()
+		read++
 		m := pgbouncerPrefixRe.FindStringSubmatchIndex(line)
 		if m == nil {
+			unrecognized++
 			continue
 		}
 		// m captures: [0:1] whole, [2:3] datetime, [4:5] tz, [6:7] severity.
 		ts, ok := parsePgBouncerTimestamp(line[m[2]:m[3]], line[m[4]:m[5]])
 		if !ok {
+			unrecognized++
 			continue
 		}
 		// Message starts at the severity word so the analyzer keeps the
@@ -129,6 +160,8 @@ func (p *PgBouncerParser) parseReader(r io.Reader, out chan<- []LogEntry) error 
 		msg := line[m[6]:]
 		bs.Send(LogEntry{Timestamp: ts, Message: msg})
 	}
+	pgbouncerLinesRead.Add(read)
+	pgbouncerLinesUnrecognized.Add(unrecognized)
 	if err := scanner.Err(); err != nil {
 		return fmt.Errorf("error reading pgBouncer log: %w", err)
 	}
