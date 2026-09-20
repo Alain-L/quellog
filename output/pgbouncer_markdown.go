@@ -31,6 +31,9 @@ func ExportPgBouncerMarkdown(w io.Writer, m analysis.PgBouncerMetrics) {
 	if m.LinesUnrecognized > 0 {
 		fmt.Fprintf(w, "| Unrecognized lines | %d |\n", m.LinesUnrecognized)
 	}
+	if n := m.LinesFiltered(); n > 0 {
+		fmt.Fprintf(w, "| Filtered-out lines | %d |\n", n)
+	}
 	if m.DebugLines > 0 {
 		fmt.Fprintf(w, "| Debug/noise entries | %d |\n", m.DebugLines)
 	}

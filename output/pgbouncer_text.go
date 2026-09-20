@@ -30,6 +30,9 @@ func PrintPgBouncer(m analysis.PgBouncerMetrics) {
 	if m.LinesUnrecognized > 0 {
 		fmt.Printf("  %-25s : %d\n", "Unrecognized lines", m.LinesUnrecognized)
 	}
+	if n := m.LinesFiltered(); n > 0 {
+		fmt.Printf("  %-25s : %d\n", "Filtered-out lines", n)
+	}
 	if m.DebugLines > 0 {
 		fmt.Printf("  %-25s : %d\n", "Debug/noise entries", m.DebugLines)
 	}

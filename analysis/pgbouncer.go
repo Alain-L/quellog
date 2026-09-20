@@ -85,6 +85,18 @@ type PgBouncerMetrics struct {
 	TotalErrors            int            `json:"total_errors"`
 }
 
+// LinesFiltered is the number of decoded records the filters dropped:
+// every line the parser read that neither failed to decode nor reached
+// the report. It is derived, not counted, so no key is added to the JSON
+// document. Without it the summary of a filtered run reads as a loss --
+// "read 373 / entries 1" with nothing accounting for the other 372.
+func (m PgBouncerMetrics) LinesFiltered() int {
+	if n := m.LinesRead - m.LinesUnrecognized - m.Lines; n > 0 {
+		return n
+	}
+	return 0
+}
+
 // AvgSessionSeconds returns the mean completed-session age in seconds.
 func (m PgBouncerMetrics) AvgSessionSeconds() float64 {
 	if m.Sessions == 0 {

@@ -218,3 +218,25 @@ func TestPgBouncerNegativeAge(t *testing.T) {
 		t.Errorf("sessions=%d total=%d, want 1 and 10", m.Sessions, m.TotalSessionSeconds)
 	}
 }
+
+// TestPgBouncerFilteredLinesAreNamed pins the summary's line arithmetic
+// under a time filter. Without LinesFiltered the report showed "read
+// 373 / entries 1" and nothing else, which reads as 372 lost lines when
+// every one of them was simply outside the requested window.
+func TestPgBouncerFilteredLinesAreNamed(t *testing.T) {
+	m := PgBouncerMetrics{LinesRead: 373, Lines: 1, LinesUnrecognized: 0}
+	if got := m.LinesFiltered(); got != 372 {
+		t.Errorf("LinesFiltered() = %d, want 372", got)
+	}
+	// A loss and a filter can coexist: 120 read, 20 undecodable, 100
+	// decoded of which 40 survived the window.
+	m = PgBouncerMetrics{LinesRead: 120, Lines: 40, LinesUnrecognized: 20}
+	if got := m.LinesFiltered(); got != 60 {
+		t.Errorf("LinesFiltered() = %d, want 60", got)
+	}
+	// Unfiltered runs must stay silent: nothing to report.
+	m = PgBouncerMetrics{LinesRead: 440, Lines: 440, LinesUnrecognized: 0}
+	if got := m.LinesFiltered(); got != 0 {
+		t.Errorf("LinesFiltered() = %d, want 0", got)
+	}
+}
