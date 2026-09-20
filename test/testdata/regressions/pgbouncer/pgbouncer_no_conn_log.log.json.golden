@@ -1,0 +1,65 @@
+{
+  "min_timestamp": "2026-09-20T13:59:04.379+02:00",
+  "max_timestamp": "2026-09-20T13:59:50.169+02:00",
+  "lines": 56,
+  "stats_sample_count": 3,
+  "avg_xacts_per_sec": 10,
+  "max_xacts_per_sec": 11,
+  "avg_queries_per_sec": 48.333333333333336,
+  "max_queries_per_sec": 58,
+  "avg_in_bytes_per_sec": 1836.3333333333333,
+  "max_in_bytes_per_sec": 2247,
+  "avg_out_bytes_per_sec": 1812.3333333333333,
+  "max_out_bytes_per_sec": 2210,
+  "avg_xact_us": 2475000.3333333335,
+  "max_xact_us": 2756412,
+  "avg_query_us": 538293.3333333334,
+  "max_query_us": 640373,
+  "avg_wait_us": 2400485,
+  "max_wait_us": 3221746,
+  "stats_series": [
+    {
+      "time": "2026-09-20T13:59:19.379+02:00",
+      "xacts_per_sec": 11,
+      "queries_per_sec": 38,
+      "in_bytes_per_sec": 1297,
+      "out_bytes_per_sec": 1293,
+      "xact_us": 2199312,
+      "query_us": 640373,
+      "wait_us": 3221746
+    },
+    {
+      "time": "2026-09-20T13:59:34.382+02:00",
+      "xacts_per_sec": 11,
+      "queries_per_sec": 58,
+      "in_bytes_per_sec": 2247,
+      "out_bytes_per_sec": 2210,
+      "xact_us": 2469277,
+      "query_us": 504740,
+      "wait_us": 2073293
+    },
+    {
+      "time": "2026-09-20T13:59:49.385+02:00",
+      "xacts_per_sec": 8,
+      "queries_per_sec": 49,
+      "in_bytes_per_sec": 1965,
+      "out_bytes_per_sec": 1934,
+      "xact_us": 2756412,
+      "query_us": 469767,
+      "wait_us": 1906416
+    }
+  ],
+  "login_attempts": 0,
+  "server_connections": 0,
+  "sessions": 0,
+  "total_session_seconds": 0,
+  "reserve_pool_activations": 6,
+  "errors": {
+    "pooler error: client_idle_timeout": 1,
+    "pooler error: no such database: nosuchdb": 1,
+    "pooler error: password authentication failed": 2,
+    "pooler error: query_wait_timeout": 35,
+    "taking connection from reserve_pool": 6
+  },
+  "total_errors": 45
+}

@@ -1,0 +1,64 @@
+# pgBouncer Report
+
+## Summary
+
+| Metric | Value |
+|---|---|
+| Start date | 2026-09-20 13:42:33 CEST |
+| End date | 2026-09-20 13:42:47 CEST |
+| Duration | 14.285s |
+| Log lines | 1686 |
+| Stats snapshots | 0 |
+| Login attempts | 4 |
+| Server connections | 2 |
+| Completed sessions | 3 |
+| Errors | 0 |
+
+## Sessions
+
+- Completed sessions: **3**
+- Average session time: **0s**
+
+| Session time | Count |
+|---|---|
+| < 1s | 3 |
+
+### Sessions per database
+
+| Name | Count | % |
+|---|---|---|
+| benchdb | 3 | 100.0% |
+
+### Sessions per user
+
+| Name | Count | % |
+|---|---|---|
+| bench | 3 | 100.0% |
+
+### Sessions per host
+
+| Name | Count | % |
+|---|---|---|
+| 127.0.0.1 | 3 | 100.0% |
+
+## Connections
+
+### Connections per database
+
+| Name | Count | % |
+|---|---|---|
+| benchdb | 3 | 75.0% |
+| pgbouncer | 1 | 25.0% |
+
+### Connections per user
+
+| Name | Count | % |
+|---|---|---|
+| bench | 3 | 75.0% |
+| admin | 1 | 25.0% |
+
+### Connections per host
+
+| Name | Count | % |
+|---|---|---|
+| 127.0.0.1 | 4 | 100.0% |

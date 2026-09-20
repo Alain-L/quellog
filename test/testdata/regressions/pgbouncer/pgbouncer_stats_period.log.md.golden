@@ -1,0 +1,81 @@
+# pgBouncer Report
+
+## Summary
+
+| Metric | Value |
+|---|---|
+| Start date | 2026-09-20 13:40:13 CEST |
+| End date | 2026-09-20 13:42:26 CEST |
+| Duration | 2m12.663s |
+| Log lines | 373 |
+| Stats snapshots | 2 |
+| Login attempts | 182 |
+| Server connections | 4 |
+| Completed sessions | 181 |
+| Errors | 0 |
+
+## Request Throughput
+
+| Metric | Average | Peak |
+|---|---|---|
+| Transactions/s | 1.5 | 3 |
+| Queries/s | 10.5 | 21 |
+| Network in | 646 B/s | 1.26 KB/s |
+| Network out | 283 B/s | 565 B/s |
+
+## Query Timing
+
+| Metric | Average | Peak |
+|---|---|---|
+| Transaction time | 995 µs | 2.0 ms |
+| Query time | 130 µs | 261 µs |
+| Wait time | 166 µs | 331 µs |
+
+## Sessions
+
+- Completed sessions: **181**
+- Average session time: **0s**
+
+| Session time | Count |
+|---|---|
+| < 1s | 181 |
+
+### Sessions per database
+
+| Name | Count | % |
+|---|---|---|
+| benchdb | 181 | 100.0% |
+
+### Sessions per user
+
+| Name | Count | % |
+|---|---|---|
+| bench | 181 | 100.0% |
+
+### Sessions per host
+
+| Name | Count | % |
+|---|---|---|
+| 127.0.0.1 | 181 | 100.0% |
+
+## Connections
+
+### Connections per database
+
+| Name | Count | % |
+|---|---|---|
+| benchdb | 181 | 99.5% |
+| pgbouncer | 1 | 0.5% |
+
+### Connections per user
+
+| Name | Count | % |
+|---|---|---|
+| bench | 181 | 99.5% |
+| admin | 1 | 0.5% |
+
+### Connections per host
+
+| Name | Count | % |
+|---|---|---|
+| 127.0.0.1 | 182 | 100.0% |

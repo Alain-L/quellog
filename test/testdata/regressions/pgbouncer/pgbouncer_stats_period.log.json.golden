@@ -1,0 +1,71 @@
+{
+  "min_timestamp": "2026-09-20T13:40:13.353+02:00",
+  "max_timestamp": "2026-09-20T13:42:26.016+02:00",
+  "lines": 373,
+  "stats_sample_count": 2,
+  "avg_xacts_per_sec": 1.5,
+  "max_xacts_per_sec": 3,
+  "avg_queries_per_sec": 10.5,
+  "max_queries_per_sec": 21,
+  "avg_in_bytes_per_sec": 645.5,
+  "max_in_bytes_per_sec": 1291,
+  "avg_out_bytes_per_sec": 282.5,
+  "max_out_bytes_per_sec": 565,
+  "avg_xact_us": 995,
+  "max_xact_us": 1990,
+  "avg_query_us": 130.5,
+  "max_query_us": 261,
+  "avg_wait_us": 165.5,
+  "max_wait_us": 331,
+  "stats_series": [
+    {
+      "time": "2026-09-20T13:41:13.351+02:00",
+      "xacts_per_sec": 3,
+      "queries_per_sec": 21,
+      "in_bytes_per_sec": 1291,
+      "out_bytes_per_sec": 565,
+      "xact_us": 1990,
+      "query_us": 261,
+      "wait_us": 331
+    },
+    {
+      "time": "2026-09-20T13:42:13.352+02:00",
+      "xacts_per_sec": 0,
+      "queries_per_sec": 0,
+      "in_bytes_per_sec": 0,
+      "out_bytes_per_sec": 0,
+      "xact_us": 0,
+      "query_us": 0,
+      "wait_us": 0
+    }
+  ],
+  "login_attempts": 182,
+  "server_connections": 4,
+  "sessions": 181,
+  "total_session_seconds": 0,
+  "session_distribution": {
+    "\u003c 1s": 181
+  },
+  "connections_per_database": {
+    "benchdb": 181,
+    "pgbouncer": 1
+  },
+  "connections_per_user": {
+    "admin": 1,
+    "bench": 181
+  },
+  "connections_per_host": {
+    "127.0.0.1": 182
+  },
+  "sessions_per_database": {
+    "benchdb": 181
+  },
+  "sessions_per_user": {
+    "bench": 181
+  },
+  "sessions_per_host": {
+    "127.0.0.1": 181
+  },
+  "reserve_pool_activations": 0,
+  "total_errors": 0
+}

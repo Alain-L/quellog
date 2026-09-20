@@ -1,0 +1,95 @@
+{
+  "min_timestamp": "2026-09-20T13:57:57.996+02:00",
+  "max_timestamp": "2026-09-20T13:58:43.719+02:00",
+  "lines": 211,
+  "stats_sample_count": 3,
+  "avg_xacts_per_sec": 10,
+  "max_xacts_per_sec": 11,
+  "avg_queries_per_sec": 48.333333333333336,
+  "max_queries_per_sec": 58,
+  "avg_in_bytes_per_sec": 1837,
+  "max_in_bytes_per_sec": 2248,
+  "avg_out_bytes_per_sec": 1814,
+  "max_out_bytes_per_sec": 2211,
+  "avg_xact_us": 2471185,
+  "max_xact_us": 2751167,
+  "avg_query_us": 537514.6666666666,
+  "max_query_us": 639820,
+  "avg_wait_us": 2397018.6666666665,
+  "max_wait_us": 3218494,
+  "stats_series": [
+    {
+      "time": "2026-09-20T13:58:12.996+02:00",
+      "xacts_per_sec": 11,
+      "queries_per_sec": 38,
+      "in_bytes_per_sec": 1297,
+      "out_bytes_per_sec": 1295,
+      "xact_us": 2197400,
+      "query_us": 639820,
+      "wait_us": 3218494
+    },
+    {
+      "time": "2026-09-20T13:58:27.997+02:00",
+      "xacts_per_sec": 11,
+      "queries_per_sec": 58,
+      "in_bytes_per_sec": 2248,
+      "out_bytes_per_sec": 2211,
+      "xact_us": 2464988,
+      "query_us": 503865,
+      "wait_us": 2069672
+    },
+    {
+      "time": "2026-09-20T13:58:42.998+02:00",
+      "xacts_per_sec": 8,
+      "queries_per_sec": 49,
+      "in_bytes_per_sec": 1966,
+      "out_bytes_per_sec": 1936,
+      "xact_us": 2751167,
+      "query_us": 468859,
+      "wait_us": 1902890
+    }
+  ],
+  "login_attempts": 69,
+  "server_connections": 10,
+  "sessions": 75,
+  "total_session_seconds": 1417,
+  "session_distribution": {
+    "1s - 1min": 68,
+    "\u003c 1s": 7
+  },
+  "connections_per_database": {
+    "(nodb)": 2,
+    "benchdb": 63,
+    "pgbouncer": 4
+  },
+  "connections_per_user": {
+    "admin": 4,
+    "bench": 64,
+    "nouserxyz": 1
+  },
+  "connections_per_host": {
+    "127.0.0.1": 69
+  },
+  "sessions_per_database": {
+    "(nodb)": 2,
+    "benchdb": 70,
+    "pgbouncer": 3
+  },
+  "sessions_per_user": {
+    "admin": 3,
+    "bench": 71,
+    "nouserxyz": 1
+  },
+  "sessions_per_host": {
+    "127.0.0.1": 75
+  },
+  "reserve_pool_activations": 6,
+  "errors": {
+    "pooler error: client_idle_timeout": 1,
+    "pooler error: no such database: nosuchdb": 1,
+    "pooler error: password authentication failed": 2,
+    "pooler error: query_wait_timeout": 35,
+    "taking connection from reserve_pool": 6
+  },
+  "total_errors": 45
+}

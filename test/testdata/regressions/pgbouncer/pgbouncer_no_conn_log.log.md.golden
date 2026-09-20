@@ -1,0 +1,43 @@
+# pgBouncer Report
+
+## Summary
+
+| Metric | Value |
+|---|---|
+| Start date | 2026-09-20 13:59:04 CEST |
+| End date | 2026-09-20 13:59:50 CEST |
+| Duration | 45.79s |
+| Log lines | 56 |
+| Stats snapshots | 3 |
+| Login attempts | 0 |
+| Server connections | 0 |
+| Completed sessions | 0 |
+| Reserve pool activations | 6 |
+| Errors | 45 |
+
+## Request Throughput
+
+| Metric | Average | Peak |
+|---|---|---|
+| Transactions/s | 10.0 | 11 |
+| Queries/s | 48.3 | 58 |
+| Network in | 1.79 KB/s | 2.19 KB/s |
+| Network out | 1.77 KB/s | 2.16 KB/s |
+
+## Query Timing
+
+| Metric | Average | Peak |
+|---|---|---|
+| Transaction time | 2.48 s | 2.76 s |
+| Query time | 538.3 ms | 640.4 ms |
+| Wait time | 2.40 s | 3.22 s |
+
+## Most Frequent Errors
+
+| Error | Count | % |
+|---|---|---|
+| pooler error: query_wait_timeout | 35 | 77.8% |
+| taking connection from reserve_pool | 6 | 13.3% |
+| pooler error: password authentication failed | 2 | 4.4% |
+| pooler error: client_idle_timeout | 1 | 2.2% |
+| pooler error: no such database: nosuchdb | 1 | 2.2% |
