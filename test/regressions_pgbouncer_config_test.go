@@ -110,7 +110,7 @@ func TestPgBouncerSaysTrafficIsNotMissing(t *testing.T) {
 	fixture := filepath.Join("testdata", "regressions", "pgbouncer", "pgbouncer_no_conn_log.log")
 	out := ansiEscapeRe.ReplaceAllString(string(runHarness(t, false, fixture)), "")
 
-	if !strings.Contains(out, "The pooler reported traffic over this window") {
+	if !strings.Contains(out, "Traffic over this window, but no") {
 		t.Errorf("the empty sections do not say the traffic itself was reported\n%s", out)
 	}
 }
@@ -149,7 +149,7 @@ func TestPgBouncerFlagsAbsentTelemetry(t *testing.T) {
 	}
 	// A short capture is not a misconfiguration; the note must not read
 	// as an accusation.
-	if strings.Contains(out, "The pooler reported traffic over this window") {
+	if strings.Contains(out, "Traffic over this window, but no") {
 		t.Errorf("an absent-telemetry note borrowed the unlogged-connections wording\n%s", out)
 	}
 }
@@ -162,7 +162,7 @@ func TestPgBouncerDoesNotAccuseAnIdlePooler(t *testing.T) {
 	probe := writeProbe(t, "idle.log", idleProbe)
 	out := ansiEscapeRe.ReplaceAllString(string(runHarness(t, false, probe)), "")
 
-	if strings.Contains(out, "The pooler reported traffic over this window") {
+	if strings.Contains(out, "Traffic over this window, but no") {
 		t.Errorf("an idle pooler is told its connection logging is off\n%s", out)
 	}
 	if strings.Contains(out, "stats snapshot") && strings.Contains(out, "snapshots cover") {

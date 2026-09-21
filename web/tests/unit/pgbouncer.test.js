@@ -111,14 +111,17 @@ test('log_connections = 0: the empty blocks name the setting', () => {
     assert.ok(html.includes('log_connections = 1'));
     assert.ok(html.includes('log_disconnections = 1'));
     assert.ok(html.includes('docs/pgbouncer-setup.md'));
-    assert.ok(html.includes('logged no client connection'),
-        'the placeholder does not say the traffic itself was reported');
+    // The note must distinguish this from a pooler nobody used: it says
+    // the window carried traffic, without claiming to know why the
+    // client lines are absent.
+    assert.ok(html.includes('no client connection logged in it'),
+        'the placeholder no longer distinguishes a silenced log from an idle one');
 });
 
 test('an idle pooler is not told its connection logging is off', () => {
     const html = buildPgBouncerSection({ pgbouncer: idlePayload });
 
-    assert.ok(!html.includes('The pooler reported traffic over this window'),
+    assert.ok(!html.includes('Traffic over this window, but no'),
         'an idle pooler is accused of losing lines it never had to write');
     // It still gets the placeholder and the settings to check.
     assert.ok(html.includes('Connections by'));
@@ -327,7 +330,7 @@ const idleWithServerNoisePayload = {
 test('a backend error is not proof that clients were served', () => {
     const html = buildPgBouncerSection({ pgbouncer: idleWithServerNoisePayload });
     assert.ok(
-        !html.includes('reported traffic over this window'),
+        !html.includes('Traffic over this window, but no'),
         'the section claims traffic on a window whose snapshots are all zero',
     );
     // The block still appears, still names the setting that governs it:
