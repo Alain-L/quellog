@@ -1,0 +1,95 @@
+# pgBouncer Report
+
+## Summary
+
+| Metric | Value |
+|---|---|
+| Start date | 2026-09-20 13:39:27 CEST |
+| End date | 2026-09-20 13:40:04 CEST |
+| Duration | 36.626s |
+| Log lines read | 372 |
+| Log entries | 372 |
+| Stats snapshots | 1 |
+| Login attempts | 182 |
+| Server connections opened | 4 |
+| Completed sessions | 181 |
+| Errors | 0 |
+
+## Request Throughput
+
+*A single stats snapshot for this 37s window, of unknown extent: pgBouncer logs nothing between two snapshots, so the figures below describe what was sampled, not the window. Check stats_period in pgbouncer.ini; see docs/pgbouncer-setup.md.*
+
+*Rates are the pooler's own per-snapshot averages over stats_period; the max is the highest snapshot average, not the busiest instant.*
+
+| Metric | Average | Max snapshot average |
+|---|---|---|
+| Transactions/s | 0.0 | 0 |
+| Queries/s | 0.0 | 0 |
+| Network in | 0 B/s | 0 B/s |
+| Network out | 0 B/s | 0 B/s |
+
+## Query Timing
+
+*Averages skip the snapshots that timed none and weight the rest by operation count; the max is the highest snapshot average, not a peak.*
+
+| Metric | Weighted average | Max snapshot average |
+|---|---|---|
+| Transaction time | 0 µs | 0 µs |
+| Query time | 0 µs | 0 µs |
+
+## Pool Wait
+
+*Time clients spent queued for a server connection, a pool sizing signal rather than a query one. Averaged as the timings above are. What it is averaged over depends on pool_mode (one wait per session, per transaction or per statement), which pgBouncer logs nowhere.*
+
+| Metric | Weighted average | Max snapshot average |
+|---|---|---|
+| Pool wait time | 0 µs | 0 µs |
+
+## Sessions
+
+- Completed sessions: **181**
+- Average session time: **0s**
+
+| Session time | Count |
+|---|---|
+| < 1s | 181 |
+
+### Sessions per database
+
+| Name | Count | % |
+|---|---|---|
+| benchdb | 181 | 100.0% |
+
+### Sessions per user
+
+| Name | Count | % |
+|---|---|---|
+| bench | 181 | 100.0% |
+
+### Sessions per host
+
+| Name | Count | % |
+|---|---|---|
+| 127.0.0.1 | 181 | 100.0% |
+
+## Connections
+
+### Connections per database
+
+| Name | Count | % |
+|---|---|---|
+| benchdb | 181 | 99.5% |
+| pgbouncer | 1 | 0.5% |
+
+### Connections per user
+
+| Name | Count | % |
+|---|---|---|
+| bench | 181 | 99.5% |
+| admin | 1 | 0.5% |
+
+### Connections per host
+
+| Name | Count | % |
+|---|---|---|
+| 127.0.0.1 | 182 | 100.0% |

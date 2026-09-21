@@ -1,0 +1,64 @@
+{
+  "min_timestamp": "2026-09-20T13:39:27.855+02:00",
+  "max_timestamp": "2026-09-20T13:40:04.481+02:00",
+  "lines": 372,
+  "lines_read": 372,
+  "lines_unrecognized": 0,
+  "debug_lines": 0,
+  "stats_sample_count": 1,
+  "avg_xacts_per_sec": 0,
+  "max_xacts_per_sec": 0,
+  "avg_queries_per_sec": 0,
+  "max_queries_per_sec": 0,
+  "avg_in_bytes_per_sec": 0,
+  "max_in_bytes_per_sec": 0,
+  "avg_out_bytes_per_sec": 0,
+  "max_out_bytes_per_sec": 0,
+  "avg_xact_us": 0,
+  "max_xact_us": 0,
+  "avg_query_us": 0,
+  "max_query_us": 0,
+  "avg_wait_us": 0,
+  "max_wait_us": 0,
+  "stats_series": [
+    {
+      "time": "2026-09-20T13:39:47.855+02:00",
+      "xacts_per_sec": 0,
+      "queries_per_sec": 0,
+      "in_bytes_per_sec": 0,
+      "out_bytes_per_sec": 0,
+      "xact_us": 0,
+      "query_us": 0,
+      "wait_us": 0
+    }
+  ],
+  "login_attempts": 182,
+  "server_connections": 4,
+  "sessions": 181,
+  "total_session_seconds": 0,
+  "session_distribution": {
+    "\u003c 1s": 181
+  },
+  "connections_per_database": {
+    "benchdb": 181,
+    "pgbouncer": 1
+  },
+  "connections_per_user": {
+    "admin": 1,
+    "bench": 181
+  },
+  "connections_per_host": {
+    "127.0.0.1": 182
+  },
+  "sessions_per_database": {
+    "benchdb": 181
+  },
+  "sessions_per_user": {
+    "bench": 181
+  },
+  "sessions_per_host": {
+    "127.0.0.1": 181
+  },
+  "reserve_pool_activations": 0,
+  "total_errors": 0
+}
