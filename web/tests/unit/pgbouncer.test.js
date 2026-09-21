@@ -11,6 +11,23 @@ import assert from 'node:assert/strict';
 
 import { buildPgBouncerSection } from '../../js/sections/pgbouncer.js';
 
+// esc() needs document.createElement. node --test runs each file in its own
+// process, so the same minimal stub pgbouncer-labels.test.js uses — escaping
+// & < > exactly like textContent->innerHTML — is safe here.
+if (typeof globalThis.document === 'undefined') {
+    globalThis.document = {
+        createElement() {
+            let text = '';
+            return {
+                set textContent(v) { text = v == null ? '' : String(v); },
+                get innerHTML() {
+                    return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                },
+            };
+        },
+    };
+}
+
 // statlessPayload mirrors pgb-05 run over a window shorter than one
 // stats_period: real traffic, no stats line.
 const statlessPayload = {
@@ -157,4 +174,132 @@ test('the timing chart says pool_mode sets the wait denominator', () => {
     });
     assert.ok(html.includes('pool_mode'),
         'nothing tells the reader what the pool-wait figure is averaged over');
+});
+
+// ---- a time series needs a time axis -------------------------------
+//
+// uPlot cannot scale an axis on a single point: given one snapshot it
+// falls back to a default range and draws an empty plot under month
+// labels taken from nowhere ("00:00 Dec 1" over a 37 s capture). A chart
+// that invents its own axis is worse than no chart, so below two points
+// the section says why it is not drawing one.
+
+// oneSnapshotPayload is pgbouncer_oldversion.log: 37 s of capture, one
+// "stats:" line, real client traffic around it.
+const oneSnapshotPayload = {
+    lines: 372,
+    lines_read: 372,
+    min_timestamp: '2026-09-20T13:39:27.855+02:00',
+    max_timestamp: '2026-09-20T13:40:04.481+02:00',
+    stats_sample_count: 1,
+    stats_series: [{ time: '2026-09-20T13:39:47.855+02:00', queries_per_sec: 0 }],
+    avg_queries_per_sec: 0,
+    max_queries_per_sec: 0,
+    login_attempts: 182,
+    server_connections: 4,
+    sessions: 181,
+    session_distribution: { '< 1s': 181 },
+    total_errors: 0,
+};
+
+test('a single snapshot draws no chart, and says why', () => {
+    const html = buildPgBouncerSection({ pgbouncer: oneSnapshotPayload });
+
+    for (const id of ['chart-pgb-throughput', 'chart-pgb-io', 'chart-pgb-timing']) {
+        assert.ok(!html.includes(id), `${id} is drawn from a single point: its time axis is invented`);
+    }
+    assert.ok(html.includes('at least two'),
+        'the charts are gone with nothing saying why');
+    // The coverage caveat is about the figures, not the charts: it stays.
+    assert.ok(html.includes('A single stats snapshot'));
+});
+
+test('two snapshots are enough to draw the charts', () => {
+    const html = buildPgBouncerSection({
+        pgbouncer: {
+            ...oneSnapshotPayload,
+            stats_sample_count: 2,
+            stats_series: [
+                { time: '2026-09-20T13:39:47.855+02:00' },
+                { time: '2026-09-20T13:39:57.855+02:00' },
+            ],
+        },
+    });
+    for (const id of ['chart-pgb-throughput', 'chart-pgb-io', 'chart-pgb-timing']) {
+        assert.ok(html.includes(id), `${id} is missing from a two-point series`);
+    }
+});
+
+// ---- what was read, not only what was understood -------------------
+//
+// COR-87: the text report states the window, the lines read and the
+// lines lost on the way to the figures. HTML is the most consulted
+// format and stated none of it, so a report drawn from 100 of 120 lines
+// read the same as one drawn from all of them.
+
+const lossyPayload = {
+    ...oneSnapshotPayload,
+    lines: 100,
+    lines_read: 120,
+    lines_unrecognized: 20,
+    debug_lines: 7,
+    total_session_seconds: 362,
+};
+
+test('the summary states the window it was drawn from', () => {
+    const html = buildPgBouncerSection({ pgbouncer: lossyPayload });
+    assert.match(html, /class="summary-date">[^<]*→[^<]*</,
+        'the HTML section never says which window it covers');
+    assert.ok(html.includes('Duration'), 'the window duration is missing');
+});
+
+test('the summary publishes the lines it could not use', () => {
+    const html = buildPgBouncerSection({ pgbouncer: lossyPayload });
+    for (const label of ['Log lines read', 'Log entries', 'Unrecognized lines',
+        'Debug/noise entries', 'Stats snapshots', 'Average session time']) {
+        assert.ok(html.includes(label), `${label} is not published in HTML`);
+    }
+    assert.ok(html.includes('>120<'), 'the 120 lines read are not shown');
+    assert.ok(html.includes('>20<'), 'the 20 unrecognized lines are not shown');
+});
+
+test('a clean capture is not told about losses it did not have', () => {
+    const html = buildPgBouncerSection({ pgbouncer: oneSnapshotPayload });
+    for (const label of ['Unrecognized lines', 'Filtered-out lines', 'Debug/noise entries']) {
+        assert.ok(!html.includes(label), `${label} shown at zero, unlike the text report`);
+    }
+    assert.ok(html.includes('Log lines read'), 'the unconditional counters vanished too');
+});
+
+test('filtered-out lines are counted as the text report counts them', () => {
+    const html = buildPgBouncerSection({
+        pgbouncer: { ...oneSnapshotPayload, lines: 100, lines_read: 120, lines_unrecognized: 5 },
+    });
+    assert.ok(html.includes('Filtered-out lines'), 'the lines the filters dropped are not named');
+    assert.ok(html.includes('>15<'), '120 read - 5 unrecognized - 100 entries = 15 filtered out');
+});
+
+// ---- grid balance --------------------------------------------------
+//
+// The closing row pairs the session histogram with the error table. With
+// only one of the two, a two-column grid leaves half the report blank.
+
+test('a row holding one block does not keep an empty column', () => {
+    const errorsOnly = buildPgBouncerSection({
+        pgbouncer: {
+            ...oneSnapshotPayload,
+            sessions: 0,
+            session_distribution: undefined,
+            total_errors: 45,
+            errors: { 'pooler error: query_wait_timeout': 45 },
+        },
+    });
+    const rows = (errorsOnly.match(/grid grid-2/g) || []).length;
+    assert.equal(rows, 1, 'the errors table is held in a two-column grid with nothing beside it');
+
+    const both = buildPgBouncerSection({
+        pgbouncer: { ...oneSnapshotPayload, total_errors: 45, errors: { boom: 45 } },
+    });
+    assert.equal((both.match(/grid grid-2/g) || []).length, 2,
+        'the paired row lost its two columns');
 });

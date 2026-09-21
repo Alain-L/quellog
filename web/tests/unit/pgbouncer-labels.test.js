@@ -31,6 +31,12 @@ if (typeof globalThis.document === 'undefined') {
 
 const payload = {
     lines: 500,
+    lines_read: 540,
+    lines_unrecognized: 12,
+    debug_lines: 9,
+    min_timestamp: '2026-09-20T13:59:04.379+02:00',
+    max_timestamp: '2026-09-20T14:12:50.169+02:00',
+    total_session_seconds: 362,
     stats_sample_count: 3,
     avg_queries_per_sec: 48.3,
     max_queries_per_sec: 58,
@@ -43,8 +49,16 @@ const payload = {
 
 // The card labels, keyed by the text report's wording for the same figure.
 const CANONICAL_CARD_LABELS = [
+    'Duration',
+    'Log lines read',
+    'Log entries',
+    'Unrecognized lines',
+    'Filtered-out lines',
+    'Debug/noise entries',
+    'Stats snapshots',
     'Login attempts',
     'Completed sessions',
+    'Average session time',
     'Server connections opened',
     'Reserve pool activations',
     'Errors',
@@ -53,7 +67,7 @@ const CANONICAL_CARD_LABELS = [
 // Card labels the text report has no single counterpart for: the HTML
 // splits the throughput row "Queries : 48.3 /s (max snapshot avg 58 /s)"
 // into two cards, so each card qualifies itself.
-const DOCUMENTED_DIVERGENCES = ['Avg queries/s', 'Max snapshot avg'];
+const DOCUMENTED_DIVERGENCES = ['Avg queries/s', 'Max snapshot avg queries/s'];
 
 const BANNED = ['Server Conns', 'Reserve Pool<', 'Avg Queries', 'Peak Queries'];
 
@@ -91,7 +105,24 @@ test('a truncated breakdown says how many rows it dropped', () => {
 
 test('the timing chart names the queue wait as a pool wait', () => {
     const html = buildPgBouncerSection({
-        pgbouncer: { ...payload, stats_series: [{ time: '2026-09-09T21:00:00Z', wait_us: 5 }] },
+        pgbouncer: {
+            ...payload,
+            stats_series: [
+                { time: '2026-09-09T21:00:00Z', wait_us: 5 },
+                { time: '2026-09-09T21:01:00Z', wait_us: 7 },
+            ],
+        },
     });
     assert.ok(html.includes('pool wait'), 'the timing legend still calls the queue wait a plain "wait"');
+});
+
+// A card label is read on its own: the row "Queries : 2.7 /s (max
+// snapshot avg 48 /s)" carries its subject in the row label, a card does
+// not. "Max snapshot avg" states a maximum of nothing in particular.
+test('every card label names the figure it carries', () => {
+    const html = buildPgBouncerSection({ pgbouncer: payload });
+    for (const label of labelsOf(html)) {
+        assert.ok(label !== 'Max snapshot avg',
+            'the max card does not say what it is the maximum of');
+    }
 });

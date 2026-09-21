@@ -1,10 +1,10 @@
 // pgBouncer section: pooler telemetry rendered alongside the PostgreSQL
 // sections. Reads data.pgbouncer (the PgBouncerMetrics JSON) and shows
-// summary cards, three time-series charts (throughput, network I/O,
-// query/pool-wait timing), a session-time histogram, per-database/user/host
-// breakdowns, and the ranked error list.
+// the window it was drawn from, summary cards, three time-series charts
+// (throughput, network I/O, query/pool-wait timing), a session-time
+// histogram, per-database/user/host breakdowns, and the ranked error list.
 
-import { fmt, esc, buildNoDataMessage } from '../utils.js';
+import { fmt, esc, fmtDurationCoarse, buildNoDataMessage } from '../utils.js';
 import { chartData, buildChartContainer } from '../charts.js';
 
 const SESSION_BUCKETS = ['< 1s', '1s - 1min', '1min - 30min', '30min - 2h', '2h - 5h', '> 5h'];
@@ -126,6 +126,90 @@ function sessionHistogram(dist, total) {
     return barList('', SESSION_BUCKETS.map(b => [b, dist[b] || 0]), total, true);
 }
 
+// ---- what the figures were drawn from ------------------------------
+//
+// The text report opens on the window, the lines read and the lines that
+// never reached a counter, so a report built from 100 of 120 lines reads
+// differently from one built from all of them. HTML is the format most
+// people read: it publishes the same accounting, in the same words, as a
+// row of cards above the pooler's own figures.
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+// clock renders a local wall-clock time, and day the date that goes with
+// it, in the report's existing short vocabulary ("20 Sep 2026").
+function clock(d) {
+    const p2 = (n) => String(n).padStart(2, '0');
+    return `${p2(d.getHours())}:${p2(d.getMinutes())}:${p2(d.getSeconds())}`;
+}
+
+function day(d) {
+    return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+// captureWindow returns the capture bounds as Date objects, or null when the
+// payload carries no usable timestamp (a section built from a fixture, a
+// period with no entry).
+function captureWindow(p) {
+    if (!p.min_timestamp || !p.max_timestamp) return null;
+    const from = new Date(p.min_timestamp);
+    const to = new Date(p.max_timestamp);
+    if (isNaN(from) || isNaN(to) || to < from) return null;
+    return { from, to };
+}
+
+// captureHeader states which window the whole section describes. The
+// second date is dropped when both ends fall on the same day, as the
+// Summary card does.
+function captureHeader(w) {
+    if (!w) return '';
+    const label = day(w.from) === day(w.to)
+        ? `${day(w.from)} ${clock(w.from)} → ${clock(w.to)}`
+        : `${day(w.from)} ${clock(w.from)} → ${day(w.to)} ${clock(w.to)}`;
+    return `<div class="summary-header"><div class="summary-date">${label}</div></div>`;
+}
+
+// statCard renders one card of the shared grid. `variant` takes the
+// stat-card modifier classes (warning / alert) the section already uses.
+function statCard(value, label, variant) {
+    return `<div class="stat-card${variant ? ' ' + variant : ''}"><div class="stat-value">${value}</div><div class="stat-label">${label}</div></div>`;
+}
+
+// sessionTime formats a mean session age. TotalSessionSeconds is counted
+// in whole seconds, so anything under a minute is reported to the second
+// exactly as the text report does; longer means go through the shared
+// coarse formatter.
+function sessionTime(seconds) {
+    if (seconds < 60) return `${Math.round(seconds)}s`;
+    return fmtDurationCoarse(seconds * 1000);
+}
+
+// readCards is the line accounting: what was read, what became an entry,
+// and what did not. The three loss counters appear only when they are
+// non-zero, as in the text report -- a row of zeroes teaches nothing and
+// pushes the figures that matter off the first screen. A non-zero
+// unrecognized count is the one that changes how the rest should be
+// read, so it carries the warning colour.
+function readCards(p, w) {
+    const cards = [];
+    // Rounded to the second, as the coverage caveat rounds it: the same
+    // window stated as 36 s here and 37 s there reads as two windows.
+    if (w) cards.push(statCard(fmtDurationCoarse(Math.round((w.to - w.from) / 1000) * 1000), 'Duration'));
+    if (p.lines_read > 0) cards.push(statCard(fmt(p.lines_read), 'Log lines read'));
+    cards.push(statCard(fmt(p.lines || 0), 'Log entries'));
+    if (p.lines_unrecognized > 0) {
+        cards.push(statCard(fmt(p.lines_unrecognized), 'Unrecognized lines', 'stat-card--warning'));
+    }
+    const filtered = (p.lines_read || 0) - (p.lines_unrecognized || 0) - (p.lines || 0);
+    if (filtered > 0) cards.push(statCard(fmt(filtered), 'Filtered-out lines'));
+    if (p.debug_lines > 0) cards.push(statCard(fmt(p.debug_lines), 'Debug/noise entries'));
+    cards.push(statCard(fmt(p.stats_sample_count || 0), 'Stats snapshots'));
+    // Content-width and centred, as the Summary card's own tile row is.
+    // Provenance opens the section, as it opens the text report, but
+    // cards stretched across the report would read as its headline.
+    return `<div class="stat-grid" style="grid-template-columns: repeat(${cards.length}, auto); justify-content: center;">${cards.join('')}</div>`;
+}
+
 // ---- configuration gaps -------------------------------------------
 //
 // Three pgBouncer settings decide how much of this section can exist:
@@ -200,6 +284,24 @@ const CONNECTIONS_CONTRADICTION = 'The pooler reported traffic over this window 
 const SESSIONS_CONTRADICTION = 'The pooler reported traffic over this window but logged no session close: the sessions ended, the log does not record them.';
 const NO_STATS_TEXT = 'No <code>stats:</code> line in this window; throughput, network I/O and timing all come from those lines. pgBouncer writes one per <code>stats_period</code>, 60\u00a0s by default, so a shorter capture carries none.';
 
+// MIN_CHART_POINTS is the number of snapshots a time series needs before
+// it can be drawn. uPlot cannot derive a scale from a single point: it
+// falls back to a default range and draws an empty plot under an axis
+// taken from nowhere -- month labels over a capture of half a minute.
+// An invented axis is read as a measured one, so below this the section
+// says what it has instead of drawing it.
+const MIN_CHART_POINTS = 2;
+
+// oneSnapshotText explains the charts the section is not drawing. It
+// stands on its own: the coverage caveat above it qualifies the figures,
+// which is a different statement and does not always appear.
+function oneSnapshotText(n) {
+    const lead = n === 1
+        ? 'This window holds a single <code>stats:</code> line'
+        : `This window holds ${fmt(n)} <code>stats:</code> lines`;
+    return `${lead}: throughput, network I/O and timing need at least two snapshots to be drawn against a time axis. pgBouncer writes one line per <code>stats_period</code>, 60\u00a0s by default, so a capture shorter than two periods carries a single point.`;
+}
+
 // coverageText qualifies figures drawn from snapshots that leave most
 // of the window unmeasured: a pooler sampled once at startup otherwise
 // reports 0.0 queries/s over a window holding hundreds of sessions, and
@@ -226,7 +328,8 @@ export function buildPgBouncerSection(data) {
 
     // Register the three time-series charts (drawn after DOM insertion).
     const series = p.stats_series || [];
-    if (series.length > 0) {
+    const hasSeries = series.length >= MIN_CHART_POINTS;
+    if (hasSeries) {
         const t = series.map(s => Math.round(new Date(s.time).getTime() / 1000));
         chartData.set('chart-pgb-throughput', {
             type: 'pgb-series', t,
@@ -256,28 +359,43 @@ export function buildPgBouncerSection(data) {
     }
 
     const hasStats = p.stats_sample_count > 0;
+    const capture = captureWindow(p);
     const hasSessions = p.sessions > 0;
     const hasConns = p.login_attempts > 0;
     const hasErrors = p.total_errors > 0;
     const missingClients = clientLinesMissing(p);
 
+    // The closing row pairs the session histogram with the error table.
+    // Either can be absent -- a pooler with log_disconnections off has no
+    // histogram, a healthy one has no errors -- and a two-column grid
+    // holding one block leaves half the report blank, so the survivor
+    // takes the full width.
+    const closing = [
+        hasSessions ? `<div class="subsection-title" style="margin-top:0">Session Time</div>${sessionHistogram(p.session_distribution, p.sessions)}` : '',
+        hasErrors ? `<div class="subsection-title" style="margin-top:0">Most Frequent Errors</div>${errorsTable(p.errors, p.total_errors)}` : '',
+    ].filter(Boolean);
+
     return `
         <div class="section" id="pgbouncer">
             <div class="section-header">pgBouncer</div>
             <div class="section-body">
+                ${captureHeader(capture)}
+                ${readCards(p, capture)}
                 <div class="stat-grid">
                     ${hasStats ? `
                     <div class="stat-card" title="Average queries per second over the capture"><div class="stat-value">${p.avg_queries_per_sec != null ? p.avg_queries_per_sec.toFixed(1) : '0'}/s</div><div class="stat-label">Avg queries/s</div></div>
-                    <div class="stat-card" title="Highest queries/s seen on a single stats snapshot. pgBouncer logs one average per stats_period, so this is the busiest snapshot average, not the busiest instant."><div class="stat-value">${fmt(p.max_queries_per_sec || 0)}/s</div><div class="stat-label">Max snapshot avg</div></div>` : ''}
+                    <div class="stat-card" title="Highest queries/s seen on a single stats snapshot. pgBouncer logs one average per stats_period, so this is the busiest snapshot average, not the busiest instant."><div class="stat-value">${fmt(p.max_queries_per_sec || 0)}/s</div><div class="stat-label">Max snapshot avg queries/s</div></div>` : ''}
                     <div class="stat-card"><div class="stat-value">${fmt(p.login_attempts || 0)}</div><div class="stat-label">Login attempts</div></div>
                     <div class="stat-card"><div class="stat-value">${fmt(p.sessions || 0)}</div><div class="stat-label">Completed sessions</div></div>
+                    ${hasSessions ? statCard(sessionTime((p.total_session_seconds || 0) / p.sessions), 'Average session time') : ''}
                     <div class="stat-card" title="Server connections opened over the capture, not the number held at any moment: a pool capped at five can open many more over time."><div class="stat-value">${fmt(p.server_connections || 0)}</div><div class="stat-label">Server connections opened</div></div>
                     ${p.reserve_pool_activations ? `<div class="stat-card stat-card--warning"><div class="stat-value">${fmt(p.reserve_pool_activations)}</div><div class="stat-label">Reserve pool activations</div></div>` : ''}
                     <div class="stat-card${hasErrors ? ' stat-card--alert' : ''}"><div class="stat-value">${fmt(p.total_errors || 0)}</div><div class="stat-label">Errors</div></div>
                 </div>
                 ${hasStats && statsUnderCovered(p) ? note(coverageText(p), true) : ''}
                 ${!hasStats ? emptyBlock(STATS_HINT, '') + note(NO_STATS_TEXT, false) : ''}
-                ${hasStats ? `
+                ${hasStats && !hasSeries ? note(oneSnapshotText(series.length), false) : ''}
+                ${hasSeries ? `
                     <div class="grid grid-2" style="margin-top:0.5rem;">
                         <div>
                             ${buildChartContainer('chart-pgb-throughput', 'Request Throughput', { tooltip: 'Transactions and queries per second. Each point is one stats-line average over the elapsed stats_period, not an instantaneous rate.', showBucketControl: false })}
@@ -307,12 +425,11 @@ export function buildPgBouncerSection(data) {
                             ], p.login_attempts) : emptyBlock(CONNECTIONS_HINT, missingClients ? CONNECTIONS_CONTRADICTION : '')}</div>
                         </div>
                     </div>
-                ${(hasSessions || hasErrors) ? `
+                ${closing.length > 0 ? `
                     <div class="subsection">
-                        <div class="grid grid-2">
-                            <div>${hasSessions ? `<div class="subsection-title" style="margin-top:0">Session Time</div>${sessionHistogram(p.session_distribution, p.sessions)}` : ''}</div>
-                            <div>${hasErrors ? `<div class="subsection-title" style="margin-top:0">Most Frequent Errors</div>${errorsTable(p.errors, p.total_errors)}` : ''}</div>
-                        </div>
+                        ${closing.length > 1
+                            ? `<div class="grid grid-2">${closing.map(b => `<div>${b}</div>`).join('')}</div>`
+                            : closing[0]}
                     </div>
                 ` : ''}
             </div>
