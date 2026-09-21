@@ -227,8 +227,8 @@ func (s pgbEmptySection) note(clientLinesMissing bool) []string {
 var pgbNoConnections = pgbEmptySection{
 	quiet: []string{"No client connection was logged in this window."},
 	missing: []string{
-		"The pooler reported traffic over this window but logged no client",
-		"connection: the connections happened, the log does not record them.",
+		"Traffic over this window, but no client connection logged in it:",
+		"the clients may predate the window, or the lines may be off.",
 	},
 	check: "Check log_connections = 1 in pgbouncer.ini; see docs/pgbouncer-setup.md.",
 }
@@ -236,8 +236,8 @@ var pgbNoConnections = pgbEmptySection{
 var pgbNoSessions = pgbEmptySection{
 	quiet: []string{"No session close was logged in this window."},
 	missing: []string{
-		"The pooler reported traffic over this window but logged no session",
-		"close: the sessions ended, the log does not record them.",
+		"Traffic over this window, but no session close logged in it: the",
+		"sessions may still be open, or the lines may be off.",
 	},
 	check: "Check log_disconnections = 1 in pgbouncer.ini; see docs/pgbouncer-setup.md.",
 }

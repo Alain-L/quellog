@@ -283,8 +283,8 @@ function emptyBlock(hint, contradiction) {
 const CONNECTIONS_HINT = '<code>log_connections = 1</code> in <code>pgbouncer.ini</code>; see ' + SETUP_DOC;
 const SESSIONS_HINT = '<code>log_disconnections = 1</code> in <code>pgbouncer.ini</code>; see ' + SETUP_DOC;
 const STATS_HINT = '<code>stats_period</code> in <code>pgbouncer.ini</code>; see ' + SETUP_DOC;
-const CONNECTIONS_CONTRADICTION = 'The pooler reported traffic over this window but logged no client connection: the connections happened, the log does not record them.';
-const SESSIONS_CONTRADICTION = 'The pooler reported traffic over this window but logged no session close: the sessions ended, the log does not record them.';
+const CONNECTIONS_CONTRADICTION = 'Traffic over this window, but no client connection logged in it: the clients may predate the window, or the lines may be off.';
+const SESSIONS_CONTRADICTION = 'Traffic over this window, but no session close logged in it: the sessions may still be open, or the lines may be off.';
 const NO_STATS_TEXT = 'No <code>stats:</code> line in this window; throughput, network I/O and timing all come from those lines. pgBouncer writes one per <code>stats_period</code>, 60\u00a0s by default, so a shorter capture carries none.';
 
 // MIN_CHART_POINTS is the number of snapshots a time series needs before

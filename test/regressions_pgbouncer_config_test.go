@@ -189,3 +189,36 @@ func TestPgBouncerStatesPoolModeIsUnlogged(t *testing.T) {
 		}
 	}
 }
+
+// TestPgBouncerDoesNotAssertWhatItCannotKnow is a refutation test for the
+// wording of the empty-section note. The predicate behind it cannot tell
+// a silenced log from a steady-state one: an application with its own
+// client pool connects once at startup and works, so every later window
+// carries traffic and no client line while log_connections is perfectly
+// on. That is the common case in production, not the edge one.
+//
+// The note may therefore state the absence and name the setting worth
+// checking, but it must not assert that the connections happened or that
+// the sessions ended -- neither is knowable from the window.
+func TestPgBouncerDoesNotAssertWhatItCannotKnow(t *testing.T) {
+	// A window inside a capture whose own .ini has log_connections = 1
+	// and log_disconnections = 1: traffic, no client line, correct config.
+	out := runHarness(t, false,
+		"testdata/regressions/pgbouncer/pgbouncer_saturation.log",
+		"--begin", "2026-09-20 13:58:20", "--end", "2026-09-20 13:58:40")
+	text := string(out)
+
+	for _, claim := range []string{
+		"the connections happened",
+		"the sessions ended",
+		"the log does not record them",
+	} {
+		if strings.Contains(text, claim) {
+			t.Errorf("the report asserts %q, which it cannot know: the clients may simply predate the window", claim)
+		}
+	}
+	// It must still be useful: the absence is stated and the setting named.
+	if !strings.Contains(text, "log_connections") {
+		t.Error("the note no longer names the setting worth checking")
+	}
+}

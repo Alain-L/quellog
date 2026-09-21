@@ -48,13 +48,13 @@
 
 (No data available)
 
-*The pooler reported traffic over this window but logged no session close: the sessions ended, the log does not record them. Check log_disconnections = 1 in pgbouncer.ini; see docs/pgbouncer-setup.md.*
+*Traffic over this window, but no session close logged in it: the sessions may still be open, or the lines may be off. Check log_disconnections = 1 in pgbouncer.ini; see docs/pgbouncer-setup.md.*
 
 ## Connections
 
 (No data available)
 
-*The pooler reported traffic over this window but logged no client connection: the connections happened, the log does not record them. Check log_connections = 1 in pgbouncer.ini; see docs/pgbouncer-setup.md.*
+*Traffic over this window, but no client connection logged in it: the clients may predate the window, or the lines may be off. Check log_connections = 1 in pgbouncer.ini; see docs/pgbouncer-setup.md.*
 
 ## Most Frequent Errors
 
