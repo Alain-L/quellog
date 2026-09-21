@@ -54,15 +54,15 @@
   ],
   "login_attempts": 69,
   "server_connections": 10,
-  "sessions": 75,
-  "total_session_seconds": 1417,
+  "sessions": 68,
+  "total_session_seconds": 1326,
   "session_distribution": {
-    "1s - 1min": 68,
+    "1s - 1min": 61,
     "\u003c 1s": 7
   },
   "connections_per_database": {
-    "(nodb)": 2,
-    "benchdb": 63,
+    "benchdb": 64,
+    "nosuchdb": 1,
     "pgbouncer": 4
   },
   "connections_per_user": {
@@ -75,16 +75,16 @@
   },
   "sessions_per_database": {
     "(nodb)": 2,
-    "benchdb": 70,
+    "benchdb": 63,
     "pgbouncer": 3
   },
   "sessions_per_user": {
     "admin": 3,
-    "bench": 71,
+    "bench": 64,
     "nouserxyz": 1
   },
   "sessions_per_host": {
-    "127.0.0.1": 75
+    "127.0.0.1": 68
   },
   "reserve_pool_activations": 6,
   "errors": {

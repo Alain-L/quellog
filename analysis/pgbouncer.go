@@ -165,13 +165,26 @@ func (a *PgBouncerAnalyzer) Process(entry *parser.LogEntry) {
 		case strings.HasPrefix(verb, "login attempt:"):
 			a.m.LoginAttempts++
 			db, user, host := parsePeer(peer)
+			// The socket prefix names the pool the client is bound
+			// to, which is still "(nodb)" when the login is about
+			// to be rejected; the verb's own "db=" is the name the
+			// client asked for. The peer stays the fallback for
+			// releases that log no "db=" field at all.
+			if v, ok := verbField(verb, "db="); ok {
+				db = v
+			}
 			inc(a.m.ConnectionsPerDatabase, db)
 			inc(a.m.ConnectionsPerUser, user)
 			inc(a.m.ConnectionsPerHost, host)
 		case strings.HasPrefix(verb, "new connection to server"):
 			a.m.ServerConnections++
 		case strings.HasPrefix(verb, "closing because:"):
-			a.processClosing(peer, verb)
+			// A server socket closing is the pool recycling a
+			// backend, not a client session, and its peer is
+			// PostgreSQL rather than the client.
+			if strings.HasPrefix(rest, "C-0x") {
+				a.processClosing(peer, verb)
+			}
 		case strings.Contains(verb, "taking connection from reserve_pool"):
 			a.m.ReservePoolActivations++
 		}
@@ -257,11 +270,13 @@ func (a *PgBouncerAnalyzer) processStats(t time.Time, body string) {
 	a.m.StatsSeries = append(a.m.StatsSeries, pt)
 }
 
-// processClosing records a completed client session. Only client (C-0x)
-// closings carry a meaningful user-facing session age; server (S-0x)
-// closings are pool recycling and are not counted as sessions here — but
-// the caller already filtered on socket prefix via the peer string, so
-// we count every age-stamped closing the same way pgBadger does.
+// processClosing records one completed client session. It must be
+// called only for client (C-0x) closings: a server closing is the pool
+// recycling a backend connection, its age measures that backend's
+// lifetime rather than a user-facing session, and its peer is the
+// PostgreSQL server, so counting it would credit a session to the
+// database host. Process enforces that; this function does not
+// re-check.
 func (a *PgBouncerAnalyzer) processClosing(peer, verb string) {
 	age, ok := parseAge(verb)
 	if !ok {
@@ -418,6 +433,25 @@ func parsePeer(peer string) (db, user, host string) {
 		host = host[:c]
 	}
 	return
+}
+
+// verbField returns the value of a "key=value" field carried by the
+// verb, e.g. verbField("login attempt: db=app user=bob tls=no", "db=")
+// is ("app", true). Fields are space-separated and unquoted; ok=false
+// when the field is absent, so callers can fall back to another source.
+func verbField(verb, key string) (string, bool) {
+	for verb != "" {
+		field := verb
+		if sp := strings.IndexByte(verb, ' '); sp != -1 {
+			field, verb = verb[:sp], verb[sp+1:]
+		} else {
+			verb = ""
+		}
+		if v, ok := strings.CutPrefix(field, key); ok && v != "" {
+			return v, true
+		}
+	}
+	return "", false
 }
 
 // parseAge extracts the "(age=Ns)" session duration.

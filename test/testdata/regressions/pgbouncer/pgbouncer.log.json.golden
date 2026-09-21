@@ -1474,16 +1474,15 @@
   ],
   "login_attempts": 129,
   "server_connections": 14,
-  "sessions": 130,
+  "sessions": 129,
   "total_session_seconds": 227,
   "session_distribution": {
     "1s - 1min": 41,
-    "\u003c 1s": 89
+    "\u003c 1s": 88
   },
   "connections_per_database": {
-    "(nodb)": 1,
     "analytics": 56,
-    "app": 46,
+    "app": 47,
     "billing": 26
   },
   "connections_per_user": {
@@ -1500,17 +1499,16 @@
   "sessions_per_database": {
     "(nodb)": 1,
     "analytics": 56,
-    "app": 47,
+    "app": 46,
     "billing": 26
   },
   "sessions_per_user": {
-    "app_user": 56,
+    "app_user": 55,
     "batch": 46,
     "ghost": 1,
     "readonly": 27
   },
   "sessions_per_host": {
-    "10.89.0.2": 1,
     "10.89.0.4": 1,
     "10.89.0.5": 1,
     "10.89.0.6": 127

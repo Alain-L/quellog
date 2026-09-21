@@ -240,3 +240,81 @@ func TestPgBouncerFilteredLinesAreNamed(t *testing.T) {
 		t.Errorf("LinesFiltered() = %d, want 0", got)
 	}
 }
+
+// TestPgBouncerLoginAttributedToRequestedDatabase pins which field of a
+// "login attempt" line names the database. The socket prefix is a
+// display name for the client's *bound* pool, so it reads "(nodb)"
+// whenever pgBouncer rejected the login before binding one; the verb's
+// own "db=" is the name the client asked for and is always present.
+// Lines are copied verbatim from the audit material
+// (pgb-01-transaction-saturation-errors.log).
+func TestPgBouncerLoginAttributedToRequestedDatabase(t *testing.T) {
+	base := time.Date(2026, 9, 20, 13, 58, 0, 0, time.UTC)
+	a := NewPgBouncerAnalyzer()
+	feed(a, base,
+		"LOG C-0x55c871c95fa0: benchdb/bench@127.0.0.1:49372 login attempt: db=benchdb user=bench tls=no replication=no",
+		"LOG C-0x55c871cfc500: (nodb)/nouserxyz@127.0.0.1:51184 login attempt: db=benchdb user=nouserxyz tls=no replication=no",
+		"LOG C-0x55c871cfc500: (nodb)/bench@127.0.0.1:51194 login attempt: db=nosuchdb user=bench tls=no replication=no",
+	)
+	m := a.Finalize()
+
+	wantMaps(t, "ConnectionsPerDatabase", m.ConnectionsPerDatabase,
+		map[string]int{"benchdb": 2, "nosuchdb": 1})
+	// The user and the host have no such placeholder problem: "user="
+	// and the peer's own address agree on every line of the corpus.
+	wantMaps(t, "ConnectionsPerUser", m.ConnectionsPerUser,
+		map[string]int{"bench": 2, "nouserxyz": 1})
+	wantMaps(t, "ConnectionsPerHost", m.ConnectionsPerHost,
+		map[string]int{"127.0.0.1": 3})
+}
+
+// TestPgBouncerServerClosingIsNotASession pins the difference between a
+// client socket ending a session and the pool recycling a backend. Only
+// C-0x closings are user-facing sessions; an S-0x closing carries the
+// *PostgreSQL server* as its peer, so counting it also mis-attributes a
+// session to the backend's address. Lines are copied verbatim from
+// testdata/regressions/pgbouncer/pgbouncer.log and from the audit
+// material (pgb-01-transaction-saturation-errors.log).
+func TestPgBouncerServerClosingIsNotASession(t *testing.T) {
+	base := time.Date(2026, 9, 9, 21, 0, 0, 0, time.UTC)
+	a := NewPgBouncerAnalyzer()
+	feed(a, base,
+		"LOG C-0x7f3b3ad2f6a8: analytics/batch@10.89.0.6:51518 closing because: client close request (age=1s)",
+		"LOG S-0x7f3b3acaa5b0: app/app_user@10.89.0.2:5432 closing because: failed to answer authreq (age=0s)",
+		"LOG S-0x55c871cde150: benchdb/bench@127.0.0.1:5544 closing because: pause mode (age=7s)",
+		"LOG S-0x55c871cdd380: benchdb/bench@127.0.0.1:5544 closing because: server lifetime over (age=30s)",
+	)
+	m := a.Finalize()
+
+	if m.Sessions != 1 {
+		t.Errorf("Sessions = %d, want 1 (three of the four closings are server sockets)", m.Sessions)
+	}
+	if m.TotalSessionSeconds != 1 {
+		t.Errorf("TotalSessionSeconds = %d, want 1", m.TotalSessionSeconds)
+	}
+	almost(t, "AvgSessionSeconds", m.AvgSessionSeconds(), 1)
+	wantMaps(t, "SessionDistribution", m.SessionDistribution,
+		map[string]int{"1s - 1min": 1})
+	wantMaps(t, "SessionsPerDatabase", m.SessionsPerDatabase,
+		map[string]int{"analytics": 1})
+	wantMaps(t, "SessionsPerUser", m.SessionsPerUser, map[string]int{"batch": 1})
+	// 10.89.0.2 and 127.0.0.1:5544 are PostgreSQL, not clients.
+	wantMaps(t, "SessionsPerHost", m.SessionsPerHost,
+		map[string]int{"10.89.0.6": 1})
+}
+
+// wantMaps compares a breakdown against its expected contents, naming
+// every extra and every missing bucket.
+func wantMaps(t *testing.T, name string, got, want map[string]int) {
+	t.Helper()
+	for k, v := range want {
+		if got[k] != v {
+			t.Errorf("%s[%q] = %d, want %d", name, k, got[k], v)
+		}
+	}
+	for k, v := range got {
+		if _, ok := want[k]; !ok {
+			t.Errorf("%s has unexpected bucket %q = %d", name, k, v)
+		}
+	}
+}

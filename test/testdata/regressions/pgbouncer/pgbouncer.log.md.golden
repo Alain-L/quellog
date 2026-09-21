@@ -12,7 +12,7 @@
 | Stats snapshots | 145 |
 | Login attempts | 129 |
 | Server connections | 14 |
-| Completed sessions | 130 |
+| Completed sessions | 129 |
 | Reserve pool activations | 2 |
 | Errors | 17 |
 
@@ -37,38 +37,37 @@
 
 ## Sessions
 
-- Completed sessions: **130**
+- Completed sessions: **129**
 - Average session time: **2s**
 
 | Session time | Count |
 |---|---|
-| < 1s | 89 |
+| < 1s | 88 |
 | 1s - 1min | 41 |
 
 ### Sessions per database
 
 | Name | Count | % |
 |---|---|---|
-| analytics | 56 | 43.1% |
-| app | 47 | 36.2% |
-| billing | 26 | 20.0% |
+| analytics | 56 | 43.4% |
+| app | 46 | 35.7% |
+| billing | 26 | 20.2% |
 | (nodb) | 1 | 0.8% |
 
 ### Sessions per user
 
 | Name | Count | % |
 |---|---|---|
-| app_user | 56 | 43.1% |
-| batch | 46 | 35.4% |
-| readonly | 27 | 20.8% |
+| app_user | 55 | 42.6% |
+| batch | 46 | 35.7% |
+| readonly | 27 | 20.9% |
 | ghost | 1 | 0.8% |
 
 ### Sessions per host
 
 | Name | Count | % |
 |---|---|---|
-| 10.89.0.6 | 127 | 97.7% |
-| 10.89.0.2 | 1 | 0.8% |
+| 10.89.0.6 | 127 | 98.4% |
 | 10.89.0.4 | 1 | 0.8% |
 | 10.89.0.5 | 1 | 0.8% |
 
@@ -79,9 +78,8 @@
 | Name | Count | % |
 |---|---|---|
 | analytics | 56 | 43.4% |
-| app | 46 | 35.7% |
+| app | 47 | 36.4% |
 | billing | 26 | 20.2% |
-| (nodb) | 1 | 0.8% |
 
 ### Connections per user
 
