@@ -33,7 +33,7 @@
 
 | Metric | Weighted average | Max snapshot average |
 |---|---|---|
-| Transaction time | 108.3 ms | 2.12 s |
+| Transaction time | 76.7 ms | 2.12 s |
 | Query time | 594.2 ms | 3.86 s |
 
 ## Pool Wait
@@ -42,7 +42,7 @@
 
 | Metric | Weighted average | Max snapshot average |
 |---|---|---|
-| Pool wait time | 2.61 s | 11.09 s |
+| Pool wait time | 1.92 s | 11.09 s |
 
 ## Sessions
 

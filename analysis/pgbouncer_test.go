@@ -1,6 +1,7 @@
 package analysis
 
 import (
+	"fmt"
 	"math"
 	"strconv"
 	"testing"
@@ -346,5 +347,48 @@ func TestPgBouncerIdlePoolerWithServerErrorIsNotAccused(t *testing.T) {
 		if got := tc.m.ClientLinesMissing(); got != tc.want {
 			t.Errorf("%s: ClientLinesMissing() = %v, want %v", tc.name, got, tc.want)
 		}
+	}
+}
+
+// TestPgBouncerZeroIsAMeasurementWhenWorkHappened is a refutation test:
+// it separates the rule this code implements from the neighbouring rule
+// it used to implement, which no earlier test could tell apart.
+//
+// pgBouncer leaves an average at 0 when its counter is zero for the
+// period. Reading that backwards -- skipping every snapshot whose value
+// is 0 -- also throws away the periods that did work and measured no
+// wait, which is what an unsaturated pool looks like. The two rules
+// agree on a wholly idle snapshot and disagree here, so this is the
+// case that pins which one is in force.
+//
+// Nine periods serve 100 queries/s each and queue nobody; the tenth
+// queues for five seconds. The mean wait is 0.5 s. Skipping the zeros
+// leaves only the tenth and reports 5 s -- the mean equal to the max.
+func TestPgBouncerZeroIsAMeasurementWhenWorkHappened(t *testing.T) {
+	a := NewPgBouncerAnalyzer()
+	base := time.Date(2026, 9, 20, 10, 0, 0, 0, time.UTC)
+	for i := range 10 {
+		wait := 0
+		if i == 9 {
+			wait = 5_000_000
+		}
+		a.processStats(base.Add(time.Duration(i)*time.Minute), fmt.Sprintf(
+			"stats: 100 xacts/s, 100 queries/s, 0 client parses/s, 0 server parses/s, "+
+				"0 binds/s, in 900 B/s, out 800 B/s, xact 1000 us, query 500 us, wait %d us", wait))
+	}
+	m := a.Finalize()
+	if got := m.AvgWaitMicros; got != 500_000 {
+		t.Errorf("AvgWaitMicros = %v, want 500000 (skipping the zero waits gives 5e6)", got)
+	}
+	// A wholly idle snapshot stays a sentinel: nothing ran, so there is
+	// nothing to average in. Both rules agree here -- this guards the
+	// fix from over-correcting.
+	b := NewPgBouncerAnalyzer()
+	b.processStats(base, "stats: 3 xacts/s, 21 queries/s, 0 client parses/s, 0 server parses/s, "+
+		"0 binds/s, in 1291 B/s, out 565 B/s, xact 1990 us, query 261 us, wait 331 us")
+	b.processStats(base.Add(time.Minute), "stats: 0 xacts/s, 0 queries/s, 0 client parses/s, "+
+		"0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us")
+	if got := b.Finalize().AvgXactMicros; got != 1990 {
+		t.Errorf("AvgXactMicros = %v, want 1990 (the idle snapshot must stay excluded)", got)
 	}
 }

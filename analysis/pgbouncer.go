@@ -397,10 +397,11 @@ func (a *PgBouncerAnalyzer) processClosing(peer, verb string) {
 // server assignments for "wait" -- and leaves the mean at 0 when that
 // counter is zero for the period. Two consequences:
 //
-//  1. A "0 us" field is a "no operation in this period" sentinel, not a
-//     measurement. Averaging it in would let an idle night halve the
-//     reported latency. Skipping it drops it from both the numerator and
-//     the denominator, which is exactly what a weighted mean does.
+//  1. A "0 us" field is a "no operation in this period" sentinel only
+//     when its rate is zero too. Skipping it drops it from numerator and
+//     denominator alike, which is what a weighted mean does. Skipping
+//     every zero instead would discard the periods that served traffic
+//     and measured nothing, and pull the mean up to the busiest sample.
 //  2. The snapshots must be weighted by their operation count, otherwise
 //     a period that summarises three transactions counts as much as one
 //     that summarises three thousand. Every snapshot covers the same
@@ -412,7 +413,12 @@ func (a *PgBouncerAnalyzer) processClosing(peer, verb string) {
 // perfectly real "xact 620 us", and a zero weight would silently discard
 // that measurement.
 func accumulateWeighted(sumUs, sumWeight *int64, us int64, rate int) {
-	if us <= 0 {
+	// A zero is only a sentinel when nothing ran: pgBouncer leaves the
+	// average at 0 when its counter is zero for the period. When the
+	// matching rate says work happened, a zero is a measurement -- an
+	// unsaturated pool really does wait zero -- and dropping it inflated
+	// the mean towards the busiest snapshot.
+	if us <= 0 && rate <= 0 {
 		return
 	}
 	weight := int64(rate)
