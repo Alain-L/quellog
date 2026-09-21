@@ -117,7 +117,7 @@ func ExportPgBouncerMarkdown(w io.Writer, m analysis.PgBouncerMetrics) {
 		fmt.Fprintln(w, "|---|---|")
 		for _, b := range sessionBucketOrder {
 			if c := m.SessionDistribution[b]; c > 0 {
-				fmt.Fprintf(w, "| %s | %d |\n", b, c)
+				fmt.Fprintf(w, "| %s | %d |\n", escapeMDCell(b), c)
 			}
 		}
 		writeBreakdownMD(w, "Sessions per database", m.SessionsPerDatabase, m.Sessions)
@@ -150,7 +150,7 @@ func ExportPgBouncerMarkdown(w io.Writer, m analysis.PgBouncerMetrics) {
 		fmt.Fprintln(w, "|---|---|---|")
 		for _, p := range topPairsMD(m.Errors, 10) {
 			pct := float64(p.count) / float64(m.TotalErrors) * 100
-			fmt.Fprintf(w, "| %s | %d | %.1f%% |\n", p.name, p.count, pct)
+			fmt.Fprintf(w, "| %s | %d | %.1f%% |\n", escapeMDCell(p.name), p.count, pct)
 		}
 		writeTailMD(w, len(m.Errors), 10)
 	}
@@ -207,7 +207,7 @@ func writeBreakdownMD(w io.Writer, title string, m map[string]int, total int) {
 	fmt.Fprintln(w, "|---|---|---|")
 	for _, p := range topPairsMD(m, 10) {
 		pct := float64(p.count) / float64(total) * 100
-		fmt.Fprintf(w, "| %s | %d | %.1f%% |\n", p.name, p.count, pct)
+		fmt.Fprintf(w, "| %s | %d | %.1f%% |\n", escapeMDCell(p.name), p.count, pct)
 	}
 	writeTailMD(w, len(m), 10)
 }

@@ -150,3 +150,35 @@ func TestPgBouncerDeclaresTruncatedBreakdowns(t *testing.T) {
 		t.Errorf("Markdown report declares %d truncated breakdowns, want 6:\n%s", n, md)
 	}
 }
+
+// TestPgBouncerMarkdownCellsKeepTheirColumns is a refutation test. A
+// database name is chosen by a client that has not authenticated yet --
+// pgBouncer logs "login attempt: db=… user=…" before checking anything
+// -- so a name holding a pipe lands in a Markdown cell and silently
+// shifts every column after it. The PostgreSQL tables already escape
+// the pipe; the pooler tables did not.
+//
+// Counting pipes is what separates the two rules: a three-column row
+// has four of them whatever the cell holds, and an unescaped name adds
+// its own.
+func TestPgBouncerMarkdownCellsKeepTheirColumns(t *testing.T) {
+	probe := filepath.Join(t.TempDir(), "pipes.log")
+	lines := "2026-09-20 10:00:00.000 CEST [1] LOG stats: 3 xacts/s, 21 queries/s, 0 client parses/s, " +
+		"0 server parses/s, 0 binds/s, in 1291 B/s, out 565 B/s, xact 1990 us, query 261 us, wait 331 us\n" +
+		"2026-09-20 10:00:01.000 CEST [1] LOG C-0x1: a|b|c/u@h:1 login attempt: db=a|b|c user=u\n" +
+		"2026-09-20 10:00:02.000 CEST [1] ERROR pooler error: no such database: x|y\n"
+	if err := os.WriteFile(probe, []byte(lines), 0o644); err != nil {
+		t.Fatalf("write probe: %v", err)
+	}
+
+	for _, line := range strings.Split(string(runHarness(t, false, probe, "--md")), "\n") {
+		if !strings.HasPrefix(line, "|") || strings.HasPrefix(line, "|--") {
+			continue
+		}
+		// Count the pipes that actually delimit columns: an escaped one
+		// is literal text, not a separator.
+		if got := strings.Count(strings.ReplaceAll(line, `\|`, ""), "|"); got != 3 && got != 4 {
+			t.Errorf("row has %d column separators, want 3 or 4: %q", got, line)
+		}
+	}
+}
