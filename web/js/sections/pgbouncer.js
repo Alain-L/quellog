@@ -386,7 +386,7 @@ export function buildPgBouncerSection(data) {
                 ${readCards(p, capture)}
                 <div class="stat-grid">
                     ${hasStats ? `
-                    <div class="stat-card" title="Average queries per second over the capture"><div class="stat-value">${p.avg_queries_per_sec != null ? p.avg_queries_per_sec.toFixed(1) : '0'}/s</div><div class="stat-label">Avg queries/s</div></div>
+                    <div class="stat-card" title="Mean of the per-snapshot query rates pgBouncer logged, not a rate measured over the whole capture"><div class="stat-value">${p.avg_queries_per_sec != null ? p.avg_queries_per_sec.toFixed(1) : '0'}/s</div><div class="stat-label">Avg queries/s</div></div>
                     <div class="stat-card" title="Highest queries/s seen on a single stats snapshot. pgBouncer logs one average per stats_period, so this is the busiest snapshot average, not the busiest instant."><div class="stat-value">${fmt(p.max_queries_per_sec || 0)}/s</div><div class="stat-label">Max snapshot avg queries/s</div></div>` : ''}
                     <div class="stat-card"><div class="stat-value">${fmt(p.login_attempts || 0)}</div><div class="stat-label">Login attempts</div></div>
                     <div class="stat-card"><div class="stat-value">${fmt(p.sessions || 0)}</div><div class="stat-label">Completed sessions</div></div>
