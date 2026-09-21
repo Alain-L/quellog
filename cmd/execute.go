@@ -666,8 +666,15 @@ func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry
 	pb.Finish()
 	processingDuration := time.Since(startTime)
 
-	// Check if any log entries were successfully parsed
+	// Check if any log entries were successfully parsed. A pooler report
+	// that did parse is not the PostgreSQL track's to lose: the two are
+	// analyzed independently, and a filter that matches no backend --
+	// or an input the detector rejected -- must not turn a complete
+	// pgBouncer report into an empty run.
 	if metrics.Global.Count == 0 {
+		if pgb != nil && pgb.Lines > 0 {
+			return renderReport(analysis.AggregatedMetrics{}, pgb, true, inputArgs, totalFileSize, processingDuration)
+		}
 		return fmt.Errorf("no log entries could be parsed: check that files are readable and in a supported format")
 	}
 
