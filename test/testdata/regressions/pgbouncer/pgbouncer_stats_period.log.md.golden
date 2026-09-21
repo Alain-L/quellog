@@ -11,13 +11,15 @@
 | Log entries | 373 |
 | Stats snapshots | 2 |
 | Login attempts | 182 |
-| Server connections | 4 |
+| Server connections opened | 4 |
 | Completed sessions | 181 |
 | Errors | 0 |
 
 ## Request Throughput
 
-| Metric | Average | Peak |
+*Rates are the pooler's own per-snapshot averages over stats_period; the max is the highest snapshot average, not the busiest instant.*
+
+| Metric | Average | Max snapshot average |
 |---|---|---|
 | Transactions/s | 1.5 | 3 |
 | Queries/s | 10.5 | 21 |
@@ -32,7 +34,14 @@
 |---|---|---|
 | Transaction time | 2.0 ms | 2.0 ms |
 | Query time | 261 µs | 261 µs |
-| Wait time | 331 µs | 331 µs |
+
+## Pool Wait
+
+*Time clients spent queued for a server connection, a pool sizing signal rather than a query one. Averaged as the timings above are.*
+
+| Metric | Weighted average | Max snapshot average |
+|---|---|---|
+| Pool wait time | 331 µs | 331 µs |
 
 ## Sessions
 

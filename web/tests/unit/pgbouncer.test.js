@@ -27,13 +27,13 @@ const statlessPayload = {
 test('no stats snapshot: the section publishes no throughput figure', () => {
     const html = buildPgBouncerSection({ pgbouncer: statlessPayload });
 
-    assert.ok(!html.includes('Avg Queries'), 'Avg Queries card rendered without a stats snapshot');
-    assert.ok(!html.includes('Peak Queries'), 'Peak Queries card rendered without a stats snapshot');
+    assert.ok(!html.includes('Avg queries/s'), 'the average-rate card rendered without a stats snapshot');
+    assert.ok(!html.includes('Max snapshot avg'), 'the max-rate card rendered without a stats snapshot');
     assert.ok(!html.includes('/s</div>'), 'a per-second value is shown without a stats snapshot');
 
     // The counters that do not come from the stats lines stay.
-    assert.ok(html.includes('Login Attempts'));
-    assert.ok(html.includes('Sessions'));
+    assert.ok(html.includes('Login attempts'));
+    assert.ok(html.includes('Completed sessions'));
 });
 
 test('with stats snapshots: the throughput cards are shown', () => {
@@ -41,8 +41,8 @@ test('with stats snapshots: the throughput cards are shown', () => {
         pgbouncer: { ...statlessPayload, stats_sample_count: 2, avg_queries_per_sec: 10.5, max_queries_per_sec: 21 },
     });
 
-    assert.ok(html.includes('Avg Queries'));
+    assert.ok(html.includes('Avg queries/s'));
     assert.ok(html.includes('10.5/s'));
-    assert.ok(html.includes('Peak Queries'));
+    assert.ok(html.includes('Max snapshot avg'));
     assert.ok(html.includes('21/s'));
 });

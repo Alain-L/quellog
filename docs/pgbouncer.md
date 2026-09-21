@@ -41,12 +41,15 @@ pgBouncer log lines are single-line records with a `timestamp [PID] SEVERITY` pr
 
 Text (default), Markdown (`--md`), JSON (`--json`), YAML (`--yaml`), and HTML (`--html`) carry the same figures. The section names below are the text and Markdown ones; HTML groups them into cards and charts, and the serialized formats expose them as the keys listed further down.
 
-- **Summary** — time range, lines read, entries understood (plus the lines no parser could decode and the DEBUG/NOISE share of the rest), stats snapshots, login attempts, server connections, completed sessions, reserve-pool activations, errors.
-- **Request throughput** — average and peak transactions/s and queries/s, and average and peak bytes in/out per second. (Network I/O is not a section of its own in text or Markdown; it is a separate chart in HTML.) Like the timings, these peaks are the highest snapshot average, not the busiest instant: pgBouncer logs one rate per `stats_period`, so at the default 60 s a real spike is flattened across the minute.
-- **Query timing** — transaction, query, and wait time. pgBouncer only ever logs one average per snapshot, so the averages are weighted by each snapshot's operation count and skip the snapshots that timed none of that kind (which is why they can rest on fewer snapshots than the summary counts), and the figure beside them is the highest snapshot average, never the slowest single operation. pgBouncer reports these in microseconds; quellog keeps that resolution (`842 µs`, `3.4 ms`, `2.4 s`) rather than rounding to milliseconds.
+- **Summary** — time range, lines read, entries understood (plus the lines no parser could decode and the DEBUG/NOISE share of the rest), stats snapshots, login attempts, server connections opened, completed sessions, reserve-pool activations, errors. "Server connections opened" counts the `new connection to server` lines over the window, not the connections held at a point in time: a pool capped at five by `default_pool_size` + `reserve_pool_size` legitimately opens many more over an hour, so the figure is not comparable with a `SHOW POOLS` column.
+- **Request throughput** — transactions/s, queries/s and bytes in/out per second, each as an average and as the highest snapshot average. (Network I/O is not a section of its own in text or Markdown; it is a separate chart in HTML.) The second figure is deliberately not called a peak: pgBouncer logs one rate per `stats_period`, so at the default 60 s a real spike is flattened across the minute and the largest value in the capture is the busiest snapshot average, never the busiest instant.
+- **Query timing** — transaction and query time. pgBouncer only ever logs one average per snapshot, so the averages are weighted by each snapshot's operation count and skip the snapshots that timed none of that kind (which is why they can rest on fewer snapshots than the summary counts), and the figure beside them is the highest snapshot average, never the slowest single operation. pgBouncer reports these in microseconds; quellog keeps that resolution (`842 µs`, `3.4 ms`, `2.4 s`) rather than rounding to milliseconds.
+- **Pool wait** — how long clients queued before a server connection was assigned, averaged the same way. It sits in its own section because it answers a different question than the two above: a long query time is a query problem, a long pool wait is a sizing problem, read against `default_pool_size`, `reserve_pool_size` and `max_db_connections`. In HTML the three curves share one chart, so they can be compared on a common time axis.
 - **Sessions** — completed session count, average session time, a session-time histogram (same buckets as the PostgreSQL connection report), and sessions per database/user/host.
-- **Connections** — login attempts and server connections, plus connections per database/user/host.
+- **Connections** — login attempts and server connections opened, plus connections per database/user/host.
 - **Most frequent errors** — errors and warnings ranked by frequency, with the variable socket id, peer, and session age stripped so the same failure collapses into one bucket. Reserve-pool activations (`taking connection from reserve_pool`) are ranked here and included in the error total, although they report a capacity event rather than a failure; they are also counted on their own line in the summary.
+
+The ranked breakdowns (sessions and connections per database/user/host, and the error list) show their ten heaviest rows and then state the rest as `… and N more`, the same form the PostgreSQL report uses for its own capped tables. On a pooler fronting many tenants that line is the difference between a head and a total: ten rows out of thousands can sum to a few percent, and the section title names the dimension, not the cut.
 
 The HTML report adds three interactive time-series charts (throughput, network I/O, timing) drawn from the `stats:` snapshots.
 
@@ -56,10 +59,10 @@ The keys below are those of a pgBouncer-only run, where `--json` and `--yaml` em
 
 - `min_timestamp`, `max_timestamp` — the first and last record kept, after any time filter
 - `lines_read`, `lines`, `lines_unrecognized`, `debug_lines` — lines scanned, entries understood, lines no parser could decode, and how many entries are DEBUG/NOISE
-- `stats_sample_count`, `avg_xacts_per_sec`, `max_xacts_per_sec`, `avg_queries_per_sec`, `max_queries_per_sec`
+- `stats_sample_count`, `avg_xacts_per_sec`, `max_xacts_per_sec`, `avg_queries_per_sec`, `max_queries_per_sec` — every `max_*` rate is the highest snapshot average, not an instantaneous peak
 - `avg_in_bytes_per_sec`, `max_in_bytes_per_sec`, `avg_out_bytes_per_sec`, `max_out_bytes_per_sec`
 - `avg_xact_us`, `max_xact_us`, `avg_query_us`, `max_query_us`, `avg_wait_us`, `max_wait_us`
-- `login_attempts`, `server_connections`, `sessions`, `total_session_seconds`, `session_distribution`
+- `login_attempts`, `server_connections` (connections **opened** to the servers, not held), `sessions`, `total_session_seconds`, `session_distribution`
 - `connections_per_database`, `connections_per_user`, `connections_per_host`
 - `sessions_per_database`, `sessions_per_user`, `sessions_per_host`
 - `reserve_pool_activations`, `errors`, `total_errors`

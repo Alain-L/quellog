@@ -38,7 +38,7 @@ func PrintPgBouncer(m analysis.PgBouncerMetrics) {
 	}
 	fmt.Printf("  %-25s : %d\n", "Stats snapshots", m.StatsSampleCount)
 	fmt.Printf("  %-25s : %d\n", "Login attempts", m.LoginAttempts)
-	fmt.Printf("  %-25s : %d\n", "Server connections", m.ServerConnections)
+	fmt.Printf("  %-25s : %d\n", "Server connections opened", m.ServerConnections)
 	fmt.Printf("  %-25s : %d\n", "Completed sessions", m.Sessions)
 	if m.ReservePoolActivations > 0 {
 		fmt.Printf("  %-25s : %d\n", "Reserve pool activations", m.ReservePoolActivations)
@@ -48,18 +48,26 @@ func PrintPgBouncer(m analysis.PgBouncerMetrics) {
 	// Traffic (from the per-second stats snapshots).
 	if m.StatsSampleCount > 0 {
 		fmt.Println(bold + "\nREQUEST THROUGHPUT\n" + reset)
-		fmt.Printf("  %-25s : %.1f /s  (max %d /s)\n", "Transactions", m.AvgXactsPerSec, m.MaxXactsPerSec)
-		fmt.Printf("  %-25s : %.1f /s  (max %d /s)\n", "Queries", m.AvgQueriesPerSec, m.MaxQueriesPerSec)
-		fmt.Printf("  %-25s : %s  (max %s)\n", "Network in", bytesPerSec(m.AvgInBytesPerSec), bytesPerSec(float64(m.MaxInBytesPerSec)))
-		fmt.Printf("  %-25s : %s  (max %s)\n", "Network out", bytesPerSec(m.AvgOutBytesPerSec), bytesPerSec(float64(m.MaxOutBytesPerSec)))
+		fmt.Printf("  %-25s : %.1f /s  (max snapshot avg %d /s)\n", "Transactions", m.AvgXactsPerSec, m.MaxXactsPerSec)
+		fmt.Printf("  %-25s : %.1f /s  (max snapshot avg %d /s)\n", "Queries", m.AvgQueriesPerSec, m.MaxQueriesPerSec)
+		fmt.Printf("  %-25s : %s  (max snapshot avg %s)\n", "Network in", bytesPerSec(m.AvgInBytesPerSec), bytesPerSec(float64(m.MaxInBytesPerSec)))
+		fmt.Printf("  %-25s : %s  (max snapshot avg %s)\n", "Network out", bytesPerSec(m.AvgOutBytesPerSec), bytesPerSec(float64(m.MaxOutBytesPerSec)))
+		fmt.Println()
+		fmt.Println("  " + pgbRateNote[0])
+		fmt.Println("  " + pgbRateNote[1])
 
 		fmt.Println(bold + "\nQUERY TIMING\n" + reset)
 		fmt.Printf("  %-25s : %s  (max snapshot avg %s)\n", "Avg transaction time", micros(m.AvgXactMicros), microsI(m.MaxXactMicros))
 		fmt.Printf("  %-25s : %s  (max snapshot avg %s)\n", "Avg query time", micros(m.AvgQueryMicros), microsI(m.MaxQueryMicros))
-		fmt.Printf("  %-25s : %s  (max snapshot avg %s)\n", "Avg wait time", micros(m.AvgWaitMicros), microsI(m.MaxWaitMicros))
 		fmt.Println()
 		fmt.Println("  " + pgbTimingNote[0])
 		fmt.Println("  " + pgbTimingNote[1])
+
+		fmt.Println(bold + "\nPOOL WAIT\n" + reset)
+		fmt.Printf("  %-25s : %s  (max snapshot avg %s)\n", "Avg pool wait time", micros(m.AvgWaitMicros), microsI(m.MaxWaitMicros))
+		fmt.Println()
+		fmt.Println("  " + pgbWaitNote[0])
+		fmt.Println("  " + pgbWaitNote[1])
 	}
 
 	// Sessions.
@@ -69,13 +77,13 @@ func PrintPgBouncer(m analysis.PgBouncerMetrics) {
 		fmt.Printf("  %-25s : %d\n", "Completed sessions", m.Sessions)
 		fmt.Printf("  %-25s : %s\n", "Average session time", formatSessionDuration(time.Duration(m.AvgSessionSeconds()*float64(time.Second))))
 		if len(m.SessionsPerDatabase) > 0 {
-			printTopCountTable("Sessions per database:", m.SessionsPerDatabase, m.Sessions)
+			printRankedCountTable("Sessions per database:", m.SessionsPerDatabase, m.Sessions, true)
 		}
 		if len(m.SessionsPerUser) > 0 {
-			printTopCountTable("Sessions per user:", m.SessionsPerUser, m.Sessions)
+			printRankedCountTable("Sessions per user:", m.SessionsPerUser, m.Sessions, true)
 		}
 		if len(m.SessionsPerHost) > 0 {
-			printTopCountTable("Sessions per host:", m.SessionsPerHost, m.Sessions)
+			printRankedCountTable("Sessions per host:", m.SessionsPerHost, m.Sessions, true)
 		}
 	}
 
@@ -83,25 +91,45 @@ func PrintPgBouncer(m analysis.PgBouncerMetrics) {
 	if m.LoginAttempts > 0 {
 		fmt.Println(bold + "\nCONNECTIONS\n" + reset)
 		fmt.Printf("  %-25s : %d\n", "Login attempts", m.LoginAttempts)
-		fmt.Printf("  %-25s : %d\n", "Server connections", m.ServerConnections)
+		fmt.Printf("  %-25s : %d\n", "Server connections opened", m.ServerConnections)
 		if len(m.ConnectionsPerDatabase) > 0 {
-			printTopCountTable("Connections per database:", m.ConnectionsPerDatabase, m.LoginAttempts)
+			printRankedCountTable("Connections per database:", m.ConnectionsPerDatabase, m.LoginAttempts, true)
 		}
 		if len(m.ConnectionsPerUser) > 0 {
-			printTopCountTable("Connections per user:", m.ConnectionsPerUser, m.LoginAttempts)
+			printRankedCountTable("Connections per user:", m.ConnectionsPerUser, m.LoginAttempts, true)
 		}
 		if len(m.ConnectionsPerHost) > 0 {
-			printTopCountTable("Connections per host:", m.ConnectionsPerHost, m.LoginAttempts)
+			printRankedCountTable("Connections per host:", m.ConnectionsPerHost, m.LoginAttempts, true)
 		}
 	}
 
 	// Errors.
 	if m.TotalErrors > 0 {
 		fmt.Println(bold + "\nMOST FREQUENT ERRORS\n" + reset)
-		printTopCountTable("Errors:", m.Errors, m.TotalErrors)
+		printRankedCountTable("Errors:", m.Errors, m.TotalErrors, true)
 	}
 
 	fmt.Println()
+}
+
+// pgbRateNote states what the throughput figures are. pgBouncer does not
+// log an instantaneous rate: every "stats:" line carries one average over
+// the elapsed stats_period, so the largest value in the capture is the
+// busiest snapshot average, and at the default 60 s period a real spike
+// is flattened across the minute. Calling it a peak would promise a
+// resolution the log never had.
+var pgbRateNote = [2]string{
+	"Rates are the pooler's own per-snapshot averages over stats_period;",
+	"the max is the highest snapshot average, not the busiest instant.",
+}
+
+// pgbWaitNote draws the line the section split is there to draw. Queue
+// wait is not query time: a slow query is a query problem, a long wait
+// is a pool sizing problem, and the two are read against different
+// settings (default_pool_size, reserve_pool_size, max_db_connections).
+var pgbWaitNote = [2]string{
+	"Time clients spent queued for a server connection, a pool sizing",
+	"signal rather than a query one. Averaged as the timings above are.",
 }
 
 // pgbTimingNote states what the timing figures are, in the two formats

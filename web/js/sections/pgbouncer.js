@@ -1,7 +1,7 @@
 // pgBouncer section: pooler telemetry rendered alongside the PostgreSQL
 // sections. Reads data.pgbouncer (the PgBouncerMetrics JSON) and shows
 // summary cards, three time-series charts (throughput, network I/O,
-// query/wait timing), a session-time histogram, per-database/user/host
+// query/pool-wait timing), a session-time histogram, per-database/user/host
 // breakdowns, and the ranked error list.
 
 import { fmt, esc, buildNoDataMessage } from '../utils.js';
@@ -18,16 +18,36 @@ function chartLegend(items) {
         + `</div>`;
 }
 
+// TOP_N is how many rows a ranked breakdown shows before collapsing the
+// rest into the report's "… and N more" line. A pooler fronting a
+// multi-tenant estate has thousands of users, and ten rows adding up to
+// 12% read as the whole truth unless the cut is stated.
+const TOP_N = 10;
+
+// moreRow renders that line for a bar list, muted so it reads as a note
+// on the table rather than another row of data.
+function moreRow(hidden) {
+    if (hidden <= 0) return '';
+    return `<div class="list-item" style="color: var(--text-muted); font-size: 11px;">… and ${fmt(hidden)} more</div>`;
+}
+
 // barList renders name→count rows as the report's shared bar-list (the
 // same .scroll-list / .list-item / .bar-fill markup the Clients section
 // uses), so the pgBouncer breakdowns look identical to the rest.
 // `rows` is an array of [name, count]; when `ordered` is false they are
-// sorted by count descending and clipped to the top 10.
+// sorted by count descending, clipped to TOP_N, and the clipped tail is
+// declared under the list.
 function barList(title, rows, total, ordered) {
-    if (!ordered) {
-        rows = rows.slice().sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 10);
+    let hidden = 0;
+    if (ordered) {
+        rows = rows.filter(([, c]) => c > 0);
+    } else {
+        const ranked = rows.slice()
+            .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+            .filter(([, c]) => c > 0);
+        hidden = Math.max(0, ranked.length - TOP_N);
+        rows = ranked.slice(0, TOP_N);
     }
-    rows = rows.filter(([, c]) => c > 0);
     if (rows.length === 0) return '';
     const max = Math.max(1, ...rows.map(([, c]) => c));
     return `
@@ -43,6 +63,7 @@ function barList(title, rows, total, ordered) {
                         <span class="value">${fmt(count)} <small style="color: var(--text-muted)">(${pct}%)</small></span>
                     </div>`;
                 }).join('')}
+                ${moreRow(hidden)}
             </div>
         </div>
     `;
@@ -70,7 +91,9 @@ function dimTabs(dims, total) {
 // and stay readable rather than being truncated like the bar lists.
 function errorsTable(m, total) {
     if (!m) return '';
-    const rows = Object.entries(m).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 10);
+    const ranked = Object.entries(m).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+    const rows = ranked.slice(0, TOP_N);
+    const hidden = ranked.length - rows.length;
     if (rows.length === 0) return '';
     return `
             <div class="table-container" style="max-height: 220px;">
@@ -88,6 +111,7 @@ function errorsTable(m, total) {
                                 <td class="num">${total ? (count / total * 100).toFixed(1) : '0.0'}%</td>
                             </tr>
                         `).join('')}
+                        ${hidden > 0 ? `<tr><td colspan="3" style="color: var(--text-muted)">… and ${fmt(hidden)} more</td></tr>` : ''}
                     </tbody>
                 </table>
             </div>
@@ -120,7 +144,7 @@ export function buildPgBouncerSection(data) {
         chartData.set('chart-pgb-throughput', {
             type: 'pgb-series', t,
             series: [
-                { label: 'xacts/s', key: 'xacts_per_sec', color: 'var(--accent)' },
+                { label: 'transactions/s', key: 'xacts_per_sec', color: 'var(--accent)' },
                 { label: 'queries/s', key: 'queries_per_sec', color: 'var(--purple)' },
             ],
             values: series,
@@ -136,9 +160,9 @@ export function buildPgBouncerSection(data) {
         chartData.set('chart-pgb-timing', {
             type: 'pgb-series', t,
             series: [
-                { label: 'xact', key: 'xact_us', color: 'var(--accent)', fmt: 'micros' },
+                { label: 'transaction', key: 'xact_us', color: 'var(--accent)', fmt: 'micros' },
                 { label: 'query', key: 'query_us', color: 'var(--purple)', fmt: 'micros' },
-                { label: 'wait', key: 'wait_us', color: 'var(--danger)', fmt: 'micros' },
+                { label: 'pool wait', key: 'wait_us', color: 'var(--danger)', fmt: 'micros' },
             ],
             values: series, fmt: 'micros',
         });
@@ -155,28 +179,28 @@ export function buildPgBouncerSection(data) {
             <div class="section-body">
                 <div class="stat-grid">
                     ${hasStats ? `
-                    <div class="stat-card"><div class="stat-value">${p.avg_queries_per_sec != null ? p.avg_queries_per_sec.toFixed(1) : '0'}/s</div><div class="stat-label">Avg Queries</div></div>
-                    <div class="stat-card"><div class="stat-value">${fmt(p.max_queries_per_sec || 0)}/s</div><div class="stat-label">Peak Queries</div></div>` : ''}
-                    <div class="stat-card"><div class="stat-value">${fmt(p.login_attempts || 0)}</div><div class="stat-label">Login Attempts</div></div>
-                    <div class="stat-card"><div class="stat-value">${fmt(p.sessions || 0)}</div><div class="stat-label">Sessions</div></div>
-                    <div class="stat-card"><div class="stat-value">${fmt(p.server_connections || 0)}</div><div class="stat-label">Server Conns</div></div>
-                    ${p.reserve_pool_activations ? `<div class="stat-card stat-card--warning"><div class="stat-value">${fmt(p.reserve_pool_activations)}</div><div class="stat-label">Reserve Pool</div></div>` : ''}
+                    <div class="stat-card" title="Average queries per second over the capture"><div class="stat-value">${p.avg_queries_per_sec != null ? p.avg_queries_per_sec.toFixed(1) : '0'}/s</div><div class="stat-label">Avg queries/s</div></div>
+                    <div class="stat-card" title="Highest queries/s seen on a single stats snapshot. pgBouncer logs one average per stats_period, so this is the busiest snapshot average, not the busiest instant."><div class="stat-value">${fmt(p.max_queries_per_sec || 0)}/s</div><div class="stat-label">Max snapshot avg</div></div>` : ''}
+                    <div class="stat-card"><div class="stat-value">${fmt(p.login_attempts || 0)}</div><div class="stat-label">Login attempts</div></div>
+                    <div class="stat-card"><div class="stat-value">${fmt(p.sessions || 0)}</div><div class="stat-label">Completed sessions</div></div>
+                    <div class="stat-card" title="Server connections opened over the capture, not the number held at any moment: a pool capped at five can open many more over time."><div class="stat-value">${fmt(p.server_connections || 0)}</div><div class="stat-label">Server connections opened</div></div>
+                    ${p.reserve_pool_activations ? `<div class="stat-card stat-card--warning"><div class="stat-value">${fmt(p.reserve_pool_activations)}</div><div class="stat-label">Reserve pool activations</div></div>` : ''}
                     <div class="stat-card${hasErrors ? ' stat-card--alert' : ''}"><div class="stat-value">${fmt(p.total_errors || 0)}</div><div class="stat-label">Errors</div></div>
                 </div>
                 ${hasStats ? `
                     <div class="grid grid-2" style="margin-top:0.5rem;">
                         <div>
-                            ${buildChartContainer('chart-pgb-throughput', 'Request Throughput', { tooltip: 'Transactions and queries per second, sampled from pgBouncer stats lines.', showBucketControl: false })}
-                            ${chartLegend([['xacts/s', 'var(--accent)'], ['queries/s', 'var(--purple)']])}
+                            ${buildChartContainer('chart-pgb-throughput', 'Request Throughput', { tooltip: 'Transactions and queries per second. Each point is one stats-line average over the elapsed stats_period, not an instantaneous rate.', showBucketControl: false })}
+                            ${chartLegend([['transactions/s', 'var(--accent)'], ['queries/s', 'var(--purple)']])}
                         </div>
                         <div>
-                            ${buildChartContainer('chart-pgb-io', 'Network I/O', { tooltip: 'Bytes received and sent per second.', showBucketControl: false })}
+                            ${buildChartContainer('chart-pgb-io', 'Network I/O', { tooltip: 'Bytes received and sent per second, averaged over each stats_period snapshot.', showBucketControl: false })}
                             ${chartLegend([['in', 'var(--accent)'], ['out', 'var(--success)']])}
                         </div>
                     </div>
                     <div style="margin-top:0.5rem;">
-                        ${buildChartContainer('chart-pgb-timing', 'Transaction / Query / Wait Time', { tooltip: 'Transaction, query, and pool-wait time (microsecond resolution). pgBouncer logs one average per snapshot, never a single operation, so each point is an interval average.', showBucketControl: false })}
-                        ${chartLegend([['transaction', 'var(--accent)'], ['query', 'var(--purple)'], ['wait', 'var(--danger)']])}
+                        ${buildChartContainer('chart-pgb-timing', 'Transaction / Query / Pool Wait', { tooltip: 'Transaction and query time measure work on the server; pool wait is how long clients queued for a server connection — a pool sizing signal, not a query one. pgBouncer logs one average per snapshot, never a single operation, so each point is an interval average.', showBucketControl: false })}
+                        ${chartLegend([['transaction', 'var(--accent)'], ['query', 'var(--purple)'], ['pool wait', 'var(--danger)']])}
                     </div>
                 ` : ''}
                 ${(hasSessions || hasConns) ? `

@@ -39,7 +39,7 @@ func ExportPgBouncerMarkdown(w io.Writer, m analysis.PgBouncerMetrics) {
 	}
 	fmt.Fprintf(w, "| Stats snapshots | %d |\n", m.StatsSampleCount)
 	fmt.Fprintf(w, "| Login attempts | %d |\n", m.LoginAttempts)
-	fmt.Fprintf(w, "| Server connections | %d |\n", m.ServerConnections)
+	fmt.Fprintf(w, "| Server connections opened | %d |\n", m.ServerConnections)
 	fmt.Fprintf(w, "| Completed sessions | %d |\n", m.Sessions)
 	if m.ReservePoolActivations > 0 {
 		fmt.Fprintf(w, "| Reserve pool activations | %d |\n", m.ReservePoolActivations)
@@ -50,7 +50,9 @@ func ExportPgBouncerMarkdown(w io.Writer, m analysis.PgBouncerMetrics) {
 		fmt.Fprintln(w)
 		fmt.Fprintln(w, "## Request Throughput")
 		fmt.Fprintln(w)
-		fmt.Fprintln(w, "| Metric | Average | Peak |")
+		fmt.Fprintf(w, "*%s %s*\n", pgbRateNote[0], pgbRateNote[1])
+		fmt.Fprintln(w)
+		fmt.Fprintln(w, "| Metric | Average | Max snapshot average |")
 		fmt.Fprintln(w, "|---|---|---|")
 		fmt.Fprintf(w, "| Transactions/s | %.1f | %d |\n", m.AvgXactsPerSec, m.MaxXactsPerSec)
 		fmt.Fprintf(w, "| Queries/s | %.1f | %d |\n", m.AvgQueriesPerSec, m.MaxQueriesPerSec)
@@ -66,7 +68,15 @@ func ExportPgBouncerMarkdown(w io.Writer, m analysis.PgBouncerMetrics) {
 		fmt.Fprintln(w, "|---|---|---|")
 		fmt.Fprintf(w, "| Transaction time | %s | %s |\n", microsMD(m.AvgXactMicros), microsMD(float64(m.MaxXactMicros)))
 		fmt.Fprintf(w, "| Query time | %s | %s |\n", microsMD(m.AvgQueryMicros), microsMD(float64(m.MaxQueryMicros)))
-		fmt.Fprintf(w, "| Wait time | %s | %s |\n", microsMD(m.AvgWaitMicros), microsMD(float64(m.MaxWaitMicros)))
+
+		fmt.Fprintln(w)
+		fmt.Fprintln(w, "## Pool Wait")
+		fmt.Fprintln(w)
+		fmt.Fprintf(w, "*%s %s*\n", pgbWaitNote[0], pgbWaitNote[1])
+		fmt.Fprintln(w)
+		fmt.Fprintln(w, "| Metric | Weighted average | Max snapshot average |")
+		fmt.Fprintln(w, "|---|---|---|")
+		fmt.Fprintf(w, "| Pool wait time | %s | %s |\n", microsMD(m.AvgWaitMicros), microsMD(float64(m.MaxWaitMicros)))
 	}
 
 	if m.Sessions > 0 {
@@ -106,6 +116,17 @@ func ExportPgBouncerMarkdown(w io.Writer, m analysis.PgBouncerMetrics) {
 			pct := float64(p.count) / float64(m.TotalErrors) * 100
 			fmt.Fprintf(w, "| %s | %d | %.1f%% |\n", p.name, p.count, pct)
 		}
+		writeTailMD(w, len(m.Errors), 10)
+	}
+}
+
+// writeTailMD declares the rows a ranked table cut, in the form the
+// PostgreSQL Markdown report already uses for its skipped-relation
+// table. A title that names a whole dimension ("Connections per user")
+// over a head of ten rows is a half-truth without it.
+func writeTailMD(w io.Writer, total, shown int) {
+	if total > shown {
+		fmt.Fprintf(w, "\n_\u2026 and %d more_\n", total-shown)
 	}
 }
 
@@ -144,6 +165,7 @@ func writeBreakdownMD(w io.Writer, title string, m map[string]int, total int) {
 		pct := float64(p.count) / float64(total) * 100
 		fmt.Fprintf(w, "| %s | %d | %.1f%% |\n", p.name, p.count, pct)
 	}
+	writeTailMD(w, len(m), 10)
 }
 
 func bytesPerSecMD(v float64) string {

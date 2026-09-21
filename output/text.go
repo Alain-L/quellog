@@ -1528,6 +1528,15 @@ func printTopXminTable(rows []analysis.VacuumTableStat) {
 // comes first) so the panel doesn't bury the signal under a long tail
 // on workloads that touch hundreds of tables.
 func printTopCountTable(title string, counts map[string]int, total int) {
+	printRankedCountTable(title, counts, total, false)
+}
+
+// printRankedCountTable is printTopCountTable with a switch for the
+// "… and N more" tail printTopSkippedTable already writes. A caller that
+// ranks an open-ended dimension (per user, per host) turns it on: the
+// title then names the whole set while the rows are only its head, and
+// a reader given ten rows adding up to 12% must be told why.
+func printRankedCountTable(title string, counts map[string]int, total int, declareTail bool) {
 	type pair struct {
 		Name  string
 		Count int
@@ -1565,6 +1574,9 @@ func printTopCountTable(title string, counts map[string]int, total int) {
 		p := pairs[i]
 		pct := float64(p.Count) / float64(total) * 100
 		fmt.Printf("    %-*s  %6d  %5.1f%%\n", maxNameW, p.Name, p.Count, pct)
+	}
+	if declareTail && len(pairs) > kept {
+		fmt.Printf("    \u2026 and %d more\n", len(pairs)-kept)
 	}
 }
 
