@@ -303,3 +303,37 @@ test('a row holding one block does not keep an empty column', () => {
     assert.equal((both.match(/grid grid-2/g) || []).length, 2,
         'the paired row lost its two columns');
 });
+
+// ---- refutation: the two rules must not drift apart ----------------
+//
+// The Go side (analysis.PgBouncerMetrics.ClientLinesMissing) accepts
+// only the snapshot counters as proof that clients were served. A
+// server connection and a pooler error are deliberately not proof:
+// min_pool_size opens backends with nobody connected, and a backend
+// refusing the pooler errors out before any client exists.
+//
+// silencedPayload above carries traffic AND errors, idlePayload carries
+// neither, so both rules answer the same on both -- which is why the
+// drift went unnoticed. This payload is the one that separates them.
+const idleWithServerNoisePayload = {
+    ...silencedPayload,
+    avg_queries_per_sec: 0,
+    max_queries_per_sec: 0,
+    max_xacts_per_sec: 0,
+    server_connections: 4,
+    total_errors: 7,
+};
+
+test('a backend error is not proof that clients were served', () => {
+    const html = buildPgBouncerSection({ pgbouncer: idleWithServerNoisePayload });
+    assert.ok(
+        !html.includes('reported traffic over this window'),
+        'the section claims traffic on a window whose snapshots are all zero',
+    );
+    // The block still appears, still names the setting that governs it:
+    // the absence is stated, not explained away and not accused.
+    assert.ok(
+        html.includes('No data available') && html.includes('log_connections = 1'),
+        'the empty block should still name the setting that governs it',
+    );
+});

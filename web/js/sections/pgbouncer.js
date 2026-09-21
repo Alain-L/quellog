@@ -259,8 +259,11 @@ function statsUnderCovered(p) {
 // that separates a silenced log from an idle one.
 function clientLinesMissing(p) {
     if (p.login_attempts > 0 || p.sessions > 0) return false;
-    return (p.max_xacts_per_sec > 0) || (p.max_queries_per_sec > 0)
-        || (p.server_connections > 0) || (p.total_errors > 0);
+    // Only the snapshot counters prove it, exactly as the Go side does.
+    // A server connection opened and a pooler error are not proof:
+    // min_pool_size opens backends with nobody connected, and a backend
+    // refusing the pooler errors out before any client exists.
+    return (p.max_xacts_per_sec > 0) || (p.max_queries_per_sec > 0);
 }
 
 // note renders a one-paragraph remark under a block, muted by default
