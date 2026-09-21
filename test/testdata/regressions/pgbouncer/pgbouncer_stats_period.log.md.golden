@@ -37,7 +37,7 @@
 
 ## Pool Wait
 
-*Time clients spent queued for a server connection, a pool sizing signal rather than a query one. Averaged as the timings above are.*
+*Time clients spent queued for a server connection, a pool sizing signal rather than a query one. Averaged as the timings above are. What it is averaged over depends on pool_mode (one wait per session, per transaction or per statement), which pgBouncer logs nowhere.*
 
 | Metric | Weighted average | Max snapshot average |
 |---|---|---|

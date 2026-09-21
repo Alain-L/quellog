@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/Alain-L/quellog/analysis"
@@ -46,10 +47,23 @@ func ExportPgBouncerMarkdown(w io.Writer, m analysis.PgBouncerMetrics) {
 	}
 	fmt.Fprintf(w, "| Errors | %d |\n", m.TotalErrors)
 
+	if m.StatsSampleCount == 0 {
+		fmt.Fprintln(w)
+		fmt.Fprintln(w, "## Request Throughput")
+		fmt.Fprintln(w)
+		fmt.Fprintln(w, "(No data available)")
+		fmt.Fprintln(w)
+		writeNoteMD(w, pgbNoStatsNote)
+	}
+
 	if m.StatsSampleCount > 0 {
 		fmt.Fprintln(w)
 		fmt.Fprintln(w, "## Request Throughput")
 		fmt.Fprintln(w)
+		if m.StatsUnderCovered() {
+			writeNoteMD(w, pgbCoverageNote(m))
+			fmt.Fprintln(w)
+		}
 		fmt.Fprintf(w, "*%s %s*\n", pgbRateNote[0], pgbRateNote[1])
 		fmt.Fprintln(w)
 		fmt.Fprintln(w, "| Metric | Average | Max snapshot average |")
@@ -72,11 +86,24 @@ func ExportPgBouncerMarkdown(w io.Writer, m analysis.PgBouncerMetrics) {
 		fmt.Fprintln(w)
 		fmt.Fprintln(w, "## Pool Wait")
 		fmt.Fprintln(w)
-		fmt.Fprintf(w, "*%s %s*\n", pgbWaitNote[0], pgbWaitNote[1])
+		fmt.Fprintf(w, "*%s*\n", strings.Join(pgbWaitNote, " "))
 		fmt.Fprintln(w)
 		fmt.Fprintln(w, "| Metric | Weighted average | Max snapshot average |")
 		fmt.Fprintln(w, "|---|---|---|")
 		fmt.Fprintf(w, "| Pool wait time | %s | %s |\n", microsMD(m.AvgWaitMicros), microsMD(float64(m.MaxWaitMicros)))
+	}
+
+	// Sessions and Connections below print their heading whether or not
+	// they have anything under it: a pooler run with log_connections = 0
+	// used to drop both from a document that went on reporting traffic
+	// and errors, with nothing saying why.
+	if m.Sessions == 0 {
+		fmt.Fprintln(w)
+		fmt.Fprintln(w, "## Sessions")
+		fmt.Fprintln(w)
+		fmt.Fprintln(w, "(No data available)")
+		fmt.Fprintln(w)
+		writeNoteMD(w, pgbNoSessions.note(m.ClientLinesMissing()))
 	}
 
 	if m.Sessions > 0 {
@@ -96,6 +123,15 @@ func ExportPgBouncerMarkdown(w io.Writer, m analysis.PgBouncerMetrics) {
 		writeBreakdownMD(w, "Sessions per database", m.SessionsPerDatabase, m.Sessions)
 		writeBreakdownMD(w, "Sessions per user", m.SessionsPerUser, m.Sessions)
 		writeBreakdownMD(w, "Sessions per host", m.SessionsPerHost, m.Sessions)
+	}
+
+	if m.LoginAttempts == 0 {
+		fmt.Fprintln(w)
+		fmt.Fprintln(w, "## Connections")
+		fmt.Fprintln(w)
+		fmt.Fprintln(w, "(No data available)")
+		fmt.Fprintln(w)
+		writeNoteMD(w, pgbNoConnections.note(m.ClientLinesMissing()))
 	}
 
 	if m.LoginAttempts > 0 {
@@ -118,6 +154,14 @@ func ExportPgBouncerMarkdown(w io.Writer, m analysis.PgBouncerMetrics) {
 		}
 		writeTailMD(w, len(m.Errors), 10)
 	}
+}
+
+// writeNoteMD renders a note block as the single italic paragraph the
+// document already uses for the throughput, timing and wait notes. The
+// renderers hold the note as one line per printed line for the text
+// report; Markdown reflows, so they are joined.
+func writeNoteMD(w io.Writer, lines []string) {
+	fmt.Fprintf(w, "*%s*\n", strings.Join(lines, " "))
 }
 
 // writeTailMD declares the rows a ranked table cut, in the form the

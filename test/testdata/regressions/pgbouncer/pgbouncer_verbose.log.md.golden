@@ -16,6 +16,12 @@
 | Completed sessions | 3 |
 | Errors | 0 |
 
+## Request Throughput
+
+(No data available)
+
+*No "stats:" line in this window; request throughput, query timing and pool wait all come from those lines. pgBouncer writes one per stats_period, 60 s by default, so a shorter capture carries none. Check stats_period in pgbouncer.ini; see docs/pgbouncer-setup.md.*
+
 ## Sessions
 
 - Completed sessions: **3**

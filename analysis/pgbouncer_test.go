@@ -318,3 +318,33 @@ func wantMaps(t *testing.T, name string, got, want map[string]int) {
 		}
 	}
 }
+
+// TestPgBouncerIdlePoolerWithServerErrorIsNotAccused pins the boundary
+// of the "client lines are missing" verdict. A server connection and a
+// pooler error are not proof that clients were served: min_pool_size
+// opens backends with nobody connected, and a backend that refuses the
+// pooler errors out before any client exists. Reading either as traffic
+// told an idle pooler that its log_connections was silencing lines that
+// were never there to log.
+func TestPgBouncerIdlePoolerWithServerErrorIsNotAccused(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		m    PgBouncerMetrics
+		want bool
+	}{
+		{"idle", PgBouncerMetrics{}, false},
+		{"server connections only (min_pool_size)",
+			PgBouncerMetrics{ServerConnections: 4}, false},
+		{"pooler errors only (backend unreachable)",
+			PgBouncerMetrics{TotalErrors: 7}, false},
+		{"both, still no client",
+			PgBouncerMetrics{ServerConnections: 4, TotalErrors: 7}, false},
+		{"queries prove a client", PgBouncerMetrics{MaxQueriesPerSec: 48}, true},
+		{"transactions prove a client", PgBouncerMetrics{MaxXactsPerSec: 12}, true},
+		{"client lines present", PgBouncerMetrics{MaxQueriesPerSec: 48, LoginAttempts: 3}, false},
+	} {
+		if got := tc.m.ClientLinesMissing(); got != tc.want {
+			t.Errorf("%s: ClientLinesMissing() = %v, want %v", tc.name, got, tc.want)
+		}
+	}
+}

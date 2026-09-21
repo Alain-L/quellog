@@ -126,6 +126,93 @@ function sessionHistogram(dist, total) {
     return barList('', SESSION_BUCKETS.map(b => [b, dist[b] || 0]), total, true);
 }
 
+// ---- configuration gaps -------------------------------------------
+//
+// Three pgBouncer settings decide how much of this section can exist:
+// log_connections / log_disconnections gate the client lines,
+// stats_period gates the telemetry lines, and pool_mode -- logged
+// nowhere -- sets what the pool-wait figure is averaged over. A block
+// that simply disappears leaves the reader unable to tell "nothing
+// happened" from "your pooler does not log it", so each empty block
+// says which of the three is responsible.
+//
+// The three predicates below mirror PgBouncerMetrics.StatsPeriod,
+// .StatsUnderCovered and .ClientLinesMissing (analysis/pgbouncer.go);
+// they are recomputed here because the payload carries the metrics, not
+// the verdicts. Keep the two in step.
+
+const SETUP_DOC = 'docs/pgbouncer-setup.md';
+
+// statsPeriodSeconds infers stats_period from the median interval
+// between consecutive snapshots. 0 when fewer than two leave nothing to
+// measure.
+function statsPeriodSeconds(series) {
+    if (!series || series.length < 2) return 0;
+    const gaps = [];
+    for (let i = 1; i < series.length; i++) {
+        const d = (new Date(series[i].time) - new Date(series[i - 1].time)) / 1000;
+        if (d > 0) gaps.push(d);
+    }
+    if (gaps.length === 0) return 0;
+    gaps.sort((a, b) => a - b);
+    return gaps[Math.floor(gaps.length / 2)];
+}
+
+// statsUnderCovered reports whether the snapshots account for less than
+// half of the reported window -- or for an unknown share of it, which a
+// single snapshot always does.
+function statsUnderCovered(p) {
+    if (!p.stats_sample_count) return false;
+    const window = (new Date(p.max_timestamp) - new Date(p.min_timestamp)) / 1000;
+    if (!(window > 0)) return false;
+    const covered = statsPeriodSeconds(p.stats_series) * p.stats_sample_count;
+    if (!(covered > 0)) return true;
+    return covered * 2 < window;
+}
+
+// clientLinesMissing reports whether the pooler demonstrably served
+// clients over this window while logging none of them -- the only thing
+// that separates a silenced log from an idle one.
+function clientLinesMissing(p) {
+    if (p.login_attempts > 0 || p.sessions > 0) return false;
+    return (p.max_xacts_per_sec > 0) || (p.max_queries_per_sec > 0)
+        || (p.server_connections > 0) || (p.total_errors > 0);
+}
+
+// note renders a one-paragraph remark under a block, muted by default
+// and in the warning colour when it qualifies figures that are shown.
+function note(text, warn) {
+    const color = warn ? 'var(--warning)' : 'var(--text-muted)';
+    return `<div style="font-size: 0.75rem; color: ${color}; padding: 0.5rem 0; text-align: center;">${text}</div>`;
+}
+
+// emptyBlock is the shared no-data placeholder plus, when the window
+// contradicts an idle pooler, the sentence that says so. Without that
+// sentence the placeholder reads the same either way.
+function emptyBlock(hint, contradiction) {
+    return (contradiction ? note(contradiction, true) : '') + buildNoDataMessage(hint);
+}
+
+const CONNECTIONS_HINT = '<code>log_connections = 1</code> in <code>pgbouncer.ini</code>; see ' + SETUP_DOC;
+const SESSIONS_HINT = '<code>log_disconnections = 1</code> in <code>pgbouncer.ini</code>; see ' + SETUP_DOC;
+const STATS_HINT = '<code>stats_period</code> in <code>pgbouncer.ini</code>; see ' + SETUP_DOC;
+const CONNECTIONS_CONTRADICTION = 'The pooler reported traffic over this window but logged no client connection: the connections happened, the log does not record them.';
+const SESSIONS_CONTRADICTION = 'The pooler reported traffic over this window but logged no session close: the sessions ended, the log does not record them.';
+const NO_STATS_TEXT = 'No <code>stats:</code> line in this window; throughput, network I/O and timing all come from those lines. pgBouncer writes one per <code>stats_period</code>, 60\u00a0s by default, so a shorter capture carries none.';
+
+// coverageText qualifies figures drawn from snapshots that leave most
+// of the window unmeasured: a pooler sampled once at startup otherwise
+// reports 0.0 queries/s over a window holding hundreds of sessions, and
+// states it as a measurement.
+function coverageText(p) {
+    const window = Math.round((new Date(p.max_timestamp) - new Date(p.min_timestamp)) / 1000);
+    const covered = Math.round(statsPeriodSeconds(p.stats_series) * p.stats_sample_count);
+    const lead = covered > 0
+        ? `${fmt(p.stats_sample_count)} stats snapshots cover ${fmt(covered)}\u00a0s of this ${fmt(window)}\u00a0s window`
+        : `A single stats snapshot for this ${fmt(window)}\u00a0s window, of unknown extent`;
+    return `${lead}: pgBouncer logs nothing between two snapshots, so the figures here describe what was sampled, not the window. Check <code>stats_period</code> in <code>pgbouncer.ini</code>; see ${SETUP_DOC}.`;
+}
+
 export function buildPgBouncerSection(data) {
     const p = data.pgbouncer;
     if (!p || !p.lines) {
@@ -172,6 +259,7 @@ export function buildPgBouncerSection(data) {
     const hasSessions = p.sessions > 0;
     const hasConns = p.login_attempts > 0;
     const hasErrors = p.total_errors > 0;
+    const missingClients = clientLinesMissing(p);
 
     return `
         <div class="section" id="pgbouncer">
@@ -187,6 +275,8 @@ export function buildPgBouncerSection(data) {
                     ${p.reserve_pool_activations ? `<div class="stat-card stat-card--warning"><div class="stat-value">${fmt(p.reserve_pool_activations)}</div><div class="stat-label">Reserve pool activations</div></div>` : ''}
                     <div class="stat-card${hasErrors ? ' stat-card--alert' : ''}"><div class="stat-value">${fmt(p.total_errors || 0)}</div><div class="stat-label">Errors</div></div>
                 </div>
+                ${hasStats && statsUnderCovered(p) ? note(coverageText(p), true) : ''}
+                ${!hasStats ? emptyBlock(STATS_HINT, '') + note(NO_STATS_TEXT, false) : ''}
                 ${hasStats ? `
                     <div class="grid grid-2" style="margin-top:0.5rem;">
                         <div>
@@ -199,26 +289,24 @@ export function buildPgBouncerSection(data) {
                         </div>
                     </div>
                     <div style="margin-top:0.5rem;">
-                        ${buildChartContainer('chart-pgb-timing', 'Transaction / Query / Pool Wait', { tooltip: 'Transaction and query time measure work on the server; pool wait is how long clients queued for a server connection — a pool sizing signal, not a query one. pgBouncer logs one average per snapshot, never a single operation, so each point is an interval average.', showBucketControl: false })}
+                        ${buildChartContainer('chart-pgb-timing', 'Transaction / Query / Pool Wait', { tooltip: 'Transaction and query time measure work on the server; pool wait is how long clients queued for a server connection — a pool sizing signal, not a query one. pgBouncer logs one average per snapshot, never a single operation, so each point is an interval average. What pool wait is averaged over depends on pool_mode (one wait per session, per transaction or per statement), which pgBouncer logs nowhere.', showBucketControl: false })}
                         ${chartLegend([['transaction', 'var(--accent)'], ['query', 'var(--purple)'], ['pool wait', 'var(--danger)']])}
                     </div>
                 ` : ''}
-                ${(hasSessions || hasConns) ? `
-                    <div class="subsection">
+                <div class="subsection">
                         <div class="grid grid-2">
-                            <div>${hasSessions ? `<div class="subsection-title" style="margin-top:0">Sessions by</div>${dimTabs([
+                            <div><div class="subsection-title" style="margin-top:0">Sessions by</div>${hasSessions ? dimTabs([
                                 { label: 'Database', map: p.sessions_per_database },
                                 { label: 'User', map: p.sessions_per_user },
                                 { label: 'Host', map: p.sessions_per_host },
-                            ], p.sessions)}` : ''}</div>
-                            <div>${hasConns ? `<div class="subsection-title" style="margin-top:0">Connections by</div>${dimTabs([
+                            ], p.sessions) : emptyBlock(SESSIONS_HINT, missingClients ? SESSIONS_CONTRADICTION : '')}</div>
+                            <div><div class="subsection-title" style="margin-top:0">Connections by</div>${hasConns ? dimTabs([
                                 { label: 'Database', map: p.connections_per_database },
                                 { label: 'User', map: p.connections_per_user },
                                 { label: 'Host', map: p.connections_per_host },
-                            ], p.login_attempts)}` : ''}</div>
+                            ], p.login_attempts) : emptyBlock(CONNECTIONS_HINT, missingClients ? CONNECTIONS_CONTRADICTION : '')}</div>
                         </div>
                     </div>
-                ` : ''}
                 ${(hasSessions || hasErrors) ? `
                     <div class="subsection">
                         <div class="grid grid-2">

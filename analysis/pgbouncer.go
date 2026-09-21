@@ -97,6 +97,104 @@ func (m PgBouncerMetrics) LinesFiltered() int {
 	return 0
 }
 
+// statsCoverageFloor is the share of the reported window the "stats:"
+// snapshots must account for before the traffic figures are presented
+// without a caveat. It is set low on purpose: the point is to catch a
+// stats_period so long that the telemetry describes a different window
+// than the log does, not to comment on the sampling of a pooler that is
+// merely idle. A capture of a correctly configured pooler covers
+// essentially all of its window -- the real captures behind the
+// regression fixtures sit between 0.90 and 1.00 -- so half leaves a
+// wide margin below the legitimate cases.
+const statsCoverageFloor = 2 // covered*statsCoverageFloor < window
+
+// StatsPeriod returns pgBouncer's stats_period as the log lets it be
+// inferred: the median interval between consecutive "stats:" snapshots.
+// pgBouncer never logs the setting, and the cadence of those lines is
+// its only trace. The median rather than the mean so a pooler restart
+// or a rotation gap in the middle of the capture does not inflate it.
+// Returns 0 when fewer than two snapshots leave nothing to measure.
+func (m PgBouncerMetrics) StatsPeriod() time.Duration {
+	if len(m.StatsSeries) < 2 {
+		return 0
+	}
+	gaps := make([]time.Duration, 0, len(m.StatsSeries)-1)
+	for i := 1; i < len(m.StatsSeries); i++ {
+		// Finalize sorts the series by time, so a non-positive gap is
+		// two snapshots sharing a timestamp, not disorder.
+		if d := m.StatsSeries[i].Time.Sub(m.StatsSeries[i-1].Time); d > 0 {
+			gaps = append(gaps, d)
+		}
+	}
+	if len(gaps) == 0 {
+		return 0
+	}
+	sort.Slice(gaps, func(i, j int) bool { return gaps[i] < gaps[j] })
+	return gaps[len(gaps)/2]
+}
+
+// StatsCoverage returns how much of the window the telemetry accounts
+// for: one stats_period per snapshot, each snapshot being an average
+// over the period that preceded it. Returns 0 when the period could not
+// be inferred, which means "cannot be established" rather than "covers
+// nothing" -- callers must not read it as a duration of zero.
+func (m PgBouncerMetrics) StatsCoverage() time.Duration {
+	period := m.StatsPeriod()
+	if period <= 0 {
+		return 0
+	}
+	return period * time.Duration(m.StatsSampleCount)
+}
+
+// StatsUnderCovered reports whether the traffic and timing figures rest
+// on telemetry that leaves most of the window unmeasured. pgBouncer logs
+// nothing between two "stats:" lines, so with stats_period far longer
+// than the capture the report can state a rate of zero for a window in
+// which hundreds of sessions ran: the figure is then a measurement of
+// the sampled interval published as one of the log.
+//
+// It is false for a window with no snapshot at all: that is a section
+// with no data, not a figure to distrust, and it gets its own message.
+func (m PgBouncerMetrics) StatsUnderCovered() bool {
+	if m.StatsSampleCount == 0 {
+		return false
+	}
+	window := m.MaxTimestamp.Sub(m.MinTimestamp)
+	if window <= 0 {
+		return false
+	}
+	covered := m.StatsCoverage()
+	if covered <= 0 {
+		// One snapshot: its extent is unknown, so the share of the
+		// window it accounts for cannot be established either.
+		return true
+	}
+	return covered*statsCoverageFloor < window
+}
+
+// ClientLinesMissing reports whether the pooler demonstrably handled
+// clients over this window while logging none of them. It is the only
+// way to tell the two readings of an empty Connections section apart:
+// log_connections = 0 silences the "login attempt" and "closing
+// because" lines while leaving the telemetry, the pool events and the
+// errors untouched, so traffic without a single client line means the
+// log is missing them -- whereas a pooler that nobody used produces the
+// same empty section with nothing to contradict it.
+//
+// Only the snapshot counters prove it: a transaction or a query is work
+// done for a client, and the "stats:" line carrying them is written
+// whatever log_connections is set to. A server connection opened and an
+// error are deliberately not accepted as proof, although they are just
+// as visible -- min_pool_size opens backends with nobody connected, and
+// a backend refusing the pooler errors out before any client exists, so
+// either one alone describes a pooler that is idle rather than silenced.
+func (m PgBouncerMetrics) ClientLinesMissing() bool {
+	if m.LoginAttempts > 0 || m.Sessions > 0 {
+		return false
+	}
+	return m.MaxXactsPerSec > 0 || m.MaxQueriesPerSec > 0
+}
+
 // AvgSessionSeconds returns the mean completed-session age in seconds.
 func (m PgBouncerMetrics) AvgSessionSeconds() float64 {
 	if m.Sessions == 0 {

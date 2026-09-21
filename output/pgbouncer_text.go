@@ -46,8 +46,18 @@ func PrintPgBouncer(m analysis.PgBouncerMetrics) {
 	fmt.Printf("  %-25s : %d\n", "Errors", m.TotalErrors)
 
 	// Traffic (from the per-second stats snapshots).
+	if m.StatsSampleCount == 0 {
+		fmt.Println(bold + "\nREQUEST THROUGHPUT\n" + reset)
+		fmt.Println("  (No data available)")
+		fmt.Println()
+		printPgbNote(pgbNoStatsNote)
+	}
 	if m.StatsSampleCount > 0 {
 		fmt.Println(bold + "\nREQUEST THROUGHPUT\n" + reset)
+		if m.StatsUnderCovered() {
+			printPgbNote(pgbCoverageNote(m))
+			fmt.Println()
+		}
 		fmt.Printf("  %-25s : %.1f /s  (max snapshot avg %d /s)\n", "Transactions", m.AvgXactsPerSec, m.MaxXactsPerSec)
 		fmt.Printf("  %-25s : %.1f /s  (max snapshot avg %d /s)\n", "Queries", m.AvgQueriesPerSec, m.MaxQueriesPerSec)
 		fmt.Printf("  %-25s : %s  (max snapshot avg %s)\n", "Network in", bytesPerSec(m.AvgInBytesPerSec), bytesPerSec(float64(m.MaxInBytesPerSec)))
@@ -66,11 +76,19 @@ func PrintPgBouncer(m analysis.PgBouncerMetrics) {
 		fmt.Println(bold + "\nPOOL WAIT\n" + reset)
 		fmt.Printf("  %-25s : %s  (max snapshot avg %s)\n", "Avg pool wait time", micros(m.AvgWaitMicros), microsI(m.MaxWaitMicros))
 		fmt.Println()
-		fmt.Println("  " + pgbWaitNote[0])
-		fmt.Println("  " + pgbWaitNote[1])
+		printPgbNote(pgbWaitNote)
 	}
 
-	// Sessions.
+	// Sessions. The heading is printed whether or not there is anything
+	// under it: with log_disconnections = 0 the section used to vanish
+	// from a page that went on reporting traffic and errors, leaving no
+	// way to tell an idle pooler from a silenced one.
+	if m.Sessions == 0 {
+		fmt.Println(bold + "\nSESSIONS\n" + reset)
+		fmt.Println("  (No data available)")
+		fmt.Println()
+		printPgbNote(pgbNoSessions.note(m.ClientLinesMissing()))
+	}
 	if m.Sessions > 0 {
 		fmt.Println(bold + "\nSESSIONS\n" + reset)
 		PrintHistogram(m.SessionDistribution, "Session time", "", 1, sessionBucketOrder)
@@ -87,7 +105,14 @@ func PrintPgBouncer(m analysis.PgBouncerMetrics) {
 		}
 	}
 
-	// Connections (client login attempts).
+	// Connections (client login attempts). Printed empty for the same
+	// reason as Sessions above.
+	if m.LoginAttempts == 0 {
+		fmt.Println(bold + "\nCONNECTIONS\n" + reset)
+		fmt.Println("  (No data available)")
+		fmt.Println()
+		printPgbNote(pgbNoConnections.note(m.ClientLinesMissing()))
+	}
 	if m.LoginAttempts > 0 {
 		fmt.Println(bold + "\nCONNECTIONS\n" + reset)
 		fmt.Printf("  %-25s : %d\n", "Login attempts", m.LoginAttempts)
@@ -127,9 +152,109 @@ var pgbRateNote = [2]string{
 // wait is not query time: a slow query is a query problem, a long wait
 // is a pool sizing problem, and the two are read against different
 // settings (default_pool_size, reserve_pool_size, max_db_connections).
-var pgbWaitNote = [2]string{
+//
+// The last two lines name what the figure cannot say. pgBouncer counts
+// one wait per server assignment, and pool_mode decides how often that
+// happens -- once per session, per transaction, or per statement -- so
+// the same millisecond mean is a different statement under each mode.
+// The setting appears in no log line: reports of the same traffic in
+// session and in statement mode are identical but for the server
+// connection count, so quellog cannot infer it and says so instead.
+var pgbWaitNote = []string{
 	"Time clients spent queued for a server connection, a pool sizing",
 	"signal rather than a query one. Averaged as the timings above are.",
+	"What it is averaged over depends on pool_mode (one wait per session,",
+	"per transaction or per statement), which pgBouncer logs nowhere.",
+}
+
+// pgbNoStatsNote explains an empty telemetry block. It describes the
+// cadence rather than blaming the configuration: a capture shorter than
+// one stats_period legitimately holds no "stats:" line, and on a default
+// 60 s period that is every capture of under a minute.
+var pgbNoStatsNote = []string{
+	`No "stats:" line in this window; request throughput, query timing and`,
+	"pool wait all come from those lines. pgBouncer writes one per",
+	"stats_period, 60 s by default, so a shorter capture carries none.",
+	"Check stats_period in pgbouncer.ini; see docs/pgbouncer-setup.md.",
+}
+
+// pgbCoverageNote qualifies traffic figures whose snapshots account for
+// less than half of the reported window. Without it a pooler sampled
+// once at startup reports "0.0 queries/s" over a window holding
+// hundreds of sessions, and states it as a measurement.
+func pgbCoverageNote(m analysis.PgBouncerMetrics) []string {
+	window := pgbDuration(m.MaxTimestamp.Sub(m.MinTimestamp))
+	lead := fmt.Sprintf("A single stats snapshot for this %s window, of unknown extent:", window)
+	if covered := m.StatsCoverage(); covered > 0 {
+		lead = fmt.Sprintf("%d stats snapshots cover %s of this %s window:",
+			m.StatsSampleCount, pgbDuration(covered), window)
+	}
+	return []string{
+		lead,
+		"pgBouncer logs nothing between two snapshots, so the figures below",
+		"describe what was sampled, not the window.",
+		"Check stats_period in pgbouncer.ini; see docs/pgbouncer-setup.md.",
+	}
+}
+
+// pgbEmptySection holds what a client-side section says when it has
+// nothing to show. Two wordings, because an empty Connections section
+// has two readings and the report is useless if it cannot separate
+// them: nobody connected, or the pooler was told not to log it.
+type pgbEmptySection struct {
+	// quiet is used when nothing in the window contradicts an idle
+	// pooler. It states the absence and stops there -- accusing a
+	// correctly configured pooler of losing lines it never had to write
+	// would cost more trust than the warning buys.
+	quiet []string
+	// missing is used when the same window proves the pooler served
+	// clients (see PgBouncerMetrics.ClientLinesMissing).
+	missing []string
+	// check names the pgbouncer.ini setting, in the form the PostgreSQL
+	// sections use for their own "Check:" hints.
+	check string
+}
+
+// note picks the wording and appends the setting to check.
+func (s pgbEmptySection) note(clientLinesMissing bool) []string {
+	lines := s.quiet
+	if clientLinesMissing {
+		lines = s.missing
+	}
+	return append(append(make([]string, 0, len(lines)+1), lines...), s.check)
+}
+
+var pgbNoConnections = pgbEmptySection{
+	quiet: []string{"No client connection was logged in this window."},
+	missing: []string{
+		"The pooler reported traffic over this window but logged no client",
+		"connection: the connections happened, the log does not record them.",
+	},
+	check: "Check log_connections = 1 in pgbouncer.ini; see docs/pgbouncer-setup.md.",
+}
+
+var pgbNoSessions = pgbEmptySection{
+	quiet: []string{"No session close was logged in this window."},
+	missing: []string{
+		"The pooler reported traffic over this window but logged no session",
+		"close: the sessions ended, the log does not record them.",
+	},
+	check: "Check log_disconnections = 1 in pgbouncer.ini; see docs/pgbouncer-setup.md.",
+}
+
+// printPgbNote prints a note block at the two-space indentation the rest
+// of the pooler report uses for its labels and notes.
+func printPgbNote(lines []string) {
+	for _, l := range lines {
+		fmt.Println("  " + l)
+	}
+}
+
+// pgbDuration renders a whole-second duration for the coverage note.
+// Kept here (not in the Markdown file) so both renderers phrase the
+// same window the same way.
+func pgbDuration(d time.Duration) string {
+	return d.Round(time.Second).String()
 }
 
 // pgbTimingNote states what the timing figures are, in the two formats
