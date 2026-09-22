@@ -86,10 +86,8 @@ const (
 // detection sample — a restart, a fresh rotation, a supervision snapshot,
 // a verbose=2 head — was rejected outright.
 func looksLikePgBouncer(sample string) bool {
-	if pgbouncerSignatureRe.MatchString(sample) {
-		return true
-	}
 	var shaped, total int
+	var marker bool
 	for len(sample) > 0 {
 		line := sample
 		if i := strings.IndexByte(sample, '\n'); i >= 0 {
@@ -101,9 +99,20 @@ func looksLikePgBouncer(sample string) bool {
 			continue
 		}
 		total++
-		if pgbouncerPrefixRe.MatchString(line) {
-			shaped++
+		if !pgbouncerPrefixRe.MatchString(line) {
+			continue
 		}
+		shaped++
+		// The marker settles it, but only when the line carrying it is
+		// itself a pooler line: a PostgreSQL statement that quotes one
+		// -- log_statement = all, a pasted excerpt in a support bundle
+		// -- would otherwise carry the whole file onto the pooler track.
+		if pgbouncerSignatureRe.MatchString(line) {
+			marker = true
+		}
+	}
+	if marker {
+		return true
 	}
 	return shaped >= pgbouncerShapeMinLines &&
 		shaped*pgbouncerShapeRatioDen >= total*pgbouncerShapeRatioNum

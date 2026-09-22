@@ -153,3 +153,24 @@ func TestDetectNoPgBouncerFalsePositive(t *testing.T) {
 		t.Fatalf("walk %s: %v", root, err)
 	}
 }
+
+// TestDetectPgBouncerSignatureMustBeOnItsOwnLine is a refutation test.
+// The signature used to be matched against the whole sample, so a
+// PostgreSQL line that merely quotes a pooler line -- a logged statement
+// under log_statement = all, a support bundle where someone pasted an
+// excerpt -- carried the entire file onto the pooler track. Matching it
+// per line, on a line that is itself prefix-shaped, is the rule in
+// force; matching it anywhere in the sample is the rule it replaces.
+// The two agree on every real capture and disagree here.
+func TestDetectPgBouncerSignatureMustBeOnItsOwnLine(t *testing.T) {
+	dir := t.TempDir()
+	quoted := filepath.Join(dir, "quoted.log")
+	lines := "2026-01-05 10:00:00.123 UTC [4242] LOG:  statement: SELECT '[1] LOG stats: x';\n" +
+		"2026-01-05 10:00:01.123 UTC [4242] LOG:  duration: 5.000 ms\n"
+	if err := os.WriteFile(quoted, []byte(lines), 0o644); err != nil {
+		t.Fatalf("write probe: %v", err)
+	}
+	if got := DetectFileFormat(quoted); got != "stderr" {
+		t.Errorf("DetectFileFormat = %q, want \"stderr\": a PostgreSQL line quoting a pooler line is still a PostgreSQL line", got)
+	}
+}
