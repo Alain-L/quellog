@@ -1671,7 +1671,7 @@ function resolvePgbColor(c) {
 }
 
 // pgbValueFmt formats a y value for the pgBouncer series charts by unit.
-function pgbValueFmt(kind) {
+export function pgbValueFmt(kind) {
     if (kind === 'bytes') return (v) => {
         if (v == null) return '';
         const u = ['B', 'kB', 'MB', 'GB']; let i = 0;

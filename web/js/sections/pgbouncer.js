@@ -5,6 +5,7 @@
 // histogram, per-database/user/host breakdowns, and the ranked error list.
 
 import { fmt, esc, fmtDurationCoarse, buildNoDataMessage, wholeLogBadge} from '../utils.js';
+import { pgbValueFmt } from '../charts.js';
 import { chartData, buildChartContainer } from '../charts.js';
 
 const SESSION_BUCKETS = ['< 1s', '1s - 1min', '1min - 30min', '30min - 2h', '2h - 5h', '> 5h'];
@@ -210,6 +211,30 @@ function readCards(p, w) {
     return `<div class="stat-grid" style="grid-template-columns: repeat(${cards.length}, auto); justify-content: center;">${cards.join('')}</div>`;
 }
 
+// telemetryCards states the figures the stats lines carry, in the order
+// and the wording the text report uses for its REQUEST THROUGHPUT, QUERY
+// TIMING and POOL WAIT sections. The charts plot the same series, but a
+// curve is not a number: the mean a reader quotes has to be readable
+// without hovering, and on a saturated pooler the pool wait is the one
+// figure that names the problem.
+//
+// Each card pairs the weighted mean with its highest snapshot average,
+// as the text rows do -- never a peak, which the log does not carry.
+function telemetryCards(p) {
+    const micros = pgbValueFmt('micros');
+    const rate = (v) => (v == null ? '' : v.toFixed(1) + '/s');
+    const bytes = pgbValueFmt('bytes');
+    const cards = [
+        [rate(p.avg_xacts_per_sec), 'Transactions'],
+        [micros(p.avg_xact_us), 'Avg transaction time'],
+        [micros(p.avg_query_us), 'Avg query time'],
+        [micros(p.avg_wait_us), 'Avg pool wait time'],
+        [bytes(p.avg_in_bytes_per_sec), 'Network in'],
+        [bytes(p.avg_out_bytes_per_sec), 'Network out'],
+    ].map(([v, l]) => statCard(v, l));
+    return `<div class="stat-grid" style="grid-template-columns: repeat(${cards.length}, auto); justify-content: center;">${cards.join('')}</div>`;
+}
+
 // ---- configuration gaps -------------------------------------------
 //
 // Three pgBouncer settings decide how much of this section can exist:
@@ -388,6 +413,7 @@ export function buildPgBouncerSection(data) {
             <div class="section-body">
                 ${captureHeader(capture)}
                 ${readCards(p, capture)}
+                ${hasStats ? telemetryCards(p) : ''}
                 <div class="stat-grid">
                     ${hasStats ? `
                     <div class="stat-card" title="Mean of the per-snapshot query rates pgBouncer logged, not a rate measured over the whole capture"><div class="stat-value">${p.avg_queries_per_sec != null ? p.avg_queries_per_sec.toFixed(1) : '0'}/s</div><div class="stat-label">Avg queries/s</div></div>

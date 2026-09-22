@@ -56,6 +56,14 @@ const CANONICAL_CARD_LABELS = [
     'Filtered-out lines',
     'Debug/noise entries',
     'Stats snapshots',
+    // The stats-line figures, worded as the text report's REQUEST
+    // THROUGHPUT, QUERY TIMING and POOL WAIT rows word them.
+    'Transactions',
+    'Avg transaction time',
+    'Avg query time',
+    'Avg pool wait time',
+    'Network in',
+    'Network out',
     'Login attempts',
     'Completed sessions',
     'Average session time',
