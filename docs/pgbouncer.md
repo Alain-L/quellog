@@ -29,7 +29,7 @@ In text and Markdown the pgBouncer report is appended after the PostgreSQL one; 
 
 ## What is parsed
 
-pgBouncer log lines are single-line records with a `timestamp [PID] SEVERITY` prefix. quellog reads four kinds of line:
+pgBouncer log lines are single-line records with a `timestamp [PID] SEVERITY` prefix. quellog reads five kinds of line:
 
 | Line | Contributes to |
 |------|----------------|
@@ -50,6 +50,7 @@ Text (default), Markdown (`--md`), JSON (`--json`), YAML (`--yaml`), and HTML (`
 - **Sessions** — completed session count, average session time, a session-time histogram (same buckets as the PostgreSQL connection report), and sessions per database/user/host. Fed by the `closing because: … (age=Ns)` lines, which `log_disconnections = 0` removes.
 - **Connections** — login attempts and server connections opened, plus connections per database/user/host. Fed by the `login attempt` lines, which `log_connections = 0` removes.
 - **Most frequent errors** — errors and warnings ranked by frequency, with the variable socket id, peer, and session age stripped so the same failure collapses into one bucket. Reserve-pool activations (`taking connection from reserve_pool`) are ranked here and included in the error total, although they report a capacity event rather than a failure; they are also counted on their own line in the summary.
+- **Most Frequent Errors is the one section that is dropped rather than rendered empty.** A capture with no `WARNING`/`ERROR`/`FATAL` line has no section at all, which reads like a healthy pooler — and `log_pooler_errors = 0` produces exactly that on a pooler that is failing. The summary still carries `Errors : 0`, so no figure is wrong, but the section's absence is not the proof of health it looks like.
 
 ### Empty sections say why
 
