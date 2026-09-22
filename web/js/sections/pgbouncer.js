@@ -208,7 +208,10 @@ function readCards(p, w) {
     // Content-width and centred, as the Summary card's own tile row is.
     // Provenance opens the section, as it opens the text report, but
     // cards stretched across the report would read as its headline.
-    return `<div class="stat-grid" style="grid-template-columns: repeat(${cards.length}, auto); justify-content: center;">${cards.join('')}</div>`;
+    // auto-fit, as the telemetry row: a fifth card (verbose=2, or any
+    // loss counter) does not fit a phone, and a fixed count clips the row
+    // instead of wrapping it.
+    return `<div class="stat-grid" style="grid-template-columns: repeat(auto-fit, minmax(110px, auto)); justify-content: center;">${cards.join('')}</div>`;
 }
 
 // telemetryCards states the figures the stats lines carry, in the order

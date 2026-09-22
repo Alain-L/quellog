@@ -1678,6 +1678,10 @@ export function pgbValueFmt(kind) {
     // 1837 and 1814 B/s onto the same "1.8 kB/s".
     if (kind === 'bytes') return (v) => {
         if (v == null) return '';
+        // Round to the byte before picking the unit, as FormatBytes does
+        // on int64(v+0.5): choosing it on the float puts 1023.5 in bytes
+        // where the text report already reads 1.00 KB/s.
+        v = Math.round(v);
         const u = ['B', 'KB', 'MB', 'GB', 'TB']; let i = 0;
         while (v >= 1024 && i < u.length - 1) { v /= 1024; i++; }
         return (i === 0 ? Math.round(v) : v.toFixed(2)) + ' ' + u[i] + '/s';
@@ -1689,6 +1693,20 @@ export function pgbValueFmt(kind) {
         return (v / 1e6).toFixed(2) + ' s';
     };
     return (v) => (v == null ? '' : String(v));
+}
+
+// pgbAxisFmt formats a y-axis tick. It shares pgbValueFmt's units so a
+// chart reads in the same scale as its tooltip, but keeps one decimal:
+// an axis carries round numbers, a measurement carries the text report's
+// precision, and the two are not the same job.
+function pgbAxisFmt(kind) {
+    if (kind === 'bytes') return (v) => {
+        if (v == null) return '';
+        const u = ['B', 'KB', 'MB', 'GB', 'TB']; let i = 0;
+        while (v >= 1024 && i < u.length - 1) { v /= 1024; i++; }
+        return (i === 0 ? Math.round(v) : v.toFixed(1)) + ' ' + u[i] + '/s';
+    };
+    return pgbValueFmt(kind);
 }
 
 // pgbTooltipPlugin is a multi-series variant of tooltipPlugin styled with
@@ -1733,6 +1751,10 @@ export function createPgBouncerSeriesChart(containerId, spec, options = {}) {
 
     const height = options.height || 200;
     const valFmt = pgbValueFmt(spec.fmt);
+    // The axis labels ticks, not measurements: uPlot picks round values in
+    // the base unit, and the two decimals the text report uses turn 2000
+    // and 1500 B/s into 1.95 and 1.46 KB/s -- round in no unit at all.
+    const axisFmt = pgbAxisFmt(spec.fmt);
     const udata = [spec.t, ...spec.series.map(s => spec.values.map(v => v[s.key] ?? 0))];
     const useries = [{}, ...spec.series.map(s => ({
         label: s.label,
@@ -1749,7 +1771,7 @@ export function createPgBouncerSeriesChart(containerId, spec, options = {}) {
         scales: { x: { time: true }, y: { range: (u, min, max) => [0, (max || 1) * 1.1] } },
         axes: [
             { stroke: '#888', grid: { stroke: '#8881' }, ticks: { show: false }, gap: 2, size: timeAxisSize, values: timeAxisValues },
-            { stroke: '#888', grid: { stroke: '#8881' }, ticks: { show: false }, gap: 2, size: 52, values: (u, vals) => vals.map(valFmt) },
+            { stroke: '#888', grid: { stroke: '#8881' }, ticks: { show: false }, gap: 2, size: 56, values: (u, vals) => vals.map(axisFmt) },
         ],
         series: useries,
         plugins: [pgbTooltipPlugin(spec, valFmt)],
