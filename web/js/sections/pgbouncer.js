@@ -170,6 +170,12 @@ function captureHeader(w) {
     return `<div class="summary-header"><div class="summary-date">${label}</div></div>`;
 }
 
+// FIGURE_CARD_MIN_PX widens the shared .stat-grid minimum for this
+// section. Its labels are longer than the report's others, so at the
+// default they wrap to three lines and the fourteen figures read as one
+// dense wall; this breaks them into even rows instead.
+const FIGURE_CARD_MIN_PX = 150;
+
 // statCard renders one card of the shared grid. `variant` takes the
 // stat-card modifier classes (warning / alert) the section already uses.
 function statCard(value, label, variant) {
@@ -221,8 +227,9 @@ function readCards(p, w) {
 // without hovering, and on a saturated pooler the pool wait is the one
 // figure that names the problem.
 //
-// Each card pairs the weighted mean with its highest snapshot average,
-// as the text rows do -- never a peak, which the log does not carry.
+// They join the section's single figure grid rather than forming a row of
+// their own: three stacked rows of different widths read as a staircase,
+// and they would split Request throughput across two of them.
 function telemetryCards(p) {
     const micros = pgbValueFmt('micros');
     const rate = (v) => (v == null ? '' : v.toFixed(1) + '/s');
@@ -235,9 +242,7 @@ function telemetryCards(p) {
         [bytes(p.avg_in_bytes_per_sec), 'Network in'],
         [bytes(p.avg_out_bytes_per_sec), 'Network out'],
     ].map(([v, l]) => statCard(v, l));
-    // auto-fit rather than a fixed column count: six cards do not fit a
-    // phone, and a fixed count clips the row instead of wrapping it.
-    return `<div class="stat-grid" style="grid-template-columns: repeat(auto-fit, minmax(110px, auto)); justify-content: center;">${cards.join('')}</div>`;
+    return cards.join('');
 }
 
 // ---- configuration gaps -------------------------------------------
@@ -418,11 +423,11 @@ export function buildPgBouncerSection(data) {
             <div class="section-body">
                 ${captureHeader(capture)}
                 ${readCards(p, capture)}
-                ${hasStats ? telemetryCards(p) : ''}
-                <div class="stat-grid">
+                <div class="stat-grid" style="grid-template-columns: repeat(auto-fit, minmax(${FIGURE_CARD_MIN_PX}px, 1fr));">
                     ${hasStats ? `
                     <div class="stat-card" title="Mean of the per-snapshot query rates pgBouncer logged, not a rate measured over the whole capture"><div class="stat-value">${p.avg_queries_per_sec != null ? p.avg_queries_per_sec.toFixed(1) : '0'}/s</div><div class="stat-label">Avg queries/s</div></div>
-                    <div class="stat-card" title="Highest queries/s seen on a single stats snapshot. pgBouncer logs one average per stats_period, so this is the busiest snapshot average, not the busiest instant."><div class="stat-value">${fmt(p.max_queries_per_sec || 0)}/s</div><div class="stat-label">Max snapshot avg queries/s</div></div>` : ''}
+                    <div class="stat-card" title="Highest queries/s seen on a single stats snapshot. pgBouncer logs one average per stats_period, so this is the busiest snapshot average, not the busiest instant."><div class="stat-value">${fmt(p.max_queries_per_sec || 0)}/s</div><div class="stat-label">Max snapshot avg queries/s</div></div>
+                    ${telemetryCards(p)}` : ''}
                     <div class="stat-card"><div class="stat-value">${fmt(p.login_attempts || 0)}</div><div class="stat-label">Login attempts</div></div>
                     <div class="stat-card"><div class="stat-value">${fmt(p.sessions || 0)}</div><div class="stat-label">Completed sessions</div></div>
                     ${hasSessions ? statCard(sessionTime((p.total_session_seconds || 0) / p.sessions), 'Average session time') : ''}
