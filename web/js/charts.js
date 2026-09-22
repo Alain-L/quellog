@@ -1672,11 +1672,15 @@ function resolvePgbColor(c) {
 
 // pgbValueFmt formats a y value for the pgBouncer series charts by unit.
 export function pgbValueFmt(kind) {
+    // Mirrors output.FormatBytes: two decimals above the byte, and the
+    // same unit spelling. A rate read on a tile, in a tooltip and in the
+    // text report has to be the same string, and one decimal collapsed
+    // 1837 and 1814 B/s onto the same "1.8 kB/s".
     if (kind === 'bytes') return (v) => {
         if (v == null) return '';
-        const u = ['B', 'kB', 'MB', 'GB']; let i = 0;
+        const u = ['B', 'KB', 'MB', 'GB', 'TB']; let i = 0;
         while (v >= 1024 && i < u.length - 1) { v /= 1024; i++; }
-        return (i === 0 ? Math.round(v) : v.toFixed(1)) + ' ' + u[i] + '/s';
+        return (i === 0 ? Math.round(v) : v.toFixed(2)) + ' ' + u[i] + '/s';
     };
     if (kind === 'micros') return (v) => {
         if (v == null) return '';

@@ -232,7 +232,9 @@ function telemetryCards(p) {
         [bytes(p.avg_in_bytes_per_sec), 'Network in'],
         [bytes(p.avg_out_bytes_per_sec), 'Network out'],
     ].map(([v, l]) => statCard(v, l));
-    return `<div class="stat-grid" style="grid-template-columns: repeat(${cards.length}, auto); justify-content: center;">${cards.join('')}</div>`;
+    // auto-fit rather than a fixed column count: six cards do not fit a
+    // phone, and a fixed count clips the row instead of wrapping it.
+    return `<div class="stat-grid" style="grid-template-columns: repeat(auto-fit, minmax(110px, auto)); justify-content: center;">${cards.join('')}</div>`;
 }
 
 // ---- configuration gaps -------------------------------------------
