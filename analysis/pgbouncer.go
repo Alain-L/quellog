@@ -514,10 +514,20 @@ func splitSocketEvent(rest string) (peer, verb string, ok bool) {
 		return "", "", false
 	}
 	after := strings.TrimSpace(rest[colon+1:])
-	sp := strings.IndexByte(after, ' ')
+	// The peer is "db/user@host:port". A client picks its own database
+	// and user names before authenticating, so either may hold a space;
+	// the host and port never do. Look for the end of the peer past the
+	// '@' rather than at the first space, which used to cut a quoted
+	// name in half and drop the whole event.
+	from := 0
+	if at := strings.IndexByte(after, '@'); at != -1 {
+		from = at
+	}
+	sp := strings.IndexByte(after[from:], ' ')
 	if sp == -1 {
 		return after, "", true
 	}
+	sp += from
 	return after[:sp], strings.TrimSpace(after[sp+1:]), true
 }
 
@@ -526,7 +536,9 @@ func splitSocketEvent(rest string) (peer, verb string, ok bool) {
 func parsePeer(peer string) (db, user, host string) {
 	db, user, host = "?", "?", "?"
 	slash := strings.IndexByte(peer, '/')
-	at := strings.IndexByte(peer, '@')
+	// The last '@', not the first: Azure Database for PostgreSQL
+	// requires user@server logins, so the user itself carries one.
+	at := strings.LastIndexByte(peer, '@')
 	if slash == -1 || at == -1 || at < slash {
 		return
 	}
@@ -541,21 +553,50 @@ func parsePeer(peer string) (db, user, host string) {
 
 // verbField returns the value of a "key=value" field carried by the
 // verb, e.g. verbField("login attempt: db=app user=bob tls=no", "db=")
-// is ("app", true). Fields are space-separated and unquoted; ok=false
-// when the field is absent, so callers can fall back to another source.
+// is ("app", true). ok=false when the field is absent, so callers can
+// fall back to another source.
+//
+// A value runs to the next "key=" pair rather than to the next space:
+// the fields are unquoted, and a client picks its own database and user
+// names before authenticating, so either may hold a space.
 func verbField(verb, key string) (string, bool) {
-	for verb != "" {
-		field := verb
-		if sp := strings.IndexByte(verb, ' '); sp != -1 {
-			field, verb = verb[:sp], verb[sp+1:]
-		} else {
-			verb = ""
+	for i := 0; ; {
+		j := strings.Index(verb[i:], key)
+		if j == -1 {
+			return "", false
 		}
-		if v, ok := strings.CutPrefix(field, key); ok && v != "" {
-			return v, true
+		j += i
+		if j == 0 || verb[j-1] == ' ' {
+			v := strings.TrimSpace(verb[j+len(key):])
+			if end := nextFieldStart(v); end != -1 {
+				v = v[:end]
+			}
+			if v != "" {
+				return v, true
+			}
+			return "", false
+		}
+		i = j + len(key)
+	}
+}
+
+// nextFieldStart returns the offset of the space that begins the next
+// "key=" pair in v, or -1 when v holds no further pair.
+func nextFieldStart(v string) int {
+	for i := 0; i < len(v); i++ {
+		if v[i] != ' ' {
+			continue
+		}
+		for j := i + 1; j < len(v); j++ {
+			if v[j] == '=' {
+				return i
+			}
+			if v[j] == ' ' {
+				break
+			}
 		}
 	}
-	return "", false
+	return -1
 }
 
 // parseAge extracts the "(age=Ns)" session duration.

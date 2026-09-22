@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -390,5 +391,36 @@ func TestPgBouncerZeroIsAMeasurementWhenWorkHappened(t *testing.T) {
 		"0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us")
 	if got := b.Finalize().AvgXactMicros; got != 1990 {
 		t.Errorf("AvgXactMicros = %v, want 1990 (the idle snapshot must stay excluded)", got)
+	}
+}
+
+// TestPgBouncerPeerWithSpacesAndAtSigns is a refutation test for the two
+// peer delimiters. A client picks its own database and user names in the
+// startup packet, before authenticating, so both may hold a space (a
+// quoted identifier) or an '@' (Azure requires user@server). Cutting the
+// peer at the first space dropped the whole event without a trace, and
+// cutting the host at the first '@' split an Azure user in two.
+//
+// The host and port never hold a space, so the peer ends at the first
+// space after the '@' -- that is the rule in force. The neighbouring
+// rules, "first space" and "first @", agree on every conventional name
+// and disagree on these.
+func TestPgBouncerPeerWithSpacesAndAtSigns(t *testing.T) {
+	for _, tc := range []struct{ name, peer, db, user, host string }{
+		{"plain", "app/bob@10.0.0.1:5432", "app", "bob", "10.0.0.1"},
+		{"space in database", "my db/bob@10.0.0.1:5432", "my db", "bob", "10.0.0.1"},
+		{"azure user@server", "app/bob@srv01@10.0.0.1:5432", "app", "bob@srv01", "10.0.0.1"},
+	} {
+		db, user, host := parsePeer(tc.peer)
+		if db != tc.db || user != tc.user || host != tc.host {
+			t.Errorf("%s: parsePeer(%q) = (%q, %q, %q), want (%q, %q, %q)",
+				tc.name, tc.peer, db, user, host, tc.db, tc.user, tc.host)
+		}
+	}
+	// The event must survive the split, not vanish: a peer holding a
+	// space used to take its whole line with it.
+	peer, verb, ok := splitSocketEvent("C-0x1: my db/bob@10.0.0.1:5432 login attempt: db=my db user=bob")
+	if !ok || peer != "my db/bob@10.0.0.1:5432" || !strings.HasPrefix(verb, "login attempt:") {
+		t.Errorf("splitSocketEvent = (%q, %q, %v), want the full peer and the verb", peer, verb, ok)
 	}
 }
