@@ -785,6 +785,9 @@ export function applyReportTimeFilter(beginStr, endStr) {
     filtered._timeFiltered = true;
     filtered._filterRange = { begin: beginStr, end: endStr };
     filtered._wholeLog = {
+        // The pooler track is analyzed separately and its figures carry no
+        // per-item timestamps to re-scope, so the slider leaves them whole.
+        pgbouncer: !!filtered.pgbouncer,
         // Severity distribution + noise counters: population counts with no
         // per-item timestamps (only top_events carry them, re-scoped above).
         events: !!filtered.events,

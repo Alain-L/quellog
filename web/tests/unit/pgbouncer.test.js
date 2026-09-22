@@ -340,3 +340,21 @@ test('a backend error is not proof that clients were served', () => {
         'the empty block should still name the setting that governs it',
     );
 });
+
+// ---- time filter ---------------------------------------------------
+//
+// The pooler track is analyzed separately and carries no per-item
+// timestamps, so the client-side slider cannot re-scope it. The web data
+// contract requires such a section to be flagged rather than left to
+// present whole-log numbers as if they were scoped.
+test('the section is flagged whole-log under a time filter', () => {
+    const p = { ...silencedPayload, login_attempts: 69, sessions: 68 };
+    assert.ok(
+        !buildPgBouncerSection({ pgbouncer: p }).includes('whole-log-badge'),
+        'an unfiltered report should not carry the badge',
+    );
+    assert.ok(
+        buildPgBouncerSection({ pgbouncer: p, _wholeLog: { pgbouncer: true } }).includes('whole-log-badge'),
+        'a filtered report presents whole-log figures and must say so',
+    );
+});

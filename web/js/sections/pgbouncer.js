@@ -4,7 +4,7 @@
 // (throughput, network I/O, query/pool-wait timing), a session-time
 // histogram, per-database/user/host breakdowns, and the ranked error list.
 
-import { fmt, esc, fmtDurationCoarse, buildNoDataMessage } from '../utils.js';
+import { fmt, esc, fmtDurationCoarse, buildNoDataMessage, wholeLogBadge} from '../utils.js';
 import { chartData, buildChartContainer } from '../charts.js';
 
 const SESSION_BUCKETS = ['< 1s', '1s - 1min', '1min - 30min', '30min - 2h', '2h - 5h', '> 5h'];
@@ -106,7 +106,7 @@ function errorsTable(m, total) {
                     <tbody>
                         ${rows.map(([name, count]) => `
                             <tr>
-                                <td>${esc(name)}</td>
+                                <td style="overflow-wrap:anywhere">${esc(name)}</td>
                                 <td class="num">${fmt(count)}</td>
                                 <td class="num">${total ? (count / total * 100).toFixed(1) : '0.0'}%</td>
                             </tr>
@@ -319,6 +319,10 @@ function coverageText(p) {
 }
 
 export function buildPgBouncerSection(data) {
+    // The pooler track is analyzed on its own and its figures carry no
+    // per-item timestamps to re-scope, so a time filter leaves them whole
+    // — annotate rather than present stale numbers as scoped.
+    const wholeLogNote = data._wholeLog?.pgbouncer ? wholeLogBadge() : '';
     const p = data.pgbouncer;
     if (!p || !p.lines) {
         return `
@@ -380,7 +384,7 @@ export function buildPgBouncerSection(data) {
 
     return `
         <div class="section" id="pgbouncer">
-            <div class="section-header">pgBouncer</div>
+            <div class="section-header">pgBouncer${wholeLogNote}</div>
             <div class="section-body">
                 ${captureHeader(capture)}
                 ${readCards(p, capture)}

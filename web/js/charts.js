@@ -27,11 +27,26 @@ function timeAxisMultiDay(u) {
     const xs = u && u.scales && u.scales.x;
     return !!(xs && xs.max != null && xs.min != null && (xs.max - xs.min) > 86400);
 }
+// axisTimeOpts adds seconds to the tick format only when two ticks would
+// otherwise read alike. A pooler series steps by stats_period -- often
+// one second -- so hour:minute repeats itself and dates nothing, while a
+// series spread over minutes keeps the shorter format it already had.
+function axisTimeOpts(vals) {
+    const base = { hour: '2-digit', minute: '2-digit', hour12: false };
+    for (let i = 1; i < vals.length; i++) {
+        if (Math.floor(vals[i] / 60) === Math.floor(vals[i - 1] / 60)) {
+            return { ...base, second: '2-digit' };
+        }
+    }
+    return base;
+}
+
 function timeAxisValues(u, vals) {
     const multiDay = timeAxisMultiDay(u);
+    const opts = axisTimeOpts(vals);
     return vals.map((v, i) => {
         const d = new Date(v * 1000);
-        const time = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+        const time = d.toLocaleTimeString('en-US', opts);
         if (!multiDay) return time;
         const prevDay = i > 0 ? new Date(vals[i - 1] * 1000).getDate() : -1;
         if (i === 0 || d.getDate() !== prevDay) {
