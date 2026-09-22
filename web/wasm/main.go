@@ -92,6 +92,12 @@ func parseAndAnalyze(data []byte, filters parser.LogFilters) string {
 		sampleSize = len(data)
 	}
 	format := parser.DetectFormatFromContent(string(data[:sampleSize]))
+	if format == "pgbouncer" {
+		// This build carries the PostgreSQL parsers only. Falling back to
+		// stderr would read a pooler log as a server one and render a
+		// plausible, wrong report instead of refusing it.
+		return `{"error": "pgBouncer logs are not supported in the browser demo; use the quellog command line"}`
+	}
 	if format == "" {
 		format = "stderr"
 	}
@@ -146,6 +152,12 @@ func splitAndAnalyze(data []byte, filters parser.LogFilters, interval time.Durat
 		sampleSize = len(data)
 	}
 	format := parser.DetectFormatFromContent(string(data[:sampleSize]))
+	if format == "pgbouncer" {
+		// This build carries the PostgreSQL parsers only. Falling back to
+		// stderr would read a pooler log as a server one and render a
+		// plausible, wrong report instead of refusing it.
+		return `{"error": "pgBouncer logs are not supported in the browser demo; use the quellog command line"}`
+	}
 	if format == "" {
 		format = "stderr"
 	}

@@ -26,13 +26,17 @@ func ParseFromReader(r io.Reader, format string, out chan<- []LogEntry) error {
 }
 
 // DetectFormatFromContent detects the log format from content sample.
-// Returns "csv", "json", "stderr", or empty string if unknown.
+// Returns "csv", "json", "pgbouncer", "stderr", or empty string if
+// unknown. pgBouncer is tested before stderr: its records share the
+// timestamp and PID shape, so isLogContent would claim them.
 func DetectFormatFromContent(sample string) string {
 	switch {
 	case isCSVContent(sample):
 		return "csv"
 	case isJSONContent(sample):
 		return "json"
+	case looksLikePgBouncer(sample):
+		return "pgbouncer"
 	case isLogContent(sample):
 		return "stderr"
 	default:

@@ -83,7 +83,7 @@ The keys below are those of a pgBouncer-only run, where `--json` and `--yaml` em
 ## Limitations
 
 - `pool_mode` is not readable from the log. pgBouncer writes it to no line, and a report of the same traffic under `session` and under `statement` pooling is identical but for the server-connection count — so quellog states the ambiguity next to the pool-wait figure instead of guessing. The mode changes what that figure is averaged over (one wait per session, per transaction, or per statement) and how to read "server connections opened"; see [pgBouncer Setup](pgbouncer-setup.md).
-- The browser demo does not read pgBouncer logs. Its WebAssembly build carries the PostgreSQL parsers only, so a pooler log dropped on the page is not recognized; the command-line tool reads it normally.
+- The browser demo does not read pgBouncer logs. Its WebAssembly build carries the PostgreSQL parsers only, so a pooler log dropped on the page is recognized and refused with a message rather than parsed as a server log; the command-line tool reads it normally.
 - `syslog = 1` captures are not detected (see above).
 - A log read from standard input is not detected as a pooler log (see above).
 - **An archive holding both a PostgreSQL log and a pooler log is not split.** The format of an archive is resolved from its first readable member, while each member is parsed on its own, so the two disagree: one of the two reports is produced and the other file's entries are folded into it. The summary shows the seam — more entries than lines read — but nothing warns you. Pass the logs as separate files, or as separate archives; a directory holding both works correctly.

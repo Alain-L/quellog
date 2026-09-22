@@ -174,3 +174,22 @@ func TestDetectPgBouncerSignatureMustBeOnItsOwnLine(t *testing.T) {
 		t.Errorf("DetectFileFormat = %q, want \"stderr\": a PostgreSQL line quoting a pooler line is still a PostgreSQL line", got)
 	}
 }
+
+// TestDetectFormatFromContentNamesPgBouncer pins the content-only
+// detector the browser build uses. It had no pooler branch, so it
+// returned "" and its caller fell back to "stderr": a pooler log dropped
+// on the demo page was parsed as a PostgreSQL one and produced a
+// plausible, wrong report rather than a refusal.
+func TestDetectFormatFromContentNamesPgBouncer(t *testing.T) {
+	sample := "2026-09-20 13:58:12.345 CEST [1] LOG stats: 3 xacts/s, 21 queries/s, " +
+		"0 client parses/s, 0 server parses/s, 0 binds/s, in 1291 B/s, out 565 B/s, " +
+		"xact 1990 us, query 261 us, wait 331 us\n" +
+		"2026-09-20 13:58:13.000 CEST [1] LOG C-0x1: app/bob@10.0.0.1:5432 login attempt: db=app user=bob\n"
+	if got := DetectFormatFromContent(sample); got != "pgbouncer" {
+		t.Errorf("DetectFormatFromContent = %q, want \"pgbouncer\"", got)
+	}
+	pg := "2026-09-20 13:58:12.345 CEST [1] LOG:  duration: 1.000 ms  statement: SELECT 1;\n"
+	if got := DetectFormatFromContent(pg); got != "stderr" {
+		t.Errorf("DetectFormatFromContent = %q, want \"stderr\"", got)
+	}
+}
