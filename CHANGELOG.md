@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [0.13.0] - 2026-09-24
 
 ### Added
 - **Anti-wraparound autovacuums are counted separately**: the Maintenance section breaks out the forced freezes logged "to prevent wraparound" from the aggressive-vacuum total. They are the actual sign of transaction-ID exhaustion, and were previously lost in that count. Shown in the text, Markdown, JSON (`anti_wraparound_vacuum_count`) and HTML reports.
