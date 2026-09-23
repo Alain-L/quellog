@@ -148,7 +148,7 @@ function renderIODirBlock(byReason) {
     reasons.sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));
     let cells = '';
     for (const rz of reasons) {
-        cells += `<div class="cio-rsn">${esc(rz.name)}</div><div class="cio-v">${fmt(rz.total)}</div>`;
+        cells += `<div>${esc(rz.name)}</div><div class="cio-v">${fmt(rz.total)}</div>`;
         const dbs = Object.keys(rz.dbs);
         if (dbs.length > 1) {
             dbs.map(d => ({ d, c: rz.dbs[d] }))

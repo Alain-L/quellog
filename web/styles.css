@@ -879,8 +879,6 @@
             color: var(--warning);
         }
 
-        .stat-card.danger .stat-value { color: var(--danger); }
-        .stat-card.accent .stat-value { color: var(--text); }
 
         /* Compact stat cards (2 lines) */
         .stat-card-compact {
