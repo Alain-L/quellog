@@ -83,13 +83,13 @@ export function buildEventsSection(data) {
 					// can grab the full Example + timestamps array.
 					const origIdx = topEvents.indexOf(e);
 					rows += `
-					<tr class="event-row" onclick="showEventDetail(${origIdx})" style="cursor:pointer;" title="Click for details">
+					<tr onclick="showEventDetail(${origIdx})" style="cursor:pointer;" title="Click for details">
 						<td style="width: 50px; vertical-align: top; padding: 0.25rem 0.5rem;">
-							${code ? `<span class="event-class-badge" style="border-color:${sevColor}; color:${sevColor};">${code}</span>` : ''}
+							${code ? `<span style="border-color:${sevColor}; color:${sevColor};">${code}</span>` : ''}
 						</td>
 						<td style="vertical-align: top; padding: 0.25rem 0.5rem;">
 							${desc ? `<div style="font-size: 0.6rem; font-weight: 600; color: var(--text-muted); margin-bottom: 2px;">${esc(desc)}</div>` : ''}
-							<div class="event-msg-text">${esc(e.message)}</div>
+							<div>${esc(e.message)}</div>
 						</td>
 						<td class="num" style="width: 60px; vertical-align: top; padding: 0.25rem 0.5rem; font-weight: 600;">${fmt(e.count)}</td>
 					</tr>`;
@@ -110,7 +110,7 @@ export function buildEventsSection(data) {
 	// Generate Indicators HTML (Right)
 	let indicatorsHtml = '';
 	if (!onlyErrors) {
-		indicatorsHtml = '<div class="events-indicators"><div class="tabs indicators-group">';
+		indicatorsHtml = '<div class="events-indicators"><div class="tabs">';
 		noiseSeverities.forEach(sev => {
 			const count = summaryMap[sev] || 0;
 			const cls = sev.toLowerCase();

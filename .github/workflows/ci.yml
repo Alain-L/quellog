@@ -22,7 +22,10 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
+          # Pinned above go.mod's minimum: the release binaries embed the
+          # standard library, so they must be built with a supported Go.
+          # Keep ci.yml and release.yml on the same version.
+          go-version: '1.27.x'
 
       - name: Cache Go build
         uses: actions/cache@v4
@@ -60,6 +63,13 @@ jobs:
 
       - name: Build CLI
         run: go build -v -o bin/quellog .
+
+      # TinyGo 0.39 accepts Go 1.19 through 1.25 only, so the WASM check gets
+      # its own Go — the one docs.yml builds the published demo with.
+      - name: Setup Go for TinyGo
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
 
       - name: Install TinyGo
         run: |
