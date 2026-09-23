@@ -17,6 +17,9 @@ All notable changes to this project will be documented in this file.
 - **A genuine 0 ms minimum query duration was dropped**: the minimum was tracked with a zero as its "unset" marker, so a real `0.000 ms` query seeded the minimum and was then overwritten by the next query, leaving a wrong reported minimum. A true 0 ms minimum now survives.
 - **The Autovacuum "Elapsed" column rendered blank, and the maintenance panels looked unlike the other tables**: the Autovacuum/Autoanalyze panels were built from a bespoke list layout rather than the report's table component, so the Autovacuum top-tables Elapsed column (its own sort key) showed nothing and the panels' headers and row spacing diverged from every other section. They are proper tables now, consistent with the rest, with Elapsed populated.
 
+### Security
+- **Decompression dependencies updated**: `github.com/ulikunitz/xz` moves to v0.5.15, fixing a memory leak when decoding a corrupted LZMA stream (GO-2025-3922), reachable through `.7z` inputs. `github.com/klauspost/compress`, which decodes the gzip and zstd inputs, moves from v1.18.1 — a version its author retracted — to v1.18.7. Output is unchanged on every supported archive and compression format.
+
 ## [0.12.0] - 2026-07-29
 
 ### Added
