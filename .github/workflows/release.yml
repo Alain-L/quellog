@@ -20,7 +20,10 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
+          # Pinned above go.mod's minimum: the release binaries embed the
+          # standard library, so they must be built with a supported Go.
+          # Keep ci.yml and release.yml on the same version.
+          go-version: '1.27.x'
 
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6

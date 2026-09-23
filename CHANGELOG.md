@@ -18,6 +18,7 @@ All notable changes to this project will be documented in this file.
 - **The Autovacuum "Elapsed" column rendered blank, and the maintenance panels looked unlike the other tables**: the Autovacuum/Autoanalyze panels were built from a bespoke list layout rather than the report's table component, so the Autovacuum top-tables Elapsed column (its own sort key) showed nothing and the panels' headers and row spacing diverged from every other section. They are proper tables now, consistent with the rest, with Elapsed populated.
 
 ### Security
+- **Release binaries are built with a supported Go**: v0.12.0 was compiled with Go 1.24.0, whose standard library carries flaws that quellog reaches — escaping bypasses leading to XSS in `html/template`, which renders the HTML report (GO-2026-4980, GO-2026-4982, GO-2026-4865, GO-2026-4603, GO-2026-6091), and unbounded allocations on GNU sparse entries in `archive/tar`, which reads tar inputs (GO-2025-4014, GO-2026-4869). The CLI is now built with Go 1.27. The browser demo is unaffected: it does not read tar archives through Go, and never reaches the vulnerable `html/template` code.
 - **Decompression dependencies updated**: `github.com/ulikunitz/xz` moves to v0.5.15, fixing a memory leak when decoding a corrupted LZMA stream (GO-2025-3922), reachable through `.7z` inputs. `github.com/klauspost/compress`, which decodes the gzip and zstd inputs, moves from v1.18.1 — a version its author retracted — to v1.18.7. Output is unchanged on every supported archive and compression format.
 
 ## [0.12.0] - 2026-07-29
