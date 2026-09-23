@@ -14,7 +14,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 - **Average lock wait was understated**: the total wait was divided by every lock event, still-waiting ones included, instead of by the acquired locks that carry a measured wait (on one sample, 1m18s instead of 7m43s). Fixed in every output format.
-- **`SET` statements were counted as `SELECT`**: a prefix collision filed them under SELECT/DML instead of UTILITY, skewing the query-type breakdown.
+- **`SET` statements were counted as `SELECT`**: a prefix collision filed them under SELECT/DML instead of UTILITY, skewing the query-type breakdown. SET query IDs now start with `et-` instead of `se-`, so an ID noted from an earlier report no longer resolves with `--sql-detail`.
 - **A genuine 0 ms minimum query duration was lost**: zero doubled as the "unset" marker, so the next query overwrote it.
 - **An empty time window no longer reads as an unreadable file**: when filters such as `--last 1h` leave nothing to analyze, the error blamed only the file format. It now points at the filters too.
 
