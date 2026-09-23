@@ -17,7 +17,7 @@ export function buildConnectionsSection(data) {
     if (!c || (c.connection_count === 0 && !c.client_io_failures)) {
         return `
             <div class="section" id="connections">
-                <div class="section-header muted">Connections</div>
+                <div class="section-header">Connections</div>
                 <div class="section-body">
                     ${buildNoDataMessage('<code>log_connections = on</code>')}
                 </div>
@@ -182,7 +182,7 @@ function renderClientIOFailures(cio) {
                 <span class="cio-arrow">▾</span>
             </div>
             <div class="cio-detail" hidden>
-                <div class="cio-grid cio-heads">${heads}</div>
+                <div class="cio-grid">${heads}</div>
                 <div class="cio-grid">${blocks}</div>
             </div>
         </div>`;
@@ -309,7 +309,7 @@ export function buildClientsSection(data) {
     if (!c.unique_databases && databases.length === 0) {
         return `
             <div class="section" id="clients">
-                <div class="section-header muted">Clients</div>
+                <div class="section-header">Clients</div>
                 <div class="section-body">
                     ${buildNoDataMessage('<code>%u</code>, <code>%d</code>, <code>%a</code> in <code>log_line_prefix</code>')}
                 </div>

@@ -110,7 +110,7 @@ export function buildEventsSection(data) {
 	// Generate Indicators HTML (Right)
 	let indicatorsHtml = '';
 	if (!onlyErrors) {
-		indicatorsHtml = '<div class="events-indicators"><div class="tabs indicators-group">';
+		indicatorsHtml = '<div class="events-indicators"><div class="tabs">';
 		noiseSeverities.forEach(sev => {
 			const count = summaryMap[sev] || 0;
 			const cls = sev.toLowerCase();
