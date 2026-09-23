@@ -238,6 +238,24 @@ async function testSplitReport(context, reportPath) {
   await page.close();
 }
 
+/**
+ * Launch headless: the system Chrome when one is installed, else whatever
+ * browser Playwright has downloaded. Chrome stays the first choice so a
+ * machine that has it keeps rendering exactly as before; the fallback is
+ * what makes the harness runnable on a machine that does not.
+ */
+async function launchBrowser() {
+  const opts = { headless: true, args: ['--force-color-profile=srgb'] };
+  try {
+    const browser = await chromium.launch({ channel: 'chrome', ...opts });
+    console.log('browser: system Chrome');
+    return browser;
+  } catch (err) {
+    console.log(`browser: bundled Chromium (system Chrome unavailable: ${String(err.message).split('\n')[0]})`);
+    return chromium.launch(opts);
+  }
+}
+
 async function main() {
   const t0 = Date.now();
   console.log(`mode: ${updateBaselines ? 'update baselines' : 'check against baselines'}`);
@@ -248,12 +266,8 @@ async function main() {
   const splitReport = generateReport(BIN, FIXTURE, tmpDir, 'report-split.html', ['--split', SPLIT_INTERVAL]);
   console.log(`reports regenerated in ${tmpDir}`);
 
-  // 2. One Chrome instance for everything; sequential pages.
-  const browser = await chromium.launch({
-    channel: 'chrome',
-    headless: true,
-    args: ['--force-color-profile=srgb'],
-  });
+  // 2. One browser instance for everything; sequential pages.
+  const browser = await launchBrowser();
   try {
     const context = await browser.newContext({
       viewport: { width: 1440, height: 900 },
