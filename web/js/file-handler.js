@@ -10,10 +10,10 @@ export const MAX_FILE_SIZE = 500 * 1024 * 1024;
 
 // ===== Progress UI =====
 
+// Text only: the WASM parse blocks the main thread, so a percentage could
+// not be painted mid-parse. pct is kept so callers still state the stage.
 export function setProgress(pct, text) {
-    const bar = document.getElementById('progressBar');
     const label = document.getElementById('loadingText');
-    if (bar) bar.style.width = pct + '%';
     if (label) label.textContent = text;
 }
 

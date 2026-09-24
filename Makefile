@@ -12,8 +12,12 @@ generate:
 	go generate ./web/...
 
 # Build WASM module (requires tinygo + go@1.25 via brew)
-# Version: exact tag if on a tag, otherwise latest-tag-dev
-VERSION := $(shell git describe --tags --exact-match 2>/dev/null || echo "$(shell git describe --tags --abbrev=0 2>/dev/null || echo dev)-dev")
+# Version: exact tag if on a tag, otherwise latest-tag-dev. The latest tag is
+# taken by version order, not by `git describe`: releases are tagged on main's
+# merge commits, which dev never contains, so describe would fall back to an
+# old tag that happens to be reachable.
+LATEST_TAG := $(shell git tag --list 'v*' --sort=-v:refname | head -n 1)
+VERSION := $(shell git describe --tags --exact-match 2>/dev/null || echo "$(or $(LATEST_TAG),dev)-dev")
 GO125 := $(shell brew --prefix go@1.25 2>/dev/null)/bin
 wasm: generate
 	@# Inject version into source (tinygo ignores -X ldflags for wasm)

@@ -36,19 +36,19 @@ This _quellog_ report summarizes **16** log entries collected between 19 Apr 202
 
 | SQLID     |  Max |  Avg | Count | Query                    |
 |-----------|-----:|-----:|------:|--------------------------|
-| se-5SQJla | 0 ms | 0 ms |     1 | set application_name = ? |
+| et-5SQJla | 0 ms | 0 ms |     1 | set application_name = ? |
 
 **Most frequent queries (top 10)**
 
 | SQLID     | Count |  Avg |  Max | Query                    |
 |-----------|------:|-----:|-----:|--------------------------|
-| se-5SQJla |     1 | 0 ms | 0 ms | set application_name = ? |
+| et-5SQJla |     1 | 0 ms | 0 ms | set application_name = ? |
 
 **Most time consuming queries (top 10)**
 
 | SQLID     | Total |  Avg | Count | Query                    |
 |-----------|------:|-----:|------:|--------------------------|
-| se-5SQJla |  0 ms | 0 ms |     1 | set application_name = ? |
+| et-5SQJla |  0 ms | 0 ms |     1 | set application_name = ? |
 
 ## EVENTS
 

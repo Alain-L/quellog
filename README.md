@@ -11,7 +11,7 @@ quellog /var/log/postgresql/*.log
 ```
 
 ```
-quellog v0.12.0 – 155281 entries processed in 0.22 s (52.98 MB)
+quellog 0.12.0 – 155281 entries processed in 0.22 s (52.98 MB)
 
 SUMMARY
 
@@ -31,7 +31,7 @@ SUMMARY
 - **Locks** -- wait tracking, blocking query identification, deadlock detection
 - **Checkpoints** -- WAL distance/estimate, write rates, frequency warnings
 - **Connections** -- session durations, concurrent sessions, pre-log/in-log breakdown
-- **Filtering** -- by time range, database, user, application, host
+- **Filtering** -- by time range, database, user, application
 - **Export** -- JSON, YAML, Markdown, standalone HTML with click-to-detail modals
 - **Follow mode** -- real-time monitoring with periodic refresh
 
@@ -58,7 +58,7 @@ Download from the [releases page](https://github.com/Alain-L/quellog/releases) o
 
 ```bash
 git clone https://github.com/Alain-L/quellog.git && cd quellog
-go build -o quellog . && sudo install -m 755 quellog /usr/local/bin/quellog
+go generate ./web/... && go build -o quellog . && sudo install -m 755 quellog /usr/local/bin/quellog
 ```
 
 ## Usage

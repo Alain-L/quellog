@@ -40,8 +40,8 @@ quellog /var/log/postgresql/*.log \
 ```
 
 Look for query duration spikes in the histogram, lock wait times in
-seconds, temp file surges, or a single query dominating the "Most
-time-consuming" list. Note the SQLIDs of suspicious queries.
+seconds, temp file surges, or a single query dominating the "Most time
+consuming" list. Note the SQLIDs of suspicious queries.
 
 ## Step 3: Deep dive (5 minutes)
 

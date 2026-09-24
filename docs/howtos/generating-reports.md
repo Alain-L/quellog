@@ -6,8 +6,9 @@
 #!/bin/bash
 # daily_report.sh - Generate focused daily reports
 
-YESTERDAY=$(date -d "yesterday" +%Y-%m-%d)
+YESTERDAY=$(date -d "yesterday" +%Y-%m-%d)   # GNU date (Linux); on macOS use: date -v-1d +%Y-%m-%d
 LOG_DIR="/var/log/postgresql"
+mkdir -p reports
 
 # Summary report
 quellog $LOG_DIR/*.log \
@@ -37,6 +38,10 @@ quellog /var/log/postgresql/*.log --html --full
 # Filtered to a specific database
 quellog /var/log/postgresql/*.log --dbname production --html
 ```
+
+Without `-o`, `--html` writes an auto-named file in the current directory
+(`<input-stem>.html`, or `quellog_report.html` for multiple inputs). Pass
+`-o report.html` to choose the name.
 
 ## Markdown for Tickets
 

@@ -24,6 +24,7 @@ func (a *VacuumAnalyzer) Merge(src *VacuumAnalyzer) {
 	// Plain counters.
 	a.vacuumCount += src.vacuumCount
 	a.aggressiveVacuumCount += src.aggressiveVacuumCount
+	a.antiWraparoundVacuumCount += src.antiWraparoundVacuumCount
 	a.analyzeCount += src.analyzeCount
 	a.skippedVacuumCount += src.skippedVacuumCount
 	a.skippedAnalyzeCount += src.skippedAnalyzeCount

@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.13.0] - 2026-09-24
+
+### Added
+- **Anti-wraparound autovacuums are counted separately**: the Maintenance section breaks out the forced freezes logged "to prevent wraparound" from the aggressive-vacuum total. They are the actual sign of transaction-ID exhaustion, and were previously lost in that count. Shown in the text, Markdown, JSON (`anti_wraparound_vacuum_count`) and HTML reports.
+
+### Changed
+- **Flatter HTML report style**: muted section titles instead of solid coloured bands, squared cards without hover shadow, hairline table headers and a denser vertical rhythm. Presentation only.
+- **Maintenance panels are regular tables**: Autovacuum and Autoanalyze now share the headers, borders and row heights of every other table in the report, instead of a bespoke list layout.
+- **Documentation realigned with current behaviour**: every user page was checked against the actual CLI output and corrected where it had drifted. Building from source now includes the required `go generate ./web/...` step, `--quiet` and `NO_COLOR` are documented, and the screenshots show the new style.
+
+### Fixed
+- **Average lock wait was understated**: the total wait was divided by every lock event, still-waiting ones included, instead of by the acquired locks that carry a measured wait (on one sample, 1m18s instead of 7m43s). Fixed in every output format.
+- **`SET` statements were counted as `SELECT`**: a prefix collision filed them under SELECT/DML instead of UTILITY, skewing the query-type breakdown. SET query IDs now start with `et-` instead of `se-`, so an ID noted from an earlier report no longer resolves with `--sql-detail`.
+- **A genuine 0 ms minimum query duration was lost**: zero doubled as the "unset" marker, so the next query overwrote it.
+- **An empty time window no longer reads as an unreadable file**: when filters such as `--last 1h` leave nothing to analyze, the error blamed only the file format. It now points at the filters too.
+
+### Security
+- **Release binaries are built with a supported Go**: v0.12.0 was compiled with Go 1.24.0, whose standard library has flaws on paths quellog uses: escaping bypasses leading to XSS in `html/template`, which renders the HTML report (GO-2026-4980, GO-2026-4982, GO-2026-4865, GO-2026-4603, GO-2026-6091), and unbounded allocations on GNU sparse entries in `archive/tar`, which reads tar inputs (GO-2025-4014, GO-2026-4869). Binaries are now built with Go 1.27. The browser demo does not reach this code.
+- **Decompression libraries updated**: `ulikunitz/xz` v0.5.15 fixes a memory leak on corrupted LZMA streams, reachable through `.7z` inputs (GO-2025-3922). `klauspost/compress`, which decodes gzip and zstd, moves from the retracted v1.18.1 to v1.18.7. Output is unchanged on every supported format.
+
 ## [0.12.0] - 2026-07-29
 
 ### Added

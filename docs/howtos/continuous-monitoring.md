@@ -10,7 +10,8 @@ quellog --follow /var/log/postgresql/*.log
 ```
 
 By default, this analyzes the last 24 hours and refreshes every 30
-seconds. The terminal output updates in place. Press `Ctrl+C` to stop.
+seconds. The full report is re-printed to the terminal on each cycle.
+Press `Ctrl+C` to stop.
 
 ## Custom interval and time window
 
@@ -26,8 +27,9 @@ entries.
 
 ## HTML dashboard
 
-Combine `--follow` with `--html` and `-o` to produce a self-refreshing
-HTML dashboard:
+Combine `--follow` with `--html` and `-o` to produce a regularly-rewritten
+HTML dashboard (reload the browser to see updates — the page does not
+auto-refresh):
 
 ```bash
 quellog --follow --interval 5m --html \
@@ -75,6 +77,12 @@ WantedBy=multi-user.target
 **cron** -- periodic snapshots without `--follow`:
 
 ```bash
-0 * * * * /usr/local/bin/quellog --last 1h --html \
-  -o /var/www/html/quellog.html /var/log/postgresql/*.log
+0 * * * * /usr/local/bin/quellog --last 1h --html --quiet \
+  -o /var/www/html/quellog.html /var/log/postgresql/*.log > /dev/null
 ```
+
+`--quiet` (`-q`) drops the informational messages written to stderr
+(processing summary, format detection, archive entries skipped, follow-mode
+notices) and the progress bar, and keeps warnings and errors. The `Report
+saved to …` confirmation goes to stdout, hence the redirect: cron then mails
+only when something went wrong.
