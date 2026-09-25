@@ -83,20 +83,7 @@ func (p *ZipParser) innerFormats(filename string) (formats []string) {
 	defer zr.Close()
 
 	for _, f := range zr.File {
-		if f.FileInfo().IsDir() || f.UncompressedSize64 == 0 || strings.Contains(f.Name, "..") {
-			continue
-		}
-		baseName := filepath.Base(f.Name)
-		if !isSupportedArchiveEntry(baseName) {
-			continue
-		}
-		rc, err := f.Open()
-		if err != nil {
-			continue
-		}
-		format := archiveMemberFormat(baseName, rc)
-		rc.Close()
-		formats = addFormat(formats, format)
+		formats = addFormat(formats, memberFormat(f.Name, uint64(f.UncompressedSize64), f.FileInfo().IsDir(), f.Open))
 	}
 	return formats
 }

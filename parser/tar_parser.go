@@ -160,6 +160,24 @@ func (p *TarParser) innerFormats(filename string) (formats []string) {
 	}
 }
 
+// memberFormat names the format of one zip or 7z member, or "" when the
+// archive's Parse would not read it.
+func memberFormat(name string, size uint64, dir bool, open func() (io.ReadCloser, error)) string {
+	if dir || size == 0 || strings.Contains(name, "..") {
+		return ""
+	}
+	base := filepath.Base(name)
+	if !isSupportedArchiveEntry(base) {
+		return ""
+	}
+	rc, err := open()
+	if err != nil {
+		return ""
+	}
+	defer rc.Close()
+	return archiveMemberFormat(base, rc)
+}
+
 // addFormat appends a member's format to the formats an archive holds,
 // once each; "" (not a log) is left out.
 func addFormat(formats []string, format string) []string {
