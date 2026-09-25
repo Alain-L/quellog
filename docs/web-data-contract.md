@@ -21,10 +21,10 @@ Conventions:
   (most `events` arrays), ISO strings `"YYYY-MM-DDTHH:MM:SS"` (`session_events`,
   `sql_performance.executions`), Unix milliseconds (`top_events[].timestamps`),
   and RFC 3339 with milliseconds and zone offset `"2026-09-25T09:05:29.363Z"`
-  (every time in the `pgbouncer` entries, which keep the zone pgBouncer
-  writes on each line). The pgBouncer section drops the zone before parsing,
-  so like every other section it shows the log's own clock, whatever the
-  viewer's time zone.
+  (every time in the `pgbouncer` entries, which carry an offset). The
+  pgBouncer section ignores that offset when it displays a time: it shows the
+  hours and minutes the log wrote, like every other section, whatever the
+  viewer's time zone and whatever offset the zone name resolved to.
 - Human-formatted values (durations `"1m 32s"`, sizes `"683.59 KB"`, rates) are
   pre-rendered strings; raw numbers keep a `_ms`, `_kb`, `_seconds` or `count` name.
 - A section key is **absent** when the section has no data (see "Gated keys").
