@@ -168,11 +168,12 @@ func writePgBouncerMarkdown(b *strings.Builder, m analysis.PgBouncerMetrics, tit
 		writeBreakdownMD(b, "Sessions per host", m.SessionsPerHost, m.Sessions)
 	}
 
-	section("## Connections")
 	if m.LoginAttempts == 0 {
+		section("## Connections")
 		b.WriteString("(No data available)\n\n")
 		writeNoteMD(b, pgbNoConnections.note(m.ClientLinesMissing()))
 	} else {
+		b.WriteString("\n## Connections\n") // each breakdown opens with its own blank line
 		writeBreakdownMD(b, "Connections per database", m.ConnectionsPerDatabase, m.LoginAttempts)
 		writeBreakdownMD(b, "Connections per user", m.ConnectionsPerUser, m.LoginAttempts)
 		writeBreakdownMD(b, "Connections per host", m.ConnectionsPerHost, m.LoginAttempts)
