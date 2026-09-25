@@ -2,7 +2,7 @@
 // Uses uPlot library for interactive time-series charts
 
 import { safeMax, safeMin, fmt } from './utils.js';
-import { fmtBytesPrecise, fmtBytesShort, parseSizeToBytes } from './format.js';
+import { fmtBytesFull, fmtBytesPrecise, fmtBytesShort, parseSizeToBytes } from './format.js';
 import {
     binTimestamps, binDurations, binCombinedData, binTempFilesData,
     binConcurrentSessions, binCheckpointsByType
@@ -1676,16 +1676,10 @@ export function pgbValueFmt(kind) {
     // same unit spelling. A rate read on a tile, in a tooltip and in the
     // text report has to be the same string, and one decimal collapsed
     // 1837 and 1814 B/s onto the same "1.8 kB/s".
-    if (kind === 'bytes') return (v) => {
-        if (v == null) return '';
-        // Round to the byte before picking the unit, as FormatBytes does
-        // on int64(v+0.5): choosing it on the float puts 1023.5 in bytes
-        // where the text report already reads 1.00 KB/s.
-        v = Math.round(v);
-        const u = ['B', 'KB', 'MB', 'GB', 'TB']; let i = 0;
-        while (v >= 1024 && i < u.length - 1) { v /= 1024; i++; }
-        return (i === 0 ? Math.round(v) : v.toFixed(2)) + ' ' + u[i] + '/s';
-    };
+    // Rounded to the byte before the unit is picked, as FormatBytes does
+    // on int64(v+0.5): choosing it on the float puts 1023.5 in bytes where
+    // the text report already reads 1.00 KB/s.
+    if (kind === 'bytes') return (v) => (v == null ? '' : fmtBytesFull(Math.round(v)) + '/s');
     if (kind === 'micros') return (v) => {
         if (v == null) return '';
         if (v < 1000) return Math.round(v) + ' µs';
