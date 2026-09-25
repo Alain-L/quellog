@@ -246,7 +246,8 @@ const FIGURE_CARD_MIN_PX = 150;
 // statCard renders one card of the shared grid. `variant` takes the
 // stat-card modifier classes (warning / alert) the section already uses.
 function statCard(value, label, variant) {
-    return `<div class="stat-card${variant ? ' ' + variant : ''}"><div class="stat-value">${value}</div><div class="stat-label">${label}</div></div>`;
+    const cls = variant ? `stat-card ${variant}` : 'stat-card';
+    return `<div class="${cls}"><div class="stat-value">${value}</div><div class="stat-label">${label}</div></div>`;
 }
 
 // sessionTime formats a mean session age. TotalSessionSeconds is counted
@@ -452,7 +453,7 @@ export function buildPgBouncerSection(data) {
     if (poolers.length === 0) {
         return `
             <div class="section" id="pgbouncer">
-                <div class="section-header muted">pgBouncer</div>
+                <div class="section-header">pgBouncer</div>
                 <div class="section-body">${buildNoDataMessage('a pgBouncer log file')}</div>
             </div>
         `;
