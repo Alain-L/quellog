@@ -458,3 +458,13 @@ test('table cells break between words, not mid-word', () => {
     assert.ok(html.includes('x'.repeat(30) + '<wbr>' + 'x'.repeat(30) + '<wbr>'));
     assert.ok(html.includes('>09:00:00<'), 'a time cell must stay whole');
 });
+
+// Queueing stretches are listed with their own peak, in the section's
+// unit: a pre-1.23 wait is a number of clients, a later one a duration.
+test('queueing stretches are listed in the wait unit', () => {
+    const ep = [{ start: '2026-09-25T09:08:09Z', end: '2026-09-25T09:09:09Z', peak_wait_us: 2571000, peak_timestamp: '2026-09-25T09:08:39Z' }];
+    const html = buildPgBouncerSection({ pgbouncer: { ...statlessPayload, version: '1.25.2', wait_episodes: ep } });
+    assert.ok(html.includes('Stretches with waits of 100 ms or more') && html.includes('2.57 s') && html.includes('>09:08:39<'));
+    const old = buildPgBouncerSection({ pgbouncer: { ...statlessPayload, version: '1.18.0', wait_episodes: ep } });
+    assert.ok(old.includes('0.1 client or more queued') && old.includes('2.6 clients'));
+});

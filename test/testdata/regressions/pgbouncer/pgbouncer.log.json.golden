@@ -1497,6 +1497,14 @@
       "max_xact_us_timestamp": "2026-09-09T21:00:53.656Z",
       "max_query_us_timestamp": "2026-09-09T21:00:50.655Z",
       "max_wait_us_timestamp": "2026-09-09T21:00:51.656Z",
+      "wait_episodes": [
+        {
+          "start": "2026-09-09T21:00:40.656Z",
+          "end": "2026-09-09T21:00:51.656Z",
+          "peak_wait_us": 11091050,
+          "peak_timestamp": "2026-09-09T21:00:51.656Z"
+        }
+      ],
       "login_attempts": 129,
       "server_connections": 14,
       "sessions": 129,

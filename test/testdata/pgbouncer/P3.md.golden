@@ -239,6 +239,12 @@ This _quellog_ report summarizes **60** log entries collected between 25 Sep 202
 |---|---|---|---|
 | Clients queued | 5.5 clients | 22.9 clients | 09:24:32 |
 
+### Stretches with 0.1 client or more queued
+
+| Start | End | Duration | Peak | Peak at |
+|---|---|---|---|---|
+| 09:24:02 | 09:24:52 | 50s | 22.9 clients | 09:24:32 |
+
 ## Sessions
 
 - Completed sessions: **96**

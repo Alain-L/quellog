@@ -187,8 +187,9 @@ and suppress the empty PostgreSQL ones. Each entry:
   `avg_/max_queries_per_sec`, `avg_/max_in_bytes_per_sec`,
   `avg_/max_out_bytes_per_sec`, `avg_/max_xact_us`, `avg_/max_query_us`,
   `avg_/max_wait_us`, and `max_*_timestamp` for each maximum (omitted
-  when there is none). Before pgBouncer 1.23 (`version`) the wait fields
-  are a queue depth, shown as clients queued.
+  when there is none); `wait_episodes`: `[{start, end, peak_wait_us,
+  peak_timestamp}]`. Before pgBouncer 1.23 (`version`) the wait fields are
+  a queue depth, shown as clients queued.
 - `stats_series`: `[{time, xacts_per_sec, queries_per_sec, in_bytes_per_sec,
   out_bytes_per_sec, xact_us, query_us, wait_us}]` — feeds the three
   time-series charts (`pgb-series` type in `js/charts.js`).

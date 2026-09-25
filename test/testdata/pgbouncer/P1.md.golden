@@ -253,6 +253,13 @@ This _quellog_ report summarizes **124** log entries collected between 25 Sep 20
 |---|---|---|---|
 | Pool wait time | 1.6 ms | 20.04 s | 09:09:59 |
 
+### Stretches with waits of 100 ms or more
+
+| Start | End | Duration | Peak | Peak at |
+|---|---|---|---|---|
+| 09:08:09 | 09:09:09 | 1m | 2.57 s | 09:08:39 |
+| 09:09:49 | 09:09:59 | 10s | 20.04 s | 09:09:59 |
+
 ## Sessions
 
 - Completed sessions: **190**

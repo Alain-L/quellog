@@ -577,3 +577,31 @@ func TestPgBouncerSessionsEndedByClient(t *testing.T) {
 		t.Errorf("SessionsEndedByClient = %d, want 160", got)
 	}
 }
+
+// TestPgBouncerWaitEpisodes: a stretch starts at the snapshot before its
+// first one over the floor (a stats line describes the period it closes),
+// ends at its last one, keeps its own peak, and a snapshot under the floor
+// splits two stretches. Neighbouring rules -- start at the first snapshot
+// over the floor, one stretch from the first to the last, a strict floor --
+// each fail one of these.
+func TestPgBouncerWaitEpisodes(t *testing.T) {
+	t0 := time.Date(2026, 9, 25, 9, 8, 0, 0, time.UTC)
+	at := func(s int) time.Time { return t0.Add(time.Duration(s) * time.Second) }
+	series := []PgBouncerStatsPoint{
+		{Time: at(0), WaitMicros: 3_000},
+		{Time: at(10), WaitMicros: 2_563_000},
+		{Time: at(20), WaitMicros: 2_571_000},
+		{Time: at(30), WaitMicros: 100_000},
+		{Time: at(40), WaitMicros: 0},
+		{Time: at(50), WaitMicros: 20_037_000},
+		{Time: at(60), WaitMicros: 99_999},
+	}
+	got := fmt.Sprint(waitEpisodes(series))
+	want := fmt.Sprint([]PgBouncerWaitEpisode{
+		{Start: at(0), End: at(30), PeakUs: 2_571_000, PeakTime: at(20)},
+		{Start: at(40), End: at(50), PeakUs: 20_037_000, PeakTime: at(50)},
+	})
+	if got != want {
+		t.Errorf("waitEpisodes =\n%s\nwant\n%s", got, want)
+	}
+}

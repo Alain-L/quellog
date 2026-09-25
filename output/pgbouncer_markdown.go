@@ -132,6 +132,18 @@ func exportPgBouncerMarkdown(w io.Writer, m analysis.PgBouncerMetrics, title str
 			fmt.Fprintln(w, "|---|---|---|---|")
 			fmt.Fprintf(w, "| Pool wait time | %s | %s | %s |\n", micros(m.AvgWaitMicros), microsI(m.MaxWaitMicros), pgbAtMD(m.MaxWaitTimestamp, clock))
 		}
+		if len(m.WaitEpisodes) > 0 {
+			fmt.Fprintln(w)
+			fmt.Fprintf(w, "### %s\n", pgbEpisodeTitle(m))
+			fmt.Fprintln(w)
+			fmt.Fprintln(w, "| Start | End | Duration | Peak | Peak at |")
+			fmt.Fprintln(w, "|---|---|---|---|---|")
+			for _, e := range headMD(m.WaitEpisodes) {
+				fmt.Fprintf(w, "| %s | %s | %s | %s | %s |\n", e.Start.Format(clock), e.End.Format(clock),
+					formatSessionDuration(e.End.Sub(e.Start)), pgbWait(m, e.PeakUs), e.PeakTime.Format(clock))
+			}
+			writeTailMD(w, len(m.WaitEpisodes), pgbListMax)
+		}
 	}
 
 	// Sessions and Connections below print their heading whether or not

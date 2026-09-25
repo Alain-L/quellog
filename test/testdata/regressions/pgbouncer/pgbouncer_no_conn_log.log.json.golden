@@ -96,6 +96,14 @@
       "max_xact_us_timestamp": "2026-09-20T13:59:49.385+02:00",
       "max_query_us_timestamp": "2026-09-20T13:59:19.379+02:00",
       "max_wait_us_timestamp": "2026-09-20T13:59:19.379+02:00",
+      "wait_episodes": [
+        {
+          "start": "2026-09-20T13:59:19.379+02:00",
+          "end": "2026-09-20T13:59:49.385+02:00",
+          "peak_wait_us": 3221746,
+          "peak_timestamp": "2026-09-20T13:59:19.379+02:00"
+        }
+      ],
       "login_attempts": 0,
       "server_connections": 0,
       "sessions": 0,

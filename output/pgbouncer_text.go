@@ -98,10 +98,12 @@ func printPgBouncer(m analysis.PgBouncerMetrics, title string) {
 		fmt.Println(bold + "\nPOOL WAIT\n" + reset)
 		if m.WaitIsQueueDepth() {
 			fmt.Printf("  %-25s : %s  (max snapshot avg %s%s)\n", "Avg clients queued", queueDepth(m.AvgWaitMicros), queueDepth(float64(m.MaxWaitMicros)), pgbAt(m.MaxWaitTimestamp, clock))
+			printPgbEpisodes(m, clock)
 			fmt.Println()
 			printPgbNote(pgbQueueDepthNote(m.Version))
 		} else {
 			fmt.Printf("  %-25s : %s  (max snapshot avg %s%s)\n", "Avg pool wait time", micros(m.AvgWaitMicros), microsI(m.MaxWaitMicros), pgbAt(m.MaxWaitTimestamp, clock))
+			printPgbEpisodes(m, clock)
 			fmt.Println()
 			printPgbNote(pgbWaitNote)
 		}
@@ -196,6 +198,41 @@ func printPgbCloseReasons(rs []analysis.PgBouncerCloseReason, total int) {
 		}
 		avg := time.Duration(float64(r.TotalSeconds) / float64(r.Count) * float64(time.Second))
 		fmt.Printf("    %-*s  %6d  %5.1f%%  avg %s\n", w, r.Reason, r.Count, float64(r.Count)/float64(total)*100, formatSessionDuration(avg))
+	}
+}
+
+// pgbEpisodeTitle names the queueing stretches in the unit the section
+// uses for the wait.
+func pgbEpisodeTitle(m analysis.PgBouncerMetrics) string {
+	if m.WaitIsQueueDepth() {
+		return "Stretches with 0.1 client or more queued"
+	}
+	return "Stretches with waits of 100 ms or more"
+}
+
+// pgbWait renders a wait in the section's unit.
+func pgbWait(m analysis.PgBouncerMetrics, us int64) string {
+	if m.WaitIsQueueDepth() {
+		return queueDepth(float64(us))
+	}
+	return microsI(us)
+}
+
+// printPgbEpisodes lists when clients queued: each stretch, how long it
+// lasted and its worst snapshot, so a saturation reads as an episode with
+// a start and an end rather than as one maximum.
+func printPgbEpisodes(m analysis.PgBouncerMetrics, clock string) {
+	if len(m.WaitEpisodes) == 0 {
+		return
+	}
+	fmt.Println("\n  " + pgbEpisodeTitle(m) + ":")
+	for i, e := range m.WaitEpisodes {
+		if i == pgbListMax {
+			fmt.Printf("    \u2026 and %d more\n", len(m.WaitEpisodes)-i)
+			break
+		}
+		fmt.Printf("    %s \u2192 %s  %-8s peak %s at %s\n", e.Start.Format(clock), e.End.Format(clock),
+			formatSessionDuration(e.End.Sub(e.Start)), pgbWait(m, e.PeakUs), e.PeakTime.Format(clock))
 	}
 }
 

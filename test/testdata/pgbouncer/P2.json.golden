@@ -1128,6 +1128,20 @@
       "max_xact_us_timestamp": "2026-09-25T09:19:34.631Z",
       "max_query_us_timestamp": "2026-09-25T09:19:34.631Z",
       "max_wait_us_timestamp": "2026-09-25T09:19:34.631Z",
+      "wait_episodes": [
+        {
+          "start": "2026-09-25T09:18:44.629Z",
+          "end": "2026-09-25T09:19:34.631Z",
+          "peak_wait_us": 4512095,
+          "peak_timestamp": "2026-09-25T09:19:34.631Z"
+        },
+        {
+          "start": "2026-09-25T09:20:44.629Z",
+          "end": "2026-09-25T09:21:24.629Z",
+          "peak_wait_us": 3007998,
+          "peak_timestamp": "2026-09-25T09:21:14.631Z"
+        }
+      ],
       "login_attempts": 95,
       "server_connections": 4,
       "sessions": 94,

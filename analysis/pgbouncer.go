@@ -86,6 +86,10 @@ type PgBouncerMetrics struct {
 	MaxQueryTimestamp   time.Time `json:"max_query_us_timestamp,omitzero"`
 	MaxWaitTimestamp    time.Time `json:"max_wait_us_timestamp,omitzero"`
 
+	// WaitEpisodes are the stretches during which clients queued: runs of
+	// consecutive snapshots whose wait reaches waitEpisodeFloorUs.
+	WaitEpisodes []PgBouncerWaitEpisode `json:"wait_episodes,omitempty"`
+
 	// Connections and sessions.
 	LoginAttempts       int            `json:"login_attempts"`
 	ServerConnections   int            `json:"server_connections"`
@@ -120,6 +124,47 @@ type PgBouncerEvent struct {
 	Time   time.Time `json:"timestamp"`
 	Kind   string    `json:"kind"`
 	Detail string    `json:"detail,omitempty"`
+}
+
+// PgBouncerWaitEpisode is one stretch of queueing. Start is the snapshot
+// before the first one over the floor, since a stats line describes the
+// period that ended with it; Peak is the highest wait of the stretch.
+type PgBouncerWaitEpisode struct {
+	Start    time.Time `json:"start"`
+	End      time.Time `json:"end"`
+	PeakUs   int64     `json:"peak_wait_us"`
+	PeakTime time.Time `json:"peak_timestamp"`
+}
+
+// waitEpisodeFloorUs is the wait that opens an episode: 100 ms per server
+// assignment, or before 1.23 a tenth of a client queued on average. On the
+// lab sagas normal traffic stays under 4 ms and every saturation sits above
+// 190 ms, so the floor falls well inside the gap.
+const waitEpisodeFloorUs = 100_000
+
+// waitEpisodes finds the queueing stretches of a time-sorted series.
+func waitEpisodes(series []PgBouncerStatsPoint) []PgBouncerWaitEpisode {
+	var out []PgBouncerWaitEpisode
+	var cur *PgBouncerWaitEpisode
+	for i, pt := range series {
+		if pt.WaitMicros < waitEpisodeFloorUs {
+			cur = nil
+			continue
+		}
+		if cur == nil {
+			start := pt.Time
+			if i > 0 {
+				start = series[i-1].Time
+			}
+			out = append(out, PgBouncerWaitEpisode{Start: start})
+			cur = &out[len(out)-1]
+		}
+		cur.End = pt.Time
+		if pt.WaitMicros > cur.PeakUs {
+			cur.PeakUs, cur.PeakTime = pt.WaitMicros, pt.Time
+		}
+	}
+	return out
 }
 
 // PgBouncerError is one normalized warning or error and when it occurred.
@@ -670,6 +715,7 @@ func (a *PgBouncerAnalyzer) Finalize() PgBouncerMetrics {
 	sort.SliceStable(a.m.StatsSeries, func(i, j int) bool {
 		return a.m.StatsSeries[i].Time.Before(a.m.StatsSeries[j].Time)
 	})
+	a.m.WaitEpisodes = waitEpisodes(a.m.StatsSeries)
 	sort.SliceStable(a.m.Events, func(i, j int) bool {
 		return a.m.Events[i].Time.Before(a.m.Events[j].Time)
 	})

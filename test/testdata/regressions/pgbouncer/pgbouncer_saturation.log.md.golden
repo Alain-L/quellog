@@ -57,6 +57,12 @@
 |---|---|---|---|
 | Pool wait time | 2.45 s | 3.22 s | 13:58:12 |
 
+### Stretches with waits of 100 ms or more
+
+| Start | End | Duration | Peak | Peak at |
+|---|---|---|---|---|
+| 13:58:12 | 13:58:42 | 30s | 3.22 s | 13:58:12 |
+
 ## Sessions
 
 - Completed sessions: **68**

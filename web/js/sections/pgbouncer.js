@@ -155,6 +155,22 @@ function endedBy(p) {
     return `<div style="font-size: 0.75rem; color: var(--text-muted); padding-bottom: 0.25rem;">Ended by the client: ${fmt(byClient)} · by the pooler: ${fmt(p.sessions - byClient)}</div>`;
 }
 
+// episodesTable lists when clients queued, mirroring the text report's
+// stretches: start, end, duration and the worst snapshot of each.
+function episodesTable(p, at) {
+    const depth = waitIsQueueDepth(p.version);
+    const wait = depth ? (us) => (us / 1e6).toFixed(1) + ' clients' : pgbValueFmt('micros');
+    const list = p.wait_episodes || [];
+    return table([['Start'], ['End'], ['Duration', true], ['Peak', true], ['Peak at', true]],
+        list.slice(0, LIST_MAX).map(e => [at(e.start), at(e.end),
+            sessionTime((wallClock(e.end) - wallClock(e.start)) / 1000), wait(e.peak_wait_us), at(e.peak_timestamp)]),
+        list.length - LIST_MAX);
+}
+
+function episodesTitle(p) {
+    return waitIsQueueDepth(p.version) ? 'Stretches with 0.1 client or more queued' : 'Stretches with waits of 100 ms or more';
+}
+
 // timelineTable is the pooler's own history: starts, shutdowns, reloads
 // and console commands.
 function timelineTable(events, at) {
@@ -497,7 +513,7 @@ function poolerSection(p, suffix, named, wholeLogNote) {
     const missingClients = clientLinesMissing(p);
 
     // The closing blocks fill a two-column grid: session time and close
-    // reasons, then timeline and errors. Any can be absent -- a pooler
+    // reasons, timeline and queueing stretches, then errors. Any can be absent -- a pooler
     // with log_disconnections off has no sessions, a healthy one has no
     // errors -- and a block left alone on its row would leave half the
     // report blank, so it takes the full width.
@@ -505,6 +521,7 @@ function poolerSection(p, suffix, named, wholeLogNote) {
         hasSessions ? `<div class="subsection-title" style="margin-top:0">Session Time</div>${sessionHistogram(p.session_distribution, p.sessions)}` : '',
         hasSessions && p.session_reasons ? `<div class="subsection-title" style="margin-top:0">Close Reasons</div>${endedBy(p)}${reasonsTable(p.session_reasons, p.sessions)}` : '',
         p.events ? `<div class="subsection-title" style="margin-top:0">Timeline</div>${timelineTable(p.events, at)}` : '',
+        p.wait_episodes ? `<div class="subsection-title" style="margin-top:0">${episodesTitle(p)}</div>${episodesTable(p, at)}` : '',
         hasErrors ? `<div class="subsection-title" style="margin-top:0">Most Frequent Errors</div>${errorsTable(p.errors, p.total_errors, at)}` : '',
     ].filter(Boolean);
 
