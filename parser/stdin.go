@@ -27,6 +27,14 @@ func ParseStdin(out chan<- []LogEntry) error {
 		return fmt.Errorf("stdin: %w", ErrBinaryFile)
 	}
 
+	// Inputs are sorted into a PostgreSQL and a pooler track by file, before
+	// anything is read, so a pooler log piped in cannot reach its analyzer:
+	// name it rather than report an unknown format.
+	if looksLikePgBouncer(sampleStr) {
+		slog.Error("pgBouncer logs cannot be read from standard input; pass the file instead")
+		return fmt.Errorf("stdin: %w", ErrUnknownFormat)
+	}
+
 	// Detect format from sample
 	parser := detectFormatFromSample(sampleStr)
 	if parser == nil {

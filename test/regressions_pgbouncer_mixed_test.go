@@ -3,6 +3,7 @@ package quellog_test
 import (
 	"bytes"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -74,5 +75,25 @@ func TestRejectedInputReportedOnce(t *testing.T) {
 	_, stderr, _ := runQuellog(t, harnessBinary, "testdata/stderr.log", junk, "--json")
 	if n := strings.Count(stderr, "notalog.txt"); n != 1 {
 		t.Errorf("rejected file named %d times on stderr, want 1:\n%s", n, stderr)
+	}
+}
+
+// TestPooledStdinIsNamed: a pooler log piped in cannot reach its analyzer,
+// and the run must say that rather than call the format unknown.
+func TestPooledStdinIsNamed(t *testing.T) {
+	log, err := os.Open("testdata/pgbouncer/P1/p1.pgbouncer.log")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer log.Close()
+	cmd := exec.Command(harnessBinary, "-")
+	cmd.Stdin = log
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	if cmd.Run() == nil {
+		t.Fatal("a pooler log on stdin must fail the run")
+	}
+	if !strings.Contains(stderr.String(), "pgBouncer logs cannot be read from standard input") {
+		t.Errorf("stderr does not name the pooler log:\n%s", stderr.String())
 	}
 }
