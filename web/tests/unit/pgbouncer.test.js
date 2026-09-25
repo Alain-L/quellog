@@ -413,4 +413,8 @@ test('log-borne text is escaped in every new cell', () => {
     } });
     assert.ok(!html.includes(evil), 'raw log text reached the page');
     assert.ok(html.includes('&lt;img src=x onerror=alert(1)&gt;'));
+
+    // A file name lands in an attribute too, where a quote closes it.
+    const quoted = buildPgBouncerSection({ pgbouncer: { ...statlessPayload, name: 'p', files: ['/logs/x" onmouseover="alert(1).log'] } });
+    assert.ok(quoted.includes('title="/logs/x&quot; onmouseover=&quot;alert(1).log"'), 'a quote in a file name broke out of its attribute');
 });

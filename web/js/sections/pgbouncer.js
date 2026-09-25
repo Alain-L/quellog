@@ -5,7 +5,7 @@
 // query/pool-wait timing), its timeline, a session-time histogram and the
 // close reasons, per-database/user/host breakdowns, and the errors.
 
-import { fmt, esc, fmtDurationCoarse, buildNoDataMessage, wholeLogBadge} from '../utils.js';
+import { fmt, esc, escAttr, fmtDurationCoarse, buildNoDataMessage, wholeLogBadge } from '../utils.js';
 import { pgbValueFmt } from '../charts.js';
 import { chartData, buildChartContainer } from '../charts.js';
 
@@ -389,11 +389,15 @@ function coverageText(p) {
 }
 
 // poolerLine names the pooler a section describes: its address or file,
-// its release, and the files it was read from.
+// its release, and the files it was read from -- by base name, the full
+// path in the tooltip, so the line does not grow with the directory the
+// logs sit in.
 function poolerLine(p) {
     const parts = [esc(p.name || '')];
     if (p.version) parts.push('PgBouncer ' + esc(p.version));
-    if (p.files && p.files.length) parts.push(p.files.map(esc).join(', '));
+    if (p.files && p.files.length) {
+        parts.push(p.files.map(f => `<span title="${escAttr(f)}">${esc(f.split(/[\\/]/).pop())}</span>`).join(', '));
+    }
     return `<div style="text-align: center; font-size: 0.75rem; color: var(--text-muted); overflow-wrap: anywhere;">${parts.join(' · ')}</div>`;
 }
 
