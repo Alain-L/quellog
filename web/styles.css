@@ -577,11 +577,6 @@
             vertical-align: middle;
         }
 
-        /* Progress bar hidden — the WASM parse blocks the JS main thread,
-           so we can't poll real progress mid-parse. The static loading
-           text + spinner do the "something is happening" job. */
-        .progress-bar { display: none; }
-
         @keyframes spin { to { transform: rotate(360deg); } }
 
         /* Results */
@@ -884,8 +879,6 @@
             color: var(--warning);
         }
 
-        .stat-card.danger .stat-value { color: var(--danger); }
-        .stat-card.accent .stat-value { color: var(--text); }
 
         /* Compact stat cards (2 lines) */
         .stat-card-compact {

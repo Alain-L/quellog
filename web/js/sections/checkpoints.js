@@ -9,7 +9,7 @@ export function buildCheckpointsSection(data) {
     if (!cp || (!cp.total_checkpoints && !cp.warning_count)) {
         return `
             <div class="section" id="checkpoints">
-                <div class="section-header muted">Checkpoints</div>
+                <div class="section-header">Checkpoints</div>
                 <div class="section-body">
                     ${buildNoDataMessage('<code>log_checkpoints = on</code>')}
                 </div>

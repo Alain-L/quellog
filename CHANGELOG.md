@@ -6,18 +6,29 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 - **pgBouncer log support**: quellog now auto-detects [pgBouncer](https://www.pgbouncer.org/) connection-pooler logs and renders a dedicated pooler report in text, Markdown, JSON, YAML, and as an HTML section sharing the report's chrome and interactive charts. It surfaces request throughput and network I/O, transaction/query/wait timing at microsecond resolution, client connections and completed sessions with a session-time histogram, per-database/user/host breakdowns, reserve-pool activations, and a ranked error list. Plain, compressed (`.gz`, `.zst`) and archived (`.tar`/`.tgz`/`.tzst`/`.zip`/`.7z`) inputs all produce the same report. Detection does not depend on a log holding pooler traffic, so a restart, a freshly rotated file, or a capture made of nothing but verbose chatter is still recognized. Inputs are partitioned by detected format, so a single invocation mixing PostgreSQL and pgBouncer files produces the PostgreSQL report followed by a pgBouncer section (a top-level `pgbouncer` key in JSON), and a file neither parser recognizes no longer voids a pooler report that did parse. The summary states the lines read alongside the entries understood, so a truncated or partly unreadable capture shows its loss instead of reporting that it parsed everything it parsed; under `verbose = 2` the DEBUG/NOISE share is broken out of that count. The timing averages are weighted by each snapshot's operation count and skip the snapshots that timed none, since pgBouncer leaves a mean at zero when its counter is zero for the period and averaging those sentinels in halved the reported latency over a quiet stretch. The SQL-specific flags do not apply to pgBouncer logs, `--split` is rejected, and two inputs are out of scope in this release: captures written through syslog (`syslog = 1`), and pooler logs read from standard input. The browser demo does not read pgBouncer logs; its WebAssembly build carries the PostgreSQL parsers only.
-- **Anti-wraparound autovacuums are counted separately**: the Maintenance section now breaks out the forced anti-wraparound freezes (logged "to prevent wraparound") as their own count under the aggressive-vacuum total — the real transaction-ID-exhaustion warning sign, previously indistinguishable within the aggressive count. Shown in the text, Markdown, JSON (`anti_wraparound_vacuum_count`) and HTML report.
-
-### Changed
-- **The HTML report has a flatter visual style**: section titles are muted headings instead of solid coloured bands, the section and stat cards have squared corners and no hover shadow, tables use a hairline header instead of a filled band, and the vertical rhythm is denser. Presentation only — no data or structural changes.
-- **Documentation audited and realigned with current behaviour**: user pages were checked page-by-page against the actual CLI output and corrected where they had drifted (report labels, SQL/filtering/format details); the build-from-source instructions now include the required `go generate ./web/...` step; and the HTML-report screenshots were regenerated for the flat style.
 
 ### Fixed
 - **`--yaml` no longer emits the null keys `--json` already omitted**: the YAML encoder now shares the JSON section writer, so an empty optional block is absent from both instead of appearing as `null` in one of them. `docs/exports.md` promises the two carry the same structure; they now do.
-- **Average lock wait time was understated**: the mean divided the total wait by every lock event (still-waiting plus acquired) instead of only the acquired locks that carry a measured wait, so a log with many waiters reported a fraction of the real average (on one sample, 1m18s instead of 7m43s). Now divided by acquired locks, in the JSON/HTML report and the text and Markdown output alike.
-- **`SET` statements were counted as `SELECT`**: a query-type prefix collision filed every `SET` under SELECT/DML instead of UTILITY, skewing the query-type breakdown and per-type totals. `SET` is now UTILITY.
-- **A genuine 0 ms minimum query duration was dropped**: the minimum was tracked with a zero as its "unset" marker, so a real `0.000 ms` query seeded the minimum and was then overwritten by the next query, leaving a wrong reported minimum. A true 0 ms minimum now survives.
-- **The Autovacuum "Elapsed" column rendered blank, and the maintenance panels looked unlike the other tables**: the Autovacuum/Autoanalyze panels were built from a bespoke list layout rather than the report's table component, so the Autovacuum top-tables Elapsed column (its own sort key) showed nothing and the panels' headers and row spacing diverged from every other section. They are proper tables now, consistent with the rest, with Elapsed populated.
+
+## [0.13.0] - 2026-09-24
+
+### Added
+- **Anti-wraparound autovacuums are counted separately**: the Maintenance section breaks out the forced freezes logged "to prevent wraparound" from the aggressive-vacuum total. They are the actual sign of transaction-ID exhaustion, and were previously lost in that count. Shown in the text, Markdown, JSON (`anti_wraparound_vacuum_count`) and HTML reports.
+
+### Changed
+- **Flatter HTML report style**: muted section titles instead of solid coloured bands, squared cards without hover shadow, hairline table headers and a denser vertical rhythm. Presentation only.
+- **Maintenance panels are regular tables**: Autovacuum and Autoanalyze now share the headers, borders and row heights of every other table in the report, instead of a bespoke list layout.
+- **Documentation realigned with current behaviour**: every user page was checked against the actual CLI output and corrected where it had drifted. Building from source now includes the required `go generate ./web/...` step, `--quiet` and `NO_COLOR` are documented, and the screenshots show the new style.
+
+### Fixed
+- **Average lock wait was understated**: the total wait was divided by every lock event, still-waiting ones included, instead of by the acquired locks that carry a measured wait (on one sample, 1m18s instead of 7m43s). Fixed in every output format.
+- **`SET` statements were counted as `SELECT`**: a prefix collision filed them under SELECT/DML instead of UTILITY, skewing the query-type breakdown. SET query IDs now start with `et-` instead of `se-`, so an ID noted from an earlier report no longer resolves with `--sql-detail`.
+- **A genuine 0 ms minimum query duration was lost**: zero doubled as the "unset" marker, so the next query overwrote it.
+- **An empty time window no longer reads as an unreadable file**: when filters such as `--last 1h` leave nothing to analyze, the error blamed only the file format. It now points at the filters too.
+
+### Security
+- **Release binaries are built with a supported Go**: v0.12.0 was compiled with Go 1.24.0, whose standard library has flaws on paths quellog uses: escaping bypasses leading to XSS in `html/template`, which renders the HTML report (GO-2026-4980, GO-2026-4982, GO-2026-4865, GO-2026-4603, GO-2026-6091), and unbounded allocations on GNU sparse entries in `archive/tar`, which reads tar inputs (GO-2025-4014, GO-2026-4869). Binaries are now built with Go 1.27. The browser demo does not reach this code.
+- **Decompression libraries updated**: `ulikunitz/xz` v0.5.15 fixes a memory leak on corrupted LZMA streams, reachable through `.7z` inputs (GO-2025-3922). `klauspost/compress`, which decodes gzip and zstd, moves from the retracted v1.18.1 to v1.18.7. Output is unchanged on every supported format.
 
 ## [0.12.0] - 2026-07-29
 

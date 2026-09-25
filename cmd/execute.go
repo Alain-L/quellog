@@ -675,7 +675,7 @@ func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry
 		if pgb != nil && pgb.Lines > 0 {
 			return renderReport(analysis.AggregatedMetrics{}, pgb, true, inputArgs, totalFileSize, processingDuration)
 		}
-		return fmt.Errorf("no log entries could be parsed: check that files are readable and in a supported format")
+		return errNoEntries
 	}
 
 	// Validate that we have a valid time range
@@ -1189,6 +1189,11 @@ func isCompressedInput(name string) bool {
 	return false
 }
 
+// errNoEntries is returned when nothing is left to analyze once parsing and
+// filtering are done. A quiet time window ends here as well as an unreadable
+// file, so the message points at both.
+var errNoEntries = errors.New("no log entries to analyze: check that the files are readable and in a supported format, and that the filters match some entries")
+
 // requireMetrics aggregates metrics and returns an error if no log entries
 // were parsed.
 func requireMetrics(ctx context.Context, filteredLogs <-chan []parser.LogEntry, totalFileSize int64, startTime time.Time, pb *progressBar, workers int) (analysis.AggregatedMetrics, time.Duration, error) {
@@ -1200,7 +1205,7 @@ func requireMetrics(ctx context.Context, filteredLogs <-chan []parser.LogEntry, 
 	pb.Finish()
 	processingDuration := time.Since(startTime)
 	if metrics.Global.Count == 0 {
-		return analysis.AggregatedMetrics{}, 0, fmt.Errorf("no log entries could be parsed: check that files are readable and in a supported format")
+		return analysis.AggregatedMetrics{}, 0, errNoEntries
 	}
 	return metrics, processingDuration, nil
 }

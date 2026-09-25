@@ -10,7 +10,7 @@ export function buildTempFilesSection(data) {
     if (!tf || tf.total_messages === 0) {
         return `
             <div class="section" id="temp_files">
-                <div class="section-header muted">Temp Files</div>
+                <div class="section-header">Temp Files</div>
                 <div class="section-body">
                     ${buildNoDataMessage('<code>log_temp_files = 0</code>')}
                 </div>

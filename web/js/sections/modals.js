@@ -252,7 +252,7 @@ export function showEventDetail(index, opts = {}) {
     }
 
     const sqlClass = e.sql_state_class || '';
-    const sqlBadge = sqlClass ? `<span class="event-class-badge" style="border-color:${sevColor};color:${sevColor};margin-right:0.5rem;">${esc(sqlClass)}</span>` : '';
+    const sqlBadge = sqlClass ? `<span style="border-color:${sevColor};color:${sevColor};margin-right:0.5rem;">${esc(sqlClass)}</span>` : '';
 
     const chartTitle = `Event – ${e.severity}${sqlClass ? ' ' + sqlClass : ''}`;
     // Copy-button helper: same inline pattern as SQL detail modal —

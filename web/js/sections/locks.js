@@ -8,7 +8,7 @@ export function buildLocksSection(data) {
     if (!l || ((l.deadlock_events || 0) + (l.waiting_events || 0) + (l.acquired_events || 0)) === 0) {
         return `
             <div class="section" id="locks">
-                <div class="section-header muted">Locks</div>
+                <div class="section-header">Locks</div>
                 <div class="section-body">
                     ${buildNoDataMessage('<code>log_lock_waits = on</code>')}
                 </div>

@@ -77,6 +77,12 @@ WantedBy=multi-user.target
 **cron** -- periodic snapshots without `--follow`:
 
 ```bash
-0 * * * * /usr/local/bin/quellog --last 1h --html \
-  -o /var/www/html/quellog.html /var/log/postgresql/*.log
+0 * * * * /usr/local/bin/quellog --last 1h --html --quiet \
+  -o /var/www/html/quellog.html /var/log/postgresql/*.log > /dev/null
 ```
+
+`--quiet` (`-q`) drops the informational messages written to stderr
+(processing summary, format detection, archive entries skipped, follow-mode
+notices) and the progress bar, and keeps warnings and errors. The `Report
+saved to …` confirmation goes to stdout, hence the redirect: cron then mails
+only when something went wrong.

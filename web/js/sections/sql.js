@@ -17,7 +17,7 @@ export function buildSQLOverviewSection(data) {
     if (!hasData) {
         return `
             <div class="section" id="sql_overview">
-                <div class="section-header muted">SQL Overview</div>
+                <div class="section-header">SQL Overview</div>
                 <div class="section-body">
                     ${buildNoDataMessage('<code>log_min_duration_statement = 0</code>')}
                 </div>
@@ -251,7 +251,7 @@ export function buildSQLPerformanceSection(data) {
     if (!sql || !sql.queries || sql.queries.length === 0) {
         return `
             <div class="section" id="sql_performance">
-                <div class="section-header muted">SQL Performance</div>
+                <div class="section-header">SQL Performance</div>
                 <div class="section-body">
                     ${buildNoDataMessage('<code>log_min_duration_statement = 0</code>')}
                 </div>

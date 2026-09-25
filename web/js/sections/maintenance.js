@@ -13,7 +13,7 @@ export function buildMaintenanceSection(data) {
     if (!m || ((m.vacuum_count || 0) + (m.analyze_count || 0)) === 0) {
         return `
             <div class="section" id="maintenance">
-                <div class="section-header muted">Maintenance</div>
+                <div class="section-header">Maintenance</div>
                 <div class="section-body">
                     ${buildNoDataMessage('<code>log_autovacuum_min_duration = 0</code>')}
                 </div>
