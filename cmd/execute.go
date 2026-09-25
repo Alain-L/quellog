@@ -170,7 +170,7 @@ func runAnalysisCycle(ctx context.Context, args []string) error {
 		if len(pgb) == 0 {
 			return fmt.Errorf("no pgBouncer log entries could be parsed: check that files are readable and in pgBouncer log format")
 		}
-		return renderReport(analysis.AggregatedMetrics{}, pgb, true, args, calculateTotalFileSize(pgbFiles), time.Since(startTime))
+		return renderReport(analysis.AggregatedMetrics{}, pgb, true, args, 0, time.Since(startTime))
 	}
 
 	// Calculate total file size for throughput reporting (PostgreSQL track).
@@ -695,6 +695,11 @@ func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry
 // is then the zero value and the renderers emit the pooler report alone (in
 // JSON/YAML the flat pgBouncer document, not the nested "pgbouncer" key).
 func renderReport(metrics analysis.AggregatedMetrics, pgb []analysis.PgBouncerMetrics, pgbOnly bool, inputArgs []string, totalFileSize int64, processingDuration time.Duration) error {
+	// The size stated in the header and the HTML metadata covers every
+	// file read: totalFileSize is the PostgreSQL track's.
+	for _, m := range pgb {
+		totalFileSize += calculateTotalFileSize(m.Files)
+	}
 	// Determine which sections to display
 	// --full forces all sections and ignores individual section flags
 	var sections []string
@@ -789,13 +794,11 @@ func renderReport(metrics analysis.AggregatedMetrics, pgb []analysis.PgBouncerMe
 		return nil
 	}
 
-	// Default: text output. The header counts log entries, or pgBouncer
-	// records when that is all there is.
+	// Default: text output. The header counts the PostgreSQL entries and
+	// the pooler records alike.
 	entries := metrics.Global.Count
-	if pgbOnly {
-		for _, m := range pgb {
-			entries += m.Lines
-		}
+	for _, m := range pgb {
+		entries += m.Lines
 	}
 	PrintProcessingSummary(entries, processingDuration, totalFileSize)
 	output.PrintMetricsCombined(metrics, pgb, sections, fullFlag, pgbOnly)

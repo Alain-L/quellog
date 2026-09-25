@@ -398,3 +398,19 @@ test('a pre-1.23 wait is shown as clients queued', () => {
     const current = pooler('1.23.0');
     assert.ok(current.includes('Avg pool wait time') && !current.includes('Avg clients queued'));
 });
+
+// Error messages, close reasons, database names in commands and file
+// names all come from the log, some from a client that has not even
+// authenticated: every cell that shows one must be escaped.
+test('log-borne text is escaped in every new cell', () => {
+    const evil = '<img src=x onerror=alert(1)>';
+    const html = buildPgBouncerSection({ pgbouncer: {
+        ...statlessPayload, name: evil, version: evil, files: [evil],
+        min_timestamp: '2026-09-25T09:00:00Z', max_timestamp: '2026-09-25T09:01:00Z',
+        total_errors: 1, errors: [{ message: evil, count: 1, first: '2026-09-25T09:00:00Z', last: '2026-09-25T09:00:00Z' }],
+        session_reasons: [{ reason: evil, count: 181, total_seconds: 0 }],
+        events: [{ timestamp: '2026-09-25T09:00:00Z', kind: evil, detail: evil }],
+    } });
+    assert.ok(!html.includes(evil), 'raw log text reached the page');
+    assert.ok(html.includes('&lt;img src=x onerror=alert(1)&gt;'));
+});
