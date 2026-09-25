@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -59,5 +60,19 @@ func TestPgBouncerRunSurvivesEmptyPostgreSQLTrack(t *testing.T) {
 	got := runHarness(t, false, pgFixture, pgbFixture, "--dbname", "nosuchdatabase", "--json")
 	if !bytes.Equal(got, want) {
 		t.Errorf("a filter that empties the PostgreSQL track must not take the pooler report down\n--- want ---\n%s\n--- got ---\n%s", want, got)
+	}
+}
+
+// TestRejectedInputReportedOnce: sorting the inputs into tracks runs the
+// detector ahead of the parse, which runs it again. A file both passes
+// reject was named twice on stderr, where main names it once.
+func TestRejectedInputReportedOnce(t *testing.T) {
+	junk := filepath.Join(t.TempDir(), "notalog.txt")
+	if err := os.WriteFile(junk, []byte("hello world\nnothing to see here\n"), 0o644); err != nil {
+		t.Fatalf("write junk file: %v", err)
+	}
+	_, stderr, _ := runQuellog(t, harnessBinary, "testdata/stderr.log", junk, "--json")
+	if n := strings.Count(stderr, "notalog.txt"); n != 1 {
+		t.Errorf("rejected file named %d times on stderr, want 1:\n%s", n, stderr)
 	}
 }

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"log/slog"
 	"sync/atomic"
 	"time"
 
@@ -15,33 +16,22 @@ import (
 // daemons), so routing each file to the right analyzer lets a single
 // invocation combine both — the PostgreSQL report plus a pgBouncer
 // section — instead of silently feeding one analyzer foreign lines.
-// stdin ("-") cannot be sampled by path and is treated as PostgreSQL.
+// stdin ("-") cannot be sampled by path and is treated as PostgreSQL, and
+// so is a file the detector rejects: the PostgreSQL track reports it, and
+// a pooler report that did parse survives that track coming out empty.
+//
+// The detector logs what it finds and the parse that follows detects
+// again, so the files are sorted in silence: each message prints once.
 func partitionInputsByFormat(files []string) (pgFiles, pgbFiles []string) {
-	var undetected []string
+	prev := slog.Default()
+	slog.SetDefault(slog.New(slog.DiscardHandler))
+	defer slog.SetDefault(prev)
 	for _, f := range files {
-		if f == "-" {
-			pgFiles = append(pgFiles, f)
-			continue
-		}
-		switch parser.DetectFileFormat(f) {
-		case "pgbouncer":
+		if f != "-" && parser.DetectFileFormat(f) == "pgbouncer" {
 			pgbFiles = append(pgbFiles, f)
-		case "":
-			undetected = append(undetected, f)
-		default:
+		} else {
 			pgFiles = append(pgFiles, f)
 		}
-	}
-	// A file the detector rejected belongs to no track: it was already
-	// reported on stderr, by name, by the detector. It joins the PostgreSQL
-	// track, where the run-level "no log entries could be parsed" error
-	// covers an input list holding nothing else — but only when no pgBouncer
-	// file was recognized. Otherwise that track would fail on the rejected
-	// file alone and take down a pooler report that did parse, turning one
-	// unreadable input into an empty report and a non-zero exit for the
-	// whole run.
-	if len(pgbFiles) == 0 {
-		pgFiles = append(pgFiles, undetected...)
 	}
 	return pgFiles, pgbFiles
 }
