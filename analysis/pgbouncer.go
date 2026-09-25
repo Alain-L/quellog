@@ -923,9 +923,8 @@ func splitSocketEvent(rest string) (peer, verb string, ok bool) {
 	after := strings.TrimSpace(rest[colon+1:])
 	// The peer is "db/user@host:port". A client picks its own database
 	// and user names before authenticating, so either may hold a space;
-	// the host and port never do. Look for the end of the peer past the
-	// '@' rather than at the first space, which used to cut a quoted
-	// name in half and drop the whole event.
+	// the host and port never do, so the peer ends at the first space
+	// past the '@'.
 	from := 0
 	if at := strings.IndexByte(after, '@'); at != -1 {
 		from = at

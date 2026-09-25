@@ -108,9 +108,8 @@ func printPgBouncer(m analysis.PgBouncerMetrics, title string) {
 	}
 
 	// Sessions. The heading is printed whether or not there is anything
-	// under it: with log_disconnections = 0 the section used to vanish
-	// from a page that went on reporting traffic and errors, leaving no
-	// way to tell an idle pooler from a silenced one.
+	// under it, with the setting that governs it: an absent section cannot
+	// tell an idle pooler from a silenced one.
 	if m.Sessions == 0 {
 		fmt.Println(bold + "\nSESSIONS\n" + reset)
 		fmt.Println("  (No data available)")

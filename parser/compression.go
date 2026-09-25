@@ -23,10 +23,9 @@ import (
 var ErrCompressionFailed = errors.New("failed to read compressed file")
 
 // ErrUnsupportedCompressedParser indicates a format detected inside a
-// compressed file that the compression router cannot stream. It exists so
-// wrapCompressedParser can never return a nil parser with a nil error —
-// that pair used to travel up to ParseFile and segfault on the first method
-// call (a pgBouncer log in a .gz did exactly that).
+// compressed file that the compression router cannot stream, so that
+// wrapCompressedParser never returns a nil parser with a nil error, which
+// ParseFile would call into.
 var ErrUnsupportedCompressedParser = errors.New("detected format cannot be read from a compressed file")
 
 // compressionCodec defines how to create a streaming reader for a compressed format.

@@ -135,9 +135,8 @@ func exportPgBouncerMarkdown(w io.Writer, m analysis.PgBouncerMetrics, title str
 	}
 
 	// Sessions and Connections below print their heading whether or not
-	// they have anything under it: a pooler run with log_connections = 0
-	// used to drop both from a document that went on reporting traffic
-	// and errors, with nothing saying why.
+	// they have anything under it, with the setting that governs them: an
+	// absent section cannot tell an idle pooler from a silenced one.
 	if m.Sessions == 0 {
 		fmt.Fprintln(w)
 		fmt.Fprintln(w, "## Sessions")
