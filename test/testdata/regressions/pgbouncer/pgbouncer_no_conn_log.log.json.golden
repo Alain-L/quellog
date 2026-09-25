@@ -55,7 +55,7 @@
       "max_xact_us": 2756412,
       "avg_query_us": 528466.7379310345,
       "max_query_us": 640373,
-      "avg_wait_us": 2317873.972413793,
+      "avg_wait_us": 2449891.9,
       "max_wait_us": 3221746,
       "stats_series": [
         {

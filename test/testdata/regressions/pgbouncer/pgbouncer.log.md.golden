@@ -51,7 +51,7 @@
 
 | Metric | Weighted average | Max snapshot average | At |
 |---|---|---|---|
-| Pool wait time | 1.92 s | 11.09 s | 21:00:51 |
+| Pool wait time | 465.9 ms | 11.09 s | 21:00:51 |
 
 ## Sessions
 

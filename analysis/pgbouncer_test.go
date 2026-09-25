@@ -374,7 +374,7 @@ func TestPgBouncerZeroIsAMeasurementWhenWorkHappened(t *testing.T) {
 			wait = 5_000_000
 		}
 		a.processStats(base.Add(time.Duration(i)*time.Minute), fmt.Sprintf(
-			"stats: 100 xacts/s, 100 queries/s, 0 client parses/s, 0 server parses/s, "+
+			" 100 xacts/s, 100 queries/s, 0 client parses/s, 0 server parses/s, "+
 				"0 binds/s, in 900 B/s, out 800 B/s, xact 1000 us, query 500 us, wait %d us", wait))
 	}
 	m := a.Finalize()
@@ -385,9 +385,9 @@ func TestPgBouncerZeroIsAMeasurementWhenWorkHappened(t *testing.T) {
 	// nothing to average in. Both rules agree here -- this guards the
 	// fix from over-correcting.
 	b := NewPgBouncerAnalyzer()
-	b.processStats(base, "stats: 3 xacts/s, 21 queries/s, 0 client parses/s, 0 server parses/s, "+
+	b.processStats(base, " 3 xacts/s, 21 queries/s, 0 client parses/s, 0 server parses/s, "+
 		"0 binds/s, in 1291 B/s, out 565 B/s, xact 1990 us, query 261 us, wait 331 us")
-	b.processStats(base.Add(time.Minute), "stats: 0 xacts/s, 0 queries/s, 0 client parses/s, "+
+	b.processStats(base.Add(time.Minute), " 0 xacts/s, 0 queries/s, 0 client parses/s, "+
 		"0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us")
 	if got := b.Finalize().AvgXactMicros; got != 1990 {
 		t.Errorf("AvgXactMicros = %v, want 1990 (the idle snapshot must stay excluded)", got)
@@ -550,4 +550,17 @@ func TestPgBouncerWaitIsQueueDepth(t *testing.T) {
 			t.Errorf("WaitIsQueueDepth(%q) = %v, want %v", v, got, want)
 		}
 	}
+}
+
+// TestPgBouncerWaitIsWeightedByTransactions: pgBouncer averages "wait"
+// over server assignments, one per transaction under transaction pooling
+// (SHOW STATS on the P1 saga: 343050 assignments for 343072 transactions
+// and 2399524 queries). Weighting by queries, the neighbouring rule, gives
+// 411.8 us on these two snapshots instead of 90.9 us.
+func TestPgBouncerWaitIsWeightedByTransactions(t *testing.T) {
+	a := NewPgBouncerAnalyzer()
+	base := time.Date(2026, 9, 25, 9, 0, 0, 0, time.UTC)
+	a.processStats(base, " 10 xacts/s, 70 queries/s, in 1 B/s, out 1 B/s, xact 1 us, query 1 us, wait 1000 us")
+	a.processStats(base.Add(10*time.Second), " 100 xacts/s, 100 queries/s, in 1 B/s, out 1 B/s, xact 1 us, query 1 us, wait 0 us")
+	almost(t, "AvgWaitMicros", a.Finalize().AvgWaitMicros, 10_000.0/110)
 }

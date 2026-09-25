@@ -499,9 +499,11 @@ func (a *PgBouncerAnalyzer) processStats(t time.Time, body string) {
 	accumulateWeighted(&a.sumXactUs, &a.sumXactW, pt.XactMicros, pt.Xacts)
 	accumulateWeighted(&a.sumQueryUs, &a.sumQueryW, pt.QueryMicros, pt.Queries)
 	// "wait" is averaged over server assignments, a counter pgBouncer
-	// never puts in the log line; queries/s is the closest proxy we do
-	// have. See accumulateWeighted.
-	accumulateWeighted(&a.sumWaitUs, &a.sumWaitW, pt.WaitMicros, pt.Queries)
+	// never puts in the log line. Under transaction pooling, the common
+	// case, it is one per transaction (SHOW STATS on the P1 saga: 343050
+	// assignments, 343072 transactions, 2399524 queries), so xacts/s is
+	// the weight. See accumulateWeighted.
+	accumulateWeighted(&a.sumWaitUs, &a.sumWaitW, pt.WaitMicros, pt.Xacts)
 
 	if pt.Xacts > a.m.MaxXactsPerSec {
 		a.m.MaxXactsPerSec, a.m.MaxXactsTimestamp = pt.Xacts, t

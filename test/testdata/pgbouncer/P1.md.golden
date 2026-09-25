@@ -251,7 +251,7 @@ This _quellog_ report summarizes **124** log entries collected between 25 Sep 20
 
 | Metric | Weighted average | Max snapshot average | At |
 |---|---|---|---|
-| Pool wait time | 1.0 ms | 20.04 s | 09:09:59 |
+| Pool wait time | 1.6 ms | 20.04 s | 09:09:59 |
 
 ## Sessions
 
