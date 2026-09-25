@@ -31,20 +31,23 @@ const SPLIT_INTERVAL = '10m';
 
 // pgBouncer reports. The section is rendered by its own module and none
 // of the PostgreSQL fixtures reaches it, so without these the pooler
-// report has no visual contract at all. Three captures, chosen for the
-// three shapes the section takes and no more (each one is a page load):
+// report has no visual contract at all. Four captures, chosen for the
+// shapes the section takes and no more (each one is a page load):
 //   nominal      every block filled -- cards, three charts, tabbed
 //                breakdowns, session histogram and error table;
 //   placeholders log_connections / log_disconnections off, so the two
 //                empty blocks fall back to their "which setting" notes
 //                and the error table takes the closing row on its own;
 //   one-snapshot a single "stats:" line -- the coverage caveat, and the
-//                charts replaced by the reason they are not drawn.
+//                charts replaced by the reason they are not drawn;
+//   saga         the P1 lab saga: a timeline, close reasons, dated
+//                errors, and rates in MB/s whose axis labels are long.
 const PGB_DIR = join(REPO_ROOT, 'test', 'testdata', 'regressions', 'pgbouncer');
 const PGB_REPORTS = [
   { name: 'pgb-nominal', fixture: join(PGB_DIR, 'pgbouncer.log') },
   { name: 'pgb-placeholders', fixture: join(PGB_DIR, 'pgbouncer_no_conn_log.log') },
   { name: 'pgb-one-snapshot', fixture: join(PGB_DIR, 'pgbouncer_oldversion.log'), charts: false },
+  { name: 'pgb-saga', fixture: join(REPO_ROOT, 'test', 'testdata', 'pgbouncer', 'P1', 'p1.pgbouncer.log') },
 ];
 const BASELINES_DIR = join(VISUAL_DIR, 'baselines');
 const STRUCTURE_PATH = join(VISUAL_DIR, 'expected-structure.json');

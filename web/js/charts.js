@@ -1731,11 +1731,22 @@ function pgbTooltipPlugin(spec, valFmt) {
     };
 }
 
-// PGB_X_SPACE is the minimum distance between two time ticks of a pooler
-// chart, in pixels: an "HH:MM:SS" label is about 50 px wide. PGB_X_GAP
-// is the distance between the plot and those labels.
-const PGB_X_SPACE = 80;
+// pgbXSpace is the minimum distance between two time ticks of a pooler
+// chart, in pixels. When 80 px apart the ticks would still fall under a
+// minute, they carry seconds, and an "HH:MM:SS" label is about 50 px wide;
+// otherwise they fall on minutes, and the default 50 px keeps a tick per
+// minute where 80 would jump to one every five, uPlot having no two-minute
+// step. PGB_X_GAP is the distance between the plot and those labels.
+const pgbXSpace = (u, axis, min, max, dim) => ((max - min) * 80 / dim < 60 ? 80 : 50);
 const PGB_X_GAP = 8;
+
+// pgbAxisWidth sizes a y axis to its longest tick label, which uPlot hands
+// over once formatted: "176.6 KB/s" does not fit the fixed width the
+// count axes use, and a clipped label reads as another number.
+function pgbAxisWidth(u, values) {
+    const longest = Math.max(0, ...(values || []).map(v => String(v).length));
+    return Math.max(40, Math.ceil(longest * 6.5) + 14);
+}
 
 // createPgBouncerSeriesChart draws a multi-series line chart from a spec
 // { t: [unixSecs], values: [{key:val,…}], series: [{label,key,color}], fmt }.
@@ -1773,8 +1784,8 @@ export function createPgBouncerSeriesChart(containerId, spec, options = {}) {
             // A pooler series steps by seconds, so its ticks carry them: the
             // wider labels need more room than uPlot's default spacing, and
             // a deeper gap keeps them clear of the y axis's bottom value.
-            { stroke: '#888', grid: { stroke: '#8881' }, ticks: { show: false }, gap: PGB_X_GAP, space: PGB_X_SPACE, size: (u) => timeAxisSize(u) + PGB_X_GAP, values: timeAxisValues },
-            { stroke: '#888', grid: { stroke: '#8881' }, ticks: { show: false }, gap: 2, size: 56, values: (u, vals) => vals.map(axisFmt) },
+            { stroke: '#888', grid: { stroke: '#8881' }, ticks: { show: false }, gap: PGB_X_GAP, space: pgbXSpace, size: (u) => timeAxisSize(u) + PGB_X_GAP, values: timeAxisValues },
+            { stroke: '#888', grid: { stroke: '#8881' }, ticks: { show: false }, gap: 2, size: pgbAxisWidth, values: (u, vals) => vals.map(axisFmt) },
         ],
         series: useries,
         plugins: [pgbTooltipPlugin(spec, valFmt)],

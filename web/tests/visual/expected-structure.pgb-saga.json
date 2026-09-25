@@ -1,0 +1,16 @@
+{
+  "sections": [
+    "pgbouncer"
+  ],
+  "canvasCount": 3,
+  "statCards": 18,
+  "tables": 3,
+  "cards": {
+    "summary": false,
+    "sql": false,
+    "checkpoints": false,
+    "connections": false,
+    "tempfiles": false,
+    "events": false
+  }
+}
