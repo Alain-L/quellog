@@ -429,3 +429,32 @@ test('sessions are split by who ended them', () => {
     ] } });
     assert.ok(html.includes('Ended by the client: 160 · by the pooler: 23'));
 });
+
+// Pooler times read on the log's own clock, like the PostgreSQL sections:
+// a +05:00 log that says 09:05:29 shows 09:05:29, not the viewer's hour.
+// The offset makes the test discriminate in any time zone, UTC included.
+test('pooler times keep the digits of the log', () => {
+    const html = buildPgBouncerSection({ pgbouncer: {
+        ...statlessPayload,
+        min_timestamp: '2026-09-25T09:05:29.363+05:00', max_timestamp: '2026-09-25T09:14:29.5+05:00',
+        events: [{ timestamp: '2026-09-25T09:11:32.427+05:00', kind: 'shutdown', detail: 'SIGINT' }],
+        total_errors: 1, errors: [{ message: 'boom', count: 1, first: '2026-09-25T09:10:59+05:00', last: '2026-09-25T09:10:59+05:00' }],
+    } });
+    for (const t of ['09:05:29', '09:14:29', '09:11:32', '09:10:59']) assert.ok(html.includes(t), t);
+});
+
+// A narrow table breaks identifiers between their words, and a run of
+// thirty characters without a break every thirty, never inside a time.
+test('table cells break between words, not mid-word', () => {
+    const html = buildPgBouncerSection({ pgbouncer: {
+        ...statlessPayload, min_timestamp: '2026-09-25T09:00:00Z', max_timestamp: '2026-09-25T09:01:00Z',
+        total_errors: 2, errors: [
+            { message: 'pooler error: query_wait_timeout', count: 1, first: '2026-09-25T09:00:01Z', last: '2026-09-25T09:00:01Z' },
+            { message: 'x'.repeat(60), count: 1, first: '2026-09-25T09:00:02Z', last: '2026-09-25T09:00:02Z' },
+        ],
+        events: [{ timestamp: '2026-09-25T09:00:00Z', kind: 'start', detail: 'PgBouncer 1.25.2' }],
+    } });
+    assert.ok(html.includes('query_<wbr>wait_<wbr>timeout'));
+    assert.ok(html.includes('x'.repeat(30) + '<wbr>' + 'x'.repeat(30) + '<wbr>'));
+    assert.ok(html.includes('>09:00:00<'), 'a time cell must stay whole');
+});

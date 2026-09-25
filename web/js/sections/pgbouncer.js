@@ -104,12 +104,24 @@ function table(cols, rows, hidden) {
                 <table>
                     <thead><tr>${cols.map(([l, num]) => `<th${num ? ' class="num"' : ''}>${l}</th>`).join('')}</tr></thead>
                     <tbody>
-                        ${rows.map(r => `<tr>${r.map((c, i) => `<td${cols[i][1] ? ' class="num"' : i === 0 ? ' style="overflow-wrap:anywhere"' : ''}>${c}</td>`).join('')}</tr>`).join('')}
+                        ${rows.map(r => `<tr>${r.map((c, i) => `<td${cols[i][1] ? ' class="num"' : i === 0 ? ' style="overflow-wrap:break-word"' : ''}>${c}</td>`).join('')}</tr>`).join('')}
                         ${hidden > 0 ? `<tr><td colspan="${cols.length}" style="color: var(--text-muted)">… and ${fmt(hidden)} more</td></tr>` : ''}
                     </tbody>
                 </table>
             </div>
     `;
+}
+
+// breakable lets an escaped cell wrap after "_", "/" or ":" as well as at
+// spaces, so query_wait_timeout breaks between its words on a phone
+// instead of mid-word, and every 30 characters of a run with none of them:
+// a client names its own database before it authenticates, and 200
+// characters without a break would widen the table past the screen. The
+// grid cells holding the tables take min-width 0, so a table that is still
+// too wide scrolls in its container instead of growing past a section
+// that clips.
+function breakable(html) {
+    return html.replace(/[^\s_/:&;<>]{30}/g, '$&<wbr>').replace(/[_/:]/g, '$&<wbr>');
 }
 
 const pct = (n, total) => (total ? (n / total * 100).toFixed(1) : '0.0') + '%';
@@ -119,7 +131,7 @@ const pct = (n, total) => (total ? (n / total * 100).toFixed(1) : '0.0') + '%';
 function errorsTable(errors, total, at) {
     const list = errors || [];
     return table([['Error'], ['Count', true], ['%', true], ['First', true], ['Last', true]],
-        list.slice(0, LIST_MAX).map(e => [esc(e.message), fmt(e.count), pct(e.count, total), at(e.first), at(e.last)]),
+        list.slice(0, LIST_MAX).map(e => [breakable(esc(e.message)), fmt(e.count), pct(e.count, total), at(e.first), at(e.last)]),
         list.length - LIST_MAX);
 }
 
@@ -129,7 +141,7 @@ function errorsTable(errors, total, at) {
 function reasonsTable(reasons, total) {
     const list = reasons || [];
     return table([['Close reason'], ['Count', true], ['%', true], ['Avg age', true]],
-        list.slice(0, LIST_MAX).map(r => [esc(r.reason), fmt(r.count), pct(r.count, total), sessionTime(r.total_seconds / r.count)]),
+        list.slice(0, LIST_MAX).map(r => [breakable(esc(r.reason)), fmt(r.count), pct(r.count, total), sessionTime(r.total_seconds / r.count)]),
         list.length - LIST_MAX);
 }
 
@@ -168,6 +180,14 @@ function sessionHistogram(dist, total) {
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
+// wallClock reads a pooler timestamp on the log's own clock, as the
+// PostgreSQL sections do: the payload keeps the zone pgBouncer wrote, and
+// dropping it before parsing shows the digits of the log whatever the
+// viewer's time zone, so a pooler incident lines up with the server's.
+function wallClock(ts) {
+    return new Date(String(ts).replace(/(Z|[+-]\d\d:\d\d)$/, ''));
+}
+
 // clock renders a local wall-clock time, and day the date that goes with
 // it, in the report's existing short vocabulary ("20 Sep 2026").
 function clock(d) {
@@ -184,8 +204,8 @@ function day(d) {
 // period with no entry).
 function captureWindow(p) {
     if (!p.min_timestamp || !p.max_timestamp) return null;
-    const from = new Date(p.min_timestamp);
-    const to = new Date(p.max_timestamp);
+    const from = wallClock(p.min_timestamp);
+    const to = wallClock(p.max_timestamp);
     if (isNaN(from) || isNaN(to) || to < from) return null;
     return { from, to };
 }
@@ -314,7 +334,7 @@ function statsPeriodSeconds(series) {
     if (!series || series.length < 2) return 0;
     const gaps = [];
     for (let i = 1; i < series.length; i++) {
-        const d = (new Date(series[i].time) - new Date(series[i - 1].time)) / 1000;
+        const d = (wallClock(series[i].time) - wallClock(series[i - 1].time)) / 1000;
         if (d > 0) gaps.push(d);
     }
     if (gaps.length === 0) return 0;
@@ -327,7 +347,7 @@ function statsPeriodSeconds(series) {
 // single snapshot always does.
 function statsUnderCovered(p) {
     if (!p.stats_sample_count) return false;
-    const window = (new Date(p.max_timestamp) - new Date(p.min_timestamp)) / 1000;
+    const window = (wallClock(p.max_timestamp) - wallClock(p.min_timestamp)) / 1000;
     if (!(window > 0)) return false;
     const covered = statsPeriodSeconds(p.stats_series) * p.stats_sample_count;
     if (!(covered > 0)) return true;
@@ -390,7 +410,7 @@ function oneSnapshotText(n) {
 // reports 0.0 queries/s over a window holding hundreds of sessions, and
 // states it as a measurement.
 function coverageText(p) {
-    const window = Math.round((new Date(p.max_timestamp) - new Date(p.min_timestamp)) / 1000);
+    const window = Math.round((wallClock(p.max_timestamp) - wallClock(p.min_timestamp)) / 1000);
     const covered = Math.round(statsPeriodSeconds(p.stats_series) * p.stats_sample_count);
     const lead = covered > 0
         ? `${fmt(p.stats_sample_count)} stats snapshots cover ${fmt(covered)}\u00a0s of this ${fmt(window)}\u00a0s window`
@@ -433,7 +453,7 @@ export function buildPgBouncerSection(data) {
 // the header then.
 function poolerSection(p, suffix, named, wholeLogNote) {
     const at = (ts) => {
-        const d = new Date(ts);
+        const d = wallClock(ts);
         return isNaN(d) ? '' : clock(d);
     };
     const depth = waitIsQueueDepth(p.version);
@@ -441,7 +461,7 @@ function poolerSection(p, suffix, named, wholeLogNote) {
     const series = p.stats_series || [];
     const hasSeries = series.length >= MIN_CHART_POINTS;
     if (hasSeries) {
-        const t = series.map(s => Math.round(new Date(s.time).getTime() / 1000));
+        const t = series.map(s => Math.round(wallClock(s.time).getTime() / 1000));
         chartData.set('chart-pgb-throughput' + suffix, {
             type: 'pgb-series', t,
             series: [
@@ -544,7 +564,7 @@ function poolerSection(p, suffix, named, wholeLogNote) {
                 ${closing.length > 0 ? `
                     <div class="subsection">
                         ${closing.length > 1
-                            ? `<div class="grid grid-2">${closing.map((b, i) => `<div${i === closing.length - 1 && i % 2 === 0 ? ' style="grid-column: 1 / -1"' : ''}>${b}</div>`).join('')}</div>`
+                            ? `<div class="grid grid-2">${closing.map((b, i) => `<div style="min-width: 0${i === closing.length - 1 && i % 2 === 0 ? '; grid-column: 1 / -1' : ''}">${b}</div>`).join('')}</div>`
                             : closing[0]}
                     </div>
                 ` : ''}
