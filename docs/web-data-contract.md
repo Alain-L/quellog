@@ -17,9 +17,12 @@ zstd-decompressed from the embedded blob).
 
 Conventions:
 
-- Timestamps appear in three shapes: display strings `"YYYY-MM-DD HH:MM:SS"`
+- Timestamps appear in four shapes: display strings `"YYYY-MM-DD HH:MM:SS"`
   (most `events` arrays), ISO strings `"YYYY-MM-DDTHH:MM:SS"` (`session_events`,
-  `sql_performance.executions`), and Unix milliseconds (`top_events[].timestamps`).
+  `sql_performance.executions`), Unix milliseconds (`top_events[].timestamps`),
+  and RFC 3339 with milliseconds and zone offset `"2026-09-25T09:05:29.363Z"`
+  (every time in the `pgbouncer` entries: pgBouncer writes its zone on each
+  line, and the charts place the points on the viewer's clock).
 - Human-formatted values (durations `"1m 32s"`, sizes `"683.59 KB"`, rates) are
   pre-rendered strings; raw numbers keep a `_ms`, `_kb`, `_seconds` or `count` name.
 - A section key is **absent** when the section has no data (see "Gated keys").
