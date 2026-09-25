@@ -564,3 +564,16 @@ func TestPgBouncerWaitIsWeightedByTransactions(t *testing.T) {
 	a.processStats(base.Add(10*time.Second), " 100 xacts/s, 100 queries/s, in 1 B/s, out 1 B/s, xact 1 us, query 1 us, wait 0 us")
 	almost(t, "AvgWaitMicros", a.Finalize().AvgWaitMicros, 10_000.0/110)
 }
+
+// TestPgBouncerSessionsEndedByClient: "client_idle_timeout" is the pooler
+// ending an idle client, not the client leaving; only "client " with a
+// space names the client as the actor.
+func TestPgBouncerSessionsEndedByClient(t *testing.T) {
+	m := PgBouncerMetrics{SessionReasons: []PgBouncerCloseReason{
+		{"client close request", 157, 0}, {"client unexpected eof", 3, 0},
+		{"client_idle_timeout", 1, 0}, {"query_wait_timeout", 22, 0},
+	}}
+	if got := m.SessionsEndedByClient(); got != 160 {
+		t.Errorf("SessionsEndedByClient = %d, want 160", got)
+	}
+}

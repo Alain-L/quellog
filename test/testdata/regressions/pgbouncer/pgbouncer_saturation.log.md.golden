@@ -61,6 +61,8 @@
 
 - Completed sessions: **68**
 - Average session time: **20s**
+- Ended by the client: **29**
+- Ended by the pooler: **39**
 
 | Session time | Count |
 |---|---|

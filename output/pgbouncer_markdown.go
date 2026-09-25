@@ -153,6 +153,11 @@ func exportPgBouncerMarkdown(w io.Writer, m analysis.PgBouncerMetrics, title str
 		fmt.Fprintln(w)
 		fmt.Fprintf(w, "- Completed sessions: **%d**\n", m.Sessions)
 		fmt.Fprintf(w, "- Average session time: **%s**\n", formatSessionDuration(time.Duration(m.AvgSessionSeconds()*float64(time.Second))))
+		if len(m.SessionReasons) > 0 {
+			byClient := m.SessionsEndedByClient()
+			fmt.Fprintf(w, "- Ended by the client: **%d**\n", byClient)
+			fmt.Fprintf(w, "- Ended by the pooler: **%d**\n", m.Sessions-byClient)
+		}
 		fmt.Fprintln(w)
 		fmt.Fprintln(w, "| Session time | Count |")
 		fmt.Fprintln(w, "|---|---|")

@@ -122,6 +122,11 @@ func printPgBouncer(m analysis.PgBouncerMetrics, title string) {
 		PrintHistogram(m.SessionDistribution, "Session time", "", 1, sessionBucketOrder)
 		fmt.Printf("  %-25s : %d\n", "Completed sessions", m.Sessions)
 		fmt.Printf("  %-25s : %s\n", "Average session time", formatSessionDuration(time.Duration(m.AvgSessionSeconds()*float64(time.Second))))
+		if len(m.SessionReasons) > 0 {
+			byClient := m.SessionsEndedByClient()
+			fmt.Printf("  %-25s : %d\n", "Ended by the client", byClient)
+			fmt.Printf("  %-25s : %d\n", "Ended by the pooler", m.Sessions-byClient)
+		}
 		printPgbCloseReasons(m.SessionReasons, m.Sessions)
 		if len(m.SessionsPerDatabase) > 0 {
 			printRankedCountTable("Sessions per database:", m.SessionsPerDatabase, m.Sessions, true)

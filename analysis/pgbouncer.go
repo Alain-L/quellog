@@ -247,6 +247,20 @@ func (m PgBouncerMetrics) ClientLinesMissing() bool {
 	return m.MaxXactsPerSec > 0 || m.MaxQueriesPerSec > 0
 }
 
+// SessionsEndedByClient counts the completed sessions the client ended
+// itself ("client close request", "client unexpected eof", ...); the rest
+// were ended by the pooler: refused at login, killed in the queue or when
+// idle, cut by a PAUSE or a server failure.
+func (m PgBouncerMetrics) SessionsEndedByClient() int {
+	n := 0
+	for _, r := range m.SessionReasons {
+		if strings.HasPrefix(r.Reason, "client ") {
+			n += r.Count
+		}
+	}
+	return n
+}
+
 // WaitIsQueueDepth reports whether the pooler logged "wait" with its
 // meaning before pgBouncer 1.23: the clients' accumulated queueing time
 // per second of wall time, a queue depth rather than a duration. 1.23

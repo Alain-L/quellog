@@ -418,3 +418,14 @@ test('log-borne text is escaped in every new cell', () => {
     const quoted = buildPgBouncerSection({ pgbouncer: { ...statlessPayload, name: 'p', files: ['/logs/x" onmouseover="alert(1).log'] } });
     assert.ok(quoted.includes('title="/logs/x&quot; onmouseover=&quot;alert(1).log"'), 'a quote in a file name broke out of its attribute');
 });
+
+// Who ended the sessions: "client_idle_timeout" is the pooler's doing,
+// only a reason starting "client " is the client's, as on the Go side.
+test('sessions are split by who ended them', () => {
+    const html = buildPgBouncerSection({ pgbouncer: { ...statlessPayload, sessions: 183, session_reasons: [
+        { reason: 'client close request', count: 160, total_seconds: 0 },
+        { reason: 'client_idle_timeout', count: 1, total_seconds: 20 },
+        { reason: 'query_wait_timeout', count: 22, total_seconds: 66 },
+    ] } });
+    assert.ok(html.includes('Ended by the client: 160 · by the pooler: 23'));
+});

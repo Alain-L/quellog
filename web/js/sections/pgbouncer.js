@@ -133,6 +133,16 @@ function reasonsTable(reasons, total) {
         list.length - LIST_MAX);
 }
 
+// endedBy states who ended the sessions, mirroring
+// PgBouncerMetrics.SessionsEndedByClient: a reason starting with "client "
+// is the client leaving; any other is the pooler refusing or killing it.
+function endedBy(p) {
+    const byClient = p.session_reasons
+        .filter(r => r.reason.startsWith('client '))
+        .reduce((n, r) => n + r.count, 0);
+    return `<div style="font-size: 0.75rem; color: var(--text-muted); padding-bottom: 0.25rem;">Ended by the client: ${fmt(byClient)} · by the pooler: ${fmt(p.sessions - byClient)}</div>`;
+}
+
 // timelineTable is the pooler's own history: starts, shutdowns, reloads
 // and console commands.
 function timelineTable(events, at) {
@@ -473,7 +483,7 @@ function poolerSection(p, suffix, named, wholeLogNote) {
     // report blank, so it takes the full width.
     const closing = [
         hasSessions ? `<div class="subsection-title" style="margin-top:0">Session Time</div>${sessionHistogram(p.session_distribution, p.sessions)}` : '',
-        hasSessions && p.session_reasons ? `<div class="subsection-title" style="margin-top:0">Close Reasons</div>${reasonsTable(p.session_reasons, p.sessions)}` : '',
+        hasSessions && p.session_reasons ? `<div class="subsection-title" style="margin-top:0">Close Reasons</div>${endedBy(p)}${reasonsTable(p.session_reasons, p.sessions)}` : '',
         p.events ? `<div class="subsection-title" style="margin-top:0">Timeline</div>${timelineTable(p.events, at)}` : '',
         hasErrors ? `<div class="subsection-title" style="margin-top:0">Most Frequent Errors</div>${errorsTable(p.errors, p.total_errors, at)}` : '',
     ].filter(Boolean);

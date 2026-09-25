@@ -243,6 +243,8 @@ This _quellog_ report summarizes **60** log entries collected between 25 Sep 202
 
 - Completed sessions: **96**
 - Average session time: **14s**
+- Ended by the client: **79**
+- Ended by the pooler: **17**
 
 | Session time | Count |
 |---|---|
