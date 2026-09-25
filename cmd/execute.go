@@ -173,6 +173,13 @@ func runAnalysisCycle(ctx context.Context, args []string) error {
 		return renderReport(analysis.AggregatedMetrics{}, pgb, true, args, 0, time.Since(startTime))
 	}
 
+	// With pooler files in the run, an archive may hold both kinds of log:
+	// the PostgreSQL track reads its PostgreSQL members only.
+	if len(pgbFiles) > 0 {
+		parser.SetArchiveTrack(parser.PostgresMembers)
+		defer parser.SetArchiveTrack(parser.AllMembers)
+	}
+
 	// Calculate total file size for throughput reporting (PostgreSQL track).
 	totalFileSize := calculateTotalFileSize(pgFiles)
 

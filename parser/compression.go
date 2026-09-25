@@ -371,12 +371,15 @@ func newCompressedParser(codec compressionCodec, format string, parse func(r io.
 	}
 }
 
-// innerFormat implements formatWrapper: the payload format was already
+// innerFormats implements formatWrapper: the payload format was already
 // resolved on the decompressed sample at detection time, so the filename is
 // not needed. Without it DetectFileFormat reported every compressed file as
 // "stderr" and a pgBouncer .gz was handed to the PostgreSQL analyzer.
-func (c *compressedLogParser) innerFormat(string) string {
-	return c.format
+func (c *compressedLogParser) innerFormats(string) []string {
+	if c.format == "" {
+		return nil
+	}
+	return []string{c.format}
 }
 
 func (c *compressedLogParser) Parse(filename string, out chan<- []LogEntry) error {

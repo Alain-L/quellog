@@ -12,7 +12,9 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
+	"sync/atomic"
 )
 
 var errUnsupportedArchiveEntry = errors.New("unsupported archive entry")
@@ -126,21 +128,20 @@ func openTarStream(filename string, r io.Reader) (io.Reader, io.Closer, error) {
 	return r, nil, nil
 }
 
-// innerFormat implements formatWrapper: it names the format of the first
-// member the archive holds that we can parse, so the cmd layer routes a
-// pgBouncer archive to the pooler analyzer instead of feeding pooler lines
-// to the PostgreSQL one. An archive mixing both formats resolves to its
-// first parsable member, like any other single input.
-func (p *TarParser) innerFormat(filename string) string {
+// innerFormats implements formatWrapper: it names the formats of the
+// members the archive holds that we can parse, so the cmd layer routes a
+// pgBouncer archive to the pooler analyzer, and a mixed one to both
+// analyzers, instead of feeding pooler lines to the PostgreSQL one.
+func (p *TarParser) innerFormats(filename string) (formats []string) {
 	file, err := os.Open(filename)
 	if err != nil {
-		return ""
+		return nil
 	}
 	defer file.Close()
 
 	reader, closer, err := openTarStream(filename, file)
 	if err != nil {
-		return ""
+		return nil
 	}
 	if closer != nil {
 		defer closer.Close()
@@ -150,15 +151,52 @@ func (p *TarParser) innerFormat(filename string) string {
 	for {
 		hdr, err := tr.Next()
 		if err != nil || hdr == nil {
-			return ""
+			return formats
 		}
 		if hdr.Typeflag != tar.TypeReg || hdr.Size == 0 || strings.Contains(hdr.Name, "..") {
 			continue
 		}
-		if format := archiveMemberFormat(filepath.Base(hdr.Name), io.LimitReader(tr, hdr.Size)); format != "" {
-			return format
-		}
+		formats = addFormat(formats, archiveMemberFormat(filepath.Base(hdr.Name), io.LimitReader(tr, hdr.Size)))
 	}
+}
+
+// addFormat appends a member's format to the formats an archive holds,
+// once each; "" (not a log) is left out.
+func addFormat(formats []string, format string) []string {
+	if format == "" || slices.Contains(formats, format) {
+		return formats
+	}
+	return append(formats, format)
+}
+
+// ArchiveTrack selects the members an archive parse reads. A single run
+// may analyze PostgreSQL and pgBouncer logs on two tracks; an archive
+// holding both is then read once per track, each keeping its own
+// members. The cmd layer sets it around each pass; the zero value reads
+// every member.
+type ArchiveTrack int32
+
+const (
+	AllMembers ArchiveTrack = iota
+	PostgresMembers
+	PoolerMembers
+)
+
+var archiveTrack atomic.Int32
+
+// SetArchiveTrack sets the members the archive parses that follow read.
+func SetArchiveTrack(t ArchiveTrack) { archiveTrack.Store(int32(t)) }
+
+// keepMember reports whether the current track reads a member, pooler
+// saying whether it is a pgBouncer log.
+func keepMember(pooler bool) bool {
+	switch ArchiveTrack(archiveTrack.Load()) {
+	case PostgresMembers:
+		return !pooler
+	case PoolerMembers:
+		return pooler
+	}
+	return true
 }
 
 // archiveMemberFormat names the format of one archive member ("csv",
@@ -310,6 +348,9 @@ func sniffAndParseArchiveEntry(name string, r io.Reader, out chan<- []LogEntry) 
 
 	// Replay the buffered sample ahead of the rest of the entry.
 	full := io.MultiReader(bytes.NewReader(sample), r)
+	if _, pooler := parser.(*PgBouncerParser); !keepMember(pooler) {
+		return true, nil // the other track's member; the caller drains it
+	}
 	switch src := parser.(type) {
 	case *CsvParser:
 		return true, (&CsvParser{}).parseReader(full, out)
@@ -366,7 +407,9 @@ func parseLogArchiveEntry(r io.Reader, out chan<- []LogEntry) error {
 	// pgBouncer first: a pooler log shares PostgreSQL's timestamp/PID shape,
 	// so the stderr reader would happily swallow it and report it as a
 	// PostgreSQL log.
-	if looksLikePgBouncer(s) {
+	if pooler := looksLikePgBouncer(s); !keepMember(pooler) {
+		return nil // the other track's member; the caller drains it
+	} else if pooler {
 		return (&PgBouncerParser{}).parseReader(full, out)
 	}
 
@@ -391,9 +434,15 @@ func parseArchiveEntry(name string, r io.Reader, out chan<- []LogEntry) error {
 		// prefix-less, sequential when a prefix was detected).
 		return parseLogArchiveEntry(r, out)
 	case strings.HasSuffix(lower, ".csv"):
+		if !keepMember(false) {
+			return nil
+		}
 		parser := &CsvParser{}
 		return parser.parseReader(r, out)
 	case strings.HasSuffix(lower, ".json"), strings.HasSuffix(lower, ".jsonl"):
+		if !keepMember(false) {
+			return nil
+		}
 		parser := &JsonParser{}
 		return parser.parseReader(r, out)
 	case strings.HasSuffix(lower, ".gz"):
@@ -417,6 +466,9 @@ func parseArchiveEntry(name string, r io.Reader, out chan<- []LogEntry) error {
 		return parseLogArchiveEntry(r, out)
 	case hasRotatedBase(lower, ".csv"):
 		// Rotated CSV log files (numeric, date-dot or dateext).
+		if !keepMember(false) {
+			return nil
+		}
 		parser := &CsvParser{}
 		return parser.parseReader(r, out)
 	default:

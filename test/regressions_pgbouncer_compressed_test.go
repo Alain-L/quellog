@@ -143,17 +143,86 @@ func zipFixture(t *testing.T, plain []byte) []byte {
 // address to name it by.
 func withoutSource(t *testing.T, doc []byte) []byte {
 	t.Helper()
-	var d map[string][]map[string]any
+	var d map[string]any
 	if err := json.Unmarshal(doc, &d); err != nil {
 		t.Fatalf("invalid JSON: %v", err)
 	}
-	for _, p := range d["pgbouncer"] {
-		delete(p, "files")
-		delete(p, "name")
+	poolers, _ := d["pgbouncer"].([]any)
+	for _, p := range poolers {
+		delete(p.(map[string]any), "files")
+		delete(p.(map[string]any), "name")
 	}
 	out, err := json.Marshal(d)
 	if err != nil {
 		t.Fatalf("marshal: %v", err)
+	}
+	return out
+}
+
+// TestMixedArchiveIsSplit is a refutation test. An archive holding a
+// PostgreSQL log and a pooler log -- a support bundle -- used to be routed
+// whole by its first member: pooler lines polluted the PostgreSQL report,
+// or the PostgreSQL report vanished, in silence. Each member must reach its
+// own analyzer, whatever the order, exactly as the two files passed apart.
+// Routing by the first member agrees with this rule on every archive that
+// holds one kind of log, which is every other test in this file.
+func TestMixedArchiveIsSplit(t *testing.T) {
+	const pg, pooler = "testdata/pgbouncer/P1/p1.postgresql.log", "testdata/pgbouncer/P1/p1.pgbouncer.log"
+	want := withoutSource(t, withoutMeta(t, runHarness(t, false, pg, pooler, "--json")))
+	members := map[string][]byte{}
+	for _, f := range []string{pg, pooler} {
+		b, err := os.ReadFile(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		members[filepath.Base(f)] = b
+	}
+	dir := t.TempDir()
+	for name, order := range map[string][]string{
+		"pg-first.tgz":     {"p1.postgresql.log", "p1.pgbouncer.log"},
+		"pooler-first.tgz": {"p1.pgbouncer.log", "p1.postgresql.log"},
+		"pooler-first.zip": {"p1.pgbouncer.log", "p1.postgresql.log"},
+	} {
+		var buf bytes.Buffer
+		if filepath.Ext(name) == ".zip" {
+			zw := zip.NewWriter(&buf)
+			for _, m := range order {
+				w, _ := zw.Create(m)
+				w.Write(members[m])
+			}
+			zw.Close()
+		} else {
+			gz := gzip.NewWriter(&buf)
+			tw := tar.NewWriter(gz)
+			for _, m := range order {
+				tw.WriteHeader(&tar.Header{Name: m, Mode: 0o644, Size: int64(len(members[m])), Typeflag: tar.TypeReg})
+				tw.Write(members[m])
+			}
+			tw.Close()
+			gz.Close()
+		}
+		path := filepath.Join(dir, name)
+		if err := os.WriteFile(path, buf.Bytes(), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if got := withoutSource(t, withoutMeta(t, runHarness(t, false, path, "--json"))); !bytes.Equal(got, want) {
+			t.Errorf("%s: the archive's report diverges from its two files read apart\n--- want ---\n%s\n--- got ---\n%s", name, want, got)
+		}
+	}
+}
+
+// withoutMeta drops the run metadata (input names and sizes) from a --json
+// document.
+func withoutMeta(t *testing.T, doc []byte) []byte {
+	t.Helper()
+	var d map[string]json.RawMessage
+	if err := json.Unmarshal(doc, &d); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+	delete(d, "meta")
+	out, err := json.Marshal(d)
+	if err != nil {
+		t.Fatal(err)
 	}
 	return out
 }

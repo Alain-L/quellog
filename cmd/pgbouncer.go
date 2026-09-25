@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"log/slog"
+	"slices"
 	"sync/atomic"
 	"time"
 
@@ -18,7 +19,8 @@ import (
 // section — instead of silently feeding one analyzer foreign lines.
 // stdin ("-") cannot be sampled by path and is treated as PostgreSQL, and
 // so is a file the detector rejects: the PostgreSQL track reports it, and
-// a pooler report that did parse survives that track coming out empty.
+// a pooler report that did parse survives that track coming out empty. An
+// archive holding both kinds of log goes to both tracks.
 //
 // The detector logs what it finds and the parse that follows detects
 // again, so the files are sorted in silence: each message prints once.
@@ -27,9 +29,17 @@ func partitionInputsByFormat(files []string) (pgFiles, pgbFiles []string) {
 	slog.SetDefault(slog.New(slog.DiscardHandler))
 	defer slog.SetDefault(prev)
 	for _, f := range files {
-		if f != "-" && parser.DetectFileFormat(f) == "pgbouncer" {
+		var formats []string
+		if f != "-" {
+			formats = parser.InputFormats(f)
+		}
+		pooler := slices.Contains(formats, "pgbouncer")
+		if pooler {
 			pgbFiles = append(pgbFiles, f)
-		} else {
+		}
+		// An archive holding both kinds of log goes to both tracks, each
+		// reading its own members (see parser.SetArchiveTrack).
+		if !pooler || len(formats) > 1 {
 			pgFiles = append(pgFiles, f)
 		}
 	}
@@ -48,6 +58,8 @@ func partitionInputsByFormat(files []string) (pgFiles, pgbFiles []string) {
 // silently amputated the pooler report instead of filtering it.
 func computePgBouncerMetrics(ctx context.Context, files []string, beginT, endT time.Time, parsedAny *atomic.Bool) []analysis.PgBouncerMetrics {
 	bounds := parser.LogFilters{BeginT: parser.WallClock(beginT), EndT: parser.WallClock(endT)}
+	parser.SetArchiveTrack(parser.PoolerMembers)
+	defer parser.SetArchiveTrack(parser.AllMembers)
 	parts := make([]*analysis.PgBouncerAnalyzer, 0, len(files))
 	for _, f := range files {
 		parser.ResetPgBouncerLineCounts()

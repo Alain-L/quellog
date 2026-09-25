@@ -123,35 +123,45 @@ func ParseFile(filename string, out chan<- []LogEntry) error {
 // of reporting every compressed or archived input as "stderr" — which sent
 // a pgBouncer log in a .gz or a .tgz straight to the PostgreSQL analyzer.
 type formatWrapper interface {
-	// innerFormat returns "csv", "json", "pgbouncer" or "stderr" for the
-	// wrapped payload, or "" when it cannot be determined. filename is the
-	// wrapper's own path, for the implementations that must reopen it.
-	innerFormat(filename string) string
+	// innerFormats returns the formats ("csv", "json", "pgbouncer" or
+	// "stderr") the wrapped payload holds, each once, in the order met,
+	// or nothing when they cannot be determined. An archive may hold
+	// several. filename is the wrapper's own path, for the
+	// implementations that must reopen it.
+	innerFormats(filename string) []string
 }
 
 // DetectFileFormat detects the log format of a file without parsing it.
 // Returns "csv", "json", "pgbouncer", or "stderr" (for stderr/syslog
-// formats). Returns empty string if the format cannot be detected.
+// formats); for an archive, the format of its first log. Returns empty
+// string if the format cannot be detected.
 func DetectFileFormat(filename string) string {
+	if formats := InputFormats(filename); len(formats) > 0 {
+		return formats[0]
+	}
+	return ""
+}
+
+// InputFormats is DetectFileFormat for an input that may hold several
+// logs: every format an archive's members carry, each once.
+func InputFormats(filename string) []string {
 	parser, err := detectParser(filename)
 	if err != nil {
-		return ""
+		return nil
 	}
 	switch p := parser.(type) {
 	case *CsvParser:
-		return "csv"
+		return []string{"csv"}
 	case *JsonParser:
-		return "json"
+		return []string{"json"}
 	case *PgBouncerParser:
-		return "pgbouncer"
+		return []string{"pgbouncer"}
 	case formatWrapper:
-		if format := p.innerFormat(filename); format != "" {
-			return format
+		if formats := p.innerFormats(filename); len(formats) > 0 {
+			return formats
 		}
-		return "stderr"
-	default:
-		return "stderr"
 	}
+	return []string{"stderr"}
 }
 
 // detectParser reads a sample from the file to identify its format.
