@@ -5,6 +5,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"compress/gzip"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -20,6 +21,7 @@ import (
 //
 // The fixture is the corpus one, so the expected output is its existing
 // JSON golden: compression must be transparent, never a different report.
+// Only the file the pooler was read from differs.
 // Before the parseReader extraction, .gz/.zst panicked on a nil parser and
 // archives were silently parsed as PostgreSQL.
 func TestPgBouncerCompressedInputs(t *testing.T) {
@@ -51,8 +53,8 @@ func TestPgBouncerCompressedInputs(t *testing.T) {
 			if err := os.WriteFile(path, v.build(t, plain), 0o644); err != nil {
 				t.Fatalf("write %s: %v", path, err)
 			}
-			got := runHarness(t, false, path, "--json")
-			if !bytes.Equal(got, want) {
+			got := withoutSource(t, runHarness(t, false, path, "--json"))
+			if want := withoutSource(t, want); !bytes.Equal(got, want) {
 				t.Errorf("%s output diverges from the plain-input golden\n--- want ---\n%s\n--- got ---\n%s",
 					v.name, want, got)
 			}
@@ -134,4 +136,24 @@ func zipFixture(t *testing.T, plain []byte) []byte {
 		t.Fatalf("zip close: %v", err)
 	}
 	return buf.Bytes()
+}
+
+// withoutSource drops what names the input file from every pooler of a
+// --json document: its files, and its name when the log gives no listen
+// address to name it by.
+func withoutSource(t *testing.T, doc []byte) []byte {
+	t.Helper()
+	var d map[string][]map[string]any
+	if err := json.Unmarshal(doc, &d); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+	for _, p := range d["pgbouncer"] {
+		delete(p, "files")
+		delete(p, "name")
+	}
+	out, err := json.Marshal(d)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	return out
 }

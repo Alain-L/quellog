@@ -424,3 +424,118 @@ func TestPgBouncerPeerWithSpacesAndAtSigns(t *testing.T) {
 		t.Errorf("splitSocketEvent = (%q, %q, %v), want the full peer and the verb", peer, verb, ok)
 	}
 }
+
+// TestPgBouncerLifecycleEvents is a table of the LOG lines that mark a
+// step of the pooler's life, next to lines that look alike and are not.
+func TestPgBouncerLifecycleEvents(t *testing.T) {
+	for _, c := range []struct{ rest, kind, detail string }{
+		{"process up: PgBouncer 1.25.2, libevent 2.1.13-stable (epoll), adns: c-ares 1.34.5", "start", "PgBouncer 1.25.2"},
+		{"got SIGINT, shutting down, waiting for all servers connections to be released", "shutdown", "SIGINT"},
+		{"got SIGTERM, fast exit", "shutdown", "SIGTERM"},
+		{"got SIGHUP, re-reading config", "reload", "SIGHUP"},
+		{"RELOAD command issued", "reload", "RELOAD"},
+		{"PAUSE 'bench' command issued", "pause", "PAUSE 'bench'"},
+		{"RESUME command issued", "resume", "RESUME"},
+		{"SHUTDOWN command issued", "shutdown", "SHUTDOWN"},
+		{"server connections dropped, exiting", "", ""},
+		{"listening on 127.0.0.1:6432", "", ""},
+		{"got SIGCHLD", "", ""},
+		{"no such command issued", "", ""},
+	} {
+		kind, detail, ok := lifecycleEvent(c.rest)
+		if kind != c.kind || detail != c.detail || ok != (c.kind != "") {
+			t.Errorf("lifecycleEvent(%q) = %q, %q, %v; want %q, %q", c.rest, kind, detail, ok, c.kind, c.detail)
+		}
+	}
+}
+
+// TestPgBouncerErrorsAndReasonsKeepTheirTimes checks that each error keeps
+// its first and last occurrence, each close reason its own count and
+// ages, and each maximum the time of the snapshot that reached it.
+func TestPgBouncerErrorsAndReasonsKeepTheirTimes(t *testing.T) {
+	base := time.Date(2026, 9, 25, 9, 0, 0, 0, time.UTC)
+	a := NewPgBouncerAnalyzer()
+	feed(a, base,
+		"WARNING C-0x1: app/u@h:1 pooler error: query_wait_timeout",
+		statsLine(5, 5, 1, 1, "10", "10", "900"),
+		"LOG C-0x1: app/u@h:1 closing because: query_wait_timeout (age=3s)",
+		"LOG C-0x2: app/u@h:2 closing because: client close request (age=40s)",
+		"WARNING C-0x3: app/u@h:3 pooler error: query_wait_timeout",
+		"LOG C-0x3: app/u@h:3 closing because: query_wait_timeout (age=5s)",
+		statsLine(5, 5, 1, 1, "10", "10", "300"),
+	)
+	m := a.Finalize()
+	if len(m.Errors) != 1 || m.Errors[0].Count != 2 || !m.Errors[0].First.Equal(base) || !m.Errors[0].Last.Equal(base.Add(4*time.Minute)) {
+		t.Errorf("errors = %+v, want one error seen twice from minute 0 to minute 4", m.Errors)
+	}
+	want := []PgBouncerCloseReason{{"query_wait_timeout", 2, 8}, {"client close request", 1, 40}}
+	if fmt.Sprint(m.SessionReasons) != fmt.Sprint(want) {
+		t.Errorf("session reasons = %+v, want %+v", m.SessionReasons, want)
+	}
+	if !m.MaxWaitTimestamp.Equal(base.Add(time.Minute)) {
+		t.Errorf("max wait at %v, want the first snapshot at %v", m.MaxWaitTimestamp, base.Add(time.Minute))
+	}
+}
+
+// pgbFile builds the analyzer of one file: records from pid, every
+// minute from start, with an optional listen line first.
+func pgbFile(name, pid, listen string, start time.Time, minutes int) *PgBouncerAnalyzer {
+	a := NewPgBouncerAnalyzer()
+	msgs := []string{}
+	if listen != "" {
+		msgs = append(msgs, "LOG listening on "+listen)
+	}
+	for len(msgs) < minutes {
+		msgs = append(msgs, statsLine(1, 1, 1, 1, "1", "1", "1"))
+	}
+	for i, m := range msgs {
+		e := parser.LogEntry{Timestamp: start.Add(time.Duration(i) * time.Minute), Message: m, PID: pid}
+		a.Observe(&e)
+		a.Process(&e)
+	}
+	a.SetSource(name, len(msgs), 0)
+	return a
+}
+
+// TestPgBouncerInstances separates the rule that groups files into
+// poolers from its neighbours: grouping by address alone merges two
+// hosts, grouping by PID alone merges two containers, and ignoring time
+// splits a rotated or restarted pooler.
+func TestPgBouncerInstances(t *testing.T) {
+	t0 := time.Date(2026, 9, 25, 9, 0, 0, 0, time.UTC)
+	later := t0.Add(time.Hour)
+	for _, c := range []struct {
+		name  string
+		files []*PgBouncerAnalyzer
+		want  []string
+	}{
+		{"rotation: same PID, one after the other", []*PgBouncerAnalyzer{
+			pgbFile("a.log.1", "10", "127.0.0.1:6432", t0, 5),
+			pgbFile("a.log", "10", "", later, 5),
+		}, []string{"127.0.0.1:6432 [a.log.1 a.log]"}},
+		{"restart into a new file: same address, one after the other", []*PgBouncerAnalyzer{
+			pgbFile("a.log.1", "10", "127.0.0.1:6432", t0, 5),
+			pgbFile("a.log", "11", "127.0.0.1:6432", later, 5),
+		}, []string{"127.0.0.1:6432 [a.log.1 a.log]"}},
+		{"two hosts on the same address at the same time", []*PgBouncerAnalyzer{
+			pgbFile("h1.log", "10", "0.0.0.0:6432", t0, 5),
+			pgbFile("h2.log", "20", "0.0.0.0:6432", t0, 5),
+		}, []string{"0.0.0.0:6432 (h1.log) [h1.log]", "0.0.0.0:6432 (h2.log) [h2.log]"}},
+		{"two containers, both PID 1, at the same time", []*PgBouncerAnalyzer{
+			pgbFile("pod1.log", "1", "", t0, 5),
+			pgbFile("pod2.log", "1", "", t0, 5),
+		}, []string{"pod1.log [pod1.log]", "pod2.log [pod2.log]"}},
+		{"nothing shared, one after the other", []*PgBouncerAnalyzer{
+			pgbFile("x.log", "10", "", t0, 5),
+			pgbFile("y.log", "20", "", later, 5),
+		}, []string{"x.log [x.log]", "y.log [y.log]"}},
+	} {
+		var got []string
+		for _, m := range PgBouncerInstances(c.files) {
+			got = append(got, fmt.Sprintf("%s %v", m.Name, m.Files))
+		}
+		if fmt.Sprint(got) != fmt.Sprint(c.want) {
+			t.Errorf("%s: got %q, want %q", c.name, got, c.want)
+		}
+	}
+}

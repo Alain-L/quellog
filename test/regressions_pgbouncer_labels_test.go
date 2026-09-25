@@ -158,9 +158,9 @@ func TestPgBouncerDeclaresTruncatedBreakdowns(t *testing.T) {
 // shifts every column after it. The PostgreSQL tables already escape
 // the pipe; the pooler tables did not.
 //
-// Counting pipes is what separates the two rules: a three-column row
-// has four of them whatever the cell holds, and an unescaped name adds
-// its own.
+// Counting pipes is what separates the two rules: every row of a table
+// has as many as its header whatever the cell holds, and an unescaped
+// name adds its own.
 func TestPgBouncerMarkdownCellsKeepTheirColumns(t *testing.T) {
 	probe := filepath.Join(t.TempDir(), "pipes.log")
 	lines := "2026-09-20 10:00:00.000 CEST [1] LOG stats: 3 xacts/s, 21 queries/s, 0 client parses/s, " +
@@ -171,14 +171,19 @@ func TestPgBouncerMarkdownCellsKeepTheirColumns(t *testing.T) {
 		t.Fatalf("write probe: %v", err)
 	}
 
+	header := 0 // separators of the current table's header, 0 outside a table
 	for _, line := range strings.Split(string(runHarness(t, false, probe, "--md")), "\n") {
-		if !strings.HasPrefix(line, "|") || strings.HasPrefix(line, "|--") {
+		if !strings.HasPrefix(line, "|") {
+			header = 0
 			continue
 		}
 		// Count the pipes that actually delimit columns: an escaped one
 		// is literal text, not a separator.
-		if got := strings.Count(strings.ReplaceAll(line, `\|`, ""), "|"); got != 3 && got != 4 {
-			t.Errorf("row has %d column separators, want 3 or 4: %q", got, line)
+		got := strings.Count(strings.ReplaceAll(line, `\|`, ""), "|")
+		if header == 0 {
+			header = got
+		} else if got != header {
+			t.Errorf("row has %d column separators, its header %d: %q", got, header, line)
 		}
 	}
 }

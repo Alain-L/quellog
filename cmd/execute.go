@@ -155,10 +155,9 @@ func runAnalysisCycle(ctx context.Context, args []string) error {
 
 	// pgBouncer metrics, when any pgBouncer file is present. Its own parse
 	// pass (pgBouncer logs are small; no progress bar needed).
-	var pgb *analysis.PgBouncerMetrics
+	var pgb []analysis.PgBouncerMetrics
 	if len(pgbFiles) > 0 {
-		m := computePgBouncerMetrics(ctx, pgbFiles, beginT, endT, &parsedAny)
-		pgb = &m
+		pgb = computePgBouncerMetrics(ctx, pgbFiles, beginT, endT, &parsedAny)
 	}
 
 	// Pure pgBouncer run: no PostgreSQL files at all. The pooler report
@@ -168,7 +167,7 @@ func runAnalysisCycle(ctx context.Context, args []string) error {
 	// --event-detail, …) have nothing to report on pooler telemetry and are
 	// ignored in favour of the pooler report.
 	if len(pgFiles) == 0 {
-		if pgb.Lines == 0 {
+		if len(pgb) == 0 {
 			return fmt.Errorf("no pgBouncer log entries could be parsed: check that files are readable and in pgBouncer log format")
 		}
 		return renderReport(analysis.AggregatedMetrics{}, pgb, true, args, calculateTotalFileSize(pgbFiles), time.Since(startTime))
@@ -546,7 +545,7 @@ func validateFlagCombinations() error {
 // the expanded file list (see runAnalysisCycle) and threaded into every metrics
 // build; inputArgs stays the raw arguments, used only for display (filenames,
 // input description, first-file format detection).
-func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry, startTime time.Time, totalFileSize int64, inputArgs []string, workers int, pb *progressBar, pgb *analysis.PgBouncerMetrics) error {
+func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry, startTime time.Time, totalFileSize int64, inputArgs []string, workers int, pb *progressBar, pgb []analysis.PgBouncerMetrics) error {
 	// Flag-combination constraints are validated once up front (see
 	// validateFlagCombinations, called from executeParsing); only the
 	// --split short-circuit is left to handle here.
@@ -672,7 +671,7 @@ func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry
 	// or an input the detector rejected -- must not turn a complete
 	// pgBouncer report into an empty run.
 	if metrics.Global.Count == 0 {
-		if pgb != nil && pgb.Lines > 0 {
+		if len(pgb) > 0 {
 			return renderReport(analysis.AggregatedMetrics{}, pgb, true, inputArgs, totalFileSize, processingDuration)
 		}
 		return errNoEntries
@@ -695,7 +694,7 @@ func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry
 // behave identically everywhere. pgbOnly marks a pure pgBouncer run: metrics
 // is then the zero value and the renderers emit the pooler report alone (in
 // JSON/YAML the flat pgBouncer document, not the nested "pgbouncer" key).
-func renderReport(metrics analysis.AggregatedMetrics, pgb *analysis.PgBouncerMetrics, pgbOnly bool, inputArgs []string, totalFileSize int64, processingDuration time.Duration) error {
+func renderReport(metrics analysis.AggregatedMetrics, pgb []analysis.PgBouncerMetrics, pgbOnly bool, inputArgs []string, totalFileSize int64, processingDuration time.Duration) error {
 	// Determine which sections to display
 	// --full forces all sections and ignores individual section flags
 	var sections []string
@@ -794,7 +793,9 @@ func renderReport(metrics analysis.AggregatedMetrics, pgb *analysis.PgBouncerMet
 	// records when that is all there is.
 	entries := metrics.Global.Count
 	if pgbOnly {
-		entries = pgb.Lines
+		for _, m := range pgb {
+			entries += m.Lines
+		}
 	}
 	PrintProcessingSummary(entries, processingDuration, totalFileSize)
 	output.PrintMetricsCombined(metrics, pgb, sections, fullFlag, pgbOnly)
@@ -907,7 +908,7 @@ func defaultExportName(ext string, inputArgs []string) string {
 // renderMultipleFormats writes the full report to one file per selected format,
 // using default filenames. Called only when 2+ format flags are set.
 // pgbOnly has the same meaning as in renderReport.
-func renderMultipleFormats(metrics analysis.AggregatedMetrics, pgb *analysis.PgBouncerMetrics, pgbOnly bool, sections []string, inputArgs []string, totalFileSize int64, processingDuration time.Duration) error {
+func renderMultipleFormats(metrics analysis.AggregatedMetrics, pgb []analysis.PgBouncerMetrics, pgbOnly bool, sections []string, inputArgs []string, totalFileSize int64, processingDuration time.Duration) error {
 	write := func(ext string, render func(io.Writer) error) error {
 		name := defaultExportName(ext, inputArgs)
 		w, closer, err := createOutputWriter(name)

@@ -314,13 +314,13 @@ func ExportHTML(w io.Writer, metrics analysis.AggregatedMetrics, info HTMLReport
 }
 
 // ExportHTMLCombined exports the HTML report with an optional pgBouncer
-// section. When pgb is present, a "pgbouncer" key is added to the payload
-// so the web app renders the pooler section alongside the PostgreSQL
+// section. When pgb is present, a "pgbouncer" key (one entry per pooler)
+// is added to the payload so the web app renders the pooler sections alongside the PostgreSQL
 // sections. pgbOnly marks a pure pgBouncer run so the app suppresses the
 // (empty) PostgreSQL sections and shows only the pooler report.
-func ExportHTMLCombined(w io.Writer, metrics analysis.AggregatedMetrics, pgb *analysis.PgBouncerMetrics, info HTMLReportInfo, sections []string, pgbOnly bool) error {
+func ExportHTMLCombined(w io.Writer, metrics analysis.AggregatedMetrics, pgb []analysis.PgBouncerMetrics, info HTMLReportInfo, sections []string, pgbOnly bool) error {
 	data := buildReportData(metrics, info, sections)
-	if pgb != nil && pgb.Lines > 0 {
+	if len(pgb) > 0 {
 		data["pgbouncer"] = pgb
 	}
 	if pgbOnly {

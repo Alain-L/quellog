@@ -4,6 +4,9 @@
 
 | Metric | Value |
 |---|---|
+| Pooler | 127.0.0.1:6432 |
+| Version | PgBouncer 1.18.0 |
+| Files | testdata/regressions/pgbouncer/pgbouncer_oldversion.log |
 | Start date | 2026-09-20 13:39:27 CEST |
 | End date | 2026-09-20 13:40:04 CEST |
 | Duration | 36.626s |
@@ -15,35 +18,42 @@
 | Completed sessions | 181 |
 | Errors | 0 |
 
+### Timeline
+
+| Time | Event | Detail |
+|---|---|---|
+| 13:39:27 | start | PgBouncer 1.18.0 |
+| 13:40:04 | shutdown | SHUTDOWN |
+
 ## Request Throughput
 
 *A single stats snapshot for this 37s window, of unknown extent: pgBouncer logs nothing between two snapshots, so the figures below describe what was sampled, not the window. Check stats_period in pgbouncer.ini; see docs/pgbouncer-setup.md.*
 
 *Rates are the pooler's own per-snapshot averages over stats_period; the max is the highest snapshot average, not the busiest instant.*
 
-| Metric | Average | Max snapshot average |
-|---|---|---|
-| Transactions/s | 0.0 | 0 |
-| Queries/s | 0.0 | 0 |
-| Network in | 0 B/s | 0 B/s |
-| Network out | 0 B/s | 0 B/s |
+| Metric | Average | Max snapshot average | At |
+|---|---|---|---|
+| Transactions/s | 0.0 | 0 | - |
+| Queries/s | 0.0 | 0 | - |
+| Network in | 0 B/s | 0 B/s | - |
+| Network out | 0 B/s | 0 B/s | - |
 
 ## Query Timing
 
 *Averages skip the snapshots that timed none and weight the rest by operation count; the max is the highest snapshot average, not a peak.*
 
-| Metric | Weighted average | Max snapshot average |
-|---|---|---|
-| Transaction time | 0 µs | 0 µs |
-| Query time | 0 µs | 0 µs |
+| Metric | Weighted average | Max snapshot average | At |
+|---|---|---|---|
+| Transaction time | 0 µs | 0 µs | - |
+| Query time | 0 µs | 0 µs | - |
 
 ## Pool Wait
 
 *Time clients spent queued for a server connection, a pool sizing signal rather than a query one. Averaged as the timings above are. What it is averaged over depends on pool_mode (one wait per session, per transaction or per statement), which pgBouncer logs nowhere.*
 
-| Metric | Weighted average | Max snapshot average |
-|---|---|---|
-| Pool wait time | 0 µs | 0 µs |
+| Metric | Weighted average | Max snapshot average | At |
+|---|---|---|---|
+| Pool wait time | 0 µs | 0 µs | - |
 
 ## Sessions
 
@@ -53,6 +63,12 @@
 | Session time | Count |
 |---|---|
 | < 1s | 181 |
+
+### Sessions per close reason
+
+| Reason | Count | % | Average age |
+|---|---|---|---|
+| client close request | 181 | 100.0% | 0s |
 
 ### Sessions per database
 

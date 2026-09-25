@@ -4,6 +4,9 @@
 
 | Metric | Value |
 |---|---|
+| Pooler | 127.0.0.1:6432 |
+| Version | PgBouncer 1.25.2 |
+| Files | testdata/regressions/pgbouncer/pgbouncer_verbose.log |
 | Start date | 2026-09-20 13:42:33 CEST |
 | End date | 2026-09-20 13:42:47 CEST |
 | Duration | 14.285s |
@@ -15,6 +18,13 @@
 | Server connections opened | 2 |
 | Completed sessions | 3 |
 | Errors | 0 |
+
+### Timeline
+
+| Time | Event | Detail |
+|---|---|---|
+| 13:42:33 | start | PgBouncer 1.25.2 |
+| 13:42:47 | shutdown | SHUTDOWN |
 
 ## Request Throughput
 
@@ -30,6 +40,12 @@
 | Session time | Count |
 |---|---|
 | < 1s | 3 |
+
+### Sessions per close reason
+
+| Reason | Count | % | Average age |
+|---|---|---|---|
+| client close request | 3 | 100.0% | 0s |
 
 ### Sessions per database
 

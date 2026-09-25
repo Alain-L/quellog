@@ -1,0 +1,571 @@
+{
+  "apps": [
+    {
+      "name": "psql",
+      "count": 4
+    },
+    {
+      "name": "pgbench",
+      "count": 1
+    }
+  ],
+  "checkpoints": {
+    "total_checkpoints": 2,
+    "avg_checkpoint_time": "53 ms",
+    "max_checkpoint_time": "73 ms",
+    "events": [
+      "2026-09-25 09:23:00",
+      "2026-09-25 09:25:47"
+    ],
+    "types": {
+      "shutdown immediate": {
+        "count": 2,
+        "percentage": 100,
+        "rate_per_hour": 43.07559767391773,
+        "events": [
+          "2026-09-25 09:23:00",
+          "2026-09-25 09:25:47"
+        ]
+      }
+    },
+    "avg_wal_distance": "68.14 MB",
+    "max_wal_distance": "132.12 MB",
+    "total_buffers_written": 6950,
+    "wal_rate": "835 kB/s",
+    "flush_rate": "512.23 MB/s",
+    "wal_distances": [
+      {
+        "timestamp": "2026-09-25 09:23:00",
+        "distance_kb": 4256,
+        "estimate_kb": 4256
+      },
+      {
+        "timestamp": "2026-09-25 09:25:47",
+        "distance_kb": 135289,
+        "estimate_kb": 135289
+      }
+    ]
+  },
+  "clients": {
+    "unique_databases": 2,
+    "unique_users": 1,
+    "unique_apps": 2,
+    "unique_hosts": 1
+  },
+  "connections": {
+    "connection_count": 9,
+    "avg_connections_per_hour": "193.84",
+    "disconnection_count": 9,
+    "avg_session_time": "1m5.567555555s",
+    "session_stats": {
+      "count": 9,
+      "min_duration": "3ms",
+      "max_duration": "2m42.963s",
+      "avg_duration": "1m5.567555555s",
+      "median_duration": "27.688083333s",
+      "cumulated_duration": "9m50.108s"
+    },
+    "session_distribution": {
+      "1min - 30min": 4,
+      "1s - 1min": 0,
+      "2h - 5h": 0,
+      "30min - 2h": 0,
+      "\u003c 1s": 5,
+      "\u003e 5h": 0
+    },
+    "sessions_by_user": {
+      "bench": {
+        "count": 9,
+        "min_duration": "3ms",
+        "max_duration": "2m42.963s",
+        "avg_duration": "1m5.567555555s",
+        "median_duration": "27.688083333s",
+        "cumulated_duration": "9m50.108s"
+      }
+    },
+    "sessions_by_database": {
+      "bench": {
+        "count": 7,
+        "min_duration": "20ms",
+        "max_duration": "2m42.963s",
+        "avg_duration": "1m24.296428571s",
+        "median_duration": "310ms",
+        "cumulated_duration": "9m50.075s"
+      },
+      "postgres": {
+        "count": 2,
+        "min_duration": "3ms",
+        "max_duration": "30ms",
+        "avg_duration": "16.5ms",
+        "median_duration": "16.5ms",
+        "cumulated_duration": "33ms"
+      }
+    },
+    "sessions_by_host": {
+      "192.168.1.18": {
+        "count": 7,
+        "min_duration": "20ms",
+        "max_duration": "2m42.963s",
+        "avg_duration": "1m24.296428571s",
+        "median_duration": "310ms",
+        "cumulated_duration": "9m50.075s"
+      }
+    },
+    "peak_concurrent_sessions": 4,
+    "peak_concurrent_timestamp": "2026-09-25 09:24:05",
+    "connections": [
+      "2026-09-25 09:23:00",
+      "2026-09-25 09:23:00",
+      "2026-09-25 09:23:01",
+      "2026-09-25 09:23:01",
+      "2026-09-25 09:23:01",
+      "2026-09-25 09:23:03",
+      "2026-09-25 09:23:03",
+      "2026-09-25 09:23:03",
+      "2026-09-25 09:24:05"
+    ],
+    "session_events": [
+      {
+        "s": "2026-09-25T09:23:00",
+        "e": "2026-09-25T09:23:00",
+        "d": 3,
+        "u": 1,
+        "db": 1,
+        "h": 0
+      },
+      {
+        "s": "2026-09-25T09:23:00",
+        "e": "2026-09-25T09:23:00",
+        "d": 30,
+        "u": 1,
+        "db": 1,
+        "h": 0
+      },
+      {
+        "s": "2026-09-25T09:23:01",
+        "e": "2026-09-25T09:23:01",
+        "d": 20,
+        "u": 1,
+        "db": 2,
+        "h": 1
+      },
+      {
+        "s": "2026-09-25T09:23:01",
+        "e": "2026-09-25T09:23:01",
+        "d": 22,
+        "u": 1,
+        "db": 2,
+        "h": 1
+      },
+      {
+        "s": "2026-09-25T09:23:01",
+        "e": "2026-09-25T09:23:01",
+        "d": 310,
+        "u": 1,
+        "db": 2,
+        "h": 1
+      },
+      {
+        "s": "2026-09-25T09:24:05",
+        "e": "2026-09-25T09:25:46",
+        "d": 100877,
+        "u": 1,
+        "db": 2,
+        "h": 1
+      },
+      {
+        "s": "2026-09-25T09:23:03",
+        "e": "2026-09-25T09:25:46",
+        "d": 162963,
+        "u": 1,
+        "db": 2,
+        "h": 1
+      },
+      {
+        "s": "2026-09-25T09:23:03",
+        "e": "2026-09-25T09:25:46",
+        "d": 162938,
+        "u": 1,
+        "db": 2,
+        "h": 1
+      },
+      {
+        "s": "2026-09-25T09:23:03",
+        "e": "2026-09-25T09:25:46",
+        "d": 162945,
+        "u": 1,
+        "db": 2,
+        "h": 1
+      }
+    ],
+    "session_users": [
+      "",
+      "bench"
+    ],
+    "session_databases": [
+      "",
+      "postgres",
+      "bench"
+    ],
+    "session_hosts": [
+      "",
+      "192.168.1.18"
+    ]
+  },
+  "databases": [
+    {
+      "name": "bench",
+      "count": 14
+    },
+    {
+      "name": "postgres",
+      "count": 4
+    }
+  ],
+  "events": [
+    {
+      "type": "LOG",
+      "count": 60,
+      "percentage": 100
+    }
+  ],
+  "hosts": [
+    {
+      "name": "192.168.1.18",
+      "count": 14
+    }
+  ],
+  "pgbouncer": [
+    {
+      "name": "127.0.0.1:6434",
+      "files": [
+        "testdata/pgbouncer/P3/p3-old.pgbouncer.log"
+      ],
+      "listen": [
+        "127.0.0.1:6434"
+      ],
+      "version": "1.18.0",
+      "min_timestamp": "2026-09-25T09:23:02.55Z",
+      "max_timestamp": "2026-09-25T09:25:46.536Z",
+      "events": [
+        {
+          "timestamp": "2026-09-25T09:23:02.55Z",
+          "kind": "start",
+          "detail": "PgBouncer 1.18.0"
+        },
+        {
+          "timestamp": "2026-09-25T09:24:03.607Z",
+          "kind": "reload",
+          "detail": "RELOAD"
+        },
+        {
+          "timestamp": "2026-09-25T09:24:46.488Z",
+          "kind": "reload",
+          "detail": "RELOAD"
+        },
+        {
+          "timestamp": "2026-09-25T09:25:46.536Z",
+          "kind": "shutdown",
+          "detail": "SHUTDOWN"
+        }
+      ],
+      "lines": 238,
+      "lines_read": 238,
+      "lines_unrecognized": 0,
+      "debug_lines": 0,
+      "stats_sample_count": 16,
+      "avg_xacts_per_sec": 1349.9375,
+      "max_xacts_per_sec": 2188,
+      "avg_queries_per_sec": 9443.5,
+      "max_queries_per_sec": 15322,
+      "avg_in_bytes_per_sec": 575007.3125,
+      "max_in_bytes_per_sec": 933411,
+      "avg_out_bytes_per_sec": 251457.125,
+      "max_out_bytes_per_sec": 407811,
+      "avg_xact_us": 6095.021436177601,
+      "max_xact_us": 3087961,
+      "avg_query_us": 873.7151479853868,
+      "max_query_us": 772500,
+      "avg_wait_us": 484715.62570815906,
+      "max_wait_us": 22887863,
+      "stats_series": [
+        {
+          "time": "2026-09-25T09:23:12.549Z",
+          "xacts_per_sec": 1975,
+          "queries_per_sec": 13828,
+          "in_bytes_per_sec": 842325,
+          "out_bytes_per_sec": 368004,
+          "xact_us": 1346,
+          "query_us": 182,
+          "wait_us": 1539
+        },
+        {
+          "time": "2026-09-25T09:23:22.549Z",
+          "xacts_per_sec": 1756,
+          "queries_per_sec": 12295,
+          "in_bytes_per_sec": 749012,
+          "out_bytes_per_sec": 327212,
+          "xact_us": 1348,
+          "query_us": 182,
+          "wait_us": 0
+        },
+        {
+          "time": "2026-09-25T09:23:32.549Z",
+          "xacts_per_sec": 1743,
+          "queries_per_sec": 12203,
+          "in_bytes_per_sec": 743435,
+          "out_bytes_per_sec": 324763,
+          "xact_us": 1359,
+          "query_us": 183,
+          "wait_us": 0
+        },
+        {
+          "time": "2026-09-25T09:23:42.549Z",
+          "xacts_per_sec": 1749,
+          "queries_per_sec": 12243,
+          "in_bytes_per_sec": 745804,
+          "out_bytes_per_sec": 325807,
+          "xact_us": 1354,
+          "query_us": 183,
+          "wait_us": 0
+        },
+        {
+          "time": "2026-09-25T09:23:52.548Z",
+          "xacts_per_sec": 1755,
+          "queries_per_sec": 12284,
+          "in_bytes_per_sec": 748293,
+          "out_bytes_per_sec": 326922,
+          "xact_us": 1350,
+          "query_us": 182,
+          "wait_us": 0
+        },
+        {
+          "time": "2026-09-25T09:24:02.551Z",
+          "xacts_per_sec": 2006,
+          "queries_per_sec": 14045,
+          "in_bytes_per_sec": 855587,
+          "out_bytes_per_sec": 373776,
+          "xact_us": 1347,
+          "query_us": 182,
+          "wait_us": 0
+        },
+        {
+          "time": "2026-09-25T09:24:12.552Z",
+          "xacts_per_sec": 11,
+          "queries_per_sec": 31,
+          "in_bytes_per_sec": 782,
+          "out_bytes_per_sec": 1119,
+          "xact_us": 1573608,
+          "query_us": 600155,
+          "wait_us": 15566902
+        },
+        {
+          "time": "2026-09-25T09:24:22.553Z",
+          "xacts_per_sec": 8,
+          "queries_per_sec": 32,
+          "in_bytes_per_sec": 965,
+          "out_bytes_per_sec": 1350,
+          "xact_us": 3006818,
+          "query_us": 772500,
+          "wait_us": 20930428
+        },
+        {
+          "time": "2026-09-25T09:24:32.553Z",
+          "xacts_per_sec": 9,
+          "queries_per_sec": 38,
+          "in_bytes_per_sec": 1298,
+          "out_bytes_per_sec": 1506,
+          "xact_us": 2925929,
+          "query_us": 697272,
+          "wait_us": 22887863
+        },
+        {
+          "time": "2026-09-25T09:24:42.554Z",
+          "xacts_per_sec": 8,
+          "queries_per_sec": 34,
+          "in_bytes_per_sec": 1092,
+          "out_bytes_per_sec": 1411,
+          "xact_us": 3087961,
+          "query_us": 751420,
+          "wait_us": 21596506
+        },
+        {
+          "time": "2026-09-25T09:24:52.552Z",
+          "xacts_per_sec": 1334,
+          "queries_per_sec": 9339,
+          "in_bytes_per_sec": 568544,
+          "out_bytes_per_sec": 248768,
+          "xact_us": 8976,
+          "query_us": 1164,
+          "wait_us": 7544806
+        },
+        {
+          "time": "2026-09-25T09:25:02.552Z",
+          "xacts_per_sec": 1758,
+          "queries_per_sec": 12307,
+          "in_bytes_per_sec": 749788,
+          "out_bytes_per_sec": 327553,
+          "xact_us": 1347,
+          "query_us": 182,
+          "wait_us": 0
+        },
+        {
+          "time": "2026-09-25T09:25:12.552Z",
+          "xacts_per_sec": 1764,
+          "queries_per_sec": 12350,
+          "in_bytes_per_sec": 752320,
+          "out_bytes_per_sec": 328692,
+          "xact_us": 1343,
+          "query_us": 181,
+          "wait_us": 0
+        },
+        {
+          "time": "2026-09-25T09:25:22.552Z",
+          "xacts_per_sec": 1756,
+          "queries_per_sec": 12292,
+          "in_bytes_per_sec": 748802,
+          "out_bytes_per_sec": 327158,
+          "xact_us": 1348,
+          "query_us": 182,
+          "wait_us": 0
+        },
+        {
+          "time": "2026-09-25T09:25:32.556Z",
+          "xacts_per_sec": 2188,
+          "queries_per_sec": 15322,
+          "in_bytes_per_sec": 933411,
+          "out_bytes_per_sec": 407811,
+          "xact_us": 1348,
+          "query_us": 182,
+          "wait_us": 0
+        },
+        {
+          "time": "2026-09-25T09:25:42.552Z",
+          "xacts_per_sec": 1779,
+          "queries_per_sec": 12453,
+          "in_bytes_per_sec": 758659,
+          "out_bytes_per_sec": 331462,
+          "xact_us": 1340,
+          "query_us": 181,
+          "wait_us": 0
+        }
+      ],
+      "max_xacts_per_sec_timestamp": "2026-09-25T09:25:32.556Z",
+      "max_queries_per_sec_timestamp": "2026-09-25T09:25:32.556Z",
+      "max_in_bytes_per_sec_timestamp": "2026-09-25T09:25:32.556Z",
+      "max_out_bytes_per_sec_timestamp": "2026-09-25T09:25:32.556Z",
+      "max_xact_us_timestamp": "2026-09-25T09:24:42.554Z",
+      "max_query_us_timestamp": "2026-09-25T09:24:22.553Z",
+      "max_wait_us_timestamp": "2026-09-25T09:24:32.553Z",
+      "login_attempts": 98,
+      "server_connections": 4,
+      "sessions": 96,
+      "total_session_seconds": 1373,
+      "session_distribution": {
+        "1s - 1min": 76,
+        "\u003c 1s": 20
+      },
+      "session_reasons": [
+        {
+          "reason": "client close request",
+          "count": 79,
+          "total_seconds": 1322
+        },
+        {
+          "reason": "query_wait_timeout",
+          "count": 17,
+          "total_seconds": 51
+        }
+      ],
+      "connections_per_database": {
+        "bench": 87,
+        "pgbouncer": 11
+      },
+      "connections_per_user": {
+        "bench": 98
+      },
+      "connections_per_host": {
+        "127.0.0.1": 98
+      },
+      "sessions_per_database": {
+        "bench": 86,
+        "pgbouncer": 10
+      },
+      "sessions_per_user": {
+        "bench": 96
+      },
+      "sessions_per_host": {
+        "127.0.0.1": 96
+      },
+      "reserve_pool_activations": 1,
+      "errors": [
+        {
+          "message": "pooler error: query_wait_timeout",
+          "count": 17,
+          "first": "2026-09-25T09:24:06.889Z",
+          "last": "2026-09-25T09:24:06.89Z"
+        },
+        {
+          "message": "taking connection from reserve_pool",
+          "count": 1,
+          "first": "2026-09-25T09:24:05.657Z",
+          "last": "2026-09-25T09:24:05.657Z"
+        }
+      ],
+      "total_errors": 18
+    }
+  ],
+  "server": {
+    "starts": 2,
+    "start_times": [
+      "2026-09-25 09:23:00",
+      "2026-09-25 09:23:00"
+    ],
+    "reloads": 0,
+    "shutdowns_fast": 2,
+    "shutdowns_immediate": 0,
+    "shutdowns_smart": 0,
+    "shutdown_completed": 2,
+    "timeline": [
+      {
+        "timestamp": "2026-09-25 09:23:00",
+        "kind": "start",
+        "detail": "database system is ready to accept connections"
+      },
+      {
+        "timestamp": "2026-09-25 09:23:00",
+        "kind": "shutdown",
+        "detail": "fast shutdown request"
+      },
+      {
+        "timestamp": "2026-09-25 09:23:00",
+        "kind": "start",
+        "detail": "database system is ready to accept connections"
+      },
+      {
+        "timestamp": "2026-09-25 09:25:47",
+        "kind": "shutdown",
+        "detail": "fast shutdown request"
+      }
+    ]
+  },
+  "summary": {
+    "start_date": "2026-09-25 09:23:00",
+    "end_date": "2026-09-25 09:25:47",
+    "duration": "2m47.148s",
+    "total_logs": 60,
+    "throughput": "0.36 entries/s",
+    "error_count": 0,
+    "fatal_count": 0,
+    "panic_count": 0,
+    "warning_count": 0,
+    "log_count": 60,
+    "utc_offset_minutes": 0
+  },
+  "users": [
+    {
+      "name": "bench",
+      "count": 18
+    }
+  ]
+}

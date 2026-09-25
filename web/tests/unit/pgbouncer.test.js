@@ -9,7 +9,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { buildPgBouncerSection } from '../../js/sections/pgbouncer.js';
+import { buildPgBouncerSection as buildSections } from '../../js/sections/pgbouncer.js';
+
+// The payloads below each describe one pooler; the section takes the list.
+const buildPgBouncerSection = (d) => buildSections({ ...d, pgbouncer: [d.pgbouncer] });
 
 // esc() needs document.createElement. node --test runs each file in its own
 // process, so the same minimal stub pgbouncer-labels.test.js uses — escaping
@@ -294,14 +297,14 @@ test('a row holding one block does not keep an empty column', () => {
             sessions: 0,
             session_distribution: undefined,
             total_errors: 45,
-            errors: { 'pooler error: query_wait_timeout': 45 },
+            errors: [{ message: 'pooler error: query_wait_timeout', count: 45, first: '2026-09-20T13:57:58Z', last: '2026-09-20T13:58:40Z' }],
         },
     });
     const rows = (errorsOnly.match(/grid grid-2/g) || []).length;
     assert.equal(rows, 1, 'the errors table is held in a two-column grid with nothing beside it');
 
     const both = buildPgBouncerSection({
-        pgbouncer: { ...oneSnapshotPayload, total_errors: 45, errors: { boom: 45 } },
+        pgbouncer: { ...oneSnapshotPayload, total_errors: 45, errors: [{ message: 'boom', count: 45, first: '2026-09-20T13:57:58Z', last: '2026-09-20T13:57:58Z' }] },
     });
     assert.equal((both.match(/grid grid-2/g) || []).length, 2,
         'the paired row lost its two columns');
@@ -357,4 +360,25 @@ test('the section is flagged whole-log under a time filter', () => {
         buildPgBouncerSection({ pgbouncer: p, _wholeLog: { pgbouncer: true } }).includes('whole-log-badge'),
         'a filtered report presents whole-log figures and must say so',
     );
+});
+
+// Two poolers are two sections: each needs its own section and chart ids
+// (a shared id draws both series into the first chart), and its name in
+// the header so the reader knows which pooler a figure belongs to.
+test('each pooler gets its own section, ids and name', () => {
+    const series = [{ time: '2026-09-25T09:00:00Z', queries_per_sec: 1 }, { time: '2026-09-25T09:00:10Z', queries_per_sec: 2 }];
+    const pooler = (name) => ({
+        ...statlessPayload, name, files: [name + '.log'], stats_sample_count: 2, stats_series: series,
+        min_timestamp: '2026-09-25T09:00:00Z', max_timestamp: '2026-09-25T09:00:10Z',
+        events: [{ timestamp: '2026-09-25T09:00:00Z', kind: 'start', detail: 'PgBouncer 1.25.2' }],
+    });
+    const html = buildSections({ pgbouncer: [pooler('127.0.0.1:6432'), pooler('<b>6433</b>')] });
+    assert.ok(html.includes('id="pgbouncer"') && html.includes('id="pgbouncer-2"'));
+    assert.ok(html.includes('chart-pgb-timing"') && html.includes('chart-pgb-timing-2"'));
+    assert.ok(html.includes('pgBouncer · 127.0.0.1:6432'));
+    assert.ok(html.includes('&lt;b&gt;6433&lt;/b&gt;') && !html.includes('<b>6433</b>'));
+    assert.ok(html.includes('PgBouncer 1.25.2'));
+
+    const one = buildSections({ pgbouncer: [pooler('127.0.0.1:6432')] });
+    assert.ok(!one.includes('pgBouncer · '), 'a single pooler keeps the plain header');
 });

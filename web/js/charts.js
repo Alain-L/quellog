@@ -1737,6 +1737,12 @@ function pgbTooltipPlugin(spec, valFmt) {
     };
 }
 
+// PGB_X_SPACE is the minimum distance between two time ticks of a pooler
+// chart, in pixels: an "HH:MM:SS" label is about 50 px wide. PGB_X_GAP
+// is the distance between the plot and those labels.
+const PGB_X_SPACE = 80;
+const PGB_X_GAP = 8;
+
 // createPgBouncerSeriesChart draws a multi-series line chart from a spec
 // { t: [unixSecs], values: [{key:val,…}], series: [{label,key,color}], fmt }.
 // Styled to match quellog's other time charts (WAL distance in
@@ -1770,7 +1776,10 @@ export function createPgBouncerSeriesChart(containerId, spec, options = {}) {
         legend: { show: false },
         scales: { x: { time: true }, y: { range: (u, min, max) => [0, (max || 1) * 1.1] } },
         axes: [
-            { stroke: '#888', grid: { stroke: '#8881' }, ticks: { show: false }, gap: 2, size: timeAxisSize, values: timeAxisValues },
+            // A pooler series steps by seconds, so its ticks carry them: the
+            // wider labels need more room than uPlot's default spacing, and
+            // a deeper gap keeps them clear of the y axis's bottom value.
+            { stroke: '#888', grid: { stroke: '#8881' }, ticks: { show: false }, gap: PGB_X_GAP, space: PGB_X_SPACE, size: (u) => timeAxisSize(u) + PGB_X_GAP, values: timeAxisValues },
             { stroke: '#888', grid: { stroke: '#8881' }, ticks: { show: false }, gap: 2, size: 56, values: (u, vals) => vals.map(axisFmt) },
         ],
         series: useries,

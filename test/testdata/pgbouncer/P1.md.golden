@@ -1,0 +1,334 @@
+## SUMMARY
+
+This _quellog_ report summarizes **124** log entries collected between 25 Sep 2026, 09:05 (UTC) — 25 Sep 2026, 09:14 (UTC), spanning 9m 3s of activity.
+
+## SERVER
+
+- **Starts**: 3
+- **Shutdowns**: 3 fast, 0 immediate, 0 smart
+
+### Timeline
+
+| Time                | Event    | Detail                                         |
+|---------------------|----------|------------------------------------------------|
+| 2026-09-25 09:05:27 | start    | database system is ready to accept connections |
+| 2026-09-25 09:05:27 | shutdown | fast shutdown request                          |
+| 2026-09-25 09:05:28 | start    | database system is ready to accept connections |
+| 2026-09-25 09:10:59 | shutdown | fast shutdown request                          |
+| 2026-09-25 09:11:01 | start    | database system is ready to accept connections |
+| 2026-09-25 09:14:30 | shutdown | fast shutdown request                          |
+
+## EVENTS
+
+- **FATAL**: 4 (3.2%)
+  - *fa-LkLy* `terminating connection due to administrator command` (3) [75.0%]
+  - *fa-RaU1* `the database system is shutting down` (1) [25.0%]
+
+- **LOG**: 120 (96.8%)
+
+## CHECKPOINTS
+
+### Checkpoint distribution
+
+```
+00:00 - 04:00 |  -
+04:00 - 08:00 |  -
+08:00 - 12:00 | ■■■■ 4 
+12:00 - 16:00 |  -
+16:00 - 20:00 |  -
+20:00 - 00:00 |  -
+```
+
+- **Checkpoint count**: 4
+- **Avg checkpoint write time**: 7s
+- **Max checkpoint write time**: 30s
+- **WAL per checkpoint (avg)**: 146.3 MB
+- **WAL per checkpoint (max)**: 259.7 MB
+
+### Checkpoint types
+
+|  |  |  |  |
+|------|------:|--:|-----:|
+| shutdown immediate | 3 | 75.0% | 19.88/h |
+| time | 1 | 25.0% | 6.63/h |
+
+### WAL per checkpoint (avg)
+
+■ = 4 MB, □ = estimate margin
+
+```
+00:00 - 04:00  -
+04:00 - 08:00  -
+08:00 - 12:00 ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■□□□□□□□□□□□  146 MB
+12:00 - 16:00  -
+16:00 - 20:00  -
+20:00 - 00:00  -
+```
+
+## CONNECTIONS & SESSIONS
+
+### Concurrent sessions
+
+```
+09:05 - 09:06 | ■■■ 3 (09:05)
+09:06 - 09:06 | ■■■ 3 (09:06)
+09:06 - 09:07 | ■■■ 3 (09:06)
+09:07 - 09:08 | ■■■■ 4 (09:08)
+09:08 - 09:09 | ■■■■ 4 (09:08)
+09:09 - 09:09 | ■■■■ 4 (09:09)
+09:09 - 09:10 | ■■■ 3 (09:09)
+09:10 - 09:11 | ■■■■ 4 (09:11)
+09:11 - 09:12 | ■■■■■ 5 (09:12)
+09:12 - 09:13 | ■■■■■ 5 (09:12)
+09:13 - 09:13 | ■■■■■ 5 (09:13)
+09:13 - 09:14 | ■■■■■ 5 (09:13)
+```
+
+### Connection distribution
+
+```
+09:05 - 09:06 | ■■■■■■■■ 8 
+09:06 - 09:08 | ■ 1 
+09:08 - 09:09 | ■■■ 3 
+09:09 - 09:11 | ■■■■■ 5 
+09:11 - 09:13 | ■■■■ 4 
+09:13 - 09:14 |  -
+```
+
+- **Connection count**: 21
+- **Avg connections per hour**: 139.17
+- **Disconnection count**: 20
+- **Avg session time**: 1m26s
+- **Median session time**: 44s
+- **Peak concurrent sessions**: 5 (at 09:12:04)
+
+### Session Duration Statistics
+
+- **Count**: 20
+- **Min**: 0s
+- **Max**: 4m8s
+- **Avg**: 1m27s
+- **Median**: 44s
+- **Cumulated**: 28m56s
+
+### Session duration distribution
+
+```
+< 1s         | ■■■■■■ 6 sessions
+1s - 1min    | ■■■ 3 sessions
+1min - 30min | ■■■■■■■■■■■ 11 sessions
+30min - 2h   |  -
+2h - 5h      |  -
+> 5h         |  -
+```
+
+### Session Duration by User
+
+| User  | Sessions | Min |  Max |   Avg | Median | Cumulated |
+|-------|---------:|----:|-----:|------:|-------:|----------:|
+| bench |       20 |  0s | 4m8s | 1m27s |    44s |    28m56s |
+
+### Session Duration by Database
+
+| Database | Sessions | Min |  Max |   Avg | Median | Cumulated |
+|----------|---------:|----:|-----:|------:|-------:|----------:|
+| bench    |       18 |  0s | 4m8s | 1m36s |    57s |    28m56s |
+| postgres |        2 |  0s |   0s |    0s |     0s |        0s |
+
+### Session Duration by Host
+
+| Host         | Sessions | Min |  Max |   Avg | Median | Cumulated |
+|--------------|---------:|----:|-----:|------:|-------:|----------:|
+| 192.168.1.18 |       18 |  0s | 4m8s | 1m36s |    57s |    28m56s |
+
+## CLIENTS
+
+- **Unique DBs**: 2
+- **Unique Users**: 1
+- **Unique Apps**: 2
+- **Unique Hosts**: 1
+
+### USERS
+
+| User  | Count |     % |
+|-------|------:|------:|
+| bench |    40 | 32.3% |
+
+### APPS
+
+| App     | Count |    % |
+|---------|------:|-----:|
+| psql    |     5 | 4.0% |
+| pgbench |     1 | 0.8% |
+
+### DATABASES
+
+| Database | Count |     % |
+|----------|------:|------:|
+| bench    |    36 | 29.0% |
+| postgres |     4 |  3.2% |
+
+### HOSTS
+
+| Host         | Count |     % |
+|--------------|------:|------:|
+| 192.168.1.18 |    37 | 29.8% |
+
+### USER × DATABASE
+
+| User  | Database | Count |     % |
+|-------|----------|------:|------:|
+| bench | bench    |    36 | 29.0% |
+| bench | postgres |     4 |  3.2% |
+
+### USER × HOST
+
+| User  | Host         | Count |     % |
+|-------|--------------|------:|------:|
+| bench | 192.168.1.18 |    18 | 14.5% |
+
+
+
+# pgBouncer Report
+
+## Summary
+
+| Metric | Value |
+|---|---|
+| Pooler | 127.0.0.1:6432 |
+| Version | PgBouncer 1.25.2 |
+| Files | testdata/pgbouncer/P1/p1.pgbouncer.log |
+| Start date | 2026-09-25 09:05:29 UTC |
+| End date | 2026-09-25 09:14:29 UTC |
+| Duration | 9m0.144s |
+| Log lines read | 513 |
+| Log entries | 513 |
+| Stats snapshots | 53 |
+| Login attempts | 191 |
+| Server connections opened | 15 |
+| Completed sessions | 190 |
+| Reserve pool activations | 1 |
+| Errors | 33 |
+
+### Timeline
+
+| Time | Event | Detail |
+|---|---|---|
+| 09:05:29 | start | PgBouncer 1.25.2 |
+| 09:07:30 | reload | RELOAD |
+| 09:08:05 | reload | RELOAD |
+| 09:09:08 | reload | RELOAD |
+| 09:09:38 | pause | PAUSE 'bench' |
+| 09:09:59 | resume | RESUME 'bench' |
+| 09:11:32 | shutdown | SIGINT |
+| 09:11:33 | start | PgBouncer 1.25.2 |
+| 09:12:04 | reload | RELOAD |
+| 09:14:29 | shutdown | SHUTDOWN |
+
+## Request Throughput
+
+*Rates are the pooler's own per-snapshot averages over stats_period; the max is the highest snapshot average, not the busiest instant.*
+
+| Metric | Average | Max snapshot average | At |
+|---|---|---|---|
+| Transactions/s | 1738.0 | 2520 | 09:12:53 |
+| Queries/s | 12164.3 | 17642 | 09:12:53 |
+| Network in | 724.70 KB/s | 1.03 MB/s | 09:12:53 |
+| Network out | 316.26 KB/s | 458.62 KB/s | 09:12:53 |
+
+## Query Timing
+
+*Averages skip the snapshots that timed none and weight the rest by operation count; the max is the highest snapshot average, not a peak.*
+
+| Metric | Weighted average | Max snapshot average | At |
+|---|---|---|---|
+| Transaction time | 3.5 ms | 60.12 s | 09:09:59 |
+| Query time | 415 µs | 3.16 s | 09:09:59 |
+
+## Pool Wait
+
+*Time clients spent queued for a server connection, a pool sizing signal rather than a query one. Averaged as the timings above are. What it is averaged over depends on pool_mode (one wait per session, per transaction or per statement), which pgBouncer logs nowhere.*
+
+| Metric | Weighted average | Max snapshot average | At |
+|---|---|---|---|
+| Pool wait time | 1.0 ms | 20.04 s | 09:09:59 |
+
+## Sessions
+
+- Completed sessions: **190**
+- Average session time: **15s**
+
+| Session time | Count |
+|---|---|
+| < 1s | 55 |
+| 1s - 1min | 111 |
+| 1min - 30min | 24 |
+
+### Sessions per close reason
+
+| Reason | Count | % | Average age |
+|---|---|---|---|
+| client close request | 157 | 82.6% | 17s |
+| query_wait_timeout | 22 | 11.6% | 3s |
+| password authentication failed | 4 | 2.1% | 0s |
+| client unexpected eof | 3 | 1.6% | 4s |
+| server conn crashed? | 2 | 1.1% | 6s |
+| client_idle_timeout | 1 | 0.5% | 20s |
+| no such database: nosuchdb | 1 | 0.5% | 0s |
+
+### Sessions per database
+
+| Name | Count | % |
+|---|---|---|
+| bench | 167 | 87.9% |
+| pgbouncer | 21 | 11.1% |
+| (nodb) | 2 | 1.1% |
+
+### Sessions per user
+
+| Name | Count | % |
+|---|---|---|
+| bench | 189 | 99.5% |
+| ghostuser | 1 | 0.5% |
+
+### Sessions per host
+
+| Name | Count | % |
+|---|---|---|
+| 127.0.0.1 | 190 | 100.0% |
+
+## Connections
+
+### Connections per database
+
+| Name | Count | % |
+|---|---|---|
+| bench | 168 | 88.0% |
+| pgbouncer | 22 | 11.5% |
+| nosuchdb | 1 | 0.5% |
+
+### Connections per user
+
+| Name | Count | % |
+|---|---|---|
+| bench | 190 | 99.5% |
+| ghostuser | 1 | 0.5% |
+
+### Connections per host
+
+| Name | Count | % |
+|---|---|---|
+| 127.0.0.1 | 191 | 100.0% |
+
+## Most Frequent Errors
+
+| Error | Count | % | First | Last |
+|---|---|---|---|---|
+| pooler error: query_wait_timeout | 22 | 66.7% | 09:08:09 | 09:08:20 |
+| pooler error: password authentication failed | 4 | 12.1% | 09:10:29 | 09:10:29 |
+| pooler error: server conn crashed? | 2 | 6.1% | 09:10:59 | 09:10:59 |
+| got packet 'E' from server when not linked | 1 | 3.0% | 09:10:59 | 09:10:59 |
+| pooler error: client_idle_timeout | 1 | 3.0% | 09:12:24 | 09:12:24 |
+| pooler error: no such database: nosuchdb | 1 | 3.0% | 09:10:29 | 09:10:29 |
+| server login failed: FATAL the database system is shutting down | 1 | 3.0% | 09:10:59 | 09:10:59 |
+| taking connection from reserve_pool | 1 | 3.0% | 09:08:07 | 09:08:07 |

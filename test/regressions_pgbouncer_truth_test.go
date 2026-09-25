@@ -31,10 +31,7 @@ func TestPgBouncerReportsWhatItDropped(t *testing.T) {
 		t.Fatalf("write probe: %v", err)
 	}
 
-	var got map[string]any
-	if err := json.Unmarshal(runHarness(t, false, probe, "--json"), &got); err != nil {
-		t.Fatalf("invalid JSON: %v", err)
-	}
+	got := firstPooler(t, runHarness(t, false, probe, "--json"))
 	for _, c := range []struct {
 		key  string
 		want float64
@@ -71,10 +68,7 @@ func TestPgBouncerReportsWhatItDropped(t *testing.T) {
 func TestPgBouncerVentilatesDebugNoise(t *testing.T) {
 	const fixture = "testdata/regressions/pgbouncer/pgbouncer_verbose.log"
 
-	var got map[string]any
-	if err := json.Unmarshal(runHarness(t, false, fixture, "--json"), &got); err != nil {
-		t.Fatalf("invalid JSON: %v", err)
-	}
+	got := firstPooler(t, runHarness(t, false, fixture, "--json"))
 	if v, ok := got["debug_lines"].(float64); !ok || v != 1673 {
 		t.Errorf("debug_lines = %v, want 1673", got["debug_lines"])
 	}
@@ -112,4 +106,19 @@ func TestPgBouncerTimingLabelsSaySnapshot(t *testing.T) {
 	if !strings.Contains(md, "skip the snapshots that timed none") {
 		t.Errorf("Markdown report does not explain the timing denominator:\n%s", md)
 	}
+}
+
+// firstPooler decodes a --json document and returns its first pooler.
+func firstPooler(t *testing.T, doc []byte) map[string]any {
+	t.Helper()
+	var got struct {
+		PgBouncer []map[string]any `json:"pgbouncer"`
+	}
+	if err := json.Unmarshal(doc, &got); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+	if len(got.PgBouncer) == 0 {
+		t.Fatalf("no pgbouncer entry in:\n%s", doc)
+	}
+	return got.PgBouncer[0]
 }

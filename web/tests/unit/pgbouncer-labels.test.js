@@ -10,7 +10,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { buildPgBouncerSection } from '../../js/sections/pgbouncer.js';
+import { buildPgBouncerSection as buildSections } from '../../js/sections/pgbouncer.js';
+
+// The payloads below each describe one pooler; the section takes the list.
+const buildPgBouncerSection = (d) => buildSections({ ...d, pgbouncer: [d.pgbouncer] });
 
 // esc() needs document.createElement. node --test runs each file in its own
 // process, so the same minimal stub report-filter-triggering.test.js uses —

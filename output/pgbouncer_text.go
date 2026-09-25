@@ -4,6 +4,7 @@ package output
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/Alain-L/quellog/analysis"
@@ -13,15 +14,33 @@ import (
 // histogram, matching the PostgreSQL connection report's buckets.
 var sessionBucketOrder = []string{"< 1s", "1s - 1min", "1min - 30min", "30min - 2h", "2h - 5h", "> 5h"}
 
-// PrintPgBouncer renders the pgBouncer pooler report to stdout in the
-// same visual language as the PostgreSQL text report (bold headers,
-// two-space indented "label : value" lines, shared histogram helper).
-func PrintPgBouncer(m analysis.PgBouncerMetrics) {
+// PrintPgBouncer renders one report per pooler, each titled by the
+// pooler's name when there are several.
+func PrintPgBouncer(poolers []analysis.PgBouncerMetrics) {
+	for _, m := range poolers {
+		title := "PGBOUNCER SUMMARY"
+		if len(poolers) > 1 {
+			title += " (" + m.Name + ")"
+		}
+		printPgBouncer(m, title)
+	}
+}
+
+// printPgBouncer renders one pooler's report to stdout in the same visual
+// language as the PostgreSQL text report (bold headers, two-space
+// indented "label : value" lines, shared histogram helper).
+func printPgBouncer(m analysis.PgBouncerMetrics, title string) {
 	bold := ansiBold
 	reset := ansiReset
 	duration := m.MaxTimestamp.Sub(m.MinTimestamp)
+	clock := pgbClock(m)
 
-	fmt.Println(bold + "\nPGBOUNCER SUMMARY\n" + reset)
+	fmt.Println(bold + "\n" + title + "\n" + reset)
+	fmt.Printf("  %-25s : %s\n", "Pooler", m.Name)
+	if m.Version != "" {
+		fmt.Printf("  %-25s : PgBouncer %s\n", "Version", m.Version)
+	}
+	fmt.Printf("  %-25s : %s\n", "Files", strings.Join(m.Files, ", "))
 	fmt.Printf("  %-25s : %s\n", "Start date", m.MinTimestamp.Format("2006-01-02 15:04:05 MST"))
 	fmt.Printf("  %-25s : %s\n", "End date", m.MaxTimestamp.Format("2006-01-02 15:04:05 MST"))
 	fmt.Printf("  %-25s : %s\n", "Duration", duration)
@@ -44,6 +63,9 @@ func PrintPgBouncer(m analysis.PgBouncerMetrics) {
 		fmt.Printf("  %-25s : %d\n", "Reserve pool activations", m.ReservePoolActivations)
 	}
 	fmt.Printf("  %-25s : %d\n", "Errors", m.TotalErrors)
+	if len(m.Events) > 0 {
+		printServerTimeline(pgbTimeline(m.Events))
+	}
 
 	// Traffic (from the per-second stats snapshots).
 	if m.StatsSampleCount == 0 {
@@ -58,23 +80,23 @@ func PrintPgBouncer(m analysis.PgBouncerMetrics) {
 			printPgbNote(pgbCoverageNote(m))
 			fmt.Println()
 		}
-		fmt.Printf("  %-25s : %.1f /s  (max snapshot avg %d /s)\n", "Transactions", m.AvgXactsPerSec, m.MaxXactsPerSec)
-		fmt.Printf("  %-25s : %.1f /s  (max snapshot avg %d /s)\n", "Queries", m.AvgQueriesPerSec, m.MaxQueriesPerSec)
-		fmt.Printf("  %-25s : %s  (max snapshot avg %s)\n", "Network in", bytesPerSec(m.AvgInBytesPerSec), bytesPerSec(float64(m.MaxInBytesPerSec)))
-		fmt.Printf("  %-25s : %s  (max snapshot avg %s)\n", "Network out", bytesPerSec(m.AvgOutBytesPerSec), bytesPerSec(float64(m.MaxOutBytesPerSec)))
+		fmt.Printf("  %-25s : %.1f /s  (max snapshot avg %d /s%s)\n", "Transactions", m.AvgXactsPerSec, m.MaxXactsPerSec, pgbAt(m.MaxXactsTimestamp, clock))
+		fmt.Printf("  %-25s : %.1f /s  (max snapshot avg %d /s%s)\n", "Queries", m.AvgQueriesPerSec, m.MaxQueriesPerSec, pgbAt(m.MaxQueriesTimestamp, clock))
+		fmt.Printf("  %-25s : %s  (max snapshot avg %s%s)\n", "Network in", bytesPerSec(m.AvgInBytesPerSec), bytesPerSec(float64(m.MaxInBytesPerSec)), pgbAt(m.MaxInTimestamp, clock))
+		fmt.Printf("  %-25s : %s  (max snapshot avg %s%s)\n", "Network out", bytesPerSec(m.AvgOutBytesPerSec), bytesPerSec(float64(m.MaxOutBytesPerSec)), pgbAt(m.MaxOutTimestamp, clock))
 		fmt.Println()
 		fmt.Println("  " + pgbRateNote[0])
 		fmt.Println("  " + pgbRateNote[1])
 
 		fmt.Println(bold + "\nQUERY TIMING\n" + reset)
-		fmt.Printf("  %-25s : %s  (max snapshot avg %s)\n", "Avg transaction time", micros(m.AvgXactMicros), microsI(m.MaxXactMicros))
-		fmt.Printf("  %-25s : %s  (max snapshot avg %s)\n", "Avg query time", micros(m.AvgQueryMicros), microsI(m.MaxQueryMicros))
+		fmt.Printf("  %-25s : %s  (max snapshot avg %s%s)\n", "Avg transaction time", micros(m.AvgXactMicros), microsI(m.MaxXactMicros), pgbAt(m.MaxXactTimestamp, clock))
+		fmt.Printf("  %-25s : %s  (max snapshot avg %s%s)\n", "Avg query time", micros(m.AvgQueryMicros), microsI(m.MaxQueryMicros), pgbAt(m.MaxQueryTimestamp, clock))
 		fmt.Println()
 		fmt.Println("  " + pgbTimingNote[0])
 		fmt.Println("  " + pgbTimingNote[1])
 
 		fmt.Println(bold + "\nPOOL WAIT\n" + reset)
-		fmt.Printf("  %-25s : %s  (max snapshot avg %s)\n", "Avg pool wait time", micros(m.AvgWaitMicros), microsI(m.MaxWaitMicros))
+		fmt.Printf("  %-25s : %s  (max snapshot avg %s%s)\n", "Avg pool wait time", micros(m.AvgWaitMicros), microsI(m.MaxWaitMicros), pgbAt(m.MaxWaitTimestamp, clock))
 		fmt.Println()
 		printPgbNote(pgbWaitNote)
 	}
@@ -94,6 +116,7 @@ func PrintPgBouncer(m analysis.PgBouncerMetrics) {
 		PrintHistogram(m.SessionDistribution, "Session time", "", 1, sessionBucketOrder)
 		fmt.Printf("  %-25s : %d\n", "Completed sessions", m.Sessions)
 		fmt.Printf("  %-25s : %s\n", "Average session time", formatSessionDuration(time.Duration(m.AvgSessionSeconds()*float64(time.Second))))
+		printPgbCloseReasons(m.SessionReasons, m.Sessions)
 		if len(m.SessionsPerDatabase) > 0 {
 			printRankedCountTable("Sessions per database:", m.SessionsPerDatabase, m.Sessions, true)
 		}
@@ -131,10 +154,90 @@ func PrintPgBouncer(m analysis.PgBouncerMetrics) {
 	// Errors.
 	if m.TotalErrors > 0 {
 		fmt.Println(bold + "\nMOST FREQUENT ERRORS\n" + reset)
-		printRankedCountTable("Errors:", m.Errors, m.TotalErrors, true)
+		printPgbErrors(m.Errors, m.TotalErrors, clock)
 	}
 
 	fmt.Println()
+}
+
+// pgbListMax caps the close-reason and error lists. Both are short in
+// practice, and unlike the breakdowns they are not cut at 80% of the
+// total: the rare reason or error is the one worth reading.
+const pgbListMax = 20
+
+// printPgbCloseReasons lists the completed sessions by close reason, with
+// the average age of each: a session the client ended and one the pooler
+// killed in its queue are different populations.
+func printPgbCloseReasons(rs []analysis.PgBouncerCloseReason, total int) {
+	if len(rs) == 0 {
+		return
+	}
+	w := 0
+	for i, r := range rs {
+		if i < pgbListMax {
+			w = max(w, len(r.Reason))
+		}
+	}
+	fmt.Println("\n  Sessions per close reason:")
+	for i, r := range rs {
+		if i == pgbListMax {
+			fmt.Printf("    \u2026 and %d more\n", len(rs)-i)
+			break
+		}
+		avg := time.Duration(float64(r.TotalSeconds) / float64(r.Count) * float64(time.Second))
+		fmt.Printf("    %-*s  %6d  %5.1f%%  avg %s\n", w, r.Reason, r.Count, float64(r.Count)/float64(total)*100, formatSessionDuration(avg))
+	}
+}
+
+// printPgbErrors lists every distinct warning and error with when it was
+// first and last logged, so a burst reads against the other timelines.
+func printPgbErrors(es []analysis.PgBouncerError, total int, clock string) {
+	w := 0
+	for i, e := range es {
+		if i < pgbListMax {
+			w = max(w, len(e.Message))
+		}
+	}
+	fmt.Println("\n  Errors:")
+	for i, e := range es {
+		if i == pgbListMax {
+			fmt.Printf("    \u2026 and %d more\n", len(es)-i)
+			break
+		}
+		when := e.First.Format(clock)
+		if last := e.Last.Format(clock); last != when {
+			when += " \u2192 " + last
+		}
+		fmt.Printf("    %-*s  %6d  %5.1f%%  %s\n", w, e.Message, e.Count, float64(e.Count)/float64(total)*100, when)
+	}
+}
+
+// pgbTimeline adapts the pooler's events to the PostgreSQL timeline
+// printer, so both read the same way.
+func pgbTimeline(events []analysis.PgBouncerEvent) []analysis.ServerTimelineEvent {
+	out := make([]analysis.ServerTimelineEvent, len(events))
+	for i, e := range events {
+		out[i] = analysis.ServerTimelineEvent{Timestamp: e.Time, Kind: e.Kind, Detail: e.Detail}
+	}
+	return out
+}
+
+// pgbClock is the layout for the pooler's times of day: the clock alone,
+// as the PostgreSQL timeline prints it, unless the pooler's window spans
+// more than one day.
+func pgbClock(m analysis.PgBouncerMetrics) string {
+	if m.MinTimestamp.Format(time.DateOnly) != m.MaxTimestamp.Format(time.DateOnly) {
+		return time.DateTime
+	}
+	return time.TimeOnly
+}
+
+// pgbAt renders " at <time>" for a maximum, or nothing when none was set.
+func pgbAt(t time.Time, clock string) string {
+	if t.IsZero() {
+		return ""
+	}
+	return " at " + t.Format(clock)
 }
 
 // pgbRateNote states what the throughput figures are. pgBouncer does not

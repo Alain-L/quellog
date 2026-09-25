@@ -26,7 +26,7 @@ type PgBouncerParser struct{}
 // after the bracketed PID, and the severity is not followed by a colon
 // — both differ from PostgreSQL's "[PID]: LOG:" / "[PID] LOG:" shapes.
 var pgbouncerPrefixRe = regexp.MustCompile(
-	`^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:\.\d+)?) (\S+) \[\d+\] (LOG|WARNING|ERROR|FATAL|DEBUG|NOISE) `,
+	`^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:\.\d+)?) (\S+) \[(\d+)\] (LOG|WARNING|ERROR|FATAL|DEBUG|NOISE) `,
 )
 
 // pgbouncerSignatureRe identifies pgBouncer content during format
@@ -158,7 +158,8 @@ func (p *PgBouncerParser) parseReader(r io.Reader, out chan<- []LogEntry) error 
 			unrecognized++
 			continue
 		}
-		// m captures: [0:1] whole, [2:3] datetime, [4:5] tz, [6:7] severity.
+		// m captures: [0:1] whole, [2:3] datetime, [4:5] tz, [6:7] PID,
+		// [8:9] severity.
 		ts, ok := parsePgBouncerTimestamp(line[m[2]:m[3]], line[m[4]:m[5]])
 		if !ok {
 			unrecognized++
@@ -166,8 +167,8 @@ func (p *PgBouncerParser) parseReader(r io.Reader, out chan<- []LogEntry) error 
 		}
 		// Message starts at the severity word so the analyzer keeps the
 		// severity without re-scanning the prefix.
-		msg := line[m[6]:]
-		bs.Send(LogEntry{Timestamp: ts, Message: msg})
+		msg := line[m[8]:]
+		bs.Send(LogEntry{Timestamp: ts, Message: msg, PID: line[m[6]:m[7]]})
 	}
 	pgbouncerLinesRead.Add(read)
 	pgbouncerLinesUnrecognized.Add(unrecognized)

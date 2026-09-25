@@ -1,8 +1,9 @@
-// pgBouncer section: pooler telemetry rendered alongside the PostgreSQL
-// sections. Reads data.pgbouncer (the PgBouncerMetrics JSON) and shows
-// the window it was drawn from, summary cards, three time-series charts
-// (throughput, network I/O, query/pool-wait timing), a session-time
-// histogram, per-database/user/host breakdowns, and the ranked error list.
+// pgBouncer sections: pooler telemetry rendered alongside the PostgreSQL
+// sections, one section per pooler. Reads data.pgbouncer (a list of
+// PgBouncerMetrics) and shows, for each pooler, the window it was drawn
+// from, summary cards, three time-series charts (throughput, network I/O,
+// query/pool-wait timing), its timeline, a session-time histogram and the
+// close reasons, per-database/user/host breakdowns, and the errors.
 
 import { fmt, esc, fmtDurationCoarse, buildNoDataMessage, wholeLogBadge} from '../utils.js';
 import { pgbValueFmt } from '../charts.js';
@@ -86,37 +87,57 @@ function dimTabs(dims, total) {
     return `<ql-tabs>${tabs}${panels}</ql-tabs>`;
 }
 
-// errorsTable renders the ranked errors as a standard report table (the
-// bare <table> in a .table-container that Locks/Temp Files use: uppercase
-// header, .num columns, no inline styling), so long error messages wrap
-// and stay readable rather than being truncated like the bar lists.
-function errorsTable(m, total) {
-    if (!m) return '';
-    const ranked = Object.entries(m).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
-    const rows = ranked.slice(0, TOP_N);
-    const hidden = ranked.length - rows.length;
+// LIST_MAX caps the close-reason and error tables, as the text report
+// does. Unlike the breakdowns they are short, and the rare row is the one
+// worth reading.
+const LIST_MAX = 20;
+
+// table renders rows as a standard report table (the bare <table> in a
+// .table-container that Locks/Temp Files use: uppercase header, .num
+// columns), so long messages wrap and stay readable rather than being
+// truncated like the bar lists. `cols` is [[label, isNum]]; `rows` holds
+// already-escaped cells.
+function table(cols, rows, hidden) {
     if (rows.length === 0) return '';
     return `
             <div class="table-container" style="max-height: 220px;">
                 <table>
-                    <thead><tr>
-                        <th>Error</th>
-                        <th class="num">Count</th>
-                        <th class="num">%</th>
-                    </tr></thead>
+                    <thead><tr>${cols.map(([l, num]) => `<th${num ? ' class="num"' : ''}>${l}</th>`).join('')}</tr></thead>
                     <tbody>
-                        ${rows.map(([name, count]) => `
-                            <tr>
-                                <td style="overflow-wrap:anywhere">${esc(name)}</td>
-                                <td class="num">${fmt(count)}</td>
-                                <td class="num">${total ? (count / total * 100).toFixed(1) : '0.0'}%</td>
-                            </tr>
-                        `).join('')}
-                        ${hidden > 0 ? `<tr><td colspan="3" style="color: var(--text-muted)">… and ${fmt(hidden)} more</td></tr>` : ''}
+                        ${rows.map(r => `<tr>${r.map((c, i) => `<td${cols[i][1] ? ' class="num"' : i === 0 ? ' style="overflow-wrap:anywhere"' : ''}>${c}</td>`).join('')}</tr>`).join('')}
+                        ${hidden > 0 ? `<tr><td colspan="${cols.length}" style="color: var(--text-muted)">… and ${fmt(hidden)} more</td></tr>` : ''}
                     </tbody>
                 </table>
             </div>
     `;
+}
+
+const pct = (n, total) => (total ? (n / total * 100).toFixed(1) : '0.0') + '%';
+
+// errorsTable lists each warning or error with when it was first and last
+// logged, so a burst reads against the charts and the timeline.
+function errorsTable(errors, total, at) {
+    const list = errors || [];
+    return table([['Error'], ['Count', true], ['%', true], ['First', true], ['Last', true]],
+        list.slice(0, LIST_MAX).map(e => [esc(e.message), fmt(e.count), pct(e.count, total), at(e.first), at(e.last)]),
+        list.length - LIST_MAX);
+}
+
+// reasonsTable splits the completed sessions by close reason, with each
+// reason's average age: a client that left and one the pooler killed in
+// its queue are different populations.
+function reasonsTable(reasons, total) {
+    const list = reasons || [];
+    return table([['Close reason'], ['Count', true], ['%', true], ['Avg age', true]],
+        list.slice(0, LIST_MAX).map(r => [esc(r.reason), fmt(r.count), pct(r.count, total), sessionTime(r.total_seconds / r.count)]),
+        list.length - LIST_MAX);
+}
+
+// timelineTable is the pooler's own history: starts, shutdowns, reloads
+// and console commands.
+function timelineTable(events, at) {
+    return table([['Time'], ['Event'], ['Detail']],
+        (events || []).map(e => [at(e.timestamp), esc(e.kind), esc(e.detail || '')]), 0);
 }
 
 // sessionHistogram renders the fixed-bucket session-time distribution
@@ -353,13 +374,18 @@ function coverageText(p) {
     return `${lead}: pgBouncer logs nothing between two snapshots, so the figures here describe what was sampled, not the window. Check <code>stats_period</code> in <code>pgbouncer.ini</code>; see ${SETUP_DOC}.`;
 }
 
+// poolerLine names the pooler a section describes: its address or file,
+// its release, and the files it was read from.
+function poolerLine(p) {
+    const parts = [esc(p.name || '')];
+    if (p.version) parts.push('PgBouncer ' + esc(p.version));
+    if (p.files && p.files.length) parts.push(p.files.map(esc).join(', '));
+    return `<div style="text-align: center; font-size: 0.75rem; color: var(--text-muted); overflow-wrap: anywhere;">${parts.join(' · ')}</div>`;
+}
+
 export function buildPgBouncerSection(data) {
-    // The pooler track is analyzed on its own and its figures carry no
-    // per-item timestamps to re-scope, so a time filter leaves them whole
-    // — annotate rather than present stale numbers as scoped.
-    const wholeLogNote = data._wholeLog?.pgbouncer ? wholeLogBadge() : '';
-    const p = data.pgbouncer;
-    if (!p || !p.lines) {
+    const poolers = (data.pgbouncer || []).filter(p => p && p.lines);
+    if (poolers.length === 0) {
         return `
             <div class="section" id="pgbouncer">
                 <div class="section-header muted">pgBouncer</div>
@@ -367,13 +393,27 @@ export function buildPgBouncerSection(data) {
             </div>
         `;
     }
+    // The pooler track is analyzed on its own and its figures carry no
+    // per-item timestamps to re-scope, so a time filter leaves them whole
+    // — annotate rather than present stale numbers as scoped.
+    const wholeLogNote = data._wholeLog?.pgbouncer ? wholeLogBadge() : '';
+    return poolers.map((p, i) => poolerSection(p, i === 0 ? '' : '-' + (i + 1), poolers.length > 1, wholeLogNote)).join('');
+}
 
+// poolerSection renders one pooler. `suffix` keeps the section and chart
+// ids unique when there are several; `named` puts the pooler's name in
+// the header then.
+function poolerSection(p, suffix, named, wholeLogNote) {
+    const at = (ts) => {
+        const d = new Date(ts);
+        return isNaN(d) ? '' : clock(d);
+    };
     // Register the three time-series charts (drawn after DOM insertion).
     const series = p.stats_series || [];
     const hasSeries = series.length >= MIN_CHART_POINTS;
     if (hasSeries) {
         const t = series.map(s => Math.round(new Date(s.time).getTime() / 1000));
-        chartData.set('chart-pgb-throughput', {
+        chartData.set('chart-pgb-throughput' + suffix, {
             type: 'pgb-series', t,
             series: [
                 { label: 'transactions/s', key: 'xacts_per_sec', color: 'var(--accent)' },
@@ -381,7 +421,7 @@ export function buildPgBouncerSection(data) {
             ],
             values: series,
         });
-        chartData.set('chart-pgb-io', {
+        chartData.set('chart-pgb-io' + suffix, {
             type: 'pgb-series', t,
             series: [
                 { label: 'in', key: 'in_bytes_per_sec', color: 'var(--accent)', fmt: 'bytes' },
@@ -389,7 +429,7 @@ export function buildPgBouncerSection(data) {
             ],
             values: series, fmt: 'bytes',
         });
-        chartData.set('chart-pgb-timing', {
+        chartData.set('chart-pgb-timing' + suffix, {
             type: 'pgb-series', t,
             series: [
                 { label: 'transaction', key: 'xact_us', color: 'var(--accent)', fmt: 'micros' },
@@ -407,21 +447,24 @@ export function buildPgBouncerSection(data) {
     const hasErrors = p.total_errors > 0;
     const missingClients = clientLinesMissing(p);
 
-    // The closing row pairs the session histogram with the error table.
-    // Either can be absent -- a pooler with log_disconnections off has no
-    // histogram, a healthy one has no errors -- and a two-column grid
-    // holding one block leaves half the report blank, so the survivor
-    // takes the full width.
+    // The closing blocks fill a two-column grid: session time and close
+    // reasons, then timeline and errors. Any can be absent -- a pooler
+    // with log_disconnections off has no sessions, a healthy one has no
+    // errors -- and a block left alone on its row would leave half the
+    // report blank, so it takes the full width.
     const closing = [
         hasSessions ? `<div class="subsection-title" style="margin-top:0">Session Time</div>${sessionHistogram(p.session_distribution, p.sessions)}` : '',
-        hasErrors ? `<div class="subsection-title" style="margin-top:0">Most Frequent Errors</div>${errorsTable(p.errors, p.total_errors)}` : '',
+        hasSessions && p.session_reasons ? `<div class="subsection-title" style="margin-top:0">Close Reasons</div>${reasonsTable(p.session_reasons, p.sessions)}` : '',
+        p.events ? `<div class="subsection-title" style="margin-top:0">Timeline</div>${timelineTable(p.events, at)}` : '',
+        hasErrors ? `<div class="subsection-title" style="margin-top:0">Most Frequent Errors</div>${errorsTable(p.errors, p.total_errors, at)}` : '',
     ].filter(Boolean);
 
     return `
-        <div class="section" id="pgbouncer">
-            <div class="section-header">pgBouncer${wholeLogNote}</div>
+        <div class="section" id="pgbouncer${suffix}">
+            <div class="section-header">pgBouncer${named ? ' · ' + esc(p.name) : ''}${wholeLogNote}</div>
             <div class="section-body">
                 ${captureHeader(capture)}
+                ${poolerLine(p)}
                 ${readCards(p, capture)}
                 <div class="stat-grid" style="grid-template-columns: repeat(auto-fit, minmax(${FIGURE_CARD_MIN_PX}px, 1fr));">
                     ${hasStats ? `
@@ -441,16 +484,16 @@ export function buildPgBouncerSection(data) {
                 ${hasSeries ? `
                     <div class="grid grid-2" style="margin-top:0.5rem;">
                         <div>
-                            ${buildChartContainer('chart-pgb-throughput', 'Request Throughput', { tooltip: 'Transactions and queries per second. Each point is one stats-line average over the elapsed stats_period, not an instantaneous rate.', showBucketControl: false })}
+                            ${buildChartContainer('chart-pgb-throughput' + suffix, 'Request Throughput', { tooltip: 'Transactions and queries per second. Each point is one stats-line average over the elapsed stats_period, not an instantaneous rate.', showBucketControl: false })}
                             ${chartLegend([['transactions/s', 'var(--accent)'], ['queries/s', 'var(--purple)']])}
                         </div>
                         <div>
-                            ${buildChartContainer('chart-pgb-io', 'Network I/O', { tooltip: 'Bytes received and sent per second, averaged over each stats_period snapshot.', showBucketControl: false })}
+                            ${buildChartContainer('chart-pgb-io' + suffix, 'Network I/O', { tooltip: 'Bytes received and sent per second, averaged over each stats_period snapshot.', showBucketControl: false })}
                             ${chartLegend([['in', 'var(--accent)'], ['out', 'var(--success)']])}
                         </div>
                     </div>
                     <div style="margin-top:0.5rem;">
-                        ${buildChartContainer('chart-pgb-timing', 'Transaction / Query / Pool Wait', { tooltip: 'Transaction and query time measure work on the server; pool wait is how long clients queued for a server connection — a pool sizing signal, not a query one. pgBouncer logs one average per snapshot, never a single operation, so each point is an interval average. What pool wait is averaged over depends on pool_mode (one wait per session, per transaction or per statement), which pgBouncer logs nowhere.', showBucketControl: false })}
+                        ${buildChartContainer('chart-pgb-timing' + suffix, 'Transaction / Query / Pool Wait', { tooltip: 'Transaction and query time measure work on the server; pool wait is how long clients queued for a server connection — a pool sizing signal, not a query one. pgBouncer logs one average per snapshot, never a single operation, so each point is an interval average. What pool wait is averaged over depends on pool_mode (one wait per session, per transaction or per statement), which pgBouncer logs nowhere.', showBucketControl: false })}
                         ${chartLegend([['transaction', 'var(--accent)'], ['query', 'var(--purple)'], ['pool wait', 'var(--danger)']])}
                     </div>
                 ` : ''}
@@ -471,7 +514,7 @@ export function buildPgBouncerSection(data) {
                 ${closing.length > 0 ? `
                     <div class="subsection">
                         ${closing.length > 1
-                            ? `<div class="grid grid-2">${closing.map(b => `<div>${b}</div>`).join('')}</div>`
+                            ? `<div class="grid grid-2">${closing.map((b, i) => `<div${i === closing.length - 1 && i % 2 === 0 ? ' style="grid-column: 1 / -1"' : ''}>${b}</div>`).join('')}</div>`
                             : closing[0]}
                     </div>
                 ` : ''}

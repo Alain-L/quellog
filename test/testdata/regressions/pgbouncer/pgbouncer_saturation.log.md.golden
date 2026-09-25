@@ -4,6 +4,9 @@
 
 | Metric | Value |
 |---|---|
+| Pooler | 127.0.0.1:6432 |
+| Version | PgBouncer 1.25.2 |
+| Files | testdata/regressions/pgbouncer/pgbouncer_saturation.log |
 | Start date | 2026-09-20 13:57:57 CEST |
 | End date | 2026-09-20 13:58:43 CEST |
 | Duration | 45.723s |
@@ -16,33 +19,43 @@
 | Reserve pool activations | 6 |
 | Errors | 45 |
 
+### Timeline
+
+| Time | Event | Detail |
+|---|---|---|
+| 13:57:57 | start | PgBouncer 1.25.2 |
+| 13:58:10 | pause | PAUSE 'benchdb' |
+| 13:58:13 | resume | RESUME 'benchdb' |
+| 13:58:16 | reload | RELOAD |
+| 13:58:43 | shutdown | SHUTDOWN |
+
 ## Request Throughput
 
 *Rates are the pooler's own per-snapshot averages over stats_period; the max is the highest snapshot average, not the busiest instant.*
 
-| Metric | Average | Max snapshot average |
-|---|---|---|
-| Transactions/s | 10.0 | 11 |
-| Queries/s | 48.3 | 58 |
-| Network in | 1.79 KB/s | 2.20 KB/s |
-| Network out | 1.77 KB/s | 2.16 KB/s |
+| Metric | Average | Max snapshot average | At |
+|---|---|---|---|
+| Transactions/s | 10.0 | 11 | 13:58:12 |
+| Queries/s | 48.3 | 58 | 13:58:27 |
+| Network in | 1.79 KB/s | 2.20 KB/s | 13:58:27 |
+| Network out | 1.77 KB/s | 2.16 KB/s | 13:58:27 |
 
 ## Query Timing
 
 *Averages skip the snapshots that timed none and weight the rest by operation count; the max is the highest snapshot average, not a peak.*
 
-| Metric | Weighted average | Max snapshot average |
-|---|---|---|
-| Transaction time | 2.44 s | 2.75 s |
-| Query time | 527.7 ms | 639.8 ms |
+| Metric | Weighted average | Max snapshot average | At |
+|---|---|---|---|
+| Transaction time | 2.44 s | 2.75 s | 13:58:42 |
+| Query time | 527.7 ms | 639.8 ms | 13:58:12 |
 
 ## Pool Wait
 
 *Time clients spent queued for a server connection, a pool sizing signal rather than a query one. Averaged as the timings above are. What it is averaged over depends on pool_mode (one wait per session, per transaction or per statement), which pgBouncer logs nowhere.*
 
-| Metric | Weighted average | Max snapshot average |
-|---|---|---|
-| Pool wait time | 2.31 s | 3.22 s |
+| Metric | Weighted average | Max snapshot average | At |
+|---|---|---|---|
+| Pool wait time | 2.31 s | 3.22 s | 13:58:12 |
 
 ## Sessions
 
@@ -53,6 +66,16 @@
 |---|---|
 | < 1s | 7 |
 | 1s - 1min | 61 |
+
+### Sessions per close reason
+
+| Reason | Count | % | Average age |
+|---|---|---|---|
+| query_wait_timeout | 35 | 51.5% | 8s |
+| client close request | 29 | 42.6% | 35s |
+| password authentication failed | 2 | 2.9% | 0s |
+| client_idle_timeout | 1 | 1.5% | 13s |
+| no such database: nosuchdb | 1 | 1.5% | 0s |
 
 ### Sessions per database
 
@@ -102,10 +125,10 @@
 
 ## Most Frequent Errors
 
-| Error | Count | % |
-|---|---|---|
-| pooler error: query_wait_timeout | 35 | 77.8% |
-| taking connection from reserve_pool | 6 | 13.3% |
-| pooler error: password authentication failed | 2 | 4.4% |
-| pooler error: client_idle_timeout | 1 | 2.2% |
-| pooler error: no such database: nosuchdb | 1 | 2.2% |
+| Error | Count | % | First | Last |
+|---|---|---|---|---|
+| pooler error: query_wait_timeout | 35 | 77.8% | 13:58:05 | 13:58:13 |
+| taking connection from reserve_pool | 6 | 13.3% | 13:58:03 | 13:58:13 |
+| pooler error: password authentication failed | 2 | 4.4% | 13:58:05 | 13:58:05 |
+| pooler error: client_idle_timeout | 1 | 2.2% | 13:58:18 | 13:58:18 |
+| pooler error: no such database: nosuchdb | 1 | 2.2% | 13:58:05 | 13:58:05 |

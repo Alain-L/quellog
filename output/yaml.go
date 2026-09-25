@@ -31,11 +31,9 @@ func ExportYAML(w io.Writer, m analysis.AggregatedMetrics, sections []string, fu
 	ExportYAMLCombined(w, m, nil, sections, full, false)
 }
 
-// ExportYAMLCombined writes the YAML report for the same three shapes
-// ExportJSONCombined produces — PostgreSQL only, PostgreSQL with a
-// "pgbouncer" key, and the flat pooler document (pgbOnly) — reusing it as
-// the source document.
-func ExportYAMLCombined(w io.Writer, m analysis.AggregatedMetrics, pgb *analysis.PgBouncerMetrics, sections []string, full, pgbOnly bool) {
+// ExportYAMLCombined writes the YAML report for the documents
+// ExportJSONCombined produces, reusing it as the source document.
+func ExportYAMLCombined(w io.Writer, m analysis.AggregatedMetrics, pgb []analysis.PgBouncerMetrics, sections []string, full, pgbOnly bool) {
 	var buf bytes.Buffer
 	ExportJSONCombined(&buf, m, pgb, sections, full, true, pgbOnly)
 	jsonToYAML(w, buf.Bytes())

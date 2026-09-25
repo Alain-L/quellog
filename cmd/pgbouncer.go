@@ -36,9 +36,9 @@ func partitionInputsByFormat(files []string) (pgFiles, pgbFiles []string) {
 	return pgFiles, pgbFiles
 }
 
-// computePgBouncerMetrics runs a self-contained parse+filter+analyze
-// pass over the pgBouncer files. It uses no progress bar (pgBouncer logs
-// are small) and its own PgBouncerAnalyzer, and reports into the caller's
+// computePgBouncerMetrics analyzes the pgBouncer files one at a time and
+// returns one report per pooler (see analysis.PgBouncerInstances). It uses
+// no progress bar (pooler logs are small) and reports into the caller's
 // parsedAny flag like the PostgreSQL track does.
 //
 // Only the time bounds are applied. The attribute filters (--dbname,
@@ -46,22 +46,20 @@ func partitionInputsByFormat(files []string) (pgFiles, pgbFiles []string) {
 // tokens of a log_line_prefix; pgBouncer lines carry unrelated db=/user=
 // tokens of their own (connection endpoints), so applying them here
 // silently amputated the pooler report instead of filtering it.
-func computePgBouncerMetrics(ctx context.Context, files []string, beginT, endT time.Time, parsedAny *atomic.Bool) analysis.PgBouncerMetrics {
-	parser.ResetPgBouncerLineCounts()
-	raw := make(chan []parser.LogEntry, 64)
-	go parseFilesAsync(ctx, files, raw, parsedAny, nil)
-
-	in := (<-chan []parser.LogEntry)(raw)
-	filters := parser.LogFilters{BeginT: parser.WallClock(beginT), EndT: parser.WallClock(endT)}
-	if !filters.IsEmpty() {
-		filtered := make(chan []parser.LogEntry, 64)
-		go parser.FilterStream(ctx, raw, filtered, filters)
-		in = filtered
+func computePgBouncerMetrics(ctx context.Context, files []string, beginT, endT time.Time, parsedAny *atomic.Bool) []analysis.PgBouncerMetrics {
+	bounds := parser.LogFilters{BeginT: parser.WallClock(beginT), EndT: parser.WallClock(endT)}
+	parts := make([]*analysis.PgBouncerAnalyzer, 0, len(files))
+	for _, f := range files {
+		parser.ResetPgBouncerLineCounts()
+		raw := make(chan []parser.LogEntry, 64)
+		go parseFilesAsync(ctx, []string{f}, raw, parsedAny, nil)
+		a := analysis.NewPgBouncerAnalyzer()
+		a.Consume(ctx, raw, bounds)
+		// What the parser scanned and what it threw away: the analyzer
+		// only sees the records that survived, so it cannot report a loss.
+		read, unrecognized := parser.PgBouncerLineCounts()
+		a.SetSource(f, int(read), int(unrecognized))
+		parts = append(parts, a)
 	}
-	m := analysis.AggregatePgBouncerMetrics(ctx, in)
-	// What the parser scanned and what it threw away: the analyzer only
-	// ever sees the records that survived, so it cannot report a loss.
-	read, unrecognized := parser.PgBouncerLineCounts()
-	m.LinesRead, m.LinesUnrecognized = int(read), int(unrecognized)
-	return m
+	return analysis.PgBouncerInstances(parts)
 }

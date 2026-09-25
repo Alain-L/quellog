@@ -2,6 +2,7 @@ package analysis
 
 import (
 	"context"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -30,8 +31,21 @@ type PgBouncerStatsPoint struct {
 // SQL, query IDs, or checkpoint/vacuum events, so reusing the PostgreSQL
 // metrics would mean a report full of empty sections.
 type PgBouncerMetrics struct {
+	// Name identifies the pooler: its first listen address, or its first
+	// file when the log names none. Files are the inputs it was read from,
+	// Listen its "listening on" addresses, Version the last release it
+	// started as.
+	Name    string   `json:"name"`
+	Files   []string `json:"files"`
+	Listen  []string `json:"listen,omitempty"`
+	Version string   `json:"version,omitempty"`
+
 	MinTimestamp time.Time `json:"min_timestamp"`
 	MaxTimestamp time.Time `json:"max_timestamp"`
+
+	// Events is the pooler's own history: starts, stops and the admin
+	// commands that changed what it serves, in time order.
+	Events []PgBouncerEvent `json:"events,omitempty"`
 	// Lines is the number of records the analyzer understood. LinesRead
 	// is what the parser scanned and LinesUnrecognized what it could not
 	// decode, so a report can show a loss instead of always stating that
@@ -63,12 +77,25 @@ type PgBouncerMetrics struct {
 	MaxWaitMicros     int64                 `json:"max_wait_us"`
 	StatsSeries       []PgBouncerStatsPoint `json:"stats_series,omitempty"`
 
+	// When each maximum above was logged: the first snapshot reaching it.
+	MaxXactsTimestamp   time.Time `json:"max_xacts_per_sec_timestamp,omitzero"`
+	MaxQueriesTimestamp time.Time `json:"max_queries_per_sec_timestamp,omitzero"`
+	MaxInTimestamp      time.Time `json:"max_in_bytes_per_sec_timestamp,omitzero"`
+	MaxOutTimestamp     time.Time `json:"max_out_bytes_per_sec_timestamp,omitzero"`
+	MaxXactTimestamp    time.Time `json:"max_xact_us_timestamp,omitzero"`
+	MaxQueryTimestamp   time.Time `json:"max_query_us_timestamp,omitzero"`
+	MaxWaitTimestamp    time.Time `json:"max_wait_us_timestamp,omitzero"`
+
 	// Connections and sessions.
 	LoginAttempts       int            `json:"login_attempts"`
 	ServerConnections   int            `json:"server_connections"`
 	Sessions            int            `json:"sessions"`
 	TotalSessionSeconds int64          `json:"total_session_seconds"`
 	SessionDistribution map[string]int `json:"session_distribution,omitempty"`
+	// SessionReasons splits the completed sessions by the reason the
+	// pooler closed them: a client that left, and one the pooler killed
+	// in its queue, are different populations with different ages.
+	SessionReasons []PgBouncerCloseReason `json:"session_reasons,omitempty"`
 
 	// Dimensional breakdowns. "Connections" are client login attempts;
 	// "sessions" are completed (closed, age-stamped) client sessions.
@@ -80,9 +107,34 @@ type PgBouncerMetrics struct {
 	SessionsPerHost        map[string]int `json:"sessions_per_host,omitempty"`
 
 	// Pool behaviour and errors.
-	ReservePoolActivations int            `json:"reserve_pool_activations"`
-	Errors                 map[string]int `json:"errors,omitempty"`
-	TotalErrors            int            `json:"total_errors"`
+	ReservePoolActivations int              `json:"reserve_pool_activations"`
+	Errors                 []PgBouncerError `json:"errors,omitempty"`
+	TotalErrors            int              `json:"total_errors"`
+}
+
+// PgBouncerEvent is one step of a pooler's life. Kind is "start", "shutdown",
+// "reload", or the lowercased admin command (pause, resume, suspend,
+// kill, ...); Detail is the release for a start, and otherwise the
+// signal or the console command as logged ("PAUSE 'app'").
+type PgBouncerEvent struct {
+	Time   time.Time `json:"timestamp"`
+	Kind   string    `json:"kind"`
+	Detail string    `json:"detail,omitempty"`
+}
+
+// PgBouncerError is one normalized warning or error and when it occurred.
+type PgBouncerError struct {
+	Message string    `json:"message"`
+	Count   int       `json:"count"`
+	First   time.Time `json:"first"`
+	Last    time.Time `json:"last"`
+}
+
+// PgBouncerCloseReason counts the client sessions closed for one reason.
+type PgBouncerCloseReason struct {
+	Reason       string `json:"reason"`
+	Count        int    `json:"count"`
+	TotalSeconds int64  `json:"total_seconds"`
 }
 
 // LinesFiltered is the number of decoded records the filters dropped:
@@ -218,6 +270,15 @@ type PgBouncerAnalyzer struct {
 	sumXactUs, sumXactW   int64
 	sumQueryUs, sumQueryW int64
 	sumWaitUs, sumWaitW   int64
+
+	errors  map[string]*PgBouncerError
+	reasons map[string]*PgBouncerCloseReason
+
+	// Identity, taken from every record the file holds, filtered or not,
+	// so grouping files into poolers does not depend on the time window.
+	pids        map[string]bool
+	first, last time.Time
+	versionAt   time.Time
 }
 
 // NewPgBouncerAnalyzer returns an analyzer with its maps initialized.
@@ -231,9 +292,87 @@ func NewPgBouncerAnalyzer() *PgBouncerAnalyzer {
 			SessionsPerDatabase:    map[string]int{},
 			SessionsPerUser:        map[string]int{},
 			SessionsPerHost:        map[string]int{},
-			Errors:                 map[string]int{},
 		},
+		errors:  map[string]*PgBouncerError{},
+		reasons: map[string]*PgBouncerCloseReason{},
+		pids:    map[string]bool{},
 	}
+}
+
+// Observe records what identifies the pooler behind a record: its PID,
+// its listen addresses, its release, and the span of the file. It must
+// see every record, including those a time filter then drops.
+func (a *PgBouncerAnalyzer) Observe(entry *parser.LogEntry) {
+	if entry.PID != "" {
+		a.pids[entry.PID] = true
+	}
+	if t := entry.Timestamp; !t.IsZero() {
+		if a.first.IsZero() || t.Before(a.first) {
+			a.first = t
+		}
+		if t.After(a.last) {
+			a.last = t
+		}
+	}
+	rest, ok := strings.CutPrefix(entry.Message, "LOG ")
+	if !ok {
+		return
+	}
+	if addr, ok := strings.CutPrefix(rest, "listening on "); ok && !slices.Contains(a.m.Listen, addr) {
+		a.m.Listen = append(a.m.Listen, addr)
+	}
+	if v, ok := pgbRelease(rest); ok && !entry.Timestamp.Before(a.versionAt) {
+		a.m.Version, a.versionAt = v, entry.Timestamp
+	}
+}
+
+// pgbRelease extracts "1.25.2" from "process up: PgBouncer 1.25.2, ...".
+func pgbRelease(rest string) (string, bool) {
+	v, ok := strings.CutPrefix(rest, "process up: PgBouncer ")
+	if !ok {
+		return "", false
+	}
+	if i := strings.IndexByte(v, ','); i != -1 {
+		v = v[:i]
+	}
+	return v, true
+}
+
+// pgbSignals maps the signals pgBouncer logs on receipt to the event
+// they cause (see its SIGNALS documentation).
+var pgbSignals = map[string]string{
+	"SIGINT": "shutdown", "SIGTERM": "shutdown", "SIGQUIT": "shutdown",
+	"SIGHUP": "reload", "SIGUSR1": "pause", "SIGUSR2": "resume",
+}
+
+// lifecycleEvent recognizes the LOG lines that mark a step of the
+// pooler's life: its start banner, a signal, or an admin console command
+// ("PAUSE 'db' command issued").
+func lifecycleEvent(rest string) (kind, detail string, ok bool) {
+	if v, ok := pgbRelease(rest); ok {
+		return "start", "PgBouncer " + v, true
+	}
+	if sig, ok := strings.CutPrefix(rest, "got "); ok {
+		if i := strings.IndexByte(sig, ','); i != -1 {
+			sig = sig[:i]
+		}
+		if kind, ok := pgbSignals[sig]; ok {
+			return kind, sig, true
+		}
+		return "", "", false
+	}
+	cmd, ok := strings.CutSuffix(rest, " command issued")
+	if !ok || cmd == "" {
+		return "", "", false
+	}
+	verb, _, _ := strings.Cut(cmd, " ")
+	if verb != strings.ToUpper(verb) {
+		return "", "", false
+	}
+	if verb == "SHUTDOWN" {
+		return "shutdown", cmd, true
+	}
+	return strings.ToLower(verb), cmd, true
 }
 
 // Process classifies one pgBouncer log entry. Message begins at the
@@ -255,6 +394,11 @@ func (a *PgBouncerAnalyzer) Process(entry *parser.LogEntry) {
 	if severity == "LOG" && strings.HasPrefix(rest, "stats:") {
 		a.processStats(entry.Timestamp, rest[len("stats:"):])
 		return
+	}
+	if severity == "LOG" {
+		if kind, detail, ok := lifecycleEvent(rest); ok {
+			a.m.Events = append(a.m.Events, PgBouncerEvent{Time: entry.Timestamp, Kind: kind, Detail: detail})
+		}
 	}
 
 	// Socket-scoped events carry "C-0x../S-0x..: <peer> <verb>".
@@ -291,7 +435,7 @@ func (a *PgBouncerAnalyzer) Process(entry *parser.LogEntry) {
 	// Warnings and errors, regardless of socket scope.
 	if severity == "WARNING" || severity == "ERROR" || severity == "FATAL" {
 		a.m.TotalErrors++
-		inc(a.m.Errors, normalizeError(rest))
+		a.noteError(normalizeError(rest), entry.Timestamp)
 	}
 }
 
@@ -345,25 +489,25 @@ func (a *PgBouncerAnalyzer) processStats(t time.Time, body string) {
 	accumulateWeighted(&a.sumWaitUs, &a.sumWaitW, pt.WaitMicros, pt.Queries)
 
 	if pt.Xacts > a.m.MaxXactsPerSec {
-		a.m.MaxXactsPerSec = pt.Xacts
+		a.m.MaxXactsPerSec, a.m.MaxXactsTimestamp = pt.Xacts, t
 	}
 	if pt.Queries > a.m.MaxQueriesPerSec {
-		a.m.MaxQueriesPerSec = pt.Queries
+		a.m.MaxQueriesPerSec, a.m.MaxQueriesTimestamp = pt.Queries, t
 	}
 	if pt.InBytes > a.m.MaxInBytesPerSec {
-		a.m.MaxInBytesPerSec = pt.InBytes
+		a.m.MaxInBytesPerSec, a.m.MaxInTimestamp = pt.InBytes, t
 	}
 	if pt.OutBytes > a.m.MaxOutBytesPerSec {
-		a.m.MaxOutBytesPerSec = pt.OutBytes
+		a.m.MaxOutBytesPerSec, a.m.MaxOutTimestamp = pt.OutBytes, t
 	}
 	if pt.XactMicros > a.m.MaxXactMicros {
-		a.m.MaxXactMicros = pt.XactMicros
+		a.m.MaxXactMicros, a.m.MaxXactTimestamp = pt.XactMicros, t
 	}
 	if pt.QueryMicros > a.m.MaxQueryMicros {
-		a.m.MaxQueryMicros = pt.QueryMicros
+		a.m.MaxQueryMicros, a.m.MaxQueryTimestamp = pt.QueryMicros, t
 	}
 	if pt.WaitMicros > a.m.MaxWaitMicros {
-		a.m.MaxWaitMicros = pt.WaitMicros
+		a.m.MaxWaitMicros, a.m.MaxWaitTimestamp = pt.WaitMicros, t
 	}
 	a.m.StatsSeries = append(a.m.StatsSeries, pt)
 }
@@ -382,11 +526,39 @@ func (a *PgBouncerAnalyzer) processClosing(peer, verb string) {
 	}
 	a.m.Sessions++
 	a.m.TotalSessionSeconds += int64(age.Seconds())
+	reason := strings.TrimPrefix(verb, "closing because:")
+	if i := strings.Index(reason, "(age="); i != -1 {
+		reason = reason[:i]
+	}
+	reason = strings.TrimSpace(reason)
+	r := a.reasons[reason]
+	if r == nil {
+		r = &PgBouncerCloseReason{Reason: reason}
+		a.reasons[reason] = r
+	}
+	r.Count++
+	r.TotalSeconds += int64(age.Seconds())
 	a.m.SessionDistribution[sessionBucket(age)]++
 	db, user, host := parsePeer(peer)
 	inc(a.m.SessionsPerDatabase, db)
 	inc(a.m.SessionsPerUser, user)
 	inc(a.m.SessionsPerHost, host)
+}
+
+// noteError counts one occurrence of a normalized warning or error.
+func (a *PgBouncerAnalyzer) noteError(msg string, t time.Time) {
+	e := a.errors[msg]
+	if e == nil {
+		e = &PgBouncerError{Message: msg, First: t}
+		a.errors[msg] = e
+	}
+	e.Count++
+	if t.Before(e.First) {
+		e.First = t
+	}
+	if t.After(e.Last) {
+		e.Last = t
+	}
 }
 
 // accumulateWeighted folds one snapshot into a weighted average of a
@@ -462,14 +634,33 @@ func (a *PgBouncerAnalyzer) Finalize() PgBouncerMetrics {
 	sort.SliceStable(a.m.StatsSeries, func(i, j int) bool {
 		return a.m.StatsSeries[i].Time.Before(a.m.StatsSeries[j].Time)
 	})
+	sort.SliceStable(a.m.Events, func(i, j int) bool {
+		return a.m.Events[i].Time.Before(a.m.Events[j].Time)
+	})
+
+	a.m.Errors = a.m.Errors[:0]
+	for _, e := range a.errors {
+		a.m.Errors = append(a.m.Errors, *e)
+	}
+	sort.Slice(a.m.Errors, func(i, j int) bool {
+		x, y := a.m.Errors[i], a.m.Errors[j]
+		return x.Count > y.Count || x.Count == y.Count && x.Message < y.Message
+	})
+	a.m.SessionReasons = a.m.SessionReasons[:0]
+	for _, r := range a.reasons {
+		a.m.SessionReasons = append(a.m.SessionReasons, *r)
+	}
+	sort.Slice(a.m.SessionReasons, func(i, j int) bool {
+		x, y := a.m.SessionReasons[i], a.m.SessionReasons[j]
+		return x.Count > y.Count || x.Count == y.Count && x.Reason < y.Reason
+	})
 	return a.m
 }
 
-// AggregatePgBouncerMetrics drains a LogEntry stream through a single
-// PgBouncerAnalyzer. Mirrors AggregateMetricsWithWorkers' contract: ctx
-// cancellation stops consumption and drains the remainder.
-func AggregatePgBouncerMetrics(ctx context.Context, in <-chan []parser.LogEntry) PgBouncerMetrics {
-	a := NewPgBouncerAnalyzer()
+// Consume drains one file's records: every record identifies the pooler,
+// and the ones inside the time bounds feed the report. ctx cancellation
+// stops consumption and drains the remainder.
+func (a *PgBouncerAnalyzer) Consume(ctx context.Context, in <-chan []parser.LogEntry, bounds parser.LogFilters) {
 loop:
 	for {
 		select {
@@ -480,7 +671,10 @@ loop:
 				break loop
 			}
 			for i := range batch {
-				a.Process(&batch[i])
+				a.Observe(&batch[i])
+				if bounds.IsEmpty() || parser.PassesFilters(batch[i], bounds) {
+					a.Process(&batch[i])
+				}
 			}
 			parser.PutBatch(batch)
 		}
@@ -489,7 +683,183 @@ loop:
 		for range in {
 		}
 	}
-	return a.Finalize()
+}
+
+// SetSource names the file the analyzer read and what the parser saw of
+// it: the lines it scanned and the ones it could not decode.
+func (a *PgBouncerAnalyzer) SetSource(file string, read, unrecognized int) {
+	a.m.Files = []string{file}
+	a.m.LinesRead, a.m.LinesUnrecognized = read, unrecognized
+}
+
+// PgBouncerInstances groups per-file analyzers into poolers and returns
+// one report per pooler, ordered by first record.
+//
+// A pooler's log spans several files when it is rotated, or restarted
+// with a new file. Such files follow each other in time and share a PID
+// (a rotation) or a listen address (a restart). Two poolers running at
+// the same time are never merged, even on the same address: that is two
+// hosts, or two containers, each with its own log. A file with no record
+// in the time window is dropped.
+func PgBouncerInstances(files []*PgBouncerAnalyzer) []PgBouncerMetrics {
+	sort.SliceStable(files, func(i, j int) bool { return files[i].first.Before(files[j].first) })
+	var groups []*PgBouncerAnalyzer
+	for _, f := range files {
+		var into *PgBouncerAnalyzer
+		for _, g := range groups {
+			if g.last.After(f.first) {
+				continue // running at the same time: another pooler
+			}
+			if sharesKey(g.pids, f.pids) {
+				into = g
+				break
+			}
+			if into == nil && sharesListen(g.m.Listen, f.m.Listen) {
+				into = g
+			}
+		}
+		if into == nil {
+			groups = append(groups, f)
+			continue
+		}
+		into.merge(f)
+	}
+
+	var out []PgBouncerMetrics
+	names := map[string]int{}
+	for _, g := range groups {
+		if g.m.Lines == 0 {
+			continue
+		}
+		m := g.Finalize()
+		if len(m.Files) > 0 {
+			m.Name = m.Files[0]
+		}
+		if len(m.Listen) > 0 {
+			m.Name = m.Listen[0]
+		}
+		names[m.Name]++
+		out = append(out, m)
+	}
+	for i := range out {
+		if names[out[i].Name] > 1 {
+			out[i].Name += " (" + strings.Join(out[i].Files, ", ") + ")"
+		}
+	}
+	return out
+}
+
+func sharesKey(a, b map[string]bool) bool {
+	for k := range b {
+		if a[k] {
+			return true
+		}
+	}
+	return false
+}
+
+func sharesListen(a, b []string) bool {
+	for _, x := range b {
+		if slices.Contains(a, x) {
+			return true
+		}
+	}
+	return false
+}
+
+// merge folds the analyzer of a later file of the same pooler into a.
+func (a *PgBouncerAnalyzer) merge(b *PgBouncerAnalyzer) {
+	m, n := &a.m, &b.m
+	m.Files = append(m.Files, n.Files...)
+	for _, l := range n.Listen {
+		if !slices.Contains(m.Listen, l) {
+			m.Listen = append(m.Listen, l)
+		}
+	}
+	if !b.versionAt.IsZero() && !b.versionAt.Before(a.versionAt) {
+		m.Version, a.versionAt = n.Version, b.versionAt
+	}
+	for k := range b.pids {
+		a.pids[k] = true
+	}
+	a.last = b.last
+	if !n.MinTimestamp.IsZero() && (m.MinTimestamp.IsZero() || n.MinTimestamp.Before(m.MinTimestamp)) {
+		m.MinTimestamp = n.MinTimestamp
+	}
+	if n.MaxTimestamp.After(m.MaxTimestamp) {
+		m.MaxTimestamp = n.MaxTimestamp
+	}
+	m.Events = append(m.Events, n.Events...)
+	m.Lines += n.Lines
+	m.LinesRead += n.LinesRead
+	m.LinesUnrecognized += n.LinesUnrecognized
+	m.DebugLines += n.DebugLines
+
+	m.StatsSampleCount += n.StatsSampleCount
+	m.StatsSeries = append(m.StatsSeries, n.StatsSeries...)
+	a.sumXacts += b.sumXacts
+	a.sumQueries += b.sumQueries
+	a.sumIn += b.sumIn
+	a.sumOut += b.sumOut
+	a.sumXactUs, a.sumXactW = a.sumXactUs+b.sumXactUs, a.sumXactW+b.sumXactW
+	a.sumQueryUs, a.sumQueryW = a.sumQueryUs+b.sumQueryUs, a.sumQueryW+b.sumQueryW
+	a.sumWaitUs, a.sumWaitW = a.sumWaitUs+b.sumWaitUs, a.sumWaitW+b.sumWaitW
+	peak(&m.MaxXactsPerSec, &m.MaxXactsTimestamp, n.MaxXactsPerSec, n.MaxXactsTimestamp)
+	peak(&m.MaxQueriesPerSec, &m.MaxQueriesTimestamp, n.MaxQueriesPerSec, n.MaxQueriesTimestamp)
+	peak(&m.MaxInBytesPerSec, &m.MaxInTimestamp, n.MaxInBytesPerSec, n.MaxInTimestamp)
+	peak(&m.MaxOutBytesPerSec, &m.MaxOutTimestamp, n.MaxOutBytesPerSec, n.MaxOutTimestamp)
+	peak(&m.MaxXactMicros, &m.MaxXactTimestamp, n.MaxXactMicros, n.MaxXactTimestamp)
+	peak(&m.MaxQueryMicros, &m.MaxQueryTimestamp, n.MaxQueryMicros, n.MaxQueryTimestamp)
+	peak(&m.MaxWaitMicros, &m.MaxWaitTimestamp, n.MaxWaitMicros, n.MaxWaitTimestamp)
+
+	m.LoginAttempts += n.LoginAttempts
+	m.ServerConnections += n.ServerConnections
+	m.Sessions += n.Sessions
+	m.TotalSessionSeconds += n.TotalSessionSeconds
+	m.ReservePoolActivations += n.ReservePoolActivations
+	m.TotalErrors += n.TotalErrors
+	for _, pair := range [][2]map[string]int{
+		{m.SessionDistribution, n.SessionDistribution},
+		{m.ConnectionsPerDatabase, n.ConnectionsPerDatabase},
+		{m.ConnectionsPerUser, n.ConnectionsPerUser},
+		{m.ConnectionsPerHost, n.ConnectionsPerHost},
+		{m.SessionsPerDatabase, n.SessionsPerDatabase},
+		{m.SessionsPerUser, n.SessionsPerUser},
+		{m.SessionsPerHost, n.SessionsPerHost},
+	} {
+		for k, v := range pair[1] {
+			pair[0][k] += v
+		}
+	}
+	for msg, e := range b.errors {
+		if x := a.errors[msg]; x != nil {
+			x.Count += e.Count
+			if e.First.Before(x.First) {
+				x.First = e.First
+			}
+			if e.Last.After(x.Last) {
+				x.Last = e.Last
+			}
+		} else {
+			a.errors[msg] = e
+		}
+	}
+	for k, r := range b.reasons {
+		if x := a.reasons[k]; x != nil {
+			x.Count += r.Count
+			x.TotalSeconds += r.TotalSeconds
+		} else {
+			a.reasons[k] = r
+		}
+	}
+}
+
+// peak keeps the higher of two maxima and when it was logged; on a tie
+// the earlier one.
+func peak[T int | int64](v *T, at *time.Time, w T, wAt time.Time) {
+	if w > *v || w == *v && w > 0 && wAt.Before(*at) {
+		*v, *at = w, wAt
+	}
 }
 
 // ---- parsing helpers ----

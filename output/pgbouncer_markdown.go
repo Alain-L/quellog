@@ -12,18 +12,40 @@ import (
 	"github.com/Alain-L/quellog/analysis"
 )
 
-// ExportPgBouncerMarkdown writes the pgBouncer report as GitHub-flavoured
-// Markdown: a summary table, throughput/timing tables, the session-time
-// histogram as a table, per-dimension breakdowns, and the error ranking.
-func ExportPgBouncerMarkdown(w io.Writer, m analysis.PgBouncerMetrics) {
-	duration := m.MaxTimestamp.Sub(m.MinTimestamp)
+// ExportPgBouncerMarkdown writes one pgBouncer report per pooler, each
+// titled by the pooler's name when there are several.
+func ExportPgBouncerMarkdown(w io.Writer, poolers []analysis.PgBouncerMetrics) {
+	for i, m := range poolers {
+		title := "# pgBouncer Report"
+		if len(poolers) > 1 {
+			title += " (" + escapeMDCell(m.Name) + ")"
+		}
+		if i > 0 {
+			fmt.Fprintln(w)
+		}
+		exportPgBouncerMarkdown(w, m, title)
+	}
+}
 
-	fmt.Fprintln(w, "# pgBouncer Report")
+// exportPgBouncerMarkdown writes one pooler's report as GitHub-flavoured
+// Markdown: a summary table and its timeline, throughput/timing tables,
+// the session-time histogram as a table, per-dimension breakdowns, and
+// the errors.
+func exportPgBouncerMarkdown(w io.Writer, m analysis.PgBouncerMetrics, title string) {
+	duration := m.MaxTimestamp.Sub(m.MinTimestamp)
+	clock := pgbClock(m)
+
+	fmt.Fprintln(w, title)
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "## Summary")
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "| Metric | Value |")
 	fmt.Fprintln(w, "|---|---|")
+	fmt.Fprintf(w, "| Pooler | %s |\n", escapeMDCell(m.Name))
+	if m.Version != "" {
+		fmt.Fprintf(w, "| Version | PgBouncer %s |\n", escapeMDCell(m.Version))
+	}
+	fmt.Fprintf(w, "| Files | %s |\n", escapeMDCell(strings.Join(m.Files, ", ")))
 	fmt.Fprintf(w, "| Start date | %s |\n", m.MinTimestamp.Format("2006-01-02 15:04:05 MST"))
 	fmt.Fprintf(w, "| End date | %s |\n", m.MaxTimestamp.Format("2006-01-02 15:04:05 MST"))
 	fmt.Fprintf(w, "| Duration | %s |\n", duration)
@@ -47,6 +69,17 @@ func ExportPgBouncerMarkdown(w io.Writer, m analysis.PgBouncerMetrics) {
 	}
 	fmt.Fprintf(w, "| Errors | %d |\n", m.TotalErrors)
 
+	if len(m.Events) > 0 {
+		fmt.Fprintln(w)
+		fmt.Fprintln(w, "### Timeline")
+		fmt.Fprintln(w)
+		fmt.Fprintln(w, "| Time | Event | Detail |")
+		fmt.Fprintln(w, "|---|---|---|")
+		for _, e := range m.Events {
+			fmt.Fprintf(w, "| %s | %s | %s |\n", e.Time.Format(clock), e.Kind, escapeMDCell(e.Detail))
+		}
+	}
+
 	if m.StatsSampleCount == 0 {
 		fmt.Fprintln(w)
 		fmt.Fprintln(w, "## Request Throughput")
@@ -66,31 +99,31 @@ func ExportPgBouncerMarkdown(w io.Writer, m analysis.PgBouncerMetrics) {
 		}
 		fmt.Fprintf(w, "*%s %s*\n", pgbRateNote[0], pgbRateNote[1])
 		fmt.Fprintln(w)
-		fmt.Fprintln(w, "| Metric | Average | Max snapshot average |")
-		fmt.Fprintln(w, "|---|---|---|")
-		fmt.Fprintf(w, "| Transactions/s | %.1f | %d |\n", m.AvgXactsPerSec, m.MaxXactsPerSec)
-		fmt.Fprintf(w, "| Queries/s | %.1f | %d |\n", m.AvgQueriesPerSec, m.MaxQueriesPerSec)
-		fmt.Fprintf(w, "| Network in | %s | %s |\n", bytesPerSecMD(m.AvgInBytesPerSec), bytesPerSecMD(float64(m.MaxInBytesPerSec)))
-		fmt.Fprintf(w, "| Network out | %s | %s |\n", bytesPerSecMD(m.AvgOutBytesPerSec), bytesPerSecMD(float64(m.MaxOutBytesPerSec)))
+		fmt.Fprintln(w, "| Metric | Average | Max snapshot average | At |")
+		fmt.Fprintln(w, "|---|---|---|---|")
+		fmt.Fprintf(w, "| Transactions/s | %.1f | %d | %s |\n", m.AvgXactsPerSec, m.MaxXactsPerSec, pgbAtMD(m.MaxXactsTimestamp, clock))
+		fmt.Fprintf(w, "| Queries/s | %.1f | %d | %s |\n", m.AvgQueriesPerSec, m.MaxQueriesPerSec, pgbAtMD(m.MaxQueriesTimestamp, clock))
+		fmt.Fprintf(w, "| Network in | %s | %s | %s |\n", bytesPerSec(m.AvgInBytesPerSec), bytesPerSec(float64(m.MaxInBytesPerSec)), pgbAtMD(m.MaxInTimestamp, clock))
+		fmt.Fprintf(w, "| Network out | %s | %s | %s |\n", bytesPerSec(m.AvgOutBytesPerSec), bytesPerSec(float64(m.MaxOutBytesPerSec)), pgbAtMD(m.MaxOutTimestamp, clock))
 
 		fmt.Fprintln(w)
 		fmt.Fprintln(w, "## Query Timing")
 		fmt.Fprintln(w)
 		fmt.Fprintf(w, "*%s %s*\n", pgbTimingNote[0], pgbTimingNote[1])
 		fmt.Fprintln(w)
-		fmt.Fprintln(w, "| Metric | Weighted average | Max snapshot average |")
-		fmt.Fprintln(w, "|---|---|---|")
-		fmt.Fprintf(w, "| Transaction time | %s | %s |\n", microsMD(m.AvgXactMicros), microsMD(float64(m.MaxXactMicros)))
-		fmt.Fprintf(w, "| Query time | %s | %s |\n", microsMD(m.AvgQueryMicros), microsMD(float64(m.MaxQueryMicros)))
+		fmt.Fprintln(w, "| Metric | Weighted average | Max snapshot average | At |")
+		fmt.Fprintln(w, "|---|---|---|---|")
+		fmt.Fprintf(w, "| Transaction time | %s | %s | %s |\n", micros(m.AvgXactMicros), microsI(m.MaxXactMicros), pgbAtMD(m.MaxXactTimestamp, clock))
+		fmt.Fprintf(w, "| Query time | %s | %s | %s |\n", micros(m.AvgQueryMicros), microsI(m.MaxQueryMicros), pgbAtMD(m.MaxQueryTimestamp, clock))
 
 		fmt.Fprintln(w)
 		fmt.Fprintln(w, "## Pool Wait")
 		fmt.Fprintln(w)
 		fmt.Fprintf(w, "*%s*\n", strings.Join(pgbWaitNote, " "))
 		fmt.Fprintln(w)
-		fmt.Fprintln(w, "| Metric | Weighted average | Max snapshot average |")
-		fmt.Fprintln(w, "|---|---|---|")
-		fmt.Fprintf(w, "| Pool wait time | %s | %s |\n", microsMD(m.AvgWaitMicros), microsMD(float64(m.MaxWaitMicros)))
+		fmt.Fprintln(w, "| Metric | Weighted average | Max snapshot average | At |")
+		fmt.Fprintln(w, "|---|---|---|---|")
+		fmt.Fprintf(w, "| Pool wait time | %s | %s | %s |\n", micros(m.AvgWaitMicros), microsI(m.MaxWaitMicros), pgbAtMD(m.MaxWaitTimestamp, clock))
 	}
 
 	// Sessions and Connections below print their heading whether or not
@@ -111,7 +144,7 @@ func ExportPgBouncerMarkdown(w io.Writer, m analysis.PgBouncerMetrics) {
 		fmt.Fprintln(w, "## Sessions")
 		fmt.Fprintln(w)
 		fmt.Fprintf(w, "- Completed sessions: **%d**\n", m.Sessions)
-		fmt.Fprintf(w, "- Average session time: **%s**\n", formatSessionDurationMD(m.AvgSessionSeconds()))
+		fmt.Fprintf(w, "- Average session time: **%s**\n", formatSessionDuration(time.Duration(m.AvgSessionSeconds()*float64(time.Second))))
 		fmt.Fprintln(w)
 		fmt.Fprintln(w, "| Session time | Count |")
 		fmt.Fprintln(w, "|---|---|")
@@ -119,6 +152,18 @@ func ExportPgBouncerMarkdown(w io.Writer, m analysis.PgBouncerMetrics) {
 			if c := m.SessionDistribution[b]; c > 0 {
 				fmt.Fprintf(w, "| %s | %d |\n", escapeMDCell(b), c)
 			}
+		}
+		if len(m.SessionReasons) > 0 {
+			fmt.Fprintln(w)
+			fmt.Fprintln(w, "### Sessions per close reason")
+			fmt.Fprintln(w)
+			fmt.Fprintln(w, "| Reason | Count | % | Average age |")
+			fmt.Fprintln(w, "|---|---|---|---|")
+			for _, r := range headMD(m.SessionReasons) {
+				avg := time.Duration(float64(r.TotalSeconds) / float64(r.Count) * float64(time.Second))
+				fmt.Fprintf(w, "| %s | %d | %.1f%% | %s |\n", escapeMDCell(r.Reason), r.Count, float64(r.Count)/float64(m.Sessions)*100, formatSessionDuration(avg))
+			}
+			writeTailMD(w, len(m.SessionReasons), pgbListMax)
 		}
 		writeBreakdownMD(w, "Sessions per database", m.SessionsPerDatabase, m.Sessions)
 		writeBreakdownMD(w, "Sessions per user", m.SessionsPerUser, m.Sessions)
@@ -146,13 +191,13 @@ func ExportPgBouncerMarkdown(w io.Writer, m analysis.PgBouncerMetrics) {
 		fmt.Fprintln(w)
 		fmt.Fprintln(w, "## Most Frequent Errors")
 		fmt.Fprintln(w)
-		fmt.Fprintln(w, "| Error | Count | % |")
-		fmt.Fprintln(w, "|---|---|---|")
-		for _, p := range topPairsMD(m.Errors, 10) {
-			pct := float64(p.count) / float64(m.TotalErrors) * 100
-			fmt.Fprintf(w, "| %s | %d | %.1f%% |\n", escapeMDCell(p.name), p.count, pct)
+		fmt.Fprintln(w, "| Error | Count | % | First | Last |")
+		fmt.Fprintln(w, "|---|---|---|---|---|")
+		for _, e := range headMD(m.Errors) {
+			pct := float64(e.Count) / float64(m.TotalErrors) * 100
+			fmt.Fprintf(w, "| %s | %d | %.1f%% | %s | %s |\n", escapeMDCell(e.Message), e.Count, pct, e.First.Format(clock), e.Last.Format(clock))
 		}
-		writeTailMD(w, len(m.Errors), 10)
+		writeTailMD(w, len(m.Errors), pgbListMax)
 	}
 }
 
@@ -212,42 +257,15 @@ func writeBreakdownMD(w io.Writer, title string, m map[string]int, total int) {
 	writeTailMD(w, len(m), 10)
 }
 
-func bytesPerSecMD(v float64) string {
-	return FormatBytes(int64(v+0.5)) + "/s"
+// headMD keeps the first pgbListMax rows of a list.
+func headMD[T any](rows []T) []T {
+	return rows[:min(len(rows), pgbListMax)]
 }
 
-func microsMD(us float64) string {
-	switch {
-	case us < 1000:
-		return fmt.Sprintf("%.0f µs", us)
-	case us < 1_000_000:
-		return fmt.Sprintf("%.1f ms", us/1000)
-	default:
-		return fmt.Sprintf("%.2f s", us/1_000_000)
+// pgbAtMD is the "At" cell of a maximum: its time, or a dash.
+func pgbAtMD(t time.Time, clock string) string {
+	if t.IsZero() {
+		return "-"
 	}
-}
-
-// formatSessionDurationMD renders a whole-second session mean. Kept
-// local (not shared with the text renderer's formatSessionDuration,
-// which lives behind //go:build !js) so this file stays WASM-safe.
-func formatSessionDurationMD(seconds float64) string {
-	d := time.Duration(seconds * float64(time.Second))
-	switch {
-	case d < time.Minute:
-		return fmt.Sprintf("%.0fs", d.Seconds())
-	case d < time.Hour:
-		m := int(d.Minutes())
-		s := int(d.Seconds()) % 60
-		if s > 0 {
-			return fmt.Sprintf("%dm%ds", m, s)
-		}
-		return fmt.Sprintf("%dm", m)
-	default:
-		h := int(d.Hours())
-		m := int(d.Minutes()) % 60
-		if m > 0 {
-			return fmt.Sprintf("%dh%dm", h, m)
-		}
-		return fmt.Sprintf("%dh", h)
-	}
+	return t.Format(clock)
 }

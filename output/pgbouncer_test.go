@@ -31,8 +31,11 @@ func samplePgBouncerMetrics() analysis.PgBouncerMetrics {
 		ConnectionsPerDatabase: map[string]int{"app": 7, "billing": 3},
 		SessionsPerUser:        map[string]int{"app_user": 5, "batch": 3},
 		ReservePoolActivations: 1,
-		Errors:                 map[string]int{"pooler error: password authentication failed": 2, "<script>evil</script>": 1},
-		TotalErrors:            3,
+		Errors: []analysis.PgBouncerError{
+			{Message: "pooler error: password authentication failed", Count: 2, First: base, Last: base.Add(time.Minute)},
+			{Message: "<script>evil</script>", Count: 1, First: base, Last: base},
+		},
+		TotalErrors: 3,
 		StatsSeries: []analysis.PgBouncerStatsPoint{
 			{Time: base, Queries: 1, XactMicros: 100},
 			{Time: base.Add(time.Second), Queries: 48, XactMicros: 2000},
@@ -47,7 +50,7 @@ func TestPgBouncerHTMLSmoke(t *testing.T) {
 	var buf bytes.Buffer
 	m := analysis.AggregatedMetrics{}
 	pgb := samplePgBouncerMetrics()
-	if err := ExportHTMLCombined(&buf, m, &pgb, HTMLReportInfo{Version: "test"}, []string{"all"}, true); err != nil {
+	if err := ExportHTMLCombined(&buf, m, []analysis.PgBouncerMetrics{pgb}, HTMLReportInfo{Version: "test"}, []string{"all"}, true); err != nil {
 		t.Fatalf("ExportHTMLCombined: %v", err)
 	}
 	out := buf.String()
@@ -62,68 +65,38 @@ func TestPgBouncerHTMLSmoke(t *testing.T) {
 	}
 }
 
-// TestPgBouncerJSONRoundTrip checks the JSON export is valid and preserves
-// the headline counters.
-func TestPgBouncerJSONRoundTrip(t *testing.T) {
-	var buf bytes.Buffer
-	ExportPgBouncerJSON(&buf, samplePgBouncerMetrics(), true)
-
-	var got map[string]interface{}
-	if err := json.Unmarshal(buf.Bytes(), &got); err != nil {
-		t.Fatalf("invalid JSON: %v", err)
-	}
-	if got["login_attempts"].(float64) != 10 {
-		t.Errorf("login_attempts = %v, want 10", got["login_attempts"])
-	}
-	if got["total_errors"].(float64) != 3 {
-		t.Errorf("total_errors = %v, want 3", got["total_errors"])
-	}
-}
-
-// TestExportJSONCombined checks the pgBouncer sub-object is added to the
-// PostgreSQL payload only when pgBouncer metrics are present.
+// TestExportJSONCombined checks the "pgbouncer" key: one entry per pooler,
+// the same shape in a mixed and in a pure pgBouncer run, absent from a pure
+// PostgreSQL run.
 func TestExportJSONCombined(t *testing.T) {
 	m := analysis.AggregatedMetrics{}
 	m.Global.Count = 1
+	pgb := []analysis.PgBouncerMetrics{samplePgBouncerMetrics()}
 
-	// With pgb: a top-level "pgbouncer" key carries the pooler metrics.
-	var withPgb bytes.Buffer
-	pgb := samplePgBouncerMetrics()
-	ExportJSONCombined(&withPgb, m, &pgb, []string{"all"}, true, true, false)
-	var got map[string]interface{}
-	if err := json.Unmarshal(withPgb.Bytes(), &got); err != nil {
-		t.Fatalf("invalid JSON: %v", err)
+	decode := func(pgb []analysis.PgBouncerMetrics, pgbOnly bool) map[string]interface{} {
+		t.Helper()
+		var buf bytes.Buffer
+		ExportJSONCombined(&buf, m, pgb, []string{"all"}, true, true, pgbOnly)
+		var got map[string]interface{}
+		if err := json.Unmarshal(buf.Bytes(), &got); err != nil {
+			t.Fatalf("invalid JSON: %v", err)
+		}
+		return got
 	}
-	pb, ok := got["pgbouncer"].(map[string]interface{})
-	if !ok {
-		t.Fatalf("expected pgbouncer object, got %T", got["pgbouncer"])
+	for _, pgbOnly := range []bool{false, true} {
+		got := decode(pgb, pgbOnly)
+		list, ok := got["pgbouncer"].([]interface{})
+		if !ok || len(list) != 1 {
+			t.Fatalf("pgbOnly=%v: expected a one-pooler pgbouncer list, got %T", pgbOnly, got["pgbouncer"])
+		}
+		if n := list[0].(map[string]interface{})["login_attempts"]; n != 10.0 {
+			t.Errorf("pgbOnly=%v: pgbouncer[0].login_attempts = %v, want 10", pgbOnly, n)
+		}
+		if _, present := got["summary"]; present == pgbOnly {
+			t.Errorf("pgbOnly=%v: summary present = %v", pgbOnly, present)
+		}
 	}
-	if pb["login_attempts"].(float64) != 10 {
-		t.Errorf("pgbouncer.login_attempts = %v, want 10", pb["login_attempts"])
-	}
-
-	// Without pgb (pure PostgreSQL run): no pgbouncer key.
-	var noPgb bytes.Buffer
-	ExportJSONCombined(&noPgb, m, nil, []string{"all"}, true, true, false)
-	var got2 map[string]interface{}
-	if err := json.Unmarshal(noPgb.Bytes(), &got2); err != nil {
-		t.Fatalf("invalid JSON: %v", err)
-	}
-	if _, present := got2["pgbouncer"]; present {
+	if _, present := decode(nil, false)["pgbouncer"]; present {
 		t.Error("pgbouncer key present in a pure PostgreSQL payload")
-	}
-
-	// Pure pgBouncer run: the flat pooler document, not a nested key.
-	var only bytes.Buffer
-	ExportJSONCombined(&only, analysis.AggregatedMetrics{}, &pgb, []string{"all"}, true, true, true)
-	var got3 map[string]interface{}
-	if err := json.Unmarshal(only.Bytes(), &got3); err != nil {
-		t.Fatalf("invalid JSON: %v", err)
-	}
-	if _, present := got3["pgbouncer"]; present {
-		t.Error("pgbouncer key nested in a pure pgBouncer payload (schema must stay flat)")
-	}
-	if got3["login_attempts"].(float64) != 10 {
-		t.Errorf("login_attempts = %v, want 10", got3["login_attempts"])
 	}
 }

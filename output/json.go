@@ -1973,19 +1973,18 @@ func ExportJSON(w io.Writer, m analysis.AggregatedMetrics, sections []string, fu
 }
 
 // ExportJSONCombined writes the PostgreSQL JSON payload with an added
-// top-level "pgbouncer" key when pgBouncer files were part of the same
-// run. With pgb nil (a pure PostgreSQL run) it is identical to ExportJSON.
-// pgbOnly marks a pure pgBouncer run: there is no PostgreSQL payload to
-// nest under, so the flat pooler document is written instead.
-func ExportJSONCombined(w io.Writer, m analysis.AggregatedMetrics, pgb *analysis.PgBouncerMetrics, sections []string, full bool, compact bool, pgbOnly bool) {
-	if pgbOnly {
-		if pgb != nil {
-			ExportPgBouncerJSON(w, *pgb, compact)
-		}
-		return
+// top-level "pgbouncer" key, one entry per pooler, when pgBouncer files
+// were part of the same run. With pgb empty (a pure PostgreSQL run) it is
+// identical to ExportJSON. pgbOnly marks a pure pgBouncer run: the
+// document then holds the "pgbouncer" key alone, the same key a mixed
+// run carries, so a filter emptying the PostgreSQL side of a mixed run
+// does not change where the pooler figures are.
+func ExportJSONCombined(w io.Writer, m analysis.AggregatedMetrics, pgb []analysis.PgBouncerMetrics, sections []string, full bool, compact bool, pgbOnly bool) {
+	data := map[string]interface{}{}
+	if !pgbOnly {
+		data = buildJSONData(m, sections, full)
 	}
-	data := buildJSONData(m, sections, full)
-	if pgb != nil && pgb.Lines > 0 {
+	if len(pgb) > 0 {
 		data["pgbouncer"] = pgb
 	}
 	if err := encodeMapStreaming(w, data, compact); err != nil {
