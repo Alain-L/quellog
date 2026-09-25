@@ -1,0 +1,33 @@
+pgbench (17.10 (Debian 17.10-1.pgdg13+1), server 17.9 (Debian 17.9-1.pgdg13+1))
+starting vacuum...end.
+pgbench: error: client 16 script 0 aborted in command 1 query 0: FATAL:  query_wait_timeout
+pgbench: error: client 38 script 0 aborted in command 1 query 0: FATAL:  query_wait_timeout
+pgbench: error: client 39 script 0 aborted in command 1 query 0: FATAL:  query_wait_timeout
+pgbench: error: client 11 script 0 aborted in command 1 query 0: FATAL:  query_wait_timeout
+pgbench: pgbench: error: pgbench:client 0 script 0 aborted in command 1 query 0: FATAL:  query_wait_timeout
+ error: client 40 script 0 aborted in command 1 query 0: FATAL:  query_wait_timeout
+error: client 32 script 0 aborted in command 1 query 0: FATAL:  query_wait_timeout
+pgbench: error: client 31 script 0 aborted in command 1 query 0: FATAL:  query_wait_timeout
+pgbench: error: client 41 script 0 aborted in command 1 query 0: FATAL:  query_wait_timeout
+pgbench: error: client 1 script 0 aborted in command 1 query 0: FATAL:  query_wait_timeout
+pgbench: error: client 33 script 0 aborted in command 1 query 0: FATAL:  query_wait_timeout
+pgbench: error: client 2 script 0 aborted in command 1 query 0: FATAL:  query_wait_timeout
+pgbench: error: client 34 script 0 aborted in command 1 query 0: FATAL:  query_wait_timeout
+pgbench: error: client 3 script 0 aborted in command 1 query 0: FATAL:  query_wait_timeout
+pgbench: error: client 35 script 0 aborted in command 1 query 0: FATAL:  query_wait_timeout
+pgbench: error: client 4 script 0 aborted in command 1 query 0: FATAL:  query_wait_timeout
+pgbench: error: client 36 script 0 aborted in command 1 query 0: FATAL:  query_wait_timeout
+pgbench: error: client 5 script 0 aborted in command 1 query 0: FATAL:  query_wait_timeout
+transaction type: /home/alain/pgb-lab/p1/sleep.sql
+scaling factor: 1
+query mode: simple
+number of clients: 42
+number of threads: 8
+maximum number of tries: 1
+duration: 60 s
+number of transactions actually processed: 496
+number of failed transactions: 0 (0.000%)
+latency average = 5332.722 ms
+initial connection time = 2.023 ms
+tps = 7.875902 (without initial connection time)
+pgbench: error: Run was aborted; the above results are incomplete.

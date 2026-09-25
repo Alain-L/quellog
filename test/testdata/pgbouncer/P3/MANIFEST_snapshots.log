@@ -1,0 +1,52 @@
+=== 2026-09-25T09:23:48.571Z : step1 baseline ===
+ database  | total_xact_count | total_query_count | total_received | total_sent | total_xact_time | total_query_time | total_wait_time | avg_xact_count | avg_query_count | avg_recv | avg_sent | avg_xact_time | avg_query_time | avg_wait_time 
+-----------+------------------+-------------------+----------------+------------+-----------------+------------------+-----------------+----------------+-----------------+----------+----------+---------------+----------------+---------------
+ bench     |            85526 |            598560 |       36462036 |   15929042 |       115595061 |        109492899 |           15397 |           1919 |           13434 |   818353 |   357512 |          1352 |            183 |             0
+ pgbouncer |                1 |                 1 |              0 |          0 |               0 |                0 |               0 |              0 |               0 |        0 |        0 |             0 |              0 |             0
+(2 rows)
+
+ database  |   user    | cl_active | cl_waiting | cl_active_cancel_req | cl_waiting_cancel_req | sv_active | sv_active_cancel | sv_being_canceled | sv_idle | sv_used | sv_tested | sv_login | maxwait | maxwait_us |  pool_mode  
+-----------+-----------+-----------+------------+----------------------+-----------------------+-----------+------------------+-------------------+---------+---------+-----------+----------+---------+------------+-------------
+ bench     | bench     |         3 |          0 |                    0 |                     0 |         3 |                0 |                 0 |       0 |       0 |         0 |        0 |       0 |          0 | transaction
+ pgbouncer | pgbouncer |         1 |          0 |                    0 |                     0 |         0 |                0 |                 0 |       0 |       0 |         0 |        0 |       0 |          0 | statement
+(2 rows)
+
+=== 2026-09-25T09:24:03.609Z : step2 just after RELOAD (pool shrunk) ===
+ database  | total_xact_count | total_query_count | total_received | total_sent | total_xact_time | total_query_time | total_wait_time | avg_xact_count | avg_query_count | avg_recv | avg_sent | avg_xact_time | avg_query_time | avg_wait_time 
+-----------+------------------+-------------------+----------------+------------+-----------------+------------------+-----------------+----------------+-----------------+----------+----------+---------------+----------------+---------------
+ bench     |           109880 |            769010 |       46845301 |   20465180 |       148455694 |        140626965 |           15397 |           1813 |           12692 |   773169 |   337770 |          1347 |            182 |             0
+ pgbouncer |                4 |                 4 |              0 |          0 |               0 |                0 |               0 |              0 |               0 |        0 |        0 |             0 |              0 |             0
+(2 rows)
+
+ database  |   user    | cl_active | cl_waiting | cl_active_cancel_req | cl_waiting_cancel_req | sv_active | sv_active_cancel | sv_being_canceled | sv_idle | sv_used | sv_tested | sv_login | maxwait | maxwait_us |  pool_mode  
+-----------+-----------+-----------+------------+----------------------+-----------------------+-----------+------------------+-------------------+---------+---------+-----------+----------+---------+------------+-------------
+ bench     | bench     |         0 |          0 |                    0 |                     0 |         0 |                0 |                 0 |       3 |       0 |         0 |        0 |       0 |          0 | transaction
+ pgbouncer | pgbouncer |         1 |          0 |                    0 |                     0 |         0 |                0 |                 0 |       0 |       0 |         0 |        0 |       0 |          0 | statement
+(2 rows)
+
+=== 2026-09-25T09:24:46.470Z : step2 right after saturation load ===
+ database  | total_xact_count | total_query_count | total_received | total_sent | total_xact_time | total_query_time | total_wait_time | avg_xact_count | avg_query_count | avg_recv | avg_sent | avg_xact_time | avg_query_time | avg_wait_time 
+-----------+------------------+-------------------+----------------+------------+-----------------+------------------+-----------------+----------------+-----------------+----------+----------+---------------+----------------+---------------
+ bench     |           110321 |            770901 |       46916364 |   20535574 |      1203023561 |       1194983757 |       885322541 |             11 |              62 |     2916 |     2200 |       2294863 |         398903 |      20932914
+ pgbouncer |                6 |                 6 |              0 |          0 |               0 |                0 |               0 |              0 |               0 |        0 |        0 |             0 |              0 |             0
+(2 rows)
+
+ database  |   user    | cl_active | cl_waiting | cl_active_cancel_req | cl_waiting_cancel_req | sv_active | sv_active_cancel | sv_being_canceled | sv_idle | sv_used | sv_tested | sv_login | maxwait | maxwait_us |  pool_mode  
+-----------+-----------+-----------+------------+----------------------+-----------------------+-----------+------------------+-------------------+---------+---------+-----------+----------+---------+------------+-------------
+ bench     | bench     |         3 |          0 |                    0 |                     0 |         3 |                0 |                 0 |       1 |       0 |         0 |        0 |       0 |          0 | transaction
+ pgbouncer | pgbouncer |         1 |          0 |                    0 |                     0 |         0 |                0 |                 0 |       0 |       0 |         0 |        0 |       0 |          0 | statement
+(2 rows)
+
+=== 2026-09-25T09:25:46.496Z : step3 final ===
+ database  | total_xact_count | total_query_count | total_received | total_sent | total_xact_time | total_query_time | total_wait_time | avg_xact_count | avg_query_count | avg_recv | avg_sent | avg_xact_time | avg_query_time | avg_wait_time 
+-----------+------------------+-------------------+----------------+------------+-----------------+------------------+-----------------+----------------+-----------------+----------+----------+---------------+----------------+---------------
+ bench     |           220451 |           1541699 |       93870266 |   41049811 |      1351384486 |       1335540436 |       885322541 |           1589 |           11124 |   677702 |   296093 |          1339 |            181 |             0
+ pgbouncer |                9 |                 9 |              0 |          0 |               0 |                0 |               0 |              0 |               0 |        0 |        0 |             0 |              0 |             0
+(2 rows)
+
+ database  |   user    | cl_active | cl_waiting | cl_active_cancel_req | cl_waiting_cancel_req | sv_active | sv_active_cancel | sv_being_canceled | sv_idle | sv_used | sv_tested | sv_login | maxwait | maxwait_us |  pool_mode  
+-----------+-----------+-----------+------------+----------------------+-----------------------+-----------+------------------+-------------------+---------+---------+-----------+----------+---------+------------+-------------
+ bench     | bench     |         0 |          0 |                    0 |                     0 |         0 |                0 |                 0 |       3 |       1 |         0 |        0 |       0 |          0 | transaction
+ pgbouncer | pgbouncer |         1 |          0 |                    0 |                     0 |         0 |                0 |                 0 |       0 |       0 |         0 |        0 |       0 |          0 | statement
+(2 rows)
+

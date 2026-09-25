@@ -1,0 +1,35 @@
+[2026-09-25T09:22:59.924Z] === RUN P3 SETUP START ===
+[2026-09-25T09:23:00.029Z] starting postgres container (quellog-pg-p3)
+bbd7740d20c16ee522abb6c5319a5c6540d7e83d6257814104b9608ece5c2aca
+[2026-09-25T09:23:01.181Z] postgres ready after 2s
+ALTER ROLE
+dropping old tables...
+NOTICE:  table "pgbench_accounts" does not exist, skipping
+NOTICE:  table "pgbench_branches" does not exist, skipping
+NOTICE:  table "pgbench_history" does not exist, skipping
+NOTICE:  table "pgbench_tellers" does not exist, skipping
+creating tables...
+generating data (client-side)...
+300000 of 300000 tuples (100%) of pgbench_accounts done (elapsed 0.03 s, remaining 0.00 s)
+vacuuming...
+creating primary keys...
+done in 0.30 s (drop tables 0.00 s, create tables 0.01 s, client-side generate 0.21 s, vacuum 0.03 s, primary keys 0.05 s).
+[2026-09-25T09:23:03.557Z] pgbouncer 1.18.0 started (pid 641353)
+[2026-09-25T09:23:03.561Z] === RUN P3 SETUP DONE ===
+[2026-09-25T09:23:03.564Z] STEP1 BEFORE -- baseline light traffic
+[2026-09-25T09:23:03.568Z] background light traffic loop started (pid 641366)
+[2026-09-25T09:23:48.581Z] STEP1 AFTER
+[2026-09-25T09:24:03.586Z] STEP2 BEFORE -- shrink pool, saturate with 40 clients + pg_sleep(0.5) for 40s
+RELOAD
+RELOAD
+[2026-09-25T09:24:46.490Z] STEP2 AFTER
+[2026-09-25T09:25:01.492Z] STEP3 BEFORE -- final normal traffic
+[2026-09-25T09:25:46.514Z] STEP3 AFTER
+[2026-09-25T09:25:46.531Z] background light traffic loop stopped
+[2026-09-25T09:25:46.532Z] === RUN P3 TEARDOWN ===
+server closed the connection unexpectedly
+	This probably means the server terminated abnormally
+	before or while processing the request.
+connection to server was lost
+quellog-pg-p3
+[2026-09-25T09:25:47.779Z] === RUN P3 DONE ===

@@ -1,0 +1,5 @@
+psql: error: connection to server at "127.0.0.1", port 6432 failed: FATAL:  password authentication failed
+psql: error: connection to server at "127.0.0.1", port 6432 failed: FATAL:  password authentication failed
+psql: error: connection to server at "127.0.0.1", port 6432 failed: FATAL:  password authentication failed
+psql: error: connection to server at "127.0.0.1", port 6432 failed: FATAL:  no such database: nosuchdb
+psql: error: connection to server at "127.0.0.1", port 6432 failed: FATAL:  password authentication failed

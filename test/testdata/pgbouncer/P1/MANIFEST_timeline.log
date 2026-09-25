@@ -1,0 +1,58 @@
+[2026-09-25T09:05:26.987Z] === RUN P1 SETUP START ===
+[2026-09-25T09:05:27.089Z] starting postgres container (quellog-pg-p1)
+082a6fc8f6b93a2cc0a574e6cb23c5d8c777f095d9944610ab54a9e412fbc8ea
+[2026-09-25T09:05:28.320Z] postgres ready after 2s
+ALTER ROLE
+[2026-09-25T09:05:30.370Z] pgbouncer started (pid 637577)
+[2026-09-25T09:05:30.373Z] initializing pgbench dataset (scale 5) directly against postgres container
+dropping old tables...
+NOTICE:  table "pgbench_accounts" does not exist, skipping
+NOTICE:  table "pgbench_branches" does not exist, skipping
+NOTICE:  table "pgbench_history" does not exist, skipping
+NOTICE:  table "pgbench_tellers" does not exist, skipping
+creating tables...
+generating data (client-side)...
+500000 of 500000 tuples (100%) of pgbench_accounts done (elapsed 0.08 s, remaining 0.00 s)
+vacuuming...
+creating primary keys...
+done in 0.51 s (drop tables 0.00 s, create tables 0.02 s, client-side generate 0.34 s, vacuum 0.04 s, primary keys 0.11 s).
+[2026-09-25T09:05:30.897Z] === RUN P1 SETUP DONE ===
+[2026-09-25T09:05:30.898Z] STEP1 BEFORE -- start light traffic
+[2026-09-25T09:05:30.899Z] background light traffic loop started (pid 637603)
+[2026-09-25T09:07:00.916Z] STEP1 AFTER
+[2026-09-25T09:07:30.918Z] STEP2 BEFORE -- change default_pool_size 5 -> 20, RELOAD
+RELOAD
+[2026-09-25T09:07:30.926Z] STEP2 AFTER
+[2026-09-25T09:08:05.928Z] STEP3 BEFORE -- shrink pool, saturate with 42 clients + pg_sleep(0.5) for 60s
+RELOAD
+[2026-09-25T09:09:08.964Z] STEP3 AFTER -- restoring pool settings
+RELOAD
+[2026-09-25T09:09:38.975Z] STEP4 BEFORE -- PAUSE bench for ~20s under traffic
+PAUSE
+RESUME
+[2026-09-25T09:09:59.016Z] STEP4 AFTER
+[2026-09-25T09:10:29.019Z] STEP5 BEFORE -- auth failures (wrong password x3, unknown db, unknown user)
+[2026-09-25T09:10:29.042Z] STEP5 AFTER
+[2026-09-25T09:10:59.044Z] STEP6 BEFORE -- podman stop/start quellog-pg-p1 under traffic
+quellog-pg-p1
+quellog-pg-p1
+[2026-09-25T09:11:02.402Z] postgres back up after 2s
+[2026-09-25T09:11:02.406Z] STEP6 AFTER
+[2026-09-25T09:11:32.411Z] STEP7 BEFORE -- pgbouncer clean restart (SIGINT then restart, append log)
+[2026-09-25T09:11:32.425Z] background light traffic loop stopped
+[2026-09-25T09:11:34.443Z] pgbouncer restarted (pid 638605)
+[2026-09-25T09:11:34.447Z] background light traffic loop started (pid 638618)
+[2026-09-25T09:11:34.450Z] STEP7 AFTER
+[2026-09-25T09:12:04.453Z] STEP8 BEFORE -- set client_idle_timeout=20, RELOAD, open idle client
+RELOAD
+[2026-09-25T09:12:29.467Z] STEP8 AFTER
+[2026-09-25T09:12:59.472Z] STEP9 BEFORE -- final normal traffic window
+[2026-09-25T09:14:29.490Z] STEP9 AFTER
+[2026-09-25T09:14:29.502Z] background light traffic loop stopped
+[2026-09-25T09:14:29.503Z] === RUN P1 TEARDOWN ===
+server closed the connection unexpectedly
+	This probably means the server terminated abnormally
+	before or while processing the request.
+connection to server was lost
+quellog-pg-p1
+[2026-09-25T09:14:31.002Z] === RUN P1 DONE ===
