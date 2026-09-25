@@ -765,11 +765,7 @@ func renderReport(metrics analysis.AggregatedMetrics, pgb []analysis.PgBouncerMe
 		}
 		defer closer()
 
-		// Detect format from first input file
-		detectedFormat := ""
-		if len(inputArgs) > 0 {
-			detectedFormat = parser.DetectFileFormat(inputArgs[0])
-		}
+		detectedFormat := reportFormat(inputArgs, len(pgb) > 0)
 
 		// Build report info with filename and processing stats
 		reportInfo := output.HTMLReportInfo{
@@ -963,10 +959,7 @@ func renderMultipleFormats(metrics analysis.AggregatedMetrics, pgb []analysis.Pg
 		}
 	}
 	if htmlFlag {
-		detectedFormat := ""
-		if len(inputArgs) > 0 {
-			detectedFormat = parser.DetectFileFormat(inputArgs[0])
-		}
+		detectedFormat := reportFormat(inputArgs, len(pgb) > 0)
 		reportInfo := output.HTMLReportInfo{
 			Filename:    generateInputDescription(inputArgs),
 			FileSize:    totalFileSize,

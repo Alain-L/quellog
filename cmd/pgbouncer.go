@@ -25,13 +25,10 @@ import (
 // The detector logs what it finds and the parse that follows detects
 // again, so the files are sorted in silence: each message prints once.
 func partitionInputsByFormat(files []string) (pgFiles, pgbFiles []string) {
-	prev := slog.Default()
-	slog.SetDefault(slog.New(slog.DiscardHandler))
-	defer slog.SetDefault(prev)
 	for _, f := range files {
 		var formats []string
 		if f != "-" {
-			formats = parser.InputFormats(f)
+			quietly(func() { formats = parser.InputFormats(f) })
 		}
 		pooler := slices.Contains(formats, "pgbouncer")
 		if pooler {
@@ -44,6 +41,39 @@ func partitionInputsByFormat(files []string) (pgFiles, pgbFiles []string) {
 		}
 	}
 	return pgFiles, pgbFiles
+}
+
+// quietly runs fn with the default logger silenced. Detection logs what
+// it finds, and a caller that only needs the verdict of a file the parse
+// reports on its own would print every message twice.
+func quietly(fn func()) {
+	prev := slog.Default()
+	slog.SetDefault(slog.New(slog.DiscardHandler))
+	defer slog.SetDefault(prev)
+	fn()
+}
+
+// reportFormat is the format badge of the HTML report: the first input's,
+// exactly as a PostgreSQL run has it. With pooler files in the run it is
+// the first input that is not a pooler log, since those have their own
+// section; that search is silent, the parse having reported every file.
+func reportFormat(inputArgs []string, withPooler bool) string {
+	if !withPooler {
+		if len(inputArgs) == 0 {
+			return ""
+		}
+		return parser.DetectFileFormat(inputArgs[0])
+	}
+	format := ""
+	quietly(func() {
+		for _, a := range inputArgs {
+			if f := parser.DetectFileFormat(a); f != "pgbouncer" {
+				format = f
+				return
+			}
+		}
+	})
+	return format
 }
 
 // computePgBouncerMetrics analyzes the pgBouncer files one at a time and
