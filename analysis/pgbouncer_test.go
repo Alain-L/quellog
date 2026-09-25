@@ -539,3 +539,15 @@ func TestPgBouncerInstances(t *testing.T) {
 		}
 	}
 }
+
+// TestPgBouncerWaitIsQueueDepth pins the release that changed what the
+// wait field means: 1.23.0, not a neighbour.
+func TestPgBouncerWaitIsQueueDepth(t *testing.T) {
+	for v, want := range map[string]bool{
+		"1.18.0": true, "1.22.1": true, "1.23.0": false, "1.25.2": false, "2.0": false, "": false, "x.y": false,
+	} {
+		if got := (PgBouncerMetrics{Version: v}).WaitIsQueueDepth(); got != want {
+			t.Errorf("WaitIsQueueDepth(%q) = %v, want %v", v, got, want)
+		}
+	}
+}

@@ -259,11 +259,25 @@ function telemetryCards(p) {
         [rate(p.avg_xacts_per_sec), 'Transactions'],
         [micros(p.avg_xact_us), 'Avg transaction time'],
         [micros(p.avg_query_us), 'Avg query time'],
-        [micros(p.avg_wait_us), 'Avg pool wait time'],
+        waitIsQueueDepth(p.version)
+            ? [((p.avg_wait_us || 0) / 1e6).toFixed(1) + ' clients', 'Avg clients queued']
+            : [micros(p.avg_wait_us), 'Avg pool wait time'],
         [bytes(p.avg_in_bytes_per_sec), 'Network in'],
         [bytes(p.avg_out_bytes_per_sec), 'Network out'],
     ].map(([v, l]) => statCard(v, l));
     return cards.join('');
+}
+
+// waitIsQueueDepth mirrors PgBouncerMetrics.WaitIsQueueDepth: before
+// pgBouncer 1.23 the wait field adds up the time every client spent
+// queued per second, a queue depth rather than a duration.
+function waitIsQueueDepth(version) {
+    const [x, y] = (version || '').split('.').map(Number);
+    return Number.isInteger(x) && Number.isInteger(y) && (x < 1 || (x === 1 && y < 23));
+}
+
+function queueDepthText(version) {
+    return `PgBouncer ${esc(version)} predates 1.23: its wait field is the time all clients spent queued per second, shown here as the number of clients queued on average and left out of the timing chart. From 1.23 it is a wait time per server assignment.`;
 }
 
 // ---- configuration gaps -------------------------------------------
@@ -408,6 +422,7 @@ function poolerSection(p, suffix, named, wholeLogNote) {
         const d = new Date(ts);
         return isNaN(d) ? '' : clock(d);
     };
+    const depth = waitIsQueueDepth(p.version);
     // Register the three time-series charts (drawn after DOM insertion).
     const series = p.stats_series || [];
     const hasSeries = series.length >= MIN_CHART_POINTS;
@@ -434,7 +449,7 @@ function poolerSection(p, suffix, named, wholeLogNote) {
             series: [
                 { label: 'transaction', key: 'xact_us', color: 'var(--accent)', fmt: 'micros' },
                 { label: 'query', key: 'query_us', color: 'var(--purple)', fmt: 'micros' },
-                { label: 'pool wait', key: 'wait_us', color: 'var(--danger)', fmt: 'micros' },
+                ...(depth ? [] : [{ label: 'pool wait', key: 'wait_us', color: 'var(--danger)', fmt: 'micros' }]),
             ],
             values: series, fmt: 'micros',
         });
@@ -479,6 +494,7 @@ function poolerSection(p, suffix, named, wholeLogNote) {
                     <div class="stat-card${hasErrors ? ' stat-card--alert' : ''}"><div class="stat-value">${fmt(p.total_errors || 0)}</div><div class="stat-label">Errors</div></div>
                 </div>
                 ${hasStats && statsUnderCovered(p) ? note(coverageText(p), true) : ''}
+                ${hasStats && depth ? note(queueDepthText(p.version), true) : ''}
                 ${!hasStats ? emptyBlock(STATS_HINT, '') + note(NO_STATS_TEXT, false) : ''}
                 ${hasStats && !hasSeries ? note(oneSnapshotText(series.length), false) : ''}
                 ${hasSeries ? `
@@ -493,8 +509,8 @@ function poolerSection(p, suffix, named, wholeLogNote) {
                         </div>
                     </div>
                     <div style="margin-top:0.5rem;">
-                        ${buildChartContainer('chart-pgb-timing' + suffix, 'Transaction / Query / Pool Wait', { tooltip: 'Transaction and query time measure work on the server; pool wait is how long clients queued for a server connection — a pool sizing signal, not a query one. pgBouncer logs one average per snapshot, never a single operation, so each point is an interval average. What pool wait is averaged over depends on pool_mode (one wait per session, per transaction or per statement), which pgBouncer logs nowhere.', showBucketControl: false })}
-                        ${chartLegend([['transaction', 'var(--accent)'], ['query', 'var(--purple)'], ['pool wait', 'var(--danger)']])}
+                        ${buildChartContainer('chart-pgb-timing' + suffix, depth ? 'Transaction / Query' : 'Transaction / Query / Pool Wait', { tooltip: 'Transaction and query time measure work on the server; pool wait is how long clients queued for a server connection — a pool sizing signal, not a query one. pgBouncer logs one average per snapshot, never a single operation, so each point is an interval average. What pool wait is averaged over depends on pool_mode (one wait per session, per transaction or per statement), which pgBouncer logs nowhere.', showBucketControl: false })}
+                        ${chartLegend([['transaction', 'var(--accent)'], ['query', 'var(--purple)'], ...(depth ? [] : [['pool wait', 'var(--danger)']])])}
                     </div>
                 ` : ''}
                 <div class="subsection">

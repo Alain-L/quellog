@@ -233,11 +233,11 @@ This _quellog_ report summarizes **60** log entries collected between 25 Sep 202
 
 ## Pool Wait
 
-*Time clients spent queued for a server connection, a pool sizing signal rather than a query one. Averaged as the timings above are. What it is averaged over depends on pool_mode (one wait per session, per transaction or per statement), which pgBouncer logs nowhere.*
+*PgBouncer 1.18.0 predates 1.23: its wait field is the time all clients spent queued per second, shown here as the number of clients queued on average. From 1.23 it is a wait time per server assignment.*
 
-| Metric | Weighted average | Max snapshot average | At |
+| Metric | Average | Max snapshot average | At |
 |---|---|---|---|
-| Pool wait time | 484.7 ms | 22.89 s | 09:24:32 |
+| Clients queued | 5.5 clients | 22.9 clients | 09:24:32 |
 
 ## Sessions
 

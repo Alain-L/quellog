@@ -382,3 +382,19 @@ test('each pooler gets its own section, ids and name', () => {
     const one = buildSections({ pgbouncer: [pooler('127.0.0.1:6432')] });
     assert.ok(!one.includes('pgBouncer · '), 'a single pooler keeps the plain header');
 });
+
+// Before 1.23 the wait field is a queue depth: the section must say so,
+// name it as clients queued, and keep it off the chart drawn in µs. The
+// release boundary is what separates the two readings.
+test('a pre-1.23 wait is shown as clients queued', () => {
+    const series = [{ time: '2026-09-25T09:24:02Z', wait_us: 0 }, { time: '2026-09-25T09:24:12Z', wait_us: 5500000 }];
+    const pooler = (version) => buildPgBouncerSection({ pgbouncer: {
+        ...statlessPayload, version, stats_sample_count: 2, stats_series: series, avg_wait_us: 5500000,
+        min_timestamp: '2026-09-25T09:24:02Z', max_timestamp: '2026-09-25T09:24:12Z',
+    } });
+    const old = pooler('1.22.1');
+    assert.ok(old.includes('5.5 clients') && old.includes('Avg clients queued') && old.includes('predates 1.23'));
+    assert.ok(!old.includes('Avg pool wait time'));
+    const current = pooler('1.23.0');
+    assert.ok(current.includes('Avg pool wait time') && !current.includes('Avg clients queued'));
+});

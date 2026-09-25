@@ -119,11 +119,19 @@ func exportPgBouncerMarkdown(w io.Writer, m analysis.PgBouncerMetrics, title str
 		fmt.Fprintln(w)
 		fmt.Fprintln(w, "## Pool Wait")
 		fmt.Fprintln(w)
-		fmt.Fprintf(w, "*%s*\n", strings.Join(pgbWaitNote, " "))
-		fmt.Fprintln(w)
-		fmt.Fprintln(w, "| Metric | Weighted average | Max snapshot average | At |")
-		fmt.Fprintln(w, "|---|---|---|---|")
-		fmt.Fprintf(w, "| Pool wait time | %s | %s | %s |\n", micros(m.AvgWaitMicros), microsI(m.MaxWaitMicros), pgbAtMD(m.MaxWaitTimestamp, clock))
+		if m.WaitIsQueueDepth() {
+			writeNoteMD(w, pgbQueueDepthNote(m.Version))
+			fmt.Fprintln(w)
+			fmt.Fprintln(w, "| Metric | Average | Max snapshot average | At |")
+			fmt.Fprintln(w, "|---|---|---|---|")
+			fmt.Fprintf(w, "| Clients queued | %s | %s | %s |\n", queueDepth(m.AvgWaitMicros), queueDepth(float64(m.MaxWaitMicros)), pgbAtMD(m.MaxWaitTimestamp, clock))
+		} else {
+			writeNoteMD(w, pgbWaitNote)
+			fmt.Fprintln(w)
+			fmt.Fprintln(w, "| Metric | Weighted average | Max snapshot average | At |")
+			fmt.Fprintln(w, "|---|---|---|---|")
+			fmt.Fprintf(w, "| Pool wait time | %s | %s | %s |\n", micros(m.AvgWaitMicros), microsI(m.MaxWaitMicros), pgbAtMD(m.MaxWaitTimestamp, clock))
+		}
 	}
 
 	// Sessions and Connections below print their heading whether or not

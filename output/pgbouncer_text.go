@@ -96,9 +96,15 @@ func printPgBouncer(m analysis.PgBouncerMetrics, title string) {
 		fmt.Println("  " + pgbTimingNote[1])
 
 		fmt.Println(bold + "\nPOOL WAIT\n" + reset)
-		fmt.Printf("  %-25s : %s  (max snapshot avg %s%s)\n", "Avg pool wait time", micros(m.AvgWaitMicros), microsI(m.MaxWaitMicros), pgbAt(m.MaxWaitTimestamp, clock))
-		fmt.Println()
-		printPgbNote(pgbWaitNote)
+		if m.WaitIsQueueDepth() {
+			fmt.Printf("  %-25s : %s  (max snapshot avg %s%s)\n", "Avg clients queued", queueDepth(m.AvgWaitMicros), queueDepth(float64(m.MaxWaitMicros)), pgbAt(m.MaxWaitTimestamp, clock))
+			fmt.Println()
+			printPgbNote(pgbQueueDepthNote(m.Version))
+		} else {
+			fmt.Printf("  %-25s : %s  (max snapshot avg %s%s)\n", "Avg pool wait time", micros(m.AvgWaitMicros), microsI(m.MaxWaitMicros), pgbAt(m.MaxWaitTimestamp, clock))
+			fmt.Println()
+			printPgbNote(pgbWaitNote)
+		}
 	}
 
 	// Sessions. The heading is printed whether or not there is anything
@@ -268,6 +274,23 @@ var pgbWaitNote = []string{
 	"signal rather than a query one. Averaged as the timings above are.",
 	"What it is averaged over depends on pool_mode (one wait per session,",
 	"per transaction or per statement), which pgBouncer logs nowhere.",
+}
+
+// pgbQueueDepthNote replaces pgbWaitNote before pgBouncer 1.23, whose
+// "wait" field adds up the time every client spent queued during each
+// second: one second of it per second is one client queued on average.
+func pgbQueueDepthNote(version string) []string {
+	return []string{
+		"PgBouncer " + version + " predates 1.23: its wait field is the time all",
+		"clients spent queued per second, shown here as the number of clients",
+		"queued on average. From 1.23 it is a wait time per server assignment.",
+	}
+}
+
+// queueDepth renders a pre-1.23 wait, in microseconds per second, as the
+// number of clients it amounts to.
+func queueDepth(usPerSec float64) string {
+	return fmt.Sprintf("%.1f clients", usPerSec/1_000_000)
 }
 
 // pgbNoStatsNote explains an empty telemetry block. It describes the

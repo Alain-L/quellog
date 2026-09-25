@@ -247,6 +247,19 @@ func (m PgBouncerMetrics) ClientLinesMissing() bool {
 	return m.MaxXactsPerSec > 0 || m.MaxQueriesPerSec > 0
 }
 
+// WaitIsQueueDepth reports whether the pooler logged "wait" with its
+// meaning before pgBouncer 1.23: the clients' accumulated queueing time
+// per second of wall time, a queue depth rather than a duration. 1.23
+// made it a mean per server assignment. False when the release is not in
+// the log.
+func (m PgBouncerMetrics) WaitIsQueueDepth() bool {
+	major, rest, _ := strings.Cut(m.Version, ".")
+	minor, _, _ := strings.Cut(rest, ".")
+	x, err1 := strconv.Atoi(major)
+	y, err2 := strconv.Atoi(minor)
+	return err1 == nil && err2 == nil && (x < 1 || x == 1 && y < 23)
+}
+
 // AvgSessionSeconds returns the mean completed-session age in seconds.
 func (m PgBouncerMetrics) AvgSessionSeconds() float64 {
 	if m.Sessions == 0 {
@@ -263,6 +276,7 @@ type PgBouncerAnalyzer struct {
 
 	sumXacts, sumQueries int64
 	sumIn, sumOut        int64
+	sumWait              int64 // plain sum, for a pre-1.23 wait (see WaitIsQueueDepth)
 
 	// Weighted accumulators for the three per-operation averages. See
 	// accumulateWeighted for why a plain mean of the logged means is
@@ -481,6 +495,7 @@ func (a *PgBouncerAnalyzer) processStats(t time.Time, body string) {
 	a.sumQueries += int64(pt.Queries)
 	a.sumIn += int64(pt.InBytes)
 	a.sumOut += int64(pt.OutBytes)
+	a.sumWait += pt.WaitMicros
 	accumulateWeighted(&a.sumXactUs, &a.sumXactW, pt.XactMicros, pt.Xacts)
 	accumulateWeighted(&a.sumQueryUs, &a.sumQueryW, pt.QueryMicros, pt.Queries)
 	// "wait" is averaged over server assignments, a counter pgBouncer
@@ -625,6 +640,11 @@ func (a *PgBouncerAnalyzer) Finalize() PgBouncerMetrics {
 	a.m.AvgXactMicros = weightedMean(a.sumXactUs, a.sumXactW)
 	a.m.AvgQueryMicros = weightedMean(a.sumQueryUs, a.sumQueryW)
 	a.m.AvgWaitMicros = weightedMean(a.sumWaitUs, a.sumWaitW)
+	if a.m.WaitIsQueueDepth() && a.m.StatsSampleCount > 0 {
+		// A queue depth is a per-second quantity like the rates: an idle
+		// period really had nobody waiting, so it takes a plain mean.
+		a.m.AvgWaitMicros = float64(a.sumWait) / float64(a.m.StatsSampleCount)
+	}
 
 	// Snapshots arrive in stream order, which a multi-file fan-in can
 	// interleave across files. The charts plot this series on a time
@@ -801,6 +821,7 @@ func (a *PgBouncerAnalyzer) merge(b *PgBouncerAnalyzer) {
 	a.sumQueries += b.sumQueries
 	a.sumIn += b.sumIn
 	a.sumOut += b.sumOut
+	a.sumWait += b.sumWait
 	a.sumXactUs, a.sumXactW = a.sumXactUs+b.sumXactUs, a.sumXactW+b.sumXactW
 	a.sumQueryUs, a.sumQueryW = a.sumQueryUs+b.sumQueryUs, a.sumQueryW+b.sumQueryW
 	a.sumWaitUs, a.sumWaitW = a.sumWaitUs+b.sumWaitUs, a.sumWaitW+b.sumWaitW
