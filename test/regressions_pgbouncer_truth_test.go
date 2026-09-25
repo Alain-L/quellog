@@ -99,7 +99,7 @@ func TestPgBouncerTimingLabelsSaySnapshot(t *testing.T) {
 		}
 	}
 
-	md := string(runHarness(t, false, fixture, "--md"))
+	md := mdUnpadded(runHarness(t, false, fixture, "--md"))
 	if !strings.Contains(md, "| Metric | Weighted average | Max snapshot average |") {
 		t.Errorf("Markdown query-timing table still labels the max column \"Peak\":\n%s", md)
 	}

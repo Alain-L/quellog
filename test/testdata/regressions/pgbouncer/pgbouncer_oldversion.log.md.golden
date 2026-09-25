@@ -2,28 +2,28 @@
 
 ## Summary
 
-| Metric | Value |
-|---|---|
-| Pooler | 127.0.0.1:6432 |
-| Version | PgBouncer 1.18.0 |
-| Files | testdata/regressions/pgbouncer/pgbouncer_oldversion.log |
-| Start date | 2026-09-20 13:39:27 CEST |
-| End date | 2026-09-20 13:40:04 CEST |
-| Duration | 36.626s |
-| Log lines read | 372 |
-| Log entries | 372 |
-| Stats snapshots | 1 |
-| Login attempts | 182 |
-| Server connections opened | 4 |
-| Completed sessions | 181 |
-| Errors | 0 |
+| Metric                    | Value                                                   |
+|---------------------------|---------------------------------------------------------|
+| Pooler                    | 127.0.0.1:6432                                          |
+| Version                   | PgBouncer 1.18.0                                        |
+| Files                     | testdata/regressions/pgbouncer/pgbouncer_oldversion.log |
+| Start date                | 2026-09-20 13:39:27 CEST                                |
+| End date                  | 2026-09-20 13:40:04 CEST                                |
+| Duration                  | 36.626s                                                 |
+| Log lines read            | 372                                                     |
+| Log entries               | 372                                                     |
+| Stats snapshots           | 1                                                       |
+| Login attempts            | 182                                                     |
+| Server connections opened | 4                                                       |
+| Completed sessions        | 181                                                     |
+| Errors                    | 0                                                       |
 
 ### Timeline
 
-| Time | Event | Detail |
-|---|---|---|
-| 13:39:27 | start | PgBouncer 1.18.0 |
-| 13:40:04 | shutdown | SHUTDOWN |
+| Time     | Event    | Detail           |
+|----------|----------|------------------|
+| 13:39:27 | start    | PgBouncer 1.18.0 |
+| 13:40:04 | shutdown | SHUTDOWN         |
 
 ## Request Throughput
 
@@ -31,29 +31,29 @@
 
 *Rates are the pooler's own per-snapshot averages over stats_period; the max is the highest snapshot average, not the busiest instant.*
 
-| Metric | Average | Max snapshot average | At |
-|---|---|---|---|
-| Transactions/s | 0.0 | 0 | - |
-| Queries/s | 0.0 | 0 | - |
-| Network in | 0 B/s | 0 B/s | - |
-| Network out | 0 B/s | 0 B/s | - |
+| Metric         | Average | Max snapshot average | At |
+|----------------|--------:|---------------------:|---:|
+| Transactions/s |     0.0 |                    0 |  - |
+| Queries/s      |     0.0 |                    0 |  - |
+| Network in     |   0 B/s |                0 B/s |  - |
+| Network out    |   0 B/s |                0 B/s |  - |
 
 ## Query Timing
 
 *Averages skip the snapshots that timed none and weight the rest by operation count; the max is the highest snapshot average, not a peak.*
 
-| Metric | Weighted average | Max snapshot average | At |
-|---|---|---|---|
-| Transaction time | 0 µs | 0 µs | - |
-| Query time | 0 µs | 0 µs | - |
+| Metric           | Weighted average | Max snapshot average | At |
+|------------------|-----------------:|---------------------:|---:|
+| Transaction time |            0 µs |                0 µs |  - |
+| Query time       |            0 µs |                0 µs |  - |
 
 ## Pool Wait
 
 *PgBouncer 1.18.0 predates 1.23: its wait field is the time all clients spent queued per second, shown here as the number of clients queued on average. From 1.23 it is a wait time per server assignment.*
 
-| Metric | Average | Max snapshot average | At |
-|---|---|---|---|
-| Clients queued | 0.0 clients | 0.0 clients | - |
+| Metric         |     Average | Max snapshot average | At |
+|----------------|------------:|---------------------:|---:|
+| Clients queued | 0.0 clients |          0.0 clients |  - |
 
 ## Sessions
 
@@ -63,51 +63,52 @@
 - Ended by the pooler: **0**
 
 | Session time | Count |
-|---|---|
-| < 1s | 181 |
+|--------------|------:|
+| < 1s         |   181 |
 
 ### Sessions per close reason
 
-| Reason | Count | % | Average age |
-|---|---|---|---|
-| client close request | 181 | 100.0% | 0s |
+| Reason               | Count |      % | Average age |
+|----------------------|------:|-------:|------------:|
+| client close request |   181 | 100.0% |          0s |
 
 ### Sessions per database
 
-| Name | Count | % |
-|---|---|---|
-| benchdb | 181 | 100.0% |
+| Name    | Count |      % |
+|---------|------:|-------:|
+| benchdb |   181 | 100.0% |
 
 ### Sessions per user
 
-| Name | Count | % |
-|---|---|---|
-| bench | 181 | 100.0% |
+| Name  | Count |      % |
+|-------|------:|-------:|
+| bench |   181 | 100.0% |
 
 ### Sessions per host
 
-| Name | Count | % |
-|---|---|---|
-| 127.0.0.1 | 181 | 100.0% |
+| Name      | Count |      % |
+|-----------|------:|-------:|
+| 127.0.0.1 |   181 | 100.0% |
 
 ## Connections
 
+
 ### Connections per database
 
-| Name | Count | % |
-|---|---|---|
-| benchdb | 181 | 99.5% |
-| pgbouncer | 1 | 0.5% |
+| Name      | Count |     % |
+|-----------|------:|------:|
+| benchdb   |   181 | 99.5% |
+| pgbouncer |     1 |  0.5% |
 
 ### Connections per user
 
-| Name | Count | % |
-|---|---|---|
-| bench | 181 | 99.5% |
-| admin | 1 | 0.5% |
+| Name  | Count |     % |
+|-------|------:|------:|
+| bench |   181 | 99.5% |
+| admin |     1 |  0.5% |
 
 ### Connections per host
 
-| Name | Count | % |
-|---|---|---|
-| 127.0.0.1 | 182 | 100.0% |
+| Name      | Count |      % |
+|-----------|------:|-------:|
+| 127.0.0.1 |   182 | 100.0% |

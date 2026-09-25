@@ -193,72 +193,72 @@ This _quellog_ report summarizes **124** log entries collected between 25 Sep 20
 
 ## Summary
 
-| Metric | Value |
-|---|---|
-| Pooler | 127.0.0.1:6432 |
-| Version | PgBouncer 1.25.2 |
-| Files | testdata/pgbouncer/P1/p1.pgbouncer.log |
-| Start date | 2026-09-25 09:05:29 UTC |
-| End date | 2026-09-25 09:14:29 UTC |
-| Duration | 9m0.144s |
-| Log lines read | 513 |
-| Log entries | 513 |
-| Stats snapshots | 53 |
-| Login attempts | 191 |
-| Server connections opened | 15 |
-| Completed sessions | 190 |
-| Reserve pool activations | 1 |
-| Errors | 33 |
+| Metric                    | Value                                  |
+|---------------------------|----------------------------------------|
+| Pooler                    | 127.0.0.1:6432                         |
+| Version                   | PgBouncer 1.25.2                       |
+| Files                     | testdata/pgbouncer/P1/p1.pgbouncer.log |
+| Start date                | 2026-09-25 09:05:29 UTC                |
+| End date                  | 2026-09-25 09:14:29 UTC                |
+| Duration                  | 9m0.144s                               |
+| Log lines read            | 513                                    |
+| Log entries               | 513                                    |
+| Stats snapshots           | 53                                     |
+| Login attempts            | 191                                    |
+| Server connections opened | 15                                     |
+| Completed sessions        | 190                                    |
+| Reserve pool activations  | 1                                      |
+| Errors                    | 33                                     |
 
 ### Timeline
 
-| Time | Event | Detail |
-|---|---|---|
-| 09:05:29 | start | PgBouncer 1.25.2 |
-| 09:07:30 | reload | RELOAD |
-| 09:08:05 | reload | RELOAD |
-| 09:09:08 | reload | RELOAD |
-| 09:09:38 | pause | PAUSE 'bench' |
-| 09:09:59 | resume | RESUME 'bench' |
-| 09:11:32 | shutdown | SIGINT |
-| 09:11:33 | start | PgBouncer 1.25.2 |
-| 09:12:04 | reload | RELOAD |
-| 09:14:29 | shutdown | SHUTDOWN |
+| Time     | Event    | Detail           |
+|----------|----------|------------------|
+| 09:05:29 | start    | PgBouncer 1.25.2 |
+| 09:07:30 | reload   | RELOAD           |
+| 09:08:05 | reload   | RELOAD           |
+| 09:09:08 | reload   | RELOAD           |
+| 09:09:38 | pause    | PAUSE 'bench'    |
+| 09:09:59 | resume   | RESUME 'bench'   |
+| 09:11:32 | shutdown | SIGINT           |
+| 09:11:33 | start    | PgBouncer 1.25.2 |
+| 09:12:04 | reload   | RELOAD           |
+| 09:14:29 | shutdown | SHUTDOWN         |
 
 ## Request Throughput
 
 *Rates are the pooler's own per-snapshot averages over stats_period; the max is the highest snapshot average, not the busiest instant.*
 
-| Metric | Average | Max snapshot average | At |
-|---|---|---|---|
-| Transactions/s | 1738.0 | 2520 | 09:12:53 |
-| Queries/s | 12164.3 | 17642 | 09:12:53 |
-| Network in | 724.70 KB/s | 1.03 MB/s | 09:12:53 |
-| Network out | 316.26 KB/s | 458.62 KB/s | 09:12:53 |
+| Metric         |     Average | Max snapshot average |       At |
+|----------------|------------:|---------------------:|---------:|
+| Transactions/s |      1738.0 |                 2520 | 09:12:53 |
+| Queries/s      |     12164.3 |                17642 | 09:12:53 |
+| Network in     | 724.70 KB/s |            1.03 MB/s | 09:12:53 |
+| Network out    | 316.26 KB/s |          458.62 KB/s | 09:12:53 |
 
 ## Query Timing
 
 *Averages skip the snapshots that timed none and weight the rest by operation count; the max is the highest snapshot average, not a peak.*
 
-| Metric | Weighted average | Max snapshot average | At |
-|---|---|---|---|
-| Transaction time | 3.5 ms | 60.12 s | 09:09:59 |
-| Query time | 415 µs | 3.16 s | 09:09:59 |
+| Metric           | Weighted average | Max snapshot average |       At |
+|------------------|-----------------:|---------------------:|---------:|
+| Transaction time |           3.5 ms |              60.12 s | 09:09:59 |
+| Query time       |          415 µs |               3.16 s | 09:09:59 |
 
 ## Pool Wait
 
 *Time clients spent queued for a server connection, a pool sizing signal rather than a query one. Averaged as the timings above are. What it is averaged over depends on pool_mode (one wait per session, per transaction or per statement), which pgBouncer logs nowhere.*
 
-| Metric | Weighted average | Max snapshot average | At |
-|---|---|---|---|
-| Pool wait time | 1.6 ms | 20.04 s | 09:09:59 |
+| Metric         | Weighted average | Max snapshot average |       At |
+|----------------|-----------------:|---------------------:|---------:|
+| Pool wait time |           1.6 ms |              20.04 s | 09:09:59 |
 
 ### Stretches with waits of 100 ms or more
 
-| Start | End | Duration | Peak | Peak at |
-|---|---|---|---|---|
-| 09:08:09 | 09:09:09 | 1m | 2.57 s | 09:08:39 |
-| 09:09:49 | 09:09:59 | 10s | 20.04 s | 09:09:59 |
+| Start    | End      | Duration |    Peak | Peak at  |
+|----------|----------|---------:|--------:|----------|
+| 09:08:09 | 09:09:09 |       1m |  2.57 s | 09:08:39 |
+| 09:09:49 | 09:09:59 |      10s | 20.04 s | 09:09:59 |
 
 ## Sessions
 
@@ -268,76 +268,77 @@ This _quellog_ report summarizes **124** log entries collected between 25 Sep 20
 - Ended by the pooler: **30**
 
 | Session time | Count |
-|---|---|
-| < 1s | 55 |
-| 1s - 1min | 111 |
-| 1min - 30min | 24 |
+|--------------|------:|
+| < 1s         |    55 |
+| 1s - 1min    |   111 |
+| 1min - 30min |    24 |
 
 ### Sessions per close reason
 
-| Reason | Count | % | Average age |
-|---|---|---|---|
-| client close request | 157 | 82.6% | 17s |
-| query_wait_timeout | 22 | 11.6% | 3s |
-| password authentication failed | 4 | 2.1% | 0s |
-| client unexpected eof | 3 | 1.6% | 4s |
-| server conn crashed? | 2 | 1.1% | 6s |
-| client_idle_timeout | 1 | 0.5% | 20s |
-| no such database: nosuchdb | 1 | 0.5% | 0s |
+| Reason                         | Count |     % | Average age |
+|--------------------------------|------:|------:|------------:|
+| client close request           |   157 | 82.6% |         17s |
+| query_wait_timeout             |    22 | 11.6% |          3s |
+| password authentication failed |     4 |  2.1% |          0s |
+| client unexpected eof          |     3 |  1.6% |          4s |
+| server conn crashed?           |     2 |  1.1% |          6s |
+| client_idle_timeout            |     1 |  0.5% |         20s |
+| no such database: nosuchdb     |     1 |  0.5% |          0s |
 
 ### Sessions per database
 
-| Name | Count | % |
-|---|---|---|
-| bench | 167 | 87.9% |
-| pgbouncer | 21 | 11.1% |
-| (nodb) | 2 | 1.1% |
+| Name      | Count |     % |
+|-----------|------:|------:|
+| bench     |   167 | 87.9% |
+| pgbouncer |    21 | 11.1% |
+| (nodb)    |     2 |  1.1% |
 
 ### Sessions per user
 
-| Name | Count | % |
-|---|---|---|
-| bench | 189 | 99.5% |
-| ghostuser | 1 | 0.5% |
+| Name      | Count |     % |
+|-----------|------:|------:|
+| bench     |   189 | 99.5% |
+| ghostuser |     1 |  0.5% |
 
 ### Sessions per host
 
-| Name | Count | % |
-|---|---|---|
-| 127.0.0.1 | 190 | 100.0% |
+| Name      | Count |      % |
+|-----------|------:|-------:|
+| 127.0.0.1 |   190 | 100.0% |
 
 ## Connections
 
+
 ### Connections per database
 
-| Name | Count | % |
-|---|---|---|
-| bench | 168 | 88.0% |
-| pgbouncer | 22 | 11.5% |
-| nosuchdb | 1 | 0.5% |
+| Name      | Count |     % |
+|-----------|------:|------:|
+| bench     |   168 | 88.0% |
+| pgbouncer |    22 | 11.5% |
+| nosuchdb  |     1 |  0.5% |
 
 ### Connections per user
 
-| Name | Count | % |
-|---|---|---|
-| bench | 190 | 99.5% |
-| ghostuser | 1 | 0.5% |
+| Name      | Count |     % |
+|-----------|------:|------:|
+| bench     |   190 | 99.5% |
+| ghostuser |     1 |  0.5% |
 
 ### Connections per host
 
-| Name | Count | % |
-|---|---|---|
-| 127.0.0.1 | 191 | 100.0% |
+| Name      | Count |      % |
+|-----------|------:|-------:|
+| 127.0.0.1 |   191 | 100.0% |
 
 ## Most Frequent Errors
 
-| Error | Count | % | First | Last |
-|---|---|---|---|---|
-| pooler error: query_wait_timeout | 22 | 66.7% | 09:08:09 | 09:08:20 |
-| pooler error: password authentication failed | 4 | 12.1% | 09:10:29 | 09:10:29 |
-| pooler error: server conn crashed? | 2 | 6.1% | 09:10:59 | 09:10:59 |
-| got packet 'E' from server when not linked | 1 | 3.0% | 09:10:59 | 09:10:59 |
-| pooler error: client_idle_timeout | 1 | 3.0% | 09:12:24 | 09:12:24 |
-| pooler error: no such database: nosuchdb | 1 | 3.0% | 09:10:29 | 09:10:29 |
-| server login failed: FATAL the database system is shutting down | 1 | 3.0% | 09:10:59 | 09:10:59 |
-| taking connection from reserve_pool | 1 | 3.0% | 09:08:07 | 09:08:07 |
+| Error                                                           | Count |     % |    First |     Last |
+|-----------------------------------------------------------------|------:|------:|---------:|---------:|
+| pooler error: query_wait_timeout                                |    22 | 66.7% | 09:08:09 | 09:08:20 |
+| pooler error: password authentication failed                    |     4 | 12.1% | 09:10:29 | 09:10:29 |
+| pooler error: server conn crashed?                              |     2 |  6.1% | 09:10:59 | 09:10:59 |
+| got packet 'E' from server when not linked                      |     1 |  3.0% | 09:10:59 | 09:10:59 |
+| pooler error: client_idle_timeout                               |     1 |  3.0% | 09:12:24 | 09:12:24 |
+| pooler error: no such database: nosuchdb                        |     1 |  3.0% | 09:10:29 | 09:10:29 |
+| server login failed: FATAL the database system is shutting down |     1 |  3.0% | 09:10:59 | 09:10:59 |
+| taking connection from reserve_pool                             |     1 |  3.0% | 09:08:07 | 09:08:07 |

@@ -2,62 +2,62 @@
 
 ## Summary
 
-| Metric | Value |
-|---|---|
-| Pooler | 0.0.0.0:6432 |
-| Version | PgBouncer 1.25.2 |
-| Files | testdata/regressions/pgbouncer/pgbouncer.log |
-| Start date | 2026-09-09 20:58:58 UTC |
-| End date | 2026-09-09 21:01:23 UTC |
-| Duration | 2m25.005s |
-| Log lines read | 440 |
-| Log entries | 440 |
-| Stats snapshots | 145 |
-| Login attempts | 129 |
-| Server connections opened | 14 |
-| Completed sessions | 129 |
-| Reserve pool activations | 2 |
-| Errors | 17 |
+| Metric                    | Value                                        |
+|---------------------------|----------------------------------------------|
+| Pooler                    | 0.0.0.0:6432                                 |
+| Version                   | PgBouncer 1.25.2                             |
+| Files                     | testdata/regressions/pgbouncer/pgbouncer.log |
+| Start date                | 2026-09-09 20:58:58 UTC                      |
+| End date                  | 2026-09-09 21:01:23 UTC                      |
+| Duration                  | 2m25.005s                                    |
+| Log lines read            | 440                                          |
+| Log entries               | 440                                          |
+| Stats snapshots           | 145                                          |
+| Login attempts            | 129                                          |
+| Server connections opened | 14                                           |
+| Completed sessions        | 129                                          |
+| Reserve pool activations  | 2                                            |
+| Errors                    | 17                                           |
 
 ### Timeline
 
-| Time | Event | Detail |
-|---|---|---|
+| Time     | Event | Detail           |
+|----------|-------|------------------|
 | 20:58:58 | start | PgBouncer 1.25.2 |
 
 ## Request Throughput
 
 *Rates are the pooler's own per-snapshot averages over stats_period; the max is the highest snapshot average, not the busiest instant.*
 
-| Metric | Average | Max snapshot average | At |
-|---|---|---|---|
-| Transactions/s | 0.9 | 42 | 21:00:40 |
-| Queries/s | 2.7 | 48 | 21:00:40 |
-| Network in | 91 B/s | 1.70 KB/s | 21:00:33 |
-| Network out | 133 B/s | 1.60 KB/s | 21:00:33 |
+| Metric         | Average | Max snapshot average |       At |
+|----------------|--------:|---------------------:|---------:|
+| Transactions/s |     0.9 |                   42 | 21:00:40 |
+| Queries/s      |     2.7 |                   48 | 21:00:40 |
+| Network in     |  91 B/s |            1.70 KB/s | 21:00:33 |
+| Network out    | 133 B/s |            1.60 KB/s | 21:00:33 |
 
 ## Query Timing
 
 *Averages skip the snapshots that timed none and weight the rest by operation count; the max is the highest snapshot average, not a peak.*
 
-| Metric | Weighted average | Max snapshot average | At |
-|---|---|---|---|
-| Transaction time | 76.7 ms | 2.12 s | 21:00:53 |
-| Query time | 594.2 ms | 3.86 s | 21:00:50 |
+| Metric           | Weighted average | Max snapshot average |       At |
+|------------------|-----------------:|---------------------:|---------:|
+| Transaction time |          76.7 ms |               2.12 s | 21:00:53 |
+| Query time       |         594.2 ms |               3.86 s | 21:00:50 |
 
 ## Pool Wait
 
 *Time clients spent queued for a server connection, a pool sizing signal rather than a query one. Averaged as the timings above are. What it is averaged over depends on pool_mode (one wait per session, per transaction or per statement), which pgBouncer logs nowhere.*
 
-| Metric | Weighted average | Max snapshot average | At |
-|---|---|---|---|
-| Pool wait time | 465.9 ms | 11.09 s | 21:00:51 |
+| Metric         | Weighted average | Max snapshot average |       At |
+|----------------|-----------------:|---------------------:|---------:|
+| Pool wait time |         465.9 ms |              11.09 s | 21:00:51 |
 
 ### Stretches with waits of 100 ms or more
 
-| Start | End | Duration | Peak | Peak at |
-|---|---|---|---|---|
-| 21:00:40 | 21:00:51 | 11s | 11.09 s | 21:00:51 |
+| Start    | End      | Duration |    Peak | Peak at  |
+|----------|----------|---------:|--------:|----------|
+| 21:00:40 | 21:00:51 |      11s | 11.09 s | 21:00:51 |
 
 ## Sessions
 
@@ -67,76 +67,77 @@
 - Ended by the pooler: **14**
 
 | Session time | Count |
-|---|---|
-| < 1s | 88 |
-| 1s - 1min | 41 |
+|--------------|------:|
+| < 1s         |    88 |
+| 1s - 1min    |    41 |
 
 ### Sessions per close reason
 
-| Reason | Count | % | Average age |
-|---|---|---|---|
-| client close request | 115 | 89.1% | 2s |
-| password authentication failed | 13 | 10.1% | 0s |
-| server login failed: wrong password type | 1 | 0.8% | 0s |
+| Reason                                   | Count |     % | Average age |
+|------------------------------------------|------:|------:|------------:|
+| client close request                     |   115 | 89.1% |          2s |
+| password authentication failed           |    13 | 10.1% |          0s |
+| server login failed: wrong password type |     1 |  0.8% |          0s |
 
 ### Sessions per database
 
-| Name | Count | % |
-|---|---|---|
-| analytics | 56 | 43.4% |
-| app | 46 | 35.7% |
-| billing | 26 | 20.2% |
-| (nodb) | 1 | 0.8% |
+| Name      | Count |     % |
+|-----------|------:|------:|
+| analytics |    56 | 43.4% |
+| app       |    46 | 35.7% |
+| billing   |    26 | 20.2% |
+| (nodb)    |     1 |  0.8% |
 
 ### Sessions per user
 
-| Name | Count | % |
-|---|---|---|
-| app_user | 55 | 42.6% |
-| batch | 46 | 35.7% |
-| readonly | 27 | 20.9% |
-| ghost | 1 | 0.8% |
+| Name     | Count |     % |
+|----------|------:|------:|
+| app_user |    55 | 42.6% |
+| batch    |    46 | 35.7% |
+| readonly |    27 | 20.9% |
+| ghost    |     1 |  0.8% |
 
 ### Sessions per host
 
-| Name | Count | % |
-|---|---|---|
-| 10.89.0.6 | 127 | 98.4% |
-| 10.89.0.4 | 1 | 0.8% |
-| 10.89.0.5 | 1 | 0.8% |
+| Name      | Count |     % |
+|-----------|------:|------:|
+| 10.89.0.6 |   127 | 98.4% |
+| 10.89.0.4 |     1 |  0.8% |
+| 10.89.0.5 |     1 |  0.8% |
 
 ## Connections
 
+
 ### Connections per database
 
-| Name | Count | % |
-|---|---|---|
-| analytics | 56 | 43.4% |
-| app | 47 | 36.4% |
-| billing | 26 | 20.2% |
+| Name      | Count |     % |
+|-----------|------:|------:|
+| analytics |    56 | 43.4% |
+| app       |    47 | 36.4% |
+| billing   |    26 | 20.2% |
 
 ### Connections per user
 
-| Name | Count | % |
-|---|---|---|
-| app_user | 55 | 42.6% |
-| batch | 46 | 35.7% |
-| readonly | 27 | 20.9% |
-| ghost | 1 | 0.8% |
+| Name     | Count |     % |
+|----------|------:|------:|
+| app_user |    55 | 42.6% |
+| batch    |    46 | 35.7% |
+| readonly |    27 | 20.9% |
+| ghost    |     1 |  0.8% |
 
 ### Connections per host
 
-| Name | Count | % |
-|---|---|---|
-| 10.89.0.6 | 127 | 98.4% |
-| 10.89.0.4 | 1 | 0.8% |
-| 10.89.0.5 | 1 | 0.8% |
+| Name      | Count |     % |
+|-----------|------:|------:|
+| 10.89.0.6 |   127 | 98.4% |
+| 10.89.0.4 |     1 |  0.8% |
+| 10.89.0.5 |     1 |  0.8% |
 
 ## Most Frequent Errors
 
-| Error | Count | % | First | Last |
-|---|---|---|---|---|
-| pooler error: password authentication failed | 13 | 76.5% | 21:00:37 | 21:00:39 |
-| taking connection from reserve_pool | 2 | 11.8% | 21:00:42 | 21:00:42 |
-| cannot do SCRAM authentication: wrong password type | 1 | 5.9% | 20:59:13 | 20:59:13 |
-| pooler error: server login failed: wrong password type | 1 | 5.9% | 20:59:13 | 20:59:13 |
+| Error                                                  | Count |     % |    First |     Last |
+|--------------------------------------------------------|------:|------:|---------:|---------:|
+| pooler error: password authentication failed           |    13 | 76.5% | 21:00:37 | 21:00:39 |
+| taking connection from reserve_pool                    |     2 | 11.8% | 21:00:42 | 21:00:42 |
+| cannot do SCRAM authentication: wrong password type    |     1 |  5.9% | 20:59:13 | 20:59:13 |
+| pooler error: server login failed: wrong password type |     1 |  5.9% | 20:59:13 | 20:59:13 |

@@ -65,7 +65,7 @@ func TestPgBouncerNamesServerConnectionsAsOpens(t *testing.T) {
 		}
 	}
 
-	md := string(runHarness(t, false, labelFixture, "--md"))
+	md := mdUnpadded(runHarness(t, false, labelFixture, "--md"))
 	if !strings.Contains(md, "| Server connections opened |") {
 		t.Errorf("Markdown report does not name the counter as an open count:\n%s", md)
 	}
@@ -124,7 +124,7 @@ func TestPgBouncerThroughputPeaksAreSnapshotAverages(t *testing.T) {
 		t.Errorf("throughput rows do not all qualify their max as a snapshot average:\n%s", tp)
 	}
 
-	md := string(runHarness(t, false, labelFixture, "--md"))
+	md := mdUnpadded(runHarness(t, false, labelFixture, "--md"))
 	if strings.Contains(md, "| Metric | Average | Peak |") {
 		t.Errorf("Markdown throughput table still heads its max column \"Peak\":\n%s", md)
 	}
@@ -186,4 +186,10 @@ func TestPgBouncerMarkdownCellsKeepTheirColumns(t *testing.T) {
 			t.Errorf("row has %d column separators, its header %d: %q", got, header, line)
 		}
 	}
+}
+
+// mdUnpadded collapses the padding mdTable aligns its columns with, so a
+// test can name a header or a row by its cells.
+func mdUnpadded(md []byte) string {
+	return regexp.MustCompile(` {2,}`).ReplaceAllString(string(md), " ")
 }
