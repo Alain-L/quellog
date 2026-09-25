@@ -102,6 +102,13 @@ var (
 // It automatically detects whether the file is in stderr/syslog, CSV, or JSON format.
 // Returns an error if the format is unknown or parsing fails.
 func ParseFile(filename string, out chan<- []LogEntry) error {
+	return ParseFileTrack(filename, out, AllMembers)
+}
+
+// ParseFileTrack is ParseFile for one track of a run: an archive reads
+// only the members of that track (see ArchiveTrack); any other input is
+// read whole.
+func ParseFileTrack(filename string, out chan<- []LogEntry, track ArchiveTrack) error {
 	parser, err := detectParser(filename)
 	if err != nil {
 		return fmt.Errorf("%s: %w", filename, err)
@@ -113,8 +120,21 @@ func ParseFile(filename string, out chan<- []LogEntry) error {
 	if parser == nil {
 		return fmt.Errorf("%s: %w", filename, ErrUnknownFormat)
 	}
+	setArchiveTrack(parser, track)
 	return parser.Parse(filename, out)
 }
+
+// ArchiveTrack selects the members an archive parse reads. A single run
+// may analyze PostgreSQL and pgBouncer logs on two tracks; an archive
+// holding both is then read once per track (ParseFileTrack), each keeping
+// its own members. The zero value reads every member.
+type ArchiveTrack int
+
+const (
+	AllMembers ArchiveTrack = iota
+	PostgresMembers
+	PoolerMembers
+)
 
 // formatWrapper is implemented by the parsers that stand in front of a
 // payload whose real format only becomes visible once the wrapper is

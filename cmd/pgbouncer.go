@@ -35,7 +35,7 @@ func partitionInputsByFormat(files []string) (pgFiles, pgbFiles []string) {
 			pgbFiles = append(pgbFiles, f)
 		}
 		// An archive holding both kinds of log goes to both tracks, each
-		// reading its own members (see parser.SetArchiveTrack).
+		// reading its own members (see parser.ArchiveTrack).
 		if !pooler || len(formats) > 1 {
 			pgFiles = append(pgFiles, f)
 		}
@@ -88,13 +88,11 @@ func reportFormat(inputArgs []string, withPooler bool) string {
 // silently amputated the pooler report instead of filtering it.
 func computePgBouncerMetrics(ctx context.Context, files []string, beginT, endT time.Time, parsedAny *atomic.Bool) []analysis.PgBouncerMetrics {
 	bounds := parser.LogFilters{BeginT: parser.WallClock(beginT), EndT: parser.WallClock(endT)}
-	parser.SetArchiveTrack(parser.PoolerMembers)
-	defer parser.SetArchiveTrack(parser.AllMembers)
 	parts := make([]*analysis.PgBouncerAnalyzer, 0, len(files))
 	for _, f := range files {
 		parser.ResetPgBouncerLineCounts()
 		raw := make(chan []parser.LogEntry, 64)
-		go parseFilesAsync(ctx, []string{f}, raw, parsedAny, nil)
+		go parseFilesAsync(ctx, []string{f}, raw, parsedAny, nil, parser.PoolerMembers)
 		a := analysis.NewPgBouncerAnalyzer()
 		a.Consume(ctx, raw, bounds)
 		// What the parser scanned and what it threw away: the analyzer

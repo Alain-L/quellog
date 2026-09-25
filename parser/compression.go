@@ -19,6 +19,18 @@ import (
 	"github.com/klauspost/pgzip"
 )
 
+// setArchiveTrack hands an archive parser the track it reads for.
+func setArchiveTrack(p LogParser, track ArchiveTrack) {
+	switch a := p.(type) {
+	case *TarParser:
+		a.track = track
+	case *ZipParser:
+		a.track = track
+	case *SevenZipParser:
+		a.track = track
+	}
+}
+
 // ErrCompressionFailed indicates a failure reading compressed content.
 var ErrCompressionFailed = errors.New("failed to read compressed file")
 

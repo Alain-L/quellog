@@ -13,7 +13,7 @@ import (
 )
 
 // ZipParser extracts supported log files from ZIP archives and streams entries.
-type ZipParser struct{}
+type ZipParser struct{ track ArchiveTrack }
 
 // Parse reads a ZIP archive and parses any supported log files inside it.
 func (p *ZipParser) Parse(filename string, out chan<- []LogEntry) error {
@@ -56,7 +56,7 @@ func (p *ZipParser) Parse(filename string, out chan<- []LogEntry) error {
 			continue
 		}
 
-		if err := parseArchiveEntry(baseName, rc, out); err != nil {
+		if err := parseArchiveEntry(baseName, rc, out, p.track); err != nil {
 			if errors.Is(err, errUnsupportedArchiveEntry) {
 				slog.Warn("unsupported log format in archive", "entry", entryName, "archive", filename)
 			} else {

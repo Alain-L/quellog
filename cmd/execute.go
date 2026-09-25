@@ -175,9 +175,9 @@ func runAnalysisCycle(ctx context.Context, args []string) error {
 
 	// With pooler files in the run, an archive may hold both kinds of log:
 	// the PostgreSQL track reads its PostgreSQL members only.
+	track := parser.AllMembers
 	if len(pgbFiles) > 0 {
-		parser.SetArchiveTrack(parser.PostgresMembers)
-		defer parser.SetArchiveTrack(parser.AllMembers)
+		track = parser.PostgresMembers
 	}
 
 	// Calculate total file size for throughput reporting (PostgreSQL track).
@@ -197,7 +197,7 @@ func runAnalysisCycle(ctx context.Context, args []string) error {
 	defer pb.Finish()
 
 	// Launch parallel file parsing (PostgreSQL track).
-	go parseFilesAsync(ctx, pgFiles, rawLogs, &parsedAny, pb)
+	go parseFilesAsync(ctx, pgFiles, rawLogs, &parsedAny, pb, track)
 
 	// Step 4: Apply filters (skip channel hop when no filters are active)
 	filters := buildLogFilters(beginT, endT)
@@ -272,7 +272,7 @@ func validateStdinUsage(files []string) error {
 // Special handling: if "-" is in the files list, it reads from stdin. The
 // caller must ensure stdin is not mixed with regular files (see
 // validateStdinUsage).
-func parseFilesAsync(ctx context.Context, files []string, out chan<- []parser.LogEntry, parsedAny *atomic.Bool, pb *progressBar) {
+func parseFilesAsync(ctx context.Context, files []string, out chan<- []parser.LogEntry, parsedAny *atomic.Bool, pb *progressBar, track parser.ArchiveTrack) {
 	defer close(out)
 
 	// Special case: stdin (caller has validated it is not mixed)
@@ -306,7 +306,7 @@ func parseFilesAsync(ctx context.Context, files []string, out chan<- []parser.Lo
 				return
 			}
 			parser.ResetCurrentFileProgress()
-			if err := parser.ParseFile(file, out); err != nil {
+			if err := parser.ParseFileTrack(file, out, track); err != nil {
 				// Detection failures are already logged with specifics; surface
 				// parse-stage failures (e.g. a stream that truncated mid-file)
 				// since those leave partial output.
@@ -391,7 +391,7 @@ func parseFilesAsync(ctx context.Context, files []string, out chan<- []parser.Lo
 				// or the ordered drain would block forever on this index.
 				if ctx.Err() == nil {
 					file := files[i]
-					if err := parser.ParseFile(file, queues[i]); err != nil {
+					if err := parser.ParseFileTrack(file, queues[i], track); err != nil {
 						// Detection failures are already logged; surface
 						// parse-stage failures (partial output) as a warning.
 						if !isDetectionError(err) {

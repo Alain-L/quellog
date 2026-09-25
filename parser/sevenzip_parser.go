@@ -14,7 +14,7 @@ import (
 )
 
 // SevenZipParser extracts supported log files from 7z archives and streams entries.
-type SevenZipParser struct{}
+type SevenZipParser struct{ track ArchiveTrack }
 
 // Parse reads a 7z archive and parses any supported log files inside it.
 func (p *SevenZipParser) Parse(filename string, out chan<- []LogEntry) error {
@@ -57,7 +57,7 @@ func (p *SevenZipParser) Parse(filename string, out chan<- []LogEntry) error {
 			continue
 		}
 
-		if err := parseArchiveEntry(baseName, rc, out); err != nil {
+		if err := parseArchiveEntry(baseName, rc, out, p.track); err != nil {
 			if errors.Is(err, errUnsupportedArchiveEntry) {
 				slog.Warn("unsupported log format in archive", "entry", entryName, "archive", filename)
 			} else {

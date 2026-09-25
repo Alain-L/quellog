@@ -113,3 +113,20 @@ func TestDetectFileFormatCompressedPgBouncer(t *testing.T) {
 		})
 	}
 }
+
+// TestKeepMember: each track reads its own members and nothing else; the
+// default reads everything, as a run without pooler files always has.
+func TestKeepMember(t *testing.T) {
+	for _, c := range []struct {
+		track        ArchiveTrack
+		pooler, want bool
+	}{
+		{AllMembers, true, true}, {AllMembers, false, true},
+		{PostgresMembers, true, false}, {PostgresMembers, false, true},
+		{PoolerMembers, true, true}, {PoolerMembers, false, false},
+	} {
+		if got := keepMember(c.track, c.pooler); got != c.want {
+			t.Errorf("keepMember(%v, pooler=%v) = %v, want %v", c.track, c.pooler, got, c.want)
+		}
+	}
+}
