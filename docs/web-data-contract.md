@@ -171,22 +171,29 @@ Read by: `js/sections/maintenance.js`.
 
 ### pgbouncer — pooler report (gated)
 Read by: `js/sections/pgbouncer.js`. Present only when the run included
-pgBouncer log files (see [pgBouncer Reports](pgbouncer.md)). A sibling
-top-level `pgbouncer_only` boolean (present only for a pure pgBouncer run)
-tells `app.js` to render just this section and suppress the empty
-PostgreSQL sections.
+pgBouncer log files (see [pgBouncer Reports](pgbouncer.md)). A list, one
+entry per pooler, each rendered as its own section (`#pgbouncer`,
+`#pgbouncer-2`, …). A sibling top-level `pgbouncer_only` boolean (present
+only for a pure pgBouncer run) tells `app.js` to render just these sections
+and suppress the empty PostgreSQL ones. Each entry:
+- Identity: `name`, `files`, `listen`, `version`; `events`:
+  `[{timestamp, kind, detail}]`, the pooler's timeline.
 - Traffic: `stats_sample_count`, `avg_/max_xacts_per_sec`,
   `avg_/max_queries_per_sec`, `avg_/max_in_bytes_per_sec`,
   `avg_/max_out_bytes_per_sec`, `avg_/max_xact_us`, `avg_/max_query_us`,
-  `avg_/max_wait_us`.
+  `avg_/max_wait_us`, and `max_*_timestamp` for each maximum (omitted
+  when there is none). Before pgBouncer 1.23 (`version`) the wait fields
+  are a queue depth, shown as clients queued.
 - `stats_series`: `[{time, xacts_per_sec, queries_per_sec, in_bytes_per_sec,
   out_bytes_per_sec, xact_us, query_us, wait_us}]` — feeds the three
   time-series charts (`pgb-series` type in `js/charts.js`).
 - Connections/sessions: `login_attempts`, `server_connections`, `sessions`,
-  `total_session_seconds`, `session_distribution` (bucket → count).
+  `total_session_seconds`, `session_distribution` (bucket → count),
+  `session_reasons` (`[{reason, count, total_seconds}]`).
 - Breakdowns: `connections_per_database/user/host`,
   `sessions_per_database/user/host` (name → count).
-- `reserve_pool_activations`, `errors` (reason → count), `total_errors`.
+- `reserve_pool_activations`, `errors` (`[{message, count, first, last}]`),
+  `total_errors`.
 
 ### replication — gated, absent from this fixture
 Read by: `js/sections/checkpoints.js` (sub-zone of the server area).
