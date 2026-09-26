@@ -5,71 +5,11 @@
 // query/pool-wait timing), its timeline, a session-time histogram and the
 // close reasons, per-database/user/host breakdowns, and the errors.
 
-import { fmt, esc, escAttr, fmtDurationCoarse, buildNoDataMessage, wholeLogBadge } from '../utils.js';
+import { fmt, esc, escAttr, fmtDurationCoarse, buildNoDataMessage, wholeLogBadge, barList } from '../utils.js';
 import { pgbValueFmt } from '../charts.js';
-import { chartData, buildChartContainer } from '../charts.js';
+import { chartData, buildChartContainer, chartLegend } from '../charts.js';
 
 const SESSION_BUCKETS = ['< 1s', '1s - 1min', '1min - 30min', '30min - 2h', '2h - 5h', '> 5h'];
-
-// chartLegend renders an external dotted legend below a chart, matching
-// the Temp Files / Connections legend style (uPlot's own legend is hidden).
-function chartLegend(items) {
-    const dot = (c) => `<span style="display:inline-block;width:12px;height:12px;background:${c};border-radius:2px;vertical-align:middle;margin-right:4px;"></span>`;
-    return `<div class="chart-legend" style="display:flex;gap:16px;justify-content:center;margin-top:4px;font-size:12px;">`
-        + items.map(([label, c]) => `<span>${dot(c)}${label}</span>`).join('')
-        + `</div>`;
-}
-
-// TOP_N is how many rows a ranked breakdown shows before collapsing the
-// rest into the report's "… and N more" line. A pooler fronting a
-// multi-tenant estate has thousands of users, and ten rows adding up to
-// 12% read as the whole truth unless the cut is stated.
-const TOP_N = 10;
-
-// moreRow renders that line for a bar list, muted so it reads as a note
-// on the table rather than another row of data.
-function moreRow(hidden) {
-    if (hidden <= 0) return '';
-    return `<div class="list-item" style="color: var(--text-muted); font-size: 11px;">… and ${fmt(hidden)} more</div>`;
-}
-
-// barList renders name→count rows as the report's shared bar-list (the
-// same .scroll-list / .list-item / .bar-fill markup the Clients section
-// uses), so the pgBouncer breakdowns look identical to the rest.
-// `rows` is an array of [name, count]; when `ordered` is false they are
-// sorted by count descending, clipped to TOP_N, and the clipped tail is
-// declared under the list.
-function barList(title, rows, total, ordered) {
-    let hidden = 0;
-    if (ordered) {
-        rows = rows.filter(([, c]) => c > 0);
-    } else {
-        const ranked = rows.slice()
-            .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-            .filter(([, c]) => c > 0);
-        hidden = Math.max(0, ranked.length - TOP_N);
-        rows = ranked.slice(0, TOP_N);
-    }
-    if (rows.length === 0) return '';
-    const max = Math.max(1, ...rows.map(([, c]) => c));
-    return `
-        <div>
-            ${title ? `<div class="subsection-title">${esc(title)}</div>` : ''}
-            <div class="scroll-list">
-                ${rows.map(([name, count]) => {
-                    const pct = total > 0 ? (count / total * 100).toFixed(1) : '0.0';
-                    return `
-                    <div class="list-item">
-                        <span class="name">${esc(name)}</span>
-                        <div class="bar-container"><div class="bar"><div class="bar-fill" style="width: ${count / max * 100}%"></div></div></div>
-                        <span class="value">${fmt(count)} <small style="color: var(--text-muted)">(${pct}%)</small></span>
-                    </div>`;
-                }).join('')}
-                ${moreRow(hidden)}
-            </div>
-        </div>
-    `;
-}
 
 // dimTabs groups per-database / per-user / per-host breakdowns into a
 // single tabbed widget (ql-tabs), the same affordance the Clients section

@@ -1740,6 +1740,18 @@ function pgbTooltipPlugin(spec, valFmt) {
 const pgbXSpace = (u, axis, min, max, dim) => ((max - min) * 80 / dim < 60 ? 80 : 50);
 const PGB_X_GAP = 8;
 
+// chartLegend renders the external legend drawn under a chart (uPlot's own
+// is hidden). `items` are [label, colour] pairs, with a third element true
+// for a dashed line (a median) instead of a swatch.
+export function chartLegend(items) {
+    const mark = (c, dashed) => dashed
+        ? `<span style="display:inline-block;width:16px;height:0;border-top:2px dashed ${c};vertical-align:middle;margin-right:4px;"></span>`
+        : `<span style="display:inline-block;width:12px;height:12px;background:${c};border-radius:2px;vertical-align:middle;margin-right:4px;"></span>`;
+    return `<div class="chart-legend" style="display:flex;gap:16px;justify-content:center;margin-top:4px;font-size:12px;">`
+        + items.map(([label, c, dashed]) => `<span>${mark(c, dashed)}${label}</span>`).join('')
+        + `</div>`;
+}
+
 // pgbAxisWidth sizes a y axis to its longest tick label, which uPlot hands
 // over once formatted: "176.6 KB/s" does not fit the fixed width the
 // count axes use, and a clipped label reads as another number.

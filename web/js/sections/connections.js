@@ -2,8 +2,8 @@
 // session distribution + tables, and the sibling Clients section
 // (databases/users/apps/hosts breakdown).
 
-import { fmt, fmtDur, esc, parseDurToMs, buildNoDataMessage } from '../utils.js';
-import { chartData, buildChartContainer } from '../charts.js';
+import { fmt, fmtDur, esc, parseDurToMs, buildNoDataMessage, barList } from '../utils.js';
+import { chartData, buildChartContainer, chartLegend } from '../charts.js';
 
 export function buildConnectionsSection(data) {
     const c = data.connections;
@@ -95,20 +95,13 @@ export function buildConnectionsSection(data) {
                     ${c.session_events?.length > 0 ? `
                         <div>
                         ${buildChartContainer('chart-concurrent', 'Concurrent Sessions', { tooltip: 'Number of active database connections at a given time. High values indicate more database activity.' })}
-                        <div class="chart-legend" style="display:flex;gap:16px;justify-content:center;margin-top:4px;font-size:12px;">
-                            <span><span style="display:inline-block;width:12px;height:12px;background:var(--accent);border-radius:2px;vertical-align:middle;margin-right:4px;"></span>Sessions</span>
-                            <span><span style="display:inline-block;width:12px;height:12px;background:var(--text-muted);border-radius:2px;vertical-align:middle;margin-right:4px;"></span>Pre-log</span>
-                            <span><span style="display:inline-block;width:16px;height:0;border-top:2px dashed var(--text-muted);vertical-align:middle;margin-right:4px;"></span>Median</span>
-                        </div>
+                        ${chartLegend([['Sessions', 'var(--accent)'], ['Pre-log', 'var(--text-muted)'], ['Median', 'var(--text-muted)', true]])}
                         </div>
                     ` : ''}
                     ${hasConnections ? `
                         <div>
                         ${buildChartContainer('chart-connections', 'Connection Distribution', { tooltip: 'Timeline of connection events. High values indicate heavy traffic.' })}
-                        <div class="chart-legend" style="display:flex;gap:16px;justify-content:center;margin-top:4px;font-size:12px;">
-                            <span><span style="display:inline-block;width:12px;height:12px;background:var(--chart-bar);border-radius:2px;vertical-align:middle;margin-right:4px;"></span>Connections</span>
-                            <span><span style="display:inline-block;width:16px;height:0;border-top:2px dashed var(--text-muted);vertical-align:middle;margin-right:4px;"></span>Median</span>
-                        </div>
+                        ${chartLegend([['Connections', 'var(--chart-bar)'], ['Median', 'var(--text-muted)', true]])}
                         </div>
                     ` : ''}
                 </div>
@@ -316,29 +309,11 @@ export function buildClientsSection(data) {
             </div>
         `;
     }
-    const maxDb = databases[0]?.count || 1;
-    const maxUser = users[0]?.count || 1;
-    const maxApp = apps[0]?.count || 1;
-    const maxHost = hosts[0]?.count || 1;
     const hasCombos = false; // combos not in quellog JSON
 
-    function buildClientList(items, max) {
-        if (!items?.length) return '';
-        const total = items.reduce((sum, d) => sum + d.count, 0);
-        return `
-            <div class="scroll-list">
-                ${items.slice(0, 10).map(d => {
-                    const pct = total > 0 ? (d.count / total * 100).toFixed(1) : '0.0';
-                    return `
-                    <div class="list-item">
-                        <span class="name">${esc(d.name)}</span>
-                        <div class="bar-container"><div class="bar"><div class="bar-fill" style="width: ${d.count/max*100}%"></div></div></div>
-                        <span class="value">${fmt(d.count)} <small style="color: var(--text-muted)">(${pct}%)</small></span>
-                    </div>
-                `}).join('')}
-            </div>
-        `;
-    }
+    // The breakdowns hold their ten heaviest names, already ranked.
+    const buildClientList = (items) => barList('', (items || []).slice(0, 10).map(d => [d.name, d.count]),
+        (items || []).reduce((sum, d) => sum + d.count, 0), true);
 
     return `
         <div class="section" id="clients">
@@ -349,10 +324,10 @@ export function buildClientsSection(data) {
                     <ql-tab>Users <ql-badge>${c.unique_users}</ql-badge></ql-tab>
                     <ql-tab>Apps <ql-badge>${c.unique_apps}</ql-badge></ql-tab>
                     <ql-tab>Hosts <ql-badge>${c.unique_hosts}</ql-badge></ql-tab>
-                    <ql-panel>${buildClientList(databases, maxDb)}</ql-panel>
-                    <ql-panel>${buildClientList(users, maxUser)}</ql-panel>
-                    <ql-panel>${buildClientList(apps, maxApp)}</ql-panel>
-                    <ql-panel>${buildClientList(hosts, maxHost)}</ql-panel>
+                    <ql-panel>${buildClientList(databases)}</ql-panel>
+                    <ql-panel>${buildClientList(users)}</ql-panel>
+                    <ql-panel>${buildClientList(apps)}</ql-panel>
+                    <ql-panel>${buildClientList(hosts)}</ql-panel>
                 </ql-tabs>
             </div>
         </div>
