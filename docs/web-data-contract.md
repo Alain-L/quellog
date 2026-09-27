@@ -247,5 +247,6 @@ carry per-occurrence timestamps), `locks` (headline counts depend on the
 backend's wait-episode collapsing, which the raw event array cannot reproduce),
 `maintenance` (counter maps only), and `sql_overview`'s
 `by_database/by_user/by_host/by_app` tables (executions carry no per-execution
-dimension). `_timeFiltered`/`_filterRange`/`_wholeLog` are client-side-only
+dimension), and `pgbouncer` (the pooler track is analyzed apart and its
+figures are averages over the whole capture). `_timeFiltered`/`_filterRange`/`_wholeLog` are client-side-only
 markers, absent from the Go payload.
