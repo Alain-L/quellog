@@ -426,8 +426,11 @@ func lifecycleEvent(rest string) (kind, detail string, ok bool) {
 		return "start", "PgBouncer " + v, true
 	}
 	if sig, ok := strings.CutPrefix(rest, "got "); ok {
-		if i := strings.IndexByte(sig, ','); i != -1 {
-			sig = sig[:i]
+		sig, effect, _ := strings.Cut(sig, ",")
+		// "got SIGUSR1, but already paused/suspended": the signal was
+		// received and changed nothing.
+		if strings.HasPrefix(strings.TrimSpace(effect), "but ") {
+			return "", "", false
 		}
 		if kind, ok := pgbSignals[sig]; ok {
 			return kind, sig, true

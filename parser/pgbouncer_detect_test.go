@@ -218,3 +218,13 @@ func TestSampleFormatOrderIsShared(t *testing.T) {
 		t.Error("detectByExtension does not read the mixed sample as a pooler log")
 	}
 }
+
+// TestDetectPgBouncerByStatsLineAlone: in a sample too mixed for the shape
+// vote, a stats line is a pooler marker on its own, as a socket id is.
+func TestDetectPgBouncerByStatsLineAlone(t *testing.T) {
+	stats := "2026-09-25 09:00:00.000 UTC [1] LOG stats: 3 xacts/s, 21 queries/s, in 1 B/s, out 1 B/s, xact 1 us, query 1 us, wait 1 us\n"
+	sample := stats + "free text\nmore free text\nstill free text\n" + stats
+	if !looksLikePgBouncer(sample) {
+		t.Error("a stats line alone does not mark the sample as a pooler log")
+	}
+}

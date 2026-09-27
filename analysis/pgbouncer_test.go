@@ -427,12 +427,22 @@ func TestPgBouncerPeerWithSpacesAndAtSigns(t *testing.T) {
 
 // TestPgBouncerLifecycleEvents is a table of the LOG lines that mark a
 // step of the pooler's life, next to lines that look alike and are not.
+// The signal lines are pgBouncer 1.25.2's own strings (strings(1) on the
+// binary), including those where the signal changed nothing.
 func TestPgBouncerLifecycleEvents(t *testing.T) {
 	for _, c := range []struct{ rest, kind, detail string }{
 		{"process up: PgBouncer 1.25.2, libevent 2.1.13-stable (epoll), adns: c-ares 1.34.5", "start", "PgBouncer 1.25.2"},
 		{"got SIGINT, shutting down, waiting for all servers connections to be released", "shutdown", "SIGINT"},
 		{"got SIGTERM, fast exit", "shutdown", "SIGTERM"},
 		{"got SIGHUP, re-reading config", "reload", "SIGHUP"},
+		{"got SIGQUIT, fast exit", "shutdown", "SIGQUIT"},
+		{"got SIGUSR1, pausing all activity", "pause", "SIGUSR1"},
+		{"got SIGUSR2, continuing from PAUSE", "resume", "SIGUSR2"},
+		{"got SIGUSR2, continuing from SUSPEND", "resume", "SIGUSR2"},
+		{"got SIGUSR1, but already paused/suspended", "", ""},
+		{"got SIGUSR2, but not paused/suspended", "", ""},
+		{"got SIGUSR2 while shutting down, ignoring", "", ""},
+		{"got SIGINT while shutting down, fast exit", "", ""},
 		{"RELOAD command issued", "reload", "RELOAD"},
 		{"PAUSE 'bench' command issued", "pause", "PAUSE 'bench'"},
 		{"RESUME command issued", "resume", "RESUME"},
