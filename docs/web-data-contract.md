@@ -22,7 +22,7 @@ Conventions:
   `sql_performance.executions`, every time in the `pgbouncer` entries), and
   Unix milliseconds (`top_events[].timestamps`).
 - Human-formatted values (durations `"1m 32s"`, sizes `"683.59 KB"`, rates) are
-  pre-rendered strings; raw numbers keep a `_ms`, `_kb`, `_seconds` or `count` name.
+  pre-rendered strings; raw numbers keep a `_ms`, `_us` (the pooler's microseconds), `_kb`, `_seconds` or `count` name.
 - A section key is **absent** when the section has no data (see "Gated keys").
 
 ## Top-level keys
