@@ -464,7 +464,7 @@ test('table cells break between words, not mid-word', () => {
 test('queueing stretches are listed in the wait unit', () => {
     const ep = [{ start: '2026-09-25T09:08:09', end: '2026-09-25T09:09:09', peak_wait_us: 2571000, peak_timestamp: '2026-09-25T09:08:39' }];
     const html = buildPgBouncerSection({ pgbouncer: { ...statlessPayload, version: '1.25.2', wait_episodes: ep } });
-    assert.ok(html.includes('Stretches with waits of 100 ms or more') && html.includes('2.57 s') && html.includes('>09:08:39<'));
+    assert.ok(html.includes('Stretches with waits of 100 ms or more') && html.includes('2.57\u00a0s') && html.includes('>09:08:39<'));
     const old = buildPgBouncerSection({ pgbouncer: { ...statlessPayload, version: '1.18.0', wait_episodes: ep } });
-    assert.ok(old.includes('0.1 client or more queued') && old.includes('2.6 clients'));
+    assert.ok(old.includes('0.1 client or more queued') && old.includes('2.6\u00a0clients'));
 });

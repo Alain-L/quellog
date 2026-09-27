@@ -70,9 +70,15 @@ const pct = (n, total) => (total ? (n / total * 100).toFixed(1) : '0.0') + '%';
 // logged, so a burst reads against the charts and the timeline.
 function errorsTable(errors, total, at) {
     const list = errors || [];
-    return table([['Error'], ['Count', true], ['%', true], ['First', true], ['Last', true]],
-        list.slice(0, LIST_MAX).map(e => [breakable(esc(e.message)), fmt(e.count), pct(e.count, total), at(e.first), at(e.last)]),
+    return table([['Error'], ['Count', true], ['%', true], ['When', true]],
+        list.slice(0, LIST_MAX).map(e => [breakable(esc(e.message)), fmt(e.count), pct(e.count, total), span(at(e.first), at(e.last))]),
         list.length - LIST_MAX);
+}
+
+// span renders a first-to-last pair as the text report does, one time
+// when both read the same: four columns fit a phone, five did not.
+function span(first, last) {
+    return first === last ? first : `${first} → ${last}`;
 }
 
 // reasonsTable splits the completed sessions by close reason, with each
@@ -101,9 +107,9 @@ function episodesTable(p, at) {
     const depth = waitIsQueueDepth(p.version);
     const wait = depth ? (us) => (us / 1e6).toFixed(1) + ' clients' : pgbValueFmt('micros');
     const list = p.wait_episodes || [];
-    return table([['Start'], ['End'], ['Duration', true], ['Peak', true], ['Peak at', true]],
-        list.slice(0, LIST_MAX).map(e => [at(e.start), at(e.end),
-            sessionTime((new Date(e.end) - new Date(e.start)) / 1000), wait(e.peak_wait_us), at(e.peak_timestamp)]),
+    return table([['When'], ['Duration', true], ['Peak', true], ['Peak at', true]],
+        list.slice(0, LIST_MAX).map(e => [span(at(e.start), at(e.end)),
+            sessionTime((new Date(e.end) - new Date(e.start)) / 1000), wait(e.peak_wait_us).replace(' ', '\u00a0'), at(e.peak_timestamp)]),
         list.length - LIST_MAX);
 }
 
