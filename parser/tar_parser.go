@@ -242,26 +242,6 @@ func nestedArchiveMemberFormat(name string, r io.Reader, suffix string) string {
 	return archiveMemberFormat(name[:len(name)-len(suffix)], zr)
 }
 
-// sampleFormat names the format of a content sample using the same
-// discriminators as the plain detection path, in the same order as
-// detectByContent. Unlike detectByContent it builds no parser and logs
-// nothing: it only answers which analyzer the content belongs to. Returns
-// "" when nothing matches.
-func sampleFormat(sample string) string {
-	switch {
-	case looksLikePgBouncer(sample):
-		return "pgbouncer"
-	case isJSONContent(sample):
-		return "json"
-	case isCSVContent(sample):
-		return "csv"
-	case isLogContent(sample):
-		return "stderr"
-	default:
-		return ""
-	}
-}
-
 // isSupportedArchiveEntry reports whether the archive entry should be parsed.
 func isSupportedArchiveEntry(name string) bool {
 	lower := strings.ToLower(name)

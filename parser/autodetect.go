@@ -371,30 +371,43 @@ func detectByExtension(filename, ext, sample string) LogParser {
 // detectByContent attempts to detect the parser based on file content.
 // This is used when the file extension doesn't provide enough information.
 func detectByContent(filename, sample string) LogParser {
-	switch {
-	case looksLikePgBouncer(sample):
+	switch sampleFormat(sample) {
+	case "pgbouncer":
 		slog.Info("detected pgBouncer format (unknown extension)", "file", filename)
 		return &PgBouncerParser{}
-
-	case isJSONContent(sample):
+	case "json":
 		slog.Info("detected JSON format (unknown extension)", "file", filename)
 		return &JsonParser{}
-
-	case isCSVContent(sample):
+	case "csv":
 		slog.Info("detected CSV format (unknown extension)", "file", filename)
 		return &CsvParser{}
-
-	case isLogContent(sample):
+	case "stderr":
 		slog.Info("detected stderr/syslog format (unknown extension)", "file", filename)
 		return &StderrParser{}
+	}
+	if n := detectLeadingPrefix(sample); n > 0 {
+		slog.Info("detected stderr format with a literal prefix (unknown extension)", "file", filename, "prefix_len", n)
+		return &StderrParser{prefixLen: n}
+	}
+	slog.Error("unknown log format", "file", filename)
+	return nil
+}
 
+// sampleFormat names the format of a content sample: the one order of
+// discriminators both detectByContent and the archive-member probe use.
+// It builds no parser and logs nothing. Returns "" when nothing matches.
+func sampleFormat(sample string) string {
+	switch {
+	case looksLikePgBouncer(sample):
+		return "pgbouncer"
+	case isJSONContent(sample):
+		return "json"
+	case isCSVContent(sample):
+		return "csv"
+	case isLogContent(sample):
+		return "stderr"
 	default:
-		if n := detectLeadingPrefix(sample); n > 0 {
-			slog.Info("detected stderr format with a literal prefix (unknown extension)", "file", filename, "prefix_len", n)
-			return &StderrParser{prefixLen: n}
-		}
-		slog.Error("unknown log format", "file", filename)
-		return nil
+		return ""
 	}
 }
 
