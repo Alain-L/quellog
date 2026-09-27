@@ -615,3 +615,74 @@ func TestPgBouncerWaitEpisodes(t *testing.T) {
 		t.Errorf("waitEpisodes =\n%s\nwant\n%s", got, want)
 	}
 }
+
+// TestPgBouncerSessionBuckets pins every edge of the session-time
+// histogram, the buckets the PostgreSQL connection report uses.
+func TestPgBouncerSessionBuckets(t *testing.T) {
+	for d, want := range map[time.Duration]string{
+		999 * time.Millisecond:       "< 1s",
+		time.Second:                  "1s - 1min",
+		time.Minute - time.Second:    "1s - 1min",
+		time.Minute:                  "1min - 30min",
+		30*time.Minute - time.Second: "1min - 30min",
+		30 * time.Minute:             "30min - 2h",
+		2*time.Hour - time.Second:    "30min - 2h",
+		2 * time.Hour:                "2h - 5h",
+		5*time.Hour - time.Second:    "2h - 5h",
+		5 * time.Hour:                "> 5h",
+	} {
+		if got := sessionBucket(d); got != want {
+			t.Errorf("sessionBucket(%v) = %q, want %q", d, got, want)
+		}
+	}
+}
+
+// TestPgBouncerStatsCoverageEdge: the snapshots must cover at least half
+// of the window. Five snapshots ten seconds apart cover 50 s: a 100 s
+// window is exactly half and passes, a 101 s one is flagged. The page
+// recomputes the same verdict (web/tests/unit/pgbouncer.test.js holds the
+// same case), so the two copies of the rule cannot drift apart unseen.
+func TestPgBouncerStatsCoverageEdge(t *testing.T) {
+	t0 := time.Date(2026, 9, 25, 9, 0, 0, 0, time.UTC)
+	m := PgBouncerMetrics{StatsSampleCount: 5, MinTimestamp: t0}
+	for i := range 5 {
+		m.StatsSeries = append(m.StatsSeries, PgBouncerStatsPoint{Time: t0.Add(time.Duration(10*i) * time.Second)})
+	}
+	if p := m.StatsPeriod(); p != 10*time.Second {
+		t.Fatalf("StatsPeriod = %v, want 10s", p)
+	}
+	for window, want := range map[time.Duration]bool{100 * time.Second: false, 101 * time.Second: true} {
+		m.MaxTimestamp = t0.Add(window)
+		if got := m.StatsUnderCovered(); got != want {
+			t.Errorf("window %v: StatsUnderCovered = %v, want %v", window, got, want)
+		}
+	}
+}
+
+// TestPgBouncerStatsPeriodIsTheMedian: a restart gap in the middle of a
+// capture does not stretch the inferred stats_period; a mean would.
+func TestPgBouncerStatsPeriodIsTheMedian(t *testing.T) {
+	t0 := time.Date(2026, 9, 25, 9, 0, 0, 0, time.UTC)
+	var m PgBouncerMetrics
+	for _, s := range []int{0, 10, 20, 30, 330, 340} {
+		m.StatsSeries = append(m.StatsSeries, PgBouncerStatsPoint{Time: t0.Add(time.Duration(s) * time.Second)})
+	}
+	if p := m.StatsPeriod(); p != 10*time.Second {
+		t.Errorf("StatsPeriod = %v, want the median gap 10s", p)
+	}
+}
+
+// TestPgBouncerPeakTieKeepsTheEarlier: two files reaching the same maximum
+// report the earlier snapshot, whichever file is merged first.
+func TestPgBouncerPeakTieKeepsTheEarlier(t *testing.T) {
+	early, late := time.Date(2026, 9, 25, 9, 0, 0, 0, time.UTC), time.Date(2026, 9, 25, 10, 0, 0, 0, time.UTC)
+	v, at := int64(5), late
+	peak(&v, &at, 5, early)
+	if !at.Equal(early) {
+		t.Errorf("tie kept %v, want the earlier %v", at, early)
+	}
+	peak(&v, &at, 5, late)
+	if !at.Equal(early) {
+		t.Errorf("a later tie replaced the earlier maximum: %v", at)
+	}
+}

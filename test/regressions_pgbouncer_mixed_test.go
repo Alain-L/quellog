@@ -97,3 +97,17 @@ func TestPooledStdinIsNamed(t *testing.T) {
 		t.Errorf("stderr does not name the pooler log:\n%s", stderr.String())
 	}
 }
+
+// TestMixedRunHeaderCountsBothTracks: the run header counts the PostgreSQL
+// entries and the pooler records, and the bytes of both files -- P1's
+// server log holds 124 entries in 14996 bytes, its pooler log 513 records
+// in 73496 bytes.
+func TestMixedRunHeaderCountsBothTracks(t *testing.T) {
+	out := string(runHarness(t, false, "testdata/pgbouncer/P1/p1.postgresql.log", "testdata/pgbouncer/P1/p1.pgbouncer.log"))
+	header, _, _ := strings.Cut(out, "\n")
+	for _, want := range []string{"637 entries processed", "(86.42 KB)"} {
+		if !strings.Contains(header, want) {
+			t.Errorf("header %q does not read %q", header, want)
+		}
+	}
+}

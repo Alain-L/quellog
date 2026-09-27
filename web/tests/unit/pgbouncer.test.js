@@ -428,6 +428,8 @@ test('sessions are split by who ended them', () => {
         { reason: 'query_wait_timeout', count: 22, total_seconds: 66 },
     ] } });
     assert.ok(html.includes('Ended by the client: 160 · by the pooler: 23'));
+    assert.ok(/query_<wbr>wait_<wbr>timeout<\/td><td class="num">22<\/td><td class="num">12\.0%<\/td><td class="num">3s</.test(html),
+        'a close reason carries its count, share and average age');
 });
 
 // Pooler times read on the log's own clock, like the PostgreSQL sections:
@@ -469,4 +471,27 @@ test('queueing stretches are listed in the wait unit', () => {
     assert.ok(html.includes('09:08:09 → 09:09:09'), 'a stretch reads from its start to its end');
     const old = buildPgBouncerSection({ pgbouncer: { ...statlessPayload, version: '1.18.0', wait_episodes: ep } });
     assert.ok(old.includes('0.1 client or more queued') && old.includes('2.6\u00a0clients'));
+});
+
+// The page recomputes the Go verdict on stats coverage; this is the case
+// analysis.TestPgBouncerStatsCoverageEdge holds: five snapshots ten
+// seconds apart cover 50 s, exactly half of a 100 s window (not flagged)
+// and less than half of a 101 s one (flagged).
+test('the coverage caveat fires below half the window, as on the Go side', () => {
+    const series = [0, 10, 20, 30, 40].map(s => ({ time: `2026-09-25T09:00:${String(s).padStart(2, '0')}` }));
+    const section = (end) => buildPgBouncerSection({ pgbouncer: {
+        ...statlessPayload, stats_sample_count: 5, stats_series: series,
+        min_timestamp: '2026-09-25T09:00:00', max_timestamp: end,
+    } });
+    assert.ok(!section('2026-09-25T09:01:40').includes('pgBouncer logs nothing between two snapshots'));
+    assert.ok(section('2026-09-25T09:01:41').includes('pgBouncer logs nothing between two snapshots'));
+});
+
+// The error and close-reason tables show twenty rows and state the rest,
+// as the text report does.
+test('the error table stops at twenty rows and says how many it left out', () => {
+    const errors = Array.from({ length: 21 }, (_, i) => ({ message: `error ${i}`, count: 21 - i, first: '2026-09-25T09:00:00', last: '2026-09-25T09:00:00' }));
+    const html = buildPgBouncerSection({ pgbouncer: { ...statlessPayload, total_errors: 231, errors } });
+    assert.ok(html.includes('>error 19<') && !html.includes('>error 20<'));
+    assert.ok(html.includes('… and 1 more'));
 });

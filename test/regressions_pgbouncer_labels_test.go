@@ -209,3 +209,25 @@ func TestPgBouncerTextSpansRunForward(t *testing.T) {
 		}
 	}
 }
+
+// TestPgBouncerTextListCapAndDates: the text error list stops at twenty
+// distinct errors and states the rest, and a pooler whose window crosses
+// midnight dates its times rather than printing a bare clock.
+func TestPgBouncerTextListCapAndDates(t *testing.T) {
+	var log strings.Builder
+	log.WriteString("2026-09-25 23:59:30.000 UTC [7] LOG process up: PgBouncer 1.25.2, libevent 2.1.13-stable\n")
+	for i := range 21 {
+		fmt.Fprintf(&log, "2026-09-25 23:59:%02d.000 UTC [7] WARNING C-0x1: app/u@10.0.0.1:1 pooler error: failure %02d\n", 31+i, i)
+	}
+	log.WriteString("2026-09-26 00:00:10.000 UTC [7] LOG SHUTDOWN command issued\n")
+	probe := filepath.Join(t.TempDir(), "midnight.log")
+	if err := os.WriteFile(probe, []byte(log.String()), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	text := pgbText(t, probe)
+	for _, want := range []string{"… and 1 more", "2026-09-25 23:59:31"} {
+		if !strings.Contains(text, want) {
+			t.Errorf("text report missing %q:\n%s", want, text)
+		}
+	}
+}
