@@ -228,3 +228,27 @@ func TestDetectPgBouncerByStatsLineAlone(t *testing.T) {
 		t.Error("a stats line alone does not mark the sample as a pooler log")
 	}
 }
+
+// TestDetectPgBouncerShapeVoteEdges pins the shape vote a marker-free
+// sample falls back on: nine prefix-shaped lines in ten carry it, eight in
+// ten do not, and a single shaped line is never enough on its own.
+func TestDetectPgBouncerShapeVoteEdges(t *testing.T) {
+	shaped := "2026-09-25 09:00:00.000 UTC [1] LOG process up: PgBouncer 1.25.2\n"
+	sample := func(shapedLines, freeLines int) string {
+		return strings.Repeat(shaped, shapedLines) + strings.Repeat("free text\n", freeLines)
+	}
+	for _, c := range []struct {
+		name string
+		s    string
+		want bool
+	}{
+		{"nine shaped in ten", sample(9, 1), true},
+		{"eight shaped in ten", sample(8, 2), false},
+		{"one shaped line alone", sample(1, 0), false},
+		{"two shaped lines alone", sample(2, 0), true},
+	} {
+		if got := looksLikePgBouncer(c.s); got != c.want {
+			t.Errorf("%s: looksLikePgBouncer = %v, want %v", c.name, got, c.want)
+		}
+	}
+}
