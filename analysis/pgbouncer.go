@@ -1079,8 +1079,7 @@ func parseAge(verb string) (time.Duration, bool) {
 // failure collapses into one "Most Frequent Errors" bucket.
 func normalizeError(rest string) string {
 	// Drop a leading "C-0x..: <peer> " or "S-0x..: <peer> " scope.
-	if peer, verb, ok := splitSocketEvent(rest); ok {
-		_ = peer
+	if _, verb, ok := splitSocketEvent(rest); ok {
 		rest = verb
 	}
 	// Drop trailing "(age=Ns)".

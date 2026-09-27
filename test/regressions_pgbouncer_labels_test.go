@@ -193,3 +193,19 @@ func TestPgBouncerMarkdownCellsKeepTheirColumns(t *testing.T) {
 func mdUnpadded(md []byte) string {
 	return regexp.MustCompile(` {2,}`).ReplaceAllString(string(md), " ")
 }
+
+// TestPgBouncerTextSpansRunForward: in the text report a queueing stretch
+// reads from its start to its end, and an error from its first occurrence
+// to its last. The values alone are right either way round, so only the
+// order separates the rule from its reverse.
+func TestPgBouncerTextSpansRunForward(t *testing.T) {
+	text := pgbText(t, labelFixture)
+	for _, want := range []string{
+		"13:58:12 → 13:58:42", // the stretch
+		"13:58:05 → 13:58:13", // query_wait_timeout, first to last
+	} {
+		if !strings.Contains(text, want) {
+			t.Errorf("text report missing %q:\n%s", want, text)
+		}
+	}
+}
