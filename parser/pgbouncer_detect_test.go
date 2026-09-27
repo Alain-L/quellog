@@ -193,3 +193,28 @@ func TestDetectFormatFromContentNamesPgBouncer(t *testing.T) {
 		t.Errorf("DetectFormatFromContent = %q, want \"stderr\"", got)
 	}
 }
+
+// TestSampleFormatOrderIsShared pins the one order of discriminators: a
+// sample holding a pooler stats line among PostgreSQL lines, as two logs
+// concatenated into one file give, satisfies both the pooler and the
+// stderr detectors. The pooler marker settles it on every path -- by
+// extension, by content, and for an archive member -- where the stderr
+// check first would read the file as PostgreSQL on some paths only.
+func TestSampleFormatOrderIsShared(t *testing.T) {
+	sample := "2026-09-25 09:00:00.000 UTC [1] LOG stats: 3 xacts/s, 21 queries/s, in 1 B/s, out 1 B/s, xact 1 us, query 1 us, wait 1 us\n"
+	for i := 0; i < 5; i++ {
+		sample += "2026-09-25 09:00:01.000 UTC [42] LOG:  checkpoint starting: time\n"
+	}
+	if !looksLikePgBouncer(sample) || !isLogContent(sample) {
+		t.Fatalf("the sample must satisfy both detectors (pooler %v, stderr %v)", looksLikePgBouncer(sample), isLogContent(sample))
+	}
+	if got := sampleFormat(sample); got != "pgbouncer" {
+		t.Errorf("sampleFormat = %q, want pgbouncer", got)
+	}
+	if _, ok := detectByContent("mixed", sample).(*PgBouncerParser); !ok {
+		t.Error("detectByContent does not read the mixed sample as a pooler log")
+	}
+	if _, ok := detectByExtension("mixed.log", "log", sample).(*PgBouncerParser); !ok {
+		t.Error("detectByExtension does not read the mixed sample as a pooler log")
+	}
+}

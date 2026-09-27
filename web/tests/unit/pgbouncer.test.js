@@ -449,7 +449,7 @@ test('table cells break between words, not mid-word', () => {
     const html = buildPgBouncerSection({ pgbouncer: {
         ...statlessPayload, min_timestamp: '2026-09-25T09:00:00', max_timestamp: '2026-09-25T09:01:00',
         total_errors: 2, errors: [
-            { message: 'pooler error: query_wait_timeout', count: 1, first: '2026-09-25T09:00:01', last: '2026-09-25T09:00:01' },
+            { message: 'pooler error: query_wait_timeout', count: 1, first: '2026-09-25T09:00:01', last: '2026-09-25T09:00:05' },
             { message: 'x'.repeat(60), count: 1, first: '2026-09-25T09:00:02', last: '2026-09-25T09:00:02' },
         ],
         events: [{ timestamp: '2026-09-25T09:00:00', kind: 'start', detail: 'PgBouncer 1.25.2' }],
@@ -457,6 +457,7 @@ test('table cells break between words, not mid-word', () => {
     assert.ok(html.includes('query_<wbr>wait_<wbr>timeout'));
     assert.ok(html.includes('x'.repeat(30) + '<wbr>' + 'x'.repeat(30) + '<wbr>'));
     assert.ok(html.includes('>09:00:00<'), 'a time cell must stay whole');
+    assert.ok(html.includes('09:00:01 → 09:00:05'), 'an error reads from its first occurrence to its last');
 });
 
 // Queueing stretches are listed with their own peak, in the section's
@@ -465,6 +466,7 @@ test('queueing stretches are listed in the wait unit', () => {
     const ep = [{ start: '2026-09-25T09:08:09', end: '2026-09-25T09:09:09', peak_wait_us: 2571000, peak_timestamp: '2026-09-25T09:08:39' }];
     const html = buildPgBouncerSection({ pgbouncer: { ...statlessPayload, version: '1.25.2', wait_episodes: ep } });
     assert.ok(html.includes('Stretches with waits of 100 ms or more') && html.includes('2.57\u00a0s') && html.includes('>09:08:39<'));
+    assert.ok(html.includes('09:08:09 → 09:09:09'), 'a stretch reads from its start to its end');
     const old = buildPgBouncerSection({ pgbouncer: { ...statlessPayload, version: '1.18.0', wait_episodes: ep } });
     assert.ok(old.includes('0.1 client or more queued') && old.includes('2.6\u00a0clients'));
 });
