@@ -37,8 +37,8 @@ const payload = {
     lines_read: 540,
     lines_unrecognized: 12,
     debug_lines: 9,
-    min_timestamp: '2026-09-20T13:59:04.379+02:00',
-    max_timestamp: '2026-09-20T14:12:50.169+02:00',
+    min_timestamp: '2026-09-20T13:59:04',
+    max_timestamp: '2026-09-20T14:12:50',
     total_session_seconds: 362,
     stats_sample_count: 3,
     avg_queries_per_sec: 48.3,
@@ -119,8 +119,8 @@ test('the timing chart names the queue wait as a pool wait', () => {
         pgbouncer: {
             ...payload,
             stats_series: [
-                { time: '2026-09-09T21:00:00Z', wait_us: 5 },
-                { time: '2026-09-09T21:01:00Z', wait_us: 7 },
+                { time: '2026-09-09T21:00:00', wait_us: 5 },
+                { time: '2026-09-09T21:01:00', wait_us: 7 },
             ],
         },
     });

@@ -16,14 +16,14 @@ import (
 // each reporting per-second averages over that interval. Finalize sorts
 // the series by time for the time-series charts.
 type PgBouncerStatsPoint struct {
-	Time        time.Time `json:"time"`
-	Xacts       int       `json:"xacts_per_sec"`
-	Queries     int       `json:"queries_per_sec"`
-	InBytes     int       `json:"in_bytes_per_sec"`
-	OutBytes    int       `json:"out_bytes_per_sec"`
-	XactMicros  int64     `json:"xact_us"`
-	QueryMicros int64     `json:"query_us"`
-	WaitMicros  int64     `json:"wait_us"`
+	Time        time.Time
+	Xacts       int
+	Queries     int
+	InBytes     int
+	OutBytes    int
+	XactMicros  int64
+	QueryMicros int64
+	WaitMicros  int64
 }
 
 // PgBouncerMetrics is the full set of pgBouncer analysis results. It is
@@ -35,85 +35,85 @@ type PgBouncerMetrics struct {
 	// file when the log names none. Files are the inputs it was read from,
 	// Listen its "listening on" addresses, Version the last release it
 	// started as.
-	Name    string   `json:"name"`
-	Files   []string `json:"files"`
-	Listen  []string `json:"listen,omitempty"`
-	Version string   `json:"version,omitempty"`
+	Name    string
+	Files   []string
+	Listen  []string
+	Version string
 
-	MinTimestamp time.Time `json:"min_timestamp"`
-	MaxTimestamp time.Time `json:"max_timestamp"`
+	MinTimestamp time.Time
+	MaxTimestamp time.Time
 
 	// Events is the pooler's own history: starts, stops and the admin
 	// commands that changed what it serves, in time order.
-	Events []PgBouncerEvent `json:"events,omitempty"`
+	Events []PgBouncerEvent
 	// Lines is the number of records the analyzer understood. LinesRead
 	// is what the parser scanned and LinesUnrecognized what it could not
 	// decode, so a report can show a loss instead of always stating that
 	// it parsed everything it parsed. LinesRead may exceed the two of
 	// them combined: a time filter drops decoded records too.
-	Lines             int `json:"lines"`
-	LinesRead         int `json:"lines_read"`
-	LinesUnrecognized int `json:"lines_unrecognized"`
+	Lines             int
+	LinesRead         int
+	LinesUnrecognized int
 	// DebugLines is how many of Lines are DEBUG or NOISE records. Under
 	// verbose=2 they are the overwhelming majority, so the headline
 	// count means little until it is split from the operational signal.
-	DebugLines int `json:"debug_lines"`
+	DebugLines int
 
 	// Traffic: aggregates over the "LOG stats:" snapshots.
-	StatsSampleCount  int                   `json:"stats_sample_count"`
-	AvgXactsPerSec    float64               `json:"avg_xacts_per_sec"`
-	MaxXactsPerSec    int                   `json:"max_xacts_per_sec"`
-	AvgQueriesPerSec  float64               `json:"avg_queries_per_sec"`
-	MaxQueriesPerSec  int                   `json:"max_queries_per_sec"`
-	AvgInBytesPerSec  float64               `json:"avg_in_bytes_per_sec"`
-	MaxInBytesPerSec  int                   `json:"max_in_bytes_per_sec"`
-	AvgOutBytesPerSec float64               `json:"avg_out_bytes_per_sec"`
-	MaxOutBytesPerSec int                   `json:"max_out_bytes_per_sec"`
-	AvgXactMicros     float64               `json:"avg_xact_us"`
-	MaxXactMicros     int64                 `json:"max_xact_us"`
-	AvgQueryMicros    float64               `json:"avg_query_us"`
-	MaxQueryMicros    int64                 `json:"max_query_us"`
-	AvgWaitMicros     float64               `json:"avg_wait_us"`
-	MaxWaitMicros     int64                 `json:"max_wait_us"`
-	StatsSeries       []PgBouncerStatsPoint `json:"stats_series,omitempty"`
+	StatsSampleCount  int
+	AvgXactsPerSec    float64
+	MaxXactsPerSec    int
+	AvgQueriesPerSec  float64
+	MaxQueriesPerSec  int
+	AvgInBytesPerSec  float64
+	MaxInBytesPerSec  int
+	AvgOutBytesPerSec float64
+	MaxOutBytesPerSec int
+	AvgXactMicros     float64
+	MaxXactMicros     int64
+	AvgQueryMicros    float64
+	MaxQueryMicros    int64
+	AvgWaitMicros     float64
+	MaxWaitMicros     int64
+	StatsSeries       []PgBouncerStatsPoint
 
 	// When each maximum above was logged: the first snapshot reaching it.
-	MaxXactsTimestamp   time.Time `json:"max_xacts_per_sec_timestamp,omitzero"`
-	MaxQueriesTimestamp time.Time `json:"max_queries_per_sec_timestamp,omitzero"`
-	MaxInTimestamp      time.Time `json:"max_in_bytes_per_sec_timestamp,omitzero"`
-	MaxOutTimestamp     time.Time `json:"max_out_bytes_per_sec_timestamp,omitzero"`
-	MaxXactTimestamp    time.Time `json:"max_xact_us_timestamp,omitzero"`
-	MaxQueryTimestamp   time.Time `json:"max_query_us_timestamp,omitzero"`
-	MaxWaitTimestamp    time.Time `json:"max_wait_us_timestamp,omitzero"`
+	MaxXactsTimestamp   time.Time
+	MaxQueriesTimestamp time.Time
+	MaxInTimestamp      time.Time
+	MaxOutTimestamp     time.Time
+	MaxXactTimestamp    time.Time
+	MaxQueryTimestamp   time.Time
+	MaxWaitTimestamp    time.Time
 
 	// WaitEpisodes are the stretches during which clients queued: runs of
 	// consecutive snapshots whose wait reaches waitEpisodeFloorUs.
-	WaitEpisodes []PgBouncerWaitEpisode `json:"wait_episodes,omitempty"`
+	WaitEpisodes []PgBouncerWaitEpisode
 
 	// Connections and sessions.
-	LoginAttempts       int            `json:"login_attempts"`
-	ServerConnections   int            `json:"server_connections"`
-	Sessions            int            `json:"sessions"`
-	TotalSessionSeconds int64          `json:"total_session_seconds"`
-	SessionDistribution map[string]int `json:"session_distribution,omitempty"`
+	LoginAttempts       int
+	ServerConnections   int
+	Sessions            int
+	TotalSessionSeconds int64
+	SessionDistribution map[string]int
 	// SessionReasons splits the completed sessions by the reason the
 	// pooler closed them: a client that left, and one the pooler killed
 	// in its queue, are different populations with different ages.
-	SessionReasons []PgBouncerCloseReason `json:"session_reasons,omitempty"`
+	SessionReasons []PgBouncerCloseReason
 
 	// Dimensional breakdowns. "Connections" are client login attempts;
 	// "sessions" are completed (closed, age-stamped) client sessions.
-	ConnectionsPerDatabase map[string]int `json:"connections_per_database,omitempty"`
-	ConnectionsPerUser     map[string]int `json:"connections_per_user,omitempty"`
-	ConnectionsPerHost     map[string]int `json:"connections_per_host,omitempty"`
-	SessionsPerDatabase    map[string]int `json:"sessions_per_database,omitempty"`
-	SessionsPerUser        map[string]int `json:"sessions_per_user,omitempty"`
-	SessionsPerHost        map[string]int `json:"sessions_per_host,omitempty"`
+	ConnectionsPerDatabase map[string]int
+	ConnectionsPerUser     map[string]int
+	ConnectionsPerHost     map[string]int
+	SessionsPerDatabase    map[string]int
+	SessionsPerUser        map[string]int
+	SessionsPerHost        map[string]int
 
 	// Pool behaviour and errors.
-	ReservePoolActivations int              `json:"reserve_pool_activations"`
-	Errors                 []PgBouncerError `json:"errors,omitempty"`
-	TotalErrors            int              `json:"total_errors"`
+	ReservePoolActivations int
+	Errors                 []PgBouncerError
+	TotalErrors            int
 }
 
 // PgBouncerEvent is one step of a pooler's life. Kind is "start", "shutdown",
@@ -121,19 +121,19 @@ type PgBouncerMetrics struct {
 // kill, ...); Detail is the release for a start, and otherwise the
 // signal or the console command as logged ("PAUSE 'app'").
 type PgBouncerEvent struct {
-	Time   time.Time `json:"timestamp"`
-	Kind   string    `json:"kind"`
-	Detail string    `json:"detail,omitempty"`
+	Time   time.Time
+	Kind   string
+	Detail string
 }
 
 // PgBouncerWaitEpisode is one stretch of queueing. Start is the snapshot
 // before the first one over the floor, since a stats line describes the
 // period that ended with it; Peak is the highest wait of the stretch.
 type PgBouncerWaitEpisode struct {
-	Start    time.Time `json:"start"`
-	End      time.Time `json:"end"`
-	PeakUs   int64     `json:"peak_wait_us"`
-	PeakTime time.Time `json:"peak_timestamp"`
+	Start    time.Time
+	End      time.Time
+	PeakUs   int64
+	PeakTime time.Time
 }
 
 // waitEpisodeFloorUs is the wait that opens an episode: 100 ms per server
@@ -169,17 +169,17 @@ func waitEpisodes(series []PgBouncerStatsPoint) []PgBouncerWaitEpisode {
 
 // PgBouncerError is one normalized warning or error and when it occurred.
 type PgBouncerError struct {
-	Message string    `json:"message"`
-	Count   int       `json:"count"`
-	First   time.Time `json:"first"`
-	Last    time.Time `json:"last"`
+	Message string
+	Count   int
+	First   time.Time
+	Last    time.Time
 }
 
 // PgBouncerCloseReason counts the client sessions closed for one reason.
 type PgBouncerCloseReason struct {
-	Reason       string `json:"reason"`
-	Count        int    `json:"count"`
-	TotalSeconds int64  `json:"total_seconds"`
+	Reason       string
+	Count        int
+	TotalSeconds int64
 }
 
 // LinesFiltered is the number of decoded records the filters dropped:

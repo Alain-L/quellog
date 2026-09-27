@@ -79,13 +79,13 @@ test('with stats snapshots: the throughput cards are shown', () => {
 // line.
 const silencedPayload = {
     lines: 56,
-    min_timestamp: '2026-09-20T13:59:04.379+02:00',
-    max_timestamp: '2026-09-20T13:59:50.169+02:00',
+    min_timestamp: '2026-09-20T13:59:04',
+    max_timestamp: '2026-09-20T13:59:50',
     stats_sample_count: 3,
     stats_series: [
-        { time: '2026-09-20T13:59:19.379+02:00' },
-        { time: '2026-09-20T13:59:34.382+02:00' },
-        { time: '2026-09-20T13:59:49.385+02:00' },
+        { time: '2026-09-20T13:59:19' },
+        { time: '2026-09-20T13:59:34' },
+        { time: '2026-09-20T13:59:49' },
     ],
     avg_queries_per_sec: 48.3,
     max_queries_per_sec: 58,
@@ -138,9 +138,9 @@ test('a single stats snapshot: the figures are qualified, not asserted', () => {
             login_attempts: 182,
             sessions: 181,
             stats_sample_count: 1,
-            stats_series: [{ time: '2026-09-20T13:39:47.855+02:00' }],
-            min_timestamp: '2026-09-20T13:39:27.855+02:00',
-            max_timestamp: '2026-09-20T13:40:04.481+02:00',
+            stats_series: [{ time: '2026-09-20T13:39:47' }],
+            min_timestamp: '2026-09-20T13:39:27',
+            max_timestamp: '2026-09-20T13:40:04',
             avg_queries_per_sec: 0,
             max_queries_per_sec: 0,
             max_xacts_per_sec: 0,
@@ -164,8 +164,8 @@ test('telemetry covering the window end to end is not flagged', () => {
             sessions: 129,
             stats_sample_count: 5,
             stats_series: series,
-            min_timestamp: '2026-09-09T20:58:59.000Z',
-            max_timestamp: '2026-09-09T20:59:04.000Z',
+            min_timestamp: '2026-09-09T20:58:59',
+            max_timestamp: '2026-09-09T20:59:04',
         },
     });
 
@@ -195,10 +195,10 @@ test('the timing chart says pool_mode sets the wait denominator', () => {
 const oneSnapshotPayload = {
     lines: 372,
     lines_read: 372,
-    min_timestamp: '2026-09-20T13:39:27.855+02:00',
-    max_timestamp: '2026-09-20T13:40:04.481+02:00',
+    min_timestamp: '2026-09-20T13:39:27',
+    max_timestamp: '2026-09-20T13:40:04',
     stats_sample_count: 1,
-    stats_series: [{ time: '2026-09-20T13:39:47.855+02:00', queries_per_sec: 0 }],
+    stats_series: [{ time: '2026-09-20T13:39:47', queries_per_sec: 0 }],
     avg_queries_per_sec: 0,
     max_queries_per_sec: 0,
     login_attempts: 182,
@@ -226,8 +226,8 @@ test('two snapshots are enough to draw the charts', () => {
             ...oneSnapshotPayload,
             stats_sample_count: 2,
             stats_series: [
-                { time: '2026-09-20T13:39:47.855+02:00' },
-                { time: '2026-09-20T13:39:57.855+02:00' },
+                { time: '2026-09-20T13:39:47' },
+                { time: '2026-09-20T13:39:57' },
             ],
         },
     });
@@ -297,14 +297,14 @@ test('a row holding one block does not keep an empty column', () => {
             sessions: 0,
             session_distribution: undefined,
             total_errors: 45,
-            errors: [{ message: 'pooler error: query_wait_timeout', count: 45, first: '2026-09-20T13:57:58Z', last: '2026-09-20T13:58:40Z' }],
+            errors: [{ message: 'pooler error: query_wait_timeout', count: 45, first: '2026-09-20T13:57:58', last: '2026-09-20T13:58:40' }],
         },
     });
     const rows = (errorsOnly.match(/grid grid-2/g) || []).length;
     assert.equal(rows, 1, 'the errors table is held in a two-column grid with nothing beside it');
 
     const both = buildPgBouncerSection({
-        pgbouncer: { ...oneSnapshotPayload, total_errors: 45, errors: [{ message: 'boom', count: 45, first: '2026-09-20T13:57:58Z', last: '2026-09-20T13:57:58Z' }] },
+        pgbouncer: { ...oneSnapshotPayload, total_errors: 45, errors: [{ message: 'boom', count: 45, first: '2026-09-20T13:57:58', last: '2026-09-20T13:57:58' }] },
     });
     assert.equal((both.match(/grid grid-2/g) || []).length, 2,
         'the paired row lost its two columns');
@@ -366,11 +366,11 @@ test('the section is flagged whole-log under a time filter', () => {
 // (a shared id draws both series into the first chart), and its name in
 // the header so the reader knows which pooler a figure belongs to.
 test('each pooler gets its own section, ids and name', () => {
-    const series = [{ time: '2026-09-25T09:00:00Z', queries_per_sec: 1 }, { time: '2026-09-25T09:00:10Z', queries_per_sec: 2 }];
+    const series = [{ time: '2026-09-25T09:00:00', queries_per_sec: 1 }, { time: '2026-09-25T09:00:10', queries_per_sec: 2 }];
     const pooler = (name) => ({
         ...statlessPayload, name, files: [name + '.log'], stats_sample_count: 2, stats_series: series,
-        min_timestamp: '2026-09-25T09:00:00Z', max_timestamp: '2026-09-25T09:00:10Z',
-        events: [{ timestamp: '2026-09-25T09:00:00Z', kind: 'start', detail: 'PgBouncer 1.25.2' }],
+        min_timestamp: '2026-09-25T09:00:00', max_timestamp: '2026-09-25T09:00:10',
+        events: [{ timestamp: '2026-09-25T09:00:00', kind: 'start', detail: 'PgBouncer 1.25.2' }],
     });
     const html = buildSections({ pgbouncer: [pooler('127.0.0.1:6432'), pooler('<b>6433</b>')] });
     assert.ok(html.includes('id="pgbouncer"') && html.includes('id="pgbouncer-2"'));
@@ -387,10 +387,10 @@ test('each pooler gets its own section, ids and name', () => {
 // name it as clients queued, and keep it off the chart drawn in µs. The
 // release boundary is what separates the two readings.
 test('a pre-1.23 wait is shown as clients queued', () => {
-    const series = [{ time: '2026-09-25T09:24:02Z', wait_us: 0 }, { time: '2026-09-25T09:24:12Z', wait_us: 5500000 }];
+    const series = [{ time: '2026-09-25T09:24:02', wait_us: 0 }, { time: '2026-09-25T09:24:12', wait_us: 5500000 }];
     const pooler = (version) => buildPgBouncerSection({ pgbouncer: {
         ...statlessPayload, version, stats_sample_count: 2, stats_series: series, avg_wait_us: 5500000,
-        min_timestamp: '2026-09-25T09:24:02Z', max_timestamp: '2026-09-25T09:24:12Z',
+        min_timestamp: '2026-09-25T09:24:02', max_timestamp: '2026-09-25T09:24:12',
     } });
     const old = pooler('1.22.1');
     assert.ok(old.includes('5.5 clients') && old.includes('Avg clients queued') && old.includes('predates 1.23'));
@@ -406,10 +406,10 @@ test('log-borne text is escaped in every new cell', () => {
     const evil = '<img src=x onerror=alert(1)>';
     const html = buildPgBouncerSection({ pgbouncer: {
         ...statlessPayload, name: evil, version: evil, files: [evil],
-        min_timestamp: '2026-09-25T09:00:00Z', max_timestamp: '2026-09-25T09:01:00Z',
-        total_errors: 1, errors: [{ message: evil, count: 1, first: '2026-09-25T09:00:00Z', last: '2026-09-25T09:00:00Z' }],
+        min_timestamp: '2026-09-25T09:00:00', max_timestamp: '2026-09-25T09:01:00',
+        total_errors: 1, errors: [{ message: evil, count: 1, first: '2026-09-25T09:00:00', last: '2026-09-25T09:00:00' }],
         session_reasons: [{ reason: evil, count: 181, total_seconds: 0 }],
-        events: [{ timestamp: '2026-09-25T09:00:00Z', kind: evil, detail: evil }],
+        events: [{ timestamp: '2026-09-25T09:00:00', kind: evil, detail: evil }],
     } });
     assert.ok(!html.includes(evil), 'raw log text reached the page');
     assert.ok(html.includes('&lt;img src=x onerror=alert(1)&gt;'));
@@ -431,14 +431,14 @@ test('sessions are split by who ended them', () => {
 });
 
 // Pooler times read on the log's own clock, like the PostgreSQL sections:
-// a +05:00 log that says 09:05:29 shows 09:05:29, not the viewer's hour.
-// The offset makes the test discriminate in any time zone, UTC included.
+// the payload carries the log's digits without a zone, and they are the
+// digits shown, whatever the viewer's time zone.
 test('pooler times keep the digits of the log', () => {
     const html = buildPgBouncerSection({ pgbouncer: {
         ...statlessPayload,
-        min_timestamp: '2026-09-25T09:05:29.363+05:00', max_timestamp: '2026-09-25T09:14:29.5+05:00',
-        events: [{ timestamp: '2026-09-25T09:11:32.427+05:00', kind: 'shutdown', detail: 'SIGINT' }],
-        total_errors: 1, errors: [{ message: 'boom', count: 1, first: '2026-09-25T09:10:59+05:00', last: '2026-09-25T09:10:59+05:00' }],
+        min_timestamp: '2026-09-25T09:05:29', max_timestamp: '2026-09-25T09:14:29',
+        events: [{ timestamp: '2026-09-25T09:11:32', kind: 'shutdown', detail: 'SIGINT' }],
+        total_errors: 1, errors: [{ message: 'boom', count: 1, first: '2026-09-25T09:10:59', last: '2026-09-25T09:10:59' }],
     } });
     for (const t of ['09:05:29', '09:14:29', '09:11:32', '09:10:59']) assert.ok(html.includes(t), t);
 });
@@ -447,12 +447,12 @@ test('pooler times keep the digits of the log', () => {
 // thirty characters without a break every thirty, never inside a time.
 test('table cells break between words, not mid-word', () => {
     const html = buildPgBouncerSection({ pgbouncer: {
-        ...statlessPayload, min_timestamp: '2026-09-25T09:00:00Z', max_timestamp: '2026-09-25T09:01:00Z',
+        ...statlessPayload, min_timestamp: '2026-09-25T09:00:00', max_timestamp: '2026-09-25T09:01:00',
         total_errors: 2, errors: [
-            { message: 'pooler error: query_wait_timeout', count: 1, first: '2026-09-25T09:00:01Z', last: '2026-09-25T09:00:01Z' },
-            { message: 'x'.repeat(60), count: 1, first: '2026-09-25T09:00:02Z', last: '2026-09-25T09:00:02Z' },
+            { message: 'pooler error: query_wait_timeout', count: 1, first: '2026-09-25T09:00:01', last: '2026-09-25T09:00:01' },
+            { message: 'x'.repeat(60), count: 1, first: '2026-09-25T09:00:02', last: '2026-09-25T09:00:02' },
         ],
-        events: [{ timestamp: '2026-09-25T09:00:00Z', kind: 'start', detail: 'PgBouncer 1.25.2' }],
+        events: [{ timestamp: '2026-09-25T09:00:00', kind: 'start', detail: 'PgBouncer 1.25.2' }],
     } });
     assert.ok(html.includes('query_<wbr>wait_<wbr>timeout'));
     assert.ok(html.includes('x'.repeat(30) + '<wbr>' + 'x'.repeat(30) + '<wbr>'));
@@ -462,7 +462,7 @@ test('table cells break between words, not mid-word', () => {
 // Queueing stretches are listed with their own peak, in the section's
 // unit: a pre-1.23 wait is a number of clients, a later one a duration.
 test('queueing stretches are listed in the wait unit', () => {
-    const ep = [{ start: '2026-09-25T09:08:09Z', end: '2026-09-25T09:09:09Z', peak_wait_us: 2571000, peak_timestamp: '2026-09-25T09:08:39Z' }];
+    const ep = [{ start: '2026-09-25T09:08:09', end: '2026-09-25T09:09:09', peak_wait_us: 2571000, peak_timestamp: '2026-09-25T09:08:39' }];
     const html = buildPgBouncerSection({ pgbouncer: { ...statlessPayload, version: '1.25.2', wait_episodes: ep } });
     assert.ok(html.includes('Stretches with waits of 100 ms or more') && html.includes('2.57 s') && html.includes('>09:08:39<'));
     const old = buildPgBouncerSection({ pgbouncer: { ...statlessPayload, version: '1.18.0', wait_episodes: ep } });

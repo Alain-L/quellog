@@ -9,16 +9,16 @@
         "127.0.0.1:6432"
       ],
       "version": "1.25.2",
-      "min_timestamp": "2026-09-20T13:40:13.353+02:00",
-      "max_timestamp": "2026-09-20T13:42:26.016+02:00",
+      "min_timestamp": "2026-09-20T13:40:13",
+      "max_timestamp": "2026-09-20T13:42:26",
       "events": [
         {
-          "timestamp": "2026-09-20T13:40:13.353+02:00",
+          "timestamp": "2026-09-20T13:40:13",
           "kind": "start",
           "detail": "PgBouncer 1.25.2"
         },
         {
-          "timestamp": "2026-09-20T13:42:26.016+02:00",
+          "timestamp": "2026-09-20T13:42:26",
           "kind": "shutdown",
           "detail": "SHUTDOWN"
         }
@@ -44,7 +44,7 @@
       "max_wait_us": 331,
       "stats_series": [
         {
-          "time": "2026-09-20T13:41:13.351+02:00",
+          "time": "2026-09-20T13:41:13",
           "xacts_per_sec": 3,
           "queries_per_sec": 21,
           "in_bytes_per_sec": 1291,
@@ -54,7 +54,7 @@
           "wait_us": 331
         },
         {
-          "time": "2026-09-20T13:42:13.352+02:00",
+          "time": "2026-09-20T13:42:13",
           "xacts_per_sec": 0,
           "queries_per_sec": 0,
           "in_bytes_per_sec": 0,
@@ -64,13 +64,13 @@
           "wait_us": 0
         }
       ],
-      "max_xacts_per_sec_timestamp": "2026-09-20T13:41:13.351+02:00",
-      "max_queries_per_sec_timestamp": "2026-09-20T13:41:13.351+02:00",
-      "max_in_bytes_per_sec_timestamp": "2026-09-20T13:41:13.351+02:00",
-      "max_out_bytes_per_sec_timestamp": "2026-09-20T13:41:13.351+02:00",
-      "max_xact_us_timestamp": "2026-09-20T13:41:13.351+02:00",
-      "max_query_us_timestamp": "2026-09-20T13:41:13.351+02:00",
-      "max_wait_us_timestamp": "2026-09-20T13:41:13.351+02:00",
+      "max_xacts_per_sec_timestamp": "2026-09-20T13:41:13",
+      "max_queries_per_sec_timestamp": "2026-09-20T13:41:13",
+      "max_in_bytes_per_sec_timestamp": "2026-09-20T13:41:13",
+      "max_out_bytes_per_sec_timestamp": "2026-09-20T13:41:13",
+      "max_xact_us_timestamp": "2026-09-20T13:41:13",
+      "max_query_us_timestamp": "2026-09-20T13:41:13",
+      "max_wait_us_timestamp": "2026-09-20T13:41:13",
       "login_attempts": 182,
       "server_connections": 4,
       "sessions": 181,

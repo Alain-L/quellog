@@ -245,26 +245,26 @@
         "127.0.0.1:6434"
       ],
       "version": "1.18.0",
-      "min_timestamp": "2026-09-25T09:23:02.55Z",
-      "max_timestamp": "2026-09-25T09:25:46.536Z",
+      "min_timestamp": "2026-09-25T09:23:02",
+      "max_timestamp": "2026-09-25T09:25:46",
       "events": [
         {
-          "timestamp": "2026-09-25T09:23:02.55Z",
+          "timestamp": "2026-09-25T09:23:02",
           "kind": "start",
           "detail": "PgBouncer 1.18.0"
         },
         {
-          "timestamp": "2026-09-25T09:24:03.607Z",
+          "timestamp": "2026-09-25T09:24:03",
           "kind": "reload",
           "detail": "RELOAD"
         },
         {
-          "timestamp": "2026-09-25T09:24:46.488Z",
+          "timestamp": "2026-09-25T09:24:46",
           "kind": "reload",
           "detail": "RELOAD"
         },
         {
-          "timestamp": "2026-09-25T09:25:46.536Z",
+          "timestamp": "2026-09-25T09:25:46",
           "kind": "shutdown",
           "detail": "SHUTDOWN"
         }
@@ -290,7 +290,7 @@
       "max_wait_us": 22887863,
       "stats_series": [
         {
-          "time": "2026-09-25T09:23:12.549Z",
+          "time": "2026-09-25T09:23:12",
           "xacts_per_sec": 1975,
           "queries_per_sec": 13828,
           "in_bytes_per_sec": 842325,
@@ -300,7 +300,7 @@
           "wait_us": 1539
         },
         {
-          "time": "2026-09-25T09:23:22.549Z",
+          "time": "2026-09-25T09:23:22",
           "xacts_per_sec": 1756,
           "queries_per_sec": 12295,
           "in_bytes_per_sec": 749012,
@@ -310,7 +310,7 @@
           "wait_us": 0
         },
         {
-          "time": "2026-09-25T09:23:32.549Z",
+          "time": "2026-09-25T09:23:32",
           "xacts_per_sec": 1743,
           "queries_per_sec": 12203,
           "in_bytes_per_sec": 743435,
@@ -320,7 +320,7 @@
           "wait_us": 0
         },
         {
-          "time": "2026-09-25T09:23:42.549Z",
+          "time": "2026-09-25T09:23:42",
           "xacts_per_sec": 1749,
           "queries_per_sec": 12243,
           "in_bytes_per_sec": 745804,
@@ -330,7 +330,7 @@
           "wait_us": 0
         },
         {
-          "time": "2026-09-25T09:23:52.548Z",
+          "time": "2026-09-25T09:23:52",
           "xacts_per_sec": 1755,
           "queries_per_sec": 12284,
           "in_bytes_per_sec": 748293,
@@ -340,7 +340,7 @@
           "wait_us": 0
         },
         {
-          "time": "2026-09-25T09:24:02.551Z",
+          "time": "2026-09-25T09:24:02",
           "xacts_per_sec": 2006,
           "queries_per_sec": 14045,
           "in_bytes_per_sec": 855587,
@@ -350,7 +350,7 @@
           "wait_us": 0
         },
         {
-          "time": "2026-09-25T09:24:12.552Z",
+          "time": "2026-09-25T09:24:12",
           "xacts_per_sec": 11,
           "queries_per_sec": 31,
           "in_bytes_per_sec": 782,
@@ -360,7 +360,7 @@
           "wait_us": 15566902
         },
         {
-          "time": "2026-09-25T09:24:22.553Z",
+          "time": "2026-09-25T09:24:22",
           "xacts_per_sec": 8,
           "queries_per_sec": 32,
           "in_bytes_per_sec": 965,
@@ -370,7 +370,7 @@
           "wait_us": 20930428
         },
         {
-          "time": "2026-09-25T09:24:32.553Z",
+          "time": "2026-09-25T09:24:32",
           "xacts_per_sec": 9,
           "queries_per_sec": 38,
           "in_bytes_per_sec": 1298,
@@ -380,7 +380,7 @@
           "wait_us": 22887863
         },
         {
-          "time": "2026-09-25T09:24:42.554Z",
+          "time": "2026-09-25T09:24:42",
           "xacts_per_sec": 8,
           "queries_per_sec": 34,
           "in_bytes_per_sec": 1092,
@@ -390,7 +390,7 @@
           "wait_us": 21596506
         },
         {
-          "time": "2026-09-25T09:24:52.552Z",
+          "time": "2026-09-25T09:24:52",
           "xacts_per_sec": 1334,
           "queries_per_sec": 9339,
           "in_bytes_per_sec": 568544,
@@ -400,7 +400,7 @@
           "wait_us": 7544806
         },
         {
-          "time": "2026-09-25T09:25:02.552Z",
+          "time": "2026-09-25T09:25:02",
           "xacts_per_sec": 1758,
           "queries_per_sec": 12307,
           "in_bytes_per_sec": 749788,
@@ -410,7 +410,7 @@
           "wait_us": 0
         },
         {
-          "time": "2026-09-25T09:25:12.552Z",
+          "time": "2026-09-25T09:25:12",
           "xacts_per_sec": 1764,
           "queries_per_sec": 12350,
           "in_bytes_per_sec": 752320,
@@ -420,7 +420,7 @@
           "wait_us": 0
         },
         {
-          "time": "2026-09-25T09:25:22.552Z",
+          "time": "2026-09-25T09:25:22",
           "xacts_per_sec": 1756,
           "queries_per_sec": 12292,
           "in_bytes_per_sec": 748802,
@@ -430,7 +430,7 @@
           "wait_us": 0
         },
         {
-          "time": "2026-09-25T09:25:32.556Z",
+          "time": "2026-09-25T09:25:32",
           "xacts_per_sec": 2188,
           "queries_per_sec": 15322,
           "in_bytes_per_sec": 933411,
@@ -440,7 +440,7 @@
           "wait_us": 0
         },
         {
-          "time": "2026-09-25T09:25:42.552Z",
+          "time": "2026-09-25T09:25:42",
           "xacts_per_sec": 1779,
           "queries_per_sec": 12453,
           "in_bytes_per_sec": 758659,
@@ -450,19 +450,19 @@
           "wait_us": 0
         }
       ],
-      "max_xacts_per_sec_timestamp": "2026-09-25T09:25:32.556Z",
-      "max_queries_per_sec_timestamp": "2026-09-25T09:25:32.556Z",
-      "max_in_bytes_per_sec_timestamp": "2026-09-25T09:25:32.556Z",
-      "max_out_bytes_per_sec_timestamp": "2026-09-25T09:25:32.556Z",
-      "max_xact_us_timestamp": "2026-09-25T09:24:42.554Z",
-      "max_query_us_timestamp": "2026-09-25T09:24:22.553Z",
-      "max_wait_us_timestamp": "2026-09-25T09:24:32.553Z",
+      "max_xacts_per_sec_timestamp": "2026-09-25T09:25:32",
+      "max_queries_per_sec_timestamp": "2026-09-25T09:25:32",
+      "max_in_bytes_per_sec_timestamp": "2026-09-25T09:25:32",
+      "max_out_bytes_per_sec_timestamp": "2026-09-25T09:25:32",
+      "max_xact_us_timestamp": "2026-09-25T09:24:42",
+      "max_query_us_timestamp": "2026-09-25T09:24:22",
+      "max_wait_us_timestamp": "2026-09-25T09:24:32",
       "wait_episodes": [
         {
-          "start": "2026-09-25T09:24:02.551Z",
-          "end": "2026-09-25T09:24:52.552Z",
+          "start": "2026-09-25T09:24:02",
+          "end": "2026-09-25T09:24:52",
           "peak_wait_us": 22887863,
-          "peak_timestamp": "2026-09-25T09:24:32.553Z"
+          "peak_timestamp": "2026-09-25T09:24:32"
         }
       ],
       "login_attempts": 98,
@@ -510,14 +510,14 @@
         {
           "message": "pooler error: query_wait_timeout",
           "count": 17,
-          "first": "2026-09-25T09:24:06.889Z",
-          "last": "2026-09-25T09:24:06.89Z"
+          "first": "2026-09-25T09:24:06",
+          "last": "2026-09-25T09:24:06"
         },
         {
           "message": "taking connection from reserve_pool",
           "count": 1,
-          "first": "2026-09-25T09:24:05.657Z",
-          "last": "2026-09-25T09:24:05.657Z"
+          "first": "2026-09-25T09:24:05",
+          "last": "2026-09-25T09:24:05"
         }
       ],
       "total_errors": 18

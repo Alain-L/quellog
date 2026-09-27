@@ -103,7 +103,7 @@ function episodesTable(p, at) {
     const list = p.wait_episodes || [];
     return table([['Start'], ['End'], ['Duration', true], ['Peak', true], ['Peak at', true]],
         list.slice(0, LIST_MAX).map(e => [at(e.start), at(e.end),
-            sessionTime((wallClock(e.end) - wallClock(e.start)) / 1000), wait(e.peak_wait_us), at(e.peak_timestamp)]),
+            sessionTime((new Date(e.end) - new Date(e.start)) / 1000), wait(e.peak_wait_us), at(e.peak_timestamp)]),
         list.length - LIST_MAX);
 }
 
@@ -136,14 +136,6 @@ function sessionHistogram(dist, total) {
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-// wallClock reads a pooler timestamp on the log's own clock, as the
-// PostgreSQL sections do: the payload keeps the zone pgBouncer wrote, and
-// dropping it before parsing shows the digits of the log whatever the
-// viewer's time zone, so a pooler incident lines up with the server's.
-function wallClock(ts) {
-    return new Date(String(ts).replace(/(Z|[+-]\d\d:\d\d)$/, ''));
-}
-
 // clock renders a local wall-clock time, and day the date that goes with
 // it, in the report's existing short vocabulary ("20 Sep 2026").
 function clock(d) {
@@ -160,8 +152,8 @@ function day(d) {
 // period with no entry).
 function captureWindow(p) {
     if (!p.min_timestamp || !p.max_timestamp) return null;
-    const from = wallClock(p.min_timestamp);
-    const to = wallClock(p.max_timestamp);
+    const from = new Date(p.min_timestamp);
+    const to = new Date(p.max_timestamp);
     if (isNaN(from) || isNaN(to) || to < from) return null;
     return { from, to };
 }
@@ -291,7 +283,7 @@ function statsPeriodSeconds(series) {
     if (!series || series.length < 2) return 0;
     const gaps = [];
     for (let i = 1; i < series.length; i++) {
-        const d = (wallClock(series[i].time) - wallClock(series[i - 1].time)) / 1000;
+        const d = (new Date(series[i].time) - new Date(series[i - 1].time)) / 1000;
         if (d > 0) gaps.push(d);
     }
     if (gaps.length === 0) return 0;
@@ -304,7 +296,7 @@ function statsPeriodSeconds(series) {
 // single snapshot always does.
 function statsUnderCovered(p) {
     if (!p.stats_sample_count) return false;
-    const window = (wallClock(p.max_timestamp) - wallClock(p.min_timestamp)) / 1000;
+    const window = (new Date(p.max_timestamp) - new Date(p.min_timestamp)) / 1000;
     if (!(window > 0)) return false;
     const covered = statsPeriodSeconds(p.stats_series) * p.stats_sample_count;
     if (!(covered > 0)) return true;
@@ -367,7 +359,7 @@ function oneSnapshotText(n) {
 // reports 0.0 queries/s over a window holding hundreds of sessions, and
 // states it as a measurement.
 function coverageText(p) {
-    const window = Math.round((wallClock(p.max_timestamp) - wallClock(p.min_timestamp)) / 1000);
+    const window = Math.round((new Date(p.max_timestamp) - new Date(p.min_timestamp)) / 1000);
     const covered = Math.round(statsPeriodSeconds(p.stats_series) * p.stats_sample_count);
     const lead = covered > 0
         ? `${fmt(p.stats_sample_count)} stats snapshots cover ${fmt(covered)}\u00a0s of this ${fmt(window)}\u00a0s window`
@@ -410,7 +402,7 @@ export function buildPgBouncerSection(data) {
 // the header then.
 function poolerSection(p, suffix, named, wholeLogNote) {
     const at = (ts) => {
-        const d = wallClock(ts);
+        const d = new Date(ts);
         return isNaN(d) ? '' : clock(d);
     };
     const depth = waitIsQueueDepth(p.version);
@@ -418,7 +410,7 @@ function poolerSection(p, suffix, named, wholeLogNote) {
     const series = p.stats_series || [];
     const hasSeries = series.length >= MIN_CHART_POINTS;
     if (hasSeries) {
-        const t = series.map(s => Math.round(wallClock(s.time).getTime() / 1000));
+        const t = series.map(s => Math.round(new Date(s.time).getTime() / 1000));
         chartData.set('chart-pgb-throughput' + suffix, {
             type: 'pgb-series', t,
             series: [

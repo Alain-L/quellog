@@ -9,31 +9,31 @@
         "127.0.0.1:6432"
       ],
       "version": "1.25.2",
-      "min_timestamp": "2026-09-20T13:59:04.379+02:00",
-      "max_timestamp": "2026-09-20T13:59:50.169+02:00",
+      "min_timestamp": "2026-09-20T13:59:04",
+      "max_timestamp": "2026-09-20T13:59:50",
       "events": [
         {
-          "timestamp": "2026-09-20T13:59:04.38+02:00",
+          "timestamp": "2026-09-20T13:59:04",
           "kind": "start",
           "detail": "PgBouncer 1.25.2"
         },
         {
-          "timestamp": "2026-09-20T13:59:16.466+02:00",
+          "timestamp": "2026-09-20T13:59:16",
           "kind": "pause",
           "detail": "PAUSE 'benchdb'"
         },
         {
-          "timestamp": "2026-09-20T13:59:19.785+02:00",
+          "timestamp": "2026-09-20T13:59:19",
           "kind": "resume",
           "detail": "RESUME 'benchdb'"
         },
         {
-          "timestamp": "2026-09-20T13:59:22.81+02:00",
+          "timestamp": "2026-09-20T13:59:22",
           "kind": "reload",
           "detail": "RELOAD"
         },
         {
-          "timestamp": "2026-09-20T13:59:50.169+02:00",
+          "timestamp": "2026-09-20T13:59:50",
           "kind": "shutdown",
           "detail": "SHUTDOWN"
         }
@@ -59,7 +59,7 @@
       "max_wait_us": 3221746,
       "stats_series": [
         {
-          "time": "2026-09-20T13:59:19.379+02:00",
+          "time": "2026-09-20T13:59:19",
           "xacts_per_sec": 11,
           "queries_per_sec": 38,
           "in_bytes_per_sec": 1297,
@@ -69,7 +69,7 @@
           "wait_us": 3221746
         },
         {
-          "time": "2026-09-20T13:59:34.382+02:00",
+          "time": "2026-09-20T13:59:34",
           "xacts_per_sec": 11,
           "queries_per_sec": 58,
           "in_bytes_per_sec": 2247,
@@ -79,7 +79,7 @@
           "wait_us": 2073293
         },
         {
-          "time": "2026-09-20T13:59:49.385+02:00",
+          "time": "2026-09-20T13:59:49",
           "xacts_per_sec": 8,
           "queries_per_sec": 49,
           "in_bytes_per_sec": 1965,
@@ -89,19 +89,19 @@
           "wait_us": 1906416
         }
       ],
-      "max_xacts_per_sec_timestamp": "2026-09-20T13:59:19.379+02:00",
-      "max_queries_per_sec_timestamp": "2026-09-20T13:59:34.382+02:00",
-      "max_in_bytes_per_sec_timestamp": "2026-09-20T13:59:34.382+02:00",
-      "max_out_bytes_per_sec_timestamp": "2026-09-20T13:59:34.382+02:00",
-      "max_xact_us_timestamp": "2026-09-20T13:59:49.385+02:00",
-      "max_query_us_timestamp": "2026-09-20T13:59:19.379+02:00",
-      "max_wait_us_timestamp": "2026-09-20T13:59:19.379+02:00",
+      "max_xacts_per_sec_timestamp": "2026-09-20T13:59:19",
+      "max_queries_per_sec_timestamp": "2026-09-20T13:59:34",
+      "max_in_bytes_per_sec_timestamp": "2026-09-20T13:59:34",
+      "max_out_bytes_per_sec_timestamp": "2026-09-20T13:59:34",
+      "max_xact_us_timestamp": "2026-09-20T13:59:49",
+      "max_query_us_timestamp": "2026-09-20T13:59:19",
+      "max_wait_us_timestamp": "2026-09-20T13:59:19",
       "wait_episodes": [
         {
-          "start": "2026-09-20T13:59:19.379+02:00",
-          "end": "2026-09-20T13:59:49.385+02:00",
+          "start": "2026-09-20T13:59:19",
+          "end": "2026-09-20T13:59:49",
           "peak_wait_us": 3221746,
-          "peak_timestamp": "2026-09-20T13:59:19.379+02:00"
+          "peak_timestamp": "2026-09-20T13:59:19"
         }
       ],
       "login_attempts": 0,
@@ -113,32 +113,32 @@
         {
           "message": "pooler error: query_wait_timeout",
           "count": 35,
-          "first": "2026-09-20T13:59:11.72+02:00",
-          "last": "2026-09-20T13:59:19.718+02:00"
+          "first": "2026-09-20T13:59:11",
+          "last": "2026-09-20T13:59:19"
         },
         {
           "message": "taking connection from reserve_pool",
           "count": 6,
-          "first": "2026-09-20T13:59:09.718+02:00",
-          "last": "2026-09-20T13:59:19.822+02:00"
+          "first": "2026-09-20T13:59:09",
+          "last": "2026-09-20T13:59:19"
         },
         {
           "message": "pooler error: password authentication failed",
           "count": 2,
-          "first": "2026-09-20T13:59:11.402+02:00",
-          "last": "2026-09-20T13:59:11.422+02:00"
+          "first": "2026-09-20T13:59:11",
+          "last": "2026-09-20T13:59:11"
         },
         {
           "message": "pooler error: client_idle_timeout",
           "count": 1,
-          "first": "2026-09-20T13:59:24.716+02:00",
-          "last": "2026-09-20T13:59:24.716+02:00"
+          "first": "2026-09-20T13:59:24",
+          "last": "2026-09-20T13:59:24"
         },
         {
           "message": "pooler error: no such database: nosuchdb",
           "count": 1,
-          "first": "2026-09-20T13:59:11.441+02:00",
-          "last": "2026-09-20T13:59:11.441+02:00"
+          "first": "2026-09-20T13:59:11",
+          "last": "2026-09-20T13:59:11"
         }
       ],
       "total_errors": 45

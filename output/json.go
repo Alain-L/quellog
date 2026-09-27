@@ -1985,7 +1985,7 @@ func ExportJSONCombined(w io.Writer, m analysis.AggregatedMetrics, pgb []analysi
 		data = buildJSONData(m, sections, full)
 	}
 	if len(pgb) > 0 {
-		data["pgbouncer"] = pgb
+		data["pgbouncer"] = pgbouncerJSON(pgb)
 	}
 	if err := encodeMapStreaming(w, data, compact); err != nil {
 		fmt.Fprintf(w, "[ERROR] Failed to export JSON: %v\n", err)

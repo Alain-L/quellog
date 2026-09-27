@@ -9,16 +9,16 @@
         "127.0.0.1:6432"
       ],
       "version": "1.18.0",
-      "min_timestamp": "2026-09-20T13:39:27.855+02:00",
-      "max_timestamp": "2026-09-20T13:40:04.481+02:00",
+      "min_timestamp": "2026-09-20T13:39:27",
+      "max_timestamp": "2026-09-20T13:40:04",
       "events": [
         {
-          "timestamp": "2026-09-20T13:39:27.855+02:00",
+          "timestamp": "2026-09-20T13:39:27",
           "kind": "start",
           "detail": "PgBouncer 1.18.0"
         },
         {
-          "timestamp": "2026-09-20T13:40:04.481+02:00",
+          "timestamp": "2026-09-20T13:40:04",
           "kind": "shutdown",
           "detail": "SHUTDOWN"
         }
@@ -44,7 +44,7 @@
       "max_wait_us": 0,
       "stats_series": [
         {
-          "time": "2026-09-20T13:39:47.855+02:00",
+          "time": "2026-09-20T13:39:47",
           "xacts_per_sec": 0,
           "queries_per_sec": 0,
           "in_bytes_per_sec": 0,

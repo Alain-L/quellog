@@ -321,7 +321,7 @@ func ExportHTML(w io.Writer, metrics analysis.AggregatedMetrics, info HTMLReport
 func ExportHTMLCombined(w io.Writer, metrics analysis.AggregatedMetrics, pgb []analysis.PgBouncerMetrics, info HTMLReportInfo, sections []string, pgbOnly bool) error {
 	data := buildReportData(metrics, info, sections)
 	if len(pgb) > 0 {
-		data["pgbouncer"] = pgb
+		data["pgbouncer"] = pgbouncerJSON(pgb)
 	}
 	if pgbOnly {
 		data["pgbouncer_only"] = true

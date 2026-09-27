@@ -380,56 +380,56 @@
         "127.0.0.1:6432"
       ],
       "version": "1.25.2",
-      "min_timestamp": "2026-09-25T09:05:29.363Z",
-      "max_timestamp": "2026-09-25T09:14:29.507Z",
+      "min_timestamp": "2026-09-25T09:05:29",
+      "max_timestamp": "2026-09-25T09:14:29",
       "events": [
         {
-          "timestamp": "2026-09-25T09:05:29.363Z",
+          "timestamp": "2026-09-25T09:05:29",
           "kind": "start",
           "detail": "PgBouncer 1.25.2"
         },
         {
-          "timestamp": "2026-09-25T09:07:30.924Z",
+          "timestamp": "2026-09-25T09:07:30",
           "kind": "reload",
           "detail": "RELOAD"
         },
         {
-          "timestamp": "2026-09-25T09:08:05.937Z",
+          "timestamp": "2026-09-25T09:08:05",
           "kind": "reload",
           "detail": "RELOAD"
         },
         {
-          "timestamp": "2026-09-25T09:09:08.973Z",
+          "timestamp": "2026-09-25T09:09:08",
           "kind": "reload",
           "detail": "RELOAD"
         },
         {
-          "timestamp": "2026-09-25T09:09:38.98Z",
+          "timestamp": "2026-09-25T09:09:38",
           "kind": "pause",
           "detail": "PAUSE 'bench'"
         },
         {
-          "timestamp": "2026-09-25T09:09:59.004Z",
+          "timestamp": "2026-09-25T09:09:59",
           "kind": "resume",
           "detail": "RESUME 'bench'"
         },
         {
-          "timestamp": "2026-09-25T09:11:32.427Z",
+          "timestamp": "2026-09-25T09:11:32",
           "kind": "shutdown",
           "detail": "SIGINT"
         },
         {
-          "timestamp": "2026-09-25T09:11:33.437Z",
+          "timestamp": "2026-09-25T09:11:33",
           "kind": "start",
           "detail": "PgBouncer 1.25.2"
         },
         {
-          "timestamp": "2026-09-25T09:12:04.459Z",
+          "timestamp": "2026-09-25T09:12:04",
           "kind": "reload",
           "detail": "RELOAD"
         },
         {
-          "timestamp": "2026-09-25T09:14:29.507Z",
+          "timestamp": "2026-09-25T09:14:29",
           "kind": "shutdown",
           "detail": "SHUTDOWN"
         }
@@ -455,7 +455,7 @@
       "max_wait_us": 20037072,
       "stats_series": [
         {
-          "time": "2026-09-25T09:05:39.361Z",
+          "time": "2026-09-25T09:05:39",
           "xacts_per_sec": 2116,
           "queries_per_sec": 14814,
           "in_bytes_per_sec": 903931,
@@ -465,7 +465,7 @@
           "wait_us": 0
         },
         {
-          "time": "2026-09-25T09:05:49.361Z",
+          "time": "2026-09-25T09:05:49",
           "xacts_per_sec": 2000,
           "queries_per_sec": 13999,
           "in_bytes_per_sec": 854090,
@@ -475,7 +475,7 @@
           "wait_us": 0
         },
         {
-          "time": "2026-09-25T09:05:59.361Z",
+          "time": "2026-09-25T09:05:59",
           "xacts_per_sec": 2500,
           "queries_per_sec": 17504,
           "in_bytes_per_sec": 1067913,
@@ -485,7 +485,7 @@
           "wait_us": 0
         },
         {
-          "time": "2026-09-25T09:06:09.361Z",
+          "time": "2026-09-25T09:06:09",
           "xacts_per_sec": 2003,
           "queries_per_sec": 14023,
           "in_bytes_per_sec": 855680,
@@ -495,7 +495,7 @@
           "wait_us": 0
         },
         {
-          "time": "2026-09-25T09:06:19.361Z",
+          "time": "2026-09-25T09:06:19",
           "xacts_per_sec": 2501,
           "queries_per_sec": 17511,
           "in_bytes_per_sec": 1068320,
@@ -505,7 +505,7 @@
           "wait_us": 0
         },
         {
-          "time": "2026-09-25T09:06:29.36Z",
+          "time": "2026-09-25T09:06:29",
           "xacts_per_sec": 2002,
           "queries_per_sec": 14012,
           "in_bytes_per_sec": 855054,
@@ -515,7 +515,7 @@
           "wait_us": 0
         },
         {
-          "time": "2026-09-25T09:06:39.36Z",
+          "time": "2026-09-25T09:06:39",
           "xacts_per_sec": 1991,
           "queries_per_sec": 13940,
           "in_bytes_per_sec": 850498,
@@ -525,7 +525,7 @@
           "wait_us": 0
         },
         {
-          "time": "2026-09-25T09:06:49.36Z",
+          "time": "2026-09-25T09:06:49",
           "xacts_per_sec": 2491,
           "queries_per_sec": 17442,
           "in_bytes_per_sec": 1064270,
@@ -535,7 +535,7 @@
           "wait_us": 0
         },
         {
-          "time": "2026-09-25T09:06:59.36Z",
+          "time": "2026-09-25T09:06:59",
           "xacts_per_sec": 1993,
           "queries_per_sec": 13953,
           "in_bytes_per_sec": 851455,
@@ -545,7 +545,7 @@
           "wait_us": 0
         },
         {
-          "time": "2026-09-25T09:07:09.361Z",
+          "time": "2026-09-25T09:07:09",
           "xacts_per_sec": 2504,
           "queries_per_sec": 17533,
           "in_bytes_per_sec": 1069703,
@@ -555,7 +555,7 @@
           "wait_us": 0
         },
         {
-          "time": "2026-09-25T09:07:19.36Z",
+          "time": "2026-09-25T09:07:19",
           "xacts_per_sec": 1995,
           "queries_per_sec": 13967,
           "in_bytes_per_sec": 852218,
@@ -565,7 +565,7 @@
           "wait_us": 0
         },
         {
-          "time": "2026-09-25T09:07:29.361Z",
+          "time": "2026-09-25T09:07:29",
           "xacts_per_sec": 2152,
           "queries_per_sec": 15070,
           "in_bytes_per_sec": 919594,
@@ -575,7 +575,7 @@
           "wait_us": 0
         },
         {
-          "time": "2026-09-25T09:07:39.361Z",
+          "time": "2026-09-25T09:07:39",
           "xacts_per_sec": 2340,
           "queries_per_sec": 16378,
           "in_bytes_per_sec": 999393,
@@ -585,7 +585,7 @@
           "wait_us": 0
         },
         {
-          "time": "2026-09-25T09:07:49.364Z",
+          "time": "2026-09-25T09:07:49",
           "xacts_per_sec": 1986,
           "queries_per_sec": 13899,
           "in_bytes_per_sec": 848033,
@@ -595,7 +595,7 @@
           "wait_us": 0
         },
         {
-          "time": "2026-09-25T09:07:59.364Z",
+          "time": "2026-09-25T09:07:59",
           "xacts_per_sec": 2516,
           "queries_per_sec": 17612,
           "in_bytes_per_sec": 1074602,
@@ -605,7 +605,7 @@
           "wait_us": 0
         },
         {
-          "time": "2026-09-25T09:08:09.364Z",
+          "time": "2026-09-25T09:08:09",
           "xacts_per_sec": 1158,
           "queries_per_sec": 8073,
           "in_bytes_per_sec": 492040,
@@ -615,7 +615,7 @@
           "wait_us": 3400
         },
         {
-          "time": "2026-09-25T09:08:19.369Z",
+          "time": "2026-09-25T09:08:19",
           "xacts_per_sec": 8,
           "queries_per_sec": 32,
           "in_bytes_per_sec": 963,
@@ -625,7 +625,7 @@
           "wait_us": 2563345
         },
         {
-          "time": "2026-09-25T09:08:29.366Z",
+          "time": "2026-09-25T09:08:29",
           "xacts_per_sec": 9,
           "queries_per_sec": 38,
           "in_bytes_per_sec": 1296,
@@ -635,7 +635,7 @@
           "wait_us": 2555030
         },
         {
-          "time": "2026-09-25T09:08:39.369Z",
+          "time": "2026-09-25T09:08:39",
           "xacts_per_sec": 8,
           "queries_per_sec": 37,
           "in_bytes_per_sec": 1296,
@@ -645,7 +645,7 @@
           "wait_us": 2571490
         },
         {
-          "time": "2026-09-25T09:08:49.366Z",
+          "time": "2026-09-25T09:08:49",
           "xacts_per_sec": 8,
           "queries_per_sec": 32,
           "in_bytes_per_sec": 967,
@@ -655,7 +655,7 @@
           "wait_us": 2533261
         },
         {
-          "time": "2026-09-25T09:08:59.366Z",
+          "time": "2026-09-25T09:08:59",
           "xacts_per_sec": 8,
           "queries_per_sec": 34,
           "in_bytes_per_sec": 1046,
@@ -665,7 +665,7 @@
           "wait_us": 2547646
         },
         {
-          "time": "2026-09-25T09:09:09.364Z",
+          "time": "2026-09-25T09:09:09",
           "xacts_per_sec": 109,
           "queries_per_sec": 758,
           "in_bytes_per_sec": 45418,
@@ -675,7 +675,7 @@
           "wait_us": 192721
         },
         {
-          "time": "2026-09-25T09:09:19.364Z",
+          "time": "2026-09-25T09:09:19",
           "xacts_per_sec": 1993,
           "queries_per_sec": 13953,
           "in_bytes_per_sec": 851371,
@@ -685,7 +685,7 @@
           "wait_us": 0
         },
         {
-          "time": "2026-09-25T09:09:29.365Z",
+          "time": "2026-09-25T09:09:29",
           "xacts_per_sec": 1998,
           "queries_per_sec": 13990,
           "in_bytes_per_sec": 853608,
@@ -695,7 +695,7 @@
           "wait_us": 0
         },
         {
-          "time": "2026-09-25T09:09:39.365Z",
+          "time": "2026-09-25T09:09:39",
           "xacts_per_sec": 2411,
           "queries_per_sec": 16877,
           "in_bytes_per_sec": 1029689,
@@ -705,7 +705,7 @@
           "wait_us": 0
         },
         {
-          "time": "2026-09-25T09:09:49.366Z",
+          "time": "2026-09-25T09:09:49",
           "xacts_per_sec": 0,
           "queries_per_sec": 0,
           "in_bytes_per_sec": 0,
@@ -715,7 +715,7 @@
           "wait_us": 0
         },
         {
-          "time": "2026-09-25T09:09:59.365Z",
+          "time": "2026-09-25T09:09:59",
           "xacts_per_sec": 0,
           "queries_per_sec": 1,
           "in_bytes_per_sec": 127,
@@ -725,7 +725,7 @@
           "wait_us": 20037072
         },
         {
-          "time": "2026-09-25T09:10:09.365Z",
+          "time": "2026-09-25T09:10:09",
           "xacts_per_sec": 2100,
           "queries_per_sec": 14702,
           "in_bytes_per_sec": 897146,
@@ -735,7 +735,7 @@
           "wait_us": 0
         },
         {
-          "time": "2026-09-25T09:10:19.364Z",
+          "time": "2026-09-25T09:10:19",
           "xacts_per_sec": 2002,
           "queries_per_sec": 14013,
           "in_bytes_per_sec": 854978,
@@ -745,7 +745,7 @@
           "wait_us": 0
         },
         {
-          "time": "2026-09-25T09:10:29.365Z",
+          "time": "2026-09-25T09:10:29",
           "xacts_per_sec": 2501,
           "queries_per_sec": 17510,
           "in_bytes_per_sec": 1068283,
@@ -755,7 +755,7 @@
           "wait_us": 0
         },
         {
-          "time": "2026-09-25T09:10:39.365Z",
+          "time": "2026-09-25T09:10:39",
           "xacts_per_sec": 1916,
           "queries_per_sec": 13410,
           "in_bytes_per_sec": 818218,
@@ -765,7 +765,7 @@
           "wait_us": 0
         },
         {
-          "time": "2026-09-25T09:10:49.366Z",
+          "time": "2026-09-25T09:10:49",
           "xacts_per_sec": 2495,
           "queries_per_sec": 17465,
           "in_bytes_per_sec": 1065603,
@@ -775,7 +775,7 @@
           "wait_us": 0
         },
         {
-          "time": "2026-09-25T09:10:59.366Z",
+          "time": "2026-09-25T09:10:59",
           "xacts_per_sec": 1938,
           "queries_per_sec": 13562,
           "in_bytes_per_sec": 827472,
@@ -785,7 +785,7 @@
           "wait_us": 0
         },
         {
-          "time": "2026-09-25T09:11:09.367Z",
+          "time": "2026-09-25T09:11:09",
           "xacts_per_sec": 0,
           "queries_per_sec": 0,
           "in_bytes_per_sec": 0,
@@ -795,7 +795,7 @@
           "wait_us": 0
         },
         {
-          "time": "2026-09-25T09:11:19.365Z",
+          "time": "2026-09-25T09:11:19",
           "xacts_per_sec": 688,
           "queries_per_sec": 4813,
           "in_bytes_per_sec": 293743,
@@ -805,7 +805,7 @@
           "wait_us": 2221
         },
         {
-          "time": "2026-09-25T09:11:29.364Z",
+          "time": "2026-09-25T09:11:29",
           "xacts_per_sec": 2097,
           "queries_per_sec": 14680,
           "in_bytes_per_sec": 895696,
@@ -815,7 +815,7 @@
           "wait_us": 0
         },
         {
-          "time": "2026-09-25T09:11:43.437Z",
+          "time": "2026-09-25T09:11:43",
           "xacts_per_sec": 1631,
           "queries_per_sec": 11416,
           "in_bytes_per_sec": 696602,
@@ -825,7 +825,7 @@
           "wait_us": 1
         },
         {
-          "time": "2026-09-25T09:11:53.436Z",
+          "time": "2026-09-25T09:11:53",
           "xacts_per_sec": 1564,
           "queries_per_sec": 10946,
           "in_bytes_per_sec": 667869,
@@ -835,7 +835,7 @@
           "wait_us": 0
         },
         {
-          "time": "2026-09-25T09:12:03.436Z",
+          "time": "2026-09-25T09:12:03",
           "xacts_per_sec": 2519,
           "queries_per_sec": 17636,
           "in_bytes_per_sec": 1076042,
@@ -845,7 +845,7 @@
           "wait_us": 0
         },
         {
-          "time": "2026-09-25T09:12:13.437Z",
+          "time": "2026-09-25T09:12:13",
           "xacts_per_sec": 2000,
           "queries_per_sec": 14001,
           "in_bytes_per_sec": 854336,
@@ -855,7 +855,7 @@
           "wait_us": 0
         },
         {
-          "time": "2026-09-25T09:12:23.437Z",
+          "time": "2026-09-25T09:12:23",
           "xacts_per_sec": 2507,
           "queries_per_sec": 17552,
           "in_bytes_per_sec": 1070846,
@@ -865,7 +865,7 @@
           "wait_us": 0
         },
         {
-          "time": "2026-09-25T09:12:33.437Z",
+          "time": "2026-09-25T09:12:33",
           "xacts_per_sec": 1998,
           "queries_per_sec": 13984,
           "in_bytes_per_sec": 853204,
@@ -875,7 +875,7 @@
           "wait_us": 0
         },
         {
-          "time": "2026-09-25T09:12:43.437Z",
+          "time": "2026-09-25T09:12:43",
           "xacts_per_sec": 2013,
           "queries_per_sec": 14091,
           "in_bytes_per_sec": 859707,
@@ -885,7 +885,7 @@
           "wait_us": 0
         },
         {
-          "time": "2026-09-25T09:12:53.436Z",
+          "time": "2026-09-25T09:12:53",
           "xacts_per_sec": 2520,
           "queries_per_sec": 17642,
           "in_bytes_per_sec": 1076384,
@@ -895,7 +895,7 @@
           "wait_us": 0
         },
         {
-          "time": "2026-09-25T09:13:03.437Z",
+          "time": "2026-09-25T09:13:03",
           "xacts_per_sec": 2008,
           "queries_per_sec": 14058,
           "in_bytes_per_sec": 857805,
@@ -905,7 +905,7 @@
           "wait_us": 0
         },
         {
-          "time": "2026-09-25T09:13:13.436Z",
+          "time": "2026-09-25T09:13:13",
           "xacts_per_sec": 2506,
           "queries_per_sec": 17545,
           "in_bytes_per_sec": 1070506,
@@ -915,7 +915,7 @@
           "wait_us": 0
         },
         {
-          "time": "2026-09-25T09:13:23.436Z",
+          "time": "2026-09-25T09:13:23",
           "xacts_per_sec": 2004,
           "queries_per_sec": 14028,
           "in_bytes_per_sec": 855964,
@@ -925,7 +925,7 @@
           "wait_us": 0
         },
         {
-          "time": "2026-09-25T09:13:33.439Z",
+          "time": "2026-09-25T09:13:33",
           "xacts_per_sec": 2068,
           "queries_per_sec": 14481,
           "in_bytes_per_sec": 883530,
@@ -935,7 +935,7 @@
           "wait_us": 0
         },
         {
-          "time": "2026-09-25T09:13:43.437Z",
+          "time": "2026-09-25T09:13:43",
           "xacts_per_sec": 2450,
           "queries_per_sec": 17152,
           "in_bytes_per_sec": 1046556,
@@ -945,7 +945,7 @@
           "wait_us": 0
         },
         {
-          "time": "2026-09-25T09:13:53.436Z",
+          "time": "2026-09-25T09:13:53",
           "xacts_per_sec": 2007,
           "queries_per_sec": 14050,
           "in_bytes_per_sec": 857279,
@@ -955,7 +955,7 @@
           "wait_us": 0
         },
         {
-          "time": "2026-09-25T09:14:03.437Z",
+          "time": "2026-09-25T09:14:03",
           "xacts_per_sec": 2513,
           "queries_per_sec": 17594,
           "in_bytes_per_sec": 1073400,
@@ -965,7 +965,7 @@
           "wait_us": 0
         },
         {
-          "time": "2026-09-25T09:14:13.436Z",
+          "time": "2026-09-25T09:14:13",
           "xacts_per_sec": 1543,
           "queries_per_sec": 10802,
           "in_bytes_per_sec": 659144,
@@ -975,7 +975,7 @@
           "wait_us": 0
         },
         {
-          "time": "2026-09-25T09:14:23.438Z",
+          "time": "2026-09-25T09:14:23",
           "xacts_per_sec": 1727,
           "queries_per_sec": 12095,
           "in_bytes_per_sec": 737993,
@@ -985,25 +985,25 @@
           "wait_us": 0
         }
       ],
-      "max_xacts_per_sec_timestamp": "2026-09-25T09:12:53.436Z",
-      "max_queries_per_sec_timestamp": "2026-09-25T09:12:53.436Z",
-      "max_in_bytes_per_sec_timestamp": "2026-09-25T09:12:53.436Z",
-      "max_out_bytes_per_sec_timestamp": "2026-09-25T09:12:53.436Z",
-      "max_xact_us_timestamp": "2026-09-25T09:09:59.365Z",
-      "max_query_us_timestamp": "2026-09-25T09:09:59.365Z",
-      "max_wait_us_timestamp": "2026-09-25T09:09:59.365Z",
+      "max_xacts_per_sec_timestamp": "2026-09-25T09:12:53",
+      "max_queries_per_sec_timestamp": "2026-09-25T09:12:53",
+      "max_in_bytes_per_sec_timestamp": "2026-09-25T09:12:53",
+      "max_out_bytes_per_sec_timestamp": "2026-09-25T09:12:53",
+      "max_xact_us_timestamp": "2026-09-25T09:09:59",
+      "max_query_us_timestamp": "2026-09-25T09:09:59",
+      "max_wait_us_timestamp": "2026-09-25T09:09:59",
       "wait_episodes": [
         {
-          "start": "2026-09-25T09:08:09.364Z",
-          "end": "2026-09-25T09:09:09.364Z",
+          "start": "2026-09-25T09:08:09",
+          "end": "2026-09-25T09:09:09",
           "peak_wait_us": 2571490,
-          "peak_timestamp": "2026-09-25T09:08:39.369Z"
+          "peak_timestamp": "2026-09-25T09:08:39"
         },
         {
-          "start": "2026-09-25T09:09:49.366Z",
-          "end": "2026-09-25T09:09:59.365Z",
+          "start": "2026-09-25T09:09:49",
+          "end": "2026-09-25T09:09:59",
           "peak_wait_us": 20037072,
-          "peak_timestamp": "2026-09-25T09:09:59.365Z"
+          "peak_timestamp": "2026-09-25T09:09:59"
         }
       ],
       "login_attempts": 191,
@@ -1081,50 +1081,50 @@
         {
           "message": "pooler error: query_wait_timeout",
           "count": 22,
-          "first": "2026-09-25T09:08:09.031Z",
-          "last": "2026-09-25T09:08:20.035Z"
+          "first": "2026-09-25T09:08:09",
+          "last": "2026-09-25T09:08:20"
         },
         {
           "message": "pooler error: password authentication failed",
           "count": 4,
-          "first": "2026-09-25T09:10:29.023Z",
-          "last": "2026-09-25T09:10:29.041Z"
+          "first": "2026-09-25T09:10:29",
+          "last": "2026-09-25T09:10:29"
         },
         {
           "message": "pooler error: server conn crashed?",
           "count": 2,
-          "first": "2026-09-25T09:10:59.102Z",
-          "last": "2026-09-25T09:10:59.103Z"
+          "first": "2026-09-25T09:10:59",
+          "last": "2026-09-25T09:10:59"
         },
         {
           "message": "got packet 'E' from server when not linked",
           "count": 1,
-          "first": "2026-09-25T09:10:59.099Z",
-          "last": "2026-09-25T09:10:59.099Z"
+          "first": "2026-09-25T09:10:59",
+          "last": "2026-09-25T09:10:59"
         },
         {
           "message": "pooler error: client_idle_timeout",
           "count": 1,
-          "first": "2026-09-25T09:12:24.775Z",
-          "last": "2026-09-25T09:12:24.775Z"
+          "first": "2026-09-25T09:12:24",
+          "last": "2026-09-25T09:12:24"
         },
         {
           "message": "pooler error: no such database: nosuchdb",
           "count": 1,
-          "first": "2026-09-25T09:10:29.036Z",
-          "last": "2026-09-25T09:10:29.036Z"
+          "first": "2026-09-25T09:10:29",
+          "last": "2026-09-25T09:10:29"
         },
         {
           "message": "server login failed: FATAL the database system is shutting down",
           "count": 1,
-          "first": "2026-09-25T09:10:59.103Z",
-          "last": "2026-09-25T09:10:59.103Z"
+          "first": "2026-09-25T09:10:59",
+          "last": "2026-09-25T09:10:59"
         },
         {
           "message": "taking connection from reserve_pool",
           "count": 1,
-          "first": "2026-09-25T09:08:07.972Z",
-          "last": "2026-09-25T09:08:07.972Z"
+          "first": "2026-09-25T09:08:07",
+          "last": "2026-09-25T09:08:07"
         }
       ],
       "total_errors": 33
