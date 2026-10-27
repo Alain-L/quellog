@@ -1,0 +1,7 @@
+-------------------PROCESS START-------------------
+2026-10-24 20:38:37.254 P00   INFO: expire command begin 2.59.3: --exec-id=178-0f8f0699 --log-level-file=info --repo1-path=/var/lib/pgbackrest --repo1-retention-full=2 --stanza=main
+2026-10-24 20:38:37.254 P00   INFO: expire command end: completed successfully (0ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:38:48.343 P00   INFO: expire command begin 2.59.3: --exec-id=249-a6987ad6 --log-level-file=info --repo1-path=/var/lib/pgbackrest --repo1-retention-full=2 --stanza=main
+2026-10-24 20:38:48.343 P00   INFO: expire command end: completed successfully (0ms)

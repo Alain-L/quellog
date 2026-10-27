@@ -1,0 +1,30 @@
+2026-10-24 20:38:56.414 UTC [293] LOG:  starting PostgreSQL 17.11 (Debian 17.11-1.pgdg13+2) on aarch64-unknown-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+2026-10-24 20:38:56.415 UTC [293] LOG:  listening on IPv4 address "0.0.0.0", port 5433
+2026-10-24 20:38:56.415 UTC [293] LOG:  listening on IPv6 address "::", port 5433
+2026-10-24 20:38:56.420 UTC [293] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5433"
+2026-10-24 20:38:56.426 UTC [297] LOG:  database system was interrupted; last known up at 2026-10-24 20:38:47 UTC
+2026-10-24 20:38:56.494 UTC [297] LOG:  starting backup recovery with redo LSN 0/D000028, checkpoint LSN 0/D000080, on timeline ID 1
+2026-10-24 20:38:56.555 UTC [297] LOG:  restored log file "00000001000000000000000D" from archive
+2026-10-24 20:38:56.567 UTC [297] LOG:  starting archive recovery
+2026-10-24 20:38:56.568 UTC [297] LOG:  redo starts at 0/D000028
+2026-10-24 20:38:56.618 UTC [297] LOG:  restored log file "00000001000000000000000E" from archive
+2026-10-24 20:38:56.633 UTC [297] LOG:  completed backup recovery with redo LSN 0/D000028 and end LSN 0/D000120
+2026-10-24 20:38:56.633 UTC [297] LOG:  consistent recovery state reached at 0/D000120
+2026-10-24 20:38:56.634 UTC [293] LOG:  database system is ready to accept read-only connections
+2026-10-24 20:38:56.682 UTC [297] LOG:  restored log file "00000001000000000000000F" from archive
+2026-10-24 20:38:56.742 UTC [297] LOG:  restored log file "000000010000000000000010" from archive
+2026-10-24 20:38:56.767 UTC [297] LOG:  redo done at 0/1000FAF8 system usage: CPU: user: 0.00 s, system: 0.00 s, elapsed: 0.19 s
+2026-10-24 20:38:56.767 UTC [297] LOG:  last completed transaction was at log time 2026-10-24 20:38:49.441021+00
+2026-10-24 20:38:56.826 UTC [297] LOG:  restored log file "000000010000000000000010" from archive
+2026-10-24 20:38:56.846 UTC [297] LOG:  selected new timeline ID: 2
+2026-10-24 20:38:56.866 UTC [297] LOG:  archive recovery complete
+2026-10-24 20:38:56.867 UTC [295] LOG:  checkpoint starting: end-of-recovery immediate wait
+2026-10-24 20:38:56.875 UTC [295] LOG:  checkpoint complete: wrote 18 buffers (0.1%); 0 WAL file(s) added, 0 removed, 4 recycled; write=0.002 s, sync=0.001 s, total=0.009 s; sync files=4, longest=0.001 s, average=0.001 s; distance=65536 kB, estimate=65536 kB; lsn=0/11000028, redo lsn=0/11000028
+2026-10-24 20:38:56.878 UTC [293] LOG:  database system is ready to accept connections
+2026-10-24 20:38:58.774 UTC [293] LOG:  received fast shutdown request
+2026-10-24 20:38:58.776 UTC [293] LOG:  aborting any active transactions
+2026-10-24 20:38:58.777 UTC [293] LOG:  background worker "logical replication launcher" (PID 321) exited with exit code 1
+2026-10-24 20:38:58.777 UTC [295] LOG:  shutting down
+2026-10-24 20:38:58.778 UTC [295] LOG:  checkpoint starting: shutdown immediate
+2026-10-24 20:38:58.781 UTC [295] LOG:  checkpoint complete: wrote 33 buffers (0.2%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.001 s, sync=0.001 s, total=0.004 s; sync files=2, longest=0.001 s, average=0.001 s; distance=0 kB, estimate=58982 kB; lsn=0/110000A0, redo lsn=0/110000A0
+2026-10-24 20:38:58.783 UTC [293] LOG:  database system is shut down

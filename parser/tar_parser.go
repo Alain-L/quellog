@@ -93,6 +93,7 @@ func (p *TarParser) Parse(filename string, out chan<- []LogEntry) error {
 		baseName := filepath.Base(entryName)
 
 		if isSupportedArchiveEntry(baseName) {
+			out <- []LogEntry{PgBackRestSourceMarker(entryName, true)}
 			if err := parseArchiveEntry(baseName, entryReader, out); err != nil {
 				if errors.Is(err, errUnsupportedArchiveEntry) {
 					slog.Warn("unsupported log format in archive", "entry", entryName, "archive", filename)
@@ -104,7 +105,7 @@ func (p *TarParser) Parse(filename string, out chan<- []LogEntry) error {
 			// Extension unrecognized — sniff the content so an extensionless
 			// but valid log member (a common real-world tar layout) isn't
 			// silently dropped. Genuinely unsupported/binary members are skipped.
-			parsed, err := sniffAndParseArchiveEntry(baseName, entryReader, out)
+			parsed, err := sniffAndParseArchiveEntry(entryName, entryReader, out)
 			if err != nil {
 				slog.Error("failed to parse entry in archive", "entry", entryName, "archive", filename, "err", err)
 			} else if !parsed {
@@ -188,7 +189,8 @@ func isRotatedLogFile(lower string) bool {
 // and parses the member (sample + remaining stream) when it looks like a log.
 // Returns parsed=false for binary or unrecognized content, so the caller skips
 // it. Compressed members without an extension are treated as binary and skipped.
-func sniffAndParseArchiveEntry(name string, r io.Reader, out chan<- []LogEntry) (bool, error) {
+func sniffAndParseArchiveEntry(entryName string, r io.Reader, out chan<- []LogEntry) (bool, error) {
+	name := filepath.Base(entryName)
 	sample := make([]byte, sampleBufferSize)
 	n, err := io.ReadFull(r, sample)
 	if err != nil && err != io.ErrUnexpectedEOF && err != io.EOF {
@@ -204,6 +206,7 @@ func sniffAndParseArchiveEntry(name string, r io.Reader, out chan<- []LogEntry) 
 		return false, nil
 	}
 
+	out <- []LogEntry{PgBackRestSourceMarker(entryName, true)}
 	// Replay the buffered sample ahead of the rest of the entry.
 	full := io.MultiReader(bytes.NewReader(sample), r)
 	switch src := parser.(type) {

@@ -49,8 +49,9 @@ func splitLabel(start time.Time, interval time.Duration) string {
 
 // AggregateMetricsBySplit consumes the stream and returns one SplitBucket per
 // interval that carries data, sorted chronologically. Entries with a zero
-// timestamp are skipped (they cannot be placed on the timeline). It errors if
-// the interval would produce more than maxSplitBuckets periods.
+// timestamp are skipped (they cannot be placed on the timeline), and so are
+// pgBackRest entries, which have no PostgreSQL period. It errors if the
+// interval would produce more than maxSplitBuckets periods.
 func AggregateMetricsBySplit(ctx context.Context, in <-chan []parser.LogEntry, interval time.Duration) ([]SplitBucket, error) {
 	if interval <= 0 {
 		return nil, fmt.Errorf("split interval must be positive")
@@ -81,7 +82,7 @@ loop:
 			groups := make(map[int64][]parser.LogEntry)
 			for i := range batch {
 				e := &batch[i]
-				if e.Timestamp.IsZero() {
+				if e.Timestamp.IsZero() || e.FromPgBackRest {
 					continue
 				}
 				bs := bucketStartFor(e.Timestamp, interval)

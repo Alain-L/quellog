@@ -148,6 +148,15 @@ type EventDetailJSON struct {
 	FrequencyMin      float64               `json:"frequency_per_minute,omitempty"`
 	Timestamps        []int64               `json:"timestamps,omitempty"`
 	TriggeringQueries []TriggeringQueryJSON `json:"triggering_queries,omitempty"`
+	// A pgBackRest error or warning: its source, stanza, code, commands
+	// and the date of each occurrence (pgBackRest writes no zone).
+	Source    string   `json:"source,omitempty"`
+	Stanza    string   `json:"stanza,omitempty"`
+	ErrorCode int      `json:"error_code,omitempty"`
+	ErrorName string   `json:"error_name,omitempty"`
+	Commands  []string `json:"commands,omitempty"`
+	Detail    []string `json:"detail,omitempty"`
+	Dates     []string `json:"dates,omitempty"`
 }
 
 // findEventByID returns the matching EventStat from m.TopEvents or nil
@@ -182,15 +191,20 @@ func computeEventStats(ts []int64) (first, last time.Time, freqPerMin float64) {
 // each requested ID. Layout mirrors PrintSQLDetails: a top-of-block
 // occurrences-over-time bar chart, an aligned key:value stats panel,
 // then the normalized pattern and the raw example as separate
-// bold-headed sections. Unknown IDs are reported in-line and do not
-// abort the run.
-func PrintEventDetails(m analysis.AggregatedMetrics, ids []string) {
+// bold-headed sections. An ID not among PostgreSQL's events is looked up
+// among pbr's errors and warnings. Unknown IDs are reported in-line and
+// do not abort the run.
+func PrintEventDetails(m analysis.AggregatedMetrics, pbr []analysis.PgBackRestMetrics, ids []string) {
 	bold := ansiBold
 	reset := ansiReset
 
 	for _, id := range ids {
 		e := findEventByID(m, id)
 		if e == nil {
+			if p := findPgBackRestIssueByID(pbr, id); p != nil {
+				printPgBackRestIssueDetail(*p)
+				continue
+			}
 			fmt.Printf("\nEvent ID '%s' not found.\n", id)
 			continue
 		}
@@ -300,11 +314,21 @@ func printTriggeringQueries(tqs []analysis.TriggeringQuery, eventTotal int) {
 // "HH:MM - HH:MM" labels plus the explicit ordered label slice (so the
 // bars print in chronological order rather than alphabetical).
 func computeEventOccurrenceHistogram(ts []int64) (map[string]int, []string) {
+	times := make([]time.Time, len(ts))
+	for i, t := range ts {
+		times[i] = time.UnixMilli(t)
+	}
+	return occurrenceHistogram(times)
+}
+
+// occurrenceHistogram is computeEventOccurrenceHistogram on sorted
+// times, labelled in their own location.
+func occurrenceHistogram(ts []time.Time) (map[string]int, []string) {
 	if len(ts) < 2 {
 		return nil, nil
 	}
-	first := time.UnixMilli(ts[0])
-	last := time.UnixMilli(ts[len(ts)-1])
+	first := ts[0]
+	last := ts[len(ts)-1]
 	span := last.Sub(first)
 	if span <= 0 {
 		return nil, nil
@@ -331,7 +355,7 @@ func computeEventOccurrenceHistogram(ts []int64) (map[string]int, []string) {
 	}
 	hist := make(map[string]int, buckets)
 	for _, t := range ts {
-		offset := time.UnixMilli(t).Sub(first)
+		offset := t.Sub(first)
 		bi := int(offset / bucketDur)
 		if bi < 0 {
 			bi = 0
@@ -348,7 +372,7 @@ func computeEventOccurrenceHistogram(ts []int64) (map[string]int, []string) {
 // array — one entry per requested ID. Unknown IDs return a stub entry
 // with `not_found: true` so consumers can detect mismatches without
 // re-running.
-func ExportEventDetailJSON(w io.Writer, m analysis.AggregatedMetrics, ids []string) {
+func ExportEventDetailJSON(w io.Writer, m analysis.AggregatedMetrics, pbr []analysis.PgBackRestMetrics, ids []string) {
 	type notFound struct {
 		ID       string `json:"id"`
 		NotFound bool   `json:"not_found"`
@@ -358,6 +382,10 @@ func ExportEventDetailJSON(w io.Writer, m analysis.AggregatedMetrics, ids []stri
 	for _, id := range ids {
 		e := findEventByID(m, id)
 		if e == nil {
+			if p := findPgBackRestIssueByID(pbr, id); p != nil {
+				patterns = append(patterns, pgbrIssueDetailJSON(*p))
+				continue
+			}
 			patterns = append(patterns, notFound{ID: id, NotFound: true})
 			continue
 		}
@@ -394,20 +422,24 @@ func ExportEventDetailJSON(w io.Writer, m analysis.AggregatedMetrics, ids []stri
 
 // ExportEventDetailYAML reuses the JSON encoder via jsonToYAML, the
 // same trick the SQL detail YAML path uses.
-func ExportEventDetailYAML(w io.Writer, m analysis.AggregatedMetrics, ids []string) {
+func ExportEventDetailYAML(w io.Writer, m analysis.AggregatedMetrics, pbr []analysis.PgBackRestMetrics, ids []string) {
 	var buf bytes.Buffer
-	ExportEventDetailJSON(&buf, m, ids)
+	ExportEventDetailJSON(&buf, m, pbr, ids)
 	jsonToYAML(w, buf.Bytes())
 }
 
 // ExportEventDetailMarkdown writes a short heading + bullet block per
 // requested ID, suitable for embedding in incident reports.
-func ExportEventDetailMarkdown(w io.Writer, m analysis.AggregatedMetrics, ids []string) {
+func ExportEventDetailMarkdown(w io.Writer, m analysis.AggregatedMetrics, pbr []analysis.PgBackRestMetrics, ids []string) {
 	bw := bufio.NewWriter(w)
 	defer bw.Flush()
 	for _, id := range ids {
 		e := findEventByID(m, id)
 		if e == nil {
+			if p := findPgBackRestIssueByID(pbr, id); p != nil {
+				writePgBackRestIssueDetailMarkdown(bw, *p)
+				continue
+			}
 			fmt.Fprintf(bw, "## `%s` (not found)\n\n", id)
 			continue
 		}

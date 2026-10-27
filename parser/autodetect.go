@@ -279,9 +279,14 @@ func detectByExtension(filename, ext, sample string) LogParser {
 		if isLogContent(sample) {
 			return &StderrParser{}
 		}
+		// Prefix before pgBackRest: a prefixed PostgreSQL log holding a
+		// pgBackRest banner must keep its prefix.
 		if n := detectLeadingPrefix(sample); n > 0 {
 			slog.Warn("literal prefix before timestamp detected and stripped", "file", filename, "prefix_len", n)
 			return &StderrParser{prefixLen: n}
+		}
+		if looksLikePgBackRest(sample) {
+			return &StderrParser{}
 		}
 		slog.Error("file has .log extension but content is not valid log format", "file", filename)
 		return nil
@@ -311,6 +316,10 @@ func detectByContent(filename, sample string) LogParser {
 		if n := detectLeadingPrefix(sample); n > 0 {
 			slog.Info("detected stderr format with a literal prefix (unknown extension)", "file", filename, "prefix_len", n)
 			return &StderrParser{prefixLen: n}
+		}
+		if looksLikePgBackRest(sample) {
+			slog.Info("detected pgBackRest format (unknown extension)", "file", filename)
+			return &StderrParser{}
 		}
 		slog.Error("unknown log format", "file", filename)
 		return nil

@@ -1,0 +1,13 @@
+-------------------PROCESS START-------------------
+2026-10-10 13:08:36.766 P00   INFO: backup command begin 2.59.3: --exec-id=584-1d5c70d6 --log-level-file=info --pg1-path=/var/lib/pg/main --pg1-port=5432 --repo1-path=/var/lib/pgbackrest/repo1 --stanza=main2 --start-fast --type=incr
+2026-10-10 13:08:36.766 P00   WARN: option 'repo1-retention-full' is not set for 'repo1-retention-full-type=count', the repository may run out of space
+                                    HINT: to retain full backups indefinitely (without warning), set option 'repo1-retention-full' to the maximum.
+2026-10-10 13:08:36.774 P00   WARN: no prior backup exists, incr backup has been changed to full
+2026-10-10 13:08:36.774 P00   INFO: execute backup start: backup begins after the requested immediate checkpoint completes
+2026-10-10 13:08:36.887 P00   INFO: backup start archive = 00000001000000000000001F, lsn = 0/1F000028
+2026-10-10 13:08:36.887 P00   INFO: check archive for prior segment 00000001000000000000001E
+2026-10-10 13:09:36.894 P00  ERROR: [082]: WAL segment 00000001000000000000001E was not archived before the 60000ms timeout
+                                    HINT: check the archive_command to ensure that all options are correct (especially --stanza).
+                                    HINT: check the PostgreSQL server log for errors.
+                                    HINT: run the 'start' command if the stanza was previously stopped.
+2026-10-10 13:09:36.894 P00   INFO: backup command end: aborted with exception [082]

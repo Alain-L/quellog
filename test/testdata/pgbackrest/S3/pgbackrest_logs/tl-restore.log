@@ -1,0 +1,8 @@
+-------------------PROCESS START-------------------
+2026-10-10 13:42:14.514 P00   INFO: restore command begin 2.59.3: --exec-id=772-f72c6aa1 --log-level-file=info --pg1-path=/var/lib/pg/tl_promoted --repo1-path=/var/lib/pgbackrest/repo1 --stanza=tl
+2026-10-10 13:42:14.522 P00   INFO: repo1: restore backup set 20261010-134147F, recovery will start at 2026-10-10 13:41:47
+2026-10-10 13:42:14.522 P00   INFO: remap data directory to '/var/lib/pg/tl_promoted'
+2026-10-10 13:42:24.238 P00   INFO: write updated /var/lib/pg/tl_promoted/postgresql.auto.conf
+2026-10-10 13:42:24.265 P00   INFO: restore global/pg_control (performed last to ensure aborted restores cannot be started)
+2026-10-10 13:42:24.271 P00   INFO: restore size = 59.4MB, file total = 1278
+2026-10-10 13:42:24.271 P00   INFO: restore command end: completed successfully (9760ms)

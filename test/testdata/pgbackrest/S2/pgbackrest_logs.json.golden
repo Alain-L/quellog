@@ -1,0 +1,434 @@
+{
+  "pgbackrest": [
+    {
+      "stanza": "ghost",
+      "files": [
+        "testdata/pgbackrest/S2/pgbackrest_logs/ghost-backup.log"
+      ],
+      "lines_read": 10,
+      "versions": [
+        "2.59.3"
+      ],
+      "start_date": "2026-10-10 13:31:54",
+      "end_date": "2026-10-10 13:31:54",
+      "has_timestamps": true,
+      "saw_begin_end": true,
+      "backups_logged": true,
+      "backups": [
+        {
+          "type": "incr",
+          "repo": "repo1",
+          "start_date": "2026-10-10 13:31:54",
+          "end_date": "2026-10-10 13:31:54",
+          "duration_ms": 3,
+          "succeeded": false,
+          "error_code": 55,
+          "error_line": "unable to load info file '/var/lib/pgbackrest/repo1/backup/ghost/backup.info' or '/var/lib/pgbackrest/repo1/backup/ghost/backup.info.copy':",
+          "error_detail": [
+            "FileMissingError: unable to open missing file '/var/lib/pgbackrest/repo1/backup/ghost/backup.info' for read",
+            "FileMissingError: unable to open missing file '/var/lib/pgbackrest/repo1/backup/ghost/backup.info.copy' for read"
+          ],
+          "error_label": "backup.info missing",
+          "exec_id": "201-4ae50f22"
+        }
+      ],
+      "commands": [
+        {
+          "command": "backup",
+          "runs": 1,
+          "succeeded": 0,
+          "failed": 1,
+          "total_duration_ms": 3,
+          "max_duration_ms": 3
+        }
+      ],
+      "archive_push": {
+        "logged": false,
+        "async_logged": false,
+        "pushed": 0,
+        "pushed_async": 0,
+        "found": 0,
+        "found_async": 0,
+        "not_found": 0,
+        "not_found_async": 0,
+        "dropped": 0,
+        "failed": 0,
+        "failed_async": 0,
+        "timeouts": 0
+      },
+      "archive_get": {
+        "logged": false,
+        "async_logged": false,
+        "pushed": 0,
+        "pushed_async": 0,
+        "found": 0,
+        "found_async": 0,
+        "not_found": 0,
+        "not_found_async": 0,
+        "dropped": 0,
+        "failed": 0,
+        "failed_async": 0,
+        "timeouts": 0
+      },
+      "errors": [
+        {
+          "id": "er-oXdY",
+          "label": "backup.info missing",
+          "code": 55,
+          "message": "unable to load info file '.../ghost/backup.info' or '.../ghost/backup.info.copy':",
+          "example": "unable to load info file '/var/lib/pgbackrest/repo1/backup/ghost/backup.info' or '/var/lib/pgbackrest/repo1/backup/ghost/backup.info.copy':",
+          "detail": [
+            "FileMissingError: unable to open missing file '/var/lib/pgbackrest/repo1/backup/ghost/backup.info' for read",
+            "FileMissingError: unable to open missing file '/var/lib/pgbackrest/repo1/backup/ghost/backup.info.copy' for read"
+          ],
+          "count": 1,
+          "first_date": "2026-10-10 13:31:54",
+          "last_date": "2026-10-10 13:31:54",
+          "commands": [
+            "backup"
+          ],
+          "dates": [
+            "2026-10-10 13:31:54"
+          ]
+        }
+      ],
+      "warnings": [
+        {
+          "id": "wa-Nvq4",
+          "label": "repo1-retention-full not set",
+          "message": "option 'repo1-retention-full' is not set for 'repo1-retention-full-type=count', the repository may run out of space",
+          "example": "option 'repo1-retention-full' is not set for 'repo1-retention-full-type=count', the repository may run out of space",
+          "count": 1,
+          "first_date": "2026-10-10 13:31:54",
+          "last_date": "2026-10-10 13:31:54",
+          "commands": [
+            "backup"
+          ],
+          "dates": [
+            "2026-10-10 13:31:54"
+          ]
+        }
+      ],
+      "pg_retry_warnings": 0,
+      "pg_restore_failures": 0
+    },
+    {
+      "stanza": "main",
+      "files": [
+        "testdata/pgbackrest/S2/pgbackrest_logs/main-archive-push-async.log",
+        "testdata/pgbackrest/S2/pgbackrest_logs/main-backup.log",
+        "testdata/pgbackrest/S2/pgbackrest_logs/main-expire.log",
+        "testdata/pgbackrest/S2/pgbackrest_logs/main-stanza-create.log"
+      ],
+      "lines_read": 155,
+      "versions": [
+        "2.59.3"
+      ],
+      "start_date": "2026-10-10 13:25:00",
+      "end_date": "2026-10-10 13:37:51",
+      "has_timestamps": true,
+      "saw_begin_end": true,
+      "backups_logged": true,
+      "backups": [
+        {
+          "type": "full",
+          "repo": "repo1",
+          "start_date": "2026-10-10 13:32:52",
+          "end_date": "2026-10-10 13:32:52",
+          "duration_ms": 10,
+          "succeeded": false,
+          "error_code": 68,
+          "error_line": "archive_command '/bin/false' must contain pgbackrest",
+          "error_label": "archive_command lacks pgbackrest",
+          "exec_id": "252-1594728f"
+        },
+        {
+          "label": "20261010-133258F",
+          "type": "full",
+          "repo": "repo1",
+          "start_date": "2026-10-10 13:32:58",
+          "end_date": "2026-10-10 13:33:21",
+          "duration_ms": 22559,
+          "size": "29.4MB",
+          "size_bytes": 30828134,
+          "file_total": 1265,
+          "succeeded": true,
+          "exec_id": "271-d60c3487"
+        },
+        {
+          "type": "diff",
+          "repo": "repo1",
+          "start_date": "2026-10-10 13:34:15",
+          "end_date": "2026-10-10 13:34:20",
+          "duration_ms": 5132,
+          "succeeded": false,
+          "error_code": 82,
+          "error_line": "WAL segment 00000001000000000000000F was not archived before the 5000ms timeout",
+          "error_label": "WAL not archived in time",
+          "exec_id": "295-7c3a96d7"
+        },
+        {
+          "label": "20261010-133258F_20261010-133426D",
+          "type": "diff",
+          "repo": "repo1",
+          "start_date": "2026-10-10 13:34:26",
+          "end_date": "2026-10-10 13:34:27",
+          "duration_ms": 1201,
+          "size": "8.3KB",
+          "size_bytes": 8499,
+          "file_total": 1265,
+          "succeeded": true,
+          "exec_id": "322-c9f043ec"
+        }
+      ],
+      "last_full": {
+        "label": "20261010-133258F",
+        "repo": "repo1",
+        "end_date": "2026-10-10 13:33:21",
+        "age_seconds": 270
+      },
+      "last_diff": {
+        "label": "20261010-133258F_20261010-133426D",
+        "repo": "repo1",
+        "end_date": "2026-10-10 13:34:27",
+        "age_seconds": 204
+      },
+      "commands": [
+        {
+          "command": "archive-push:async",
+          "runs": 9,
+          "succeeded": 3,
+          "failed": 6,
+          "total_duration_ms": 689,
+          "max_duration_ms": 341
+        },
+        {
+          "command": "backup",
+          "runs": 4,
+          "succeeded": 2,
+          "failed": 2,
+          "total_duration_ms": 28902,
+          "max_duration_ms": 22559
+        },
+        {
+          "command": "expire",
+          "runs": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "total_duration_ms": 2,
+          "max_duration_ms": 1
+        },
+        {
+          "command": "stanza-create",
+          "runs": 1,
+          "succeeded": 1,
+          "failed": 0,
+          "total_duration_ms": 110,
+          "max_duration_ms": 110
+        }
+      ],
+      "archive_push": {
+        "logged": false,
+        "async_logged": true,
+        "pushed": 0,
+        "pushed_async": 4,
+        "found": 0,
+        "found_async": 0,
+        "not_found": 0,
+        "not_found_async": 0,
+        "dropped": 1,
+        "dropped_wal": [
+          {
+            "segment": "000000010000000000000013",
+            "date": "2026-10-10 13:35:24"
+          }
+        ],
+        "failed": 0,
+        "failed_async": 6,
+        "timeouts": 1,
+        "failures": [
+          {
+            "segment": "000000010000000000000015",
+            "code": 103,
+            "first_line": "unable to find a valid repository:",
+            "first_date": "2026-10-10 13:37:19",
+            "last_date": "2026-10-10 13:37:29",
+            "attempts": 6,
+            "recovery": "recovered",
+            "recovered_by": {
+              "segment": "000000010000000000000017",
+              "date": "2026-10-10 13:37:51",
+              "mode": "async"
+            },
+            "cause": "archive.info permission denied"
+          }
+        ],
+        "last_push": {
+          "segment": "000000010000000000000017",
+          "date": "2026-10-10 13:37:51",
+          "mode": "async"
+        }
+      },
+      "archive_get": {
+        "logged": false,
+        "async_logged": false,
+        "pushed": 0,
+        "pushed_async": 0,
+        "found": 0,
+        "found_async": 0,
+        "not_found": 0,
+        "not_found_async": 0,
+        "dropped": 0,
+        "failed": 0,
+        "failed_async": 0,
+        "timeouts": 0
+      },
+      "expire_runs": [
+        {
+          "date": "2026-10-10 13:33:21",
+          "repo": "repo1",
+          "archive_removed": 0,
+          "warnings": [
+            "option 'repo1-retention-archive' is not set - archive logs will not be expired"
+          ],
+          "succeeded": true
+        },
+        {
+          "date": "2026-10-10 13:34:27",
+          "repo": "repo1",
+          "archive_removed": 0,
+          "warnings": [
+            "option 'repo1-retention-archive' is not set - archive logs will not be expired"
+          ],
+          "succeeded": true
+        }
+      ],
+      "retention_warnings": [
+        {
+          "text": "option 'repo1-retention-archive' is not set - archive logs will not be expired",
+          "count": 2,
+          "repos": [
+            "repo1"
+          ],
+          "first_date": "2026-10-10 13:33:21",
+          "last_date": "2026-10-10 13:34:27"
+        }
+      ],
+      "operations": [
+        {
+          "command": "stanza-create",
+          "date": "2026-10-10 13:25:00",
+          "summary": "stanza-create for stanza 'main' on repo1",
+          "succeeded": true,
+          "has_outcome": true,
+          "duration_ms": 110,
+          "detail": "on repo1"
+        }
+      ],
+      "errors": [
+        {
+          "id": "er-FOWl",
+          "label": "archive.info permission denied",
+          "code": 103,
+          "message": "unable to find a valid repository:",
+          "example": "unable to find a valid repository:\nrepo1: [FileOpenError] unable to load info file '/var/lib/pgbackrest/repo1/archive/main/archive.info' or '/var/lib/pgbackrest/repo1/archive/main/archive.info.copy':",
+          "repo_line": "repo1: [FileOpenError] unable to load info file '/var/lib/pgbackrest/repo1/archive/main/archive.info' or '/var/lib/pgbackrest/repo1/archive/main/archive.info.copy':",
+          "detail": [
+            "repo1: [FileOpenError] unable to load info file '/var/lib/pgbackrest/repo1/archive/main/archive.info' or '/var/lib/pgbackrest/repo1/archive/main/archive.info.copy':",
+            "FileOpenError: unable to open file '/var/lib/pgbackrest/repo1/archive/main/archive.info' for read: [13] Permission denied",
+            "FileOpenError: unable to open file '/var/lib/pgbackrest/repo1/archive/main/archive.info.copy' for read: [13] Permission denied"
+          ],
+          "count": 6,
+          "first_date": "2026-10-10 13:37:19",
+          "last_date": "2026-10-10 13:37:29",
+          "commands": [
+            "archive-push:async"
+          ],
+          "dates": [
+            "2026-10-10 13:37:19",
+            "2026-10-10 13:37:20",
+            "2026-10-10 13:37:21",
+            "2026-10-10 13:37:27",
+            "2026-10-10 13:37:28",
+            "2026-10-10 13:37:29"
+          ]
+        },
+        {
+          "id": "er-0Vvq",
+          "label": "archive_command lacks pgbackrest",
+          "code": 68,
+          "message": "archive_command '/bin/false' must contain pgbackrest",
+          "example": "archive_command '/bin/false' must contain pgbackrest",
+          "count": 1,
+          "first_date": "2026-10-10 13:32:52",
+          "last_date": "2026-10-10 13:32:52",
+          "commands": [
+            "backup"
+          ],
+          "dates": [
+            "2026-10-10 13:32:52"
+          ]
+        },
+        {
+          "id": "er-bXZu",
+          "label": "WAL not archived in time",
+          "code": 82,
+          "message": "WAL segment ... was not archived before the 5000ms timeout",
+          "example": "WAL segment 00000001000000000000000F was not archived before the 5000ms timeout",
+          "count": 1,
+          "first_date": "2026-10-10 13:34:20",
+          "last_date": "2026-10-10 13:34:20",
+          "commands": [
+            "backup"
+          ],
+          "dates": [
+            "2026-10-10 13:34:20"
+          ]
+        }
+      ],
+      "warnings": [
+        {
+          "id": "wa-438P",
+          "label": "repo1-retention-full not set",
+          "message": "option 'repo1-retention-full' is not set for 'repo1-retention-full-type=count', the repository may run out of space",
+          "example": "option 'repo1-retention-full' is not set for 'repo1-retention-full-type=count', the repository may run out of space",
+          "count": 4,
+          "first_date": "2026-10-10 13:32:52",
+          "last_date": "2026-10-10 13:34:26",
+          "commands": [
+            "backup"
+          ],
+          "dates": [
+            "2026-10-10 13:32:52",
+            "2026-10-10 13:32:58",
+            "2026-10-10 13:34:15",
+            "2026-10-10 13:34:26"
+          ]
+        },
+        {
+          "id": "wa-4k5k",
+          "label": "WAL dropped, queue full",
+          "message": "dropped WAL file '...' because archive queue exceeded 16KB",
+          "example": "dropped WAL file '000000010000000000000013' because archive queue exceeded 16KB",
+          "count": 1,
+          "first_date": "2026-10-10 13:35:24",
+          "last_date": "2026-10-10 13:35:24",
+          "commands": [
+            "archive-push:async"
+          ],
+          "dates": [
+            "2026-10-10 13:35:24"
+          ]
+        }
+      ],
+      "pg_retry_warnings": 0,
+      "pg_restore_failures": 0,
+      "push_dates": [
+        "2026-10-10 13:37:13",
+        "2026-10-10 13:37:51",
+        "2026-10-10 13:37:51",
+        "2026-10-10 13:37:51"
+      ]
+    }
+  ]
+}

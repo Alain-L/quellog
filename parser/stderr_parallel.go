@@ -77,9 +77,10 @@ const stderrSegmentQueueDepth = 64
 // isEntryStart reports whether a line begins a new stderr entry,
 // using the exact predicate parseReader applies (continuation = line
 // starting with space/tab, or no timestamp). Segment boundaries
-// computed with the same predicate make parallel parsing equivalent
-// to sequential by construction: parser state never has to cross a
-// boundary.
+// computed with the same predicate, at a point where the pgBackRest
+// carve-out holds no state (see segmentCut), make parallel parsing
+// equivalent to sequential by construction: parser state never has to
+// cross a boundary.
 //
 // This is deliberately prefix-unaware (it never strips a StderrParser
 // literal prefix). Files needing a prefix offset never reach this path:
@@ -97,10 +98,35 @@ func isEntryStart(line []byte) bool {
 	return hasTimestampBytes(line)
 }
 
+// segmentCut tells whether the next entry-start line may begin a segment.
+// The carve-out's state across lines (held lines, a bare entry waiting for
+// its date, see pgbrHold) ends at a dated line that is not an archiver
+// failure: a cut is safe once one was seen with no undated pgBackRest line
+// after it.
+type segmentCut struct {
+	dated, unsafe bool
+}
+
+// canCut reports whether a segment may start at line.
+func (s *segmentCut) canCut(line []byte) bool {
+	return s.dated && !s.unsafe && isEntryStart(line)
+}
+
+// observe records line; whole is false when only its head is known.
+func (s *segmentCut) observe(line []byte, whole bool) {
+	switch {
+	case isEntryStart(line):
+		s.dated = true
+		s.unsafe = !whole || isArchiveFailureLine(line)
+	case isUndatedPgbrShape(line):
+		s.unsafe = true
+	}
+}
+
 // computeEntryBoundaries returns entry-aligned segment offsets for
 // the file: boundaries[0] = 0, boundaries[len-1] = size, and every
 // intermediate value is the offset of the first entry-start line at
-// or after k×stderrSegmentSize. Segments whose window contains no
+// or after k×stderrSegmentSize where segmentCut allows a cut. Segments whose window contains no
 // entry start (one entry larger than a segment) collapse and are
 // dropped, so every returned segment is non-empty.
 func computeEntryBoundaries(f *os.File, size int64) ([]int64, error) {
@@ -124,16 +150,31 @@ func computeEntryBoundaries(f *os.File, size int64) ([]int64, error) {
 }
 
 // findEntryBoundary scans forward from offset and returns the
-// absolute offset of the first line start that satisfies
-// isEntryStart. The line at `offset` itself is skipped even when
-// offset already sits at a line start: a boundary may only move
-// forward, and starting at the next '\n' keeps the scan O(window)
-// without needing to know whether offset is mid-line.
+// absolute offset of the first line start after offset where
+// segmentCut allows a cut. The line at `offset` itself is skipped even
+// when offset already sits at a line start: a boundary may only move
+// forward. The lines just before offset (up to boundaryLookBehind
+// bytes) are read to know the carve-out state there; without them the
+// scan waits for a dated line of its own.
 func findEntryBoundary(f *os.File, offset, size int64) (int64, error) {
 	const window = 256 << 10
 	buf := make([]byte, window)
+	var cut segmentCut
+
 	pos := offset
 	lineStart := int64(-1) // unknown until the first '\n'
+	if back := min(int64(boundaryLookBehind), offset); back > 0 {
+		n, err := f.ReadAt(buf[:back], offset-back)
+		if err != nil && err != io.EOF {
+			return 0, err
+		}
+		if back == offset {
+			pos, lineStart = 0, 0
+		} else if i := bytes.IndexByte(buf[:n], '\n'); i >= 0 {
+			pos = offset - back + int64(i) + 1
+			lineStart = pos
+		}
+	}
 
 	for pos < size {
 		n, err := f.ReadAt(buf, pos)
@@ -144,55 +185,50 @@ func findEntryBoundary(f *os.File, offset, size int64) (int64, error) {
 			return 0, err
 		}
 		chunk := buf[:n]
-		i := 0
-		for {
-			if lineStart >= 0 {
-				// We sit at a line start inside (or beyond) the chunk.
-				rel := int(lineStart - pos)
-				if rel >= n {
-					break // line start beyond this chunk: refill from it
-				}
-				line := chunk[rel:]
-				if len(line) >= 32 || pos+int64(n) >= size {
-					if isEntryStart(line) {
-						return lineStart, nil
-					}
-				} else {
-					break // too short to decide: refill from lineStart
-				}
-				i = rel
-			}
-			// Advance to the next '\n' from i.
-			nl := indexByteFrom(chunk, i, '\n')
-			if nl == -1 {
-				lineStart = -1
-				break // no newline in chunk: read next window
+		atEOF := pos+int64(n) >= size
+		if lineStart < 0 {
+			nl := bytes.IndexByte(chunk, '\n')
+			if nl < 0 {
+				pos += int64(n)
+				continue
 			}
 			lineStart = pos + int64(nl) + 1
-			i = nl + 1
 		}
-		if lineStart >= 0 && lineStart > pos {
+		for {
+			rel := int(lineStart - pos)
+			if rel >= n {
+				break // line start beyond this chunk: refill from it
+			}
+			line := chunk[rel:]
+			nl := bytes.IndexByte(line, '\n')
+			if nl >= 0 {
+				line = line[:nl]
+			} else if !atEOF && rel > 0 {
+				break // line cut by the window: refill from its start
+			}
+			if lineStart > offset && cut.canCut(line) {
+				return lineStart, nil
+			}
+			cut.observe(line, nl >= 0 || atEOF)
+			if nl < 0 {
+				// A line longer than the window: resume at the next '\n'.
+				lineStart = -1
+				break
+			}
+			lineStart += int64(nl) + 1
+		}
+		if lineStart > pos {
 			pos = lineStart
 		} else {
 			pos += int64(n)
-		}
-		if err == io.EOF && pos >= size {
-			return size, nil
 		}
 	}
 	return size, nil
 }
 
-// indexByteFrom is bytes.IndexByte over b[from:], returning an index
-// relative to b (or -1).
-func indexByteFrom(b []byte, from int, c byte) int {
-	for i := from; i < len(b); i++ {
-		if b[i] == c {
-			return i
-		}
-	}
-	return -1
-}
+// boundaryLookBehind is how far before a segment offset findEntryBoundary
+// reads to learn the carve-out state.
+const boundaryLookBehind = 4 << 10
 
 // parseParallel parses a plain stderr file by entry-aligned segments,
 // re-emitting batches in file order. Same engine as the JSON path:
@@ -276,6 +312,12 @@ func (p *StderrParser) parseParallel(f *os.File, size int64, workers int, out ch
 	return nil
 }
 
+// lastLine returns the last line of data, without its '\n'.
+func lastLine(data []byte) []byte {
+	data = bytes.TrimSuffix(data, []byte("\n"))
+	return data[bytes.LastIndexByte(data, '\n')+1:]
+}
+
 // streamChunkSize is the target in-memory chunk length for the stream
 // (compressed-input) parallel path. Same order of magnitude as the
 // seekable path's segments: big enough to amortize worker dispatch,
@@ -321,8 +363,8 @@ var streamChunkPool = sync.Pool{
 // parseStreamParallel is the non-seekable sibling of parseParallel: it
 // parses a decompressed stderr stream by cutting it into entry-aligned
 // in-memory chunks parsed by a worker pool, then re-emits batches in
-// chunk order. Chunk boundaries use the same isEntryStart predicate as
-// the seekable segment path, so the emitted stream reproduces the
+// chunk order. Chunk boundaries use the same segmentCut rule as the
+// seekable segment path, so the emitted stream reproduces the
 // sequential parse exactly. Syslog and prefixed streams fall back to
 // the sequential reader (same routing as Parse).
 func (p *StderrParser) parseStreamParallel(r io.Reader, workers int, out chan<- []LogEntry) error {
@@ -366,14 +408,16 @@ func (p *StderrParser) parseStreamParallel(r io.Reader, workers int, out chan<- 
 				// Stream continues: extend the chunk to the next entry
 				// boundary. First complete the line the bulk read cut
 				// mid-way, then append whole lines until one starts a
-				// new entry — that line belongs to the next chunk and
-				// stays buffered in br.
+				// new entry where segmentCut allows a cut — that line
+				// belongs to the next chunk and stays buffered in br.
 				// Whether this chunk begins at a real entry-start decides if the
 				// size cap below may fire (see there).
 				startsWithEntry := isEntryStart(data)
 				rest, e := br.ReadBytes('\n')
 				data = append(data, rest...)
 				err = e
+				var cut segmentCut
+				cut.observe(lastLine(data), true)
 				for err == nil {
 					// Cap the extension ONLY for a run that did NOT begin at a
 					// valid entry-start: mislabeled/foreign content that never
@@ -397,12 +441,13 @@ func (p *StderrParser) parseStreamParallel(r io.Reader, workers int, out chan<- 
 						err = e
 						break
 					}
-					if isEntryStart(pk) {
+					if cut.canCut(pk) {
 						break
 					}
 					line, e := br.ReadBytes('\n')
 					data = append(data, line...)
 					err = e
+					cut.observe(bytes.TrimSuffix(line, []byte("\n")), true)
 				}
 			}
 			if len(data) > 0 {

@@ -1,0 +1,26 @@
+ERROR: [046]: unexpected control version = 1700 and catalog version = 202406281
+       HINT: is this version of PostgreSQL supported?
+2026-10-10 14:01:01.644 UTC [45] LOG:  archive command failed with exit code 46
+2026-10-10 14:01:01.644 UTC [45] DETAIL:  The failed archive command was: pgbackrest-old --stanza=main archive-push pg_wal/000000010000000000000016
+ERROR: [046]: unexpected control version = 1700 and catalog version = 202406281
+       HINT: is this version of PostgreSQL supported?
+2026-10-10 14:01:02.705 UTC [45] LOG:  archive command failed with exit code 46
+2026-10-10 14:01:02.705 UTC [45] DETAIL:  The failed archive command was: pgbackrest-old --stanza=main archive-push pg_wal/000000010000000000000016
+ERROR: [046]: unexpected control version = 1700 and catalog version = 202406281
+       HINT: is this version of PostgreSQL supported?
+2026-10-10 14:01:03.766 UTC [45] LOG:  archive command failed with exit code 46
+2026-10-10 14:01:03.766 UTC [45] DETAIL:  The failed archive command was: pgbackrest-old --stanza=main archive-push pg_wal/000000010000000000000016
+2026-10-10 14:01:03.766 UTC [45] WARNING:  archiving write-ahead log file "000000010000000000000016" failed too many times, will try again later
+ERROR: [046]: unexpected control version = 1700 and catalog version = 202406281
+       HINT: is this version of PostgreSQL supported?
+2026-10-10 14:01:35.332 UTC [45] LOG:  archive command failed with exit code 46
+2026-10-10 14:01:35.332 UTC [45] DETAIL:  The failed archive command was: pgbackrest-old --stanza=main archive-push pg_wal/000000010000000000000016
+ERROR: [046]: unexpected control version = 1700 and catalog version = 202406281
+       HINT: is this version of PostgreSQL supported?
+2026-10-10 14:01:36.393 UTC [45] LOG:  archive command failed with exit code 46
+2026-10-10 14:01:36.393 UTC [45] DETAIL:  The failed archive command was: pgbackrest-old --stanza=main archive-push pg_wal/000000010000000000000016
+ERROR: [046]: unexpected control version = 1700 and catalog version = 202406281
+       HINT: is this version of PostgreSQL supported?
+2026-10-10 14:01:37.454 UTC [45] LOG:  archive command failed with exit code 46
+2026-10-10 14:01:37.454 UTC [45] DETAIL:  The failed archive command was: pgbackrest-old --stanza=main archive-push pg_wal/000000010000000000000016
+2026-10-10 14:01:37.454 UTC [45] WARNING:  archiving write-ahead log file "000000010000000000000016" failed too many times, will try again later

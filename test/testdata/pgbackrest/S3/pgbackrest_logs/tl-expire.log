@@ -1,0 +1,31 @@
+-------------------PROCESS START-------------------
+2026-10-10 13:42:07.702 P00   INFO: expire command begin 2.59.3: --exec-id=756-8abc3810 --log-level-file=info --repo1-path=/var/lib/pgbackrest/repo1 --stanza=tl
+2026-10-10 13:42:07.702 P00   INFO: option 'repo1-retention-archive' is not set - archive logs will not be expired
+2026-10-10 13:42:07.702 P00   INFO: expire command end: completed successfully (1ms)
+
+-------------------PROCESS START-------------------
+2026-10-10 13:43:06.326 P00   INFO: expire command begin 2.59.3: --exec-id=852-04139004 --log-level-file=info --repo1-path=/var/lib/pgbackrest/repo1 --stanza=tl
+2026-10-10 13:43:06.326 P00   INFO: option 'repo1-retention-archive' is not set - archive logs will not be expired
+2026-10-10 13:43:06.326 P00   INFO: expire command end: completed successfully (1ms)
+
+-------------------PROCESS START-------------------
+2026-10-10 13:43:18.445 P00   INFO: expire command begin 2.59.3: --exec-id=867-f6711137 --log-level-file=info --repo1-path=/var/lib/pgbackrest/repo1 --stanza=tl
+2026-10-10 13:43:18.446 P00   INFO: option 'repo1-retention-archive' is not set - archive logs will not be expired
+2026-10-10 13:43:18.446 P00   INFO: expire command end: completed successfully (1ms)
+
+-------------------PROCESS START-------------------
+2026-10-10 13:43:44.456 P00   INFO: expire command begin 2.59.3: --exec-id=887-0bb26a2b --log-level-file=info --repo1-path=/var/lib/pgbackrest/repo1 --set=20261010-134255F --stanza=tl
+2026-10-10 13:43:44.456 P00   WARN: option 'repo1-retention-full' is not set for 'repo1-retention-full-type=count', the repository may run out of space
+                                    HINT: to retain full backups indefinitely (without warning), set option 'repo1-retention-full' to the maximum.
+2026-10-10 13:43:44.457 P00   WARN: repo1: expiring latest backup 20261010-134255F_20261010-134316D - the ability to perform point-in-time-recovery (PITR) may be affected
+                                    HINT: non-default settings for 'repo1-retention-archive'/'repo1-retention-archive-type' (even in prior expires) can cause gaps in the WAL.
+2026-10-10 13:43:44.462 P00   INFO: repo1: expire adhoc backup set 20261010-134255F, 20261010-134255F_20261010-134316D
+2026-10-10 13:43:44.483 P00   INFO: repo1: remove expired backup 20261010-134255F_20261010-134316D
+2026-10-10 13:43:44.484 P00   INFO: repo1: remove expired backup 20261010-134255F
+2026-10-10 13:43:44.507 P00   INFO: option 'repo1-retention-archive' is not set - archive logs will not be expired
+2026-10-10 13:43:44.507 P00   INFO: expire command end: completed successfully (55ms)
+
+-------------------PROCESS START-------------------
+2026-10-10 13:43:53.555 P00   INFO: expire command begin 2.59.3: --exec-id=896-698e35fe --log-level-file=info --repo1-path=/var/lib/pgbackrest/repo1 --stanza=tl
+2026-10-10 13:43:53.555 P00   INFO: option 'repo1-retention-archive' is not set - archive logs will not be expired
+2026-10-10 13:43:53.555 P00   INFO: expire command end: completed successfully (0ms)

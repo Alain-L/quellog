@@ -1,0 +1,29 @@
+2026-01-14 08:59:55.000 UTC  [1200]  LOG:  database system is ready to accept connections
+2026-01-14 09:00:00.000 UTC  [1300]  LOG:  checkpoint starting: time
+2026-01-14 09:00:05.321 P00   INFO: archive-push command begin 2.59.3: [pg_wal/000000010000000000000009] --exec-id=4001-99990000 --log-level-console=info --pg1-path=/var/lib/postgresql/17/demo --repo1-path=/var/lib/pgbackrest --stanza=demo
+2026-01-14 09:00:05.900 P00   INFO: pushed WAL file '000000010000000000000009' to the archive
+2026-01-14 09:00:05.901 P00   INFO: archive-push command end: completed successfully (580ms)
+2026-01-14 09:00:10.000 UTC  [1300]  LOG:  checkpoint complete: wrote 12 buffers (0.1%); 0 WAL file(s) added, 0 removed, 0 recycled
+2026-01-14 13:05:53.798 UTC  [29457]  LOG:  checkpoint starting: time
+2026-01-14 13:07:00.646 P00   INFO: archive-push command begin 2.59.3: [pg_wal/000000010000000000000010] --exec-id=4100-aaaa1111 --log-level-console=info --pg1-path=/var/lib/postgresql/17/demo --repo1-path=/var/lib/pgbackrest --stanza=demo
+ERROR: [103]: unable to find a valid repository:
+       repo1: [FileMissingError] unable to load info file '/var/lib/pgbackrest/archive/demo/archive.info' or '/var/lib/pgbackrest/archive/demo/archive.info.copy':
+       FileMissingError: unable to open missing file '/var/lib/pgbackrest/archive/demo/archive.info' for read
+       FileMissingError: unable to open missing file '/var/lib/pgbackrest/archive/demo/archive.info.copy' for read
+       HINT: archive.info cannot be opened but is required to push/get WAL segments.
+       HINT: is archive_command configured correctly in postgresql.conf?
+       HINT: has a stanza-create been performed?
+2026-01-14 13:07:00.663 P00   INFO: archive-push command end: aborted with exception [103]
+2026-01-14 13:07:00.664 UTC  [29455]  LOG:  archive command failed with exit code 103
+2026-01-14 13:07:00.664 UTC  [29455]  DETAIL:  The failed archive command was: pgbackrest --stanza=demo  archive-push pg_wal/000000010000000000000010
+2026-01-14 13:07:01.684 P00   INFO: archive-push command begin 2.59.3: [pg_wal/000000010000000000000010] --exec-id=4123-bbbb2222 --log-level-console=info --pg1-path=/var/lib/postgresql/17/demo --repo1-path=/var/lib/pgbackrest --stanza=demo
+ERROR: [103]: unable to find a valid repository:
+       repo1: [FileMissingError] unable to load info file '/var/lib/pgbackrest/archive/demo/archive.info' or '/var/lib/pgbackrest/archive/demo/archive.info.copy':
+2026-01-14 13:07:01.700 P00   INFO: archive-push command end: aborted with exception [103]
+2026-01-14 13:07:01.701 UTC  [29459]  LOG:  archive command failed with exit code 103
+2026-01-14 13:07:01.701 UTC  [29459]  DETAIL:  The failed archive command was: pgbackrest --stanza=demo  archive-push pg_wal/000000010000000000000010
+2026-01-14 13:08:49.278 UTC  [29461]  WARNING:  archiving write-ahead log file "000000010000000000000010" failed too many times, will try again later
+2026-01-14 13:10:00.100 P00   INFO: archive-push command begin 2.59.3: [pg_wal/000000010000000000000010] --exec-id=4200-cccc3333 --log-level-console=info --pg1-path=/var/lib/postgresql/17/demo --repo1-path=/var/lib/pgbackrest --stanza=demo
+2026-01-14 13:10:01.200 P00   INFO: pushed WAL file '000000010000000000000010' to the archive
+2026-01-14 13:10:01.201 P00   INFO: archive-push command end: completed successfully (1101ms)
+2026-01-14 13:15:00.000 UTC  [1300]  LOG:  checkpoint complete: wrote 8 buffers (0.1%); 0 WAL file(s) added, 0 removed, 0 recycled
