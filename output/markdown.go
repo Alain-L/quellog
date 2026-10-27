@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/Alain-L/quellog/analysis"
 )
@@ -2180,11 +2181,11 @@ func mdTable(b *strings.Builder, headers []string, alignments string, rows [][]s
 	}
 	widths := make([]int, len(headers))
 	for i, h := range hdr {
-		widths[i] = len(h)
+		widths[i] = utf8.RuneCountInString(h)
 	}
 	for _, row := range esc {
 		for i := 0; i < len(widths) && i < len(row); i++ {
-			if l := len(row[i]); l > widths[i] {
+			if l := utf8.RuneCountInString(row[i]); l > widths[i] {
 				widths[i] = l
 			}
 		}
@@ -2194,7 +2195,7 @@ func mdTable(b *strings.Builder, headers []string, alignments string, rows [][]s
 		for i, c := range cells {
 			b.WriteByte('|')
 			b.WriteByte(' ')
-			pad := widths[i] - len(c)
+			pad := widths[i] - utf8.RuneCountInString(c)
 			if right(i) {
 				b.WriteString(strings.Repeat(" ", pad))
 				b.WriteString(c)
