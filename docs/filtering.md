@@ -81,6 +81,7 @@ quellog /var/log/postgresql/*.log --exclude-user health_check --exclude-user pow
 - Multiple values of the **same type** → OR (`--dbname db1 --dbname db2` matches db1 OR db2)
 - **Different types** → AND (`--dbname production --dbuser app_user` matches both)
 - **`--exclude-user` takes precedence** — a user excluded by `-U` is dropped even if also named in `--dbuser`
+- **[pgBackRest](pgbackrest.md)** has no database, user or application: `--dbname`, `--dbuser`, `--exclude-user`, `--appname` and the section flags below hide its report, while `--begin`/`--end` (and `--last`, `--window`) restrict it to the window
 
 ## Output Section Flags
 
