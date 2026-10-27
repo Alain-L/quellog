@@ -76,14 +76,17 @@ setupDragDrop(dropZone, fileInput, processFile);
 // log is injected by web/standalone.go into window.DEMO_LOG_ZST_B64; when
 // it is absent (unbundled dev page) the button stays hidden. The ?demo
 // URL param auto-loads the example once the wasm is ready, for shareable
-// links.
+// links; ?demo=pgbackrest loads the pgBackRest example.
 const demoBtn = document.getElementById('demoBtn');
 if (demoBtn && window.DEMO_LOG_ZST_B64) {
     demoBtn.style.display = '';
-    if (/[?&]demo\b/.test(location.search)) {
+    const pgbr = document.getElementById('demoPgbr');
+    if (pgbr && window.DEMO_PGBR_ZST_B64) pgbr.style.display = '';
+    const m = location.search.match(/[?&]demo(?:=(\w+))?\b/);
+    if (m) {
         (async function () {
             while (!window.wasmReady) await new Promise(r => setTimeout(r, 50));
-            loadDemo();
+            loadDemo(m[1]);
         })();
     }
 }
@@ -107,15 +110,24 @@ async function processFile(file) {
 // decompress it with the same fzstd path used for the wasm payload, then
 // run the normal analysis pipeline so the demo behaves exactly like a
 // dropped file. Absent in the unbundled dev page → the button stays hidden.
-async function loadDemo() {
+async function loadDemo(kind) {
     if (!wasmReady && !window.wasmReady) { alert('WASM not ready'); return; }
-    const b64 = window.DEMO_LOG_ZST_B64;
+    const pgbr = kind === 'pgbackrest';
+    const b64 = pgbr ? window.DEMO_PGBR_ZST_B64 : window.DEMO_LOG_ZST_B64;
     if (!b64) { alert('No example log is bundled in this build.'); return; }
-    const name = window.DEMO_LOG_NAME || 'demo.log';
+    const name = (pgbr ? window.DEMO_PGBR_NAME : window.DEMO_LOG_NAME) || 'demo.log';
     await runAnalysis(() => {
         const zst = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
         return unzstd(zst.buffer);
     }, name, 0);
+    // The pgBackRest example opens on its section, below the sticky header.
+    const section = pgbr && document.getElementById('pgbackrest');
+    if (section) {
+        requestAnimationFrame(() => {
+            const header = document.querySelector('header')?.offsetHeight || 0;
+            window.scrollTo({ top: section.getBoundingClientRect().top + window.scrollY - header - 8 });
+        });
+    }
 }
 
 // Shared analysis pipeline for both a dropped/selected File and the

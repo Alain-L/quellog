@@ -204,6 +204,9 @@ Example:
 
 ## HTML report
 
+!!! tip "Try it now"
+    **[Open the demo on a pgBackRest lab run →](https://alain-l.github.io/quellog/demo.html?demo=pgbackrest)**: a PostgreSQL log and pgBackRest's own logs, analyzed in your browser.
+
 ![pgBackRest stanzas](img/pgbackrest-overview.png){ width="820" }
 
 One card per stanza: its state, the age of the last full backup, a gauge of the period (backups, outages, WAL lost or missing) and its counts. The **Repositories** tab gives the same per repository; **Backups** the backups still present, each diff and incr chained to its full, the expired ones struck:

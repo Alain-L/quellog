@@ -144,7 +144,8 @@ function header(pbr, pgbrOnly) {
     const lines = pbr.reduce((n, s) => n + (s.lines_read || 0), 0);
     const parts = [
         versions.length ? `pgBackRest ${esc(versions.join(', '))}` : '',
-        `<b>${fmt(lines)}</b> lines read in <span class="pgbr-files" title="${escAttr(files.join('\n'))}">${plural(files.length, 'file')}</span>`,
+        // The browser demo reads one input whose name quellog does not know.
+        `<b>${fmt(lines)}</b> lines read${files.length ? ` in <span class="pgbr-files" title="${escAttr(files.join('\n'))}">${plural(files.length, 'file')}</span>` : ''}`,
     ];
     const w = pbr.find(s => s.window)?.window;
     if (w && pgbrOnly) {
