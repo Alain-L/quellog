@@ -179,6 +179,18 @@ func main() {
 	} else {
 		fmt.Println("  demo-sample.json.zst: not found — demo button disabled")
 	}
+	// A second example for the pgBackRest section: a lab run made for it
+	// (web/demo-pgbackrest-lab.sh), PostgreSQL's logs and pgBackRest's own
+	// concatenated. Each pgBackRest line is written once (archive-push to the
+	// console only, archive-get to its file): a line written in both would
+	// count twice once concatenated.
+	pgbrB64 := ""
+	if pgbrZst, err := readBinary("demo-pgbackrest.log.zst"); err == nil {
+		pgbrB64 = base64.StdEncoding.EncodeToString(pgbrZst)
+		fmt.Printf("  demo-pgbackrest.log.zst: %d (zstd) → %d (b64)\n", len(pgbrZst), len(pgbrB64))
+	} else {
+		fmt.Println("  demo-pgbackrest.log.zst: not found — pgBackRest example disabled")
+	}
 
 	// 3. Read HTML template
 	fmt.Println("\n[3/5] Reading HTML template...")
@@ -204,6 +216,8 @@ const FZSTD_GZ_B64="%s";
 // Bundled example log (empty when none was committed → demo button stays hidden)
 window.DEMO_LOG_ZST_B64="%s";
 window.DEMO_LOG_NAME="%s";
+window.DEMO_PGBR_ZST_B64="%s";
+window.DEMO_PGBR_NAME="pgbackrest-demo.log";
 
 // Decompress and eval fzstd
 (function(){
@@ -251,7 +265,7 @@ window.reinitWasm=async function(){
         alert('WASM initialization failed: '+e.message);
     }
 })();
-`, uplotJS, wasmB64, fzstdB64, demoB64, demoName, wasmExecMin)
+`, uplotJS, wasmB64, fzstdB64, demoB64, demoName, pgbrB64, wasmExecMin)
 
 	// Extract body content from template, delimited by the explicit QL:BODY
 	// markers (kept in sync with output/html.go).

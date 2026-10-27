@@ -1,0 +1,3 @@
+-------------------PROCESS START-------------------
+2026-10-10 13:57:05.035 P00   INFO: backup:local command begin 2.59.3: --exec-id=168-44ff90a3 --log-level-console=off --log-level-file=detail --log-level-stderr=error --log-subprocess --pg=1 --pg1-path=/var/lib/pg/main --pg1-port=5432 --process=1 --remote-type=pg --repo1-path=/var/lib/pgbackrest/repo1 --stanza=main
+2026-10-10 13:57:05.178 P00   INFO: backup:local command end: completed successfully (144ms)

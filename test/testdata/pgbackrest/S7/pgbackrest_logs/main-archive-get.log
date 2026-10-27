@@ -1,0 +1,552 @@
+-------------------PROCESS START-------------------
+2026-10-24 20:39:00.513 P00   INFO: archive-get command begin 2.59.3: [00000002.history, pg_wal/RECOVERYHISTORY] --exec-id=354-daf6e43b --log-level-file=info --pg1-path=/var/lib/postgresql/data --repo1-path=/var/lib/pgbackrest --stanza=main
+2026-10-24 20:39:00.516 P00  ERROR: [032]: PostgreSQL working directory '/var/lib/pg/restorebad' is not the same as option pg1-path '/var/lib/postgresql/data'
+                                    HINT: is the PostgreSQL data_directory configured the same as the pg1-path option?
+2026-10-24 20:39:00.516 P00   INFO: archive-get command end: aborted with exception [032]
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:00.520 P00   INFO: archive-get command begin 2.59.3: [000000010000000000000003, pg_wal/RECOVERYXLOG] --exec-id=356-478348b3 --log-level-file=info --pg1-path=/var/lib/postgresql/data --repo1-path=/var/lib/pgbackrest --stanza=main
+2026-10-24 20:39:00.523 P00  ERROR: [032]: PostgreSQL working directory '/var/lib/pg/restorebad' is not the same as option pg1-path '/var/lib/postgresql/data'
+                                    HINT: is the PostgreSQL data_directory configured the same as the pg1-path option?
+2026-10-24 20:39:00.523 P00   INFO: archive-get command end: aborted with exception [032]
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:04.038 P00   INFO: archive-get command begin 2.59.3: [00000002.history, pg_wal/RECOVERYHISTORY] --exec-id=391-cb76f4dc --log-level-file=info --pg1-path=/var/lib/pg/restore2 --repo1-path=/var/lib/pgbackrest --stanza=main
+2026-10-24 20:39:04.038 P00   INFO: unable to find 00000002.history in the archive
+2026-10-24 20:39:04.038 P00   INFO: archive-get command end: completed successfully (2ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:04.042 P00   INFO: archive-get command begin 2.59.3: [000000010000000000000003, pg_wal/RECOVERYXLOG] --exec-id=393-13a06610 --log-level-file=info --pg1-path=/var/lib/pg/restore2 --repo1-path=/var/lib/pgbackrest --stanza=main
+2026-10-24 20:39:04.092 P00   INFO: found 000000010000000000000003 in the repo1: 17-1 archive
+2026-10-24 20:39:04.092 P00   INFO: archive-get command end: completed successfully (51ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:04.112 P00   INFO: archive-get command begin 2.59.3: [000000010000000000000004, pg_wal/RECOVERYXLOG] --exec-id=395-cf5dec7f --log-level-file=info --pg1-path=/var/lib/pg/restore2 --repo1-path=/var/lib/pgbackrest --stanza=main
+2026-10-24 20:39:04.166 P00   INFO: found 000000010000000000000004 in the repo1: 17-1 archive
+2026-10-24 20:39:04.166 P00   INFO: archive-get command end: completed successfully (56ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:04.185 P00   INFO: archive-get command begin 2.59.3: [000000010000000000000005, pg_wal/RECOVERYXLOG] --exec-id=397-067ccdca --log-level-file=info --pg1-path=/var/lib/pg/restore2 --repo1-path=/var/lib/pgbackrest --stanza=main
+2026-10-24 20:39:04.231 P00   INFO: found 000000010000000000000005 in the repo1: 17-1 archive
+2026-10-24 20:39:04.231 P00   INFO: archive-get command end: completed successfully (47ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:04.249 P00   INFO: archive-get command begin 2.59.3: [000000010000000000000006, pg_wal/RECOVERYXLOG] --exec-id=399-9180f372 --log-level-file=info --pg1-path=/var/lib/pg/restore2 --repo1-path=/var/lib/pgbackrest --stanza=main
+2026-10-24 20:39:04.291 P00   INFO: found 000000010000000000000006 in the repo1: 17-1 archive
+2026-10-24 20:39:04.291 P00   INFO: archive-get command end: completed successfully (43ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:04.309 P00   INFO: archive-get command begin 2.59.3: [000000010000000000000007, pg_wal/RECOVERYXLOG] --exec-id=402-3beac9c8 --log-level-file=info --pg1-path=/var/lib/pg/restore2 --repo1-path=/var/lib/pgbackrest --stanza=main
+2026-10-24 20:39:04.351 P00   INFO: found 000000010000000000000007 in the repo1: 17-1 archive
+2026-10-24 20:39:04.351 P00   INFO: archive-get command end: completed successfully (43ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:04.368 P00   INFO: archive-get command begin 2.59.3: [000000010000000000000008, pg_wal/RECOVERYXLOG] --exec-id=404-58817f71 --log-level-file=info --pg1-path=/var/lib/pg/restore2 --repo1-path=/var/lib/pgbackrest --stanza=main
+2026-10-24 20:39:04.411 P00   INFO: found 000000010000000000000008 in the repo1: 17-1 archive
+2026-10-24 20:39:04.411 P00   INFO: archive-get command end: completed successfully (44ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:04.427 P00   INFO: archive-get command begin 2.59.3: [000000010000000000000009, pg_wal/RECOVERYXLOG] --exec-id=406-ecd3781b --log-level-file=info --pg1-path=/var/lib/pg/restore2 --repo1-path=/var/lib/pgbackrest --stanza=main
+2026-10-24 20:39:04.473 P00   INFO: found 000000010000000000000009 in the repo1: 17-1 archive
+2026-10-24 20:39:04.473 P00   INFO: archive-get command end: completed successfully (47ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:04.491 P00   INFO: archive-get command begin 2.59.3: [000000010000000000000008, pg_wal/RECOVERYXLOG] --exec-id=408-99a6e609 --log-level-file=info --pg1-path=/var/lib/pg/restore2 --repo1-path=/var/lib/pgbackrest --stanza=main
+2026-10-24 20:39:04.545 P00   INFO: found 000000010000000000000008 in the repo1: 17-1 archive
+2026-10-24 20:39:04.545 P00   INFO: archive-get command end: completed successfully (56ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:04.565 P00   INFO: archive-get command begin 2.59.3: [00000002.history, pg_wal/RECOVERYHISTORY] --exec-id=410-70eb3f20 --log-level-file=info --pg1-path=/var/lib/pg/restore2 --repo1-path=/var/lib/pgbackrest --stanza=main
+2026-10-24 20:39:04.565 P00   INFO: unable to find 00000002.history in the archive
+2026-10-24 20:39:04.565 P00   INFO: archive-get command end: completed successfully (2ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:04.581 P00   INFO: archive-get command begin 2.59.3: [00000001.history, pg_wal/RECOVERYHISTORY] --exec-id=412-d6861e3b --log-level-file=info --pg1-path=/var/lib/pg/restore2 --repo1-path=/var/lib/pgbackrest --stanza=main
+2026-10-24 20:39:04.581 P00   INFO: unable to find 00000001.history in the archive
+2026-10-24 20:39:04.581 P00   INFO: archive-get command end: completed successfully (2ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:08.535 P00   INFO: archive-get command begin 2.59.3: [00000002.history, pg_wal/RECOVERYHISTORY] --archive-async --archive-get-queue-max=64MB --exec-id=450-078b30d5 --log-level-file=info --pg1-path=/var/lib/pg/standby --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-24 20:39:08.535 P00   INFO: unable to find 00000002.history in the archive
+2026-10-24 20:39:08.535 P00   INFO: archive-get command end: completed successfully (2ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:08.545 P00   INFO: archive-get command begin 2.59.3: [00000001000000000000000D, pg_wal/RECOVERYXLOG] --archive-async --archive-get-queue-max=64MB --exec-id=452-1bc9cead --log-level-file=info --pg1-path=/var/lib/pg/standby --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-24 20:39:08.654 P00   INFO: found 00000001000000000000000D in the archive asynchronously
+2026-10-24 20:39:08.654 P00   INFO: archive-get command end: completed successfully (113ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:08.681 P00   INFO: archive-get command begin 2.59.3: [00000001000000000000000E, pg_wal/RECOVERYXLOG] --archive-async --archive-get-queue-max=64MB --exec-id=457-a72c31bf --log-level-file=info --pg1-path=/var/lib/pg/standby --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-24 20:39:08.681 P00   INFO: found 00000001000000000000000E in the archive asynchronously
+2026-10-24 20:39:08.681 P00   INFO: archive-get command end: completed successfully (3ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:08.700 P00   INFO: archive-get command begin 2.59.3: [00000001000000000000000F, pg_wal/RECOVERYXLOG] --archive-async --archive-get-queue-max=64MB --exec-id=459-2c6347c8 --log-level-file=info --pg1-path=/var/lib/pg/standby --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-24 20:39:08.800 P00   INFO: found 00000001000000000000000F in the archive asynchronously
+2026-10-24 20:39:08.801 P00   INFO: archive-get command end: completed successfully (103ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:08.819 P00   INFO: archive-get command begin 2.59.3: [000000010000000000000010, pg_wal/RECOVERYXLOG] --archive-async --archive-get-queue-max=64MB --exec-id=462-6a78ad9e --log-level-file=info --pg1-path=/var/lib/pg/standby --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-24 20:39:08.923 P00   INFO: found 000000010000000000000010 in the archive asynchronously
+2026-10-24 20:39:08.933 P00   INFO: archive-get command end: completed successfully (115ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:08.953 P00   INFO: archive-get command begin 2.59.3: [000000010000000000000011, pg_wal/RECOVERYXLOG] --archive-async --archive-get-queue-max=64MB --exec-id=466-9cfaf899 --log-level-file=info --pg1-path=/var/lib/pg/standby --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-24 20:39:09.055 P00   INFO: unable to find 000000010000000000000011 in the archive asynchronously
+2026-10-24 20:39:09.055 P00   INFO: archive-get command end: completed successfully (104ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:09.060 P00   INFO: archive-get command begin 2.59.3: [000000010000000000000011, pg_wal/RECOVERYXLOG] --archive-async --archive-get-queue-max=64MB --exec-id=470-e6192c63 --log-level-file=info --pg1-path=/var/lib/pg/standby --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-24 20:39:09.162 P00   INFO: unable to find 000000010000000000000011 in the archive asynchronously
+2026-10-24 20:39:09.162 P00   INFO: archive-get command end: completed successfully (103ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:09.182 P00   INFO: archive-get command begin 2.59.3: [00000002.history, pg_wal/RECOVERYHISTORY] --archive-async --archive-get-queue-max=64MB --exec-id=474-9ccc1602 --log-level-file=info --pg1-path=/var/lib/pg/standby --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-24 20:39:09.182 P00   INFO: unable to find 00000002.history in the archive
+2026-10-24 20:39:09.182 P00   INFO: archive-get command end: completed successfully (5ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:09.187 P00   INFO: archive-get command begin 2.59.3: [000000010000000000000011, pg_wal/RECOVERYXLOG] --archive-async --archive-get-queue-max=64MB --exec-id=476-af13f6bd --log-level-file=info --pg1-path=/var/lib/pg/standby --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-24 20:39:09.294 P00   INFO: unable to find 000000010000000000000011 in the archive asynchronously
+2026-10-24 20:39:09.294 P00   INFO: archive-get command end: completed successfully (109ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:09.313 P00   INFO: archive-get command begin 2.59.3: [00000002.history, pg_wal/RECOVERYHISTORY] --archive-async --archive-get-queue-max=64MB --exec-id=480-6cc9c592 --log-level-file=info --pg1-path=/var/lib/pg/standby --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-24 20:39:09.314 P00   INFO: unable to find 00000002.history in the archive
+2026-10-24 20:39:09.314 P00   INFO: archive-get command end: completed successfully (5ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:14.196 P00   INFO: archive-get command begin 2.59.3: [000000010000000000000011, pg_wal/RECOVERYXLOG] --archive-async --archive-get-queue-max=64MB --exec-id=520-c60ef656 --log-level-file=info --pg1-path=/var/lib/pg/standby --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-24 20:39:14.301 P00   INFO: found 000000010000000000000011 in the archive asynchronously
+2026-10-24 20:39:14.301 P00   INFO: archive-get command end: completed successfully (106ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:14.319 P00   INFO: archive-get command begin 2.59.3: [000000010000000000000012, pg_wal/RECOVERYXLOG] --archive-async --archive-get-queue-max=64MB --exec-id=525-517eb0b7 --log-level-file=info --pg1-path=/var/lib/pg/standby --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-24 20:39:14.319 P00   INFO: found 000000010000000000000012 in the archive asynchronously
+2026-10-24 20:39:14.320 P00   INFO: archive-get command end: completed successfully (2ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:14.335 P00   INFO: archive-get command begin 2.59.3: [000000010000000000000013, pg_wal/RECOVERYXLOG] --archive-async --archive-get-queue-max=64MB --exec-id=527-12165a3b --log-level-file=info --pg1-path=/var/lib/pg/standby --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-24 20:39:14.440 P00   INFO: found 000000010000000000000013 in the archive asynchronously
+2026-10-24 20:39:14.440 P00   INFO: archive-get command end: completed successfully (107ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:14.456 P00   INFO: archive-get command begin 2.59.3: [000000010000000000000014, pg_wal/RECOVERYXLOG] --archive-async --archive-get-queue-max=64MB --exec-id=529-5230d02c --log-level-file=info --pg1-path=/var/lib/pg/standby --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-24 20:39:14.557 P00   INFO: found 000000010000000000000014 in the archive asynchronously
+2026-10-24 20:39:14.559 P00   INFO: archive-get command end: completed successfully (104ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:14.583 P00   INFO: archive-get command begin 2.59.3: [000000010000000000000015, pg_wal/RECOVERYXLOG] --archive-async --archive-get-queue-max=64MB --exec-id=533-01f64c67 --log-level-file=info --pg1-path=/var/lib/pg/standby --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-24 20:39:14.685 P00   INFO: unable to find 000000010000000000000015 in the archive asynchronously
+2026-10-24 20:39:14.685 P00   INFO: archive-get command end: completed successfully (103ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:14.691 P00   INFO: archive-get command begin 2.59.3: [000000010000000000000015, pg_wal/RECOVERYXLOG] --archive-async --archive-get-queue-max=64MB --exec-id=537-192122b9 --log-level-file=info --pg1-path=/var/lib/pg/standby --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-24 20:39:14.799 P00   INFO: unable to find 000000010000000000000015 in the archive asynchronously
+2026-10-24 20:39:14.799 P00   INFO: archive-get command end: completed successfully (109ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:14.819 P00   INFO: archive-get command begin 2.59.3: [00000002.history, pg_wal/RECOVERYHISTORY] --archive-async --archive-get-queue-max=64MB --exec-id=541-d53ef946 --log-level-file=info --pg1-path=/var/lib/pg/standby --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-24 20:39:14.819 P00   INFO: unable to find 00000002.history in the archive
+2026-10-24 20:39:14.820 P00   INFO: archive-get command end: completed successfully (5ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:19.217 P00   INFO: archive-get command begin 2.59.3: [000000010000000000000015, pg_wal/RECOVERYXLOG] --archive-async --archive-get-queue-max=64MB --exec-id=556-95f98af3 --log-level-file=info --pg1-path=/var/lib/pg/standby --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-24 20:39:19.321 P00   INFO: found 000000010000000000000015 in the archive asynchronously
+2026-10-24 20:39:19.321 P00   INFO: archive-get command end: completed successfully (109ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:19.340 P00   INFO: archive-get command begin 2.59.3: [000000010000000000000016, pg_wal/RECOVERYXLOG] --archive-async --archive-get-queue-max=64MB --exec-id=561-2694fb56 --log-level-file=info --pg1-path=/var/lib/pg/standby --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-24 20:39:19.440 P00   INFO: found 000000010000000000000016 in the archive asynchronously
+2026-10-24 20:39:19.442 P00   INFO: archive-get command end: completed successfully (104ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:19.463 P00   INFO: archive-get command begin 2.59.3: [000000010000000000000017, pg_wal/RECOVERYXLOG] --archive-async --archive-get-queue-max=64MB --exec-id=565-141e4aad --log-level-file=info --pg1-path=/var/lib/pg/standby --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-24 20:39:19.567 P00   INFO: unable to find 000000010000000000000017 in the archive asynchronously
+2026-10-24 20:39:19.567 P00   INFO: archive-get command end: completed successfully (106ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:19.572 P00   INFO: archive-get command begin 2.59.3: [000000010000000000000017, pg_wal/RECOVERYXLOG] --archive-async --archive-get-queue-max=64MB --exec-id=569-6635891f --log-level-file=info --pg1-path=/var/lib/pg/standby --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-24 20:39:19.676 P00   INFO: unable to find 000000010000000000000017 in the archive asynchronously
+2026-10-24 20:39:19.676 P00   INFO: archive-get command end: completed successfully (106ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:19.696 P00   INFO: archive-get command begin 2.59.3: [00000002.history, pg_wal/RECOVERYHISTORY] --archive-async --archive-get-queue-max=64MB --exec-id=573-8518fc64 --log-level-file=info --pg1-path=/var/lib/pg/standby --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-24 20:39:19.696 P00   INFO: unable to find 00000002.history in the archive
+2026-10-24 20:39:19.696 P00   INFO: archive-get command end: completed successfully (3ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:24.229 P00   INFO: archive-get command begin 2.59.3: [000000010000000000000017, pg_wal/RECOVERYXLOG] --archive-async --archive-get-queue-max=64MB --exec-id=575-4deb418a --log-level-file=info --pg1-path=/var/lib/pg/standby --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-24 20:39:24.339 P00   INFO: unable to find 000000010000000000000017 in the archive asynchronously
+2026-10-24 20:39:24.339 P00   INFO: archive-get command end: completed successfully (114ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:24.356 P00   INFO: archive-get command begin 2.59.3: [00000002.history, pg_wal/RECOVERYHISTORY] --archive-async --archive-get-queue-max=64MB --exec-id=579-42c2b2cd --log-level-file=info --pg1-path=/var/lib/pg/standby --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-24 20:39:24.357 P00   INFO: unable to find 00000002.history in the archive
+2026-10-24 20:39:24.357 P00   INFO: archive-get command end: completed successfully (6ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:29.231 P00   INFO: archive-get command begin 2.59.3: [000000010000000000000017, pg_wal/RECOVERYXLOG] --archive-async --archive-get-queue-max=64MB --exec-id=614-00e3b246 --log-level-file=info --pg1-path=/var/lib/pg/standby --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-24 20:39:29.351 P00  ERROR: [103]: unable to find a valid repository
+                                    repo1: [FileOpenError] unable to load info file '/var/lib/pgbackrest/archive/main/archive.info' or '/var/lib/pgbackrest/archive/main/archive.info.copy':
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/archive/main/archive.info' for read: [13] Permission denied
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/archive/main/archive.info.copy' for read: [13] Permission denied
+                                    HINT: archive.info cannot be opened but is required to push/get WAL segments.
+                                    HINT: is archive_command configured correctly in postgresql.conf?
+                                    HINT: has a stanza-create been performed?
+                                    HINT: use --no-archive-check to disable archive checks during backup if you have an alternate archiving scheme.
+2026-10-24 20:39:29.352 P00   INFO: archive-get command end: aborted with exception [103]
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:29.362 P00   INFO: archive-get command begin 2.59.3: [00000002.history, pg_wal/RECOVERYHISTORY] --archive-async --archive-get-queue-max=64MB --exec-id=618-a5e8a5e8 --log-level-file=info --pg1-path=/var/lib/pg/standby --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-24 20:39:29.366 P00   WARN: repo1: [FileOpenError] unable to load info file '/var/lib/pgbackrest/archive/main/archive.info' or '/var/lib/pgbackrest/archive/main/archive.info.copy':
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/archive/main/archive.info' for read: [13] Permission denied
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/archive/main/archive.info.copy' for read: [13] Permission denied
+                                    HINT: archive.info cannot be opened but is required to push/get WAL segments.
+                                    HINT: is archive_command configured correctly in postgresql.conf?
+                                    HINT: has a stanza-create been performed?
+                                    HINT: use --no-archive-check to disable archive checks during backup if you have an alternate archiving scheme.
+2026-10-24 20:39:29.366 P00  ERROR: [103]: unable to find a valid repository
+2026-10-24 20:39:29.366 P00   INFO: archive-get command end: aborted with exception [103]
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:34.242 P00   INFO: archive-get command begin 2.59.3: [000000010000000000000017, pg_wal/RECOVERYXLOG] --archive-async --archive-get-queue-max=64MB --exec-id=629-7aa15cb2 --log-level-file=info --pg1-path=/var/lib/pg/standby --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-24 20:39:34.360 P00  ERROR: [103]: unable to find a valid repository
+                                    repo1: [FileOpenError] unable to load info file '/var/lib/pgbackrest/archive/main/archive.info' or '/var/lib/pgbackrest/archive/main/archive.info.copy':
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/archive/main/archive.info' for read: [13] Permission denied
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/archive/main/archive.info.copy' for read: [13] Permission denied
+                                    HINT: archive.info cannot be opened but is required to push/get WAL segments.
+                                    HINT: is archive_command configured correctly in postgresql.conf?
+                                    HINT: has a stanza-create been performed?
+                                    HINT: use --no-archive-check to disable archive checks during backup if you have an alternate archiving scheme.
+2026-10-24 20:39:34.360 P00   INFO: archive-get command end: aborted with exception [103]
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:34.373 P00   INFO: archive-get command begin 2.59.3: [00000002.history, pg_wal/RECOVERYHISTORY] --archive-async --archive-get-queue-max=64MB --exec-id=633-bd651c69 --log-level-file=info --pg1-path=/var/lib/pg/standby --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-24 20:39:34.377 P00   WARN: repo1: [FileOpenError] unable to load info file '/var/lib/pgbackrest/archive/main/archive.info' or '/var/lib/pgbackrest/archive/main/archive.info.copy':
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/archive/main/archive.info' for read: [13] Permission denied
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/archive/main/archive.info.copy' for read: [13] Permission denied
+                                    HINT: archive.info cannot be opened but is required to push/get WAL segments.
+                                    HINT: is archive_command configured correctly in postgresql.conf?
+                                    HINT: has a stanza-create been performed?
+                                    HINT: use --no-archive-check to disable archive checks during backup if you have an alternate archiving scheme.
+2026-10-24 20:39:34.377 P00  ERROR: [103]: unable to find a valid repository
+2026-10-24 20:39:34.377 P00   INFO: archive-get command end: aborted with exception [103]
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:39.246 P00   INFO: archive-get command begin 2.59.3: [000000010000000000000017, pg_wal/RECOVERYXLOG] --archive-async --archive-get-queue-max=64MB --exec-id=635-d4230b36 --log-level-file=info --pg1-path=/var/lib/pg/standby --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-24 20:39:39.362 P00  ERROR: [103]: unable to find a valid repository
+                                    repo1: [FileOpenError] unable to load info file '/var/lib/pgbackrest/archive/main/archive.info' or '/var/lib/pgbackrest/archive/main/archive.info.copy':
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/archive/main/archive.info' for read: [13] Permission denied
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/archive/main/archive.info.copy' for read: [13] Permission denied
+                                    HINT: archive.info cannot be opened but is required to push/get WAL segments.
+                                    HINT: is archive_command configured correctly in postgresql.conf?
+                                    HINT: has a stanza-create been performed?
+                                    HINT: use --no-archive-check to disable archive checks during backup if you have an alternate archiving scheme.
+2026-10-24 20:39:39.362 P00   INFO: archive-get command end: aborted with exception [103]
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:39.377 P00   INFO: archive-get command begin 2.59.3: [00000002.history, pg_wal/RECOVERYHISTORY] --archive-async --archive-get-queue-max=64MB --exec-id=639-42af2e77 --log-level-file=info --pg1-path=/var/lib/pg/standby --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-24 20:39:39.381 P00   WARN: repo1: [FileOpenError] unable to load info file '/var/lib/pgbackrest/archive/main/archive.info' or '/var/lib/pgbackrest/archive/main/archive.info.copy':
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/archive/main/archive.info' for read: [13] Permission denied
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/archive/main/archive.info.copy' for read: [13] Permission denied
+                                    HINT: archive.info cannot be opened but is required to push/get WAL segments.
+                                    HINT: is archive_command configured correctly in postgresql.conf?
+                                    HINT: has a stanza-create been performed?
+                                    HINT: use --no-archive-check to disable archive checks during backup if you have an alternate archiving scheme.
+2026-10-24 20:39:39.381 P00  ERROR: [103]: unable to find a valid repository
+2026-10-24 20:39:39.381 P00   INFO: archive-get command end: aborted with exception [103]
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:44.269 P00   INFO: archive-get command begin 2.59.3: [000000010000000000000017, pg_wal/RECOVERYXLOG] --archive-async --archive-get-queue-max=64MB --exec-id=641-af1ad876 --log-level-file=info --pg1-path=/var/lib/pg/standby --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-24 20:39:44.412 P00  ERROR: [103]: unable to find a valid repository
+                                    repo1: [FileOpenError] unable to load info file '/var/lib/pgbackrest/archive/main/archive.info' or '/var/lib/pgbackrest/archive/main/archive.info.copy':
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/archive/main/archive.info' for read: [13] Permission denied
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/archive/main/archive.info.copy' for read: [13] Permission denied
+                                    HINT: archive.info cannot be opened but is required to push/get WAL segments.
+                                    HINT: is archive_command configured correctly in postgresql.conf?
+                                    HINT: has a stanza-create been performed?
+                                    HINT: use --no-archive-check to disable archive checks during backup if you have an alternate archiving scheme.
+2026-10-24 20:39:44.412 P00   INFO: archive-get command end: aborted with exception [103]
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:44.418 P00   INFO: archive-get command begin 2.59.3: [00000002.history, pg_wal/RECOVERYHISTORY] --archive-async --archive-get-queue-max=64MB --exec-id=645-0dd736ee --log-level-file=info --pg1-path=/var/lib/pg/standby --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-24 20:39:44.421 P00   WARN: repo1: [FileOpenError] unable to load info file '/var/lib/pgbackrest/archive/main/archive.info' or '/var/lib/pgbackrest/archive/main/archive.info.copy':
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/archive/main/archive.info' for read: [13] Permission denied
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/archive/main/archive.info.copy' for read: [13] Permission denied
+                                    HINT: archive.info cannot be opened but is required to push/get WAL segments.
+                                    HINT: is archive_command configured correctly in postgresql.conf?
+                                    HINT: has a stanza-create been performed?
+                                    HINT: use --no-archive-check to disable archive checks during backup if you have an alternate archiving scheme.
+2026-10-24 20:39:44.421 P00  ERROR: [103]: unable to find a valid repository
+2026-10-24 20:39:44.421 P00   INFO: archive-get command end: aborted with exception [103]
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:49.241 P00   INFO: archive-get command begin 2.59.3: [000000010000000000000017, pg_wal/RECOVERYXLOG] --archive-async --archive-get-queue-max=64MB --exec-id=662-bcbc19c0 --log-level-file=info --pg1-path=/var/lib/pg/standby --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-24 20:39:49.343 P00   INFO: found 000000010000000000000017 in the archive asynchronously
+2026-10-24 20:39:49.343 P00   INFO: archive-get command end: completed successfully (103ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:49.369 P00   INFO: archive-get command begin 2.59.3: [000000010000000000000018, pg_wal/RECOVERYXLOG] --archive-async --archive-get-queue-max=64MB --exec-id=667-b7092f98 --log-level-file=info --pg1-path=/var/lib/pg/standby --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-24 20:39:49.370 P00   INFO: found 000000010000000000000018 in the archive asynchronously
+2026-10-24 20:39:49.370 P00   INFO: archive-get command end: completed successfully (4ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:49.389 P00   INFO: archive-get command begin 2.59.3: [000000010000000000000019, pg_wal/RECOVERYXLOG] --archive-async --archive-get-queue-max=64MB --exec-id=669-b8d2a065 --log-level-file=info --pg1-path=/var/lib/pg/standby --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-24 20:39:49.494 P00   INFO: found 000000010000000000000019 in the archive asynchronously
+2026-10-24 20:39:49.494 P00   INFO: archive-get command end: completed successfully (106ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:49.511 P00   INFO: archive-get command begin 2.59.3: [00000001000000000000001A, pg_wal/RECOVERYXLOG] --archive-async --archive-get-queue-max=64MB --exec-id=671-364e7bf1 --log-level-file=info --pg1-path=/var/lib/pg/standby --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-24 20:39:49.614 P00   INFO: found 00000001000000000000001A in the archive asynchronously
+2026-10-24 20:39:49.615 P00   INFO: archive-get command end: completed successfully (105ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:49.641 P00   INFO: archive-get command begin 2.59.3: [00000001000000000000001B, pg_wal/RECOVERYXLOG] --archive-async --archive-get-queue-max=64MB --exec-id=678-235949c8 --log-level-file=info --pg1-path=/var/lib/pg/standby --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-24 20:39:49.748 P00   INFO: unable to find 00000001000000000000001B in the archive asynchronously
+2026-10-24 20:39:49.748 P00   INFO: archive-get command end: completed successfully (109ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:49.769 P00   INFO: archive-get command begin 2.59.3: [00000001000000000000001B, pg_wal/RECOVERYXLOG] --archive-async --archive-get-queue-max=64MB --exec-id=685-7e9002ef --log-level-file=info --pg1-path=/var/lib/pg/standby --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-24 20:39:50.082 P00   INFO: found 00000001000000000000001B in the archive asynchronously
+2026-10-24 20:39:50.086 P00   INFO: archive-get command end: completed successfully (333ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:50.110 P00   INFO: archive-get command begin 2.59.3: [00000001000000000000001C, pg_wal/RECOVERYXLOG] --archive-async --archive-get-queue-max=64MB --exec-id=690-52aaa9b9 --log-level-file=info --pg1-path=/var/lib/pg/standby --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-24 20:39:50.212 P00   INFO: unable to find 00000001000000000000001C in the archive asynchronously
+2026-10-24 20:39:50.212 P00   INFO: archive-get command end: completed successfully (104ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:50.217 P00   INFO: archive-get command begin 2.59.3: [00000001000000000000001C, pg_wal/RECOVERYXLOG] --archive-async --archive-get-queue-max=64MB --exec-id=694-9b8bb3d2 --log-level-file=info --pg1-path=/var/lib/pg/standby --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-24 20:39:50.321 P00   INFO: unable to find 00000001000000000000001C in the archive asynchronously
+2026-10-24 20:39:50.321 P00   INFO: archive-get command end: completed successfully (105ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:50.334 P00   INFO: archive-get command begin 2.59.3: [00000002.history, pg_wal/RECOVERYHISTORY] --archive-async --archive-get-queue-max=64MB --exec-id=698-95b0b016 --log-level-file=info --pg1-path=/var/lib/pg/standby --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-24 20:39:50.334 P00   INFO: unable to find 00000002.history in the archive
+2026-10-24 20:39:50.334 P00   INFO: archive-get command end: completed successfully (2ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:54.248 P00   INFO: archive-get command begin 2.59.3: [00000001000000000000001C, pg_wal/RECOVERYXLOG] --archive-async --archive-get-queue-max=64MB --exec-id=701-b873abe7 --log-level-file=info --pg1-path=/var/lib/pg/standby --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-24 20:39:54.350 P00   INFO: unable to find 00000001000000000000001C in the archive asynchronously
+2026-10-24 20:39:54.350 P00   INFO: archive-get command end: completed successfully (103ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:54.358 P00   INFO: archive-get command begin 2.59.3: [00000002.history, pg_wal/RECOVERYHISTORY] --archive-async --archive-get-queue-max=64MB --exec-id=705-1a7e8dec --log-level-file=info --pg1-path=/var/lib/pg/standby --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-24 20:39:54.359 P00   INFO: unable to find 00000002.history in the archive
+2026-10-24 20:39:54.359 P00   INFO: archive-get command end: completed successfully (3ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:59.268 P00   INFO: archive-get command begin 2.59.3: [00000001000000000000001C, pg_wal/RECOVERYXLOG] --archive-async --archive-get-queue-max=64MB --exec-id=707-f43c6237 --log-level-file=info --pg1-path=/var/lib/pg/standby --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-24 20:39:59.385 P00   INFO: unable to find 00000001000000000000001C in the archive asynchronously
+2026-10-24 20:39:59.386 P00   INFO: archive-get command end: completed successfully (125ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:59.396 P00   INFO: archive-get command begin 2.59.3: [00000002.history, pg_wal/RECOVERYHISTORY] --archive-async --archive-get-queue-max=64MB --exec-id=711-18fc9130 --log-level-file=info --pg1-path=/var/lib/pg/standby --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-24 20:39:59.397 P00   INFO: unable to find 00000002.history in the archive
+2026-10-24 20:39:59.397 P00   INFO: archive-get command end: completed successfully (4ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:40:04.279 P00   INFO: archive-get command begin 2.59.3: [00000001000000000000001C, pg_wal/RECOVERYXLOG] --archive-async --archive-get-queue-max=64MB --exec-id=714-2ba9c15c --log-level-file=info --pg1-path=/var/lib/pg/standby --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-24 20:40:04.388 P00   INFO: unable to find 00000001000000000000001C in the archive asynchronously
+2026-10-24 20:40:04.388 P00   INFO: archive-get command end: completed successfully (113ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:40:04.414 P00   INFO: archive-get command begin 2.59.3: [00000002.history, pg_wal/RECOVERYHISTORY] --archive-async --archive-get-queue-max=64MB --exec-id=718-d5516792 --log-level-file=info --pg1-path=/var/lib/pg/standby --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-24 20:40:04.414 P00   INFO: unable to find 00000002.history in the archive
+2026-10-24 20:40:04.414 P00   INFO: archive-get command end: completed successfully (5ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:40:21.832 P00   INFO: archive-get command begin 2.59.3: [00000002.history, pg_wal/RECOVERYHISTORY] --exec-id=802-6014d8d1 --log-level-file=info --pg1-path=/var/lib/pg/restore3 --repo1-path=/var/lib/pgbackrest --stanza=main
+2026-10-24 20:40:21.832 P00   INFO: unable to find 00000002.history in the archive
+2026-10-24 20:40:21.832 P00   INFO: archive-get command end: completed successfully (2ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:40:21.837 P00   INFO: archive-get command begin 2.59.3: [00000001000000000000000D, pg_wal/RECOVERYXLOG] --exec-id=804-45c36554 --log-level-file=info --pg1-path=/var/lib/pg/restore3 --repo1-path=/var/lib/pgbackrest --stanza=main
+2026-10-24 20:40:21.878 P00   INFO: found 00000001000000000000000D in the repo1: 17-1 archive
+2026-10-24 20:40:21.878 P00   INFO: archive-get command end: completed successfully (42ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:40:21.896 P00   INFO: archive-get command begin 2.59.3: [00000001000000000000000E, pg_wal/RECOVERYXLOG] --exec-id=806-861c3f9a --log-level-file=info --pg1-path=/var/lib/pg/restore3 --repo1-path=/var/lib/pgbackrest --stanza=main
+2026-10-24 20:40:21.940 P00   INFO: found 00000001000000000000000E in the repo1: 17-1 archive
+2026-10-24 20:40:21.940 P00   INFO: archive-get command end: completed successfully (45ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:40:21.956 P00   INFO: archive-get command begin 2.59.3: [00000001000000000000000F, pg_wal/RECOVERYXLOG] --exec-id=808-6f6dda80 --log-level-file=info --pg1-path=/var/lib/pg/restore3 --repo1-path=/var/lib/pgbackrest --stanza=main
+2026-10-24 20:40:21.998 P00   INFO: found 00000001000000000000000F in the repo1: 17-1 archive
+2026-10-24 20:40:21.998 P00   INFO: archive-get command end: completed successfully (43ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:40:22.012 P00   INFO: archive-get command begin 2.59.3: [000000010000000000000010, pg_wal/RECOVERYXLOG] --exec-id=811-cb4ab084 --log-level-file=info --pg1-path=/var/lib/pg/restore3 --repo1-path=/var/lib/pgbackrest --stanza=main
+2026-10-24 20:40:22.222 P00   INFO: found 000000010000000000000010 in the repo1: 17-1 archive
+2026-10-24 20:40:22.222 P00   INFO: archive-get command end: completed successfully (211ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:40:22.298 P00   INFO: archive-get command begin 2.59.3: [000000010000000000000011, pg_wal/RECOVERYXLOG] --exec-id=813-369040a0 --log-level-file=info --pg1-path=/var/lib/pg/restore3 --repo1-path=/var/lib/pgbackrest --stanza=main
+2026-10-24 20:40:22.772 P00   INFO: found 000000010000000000000011 in the repo1: 17-1 archive
+2026-10-24 20:40:22.772 P00   INFO: archive-get command end: completed successfully (488ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:40:22.838 P00   INFO: archive-get command begin 2.59.3: [000000010000000000000012, pg_wal/RECOVERYXLOG] --exec-id=815-2741de04 --log-level-file=info --pg1-path=/var/lib/pg/restore3 --repo1-path=/var/lib/pgbackrest --stanza=main
+2026-10-24 20:40:23.080 P00   INFO: found 000000010000000000000012 in the repo1: 17-1 archive
+2026-10-24 20:40:23.080 P00   INFO: archive-get command end: completed successfully (244ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:40:23.113 P00   INFO: archive-get command begin 2.59.3: [000000010000000000000013, pg_wal/RECOVERYXLOG] --exec-id=817-71efac6e --log-level-file=info --pg1-path=/var/lib/pg/restore3 --repo1-path=/var/lib/pgbackrest --stanza=main
+2026-10-24 20:40:23.181 P00   INFO: found 000000010000000000000013 in the repo1: 17-1 archive
+2026-10-24 20:40:23.181 P00   INFO: archive-get command end: completed successfully (70ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:40:23.210 P00   INFO: archive-get command begin 2.59.3: [000000010000000000000014, pg_wal/RECOVERYXLOG] --exec-id=819-29bb7a1a --log-level-file=info --pg1-path=/var/lib/pg/restore3 --repo1-path=/var/lib/pgbackrest --stanza=main
+2026-10-24 20:40:23.394 P00   INFO: found 000000010000000000000014 in the repo1: 17-1 archive
+2026-10-24 20:40:23.394 P00   INFO: archive-get command end: completed successfully (185ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:40:23.415 P00   INFO: archive-get command begin 2.59.3: [000000010000000000000015, pg_wal/RECOVERYXLOG] --exec-id=821-e238e107 --log-level-file=info --pg1-path=/var/lib/pg/restore3 --repo1-path=/var/lib/pgbackrest --stanza=main
+2026-10-24 20:40:23.519 P00   INFO: found 000000010000000000000015 in the repo1: 17-1 archive
+2026-10-24 20:40:23.519 P00   INFO: archive-get command end: completed successfully (106ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:40:23.540 P00   INFO: archive-get command begin 2.59.3: [000000010000000000000016, pg_wal/RECOVERYXLOG] --exec-id=823-e54dc1a5 --log-level-file=info --pg1-path=/var/lib/pg/restore3 --repo1-path=/var/lib/pgbackrest --stanza=main
+2026-10-24 20:40:23.589 P00   INFO: found 000000010000000000000016 in the repo1: 17-1 archive
+2026-10-24 20:40:23.589 P00   INFO: archive-get command end: completed successfully (51ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:40:23.608 P00   INFO: archive-get command begin 2.59.3: [000000010000000000000017, pg_wal/RECOVERYXLOG] --exec-id=825-36fa188e --log-level-file=info --pg1-path=/var/lib/pg/restore3 --repo1-path=/var/lib/pgbackrest --stanza=main
+2026-10-24 20:40:23.651 P00   INFO: found 000000010000000000000017 in the repo1: 17-1 archive
+2026-10-24 20:40:23.651 P00   INFO: archive-get command end: completed successfully (44ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:40:23.672 P00   INFO: archive-get command begin 2.59.3: [000000010000000000000018, pg_wal/RECOVERYXLOG] --exec-id=827-b70dfa53 --log-level-file=info --pg1-path=/var/lib/pg/restore3 --repo1-path=/var/lib/pgbackrest --stanza=main
+2026-10-24 20:40:23.712 P00   INFO: found 000000010000000000000018 in the repo1: 17-1 archive
+2026-10-24 20:40:23.712 P00   INFO: archive-get command end: completed successfully (41ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:40:23.736 P00   INFO: archive-get command begin 2.59.3: [000000010000000000000019, pg_wal/RECOVERYXLOG] --exec-id=829-ff08f19a --log-level-file=info --pg1-path=/var/lib/pg/restore3 --repo1-path=/var/lib/pgbackrest --stanza=main
+2026-10-24 20:40:23.783 P00   INFO: found 000000010000000000000019 in the repo1: 17-1 archive
+2026-10-24 20:40:23.783 P00   INFO: archive-get command end: completed successfully (49ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:40:23.808 P00   INFO: archive-get command begin 2.59.3: [00000001000000000000001A, pg_wal/RECOVERYXLOG] --exec-id=831-e60fc62e --log-level-file=info --pg1-path=/var/lib/pg/restore3 --repo1-path=/var/lib/pgbackrest --stanza=main
+2026-10-24 20:40:23.851 P00   INFO: found 00000001000000000000001A in the repo1: 17-1 archive
+2026-10-24 20:40:23.851 P00   INFO: archive-get command end: completed successfully (46ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:40:23.877 P00   INFO: archive-get command begin 2.59.3: [00000001000000000000001B, pg_wal/RECOVERYXLOG] --exec-id=833-0ab531b8 --log-level-file=info --pg1-path=/var/lib/pg/restore3 --repo1-path=/var/lib/pgbackrest --stanza=main
+2026-10-24 20:40:24.038 P00   INFO: found 00000001000000000000001B in the repo1: 17-1 archive
+2026-10-24 20:40:24.038 P00   INFO: archive-get command end: completed successfully (162ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:40:24.065 P00   INFO: archive-get command begin 2.59.3: [00000001000000000000001C, pg_wal/RECOVERYXLOG] --exec-id=840-9b0f6430 --log-level-file=info --pg1-path=/var/lib/pg/restore3 --repo1-path=/var/lib/pgbackrest --stanza=main
+2026-10-24 20:40:24.066 P00   INFO: unable to find 00000001000000000000001C in the archive
+2026-10-24 20:40:24.066 P00   INFO: archive-get command end: completed successfully (3ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:40:24.072 P00   INFO: archive-get command begin 2.59.3: [00000001000000000000001C, pg_wal/RECOVERYXLOG] --exec-id=842-a8557d56 --log-level-file=info --pg1-path=/var/lib/pg/restore3 --repo1-path=/var/lib/pgbackrest --stanza=main
+2026-10-24 20:40:24.072 P00   INFO: unable to find 00000001000000000000001C in the archive
+2026-10-24 20:40:24.072 P00   INFO: archive-get command end: completed successfully (2ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:40:26.038 P00   INFO: archive-get command begin 2.59.3: [00000002.history, pg_wal/RECOVERYHISTORY] --exec-id=869-0aebc05c --log-level-file=info --pg1-path=/var/lib/pg/restore4 --repo1-path=/var/lib/pgbackrest --stanza=main
+2026-10-24 20:40:26.038 P00   INFO: unable to find 00000002.history in the archive
+2026-10-24 20:40:26.038 P00   INFO: archive-get command end: completed successfully (2ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:40:26.042 P00   INFO: archive-get command begin 2.59.3: [00000001000000000000000D, pg_wal/RECOVERYXLOG] --exec-id=871-d92ff347 --log-level-file=info --pg1-path=/var/lib/pg/restore4 --repo1-path=/var/lib/pgbackrest --stanza=main
+2026-10-24 20:40:26.082 P00   INFO: found 00000001000000000000000D in the repo1: 17-1 archive
+2026-10-24 20:40:26.082 P00   INFO: archive-get command end: completed successfully (41ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:40:26.125 P00   INFO: archive-get command begin 2.59.3: [00000001000000000000000E, pg_wal/RECOVERYXLOG] --exec-id=873-7bd9dd3e --log-level-file=info --pg1-path=/var/lib/pg/restore4 --repo1-path=/var/lib/pgbackrest --stanza=main
+2026-10-24 20:40:26.394 P00   INFO: found 00000001000000000000000E in the repo1: 17-1 archive
+2026-10-24 20:40:26.394 P00   INFO: archive-get command end: completed successfully (282ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:40:26.419 P00   INFO: archive-get command begin 2.59.3: [00000001000000000000000F, pg_wal/RECOVERYXLOG] --exec-id=875-46c2be14 --log-level-file=info --pg1-path=/var/lib/pg/restore4 --repo1-path=/var/lib/pgbackrest --stanza=main
+2026-10-24 20:40:26.488 P00   INFO: found 00000001000000000000000F in the repo1: 17-1 archive
+2026-10-24 20:40:26.488 P00   INFO: archive-get command end: completed successfully (70ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:40:26.540 P00   INFO: archive-get command begin 2.59.3: [000000010000000000000010, pg_wal/RECOVERYXLOG] --exec-id=878-aceb1fe1 --log-level-file=info --pg1-path=/var/lib/pg/restore4 --repo1-path=/var/lib/pgbackrest --stanza=main
+2026-10-24 20:40:26.673 P00   INFO: found 000000010000000000000010 in the repo1: 17-1 archive
+2026-10-24 20:40:26.673 P00   INFO: archive-get command end: completed successfully (142ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:40:26.692 P00   INFO: archive-get command begin 2.59.3: [000000010000000000000011, pg_wal/RECOVERYXLOG] --exec-id=880-3fc154de --log-level-file=info --pg1-path=/var/lib/pg/restore4 --repo1-path=/var/lib/pgbackrest --stanza=main
+2026-10-24 20:40:26.745 P00   INFO: found 000000010000000000000011 in the repo1: 17-1 archive
+2026-10-24 20:40:26.745 P00   INFO: archive-get command end: completed successfully (54ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:40:26.764 P00   INFO: archive-get command begin 2.59.3: [000000010000000000000012, pg_wal/RECOVERYXLOG] --exec-id=882-ebf52616 --log-level-file=info --pg1-path=/var/lib/pg/restore4 --repo1-path=/var/lib/pgbackrest --stanza=main
+2026-10-24 20:40:26.957 P00   INFO: found 000000010000000000000012 in the repo1: 17-1 archive
+2026-10-24 20:40:26.957 P00   INFO: archive-get command end: completed successfully (194ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:40:26.977 P00   INFO: archive-get command begin 2.59.3: [000000010000000000000013, pg_wal/RECOVERYXLOG] --exec-id=884-007356b2 --log-level-file=info --pg1-path=/var/lib/pg/restore4 --repo1-path=/var/lib/pgbackrest --stanza=main
+2026-10-24 20:40:27.135 P00   INFO: found 000000010000000000000013 in the repo1: 17-1 archive
+2026-10-24 20:40:27.135 P00   INFO: archive-get command end: completed successfully (161ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:40:27.152 P00   INFO: archive-get command begin 2.59.3: [000000010000000000000014, pg_wal/RECOVERYXLOG] --exec-id=886-5842556a --log-level-file=info --pg1-path=/var/lib/pg/restore4 --repo1-path=/var/lib/pgbackrest --stanza=main
+2026-10-24 20:40:27.239 P00   INFO: found 000000010000000000000014 in the repo1: 17-1 archive
+2026-10-24 20:40:27.239 P00   INFO: archive-get command end: completed successfully (88ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:40:27.256 P00   INFO: archive-get command begin 2.59.3: [000000010000000000000015, pg_wal/RECOVERYXLOG] --exec-id=888-498fd0ea --log-level-file=info --pg1-path=/var/lib/pg/restore4 --repo1-path=/var/lib/pgbackrest --stanza=main
+2026-10-24 20:40:27.353 P00   INFO: found 000000010000000000000015 in the repo1: 17-1 archive
+2026-10-24 20:40:27.353 P00   INFO: archive-get command end: completed successfully (98ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:40:27.373 P00   INFO: archive-get command begin 2.59.3: [000000010000000000000016, pg_wal/RECOVERYXLOG] --exec-id=890-15222eb1 --log-level-file=info --pg1-path=/var/lib/pg/restore4 --repo1-path=/var/lib/pgbackrest --stanza=main
+2026-10-24 20:40:27.430 P00   INFO: found 000000010000000000000016 in the repo1: 17-1 archive
+2026-10-24 20:40:27.430 P00   INFO: archive-get command end: completed successfully (58ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:40:27.448 P00   INFO: archive-get command begin 2.59.3: [000000010000000000000017, pg_wal/RECOVERYXLOG] --exec-id=892-dc5070d7 --log-level-file=info --pg1-path=/var/lib/pg/restore4 --repo1-path=/var/lib/pgbackrest --stanza=main
+2026-10-24 20:40:27.539 P00   INFO: found 000000010000000000000017 in the repo1: 17-1 archive
+2026-10-24 20:40:27.540 P00   INFO: archive-get command end: completed successfully (93ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:40:27.558 P00   INFO: archive-get command begin 2.59.3: [000000010000000000000018, pg_wal/RECOVERYXLOG] --exec-id=894-87621a2d --log-level-file=info --pg1-path=/var/lib/pg/restore4 --repo1-path=/var/lib/pgbackrest --stanza=main
+2026-10-24 20:40:27.658 P00   INFO: found 000000010000000000000018 in the repo1: 17-1 archive
+2026-10-24 20:40:27.658 P00   INFO: archive-get command end: completed successfully (102ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:40:27.676 P00   INFO: archive-get command begin 2.59.3: [000000010000000000000019, pg_wal/RECOVERYXLOG] --exec-id=896-ac602314 --log-level-file=info --pg1-path=/var/lib/pg/restore4 --repo1-path=/var/lib/pgbackrest --stanza=main
+2026-10-24 20:40:27.749 P00   INFO: found 000000010000000000000019 in the repo1: 17-1 archive
+2026-10-24 20:40:27.749 P00   INFO: archive-get command end: completed successfully (74ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:40:27.768 P00   INFO: archive-get command begin 2.59.3: [00000001000000000000001A, pg_wal/RECOVERYXLOG] --exec-id=898-353e4710 --log-level-file=info --pg1-path=/var/lib/pg/restore4 --repo1-path=/var/lib/pgbackrest --stanza=main
+2026-10-24 20:40:27.885 P00   INFO: found 00000001000000000000001A in the repo1: 17-1 archive
+2026-10-24 20:40:27.885 P00   INFO: archive-get command end: completed successfully (119ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:40:27.904 P00   INFO: archive-get command begin 2.59.3: [00000001000000000000001B, pg_wal/RECOVERYXLOG] --exec-id=900-c7107faf --log-level-file=info --pg1-path=/var/lib/pg/restore4 --repo1-path=/var/lib/pgbackrest --stanza=main
+2026-10-24 20:40:28.000 P00   INFO: found 00000001000000000000001B in the repo1: 17-1 archive
+2026-10-24 20:40:28.000 P00   INFO: archive-get command end: completed successfully (97ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:40:28.031 P00   INFO: archive-get command begin 2.59.3: [00000001000000000000001C, pg_wal/RECOVERYXLOG] --exec-id=902-c58a54bb --log-level-file=info --pg1-path=/var/lib/pg/restore4 --repo1-path=/var/lib/pgbackrest --stanza=main
+2026-10-24 20:40:28.034 P00   INFO: unable to find 00000001000000000000001C in the archive
+2026-10-24 20:40:28.034 P00   INFO: archive-get command end: completed successfully (7ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:40:28.050 P00   INFO: archive-get command begin 2.59.3: [00000001000000000000001C, pg_wal/RECOVERYXLOG] --exec-id=904-6020b085 --log-level-file=info --pg1-path=/var/lib/pg/restore4 --repo1-path=/var/lib/pgbackrest --stanza=main
+2026-10-24 20:40:28.052 P00   INFO: unable to find 00000001000000000000001C in the archive
+2026-10-24 20:40:28.052 P00   INFO: archive-get command end: completed successfully (7ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:40:28.063 P00   INFO: archive-get command begin 2.59.3: [00000001000000000000001B, pg_wal/RECOVERYXLOG] --exec-id=906-f3ad329d --log-level-file=info --pg1-path=/var/lib/pg/restore4 --repo1-path=/var/lib/pgbackrest --stanza=main
+2026-10-24 20:40:28.148 P00   INFO: found 00000001000000000000001B in the repo1: 17-1 archive
+2026-10-24 20:40:28.148 P00   INFO: archive-get command end: completed successfully (89ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:40:28.172 P00   INFO: archive-get command begin 2.59.3: [00000002.history, pg_wal/RECOVERYHISTORY] --exec-id=908-684b335d --log-level-file=info --pg1-path=/var/lib/pg/restore4 --repo1-path=/var/lib/pgbackrest --stanza=main
+2026-10-24 20:40:28.172 P00   INFO: unable to find 00000002.history in the archive
+2026-10-24 20:40:28.172 P00   INFO: archive-get command end: completed successfully (2ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:40:28.204 P00   INFO: archive-get command begin 2.59.3: [00000001.history, pg_wal/RECOVERYHISTORY] --exec-id=910-8d6b644f --log-level-file=info --pg1-path=/var/lib/pg/restore4 --repo1-path=/var/lib/pgbackrest --stanza=main
+2026-10-24 20:40:28.204 P00   INFO: unable to find 00000001.history in the archive
+2026-10-24 20:40:28.204 P00   INFO: archive-get command end: completed successfully (2ms)

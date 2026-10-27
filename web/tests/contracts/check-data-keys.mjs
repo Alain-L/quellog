@@ -14,6 +14,21 @@ import { printSummary, read, REPO_ROOT, rel, webJsFiles } from './lib.mjs';
 
 const BIN = join(REPO_ROOT, 'bin', 'quellog');
 const FIXTURE = join(REPO_ROOT, 'test', 'testdata', 'comprehensive', 'stderr.log');
+// pgBackRest logs added to the fixture so that the payload carries a
+// "pgbackrest" key: S2 (async worker, a dropped WAL segment, failure
+// stretches, PostgreSQL's archive_command failures), S3 (a manual expire
+// --set) and a log-timestamp=n file (missing_info). The --begin bound
+// before any line adds the "window" key without filtering anything out.
+// No fixture has an archive-get failure: archive_get.failures stays a
+// known drift suspect.
+const PGBR_DIR = join(REPO_ROOT, 'test', 'testdata', 'pgbackrest');
+const PGBR_INPUTS = [
+  join(PGBR_DIR, 'S2', 'pgbackrest_logs'),
+  join(PGBR_DIR, 'S2', 'pg_logs_main', 'postgresql.log'),
+  join(PGBR_DIR, 'S3', 'pgbackrest_logs'),
+  join(PGBR_DIR, 'S4', '02_timestamp', 'check_console_no_timestamp.out'),
+];
+const PGBR_ARGS = ['--begin', '2000-01-01 00:00:00'];
 const TMP = join(REPO_ROOT, 'web', 'tests', 'contracts', 'tmp');
 const MAX_DEPTH = 4;
 
@@ -25,6 +40,7 @@ const RENDERERS = [
   'js/sections/summary.js', 'js/sections/events.js', 'js/sections/connections.js',
   'js/sections/checkpoints.js', 'js/sections/maintenance.js', 'js/sections/locks.js',
   'js/sections/tempfiles.js', 'js/sections/sql.js', 'js/sections/modals.js',
+  'js/sections/pgbackrest.js',
 ].map((f) => join(REPO_ROOT, 'web', f));
 
 // Heuristic (documented): local variables named `data` are ALSO used for
@@ -65,11 +81,13 @@ cleanTmpHtml();
 
 let payload;
 try {
-  const res = spawnSync(BIN, [FIXTURE, '--html'], { cwd: TMP, encoding: 'utf8' });
+  const res = spawnSync(BIN, [FIXTURE, ...PGBR_INPUTS, ...PGBR_ARGS, '--html'], { cwd: TMP, encoding: 'utf8' });
   if (res.status !== 0) {
     throw new Error(`quellog --html failed (exit ${res.status}): ${res.stderr}`);
   }
-  const html = read(join(TMP, 'stderr.html'));
+  const report = readdirSync(TMP).find((f) => f.endsWith('.html'));
+  if (!report) throw new Error('quellog --html wrote no report');
+  const html = read(join(TMP, report));
   const m = html.match(/COMPRESSED_DATA = "((?:[^"\\]|\\.)*)"/);
   if (!m) throw new Error('COMPRESSED_DATA not found in generated report');
   // The base64 blob is JS-string-escaped by the Go template (\/ and \uXXXX);
@@ -81,11 +99,13 @@ try {
 }
 
 // --- 2. collect key paths present in the payload ---------------------------
-// Arrays are transparent: descend into element 0 without adding a segment.
+// Arrays are transparent: descend into every element without adding a
+// segment, so a key only some elements carry (one pgBackRest stanza out of
+// several) still counts as present.
 const payloadPaths = new Set();
 function collect(node, prefix, depth) {
   if (Array.isArray(node)) {
-    if (node.length > 0) collect(node[0], prefix, depth);
+    for (const el of node) collect(el, prefix, depth);
     return;
   }
   if (node === null || typeof node !== 'object') return;
@@ -103,10 +123,35 @@ collect(payload, '', 0);
 const CHAIN_RE = /\b(?:data|analysisData)(?:\?\.|\.)([A-Za-z_$][\w$]*(?:(?:\?\.|\.)[A-Za-z_$][\w$]*)*)(\()?/g;
 const readPaths = new Map(); // path -> first site "file:line"
 
+// Local names that stand for a payload sub-object in one renderer: the
+// pgBackRest section reads each stanza as `st`, its archive stats as
+// `push`/`get`, so their member chains are checked under those paths.
+const ALIASES = {
+  'js/sections/pgbackrest.js': {
+    st: 'pgbackrest',
+    push: 'pgbackrest.archive_push',
+    get: 'pgbackrest.archive_get',
+  },
+};
+
 for (const file of RENDERERS) {
   const content = read(file);
   const lines = content.split('\n');
+  const aliases = ALIASES[file.slice(join(REPO_ROOT, 'web').length + 1)] || {};
+  const aliasRe = Object.keys(aliases).length
+    ? new RegExp(`\\b(${Object.keys(aliases).join('|')})(?:\\?\\.|\\.)([A-Za-z_$][\\w$]*(?:(?:\\?\\.|\\.)[A-Za-z_$][\\w$]*)*)(\\()?`, 'g')
+    : null;
   for (let i = 0; i < lines.length; i++) {
+    if (aliasRe) {
+      for (const m of lines[i].matchAll(aliasRe)) {
+        let segs = m[2].replace(/\?\./g, '.').split('.');
+        if (m[3]) segs.pop();
+        while (segs.length && TAIL_PROPS.has(segs[segs.length - 1])) segs.pop();
+        if (!segs.length) continue;
+        const path = [...aliases[m[1]].split('.'), ...segs].slice(0, MAX_DEPTH).join('.');
+        if (!readPaths.has(path)) readPaths.set(path, `${rel(file)}:${i + 1}`);
+      }
+    }
     for (const m of lines[i].matchAll(CHAIN_RE)) {
       let segs = m[1].replace(/\?\./g, '.').split('.');
       if (m[2]) segs.pop(); // trailing method call: drop it

@@ -1,0 +1,41 @@
+2026-10-24 20:40:25.990 UTC [863] LOG:  starting PostgreSQL 17.11 (Debian 17.11-1.pgdg13+2) on aarch64-unknown-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+2026-10-24 20:40:25.991 UTC [863] LOG:  listening on IPv4 address "0.0.0.0", port 5437
+2026-10-24 20:40:25.991 UTC [863] LOG:  listening on IPv6 address "::", port 5437
+2026-10-24 20:40:25.993 UTC [863] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5437"
+2026-10-24 20:40:25.996 UTC [867] LOG:  database system was interrupted; last known up at 2026-10-24 20:38:47 UTC
+2026-10-24 20:40:26.038 UTC [867] LOG:  starting backup recovery with redo LSN 0/D000028, checkpoint LSN 0/D000080, on timeline ID 1
+2026-10-24 20:40:26.083 UTC [867] LOG:  restored log file "00000001000000000000000D" from archive
+2026-10-24 20:40:26.093 UTC [867] LOG:  starting archive recovery
+2026-10-24 20:40:26.098 UTC [867] LOG:  redo starts at 0/D000028
+2026-10-24 20:40:26.395 UTC [867] LOG:  restored log file "00000001000000000000000E" from archive
+2026-10-24 20:40:26.413 UTC [867] LOG:  completed backup recovery with redo LSN 0/D000028 and end LSN 0/D000120
+2026-10-24 20:40:26.413 UTC [867] LOG:  consistent recovery state reached at 0/D000120
+2026-10-24 20:40:26.413 UTC [863] LOG:  database system is ready to accept read-only connections
+2026-10-24 20:40:26.489 UTC [867] LOG:  restored log file "00000001000000000000000F" from archive
+2026-10-24 20:40:26.674 UTC [867] LOG:  restored log file "000000010000000000000010" from archive
+2026-10-24 20:40:26.746 UTC [867] LOG:  restored log file "000000010000000000000011" from archive
+2026-10-24 20:40:26.958 UTC [867] LOG:  restored log file "000000010000000000000012" from archive
+2026-10-24 20:40:27.135 UTC [867] LOG:  restored log file "000000010000000000000013" from archive
+2026-10-24 20:40:27.240 UTC [867] LOG:  restored log file "000000010000000000000014" from archive
+2026-10-24 20:40:27.353 UTC [867] LOG:  restored log file "000000010000000000000015" from archive
+2026-10-24 20:40:27.431 UTC [867] LOG:  restored log file "000000010000000000000016" from archive
+2026-10-24 20:40:27.541 UTC [867] LOG:  restored log file "000000010000000000000017" from archive
+2026-10-24 20:40:27.659 UTC [867] LOG:  restored log file "000000010000000000000018" from archive
+2026-10-24 20:40:27.751 UTC [867] LOG:  restored log file "000000010000000000000019" from archive
+2026-10-24 20:40:27.886 UTC [867] LOG:  restored log file "00000001000000000000001A" from archive
+2026-10-24 20:40:28.001 UTC [867] LOG:  restored log file "00000001000000000000001B" from archive
+2026-10-24 20:40:28.053 UTC [867] LOG:  redo done at 0/1B00FAF8 system usage: CPU: user: 0.00 s, system: 0.03 s, elapsed: 1.95 s
+2026-10-24 20:40:28.053 UTC [867] LOG:  last completed transaction was at log time 2026-10-24 20:39:48.56956+00
+2026-10-24 20:40:28.149 UTC [867] LOG:  restored log file "00000001000000000000001B" from archive
+2026-10-24 20:40:28.173 UTC [867] LOG:  selected new timeline ID: 2
+2026-10-24 20:40:28.206 UTC [867] LOG:  archive recovery complete
+2026-10-24 20:40:28.207 UTC [865] LOG:  checkpoint starting: end-of-recovery immediate wait
+2026-10-24 20:40:28.234 UTC [865] LOG:  checkpoint complete: wrote 144 buffers (0.9%); 0 WAL file(s) added, 0 removed, 15 recycled; write=0.003 s, sync=0.008 s, total=0.029 s; sync files=18, longest=0.003 s, average=0.001 s; distance=245760 kB, estimate=245760 kB; lsn=0/1C000028, redo lsn=0/1C000028
+2026-10-24 20:40:28.237 UTC [863] LOG:  database system is ready to accept connections
+2026-10-24 20:40:28.638 UTC [863] LOG:  received fast shutdown request
+2026-10-24 20:40:28.639 UTC [863] LOG:  aborting any active transactions
+2026-10-24 20:40:28.641 UTC [863] LOG:  background worker "logical replication launcher" (PID 913) exited with exit code 1
+2026-10-24 20:40:28.641 UTC [865] LOG:  shutting down
+2026-10-24 20:40:28.642 UTC [865] LOG:  checkpoint starting: shutdown immediate
+2026-10-24 20:40:28.646 UTC [865] LOG:  checkpoint complete: wrote 11 buffers (0.1%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.001 s, sync=0.001 s, total=0.006 s; sync files=2, longest=0.001 s, average=0.001 s; distance=0 kB, estimate=221184 kB; lsn=0/1C0000A0, redo lsn=0/1C0000A0
+2026-10-24 20:40:28.649 UTC [863] LOG:  database system is shut down

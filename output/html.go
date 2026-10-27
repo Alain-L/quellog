@@ -251,10 +251,27 @@ func SplitPeriodsJSON(buckets []analysis.SplitBucket, info HTMLReportInfo, secti
 	return string(b), nil
 }
 
-// ExportHTML exports metrics as a standalone HTML report with embedded data.
-func ExportHTML(w io.Writer, metrics analysis.AggregatedMetrics, info HTMLReportInfo, sections []string) error {
+// ExportHTMLWithPgBackRest exports metrics as a standalone HTML report
+// with embedded data, adding a "pgbackrest" key (one entry per stanza)
+// to the payload when pbr is non-empty, so the web app renders the
+// pgBackRest sections alongside the PostgreSQL ones. With an empty pbr
+// it exports exactly the PostgreSQL report. pbrOnly marks a pure
+// pgBackRest run (no PostgreSQL files at all): metrics is then an empty
+// analysis.AggregatedMetrics and the web app suppresses the (empty)
+// PostgreSQL sections, showing only the pgBackRest report.
+func ExportHTMLWithPgBackRest(w io.Writer, metrics analysis.AggregatedMetrics, pbr []analysis.PgBackRestMetrics, info HTMLReportInfo, sections []string, pbrOnly bool) error {
 	// Build full JSON data structure (same as JSON export with all sections)
 	data := buildJSONData(metrics, []string{"all"}, true)
+	if len(pbr) > 0 {
+		data["pgbackrest"] = pgBackRestJSONList(pbr)
+	}
+	if pbrOnly {
+		data["pgbackrest_only"] = true
+		// A pgBackRest-only run is a default report.
+		if sections == nil {
+			sections = []string{"all"}
+		}
+	}
 
 	// Add meta section required by the web UI
 	format := info.Format

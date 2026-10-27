@@ -1,0 +1,33 @@
+2026-10-24 20:40:21.777 UTC [796] LOG:  starting PostgreSQL 17.11 (Debian 17.11-1.pgdg13+2) on aarch64-unknown-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+2026-10-24 20:40:21.777 UTC [796] LOG:  listening on IPv4 address "0.0.0.0", port 5436
+2026-10-24 20:40:21.777 UTC [796] LOG:  listening on IPv6 address "::", port 5436
+2026-10-24 20:40:21.781 UTC [796] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5436"
+2026-10-24 20:40:21.784 UTC [800] LOG:  database system was interrupted; last known up at 2026-10-24 20:38:47 UTC
+2026-10-24 20:40:21.833 UTC [800] LOG:  starting backup recovery with redo LSN 0/D000028, checkpoint LSN 0/D000080, on timeline ID 1
+2026-10-24 20:40:21.879 UTC [800] LOG:  restored log file "00000001000000000000000D" from archive
+2026-10-24 20:40:21.888 UTC [800] LOG:  starting point-in-time recovery to 2026-10-24 20:40:14.482043+00
+2026-10-24 20:40:21.892 UTC [800] LOG:  redo starts at 0/D000028
+2026-10-24 20:40:21.941 UTC [800] LOG:  restored log file "00000001000000000000000E" from archive
+2026-10-24 20:40:21.951 UTC [800] LOG:  completed backup recovery with redo LSN 0/D000028 and end LSN 0/D000120
+2026-10-24 20:40:21.951 UTC [800] LOG:  consistent recovery state reached at 0/D000120
+2026-10-24 20:40:21.951 UTC [796] LOG:  database system is ready to accept read-only connections
+2026-10-24 20:40:21.998 UTC [800] LOG:  restored log file "00000001000000000000000F" from archive
+2026-10-24 20:40:22.222 UTC [800] LOG:  restored log file "000000010000000000000010" from archive
+2026-10-24 20:40:22.776 UTC [800] LOG:  restored log file "000000010000000000000011" from archive
+2026-10-24 20:40:23.081 UTC [800] LOG:  restored log file "000000010000000000000012" from archive
+2026-10-24 20:40:23.182 UTC [800] LOG:  restored log file "000000010000000000000013" from archive
+2026-10-24 20:40:23.395 UTC [800] LOG:  restored log file "000000010000000000000014" from archive
+2026-10-24 20:40:23.520 UTC [800] LOG:  restored log file "000000010000000000000015" from archive
+2026-10-24 20:40:23.590 UTC [800] LOG:  restored log file "000000010000000000000016" from archive
+2026-10-24 20:40:23.652 UTC [800] LOG:  restored log file "000000010000000000000017" from archive
+2026-10-24 20:40:23.713 UTC [800] LOG:  restored log file "000000010000000000000018" from archive
+2026-10-24 20:40:23.784 UTC [800] LOG:  restored log file "000000010000000000000019" from archive
+2026-10-24 20:40:23.853 UTC [800] LOG:  restored log file "00000001000000000000001A" from archive
+2026-10-24 20:40:24.040 UTC [800] LOG:  restored log file "00000001000000000000001B" from archive
+2026-10-24 20:40:24.073 UTC [800] LOG:  redo done at 0/1B00FAF8 system usage: CPU: user: 0.00 s, system: 0.06 s, elapsed: 2.18 s
+2026-10-24 20:40:24.073 UTC [800] LOG:  last completed transaction was at log time 2026-10-24 20:39:48.56956+00
+2026-10-24 20:40:24.073 UTC [800] FATAL:  recovery ended before configured recovery target was reached
+2026-10-24 20:40:24.075 UTC [796] LOG:  startup process (PID 800) exited with exit code 1
+2026-10-24 20:40:24.075 UTC [796] LOG:  terminating any other active server processes
+2026-10-24 20:40:24.076 UTC [796] LOG:  shutting down due to startup process failure
+2026-10-24 20:40:24.077 UTC [796] LOG:  database system is shut down

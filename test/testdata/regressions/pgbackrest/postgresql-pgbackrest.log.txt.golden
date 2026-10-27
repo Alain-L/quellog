@@ -1,0 +1,58 @@
+quellog dev – 8 entries processed in X s (3.41 KB)
+[1m
+SUMMARY
+[0m
+  Start date                : 2026-01-14 08:59:55 UTC
+  End date                  : 2026-01-14 13:15:00 UTC
+  Duration                  : 4h15m5s
+  Total entries             : 8
+  Throughput                : 0.00 entries/s
+[1m
+SERVER
+[0m
+  Starts                    : 1   [3;38;5;243m(first: 2026-01-14 08:59:55)[0m
+
+  Timeline:
+    08:59:55  start       database system is ready to accept connections
+[1m
+EVENTS
+[0m
+  WARNING                   : 1 (12.5%)
+    [3;38;5;243mwa-ijIH[0m  archiving write-ahead log file ? failed too many times, w...       1  100.00%
+  LOG                       : 7 (87.5%)
+
+[1m
+CHECKPOINTS
+[0m
+  Checkpoints | ■ = 1 
+
+  00:00 - 04:00   -
+  04:00 - 08:00   -
+  08:00 - 12:00  ■ 1  [3;38;5;243m15.0/m[0m
+  12:00 - 16:00  ■ 1  [3;38;5;243m15.0/m[0m
+  16:00 - 20:00   -
+  20:00 - 00:00   -
+
+  Checkpoint count          : 2
+  Avg checkpoint write time : 0s
+  Max checkpoint write time : 0s
+
+  Checkpoint types:
+    time          2  100.0%   [3;38;5;243m0.47/h[0m
+
+
+[1mPGBACKREST[0m
+
+  Stanza                    : demo
+  pgBackRest version        : 2.59.3
+
+  [1mdemo[0m
+    Last full               : not logged
+    WAL archiving           : 2 pushed, 2 failed, last at 13:10:01
+    Archiving outages       : 1 (1s), recovered
+
+  Top errors:
+    [103] archive.info missing     2  13:07:00 → 13:07:01
+
+  [3;38;5;243mDetails: --pgbackrest-detail[=stanza][0m
+

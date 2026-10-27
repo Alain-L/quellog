@@ -1,0 +1,24 @@
+-------------------PROCESS START-------------------
+2026-10-24 20:38:32.039 P00   INFO: backup command begin 2.59.3: --exec-id=178-0f8f0699 --log-level-file=info --pg1-path=/var/lib/postgresql/data --repo1-path=/var/lib/pgbackrest --repo1-retention-full=2 --stanza=main --start-fast --type=full
+2026-10-24 20:38:32.046 P00   INFO: execute backup start: backup begins after the requested immediate checkpoint completes
+2026-10-24 20:38:32.088 P00   INFO: backup start archive = 000000010000000000000003, lsn = 0/3000028
+2026-10-24 20:38:32.088 P00   INFO: check archive for prior segment 000000010000000000000002
+2026-10-24 20:38:37.104 P00   INFO: execute backup stop and wait for all WAL segments to archive
+2026-10-24 20:38:37.116 P00   INFO: backup stop archive = 000000010000000000000003, lsn = 0/3000120
+2026-10-24 20:38:37.124 P00   INFO: check archive for segment(s) 000000010000000000000003:000000010000000000000003
+2026-10-24 20:38:37.233 P00   INFO: new backup label = 20261024-203832F
+2026-10-24 20:38:37.254 P00   INFO: full backup size = 22.1MB, file total = 968
+2026-10-24 20:38:37.254 P00   INFO: backup command end: completed successfully (5216ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:38:46.953 P00   INFO: backup command begin 2.59.3: --exec-id=249-a6987ad6 --log-level-file=info --pg1-path=/var/lib/postgresql/data --repo1-path=/var/lib/pgbackrest --repo1-retention-full=2 --stanza=main --start-fast --type=diff
+2026-10-24 20:38:46.964 P00   INFO: last backup label = 20261024-203832F, version = 2.59.3
+2026-10-24 20:38:46.964 P00   INFO: execute backup start: backup begins after the requested immediate checkpoint completes
+2026-10-24 20:38:47.032 P00   INFO: backup start archive = 00000001000000000000000D, lsn = 0/D000028
+2026-10-24 20:38:47.032 P00   INFO: check archive for prior segment 00000001000000000000000C
+2026-10-24 20:38:48.189 P00   INFO: execute backup stop and wait for all WAL segments to archive
+2026-10-24 20:38:48.203 P00   INFO: backup stop archive = 00000001000000000000000D, lsn = 0/D000120
+2026-10-24 20:38:48.207 P00   INFO: check archive for segment(s) 00000001000000000000000D:00000001000000000000000D
+2026-10-24 20:38:48.317 P00   INFO: new backup label = 20261024-203832F_20261024-203846D
+2026-10-24 20:38:48.343 P00   INFO: diff backup size = 1.6MB, file total = 970
+2026-10-24 20:38:48.343 P00   INFO: backup command end: completed successfully (1392ms)

@@ -26,17 +26,6 @@ func jsonToYAML(w io.Writer, jsonBytes []byte) {
 	enc.Close()
 }
 
-// ExportYAML writes the full analysis results as YAML.
-func ExportYAML(w io.Writer, m analysis.AggregatedMetrics, sections []string, full bool) {
-	data := buildJSONData(m, sections, full)
-	jsonBytes, err := json.Marshal(data)
-	if err != nil {
-		fmt.Fprintf(w, "# ERROR: Failed to marshal data: %v\n", err)
-		return
-	}
-	jsonToYAML(w, jsonBytes)
-}
-
 // ExportSQLPerformanceYAML writes SQL performance metrics as YAML.
 func ExportSQLPerformanceYAML(w io.Writer, m analysis.SQLMetrics) {
 	var buf bytes.Buffer

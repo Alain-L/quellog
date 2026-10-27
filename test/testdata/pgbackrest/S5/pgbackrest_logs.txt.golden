@@ -1,0 +1,20 @@
+quellog dev – 106 entries processed in X s (11.27 KB)
+
+[1mPGBACKREST[0m
+
+  Stanza                    : main
+  pgBackRest version        : 2.59.3
+
+  [1mmain[0m
+    Last full               : 20261010-135941F (repo2)
+    Last diff               : 20261010-135922F_20261010-140428D (repo1)
+    Backups                 : 4 ok, 3 failed
+    Last failure            : diff at 14:04:07
+    WAL archiving           : not logged
+
+  Top errors:
+    [082] WAL not archived in time          2  14:02:44 → 14:04:07
+    [041] backup.info permission denied     1  14:03:06
+
+  [3;38;5;243mDetails: --pgbackrest-detail[=stanza][0m
+

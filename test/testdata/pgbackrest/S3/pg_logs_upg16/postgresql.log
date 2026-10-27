@@ -1,0 +1,26 @@
+2026-10-10 13:34:19.426 UTC [286] LOG:  starting PostgreSQL 16.15 (Debian 16.15-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+2026-10-10 13:34:19.426 UTC [286] LOG:  listening on IPv4 address "0.0.0.0", port 5440
+2026-10-10 13:34:19.426 UTC [286] LOG:  listening on IPv6 address "::", port 5440
+2026-10-10 13:34:19.435 UTC [286] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5440"
+2026-10-10 13:34:19.451 UTC [290] LOG:  database system was shut down at 2026-10-10 13:34:00 UTC
+2026-10-10 13:34:19.461 UTC [286] LOG:  database system is ready to accept connections
+2026-10-10 13:34:22.362 UTC [312] LOG:  restore point "pgBackRest Archive Check" created at 0/191E6C0
+2026-10-10 13:34:22.362 UTC [312] STATEMENT:  select pg_catalog.pg_create_restore_point('pgBackRest Archive Check')::text
+2026-10-10 13:34:22.405 P00   INFO: archive-push command begin 2.59.3: [pg_wal/000000010000000000000001] --exec-id=314-ac909c1a --log-level-console=info --log-level-file=info --pg1-path=/var/lib/pg/upg16 --repo1-path=/var/lib/pgbackrest/repo1 --stanza=upg
+2026-10-10 13:34:22.682 P00   INFO: pushed WAL file '000000010000000000000001' to the archive
+2026-10-10 13:34:22.682 P00   INFO: archive-push command end: completed successfully (281ms)
+2026-10-10 13:34:22.874 UTC [288] LOG:  checkpoint starting: immediate force wait
+2026-10-10 13:34:24.335 UTC [288] LOG:  checkpoint complete: wrote 926 buffers (5.7%); 0 WAL file(s) added, 0 removed, 1 recycled; write=0.022 s, sync=1.327 s, total=1.461 s; sync files=301, longest=0.015 s, average=0.005 s; distance=11320 kB, estimate=11320 kB; lsn=0/2000060, redo lsn=0/2000028
+2026-10-10 13:34:24.336 UTC [319] LOG:  restore point "pgBackRest Archive Check" created at 0/2000140
+2026-10-10 13:34:24.336 UTC [319] STATEMENT:  select pg_catalog.pg_create_restore_point('pgBackRest Archive Check')::text
+2026-10-10 13:34:24.423 P00   INFO: archive-push command begin 2.59.3: [pg_wal/000000010000000000000002] --exec-id=321-375800a1 --log-level-console=info --log-level-file=info --pg1-path=/var/lib/pg/upg16 --repo1-path=/var/lib/pgbackrest/repo1 --stanza=upg
+2026-10-10 13:34:24.501 P00   INFO: pushed WAL file '000000010000000000000002' to the archive
+2026-10-10 13:34:24.501 P00   INFO: archive-push command end: completed successfully (82ms)
+2026-10-10 13:34:36.196 P00   INFO: archive-push command begin 2.59.3: [pg_wal/000000010000000000000002.00000028.backup] --exec-id=324-36118bf5 --log-level-console=info --log-level-file=info --pg1-path=/var/lib/pg/upg16 --repo1-path=/var/lib/pgbackrest/repo1 --stanza=upg
+2026-10-10 13:34:36.224 P00   INFO: pushed WAL file '000000010000000000000002.00000028.backup' to the archive
+2026-10-10 13:34:36.224 P00   INFO: archive-push command end: completed successfully (29ms)
+2026-10-10 13:34:36.234 P00   INFO: archive-push command begin 2.59.3: [pg_wal/000000010000000000000003] --exec-id=326-89b46b97 --log-level-console=info --log-level-file=info --pg1-path=/var/lib/pg/upg16 --repo1-path=/var/lib/pgbackrest/repo1 --stanza=upg
+2026-10-10 13:34:36.311 P00   INFO: pushed WAL file '000000010000000000000003' to the archive
+2026-10-10 13:34:36.311 P00   INFO: archive-push command end: completed successfully (79ms)
+2026-10-10 13:39:22.435 UTC [288] LOG:  checkpoint starting: time
+2026-10-10 13:39:26.712 UTC [288] LOG:  checkpoint complete: wrote 43 buffers (0.3%); 0 WAL file(s) added, 0 removed, 2 recycled; write=4.210 s, sync=0.036 s, total=4.277 s; sync files=11, longest=0.010 s, average=0.004 s; distance=33028 kB, estimate=33028 kB; lsn=0/4041368, redo lsn=0/4041330

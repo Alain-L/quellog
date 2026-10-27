@@ -1,0 +1,8 @@
+-------------------PROCESS START-------------------
+2026-10-10 13:44:07.011 P00   INFO: start command begin 2.59.3: --exec-id=923-a6daa068 --log-level-file=info --stanza=main
+2026-10-10 13:44:07.011 P00   INFO: start command end: completed successfully (1ms)
+
+-------------------PROCESS START-------------------
+2026-10-10 13:44:07.242 P00   INFO: start command begin 2.59.3: --exec-id=927-02f928d0 --log-level-file=info --stanza=main
+2026-10-10 13:44:07.242 P00   WARN: stop file does not exist for stanza main
+2026-10-10 13:44:07.242 P00   INFO: start command end: completed successfully (1ms)

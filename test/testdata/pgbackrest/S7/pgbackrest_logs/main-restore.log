@@ -1,0 +1,53 @@
+-------------------PROCESS START-------------------
+2026-10-24 20:38:54.551 P00   INFO: restore command begin 2.59.3: --exec-id=284-35a2bd00 --log-level-file=info --pg1-path=/var/lib/pg/restore1 --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-24 20:38:54.555 P00   INFO: repo1: restore backup set 20261024-203832F_20261024-203846D, recovery will start at 2026-10-24 20:38:46
+2026-10-24 20:38:54.555 P00   INFO: remap data directory to '/var/lib/pg/restore1'
+2026-10-24 20:38:56.373 P00   INFO: write updated /var/lib/pg/restore1/postgresql.auto.conf
+2026-10-24 20:38:56.376 P00   INFO: restore global/pg_control (performed last to ensure aborted restores cannot be started)
+2026-10-24 20:38:56.376 P00   INFO: restore size = 22.4MB, file total = 970
+2026-10-24 20:38:56.376 P00   INFO: restore command end: completed successfully (1827ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:38:58.885 P00   INFO: restore command begin 2.59.3: --exec-id=339-7382041d --log-level-file=info --pg1-path=/var/lib/pg/restorebad --recovery-option="restore_command=pgbackrest --stanza=main --log-level-file=info archive-get %f "%p"" --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main --target="2026-10-24 20:38:41.568456+00" --target-action=promote --type=time
+2026-10-24 20:38:58.889 P00   INFO: repo1: restore backup set 20261024-203832F, recovery will start at 2026-10-24 20:38:32
+2026-10-24 20:38:58.889 P00   INFO: remap data directory to '/var/lib/pg/restorebad'
+2026-10-24 20:39:00.428 P00   INFO: write updated /var/lib/pg/restorebad/postgresql.auto.conf
+2026-10-24 20:39:00.433 P00   INFO: restore global/pg_control (performed last to ensure aborted restores cannot be started)
+2026-10-24 20:39:00.433 P00   INFO: restore size = 22.1MB, file total = 968
+2026-10-24 20:39:00.433 P00   INFO: restore command end: completed successfully (1549ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:02.612 P00   INFO: restore command begin 2.59.3: --exec-id=376-44ae1e1b --log-level-file=info --pg1-path=/var/lib/pg/restore2 --recovery-option="restore_command=pgbackrest --stanza=main --pg1-path=/var/lib/pg/restore2 --log-level-file=info archive-get %f "%p"" --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main --target="2026-10-24 20:38:41.568456+00" --target-action=promote --type=time
+2026-10-24 20:39:02.616 P00   INFO: repo1: restore backup set 20261024-203832F, recovery will start at 2026-10-24 20:38:32
+2026-10-24 20:39:02.616 P00   INFO: remap data directory to '/var/lib/pg/restore2'
+2026-10-24 20:39:03.941 P00   INFO: write updated /var/lib/pg/restore2/postgresql.auto.conf
+2026-10-24 20:39:03.944 P00   INFO: restore global/pg_control (performed last to ensure aborted restores cannot be started)
+2026-10-24 20:39:03.947 P00   INFO: restore size = 22.1MB, file total = 968
+2026-10-24 20:39:03.947 P00   INFO: restore command end: completed successfully (1337ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:06.450 P00   INFO: restore command begin 2.59.3: --exec-id=435-9cc74e40 --log-level-file=info --pg1-path=/var/lib/pg/standby --recovery-option="restore_command=pgbackrest --stanza=main --pg1-path=/var/lib/pg/standby --log-level-file=info archive-get %f "%p"" --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main --type=standby
+2026-10-24 20:39:06.454 P00   INFO: repo1: restore backup set 20261024-203832F_20261024-203846D, recovery will start at 2026-10-24 20:38:46
+2026-10-24 20:39:06.454 P00   INFO: remap data directory to '/var/lib/pg/standby'
+2026-10-24 20:39:08.448 P00   INFO: write updated /var/lib/pg/standby/postgresql.auto.conf
+2026-10-24 20:39:08.451 P00   INFO: restore global/pg_control (performed last to ensure aborted restores cannot be started)
+2026-10-24 20:39:08.452 P00   INFO: restore size = 22.4MB, file total = 970
+2026-10-24 20:39:08.452 P00   INFO: restore command end: completed successfully (2003ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:40:19.714 P00   INFO: restore command begin 2.59.3: --exec-id=787-641a5f76 --log-level-file=info --pg1-path=/var/lib/pg/restore3 --recovery-option="restore_command=pgbackrest --stanza=main --pg1-path=/var/lib/pg/restore3 --log-level-file=info archive-get %f "%p"" --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main --target="2026-10-24 20:40:14.482043+00" --target-action=promote --type=time
+2026-10-24 20:40:19.720 P00   INFO: repo1: restore backup set 20261024-203832F_20261024-203846D, recovery will start at 2026-10-24 20:38:46
+2026-10-24 20:40:19.720 P00   INFO: remap data directory to '/var/lib/pg/restore3'
+2026-10-24 20:40:21.733 P00   INFO: write updated /var/lib/pg/restore3/postgresql.auto.conf
+2026-10-24 20:40:21.745 P00   INFO: restore global/pg_control (performed last to ensure aborted restores cannot be started)
+2026-10-24 20:40:21.747 P00   INFO: restore size = 22.4MB, file total = 970
+2026-10-24 20:40:21.747 P00   INFO: restore command end: completed successfully (2037ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:40:24.214 P00   INFO: restore command begin 2.59.3: --exec-id=854-e507121b --log-level-file=info --pg1-path=/var/lib/pg/restore4 --recovery-option="restore_command=pgbackrest --stanza=main --pg1-path=/var/lib/pg/restore4 --log-level-file=info archive-get %f "%p"" --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-24 20:40:24.219 P00   INFO: repo1: restore backup set 20261024-203832F_20261024-203846D, recovery will start at 2026-10-24 20:38:46
+2026-10-24 20:40:24.219 P00   INFO: remap data directory to '/var/lib/pg/restore4'
+2026-10-24 20:40:25.956 P00   INFO: write updated /var/lib/pg/restore4/postgresql.auto.conf
+2026-10-24 20:40:25.960 P00   INFO: restore global/pg_control (performed last to ensure aborted restores cannot be started)
+2026-10-24 20:40:25.960 P00   INFO: restore size = 22.4MB, file total = 970
+2026-10-24 20:40:25.960 P00   INFO: restore command end: completed successfully (1748ms)

@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Added
+- **pgBackRest support**: quellog reports on pgBackRest's own log files and on its lines in a PostgreSQL log whose `archive_command`/`restore_command` runs it, from any input quellog reads (plain, compressed, archives, stdin), in text, Markdown, JSON/YAML and HTML. The text and Markdown section is synthetic by default; `--pgbackrest-detail` (every stanza) or `--pgbackrest-detail=<stanza>` gives the detailed view, with one timeline of every dated event. A line read both from its own file and from the PostgreSQL log counts once, whatever the order of the inputs. See `docs/pgbackrest.md`.
+- **Backups and retention**: every backup run with its outcome, size and repository, killed runs named as such, the latest full/diff/incr and its age, expire runs (a manual `expire --set` shown as such), restores with their destination and target.
+- **WAL archiving**: pushes, failures per WAL segment and timeouts, next to PostgreSQL's own `archive_command` failures and the times it gave up; the synchronous command and the async worker are counted apart, and a WAL segment dropped from a full async queue is named. Each stanza shows its last successful push, and each failure stretch whether a later push recovered it or it was still failing at the end of the log.
+- **WAL restored**: the segments `archive-get` handed to recovery, per data directory (a restored instance, a standby), and its outages. A WAL segment or `.history` file that recovery could not get, although its push is in the log, is reported as missing from the repository, and each restore says when its recovery hit such a failure.
+- **HTML section**: a card per stanza (state, age of the last full, activity over the period), per repository and of the backups still present; checks per stanza; operations, errors and warnings, each opening its detail; backup durations and sizes; WAL pushed and, when `archive-get` is logged, WAL restored, each chart with what went wrong listed under it. The demo page has a second example, a pgBackRest lab run (`demo.html?demo=pgbackrest`).
+- **Errors and warnings grouped by code**, named as pgBackRest names them (`103 - RepoInvalidError`), with the cause written under them and the failing repository of a multi-repository error. Each has an `er-`/`wa-` ID that `--event-detail` takes, as PostgreSQL's events do: occurrences over time, commands, and the first occurrence in full.
+- **Counts pgBackRest did not log read "not logged"**, never 0: at the default console level an `archive_command` logs only its errors, and the summary then gives PostgreSQL's failure count. `--begin`/`--end` restrict the pgBackRest report to the window and say so; `--dbname`, `--dbuser`, `--exclude-user`, `--appname` and section options leave it out, and `--split` periods stay PostgreSQL's alone.
+
+### Fixed
+- **Markdown tables were misaligned on non-ASCII text**: column widths counted bytes, so a cell holding an em dash or an accented letter shifted its row. Widths now count characters.
+- **`--event-detail` histogram on short spans**: when the occurrences spanned less than about twelve minutes, every bar had the same label and showed the total count. Labels now show seconds, or milliseconds, when the bars need them.
+
 ## [0.13.0] - 2026-09-24
 
 ### Added

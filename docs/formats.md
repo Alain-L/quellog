@@ -41,6 +41,9 @@ JSON format from `log_destination = 'jsonlog'` (PostgreSQL 15+) or cloud provide
 
 Cloud-specific JSON schemas are automatically detected and parsed.
 
+### pgBackRest
+
+pgBackRest's own log files, and its lines in a PostgreSQL stderr log, are recognized in any of the inputs above and feed a separate report; see [pgBackRest](pgbackrest.md).
 
 ### Cloud Providers
 

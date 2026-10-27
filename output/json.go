@@ -1960,18 +1960,6 @@ type ErrorClassJSON struct {
 	Count       int    `json:"count"`
 }
 
-// ExportJSON brings together all metrics into one composite structure,
-// converts it into an indented JSON string, and outputs the result.
-// Only sections with data are included in the output.
-// When full is true, includes sql_overview and enriched sql_performance sections.
-// When compact is true, outputs JSON without indentation (smaller, lower memory).
-func ExportJSON(w io.Writer, m analysis.AggregatedMetrics, sections []string, full bool, compact bool) {
-	data := buildJSONData(m, sections, full)
-	if err := encodeMapStreaming(w, data, compact); err != nil {
-		fmt.Fprintf(w, "[ERROR] Failed to export JSON: %v\n", err)
-	}
-}
-
 // encodeMapStreaming writes a map[string]interface{} as a JSON object
 // **section by section** to w, instead of letting json.Encoder buffer
 // the entire output internally before flushing. The encoder's hidden
@@ -2063,7 +2051,7 @@ type sectionStreamer interface {
 // ExportJSONString returns the JSON export as a string instead of printing.
 // This is useful for WASM and other contexts where stdout is not available.
 func ExportJSONString(m analysis.AggregatedMetrics, sections []string) (string, error) {
-	return ExportJSONStringWithMeta(m, sections, false, nil, false)
+	return ExportJSONStringWithMeta(m, nil, sections, false, nil, false)
 }
 
 // MetaInfo contains optional metadata about the parsing process.
@@ -2075,16 +2063,20 @@ type MetaInfo struct {
 	ProcessingMs int64  `json:"processing_ms,omitempty"`
 }
 
-// ExportJSONStringWithMeta returns the JSON export with optional metadata.
+// ExportJSONStringWithMeta returns the JSON export with optional metadata,
+// and the "pgbackrest" key when pbr is non-empty.
 // Uses streaming encoder to avoid triple buffering (map + []byte + string).
 // When compact is true, outputs JSON without indentation (smaller, lower memory).
-func ExportJSONStringWithMeta(m analysis.AggregatedMetrics, sections []string, full bool, meta *MetaInfo, compact bool) (string, error) {
+func ExportJSONStringWithMeta(m analysis.AggregatedMetrics, pbr []analysis.PgBackRestMetrics, sections []string, full bool, meta *MetaInfo, compact bool) (string, error) {
 	data := buildJSONData(m, sections, full)
 	if meta != nil {
 		data["meta"] = meta
 	}
+	if len(pbr) > 0 {
+		data["pgbackrest"] = pgBackRestJSONList(pbr)
+	}
 
-	// Section-by-section streaming into a buffer (same path as ExportJSON).
+	// Section-by-section streaming into a buffer (same path as ExportJSONWithPgBackRest).
 	var buf bytes.Buffer
 	if err := encodeMapStreaming(&buf, data, compact); err != nil {
 		return "", err
@@ -2093,7 +2085,8 @@ func ExportJSONStringWithMeta(m analysis.AggregatedMetrics, sections []string, f
 }
 
 // buildJSONData constructs the JSON data structure from metrics.
-// This is the shared implementation used by both ExportJSON and ExportJSONString.
+// This is the shared implementation used by ExportJSONStringWithMeta,
+// ExportJSONWithPgBackRest and the HTML report's own JSON payload.
 // When full is true, sql_overview and enriched sql_performance are added at the end.
 func buildJSONData(m analysis.AggregatedMetrics, sections []string, full bool) map[string]interface{} {
 	data := make(map[string]interface{})

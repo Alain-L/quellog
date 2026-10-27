@@ -1,0 +1,59 @@
+-------------------PROCESS START-------------------
+2026-10-10 13:41:47.220 P00   INFO: backup command begin 2.59.3: --exec-id=756-8abc3810 --log-level-file=info --pg1-path=/var/lib/pg/tl --pg1-port=5442 --repo1-path=/var/lib/pgbackrest/repo1 --stanza=tl --start-fast --type=full
+2026-10-10 13:41:47.220 P00   WARN: option 'repo1-retention-full' is not set for 'repo1-retention-full-type=count', the repository may run out of space
+                                    HINT: to retain full backups indefinitely (without warning), set option 'repo1-retention-full' to the maximum.
+2026-10-10 13:41:47.226 P00   INFO: execute backup start: backup begins after the requested immediate checkpoint completes
+2026-10-10 13:41:48.924 P00   INFO: backup start archive = 000000010000000000000004, lsn = 0/4000028
+2026-10-10 13:41:48.924 P00   INFO: check archive for segment 000000010000000000000004
+2026-10-10 13:42:06.901 P00   INFO: execute backup stop and wait for all WAL segments to archive
+2026-10-10 13:42:07.324 P00   INFO: backup stop archive = 000000010000000000000005, lsn = 0/5000088
+2026-10-10 13:42:07.346 P00   INFO: check archive for segment(s) 000000010000000000000004:000000010000000000000005
+2026-10-10 13:42:07.477 P00   INFO: new backup label = 20261010-134147F
+2026-10-10 13:42:07.701 P00   INFO: full backup size = 59.4MB, file total = 1278
+2026-10-10 13:42:07.701 P00   INFO: backup command end: completed successfully (20483ms)
+
+-------------------PROCESS START-------------------
+2026-10-10 13:42:55.758 P00   INFO: backup command begin 2.59.3: --exec-id=852-04139004 --log-level-file=info --pg1-path=/var/lib/pg/tl_promoted --pg1-port=5443 --repo1-path=/var/lib/pgbackrest/repo1 --stanza=tl --start-fast --type=full
+2026-10-10 13:42:55.758 P00   WARN: option 'repo1-retention-full' is not set for 'repo1-retention-full-type=count', the repository may run out of space
+                                    HINT: to retain full backups indefinitely (without warning), set option 'repo1-retention-full' to the maximum.
+2026-10-10 13:42:55.773 P00   INFO: execute backup start: backup begins after the requested immediate checkpoint completes
+2026-10-10 13:42:55.886 P00   INFO: backup start archive = 000000020000000000000007, lsn = 0/7000028
+2026-10-10 13:42:55.886 P00   INFO: check archive for prior segment 000000020000000000000006
+2026-10-10 13:43:05.872 P00   INFO: execute backup stop and wait for all WAL segments to archive
+2026-10-10 13:43:06.054 P00   INFO: backup stop archive = 000000020000000000000007, lsn = 0/7000120
+2026-10-10 13:43:06.070 P00   INFO: check archive for segment(s) 000000020000000000000007:000000020000000000000007
+2026-10-10 13:43:06.189 P00   INFO: new backup label = 20261010-134255F
+2026-10-10 13:43:06.325 P00   INFO: full backup size = 59.4MB, file total = 1278
+2026-10-10 13:43:06.325 P00   INFO: backup command end: completed successfully (10568ms)
+
+-------------------PROCESS START-------------------
+2026-10-10 13:43:16.848 P00   INFO: backup command begin 2.59.3: --exec-id=867-f6711137 --log-level-file=info --pg1-path=/var/lib/pg/tl_promoted --pg1-port=5443 --repo1-path=/var/lib/pgbackrest/repo1 --stanza=tl --start-fast --type=diff
+2026-10-10 13:43:16.848 P00   WARN: option 'repo1-retention-full' is not set for 'repo1-retention-full-type=count', the repository may run out of space
+                                    HINT: to retain full backups indefinitely (without warning), set option 'repo1-retention-full' to the maximum.
+2026-10-10 13:43:16.868 P00   INFO: last backup label = 20261010-134255F, version = 2.59.3
+2026-10-10 13:43:16.868 P00   INFO: execute backup start: backup begins after the requested immediate checkpoint completes
+2026-10-10 13:43:17.078 P00   INFO: backup start archive = 000000020000000000000009, lsn = 0/9000028
+2026-10-10 13:43:17.078 P00   INFO: check archive for prior segment 000000020000000000000008
+2026-10-10 13:43:18.139 P00   INFO: execute backup stop and wait for all WAL segments to archive
+2026-10-10 13:43:18.211 P00   INFO: backup stop archive = 000000020000000000000009, lsn = 0/9000120
+2026-10-10 13:43:18.221 P00   INFO: check archive for segment(s) 000000020000000000000009:000000020000000000000009
+2026-10-10 13:43:18.338 P00   INFO: new backup label = 20261010-134255F_20261010-134316D
+2026-10-10 13:43:18.445 P00   INFO: diff backup size = 8.3KB, file total = 1278
+2026-10-10 13:43:18.445 P00   INFO: backup command end: completed successfully (1600ms)
+
+-------------------PROCESS START-------------------
+2026-10-10 13:43:52.743 P00   INFO: backup command begin 2.59.3: --exec-id=896-698e35fe --log-level-file=info --pg1-path=/var/lib/pg/tl_promoted --pg1-port=5443 --repo1-path=/var/lib/pgbackrest/repo1 --stanza=tl --start-fast --type=diff
+2026-10-10 13:43:52.743 P00   WARN: option 'repo1-retention-full' is not set for 'repo1-retention-full-type=count', the repository may run out of space
+                                    HINT: to retain full backups indefinitely (without warning), set option 'repo1-retention-full' to the maximum.
+2026-10-10 13:43:52.768 P00   INFO: last backup label = 20261010-134147F, version = 2.59.3
+2026-10-10 13:43:52.768 P00   INFO: execute backup start: backup begins after the requested immediate checkpoint completes
+2026-10-10 13:43:52.880 P00   INFO: backup start archive = 00000002000000000000000B, lsn = 0/B000028
+2026-10-10 13:43:52.880 P00   INFO: check archive for prior segment 00000002000000000000000A
+2026-10-10 13:43:53.001 P00   WARN: a timeline switch has occurred since the 20261010-134147F backup, enabling delta checksum
+                                    HINT: this is normal after restoring from backup or promoting a standby.
+2026-10-10 13:43:53.236 P00   INFO: execute backup stop and wait for all WAL segments to archive
+2026-10-10 13:43:53.311 P00   INFO: backup stop archive = 00000002000000000000000B, lsn = 0/B000158
+2026-10-10 13:43:53.321 P00   INFO: check archive for segment(s) 00000002000000000000000B:00000002000000000000000B
+2026-10-10 13:43:53.442 P00   INFO: new backup label = 20261010-134147F_20261010-134352D
+2026-10-10 13:43:53.554 P00   INFO: diff backup size = 39.4KB, file total = 1278
+2026-10-10 13:43:53.555 P00   INFO: backup command end: completed successfully (815ms)

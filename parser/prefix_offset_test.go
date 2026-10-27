@@ -160,3 +160,34 @@ func TestStripLeadingPrefixDisabled(t *testing.T) {
 		t.Errorf("stripLeadingPrefix with prefixLen=0 = %q, want unchanged", got)
 	}
 }
+
+// TestParsePrefixedWithPgBackRestLog: a prefixed PostgreSQL log that also
+// holds a pgBackRest log (banner included) keeps its prefix, so its
+// PostgreSQL entries survive, and the pgBackRest lines are still carved.
+func TestParsePrefixedWithPgBackRestLog(t *testing.T) {
+	pgbr := "-------------------PROCESS START-------------------\n" +
+		"2026-01-12 00:49:00.100 P00   INFO: stanza-create command begin 2.59.3: --stanza=main\n" +
+		"2026-01-12 00:49:00.200 P00   INFO: stanza-create command end: completed successfully\n"
+	data := pgbr + withLinePrefix(prefixOffsetBody, "pg-1 | ")
+	for _, sample := range []string{data, withLinePrefix(prefixOffsetBody, "pg-1 | ") + pgbr} {
+		if p, ok := detectByExtension("pg.log", "log", sample).(*StderrParser); !ok || p.prefixLen != 7 {
+			t.Errorf(".log: got %#v, want a stderr parser with prefixLen 7", detectByExtension("pg.log", "log", sample))
+		}
+		if p, ok := detectByContent("pg.out", sample).(*StderrParser); !ok || p.prefixLen != 7 {
+			t.Errorf("unknown extension: got %#v, want a stderr parser with prefixLen 7", detectByContent("pg.out", sample))
+		}
+	}
+	path := write(t, "prefixed.log", []byte(data))
+	if got := count(t, path); got != 5 {
+		t.Errorf("PostgreSQL entries = %d, want 5", got)
+	}
+	carved := 0
+	for _, e := range collectEntries(t, func(out chan<- []LogEntry) error { return ParseFile(path, out) }) {
+		if e.FromPgBackRest {
+			carved++
+		}
+	}
+	if carved != 3 {
+		t.Errorf("pgBackRest entries = %d, want 3 (banner and two headers)", carved)
+	}
+}

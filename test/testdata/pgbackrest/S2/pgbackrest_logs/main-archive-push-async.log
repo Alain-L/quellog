@@ -1,0 +1,93 @@
+-------------------PROCESS START-------------------
+2026-10-10 13:35:24.032 P00   INFO: archive-push:async command begin 2.59.3: [/var/lib/pg/main/pg_wal] --archive-async --archive-push-queue-max=16384 --exec-id=349-cce42eba --log-level-console=off --log-level-file=info --log-level-stderr=off --pg1-path=/var/lib/pg/main --repo1-path=/var/lib/pgbackrest/repo1 --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-10 13:35:24.033 P00   INFO: push 1 WAL file(s) to archive: 000000010000000000000013
+2026-10-10 13:35:24.065 P00   WARN: dropped WAL file '000000010000000000000013' because archive queue exceeded 16KB
+2026-10-10 13:35:24.067 P00   INFO: archive-push:async command end: completed successfully (35ms)
+
+-------------------PROCESS START-------------------
+2026-10-10 13:37:13.534 P00   INFO: archive-push:async command begin 2.59.3: [/var/lib/pg/main/pg_wal] --archive-async --archive-push-queue-max=1GB --exec-id=412-43ac5078 --log-level-console=off --log-level-file=info --log-level-stderr=off --pg1-path=/var/lib/pg/main --repo1-path=/var/lib/pgbackrest/repo1 --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-10 13:37:13.534 P00   INFO: push 1 WAL file(s) to archive: 000000010000000000000014
+2026-10-10 13:37:13.739 P00   INFO: archive-push:async command end: completed successfully (206ms)
+
+-------------------PROCESS START-------------------
+2026-10-10 13:37:19.061 P00   INFO: archive-push:async command begin 2.59.3: [/var/lib/pg/main/pg_wal] --archive-async --archive-push-queue-max=1GB --exec-id=424-17aff0cf --log-level-console=off --log-level-file=info --log-level-stderr=off --pg1-path=/var/lib/pg/main --repo1-path=/var/lib/pgbackrest/repo1 --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-10 13:37:19.061 P00   INFO: push 1 WAL file(s) to archive: 000000010000000000000015
+2026-10-10 13:37:19.077 P00  ERROR: [103]: unable to find a valid repository:
+                                    repo1: [FileOpenError] unable to load info file '/var/lib/pgbackrest/repo1/archive/main/archive.info' or '/var/lib/pgbackrest/repo1/archive/main/archive.info.copy':
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/repo1/archive/main/archive.info' for read: [13] Permission denied
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/repo1/archive/main/archive.info.copy' for read: [13] Permission denied
+                                    HINT: archive.info cannot be opened but is required to push/get WAL segments.
+                                    HINT: is archive_command configured correctly in postgresql.conf?
+                                    HINT: has a stanza-create been performed?
+                                    HINT: use --no-archive-check to disable archive checks during backup if you have an alternate archiving scheme.
+2026-10-10 13:37:19.077 P00   INFO: archive-push:async command end: aborted with exception [103]
+
+-------------------PROCESS START-------------------
+2026-10-10 13:37:20.183 P00   INFO: archive-push:async command begin 2.59.3: [/var/lib/pg/main/pg_wal] --archive-async --archive-push-queue-max=1GB --exec-id=428-c7958ff7 --log-level-console=off --log-level-file=info --log-level-stderr=off --pg1-path=/var/lib/pg/main --repo1-path=/var/lib/pgbackrest/repo1 --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-10 13:37:20.183 P00   INFO: push 1 WAL file(s) to archive: 000000010000000000000015
+2026-10-10 13:37:20.197 P00  ERROR: [103]: unable to find a valid repository:
+                                    repo1: [FileOpenError] unable to load info file '/var/lib/pgbackrest/repo1/archive/main/archive.info' or '/var/lib/pgbackrest/repo1/archive/main/archive.info.copy':
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/repo1/archive/main/archive.info' for read: [13] Permission denied
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/repo1/archive/main/archive.info.copy' for read: [13] Permission denied
+                                    HINT: archive.info cannot be opened but is required to push/get WAL segments.
+                                    HINT: is archive_command configured correctly in postgresql.conf?
+                                    HINT: has a stanza-create been performed?
+                                    HINT: use --no-archive-check to disable archive checks during backup if you have an alternate archiving scheme.
+2026-10-10 13:37:20.197 P00   INFO: archive-push:async command end: aborted with exception [103]
+
+-------------------PROCESS START-------------------
+2026-10-10 13:37:21.306 P00   INFO: archive-push:async command begin 2.59.3: [/var/lib/pg/main/pg_wal] --archive-async --archive-push-queue-max=1GB --exec-id=433-12260f0c --log-level-console=off --log-level-file=info --log-level-stderr=off --pg1-path=/var/lib/pg/main --repo1-path=/var/lib/pgbackrest/repo1 --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-10 13:37:21.306 P00   INFO: push 1 WAL file(s) to archive: 000000010000000000000015
+2026-10-10 13:37:21.331 P00  ERROR: [103]: unable to find a valid repository:
+                                    repo1: [FileOpenError] unable to load info file '/var/lib/pgbackrest/repo1/archive/main/archive.info' or '/var/lib/pgbackrest/repo1/archive/main/archive.info.copy':
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/repo1/archive/main/archive.info' for read: [13] Permission denied
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/repo1/archive/main/archive.info.copy' for read: [13] Permission denied
+                                    HINT: archive.info cannot be opened but is required to push/get WAL segments.
+                                    HINT: is archive_command configured correctly in postgresql.conf?
+                                    HINT: has a stanza-create been performed?
+                                    HINT: use --no-archive-check to disable archive checks during backup if you have an alternate archiving scheme.
+2026-10-10 13:37:21.331 P00   INFO: archive-push:async command end: aborted with exception [103]
+
+-------------------PROCESS START-------------------
+2026-10-10 13:37:27.342 P00   INFO: archive-push:async command begin 2.59.3: [/var/lib/pg/main/pg_wal] --archive-async --archive-push-queue-max=1GB --exec-id=441-49ef2d49 --log-level-console=off --log-level-file=info --log-level-stderr=off --pg1-path=/var/lib/pg/main --repo1-path=/var/lib/pgbackrest/repo1 --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-10 13:37:27.342 P00   INFO: push 2 WAL file(s) to archive: 000000010000000000000015...000000010000000000000016
+2026-10-10 13:37:27.358 P00  ERROR: [103]: unable to find a valid repository:
+                                    repo1: [FileOpenError] unable to load info file '/var/lib/pgbackrest/repo1/archive/main/archive.info' or '/var/lib/pgbackrest/repo1/archive/main/archive.info.copy':
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/repo1/archive/main/archive.info' for read: [13] Permission denied
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/repo1/archive/main/archive.info.copy' for read: [13] Permission denied
+                                    HINT: archive.info cannot be opened but is required to push/get WAL segments.
+                                    HINT: is archive_command configured correctly in postgresql.conf?
+                                    HINT: has a stanza-create been performed?
+                                    HINT: use --no-archive-check to disable archive checks during backup if you have an alternate archiving scheme.
+2026-10-10 13:37:27.358 P00   INFO: archive-push:async command end: aborted with exception [103]
+
+-------------------PROCESS START-------------------
+2026-10-10 13:37:28.471 P00   INFO: archive-push:async command begin 2.59.3: [/var/lib/pg/main/pg_wal] --archive-async --archive-push-queue-max=1GB --exec-id=445-cf0a8508 --log-level-console=off --log-level-file=info --log-level-stderr=off --pg1-path=/var/lib/pg/main --repo1-path=/var/lib/pgbackrest/repo1 --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-10 13:37:28.471 P00   INFO: push 2 WAL file(s) to archive: 000000010000000000000015...000000010000000000000016
+2026-10-10 13:37:28.493 P00  ERROR: [103]: unable to find a valid repository:
+                                    repo1: [FileOpenError] unable to load info file '/var/lib/pgbackrest/repo1/archive/main/archive.info' or '/var/lib/pgbackrest/repo1/archive/main/archive.info.copy':
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/repo1/archive/main/archive.info' for read: [13] Permission denied
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/repo1/archive/main/archive.info.copy' for read: [13] Permission denied
+                                    HINT: archive.info cannot be opened but is required to push/get WAL segments.
+                                    HINT: is archive_command configured correctly in postgresql.conf?
+                                    HINT: has a stanza-create been performed?
+                                    HINT: use --no-archive-check to disable archive checks during backup if you have an alternate archiving scheme.
+2026-10-10 13:37:28.493 P00   INFO: archive-push:async command end: aborted with exception [103]
+
+-------------------PROCESS START-------------------
+2026-10-10 13:37:29.585 P00   INFO: archive-push:async command begin 2.59.3: [/var/lib/pg/main/pg_wal] --archive-async --archive-push-queue-max=1GB --exec-id=449-a552ad96 --log-level-console=off --log-level-file=info --log-level-stderr=off --pg1-path=/var/lib/pg/main --repo1-path=/var/lib/pgbackrest/repo1 --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-10 13:37:29.585 P00   INFO: push 2 WAL file(s) to archive: 000000010000000000000015...000000010000000000000016
+2026-10-10 13:37:29.599 P00  ERROR: [103]: unable to find a valid repository:
+                                    repo1: [FileOpenError] unable to load info file '/var/lib/pgbackrest/repo1/archive/main/archive.info' or '/var/lib/pgbackrest/repo1/archive/main/archive.info.copy':
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/repo1/archive/main/archive.info' for read: [13] Permission denied
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/repo1/archive/main/archive.info.copy' for read: [13] Permission denied
+                                    HINT: archive.info cannot be opened but is required to push/get WAL segments.
+                                    HINT: is archive_command configured correctly in postgresql.conf?
+                                    HINT: has a stanza-create been performed?
+                                    HINT: use --no-archive-check to disable archive checks during backup if you have an alternate archiving scheme.
+2026-10-10 13:37:29.599 P00   INFO: archive-push:async command end: aborted with exception [103]
+
+-------------------PROCESS START-------------------
+2026-10-10 13:37:50.792 P00   INFO: archive-push:async command begin 2.59.3: [/var/lib/pg/main/pg_wal] --archive-async --archive-push-queue-max=1GB --exec-id=461-1621fdb1 --log-level-console=off --log-level-file=info --log-level-stderr=off --pg1-path=/var/lib/pg/main --repo1-path=/var/lib/pgbackrest/repo1 --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-10 13:37:50.792 P00   INFO: push 3 WAL file(s) to archive: 000000010000000000000015...000000010000000000000017
+2026-10-10 13:37:51.133 P00   INFO: archive-push:async command end: completed successfully (341ms)

@@ -1,0 +1,33 @@
+-------------------PROCESS START-------------------
+2026-10-10 13:05:38.347 P00   INFO: expire command begin 2.59.3: --exec-id=435-71aab1b2 --log-level-file=info --repo1-path=/var/lib/pgbackrest/repo1 --stanza=main
+2026-10-10 13:05:38.348 P00   INFO: option 'repo1-retention-archive' is not set - archive logs will not be expired
+2026-10-10 13:05:38.348 P00   INFO: expire command end: completed successfully (1ms)
+
+-------------------PROCESS START-------------------
+2026-10-10 13:08:28.696 P00   INFO: expire command begin 2.59.3: --exec-id=551-b4689c1c --log-level-file=info --repo1-path=/var/lib/pgbackrest/repo1 --stanza=main
+2026-10-10 13:08:28.697 P00   INFO: option 'repo1-retention-archive' is not set - archive logs will not be expired
+2026-10-10 13:08:28.697 P00   INFO: expire command end: completed successfully (1ms)
+
+-------------------PROCESS START-------------------
+2026-10-10 13:08:30.458 P00   INFO: expire command begin 2.59.3: --exec-id=564-94026786 --log-level-file=info --repo1-path=/var/lib/pgbackrest/repo1 --stanza=main
+2026-10-10 13:08:30.459 P00   INFO: option 'repo1-retention-archive' is not set - archive logs will not be expired
+2026-10-10 13:08:30.459 P00   INFO: expire command end: completed successfully (1ms)
+
+-------------------PROCESS START-------------------
+2026-10-10 13:10:40.002 P00   INFO: expire command begin 2.59.3: --exec-id=608-a3da2bf3 --log-level-file=info --repo1-path=/var/lib/pgbackrest/repo1 --stanza=main
+2026-10-10 13:10:40.003 P00   INFO: option 'repo1-retention-archive' is not set - archive logs will not be expired
+2026-10-10 13:10:40.003 P00   INFO: expire command end: completed successfully (1ms)
+
+-------------------PROCESS START-------------------
+2026-10-10 13:11:03.155 P00   INFO: expire command begin 2.59.3: --exec-id=629-e0c227b4 --log-level-file=info --repo1-path=/var/lib/pgbackrest/repo1 --stanza=main
+2026-10-10 13:11:03.156 P00   INFO: option 'repo1-retention-archive' is not set - archive logs will not be expired
+2026-10-10 13:11:03.156 P00   INFO: expire command end: completed successfully (1ms)
+
+-------------------PROCESS START-------------------
+2026-10-10 13:11:20.539 P00   INFO: expire command begin 2.59.3: --exec-id=658-ae65a961 --log-level-file=info --repo1-path=/var/lib/pgbackrest/repo1 --repo1-retention-full=2 --stanza=main
+2026-10-10 13:11:20.539 P00   INFO: repo1: expire full backup set 20261010-130516F, 20261010-130516F_20261010-130825D, 20261010-130516F_20261010-130828I
+2026-10-10 13:11:20.616 P00   INFO: repo1: remove expired backup 20261010-130516F_20261010-130828I
+2026-10-10 13:11:20.616 P00   INFO: repo1: remove expired backup 20261010-130516F_20261010-130825D
+2026-10-10 13:11:20.619 P00   INFO: repo1: remove expired backup 20261010-130516F
+2026-10-10 13:11:20.645 P00   INFO: repo1: 16-1 remove archive, start = 000000010000000000000013, stop = 000000010000000000000020
+2026-10-10 13:11:20.645 P00   INFO: expire command end: completed successfully (108ms)

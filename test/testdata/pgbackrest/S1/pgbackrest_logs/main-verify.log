@@ -1,0 +1,3 @@
+-------------------PROCESS START-------------------
+2026-10-10 13:11:32.630 P00   INFO: verify command begin 2.59.3: --exec-id=672-247bb8c7 --log-level-file=info --repo1-path=/var/lib/pgbackrest/repo1 --stanza=main
+2026-10-10 13:11:32.939 P00   INFO: verify command end: completed successfully (311ms)

@@ -1,0 +1,4 @@
+-------------------PROCESS START-------------------
+2026-10-10 13:08:36.529 P00   INFO: stanza-create command begin 2.59.3: --exec-id=579-e488bd13 --log-level-file=info --pg1-path=/var/lib/pg/main --pg1-port=5432 --repo1-path=/var/lib/pgbackrest/repo1 --stanza=main2
+2026-10-10 13:08:36.541 P00   INFO: stanza-create for stanza 'main2' on repo1
+2026-10-10 13:08:36.582 P00   INFO: stanza-create command end: completed successfully (56ms)

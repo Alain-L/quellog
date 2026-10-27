@@ -97,6 +97,17 @@ func parseAndAnalyze(data []byte, filters parser.LogFilters) string {
 	}
 
 	ctx := context.Background()
+
+	// The data may be one file or the members of a dropped archive joined
+	// together: the stderr parser carves the pgBackRest lines out of it,
+	// as on the CLI, and the observer analyzes them. pgBackRest has no
+	// database, user or application: an attribute filter leaves it out.
+	var pgbr *analysis.PgBackRestAnalyzer
+	if analysis.PgBackRestInScope(filters, []string{"all"}) {
+		pgbr = analysis.NewPgBackRestAnalyzer()
+		pgbr.SetTimeWindow(time.Time(filters.BeginT), time.Time(filters.EndT))
+	}
+
 	rawChan := make(chan []parser.LogEntry, 64)
 	var parseErr error
 	go func() {
@@ -113,11 +124,19 @@ func parseAndAnalyze(data []byte, filters parser.LogFilters) string {
 		analyzeIn = filteredChan
 	}
 
-	metrics := analysis.AggregateMetrics(ctx, analyzeIn)
+	metrics := analysis.AggregateMetricsObserved(ctx, analyzeIn, 1, pgbr)
 	if parseErr != nil {
 		return `{"error": "Parse error: ` + parseErr.Error() + `"}`
 	}
 	analysis.CollectQueriesWithoutDuration(&metrics.SQL, &metrics.Locks, &metrics.TempFiles)
+
+	var pbr []analysis.PgBackRestMetrics
+	if pgbr != nil {
+		pbr = pgbr.Finalize()
+	}
+	if metrics.Global.Count == 0 && len(pbr) > 0 {
+		return pgBackRestOnlyJSON(pbr, format, len(data), t0)
+	}
 
 	processingMs := time.Since(t0).Milliseconds()
 	meta := &output.MetaInfo{
@@ -126,7 +145,23 @@ func parseAndAnalyze(data []byte, filters parser.LogFilters) string {
 		Bytes:     int64(len(data)),
 		ParseTime: output.FormatDurationMs(processingMs),
 	}
-	jsonStr, err := output.ExportJSONStringWithMeta(metrics, []string{"all"}, true, meta, true)
+	jsonStr, err := output.ExportJSONStringWithMeta(metrics, pbr, []string{"all"}, true, meta, true)
+	if err != nil {
+		return `{"error": "JSON export error: ` + err.Error() + `"}`
+	}
+	return jsonStr
+}
+
+// pgBackRestOnlyJSON returns the browser demo's pgBackRest-only report,
+// for data that held no PostgreSQL entry.
+func pgBackRestOnlyJSON(pbr []analysis.PgBackRestMetrics, format string, size int, t0 time.Time) string {
+	meta := &output.MetaInfo{
+		Format:    format,
+		Entries:   analysis.PgBackRestLinesRead(pbr),
+		Bytes:     int64(size),
+		ParseTime: output.FormatDurationMs(time.Since(t0).Milliseconds()),
+	}
+	jsonStr, err := output.ExportPgBackRestOnlyJSONStringWithMeta(pbr, meta)
 	if err != nil {
 		return `{"error": "JSON export error: ` + err.Error() + `"}`
 	}

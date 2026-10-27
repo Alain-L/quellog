@@ -799,6 +799,11 @@ export function applyReportTimeFilter(beginStr, endStr) {
         sql_dimensions: !!(filtered.sql_overview && (
             filtered.sql_overview.by_database || filtered.sql_overview.by_user ||
             filtered.sql_overview.by_host || filtered.sql_overview.by_app)),
+        // pgBackRest's own figures (backups, archive stats, retention) are
+        // not re-scoped by this filter at all yet (see
+        // docs/web-data-contract.md) — every pgBackRest section stays
+        // whole-log under a time filter, like the sections above.
+        pgbackrest: !!filtered.pgbackrest,
     };
 
     return filtered;

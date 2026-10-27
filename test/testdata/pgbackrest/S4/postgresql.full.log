@@ -1,0 +1,185 @@
+2026-10-10 13:54:49.341 UTC [38] LOG:  starting PostgreSQL 17.11 (Debian 17.11-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+2026-10-10 13:54:49.341 UTC [38] LOG:  listening on IPv4 address "0.0.0.0", port 5432
+2026-10-10 13:54:49.341 UTC [38] LOG:  listening on IPv6 address "::", port 5432
+2026-10-10 13:54:49.355 UTC [38] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+2026-10-10 13:54:49.368 UTC [42] LOG:  database system was shut down at 2026-10-10 13:54:44 UTC
+2026-10-10 13:54:49.379 UTC [38] LOG:  database system is ready to accept connections
+2026-10-10 13:54:52.469 UTC [64] LOG:  restore point "pgBackRest Archive Check" created at 0/1916F58
+2026-10-10 13:54:52.469 UTC [64] STATEMENT:  select pg_catalog.pg_create_restore_point('pgBackRest Archive Check')::text
+2026-10-10 13:54:52.605 P00   INFO: archive-push command begin 2.59.3: [pg_wal/000000010000000000000001] --exec-id=66-75b2d3f3 --log-level-console=info --log-level-file=info --pg1-path=/var/lib/pg/main --repo1-path=/var/lib/pgbackrest/repo1 --stanza=main
+2026-10-10 13:54:52.929 P00   INFO: pushed WAL file '000000010000000000000001' to the archive
+2026-10-10 13:54:52.929 P00   INFO: archive-push command end: completed successfully (328ms)
+2026-10-10 13:55:19.829 UTC [40] LOG:  checkpoint starting: immediate force wait
+2026-10-10 13:55:19.841 P00   INFO: archive-push command begin 2.59.3: [pg_wal/000000010000000000000002] --exec-id=85-23402f80 --log-level-console=info --log-level-file=info --pg1-path=/var/lib/pg/main --repo1-path=/var/lib/pgbackrest/repo1 --stanza=main
+2026-10-10 13:55:19.985 P00   INFO: pushed WAL file '000000010000000000000002' to the archive
+2026-10-10 13:55:19.985 P00   INFO: archive-push command end: completed successfully (148ms)
+2026-10-10 13:55:20.920 UTC [40] LOG:  checkpoint complete: wrote 925 buffers (5.6%); 0 WAL file(s) added, 0 removed, 2 recycled; write=0.023 s, sync=0.971 s, total=1.092 s; sync files=301, longest=0.010 s, average=0.004 s; distance=27716 kB, estimate=27716 kB; lsn=0/30000B8, redo lsn=0/3000060
+2026-10-10 13:55:31.239 P00   INFO: archive-push command begin 2.59.3: [pg_wal/000000010000000000000003] --exec-id=88-ad95f23f --log-level-console=info --log-level-file=info --pg1-path=/var/lib/pg/main --repo1-path=/var/lib/pgbackrest/repo1 --stanza=main
+2026-10-10 13:55:31.322 P00   INFO: pushed WAL file '000000010000000000000003' to the archive
+2026-10-10 13:55:31.322 P00   INFO: archive-push command end: completed successfully (84ms)
+2026-10-10 13:55:31.328 P00   INFO: archive-push command begin 2.59.3: [pg_wal/000000010000000000000003.00000060.backup] --exec-id=90-59bca41d --log-level-console=info --log-level-file=info --pg1-path=/var/lib/pg/main --repo1-path=/var/lib/pgbackrest/repo1 --stanza=main
+2026-10-10 13:55:31.342 P00   INFO: pushed WAL file '000000010000000000000003.00000060.backup' to the archive
+2026-10-10 13:55:31.342 P00   INFO: archive-push command end: completed successfully (16ms)
+2026-10-10 13:55:32.256 UTC [40] LOG:  checkpoint starting: immediate force wait
+2026-10-10 13:55:32.307 UTC [40] LOG:  checkpoint complete: wrote 1 buffers (0.0%); 0 WAL file(s) added, 0 removed, 1 recycled; write=0.001 s, sync=0.009 s, total=0.051 s; sync files=1, longest=0.009 s, average=0.009 s; distance=16383 kB, estimate=26583 kB; lsn=0/4000080, redo lsn=0/4000028
+2026-10-10 13:55:32.308 UTC [98] LOG:  restore point "pgBackRest Archive Check" created at 0/4000160
+2026-10-10 13:55:32.308 UTC [98] STATEMENT:  select pg_catalog.pg_create_restore_point('pgBackRest Archive Check')::text
+2026-10-10 13:55:32.667 P00   INFO: archive-push command begin 2.59.3: [pg_wal/000000010000000000000004] --exec-id=100-01c9737d --log-level-console=info --log-level-file=info --pg1-path=/var/lib/pg/main --repo1-path=/var/lib/pgbackrest/repo1 --stanza=main
+2026-10-10 13:55:32.748 P00   INFO: pushed WAL file '000000010000000000000004' to the archive
+2026-10-10 13:55:32.748 P00   INFO: archive-push command end: completed successfully (82ms)
+2026-10-10 13:55:33.485 P00   INFO: archive-push command begin 2.59.3: [pg_wal/000000010000000000000004.00000028.backup] --exec-id=103-c97a9143 --log-level-console=info --log-level-file=info --pg1-path=/var/lib/pg/main --repo1-path=/var/lib/pgbackrest/repo1 --stanza=main
+2026-10-10 13:55:33.526 P00   INFO: pushed WAL file '000000010000000000000004.00000028.backup' to the archive
+2026-10-10 13:55:33.526 P00   INFO: archive-push command end: completed successfully (42ms)
+2026-10-10 13:55:33.539 P00   INFO: archive-push command begin 2.59.3: [pg_wal/000000010000000000000005] --exec-id=105-fe7d4fe4 --log-level-console=info --log-level-file=info --pg1-path=/var/lib/pg/main --repo1-path=/var/lib/pgbackrest/repo1 --stanza=main
+2026-10-10 13:55:33.621 P00   INFO: pushed WAL file '000000010000000000000005' to the archive
+2026-10-10 13:55:33.621 P00   INFO: archive-push command end: completed successfully (86ms)
+2026-10-10 13:56:09.527 UTC [118] LOG:  restore point "pgBackRest Archive Check" created at 0/60000C8
+2026-10-10 13:56:09.527 UTC [118] STATEMENT:  select pg_catalog.pg_create_restore_point('pgBackRest Archive Check')::text
+2026-10-10 13:56:09.614 P00   INFO: archive-push command begin 2.59.3: [pg_wal/000000010000000000000006] --exec-id=120-92ed14bf --log-level-console=info --log-level-file=info --pg1-path=/var/lib/pg/main --repo1-path=/var/lib/pgbackrest/repo1 --stanza=main
+2026-10-10 13:56:09.693 P00   INFO: pushed WAL file '000000010000000000000006' to the archive
+2026-10-10 13:56:09.693 P00   INFO: archive-push command end: completed successfully (83ms)
+2026-10-10 13:56:09.870 UTC [125] LOG:  restore point "pgBackRest Archive Check" created at 0/7000090
+2026-10-10 13:56:09.870 UTC [125] STATEMENT:  select pg_catalog.pg_create_restore_point('pgBackRest Archive Check')::text
+2026-10-10 13:56:10.045 P00   INFO: archive-push command begin 2.59.3: [pg_wal/000000010000000000000007] --exec-id=127-18bba4e7 --log-level-console=info --log-level-file=info --pg1-path=/var/lib/pg/main --repo1-path=/var/lib/pgbackrest/repo1 --stanza=main
+2026-10-10 13:56:10.123 P00   INFO: pushed WAL file '000000010000000000000007' to the archive
+2026-10-10 13:56:10.123 P00   INFO: archive-push command end: completed successfully (82ms)
+2026-10-10 13:56:30.925 P00   INFO: archive-push command begin 2.59.3: [pg_wal/000000010000000000000008] --exec-id=135-8b2f034f --log-level-console=info --log-level-file=info --pg1-path=/var/lib/pg/main --repo1-path=/var/lib/pgbackrest/repo1 --stanza=main
+2026-10-10 13:56:31.091 P00   INFO: pushed WAL file '000000010000000000000008' to the archive
+2026-10-10 13:56:31.091 P00   INFO: archive-push command end: completed successfully (167ms)
+2026-10-10 13:56:31.127 P00   INFO: archive-push command begin 2.59.3: [pg_wal/000000010000000000000009] --exec-id=137-8d7dd3c0 --log-level-console=info --log-level-file=info --pg1-path=/var/lib/pg/main --repo1-path=/var/lib/pgbackrest/repo1 --stanza=main
+2026-10-10 13:56:31.248 P00   INFO: pushed WAL file '000000010000000000000009' to the archive
+2026-10-10 13:56:31.248 P00   INFO: archive-push command end: completed successfully (123ms)
+2026-10-10 13:56:31.356 P00   INFO: archive-push command begin 2.59.3: [pg_wal/00000001000000000000000A] --exec-id=139-de592275 --log-level-console=info --log-level-file=info --pg1-path=/var/lib/pg/main --repo1-path=/var/lib/pgbackrest/repo1 --stanza=main
+2026-10-10 13:56:31.471 P00   INFO: pushed WAL file '00000001000000000000000A' to the archive
+2026-10-10 13:56:31.471 P00   INFO: archive-push command end: completed successfully (116ms)
+2026-10-10 13:56:31.790 UTC [40] LOG:  checkpoint starting: immediate force wait
+2026-10-10 13:56:31.800 P00   INFO: archive-push command begin 2.59.3: [pg_wal/00000001000000000000000B] --exec-id=147-c004020b --log-level-console=info --log-level-file=info --pg1-path=/var/lib/pg/main --repo1-path=/var/lib/pgbackrest/repo1 --stanza=main
+2026-10-10 13:56:32.300 P00   INFO: pushed WAL file '00000001000000000000000B' to the archive
+2026-10-10 13:56:32.300 P00   INFO: archive-push command end: completed successfully (503ms)
+2026-10-10 13:56:32.433 UTC [40] LOG:  checkpoint complete: wrote 2084 buffers (12.7%); 0 WAL file(s) added, 0 removed, 8 recycled; write=0.014 s, sync=0.484 s, total=0.643 s; sync files=61, longest=0.269 s, average=0.008 s; distance=131072 kB, estimate=131072 kB; lsn=0/C000080, redo lsn=0/C000028
+2026-10-10 13:56:41.555 P00   INFO: archive-push command begin 2.59.3: [pg_wal/00000001000000000000000C] --exec-id=153-ec6ccac9 --log-level-console=info --log-level-file=info --pg1-path=/var/lib/pg/main --repo1-path=/var/lib/pgbackrest/repo1 --stanza=main
+2026-10-10 13:56:41.633 P00   INFO: pushed WAL file '00000001000000000000000C' to the archive
+2026-10-10 13:56:41.633 P00   INFO: archive-push command end: completed successfully (79ms)
+2026-10-10 13:56:41.638 P00   INFO: archive-push command begin 2.59.3: [pg_wal/00000001000000000000000C.00000028.backup] --exec-id=155-df06c7aa --log-level-console=info --log-level-file=info --pg1-path=/var/lib/pg/main --repo1-path=/var/lib/pgbackrest/repo1 --stanza=main
+2026-10-10 13:56:41.656 P00   INFO: pushed WAL file '00000001000000000000000C.00000028.backup' to the archive
+2026-10-10 13:56:41.656 P00   INFO: archive-push command end: completed successfully (19ms)
+2026-10-10 13:57:04.661 UTC [40] LOG:  checkpoint starting: immediate force wait
+2026-10-10 13:57:04.673 P00   INFO: archive-push command begin 2.59.3: [pg_wal/00000001000000000000000D] --exec-id=171-25fd305f --log-level-console=info --log-level-file=info --pg1-path=/var/lib/pg/main --repo1-path=/var/lib/pgbackrest/repo1 --stanza=main
+2026-10-10 13:57:04.715 UTC [40] LOG:  checkpoint complete: wrote 13 buffers (0.1%); 0 WAL file(s) added, 0 removed, 1 recycled; write=0.005 s, sync=0.020 s, total=0.054 s; sync files=8, longest=0.005 s, average=0.003 s; distance=32768 kB, estimate=121241 kB; lsn=0/E000080, redo lsn=0/E000028
+2026-10-10 13:57:04.752 P00   INFO: pushed WAL file '00000001000000000000000D' to the archive
+2026-10-10 13:57:04.752 P00   INFO: archive-push command end: completed successfully (83ms)
+2026-10-10 13:57:05.583 P00   INFO: archive-push command begin 2.59.3: [pg_wal/00000001000000000000000E] --exec-id=177-d06c613d --log-level-console=info --log-level-file=info --pg1-path=/var/lib/pg/main --repo1-path=/var/lib/pgbackrest/repo1 --stanza=main
+2026-10-10 13:57:05.657 P00   INFO: pushed WAL file '00000001000000000000000E' to the archive
+2026-10-10 13:57:05.657 P00   INFO: archive-push command end: completed successfully (75ms)
+2026-10-10 13:57:05.662 P00   INFO: archive-push command begin 2.59.3: [pg_wal/00000001000000000000000E.00000028.backup] --exec-id=179-3a6a3ede --log-level-console=info --log-level-file=info --pg1-path=/var/lib/pg/main --repo1-path=/var/lib/pgbackrest/repo1 --stanza=main
+2026-10-10 13:57:05.673 P00   INFO: pushed WAL file '00000001000000000000000E.00000028.backup' to the archive
+2026-10-10 13:57:05.673 P00   INFO: archive-push command end: completed successfully (12ms)
+2026-10-10 13:58:11.881 UTC [45] LOG:  archive command failed with exit code 103
+2026-10-10 13:58:11.881 UTC [45] DETAIL:  The failed archive command was: pgbackrest --stanza=main archive-push pg_wal/00000001000000000000000F
+2026-10-10 13:58:12.893 UTC [45] LOG:  archive command failed with exit code 103
+2026-10-10 13:58:12.893 UTC [45] DETAIL:  The failed archive command was: pgbackrest --stanza=main archive-push pg_wal/00000001000000000000000F
+2026-10-10 13:58:13.907 UTC [45] LOG:  archive command failed with exit code 103
+2026-10-10 13:58:13.907 UTC [45] DETAIL:  The failed archive command was: pgbackrest --stanza=main archive-push pg_wal/00000001000000000000000F
+2026-10-10 13:58:13.907 UTC [45] WARNING:  archiving write-ahead log file "00000001000000000000000F" failed too many times, will try again later
+2026-10-10 13:58:20.640 UTC [45] LOG:  archive command failed with exit code 103
+2026-10-10 13:58:20.640 UTC [45] DETAIL:  The failed archive command was: pgbackrest --stanza=main archive-push pg_wal/00000001000000000000000F
+2026-10-10 13:58:21.653 UTC [45] LOG:  archive command failed with exit code 103
+2026-10-10 13:58:21.653 UTC [45] DETAIL:  The failed archive command was: pgbackrest --stanza=main archive-push pg_wal/00000001000000000000000F
+2026-10-10 13:58:22.662 UTC [45] LOG:  archive command failed with exit code 103
+2026-10-10 13:58:22.662 UTC [45] DETAIL:  The failed archive command was: pgbackrest --stanza=main archive-push pg_wal/00000001000000000000000F
+2026-10-10 13:58:22.662 UTC [45] WARNING:  archiving write-ahead log file "00000001000000000000000F" failed too many times, will try again later
+ERROR: [103]: unable to find a valid repository:
+       repo1: [FileOpenError] unable to load info file '/var/lib/pgbackrest/repo1/archive/main/archive.info' or '/var/lib/pgbackrest/repo1/archive/main/archive.info.copy':
+       FileOpenError: unable to open file '/var/lib/pgbackrest/repo1/archive/main/archive.info' for read: [13] Permission denied
+       FileOpenError: unable to open file '/var/lib/pgbackrest/repo1/archive/main/archive.info.copy' for read: [13] Permission denied
+       HINT: archive.info cannot be opened but is required to push/get WAL segments.
+       HINT: is archive_command configured correctly in postgresql.conf?
+       HINT: has a stanza-create been performed?
+       HINT: use --no-archive-check to disable archive checks during backup if you have an alternate archiving scheme.
+2026-10-10 13:58:53.513 UTC [45] LOG:  archive command failed with exit code 103
+2026-10-10 13:58:53.513 UTC [45] DETAIL:  The failed archive command was: pgbackrest --stanza=main archive-push pg_wal/000000010000000000000012
+ERROR: [103]: unable to find a valid repository:
+       repo1: [FileOpenError] unable to load info file '/var/lib/pgbackrest/repo1/archive/main/archive.info' or '/var/lib/pgbackrest/repo1/archive/main/archive.info.copy':
+       FileOpenError: unable to open file '/var/lib/pgbackrest/repo1/archive/main/archive.info' for read: [13] Permission denied
+       FileOpenError: unable to open file '/var/lib/pgbackrest/repo1/archive/main/archive.info.copy' for read: [13] Permission denied
+       HINT: archive.info cannot be opened but is required to push/get WAL segments.
+       HINT: is archive_command configured correctly in postgresql.conf?
+       HINT: has a stanza-create been performed?
+       HINT: use --no-archive-check to disable archive checks during backup if you have an alternate archiving scheme.
+2026-10-10 13:58:54.525 UTC [45] LOG:  archive command failed with exit code 103
+2026-10-10 13:58:54.525 UTC [45] DETAIL:  The failed archive command was: pgbackrest --stanza=main archive-push pg_wal/000000010000000000000012
+ERROR: [103]: unable to find a valid repository:
+       repo1: [FileOpenError] unable to load info file '/var/lib/pgbackrest/repo1/archive/main/archive.info' or '/var/lib/pgbackrest/repo1/archive/main/archive.info.copy':
+       FileOpenError: unable to open file '/var/lib/pgbackrest/repo1/archive/main/archive.info' for read: [13] Permission denied
+       FileOpenError: unable to open file '/var/lib/pgbackrest/repo1/archive/main/archive.info.copy' for read: [13] Permission denied
+       HINT: archive.info cannot be opened but is required to push/get WAL segments.
+       HINT: is archive_command configured correctly in postgresql.conf?
+       HINT: has a stanza-create been performed?
+       HINT: use --no-archive-check to disable archive checks during backup if you have an alternate archiving scheme.
+2026-10-10 13:58:55.538 UTC [45] LOG:  archive command failed with exit code 103
+2026-10-10 13:58:55.538 UTC [45] DETAIL:  The failed archive command was: pgbackrest --stanza=main archive-push pg_wal/000000010000000000000012
+2026-10-10 13:58:55.538 UTC [45] WARNING:  archiving write-ahead log file "000000010000000000000012" failed too many times, will try again later
+2026-10-10 14:00:18.394 UTC [38] LOG:  received SIGHUP, reloading configuration files
+2026-10-10 14:00:20.306 P00  ERROR: [103]: unable to find a valid repository:
+                                    repo1: [FileOpenError] unable to load info file '/var/lib/pgbackrest/repo1/archive/main/archive.info' or '/var/lib/pgbackrest/repo1/archive/main/archive.info.copy':
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/repo1/archive/main/archive.info' for read: [13] Permission denied
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/repo1/archive/main/archive.info.copy' for read: [13] Permission denied
+                                    HINT: archive.info cannot be opened but is required to push/get WAL segments.
+                                    HINT: is archive_command configured correctly in postgresql.conf?
+                                    HINT: has a stanza-create been performed?
+                                    HINT: use --no-archive-check to disable archive checks during backup if you have an alternate archiving scheme.
+2026-10-10 14:00:20.307 UTC [45] LOG:  archive command failed with exit code 103
+2026-10-10 14:00:20.307 UTC [45] DETAIL:  The failed archive command was: pgbackrest --stanza=main archive-push pg_wal/000000010000000000000014
+2026-10-10 14:00:21.318 P00  ERROR: [103]: unable to find a valid repository:
+                                    repo1: [FileOpenError] unable to load info file '/var/lib/pgbackrest/repo1/archive/main/archive.info' or '/var/lib/pgbackrest/repo1/archive/main/archive.info.copy':
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/repo1/archive/main/archive.info' for read: [13] Permission denied
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/repo1/archive/main/archive.info.copy' for read: [13] Permission denied
+                                    HINT: archive.info cannot be opened but is required to push/get WAL segments.
+                                    HINT: is archive_command configured correctly in postgresql.conf?
+                                    HINT: has a stanza-create been performed?
+                                    HINT: use --no-archive-check to disable archive checks during backup if you have an alternate archiving scheme.
+2026-10-10 14:00:21.319 UTC [45] LOG:  archive command failed with exit code 103
+2026-10-10 14:00:21.319 UTC [45] DETAIL:  The failed archive command was: pgbackrest --stanza=main archive-push pg_wal/000000010000000000000014
+2026-10-10 14:00:22.331 P00  ERROR: [103]: unable to find a valid repository:
+                                    repo1: [FileOpenError] unable to load info file '/var/lib/pgbackrest/repo1/archive/main/archive.info' or '/var/lib/pgbackrest/repo1/archive/main/archive.info.copy':
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/repo1/archive/main/archive.info' for read: [13] Permission denied
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/repo1/archive/main/archive.info.copy' for read: [13] Permission denied
+                                    HINT: archive.info cannot be opened but is required to push/get WAL segments.
+                                    HINT: is archive_command configured correctly in postgresql.conf?
+                                    HINT: has a stanza-create been performed?
+                                    HINT: use --no-archive-check to disable archive checks during backup if you have an alternate archiving scheme.
+2026-10-10 14:00:22.332 UTC [45] LOG:  archive command failed with exit code 103
+2026-10-10 14:00:22.332 UTC [45] DETAIL:  The failed archive command was: pgbackrest --stanza=main archive-push pg_wal/000000010000000000000014
+2026-10-10 14:00:22.332 UTC [45] WARNING:  archiving write-ahead log file "000000010000000000000014" failed too many times, will try again later
+2026-10-10 14:00:59.691 UTC [38] LOG:  received SIGHUP, reloading configuration files
+2026-10-10 14:00:59.691 UTC [38] LOG:  parameter "archive_command" changed to "pgbackrest-old --stanza=main archive-push %p"
+ERROR: [046]: unexpected control version = 1700 and catalog version = 202406281
+       HINT: is this version of PostgreSQL supported?
+2026-10-10 14:01:01.644 UTC [45] LOG:  archive command failed with exit code 46
+2026-10-10 14:01:01.644 UTC [45] DETAIL:  The failed archive command was: pgbackrest-old --stanza=main archive-push pg_wal/000000010000000000000016
+ERROR: [046]: unexpected control version = 1700 and catalog version = 202406281
+       HINT: is this version of PostgreSQL supported?
+2026-10-10 14:01:02.705 UTC [45] LOG:  archive command failed with exit code 46
+2026-10-10 14:01:02.705 UTC [45] DETAIL:  The failed archive command was: pgbackrest-old --stanza=main archive-push pg_wal/000000010000000000000016
+ERROR: [046]: unexpected control version = 1700 and catalog version = 202406281
+       HINT: is this version of PostgreSQL supported?
+2026-10-10 14:01:03.766 UTC [45] LOG:  archive command failed with exit code 46
+2026-10-10 14:01:03.766 UTC [45] DETAIL:  The failed archive command was: pgbackrest-old --stanza=main archive-push pg_wal/000000010000000000000016
+2026-10-10 14:01:03.766 UTC [45] WARNING:  archiving write-ahead log file "000000010000000000000016" failed too many times, will try again later
+ERROR: [046]: unexpected control version = 1700 and catalog version = 202406281
+       HINT: is this version of PostgreSQL supported?
+2026-10-10 14:01:35.332 UTC [45] LOG:  archive command failed with exit code 46
+2026-10-10 14:01:35.332 UTC [45] DETAIL:  The failed archive command was: pgbackrest-old --stanza=main archive-push pg_wal/000000010000000000000016
+ERROR: [046]: unexpected control version = 1700 and catalog version = 202406281
+       HINT: is this version of PostgreSQL supported?
+2026-10-10 14:01:36.393 UTC [45] LOG:  archive command failed with exit code 46
+2026-10-10 14:01:36.393 UTC [45] DETAIL:  The failed archive command was: pgbackrest-old --stanza=main archive-push pg_wal/000000010000000000000016
+ERROR: [046]: unexpected control version = 1700 and catalog version = 202406281
+       HINT: is this version of PostgreSQL supported?
+2026-10-10 14:01:37.454 UTC [45] LOG:  archive command failed with exit code 46
+2026-10-10 14:01:37.454 UTC [45] DETAIL:  The failed archive command was: pgbackrest-old --stanza=main archive-push pg_wal/000000010000000000000016
+2026-10-10 14:01:37.454 UTC [45] WARNING:  archiving write-ahead log file "000000010000000000000016" failed too many times, will try again later
+2026-10-10 14:01:40.910 UTC [38] LOG:  received SIGHUP, reloading configuration files
+2026-10-10 14:01:40.911 UTC [38] LOG:  parameter "archive_command" changed to "pgbackrest --stanza=main archive-push %p"
+2026-10-10 14:02:04.936 UTC [40] LOG:  checkpoint starting: time
+2026-10-10 14:02:08.167 UTC [40] LOG:  checkpoint complete: wrote 31 buffers (0.2%); 0 WAL file(s) added, 0 removed, 11 recycled; write=3.111 s, sync=0.031 s, total=3.232 s; sync files=5, longest=0.014 s, average=0.007 s; distance=163840 kB, estimate=163840 kB; lsn=0/180000B8, redo lsn=0/18000060

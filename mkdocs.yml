@@ -72,6 +72,7 @@ nav:
       - PostgreSQL Setup: postgresql-setup.md
       - Log Formats: formats.md
       - Report Sections: default-report.md
+      - pgBackRest: pgbackrest.md
       - SQL Analysis: sql-reports.md
       - Filtering: filtering.md
       - Export Formats: exports.md
