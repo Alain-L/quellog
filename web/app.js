@@ -21,6 +21,7 @@ import {
 } from './js/file-handler.js';
 import {
     chartData, clearChartData, createTimeChart, createDurationChart, createCombinedSQLChart,
+    createPgbrBackupChart, createPgbrWalChart,
     createConcurrentChart, createCheckpointChart, createWALDistanceChart, createCombinedTempFilesChart,
     closeChartModal, updateModalInterval, resetModalZoom, exportChartPNG,
     resetChartZoom, openChartModal, updateChartInterval, toggleCombinedSeries, exportChartById,
@@ -48,6 +49,7 @@ import {
 } from './js/sections/maintenance.js';
 import { buildLocksSection } from './js/sections/locks.js';
 import { buildTempFilesSection } from './js/sections/tempfiles.js';
+import { buildPgBackRestSection } from './js/sections/pgbackrest.js';
 import {
     buildSQLOverviewSection, buildSQLPerformanceSection, showSqlOvView,
     setSqlOverviewData, highlightQuery
@@ -233,6 +235,16 @@ function renderResults(data, fileName, fileSize, isInitial = true) {
     // Initialize filter bar
     initFilterBar(data, isInitial);
 
+    // pgBackRest-only report: no PostgreSQL data at all (a pure pgBackRest
+    // input). Render just the pgBackRest section(s) so the page isn't a
+    // wall of "no data" placeholders for every PostgreSQL section.
+    if (data.pgbackrest_only) {
+        results.innerHTML = buildPgBackRestSection(data);
+        harmonizeSummary();
+        requestAnimationFrame(buildAllCharts);
+        return;
+    }
+
     // Build sections with new layout
     let html = '';
 
@@ -268,6 +280,12 @@ function renderResults(data, fileName, fileSize, isInitial = true) {
     html += buildMaintenanceSection(data);
     html += '</div>';
 
+    // pgBackRest section (only when the run included pgBackRest logs, or
+    // a PostgreSQL log whose archive_command/restore_command runs it).
+    if (data.pgbackrest) {
+        html += buildPgBackRestSection(data);
+    }
+
     results.innerHTML = html;
 
     harmonizeSummary();
@@ -300,6 +318,10 @@ function buildAllCharts() {
             createCombinedSQLChart(chartId, data.data);
         } else if (data?.type === 'combined-tempfiles') {
             createCombinedTempFilesChart(chartId, data.events);
+        } else if (data?.type === 'pgbr-backups') {
+            createPgbrBackupChart(chartId, data);
+        } else if (data?.type === 'pgbr-wal') {
+            createPgbrWalChart(chartId, data);
         } else if (data?.type === 'costmap') {
             createCostMapChart(chartId, data.queries, { crossHighlight: true });
         } else {

@@ -5,7 +5,7 @@
 //   node web/tests/visual/run.mjs                     # check against baselines
 //   node web/tests/visual/run.mjs --update-baselines  # (re)write baselines + structure contract
 //
-// Flow: regenerate reports fresh from the fixture -> load under system Chrome
+// Flow: regenerate reports fresh from the fixtures -> load under system Chrome
 // headless (playwright-core, no browser download) -> structural contract
 // assertions -> per-section + full-page pixel baselines (pixelmatch) -> split
 // report smoke test. One Chrome instance, sequential pages (memory-fragile host).
@@ -23,6 +23,30 @@ const BIN = join(REPO_ROOT, 'bin', 'quellog');
 const FIXTURE = join(REPO_ROOT, 'test', 'testdata', 'comprehensive', 'stderr.log');
 // The fixture spans ~22 minutes, so 10m yields 3 periods.
 const SPLIT_INTERVAL = '10m';
+
+// pgBackRest reports. The section is rendered by its own module and none
+// of the PostgreSQL fixtures reaches it, so without these the pgBackRest
+// report has no visual contract at all. Four captures, chosen for the
+// shapes the section takes and no more (each one is a page load), none of
+// them drawing a chart (backup counts per saga are a handful of runs — the
+// section tables them, see web/js/sections/pgbackrest.js's doc comment):
+//   nominal      a PostgreSQL log whose archive_command runs pgBackRest --
+//                the combined report, pgBackRest alongside the PG sections;
+//   saga         a pgBackRest-only backup log (S3's lock-contention run) --
+//                12 backup rows, 4 error groups, 7 warnings;
+//   archiving    a pgBackRest-only archive-push-async log -- the WAL
+//                Archiving block populated (dropped, failed async, a named
+//                failure stretch), no backups at all;
+//   placeholders a pgBackRest-only check log under log-timestamp=n -- the
+//                missing_info notice, no capture header, every other block
+//                in its neutral "nothing happened" empty state.
+const PGBR_DIR = join(REPO_ROOT, 'test', 'testdata', 'pgbackrest');
+const PGBR_REPORTS = [
+  { name: 'pgbr-nominal', fixture: join(REPO_ROOT, 'test', 'testdata', 'regressions', 'pgbackrest', 'postgresql-pgbackrest.log'), charts: false },
+  { name: 'pgbr-saga', fixture: join(PGBR_DIR, 'S3', 'pgbackrest_logs', 'main-backup.log'), charts: false },
+  { name: 'pgbr-archiving', fixture: join(PGBR_DIR, 'S2', 'pgbackrest_logs', 'main-archive-push-async.log'), charts: false },
+  { name: 'pgbr-placeholders', fixture: join(PGBR_DIR, 'S4', '02_timestamp', 'check_console_no_timestamp.out'), charts: false },
+];
 const BASELINES_DIR = join(VISUAL_DIR, 'baselines');
 const STRUCTURE_PATH = join(VISUAL_DIR, 'expected-structure.json');
 
@@ -35,6 +59,8 @@ const RENDER_DEADLINE_MS = 30000;
 const updateBaselines = process.argv.includes('--update-baselines');
 const failures = [];
 const warnings = [];
+// Every screenshot name taken this run, across all reports.
+const recorded = new Set();
 
 function fail(msg) {
   failures.push(msg);
@@ -61,15 +87,17 @@ function collectErrors(page) {
 /**
  * Wait for render completion: poll until the `.uplot canvas` count is stable
  * (same non-zero value) across two consecutive 250ms polls, then settle 300ms.
+ * `allowZero` accepts a stable zero as well, for a report that legitimately
+ * draws no chart — otherwise it would burn the whole deadline before saying so.
  * @returns {number} final canvas count
  */
-async function waitForRender(page) {
+async function waitForRender(page, allowZero = false) {
   const deadline = Date.now() + RENDER_DEADLINE_MS;
   let prev = -1;
   let stablePolls = 0;
   while (Date.now() < deadline) {
     const count = await page.locator('.uplot canvas').count();
-    if (count === prev && count > 0) {
+    if (count === prev && (count > 0 || allowZero)) {
       stablePolls++;
       if (stablePolls >= 2) break;
     } else {
@@ -134,14 +162,18 @@ function checkStructure(actual, expected, errors) {
   }
 }
 
-/** Screenshot the full page and each visible top-level section. */
-async function takeScreenshots(page, sections, outDir) {
+/**
+ * Screenshot the full page and each visible top-level section. `prefix`
+ * namespaces the files so several reports can share one baseline directory;
+ * it is empty for the main report, whose baselines predate the others.
+ */
+async function takeScreenshots(page, sections, outDir, prefix = '') {
   const shots = [];
-  const fullPath = join(outDir, 'full-page.png');
+  const fullPath = join(outDir, `${prefix}full-page.png`);
   await page.screenshot({ path: fullPath, fullPage: true });
-  shots.push({ name: 'full-page.png', path: fullPath });
+  shots.push({ name: `${prefix}full-page.png`, path: fullPath });
   for (const id of sections) {
-    const name = `section-${id}.png`;
+    const name = `${prefix}section-${id}.png`;
     const path = join(outDir, name);
     await page.locator(`.section[id="${id}"]`).screenshot({ path });
     shots.push({ name, path });
@@ -149,43 +181,54 @@ async function takeScreenshots(page, sections, outDir) {
   return shots;
 }
 
-async function testMainReport(context, reportPath) {
-  console.log('\n== Main report ==');
+/**
+ * Load one report, check its structure against its own contract, then
+ * compare (or record) its screenshots.
+ * @param {{label: string, path: string, structurePath: string,
+ *          prefix?: string, charts?: boolean}} report
+ */
+async function testReport(context, report) {
+  const prefix = report.prefix || '';
+  const before = failures.length;
+  console.log(`\n== ${report.label} ==`);
   const page = await context.newPage();
   const errors = collectErrors(page);
-  await page.goto(pathToFileURL(reportPath).href, { waitUntil: 'load' });
-  const canvasCount = await waitForRender(page);
+  await page.goto(pathToFileURL(report.path).href, { waitUntil: 'load' });
+  const canvasCount = await waitForRender(page, report.charts === false);
   console.log(`  rendered: ${canvasCount} uPlot canvases`);
 
   await normalizeVolatileText(page);
   const structure = await discoverStructure(page);
   console.log(`  sections: ${structure.sections.join(', ')}`);
 
-  if (updateBaselines || !existsSync(STRUCTURE_PATH)) {
-    // Never bake a contract or baselines from an erroring page.
+  if (updateBaselines || !existsSync(report.structurePath)) {
+    // Never bake a contract from an erroring page -- this page: an earlier
+    // report's failure is not a reason to leave this one without a contract.
     for (const e of errors) fail(e);
-    if (failures.length === 0) {
-      writeFileSync(STRUCTURE_PATH, JSON.stringify(structure, null, 2) + '\n');
-      console.log(`  wrote structure contract: ${STRUCTURE_PATH}`);
+    if (errors.length === 0) {
+      writeFileSync(report.structurePath, JSON.stringify(structure, null, 2) + '\n');
+      console.log(`  wrote structure contract: ${report.structurePath}`);
     }
   } else {
-    const expected = JSON.parse(readFileSync(STRUCTURE_PATH, 'utf8'));
+    const expected = JSON.parse(readFileSync(report.structurePath, 'utf8'));
     checkStructure(structure, expected, errors);
   }
 
-  if (failures.length > 0) {
+  if (failures.length > before) {
     await page.close();
     return; // structural failure: pixel comparison would only add noise
   }
 
   if (updateBaselines) {
     mkdirSync(BASELINES_DIR, { recursive: true });
-    const shots = await takeScreenshots(page, structure.sections, BASELINES_DIR);
+    const shots = await takeScreenshots(page, structure.sections, BASELINES_DIR, prefix);
+    shots.forEach((s) => recorded.add(s.name));
     console.log(`  wrote ${shots.length} baseline PNGs to ${BASELINES_DIR}`);
   } else {
-    const tmpDir = dirname(reportPath);
+    const tmpDir = dirname(report.path);
     const diffDir = join(tmpDir, 'diff');
-    const shots = await takeScreenshots(page, structure.sections, tmpDir);
+    const shots = await takeScreenshots(page, structure.sections, tmpDir, prefix);
+    shots.forEach((s) => recorded.add(s.name));
     for (const shot of shots) {
       const baselinePath = join(BASELINES_DIR, shot.name);
       if (!existsSync(baselinePath)) {
@@ -203,17 +246,22 @@ async function testMainReport(context, reportPath) {
         fail(`pixel mismatch ${shot.name}: ${res.reason} — diff: ${diffPath}`);
       }
     }
-    // Flag orphaned baselines so they get pruned deliberately.
-    if (existsSync(BASELINES_DIR)) {
-      const current = new Set(shots.map((s) => s.name));
-      for (const f of readdirSync(BASELINES_DIR)) {
-        if (f.endsWith('.png') && !current.has(f)) {
-          warn(`stale baseline with no current screenshot: ${f}`);
-        }
-      }
-    }
   }
   await page.close();
+}
+
+/**
+ * Flag orphaned baselines so they get pruned deliberately. Run once, over
+ * the screenshots every report produced — a per-report sweep would call
+ * each report's baselines stale on behalf of all the others.
+ */
+function checkStaleBaselines() {
+  if (!existsSync(BASELINES_DIR)) return;
+  for (const f of readdirSync(BASELINES_DIR)) {
+    if (f.endsWith('.png') && !recorded.has(f)) {
+      warn(`stale baseline with no current screenshot: ${f}`);
+    }
+  }
 }
 
 async function testSplitReport(context, reportPath) {
@@ -264,6 +312,20 @@ async function main() {
   const { tmpDir } = resetTmpDir(VISUAL_DIR);
   const mainReport = generateReport(BIN, FIXTURE, tmpDir, 'report.html');
   const splitReport = generateReport(BIN, FIXTURE, tmpDir, 'report-split.html', ['--split', SPLIT_INTERVAL]);
+  const reports = [{
+    label: 'Main report',
+    path: mainReport,
+    structurePath: STRUCTURE_PATH,
+  }];
+  for (const r of PGBR_REPORTS) {
+    reports.push({
+      label: `pgBackRest report (${r.name})`,
+      path: generateReport(BIN, r.fixture, tmpDir, `${r.name}.html`),
+      structurePath: join(VISUAL_DIR, `expected-structure.${r.name}.json`),
+      prefix: `${r.name}-`,
+      charts: r.charts,
+    });
+  }
   console.log(`reports regenerated in ${tmpDir}`);
 
   // 2. One browser instance for everything; sequential pages.
@@ -273,12 +335,15 @@ async function main() {
       viewport: { width: 1440, height: 900 },
       deviceScaleFactor: 1,
     });
-    await testMainReport(context, mainReport);
+    for (const report of reports) {
+      await testReport(context, report);
+    }
     await testSplitReport(context, splitReport);
     await context.close();
   } finally {
     await browser.close();
   }
+  if (!updateBaselines) checkStaleBaselines();
 
   const secs = ((Date.now() - t0) / 1000).toFixed(1);
   console.log('');
