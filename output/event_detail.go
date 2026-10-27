@@ -311,14 +311,23 @@ func computeEventOccurrenceHistogram(ts []int64) (map[string]int, []string) {
 	}
 	const buckets = 12
 	bucketDur := span / buckets
-	if bucketDur <= 0 {
-		bucketDur = time.Nanosecond
+	// The labels key the counts: they must tell every bucket apart, so a
+	// bucket under a minute shows seconds, under a second milliseconds,
+	// and one under a millisecond has no histogram.
+	layout := "15:04"
+	switch {
+	case bucketDur < time.Millisecond:
+		return nil, nil
+	case bucketDur < time.Second:
+		layout = "15:04:05.000"
+	case bucketDur < time.Minute:
+		layout = "15:04:05"
 	}
 	labels := make([]string, buckets)
 	for i := 0; i < buckets; i++ {
 		bs := first.Add(time.Duration(i) * bucketDur)
 		be := first.Add(time.Duration(i+1) * bucketDur)
-		labels[i] = fmt.Sprintf("%s - %s", bs.Format("15:04"), be.Format("15:04"))
+		labels[i] = fmt.Sprintf("%s - %s", bs.Format(layout), be.Format(layout))
 	}
 	hist := make(map[string]int, buckets)
 	for _, t := range ts {
