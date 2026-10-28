@@ -14,6 +14,8 @@ All notable changes to this project will be documented in this file.
 - **Errors and warnings grouped by code**, named as pgBackRest names them (`103 - RepoInvalidError`), with the cause written under them and the failing repository of a multi-repository error. Each has an `er-`/`wa-` ID that `--event-detail` takes, as PostgreSQL's events do: occurrences over time, commands, and the first occurrence in full.
 - **Counts pgBackRest did not log read "not logged"**, never 0: at the default console level an `archive_command` logs only its errors, and the summary then gives PostgreSQL's failure count. `--begin`/`--end` restrict the pgBackRest report to the window and say so; `--dbname`, `--dbuser`, `--exclude-user`, `--appname` and section options leave it out, and `--split` periods stay PostgreSQL's alone.
 
+- **The browser demo takes several files at once**, each read on its own as the CLI reads its arguments, so a Patroni cluster is given as one log per member. An example on a Patroni lab run joins the pgBackRest one.
+
 ### Fixed
 - **Markdown tables were misaligned on non-ASCII text**: column widths counted bytes, so a cell holding an em dash or an accented letter shifted its row. Widths now count characters.
 - **`--event-detail` histogram on short spans**: when the occurrences spanned less than about twelve minutes, every bar had the same label and showed the total count. Labels now show seconds, or milliseconds, when the bars need them.

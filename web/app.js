@@ -77,12 +77,15 @@ setupDragDrop(dropZone, fileInput, processFile);
 // log is injected by web/standalone.go into window.DEMO_LOG_ZST_B64; when
 // it is absent (unbundled dev page) the button stays hidden. The ?demo
 // URL param auto-loads the example once the wasm is ready, for shareable
-// links; ?demo=pgbackrest loads the pgBackRest example.
+// links; ?demo=pgbackrest loads the pgBackRest example, ?demo=patroni the
+// Patroni one.
 const demoBtn = document.getElementById('demoBtn');
 if (demoBtn && window.DEMO_LOG_ZST_B64) {
     demoBtn.style.display = '';
     const pgbr = document.getElementById('demoPgbr');
     if (pgbr && window.DEMO_PGBR_ZST_B64) pgbr.style.display = '';
+    const patroni = document.getElementById('demoPatroni');
+    if (patroni && window.DEMO_PATRONI?.length) patroni.style.display = '';
     const m = location.search.match(/[?&]demo(?:=(\w+))?\b/);
     if (m) {
         (async function () {
@@ -92,17 +95,37 @@ if (demoBtn && window.DEMO_LOG_ZST_B64) {
     }
 }
 
-async function processFile(file) {
+// processFile analyzes the files dropped or selected: one file as before,
+// several as the CLI's arguments, each read on its own (a Patroni log is
+// one member). The size cap applies to their total.
+async function processFile(files) {
     // Check both module state and window (standalone mode uses window.wasmReady)
     if (!wasmReady && !window.wasmReady) { alert('WASM not ready'); return; }
 
     // Check file size limit
-    if (file.size > MAX_FILE_SIZE) {
-        alert(`File too large (${fmtBytes(file.size)}). Maximum size: ${fmtBytes(MAX_FILE_SIZE)}.\n\nFor larger files, use the command-line version:\n  quellog ${file.name}`);
+    const size = files.reduce((n, f) => n + f.size, 0);
+    if (size > MAX_FILE_SIZE) {
+        alert(`Files too large (${fmtBytes(size)}). Maximum size: ${fmtBytes(MAX_FILE_SIZE)}.\n\nFor larger files, use the command-line version:\n  quellog ${files.map(f => f.name).join(' ')}`);
         return;
     }
 
-    await runAnalysis(() => prepareContent(file), file.name, file.size);
+    if (files.length === 1) {
+        await runAnalysis(() => prepareContent(files[0]), files[0].name, size);
+        return;
+    }
+    await runAnalysis(() => Promise.all(files.map(async f => asBytes(await prepareContent(f)))),
+        `${files.length} files`, size);
+}
+
+// asBytes gives an archive's joined text the Uint8Array form of a plain log.
+function asBytes(content) {
+    return content instanceof Uint8Array ? content : new TextEncoder().encode(content);
+}
+
+// byteContent says the content goes to quellogParseBytes: one file's bytes,
+// or a list of files.
+function byteContent(content) {
+    return content instanceof Uint8Array || Array.isArray(content);
 }
 
 // Load the bundled example log — the standalone "See example report"
@@ -113,6 +136,15 @@ async function processFile(file) {
 // dropped file. Absent in the unbundled dev page → the button stays hidden.
 async function loadDemo(kind) {
     if (!wasmReady && !window.wasmReady) { alert('WASM not ready'); return; }
+    if (kind === 'patroni') {
+        // Several files, as given to the CLI: a Patroni log per member.
+        const files = window.DEMO_PATRONI || [];
+        if (!files.length) { alert('No example log is bundled in this build.'); return; }
+        await runAnalysis(() => files.map(f => unzstd(Uint8Array.from(atob(f.b64), c => c.charCodeAt(0)).buffer)),
+            `${files.length} files`, 0);
+        scrollToSection('patroni');
+        return;
+    }
     const pgbr = kind === 'pgbackrest';
     const b64 = pgbr ? window.DEMO_PGBR_ZST_B64 : window.DEMO_LOG_ZST_B64;
     if (!b64) { alert('No example log is bundled in this build.'); return; }
@@ -121,14 +153,18 @@ async function loadDemo(kind) {
         const zst = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
         return unzstd(zst.buffer);
     }, name, 0);
-    // The pgBackRest example opens on its section, below the sticky header.
-    const section = pgbr && document.getElementById('pgbackrest');
-    if (section) {
-        requestAnimationFrame(() => {
-            const header = document.querySelector('header')?.offsetHeight || 0;
-            window.scrollTo({ top: section.getBoundingClientRect().top + window.scrollY - header - 8 });
-        });
-    }
+    // The pgBackRest example opens on its section.
+    if (pgbr) scrollToSection('pgbackrest');
+}
+
+// scrollToSection brings a section to the top, below the sticky header.
+function scrollToSection(id) {
+    const section = document.getElementById(id);
+    if (!section) return;
+    requestAnimationFrame(() => {
+        const header = document.querySelector('header')?.offsetHeight || 0;
+        window.scrollTo({ top: section.getBoundingClientRect().top + window.scrollY - header - 8 });
+    });
 }
 
 // Shared analysis pipeline for both a dropped/selected File and the
@@ -161,7 +197,8 @@ async function runAnalysis(getContent, name, size) {
         // Store for re-filtering
         setCurrentFileContent(content);
         setCurrentFileName(name);
-        setCurrentFileSize(size || (content instanceof Uint8Array ? content.byteLength : content.length));
+        setCurrentFileSize(size || (Array.isArray(content) ? content.reduce((n, c) => n + c.byteLength, 0)
+            : content instanceof Uint8Array ? content.byteLength : content.length));
         setOriginalDimensions(null);  // Reset for new file
 
         console.log(`[quellog] Parsing: ${name} (${fmtBytes(currentFileSize)})`);
@@ -176,7 +213,7 @@ async function runAnalysis(getContent, name, size) {
         // that was eating ~700 MB of wasm linear memory on big
         // logs. Archive paths still pass a string.
         const parseStart = performance.now();
-        const resultJson = (content instanceof Uint8Array)
+        const resultJson = byteContent(content)
             ? quellogParseBytes(content)
             : quellogParse(content);
         const parseEnd = performance.now();
@@ -460,7 +497,7 @@ window.applyFilters = async function() {
         // Time the parsing — same Uint8Array fast-path as the
         // initial drop, see processFile.
         const parseStart = performance.now();
-        const resultJson = (currentFileContent instanceof Uint8Array)
+        const resultJson = byteContent(currentFileContent)
             ? quellogParseBytes(currentFileContent, filtersJson)
             : quellogParse(currentFileContent, filtersJson);
         const parseEnd = performance.now();
@@ -512,8 +549,10 @@ window.applySplit = async function(intervalSec) {
         if (typeof reinitWasm === 'function') await reinitWasm();
         const filters = buildFiltersObject();
         const filtersJson = JSON.stringify(filters);
-        const bytes = (currentFileContent instanceof Uint8Array)
-            ? currentFileContent : new TextEncoder().encode(currentFileContent);
+        // Several files are split as one stream, as an archive's members.
+        const bytes = Array.isArray(currentFileContent)
+            ? asBytes(currentFileContent.map(c => new TextDecoder().decode(c)).join('\n'))
+            : asBytes(currentFileContent);
         const resultJson = quellogSplitBytes(bytes, intervalSec, currentFileName, filtersJson);
         const r = JSON.parse(resultJson);
         if (r.error) throw new Error(r.error);

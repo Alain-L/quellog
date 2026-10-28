@@ -84,34 +84,66 @@ func parseFiltersArg(args []js.Value, idx int) parser.LogFilters {
 // AggregateMetrics gives the WASM build the same parallel SQL analyzer
 // activation (>200 MB), the same StreamingAnalyzer state machine, and
 // frees us from maintaining a parallel analyzer-orchestration block.
-func parseAndAnalyze(data []byte, filters parser.LogFilters) string {
+func parseAndAnalyze(files [][]byte, filters parser.LogFilters) string {
 	t0 := time.Now()
 
-	sampleSize := 32 * 1024
-	if len(data) < sampleSize {
-		sampleSize = len(data)
+	// Each file is detected on its own head, as on the CLI: Patroni logs
+	// take their own track, one member per file, and the others feed the
+	// PostgreSQL pipeline one after the other.
+	var pgFiles, patroniFiles [][]byte
+	var formats []string
+	var size int
+	for _, data := range files {
+		size += len(data)
+		format := parser.DetectFormatFromContent(string(data[:min(len(data), 32*1024)]))
+		switch format {
+		case "patroni":
+			patroniFiles = append(patroniFiles, data)
+			continue
+		case "":
+			format = "stderr"
+		}
+		pgFiles = append(pgFiles, data)
+		formats = append(formats, format)
 	}
-	format := parser.DetectFormatFromContent(string(data[:sampleSize]))
-	if format == "" {
-		format = "stderr"
+	format := "stderr"
+	if len(formats) > 0 {
+		format = formats[0]
 	}
 
 	ctx := context.Background()
 
 	// The data may be one file or the members of a dropped archive joined
 	// together: the stderr parser carves the pgBackRest lines out of it,
-	// as on the CLI, and the observer analyzes them. pgBackRest has no
-	// database, user or application: an attribute filter leaves it out.
+	// as on the CLI, and the observer analyzes them. pgBackRest and Patroni
+	// have no database, user or application: an attribute filter leaves
+	// them out.
+	inScope := analysis.PgBackRestInScope(filters, []string{"all"})
 	var pgbr *analysis.PgBackRestAnalyzer
-	if analysis.PgBackRestInScope(filters, []string{"all"}) {
+	if inScope {
 		pgbr = analysis.NewPgBackRestAnalyzer()
 		pgbr.SetTimeWindow(time.Time(filters.BeginT), time.Time(filters.EndT))
+	}
+	var patroni *analysis.PatroniMetrics
+	if inScope && len(patroniFiles) > 0 {
+		feeds := make([]func(chan<- []parser.LogEntry), len(patroniFiles))
+		for i, data := range patroniFiles {
+			feeds[i] = func(out chan<- []parser.LogEntry) {
+				parser.ParseFromBytesStream(data, "patroni", out)
+				close(out)
+			}
+		}
+		patroni = analysis.AnalyzePatroniMembers(ctx, feeds, filters)
 	}
 
 	rawChan := make(chan []parser.LogEntry, 64)
 	var parseErr error
 	go func() {
-		parseErr = parser.ParseFromBytesStream(data, format, rawChan)
+		for i, data := range pgFiles {
+			if err := parser.ParseFromBytesStream(data, formats[i], rawChan); err != nil && parseErr == nil {
+				parseErr = err
+			}
+		}
 		close(rawChan)
 	}()
 
@@ -134,15 +166,21 @@ func parseAndAnalyze(data []byte, filters parser.LogFilters) string {
 	if pgbr != nil {
 		pbr = pgbr.Finalize()
 	}
-	if metrics.Global.Count == 0 && len(pbr) > 0 {
-		return pgBackRestOnlyJSON(pbr, format, len(data), t0)
+	if metrics.Global.Count == 0 && len(pbr) > 0 && patroni == nil {
+		return pgBackRestOnlyJSON(pbr, format, size, t0)
 	}
 
+	entries := metrics.Global.Count
+	if patroni != nil {
+		patroni.CorrelatePostgres(metrics.Server.Timeline)
+		metrics.Patroni = patroni
+		entries += patroni.Entries
+	}
 	processingMs := time.Since(t0).Milliseconds()
 	meta := &output.MetaInfo{
 		Format:    format,
-		Entries:   metrics.Global.Count,
-		Bytes:     int64(len(data)),
+		Entries:   entries,
+		Bytes:     int64(size),
 		ParseTime: output.FormatDurationMs(processingMs),
 	}
 	jsonStr, err := output.ExportJSONStringWithMeta(metrics, pbr, []string{"all"}, true, meta, true)
@@ -271,7 +309,7 @@ func parseLog(this js.Value, args []js.Value) interface{} {
 	if len(content) == 0 {
 		return `{"error": "Empty input"}`
 	}
-	return parseAndAnalyze([]byte(content), parseFiltersArg(args, 1))
+	return parseAndAnalyze([][]byte{[]byte(content)}, parseFiltersArg(args, 1))
 }
 
 // parseLogBytes accepts a Uint8Array directly instead of a string.
@@ -281,15 +319,29 @@ func parseLogBytes(this js.Value, args []js.Value) interface{} {
 	if len(args) < 1 {
 		return `{"error": "No input provided"}`
 	}
-	jsArray := args[0]
-	if jsArray.IsNull() || jsArray.IsUndefined() {
+	input := args[0]
+	if input.IsNull() || input.IsUndefined() {
 		return `{"error": "Input is null or undefined"}`
 	}
-	length := jsArray.Get("length").Int()
-	if length == 0 {
+	// One Uint8Array, or an Array of them: one per file, as the CLI's
+	// arguments.
+	arrays := []js.Value{input}
+	if js.Global().Get("Array").Call("isArray", input).Bool() {
+		arrays = arrays[:0]
+		for i := 0; i < input.Length(); i++ {
+			arrays = append(arrays, input.Index(i))
+		}
+	}
+	var files [][]byte
+	for _, a := range arrays {
+		if n := a.Get("length").Int(); n > 0 {
+			data := make([]byte, n)
+			js.CopyBytesToGo(data, a)
+			files = append(files, data)
+		}
+	}
+	if len(files) == 0 {
 		return `{"error": "Empty input"}`
 	}
-	data := make([]byte, length)
-	js.CopyBytesToGo(data, jsArray)
-	return parseAndAnalyze(data, parseFiltersArg(args, 1))
+	return parseAndAnalyze(files, parseFiltersArg(args, 1))
 }

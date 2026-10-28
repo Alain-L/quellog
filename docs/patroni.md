@@ -10,6 +10,9 @@ quellog --html node1/patroni.log node2/patroni.log node3/patroni.log
 
 Give one Patroni log per member: most Patroni messages do not name the member that wrote them, so quellog reads each file as one member's point of view and merges them. The member name comes from the log itself (`I am (pg1)`). A member named in the given logs (as leader, or as a peer another member contacted) but whose own log was not given is reported under **No log from**: what involves it, its lock terms, the time without leader around them, its DCS losses, is then seen by the other members only, and a leader at the end is marked *as seen by the others*.
 
+!!! tip "Try it now"
+    **[Open the demo on a Patroni lab run →](https://alain-l.github.io/quellog/demo.html?demo=patroni)**: three members' Patroni and PostgreSQL logs, analyzed in your browser.
+
 ## Combining with PostgreSQL logs
 
 Patroni and PostgreSQL logs can be passed together. The PostgreSQL report is then followed by the Patroni section (`patroni` key in JSON and YAML), and each leader change lists the PostgreSQL lifecycle events (shutdown, start, crash recovery, reload) logged from just before the old leader was last seen to 30 seconds after the change.
@@ -52,4 +55,4 @@ The text and Markdown reports are synthetic by default: the period, the members,
 - The section flags (`--summary`, `--events`, ...) select PostgreSQL sections: the Patroni section is part of the full report, or is the whole report when no PostgreSQL log is given.
 - Only the time filters (`--begin`, `--end`, `--last`, `--window`) apply; the database, user and application filters select PostgreSQL sessions. In the HTML report the Patroni section is not re-scoped by the time slider.
 - `--split` is rejected when a Patroni log is given.
-- The browser demo does not read Patroni logs.
+- In the browser, drop or select the members' logs together, each as its own file: the members of an archive are joined into one stream there.
