@@ -1,0 +1,60 @@
+quellog dev – 352 entries processed in X s (75.93 KB)
+[1m
+PATRONI
+[0m
+  Start date                : 2026-09-24 14:09:26
+  End date                  : 2026-09-24 14:18:53
+  Duration                  : 9m26.781s
+  Total entries             : 352
+  Members                   : pg1, pg2, pg3
+  Leader at end             : pg1 since 14:12:01
+  Leader changes            : 2, 1 switchover, 1 failover
+  Time without leader       : 35.78s
+  DCS incidents             : 0
+  Refused for lag           : 0
+  Errors                    : 14
+  Warnings                  : 38
+
+  Members:
+    pg1        leader      7m30.747s as leader     144 entries   14:09:26 → 14:18:52
+    pg2        replica     1m11.324s as leader     106 entries   14:09:26 → 14:18:53
+    pg3        replica            0s as leader     102 entries   14:09:27 → 14:18:53
+
+  Leader changes:
+    14:10:15  switchover  pg1 → pg2   1.313s without leader
+    [3;38;5;243m          postgres, any node  14:10:14  fast shutdown request[0m
+    [3;38;5;243m          postgres, any node  14:10:16  database system is ready to accept connections[0m
+    [3;38;5;243m          postgres, any node  14:10:17  reloading configuration files[0m
+    [3;38;5;243m          postgres, any node  14:10:18  database system is ready to accept connections[0m
+    14:12:01  failover    pg2 → pg1   34.467s without leader
+    [3;38;5;243m          postgres, any node  14:12:01  reloading configuration files[0m
+    [3;38;5;243m          postgres, any node  14:12:01  database system is ready to accept connections[0m
+
+  Timeline:
+    14:09:34  pg1        bootstrap          initialized a new cluster
+    14:09:37  pg3        replica_created    replica has been created using basebackup
+    14:09:38  pg2        replica_created    replica has been created using basebackup
+    14:10:14  pg1        switchover_request received switchover request with leader=pg1 candidate=pg2 scheduled_at=None
+    14:10:14  pg1        demote             Demoting self (graceful)
+    14:10:15  pg3        switchover_seen    switchover: to pg2, i am pg3
+    14:10:15  pg2        failover_key       Cleaning up failover key after acquiring leader lock...
+    14:10:16  pg2        promote            promoted self to leader by acquiring session lock
+    14:12:01  pg1        promote            promoted self to leader by acquiring session lock
+    14:12:33  pg2        crash_recovery     doing crash recovery in a single user mode
+    14:12:34  pg2        rewind             running pg_rewind from pg1
+    14:12:34  pg2        rewind_done        pg_rewind exit code=0
+
+  ERROR                     : 14 (6 kinds)
+    [3;38;5;243mer-KNB1[0m  Failed to get list of machines from http://etcd1:?/v3beta: ValueError     3   21.43%  14:09:26 → 14:09:27
+    [3;38;5;243mer-zqFU[0m  Failed to get list of machines from http://etcd2:?/v3beta: ValueError     3   21.43%  14:09:26 → 14:09:27
+    [3;38;5;243mer-X6QI[0m  Failed to get list of machines from http://etcd3:?/v3beta: ValueError     3   21.43%  14:09:26 → 14:09:27
+    [3;38;5;243mer-HY4b[0m  watchprefix failed: ProtocolError                                         3   21.43%  14:12:01 → 14:15:56
+    [3;38;5;243mer-dtX9[0m  Request to server http://etcd1:? failed: ReadTimeoutError                 1    7.14%  14:15:56
+    [3;38;5;243mer-sM6T[0m  Request to server http://etcd3:? failed: ReadTimeoutError                 1    7.14%  14:13:56
+
+  WARNING                   : 38 (5 kinds)
+    [3;38;5;243mwa-FZfE[0m  failed to resolve host etcd1: [Errno -?] Name or service not known          11   28.95%  14:13:58 → 14:14:26
+    [3;38;5;243mwa-kgZP[0m  failed to resolve host etcd2: [Errno -?] Name or service not known          11   28.95%  14:13:57 → 14:14:26
+    [3;38;5;243mwa-bYfk[0m  failed to resolve host etcd3: [Errno -?] Name or service not known          11   28.95%  14:13:56 → 14:14:26
+    [3;38;5;243mwa-kSV3[0m  Postgresql is not running.                                                   3    7.89%  14:12:33 → 14:12:34
+    [3;38;5;243mwa-j2XC[0m  Request failed to pg2: GET http://pg2:?/patroni (HTTPConnectionPool(host     2    5.26%  14:12:01

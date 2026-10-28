@@ -260,6 +260,9 @@ func readUntilNLines(f *os.File, n int) (string, error) {
 // detectByExtension attempts to detect the parser based on file extension.
 // Returns nil if the extension doesn't match or content validation fails.
 func detectByExtension(filename, ext, sample string) LogParser {
+	if looksLikePatroni(sample) {
+		return &PatroniParser{}
+	}
 	switch ext {
 	case "json", "jsonl":
 		if isJSONContent(sample) {

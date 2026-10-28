@@ -1,0 +1,835 @@
+2026-09-24 14:09:29,051 INFO: Using default value thread_stack_size = 524288
+2026-09-24 14:09:29,061 INFO: Patroni global thread_pool_size = 5
+2026-09-24 14:09:29,138 INFO: Selected new etcd server http://etcd2:2379
+2026-09-24 14:09:29,184 INFO: No PostgreSQL configuration items changed, nothing to reload.
+2026-09-24 14:09:29,186 INFO: REST API thread_pool_size = 5
+2026-09-24 14:09:29,236 INFO: Lock owner: None; I am pg1
+2026-09-24 14:09:29,331 INFO: trying to bootstrap a new cluster
+2026-09-24 14:09:32,029 INFO: postmaster pid=36
+2026-09-24 14:09:32,041 INFO: establishing a new patroni heartbeat connection to postgres
+2026-09-24 14:09:32,134 INFO: running post_bootstrap
+2026-09-24 14:09:32,145 WARNING: Could not activate Linux watchdog device: Can't open watchdog device: [Errno 2] No such file or directory: '/dev/watchdog'
+2026-09-24 14:09:32,379 INFO: initialized a new cluster
+2026-09-24 14:09:32,555 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 14:09:42,518 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 14:09:52,514 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 14:10:02,425 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 14:10:12,422 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 14:10:17,187 INFO: received switchover request with leader=pg1 candidate=pg2 scheduled_at=None
+2026-09-24 14:10:17,196 INFO: Got response from pg2 http://pg2:8008/patroni: {"state": "running", "postmaster_start_time": "2026-09-24 14:09:35.622320+00:00", "role": "replica", "server_version": 170009, "xlog": {"received_location": 67283744, "replayed_location": 67283744, "replayed_timestamp": "2026-09-24 14:10:14.567532+00:00", "paused": false}, "timeline": 1, "replication_state": "streaming", "dcs_last_seen": 1790259012, "database_system_identifier": "7689103724847792155", "patroni": {"version": "3.3.11", "scope": "main", "name": "pg2"}}
+2026-09-24 14:10:17,345 INFO: Got response from pg2 http://pg2:8008/patroni: {"state": "running", "postmaster_start_time": "2026-09-24 14:09:35.622320+00:00", "role": "replica", "server_version": 170009, "xlog": {"received_location": 67283744, "replayed_location": 67283744, "replayed_timestamp": "2026-09-24 14:10:14.567532+00:00", "paused": false}, "timeline": 1, "replication_state": "streaming", "dcs_last_seen": 1790259017, "database_system_identifier": "7689103724847792155", "patroni": {"version": "3.3.11", "scope": "main", "name": "pg2"}}
+2026-09-24 14:10:17,247 INFO: Lock owner: pg1; I am pg1
+2026-09-24 14:10:17,395 INFO: switchover: demoting myself
+2026-09-24 14:10:17,395 INFO: Demoting self (graceful)
+2026-09-24 14:10:18,634 INFO: Leader key released
+2026-09-24 14:10:18,634 INFO: Lock owner: None; I am pg1
+2026-09-24 14:10:18,634 INFO: not healthy enough for leader race
+2026-09-24 14:10:18,635 INFO: switchover: demote in progress
+2026-09-24 14:10:18,686 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:10:18,729 INFO: switchover: demote in progress
+2026-09-24 14:10:19,868 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:10:19,909 INFO: switchover: demote in progress
+2026-09-24 14:10:20,063 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:10:20,105 INFO: switchover: demote in progress
+2026-09-24 14:10:20,635 INFO: Local timeline=1 lsn=0/402ABF0
+2026-09-24 14:10:20,651 INFO: primary_timeline=2
+2026-09-24 14:10:20,652 INFO: primary: history=1	0/402AC68	no recovery target specified
+2026-09-24 14:10:20,652 INFO: closed patroni connections to postgres
+2026-09-24 14:10:20,932 INFO: postmaster pid=72
+2026-09-24 14:10:30,063 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:10:30,063 INFO: establishing a new patroni heartbeat connection to postgres
+2026-09-24 14:10:30,080 INFO: Dropped unknown replication slot 'pg2'
+2026-09-24 14:10:30,082 INFO: Dropped unknown replication slot 'pg3'
+2026-09-24 14:10:30,173 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 14:10:40,162 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 14:10:50,613 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 14:11:00,614 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 14:11:10,617 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 14:11:20,617 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 14:11:30,613 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 14:11:36,231 INFO: PAUSE: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 14:11:36,233 INFO: No PostgreSQL configuration items changed, nothing to reload.
+2026-09-24 14:11:46,682 INFO: PAUSE: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 14:11:56,681 INFO: PAUSE: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 14:11:56,882 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 14:11:56,884 INFO: No PostgreSQL configuration items changed, nothing to reload.
+2026-09-24 14:12:07,338 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 14:12:17,338 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 14:12:27,342 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 14:12:37,341 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 14:12:47,342 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 14:12:57,338 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 14:13:07,386 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 14:13:17,342 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 14:13:27,195 INFO: establishing a new patroni restapi connection to postgres
+2026-09-24 14:13:27,201 INFO: Got response from pg3 http://pg3:8008/patroni: {"state": "running", "postmaster_start_time": "2026-09-24 14:09:35.653425+00:00", "role": "replica", "server_version": 170009, "xlog": {"received_location": 67315944, "replayed_location": 67315944, "replayed_timestamp": "2026-09-24 14:12:58.187289+00:00", "paused": false}, "timeline": 2, "cluster_unlocked": true, "dcs_last_seen": 1790259207, "database_system_identifier": "7689103724847792155", "patroni": {"version": "3.3.11", "scope": "main", "name": "pg3"}}
+2026-09-24 14:13:31,197 WARNING: Request failed to pg2: GET http://pg2:8008/patroni (HTTPConnectionPool(host='pg2', port=8008): Max retries exceeded with url: /patroni (Caused by ConnectTimeoutError(<HTTPConnection(host='pg2', port=8008) at 0x7fb6fb887d90>, 'Connection to pg2 timed out. (connect timeout=2)')))
+2026-09-24 14:13:31,347 INFO: promoted self to leader by acquiring session lock
+2026-09-24 14:13:31,347 INFO: Lock owner: pg1; I am pg1
+2026-09-24 14:13:31,434 INFO: updated leader lock during promote
+2026-09-24 14:13:32,542 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 14:13:42,494 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 14:13:52,394 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 14:14:02,409 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 14:14:12,394 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 14:14:22,394 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 14:14:32,526 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 14:14:42,394 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 14:14:52,398 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 14:15:02,394 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 14:15:12,394 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 14:15:22,394 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 14:15:32,490 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 14:15:42,394 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 14:15:52,394 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 14:16:02,499 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 14:16:12,394 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 14:16:22,394 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 14:16:32,398 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 14:16:42,351 INFO: Lock owner: pg1; I am pg1
+2026-09-24 14:16:45,689 ERROR: Request to server http://etcd2:2379 failed: ReadTimeoutError("HTTPConnectionPool(host='etcd2', port=2379): Read timed out. (read timeout=3.3331882133400845)")
+2026-09-24 14:16:45,689 INFO: Reconnection allowed, looking for another server.
+2026-09-24 14:16:45,689 INFO: Retrying on http://etcd1:2379
+2026-09-24 14:16:45,691 INFO: Selected new etcd server http://etcd1:2379
+2026-09-24 14:16:45,692 ERROR: watchprefix failed: ProtocolError('Response ended prematurely')
+2026-09-24 14:16:45,693 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 14:16:45,698 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 14:16:46,703 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 14:16:47,710 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 14:16:48,716 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 14:16:49,724 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 14:16:50,731 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 14:16:51,738 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 14:16:52,354 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 14:16:52,744 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 14:16:53,761 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 14:16:54,767 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 14:16:55,774 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 14:16:56,783 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 14:16:57,788 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 14:16:58,830 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 14:16:59,899 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 14:17:00,984 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 14:17:01,990 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 14:17:02,399 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 14:17:02,996 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 14:17:04,006 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 14:17:05,012 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 14:17:06,018 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 14:17:07,025 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 14:17:08,031 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 14:17:09,037 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 14:17:10,044 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 14:17:11,048 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 14:17:12,055 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 14:17:12,399 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 14:17:13,060 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 14:17:14,066 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 14:17:15,072 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 14:17:16,077 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 14:17:16,080 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 14:17:16,083 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 14:17:22,395 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 14:17:32,394 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 14:17:42,394 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 14:17:52,398 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 14:18:02,400 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 14:18:12,399 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 14:18:22,394 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 14:18:32,398 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 14:18:42,351 INFO: Lock owner: pg1; I am pg1
+2026-09-24 14:18:45,689 ERROR: Request to server http://etcd1:2379 failed: ReadTimeoutError("HTTPConnectionPool(host='etcd1', port=2379): Read timed out. (read timeout=3.333106520343184)")
+2026-09-24 14:18:45,689 INFO: Reconnection allowed, looking for another server.
+2026-09-24 14:18:45,689 INFO: Retrying on http://etcd3:2379
+2026-09-24 14:18:45,690 INFO: Selected new etcd server http://etcd3:2379
+2026-09-24 14:18:45,690 ERROR: watchprefix failed: ProtocolError('Response ended prematurely')
+2026-09-24 14:18:45,691 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 14:18:52,354 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 14:19:02,394 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 14:19:12,399 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 14:19:22,394 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 14:19:32,394 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 14:19:36,130 ERROR: watchprefix failed: <Unavailable error: 'error reading from server: EOF', code: 14>
+2026-09-24 14:19:36,131 ERROR: Request to server http://etcd3:2379 failed: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/kv/range (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: [Errno 111] Connection refused"))')
+2026-09-24 14:19:36,131 INFO: Reconnection allowed, looking for another server.
+2026-09-24 14:19:36,131 INFO: Retrying on http://etcd1:2379
+2026-09-24 14:19:37,800 ERROR: Request to server http://etcd1:2379 failed: MaxRetryError("HTTPConnectionPool(host='etcd1', port=2379): Max retries exceeded with url: /v3/kv/range (Caused by ConnectTimeoutError(<HTTPConnection(host='etcd1', port=2379) at 0x7fb6fb7558c0>, 'Connection to etcd1 timed out. (connect timeout=1.6666666666666667)'))")
+2026-09-24 14:19:37,800 INFO: Reconnection allowed, looking for another server.
+2026-09-24 14:19:37,800 INFO: Retrying on http://etcd2:2379
+2026-09-24 14:19:39,469 ERROR: Request to server http://etcd2:2379 failed: MaxRetryError("HTTPConnectionPool(host='etcd2', port=2379): Max retries exceeded with url: /v3/kv/range (Caused by ConnectTimeoutError(<HTTPConnection(host='etcd2', port=2379) at 0x7fb6fb755ae0>, 'Connection to etcd2 timed out. (connect timeout=1.6666666666666667)'))")
+2026-09-24 14:19:39,469 INFO: Reconnection allowed, looking for another server.
+2026-09-24 14:19:39,475 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 14:19:39,476 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:19:39,481 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 14:19:39,481 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:19:41,157 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 14:19:41,157 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:19:43,601 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 14:19:43,601 ERROR: Request to server http://etcd3:2379 failed: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/kv/range (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:19:43,601 INFO: Reconnection allowed, looking for another server.
+2026-09-24 14:19:43,601 INFO: Retrying on http://etcd1:2379
+2026-09-24 14:19:45,277 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 14:19:45,277 ERROR: Request to server http://etcd1:2379 failed: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/kv/range (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:19:45,277 INFO: Reconnection allowed, looking for another server.
+2026-09-24 14:19:45,277 INFO: Retrying on http://etcd2:2379
+2026-09-24 14:19:45,282 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 14:19:45,283 ERROR: Request to server http://etcd2:2379 failed: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/kv/range (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:19:45,283 INFO: Reconnection allowed, looking for another server.
+2026-09-24 14:19:45,289 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 14:19:45,289 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:19:45,295 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 14:19:45,295 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:19:45,300 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 14:19:45,301 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:19:45,301 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 14:19:46,307 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 14:19:46,307 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:19:46,313 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 14:19:46,313 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:19:46,317 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 14:19:46,318 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:19:46,318 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 14:19:47,324 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 14:19:47,325 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:19:47,329 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 14:19:47,330 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:19:47,333 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 14:19:47,333 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:19:47,333 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 14:19:48,339 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 14:19:48,339 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:19:48,343 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 14:19:48,343 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:19:48,347 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 14:19:48,347 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:19:48,347 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 14:19:49,359 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 14:19:49,359 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:19:49,364 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 14:19:49,364 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:19:49,373 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 14:19:49,373 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:19:49,373 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 14:19:50,380 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 14:19:50,380 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:19:50,385 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 14:19:50,385 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:19:50,388 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 14:19:50,388 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:19:50,388 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 14:19:51,395 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 14:19:51,396 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:19:51,400 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 14:19:51,400 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:19:51,405 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 14:19:51,405 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:19:51,405 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 14:19:52,350 ERROR: get_cluster
+Traceback (most recent call last):
+  File "/opt/patroni-venv/lib/python3.13/site-packages/patroni/dcs/etcd3.py", line 936, in _load_cluster
+    cluster = loader(path)
+  File "/opt/patroni-venv/lib/python3.13/site-packages/patroni/dcs/etcd3.py", line 912, in _postgresql_cluster_loader
+    for node in self._client.get_cluster(path)
+                ~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/opt/patroni-venv/lib/python3.13/site-packages/patroni/dcs/etcd3.py", line 734, in get_cluster
+    self._wait_cache(self.read_timeout)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
+  File "/opt/patroni-venv/lib/python3.13/site-packages/patroni/dcs/etcd3.py", line 728, in _wait_cache
+    raise RetryFailedError('Exceeded retry deadline')
+patroni.utils.RetryFailedError: Exceeded retry deadline
+2026-09-24 14:19:52,353 ERROR: Error communicating with DCS
+2026-09-24 14:19:52,354 INFO: demoting self because DCS is not accessible and I was a leader
+2026-09-24 14:19:52,354 INFO: Demoting self (offline)
+2026-09-24 14:19:52,406 INFO: closed patroni connections to postgres
+2026-09-24 14:19:52,413 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 14:19:52,413 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:19:52,418 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 14:19:52,418 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:19:52,422 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 14:19:52,422 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:19:52,422 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 14:19:52,678 INFO: postmaster pid=140
+2026-09-24 14:19:52,689 INFO: demoted self because DCS is not accessible and I was a leader
+2026-09-24 14:19:52,690 WARNING: Loop time exceeded, rescheduling immediately.
+2026-09-24 14:19:53,429 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 14:19:53,429 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:19:53,435 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 14:19:53,435 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:19:53,438 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 14:19:53,439 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:19:53,439 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 14:19:54,446 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 14:19:54,446 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:19:54,452 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 14:19:54,452 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:19:54,457 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 14:19:54,457 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:19:54,457 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 14:19:55,464 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 14:19:55,464 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:19:55,473 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 14:19:55,473 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:19:55,478 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 14:19:55,478 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:19:55,478 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 14:19:56,488 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 14:19:56,488 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:19:56,493 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 14:19:56,493 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:19:56,498 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 14:19:56,498 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:19:56,498 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 14:19:57,505 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 14:19:57,506 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:19:57,509 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 14:19:57,510 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:19:57,513 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 14:19:57,513 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:19:57,513 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 14:19:58,523 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 14:19:58,523 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:19:58,529 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 14:19:58,529 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:19:58,536 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 14:19:58,536 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:19:58,536 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 14:19:59,542 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 14:19:59,542 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:19:59,546 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 14:19:59,546 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:19:59,551 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 14:19:59,551 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:19:59,551 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 14:20:00,558 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 14:20:00,559 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:00,565 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 14:20:00,565 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:00,573 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 14:20:00,574 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:00,574 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 14:20:01,581 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 14:20:01,581 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:01,585 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 14:20:01,585 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:01,589 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 14:20:01,590 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:01,590 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 14:20:02,596 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 14:20:02,597 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:02,601 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 14:20:02,602 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:02,607 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 14:20:02,607 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:02,607 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 14:20:02,691 ERROR: Exceeded retry deadline
+2026-09-24 14:20:02,692 ERROR: Error communicating with DCS
+2026-09-24 14:20:02,693 INFO: establishing a new patroni heartbeat connection to postgres
+2026-09-24 14:20:02,700 INFO: DCS is not accessible
+2026-09-24 14:20:02,701 WARNING: Loop time exceeded, rescheduling immediately.
+2026-09-24 14:20:03,614 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 14:20:03,615 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:03,623 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 14:20:03,624 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:03,627 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 14:20:03,627 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:03,627 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 14:20:04,634 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 14:20:04,634 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:04,638 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 14:20:04,639 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:04,642 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 14:20:04,642 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:04,642 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 14:20:05,649 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 14:20:05,649 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:05,654 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 14:20:05,654 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:05,658 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 14:20:05,659 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:05,659 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 14:20:06,678 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 14:20:06,679 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:06,686 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 14:20:06,686 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:06,691 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 14:20:06,691 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:06,691 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 14:20:07,698 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 14:20:07,698 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:07,702 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 14:20:07,702 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:07,707 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 14:20:07,708 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:07,708 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 14:20:08,714 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 14:20:08,715 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:08,719 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 14:20:08,719 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:08,729 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 14:20:08,730 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:08,730 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 14:20:09,738 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 14:20:09,738 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:09,751 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 14:20:09,751 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:09,755 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 14:20:09,755 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:09,755 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 14:20:10,762 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 14:20:10,763 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:10,767 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 14:20:10,767 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:10,774 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 14:20:10,774 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:10,774 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 14:20:11,780 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 14:20:11,780 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:11,784 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 14:20:11,784 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:11,788 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 14:20:11,789 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:11,789 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 14:20:12,701 ERROR: Exceeded retry deadline
+2026-09-24 14:20:12,702 ERROR: Error communicating with DCS
+2026-09-24 14:20:12,703 INFO: DCS is not accessible
+2026-09-24 14:20:12,704 WARNING: Loop time exceeded, rescheduling immediately.
+2026-09-24 14:20:12,801 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 14:20:12,801 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:12,806 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 14:20:12,806 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:12,811 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 14:20:12,811 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:12,811 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 14:20:13,818 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 14:20:13,818 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:13,823 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 14:20:13,823 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:13,828 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 14:20:13,828 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:13,828 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 14:20:14,836 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 14:20:14,836 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:14,841 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 14:20:14,841 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:14,846 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 14:20:14,846 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:14,846 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 14:20:15,853 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 14:20:15,854 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:15,858 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 14:20:15,858 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:15,862 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 14:20:15,862 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:15,862 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 14:20:16,869 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 14:20:16,869 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:16,873 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 14:20:16,874 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:16,878 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 14:20:16,878 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:16,878 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 14:20:17,884 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 14:20:17,884 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:17,888 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 14:20:17,888 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:17,892 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 14:20:17,892 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:17,892 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 14:20:18,899 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 14:20:18,900 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:18,904 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 14:20:18,904 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:18,907 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 14:20:18,908 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:18,908 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 14:20:19,918 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 14:20:19,918 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:19,923 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 14:20:19,923 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:19,930 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 14:20:19,930 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:19,930 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 14:20:20,935 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 14:20:20,936 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:20,940 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 14:20:20,940 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:20,947 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 14:20:20,947 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:20,947 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 14:20:21,954 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 14:20:21,955 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:21,959 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 14:20:21,960 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:21,964 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 14:20:21,964 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:21,964 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 14:20:22,704 ERROR: Exceeded retry deadline
+2026-09-24 14:20:22,704 ERROR: Error communicating with DCS
+2026-09-24 14:20:22,706 INFO: DCS is not accessible
+2026-09-24 14:20:22,707 WARNING: Loop time exceeded, rescheduling immediately.
+2026-09-24 14:20:22,974 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 14:20:22,974 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:22,979 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 14:20:22,979 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:22,983 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 14:20:22,984 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:22,984 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 14:20:23,989 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 14:20:23,989 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:23,993 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 14:20:23,993 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:23,997 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 14:20:23,997 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:23,997 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 14:20:25,004 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 14:20:25,005 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:25,009 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 14:20:25,010 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:25,015 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 14:20:25,015 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:25,016 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 14:20:26,024 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 14:20:26,025 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:26,031 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 14:20:26,031 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:26,036 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 14:20:26,036 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:26,036 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 14:20:27,043 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 14:20:27,043 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:27,048 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 14:20:27,048 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:27,052 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 14:20:27,052 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:27,053 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 14:20:28,059 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 14:20:28,059 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:28,063 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 14:20:28,063 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:28,066 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 14:20:28,067 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:28,067 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 14:20:29,075 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 14:20:29,075 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:29,079 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 14:20:29,079 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:29,085 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 14:20:29,085 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:29,085 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 14:20:30,092 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 14:20:30,092 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:30,101 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 14:20:30,101 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:30,108 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 14:20:30,108 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:30,109 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 14:20:31,118 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 14:20:31,118 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:31,126 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 14:20:31,127 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:31,131 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 14:20:31,132 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:31,132 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 14:20:32,138 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 14:20:32,139 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:32,144 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 14:20:32,145 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:32,149 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 14:20:32,149 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:32,149 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 14:20:32,707 ERROR: Exceeded retry deadline
+2026-09-24 14:20:32,707 ERROR: Error communicating with DCS
+2026-09-24 14:20:32,708 INFO: DCS is not accessible
+2026-09-24 14:20:32,710 WARNING: Loop time exceeded, rescheduling immediately.
+2026-09-24 14:20:33,156 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 14:20:33,156 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:33,164 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 14:20:33,164 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:33,167 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 14:20:33,167 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:33,168 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 14:20:34,179 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 14:20:34,179 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:34,184 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 14:20:34,184 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:34,188 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 14:20:34,188 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:34,188 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 14:20:35,194 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 14:20:35,195 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:35,199 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 14:20:35,199 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:35,204 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 14:20:35,204 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:35,204 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 14:20:36,210 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 14:20:36,210 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:36,214 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 14:20:36,214 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:36,218 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 14:20:36,218 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:36,218 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 14:20:37,225 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 14:20:37,227 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:37,233 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 14:20:37,233 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:37,238 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 14:20:37,238 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:37,238 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 14:20:38,245 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 14:20:38,245 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:38,250 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 14:20:38,250 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:38,255 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 14:20:38,255 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:38,255 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 14:20:39,262 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 14:20:39,262 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:39,266 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 14:20:39,266 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:39,273 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 14:20:39,273 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:39,273 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 14:20:40,280 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 14:20:40,280 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:40,284 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 14:20:40,284 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:40,287 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 14:20:40,288 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:40,288 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 14:20:41,294 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 14:20:41,294 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:41,294 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: [Errno 111] Connection refused"))')
+2026-09-24 14:20:41,298 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 14:20:41,298 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 14:20:41,298 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 14:20:42,302 INFO: Lock owner: pg1; I am pg1
+2026-09-24 14:20:42,402 INFO: promoted self to leader because I had the session lock
+2026-09-24 14:20:42,709 INFO: Lock owner: pg1; I am pg1
+2026-09-24 14:20:42,809 INFO: updated leader lock during promote
+2026-09-24 14:20:43,591 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 14:20:53,450 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 14:21:03,450 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 14:21:13,450 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 14:21:23,450 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 14:21:33,454 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 14:21:43,450 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 14:21:53,450 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 14:22:03,454 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 14:22:13,450 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 14:23:00,801 INFO: Using default value thread_stack_size = 524288
+2026-09-24 14:23:00,808 INFO: Patroni global thread_pool_size = 5
+2026-09-24 14:23:00,877 INFO: Selected new etcd server http://etcd1:2379
+2026-09-24 14:23:00,925 INFO: No PostgreSQL configuration items changed, nothing to reload.
+2026-09-24 14:23:00,927 INFO: REST API thread_pool_size = 5
+2026-09-24 14:23:00,976 WARNING: Postgresql is not running.
+2026-09-24 14:23:00,976 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:23:00,977 INFO: pg_controldata:
+  pg_control version number: 1700
+  Catalog version number: 202406281
+  Database system identifier: 7689103724847792155
+  Database cluster state: in production
+  pg_control last modified: Thu Sep 24 14:20:42 2026
+  Latest checkpoint location: 0/60337C8
+  Latest checkpoint's REDO location: 0/6033770
+  Latest checkpoint's REDO WAL file: 000000040000000000000006
+  Latest checkpoint's TimeLineID: 4
+  Latest checkpoint's PrevTimeLineID: 4
+  Latest checkpoint's full_page_writes: on
+  Latest checkpoint's NextXID: 0:754
+  Latest checkpoint's NextOID: 16399
+  Latest checkpoint's NextMultiXactId: 1
+  Latest checkpoint's NextMultiOffset: 0
+  Latest checkpoint's oldestXID: 731
+  Latest checkpoint's oldestXID's DB: 1
+  Latest checkpoint's oldestActiveXID: 754
+  Latest checkpoint's oldestMultiXid: 1
+  Latest checkpoint's oldestMulti's DB: 1
+  Latest checkpoint's oldestCommitTsXid: 0
+  Latest checkpoint's newestCommitTsXid: 0
+  Time of latest checkpoint: Thu Sep 24 14:20:42 2026
+  Fake LSN counter for unlogged rels: 0/3E8
+  Minimum recovery ending location: 0/0
+  Min recovery ending loc's timeline: 0
+  Backup start location: 0/0
+  Backup end location: 0/0
+  End-of-backup record required: no
+  wal_level setting: replica
+  wal_log_hints setting: on
+  max_connections setting: 100
+  max_worker_processes setting: 8
+  max_wal_senders setting: 10
+  max_prepared_xacts setting: 0
+  max_locks_per_xact setting: 64
+  track_commit_timestamp setting: off
+  Maximum data alignment: 8
+  Database block size: 8192
+  Blocks per segment of large relation: 131072
+  WAL block size: 8192
+  Bytes per WAL segment: 16777216
+  Maximum length of identifiers: 64
+  Maximum columns in an index: 32
+  Maximum size of a TOAST chunk: 1996
+  Size of a large-object chunk: 2048
+  Date/time type storage: 64-bit integers
+  Float8 argument passing: by value
+  Data page checksum version: 1
+  Mock authentication nonce: 9ad295e9f5295e02190264cfda709f185556430e357307eb0aec2bda43e7f151
+
+2026-09-24 14:23:01,024 INFO: doing crash recovery in a single user mode
+2026-09-24 14:23:01,183 WARNING: Postgresql is not running.
+2026-09-24 14:23:01,183 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:23:01,184 INFO: pg_controldata:
+  pg_control version number: 1700
+  Catalog version number: 202406281
+  Database system identifier: 7689103724847792155
+  Database cluster state: shut down
+  pg_control last modified: Thu Sep 24 14:23:01 2026
+  Latest checkpoint location: 0/7000028
+  Latest checkpoint's REDO location: 0/7000028
+  Latest checkpoint's REDO WAL file: 000000040000000000000007
+  Latest checkpoint's TimeLineID: 4
+  Latest checkpoint's PrevTimeLineID: 4
+  Latest checkpoint's full_page_writes: on
+  Latest checkpoint's NextXID: 0:755
+  Latest checkpoint's NextOID: 16399
+  Latest checkpoint's NextMultiXactId: 1
+  Latest checkpoint's NextMultiOffset: 0
+  Latest checkpoint's oldestXID: 731
+  Latest checkpoint's oldestXID's DB: 1
+  Latest checkpoint's oldestActiveXID: 0
+  Latest checkpoint's oldestMultiXid: 1
+  Latest checkpoint's oldestMulti's DB: 1
+  Latest checkpoint's oldestCommitTsXid: 0
+  Latest checkpoint's newestCommitTsXid: 0
+  Time of latest checkpoint: Thu Sep 24 14:23:01 2026
+  Fake LSN counter for unlogged rels: 0/3E8
+  Minimum recovery ending location: 0/0
+  Min recovery ending loc's timeline: 0
+  Backup start location: 0/0
+  Backup end location: 0/0
+  End-of-backup record required: no
+  wal_level setting: replica
+  wal_log_hints setting: on
+  max_connections setting: 100
+  max_worker_processes setting: 8
+  max_wal_senders setting: 10
+  max_prepared_xacts setting: 0
+  max_locks_per_xact setting: 64
+  track_commit_timestamp setting: off
+  Maximum data alignment: 8
+  Database block size: 8192
+  Blocks per segment of large relation: 131072
+  WAL block size: 8192
+  Bytes per WAL segment: 16777216
+  Maximum length of identifiers: 64
+  Maximum columns in an index: 32
+  Maximum size of a TOAST chunk: 1996
+  Size of a large-object chunk: 2048
+  Date/time type storage: 64-bit integers
+  Float8 argument passing: by value
+  Data page checksum version: 1
+  Mock authentication nonce: 9ad295e9f5295e02190264cfda709f185556430e357307eb0aec2bda43e7f151
+
+2026-09-24 14:23:01,184 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:23:01,188 INFO: Local timeline=4 lsn=0/7000028
+2026-09-24 14:23:01,201 INFO: primary_timeline=5
+2026-09-24 14:23:01,201 INFO: primary: history=1	0/402AC68	no recovery target specified
+2	0/40328E8	no recovery target specified
+3	0/6033738	no recovery target specified
+4	0/637FAE0	no recovery target specified
+2026-09-24 14:23:01,251 INFO: running pg_rewind from pg2
+2026-09-24 14:23:01,271 INFO: running pg_rewind from dbname=postgres user=postgres host=pg2 port=5432 target_session_attrs=read-write
+2026-09-24 14:23:01,982 INFO: pg_rewind exit code=0
+2026-09-24 14:23:01,982 INFO:  stdout=
+2026-09-24 14:23:01,982 INFO:  stderr=pg_rewind: servers diverged at WAL location 0/637FAE0 on timeline 4
+pg_rewind: rewinding from last common checkpoint at 0/60337C8 on timeline 4
+pg_rewind: Done!
+
+2026-09-24 14:23:01,982 WARNING: Postgresql is not running.
+2026-09-24 14:23:01,982 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:23:01,983 INFO: pg_controldata:
+  pg_control version number: 1700
+  Catalog version number: 202406281
+  Database system identifier: 7689103724847792155
+  Database cluster state: in archive recovery
+  pg_control last modified: Thu Sep 24 14:23:01 2026
+  Latest checkpoint location: 0/637FC78
+  Latest checkpoint's REDO location: 0/637FC20
+  Latest checkpoint's REDO WAL file: 000000050000000000000006
+  Latest checkpoint's TimeLineID: 5
+  Latest checkpoint's PrevTimeLineID: 5
+  Latest checkpoint's full_page_writes: on
+  Latest checkpoint's NextXID: 0:755
+  Latest checkpoint's NextOID: 16399
+  Latest checkpoint's NextMultiXactId: 1
+  Latest checkpoint's NextMultiOffset: 0
+  Latest checkpoint's oldestXID: 731
+  Latest checkpoint's oldestXID's DB: 1
+  Latest checkpoint's oldestActiveXID: 755
+  Latest checkpoint's oldestMultiXid: 1
+  Latest checkpoint's oldestMulti's DB: 1
+  Latest checkpoint's oldestCommitTsXid: 0
+  Latest checkpoint's newestCommitTsXid: 0
+  Time of latest checkpoint: Thu Sep 24 14:22:44 2026
+  Fake LSN counter for unlogged rels: 0/3E8
+  Minimum recovery ending location: 0/637FD28
+  Min recovery ending loc's timeline: 5
+  Backup start location: 0/0
+  Backup end location: 0/0
+  End-of-backup record required: no
+  wal_level setting: replica
+  wal_log_hints setting: on
+  max_connections setting: 100
+  max_worker_processes setting: 8
+  max_wal_senders setting: 10
+  max_prepared_xacts setting: 0
+  max_locks_per_xact setting: 64
+  track_commit_timestamp setting: off
+  Maximum data alignment: 8
+  Database block size: 8192
+  Blocks per segment of large relation: 131072
+  WAL block size: 8192
+  Bytes per WAL segment: 16777216
+  Maximum length of identifiers: 64
+  Maximum columns in an index: 32
+  Maximum size of a TOAST chunk: 1996
+  Size of a large-object chunk: 2048
+  Date/time type storage: 64-bit integers
+  Float8 argument passing: by value
+  Data page checksum version: 1
+  Mock authentication nonce: 9ad295e9f5295e02190264cfda709f185556430e357307eb0aec2bda43e7f151
+
+2026-09-24 14:23:01,983 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:23:02,026 INFO: starting as a secondary
+2026-09-24 14:23:02,319 INFO: postmaster pid=43
+2026-09-24 14:23:03,340 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:23:03,340 INFO: establishing a new patroni heartbeat connection to postgres
+2026-09-24 14:23:03,449 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 14:23:05,154 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 14:23:15,710 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 14:23:25,650 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 14:23:35,650 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 14:23:45,649 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 14:23:55,650 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 14:24:05,650 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 14:24:15,650 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 14:24:25,650 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 14:24:35,651 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 14:24:45,650 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 14:24:55,651 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 14:25:05,649 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 14:25:15,649 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 14:25:25,650 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 14:25:35,655 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 14:25:45,650 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 14:25:55,702 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 14:26:05,609 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 14:26:15,651 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 14:26:25,650 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 14:26:35,649 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 14:26:45,654 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 14:26:55,649 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 14:27:05,650 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 14:27:15,651 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 14:27:25,655 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)

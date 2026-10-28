@@ -40,6 +40,7 @@ const RENDERERS = [
   'js/sections/summary.js', 'js/sections/events.js', 'js/sections/connections.js',
   'js/sections/checkpoints.js', 'js/sections/maintenance.js', 'js/sections/locks.js',
   'js/sections/tempfiles.js', 'js/sections/sql.js', 'js/sections/modals.js',
+  'js/sections/patroni.js',
   'js/sections/pgbackrest.js',
 ].map((f) => join(REPO_ROOT, 'web', f));
 

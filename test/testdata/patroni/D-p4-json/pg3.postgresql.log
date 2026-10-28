@@ -1,0 +1,78 @@
+2026-09-24 14:09:38.176 UTC [26] LOG:  starting PostgreSQL 17.9 (Debian 17.9-1.pgdg13+1) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+2026-09-24 14:09:38.176 UTC [26] LOG:  listening on IPv4 address "0.0.0.0", port 5432
+2026-09-24 14:09:38.181 UTC [26] LOG:  listening on Unix socket "/tmp/.s.PGSQL.5432"
+2026-09-24 14:09:38.186 UTC [30] LOG:  database system was interrupted; last known up at 2026-09-24 14:09:35 UTC
+2026-09-24 14:09:38.202 UTC [32] postgres@postgres FATAL:  the database system is starting up
+2026-09-24 14:09:38.206 UTC [34] postgres@postgres FATAL:  the database system is starting up
+2026-09-24 14:09:38.518 UTC [30] LOG:  starting backup recovery with redo LSN 0/2000028, checkpoint LSN 0/2000080, on timeline ID 1
+2026-09-24 14:09:38.518 UTC [30] LOG:  entering standby mode
+2026-09-24 14:09:38.521 UTC [30] LOG:  redo starts at 0/2000028
+2026-09-24 14:09:38.523 UTC [30] LOG:  completed backup recovery with redo LSN 0/2000028 and end LSN 0/20001F0
+2026-09-24 14:09:38.523 UTC [30] LOG:  consistent recovery state reached at 0/20001F0
+2026-09-24 14:09:38.523 UTC [26] LOG:  database system is ready to accept read-only connections
+2026-09-24 14:09:38.531 UTC [35] FATAL:  could not start WAL streaming: ERROR:  replication slot "pg3" does not exist
+2026-09-24 14:09:38.538 UTC [36] FATAL:  could not start WAL streaming: ERROR:  replication slot "pg3" does not exist
+2026-09-24 14:09:38.538 UTC [30] LOG:  waiting for WAL to become available at 0/3000018
+2026-09-24 14:09:43.542 UTC [42] FATAL:  could not start WAL streaming: ERROR:  replication slot "pg3" does not exist
+2026-09-24 14:09:43.542 UTC [30] LOG:  waiting for WAL to become available at 0/3000018
+2026-09-24 14:09:48.539 UTC [43] LOG:  started streaming WAL from primary at 0/3000000 on timeline 1
+2026-09-24 14:10:14.701 UTC [43] LOG:  replication terminated by primary server
+2026-09-24 14:10:14.701 UTC [43] DETAIL:  End of WAL reached on timeline 1 at 0/402AC68.
+2026-09-24 14:10:14.701 UTC [43] FATAL:  could not send end-of-streaming message to primary: server closed the connection unexpectedly
+		This probably means the server terminated abnormally
+		before or while processing the request.
+	no COPY in progress
+2026-09-24 14:10:14.701 UTC [30] LOG:  invalid record length at 0/402AC68: expected at least 24, got 0
+2026-09-24 14:10:14.705 UTC [52] FATAL:  could not connect to the primary server: connection to server at "pg1" (10.89.9.5), port 5432 failed: Connection refused
+		Is the server running on that host and accepting TCP/IP connections?
+	connection to server at "pg1" (10.89.13.2), port 5432 failed: Connection refused
+		Is the server running on that host and accepting TCP/IP connections?
+2026-09-24 14:10:14.705 UTC [30] LOG:  waiting for WAL to become available at 0/402AC80
+2026-09-24 14:10:17.857 UTC [26] LOG:  received SIGHUP, reloading configuration files
+2026-09-24 14:10:17.857 UTC [26] LOG:  parameter "primary_conninfo" changed to "dbname=postgres user=replicator passfile=/home/postgres/.pgpass host=pg2 port=5432 sslmode=prefer application_name=pg3 gssencmode=prefer channel_binding=prefer sslnegotiation=postgres"
+2026-09-24 14:10:17.865 UTC [59] LOG:  fetching timeline history file for timeline 2 from primary server
+2026-09-24 14:10:17.872 UTC [59] LOG:  started streaming WAL from primary at 0/4000000 on timeline 1
+2026-09-24 14:10:17.872 UTC [59] LOG:  replication terminated by primary server
+2026-09-24 14:10:17.872 UTC [59] DETAIL:  End of WAL reached on timeline 1 at 0/402AC68.
+2026-09-24 14:10:17.872 UTC [30] LOG:  new target timeline is 2
+2026-09-24 14:10:17.872 UTC [59] LOG:  restarted WAL streaming at 0/4000000 on timeline 2
+2026-09-24 14:11:32.990 UTC [59] FATAL:  could not receive data from WAL stream: server closed the connection unexpectedly
+		This probably means the server terminated abnormally
+		before or while processing the request.
+2026-09-24 14:11:32.990 UTC [30] LOG:  invalid record length at 0/40328E8: expected at least 24, got 0
+2026-09-24 14:11:32.992 UTC [70] FATAL:  could not connect to the primary server: connection to server at "pg2" (10.89.9.6), port 5432 failed: Connection refused
+		Is the server running on that host and accepting TCP/IP connections?
+	connection to server at "pg2" (10.89.13.3), port 5432 failed: Connection refused
+		Is the server running on that host and accepting TCP/IP connections?
+2026-09-24 14:11:32.992 UTC [30] LOG:  waiting for WAL to become available at 0/4032900
+2026-09-24 14:11:38.001 UTC [76] FATAL:  could not connect to the primary server: could not translate host name "pg2" to address: Name or service not known
+2026-09-24 14:11:38.001 UTC [30] LOG:  waiting for WAL to become available at 0/4032900
+2026-09-24 14:11:43.004 UTC [79] FATAL:  could not connect to the primary server: could not translate host name "pg2" to address: Name or service not known
+2026-09-24 14:11:43.004 UTC [30] LOG:  waiting for WAL to become available at 0/4032900
+2026-09-24 14:11:48.007 UTC [83] FATAL:  could not connect to the primary server: could not translate host name "pg2" to address: No address associated with hostname
+2026-09-24 14:11:48.007 UTC [30] LOG:  waiting for WAL to become available at 0/4032900
+2026-09-24 14:11:53.012 UTC [87] FATAL:  could not connect to the primary server: could not translate host name "pg2" to address: Name or service not known
+2026-09-24 14:11:53.012 UTC [30] LOG:  waiting for WAL to become available at 0/4032900
+2026-09-24 14:11:58.089 UTC [92] FATAL:  could not connect to the primary server: could not translate host name "pg2" to address: Name or service not known
+2026-09-24 14:11:58.089 UTC [30] LOG:  waiting for WAL to become available at 0/4032900
+2026-09-24 14:12:01.666 UTC [26] LOG:  received SIGHUP, reloading configuration files
+2026-09-24 14:12:01.666 UTC [26] LOG:  parameter "primary_conninfo" changed to "dbname=postgres user=replicator passfile=/home/postgres/.pgpass host=pg1 port=5432 sslmode=prefer application_name=pg3 gssencmode=prefer channel_binding=prefer sslnegotiation=postgres"
+2026-09-24 14:12:01.673 UTC [97] LOG:  started streaming WAL from primary at 0/4000000 on timeline 2
+2026-09-24 14:12:01.739 UTC [97] LOG:  replication terminated by primary server
+2026-09-24 14:12:01.739 UTC [97] DETAIL:  End of WAL reached on timeline 2 at 0/40328E8.
+2026-09-24 14:12:01.739 UTC [97] LOG:  fetching timeline history file for timeline 3 from primary server
+2026-09-24 14:12:01.744 UTC [30] LOG:  new target timeline is 3
+2026-09-24 14:12:01.744 UTC [97] LOG:  restarted WAL streaming at 0/4000000 on timeline 3
+2026-09-24 14:14:32.053 UTC [97] FATAL:  terminating walreceiver due to timeout
+2026-09-24 14:14:32.053 UTC [30] LOG:  invalid record length at 0/407CB28: expected at least 24, got 0
+2026-09-24 14:14:32.060 UTC [115] FATAL:  could not start WAL streaming: ERROR:  replication slot "pg3" is active for PID 99
+2026-09-24 14:14:32.060 UTC [30] LOG:  waiting for WAL to become available at 0/407CB40
+2026-09-24 14:14:37.064 UTC [119] FATAL:  could not start WAL streaming: ERROR:  replication slot "pg3" is active for PID 99
+2026-09-24 14:14:37.064 UTC [30] LOG:  waiting for WAL to become available at 0/407CB40
+2026-09-24 14:14:38.765 UTC [28] LOG:  restartpoint starting: time
+2026-09-24 14:14:42.067 UTC [124] FATAL:  could not start WAL streaming: ERROR:  replication slot "pg3" is active for PID 99
+2026-09-24 14:14:42.067 UTC [30] LOG:  waiting for WAL to become available at 0/407CB40
+2026-09-24 14:14:47.072 UTC [127] LOG:  started streaming WAL from primary at 0/4000000 on timeline 3
+2026-09-24 14:14:48.055 UTC [28] LOG:  restartpoint complete: wrote 94 buffers (0.6%); 0 WAL file(s) added, 0 removed, 0 recycled; write=9.224 s, sync=0.033 s, total=9.290 s; sync files=51, longest=0.009 s, average=0.001 s; distance=32970 kB, estimate=32970 kB; lsn=0/40329B0, redo lsn=0/4032920
+2026-09-24 14:14:48.055 UTC [28] LOG:  recovery restart point at 0/4032920
+2026-09-24 14:14:48.055 UTC [28] DETAIL:  Last completed transaction was at log time 2026-09-24 14:13:01.835179+00.

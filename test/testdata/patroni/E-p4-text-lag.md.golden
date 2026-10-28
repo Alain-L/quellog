@@ -1,0 +1,145 @@
+## SUMMARY
+
+This _quellog_ report summarizes **114** log entries collected between 24 Sep 2026, 14:09 (UTC) — 24 Sep 2026, 14:14 (UTC), spanning 5m 3s of activity.
+
+## SERVER
+
+- **Starts**: 5
+- **Reloads (SIGHUP)**: 4
+
+### Config parameter changes
+
+| Parameter         | Old | New                                                                                                                                                                                     | When                |
+|-------------------|-----|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------|
+| primary_conninfo  | -   | dbname=postgres user=replicator passfile=/home/postgres/.pgpass host=pg1 port=5432 sslmode=prefer application_name=pg2 gssencmode=prefer channel_binding=prefer sslnegotiation=postgres | 2026-09-24 14:11:31 |
+| primary_slot_name | -   | pg2                                                                                                                                                                                     | 2026-09-24 14:11:31 |
+| primary_conninfo  | -   | dbname=postgres user=replicator passfile=/home/postgres/.pgpass host=pg1 port=5432 sslmode=prefer application_name=pg3 gssencmode=prefer channel_binding=prefer sslnegotiation=postgres | 2026-09-24 14:11:31 |
+| primary_slot_name | -   | pg3                                                                                                                                                                                     | 2026-09-24 14:11:31 |
+
+### Timeline
+
+| Time                | Event       | Detail                                         |
+|---------------------|-------------|------------------------------------------------|
+| 2026-09-24 14:09:32 | start       | database system is ready to accept connections |
+| 2026-09-24 14:11:31 | start       | database system is ready to accept connections |
+| 2026-09-24 14:11:31 | start       | database system is ready to accept connections |
+| 2026-09-24 14:09:35 | interrupted | system was interrupted                         |
+| 2026-09-24 14:09:36 | start       | database system is ready to accept connections |
+| 2026-09-24 14:11:02 | sighup      | reloading configuration files                  |
+| 2026-09-24 14:11:31 | sighup      | reloading configuration files                  |
+| 2026-09-24 14:09:35 | interrupted | system was interrupted                         |
+| 2026-09-24 14:09:36 | start       | database system is ready to accept connections |
+| 2026-09-24 14:11:02 | sighup      | reloading configuration files                  |
+| 2026-09-24 14:11:31 | sighup      | reloading configuration files                  |
+
+### Replication
+
+- **Stream reconnects**: 4 _(peak 4× in 14:00-15:00)_
+- **Replication terminations**: 2 _(primary closed walsender, last 2026-09-24 14:11:31)_
+
+## EVENTS
+
+- **FATAL**: 12 (10.5%)
+  - **FA - Unknown Error Class**
+  - *fa-ZG2B* `could not start WAL streaming: ERROR: replication slot ? does not exist` (6) [50.0%]
+  - *fa-t7K1* `terminating walreceiver process due to administrator command` (2) [16.7%]
+  - **Unclassified**
+  - *fa-4NKc* `the database system is starting up` (4) [33.3%]
+
+- **ERROR**: 6 (5.3%)
+  - *er-Hbml* `replication slot ? does not exist` (6) [100.0%]
+
+- **WARNING**: 1 (0.9%)
+  - *wa-wGqa* `specified neither ? nor ?` (1) [100.0%]
+
+- **LOG**: 95 (83.3%)
+
+## CHECKPOINTS
+
+### Checkpoint distribution
+
+```
+00:00 - 04:00 |  -
+04:00 - 08:00 |  -
+08:00 - 12:00 |  -
+12:00 - 16:00 | ■■■ 3 
+16:00 - 20:00 |  -
+20:00 - 00:00 |  -
+```
+
+- **Checkpoint count**: 3
+- **Avg checkpoint write time**: 0s
+- **Max checkpoint write time**: 0s
+- **WAL per checkpoint (avg)**: 2.9 MB
+- **WAL per checkpoint (max)**: 8.8 MB
+
+### Checkpoint types
+
+|  |  |  |  |
+|------|------:|--:|-----:|
+| force wait | 2 | 66.7% | 23.72/h |
+| force | 1 | 33.3% | 11.86/h |
+
+### WAL per checkpoint (avg)
+
+■ = 114 kB, □ = estimate margin
+
+```
+00:00 - 04:00  -
+04:00 - 08:00  -
+08:00 - 12:00  -
+12:00 - 16:00 ■■■■■■■■■■■■■■■■■■■■■■■■■■□□□□□□□□□□□□□□□□□□□□□□□□  3 MB
+16:00 - 20:00  -
+20:00 - 00:00  -
+```
+
+## CLIENTS
+
+- **Unique DBs**: 0
+- **Unique Users**: 1
+- **Unique Apps**: 2
+- **Unique Hosts**: 1
+
+### USERS
+
+| User       | Count |    % |
+|------------|------:|-----:|
+| replicator |     2 | 1.8% |
+
+### APPS
+
+| App                                                                  | Count |    % |
+|----------------------------------------------------------------------|------:|-----:|
+| pg2 gssencmode=prefer channel_binding=prefer sslnegotiation=postgres |     1 | 0.9% |
+| pg3 gssencmode=prefer channel_binding=prefer sslnegotiation=postgres |     1 | 0.9% |
+
+### HOSTS
+
+| Host | Count |    % |
+|------|------:|-----:|
+| pg1  |     2 | 1.8% |
+
+### USER × HOST
+
+| User       | Host | Count |    % |
+|------------|------|------:|-----:|
+| replicator | pg1  |     2 | 1.8% |
+
+## PATRONI
+
+| Metric              |                                  Value |
+|---------------------|---------------------------------------:|
+| Start date          |                    2026-09-24 14:09:29 |
+| End date            |                    2026-09-24 14:14:53 |
+| Members             |                          pg1, pg2, pg3 |
+| Leader at end       |                     pg1 since 14:11:31 |
+| Leader changes      | 0, 0 switchover, 0 failover, 1 retaken |
+| Time without leader |                                59.186s |
+| DCS incidents       |                                      0 |
+| Refused for lag     |                                      6 |
+| Errors              |                                      0 |
+| Warnings            |                                      2 |
+
+_Details: --patroni-detail_
+
+

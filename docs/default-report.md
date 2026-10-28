@@ -1,6 +1,6 @@
 # Report Sections
 
-When you run quellog without section flags, you get a report with all available sections. Each section can be requested individually with its flag — see [Filtering](filtering.md) for details. Some flags (e.g., `--connections`, `--tempfiles`, `--locks`) display additional detail not shown in the default report. When the input holds pgBackRest lines, a pgBackRest report per stanza follows the PostgreSQL report; see [pgBackRest](pgbackrest.md).
+When you run quellog without section flags, you get a report with all available sections. Each section can be requested individually with its flag — see [Filtering](filtering.md) for details. Some flags (e.g., `--connections`, `--tempfiles`, `--locks`) display additional detail not shown in the default report. When the input holds pgBackRest lines, a pgBackRest report per stanza follows the PostgreSQL report; see [pgBackRest](pgbackrest.md). When Patroni logs are given, a Patroni report follows too; see [Patroni](patroni.md).
 
 The text report uses ANSI styling (bold, grey) whether or not it goes to a terminal, so redirecting it to a file keeps the escape codes. Set the `NO_COLOR` environment variable, to any value, for plain text:
 

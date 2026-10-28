@@ -1,0 +1,59 @@
+2026-09-24 14:09:38.302 UTC [26] LOG:  starting PostgreSQL 17.9 (Debian 17.9-1.pgdg13+1) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+2026-09-24 14:09:38.302 UTC [26] LOG:  listening on IPv4 address "0.0.0.0", port 5432
+2026-09-24 14:09:38.307 UTC [26] LOG:  listening on Unix socket "/tmp/.s.PGSQL.5432"
+2026-09-24 14:09:38.315 UTC [31] LOG:  database system was interrupted; last known up at 2026-09-24 14:09:35 UTC
+2026-09-24 14:09:38.317 UTC [32] postgres@postgres FATAL:  the database system is starting up
+2026-09-24 14:09:38.321 UTC [34] postgres@postgres FATAL:  the database system is starting up
+2026-09-24 14:09:38.541 UTC [31] LOG:  starting backup recovery with redo LSN 0/20000F8, checkpoint LSN 0/2000150, on timeline ID 1
+2026-09-24 14:09:38.541 UTC [31] LOG:  entering standby mode
+2026-09-24 14:09:38.544 UTC [31] LOG:  redo starts at 0/20000F8
+2026-09-24 14:09:38.545 UTC [31] LOG:  completed backup recovery with redo LSN 0/20000F8 and end LSN 0/3000050
+2026-09-24 14:09:38.545 UTC [31] LOG:  consistent recovery state reached at 0/3000050
+2026-09-24 14:09:38.545 UTC [26] LOG:  database system is ready to accept read-only connections
+2026-09-24 14:09:38.552 UTC [35] FATAL:  could not start WAL streaming: ERROR:  replication slot "pg2" does not exist
+2026-09-24 14:09:38.560 UTC [36] FATAL:  could not start WAL streaming: ERROR:  replication slot "pg2" does not exist
+2026-09-24 14:09:38.560 UTC [31] LOG:  waiting for WAL to become available at 0/4000018
+2026-09-24 14:09:43.565 UTC [42] FATAL:  could not start WAL streaming: ERROR:  replication slot "pg2" does not exist
+2026-09-24 14:09:43.565 UTC [31] LOG:  waiting for WAL to become available at 0/4000018
+2026-09-24 14:09:48.560 UTC [43] LOG:  started streaming WAL from primary at 0/4000000 on timeline 1
+2026-09-24 14:10:14.701 UTC [43] LOG:  replication terminated by primary server
+2026-09-24 14:10:14.701 UTC [43] DETAIL:  End of WAL reached on timeline 1 at 0/402AC68.
+2026-09-24 14:10:14.701 UTC [43] FATAL:  could not send end-of-streaming message to primary: server closed the connection unexpectedly
+		This probably means the server terminated abnormally
+		before or while processing the request.
+	no COPY in progress
+2026-09-24 14:10:14.701 UTC [31] LOG:  invalid record length at 0/402AC68: expected at least 24, got 0
+2026-09-24 14:10:14.705 UTC [45] FATAL:  could not connect to the primary server: connection to server at "pg1" (10.89.13.2), port 5432 failed: Connection refused
+		Is the server running on that host and accepting TCP/IP connections?
+	connection to server at "pg1" (10.89.9.5), port 5432 failed: Connection refused
+		Is the server running on that host and accepting TCP/IP connections?
+2026-09-24 14:10:14.705 UTC [31] LOG:  waiting for WAL to become available at 0/402AC80
+2026-09-24 14:10:16.008 UTC [31] LOG:  received promote request
+2026-09-24 14:10:16.008 UTC [31] LOG:  redo done at 0/402ABF0 system usage: CPU: user: 0.00 s, system: 0.00 s, elapsed: 37.46 s
+2026-09-24 14:10:16.008 UTC [31] LOG:  last completed transaction was at log time 2026-09-24 14:10:12.067012+00
+2026-09-24 14:10:16.013 UTC [31] LOG:  selected new timeline ID: 2
+2026-09-24 14:10:16.047 UTC [31] LOG:  archive recovery complete
+2026-09-24 14:10:16.049 UTC [29] LOG:  checkpoint starting: force
+2026-09-24 14:10:16.051 UTC [26] LOG:  database system is ready to accept connections
+2026-09-24 14:10:17.143 UTC [29] LOG:  checkpoint complete: wrote 52 buffers (0.3%); 0 WAL file(s) added, 0 removed, 0 recycled; write=1.048 s, sync=0.035 s, total=1.095 s; sync files=43, longest=0.005 s, average=0.001 s; distance=32938 kB, estimate=32938 kB; lsn=0/402AD30, redo lsn=0/402ACA0
+2026-09-24 14:10:17.143 UTC [29] LOG:  checkpoint starting: immediate force wait
+2026-09-24 14:10:17.149 UTC [29] LOG:  checkpoint complete: wrote 0 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.001 s, sync=0.001 s, total=0.007 s; sync files=0, longest=0.000 s, average=0.000 s; distance=0 kB, estimate=29645 kB; lsn=0/402AE00, redo lsn=0/402ADA8
+2026-09-24 14:12:35.244 UTC [43] LOG:  starting PostgreSQL 17.9 (Debian 17.9-1.pgdg13+1) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+2026-09-24 14:12:35.244 UTC [43] LOG:  listening on IPv4 address "0.0.0.0", port 5432
+2026-09-24 14:12:35.247 UTC [43] LOG:  listening on Unix socket "/tmp/.s.PGSQL.5432"
+2026-09-24 14:12:35.250 UTC [47] LOG:  database system was interrupted while in recovery at log time 2026-09-24 14:12:01 UTC
+2026-09-24 14:12:35.250 UTC [47] HINT:  If this has occurred more than once some data might be corrupted and you might need to choose an earlier recovery target.
+2026-09-24 14:12:35.270 UTC [49] postgres@postgres FATAL:  the database system is starting up
+2026-09-24 14:12:35.273 UTC [51] postgres@postgres FATAL:  the database system is starting up
+2026-09-24 14:12:35.301 UTC [47] LOG:  starting backup recovery with redo LSN 0/402ADA8, checkpoint LSN 0/402AE00, on timeline ID 2
+2026-09-24 14:12:35.301 UTC [47] LOG:  entering standby mode
+2026-09-24 14:12:35.304 UTC [47] LOG:  redo starts at 0/402ADA8
+2026-09-24 14:12:35.305 UTC [47] LOG:  completed backup recovery with redo LSN 0/402ADA8 and end LSN 0/4032A60
+2026-09-24 14:12:35.305 UTC [47] LOG:  consistent recovery state reached at 0/4032A60
+2026-09-24 14:12:35.305 UTC [47] LOG:  invalid record length at 0/4032A60: expected at least 24, got 0
+2026-09-24 14:12:35.305 UTC [43] LOG:  database system is ready to accept read-only connections
+2026-09-24 14:12:35.313 UTC [52] LOG:  started streaming WAL from primary at 0/4000000 on timeline 3
+2026-09-24 14:17:35.349 UTC [45] LOG:  restartpoint starting: time
+2026-09-24 14:17:40.704 UTC [45] LOG:  restartpoint complete: wrote 55 buffers (0.3%); 0 WAL file(s) added, 0 removed, 0 recycled; write=5.315 s, sync=0.025 s, total=5.356 s; sync files=19, longest=0.010 s, average=0.002 s; distance=349 kB, estimate=349 kB; lsn=0/4082440, redo lsn=0/40823B0
+2026-09-24 14:17:40.704 UTC [45] LOG:  recovery restart point at 0/40823B0
+2026-09-24 14:17:40.704 UTC [45] DETAIL:  Last completed transaction was at log time 2026-09-24 14:13:01.835179+00.

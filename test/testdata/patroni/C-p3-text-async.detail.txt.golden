@@ -1,0 +1,106 @@
+quellog dev – 1912 entries processed in X s (364.23 KB)
+[1m
+PATRONI
+[0m
+  Start date                : 2026-09-24 14:09:29
+  End date                  : 2026-09-24 14:27:25
+  Duration                  : 17m56.604s
+  Total entries             : 1912
+  Members                   : pg1, pg2, pg3
+  Leader at end             : pg2 since 14:22:43
+  Leader changes            : 3, 1 switchover, 2 failovers, 1 retaken
+  Time without leader       : 1m56.013s
+  DCS incidents             : 1, longest 49.344s
+  Refused for lag           : 0
+  Errors                    : 733
+  Warnings                  : 594
+
+  Members:
+    pg1        replica     8m37.267s as leader     664 entries   14:09:29 → 14:27:25
+    pg2        leader      7m19.495s as leader     591 entries   14:09:29 → 14:27:25
+    pg3        replica            0s as leader     657 entries   14:09:29 → 14:27:25
+
+  Leader changes:
+    14:10:18  switchover  pg1 → pg2   1.291s without leader
+    [3;38;5;243m          postgres, any node  14:10:17  fast shutdown request[0m
+    [3;38;5;243m          postgres, any node  14:10:18  database system is ready to accept connections[0m
+    [3;38;5;243m          postgres, any node  14:10:20  reloading configuration files[0m
+    [3;38;5;243m          postgres, any node  14:10:20  database system is ready to accept connections[0m
+    14:13:31  failover    pg2 → pg1   34.413s without leader
+    [3;38;5;243m          postgres, any node  14:13:31  reloading configuration files[0m
+    [3;38;5;243m          postgres, any node  14:13:31  database system is ready to accept connections[0m
+    [3;38;5;243m          postgres, any node  14:13:54  system was interrupted[0m
+    [3;38;5;243m          postgres, any node  14:13:54  database system is ready to accept connections[0m
+    14:20:42  retaken     pg1 → pg1   49.948s without leader
+    [3;38;5;243m          postgres, any node  14:19:52  fast shutdown request[0m
+    [3;38;5;243m          postgres, any node  14:19:52  database system is ready to accept connections[0m
+    [3;38;5;243m          postgres, any node  14:20:42  database system is ready to accept connections[0m
+    14:22:43  failover    pg1 → pg2   30.361s without leader
+    [3;38;5;243m          postgres, any node  14:22:43  database system is ready to accept connections[0m
+    [3;38;5;243m          postgres, any node  14:22:47  reloading configuration files[0m
+    [3;38;5;243m          postgres, any node  14:23:02  system was interrupted[0m
+    [3;38;5;243m          postgres, any node  14:23:02  database system is ready to accept connections[0m
+
+  DCS incidents:
+    14:19:52 → 14:20:42  49.344s    pg1, pg2, pg3
+
+  Timeline:
+    14:09:32  pg1        bootstrap          initialized a new cluster
+    14:09:35  pg2        replica_created    replica has been created using basebackup
+    14:09:35  pg3        replica_created    replica has been created using basebackup
+    14:10:17  pg1        switchover_request received switchover request with leader=pg1 candidate=pg2 scheduled_at=None
+    14:10:17  pg1        demote             Demoting self (graceful)
+    14:10:18  pg3        switchover_seen    switchover: to pg2, i am pg3
+    14:10:18  pg2        failover_key       Cleaning up failover key after acquiring leader lock...
+    14:10:18  pg2        promote            promoted self to leader by acquiring session lock
+    14:11:36  pg2        pause              
+    14:11:56  pg1        resume             
+    14:13:31  pg1        promote            promoted self to leader by acquiring session lock
+    14:13:52  pg2        crash_recovery     doing crash recovery in a single user mode
+    14:13:53  pg2        rewind             running pg_rewind from pg1
+    14:13:53  pg2        rewind_done        pg_rewind exit code=0
+    14:15:24  pg2        reinit             Removing data directory: /home/postgres/data
+    14:15:29  pg2        replica_created    replica has been created using basebackup
+    14:19:52  pg1        demote             demoting self because DCS is not accessible and I was a leader
+    14:19:52  pg3        dcs_lost           DCS is not accessible
+    14:19:52  pg2        dcs_lost           DCS is not accessible
+    14:20:02  pg1        dcs_lost           DCS is not accessible
+    14:20:41  pg2        dcs_restored       after 49s
+    14:20:42  pg3        dcs_restored       after 49s
+    14:20:42  pg1        dcs_restored       after 40s
+    14:20:42  pg1        promote            promoted self to leader because I had the session lock
+    14:22:43  pg2        promote            promoted self to leader by acquiring session lock
+    14:23:01  pg1        crash_recovery     doing crash recovery in a single user mode
+    14:23:01  pg1        rewind             running pg_rewind from pg2
+    14:23:01  pg1        rewind_done        pg_rewind exit code=0
+
+  ERROR                     : 733 (15 kinds)
+    [3;38;5;243mer-4HFh[0m  Failed to get list of machines from http://etcd1:?/v3: MaxRetryError   169   23.06%  14:19:36 → 14:20:41
+    [3;38;5;243mer-Vywt[0m  Failed to get list of machines from http://etcd2:?/v3: MaxRetryError   169   23.06%  14:19:36 → 14:20:41
+    [3;38;5;243mer-OQ5I[0m  Failed to get list of machines from http://etcd3:?/v3: MaxRetryError   169   23.06%  14:19:36 → 14:20:41
+    [3;38;5;243mer-rR5F[0m  KVCache.run EtcdConnectionFailed                                       164   22.37%  14:19:43 → 14:20:41
+    [3;38;5;243mer-r32e[0m  Error communicating with DCS                                            15    2.05%  14:19:52 → 14:20:32
+    [3;38;5;243mer-FlFr[0m  Exceeded retry deadline                                                 12    1.64%  14:20:02 → 14:20:32
+    [3;38;5;243mer-TGDH[0m  Request to server http://etcd2:? failed: MaxRetryError                   8    1.09%  14:19:34 → 14:19:47
+    [3;38;5;243mer-hWDI[0m  Request to server http://etcd1:? failed: MaxRetryError                   7    0.95%  14:19:36 → 14:19:45
+    [3;38;5;243mer-3ceq[0m  Request to server http://etcd3:? failed: MaxRetryError                   7    0.95%  14:19:36 → 14:19:45
+    [3;38;5;243mer-HY4b[0m  watchprefix failed: ProtocolError                                        4    0.55%  14:13:31 → 14:22:47
+    [3;38;5;243mer-aZxs[0m  get_cluster                                                              3    0.41%  14:19:52
+    [3;38;5;243mer-6gdI[0m  watchprefix failed: <Unavailable error: ?, code: ?>                      3    0.41%  14:19:34 → 14:19:36
+    [3;38;5;243mer-dtX9[0m  Request to server http://etcd1:? failed: ReadTimeoutError                1    0.14%  14:18:45
+    [3;38;5;243mer-yfaq[0m  Request to server http://etcd2:? failed: ReadTimeoutError                1    0.14%  14:16:45
+    [3;38;5;243mer-hML3[0m  Request to server http://etcd3:? failed: StaleEtcdNode()                 1    0.14%  14:19:34
+
+  WARNING                   : 594 (12 kinds)
+    [3;38;5;243mwa-FZfE[0m  failed to resolve host etcd1: [Errno -?] Name or service not known         194   32.66%  14:16:47 → 14:20:41
+    [3;38;5;243mwa-kgZP[0m  failed to resolve host etcd2: [Errno -?] Name or service not known         185   31.14%  14:16:46 → 14:20:41
+    [3;38;5;243mwa-bYfk[0m  failed to resolve host etcd3: [Errno -?] Name or service not known         184   30.98%  14:16:45 → 14:20:41
+    [3;38;5;243mwa-DFJK[0m  Loop time exceeded, rescheduling immediately.                               15    2.53%  14:19:52 → 14:20:32
+    [3;38;5;243mwa-kSV3[0m  Postgresql is not running.                                                   6    1.01%  14:13:52 → 14:23:01
+    [3;38;5;243mwa-Bozr[0m  Could not activate Linux watchdog device: Can't open watchdog device: [E     3    0.51%  14:09:32 → 14:22:43
+    [3;38;5;243mwa-j2XC[0m  Request failed to pg2: GET http://pg2:?/patroni (HTTPConnectionPool(host     2    0.34%  14:13:31
+    [3;38;5;243mwa-Mjox[0m  Connected to Etcd node with term ?. Old known term ?. Switching to anoth     1    0.17%  14:19:34
+    [3;38;5;243mwa-oQ0u[0m  Request failed to pg1: GET http://pg1:?/patroni (HTTPConnectionPool(host     1    0.17%  14:22:47
+    [3;38;5;243mwa-K818[0m  Request failed to pg1: GET http://pg1:?/patroni (HTTPConnectionPool(host     1    0.17%  14:22:43
+    [3;38;5;243mwa-zPhM[0m  failed to resolve host etcd3: [Errno -?] No address associated with host     1    0.17%  14:19:41
+    [3;38;5;243mwa-rNNY[0m  failed to resolve host pg1: [Errno -?] Name or service not known             1    0.17%  14:22:43

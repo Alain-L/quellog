@@ -29,7 +29,8 @@ Conventions:
 ## Top-level keys
 
 ### meta — always present
-Except in the CLI JSON/YAML of a pgBackRest-only run (see `pgbackrest`).
+Except in the CLI JSON/YAML of a pgBackRest-only or Patroni-only run (see
+`pgbackrest` and `patroni`).
 Read by: `app.js`, `js/period-nav.js`, `js/sections/events.js`.
 `entries` (parsed log entries), `filename`, `filesize` (bytes), `format`
 (`stderr`/`csv`/`json`/`syslog`), `parse_time_ms`, `sections` (CLI section list,
@@ -37,7 +38,8 @@ Read by: `app.js`, `js/period-nav.js`, `js/sections/events.js`.
 
 ### summary — always present
 Except in the CLI JSON/YAML and browser payloads of a pgBackRest-only run
-(see `pgbackrest`).
+(see `pgbackrest`), and in the CLI JSON/YAML of a Patroni-only run, which
+holds `patroni` alone.
 Read by: `app.js`, `js/filters.js`, `js/sections/summary.js`, `js/sections/connections.js`;
 rewritten by `js/report-filter.js` when a time filter is applied.
 `start_date`/`end_date` (display strings), `duration`, `total_logs`,
@@ -184,6 +186,22 @@ Emitted only when the log contains replication markers
 `last_termination`, `peak_hour_label`, `peak_hour_count`, `hour_counts`,
 `conflict_queries` `[{id, normalized_query, raw_query, count}]`, and `events`
 `[{timestamp, marker, severity?}]`.
+
+### patroni — gated, absent from this fixture
+Read by: `app.js` (a report without PostgreSQL logs renders only this section)
+and `js/sections/patroni.js`. Emitted only when Patroni logs were part of the
+run, in the full report (see `output/patroni_json.go`). Shape (`PatroniJSON`):
+`start_date`, `end_date`, `duration`, `total_logs`, `error_count`,
+`warning_count`, `leader_changes`, `switchovers`, `failovers`, `lock_retaken`,
+`leaderless_time`, `members` `[{name, role, first_seen, last_seen,
+leader_time, total_logs}]`, plus omitempty `members_without_log` (names),
+`leader`, `leader_since`,
+`dcs_incidents` `[{start, end, duration, members}]`, `leadership`
+`[{member, start, end, duration}]`, `changes` `[{timestamp, kind, from, to,
+leaderless, postgres?}]` (`postgres` uses the `server.timeline` item shape),
+`event_counts`, `events` `[{timestamp, member, kind, detail?}]` and
+`messages` `[{id, level, message, count, first_date?, last_date?}]`, `id`
+being the `--event-detail` handle (`er-`/`wa-`, `fa-` for CRITICAL).
 
 ### pgbackrest
 Read by: `js/sections/pgbackrest.js` (`buildPgBackRestSection`), one report
@@ -378,6 +396,7 @@ skips a key when its section has no data, so renderers must null-check
 | `locks` | lock events > 0 |
 | `maintenance` | vacuum or analyze count > 0 |
 | `replication` | replication markers present (absent from the reference fixture) |
+| `patroni` | Patroni logs given, full report (absent from the reference fixture) |
 | `pgbackrest` | a pgBackRest log file was analyzed, or a PostgreSQL log carried embedded pgBackRest/archive-failure content |
 | `pgbackrest_only` | `true` only in the HTML and browser payloads of a pgBackRest-only run |
 | `checkpoints` | completed checkpoints or frequency warnings > 0 |

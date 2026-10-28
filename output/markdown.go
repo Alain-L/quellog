@@ -27,6 +27,11 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 	}
 
 	var b strings.Builder
+	if m.Patroni != nil && has("patroni") && m.Global.Count == 0 {
+		writePatroniMarkdown(&b, m.Patroni, full)
+		fmt.Fprintln(w, b.String())
+		return
+	}
 	duration := m.Global.MaxTimestamp.Sub(m.Global.MinTimestamp)
 
 	// ============================================================================
@@ -645,6 +650,9 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 		// Don't include TempFiles/Locks here - they're already shown in their respective sections above
 		b.WriteString("## SQL PERFORMANCE\n\n")
 		exportSQLSummaryMarkdownTo(&b, m.SQL, analysis.TempFileMetrics{}, analysis.LockMetrics{})
+	}
+	if m.Patroni != nil && has("patroni") {
+		writePatroniMarkdown(&b, m.Patroni, full)
 	}
 
 	fmt.Fprintln(w, b.String())

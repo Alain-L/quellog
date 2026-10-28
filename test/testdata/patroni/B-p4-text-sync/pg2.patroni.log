@@ -1,0 +1,253 @@
+2026-09-24 14:09:27,231 INFO: Using default value thread_stack_size = 524288
+2026-09-24 14:09:27,239 INFO: Patroni global thread_pool_size = 5
+2026-09-24 14:09:27,270 ERROR: Failed to get list of machines from http://etcd1:2379/v3beta: ValueError("invalid literal for int() with base 10: 'not_decided'")
+2026-09-24 14:09:27,271 ERROR: Failed to get list of machines from http://etcd3:2379/v3beta: ValueError("invalid literal for int() with base 10: 'not_decided'")
+2026-09-24 14:09:27,272 ERROR: Failed to get list of machines from http://etcd2:2379/v3beta: ValueError("invalid literal for int() with base 10: 'not_decided'")
+2026-09-24 14:09:27,272 INFO: waiting on etcd
+2026-09-24 14:09:32,321 INFO: Selected new etcd server http://etcd1:2379
+2026-09-24 14:09:32,371 INFO: No PostgreSQL configuration items changed, nothing to reload.
+2026-09-24 14:09:32,374 INFO: REST API thread_pool_size = 5
+2026-09-24 14:09:32,419 INFO: Lock owner: None; I am pg2
+2026-09-24 14:09:32,467 INFO: waiting for leader to bootstrap
+2026-09-24 14:09:35,511 INFO: Lock owner: pg1; I am pg2
+2026-09-24 14:09:35,555 INFO: trying to bootstrap from leader 'pg1'
+2026-09-24 14:09:38,434 INFO: replica has been created using basebackup
+2026-09-24 14:09:38,435 INFO: bootstrapped from leader 'pg1'
+2026-09-24 14:09:38,732 INFO: postmaster pid=26
+2026-09-24 14:09:39,751 INFO: Lock owner: pg1; I am pg2
+2026-09-24 14:09:39,751 INFO: establishing a new patroni heartbeat connection to postgres
+2026-09-24 14:09:39,867 INFO: no action. I am (pg2), a secondary, and following a leader (pg1)
+2026-09-24 14:09:45,495 INFO: no action. I am (pg2), a secondary, and following a leader (pg1)
+2026-09-24 14:09:55,543 INFO: no action. I am (pg2), a secondary, and following a leader (pg1)
+2026-09-24 14:10:05,546 INFO: no action. I am (pg2), a secondary, and following a leader (pg1)
+2026-09-24 14:10:16,002 INFO: no action. I am (pg2), a secondary, and following a leader (pg1)
+2026-09-24 14:10:26,050 INFO: no action. I am (pg2), a secondary, and following a leader (pg1)
+2026-09-24 14:10:35,555 INFO: no action. I am (pg2), a secondary, and following a leader (pg1)
+2026-09-24 14:10:45,544 INFO: no action. I am (pg2), a secondary, and following a leader (pg1)
+2026-09-24 14:10:55,998 INFO: no action. I am (pg2), a secondary, and following a leader (pg1)
+2026-09-24 14:11:00,469 INFO: establishing a new patroni restapi connection to postgres
+2026-09-24 14:11:01,843 INFO: no action. I am (pg2), a secondary, and following a leader (pg1)
+2026-09-24 14:11:01,931 INFO: Cleaning up failover key after acquiring leader lock...
+2026-09-24 14:11:02,067 INFO: promoted self to leader by acquiring session lock
+2026-09-24 14:11:02,067 INFO: Lock owner: pg2; I am pg2
+2026-09-24 14:11:02,164 INFO: updated leader lock during promote
+2026-09-24 14:11:03,256 INFO: no action. I am (pg2), the leader with the lock
+2026-09-24 14:11:03,404 INFO: no action. I am (pg2), the leader with the lock
+2026-09-24 14:11:13,257 INFO: Lock owner: pg2; I am pg2
+2026-09-24 14:11:13,367 INFO: Assigning synchronous standby status to ['pg3']
+2026-09-24 14:11:15,527 INFO: Synchronous standby status assigned to ['pg3']
+2026-09-24 14:11:15,579 INFO: no action. I am (pg2), the leader with the lock
+2026-09-24 14:11:23,400 INFO: no action. I am (pg2), the leader with the lock
+2026-09-24 14:11:33,302 INFO: no action. I am (pg2), the leader with the lock
+2026-09-24 14:11:43,303 INFO: no action. I am (pg2), the leader with the lock
+2026-09-24 14:11:53,304 INFO: no action. I am (pg2), the leader with the lock
+2026-09-24 14:12:03,303 INFO: no action. I am (pg2), the leader with the lock
+2026-09-24 14:12:13,307 INFO: no action. I am (pg2), the leader with the lock
+2026-09-24 14:13:16,277 INFO: Using default value thread_stack_size = 524288
+2026-09-24 14:13:16,285 INFO: Patroni global thread_pool_size = 5
+2026-09-24 14:13:16,358 INFO: Selected new etcd server http://etcd2:2379
+2026-09-24 14:13:16,370 INFO: No PostgreSQL configuration items changed, nothing to reload.
+2026-09-24 14:13:16,372 INFO: REST API thread_pool_size = 5
+2026-09-24 14:13:16,419 WARNING: Postgresql is not running.
+2026-09-24 14:13:16,419 INFO: Lock owner: pg3; I am pg2
+2026-09-24 14:13:16,420 INFO: pg_controldata:
+  pg_control version number: 1700
+  Catalog version number: 202406281
+  Database system identifier: 7689103736969015323
+  Database cluster state: in production
+  pg_control last modified: Thu Sep 24 14:11:03 2026
+  Latest checkpoint location: 0/4074F08
+  Latest checkpoint's REDO location: 0/4074EB0
+  Latest checkpoint's REDO WAL file: 000000020000000000000004
+  Latest checkpoint's TimeLineID: 2
+  Latest checkpoint's PrevTimeLineID: 2
+  Latest checkpoint's full_page_writes: on
+  Latest checkpoint's NextXID: 0:754
+  Latest checkpoint's NextOID: 16399
+  Latest checkpoint's NextMultiXactId: 1
+  Latest checkpoint's NextMultiOffset: 0
+  Latest checkpoint's oldestXID: 731
+  Latest checkpoint's oldestXID's DB: 1
+  Latest checkpoint's oldestActiveXID: 754
+  Latest checkpoint's oldestMultiXid: 1
+  Latest checkpoint's oldestMulti's DB: 1
+  Latest checkpoint's oldestCommitTsXid: 0
+  Latest checkpoint's newestCommitTsXid: 0
+  Time of latest checkpoint: Thu Sep 24 14:11:03 2026
+  Fake LSN counter for unlogged rels: 0/3E8
+  Minimum recovery ending location: 0/0
+  Min recovery ending loc's timeline: 0
+  Backup start location: 0/0
+  Backup end location: 0/0
+  End-of-backup record required: no
+  wal_level setting: replica
+  wal_log_hints setting: on
+  max_connections setting: 100
+  max_worker_processes setting: 8
+  max_wal_senders setting: 10
+  max_prepared_xacts setting: 0
+  max_locks_per_xact setting: 64
+  track_commit_timestamp setting: off
+  Maximum data alignment: 8
+  Database block size: 8192
+  Blocks per segment of large relation: 131072
+  WAL block size: 8192
+  Bytes per WAL segment: 16777216
+  Maximum length of identifiers: 64
+  Maximum columns in an index: 32
+  Maximum size of a TOAST chunk: 1996
+  Size of a large-object chunk: 2048
+  Date/time type storage: 64-bit integers
+  Float8 argument passing: by value
+  Data page checksum version: 1
+  Mock authentication nonce: dc44b1bb42e2efae1fefec978a6c7eef6e2ede5824839a6d5f01919566a604ca
+
+2026-09-24 14:13:16,466 INFO: doing crash recovery in a single user mode
+2026-09-24 14:13:16,623 WARNING: Postgresql is not running.
+2026-09-24 14:13:16,623 INFO: Lock owner: pg3; I am pg2
+2026-09-24 14:13:16,624 INFO: pg_controldata:
+  pg_control version number: 1700
+  Catalog version number: 202406281
+  Database system identifier: 7689103736969015323
+  Database cluster state: shut down
+  pg_control last modified: Thu Sep 24 14:13:16 2026
+  Latest checkpoint location: 0/5000028
+  Latest checkpoint's REDO location: 0/5000028
+  Latest checkpoint's REDO WAL file: 000000020000000000000005
+  Latest checkpoint's TimeLineID: 2
+  Latest checkpoint's PrevTimeLineID: 2
+  Latest checkpoint's full_page_writes: on
+  Latest checkpoint's NextXID: 0:756
+  Latest checkpoint's NextOID: 16399
+  Latest checkpoint's NextMultiXactId: 1
+  Latest checkpoint's NextMultiOffset: 0
+  Latest checkpoint's oldestXID: 731
+  Latest checkpoint's oldestXID's DB: 1
+  Latest checkpoint's oldestActiveXID: 0
+  Latest checkpoint's oldestMultiXid: 1
+  Latest checkpoint's oldestMulti's DB: 1
+  Latest checkpoint's oldestCommitTsXid: 0
+  Latest checkpoint's newestCommitTsXid: 0
+  Time of latest checkpoint: Thu Sep 24 14:13:16 2026
+  Fake LSN counter for unlogged rels: 0/3E8
+  Minimum recovery ending location: 0/0
+  Min recovery ending loc's timeline: 0
+  Backup start location: 0/0
+  Backup end location: 0/0
+  End-of-backup record required: no
+  wal_level setting: replica
+  wal_log_hints setting: on
+  max_connections setting: 100
+  max_worker_processes setting: 8
+  max_wal_senders setting: 10
+  max_prepared_xacts setting: 0
+  max_locks_per_xact setting: 64
+  track_commit_timestamp setting: off
+  Maximum data alignment: 8
+  Database block size: 8192
+  Blocks per segment of large relation: 131072
+  WAL block size: 8192
+  Bytes per WAL segment: 16777216
+  Maximum length of identifiers: 64
+  Maximum columns in an index: 32
+  Maximum size of a TOAST chunk: 1996
+  Size of a large-object chunk: 2048
+  Date/time type storage: 64-bit integers
+  Float8 argument passing: by value
+  Data page checksum version: 1
+  Mock authentication nonce: dc44b1bb42e2efae1fefec978a6c7eef6e2ede5824839a6d5f01919566a604ca
+
+2026-09-24 14:13:16,624 INFO: Lock owner: pg3; I am pg2
+2026-09-24 14:13:16,628 INFO: Local timeline=2 lsn=0/5000028
+2026-09-24 14:13:16,640 INFO: primary_timeline=3
+2026-09-24 14:13:16,640 INFO: primary: history=1	0/4074D70	no recovery target specified
+2	0/407CA18	no recovery target specified
+2026-09-24 14:13:16,685 INFO: running pg_rewind from pg3
+2026-09-24 14:13:16,709 INFO: running pg_rewind from dbname=postgres user=postgres host=pg3 port=5432 target_session_attrs=read-write
+2026-09-24 14:13:17,475 INFO: pg_rewind exit code=0
+2026-09-24 14:13:17,475 INFO:  stdout=
+2026-09-24 14:13:17,475 INFO:  stderr=pg_rewind: servers diverged at WAL location 0/407CA18 on timeline 2
+pg_rewind: rewinding from last common checkpoint at 0/4074F08 on timeline 2
+pg_rewind: Done!
+
+2026-09-24 14:13:17,475 WARNING: Postgresql is not running.
+2026-09-24 14:13:17,476 INFO: Lock owner: pg3; I am pg2
+2026-09-24 14:13:17,476 INFO: pg_controldata:
+  pg_control version number: 1700
+  Catalog version number: 202406281
+  Database system identifier: 7689103736969015323
+  Database cluster state: in archive recovery
+  pg_control last modified: Thu Sep 24 14:13:16 2026
+  Latest checkpoint location: 0/407CBB0
+  Latest checkpoint's REDO location: 0/407CB58
+  Latest checkpoint's REDO WAL file: 000000030000000000000004
+  Latest checkpoint's TimeLineID: 3
+  Latest checkpoint's PrevTimeLineID: 3
+  Latest checkpoint's full_page_writes: on
+  Latest checkpoint's NextXID: 0:756
+  Latest checkpoint's NextOID: 16399
+  Latest checkpoint's NextMultiXactId: 1
+  Latest checkpoint's NextMultiOffset: 0
+  Latest checkpoint's oldestXID: 731
+  Latest checkpoint's oldestXID's DB: 1
+  Latest checkpoint's oldestActiveXID: 756
+  Latest checkpoint's oldestMultiXid: 1
+  Latest checkpoint's oldestMulti's DB: 1
+  Latest checkpoint's oldestCommitTsXid: 0
+  Latest checkpoint's newestCommitTsXid: 0
+  Time of latest checkpoint: Thu Sep 24 14:12:44 2026
+  Fake LSN counter for unlogged rels: 0/3E8
+  Minimum recovery ending location: 0/407CC88
+  Min recovery ending loc's timeline: 3
+  Backup start location: 0/0
+  Backup end location: 0/0
+  End-of-backup record required: no
+  wal_level setting: replica
+  wal_log_hints setting: on
+  max_connections setting: 100
+  max_worker_processes setting: 8
+  max_wal_senders setting: 10
+  max_prepared_xacts setting: 0
+  max_locks_per_xact setting: 64
+  track_commit_timestamp setting: off
+  Maximum data alignment: 8
+  Database block size: 8192
+  Blocks per segment of large relation: 131072
+  WAL block size: 8192
+  Bytes per WAL segment: 16777216
+  Maximum length of identifiers: 64
+  Maximum columns in an index: 32
+  Maximum size of a TOAST chunk: 1996
+  Size of a large-object chunk: 2048
+  Date/time type storage: 64-bit integers
+  Float8 argument passing: by value
+  Data page checksum version: 1
+  Mock authentication nonce: dc44b1bb42e2efae1fefec978a6c7eef6e2ede5824839a6d5f01919566a604ca
+
+2026-09-24 14:13:17,476 INFO: Lock owner: pg3; I am pg2
+2026-09-24 14:13:17,522 INFO: starting as a secondary
+2026-09-24 14:13:17,807 INFO: postmaster pid=43
+2026-09-24 14:13:18,829 INFO: Lock owner: pg3; I am pg2
+2026-09-24 14:13:18,829 INFO: establishing a new patroni heartbeat connection to postgres
+2026-09-24 14:13:18,952 INFO: no action. I am (pg2), a secondary, and following a leader (pg3)
+2026-09-24 14:13:27,313 INFO: no action. I am (pg2), a secondary, and following a leader (pg3)
+2026-09-24 14:13:37,814 INFO: no action. I am (pg2), a secondary, and following a leader (pg3)
+2026-09-24 14:13:47,806 INFO: no action. I am (pg2), a secondary, and following a leader (pg3)
+2026-09-24 14:13:57,809 INFO: no action. I am (pg2), a secondary, and following a leader (pg3)
+2026-09-24 14:14:07,806 INFO: no action. I am (pg2), a secondary, and following a leader (pg3)
+2026-09-24 14:14:17,810 INFO: no action. I am (pg2), a secondary, and following a leader (pg3)
+2026-09-24 14:14:27,810 INFO: no action. I am (pg2), a secondary, and following a leader (pg3)
+2026-09-24 14:14:37,810 INFO: no action. I am (pg2), a secondary, and following a leader (pg3)
+2026-09-24 14:14:47,810 INFO: no action. I am (pg2), a secondary, and following a leader (pg3)
+2026-09-24 14:14:57,806 INFO: no action. I am (pg2), a secondary, and following a leader (pg3)
+2026-09-24 14:15:07,805 INFO: no action. I am (pg2), a secondary, and following a leader (pg3)
+2026-09-24 14:15:17,809 INFO: no action. I am (pg2), a secondary, and following a leader (pg3)
+2026-09-24 14:15:27,810 INFO: no action. I am (pg2), a secondary, and following a leader (pg3)
+2026-09-24 14:15:37,809 INFO: no action. I am (pg2), a secondary, and following a leader (pg3)
+2026-09-24 14:15:47,810 INFO: no action. I am (pg2), a secondary, and following a leader (pg3)
+2026-09-24 14:15:57,806 INFO: no action. I am (pg2), a secondary, and following a leader (pg3)
+2026-09-24 14:16:07,813 INFO: no action. I am (pg2), a secondary, and following a leader (pg3)
+2026-09-24 14:16:17,810 INFO: no action. I am (pg2), a secondary, and following a leader (pg3)
+2026-09-24 14:16:27,806 INFO: no action. I am (pg2), a secondary, and following a leader (pg3)
+2026-09-24 14:16:37,809 INFO: no action. I am (pg2), a secondary, and following a leader (pg3)
+2026-09-24 14:16:47,805 INFO: no action. I am (pg2), a secondary, and following a leader (pg3)

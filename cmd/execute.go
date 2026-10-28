@@ -146,6 +146,18 @@ func runAnalysisCycle(ctx context.Context, args []string) error {
 		pgbr.SetTimeWindow(beginT, endT)
 	}
 
+	// Patroni logs take their own track; the PostgreSQL pipeline below gets
+	// the rest, possibly nothing.
+	pgFiles, patroniFiles := splitPatroniInputs(allFiles)
+	var patroniReport *analysis.PatroniMetrics
+	if len(patroniFiles) > 0 {
+		if splitFlag != "" {
+			return fmt.Errorf("--split does not apply to Patroni logs")
+		}
+		patroniReport = computePatroniMetrics(ctx, patroniFiles, beginT, endT)
+		allFiles = pgFiles
+	}
+
 	// Step 3: Set up streaming pipeline
 	rawLogs := make(chan []parser.LogEntry, 64)
 
@@ -160,7 +172,7 @@ func runAnalysisCycle(ctx context.Context, args []string) error {
 	// cumulative numbers from a previous run.
 	parser.ResetParsedEntries()
 	parser.ResetCurrentFileProgress()
-	pb := newProgressBar(totalFileSize)
+	pb := newProgressBar(calculateTotalFileSize(allFiles)) // PostgreSQL files only
 	pb.Start()
 	defer pb.Finish()
 
@@ -188,7 +200,7 @@ func runAnalysisCycle(ctx context.Context, args []string) error {
 	workers := shardWorkers(allFiles)
 
 	// Step 5: Process and output results based on flags
-	if err := processAndOutput(ctx, analyzeInput, startTime, totalFileSize, args, workers, pb, pgbr); err != nil {
+	if err := processAndOutput(ctx, analyzeInput, startTime, totalFileSize, args, workers, pb, pgbr, patroniReport); err != nil {
 		return err
 	}
 
@@ -196,7 +208,7 @@ func runAnalysisCycle(ctx context.Context, args []string) error {
 	// stream) still produced usable entries; ParsedEntries() catches that case
 	// so we don't claim "no files could be parsed" after already emitting an
 	// analysis for the recovered data.
-	if !parsedAny.Load() && parser.ParsedEntries() == 0 {
+	if !parsedAny.Load() && parser.ParsedEntries() == 0 && patroniReport == nil {
 		return fmt.Errorf("no files could be parsed: check that files exist, are readable, and in a supported format")
 	}
 	return nil
@@ -490,6 +502,9 @@ func validateFlagCombinations() error {
 	if formatCount > 1 && (len(sqlDetailFlag) > 0 || len(eventDetailFlag) > 0 || sqlPerformanceFlag || sqlOverviewFlag || pgbackrestDetailFlag != "") {
 		return fmt.Errorf("multiple export formats are only supported for the full report (not with --sql-detail, --event-detail, --sql-performance, --sql-overview, --pgbackrest-detail)")
 	}
+	if patroniDetailFlag && (jsonFlag || jsonCompactFlag || yamlFlag || htmlFlag) {
+		return fmt.Errorf("--patroni-detail applies to the text and Markdown reports: --json, --yaml and --html already hold every detail")
+	}
 	if pgbackrestDetailFlag != "" && htmlFlag {
 		return fmt.Errorf("--pgbackrest-detail is not supported with --html (the HTML report already holds every stanza's details)")
 	}
@@ -524,7 +539,7 @@ func validateFlagCombinations() error {
 // the expanded file list (see runAnalysisCycle) and threaded into every metrics
 // build; inputArgs stays the raw arguments, used only for display (filenames,
 // input description, first-file format detection).
-func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry, startTime time.Time, totalFileSize int64, inputArgs []string, workers int, pb *progressBar, pgbr *analysis.PgBackRestAnalyzer) error {
+func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry, startTime time.Time, totalFileSize int64, inputArgs []string, workers int, pb *progressBar, pgbr *analysis.PgBackRestAnalyzer, patroniReport *analysis.PatroniMetrics) error {
 	// Flag-combination constraints are validated once up front (see
 	// validateFlagCombinations, called from executeParsing). Here we only need
 	// the format count for dispatch and the --split short-circuit.
@@ -563,6 +578,11 @@ func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry
 		return renderPgBackRestDetail(ctx, filteredLogs, startTime, totalFileSize, workers, pb, pgbr)
 	}
 
+	// Special case: the detailed Patroni report
+	if patroniDetailFlag {
+		return renderPatroniDetail(ctx, filteredLogs, startTime, totalFileSize, workers, pb, pgbr, patroniReport)
+	}
+
 	// Special case: event pattern details (lookup by ID like wa-aBc1),
 	// pgBackRest's errors and warnings included
 	if len(eventDetailFlag) > 0 {
@@ -573,7 +593,8 @@ func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry
 		if pgbr != nil && pgBackRestInScope() {
 			pbr = pgbr.Finalize()
 		}
-		if metrics.Global.Count == 0 && len(pbr) == 0 {
+		metrics.Patroni = patroniReport
+		if metrics.Global.Count == 0 && len(pbr) == 0 && patroniReport == nil {
 			return errNoEntries
 		}
 		w, closer, err := createOutputWriter(outputFlag)
@@ -664,9 +685,10 @@ func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry
 	}
 
 	// Check if any log entries were successfully parsed. A run with no
-	// PostgreSQL entry still prints its pgBackRest report.
+	// PostgreSQL entry still prints its pgBackRest report, or its Patroni
+	// one.
 	inScope := pgBackRestInScope()
-	if metrics.Global.Count == 0 {
+	if metrics.Global.Count == 0 && patroniReport == nil {
 		switch {
 		case len(pbr) == 0:
 			return errNoEntries
@@ -681,7 +703,7 @@ func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry
 
 	// Validate that we have a valid time range
 	// Note: MaxTimestamp can be equal to MinTimestamp if there's only one log entry
-	if metrics.Global.MaxTimestamp.IsZero() || metrics.Global.MaxTimestamp.Before(metrics.Global.MinTimestamp) {
+	if metrics.Global.Count > 0 && (metrics.Global.MaxTimestamp.IsZero() || metrics.Global.MaxTimestamp.Before(metrics.Global.MinTimestamp)) {
 		return fmt.Errorf("invalid time range: MinTimestamp=%v, MaxTimestamp=%v",
 			metrics.Global.MinTimestamp, metrics.Global.MaxTimestamp)
 	}
@@ -693,6 +715,16 @@ func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry
 		sections = []string{"all"}
 	} else {
 		sections = buildSectionList()
+	}
+
+	// Patroni is a section of the full report, and the whole report when no
+	// PostgreSQL log was given, whatever the section flags.
+	if patroniReport != nil {
+		patroniReport.CorrelatePostgres(metrics.Server.Timeline)
+		metrics.Patroni = patroniReport
+		if metrics.Global.Count == 0 {
+			sections = append(sections, "patroni")
+		}
 	}
 
 	// A PGBACKREST section follows the PostgreSQL report in every format
@@ -711,7 +743,7 @@ func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry
 			return output.ExportHTMLWithPgBackRest(w, metrics, pbr, info, sections, false)
 		},
 		text: func() {
-			PrintProcessingSummary(metrics.Global.Count, processingDuration, totalFileSize)
+			PrintProcessingSummary(metrics.Global.Count+patroniEntries(metrics), processingDuration, totalFileSize)
 			output.PrintMetrics(metrics, sections, fullFlag)
 			output.PrintPgBackRestReport(pbr, fullFlag)
 		},
@@ -783,7 +815,7 @@ func writeHTMLReport(inputArgs []string, totalFileSize int64, processingDuration
 
 	detectedFormat := ""
 	if len(inputArgs) > 0 {
-		detectedFormat = parser.DetectFileFormat(inputArgs[0])
+		detectedFormat = parser.DetectFileFormat(firstPostgresArg(inputArgs))
 	}
 
 	reportInfo := output.HTMLReportInfo{
@@ -845,7 +877,7 @@ func runSplitHTML(ctx context.Context, filteredLogs <-chan []parser.LogEntry, st
 
 	detectedFormat := ""
 	if len(inputArgs) > 0 {
-		detectedFormat = parser.DetectFileFormat(inputArgs[0])
+		detectedFormat = parser.DetectFileFormat(firstPostgresArg(inputArgs))
 	}
 	reportInfo := output.HTMLReportInfo{
 		Filename:    generateInputDescription(inputArgs),
@@ -961,7 +993,7 @@ func renderMultipleFormats(rw reportWriters, inputArgs []string, totalFileSize i
 	if htmlFlag {
 		detectedFormat := ""
 		if len(inputArgs) > 0 {
-			detectedFormat = parser.DetectFileFormat(inputArgs[0])
+			detectedFormat = parser.DetectFileFormat(firstPostgresArg(inputArgs))
 		}
 		reportInfo := output.HTMLReportInfo{
 			Filename:    generateInputDescription(inputArgs),

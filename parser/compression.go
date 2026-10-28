@@ -289,9 +289,32 @@ func readUntilNLinesCompressed(r io.Reader, n int) (string, error) {
 	return sample.String(), nil
 }
 
+// IsPatroniLog reports, without logging, whether a plain or gzip/zstd file
+// holds a Patroni log. A tar stream is binary from its first header, so an
+// archive is never taken for one of its members.
+func IsPatroniLog(filename string) bool {
+	var sample string
+	var err error
+	if codec, ok := sniffCompressionMagic(filename); ok {
+		sample, err = readCompressedSample(filename, codec)
+	} else if f, openErr := os.Open(filename); openErr == nil {
+		sample, err = readFileSample(f)
+		f.Close()
+	} else {
+		return false
+	}
+	return err == nil && !isBinaryContent(sample) && looksLikePatroni(strings.TrimPrefix(sample, "\ufeff"))
+}
+
 // wrapCompressedParser converts an existing parser into a codec-aware parser.
 func wrapCompressedParser(parser LogParser, codec compressionCodec) LogParser {
 	switch src := parser.(type) {
+	case *PatroniParser:
+		return newCompressedParser(codec, func(r io.Reader, size int64, out chan<- []LogEntry) error {
+			skipped, err := src.parseReader(r, out)
+			warnSkippedPatroni("", skipped)
+			return err
+		})
 	case *JsonParser:
 		p := &JsonParser{}
 		return newCompressedParser(codec, func(r io.Reader, size int64, out chan<- []LogEntry) error {

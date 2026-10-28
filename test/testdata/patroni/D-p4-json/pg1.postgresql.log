@@ -1,0 +1,83 @@
+2026-09-24 14:09:34.634 UTC [36] LOG:  starting PostgreSQL 17.9 (Debian 17.9-1.pgdg13+1) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+2026-09-24 14:09:34.634 UTC [36] LOG:  listening on IPv4 address "0.0.0.0", port 5432
+2026-09-24 14:09:34.639 UTC [36] LOG:  listening on Unix socket "/tmp/.s.PGSQL.5432"
+2026-09-24 14:09:34.645 UTC [40] LOG:  database system was shut down at 2026-09-24 14:09:32 UTC
+2026-09-24 14:09:34.653 UTC [36] LOG:  database system is ready to accept connections
+2026-09-24 14:09:34.983 UTC [38] LOG:  checkpoint starting: force wait
+2026-09-24 14:09:35.346 UTC [38] LOG:  checkpoint complete: wrote 7 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.312 s, sync=0.009 s, total=0.364 s; sync files=6, longest=0.003 s, average=0.002 s; distance=9000 kB, estimate=9000 kB; lsn=0/2000080, redo lsn=0/2000028
+2026-09-24 14:09:35.346 UTC [38] LOG:  checkpoint starting: force wait
+2026-09-24 14:09:35.364 UTC [38] LOG:  checkpoint complete: wrote 0 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.002 s, sync=0.001 s, total=0.018 s; sync files=0, longest=0.000 s, average=0.000 s; distance=0 kB, estimate=8100 kB; lsn=0/2000150, redo lsn=0/20000F8
+2026-09-24 14:09:38.531 UTC [55] replicator@[unknown] ERROR:  replication slot "pg3" does not exist
+2026-09-24 14:09:38.531 UTC [55] replicator@[unknown] STATEMENT:  START_REPLICATION SLOT "pg3" 0/3000000 TIMELINE 1
+2026-09-24 14:09:38.538 UTC [56] replicator@[unknown] ERROR:  replication slot "pg3" does not exist
+2026-09-24 14:09:38.538 UTC [56] replicator@[unknown] STATEMENT:  START_REPLICATION SLOT "pg3" 0/3000000 TIMELINE 1
+2026-09-24 14:09:38.552 UTC [57] replicator@[unknown] ERROR:  replication slot "pg2" does not exist
+2026-09-24 14:09:38.552 UTC [57] replicator@[unknown] STATEMENT:  START_REPLICATION SLOT "pg2" 0/4000000 TIMELINE 1
+2026-09-24 14:09:38.560 UTC [58] replicator@[unknown] ERROR:  replication slot "pg2" does not exist
+2026-09-24 14:09:38.560 UTC [58] replicator@[unknown] STATEMENT:  START_REPLICATION SLOT "pg2" 0/4000000 TIMELINE 1
+2026-09-24 14:09:43.542 UTC [59] replicator@[unknown] ERROR:  replication slot "pg3" does not exist
+2026-09-24 14:09:43.542 UTC [59] replicator@[unknown] STATEMENT:  START_REPLICATION SLOT "pg3" 0/3000000 TIMELINE 1
+2026-09-24 14:09:43.565 UTC [60] replicator@[unknown] ERROR:  replication slot "pg2" does not exist
+2026-09-24 14:09:43.565 UTC [60] replicator@[unknown] STATEMENT:  START_REPLICATION SLOT "pg2" 0/4000000 TIMELINE 1
+2026-09-24 14:10:14.624 UTC [38] LOG:  checkpoint starting: immediate force wait
+2026-09-24 14:10:14.669 UTC [38] LOG:  checkpoint complete: wrote 48 buffers (0.3%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.004 s, sync=0.023 s, total=0.046 s; sync files=41, longest=0.002 s, average=0.001 s; distance=32938 kB, estimate=32938 kB; lsn=0/402AB78, redo lsn=0/402AB20
+2026-09-24 14:10:14.670 UTC [36] LOG:  received fast shutdown request
+2026-09-24 14:10:14.672 UTC [36] LOG:  aborting any active transactions
+2026-09-24 14:10:14.672 UTC [48] postgres@postgres FATAL:  terminating connection due to administrator command
+2026-09-24 14:10:14.673 UTC [36] LOG:  background worker "logical replication launcher" (PID 43) exited with exit code 1
+2026-09-24 14:10:14.674 UTC [38] LOG:  shutting down
+2026-09-24 14:10:14.685 UTC [38] LOG:  checkpoint starting: shutdown immediate
+2026-09-24 14:10:14.698 UTC [38] LOG:  checkpoint complete: wrote 0 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.001 s, sync=0.001 s, total=0.014 s; sync files=0, longest=0.000 s, average=0.000 s; distance=0 kB, estimate=29644 kB; lsn=0/402ABF0, redo lsn=0/402ABF0
+2026-09-24 14:10:14.702 UTC [36] LOG:  database system is shut down
+2026-09-24 14:10:18.167 UTC [79] LOG:  starting PostgreSQL 17.9 (Debian 17.9-1.pgdg13+1) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+2026-09-24 14:10:18.167 UTC [79] LOG:  listening on IPv4 address "0.0.0.0", port 5432
+2026-09-24 14:10:18.170 UTC [79] LOG:  listening on Unix socket "/tmp/.s.PGSQL.5432"
+2026-09-24 14:10:18.174 UTC [83] LOG:  database system was shut down at 2026-09-24 14:10:14 UTC
+2026-09-24 14:10:18.174 UTC [83] LOG:  entering standby mode
+2026-09-24 14:10:18.179 UTC [83] LOG:  consistent recovery state reached at 0/402AC68
+2026-09-24 14:10:18.179 UTC [83] LOG:  invalid record length at 0/402AC68: expected at least 24, got 0
+2026-09-24 14:10:18.179 UTC [79] LOG:  database system is ready to accept read-only connections
+2026-09-24 14:10:18.187 UTC [84] LOG:  fetching timeline history file for timeline 2 from primary server
+2026-09-24 14:10:18.190 UTC [84] LOG:  started streaming WAL from primary at 0/4000000 on timeline 1
+2026-09-24 14:10:18.190 UTC [84] LOG:  replication terminated by primary server
+2026-09-24 14:10:18.190 UTC [84] DETAIL:  End of WAL reached on timeline 1 at 0/402AC68.
+2026-09-24 14:10:18.190 UTC [83] LOG:  new target timeline is 2
+2026-09-24 14:10:18.190 UTC [84] LOG:  restarted WAL streaming at 0/4000000 on timeline 2
+2026-09-24 14:10:18.213 UTC [83] LOG:  redo starts at 0/402AC68
+2026-09-24 14:11:32.990 UTC [84] FATAL:  could not receive data from WAL stream: server closed the connection unexpectedly
+		This probably means the server terminated abnormally
+		before or while processing the request.
+2026-09-24 14:11:32.990 UTC [83] LOG:  invalid record length at 0/40328E8: expected at least 24, got 0
+2026-09-24 14:11:32.993 UTC [90] FATAL:  could not connect to the primary server: connection to server at "pg2" (10.89.13.3), port 5432 failed: Connection refused
+		Is the server running on that host and accepting TCP/IP connections?
+	connection to server at "pg2" (10.89.9.6), port 5432 failed: Connection refused
+		Is the server running on that host and accepting TCP/IP connections?
+2026-09-24 14:11:32.993 UTC [83] LOG:  waiting for WAL to become available at 0/4032900
+2026-09-24 14:11:38.001 UTC [92] FATAL:  could not connect to the primary server: could not translate host name "pg2" to address: No address associated with hostname
+2026-09-24 14:11:38.001 UTC [83] LOG:  waiting for WAL to become available at 0/4032900
+2026-09-24 14:11:43.004 UTC [93] FATAL:  could not connect to the primary server: could not translate host name "pg2" to address: No address associated with hostname
+2026-09-24 14:11:43.004 UTC [83] LOG:  waiting for WAL to become available at 0/4032900
+2026-09-24 14:11:48.007 UTC [94] FATAL:  could not connect to the primary server: could not translate host name "pg2" to address: Name or service not known
+2026-09-24 14:11:48.007 UTC [83] LOG:  waiting for WAL to become available at 0/4032900
+2026-09-24 14:11:53.014 UTC [95] FATAL:  could not connect to the primary server: could not translate host name "pg2" to address: Name or service not known
+2026-09-24 14:11:53.014 UTC [83] LOG:  waiting for WAL to become available at 0/4032900
+2026-09-24 14:11:58.089 UTC [98] FATAL:  could not connect to the primary server: could not translate host name "pg2" to address: Name or service not known
+2026-09-24 14:11:58.089 UTC [83] LOG:  waiting for WAL to become available at 0/4032900
+2026-09-24 14:12:01.707 UTC [83] LOG:  received promote request
+2026-09-24 14:12:01.707 UTC [83] LOG:  redo done at 0/40328C0 system usage: CPU: user: 0.00 s, system: 0.00 s, elapsed: 103.49 s
+2026-09-24 14:12:01.707 UTC [83] LOG:  last completed transaction was at log time 2026-09-24 14:11:32.921892+00
+2026-09-24 14:12:01.711 UTC [83] LOG:  selected new timeline ID: 3
+2026-09-24 14:12:01.737 UTC [83] LOG:  archive recovery complete
+2026-09-24 14:12:01.739 UTC [81] LOG:  checkpoint starting: force
+2026-09-24 14:12:01.741 UTC [79] LOG:  database system is ready to accept connections
+2026-09-24 14:12:02.804 UTC [81] LOG:  checkpoint complete: wrote 13 buffers (0.1%); 0 WAL file(s) added, 0 removed, 0 recycled; write=1.007 s, sync=0.026 s, total=1.065 s; sync files=11, longest=0.009 s, average=0.003 s; distance=31 kB, estimate=31 kB; lsn=0/40329B0, redo lsn=0/4032920
+2026-09-24 14:14:32.060 UTC [122] replicator@[unknown] ERROR:  replication slot "pg3" is active for PID 99
+2026-09-24 14:14:32.060 UTC [122] replicator@[unknown] STATEMENT:  START_REPLICATION SLOT "pg3" 0/4000000 TIMELINE 3
+2026-09-24 14:14:37.064 UTC [123] replicator@[unknown] ERROR:  replication slot "pg3" is active for PID 99
+2026-09-24 14:14:37.064 UTC [123] replicator@[unknown] STATEMENT:  START_REPLICATION SLOT "pg3" 0/4000000 TIMELINE 3
+2026-09-24 14:14:42.066 UTC [124] replicator@[unknown] ERROR:  replication slot "pg3" is active for PID 99
+2026-09-24 14:14:42.066 UTC [124] replicator@[unknown] STATEMENT:  START_REPLICATION SLOT "pg3" 0/4000000 TIMELINE 3
+2026-09-24 14:14:42.073 UTC [99] replicator@[unknown] LOG:  terminating walsender process due to replication timeout
+2026-09-24 14:14:42.073 UTC [99] replicator@[unknown] STATEMENT:  START_REPLICATION SLOT "pg3" 0/4000000 TIMELINE 3
+2026-09-24 14:17:01.901 UTC [81] LOG:  checkpoint starting: time
+2026-09-24 14:17:06.260 UTC [81] LOG:  checkpoint complete: wrote 44 buffers (0.3%); 0 WAL file(s) added, 0 removed, 0 recycled; write=4.310 s, sync=0.032 s, total=4.359 s; sync files=10, longest=0.012 s, average=0.004 s; distance=318 kB, estimate=318 kB; lsn=0/4082440, redo lsn=0/40823B0

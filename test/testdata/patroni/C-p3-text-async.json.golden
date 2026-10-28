@@ -1,0 +1,1358 @@
+{
+  "apps": [
+    {
+      "name": "pg3 gssencmode=prefer channel_binding=prefer sslnegotiation=postgres",
+      "count": 3
+    }
+  ],
+  "checkpoints": {
+    "total_checkpoints": 12,
+    "avg_checkpoint_time": "665 ms",
+    "max_checkpoint_time": "4.19 s",
+    "events": [
+      "2026-09-24 14:09:32",
+      "2026-09-24 14:09:32",
+      "2026-09-24 14:10:17",
+      "2026-09-24 14:10:17",
+      "2026-09-24 14:13:32",
+      "2026-09-24 14:15:28",
+      "2026-09-24 14:19:52",
+      "2026-09-24 14:20:42",
+      "2026-09-24 14:10:19",
+      "2026-09-24 14:10:19",
+      "2026-09-24 14:22:44",
+      "2026-09-24 14:22:44"
+    ],
+    "types": {
+      "force": {
+        "count": 4,
+        "percentage": 33.33333333333333,
+        "rate_per_hour": 15.18215422116603,
+        "events": [
+          "2026-09-24 14:13:32",
+          "2026-09-24 14:20:42",
+          "2026-09-24 14:10:19",
+          "2026-09-24 14:22:44"
+        ]
+      },
+      "force wait": {
+        "count": 3,
+        "percentage": 25,
+        "rate_per_hour": 11.386615665874523,
+        "events": [
+          "2026-09-24 14:09:32",
+          "2026-09-24 14:09:32",
+          "2026-09-24 14:15:28"
+        ]
+      },
+      "immediate force wait": {
+        "count": 3,
+        "percentage": 25,
+        "rate_per_hour": 11.386615665874523,
+        "events": [
+          "2026-09-24 14:10:17",
+          "2026-09-24 14:10:19",
+          "2026-09-24 14:22:44"
+        ]
+      },
+      "shutdown immediate": {
+        "count": 2,
+        "percentage": 16.666666666666664,
+        "rate_per_hour": 7.591077110583015,
+        "events": [
+          "2026-09-24 14:10:17",
+          "2026-09-24 14:19:52"
+        ]
+      }
+    },
+    "avg_wal_distance": "9.04 MB",
+    "max_wal_distance": "32.17 MB",
+    "total_buffers_written": 644,
+    "wal_rate": "117 kB/s",
+    "flush_rate": "645 kB/s",
+    "wal_distances": [
+      {
+        "timestamp": "2026-09-24 14:09:32",
+        "distance_kb": 9000,
+        "estimate_kb": 9000
+      },
+      {
+        "timestamp": "2026-09-24 14:09:32",
+        "distance_kb": 0,
+        "estimate_kb": 8100
+      },
+      {
+        "timestamp": "2026-09-24 14:10:17",
+        "distance_kb": 32938,
+        "estimate_kb": 32938
+      },
+      {
+        "timestamp": "2026-09-24 14:10:17",
+        "distance_kb": 0,
+        "estimate_kb": 29644
+      },
+      {
+        "timestamp": "2026-09-24 14:13:32",
+        "distance_kb": 31,
+        "estimate_kb": 31
+      },
+      {
+        "timestamp": "2026-09-24 14:15:28",
+        "distance_kb": 16181,
+        "estimate_kb": 16181
+      },
+      {
+        "timestamp": "2026-09-24 14:19:52",
+        "distance_kb": 16589,
+        "estimate_kb": 16589
+      },
+      {
+        "timestamp": "2026-09-24 14:20:42",
+        "distance_kb": 0,
+        "estimate_kb": 0
+      },
+      {
+        "timestamp": "2026-09-24 14:10:19",
+        "distance_kb": 32939,
+        "estimate_kb": 32939
+      },
+      {
+        "timestamp": "2026-09-24 14:10:19",
+        "distance_kb": 0,
+        "estimate_kb": 29645
+      },
+      {
+        "timestamp": "2026-09-24 14:22:44",
+        "distance_kb": 3377,
+        "estimate_kb": 15268
+      },
+      {
+        "timestamp": "2026-09-24 14:22:44",
+        "distance_kb": 0,
+        "estimate_kb": 13741
+      }
+    ]
+  },
+  "clients": {
+    "unique_databases": 0,
+    "unique_users": 1,
+    "unique_apps": 1,
+    "unique_hosts": 2
+  },
+  "events": [
+    {
+      "type": "LOG",
+      "count": 252,
+      "percentage": 77.53846153846153
+    },
+    {
+      "type": "FATAL",
+      "count": 62,
+      "percentage": 19.076923076923077
+    },
+    {
+      "type": "ERROR",
+      "count": 10,
+      "percentage": 3.076923076923077
+    },
+    {
+      "type": "WARNING",
+      "count": 1,
+      "percentage": 0.3076923076923077
+    }
+  ],
+  "hosts": [
+    {
+      "name": "pg2",
+      "count": 2
+    },
+    {
+      "name": "pg1",
+      "count": 1
+    }
+  ],
+  "patroni": {
+    "start_date": "2026-09-24 14:09:29",
+    "end_date": "2026-09-24 14:27:25",
+    "duration": "17m56.604s",
+    "total_logs": 1912,
+    "error_count": 733,
+    "warning_count": 594,
+    "leader": "pg2",
+    "leader_since": "2026-09-24 14:22:43",
+    "leader_changes": 3,
+    "switchovers": 1,
+    "failovers": 2,
+    "lock_retaken": 1,
+    "leaderless_time": "1m56.013s",
+    "dcs_incidents": [
+      {
+        "start": "2026-09-24 14:19:52",
+        "end": "2026-09-24 14:20:42",
+        "duration": "49.344s",
+        "members": [
+          "pg1",
+          "pg2",
+          "pg3"
+        ]
+      }
+    ],
+    "members": [
+      {
+        "name": "pg1",
+        "role": "replica",
+        "first_seen": "2026-09-24 14:09:29",
+        "last_seen": "2026-09-24 14:27:25",
+        "leader_time": "8m37.267s",
+        "total_logs": 664
+      },
+      {
+        "name": "pg2",
+        "role": "leader",
+        "first_seen": "2026-09-24 14:09:29",
+        "last_seen": "2026-09-24 14:27:25",
+        "leader_time": "7m19.495s",
+        "total_logs": 591
+      },
+      {
+        "name": "pg3",
+        "role": "replica",
+        "first_seen": "2026-09-24 14:09:29",
+        "last_seen": "2026-09-24 14:27:25",
+        "leader_time": "0s",
+        "total_logs": 657
+      }
+    ],
+    "leadership": [
+      {
+        "member": "pg1",
+        "start": "2026-09-24 14:09:32",
+        "end": "2026-09-24 14:10:17",
+        "duration": "45.112s"
+      },
+      {
+        "member": "pg2",
+        "start": "2026-09-24 14:10:18",
+        "end": "2026-09-24 14:12:56",
+        "duration": "2m38.248s"
+      },
+      {
+        "member": "pg1",
+        "start": "2026-09-24 14:13:31",
+        "end": "2026-09-24 14:19:52",
+        "duration": "6m21.007s"
+      },
+      {
+        "member": "pg1",
+        "start": "2026-09-24 14:20:42",
+        "end": "2026-09-24 14:22:13",
+        "duration": "1m31.148s"
+      },
+      {
+        "member": "pg2",
+        "start": "2026-09-24 14:22:43",
+        "end": "2026-09-24 14:27:25",
+        "duration": "4m41.247s"
+      }
+    ],
+    "changes": [
+      {
+        "timestamp": "2026-09-24 14:10:18",
+        "kind": "switchover",
+        "from": "pg1",
+        "to": "pg2",
+        "leaderless": "1.291s",
+        "postgres": [
+          {
+            "timestamp": "2026-09-24 14:10:17",
+            "kind": "shutdown",
+            "detail": "fast shutdown request"
+          },
+          {
+            "timestamp": "2026-09-24 14:10:18",
+            "kind": "start",
+            "detail": "database system is ready to accept connections"
+          },
+          {
+            "timestamp": "2026-09-24 14:10:20",
+            "kind": "sighup",
+            "detail": "reloading configuration files"
+          },
+          {
+            "timestamp": "2026-09-24 14:10:20",
+            "kind": "start",
+            "detail": "database system is ready to accept connections"
+          }
+        ]
+      },
+      {
+        "timestamp": "2026-09-24 14:13:31",
+        "kind": "failover",
+        "from": "pg2",
+        "to": "pg1",
+        "leaderless": "34.413s",
+        "postgres": [
+          {
+            "timestamp": "2026-09-24 14:13:31",
+            "kind": "sighup",
+            "detail": "reloading configuration files"
+          },
+          {
+            "timestamp": "2026-09-24 14:13:31",
+            "kind": "start",
+            "detail": "database system is ready to accept connections"
+          },
+          {
+            "timestamp": "2026-09-24 14:13:54",
+            "kind": "interrupted",
+            "detail": "system was interrupted"
+          },
+          {
+            "timestamp": "2026-09-24 14:13:54",
+            "kind": "start",
+            "detail": "database system is ready to accept connections"
+          }
+        ]
+      },
+      {
+        "timestamp": "2026-09-24 14:20:42",
+        "kind": "retaken",
+        "from": "pg1",
+        "to": "pg1",
+        "leaderless": "49.948s",
+        "postgres": [
+          {
+            "timestamp": "2026-09-24 14:19:52",
+            "kind": "shutdown",
+            "detail": "fast shutdown request"
+          },
+          {
+            "timestamp": "2026-09-24 14:19:52",
+            "kind": "start",
+            "detail": "database system is ready to accept connections"
+          },
+          {
+            "timestamp": "2026-09-24 14:20:42",
+            "kind": "start",
+            "detail": "database system is ready to accept connections"
+          }
+        ]
+      },
+      {
+        "timestamp": "2026-09-24 14:22:43",
+        "kind": "failover",
+        "from": "pg1",
+        "to": "pg2",
+        "leaderless": "30.361s",
+        "postgres": [
+          {
+            "timestamp": "2026-09-24 14:22:43",
+            "kind": "start",
+            "detail": "database system is ready to accept connections"
+          },
+          {
+            "timestamp": "2026-09-24 14:22:47",
+            "kind": "sighup",
+            "detail": "reloading configuration files"
+          },
+          {
+            "timestamp": "2026-09-24 14:23:02",
+            "kind": "interrupted",
+            "detail": "system was interrupted"
+          },
+          {
+            "timestamp": "2026-09-24 14:23:02",
+            "kind": "start",
+            "detail": "database system is ready to accept connections"
+          }
+        ]
+      }
+    ],
+    "event_counts": {
+      "bootstrap": 1,
+      "crash_recovery": 2,
+      "dcs_lost": 3,
+      "dcs_restored": 3,
+      "demote": 2,
+      "failover_key": 1,
+      "pause": 1,
+      "promote": 4,
+      "reinit": 1,
+      "replica_created": 3,
+      "resume": 1,
+      "rewind": 2,
+      "rewind_done": 2,
+      "switchover_request": 1,
+      "switchover_seen": 1
+    },
+    "events": [
+      {
+        "timestamp": "2026-09-24 14:09:32",
+        "member": "pg1",
+        "kind": "bootstrap",
+        "detail": "initialized a new cluster"
+      },
+      {
+        "timestamp": "2026-09-24 14:09:35",
+        "member": "pg2",
+        "kind": "replica_created",
+        "detail": "replica has been created using basebackup"
+      },
+      {
+        "timestamp": "2026-09-24 14:09:35",
+        "member": "pg3",
+        "kind": "replica_created",
+        "detail": "replica has been created using basebackup"
+      },
+      {
+        "timestamp": "2026-09-24 14:10:17",
+        "member": "pg1",
+        "kind": "switchover_request",
+        "detail": "received switchover request with leader=pg1 candidate=pg2 scheduled_at=None"
+      },
+      {
+        "timestamp": "2026-09-24 14:10:17",
+        "member": "pg1",
+        "kind": "demote",
+        "detail": "Demoting self (graceful)"
+      },
+      {
+        "timestamp": "2026-09-24 14:10:18",
+        "member": "pg3",
+        "kind": "switchover_seen",
+        "detail": "switchover: to pg2, i am pg3"
+      },
+      {
+        "timestamp": "2026-09-24 14:10:18",
+        "member": "pg2",
+        "kind": "failover_key",
+        "detail": "Cleaning up failover key after acquiring leader lock..."
+      },
+      {
+        "timestamp": "2026-09-24 14:10:18",
+        "member": "pg2",
+        "kind": "promote",
+        "detail": "promoted self to leader by acquiring session lock"
+      },
+      {
+        "timestamp": "2026-09-24 14:11:36",
+        "member": "pg2",
+        "kind": "pause"
+      },
+      {
+        "timestamp": "2026-09-24 14:11:56",
+        "member": "pg1",
+        "kind": "resume"
+      },
+      {
+        "timestamp": "2026-09-24 14:13:31",
+        "member": "pg1",
+        "kind": "promote",
+        "detail": "promoted self to leader by acquiring session lock"
+      },
+      {
+        "timestamp": "2026-09-24 14:13:52",
+        "member": "pg2",
+        "kind": "crash_recovery",
+        "detail": "doing crash recovery in a single user mode"
+      },
+      {
+        "timestamp": "2026-09-24 14:13:53",
+        "member": "pg2",
+        "kind": "rewind",
+        "detail": "running pg_rewind from pg1"
+      },
+      {
+        "timestamp": "2026-09-24 14:13:53",
+        "member": "pg2",
+        "kind": "rewind_done",
+        "detail": "pg_rewind exit code=0"
+      },
+      {
+        "timestamp": "2026-09-24 14:15:24",
+        "member": "pg2",
+        "kind": "reinit",
+        "detail": "Removing data directory: /home/postgres/data"
+      },
+      {
+        "timestamp": "2026-09-24 14:15:29",
+        "member": "pg2",
+        "kind": "replica_created",
+        "detail": "replica has been created using basebackup"
+      },
+      {
+        "timestamp": "2026-09-24 14:19:52",
+        "member": "pg1",
+        "kind": "demote",
+        "detail": "demoting self because DCS is not accessible and I was a leader"
+      },
+      {
+        "timestamp": "2026-09-24 14:19:52",
+        "member": "pg3",
+        "kind": "dcs_lost",
+        "detail": "DCS is not accessible"
+      },
+      {
+        "timestamp": "2026-09-24 14:19:52",
+        "member": "pg2",
+        "kind": "dcs_lost",
+        "detail": "DCS is not accessible"
+      },
+      {
+        "timestamp": "2026-09-24 14:20:02",
+        "member": "pg1",
+        "kind": "dcs_lost",
+        "detail": "DCS is not accessible"
+      },
+      {
+        "timestamp": "2026-09-24 14:20:41",
+        "member": "pg2",
+        "kind": "dcs_restored",
+        "detail": "after 49s"
+      },
+      {
+        "timestamp": "2026-09-24 14:20:42",
+        "member": "pg3",
+        "kind": "dcs_restored",
+        "detail": "after 49s"
+      },
+      {
+        "timestamp": "2026-09-24 14:20:42",
+        "member": "pg1",
+        "kind": "dcs_restored",
+        "detail": "after 40s"
+      },
+      {
+        "timestamp": "2026-09-24 14:20:42",
+        "member": "pg1",
+        "kind": "promote",
+        "detail": "promoted self to leader because I had the session lock"
+      },
+      {
+        "timestamp": "2026-09-24 14:22:43",
+        "member": "pg2",
+        "kind": "promote",
+        "detail": "promoted self to leader by acquiring session lock"
+      },
+      {
+        "timestamp": "2026-09-24 14:23:01",
+        "member": "pg1",
+        "kind": "crash_recovery",
+        "detail": "doing crash recovery in a single user mode"
+      },
+      {
+        "timestamp": "2026-09-24 14:23:01",
+        "member": "pg1",
+        "kind": "rewind",
+        "detail": "running pg_rewind from pg2"
+      },
+      {
+        "timestamp": "2026-09-24 14:23:01",
+        "member": "pg1",
+        "kind": "rewind_done",
+        "detail": "pg_rewind exit code=0"
+      }
+    ],
+    "messages": [
+      {
+        "id": "wa-FZfE",
+        "level": "WARNING",
+        "message": "failed to resolve host etcd1: [Errno -?] Name or service not known",
+        "count": 194,
+        "first_date": "2026-09-24 14:16:47",
+        "last_date": "2026-09-24 14:20:41"
+      },
+      {
+        "id": "wa-kgZP",
+        "level": "WARNING",
+        "message": "failed to resolve host etcd2: [Errno -?] Name or service not known",
+        "count": 185,
+        "first_date": "2026-09-24 14:16:46",
+        "last_date": "2026-09-24 14:20:41"
+      },
+      {
+        "id": "wa-bYfk",
+        "level": "WARNING",
+        "message": "failed to resolve host etcd3: [Errno -?] Name or service not known",
+        "count": 184,
+        "first_date": "2026-09-24 14:16:45",
+        "last_date": "2026-09-24 14:20:41"
+      },
+      {
+        "id": "er-4HFh",
+        "level": "ERROR",
+        "message": "Failed to get list of machines from http://etcd1:?/v3: MaxRetryError",
+        "count": 169,
+        "first_date": "2026-09-24 14:19:36",
+        "last_date": "2026-09-24 14:20:41"
+      },
+      {
+        "id": "er-Vywt",
+        "level": "ERROR",
+        "message": "Failed to get list of machines from http://etcd2:?/v3: MaxRetryError",
+        "count": 169,
+        "first_date": "2026-09-24 14:19:36",
+        "last_date": "2026-09-24 14:20:41"
+      },
+      {
+        "id": "er-OQ5I",
+        "level": "ERROR",
+        "message": "Failed to get list of machines from http://etcd3:?/v3: MaxRetryError",
+        "count": 169,
+        "first_date": "2026-09-24 14:19:36",
+        "last_date": "2026-09-24 14:20:41"
+      },
+      {
+        "id": "er-rR5F",
+        "level": "ERROR",
+        "message": "KVCache.run EtcdConnectionFailed",
+        "count": 164,
+        "first_date": "2026-09-24 14:19:43",
+        "last_date": "2026-09-24 14:20:41"
+      },
+      {
+        "id": "er-r32e",
+        "level": "ERROR",
+        "message": "Error communicating with DCS",
+        "count": 15,
+        "first_date": "2026-09-24 14:19:52",
+        "last_date": "2026-09-24 14:20:32"
+      },
+      {
+        "id": "wa-DFJK",
+        "level": "WARNING",
+        "message": "Loop time exceeded, rescheduling immediately.",
+        "count": 15,
+        "first_date": "2026-09-24 14:19:52",
+        "last_date": "2026-09-24 14:20:32"
+      },
+      {
+        "id": "er-FlFr",
+        "level": "ERROR",
+        "message": "Exceeded retry deadline",
+        "count": 12,
+        "first_date": "2026-09-24 14:20:02",
+        "last_date": "2026-09-24 14:20:32"
+      },
+      {
+        "id": "er-TGDH",
+        "level": "ERROR",
+        "message": "Request to server http://etcd2:? failed: MaxRetryError",
+        "count": 8,
+        "first_date": "2026-09-24 14:19:34",
+        "last_date": "2026-09-24 14:19:47"
+      },
+      {
+        "id": "er-hWDI",
+        "level": "ERROR",
+        "message": "Request to server http://etcd1:? failed: MaxRetryError",
+        "count": 7,
+        "first_date": "2026-09-24 14:19:36",
+        "last_date": "2026-09-24 14:19:45"
+      },
+      {
+        "id": "er-3ceq",
+        "level": "ERROR",
+        "message": "Request to server http://etcd3:? failed: MaxRetryError",
+        "count": 7,
+        "first_date": "2026-09-24 14:19:36",
+        "last_date": "2026-09-24 14:19:45"
+      },
+      {
+        "id": "wa-kSV3",
+        "level": "WARNING",
+        "message": "Postgresql is not running.",
+        "count": 6,
+        "first_date": "2026-09-24 14:13:52",
+        "last_date": "2026-09-24 14:23:01"
+      },
+      {
+        "id": "er-HY4b",
+        "level": "ERROR",
+        "message": "watchprefix failed: ProtocolError",
+        "count": 4,
+        "first_date": "2026-09-24 14:13:31",
+        "last_date": "2026-09-24 14:22:47"
+      },
+      {
+        "id": "wa-Bozr",
+        "level": "WARNING",
+        "message": "Could not activate Linux watchdog device: Can't open watchdog device: [Errno ?] No such file or directory: ?",
+        "count": 3,
+        "first_date": "2026-09-24 14:09:32",
+        "last_date": "2026-09-24 14:22:43"
+      },
+      {
+        "id": "er-aZxs",
+        "level": "ERROR",
+        "message": "get_cluster",
+        "count": 3,
+        "first_date": "2026-09-24 14:19:52",
+        "last_date": "2026-09-24 14:19:52"
+      },
+      {
+        "id": "er-6gdI",
+        "level": "ERROR",
+        "message": "watchprefix failed: \u003cUnavailable error: ?, code: ?\u003e",
+        "count": 3,
+        "first_date": "2026-09-24 14:19:34",
+        "last_date": "2026-09-24 14:19:36"
+      },
+      {
+        "id": "wa-j2XC",
+        "level": "WARNING",
+        "message": "Request failed to pg2: GET http://pg2:?/patroni (HTTPConnectionPool(host=?, port=?): Max retries exceeded with url: /patroni (Caused by ConnectTimeoutError",
+        "count": 2,
+        "first_date": "2026-09-24 14:13:31",
+        "last_date": "2026-09-24 14:13:31"
+      },
+      {
+        "id": "wa-Mjox",
+        "level": "WARNING",
+        "message": "Connected to Etcd node with term ?. Old known term ?. Switching to another node.",
+        "count": 1,
+        "first_date": "2026-09-24 14:19:34",
+        "last_date": "2026-09-24 14:19:34"
+      },
+      {
+        "id": "wa-oQ0u",
+        "level": "WARNING",
+        "message": "Request failed to pg1: GET http://pg1:?/patroni (HTTPConnectionPool(host=?, port=?): Max retries exceeded with url: /patroni (Caused by ConnectTimeoutError",
+        "count": 1,
+        "first_date": "2026-09-24 14:22:47",
+        "last_date": "2026-09-24 14:22:47"
+      },
+      {
+        "id": "wa-K818",
+        "level": "WARNING",
+        "message": "Request failed to pg1: GET http://pg1:?/patroni (HTTPConnectionPool(host=?, port=?): Max retries exceeded with url: /patroni (Caused by NewConnectionError",
+        "count": 1,
+        "first_date": "2026-09-24 14:22:43",
+        "last_date": "2026-09-24 14:22:43"
+      },
+      {
+        "id": "er-dtX9",
+        "level": "ERROR",
+        "message": "Request to server http://etcd1:? failed: ReadTimeoutError",
+        "count": 1,
+        "first_date": "2026-09-24 14:18:45",
+        "last_date": "2026-09-24 14:18:45"
+      },
+      {
+        "id": "er-yfaq",
+        "level": "ERROR",
+        "message": "Request to server http://etcd2:? failed: ReadTimeoutError",
+        "count": 1,
+        "first_date": "2026-09-24 14:16:45",
+        "last_date": "2026-09-24 14:16:45"
+      },
+      {
+        "id": "er-hML3",
+        "level": "ERROR",
+        "message": "Request to server http://etcd3:? failed: StaleEtcdNode()",
+        "count": 1,
+        "first_date": "2026-09-24 14:19:34",
+        "last_date": "2026-09-24 14:19:34"
+      },
+      {
+        "id": "wa-zPhM",
+        "level": "WARNING",
+        "message": "failed to resolve host etcd3: [Errno -?] No address associated with hostname",
+        "count": 1,
+        "first_date": "2026-09-24 14:19:41",
+        "last_date": "2026-09-24 14:19:41"
+      },
+      {
+        "id": "wa-rNNY",
+        "level": "WARNING",
+        "message": "failed to resolve host pg1: [Errno -?] Name or service not known",
+        "count": 1,
+        "first_date": "2026-09-24 14:22:43",
+        "last_date": "2026-09-24 14:22:43"
+      }
+    ]
+  },
+  "replication": {
+    "total_events": 30,
+    "stream_reconnects": 12,
+    "recovery_pauses": 2,
+    "replication_terminations": 16,
+    "last_termination": "2026-09-24 14:22:47",
+    "peak_hour_label": "14:00-15:00",
+    "peak_hour_count": 12,
+    "markers": {
+      "recovery_paused": 2,
+      "replication_term": 10,
+      "stream_started": 12,
+      "unexpected_eof": 1,
+      "wal_receive_failed": 4,
+      "walsender_timeout": 1
+    },
+    "hour_counts": {
+      "14": 30
+    },
+    "events": [
+      {
+        "timestamp": "2026-09-24 14:10:20",
+        "marker": "stream_started",
+        "severity": "LOG"
+      },
+      {
+        "timestamp": "2026-09-24 14:10:20",
+        "marker": "replication_term",
+        "severity": "LOG"
+      },
+      {
+        "timestamp": "2026-09-24 14:12:58",
+        "marker": "wal_receive_failed",
+        "severity": "FATAL"
+      },
+      {
+        "timestamp": "2026-09-24 14:15:24",
+        "marker": "unexpected_eof",
+        "severity": "LOG"
+      },
+      {
+        "timestamp": "2026-09-24 14:17:32",
+        "marker": "walsender_timeout",
+        "severity": "LOG"
+      },
+      {
+        "timestamp": "2026-09-24 14:23:07",
+        "marker": "stream_started",
+        "severity": "LOG"
+      },
+      {
+        "timestamp": "2026-09-24 14:09:36",
+        "marker": "stream_started",
+        "severity": "LOG"
+      },
+      {
+        "timestamp": "2026-09-24 14:10:17",
+        "marker": "replication_term",
+        "severity": "LOG"
+      },
+      {
+        "timestamp": "2026-09-24 14:14:04",
+        "marker": "stream_started",
+        "severity": "LOG"
+      },
+      {
+        "timestamp": "2026-09-24 14:15:29",
+        "marker": "stream_started",
+        "severity": "LOG"
+      },
+      {
+        "timestamp": "2026-09-24 14:19:52",
+        "marker": "replication_term",
+        "severity": "LOG"
+      },
+      {
+        "timestamp": "2026-09-24 14:19:57",
+        "marker": "stream_started",
+        "severity": "LOG"
+      },
+      {
+        "timestamp": "2026-09-24 14:20:42",
+        "marker": "replication_term",
+        "severity": "LOG"
+      },
+      {
+        "timestamp": "2026-09-24 14:22:13",
+        "marker": "recovery_paused",
+        "severity": "LOG"
+      },
+      {
+        "timestamp": "2026-09-24 14:22:13",
+        "marker": "wal_receive_failed",
+        "severity": "FATAL"
+      },
+      {
+        "timestamp": "2026-09-24 14:09:36",
+        "marker": "stream_started",
+        "severity": "LOG"
+      },
+      {
+        "timestamp": "2026-09-24 14:10:17",
+        "marker": "replication_term",
+        "severity": "LOG"
+      },
+      {
+        "timestamp": "2026-09-24 14:10:20",
+        "marker": "stream_started",
+        "severity": "LOG"
+      },
+      {
+        "timestamp": "2026-09-24 14:10:20",
+        "marker": "replication_term",
+        "severity": "LOG"
+      },
+      {
+        "timestamp": "2026-09-24 14:12:58",
+        "marker": "wal_receive_failed",
+        "severity": "FATAL"
+      },
+      {
+        "timestamp": "2026-09-24 14:13:36",
+        "marker": "stream_started",
+        "severity": "LOG"
+      },
+      {
+        "timestamp": "2026-09-24 14:13:36",
+        "marker": "replication_term",
+        "severity": "LOG"
+      },
+      {
+        "timestamp": "2026-09-24 14:17:37",
+        "marker": "stream_started",
+        "severity": "LOG"
+      },
+      {
+        "timestamp": "2026-09-24 14:19:52",
+        "marker": "replication_term",
+        "severity": "LOG"
+      },
+      {
+        "timestamp": "2026-09-24 14:19:57",
+        "marker": "stream_started",
+        "severity": "LOG"
+      },
+      {
+        "timestamp": "2026-09-24 14:20:42",
+        "marker": "replication_term",
+        "severity": "LOG"
+      },
+      {
+        "timestamp": "2026-09-24 14:22:13",
+        "marker": "recovery_paused",
+        "severity": "LOG"
+      },
+      {
+        "timestamp": "2026-09-24 14:22:13",
+        "marker": "wal_receive_failed",
+        "severity": "FATAL"
+      },
+      {
+        "timestamp": "2026-09-24 14:22:47",
+        "marker": "stream_started",
+        "severity": "LOG"
+      },
+      {
+        "timestamp": "2026-09-24 14:22:47",
+        "marker": "replication_term",
+        "severity": "LOG"
+      }
+    ]
+  },
+  "server": {
+    "starts": 12,
+    "start_times": [
+      "2026-09-24 14:09:32",
+      "2026-09-24 14:10:20",
+      "2026-09-24 14:13:31",
+      "2026-09-24 14:19:52",
+      "2026-09-24 14:20:42",
+      "2026-09-24 14:23:02",
+      "2026-09-24 14:09:36",
+      "2026-09-24 14:10:18",
+      "2026-09-24 14:13:54",
+      "2026-09-24 14:15:29",
+      "2026-09-24 14:22:43",
+      "2026-09-24 14:09:36"
+    ],
+    "reloads": 3,
+    "reload_times": [
+      "2026-09-24 14:10:20",
+      "2026-09-24 14:13:31",
+      "2026-09-24 14:22:47"
+    ],
+    "shutdowns_fast": 2,
+    "shutdowns_immediate": 1,
+    "shutdowns_smart": 0,
+    "shutdown_completed": 3,
+    "interrupted": 5,
+    "parameter_changes": [
+      {
+        "parameter": "primary_conninfo",
+        "new": "dbname=postgres user=replicator passfile=/home/postgres/.pgpass host=pg2 port=5432 sslmode=prefer application_name=pg3 gssencmode=prefer channel_binding=prefer sslnegotiation=postgres",
+        "timestamp": "2026-09-24 14:10:20"
+      },
+      {
+        "parameter": "primary_conninfo",
+        "new": "dbname=postgres user=replicator passfile=/home/postgres/.pgpass host=pg1 port=5432 sslmode=prefer application_name=pg3 gssencmode=prefer channel_binding=prefer sslnegotiation=postgres",
+        "timestamp": "2026-09-24 14:13:31"
+      },
+      {
+        "parameter": "primary_conninfo",
+        "new": "dbname=postgres user=replicator passfile=/home/postgres/.pgpass host=pg2 port=5432 sslmode=prefer application_name=pg3 gssencmode=prefer channel_binding=prefer sslnegotiation=postgres",
+        "timestamp": "2026-09-24 14:22:47"
+      }
+    ],
+    "timeline": [
+      {
+        "timestamp": "2026-09-24 14:09:32",
+        "kind": "start",
+        "detail": "database system is ready to accept connections"
+      },
+      {
+        "timestamp": "2026-09-24 14:10:17",
+        "kind": "shutdown",
+        "detail": "fast shutdown request"
+      },
+      {
+        "timestamp": "2026-09-24 14:10:20",
+        "kind": "start",
+        "detail": "database system is ready to accept connections"
+      },
+      {
+        "timestamp": "2026-09-24 14:13:31",
+        "kind": "start",
+        "detail": "database system is ready to accept connections"
+      },
+      {
+        "timestamp": "2026-09-24 14:19:52",
+        "kind": "shutdown",
+        "detail": "fast shutdown request"
+      },
+      {
+        "timestamp": "2026-09-24 14:19:52",
+        "kind": "start",
+        "detail": "database system is ready to accept connections"
+      },
+      {
+        "timestamp": "2026-09-24 14:20:42",
+        "kind": "start",
+        "detail": "database system is ready to accept connections"
+      },
+      {
+        "timestamp": "2026-09-24 14:23:02",
+        "kind": "interrupted",
+        "detail": "system was interrupted"
+      },
+      {
+        "timestamp": "2026-09-24 14:23:02",
+        "kind": "start",
+        "detail": "database system is ready to accept connections"
+      },
+      {
+        "timestamp": "2026-09-24 14:09:35",
+        "kind": "interrupted",
+        "detail": "system was interrupted"
+      },
+      {
+        "timestamp": "2026-09-24 14:09:36",
+        "kind": "start",
+        "detail": "database system is ready to accept connections"
+      },
+      {
+        "timestamp": "2026-09-24 14:10:18",
+        "kind": "start",
+        "detail": "database system is ready to accept connections"
+      },
+      {
+        "timestamp": "2026-09-24 14:13:54",
+        "kind": "interrupted",
+        "detail": "system was interrupted"
+      },
+      {
+        "timestamp": "2026-09-24 14:13:54",
+        "kind": "start",
+        "detail": "database system is ready to accept connections"
+      },
+      {
+        "timestamp": "2026-09-24 14:15:24",
+        "kind": "shutdown",
+        "detail": "immediate shutdown request"
+      },
+      {
+        "timestamp": "2026-09-24 14:15:29",
+        "kind": "interrupted",
+        "detail": "system was interrupted"
+      },
+      {
+        "timestamp": "2026-09-24 14:15:29",
+        "kind": "start",
+        "detail": "database system is ready to accept connections"
+      },
+      {
+        "timestamp": "2026-09-24 14:22:43",
+        "kind": "start",
+        "detail": "database system is ready to accept connections"
+      },
+      {
+        "timestamp": "2026-09-24 14:09:35",
+        "kind": "interrupted",
+        "detail": "system was interrupted"
+      },
+      {
+        "timestamp": "2026-09-24 14:09:36",
+        "kind": "start",
+        "detail": "database system is ready to accept connections"
+      },
+      {
+        "timestamp": "2026-09-24 14:10:20",
+        "kind": "sighup",
+        "detail": "reloading configuration files"
+      },
+      {
+        "timestamp": "2026-09-24 14:13:31",
+        "kind": "sighup",
+        "detail": "reloading configuration files"
+      },
+      {
+        "timestamp": "2026-09-24 14:22:47",
+        "kind": "sighup",
+        "detail": "reloading configuration files"
+      }
+    ]
+  },
+  "summary": {
+    "start_date": "2026-09-24 14:09:31",
+    "end_date": "2026-09-24 14:25:20",
+    "duration": "15m48.482s",
+    "total_logs": 325,
+    "throughput": "0.34 entries/s",
+    "error_count": 10,
+    "fatal_count": 62,
+    "panic_count": 0,
+    "warning_count": 1,
+    "log_count": 252,
+    "utc_offset_minutes": 0
+  },
+  "top_events": [
+    {
+      "id": "fa-lK29",
+      "message": "could not connect to the primary server: could not translate host name ? to address: Name or service not known",
+      "count": 25,
+      "severity": "FATAL",
+      "example": "[85] FATAL:  could not connect to the primary server: could not translate host name \"pg2\" to address: Name or service not known",
+      "sql_state_class": "FA",
+      "timestamps": [
+        1790259183304,
+        1790259183310,
+        1790259188305,
+        1790259188311,
+        1790259193309,
+        1790259193309,
+        1790259198311,
+        1790259198316,
+        1790259203313,
+        1790259203319,
+        1790259208314,
+        1790259208319,
+        1790259734013,
+        1790259734013,
+        1790259739006,
+        1790259739006,
+        1790259744004,
+        1790259744007,
+        1790259749011,
+        1790259749011,
+        1790259754011,
+        1790259754011,
+        1790259759021,
+        1790259759021,
+        1790259764019
+      ]
+    },
+    {
+      "id": "fa-4NKc",
+      "message": "the database system is starting up",
+      "count": 10,
+      "severity": "FATAL",
+      "example": "[49] postgres@postgres FATAL:  the database system is starting up",
+      "timestamps": [
+        1790258975656,
+        1790258975662,
+        1790258975679,
+        1790258975683,
+        1790259234230,
+        1790259234233,
+        1790259329922,
+        1790259329926,
+        1790259782323,
+        1790259782326
+      ]
+    },
+    {
+      "id": "fa-6VUu",
+      "message": "could not connect to the primary server: connection to server at ? (?.?.?.?), port ? failed: Connection refused Is the server running on that host and accepting TCP/IP connections? connection to server at ? (?.?.?.?), port ? failed: Connection refused Is the server running on that host and accepting TCP/IP connections?",
+      "count": 6,
+      "severity": "FATAL",
+      "example": "[84] FATAL:  could not connect to the primary server: connection to server at \"pg2\" (10.89.11.3), port 5432 failed: Connection refused Is the server running on that host and accepting TCP/IP connections? connection to server at \"pg2\" (10.89.8.6), port 5432 failed: Connection refused Is the server running on that host and accepting TCP/IP connections?",
+      "sql_state_class": "FA",
+      "timestamps": [
+        1790259017478,
+        1790259017478,
+        1790259178300,
+        1790259178300,
+        1790259592406,
+        1790259592406
+      ]
+    },
+    {
+      "id": "fa-ZG2B",
+      "message": "could not start WAL streaming: ERROR: replication slot ? does not exist",
+      "count": 6,
+      "severity": "FATAL",
+      "example": "[52] FATAL:  could not start WAL streaming: ERROR:  replication slot \"pg1\" does not exist",
+      "sql_state_class": "FA",
+      "timestamps": [
+        1790259211312,
+        1790259234276,
+        1790259234283,
+        1790259239295,
+        1790259782373,
+        1790259782380
+      ]
+    },
+    {
+      "id": "er-Hbml",
+      "message": "replication slot ? does not exist",
+      "count": 6,
+      "severity": "ERROR",
+      "example": "[94] replicator@[unknown] ERROR:  replication slot \"pg3\" does not exist",
+      "timestamps": [
+        1790259211312,
+        1790259234276,
+        1790259234283,
+        1790259239295,
+        1790259782373,
+        1790259782380
+      ],
+      "triggering_queries": [
+        {
+          "id": "st-vBbMUm",
+          "normalized_query": "start_replication slot \"pg2\" ?/? timeline ?",
+          "count": 3
+        },
+        {
+          "id": "st-4GKRql",
+          "normalized_query": "start_replication slot \"pg1\" ?/? timeline ?",
+          "count": 2
+        },
+        {
+          "id": "st-SNVrM0",
+          "normalized_query": "start_replication slot \"pg3\" ?/? timeline ?",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "fa-wkgL",
+      "message": "could not receive data from WAL stream: server closed the connection unexpectedly This probably means the server terminated abnormally before or while processing the request.",
+      "count": 4,
+      "severity": "FATAL",
+      "example": "[77] FATAL:  could not receive data from WAL stream: server closed the connection unexpectedly This probably means the server terminated abnormally before or while processing the request.",
+      "sql_state_class": "FA",
+      "timestamps": [
+        1790259178296,
+        1790259178297,
+        1790259733925,
+        1790259733925
+      ]
+    },
+    {
+      "id": "fa-qZWS",
+      "message": "could not send end-of-streaming message to primary: server closed the connection unexpectedly This probably means the server terminated abnormally before or while processing the request. no COPY in progress",
+      "count": 4,
+      "severity": "FATAL",
+      "example": "[35] FATAL:  could not send end-of-streaming message to primary: server closed the connection unexpectedly This probably means the server terminated abnormally before or while processing the request. no COPY in progress",
+      "sql_state_class": "FA",
+      "timestamps": [
+        1790259017475,
+        1790259017475,
+        1790259592403,
+        1790259592403
+      ]
+    },
+    {
+      "id": "fa-84C8",
+      "message": "could not start WAL streaming: ERROR: replication slot ? is active for PID ?",
+      "count": 3,
+      "severity": "FATAL",
+      "example": "[135] FATAL:  could not start WAL streaming: ERROR:  replication slot \"pg3\" is active for PID 102",
+      "sql_state_class": "FA",
+      "timestamps": [
+        1790259442499,
+        1790259447503,
+        1790259452504
+      ]
+    },
+    {
+      "id": "er-Jnx7",
+      "message": "replication slot ? is active for PID ?",
+      "count": 3,
+      "severity": "ERROR",
+      "example": "[125] replicator@[unknown] ERROR:  replication slot \"pg3\" is active for PID 102",
+      "timestamps": [
+        1790259442499,
+        1790259447503,
+        1790259452504
+      ],
+      "triggering_queries": [
+        {
+          "id": "st-SNVrM0",
+          "normalized_query": "start_replication slot \"pg3\" ?/? timeline ?",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "id": "fa-LkLy",
+      "message": "terminating connection due to administrator command",
+      "count": 3,
+      "severity": "FATAL",
+      "example": "[48] postgres@postgres FATAL:  terminating connection due to administrator command",
+      "timestamps": [
+        1790259017450,
+        1790259592371,
+        1790259592371
+      ]
+    },
+    {
+      "id": "er-eUUK",
+      "message": "recovery is not in progress",
+      "count": 1,
+      "severity": "ERROR",
+      "example": "[114] postgres@postgres ERROR:  recovery is not in progress",
+      "timestamps": [
+        1790259779643
+      ],
+      "triggering_queries": [
+        {
+          "id": "se-E5AW29",
+          "normalized_query": "select pg_wal_replay_resume();",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "wa-wGqa",
+      "message": "specified neither ? nor ?",
+      "count": 1,
+      "severity": "WARNING",
+      "example": "[144] WARNING:  specified neither \"primary_conninfo\" nor \"restore_command\"",
+      "timestamps": [
+        1790259592672
+      ]
+    },
+    {
+      "id": "fa-GpqW",
+      "message": "terminating walreceiver due to timeout",
+      "count": 1,
+      "severity": "FATAL",
+      "example": "[116] FATAL:  terminating walreceiver due to timeout",
+      "sql_state_class": "FA",
+      "timestamps": [
+        1790259442489
+      ]
+    }
+  ],
+  "users": [
+    {
+      "name": "replicator",
+      "count": 3
+    }
+  ]
+}

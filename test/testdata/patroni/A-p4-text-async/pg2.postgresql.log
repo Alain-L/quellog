@@ -1,0 +1,164 @@
+2026-09-24 13:43:55.607 UTC [26] LOG:  starting PostgreSQL 17.9 (Debian 17.9-1.pgdg13+1) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+2026-09-24 13:43:55.608 UTC [26] LOG:  listening on IPv4 address "0.0.0.0", port 5432
+2026-09-24 13:43:55.612 UTC [26] LOG:  listening on Unix socket "./.s.PGSQL.5432"
+2026-09-24 13:43:55.617 UTC [30] LOG:  database system was interrupted; last known up at 2026-09-24 13:43:52 UTC
+2026-09-24 13:43:55.634 UTC [32] postgres@postgres FATAL:  the database system is starting up
+2026-09-24 13:43:55.638 UTC [34] postgres@postgres FATAL:  the database system is starting up
+2026-09-24 13:43:55.672 UTC [30] LOG:  starting backup recovery with redo LSN 0/2000028, checkpoint LSN 0/2000080, on timeline ID 1
+2026-09-24 13:43:55.672 UTC [30] LOG:  entering standby mode
+2026-09-24 13:43:55.674 UTC [30] LOG:  redo starts at 0/2000028
+2026-09-24 13:43:55.676 UTC [30] LOG:  completed backup recovery with redo LSN 0/2000028 and end LSN 0/20001F0
+2026-09-24 13:43:55.676 UTC [30] LOG:  consistent recovery state reached at 0/20001F0
+2026-09-24 13:43:55.676 UTC [26] LOG:  database system is ready to accept read-only connections
+2026-09-24 13:43:55.684 UTC [35] LOG:  started streaming WAL from primary at 0/3000000 on timeline 1
+2026-09-24 13:44:33.462 UTC [35] LOG:  replication terminated by primary server
+2026-09-24 13:44:33.462 UTC [35] DETAIL:  End of WAL reached on timeline 1 at 0/40001A8.
+2026-09-24 13:44:33.462 UTC [35] FATAL:  could not send end-of-streaming message to primary: server closed the connection unexpectedly
+		This probably means the server terminated abnormally
+		before or while processing the request.
+	no COPY in progress
+2026-09-24 13:44:33.462 UTC [30] LOG:  invalid record length at 0/40001A8: expected at least 24, got 0
+2026-09-24 13:44:33.468 UTC [42] FATAL:  could not connect to the primary server: connection to server at "pg1" (10.89.5.2), port 5432 failed: Connection refused
+		Is the server running on that host and accepting TCP/IP connections?
+	connection to server at "pg1" (10.89.4.5), port 5432 failed: Connection refused
+		Is the server running on that host and accepting TCP/IP connections?
+2026-09-24 13:44:33.469 UTC [30] LOG:  waiting for WAL to become available at 0/40001C0
+2026-09-24 13:44:34.773 UTC [30] LOG:  received promote request
+2026-09-24 13:44:34.773 UTC [30] LOG:  redo done at 0/4000130 system usage: CPU: user: 0.00 s, system: 0.00 s, elapsed: 39.09 s
+2026-09-24 13:44:34.777 UTC [30] LOG:  selected new timeline ID: 2
+2026-09-24 13:44:34.813 UTC [30] LOG:  archive recovery complete
+2026-09-24 13:44:34.815 UTC [28] LOG:  checkpoint starting: force
+2026-09-24 13:44:34.817 UTC [26] LOG:  database system is ready to accept connections
+2026-09-24 13:44:34.833 UTC [28] LOG:  checkpoint complete: wrote 3 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.003 s, sync=0.002 s, total=0.018 s; sync files=2, longest=0.001 s, average=0.001 s; distance=32768 kB, estimate=32768 kB; lsn=0/4000238, redo lsn=0/40001E0
+2026-09-24 13:48:09.755 UTC [43] LOG:  starting PostgreSQL 17.9 (Debian 17.9-1.pgdg13+1) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+2026-09-24 13:48:09.755 UTC [43] LOG:  listening on IPv4 address "0.0.0.0", port 5432
+2026-09-24 13:48:09.758 UTC [43] LOG:  listening on Unix socket "./.s.PGSQL.5432"
+2026-09-24 13:48:09.762 UTC [47] LOG:  database system was shut down at 2026-09-24 13:48:09 UTC
+2026-09-24 13:48:09.762 UTC [47] LOG:  entering standby mode
+2026-09-24 13:48:09.766 UTC [47] LOG:  consistent recovery state reached at 0/50000A0
+2026-09-24 13:48:09.766 UTC [47] LOG:  invalid record length at 0/50000A0: expected at least 24, got 0
+2026-09-24 13:48:09.766 UTC [43] LOG:  database system is ready to accept read-only connections
+2026-09-24 13:48:09.774 UTC [48] LOG:  fetching timeline history file for timeline 3 from primary server
+2026-09-24 13:48:09.777 UTC [48] FATAL:  could not start WAL streaming: ERROR:  requested starting point 0/5000000 on timeline 2 is not in this server's history
+	DETAIL:  This server's history forked from timeline 2 at 0/40002E8.
+2026-09-24 13:48:09.777 UTC [47] LOG:  new timeline 3 forked off current database system timeline 2 before current recovery point 0/50000A0
+2026-09-24 13:48:09.784 UTC [49] FATAL:  could not start WAL streaming: ERROR:  requested starting point 0/5000000 on timeline 2 is not in this server's history
+	DETAIL:  This server's history forked from timeline 2 at 0/40002E8.
+2026-09-24 13:48:09.784 UTC [47] LOG:  new timeline 3 forked off current database system timeline 2 before current recovery point 0/50000A0
+2026-09-24 13:48:09.784 UTC [47] LOG:  waiting for WAL to become available at 0/50000B8
+2026-09-24 13:48:14.796 UTC [56] FATAL:  could not start WAL streaming: ERROR:  requested starting point 0/5000000 on timeline 2 is not in this server's history
+	DETAIL:  This server's history forked from timeline 2 at 0/40002E8.
+2026-09-24 13:48:14.796 UTC [47] LOG:  new timeline 3 forked off current database system timeline 2 before current recovery point 0/50000A0
+2026-09-24 13:48:14.796 UTC [47] LOG:  waiting for WAL to become available at 0/50000B8
+2026-09-24 13:48:19.796 UTC [57] FATAL:  could not start WAL streaming: ERROR:  requested starting point 0/5000000 on timeline 2 is not in this server's history
+	DETAIL:  This server's history forked from timeline 2 at 0/40002E8.
+2026-09-24 13:48:19.796 UTC [47] LOG:  new timeline 3 forked off current database system timeline 2 before current recovery point 0/50000A0
+2026-09-24 13:48:19.796 UTC [47] LOG:  waiting for WAL to become available at 0/50000B8
+2026-09-24 13:48:20.416 UTC [43] LOG:  received fast shutdown request
+2026-09-24 13:48:20.418 UTC [43] LOG:  aborting any active transactions
+2026-09-24 13:48:20.418 UTC [54] postgres@postgres FATAL:  terminating connection due to administrator command
+2026-09-24 13:48:20.420 UTC [45] LOG:  shutting down
+2026-09-24 13:48:20.427 UTC [43] LOG:  database system is shut down
+2026-09-24 13:48:22.021 GMT [72] LOG:  starting PostgreSQL 17.9 (Debian 17.9-1.pgdg13+1) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+2026-09-24 13:48:22.021 GMT [72] LOG:  listening on IPv4 address "0.0.0.0", port 5432
+2026-09-24 13:48:22.023 GMT [72] FATAL:  lock file "./.s.PGSQL.5432.lock" is empty
+2026-09-24 13:48:22.023 GMT [72] HINT:  Either another server is starting, or the lock file is the remnant of a previous server startup crash.
+2026-09-24 13:48:22.024 GMT [72] LOG:  database system is shut down
+2026-09-24 13:48:42.454 GMT [79] LOG:  starting PostgreSQL 17.9 (Debian 17.9-1.pgdg13+1) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+2026-09-24 13:48:42.454 GMT [79] LOG:  listening on IPv4 address "0.0.0.0", port 5432
+2026-09-24 13:48:42.456 GMT [79] FATAL:  lock file "./.s.PGSQL.5432.lock" is empty
+2026-09-24 13:48:42.456 GMT [79] HINT:  Either another server is starting, or the lock file is the remnant of a previous server startup crash.
+2026-09-24 13:48:42.457 GMT [79] LOG:  database system is shut down
+2026-09-24 13:48:59.035 GMT [86] LOG:  starting PostgreSQL 17.9 (Debian 17.9-1.pgdg13+1) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+2026-09-24 13:48:59.035 GMT [86] LOG:  listening on IPv4 address "0.0.0.0", port 5432
+2026-09-24 13:48:59.037 GMT [86] FATAL:  lock file "./.s.PGSQL.5432.lock" is empty
+2026-09-24 13:48:59.037 GMT [86] HINT:  Either another server is starting, or the lock file is the remnant of a previous server startup crash.
+2026-09-24 13:48:59.038 GMT [86] LOG:  database system is shut down
+2026-09-24 13:49:19.035 GMT [93] LOG:  starting PostgreSQL 17.9 (Debian 17.9-1.pgdg13+1) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+2026-09-24 13:49:19.035 GMT [93] LOG:  listening on IPv4 address "0.0.0.0", port 5432
+2026-09-24 13:49:19.036 GMT [93] FATAL:  lock file "./.s.PGSQL.5432.lock" is empty
+2026-09-24 13:49:19.036 GMT [93] HINT:  Either another server is starting, or the lock file is the remnant of a previous server startup crash.
+2026-09-24 13:49:19.037 GMT [93] LOG:  database system is shut down
+2026-09-24 13:49:39.028 GMT [100] LOG:  starting PostgreSQL 17.9 (Debian 17.9-1.pgdg13+1) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+2026-09-24 13:49:39.028 GMT [100] LOG:  listening on IPv4 address "0.0.0.0", port 5432
+2026-09-24 13:49:39.029 GMT [100] FATAL:  lock file "./.s.PGSQL.5432.lock" is empty
+2026-09-24 13:49:39.029 GMT [100] HINT:  Either another server is starting, or the lock file is the remnant of a previous server startup crash.
+2026-09-24 13:49:39.030 GMT [100] LOG:  database system is shut down
+2026-09-24 13:49:45.831 UTC [108] LOG:  starting PostgreSQL 17.9 (Debian 17.9-1.pgdg13+1) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+2026-09-24 13:49:45.831 UTC [108] LOG:  listening on IPv4 address "0.0.0.0", port 5432
+2026-09-24 13:49:45.834 UTC [108] LOG:  listening on Unix socket "./.s.PGSQL.5432"
+2026-09-24 13:49:45.838 UTC [112] LOG:  database system was interrupted; last known up at 2026-09-24 13:49:44 UTC
+2026-09-24 13:49:45.856 UTC [114] postgres@postgres FATAL:  the database system is starting up
+2026-09-24 13:49:45.859 UTC [116] postgres@postgres FATAL:  the database system is starting up
+2026-09-24 13:49:45.889 UTC [112] LOG:  starting backup recovery with redo LSN 0/5000028, checkpoint LSN 0/5000080, on timeline ID 3
+2026-09-24 13:49:45.889 UTC [112] LOG:  entering standby mode
+2026-09-24 13:49:45.892 UTC [112] LOG:  redo starts at 0/5000028
+2026-09-24 13:49:45.893 UTC [112] LOG:  completed backup recovery with redo LSN 0/5000028 and end LSN 0/5000120
+2026-09-24 13:49:45.893 UTC [112] LOG:  consistent recovery state reached at 0/5000120
+2026-09-24 13:49:45.893 UTC [108] LOG:  database system is ready to accept read-only connections
+2026-09-24 13:49:45.900 UTC [117] LOG:  started streaming WAL from primary at 0/6000000 on timeline 3
+2026-09-24 13:54:08.223 UTC [117] LOG:  replication terminated by primary server
+2026-09-24 13:54:08.223 UTC [117] DETAIL:  End of WAL reached on timeline 3 at 0/6033738.
+2026-09-24 13:54:08.223 UTC [117] FATAL:  could not send end-of-streaming message to primary: server closed the connection unexpectedly
+		This probably means the server terminated abnormally
+		before or while processing the request.
+	no COPY in progress
+2026-09-24 13:54:08.224 UTC [112] LOG:  invalid record length at 0/6033738: expected at least 24, got 0
+2026-09-24 13:54:08.229 UTC [127] FATAL:  could not connect to the primary server: connection to server at "pg1" (10.89.4.9), port 5432 failed: Connection refused
+		Is the server running on that host and accepting TCP/IP connections?
+	connection to server at "pg1" (10.89.5.2), port 5432 failed: Connection refused
+		Is the server running on that host and accepting TCP/IP connections?
+2026-09-24 13:54:08.229 UTC [112] LOG:  waiting for WAL to become available at 0/6033750
+2026-09-24 13:54:13.243 UTC [128] LOG:  started streaming WAL from primary at 0/6000000 on timeline 3
+2026-09-24 13:54:45.922 UTC [110] LOG:  restartpoint starting: time
+2026-09-24 13:54:49.105 UTC [110] LOG:  restartpoint complete: wrote 32 buffers (0.2%); 0 WAL file(s) added, 0 removed, 0 recycled; write=3.121 s, sync=0.037 s, total=3.184 s; sync files=5, longest=0.023 s, average=0.008 s; distance=16589 kB, estimate=16589 kB; lsn=0/60336C0, redo lsn=0/60336C0
+2026-09-24 13:54:49.105 UTC [110] LOG:  recovery restart point at 0/60336C0
+2026-09-24 13:54:59.787 UTC [128] LOG:  replication terminated by primary server
+2026-09-24 13:54:59.787 UTC [128] DETAIL:  End of WAL reached on timeline 3 at 0/6033738.
+2026-09-24 13:54:59.787 UTC [128] LOG:  fetching timeline history file for timeline 4 from primary server
+2026-09-24 13:54:59.792 UTC [112] LOG:  new target timeline is 4
+2026-09-24 13:54:59.792 UTC [128] LOG:  restarted WAL streaming at 0/6000000 on timeline 4
+2026-09-24 13:56:30.368 UTC [128] FATAL:  could not receive data from WAL stream: server closed the connection unexpectedly
+		This probably means the server terminated abnormally
+		before or while processing the request.
+2026-09-24 13:56:30.368 UTC [112] LOG:  invalid record length at 0/60338B0: expected at least 24, got 0
+2026-09-24 13:56:30.374 UTC [134] FATAL:  could not connect to the primary server: connection to server at "pg1" (10.89.4.9), port 5432 failed: Connection refused
+		Is the server running on that host and accepting TCP/IP connections?
+	connection to server at "pg1" (10.89.5.2), port 5432 failed: Connection refused
+		Is the server running on that host and accepting TCP/IP connections?
+2026-09-24 13:56:30.374 UTC [112] LOG:  waiting for WAL to become available at 0/60338C8
+2026-09-24 13:56:35.533 UTC [136] FATAL:  could not connect to the primary server: could not translate host name "pg1" to address: No address associated with hostname
+2026-09-24 13:56:35.534 UTC [112] LOG:  waiting for WAL to become available at 0/60338C8
+2026-09-24 13:56:40.382 UTC [137] FATAL:  could not connect to the primary server: could not translate host name "pg1" to address: Name or service not known
+2026-09-24 13:56:40.383 UTC [112] LOG:  waiting for WAL to become available at 0/60338C8
+2026-09-24 13:56:45.387 UTC [138] FATAL:  could not connect to the primary server: could not translate host name "pg1" to address: Name or service not known
+2026-09-24 13:56:45.388 UTC [112] LOG:  waiting for WAL to become available at 0/60338C8
+2026-09-24 13:56:50.393 UTC [139] FATAL:  could not connect to the primary server: could not translate host name "pg1" to address: Name or service not known
+2026-09-24 13:56:50.393 UTC [112] LOG:  waiting for WAL to become available at 0/60338C8
+2026-09-24 13:56:51.349 UTC [112] LOG:  received promote request
+2026-09-24 13:56:51.349 UTC [112] LOG:  redo done at 0/6033878 system usage: CPU: user: 0.00 s, system: 0.00 s, elapsed: 425.45 s
+2026-09-24 13:56:51.352 UTC [112] LOG:  selected new timeline ID: 5
+2026-09-24 13:56:51.382 UTC [112] LOG:  archive recovery complete
+2026-09-24 13:56:51.385 UTC [110] LOG:  checkpoint starting: force
+2026-09-24 13:56:51.387 UTC [108] LOG:  database system is ready to accept connections
+2026-09-24 13:56:51.399 UTC [110] LOG:  checkpoint complete: wrote 2 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.003 s, sync=0.001 s, total=0.015 s; sync files=2, longest=0.001 s, average=0.001 s; distance=0 kB, estimate=14930 kB; lsn=0/6033940, redo lsn=0/60338E8
+2026-09-24 13:57:18.419 UTC [160] replicator@[unknown] ERROR:  requested starting point 0/7000000 on timeline 4 is not in this server's history
+2026-09-24 13:57:18.419 UTC [160] replicator@[unknown] DETAIL:  This server's history forked from timeline 4 at 0/60338B0.
+2026-09-24 13:57:18.419 UTC [160] replicator@[unknown] STATEMENT:  START_REPLICATION SLOT "pg1" 0/7000000 TIMELINE 4
+2026-09-24 13:57:18.426 UTC [161] replicator@[unknown] ERROR:  requested starting point 0/7000000 on timeline 4 is not in this server's history
+2026-09-24 13:57:18.426 UTC [161] replicator@[unknown] DETAIL:  This server's history forked from timeline 4 at 0/60338B0.
+2026-09-24 13:57:18.426 UTC [161] replicator@[unknown] STATEMENT:  START_REPLICATION SLOT "pg1" 0/7000000 TIMELINE 4
+2026-09-24 13:57:23.438 UTC [162] replicator@[unknown] ERROR:  requested starting point 0/7000000 on timeline 4 is not in this server's history
+2026-09-24 13:57:23.438 UTC [162] replicator@[unknown] DETAIL:  This server's history forked from timeline 4 at 0/60338B0.
+2026-09-24 13:57:23.438 UTC [162] replicator@[unknown] STATEMENT:  START_REPLICATION SLOT "pg1" 0/7000000 TIMELINE 4
+2026-09-24 13:57:28.439 UTC [163] replicator@[unknown] ERROR:  requested starting point 0/7000000 on timeline 4 is not in this server's history
+2026-09-24 13:57:28.439 UTC [163] replicator@[unknown] DETAIL:  This server's history forked from timeline 4 at 0/60338B0.
+2026-09-24 13:57:28.439 UTC [163] replicator@[unknown] STATEMENT:  START_REPLICATION SLOT "pg1" 0/7000000 TIMELINE 4
+2026-09-24 13:57:30.298 UTC [167] postgres@postgres ERROR:  could not open file ".s.PGSQL.5432" for reading: No such device or address
+2026-09-24 13:57:30.298 UTC [167] postgres@postgres STATEMENT:  SELECT path, begin,
+	  pg_read_binary_file(path, begin, len, true) AS chunk
+	FROM unnest ($1::text[], $2::int8[], $3::int4[]) as x(path, begin, len)
+2026-09-24 14:07:34.665 UTC [110] LOG:  checkpoint starting: force wait
+2026-09-24 14:07:34.714 UTC [110] LOG:  checkpoint complete: wrote 0 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.003 s, sync=0.001 s, total=0.050 s; sync files=0, longest=0.000 s, average=0.000 s; distance=16177 kB, estimate=16177 kB; lsn=0/7000080, redo lsn=0/7000028
+2026-09-24 14:07:34.723 UTC [182] replicator@[unknown] WARNING:  skipping special file "./.s.PGSQL.5432"
+2026-09-24 14:07:34.767 UTC [182] replicator@[unknown] WARNING:  skipping special file "./.s.PGSQL.5432"

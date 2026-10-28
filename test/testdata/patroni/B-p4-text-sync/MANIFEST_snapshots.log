@@ -1,0 +1,53 @@
+=== patronictl list @ 2026-09-24T14:10:27Z (after bootstrap) ===
++ Cluster: main (7689103736969015323) -----+----+-------------+-----+------------+-----+
+| Member | Host | Role         | State     | TL | Receive LSN | Lag | Replay LSN | Lag |
++--------+------+--------------+-----------+----+-------------+-----+------------+-----+
+| pg1    | pg1  | Leader       | running   |  1 |             |     |            |     |
+| pg2    | pg2  | Sync Standby | streaming |  1 |   0/404A168 |   0 |  0/404A168 |   0 |
+| pg3    | pg3  | Replica      | streaming |  1 |   0/404A168 |   0 |  0/404A168 |   0 |
++--------+------+--------------+-----------+----+-------------+-----+------------+-----+
+
+=== patronictl list @ 2026-09-24T14:10:58Z (after settle, sync standby should be picked) ===
++ Cluster: main (7689103736969015323) -----+----+-------------+-----+------------+-----+
+| Member | Host | Role         | State     | TL | Receive LSN | Lag | Replay LSN | Lag |
++--------+------+--------------+-----------+----+-------------+-----+------------+-----+
+| pg1    | pg1  | Leader       | running   |  1 |             |     |            |     |
+| pg2    | pg2  | Sync Standby | streaming |  1 |   0/4074C28 |   0 |  0/4074C28 |   0 |
+| pg3    | pg3  | Replica      | streaming |  1 |   0/4074C28 |   0 |  0/4074C28 |   0 |
++--------+------+--------------+-----------+----+-------------+-----+------------+-----+
+
+=== patronictl list @ 2026-09-24T14:12:17Z (after switchover) ===
++ Cluster: main (7689103736969015323) -----+----+-------------+-----+------------+-----+
+| Member | Host | Role         | State     | TL | Receive LSN | Lag | Replay LSN | Lag |
++--------+------+--------------+-----------+----+-------------+-----+------------+-----+
+| pg1    | pg1  | Replica      | streaming |  2 |   0/4074FE0 |   0 |  0/4074FE0 |   0 |
+| pg2    | pg2  | Leader       | running   |  2 |             |     |            |     |
+| pg3    | pg3  | Sync Standby | streaming |  2 |   0/4074FE0 |   0 |  0/4074FE0 |   0 |
++--------+------+--------------+-----------+----+-------------+-----+------------+-----+
+
+=== patronictl list @ 2026-09-24T14:13:15Z (after failover kill) ===
++ Cluster: main (7689103736969015323) -----+----+-------------+-----+------------+-----+
+| Member | Host | Role         | State     | TL | Receive LSN | Lag | Replay LSN | Lag |
++--------+------+--------------+-----------+----+-------------+-----+------------+-----+
+| pg1    | pg1  | Sync Standby | streaming |  3 |   0/407CC88 |   0 |  0/407CC88 |   0 |
+| pg3    | pg3  | Leader       | running   |  3 |             |     |            |     |
++--------+------+--------------+-----------+----+-------------+-----+------------+-----+
+
+=== patronictl list @ 2026-09-24T14:14:31Z (after old leader rejoined) ===
++ Cluster: main (7689103736969015323) -----+----+-------------+-----+------------+-----+
+| Member | Host | Role         | State     | TL | Receive LSN | Lag | Replay LSN | Lag |
++--------+------+--------------+-----------+----+-------------+-----+------------+-----+
+| pg1    | pg1  | Sync Standby | streaming |  3 |   0/407CC88 |   0 |  0/407CC88 |   0 |
+| pg2    | pg2  | Replica      | streaming |  3 |   0/407CC88 |   0 |  0/407CC88 |   0 |
+| pg3    | pg3  | Leader       | running   |  3 |             |     |            |     |
++--------+------+--------------+-----------+----+-------------+-----+------------+-----+
+
+=== patronictl list @ 2026-09-24T14:16:31Z (final steady state) ===
++ Cluster: main (7689103736969015323) -----+----+-------------+-----+------------+-----+
+| Member | Host | Role         | State     | TL | Receive LSN | Lag | Replay LSN | Lag |
++--------+------+--------------+-----------+----+-------------+-----+------------+-----+
+| pg1    | pg1  | Sync Standby | streaming |  3 |   0/407CC88 |   0 |  0/407CC88 |   0 |
+| pg2    | pg2  | Replica      | streaming |  3 |   0/407CC88 |   0 |  0/407CC88 |   0 |
+| pg3    | pg3  | Leader       | running   |  3 |             |     |            |     |
++--------+------+--------------+-----------+----+-------------+-----+------------+-----+
+
