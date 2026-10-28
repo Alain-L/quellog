@@ -1,0 +1,22 @@
+quellog dev – 1912 entries processed in X s (323.73 KB)
+[1m
+PATRONI
+[0m
+  Start date                : 2026-09-24 14:09:29
+  End date                  : 2026-09-24 14:27:25
+  Members                   : pg1, pg2, pg3
+  Leader at end             : pg2 since 14:22:43
+  Leader changes            : 3, 1 switchover, 2 failovers, 1 retaken
+  Time without leader       : 1m56.013s
+  DCS incidents             : 1, longest 49.344s
+  Errors                    : 733
+  Warnings                  : 594
+
+  Top errors:
+    Failed to get list of machines from http://etcd1:?/v3: MaxRetryError   169  14:19:36 → 14:20:41
+    Failed to get list of machines from http://etcd2:?/v3: MaxRetryError   169  14:19:36 → 14:20:41
+    Failed to get list of machines from http://etcd3:?/v3: MaxRetryError   169  14:19:36 → 14:20:41
+    KVCache.run EtcdConnectionFailed                                       164  14:19:43 → 14:20:41
+    Error communicating with DCS                                            15  14:19:52 → 14:20:32
+
+  [3;38;5;243mDetails: --patroni-detail[0m

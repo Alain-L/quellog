@@ -2100,6 +2100,13 @@ func buildJSONData(m analysis.AggregatedMetrics, sections []string, full bool) m
 		return false
 	}
 
+	if m.Patroni != nil && has("patroni") {
+		data["patroni"] = buildPatroniJSON(m.Patroni)
+		if m.Global.Count == 0 {
+			return data
+		}
+	}
+
 	if has("summary") {
 		data["summary"] = convertSummary(m)
 	}

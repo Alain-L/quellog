@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/Alain-L/quellog/analysis"
 )
@@ -41,8 +42,11 @@ const pgbrDateLayout = "2006-01-02 15:04:05"
 
 // frequency is the occurrences per minute between the first and the last
 // dated one, 0 below two.
-func (p pgbrIssueDetail) frequency() float64 {
-	ts := p.Issue.Times
+func (p pgbrIssueDetail) frequency() float64 { return occurrenceFrequency(p.Issue.Times) }
+
+// occurrenceFrequency is the occurrences per minute between the first and the
+// last of ts, sorted, 0 below two.
+func occurrenceFrequency(ts []time.Time) float64 {
 	if len(ts) < 2 {
 		return 0
 	}

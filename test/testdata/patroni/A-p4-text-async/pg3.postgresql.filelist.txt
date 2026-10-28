@@ -1,0 +1,1 @@
+/var/log/postgresql/postgresql-2026-09-24_134355.log

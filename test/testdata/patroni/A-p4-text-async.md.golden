@@ -1,0 +1,182 @@
+## SUMMARY
+
+This _quellog_ report summarizes **483** log entries collected between 24 Sep 2026, 13:43 (UTC) — 24 Sep 2026, 14:07 (UTC), spanning 23m 48s of activity.
+
+## SERVER
+
+- **Starts**: 13
+- **Reloads (SIGHUP)**: 3
+- **Shutdowns**: 4 fast, 0 immediate, 0 smart
+
+### Config parameter changes
+
+| Parameter        | Old | New                                                                                                                                                                                     | When                |
+|------------------|-----|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------|
+| primary_conninfo | -   | dbname=postgres user=replicator passfile=/home/postgres/.pgpass host=pg2 port=5432 sslmode=prefer application_name=pg3 gssencmode=prefer channel_binding=prefer sslnegotiation=postgres | 2026-09-24 13:44:36 |
+| primary_conninfo | -   | dbname=postgres user=replicator passfile=/home/postgres/.pgpass host=pg1 port=5432 sslmode=prefer application_name=pg3 gssencmode=prefer channel_binding=prefer sslnegotiation=postgres | 2026-09-24 13:47:47 |
+| primary_conninfo | -   | dbname=postgres user=replicator passfile=/home/postgres/.pgpass host=pg2 port=5432 sslmode=prefer application_name=pg3 gssencmode=prefer channel_binding=prefer sslnegotiation=postgres | 2026-09-24 13:56:55 |
+
+### Timeline
+
+| Time                | Event       | Detail                                         |
+|---------------------|-------------|------------------------------------------------|
+| 2026-09-24 13:43:52 | start       | database system is ready to accept connections |
+| 2026-09-24 13:44:33 | shutdown    | fast shutdown request                          |
+| 2026-09-24 13:44:36 | start       | database system is ready to accept connections |
+| 2026-09-24 13:47:47 | start       | database system is ready to accept connections |
+| 2026-09-24 13:54:08 | shutdown    | fast shutdown request                          |
+| 2026-09-24 13:54:09 | start       | database system is ready to accept connections |
+| 2026-09-24 13:54:59 | start       | database system is ready to accept connections |
+| 2026-09-24 13:57:18 | start       | database system is ready to accept connections |
+| 2026-09-24 13:57:29 | shutdown    | fast shutdown request                          |
+| 2026-09-24 14:07:36 | interrupted | system was interrupted                         |
+| 2026-09-24 14:07:36 | start       | database system is ready to accept connections |
+| 2026-09-24 13:43:55 | interrupted | system was interrupted                         |
+| 2026-09-24 13:43:55 | start       | database system is ready to accept connections |
+| 2026-09-24 13:44:34 | start       | database system is ready to accept connections |
+| 2026-09-24 13:48:09 | start       | database system is ready to accept connections |
+| 2026-09-24 13:48:20 | shutdown    | fast shutdown request                          |
+| 2026-09-24 13:49:45 | interrupted | system was interrupted                         |
+| 2026-09-24 13:49:45 | start       | database system is ready to accept connections |
+| 2026-09-24 13:56:51 | start       | database system is ready to accept connections |
+| 2026-09-24 13:43:55 | interrupted | system was interrupted                         |
+| 2026-09-24 13:43:55 | start       | database system is ready to accept connections |
+| 2026-09-24 13:44:36 | sighup      | reloading configuration files                  |
+| 2026-09-24 13:47:47 | sighup      | reloading configuration files                  |
+| 2026-09-24 13:56:55 | sighup      | reloading configuration files                  |
+
+### Replication
+
+- **Stream reconnects**: 11 _(peak 10× in 13:00-14:00)_
+- **WAL receive failures**: 4 _(replica lost primary)_
+- **Walsender timeouts**: 1 _(primary side — replica too slow)_
+- **Replication terminations**: 10 _(primary closed walsender, last 2026-09-24 13:56:55)_
+
+## EVENTS
+
+- **FATAL**: 87 (18.0%)
+  - **FA - Unknown Error Class**
+  - *fa-flme* `lock file ? is empty` (36) [41.4%]
+  - *fa-lK29* `could not connect to the primary server: could not translate host name ? to a...` (18) [20.7%]
+  - *fa-6VUu* `could not connect to the primary server: connection to server at ? (?.?.?.?),...` (8) [9.2%]
+  - *fa-wkgL* `could not receive data from WAL stream: server closed the connection unexpect...` (4) [4.6%]
+  - *fa-qZWS* `could not send end-of-streaming message to primary: server closed the connect...` (4) [4.6%]
+  - *fa-84C8* `could not start WAL streaming: ERROR: replication slot ? is active for PID ?` (3) [3.4%]
+  - *fa-TQmw* `could not connect to the primary server: could not translate host name ? to a...` (2) [2.3%]
+  - *fa-GpqW* `terminating walreceiver due to timeout` (1) [1.1%]
+  - **Unclassified**
+  - *fa-4NKc* `the database system is starting up` (6) [6.9%]
+  - *fa-LkLy* `terminating connection due to administrator command` (5) [5.7%]
+
+- **ERROR**: 13 (2.7%)
+  - *er-8h93* `requested starting point ?/? on timeline ? is not in this server's history` (8) [61.5%]
+  - *er-Jnx7* `replication slot ? is active for PID ?` (3) [23.1%]
+  - *er-84OC* `could not open file ? for reading: No such device or address` (2) [15.4%]
+
+- **WARNING**: 9 (1.9%)
+  - *wa-R0JC* `skipping special file ?` (8) [88.9%]
+  - *wa-wGqa* `specified neither ? nor ?` (1) [11.1%]
+
+- **LOG**: 374 (77.4%)
+
+## CHECKPOINTS
+
+### Checkpoint distribution
+
+```
+00:00 - 04:00 |  -
+04:00 - 08:00 |  -
+08:00 - 12:00 |  -
+12:00 - 16:00 | ■■■■■■■■■■■ 11 
+16:00 - 20:00 |  -
+20:00 - 00:00 |  -
+```
+
+- **Checkpoint count**: 11
+- **Avg checkpoint write time**: 0s
+- **Max checkpoint write time**: 4s
+- **WAL per checkpoint (avg)**: 11.0 MB
+- **WAL per checkpoint (max)**: 32.0 MB
+
+### Checkpoint types
+
+|  |  |  |  |
+|------|------:|--:|-----:|
+| force | 4 | 36.4% | 10.08/h |
+| force wait | 4 | 36.4% | 10.08/h |
+| shutdown immediate | 2 | 18.2% | 5.04/h |
+| immediate force wait | 1 | 9.1% | 2.52/h |
+
+### WAL per checkpoint (avg)
+
+■ = 320 kB, □ = estimate margin
+
+```
+00:00 - 04:00  -
+04:00 - 08:00  -
+08:00 - 12:00  -
+12:00 - 16:00 ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■□□□□□□□□□□□□□□□  11 MB
+16:00 - 20:00  -
+20:00 - 00:00  -
+```
+
+## CLIENTS
+
+- **Unique DBs**: 0
+- **Unique Users**: 1
+- **Unique Apps**: 1
+- **Unique Hosts**: 2
+
+### USERS
+
+| User       | Count |    % |
+|------------|------:|-----:|
+| replicator |     3 | 0.6% |
+
+### APPS
+
+| App                                                                  | Count |    % |
+|----------------------------------------------------------------------|------:|-----:|
+| pg3 gssencmode=prefer channel_binding=prefer sslnegotiation=postgres |     3 | 0.6% |
+
+### HOSTS
+
+| Host | Count |    % |
+|------|------:|-----:|
+| pg2  |     2 | 0.4% |
+| pg1  |     1 | 0.2% |
+
+### USER × HOST
+
+| User       | Host | Count |    % |
+|------------|------|------:|-----:|
+| replicator | pg2  |     2 | 0.4% |
+| replicator | pg1  |     1 | 0.2% |
+
+## PATRONI
+
+| Metric              |                                   Value |
+|---------------------|----------------------------------------:|
+| Start date          |                     2026-09-24 13:43:45 |
+| End date            |                     2026-09-24 14:10:12 |
+| Members             |                           pg1, pg2, pg3 |
+| Leader at end       |                      pg2 since 13:56:51 |
+| Leader changes      | 3, 1 switchover, 2 failovers, 1 retaken |
+| Time without leader |                               1m56.181s |
+| DCS incidents       |                      1, longest 49.636s |
+| Errors              |                                     723 |
+| Warnings            |                                     612 |
+
+### Top errors
+
+| Error                                                                | Count | When                |
+|----------------------------------------------------------------------|------:|---------------------|
+| Failed to get list of machines from http://etcd2:?/v3: MaxRetryError |   163 | 13:53:51 → 13:54:57 |
+| Failed to get list of machines from http://etcd1:?/v3: MaxRetryError |   162 | 13:53:52 → 13:54:57 |
+| Failed to get list of machines from http://etcd3:?/v3: MaxRetryError |   162 | 13:53:52 → 13:54:57 |
+| KVCache.run EtcdConnectionFailed                                     |   155 | 13:54:00 → 13:54:57 |
+| Error communicating with DCS                                         |    15 | 13:54:08 → 13:54:49 |
+
+_Details: --patroni-detail_
+
+

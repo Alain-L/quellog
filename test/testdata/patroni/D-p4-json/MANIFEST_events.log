@@ -1,0 +1,17 @@
+2026-09-24T14:09:25Z === RUN D START (Patroni 4.1.5, pg17, JSON logs, async) ===
+2026-09-24T14:09:25Z STEP: 1. bootstrap
+2026-09-24T14:10:13Z bootstrap complete, leader=pg1
+2026-09-24T14:10:13Z STEP: 2. planned switchover
+2026-09-24T14:10:13Z cmd: patronictl switchover --leader pg1 --candidate pg2 --force
+2026-09-24T14:11:32Z post-switchover leader=pg2
+2026-09-24T14:11:32Z STEP: 3. failover by leader kill
+2026-09-24T14:11:32Z cmd: docker kill -s KILL ptlab-d-pg2
+2026-09-24T14:12:02Z new leader after kill: pg1
+2026-09-24T14:12:33Z cmd: docker start ptlab-d-pg2
+2026-09-24T14:13:49Z STEP: 4. leader loses DCS lock (isolate from etcd > ttl)
+2026-09-24T14:13:49Z cmd: docker network disconnect ptlab-d-dcs ptlab-d-pg1
+2026-09-24T14:15:42Z new leader after DCS isolation of pg1: NONE
+2026-09-24T14:15:42Z cmd: docker network connect --alias pg1 ptlab-d-dcs ptlab-d-pg1
+2026-09-24T14:16:43Z STEP: 5. final steady state
+2026-09-24T14:18:44Z cmd: patronictl history
+2026-09-24T14:18:44Z === RUN D END ===

@@ -157,6 +157,8 @@ type EventDetailJSON struct {
 	Commands  []string `json:"commands,omitempty"`
 	Detail    []string `json:"detail,omitempty"`
 	Dates     []string `json:"dates,omitempty"`
+	// A Patroni warning or error: the members whose log wrote it.
+	Members []string `json:"members,omitempty"`
 }
 
 // findEventByID returns the matching EventStat from m.TopEvents or nil
@@ -203,6 +205,10 @@ func PrintEventDetails(m analysis.AggregatedMetrics, pbr []analysis.PgBackRestMe
 		if e == nil {
 			if p := findPgBackRestIssueByID(pbr, id); p != nil {
 				printPgBackRestIssueDetail(*p)
+				continue
+			}
+			if msg := findPatroniMessage(m.Patroni, id); msg != nil {
+				printPatroniMessageDetail(msg)
 				continue
 			}
 			fmt.Printf("\nEvent ID '%s' not found.\n", id)
@@ -386,6 +392,10 @@ func ExportEventDetailJSON(w io.Writer, m analysis.AggregatedMetrics, pbr []anal
 				patterns = append(patterns, pgbrIssueDetailJSON(*p))
 				continue
 			}
+			if msg := findPatroniMessage(m.Patroni, id); msg != nil {
+				patterns = append(patterns, patroniMessageDetailJSON(msg))
+				continue
+			}
 			patterns = append(patterns, notFound{ID: id, NotFound: true})
 			continue
 		}
@@ -438,6 +448,10 @@ func ExportEventDetailMarkdown(w io.Writer, m analysis.AggregatedMetrics, pbr []
 		if e == nil {
 			if p := findPgBackRestIssueByID(pbr, id); p != nil {
 				writePgBackRestIssueDetailMarkdown(bw, *p)
+				continue
+			}
+			if msg := findPatroniMessage(m.Patroni, id); msg != nil {
+				writePatroniMessageDetailMarkdown(bw, msg)
 				continue
 			}
 			fmt.Fprintf(bw, "## `%s` (not found)\n\n", id)

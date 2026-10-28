@@ -1,0 +1,106 @@
+{"asctime": "2026-09-24 14:09:26,826", "levelname": "INFO", "message": "Using default value thread_stack_size = 524288"}
+{"asctime": "2026-09-24 14:09:26,835", "levelname": "INFO", "message": "Patroni global thread_pool_size = 5"}
+{"asctime": "2026-09-24 14:09:26,867", "levelname": "ERROR", "message": "Failed to get list of machines from http://etcd2:2379/v3beta: ValueError(\"invalid literal for int() with base 10: 'not_decided'\")"}
+{"asctime": "2026-09-24 14:09:26,868", "levelname": "ERROR", "message": "Failed to get list of machines from http://etcd3:2379/v3beta: ValueError(\"invalid literal for int() with base 10: 'not_decided'\")"}
+{"asctime": "2026-09-24 14:09:26,869", "levelname": "ERROR", "message": "Failed to get list of machines from http://etcd1:2379/v3beta: ValueError(\"invalid literal for int() with base 10: 'not_decided'\")"}
+{"asctime": "2026-09-24 14:09:26,869", "levelname": "INFO", "message": "waiting on etcd"}
+{"asctime": "2026-09-24 14:09:31,914", "levelname": "INFO", "message": "Selected new etcd server http://etcd1:2379"}
+{"asctime": "2026-09-24 14:09:31,918", "levelname": "INFO", "message": "No PostgreSQL configuration items changed, nothing to reload."}
+{"asctime": "2026-09-24 14:09:31,921", "levelname": "INFO", "message": "REST API thread_pool_size = 5"}
+{"asctime": "2026-09-24 14:09:31,967", "levelname": "INFO", "message": "Lock owner: None; I am pg2"}
+{"asctime": "2026-09-24 14:09:32,011", "levelname": "INFO", "message": "waiting for leader to bootstrap"}
+{"asctime": "2026-09-24 14:09:34,907", "levelname": "INFO", "message": "Lock owner: pg1; I am pg2"}
+{"asctime": "2026-09-24 14:09:34,954", "levelname": "INFO", "message": "trying to bootstrap from leader 'pg1'"}
+{"asctime": "2026-09-24 14:09:38,014", "levelname": "INFO", "message": "replica has been created using basebackup"}
+{"asctime": "2026-09-24 14:09:38,014", "levelname": "INFO", "message": "bootstrapped from leader 'pg1'"}
+{"asctime": "2026-09-24 14:09:38,314", "levelname": "INFO", "message": "postmaster pid=26"}
+{"asctime": "2026-09-24 14:09:39,330", "levelname": "INFO", "message": "Lock owner: pg1; I am pg2"}
+{"asctime": "2026-09-24 14:09:39,330", "levelname": "INFO", "message": "establishing a new patroni heartbeat connection to postgres"}
+{"asctime": "2026-09-24 14:09:39,448", "levelname": "INFO", "message": "no action. I am (pg2), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:09:44,910", "levelname": "INFO", "message": "no action. I am (pg2), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:09:54,959", "levelname": "INFO", "message": "no action. I am (pg2), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:10:05,418", "levelname": "INFO", "message": "no action. I am (pg2), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:10:14,398", "levelname": "INFO", "message": "establishing a new patroni restapi connection to postgres"}
+{"asctime": "2026-09-24 14:10:14,649", "levelname": "INFO", "message": "no action. I am (pg2), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:10:15,827", "levelname": "INFO", "message": "no action. I am (pg2), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:10:15,917", "levelname": "INFO", "message": "Cleaning up failover key after acquiring leader lock..."}
+{"asctime": "2026-09-24 14:10:16,007", "levelname": "INFO", "message": "promoted self to leader by acquiring session lock"}
+{"asctime": "2026-09-24 14:10:16,008", "levelname": "INFO", "message": "Lock owner: pg2; I am pg2"}
+{"asctime": "2026-09-24 14:10:16,095", "levelname": "INFO", "message": "updated leader lock during promote"}
+{"asctime": "2026-09-24 14:10:17,192", "levelname": "INFO", "message": "no action. I am (pg2), the leader with the lock"}
+{"asctime": "2026-09-24 14:10:17,334", "levelname": "INFO", "message": "no action. I am (pg2), the leader with the lock"}
+{"asctime": "2026-09-24 14:10:27,297", "levelname": "INFO", "message": "no action. I am (pg2), the leader with the lock"}
+{"asctime": "2026-09-24 14:10:37,339", "levelname": "INFO", "message": "no action. I am (pg2), the leader with the lock"}
+{"asctime": "2026-09-24 14:10:47,242", "levelname": "INFO", "message": "no action. I am (pg2), the leader with the lock"}
+{"asctime": "2026-09-24 14:10:57,239", "levelname": "INFO", "message": "no action. I am (pg2), the leader with the lock"}
+{"asctime": "2026-09-24 14:11:07,244", "levelname": "INFO", "message": "no action. I am (pg2), the leader with the lock"}
+{"asctime": "2026-09-24 14:11:17,243", "levelname": "INFO", "message": "no action. I am (pg2), the leader with the lock"}
+{"asctime": "2026-09-24 14:11:27,240", "levelname": "INFO", "message": "no action. I am (pg2), the leader with the lock"}
+{"asctime": "2026-09-24 14:12:33,742", "levelname": "INFO", "message": "Using default value thread_stack_size = 524288"}
+{"asctime": "2026-09-24 14:12:33,749", "levelname": "INFO", "message": "Patroni global thread_pool_size = 5"}
+{"asctime": "2026-09-24 14:12:33,822", "levelname": "INFO", "message": "Selected new etcd server http://etcd1:2379"}
+{"asctime": "2026-09-24 14:12:33,826", "levelname": "INFO", "message": "No PostgreSQL configuration items changed, nothing to reload."}
+{"asctime": "2026-09-24 14:12:33,827", "levelname": "INFO", "message": "REST API thread_pool_size = 5"}
+{"asctime": "2026-09-24 14:12:33,875", "levelname": "WARNING", "message": "Postgresql is not running."}
+{"asctime": "2026-09-24 14:12:33,875", "levelname": "INFO", "message": "Lock owner: pg1; I am pg2"}
+{"asctime": "2026-09-24 14:12:33,876", "levelname": "INFO", "message": "pg_controldata:\n  pg_control version number: 1700\n  Catalog version number: 202406281\n  Database system identifier: 7689103735349272603\n  Database cluster state: in production\n  pg_control last modified: Thu Sep 24 14:10:17 2026\n  Latest checkpoint location: 0/402AE00\n  Latest checkpoint's REDO location: 0/402ADA8\n  Latest checkpoint's REDO WAL file: 000000020000000000000004\n  Latest checkpoint's TimeLineID: 2\n  Latest checkpoint's PrevTimeLineID: 2\n  Latest checkpoint's full_page_writes: on\n  Latest checkpoint's NextXID: 0:742\n  Latest checkpoint's NextOID: 16395\n  Latest checkpoint's NextMultiXactId: 1\n  Latest checkpoint's NextMultiOffset: 0\n  Latest checkpoint's oldestXID: 731\n  Latest checkpoint's oldestXID's DB: 1\n  Latest checkpoint's oldestActiveXID: 742\n  Latest checkpoint's oldestMultiXid: 1\n  Latest checkpoint's oldestMulti's DB: 1\n  Latest checkpoint's oldestCommitTsXid: 0\n  Latest checkpoint's newestCommitTsXid: 0\n  Time of latest checkpoint: Thu Sep 24 14:10:17 2026\n  Fake LSN counter for unlogged rels: 0/3E8\n  Minimum recovery ending location: 0/0\n  Min recovery ending loc's timeline: 0\n  Backup start location: 0/0\n  Backup end location: 0/0\n  End-of-backup record required: no\n  wal_level setting: replica\n  wal_log_hints setting: on\n  max_connections setting: 100\n  max_worker_processes setting: 8\n  max_wal_senders setting: 10\n  max_prepared_xacts setting: 0\n  max_locks_per_xact setting: 64\n  track_commit_timestamp setting: off\n  Maximum data alignment: 8\n  Database block size: 8192\n  Blocks per segment of large relation: 131072\n  WAL block size: 8192\n  Bytes per WAL segment: 16777216\n  Maximum length of identifiers: 64\n  Maximum columns in an index: 32\n  Maximum size of a TOAST chunk: 1996\n  Size of a large-object chunk: 2048\n  Date/time type storage: 64-bit integers\n  Float8 argument passing: by value\n  Data page checksum version: 1\n  Mock authentication nonce: dfd3d7946408be1c42214d4d331b08e236acff6c9f4ba5b6f80d76f5baacd47f\n"}
+{"asctime": "2026-09-24 14:12:33,923", "levelname": "INFO", "message": "doing crash recovery in a single user mode"}
+{"asctime": "2026-09-24 14:12:34,088", "levelname": "WARNING", "message": "Postgresql is not running."}
+{"asctime": "2026-09-24 14:12:34,088", "levelname": "INFO", "message": "Lock owner: pg1; I am pg2"}
+{"asctime": "2026-09-24 14:12:34,089", "levelname": "INFO", "message": "pg_controldata:\n  pg_control version number: 1700\n  Catalog version number: 202406281\n  Database system identifier: 7689103735349272603\n  Database cluster state: shut down\n  pg_control last modified: Thu Sep 24 14:12:34 2026\n  Latest checkpoint location: 0/5000028\n  Latest checkpoint's REDO location: 0/5000028\n  Latest checkpoint's REDO WAL file: 000000020000000000000005\n  Latest checkpoint's TimeLineID: 2\n  Latest checkpoint's PrevTimeLineID: 2\n  Latest checkpoint's full_page_writes: on\n  Latest checkpoint's NextXID: 0:743\n  Latest checkpoint's NextOID: 16395\n  Latest checkpoint's NextMultiXactId: 1\n  Latest checkpoint's NextMultiOffset: 0\n  Latest checkpoint's oldestXID: 731\n  Latest checkpoint's oldestXID's DB: 1\n  Latest checkpoint's oldestActiveXID: 0\n  Latest checkpoint's oldestMultiXid: 1\n  Latest checkpoint's oldestMulti's DB: 1\n  Latest checkpoint's oldestCommitTsXid: 0\n  Latest checkpoint's newestCommitTsXid: 0\n  Time of latest checkpoint: Thu Sep 24 14:12:34 2026\n  Fake LSN counter for unlogged rels: 0/3E8\n  Minimum recovery ending location: 0/0\n  Min recovery ending loc's timeline: 0\n  Backup start location: 0/0\n  Backup end location: 0/0\n  End-of-backup record required: no\n  wal_level setting: replica\n  wal_log_hints setting: on\n  max_connections setting: 100\n  max_worker_processes setting: 8\n  max_wal_senders setting: 10\n  max_prepared_xacts setting: 0\n  max_locks_per_xact setting: 64\n  track_commit_timestamp setting: off\n  Maximum data alignment: 8\n  Database block size: 8192\n  Blocks per segment of large relation: 131072\n  WAL block size: 8192\n  Bytes per WAL segment: 16777216\n  Maximum length of identifiers: 64\n  Maximum columns in an index: 32\n  Maximum size of a TOAST chunk: 1996\n  Size of a large-object chunk: 2048\n  Date/time type storage: 64-bit integers\n  Float8 argument passing: by value\n  Data page checksum version: 1\n  Mock authentication nonce: dfd3d7946408be1c42214d4d331b08e236acff6c9f4ba5b6f80d76f5baacd47f\n"}
+{"asctime": "2026-09-24 14:12:34,089", "levelname": "INFO", "message": "Lock owner: pg1; I am pg2"}
+{"asctime": "2026-09-24 14:12:34,093", "levelname": "INFO", "message": "Local timeline=2 lsn=0/5000028"}
+{"asctime": "2026-09-24 14:12:34,105", "levelname": "INFO", "message": "primary_timeline=3"}
+{"asctime": "2026-09-24 14:12:34,105", "levelname": "INFO", "message": "primary: history=1\t0/402AC68\tno recovery target specified\n2\t0/40328E8\tno recovery target specified"}
+{"asctime": "2026-09-24 14:12:34,155", "levelname": "INFO", "message": "running pg_rewind from pg1"}
+{"asctime": "2026-09-24 14:12:34,178", "levelname": "INFO", "message": "running pg_rewind from dbname=postgres user=postgres host=pg1 port=5432 target_session_attrs=read-write"}
+{"asctime": "2026-09-24 14:12:34,922", "levelname": "INFO", "message": "pg_rewind exit code=0"}
+{"asctime": "2026-09-24 14:12:34,922", "levelname": "INFO", "message": " stdout="}
+{"asctime": "2026-09-24 14:12:34,922", "levelname": "INFO", "message": " stderr=pg_rewind: servers diverged at WAL location 0/40328E8 on timeline 2\npg_rewind: rewinding from last common checkpoint at 0/402AE00 on timeline 2\npg_rewind: Done!\n"}
+{"asctime": "2026-09-24 14:12:34,922", "levelname": "WARNING", "message": "Postgresql is not running."}
+{"asctime": "2026-09-24 14:12:34,922", "levelname": "INFO", "message": "Lock owner: pg1; I am pg2"}
+{"asctime": "2026-09-24 14:12:34,923", "levelname": "INFO", "message": "pg_controldata:\n  pg_control version number: 1700\n  Catalog version number: 202406281\n  Database system identifier: 7689103735349272603\n  Database cluster state: in archive recovery\n  pg_control last modified: Thu Sep 24 14:12:34 2026\n  Latest checkpoint location: 0/40329B0\n  Latest checkpoint's REDO location: 0/4032920\n  Latest checkpoint's REDO WAL file: 000000030000000000000004\n  Latest checkpoint's TimeLineID: 3\n  Latest checkpoint's PrevTimeLineID: 3\n  Latest checkpoint's full_page_writes: on\n  Latest checkpoint's NextXID: 0:743\n  Latest checkpoint's NextOID: 16395\n  Latest checkpoint's NextMultiXactId: 1\n  Latest checkpoint's NextMultiOffset: 0\n  Latest checkpoint's oldestXID: 731\n  Latest checkpoint's oldestXID's DB: 1\n  Latest checkpoint's oldestActiveXID: 743\n  Latest checkpoint's oldestMultiXid: 1\n  Latest checkpoint's oldestMulti's DB: 1\n  Latest checkpoint's oldestCommitTsXid: 0\n  Latest checkpoint's newestCommitTsXid: 0\n  Time of latest checkpoint: Thu Sep 24 14:12:01 2026\n  Fake LSN counter for unlogged rels: 0/3E8\n  Minimum recovery ending location: 0/4032A60\n  Min recovery ending loc's timeline: 3\n  Backup start location: 0/0\n  Backup end location: 0/0\n  End-of-backup record required: no\n  wal_level setting: replica\n  wal_log_hints setting: on\n  max_connections setting: 100\n  max_worker_processes setting: 8\n  max_wal_senders setting: 10\n  max_prepared_xacts setting: 0\n  max_locks_per_xact setting: 64\n  track_commit_timestamp setting: off\n  Maximum data alignment: 8\n  Database block size: 8192\n  Blocks per segment of large relation: 131072\n  WAL block size: 8192\n  Bytes per WAL segment: 16777216\n  Maximum length of identifiers: 64\n  Maximum columns in an index: 32\n  Maximum size of a TOAST chunk: 1996\n  Size of a large-object chunk: 2048\n  Date/time type storage: 64-bit integers\n  Float8 argument passing: by value\n  Data page checksum version: 1\n  Mock authentication nonce: dfd3d7946408be1c42214d4d331b08e236acff6c9f4ba5b6f80d76f5baacd47f\n"}
+{"asctime": "2026-09-24 14:12:34,923", "levelname": "INFO", "message": "Lock owner: pg1; I am pg2"}
+{"asctime": "2026-09-24 14:12:34,970", "levelname": "INFO", "message": "starting as a secondary"}
+{"asctime": "2026-09-24 14:12:35,266", "levelname": "INFO", "message": "postmaster pid=43"}
+{"asctime": "2026-09-24 14:12:36,287", "levelname": "INFO", "message": "Lock owner: pg1; I am pg2"}
+{"asctime": "2026-09-24 14:12:36,287", "levelname": "INFO", "message": "establishing a new patroni heartbeat connection to postgres"}
+{"asctime": "2026-09-24 14:12:36,422", "levelname": "INFO", "message": "no action. I am (pg2), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:12:42,854", "levelname": "INFO", "message": "no action. I am (pg2), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:12:53,359", "levelname": "INFO", "message": "no action. I am (pg2), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:13:02,901", "levelname": "INFO", "message": "no action. I am (pg2), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:13:13,354", "levelname": "INFO", "message": "no action. I am (pg2), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:13:23,354", "levelname": "INFO", "message": "no action. I am (pg2), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:13:33,359", "levelname": "INFO", "message": "no action. I am (pg2), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:13:43,354", "levelname": "INFO", "message": "no action. I am (pg2), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:13:53,358", "levelname": "INFO", "message": "no action. I am (pg2), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:14:02,894", "levelname": "INFO", "message": "no action. I am (pg2), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:14:13,351", "levelname": "INFO", "message": "no action. I am (pg2), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:14:22,899", "levelname": "INFO", "message": "no action. I am (pg2), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:14:33,351", "levelname": "INFO", "message": "no action. I am (pg2), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:14:43,355", "levelname": "INFO", "message": "no action. I am (pg2), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:14:52,855", "levelname": "INFO", "message": "no action. I am (pg2), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:15:03,351", "levelname": "INFO", "message": "no action. I am (pg2), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:15:13,350", "levelname": "INFO", "message": "no action. I am (pg2), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:15:23,350", "levelname": "INFO", "message": "no action. I am (pg2), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:15:33,355", "levelname": "INFO", "message": "no action. I am (pg2), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:15:43,351", "levelname": "INFO", "message": "no action. I am (pg2), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:15:53,355", "levelname": "INFO", "message": "no action. I am (pg2), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:16:03,355", "levelname": "INFO", "message": "no action. I am (pg2), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:16:13,354", "levelname": "INFO", "message": "no action. I am (pg2), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:16:23,354", "levelname": "INFO", "message": "no action. I am (pg2), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:16:33,351", "levelname": "INFO", "message": "no action. I am (pg2), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:16:43,349", "levelname": "INFO", "message": "no action. I am (pg2), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:16:53,359", "levelname": "INFO", "message": "no action. I am (pg2), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:17:03,358", "levelname": "INFO", "message": "no action. I am (pg2), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:17:12,895", "levelname": "INFO", "message": "no action. I am (pg2), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:17:23,347", "levelname": "INFO", "message": "no action. I am (pg2), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:17:32,907", "levelname": "INFO", "message": "no action. I am (pg2), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:17:43,403", "levelname": "INFO", "message": "no action. I am (pg2), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:17:53,357", "levelname": "INFO", "message": "no action. I am (pg2), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:18:03,359", "levelname": "INFO", "message": "no action. I am (pg2), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:18:13,363", "levelname": "INFO", "message": "no action. I am (pg2), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:18:23,358", "levelname": "INFO", "message": "no action. I am (pg2), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:18:33,358", "levelname": "INFO", "message": "no action. I am (pg2), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:18:43,358", "levelname": "INFO", "message": "no action. I am (pg2), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:18:53,362", "levelname": "INFO", "message": "no action. I am (pg2), a secondary, and following a leader (pg1)"}

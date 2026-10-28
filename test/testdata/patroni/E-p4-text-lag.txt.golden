@@ -1,0 +1,16 @@
+quellog dev – 177 entries processed in X s (18.40 KB)
+[1m
+PATRONI
+[0m
+  Start date                : 2026-09-24 14:09:29
+  End date                  : 2026-09-24 14:14:53
+  Members                   : pg1, pg2, pg3
+  Leader at end             : pg1 since 14:11:31
+  Leader changes            : 0, 0 switchover, 0 failover, 1 retaken
+  Time without leader       : 59.186s
+  DCS incidents             : 0
+  Refused for lag           : 6
+  Errors                    : 0
+  Warnings                  : 2
+
+  [3;38;5;243mDetails: --patroni-detail[0m

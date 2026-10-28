@@ -1,0 +1,59 @@
+2026-09-24 14:09:38.711 UTC [26] LOG:  starting PostgreSQL 17.9 (Debian 17.9-1.pgdg13+1) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+2026-09-24 14:09:38.712 UTC [26] LOG:  listening on IPv4 address "0.0.0.0", port 5432
+2026-09-24 14:09:38.714 UTC [26] LOG:  listening on Unix socket "/tmp/.s.PGSQL.5432"
+2026-09-24 14:09:38.718 UTC [30] LOG:  database system was interrupted; last known up at 2026-09-24 14:09:36 UTC
+2026-09-24 14:09:38.735 UTC [32] postgres@postgres FATAL:  the database system is starting up
+2026-09-24 14:09:38.739 UTC [34] postgres@postgres FATAL:  the database system is starting up
+2026-09-24 14:09:38.784 UTC [30] LOG:  starting backup recovery with redo LSN 0/2000028, checkpoint LSN 0/2000080, on timeline ID 1
+2026-09-24 14:09:38.784 UTC [30] LOG:  entering standby mode
+2026-09-24 14:09:38.789 UTC [30] LOG:  redo starts at 0/2000028
+2026-09-24 14:09:38.791 UTC [30] LOG:  completed backup recovery with redo LSN 0/2000028 and end LSN 0/20001F0
+2026-09-24 14:09:38.791 UTC [30] LOG:  consistent recovery state reached at 0/20001F0
+2026-09-24 14:09:38.791 UTC [26] LOG:  database system is ready to accept read-only connections
+2026-09-24 14:09:38.799 UTC [35] FATAL:  could not start WAL streaming: ERROR:  replication slot "pg2" does not exist
+2026-09-24 14:09:38.806 UTC [36] FATAL:  could not start WAL streaming: ERROR:  replication slot "pg2" does not exist
+2026-09-24 14:09:38.806 UTC [30] LOG:  waiting for WAL to become available at 0/3000018
+2026-09-24 14:09:43.810 UTC [42] FATAL:  could not start WAL streaming: ERROR:  replication slot "pg2" does not exist
+2026-09-24 14:09:43.810 UTC [30] LOG:  waiting for WAL to become available at 0/3000018
+2026-09-24 14:09:48.819 UTC [43] LOG:  started streaming WAL from primary at 0/3000000 on timeline 1
+2026-09-24 14:11:00.710 UTC [43] LOG:  replication terminated by primary server
+2026-09-24 14:11:00.710 UTC [43] DETAIL:  End of WAL reached on timeline 1 at 0/4074D70.
+2026-09-24 14:11:00.710 UTC [43] FATAL:  could not send end-of-streaming message to primary: server closed the connection unexpectedly
+		This probably means the server terminated abnormally
+		before or while processing the request.
+	no COPY in progress
+2026-09-24 14:11:00.710 UTC [30] LOG:  invalid record length at 0/4074D70: expected at least 24, got 0
+2026-09-24 14:11:00.713 UTC [45] FATAL:  could not connect to the primary server: connection to server at "pg1" (10.89.10.2), port 5432 failed: Connection refused
+		Is the server running on that host and accepting TCP/IP connections?
+	connection to server at "pg1" (10.89.6.5), port 5432 failed: Connection refused
+		Is the server running on that host and accepting TCP/IP connections?
+2026-09-24 14:11:00.713 UTC [30] LOG:  waiting for WAL to become available at 0/4074D88
+2026-09-24 14:11:02.067 UTC [30] LOG:  received promote request
+2026-09-24 14:11:02.068 UTC [30] LOG:  redo done at 0/4074CF8 system usage: CPU: user: 0.00 s, system: 0.00 s, elapsed: 83.27 s
+2026-09-24 14:11:02.068 UTC [30] LOG:  last completed transaction was at log time 2026-09-24 14:10:27.420992+00
+2026-09-24 14:11:02.071 UTC [30] LOG:  selected new timeline ID: 2
+2026-09-24 14:11:02.098 UTC [30] LOG:  archive recovery complete
+2026-09-24 14:11:02.100 UTC [28] LOG:  checkpoint starting: force
+2026-09-24 14:11:02.102 UTC [26] LOG:  database system is ready to accept connections
+2026-09-24 14:11:03.196 UTC [28] LOG:  checkpoint complete: wrote 93 buffers (0.6%); 0 WAL file(s) added, 0 removed, 0 recycled; write=1.060 s, sync=0.026 s, total=1.096 s; sync files=52, longest=0.002 s, average=0.001 s; distance=33235 kB, estimate=33235 kB; lsn=0/4074E38, redo lsn=0/4074DA8
+2026-09-24 14:11:03.196 UTC [28] LOG:  checkpoint starting: immediate force wait
+2026-09-24 14:11:03.202 UTC [28] LOG:  checkpoint complete: wrote 0 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.001 s, sync=0.001 s, total=0.006 s; sync files=0, longest=0.000 s, average=0.000 s; distance=0 kB, estimate=29911 kB; lsn=0/4074F08, redo lsn=0/4074EB0
+2026-09-24 14:11:13.368 UTC [26] LOG:  received SIGHUP, reloading configuration files
+2026-09-24 14:11:13.369 UTC [26] LOG:  parameter "synchronous_standby_names" changed to "pg3"
+2026-09-24 14:11:13.471 UTC [57] replicator@[unknown] LOG:  standby "pg3" is now a synchronous standby with priority 1
+2026-09-24 14:11:13.471 UTC [57] replicator@[unknown] STATEMENT:  START_REPLICATION SLOT "pg3" 0/4000000 TIMELINE 2
+2026-09-24 14:13:17.785 UTC [43] LOG:  starting PostgreSQL 17.9 (Debian 17.9-1.pgdg13+1) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+2026-09-24 14:13:17.785 UTC [43] LOG:  listening on IPv4 address "0.0.0.0", port 5432
+2026-09-24 14:13:17.788 UTC [43] LOG:  listening on Unix socket "/tmp/.s.PGSQL.5432"
+2026-09-24 14:13:17.792 UTC [47] LOG:  database system was interrupted while in recovery at log time 2026-09-24 14:12:44 UTC
+2026-09-24 14:13:17.792 UTC [47] HINT:  If this has occurred more than once some data might be corrupted and you might need to choose an earlier recovery target.
+2026-09-24 14:13:17.811 UTC [49] postgres@postgres FATAL:  the database system is starting up
+2026-09-24 14:13:17.814 UTC [51] postgres@postgres FATAL:  the database system is starting up
+2026-09-24 14:13:17.843 UTC [47] LOG:  starting backup recovery with redo LSN 0/4074EB0, checkpoint LSN 0/4074F08, on timeline ID 2
+2026-09-24 14:13:17.843 UTC [47] LOG:  entering standby mode
+2026-09-24 14:13:17.846 UTC [47] LOG:  redo starts at 0/4074EB0
+2026-09-24 14:13:17.847 UTC [47] LOG:  completed backup recovery with redo LSN 0/4074EB0 and end LSN 0/407CC88
+2026-09-24 14:13:17.847 UTC [47] LOG:  consistent recovery state reached at 0/407CC88
+2026-09-24 14:13:17.847 UTC [47] LOG:  invalid record length at 0/407CC88: expected at least 24, got 0
+2026-09-24 14:13:17.847 UTC [43] LOG:  database system is ready to accept read-only connections
+2026-09-24 14:13:17.854 UTC [52] LOG:  started streaming WAL from primary at 0/4000000 on timeline 3

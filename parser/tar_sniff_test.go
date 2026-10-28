@@ -4,8 +4,11 @@ package parser
 
 import (
 	"archive/tar"
+	"bytes"
+	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -62,6 +65,24 @@ func TestTarContentSniff(t *testing.T) {
 		})
 		if got := count(t, tarPath); got != plain {
 			t.Errorf("mixed archive parsed %d entries, want %d (binary skipped, log kept)", got, plain)
+		}
+	})
+
+	// The PostgreSQL parser reads nothing from Patroni lines: the skip is
+	// about saying so, instead of dropping the member silently.
+	t.Run("Patroni member skipped with a warning, log member kept", func(t *testing.T) {
+		tarPath := writeTar(t, map[string][]byte{
+			"patroni.log":    []byte(patroniSample),
+			"postgresql.log": log,
+		})
+		var logged bytes.Buffer
+		defer slog.SetDefault(slog.Default())
+		slog.SetDefault(slog.New(slog.NewTextHandler(&logged, nil)))
+		if got := count(t, tarPath); got != plain {
+			t.Errorf("archive with a Patroni log parsed %d entries, want %d", got, plain)
+		}
+		if !strings.Contains(logged.String(), "Patroni log inside an archive") {
+			t.Errorf("no warning about the skipped Patroni member; logged: %q", logged.String())
 		}
 	})
 }

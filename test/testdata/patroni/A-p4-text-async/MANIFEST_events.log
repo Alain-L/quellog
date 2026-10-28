@@ -1,0 +1,41 @@
+2026-09-24T13:43:43Z === RUN A START (Patroni 4.1.5, pg17, text logs, async) ===
+2026-09-24T13:43:43Z STEP: 1. bootstrap: create networks, etcd cluster, 3 patroni nodes
+2026-09-24T13:44:32Z bootstrap complete, leader=pg1
+2026-09-24T13:44:32Z STEP: 2. planned switchover pg1 -> other node
+2026-09-24T13:44:32Z cmd: patronictl switchover --leader pg1 --candidate pg2 --force
+2026-09-24T13:45:51Z post-switchover leader=pg2
+2026-09-24T13:45:51Z STEP: 3. pause then resume
+2026-09-24T13:45:51Z cmd: patronictl pause main
+2026-09-24T13:46:12Z cmd: patronictl resume main
+2026-09-24T13:47:13Z STEP: 4. failover by leader death (SIGKILL on leader, after a burst write)
+2026-09-24T13:47:14Z current leader before kill: pg2
+2026-09-24T13:47:14Z cmd: docker kill -s KILL ptlab-a-pg2
+2026-09-24T13:47:47Z new leader after kill: pg1
+2026-09-24T13:48:08Z STEP: 5. old leader (pg2) restarted, expect pg_rewind
+2026-09-24T13:48:08Z cmd: docker start ptlab-a-pg2
+2026-09-24T13:49:39Z STEP: 6. reinit of a replica
+2026-09-24T13:49:39Z cmd: patronictl reinit main pg2 --force
+2026-09-24T13:50:55Z STEP: 7. leader loses DCS lock (isolate leader from etcd network > ttl)
+2026-09-24T13:50:56Z cmd: docker network disconnect ptlab-a-dcs ptlab-a-pg1
+2026-09-24T13:52:49Z new leader after DCS isolation of pg1: NONE
+2026-09-24T13:52:49Z cmd: docker network connect --alias pg1 ptlab-a-dcs ptlab-a-pg1
+2026-09-24T13:53:50Z STEP: 8. DCS totally unreachable (stop all etcd ~60s)
+2026-09-24T13:53:50Z cmd: docker stop ptlab-a-etcd1 ptlab-a-etcd2 ptlab-a-etcd3
+2026-09-24T13:54:57Z cmd: docker start ptlab-a-etcd1 ptlab-a-etcd2 ptlab-a-etcd3
+2026-09-24T13:56:28Z STEP: 9. lag blocking failover
+2026-09-24T13:56:29Z leader=pg1 replicas=[pg2
+pg3]
+2026-09-24T13:56:29Z cmd: SELECT pg_wal_replay_pause(); on pg2
+2026-09-24T13:56:30Z cmd: SELECT pg_wal_replay_pause(); on pg3
+2026-09-24T13:56:30Z cmd: bulk insert ~3MB WAL on pg1
+2026-09-24T13:56:30Z cmd: docker kill -s KILL ptlab-a-pg1
+2026-09-24T13:57:16Z cmd: SELECT pg_wal_replay_resume(); on pg2
+2026-09-24T13:57:16Z cmd: SELECT pg_wal_replay_resume(); on pg3
+2026-09-24T13:57:16Z leader after lag resolved: pg2
+2026-09-24T13:57:16Z cmd: docker start ptlab-a-pg1 (bring old leader back)
+2026-09-24T13:58:47Z STEP: 10. final steady state
+2026-09-24T14:01:18Z cmd: patronictl history
+2026-09-24T14:01:18Z === RUN A END ===
+2026-09-24T14:07:34Z POST-HOC RECOVERY: pg1 stuck in pg_rewind/start-failed crash loop since 13:57:17 (see MANIFEST notes: unix_socket_directories="." placed the live socket file inside PGDATA, which made pg_rewind fail with could not open target file .s.PGSQL.5432: No such device or address). Fixing config bug for future runs (unix_socket_directories now /tmp) and recovering pg1 via patronictl reinit.
+2026-09-24T14:08:41Z pg1 recovered via reinit, cluster healthy again (pg2 leader, pg1/pg3 streaming replicas)
+2026-09-24T14:08:42Z === RUN A END (revised, after post-hoc pg1 recovery) ===

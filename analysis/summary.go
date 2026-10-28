@@ -62,6 +62,7 @@ type AggregatedMetrics struct {
 	TopEvents      []EventStat
 	SQL            SQLMetrics
 	Server         ServerMetrics
+	Patroni        *PatroniMetrics // set by the caller when Patroni logs were given
 }
 
 // StreamingAnalyzer orchestrates the ten specialized analyzers in
