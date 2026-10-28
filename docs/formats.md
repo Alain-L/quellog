@@ -45,6 +45,10 @@ Cloud-specific JSON schemas are automatically detected and parsed.
 
 pgBackRest's own log files, and its lines in a PostgreSQL stderr log, are recognized in any of the inputs above and feed a separate report; see [pgBackRest](pgbackrest.md).
 
+### Patroni
+
+Patroni's own log files, in its text format (optionally behind a journalctl prefix) or its JSON format, are recognized by their content and feed a separate report; see [Patroni](patroni.md).
+
 ### Cloud Providers
 
 quellog auto-detects log formats from managed PostgreSQL services:

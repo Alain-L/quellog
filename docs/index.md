@@ -10,6 +10,7 @@ A high-performance PostgreSQL log analyzer. Processes gigabytes of logs in secon
 - **Fast** — high throughput, streaming architecture, bounded memory
 - **Multi-format** — stderr, CSV, JSON, syslog + cloud providers (RDS, Cloud SQL, Azure, CNPG)
 - **pgBackRest** — reads pgBackRest's own logs and its lines in the PostgreSQL log, and adds a backup and WAL archiving report, synthetic by default and detailed with `--pgbackrest-detail`
+- **Patroni** — reads one Patroni log per member and adds a report on the leader lock, leader changes and DCS incidents, synthetic by default and detailed with `--patroni-detail`
 - **Archives** — gzip, zstd, tar, zip, 7z — decompressed on the fly
 - **Filtering** — by time range, database, user, application
 - **Interactive HTML** — standalone reports with charts, filtering, query drill-down

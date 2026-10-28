@@ -77,6 +77,7 @@ nav:
       - Filtering: filtering.md
       - Export Formats: exports.md
       - HTML Report: html-report.md
+      - Patroni: patroni.md
   - How-tos:
       - Your First Analysis: howtos/first-analysis.md
       - Troubleshooting Slow Queries: howtos/slow-queries.md
