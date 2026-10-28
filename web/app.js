@@ -49,6 +49,7 @@ import {
 } from './js/sections/maintenance.js';
 import { buildLocksSection } from './js/sections/locks.js';
 import { buildTempFilesSection } from './js/sections/tempfiles.js';
+import { buildPatroniSection } from './js/sections/patroni.js';
 import { buildPgBackRestSection } from './js/sections/pgbackrest.js';
 import {
     buildSQLOverviewSection, buildSQLPerformanceSection, showSqlOvView,
@@ -244,6 +245,12 @@ function renderResults(data, fileName, fileSize, isInitial = true) {
         entries: data.meta.entries,
         parseTimeMs: data._parseTimeMs || 0
     };
+    // A Patroni-only report has no PostgreSQL section to lay out.
+    if (!data.summary && data.patroni) {
+        results.innerHTML = buildPatroniSection(data);
+        return;
+    }
+
     // Initialize filter bar
     initFilterBar(data, isInitial);
 
@@ -291,6 +298,9 @@ function renderResults(data, fileName, fileSize, isInitial = true) {
     html += buildLocksSection(data);
     html += buildMaintenanceSection(data);
     html += '</div>';
+
+    // Patroni (full width), after the PostgreSQL sections.
+    html += buildPatroniSection(data);
 
     // pgBackRest section (only when the run included pgBackRest logs, or
     // a PostgreSQL log whose archive_command/restore_command runs it).

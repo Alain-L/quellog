@@ -794,6 +794,8 @@ export function applyReportTimeFilter(beginStr, endStr) {
         locks: !!filtered.locks,
         // Maintenance carries counters/table maps only — no timestamped events.
         maintenance: !!filtered.maintenance,
+        // Patroni: a cluster timeline, not re-scoped.
+        patroni: !!filtered.patroni,
         // SQL Overview per-dimension tables (by_database/user/host/app): the
         // executions carry no per-execution dimension to re-scope them.
         sql_dimensions: !!(filtered.sql_overview && (

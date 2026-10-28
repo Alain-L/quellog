@@ -2311,3 +2311,36 @@
 
 /* The split control reuses the shared .filter-dropdown markup/styles, so it
    matches the other filter pills and their open menus with no extra CSS. */
+
+/* Patroni: leader lock strip, change kinds */
+.pt-strip { display: flex; flex-direction: column; gap: 4px; }
+.pt-row { display: flex; align-items: center; gap: 0.5rem; }
+.pt-name { flex: 0 0 4.5rem; font-size: 0.7rem; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; }
+.pt-track { position: relative; flex: 1; height: 12px; background: var(--bg-alt); }
+.pt-term { position: absolute; top: 0; bottom: 0; background: var(--primary-light); }
+.pt-term--dcs { background: var(--warning); }
+.pt-tick { position: absolute; top: -2px; bottom: -2px; width: 2px; margin-left: -1px; }
+.pt-tick[data-kind="failover"] { background: var(--danger); }
+.pt-tick[data-kind="switchover"], .pt-tick[data-kind="retaken"] { background: var(--text-muted); }
+.pt-meta { flex: 0 0 15rem; font-size: 0.7rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pt-meta b { color: var(--text); font-weight: 600; }
+.pt-axis { position: relative; flex: 1; height: 1rem; font-size: 0.65rem; color: var(--text-muted); }
+.pt-axis span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
+.pt-axis span:first-child { transform: none; }
+.pt-axis span:last-child { transform: translateX(-100%); }
+.pt-kind { font-size: 0.65rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.02em; }
+.pt-kind[data-kind="failover"] { color: var(--danger); }
+.pt-kind[data-kind="switchover"], .pt-kind[data-kind="retaken"] { color: var(--text-muted); }
+.pt-msg { word-break: break-word; }
+.pt-nowrap { white-space: nowrap; }
+.pt-pg td { padding-top: 0; }
+.pt-pgl { display: grid; grid-template-columns: max-content 1fr; column-gap: 0.75rem; row-gap: 1px; font-size: 0.72rem; color: var(--text-muted); padding: 0 0 0.25rem 0.5rem; }
+.pt-pgl .t { font-variant-numeric: tabular-nums; }
+.pt-sub { font-size: 0.75rem; color: var(--text-muted); margin: -0.25rem 0 0.5rem; }
+.pt-when { vertical-align: top; padding: 0.25rem 0.5rem; white-space: nowrap; color: var(--text-muted); font-size: 0.75rem; }
+.pt-none { color: var(--text-muted); text-align: center; padding: 1rem; font-size: 0.85rem; }
+@media (max-width: 700px) {
+    .pt-meta { display: none; }
+    .pt-axis span:nth-child(2), .pt-axis span:nth-child(4) { display: none; }
+}
+.pt-note { margin-top: 0.5rem; font-size: 0.7rem; color: var(--text-muted); font-style: italic; }
