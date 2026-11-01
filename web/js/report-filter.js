@@ -797,11 +797,18 @@ export function applyReportTimeFilter(beginStr, endStr) {
         locks: !!filtered.locks,
         // Maintenance carries counters/table maps only — no timestamped events.
         maintenance: !!filtered.maintenance,
+        // Patroni: a cluster timeline, not re-scoped.
+        patroni: !!filtered.patroni,
         // SQL Overview per-dimension tables (by_database/user/host/app): the
         // executions carry no per-execution dimension to re-scope them.
         sql_dimensions: !!(filtered.sql_overview && (
             filtered.sql_overview.by_database || filtered.sql_overview.by_user ||
             filtered.sql_overview.by_host || filtered.sql_overview.by_app)),
+        // pgBackRest's own figures (backups, archive stats, retention) are
+        // not re-scoped by this filter at all yet (see
+        // docs/web-data-contract.md) — every pgBackRest section stays
+        // whole-log under a time filter, like the sections above.
+        pgbackrest: !!filtered.pgbackrest,
     };
 
     return filtered;

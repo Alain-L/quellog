@@ -21,7 +21,7 @@ This _quellog_ report summarizes **8** log entries collected between 20 Apr 2026
 
 | Time                | Event    | Detail                                         |
 |---------------------|----------|------------------------------------------------|
-| 2026-04-20 08:42:11 | recovery | not properly shut down — automatic recovery  |
+| 2026-04-20 08:42:11 | recovery | not properly shut down — automatic recovery    |
 | 2026-04-20 08:42:12 | start    | database system is ready to accept connections |
 | 2026-04-20 14:22:08 | sighup   | reloading configuration files                  |
 | 2026-04-20 16:11:02 | crash    | PID 12345 terminated by signal 11              |

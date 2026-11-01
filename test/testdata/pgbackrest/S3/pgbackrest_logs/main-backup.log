@@ -1,0 +1,161 @@
+-------------------PROCESS START-------------------
+2026-10-10 13:32:24.345 P00   INFO: backup command begin 2.59.3: --exec-id=148-64e3f4a6 --log-level-file=info --pg1-path=/var/lib/pg/main --pg1-port=5432 --repo1-path=/var/lib/pgbackrest/repo1 --stanza=main --start-fast --type=full
+2026-10-10 13:32:24.346 P00   WARN: option 'repo1-retention-full' is not set for 'repo1-retention-full-type=count', the repository may run out of space
+                                    HINT: to retain full backups indefinitely (without warning), set option 'repo1-retention-full' to the maximum.
+2026-10-10 13:32:24.358 P00   INFO: execute backup start: backup begins after the requested immediate checkpoint completes
+
+-------------------PROCESS START-------------------
+2026-10-10 13:32:24.752 P00   INFO: backup command begin 2.59.3: --exec-id=155-074d44a6 --log-level-file=info --pg1-path=/var/lib/pg/main --pg1-port=5432 --repo1-path=/var/lib/pgbackrest/repo1 --stanza=main --start-fast --type=full
+2026-10-10 13:32:24.755 P00  ERROR: [050]: unable to acquire lock on file '/tmp/pgbackrest/main-backup-1.lock': Resource temporarily unavailable
+                                    HINT: is another pgBackRest process running?
+2026-10-10 13:32:24.755 P00   INFO: backup command end: aborted with exception [050]
+2026-10-10 13:32:25.750 P00   INFO: backup start archive = 000000010000000000000006, lsn = 0/6000028
+2026-10-10 13:32:25.750 P00   INFO: check archive for prior segment 000000010000000000000005
+2026-10-10 13:32:42.794 P00   INFO: execute backup stop and wait for all WAL segments to archive
+2026-10-10 13:32:43.065 P00   INFO: backup stop archive = 000000010000000000000006, lsn = 0/6000190
+2026-10-10 13:32:43.083 P00   INFO: check archive for segment(s) 000000010000000000000006:000000010000000000000006
+2026-10-10 13:32:43.203 P00   INFO: new backup label = 20261010-133224F
+2026-10-10 13:32:43.353 P00   INFO: full backup size = 74.3MB, file total = 1278
+2026-10-10 13:32:43.353 P00   INFO: backup command end: completed successfully (19011ms)
+
+-------------------PROCESS START-------------------
+2026-10-10 13:32:55.949 P00   INFO: backup command begin 2.59.3: --exec-id=192-388a4087 --log-level-file=info --pg1-path=/var/lib/pg/main --pg1-port=5432 --repo1-path=/var/lib/pgbackrest/repo1 --stanza=main --start-fast --type=full
+2026-10-10 13:32:55.949 P00   WARN: option 'repo1-retention-full' is not set for 'repo1-retention-full-type=count', the repository may run out of space
+                                    HINT: to retain full backups indefinitely (without warning), set option 'repo1-retention-full' to the maximum.
+2026-10-10 13:32:55.961 P00   INFO: execute backup start: backup begins after the requested immediate checkpoint completes
+2026-10-10 13:32:56.069 P00   INFO: backup start archive = 000000010000000000000007, lsn = 0/7000028
+2026-10-10 13:32:56.069 P00   INFO: check archive for segment 000000010000000000000007
+
+-------------------PROCESS START-------------------
+2026-10-10 13:33:13.946 P00   INFO: backup command begin 2.59.3: --exec-id=212-f0d1aefe --log-level-file=info --pg1-path=/var/lib/pg/main --pg1-port=5432 --repo1-path=/var/lib/pgbackrest/repo1 --stanza=main --start-fast --type=incr
+2026-10-10 13:33:13.954 P00  ERROR: [050]: unable to acquire lock on file '/tmp/pgbackrest/main-backup-1.lock': Resource temporarily unavailable
+                                    HINT: is another pgBackRest process running?
+2026-10-10 13:33:13.954 P00   INFO: backup command end: aborted with exception [050]
+2026-10-10 13:33:17.543 P00   INFO: execute backup stop and wait for all WAL segments to archive
+2026-10-10 13:33:17.935 P00   INFO: backup stop archive = 000000010000000000000008, lsn = 0/8012BE0
+2026-10-10 13:33:18.003 P00   INFO: check archive for segment(s) 000000010000000000000007:000000010000000000000008
+2026-10-10 13:33:18.066 P00   INFO: new backup label = 20261010-133255F
+2026-10-10 13:33:18.456 P00   INFO: full backup size = 74.3MB, file total = 1278
+2026-10-10 13:33:18.456 P00   INFO: backup command end: completed successfully (22510ms)
+
+-------------------PROCESS START-------------------
+2026-10-10 13:33:33.306 P00   INFO: backup command begin 2.59.3: --exec-id=234-b5869c61 --log-level-file=info --pg1-path=/var/lib/pg/main --pg1-port=5432 --repo1-path=/var/lib/pgbackrest/repo1 --stanza=main --start-fast --type=incr
+2026-10-10 13:33:33.306 P00   WARN: option 'repo1-retention-full' is not set for 'repo1-retention-full-type=count', the repository may run out of space
+                                    HINT: to retain full backups indefinitely (without warning), set option 'repo1-retention-full' to the maximum.
+2026-10-10 13:33:33.328 P00   INFO: last backup label = 20261010-133255F, version = 2.59.3
+2026-10-10 13:33:33.328 P00   INFO: execute backup start: backup begins after the requested immediate checkpoint completes
+2026-10-10 13:33:33.489 P00   INFO: backup start archive = 00000001000000000000000A, lsn = 0/A000028
+2026-10-10 13:33:33.489 P00   INFO: check archive for prior segment 000000010000000000000009
+2026-10-10 13:33:34.284 P00   INFO: execute backup stop and wait for all WAL segments to archive
+2026-10-10 13:33:34.361 P00   INFO: backup stop archive = 00000001000000000000000A, lsn = 0/A000120
+2026-10-10 13:33:34.371 P00   INFO: check archive for segment(s) 00000001000000000000000A:00000001000000000000000A
+2026-10-10 13:33:34.486 P00   INFO: new backup label = 20261010-133255F_20261010-133333I
+2026-10-10 13:33:34.591 P00   INFO: incr backup size = 1.3MB, file total = 1278
+2026-10-10 13:33:34.591 P00   INFO: backup command end: completed successfully (1289ms)
+
+-------------------PROCESS START-------------------
+2026-10-10 13:33:42.170 P00   INFO: backup command begin 2.59.3: --exec-id=250-2ed89f94 --log-level-file=info --no-online --pg1-path=/var/lib/pg/main --pg1-port=5432 --repo1-path=/var/lib/pgbackrest/repo1 --stanza=main --start-fast
+2026-10-10 13:33:42.170 P00   WARN: option 'repo1-retention-full' is not set for 'repo1-retention-full-type=count', the repository may run out of space
+                                    HINT: to retain full backups indefinitely (without warning), set option 'repo1-retention-full' to the maximum.
+2026-10-10 13:33:42.177 P00   INFO: last backup label = 20261010-133255F_20261010-133333I, version = 2.59.3
+2026-10-10 13:33:42.177 P00   WARN: incr backup cannot alter 'checksum-page' option to 'false', reset to 'true' from 20261010-133255F_20261010-133333I
+2026-10-10 13:33:42.180 P00  ERROR: [038]: --no-online passed but postmaster.pid exists - looks like PostgreSQL is running. Shut down PostgreSQL and try again, or use --force.
+2026-10-10 13:33:42.180 P00   INFO: backup command end: aborted with exception [038]
+
+-------------------PROCESS START-------------------
+2026-10-10 13:33:49.315 P00   INFO: backup command begin 2.59.3: --exec-id=258-1bc9fe42 --log-level-file=info --pg1-path=/tmp/wrong_pgdata --pg1-port=5432 --repo1-path=/var/lib/pgbackrest/repo1 --stanza=main --start-fast
+2026-10-10 13:33:49.315 P00   WARN: option 'repo1-retention-full' is not set for 'repo1-retention-full-type=count', the repository may run out of space
+                                    HINT: to retain full backups indefinitely (without warning), set option 'repo1-retention-full' to the maximum.
+2026-10-10 13:33:49.323 P00   WARN: unable to check pg1: [FileMissingError] unable to open missing file '/tmp/wrong_pgdata/global/pg_control' for read
+2026-10-10 13:33:49.323 P00  ERROR: [056]: unable to find primary cluster - cannot proceed
+                                    HINT: are all available clusters in recovery?
+2026-10-10 13:33:49.323 P00   INFO: backup command end: aborted with exception [056]
+
+-------------------PROCESS START-------------------
+2026-10-10 13:36:30.898 P00   INFO: backup command begin 2.59.3: --exec-id=468-c2e1dd6f --log-level-file=info --pg1-path=/var/lib/pg/main --pg1-port=5432 --repo1-path=/var/lib/pgbackrest/repo1 --stanza=main --start-fast --type=incr
+2026-10-10 13:36:30.899 P00   WARN: option 'repo1-retention-full' is not set for 'repo1-retention-full-type=count', the repository may run out of space
+                                    HINT: to retain full backups indefinitely (without warning), set option 'repo1-retention-full' to the maximum.
+2026-10-10 13:36:30.933 P00   INFO: last backup label = 20261010-133255F_20261010-133333I, version = 2.59.3
+2026-10-10 13:36:30.933 P00   INFO: execute backup start: backup begins after the requested immediate checkpoint completes
+2026-10-10 13:36:31.053 P00   INFO: backup start archive = 00000001000000000000000D, lsn = 0/D000028
+2026-10-10 13:36:31.053 P00   INFO: check archive for prior segment 00000001000000000000000C
+2026-10-10 13:36:32.081 P00   WARN: invalid page checksum found in file /var/lib/pg/main/base/16384/16411 at page 5
+2026-10-10 13:36:32.422 P00   INFO: execute backup stop and wait for all WAL segments to archive
+2026-10-10 13:36:32.508 P00   INFO: backup stop archive = 00000001000000000000000D, lsn = 0/D000120
+2026-10-10 13:36:32.518 P00   INFO: check archive for segment(s) 00000001000000000000000D:00000001000000000000000D
+2026-10-10 13:36:32.636 P00   INFO: new backup label = 20261010-133255F_20261010-133630I
+2026-10-10 13:36:32.754 P00   INFO: incr backup size = 4.7MB, file total = 1283
+2026-10-10 13:36:32.754 P00   INFO: backup command end: completed successfully (1859ms)
+
+-------------------PROCESS START-------------------
+2026-10-10 13:37:27.520 P00   INFO: backup command begin 2.59.3: --compress-level=19 --compress-type=zst --exec-id=510-639c78a8 --log-level-file=info --pg1-path=/var/lib/pg/main --pg1-port=5432 --repo1-path=/var/lib/pgbackrest/repo1 --stanza=main --start-fast --type=full
+2026-10-10 13:37:27.520 P00   WARN: option 'repo1-retention-full' is not set for 'repo1-retention-full-type=count', the repository may run out of space
+                                    HINT: to retain full backups indefinitely (without warning), set option 'repo1-retention-full' to the maximum.
+2026-10-10 13:37:27.529 P00   INFO: execute backup start: backup begins after the requested immediate checkpoint completes
+2026-10-10 13:37:28.164 P00   INFO: backup start archive = 000000010000000000000012, lsn = 0/12000028
+2026-10-10 13:37:28.165 P00   INFO: check archive for prior segment 000000010000000000000011
+terminated on signal SIGTERM
+
+-------------------PROCESS START-------------------
+2026-10-10 13:38:40.218 P00   INFO: backup command begin 2.59.3: --exec-id=587-ad8b7160 --log-level-file=info --pg1-path=/var/lib/pg/main --pg1-port=5432 --repo1-path=/var/lib/pgbackrest/repo1 --stanza=main --start-fast --type=full
+2026-10-10 13:38:40.218 P00   WARN: option 'repo1-retention-full' is not set for 'repo1-retention-full-type=count', the repository may run out of space
+                                    HINT: to retain full backups indefinitely (without warning), set option 'repo1-retention-full' to the maximum.
+2026-10-10 13:38:40.224 P00   INFO: execute backup start: backup begins after the requested immediate checkpoint completes
+2026-10-10 13:38:40.343 P00   INFO: backup start archive = 000000010000000000000013, lsn = 0/13000028
+2026-10-10 13:38:40.343 P00   INFO: check archive for prior segment 000000010000000000000012
+2026-10-10 13:38:41.009 P00   WARN: backup '20261010-133727F' cannot be resumed: new compression 'gz' does not match resumable compression 'zst'
+2026-10-10 13:38:41.974 P00   WARN: invalid page checksum found in file /var/lib/pg/main/base/16384/16411 at page 5
+2026-10-10 13:38:51.583 P00   INFO: execute backup stop and wait for all WAL segments to archive
+2026-10-10 13:38:51.852 P00   INFO: backup stop archive = 000000010000000000000013, lsn = 0/13000158
+2026-10-10 13:38:51.872 P00   INFO: check archive for segment(s) 000000010000000000000013:000000010000000000000013
+2026-10-10 13:38:51.995 P00   INFO: new backup label = 20261010-133840F
+2026-10-10 13:38:52.170 P00   INFO: full backup size = 107.1MB, file total = 1283
+2026-10-10 13:38:52.170 P00   INFO: backup command end: completed successfully (11953ms)
+
+-------------------PROCESS START-------------------
+2026-10-10 13:39:12.426 P00   INFO: backup command begin 2.59.3: --compress-level=19 --compress-type=zst --exec-id=609-804d1bda --log-level-file=info --pg1-path=/var/lib/pg/main --pg1-port=5432 --repo1-path=/var/lib/pgbackrest/repo1 --stanza=main --start-fast --type=full
+2026-10-10 13:39:12.427 P00   WARN: option 'repo1-retention-full' is not set for 'repo1-retention-full-type=count', the repository may run out of space
+                                    HINT: to retain full backups indefinitely (without warning), set option 'repo1-retention-full' to the maximum.
+2026-10-10 13:39:12.438 P00   INFO: execute backup start: backup begins after the requested immediate checkpoint completes
+2026-10-10 13:39:12.555 P00   INFO: backup start archive = 000000010000000000000015, lsn = 0/15000028
+2026-10-10 13:39:12.555 P00   INFO: check archive for prior segment 000000010000000000000014
+terminated on signal SIGTERM
+
+-------------------PROCESS START-------------------
+2026-10-10 13:39:46.446 P00   INFO: backup command begin 2.59.3: --compress-level=19 --compress-type=zst --exec-id=648-72e6cbb7 --log-level-file=info --pg1-path=/var/lib/pg/main --pg1-port=5432 --repo1-path=/var/lib/pgbackrest/repo1 --stanza=main --start-fast --type=full
+2026-10-10 13:39:46.446 P00   WARN: option 'repo1-retention-full' is not set for 'repo1-retention-full-type=count', the repository may run out of space
+                                    HINT: to retain full backups indefinitely (without warning), set option 'repo1-retention-full' to the maximum.
+2026-10-10 13:39:46.459 P00   INFO: execute backup start: backup begins after the requested immediate checkpoint completes
+2026-10-10 13:39:46.572 P00   INFO: backup start archive = 000000010000000000000016, lsn = 0/16000028
+2026-10-10 13:39:46.572 P00   INFO: check archive for prior segment 000000010000000000000015
+2026-10-10 13:39:47.011 P00   WARN: resumable backup 20261010-133912F of same type exists -- invalid files will be removed then the backup will resume
+2026-10-10 13:40:47.685 P00   WARN: invalid page checksum found in file /var/lib/pg/main/base/16384/16411 at page 5
+2026-10-10 13:41:13.213 P00   INFO: execute backup stop and wait for all WAL segments to archive
+2026-10-10 13:41:13.527 P00   INFO: backup stop archive = 000000010000000000000016, lsn = 0/16000158
+2026-10-10 13:41:13.623 P00   INFO: check archive for segment(s) 000000010000000000000016:000000010000000000000016
+2026-10-10 13:41:13.737 P00   INFO: new backup label = 20261010-133912F
+2026-10-10 13:41:13.922 P00   INFO: full backup size = 107.1MB, file total = 1283
+2026-10-10 13:41:13.923 P00   INFO: backup command end: completed successfully (87481ms)
+
+-------------------PROCESS START-------------------
+2026-10-10 13:44:00.010 P00   INFO: backup command begin 2.59.3: --exec-id=913-1a012a2d --log-level-file=info --pg1-path=/var/lib/pg/main --pg1-port=5432 --repo1-path=/var/lib/pgbackrest/repo1 --stanza=main --start-fast
+2026-10-10 13:44:00.011 P00   WARN: option 'repo1-retention-full' is not set for 'repo1-retention-full-type=count', the repository may run out of space
+                                    HINT: to retain full backups indefinitely (without warning), set option 'repo1-retention-full' to the maximum.
+2026-10-10 13:44:00.015 P00  ERROR: [062]: stop file exists for stanza main
+2026-10-10 13:44:00.015 P00   INFO: backup command end: aborted with exception [062]
+
+-------------------PROCESS START-------------------
+2026-10-10 13:44:07.458 P00   INFO: backup command begin 2.59.3: --exec-id=931-0eda6664 --log-level-file=info --pg1-path=/var/lib/pg/main --pg1-port=5432 --repo1-path=/var/lib/pgbackrest/repo1 --stanza=main --start-fast
+2026-10-10 13:44:07.458 P00   WARN: option 'repo1-retention-full' is not set for 'repo1-retention-full-type=count', the repository may run out of space
+                                    HINT: to retain full backups indefinitely (without warning), set option 'repo1-retention-full' to the maximum.
+2026-10-10 13:44:07.478 P00   INFO: last backup label = 20261010-133912F, version = 2.59.3
+2026-10-10 13:44:07.478 P00   WARN: incr backup cannot alter compress-type option to 'gz', reset to value in 20261010-133912F
+2026-10-10 13:44:07.478 P00   INFO: execute backup start: backup begins after the requested immediate checkpoint completes
+2026-10-10 13:44:07.589 P00   INFO: backup start archive = 000000010000000000000018, lsn = 0/18000028
+2026-10-10 13:44:07.589 P00   INFO: check archive for prior segment 000000010000000000000017
+2026-10-10 13:44:08.171 P00   INFO: execute backup stop and wait for all WAL segments to archive
+2026-10-10 13:44:08.249 P00   INFO: backup stop archive = 000000010000000000000018, lsn = 0/18000120
+2026-10-10 13:44:08.273 P00   INFO: check archive for segment(s) 000000010000000000000018:000000010000000000000018
+2026-10-10 13:44:08.387 P00   INFO: new backup label = 20261010-133912F_20261010-134407I
+2026-10-10 13:44:08.500 P00   INFO: incr backup size = 8.3KB, file total = 1283
+2026-10-10 13:44:08.500 P00   INFO: backup command end: completed successfully (1043ms)

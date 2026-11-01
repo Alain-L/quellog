@@ -1,0 +1,133 @@
+2026-10-24 20:38:16.274 UTC [48] LOG:  starting PostgreSQL 17.11 (Debian 17.11-1.pgdg13+2) on aarch64-unknown-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+2026-10-24 20:38:16.275 UTC [48] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+2026-10-24 20:38:16.277 UTC [52] LOG:  database system was shut down at 2026-10-24 20:38:16 UTC
+2026-10-24 20:38:16.281 UTC [48] LOG:  database system is ready to accept connections
+2026-10-24 20:38:16.392 UTC [48] LOG:  received fast shutdown request
+2026-10-24 20:38:16.393 UTC [48] LOG:  aborting any active transactions
+2026-10-24 20:38:16.395 UTC [48] LOG:  background worker "logical replication launcher" (PID 56) exited with exit code 1
+2026-10-24 20:38:16.395 UTC [50] LOG:  shutting down
+2026-10-24 20:38:16.411 UTC [55] WARNING:  "archive_mode" enabled, yet archiving is not configured
+2026-10-24 20:38:16.411 UTC [55] DETAIL:  archive_command is not set.
+2026-10-24 20:38:16.414 UTC [50] LOG:  checkpoint starting: shutdown immediate
+2026-10-24 20:38:16.439 UTC [50] LOG:  checkpoint complete: wrote 3 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.001 s, sync=0.001 s, total=0.029 s; sync files=2, longest=0.001 s, average=0.001 s; distance=11330 kB, estimate=11330 kB; lsn=0/2000028, redo lsn=0/2000028
+2026-10-24 20:38:16.443 UTC [55] WARNING:  "archive_mode" enabled, yet archiving is not configured
+2026-10-24 20:38:16.443 UTC [55] DETAIL:  archive_command is not set.
+2026-10-24 20:38:16.445 UTC [48] LOG:  database system is shut down
+2026-10-24 20:38:16.510 UTC [1] LOG:  starting PostgreSQL 17.11 (Debian 17.11-1.pgdg13+2) on aarch64-unknown-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+2026-10-24 20:38:16.514 UTC [1] LOG:  listening on IPv4 address "0.0.0.0", port 5432
+2026-10-24 20:38:16.514 UTC [1] LOG:  listening on IPv6 address "::", port 5432
+2026-10-24 20:38:16.516 UTC [1] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+2026-10-24 20:38:16.518 UTC [65] LOG:  database system was shut down at 2026-10-24 20:38:16 UTC
+2026-10-24 20:38:16.520 UTC [1] LOG:  database system is ready to accept connections
+2026-10-24 20:38:16.520 UTC [68] WARNING:  "archive_mode" enabled, yet archiving is not configured
+2026-10-24 20:38:16.520 UTC [68] DETAIL:  archive_command is not set.
+2026-10-24 20:38:23.833 UTC [76] FATAL:  role "root" does not exist
+2026-10-24 20:38:32.013 UTC [1] LOG:  received SIGHUP, reloading configuration files
+2026-10-24 20:38:32.014 UTC [1] LOG:  parameter "archive_command" changed to "pgbackrest --stanza=main --log-level-file=info archive-push %p"
+2026-10-24 20:38:32.024 P00  ERROR: [103]: unable to find a valid repository:
+                                    repo1: [FileMissingError] unable to load info file '/var/lib/pgbackrest/archive/main/archive.info' or '/var/lib/pgbackrest/archive/main/archive.info.copy':
+                                    FileMissingError: unable to open missing file '/var/lib/pgbackrest/archive/main/archive.info' for read
+                                    FileMissingError: unable to open missing file '/var/lib/pgbackrest/archive/main/archive.info.copy' for read
+                                    HINT: archive.info cannot be opened but is required to push/get WAL segments.
+                                    HINT: is archive_command configured correctly in postgresql.conf?
+                                    HINT: has a stanza-create been performed?
+                                    HINT: use --no-archive-check to disable archive checks during backup if you have an alternate archiving scheme.
+2026-10-24 20:38:32.024 UTC [68] LOG:  archive command failed with exit code 103
+2026-10-24 20:38:32.024 UTC [68] DETAIL:  The failed archive command was: pgbackrest --stanza=main --log-level-file=info archive-push pg_wal/000000010000000000000001
+2026-10-24 20:38:32.061 UTC [63] LOG:  checkpoint starting: immediate force wait
+2026-10-24 20:38:32.087 UTC [63] LOG:  checkpoint complete: wrote 3 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.002 s, sync=0.001 s, total=0.027 s; sync files=2, longest=0.001 s, average=0.001 s; distance=16384 kB, estimate=16384 kB; lsn=0/3000080, redo lsn=0/3000028
+2026-10-24 20:38:46.980 UTC [63] LOG:  checkpoint starting: immediate force wait
+2026-10-24 20:38:47.031 UTC [63] LOG:  checkpoint complete: wrote 59 buffers (0.4%); 0 WAL file(s) added, 0 removed, 11 recycled; write=0.003 s, sync=0.007 s, total=0.052 s; sync files=21, longest=0.004 s, average=0.001 s; distance=163840 kB, estimate=163840 kB; lsn=0/D000080, redo lsn=0/D000028
+2026-10-24 20:39:25.314 P00  ERROR: [103]: unable to find a valid repository:
+                                    repo1: [FileOpenError] unable to load info file '/var/lib/pgbackrest/archive/main/archive.info' or '/var/lib/pgbackrest/archive/main/archive.info.copy':
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/archive/main/archive.info' for read: [13] Permission denied
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/archive/main/archive.info.copy' for read: [13] Permission denied
+                                    HINT: archive.info cannot be opened but is required to push/get WAL segments.
+                                    HINT: is archive_command configured correctly in postgresql.conf?
+                                    HINT: has a stanza-create been performed?
+                                    HINT: use --no-archive-check to disable archive checks during backup if you have an alternate archiving scheme.
+2026-10-24 20:39:25.314 UTC [68] LOG:  archive command failed with exit code 103
+2026-10-24 20:39:25.314 UTC [68] DETAIL:  The failed archive command was: pgbackrest --stanza=main --log-level-file=info archive-push pg_wal/000000010000000000000017
+2026-10-24 20:39:26.334 P00  ERROR: [103]: unable to find a valid repository:
+                                    repo1: [FileOpenError] unable to load info file '/var/lib/pgbackrest/archive/main/archive.info' or '/var/lib/pgbackrest/archive/main/archive.info.copy':
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/archive/main/archive.info' for read: [13] Permission denied
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/archive/main/archive.info.copy' for read: [13] Permission denied
+                                    HINT: archive.info cannot be opened but is required to push/get WAL segments.
+                                    HINT: is archive_command configured correctly in postgresql.conf?
+                                    HINT: has a stanza-create been performed?
+                                    HINT: use --no-archive-check to disable archive checks during backup if you have an alternate archiving scheme.
+2026-10-24 20:39:26.335 UTC [68] LOG:  archive command failed with exit code 103
+2026-10-24 20:39:26.335 UTC [68] DETAIL:  The failed archive command was: pgbackrest --stanza=main --log-level-file=info archive-push pg_wal/000000010000000000000017
+2026-10-24 20:39:27.362 P00  ERROR: [103]: unable to find a valid repository:
+                                    repo1: [FileOpenError] unable to load info file '/var/lib/pgbackrest/archive/main/archive.info' or '/var/lib/pgbackrest/archive/main/archive.info.copy':
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/archive/main/archive.info' for read: [13] Permission denied
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/archive/main/archive.info.copy' for read: [13] Permission denied
+                                    HINT: archive.info cannot be opened but is required to push/get WAL segments.
+                                    HINT: is archive_command configured correctly in postgresql.conf?
+                                    HINT: has a stanza-create been performed?
+                                    HINT: use --no-archive-check to disable archive checks during backup if you have an alternate archiving scheme.
+2026-10-24 20:39:27.366 UTC [68] LOG:  archive command failed with exit code 103
+2026-10-24 20:39:27.366 UTC [68] DETAIL:  The failed archive command was: pgbackrest --stanza=main --log-level-file=info archive-push pg_wal/000000010000000000000017
+2026-10-24 20:39:27.366 UTC [68] WARNING:  archiving write-ahead log file "000000010000000000000017" failed too many times, will try again later
+2026-10-24 20:39:27.373 P00  ERROR: [103]: unable to find a valid repository:
+                                    repo1: [FileOpenError] unable to load info file '/var/lib/pgbackrest/archive/main/archive.info' or '/var/lib/pgbackrest/archive/main/archive.info.copy':
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/archive/main/archive.info' for read: [13] Permission denied
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/archive/main/archive.info.copy' for read: [13] Permission denied
+                                    HINT: archive.info cannot be opened but is required to push/get WAL segments.
+                                    HINT: is archive_command configured correctly in postgresql.conf?
+                                    HINT: has a stanza-create been performed?
+                                    HINT: use --no-archive-check to disable archive checks during backup if you have an alternate archiving scheme.
+2026-10-24 20:39:27.374 UTC [68] LOG:  archive command failed with exit code 103
+2026-10-24 20:39:27.374 UTC [68] DETAIL:  The failed archive command was: pgbackrest --stanza=main --log-level-file=info archive-push pg_wal/000000010000000000000017
+2026-10-24 20:39:28.388 P00  ERROR: [103]: unable to find a valid repository:
+                                    repo1: [FileOpenError] unable to load info file '/var/lib/pgbackrest/archive/main/archive.info' or '/var/lib/pgbackrest/archive/main/archive.info.copy':
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/archive/main/archive.info' for read: [13] Permission denied
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/archive/main/archive.info.copy' for read: [13] Permission denied
+                                    HINT: archive.info cannot be opened but is required to push/get WAL segments.
+                                    HINT: is archive_command configured correctly in postgresql.conf?
+                                    HINT: has a stanza-create been performed?
+                                    HINT: use --no-archive-check to disable archive checks during backup if you have an alternate archiving scheme.
+2026-10-24 20:39:28.388 UTC [68] LOG:  archive command failed with exit code 103
+2026-10-24 20:39:28.388 UTC [68] DETAIL:  The failed archive command was: pgbackrest --stanza=main --log-level-file=info archive-push pg_wal/000000010000000000000017
+2026-10-24 20:39:29.406 P00  ERROR: [103]: unable to find a valid repository:
+                                    repo1: [FileOpenError] unable to load info file '/var/lib/pgbackrest/archive/main/archive.info' or '/var/lib/pgbackrest/archive/main/archive.info.copy':
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/archive/main/archive.info' for read: [13] Permission denied
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/archive/main/archive.info.copy' for read: [13] Permission denied
+                                    HINT: archive.info cannot be opened but is required to push/get WAL segments.
+                                    HINT: is archive_command configured correctly in postgresql.conf?
+                                    HINT: has a stanza-create been performed?
+                                    HINT: use --no-archive-check to disable archive checks during backup if you have an alternate archiving scheme.
+2026-10-24 20:39:29.407 UTC [68] LOG:  archive command failed with exit code 103
+2026-10-24 20:39:29.407 UTC [68] DETAIL:  The failed archive command was: pgbackrest --stanza=main --log-level-file=info archive-push pg_wal/000000010000000000000017
+2026-10-24 20:39:29.407 UTC [68] WARNING:  archiving write-ahead log file "000000010000000000000017" failed too many times, will try again later
+2026-10-24 20:39:29.414 P00  ERROR: [103]: unable to find a valid repository:
+                                    repo1: [FileOpenError] unable to load info file '/var/lib/pgbackrest/archive/main/archive.info' or '/var/lib/pgbackrest/archive/main/archive.info.copy':
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/archive/main/archive.info' for read: [13] Permission denied
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/archive/main/archive.info.copy' for read: [13] Permission denied
+                                    HINT: archive.info cannot be opened but is required to push/get WAL segments.
+                                    HINT: is archive_command configured correctly in postgresql.conf?
+                                    HINT: has a stanza-create been performed?
+                                    HINT: use --no-archive-check to disable archive checks during backup if you have an alternate archiving scheme.
+2026-10-24 20:39:29.415 UTC [68] LOG:  archive command failed with exit code 103
+2026-10-24 20:39:29.415 UTC [68] DETAIL:  The failed archive command was: pgbackrest --stanza=main --log-level-file=info archive-push pg_wal/000000010000000000000017
+2026-10-24 20:39:30.453 P00  ERROR: [103]: unable to find a valid repository:
+                                    repo1: [FileOpenError] unable to load info file '/var/lib/pgbackrest/archive/main/archive.info' or '/var/lib/pgbackrest/archive/main/archive.info.copy':
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/archive/main/archive.info' for read: [13] Permission denied
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/archive/main/archive.info.copy' for read: [13] Permission denied
+                                    HINT: archive.info cannot be opened but is required to push/get WAL segments.
+                                    HINT: is archive_command configured correctly in postgresql.conf?
+                                    HINT: has a stanza-create been performed?
+                                    HINT: use --no-archive-check to disable archive checks during backup if you have an alternate archiving scheme.
+2026-10-24 20:39:30.454 UTC [68] LOG:  archive command failed with exit code 103
+2026-10-24 20:39:30.454 UTC [68] DETAIL:  The failed archive command was: pgbackrest --stanza=main --log-level-file=info archive-push pg_wal/000000010000000000000017
+2026-10-24 20:39:31.479 P00  ERROR: [103]: unable to find a valid repository:
+                                    repo1: [FileOpenError] unable to load info file '/var/lib/pgbackrest/archive/main/archive.info' or '/var/lib/pgbackrest/archive/main/archive.info.copy':
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/archive/main/archive.info' for read: [13] Permission denied
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/archive/main/archive.info.copy' for read: [13] Permission denied
+                                    HINT: archive.info cannot be opened but is required to push/get WAL segments.
+                                    HINT: is archive_command configured correctly in postgresql.conf?
+                                    HINT: has a stanza-create been performed?
+                                    HINT: use --no-archive-check to disable archive checks during backup if you have an alternate archiving scheme.
+2026-10-24 20:39:31.479 UTC [68] LOG:  archive command failed with exit code 103
+2026-10-24 20:39:31.479 UTC [68] DETAIL:  The failed archive command was: pgbackrest --stanza=main --log-level-file=info archive-push pg_wal/000000010000000000000017
+2026-10-24 20:39:31.479 UTC [68] WARNING:  archiving write-ahead log file "000000010000000000000017" failed too many times, will try again later

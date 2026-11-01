@@ -1,0 +1,18 @@
+-------------------PROCESS START-------------------
+2026-10-10 13:25:13.993 P00   INFO: stanza-create command begin 2.59.3: --exec-id=48-cb79c426 --log-level-file=info --pg1-path=/var/lib/pg/main --pg1-port=5432 --repo1-path=/var/lib/pgbackrest/repo1 --stanza=main
+2026-10-10 13:25:14.018 P00   WARN: unable to check pg1: [DbConnectError] unable to connect to 'dbname='postgres' port=5432': connection to server on socket "/var/run/postgresql/.s.PGSQL.5432" failed: No such file or directory
+                                    	Is the server running locally and accepting connections on that socket?
+2026-10-10 13:25:14.018 P00  ERROR: [056]: unable to find primary cluster - cannot proceed
+                                    HINT: are all available clusters in recovery?
+2026-10-10 13:25:14.018 P00   INFO: stanza-create command end: aborted with exception [056]
+
+-------------------PROCESS START-------------------
+2026-10-10 13:31:41.867 P00   INFO: stanza-create command begin 2.59.3: --exec-id=102-dba29bef --log-level-file=info --pg1-path=/var/lib/pg/main --pg1-port=5432 --repo1-path=/var/lib/pgbackrest/repo1 --stanza=main
+2026-10-10 13:31:41.874 P00   INFO: stanza-create for stanza 'main' on repo1
+2026-10-10 13:31:41.913 P00   INFO: stanza-create command end: completed successfully (48ms)
+
+-------------------PROCESS START-------------------
+2026-10-10 13:31:48.647 P00   INFO: stanza-create command begin 2.59.3: --exec-id=119-327dfed4 --log-level-file=info --pg1-path=/var/lib/pg/main --pg1-port=5432 --repo1-path=/var/lib/pgbackrest/repo1 --stanza=main
+2026-10-10 13:31:48.653 P00   INFO: stanza-create for stanza 'main' on repo1
+2026-10-10 13:31:48.654 P00   INFO: stanza 'main' already exists on repo1 and is valid
+2026-10-10 13:31:48.654 P00   INFO: stanza-create command end: completed successfully (8ms)

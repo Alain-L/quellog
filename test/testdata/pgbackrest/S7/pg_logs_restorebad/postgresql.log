@@ -1,0 +1,19 @@
+2026-10-24 20:39:00.457 UTC [348] LOG:  starting PostgreSQL 17.11 (Debian 17.11-1.pgdg13+2) on aarch64-unknown-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+2026-10-24 20:39:00.457 UTC [348] LOG:  listening on IPv4 address "0.0.0.0", port 5438
+2026-10-24 20:39:00.457 UTC [348] LOG:  listening on IPv6 address "::", port 5438
+2026-10-24 20:39:00.459 UTC [348] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5438"
+2026-10-24 20:39:00.462 UTC [352] LOG:  database system was interrupted; last known up at 2026-10-24 20:38:32 UTC
+2026-10-24 20:39:00.516 P00  ERROR: [032]: PostgreSQL working directory '/var/lib/pg/restorebad' is not the same as option pg1-path '/var/lib/postgresql/data'
+                                    HINT: is the PostgreSQL data_directory configured the same as the pg1-path option?
+2026-10-24 20:39:00.516 UTC [352] LOG:  starting backup recovery with redo LSN 0/3000028, checkpoint LSN 0/3000080, on timeline ID 1
+2026-10-24 20:39:00.523 P00  ERROR: [032]: PostgreSQL working directory '/var/lib/pg/restorebad' is not the same as option pg1-path '/var/lib/postgresql/data'
+                                    HINT: is the PostgreSQL data_directory configured the same as the pg1-path option?
+2026-10-24 20:39:00.524 UTC [352] LOG:  invalid checkpoint record
+2026-10-24 20:39:00.524 UTC [352] FATAL:  could not locate required checkpoint record at 0/3000080
+2026-10-24 20:39:00.524 UTC [352] HINT:  If you are restoring from a backup, touch "/var/lib/pg/restorebad/recovery.signal" or "/var/lib/pg/restorebad/standby.signal" and add required recovery options.
+	If you are not restoring from a backup, try removing the file "/var/lib/pg/restorebad/backup_label".
+	Be careful: removing "/var/lib/pg/restorebad/backup_label" will result in a corrupt cluster if restoring from a backup.
+2026-10-24 20:39:00.525 UTC [348] LOG:  startup process (PID 352) exited with exit code 1
+2026-10-24 20:39:00.525 UTC [348] LOG:  terminating any other active server processes
+2026-10-24 20:39:00.525 UTC [348] LOG:  shutting down due to startup process failure
+2026-10-24 20:39:00.526 UTC [348] LOG:  database system is shut down

@@ -1,0 +1,39 @@
+quellog dev – 402 entries processed in X s (40.09 KB)
+
+[1mPGBACKREST[0m
+
+  Stanzas                   : 3 (main, tl, upg)
+  pgBackRest version        : 2.59.3
+
+  [1mmain[0m
+    Last full               : 20261010-133912F
+    Last incr               : 20261010-133912F_20261010-134407I
+    Backups                 : 7 ok, 5 failed, 2 killed
+    Last failure            : incr at 13:44:00
+    WAL archiving           : not logged
+    Operations              : stop at 13:44:06, start at 13:44:07
+    Other failures          : stanza-create 1, expire 2
+
+  [1mtl[0m
+    Last full               : 20261010-134147F
+    Last diff               : 20261010-134147F_20261010-134352D
+    Backups                 : 4 ok
+    WAL archiving           : not logged
+    Restores                : 1, last at 13:42:24 (latest)
+
+  [1mupg[0m
+    Last full               : 20261010-133511F
+    Backups                 : 2 ok, 1 failed
+    Last failure            : full at 13:35:04
+    WAL archiving           : not logged
+    Operations              : stanza-upgrade at 13:35:11
+
+  Top errors:
+    [050] lock held by another command             main     4  13:32:24 → 13:33:13
+    [056] unable to find primary cluster           main     2  13:25:14 → 13:33:49
+    [038] PostgreSQL running, --no-online refused  main     1  13:33:42
+    [062] stanza stopped                           main     1  13:44:00
+    [051] PostgreSQL and stanza versions differ    upg      1  13:35:04
+
+  [3;38;5;243mDetails: --pgbackrest-detail[=stanza][0m
+

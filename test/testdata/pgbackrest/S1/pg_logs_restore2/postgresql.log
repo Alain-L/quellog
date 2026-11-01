@@ -1,0 +1,26 @@
+2026-10-10 13:14:12.569 UTC [861] LOG:  starting PostgreSQL 16.15 (Debian 16.15-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+2026-10-10 13:14:12.569 UTC [861] LOG:  listening on IPv4 address "0.0.0.0", port 5434
+2026-10-10 13:14:12.569 UTC [861] LOG:  listening on IPv6 address "::", port 5434
+2026-10-10 13:14:12.584 UTC [861] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5434"
+2026-10-10 13:14:12.602 UTC [865] LOG:  database system was interrupted; last known up at 2026-10-10 13:10:50 UTC
+2026-10-10 13:14:12.710 UTC [865] LOG:  starting point-in-time recovery to 2026-10-10 13:11:10.200293+00
+2026-10-10 13:14:12.710 UTC [865] LOG:  starting backup recovery with redo LSN 0/23000028, checkpoint LSN 0/23000060, on timeline ID 1
+2026-10-10 13:14:12.739 UTC [865] LOG:  restored log file "000000010000000000000023" from archive
+2026-10-10 13:14:12.934 UTC [865] LOG:  redo starts at 0/23000028
+2026-10-10 13:14:12.967 UTC [865] LOG:  restored log file "000000010000000000000024" from archive
+2026-10-10 13:14:13.257 UTC [865] LOG:  completed backup recovery with redo LSN 0/23000028 and end LSN 0/23000138
+2026-10-10 13:14:13.257 UTC [865] LOG:  consistent recovery state reached at 0/23000138
+2026-10-10 13:14:13.257 UTC [861] LOG:  database system is ready to accept read-only connections
+2026-10-10 13:14:13.286 UTC [865] LOG:  recovery stopping before commit of transaction 9052, time 2026-10-10 13:11:10.206077+00
+2026-10-10 13:14:13.286 UTC [865] LOG:  pausing at the end of recovery
+2026-10-10 13:14:13.286 UTC [865] HINT:  Execute pg_wal_replay_resume() to promote.
+2026-10-10 13:14:15.638 UTC [875] ERROR:  recovery is in progress
+2026-10-10 13:14:15.638 UTC [875] HINT:  WAL control functions cannot be executed during recovery.
+2026-10-10 13:14:15.638 UTC [875] STATEMENT:  select pg_walfile_name(pg_current_wal_lsn());
+2026-10-10 13:14:28.556 UTC [865] LOG:  redo done at 0/24C759D0 system usage: CPU: user: 0.02 s, system: 0.00 s, elapsed: 15.62 s
+2026-10-10 13:14:28.556 UTC [865] LOG:  last completed transaction was at log time 2026-10-10 13:11:10.187005+00
+2026-10-10 13:14:28.586 UTC [865] LOG:  selected new timeline ID: 2
+2026-10-10 13:14:28.701 UTC [865] LOG:  archive recovery complete
+2026-10-10 13:14:28.789 UTC [863] LOG:  checkpoint starting: end-of-recovery immediate wait
+2026-10-10 13:14:28.938 UTC [863] LOG:  checkpoint complete: wrote 1621 buffers (9.9%); 0 WAL file(s) added, 0 removed, 1 recycled; write=0.022 s, sync=0.100 s, total=0.155 s; sync files=18, longest=0.044 s, average=0.006 s; distance=29142 kB, estimate=29142 kB; lsn=0/24C759D0, redo lsn=0/24C759D0
+2026-10-10 13:14:28.948 UTC [861] LOG:  database system is ready to accept connections

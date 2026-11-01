@@ -1,0 +1,13 @@
+2026-09-24T14:09:25Z === RUN B START (Patroni 4.1.5, pg17, text logs, synchronous_mode=true) ===
+2026-09-24T14:09:25Z STEP: 1. bootstrap
+2026-09-24T14:10:28Z bootstrap complete, leader=pg1
+2026-09-24T14:10:59Z STEP: 2. planned switchover
+2026-09-24T14:10:59Z cmd: patronictl switchover --leader pg1 --candidate pg2 --force
+2026-09-24T14:12:19Z post-switchover leader=pg2
+2026-09-24T14:12:19Z STEP: 3. failover by leader kill
+2026-09-24T14:12:19Z cmd: docker kill -s KILL ptlab-b-pg2
+2026-09-24T14:12:45Z new leader after kill: pg3
+2026-09-24T14:13:15Z cmd: docker start ptlab-b-pg2 (bring old leader back as replica)
+2026-09-24T14:14:31Z STEP: 4. final steady state
+2026-09-24T14:16:32Z cmd: patronictl history
+2026-09-24T14:16:32Z === RUN B END ===

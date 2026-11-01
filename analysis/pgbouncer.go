@@ -536,9 +536,9 @@ func (a *PgBouncerAnalyzer) processStats(t time.Time, body string) {
 		frag = strings.TrimSpace(frag)
 		switch {
 		case strings.HasSuffix(frag, "xacts/s"):
-			pt.Xacts = leadingInt(frag)
+			pt.Xacts = leadingStatsInt(frag)
 		case strings.HasSuffix(frag, "queries/s"):
-			pt.Queries = leadingInt(frag)
+			pt.Queries = leadingStatsInt(frag)
 		case strings.HasPrefix(frag, "in "):
 			pt.InBytes = trailingIntBefore(frag, "B/s")
 		case strings.HasPrefix(frag, "out "):
@@ -1115,13 +1115,13 @@ func inc(m map[string]int, k string) {
 	m[k]++
 }
 
-// leadingInt parses the integer at the start of a fragment like
+// leadingStatsInt parses the integer at the start of a fragment like
 // "17 xacts/s". An unreadable number -- a line cut short by a rotation,
 // or two writers interleaved -- yields 0, i.e. the field is treated as
 // absent. Atoi's value must be discarded on error: out of range it
 // returns math.MaxInt64 alongside ErrRange, which overflows the running
 // sums and turns the averages negative.
-func leadingInt(frag string) int {
+func leadingStatsInt(frag string) int {
 	sp := strings.IndexByte(frag, ' ')
 	if sp == -1 {
 		return 0
@@ -1135,7 +1135,7 @@ func leadingInt(frag string) int {
 
 // trailingIntBefore parses the integer that precedes the given unit
 // suffix, e.g. trailingIntBefore("in 1742 B/s", "B/s") == 1742 and
-// trailingIntBefore("xact 2384 us", "us") == 2384. Like leadingInt, an
+// trailingIntBefore("xact 2384 us", "us") == 2384. Like leadingStatsInt, an
 // unreadable number yields 0 rather than Atoi's out-of-range sentinel.
 func trailingIntBefore(frag, unit string) int {
 	frag = strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(frag), unit))

@@ -41,6 +41,13 @@ JSON format from `log_destination = 'jsonlog'` (PostgreSQL 15+) or cloud provide
 
 Cloud-specific JSON schemas are automatically detected and parsed.
 
+### pgBackRest
+
+pgBackRest's own log files, and its lines in a PostgreSQL stderr log, are recognized in any of the inputs above and feed a separate report; see [pgBackRest](pgbackrest.md).
+
+### Patroni
+
+Patroni's own log files, in its text format (optionally behind a journalctl prefix) or its JSON format, are recognized by their content and feed a separate report; see [Patroni](patroni.md).
 ### pgBouncer
 
 Logs from the [pgBouncer](https://www.pgbouncer.org/) connection pooler. They share PostgreSQL's `timestamp [PID] SEVERITY` prefix but carry pooler telemetry (`stats:` lines), client/server socket events, and pooler errors instead of SQL — so quellog detects them automatically and renders a dedicated pooler report rather than the PostgreSQL report.

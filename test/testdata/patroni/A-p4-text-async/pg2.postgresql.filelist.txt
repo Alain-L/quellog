@@ -1,0 +1,8 @@
+/var/log/postgresql/postgresql-2026-09-24_134355.log
+/var/log/postgresql/postgresql-2026-09-24_134809.log
+/var/log/postgresql/postgresql-2026-09-24_134822.log
+/var/log/postgresql/postgresql-2026-09-24_134842.log
+/var/log/postgresql/postgresql-2026-09-24_134859.log
+/var/log/postgresql/postgresql-2026-09-24_134919.log
+/var/log/postgresql/postgresql-2026-09-24_134939.log
+/var/log/postgresql/postgresql-2026-09-24_134945.log

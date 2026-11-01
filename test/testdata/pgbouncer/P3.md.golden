@@ -229,7 +229,7 @@ This _quellog_ report summarizes **60** log entries collected between 25 Sep 202
 | Metric           | Weighted average | Max snapshot average |       At |
 |------------------|-----------------:|---------------------:|---------:|
 | Transaction time |           6.1 ms |               3.09 s | 09:24:42 |
-| Query time       |          874 µs |             772.5 ms | 09:24:22 |
+| Query time       |           874 µs |             772.5 ms | 09:24:22 |
 
 ## Pool Wait
 

@@ -63,7 +63,9 @@ export function loadWasm() {
 
 // ===== Drag & Drop Setup =====
 
-export function setupDragDrop(dropZone, fileInput, onFileSelected) {
+// onFilesSelected receives every file dropped or selected, as the CLI
+// receives several arguments.
+export function setupDragDrop(dropZone, fileInput, onFilesSelected) {
     // Drag and drop handlers
     dropZone.addEventListener('dragover', e => {
         e.preventDefault();
@@ -77,15 +79,15 @@ export function setupDragDrop(dropZone, fileInput, onFileSelected) {
     dropZone.addEventListener('drop', e => {
         e.preventDefault();
         dropZone.classList.remove('drag-over');
-        if (e.dataTransfer.files[0]) {
-            onFileSelected(e.dataTransfer.files[0]);
+        if (e.dataTransfer.files.length) {
+            onFilesSelected([...e.dataTransfer.files]);
         }
     });
 
     // File input handler
     fileInput.addEventListener('change', e => {
-        if (e.target.files[0]) {
-            onFileSelected(e.target.files[0]);
+        if (e.target.files.length) {
+            onFilesSelected([...e.target.files]);
         }
     });
 }

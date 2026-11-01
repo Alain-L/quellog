@@ -1,0 +1,25 @@
+quellog dev – 1100 entries processed in X s (119.22 KB)
+
+[1mPGBACKREST[0m
+
+  Stanza                    : main
+  pgBackRest version        : 2.59.3
+
+  [1mmain[0m
+    Last full               : 20261024-203832F
+    Last diff               : 20261024-203832F_20261024-203846D
+    Backups                 : 2 ok
+    WAL archiving           : 35 pushed, 10 failed, last at 20:40:15
+    Archiving outages       : 2, all recovered, longest 6s
+    WAL restored            : 54 (15 async), 10 failed, last at 20:40:28
+    Missing WAL             : 00000001000000000000001C, pushed at 20:40:06, not found at 20:40:24
+    Restores                : 6, last at 20:40:25 (latest), 3 with WAL restore failures
+
+  Top errors:
+    [103] archive.info permission denied, push        9  20:39:25 → 20:39:31
+    [103] archive.info permission denied, get         8  20:39:29 → 20:39:44
+    [032] pg1-path is not the data directory, get     2  20:39:00
+    [103] archive.info missing, push                  1  20:38:32
+
+  [3;38;5;243mDetails: --pgbackrest-detail[=stanza][0m
+

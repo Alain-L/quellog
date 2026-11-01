@@ -3,6 +3,7 @@ package parser
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"io"
 	"math"
@@ -341,6 +342,28 @@ func (p *StderrParser) parseReader(r io.Reader, out chan<- []LogEntry) error {
 
 	currentEntry := make([]byte, 0, 8192)
 
+	// pgBackRest lines in this stream (archive_command or restore_command
+	// output, or pgBackRest's own log) are carved out by pgbrCarveOutLine,
+	// shared with parseFromBytes.
+	var carveOut pgbrCarveOut
+	hooks := &carveHooks{
+		bs:      bs,
+		parsePG: p.parseEntryFromBytes,
+		detachPG: func() []byte {
+			b := bytes.Clone(currentEntry)
+			currentEntry = currentEntry[:0]
+			return b
+		},
+		restorePG: func(b []byte) {
+			currentEntry = append(currentEntry[:0], b...)
+		},
+		peekPG: func() []byte { return currentEntry },
+	}
+	hooks.emitPG = func() {
+		carveOut.sendPG(hooks, currentEntry)
+		currentEntry = currentEntry[:0]
+	}
+
 	for scanner.Scan() {
 		lineBytes := scanner.Bytes()
 
@@ -351,10 +374,17 @@ func (p *StderrParser) parseReader(r io.Reader, out chan<- []LogEntry) error {
 			lineBytes = newLine
 		}
 
-		isContinuation := len(lineBytes) > 0 && (lineBytes[0] == ' ' || lineBytes[0] == '\t')
+		leadingSpace := len(lineBytes) > 0 && (lineBytes[0] == ' ' || lineBytes[0] == '\t')
+		stripped := p.stripLeadingPrefix(lineBytes)
+
+		if pgbrCarveOutLine(&carveOut, hooks, lineBytes, stripped) {
+			continue
+		}
+
+		isContinuation := leadingSpace
 
 		if !isContinuation && len(currentEntry) > 0 {
-			if !hasTimestampBytes(p.stripLeadingPrefix(lineBytes)) {
+			if !hasTimestampBytes(stripped) {
 				isContinuation = true
 			}
 		}
@@ -376,12 +406,7 @@ func (p *StderrParser) parseReader(r io.Reader, out chan<- []LogEntry) error {
 		}
 	}
 
-	if len(currentEntry) > 0 {
-		timestamp, message := p.parseEntryFromBytes(currentEntry)
-		if !timestamp.IsZero() {
-			bs.Send(NewLogEntry(timestamp, message, isContinuationMessage(message)))
-		}
-	}
+	carveOut.finish(hooks)
 
 	if err := scanner.Err(); err != nil {
 		return err
@@ -415,6 +440,9 @@ func (p *StderrParser) parseFromBytes(data []byte, out chan<- []LogEntry) error 
 	entryEnd := -1   // end offset (exclusive) of the current entry's first line in `data`
 	hasCont := false // continuations seen for the current entry
 
+	// See parseReader. Declared before emit, which keeps lastKnownTS current.
+	var carveOut pgbrCarveOut
+
 	emit := func() {
 		var entryBytes []byte
 		if hasCont {
@@ -425,9 +453,51 @@ func (p *StderrParser) parseFromBytes(data []byte, out chan<- []LogEntry) error 
 			return
 		}
 		timestamp, message := p.parseEntryFromBytesZ(entryBytes, !hasCont)
-		if !timestamp.IsZero() {
-			bs.Send(NewLogEntry(timestamp, message, isContinuationMessage(message)))
-		}
+		carveOut.sendDated(bs, timestamp, message)
+	}
+
+	clearEntry := func() {
+		hasCont = false
+		currentEntry = currentEntry[:0]
+		entryStart = -1
+		entryEnd = -1
+	}
+	hooks := &carveHooks{
+		bs:      bs,
+		parsePG: p.parseEntryFromBytes,
+		emitPG: func() {
+			if entryStart >= 0 || hasCont {
+				emit()
+			}
+			clearEntry()
+		},
+		detachPG: func() []byte {
+			var b []byte
+			if hasCont {
+				b = bytes.Clone(currentEntry)
+			} else if entryStart >= 0 {
+				b = bytes.Clone(data[entryStart:entryEnd])
+			}
+			clearEntry()
+			return b
+		},
+		restorePG: func(b []byte) {
+			clearEntry()
+			if len(b) > 0 {
+				currentEntry = append(currentEntry, b...)
+				hasCont = true
+			}
+		},
+		peekPG: func() []byte {
+			if hasCont {
+				return currentEntry
+			}
+			if entryStart >= 0 {
+				return data[entryStart:entryEnd]
+			}
+			return nil
+		},
+		skipEmpty: true,
 	}
 
 	for i := 0; i <= dataLen; i++ {
@@ -446,6 +516,9 @@ func (p *StderrParser) parseFromBytes(data []byte, out chan<- []LogEntry) error 
 		lineStart = i + 1
 
 		if len(lineBytes) == 0 {
+			if carveOut.inPgbr && i < dataLen {
+				carveOut.blank++
+			}
 			continue
 		}
 
@@ -461,10 +534,17 @@ func (p *StderrParser) parseFromBytes(data []byte, out chan<- []LogEntry) error 
 			syslogStripped = true
 		}
 
-		isContinuation := len(lineBytes) > 0 && (lineBytes[0] == ' ' || lineBytes[0] == '\t')
+		leadingSpace := len(lineBytes) > 0 && (lineBytes[0] == ' ' || lineBytes[0] == '\t')
+		stripped := p.stripLeadingPrefix(lineBytes)
+
+		if pgbrCarveOutLine(&carveOut, hooks, lineBytes, stripped) {
+			continue
+		}
+
+		isContinuation := leadingSpace
 
 		if !isContinuation && (entryStart >= 0 || hasCont || len(currentEntry) > 0) {
-			if !hasTimestampBytes(p.stripLeadingPrefix(lineBytes)) {
+			if !hasTimestampBytes(stripped) {
 				isContinuation = true
 			}
 		}
@@ -506,9 +586,7 @@ func (p *StderrParser) parseFromBytes(data []byte, out chan<- []LogEntry) error 
 		}
 	}
 
-	if entryStart >= 0 || hasCont {
-		emit()
-	}
+	carveOut.finish(hooks)
 
 	return nil
 }

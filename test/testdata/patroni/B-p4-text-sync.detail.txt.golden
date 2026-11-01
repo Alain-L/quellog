@@ -1,0 +1,59 @@
+quellog dev – 274 entries processed in X s (50.46 KB)
+[1m
+PATRONI
+[0m
+  Start date                : 2026-09-24 14:09:26
+  End date                  : 2026-09-24 14:16:47
+  Duration                  : 7m20.883s
+  Total entries             : 274
+  Members                   : pg1, pg2, pg3
+  Leader at end             : pg3 since 14:12:43
+  Leader changes            : 2, 1 switchover, 1 failover
+  Time without leader       : 31.717s
+  DCS incidents             : 0
+  Refused for lag           : 0
+  Errors                    : 9
+  Warnings                  : 5
+
+  Members:
+    pg1        replica     1m25.111s as leader      97 entries   14:09:26 → 14:16:47
+    pg2        replica     1m11.376s as leader      96 entries   14:09:27 → 14:16:47
+    pg3        leader       4m3.504s as leader      81 entries   14:09:27 → 14:16:47
+
+  Leader changes:
+    14:11:01  switchover  pg1 → pg2   1.309s without leader
+    [3;38;5;243m          postgres, any node  14:11:00  fast shutdown request[0m
+    [3;38;5;243m          postgres, any node  14:11:02  database system is ready to accept connections[0m
+    [3;38;5;243m          postgres, any node  14:11:03  reloading configuration files[0m
+    [3;38;5;243m          postgres, any node  14:11:04  database system is ready to accept connections[0m
+    [3;38;5;243m          postgres, any node  14:11:13  reloading configuration files[0m
+    14:12:43  failover    pg2 → pg3   30.408s without leader
+    [3;38;5;243m          postgres, any node  14:12:43  reloading configuration files ×2[0m
+    [3;38;5;243m          postgres, any node  14:12:43  database system is ready to accept connections[0m
+    [3;38;5;243m          postgres, any node  14:12:44  reloading configuration files[0m
+
+  Timeline:
+    14:09:35  pg1        bootstrap          initialized a new cluster
+    14:09:38  pg2        replica_created    replica has been created using basebackup
+    14:09:38  pg3        replica_created    replica has been created using basebackup
+    14:09:55  pg1        sync_standby       Assigning synchronous standby status to ['pg2']
+    14:11:00  pg1        switchover_request received switchover request with leader=pg1 candidate=pg2 scheduled_at=None
+    14:11:00  pg1        demote             Demoting self (graceful)
+    14:11:01  pg2        failover_key       Cleaning up failover key after acquiring leader lock...
+    14:11:02  pg2        promote            promoted self to leader by acquiring session lock
+    14:11:13  pg2        sync_standby       Assigning synchronous standby status to ['pg3']
+    14:12:43  pg3        promote            promoted self to leader by acquiring session lock
+    14:12:44  pg3        sync_standby       Assigning synchronous standby status to ['pg1']
+    14:13:16  pg2        crash_recovery     doing crash recovery in a single user mode
+    14:13:16  pg2        rewind             running pg_rewind from pg3
+    14:13:17  pg2        rewind_done        pg_rewind exit code=0
+
+  ERROR                     : 9 (3 kinds)
+    [3;38;5;243mer-KNB1[0m  Failed to get list of machines from http://etcd1:?/v3beta: ValueError     3   33.33%  14:09:26 → 14:09:27
+    [3;38;5;243mer-zqFU[0m  Failed to get list of machines from http://etcd2:?/v3beta: ValueError     3   33.33%  14:09:26 → 14:09:27
+    [3;38;5;243mer-X6QI[0m  Failed to get list of machines from http://etcd3:?/v3beta: ValueError     3   33.33%  14:09:26 → 14:09:27
+
+  WARNING                   : 5 (3 kinds)
+    [3;38;5;243mwa-kSV3[0m  Postgresql is not running.                                                   3   60.00%  14:13:16 → 14:13:17
+    [3;38;5;243mwa-oh9g[0m  Request failed to pg2: GET http://pg2:?/patroni (HTTPConnectionPool(host     1   20.00%  14:12:43
+    [3;38;5;243mwa-h1WD[0m  failed to resolve host pg2: [Errno -?] Name or service not known             1   20.00%  14:12:43

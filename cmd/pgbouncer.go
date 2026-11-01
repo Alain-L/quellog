@@ -53,20 +53,16 @@ func quietly(fn func()) {
 	fn()
 }
 
-// reportFormat is the format badge of the HTML report: the first input's,
-// exactly as a PostgreSQL run has it. With pooler files in the run it is
-// the first input that is not a pooler log, since those have their own
-// section; that search is silent, the parse having reported every file.
-func reportFormat(inputArgs []string, withPooler bool) string {
-	if !withPooler {
-		if len(inputArgs) == 0 {
-			return ""
-		}
-		return parser.DetectFileFormat(inputArgs[0])
-	}
+// reportFormat is the format badge of the HTML report: the format of the
+// first input that is a PostgreSQL log. Patroni and pooler logs have their
+// own sections; the search is silent, the parse having reported every file.
+func reportFormat(inputArgs []string) string {
 	format := ""
 	quietly(func() {
 		for _, a := range inputArgs {
+			if parser.IsPatroniLog(a) {
+				continue
+			}
 			if f := parser.DetectFileFormat(a); f != "pgbouncer" {
 				format = f
 				return

@@ -1,0 +1,259 @@
+{
+  "pgbackrest": [
+    {
+      "stanza": "main",
+      "files": [
+        "testdata/pgbackrest/S5/pgbackrest_logs/main-backup.log",
+        "testdata/pgbackrest/S5/pgbackrest_logs/main-expire.log",
+        "testdata/pgbackrest/S5/pgbackrest_logs/main-stanza-create.log"
+      ],
+      "lines_read": 106,
+      "versions": [
+        "2.59.3"
+      ],
+      "start_date": "2026-10-10 13:58:17",
+      "end_date": "2026-10-10 14:04:30",
+      "has_timestamps": true,
+      "saw_begin_end": true,
+      "backups_logged": true,
+      "backups": [
+        {
+          "label": "20261010-135818F",
+          "type": "full",
+          "repo": "repo1",
+          "start_date": "2026-10-10 13:58:18",
+          "end_date": "2026-10-10 13:58:37",
+          "duration_ms": 18377,
+          "size": "29.3MB",
+          "size_bytes": 30723277,
+          "file_total": 1265,
+          "succeeded": true,
+          "exec_id": "70-4dac2da8"
+        },
+        {
+          "label": "20261010-135922F",
+          "type": "full",
+          "repo": "repo1",
+          "start_date": "2026-10-10 13:59:22",
+          "end_date": "2026-10-10 13:59:33",
+          "duration_ms": 10423,
+          "size": "29.3MB",
+          "size_bytes": 30723277,
+          "file_total": 1265,
+          "succeeded": true,
+          "exec_id": "91-1f1e5e55"
+        },
+        {
+          "label": "20261010-135941F",
+          "type": "full",
+          "repo": "repo2",
+          "start_date": "2026-10-10 13:59:41",
+          "end_date": "2026-10-10 13:59:52",
+          "duration_ms": 11733,
+          "size": "29.3MB",
+          "size_bytes": 30723277,
+          "file_total": 1265,
+          "succeeded": true,
+          "exec_id": "103-e71cdf74"
+        },
+        {
+          "type": "diff",
+          "repo": "repo1",
+          "start_date": "2026-10-10 14:01:43",
+          "end_date": "2026-10-10 14:02:44",
+          "duration_ms": 60243,
+          "succeeded": false,
+          "error_code": 82,
+          "error_line": "WAL segment 00000001000000000000000B was not archived before the 60000ms timeout",
+          "error_label": "WAL not archived in time",
+          "exec_id": "196-a8055ebc"
+        },
+        {
+          "type": "diff",
+          "repo": "repo2",
+          "start_date": "2026-10-10 14:03:06",
+          "end_date": "2026-10-10 14:03:06",
+          "duration_ms": 4,
+          "succeeded": false,
+          "error_code": 41,
+          "error_line": "unable to load info file '/var/lib/pgbackrest/repo2/backup/main/backup.info' or '/var/lib/pgbackrest/repo2/backup/main/backup.info.copy':",
+          "error_detail": [
+            "FileOpenError: unable to open file '/var/lib/pgbackrest/repo2/backup/main/backup.info' for read: [13] Permission denied",
+            "FileOpenError: unable to open file '/var/lib/pgbackrest/repo2/backup/main/backup.info.copy' for read: [13] Permission denied"
+          ],
+          "error_label": "backup.info permission denied",
+          "exec_id": "225-fd1857fd"
+        },
+        {
+          "type": "diff",
+          "repo": "repo1",
+          "start_date": "2026-10-10 14:03:06",
+          "end_date": "2026-10-10 14:04:07",
+          "duration_ms": 60174,
+          "succeeded": false,
+          "error_code": 82,
+          "error_line": "WAL segment 00000001000000000000000C was not archived before the 60000ms timeout",
+          "error_label": "WAL not archived in time",
+          "exec_id": "229-02db7e53"
+        },
+        {
+          "label": "20261010-135922F_20261010-140428D",
+          "type": "diff",
+          "repo": "repo1",
+          "start_date": "2026-10-10 14:04:28",
+          "end_date": "2026-10-10 14:04:30",
+          "duration_ms": 1689,
+          "size": "480.3KB",
+          "size_bytes": 491827,
+          "file_total": 1265,
+          "succeeded": true,
+          "exec_id": "269-3fe9e7e0"
+        }
+      ],
+      "last_full": {
+        "label": "20261010-135941F",
+        "repo": "repo2",
+        "end_date": "2026-10-10 13:59:52",
+        "age_seconds": 278
+      },
+      "last_diff": {
+        "label": "20261010-135922F_20261010-140428D",
+        "repo": "repo1",
+        "end_date": "2026-10-10 14:04:30",
+        "age_seconds": 0
+      },
+      "commands": [
+        {
+          "command": "backup",
+          "runs": 7,
+          "succeeded": 4,
+          "failed": 3,
+          "total_duration_ms": 162643,
+          "max_duration_ms": 60243
+        },
+        {
+          "command": "expire",
+          "runs": 4,
+          "succeeded": 4,
+          "failed": 0,
+          "total_duration_ms": 5,
+          "max_duration_ms": 2
+        },
+        {
+          "command": "stanza-create",
+          "runs": 1,
+          "succeeded": 1,
+          "failed": 0,
+          "total_duration_ms": 176,
+          "max_duration_ms": 176
+        }
+      ],
+      "archive_push": {
+        "logged": false,
+        "async_logged": false,
+        "pushed": 0,
+        "pushed_async": 0,
+        "found": 0,
+        "found_async": 0,
+        "not_found": 0,
+        "not_found_async": 0,
+        "dropped": 0,
+        "failed": 0,
+        "failed_async": 0,
+        "timeouts": 2
+      },
+      "archive_get": {
+        "logged": false,
+        "async_logged": false,
+        "pushed": 0,
+        "pushed_async": 0,
+        "found": 0,
+        "found_async": 0,
+        "not_found": 0,
+        "not_found_async": 0,
+        "dropped": 0,
+        "failed": 0,
+        "failed_async": 0,
+        "timeouts": 0
+      },
+      "expire_runs": [
+        {
+          "date": "2026-10-10 13:58:37",
+          "repo": "all",
+          "archive_removed": 0,
+          "succeeded": true
+        },
+        {
+          "date": "2026-10-10 13:59:33",
+          "repo": "all",
+          "archive_removed": 1,
+          "succeeded": true
+        },
+        {
+          "date": "2026-10-10 13:59:52",
+          "repo": "repo2",
+          "archive_removed": 0,
+          "succeeded": true
+        },
+        {
+          "date": "2026-10-10 14:04:30",
+          "repo": "repo1",
+          "archive_removed": 0,
+          "succeeded": true
+        }
+      ],
+      "operations": [
+        {
+          "command": "stanza-create",
+          "date": "2026-10-10 13:58:17",
+          "summary": "stanza-create for stanza 'main' on repo1; stanza-create for stanza 'main' on repo2",
+          "succeeded": true,
+          "has_outcome": true,
+          "duration_ms": 176,
+          "detail": "on repo1, repo2"
+        }
+      ],
+      "errors": [
+        {
+          "id": "er-dczP",
+          "label": "WAL not archived in time",
+          "code": 82,
+          "message": "WAL segment ... was not archived before the 60000ms timeout",
+          "example": "WAL segment 00000001000000000000000B was not archived before the 60000ms timeout",
+          "count": 2,
+          "first_date": "2026-10-10 14:02:44",
+          "last_date": "2026-10-10 14:04:07",
+          "commands": [
+            "backup"
+          ],
+          "dates": [
+            "2026-10-10 14:02:44",
+            "2026-10-10 14:04:07"
+          ]
+        },
+        {
+          "id": "er-wRib",
+          "label": "backup.info permission denied",
+          "code": 41,
+          "message": "unable to load info file '.../main/backup.info' or '.../main/backup.info.copy':",
+          "example": "unable to load info file '/var/lib/pgbackrest/repo2/backup/main/backup.info' or '/var/lib/pgbackrest/repo2/backup/main/backup.info.copy':",
+          "detail": [
+            "FileOpenError: unable to open file '/var/lib/pgbackrest/repo2/backup/main/backup.info' for read: [13] Permission denied",
+            "FileOpenError: unable to open file '/var/lib/pgbackrest/repo2/backup/main/backup.info.copy' for read: [13] Permission denied"
+          ],
+          "count": 1,
+          "first_date": "2026-10-10 14:03:06",
+          "last_date": "2026-10-10 14:03:06",
+          "commands": [
+            "backup"
+          ],
+          "dates": [
+            "2026-10-10 14:03:06"
+          ]
+        }
+      ],
+      "pg_retry_warnings": 0,
+      "pg_restore_failures": 0
+    }
+  ]
+}

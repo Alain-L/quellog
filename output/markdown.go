@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/Alain-L/quellog/analysis"
 )
@@ -26,6 +27,11 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 	}
 
 	var b strings.Builder
+	if m.Patroni != nil && has("patroni") && m.Global.Count == 0 {
+		writePatroniMarkdown(&b, m.Patroni, full)
+		fmt.Fprintln(w, b.String())
+		return
+	}
 	duration := m.Global.MaxTimestamp.Sub(m.Global.MinTimestamp)
 
 	// ============================================================================
@@ -644,6 +650,9 @@ func ExportMarkdown(w io.Writer, m analysis.AggregatedMetrics, sections []string
 		// Don't include TempFiles/Locks here - they're already shown in their respective sections above
 		b.WriteString("## SQL PERFORMANCE\n\n")
 		exportSQLSummaryMarkdownTo(&b, m.SQL, analysis.TempFileMetrics{}, analysis.LockMetrics{})
+	}
+	if m.Patroni != nil && has("patroni") {
+		writePatroniMarkdown(&b, m.Patroni, full)
 	}
 
 	fmt.Fprintln(w, b.String())
@@ -2180,11 +2189,11 @@ func mdTable(b *strings.Builder, headers []string, alignments string, rows [][]s
 	}
 	widths := make([]int, len(headers))
 	for i, h := range hdr {
-		widths[i] = len(h)
+		widths[i] = utf8.RuneCountInString(h)
 	}
 	for _, row := range esc {
 		for i := 0; i < len(widths) && i < len(row); i++ {
-			if l := len(row[i]); l > widths[i] {
+			if l := utf8.RuneCountInString(row[i]); l > widths[i] {
 				widths[i] = l
 			}
 		}
@@ -2194,7 +2203,7 @@ func mdTable(b *strings.Builder, headers []string, alignments string, rows [][]s
 		for i, c := range cells {
 			b.WriteByte('|')
 			b.WriteByte(' ')
-			pad := widths[i] - len(c)
+			pad := widths[i] - utf8.RuneCountInString(c)
 			if right(i) {
 				b.WriteString(strings.Repeat(" ", pad))
 				b.WriteString(c)

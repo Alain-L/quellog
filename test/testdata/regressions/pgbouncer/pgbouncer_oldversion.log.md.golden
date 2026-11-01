@@ -44,8 +44,8 @@
 
 | Metric           | Weighted average | Max snapshot average | At |
 |------------------|-----------------:|---------------------:|---:|
-| Transaction time |            0 µs |                0 µs |  - |
-| Query time       |            0 µs |                0 µs |  - |
+| Transaction time |             0 µs |                 0 µs |  - |
+| Query time       |             0 µs |                 0 µs |  - |
 
 ## Pool Wait
 

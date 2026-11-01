@@ -82,6 +82,12 @@ func detectFormatFromSample(sample string) LogParser {
 		return &StderrParser{}
 	}
 
+	// pgBackRest's own log: the stderr parser carves its lines out.
+	if looksLikePgBackRest(sample) {
+		slog.Info("detected pgBackRest format from stdin")
+		return &StderrParser{}
+	}
+
 	return nil
 }
 

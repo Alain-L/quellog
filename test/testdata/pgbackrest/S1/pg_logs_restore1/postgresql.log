@@ -1,0 +1,10 @@
+2026-10-10 13:12:43.012 UTC [722] LOG:  redirecting log output to logging collector process
+2026-10-10 13:12:43.012 UTC [722] HINT:  Future log output will appear in directory "/var/log/postgresql/main".
+2026-10-10 13:12:47.288 UTC [766] LOG:  redirecting log output to logging collector process
+2026-10-10 13:12:47.288 UTC [766] HINT:  Future log output will appear in directory "/var/log/postgresql/main".
+2026-10-10 13:14:01.652 UTC [830] LOG:  starting PostgreSQL 16.15 (Debian 16.15-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+2026-10-10 13:14:01.652 UTC [830] LOG:  listening on IPv4 address "0.0.0.0", port 5433
+2026-10-10 13:14:01.652 UTC [830] LOG:  listening on IPv6 address "::", port 5433
+2026-10-10 13:14:01.661 UTC [830] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5433"
+2026-10-10 13:14:01.672 UTC [834] LOG:  database system was shut down at 2026-10-10 13:14:01 UTC
+2026-10-10 13:14:01.682 UTC [830] LOG:  database system is ready to accept connections

@@ -313,13 +313,25 @@ func ExportHTML(w io.Writer, metrics analysis.AggregatedMetrics, info HTMLReport
 	return renderReportHTML(w, buildReportData(metrics, info, sections), info.Version)
 }
 
-// ExportHTMLCombined exports the HTML report with an optional pgBouncer
-// section. When pgb is present, a "pgbouncer" key (one entry per pooler)
-// is added to the payload so the web app renders the pooler sections alongside the PostgreSQL
-// sections. pgbOnly marks a pure pgBouncer run so the app suppresses the
-// (empty) PostgreSQL sections and shows only the pooler report.
-func ExportHTMLCombined(w io.Writer, metrics analysis.AggregatedMetrics, pgb []analysis.PgBouncerMetrics, info HTMLReportInfo, sections []string, pgbOnly bool) error {
+// ExportHTMLCombined exports the HTML report with optional pgBackRest and
+// pgBouncer sections. When pbr is present, a "pgbackrest" key (one entry
+// per stanza) is added to the payload, and when pgb is, a "pgbouncer" key
+// (one entry per pooler), so the web app renders them alongside the
+// PostgreSQL sections. pbrOnly and pgbOnly mark a pure pgBackRest or
+// pgBouncer run, so the app suppresses the (empty) PostgreSQL sections
+// and shows only that report.
+func ExportHTMLCombined(w io.Writer, metrics analysis.AggregatedMetrics, pbr []analysis.PgBackRestMetrics, pgb []analysis.PgBouncerMetrics, info HTMLReportInfo, sections []string, pbrOnly, pgbOnly bool) error {
+	// A pgBackRest-only run is a default report.
+	if pbrOnly && sections == nil {
+		sections = []string{"all"}
+	}
 	data := buildReportData(metrics, info, sections)
+	if len(pbr) > 0 {
+		data["pgbackrest"] = pgBackRestJSONList(pbr)
+	}
+	if pbrOnly {
+		data["pgbackrest_only"] = true
+	}
 	if len(pgb) > 0 {
 		data["pgbouncer"] = pgbouncerJSON(pgb)
 	}

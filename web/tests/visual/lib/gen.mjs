@@ -34,9 +34,14 @@ export function generateReport(binPath, fixturePath, tmpDir, outName, extraArgs 
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'inherit'],
   });
-  // The CLI writes <input-basename>.html into its cwd.
-  const base = fixturePath.split('/').pop().replace(/\.[^.]+$/, '');
-  const produced = join(tmpDir, `${base}.html`);
+  // The CLI prints "Report saved to <name>" with the exact filename it
+  // chose (generateHTMLFilename in cmd/execute.go only strips a handful of
+  // known extensions — .log/.csv/.gz/.zst/.tar/.tgz — so a fixture with any
+  // other extension, e.g. a bare console-output capture named "*.out",
+  // keeps it: "foo.out" -> "foo.out.html", not "foo.html". Reading the
+  // line back is more robust than reimplementing that rule here.
+  const match = stdout.match(/^Report saved to (\S+)/m);
+  const produced = match ? join(tmpDir, match[1]) : join(tmpDir, `${fixturePath.split('/').pop().replace(/\.[^.]+$/, '')}.html`);
   if (!existsSync(produced)) {
     throw new Error(`expected report ${produced} was not produced.\nCLI output: ${stdout}`);
   }

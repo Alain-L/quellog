@@ -1,0 +1,5 @@
+P00   INFO: check command begin 2.59.3: --exec-id=124-d52c2834 --log-level-console=info --log-level-file=info --no-log-timestamp --pg1-path=/var/lib/pg/main --pg1-port=5432 --repo1-path=/var/lib/pgbackrest/repo1 --stanza=main
+P00   INFO: check repo1 configuration (primary)
+P00   INFO: check repo1 archive for WAL (primary)
+P00   INFO: WAL segment 000000010000000000000007 successfully archived to '/var/lib/pgbackrest/repo1/archive/main/17-1/0000000100000000/000000010000000000000007-fc50bd6c7c0b4467e052ad3b57d5d59e33556551.gz' on repo1
+P00   INFO: check command end: completed successfully

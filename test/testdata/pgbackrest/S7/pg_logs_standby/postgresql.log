@@ -1,0 +1,106 @@
+2026-10-24 20:39:08.477 UTC [444] LOG:  starting PostgreSQL 17.11 (Debian 17.11-1.pgdg13+2) on aarch64-unknown-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+2026-10-24 20:39:08.477 UTC [444] LOG:  listening on IPv4 address "0.0.0.0", port 5435
+2026-10-24 20:39:08.477 UTC [444] LOG:  listening on IPv6 address "::", port 5435
+2026-10-24 20:39:08.478 UTC [444] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5435"
+2026-10-24 20:39:08.481 UTC [448] LOG:  database system was interrupted; last known up at 2026-10-24 20:38:47 UTC
+2026-10-24 20:39:08.536 UTC [448] LOG:  starting backup recovery with redo LSN 0/D000028, checkpoint LSN 0/D000080, on timeline ID 1
+2026-10-24 20:39:08.655 UTC [448] LOG:  restored log file "00000001000000000000000D" from archive
+2026-10-24 20:39:08.666 UTC [448] LOG:  entering standby mode
+2026-10-24 20:39:08.670 UTC [448] LOG:  redo starts at 0/D000028
+2026-10-24 20:39:08.682 UTC [448] LOG:  restored log file "00000001000000000000000E" from archive
+2026-10-24 20:39:08.695 UTC [448] LOG:  completed backup recovery with redo LSN 0/D000028 and end LSN 0/D000120
+2026-10-24 20:39:08.695 UTC [448] LOG:  consistent recovery state reached at 0/D000120
+2026-10-24 20:39:08.695 UTC [444] LOG:  database system is ready to accept read-only connections
+2026-10-24 20:39:08.801 UTC [448] LOG:  restored log file "00000001000000000000000F" from archive
+2026-10-24 20:39:08.934 UTC [448] LOG:  restored log file "000000010000000000000010" from archive
+2026-10-24 20:39:09.316 UTC [448] LOG:  waiting for WAL to become available at 0/11000018
+2026-10-24 20:39:14.302 UTC [448] LOG:  restored log file "000000010000000000000011" from archive
+2026-10-24 20:39:14.320 UTC [448] LOG:  restored log file "000000010000000000000012" from archive
+2026-10-24 20:39:14.441 UTC [448] LOG:  restored log file "000000010000000000000013" from archive
+2026-10-24 20:39:14.560 UTC [448] LOG:  restored log file "000000010000000000000014" from archive
+2026-10-24 20:39:14.821 UTC [448] LOG:  waiting for WAL to become available at 0/15000018
+2026-10-24 20:39:19.322 UTC [448] LOG:  restored log file "000000010000000000000015" from archive
+2026-10-24 20:39:19.443 UTC [448] LOG:  restored log file "000000010000000000000016" from archive
+2026-10-24 20:39:19.697 UTC [448] LOG:  waiting for WAL to become available at 0/17000018
+2026-10-24 20:39:24.359 UTC [448] LOG:  waiting for WAL to become available at 0/17000018
+2026-10-24 20:39:29.351 P00  ERROR: [103]: unable to find a valid repository
+                                    repo1: [FileOpenError] unable to load info file '/var/lib/pgbackrest/archive/main/archive.info' or '/var/lib/pgbackrest/archive/main/archive.info.copy':
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/archive/main/archive.info' for read: [13] Permission denied
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/archive/main/archive.info.copy' for read: [13] Permission denied
+                                    HINT: archive.info cannot be opened but is required to push/get WAL segments.
+                                    HINT: is archive_command configured correctly in postgresql.conf?
+                                    HINT: has a stanza-create been performed?
+                                    HINT: use --no-archive-check to disable archive checks during backup if you have an alternate archiving scheme.
+2026-10-24 20:39:29.366 P00   WARN: repo1: [FileOpenError] unable to load info file '/var/lib/pgbackrest/archive/main/archive.info' or '/var/lib/pgbackrest/archive/main/archive.info.copy':
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/archive/main/archive.info' for read: [13] Permission denied
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/archive/main/archive.info.copy' for read: [13] Permission denied
+                                    HINT: archive.info cannot be opened but is required to push/get WAL segments.
+                                    HINT: is archive_command configured correctly in postgresql.conf?
+                                    HINT: has a stanza-create been performed?
+                                    HINT: use --no-archive-check to disable archive checks during backup if you have an alternate archiving scheme.
+2026-10-24 20:39:29.366 P00  ERROR: [103]: unable to find a valid repository
+2026-10-24 20:39:29.367 UTC [448] LOG:  waiting for WAL to become available at 0/17000018
+2026-10-24 20:39:34.360 P00  ERROR: [103]: unable to find a valid repository
+                                    repo1: [FileOpenError] unable to load info file '/var/lib/pgbackrest/archive/main/archive.info' or '/var/lib/pgbackrest/archive/main/archive.info.copy':
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/archive/main/archive.info' for read: [13] Permission denied
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/archive/main/archive.info.copy' for read: [13] Permission denied
+                                    HINT: archive.info cannot be opened but is required to push/get WAL segments.
+                                    HINT: is archive_command configured correctly in postgresql.conf?
+                                    HINT: has a stanza-create been performed?
+                                    HINT: use --no-archive-check to disable archive checks during backup if you have an alternate archiving scheme.
+2026-10-24 20:39:34.377 P00   WARN: repo1: [FileOpenError] unable to load info file '/var/lib/pgbackrest/archive/main/archive.info' or '/var/lib/pgbackrest/archive/main/archive.info.copy':
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/archive/main/archive.info' for read: [13] Permission denied
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/archive/main/archive.info.copy' for read: [13] Permission denied
+                                    HINT: archive.info cannot be opened but is required to push/get WAL segments.
+                                    HINT: is archive_command configured correctly in postgresql.conf?
+                                    HINT: has a stanza-create been performed?
+                                    HINT: use --no-archive-check to disable archive checks during backup if you have an alternate archiving scheme.
+2026-10-24 20:39:34.377 P00  ERROR: [103]: unable to find a valid repository
+2026-10-24 20:39:34.378 UTC [448] LOG:  waiting for WAL to become available at 0/17000018
+2026-10-24 20:39:39.362 P00  ERROR: [103]: unable to find a valid repository
+                                    repo1: [FileOpenError] unable to load info file '/var/lib/pgbackrest/archive/main/archive.info' or '/var/lib/pgbackrest/archive/main/archive.info.copy':
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/archive/main/archive.info' for read: [13] Permission denied
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/archive/main/archive.info.copy' for read: [13] Permission denied
+                                    HINT: archive.info cannot be opened but is required to push/get WAL segments.
+                                    HINT: is archive_command configured correctly in postgresql.conf?
+                                    HINT: has a stanza-create been performed?
+                                    HINT: use --no-archive-check to disable archive checks during backup if you have an alternate archiving scheme.
+2026-10-24 20:39:39.381 P00   WARN: repo1: [FileOpenError] unable to load info file '/var/lib/pgbackrest/archive/main/archive.info' or '/var/lib/pgbackrest/archive/main/archive.info.copy':
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/archive/main/archive.info' for read: [13] Permission denied
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/archive/main/archive.info.copy' for read: [13] Permission denied
+                                    HINT: archive.info cannot be opened but is required to push/get WAL segments.
+                                    HINT: is archive_command configured correctly in postgresql.conf?
+                                    HINT: has a stanza-create been performed?
+                                    HINT: use --no-archive-check to disable archive checks during backup if you have an alternate archiving scheme.
+2026-10-24 20:39:39.381 P00  ERROR: [103]: unable to find a valid repository
+2026-10-24 20:39:39.382 UTC [448] LOG:  waiting for WAL to become available at 0/17000018
+2026-10-24 20:39:44.412 P00  ERROR: [103]: unable to find a valid repository
+                                    repo1: [FileOpenError] unable to load info file '/var/lib/pgbackrest/archive/main/archive.info' or '/var/lib/pgbackrest/archive/main/archive.info.copy':
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/archive/main/archive.info' for read: [13] Permission denied
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/archive/main/archive.info.copy' for read: [13] Permission denied
+                                    HINT: archive.info cannot be opened but is required to push/get WAL segments.
+                                    HINT: is archive_command configured correctly in postgresql.conf?
+                                    HINT: has a stanza-create been performed?
+                                    HINT: use --no-archive-check to disable archive checks during backup if you have an alternate archiving scheme.
+2026-10-24 20:39:44.421 P00   WARN: repo1: [FileOpenError] unable to load info file '/var/lib/pgbackrest/archive/main/archive.info' or '/var/lib/pgbackrest/archive/main/archive.info.copy':
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/archive/main/archive.info' for read: [13] Permission denied
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/archive/main/archive.info.copy' for read: [13] Permission denied
+                                    HINT: archive.info cannot be opened but is required to push/get WAL segments.
+                                    HINT: is archive_command configured correctly in postgresql.conf?
+                                    HINT: has a stanza-create been performed?
+                                    HINT: use --no-archive-check to disable archive checks during backup if you have an alternate archiving scheme.
+2026-10-24 20:39:44.421 P00  ERROR: [103]: unable to find a valid repository
+2026-10-24 20:39:44.422 UTC [448] LOG:  waiting for WAL to become available at 0/17000018
+2026-10-24 20:39:49.344 UTC [448] LOG:  restored log file "000000010000000000000017" from archive
+2026-10-24 20:39:49.371 UTC [448] LOG:  restored log file "000000010000000000000018" from archive
+2026-10-24 20:39:49.495 UTC [448] LOG:  restored log file "000000010000000000000019" from archive
+2026-10-24 20:39:49.616 UTC [448] LOG:  restored log file "00000001000000000000001A" from archive
+2026-10-24 20:39:50.087 UTC [448] LOG:  restored log file "00000001000000000000001B" from archive
+2026-10-24 20:39:50.335 UTC [448] LOG:  waiting for WAL to become available at 0/1C000018
+2026-10-24 20:39:54.359 UTC [448] LOG:  waiting for WAL to become available at 0/1C000018
+2026-10-24 20:39:59.398 UTC [448] LOG:  waiting for WAL to become available at 0/1C000018
+2026-10-24 20:40:04.415 UTC [448] LOG:  waiting for WAL to become available at 0/1C000018
+2026-10-24 20:40:05.766 UTC [444] LOG:  received fast shutdown request
+2026-10-24 20:40:05.768 UTC [444] LOG:  aborting any active transactions
+2026-10-24 20:40:05.770 UTC [446] LOG:  shutting down
+2026-10-24 20:40:05.772 UTC [444] LOG:  database system is shut down

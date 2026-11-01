@@ -1,0 +1,111 @@
+## PATRONI
+
+| Metric              |                                   Value |
+|---------------------|----------------------------------------:|
+| Start date          |                     2026-09-24 14:09:29 |
+| End date            |                     2026-09-24 14:27:25 |
+| Duration            |                              17m56.604s |
+| Total entries       |                                    1912 |
+| Members             |                           pg1, pg2, pg3 |
+| Leader at end       |                      pg2 since 14:22:43 |
+| Leader changes      | 3, 1 switchover, 2 failovers, 1 retaken |
+| Time without leader |                               1m56.013s |
+| DCS incidents       |                      1, longest 49.344s |
+| Refused for lag     |                                       0 |
+| Errors              |                                     733 |
+| Warnings            |                                     594 |
+
+### Members
+
+| Member | Role    | Leader time | Entries | First seen          | Last seen           |
+|--------|---------|------------:|--------:|---------------------|---------------------|
+| pg1    | replica |   8m37.267s |     664 | 2026-09-24 14:09:29 | 2026-09-24 14:27:25 |
+| pg2    | leader  |   7m19.495s |     591 | 2026-09-24 14:09:29 | 2026-09-24 14:27:25 |
+| pg3    | replica |          0s |     657 | 2026-09-24 14:09:29 | 2026-09-24 14:27:25 |
+
+### Leader changes
+
+| Time                | Kind       | Change    | Without leader | PostgreSQL around it, any node                                                                                                                                                                |
+|---------------------|------------|-----------|---------------:|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| 2026-09-24 14:10:18 | switchover | pg1 → pg2 |         1.291s | 14:10:17  fast shutdown request; 14:10:18  database system is ready to accept connections; 14:10:20  reloading configuration files; 14:10:20  database system is ready to accept connections  |
+| 2026-09-24 14:13:31 | failover   | pg2 → pg1 |        34.413s | 14:13:31  reloading configuration files; 14:13:31  database system is ready to accept connections; 14:13:54  system was interrupted; 14:13:54  database system is ready to accept connections |
+| 2026-09-24 14:20:42 | retaken    | pg1 → pg1 |        49.948s | 14:19:52  fast shutdown request; 14:19:52  database system is ready to accept connections; 14:20:42  database system is ready to accept connections                                           |
+| 2026-09-24 14:22:43 | failover   | pg1 → pg2 |        30.361s | 14:22:43  database system is ready to accept connections; 14:22:47  reloading configuration files; 14:23:02  system was interrupted; 14:23:02  database system is ready to accept connections |
+
+### DCS incidents
+
+| Start               | End                 | Duration | Members       |
+|---------------------|---------------------|---------:|---------------|
+| 2026-09-24 14:19:52 | 2026-09-24 14:20:42 |  49.344s | pg1, pg2, pg3 |
+
+### Timeline
+
+| Time                | Member | Event              | Detail                                                                      |
+|---------------------|--------|--------------------|-----------------------------------------------------------------------------|
+| 2026-09-24 14:09:32 | pg1    | bootstrap          | initialized a new cluster                                                   |
+| 2026-09-24 14:09:35 | pg2    | replica_created    | replica has been created using basebackup                                   |
+| 2026-09-24 14:09:35 | pg3    | replica_created    | replica has been created using basebackup                                   |
+| 2026-09-24 14:10:17 | pg1    | switchover_request | received switchover request with leader=pg1 candidate=pg2 scheduled_at=None |
+| 2026-09-24 14:10:17 | pg1    | demote             | Demoting self (graceful)                                                    |
+| 2026-09-24 14:10:18 | pg3    | switchover_seen    | switchover: to pg2, i am pg3                                                |
+| 2026-09-24 14:10:18 | pg2    | failover_key       | Cleaning up failover key after acquiring leader lock...                     |
+| 2026-09-24 14:10:18 | pg2    | promote            | promoted self to leader by acquiring session lock                           |
+| 2026-09-24 14:11:36 | pg2    | pause              |                                                                             |
+| 2026-09-24 14:11:56 | pg1    | resume             |                                                                             |
+| 2026-09-24 14:13:31 | pg1    | promote            | promoted self to leader by acquiring session lock                           |
+| 2026-09-24 14:13:52 | pg2    | crash_recovery     | doing crash recovery in a single user mode                                  |
+| 2026-09-24 14:13:53 | pg2    | rewind             | running pg_rewind from pg1                                                  |
+| 2026-09-24 14:13:53 | pg2    | rewind_done        | pg_rewind exit code=0                                                       |
+| 2026-09-24 14:15:24 | pg2    | reinit             | Removing data directory: /home/postgres/data                                |
+| 2026-09-24 14:15:29 | pg2    | replica_created    | replica has been created using basebackup                                   |
+| 2026-09-24 14:19:52 | pg1    | demote             | demoting self because DCS is not accessible and I was a leader              |
+| 2026-09-24 14:19:52 | pg3    | dcs_lost           | DCS is not accessible                                                       |
+| 2026-09-24 14:19:52 | pg2    | dcs_lost           | DCS is not accessible                                                       |
+| 2026-09-24 14:20:02 | pg1    | dcs_lost           | DCS is not accessible                                                       |
+| 2026-09-24 14:20:41 | pg2    | dcs_restored       | after 49s                                                                   |
+| 2026-09-24 14:20:42 | pg3    | dcs_restored       | after 49s                                                                   |
+| 2026-09-24 14:20:42 | pg1    | dcs_restored       | after 40s                                                                   |
+| 2026-09-24 14:20:42 | pg1    | promote            | promoted self to leader because I had the session lock                      |
+| 2026-09-24 14:22:43 | pg2    | promote            | promoted self to leader by acquiring session lock                           |
+| 2026-09-24 14:23:01 | pg1    | crash_recovery     | doing crash recovery in a single user mode                                  |
+| 2026-09-24 14:23:01 | pg1    | rewind             | running pg_rewind from pg2                                                  |
+| 2026-09-24 14:23:01 | pg1    | rewind_done        | pg_rewind exit code=0                                                       |
+
+### ERROR: 733, 15 kinds
+
+| ID        | Message                                                              | Count |  Share | When                |
+|-----------|----------------------------------------------------------------------|------:|-------:|---------------------|
+| `er-4HFh` | Failed to get list of machines from http://etcd1:?/v3: MaxRetryError |   169 | 23.06% | 14:19:36 → 14:20:41 |
+| `er-Vywt` | Failed to get list of machines from http://etcd2:?/v3: MaxRetryError |   169 | 23.06% | 14:19:36 → 14:20:41 |
+| `er-OQ5I` | Failed to get list of machines from http://etcd3:?/v3: MaxRetryError |   169 | 23.06% | 14:19:36 → 14:20:41 |
+| `er-rR5F` | KVCache.run EtcdConnectionFailed                                     |   164 | 22.37% | 14:19:43 → 14:20:41 |
+| `er-r32e` | Error communicating with DCS                                         |    15 |  2.05% | 14:19:52 → 14:20:32 |
+| `er-FlFr` | Exceeded retry deadline                                              |    12 |  1.64% | 14:20:02 → 14:20:32 |
+| `er-TGDH` | Request to server http://etcd2:? failed: MaxRetryError               |     8 |  1.09% | 14:19:34 → 14:19:47 |
+| `er-hWDI` | Request to server http://etcd1:? failed: MaxRetryError               |     7 |  0.95% | 14:19:36 → 14:19:45 |
+| `er-3ceq` | Request to server http://etcd3:? failed: MaxRetryError               |     7 |  0.95% | 14:19:36 → 14:19:45 |
+| `er-HY4b` | watchprefix failed: ProtocolError                                    |     4 |  0.55% | 14:13:31 → 14:22:47 |
+| `er-aZxs` | get_cluster                                                          |     3 |  0.41% | 14:19:52            |
+| `er-6gdI` | watchprefix failed: <Unavailable error: ?, code: ?>                  |     3 |  0.41% | 14:19:34 → 14:19:36 |
+| `er-dtX9` | Request to server http://etcd1:? failed: ReadTimeoutError            |     1 |  0.14% | 14:18:45            |
+| `er-yfaq` | Request to server http://etcd2:? failed: ReadTimeoutError            |     1 |  0.14% | 14:16:45            |
+| `er-hML3` | Request to server http://etcd3:? failed: StaleEtcdNode()             |     1 |  0.14% | 14:19:34            |
+
+### WARNING: 594, 12 kinds
+
+| ID        | Message                                                                                                                                                     | Count |  Share | When                |
+|-----------|-------------------------------------------------------------------------------------------------------------------------------------------------------------|------:|-------:|---------------------|
+| `wa-FZfE` | failed to resolve host etcd1: [Errno -?] Name or service not known                                                                                          |   194 | 32.66% | 14:16:47 → 14:20:41 |
+| `wa-kgZP` | failed to resolve host etcd2: [Errno -?] Name or service not known                                                                                          |   185 | 31.14% | 14:16:46 → 14:20:41 |
+| `wa-bYfk` | failed to resolve host etcd3: [Errno -?] Name or service not known                                                                                          |   184 | 30.98% | 14:16:45 → 14:20:41 |
+| `wa-DFJK` | Loop time exceeded, rescheduling immediately.                                                                                                               |    15 |  2.53% | 14:19:52 → 14:20:32 |
+| `wa-kSV3` | Postgresql is not running.                                                                                                                                  |     6 |  1.01% | 14:13:52 → 14:23:01 |
+| `wa-Bozr` | Could not activate Linux watchdog device: Can't open watchdog device: [Errno ?] No such file or directory: ?                                                |     3 |  0.51% | 14:09:32 → 14:22:43 |
+| `wa-j2XC` | Request failed to pg2: GET http://pg2:?/patroni (HTTPConnectionPool(host=?, port=?): Max retries exceeded with url: /patroni (Caused by ConnectTimeoutError |     2 |  0.34% | 14:13:31            |
+| `wa-Mjox` | Connected to Etcd node with term ?. Old known term ?. Switching to another node.                                                                            |     1 |  0.17% | 14:19:34            |
+| `wa-oQ0u` | Request failed to pg1: GET http://pg1:?/patroni (HTTPConnectionPool(host=?, port=?): Max retries exceeded with url: /patroni (Caused by ConnectTimeoutError |     1 |  0.17% | 14:22:47            |
+| `wa-K818` | Request failed to pg1: GET http://pg1:?/patroni (HTTPConnectionPool(host=?, port=?): Max retries exceeded with url: /patroni (Caused by NewConnectionError  |     1 |  0.17% | 14:22:43            |
+| `wa-zPhM` | failed to resolve host etcd3: [Errno -?] No address associated with hostname                                                                                |     1 |  0.17% | 14:19:41            |
+| `wa-rNNY` | failed to resolve host pg1: [Errno -?] Name or service not known                                                                                            |     1 |  0.17% | 14:22:43            |
+
+

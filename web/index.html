@@ -118,11 +118,11 @@
             <!-- Drop Zone -->
             <div class="drop-zone" id="dropZone">
                 <div class="drop-zone-icon">&#128193;</div>
-                <h2>Drop your PostgreSQL log file</h2>
+                <h2>Drop your PostgreSQL log files</h2>
                 <p>Supports stderr, CSV, JSON formats + gzip, zstd, tar, zip archives - all processing happens locally</p>
-                <button class="btn" onclick="document.getElementById('fileInput').click()">Select File</button>
-                <input type="file" id="fileInput" accept=".log,.csv,.json,.jsonl,.txt,.gz,.gzip,.zst,.zstd,.tar,.tgz,.tzst,.tar.gz,.tar.zst,.zip">
-                <div class="demo-hint" id="demoBtn" style="display:none"><a onclick="loadDemo()">See example report</a></div>
+                <button class="btn" onclick="document.getElementById('fileInput').click()">Select Files</button>
+                <input type="file" id="fileInput" multiple accept=".log,.csv,.json,.jsonl,.txt,.gz,.gzip,.zst,.zstd,.tar,.tgz,.tzst,.tar.gz,.tar.zst,.zip">
+                <div class="demo-hint" id="demoBtn" style="display:none"><a onclick="loadDemo()">See example report</a><span id="demoPgbr" style="display:none"> · <a onclick="loadDemo('pgbackrest')">with pgBackRest</a></span><span id="demoPatroni" style="display:none"> · <a onclick="loadDemo('patroni')">with Patroni</a></span></div>
             </div>
 
             <!-- Loading -->

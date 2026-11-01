@@ -1,0 +1,97 @@
+=== patronictl list @ 2026-09-24T14:10:14Z (after bootstrap) ===
++ Cluster: main (7689103724847792155) +----+-----------+
+| Member | Host | Role    | State     | TL | Lag in MB |
++--------+------+---------+-----------+----+-----------+
+| pg1    | pg1  | Leader  | running   |  1 |           |
+| pg2    | pg2  | Replica | streaming |  1 |         0 |
+| pg3    | pg3  | Replica | streaming |  1 |         0 |
++--------+------+---------+-----------+----+-----------+
+
+=== patronictl list @ 2026-09-24T14:11:34Z (after switchover) ===
++ Cluster: main (7689103724847792155) +----+-----------+
+| Member | Host | Role    | State     | TL | Lag in MB |
++--------+------+---------+-----------+----+-----------+
+| pg1    | pg1  | Replica | streaming |  2 |         0 |
+| pg2    | pg2  | Leader  | running   |  2 |           |
+| pg3    | pg3  | Replica | streaming |  2 |         0 |
++--------+------+---------+-----------+----+-----------+
+
+=== patronictl list @ 2026-09-24T14:12:56Z (after pause/resume) ===
++ Cluster: main (7689103724847792155) +----+-----------+
+| Member | Host | Role    | State     | TL | Lag in MB |
++--------+------+---------+-----------+----+-----------+
+| pg1    | pg1  | Replica | streaming |  2 |         0 |
+| pg2    | pg2  | Leader  | running   |  2 |           |
+| pg3    | pg3  | Replica | streaming |  2 |         0 |
++--------+------+---------+-----------+----+-----------+
+
+=== patronictl list @ 2026-09-24T14:13:51Z (after failover kill of pg2) ===
++ Cluster: main (7689103724847792155) +----+-----------+
+| Member | Host | Role    | State     | TL | Lag in MB |
++--------+------+---------+-----------+----+-----------+
+| pg1    | pg1  | Leader  | running   |  3 |           |
+| pg3    | pg3  | Replica | streaming |  3 |         0 |
++--------+------+---------+-----------+----+-----------+
+
+=== patronictl list @ 2026-09-24T14:15:22Z (after old leader restart / rewind window) ===
++ Cluster: main (7689103724847792155) +----+-----------+
+| Member | Host | Role    | State     | TL | Lag in MB |
++--------+------+---------+-----------+----+-----------+
+| pg1    | pg1  | Leader  | running   |  3 |           |
+| pg2    | pg2  | Replica | streaming |  3 |         0 |
+| pg3    | pg3  | Replica | streaming |  3 |         0 |
++--------+------+---------+-----------+----+-----------+
+
+=== patronictl list @ 2026-09-24T14:16:39Z (after reinit of pg2) ===
++ Cluster: main (7689103724847792155) +----+-----------+
+| Member | Host | Role    | State     | TL | Lag in MB |
++--------+------+---------+-----------+----+-----------+
+| pg1    | pg1  | Leader  | running   |  3 |           |
+| pg2    | pg2  | Replica | streaming |  3 |         0 |
+| pg3    | pg3  | Replica | streaming |  3 |         0 |
++--------+------+---------+-----------+----+-----------+
+
+=== patronictl list @ 2026-09-24T14:19:33Z (after DCS isolation episode) ===
++ Cluster: main (7689103724847792155) +----+-----------+
+| Member | Host | Role    | State     | TL | Lag in MB |
++--------+------+---------+-----------+----+-----------+
+| pg1    | pg1  | Leader  | running   |  3 |           |
+| pg2    | pg2  | Replica | streaming |  3 |         0 |
+| pg3    | pg3  | Replica | streaming |  3 |         0 |
++--------+------+---------+-----------+----+-----------+
+
+=== patronictl list @ 2026-09-24T14:22:11Z (after DCS outage/recovery) ===
++ Cluster: main (7689103724847792155) +----+-----------+
+| Member | Host | Role    | State     | TL | Lag in MB |
++--------+------+---------+-----------+----+-----------+
+| pg1    | pg1  | Leader  | running   |  4 |           |
+| pg2    | pg2  | Replica | streaming |  4 |         0 |
+| pg3    | pg3  | Replica | streaming |  4 |         0 |
++--------+------+---------+-----------+----+-----------+
+
+=== patronictl list @ 2026-09-24T14:22:58Z (during lag-blocked failover attempt (replicas paused)) ===
++ Cluster: main (7689103724847792155) +----+-----------+
+| Member | Host | Role    | State     | TL | Lag in MB |
++--------+------+---------+-----------+----+-----------+
+| pg2    | pg2  | Leader  | running   |  5 |           |
+| pg3    | pg3  | Replica | streaming |  5 |         0 |
++--------+------+---------+-----------+----+-----------+
+
+=== patronictl list @ 2026-09-24T14:24:30Z (after lag scenario recovery) ===
++ Cluster: main (7689103724847792155) +----+-----------+
+| Member | Host | Role    | State     | TL | Lag in MB |
++--------+------+---------+-----------+----+-----------+
+| pg1    | pg1  | Replica | streaming |  5 |         0 |
+| pg2    | pg2  | Leader  | running   |  5 |           |
+| pg3    | pg3  | Replica | streaming |  5 |         0 |
++--------+------+---------+-----------+----+-----------+
+
+=== patronictl list @ 2026-09-24T14:27:01Z (final steady state) ===
++ Cluster: main (7689103724847792155) +----+-----------+
+| Member | Host | Role    | State     | TL | Lag in MB |
++--------+------+---------+-----------+----+-----------+
+| pg1    | pg1  | Replica | streaming |  5 |         0 |
+| pg2    | pg2  | Leader  | running   |  5 |           |
+| pg3    | pg3  | Replica | streaming |  5 |         0 |
++--------+------+---------+-----------+----+-----------+
+

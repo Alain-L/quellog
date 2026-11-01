@@ -50,7 +50,7 @@ func TestPgBouncerHTMLSmoke(t *testing.T) {
 	var buf bytes.Buffer
 	m := analysis.AggregatedMetrics{}
 	pgb := samplePgBouncerMetrics()
-	if err := ExportHTMLCombined(&buf, m, []analysis.PgBouncerMetrics{pgb}, HTMLReportInfo{Version: "test"}, []string{"all"}, true); err != nil {
+	if err := ExportHTMLCombined(&buf, m, nil, []analysis.PgBouncerMetrics{pgb}, HTMLReportInfo{Version: "test"}, []string{"all"}, false, true); err != nil {
 		t.Fatalf("ExportHTMLCombined: %v", err)
 	}
 	out := buf.String()
@@ -76,7 +76,7 @@ func TestExportJSONCombined(t *testing.T) {
 	decode := func(pgb []analysis.PgBouncerMetrics, pgbOnly bool) map[string]interface{} {
 		t.Helper()
 		var buf bytes.Buffer
-		ExportJSONCombined(&buf, m, pgb, []string{"all"}, true, true, pgbOnly)
+		ExportJSONCombined(&buf, m, nil, pgb, []string{"all"}, true, true, pgbOnly)
 		var got map[string]interface{}
 		if err := json.Unmarshal(buf.Bytes(), &got); err != nil {
 			t.Fatalf("invalid JSON: %v", err)

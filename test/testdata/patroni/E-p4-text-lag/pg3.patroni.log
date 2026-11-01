@@ -1,0 +1,59 @@
+2026-09-24 14:09:29,759 INFO: Using default value thread_stack_size = 524288
+2026-09-24 14:09:29,767 INFO: Patroni global thread_pool_size = 5
+2026-09-24 14:09:29,842 INFO: Selected new etcd server http://etcd3:2379
+2026-09-24 14:09:29,887 INFO: No PostgreSQL configuration items changed, nothing to reload.
+2026-09-24 14:09:29,890 INFO: REST API thread_pool_size = 5
+2026-09-24 14:09:29,935 INFO: Lock owner: None; I am pg3
+2026-09-24 14:09:29,984 INFO: waiting for leader to bootstrap
+2026-09-24 14:09:32,363 INFO: Lock owner: pg1; I am pg3
+2026-09-24 14:09:32,410 INFO: trying to bootstrap from leader 'pg1'
+2026-09-24 14:09:35,448 INFO: replica has been created using basebackup
+2026-09-24 14:09:35,449 INFO: bootstrapped from leader 'pg1'
+2026-09-24 14:09:35,804 INFO: postmaster pid=26
+2026-09-24 14:09:36,821 INFO: Lock owner: pg1; I am pg3
+2026-09-24 14:09:36,821 INFO: establishing a new patroni heartbeat connection to postgres
+2026-09-24 14:09:36,975 INFO: no action. I am (pg3), a secondary, and following a leader (pg1)
+2026-09-24 14:09:42,358 INFO: no action. I am (pg3), a secondary, and following a leader (pg1)
+2026-09-24 14:09:52,414 INFO: no action. I am (pg3), a secondary, and following a leader (pg1)
+2026-09-24 14:10:02,870 INFO: no action. I am (pg3), a secondary, and following a leader (pg1)
+2026-09-24 14:10:12,866 INFO: no action. I am (pg3), a secondary, and following a leader (pg1)
+2026-09-24 14:10:22,404 INFO: no action. I am (pg3), a secondary, and following a leader (pg1)
+2026-09-24 14:10:32,362 INFO: no action. I am (pg3), a secondary, and following a leader (pg1)
+2026-09-24 14:10:42,862 INFO: no action. I am (pg3), a secondary, and following a leader (pg1)
+2026-09-24 14:10:52,866 INFO: no action. I am (pg3), a secondary, and following a leader (pg1)
+2026-09-24 14:11:02,312 INFO: My wal position exceeds maximum replication lag
+2026-09-24 14:11:02,366 INFO: following a different leader because i am not the healthiest node
+2026-09-24 14:11:12,313 INFO: My wal position exceeds maximum replication lag
+2026-09-24 14:11:12,415 INFO: following a different leader because i am not the healthiest node
+2026-09-24 14:11:22,316 INFO: My wal position exceeds maximum replication lag
+2026-09-24 14:11:22,366 INFO: following a different leader because i am not the healthiest node
+2026-09-24 14:11:31,371 INFO: establishing a new patroni restapi connection to postgres
+2026-09-24 14:11:31,476 INFO: Lock owner: pg1; I am pg3
+2026-09-24 14:11:31,479 INFO: Local timeline=1 lsn=0/402AB20
+2026-09-24 14:11:31,534 INFO: no action. I am (pg3), a secondary, and following a leader (pg1)
+2026-09-24 14:11:32,660 INFO: Lock owner: pg1; I am pg3
+2026-09-24 14:11:32,663 INFO: Local timeline=2 lsn=0/70001A8
+2026-09-24 14:11:32,757 INFO: no action. I am (pg3), a secondary, and following a leader (pg1)
+2026-09-24 14:11:43,160 INFO: Lock owner: pg1; I am pg3
+2026-09-24 14:11:43,163 INFO: Local timeline=2 lsn=0/70001A8
+2026-09-24 14:11:43,175 INFO: primary_timeline=2
+2026-09-24 14:11:43,218 INFO: no action. I am (pg3), a secondary, and following a leader (pg1)
+2026-09-24 14:11:52,762 INFO: no action. I am (pg3), a secondary, and following a leader (pg1)
+2026-09-24 14:12:03,222 INFO: no action. I am (pg3), a secondary, and following a leader (pg1)
+2026-09-24 14:12:13,219 INFO: no action. I am (pg3), a secondary, and following a leader (pg1)
+2026-09-24 14:12:23,218 INFO: no action. I am (pg3), a secondary, and following a leader (pg1)
+2026-09-24 14:12:33,218 INFO: no action. I am (pg3), a secondary, and following a leader (pg1)
+2026-09-24 14:12:43,219 INFO: no action. I am (pg3), a secondary, and following a leader (pg1)
+2026-09-24 14:12:53,218 INFO: no action. I am (pg3), a secondary, and following a leader (pg1)
+2026-09-24 14:13:03,218 INFO: no action. I am (pg3), a secondary, and following a leader (pg1)
+2026-09-24 14:13:13,218 INFO: no action. I am (pg3), a secondary, and following a leader (pg1)
+2026-09-24 14:13:23,218 INFO: no action. I am (pg3), a secondary, and following a leader (pg1)
+2026-09-24 14:13:33,221 INFO: no action. I am (pg3), a secondary, and following a leader (pg1)
+2026-09-24 14:13:43,217 INFO: no action. I am (pg3), a secondary, and following a leader (pg1)
+2026-09-24 14:13:53,218 INFO: no action. I am (pg3), a secondary, and following a leader (pg1)
+2026-09-24 14:14:03,221 INFO: no action. I am (pg3), a secondary, and following a leader (pg1)
+2026-09-24 14:14:13,218 INFO: no action. I am (pg3), a secondary, and following a leader (pg1)
+2026-09-24 14:14:23,218 INFO: no action. I am (pg3), a secondary, and following a leader (pg1)
+2026-09-24 14:14:33,262 INFO: no action. I am (pg3), a secondary, and following a leader (pg1)
+2026-09-24 14:14:43,219 INFO: no action. I am (pg3), a secondary, and following a leader (pg1)
+2026-09-24 14:14:53,222 INFO: no action. I am (pg3), a secondary, and following a leader (pg1)

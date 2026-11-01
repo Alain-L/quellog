@@ -36,6 +36,13 @@ func PrintMetrics(m analysis.AggregatedMetrics, sections []string, full bool) {
 	// ANSI style for bold text.
 	bold := ansiBold
 	reset := ansiReset
+	if m.Patroni != nil && has("patroni") {
+		// Printed last, after every PostgreSQL section.
+		defer printPatroniSection(m.Patroni, full, bold, reset)
+		if m.Global.Count == 0 {
+			return
+		}
+	}
 
 	// General summary header.
 	if has("summary") {

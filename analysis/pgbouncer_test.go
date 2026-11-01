@@ -20,7 +20,7 @@ func statsLine(xacts, queries, in, out int, xactUs, queryUs, waitUs string) stri
 		" us, query " + queryUs + " us, wait " + waitUs + " us"
 }
 
-func feed(a *PgBouncerAnalyzer, base time.Time, msgs ...string) {
+func feedPgb(a *PgBouncerAnalyzer, base time.Time, msgs ...string) {
 	for i, m := range msgs {
 		e := parser.LogEntry{Timestamp: base.Add(time.Duration(i) * time.Minute), Message: m}
 		a.Process(&e)
@@ -42,7 +42,7 @@ func almost(t *testing.T, name string, got, want float64) {
 func TestPgBouncerWeightedAverages(t *testing.T) {
 	base := time.Date(2026, 9, 20, 13, 41, 13, 0, time.UTC)
 	a := NewPgBouncerAnalyzer()
-	feed(a, base,
+	feedPgb(a, base,
 		statsLine(3, 21, 1291, 565, "1990", "261", "331"),
 		statsLine(0, 0, 0, 0, "0", "0", "0"),
 	)
@@ -63,7 +63,7 @@ func TestPgBouncerWeightedAverages(t *testing.T) {
 func TestPgBouncerWeightedByCount(t *testing.T) {
 	base := time.Date(2026, 9, 20, 13, 0, 0, 0, time.UTC)
 	a := NewPgBouncerAnalyzer()
-	feed(a, base,
+	feedPgb(a, base,
 		statsLine(1, 1, 0, 0, "1000", "1000", "1000"),
 		statsLine(9, 9, 0, 0, "2000", "2000", "2000"),
 	)
@@ -80,7 +80,7 @@ func TestPgBouncerWeightedByCount(t *testing.T) {
 func TestPgBouncerAllSnapshotsEmpty(t *testing.T) {
 	base := time.Date(2026, 9, 20, 13, 0, 0, 0, time.UTC)
 	a := NewPgBouncerAnalyzer()
-	feed(a, base,
+	feedPgb(a, base,
 		statsLine(0, 0, 0, 0, "0", "0", "0"),
 		statsLine(0, 0, 0, 0, "0", "0", "0"),
 	)
@@ -106,7 +106,7 @@ func TestPgBouncerAllSnapshotsEmpty(t *testing.T) {
 func TestPgBouncerTruncatedRateStillCounts(t *testing.T) {
 	base := time.Date(2026, 9, 20, 13, 0, 0, 0, time.UTC)
 	a := NewPgBouncerAnalyzer()
-	feed(a, base, statsLine(0, 0, 34, 69, "620", "620", "0"))
+	feedPgb(a, base, statsLine(0, 0, 34, 69, "620", "620", "0"))
 	m := a.Finalize()
 
 	almost(t, "AvgXactMicros", m.AvgXactMicros, 620)
@@ -163,7 +163,7 @@ func TestPgBouncerStatsSeriesSortStable(t *testing.T) {
 func TestPgBouncerOutOfRangeInteger(t *testing.T) {
 	base := time.Date(2026, 9, 20, 13, 0, 0, 0, time.UTC)
 	a := NewPgBouncerAnalyzer()
-	feed(a, base,
+	feedPgb(a, base,
 		statsLine(10, 10, 100, 100, "1000", "1000", "1000"),
 		"LOG stats: 99999999999999999999 xacts/s, 99999999999999999999 queries/s, "+
 			"in 99999999999999999999 B/s, out 99999999999999999999 B/s, "+
@@ -206,7 +206,7 @@ func TestPgBouncerNegativeAge(t *testing.T) {
 
 	base := time.Date(2026, 9, 20, 13, 0, 0, 0, time.UTC)
 	a := NewPgBouncerAnalyzer()
-	feed(a, base,
+	feedPgb(a, base,
 		"LOG C-0x1: db/user@10.0.0.1:5000 closing because: client close request (age=-42s)",
 		"LOG C-0x2: db/user@10.0.0.1:5001 closing because: client close request (age=10s)",
 	)
@@ -253,7 +253,7 @@ func TestPgBouncerFilteredLinesAreNamed(t *testing.T) {
 func TestPgBouncerLoginAttributedToRequestedDatabase(t *testing.T) {
 	base := time.Date(2026, 9, 20, 13, 58, 0, 0, time.UTC)
 	a := NewPgBouncerAnalyzer()
-	feed(a, base,
+	feedPgb(a, base,
 		"LOG C-0x55c871c95fa0: benchdb/bench@127.0.0.1:49372 login attempt: db=benchdb user=bench tls=no replication=no",
 		"LOG C-0x55c871cfc500: (nodb)/nouserxyz@127.0.0.1:51184 login attempt: db=benchdb user=nouserxyz tls=no replication=no",
 		"LOG C-0x55c871cfc500: (nodb)/bench@127.0.0.1:51194 login attempt: db=nosuchdb user=bench tls=no replication=no",
@@ -280,7 +280,7 @@ func TestPgBouncerLoginAttributedToRequestedDatabase(t *testing.T) {
 func TestPgBouncerServerClosingIsNotASession(t *testing.T) {
 	base := time.Date(2026, 9, 9, 21, 0, 0, 0, time.UTC)
 	a := NewPgBouncerAnalyzer()
-	feed(a, base,
+	feedPgb(a, base,
 		"LOG C-0x7f3b3ad2f6a8: analytics/batch@10.89.0.6:51518 closing because: client close request (age=1s)",
 		"LOG S-0x7f3b3acaa5b0: app/app_user@10.89.0.2:5432 closing because: failed to answer authreq (age=0s)",
 		"LOG S-0x55c871cde150: benchdb/bench@127.0.0.1:5544 closing because: pause mode (age=7s)",
@@ -465,7 +465,7 @@ func TestPgBouncerLifecycleEvents(t *testing.T) {
 func TestPgBouncerErrorsAndReasonsKeepTheirTimes(t *testing.T) {
 	base := time.Date(2026, 9, 25, 9, 0, 0, 0, time.UTC)
 	a := NewPgBouncerAnalyzer()
-	feed(a, base,
+	feedPgb(a, base,
 		"WARNING C-0x1: app/u@h:1 pooler error: query_wait_timeout",
 		statsLine(5, 5, 1, 1, "10", "10", "900"),
 		"LOG C-0x1: app/u@h:1 closing because: query_wait_timeout (age=3s)",

@@ -1,0 +1,43 @@
+quellog dev – 177 entries processed in X s (30.77 KB)
+[1m
+PATRONI
+[0m
+  Start date                : 2026-09-24 14:09:29
+  End date                  : 2026-09-24 14:14:53
+  Duration                  : 5m24.152s
+  Total entries             : 177
+  Members                   : pg1, pg2, pg3
+  Leader at end             : pg1 since 14:11:31
+  Leader changes            : 0, 0 switchover, 0 failover, 1 retaken
+  Time without leader       : 59.186s
+  DCS incidents             : 0
+  Refused for lag           : 6
+  Errors                    : 0
+  Warnings                  : 2
+
+  Members:
+    pg1        leader      4m21.061s as leader      59 entries   14:09:29 → 14:14:52
+    pg2        replica            0s as leader      59 entries   14:09:29 → 14:14:53
+    pg3        replica            0s as leader      59 entries   14:09:29 → 14:14:53
+
+  Leader changes:
+    14:11:31  retaken     pg1 → pg1   59.186s without leader
+    [3;38;5;243m          postgres, any node  14:11:02  reloading configuration files ×2[0m
+    [3;38;5;243m          postgres, any node  14:11:31  database system is ready to accept connections ×2[0m
+    [3;38;5;243m          postgres, any node  14:11:31  reloading configuration files ×2[0m
+
+  Timeline:
+    14:09:32  pg1        bootstrap          initialized a new cluster
+    14:09:35  pg2        replica_created    replica has been created using basebackup
+    14:09:35  pg3        replica_created    replica has been created using basebackup
+    14:11:02  pg2        lag_refused        My wal position exceeds maximum replication lag
+    14:11:02  pg3        lag_refused        My wal position exceeds maximum replication lag
+    14:11:12  pg2        lag_refused        My wal position exceeds maximum replication lag
+    14:11:12  pg3        lag_refused        My wal position exceeds maximum replication lag
+    14:11:22  pg2        lag_refused        My wal position exceeds maximum replication lag
+    14:11:22  pg3        lag_refused        My wal position exceeds maximum replication lag
+    14:11:30  pg1        crash_recovery     doing crash recovery in a single user mode
+    14:11:31  pg1        promote            promoted self to leader by acquiring session lock
+
+  WARNING                   : 2 (1 kind)
+    [3;38;5;243mwa-kSV3[0m  Postgresql is not running.     2  100.00%  14:11:30 → 14:11:31

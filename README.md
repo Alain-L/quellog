@@ -25,6 +25,8 @@ SUMMARY
 ## Features
 
 - **Multi-format** -- stderr, CSV, JSON, syslog + cloud providers (AWS RDS, Cloud SQL, Azure, CNPG)
+- **pgBackRest** -- reads pgBackRest's own logs and its lines in the PostgreSQL log, and adds a backup and WAL archiving report, synthetic by default and detailed with `--pgbackrest-detail`
+- **Patroni** -- reads one Patroni log per member and adds a report on the leader lock, leader changes and DCS incidents, synthetic by default and detailed with `--patroni-detail`
 - **pgBouncer** -- auto-detects connection-pooler logs and renders a dedicated pooler report
 - **Archives** -- gzip, zstd, tar, zip, 7z decompressed on the fly
 - **SQL analysis** -- per-query performance, execution plans (auto_explain), TCL separation

@@ -1,0 +1,19 @@
+2026-09-24T14:09:25Z === RUN E START (Patroni 4.1.5, pg17, text logs, async, lag-blocks-failover) ===
+2026-09-24T14:09:25Z STEP: 1. bootstrap
+2026-09-24T14:10:16Z bootstrap complete, leader=pg1 replicas=[pg2
+pg3]
+2026-09-24T14:10:16Z STEP: 2. cut replication stream from both replicas to the leader (iptables, keep DCS up)
+2026-09-24T14:10:16Z leader pg1 IPs: 10.89.7.5 10.89.12.2 
+2026-09-24T14:10:16Z cmd: for each replica, iptables -A OUTPUT -p tcp -d <leader_ip> --dport 5432 -j DROP
+2026-09-24T14:10:22Z STEP: 3. generate well over maximum_lag_on_failover (1MB) of WAL on the leader
+2026-09-24T14:10:22Z cmd: bulk insert ~30MB of WAL on pg1
+2026-09-24T14:10:38Z STEP: 4. kill the leader, then wait several loop_waits to observe refusal
+2026-09-24T14:10:38Z cmd: docker kill -s KILL ptlab-e-pg1
+2026-09-24T14:11:30Z OBSERVED: failover is blocked - no member has taken the leader lock
+2026-09-24T14:11:30Z STEP: 5. restore replication and bring the old leader back
+2026-09-24T14:11:30Z cmd: for each replica, iptables -D OUTPUT -p tcp -d <leader_ip> --dport 5432 -j DROP
+2026-09-24T14:11:30Z cmd: docker start ptlab-e-pg1
+2026-09-24T14:13:01Z leader after recovery: pg1
+2026-09-24T14:13:01Z STEP: 6. final steady state
+2026-09-24T14:14:32Z cmd: patronictl history
+2026-09-24T14:14:32Z === RUN E END ===

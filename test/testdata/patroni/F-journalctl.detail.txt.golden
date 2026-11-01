@@ -1,0 +1,77 @@
+quellog dev – 922 entries processed in X s (339.95 KB)
+[1m
+PATRONI
+[0m
+  Start date                : 2026-09-24 13:43:45
+  End date                  : 2026-09-24 14:10:12
+  Duration                  : 26m27.779s
+  Total entries             : 922
+  Members                   : pg1
+  No log from               : pg2, pg3, seen only by the members whose log was given
+  Leader at end             : pg2 since 13:57:17, as seen by the others
+  Leader changes            : 3, 1 switchover, 2 failovers, 1 retaken
+  Time without leader       : 2m1.86s
+  DCS incidents             : 1, longest 38.808s
+  Refused for lag           : 0
+  Errors                    : 247
+  Warnings                  : 245
+
+  Members:
+    pg1        replica     8m24.138s as leader     922 entries   13:43:45 → 14:10:12
+
+  Leader changes:
+    13:44:34  switchover  pg1 → pg2   1.305s without leader, seen by the others
+    13:47:47  failover    pg2 → pg1   13.699s without leader, seen by the others
+    13:54:58  retaken     pg1 → pg1   50.133s without leader
+    13:57:17  failover    pg1 → pg2   56.723s without leader, seen by the others
+
+  DCS incidents:
+    13:54:19 → 13:54:58  38.808s    pg1
+
+  Timeline:
+    13:43:52  pg1        bootstrap          initialized a new cluster
+    13:44:33  pg1        switchover_request received switchover request with leader=pg1 candidate=pg2 scheduled_at=None
+    13:44:33  pg1        demote             Demoting self (graceful)
+    13:45:52  pg1        pause              
+    13:46:12  pg1        resume             
+    13:47:47  pg1        promote            promoted self to leader by acquiring session lock
+    13:54:08  pg1        demote             demoting self because DCS is not accessible and I was a leader
+    13:54:19  pg1        dcs_lost           DCS is not accessible
+    13:54:58  pg1        dcs_restored       after 39s
+    13:54:59  pg1        promote            promoted self to leader because I had the session lock
+    13:57:17  pg1        crash_recovery     doing crash recovery in a single user mode
+    13:57:17  pg1        rewind             running pg_rewind from pg2
+    13:57:18  pg1        rewind_failed      Failed to rewind from healthy primary: pg2
+    13:57:29  pg1        rewind             running pg_rewind from pg2
+    13:57:30  pg1        rewind_failed      Failed to rewind from healthy primary: pg2
+    14:07:34  pg1        reinit             Removing data directory: /home/postgres/data
+    14:07:35  pg1        replica_created    replica has been created using basebackup
+
+  ERROR                     : 247 (19 kinds)
+    [3;38;5;243mer-4HFh[0m  Failed to get list of machines from http://etcd1:?/v3: MaxRetryError     54   21.86%  13:53:54 → 13:54:57
+    [3;38;5;243mer-Vywt[0m  Failed to get list of machines from http://etcd2:?/v3: MaxRetryError     54   21.86%  13:53:54 → 13:54:57
+    [3;38;5;243mer-OQ5I[0m  Failed to get list of machines from http://etcd3:?/v3: MaxRetryError     54   21.86%  13:53:54 → 13:54:57
+    [3;38;5;243mer-rR5F[0m  KVCache.run EtcdConnectionFailed                                         51   20.65%  13:54:00 → 13:54:57
+    [3;38;5;243mer-r32e[0m  Error communicating with DCS                                              5    2.02%  13:54:08 → 13:54:49
+    [3;38;5;243mer-FlFr[0m  Exceeded retry deadline                                                   4    1.62%  13:54:19 → 13:54:49
+    [3;38;5;243mer-hWDI[0m  Request to server http://etcd1:? failed: MaxRetryError                    4    1.62%  13:53:52 → 13:53:59
+    [3;38;5;243mer-TGDH[0m  Request to server http://etcd2:? failed: MaxRetryError                    4    1.62%  13:53:51 → 13:53:59
+    [3;38;5;243mer-3ceq[0m  Request to server http://etcd3:? failed: MaxRetryError                    4    1.62%  13:53:54 → 13:53:59
+    [3;38;5;243mer-AsHW[0m  Failed to rewind from healthy primary: pg2                                2    0.81%  13:57:18 → 13:57:30
+    [3;38;5;243mer-sYtj[0m  postmaster is not running                                                 2    0.81%  14:01:31 → 14:05:12
+    [3;38;5;243mer-HY4b[0m  watchprefix failed: ProtocolError                                         2    0.81%  13:51:01 → 13:53:01
+    [3;38;5;243mer-KNB1[0m  Failed to get list of machines from http://etcd1:?/v3beta: ValueError     1    0.40%  13:43:45
+    [3;38;5;243mer-zqFU[0m  Failed to get list of machines from http://etcd2:?/v3beta: ValueError     1    0.40%  13:43:45
+    [3;38;5;243mer-X6QI[0m  Failed to get list of machines from http://etcd3:?/v3beta: ValueError     1    0.40%  13:43:45
+    [3;38;5;243mer-dtX9[0m  Request to server http://etcd1:? failed: ReadTimeoutError                 1    0.40%  13:53:01
+    [3;38;5;243mer-yfaq[0m  Request to server http://etcd2:? failed: ReadTimeoutError                 1    0.40%  13:51:01
+    [3;38;5;243mer-aZxs[0m  get_cluster                                                               1    0.40%  13:54:08
+    [3;38;5;243mer-6gdI[0m  watchprefix failed: <Unavailable error: ?, code: ?>                       1    0.40%  13:53:51
+
+  WARNING                   : 245 (6 kinds)
+    [3;38;5;243mwa-FZfE[0m  failed to resolve host etcd1: [Errno -?] Name or service not known          68   27.76%  13:51:02 → 13:54:57
+    [3;38;5;243mwa-kgZP[0m  failed to resolve host etcd2: [Errno -?] Name or service not known          68   27.76%  13:51:01 → 13:54:57
+    [3;38;5;243mwa-bYfk[0m  failed to resolve host etcd3: [Errno -?] Name or service not known          68   27.76%  13:51:03 → 13:54:57
+    [3;38;5;243mwa-kSV3[0m  Postgresql is not running.                                                  34   13.88%  13:57:17 → 14:07:30
+    [3;38;5;243mwa-DFJK[0m  Loop time exceeded, rescheduling immediately.                                6    2.45%  13:54:09 → 13:54:59
+    [3;38;5;243mwa-j2XC[0m  Request failed to pg2: GET http://pg2:?/patroni (HTTPConnectionPool(host     1    0.41%  13:47:46

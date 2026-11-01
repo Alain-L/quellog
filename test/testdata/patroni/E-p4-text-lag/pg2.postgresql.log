@@ -1,0 +1,42 @@
+2026-09-24 14:09:35.704 UTC [26] LOG:  starting PostgreSQL 17.9 (Debian 17.9-1.pgdg13+1) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+2026-09-24 14:09:35.704 UTC [26] LOG:  listening on IPv4 address "0.0.0.0", port 5432
+2026-09-24 14:09:35.710 UTC [26] LOG:  listening on Unix socket "/tmp/.s.PGSQL.5432"
+2026-09-24 14:09:35.717 UTC [30] LOG:  database system was interrupted; last known up at 2026-09-24 14:09:32 UTC
+2026-09-24 14:09:35.725 UTC [32] postgres@postgres FATAL:  the database system is starting up
+2026-09-24 14:09:35.728 UTC [34] postgres@postgres FATAL:  the database system is starting up
+2026-09-24 14:09:36.442 UTC [30] LOG:  starting backup recovery with redo LSN 0/2000028, checkpoint LSN 0/2000080, on timeline ID 1
+2026-09-24 14:09:36.442 UTC [30] LOG:  entering standby mode
+2026-09-24 14:09:36.452 UTC [30] LOG:  redo starts at 0/2000028
+2026-09-24 14:09:36.455 UTC [30] LOG:  completed backup recovery with redo LSN 0/2000028 and end LSN 0/20001F0
+2026-09-24 14:09:36.455 UTC [30] LOG:  consistent recovery state reached at 0/20001F0
+2026-09-24 14:09:36.455 UTC [26] LOG:  database system is ready to accept read-only connections
+2026-09-24 14:09:36.465 UTC [35] FATAL:  could not start WAL streaming: ERROR:  replication slot "pg2" does not exist
+2026-09-24 14:09:36.472 UTC [36] FATAL:  could not start WAL streaming: ERROR:  replication slot "pg2" does not exist
+2026-09-24 14:09:36.472 UTC [30] LOG:  waiting for WAL to become available at 0/3000018
+2026-09-24 14:09:41.482 UTC [42] FATAL:  could not start WAL streaming: ERROR:  replication slot "pg2" does not exist
+2026-09-24 14:09:41.482 UTC [30] LOG:  waiting for WAL to become available at 0/3000018
+2026-09-24 14:09:46.482 UTC [43] LOG:  started streaming WAL from primary at 0/3000000 on timeline 1
+2026-09-24 14:11:02.314 UTC [26] LOG:  received SIGHUP, reloading configuration files
+2026-09-24 14:11:02.314 UTC [26] LOG:  parameter "primary_conninfo" removed from configuration file, reset to default
+2026-09-24 14:11:02.314 UTC [26] LOG:  parameter "primary_slot_name" removed from configuration file, reset to default
+2026-09-24 14:11:02.315 UTC [30] LOG:  WAL receiver process shutdown requested
+2026-09-24 14:11:02.315 UTC [43] FATAL:  terminating walreceiver process due to administrator command
+2026-09-24 14:11:02.317 UTC [30] LOG:  invalid record length at 0/402AB20: expected at least 24, got 0
+2026-09-24 14:11:02.317 UTC [30] LOG:  waiting for WAL to become available at 0/4002000
+2026-09-24 14:11:02.317 UTC [30] LOG:  waiting for WAL to become available at 0/4002000
+2026-09-24 14:11:07.317 UTC [30] LOG:  waiting for WAL to become available at 0/4002000
+2026-09-24 14:11:12.321 UTC [30] LOG:  waiting for WAL to become available at 0/4002000
+2026-09-24 14:11:17.321 UTC [30] LOG:  waiting for WAL to become available at 0/4002000
+2026-09-24 14:11:22.325 UTC [30] LOG:  waiting for WAL to become available at 0/4002000
+2026-09-24 14:11:27.325 UTC [30] LOG:  waiting for WAL to become available at 0/4002000
+2026-09-24 14:11:31.481 UTC [26] LOG:  received SIGHUP, reloading configuration files
+2026-09-24 14:11:31.482 UTC [26] LOG:  parameter "primary_conninfo" changed to "dbname=postgres user=replicator passfile=/home/postgres/.pgpass host=pg1 port=5432 sslmode=prefer application_name=pg2 gssencmode=prefer channel_binding=prefer sslnegotiation=postgres"
+2026-09-24 14:11:31.482 UTC [26] LOG:  parameter "primary_slot_name" changed to "pg2"
+2026-09-24 14:11:31.490 UTC [59] LOG:  started streaming WAL from primary at 0/4000000 on timeline 1
+2026-09-24 14:11:31.734 UTC [59] LOG:  replication terminated by primary server
+2026-09-24 14:11:31.734 UTC [59] DETAIL:  End of WAL reached on timeline 1 at 0/70000A0.
+2026-09-24 14:11:31.734 UTC [59] LOG:  fetching timeline history file for timeline 2 from primary server
+2026-09-24 14:11:31.738 UTC [30] LOG:  new target timeline is 2
+2026-09-24 14:11:31.738 UTC [30] LOG:  invalid record length at 0/70000A0: expected at least 24, got 0
+2026-09-24 14:11:31.738 UTC [59] LOG:  restarted WAL streaming at 0/7000000 on timeline 2
+2026-09-24 14:14:35.581 UTC [28] LOG:  restartpoint starting: time

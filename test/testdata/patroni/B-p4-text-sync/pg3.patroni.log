@@ -1,0 +1,81 @@
+2026-09-24 14:09:27,509 INFO: Using default value thread_stack_size = 524288
+2026-09-24 14:09:27,517 INFO: Patroni global thread_pool_size = 5
+2026-09-24 14:09:27,543 ERROR: Failed to get list of machines from http://etcd3:2379/v3beta: ValueError("invalid literal for int() with base 10: 'not_decided'")
+2026-09-24 14:09:27,544 ERROR: Failed to get list of machines from http://etcd1:2379/v3beta: ValueError("invalid literal for int() with base 10: 'not_decided'")
+2026-09-24 14:09:27,545 ERROR: Failed to get list of machines from http://etcd2:2379/v3beta: ValueError("invalid literal for int() with base 10: 'not_decided'")
+2026-09-24 14:09:27,545 INFO: waiting on etcd
+2026-09-24 14:09:32,593 INFO: Selected new etcd server http://etcd2:2379
+2026-09-24 14:09:32,598 INFO: No PostgreSQL configuration items changed, nothing to reload.
+2026-09-24 14:09:32,600 INFO: REST API thread_pool_size = 5
+2026-09-24 14:09:32,651 INFO: Lock owner: None; I am pg3
+2026-09-24 14:09:32,699 INFO: waiting for leader to bootstrap
+2026-09-24 14:09:35,512 INFO: Lock owner: pg1; I am pg3
+2026-09-24 14:09:35,558 INFO: trying to bootstrap from leader 'pg1'
+2026-09-24 14:09:38,498 INFO: replica has been created using basebackup
+2026-09-24 14:09:38,498 INFO: bootstrapped from leader 'pg1'
+2026-09-24 14:09:38,795 INFO: postmaster pid=26
+2026-09-24 14:09:39,814 INFO: Lock owner: pg1; I am pg3
+2026-09-24 14:09:39,814 INFO: establishing a new patroni heartbeat connection to postgres
+2026-09-24 14:09:39,938 INFO: no action. I am (pg3), a secondary, and following a leader (pg1)
+2026-09-24 14:09:45,494 INFO: no action. I am (pg3), a secondary, and following a leader (pg1)
+2026-09-24 14:09:55,543 INFO: no action. I am (pg3), a secondary, and following a leader (pg1)
+2026-09-24 14:10:05,544 INFO: no action. I am (pg3), a secondary, and following a leader (pg1)
+2026-09-24 14:10:15,998 INFO: no action. I am (pg3), a secondary, and following a leader (pg1)
+2026-09-24 14:10:26,049 INFO: no action. I am (pg3), a secondary, and following a leader (pg1)
+2026-09-24 14:10:35,555 INFO: no action. I am (pg3), a secondary, and following a leader (pg1)
+2026-09-24 14:10:45,544 INFO: no action. I am (pg3), a secondary, and following a leader (pg1)
+2026-09-24 14:10:55,998 INFO: no action. I am (pg3), a secondary, and following a leader (pg1)
+2026-09-24 14:11:01,831 INFO: no action. I am (pg3), a secondary, and following a leader (pg1)
+2026-09-24 14:11:03,840 INFO: Local timeline=1 lsn=0/4074D70
+2026-09-24 14:11:03,857 INFO: primary_timeline=2
+2026-09-24 14:11:03,857 INFO: primary: history=1	0/4074D70	no recovery target specified
+2026-09-24 14:11:03,909 INFO: following a different leader because i am not the healthiest node
+2026-09-24 14:11:03,910 INFO: Lock owner: pg2; I am pg3
+2026-09-24 14:11:03,912 INFO: Local timeline=2 lsn=0/4074F80
+2026-09-24 14:11:03,922 INFO: primary_timeline=2
+2026-09-24 14:11:03,929 INFO: Local timeline=2 lsn=0/4074F80
+2026-09-24 14:11:03,939 INFO: primary_timeline=2
+2026-09-24 14:11:04,031 INFO: no action. I am (pg3), a secondary, and following a leader (pg2)
+2026-09-24 14:11:13,409 INFO: no action. I am (pg3), a secondary, and following a leader (pg2)
+2026-09-24 14:11:23,443 INFO: no action. I am (pg3), a secondary, and following a leader (pg2)
+2026-09-24 14:11:33,901 INFO: no action. I am (pg3), a secondary, and following a leader (pg2)
+2026-09-24 14:11:43,902 INFO: no action. I am (pg3), a secondary, and following a leader (pg2)
+2026-09-24 14:11:53,901 INFO: no action. I am (pg3), a secondary, and following a leader (pg2)
+2026-09-24 14:12:03,902 INFO: no action. I am (pg3), a secondary, and following a leader (pg2)
+2026-09-24 14:12:13,901 INFO: no action. I am (pg3), a secondary, and following a leader (pg2)
+2026-09-24 14:12:23,966 INFO: no action. I am (pg3), a secondary, and following a leader (pg2)
+2026-09-24 14:12:33,901 INFO: no action. I am (pg3), a secondary, and following a leader (pg2)
+2026-09-24 14:12:43,624 WARNING: failed to resolve host pg2: [Errno -2] Name or service not known
+2026-09-24 14:12:43,624 WARNING: Request failed to pg2: GET http://pg2:8008/patroni (HTTPConnectionPool(host='pg2', port=8008): Max retries exceeded with url: /patroni (Caused by NewConnectionError("HTTPConnection(host='pg2', port=8008): Failed to establish a new connection: getaddrinfo returns an empty list")))
+2026-09-24 14:12:43,810 INFO: promoted self to leader by acquiring session lock
+2026-09-24 14:12:43,811 INFO: Lock owner: pg3; I am pg3
+2026-09-24 14:12:43,904 INFO: updated leader lock during promote
+2026-09-24 14:12:44,813 INFO: Lock owner: pg3; I am pg3
+2026-09-24 14:12:44,911 INFO: Assigning synchronous standby status to ['pg1']
+2026-09-24 14:12:47,074 INFO: Synchronous standby status assigned to ['pg1']
+2026-09-24 14:12:47,166 INFO: no action. I am (pg3), the leader with the lock
+2026-09-24 14:12:47,306 INFO: no action. I am (pg3), the leader with the lock
+2026-09-24 14:12:57,210 INFO: no action. I am (pg3), the leader with the lock
+2026-09-24 14:13:07,310 INFO: no action. I am (pg3), the leader with the lock
+2026-09-24 14:13:17,210 INFO: no action. I am (pg3), the leader with the lock
+2026-09-24 14:13:27,264 INFO: no action. I am (pg3), the leader with the lock
+2026-09-24 14:13:37,211 INFO: no action. I am (pg3), the leader with the lock
+2026-09-24 14:13:47,214 INFO: no action. I am (pg3), the leader with the lock
+2026-09-24 14:13:57,219 INFO: no action. I am (pg3), the leader with the lock
+2026-09-24 14:14:07,214 INFO: no action. I am (pg3), the leader with the lock
+2026-09-24 14:14:17,211 INFO: no action. I am (pg3), the leader with the lock
+2026-09-24 14:14:27,215 INFO: no action. I am (pg3), the leader with the lock
+2026-09-24 14:14:37,258 INFO: no action. I am (pg3), the leader with the lock
+2026-09-24 14:14:47,214 INFO: no action. I am (pg3), the leader with the lock
+2026-09-24 14:14:57,215 INFO: no action. I am (pg3), the leader with the lock
+2026-09-24 14:15:07,214 INFO: no action. I am (pg3), the leader with the lock
+2026-09-24 14:15:17,214 INFO: no action. I am (pg3), the leader with the lock
+2026-09-24 14:15:27,214 INFO: no action. I am (pg3), the leader with the lock
+2026-09-24 14:15:37,219 INFO: no action. I am (pg3), the leader with the lock
+2026-09-24 14:15:47,214 INFO: no action. I am (pg3), the leader with the lock
+2026-09-24 14:15:57,214 INFO: no action. I am (pg3), the leader with the lock
+2026-09-24 14:16:07,215 INFO: no action. I am (pg3), the leader with the lock
+2026-09-24 14:16:17,215 INFO: no action. I am (pg3), the leader with the lock
+2026-09-24 14:16:27,211 INFO: no action. I am (pg3), the leader with the lock
+2026-09-24 14:16:37,211 INFO: no action. I am (pg3), the leader with the lock
+2026-09-24 14:16:47,219 INFO: no action. I am (pg3), the leader with the lock

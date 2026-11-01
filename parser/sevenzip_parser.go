@@ -57,6 +57,7 @@ func (p *SevenZipParser) Parse(filename string, out chan<- []LogEntry) error {
 			continue
 		}
 
+		out <- []LogEntry{PgBackRestSourceMarker(entryName, true)}
 		if err := parseArchiveEntry(baseName, rc, out, p.track); err != nil {
 			if errors.Is(err, errUnsupportedArchiveEntry) {
 				slog.Warn("unsupported log format in archive", "entry", entryName, "archive", filename)

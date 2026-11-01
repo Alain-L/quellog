@@ -49,6 +49,30 @@ const PGB_REPORTS = [
   { name: 'pgb-one-snapshot', fixture: join(PGB_DIR, 'pgbouncer_oldversion.log'), charts: false },
   { name: 'pgb-saga', fixture: join(REPO_ROOT, 'test', 'testdata', 'pgbouncer', 'P1', 'p1.pgbouncer.log') },
 ];
+
+// pgBackRest reports. The section is rendered by its own module and none
+// of the PostgreSQL fixtures reaches it, so without these the pgBackRest
+// report has no visual contract at all. Four captures, chosen for the
+// shapes the section takes and no more (each one is a page load), none of
+// them drawing a chart (backup counts per saga are a handful of runs — the
+// section tables them, see web/js/sections/pgbackrest.js's doc comment):
+//   nominal      a PostgreSQL log whose archive_command runs pgBackRest --
+//                the combined report, pgBackRest alongside the PG sections;
+//   saga         a pgBackRest-only backup log (S3's lock-contention run) --
+//                12 backup rows, 4 error groups, 7 warnings;
+//   archiving    a pgBackRest-only archive-push-async log -- the WAL
+//                Archiving block populated (dropped, failed async, a named
+//                failure stretch), no backups at all;
+//   placeholders a pgBackRest-only check log under log-timestamp=n -- the
+//                missing_info notice, no capture header, every other block
+//                in its neutral "nothing happened" empty state.
+const PGBR_DIR = join(REPO_ROOT, 'test', 'testdata', 'pgbackrest');
+const PGBR_REPORTS = [
+  { name: 'pgbr-nominal', fixture: join(REPO_ROOT, 'test', 'testdata', 'regressions', 'pgbackrest', 'postgresql-pgbackrest.log'), charts: false },
+  { name: 'pgbr-saga', fixture: join(PGBR_DIR, 'S3', 'pgbackrest_logs', 'main-backup.log'), charts: false },
+  { name: 'pgbr-archiving', fixture: join(PGBR_DIR, 'S2', 'pgbackrest_logs', 'main-archive-push-async.log'), charts: false },
+  { name: 'pgbr-placeholders', fixture: join(PGBR_DIR, 'S4', '02_timestamp', 'check_console_no_timestamp.out'), charts: false },
+];
 const BASELINES_DIR = join(VISUAL_DIR, 'baselines');
 const STRUCTURE_PATH = join(VISUAL_DIR, 'expected-structure.json');
 
@@ -319,9 +343,13 @@ async function main() {
     path: mainReport,
     structurePath: STRUCTURE_PATH,
   }];
-  for (const r of PGB_REPORTS) {
+  const sideReports = [
+    ...PGB_REPORTS.map(r => ({ ...r, kind: 'pgBouncer' })),
+    ...PGBR_REPORTS.map(r => ({ ...r, kind: 'pgBackRest' })),
+  ];
+  for (const r of sideReports) {
     reports.push({
-      label: `pgBouncer report (${r.name})`,
+      label: `${r.kind} report (${r.name})`,
       path: generateReport(BIN, r.fixture, tmpDir, `${r.name}.html`),
       structurePath: join(VISUAL_DIR, `expected-structure.${r.name}.json`),
       prefix: `${r.name}-`,

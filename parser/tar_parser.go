@@ -78,6 +78,7 @@ func (p *TarParser) Parse(filename string, out chan<- []LogEntry) error {
 		baseName := filepath.Base(entryName)
 
 		if isSupportedArchiveEntry(baseName) {
+			out <- []LogEntry{PgBackRestSourceMarker(entryName, true)}
 			if err := parseArchiveEntry(baseName, entryReader, out, p.track); err != nil {
 				if errors.Is(err, errUnsupportedArchiveEntry) {
 					slog.Warn("unsupported log format in archive", "entry", entryName, "archive", filename)
@@ -89,7 +90,7 @@ func (p *TarParser) Parse(filename string, out chan<- []LogEntry) error {
 			// Extension unrecognized — sniff the content so an extensionless
 			// but valid log member (a common real-world tar layout) isn't
 			// silently dropped. Genuinely unsupported/binary members are skipped.
-			parsed, err := sniffAndParseArchiveEntry(baseName, entryReader, out, p.track)
+			parsed, err := sniffAndParseArchiveEntry(entryName, entryReader, out, p.track)
 			if err != nil {
 				slog.Error("failed to parse entry in archive", "entry", entryName, "archive", filename, "err", err)
 			} else if !parsed {
@@ -309,7 +310,8 @@ func isRotatedLogFile(lower string) bool {
 // and parses the member (sample + remaining stream) when it looks like a log.
 // Returns parsed=false for binary or unrecognized content, so the caller skips
 // it. Compressed members without an extension are treated as binary and skipped.
-func sniffAndParseArchiveEntry(name string, r io.Reader, out chan<- []LogEntry, track ArchiveTrack) (bool, error) {
+func sniffAndParseArchiveEntry(entryName string, r io.Reader, out chan<- []LogEntry, track ArchiveTrack) (bool, error) {
+	name := filepath.Base(entryName)
 	sample := make([]byte, sampleBufferSize)
 	n, err := io.ReadFull(r, sample)
 	if err != nil && err != io.ErrUnexpectedEOF && err != io.EOF {
@@ -325,6 +327,7 @@ func sniffAndParseArchiveEntry(name string, r io.Reader, out chan<- []LogEntry, 
 		return false, nil
 	}
 
+	out <- []LogEntry{PgBackRestSourceMarker(entryName, true)}
 	// Replay the buffered sample ahead of the rest of the entry.
 	full := io.MultiReader(bytes.NewReader(sample), r)
 	if _, pooler := parser.(*PgBouncerParser); !keepMember(track, pooler) {
@@ -370,7 +373,7 @@ func routeStderrStream(full io.Reader, prefixLen int, out chan<- []LogEntry) err
 // sample ahead of the rest of the stream so no bytes are lost. Without the
 // pgBouncer probe a pooler log inside an archive was parsed as PostgreSQL;
 // without the prefix salvage a prefixed log yielded zero entries.
-func parseLogArchiveEntry(r io.Reader, out chan<- []LogEntry, track ArchiveTrack) error {
+func parseLogArchiveEntry(name string, r io.Reader, out chan<- []LogEntry, track ArchiveTrack) error {
 	sample := make([]byte, sampleBufferSize)
 	n, err := io.ReadFull(r, sample)
 	if err != nil && err != io.ErrUnexpectedEOF && err != io.EOF {
@@ -395,11 +398,24 @@ func parseLogArchiveEntry(r io.Reader, out chan<- []LogEntry, track ArchiveTrack
 	// Only probe for a literal prefix when the sample doesn't already look like
 	// a normal PostgreSQL log — mirrors detectByExtension's "log" branch, so a
 	// well-formed member keeps prefixLen 0 and the common no-prefix fast path.
+	if skipPatroniMember(name, sample) {
+		return nil
+	}
 	prefixLen := 0
 	if !isLogContent(s) {
 		prefixLen = detectLeadingPrefix(s)
 	}
 	return routeStderrStream(full, prefixLen, out)
+}
+
+// skipPatroniMember says, with a warning, that an archive member is a Patroni
+// log: Patroni logs are read only when given directly.
+func skipPatroniMember(name string, sample []byte) bool {
+	if !looksLikePatroni(string(bytes.TrimPrefix(sample, utf8BOM))) {
+		return false
+	}
+	slog.Warn("Patroni log inside an archive is not analyzed; extract it and pass it directly", "entry", name)
+	return true
 }
 
 // parseArchiveEntry selects the correct parser for an archive entry.
@@ -411,7 +427,7 @@ func parseArchiveEntry(name string, r io.Reader, out chan<- []LogEntry, track Ar
 		// Buffer a head sample so a literal log_line_prefix is salvaged the
 		// same way the plain/compressed path does, then parse (parallel when
 		// prefix-less, sequential when a prefix was detected).
-		return parseLogArchiveEntry(r, out, track)
+		return parseLogArchiveEntry(name, r, out, track)
 	case strings.HasSuffix(lower, ".csv"):
 		if !keepMember(track, false) {
 			return nil
@@ -422,8 +438,16 @@ func parseArchiveEntry(name string, r io.Reader, out chan<- []LogEntry, track Ar
 		if !keepMember(track, false) {
 			return nil
 		}
+		sample := make([]byte, sampleBufferSize)
+		n, err := io.ReadFull(r, sample)
+		if err != nil && err != io.ErrUnexpectedEOF && err != io.EOF {
+			return err
+		}
+		if skipPatroniMember(name, sample[:n]) {
+			return nil
+		}
 		parser := &JsonParser{}
-		return parser.parseReader(r, out)
+		return parser.parseReader(io.MultiReader(bytes.NewReader(sample[:n]), r), out)
 	case strings.HasSuffix(lower, ".gz"):
 		// Handle nested gzip-compressed files.
 		gzReader, err := newParallelGzipReader(r)
@@ -442,7 +466,7 @@ func parseArchiveEntry(name string, r io.Reader, out chan<- []LogEntry, track Ar
 		// Rotated PostgreSQL log files, including logrotate dateext
 		// (e.g. postgresql.log.2026-03-23-10, postgresql.log-20260320 after
 		// nested decompression). Same literal-prefix salvage as ".log" above.
-		return parseLogArchiveEntry(r, out, track)
+		return parseLogArchiveEntry(name, r, out, track)
 	case hasRotatedBase(lower, ".csv"):
 		// Rotated CSV log files (numeric, date-dot or dateext).
 		if !keepMember(track, false) {
