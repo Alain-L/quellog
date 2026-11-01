@@ -101,15 +101,15 @@ func TestExportJSONCombined(t *testing.T) {
 	}
 }
 
-// TestPgBouncerJSONTimes: pooler times are ISO strings on the log's clock,
-// without zone or fraction, the shape the other sections use; a zero
-// maximum time is omitted rather than written as year 1.
+// TestPgBouncerJSONTimes: the pooler's bounds are named and written as the
+// summary's, on the log's clock without zone or fraction; a zero maximum
+// time is omitted rather than written as year 1.
 func TestPgBouncerJSONTimes(t *testing.T) {
 	m := samplePgBouncerMetrics()
 	m.MinTimestamp = time.Date(2026, 9, 25, 9, 5, 29, 363e6, time.FixedZone("CEST", 2*3600))
 	j := pgbouncerJSON([]analysis.PgBouncerMetrics{m})[0]
-	if j.MinTimestamp != "2026-09-25T09:05:29" {
-		t.Errorf("min_timestamp = %q, want the log's digits without zone or fraction", j.MinTimestamp)
+	if j.StartDate != "2026-09-25 09:05:29" {
+		t.Errorf("start_date = %q, want the summary's form on the log's digits", j.StartDate)
 	}
 	if j.MaxWaitTimestamp != "" {
 		t.Errorf("max_wait_us_timestamp = %q for a pooler with no maximum time", j.MaxWaitTimestamp)

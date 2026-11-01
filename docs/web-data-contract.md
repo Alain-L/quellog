@@ -18,9 +18,9 @@ zstd-decompressed from the embedded blob).
 Conventions:
 
 - Timestamps appear in three shapes: display strings `"YYYY-MM-DD HH:MM:SS"`
-  (most `events` arrays), ISO strings `"YYYY-MM-DDTHH:MM:SS"` (`session_events`,
-  `sql_performance.executions`, every time in the `pgbouncer` entries), and
-  Unix milliseconds (`top_events[].timestamps`).
+  (`summary`, most `events` arrays, every time in the `pgbouncer` entries),
+  ISO strings `"YYYY-MM-DDTHH:MM:SS"` (`session_events`,
+  `sql_performance.executions`), and Unix milliseconds (`top_events[].timestamps`).
 - Human-formatted values (durations `"1m 32s"`, sizes `"683.59 KB"`, rates) are
   pre-rendered strings; raw numbers keep a `_ms`, `_us` (the pooler's microseconds), `_kb`, `_seconds` or `count` name.
 - A section key is **absent** when the section has no data (see "Gated keys").
@@ -177,7 +177,8 @@ entry per pooler, each rendered as its own section (`#pgbouncer`,
 `#pgbouncer-2`, …). A sibling top-level `pgbouncer_only` boolean (present
 only for a pure pgBouncer run) tells `app.js` to render just these sections
 and suppress the empty PostgreSQL ones. Each entry:
-- Identity: `name`, `files`, `listen`, `version`; `events`:
+- Identity: `name`, `files`, `listen`, `version`; `start_date`, `end_date`
+  as in `summary`; `events`:
   `[{timestamp, kind, detail}]`, the pooler's timeline.
 - Traffic: `stats_sample_count`, `avg_/max_xacts_per_sec`,
   `avg_/max_queries_per_sec`, `avg_/max_in_bytes_per_sec`,

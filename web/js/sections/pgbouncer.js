@@ -157,9 +157,9 @@ function day(d) {
 // payload carries no usable timestamp (a section built from a fixture, a
 // period with no entry).
 function captureWindow(p) {
-    if (!p.min_timestamp || !p.max_timestamp) return null;
-    const from = new Date(p.min_timestamp);
-    const to = new Date(p.max_timestamp);
+    if (!p.start_date || !p.end_date) return null;
+    const from = new Date(p.start_date);
+    const to = new Date(p.end_date);
     if (isNaN(from) || isNaN(to) || to < from) return null;
     return { from, to };
 }
@@ -174,12 +174,6 @@ function captureHeader(w) {
         : `${day(w.from)} ${clock(w.from)} → ${day(w.to)} ${clock(w.to)}`;
     return `<div class="summary-header"><div class="summary-date">${label}</div></div>`;
 }
-
-// FIGURE_CARD_MIN_PX widens the shared .stat-grid minimum for this
-// section. Its labels are longer than the report's others, so at the
-// default they wrap to three lines and the fourteen figures read as one
-// dense wall; this breaks them into even rows instead.
-const FIGURE_CARD_MIN_PX = 150;
 
 // statCard renders one card of the shared grid. `variant` takes the
 // stat-card modifier classes (warning / alert) the section already uses.
@@ -197,33 +191,24 @@ function sessionTime(seconds) {
     return fmtDurationCoarse(seconds * 1000);
 }
 
-// readCards is the line accounting: what was read, what became an entry,
-// and what did not. The three loss counters appear only when they are
-// non-zero, as in the text report -- a row of zeroes teaches nothing and
-// pushes the figures that matter off the first screen. A non-zero
-// unrecognized count is the one that changes how the rest should be
-// read, so it carries the warning colour.
-function readCards(p, w) {
-    const cards = [];
-    // Rounded to the second, as the coverage caveat rounds it: the same
-    // window stated as 36 s here and 37 s there reads as two windows.
-    if (w) cards.push(statCard(fmtDurationCoarse(Math.round((w.to - w.from) / 1000) * 1000), 'Duration'));
-    if (p.lines_read > 0) cards.push(statCard(fmt(p.lines_read), 'Log lines read'));
-    cards.push(statCard(fmt(p.lines || 0), 'Log entries'));
-    if (p.lines_unrecognized > 0) {
-        cards.push(statCard(fmt(p.lines_unrecognized), 'Unrecognized lines', 'stat-card--warning'));
-    }
+// readLine is the line accounting: what was read, what became an entry,
+// and what did not, written after the pooler's identity rather than as
+// cards: it tells how far the figures below can be trusted, it is not
+// one of them. The three loss counters appear only when they are
+// non-zero, as in the text report -- a row of zeroes teaches nothing. A
+// non-zero unrecognized count is the one that changes how the rest
+// should be read, so it carries the warning colour.
+function readLine(p) {
+    const n = (v, label, warn) => `<span${warn ? ' style="color: var(--warning);"' : ''}>${label} <b>${fmt(v)}</b></span>`;
+    const parts = [];
+    if (p.lines_read > 0) parts.push(n(p.lines_read, 'Log lines read'));
+    parts.push(n(p.lines || 0, 'Log entries'));
+    if (p.lines_unrecognized > 0) parts.push(n(p.lines_unrecognized, 'Unrecognized lines', true));
     const filtered = (p.lines_read || 0) - (p.lines_unrecognized || 0) - (p.lines || 0);
-    if (filtered > 0) cards.push(statCard(fmt(filtered), 'Filtered-out lines'));
-    if (p.debug_lines > 0) cards.push(statCard(fmt(p.debug_lines), 'Debug/noise entries'));
-    cards.push(statCard(fmt(p.stats_sample_count || 0), 'Stats snapshots'));
-    // Content-width and centred, as the Summary card's own tile row is.
-    // Provenance opens the section, as it opens the text report, but
-    // cards stretched across the report would read as its headline.
-    // auto-fit, as the telemetry row: a fifth card (verbose=2, or any
-    // loss counter) does not fit a phone, and a fixed count clips the row
-    // instead of wrapping it.
-    return `<div class="stat-grid" style="grid-template-columns: repeat(auto-fit, minmax(110px, auto)); justify-content: center;">${cards.join('')}</div>`;
+    if (filtered > 0) parts.push(n(filtered, 'Filtered-out lines'));
+    if (p.debug_lines > 0) parts.push(n(p.debug_lines, 'Debug/noise entries'));
+    parts.push(n(p.stats_sample_count || 0, 'Stats snapshots'));
+    return `<div style="text-align: center; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.6rem;">${parts.join(' · ')}</div>`;
 }
 
 // telemetryCards states the figures the stats lines carry, in the order
@@ -233,15 +218,16 @@ function readCards(p, w) {
 // without hovering, and on a saturated pooler the pool wait is the one
 // figure that names the problem.
 //
-// They join the section's single figure grid rather than forming a row of
-// their own: three stacked rows of different widths read as a staircase,
-// and they would split Request throughput across two of them.
+// They form the stats row, above the row the events feed: every card
+// there is a whole-capture average. The busiest snapshot the text report
+// prints beside each is left to the charts, which draw every snapshot.
 function telemetryCards(p) {
     const micros = pgbValueFmt('micros');
     const rate = (v) => (v == null ? '' : v.toFixed(1) + '/s');
     const bytes = pgbValueFmt('bytes');
     const cards = [
         [rate(p.avg_xacts_per_sec), 'Transactions'],
+        [rate(p.avg_queries_per_sec), 'Queries'],
         [micros(p.avg_xact_us), 'Avg transaction time'],
         [micros(p.avg_query_us), 'Avg query time'],
         waitIsQueueDepth(p.version)
@@ -302,7 +288,7 @@ function statsPeriodSeconds(series) {
 // single snapshot always does.
 function statsUnderCovered(p) {
     if (!p.stats_sample_count) return false;
-    const window = (new Date(p.max_timestamp) - new Date(p.min_timestamp)) / 1000;
+    const window = (new Date(p.end_date) - new Date(p.start_date)) / 1000;
     if (!(window > 0)) return false;
     const covered = statsPeriodSeconds(p.stats_series) * p.stats_sample_count;
     if (!(covered > 0)) return true;
@@ -365,7 +351,7 @@ function oneSnapshotText(n) {
 // reports 0.0 queries/s over a window holding hundreds of sessions, and
 // states it as a measurement.
 function coverageText(p) {
-    const window = Math.round((new Date(p.max_timestamp) - new Date(p.min_timestamp)) / 1000);
+    const window = Math.round((new Date(p.end_date) - new Date(p.start_date)) / 1000);
     const covered = Math.round(statsPeriodSeconds(p.stats_series) * p.stats_sample_count);
     const lead = covered > 0
         ? `${fmt(p.stats_sample_count)} stats snapshots cover ${fmt(covered)}\u00a0s of this ${fmt(window)}\u00a0s window`
@@ -470,18 +456,15 @@ function poolerSection(p, suffix, named, wholeLogNote) {
             <div class="section-body">
                 ${captureHeader(capture)}
                 ${poolerLine(p)}
-                ${readCards(p, capture)}
-                <div class="stat-grid" style="grid-template-columns: repeat(auto-fit, minmax(${FIGURE_CARD_MIN_PX}px, 1fr));">
-                    ${hasStats ? `
-                    <div class="stat-card" title="Mean of the per-snapshot query rates pgBouncer logged, not a rate measured over the whole capture"><div class="stat-value">${p.avg_queries_per_sec != null ? p.avg_queries_per_sec.toFixed(1) : '0'}/s</div><div class="stat-label">Avg queries/s</div></div>
-                    <div class="stat-card" title="Highest queries/s seen on a single stats snapshot. pgBouncer logs one average per stats_period, so this is the busiest snapshot average, not the busiest instant."><div class="stat-value">${fmt(p.max_queries_per_sec || 0)}/s</div><div class="stat-label">Max snapshot avg queries/s</div></div>
-                    ${telemetryCards(p)}` : ''}
-                    <div class="stat-card"><div class="stat-value">${fmt(p.login_attempts || 0)}</div><div class="stat-label">Login attempts</div></div>
-                    <div class="stat-card"><div class="stat-value">${fmt(p.sessions || 0)}</div><div class="stat-label">Completed sessions</div></div>
+                ${readLine(p)}
+                ${hasStats ? `<div class="stat-grid stat-grid--rows">${telemetryCards(p)}</div>` : ''}
+                <div class="stat-grid stat-grid--rows">
+                    ${statCard(fmt(p.login_attempts || 0), 'Login attempts')}
+                    ${statCard(fmt(p.sessions || 0), 'Completed sessions')}
                     ${hasSessions ? statCard(sessionTime((p.total_session_seconds || 0) / p.sessions), 'Average session time') : ''}
                     <div class="stat-card" title="Server connections opened over the capture, not the number held at any moment: a pool capped at five can open many more over time."><div class="stat-value">${fmt(p.server_connections || 0)}</div><div class="stat-label">Server connections opened</div></div>
-                    ${p.reserve_pool_activations ? `<div class="stat-card stat-card--warning"><div class="stat-value">${fmt(p.reserve_pool_activations)}</div><div class="stat-label">Reserve pool activations</div></div>` : ''}
-                    <div class="stat-card${hasErrors ? ' stat-card--alert' : ''}"><div class="stat-value">${fmt(p.total_errors || 0)}</div><div class="stat-label">Errors</div></div>
+                    ${p.reserve_pool_activations ? statCard(fmt(p.reserve_pool_activations), 'Reserve pool activations', 'stat-card--warning') : ''}
+                    ${statCard(fmt(p.total_errors || 0), 'Errors', hasErrors ? 'stat-card--alert' : '')}
                 </div>
                 ${hasStats && statsUnderCovered(p) ? note(coverageText(p), true) : ''}
                 ${hasStats && depth ? note(queueDepthText(p.version), true) : ''}

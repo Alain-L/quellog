@@ -9,16 +9,16 @@
         "127.0.0.1:6432"
       ],
       "version": "1.25.2",
-      "min_timestamp": "2026-09-20T13:42:33",
-      "max_timestamp": "2026-09-20T13:42:47",
+      "start_date": "2026-09-20 13:42:33",
+      "end_date": "2026-09-20 13:42:47",
       "events": [
         {
-          "timestamp": "2026-09-20T13:42:33",
+          "timestamp": "2026-09-20 13:42:33",
           "kind": "start",
           "detail": "PgBouncer 1.25.2"
         },
         {
-          "timestamp": "2026-09-20T13:42:47",
+          "timestamp": "2026-09-20 13:42:47",
           "kind": "shutdown",
           "detail": "SHUTDOWN"
         }

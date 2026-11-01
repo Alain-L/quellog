@@ -52,7 +52,7 @@ pgBouncer log lines are single-line records with a `timestamp [PID] SEVERITY` pr
 
 ## Report sections
 
-Text (default), Markdown (`--md`), JSON (`--json`), YAML (`--yaml`), and HTML (`--html`) carry the same figures, with one exception: HTML states each stats-line average, but of the highest-snapshot counterparts the other formats print beside them it shows only the one for queries per second, and it gives no time for any of them. The charts carry that shape instead. The section names below are the text and Markdown ones; HTML groups them into cards and charts, and the serialized formats expose them as the keys listed further down.
+Text (default), Markdown (`--md`), JSON (`--json`), YAML (`--yaml`), and HTML (`--html`) carry the same figures, with one exception: HTML states each stats-line average, but not the highest-snapshot counterparts the other formats print beside them: the charts draw every snapshot instead. The section names below are the text and Markdown ones; HTML groups them into cards and charts, and the serialized formats expose them as the keys listed further down.
 
 - **Summary** — the pooler's name, release and files, time range, lines read, entries understood (plus the lines no parser could decode and the DEBUG/NOISE share of the rest), stats snapshots, login attempts, server connections opened, completed sessions, reserve-pool activations, errors. "Server connections opened" counts the `new connection to server` lines over the window, not the connections held at a point in time: a pool capped at five by `default_pool_size` + `reserve_pool_size` legitimately opens many more over an hour, so the figure is not comparable with a `SHOW POOLS` column. Below it, the **timeline** lists the pooler's starts (with the release), shutdowns (with the signal or the `SHUTDOWN` command), reloads (`RELOAD` or `SIGHUP`) and admin console commands such as `PAUSE 'db'` and `RESUME`, each with its time.
 - **Request throughput** — transactions/s, queries/s and bytes in/out per second, each as an average and as the highest snapshot average, with the time of that snapshot. (Network I/O is not a section of its own in text or Markdown; it is a separate chart in HTML.) The second figure is deliberately not called a peak: pgBouncer logs one rate per `stats_period`, so at the default 60 s a real spike is flattened across the minute and the largest value in the capture is the busiest snapshot average, never the busiest instant.
@@ -71,7 +71,7 @@ A section with no input is rendered empty rather than dropped, with the `pgbounc
 - **Request throughput, query timing and pool wait** come from the `stats:` lines only. With none in the window, one placeholder covers all three and names `stats_period`; a capture shorter than one period legitimately holds no such line.
 - When the snapshots that do exist account for **less than half of the reported window** — or for an unknown share of it, which a single snapshot always does — the figures are shown with the coverage stated above them. `stats_period` is inferred from the median interval between consecutive snapshots; pgBouncer never logs the setting itself.
 
-None of these verdicts adds a JSON key: they are derived from `stats_sample_count`, `stats_series[].time`, `min_timestamp`, `max_timestamp`, `login_attempts`, `sessions`, `max_queries_per_sec`, `max_xacts_per_sec`, `server_connections` and `total_errors`, all of which the document already carries.
+None of these verdicts adds a JSON key: they are derived from `stats_sample_count`, `stats_series[].time`, `start_date`, `end_date`, `login_attempts`, `sessions`, `max_queries_per_sec`, `max_xacts_per_sec`, `server_connections` and `total_errors`, all of which the document already carries.
 
 The ranked breakdowns (sessions and connections per database/user/host) show their ten heaviest rows and then state the rest as `… and N more`, the same form the PostgreSQL report uses for its own capped tables. On a pooler fronting many tenants that line is the difference between a head and a total: ten rows out of thousands can sum to a few percent, and the section title names the dimension, not the cut.
 
@@ -83,7 +83,7 @@ The HTML report adds three interactive time-series charts (throughput, network I
 
 - `name`, `files`, `listen`, `version` — who the pooler is (see [Several poolers](#several-poolers))
 - `events` — its timeline, each `{timestamp, kind, detail}`; `kind` is `start`, `shutdown`, `reload`, or the lowercased console command (`pause`, `resume`, …)
-- `min_timestamp`, `max_timestamp` — the first and last record kept, after any time filter
+- `start_date`, `end_date` — the first and last record kept, after any time filter, named and written as in the PostgreSQL summary; every time in an entry uses the same `"YYYY-MM-DD HH:MM:SS"` form, on the log's clock
 - `lines_read`, `lines`, `lines_unrecognized`, `debug_lines` — lines scanned, entries understood, lines no parser could decode, and how many entries are DEBUG/NOISE
 - `stats_sample_count`, `avg_xacts_per_sec`, `max_xacts_per_sec`, `avg_queries_per_sec`, `max_queries_per_sec` — every `max_*` rate is the highest snapshot average, not an instantaneous peak
 - `avg_in_bytes_per_sec`, `max_in_bytes_per_sec`, `avg_out_bytes_per_sec`, `max_out_bytes_per_sec`

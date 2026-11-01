@@ -37,8 +37,8 @@ const payload = {
     lines_read: 540,
     lines_unrecognized: 12,
     debug_lines: 9,
-    min_timestamp: '2026-09-20T13:59:04',
-    max_timestamp: '2026-09-20T14:12:50',
+    start_date: '2026-09-20 13:59:04',
+    end_date: '2026-09-20 14:12:50',
     total_session_seconds: 362,
     stats_sample_count: 3,
     avg_queries_per_sec: 48.3,
@@ -50,18 +50,13 @@ const payload = {
     total_errors: 45,
 };
 
-// The card labels, keyed by the text report's wording for the same figure.
+// The card labels, keyed by the text report's wording for the same
+// figure: the stats-line averages, worded as the text report's REQUEST
+// THROUGHPUT, QUERY TIMING and POOL WAIT rows word them, then the
+// counters the events feed.
 const CANONICAL_CARD_LABELS = [
-    'Duration',
-    'Log lines read',
-    'Log entries',
-    'Unrecognized lines',
-    'Filtered-out lines',
-    'Debug/noise entries',
-    'Stats snapshots',
-    // The stats-line figures, worded as the text report's REQUEST
-    // THROUGHPUT, QUERY TIMING and POOL WAIT rows word them.
     'Transactions',
+    'Queries',
     'Avg transaction time',
     'Avg query time',
     'Avg pool wait time',
@@ -75,10 +70,19 @@ const CANONICAL_CARD_LABELS = [
     'Errors',
 ];
 
-// Card labels the text report has no single counterpart for: the HTML
-// splits the throughput row "Queries : 48.3 /s (max snapshot avg 58 /s)"
-// into two cards, so each card qualifies itself.
-const DOCUMENTED_DIVERGENCES = ['Avg queries/s', 'Max snapshot avg queries/s'];
+// The line accounting is a line of text under the pooler's identity, not
+// cards, but it keeps the text report's wording.
+const READ_LINE_LABELS = [
+    'Log lines read',
+    'Log entries',
+    'Unrecognized lines',
+    'Filtered-out lines',
+    'Debug/noise entries',
+    'Stats snapshots',
+];
+
+// Card labels the text report has no single counterpart for.
+const DOCUMENTED_DIVERGENCES = [];
 
 const BANNED = ['Server Conns', 'Reserve Pool<', 'Avg Queries', 'Peak Queries'];
 
@@ -97,6 +101,13 @@ test('every stat card carries the text report\'s wording', () => {
             CANONICAL_CARD_LABELS.includes(label) || DOCUMENTED_DIVERGENCES.includes(label),
             `card label ${JSON.stringify(label)} matches no text-report label and is not a documented divergence`,
         );
+    }
+});
+
+test('the line accounting carries the text report\'s wording', () => {
+    const html = buildPgBouncerSection({ pgbouncer: { ...payload, lines_read: 130, lines: 100, lines_unrecognized: 20, debug_lines: 7 } });
+    for (const want of READ_LINE_LABELS) {
+        assert.ok(html.includes(`${want} <b>`), `line accounting ${JSON.stringify(want)} missing`);
     }
 });
 
@@ -119,8 +130,8 @@ test('the timing chart names the queue wait as a pool wait', () => {
         pgbouncer: {
             ...payload,
             stats_series: [
-                { time: '2026-09-09T21:00:00', wait_us: 5 },
-                { time: '2026-09-09T21:01:00', wait_us: 7 },
+                { time: '2026-09-09 21:00:00', wait_us: 5 },
+                { time: '2026-09-09 21:01:00', wait_us: 7 },
             ],
         },
     });
