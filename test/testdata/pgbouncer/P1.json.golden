@@ -1079,48 +1079,64 @@
       "reserve_pool_activations": 1,
       "errors": [
         {
-          "message": "pooler error: query_wait_timeout",
+          "id": "wa-2Xo6",
+          "level": "WARNING",
+          "message": "query_wait_timeout",
           "count": 22,
           "first": "2026-09-25 09:08:09",
           "last": "2026-09-25 09:08:20"
         },
         {
-          "message": "pooler error: password authentication failed",
+          "id": "wa-zZfu",
+          "level": "WARNING",
+          "message": "password authentication failed",
           "count": 4,
           "first": "2026-09-25 09:10:29",
           "last": "2026-09-25 09:10:29"
         },
         {
-          "message": "pooler error: server conn crashed?",
+          "id": "wa-S1AV",
+          "level": "WARNING",
+          "message": "server conn crashed?",
           "count": 2,
           "first": "2026-09-25 09:10:59",
           "last": "2026-09-25 09:10:59"
         },
         {
+          "id": "wa-7RKL",
+          "level": "WARNING",
+          "message": "client_idle_timeout",
+          "count": 1,
+          "first": "2026-09-25 09:12:24",
+          "last": "2026-09-25 09:12:24"
+        },
+        {
+          "id": "wa-ELGU",
+          "level": "WARNING",
           "message": "got packet 'E' from server when not linked",
           "count": 1,
           "first": "2026-09-25 09:10:59",
           "last": "2026-09-25 09:10:59"
         },
         {
-          "message": "pooler error: client_idle_timeout",
-          "count": 1,
-          "first": "2026-09-25 09:12:24",
-          "last": "2026-09-25 09:12:24"
-        },
-        {
-          "message": "pooler error: no such database: nosuchdb",
+          "id": "wa-lWMX",
+          "level": "WARNING",
+          "message": "no such database: nosuchdb",
           "count": 1,
           "first": "2026-09-25 09:10:29",
           "last": "2026-09-25 09:10:29"
         },
         {
+          "id": "wa-r4MI",
+          "level": "WARNING",
           "message": "server login failed: FATAL the database system is shutting down",
           "count": 1,
           "first": "2026-09-25 09:10:59",
           "last": "2026-09-25 09:10:59"
         },
         {
+          "id": "wa-JC9n",
+          "level": "WARNING",
           "message": "taking connection from reserve_pool",
           "count": 1,
           "first": "2026-09-25 09:08:07",

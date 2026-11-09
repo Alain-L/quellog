@@ -1566,25 +1566,33 @@
       "reserve_pool_activations": 2,
       "errors": [
         {
-          "message": "pooler error: password authentication failed",
+          "id": "wa-zZfu",
+          "level": "WARNING",
+          "message": "password authentication failed",
           "count": 13,
           "first": "2026-09-09 21:00:37",
           "last": "2026-09-09 21:00:39"
         },
         {
+          "id": "wa-JC9n",
+          "level": "WARNING",
           "message": "taking connection from reserve_pool",
           "count": 2,
           "first": "2026-09-09 21:00:42",
           "last": "2026-09-09 21:00:42"
         },
         {
+          "id": "er-1qb0",
+          "level": "ERROR",
           "message": "cannot do SCRAM authentication: wrong password type",
           "count": 1,
           "first": "2026-09-09 20:59:13",
           "last": "2026-09-09 20:59:13"
         },
         {
-          "message": "pooler error: server login failed: wrong password type",
+          "id": "wa-hBsw",
+          "level": "WARNING",
+          "message": "server login failed: wrong password type",
           "count": 1,
           "first": "2026-09-09 20:59:13",
           "last": "2026-09-09 20:59:13"

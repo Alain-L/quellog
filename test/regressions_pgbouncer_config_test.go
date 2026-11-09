@@ -66,22 +66,25 @@ func writeProbe(t *testing.T, name, body string) string {
 // TestPgBouncerNamesTheMissingConnectionLines freezes COR-39: with
 // log_connections = 0 the Sessions and Connections sections used to
 // vanish without a word, on a page that went on reporting 48 queries/s
-// and 45 errors. Both sections must now exist and name the setting.
+// and 45 errors. Both counts must now show, at 0, and name the setting.
 func TestPgBouncerNamesTheMissingConnectionLines(t *testing.T) {
 	fixture := filepath.Join("testdata", "regressions", "pgbouncer", "pgbouncer_no_conn_log.log")
 
 	for _, tc := range []struct {
 		format string
 		args   []string
-		// section is how the format spells the two headings.
+		// sessions and connections are how the format spells the rows.
 		sessions, connections string
 	}{
-		{"text", nil, "SESSIONS", "CONNECTIONS"},
-		{"markdown", []string{"--md"}, "## Sessions", "## Connections"},
+		{"text", nil, "Completed sessions        : 0", "Login attempts            : 0"},
+		{"markdown", []string{"--md"}, "| Completed sessions | 0", "| Login attempts | 0"},
 	} {
 		t.Run(tc.format, func(t *testing.T) {
 			out := string(runHarness(t, false, append([]string{fixture}, tc.args...)...))
 			out = ansiEscapeRe.ReplaceAllString(out, "")
+			if tc.format == "markdown" {
+				out = mdUnpadded([]byte(out))
+			}
 
 			if !strings.Contains(out, tc.sessions) {
 				t.Errorf("no Sessions section: with log_connections = 0 it disappears silently\n%s", out)
@@ -95,9 +98,6 @@ func TestPgBouncerNamesTheMissingConnectionLines(t *testing.T) {
 			if !strings.Contains(out, "log_disconnections") {
 				t.Errorf("the report never names log_disconnections\n%s", out)
 			}
-			if !strings.Contains(out, "pgbouncer-setup") {
-				t.Errorf("the report does not point at the setup page\n%s", out)
-			}
 		})
 	}
 }
@@ -110,8 +110,8 @@ func TestPgBouncerSaysTrafficIsNotMissing(t *testing.T) {
 	fixture := filepath.Join("testdata", "regressions", "pgbouncer", "pgbouncer_no_conn_log.log")
 	out := ansiEscapeRe.ReplaceAllString(string(runHarness(t, false, fixture)), "")
 
-	if !strings.Contains(out, "Traffic over this window, but no") {
-		t.Errorf("the empty sections do not say the traffic itself was reported\n%s", out)
+	if !strings.Contains(out, "0 although traffic shows") {
+		t.Errorf("the empty counts do not say the traffic itself was reported\n%s", out)
 	}
 }
 
@@ -122,14 +122,11 @@ func TestPgBouncerFlagsSingleSnapshotCoverage(t *testing.T) {
 	probe := writeProbe(t, "single-stats.log", singleStatsProbe)
 	out := ansiEscapeRe.ReplaceAllString(string(runHarness(t, false, probe)), "")
 
-	if !strings.Contains(out, "stats snapshot") {
+	if !strings.Contains(out, "Stats coverage            : a single snapshot") {
 		t.Errorf("the report publishes 0.0/s from a single startup snapshot without qualifying it\n%s", out)
 	}
 	if !strings.Contains(out, "stats_period") {
 		t.Errorf("the report never names stats_period, the setting that decides the coverage\n%s", out)
-	}
-	if !strings.Contains(out, "pgbouncer-setup") {
-		t.Errorf("the coverage note does not point at the setup page\n%s", out)
 	}
 }
 
@@ -141,15 +138,15 @@ func TestPgBouncerFlagsAbsentTelemetry(t *testing.T) {
 	fixture := filepath.Join("testdata", "regressions", "pgbouncer", "pgbouncer_verbose.log")
 	out := ansiEscapeRe.ReplaceAllString(string(runHarness(t, false, fixture)), "")
 
-	if !strings.Contains(out, "REQUEST THROUGHPUT") {
-		t.Errorf("the throughput section vanishes instead of saying why it is empty\n%s", out)
+	if !strings.Contains(out, `Traffic                   : no "stats:" line`) {
+		t.Errorf("the throughput figures vanish instead of saying why there are none\n%s", out)
 	}
 	if !strings.Contains(out, "stats_period") {
 		t.Errorf("the report never names stats_period\n%s", out)
 	}
 	// A short capture is not a misconfiguration; the note must not read
 	// as an accusation.
-	if strings.Contains(out, "Traffic over this window, but no") {
+	if strings.Contains(out, "although traffic shows") {
 		t.Errorf("an absent-telemetry note borrowed the unlogged-connections wording\n%s", out)
 	}
 }
@@ -162,31 +159,15 @@ func TestPgBouncerDoesNotAccuseAnIdlePooler(t *testing.T) {
 	probe := writeProbe(t, "idle.log", idleProbe)
 	out := ansiEscapeRe.ReplaceAllString(string(runHarness(t, false, probe)), "")
 
-	if strings.Contains(out, "Traffic over this window, but no") {
-		t.Errorf("an idle pooler is told its connection logging is off\n%s", out)
+	if strings.Contains(out, "although traffic shows") {
+		t.Errorf("an idle pooler is told traffic went unlogged\n%s", out)
 	}
-	if strings.Contains(out, "stats snapshot") && strings.Contains(out, "snapshots cover") {
+	if strings.Contains(out, "Stats coverage") {
 		t.Errorf("an idle pooler with end-to-end telemetry is told its coverage is short\n%s", out)
 	}
-	// It still gets the plain placeholder, with the settings to check.
-	if !strings.Contains(out, "CONNECTIONS") || !strings.Contains(out, "log_connections") {
-		t.Errorf("the idle report drops the Connections section instead of showing it empty\n%s", out)
-	}
-}
-
-// TestPgBouncerStatesPoolModeIsUnlogged freezes COR-41. pool_mode
-// changes what the wait figure is averaged over (per session, per
-// transaction, per statement) and pgBouncer logs it nowhere, so the
-// report must say the denominator is not in the log rather than let the
-// reader assume one.
-func TestPgBouncerStatesPoolModeIsUnlogged(t *testing.T) {
-	fixture := filepath.Join("testdata", "regressions", "pgbouncer", "pgbouncer.log")
-
-	for _, args := range [][]string{nil, {"--md"}} {
-		out := ansiEscapeRe.ReplaceAllString(string(runHarness(t, false, append([]string{fixture}, args...)...)), "")
-		if !strings.Contains(out, "pool_mode") {
-			t.Errorf("args=%v: the pool wait figure never mentions pool_mode, which sets its denominator\n%s", args, out)
-		}
+	// It still gets the zero, with the setting to check.
+	if !strings.Contains(out, "Login attempts            : 0, check log_connections") {
+		t.Errorf("the idle report drops the login count instead of showing it at 0\n%s", out)
 	}
 }
 

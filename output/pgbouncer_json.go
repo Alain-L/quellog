@@ -97,8 +97,11 @@ type PgBouncerWaitEpisodeJSON struct {
 	PeakTimestamp string `json:"peak_timestamp"`
 }
 
-// PgBouncerErrorJSON is one normalized warning or error.
+// PgBouncerErrorJSON is one normalized warning or error: its
+// --event-detail ID and the level pgBouncer logged it at.
 type PgBouncerErrorJSON struct {
+	ID      string `json:"id"`
+	Level   string `json:"level"`
 	Message string `json:"message"`
 	Count   int    `json:"count"`
 	First   string `json:"first"`
@@ -166,7 +169,7 @@ func pgbouncerJSON(poolers []analysis.PgBouncerMetrics) []PgBouncerJSON {
 			j.SessionReasons = append(j.SessionReasons, PgBouncerCloseReasonJSON{r.Reason, r.Count, r.TotalSeconds})
 		}
 		for _, e := range m.Errors {
-			j.Errors = append(j.Errors, PgBouncerErrorJSON{e.Message, e.Count, pgbTime(e.First), pgbTime(e.Last)})
+			j.Errors = append(j.Errors, PgBouncerErrorJSON{e.ID, e.Level, e.Message, e.Count, pgbTime(e.First), pgbTime(e.Last)})
 		}
 		out[i] = j
 	}

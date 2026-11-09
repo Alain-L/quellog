@@ -183,250 +183,78 @@ This _quellog_ report summarizes **74** log entries collected between 25 Sep 202
 
 
 
-# pgBouncer Report (127.0.0.1:6432)
-
-## Summary
-
-| Metric                    | Value                                                                                  |
-|---------------------------|----------------------------------------------------------------------------------------|
-| Pooler                    | 127.0.0.1:6432                                                                         |
-| Version                   | PgBouncer 1.25.2                                                                       |
-| Files                     | testdata/pgbouncer/P2/pgb-a.pgbouncer.log.1, testdata/pgbouncer/P2/pgb-a.pgbouncer.log |
-| Start date                | 2026-09-25 09:15:44 UTC                                                                |
-| End date                  | 2026-09-25 09:21:32 UTC                                                                |
-| Duration                  | 5m47.772s                                                                              |
-| Log lines read            | 230                                                                                    |
-| Log entries               | 230                                                                                    |
-| Stats snapshots           | 34                                                                                     |
-| Login attempts            | 93                                                                                     |
-| Server connections opened | 3                                                                                      |
-| Completed sessions        | 92                                                                                     |
-| Errors                    | 0                                                                                      |
-
-### Timeline
-
-| Time     | Event    | Detail           |
-|----------|----------|------------------|
-| 09:15:44 | start    | PgBouncer 1.25.2 |
-| 09:17:45 | reload   | SIGHUP           |
-| 09:21:32 | shutdown | SHUTDOWN         |
-
-## Request Throughput
-
-*Rates are the pooler's own per-snapshot averages over stats_period; the max is the highest snapshot average, not the busiest instant.*
-
-| Metric         |     Average | Max snapshot average |       At |
-|----------------|------------:|---------------------:|---------:|
-| Transactions/s |      1982.4 |                 2513 | 09:19:54 |
-| Queries/s      |     13877.9 |                17592 | 09:19:54 |
-| Network in     | 826.93 KB/s |            1.02 MB/s | 09:19:54 |
-| Network out    | 360.74 KB/s |          457.27 KB/s | 09:19:54 |
-
-## Query Timing
-
-*Averages skip the snapshots that timed none and weight the rest by operation count; the max is the highest snapshot average, not a peak.*
-
-| Metric           | Weighted average | Max snapshot average |       At |
-|------------------|-----------------:|---------------------:|---------:|
-| Transaction time |           1.3 ms |               2.1 ms | 09:17:54 |
-| Query time       |           178 µs |               293 µs | 09:17:54 |
-
-## Pool Wait
-
-*Time clients spent queued for a server connection, a pool sizing signal rather than a query one. Averaged as the timings above are. What it is averaged over depends on pool_mode (one wait per session, per transaction or per statement), which pgBouncer logs nowhere.*
-
-| Metric         | Weighted average | Max snapshot average |       At |
-|----------------|-----------------:|---------------------:|---------:|
-| Pool wait time |           132 µs |               4.0 ms | 09:15:54 |
-
-## Sessions
-
-- Completed sessions: **92**
-- Average session time: **10s**
-- Ended by the client: **92**
-- Ended by the pooler: **0**
-
-| Session time | Count |
-|--------------|------:|
-| < 1s         |    29 |
-| 1s - 1min    |    63 |
-
-### Sessions per close reason
-
-| Reason                | Count |     % | Average age |
-|-----------------------|------:|------:|------------:|
-| client close request  |    89 | 96.7% |         10s |
-| client unexpected eof |     3 |  3.3% |          6s |
-
-### Sessions per database
-
-| Name      | Count |     % |
-|-----------|------:|------:|
-| bench     |    84 | 91.3% |
-| pgbouncer |     8 |  8.7% |
-
-### Sessions per user
-
-| Name  | Count |      % |
-|-------|------:|-------:|
-| bench |    92 | 100.0% |
-
-### Sessions per host
-
-| Name      | Count |      % |
-|-----------|------:|-------:|
-| 127.0.0.1 |    92 | 100.0% |
-
-## Connections
-
-### Connections per database
-
-| Name      | Count |     % |
-|-----------|------:|------:|
-| bench     |    84 | 90.3% |
-| pgbouncer |     9 |  9.7% |
-
-### Connections per user
-
-| Name  | Count |      % |
-|-------|------:|-------:|
-| bench |    93 | 100.0% |
-
-### Connections per host
-
-| Name      | Count |      % |
-|-----------|------:|-------:|
-| 127.0.0.1 |    93 | 100.0% |
-
-# pgBouncer Report (127.0.0.1:6433)
-
-## Summary
-
-| Metric                    | Value                                     |
-|---------------------------|-------------------------------------------|
-| Pooler                    | 127.0.0.1:6433                            |
-| Version                   | PgBouncer 1.25.2                          |
-| Files                     | testdata/pgbouncer/P2/pgb-b.pgbouncer.log |
-| Start date                | 2026-09-25 09:15:44 UTC                   |
-| End date                  | 2026-09-25 09:21:32 UTC                   |
-| Duration                  | 5m47.771s                                 |
-| Log lines read            | 249                                       |
-| Log entries               | 249                                       |
-| Stats snapshots           | 34                                        |
-| Login attempts            | 95                                        |
-| Server connections opened | 4                                         |
-| Completed sessions        | 94                                        |
-| Reserve pool activations  | 2                                         |
-| Errors                    | 14                                        |
-
-### Timeline
-
-| Time     | Event    | Detail           |
-|----------|----------|------------------|
-| 09:15:44 | start    | PgBouncer 1.25.2 |
-| 09:18:47 | reload   | RELOAD           |
-| 09:19:32 | reload   | RELOAD           |
-| 09:20:47 | reload   | RELOAD           |
-| 09:21:20 | reload   | RELOAD           |
-| 09:21:32 | shutdown | SHUTDOWN         |
-
-## Request Throughput
-
-*Rates are the pooler's own per-snapshot averages over stats_period; the max is the highest snapshot average, not the busiest instant.*
-
-| Metric         | Average | Max snapshot average |       At |
-|----------------|--------:|---------------------:|---------:|
-| Transactions/s |     1.7 |                    9 | 09:20:54 |
-| Queries/s      |     7.1 |                   32 | 09:19:04 |
-| Network in     | 205 B/s |              911 B/s | 09:19:04 |
-| Network out    | 304 B/s |            1.32 KB/s | 09:21:14 |
-
-## Query Timing
-
-*Averages skip the snapshots that timed none and weight the rest by operation count; the max is the highest snapshot average, not a peak.*
-
-| Metric           | Weighted average | Max snapshot average |       At |
-|------------------|-----------------:|---------------------:|---------:|
-| Transaction time |           4.00 s |              11.88 s | 09:19:34 |
-| Query time       |           1.04 s |               1.44 s | 09:19:34 |
-
-## Pool Wait
-
-*Time clients spent queued for a server connection, a pool sizing signal rather than a query one. Averaged as the timings above are. What it is averaged over depends on pool_mode (one wait per session, per transaction or per statement), which pgBouncer logs nowhere.*
-
-| Metric         | Weighted average | Max snapshot average |       At |
-|----------------|-----------------:|---------------------:|---------:|
-| Pool wait time |           3.54 s |               4.51 s | 09:19:34 |
-
-### Stretches with waits of 100 ms or more
-
-| Start    | End      | Duration |   Peak | Peak at  |
-|----------|----------|---------:|-------:|----------|
-| 09:18:44 | 09:19:34 |      50s | 4.51 s | 09:19:34 |
-| 09:20:44 | 09:21:24 |      40s | 3.01 s | 09:21:14 |
-
-## Sessions
-
-- Completed sessions: **94**
-- Average session time: **28s**
-- Ended by the client: **82**
-- Ended by the pooler: **12**
-
-| Session time | Count |
-|--------------|------:|
-| < 1s         |    14 |
-| 1s - 1min    |    80 |
-
-### Sessions per close reason
-
-| Reason               | Count |     % | Average age |
-|----------------------|------:|------:|------------:|
-| client close request |    82 | 87.2% |         31s |
-| query_wait_timeout   |    12 | 12.8% |          3s |
-
-### Sessions per database
-
-| Name      | Count |     % |
-|-----------|------:|------:|
-| bench     |    82 | 87.2% |
-| pgbouncer |    12 | 12.8% |
-
-### Sessions per user
-
-| Name  | Count |      % |
-|-------|------:|-------:|
-| bench |    94 | 100.0% |
-
-### Sessions per host
-
-| Name      | Count |      % |
-|-----------|------:|-------:|
-| 127.0.0.1 |    94 | 100.0% |
-
-## Connections
-
-### Connections per database
-
-| Name      | Count |     % |
-|-----------|------:|------:|
-| bench     |    82 | 86.3% |
-| pgbouncer |    13 | 13.7% |
-
-### Connections per user
-
-| Name  | Count |      % |
-|-------|------:|-------:|
-| bench |    95 | 100.0% |
-
-### Connections per host
-
-| Name      | Count |      % |
-|-----------|------:|-------:|
-| 127.0.0.1 |    95 | 100.0% |
-
-## Most Frequent Errors
-
-| Error                               | Count |     % |    First |     Last |
-|-------------------------------------|------:|------:|---------:|---------:|
-| pooler error: query_wait_timeout    |    12 | 85.7% | 09:20:50 | 09:20:50 |
-| taking connection from reserve_pool |     2 | 14.3% | 09:18:49 | 09:18:49 |
+## PGBOUNCER 127.0.0.1:6432
+
+| Metric             | Value                                            |
+|--------------------|--------------------------------------------------|
+| Pooler             | 127.0.0.1:6432, PgBouncer 1.25.2                 |
+| Start date         | 2026-09-25 09:15:44 UTC                          |
+| End date           | 2026-09-25 09:21:32 UTC                          |
+| Throughput         | 1982.4 transactions/s, 13877.9 queries/s         |
+| Avg time           | transaction 1.3 ms, query 178 µs                 |
+| Avg pool wait time | 132 µs                                           |
+| Clients            | 93 login attempts, 92 sessions of 10s on average |
+| Server connections | 3 opened                                         |
+
+### Messages: 0 errors, 0 warnings
+
+
+### Activity per 30s
+
+| Time     | Queries | Query time | Pool wait | Events   |
+|----------|--------:|-----------:|----------:|----------|
+| 09:15:30 | 15.6k/s |     159 µs |    4.0 ms | start    |
+| 09:16:00 | 15.2k/s |     159 µs |           |          |
+| 09:16:30 | 15.2k/s |     159 µs |           |          |
+| 09:17:00 | 15.4k/s |     191 µs |           |          |
+| 09:17:30 |  9.1k/s |     293 µs |           | reload   |
+| 09:18:00 | 14.4k/s |     193 µs |           |          |
+| 09:18:30 | 15.2k/s |     159 µs |           |          |
+| 09:19:00 | 12.1k/s |     224 µs |           |          |
+| 09:19:30 | 13.7k/s |     220 µs |           |          |
+| 09:20:00 | 15.2k/s |     158 µs |           |          |
+| 09:20:30 | 15.0k/s |     163 µs |           |          |
+| 09:21:00 | 11.6k/s |     249 µs |           |          |
+| 09:21:32 |         |            |           | shutdown |
+
+_Query time and pool wait: worst snapshot of each row._
+
+_Details: --pgbouncer-detail_
+
+## PGBOUNCER 127.0.0.1:6433
+
+| Metric             | Value                                            |
+|--------------------|--------------------------------------------------|
+| Pooler             | 127.0.0.1:6433, PgBouncer 1.25.2                 |
+| Start date         | 2026-09-25 09:15:44 UTC                          |
+| End date           | 2026-09-25 09:21:32 UTC                          |
+| Throughput         | 1.7 transactions/s, 7.1 queries/s                |
+| Avg time           | transaction 4.00 s, query 1.04 s                 |
+| Avg pool wait time | 3.54 s                                           |
+| Clients            | 95 login attempts, 94 sessions of 28s on average |
+| Server connections | 4 opened, 2 reserve pool activations             |
+
+### Messages: 0 errors, 14 warnings
+
+| Message                             | Count | When     |
+|-------------------------------------|------:|----------|
+| query_wait_timeout                  |    12 | 09:20:50 |
+| taking connection from reserve_pool |     2 | 09:18:49 |
+
+### Activity per 30s
+
+| Time     | Queries | Query time | Pool wait | Events                    |
+|----------|--------:|-----------:|----------:|---------------------------|
+| 09:15:30 |     0/s |            |           | start                     |
+| 09:16:00 |     0/s |            |           | no traffic until 09:18:30 |
+| 09:18:30 |   7.3/s |   819.9 ms |    3.27 s | reload                    |
+| 09:19:00 |  31.3/s |     1.25 s |    4.51 s |                           |
+| 09:19:30 |   7.0/s |     1.44 s |    4.51 s | reload                    |
+| 09:20:00 |     0/s |            |           |                           |
+| 09:20:30 |   9.0/s |   603.4 ms |    2.20 s | reload                    |
+| 09:21:00 |  26.0/s |   995.4 ms |    3.01 s | reload                    |
+| 09:21:32 |         |            |           | shutdown                  |
+
+_Query time and pool wait: worst snapshot of each row._
+
+_Details: --pgbouncer-detail_

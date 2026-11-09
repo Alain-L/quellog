@@ -12,115 +12,102 @@ import (
 )
 
 // ExportPgBouncerMarkdown writes one pgBouncer report per pooler, each
-// titled by the pooler's name when there are several.
-func ExportPgBouncerMarkdown(w io.Writer, poolers []analysis.PgBouncerMetrics) {
+// titled by the pooler's name when there are several. The default view is
+// synthetic; detail (--pgbouncer-detail, --full) adds every breakdown.
+func ExportPgBouncerMarkdown(w io.Writer, poolers []analysis.PgBouncerMetrics, detail bool) {
 	var b strings.Builder
 	for i, m := range poolers {
-		title := "# pgBouncer Report"
+		title := "## PGBOUNCER"
 		if len(poolers) > 1 {
-			title += " (" + escapeMDCell(m.Name) + ")"
+			title += " " + escapeMDCell(m.Name)
 		}
 		if i > 0 {
 			b.WriteString("\n")
 		}
-		writePgBouncerMarkdown(&b, m, title)
+		writePgBouncerMarkdown(&b, m, title, detail)
 	}
 	io.WriteString(w, b.String())
 }
 
-// writePgBouncerMarkdown writes one pooler's report as GitHub-flavoured
-// Markdown: a summary table and its timeline, throughput/timing tables,
-// the session-time histogram as a table, per-dimension breakdowns, and
-// the errors. Tables go through mdTable, as in the PostgreSQL report.
-func writePgBouncerMarkdown(b *strings.Builder, m analysis.PgBouncerMetrics, title string) {
+// writePgBouncerMarkdown writes one pooler's report as the text report
+// lays it out: the summary rows as a table, the warnings and errors, the
+// activity table, and in the detailed view the highest snapshot averages
+// and the breakdowns. Tables go through mdTable, as in the PostgreSQL
+// report.
+func writePgBouncerMarkdown(b *strings.Builder, m analysis.PgBouncerMetrics, title string, detail bool) {
 	clock := pgbClock(m)
 	section := func(heading string) { fmt.Fprintf(b, "\n%s\n\n", heading) }
 
-	fmt.Fprintf(b, "%s\n", title)
-	section("## Summary")
-	summary := [][]string{{"Pooler", m.Name}}
-	if m.Version != "" {
-		summary = append(summary, []string{"Version", "PgBouncer " + m.Version})
+	fmt.Fprintf(b, "%s\n\n", title)
+	var rows [][]string
+	for _, r := range pgbSummaryRows(m, detail) {
+		rows = append(rows, []string{r[0], r[1]})
 	}
-	summary = append(summary,
-		[]string{"Files", strings.Join(m.Files, ", ")},
-		[]string{"Start date", m.MinTimestamp.Format("2006-01-02 15:04:05 MST")},
-		[]string{"End date", m.MaxTimestamp.Format("2006-01-02 15:04:05 MST")},
-		[]string{"Duration", m.MaxTimestamp.Sub(m.MinTimestamp).String()},
-		[]string{"Log lines read", fmt.Sprint(m.LinesRead)},
-		[]string{"Log entries", fmt.Sprint(m.Lines)})
-	if m.LinesUnrecognized > 0 {
-		summary = append(summary, []string{"Unrecognized lines", fmt.Sprint(m.LinesUnrecognized)})
-	}
-	if n := m.LinesFiltered(); n > 0 {
-		summary = append(summary, []string{"Filtered-out lines", fmt.Sprint(n)})
-	}
-	if m.DebugLines > 0 {
-		summary = append(summary, []string{"Debug/noise entries", fmt.Sprint(m.DebugLines)})
-	}
-	summary = append(summary,
-		[]string{"Stats snapshots", fmt.Sprint(m.StatsSampleCount)},
-		[]string{"Login attempts", fmt.Sprint(m.LoginAttempts)},
-		[]string{"Server connections opened", fmt.Sprint(m.ServerConnections)},
-		[]string{"Completed sessions", fmt.Sprint(m.Sessions)})
-	if m.ReservePoolActivations > 0 {
-		summary = append(summary, []string{"Reserve pool activations", fmt.Sprint(m.ReservePoolActivations)})
-	}
-	summary = append(summary, []string{"Errors", fmt.Sprint(m.TotalErrors)})
-	mdTable(b, []string{"Metric", "Value"}, "ll", summary)
+	mdTable(b, []string{"Metric", "Value"}, "ll", rows)
 
-	if len(m.Events) > 0 {
-		section("### Timeline")
-		rows := make([][]string, len(m.Events))
-		for i, e := range m.Events {
-			rows[i] = []string{e.Time.Format(clock), e.Kind, e.Detail}
+	if detail && m.StatsSampleCount > 1 {
+		section("### Max snapshot averages")
+		rows = nil
+		for _, r := range pgbMaxRows(m) {
+			rows = append(rows, []string{r[0], r[1]})
 		}
-		mdTable(b, []string{"Time", "Event", "Detail"}, "lll", rows)
+		mdTable(b, []string{"Metric", "Value"}, "ll", rows)
 	}
 
-	section("## Request Throughput")
-	if m.StatsSampleCount == 0 {
-		b.WriteString("(No data available)\n\n")
-		writeNoteMD(b, pgbNoStatsNote)
-	} else {
-		if m.StatsUnderCovered() {
-			writeNoteMD(b, pgbCoverageNote(m))
-			b.WriteString("\n")
+	section("### " + pgbMessagesTitle(m))
+	if list := pgbMessages(m, detail); len(list) > 0 {
+		rows = nil
+		for _, e := range headMD(list) {
+			r := []string{e.Message, fmt.Sprint(e.Count), pgbWhen(e, clock)}
+			if detail {
+				r = append([]string{"`" + e.ID + "`"}, r...)
+			}
+			rows = append(rows, r)
 		}
-		writeNoteMD(b, pgbRateNote[:])
-		b.WriteString("\n")
-		mdTable(b, []string{"Metric", "Average", "Max snapshot average", "At"}, "lrrr", [][]string{
-			{"Transactions/s", fmt.Sprintf("%.1f", m.AvgXactsPerSec), fmt.Sprint(m.MaxXactsPerSec), pgbAtMD(m.MaxXactsTimestamp, clock)},
-			{"Queries/s", fmt.Sprintf("%.1f", m.AvgQueriesPerSec), fmt.Sprint(m.MaxQueriesPerSec), pgbAtMD(m.MaxQueriesTimestamp, clock)},
-			{"Network in", bytesPerSec(m.AvgInBytesPerSec), bytesPerSec(float64(m.MaxInBytesPerSec)), pgbAtMD(m.MaxInTimestamp, clock)},
-			{"Network out", bytesPerSec(m.AvgOutBytesPerSec), bytesPerSec(float64(m.MaxOutBytesPerSec)), pgbAtMD(m.MaxOutTimestamp, clock)},
-		})
-
-		section("## Query Timing")
-		writeNoteMD(b, pgbTimingNote[:])
-		b.WriteString("\n")
-		mdTable(b, []string{"Metric", "Weighted average", "Max snapshot average", "At"}, "lrrr", [][]string{
-			{"Transaction time", micros(m.AvgXactMicros), microsI(m.MaxXactMicros), pgbAtMD(m.MaxXactTimestamp, clock)},
-			{"Query time", micros(m.AvgQueryMicros), microsI(m.MaxQueryMicros), pgbAtMD(m.MaxQueryTimestamp, clock)},
-		})
-
-		section("## Pool Wait")
-		if m.WaitIsQueueDepth() {
-			writeNoteMD(b, pgbQueueDepthNote(m.Version))
-			b.WriteString("\n")
-			mdTable(b, []string{"Metric", "Average", "Max snapshot average", "At"}, "lrrr", [][]string{
-				{"Clients queued", queueDepth(m.AvgWaitMicros), queueDepth(float64(m.MaxWaitMicros)), pgbAtMD(m.MaxWaitTimestamp, clock)},
-			})
+		if detail {
+			mdTable(b, []string{"ID", "Message", "Count", "When"}, "llrl", rows)
 		} else {
-			writeNoteMD(b, pgbWaitNote)
-			b.WriteString("\n")
-			mdTable(b, []string{"Metric", "Weighted average", "Max snapshot average", "At"}, "lrrr", [][]string{
-				{"Pool wait time", micros(m.AvgWaitMicros), microsI(m.MaxWaitMicros), pgbAtMD(m.MaxWaitTimestamp, clock)},
-			})
+			mdTable(b, []string{"Message", "Count", "When"}, "lrl", rows)
+		}
+		writeTailMD(b, len(list), pgbListMax)
+	}
+
+	max := pgbActivityRows
+	if detail {
+		max = pgbActivityDetailRows
+	}
+	if a, ok := pgbBuildActivity(m, max); ok {
+		layout := a.clock(m)
+		section("### Activity " + a.title())
+		rows = nil
+		for _, r := range a.Rows {
+			switch {
+			case !r.IdleUntil.IsZero():
+				rows = append(rows, []string{r.At.Format(layout), "0/s", "", "", "no traffic until " + r.IdleUntil.Format(layout)})
+			case r.Snapshots == 0:
+				rows = append(rows, []string{r.At.Format(layout), "", "", "", pgbEventsShort(r.Events)})
+			default:
+				rows = append(rows, []string{r.At.Format(layout), pgbRate(r.Queries), pgbRowQuery(r.QueryUs), pgbRowWait(m, r.WaitUs), pgbEventsShort(r.Events)})
+			}
+		}
+		wait := "Pool wait"
+		if m.WaitIsQueueDepth() {
+			wait = "Clients queued"
+		}
+		mdTable(b, []string{"Time", "Queries", "Query time", wait, "Events"}, "lrrrl", rows)
+		fmt.Fprintf(b, "\n_Query time and %s: worst snapshot of each row._\n", strings.ToLower(wait))
+	} else if detail {
+		if len(m.Events) > 0 {
+			section("### Timeline")
+			rows = nil
+			for _, e := range m.Events {
+				rows = append(rows, []string{e.Time.Format(clock), e.Kind, pgbEventDetail(e)})
+			}
+			mdTable(b, []string{"Time", "Event", "Detail"}, "lll", rows)
 		}
 		if len(m.WaitEpisodes) > 0 {
 			section("### " + pgbEpisodeTitle(m))
-			var rows [][]string
+			rows = nil
 			for _, e := range headMD(m.WaitEpisodes) {
 				rows = append(rows, []string{e.Start.Format(clock), e.End.Format(clock),
 					formatSessionDuration(e.End.Sub(e.Start)), pgbWait(m, e.PeakUs), e.PeakTime.Format(clock)})
@@ -130,32 +117,22 @@ func writePgBouncerMarkdown(b *strings.Builder, m analysis.PgBouncerMetrics, tit
 		}
 	}
 
-	// Sessions and Connections print their heading whether or not they
-	// have anything under it, with the setting that governs them: an
-	// absent section cannot tell an idle pooler from a silenced one.
-	section("## Sessions")
-	if m.Sessions == 0 {
-		b.WriteString("(No data available)\n\n")
-		writeNoteMD(b, pgbNoSessions.note(m.ClientLinesMissing()))
-	} else {
-		fmt.Fprintf(b, "- Completed sessions: **%d**\n", m.Sessions)
-		fmt.Fprintf(b, "- Average session time: **%s**\n", formatSessionDuration(time.Duration(m.AvgSessionSeconds()*float64(time.Second))))
-		if len(m.SessionReasons) > 0 {
-			byClient := m.SessionsEndedByClient()
-			fmt.Fprintf(b, "- Ended by the client: **%d**\n", byClient)
-			fmt.Fprintf(b, "- Ended by the pooler: **%d**\n", m.Sessions-byClient)
-		}
-		b.WriteString("\n")
-		var hist [][]string
+	if !detail {
+		b.WriteString("\n_" + pgbDetailHint + "_\n")
+		return
+	}
+	if m.Sessions > 0 {
+		section("### Session time")
+		rows = nil
 		for _, bucket := range sessionBucketOrder {
 			if c := m.SessionDistribution[bucket]; c > 0 {
-				hist = append(hist, []string{bucket, fmt.Sprint(c)})
+				rows = append(rows, []string{bucket, fmt.Sprint(c)})
 			}
 		}
-		mdTable(b, []string{"Session time", "Count"}, "lr", hist)
+		mdTable(b, []string{"Session time", "Count"}, "lr", rows)
 		if len(m.SessionReasons) > 0 {
 			section("### Sessions per close reason")
-			var rows [][]string
+			rows = nil
 			for _, r := range headMD(m.SessionReasons) {
 				avg := time.Duration(float64(r.TotalSeconds) / float64(r.Count) * float64(time.Second))
 				rows = append(rows, []string{r.Reason, fmt.Sprint(r.Count), pct(r.Count, m.Sessions), formatSessionDuration(avg)})
@@ -163,39 +140,12 @@ func writePgBouncerMarkdown(b *strings.Builder, m analysis.PgBouncerMetrics, tit
 			mdTable(b, []string{"Reason", "Count", "%", "Average age"}, "lrrr", rows)
 			writeTailMD(b, len(m.SessionReasons), pgbListMax)
 		}
-		writeBreakdownMD(b, "Sessions per database", m.SessionsPerDatabase, m.Sessions)
-		writeBreakdownMD(b, "Sessions per user", m.SessionsPerUser, m.Sessions)
-		writeBreakdownMD(b, "Sessions per host", m.SessionsPerHost, m.Sessions)
 	}
-
-	if m.LoginAttempts == 0 {
-		section("## Connections")
-		b.WriteString("(No data available)\n\n")
-		writeNoteMD(b, pgbNoConnections.note(m.ClientLinesMissing()))
-	} else {
-		b.WriteString("\n## Connections\n") // each breakdown opens with its own blank line
+	if m.LoginAttempts > 0 {
 		writeBreakdownMD(b, "Connections per database", m.ConnectionsPerDatabase, m.LoginAttempts)
 		writeBreakdownMD(b, "Connections per user", m.ConnectionsPerUser, m.LoginAttempts)
 		writeBreakdownMD(b, "Connections per host", m.ConnectionsPerHost, m.LoginAttempts)
 	}
-
-	if m.TotalErrors > 0 {
-		section("## Most Frequent Errors")
-		var rows [][]string
-		for _, e := range headMD(m.Errors) {
-			rows = append(rows, []string{e.Message, fmt.Sprint(e.Count), pct(e.Count, m.TotalErrors), e.First.Format(clock), e.Last.Format(clock)})
-		}
-		mdTable(b, []string{"Error", "Count", "%", "First", "Last"}, "lrrrr", rows)
-		writeTailMD(b, len(m.Errors), pgbListMax)
-	}
-}
-
-// writeNoteMD renders a note block as the single italic paragraph the
-// document already uses for the throughput, timing and wait notes. The
-// renderers hold the note as one line per printed line for the text
-// report; Markdown reflows, so they are joined.
-func writeNoteMD(b *strings.Builder, lines []string) {
-	fmt.Fprintf(b, "*%s*\n", strings.Join(lines, " "))
 }
 
 // writeTailMD declares the rows a ranked table cut, in the form the
@@ -230,12 +180,4 @@ func pct(n, total int) string {
 // headMD keeps the first pgbListMax rows of a list.
 func headMD[T any](rows []T) []T {
 	return rows[:min(len(rows), pgbListMax)]
-}
-
-// pgbAtMD is the "At" cell of a maximum: its time, or a dash.
-func pgbAtMD(t time.Time, clock string) string {
-	if t.IsZero() {
-		return "-"
-	}
-	return t.Format(clock)
 }

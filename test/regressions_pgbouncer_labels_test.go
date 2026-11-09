@@ -55,81 +55,55 @@ func pgbText(t *testing.T, args ...string) string {
 // the report with SHOW POOLS must not be told those are the same thing.
 func TestPgBouncerNamesServerConnectionsAsOpens(t *testing.T) {
 	text := pgbText(t, labelFixture)
-	if !strings.Contains(text, "Server connections opened") {
-		t.Errorf("text report does not name the counter as an open count:\n%s", text)
-	}
+	found := false
 	for _, line := range strings.Split(text, "\n") {
-		trimmed := strings.TrimSpace(line)
-		if strings.HasPrefix(trimmed, "Server connections ") && !strings.HasPrefix(trimmed, "Server connections opened") {
-			t.Errorf("text report still labels the counter %q", trimmed)
+		if trimmed := strings.TrimSpace(line); strings.HasPrefix(trimmed, "Server connections") {
+			found = true
+			if !strings.Contains(trimmed, " opened") {
+				t.Errorf("text report does not name the counter as an open count: %q", trimmed)
+			}
 		}
+	}
+	if !found {
+		t.Errorf("text report has no server connections row:\n%s", text)
 	}
 
 	md := mdUnpadded(runHarness(t, false, labelFixture, "--md"))
-	if !strings.Contains(md, "| Server connections opened |") {
+	if !regexp.MustCompile(`\| Server connections \| \d+ opened`).MatchString(md) {
 		t.Errorf("Markdown report does not name the counter as an open count:\n%s", md)
 	}
 }
 
 // TestPgBouncerSeparatesPoolWaitFromQueryTiming freezes COR-51. Query
 // time is a query problem; time queued for a server connection is a pool
-// sizing problem. Filing the second under "QUERY TIMING" erases exactly
-// the distinction the reader opened the section to make.
+// sizing problem. Filing the second under query timing erases exactly
+// the distinction the reader opened the report to make.
 func TestPgBouncerSeparatesPoolWaitFromQueryTiming(t *testing.T) {
 	text := pgbText(t, labelFixture)
-	if !strings.Contains(text, "POOL WAIT") {
-		t.Errorf("text report has no pool-wait section of its own:\n%s", text)
-	}
 	if !strings.Contains(text, "Avg pool wait time") {
 		t.Errorf("text report does not name the wait as a pool wait:\n%s", text)
 	}
-	qt := section(text, "QUERY TIMING")
-	if strings.Contains(qt, "wait") {
-		t.Errorf("QUERY TIMING still carries the queue wait:\n%s", qt)
+	for _, line := range strings.Split(text, "\n") {
+		if strings.Contains(line, "Avg query time") && strings.Contains(line, "wait") {
+			t.Errorf("the query time row carries the queue wait: %q", line)
+		}
 	}
-
-	md := string(runHarness(t, false, labelFixture, "--md"))
-	if !strings.Contains(md, "## Pool Wait") {
-		t.Errorf("Markdown report has no Pool Wait section:\n%s", md)
-	}
-}
-
-// sectionHeaderRe matches a pooler report section header: a line that is
-// nothing but capitals and spaces, which is how PrintPgBouncer titles
-// every block.
-var sectionHeaderRe = regexp.MustCompile(`(?m)^[A-Z][A-Z ]+$`)
-
-// section returns the body between the given header and the next one, so
-// a single section can be asserted on in isolation.
-func section(text, header string) string {
-	i := strings.Index(text, header)
-	if i < 0 {
-		return ""
-	}
-	rest := text[i+len(header):]
-	if loc := sectionHeaderRe.FindStringIndex(rest); loc != nil {
-		rest = rest[:loc[0]]
-	}
-	return rest
 }
 
 // TestPgBouncerThroughputPeaksAreSnapshotAverages freezes COR-80. The
 // pooler logs one averaged rate per stats_period, so the largest value
-// seen is the busiest snapshot average, never the busiest instant.
-// Calling it a peak invents a precision the log does not carry.
+// seen is the busiest snapshot average, never the busiest instant: the
+// detailed report states the maxima under that name, and calls none of
+// them a peak.
 func TestPgBouncerThroughputPeaksAreSnapshotAverages(t *testing.T) {
-	text := pgbText(t, labelFixture)
-	tp := section(text, "REQUEST THROUGHPUT")
-	if strings.Count(tp, "max snapshot avg") != 4 {
-		t.Errorf("throughput rows do not all qualify their max as a snapshot average:\n%s", tp)
-	}
-
-	md := mdUnpadded(runHarness(t, false, labelFixture, "--md"))
-	if strings.Contains(md, "| Metric | Average | Peak |") {
-		t.Errorf("Markdown throughput table still heads its max column \"Peak\":\n%s", md)
-	}
-	if !strings.Contains(md, "| Metric | Average | Max snapshot average |") {
-		t.Errorf("Markdown throughput table does not name the snapshot average:\n%s", md)
+	for _, args := range [][]string{{"--pgbouncer-detail"}, {"--pgbouncer-detail", "--md"}} {
+		out := pgbText(t, append([]string{labelFixture}, args...)...)
+		if !strings.Contains(out, "Max snapshot averages") {
+			t.Errorf("args=%v: the maxima are not qualified as snapshot averages:\n%s", args, out)
+		}
+		if strings.Contains(strings.ToLower(out), "peak") {
+			t.Errorf("args=%v: a snapshot maximum is called a peak", args)
+		}
 	}
 }
 
@@ -140,14 +114,14 @@ func TestPgBouncerThroughputPeaksAreSnapshotAverages(t *testing.T) {
 func TestPgBouncerDeclaresTruncatedBreakdowns(t *testing.T) {
 	probe := writeMultiTenantProbe(t)
 
-	text := pgbText(t, probe)
-	if n := strings.Count(text, "… and 140 more"); n != 6 {
-		t.Errorf("text report declares %d truncated breakdowns, want 6:\n%s", n, text)
+	text := pgbText(t, probe, "--pgbouncer-detail")
+	if n := strings.Count(text, "… and 140 more"); n != 3 {
+		t.Errorf("text report declares %d truncated breakdowns, want 3:\n%s", n, text)
 	}
 
-	md := string(runHarness(t, false, probe, "--md"))
-	if n := strings.Count(md, "_… and 140 more_"); n != 6 {
-		t.Errorf("Markdown report declares %d truncated breakdowns, want 6:\n%s", n, md)
+	md := string(runHarness(t, false, probe, "--pgbouncer-detail", "--md"))
+	if n := strings.Count(md, "_… and 140 more_"); n != 3 {
+		t.Errorf("Markdown report declares %d truncated breakdowns, want 3:\n%s", n, md)
 	}
 }
 
@@ -199,9 +173,9 @@ func mdUnpadded(md []byte) string {
 // to its last. The values alone are right either way round, so only the
 // order separates the rule from its reverse.
 func TestPgBouncerTextSpansRunForward(t *testing.T) {
-	text := pgbText(t, labelFixture)
+	text := pgbText(t, labelFixture, "--pgbouncer-detail")
 	for _, want := range []string{
-		"13:58:12 → 13:58:42", // the stretch
+		"from 13:58:12",       // the stretch, by its start
 		"13:58:05 → 13:58:13", // query_wait_timeout, first to last
 	} {
 		if !strings.Contains(text, want) {
@@ -224,7 +198,7 @@ func TestPgBouncerTextListCapAndDates(t *testing.T) {
 	if err := os.WriteFile(probe, []byte(log.String()), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	text := pgbText(t, probe)
+	text := pgbText(t, probe, "--pgbouncer-detail")
 	for _, want := range []string{"… and 1 more", "2026-09-25 23:59:31"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("text report missing %q:\n%s", want, text)

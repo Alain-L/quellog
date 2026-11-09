@@ -8,7 +8,8 @@ import (
 	"testing"
 )
 
-// TestPgBouncerSagas freezes the JSON, Markdown and text reports of the lab sagas under
+// TestPgBouncerSagas freezes the JSON, Markdown and text reports, default
+// and detailed, of the lab sagas under
 // testdata/pgbouncer: real poolers and a real PostgreSQL taken through
 // restarts, reloads, pauses, saturation and log rotation, with the ground
 // truth in each MANIFEST.md. Every pooler log of a saga is passed along
@@ -40,6 +41,14 @@ func TestPgBouncerSagas(t *testing.T) {
 				text = text[i+1:]
 			}
 			compareOrUpdateGolden(t, text, goldenPath(run, "txt"))
+			// The detailed view, the pooler report alone.
+			got := runHarness(t, false, append(args, "--md", "--pgbouncer-detail")...)
+			compareOrUpdateGolden(t, got, goldenPath(run, "detail.md"))
+			text = runHarness(t, false, append(args, "--pgbouncer-detail")...)
+			if i := bytes.IndexByte(text, '\n'); i >= 0 {
+				text = text[i+1:]
+			}
+			compareOrUpdateGolden(t, text, goldenPath(run, "detail.txt"))
 		})
 	}
 }

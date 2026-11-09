@@ -45,6 +45,7 @@ var (
 	// pgBackRest report flag
 	pgbackrestDetailFlag string // --pgbackrest-detail: detailed pgBackRest report, of every stanza ("*") or of one
 	patroniDetailFlag    bool   // --patroni-detail: detailed Patroni report
+	pgbouncerDetailFlag  bool   // --pgbouncer-detail: detailed pgBouncer report
 
 	// Section selection flags (print only specific sections)
 	summaryFlag     bool // --summary: Print only summary section
@@ -212,6 +213,8 @@ func init() {
 	rootCmd.PersistentFlags().Lookup("pgbackrest-detail").NoOptDefVal = pgbrAllStanzas
 	rootCmd.PersistentFlags().BoolVar(&patroniDetailFlag, "patroni-detail", false,
 		"Show the detailed Patroni report")
+	rootCmd.PersistentFlags().BoolVar(&pgbouncerDetailFlag, "pgbouncer-detail", false,
+		"Show the detailed pgBouncer report")
 
 	// Section selection flags
 	rootCmd.Flags().BoolVar(&summaryFlag, "summary", false,

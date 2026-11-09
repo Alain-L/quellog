@@ -1185,12 +1185,16 @@
       "reserve_pool_activations": 2,
       "errors": [
         {
-          "message": "pooler error: query_wait_timeout",
+          "id": "wa-2Xo6",
+          "level": "WARNING",
+          "message": "query_wait_timeout",
           "count": 12,
           "first": "2026-09-25 09:20:50",
           "last": "2026-09-25 09:20:50"
         },
         {
+          "id": "wa-JC9n",
+          "level": "WARNING",
           "message": "taking connection from reserve_pool",
           "count": 2,
           "first": "2026-09-25 09:18:49",

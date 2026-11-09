@@ -18,7 +18,7 @@ func PrintMetricsCombined(m analysis.AggregatedMetrics, pgb []analysis.PgBouncer
 		PrintMetrics(m, sections, full)
 	}
 	if len(pgb) > 0 {
-		PrintPgBouncer(pgb)
+		PrintPgBouncer(pgb, full)
 	}
 }
 
@@ -28,12 +28,12 @@ func PrintMetricsCombined(m analysis.AggregatedMetrics, pgb []analysis.PgBouncer
 // pooler report is then the whole document.
 func ExportMarkdownCombined(w io.Writer, m analysis.AggregatedMetrics, pgb []analysis.PgBouncerMetrics, sections []string, full, pgbOnly bool) {
 	if pgbOnly {
-		ExportPgBouncerMarkdown(w, pgb)
+		ExportPgBouncerMarkdown(w, pgb, full)
 		return
 	}
 	ExportMarkdown(w, m, sections, full)
 	if len(pgb) > 0 {
 		io.WriteString(w, "\n")
-		ExportPgBouncerMarkdown(w, pgb)
+		ExportPgBouncerMarkdown(w, pgb, full)
 	}
 }

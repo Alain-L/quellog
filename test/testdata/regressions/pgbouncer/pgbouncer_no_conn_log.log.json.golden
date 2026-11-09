@@ -111,31 +111,41 @@
       "reserve_pool_activations": 6,
       "errors": [
         {
-          "message": "pooler error: query_wait_timeout",
+          "id": "wa-2Xo6",
+          "level": "WARNING",
+          "message": "query_wait_timeout",
           "count": 35,
           "first": "2026-09-20 13:59:11",
           "last": "2026-09-20 13:59:19"
         },
         {
+          "id": "wa-JC9n",
+          "level": "WARNING",
           "message": "taking connection from reserve_pool",
           "count": 6,
           "first": "2026-09-20 13:59:09",
           "last": "2026-09-20 13:59:19"
         },
         {
-          "message": "pooler error: password authentication failed",
+          "id": "wa-zZfu",
+          "level": "WARNING",
+          "message": "password authentication failed",
           "count": 2,
           "first": "2026-09-20 13:59:11",
           "last": "2026-09-20 13:59:11"
         },
         {
-          "message": "pooler error: client_idle_timeout",
+          "id": "wa-7RKL",
+          "level": "WARNING",
+          "message": "client_idle_timeout",
           "count": 1,
           "first": "2026-09-20 13:59:24",
           "last": "2026-09-20 13:59:24"
         },
         {
-          "message": "pooler error: no such database: nosuchdb",
+          "id": "wa-lWMX",
+          "level": "WARNING",
+          "message": "no such database: nosuchdb",
           "count": 1,
           "first": "2026-09-20 13:59:11",
           "last": "2026-09-20 13:59:11"

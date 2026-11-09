@@ -107,205 +107,66 @@ TOP USER × HOST
   bench                     × 192.168.1.18                  10   13.5%
 
 [1m
-PGBOUNCER SUMMARY (127.0.0.1:6432)
+PGBOUNCER 127.0.0.1:6432
 [0m
-  Pooler                    : 127.0.0.1:6432
-  Version                   : PgBouncer 1.25.2
-  Files                     : testdata/pgbouncer/P2/pgb-a.pgbouncer.log.1, testdata/pgbouncer/P2/pgb-a.pgbouncer.log
+  Pooler                    : 127.0.0.1:6432, PgBouncer 1.25.2
   Start date                : 2026-09-25 09:15:44 UTC
   End date                  : 2026-09-25 09:21:32 UTC
-  Duration                  : 5m47.772s
-  Log lines read            : 230
-  Log entries               : 230
-  Stats snapshots           : 34
-  Login attempts            : 93
-  Server connections opened : 3
-  Completed sessions        : 92
-  Errors                    : 0
+  Throughput                : 1982.4 transactions/s, 13877.9 queries/s
+  Avg time                  : transaction 1.3 ms, query 178 µs
+  Avg pool wait time        : 132 µs
+  Clients                   : 93 login attempts, 92 sessions of 10s on average
+  Server connections        : 3 opened
 
-  Timeline:
-    09:15:44  start       PgBouncer 1.25.2
-    09:17:45  reload      SIGHUP
-    09:21:32  shutdown    SHUTDOWN
+  Messages: 0 errors, 0 warnings
+
+  Activity per 30s | ■ = 1k queries/s
+
+                                 queries  query      wait      events
+  09:15:30  ■■■■■■■■■■■■■■■■     15.6k/s  159 µs     4.0 ms    start
+  09:16:00  ■■■■■■■■■■■■■■■      15.2k/s  159 µs
+  09:16:30  ■■■■■■■■■■■■■■■      15.2k/s  159 µs
+  09:17:00  ■■■■■■■■■■■■■■■      15.4k/s  191 µs
+  09:17:30  ■■■■■■■■■             9.1k/s  293 µs               reload
+  09:18:00  ■■■■■■■■■■■■■■       14.4k/s  193 µs
+  09:18:30  ■■■■■■■■■■■■■■■      15.2k/s  159 µs
+  09:19:00  ■■■■■■■■■■■■         12.1k/s  224 µs
+  09:19:30  ■■■■■■■■■■■■■■       13.7k/s  220 µs
+  09:20:00  ■■■■■■■■■■■■■■■      15.2k/s  158 µs
+  09:20:30  ■■■■■■■■■■■■■■■      15.0k/s  163 µs
+  09:21:00  ■■■■■■■■■■■■         11.6k/s  249 µs
+  09:21:32                                                     shutdown
+  [3;38;5;243mquery: query time, wait: pool wait, worst snapshot of each row[0m
+
+  [3;38;5;243mDetails: --pgbouncer-detail[0m
 [1m
-REQUEST THROUGHPUT
+PGBOUNCER 127.0.0.1:6433
 [0m
-  Transactions              : 1982.4 /s  (max snapshot avg 2513 /s at 09:19:54)
-  Queries                   : 13877.9 /s  (max snapshot avg 17592 /s at 09:19:54)
-  Network in                : 826.93 KB/s  (max snapshot avg 1.02 MB/s at 09:19:54)
-  Network out               : 360.74 KB/s  (max snapshot avg 457.27 KB/s at 09:19:54)
-
-  Rates are the pooler's own per-snapshot averages over stats_period;
-  the max is the highest snapshot average, not the busiest instant.
-[1m
-QUERY TIMING
-[0m
-  Avg transaction time      : 1.3 ms  (max snapshot avg 2.1 ms at 09:17:54)
-  Avg query time            : 178 µs  (max snapshot avg 293 µs at 09:17:54)
-
-  Averages skip the snapshots that timed none and weight the rest by
-  operation count; the max is the highest snapshot average, not a peak.
-[1m
-POOL WAIT
-[0m
-  Avg pool wait time        : 132 µs  (max snapshot avg 4.0 ms at 09:15:54)
-
-  Time clients spent queued for a server connection, a pool sizing
-  signal rather than a query one. Averaged as the timings above are.
-  What it is averaged over depends on pool_mode (one wait per session,
-  per transaction or per statement), which pgBouncer logs nowhere.
-[1m
-SESSIONS
-[0m
-  Session time | ■ = 1 
-
-  < 1s           ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ 29 
-  1s - 1min      ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ 63 
-  1min - 30min    -
-  30min - 2h      -
-  2h - 5h         -
-  > 5h            -
-
-  Completed sessions        : 92
-  Average session time      : 10s
-  Ended by the client       : 92
-  Ended by the pooler       : 0
-
-  Sessions per close reason:
-    client close request       89   96.7%  avg 10s
-    client unexpected eof       3    3.3%  avg 6s
-
-  Sessions per database:
-    bench          84   91.3%
-    pgbouncer       8    8.7%
-
-  Sessions per user:
-    bench      92  100.0%
-
-  Sessions per host:
-    127.0.0.1      92  100.0%
-[1m
-CONNECTIONS
-[0m
-  Login attempts            : 93
-  Server connections opened : 3
-
-  Connections per database:
-    bench          84   90.3%
-    pgbouncer       9    9.7%
-
-  Connections per user:
-    bench      93  100.0%
-
-  Connections per host:
-    127.0.0.1      93  100.0%
-
-[1m
-PGBOUNCER SUMMARY (127.0.0.1:6433)
-[0m
-  Pooler                    : 127.0.0.1:6433
-  Version                   : PgBouncer 1.25.2
-  Files                     : testdata/pgbouncer/P2/pgb-b.pgbouncer.log
+  Pooler                    : 127.0.0.1:6433, PgBouncer 1.25.2
   Start date                : 2026-09-25 09:15:44 UTC
   End date                  : 2026-09-25 09:21:32 UTC
-  Duration                  : 5m47.771s
-  Log lines read            : 249
-  Log entries               : 249
-  Stats snapshots           : 34
-  Login attempts            : 95
-  Server connections opened : 4
-  Completed sessions        : 94
-  Reserve pool activations  : 2
-  Errors                    : 14
+  Throughput                : 1.7 transactions/s, 7.1 queries/s
+  Avg time                  : transaction 4.00 s, query 1.04 s
+  Avg pool wait time        : 3.54 s
+  Clients                   : 95 login attempts, 94 sessions of 28s on average
+  Server connections        : 4 opened, 2 reserve pool activations
 
-  Timeline:
-    09:15:44  start       PgBouncer 1.25.2
-    09:18:47  reload      RELOAD
-    09:19:32  reload      RELOAD
-    09:20:47  reload      RELOAD
-    09:21:20  reload      RELOAD
-    09:21:32  shutdown    SHUTDOWN
-[1m
-REQUEST THROUGHPUT
-[0m
-  Transactions              : 1.7 /s  (max snapshot avg 9 /s at 09:20:54)
-  Queries                   : 7.1 /s  (max snapshot avg 32 /s at 09:19:04)
-  Network in                : 205 B/s  (max snapshot avg 911 B/s at 09:19:04)
-  Network out               : 304 B/s  (max snapshot avg 1.32 KB/s at 09:21:14)
+  Messages: 0 errors, 14 warnings
+    query_wait_timeout                   12  09:20:50
+    taking connection from reserve_pool   2  09:18:49
 
-  Rates are the pooler's own per-snapshot averages over stats_period;
-  the max is the highest snapshot average, not the busiest instant.
-[1m
-QUERY TIMING
-[0m
-  Avg transaction time      : 4.00 s  (max snapshot avg 11.88 s at 09:19:34)
-  Avg query time            : 1.04 s  (max snapshot avg 1.44 s at 09:19:34)
+  Activity per 30s | ■ = 2 queries/s
 
-  Averages skip the snapshots that timed none and weight the rest by
-  operation count; the max is the highest snapshot average, not a peak.
-[1m
-POOL WAIT
-[0m
-  Avg pool wait time        : 3.54 s  (max snapshot avg 4.51 s at 09:19:34)
+                                 queries  query      wait      events
+  09:15:30                           0/s                       start
+  09:16:00  no traffic until 09:18:30
+  09:18:30  ■■■■                   7.3/s  819.9 ms   3.27 s    reload
+  09:19:00  ■■■■■■■■■■■■■■■■      31.3/s  1.25 s     4.51 s
+  09:19:30  ■■■■                   7.0/s  1.44 s     4.51 s    reload
+  09:20:00                           0/s
+  09:20:30  ■■■■■                  9.0/s  603.4 ms   2.20 s    reload
+  09:21:00  ■■■■■■■■■■■■■         26.0/s  995.4 ms   3.01 s    reload
+  09:21:32                                                     shutdown
+  [3;38;5;243mquery: query time, wait: pool wait, worst snapshot of each row[0m
 
-  Stretches with waits of 100 ms or more:
-    09:18:44 → 09:19:34  50s      peak 4.51 s at 09:19:34
-    09:20:44 → 09:21:24  40s      peak 3.01 s at 09:21:14
-
-  Time clients spent queued for a server connection, a pool sizing
-  signal rather than a query one. Averaged as the timings above are.
-  What it is averaged over depends on pool_mode (one wait per session,
-  per transaction or per statement), which pgBouncer logs nowhere.
-[1m
-SESSIONS
-[0m
-  Session time | ■ = 1 
-
-  < 1s           ■■■■■■■■■■■■■■ 14 
-  1s - 1min      ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ 80 
-  1min - 30min    -
-  30min - 2h      -
-  2h - 5h         -
-  > 5h            -
-
-  Completed sessions        : 94
-  Average session time      : 28s
-  Ended by the client       : 82
-  Ended by the pooler       : 12
-
-  Sessions per close reason:
-    client close request      82   87.2%  avg 31s
-    query_wait_timeout        12   12.8%  avg 3s
-
-  Sessions per database:
-    bench          82   87.2%
-    pgbouncer      12   12.8%
-
-  Sessions per user:
-    bench      94  100.0%
-
-  Sessions per host:
-    127.0.0.1      94  100.0%
-[1m
-CONNECTIONS
-[0m
-  Login attempts            : 95
-  Server connections opened : 4
-
-  Connections per database:
-    bench          82   86.3%
-    pgbouncer      13   13.7%
-
-  Connections per user:
-    bench      95  100.0%
-
-  Connections per host:
-    127.0.0.1      95  100.0%
-[1m
-MOST FREQUENT ERRORS
-[0m
-
-  Errors:
-    pooler error: query_wait_timeout         12   85.7%  09:20:50
-    taking connection from reserve_pool       2   14.3%  09:18:49
-
+  [3;38;5;243mDetails: --pgbouncer-detail[0m

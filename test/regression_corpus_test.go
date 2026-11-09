@@ -77,7 +77,8 @@ func TestRegressionCorpus(t *testing.T) {
 					t.Fatalf("text output contains %q:\n%s", marker, text)
 				}
 			}
-			if !strings.Contains(text, "SUMMARY") {
+			// A pooler log's report is the PGBOUNCER section alone.
+			if !strings.Contains(text, "SUMMARY") && !strings.Contains(text, "PGBOUNCER") {
 				t.Fatalf("text output missing SUMMARY section:\n%s", text)
 			}
 		})

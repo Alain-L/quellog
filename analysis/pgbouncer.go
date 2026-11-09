@@ -168,11 +168,24 @@ func waitEpisodes(series []PgBouncerStatsPoint) []PgBouncerWaitEpisode {
 }
 
 // PgBouncerError is one normalized warning or error and when it occurred.
+// Level is the severity pgBouncer logged it at (WARNING, ERROR or FATAL),
+// ID its --event-detail handle, Example its first occurrence as written
+// and Times every occurrence, in order.
 type PgBouncerError struct {
+	Level   string
+	ID      string
 	Message string
+	Example string
 	Count   int
 	First   time.Time
 	Last    time.Time
+	Times   []time.Time
+}
+
+// PgBouncerMessageID is the --event-detail ID of a pgBouncer warning or
+// error: er-, wa- or fa- as PostgreSQL's, from a key of its own.
+func PgBouncerMessageID(level, message string) string {
+	return GenerateEventID(level, "pgbouncer|"+level+"|"+message)
 }
 
 // PgBouncerCloseReason counts the client sessions closed for one reason.
@@ -511,7 +524,7 @@ func (a *PgBouncerAnalyzer) Process(entry *parser.LogEntry) {
 	// Warnings and errors, regardless of socket scope.
 	if severity == "WARNING" || severity == "ERROR" || severity == "FATAL" {
 		a.m.TotalErrors++
-		a.noteError(normalizeError(rest), entry.Timestamp)
+		a.noteError(severity, normalizeError(rest), rest, entry.Timestamp)
 	}
 }
 
@@ -625,13 +638,15 @@ func (a *PgBouncerAnalyzer) processClosing(peer, verb string) {
 }
 
 // noteError counts one occurrence of a normalized warning or error.
-func (a *PgBouncerAnalyzer) noteError(msg string, t time.Time) {
-	e := a.errors[msg]
+func (a *PgBouncerAnalyzer) noteError(level, msg, example string, t time.Time) {
+	key := level + "|" + msg
+	e := a.errors[key]
 	if e == nil {
-		e = &PgBouncerError{Message: msg, First: t}
-		a.errors[msg] = e
+		e = &PgBouncerError{Level: level, Message: msg, Example: example, First: t}
+		a.errors[key] = e
 	}
 	e.Count++
+	e.Times = append(e.Times, t)
 	if t.Before(e.First) {
 		e.First = t
 	}
@@ -725,6 +740,8 @@ func (a *PgBouncerAnalyzer) Finalize() PgBouncerMetrics {
 
 	a.m.Errors = a.m.Errors[:0]
 	for _, e := range a.errors {
+		e.ID = PgBouncerMessageID(e.Level, e.Message)
+		slices.SortFunc(e.Times, time.Time.Compare)
 		a.m.Errors = append(a.m.Errors, *e)
 	}
 	sort.Slice(a.m.Errors, func(i, j int) bool {
@@ -917,17 +934,18 @@ func (a *PgBouncerAnalyzer) merge(b *PgBouncerAnalyzer) {
 			pair[0][k] += v
 		}
 	}
-	for msg, e := range b.errors {
-		if x := a.errors[msg]; x != nil {
+	for key, e := range b.errors {
+		if x := a.errors[key]; x != nil {
 			x.Count += e.Count
+			x.Times = append(x.Times, e.Times...)
 			if e.First.Before(x.First) {
-				x.First = e.First
+				x.First, x.Example = e.First, e.Example
 			}
 			if e.Last.After(x.Last) {
 				x.Last = e.Last
 			}
 		} else {
-			a.errors[msg] = e
+			a.errors[key] = e
 		}
 	}
 	for k, r := range b.reasons {
@@ -1086,7 +1104,9 @@ func normalizeError(rest string) string {
 	if i := strings.Index(rest, " (age="); i != -1 {
 		rest = rest[:i]
 	}
-	return strings.TrimSpace(rest)
+	// "pooler error: " heads every error pgBouncer sends a client: the
+	// reason after it is the message.
+	return strings.TrimSpace(strings.TrimPrefix(rest, "pooler error: "))
 }
 
 // sessionBucket maps a duration to the same labels the PostgreSQL

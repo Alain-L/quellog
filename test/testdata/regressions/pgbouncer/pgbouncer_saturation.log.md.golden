@@ -1,142 +1,35 @@
-# pgBouncer Report
+## PGBOUNCER
 
-## Summary
+| Metric             | Value                                            |
+|--------------------|--------------------------------------------------|
+| Pooler             | 127.0.0.1:6432, PgBouncer 1.25.2                 |
+| Start date         | 2026-09-20 13:57:57 CEST                         |
+| End date           | 2026-09-20 13:58:43 CEST                         |
+| Throughput         | 10.0 transactions/s, 48.3 queries/s              |
+| Avg time           | transaction 2.44 s, query 527.7 ms               |
+| Avg pool wait time | 2.45 s                                           |
+| Clients            | 69 login attempts, 68 sessions of 20s on average |
+| Server connections | 10 opened, 6 reserve pool activations            |
 
-| Metric                    | Value                                                   |
-|---------------------------|---------------------------------------------------------|
-| Pooler                    | 127.0.0.1:6432                                          |
-| Version                   | PgBouncer 1.25.2                                        |
-| Files                     | testdata/regressions/pgbouncer/pgbouncer_saturation.log |
-| Start date                | 2026-09-20 13:57:57 CEST                                |
-| End date                  | 2026-09-20 13:58:43 CEST                                |
-| Duration                  | 45.723s                                                 |
-| Log lines read            | 211                                                     |
-| Log entries               | 211                                                     |
-| Stats snapshots           | 3                                                       |
-| Login attempts            | 69                                                      |
-| Server connections opened | 10                                                      |
-| Completed sessions        | 68                                                      |
-| Reserve pool activations  | 6                                                       |
-| Errors                    | 45                                                      |
+### Messages: 0 errors, 45 warnings
 
-### Timeline
+| Message                             | Count | When                |
+|-------------------------------------|------:|---------------------|
+| query_wait_timeout                  |    35 | 13:58:05 → 13:58:13 |
+| taking connection from reserve_pool |     6 | 13:58:03 → 13:58:13 |
+| password authentication failed      |     2 | 13:58:05            |
+| client_idle_timeout                 |     1 | 13:58:18            |
+| no such database: nosuchdb          |     1 | 13:58:05            |
 
-| Time     | Event    | Detail           |
-|----------|----------|------------------|
-| 13:57:57 | start    | PgBouncer 1.25.2 |
-| 13:58:10 | pause    | PAUSE 'benchdb'  |
-| 13:58:13 | resume   | RESUME 'benchdb' |
-| 13:58:16 | reload   | RELOAD           |
-| 13:58:43 | shutdown | SHUTDOWN         |
+### Activity per snapshot (15s)
 
-## Request Throughput
+| Time     | Queries | Query time | Pool wait | Events         |
+|----------|--------:|-----------:|----------:|----------------|
+| 13:58:12 |  38.0/s |   639.8 ms |    3.22 s | start, pause   |
+| 13:58:27 |  58.0/s |   503.9 ms |    2.07 s | resume, reload |
+| 13:58:42 |  49.0/s |   468.9 ms |    1.90 s |                |
+| 13:58:43 |         |            |           | shutdown       |
 
-*Rates are the pooler's own per-snapshot averages over stats_period; the max is the highest snapshot average, not the busiest instant.*
+_Query time and pool wait: worst snapshot of each row._
 
-| Metric         |   Average | Max snapshot average |       At |
-|----------------|----------:|---------------------:|---------:|
-| Transactions/s |      10.0 |                   11 | 13:58:12 |
-| Queries/s      |      48.3 |                   58 | 13:58:27 |
-| Network in     | 1.79 KB/s |            2.20 KB/s | 13:58:27 |
-| Network out    | 1.77 KB/s |            2.16 KB/s | 13:58:27 |
-
-## Query Timing
-
-*Averages skip the snapshots that timed none and weight the rest by operation count; the max is the highest snapshot average, not a peak.*
-
-| Metric           | Weighted average | Max snapshot average |       At |
-|------------------|-----------------:|---------------------:|---------:|
-| Transaction time |           2.44 s |               2.75 s | 13:58:42 |
-| Query time       |         527.7 ms |             639.8 ms | 13:58:12 |
-
-## Pool Wait
-
-*Time clients spent queued for a server connection, a pool sizing signal rather than a query one. Averaged as the timings above are. What it is averaged over depends on pool_mode (one wait per session, per transaction or per statement), which pgBouncer logs nowhere.*
-
-| Metric         | Weighted average | Max snapshot average |       At |
-|----------------|-----------------:|---------------------:|---------:|
-| Pool wait time |           2.45 s |               3.22 s | 13:58:12 |
-
-### Stretches with waits of 100 ms or more
-
-| Start    | End      | Duration |   Peak | Peak at  |
-|----------|----------|---------:|-------:|----------|
-| 13:58:12 | 13:58:42 |      30s | 3.22 s | 13:58:12 |
-
-## Sessions
-
-- Completed sessions: **68**
-- Average session time: **20s**
-- Ended by the client: **29**
-- Ended by the pooler: **39**
-
-| Session time | Count |
-|--------------|------:|
-| < 1s         |     7 |
-| 1s - 1min    |    61 |
-
-### Sessions per close reason
-
-| Reason                         | Count |     % | Average age |
-|--------------------------------|------:|------:|------------:|
-| query_wait_timeout             |    35 | 51.5% |          8s |
-| client close request           |    29 | 42.6% |         35s |
-| password authentication failed |     2 |  2.9% |          0s |
-| client_idle_timeout            |     1 |  1.5% |         13s |
-| no such database: nosuchdb     |     1 |  1.5% |          0s |
-
-### Sessions per database
-
-| Name      | Count |     % |
-|-----------|------:|------:|
-| benchdb   |    63 | 92.6% |
-| pgbouncer |     3 |  4.4% |
-| (nodb)    |     2 |  2.9% |
-
-### Sessions per user
-
-| Name      | Count |     % |
-|-----------|------:|------:|
-| bench     |    64 | 94.1% |
-| admin     |     3 |  4.4% |
-| nouserxyz |     1 |  1.5% |
-
-### Sessions per host
-
-| Name      | Count |      % |
-|-----------|------:|-------:|
-| 127.0.0.1 |    68 | 100.0% |
-
-## Connections
-
-### Connections per database
-
-| Name      | Count |     % |
-|-----------|------:|------:|
-| benchdb   |    64 | 92.8% |
-| pgbouncer |     4 |  5.8% |
-| nosuchdb  |     1 |  1.4% |
-
-### Connections per user
-
-| Name      | Count |     % |
-|-----------|------:|------:|
-| bench     |    64 | 92.8% |
-| admin     |     4 |  5.8% |
-| nouserxyz |     1 |  1.4% |
-
-### Connections per host
-
-| Name      | Count |      % |
-|-----------|------:|-------:|
-| 127.0.0.1 |    69 | 100.0% |
-
-## Most Frequent Errors
-
-| Error                                        | Count |     % |    First |     Last |
-|----------------------------------------------|------:|------:|---------:|---------:|
-| pooler error: query_wait_timeout             |    35 | 77.8% | 13:58:05 | 13:58:13 |
-| taking connection from reserve_pool          |     6 | 13.3% | 13:58:03 | 13:58:13 |
-| pooler error: password authentication failed |     2 |  4.4% | 13:58:05 | 13:58:05 |
-| pooler error: client_idle_timeout            |     1 |  2.2% | 13:58:18 | 13:58:18 |
-| pooler error: no such database: nosuchdb     |     1 |  2.2% | 13:58:05 | 13:58:05 |
+_Details: --pgbouncer-detail_

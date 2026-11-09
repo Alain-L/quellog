@@ -159,6 +159,8 @@ type EventDetailJSON struct {
 	Dates     []string `json:"dates,omitempty"`
 	// A Patroni warning or error: the members whose log wrote it.
 	Members []string `json:"members,omitempty"`
+	// A pgBouncer warning or error: the pooler that logged it.
+	Pooler string `json:"pooler,omitempty"`
 }
 
 // findEventByID returns the matching EventStat from m.TopEvents or nil
@@ -209,6 +211,10 @@ func PrintEventDetails(m analysis.AggregatedMetrics, pbr []analysis.PgBackRestMe
 			}
 			if msg := findPatroniMessage(m.Patroni, id); msg != nil {
 				printPatroniMessageDetail(msg)
+				continue
+			}
+			if e, pooler := findPgBouncerError(m.PgBouncer, id); e != nil {
+				printPgBouncerErrorDetail(e, pooler)
 				continue
 			}
 			fmt.Printf("\nEvent ID '%s' not found.\n", id)
@@ -396,6 +402,10 @@ func ExportEventDetailJSON(w io.Writer, m analysis.AggregatedMetrics, pbr []anal
 				patterns = append(patterns, patroniMessageDetailJSON(msg))
 				continue
 			}
+			if e, pooler := findPgBouncerError(m.PgBouncer, id); e != nil {
+				patterns = append(patterns, pgBouncerErrorDetailJSON(e, pooler))
+				continue
+			}
 			patterns = append(patterns, notFound{ID: id, NotFound: true})
 			continue
 		}
@@ -452,6 +462,10 @@ func ExportEventDetailMarkdown(w io.Writer, m analysis.AggregatedMetrics, pbr []
 			}
 			if msg := findPatroniMessage(m.Patroni, id); msg != nil {
 				writePatroniMessageDetailMarkdown(bw, msg)
+				continue
+			}
+			if e, pooler := findPgBouncerError(m.PgBouncer, id); e != nil {
+				writePgBouncerErrorDetailMarkdown(bw, e, pooler)
 				continue
 			}
 			fmt.Fprintf(bw, "## `%s` (not found)\n\n", id)

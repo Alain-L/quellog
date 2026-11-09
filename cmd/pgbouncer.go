@@ -2,12 +2,14 @@ package cmd
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"slices"
 	"sync/atomic"
 	"time"
 
 	"github.com/Alain-L/quellog/analysis"
+	"github.com/Alain-L/quellog/output"
 	"github.com/Alain-L/quellog/parser"
 )
 
@@ -99,3 +101,32 @@ func computePgBouncerMetrics(ctx context.Context, files []string, beginT, endT t
 	}
 	return analysis.PgBouncerInstances(parts)
 }
+
+// renderPgBouncerDetail writes the detailed pgBouncer report alone
+// (--pgbouncer-detail).
+func renderPgBouncerDetail(pgb []analysis.PgBouncerMetrics, startTime time.Time) error {
+	if len(pgb) == 0 {
+		return errNoPgBouncer
+	}
+	w, closer, err := createOutputWriter(outputFlag)
+	if err != nil {
+		return err
+	}
+	defer closer()
+	if mdFlag {
+		output.ExportPgBouncerMarkdown(w, pgb, true)
+	} else {
+		entries, size := 0, int64(0)
+		for _, m := range pgb {
+			entries += m.Lines
+			size += calculateTotalFileSize(m.Files)
+		}
+		PrintProcessingSummary(entries, time.Since(startTime), size)
+		output.PrintPgBouncer(pgb, true)
+	}
+	return closer()
+}
+
+// errNoPgBouncer is --pgbouncer-detail's error when no pgBouncer log was
+// given.
+var errNoPgBouncer = fmt.Errorf("no pgBouncer log in the input: give the pooler's log (e.g. /var/log/pgbouncer/pgbouncer.log)")

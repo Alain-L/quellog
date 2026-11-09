@@ -50,11 +50,10 @@ func TestPgBouncerReportsWhatItDropped(t *testing.T) {
 		}
 	}
 
-	text := ansiEscapeRe.ReplaceAllString(string(runHarness(t, false, probe)), "")
+	text := ansiEscapeRe.ReplaceAllString(string(runHarness(t, false, probe, "--pgbouncer-detail")), "")
 	for _, want := range []string{
-		"Log lines read            : 6",
-		"Log entries               : 3",
-		"Unrecognized lines        : 3",
+		"Log lines                 : 6 read, 3 entries",
+		"Set aside                 : 3 unrecognized",
 	} {
 		if !strings.Contains(text, want) {
 			t.Errorf("text report missing %q:\n%s", want, text)
@@ -76,35 +75,26 @@ func TestPgBouncerVentilatesDebugNoise(t *testing.T) {
 		t.Errorf("lines = %v, want 1686", got["lines"])
 	}
 
-	text := ansiEscapeRe.ReplaceAllString(string(runHarness(t, false, fixture)), "")
-	if !strings.Contains(text, "Debug/noise entries       : 1673") {
+	text := ansiEscapeRe.ReplaceAllString(string(runHarness(t, false, fixture, "--pgbouncer-detail")), "")
+	if !strings.Contains(text, "Set aside                 : 1673 debug/noise") {
 		t.Errorf("text report does not break the record count down by noise:\n%s", text)
 	}
 }
 
-// TestPgBouncerTimingLabelsSaySnapshot freezes the timing labels: the
-// column next to the averages is the highest snapshot average, never a
-// peak operation, and the averages skip the snapshots that timed none —
-// which is why they can rest on fewer snapshots than the summary counts.
+// TestPgBouncerTimingLabelsSaySnapshot freezes where the maxima go: the
+// default view states averages only, so no figure there can be taken
+// for a peak operation; the maxima are the detailed view's, named as
+// snapshot averages (TestPgBouncerThroughputPeaksAreSnapshotAverages).
 func TestPgBouncerTimingLabelsSaySnapshot(t *testing.T) {
 	const fixture = "testdata/regressions/pgbouncer/pgbouncer_stats_period.log"
 
-	text := ansiEscapeRe.ReplaceAllString(string(runHarness(t, false, fixture)), "")
-	for _, want := range []string{
-		"(max snapshot avg ",
-		"skip the snapshots that timed none",
-	} {
-		if !strings.Contains(text, want) {
-			t.Errorf("text report missing %q:\n%s", want, text)
+	for _, args := range [][]string{nil, {"--md"}} {
+		out := ansiEscapeRe.ReplaceAllString(string(runHarness(t, false, append([]string{fixture}, args...)...)), "")
+		for _, line := range strings.Split(out, "\n") {
+			if strings.Contains(strings.ToLower(line), "max") {
+				t.Errorf("args=%v: the default view states a maximum: %q", args, line)
+			}
 		}
-	}
-
-	md := mdUnpadded(runHarness(t, false, fixture, "--md"))
-	if !strings.Contains(md, "| Metric | Weighted average | Max snapshot average |") {
-		t.Errorf("Markdown query-timing table still labels the max column \"Peak\":\n%s", md)
-	}
-	if !strings.Contains(md, "skip the snapshots that timed none") {
-		t.Errorf("Markdown report does not explain the timing denominator:\n%s", md)
 	}
 }
 

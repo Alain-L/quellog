@@ -160,6 +160,12 @@ func runAnalysisCycle(ctx context.Context, args []string) error {
 		pgb = computePgBouncerMetrics(ctx, pgbFiles, beginT, endT, &parsedAny)
 	}
 
+	// --pgbouncer-detail: the detailed pooler report alone; the pooler
+	// track needs nothing from the others.
+	if pgbouncerDetailFlag {
+		return renderPgBouncerDetail(pgb, startTime)
+	}
+
 	// Pure pgBouncer run: no other file at all. The pooler report goes
 	// through the shared renderer with an empty PostgreSQL payload, so -o,
 	// multi-format export and every export format behave exactly as they
@@ -169,6 +175,14 @@ func runAnalysisCycle(ctx context.Context, args []string) error {
 	if len(allFiles) == 0 {
 		if len(pgb) == 0 {
 			return fmt.Errorf("no pgBouncer log entries could be parsed: check that files are readable and in pgBouncer log format")
+		}
+		if len(eventDetailFlag) > 0 {
+			entries, size := 0, int64(0)
+			for _, m := range pgb {
+				entries += m.Lines
+				size += calculateTotalFileSize(m.Files)
+			}
+			return writeEventDetails(analysis.AggregatedMetrics{PgBouncer: pgb}, nil, entries, time.Since(startTime), size)
 		}
 		return renderReport(analysis.AggregatedMetrics{}, nil, pgb, true, nil, args, 0, time.Since(startTime))
 	}
@@ -550,6 +564,9 @@ func validateFlagCombinations() error {
 	if patroniDetailFlag && (jsonFlag || jsonCompactFlag || yamlFlag || htmlFlag) {
 		return fmt.Errorf("--patroni-detail applies to the text and Markdown reports: --json, --yaml and --html already hold every detail")
 	}
+	if pgbouncerDetailFlag && (jsonFlag || jsonCompactFlag || yamlFlag || htmlFlag) {
+		return fmt.Errorf("--pgbouncer-detail applies to the text and Markdown reports: --json, --yaml and --html already hold every detail")
+	}
 	if pgbackrestDetailFlag != "" && htmlFlag {
 		return fmt.Errorf("--pgbackrest-detail is not supported with --html (the HTML report already holds every stanza's details)")
 	}
@@ -638,26 +655,11 @@ func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry
 			pbr = pgbr.Finalize()
 		}
 		metrics.Patroni = patroniReport
-		if metrics.Global.Count == 0 && len(pbr) == 0 && patroniReport == nil {
+		metrics.PgBouncer = pgb
+		if metrics.Global.Count == 0 && len(pbr) == 0 && patroniReport == nil && len(pgb) == 0 {
 			return errNoEntries
 		}
-		w, closer, err := createOutputWriter(outputFlag)
-		if err != nil {
-			return err
-		}
-		defer closer()
-
-		if jsonFlag {
-			output.ExportEventDetailJSON(w, metrics, pbr, eventDetailFlag)
-		} else if yamlFlag {
-			output.ExportEventDetailYAML(w, metrics, pbr, eventDetailFlag)
-		} else if mdFlag {
-			output.ExportEventDetailMarkdown(w, metrics, pbr, eventDetailFlag)
-		} else {
-			PrintProcessingSummary(metrics.SQL.TotalQueries, processingDuration, totalFileSize)
-			output.PrintEventDetails(metrics, pbr, eventDetailFlag)
-		}
-		return closer()
+		return writeEventDetails(metrics, pbr, metrics.SQL.TotalQueries, processingDuration, totalFileSize)
 	}
 
 	// Special case: SQL performance (detailed aggregated query statistics)
@@ -829,6 +831,28 @@ func renderReport(metrics analysis.AggregatedMetrics, pbr []analysis.PgBackRestM
 		return renderMultipleFormats(rw, inputArgs, totalFileSize, processingDuration)
 	}
 	return dispatchFormattedOutput(rw, inputArgs, totalFileSize, processingDuration)
+}
+
+// writeEventDetails writes --event-detail's patterns, PostgreSQL's events
+// and the pgBackRest, Patroni and pgBouncer warnings and errors alike.
+func writeEventDetails(metrics analysis.AggregatedMetrics, pbr []analysis.PgBackRestMetrics, entries int, processingDuration time.Duration, totalFileSize int64) error {
+	w, closer, err := createOutputWriter(outputFlag)
+	if err != nil {
+		return err
+	}
+	defer closer()
+
+	if jsonFlag {
+		output.ExportEventDetailJSON(w, metrics, pbr, eventDetailFlag)
+	} else if yamlFlag {
+		output.ExportEventDetailYAML(w, metrics, pbr, eventDetailFlag)
+	} else if mdFlag {
+		output.ExportEventDetailMarkdown(w, metrics, pbr, eventDetailFlag)
+	} else {
+		PrintProcessingSummary(entries, processingDuration, totalFileSize)
+		output.PrintEventDetails(metrics, pbr, eventDetailFlag)
+	}
+	return closer()
 }
 
 // reportWriters renders one report in each output format.

@@ -1,90 +1,15 @@
-# pgBouncer Report
+## PGBOUNCER
 
-## Summary
+| Metric             | Value                                                                |
+|--------------------|----------------------------------------------------------------------|
+| Pooler             | 127.0.0.1:6432, PgBouncer 1.25.2                                     |
+| Start date         | 2026-09-20 13:42:33 CEST                                             |
+| End date           | 2026-09-20 13:42:47 CEST                                             |
+| Traffic            | no "stats:" line in this window, check stats_period in pgbouncer.ini |
+| Clients            | 4 login attempts, 3 sessions of 0s on average                        |
+| Server connections | 2 opened                                                             |
 
-| Metric                    | Value                                                |
-|---------------------------|------------------------------------------------------|
-| Pooler                    | 127.0.0.1:6432                                       |
-| Version                   | PgBouncer 1.25.2                                     |
-| Files                     | testdata/regressions/pgbouncer/pgbouncer_verbose.log |
-| Start date                | 2026-09-20 13:42:33 CEST                             |
-| End date                  | 2026-09-20 13:42:47 CEST                             |
-| Duration                  | 14.285s                                              |
-| Log lines read            | 1686                                                 |
-| Log entries               | 1686                                                 |
-| Debug/noise entries       | 1673                                                 |
-| Stats snapshots           | 0                                                    |
-| Login attempts            | 4                                                    |
-| Server connections opened | 2                                                    |
-| Completed sessions        | 3                                                    |
-| Errors                    | 0                                                    |
+### Messages: 0 errors, 0 warnings
 
-### Timeline
 
-| Time     | Event    | Detail           |
-|----------|----------|------------------|
-| 13:42:33 | start    | PgBouncer 1.25.2 |
-| 13:42:47 | shutdown | SHUTDOWN         |
-
-## Request Throughput
-
-(No data available)
-
-*No "stats:" line in this window; request throughput, query timing and pool wait all come from those lines. pgBouncer writes one per stats_period, 60 s by default, so a shorter capture carries none. Check stats_period in pgbouncer.ini; see docs/pgbouncer-setup.md.*
-
-## Sessions
-
-- Completed sessions: **3**
-- Average session time: **0s**
-- Ended by the client: **3**
-- Ended by the pooler: **0**
-
-| Session time | Count |
-|--------------|------:|
-| < 1s         |     3 |
-
-### Sessions per close reason
-
-| Reason               | Count |      % | Average age |
-|----------------------|------:|-------:|------------:|
-| client close request |     3 | 100.0% |          0s |
-
-### Sessions per database
-
-| Name    | Count |      % |
-|---------|------:|-------:|
-| benchdb |     3 | 100.0% |
-
-### Sessions per user
-
-| Name  | Count |      % |
-|-------|------:|-------:|
-| bench |     3 | 100.0% |
-
-### Sessions per host
-
-| Name      | Count |      % |
-|-----------|------:|-------:|
-| 127.0.0.1 |     3 | 100.0% |
-
-## Connections
-
-### Connections per database
-
-| Name      | Count |     % |
-|-----------|------:|------:|
-| benchdb   |     3 | 75.0% |
-| pgbouncer |     1 | 25.0% |
-
-### Connections per user
-
-| Name  | Count |     % |
-|-------|------:|------:|
-| bench |     3 | 75.0% |
-| admin |     1 | 25.0% |
-
-### Connections per host
-
-| Name      | Count |      % |
-|-----------|------:|-------:|
-| 127.0.0.1 |     4 | 100.0% |
+_Details: --pgbouncer-detail_
