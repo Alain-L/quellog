@@ -1,9 +1,13 @@
 {
   "sections": [
-    "pgbouncer"
+    "pgbouncer",
+    "pgbouncer-sessions",
+    "pgbouncer-connections",
+    "pgbouncer-timeline",
+    "pgbouncer-events"
   ],
   "canvasCount": 0,
-  "statCards": 12,
+  "statCards": 8,
   "tables": 2,
   "cards": {
     "summary": false,

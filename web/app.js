@@ -26,7 +26,7 @@ import {
     closeChartModal, updateModalInterval, resetModalZoom, exportChartPNG,
     resetChartZoom, openChartModal, updateChartInterval, toggleCombinedSeries, exportChartById,
     createCostMapChart, resetCostMapZoom, openCostMapModal,
-    createPgBouncerSeriesChart
+    createPgBouncerBarsChart, togglePgbSeries
 } from './js/charts.js';
 import {
     setOriginalReportData, getOriginalReportData, applyReportTimeFilter, resetReportTimeFilter
@@ -401,8 +401,8 @@ function buildAllCharts() {
             createPgbrWalChart(chartId, data);
         } else if (data?.type === 'costmap') {
             createCostMapChart(chartId, data.queries, { crossHighlight: true });
-        } else if (data?.type === 'pgb-series') {
-            createPgBouncerSeriesChart(chartId, data);
+        } else if (data?.type === 'pgb-bars') {
+            createPgBouncerBarsChart(chartId, data);
         } else {
             createTimeChart(chartId, data, { color: null });
         }
@@ -667,6 +667,7 @@ window.resetChartZoom = resetChartZoom;
 window.openChartModal = openChartModal;
 window.updateChartInterval = updateChartInterval;
 window.toggleCombinedSeries = toggleCombinedSeries;
+window.togglePgbSeries = togglePgbSeries;
 window.resetCostMapZoom = resetCostMapZoom;
 window.openCostMapModal = openCostMapModal;
 window.loadDemo = loadDemo;

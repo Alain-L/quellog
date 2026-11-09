@@ -51,8 +51,8 @@ test('no stats snapshot: the section publishes no throughput figure', () => {
     assert.ok(!html.includes('/s</div>'), 'a per-second value is shown without a stats snapshot');
 
     // The counters that do not come from the stats lines stay.
-    assert.ok(html.includes('Login attempts'));
     assert.ok(html.includes('Completed sessions'));
+    assert.ok(html.includes('Warnings'));
 });
 
 test('with stats snapshots: the throughput cards are shown', () => {
@@ -108,15 +108,14 @@ const idlePayload = {
 test('log_connections = 0: the empty blocks name the setting', () => {
     const html = buildPgBouncerSection({ pgbouncer: silencedPayload });
 
-    assert.ok(html.includes('Sessions by'), 'the Sessions block vanished instead of saying why it is empty');
-    assert.ok(html.includes('Connections by'), 'the Connections block vanished instead of saying why it is empty');
+    assert.ok(html.includes('pgBouncer Sessions'), 'the Sessions card vanished instead of saying why it is empty');
+    assert.ok(html.includes('pgBouncer Connections'), 'the Connections card vanished instead of saying why it is empty');
     assert.ok(html.includes('log_connections = 1'));
     assert.ok(html.includes('log_disconnections = 1'));
-    assert.ok(html.includes('docs/pgbouncer-setup.md'));
     // The note must distinguish this from a pooler nobody used: it says
     // the window carried traffic, without claiming to know why the
     // client lines are absent.
-    assert.ok(html.includes('no client connection logged in it'),
+    assert.ok(html.includes('no client connection was logged in it'),
         'the placeholder no longer distinguishes a silenced log from an idle one');
 });
 
@@ -126,7 +125,7 @@ test('an idle pooler is not told its connection logging is off', () => {
     assert.ok(!html.includes('Traffic over this window, but no'),
         'an idle pooler is accused of losing lines it never had to write');
     // It still gets the placeholder and the settings to check.
-    assert.ok(html.includes('Connections by'));
+    assert.ok(html.includes('pgBouncer Connections'));
     assert.ok(html.includes('log_connections = 1'));
 });
 
@@ -285,27 +284,21 @@ test('filtered-out lines are counted as the text report counts them', () => {
 
 // ---- grid balance --------------------------------------------------
 //
-// The closing row pairs the session histogram with the error table. With
-// only one of the two, a two-column grid leaves half the report blank.
+// The cards pair up two by two. A card left alone on its row, the events
+// of a pooler with no timeline, takes the full width instead of leaving
+// half the report blank.
 
-test('a row holding one block does not keep an empty column', () => {
-    const errorsOnly = buildPgBouncerSection({
-        pgbouncer: {
-            ...oneSnapshotPayload,
-            sessions: 0,
-            session_distribution: undefined,
-            total_errors: 45,
-            errors: [{ message: 'pooler error: query_wait_timeout', count: 45, first: '2026-09-20 13:57:58', last: '2026-09-20 13:58:40' }],
-        },
-    });
-    const rows = (errorsOnly.match(/grid grid-2/g) || []).length;
-    assert.equal(rows, 1, 'the errors table is held in a two-column grid with nothing beside it');
+test('a row holding one card does not keep an empty column', () => {
+    const errors = [{ id: 'wa-AAAA', level: 'WARNING', message: 'query_wait_timeout', count: 45, first: '2026-09-20 13:57:58', last: '2026-09-20 13:58:40' }];
+    const eventsOnly = buildPgBouncerSection({ pgbouncer: { ...oneSnapshotPayload, total_errors: 45, errors } });
+    assert.equal((eventsOnly.match(/grid grid-2/g) || []).length, 1,
+        'the events card is held in a two-column grid with nothing beside it');
 
     const both = buildPgBouncerSection({
-        pgbouncer: { ...oneSnapshotPayload, total_errors: 45, errors: [{ message: 'boom', count: 45, first: '2026-09-20 13:57:58', last: '2026-09-20 13:57:58' }] },
+        pgbouncer: { ...oneSnapshotPayload, total_errors: 45, errors, events: [{ timestamp: '2026-09-20 13:57:00', kind: 'start', detail: 'PgBouncer 1.25.2' }] },
     });
     assert.equal((both.match(/grid grid-2/g) || []).length, 2,
-        'the paired row lost its two columns');
+        'the timeline and the events lost their two columns');
 });
 
 // ---- refutation: the two rules must not drift apart ----------------
@@ -375,7 +368,6 @@ test('each pooler gets its own section, ids and name', () => {
     assert.ok(html.includes('chart-pgb-timing"') && html.includes('chart-pgb-timing-2"'));
     assert.ok(html.includes('pgBouncer · 127.0.0.1:6432'));
     assert.ok(html.includes('&lt;b&gt;6433&lt;/b&gt;') && !html.includes('<b>6433</b>'));
-    assert.ok(html.includes('PgBouncer 1.25.2'));
 
     const one = buildSections({ pgbouncer: [pooler('127.0.0.1:6432')] });
     assert.ok(!one.includes('pgBouncer · '), 'a single pooler keeps the plain header');

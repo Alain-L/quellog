@@ -60,13 +60,8 @@ const CANONICAL_CARD_LABELS = [
     'Avg transaction time',
     'Avg query time',
     'Avg pool wait time',
-    'Network in',
-    'Network out',
-    'Login attempts',
     'Completed sessions',
-    'Average session time',
-    'Server connections opened',
-    'Reserve pool activations',
+    'Warnings',
     'Errors',
 ];
 
