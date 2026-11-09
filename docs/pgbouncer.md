@@ -35,7 +35,7 @@ Every pooler gets a report of its own: the figures of two poolers are never adde
 - files that follow each other in time and share a listen address are one pooler restarted into a new file;
 - files whose records overlap in time are always two poolers, even on the same address: that is two hosts, or two containers each with its own log.
 
-A pooler is named after its first listen address (`listening on …` at startup), or after its first file when the log holds no such line. Two poolers with the same name get their files appended to it. The text and Markdown reports repeat their sections once per pooler, titled with its name; HTML shows one pgBouncer section per pooler.
+A pooler is named after its first listen address (`listening on …` at startup), or after its first file when the log holds no such line. Two poolers with the same name get their files appended to it. The text and Markdown reports give one `PGBOUNCER` section per pooler, titled with its name; HTML shows one pgBouncer section per pooler.
 
 ## What is parsed
 
@@ -50,32 +50,49 @@ pgBouncer log lines are single-line records with a `timestamp [PID] SEVERITY` pr
 | `WARNING`/`ERROR`/`FATAL …` | The error list (including `pooler error: …` and `taking connection from reserve_pool`) |
 | `LOG process up: PgBouncer X.Y.Z`, `LOG listening on …`, `LOG got SIG…`, `LOG … command issued` | The pooler's name, release and timeline: starts, shutdowns, reloads and admin console commands (`PAUSE`, `RESUME`, `SUSPEND`, `KILL`, …) |
 
-## Report sections
+## The report
 
-Text (default), Markdown (`--md`), JSON (`--json`), YAML (`--yaml`), and HTML (`--html`) carry the same figures, with one exception: HTML states each stats-line average, but not the highest-snapshot counterparts the other formats print beside them: the charts draw every snapshot instead. The section names below are the text and Markdown ones; HTML groups them into cards and charts, and the serialized formats expose them as the keys listed further down.
+Each pooler gets one `PGBOUNCER` section, titled with the pooler's name when there are several. Text and Markdown are synthetic by default and hold in 80 columns; `--pgbouncer-detail` gives the detailed report alone, and `--full` includes it in the full report. JSON, YAML and HTML always hold every detail. HTML draws every snapshot as a bar, with the pooler's events (pauses, restarts, reloads, console commands) on the charts.
 
-- **Summary** — the pooler's name, release and files, time range, lines read, entries understood (plus the lines no parser could decode and the DEBUG/NOISE share of the rest), stats snapshots, login attempts, server connections opened, completed sessions, reserve-pool activations, errors. "Server connections opened" counts the `new connection to server` lines over the window, not the connections held at a point in time: a pool capped at five by `default_pool_size` + `reserve_pool_size` legitimately opens many more over an hour, so the figure is not comparable with a `SHOW POOLS` column. Below it, the **timeline** lists the pooler's starts (with the release), shutdowns (with the signal or the `SHUTDOWN` command), reloads (`RELOAD` or `SIGHUP`) and admin console commands such as `PAUSE 'db'` and `RESUME`, each with its time.
-- **Request throughput** — transactions/s, queries/s and bytes in/out per second, each as an average and as the highest snapshot average, with the time of that snapshot. (Network I/O is not a section of its own in text or Markdown; it is a separate chart in HTML.) The second figure is deliberately not called a peak: pgBouncer logs one rate per `stats_period`, so at the default 60 s a real spike is flattened across the minute and the largest value in the capture is the busiest snapshot average, never the busiest instant.
-- **Query timing** — transaction and query time. pgBouncer only ever logs one average per snapshot, so the averages are weighted by each snapshot's operation count and skip the snapshots that timed none of that kind (which is why they can rest on fewer snapshots than the summary counts), and the figure beside them is the highest snapshot average, never the slowest single operation. pgBouncer reports these in microseconds; quellog keeps that resolution (`842 µs`, `3.4 ms`, `2.4 s`) rather than rounding to milliseconds.
-- **Pool wait** — how long clients queued before a server connection was assigned, averaged the same way. It sits in its own section because it answers a different question than the two above: a long query time is a query problem, a long pool wait is a sizing problem, read against `default_pool_size`, `reserve_pool_size` and `max_db_connections`. In HTML the three curves share one chart, so they can be compared on a common time axis. Below the figure, the stretches during which clients queued are listed with their start, end, duration and worst snapshot: runs of consecutive snapshots with a wait of 100 ms or more, starting at the snapshot before the first, since a `stats:` line describes the period it closes. On the lab captures behind the tests, normal traffic stays under 4 ms and every saturation above 190 ms. Before pgBouncer 1.23 the `wait` field meant something else — the time all clients spent queued per second of wall time, a queue depth — so for a pooler whose start banner names an earlier release the section shows it as the number of clients queued on average, averaged over time like the rates, says why, and HTML leaves it out of the chart drawn in microseconds.
-- **Sessions** — completed session count, average session time, a session-time histogram (same buckets as the PostgreSQL connection report), how many sessions the client ended and how many the pooler ended (a reason starting with "client ", such as `client close request`, is the client's; any other, `client_idle_timeout` included, is the pooler refusing or killing the session), the sessions per close reason with the average age of each, and sessions per database/user/host. The close reasons separate populations the average blurs: on a saturated pooler, clients killed in the queue by `query_wait_timeout` after a few seconds sit next to sessions the client ended after a minute. Fed by the `closing because: … (age=Ns)` lines, which `log_disconnections = 0` removes.
-- **Connections** — login attempts and server connections opened, plus connections per database/user/host. Fed by the `login attempt` lines, which `log_connections = 0` removes.
-- **Most frequent errors** — errors and warnings ranked by frequency, each with its first and last occurrence, with the variable socket id, peer, and session age stripped so the same failure collapses into one bucket. The list is not cut at 80% of the total, as the breakdowns are: the rare error is often the one worth reading, and up to twenty are shown. Reserve-pool activations (`taking connection from reserve_pool`) are ranked here and included in the error total, although they report a capacity event rather than a failure; they are also counted on their own line in the summary.
-- **Most Frequent Errors is the one section that is dropped rather than rendered empty.** A capture with no `WARNING`/`ERROR`/`FATAL` line has no section at all, which reads like a healthy pooler — and `log_pooler_errors = 0` produces exactly that on a pooler that is failing. The summary still carries `Errors : 0`, so no figure is wrong, but the section's absence is not the proof of health it looks like.
+The default view gives:
 
-### Empty sections say why
+- the pooler (its name and release) and the time range;
+- one row per subject: the throughput (transactions/s and queries/s), the average transaction and query times, the average pool wait, the clients (login attempts, completed sessions and their average time), the server connections opened and the reserve-pool activations;
+- the messages: the error and warning counts, and the five most frequent with their first and last occurrence;
+- the **activity** table: one row per snapshot, or per round time bucket beyond twelve rows, with the queries per second as a bar, the worst query time and pool wait of the row, and the pooler's events on the row they fall in (`reload`, `pause 21s`, `restart`). A run of rows with no traffic reads as one.
 
-A section with no input is rendered empty rather than dropped, with the `pgbouncer.ini` setting that governs it. The report has no other way to let a reader tell an idle pooler from a silenced one, and the two produce the same figures — zero:
+The detailed view adds the files, the duration, the lines read, those set aside (unrecognized, filtered out, DEBUG/NOISE), the stats snapshots, network in and out, the wait stretches (their count and the longest) and how many sessions the client ended and how many the pooler did, then:
 
-- **Sessions and Connections** always appear. When the same window carries proof the pooler served clients — transactions or queries in a `stats:` line, a server connection opened, or an error — the placeholder says so explicitly, since traffic without a single client line means the lines are missing rather than the clients. With nothing to contradict an idle pooler, it states the absence and names the setting, without diagnosing a configuration it cannot see.
-- **Request throughput, query timing and pool wait** come from the `stats:` lines only. With none in the window, one placeholder covers all three and names `stats_period`; a capture shorter than one period legitimately holds no such line.
-- When the snapshots that do exist account for **less than half of the reported window** — or for an unknown share of it, which a single snapshot always does — the figures are shown with the coverage stated above them. `stats_period` is inferred from the median interval between consecutive snapshots; pgBouncer never logs the setting itself.
+- the **max snapshot averages**: the highest throughput, network, timing and wait of any snapshot, with when it was logged;
+- every message with its ID, count and first and last occurrence. `--event-detail` takes these IDs (`wa-`, `er-`, `fa-`), as it takes PostgreSQL's, and prints a message the table had to shorten in full;
+- the activity table, up to twenty rows;
+- the **session time** histogram (the buckets of the PostgreSQL connection report) and the **sessions per close reason** with the average age of each;
+- the **connections per database, user and host**, their ten heaviest rows then `… and N more`.
 
-None of these verdicts adds a JSON key: they are derived from `stats_sample_count`, `stats_series[].time`, `start_date`, `end_date`, `login_attempts`, `sessions`, `max_queries_per_sec`, `max_xacts_per_sec`, `server_connections` and `total_errors`, all of which the document already carries.
+When fewer than two snapshots leave no activity table, the detailed view lists the **timeline** (starts with the release, shutdowns with the signal, reloads, console commands such as `PAUSE 'db'`) and the **wait stretches** instead.
 
-The ranked breakdowns (sessions and connections per database/user/host) show their ten heaviest rows and then state the rest as `… and N more`, the same form the PostgreSQL report uses for its own capped tables. On a pooler fronting many tenants that line is the difference between a head and a total: ten rows out of thousands can sum to a few percent, and the section title names the dimension, not the cut.
+### Reading the figures
 
-The HTML report adds three interactive time-series charts (throughput, network I/O, timing) drawn from the `stats:` snapshots.
+- **The max is a snapshot average, not a peak.** pgBouncer logs one average per `stats_period`, so at the default 60 s a spike is flattened across the minute: the largest value in the capture is the busiest snapshot average, never the busiest instant.
+- **Timing averages are weighted.** Transaction, query and wait times are weighted by each snapshot's operation count and skip the snapshots that timed none of that kind, which is why they can rest on fewer snapshots than the report counts. pgBouncer reports them in microseconds; quellog keeps that resolution (`842 µs`, `3.4 ms`, `2.4 s`).
+- **Pool wait is not query time.** A long query time is a query problem, a long pool wait is a sizing problem, read against `default_pool_size`, `reserve_pool_size` and `max_db_connections`. What the wait is averaged over depends on `pool_mode` (one wait per session, per transaction or per statement), which pgBouncer logs nowhere.
+- **Before pgBouncer 1.23** the `wait` field is the time all clients spent queued per second of wall time, a queue depth: for a pooler whose start banner names an earlier release, the report shows it as the number of clients queued on average, and HTML leaves it out of the chart drawn in microseconds.
+- **Server connections** counts the `new connection to server` lines opened over the window, not the connections held: a pool capped at five legitimately opens many more over an hour.
+- **Sessions ended by the client** are those whose close reason starts with "client ", such as `client close request`; any other, `client_idle_timeout` included, is the pooler refusing or killing the session.
+- **Reserve-pool activations** (`taking connection from reserve_pool`) are warnings in pgBouncer's log, so they are listed among them, and also counted on the server connections row.
+- `pooler error: ` heads every error pgBouncer sends a client; the report keeps the reason after it.
+
+### Zero counts say why
+
+A count that depends on a setting says so when it is zero, since an idle pooler and a silenced one produce the same zero:
+
+- **Login attempts and completed sessions** at 0 name `log_connections` or `log_disconnections`, and add "although traffic shows" when the same window proves the pooler served clients (transactions or queries in a `stats:` line, a server connection opened, or an error). The clients may predate the window, so the report states only that.
+- **Traffic, timing and pool wait** come from the `stats:` lines only. With none in the window, one row says so and names `stats_period`; a capture shorter than one period legitimately holds none.
+- When the snapshots account for **less than half of the window**, or for an unknown share of it, as a single snapshot always does, a **Stats coverage** row states it. `stats_period` is inferred from the median interval between consecutive snapshots; pgBouncer never logs the setting itself.
+
+A capture with no `WARNING`/`ERROR`/`FATAL` line reads `Messages: 0 errors, 0 warnings`, which `log_pooler_errors = 0` also produces on a pooler that is failing.
+
+The HTML report adds four bar charts (throughput, network I/O, timing, pool wait) drawn from the `stats:` snapshots, with the pooler's events marked on them.
 
 ## JSON keys
 
@@ -87,19 +104,19 @@ The HTML report adds three interactive time-series charts (throughput, network I
 - `lines_read`, `lines`, `lines_unrecognized`, `debug_lines` — lines scanned, entries understood, lines no parser could decode, and how many entries are DEBUG/NOISE
 - `stats_sample_count`, `avg_xacts_per_sec`, `max_xacts_per_sec`, `avg_queries_per_sec`, `max_queries_per_sec` — every `max_*` rate is the highest snapshot average, not an instantaneous peak
 - `avg_in_bytes_per_sec`, `max_in_bytes_per_sec`, `avg_out_bytes_per_sec`, `max_out_bytes_per_sec`
-- `avg_xact_us`, `max_xact_us`, `avg_query_us`, `max_query_us`, `avg_wait_us`, `max_wait_us` — before pgBouncer 1.23, `avg_wait_us` and `max_wait_us` are microseconds of queueing per second (see Pool wait above)
+- `avg_xact_us`, `max_xact_us`, `avg_query_us`, `max_query_us`, `avg_wait_us`, `max_wait_us` — before pgBouncer 1.23, `avg_wait_us` and `max_wait_us` are microseconds of queueing per second (see [Reading the figures](#reading-the-figures))
 - `wait_episodes` — `{start, end, peak_wait_us, peak_timestamp}` per stretch during which clients queued
 - `max_xacts_per_sec_timestamp`, `max_queries_per_sec_timestamp`, `max_in_bytes_per_sec_timestamp`, `max_out_bytes_per_sec_timestamp`, `max_xact_us_timestamp`, `max_query_us_timestamp`, `max_wait_us_timestamp` — when each maximum was logged, omitted when there is none
 - `login_attempts`, `server_connections` (connections **opened** to the servers, not held), `sessions`, `total_session_seconds`, `session_distribution`
 - `session_reasons` — `{reason, count, total_seconds}` per close reason
 - `connections_per_database`, `connections_per_user`, `connections_per_host`
 - `sessions_per_database`, `sessions_per_user`, `sessions_per_host`
-- `reserve_pool_activations`, `total_errors`, and `errors` — `{message, count, first, last}` per distinct error
+- `reserve_pool_activations`, `total_errors` (warnings and errors alike), and `errors` — `{id, level, message, count, first, last}` per distinct warning or error, `id` being the `--event-detail` handle
 - `stats_series` — the full per-snapshot time series, ordered by time (used to draw the HTML charts)
 
 ## Limitations
 
-- `pool_mode` is not readable from the log. pgBouncer writes it to no line, and a report of the same traffic under `session` and under `statement` pooling is identical but for the server-connection count — so quellog states the ambiguity next to the pool-wait figure instead of guessing. The mode changes what that figure is averaged over (one wait per session, per transaction, or per statement) and how to read "server connections opened"; see [pgBouncer Setup](pgbouncer-setup.md).
+- `pool_mode` is not readable from the log. pgBouncer writes it to no line, and a report of the same traffic under `session` and under `statement` pooling is identical but for the server-connection count — so quellog does not guess it. The mode changes what that figure is averaged over (one wait per session, per transaction, or per statement) and how to read "server connections opened"; see [pgBouncer Setup](pgbouncer-setup.md).
 - The browser demo does not read pgBouncer logs. Its WebAssembly build carries the PostgreSQL parsers only, so a pooler log dropped on the page is recognized and refused with a message rather than parsed as a server log; the command-line tool reads it normally.
 - `syslog = 1` captures are not detected (see above).
 - A pooler log cannot be read from standard input; it is refused with a message (see above).

@@ -51,12 +51,12 @@ and `syslog` need a restart; `log_connections`, `log_disconnections`,
 
 | Setting | quellog section | Notes |
 |---------|----------------|-------|
-| `log_connections` | Connections | Login attempts and the per-database/user/host breakdown. `0` empties the section entirely — there is no other source for a client connection |
-| `log_disconnections` | Sessions | Completed sessions, session-time histogram, per-database/user/host breakdown. Session duration comes from the `(age=Ns)` field of the disconnection line, so `0` also removes every duration |
-| `log_pooler_errors` | Most Frequent Errors | Pooler-side failures (`query_wait_timeout`, `client_idle_timeout`, authentication failures) and `taking connection from reserve_pool` |
-| `stats_period` | Request Throughput, Query Timing, Pool Wait | One `stats:` line per period, each averaging that period. Controls **coverage, not detail**: a capture shorter than one period holds no line at all, and a period far longer than the capture yields a single startup snapshot whose figures describe the idle interval before the traffic |
+| `log_connections` | Login attempts, connections per database/user/host | Login attempts and the per-database/user/host breakdown. `0` empties the section entirely — there is no other source for a client connection |
+| `log_disconnections` | Completed sessions, session time, close reasons | Completed sessions, session-time histogram, per-database/user/host breakdown. Session duration comes from the `(age=Ns)` field of the disconnection line, so `0` also removes every duration |
+| `log_pooler_errors` | Warnings and errors | Pooler-side failures (`query_wait_timeout`, `client_idle_timeout`, authentication failures) and `taking connection from reserve_pool` |
+| `stats_period` | Transactions, queries, timing, pool wait, network | One `stats:` line per period, each averaging that period. Controls **coverage, not detail**: a capture shorter than one period holds no line at all, and a period far longer than the capture yields a single startup snapshot whose figures describe the idle interval before the traffic |
 | `logfile` | all | A file, not `syslog`. See the limitation below |
-| `pool_mode` | Pool Wait (interpretation only) | Not readable from the log. See below |
+| `pool_mode` | Pool wait (interpretation only) | Not readable from the log. See below |
 
 ### Why `stats_period` is the one to lower
 
@@ -87,7 +87,7 @@ anyway, because it changes what two figures mean:
   pooling that is one wait per client session, under transaction pooling one per
   transaction, under statement pooling one per statement. The same `3 ms` is a
   once-per-session cost in the first case and a per-statement cost in the third.
-- **Server connections opened** counts `new connection to server` lines. Under
+- **Server connections** counts the `new connection to server` lines opened. Under
   session pooling a burst of short-lived clients can force the pool to grow;
   under transaction pooling the same burst reuses a handful of backends.
 
