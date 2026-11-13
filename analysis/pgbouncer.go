@@ -2,6 +2,7 @@ package analysis
 
 import (
 	"context"
+	"path/filepath"
 	"slices"
 	"sort"
 	"strconv"
@@ -126,9 +127,10 @@ type PgBouncerEvent struct {
 	Detail string
 }
 
-// PgBouncerWaitEpisode is one stretch of queueing. Start is the snapshot
-// before the first one over the floor, since a stats line describes the
-// period that ended with it; Peak is the highest wait of the stretch.
+// PgBouncerWaitEpisode is one stretch of queueing. Start is where the
+// period of the first snapshot over the floor began, since a stats line
+// describes the period that ended with it; Peak is the highest wait of
+// the stretch.
 type PgBouncerWaitEpisode struct {
 	Start    time.Time
 	End      time.Time
@@ -142,21 +144,23 @@ type PgBouncerWaitEpisode struct {
 // 190 ms, so the floor falls well inside the gap.
 const waitEpisodeFloorUs = 100_000
 
-// waitEpisodes finds the queueing stretches of a time-sorted series.
-func waitEpisodes(series []PgBouncerStatsPoint) []PgBouncerWaitEpisode {
+// waitEpisodes finds the queueing stretches of a time-sorted series. A
+// snapshot averages the period it closes, so a stretch starts where the
+// first queued snapshot's period does (snapshotStarts); a new run of the
+// pooler, after a restart or a gap, ends a stretch.
+func waitEpisodes(series []PgBouncerStatsPoint, events []PgBouncerEvent) []PgBouncerWaitEpisode {
+	starts, cont := snapshotStarts(series, events)
 	var out []PgBouncerWaitEpisode
 	var cur *PgBouncerWaitEpisode
 	for i, pt := range series {
-		if pt.WaitMicros < waitEpisodeFloorUs {
+		if pt.WaitMicros < waitEpisodeFloorUs || (cur != nil && !cont[i]) {
 			cur = nil
+		}
+		if pt.WaitMicros < waitEpisodeFloorUs {
 			continue
 		}
 		if cur == nil {
-			start := pt.Time
-			if i > 0 {
-				start = series[i-1].Time
-			}
-			out = append(out, PgBouncerWaitEpisode{Start: start})
+			out = append(out, PgBouncerWaitEpisode{Start: starts[i]})
 			cur = &out[len(out)-1]
 		}
 		cur.End = pt.Time
@@ -165,6 +169,100 @@ func waitEpisodes(series []PgBouncerStatsPoint) []PgBouncerWaitEpisode {
 		}
 	}
 	return out
+}
+
+// SnapshotStarts returns, for each snapshot of the series, when the
+// period it averages began (see snapshotStarts).
+func (m PgBouncerMetrics) SnapshotStarts() []time.Time {
+	starts, _ := snapshotStarts(m.StatsSeries, m.Events)
+	return starts
+}
+
+// snapshotStarts returns when the period each snapshot averages began,
+// and whether the snapshot continues the run of the one before. A run of
+// the pooler ends at a start or a shutdown, and at a hole: a gap more
+// than 2.5 times the longest gap beside it in the run (a missing file, a
+// pooler down unlogged). One missing stats line, two periods, is no hole,
+// nor is a stats_period changed by a reload. Within a run a period starts
+// at the snapshot before; the first snapshot of a run, or after a hole,
+// goes back the gap that follows it (or precedes it), never before the
+// start that opened the run, and from that start when no gap is known.
+func snapshotStarts(series []PgBouncerStatsPoint, events []PgBouncerEvent) (starts []time.Time, cont []bool) {
+	var bounds []time.Time
+	for _, e := range events {
+		if e.Kind == "start" || e.Kind == "shutdown" {
+			bounds = append(bounds, e.Time)
+		}
+	}
+	slices.SortFunc(bounds, time.Time.Compare)
+	// boundIn is the last start or shutdown in (from, to], if any.
+	boundIn := func(from, to time.Time) (time.Time, bool) {
+		var b time.Time
+		for _, t := range bounds {
+			if t.After(from) && !t.After(to) {
+				b = t
+			}
+		}
+		return b, !b.IsZero()
+	}
+
+	n := len(series)
+	gap := func(i int) time.Duration { return series[i].Time.Sub(series[i-1].Time) }
+	sameRun := make([]bool, n)
+	for i := 1; i < n; i++ {
+		_, split := boundIn(series[i-1].Time, series[i].Time)
+		sameRun[i] = !split
+	}
+	cont = make([]bool, n)
+	for i := 1; i < n; i++ {
+		var ref time.Duration
+		if i > 1 && sameRun[i-1] {
+			ref = max(ref, gap(i-1))
+		}
+		if i+1 < n && sameRun[i+1] {
+			ref = max(ref, gap(i+1))
+		}
+		cont[i] = sameRun[i] && (ref == 0 || gap(i)*2 <= ref*5)
+	}
+	var gaps []time.Duration
+	for i := 1; i < n; i++ {
+		if cont[i] && gap(i) > 0 {
+			gaps = append(gaps, gap(i))
+		}
+	}
+	var fallback time.Duration
+	if len(gaps) > 0 {
+		slices.Sort(gaps)
+		fallback = gaps[len(gaps)/2]
+	}
+
+	starts = make([]time.Time, n)
+	for i, pt := range series {
+		if cont[i] {
+			starts[i] = series[i-1].Time
+			continue
+		}
+		var p time.Duration
+		switch {
+		case i+1 < n && cont[i+1]:
+			p = gap(i + 1)
+		case i > 1 && sameRun[i] && cont[i-1]:
+			p = gap(i - 1)
+		}
+		var lo time.Time
+		if i > 0 {
+			lo = series[i-1].Time
+		}
+		if b, ok := boundIn(lo, pt.Time); ok && (p == 0 || b.After(pt.Time.Add(-p))) {
+			starts[i] = b
+			continue
+		}
+		if p == 0 {
+			p = fallback
+		}
+		starts[i] = pt.Time.Add(-p)
+	}
+	return starts, cont
 }
 
 // PgBouncerError is one normalized warning or error and when it occurred.
@@ -225,14 +323,19 @@ const statsCoverageFloor = 2 // covered*statsCoverageFloor < window
 // or a rotation gap in the middle of the capture does not inflate it.
 // Returns 0 when fewer than two snapshots leave nothing to measure.
 func (m PgBouncerMetrics) StatsPeriod() time.Duration {
-	if len(m.StatsSeries) < 2 {
+	return seriesPeriod(m.StatsSeries)
+}
+
+// seriesPeriod is StatsPeriod for a time-sorted series.
+func seriesPeriod(series []PgBouncerStatsPoint) time.Duration {
+	if len(series) < 2 {
 		return 0
 	}
-	gaps := make([]time.Duration, 0, len(m.StatsSeries)-1)
-	for i := 1; i < len(m.StatsSeries); i++ {
+	gaps := make([]time.Duration, 0, len(series)-1)
+	for i := 1; i < len(series); i++ {
 		// Finalize sorts the series by time, so a non-positive gap is
 		// two snapshots sharing a timestamp, not disorder.
-		if d := m.StatsSeries[i].Time.Sub(m.StatsSeries[i-1].Time); d > 0 {
+		if d := series[i].Time.Sub(series[i-1].Time); d > 0 {
 			gaps = append(gaps, d)
 		}
 	}
@@ -244,16 +347,19 @@ func (m PgBouncerMetrics) StatsPeriod() time.Duration {
 }
 
 // StatsCoverage returns how much of the window the telemetry accounts
-// for: one stats_period per snapshot, each snapshot being an average
-// over the period that preceded it. Returns 0 when the period could not
-// be inferred, which means "cannot be established" rather than "covers
-// nothing" -- callers must not read it as a duration of zero.
+// for: the periods the snapshots average, each run with its own
+// (SnapshotStarts). Returns 0 for fewer than two snapshots, whose extent
+// cannot be established -- callers must not read it as a duration of
+// zero.
 func (m PgBouncerMetrics) StatsCoverage() time.Duration {
-	period := m.StatsPeriod()
-	if period <= 0 {
+	if len(m.StatsSeries) < 2 {
 		return 0
 	}
-	return period * time.Duration(m.StatsSampleCount)
+	var covered time.Duration
+	for i, start := range m.SnapshotStarts() {
+		covered += m.StatsSeries[i].Time.Sub(start)
+	}
+	return covered
 }
 
 // StatsUnderCovered reports whether the traffic and timing figures rest
@@ -282,26 +388,16 @@ func (m PgBouncerMetrics) StatsUnderCovered() bool {
 	return covered*statsCoverageFloor < window
 }
 
-// ClientLinesMissing reports whether the pooler demonstrably handled
-// clients over this window while logging none of them. It is the only
-// way to tell the two readings of an empty Connections section apart:
-// log_connections = 0 silences the "login attempt" and "closing
-// because" lines while leaving the telemetry, the pool events and the
-// errors untouched, so traffic without a single client line means the
-// log is missing them -- whereas a pooler that nobody used produces the
-// same empty section with nothing to contradict it.
-//
-// Only the snapshot counters prove it: a transaction or a query is work
-// done for a client, and the "stats:" line carrying them is written
-// whatever log_connections is set to. A server connection opened and an
-// error are deliberately not accepted as proof, although they are just
-// as visible -- min_pool_size opens backends with nobody connected, and
-// a backend refusing the pooler errors out before any client exists, so
-// either one alone describes a pooler that is idle rather than silenced.
-func (m PgBouncerMetrics) ClientLinesMissing() bool {
-	if m.LoginAttempts > 0 || m.Sessions > 0 {
-		return false
-	}
+// TrafficShows reports whether the "stats:" snapshots prove the pooler
+// served clients over the window: a transaction or a query, work done for
+// a client, in a line written whatever log_connections is set to. A
+// server connection or an error is no proof: min_pool_size opens backends
+// with nobody connected, and a backend refusing the pooler errors out
+// before any client exists. A count at zero beside it was not logged
+// rather than null: log_connections governs the login and server
+// connection lines, log_disconnections the session closes, each on its
+// own.
+func (m PgBouncerMetrics) TrafficShows() bool {
 	return m.MaxXactsPerSec > 0 || m.MaxQueriesPerSec > 0
 }
 
@@ -733,10 +829,10 @@ func (a *PgBouncerAnalyzer) Finalize() PgBouncerMetrics {
 	sort.SliceStable(a.m.StatsSeries, func(i, j int) bool {
 		return a.m.StatsSeries[i].Time.Before(a.m.StatsSeries[j].Time)
 	})
-	a.m.WaitEpisodes = waitEpisodes(a.m.StatsSeries)
 	sort.SliceStable(a.m.Events, func(i, j int) bool {
 		return a.m.Events[i].Time.Before(a.m.Events[j].Time)
 	})
+	a.m.WaitEpisodes = waitEpisodes(a.m.StatsSeries, a.m.Events)
 
 	a.m.Errors = a.m.Errors[:0]
 	for _, e := range a.errors {
@@ -759,10 +855,20 @@ func (a *PgBouncerAnalyzer) Finalize() PgBouncerMetrics {
 	return a.m
 }
 
-// Consume drains one file's records: every record identifies the pooler,
-// and the ones inside the time bounds feed the report. ctx cancellation
-// stops consumption and drains the remainder.
-func (a *PgBouncerAnalyzer) Consume(ctx context.Context, in <-chan []parser.LogEntry, bounds parser.LogFilters) {
+// ConsumeInput reads the pooler track of one input and returns one
+// analyzer per log it holds: the input itself, or each member of an
+// archive, so two poolers archived together are told apart as two files
+// are. A member starts at its source marker, which carries the pooler
+// parser's line counters when it was sent: each log gets the lines read
+// and unrecognized of its own. The input is read once.
+func ConsumeInput(ctx context.Context, in <-chan []parser.LogEntry, bounds parser.LogFilters, input string) []*PgBouncerAnalyzer {
+	var parts []*PgBouncerAnalyzer
+	cur, name := NewPgBouncerAnalyzer(), input
+	var baseRead, baseUnrecognized int64
+	end := func(read, unrecognized int64) {
+		cur.SetSource(name, int(read-baseRead), int(unrecognized-baseUnrecognized))
+		parts = append(parts, cur)
+	}
 loop:
 	for {
 		select {
@@ -773,9 +879,16 @@ loop:
 				break loop
 			}
 			for i := range batch {
-				a.Observe(&batch[i])
-				if bounds.IsEmpty() || parser.PassesFilters(batch[i], bounds) {
-					a.Process(&batch[i])
+				e := &batch[i]
+				if info := e.PgBackRest; info != nil && info.SourceIsMember {
+					end(info.PoolerLinesRead, info.PoolerLinesUnrecognized)
+					cur, name = NewPgBouncerAnalyzer(), filepath.Join(input, info.Source)
+					baseRead, baseUnrecognized = info.PoolerLinesRead, info.PoolerLinesUnrecognized
+					continue
+				}
+				cur.Observe(e)
+				if bounds.IsEmpty() || parser.PassesFilters(*e, bounds) {
+					cur.Process(e)
 				}
 			}
 			parser.PutBatch(batch)
@@ -785,6 +898,8 @@ loop:
 		for range in {
 		}
 	}
+	end(parser.PgBouncerLineCounts())
+	return parts
 }
 
 // SetSource names the file the analyzer read and what the parser saw of

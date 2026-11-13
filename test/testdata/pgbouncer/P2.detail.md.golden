@@ -21,10 +21,10 @@
 
 | Metric     | Value                                            |
 |------------|--------------------------------------------------|
-| Throughput | 2513 transactions/s, 17592 queries/s at 09:19:54 |
-| Network    | 1.02 MB/s in, 457.27 KB/s out at 09:19:54        |
-| Time       | transaction 2.1 ms, query 293 µs at 09:17:54     |
-| Pool wait  | 4.0 ms at 09:15:54                               |
+| Throughput | 2513 transactions/s, 17592 queries/s at 09:19:44 |
+| Network    | 1.02 MB/s in, 457.27 KB/s out at 09:19:44        |
+| Time       | transaction 2.1 ms, query 293 µs at 09:17:44     |
+| Pool wait  | 4.0 ms at 09:15:44                               |
 
 ### Messages: 0 errors, 0 warnings
 
@@ -106,12 +106,12 @@ _Query time and pool wait: worst snapshot of each row._
 
 | Metric     | Value                                         |
 |------------|-----------------------------------------------|
-| Throughput | 9 transactions/s at 09:20:54                  |
-|            | 32 queries/s at 09:19:04                      |
-| Network    | 911 B/s in at 09:19:04                        |
-|            | 1.32 KB/s out at 09:21:14                     |
-| Time       | transaction 11.88 s, query 1.44 s at 09:19:34 |
-| Pool wait  | 4.51 s at 09:19:34                            |
+| Throughput | 9 transactions/s at 09:20:44                  |
+|            | 32 queries/s at 09:18:54                      |
+| Network    | 911 B/s in at 09:18:54                        |
+|            | 1.32 KB/s out at 09:21:04                     |
+| Time       | transaction 11.88 s, query 1.44 s at 09:19:24 |
+| Pool wait  | 4.51 s at 09:19:24                            |
 
 ### Messages: 0 errors, 14 warnings
 
@@ -120,18 +120,22 @@ _Query time and pool wait: worst snapshot of each row._
 | `wa-2Xo6` | query_wait_timeout                  |    12 | 09:20:50 |
 | `wa-JC9n` | taking connection from reserve_pool |     2 | 09:18:49 |
 
-### Activity per 30s
+### Activity per snapshot (10s)
 
 | Time     | Queries | Query time | Pool wait | Events                    |
 |----------|--------:|-----------:|----------:|---------------------------|
-| 09:15:30 |     0/s |            |           | start                     |
-| 09:16:00 |     0/s |            |           | no traffic until 09:18:30 |
-| 09:18:30 |   7.3/s |   819.9 ms |    3.27 s | reload                    |
-| 09:19:00 |  31.3/s |     1.25 s |    4.51 s |                           |
-| 09:19:30 |   7.0/s |     1.44 s |    4.51 s | reload                    |
-| 09:20:00 |     0/s |            |           |                           |
-| 09:20:30 |   9.0/s |   603.4 ms |    2.20 s | reload                    |
-| 09:21:00 |  26.0/s |   995.4 ms |    3.01 s | reload                    |
+| 09:15:44 |     0/s |            |           | start                     |
+| 09:15:54 |     0/s |            |           | no traffic until 09:18:44 |
+| 09:18:44 |  22.0/s |   819.9 ms |    3.27 s | reload                    |
+| 09:18:54 |  32.0/s |     1.25 s |    4.51 s |                           |
+| 09:19:04 |  31.0/s |     1.25 s |    4.51 s |                           |
+| 09:19:14 |  31.0/s |     1.25 s |    4.51 s |                           |
+| 09:19:24 |  21.0/s |     1.44 s |    4.51 s | reload                    |
+| 09:19:34 |     0/s |            |           | no traffic until 09:20:44 |
+| 09:20:44 |  27.0/s |   603.4 ms |    2.20 s | reload                    |
+| 09:20:54 |  31.0/s |   876.5 ms |    3.01 s |                           |
+| 09:21:04 |  32.0/s |   877.3 ms |    3.01 s |                           |
+| 09:21:14 |  15.0/s |   995.4 ms |    3.01 s | reload                    |
 | 09:21:32 |         |            |           | shutdown                  |
 
 _Query time and pool wait: worst snapshot of each row._

@@ -175,7 +175,7 @@ func mdUnpadded(md []byte) string {
 func TestPgBouncerTextSpansRunForward(t *testing.T) {
 	text := pgbText(t, labelFixture, "--pgbouncer-detail")
 	for _, want := range []string{
-		"from 13:58:12",       // the stretch, by its start
+		"from 13:57:57",       // the stretch, from the start of its first period
 		"13:58:05 → 13:58:13", // query_wait_timeout, first to last
 	} {
 		if !strings.Contains(text, want) {

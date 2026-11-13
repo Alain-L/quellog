@@ -1,7 +1,11 @@
 package quellog_test
 
 import (
+	"archive/tar"
 	"bytes"
+	"compress/gzip"
+	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -108,6 +112,140 @@ func TestMixedRunHeaderCountsBothTracks(t *testing.T) {
 	for _, want := range []string{"637 entries processed", "(86.42 KB)"} {
 		if !strings.Contains(header, want) {
 			t.Errorf("header %q does not read %q", header, want)
+		}
+	}
+}
+
+// TestPoolerSectionFollowsTheSectionFlags: beside a PostgreSQL report, a
+// section flag leaves the pooler section out of text and JSON, as it
+// does pgBackRest's and Patroni's, while its entries stay in the header
+// count; a pooler-only run keeps its report.
+func TestPoolerSectionFollowsTheSectionFlags(t *testing.T) {
+	const pg, pooler = "testdata/pgbouncer/P1/p1.postgresql.log", "testdata/pgbouncer/P1/p1.pgbouncer.log"
+	has := func(args ...string) bool {
+		var doc map[string]json.RawMessage
+		if err := json.Unmarshal(runHarness(t, false, args...), &doc); err != nil {
+			t.Fatalf("%v: invalid JSON: %v", args, err)
+		}
+		_, ok := doc["pgbouncer"]
+		return ok
+	}
+	if has(pg, pooler, "--summary", "--json") {
+		t.Error("--summary beside a PostgreSQL report keeps the pooler section in JSON")
+	}
+	if !has(pg, pooler, "--json") {
+		t.Error("the full report lost its pooler section")
+	}
+	if !has(pooler, "--summary", "--json") {
+		t.Error("--summary on a pooler-only run drops its report")
+	}
+	out := string(runHarness(t, false, pg, pooler, "--summary"))
+	if strings.Contains(out, "PGBOUNCER") {
+		t.Error("--summary beside a PostgreSQL report keeps the pooler section in text")
+	}
+	if header, _, _ := strings.Cut(out, "\n"); !strings.Contains(header, "637 entries processed") {
+		t.Errorf("header %q no longer counts the pooler entries", header)
+	}
+}
+
+// TestPoolerInputsCountOnce: the header counts every input once -- a
+// pooler log given twice, an archive read by both tracks -- and a
+// pooler-only run states the size of its files.
+func TestPoolerInputsCountOnce(t *testing.T) {
+	const pg, pooler = "testdata/pgbouncer/P1/p1.postgresql.log", "testdata/pgbouncer/P1/p1.pgbouncer.log"
+	header := func(args ...string) string {
+		h, _, _ := strings.Cut(string(runHarness(t, false, args...)), "\n")
+		return h
+	}
+	for _, again := range []string{pooler, "./" + pooler} {
+		if h := header(pooler, again); !strings.Contains(h, "513 entries processed") || !strings.Contains(h, "(71.77 KB)") {
+			t.Errorf("a pooler log given twice (%s): header %q, want 513 entries and 71.77 KB", again, h)
+		}
+	}
+	if h := header(pooler, "--pgbouncer-detail"); !strings.Contains(h, "(71.77 KB)") {
+		t.Errorf("--pgbouncer-detail: header %q, want 71.77 KB", h)
+	}
+
+	var buf bytes.Buffer
+	gz := gzip.NewWriter(&buf)
+	tw := tar.NewWriter(gz)
+	for _, f := range []string{pg, pooler} {
+		b, err := os.ReadFile(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		tw.WriteHeader(&tar.Header{Name: filepath.Base(f), Mode: 0o644, Size: int64(len(b)), Typeflag: tar.TypeReg})
+		tw.Write(b)
+	}
+	tw.Close()
+	gz.Close()
+	path := filepath.Join(t.TempDir(), "both.tgz")
+	if err := os.WriteFile(path, buf.Bytes(), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	want := fmt.Sprintf("(%.2f KB)", float64(buf.Len())/1024)
+	if h := header(path); !strings.Contains(h, "637 entries processed") || !strings.Contains(h, want) {
+		t.Errorf("an archive read by both tracks: header %q, want 637 entries and %s", h, want)
+	}
+}
+
+// TestPoolerEmptyWindowNamesTheFilters: a time window that leaves no
+// pooler entry says the filters may be why, with or without
+// --pgbouncer-detail, rather than blaming the file's format.
+func TestPoolerEmptyWindowNamesTheFilters(t *testing.T) {
+	for _, args := range [][]string{
+		{"testdata/pgbouncer/P1/p1.pgbouncer.log", "--begin", "2030-01-01 00:00:00"},
+		{"testdata/pgbouncer/P1/p1.pgbouncer.log", "--begin", "2030-01-01 00:00:00", "--pgbouncer-detail"},
+	} {
+		cmd := exec.Command(harnessBinary, args...)
+		var stderr bytes.Buffer
+		cmd.Stderr = &stderr
+		if err := cmd.Run(); err == nil {
+			t.Errorf("%v: exit code 0 for an empty window", args)
+		}
+		if !strings.Contains(stderr.String(), "time filters match some entries") {
+			t.Errorf("%v: the error does not name the time filters:\n%s", args, stderr.String())
+		}
+	}
+}
+
+// TestPoolerMemberErrorIsReported: a pooler member cut short in an
+// archive the PostgreSQL track reads too is said once; that track never
+// reads the member, and silencing the pooler track lost the error.
+func TestPoolerMemberErrorIsReported(t *testing.T) {
+	b, err := os.ReadFile("testdata/pgbouncer/P1/p1.pgbouncer.log")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var gz bytes.Buffer
+	zw := gzip.NewWriter(&gz)
+	zw.Write(b)
+	zw.Close()
+	cut := gz.Bytes()[:gz.Len()/2]
+	for _, members := range [][]string{{"p1.postgresql.log", "cut.log.gz"}, {"cut.log.gz"}} {
+		var buf bytes.Buffer
+		tw := tar.NewWriter(&buf)
+		for _, name := range members {
+			data := cut
+			if name != "cut.log.gz" {
+				if data, err = os.ReadFile("testdata/pgbouncer/P1/" + name); err != nil {
+					t.Fatal(err)
+				}
+			}
+			tw.WriteHeader(&tar.Header{Name: name, Mode: 0o644, Size: int64(len(data)), Typeflag: tar.TypeReg})
+			tw.Write(data)
+		}
+		tw.Close()
+		path := filepath.Join(t.TempDir(), "cut.tar")
+		if err := os.WriteFile(path, buf.Bytes(), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		cmd := exec.Command(harnessBinary, path)
+		var stderr bytes.Buffer
+		cmd.Stderr = &stderr
+		cmd.Run()
+		if n := strings.Count(stderr.String(), "entry=cut.log.gz"); n != 1 {
+			t.Errorf("%v: the cut member is reported %d times, want once:\n%s", members, n, stderr.String())
 		}
 	}
 }

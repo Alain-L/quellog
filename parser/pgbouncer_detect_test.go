@@ -1,3 +1,5 @@
+//go:build !js
+
 package parser
 
 import (
@@ -194,28 +196,59 @@ func TestDetectFormatFromContentNamesPgBouncer(t *testing.T) {
 	}
 }
 
-// TestSampleFormatOrderIsShared pins the one order of discriminators: a
-// sample holding a pooler stats line among PostgreSQL lines, as two logs
-// concatenated into one file give, satisfies both the pooler and the
-// stderr detectors. The pooler marker settles it on every path -- by
-// extension, by content, and for an archive member -- where the stderr
-// check first would read the file as PostgreSQL on some paths only.
+// TestSampleFormatOrderIsShared pins the one order of discriminators on a
+// sample that satisfies both the pooler and the stderr detectors: a
+// pooler stats line among PostgreSQL lines, as a log both daemons write
+// to gives. The PostgreSQL lines outnumber the pooler one, so it is a
+// PostgreSQL log on every path -- by extension, by content, and for an
+// archive member. A marker settling it whatever the rest of the sample
+// says is the rule this replaces: it carried the whole PostgreSQL log,
+// and its report, onto the pooler track.
 func TestSampleFormatOrderIsShared(t *testing.T) {
 	sample := "2026-09-25 09:00:00.000 UTC [1] LOG stats: 3 xacts/s, 21 queries/s, in 1 B/s, out 1 B/s, xact 1 us, query 1 us, wait 1 us\n"
 	for i := 0; i < 5; i++ {
 		sample += "2026-09-25 09:00:01.000 UTC [42] LOG:  checkpoint starting: time\n"
 	}
-	if !looksLikePgBouncer(sample) || !isLogContent(sample) {
-		t.Fatalf("the sample must satisfy both detectors (pooler %v, stderr %v)", looksLikePgBouncer(sample), isLogContent(sample))
+	if looksLikePgBouncer(sample) || !isLogContent(sample) {
+		t.Fatalf("the sample must be a PostgreSQL log (pooler %v, stderr %v)", looksLikePgBouncer(sample), isLogContent(sample))
 	}
-	if got := sampleFormat(sample); got != "pgbouncer" {
-		t.Errorf("sampleFormat = %q, want pgbouncer", got)
+	if got := sampleFormat(sample); got != "stderr" {
+		t.Errorf("sampleFormat = %q, want stderr", got)
 	}
-	if _, ok := detectByContent("mixed", sample).(*PgBouncerParser); !ok {
-		t.Error("detectByContent does not read the mixed sample as a pooler log")
+	if _, ok := detectByContent("mixed", sample).(*StderrParser); !ok {
+		t.Error("detectByContent does not read the mixed sample as a PostgreSQL log")
 	}
-	if _, ok := detectByExtension("mixed.log", "log", sample).(*PgBouncerParser); !ok {
-		t.Error("detectByExtension does not read the mixed sample as a pooler log")
+	if _, ok := detectByExtension("mixed.log", "log", sample).(*StderrParser); !ok {
+		t.Error("detectByExtension does not read the mixed sample as a PostgreSQL log")
+	}
+	if got := archiveMemberFormat("mixed.log", strings.NewReader(sample)); got != "stderr" {
+		t.Errorf("archiveMemberFormat = %q, want stderr", got)
+	}
+}
+
+// TestDetectStrayPoolerLineInOtherLogs: one pooler line in a log of any
+// other shape -- a log_line_prefix that does not open on the timestamp,
+// a literal in front, syslog, JSON, the indented lines of a multi-line
+// statement or plan -- leaves it the log it is, and its report is not
+// lost to the pooler track. A tie goes to the other log; pooler lines in
+// the majority make a pooler log.
+func TestDetectStrayPoolerLineInOtherLogs(t *testing.T) {
+	stray := "2026-09-25 09:00:00.000 UTC [1] LOG stats: 3 xacts/s, 21 queries/s, in 1 B/s, out 1 B/s, xact 1 us, query 1 us, wait 1 us\n"
+	for _, c := range []struct{ name, line string }{
+		{"angle-bracket prefix", "< 2026-09-25 09:00:01.000 UTC > LOG:  checkpoint starting: time"},
+		{"literal prefix", "dbhost: 2026-09-25 09:00:01.000 UTC [42] LOG:  checkpoint starting: time"},
+		{"syslog rfc5424", "<134>1 2026-09-25T09:00:01+00:00 host postgres 42 - - [1-1] checkpoint starting: time"},
+		{"syslog bsd", "Sep 25 09:00:01 host postgres[42]: [1-1] checkpoint starting: time"},
+		{"iso timestamp", "2026-09-25T09:00:01.000Z [42] checkpoint starting: time"},
+		{"json", `{"timestamp":"2026-09-25 09:00:01.000 UTC","error_severity":"LOG","message":"checkpoint starting: time"}`},
+		{"plan line", "\t  ->  Seq Scan on t  (cost=0.00..35.50 rows=2550 width=4)"},
+	} {
+		if looksLikePgBouncer(stray + c.line + "\n") {
+			t.Errorf("%s: one pooler line against one of this log reads as a pooler log", c.name)
+		}
+		if !looksLikePgBouncer(stray + stray + c.line + "\n") {
+			t.Errorf("%s: two pooler lines against one of this log no longer make a pooler log", c.name)
+		}
 	}
 }
 

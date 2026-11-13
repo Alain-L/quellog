@@ -75,9 +75,20 @@ const (
 	pgbouncerShapeRatioDen = 10
 )
 
+// otherLogLineRe matches a line another log writes: one that opens on a
+// timestamp (PostgreSQL stderr or CSV), a syslog header, a JSON object or
+// an indent (the continuation of a multi-line statement or plan), or that
+// carries PostgreSQL's severity and its colon ("LOG:  ") wherever a
+// log_line_prefix puts it ("< %m >", a literal in front). A pooler line
+// matches too, but is counted as one first.
+var otherLogLineRe = regexp.MustCompile(`^(?:\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}|<\d+>|[A-Z][a-z]{2} [ \d]\d \d{2}:\d{2}|\{|[ \t])|\b(?:LOG|ERROR|WARNING|FATAL|PANIC|NOTICE|INFO|DEBUG[1-5]?|DETAIL|HINT|STATEMENT|CONTEXT):  `)
+
 // looksLikePgBouncer reports whether a content sample is a pgBouncer log.
-// A pgBouncer-only marker (stats line or socket id) settles it outright,
-// which also covers a sample where pooler lines are in the minority.
+// A pgBouncer-only marker (stats line or socket id) settles it, unless the
+// sample holds as many lines of another log as pooler lines: a PostgreSQL
+// log a stray pooler line found its way into stays a PostgreSQL log, and
+// its report is not lost to the pooler track. Free text (wrapped kernel
+// messages) does not count against the pooler.
 // Otherwise the sample must be made, near enough entirely, of lines in the
 // pgBouncer prefix shape — the discriminator being that pgBouncer writes
 // "[PID] LOG " where PostgreSQL always writes a severity followed by a
@@ -86,7 +97,7 @@ const (
 // detection sample — a restart, a fresh rotation, a supervision snapshot,
 // a verbose=2 head — was rejected outright.
 func looksLikePgBouncer(sample string) bool {
-	var shaped, total int
+	var shaped, total, other int
 	var marker bool
 	for len(sample) > 0 {
 		line := sample
@@ -100,10 +111,13 @@ func looksLikePgBouncer(sample string) bool {
 		}
 		total++
 		if !pgbouncerPrefixRe.MatchString(line) {
+			if otherLogLineRe.MatchString(line) {
+				other++
+			}
 			continue
 		}
 		shaped++
-		// The marker settles it, but only when the line carrying it is
+		// The marker counts only when the line carrying it is
 		// itself a pooler line: a PostgreSQL statement that quotes one
 		// -- log_statement = all, a pasted excerpt in a support bundle
 		// -- would otherwise carry the whole file onto the pooler track.
@@ -112,7 +126,7 @@ func looksLikePgBouncer(sample string) bool {
 		}
 	}
 	if marker {
-		return true
+		return shaped > other
 	}
 	return shaped >= pgbouncerShapeMinLines &&
 		shaped*pgbouncerShapeRatioDen >= total*pgbouncerShapeRatioNum

@@ -128,20 +128,17 @@ func openTarStream(filename string, r io.Reader) (io.Reader, io.Closer, error) {
 	return r, nil, nil
 }
 
-// innerFormats implements formatWrapper: it names the formats of the
-// members the archive holds that we can parse, so the cmd layer routes a
-// pgBouncer archive to the pooler analyzer, and a mixed one to both
-// analyzers, instead of feeding pooler lines to the PostgreSQL one.
-func (p *TarParser) innerFormats(filename string) (formats []string) {
+// walkMembers implements memberWalker.
+func (p *TarParser) walkMembers(filename string, visit func(name, format string)) {
 	file, err := os.Open(filename)
 	if err != nil {
-		return nil
+		return
 	}
 	defer file.Close()
 
 	reader, closer, err := openTarStream(filename, file)
 	if err != nil {
-		return nil
+		return
 	}
 	if closer != nil {
 		defer closer.Close()
@@ -151,13 +148,32 @@ func (p *TarParser) innerFormats(filename string) (formats []string) {
 	for {
 		hdr, err := tr.Next()
 		if err != nil || hdr == nil {
-			return formats
+			return
 		}
 		if hdr.Typeflag != tar.TypeReg || hdr.Size == 0 || strings.Contains(hdr.Name, "..") {
 			continue
 		}
-		formats = addFormat(formats, archiveMemberFormat(filepath.Base(hdr.Name), io.LimitReader(tr, hdr.Size)))
+		visit(hdr.Name, archiveMemberFormat(filepath.Base(hdr.Name), io.LimitReader(tr, hdr.Size)))
 	}
+}
+
+// innerFormats implements formatWrapper.
+func (p *TarParser) innerFormats(filename string) []string { return memberFormats(p, filename) }
+
+// memberWalker is implemented by the archive parsers: it visits each
+// member Parse would read, by its name in the archive, with its format
+// ("" when it is not a log we can parse).
+type memberWalker interface {
+	walkMembers(filename string, visit func(name, format string))
+}
+
+// memberFormats names the formats of the members an archive holds, so
+// the cmd layer routes a pgBouncer archive to the pooler analyzer, and a
+// mixed one to both analyzers, instead of feeding pooler lines to the
+// PostgreSQL one.
+func memberFormats(w memberWalker, filename string) (formats []string) {
+	w.walkMembers(filename, func(_, format string) { formats = addFormat(formats, format) })
+	return formats
 }
 
 // memberFormat names the format of one zip or 7z member, or "" when the
@@ -229,7 +245,17 @@ func archiveMemberFormat(name string, r io.Reader) string {
 	if isBinaryContent(text) {
 		return ""
 	}
-	return sampleFormat(text)
+	if f := sampleFormat(text); f != "" {
+		return f
+	}
+	// What detectByContent still reads as a PostgreSQL log: a stderr log
+	// behind a literal prefix, pgBackRest's own lines. Leaving them out
+	// sent an archive that also holds a pooler log to the pooler track
+	// alone, and the PostgreSQL member was lost.
+	if detectLeadingPrefix(text) > 0 || looksLikePgBackRest(text) {
+		return "stderr"
+	}
+	return ""
 }
 
 // nestedArchiveMemberFormat decompresses a zstd member and re-runs the
@@ -339,7 +365,7 @@ func sniffAndParseArchiveEntry(entryName string, r io.Reader, out chan<- []LogEn
 	case *JsonParser:
 		return true, (&JsonParser{}).parseReader(full, out)
 	case *PgBouncerParser:
-		return true, (&PgBouncerParser{}).parseReader(full, out)
+		return true, poolerMemberError((&PgBouncerParser{}).parseReader(full, out))
 	default:
 		// Carry the detected leading-prefix offset so a prefixed log inside
 		// an archive parses like its plain counterpart instead of silently
@@ -392,7 +418,7 @@ func parseLogArchiveEntry(name string, r io.Reader, out chan<- []LogEntry, track
 	if pooler := looksLikePgBouncer(s); !keepMember(track, pooler) {
 		return nil // the other track's member; the caller drains it
 	} else if pooler {
-		return (&PgBouncerParser{}).parseReader(full, out)
+		return poolerMemberError((&PgBouncerParser{}).parseReader(full, out))
 	}
 
 	// Only probe for a literal prefix when the sample doesn't already look like
@@ -406,6 +432,23 @@ func parseLogArchiveEntry(name string, r io.Reader, out chan<- []LogEntry, track
 		prefixLen = detectLeadingPrefix(s)
 	}
 	return routeStderrStream(full, prefixLen, out)
+}
+
+// PoolerMemberError is the read error of an archive's pgBouncer member.
+// Only the pooler track reads such a member, so it alone can report the
+// error, even on an archive whose other messages the PostgreSQL track
+// prints.
+type PoolerMemberError struct{ Err error }
+
+func (e PoolerMemberError) Error() string { return e.Err.Error() }
+func (e PoolerMemberError) Unwrap() error { return e.Err }
+
+// poolerMemberError marks err, when there is one, as a pooler member's.
+func poolerMemberError(err error) error {
+	if err == nil {
+		return nil
+	}
+	return PoolerMemberError{err}
 }
 
 // skipPatroniMember says, with a warning, that an archive member is a Patroni

@@ -291,6 +291,7 @@
       "stats_series": [
         {
           "time": "2026-09-25 09:23:12",
+          "period_start": "2026-09-25 09:23:02",
           "xacts_per_sec": 1975,
           "queries_per_sec": 13828,
           "in_bytes_per_sec": 842325,
@@ -301,6 +302,7 @@
         },
         {
           "time": "2026-09-25 09:23:22",
+          "period_start": "2026-09-25 09:23:12",
           "xacts_per_sec": 1756,
           "queries_per_sec": 12295,
           "in_bytes_per_sec": 749012,
@@ -311,6 +313,7 @@
         },
         {
           "time": "2026-09-25 09:23:32",
+          "period_start": "2026-09-25 09:23:22",
           "xacts_per_sec": 1743,
           "queries_per_sec": 12203,
           "in_bytes_per_sec": 743435,
@@ -321,6 +324,7 @@
         },
         {
           "time": "2026-09-25 09:23:42",
+          "period_start": "2026-09-25 09:23:32",
           "xacts_per_sec": 1749,
           "queries_per_sec": 12243,
           "in_bytes_per_sec": 745804,
@@ -331,6 +335,7 @@
         },
         {
           "time": "2026-09-25 09:23:52",
+          "period_start": "2026-09-25 09:23:42",
           "xacts_per_sec": 1755,
           "queries_per_sec": 12284,
           "in_bytes_per_sec": 748293,
@@ -341,6 +346,7 @@
         },
         {
           "time": "2026-09-25 09:24:02",
+          "period_start": "2026-09-25 09:23:52",
           "xacts_per_sec": 2006,
           "queries_per_sec": 14045,
           "in_bytes_per_sec": 855587,
@@ -351,6 +357,7 @@
         },
         {
           "time": "2026-09-25 09:24:12",
+          "period_start": "2026-09-25 09:24:02",
           "xacts_per_sec": 11,
           "queries_per_sec": 31,
           "in_bytes_per_sec": 782,
@@ -361,6 +368,7 @@
         },
         {
           "time": "2026-09-25 09:24:22",
+          "period_start": "2026-09-25 09:24:12",
           "xacts_per_sec": 8,
           "queries_per_sec": 32,
           "in_bytes_per_sec": 965,
@@ -371,6 +379,7 @@
         },
         {
           "time": "2026-09-25 09:24:32",
+          "period_start": "2026-09-25 09:24:22",
           "xacts_per_sec": 9,
           "queries_per_sec": 38,
           "in_bytes_per_sec": 1298,
@@ -381,6 +390,7 @@
         },
         {
           "time": "2026-09-25 09:24:42",
+          "period_start": "2026-09-25 09:24:32",
           "xacts_per_sec": 8,
           "queries_per_sec": 34,
           "in_bytes_per_sec": 1092,
@@ -391,6 +401,7 @@
         },
         {
           "time": "2026-09-25 09:24:52",
+          "period_start": "2026-09-25 09:24:42",
           "xacts_per_sec": 1334,
           "queries_per_sec": 9339,
           "in_bytes_per_sec": 568544,
@@ -401,6 +412,7 @@
         },
         {
           "time": "2026-09-25 09:25:02",
+          "period_start": "2026-09-25 09:24:52",
           "xacts_per_sec": 1758,
           "queries_per_sec": 12307,
           "in_bytes_per_sec": 749788,
@@ -411,6 +423,7 @@
         },
         {
           "time": "2026-09-25 09:25:12",
+          "period_start": "2026-09-25 09:25:02",
           "xacts_per_sec": 1764,
           "queries_per_sec": 12350,
           "in_bytes_per_sec": 752320,
@@ -421,6 +434,7 @@
         },
         {
           "time": "2026-09-25 09:25:22",
+          "period_start": "2026-09-25 09:25:12",
           "xacts_per_sec": 1756,
           "queries_per_sec": 12292,
           "in_bytes_per_sec": 748802,
@@ -431,6 +445,7 @@
         },
         {
           "time": "2026-09-25 09:25:32",
+          "period_start": "2026-09-25 09:25:22",
           "xacts_per_sec": 2188,
           "queries_per_sec": 15322,
           "in_bytes_per_sec": 933411,
@@ -441,6 +456,7 @@
         },
         {
           "time": "2026-09-25 09:25:42",
+          "period_start": "2026-09-25 09:25:32",
           "xacts_per_sec": 1779,
           "queries_per_sec": 12453,
           "in_bytes_per_sec": 758659,

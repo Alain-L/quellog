@@ -60,6 +60,7 @@
       "stats_series": [
         {
           "time": "2026-09-20 13:58:12",
+          "period_start": "2026-09-20 13:57:57",
           "xacts_per_sec": 11,
           "queries_per_sec": 38,
           "in_bytes_per_sec": 1297,
@@ -70,6 +71,7 @@
         },
         {
           "time": "2026-09-20 13:58:27",
+          "period_start": "2026-09-20 13:58:12",
           "xacts_per_sec": 11,
           "queries_per_sec": 58,
           "in_bytes_per_sec": 2248,
@@ -80,6 +82,7 @@
         },
         {
           "time": "2026-09-20 13:58:42",
+          "period_start": "2026-09-20 13:58:27",
           "xacts_per_sec": 8,
           "queries_per_sec": 49,
           "in_bytes_per_sec": 1966,
@@ -98,7 +101,7 @@
       "max_wait_us_timestamp": "2026-09-20 13:58:12",
       "wait_episodes": [
         {
-          "start": "2026-09-20 13:58:12",
+          "start": "2026-09-20 13:57:57",
           "end": "2026-09-20 13:58:42",
           "peak_wait_us": 3218494,
           "peak_timestamp": "2026-09-20 13:58:12"

@@ -15,21 +15,24 @@
 
 | Message                                             | Count | When                |
 |-----------------------------------------------------|------:|---------------------|
+| cannot do SCRAM authentication: wrong password type |     1 | 20:59:13            |
 | password authentication failed                      |    13 | 21:00:37 → 21:00:39 |
 | taking connection from reserve_pool                 |     2 | 21:00:42            |
-| cannot do SCRAM authentication: wrong password type |     1 | 20:59:13            |
 | server login failed: wrong password type            |     1 | 20:59:13            |
 
-### Activity per 30s
+### Activity per 10s
 
-| Time     | Queries | Query time | Pool wait | Events |
-|----------|--------:|-----------:|----------:|--------|
-| 20:58:30 |     0/s |            |           | start  |
-| 20:59:00 |     0/s |            |           |        |
-| 20:59:30 |     0/s |     437 µs |    3.4 ms |        |
-| 21:00:00 |     0/s |            |           |        |
-| 21:00:30 |  13.0/s |     3.86 s |   11.09 s |        |
-| 21:01:00 |   0.2/s |     914 µs |           |        |
+| Time     | Queries | Query time | Pool wait | Events                    |
+|----------|--------:|-----------:|----------:|---------------------------|
+| 20:58:50 |     0/s |            |           | start                     |
+| 20:59:00 |     0/s |            |           | no traffic until 20:59:30 |
+| 20:59:30 |     0/s |     437 µs |    3.4 ms |                           |
+| 20:59:40 |     0/s |            |           | no traffic until 21:00:30 |
+| 21:00:30 |  22.5/s |     3.4 ms |    3.4 ms |                           |
+| 21:00:40 |  12.9/s |     3.86 s |   10.00 s |                           |
+| 21:00:50 |   3.6/s |     3.08 s |   11.09 s |                           |
+| 21:01:00 |   0.5/s |     914 µs |           |                           |
+| 21:01:10 |     0/s |            |           | no traffic until 21:01:30 |
 
 _Query time and pool wait: worst snapshot of each row._
 

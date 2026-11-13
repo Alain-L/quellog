@@ -70,13 +70,15 @@ func printPgBouncer(m analysis.PgBouncerMetrics, title string, detail bool) {
 	}
 	if a, ok := pgbBuildActivity(m, rows); ok {
 		printPgbActivity(m, a)
-	} else if detail {
-		// Without a table to carry them, the events and the queueing
-		// stretches keep their own lists.
+	} else {
+		// Without a table to carry them, the events keep their own list,
+		// and in the detailed view the queueing stretches too.
 		if len(m.Events) > 0 {
 			printServerTimeline(pgbTimeline(m.Events))
 		}
-		printPgbEpisodes(m, clock)
+		if detail {
+			printPgbEpisodes(m, clock)
+		}
 	}
 
 	if !detail {
@@ -91,8 +93,13 @@ func printPgBouncer(m analysis.PgBouncerMetrics, title string, detail bool) {
 				order = append(order, b)
 			}
 		}
+		// The same 40-block scale as the PostgreSQL session histogram.
+		top := 0
+		for _, n := range m.SessionDistribution {
+			top = max(top, n)
+		}
 		fmt.Println()
-		PrintHistogram(m.SessionDistribution, "Session time", "", 1, order)
+		PrintHistogram(m.SessionDistribution, "Session time", "", max(1, (top+39)/40), order)
 		printPgbCloseReasons(m.SessionReasons, m.Sessions)
 	}
 	if m.LoginAttempts > 0 {
@@ -114,8 +121,8 @@ func printPgBouncer(m analysis.PgBouncerMetrics, title string, detail bool) {
 // as far as 80 columns require; its ID gives it in full.
 func printPgbMessages(m analysis.PgBouncerMetrics, detail bool, clock string) {
 	fmt.Println("\n  " + pgbMessagesTitle(m))
-	list := pgbMessages(m, detail)
-	shown := list[:min(len(list), pgbListMax)]
+	list, n := pgbMessages(m, detail)
+	shown := list[:n]
 	if len(shown) == 0 {
 		return
 	}
@@ -142,14 +149,9 @@ func printPgbMessages(m analysis.PgBouncerMetrics, detail bool, clock string) {
 }
 
 // pgbWrap breaks a value into lines of at most width runes, between
-// words, so a summary row that explains a zero stays within 80 columns.
-// The setting it names ("check log_connections = 1 in pgbouncer.ini") is
-// never split.
+// words, so a long summary row stays within 80 columns.
 func pgbWrap(s string, width int) []string {
 	words := strings.Fields(s)
-	if before, check, ok := strings.Cut(s, "check "); ok {
-		words = append(strings.Fields(before), "check "+check)
-	}
 	var lines []string
 	line := ""
 	for _, w := range words {
@@ -206,6 +208,9 @@ func printPgbActivity(m analysis.PgBouncerMetrics, a pgbActivity) {
 		ww = len("192.7 ms")
 	}
 
+	// The events take what 80 columns leave, cut with an ellipsis.
+	eventsWidth := 80 - (2 + tw + 2 + barWidth + 8 + 2 + 9 + 2 + ww + 2)
+
 	fmt.Printf("\n  Activity %s | \u25a0 = %s queries/s\n\n", a.title(), unitText)
 	fmt.Printf("  %-*s  %-*s%8s  %-9s  %-*s  %s\n", tw, "", barWidth, "", "queries", "query", ww, pgbWaitHeader(m), "events")
 	for _, r := range a.Rows {
@@ -215,14 +220,14 @@ func printPgbActivity(m analysis.PgBouncerMetrics, a pgbActivity) {
 		case !r.IdleUntil.IsZero():
 			line = fmt.Sprintf("  %-*s  no traffic until %s", tw, at, r.IdleUntil.Format(layout))
 		case r.Snapshots == 0:
-			line = fmt.Sprintf("  %-*s  %-*s%8s  %-9s  %-*s  %s", tw, at, barWidth, "", "", "", ww, "", pgbEventsShort(r.Events))
+			line = fmt.Sprintf("  %-*s  %-*s%8s  %-9s  %-*s  %s", tw, at, barWidth, "", "", "", ww, "", pgbFit(pgbEventsShort(r.Events), eventsWidth))
 		default:
 			n := int(r.Queries/unit + 0.5)
 			if n == 0 && r.Queries > 0 {
 				n = 1
 			}
 			line = fmt.Sprintf("  %-*s  %s%8s  %-9s  %-*s  %s", tw, at, pgbPad(strings.Repeat("\u25a0", n), barWidth), pgbRate(r.Queries),
-				pgbRowQuery(r.QueryUs), ww, pgbRowWait(m, r.WaitUs), pgbEventsShort(r.Events))
+				pgbRowQuery(r.QueryUs), ww, pgbRowWait(m, r.WaitUs), pgbFit(pgbEventsShort(r.Events), eventsWidth))
 		}
 		fmt.Println(strings.TrimRight(line, " "))
 	}
@@ -235,7 +240,7 @@ const pgbSummaryValueWidth = 80 - 2 - 25 - 3
 // pgbSummaryRows are the "label : value" rows of a pooler's report, the
 // same in text and Markdown, one per subject: the values that go together
 // share a row, and part again when they would not fit 80 columns or when
-// a zero carries the setting it depends on. Detail adds the source, the
+// a count is zero. Detail adds the source, the
 // network and how the sessions ended.
 func pgbSummaryRows(m analysis.PgBouncerMetrics, detail bool) [][2]string {
 	var rows [][2]string
@@ -277,7 +282,7 @@ func pgbSummaryRows(m analysis.PgBouncerMetrics, detail bool) [][2]string {
 
 	// Traffic, timing and pool wait come from the "stats:" snapshots.
 	if m.StatsSampleCount == 0 {
-		row("Traffic", `no "stats:" line in this window, check stats_period in pgbouncer.ini`)
+		row("Traffic", `no "stats:" line in this window`)
 	} else {
 		if m.StatsUnderCovered() {
 			row("Stats coverage", pgbCoverageText(m))
@@ -307,13 +312,13 @@ func pgbSummaryRows(m analysis.PgBouncerMetrics, detail bool) [][2]string {
 		}
 	}
 
-	logins := pgbClientCount(m.LoginAttempts, m, pgbNoConnections)
-	sessions := pgbClientCount(m.Sessions, m, pgbNoSessions)
+	logins := pgbClientCount(m.LoginAttempts, m)
+	sessions := pgbClientCount(m.Sessions, m)
 	avg := ""
 	if m.Sessions > 0 {
 		avg = formatSessionDuration(time.Duration(m.AvgSessionSeconds() * float64(time.Second)))
 	}
-	if v := logins + " login attempts, " + sessions + " sessions of " + avg + " on average"; m.LoginAttempts > 0 && m.Sessions > 0 && fits(v) {
+	if v := pgbrPlural(m.LoginAttempts, "login attempt") + ", " + pgbrPlural(m.Sessions, "session") + " of " + avg + " on average"; m.LoginAttempts > 0 && m.Sessions > 0 && fits(v) {
 		row("Clients", v)
 	} else {
 		row("Login attempts", logins)
@@ -326,7 +331,14 @@ func pgbSummaryRows(m analysis.PgBouncerMetrics, detail bool) [][2]string {
 		byClient := m.SessionsEndedByClient()
 		row("Sessions ended by", fmt.Sprintf("the client %d, the pooler %d", byClient, m.Sessions-byClient))
 	}
+	// log_connections also governs the "new connection to server" lines:
+	// a zero over a window that shows traffic says so, as the client
+	// counts do.
 	servers := strconv.Itoa(m.ServerConnections) + " opened"
+	unlogged := m.ServerConnections == 0 && m.LoginAttempts == 0 && m.TrafficShows()
+	if unlogged {
+		servers += " although traffic shows"
+	}
 	if m.ReservePoolActivations > 0 {
 		servers += ", " + pgbrPlural(m.ReservePoolActivations, "reserve pool activation")
 	}
@@ -389,17 +401,14 @@ func pgbStretchesText(m analysis.PgBouncerMetrics) string {
 		formatSessionDuration(longest.End.Sub(longest.Start)), longest.Start.Format(pgbClock(m)))
 }
 
-// pgbClientCount is a client-side count, and when it is zero, the setting
-// it depends on, and whether traffic shows over the same window: that is
-// all the log can say, the clients may predate the window.
-func pgbClientCount(n int, m analysis.PgBouncerMetrics, s pgbEmptySection) string {
-	switch {
-	case n > 0:
-		return strconv.Itoa(n)
-	case m.ClientLinesMissing():
-		return "0 although traffic shows, " + s.check
+// pgbClientCount is a client-side count, and when it is zero, whether
+// traffic shows over the same window: that is all the log can say, the
+// clients may predate the window.
+func pgbClientCount(n int, m analysis.PgBouncerMetrics) string {
+	if n == 0 && m.TrafficShows() {
+		return "0 although traffic shows"
 	}
-	return "0, " + s.check
+	return strconv.Itoa(n)
 }
 
 // pgbListMax caps the close-reason and error lists. Both are short in
@@ -516,20 +525,10 @@ func queueDepth(usPerSec float64) string {
 func pgbCoverageText(m analysis.PgBouncerMetrics) string {
 	window := m.MaxTimestamp.Sub(m.MinTimestamp).Round(time.Second).String()
 	if covered := m.StatsCoverage(); covered > 0 {
-		return fmt.Sprintf("%d snapshots cover %s of this %s window, check stats_period in pgbouncer.ini", m.StatsSampleCount, covered.Round(time.Second), window)
+		return fmt.Sprintf("%d snapshots cover %s of this %s window", m.StatsSampleCount, covered.Round(time.Second), window)
 	}
-	return "a single snapshot, of unknown extent, for this " + window + " window, check stats_period in pgbouncer.ini"
+	return "a single snapshot, of unknown extent, for this " + window + " window"
 }
-
-// pgbEmptySection names the pgbouncer.ini setting a client-side count
-// depends on, said when traffic shows yet nothing was logged (see
-// PgBouncerMetrics.ClientLinesMissing).
-type pgbEmptySection struct{ check string }
-
-var (
-	pgbNoConnections = pgbEmptySection{check: "check log_connections = 1 in pgbouncer.ini"}
-	pgbNoSessions    = pgbEmptySection{check: "check log_disconnections = 1 in pgbouncer.ini"}
-)
 
 // bytesPerSec formats a per-second byte rate, e.g. "1.7 kB/s".
 func bytesPerSec(v float64) string {

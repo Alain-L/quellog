@@ -153,17 +153,29 @@ func runAnalysisCycle(ctx context.Context, args []string) error {
 		return fmt.Errorf("--split is not supported with pgBouncer logs; analyze the pgBouncer logs separately")
 	}
 
+	// --pgbouncer-detail: the detailed pooler report alone; the pooler
+	// track needs nothing from the others. The PostgreSQL track does not
+	// run, so the pooler track reports every message of the archives they
+	// share, and an input it cannot open is still said.
+	var pgb []analysis.PgBouncerMetrics
+	if pgbouncerDetailFlag {
+		for _, f := range allFiles {
+			if f == "-" {
+				continue
+			}
+			if fh, err := os.Open(f); err != nil {
+				slog.Error("cannot open file", "file", f, "err", err)
+			} else {
+				fh.Close()
+			}
+		}
+		pgb = computePgBouncerMetrics(ctx, pgbFiles, nil, beginT, endT, &parsedAny)
+		return renderPgBouncerDetail(pgb, startTime, calculateTotalFileSize(pgbFiles))
+	}
 	// pgBouncer metrics, when any pgBouncer file is present. Its own parse
 	// pass (pgBouncer logs are small; no progress bar needed).
-	var pgb []analysis.PgBouncerMetrics
 	if len(pgbFiles) > 0 {
-		pgb = computePgBouncerMetrics(ctx, pgbFiles, beginT, endT, &parsedAny)
-	}
-
-	// --pgbouncer-detail: the detailed pooler report alone; the pooler
-	// track needs nothing from the others.
-	if pgbouncerDetailFlag {
-		return renderPgBouncerDetail(pgb, startTime)
+		pgb = computePgBouncerMetrics(ctx, pgbFiles, allFiles, beginT, endT, &parsedAny)
 	}
 
 	// Pure pgBouncer run: no other file at all. The pooler report goes
@@ -174,17 +186,12 @@ func runAnalysisCycle(ctx context.Context, args []string) error {
 	// ignored in favour of the pooler report.
 	if len(allFiles) == 0 {
 		if len(pgb) == 0 {
-			return fmt.Errorf("no pgBouncer log entries could be parsed: check that files are readable and in pgBouncer log format")
+			return errNoPgBouncerEntries
 		}
 		if len(eventDetailFlag) > 0 {
-			entries, size := 0, int64(0)
-			for _, m := range pgb {
-				entries += m.Lines
-				size += calculateTotalFileSize(m.Files)
-			}
-			return writeEventDetails(analysis.AggregatedMetrics{PgBouncer: pgb}, nil, entries, time.Since(startTime), size)
+			return writeEventDetails(analysis.AggregatedMetrics{PgBouncer: pgb}, nil, poolerEntries(pgb), time.Since(startTime), calculateTotalFileSize(pgbFiles))
 		}
-		return renderReport(analysis.AggregatedMetrics{}, nil, pgb, true, nil, args, 0, time.Since(startTime))
+		return renderReport(analysis.AggregatedMetrics{}, nil, pgb, true, nil, args, calculateTotalFileSize(pgbFiles), time.Since(startTime))
 	}
 
 	// With pooler files in the run, an archive may hold both kinds of log:
@@ -194,9 +201,9 @@ func runAnalysisCycle(ctx context.Context, args []string) error {
 		track = parser.PostgresMembers
 	}
 
-	// Calculate total file size for throughput reporting (every track but
-	// the pooler's, which renderReport adds).
-	totalFileSize := calculateTotalFileSize(allFiles)
+	// Calculate total file size for throughput reporting: every input once,
+	// an archive read by both tracks included.
+	totalFileSize := calculateTotalFileSize(distinctFiles(allFiles, pgbFiles))
 
 	// The pgBackRest observer receives the lines the stderr parser carves
 	// out of every input, and the PostgreSQL archiving failures (see
@@ -773,12 +780,6 @@ func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry
 // run: metrics is then the zero value and the renderers emit the pooler
 // report alone.
 func renderReport(metrics analysis.AggregatedMetrics, pbr []analysis.PgBackRestMetrics, pgb []analysis.PgBouncerMetrics, pgbOnly bool, patroniReport *analysis.PatroniMetrics, inputArgs []string, totalFileSize int64, processingDuration time.Duration) error {
-	// The size stated in the header and the HTML metadata covers every
-	// file read: totalFileSize leaves the pooler track out.
-	for _, m := range pgb {
-		totalFileSize += calculateTotalFileSize(m.Files)
-	}
-
 	// Determine which sections to display
 	// --full forces all sections and ignores individual section flags
 	var sections []string
@@ -786,6 +787,17 @@ func renderReport(metrics analysis.AggregatedMetrics, pbr []analysis.PgBackRestM
 		sections = []string{"all"}
 	} else {
 		sections = buildSectionList()
+	}
+
+	// Beside a PostgreSQL report, the pooler section is part of the full
+	// report only, as the pgBackRest and Patroni ones are: a section option
+	// leaves it out of text, Markdown, JSON and YAML. HTML, which shows
+	// every PostgreSQL section whatever the options, keeps it, as it keeps
+	// Patroni's; so does a pooler-only run. Its entries stay in the header
+	// count either way, as Patroni's do.
+	pgbShown := pgb
+	if !pgbOnly && !(len(sections) == 1 && sections[0] == "all") {
+		pgbShown = nil
 	}
 
 	// Patroni is a section of the full report, and the whole report when no
@@ -803,11 +815,11 @@ func renderReport(metrics analysis.AggregatedMetrics, pbr []analysis.PgBackRestM
 	// sections).
 	rw := reportWriters{
 		json: func(w io.Writer) {
-			output.ExportJSONCombined(w, metrics, pbr, pgb, sections, fullFlag, jsonCompactFlag, pgbOnly)
+			output.ExportJSONCombined(w, metrics, pbr, pgbShown, sections, fullFlag, jsonCompactFlag, pgbOnly)
 		},
-		yaml: func(w io.Writer) { output.ExportYAMLCombined(w, metrics, pbr, pgb, sections, fullFlag, pgbOnly) },
+		yaml: func(w io.Writer) { output.ExportYAMLCombined(w, metrics, pbr, pgbShown, sections, fullFlag, pgbOnly) },
 		markdown: func(w io.Writer) {
-			output.ExportMarkdownCombined(w, metrics, pgb, sections, fullFlag, pgbOnly)
+			output.ExportMarkdownCombined(w, metrics, pgbShown, sections, fullFlag, pgbOnly)
 			output.ExportPgBackRestMarkdown(w, pbr, fullFlag)
 		},
 		html: func(w io.Writer, info output.HTMLReportInfo) error {
@@ -816,12 +828,9 @@ func renderReport(metrics analysis.AggregatedMetrics, pbr []analysis.PgBackRestM
 		text: func() {
 			// The header counts the PostgreSQL entries and the pooler
 			// records alike.
-			entries := metrics.Global.Count + patroniEntries(metrics)
-			for _, m := range pgb {
-				entries += m.Lines
-			}
+			entries := metrics.Global.Count + patroniEntries(metrics) + poolerEntries(pgb)
 			PrintProcessingSummary(entries, processingDuration, totalFileSize)
-			output.PrintMetricsCombined(metrics, pgb, sections, fullFlag, pgbOnly)
+			output.PrintMetricsCombined(metrics, pgbShown, sections, fullFlag, pgbOnly)
 			output.PrintPgBackRestReport(pbr, fullFlag)
 		},
 	}

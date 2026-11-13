@@ -18,8 +18,8 @@
 
 | Time  | Queries | Query time | Pool wait | Events   |
 |-------|--------:|-----------:|----------:|----------|
-| 13:41 |  21.0/s |     261 µs |    331 µs | start    |
-| 13:42 |     0/s |            |           |          |
+| 13:40 |  21.0/s |     261 µs |    331 µs | start    |
+| 13:41 |     0/s |            |           |          |
 | 13:42 |         |            |           | shutdown |
 
 _Query time and pool wait: worst snapshot of each row._

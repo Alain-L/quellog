@@ -22,10 +22,10 @@
 
 | Metric     | Value                                            |
 |------------|--------------------------------------------------|
-| Throughput | 2520 transactions/s, 17642 queries/s at 09:12:53 |
-| Network    | 1.03 MB/s in, 458.62 KB/s out at 09:12:53        |
-| Time       | transaction 60.12 s, query 3.16 s at 09:09:59    |
-| Pool wait  | 20.04 s at 09:09:59                              |
+| Throughput | 2520 transactions/s, 17642 queries/s at 09:12:43 |
+| Network    | 1.03 MB/s in, 458.62 KB/s out at 09:12:43        |
+| Time       | transaction 60.12 s, query 3.16 s at 09:09:49    |
+| Pool wait  | 20.04 s at 09:09:49                              |
 
 ### Messages: 0 errors, 33 warnings
 

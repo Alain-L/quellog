@@ -4,6 +4,7 @@ package output
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -29,7 +30,7 @@ const (
 // [From, To]; an event row (no snapshot) holds events that fall outside
 // every stats row.
 type pgbActivityRow struct {
-	At        time.Time // the time printed: a snapshot's own, a bucket's start, an event's
+	At        time.Time // the time printed: where the row's period starts, or an event's
 	From, To  time.Time
 	Snapshots int
 	Queries   float64 // mean queries per second over the row
@@ -42,6 +43,8 @@ type pgbActivityRow struct {
 // pgbActivity is the table and how it was cut.
 type pgbActivity struct {
 	Period time.Duration // the stats_period the series shows
+	Mixed  bool          // runs of the pooler with different periods
+	Short  bool          // a run whose period is under a minute
 	Bucket time.Duration // 0: one row per snapshot
 	Rows   []pgbActivityRow
 }
@@ -50,49 +53,93 @@ type pgbActivity struct {
 var pgbBuckets = []time.Duration{10 * time.Second, 30 * time.Second, time.Minute, 5 * time.Minute,
 	15 * time.Minute, time.Hour, 6 * time.Hour, 24 * time.Hour}
 
-// pgbBuildActivity cuts the stats series into at most maxRows rows. It
-// returns false when there are fewer than two snapshots: one point has no
-// extent, and the report keeps its timeline and stretches then.
+// pgbBuildActivity cuts the stats series into at most maxRows rows,
+// counting the rows of the events that fall outside the stats: one row
+// per snapshot when they fit, else the smallest round bucket that does.
+// It returns false when there are fewer than two snapshots: one point has
+// no extent, and the report keeps its timeline and stretches then.
 func pgbBuildActivity(m analysis.PgBouncerMetrics, maxRows int) (pgbActivity, bool) {
-	pts := m.StatsSeries
 	period := m.StatsPeriod()
-	if len(pts) < 2 || period <= 0 {
+	if len(m.StatsSeries) < 2 || period <= 0 {
 		return pgbActivity{}, false
 	}
-	a := pgbActivity{Period: period}
-	key := func(t time.Time, size time.Duration) int64 {
-		s := int64(size / time.Second)
-		return (t.Unix() - 1) / s * s
+	starts := m.SnapshotStarts()
+	a := pgbActivity{Period: period, Short: period < time.Minute}
+	runs := pgbRunPeriods(m.StatsSeries, starts)
+	for _, r := range runs {
+		a.Mixed = a.Mixed || r != runs[0]
+		a.Short = a.Short || r < time.Minute
 	}
-	if len(pts) > maxRows {
-		a.Bucket = pgbBuckets[len(pgbBuckets)-1]
-		for _, size := range pgbBuckets {
-			if size <= period {
-				continue
-			}
-			seen := map[int64]bool{}
-			for _, p := range pts {
-				seen[key(p.Time, size)] = true
-			}
-			if len(seen) <= maxRows {
-				a.Bucket = size
-				break
-			}
+	rowsFor := func(bucket time.Duration) []pgbActivityRow {
+		return pgbActivityRowsFor(m, starts, bucket, pgbRowLayout(m, period, bucket, a.Short))
+	}
+	a.Rows = rowsFor(0)
+	if len(a.Rows) <= maxRows {
+		return a, true
+	}
+	for _, size := range pgbBuckets {
+		if size <= period {
+			continue
+		}
+		a.Bucket, a.Rows = size, rowsFor(size)
+		if len(a.Rows) <= maxRows {
+			return a, true
 		}
 	}
+	// A capture of weeks: whole days per row, as many as it takes.
+	for size := 2 * 24 * time.Hour; len(a.Rows) > maxRows; size += 24 * time.Hour {
+		a.Bucket, a.Rows = size, rowsFor(size)
+	}
+	return a, true
+}
 
+// pgbRunPeriods is the period of each run of the pooler: the median of
+// the spans of the snapshots that continue the one before, rounded to the
+// second, so a missing stats line or a late one does not change it.
+func pgbRunPeriods(series []analysis.PgBouncerStatsPoint, starts []time.Time) (periods []time.Duration) {
+	var spans []time.Duration
+	flush := func() {
+		if len(spans) > 0 {
+			slices.Sort(spans)
+			periods = append(periods, spans[len(spans)/2])
+			spans = spans[:0]
+		}
+	}
+	for i := 1; i < len(series); i++ {
+		if !starts[i].Equal(series[i-1].Time) {
+			flush()
+			continue
+		}
+		spans = append(spans, series[i].Time.Sub(starts[i]).Round(time.Second))
+	}
+	flush()
+	return periods
+}
+
+// pgbActivityRowsFor builds the rows for one bucket size (0: one row per
+// snapshot, over the period it averages; else each snapshot in the bucket
+// it was logged in), the events on the row they fall in, rows printed
+// at the same time (layout) as one, and a run of rows with no traffic
+// folded into one.
+func pgbActivityRowsFor(m analysis.PgBouncerMetrics, starts []time.Time, bucket time.Duration, layout string) (out []pgbActivityRow) {
+	// Buckets fall on the log's own clock: a day runs from its midnight.
+	key := func(t time.Time) int64 {
+		s := int64(bucket / time.Second)
+		_, off := t.Zone()
+		return (t.Unix()+int64(off)-1)/s*s - int64(off)
+	}
 	byKey := map[int64]*pgbActivityRow{}
 	var rows []*pgbActivityRow
-	for _, p := range pts {
+	for i, p := range m.StatsSeries {
 		var r *pgbActivityRow
-		if a.Bucket == 0 {
-			r = &pgbActivityRow{At: p.Time, From: p.Time.Add(-period), To: p.Time}
+		if bucket == 0 {
+			r = &pgbActivityRow{At: starts[i], From: starts[i], To: p.Time}
 			rows = append(rows, r)
 		} else {
-			k := key(p.Time, a.Bucket)
+			k := key(p.Time)
 			if r = byKey[k]; r == nil {
 				from := time.Unix(k, 0).In(p.Time.Location())
-				r = &pgbActivityRow{At: from, From: from, To: from.Add(a.Bucket)}
+				r = &pgbActivityRow{At: from, From: from, To: from.Add(bucket)}
 				byKey[k] = r
 				rows = append(rows, r)
 			}
@@ -128,6 +175,26 @@ func pgbBuildActivity(m analysis.PgBouncerMetrics, maxRows int) (pgbActivity, bo
 		return rows[i].Snapshots == 0 && rows[j].Snapshots > 0
 	})
 
+	// Rows printed at the same time are one: an event in the minute a
+	// snapshot's period starts, a shutdown and the start after it.
+	var merged []*pgbActivityRow
+	for _, r := range rows {
+		if n := len(merged); n > 0 {
+			prev := merged[n-1]
+			if prev.At.Format(layout) == r.At.Format(layout) && (prev.Snapshots == 0 || r.Snapshots == 0) {
+				if prev.Snapshots == 0 {
+					r.Events = append(slices.Clone(prev.Events), r.Events...)
+					merged[n-1] = r
+				} else {
+					prev.Events = append(prev.Events, r.Events...)
+				}
+				continue
+			}
+		}
+		merged = append(merged, r)
+	}
+	rows = merged
+
 	// A run of rows with no traffic, no timing and no event says one
 	// thing: it is printed once.
 	idle := func(r *pgbActivityRow) bool {
@@ -142,16 +209,20 @@ func pgbBuildActivity(m analysis.PgBouncerMetrics, maxRows int) (pgbActivity, bo
 		if j > i {
 			r.IdleUntil = rows[j].To
 		}
-		a.Rows = append(a.Rows, r)
+		out = append(out, r)
 		i = j
 	}
-	return a, true
+	return out
 }
 
-// title names how the table is cut: "per snapshot (10s)", "by minute".
+// title names how the table is cut: "per snapshot (10s)", "by minute";
+// no period when the pooler's runs have different ones.
 func (a pgbActivity) title() string {
 	switch a.Bucket {
 	case 0:
+		if a.Mixed {
+			return "per snapshot"
+		}
 		return "per snapshot (" + formatSessionDuration(a.Period) + ")"
 	case time.Minute:
 		return "by minute"
@@ -160,14 +231,24 @@ func (a pgbActivity) title() string {
 	case 24 * time.Hour:
 		return "by day"
 	}
+	if a.Bucket%(24*time.Hour) == 0 {
+		return fmt.Sprintf("per %d days", a.Bucket/(24*time.Hour))
+	}
 	return "per " + formatSessionDuration(a.Bucket)
 }
 
-// clock is the layout of the time column: seconds when a row is shorter
-// than a minute, and the date when the window spans more than one day.
+// clock is the layout of the time column (pgbRowLayout).
 func (a pgbActivity) clock(m analysis.PgBouncerMetrics) string {
+	return pgbRowLayout(m, a.Period, a.Bucket, a.Short)
+}
+
+// pgbRowLayout is the layout of the activity table's time column: seconds
+// when a row is shorter than a minute -- a row per snapshot spans the
+// period of its run, and short says a run's is -- and the date when the
+// window spans more than one day.
+func pgbRowLayout(m analysis.PgBouncerMetrics, period, bucket time.Duration, short bool) string {
 	layout := "15:04"
-	if step := max(a.Bucket, a.Period); step < time.Minute {
+	if max(bucket, period) < time.Minute || bucket == 0 && short {
 		layout = "15:04:05"
 	}
 	if pgbClock(m) == time.DateTime {
@@ -218,25 +299,53 @@ func pgbRate(v float64) string {
 
 // pgbEventsShort names a row's events in a few words: a pause and its
 // resume, or a shutdown and the next start, on the same row read as one
-// event. The exact times are in the JSON export's events.
+// event; a repeated one is counted ("reload ×2"). Restarts, shutdowns and
+// starts come first, then pauses, then the rest, so the cut a narrow
+// column makes never hides the pooler going down. The exact times are in
+// the JSON export's events.
 func pgbEventsShort(evs []analysis.PgBouncerEvent) string {
-	var out []string
+	var labels []string
 	for i := 0; i < len(evs); i++ {
 		e := evs[i]
 		if i+1 < len(evs) {
 			next := evs[i+1]
 			if (e.Kind == "pause" || e.Kind == "suspend") && next.Kind == "resume" {
-				out = append(out, e.Kind+" "+formatSessionDuration(next.Time.Sub(e.Time)))
+				labels = append(labels, e.Kind+" "+formatSessionDuration(next.Time.Sub(e.Time)))
 				i++
 				continue
 			}
 			if e.Kind == "shutdown" && next.Kind == "start" {
-				out = append(out, "restart")
+				labels = append(labels, "restart")
 				i++
 				continue
 			}
 		}
-		out = append(out, e.Kind)
+		labels = append(labels, e.Kind)
+	}
+	var order []string
+	count := map[string]int{}
+	for _, l := range labels {
+		if count[l] == 0 {
+			order = append(order, l)
+		}
+		count[l]++
+	}
+	rank := func(l string) int {
+		switch kind, _, _ := strings.Cut(l, " "); kind {
+		case "restart", "shutdown", "start":
+			return 0
+		case "pause", "suspend", "resume":
+			return 1
+		}
+		return 2
+	}
+	sort.SliceStable(order, func(i, j int) bool { return rank(order[i]) < rank(order[j]) })
+	out := make([]string, len(order))
+	for i, l := range order {
+		out[i] = l
+		if n := count[l]; n > 1 {
+			out[i] = fmt.Sprintf("%s ×%d", l, n)
+		}
 	}
 	return strings.Join(out, ", ")
 }
@@ -251,17 +360,31 @@ func pgbActivityNote(m analysis.PgBouncerMetrics) string {
 
 // pgbMaxRows are the highest snapshot averages, two that share a time on
 // one line when it fits; an empty label continues the line above.
+//
+// A maximum is dated, as the activity table's rows are, at the start of
+// the period its snapshot averages; the JSON export keeps the stats
+// line's own time.
 func pgbMaxRows(m analysis.PgBouncerMetrics) [][2]string {
 	clock := pgbClock(m)
+	startOf := map[int64]time.Time{}
+	for i, start := range m.SnapshotStarts() {
+		startOf[m.StatsSeries[i].Time.UnixNano()] = start
+	}
+	at := func(t time.Time, clock string) string {
+		if s, ok := startOf[t.UnixNano()]; ok {
+			t = s
+		}
+		return pgbAt(t, clock)
+	}
 	var rows [][2]string
 	pair := func(label, a, b string, ta, tb time.Time) {
 		if ta.Equal(tb) {
-			if v := a + ", " + b + pgbAt(ta, clock); utf8.RuneCountInString(v) <= pgbMaxValueWidth {
+			if v := a + ", " + b + at(ta, clock); utf8.RuneCountInString(v) <= pgbMaxValueWidth {
 				rows = append(rows, [2]string{label, v})
 				return
 			}
 		}
-		rows = append(rows, [2]string{label, a + pgbAt(ta, clock)}, [2]string{"", b + pgbAt(tb, clock)})
+		rows = append(rows, [2]string{label, a + at(ta, clock)}, [2]string{"", b + at(tb, clock)})
 	}
 	pair("Throughput", fmt.Sprintf("%d transactions/s", m.MaxXactsPerSec), fmt.Sprintf("%d queries/s", m.MaxQueriesPerSec),
 		m.MaxXactsTimestamp, m.MaxQueriesTimestamp)
@@ -270,9 +393,9 @@ func pgbMaxRows(m analysis.PgBouncerMetrics) [][2]string {
 	pair("Time", "transaction "+microsI(m.MaxXactMicros), "query "+microsI(m.MaxQueryMicros),
 		m.MaxXactTimestamp, m.MaxQueryTimestamp)
 	if m.WaitIsQueueDepth() {
-		rows = append(rows, [2]string{"Clients queued", queueDepth(float64(m.MaxWaitMicros)) + pgbAt(m.MaxWaitTimestamp, clock)})
+		rows = append(rows, [2]string{"Clients queued", queueDepth(float64(m.MaxWaitMicros)) + at(m.MaxWaitTimestamp, clock)})
 	} else {
-		rows = append(rows, [2]string{"Pool wait", microsI(m.MaxWaitMicros) + pgbAt(m.MaxWaitTimestamp, clock)})
+		rows = append(rows, [2]string{"Pool wait", microsI(m.MaxWaitMicros) + at(m.MaxWaitTimestamp, clock)})
 	}
 	return rows
 }
@@ -294,17 +417,19 @@ func pgbMessagesTitle(m analysis.PgBouncerMetrics) string {
 	return "Messages: " + pgbrPlural(errs, "error") + ", " + pgbrPlural(warns, "warning")
 }
 
-// pgbMessages are the messages a view lists: the five most frequent by
-// default, every one by level otherwise.
-func pgbMessages(m analysis.PgBouncerMetrics, detail bool) []analysis.PgBouncerError {
-	if !detail {
-		return m.Errors[:min(5, len(m.Errors))]
-	}
-	var out []analysis.PgBouncerError
+// pgbMessages are the messages by level, the most severe first, the
+// most frequent first within a level, and how many a view lists: five by
+// default, pgbListMax in the detailed view, the rest declared after them.
+// An error is not hidden behind more frequent warnings.
+func pgbMessages(m analysis.PgBouncerMetrics, detail bool) (list []analysis.PgBouncerError, shown int) {
 	for _, l := range pgbLevels(m.Errors) {
-		out = append(out, l.errs...)
+		list = append(list, l.errs...)
 	}
-	return out
+	shown = 5
+	if detail {
+		shown = pgbListMax
+	}
+	return list, min(shown, len(list))
 }
 
 // pgbFit cuts s to n runes, the last one an ellipsis.

@@ -343,10 +343,9 @@ func TestPgBouncerIdlePoolerWithServerErrorIsNotAccused(t *testing.T) {
 			PgBouncerMetrics{ServerConnections: 4, TotalErrors: 7}, false},
 		{"queries prove a client", PgBouncerMetrics{MaxQueriesPerSec: 48}, true},
 		{"transactions prove a client", PgBouncerMetrics{MaxXactsPerSec: 12}, true},
-		{"client lines present", PgBouncerMetrics{MaxQueriesPerSec: 48, LoginAttempts: 3}, false},
 	} {
-		if got := tc.m.ClientLinesMissing(); got != tc.want {
-			t.Errorf("%s: ClientLinesMissing() = %v, want %v", tc.name, got, tc.want)
+		if got := tc.m.TrafficShows(); got != tc.want {
+			t.Errorf("%s: TrafficShows() = %v, want %v", tc.name, got, tc.want)
 		}
 	}
 }
@@ -606,13 +605,92 @@ func TestPgBouncerWaitEpisodes(t *testing.T) {
 		{Time: at(50), WaitMicros: 20_037_000},
 		{Time: at(60), WaitMicros: 99_999},
 	}
-	got := fmt.Sprint(waitEpisodes(series))
+	got := fmt.Sprint(waitEpisodes(series, nil))
 	want := fmt.Sprint([]PgBouncerWaitEpisode{
 		{Start: at(0), End: at(30), PeakUs: 2_571_000, PeakTime: at(20)},
 		{Start: at(40), End: at(50), PeakUs: 20_037_000, PeakTime: at(50)},
 	})
 	if got != want {
 		t.Errorf("waitEpisodes =\n%s\nwant\n%s", got, want)
+	}
+
+	// A first snapshot already queued starts its stretch a period back,
+	// where its average starts; a pooler down between two snapshots (a
+	// gap of more than two periods) ends the stretch, and the next starts
+	// a period before its own first snapshot.
+	series = []PgBouncerStatsPoint{
+		{Time: at(0), WaitMicros: 2_000_000},
+		{Time: at(10), WaitMicros: 2_000_000},
+		{Time: at(20), WaitMicros: 0},
+		{Time: at(30), WaitMicros: 2_000_000},
+		{Time: at(990), WaitMicros: 3_000_000},
+		{Time: at(1000), WaitMicros: 0},
+	}
+	got = fmt.Sprint(waitEpisodes(series, nil))
+	want = fmt.Sprint([]PgBouncerWaitEpisode{
+		{Start: at(-10), End: at(10), PeakUs: 2_000_000, PeakTime: at(0)},
+		{Start: at(20), End: at(30), PeakUs: 2_000_000, PeakTime: at(30)},
+		{Start: at(980), End: at(990), PeakUs: 3_000_000, PeakTime: at(990)},
+	})
+	if got != want {
+		t.Errorf("waitEpisodes across a restart =\n%s\nwant\n%s", got, want)
+	}
+
+	// A restart within two periods still ends the stretch, and runs merged
+	// from files keep their own period: the 60 s run's first snapshot goes
+	// back to its start, not one 15 s period of the other run.
+	series = []PgBouncerStatsPoint{
+		{Time: at(0), WaitMicros: 0},
+		{Time: at(15), WaitMicros: 2_000_000},
+		{Time: at(30), WaitMicros: 2_000_000},
+		{Time: at(55), WaitMicros: 3_000_000},
+		{Time: at(115), WaitMicros: 3_000_000},
+		{Time: at(175), WaitMicros: 3_000_000},
+	}
+	events := []PgBouncerEvent{{Time: at(31), Kind: "shutdown"}, {Time: at(33), Kind: "start"}}
+	got = fmt.Sprint(waitEpisodes(series, events))
+	want = fmt.Sprint([]PgBouncerWaitEpisode{
+		{Start: at(0), End: at(30), PeakUs: 2_000_000, PeakTime: at(15)},
+		{Start: at(33), End: at(175), PeakUs: 3_000_000, PeakTime: at(55)},
+	})
+	if got != want {
+		t.Errorf("waitEpisodes across a short restart =\n%s\nwant\n%s", got, want)
+	}
+}
+
+// TestPgBouncerSnapshotStarts pins where each snapshot's period starts:
+// within a run at the snapshot before, through one missing stats line
+// and a stats_period changed by a reload; a hole (2.5 times the gaps
+// beside it) starts a new run, one gap back; a run with a single
+// snapshot starts at the pooler's start.
+func TestPgBouncerSnapshotStarts(t *testing.T) {
+	t0 := time.Date(2026, 9, 25, 9, 0, 0, 0, time.UTC)
+	at := func(s float64) time.Time { return t0.Add(time.Duration(s * float64(time.Second))) }
+	starts := func(secs []float64, events ...PgBouncerEvent) string {
+		m := PgBouncerMetrics{Events: events}
+		for _, s := range secs {
+			m.StatsSeries = append(m.StatsSeries, PgBouncerStatsPoint{Time: at(s)})
+		}
+		var out []string
+		for _, st := range m.SnapshotStarts() {
+			out = append(out, fmt.Sprint(st.Sub(t0).Seconds()))
+		}
+		return strings.Join(out, " ")
+	}
+	for _, c := range []struct {
+		name string
+		got  string
+		want string
+	}{
+		{"one missing line", starts([]float64{10, 20, 30, 50.003, 60, 70}), "0 10 20 30 50.003 60"},
+		{"a hole", starts([]float64{10, 20, 30, 56, 66, 76}), "0 10 20 46 56 66"},
+		{"a reload to a shorter period", starts([]float64{60, 120, 180, 190, 200, 210}), "0 60 120 180 190 200"},
+		{"a run of one snapshot", starts([]float64{10, 20, 30, 107.8},
+			PgBouncerEvent{Time: at(31), Kind: "shutdown"}, PgBouncerEvent{Time: at(87.8), Kind: "start"}), "0 10 20 87.8"},
+	} {
+		if c.got != c.want {
+			t.Errorf("%s: starts %s, want %s", c.name, c.got, c.want)
+		}
 	}
 }
 

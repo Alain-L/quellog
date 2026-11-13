@@ -70,9 +70,13 @@ type PgBouncerJSON struct {
 	TotalErrors            int                  `json:"total_errors"`
 }
 
-// PgBouncerStatsJSON is one "stats:" snapshot.
+// PgBouncerStatsJSON is one "stats:" snapshot. Time is when the line was
+// written; PeriodStart is when the period it averages began: the snapshot
+// before it in the same run of the pooler, the pooler's start, or one
+// period back (analysis.PgBouncerMetrics.SnapshotStarts).
 type PgBouncerStatsJSON struct {
 	Time        string `json:"time"`
+	PeriodStart string `json:"period_start"`
 	Xacts       int    `json:"xacts_per_sec"`
 	Queries     int    `json:"queries_per_sec"`
 	InBytes     int    `json:"in_bytes_per_sec"`
@@ -158,8 +162,9 @@ func pgbouncerJSON(poolers []analysis.PgBouncerMetrics) []PgBouncerJSON {
 		for _, e := range m.Events {
 			j.Events = append(j.Events, PgBouncerEventJSON{pgbTime(e.Time), e.Kind, e.Detail})
 		}
-		for _, p := range m.StatsSeries {
-			j.StatsSeries = append(j.StatsSeries, PgBouncerStatsJSON{pgbTime(p.Time), p.Xacts, p.Queries,
+		starts := m.SnapshotStarts()
+		for k, p := range m.StatsSeries {
+			j.StatsSeries = append(j.StatsSeries, PgBouncerStatsJSON{pgbTime(p.Time), pgbTime(starts[k]), p.Xacts, p.Queries,
 				p.InBytes, p.OutBytes, p.XactMicros, p.QueryMicros, p.WaitMicros})
 		}
 		for _, e := range m.WaitEpisodes {

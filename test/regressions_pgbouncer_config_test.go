@@ -63,11 +63,12 @@ func writeProbe(t *testing.T, name, body string) string {
 	return p
 }
 
-// TestPgBouncerNamesTheMissingConnectionLines freezes COR-39: with
+// TestPgBouncerKeepsTheMissingConnectionLines freezes COR-39: with
 // log_connections = 0 the Sessions and Connections sections used to
 // vanish without a word, on a page that went on reporting 48 queries/s
-// and 45 errors. Both counts must now show, at 0, and name the setting.
-func TestPgBouncerNamesTheMissingConnectionLines(t *testing.T) {
+// and 45 errors. Both counts must now show, at 0. The text and Markdown
+// reports state it and give no advice; the HTML one names the setting.
+func TestPgBouncerKeepsTheMissingConnectionLines(t *testing.T) {
 	fixture := filepath.Join("testdata", "regressions", "pgbouncer", "pgbouncer_no_conn_log.log")
 
 	for _, tc := range []struct {
@@ -92,11 +93,8 @@ func TestPgBouncerNamesTheMissingConnectionLines(t *testing.T) {
 			if !strings.Contains(out, tc.connections) {
 				t.Errorf("no Connections section: with log_connections = 0 it disappears silently\n%s", out)
 			}
-			if !strings.Contains(out, "log_connections") {
-				t.Errorf("the report never names log_connections, so the reader cannot tell an idle pooler from an unlogged one\n%s", out)
-			}
-			if !strings.Contains(out, "log_disconnections") {
-				t.Errorf("the report never names log_disconnections\n%s", out)
+			if strings.Contains(out, "pgbouncer.ini") {
+				t.Errorf("the report gives advice instead of stating the zero\n%s", out)
 			}
 		})
 	}
@@ -125,9 +123,6 @@ func TestPgBouncerFlagsSingleSnapshotCoverage(t *testing.T) {
 	if !strings.Contains(out, "Stats coverage            : a single snapshot") {
 		t.Errorf("the report publishes 0.0/s from a single startup snapshot without qualifying it\n%s", out)
 	}
-	if !strings.Contains(out, "stats_period") {
-		t.Errorf("the report never names stats_period, the setting that decides the coverage\n%s", out)
-	}
 }
 
 // TestPgBouncerFlagsAbsentTelemetry covers the other end of the same
@@ -140,9 +135,6 @@ func TestPgBouncerFlagsAbsentTelemetry(t *testing.T) {
 
 	if !strings.Contains(out, `Traffic                   : no "stats:" line`) {
 		t.Errorf("the throughput figures vanish instead of saying why there are none\n%s", out)
-	}
-	if !strings.Contains(out, "stats_period") {
-		t.Errorf("the report never names stats_period\n%s", out)
 	}
 	// A short capture is not a misconfiguration; the note must not read
 	// as an accusation.
@@ -165,8 +157,8 @@ func TestPgBouncerDoesNotAccuseAnIdlePooler(t *testing.T) {
 	if strings.Contains(out, "Stats coverage") {
 		t.Errorf("an idle pooler with end-to-end telemetry is told its coverage is short\n%s", out)
 	}
-	// It still gets the zero, with the setting to check.
-	if !strings.Contains(out, "Login attempts            : 0, check log_connections") {
+	// It still gets the zero.
+	if !strings.Contains(out, "Login attempts            : 0\n") {
 		t.Errorf("the idle report drops the login count instead of showing it at 0\n%s", out)
 	}
 }
@@ -178,8 +170,7 @@ func TestPgBouncerDoesNotAccuseAnIdlePooler(t *testing.T) {
 // carries traffic and no client line while log_connections is perfectly
 // on. That is the common case in production, not the edge one.
 //
-// The note may therefore state the absence and name the setting worth
-// checking, but it must not assert that the connections happened or that
+// The note may therefore state the absence, but it must not assert that the connections happened or that
 // the sessions ended -- neither is knowable from the window.
 func TestPgBouncerDoesNotAssertWhatItCannotKnow(t *testing.T) {
 	// A window inside a capture whose own .ini has log_connections = 1
@@ -198,8 +189,8 @@ func TestPgBouncerDoesNotAssertWhatItCannotKnow(t *testing.T) {
 			t.Errorf("the report asserts %q, which it cannot know: the clients may simply predate the window", claim)
 		}
 	}
-	// It must still be useful: the absence is stated and the setting named.
-	if !strings.Contains(text, "log_connections") {
-		t.Error("the note no longer names the setting worth checking")
+	// It must still be useful: the absence is stated.
+	if !strings.Contains(text, "0 although traffic shows") {
+		t.Error("the note no longer states the absence")
 	}
 }

@@ -1,18 +1,25 @@
 ## PGBOUNCER
 
-| Metric             | Value                                                                                          |
-|--------------------|------------------------------------------------------------------------------------------------|
-| Pooler             | 127.0.0.1:6432, PgBouncer 1.18.0                                                               |
-| Start date         | 2026-09-20 13:39:27 CEST                                                                       |
-| End date           | 2026-09-20 13:40:04 CEST                                                                       |
-| Stats coverage     | a single snapshot, of unknown extent, for this 37s window, check stats_period in pgbouncer.ini |
-| Throughput         | 0.0 transactions/s, 0.0 queries/s                                                              |
-| Avg time           | transaction 0 µs, query 0 µs                                                                   |
-| Avg clients queued | 0.0 clients                                                                                    |
-| Clients            | 182 login attempts, 181 sessions of 0s on average                                              |
-| Server connections | 4 opened                                                                                       |
+| Metric             | Value                                                     |
+|--------------------|-----------------------------------------------------------|
+| Pooler             | 127.0.0.1:6432, PgBouncer 1.18.0                          |
+| Start date         | 2026-09-20 13:39:27 CEST                                  |
+| End date           | 2026-09-20 13:40:04 CEST                                  |
+| Stats coverage     | a single snapshot, of unknown extent, for this 37s window |
+| Throughput         | 0.0 transactions/s, 0.0 queries/s                         |
+| Avg time           | transaction 0 µs, query 0 µs                              |
+| Avg clients queued | 0.0 clients                                               |
+| Clients            | 182 login attempts, 181 sessions of 0s on average         |
+| Server connections | 4 opened                                                  |
 
 ### Messages: 0 errors, 0 warnings
 
+
+### Timeline
+
+| Time     | Event    | Detail           |
+|----------|----------|------------------|
+| 13:39:27 | start    | PgBouncer 1.18.0 |
+| 13:40:04 | shutdown |                  |
 
 _Details: --pgbouncer-detail_

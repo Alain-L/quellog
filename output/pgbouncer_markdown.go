@@ -55,9 +55,9 @@ func writePgBouncerMarkdown(b *strings.Builder, m analysis.PgBouncerMetrics, tit
 	}
 
 	section("### " + pgbMessagesTitle(m))
-	if list := pgbMessages(m, detail); len(list) > 0 {
+	if list, n := pgbMessages(m, detail); n > 0 {
 		rows = nil
-		for _, e := range headMD(list) {
+		for _, e := range list[:n] {
 			r := []string{e.Message, fmt.Sprint(e.Count), pgbWhen(e, clock)}
 			if detail {
 				r = append([]string{"`" + e.ID + "`"}, r...)
@@ -69,7 +69,7 @@ func writePgBouncerMarkdown(b *strings.Builder, m analysis.PgBouncerMetrics, tit
 		} else {
 			mdTable(b, []string{"Message", "Count", "When"}, "lrl", rows)
 		}
-		writeTailMD(b, len(list), pgbListMax)
+		writeTailMD(b, len(list), n)
 	}
 
 	max := pgbActivityRows
@@ -96,7 +96,7 @@ func writePgBouncerMarkdown(b *strings.Builder, m analysis.PgBouncerMetrics, tit
 		}
 		mdTable(b, []string{"Time", "Queries", "Query time", wait, "Events"}, "lrrrl", rows)
 		fmt.Fprintf(b, "\n_Query time and %s: worst snapshot of each row._\n", strings.ToLower(wait))
-	} else if detail {
+	} else {
 		if len(m.Events) > 0 {
 			section("### Timeline")
 			rows = nil
@@ -105,7 +105,7 @@ func writePgBouncerMarkdown(b *strings.Builder, m analysis.PgBouncerMetrics, tit
 			}
 			mdTable(b, []string{"Time", "Event", "Detail"}, "lll", rows)
 		}
-		if len(m.WaitEpisodes) > 0 {
+		if detail && len(m.WaitEpisodes) > 0 {
 			section("### " + pgbEpisodeTitle(m))
 			rows = nil
 			for _, e := range headMD(m.WaitEpisodes) {
@@ -158,18 +158,25 @@ func writeTailMD(b *strings.Builder, total, shown int) {
 	}
 }
 
-// writeBreakdownMD renders the ten heaviest names of a breakdown.
+// writeBreakdownMD renders the heaviest names of a breakdown, cut as the
+// text report cuts them (rankedKept).
 func writeBreakdownMD(b *strings.Builder, title string, counts map[string]int, total int) {
 	if len(counts) == 0 {
 		return
 	}
 	fmt.Fprintf(b, "\n### %s\n\n", title)
+	sorted := analysis.SortByCount(counts)
+	values := make([]int, len(sorted))
+	for i, e := range sorted {
+		values[i] = e.Count
+	}
+	kept := rankedKept(values, total)
 	var rows [][]string
-	for _, e := range analysis.SortByCount(counts)[:min(len(counts), 10)] {
+	for _, e := range sorted[:kept] {
 		rows = append(rows, []string{e.Name, fmt.Sprint(e.Count), pct(e.Count, total)})
 	}
 	mdTable(b, []string{"Name", "Count", "%"}, "lrr", rows)
-	writeTailMD(b, len(counts), 10)
+	writeTailMD(b, len(counts), kept)
 }
 
 // pct renders a share of a total with one decimal.

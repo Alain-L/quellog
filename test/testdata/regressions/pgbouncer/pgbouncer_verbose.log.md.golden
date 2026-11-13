@@ -1,15 +1,22 @@
 ## PGBOUNCER
 
-| Metric             | Value                                                                |
-|--------------------|----------------------------------------------------------------------|
-| Pooler             | 127.0.0.1:6432, PgBouncer 1.25.2                                     |
-| Start date         | 2026-09-20 13:42:33 CEST                                             |
-| End date           | 2026-09-20 13:42:47 CEST                                             |
-| Traffic            | no "stats:" line in this window, check stats_period in pgbouncer.ini |
-| Clients            | 4 login attempts, 3 sessions of 0s on average                        |
-| Server connections | 2 opened                                                             |
+| Metric             | Value                                         |
+|--------------------|-----------------------------------------------|
+| Pooler             | 127.0.0.1:6432, PgBouncer 1.25.2              |
+| Start date         | 2026-09-20 13:42:33 CEST                      |
+| End date           | 2026-09-20 13:42:47 CEST                      |
+| Traffic            | no "stats:" line in this window               |
+| Clients            | 4 login attempts, 3 sessions of 0s on average |
+| Server connections | 2 opened                                      |
 
 ### Messages: 0 errors, 0 warnings
 
+
+### Timeline
+
+| Time     | Event    | Detail           |
+|----------|----------|------------------|
+| 13:42:33 | start    | PgBouncer 1.25.2 |
+| 13:42:47 | shutdown |                  |
 
 _Details: --pgbouncer-detail_

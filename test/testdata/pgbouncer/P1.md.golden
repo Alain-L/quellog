@@ -212,6 +212,8 @@ This _quellog_ report summarizes **124** log entries collected between 25 Sep 20
 | client_idle_timeout                        |     1 | 09:12:24            |
 | got packet 'E' from server when not linked |     1 | 09:10:59            |
 
+_… and 3 more_
+
 ### Activity by minute
 
 | Time  | Queries | Query time | Pool wait | Events            |
@@ -220,7 +222,7 @@ This _quellog_ report summarizes **124** log entries collected between 25 Sep 20
 | 09:06 | 15.1k/s |     159 µs |           |                   |
 | 09:07 | 15.7k/s |     160 µs |           | reload            |
 | 09:08 |  1.4k/s |   775.2 ms |    2.57 s | reload            |
-| 09:09 |  7.6k/s |     3.16 s |   20.04 s | reload, pause 20s |
+| 09:09 |  7.6k/s |     3.16 s |   20.04 s | pause 20s, reload |
 | 09:10 | 15.1k/s |     166 µs |           |                   |
 | 09:11 |  8.4k/s |     488 µs |    2.2 ms | restart           |
 | 09:12 | 15.8k/s |     158 µs |           | reload            |

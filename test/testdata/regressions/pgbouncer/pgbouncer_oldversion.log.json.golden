@@ -45,6 +45,7 @@
       "stats_series": [
         {
           "time": "2026-09-20 13:39:47",
+          "period_start": "2026-09-20 13:39:27",
           "xacts_per_sec": 0,
           "queries_per_sec": 0,
           "in_bytes_per_sec": 0,
