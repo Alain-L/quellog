@@ -1698,7 +1698,7 @@ export function pgbValueFmt(kind) {
 // chart reads in the same scale as its tooltip, but keeps one decimal:
 // an axis carries round numbers, a measurement carries the text report's
 // precision, and the two are not the same job.
-function pgbAxisFmt(kind) {
+export function pgbAxisFmt(kind) {
     if (kind === 'bytes') return (v) => {
         if (v == null) return '';
         const u = ['B', 'KB', 'MB', 'GB', 'TB']; let i = 0;
@@ -1707,7 +1707,8 @@ function pgbAxisFmt(kind) {
     };
     if (kind === 'rate') return (v) => {
         if (v == null) return '';
-        return v >= 1000 ? (v / 1000).toFixed(v >= 10000 ? 0 : 1) + 'k/s' : Math.round(v) + '/s';
+        // A tick between two integers keeps its decimal: 2.5/s, not 3/s.
+        return v >= 1000 ? (v / 1000).toFixed(v >= 10000 ? 0 : 1) + 'k/s' : (Number.isInteger(v) ? v : +v.toFixed(1)) + '/s';
     };
     return pgbValueFmt(kind);
 }
@@ -1792,18 +1793,23 @@ export function pgbMarkers(events) {
     return out;
 }
 
-// pgbBucketize groups the snapshots into buckets of `size` seconds, 0
-// keeping one bar per snapshot over [t - period, t]. Rates are a plain
-// mean, every snapshot covering the same period; times are the worst
-// snapshot, with their mean weighted by operation count as the report's
+// pgbBucketize groups the snapshots into buckets of `size` seconds, each
+// in the bucket it was logged in, 0 keeping one bar per snapshot over
+// the period it averages, [a, t] (the payload's period_start), or
+// [t - period, t]. Rates are a plain mean of the snapshots; times are the
+// worst snapshot, with their mean weighted by operation count as the report's
 // averages are, a zero being "nothing timed" only when nothing ran
 // (analysis.accumulateWeighted).
-function pgbBucketize(points, period, size) {
-    if (!size) return points.map(p => ({ ...p, a: p.t - period, b: p.t, n: 1 }));
+export function pgbBucketize(points, period, size) {
+    const start = p => p.a ?? p.t - period;
+    if (!size) return points.map(p => ({ ...p, a: start(p), b: p.t, n: 1 }));
     const out = new Map();
     const rates = ['xacts_per_sec', 'queries_per_sec', 'in_bytes_per_sec', 'out_bytes_per_sec'];
     for (const p of points) {
-        const k = Math.floor((p.t - 1) / size) * size;
+        // Buckets fall on the viewer's clock, the one the axis shows: a
+        // day runs from its midnight.
+        const off = -new Date(p.t * 1000).getTimezoneOffset() * 60;
+        const k = Math.floor((p.t - 1 + off) / size) * size - off;
         if (!out.has(k)) out.set(k, { a: k, b: k + size, n: 0, xact_us: 0, wx: 0, query_us: 0, wq: 0, wait_us: 0, ww: 0, xact_max: 0, query_max: 0, wait_max: 0, ...Object.fromEntries(rates.map(r => [r, 0])) });
         const g = out.get(k);
         g.n++;
@@ -1831,11 +1837,12 @@ function pgbBucketize(points, period, size) {
 // snapshot up to 60 of them, else the smallest round bucket that brings
 // them to 60 or fewer; a bucket no wider than the period is per snapshot.
 const PGB_MAX_BARS = 60;
-function pgbBucketSize(points, period, interval) {
+export function pgbBucketSize(points, period, interval) {
     if (interval) return interval <= period ? 0 : interval;
     if (points.length <= PGB_MAX_BARS) return 0;
     const span = points[points.length - 1].t - points[0].t + period;
-    return [10, 30, 60, 300, 900, 3600, 21600, 86400].find(s => s > period && span / s <= PGB_MAX_BARS) || 86400;
+    return [10, 30, 60, 300, 900, 3600, 21600, 86400].find(s => s > period && span / s <= PGB_MAX_BARS)
+        || Math.ceil(span / PGB_MAX_BARS / 86400) * 86400;
 }
 
 // Log scale for the timing chart, when a series spans more than two
@@ -1887,20 +1894,45 @@ function pgbDrawMarkers(u, phase) {
         return;
     }
     ctx.font = `${10 * r}px system-ui, sans-serif`; ctx.textBaseline = 'top'; ctx.textAlign = 'left';
-    const xs = shown.map(m => u.valToPos(Math.max(m.a, lo), 'x', true));
-    const placed = [];
-    const free = (l, rt, row) => placed.every(([pl, pr, prow]) => prow !== row || rt < pl || l > pr);
+    const spots = pgbPlaceLabels(
+        shown.map(m => ({ x: u.valToPos(Math.max(m.a, lo), 'x', true), w: ctx.measureText(m.label).width })),
+        u.bbox.left + u.bbox.width, 3 * r);
+    // A halo of the card's colour keeps a label readable over the bars.
+    ctx.lineWidth = 3 * r; ctx.lineJoin = 'round';
+    ctx.strokeStyle = resolvePgbColor('var(--card-bg)');
     shown.forEach((m, i) => {
-        const x = xs[i], w = ctx.measureText(m.label).width, gap = 3 * r;
-        const next = xs.slice(i + 1).find(n => n > x + 1) ?? Infinity;
-        const l = x + gap, rt = x + gap + w;
-        let row = 0;
-        while (row < 2 && !((row > 0 || rt < next - gap) && free(l, rt, row))) row++;
-        placed.push([l, rt, row]);
-        ctx.globalAlpha = 1; ctx.fillStyle = color(m);
-        ctx.fillText(m.label, l, top + 2 * r + row * 12 * r);
+        const spot = spots[i];
+        if (!spot) return; // no room: the tooltip still names it
+        const y = top + 2 * r + spot.row * 12 * r;
+        ctx.strokeText(m.label, spot.l, y);
+        ctx.fillStyle = color(m);
+        ctx.fillText(m.label, spot.l, y);
     });
     ctx.restore();
+}
+
+// pgbPlaceLabels lays out the marker labels, in the order of their lines
+// ({x, w}: the line's position, the label's width): each starts at its
+// own line, right of it or left where the plot ends first (edge), and
+// moves down a row while it would cross the next line or another label,
+// three rows at most. A label with no room is left out (null).
+export function pgbPlaceLabels(items, edge, gap) {
+    const placed = [];
+    return items.map((it, i) => {
+        const next = items.slice(i + 1).map(n => n.x).find(n => n > it.x + 1) ?? Infinity;
+        const right = it.x + gap + it.w <= edge;
+        const l = right ? it.x + gap : it.x - gap - it.w, rt = l + it.w;
+        for (let row = 0; row < 3; row++) {
+            const crossesNext = right && rt >= next - gap;
+            const free = placed.every(p => p.row !== row || rt < p.l - gap || l > p.rt + gap);
+            if (free && (!crossesNext || row > 0)) {
+                const spot = { l, rt, row };
+                placed.push(spot);
+                return spot;
+            }
+        }
+        return null;
+    });
 }
 
 // pgbBarsTooltip states the bucket under the cursor: its bounds, each
@@ -1908,6 +1940,8 @@ function pgbDrawMarkers(u, phase) {
 function pgbBarsTooltip() {
     let tip = null;
     const hms = s => new Date(s * 1000).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+    // A bucket's bounds carry their date when the chart spans several days.
+    const stamp = (s, dated) => (dated ? new Date(s * 1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) + ' ' : '') + hms(s);
     return {
         hooks: {
             init: u => { tip = document.createElement('div'); tip.className = 'chart-tooltip'; tip.style.display = 'none'; u.over.appendChild(tip); },
@@ -1915,7 +1949,8 @@ function pgbBarsTooltip() {
                 const i = u.cursor.idx, g = u._pgbBuckets;
                 if (i == null || !g || !g[i]) { tip.style.display = 'none'; return; }
                 const p = g[i];
-                let rows = `<div style="font-weight:600;margin-bottom:2px;">${hms(p.a)} → ${hms(p.b)}</div>`;
+                const dated = new Date(g[0].a * 1000).toDateString() !== new Date(g[g.length - 1].b * 1000).toDateString();
+                let rows = `<div style="font-weight:600;margin-bottom:2px;">${stamp(p.a, dated)} → ${stamp(p.b, dated)}</div>`;
                 u._pgbSeries.forEach((s, k) => {
                     if (!u._vis[k]) return;
                     const avg = p.n > 1 && p[s.key + '_avg'] !== undefined ? ` worst, ${s.tip(p[s.key + '_avg'])} avg` : '';
@@ -2017,7 +2052,7 @@ export function createPgBouncerBarsChart(containerId, spec, options = {}) {
                         }
                         continue;
                     }
-                    const w = shown.length === 2 ? total / 2 - 1 : total, r = Math.min(2, w / 4);
+                    const w = shown.length === 2 ? Math.max(1, total / 2 - 1) : total, r = Math.min(2, w / 4);
                     shown.forEach((i, k) => {
                         const v = V(p, ser[i].key);
                         if (!(v > 0)) return;
@@ -2039,8 +2074,13 @@ export function createPgBouncerBarsChart(containerId, spec, options = {}) {
 
     const xs = g.map(p => (p.a + p.b) / 2);
     const chart = new uPlot(opts, [xs, ...ser.map(s => g.map(p => V(p, s.key)))], container);
-    chart._originalXRange = [g[0].a, g[g.length - 1].b];
-    chart.setScale('x', { min: g[0].a, max: g[g.length - 1].b });
+    // The window takes in the events drawn, so a shutdown logged after the
+    // last snapshot still shows.
+    const marks = pgbMarkers(spec.events);
+    const x0 = Math.min(g[0].a, ...marks.map(m => m.a));
+    const x1 = Math.max(g[g.length - 1].b, ...marks.map(m => (Number.isFinite(m.b) ? m.b : m.a)));
+    chart._originalXRange = [x0, x1];
+    chart.setScale('x', { min: x0, max: x1 });
     const ro = new ResizeObserver(() => chart.setSize({ width: container.clientWidth || 300, height }));
     ro.observe(container);
     chart._ro = ro;

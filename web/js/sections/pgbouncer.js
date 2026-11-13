@@ -2,7 +2,7 @@
 // sections, in cards per pooler. Reads data.pgbouncer (a list of
 // PgBouncerMetrics) and shows, for each pooler, the window it was drawn
 // from, summary cards, four bar charts (throughput, network I/O,
-// transaction and query time, pool wait) with the pooler's events drawn
+// transaction and query time, pool wait; no pool wait before 1.23) with the pooler's events drawn
 // on them, and the queueing stretches; the session time and close reasons
 // beside the per-database/user/host connections; the warnings and errors.
 
@@ -134,9 +134,8 @@ function pgbLegend(id, series) {
 }
 
 // markerKey names, above the charts, the event markers drawn on them
-// between `from` and `to`: only the kinds that are there.
-function markerKey(marks, from, to) {
-    const on = marks.filter(m => m.b >= from && m.a <= to);
+// (each chart's window takes them all in): only the kinds that are there.
+function markerKey(on) {
     if (!on.length) return '';
     const span = (tone) => `<span style="display:inline-block;width:12px;height:10px;border-left:2px solid var(${tone});border-right:2px solid var(${tone});background:color-mix(in srgb, var(${tone}) 20%, transparent)"></span>`;
     const line = `<span style="display:inline-block;width:0;height:10px;border-left:1px dashed var(--text-muted)"></span>`;
@@ -258,10 +257,10 @@ function queueDepthText(version) {
 // happened" from "your pooler does not log it", so each empty block
 // says which of the three is responsible.
 //
-// The three predicates below mirror PgBouncerMetrics.StatsPeriod,
-// .StatsUnderCovered and .ClientLinesMissing (analysis/pgbouncer.go);
-// they are recomputed here because the payload carries the metrics, not
-// the verdicts. Keep the two in step.
+// The predicates below mirror PgBouncerMetrics.StatsCoverage,
+// .StatsUnderCovered and .TrafficShows (analysis/pgbouncer.go); they are
+// recomputed here because the payload carries the metrics, not the
+// verdicts. Keep the two in step.
 
 // statsPeriodSeconds infers stats_period from the median interval
 // between consecutive snapshots. 0 when fewer than two leave nothing to
@@ -278,6 +277,19 @@ function statsPeriodSeconds(series) {
     return gaps[Math.floor(gaps.length / 2)];
 }
 
+// statsCoveredSeconds is how much of the window the snapshots account
+// for: the periods they average, from the payload's period_start (each
+// run of the pooler with its own), or one inferred period each. 0 for a
+// single snapshot, whose extent is unknown.
+function statsCoveredSeconds(p) {
+    const series = p.stats_series || [];
+    if (series.length < 2) return 0;
+    if (series.every(s => s.period_start)) {
+        return series.reduce((sum, s) => sum + (new Date(s.time) - new Date(s.period_start)) / 1000, 0);
+    }
+    return statsPeriodSeconds(series) * p.stats_sample_count;
+}
+
 // statsUnderCovered reports whether the snapshots account for less than
 // half of the reported window -- or for an unknown share of it, which a
 // single snapshot always does.
@@ -285,20 +297,20 @@ function statsUnderCovered(p) {
     if (!p.stats_sample_count) return false;
     const window = (new Date(p.end_date) - new Date(p.start_date)) / 1000;
     if (!(window > 0)) return false;
-    const covered = statsPeriodSeconds(p.stats_series) * p.stats_sample_count;
+    const covered = statsCoveredSeconds(p);
     if (!(covered > 0)) return true;
     return covered * 2 < window;
 }
 
-// clientLinesMissing reports whether the pooler demonstrably served
-// clients over this window while logging none of them -- the only thing
-// that separates a silenced log from an idle one.
-function clientLinesMissing(p) {
-    if (p.login_attempts > 0 || p.sessions > 0) return false;
-    // Only the snapshot counters prove it, exactly as the Go side does.
-    // A server connection opened and a pooler error are not proof:
-    // min_pool_size opens backends with nobody connected, and a backend
-    // refusing the pooler errors out before any client exists.
+// trafficShows reports whether the pooler demonstrably served clients
+// over this window (PgBouncerMetrics.TrafficShows): a client count at
+// zero beside it was not logged -- the only thing that separates a
+// silenced log from an idle one. Only the snapshot counters prove it,
+// exactly as the Go side does. A server connection opened and a pooler
+// error are not proof: min_pool_size opens backends with nobody
+// connected, and a backend refusing the pooler errors out before any
+// client exists.
+function trafficShows(p) {
     return (p.max_xacts_per_sec > 0) || (p.max_queries_per_sec > 0);
 }
 
@@ -347,11 +359,11 @@ function oneSnapshotText(n) {
 // states it as a measurement.
 function coverageText(p) {
     const window = Math.round((new Date(p.end_date) - new Date(p.start_date)) / 1000);
-    const covered = Math.round(statsPeriodSeconds(p.stats_series) * p.stats_sample_count);
+    const covered = Math.round(statsCoveredSeconds(p));
     const lead = covered > 0
         ? `${fmt(p.stats_sample_count)} stats snapshots cover ${fmt(covered)}\u00a0s of this ${fmt(window)}\u00a0s window`
         : `A single stats snapshot for this ${fmt(window)}\u00a0s window, of unknown extent`;
-    return `${lead}: pgBouncer logs nothing between two snapshots, so the figures here describe what was sampled, not the window. Check <code>stats_period</code> in <code>pgbouncer.ini</code>.`;
+    return `${lead}: pgBouncer logs nothing between two snapshots, so the figures here describe what was sampled, not the window.`;
 }
 
 // poolerLine names the pooler a section describes: its address or file,
@@ -391,9 +403,12 @@ export function buildPgBouncerSection(data) {
 // chart ids unique when there are several; `named` puts the pooler's name
 // in the headers then.
 function poolerSection(p, suffix, named, wholeLogNote) {
+    // Times carry their date when the window spans more than one day.
+    const w = captureWindow(p);
+    const dated = w && day(w.from) !== day(w.to);
     const at = (ts) => {
         const d = new Date(ts);
-        return isNaN(d) ? '' : clock(d);
+        return isNaN(d) ? '' : (dated ? `${day(d)} ${clock(d)}` : clock(d));
     };
     const depth = waitIsQueueDepth(p.version);
     // Register the time-series charts (drawn after DOM insertion).
@@ -401,9 +416,10 @@ function poolerSection(p, suffix, named, wholeLogNote) {
     const hasSeries = series.length >= MIN_CHART_POINTS;
     let charts = null;
     if (hasSeries) {
-        const points = series.map(s => ({ ...s, t: Math.round(new Date(s.time).getTime() / 1000) }));
-        const period = pgbPeriod(points.map(x => x.t));
         const events = p.events || [];
+        const secs = ts => Math.round(new Date(ts).getTime() / 1000);
+        const points = series.map(s => ({ ...s, t: secs(s.time), ...(s.period_start ? { a: secs(s.period_start) } : {}) }));
+        const period = pgbPeriod(points.map(x => x.t));
         // Two series that never differ would draw every bar twice: one bar,
         // named for both.
         const same = (a, b) => series.every(s => (s[a] || 0) === (s[b] || 0));
@@ -426,13 +442,13 @@ function poolerSection(p, suffix, named, wholeLogNote) {
             chartData.set(id, { type: 'pgb-bars', points, period, events, ...spec, legend: pgbLegend(null, spec.series) });
             return { id, spec };
         });
-        charts.key = markerKey(pgbMarkers(events), points[0].t - period, points[points.length - 1].t);
+        charts.key = markerKey(pgbMarkers(events));
     }
 
     const hasStats = p.stats_sample_count > 0;
     const hasSessions = p.sessions > 0;
     const hasConns = p.login_attempts > 0;
-    const missingClients = clientLinesMissing(p);
+    const traffic = trafficShows(p);
     const name = named ? ' · ' + esc(p.name) : '';
     const card = (id, title, body) => `
         <div class="section" id="${id}${suffix}">
@@ -448,14 +464,14 @@ function poolerSection(p, suffix, named, wholeLogNote) {
     const sessions = hasSessions
         ? `${sessionsLine(p)}${sessionHistogram(p.session_distribution, p.sessions)}
            ${p.session_reasons ? `<div class="subsection-title">Close Reasons</div>${reasonsTable(p.session_reasons, p.sessions)}` : ''}`
-        : emptyBlock(SESSIONS_HINT, missingClients ? SESSIONS_CONTRADICTION : '');
+        : emptyBlock(SESSIONS_HINT, traffic ? SESSIONS_CONTRADICTION : '');
     const connections = hasConns
         ? dimTabs([
             { label: 'Database', map: p.connections_per_database },
             { label: 'User', map: p.connections_per_user },
             { label: 'Host', map: p.connections_per_host },
         ], p.login_attempts)
-        : emptyBlock(CONNECTIONS_HINT, missingClients ? CONNECTIONS_CONTRADICTION : '');
+        : emptyBlock(CONNECTIONS_HINT, traffic ? CONNECTIONS_CONTRADICTION : '');
 
     return `
         ${card('pgbouncer', 'pgBouncer', `

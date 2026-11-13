@@ -303,7 +303,7 @@ test('a row holding one card does not keep an empty column', () => {
 
 // ---- refutation: the two rules must not drift apart ----------------
 //
-// The Go side (analysis.PgBouncerMetrics.ClientLinesMissing) accepts
+// The Go side (analysis.PgBouncerMetrics.TrafficShows) accepts
 // only the snapshot counters as proof that clients were served. A
 // server connection and a pooler error are deliberately not proof:
 // min_pool_size opens backends with nobody connected, and a backend
@@ -484,4 +484,47 @@ test('the error table stops at twenty rows and says how many it left out', () =>
     const html = buildPgBouncerSection({ pgbouncer: { ...statlessPayload, total_errors: 231, errors } });
     assert.ok(html.includes('>error 19<') && !html.includes('>error 20<'));
     assert.ok(html.includes('… and 1 more'));
+});
+
+// With charts, the pooler's events are drawn on them: no timeline card,
+// and the key above the charts names every marker drawn, a shutdown
+// logged after the last snapshot included.
+test('charts carry the events: no timeline card, every marker in the key', () => {
+    const series = [
+        { time: '2026-09-25 09:00:10', queries_per_sec: 1 },
+        { time: '2026-09-25 09:00:20', queries_per_sec: 2 },
+    ];
+    const events = [
+        { timestamp: '2026-09-25 09:00:00', kind: 'start', detail: 'PgBouncer 1.25.2' },
+        { timestamp: '2026-09-25 09:00:26', kind: 'shutdown', detail: 'SIGINT' },
+    ];
+    const html = buildPgBouncerSection({ pgbouncer: { ...statlessPayload, stats_sample_count: 2, stats_series: series, events } });
+    assert.ok(!html.includes('pgbouncer-timeline'), 'a timeline card beside charts that carry the events');
+    assert.ok(html.includes('pooler shut down'), 'the key misses the shutdown after the last snapshot');
+});
+
+// log_connections and log_disconnections are two settings: with traffic,
+// a connection count at zero is said unlogged even when the session
+// closes are logged.
+test('an unlogged count is said so on its own, the other logged', () => {
+    const html = buildPgBouncerSection({ pgbouncer: { ...silencedPayload, sessions: 12, session_distribution: { '< 1s': 12 } } });
+    assert.ok(html.includes('no client connection was logged in it'),
+        'the Connections card does not say the logins were not logged');
+});
+
+// With period_start in the payload, coverage sums the periods the
+// snapshots average, each run of the pooler with its own, as
+// PgBouncerMetrics.StatsCoverage does; and the caveat states the fact
+// without advice.
+test('coverage follows period_start and gives no advice', () => {
+    const at = s => `2026-09-25 09:${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+    // Two snapshots of 60 s and three of 15 s: 165 s of a 400 s window.
+    const series = [[13, 73], [73, 133], [198, 213], [213, 228], [228, 243]]
+        .map(([a, t]) => ({ time: at(t), period_start: at(a) }));
+    const html = buildPgBouncerSection({ pgbouncer: {
+        ...statlessPayload, stats_sample_count: 5, stats_series: series,
+        start_date: at(0), end_date: at(400),
+    } });
+    assert.ok(html.includes('cover 165 s of this 400 s window'));
+    assert.ok(!/Check <code>stats_period/.test(html), 'the caveat gives advice');
 });
