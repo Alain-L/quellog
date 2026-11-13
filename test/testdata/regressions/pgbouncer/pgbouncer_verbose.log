@@ -1,0 +1,1686 @@
+2026-09-20 13:42:33.444 CEST [18145] DEBUG parse_ini_file: 'verbose' = '2' ok:1
+2026-09-20 13:42:33.444 CEST [18145] DEBUG loading auth_file: "/home/alain/pgb-work/userlist.txt"
+2026-09-20 13:42:33.444 CEST [18145] NOISE new server_tls_sslmode detected
+2026-09-20 13:42:33.445 CEST [18145] DEBUG pktbuf_dynamic(128): 0x5615be21cc50
+2026-09-20 13:42:33.445 CEST [18145] DEBUG make_room(0x5615be21cc50, 9): realloc newlen=256
+2026-09-20 13:42:33.445 CEST [18145] DEBUG pktbuf_dynamic(128): 0x5615be2646b0
+2026-09-20 13:42:33.445 CEST [18145] NOISE event: 128, SBuf: 224, PgSocket: 1768, IOBuf: 4108
+2026-09-20 13:42:33.445 CEST [18145] LOG kernel file descriptor limit: 1024 (hard: 524288); max_client_conn: 200, max expected fd use: 292
+2026-09-20 13:42:33.445 CEST [18145] DEBUG adns_create_context: c-ares 1.34.5
+2026-09-20 13:42:33.445 CEST [18145] DEBUG add_listen: 127.0.0.1:6432
+2026-09-20 13:42:33.445 CEST [18145] NOISE old TCP_DEFER_ACCEPT on 7 = 0
+2026-09-20 13:42:33.445 CEST [18145] NOISE install TCP_DEFER_ACCEPT on 7
+2026-09-20 13:42:33.445 CEST [18145] LOG listening on 127.0.0.1:6432
+2026-09-20 13:42:33.446 CEST [18145] LOG process up: PgBouncer 1.25.2, libevent 2.1.13-stable (epoll), adns: c-ares 1.34.5, tls: OpenSSL 3.5.7 9 Jun 2026
+2026-09-20 13:42:35.462 CEST [18145] NOISE new fd from accept=8
+2026-09-20 13:42:35.462 CEST [18145] NOISE resync(8): done=0, parse=0, recv=0
+2026-09-20 13:42:35.462 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.462 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.462 CEST [18145] NOISE C-0x5615be2761d0: (nodb)/(nouser)@127.0.0.1:54252 read pkt='!' len=8
+2026-09-20 13:42:35.462 CEST [18145] NOISE C-0x5615be2761d0: (nodb)/(nouser)@127.0.0.1:54252 C: req SSL
+2026-09-20 13:42:35.462 CEST [18145] NOISE C-0x5615be2761d0: (nodb)/(nouser)@127.0.0.1:54252 P: nak
+2026-09-20 13:42:35.462 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.462 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.462 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.462 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.462 CEST [18145] NOISE resync(8): done=8, parse=8, recv=8
+2026-09-20 13:42:35.462 CEST [18145] DEBUG C-0x5615be2761d0: (nodb)/(nouser)@127.0.0.1:54252 P: got connection: 127.0.0.1:54252 -> 127.0.0.1:6432
+2026-09-20 13:42:35.462 CEST [18145] NOISE safe_accept(7) = Resource temporarily unavailable
+2026-09-20 13:42:35.462 CEST [18145] NOISE resync(8): done=0, parse=0, recv=0
+2026-09-20 13:42:35.462 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.462 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.462 CEST [18145] NOISE C-0x5615be2761d0: (nodb)/(nouser)@127.0.0.1:54252 read pkt='!' len=62
+2026-09-20 13:42:35.462 CEST [18145] DEBUG C-0x5615be2761d0: (nodb)/(nouser)@127.0.0.1:54252 got var: user=bench
+2026-09-20 13:42:35.462 CEST [18145] DEBUG C-0x5615be2761d0: (nodb)/(nouser)@127.0.0.1:54252 got var: database=benchdb
+2026-09-20 13:42:35.462 CEST [18145] DEBUG C-0x5615be2761d0: (nodb)/(nouser)@127.0.0.1:54252 using application_name: pgbench
+2026-09-20 13:42:35.462 CEST [18145] LOG C-0x5615be2761d0: benchdb/bench@127.0.0.1:54252 login attempt: db=benchdb user=bench tls=no replication=no
+2026-09-20 13:42:35.462 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54252 Auth request sent successfully
+2026-09-20 13:42:35.462 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.462 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.462 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.462 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.462 CEST [18145] NOISE resync(8): done=62, parse=62, recv=62
+2026-09-20 13:42:35.463 CEST [18145] NOISE resync(8): done=0, parse=0, recv=0
+2026-09-20 13:42:35.463 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.463 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.463 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54252 read pkt='p' len=41
+2026-09-20 13:42:35.464 CEST [18145] DEBUG finish_client_login: no welcome message, pause
+2026-09-20 13:42:35.464 CEST [18145] DEBUG C-0x5615be2761d0: benchdb/bench@127.0.0.1:54252 pause_client
+2026-09-20 13:42:35.464 CEST [18145] DEBUG launch_new_connection: start
+2026-09-20 13:42:35.464 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@(bad-af):0 inet socket: 127.0.0.1
+2026-09-20 13:42:35.464 CEST [18145] DEBUG S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 launching new connection to server
+2026-09-20 13:42:35.464 CEST [18145] DEBUG launch_new_connection: start
+2026-09-20 13:42:35.464 CEST [18145] DEBUG launch_new_connection: already progress
+2026-09-20 13:42:35.464 CEST [18145] DEBUG S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 S: connect ok
+2026-09-20 13:42:35.464 CEST [18145] LOG S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 new connection to server (from 127.0.0.1:42992)
+2026-09-20 13:42:35.464 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 P: SSL request
+2026-09-20 13:42:35.464 CEST [18145] DEBUG launch_new_connection: start
+2026-09-20 13:42:35.464 CEST [18145] DEBUG launch_new_connection: already progress
+2026-09-20 13:42:35.465 CEST [18145] NOISE resync(9): done=0, parse=0, recv=0
+2026-09-20 13:42:35.465 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.465 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.465 CEST [18145] DEBUG pktbuf_dynamic(512): 0x5615be2a68d0
+2026-09-20 13:42:35.465 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.465 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.465 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.465 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.465 CEST [18145] NOISE resync(9): done=1, parse=1, recv=1
+2026-09-20 13:42:35.465 CEST [18145] DEBUG launch_new_connection: start
+2026-09-20 13:42:35.465 CEST [18145] DEBUG launch_new_connection: already progress
+2026-09-20 13:42:35.465 CEST [18145] NOISE resync(9): done=0, parse=0, recv=0
+2026-09-20 13:42:35.465 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.465 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.465 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='R', len=24
+2026-09-20 13:42:35.465 CEST [18145] DEBUG S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 calling login_answer
+2026-09-20 13:42:35.465 CEST [18145] DEBUG S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 S: req SASL
+2026-09-20 13:42:35.465 CEST [18145] DEBUG S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 S: SASL advertised mechanism: SCRAM-SHA-256
+2026-09-20 13:42:35.465 CEST [18145] DEBUG S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 SCRAM client-first-message = "n,,n=,r=m4vsATEg0bdsGijPRvvgHgAT"
+2026-09-20 13:42:35.465 CEST [18145] DEBUG S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 P: send SASLInitialResponse
+2026-09-20 13:42:35.465 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.465 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.465 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.465 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.465 CEST [18145] NOISE resync(9): done=24, parse=24, recv=24
+2026-09-20 13:42:35.465 CEST [18145] DEBUG launch_new_connection: start
+2026-09-20 13:42:35.465 CEST [18145] DEBUG launch_new_connection: already progress
+2026-09-20 13:42:35.466 CEST [18145] NOISE resync(9): done=0, parse=0, recv=0
+2026-09-20 13:42:35.466 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.466 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.466 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='R', len=93
+2026-09-20 13:42:35.466 CEST [18145] DEBUG S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 calling login_answer
+2026-09-20 13:42:35.466 CEST [18145] DEBUG S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 S: SASL cont
+2026-09-20 13:42:35.466 CEST [18145] DEBUG S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 SCRAM server-first-message = "r=m4vsATEg0bdsGijPRvvgHgATI5lUCrm37T2SmatfRb1IyX7D,s=VzrSosGmWm3p3poUlpCv/g==,i=4096"
+2026-09-20 13:42:35.470 CEST [18145] DEBUG S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 SCRAM client-final-message = "c=biws,r=m4vsATEg0bdsGijPRvvgHgATI5lUCrm37T2SmatfRb1IyX7D,p=Rc1O7QjoVV03FoNl/OWtkAHf4I0Tao+TmuGNE/rP1s4="
+2026-09-20 13:42:35.470 CEST [18145] DEBUG S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 P: send SASLResponse
+2026-09-20 13:42:35.470 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.470 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.470 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.470 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.470 CEST [18145] NOISE resync(9): done=93, parse=93, recv=93
+2026-09-20 13:42:35.470 CEST [18145] DEBUG launch_new_connection: start
+2026-09-20 13:42:35.470 CEST [18145] DEBUG launch_new_connection: already progress
+2026-09-20 13:42:35.471 CEST [18145] NOISE resync(9): done=0, parse=0, recv=0
+2026-09-20 13:42:35.471 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.471 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.471 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='R', len=55
+2026-09-20 13:42:35.471 CEST [18145] DEBUG S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 calling login_answer
+2026-09-20 13:42:35.471 CEST [18145] DEBUG S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 S: SASL final
+2026-09-20 13:42:35.471 CEST [18145] DEBUG S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 SCRAM server-final-message = "v=fGsrF6p24Y5sl04U9jKOJ21gnCq29j1ztbf6qbOvHCQ="
+2026-09-20 13:42:35.472 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.472 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='R', len=9
+2026-09-20 13:42:35.472 CEST [18145] DEBUG S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 calling login_answer
+2026-09-20 13:42:35.472 CEST [18145] DEBUG S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 S: auth ok
+2026-09-20 13:42:35.472 CEST [18145] NOISE sbuf_process_pending: loop 3
+2026-09-20 13:42:35.472 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='S', len=24
+2026-09-20 13:42:35.472 CEST [18145] DEBUG S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 S: param: in_hot_standby = off
+2026-09-20 13:42:35.472 CEST [18145] DEBUG pktbuf_dynamic(128): 0x5615be2a6050
+2026-09-20 13:42:35.472 CEST [18145] NOISE sbuf_process_pending: loop 4
+2026-09-20 13:42:35.472 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='S', len=26
+2026-09-20 13:42:35.472 CEST [18145] DEBUG S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 S: param: integer_datetimes = on
+2026-09-20 13:42:35.472 CEST [18145] NOISE sbuf_process_pending: loop 5
+2026-09-20 13:42:35.472 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='S', len=22
+2026-09-20 13:42:35.472 CEST [18145] DEBUG S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 S: param: TimeZone = Etc/UTC
+2026-09-20 13:42:35.472 CEST [18145] NOISE sbuf_process_pending: loop 6
+2026-09-20 13:42:35.472 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='S', len=28
+2026-09-20 13:42:35.472 CEST [18145] DEBUG S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 S: param: IntervalStyle = postgres
+2026-09-20 13:42:35.472 CEST [18145] NOISE sbuf_process_pending: loop 7
+2026-09-20 13:42:35.472 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='S', len=22
+2026-09-20 13:42:35.472 CEST [18145] DEBUG S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 S: param: is_superuser = off
+2026-09-20 13:42:35.472 CEST [18145] NOISE sbuf_process_pending: loop 8
+2026-09-20 13:42:35.472 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='S', len=23
+2026-09-20 13:42:35.472 CEST [18145] DEBUG S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 S: param: application_name = 
+2026-09-20 13:42:35.472 CEST [18145] NOISE sbuf_process_pending: loop 9
+2026-09-20 13:42:35.472 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='S', len=39
+2026-09-20 13:42:35.472 CEST [18145] DEBUG S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 S: param: default_transaction_read_only = off
+2026-09-20 13:42:35.472 CEST [18145] NOISE sbuf_process_pending: loop 10
+2026-09-20 13:42:35.472 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='S', len=27
+2026-09-20 13:42:35.472 CEST [18145] DEBUG S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 S: param: scram_iterations = 4096
+2026-09-20 13:42:35.472 CEST [18145] DEBUG make_room(0x5615be2a6050, 17): realloc newlen=256
+2026-09-20 13:42:35.472 CEST [18145] NOISE sbuf_process_pending: loop 11
+2026-09-20 13:42:35.472 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='S', len=24
+2026-09-20 13:42:35.472 CEST [18145] DEBUG S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 S: param: DateStyle = ISO, MDY
+2026-09-20 13:42:35.472 CEST [18145] NOISE sbuf_process_pending: loop 12
+2026-09-20 13:42:35.472 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='S', len=36
+2026-09-20 13:42:35.472 CEST [18145] DEBUG S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 S: param: standard_conforming_strings = on
+2026-09-20 13:42:35.472 CEST [18145] NOISE sbuf_process_pending: loop 13
+2026-09-20 13:42:35.472 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='S', len=33
+2026-09-20 13:42:35.472 CEST [18145] DEBUG S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 S: param: session_authorization = bench
+2026-09-20 13:42:35.472 CEST [18145] NOISE sbuf_process_pending: loop 14
+2026-09-20 13:42:35.472 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='S', len=26
+2026-09-20 13:42:35.472 CEST [18145] DEBUG S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 S: param: client_encoding = UTF8
+2026-09-20 13:42:35.472 CEST [18145] NOISE sbuf_process_pending: loop 15
+2026-09-20 13:42:35.472 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='S', len=52
+2026-09-20 13:42:35.472 CEST [18145] DEBUG S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 S: param: server_version = 16.15 (Debian 16.15-1.pgdg13+2)
+2026-09-20 13:42:35.472 CEST [18145] NOISE sbuf_process_pending: loop 16
+2026-09-20 13:42:35.472 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='S', len=26
+2026-09-20 13:42:35.472 CEST [18145] DEBUG S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 S: param: server_encoding = UTF8
+2026-09-20 13:42:35.472 CEST [18145] DEBUG make_room(0x5615be2a6050, 5): realloc newlen=512
+2026-09-20 13:42:35.472 CEST [18145] NOISE sbuf_process_pending: loop 17
+2026-09-20 13:42:35.472 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='K', len=13
+2026-09-20 13:42:35.472 CEST [18145] NOISE sbuf_process_pending: loop 18
+2026-09-20 13:42:35.472 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='Z', len=6
+2026-09-20 13:42:35.472 CEST [18145] DEBUG S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 server login ok, start accepting queries
+2026-09-20 13:42:35.472 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 release_server: new state=12
+2026-09-20 13:42:35.472 CEST [18145] DEBUG S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 reuse_on_release: replication 0
+2026-09-20 13:42:35.472 CEST [18145] DEBUG C-0x5615be2761d0: benchdb/bench@127.0.0.1:54252 activate_client
+2026-09-20 13:42:35.472 CEST [18145] NOISE resync(8): done=0, parse=0, recv=41
+2026-09-20 13:42:35.472 CEST [18145] NOISE safe_recv(8, 4055) = Resource temporarily unavailable
+2026-09-20 13:42:35.472 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.472 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.472 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54252 read pkt='p' len=41
+2026-09-20 13:42:35.472 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54252 P: welcome_client
+2026-09-20 13:42:35.472 CEST [18145] DEBUG C-0x5615be2761d0: benchdb/bench@127.0.0.1:54252 logged in
+2026-09-20 13:42:35.472 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.472 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.472 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.472 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.472 CEST [18145] NOISE resync(8): done=41, parse=41, recv=41
+2026-09-20 13:42:35.472 CEST [18145] NOISE sbuf_process_pending: loop 19
+2026-09-20 13:42:35.472 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.472 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.472 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.472 CEST [18145] NOISE resync(9): done=491, parse=491, recv=491
+2026-09-20 13:42:35.472 CEST [18145] NOISE resync(8): done=0, parse=0, recv=0
+2026-09-20 13:42:35.472 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.472 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.472 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54252 read pkt='Q' len=43
+2026-09-20 13:42:35.472 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54252 find_server: client had no linked server yet
+2026-09-20 13:42:35.472 CEST [18145] DEBUG S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 varcache_apply: SET application_name='pgbench';
+2026-09-20 13:42:35.472 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54252 linking client to S-0x5615be2bd6c0
+2026-09-20 13:42:35.472 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54252 pausing client while applying vars
+2026-09-20 13:42:35.472 CEST [18145] NOISE resync(9): done=0, parse=0, recv=0
+2026-09-20 13:42:35.472 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.472 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.472 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='C', len=9
+2026-09-20 13:42:35.472 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.472 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='S', len=30
+2026-09-20 13:42:35.472 CEST [18145] DEBUG S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 S: param: application_name = pgbench
+2026-09-20 13:42:35.472 CEST [18145] DEBUG C-0x5615be2761d0: benchdb/bench@127.0.0.1:54252 setting client var: application_name='pgbench'
+2026-09-20 13:42:35.472 CEST [18145] NOISE sbuf_process_pending: loop 3
+2026-09-20 13:42:35.472 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='Z', len=6
+2026-09-20 13:42:35.472 CEST [18145] NOISE sbuf_process_pending: loop 4
+2026-09-20 13:42:35.472 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.472 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.472 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.472 CEST [18145] NOISE resync(9): done=45, parse=45, recv=45
+2026-09-20 13:42:35.472 CEST [18145] NOISE done setting vars unpausing client
+2026-09-20 13:42:35.472 CEST [18145] NOISE resync(8): done=0, parse=0, recv=43
+2026-09-20 13:42:35.472 CEST [18145] NOISE safe_recv(8, 4053) = Resource temporarily unavailable
+2026-09-20 13:42:35.472 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.472 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.472 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54252 read pkt='Q' len=43
+2026-09-20 13:42:35.472 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54252 add_outstanding_request: added Q, still outstanding 1
+2026-09-20 13:42:35.472 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.472 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.472 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.472 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.472 CEST [18145] NOISE resync(8): done=43, parse=43, recv=43
+2026-09-20 13:42:35.473 CEST [18145] NOISE resync(9): done=0, parse=0, recv=0
+2026-09-20 13:42:35.473 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.473 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.473 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='T', len=31
+2026-09-20 13:42:35.473 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.473 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='D', len=12
+2026-09-20 13:42:35.473 CEST [18145] NOISE sbuf_process_pending: loop 3
+2026-09-20 13:42:35.473 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='C', len=14
+2026-09-20 13:42:35.473 CEST [18145] NOISE sbuf_process_pending: loop 4
+2026-09-20 13:42:35.473 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='Z', len=6
+2026-09-20 13:42:35.473 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 pop_outstanding_request: popped Q, still outstanding 0, skip 0
+2026-09-20 13:42:35.473 CEST [18145] DEBUG C-0x5615be2761d0: benchdb/bench@127.0.0.1:54252 query time: 1183 us
+2026-09-20 13:42:35.473 CEST [18145] DEBUG C-0x5615be2761d0: benchdb/bench@127.0.0.1:54252 transaction time: 1183 us
+2026-09-20 13:42:35.473 CEST [18145] NOISE sbuf_process_pending: loop 5
+2026-09-20 13:42:35.473 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.473 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.473 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.473 CEST [18145] NOISE resync(9): done=63, parse=63, recv=63
+2026-09-20 13:42:35.473 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 release_server: new state=12
+2026-09-20 13:42:35.473 CEST [18145] DEBUG S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 reuse_on_release: replication 0
+2026-09-20 13:42:35.473 CEST [18145] NOISE resync(8): done=0, parse=0, recv=0
+2026-09-20 13:42:35.473 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.473 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.473 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54252 read pkt='Q' len=488
+2026-09-20 13:42:35.473 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54252 find_server: client had no linked server yet
+2026-09-20 13:42:35.473 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54252 linking client to S-0x5615be2bd6c0
+2026-09-20 13:42:35.473 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54252 add_outstanding_request: added Q, still outstanding 1
+2026-09-20 13:42:35.473 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.473 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.473 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.473 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.473 CEST [18145] NOISE resync(8): done=488, parse=488, recv=488
+2026-09-20 13:42:35.474 CEST [18145] NOISE resync(9): done=0, parse=0, recv=0
+2026-09-20 13:42:35.474 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.474 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.474 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='T', len=79
+2026-09-20 13:42:35.474 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.474 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='D', len=21
+2026-09-20 13:42:35.474 CEST [18145] NOISE sbuf_process_pending: loop 3
+2026-09-20 13:42:35.474 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='C', len=14
+2026-09-20 13:42:35.474 CEST [18145] NOISE sbuf_process_pending: loop 4
+2026-09-20 13:42:35.474 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='Z', len=6
+2026-09-20 13:42:35.474 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 pop_outstanding_request: popped Q, still outstanding 0, skip 0
+2026-09-20 13:42:35.474 CEST [18145] DEBUG C-0x5615be2761d0: benchdb/bench@127.0.0.1:54252 query time: 1309 us
+2026-09-20 13:42:35.474 CEST [18145] DEBUG C-0x5615be2761d0: benchdb/bench@127.0.0.1:54252 transaction time: 1309 us
+2026-09-20 13:42:35.474 CEST [18145] NOISE sbuf_process_pending: loop 5
+2026-09-20 13:42:35.474 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.474 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.474 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.474 CEST [18145] NOISE resync(9): done=120, parse=120, recv=120
+2026-09-20 13:42:35.474 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 release_server: new state=12
+2026-09-20 13:42:35.474 CEST [18145] DEBUG S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 reuse_on_release: replication 0
+2026-09-20 13:42:35.474 CEST [18145] NOISE resync(8): done=0, parse=0, recv=0
+2026-09-20 13:42:35.474 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.474 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.474 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54252 read pkt='Q' len=29
+2026-09-20 13:42:35.474 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54252 find_server: client had no linked server yet
+2026-09-20 13:42:35.474 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54252 linking client to S-0x5615be2bd6c0
+2026-09-20 13:42:35.474 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54252 add_outstanding_request: added Q, still outstanding 1
+2026-09-20 13:42:35.474 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.474 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.474 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.474 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.475 CEST [18145] NOISE resync(8): done=29, parse=29, recv=29
+2026-09-20 13:42:35.475 CEST [18145] NOISE resync(9): done=0, parse=0, recv=0
+2026-09-20 13:42:35.475 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.475 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.475 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='C', len=12
+2026-09-20 13:42:35.475 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.475 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='Z', len=6
+2026-09-20 13:42:35.475 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 pop_outstanding_request: popped Q, still outstanding 0, skip 0
+2026-09-20 13:42:35.475 CEST [18145] DEBUG C-0x5615be2761d0: benchdb/bench@127.0.0.1:54252 query time: 340 us
+2026-09-20 13:42:35.475 CEST [18145] DEBUG C-0x5615be2761d0: benchdb/bench@127.0.0.1:54252 transaction time: 340 us
+2026-09-20 13:42:35.475 CEST [18145] NOISE sbuf_process_pending: loop 3
+2026-09-20 13:42:35.475 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.475 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.475 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.475 CEST [18145] NOISE resync(9): done=18, parse=18, recv=18
+2026-09-20 13:42:35.475 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 release_server: new state=12
+2026-09-20 13:42:35.475 CEST [18145] DEBUG S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 reuse_on_release: replication 0
+2026-09-20 13:42:35.475 CEST [18145] NOISE resync(8): done=0, parse=0, recv=0
+2026-09-20 13:42:35.475 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.475 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.475 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54252 read pkt='Q' len=28
+2026-09-20 13:42:35.475 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54252 find_server: client had no linked server yet
+2026-09-20 13:42:35.475 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54252 linking client to S-0x5615be2bd6c0
+2026-09-20 13:42:35.475 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54252 add_outstanding_request: added Q, still outstanding 1
+2026-09-20 13:42:35.475 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.475 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.475 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.475 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.475 CEST [18145] NOISE resync(8): done=28, parse=28, recv=28
+2026-09-20 13:42:35.475 CEST [18145] NOISE resync(9): done=0, parse=0, recv=0
+2026-09-20 13:42:35.475 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.475 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.475 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='C', len=12
+2026-09-20 13:42:35.475 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.475 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='Z', len=6
+2026-09-20 13:42:35.475 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 pop_outstanding_request: popped Q, still outstanding 0, skip 0
+2026-09-20 13:42:35.475 CEST [18145] DEBUG C-0x5615be2761d0: benchdb/bench@127.0.0.1:54252 query time: 460 us
+2026-09-20 13:42:35.475 CEST [18145] DEBUG C-0x5615be2761d0: benchdb/bench@127.0.0.1:54252 transaction time: 460 us
+2026-09-20 13:42:35.475 CEST [18145] NOISE sbuf_process_pending: loop 3
+2026-09-20 13:42:35.475 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.475 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.475 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.475 CEST [18145] NOISE resync(9): done=18, parse=18, recv=18
+2026-09-20 13:42:35.475 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 release_server: new state=12
+2026-09-20 13:42:35.475 CEST [18145] DEBUG S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 reuse_on_release: replication 0
+2026-09-20 13:42:35.475 CEST [18145] NOISE resync(8): done=0, parse=0, recv=0
+2026-09-20 13:42:35.475 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.475 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.475 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54252 read pkt='Q' len=30
+2026-09-20 13:42:35.475 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54252 find_server: client had no linked server yet
+2026-09-20 13:42:35.475 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54252 linking client to S-0x5615be2bd6c0
+2026-09-20 13:42:35.475 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54252 add_outstanding_request: added Q, still outstanding 1
+2026-09-20 13:42:35.475 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.475 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.475 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.475 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.475 CEST [18145] NOISE resync(8): done=30, parse=30, recv=30
+2026-09-20 13:42:35.485 CEST [18145] NOISE resync(9): done=0, parse=0, recv=0
+2026-09-20 13:42:35.485 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.485 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.485 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='C', len=20
+2026-09-20 13:42:35.485 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.485 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='Z', len=6
+2026-09-20 13:42:35.485 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 pop_outstanding_request: popped Q, still outstanding 0, skip 0
+2026-09-20 13:42:35.485 CEST [18145] DEBUG C-0x5615be2761d0: benchdb/bench@127.0.0.1:54252 query time: 9352 us
+2026-09-20 13:42:35.485 CEST [18145] DEBUG C-0x5615be2761d0: benchdb/bench@127.0.0.1:54252 transaction time: 9352 us
+2026-09-20 13:42:35.485 CEST [18145] NOISE sbuf_process_pending: loop 3
+2026-09-20 13:42:35.485 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.485 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.485 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.485 CEST [18145] NOISE resync(9): done=26, parse=26, recv=26
+2026-09-20 13:42:35.485 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 release_server: new state=12
+2026-09-20 13:42:35.485 CEST [18145] DEBUG S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 reuse_on_release: replication 0
+2026-09-20 13:42:35.485 CEST [18145] NOISE resync(8): done=0, parse=0, recv=0
+2026-09-20 13:42:35.485 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.485 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.485 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54252 read pkt='X' len=5
+2026-09-20 13:42:35.485 CEST [18145] LOG C-0x5615be2761d0: benchdb/bench@127.0.0.1:54252 closing because: client close request (age=0s)
+2026-09-20 13:42:35.485 CEST [18145] NOISE new fd from accept=8
+2026-09-20 13:42:35.485 CEST [18145] NOISE resync(8): done=0, parse=0, recv=0
+2026-09-20 13:42:35.485 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.485 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.485 CEST [18145] NOISE C-0x5615be2761d0: (nodb)/(nouser)@127.0.0.1:54266 read pkt='!' len=8
+2026-09-20 13:42:35.485 CEST [18145] NOISE C-0x5615be2761d0: (nodb)/(nouser)@127.0.0.1:54266 C: req SSL
+2026-09-20 13:42:35.485 CEST [18145] NOISE C-0x5615be2761d0: (nodb)/(nouser)@127.0.0.1:54266 P: nak
+2026-09-20 13:42:35.485 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.485 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.485 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.485 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.485 CEST [18145] NOISE resync(8): done=8, parse=8, recv=8
+2026-09-20 13:42:35.485 CEST [18145] DEBUG C-0x5615be2761d0: (nodb)/(nouser)@127.0.0.1:54266 P: got connection: 127.0.0.1:54266 -> 127.0.0.1:6432
+2026-09-20 13:42:35.485 CEST [18145] NOISE safe_accept(7) = Resource temporarily unavailable
+2026-09-20 13:42:35.485 CEST [18145] NOISE resync(8): done=0, parse=0, recv=0
+2026-09-20 13:42:35.485 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.485 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.485 CEST [18145] NOISE C-0x5615be2761d0: (nodb)/(nouser)@127.0.0.1:54266 read pkt='!' len=62
+2026-09-20 13:42:35.485 CEST [18145] DEBUG C-0x5615be2761d0: (nodb)/(nouser)@127.0.0.1:54266 got var: user=bench
+2026-09-20 13:42:35.485 CEST [18145] DEBUG C-0x5615be2761d0: (nodb)/(nouser)@127.0.0.1:54266 got var: database=benchdb
+2026-09-20 13:42:35.485 CEST [18145] DEBUG C-0x5615be2761d0: (nodb)/(nouser)@127.0.0.1:54266 using application_name: pgbench
+2026-09-20 13:42:35.485 CEST [18145] LOG C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 login attempt: db=benchdb user=bench tls=no replication=no
+2026-09-20 13:42:35.485 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 Auth request sent successfully
+2026-09-20 13:42:35.485 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.485 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.485 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.485 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.485 CEST [18145] NOISE resync(8): done=62, parse=62, recv=62
+2026-09-20 13:42:35.485 CEST [18145] NOISE resync(8): done=0, parse=0, recv=0
+2026-09-20 13:42:35.485 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.485 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.485 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 read pkt='p' len=41
+2026-09-20 13:42:35.485 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 P: welcome_client
+2026-09-20 13:42:35.485 CEST [18145] DEBUG C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 logged in
+2026-09-20 13:42:35.485 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.485 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.485 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.485 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.485 CEST [18145] NOISE resync(8): done=41, parse=41, recv=41
+2026-09-20 13:42:35.486 CEST [18145] NOISE new fd from accept=10
+2026-09-20 13:42:35.486 CEST [18145] NOISE resync(10): done=0, parse=0, recv=0
+2026-09-20 13:42:35.486 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.486 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.486 CEST [18145] NOISE C-0x5615be2768b8: (nodb)/(nouser)@127.0.0.1:54274 read pkt='!' len=8
+2026-09-20 13:42:35.486 CEST [18145] NOISE C-0x5615be2768b8: (nodb)/(nouser)@127.0.0.1:54274 C: req SSL
+2026-09-20 13:42:35.486 CEST [18145] NOISE C-0x5615be2768b8: (nodb)/(nouser)@127.0.0.1:54274 P: nak
+2026-09-20 13:42:35.486 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.486 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.486 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.486 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.486 CEST [18145] NOISE resync(10): done=8, parse=8, recv=8
+2026-09-20 13:42:35.486 CEST [18145] DEBUG C-0x5615be2768b8: (nodb)/(nouser)@127.0.0.1:54274 P: got connection: 127.0.0.1:54274 -> 127.0.0.1:6432
+2026-09-20 13:42:35.486 CEST [18145] NOISE safe_accept(7) = Resource temporarily unavailable
+2026-09-20 13:42:35.486 CEST [18145] NOISE resync(10): done=0, parse=0, recv=0
+2026-09-20 13:42:35.486 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.486 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.486 CEST [18145] NOISE C-0x5615be2768b8: (nodb)/(nouser)@127.0.0.1:54274 read pkt='!' len=62
+2026-09-20 13:42:35.486 CEST [18145] DEBUG C-0x5615be2768b8: (nodb)/(nouser)@127.0.0.1:54274 got var: user=bench
+2026-09-20 13:42:35.486 CEST [18145] DEBUG C-0x5615be2768b8: (nodb)/(nouser)@127.0.0.1:54274 got var: database=benchdb
+2026-09-20 13:42:35.486 CEST [18145] DEBUG C-0x5615be2768b8: (nodb)/(nouser)@127.0.0.1:54274 using application_name: pgbench
+2026-09-20 13:42:35.486 CEST [18145] LOG C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 login attempt: db=benchdb user=bench tls=no replication=no
+2026-09-20 13:42:35.486 CEST [18145] NOISE C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 Auth request sent successfully
+2026-09-20 13:42:35.486 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.486 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.486 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.486 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.486 CEST [18145] NOISE resync(10): done=62, parse=62, recv=62
+2026-09-20 13:42:35.486 CEST [18145] NOISE resync(10): done=0, parse=0, recv=0
+2026-09-20 13:42:35.486 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.486 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.486 CEST [18145] NOISE C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 read pkt='p' len=41
+2026-09-20 13:42:35.486 CEST [18145] NOISE C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 P: welcome_client
+2026-09-20 13:42:35.486 CEST [18145] DEBUG C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 logged in
+2026-09-20 13:42:35.486 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.486 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.486 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.486 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.486 CEST [18145] NOISE resync(10): done=41, parse=41, recv=41
+2026-09-20 13:42:35.486 CEST [18145] NOISE resync(8): done=0, parse=0, recv=0
+2026-09-20 13:42:35.486 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.486 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.486 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 read pkt='Q' len=12
+2026-09-20 13:42:35.486 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 find_server: client had no linked server yet
+2026-09-20 13:42:35.486 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 linking client to S-0x5615be2bd6c0
+2026-09-20 13:42:35.486 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 add_outstanding_request: added Q, still outstanding 1
+2026-09-20 13:42:35.486 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.486 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.486 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.486 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.486 CEST [18145] NOISE resync(8): done=12, parse=12, recv=12
+2026-09-20 13:42:35.486 CEST [18145] NOISE resync(10): done=0, parse=0, recv=0
+2026-09-20 13:42:35.486 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.486 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.486 CEST [18145] NOISE C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 read pkt='Q' len=12
+2026-09-20 13:42:35.486 CEST [18145] NOISE C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 find_server: client had no linked server yet
+2026-09-20 13:42:35.486 CEST [18145] DEBUG C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 pause_client
+2026-09-20 13:42:35.486 CEST [18145] DEBUG launch_new_connection: start
+2026-09-20 13:42:35.486 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@(bad-af):0 inet socket: 127.0.0.1
+2026-09-20 13:42:35.486 CEST [18145] DEBUG S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 launching new connection to server
+2026-09-20 13:42:35.486 CEST [18145] DEBUG S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 S: connect ok
+2026-09-20 13:42:35.486 CEST [18145] LOG S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 new connection to server (from 127.0.0.1:43006)
+2026-09-20 13:42:35.486 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 P: SSL request
+2026-09-20 13:42:35.486 CEST [18145] DEBUG launch_new_connection: start
+2026-09-20 13:42:35.486 CEST [18145] DEBUG launch_new_connection: already progress
+2026-09-20 13:42:35.486 CEST [18145] NOISE resync(9): done=0, parse=0, recv=0
+2026-09-20 13:42:35.486 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.486 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.486 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='C', len=11
+2026-09-20 13:42:35.486 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.486 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='Z', len=6
+2026-09-20 13:42:35.486 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 pop_outstanding_request: popped Q, still outstanding 0, skip 0
+2026-09-20 13:42:35.486 CEST [18145] DEBUG C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 query time: 214 us
+2026-09-20 13:42:35.486 CEST [18145] NOISE sbuf_process_pending: loop 3
+2026-09-20 13:42:35.486 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.486 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.486 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.486 CEST [18145] NOISE resync(9): done=17, parse=17, recv=17
+2026-09-20 13:42:35.486 CEST [18145] DEBUG launch_new_connection: start
+2026-09-20 13:42:35.486 CEST [18145] DEBUG launch_new_connection: already progress
+2026-09-20 13:42:35.486 CEST [18145] NOISE resync(8): done=0, parse=0, recv=0
+2026-09-20 13:42:35.486 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.486 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.486 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 read pkt='Q' len=80
+2026-09-20 13:42:35.486 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 add_outstanding_request: added Q, still outstanding 1
+2026-09-20 13:42:35.486 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.486 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.486 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.486 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.486 CEST [18145] NOISE resync(8): done=80, parse=80, recv=80
+2026-09-20 13:42:35.486 CEST [18145] DEBUG launch_new_connection: start
+2026-09-20 13:42:35.486 CEST [18145] DEBUG launch_new_connection: already progress
+2026-09-20 13:42:35.487 CEST [18145] NOISE resync(9): done=0, parse=0, recv=0
+2026-09-20 13:42:35.487 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.487 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.487 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='C', len=14
+2026-09-20 13:42:35.487 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.487 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='Z', len=6
+2026-09-20 13:42:35.487 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 pop_outstanding_request: popped Q, still outstanding 0, skip 0
+2026-09-20 13:42:35.487 CEST [18145] DEBUG C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 query time: 767 us
+2026-09-20 13:42:35.487 CEST [18145] NOISE sbuf_process_pending: loop 3
+2026-09-20 13:42:35.487 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.487 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.487 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.487 CEST [18145] NOISE resync(9): done=20, parse=20, recv=20
+2026-09-20 13:42:35.487 CEST [18145] DEBUG launch_new_connection: start
+2026-09-20 13:42:35.487 CEST [18145] DEBUG launch_new_connection: already progress
+2026-09-20 13:42:35.487 CEST [18145] NOISE resync(11): done=0, parse=0, recv=0
+2026-09-20 13:42:35.487 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.487 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.487 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.487 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.487 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.487 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.487 CEST [18145] NOISE resync(11): done=1, parse=1, recv=1
+2026-09-20 13:42:35.487 CEST [18145] DEBUG launch_new_connection: start
+2026-09-20 13:42:35.487 CEST [18145] DEBUG launch_new_connection: already progress
+2026-09-20 13:42:35.487 CEST [18145] NOISE resync(8): done=0, parse=0, recv=0
+2026-09-20 13:42:35.487 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.487 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.487 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 read pkt='Q' len=63
+2026-09-20 13:42:35.487 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 add_outstanding_request: added Q, still outstanding 1
+2026-09-20 13:42:35.487 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.487 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.487 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.487 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.487 CEST [18145] NOISE resync(8): done=63, parse=63, recv=63
+2026-09-20 13:42:35.487 CEST [18145] DEBUG launch_new_connection: start
+2026-09-20 13:42:35.487 CEST [18145] DEBUG launch_new_connection: already progress
+2026-09-20 13:42:35.487 CEST [18145] NOISE resync(9): done=0, parse=0, recv=0
+2026-09-20 13:42:35.487 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.487 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.487 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='T', len=34
+2026-09-20 13:42:35.487 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.487 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='D', len=15
+2026-09-20 13:42:35.487 CEST [18145] NOISE sbuf_process_pending: loop 3
+2026-09-20 13:42:35.487 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='C', len=14
+2026-09-20 13:42:35.487 CEST [18145] NOISE sbuf_process_pending: loop 4
+2026-09-20 13:42:35.487 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='Z', len=6
+2026-09-20 13:42:35.487 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 pop_outstanding_request: popped Q, still outstanding 0, skip 0
+2026-09-20 13:42:35.487 CEST [18145] DEBUG C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 query time: 436 us
+2026-09-20 13:42:35.487 CEST [18145] NOISE sbuf_process_pending: loop 5
+2026-09-20 13:42:35.487 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.487 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.488 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.488 CEST [18145] NOISE resync(9): done=69, parse=69, recv=69
+2026-09-20 13:42:35.488 CEST [18145] DEBUG launch_new_connection: start
+2026-09-20 13:42:35.488 CEST [18145] DEBUG launch_new_connection: already progress
+2026-09-20 13:42:35.488 CEST [18145] NOISE resync(8): done=0, parse=0, recv=0
+2026-09-20 13:42:35.488 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.488 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.488 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 read pkt='Q' len=74
+2026-09-20 13:42:35.488 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 add_outstanding_request: added Q, still outstanding 1
+2026-09-20 13:42:35.488 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.488 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.488 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.488 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.488 CEST [18145] NOISE resync(8): done=74, parse=74, recv=74
+2026-09-20 13:42:35.488 CEST [18145] DEBUG launch_new_connection: start
+2026-09-20 13:42:35.488 CEST [18145] DEBUG launch_new_connection: already progress
+2026-09-20 13:42:35.488 CEST [18145] NOISE resync(11): done=0, parse=0, recv=0
+2026-09-20 13:42:35.488 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.488 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.488 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 read pkt='R', len=24
+2026-09-20 13:42:35.488 CEST [18145] DEBUG S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 calling login_answer
+2026-09-20 13:42:35.488 CEST [18145] DEBUG S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 S: req SASL
+2026-09-20 13:42:35.488 CEST [18145] DEBUG S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 S: SASL advertised mechanism: SCRAM-SHA-256
+2026-09-20 13:42:35.488 CEST [18145] DEBUG S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 SCRAM client-first-message = "n,,n=,r=RA/f//ltAc9xD3wvJk+Ttkgl"
+2026-09-20 13:42:35.488 CEST [18145] DEBUG S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 P: send SASLInitialResponse
+2026-09-20 13:42:35.488 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.488 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.488 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.488 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.488 CEST [18145] NOISE resync(11): done=24, parse=24, recv=24
+2026-09-20 13:42:35.488 CEST [18145] DEBUG launch_new_connection: start
+2026-09-20 13:42:35.488 CEST [18145] DEBUG launch_new_connection: already progress
+2026-09-20 13:42:35.488 CEST [18145] NOISE resync(9): done=0, parse=0, recv=0
+2026-09-20 13:42:35.488 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.488 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.488 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='C', len=14
+2026-09-20 13:42:35.488 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.488 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='Z', len=6
+2026-09-20 13:42:35.488 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 pop_outstanding_request: popped Q, still outstanding 0, skip 0
+2026-09-20 13:42:35.488 CEST [18145] DEBUG C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 query time: 451 us
+2026-09-20 13:42:35.488 CEST [18145] NOISE sbuf_process_pending: loop 3
+2026-09-20 13:42:35.488 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.488 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.488 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.488 CEST [18145] NOISE resync(9): done=20, parse=20, recv=20
+2026-09-20 13:42:35.488 CEST [18145] DEBUG launch_new_connection: start
+2026-09-20 13:42:35.488 CEST [18145] DEBUG launch_new_connection: already progress
+2026-09-20 13:42:35.488 CEST [18145] NOISE resync(11): done=0, parse=0, recv=0
+2026-09-20 13:42:35.488 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.488 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.488 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 read pkt='R', len=93
+2026-09-20 13:42:35.488 CEST [18145] DEBUG S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 calling login_answer
+2026-09-20 13:42:35.488 CEST [18145] DEBUG S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 S: SASL cont
+2026-09-20 13:42:35.488 CEST [18145] DEBUG S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 SCRAM server-first-message = "r=RA/f//ltAc9xD3wvJk+Ttkglnbs+wWEc/s2fHHyCyIbPhVvj,s=VzrSosGmWm3p3poUlpCv/g==,i=4096"
+2026-09-20 13:42:35.499 CEST [18145] DEBUG S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 SCRAM client-final-message = "c=biws,r=RA/f//ltAc9xD3wvJk+Ttkglnbs+wWEc/s2fHHyCyIbPhVvj,p=6U/og+VWh/GL1J/IXDi+ZUG3t52pw4TSGM2JYDSw9Ow="
+2026-09-20 13:42:35.499 CEST [18145] DEBUG S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 P: send SASLResponse
+2026-09-20 13:42:35.499 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.499 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.499 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.499 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.499 CEST [18145] NOISE resync(11): done=93, parse=93, recv=93
+2026-09-20 13:42:35.499 CEST [18145] DEBUG launch_new_connection: start
+2026-09-20 13:42:35.499 CEST [18145] DEBUG launch_new_connection: already progress
+2026-09-20 13:42:35.499 CEST [18145] NOISE resync(8): done=0, parse=0, recv=0
+2026-09-20 13:42:35.499 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.499 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.499 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 read pkt='Q' len=75
+2026-09-20 13:42:35.499 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 add_outstanding_request: added Q, still outstanding 1
+2026-09-20 13:42:35.499 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.499 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.499 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.499 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.499 CEST [18145] NOISE resync(8): done=75, parse=75, recv=75
+2026-09-20 13:42:35.499 CEST [18145] DEBUG launch_new_connection: start
+2026-09-20 13:42:35.499 CEST [18145] DEBUG launch_new_connection: already progress
+2026-09-20 13:42:35.499 CEST [18145] NOISE resync(9): done=0, parse=0, recv=0
+2026-09-20 13:42:35.499 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.499 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.499 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='C', len=14
+2026-09-20 13:42:35.499 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.499 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='Z', len=6
+2026-09-20 13:42:35.499 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 pop_outstanding_request: popped Q, still outstanding 0, skip 0
+2026-09-20 13:42:35.499 CEST [18145] DEBUG C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 query time: 340 us
+2026-09-20 13:42:35.499 CEST [18145] NOISE sbuf_process_pending: loop 3
+2026-09-20 13:42:35.499 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.499 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.499 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.499 CEST [18145] NOISE resync(9): done=20, parse=20, recv=20
+2026-09-20 13:42:35.499 CEST [18145] DEBUG launch_new_connection: start
+2026-09-20 13:42:35.499 CEST [18145] DEBUG launch_new_connection: already progress
+2026-09-20 13:42:35.499 CEST [18145] NOISE resync(8): done=0, parse=0, recv=0
+2026-09-20 13:42:35.499 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.499 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.499 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 read pkt='Q' len=111
+2026-09-20 13:42:35.499 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 add_outstanding_request: added Q, still outstanding 1
+2026-09-20 13:42:35.499 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.499 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.499 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.499 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.499 CEST [18145] NOISE resync(8): done=111, parse=111, recv=111
+2026-09-20 13:42:35.499 CEST [18145] DEBUG launch_new_connection: start
+2026-09-20 13:42:35.499 CEST [18145] DEBUG launch_new_connection: already progress
+2026-09-20 13:42:35.499 CEST [18145] NOISE resync(9): done=0, parse=0, recv=0
+2026-09-20 13:42:35.499 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.499 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.499 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='C', len=16
+2026-09-20 13:42:35.499 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.499 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='Z', len=6
+2026-09-20 13:42:35.499 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 pop_outstanding_request: popped Q, still outstanding 0, skip 0
+2026-09-20 13:42:35.499 CEST [18145] DEBUG C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 query time: 306 us
+2026-09-20 13:42:35.499 CEST [18145] NOISE sbuf_process_pending: loop 3
+2026-09-20 13:42:35.499 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.499 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.500 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.500 CEST [18145] NOISE resync(9): done=22, parse=22, recv=22
+2026-09-20 13:42:35.500 CEST [18145] DEBUG launch_new_connection: start
+2026-09-20 13:42:35.500 CEST [18145] DEBUG launch_new_connection: already progress
+2026-09-20 13:42:35.500 CEST [18145] NOISE resync(8): done=0, parse=0, recv=0
+2026-09-20 13:42:35.500 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.500 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.500 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 read pkt='Q' len=10
+2026-09-20 13:42:35.500 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 add_outstanding_request: added Q, still outstanding 1
+2026-09-20 13:42:35.500 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.500 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.500 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.500 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.500 CEST [18145] NOISE resync(8): done=10, parse=10, recv=10
+2026-09-20 13:42:35.500 CEST [18145] DEBUG launch_new_connection: start
+2026-09-20 13:42:35.500 CEST [18145] DEBUG launch_new_connection: already progress
+2026-09-20 13:42:35.500 CEST [18145] NOISE resync(11): done=0, parse=0, recv=0
+2026-09-20 13:42:35.500 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.500 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.500 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 read pkt='R', len=55
+2026-09-20 13:42:35.500 CEST [18145] DEBUG S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 calling login_answer
+2026-09-20 13:42:35.500 CEST [18145] DEBUG S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 S: SASL final
+2026-09-20 13:42:35.500 CEST [18145] DEBUG S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 SCRAM server-final-message = "v=A4G7N0e/lWvymes9cymh12zpEv1/Y157P6/qVbdAUwE="
+2026-09-20 13:42:35.500 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.500 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 read pkt='R', len=9
+2026-09-20 13:42:35.500 CEST [18145] DEBUG S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 calling login_answer
+2026-09-20 13:42:35.500 CEST [18145] DEBUG S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 S: auth ok
+2026-09-20 13:42:35.500 CEST [18145] NOISE sbuf_process_pending: loop 3
+2026-09-20 13:42:35.500 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 read pkt='S', len=24
+2026-09-20 13:42:35.500 CEST [18145] DEBUG S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 S: param: in_hot_standby = off
+2026-09-20 13:42:35.500 CEST [18145] NOISE sbuf_process_pending: loop 4
+2026-09-20 13:42:35.500 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 read pkt='S', len=26
+2026-09-20 13:42:35.500 CEST [18145] DEBUG S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 S: param: integer_datetimes = on
+2026-09-20 13:42:35.500 CEST [18145] NOISE sbuf_process_pending: loop 5
+2026-09-20 13:42:35.500 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 read pkt='S', len=22
+2026-09-20 13:42:35.500 CEST [18145] DEBUG S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 S: param: TimeZone = Etc/UTC
+2026-09-20 13:42:35.500 CEST [18145] NOISE sbuf_process_pending: loop 6
+2026-09-20 13:42:35.500 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 read pkt='S', len=28
+2026-09-20 13:42:35.500 CEST [18145] DEBUG S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 S: param: IntervalStyle = postgres
+2026-09-20 13:42:35.500 CEST [18145] NOISE sbuf_process_pending: loop 7
+2026-09-20 13:42:35.500 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 read pkt='S', len=22
+2026-09-20 13:42:35.500 CEST [18145] DEBUG S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 S: param: is_superuser = off
+2026-09-20 13:42:35.500 CEST [18145] NOISE sbuf_process_pending: loop 8
+2026-09-20 13:42:35.500 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 read pkt='S', len=23
+2026-09-20 13:42:35.500 CEST [18145] DEBUG S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 S: param: application_name = 
+2026-09-20 13:42:35.500 CEST [18145] NOISE sbuf_process_pending: loop 9
+2026-09-20 13:42:35.500 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 read pkt='S', len=39
+2026-09-20 13:42:35.500 CEST [18145] DEBUG S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 S: param: default_transaction_read_only = off
+2026-09-20 13:42:35.500 CEST [18145] NOISE sbuf_process_pending: loop 10
+2026-09-20 13:42:35.500 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 read pkt='S', len=27
+2026-09-20 13:42:35.500 CEST [18145] DEBUG S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 S: param: scram_iterations = 4096
+2026-09-20 13:42:35.500 CEST [18145] NOISE sbuf_process_pending: loop 11
+2026-09-20 13:42:35.500 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 read pkt='S', len=24
+2026-09-20 13:42:35.500 CEST [18145] DEBUG S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 S: param: DateStyle = ISO, MDY
+2026-09-20 13:42:35.500 CEST [18145] NOISE sbuf_process_pending: loop 12
+2026-09-20 13:42:35.500 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 read pkt='S', len=36
+2026-09-20 13:42:35.500 CEST [18145] DEBUG S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 S: param: standard_conforming_strings = on
+2026-09-20 13:42:35.500 CEST [18145] NOISE sbuf_process_pending: loop 13
+2026-09-20 13:42:35.500 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 read pkt='S', len=33
+2026-09-20 13:42:35.500 CEST [18145] DEBUG S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 S: param: session_authorization = bench
+2026-09-20 13:42:35.500 CEST [18145] NOISE sbuf_process_pending: loop 14
+2026-09-20 13:42:35.500 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 read pkt='S', len=26
+2026-09-20 13:42:35.500 CEST [18145] DEBUG S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 S: param: client_encoding = UTF8
+2026-09-20 13:42:35.500 CEST [18145] NOISE sbuf_process_pending: loop 15
+2026-09-20 13:42:35.500 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 read pkt='S', len=52
+2026-09-20 13:42:35.500 CEST [18145] DEBUG S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 S: param: server_version = 16.15 (Debian 16.15-1.pgdg13+2)
+2026-09-20 13:42:35.500 CEST [18145] NOISE sbuf_process_pending: loop 16
+2026-09-20 13:42:35.500 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 read pkt='S', len=26
+2026-09-20 13:42:35.500 CEST [18145] DEBUG S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 S: param: server_encoding = UTF8
+2026-09-20 13:42:35.500 CEST [18145] NOISE sbuf_process_pending: loop 17
+2026-09-20 13:42:35.500 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 read pkt='K', len=13
+2026-09-20 13:42:35.500 CEST [18145] NOISE sbuf_process_pending: loop 18
+2026-09-20 13:42:35.500 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 read pkt='Z', len=6
+2026-09-20 13:42:35.500 CEST [18145] DEBUG S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 server login ok, start accepting queries
+2026-09-20 13:42:35.500 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 release_server: new state=12
+2026-09-20 13:42:35.500 CEST [18145] DEBUG S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 reuse_on_release: replication 0
+2026-09-20 13:42:35.500 CEST [18145] DEBUG C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 activate_client
+2026-09-20 13:42:35.500 CEST [18145] NOISE resync(10): done=0, parse=0, recv=12
+2026-09-20 13:42:35.500 CEST [18145] NOISE safe_recv(10, 4084) = Resource temporarily unavailable
+2026-09-20 13:42:35.500 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.500 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.500 CEST [18145] NOISE C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 read pkt='Q' len=12
+2026-09-20 13:42:35.500 CEST [18145] NOISE C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 find_server: client had no linked server yet
+2026-09-20 13:42:35.500 CEST [18145] DEBUG S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 varcache_apply: SET application_name='pgbench';
+2026-09-20 13:42:35.500 CEST [18145] NOISE C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 linking client to S-0x5615be2bdda8
+2026-09-20 13:42:35.500 CEST [18145] NOISE C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 pausing client while applying vars
+2026-09-20 13:42:35.500 CEST [18145] NOISE sbuf_process_pending: loop 19
+2026-09-20 13:42:35.500 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.500 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.500 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.500 CEST [18145] NOISE resync(11): done=491, parse=491, recv=491
+2026-09-20 13:42:35.500 CEST [18145] NOISE resync(11): done=0, parse=0, recv=0
+2026-09-20 13:42:35.500 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.500 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.500 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 read pkt='C', len=9
+2026-09-20 13:42:35.500 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.500 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 read pkt='S', len=30
+2026-09-20 13:42:35.500 CEST [18145] DEBUG S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 S: param: application_name = pgbench
+2026-09-20 13:42:35.500 CEST [18145] DEBUG C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 setting client var: application_name='pgbench'
+2026-09-20 13:42:35.500 CEST [18145] NOISE sbuf_process_pending: loop 3
+2026-09-20 13:42:35.500 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 read pkt='Z', len=6
+2026-09-20 13:42:35.500 CEST [18145] NOISE sbuf_process_pending: loop 4
+2026-09-20 13:42:35.500 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.500 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.500 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.500 CEST [18145] NOISE resync(11): done=45, parse=45, recv=45
+2026-09-20 13:42:35.500 CEST [18145] NOISE done setting vars unpausing client
+2026-09-20 13:42:35.500 CEST [18145] NOISE resync(10): done=0, parse=0, recv=12
+2026-09-20 13:42:35.500 CEST [18145] NOISE safe_recv(10, 4084) = Resource temporarily unavailable
+2026-09-20 13:42:35.500 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.500 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.500 CEST [18145] NOISE C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 read pkt='Q' len=12
+2026-09-20 13:42:35.500 CEST [18145] NOISE C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 add_outstanding_request: added Q, still outstanding 1
+2026-09-20 13:42:35.500 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.500 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.500 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.500 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.500 CEST [18145] NOISE resync(10): done=12, parse=12, recv=12
+2026-09-20 13:42:35.500 CEST [18145] NOISE resync(11): done=0, parse=0, recv=0
+2026-09-20 13:42:35.500 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.500 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.500 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 read pkt='C', len=11
+2026-09-20 13:42:35.500 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.500 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 read pkt='Z', len=6
+2026-09-20 13:42:35.500 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 pop_outstanding_request: popped Q, still outstanding 0, skip 0
+2026-09-20 13:42:35.500 CEST [18145] DEBUG C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 query time: 14427 us
+2026-09-20 13:42:35.500 CEST [18145] NOISE sbuf_process_pending: loop 3
+2026-09-20 13:42:35.500 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.500 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.500 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.500 CEST [18145] NOISE resync(11): done=17, parse=17, recv=17
+2026-09-20 13:42:35.500 CEST [18145] NOISE resync(10): done=0, parse=0, recv=0
+2026-09-20 13:42:35.500 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.500 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.500 CEST [18145] NOISE C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 read pkt='Q' len=80
+2026-09-20 13:42:35.500 CEST [18145] NOISE C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 add_outstanding_request: added Q, still outstanding 1
+2026-09-20 13:42:35.500 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.500 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.500 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.500 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.500 CEST [18145] NOISE resync(10): done=80, parse=80, recv=80
+2026-09-20 13:42:35.500 CEST [18145] NOISE resync(9): done=0, parse=0, recv=0
+2026-09-20 13:42:35.500 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.500 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.500 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='C', len=12
+2026-09-20 13:42:35.500 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.500 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='Z', len=6
+2026-09-20 13:42:35.500 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 pop_outstanding_request: popped Q, still outstanding 0, skip 0
+2026-09-20 13:42:35.500 CEST [18145] DEBUG C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 query time: 814 us
+2026-09-20 13:42:35.500 CEST [18145] DEBUG C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 transaction time: 14667 us
+2026-09-20 13:42:35.500 CEST [18145] NOISE sbuf_process_pending: loop 3
+2026-09-20 13:42:35.500 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.500 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.500 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.500 CEST [18145] NOISE resync(9): done=18, parse=18, recv=18
+2026-09-20 13:42:35.500 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 release_server: new state=12
+2026-09-20 13:42:35.500 CEST [18145] DEBUG S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 reuse_on_release: replication 0
+2026-09-20 13:42:35.500 CEST [18145] NOISE resync(8): done=0, parse=0, recv=0
+2026-09-20 13:42:35.500 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.500 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.500 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 read pkt='Q' len=12
+2026-09-20 13:42:35.500 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 find_server: client had no linked server yet
+2026-09-20 13:42:35.500 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 linking client to S-0x5615be2bd6c0
+2026-09-20 13:42:35.500 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 add_outstanding_request: added Q, still outstanding 1
+2026-09-20 13:42:35.500 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.500 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.500 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.501 CEST [18145] NOISE resync(8): done=12, parse=12, recv=12
+2026-09-20 13:42:35.501 CEST [18145] NOISE resync(9): done=0, parse=0, recv=0
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.501 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='C', len=11
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.501 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='Z', len=6
+2026-09-20 13:42:35.501 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 pop_outstanding_request: popped Q, still outstanding 0, skip 0
+2026-09-20 13:42:35.501 CEST [18145] DEBUG C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 query time: 118 us
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: loop 3
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.501 CEST [18145] NOISE resync(9): done=17, parse=17, recv=17
+2026-09-20 13:42:35.501 CEST [18145] NOISE resync(8): done=0, parse=0, recv=0
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.501 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 read pkt='Q' len=81
+2026-09-20 13:42:35.501 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 add_outstanding_request: added Q, still outstanding 1
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.501 CEST [18145] NOISE resync(8): done=81, parse=81, recv=81
+2026-09-20 13:42:35.501 CEST [18145] NOISE resync(9): done=0, parse=0, recv=0
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.501 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='C', len=14
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.501 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='Z', len=6
+2026-09-20 13:42:35.501 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 pop_outstanding_request: popped Q, still outstanding 0, skip 0
+2026-09-20 13:42:35.501 CEST [18145] DEBUG C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 query time: 166 us
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: loop 3
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.501 CEST [18145] NOISE resync(9): done=20, parse=20, recv=20
+2026-09-20 13:42:35.501 CEST [18145] NOISE resync(11): done=0, parse=0, recv=0
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.501 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 read pkt='C', len=14
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.501 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 read pkt='Z', len=6
+2026-09-20 13:42:35.501 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 pop_outstanding_request: popped Q, still outstanding 0, skip 0
+2026-09-20 13:42:35.501 CEST [18145] DEBUG C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 query time: 563 us
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: loop 3
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.501 CEST [18145] NOISE resync(11): done=20, parse=20, recv=20
+2026-09-20 13:42:35.501 CEST [18145] NOISE resync(8): done=0, parse=0, recv=0
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.501 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 read pkt='Q' len=63
+2026-09-20 13:42:35.501 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 add_outstanding_request: added Q, still outstanding 1
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.501 CEST [18145] NOISE resync(8): done=63, parse=63, recv=63
+2026-09-20 13:42:35.501 CEST [18145] NOISE resync(10): done=0, parse=0, recv=0
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.501 CEST [18145] NOISE C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 read pkt='Q' len=63
+2026-09-20 13:42:35.501 CEST [18145] NOISE C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 add_outstanding_request: added Q, still outstanding 1
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.501 CEST [18145] NOISE resync(10): done=63, parse=63, recv=63
+2026-09-20 13:42:35.501 CEST [18145] NOISE resync(9): done=0, parse=0, recv=0
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.501 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='T', len=34
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.501 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='D', len=16
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: loop 3
+2026-09-20 13:42:35.501 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='C', len=14
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: loop 4
+2026-09-20 13:42:35.501 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='Z', len=6
+2026-09-20 13:42:35.501 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 pop_outstanding_request: popped Q, still outstanding 0, skip 0
+2026-09-20 13:42:35.501 CEST [18145] DEBUG C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 query time: 84 us
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: loop 5
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.501 CEST [18145] NOISE resync(9): done=70, parse=70, recv=70
+2026-09-20 13:42:35.501 CEST [18145] NOISE resync(11): done=0, parse=0, recv=0
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.501 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 read pkt='T', len=34
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.501 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 read pkt='D', len=15
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: loop 3
+2026-09-20 13:42:35.501 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 read pkt='C', len=14
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: loop 4
+2026-09-20 13:42:35.501 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 read pkt='Z', len=6
+2026-09-20 13:42:35.501 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 pop_outstanding_request: popped Q, still outstanding 0, skip 0
+2026-09-20 13:42:35.501 CEST [18145] DEBUG C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 query time: 102 us
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: loop 5
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.501 CEST [18145] NOISE resync(11): done=69, parse=69, recv=69
+2026-09-20 13:42:35.501 CEST [18145] NOISE resync(8): done=0, parse=0, recv=0
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.501 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 read pkt='Q' len=75
+2026-09-20 13:42:35.501 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 add_outstanding_request: added Q, still outstanding 1
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.501 CEST [18145] NOISE resync(8): done=75, parse=75, recv=75
+2026-09-20 13:42:35.501 CEST [18145] NOISE resync(10): done=0, parse=0, recv=0
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.501 CEST [18145] NOISE C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 read pkt='Q' len=75
+2026-09-20 13:42:35.501 CEST [18145] NOISE C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 add_outstanding_request: added Q, still outstanding 1
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.501 CEST [18145] NOISE resync(10): done=75, parse=75, recv=75
+2026-09-20 13:42:35.501 CEST [18145] NOISE resync(9): done=0, parse=0, recv=0
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.501 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='C', len=14
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.501 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='Z', len=6
+2026-09-20 13:42:35.501 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 pop_outstanding_request: popped Q, still outstanding 0, skip 0
+2026-09-20 13:42:35.501 CEST [18145] DEBUG C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 query time: 84 us
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: loop 3
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.501 CEST [18145] NOISE resync(9): done=20, parse=20, recv=20
+2026-09-20 13:42:35.501 CEST [18145] NOISE resync(8): done=0, parse=0, recv=0
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.501 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 read pkt='Q' len=76
+2026-09-20 13:42:35.501 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 add_outstanding_request: added Q, still outstanding 1
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.501 CEST [18145] NOISE resync(8): done=76, parse=76, recv=76
+2026-09-20 13:42:35.501 CEST [18145] NOISE resync(11): done=0, parse=0, recv=0
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.501 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 read pkt='C', len=14
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.501 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 read pkt='Z', len=6
+2026-09-20 13:42:35.501 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 pop_outstanding_request: popped Q, still outstanding 0, skip 0
+2026-09-20 13:42:35.501 CEST [18145] DEBUG C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 query time: 176 us
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: loop 3
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.501 CEST [18145] NOISE resync(11): done=20, parse=20, recv=20
+2026-09-20 13:42:35.501 CEST [18145] NOISE resync(10): done=0, parse=0, recv=0
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.501 CEST [18145] NOISE C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 read pkt='Q' len=75
+2026-09-20 13:42:35.501 CEST [18145] NOISE C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 add_outstanding_request: added Q, still outstanding 1
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.501 CEST [18145] NOISE resync(10): done=75, parse=75, recv=75
+2026-09-20 13:42:35.501 CEST [18145] NOISE resync(9): done=0, parse=0, recv=0
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.501 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='C', len=14
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.501 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='Z', len=6
+2026-09-20 13:42:35.501 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 pop_outstanding_request: popped Q, still outstanding 0, skip 0
+2026-09-20 13:42:35.501 CEST [18145] DEBUG C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 query time: 124 us
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: loop 3
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.501 CEST [18145] NOISE resync(9): done=20, parse=20, recv=20
+2026-09-20 13:42:35.501 CEST [18145] NOISE resync(8): done=0, parse=0, recv=0
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.501 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 read pkt='Q' len=112
+2026-09-20 13:42:35.501 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 add_outstanding_request: added Q, still outstanding 1
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.501 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.501 CEST [18145] NOISE resync(8): done=112, parse=112, recv=112
+2026-09-20 13:42:35.501 CEST [18145] NOISE resync(9): done=0, parse=0, recv=0
+2026-09-20 13:42:35.502 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.502 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.502 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='C', len=16
+2026-09-20 13:42:35.502 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.502 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='Z', len=6
+2026-09-20 13:42:35.502 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 pop_outstanding_request: popped Q, still outstanding 0, skip 0
+2026-09-20 13:42:35.502 CEST [18145] DEBUG C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 query time: 76 us
+2026-09-20 13:42:35.502 CEST [18145] NOISE sbuf_process_pending: loop 3
+2026-09-20 13:42:35.502 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.502 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.502 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.502 CEST [18145] NOISE resync(9): done=22, parse=22, recv=22
+2026-09-20 13:42:35.502 CEST [18145] NOISE resync(8): done=0, parse=0, recv=0
+2026-09-20 13:42:35.502 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.502 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.502 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 read pkt='Q' len=10
+2026-09-20 13:42:35.502 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 add_outstanding_request: added Q, still outstanding 1
+2026-09-20 13:42:35.502 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.502 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.502 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.502 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.502 CEST [18145] NOISE resync(8): done=10, parse=10, recv=10
+2026-09-20 13:42:35.502 CEST [18145] NOISE resync(9): done=0, parse=0, recv=0
+2026-09-20 13:42:35.502 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.502 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.502 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='C', len=12
+2026-09-20 13:42:35.502 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.502 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='Z', len=6
+2026-09-20 13:42:35.502 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 pop_outstanding_request: popped Q, still outstanding 0, skip 0
+2026-09-20 13:42:35.502 CEST [18145] DEBUG C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 query time: 617 us
+2026-09-20 13:42:35.502 CEST [18145] DEBUG C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 transaction time: 1680 us
+2026-09-20 13:42:35.502 CEST [18145] NOISE sbuf_process_pending: loop 3
+2026-09-20 13:42:35.502 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.502 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.502 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.502 CEST [18145] NOISE resync(9): done=18, parse=18, recv=18
+2026-09-20 13:42:35.502 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 release_server: new state=12
+2026-09-20 13:42:35.502 CEST [18145] DEBUG S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 reuse_on_release: replication 0
+2026-09-20 13:42:35.502 CEST [18145] NOISE resync(11): done=0, parse=0, recv=0
+2026-09-20 13:42:35.502 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.502 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.502 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 read pkt='C', len=14
+2026-09-20 13:42:35.502 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.502 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 read pkt='Z', len=6
+2026-09-20 13:42:35.502 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 pop_outstanding_request: popped Q, still outstanding 0, skip 0
+2026-09-20 13:42:35.502 CEST [18145] DEBUG C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 query time: 854 us
+2026-09-20 13:42:35.502 CEST [18145] NOISE sbuf_process_pending: loop 3
+2026-09-20 13:42:35.502 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.502 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.502 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.502 CEST [18145] NOISE resync(11): done=20, parse=20, recv=20
+2026-09-20 13:42:35.502 CEST [18145] NOISE resync(10): done=0, parse=0, recv=0
+2026-09-20 13:42:35.502 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.502 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.502 CEST [18145] NOISE C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 read pkt='Q' len=112
+2026-09-20 13:42:35.502 CEST [18145] NOISE C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 add_outstanding_request: added Q, still outstanding 1
+2026-09-20 13:42:35.502 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.502 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.502 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.502 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.502 CEST [18145] NOISE resync(10): done=112, parse=112, recv=112
+2026-09-20 13:42:35.502 CEST [18145] NOISE resync(8): done=0, parse=0, recv=0
+2026-09-20 13:42:35.502 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.502 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.502 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 read pkt='Q' len=12
+2026-09-20 13:42:35.502 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 find_server: client had no linked server yet
+2026-09-20 13:42:35.502 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 linking client to S-0x5615be2bd6c0
+2026-09-20 13:42:35.502 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 add_outstanding_request: added Q, still outstanding 1
+2026-09-20 13:42:35.502 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.502 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.502 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.502 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.502 CEST [18145] NOISE resync(8): done=12, parse=12, recv=12
+2026-09-20 13:42:35.502 CEST [18145] NOISE resync(9): done=0, parse=0, recv=0
+2026-09-20 13:42:35.502 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.502 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.502 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='C', len=11
+2026-09-20 13:42:35.502 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.502 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='Z', len=6
+2026-09-20 13:42:35.502 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 pop_outstanding_request: popped Q, still outstanding 0, skip 0
+2026-09-20 13:42:35.502 CEST [18145] DEBUG C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 query time: 68 us
+2026-09-20 13:42:35.502 CEST [18145] NOISE sbuf_process_pending: loop 3
+2026-09-20 13:42:35.502 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.502 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.502 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.502 CEST [18145] NOISE resync(9): done=17, parse=17, recv=17
+2026-09-20 13:42:35.502 CEST [18145] NOISE resync(8): done=0, parse=0, recv=0
+2026-09-20 13:42:35.502 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.502 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.502 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 read pkt='Q' len=80
+2026-09-20 13:42:35.502 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 add_outstanding_request: added Q, still outstanding 1
+2026-09-20 13:42:35.502 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.502 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.502 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.502 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.502 CEST [18145] NOISE resync(8): done=80, parse=80, recv=80
+2026-09-20 13:42:35.502 CEST [18145] NOISE resync(11): done=0, parse=0, recv=0
+2026-09-20 13:42:35.502 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.502 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.502 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 read pkt='C', len=16
+2026-09-20 13:42:35.502 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.502 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 read pkt='Z', len=6
+2026-09-20 13:42:35.502 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 pop_outstanding_request: popped Q, still outstanding 0, skip 0
+2026-09-20 13:42:35.502 CEST [18145] DEBUG C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 query time: 219 us
+2026-09-20 13:42:35.502 CEST [18145] NOISE sbuf_process_pending: loop 3
+2026-09-20 13:42:35.502 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.502 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.503 CEST [18145] NOISE resync(11): done=22, parse=22, recv=22
+2026-09-20 13:42:35.503 CEST [18145] NOISE resync(9): done=0, parse=0, recv=0
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.503 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='C', len=14
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.503 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='Z', len=6
+2026-09-20 13:42:35.503 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 pop_outstanding_request: popped Q, still outstanding 0, skip 0
+2026-09-20 13:42:35.503 CEST [18145] DEBUG C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 query time: 124 us
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: loop 3
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.503 CEST [18145] NOISE resync(9): done=20, parse=20, recv=20
+2026-09-20 13:42:35.503 CEST [18145] NOISE resync(10): done=0, parse=0, recv=0
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.503 CEST [18145] NOISE C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 read pkt='Q' len=10
+2026-09-20 13:42:35.503 CEST [18145] NOISE C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 add_outstanding_request: added Q, still outstanding 1
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.503 CEST [18145] NOISE resync(10): done=10, parse=10, recv=10
+2026-09-20 13:42:35.503 CEST [18145] NOISE resync(8): done=0, parse=0, recv=0
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.503 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 read pkt='Q' len=63
+2026-09-20 13:42:35.503 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 add_outstanding_request: added Q, still outstanding 1
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.503 CEST [18145] NOISE resync(8): done=63, parse=63, recv=63
+2026-09-20 13:42:35.503 CEST [18145] NOISE resync(9): done=0, parse=0, recv=0
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.503 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='T', len=34
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.503 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='D', len=15
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: loop 3
+2026-09-20 13:42:35.503 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='C', len=14
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: loop 4
+2026-09-20 13:42:35.503 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='Z', len=6
+2026-09-20 13:42:35.503 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 pop_outstanding_request: popped Q, still outstanding 0, skip 0
+2026-09-20 13:42:35.503 CEST [18145] DEBUG C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 query time: 86 us
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: loop 5
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.503 CEST [18145] NOISE resync(9): done=69, parse=69, recv=69
+2026-09-20 13:42:35.503 CEST [18145] NOISE resync(8): done=0, parse=0, recv=0
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.503 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 read pkt='Q' len=74
+2026-09-20 13:42:35.503 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 add_outstanding_request: added Q, still outstanding 1
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.503 CEST [18145] NOISE resync(8): done=74, parse=74, recv=74
+2026-09-20 13:42:35.503 CEST [18145] NOISE resync(9): done=0, parse=0, recv=0
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.503 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='C', len=14
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.503 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='Z', len=6
+2026-09-20 13:42:35.503 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 pop_outstanding_request: popped Q, still outstanding 0, skip 0
+2026-09-20 13:42:35.503 CEST [18145] DEBUG C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 query time: 88 us
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: loop 3
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.503 CEST [18145] NOISE resync(9): done=20, parse=20, recv=20
+2026-09-20 13:42:35.503 CEST [18145] NOISE resync(8): done=0, parse=0, recv=0
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.503 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 read pkt='Q' len=75
+2026-09-20 13:42:35.503 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 add_outstanding_request: added Q, still outstanding 1
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.503 CEST [18145] NOISE resync(8): done=75, parse=75, recv=75
+2026-09-20 13:42:35.503 CEST [18145] NOISE resync(9): done=0, parse=0, recv=0
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.503 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='C', len=14
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.503 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='Z', len=6
+2026-09-20 13:42:35.503 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 pop_outstanding_request: popped Q, still outstanding 0, skip 0
+2026-09-20 13:42:35.503 CEST [18145] DEBUG C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 query time: 80 us
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: loop 3
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.503 CEST [18145] NOISE resync(9): done=20, parse=20, recv=20
+2026-09-20 13:42:35.503 CEST [18145] NOISE resync(8): done=0, parse=0, recv=0
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.503 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 read pkt='Q' len=111
+2026-09-20 13:42:35.503 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 add_outstanding_request: added Q, still outstanding 1
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.503 CEST [18145] NOISE resync(8): done=111, parse=111, recv=111
+2026-09-20 13:42:35.503 CEST [18145] NOISE resync(9): done=0, parse=0, recv=0
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.503 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='C', len=16
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.503 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='Z', len=6
+2026-09-20 13:42:35.503 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 pop_outstanding_request: popped Q, still outstanding 0, skip 0
+2026-09-20 13:42:35.503 CEST [18145] DEBUG C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 query time: 75 us
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: loop 3
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.503 CEST [18145] NOISE resync(9): done=22, parse=22, recv=22
+2026-09-20 13:42:35.503 CEST [18145] NOISE resync(8): done=0, parse=0, recv=0
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.503 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 read pkt='Q' len=10
+2026-09-20 13:42:35.503 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 add_outstanding_request: added Q, still outstanding 1
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.503 CEST [18145] NOISE resync(8): done=10, parse=10, recv=10
+2026-09-20 13:42:35.503 CEST [18145] NOISE resync(11): done=0, parse=0, recv=0
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.503 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 read pkt='C', len=12
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.503 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 read pkt='Z', len=6
+2026-09-20 13:42:35.503 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 pop_outstanding_request: popped Q, still outstanding 0, skip 0
+2026-09-20 13:42:35.503 CEST [18145] DEBUG C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 query time: 623 us
+2026-09-20 13:42:35.503 CEST [18145] DEBUG C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 transaction time: 17405 us
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: loop 3
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.503 CEST [18145] NOISE resync(11): done=18, parse=18, recv=18
+2026-09-20 13:42:35.503 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 release_server: new state=12
+2026-09-20 13:42:35.503 CEST [18145] DEBUG S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 reuse_on_release: replication 0
+2026-09-20 13:42:35.503 CEST [18145] NOISE resync(10): done=0, parse=0, recv=0
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.503 CEST [18145] NOISE C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 read pkt='Q' len=12
+2026-09-20 13:42:35.503 CEST [18145] NOISE C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 find_server: client had no linked server yet
+2026-09-20 13:42:35.503 CEST [18145] NOISE C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 linking client to S-0x5615be2bdda8
+2026-09-20 13:42:35.503 CEST [18145] NOISE C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 add_outstanding_request: added Q, still outstanding 1
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.503 CEST [18145] NOISE resync(10): done=12, parse=12, recv=12
+2026-09-20 13:42:35.503 CEST [18145] NOISE resync(11): done=0, parse=0, recv=0
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.503 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 read pkt='C', len=11
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.503 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 read pkt='Z', len=6
+2026-09-20 13:42:35.503 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 pop_outstanding_request: popped Q, still outstanding 0, skip 0
+2026-09-20 13:42:35.503 CEST [18145] DEBUG C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 query time: 53 us
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: loop 3
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.503 CEST [18145] NOISE resync(11): done=17, parse=17, recv=17
+2026-09-20 13:42:35.503 CEST [18145] NOISE resync(10): done=0, parse=0, recv=0
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.503 CEST [18145] NOISE C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 read pkt='Q' len=80
+2026-09-20 13:42:35.503 CEST [18145] NOISE C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 add_outstanding_request: added Q, still outstanding 1
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.503 CEST [18145] NOISE resync(10): done=80, parse=80, recv=80
+2026-09-20 13:42:35.503 CEST [18145] NOISE resync(11): done=0, parse=0, recv=0
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.503 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 read pkt='C', len=14
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.503 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 read pkt='Z', len=6
+2026-09-20 13:42:35.503 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 pop_outstanding_request: popped Q, still outstanding 0, skip 0
+2026-09-20 13:42:35.503 CEST [18145] DEBUG C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 query time: 120 us
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: loop 3
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.503 CEST [18145] NOISE resync(11): done=20, parse=20, recv=20
+2026-09-20 13:42:35.503 CEST [18145] NOISE resync(10): done=0, parse=0, recv=0
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.503 CEST [18145] NOISE C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 read pkt='Q' len=63
+2026-09-20 13:42:35.503 CEST [18145] NOISE C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 add_outstanding_request: added Q, still outstanding 1
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.503 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.503 CEST [18145] NOISE resync(10): done=63, parse=63, recv=63
+2026-09-20 13:42:35.504 CEST [18145] NOISE resync(11): done=0, parse=0, recv=0
+2026-09-20 13:42:35.504 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.504 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.504 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 read pkt='T', len=34
+2026-09-20 13:42:35.504 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.504 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 read pkt='D', len=15
+2026-09-20 13:42:35.504 CEST [18145] NOISE sbuf_process_pending: loop 3
+2026-09-20 13:42:35.504 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 read pkt='C', len=14
+2026-09-20 13:42:35.504 CEST [18145] NOISE sbuf_process_pending: loop 4
+2026-09-20 13:42:35.504 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 read pkt='Z', len=6
+2026-09-20 13:42:35.504 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 pop_outstanding_request: popped Q, still outstanding 0, skip 0
+2026-09-20 13:42:35.504 CEST [18145] DEBUG C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 query time: 79 us
+2026-09-20 13:42:35.504 CEST [18145] NOISE sbuf_process_pending: loop 5
+2026-09-20 13:42:35.504 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.504 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.504 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.504 CEST [18145] NOISE resync(11): done=69, parse=69, recv=69
+2026-09-20 13:42:35.504 CEST [18145] NOISE resync(10): done=0, parse=0, recv=0
+2026-09-20 13:42:35.504 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.504 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.504 CEST [18145] NOISE C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 read pkt='Q' len=75
+2026-09-20 13:42:35.504 CEST [18145] NOISE C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 add_outstanding_request: added Q, still outstanding 1
+2026-09-20 13:42:35.504 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.504 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.504 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.504 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.504 CEST [18145] NOISE resync(10): done=75, parse=75, recv=75
+2026-09-20 13:42:35.504 CEST [18145] NOISE resync(11): done=0, parse=0, recv=0
+2026-09-20 13:42:35.504 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.504 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.504 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 read pkt='C', len=14
+2026-09-20 13:42:35.504 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.504 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 read pkt='Z', len=6
+2026-09-20 13:42:35.504 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 pop_outstanding_request: popped Q, still outstanding 0, skip 0
+2026-09-20 13:42:35.504 CEST [18145] DEBUG C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 query time: 78 us
+2026-09-20 13:42:35.504 CEST [18145] NOISE sbuf_process_pending: loop 3
+2026-09-20 13:42:35.504 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.504 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.504 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.504 CEST [18145] NOISE resync(11): done=20, parse=20, recv=20
+2026-09-20 13:42:35.504 CEST [18145] NOISE resync(10): done=0, parse=0, recv=0
+2026-09-20 13:42:35.504 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.504 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.504 CEST [18145] NOISE C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 read pkt='Q' len=75
+2026-09-20 13:42:35.504 CEST [18145] NOISE C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 add_outstanding_request: added Q, still outstanding 1
+2026-09-20 13:42:35.504 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.504 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.504 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.504 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.504 CEST [18145] NOISE resync(10): done=75, parse=75, recv=75
+2026-09-20 13:42:35.504 CEST [18145] NOISE resync(9): done=0, parse=0, recv=0
+2026-09-20 13:42:35.504 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.504 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.504 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='C', len=12
+2026-09-20 13:42:35.504 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.504 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 read pkt='Z', len=6
+2026-09-20 13:42:35.504 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 pop_outstanding_request: popped Q, still outstanding 0, skip 0
+2026-09-20 13:42:35.504 CEST [18145] DEBUG C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 query time: 660 us
+2026-09-20 13:42:35.504 CEST [18145] DEBUG C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 transaction time: 1439 us
+2026-09-20 13:42:35.504 CEST [18145] NOISE sbuf_process_pending: loop 3
+2026-09-20 13:42:35.504 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.504 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.504 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.504 CEST [18145] NOISE resync(9): done=18, parse=18, recv=18
+2026-09-20 13:42:35.504 CEST [18145] NOISE S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 release_server: new state=12
+2026-09-20 13:42:35.504 CEST [18145] DEBUG S-0x5615be2bd6c0: benchdb/bench@127.0.0.1:5544 reuse_on_release: replication 0
+2026-09-20 13:42:35.504 CEST [18145] NOISE resync(8): done=0, parse=0, recv=0
+2026-09-20 13:42:35.504 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.504 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.504 CEST [18145] NOISE C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 read pkt='X' len=5
+2026-09-20 13:42:35.504 CEST [18145] LOG C-0x5615be2761d0: benchdb/bench@127.0.0.1:54266 closing because: client close request (age=0s)
+2026-09-20 13:42:35.504 CEST [18145] NOISE resync(11): done=0, parse=0, recv=0
+2026-09-20 13:42:35.504 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.504 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.504 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 read pkt='C', len=14
+2026-09-20 13:42:35.504 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.504 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 read pkt='Z', len=6
+2026-09-20 13:42:35.504 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 pop_outstanding_request: popped Q, still outstanding 0, skip 0
+2026-09-20 13:42:35.504 CEST [18145] DEBUG C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 query time: 82 us
+2026-09-20 13:42:35.504 CEST [18145] NOISE sbuf_process_pending: loop 3
+2026-09-20 13:42:35.504 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.504 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.504 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.504 CEST [18145] NOISE resync(11): done=20, parse=20, recv=20
+2026-09-20 13:42:35.504 CEST [18145] NOISE resync(10): done=0, parse=0, recv=0
+2026-09-20 13:42:35.504 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.504 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.504 CEST [18145] NOISE C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 read pkt='Q' len=112
+2026-09-20 13:42:35.504 CEST [18145] NOISE C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 add_outstanding_request: added Q, still outstanding 1
+2026-09-20 13:42:35.504 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.504 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.504 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.504 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.504 CEST [18145] NOISE resync(10): done=112, parse=112, recv=112
+2026-09-20 13:42:35.504 CEST [18145] NOISE resync(11): done=0, parse=0, recv=0
+2026-09-20 13:42:35.504 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.504 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.504 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 read pkt='C', len=16
+2026-09-20 13:42:35.504 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.504 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 read pkt='Z', len=6
+2026-09-20 13:42:35.504 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 pop_outstanding_request: popped Q, still outstanding 0, skip 0
+2026-09-20 13:42:35.504 CEST [18145] DEBUG C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 query time: 70 us
+2026-09-20 13:42:35.504 CEST [18145] NOISE sbuf_process_pending: loop 3
+2026-09-20 13:42:35.504 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.504 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.504 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.504 CEST [18145] NOISE resync(11): done=22, parse=22, recv=22
+2026-09-20 13:42:35.504 CEST [18145] NOISE resync(10): done=0, parse=0, recv=0
+2026-09-20 13:42:35.504 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.504 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.504 CEST [18145] NOISE C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 read pkt='Q' len=10
+2026-09-20 13:42:35.504 CEST [18145] NOISE C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 add_outstanding_request: added Q, still outstanding 1
+2026-09-20 13:42:35.504 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.504 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.504 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.504 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.504 CEST [18145] NOISE resync(10): done=10, parse=10, recv=10
+2026-09-20 13:42:35.505 CEST [18145] NOISE resync(11): done=0, parse=0, recv=0
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.505 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 read pkt='C', len=12
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.505 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 read pkt='Z', len=6
+2026-09-20 13:42:35.505 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 pop_outstanding_request: popped Q, still outstanding 0, skip 0
+2026-09-20 13:42:35.505 CEST [18145] DEBUG C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 query time: 698 us
+2026-09-20 13:42:35.505 CEST [18145] DEBUG C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 transaction time: 1423 us
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: loop 3
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.505 CEST [18145] NOISE resync(11): done=18, parse=18, recv=18
+2026-09-20 13:42:35.505 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 release_server: new state=12
+2026-09-20 13:42:35.505 CEST [18145] DEBUG S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 reuse_on_release: replication 0
+2026-09-20 13:42:35.505 CEST [18145] NOISE resync(10): done=0, parse=0, recv=0
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.505 CEST [18145] NOISE C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 read pkt='Q' len=12
+2026-09-20 13:42:35.505 CEST [18145] NOISE C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 find_server: client had no linked server yet
+2026-09-20 13:42:35.505 CEST [18145] NOISE C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 linking client to S-0x5615be2bdda8
+2026-09-20 13:42:35.505 CEST [18145] NOISE C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 add_outstanding_request: added Q, still outstanding 1
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.505 CEST [18145] NOISE resync(10): done=12, parse=12, recv=12
+2026-09-20 13:42:35.505 CEST [18145] NOISE resync(11): done=0, parse=0, recv=0
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.505 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 read pkt='C', len=11
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.505 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 read pkt='Z', len=6
+2026-09-20 13:42:35.505 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 pop_outstanding_request: popped Q, still outstanding 0, skip 0
+2026-09-20 13:42:35.505 CEST [18145] DEBUG C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 query time: 49 us
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: loop 3
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.505 CEST [18145] NOISE resync(11): done=17, parse=17, recv=17
+2026-09-20 13:42:35.505 CEST [18145] NOISE resync(10): done=0, parse=0, recv=0
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.505 CEST [18145] NOISE C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 read pkt='Q' len=79
+2026-09-20 13:42:35.505 CEST [18145] NOISE C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 add_outstanding_request: added Q, still outstanding 1
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.505 CEST [18145] NOISE resync(10): done=79, parse=79, recv=79
+2026-09-20 13:42:35.505 CEST [18145] NOISE resync(11): done=0, parse=0, recv=0
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.505 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 read pkt='C', len=14
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.505 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 read pkt='Z', len=6
+2026-09-20 13:42:35.505 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 pop_outstanding_request: popped Q, still outstanding 0, skip 0
+2026-09-20 13:42:35.505 CEST [18145] DEBUG C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 query time: 96 us
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: loop 3
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.505 CEST [18145] NOISE resync(11): done=20, parse=20, recv=20
+2026-09-20 13:42:35.505 CEST [18145] NOISE resync(10): done=0, parse=0, recv=0
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.505 CEST [18145] NOISE C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 read pkt='Q' len=62
+2026-09-20 13:42:35.505 CEST [18145] NOISE C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 add_outstanding_request: added Q, still outstanding 1
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.505 CEST [18145] NOISE resync(10): done=62, parse=62, recv=62
+2026-09-20 13:42:35.505 CEST [18145] NOISE resync(11): done=0, parse=0, recv=0
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.505 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 read pkt='T', len=34
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.505 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 read pkt='D', len=16
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: loop 3
+2026-09-20 13:42:35.505 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 read pkt='C', len=14
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: loop 4
+2026-09-20 13:42:35.505 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 read pkt='Z', len=6
+2026-09-20 13:42:35.505 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 pop_outstanding_request: popped Q, still outstanding 0, skip 0
+2026-09-20 13:42:35.505 CEST [18145] DEBUG C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 query time: 69 us
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: loop 5
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.505 CEST [18145] NOISE resync(11): done=70, parse=70, recv=70
+2026-09-20 13:42:35.505 CEST [18145] NOISE resync(10): done=0, parse=0, recv=0
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.505 CEST [18145] NOISE C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 read pkt='Q' len=75
+2026-09-20 13:42:35.505 CEST [18145] NOISE C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 add_outstanding_request: added Q, still outstanding 1
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.505 CEST [18145] NOISE resync(10): done=75, parse=75, recv=75
+2026-09-20 13:42:35.505 CEST [18145] NOISE resync(11): done=0, parse=0, recv=0
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.505 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 read pkt='C', len=14
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.505 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 read pkt='Z', len=6
+2026-09-20 13:42:35.505 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 pop_outstanding_request: popped Q, still outstanding 0, skip 0
+2026-09-20 13:42:35.505 CEST [18145] DEBUG C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 query time: 72 us
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: loop 3
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.505 CEST [18145] NOISE resync(11): done=20, parse=20, recv=20
+2026-09-20 13:42:35.505 CEST [18145] NOISE resync(10): done=0, parse=0, recv=0
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.505 CEST [18145] NOISE C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 read pkt='Q' len=75
+2026-09-20 13:42:35.505 CEST [18145] NOISE C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 add_outstanding_request: added Q, still outstanding 1
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.505 CEST [18145] NOISE resync(10): done=75, parse=75, recv=75
+2026-09-20 13:42:35.505 CEST [18145] NOISE resync(11): done=0, parse=0, recv=0
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.505 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 read pkt='C', len=14
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.505 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 read pkt='Z', len=6
+2026-09-20 13:42:35.505 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 pop_outstanding_request: popped Q, still outstanding 0, skip 0
+2026-09-20 13:42:35.505 CEST [18145] DEBUG C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 query time: 70 us
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: loop 3
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.505 CEST [18145] NOISE resync(11): done=20, parse=20, recv=20
+2026-09-20 13:42:35.505 CEST [18145] NOISE resync(10): done=0, parse=0, recv=0
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.505 CEST [18145] NOISE C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 read pkt='Q' len=111
+2026-09-20 13:42:35.505 CEST [18145] NOISE C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 add_outstanding_request: added Q, still outstanding 1
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.505 CEST [18145] NOISE resync(10): done=111, parse=111, recv=111
+2026-09-20 13:42:35.505 CEST [18145] NOISE resync(11): done=0, parse=0, recv=0
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.505 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 read pkt='C', len=16
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.505 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 read pkt='Z', len=6
+2026-09-20 13:42:35.505 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 pop_outstanding_request: popped Q, still outstanding 0, skip 0
+2026-09-20 13:42:35.505 CEST [18145] DEBUG C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 query time: 61 us
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: loop 3
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.505 CEST [18145] NOISE resync(11): done=22, parse=22, recv=22
+2026-09-20 13:42:35.505 CEST [18145] NOISE resync(10): done=0, parse=0, recv=0
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.505 CEST [18145] NOISE C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 read pkt='Q' len=10
+2026-09-20 13:42:35.505 CEST [18145] NOISE C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 add_outstanding_request: added Q, still outstanding 1
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.505 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.505 CEST [18145] NOISE resync(10): done=10, parse=10, recv=10
+2026-09-20 13:42:35.506 CEST [18145] NOISE resync(11): done=0, parse=0, recv=0
+2026-09-20 13:42:35.506 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.506 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.506 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 read pkt='C', len=12
+2026-09-20 13:42:35.506 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:35.506 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 read pkt='Z', len=6
+2026-09-20 13:42:35.506 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 pop_outstanding_request: popped Q, still outstanding 0, skip 0
+2026-09-20 13:42:35.506 CEST [18145] DEBUG C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 query time: 703 us
+2026-09-20 13:42:35.506 CEST [18145] DEBUG C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 transaction time: 1328 us
+2026-09-20 13:42:35.506 CEST [18145] NOISE sbuf_process_pending: loop 3
+2026-09-20 13:42:35.506 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:35.506 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:35.506 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:35.506 CEST [18145] NOISE resync(11): done=18, parse=18, recv=18
+2026-09-20 13:42:35.506 CEST [18145] NOISE S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 release_server: new state=12
+2026-09-20 13:42:35.506 CEST [18145] DEBUG S-0x5615be2bdda8: benchdb/bench@127.0.0.1:5544 reuse_on_release: replication 0
+2026-09-20 13:42:35.506 CEST [18145] NOISE resync(10): done=0, parse=0, recv=0
+2026-09-20 13:42:35.506 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:35.506 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:35.506 CEST [18145] NOISE C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 read pkt='X' len=5
+2026-09-20 13:42:35.506 CEST [18145] LOG C-0x5615be2768b8: benchdb/bench@127.0.0.1:54274 closing because: client close request (age=0s)
+2026-09-20 13:42:47.727 CEST [18145] NOISE new fd from accept=8
+2026-09-20 13:42:47.728 CEST [18145] NOISE resync(8): done=0, parse=0, recv=0
+2026-09-20 13:42:47.728 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:47.728 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:47.728 CEST [18145] NOISE C-0x5615be2768b8: (nodb)/(nouser)@127.0.0.1:35048 read pkt='!' len=8
+2026-09-20 13:42:47.728 CEST [18145] NOISE C-0x5615be2768b8: (nodb)/(nouser)@127.0.0.1:35048 C: req SSL
+2026-09-20 13:42:47.728 CEST [18145] NOISE C-0x5615be2768b8: (nodb)/(nouser)@127.0.0.1:35048 P: nak
+2026-09-20 13:42:47.728 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:47.728 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:47.728 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:47.728 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:47.728 CEST [18145] NOISE resync(8): done=8, parse=8, recv=8
+2026-09-20 13:42:47.728 CEST [18145] DEBUG C-0x5615be2768b8: (nodb)/(nouser)@127.0.0.1:35048 P: got connection: 127.0.0.1:35048 -> 127.0.0.1:6432
+2026-09-20 13:42:47.728 CEST [18145] NOISE safe_accept(7) = Resource temporarily unavailable
+2026-09-20 13:42:47.728 CEST [18145] NOISE resync(8): done=0, parse=0, recv=0
+2026-09-20 13:42:47.728 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:47.728 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:47.728 CEST [18145] NOISE C-0x5615be2768b8: (nodb)/(nouser)@127.0.0.1:35048 read pkt='!' len=61
+2026-09-20 13:42:47.728 CEST [18145] DEBUG C-0x5615be2768b8: (nodb)/(nouser)@127.0.0.1:35048 got var: user=admin
+2026-09-20 13:42:47.728 CEST [18145] DEBUG C-0x5615be2768b8: (nodb)/(nouser)@127.0.0.1:35048 got var: database=pgbouncer
+2026-09-20 13:42:47.728 CEST [18145] DEBUG C-0x5615be2768b8: (nodb)/(nouser)@127.0.0.1:35048 using application_name: psql
+2026-09-20 13:42:47.728 CEST [18145] LOG C-0x5615be2768b8: pgbouncer/admin@127.0.0.1:35048 login attempt: db=pgbouncer user=admin tls=no replication=no
+2026-09-20 13:42:47.728 CEST [18145] NOISE C-0x5615be2768b8: pgbouncer/admin@127.0.0.1:35048 Auth request sent successfully
+2026-09-20 13:42:47.728 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:47.728 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:47.728 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:47.728 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:47.728 CEST [18145] NOISE resync(8): done=61, parse=61, recv=61
+2026-09-20 13:42:47.729 CEST [18145] NOISE resync(8): done=0, parse=0, recv=0
+2026-09-20 13:42:47.729 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:47.729 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:47.729 CEST [18145] NOISE C-0x5615be2768b8: pgbouncer/admin@127.0.0.1:35048 read pkt='p' len=41
+2026-09-20 13:42:47.729 CEST [18145] NOISE C-0x5615be2768b8: pgbouncer/admin@127.0.0.1:35048 P: welcome_client
+2026-09-20 13:42:47.729 CEST [18145] DEBUG C-0x5615be2768b8: pgbouncer/admin@127.0.0.1:35048 logged in
+2026-09-20 13:42:47.729 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:47.729 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:47.729 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:47.729 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:47.729 CEST [18145] NOISE resync(8): done=41, parse=41, recv=41
+2026-09-20 13:42:47.729 CEST [18145] NOISE resync(8): done=0, parse=0, recv=0
+2026-09-20 13:42:47.729 CEST [18145] NOISE sbuf_process_pending: start
+2026-09-20 13:42:47.729 CEST [18145] NOISE sbuf_process_pending: loop 1
+2026-09-20 13:42:47.729 CEST [18145] NOISE C-0x5615be2768b8: pgbouncer/admin@127.0.0.1:35048 read pkt='Q' len=15
+2026-09-20 13:42:47.729 CEST [18145] DEBUG got admin query: SHUTDOWN;
+2026-09-20 13:42:47.729 CEST [18145] LOG SHUTDOWN command issued
+2026-09-20 13:42:47.729 CEST [18145] NOISE sbuf_process_pending: loop 2
+2026-09-20 13:42:47.729 CEST [18145] NOISE sbuf_process_pending: done looping
+2026-09-20 13:42:47.729 CEST [18145] NOISE sbuf_send_pending_iobuf
+2026-09-20 13:42:47.729 CEST [18145] NOISE sbuf_process_pending: end
+2026-09-20 13:42:47.729 CEST [18145] NOISE resync(8): done=15, parse=15, recv=15

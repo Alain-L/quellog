@@ -7,7 +7,7 @@ zstd-decompressed from the embedded blob).
 
 ## Envelope
 
-- Producer: `output.ExportHTMLWithPgBackRest` → `buildJSONData(metrics, ["all"],
+- Producer: `output.ExportHTMLCombined` → `buildJSONData(metrics, ["all"],
   full=true)` in `output/json.go`, plus a `meta` key added in `output/html.go`,
   plus a `pgbackrest` key (see below) when the run analyzed any pgBackRest
   content.
@@ -20,10 +20,11 @@ zstd-decompressed from the embedded blob).
 Conventions:
 
 - Timestamps appear in three shapes: display strings `"YYYY-MM-DD HH:MM:SS"`
-  (most `events` arrays), ISO strings `"YYYY-MM-DDTHH:MM:SS"` (`session_events`,
+  (`summary`, most `events` arrays, every time in the `pgbouncer` entries),
+  ISO strings `"YYYY-MM-DDTHH:MM:SS"` (`session_events`,
   `sql_performance.executions`), and Unix milliseconds (`top_events[].timestamps`).
 - Human-formatted values (durations `"1m 32s"`, sizes `"683.59 KB"`, rates) are
-  pre-rendered strings; raw numbers keep a `_ms`, `_kb`, `_seconds` or `count` name.
+  pre-rendered strings; raw numbers keep a `_ms`, `_us` (the pooler's microseconds), `_kb`, `_seconds` or `count` name.
 - A section key is **absent** when the section has no data (see "Gated keys").
 
 ## Top-level keys
@@ -38,8 +39,9 @@ Read by: `app.js`, `js/period-nav.js`, `js/sections/events.js`.
 
 ### summary — always present
 Except in the CLI JSON/YAML and browser payloads of a pgBackRest-only run
-(see `pgbackrest`), and in the CLI JSON/YAML of a Patroni-only run, which
-holds `patroni` alone.
+(see `pgbackrest`), in the CLI JSON/YAML of a Patroni-only run, which
+holds `patroni` alone, and in the CLI JSON/YAML of a pgBouncer-only run,
+which holds `pgbouncer` alone.
 Read by: `app.js`, `js/filters.js`, `js/sections/summary.js`, `js/sections/connections.js`;
 rewritten by `js/report-filter.js` when a time filter is applied.
 `start_date`/`end_date` (display strings), `duration`, `total_logs`,
@@ -176,6 +178,40 @@ Read by: `js/sections/maintenance.js`.
 - `slowest_vacuum`: `{table, timestamp, elapsed_seconds,
   tuples_not_yet_removable}`.
 
+### pgbouncer — pooler report (gated)
+Read by: `js/sections/pgbouncer.js`. Present only when the run included
+pgBouncer log files (see [pgBouncer Reports](pgbouncer.md)). A list, one
+entry per pooler, each rendered as its own section (`#pgbouncer`,
+`#pgbouncer-2`, …). A sibling top-level `pgbouncer_only` boolean (present
+only for a pure pgBouncer run) tells `app.js` to render just these sections
+and suppress the empty PostgreSQL ones. Each entry:
+- Identity: `name`, `files`, `listen`, `version`; `start_date`, `end_date`
+  as in `summary`; `events`:
+  `[{timestamp, kind, detail}]`, the pooler's timeline.
+- Traffic: `stats_sample_count`, `avg_/max_xacts_per_sec`,
+  `avg_/max_queries_per_sec`, `avg_/max_in_bytes_per_sec`,
+  `avg_/max_out_bytes_per_sec`, `avg_/max_xact_us`, `avg_/max_query_us`,
+  `avg_/max_wait_us`, and `max_*_timestamp` for each maximum (omitted
+  when there is none); `wait_episodes`: `[{start, end, peak_wait_us,
+  peak_timestamp}]`. Before pgBouncer 1.23 (`version`) the wait fields are
+  a queue depth, shown as clients queued.
+- `stats_series`: `[{time, period_start, xacts_per_sec, queries_per_sec,
+  in_bytes_per_sec, out_bytes_per_sec, xact_us, query_us, wait_us}]` — feeds
+  the bar charts (`pgb-bars` type in `js/charts.js`): throughput, network
+  I/O, timing and, from pgBouncer 1.23, pool wait; `events` gives their
+  markers. A bar spans `[period_start, time]`, the period the snapshot
+  averages; grouped, a snapshot joins the bucket it was logged in. Without
+  `period_start` it spans one inferred period.
+- What was read: `lines_read`, `lines` (entries), `lines_unrecognized`,
+  `debug_lines`.
+- Connections/sessions: `login_attempts`, `server_connections`, `sessions`,
+  `total_session_seconds`, `session_distribution` (bucket → count),
+  `session_reasons` (`[{reason, count, total_seconds}]`).
+- Breakdowns: `connections_per_database/user/host`,
+  `sessions_per_database/user/host` (name → count).
+- `reserve_pool_activations`, `errors` (`[{id, level, message, count,
+  first, last}]`, `id` being the `--event-detail` one), `total_errors`.
+
 ### replication — gated, absent from this fixture
 Read by: `js/sections/checkpoints.js` (sub-zone of the server area).
 Emitted only when the log contains replication markers
@@ -205,8 +241,8 @@ being the `--event-detail` handle (`er-`/`wa-`, `fa-` for CRITICAL).
 
 ### pgbackrest
 Read by: `js/sections/pgbackrest.js` (`buildPgBackRestSection`), one report
-section per stanza. Emitted by `output.ExportJSONWithPgBackRest` /
-`output.ExportYAMLWithPgBackRest` / `output.ExportHTMLWithPgBackRest`
+section per stanza. Emitted by `output.ExportJSONCombined` /
+`output.ExportYAMLCombined` / `output.ExportHTMLCombined`
 (CLI `--json`/`--yaml`/`--html`) and by the browser build, whenever the input
 carried pgBackRest lines, in a pgBackRest log file or a PostgreSQL log, and
 no attribute filter or section option left the report out — see
@@ -399,6 +435,8 @@ skips a key when its section has no data, so renderers must null-check
 | `patroni` | Patroni logs given, full report (absent from the reference fixture) |
 | `pgbackrest` | a pgBackRest log file was analyzed, or a PostgreSQL log carried embedded pgBackRest/archive-failure content |
 | `pgbackrest_only` | `true` only in the HTML and browser payloads of a pgBackRest-only run |
+| `pgbouncer` | pgBouncer logs given (absent from the reference fixture) |
+| `pgbouncer_only` | `true` only in the HTML payload of a pgBouncer-only run |
 | `checkpoints` | completed checkpoints or frequency warnings > 0 |
 | `connections` | connection/disconnection events present |
 | `clients` | at least one unique database, user, app or host |
@@ -426,10 +464,11 @@ carry per-occurrence timestamps), `locks` (headline counts depend on the
 backend's wait-episode collapsing, which the raw event array cannot reproduce),
 `maintenance` (counter maps only), `sql_overview`'s
 `by_database/by_user/by_host/by_app` tables (executions carry no per-execution
-dimension), and `pgbackrest` (its counters, archive stats and grouped issues have no
-per-occurrence timestamp the filter could re-scope them by). `_timeFiltered`/
-`_filterRange`/`_wholeLog` are client-side-only markers, absent from the Go
-payload.
+dimension), `pgbackrest` (its counters, archive stats and grouped issues have no
+per-occurrence timestamp the filter could re-scope them by), and `pgbouncer`
+(the pooler track is analyzed apart and its figures are averages over the
+whole capture). `_timeFiltered`/`_filterRange`/`_wholeLog` are client-side-only
+markers, absent from the Go payload.
 
 `pgbackrest` itself is still not re-aggregated by `js/report-filter.js` (its
 figures always cover the whole log, filtered or not) — only the "whole-log"

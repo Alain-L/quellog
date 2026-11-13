@@ -24,7 +24,7 @@ Default filenames:
 - Single input: `quellog-<stem>.<ext>` (stem = basename with the last extension stripped).
 - Multiple inputs or stdin: `quellog.<ext>`.
 
-Files are written in the current working directory. `-o`/`--output` is rejected when more than one format flag is set — every format goes to its default name. Multi-format is supported only for the full report, not for `--sql-detail`, `--event-detail`, `--sql-performance`, `--sql-overview`, `--pgbackrest-detail` or `--patroni-detail`.
+Files are written in the current working directory. `-o`/`--output` is rejected when more than one format flag is set — every format goes to its default name. Multi-format is supported only for the full report, not for `--sql-detail`, `--event-detail`, `--sql-performance`, `--sql-overview`, `--pgbackrest-detail`, `--patroni-detail` or `--pgbouncer-detail`.
 
 ## JSON
 

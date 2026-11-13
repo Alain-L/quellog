@@ -1,0 +1,44 @@
+[2026-09-25T09:15:41.719Z] === RUN P2 SETUP START ===
+[2026-09-25T09:15:41.901Z] starting postgres container (quellog-pg-p2)
+90a0c29c77b44818816e40186cf46f5c2b696c708202ecb08231c4dc0c12aa0b
+[2026-09-25T09:15:43.084Z] postgres ready after 2s
+ALTER ROLE
+dropping old tables...
+NOTICE:  table "pgbench_accounts" does not exist, skipping
+NOTICE:  table "pgbench_branches" does not exist, skipping
+NOTICE:  table "pgbench_history" does not exist, skipping
+NOTICE:  table "pgbench_tellers" does not exist, skipping
+creating tables...
+generating data (client-side)...
+500000 of 500000 tuples (100%) of pgbench_accounts done (elapsed 0.08 s, remaining 0.00 s)
+vacuuming...
+creating primary keys...
+done in 0.48 s (drop tables 0.00 s, create tables 0.01 s, client-side generate 0.33 s, vacuum 0.04 s, primary keys 0.10 s).
+[2026-09-25T09:15:45.641Z] pgb-a started (pid 639554), pgb-b started (pid 639559)
+[2026-09-25T09:15:45.644Z] === RUN P2 SETUP DONE ===
+[2026-09-25T09:15:45.648Z] STEPA BEFORE -- pgb-a steady light traffic baseline
+[2026-09-25T09:15:45.651Z] pgb-a steady light traffic loop started (pid 639576)
+[2026-09-25T09:17:45.675Z] STEPA AFTER
+[2026-09-25T09:17:45.676Z] STEPB BEFORE -- rotate pgb-a log: rename then kill -HUP
+-rw-rw-r-- 1 alain alain 12230 Sep 25 11:17 /home/alain/pgb-lab/p2/pgb-a.pgbouncer.log
+ls: cannot access '/home/alain/pgb-lab/p2/pgb-a.pgbouncer.log': No such file or directory
+-rw-rw-r-- 1 alain alain 12301 Sep 25 11:17 /home/alain/pgb-lab/p2/pgb-a.pgbouncer.log.1
+[2026-09-25T09:17:47.686Z] STEPB AFTER -- pgb-a.pgbouncer.log.1 (old) + pgb-a.pgbouncer.log (new, reopened)
+[2026-09-25T09:18:47.690Z] STEPC BEFORE -- saturate pgb-b (transaction mode) with 40 clients for ~40s
+RELOAD
+RELOAD
+[2026-09-25T09:19:32.359Z] STEPC AFTER
+[2026-09-25T09:19:32.360Z] STEPD BEFORE -- cool-down normal traffic (pgb-a only)
+[2026-09-25T09:21:32.381Z] STEPD AFTER
+[2026-09-25T09:21:32.392Z] pgb-a traffic loop stopped
+[2026-09-25T09:21:32.393Z] === RUN P2 TEARDOWN ===
+server closed the connection unexpectedly
+	This probably means the server terminated abnormally
+	before or while processing the request.
+connection to server was lost
+server closed the connection unexpectedly
+	This probably means the server terminated abnormally
+	before or while processing the request.
+connection to server was lost
+quellog-pg-p2
+[2026-09-25T09:21:33.922Z] === RUN P2 DONE ===

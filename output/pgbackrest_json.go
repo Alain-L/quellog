@@ -460,22 +460,6 @@ func pgBackRestJSONList(pbr []analysis.PgBackRestMetrics) []pgBackRestJSON {
 	return out
 }
 
-// ExportJSONWithPgBackRest brings together all metrics into one
-// composite JSON structure (only sections with data included, full
-// adding sql_overview and enriched sql_performance, compact dropping
-// indentation), adding, when pbr is non-empty, a "pgbackrest" key
-// holding one entry per stanza. With an empty pbr it exports exactly
-// the PostgreSQL report.
-func ExportJSONWithPgBackRest(w io.Writer, m analysis.AggregatedMetrics, pbr []analysis.PgBackRestMetrics, sections []string, full bool, compact bool) {
-	data := buildJSONData(m, sections, full)
-	if len(pbr) > 0 {
-		data["pgbackrest"] = pgBackRestJSONList(pbr)
-	}
-	if err := encodeMapStreaming(w, data, compact); err != nil {
-		fmt.Fprintf(w, "[ERROR] Failed to export JSON: %v\n", err)
-	}
-}
-
 // ExportPgBackRestOnlyJSON writes a document holding only the
 // "pgbackrest" key, for a run with no PostgreSQL files at all.
 func ExportPgBackRestOnlyJSON(w io.Writer, pbr []analysis.PgBackRestMetrics, compact bool) {

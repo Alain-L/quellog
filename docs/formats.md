@@ -48,6 +48,17 @@ pgBackRest's own log files, and its lines in a PostgreSQL stderr log, are recogn
 ### Patroni
 
 Patroni's own log files, in its text format (optionally behind a journalctl prefix) or its JSON format, are recognized by their content and feed a separate report; see [Patroni](patroni.md).
+### pgBouncer
+
+Logs from the [pgBouncer](https://www.pgbouncer.org/) connection pooler. They share PostgreSQL's `timestamp [PID] SEVERITY` prefix but carry pooler telemetry (`stats:` lines), client/server socket events, and pooler errors instead of SQL — so quellog detects them automatically and renders a dedicated pooler report rather than the PostgreSQL report.
+
+```
+2026-09-09 21:00:33.656 UTC [1] LOG stats: 17 xacts/s, 44 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 1742 B/s, out 1641 B/s, xact 2384 us, query 944 us, wait 618 us
+2026-09-09 20:59:13.571 UTC [1] LOG C-0x7f3b3ad2f3c0: app/app_user@10.89.0.4:35088 login attempt: db=app user=app_user tls=no replication=no
+2026-09-09 20:59:13.575 UTC [1] LOG C-0x7f3b3ad2f3c0: app/app_user@10.89.0.4:35088 closing because: server login failed (age=0s)
+```
+
+See [pgBouncer Reports](pgbouncer.md) for the metrics and report layout.
 
 ### Cloud Providers
 

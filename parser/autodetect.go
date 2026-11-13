@@ -102,29 +102,86 @@ var (
 // It automatically detects whether the file is in stderr/syslog, CSV, or JSON format.
 // Returns an error if the format is unknown or parsing fails.
 func ParseFile(filename string, out chan<- []LogEntry) error {
+	return ParseFileTrack(filename, out, AllMembers)
+}
+
+// ParseFileTrack is ParseFile for one track of a run: an archive reads
+// only the members of that track (see ArchiveTrack); any other input is
+// read whole.
+func ParseFileTrack(filename string, out chan<- []LogEntry, track ArchiveTrack) error {
 	parser, err := detectParser(filename)
 	if err != nil {
 		return fmt.Errorf("%s: %w", filename, err)
 	}
+	// A detector returning (nil, nil) would segfault on the call below. No
+	// path does today — the compression router reports an error instead of
+	// handing back a nil parser — but the contract is one new format away
+	// from being broken again, so report the file rather than crash the run.
+	if parser == nil {
+		return fmt.Errorf("%s: %w", filename, ErrUnknownFormat)
+	}
+	setArchiveTrack(parser, track)
 	return parser.Parse(filename, out)
 }
 
+// ArchiveTrack selects the members an archive parse reads. A single run
+// may analyze PostgreSQL and pgBouncer logs on two tracks; an archive
+// holding both is then read once per track (ParseFileTrack), each keeping
+// its own members. The zero value reads every member.
+type ArchiveTrack int
+
+const (
+	AllMembers ArchiveTrack = iota
+	PostgresMembers
+	PoolerMembers
+)
+
+// formatWrapper is implemented by the parsers that stand in front of a
+// payload whose real format only becomes visible once the wrapper is
+// opened: the compression wrapper and the archive parsers. Detection
+// resolves the wrapper, so DetectFileFormat asks it what it holds instead
+// of reporting every compressed or archived input as "stderr" — which sent
+// a pgBouncer log in a .gz or a .tgz straight to the PostgreSQL analyzer.
+type formatWrapper interface {
+	// innerFormats returns the formats ("csv", "json", "pgbouncer" or
+	// "stderr") the wrapped payload holds, each once, in the order met,
+	// or nothing when they cannot be determined. An archive may hold
+	// several. filename is the wrapper's own path, for the
+	// implementations that must reopen it.
+	innerFormats(filename string) []string
+}
+
 // DetectFileFormat detects the log format of a file without parsing it.
-// Returns "csv", "json", or "stderr" (for stderr/syslog formats).
-// Returns empty string if the format cannot be detected.
+// Returns "csv", "json", "pgbouncer", or "stderr" (for stderr/syslog
+// formats); for an archive, the format of its first log. Returns empty
+// string if the format cannot be detected.
 func DetectFileFormat(filename string) string {
+	if formats := InputFormats(filename); len(formats) > 0 {
+		return formats[0]
+	}
+	return ""
+}
+
+// InputFormats is DetectFileFormat for an input that may hold several
+// logs: every format an archive's members carry, each once.
+func InputFormats(filename string) []string {
 	parser, err := detectParser(filename)
 	if err != nil {
-		return ""
+		return nil
 	}
-	switch parser.(type) {
+	switch p := parser.(type) {
 	case *CsvParser:
-		return "csv"
+		return []string{"csv"}
 	case *JsonParser:
-		return "json"
-	default:
-		return "stderr"
+		return []string{"json"}
+	case *PgBouncerParser:
+		return []string{"pgbouncer"}
+	case formatWrapper:
+		if formats := p.innerFormats(filename); len(formats) > 0 {
+			return formats
+		}
 	}
+	return []string{"stderr"}
 }
 
 // detectParser reads a sample from the file to identify its format.
@@ -208,12 +265,28 @@ func detectParser(filename string) (LogParser, error) {
 // If no newlines are found in the initial buffer, it extends the read.
 func readFileSample(f *os.File) (string, error) {
 	buf := make([]byte, sampleBufferSize)
-	n, err := f.Read(buf)
-	if err != nil && n == 0 {
+	// io.ReadFull, not a bare Read: only a genuine end of file may shorten
+	// the read, which is what the whole-file shortcut below relies on.
+	n, err := io.ReadFull(f, buf)
+	atEOF := errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF)
+	if err != nil && !atEOF {
 		return "", err
+	}
+	if n == 0 {
+		return "", io.EOF
 	}
 
 	rawSample := string(buf[:n])
+
+	// The file ended inside the buffer, so whatever follows the last newline
+	// is a complete final line, not a truncated one — keep it. Trimming it
+	// unconditionally threw away the last line of every file written without
+	// a trailing newline, which on a two-line log is half the content and
+	// enough to fail detection.
+	if atEOF {
+		return rawSample, nil
+	}
+
 	lastNewline := strings.LastIndex(rawSample, "\n")
 
 	// If no newlines found, try to read more lines
@@ -279,6 +352,10 @@ func detectByExtension(filename, ext, sample string) LogParser {
 		return nil
 
 	case "log":
+		if looksLikePgBouncer(sample) {
+			slog.Info("detected pgBouncer format", "file", filename)
+			return &PgBouncerParser{}
+		}
 		if isLogContent(sample) {
 			return &StderrParser{}
 		}
@@ -302,30 +379,47 @@ func detectByExtension(filename, ext, sample string) LogParser {
 // detectByContent attempts to detect the parser based on file content.
 // This is used when the file extension doesn't provide enough information.
 func detectByContent(filename, sample string) LogParser {
-	switch {
-	case isJSONContent(sample):
+	switch sampleFormat(sample) {
+	case "pgbouncer":
+		slog.Info("detected pgBouncer format (unknown extension)", "file", filename)
+		return &PgBouncerParser{}
+	case "json":
 		slog.Info("detected JSON format (unknown extension)", "file", filename)
 		return &JsonParser{}
-
-	case isCSVContent(sample):
+	case "csv":
 		slog.Info("detected CSV format (unknown extension)", "file", filename)
 		return &CsvParser{}
-
-	case isLogContent(sample):
+	case "stderr":
 		slog.Info("detected stderr/syslog format (unknown extension)", "file", filename)
 		return &StderrParser{}
+	}
+	if n := detectLeadingPrefix(sample); n > 0 {
+		slog.Info("detected stderr format with a literal prefix (unknown extension)", "file", filename, "prefix_len", n)
+		return &StderrParser{prefixLen: n}
+	}
+	if looksLikePgBackRest(sample) {
+		slog.Info("detected pgBackRest format (unknown extension)", "file", filename)
+		return &StderrParser{}
+	}
+	slog.Error("unknown log format", "file", filename)
+	return nil
+}
 
+// sampleFormat names the format of a content sample: the one order of
+// discriminators both detectByContent and the archive-member probe use.
+// It builds no parser and logs nothing. Returns "" when nothing matches.
+func sampleFormat(sample string) string {
+	switch {
+	case looksLikePgBouncer(sample):
+		return "pgbouncer"
+	case isJSONContent(sample):
+		return "json"
+	case isCSVContent(sample):
+		return "csv"
+	case isLogContent(sample):
+		return "stderr"
 	default:
-		if n := detectLeadingPrefix(sample); n > 0 {
-			slog.Info("detected stderr format with a literal prefix (unknown extension)", "file", filename, "prefix_len", n)
-			return &StderrParser{prefixLen: n}
-		}
-		if looksLikePgBackRest(sample) {
-			slog.Info("detected pgBackRest format (unknown extension)", "file", filename)
-			return &StderrParser{}
-		}
-		slog.Error("unknown log format", "file", filename)
-		return nil
+		return ""
 	}
 }
 

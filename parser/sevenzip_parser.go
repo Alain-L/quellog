@@ -14,7 +14,7 @@ import (
 )
 
 // SevenZipParser extracts supported log files from 7z archives and streams entries.
-type SevenZipParser struct{}
+type SevenZipParser struct{ track ArchiveTrack }
 
 // Parse reads a 7z archive and parses any supported log files inside it.
 func (p *SevenZipParser) Parse(filename string, out chan<- []LogEntry) error {
@@ -58,7 +58,7 @@ func (p *SevenZipParser) Parse(filename string, out chan<- []LogEntry) error {
 		}
 
 		out <- []LogEntry{PgBackRestSourceMarker(entryName, true)}
-		if err := parseArchiveEntry(baseName, rc, out); err != nil {
+		if err := parseArchiveEntry(baseName, rc, out, p.track); err != nil {
 			if errors.Is(err, errUnsupportedArchiveEntry) {
 				slog.Warn("unsupported log format in archive", "entry", entryName, "archive", filename)
 			} else {
@@ -71,3 +71,20 @@ func (p *SevenZipParser) Parse(filename string, out chan<- []LogEntry) error {
 
 	return nil
 }
+
+// walkMembers implements memberWalker: it considers exactly the members
+// Parse parses.
+func (p *SevenZipParser) walkMembers(filename string, visit func(name, format string)) {
+	r, err := sevenzip.OpenReader(filename)
+	if err != nil {
+		return
+	}
+	defer r.Close()
+
+	for _, f := range r.File {
+		visit(f.Name, memberFormat(f.Name, uint64(f.UncompressedSize), f.FileInfo().IsDir(), f.Open))
+	}
+}
+
+// innerFormats implements formatWrapper.
+func (p *SevenZipParser) innerFormats(filename string) []string { return memberFormats(p, filename) }

@@ -1,0 +1,56 @@
+2026-09-20 13:59:04.379 CEST [21033] LOG kernel file descriptor limit: 1024 (hard: 524288); max_client_conn: 200, max expected fd use: 220
+2026-09-20 13:59:04.380 CEST [21033] LOG listening on 127.0.0.1:6432
+2026-09-20 13:59:04.380 CEST [21033] LOG process up: PgBouncer 1.25.2, libevent 2.1.13-stable (epoll), adns: c-ares 1.34.5, tls: OpenSSL 3.5.7 9 Jun 2026
+2026-09-20 13:59:09.718 CEST [21033] WARNING C-0x55842789f898: benchdb/bench@127.0.0.1:39220 taking connection from reserve_pool
+2026-09-20 13:59:09.732 CEST [21033] WARNING C-0x55842789ff80: benchdb/bench@127.0.0.1:39226 taking connection from reserve_pool
+2026-09-20 13:59:09.743 CEST [21033] WARNING C-0x558427897c48: benchdb/bench@127.0.0.1:39058 taking connection from reserve_pool
+2026-09-20 13:59:11.402 CEST [21033] WARNING C-0x5584278f3500: benchdb/bench@127.0.0.1:39394 pooler error: password authentication failed
+2026-09-20 13:59:11.421 CEST [21033] LOG C-0x5584278f3500: (nodb)/(nouser)@127.0.0.1:39406 no such user: nouserxyz
+2026-09-20 13:59:11.422 CEST [21033] WARNING C-0x5584278f3500: (nodb)/nouserxyz@127.0.0.1:39406 pooler error: password authentication failed
+2026-09-20 13:59:11.441 CEST [21033] WARNING C-0x5584278f3500: (nodb)/bench@127.0.0.1:39408 pooler error: no such database: nosuchdb
+2026-09-20 13:59:11.720 CEST [21033] WARNING C-0x5584278960a8: benchdb/bench@127.0.0.1:39024 pooler error: query_wait_timeout
+2026-09-20 13:59:11.720 CEST [21033] WARNING C-0x558427896e78: benchdb/bench@127.0.0.1:39046 pooler error: query_wait_timeout
+2026-09-20 13:59:11.720 CEST [21033] WARNING C-0x558427898330: benchdb/bench@127.0.0.1:39072 pooler error: query_wait_timeout
+2026-09-20 13:59:11.720 CEST [21033] WARNING C-0x558427898a18: benchdb/bench@127.0.0.1:39074 pooler error: query_wait_timeout
+2026-09-20 13:59:11.720 CEST [21033] WARNING C-0x5584278997e8: benchdb/bench@127.0.0.1:39094 pooler error: query_wait_timeout
+2026-09-20 13:59:11.720 CEST [21033] WARNING C-0x55842789b388: benchdb/bench@127.0.0.1:39136 pooler error: query_wait_timeout
+2026-09-20 13:59:11.720 CEST [21033] WARNING C-0x55842789aca0: benchdb/bench@127.0.0.1:39120 pooler error: query_wait_timeout
+2026-09-20 13:59:11.720 CEST [21033] WARNING C-0x55842789c840: benchdb/bench@127.0.0.1:39152 pooler error: query_wait_timeout
+2026-09-20 13:59:11.720 CEST [21033] WARNING C-0x55842789d610: benchdb/bench@127.0.0.1:39170 pooler error: query_wait_timeout
+2026-09-20 13:59:11.720 CEST [21033] WARNING C-0x55842789dcf8: benchdb/bench@127.0.0.1:39174 pooler error: query_wait_timeout
+2026-09-20 13:59:11.720 CEST [21033] WARNING C-0x55842789f1b0: benchdb/bench@127.0.0.1:39204 pooler error: query_wait_timeout
+2026-09-20 13:59:11.720 CEST [21033] WARNING C-0x55842789eac8: benchdb/bench@127.0.0.1:39210 pooler error: query_wait_timeout
+2026-09-20 13:59:11.720 CEST [21033] WARNING C-0x5584278a0668: benchdb/bench@127.0.0.1:39234 pooler error: query_wait_timeout
+2026-09-20 13:59:11.720 CEST [21033] WARNING C-0x5584278a1b20: benchdb/bench@127.0.0.1:39264 pooler error: query_wait_timeout
+2026-09-20 13:59:11.720 CEST [21033] WARNING C-0x5584278a1438: benchdb/bench@127.0.0.1:39248 pooler error: query_wait_timeout
+2026-09-20 13:59:11.720 CEST [21033] WARNING C-0x5584278eeff0: benchdb/bench@127.0.0.1:39288 pooler error: query_wait_timeout
+2026-09-20 13:59:11.720 CEST [21033] WARNING C-0x5584278f1960: benchdb/bench@127.0.0.1:39338 pooler error: query_wait_timeout
+2026-09-20 13:59:11.720 CEST [21033] WARNING C-0x5584278f1278: benchdb/bench@127.0.0.1:39340 pooler error: query_wait_timeout
+2026-09-20 13:59:11.721 CEST [21033] WARNING C-0x5584278efdc0: benchdb/bench@127.0.0.1:39308 pooler error: query_wait_timeout
+2026-09-20 13:59:16.466 CEST [21033] LOG PAUSE 'benchdb' command issued
+2026-09-20 13:59:18.715 CEST [21033] WARNING C-0x5584278a2208: benchdb/bench@127.0.0.1:39274 pooler error: query_wait_timeout
+2026-09-20 13:59:19.046 CEST [21033] WARNING C-0x5584278f2e18: benchdb/bench@127.0.0.1:39380 pooler error: query_wait_timeout
+2026-09-20 13:59:19.046 CEST [21033] WARNING C-0x558427897c48: benchdb/bench@127.0.0.1:39058 pooler error: query_wait_timeout
+2026-09-20 13:59:19.046 CEST [21033] WARNING C-0x558427899ed0: benchdb/bench@127.0.0.1:39096 pooler error: query_wait_timeout
+2026-09-20 13:59:19.047 CEST [21033] WARNING C-0x5584278f2048: benchdb/bench@127.0.0.1:39362 pooler error: query_wait_timeout
+2026-09-20 13:59:19.047 CEST [21033] WARNING C-0x55842789ba70: benchdb/bench@127.0.0.1:39146 pooler error: query_wait_timeout
+2026-09-20 13:59:19.379 CEST [21033] WARNING C-0x5584278f0b90: benchdb/bench@127.0.0.1:39334 pooler error: query_wait_timeout
+2026-09-20 13:59:19.379 CEST [21033] WARNING C-0x55842788eb40: benchdb/bench@127.0.0.1:38874 pooler error: query_wait_timeout
+2026-09-20 13:59:19.379 CEST [21033] WARNING C-0x5584278f2730: benchdb/bench@127.0.0.1:39374 pooler error: query_wait_timeout
+2026-09-20 13:59:19.379 CEST [21033] WARNING C-0x55842788cfa0: benchdb/bench@127.0.0.1:38838 pooler error: query_wait_timeout
+2026-09-20 13:59:19.379 CEST [21033] WARNING C-0x55842789e3e0: benchdb/bench@127.0.0.1:39188 pooler error: query_wait_timeout
+2026-09-20 13:59:19.379 CEST [21033] LOG stats: 11 xacts/s, 38 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 1297 B/s, out 1293 B/s, xact 2199312 us, query 640373 us, wait 3221746 us
+2026-09-20 13:59:19.718 CEST [21033] WARNING C-0x5584278906e0: benchdb/bench@127.0.0.1:38908 pooler error: query_wait_timeout
+2026-09-20 13:59:19.718 CEST [21033] WARNING C-0x55842788fff8: benchdb/bench@127.0.0.1:38904 pooler error: query_wait_timeout
+2026-09-20 13:59:19.718 CEST [21033] WARNING C-0x55842788f228: benchdb/bench@127.0.0.1:38876 pooler error: query_wait_timeout
+2026-09-20 13:59:19.718 CEST [21033] WARNING C-0x5584278a0d50: benchdb/bench@127.0.0.1:39238 pooler error: query_wait_timeout
+2026-09-20 13:59:19.718 CEST [21033] WARNING C-0x558427890dc8: benchdb/bench@127.0.0.1:38906 pooler error: query_wait_timeout
+2026-09-20 13:59:19.785 CEST [21033] LOG RESUME 'benchdb' command issued
+2026-09-20 13:59:19.801 CEST [21033] WARNING C-0x558427893050: benchdb/bench@127.0.0.1:38964 taking connection from reserve_pool
+2026-09-20 13:59:19.813 CEST [21033] WARNING C-0x5584278959c0: benchdb/bench@127.0.0.1:39022 taking connection from reserve_pool
+2026-09-20 13:59:19.822 CEST [21033] WARNING C-0x558427892968: benchdb/bench@127.0.0.1:38952 taking connection from reserve_pool
+2026-09-20 13:59:22.810 CEST [21033] LOG RELOAD command issued
+2026-09-20 13:59:24.716 CEST [21033] WARNING C-0x5584278f3500: benchdb/bench@127.0.0.1:39414 pooler error: client_idle_timeout
+2026-09-20 13:59:34.382 CEST [21033] LOG stats: 11 xacts/s, 58 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 2247 B/s, out 2210 B/s, xact 2469277 us, query 504740 us, wait 2073293 us
+2026-09-20 13:59:49.385 CEST [21033] LOG stats: 8 xacts/s, 49 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 1965 B/s, out 1934 B/s, xact 2756412 us, query 469767 us, wait 1906416 us
+2026-09-20 13:59:50.169 CEST [21033] LOG SHUTDOWN command issued

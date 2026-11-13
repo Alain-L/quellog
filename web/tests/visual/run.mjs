@@ -5,10 +5,15 @@
 //   node web/tests/visual/run.mjs                     # check against baselines
 //   node web/tests/visual/run.mjs --update-baselines  # (re)write baselines + structure contract
 //
-// Flow: regenerate reports fresh from the fixtures -> load under system Chrome
-// headless (playwright-core, no browser download) -> structural contract
-// assertions -> per-section + full-page pixel baselines (pixelmatch) -> split
-// report smoke test. One Chrome instance, sequential pages (memory-fragile host).
+// Flow: regenerate reports fresh from the fixtures -> load headless
+// (playwright-core: the system Chrome when there is one, else the browser
+// Playwright has downloaded) -> structural contract assertions -> per-section
+// + full-page pixel baselines (pixelmatch) -> split report smoke test.
+// One browser instance, sequential pages (memory-fragile host).
+//
+// A baseline is a photograph of one UI under one browser build: it has to
+// be re-recorded when either changes, and a machine that renders under a
+// different build than the one on record will see every dimension differ.
 
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
@@ -23,6 +28,27 @@ const BIN = join(REPO_ROOT, 'bin', 'quellog');
 const FIXTURE = join(REPO_ROOT, 'test', 'testdata', 'comprehensive', 'stderr.log');
 // The fixture spans ~22 minutes, so 10m yields 3 periods.
 const SPLIT_INTERVAL = '10m';
+
+// pgBouncer reports. The section is rendered by its own module and none
+// of the PostgreSQL fixtures reaches it, so without these the pooler
+// report has no visual contract at all. Four captures, chosen for the
+// shapes the section takes and no more (each one is a page load):
+//   nominal      every block filled -- cards, three charts, tabbed
+//                breakdowns, session histogram and error table;
+//   placeholders log_connections / log_disconnections off, so the two
+//                empty blocks fall back to their "which setting" notes
+//                and the error table takes the closing row on its own;
+//   one-snapshot a single "stats:" line -- the coverage caveat, and the
+//                charts replaced by the reason they are not drawn;
+//   saga         the P1 lab saga: a timeline, close reasons, dated
+//                errors, and rates in MB/s whose axis labels are long.
+const PGB_DIR = join(REPO_ROOT, 'test', 'testdata', 'regressions', 'pgbouncer');
+const PGB_REPORTS = [
+  { name: 'pgb-nominal', fixture: join(PGB_DIR, 'pgbouncer.log') },
+  { name: 'pgb-placeholders', fixture: join(PGB_DIR, 'pgbouncer_no_conn_log.log') },
+  { name: 'pgb-one-snapshot', fixture: join(PGB_DIR, 'pgbouncer_oldversion.log'), charts: false },
+  { name: 'pgb-saga', fixture: join(REPO_ROOT, 'test', 'testdata', 'pgbouncer', 'P1', 'p1.pgbouncer.log') },
+];
 
 // pgBackRest reports. The section is rendered by its own module and none
 // of the PostgreSQL fixtures reaches it, so without these the pgBackRest
@@ -317,9 +343,13 @@ async function main() {
     path: mainReport,
     structurePath: STRUCTURE_PATH,
   }];
-  for (const r of PGBR_REPORTS) {
+  const sideReports = [
+    ...PGB_REPORTS.map(r => ({ ...r, kind: 'pgBouncer' })),
+    ...PGBR_REPORTS.map(r => ({ ...r, kind: 'pgBackRest' })),
+  ];
+  for (const r of sideReports) {
     reports.push({
-      label: `pgBackRest report (${r.name})`,
+      label: `${r.kind} report (${r.name})`,
       path: generateReport(BIN, r.fixture, tmpDir, `${r.name}.html`),
       structurePath: join(VISUAL_DIR, `expected-structure.${r.name}.json`),
       prefix: `${r.name}-`,

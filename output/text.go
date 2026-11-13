@@ -1535,6 +1535,15 @@ func printTopXminTable(rows []analysis.VacuumTableStat) {
 // comes first) so the panel doesn't bury the signal under a long tail
 // on workloads that touch hundreds of tables.
 func printTopCountTable(title string, counts map[string]int, total int) {
+	printRankedCountTable(title, counts, total, false)
+}
+
+// printRankedCountTable is printTopCountTable with a switch for the
+// "… and N more" tail printTopSkippedTable already writes. A caller that
+// ranks an open-ended dimension (per user, per host) turns it on: the
+// title then names the whole set while the rows are only its head, and
+// a reader given ten rows adding up to 12% must be told why.
+func printRankedCountTable(title string, counts map[string]int, total int, declareTail bool) {
 	type pair struct {
 		Name  string
 		Count int
@@ -1549,23 +1558,16 @@ func printTopCountTable(title string, counts map[string]int, total int) {
 		}
 		return pairs[i].Name < pairs[j].Name
 	})
-	// Pre-walk to find the kept rows and their max name width before
-	// printing, so the table column aligns on the longest displayed
-	// table rather than the longest in the entire input.
-	cum, kept := 0, 0
-	maxNameW := 0
+	values := make([]int, len(pairs))
 	for i, p := range pairs {
-		cum += p.Count
-		kept = i + 1
-		if len(p.Name) > maxNameW {
-			maxNameW = len(p.Name)
-		}
-		if i >= 9 {
-			break
-		}
-		if float64(cum)/float64(total)*100 >= 80 && i >= 4 {
-			break
-		}
+		values[i] = p.Count
+	}
+	kept := rankedKept(values, total)
+	// The name column aligns on the longest displayed name rather than
+	// the longest in the entire input.
+	maxNameW := 0
+	for _, p := range pairs[:kept] {
+		maxNameW = max(maxNameW, len(p.Name))
 	}
 	fmt.Println("\n  " + title)
 	for i := 0; i < kept; i++ {
@@ -1573,6 +1575,23 @@ func printTopCountTable(title string, counts map[string]int, total int) {
 		pct := float64(p.Count) / float64(total) * 100
 		fmt.Printf("    %-*s  %6d  %5.1f%%\n", maxNameW, p.Name, p.Count, pct)
 	}
+	if declareTail && len(pairs) > kept {
+		fmt.Printf("    \u2026 and %d more\n", len(pairs)-kept)
+	}
+}
+
+// rankedKept is how many rows of a ranked table, its counts sorted in
+// decreasing order, are shown: ten at most, and from the fifth on the
+// table stops once 80% of the total is covered.
+func rankedKept(sorted []int, total int) int {
+	cum := 0
+	for i, c := range sorted {
+		cum += c
+		if i >= 9 || (i >= 4 && float64(cum)/float64(total)*100 >= 80) {
+			return i + 1
+		}
+	}
+	return len(sorted)
 }
 
 // formatCompact renders large integer counts with SI-style suffixes

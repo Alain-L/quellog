@@ -798,6 +798,13 @@
         /* Auto-adapt grid columns based on children count */
         .stat-grid { grid-template-columns: repeat(auto-fit, minmax(70px, 1fr)); }
 
+        /* Rows of equal cards holding different counts (the pgBouncer
+           stats and events rows): one fixed card size, so the rows line
+           up, and centred, so a short row or a last card alone on a
+           phone does not hang off the left edge. */
+        .stat-grid--rows { display: flex; flex-wrap: wrap; justify-content: center; }
+        .stat-grid--rows > .stat-card { flex: 0 1 160px; min-width: 140px; }
+
         /* Cross-highlight between cost-map dots and table rows. The row
            background tints with the same alt color used elsewhere so the
            hover origin (mouse on dot vs mouse on row) is consistent. */

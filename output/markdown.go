@@ -2178,7 +2178,7 @@ func mdTable(b *strings.Builder, headers []string, alignments string, rows [][]s
 	escapeCells := func(cells []string) []string {
 		out := make([]string, len(cells))
 		for i, c := range cells {
-			out[i] = strings.ReplaceAll(c, "|", `\|`)
+			out[i] = escapeMDCell(c)
 		}
 		return out
 	}
@@ -2229,4 +2229,13 @@ func mdTable(b *strings.Builder, headers []string, alignments string, rows [][]s
 	for _, row := range esc {
 		writeRow(row)
 	}
+}
+
+// escapeMDCell neutralises the one character that changes a Markdown
+// table's shape. A cell holding a pipe would otherwise open a column of
+// its own and shift every value after it -- and cells carry text chosen
+// elsewhere: query texts, error messages, and the database and user
+// names a client sends before it has authenticated.
+func escapeMDCell(s string) string {
+	return strings.ReplaceAll(s, "|", `\|`)
 }

@@ -34,7 +34,7 @@ func renderPgBackRestOnlyReport(pbr []analysis.PgBackRestMetrics, inputArgs []st
 		yaml:     func(w io.Writer) { output.ExportPgBackRestOnlyYAML(w, pbr) },
 		markdown: func(w io.Writer) { output.ExportPgBackRestMarkdown(w, pbr, fullFlag) },
 		html: func(w io.Writer, info output.HTMLReportInfo) error {
-			return output.ExportHTMLWithPgBackRest(w, analysis.AggregatedMetrics{}, pbr, info, nil, true)
+			return output.ExportHTMLCombined(w, analysis.AggregatedMetrics{}, pbr, nil, info, nil, true, false)
 		},
 		text: func() {
 			PrintProcessingSummary(analysis.PgBackRestLinesRead(pbr), processingDuration, totalFileSize)

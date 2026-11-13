@@ -1,0 +1,211 @@
+2026-09-20 13:57:57.996 CEST [20761] LOG kernel file descriptor limit: 1024 (hard: 524288); max_client_conn: 200, max expected fd use: 220
+2026-09-20 13:57:57.997 CEST [20761] LOG listening on 127.0.0.1:6432
+2026-09-20 13:57:57.997 CEST [20761] LOG process up: PgBouncer 1.25.2, libevent 2.1.13-stable (epoll), adns: c-ares 1.34.5, tls: OpenSSL 3.5.7 9 Jun 2026
+2026-09-20 13:58:00.017 CEST [20761] LOG C-0x55c871c95fa0: benchdb/bench@127.0.0.1:49372 login attempt: db=benchdb user=bench tls=no replication=no
+2026-09-20 13:58:00.019 CEST [20761] LOG S-0x55c871cdd380: benchdb/bench@127.0.0.1:5544 new connection to server (from 127.0.0.1:59972)
+2026-09-20 13:58:00.037 CEST [20761] LOG C-0x55c871c95fa0: benchdb/bench@127.0.0.1:49372 closing because: client close request (age=0s)
+2026-09-20 13:58:00.037 CEST [20761] LOG C-0x55c871c95fa0: benchdb/bench@127.0.0.1:49388 login attempt: db=benchdb user=bench tls=no replication=no
+2026-09-20 13:58:00.037 CEST [20761] LOG C-0x55c871c96688: benchdb/bench@127.0.0.1:49398 login attempt: db=benchdb user=bench tls=no replication=no
+2026-09-20 13:58:00.037 CEST [20761] LOG C-0x55c871c96d70: benchdb/bench@127.0.0.1:49404 login attempt: db=benchdb user=bench tls=no replication=no
+2026-09-20 13:58:00.037 CEST [20761] LOG C-0x55c871c97458: benchdb/bench@127.0.0.1:49418 login attempt: db=benchdb user=bench tls=no replication=no
+2026-09-20 13:58:00.037 CEST [20761] LOG C-0x55c871c97b40: benchdb/bench@127.0.0.1:49420 login attempt: db=benchdb user=bench tls=no replication=no
+2026-09-20 13:58:00.037 CEST [20761] LOG C-0x55c871c98228: benchdb/bench@127.0.0.1:49422 login attempt: db=benchdb user=bench tls=no replication=no
+2026-09-20 13:58:00.038 CEST [20761] LOG C-0x55c871c98910: benchdb/bench@127.0.0.1:49436 login attempt: db=benchdb user=bench tls=no replication=no
+2026-09-20 13:58:00.038 CEST [20761] LOG C-0x55c871c98ff8: benchdb/bench@127.0.0.1:49452 login attempt: db=benchdb user=bench tls=no replication=no
+2026-09-20 13:58:00.038 CEST [20761] LOG C-0x55c871c996e0: benchdb/bench@127.0.0.1:49466 login attempt: db=benchdb user=bench tls=no replication=no
+2026-09-20 13:58:00.038 CEST [20761] LOG C-0x55c871c99dc8: benchdb/bench@127.0.0.1:49482 login attempt: db=benchdb user=bench tls=no replication=no
+2026-09-20 13:58:00.038 CEST [20761] LOG C-0x55c871c9a4b0: benchdb/bench@127.0.0.1:49504 login attempt: db=benchdb user=bench tls=no replication=no
+2026-09-20 13:58:00.038 CEST [20761] LOG C-0x55c871c9ab98: benchdb/bench@127.0.0.1:49492 login attempt: db=benchdb user=bench tls=no replication=no
+2026-09-20 13:58:00.038 CEST [20761] LOG C-0x55c871c9b280: benchdb/bench@127.0.0.1:49506 login attempt: db=benchdb user=bench tls=no replication=no
+2026-09-20 13:58:00.038 CEST [20761] LOG C-0x55c871c9b968: benchdb/bench@127.0.0.1:49514 login attempt: db=benchdb user=bench tls=no replication=no
+2026-09-20 13:58:00.038 CEST [20761] LOG C-0x55c871c9c050: benchdb/bench@127.0.0.1:49524 login attempt: db=benchdb user=bench tls=no replication=no
+2026-09-20 13:58:00.038 CEST [20761] LOG C-0x55c871c9c738: benchdb/bench@127.0.0.1:49536 login attempt: db=benchdb user=bench tls=no replication=no
+2026-09-20 13:58:00.038 CEST [20761] LOG C-0x55c871c9ce20: benchdb/bench@127.0.0.1:49540 login attempt: db=benchdb user=bench tls=no replication=no
+2026-09-20 13:58:00.038 CEST [20761] LOG C-0x55c871c9d508: benchdb/bench@127.0.0.1:49550 login attempt: db=benchdb user=bench tls=no replication=no
+2026-09-20 13:58:00.038 CEST [20761] LOG C-0x55c871c9dbf0: benchdb/bench@127.0.0.1:49566 login attempt: db=benchdb user=bench tls=no replication=no
+2026-09-20 13:58:00.038 CEST [20761] LOG C-0x55c871c9e2d8: benchdb/bench@127.0.0.1:49574 login attempt: db=benchdb user=bench tls=no replication=no
+2026-09-20 13:58:00.038 CEST [20761] LOG C-0x55c871c9e9c0: benchdb/bench@127.0.0.1:49576 login attempt: db=benchdb user=bench tls=no replication=no
+2026-09-20 13:58:00.039 CEST [20761] LOG C-0x55c871c9f0a8: benchdb/bench@127.0.0.1:49590 login attempt: db=benchdb user=bench tls=no replication=no
+2026-09-20 13:58:00.039 CEST [20761] LOG C-0x55c871c9f790: benchdb/bench@127.0.0.1:49600 login attempt: db=benchdb user=bench tls=no replication=no
+2026-09-20 13:58:00.039 CEST [20761] LOG C-0x55c871c9fe78: benchdb/bench@127.0.0.1:49610 login attempt: db=benchdb user=bench tls=no replication=no
+2026-09-20 13:58:00.039 CEST [20761] LOG C-0x55c871ca0560: benchdb/bench@127.0.0.1:49608 login attempt: db=benchdb user=bench tls=no replication=no
+2026-09-20 13:58:00.039 CEST [20761] LOG C-0x55c871ca0c48: benchdb/bench@127.0.0.1:49618 login attempt: db=benchdb user=bench tls=no replication=no
+2026-09-20 13:58:00.039 CEST [20761] LOG C-0x55c871ca1330: benchdb/bench@127.0.0.1:49628 login attempt: db=benchdb user=bench tls=no replication=no
+2026-09-20 13:58:00.039 CEST [20761] LOG C-0x55c871ca1a18: benchdb/bench@127.0.0.1:49644 login attempt: db=benchdb user=bench tls=no replication=no
+2026-09-20 13:58:00.039 CEST [20761] LOG C-0x55c871ca2100: benchdb/bench@127.0.0.1:49650 login attempt: db=benchdb user=bench tls=no replication=no
+2026-09-20 13:58:00.039 CEST [20761] LOG C-0x55c871ca27e8: benchdb/bench@127.0.0.1:49660 login attempt: db=benchdb user=bench tls=no replication=no
+2026-09-20 13:58:00.039 CEST [20761] LOG C-0x55c871ca2ed0: benchdb/bench@127.0.0.1:49666 login attempt: db=benchdb user=bench tls=no replication=no
+2026-09-20 13:58:00.039 CEST [20761] LOG C-0x55c871ca35b8: benchdb/bench@127.0.0.1:49672 login attempt: db=benchdb user=bench tls=no replication=no
+2026-09-20 13:58:00.039 CEST [20761] LOG C-0x55c871ca3ca0: benchdb/bench@127.0.0.1:49680 login attempt: db=benchdb user=bench tls=no replication=no
+2026-09-20 13:58:00.039 CEST [20761] LOG C-0x55c871ca4388: benchdb/bench@127.0.0.1:49684 login attempt: db=benchdb user=bench tls=no replication=no
+2026-09-20 13:58:00.040 CEST [20761] LOG C-0x55c871ca4a70: benchdb/bench@127.0.0.1:49688 login attempt: db=benchdb user=bench tls=no replication=no
+2026-09-20 13:58:00.040 CEST [20761] LOG C-0x55c871ca5158: benchdb/bench@127.0.0.1:49704 login attempt: db=benchdb user=bench tls=no replication=no
+2026-09-20 13:58:00.040 CEST [20761] LOG C-0x55c871ca5840: benchdb/bench@127.0.0.1:49710 login attempt: db=benchdb user=bench tls=no replication=no
+2026-09-20 13:58:00.040 CEST [20761] LOG C-0x55c871ca5f28: benchdb/bench@127.0.0.1:49718 login attempt: db=benchdb user=bench tls=no replication=no
+2026-09-20 13:58:00.040 CEST [20761] LOG C-0x55c871ca6610: benchdb/bench@127.0.0.1:49732 login attempt: db=benchdb user=bench tls=no replication=no
+2026-09-20 13:58:00.040 CEST [20761] LOG C-0x55c871ca6cf8: benchdb/bench@127.0.0.1:49738 login attempt: db=benchdb user=bench tls=no replication=no
+2026-09-20 13:58:00.040 CEST [20761] LOG C-0x55c871ca73e0: benchdb/bench@127.0.0.1:49752 login attempt: db=benchdb user=bench tls=no replication=no
+2026-09-20 13:58:00.040 CEST [20761] LOG C-0x55c871ca7ac8: benchdb/bench@127.0.0.1:49760 login attempt: db=benchdb user=bench tls=no replication=no
+2026-09-20 13:58:00.040 CEST [20761] LOG C-0x55c871ca81b0: benchdb/bench@127.0.0.1:49772 login attempt: db=benchdb user=bench tls=no replication=no
+2026-09-20 13:58:00.040 CEST [20761] LOG C-0x55c871ca8898: benchdb/bench@127.0.0.1:49782 login attempt: db=benchdb user=bench tls=no replication=no
+2026-09-20 13:58:00.040 CEST [20761] LOG C-0x55c871ca8f80: benchdb/bench@127.0.0.1:49794 login attempt: db=benchdb user=bench tls=no replication=no
+2026-09-20 13:58:00.040 CEST [20761] LOG C-0x55c871ca9668: benchdb/bench@127.0.0.1:49810 login attempt: db=benchdb user=bench tls=no replication=no
+2026-09-20 13:58:00.040 CEST [20761] LOG C-0x55c871ca9d50: benchdb/bench@127.0.0.1:49812 login attempt: db=benchdb user=bench tls=no replication=no
+2026-09-20 13:58:00.041 CEST [20761] LOG C-0x55c871caa438: benchdb/bench@127.0.0.1:49828 login attempt: db=benchdb user=bench tls=no replication=no
+2026-09-20 13:58:00.041 CEST [20761] LOG C-0x55c871caab20: benchdb/bench@127.0.0.1:49836 login attempt: db=benchdb user=bench tls=no replication=no
+2026-09-20 13:58:00.041 CEST [20761] LOG C-0x55c871cab208: benchdb/bench@127.0.0.1:49840 login attempt: db=benchdb user=bench tls=no replication=no
+2026-09-20 13:58:00.041 CEST [20761] LOG C-0x55c871cf7ff0: benchdb/bench@127.0.0.1:49852 login attempt: db=benchdb user=bench tls=no replication=no
+2026-09-20 13:58:00.041 CEST [20761] LOG C-0x55c871cf86d8: benchdb/bench@127.0.0.1:49856 login attempt: db=benchdb user=bench tls=no replication=no
+2026-09-20 13:58:00.041 CEST [20761] LOG C-0x55c871cf8dc0: benchdb/bench@127.0.0.1:49858 login attempt: db=benchdb user=bench tls=no replication=no
+2026-09-20 13:58:00.041 CEST [20761] LOG C-0x55c871cf94a8: benchdb/bench@127.0.0.1:49862 login attempt: db=benchdb user=bench tls=no replication=no
+2026-09-20 13:58:00.066 CEST [20761] LOG C-0x55c871cf9b90: benchdb/bench@127.0.0.1:49868 login attempt: db=benchdb user=bench tls=no replication=no
+2026-09-20 13:58:00.067 CEST [20761] LOG C-0x55c871cfa278: benchdb/bench@127.0.0.1:49870 login attempt: db=benchdb user=bench tls=no replication=no
+2026-09-20 13:58:00.067 CEST [20761] LOG C-0x55c871cfb048: benchdb/bench@127.0.0.1:49892 login attempt: db=benchdb user=bench tls=no replication=no
+2026-09-20 13:58:00.067 CEST [20761] LOG C-0x55c871cfa960: benchdb/bench@127.0.0.1:49882 login attempt: db=benchdb user=bench tls=no replication=no
+2026-09-20 13:58:00.068 CEST [20761] LOG C-0x55c871cfb730: benchdb/bench@127.0.0.1:49902 login attempt: db=benchdb user=bench tls=no replication=no
+2026-09-20 13:58:00.068 CEST [20761] LOG C-0x55c871cfbe18: benchdb/bench@127.0.0.1:49914 login attempt: db=benchdb user=bench tls=no replication=no
+2026-09-20 13:58:00.069 CEST [20761] LOG S-0x55c871cdda68: benchdb/bench@127.0.0.1:5544 new connection to server (from 127.0.0.1:59984)
+2026-09-20 13:58:03.330 CEST [20761] WARNING C-0x55c871ca8898: benchdb/bench@127.0.0.1:49782 taking connection from reserve_pool
+2026-09-20 13:58:03.330 CEST [20761] LOG S-0x55c871cde150: benchdb/bench@127.0.0.1:5544 new connection to server (from 127.0.0.1:59994)
+2026-09-20 13:58:03.344 CEST [20761] WARNING C-0x55c871ca5f28: benchdb/bench@127.0.0.1:49718 taking connection from reserve_pool
+2026-09-20 13:58:03.344 CEST [20761] LOG S-0x55c871cde838: benchdb/bench@127.0.0.1:5544 new connection to server (from 127.0.0.1:60004)
+2026-09-20 13:58:03.355 CEST [20761] WARNING C-0x55c871caa438: benchdb/bench@127.0.0.1:49828 taking connection from reserve_pool
+2026-09-20 13:58:03.355 CEST [20761] LOG S-0x55c871cdef20: benchdb/bench@127.0.0.1:5544 new connection to server (from 127.0.0.1:60016)
+2026-09-20 13:58:05.019 CEST [20761] LOG C-0x55c871cfc500: benchdb/bench@127.0.0.1:51178 login attempt: db=benchdb user=bench tls=no replication=no
+2026-09-20 13:58:05.020 CEST [20761] LOG C-0x55c871cfc500: benchdb/bench@127.0.0.1:51178 closing because: password authentication failed (age=0s)
+2026-09-20 13:58:05.020 CEST [20761] WARNING C-0x55c871cfc500: benchdb/bench@127.0.0.1:51178 pooler error: password authentication failed
+2026-09-20 13:58:05.039 CEST [20761] LOG C-0x55c871cfc500: (nodb)/(nouser)@127.0.0.1:51184 no such user: nouserxyz
+2026-09-20 13:58:05.039 CEST [20761] LOG C-0x55c871cfc500: (nodb)/nouserxyz@127.0.0.1:51184 login attempt: db=benchdb user=nouserxyz tls=no replication=no
+2026-09-20 13:58:05.040 CEST [20761] LOG C-0x55c871cfc500: (nodb)/nouserxyz@127.0.0.1:51184 closing because: password authentication failed (age=0s)
+2026-09-20 13:58:05.040 CEST [20761] WARNING C-0x55c871cfc500: (nodb)/nouserxyz@127.0.0.1:51184 pooler error: password authentication failed
+2026-09-20 13:58:05.059 CEST [20761] LOG C-0x55c871cfc500: (nodb)/bench@127.0.0.1:51194 login attempt: db=nosuchdb user=bench tls=no replication=no
+2026-09-20 13:58:05.060 CEST [20761] LOG C-0x55c871cfc500: (nodb)/bench@127.0.0.1:51194 login failed: db=nosuchdb user=bench
+2026-09-20 13:58:05.060 CEST [20761] LOG C-0x55c871cfc500: (nodb)/bench@127.0.0.1:51194 closing because: no such database: nosuchdb (age=0s)
+2026-09-20 13:58:05.060 CEST [20761] WARNING C-0x55c871cfc500: (nodb)/bench@127.0.0.1:51194 pooler error: no such database: nosuchdb
+2026-09-20 13:58:05.079 CEST [20761] LOG C-0x55c871cfc500: benchdb/bench@127.0.0.1:51198 login attempt: db=benchdb user=bench tls=no replication=no
+2026-09-20 13:58:05.331 CEST [20761] LOG C-0x55c871c9e2d8: benchdb/bench@127.0.0.1:49574 closing because: query_wait_timeout (age=5s)
+2026-09-20 13:58:05.331 CEST [20761] WARNING C-0x55c871c9e2d8: benchdb/bench@127.0.0.1:49574 pooler error: query_wait_timeout
+2026-09-20 13:58:05.331 CEST [20761] LOG C-0x55c871c9f0a8: benchdb/bench@127.0.0.1:49590 closing because: query_wait_timeout (age=5s)
+2026-09-20 13:58:05.331 CEST [20761] WARNING C-0x55c871c9f0a8: benchdb/bench@127.0.0.1:49590 pooler error: query_wait_timeout
+2026-09-20 13:58:05.331 CEST [20761] LOG C-0x55c871ca2100: benchdb/bench@127.0.0.1:49650 closing because: query_wait_timeout (age=5s)
+2026-09-20 13:58:05.331 CEST [20761] WARNING C-0x55c871ca2100: benchdb/bench@127.0.0.1:49650 pooler error: query_wait_timeout
+2026-09-20 13:58:05.331 CEST [20761] LOG C-0x55c871ca0c48: benchdb/bench@127.0.0.1:49618 closing because: query_wait_timeout (age=5s)
+2026-09-20 13:58:05.331 CEST [20761] WARNING C-0x55c871ca0c48: benchdb/bench@127.0.0.1:49618 pooler error: query_wait_timeout
+2026-09-20 13:58:05.331 CEST [20761] LOG C-0x55c871ca1a18: benchdb/bench@127.0.0.1:49644 closing because: query_wait_timeout (age=5s)
+2026-09-20 13:58:05.331 CEST [20761] WARNING C-0x55c871ca1a18: benchdb/bench@127.0.0.1:49644 pooler error: query_wait_timeout
+2026-09-20 13:58:05.331 CEST [20761] LOG C-0x55c871ca4a70: benchdb/bench@127.0.0.1:49688 closing because: query_wait_timeout (age=5s)
+2026-09-20 13:58:05.331 CEST [20761] WARNING C-0x55c871ca4a70: benchdb/bench@127.0.0.1:49688 pooler error: query_wait_timeout
+2026-09-20 13:58:05.331 CEST [20761] LOG C-0x55c871ca35b8: benchdb/bench@127.0.0.1:49672 closing because: query_wait_timeout (age=5s)
+2026-09-20 13:58:05.331 CEST [20761] WARNING C-0x55c871ca35b8: benchdb/bench@127.0.0.1:49672 pooler error: query_wait_timeout
+2026-09-20 13:58:05.331 CEST [20761] LOG C-0x55c871ca4388: benchdb/bench@127.0.0.1:49684 closing because: query_wait_timeout (age=5s)
+2026-09-20 13:58:05.331 CEST [20761] WARNING C-0x55c871ca4388: benchdb/bench@127.0.0.1:49684 pooler error: query_wait_timeout
+2026-09-20 13:58:05.331 CEST [20761] LOG C-0x55c871ca73e0: benchdb/bench@127.0.0.1:49752 closing because: query_wait_timeout (age=5s)
+2026-09-20 13:58:05.331 CEST [20761] WARNING C-0x55c871ca73e0: benchdb/bench@127.0.0.1:49752 pooler error: query_wait_timeout
+2026-09-20 13:58:05.331 CEST [20761] LOG C-0x55c871ca5158: benchdb/bench@127.0.0.1:49704 closing because: query_wait_timeout (age=5s)
+2026-09-20 13:58:05.331 CEST [20761] WARNING C-0x55c871ca5158: benchdb/bench@127.0.0.1:49704 pooler error: query_wait_timeout
+2026-09-20 13:58:05.331 CEST [20761] LOG C-0x55c871ca6cf8: benchdb/bench@127.0.0.1:49738 closing because: query_wait_timeout (age=5s)
+2026-09-20 13:58:05.331 CEST [20761] WARNING C-0x55c871ca6cf8: benchdb/bench@127.0.0.1:49738 pooler error: query_wait_timeout
+2026-09-20 13:58:05.331 CEST [20761] LOG C-0x55c871ca9d50: benchdb/bench@127.0.0.1:49812 closing because: query_wait_timeout (age=5s)
+2026-09-20 13:58:05.331 CEST [20761] WARNING C-0x55c871ca9d50: benchdb/bench@127.0.0.1:49812 pooler error: query_wait_timeout
+2026-09-20 13:58:05.331 CEST [20761] LOG C-0x55c871ca7ac8: benchdb/bench@127.0.0.1:49760 closing because: query_wait_timeout (age=5s)
+2026-09-20 13:58:05.331 CEST [20761] WARNING C-0x55c871ca7ac8: benchdb/bench@127.0.0.1:49760 pooler error: query_wait_timeout
+2026-09-20 13:58:05.331 CEST [20761] LOG C-0x55c871ca9668: benchdb/bench@127.0.0.1:49810 closing because: query_wait_timeout (age=5s)
+2026-09-20 13:58:05.332 CEST [20761] WARNING C-0x55c871ca9668: benchdb/bench@127.0.0.1:49810 pooler error: query_wait_timeout
+2026-09-20 13:58:05.332 CEST [20761] LOG C-0x55c871cf8dc0: benchdb/bench@127.0.0.1:49858 closing because: query_wait_timeout (age=5s)
+2026-09-20 13:58:05.332 CEST [20761] WARNING C-0x55c871cf8dc0: benchdb/bench@127.0.0.1:49858 pooler error: query_wait_timeout
+2026-09-20 13:58:05.332 CEST [20761] LOG C-0x55c871caab20: benchdb/bench@127.0.0.1:49836 closing because: query_wait_timeout (age=5s)
+2026-09-20 13:58:05.332 CEST [20761] WARNING C-0x55c871caab20: benchdb/bench@127.0.0.1:49836 pooler error: query_wait_timeout
+2026-09-20 13:58:05.332 CEST [20761] LOG C-0x55c871cf86d8: benchdb/bench@127.0.0.1:49856 closing because: query_wait_timeout (age=5s)
+2026-09-20 13:58:05.332 CEST [20761] WARNING C-0x55c871cf86d8: benchdb/bench@127.0.0.1:49856 pooler error: query_wait_timeout
+2026-09-20 13:58:05.332 CEST [20761] LOG C-0x55c871cfb048: benchdb/bench@127.0.0.1:49892 closing because: query_wait_timeout (age=5s)
+2026-09-20 13:58:05.332 CEST [20761] WARNING C-0x55c871cfb048: benchdb/bench@127.0.0.1:49892 pooler error: query_wait_timeout
+2026-09-20 13:58:05.332 CEST [20761] LOG C-0x55c871cfa960: benchdb/bench@127.0.0.1:49882 closing because: query_wait_timeout (age=5s)
+2026-09-20 13:58:05.332 CEST [20761] WARNING C-0x55c871cfa960: benchdb/bench@127.0.0.1:49882 pooler error: query_wait_timeout
+2026-09-20 13:58:10.083 CEST [20761] LOG C-0x55c871cfa960: pgbouncer/admin@127.0.0.1:51208 login attempt: db=pgbouncer user=admin tls=no replication=no
+2026-09-20 13:58:10.084 CEST [20761] LOG PAUSE 'benchdb' command issued
+2026-09-20 13:58:10.362 CEST [20761] LOG S-0x55c871cde150: benchdb/bench@127.0.0.1:5544 closing because: pause mode (age=7s)
+2026-09-20 13:58:10.374 CEST [20761] LOG S-0x55c871cdd380: benchdb/bench@127.0.0.1:5544 closing because: pause mode (age=10s)
+2026-09-20 13:58:10.377 CEST [20761] LOG S-0x55c871cdef20: benchdb/bench@127.0.0.1:5544 closing because: pause mode (age=7s)
+2026-09-20 13:58:10.378 CEST [20761] LOG S-0x55c871cdda68: benchdb/bench@127.0.0.1:5544 closing because: pause mode (age=10s)
+2026-09-20 13:58:10.378 CEST [20761] LOG S-0x55c871cde838: benchdb/bench@127.0.0.1:5544 closing because: pause mode (age=7s)
+2026-09-20 13:58:10.378 CEST [20761] LOG C-0x55c871cfa960: pgbouncer/admin@127.0.0.1:51208 closing because: client close request (age=0s)
+2026-09-20 13:58:12.331 CEST [20761] LOG C-0x55c871ca5f28: benchdb/bench@127.0.0.1:49718 closing because: query_wait_timeout (age=12s)
+2026-09-20 13:58:12.331 CEST [20761] WARNING C-0x55c871ca5f28: benchdb/bench@127.0.0.1:49718 pooler error: query_wait_timeout
+2026-09-20 13:58:12.663 CEST [20761] LOG C-0x55c871c95fa0: benchdb/bench@127.0.0.1:49388 closing because: query_wait_timeout (age=12s)
+2026-09-20 13:58:12.663 CEST [20761] WARNING C-0x55c871c95fa0: benchdb/bench@127.0.0.1:49388 pooler error: query_wait_timeout
+2026-09-20 13:58:12.663 CEST [20761] LOG C-0x55c871cf94a8: benchdb/bench@127.0.0.1:49862 closing because: query_wait_timeout (age=12s)
+2026-09-20 13:58:12.663 CEST [20761] WARNING C-0x55c871cf94a8: benchdb/bench@127.0.0.1:49862 pooler error: query_wait_timeout
+2026-09-20 13:58:12.663 CEST [20761] LOG C-0x55c871cf7ff0: benchdb/bench@127.0.0.1:49852 closing because: query_wait_timeout (age=12s)
+2026-09-20 13:58:12.663 CEST [20761] WARNING C-0x55c871cf7ff0: benchdb/bench@127.0.0.1:49852 pooler error: query_wait_timeout
+2026-09-20 13:58:12.663 CEST [20761] LOG C-0x55c871ca5840: benchdb/bench@127.0.0.1:49710 closing because: query_wait_timeout (age=12s)
+2026-09-20 13:58:12.663 CEST [20761] WARNING C-0x55c871ca5840: benchdb/bench@127.0.0.1:49710 pooler error: query_wait_timeout
+2026-09-20 13:58:12.663 CEST [20761] LOG C-0x55c871ca8f80: benchdb/bench@127.0.0.1:49794 closing because: query_wait_timeout (age=12s)
+2026-09-20 13:58:12.663 CEST [20761] WARNING C-0x55c871ca8f80: benchdb/bench@127.0.0.1:49794 pooler error: query_wait_timeout
+2026-09-20 13:58:12.996 CEST [20761] LOG C-0x55c871ca81b0: benchdb/bench@127.0.0.1:49772 closing because: query_wait_timeout (age=12s)
+2026-09-20 13:58:12.996 CEST [20761] WARNING C-0x55c871ca81b0: benchdb/bench@127.0.0.1:49772 pooler error: query_wait_timeout
+2026-09-20 13:58:12.996 CEST [20761] LOG C-0x55c871cfa278: benchdb/bench@127.0.0.1:49870 closing because: query_wait_timeout (age=12s)
+2026-09-20 13:58:12.996 CEST [20761] WARNING C-0x55c871cfa278: benchdb/bench@127.0.0.1:49870 pooler error: query_wait_timeout
+2026-09-20 13:58:12.996 CEST [20761] LOG C-0x55c871cab208: benchdb/bench@127.0.0.1:49840 closing because: query_wait_timeout (age=12s)
+2026-09-20 13:58:12.996 CEST [20761] WARNING C-0x55c871cab208: benchdb/bench@127.0.0.1:49840 pooler error: query_wait_timeout
+2026-09-20 13:58:12.996 CEST [20761] LOG C-0x55c871c96d70: benchdb/bench@127.0.0.1:49404 closing because: query_wait_timeout (age=12s)
+2026-09-20 13:58:12.996 CEST [20761] WARNING C-0x55c871c96d70: benchdb/bench@127.0.0.1:49404 pooler error: query_wait_timeout
+2026-09-20 13:58:12.996 CEST [20761] LOG C-0x55c871c97458: benchdb/bench@127.0.0.1:49418 closing because: query_wait_timeout (age=12s)
+2026-09-20 13:58:12.996 CEST [20761] WARNING C-0x55c871c97458: benchdb/bench@127.0.0.1:49418 pooler error: query_wait_timeout
+2026-09-20 13:58:12.996 CEST [20761] LOG stats: 11 xacts/s, 38 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 1297 B/s, out 1295 B/s, xact 2197400 us, query 639820 us, wait 3218494 us
+2026-09-20 13:58:13.331 CEST [20761] LOG C-0x55c871c98910: benchdb/bench@127.0.0.1:49436 closing because: query_wait_timeout (age=13s)
+2026-09-20 13:58:13.331 CEST [20761] WARNING C-0x55c871c98910: benchdb/bench@127.0.0.1:49436 pooler error: query_wait_timeout
+2026-09-20 13:58:13.331 CEST [20761] LOG C-0x55c871cfbe18: benchdb/bench@127.0.0.1:49914 closing because: query_wait_timeout (age=13s)
+2026-09-20 13:58:13.331 CEST [20761] WARNING C-0x55c871cfbe18: benchdb/bench@127.0.0.1:49914 pooler error: query_wait_timeout
+2026-09-20 13:58:13.331 CEST [20761] LOG C-0x55c871c9b280: benchdb/bench@127.0.0.1:49506 closing because: query_wait_timeout (age=13s)
+2026-09-20 13:58:13.331 CEST [20761] WARNING C-0x55c871c9b280: benchdb/bench@127.0.0.1:49506 pooler error: query_wait_timeout
+2026-09-20 13:58:13.331 CEST [20761] LOG C-0x55c871cf9b90: benchdb/bench@127.0.0.1:49868 closing because: query_wait_timeout (age=13s)
+2026-09-20 13:58:13.331 CEST [20761] WARNING C-0x55c871cf9b90: benchdb/bench@127.0.0.1:49868 pooler error: query_wait_timeout
+2026-09-20 13:58:13.331 CEST [20761] LOG C-0x55c871c996e0: benchdb/bench@127.0.0.1:49466 closing because: query_wait_timeout (age=13s)
+2026-09-20 13:58:13.331 CEST [20761] WARNING C-0x55c871c996e0: benchdb/bench@127.0.0.1:49466 pooler error: query_wait_timeout
+2026-09-20 13:58:13.404 CEST [20761] LOG C-0x55c871c996e0: pgbouncer/admin@127.0.0.1:51214 login attempt: db=pgbouncer user=admin tls=no replication=no
+2026-09-20 13:58:13.405 CEST [20761] LOG RESUME 'benchdb' command issued
+2026-09-20 13:58:13.405 CEST [20761] LOG C-0x55c871c996e0: pgbouncer/admin@127.0.0.1:51214 closing because: client close request (age=0s)
+2026-09-20 13:58:13.405 CEST [20761] LOG S-0x55c871cde838: benchdb/bench@127.0.0.1:5544 new connection to server (from 127.0.0.1:56562)
+2026-09-20 13:58:13.412 CEST [20761] LOG S-0x55c871cdda68: benchdb/bench@127.0.0.1:5544 new connection to server (from 127.0.0.1:56574)
+2026-09-20 13:58:13.420 CEST [20761] WARNING C-0x55c871c9c050: benchdb/bench@127.0.0.1:49524 taking connection from reserve_pool
+2026-09-20 13:58:13.420 CEST [20761] LOG S-0x55c871cdef20: benchdb/bench@127.0.0.1:5544 new connection to server (from 127.0.0.1:56584)
+2026-09-20 13:58:13.431 CEST [20761] WARNING C-0x55c871cfb730: benchdb/bench@127.0.0.1:49902 taking connection from reserve_pool
+2026-09-20 13:58:13.431 CEST [20761] LOG S-0x55c871cdd380: benchdb/bench@127.0.0.1:5544 new connection to server (from 127.0.0.1:56586)
+2026-09-20 13:58:13.439 CEST [20761] WARNING C-0x55c871c9c738: benchdb/bench@127.0.0.1:49536 taking connection from reserve_pool
+2026-09-20 13:58:13.439 CEST [20761] LOG S-0x55c871cde150: benchdb/bench@127.0.0.1:5544 new connection to server (from 127.0.0.1:56598)
+2026-09-20 13:58:16.429 CEST [20761] LOG C-0x55c871c996e0: pgbouncer/admin@127.0.0.1:32862 login attempt: db=pgbouncer user=admin tls=no replication=no
+2026-09-20 13:58:16.430 CEST [20761] LOG RELOAD command issued
+2026-09-20 13:58:16.430 CEST [20761] LOG C-0x55c871c996e0: pgbouncer/admin@127.0.0.1:32862 closing because: client close request (age=0s)
+2026-09-20 13:58:18.332 CEST [20761] LOG C-0x55c871cfc500: benchdb/bench@127.0.0.1:51198 closing because: client_idle_timeout (age=13s)
+2026-09-20 13:58:18.332 CEST [20761] WARNING C-0x55c871cfc500: benchdb/bench@127.0.0.1:51198 pooler error: client_idle_timeout
+2026-09-20 13:58:27.997 CEST [20761] LOG stats: 11 xacts/s, 58 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 2248 B/s, out 2211 B/s, xact 2464988 us, query 503865 us, wait 2069672 us
+2026-09-20 13:58:33.594 CEST [20761] LOG S-0x55c871cde838: benchdb/bench@127.0.0.1:5544 closing because: server lifetime over (age=20s)
+2026-09-20 13:58:40.210 CEST [20761] LOG C-0x55c871c9f790: benchdb/bench@127.0.0.1:49600 closing because: client close request (age=40s)
+2026-09-20 13:58:40.225 CEST [20761] LOG C-0x55c871cfb730: benchdb/bench@127.0.0.1:49902 closing because: client close request (age=40s)
+2026-09-20 13:58:40.225 CEST [20761] LOG C-0x55c871c9a4b0: benchdb/bench@127.0.0.1:49504 closing because: client close request (age=40s)
+2026-09-20 13:58:40.237 CEST [20761] LOG C-0x55c871c96688: benchdb/bench@127.0.0.1:49398 closing because: client close request (age=40s)
+2026-09-20 13:58:40.623 CEST [20761] LOG C-0x55c871c97b40: benchdb/bench@127.0.0.1:49420 closing because: client close request (age=40s)
+2026-09-20 13:58:40.638 CEST [20761] LOG C-0x55c871c98ff8: benchdb/bench@127.0.0.1:49452 closing because: client close request (age=40s)
+2026-09-20 13:58:40.639 CEST [20761] LOG C-0x55c871c9ce20: benchdb/bench@127.0.0.1:49540 closing because: client close request (age=40s)
+2026-09-20 13:58:40.642 CEST [20761] LOG C-0x55c871c98228: benchdb/bench@127.0.0.1:49422 closing because: client close request (age=40s)
+2026-09-20 13:58:41.036 CEST [20761] LOG C-0x55c871c9ab98: benchdb/bench@127.0.0.1:49492 closing because: client close request (age=40s)
+2026-09-20 13:58:41.041 CEST [20761] LOG C-0x55c871ca1330: benchdb/bench@127.0.0.1:49628 closing because: client close request (age=41s)
+2026-09-20 13:58:41.042 CEST [20761] LOG C-0x55c871c9e9c0: benchdb/bench@127.0.0.1:49576 closing because: client close request (age=41s)
+2026-09-20 13:58:41.045 CEST [20761] LOG C-0x55c871c9fe78: benchdb/bench@127.0.0.1:49610 closing because: client close request (age=41s)
+2026-09-20 13:58:41.448 CEST [20761] LOG C-0x55c871ca3ca0: benchdb/bench@127.0.0.1:49680 closing because: client close request (age=41s)
+2026-09-20 13:58:41.463 CEST [20761] LOG C-0x55c871ca6610: benchdb/bench@127.0.0.1:49732 closing because: client close request (age=41s)
+2026-09-20 13:58:41.463 CEST [20761] LOG C-0x55c871c9d508: benchdb/bench@127.0.0.1:49550 closing because: client close request (age=41s)
+2026-09-20 13:58:41.475 CEST [20761] LOG C-0x55c871ca0560: benchdb/bench@127.0.0.1:49608 closing because: client close request (age=41s)
+2026-09-20 13:58:41.862 CEST [20761] LOG C-0x55c871ca27e8: benchdb/bench@127.0.0.1:49660 closing because: client close request (age=41s)
+2026-09-20 13:58:41.876 CEST [20761] LOG C-0x55c871ca2ed0: benchdb/bench@127.0.0.1:49666 closing because: client close request (age=41s)
+2026-09-20 13:58:41.877 CEST [20761] LOG C-0x55c871ca8898: benchdb/bench@127.0.0.1:49782 closing because: client close request (age=41s)
+2026-09-20 13:58:41.879 CEST [20761] LOG C-0x55c871caa438: benchdb/bench@127.0.0.1:49828 closing because: client close request (age=41s)
+2026-09-20 13:58:42.276 CEST [20761] LOG C-0x55c871c99dc8: benchdb/bench@127.0.0.1:49482 closing because: client close request (age=42s)
+2026-09-20 13:58:42.281 CEST [20761] LOG C-0x55c871c9c738: benchdb/bench@127.0.0.1:49536 closing because: client close request (age=42s)
+2026-09-20 13:58:42.281 CEST [20761] LOG C-0x55c871c9dbf0: benchdb/bench@127.0.0.1:49566 closing because: client close request (age=42s)
+2026-09-20 13:58:42.283 CEST [20761] LOG C-0x55c871c9c050: benchdb/bench@127.0.0.1:49524 closing because: client close request (age=42s)
+2026-09-20 13:58:42.689 CEST [20761] LOG C-0x55c871c9b968: benchdb/bench@127.0.0.1:49514 closing because: client close request (age=42s)
+2026-09-20 13:58:42.998 CEST [20761] LOG stats: 8 xacts/s, 49 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 1966 B/s, out 1936 B/s, xact 2751167 us, query 468859 us, wait 1902890 us
+2026-09-20 13:58:43.664 CEST [20761] LOG S-0x55c871cdd380: benchdb/bench@127.0.0.1:5544 closing because: server lifetime over (age=30s)
+2026-09-20 13:58:43.718 CEST [20761] LOG C-0x55c871c9b968: pgbouncer/admin@127.0.0.1:32904 login attempt: db=pgbouncer user=admin tls=no replication=no
+2026-09-20 13:58:43.719 CEST [20761] LOG SHUTDOWN command issued

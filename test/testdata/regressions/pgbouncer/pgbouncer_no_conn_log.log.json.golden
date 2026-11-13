@@ -1,0 +1,160 @@
+{
+  "pgbouncer": [
+    {
+      "name": "127.0.0.1:6432",
+      "files": [
+        "testdata/regressions/pgbouncer/pgbouncer_no_conn_log.log"
+      ],
+      "listen": [
+        "127.0.0.1:6432"
+      ],
+      "version": "1.25.2",
+      "start_date": "2026-09-20 13:59:04",
+      "end_date": "2026-09-20 13:59:50",
+      "events": [
+        {
+          "timestamp": "2026-09-20 13:59:04",
+          "kind": "start",
+          "detail": "PgBouncer 1.25.2"
+        },
+        {
+          "timestamp": "2026-09-20 13:59:16",
+          "kind": "pause",
+          "detail": "PAUSE 'benchdb'"
+        },
+        {
+          "timestamp": "2026-09-20 13:59:19",
+          "kind": "resume",
+          "detail": "RESUME 'benchdb'"
+        },
+        {
+          "timestamp": "2026-09-20 13:59:22",
+          "kind": "reload",
+          "detail": "RELOAD"
+        },
+        {
+          "timestamp": "2026-09-20 13:59:50",
+          "kind": "shutdown",
+          "detail": "SHUTDOWN"
+        }
+      ],
+      "lines": 56,
+      "lines_read": 56,
+      "lines_unrecognized": 0,
+      "debug_lines": 0,
+      "stats_sample_count": 3,
+      "avg_xacts_per_sec": 10,
+      "max_xacts_per_sec": 11,
+      "avg_queries_per_sec": 48.333333333333336,
+      "max_queries_per_sec": 58,
+      "avg_in_bytes_per_sec": 1836.3333333333333,
+      "max_in_bytes_per_sec": 2247,
+      "avg_out_bytes_per_sec": 1812.3333333333333,
+      "max_out_bytes_per_sec": 2210,
+      "avg_xact_us": 2446859.1666666665,
+      "max_xact_us": 2756412,
+      "avg_query_us": 528466.7379310345,
+      "max_query_us": 640373,
+      "avg_wait_us": 2449891.9,
+      "max_wait_us": 3221746,
+      "stats_series": [
+        {
+          "time": "2026-09-20 13:59:19",
+          "period_start": "2026-09-20 13:59:04",
+          "xacts_per_sec": 11,
+          "queries_per_sec": 38,
+          "in_bytes_per_sec": 1297,
+          "out_bytes_per_sec": 1293,
+          "xact_us": 2199312,
+          "query_us": 640373,
+          "wait_us": 3221746
+        },
+        {
+          "time": "2026-09-20 13:59:34",
+          "period_start": "2026-09-20 13:59:19",
+          "xacts_per_sec": 11,
+          "queries_per_sec": 58,
+          "in_bytes_per_sec": 2247,
+          "out_bytes_per_sec": 2210,
+          "xact_us": 2469277,
+          "query_us": 504740,
+          "wait_us": 2073293
+        },
+        {
+          "time": "2026-09-20 13:59:49",
+          "period_start": "2026-09-20 13:59:34",
+          "xacts_per_sec": 8,
+          "queries_per_sec": 49,
+          "in_bytes_per_sec": 1965,
+          "out_bytes_per_sec": 1934,
+          "xact_us": 2756412,
+          "query_us": 469767,
+          "wait_us": 1906416
+        }
+      ],
+      "max_xacts_per_sec_timestamp": "2026-09-20 13:59:19",
+      "max_queries_per_sec_timestamp": "2026-09-20 13:59:34",
+      "max_in_bytes_per_sec_timestamp": "2026-09-20 13:59:34",
+      "max_out_bytes_per_sec_timestamp": "2026-09-20 13:59:34",
+      "max_xact_us_timestamp": "2026-09-20 13:59:49",
+      "max_query_us_timestamp": "2026-09-20 13:59:19",
+      "max_wait_us_timestamp": "2026-09-20 13:59:19",
+      "wait_episodes": [
+        {
+          "start": "2026-09-20 13:59:04",
+          "end": "2026-09-20 13:59:49",
+          "peak_wait_us": 3221746,
+          "peak_timestamp": "2026-09-20 13:59:19"
+        }
+      ],
+      "login_attempts": 0,
+      "server_connections": 0,
+      "sessions": 0,
+      "total_session_seconds": 0,
+      "reserve_pool_activations": 6,
+      "errors": [
+        {
+          "id": "wa-2Xo6",
+          "level": "WARNING",
+          "message": "query_wait_timeout",
+          "count": 35,
+          "first": "2026-09-20 13:59:11",
+          "last": "2026-09-20 13:59:19"
+        },
+        {
+          "id": "wa-JC9n",
+          "level": "WARNING",
+          "message": "taking connection from reserve_pool",
+          "count": 6,
+          "first": "2026-09-20 13:59:09",
+          "last": "2026-09-20 13:59:19"
+        },
+        {
+          "id": "wa-zZfu",
+          "level": "WARNING",
+          "message": "password authentication failed",
+          "count": 2,
+          "first": "2026-09-20 13:59:11",
+          "last": "2026-09-20 13:59:11"
+        },
+        {
+          "id": "wa-7RKL",
+          "level": "WARNING",
+          "message": "client_idle_timeout",
+          "count": 1,
+          "first": "2026-09-20 13:59:24",
+          "last": "2026-09-20 13:59:24"
+        },
+        {
+          "id": "wa-lWMX",
+          "level": "WARNING",
+          "message": "no such database: nosuchdb",
+          "count": 1,
+          "first": "2026-09-20 13:59:11",
+          "last": "2026-09-20 13:59:11"
+        }
+      ],
+      "total_errors": 45
+    }
+  ]
+}

@@ -1,0 +1,149 @@
+[1m
+SUMMARY
+[0m
+  Start date                : 2026-09-25 09:05:27 UTC
+  End date                  : 2026-09-25 09:14:30 UTC
+  Duration                  : 9m3.213s
+  Total entries             : 124
+  Throughput                : 0.23 entries/s
+[1m
+SERVER
+[0m
+  Starts                    : 3   [3;38;5;243m(first: 2026-09-25 09:05:27)[0m
+  Shutdowns                 : 3 fast, 0 immediate, 0 smart
+
+  Timeline:
+    09:05:27  start       database system is ready to accept connections
+    09:05:27  shutdown    fast shutdown request
+    09:05:28  start       database system is ready to accept connections
+    09:10:59  shutdown    fast shutdown request
+    09:11:01  start       database system is ready to accept connections
+    09:14:30  shutdown    fast shutdown request
+[1m
+EVENTS
+[0m
+  FATAL                     : 4 (3.2%)
+    [3;38;5;243mfa-LkLy[0m  terminating connection due to administrator command       3   75.00%
+    [3;38;5;243mfa-RaU1[0m  the database system is shutting down                      1   25.00%
+  LOG                       : 120 (96.8%)
+
+[1m
+CHECKPOINTS
+[0m
+  Checkpoints | ■ = 1 
+
+  00:00 - 04:00   -
+  04:00 - 08:00   -
+  08:00 - 12:00  ■■■■ 4  [3;38;5;243m1.0/h[0m
+  12:00 - 16:00   -
+  16:00 - 20:00   -
+  20:00 - 00:00   -
+
+  Checkpoint count          : 4
+  Avg checkpoint write time : 7s
+  Max checkpoint write time : 30s
+  WAL per checkpoint (avg)  : 146.3 MB
+  WAL per checkpoint (max)  : 259.7 MB
+
+  Checkpoint types:
+    shutdown immediate    3   75.0%   [3;38;5;243m19.88/h[0m
+    time                  1   25.0%   [3;38;5;243m6.63/h[0m
+
+  WAL per checkpoint (avg) | ■ = 5 MB  [38;5;243m□[0m = estimate margin
+
+  00:00 - 04:00   -
+  04:00 - 08:00   -
+  08:00 - 12:00  ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■[38;5;243m□□□□□□□□□[0m  146 MB
+  12:00 - 16:00   -
+  16:00 - 20:00   -
+  20:00 - 00:00   -
+
+[1m
+CONNECTIONS & SESSIONS
+[0m
+  Concurrent sessions | ■ = 1 
+
+  09:05 - 09:06  ■■■ 3  [3;38;5;243m09:05[0m
+  09:06 - 09:08  ■■■■ 4  [3;38;5;243m09:08[0m
+  09:08 - 09:09  ■■■■ 4  [3;38;5;243m09:08[0m
+  09:09 - 09:11  ■■■■ 4  [3;38;5;243m09:11[0m
+  09:11 - 09:13  ■■■■■ 5  [3;38;5;243m09:12[0m
+  09:13 - 09:14  ■■■■■ 5  [3;38;5;243m09:13[0m
+
+  Connection count          : 21
+  Disconnection count       : 20
+  Avg connections per hour  : 139.17
+  Avg session time          : 1m26s
+  Median session time       : 44s
+  Maximum simultaneous      : 5     (at 2026-09-25 09:12:04)
+[1m
+CLIENTS
+[0m
+  Unique DBs                : 2
+  Unique Users              : 1
+  Unique Apps               : 2
+  Unique Hosts              : 1
+[1m
+TOP USERS
+[0m
+  bench                         40   32.3%
+[1m
+TOP APPS
+[0m
+  psql                           5    4.0%
+  pgbench                        1    0.8%
+[1m
+TOP DATABASES
+[0m
+  bench                         36   29.0%
+  postgres                       4    3.2%
+[1m
+TOP HOSTS
+[0m
+  192.168.1.18                  37   29.8%
+[1m
+TOP USER × DATABASE
+[0m
+  bench                     × bench                         36   29.0%
+  bench                     × postgres                       4    3.2%
+[1m
+TOP USER × HOST
+[0m
+  bench                     × 192.168.1.18                  18   14.5%
+
+[1m
+PGBOUNCER
+[0m
+  Pooler                    : 127.0.0.1:6432, PgBouncer 1.25.2
+  Start date                : 2026-09-25 09:05:29 UTC
+  End date                  : 2026-09-25 09:14:29 UTC
+  Throughput                : 1738.0 transactions/s, 12164.3 queries/s
+  Avg time                  : transaction 3.5 ms, query 415 µs
+  Avg pool wait time        : 1.6 ms
+  Clients                   : 191 login attempts, 190 sessions of 15s on average
+  Server connections        : 15 opened, 1 reserve pool activation
+
+  Messages: 0 errors, 33 warnings
+    query_wait_timeout                          22  09:08:09 → 09:08:20
+    password authentication failed               4  09:10:29
+    server conn crashed?                         2  09:10:59
+    client_idle_timeout                          1  09:12:24
+    got packet 'E' from server when not linked   1  09:10:59
+    … and 3 more
+
+  Activity by minute | ■ = 1k queries/s
+
+                              queries  query      wait      events
+  09:05  ■■■■■■■■■■■■■■■      15.4k/s  159 µs               start
+  09:06  ■■■■■■■■■■■■■■■      15.1k/s  159 µs
+  09:07  ■■■■■■■■■■■■■■■■     15.7k/s  160 µs               reload
+  09:08  ■                     1.4k/s  775.2 ms   2.57 s    reload
+  09:09  ■■■■■■■■              7.6k/s  3.16 s     20.04 s   pause 20s, reload
+  09:10  ■■■■■■■■■■■■■■■      15.1k/s  166 µs
+  09:11  ■■■■■■■■              8.4k/s  488 µs     2.2 ms    restart
+  09:12  ■■■■■■■■■■■■■■■■     15.8k/s  158 µs               reload
+  09:13  ■■■■■■■■■■■■■■■      15.2k/s  158 µs
+  09:14  ■■■■■■■■■■■■■        13.5k/s  217 µs               shutdown
+  [3;38;5;243mquery: query time, wait: pool wait, worst snapshot of each row[0m
+
+  [3;38;5;243mDetails: --pgbouncer-detail[0m

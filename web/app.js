@@ -25,7 +25,8 @@ import {
     createConcurrentChart, createCheckpointChart, createWALDistanceChart, createCombinedTempFilesChart,
     closeChartModal, updateModalInterval, resetModalZoom, exportChartPNG,
     resetChartZoom, openChartModal, updateChartInterval, toggleCombinedSeries, exportChartById,
-    createCostMapChart, resetCostMapZoom, openCostMapModal
+    createCostMapChart, resetCostMapZoom, openCostMapModal,
+    createPgBouncerBarsChart, togglePgbSeries
 } from './js/charts.js';
 import {
     setOriginalReportData, getOriginalReportData, applyReportTimeFilter, resetReportTimeFilter
@@ -40,6 +41,7 @@ import './js/components/ql-dropdown.js';
 // Section builders — each module owns its render* functions and any
 // section-private state (see the module doc-comments for details).
 import { buildSummarySection } from './js/sections/summary.js';
+import { buildPgBouncerSection } from './js/sections/pgbouncer.js';
 import { buildEventsSection } from './js/sections/events.js';
 import { buildConnectionsSection, buildClientsSection, toggleClientIO } from './js/sections/connections.js';
 import { buildCheckpointsSection } from './js/sections/checkpoints.js';
@@ -304,6 +306,17 @@ function renderResults(data, fileName, fileSize, isInitial = true) {
     // Build sections with new layout
     let html = '';
 
+    // pgBouncer-only report: no PostgreSQL data at all (a pure pgBouncer
+    // input). Render just the pooler section so the page isn't a wall of
+    // "no data" placeholders for every PostgreSQL section.
+    if (data.pgbouncer_only) {
+        html += buildPgBouncerSection(data);
+        results.innerHTML = html;
+        harmonizeSummary();
+        requestAnimationFrame(buildAllCharts);
+        return;
+    }
+
     // Row 1: Summary | Events | Error Classes | Clients (4 cols)
     // Server lifecycle is folded into the Events section as a
     // SERVER tab — on real-world logs it carries only a handful
@@ -338,6 +351,11 @@ function renderResults(data, fileName, fileSize, isInitial = true) {
 
     // Patroni (full width), after the PostgreSQL sections.
     html += buildPatroniSection(data);
+
+    // pgBouncer section (only when the run included pgBouncer logs).
+    if (data.pgbouncer) {
+        html += buildPgBouncerSection(data);
+    }
 
     // pgBackRest section (only when the run included pgBackRest logs, or
     // a PostgreSQL log whose archive_command/restore_command runs it).
@@ -383,6 +401,8 @@ function buildAllCharts() {
             createPgbrWalChart(chartId, data);
         } else if (data?.type === 'costmap') {
             createCostMapChart(chartId, data.queries, { crossHighlight: true });
+        } else if (data?.type === 'pgb-bars') {
+            createPgBouncerBarsChart(chartId, data);
         } else {
             createTimeChart(chartId, data, { color: null });
         }
@@ -647,6 +667,7 @@ window.resetChartZoom = resetChartZoom;
 window.openChartModal = openChartModal;
 window.updateChartInterval = updateChartInterval;
 window.toggleCombinedSeries = toggleCombinedSeries;
+window.togglePgbSeries = togglePgbSeries;
 window.resetCostMapZoom = resetCostMapZoom;
 window.openCostMapModal = openCostMapModal;
 window.loadDemo = loadDemo;

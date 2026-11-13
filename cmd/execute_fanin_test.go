@@ -61,7 +61,7 @@ func TestParseFilesAsyncOrderedFanInNoDeadlock(t *testing.T) {
 	go func() {
 		defer close(done)
 		// pb is nil: all progressBar methods are nil-safe no-ops.
-		go parseFilesAsync(context.Background(), files, out, &parsedAny, nil)
+		go parseFilesAsync(context.Background(), files, out, &parsedAny, nil, parser.AllMembers)
 		for batch := range out {
 			for _, e := range batch {
 				messages = append(messages, e.Message)
@@ -327,7 +327,7 @@ func TestParseFilesAsyncNumWorkersWindowNoDeadlock(t *testing.T) {
 	go func() {
 		defer close(done)
 		// pb is nil: all progressBar methods are nil-safe no-ops.
-		go parseFilesAsync(context.Background(), files, out, &parsedAny, nil)
+		go parseFilesAsync(context.Background(), files, out, &parsedAny, nil, parser.AllMembers)
 		for batch := range out {
 			for _, e := range batch {
 				messages = append(messages, e.Message)

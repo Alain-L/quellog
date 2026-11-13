@@ -68,13 +68,21 @@ type PgBackRestLineInfo struct {
 	// member) whose entries follow.
 	Source         string
 	SourceIsMember bool
+	// PoolerLinesRead and PoolerLinesUnrecognized are the pgBouncer
+	// parser's counters (PgBouncerLineCounts) when the marker was sent:
+	// everything before it is counted, nothing after, so the pooler
+	// analysis gives each archive member the lines of its own.
+	PoolerLinesRead, PoolerLinesUnrecognized int64
 }
 
 // PgBackRestSourceMarker builds the marker sent ahead of an input file's
 // or archive member's entries: the pgBackRest observer names its stanza
-// and notes after it. The analysis stage drops it otherwise.
+// and notes after it, and the pooler analysis starts a new log there.
+// The analysis stage drops it otherwise.
 func PgBackRestSourceMarker(name string, member bool) LogEntry {
-	return LogEntry{FromPgBackRest: true, PgBackRest: &PgBackRestLineInfo{Source: name, SourceIsMember: member}}
+	read, unrecognized := PgBouncerLineCounts()
+	return LogEntry{FromPgBackRest: true, PgBackRest: &PgBackRestLineInfo{Source: name, SourceIsMember: member,
+		PoolerLinesRead: read, PoolerLinesUnrecognized: unrecognized}}
 }
 
 // NewLogEntry builds a LogEntry with its PID field pre-populated from

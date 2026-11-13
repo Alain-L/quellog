@@ -1,0 +1,35 @@
+## PGBOUNCER
+
+| Metric             | Value                                            |
+|--------------------|--------------------------------------------------|
+| Pooler             | 127.0.0.1:6432, PgBouncer 1.25.2                 |
+| Start date         | 2026-09-20 13:57:57 CEST                         |
+| End date           | 2026-09-20 13:58:43 CEST                         |
+| Throughput         | 10.0 transactions/s, 48.3 queries/s              |
+| Avg time           | transaction 2.44 s, query 527.7 ms               |
+| Avg pool wait time | 2.45 s                                           |
+| Clients            | 69 login attempts, 68 sessions of 20s on average |
+| Server connections | 10 opened, 6 reserve pool activations            |
+
+### Messages: 0 errors, 45 warnings
+
+| Message                             | Count | When                |
+|-------------------------------------|------:|---------------------|
+| query_wait_timeout                  |    35 | 13:58:05 → 13:58:13 |
+| taking connection from reserve_pool |     6 | 13:58:03 → 13:58:13 |
+| password authentication failed      |     2 | 13:58:05            |
+| client_idle_timeout                 |     1 | 13:58:18            |
+| no such database: nosuchdb          |     1 | 13:58:05            |
+
+### Activity per snapshot (15s)
+
+| Time     | Queries | Query time | Pool wait | Events         |
+|----------|--------:|-----------:|----------:|----------------|
+| 13:57:57 |  38.0/s |   639.8 ms |    3.22 s | start, pause   |
+| 13:58:12 |  58.0/s |   503.9 ms |    2.07 s | resume, reload |
+| 13:58:27 |  49.0/s |   468.9 ms |    1.90 s |                |
+| 13:58:43 |         |            |           | shutdown       |
+
+_Query time and pool wait: worst snapshot of each row._
+
+_Details: --pgbouncer-detail_

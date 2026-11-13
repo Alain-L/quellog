@@ -1960,6 +1960,42 @@ type ErrorClassJSON struct {
 	Count       int    `json:"count"`
 }
 
+// ExportJSON brings together all metrics into one composite structure,
+// converts it into an indented JSON string, and outputs the result.
+// Only sections with data are included in the output.
+// When full is true, includes sql_overview and enriched sql_performance sections.
+// When compact is true, outputs JSON without indentation (smaller, lower memory).
+func ExportJSON(w io.Writer, m analysis.AggregatedMetrics, sections []string, full bool, compact bool) {
+	data := buildJSONData(m, sections, full)
+	if err := encodeMapStreaming(w, data, compact); err != nil {
+		fmt.Fprintf(w, "[ERROR] Failed to export JSON: %v\n", err)
+	}
+}
+
+// ExportJSONCombined writes the PostgreSQL JSON payload with an added
+// top-level "pgbackrest" key, one entry per stanza, when pgBackRest lines
+// were read, and "pgbouncer", one entry per pooler, when pgBouncer files
+// were part of the same run. With both empty (a pure PostgreSQL run) it is
+// identical to ExportJSON. pgbOnly marks a pure pgBouncer run: the
+// document then holds the "pgbouncer" key alone, the same key a mixed
+// run carries, so a filter emptying the PostgreSQL side of a mixed run
+// does not change where the pooler figures are.
+func ExportJSONCombined(w io.Writer, m analysis.AggregatedMetrics, pbr []analysis.PgBackRestMetrics, pgb []analysis.PgBouncerMetrics, sections []string, full bool, compact bool, pgbOnly bool) {
+	data := map[string]interface{}{}
+	if !pgbOnly {
+		data = buildJSONData(m, sections, full)
+	}
+	if len(pbr) > 0 {
+		data["pgbackrest"] = pgBackRestJSONList(pbr)
+	}
+	if len(pgb) > 0 {
+		data["pgbouncer"] = pgbouncerJSON(pgb)
+	}
+	if err := encodeMapStreaming(w, data, compact); err != nil {
+		fmt.Fprintf(w, "[ERROR] Failed to export JSON: %v\n", err)
+	}
+}
+
 // encodeMapStreaming writes a map[string]interface{} as a JSON object
 // **section by section** to w, instead of letting json.Encoder buffer
 // the entire output internally before flushing. The encoder's hidden
@@ -2076,7 +2112,7 @@ func ExportJSONStringWithMeta(m analysis.AggregatedMetrics, pbr []analysis.PgBac
 		data["pgbackrest"] = pgBackRestJSONList(pbr)
 	}
 
-	// Section-by-section streaming into a buffer (same path as ExportJSONWithPgBackRest).
+	// Section-by-section streaming into a buffer (same path as ExportJSONCombined).
 	var buf bytes.Buffer
 	if err := encodeMapStreaming(&buf, data, compact); err != nil {
 		return "", err
@@ -2086,7 +2122,7 @@ func ExportJSONStringWithMeta(m analysis.AggregatedMetrics, pbr []analysis.PgBac
 
 // buildJSONData constructs the JSON data structure from metrics.
 // This is the shared implementation used by ExportJSONStringWithMeta,
-// ExportJSONWithPgBackRest and the HTML report's own JSON payload.
+// ExportJSONCombined and the HTML report's own JSON payload.
 // When full is true, sql_overview and enriched sql_performance are added at the end.
 func buildJSONData(m analysis.AggregatedMetrics, sections []string, full bool) map[string]interface{} {
 	data := make(map[string]interface{})

@@ -18,17 +18,6 @@ func patroniEntries(m analysis.AggregatedMetrics) int {
 	return m.Patroni.Entries
 }
 
-// firstPostgresArg returns the first argument that is not a Patroni log:
-// the report's format label describes the PostgreSQL logs.
-func firstPostgresArg(args []string) string {
-	for _, a := range args {
-		if !parser.IsPatroniLog(a) {
-			return a
-		}
-	}
-	return args[0]
-}
-
 // splitPatroniInputs separates Patroni logs from the rest by content
 // detection. Patroni and PostgreSQL write distinct files, so each goes to
 // its own analysis instead of feeding foreign lines to the other.
@@ -50,7 +39,7 @@ func computePatroniMetrics(ctx context.Context, files []string, beginT, endT tim
 	for i, f := range files {
 		feeds[i] = func(out chan<- []parser.LogEntry) {
 			var parsed atomic.Bool
-			parseFilesAsync(ctx, []string{f}, out, &parsed, nil)
+			parseFilesAsync(ctx, []string{f}, out, &parsed, nil, parser.AllMembers)
 		}
 	}
 	window := parser.LogFilters{BeginT: parser.WallClock(beginT), EndT: parser.WallClock(endT)}

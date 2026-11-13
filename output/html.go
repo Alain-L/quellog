@@ -251,29 +251,10 @@ func SplitPeriodsJSON(buckets []analysis.SplitBucket, info HTMLReportInfo, secti
 	return string(b), nil
 }
 
-// ExportHTMLWithPgBackRest exports metrics as a standalone HTML report
-// with embedded data, adding a "pgbackrest" key (one entry per stanza)
-// to the payload when pbr is non-empty, so the web app renders the
-// pgBackRest sections alongside the PostgreSQL ones. With an empty pbr
-// it exports exactly the PostgreSQL report. pbrOnly marks a pure
-// pgBackRest run (no PostgreSQL files at all): metrics is then an empty
-// analysis.AggregatedMetrics and the web app suppresses the (empty)
-// PostgreSQL sections, showing only the pgBackRest report.
-func ExportHTMLWithPgBackRest(w io.Writer, metrics analysis.AggregatedMetrics, pbr []analysis.PgBackRestMetrics, info HTMLReportInfo, sections []string, pbrOnly bool) error {
-	// Build full JSON data structure (same as JSON export with all sections)
+// buildReportData assembles the full report payload map (all sections
+// plus the meta block the web UI needs).
+func buildReportData(metrics analysis.AggregatedMetrics, info HTMLReportInfo, sections []string) map[string]interface{} {
 	data := buildJSONData(metrics, []string{"all"}, true)
-	if len(pbr) > 0 {
-		data["pgbackrest"] = pgBackRestJSONList(pbr)
-	}
-	if pbrOnly {
-		data["pgbackrest_only"] = true
-		// A pgBackRest-only run is a default report.
-		if sections == nil {
-			sections = []string{"all"}
-		}
-	}
-
-	// Add meta section required by the web UI
 	format := info.Format
 	if format == "" {
 		format = "stderr" // default
@@ -286,8 +267,12 @@ func ExportHTMLWithPgBackRest(w io.Writer, metrics analysis.AggregatedMetrics, p
 		"parse_time_ms": info.ProcessTime,
 		"sections":      sections,
 	}
+	return data
+}
 
-	// Marshal to JSON
+// renderReportHTML marshals the payload, zstd+base64-compresses it, and
+// executes the report template into w.
+func renderReportHTML(w io.Writer, data map[string]interface{}, version string) error {
 	jsonBytes, err := json.Marshal(data)
 	if err != nil {
 		return fmt.Errorf("failed to marshal metrics to JSON: %w", err)
@@ -307,26 +292,51 @@ func ExportHTMLWithPgBackRest(w io.Writer, metrics analysis.AggregatedMetrics, p
 		return fmt.Errorf("failed to close zstd writer: %w", err)
 	}
 
-	// Encode to base64
-	compressed := base64.URLEncoding.EncodeToString(zstdBuf.Bytes())
-
-	// Get cached template data
 	td := getTemplateData()
-
-	// Execute template with all values
 	values := templateValues{
 		CSS:            td.CSS,
 		Body:           td.Body,
 		UplotJS:        td.UplotJS,
 		FzstdB64:       td.FzstdB64,
 		AppJS:          td.AppJS,
-		CompressedData: compressed,
-		Version:        info.Version,
+		CompressedData: base64.URLEncoding.EncodeToString(zstdBuf.Bytes()),
+		Version:        version,
 	}
-
 	if err := getTemplate().Execute(w, values); err != nil {
 		return fmt.Errorf("failed to execute template: %w", err)
 	}
-
 	return nil
+}
+
+// ExportHTML exports metrics as a standalone HTML report with embedded data.
+func ExportHTML(w io.Writer, metrics analysis.AggregatedMetrics, info HTMLReportInfo, sections []string) error {
+	return renderReportHTML(w, buildReportData(metrics, info, sections), info.Version)
+}
+
+// ExportHTMLCombined exports the HTML report with optional pgBackRest and
+// pgBouncer sections. When pbr is present, a "pgbackrest" key (one entry
+// per stanza) is added to the payload, and when pgb is, a "pgbouncer" key
+// (one entry per pooler), so the web app renders them alongside the
+// PostgreSQL sections. pbrOnly and pgbOnly mark a pure pgBackRest or
+// pgBouncer run, so the app suppresses the (empty) PostgreSQL sections
+// and shows only that report.
+func ExportHTMLCombined(w io.Writer, metrics analysis.AggregatedMetrics, pbr []analysis.PgBackRestMetrics, pgb []analysis.PgBouncerMetrics, info HTMLReportInfo, sections []string, pbrOnly, pgbOnly bool) error {
+	// A pgBackRest-only run is a default report.
+	if pbrOnly && sections == nil {
+		sections = []string{"all"}
+	}
+	data := buildReportData(metrics, info, sections)
+	if len(pbr) > 0 {
+		data["pgbackrest"] = pgBackRestJSONList(pbr)
+	}
+	if pbrOnly {
+		data["pgbackrest_only"] = true
+	}
+	if len(pgb) > 0 {
+		data["pgbouncer"] = pgbouncerJSON(pgb)
+	}
+	if pgbOnly {
+		data["pgbouncer_only"] = true
+	}
+	return renderReportHTML(w, data, info.Version)
 }
