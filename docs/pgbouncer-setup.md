@@ -29,8 +29,8 @@ and `syslog` need a restart; `log_connections`, `log_disconnections`,
     Unlike PostgreSQL, pgBouncer logs no schema of what it is not logging. With
     `log_connections = 0` the Sessions and Connections sections have no input at
     all; with a `stats_period` longer than the capture, the throughput, timing
-    and pool-wait figures have none. quellog names the setting in each empty
-    section rather than dropping it, but it cannot recover the lines.
+    and pool-wait figures have none. quellog keeps each empty section and says
+    so (the HTML report names the setting), but it cannot recover the lines.
 
 !!! tip "Volume"
     `log_connections` / `log_disconnections` cost two lines per client

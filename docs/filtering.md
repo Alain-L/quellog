@@ -83,6 +83,7 @@ quellog /var/log/postgresql/*.log --exclude-user health_check --exclude-user pow
 - **`--exclude-user` takes precedence** — a user excluded by `-U` is dropped even if also named in `--dbuser`
 - **[pgBackRest](pgbackrest.md)** has no database, user or application: `--dbname`, `--dbuser`, `--exclude-user`, `--appname` and the section flags below hide its report, while `--begin`/`--end` (and `--last`, `--window`) restrict it to the window
 - **[Patroni](patroni.md)** follows the same rules: the database, user, application and section flags hide its report, the time filters restrict it to the window
+- **[pgBouncer](pgbouncer.md)** is restricted to the window by the time filters; the database, user and application filters, which select PostgreSQL backends, leave its report whole; beside a PostgreSQL report, the section flags hide it in text, Markdown, JSON and YAML
 
 ## Output Section Flags
 

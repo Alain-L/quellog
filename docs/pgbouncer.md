@@ -14,11 +14,11 @@ Compressed and archived inputs work as they do for PostgreSQL logs: `.gz`, `.zst
 
 pgBouncer running with `syslog = 1` is not supported in this release. The syslog envelope replaces the severity word with the protocol priority, so those lines match neither the pooler format nor the PostgreSQL one and the file is rejected outright.
 
-Time filters (`--begin`, `--end`, `--last`, `--window`) apply. The attribute filters (`--dbname`, `--dbuser`, `--appname`) select PostgreSQL backends through the `log_line_prefix` and are not applied to the pooler track. The SQL-specific flags (`--sql-summary`, `--sql-detail`, …) have nothing to report on pooler telemetry and are ignored; `--split` is rejected (see below).
+Time filters (`--begin`, `--end`, `--last`, `--window`) apply. The attribute filters (`--dbname`, `--dbuser`, `--appname`) select PostgreSQL backends through the `log_line_prefix` and are not applied to the pooler track. Beside a PostgreSQL report, a section flag (`--summary`, `--events`, …) leaves the pooler section out of the text, Markdown, JSON and YAML reports, as it leaves out the pgBackRest and Patroni ones; the HTML report, which shows every section whatever the flags, keeps it, as it keeps Patroni's, and so does a run with pooler logs only. The SQL-specific flags (`--sql-summary`, `--sql-detail`, …) have nothing to report on pooler telemetry and are ignored; `--split` is rejected (see below).
 
 ## Combining with PostgreSQL logs
 
-pgBouncer and PostgreSQL logs are always separate files (separate daemons). When a single invocation mixes both, quellog partitions the inputs by detected format and analyzes each on its own track — the report is the PostgreSQL report followed by a pgBouncer section:
+pgBouncer and PostgreSQL logs are separate files (separate daemons). When a single invocation mixes both, quellog partitions the inputs by detected format and analyzes each on its own track. A file both daemons write to goes to the track of the lines in the majority (a tie goes to PostgreSQL); the other's lines are left out, counted in the pooler report's `Set aside` row when they are PostgreSQL's — the report is the PostgreSQL report followed by a pgBouncer section:
 
 ```bash
 quellog /var/log/postgresql/*.log /var/log/pgbouncer/pgbouncer.log
@@ -34,6 +34,8 @@ Every pooler gets a report of its own: the figures of two poolers are never adde
 - files that follow each other in time and share a PID are one pooler whose log was rotated;
 - files that follow each other in time and share a listen address are one pooler restarted into a new file;
 - files whose records overlap in time are always two poolers, even on the same address: that is two hosts, or two containers each with its own log.
+
+Each pooler log inside an archive counts as a file: two poolers archived together get two reports, and `files` names them `archive/member`.
 
 A pooler is named after its first listen address (`listening on …` at startup), or after its first file when the log holds no such line. Two poolers with the same name get their files appended to it. The text and Markdown reports give one `PGBOUNCER` section per pooler, titled with its name; HTML shows one pgBouncer section per pooler.
 
@@ -52,24 +54,24 @@ pgBouncer log lines are single-line records with a `timestamp [PID] SEVERITY` pr
 
 ## The report
 
-Each pooler gets one `PGBOUNCER` section, titled with the pooler's name when there are several. Text and Markdown are synthetic by default and hold in 80 columns; `--pgbouncer-detail` gives the detailed report alone, and `--full` includes it in the full report. JSON, YAML and HTML always hold every detail. HTML draws every snapshot as a bar, with the pooler's events (pauses, restarts, reloads, console commands) on the charts.
+Each pooler gets one `PGBOUNCER` section, titled with the pooler's name when there are several. Text and Markdown are synthetic by default, and the text report holds in 80 columns; `--pgbouncer-detail` gives the detailed report alone, and `--full` includes it in the full report. JSON and YAML always hold every detail; HTML shows the summary figures, charts, stretches, sessions, connections and messages, but not the server connections or reserve pool activations. HTML draws every snapshot as a bar, up to 60 of them and grouped by time bucket beyond, a grouped bar showing the worst snapshot for times and waits, with the pooler's events (pauses, restarts, reloads, console commands) on the charts.
 
 The default view gives:
 
 - the pooler (its name and release) and the time range;
 - one row per subject: the throughput (transactions/s and queries/s), the average transaction and query times, the average pool wait, the clients (login attempts, completed sessions and their average time), the server connections opened and the reserve-pool activations;
-- the messages: the error and warning counts, and the five most frequent with their first and last occurrence;
-- the **activity** table: one row per snapshot, or per round time bucket beyond twelve rows, with the queries per second as a bar, the worst query time and pool wait of the row, and the pooler's events on the row they fall in (`reload`, `pause 21s`, `restart`). A run of rows with no traffic reads as one.
+- the messages: the error and warning counts, then five of them, the most severe level first and the most frequent first within it, with their first and last occurrence, and `… and N more`;
+- the **activity** table: one row per snapshot, or per round time bucket beyond twelve rows, with the queries per second as a bar, the worst query time and pool wait of the row, and the pooler's events on the row they fall in (`restart`, `pause 21s`, `reload ×2`). A row is printed at the start of the period it covers: a snapshot's own period, or the bucket of the snapshots logged in it. A run of rows with no traffic reads as one.
 
 The detailed view adds the files, the duration, the lines read, those set aside (unrecognized, filtered out, DEBUG/NOISE), the stats snapshots, network in and out, the wait stretches (their count and the longest) and how many sessions the client ended and how many the pooler did, then:
 
-- the **max snapshot averages**: the highest throughput, network, timing and wait of any snapshot, with when it was logged;
-- every message with its ID, count and first and last occurrence. `--event-detail` takes these IDs (`wa-`, `er-`, `fa-`), as it takes PostgreSQL's, and prints a message the table had to shorten in full;
+- the **max snapshot averages**: the highest throughput, network, timing and wait of any snapshot, dated as the activity table's rows at the start of the snapshot's period (the JSON export keeps when it was logged);
+- the messages with their ID, count and first and last occurrence, twenty then `… and N more`. `--event-detail` takes these IDs (`wa-`, `er-`, `fa-`), as it takes PostgreSQL's, and prints a message the table had to shorten in full;
 - the activity table, up to twenty rows;
 - the **session time** histogram (the buckets of the PostgreSQL connection report) and the **sessions per close reason** with the average age of each;
-- the **connections per database, user and host**, their ten heaviest rows then `… and N more`.
+- the **connections per database, user and host**, cut as the PostgreSQL report cuts its rankings: ten rows at most, and from the fifth on once 80% of the total is covered, then `… and N more`.
 
-When fewer than two snapshots leave no activity table, the detailed view lists the **timeline** (starts with the release, shutdowns with the signal, reloads, console commands such as `PAUSE 'db'`) and the **wait stretches** instead.
+When fewer than two snapshots leave no activity table, both views list the **timeline** (starts with the release, shutdowns with the signal, reloads, console commands such as `PAUSE 'db'`) and the detailed view the **wait stretches** instead.
 
 ### Reading the figures
 
@@ -82,17 +84,17 @@ When fewer than two snapshots leave no activity table, the detailed view lists t
 - **Reserve-pool activations** (`taking connection from reserve_pool`) are warnings in pgBouncer's log, so they are listed among them, and also counted on the server connections row.
 - `pooler error: ` heads every error pgBouncer sends a client; the report keeps the reason after it.
 
-### Zero counts say why
+### Zero counts
 
-A count that depends on a setting says so when it is zero, since an idle pooler and a silenced one produce the same zero:
+An idle pooler and a silenced one produce the same zero. The report states what the log shows, and the HTML report names the setting a zero depends on:
 
-- **Login attempts and completed sessions** at 0 name `log_connections` or `log_disconnections`, and add "although traffic shows" when the same window proves the pooler served clients (transactions or queries in a `stats:` line, a server connection opened, or an error). The clients may predate the window, so the report states only that.
-- **Traffic, timing and pool wait** come from the `stats:` lines only. With none in the window, one row says so and names `stats_period`; a capture shorter than one period legitimately holds none.
+- **Login attempts and completed sessions** at 0 (`log_connections`, `log_disconnections`) add "although traffic shows" when the same window proves the pooler served clients: transactions or queries in a `stats:` line. A server connection or an error is no proof (`min_pool_size` opens backends with nobody connected). The server connections opened, whose lines `log_connections` governs too, read the same way. The clients may predate the window, so the report states only that.
+- **Traffic, timing and pool wait** come from the `stats:` lines only. With none in the window, one row says so; `stats_period` decides, and a capture shorter than one period legitimately holds none.
 - When the snapshots account for **less than half of the window**, or for an unknown share of it, as a single snapshot always does, a **Stats coverage** row states it. `stats_period` is inferred from the median interval between consecutive snapshots; pgBouncer never logs the setting itself.
 
 A capture with no `WARNING`/`ERROR`/`FATAL` line reads `Messages: 0 errors, 0 warnings`, which `log_pooler_errors = 0` also produces on a pooler that is failing.
 
-The HTML report adds four bar charts (throughput, network I/O, timing, pool wait) drawn from the `stats:` snapshots, with the pooler's events marked on them.
+The HTML report adds four bar charts (throughput, network I/O, timing, pool wait; three before pgBouncer 1.23, which has no pool wait time) drawn from the `stats:` snapshots, with the pooler's events marked on them.
 
 ## JSON keys
 
@@ -112,7 +114,7 @@ The HTML report adds four bar charts (throughput, network I/O, timing, pool wait
 - `connections_per_database`, `connections_per_user`, `connections_per_host`
 - `sessions_per_database`, `sessions_per_user`, `sessions_per_host`
 - `reserve_pool_activations`, `total_errors` (warnings and errors alike), and `errors` — `{id, level, message, count, first, last}` per distinct warning or error, `id` being the `--event-detail` handle
-- `stats_series` — the full per-snapshot time series, ordered by time (used to draw the HTML charts)
+- `stats_series` — the full per-snapshot time series, ordered by time (used to draw the HTML charts); each snapshot's `time` is when it was logged and `period_start` when the period it averages began: the snapshot before it in the same run of the pooler, the pooler's start, or one period back
 
 ## Limitations
 

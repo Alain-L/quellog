@@ -7,7 +7,7 @@ zstd-decompressed from the embedded blob).
 
 ## Envelope
 
-- Producer: `output.ExportHTMLWithPgBackRest` → `buildJSONData(metrics, ["all"],
+- Producer: `output.ExportHTMLCombined` → `buildJSONData(metrics, ["all"],
   full=true)` in `output/json.go`, plus a `meta` key added in `output/html.go`,
   plus a `pgbackrest` key (see below) when the run analyzed any pgBackRest
   content.
@@ -39,8 +39,9 @@ Read by: `app.js`, `js/period-nav.js`, `js/sections/events.js`.
 
 ### summary — always present
 Except in the CLI JSON/YAML and browser payloads of a pgBackRest-only run
-(see `pgbackrest`), and in the CLI JSON/YAML of a Patroni-only run, which
-holds `patroni` alone.
+(see `pgbackrest`), in the CLI JSON/YAML of a Patroni-only run, which
+holds `patroni` alone, and in the CLI JSON/YAML of a pgBouncer-only run,
+which holds `pgbouncer` alone.
 Read by: `app.js`, `js/filters.js`, `js/sections/summary.js`, `js/sections/connections.js`;
 rewritten by `js/report-filter.js` when a time filter is applied.
 `start_date`/`end_date` (display strings), `duration`, `total_logs`,
@@ -194,16 +195,22 @@ and suppress the empty PostgreSQL ones. Each entry:
   when there is none); `wait_episodes`: `[{start, end, peak_wait_us,
   peak_timestamp}]`. Before pgBouncer 1.23 (`version`) the wait fields are
   a queue depth, shown as clients queued.
-- `stats_series`: `[{time, xacts_per_sec, queries_per_sec, in_bytes_per_sec,
-  out_bytes_per_sec, xact_us, query_us, wait_us}]` — feeds the three
-  time-series charts (`pgb-series` type in `js/charts.js`).
+- `stats_series`: `[{time, period_start, xacts_per_sec, queries_per_sec,
+  in_bytes_per_sec, out_bytes_per_sec, xact_us, query_us, wait_us}]` — feeds
+  the bar charts (`pgb-bars` type in `js/charts.js`): throughput, network
+  I/O, timing and, from pgBouncer 1.23, pool wait; `events` gives their
+  markers. A bar spans `[period_start, time]`, the period the snapshot
+  averages; grouped, a snapshot joins the bucket it was logged in. Without
+  `period_start` it spans one inferred period.
+- What was read: `lines_read`, `lines` (entries), `lines_unrecognized`,
+  `debug_lines`.
 - Connections/sessions: `login_attempts`, `server_connections`, `sessions`,
   `total_session_seconds`, `session_distribution` (bucket → count),
   `session_reasons` (`[{reason, count, total_seconds}]`).
 - Breakdowns: `connections_per_database/user/host`,
   `sessions_per_database/user/host` (name → count).
-- `reserve_pool_activations`, `errors` (`[{message, count, first, last}]`),
-  `total_errors`.
+- `reserve_pool_activations`, `errors` (`[{id, level, message, count,
+  first, last}]`, `id` being the `--event-detail` one), `total_errors`.
 
 ### replication — gated, absent from this fixture
 Read by: `js/sections/checkpoints.js` (sub-zone of the server area).
@@ -234,8 +241,8 @@ being the `--event-detail` handle (`er-`/`wa-`, `fa-` for CRITICAL).
 
 ### pgbackrest
 Read by: `js/sections/pgbackrest.js` (`buildPgBackRestSection`), one report
-section per stanza. Emitted by `output.ExportJSONWithPgBackRest` /
-`output.ExportYAMLWithPgBackRest` / `output.ExportHTMLWithPgBackRest`
+section per stanza. Emitted by `output.ExportJSONCombined` /
+`output.ExportYAMLCombined` / `output.ExportHTMLCombined`
 (CLI `--json`/`--yaml`/`--html`) and by the browser build, whenever the input
 carried pgBackRest lines, in a pgBackRest log file or a PostgreSQL log, and
 no attribute filter or section option left the report out — see
@@ -428,6 +435,8 @@ skips a key when its section has no data, so renderers must null-check
 | `patroni` | Patroni logs given, full report (absent from the reference fixture) |
 | `pgbackrest` | a pgBackRest log file was analyzed, or a PostgreSQL log carried embedded pgBackRest/archive-failure content |
 | `pgbackrest_only` | `true` only in the HTML and browser payloads of a pgBackRest-only run |
+| `pgbouncer` | pgBouncer logs given (absent from the reference fixture) |
+| `pgbouncer_only` | `true` only in the HTML payload of a pgBouncer-only run |
 | `checkpoints` | completed checkpoints or frequency warnings > 0 |
 | `connections` | connection/disconnection events present |
 | `clients` | at least one unique database, user, app or host |
