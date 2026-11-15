@@ -77,7 +77,7 @@ jobs:
           sudo dpkg -i tinygo_0.39.0_amd64.deb
 
       - name: WASM build check (TinyGo, gc=leaking)
-        run: tinygo build -o /tmp/quellog_tiny.wasm -target wasm -gc=leaking -no-debug ./web/wasm/main.go
+        run: tinygo build -o /tmp/quellog_tiny.wasm -target wasm -gc=leaking -opt=2 -no-debug ./web/wasm/main.go
 
       # Web JS safety net. Unit tests + contract linters are platform-independent
       # and browser-free, so they gate merges here. The visual (pixel) harness
