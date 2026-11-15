@@ -22,7 +22,7 @@ GO125 := $(shell brew --prefix go@1.25 2>/dev/null)/bin
 wasm: generate
 	@# Inject version into source (tinygo ignores -X ldflags for wasm)
 	sed -i '' 's/var version = ".*"/var version = "$(VERSION)"/' web/wasm/main.go
-	PATH=$(GO125):$$PATH tinygo build -o web/quellog_tiny.wasm -target wasm -gc=leaking -no-debug ./web/wasm/main.go
+	PATH=$(GO125):$$PATH tinygo build -o web/quellog_tiny.wasm -target wasm -gc=leaking -opt=2 -no-debug ./web/wasm/main.go
 	@# Restore source to default
 	sed -i '' 's/var version = ".*"/var version = "dev"/' web/wasm/main.go
 
