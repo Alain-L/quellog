@@ -294,3 +294,11 @@ test('the async worker\'s share of the pushes is stated above the chart', () => 
     const st = { ...nominal(), archive_push: stats({ pushed: 20, pushed_async: 4, failed_async: 6 }) };
     assert.ok(text(render([st])).includes('24 pushed, 4 through the async worker async worker: 6 failed'));
 });
+
+// A killed run is named as such on the stanza card, as in the text report
+// ("5 ok, 1 failed, 2 killed"), not counted among the failures.
+test('S1: the stanza card names killed backups apart from failed ones', () => {
+    const t = text(render(golden('S1')));
+    hasAll(t, '5 ok', '1 failed', '2 killed');
+    assert.ok(!t.includes('3 failed'), 'killed runs counted as failed');
+});

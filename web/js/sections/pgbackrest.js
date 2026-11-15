@@ -195,7 +195,10 @@ function stanzaCards(pbr, f) {
     return `<div class="pgbr-cards">${pbr.map(s => {
         const ev = events(s);
         const bs = ev.filter(e => e.cat === 'backup');
-        const ok = bs.filter(e => e.b.succeeded).length, failed = bs.filter(e => e.kind !== 'ok').length;
+        // Killed runs are named as such, as the text report and the failed
+        // backups table name them, not counted as failures.
+        const ok = bs.filter(e => e.b.succeeded).length, failed = bs.filter(e => e.kind === 'failed').length,
+            killed = bs.filter(e => e.kind === 'killed').length;
         const outages = ev.filter(e => e.cat === 'outage'), lost = ev.filter(e => e.cat === 'lost').length;
         const logged = backupsLogged(s);
         const missing = missingSegments(s);
@@ -203,7 +206,7 @@ function stanzaCards(pbr, f) {
         const done = bs.filter(e => !e.b.in_progress && !isNaN(e.t)).sort((a, b) => a.t - b.t);
         const lastFailed = done.length > 0 && !done[done.length - 1].b.succeeded;
         const state = outages.some(e => e.kind === 'open') || lost || missing || lastFailed || pgFailingAtEnd(s) ? 'bad'
-            : failed || outages.length || pgUnlogged(s) ? 'warn'
+            : failed || killed || outages.length || pgUnlogged(s) ? 'warn'
             : hidesOutcomes(s) ? 'partial' : ok ? 'good' : logged ? 'none' : 'unlogged';
         const word = { bad: 'Needs attention', warn: 'Recovered from failures', good: 'Healthy', partial: 'Some outcomes not logged', none: 'No backup in the log', unlogged: 'Backups not logged' }[state];
         const lf = s.last_full;
@@ -214,19 +217,19 @@ function stanzaCards(pbr, f) {
             <div class="pgbr-card-head"><span class="pgbr-card-name">${esc(stanzaName(s))}</span><span class="pgbr-card-state">${word}</span></div>
             <div class="pgbr-card-big">${lf && isFinite(endT) ? dur((endT - wallDate(lf.end_date)) / 1000) : '–'}<small>${sub}</small></div>
             ${gauge(f, ev)}
-            <div class="pgbr-card-facts">${logged ? `<span><b>${ok}</b> ok</span><span class="${failed ? 'bad' : ''}"><b>${failed}</b> failed</span>` : '<span>backups not logged</span>'}${pushesLogged(s) ? `<span><b>${fmt((ap.pushed || 0) + (ap.pushed_async || 0))}</b> WAL pushed</span>` : '<span>WAL pushes not logged</span>'}${outageFact(outages)}${pgUnlogged(s) ? `<span class="${pgFailingAtEnd(s) ? 'bad' : 'warn'}">PostgreSQL: <b>${fmt(s.pg_archive_failures.length)}</b> archive_command failures</span>` : ''}${lost ? `<span class="bad"><b>${lost}</b> WAL lost</span>` : ''}${hasRestore(s) ? `<span><b>${fmt(restored(s))}</b> WAL restored</span>` : ''}${missing ? `<span class="bad"><b>${missing}</b> WAL missing</span>` : ''}</div>
+            <div class="pgbr-card-facts">${logged ? `<span><b>${ok}</b> ok</span><span class="${failed ? 'bad' : ''}"><b>${failed}</b> failed</span>${killed ? `<span class="warn"><b>${killed}</b> killed</span>` : ''}` : '<span>backups not logged</span>'}${pushesLogged(s) ? `<span><b>${fmt((ap.pushed || 0) + (ap.pushed_async || 0))}</b> WAL pushed</span>` : '<span>WAL pushes not logged</span>'}${outageFact(outages)}${pgUnlogged(s) ? `<span class="${pgFailingAtEnd(s) ? 'bad' : 'warn'}">PostgreSQL: <b>${fmt(s.pg_archive_failures.length)}</b> archive_command failures</span>` : ''}${lost ? `<span class="bad"><b>${lost}</b> WAL lost</span>` : ''}${hasRestore(s) ? `<span><b>${fmt(restored(s))}</b> WAL restored</span>` : ''}${missing ? `<span class="bad"><b>${missing}</b> WAL missing</span>` : ''}</div>
         </div>`;
     }).join('')}</div>`;
 }
 
 function repoCards(pbr) {
     const repos = new Map();
-    const get = r => { if (!repos.has(r)) repos.set(r, { ok: 0, failed: 0, last: null, errors: 0, causes: new Set() }); return repos.get(r); };
+    const get = r => { if (!repos.has(r)) repos.set(r, { ok: 0, failed: 0, killed: 0, last: null, errors: 0, causes: new Set() }); return repos.get(r); };
     for (const s of pbr) {
         for (const b of s.backups || []) {
             if (!b.repo) continue;
             const r = get(b.repo);
-            if (b.succeeded) { r.ok++; if (!r.last || b.end_date > r.last.end_date) r.last = b; } else if (!b.in_progress) r.failed++;
+            if (b.succeeded) { r.ok++; if (!r.last || b.end_date > r.last.end_date) r.last = b; } else if (b.crashed) r.killed++; else if (!b.in_progress) r.failed++;
         }
         for (const e of s.errors || []) {
             const m = (e.repo_line || '').match(/^(repo\d+):/);
@@ -234,10 +237,10 @@ function repoCards(pbr) {
         }
     }
     if (!repos.size) return '<div class="pgbr-empty">No repository named in the log.</div>';
-    return `<div class="pgbr-cards">${[...repos].sort().map(([n, r]) => `<div class="pgbr-card ${r.errors || r.failed ? 'is-warn' : ''}">
+    return `<div class="pgbr-cards">${[...repos].sort().map(([n, r]) => `<div class="pgbr-card ${r.errors || r.failed || r.killed ? 'is-warn' : ''}">
         <div class="pgbr-card-head"><span class="pgbr-card-name">${esc(n)}</span><span class="pgbr-card-state">${r.errors ? 'errors logged' : 'no error'}</span></div>
         <div class="pgbr-card-big pgbr-card-label">${r.last ? esc(r.last.label) : '–'}<small>latest successful backup on it</small></div>
-        <div class="pgbr-card-facts"><span><b>${r.ok}</b> ok</span><span class="${r.failed ? 'bad' : ''}"><b>${r.failed}</b> failed</span><span class="${r.errors ? 'bad' : ''}"><b>${r.errors}</b> errors naming it</span></div>
+        <div class="pgbr-card-facts"><span><b>${r.ok}</b> ok</span><span class="${r.failed ? 'bad' : ''}"><b>${r.failed}</b> failed</span>${r.killed ? `<span class="warn"><b>${r.killed}</b> killed</span>` : ''}<span class="${r.errors ? 'bad' : ''}"><b>${r.errors}</b> errors naming it</span></div>
         ${r.causes.size ? `<div class="pgbr-card-note">${esc([...r.causes].join('; '))}</div>` : ''}
     </div>`).join('')}</div>`;
 }
