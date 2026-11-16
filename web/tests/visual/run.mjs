@@ -137,14 +137,17 @@ async function waitForRender(page, allowZero = false) {
 }
 
 /**
- * Neutralize the only run-varying rendered value: `.summary-parsetime` shows
- * the embedded parse_time_ms, which changes on every report generation.
+ * Neutralize the run-varying rendered values: `.summary-parsetime` shows the
+ * embedded parse_time_ms, which changes on every report generation, and the
+ * footer's version, which a plain `go build` takes from the commit.
  */
 async function normalizeVolatileText(page) {
   await page.evaluate(() => {
     document.querySelectorAll('.summary-parsetime').forEach((el) => {
       el.textContent = 'parsed in 0ms';
     });
+    const version = document.getElementById('quellog-version');
+    if (version) version.textContent = 'quellog dev';
   });
 }
 

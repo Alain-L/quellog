@@ -15,7 +15,7 @@ import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-    computeDayAxis, initTimeFilter, minutesToTime, formatDateHuman,
+    computeDayAxis, offsetToTs, initTimeFilter, minutesToTime, formatDateHuman,
     offsetToTimeStr, offsetToDatetime, MAX_CANVAS_DAYS
 } from '../../js/filters.js';
 import * as state from '../../js/state.js';
@@ -88,12 +88,33 @@ describe('computeDayAxis', () => {
     });
 
     it('never folds a single-day axis away', () => {
-        // 90 seconds of data just after midnight: both fold guards require
+        // 20 hours of data from just after midnight: both fold guards require
         // the axis to stay > 1 day, so the lone day survives.
-        const a = computeDayAxis('2025-01-15 00:00:10', '2025-01-15 00:01:40');
+        const a = computeDayAxis('2025-01-15 00:00:10', '2025-01-15 20:01:40');
         assert.equal(a.nDays, 1);
         assert.equal(a.axisStart, midnight(2025, 1, 15));
         assert.equal(a.axisEnd, midnight(2025, 1, 16));
+    });
+
+    it('narrows to the smallest round window longer than a short capture', () => {
+        const at = (h, m) => midnight(2025, 1, 15) + (h * 60 + m) * 60000;
+        for (const [start, end, from, to, mins] of [
+            ['00:00:10', '00:01:40', at(0, 0), at(0, 5), 5],
+            ['21:10:00', '21:20:00', at(21, 0), at(21, 30), 30],  // the 15-minute window 21:00-21:15 ends too early
+            ['09:05:29', '09:14:29', at(9, 0), at(9, 15), 15],
+            ['21:00:00', '21:30:00', at(21, 0), at(22, 0), 60],   // 30 minutes of log take the window above
+            ['13:10:00', '16:40:00', at(12, 0), at(18, 0), 360],
+        ]) {
+            const a = computeDayAxis(`2025-01-15 ${start}`, `2025-01-15 ${end}`);
+            assert.deepEqual([a.axisStart, a.axisEnd, a.durMins, a.nDays], [from, to, mins, 1], `${start}-${end}`);
+            assert.equal(a.defMin, Math.round((a.startTs - a.axisStart) / 60000));
+            assert.equal(a.defMax, Math.round((a.endTs - a.axisStart) / 60000));
+            const d = new Date(a.axisStart + a.defMin * 60000);  // mid-January: no DST
+            assert.equal(`${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`, start.slice(0, 5));
+        }
+        // Across a round boundary no short window holds it: the day axis.
+        const a = computeDayAxis('2025-01-15 11:50:00', '2025-01-15 12:10:00');
+        assert.equal(a.durMins, 1440);
     });
 });
 
@@ -225,5 +246,15 @@ describe('computeDayAxis DST safety', () => {
         const expected = dayIdx * 1440 +
             Math.round((new Date(2026, 2, 30, 14, 30).getTime() - endMidnight) / 60000);
         assert.equal(a.defMax, expected);
+    });
+
+    it('a short window maps back to its own times on a DST day', () => {
+        // 2026-03-29 is the spring-forward day in Europe; in a zone without
+        // DST the check holds trivially. Offsets count elapsed minutes from
+        // the window start, not wall-clock minutes from midnight.
+        const a = computeDayAxis('2026-03-29 09:05:00', '2026-03-29 09:14:00');
+        assert.equal(offsetToTs(a.axisStart, 0), new Date(2026, 2, 29, 9, 0).getTime());
+        assert.equal(offsetToTs(a.axisStart, a.defMin), new Date(2026, 2, 29, 9, 5).getTime());
+        assert.equal(offsetToTs(a.axisStart, a.durMins), new Date(2026, 2, 29, 9, 15).getTime());
     });
 });
