@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -37,6 +38,11 @@ func TestMain(m *testing.M) {
 		os.Exit(2)
 	}
 	binPath := filepath.Join(tmpDir, "quellog")
+
+	// The binaries this package builds report version "dev", without the
+	// commit a plain go build stamps, so the outputs the tests compare do
+	// not change with every commit.
+	os.Setenv("GOFLAGS", strings.TrimSpace(os.Getenv("GOFLAGS")+" -buildvcs=false"))
 
 	build := exec.Command("go", "build", "-o", binPath, ".")
 	build.Dir = ".."
