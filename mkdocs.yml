@@ -72,14 +72,13 @@ nav:
       - PostgreSQL Setup: postgresql-setup.md
       - Log Formats: formats.md
       - Report Sections: default-report.md
-      - pgBackRest: pgbackrest.md
       - SQL Analysis: sql-reports.md
-      - pgBouncer Setup: pgbouncer-setup.md
-      - pgBouncer Reports: pgbouncer.md
       - Filtering: filtering.md
       - Export Formats: exports.md
       - HTML Report: html-report.md
+      - pgBackRest: pgbackrest.md
       - Patroni: patroni.md
+      - pgBouncer: pgbouncer.md
   - How-tos:
       - Your First Analysis: howtos/first-analysis.md
       - Troubleshooting Slow Queries: howtos/slow-queries.md

@@ -204,26 +204,26 @@ Example:
 
 ## HTML report
 
-!!! tip "Try it now"
+!!! tip "Demo"
     **[Open the demo on a pgBackRest lab run →](https://alain-l.github.io/quellog/demo.html?demo=pgbackrest)**: a PostgreSQL log and pgBackRest's own logs, analyzed in your browser.
 
-![pgBackRest stanzas](img/pgbackrest-overview.png){ width="820" }
+![pgBackRest stanzas](img/pgbackrest-overview.png)
 
 One card per stanza: its state, the age of the last full backup, a gauge of the period (backups, outages, WAL lost or missing) and its counts. The **Repositories** tab gives the same per repository; **Backups** the backups still present, each diff and incr chained to its full, the expired ones struck:
 
-![Backups still present](img/pgbackrest-backups-tab.png){ width="820" }
+![Backups still present](img/pgbackrest-backups-tab.png)
 
-![Checks and events](img/pgbackrest-checks-events.png){ width="820" }
+![Checks and events](img/pgbackrest-checks-events.png)
 
 **Checks** answer yes or no per stanza, "–" when the log cannot tell. **Events** lists the other operations (restores with what stopped their recovery, check, stanza-create, stop, start…), then the errors and warnings; a click on one opens its detail, the HTML counterpart of `--event-detail`:
 
-![Event detail](img/pgbackrest-event-modal.png){ width="820" }
+![Event detail](img/pgbackrest-event-modal.png)
 
-![Backups and WAL archiving](img/pgbackrest-charts.png){ width="820" }
+![Backups and WAL archiving](img/pgbackrest-charts.png)
 
 **Backups**: the duration (log scale) and size of each backup that succeeded; a failed or killed one is a band over the time it ran, listed under the chart. **WAL**: the segments pushed, cumulated per stanza; bands are outages, red lines WAL lost, red dots failed pushes, violet ticks PostgreSQL's `archive_command` failures. Above the chart, the async worker's share and PostgreSQL's own counts; under it, each outage with PostgreSQL's side.
 
-![WAL restored](img/pgbackrest-restore.png){ width="820" }
+![WAL restored](img/pgbackrest-restore.png)
 
 When `archive-get` is logged, a **Restore** tab shows the segments restored, cumulated per data directory (a restored instance, a standby), its outages, and the WAL missing from the repository.
 
