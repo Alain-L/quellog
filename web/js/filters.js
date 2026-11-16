@@ -82,11 +82,17 @@ const NEGLIGIBLE_DAY_MS = 5 * 60 * 1000;
 // offsets then counting from it.
 export function offsetToTs(axisStart, offsetMins) {
     const a = new Date(axisStart);
-    const off = offsetMins + a.getHours() * 60 + a.getMinutes();
+    const off = offsetMins + minsIntoDay(axisStart);
     const dayIdx = Math.floor(off / 1440);
     const minsInDay = off - dayIdx * 1440;
     const dayMidnight = new Date(a.getFullYear(), a.getMonth(), a.getDate() + dayIdx).getTime();
     return dayMidnight + minsInDay * 60000;
+}
+// minsIntoDay is how far an axis start lies past its local midnight, in the
+// grid's minutes (elapsed ones, as the grid counts them): 0 for a day axis.
+function minsIntoDay(axisStart) {
+    const a = new Date(axisStart);
+    return Math.round((axisStart - new Date(a.getFullYear(), a.getMonth(), a.getDate()).getTime()) / 60000);
 }
 function tsToOffset(axisStart, ts) {
     const t = new Date(ts);
@@ -94,7 +100,7 @@ function tsToOffset(axisStart, ts) {
     const a = new Date(axisStart);
     const axisMidnight = new Date(a.getFullYear(), a.getMonth(), a.getDate()).getTime();
     const dayIdx = Math.round((localMidnight - axisMidnight) / DAY_MS);
-    return dayIdx * 1440 + Math.round((ts - localMidnight) / 60000) - (a.getHours() * 60 + a.getMinutes());
+    return dayIdx * 1440 + Math.round((ts - localMidnight) / 60000) - minsIntoDay(axisStart);
 }
 
 // Windows shorter than a day the Summary slider narrows to, in minutes. Each
@@ -111,7 +117,8 @@ function shortWindow(startTs, endTs) {
         const from = Math.floor(minsIn / w) * w;
         const ws = new Date(s.getFullYear(), s.getMonth(), s.getDate(), 0, from).getTime();
         const we = new Date(s.getFullYear(), s.getMonth(), s.getDate(), 0, from + w).getTime();
-        if (endTs - startTs < w * 60000 && endTs <= we) return { ws, we, w };
+        // A window across a DST change lasts an hour more or less than w.
+        if (endTs - startTs < w * 60000 && endTs <= we) return { ws, we, w: Math.round((we - ws) / 60000) };
     }
     return null;
 }

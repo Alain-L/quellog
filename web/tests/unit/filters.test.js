@@ -15,7 +15,7 @@ import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-    computeDayAxis, initTimeFilter, minutesToTime, formatDateHuman,
+    computeDayAxis, offsetToTs, initTimeFilter, minutesToTime, formatDateHuman,
     offsetToTimeStr, offsetToDatetime, MAX_CANVAS_DAYS
 } from '../../js/filters.js';
 import * as state from '../../js/state.js';
@@ -246,5 +246,15 @@ describe('computeDayAxis DST safety', () => {
         const expected = dayIdx * 1440 +
             Math.round((new Date(2026, 2, 30, 14, 30).getTime() - endMidnight) / 60000);
         assert.equal(a.defMax, expected);
+    });
+
+    it('a short window maps back to its own times on a DST day', () => {
+        // 2026-03-29 is the spring-forward day in Europe; in a zone without
+        // DST the check holds trivially. Offsets count elapsed minutes from
+        // the window start, not wall-clock minutes from midnight.
+        const a = computeDayAxis('2026-03-29 09:05:00', '2026-03-29 09:14:00');
+        assert.equal(offsetToTs(a.axisStart, 0), new Date(2026, 2, 29, 9, 0).getTime());
+        assert.equal(offsetToTs(a.axisStart, a.defMin), new Date(2026, 2, 29, 9, 5).getTime());
+        assert.equal(offsetToTs(a.axisStart, a.durMins), new Date(2026, 2, 29, 9, 15).getTime());
     });
 });
