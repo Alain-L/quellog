@@ -7,18 +7,46 @@ import (
 	"log"
 	"os"
 	"runtime"
+	"runtime/debug"
 	"runtime/pprof"
 	"runtime/trace"
+	"strings"
 
 	"github.com/Alain-L/quellog/cmd"
 )
 
-// Version information (set by goreleaser at build time)
+// Version information, set at build time by goreleaser and make. A plain
+// go build or go install leaves it to fromBuildInfo.
 var (
 	version = "dev"
 	commit  = "none"
 	date    = "unknown"
 )
+
+// fromBuildInfo fills in the version information the build did not set,
+// from what the Go toolchain records in the binary: the module version (a
+// tag, or a pseudo-version between tags, "+dirty" for a modified tree) and
+// the commit and its time. Without that record it leaves the defaults.
+func fromBuildInfo() {
+	if version != "dev" {
+		return
+	}
+	bi, ok := debug.ReadBuildInfo()
+	if !ok {
+		return
+	}
+	if v := bi.Main.Version; v != "" && v != "(devel)" {
+		version = strings.TrimPrefix(v, "v")
+	}
+	for _, s := range bi.Settings {
+		switch s.Key {
+		case "vcs.revision":
+			commit = s.Value
+		case "vcs.time":
+			date = s.Value
+		}
+	}
+}
 
 func main() {
 
@@ -78,5 +106,6 @@ func main() {
 	// Execute the CLI application.
 	// All command-line parsing, flag handling, and execution logic
 	// is delegated to the cmd package.
+	fromBuildInfo()
 	cmd.Execute(version, commit, date)
 }
