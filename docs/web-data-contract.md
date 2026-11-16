@@ -180,7 +180,7 @@ Read by: `js/sections/maintenance.js`.
 
 ### pgbouncer — pooler report (gated)
 Read by: `js/sections/pgbouncer.js`. Present only when the run included
-pgBouncer log files (see [pgBouncer Reports](pgbouncer.md)). A list, one
+pgBouncer log files (see [pgBouncer](pgbouncer.md)). A list, one
 entry per pooler, each rendered as its own section (`#pgbouncer`,
 `#pgbouncer-2`, …). A sibling top-level `pgbouncer_only` boolean (present
 only for a pure pgBouncer run) tells `app.js` to render just these sections

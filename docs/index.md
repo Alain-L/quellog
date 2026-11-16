@@ -3,7 +3,7 @@
 A high-performance PostgreSQL log analyzer. Processes gigabytes of logs in seconds, producing synthetic overviews, SQL performance analysis, and operational insights.
 
 !!! tip "Try it in your browser"
-    **[Open the interactive demo →](https://alain-l.github.io/quellog/demo.html)** — Drop PostgreSQL log files and explore the report. All processing happens locally; your data never leaves your machine.
+    **[Open the interactive demo →](https://alain-l.github.io/quellog/demo.html)** — Drop PostgreSQL, Patroni or pgBackRest log files and explore the report. All processing happens locally; your data never leaves your machine.
 
 ## Key Features
 
