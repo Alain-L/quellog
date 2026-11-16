@@ -133,10 +133,16 @@ export function buildSummarySection(data, fileInfo) {
         dayMarkers = labels.join('') + dividers.join('');
     }
 
-    // Bound labels: midnight-to-midnight by default, but for a span too
-    // wide for per-day labels, show the start/end dates at the ends instead.
+    // Bound labels: midnight-to-midnight by default, the window's own times
+    // when the axis is shorter than a day, and for a span too wide for
+    // per-day labels, the start/end dates at the ends instead.
     let boundLeft = '00:00', boundRight = '24:00';
-    if (axis && axis.nDays > MAX_CANVAS_DAYS) {
+    const axisMins = timeFilterStartTs && timeFilterDurationMins > 0 ? timeFilterDurationMins : axis && axis.durMins;
+    if (axis && axisMins < 1440) {
+        const hm = (ts) => { const d = new Date(ts); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
+        boundLeft = hm(axis.axisStart);
+        boundRight = hm(offsetToTs(axis.axisStart, axisMins));
+    } else if (axis && axis.nDays > MAX_CANVAS_DAYS) {
         const monthsAbbr = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
         const fmtDay = (ts) => { const d = new Date(ts); return `${d.getDate()} ${monthsAbbr[d.getMonth()]}`; };
         boundLeft = fmtDay(axis.axisStart);

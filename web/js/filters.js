@@ -78,11 +78,13 @@ const NEGLIGIBLE_DAY_MS = 5 * 60 * 1000;
 // still lines up with its date label and the axis extent. On days that are
 // exactly 24h (everywhere except a DST boundary) these are identical to the
 // plain `axisStart + offset*60000` / `(ts - axisStart)/60000`. axisStart is a
-// local midnight.
+// local midnight, or the start of a window shorter than a day (WINDOWS_MIN),
+// offsets then counting from it.
 export function offsetToTs(axisStart, offsetMins) {
-    const dayIdx = Math.floor(offsetMins / 1440);
-    const minsInDay = offsetMins - dayIdx * 1440;
     const a = new Date(axisStart);
+    const off = offsetMins + a.getHours() * 60 + a.getMinutes();
+    const dayIdx = Math.floor(off / 1440);
+    const minsInDay = off - dayIdx * 1440;
     const dayMidnight = new Date(a.getFullYear(), a.getMonth(), a.getDate() + dayIdx).getTime();
     return dayMidnight + minsInDay * 60000;
 }
@@ -92,17 +94,43 @@ function tsToOffset(axisStart, ts) {
     const a = new Date(axisStart);
     const axisMidnight = new Date(a.getFullYear(), a.getMonth(), a.getDate()).getTime();
     const dayIdx = Math.round((localMidnight - axisMidnight) / DAY_MS);
-    return dayIdx * 1440 + Math.round((ts - localMidnight) / 60000);
+    return dayIdx * 1440 + Math.round((ts - localMidnight) / 60000) - (a.getHours() * 60 + a.getMinutes());
 }
 
-// computeDayAxis turns the dataset bounds into the full-calendar-days axis used by
-// the Summary time slider: each touched day is a full 24h of equal width, offsets
-// are measured from midnight of the first day, and the default selection marks the
-// real data extent. A leading/trailing day whose coverage is negligible is dropped
-// (guard-rail). Shared by initTimeFilter and the Summary renderer so both agree.
+// Windows shorter than a day the Summary slider narrows to, in minutes. Each
+// divides a day and starts on its own multiple (a 30-minute window at :00 or
+// :30, a 6-hour one at 0h, 6h, 12h or 18h), so its bounds are round times.
+const WINDOWS_MIN = [5, 15, 30, 60, 120, 180, 360, 720];
+
+// shortWindow is the smallest window that holds [startTs, endTs] and is longer
+// than it, or null when none does (the day axis applies).
+function shortWindow(startTs, endTs) {
+    const s = new Date(startTs);
+    const minsIn = s.getHours() * 60 + s.getMinutes();
+    for (const w of WINDOWS_MIN) {
+        const from = Math.floor(minsIn / w) * w;
+        const ws = new Date(s.getFullYear(), s.getMonth(), s.getDate(), 0, from).getTime();
+        const we = new Date(s.getFullYear(), s.getMonth(), s.getDate(), 0, from + w).getTime();
+        if (endTs - startTs < w * 60000 && endTs <= we) return { ws, we, w };
+    }
+    return null;
+}
+
+// computeDayAxis turns the dataset bounds into the axis of the Summary time
+// slider: the smallest window of WINDOWS_MIN longer than the data, else full
+// calendar days, each a full 24h of equal width, offsets measured from midnight
+// of the first day. The default selection marks the real data extent. A
+// leading/trailing day whose coverage is negligible is dropped (guard-rail).
+// Shared by initTimeFilter and the Summary renderer so both agree.
 export function computeDayAxis(startDate, endDate) {
     const startTs = new Date(startDate.replace(' ', 'T')).getTime();
     const endTs = new Date(endDate.replace(' ', 'T')).getTime();
+    const win = shortWindow(startTs, endTs);
+    if (win) {
+        const defMin = Math.max(0, tsToOffset(win.ws, startTs));
+        const defMax = Math.min(win.w, tsToOffset(win.ws, endTs));
+        return { startTs, endTs, axisStart: win.ws, axisEnd: win.we, nDays: 1, durMins: win.w, defMin, defMax };
+    }
     const sd = new Date(startTs);
     let axisStart = new Date(sd.getFullYear(), sd.getMonth(), sd.getDate()).getTime();
     const ed = new Date(endTs);
