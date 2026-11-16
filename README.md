@@ -1,6 +1,6 @@
 # quellog
 
-A high-performance PostgreSQL log analyzer. Processes gigabytes of logs in seconds, producing synthetic overviews, SQL performance analysis, and operational insights.
+A high-performance log analyzer for PostgreSQL, pgBackRest, Patroni and pgBouncer. Processes gigabytes of logs in seconds, producing synthetic overviews, SQL performance analysis, and operational insights.
 
 **[Documentation](https://alain-l.github.io/quellog/)** | **[Try the demo](https://alain-l.github.io/quellog/demo.html)** (runs entirely in your browser)
 
@@ -11,7 +11,7 @@ quellog /var/log/postgresql/*.log
 ```
 
 ```
-quellog 0.12.0 – 155281 entries processed in 0.22 s (52.98 MB)
+quellog 0.14.0 – 155281 entries processed in 0.22 s (52.98 MB)
 
 SUMMARY
 
