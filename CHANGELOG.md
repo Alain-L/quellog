@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [0.14.0] - 2026-11-18
 
 ### Added
 - **Patroni log support**: quellog recognizes Patroni logs (text, `journalctl` output or JSON) and reports the cluster they describe: the leader at the end and since when, each leader change as a switchover or a failover with the time spent without a leader, DCS incidents, failovers refused for replication lag, and a timeline of bootstraps, demotions, promotions, pg_rewind, reinit and pauses. Given with the PostgreSQL logs, each leader change lists what PostgreSQL logged around it. Available in text, Markdown, JSON, YAML and as an HTML section. The text and Markdown reports are synthetic by default; `--patroni-detail` gives the detailed one. Each warning and error has an `er-`/`wa-` ID that `--event-detail` takes. Not supported in this release: Patroni logs inside an archive (skipped with a warning; extract them) and Patroni logs read from standard input.
