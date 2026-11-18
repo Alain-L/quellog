@@ -21,6 +21,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 - **The browser demo parses faster**: its WebAssembly module is now built for speed rather than size, 13 to 24% faster on the logs measured, for a page about 170 KB heavier.
+- **The Summary time slider fits short captures**: a capture shorter than a day sits on the smallest round window that holds it, from 5 minutes to 12 hours, instead of a thin sliver of a 24-hour axis.
 
 ### Fixed
 - **`--yaml` no longer emits the null keys `--json` already omitted**: an empty optional block is now absent from both instead of appearing as `null` in YAML, as `docs/exports.md` promises.
@@ -28,6 +29,7 @@ All notable changes to this project will be documented in this file.
 - **`--event-detail` histogram on short spans**: when the occurrences spanned less than about twelve minutes, every bar had the same label and showed the total count. Labels now show seconds, or milliseconds, when the bars need them.
 - **The HTML report's Format badge for compressed and archived input**: a `.csv.gz` or an archive of CSV logs read STDERR; it now names the format of the logs inside, the first one's for an archive mixing formats.
 - **A log file of a single line without a final newline was rejected** (`no newlines found in file`); it is now read.
+- **`quellog --version` on a binary built from source** read `dev (commit: none, built: unknown)`; `go build` and `go install` now report the version Go records, a tag or a pseudo-version between tags, with the commit and its date.
 
 ## [0.13.0] - 2026-09-24
 
