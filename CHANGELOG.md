@@ -31,6 +31,9 @@ All notable changes to this project will be documented in this file.
 - **A log file of a single line without a final newline was rejected** (`no newlines found in file`); it is now read.
 - **`quellog --version` on a binary built from source** read `dev (commit: none, built: unknown)`; `go build` and `go install` now report the version Go records, a tag or a pseudo-version between tags, with the commit and its date.
 
+### Security
+- **Decompression libraries updated**: `klauspost/compress` v1.20.4 fixes a panic on crafted zstd frames, reachable through `.zst` inputs (GO-2026-6865), and `andybalholm/brotli` v1.2.8 fixes unbounded allocations on crafted brotli streams, reachable through `.7z` inputs (GO-2026-6888). Building from source now requires Go 1.25.
+
 ## [0.13.0] - 2026-09-24
 
 ### Added

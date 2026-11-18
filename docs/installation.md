@@ -62,7 +62,7 @@ Download from the [releases page](https://github.com/Alain-L/quellog/releases).
 
 ## Build from Source
 
-Requires Go 1.24+ and Git. Building needs only the Go toolchain: the embedded
+Requires Go 1.25+ and Git. Building needs only the Go toolchain: the embedded
 web assets are bundled by esbuild's Go API through `go generate`, so no Node.js
 or `npm install` is involved (the `package.json` is the web test suite only).
 
