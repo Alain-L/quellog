@@ -1,0 +1,166 @@
+-------------------PROCESS START-------------------
+2026-10-24 20:39:08.550 P00   INFO: archive-get:async command begin 2.59.3: [00000001000000000000000D, 00000001000000000000000E, 00000001000000000000000F, 000000010000000000000010] --archive-async --archive-get-queue-max=64MB --exec-id=452-1bc9cead --log-level-console=off --log-level-file=info --log-level-stderr=off --pg1-path=/var/lib/pg/standby --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-24 20:39:08.550 P00   INFO: get 4 WAL file(s) from archive: 00000001000000000000000D...000000010000000000000010
+2026-10-24 20:39:08.881 P00   INFO: archive-get:async command end: completed successfully (331ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:08.935 P00   INFO: archive-get:async command begin 2.59.3: [000000010000000000000011, 000000010000000000000012, 000000010000000000000013, 000000010000000000000014] --archive-async --archive-get-queue-max=64MB --exec-id=462-6a78ad9e --log-level-console=off --log-level-file=info --log-level-stderr=off --pg1-path=/var/lib/pg/standby --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-24 20:39:08.935 P00   INFO: get 4 WAL file(s) from archive: 000000010000000000000011...000000010000000000000014
+2026-10-24 20:39:08.947 P00   INFO: archive-get:async command end: completed successfully (12ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:08.956 P00   INFO: archive-get:async command begin 2.59.3: [000000010000000000000011, 000000010000000000000012, 000000010000000000000013, 000000010000000000000014] --archive-async --archive-get-queue-max=64MB --exec-id=466-9cfaf899 --log-level-console=off --log-level-file=info --log-level-stderr=off --pg1-path=/var/lib/pg/standby --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-24 20:39:08.956 P00   INFO: get 4 WAL file(s) from archive: 000000010000000000000011...000000010000000000000014
+2026-10-24 20:39:08.958 P00   INFO: archive-get:async command end: completed successfully (2ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:09.063 P00   INFO: archive-get:async command begin 2.59.3: [000000010000000000000011, 000000010000000000000012, 000000010000000000000013, 000000010000000000000014] --archive-async --archive-get-queue-max=64MB --exec-id=470-e6192c63 --log-level-console=off --log-level-file=info --log-level-stderr=off --pg1-path=/var/lib/pg/standby --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-24 20:39:09.063 P00   INFO: get 4 WAL file(s) from archive: 000000010000000000000011...000000010000000000000014
+2026-10-24 20:39:09.065 P00   INFO: archive-get:async command end: completed successfully (3ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:09.191 P00   INFO: archive-get:async command begin 2.59.3: [000000010000000000000011, 000000010000000000000012, 000000010000000000000013, 000000010000000000000014] --archive-async --archive-get-queue-max=64MB --exec-id=476-af13f6bd --log-level-console=off --log-level-file=info --log-level-stderr=off --pg1-path=/var/lib/pg/standby --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-24 20:39:09.191 P00   INFO: get 4 WAL file(s) from archive: 000000010000000000000011...000000010000000000000014
+2026-10-24 20:39:09.194 P00   INFO: archive-get:async command end: completed successfully (4ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:14.200 P00   INFO: archive-get:async command begin 2.59.3: [000000010000000000000011, 000000010000000000000012, 000000010000000000000013, 000000010000000000000014] --archive-async --archive-get-queue-max=64MB --exec-id=520-c60ef656 --log-level-console=off --log-level-file=info --log-level-stderr=off --pg1-path=/var/lib/pg/standby --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-24 20:39:14.200 P00   INFO: get 4 WAL file(s) from archive: 000000010000000000000011...000000010000000000000014
+2026-10-24 20:39:14.529 P00   INFO: archive-get:async command end: completed successfully (330ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:14.561 P00   INFO: archive-get:async command begin 2.59.3: [000000010000000000000015, 000000010000000000000016, 000000010000000000000017, 000000010000000000000018] --archive-async --archive-get-queue-max=64MB --exec-id=529-5230d02c --log-level-console=off --log-level-file=info --log-level-stderr=off --pg1-path=/var/lib/pg/standby --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-24 20:39:14.561 P00   INFO: get 4 WAL file(s) from archive: 000000010000000000000015...000000010000000000000018
+2026-10-24 20:39:14.572 P00   INFO: archive-get:async command end: completed successfully (12ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:14.586 P00   INFO: archive-get:async command begin 2.59.3: [000000010000000000000015, 000000010000000000000016, 000000010000000000000017, 000000010000000000000018] --archive-async --archive-get-queue-max=64MB --exec-id=533-01f64c67 --log-level-console=off --log-level-file=info --log-level-stderr=off --pg1-path=/var/lib/pg/standby --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-24 20:39:14.586 P00   INFO: get 4 WAL file(s) from archive: 000000010000000000000015...000000010000000000000018
+2026-10-24 20:39:14.589 P00   INFO: archive-get:async command end: completed successfully (3ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:14.696 P00   INFO: archive-get:async command begin 2.59.3: [000000010000000000000015, 000000010000000000000016, 000000010000000000000017, 000000010000000000000018] --archive-async --archive-get-queue-max=64MB --exec-id=537-192122b9 --log-level-console=off --log-level-file=info --log-level-stderr=off --pg1-path=/var/lib/pg/standby --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-24 20:39:14.696 P00   INFO: get 4 WAL file(s) from archive: 000000010000000000000015...000000010000000000000018
+2026-10-24 20:39:14.699 P00   INFO: archive-get:async command end: completed successfully (5ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:19.223 P00   INFO: archive-get:async command begin 2.59.3: [000000010000000000000015, 000000010000000000000016, 000000010000000000000017, 000000010000000000000018] --archive-async --archive-get-queue-max=64MB --exec-id=556-95f98af3 --log-level-console=off --log-level-file=info --log-level-stderr=off --pg1-path=/var/lib/pg/standby --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-24 20:39:19.223 P00   INFO: get 4 WAL file(s) from archive: 000000010000000000000015...000000010000000000000018
+2026-10-24 20:39:19.419 P00   INFO: archive-get:async command end: completed successfully (197ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:19.444 P00   INFO: archive-get:async command begin 2.59.3: [000000010000000000000017, 000000010000000000000018, 000000010000000000000019, 00000001000000000000001A] --archive-async --archive-get-queue-max=64MB --exec-id=561-2694fb56 --log-level-console=off --log-level-file=info --log-level-stderr=off --pg1-path=/var/lib/pg/standby --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-24 20:39:19.444 P00   INFO: get 4 WAL file(s) from archive: 000000010000000000000017...00000001000000000000001A
+2026-10-24 20:39:19.455 P00   INFO: archive-get:async command end: completed successfully (11ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:19.466 P00   INFO: archive-get:async command begin 2.59.3: [000000010000000000000017, 000000010000000000000018, 000000010000000000000019, 00000001000000000000001A] --archive-async --archive-get-queue-max=64MB --exec-id=565-141e4aad --log-level-console=off --log-level-file=info --log-level-stderr=off --pg1-path=/var/lib/pg/standby --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-24 20:39:19.466 P00   INFO: get 4 WAL file(s) from archive: 000000010000000000000017...00000001000000000000001A
+2026-10-24 20:39:19.469 P00   INFO: archive-get:async command end: completed successfully (3ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:19.575 P00   INFO: archive-get:async command begin 2.59.3: [000000010000000000000017, 000000010000000000000018, 000000010000000000000019, 00000001000000000000001A] --archive-async --archive-get-queue-max=64MB --exec-id=569-6635891f --log-level-console=off --log-level-file=info --log-level-stderr=off --pg1-path=/var/lib/pg/standby --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-24 20:39:19.576 P00   INFO: get 4 WAL file(s) from archive: 000000010000000000000017...00000001000000000000001A
+2026-10-24 20:39:19.579 P00   INFO: archive-get:async command end: completed successfully (4ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:24.238 P00   INFO: archive-get:async command begin 2.59.3: [000000010000000000000017, 000000010000000000000018, 000000010000000000000019, 00000001000000000000001A] --archive-async --archive-get-queue-max=64MB --exec-id=575-4deb418a --log-level-console=off --log-level-file=info --log-level-stderr=off --pg1-path=/var/lib/pg/standby --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-24 20:39:24.238 P00   INFO: get 4 WAL file(s) from archive: 000000010000000000000017...00000001000000000000001A
+2026-10-24 20:39:24.241 P00   INFO: archive-get:async command end: completed successfully (3ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:29.238 P00   INFO: archive-get:async command begin 2.59.3: [000000010000000000000017, 000000010000000000000018, 000000010000000000000019, 00000001000000000000001A] --archive-async --archive-get-queue-max=64MB --exec-id=614-00e3b246 --log-level-console=off --log-level-file=info --log-level-stderr=off --pg1-path=/var/lib/pg/standby --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-24 20:39:29.238 P00   INFO: get 4 WAL file(s) from archive: 000000010000000000000017...00000001000000000000001A
+2026-10-24 20:39:29.242 P00   WARN: repo1: [FileOpenError] unable to load info file '/var/lib/pgbackrest/archive/main/archive.info' or '/var/lib/pgbackrest/archive/main/archive.info.copy':
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/archive/main/archive.info' for read: [13] Permission denied
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/archive/main/archive.info.copy' for read: [13] Permission denied
+                                    HINT: archive.info cannot be opened but is required to push/get WAL segments.
+                                    HINT: is archive_command configured correctly in postgresql.conf?
+                                    HINT: has a stanza-create been performed?
+                                    HINT: use --no-archive-check to disable archive checks during backup if you have an alternate archiving scheme.
+2026-10-24 20:39:29.242 P00   WARN: [RepoInvalidError] unable to find a valid repository
+2026-10-24 20:39:29.244 P00   INFO: archive-get:async command end: completed successfully (6ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:34.246 P00   INFO: archive-get:async command begin 2.59.3: [000000010000000000000017, 000000010000000000000018, 000000010000000000000019, 00000001000000000000001A] --archive-async --archive-get-queue-max=64MB --exec-id=629-7aa15cb2 --log-level-console=off --log-level-file=info --log-level-stderr=off --pg1-path=/var/lib/pg/standby --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-24 20:39:34.246 P00   INFO: get 4 WAL file(s) from archive: 000000010000000000000017...00000001000000000000001A
+2026-10-24 20:39:34.250 P00   WARN: repo1: [FileOpenError] unable to load info file '/var/lib/pgbackrest/archive/main/archive.info' or '/var/lib/pgbackrest/archive/main/archive.info.copy':
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/archive/main/archive.info' for read: [13] Permission denied
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/archive/main/archive.info.copy' for read: [13] Permission denied
+                                    HINT: archive.info cannot be opened but is required to push/get WAL segments.
+                                    HINT: is archive_command configured correctly in postgresql.conf?
+                                    HINT: has a stanza-create been performed?
+                                    HINT: use --no-archive-check to disable archive checks during backup if you have an alternate archiving scheme.
+2026-10-24 20:39:34.250 P00   WARN: [RepoInvalidError] unable to find a valid repository
+2026-10-24 20:39:34.252 P00   INFO: archive-get:async command end: completed successfully (6ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:39.251 P00   INFO: archive-get:async command begin 2.59.3: [000000010000000000000017, 000000010000000000000018, 000000010000000000000019, 00000001000000000000001A] --archive-async --archive-get-queue-max=64MB --exec-id=635-d4230b36 --log-level-console=off --log-level-file=info --log-level-stderr=off --pg1-path=/var/lib/pg/standby --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-24 20:39:39.251 P00   INFO: get 4 WAL file(s) from archive: 000000010000000000000017...00000001000000000000001A
+2026-10-24 20:39:39.256 P00   WARN: repo1: [FileOpenError] unable to load info file '/var/lib/pgbackrest/archive/main/archive.info' or '/var/lib/pgbackrest/archive/main/archive.info.copy':
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/archive/main/archive.info' for read: [13] Permission denied
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/archive/main/archive.info.copy' for read: [13] Permission denied
+                                    HINT: archive.info cannot be opened but is required to push/get WAL segments.
+                                    HINT: is archive_command configured correctly in postgresql.conf?
+                                    HINT: has a stanza-create been performed?
+                                    HINT: use --no-archive-check to disable archive checks during backup if you have an alternate archiving scheme.
+2026-10-24 20:39:39.256 P00   WARN: [RepoInvalidError] unable to find a valid repository
+2026-10-24 20:39:39.258 P00   INFO: archive-get:async command end: completed successfully (7ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:44.281 P00   INFO: archive-get:async command begin 2.59.3: [000000010000000000000017, 000000010000000000000018, 000000010000000000000019, 00000001000000000000001A] --archive-async --archive-get-queue-max=64MB --exec-id=641-af1ad876 --log-level-console=off --log-level-file=info --log-level-stderr=off --pg1-path=/var/lib/pg/standby --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-24 20:39:44.281 P00   INFO: get 4 WAL file(s) from archive: 000000010000000000000017...00000001000000000000001A
+2026-10-24 20:39:44.286 P00   WARN: repo1: [FileOpenError] unable to load info file '/var/lib/pgbackrest/archive/main/archive.info' or '/var/lib/pgbackrest/archive/main/archive.info.copy':
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/archive/main/archive.info' for read: [13] Permission denied
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/archive/main/archive.info.copy' for read: [13] Permission denied
+                                    HINT: archive.info cannot be opened but is required to push/get WAL segments.
+                                    HINT: is archive_command configured correctly in postgresql.conf?
+                                    HINT: has a stanza-create been performed?
+                                    HINT: use --no-archive-check to disable archive checks during backup if you have an alternate archiving scheme.
+2026-10-24 20:39:44.286 P00   WARN: [RepoInvalidError] unable to find a valid repository
+2026-10-24 20:39:44.287 P00   INFO: archive-get:async command end: completed successfully (7ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:49.245 P00   INFO: archive-get:async command begin 2.59.3: [000000010000000000000017, 000000010000000000000018, 000000010000000000000019, 00000001000000000000001A] --archive-async --archive-get-queue-max=64MB --exec-id=662-bcbc19c0 --log-level-console=off --log-level-file=info --log-level-stderr=off --pg1-path=/var/lib/pg/standby --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-24 20:39:49.245 P00   INFO: get 4 WAL file(s) from archive: 000000010000000000000017...00000001000000000000001A
+2026-10-24 20:39:49.575 P00   INFO: archive-get:async command end: completed successfully (331ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:49.617 P00   INFO: archive-get:async command begin 2.59.3: [00000001000000000000001B, 00000001000000000000001C, 00000001000000000000001D, 00000001000000000000001E] --archive-async --archive-get-queue-max=64MB --exec-id=671-364e7bf1 --log-level-console=off --log-level-file=info --log-level-stderr=off --pg1-path=/var/lib/pg/standby --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-24 20:39:49.618 P00   INFO: get 4 WAL file(s) from archive: 00000001000000000000001B...00000001000000000000001E
+2026-10-24 20:39:49.633 P00   INFO: archive-get:async command end: completed successfully (16ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:49.651 P00   INFO: archive-get:async command begin 2.59.3: [00000001000000000000001B, 00000001000000000000001C, 00000001000000000000001D, 00000001000000000000001E] --archive-async --archive-get-queue-max=64MB --exec-id=678-235949c8 --log-level-console=off --log-level-file=info --log-level-stderr=off --pg1-path=/var/lib/pg/standby --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-24 20:39:49.651 P00   INFO: get 4 WAL file(s) from archive: 00000001000000000000001B...00000001000000000000001E
+2026-10-24 20:39:49.655 P00   INFO: archive-get:async command end: completed successfully (4ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:49.776 P00   INFO: archive-get:async command begin 2.59.3: [00000001000000000000001B, 00000001000000000000001C, 00000001000000000000001D, 00000001000000000000001E] --archive-async --archive-get-queue-max=64MB --exec-id=685-7e9002ef --log-level-console=off --log-level-file=info --log-level-stderr=off --pg1-path=/var/lib/pg/standby --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-24 20:39:49.776 P00   INFO: get 4 WAL file(s) from archive: 00000001000000000000001B...00000001000000000000001E
+2026-10-24 20:39:50.064 P00   INFO: archive-get:async command end: completed successfully (288ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:50.123 P00   INFO: archive-get:async command begin 2.59.3: [00000001000000000000001C, 00000001000000000000001D, 00000001000000000000001E, 00000001000000000000001F] --archive-async --archive-get-queue-max=64MB --exec-id=690-52aaa9b9 --log-level-console=off --log-level-file=info --log-level-stderr=off --pg1-path=/var/lib/pg/standby --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-24 20:39:50.123 P00   INFO: get 4 WAL file(s) from archive: 00000001000000000000001C...00000001000000000000001F
+2026-10-24 20:39:50.127 P00   INFO: archive-get:async command end: completed successfully (6ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:50.223 P00   INFO: archive-get:async command begin 2.59.3: [00000001000000000000001C, 00000001000000000000001D, 00000001000000000000001E, 00000001000000000000001F] --archive-async --archive-get-queue-max=64MB --exec-id=694-9b8bb3d2 --log-level-console=off --log-level-file=info --log-level-stderr=off --pg1-path=/var/lib/pg/standby --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-24 20:39:50.223 P00   INFO: get 4 WAL file(s) from archive: 00000001000000000000001C...00000001000000000000001F
+2026-10-24 20:39:50.227 P00   INFO: archive-get:async command end: completed successfully (5ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:54.255 P00   INFO: archive-get:async command begin 2.59.3: [00000001000000000000001C, 00000001000000000000001D, 00000001000000000000001E, 00000001000000000000001F] --archive-async --archive-get-queue-max=64MB --exec-id=701-b873abe7 --log-level-console=off --log-level-file=info --log-level-stderr=off --pg1-path=/var/lib/pg/standby --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-24 20:39:54.256 P00   INFO: get 4 WAL file(s) from archive: 00000001000000000000001C...00000001000000000000001F
+2026-10-24 20:39:54.260 P00   INFO: archive-get:async command end: completed successfully (6ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:39:59.281 P00   INFO: archive-get:async command begin 2.59.3: [00000001000000000000001C, 00000001000000000000001D, 00000001000000000000001E, 00000001000000000000001F] --archive-async --archive-get-queue-max=64MB --exec-id=707-f43c6237 --log-level-console=off --log-level-file=info --log-level-stderr=off --pg1-path=/var/lib/pg/standby --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-24 20:39:59.281 P00   INFO: get 4 WAL file(s) from archive: 00000001000000000000001C...00000001000000000000001F
+2026-10-24 20:39:59.283 P00   INFO: archive-get:async command end: completed successfully (3ms)
+
+-------------------PROCESS START-------------------
+2026-10-24 20:40:04.285 P00   INFO: archive-get:async command begin 2.59.3: [00000001000000000000001C, 00000001000000000000001D, 00000001000000000000001E, 00000001000000000000001F] --archive-async --archive-get-queue-max=64MB --exec-id=714-2ba9c15c --log-level-console=off --log-level-file=info --log-level-stderr=off --pg1-path=/var/lib/pg/standby --repo1-path=/var/lib/pgbackrest --spool-path=/var/spool/pgbackrest --stanza=main
+2026-10-24 20:40:04.286 P00   INFO: get 4 WAL file(s) from archive: 00000001000000000000001C...00000001000000000000001F
+2026-10-24 20:40:04.289 P00   INFO: archive-get:async command end: completed successfully (5ms)

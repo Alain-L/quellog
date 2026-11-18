@@ -17,12 +17,6 @@ import (
 type LogEntry struct {
 	Timestamp time.Time // for syslog (no year), the current year is assumed
 	Message   string    // full message including the severity prefix (LOG:/ERROR:/...)
-	// IsContinuation is true for DETAIL/HINT/STATEMENT/CONTEXT/QUERY
-	// lines: in stderr format PostgreSQL emits them as separate lines
-	// with their own timestamp + prefix but they belong to the previous
-	// LOG/ERROR. They are not counted in total_logs but are still passed
-	// to the analyzers.
-	IsContinuation bool
 	// PID is the backend PID extracted from the prefix ("[12345]"),
 	// populated once at construction so the eight analyzers don't each
 	// re-parse the prefix. Empty if not extractable.
@@ -42,6 +36,53 @@ type LogEntry struct {
 	// marker was found (continuation lines, unit-test entries): analyzers
 	// must then fall back to their unanchored slow path.
 	BodyOffset int32
+	// IsContinuation is true for DETAIL/HINT/STATEMENT/CONTEXT/QUERY
+	// lines: in stderr format PostgreSQL emits them as separate lines
+	// with their own timestamp + prefix but they belong to the previous
+	// LOG/ERROR. They are not counted in total_logs but are still passed
+	// to the analyzers.
+	IsContinuation bool
+	// FromPgBackRest marks an entry that belongs to pgBackRest, not to
+	// PostgreSQL: a line the stderr parser carved out of the stream, or a
+	// marker. Its Message has pgBackRest's shape ("LEVEL: [code]: text",
+	// continuation lines joined by "\n") and PID holds the process marker
+	// ("P00"), empty for a bare stderr line. The analysis stage sends it to
+	// the pgBackRest observer and keeps it out of every PostgreSQL metric.
+	FromPgBackRest bool
+	// PgBackRest is non-nil only for the markers described by
+	// PgBackRestLineInfo, so ordinary entries pay one pointer.
+	PgBackRest *PgBackRestLineInfo
+}
+
+// PgBackRestLineInfo describes a marker entry: it carries no Message and
+// exactly one of the kinds below.
+type PgBackRestLineInfo struct {
+	// ProcessStart stands for a "PROCESS START" banner line: a new
+	// invocation starts, whatever log-level-file hides.
+	ProcessStart bool
+	// Signal names the signal of a "terminated on signal" line.
+	Signal string
+	// BlankLines counts blank lines inside pgBackRest's output.
+	BlankLines int
+	// Source names the input file (or, with SourceIsMember, the archive
+	// member) whose entries follow.
+	Source         string
+	SourceIsMember bool
+	// PoolerLinesRead and PoolerLinesUnrecognized are the pgBouncer
+	// parser's counters (PgBouncerLineCounts) when the marker was sent:
+	// everything before it is counted, nothing after, so the pooler
+	// analysis gives each archive member the lines of its own.
+	PoolerLinesRead, PoolerLinesUnrecognized int64
+}
+
+// PgBackRestSourceMarker builds the marker sent ahead of an input file's
+// or archive member's entries: the pgBackRest observer names its stanza
+// and notes after it, and the pooler analysis starts a new log there.
+// The analysis stage drops it otherwise.
+func PgBackRestSourceMarker(name string, member bool) LogEntry {
+	read, unrecognized := PgBouncerLineCounts()
+	return LogEntry{FromPgBackRest: true, PgBackRest: &PgBackRestLineInfo{Source: name, SourceIsMember: member,
+		PoolerLinesRead: read, PoolerLinesUnrecognized: unrecognized}}
 }
 
 // NewLogEntry builds a LogEntry with its PID field pre-populated from

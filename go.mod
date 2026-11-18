@@ -1,11 +1,11 @@
 module github.com/Alain-L/quellog
 
-go 1.24.0
+go 1.25
 
 require (
 	github.com/bodgit/sevenzip v1.6.1
 	github.com/evanw/esbuild v0.27.2
-	github.com/klauspost/compress v1.18.7
+	github.com/klauspost/compress v1.20.4
 	github.com/klauspost/pgzip v1.2.6
 	github.com/spf13/cobra v1.9.1
 	github.com/tidwall/gjson v1.18.0
@@ -14,7 +14,7 @@ require (
 )
 
 require (
-	github.com/andybalholm/brotli v1.1.1 // indirect
+	github.com/andybalholm/brotli v1.2.8 // indirect
 	github.com/bodgit/plumbing v1.3.0 // indirect
 	github.com/bodgit/windows v1.0.1 // indirect
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect

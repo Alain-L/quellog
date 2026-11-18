@@ -1,0 +1,74 @@
+2026-09-25 09:15:42.483 UTC [43] LOG:  starting PostgreSQL 17.9 (Debian 17.9-1.pgdg13+1) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+2026-09-25 09:15:42.484 UTC [43] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+2026-09-25 09:15:42.490 UTC [47] LOG:  database system was shut down at 2026-09-25 09:15:42 UTC
+2026-09-25 09:15:42.494 UTC [43] LOG:  database system is ready to accept connections
+2026-09-25 09:15:42.587 UTC [53] [unknown]@[unknown] LOG:  connection received: host=[local]
+2026-09-25 09:15:42.587 UTC [53] bench@postgres LOG:  connection authenticated: user="bench" method=trust (/var/lib/postgresql/data/pg_hba.conf:117)
+2026-09-25 09:15:42.587 UTC [53] bench@postgres LOG:  connection authorized: user=bench database=postgres application_name=psql
+2026-09-25 09:15:42.591 UTC [53] bench@postgres LOG:  disconnection: session time: 0:00:00.003 user=bench database=postgres host=[local]
+2026-09-25 09:15:42.611 UTC [55] [unknown]@[unknown] LOG:  connection received: host=[local]
+2026-09-25 09:15:42.611 UTC [55] bench@postgres LOG:  connection authenticated: user="bench" method=trust (/var/lib/postgresql/data/pg_hba.conf:117)
+2026-09-25 09:15:42.611 UTC [55] bench@postgres LOG:  connection authorized: user=bench database=postgres application_name=psql
+2026-09-25 09:15:42.646 UTC [55] bench@postgres LOG:  disconnection: session time: 0:00:00.035 user=bench database=postgres host=[local]
+2026-09-25 09:15:42.648 UTC [43] LOG:  received fast shutdown request
+2026-09-25 09:15:42.649 UTC [43] LOG:  aborting any active transactions
+2026-09-25 09:15:42.650 UTC [43] LOG:  background worker "logical replication launcher" (PID 50) exited with exit code 1
+2026-09-25 09:15:42.650 UTC [45] LOG:  shutting down
+2026-09-25 09:15:42.652 UTC [45] LOG:  checkpoint starting: shutdown immediate
+2026-09-25 09:15:42.694 UTC [45] LOG:  checkpoint complete: wrote 925 buffers (5.6%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.010 s, sync=0.027 s, total=0.044 s; sync files=301, longest=0.012 s, average=0.001 s; distance=4256 kB, estimate=4256 kB; lsn=0/1915968, redo lsn=0/1915968
+2026-09-25 09:15:42.697 UTC [43] LOG:  database system is shut down
+2026-09-25 09:15:42.778 UTC [1] LOG:  starting PostgreSQL 17.9 (Debian 17.9-1.pgdg13+1) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+2026-09-25 09:15:42.778 UTC [1] LOG:  listening on IPv4 address "0.0.0.0", port 5432
+2026-09-25 09:15:42.778 UTC [1] LOG:  listening on IPv6 address "::", port 5432
+2026-09-25 09:15:42.781 UTC [1] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+2026-09-25 09:15:42.786 UTC [61] LOG:  database system was shut down at 2026-09-25 09:15:42 UTC
+2026-09-25 09:15:42.790 UTC [1] LOG:  database system is ready to accept connections
+2026-09-25 09:15:43.063 UTC [65] [unknown]@[unknown] LOG:  connection received: host=192.168.1.18 port=48918
+2026-09-25 09:15:43.076 UTC [65] bench@bench LOG:  connection authenticated: identity="bench" method=md5 (/var/lib/postgresql/data/pg_hba.conf:128)
+2026-09-25 09:15:43.076 UTC [65] bench@bench LOG:  connection authorized: user=bench database=bench application_name=psql
+2026-09-25 09:15:43.081 UTC [65] bench@bench LOG:  disconnection: session time: 0:00:00.018 user=bench database=bench host=192.168.1.18 port=48918
+2026-09-25 09:15:43.092 UTC [66] [unknown]@[unknown] LOG:  connection received: host=192.168.1.18 port=48926
+2026-09-25 09:15:43.103 UTC [66] bench@bench LOG:  connection authenticated: identity="bench" method=md5 (/var/lib/postgresql/data/pg_hba.conf:128)
+2026-09-25 09:15:43.103 UTC [66] bench@bench LOG:  connection authorized: user=bench database=bench application_name=psql
+2026-09-25 09:15:43.105 UTC [66] bench@bench LOG:  disconnection: session time: 0:00:00.013 user=bench database=bench host=192.168.1.18 port=48926
+2026-09-25 09:15:43.110 UTC [67] [unknown]@[unknown] LOG:  connection received: host=192.168.1.18 port=48936
+2026-09-25 09:15:43.113 UTC [67] bench@bench LOG:  connection authenticated: identity="bench" method=md5 (/var/lib/postgresql/data/pg_hba.conf:128)
+2026-09-25 09:15:43.113 UTC [67] bench@bench LOG:  connection authorized: user=bench database=bench application_name=pgbench
+2026-09-25 09:15:43.596 UTC [67] bench@bench LOG:  disconnection: session time: 0:00:00.486 user=bench database=bench host=192.168.1.18 port=48936
+2026-09-25 09:15:45.658 UTC [69] [unknown]@[unknown] LOG:  connection received: host=192.168.1.18 port=46458
+2026-09-25 09:15:45.660 UTC [69] bench@bench LOG:  connection authenticated: identity="bench" method=md5 (/var/lib/postgresql/data/pg_hba.conf:128)
+2026-09-25 09:15:45.660 UTC [69] bench@bench LOG:  connection authorized: user=bench database=bench
+2026-09-25 09:15:45.680 UTC [70] [unknown]@[unknown] LOG:  connection received: host=192.168.1.18 port=46468
+2026-09-25 09:15:45.681 UTC [70] bench@bench LOG:  connection authenticated: identity="bench" method=md5 (/var/lib/postgresql/data/pg_hba.conf:128)
+2026-09-25 09:15:45.681 UTC [70] bench@bench LOG:  connection authorized: user=bench database=bench
+2026-09-25 09:15:45.684 UTC [71] [unknown]@[unknown] LOG:  connection received: host=192.168.1.18 port=46474
+2026-09-25 09:15:45.684 UTC [71] bench@bench LOG:  connection authenticated: identity="bench" method=md5 (/var/lib/postgresql/data/pg_hba.conf:128)
+2026-09-25 09:15:45.684 UTC [71] bench@bench LOG:  connection authorized: user=bench database=bench
+2026-09-25 09:18:47.722 UTC [80] [unknown]@[unknown] LOG:  connection received: host=192.168.1.18 port=37742
+2026-09-25 09:18:47.723 UTC [80] bench@bench LOG:  connection authenticated: identity="bench" method=md5 (/var/lib/postgresql/data/pg_hba.conf:128)
+2026-09-25 09:18:47.723 UTC [80] bench@bench LOG:  connection authorized: user=bench database=bench
+2026-09-25 09:18:47.730 UTC [81] [unknown]@[unknown] LOG:  connection received: host=192.168.1.18 port=37756
+2026-09-25 09:18:47.730 UTC [81] bench@bench LOG:  connection authenticated: identity="bench" method=md5 (/var/lib/postgresql/data/pg_hba.conf:128)
+2026-09-25 09:18:47.730 UTC [81] bench@bench LOG:  connection authorized: user=bench database=bench
+2026-09-25 09:18:49.733 UTC [82] [unknown]@[unknown] LOG:  connection received: host=192.168.1.18 port=37758
+2026-09-25 09:18:49.734 UTC [82] bench@bench LOG:  connection authenticated: identity="bench" method=md5 (/var/lib/postgresql/data/pg_hba.conf:128)
+2026-09-25 09:18:49.734 UTC [82] bench@bench LOG:  connection authorized: user=bench database=bench
+2026-09-25 09:18:49.735 UTC [83] [unknown]@[unknown] LOG:  connection received: host=192.168.1.18 port=37764
+2026-09-25 09:18:49.736 UTC [83] bench@bench LOG:  connection authenticated: identity="bench" method=md5 (/var/lib/postgresql/data/pg_hba.conf:128)
+2026-09-25 09:18:49.736 UTC [83] bench@bench LOG:  connection authorized: user=bench database=bench
+2026-09-25 09:20:42.225 UTC [59] LOG:  checkpoint starting: time
+2026-09-25 09:21:32.391 UTC [70] bench@bench LOG:  disconnection: session time: 0:05:46.711 user=bench database=bench host=192.168.1.18 port=46468
+2026-09-25 09:21:32.391 UTC [69] bench@bench LOG:  disconnection: session time: 0:05:46.733 user=bench database=bench host=192.168.1.18 port=46458
+2026-09-25 09:21:32.391 UTC [71] bench@bench LOG:  disconnection: session time: 0:05:46.707 user=bench database=bench host=192.168.1.18 port=46474
+2026-09-25 09:21:32.403 UTC [80] bench@bench LOG:  disconnection: session time: 0:02:44.680 user=bench database=bench host=192.168.1.18 port=37742
+2026-09-25 09:21:32.403 UTC [82] bench@bench LOG:  disconnection: session time: 0:02:42.669 user=bench database=bench host=192.168.1.18 port=37758
+2026-09-25 09:21:32.403 UTC [83] bench@bench LOG:  disconnection: session time: 0:02:42.667 user=bench database=bench host=192.168.1.18 port=37764
+2026-09-25 09:21:32.403 UTC [81] bench@bench LOG:  disconnection: session time: 0:02:44.673 user=bench database=bench host=192.168.1.18 port=37756
+2026-09-25 09:21:33.458 UTC [1] LOG:  received fast shutdown request
+2026-09-25 09:21:33.462 UTC [1] LOG:  aborting any active transactions
+2026-09-25 09:21:33.465 UTC [1] LOG:  background worker "logical replication launcher" (PID 64) exited with exit code 1
+2026-09-25 09:21:33.758 UTC [59] LOG:  checkpoint complete: wrote 10118 buffers (61.8%); 0 WAL file(s) added, 0 removed, 20 recycled; write=51.255 s, sync=0.227 s, total=51.534 s; sync files=90, longest=0.111 s, average=0.003 s; distance=319469 kB, estimate=319469 kB; lsn=0/1BD07E60, redo lsn=0/15111120
+2026-09-25 09:21:33.759 UTC [59] LOG:  shutting down
+2026-09-25 09:21:33.760 UTC [59] LOG:  checkpoint starting: shutdown immediate
+2026-09-25 09:21:33.859 UTC [59] LOG:  checkpoint complete: wrote 2323 buffers (14.2%); 0 WAL file(s) added, 0 removed, 6 recycled; write=0.010 s, sync=0.068 s, total=0.101 s; sync files=9, longest=0.066 s, average=0.008 s; distance=110555 kB, estimate=298578 kB; lsn=0/1BD07ED8, redo lsn=0/1BD07ED8
+2026-09-25 09:21:33.874 UTC [1] LOG:  database system is shut down

@@ -1,0 +1,102 @@
+{"asctime": "2026-09-24 14:09:27,170", "levelname": "INFO", "message": "Using default value thread_stack_size = 524288"}
+{"asctime": "2026-09-24 14:09:27,176", "levelname": "INFO", "message": "Patroni global thread_pool_size = 5"}
+{"asctime": "2026-09-24 14:09:27,205", "levelname": "ERROR", "message": "Failed to get list of machines from http://etcd1:2379/v3beta: ValueError(\"invalid literal for int() with base 10: 'not_decided'\")"}
+{"asctime": "2026-09-24 14:09:27,206", "levelname": "ERROR", "message": "Failed to get list of machines from http://etcd3:2379/v3beta: ValueError(\"invalid literal for int() with base 10: 'not_decided'\")"}
+{"asctime": "2026-09-24 14:09:27,206", "levelname": "ERROR", "message": "Failed to get list of machines from http://etcd2:2379/v3beta: ValueError(\"invalid literal for int() with base 10: 'not_decided'\")"}
+{"asctime": "2026-09-24 14:09:27,206", "levelname": "INFO", "message": "waiting on etcd"}
+{"asctime": "2026-09-24 14:09:32,254", "levelname": "INFO", "message": "Selected new etcd server http://etcd3:2379"}
+{"asctime": "2026-09-24 14:09:32,258", "levelname": "INFO", "message": "No PostgreSQL configuration items changed, nothing to reload."}
+{"asctime": "2026-09-24 14:09:32,261", "levelname": "INFO", "message": "REST API thread_pool_size = 5"}
+{"asctime": "2026-09-24 14:09:32,311", "levelname": "INFO", "message": "Lock owner: None; I am pg3"}
+{"asctime": "2026-09-24 14:09:32,361", "levelname": "INFO", "message": "waiting for leader to bootstrap"}
+{"asctime": "2026-09-24 14:09:34,907", "levelname": "INFO", "message": "Lock owner: pg1; I am pg3"}
+{"asctime": "2026-09-24 14:09:34,954", "levelname": "INFO", "message": "trying to bootstrap from leader 'pg1'"}
+{"asctime": "2026-09-24 14:09:37,895", "levelname": "INFO", "message": "replica has been created using basebackup"}
+{"asctime": "2026-09-24 14:09:37,896", "levelname": "INFO", "message": "bootstrapped from leader 'pg1'"}
+{"asctime": "2026-09-24 14:09:38,199", "levelname": "INFO", "message": "postmaster pid=26"}
+{"asctime": "2026-09-24 14:09:39,214", "levelname": "INFO", "message": "Lock owner: pg1; I am pg3"}
+{"asctime": "2026-09-24 14:09:39,214", "levelname": "INFO", "message": "establishing a new patroni heartbeat connection to postgres"}
+{"asctime": "2026-09-24 14:09:39,326", "levelname": "INFO", "message": "no action. I am (pg3), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:09:44,909", "levelname": "INFO", "message": "no action. I am (pg3), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:09:54,963", "levelname": "INFO", "message": "no action. I am (pg3), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:10:05,418", "levelname": "INFO", "message": "no action. I am (pg3), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:10:14,651", "levelname": "INFO", "message": "no action. I am (pg3), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:10:15,823", "levelname": "INFO", "message": "no action. I am (pg3), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:10:15,828", "levelname": "INFO", "message": "Got response from pg2 http://pg2:8008/patroni: {\"state\": \"running\", \"postmaster_start_time\": \"2026-09-24 14:09:38.311620+00:00\", \"role\": \"replica\", \"server_version\": 170009, \"xlog\": {\"received_location\": 67284072, \"replayed_location\": 67284072, \"replayed_timestamp\": \"2026-09-24 14:10:12.067012+00:00\", \"paused\": false}, \"timeline\": 1, \"dcs_last_seen\": 1790259015, \"database_system_identifier\": \"7689103735349272603\", \"patroni\": {\"version\": \"4.1.5\", \"scope\": \"main\", \"name\": \"pg2\"}}"}
+{"asctime": "2026-09-24 14:10:15,828", "levelname": "INFO", "message": "switchover: to pg2, i am pg3"}
+{"asctime": "2026-09-24 14:10:17,836", "levelname": "INFO", "message": "Local timeline=1 lsn=0/402AC68"}
+{"asctime": "2026-09-24 14:10:17,854", "levelname": "INFO", "message": "primary_timeline=2"}
+{"asctime": "2026-09-24 14:10:17,854", "levelname": "INFO", "message": "primary: history=1\t0/402AC68\tno recovery target specified"}
+{"asctime": "2026-09-24 14:10:17,910", "levelname": "INFO", "message": "following a different leader because i am not the healthiest node"}
+{"asctime": "2026-09-24 14:10:17,910", "levelname": "INFO", "message": "Lock owner: pg2; I am pg3"}
+{"asctime": "2026-09-24 14:10:17,912", "levelname": "INFO", "message": "Local timeline=2 lsn=0/402AE78"}
+{"asctime": "2026-09-24 14:10:17,924", "levelname": "INFO", "message": "primary_timeline=2"}
+{"asctime": "2026-09-24 14:10:17,931", "levelname": "INFO", "message": "Local timeline=2 lsn=0/402AE78"}
+{"asctime": "2026-09-24 14:10:17,944", "levelname": "INFO", "message": "primary_timeline=2"}
+{"asctime": "2026-09-24 14:10:18,036", "levelname": "INFO", "message": "no action. I am (pg3), a secondary, and following a leader (pg2)"}
+{"asctime": "2026-09-24 14:10:27,342", "levelname": "INFO", "message": "no action. I am (pg3), a secondary, and following a leader (pg2)"}
+{"asctime": "2026-09-24 14:10:37,382", "levelname": "INFO", "message": "no action. I am (pg3), a secondary, and following a leader (pg2)"}
+{"asctime": "2026-09-24 14:10:47,841", "levelname": "INFO", "message": "no action. I am (pg3), a secondary, and following a leader (pg2)"}
+{"asctime": "2026-09-24 14:10:57,847", "levelname": "INFO", "message": "no action. I am (pg3), a secondary, and following a leader (pg2)"}
+{"asctime": "2026-09-24 14:11:07,838", "levelname": "INFO", "message": "no action. I am (pg3), a secondary, and following a leader (pg2)"}
+{"asctime": "2026-09-24 14:11:17,841", "levelname": "INFO", "message": "no action. I am (pg3), a secondary, and following a leader (pg2)"}
+{"asctime": "2026-09-24 14:11:27,838", "levelname": "INFO", "message": "no action. I am (pg3), a secondary, and following a leader (pg2)"}
+{"asctime": "2026-09-24 14:11:37,903", "levelname": "INFO", "message": "no action. I am (pg3), a secondary, and following a leader (pg2)"}
+{"asctime": "2026-09-24 14:11:47,838", "levelname": "INFO", "message": "no action. I am (pg3), a secondary, and following a leader (pg2)"}
+{"asctime": "2026-09-24 14:11:57,558", "levelname": "INFO", "message": "establishing a new patroni restapi connection to postgres"}
+{"asctime": "2026-09-24 14:11:57,564", "levelname": "INFO", "message": "Got response from pg1 http://pg1:8008/patroni: {\"state\": \"running\", \"postmaster_start_time\": \"2026-09-24 14:10:18.172252+00:00\", \"role\": \"replica\", \"server_version\": 170009, \"xlog\": {\"received_location\": 67315944, \"replayed_location\": 67315944, \"replayed_timestamp\": \"2026-09-24 14:11:32.921892+00:00\", \"paused\": false}, \"timeline\": 2, \"cluster_unlocked\": true, \"dcs_last_seen\": 1790259117, \"database_system_identifier\": \"7689103735349272603\", \"patroni\": {\"version\": \"4.1.5\", \"scope\": \"main\", \"name\": \"pg1\"}}"}
+{"asctime": "2026-09-24 14:12:01,560", "levelname": "WARNING", "message": "Request failed to pg2: GET http://pg2:8008/patroni (HTTPConnectionPool(host='pg2', port=8008): Max retries exceeded with url: /patroni (Caused by ConnectTimeoutError(<HTTPConnection(host='pg2', port=8008) at 0x7f788b8c85a0>, 'Connection to pg2 timed out. (connect timeout=2)')))"}
+{"asctime": "2026-09-24 14:12:01,663", "levelname": "INFO", "message": "Could not take out TTL lock"}
+{"asctime": "2026-09-24 14:12:01,664", "levelname": "ERROR", "message": "watchprefix failed: ProtocolError('Response ended prematurely')"}
+{"asctime": "2026-09-24 14:12:01,669", "levelname": "INFO", "message": "following new leader after trying and failing to obtain lock"}
+{"asctime": "2026-09-24 14:12:01,670", "levelname": "INFO", "message": "Lock owner: pg1; I am pg3"}
+{"asctime": "2026-09-24 14:12:01,672", "levelname": "INFO", "message": "Local timeline=2 lsn=0/40328E8"}
+{"asctime": "2026-09-24 14:12:01,722", "levelname": "INFO", "message": "no action. I am (pg3), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:12:02,803", "levelname": "INFO", "message": "Lock owner: pg1; I am pg3"}
+{"asctime": "2026-09-24 14:12:02,805", "levelname": "INFO", "message": "Local timeline=3 lsn=0/4032A28"}
+{"asctime": "2026-09-24 14:12:02,810", "levelname": "INFO", "message": "Local timeline=3 lsn=0/4032A28"}
+{"asctime": "2026-09-24 14:12:02,903", "levelname": "INFO", "message": "no action. I am (pg3), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:12:12,806", "levelname": "INFO", "message": "Lock owner: pg1; I am pg3"}
+{"asctime": "2026-09-24 14:12:12,808", "levelname": "INFO", "message": "Local timeline=3 lsn=0/4032A28"}
+{"asctime": "2026-09-24 14:12:12,818", "levelname": "INFO", "message": "primary_timeline=3"}
+{"asctime": "2026-09-24 14:12:12,861", "levelname": "INFO", "message": "no action. I am (pg3), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:12:22,899", "levelname": "INFO", "message": "no action. I am (pg3), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:12:33,350", "levelname": "INFO", "message": "no action. I am (pg3), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:12:42,853", "levelname": "INFO", "message": "no action. I am (pg3), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:12:53,354", "levelname": "INFO", "message": "no action. I am (pg3), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:13:02,901", "levelname": "INFO", "message": "no action. I am (pg3), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:13:13,354", "levelname": "INFO", "message": "no action. I am (pg3), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:13:23,358", "levelname": "INFO", "message": "no action. I am (pg3), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:13:33,355", "levelname": "INFO", "message": "no action. I am (pg3), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:13:43,354", "levelname": "INFO", "message": "no action. I am (pg3), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:13:53,354", "levelname": "INFO", "message": "no action. I am (pg3), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:14:02,853", "levelname": "INFO", "message": "no action. I am (pg3), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:14:13,351", "levelname": "INFO", "message": "no action. I am (pg3), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:14:22,849", "levelname": "INFO", "message": "no action. I am (pg3), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:14:33,446", "levelname": "INFO", "message": "no action. I am (pg3), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:14:43,355", "levelname": "INFO", "message": "no action. I am (pg3), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:14:52,900", "levelname": "INFO", "message": "no action. I am (pg3), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:15:03,351", "levelname": "INFO", "message": "no action. I am (pg3), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:15:13,350", "levelname": "INFO", "message": "no action. I am (pg3), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:15:23,350", "levelname": "INFO", "message": "no action. I am (pg3), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:15:33,355", "levelname": "INFO", "message": "no action. I am (pg3), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:15:43,355", "levelname": "INFO", "message": "no action. I am (pg3), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:15:53,355", "levelname": "INFO", "message": "no action. I am (pg3), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:16:03,355", "levelname": "INFO", "message": "no action. I am (pg3), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:16:13,350", "levelname": "INFO", "message": "no action. I am (pg3), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:16:23,354", "levelname": "INFO", "message": "no action. I am (pg3), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:16:33,351", "levelname": "INFO", "message": "no action. I am (pg3), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:16:43,349", "levelname": "INFO", "message": "no action. I am (pg3), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:16:53,359", "levelname": "INFO", "message": "no action. I am (pg3), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:17:03,358", "levelname": "INFO", "message": "no action. I am (pg3), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:17:12,896", "levelname": "INFO", "message": "no action. I am (pg3), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:17:23,349", "levelname": "INFO", "message": "no action. I am (pg3), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:17:32,907", "levelname": "INFO", "message": "no action. I am (pg3), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:17:43,361", "levelname": "INFO", "message": "no action. I am (pg3), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:17:53,357", "levelname": "INFO", "message": "no action. I am (pg3), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:18:03,358", "levelname": "INFO", "message": "no action. I am (pg3), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:18:13,358", "levelname": "INFO", "message": "no action. I am (pg3), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:18:23,358", "levelname": "INFO", "message": "no action. I am (pg3), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:18:33,358", "levelname": "INFO", "message": "no action. I am (pg3), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:18:43,358", "levelname": "INFO", "message": "no action. I am (pg3), a secondary, and following a leader (pg1)"}
+{"asctime": "2026-09-24 14:18:53,358", "levelname": "INFO", "message": "no action. I am (pg3), a secondary, and following a leader (pg1)"}

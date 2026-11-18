@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -38,6 +39,11 @@ func TestMain(m *testing.M) {
 	}
 	binPath := filepath.Join(tmpDir, "quellog")
 
+	// The binaries this package builds report version "dev", without the
+	// commit a plain go build stamps, so the outputs the tests compare do
+	// not change with every commit.
+	os.Setenv("GOFLAGS", strings.TrimSpace(os.Getenv("GOFLAGS")+" -buildvcs=false"))
+
 	build := exec.Command("go", "build", "-o", binPath, ".")
 	build.Dir = ".."
 	if out, err := build.CombinedOutput(); err != nil {
@@ -62,6 +68,10 @@ func runHarness(t *testing.T, allowFailure bool, args ...string) []byte {
 	}
 
 	cmd := exec.Command(harnessBinary, args...)
+	// A zone abbreviation the machine does not know reads as UTC, so the
+	// goldens of logs stamped CEST depend on the machine's zone: pin the one
+	// they were recorded in.
+	cmd.Env = append(os.Environ(), "TZ=Europe/Paris")
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr

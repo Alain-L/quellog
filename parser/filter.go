@@ -91,6 +91,12 @@ func FilterStream(ctx context.Context, in <-chan []LogEntry, out chan<- []LogEnt
 // PassesFilters checks if a log entry matches all filter criteria.
 // Returns true if the entry should be included in the output.
 func PassesFilters(entry LogEntry, filters LogFilters) bool {
+	if entry.FromPgBackRest {
+		// The pgBackRest observer applies the time window itself, to
+		// record that it cut the history; the other filters mean nothing
+		// for pgBackRest.
+		return true
+	}
 	// Time range filters. --begin/--end are wall-clock bounds: "09:00" means
 	// the instant the log clock reads 09:00, independent of the log's or the
 	// machine's timezone. BeginT/EndT are stored pre-projected onto that civil

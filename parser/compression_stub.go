@@ -10,3 +10,6 @@ package parser
 func detectCompressedFile(filename string) (LogParser, error, bool) {
 	return nil, nil, false
 }
+
+// setArchiveTrack is a no-op: the browser build reads no archives.
+func setArchiveTrack(LogParser, ArchiveTrack) {}

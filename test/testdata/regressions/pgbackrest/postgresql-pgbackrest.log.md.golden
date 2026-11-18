@@ -1,0 +1,63 @@
+## SUMMARY
+
+This _quellog_ report summarizes **8** log entries collected between 14 Jan 2026, 08:59 (UTC) — 14 Jan 2026, 13:15 (UTC), spanning 4h 15m 5s of activity.
+
+## SERVER
+
+- **Starts**: 1
+
+### Timeline
+
+| Time                | Event | Detail                                         |
+|---------------------|-------|------------------------------------------------|
+| 2026-01-14 08:59:55 | start | database system is ready to accept connections |
+
+## EVENTS
+
+- **WARNING**: 1 (12.5%)
+  - *wa-ijIH* `archiving write-ahead log file ? failed too many times, will try again later` (1) [100.0%]
+
+- **LOG**: 7 (87.5%)
+
+## CHECKPOINTS
+
+### Checkpoint distribution
+
+```
+00:00 - 04:00 |  -
+04:00 - 08:00 |  -
+08:00 - 12:00 | ■ 1 
+12:00 - 16:00 | ■ 1 
+16:00 - 20:00 |  -
+20:00 - 00:00 |  -
+```
+
+- **Checkpoint count**: 2
+- **Avg checkpoint write time**: 0s
+- **Max checkpoint write time**: 0s
+
+### Checkpoint types
+
+|  |  |  |  |
+|------|------:|--:|-----:|
+| time | 2 | 100.0% | 0.47/h |
+
+
+## PGBACKREST
+
+- **Stanza**: demo
+- **pgBackRest version**: 2.59.3
+
+### demo
+
+- **Last full**: not logged
+- **WAL archiving**: 2 pushed, 2 failed, last at 13:10:01
+- **Archiving outages**: 1 (1s), recovered
+
+### Top errors
+
+| Code  | Error                | Count | When                |
+|-------|----------------------|------:|---------------------|
+| [103] | archive.info missing |     2 | 13:07:00 → 13:07:01 |
+
+_Details: `--pgbackrest-detail[=stanza]`_

@@ -16,6 +16,7 @@
             --text: #212529;
             --text-muted: #6c757d;
             --text-light: #adb5bd;
+            --warning-text: #8a5a00;
             --border: #dee2e6;
             --border-strong: #ced4da;
             --shadow: 0 2px 8px rgba(0,0,0,0.08);
@@ -37,6 +38,7 @@
             --text: #e6edf3;
             --text-muted: #8b949e;
             --text-light: #6e7681;
+            --warning-text: #e5a54b;
             --border: #30363d;
             --border-strong: #484f58;
             --shadow: 0 2px 8px rgba(0,0,0,0.3);
@@ -796,6 +798,13 @@
         /* Auto-adapt grid columns based on children count */
         .stat-grid { grid-template-columns: repeat(auto-fit, minmax(70px, 1fr)); }
 
+        /* Rows of equal cards holding different counts (the pgBouncer
+           stats and events rows): one fixed card size, so the rows line
+           up, and centred, so a short row or a last card alone on a
+           phone does not hang off the left edge. */
+        .stat-grid--rows { display: flex; flex-wrap: wrap; justify-content: center; }
+        .stat-grid--rows > .stat-card { flex: 0 1 160px; min-width: 140px; }
+
         /* Cross-highlight between cost-map dots and table rows. The row
            background tints with the same alt color used elsewhere so the
            hover origin (mouse on dot vs mouse on row) is consistent. */
@@ -898,6 +907,97 @@
         .stat-card-muted .stat-value {
             color: var(--text-muted);
         }
+
+        /* Stat cards in thematic rows (pgBackRest): fixed-size
+           cards that wrap and stay centred, instead of the default grid's
+           auto-fit columns stretching every card to fill the row width. */
+        .stat-grid--rows { display: flex; flex-wrap: wrap; justify-content: center; }
+        .stat-grid--rows > .stat-card { flex: 0 1 160px; min-width: 140px; }
+
+        /* pgBackRest section (js/sections/pgbackrest.js). */
+        .pgbr-missing { margin: 0 0 0.6rem; }
+        .pgbr-missing .cio-banner { cursor: default; }
+        .pgbr-missing .cio-inline { color: var(--text-muted); }
+        /* The setting, as the "Check:" hint shows it (.no-data-hint code),
+           on the card's ground so it stands out of the amber banner. */
+        .pgbr-missing code { font-family: 'SF Mono', Monaco, Consolas, monospace; font-size: 0.7rem; background: var(--card-bg); padding: 0.2rem 0.5rem; border-radius: 4px; color: var(--primary); border: 1px solid var(--border); }
+        .summary-header.pgbr-head { justify-content: flex-start; align-items: baseline; flex-wrap: wrap; gap: 0.25rem 0.75rem; }
+        .pgbr-meta { font-size: 0.75rem; font-style: italic; color: var(--text-muted); }
+        .pgbr-meta b { color: var(--text); font-style: normal; }
+        .pgbr-files { border-bottom: 1px dotted var(--text-light); cursor: help; }
+        .pgbr-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 0.75rem; margin-top: 0.5rem; }
+        .pgbr-card { border-radius: var(--radius); padding: 0.7rem 0.8rem; background: var(--bg-alt); }
+        .pgbr-card.is-bad { background: rgba(220, 53, 69, 0.08); }
+        .pgbr-card.is-warn { background: rgba(229, 165, 75, 0.08); }
+        .pgbr-card-head { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+        .pgbr-card-name { font-weight: 600; }
+        .pgbr-card-state { font-size: 0.72rem; color: var(--text-muted); }
+        .pgbr-card.is-bad .pgbr-card-state { color: var(--danger); }
+        .pgbr-card.is-warn .pgbr-card-state, .pgbr-card-state.warn { color: var(--warning-text); }
+        .pgbr-card.is-good .pgbr-card-state { color: var(--success); }
+        .pgbr-card-big { font-size: 1.5rem; font-weight: 600; margin-top: 0.3rem; overflow-wrap: anywhere; }
+        .pgbr-card-big small { display: block; font-size: 0.7rem; font-weight: 400; color: var(--text-muted); }
+        .pgbr-card-label { font-size: 1rem; }
+        .pgbr-card-facts { display: flex; flex-wrap: wrap; gap: 0.3rem 0.9rem; font-size: 0.75rem; color: var(--text-muted); }
+        .pgbr-card-facts b { color: var(--text); font-weight: 600; }
+        .pgbr-card-facts .bad b { color: var(--danger); }
+        .pgbr-card-facts .warn b { color: var(--warning-text); }
+        .pgbr-card-note { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.3rem; }
+        .pgbr-gauge { position: relative; height: 9px; margin: 0.4rem 0; border-radius: 3px; overflow: hidden; background: var(--card-bg); }
+        .pgbr-seg { position: absolute; top: 0; bottom: 0; min-width: 2px; border-radius: 2px; box-shadow: 0 0 0 1px var(--card-bg); }
+        .pgbr-seg.is-ok { background: var(--chart-bar); }
+        .pgbr-seg.is-failed, .pgbr-seg.is-lost { background: var(--danger); }
+        .pgbr-seg.is-killed { background: #909399; }
+        .pgbr-seg.is-outage { background: var(--warning); opacity: 0.45; box-shadow: none; }
+        .pgbr-seg.is-open { background: var(--danger); opacity: 0.35; box-shadow: none; }
+        .pgbr-seg.is-lost { width: 2px !important; border-radius: 0; box-shadow: none; }
+        .pgbr-chains { display: grid; gap: 4px; margin: 0.5rem 0; }
+        .pgbr-chain { display: flex; flex-wrap: wrap; align-items: center; row-gap: 4px; }
+        .pgbr-chip { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.72rem; padding: 0.05rem 0.45rem; border-radius: 4px; background: var(--card-bg); border: 1px solid var(--border); font-variant-numeric: tabular-nums; white-space: nowrap; }
+        .pgbr-chip small { color: var(--text-muted); font-size: 0.66rem; }
+        .pgbr-chip i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; }
+        .pgbr-chip.gone { color: var(--text-light); text-decoration: line-through; background: transparent; border-style: dashed; }
+        .pgbr-chip.gone i { opacity: 0.4; }
+        .pgbr-link { display: inline-block; width: 10px; height: 1px; background: var(--border-strong); }
+        .t-full { background: var(--chart-bar); }
+        .t-diff { background: var(--accent); }
+        .t-incr { background: var(--purple); }
+        .pgbr-legend { display: flex; flex-wrap: wrap; gap: 12px 16px; justify-content: center; margin-top: 4px; font-size: 12px; }
+        .pgbr-key { display: inline-block; width: 12px; height: 12px; border-radius: 2px; vertical-align: middle; margin-right: 4px; }
+        .pgbr-key.is-size { background: var(--accent); }
+        .pgbr-key.is-failband { background: rgba(220, 53, 69, 0.22); border-left: 1px solid rgba(220, 53, 69, 0.6); border-radius: 0; }
+        .pgbr-key.is-killband { background: rgba(144, 147, 153, 0.22); border-left: 1px solid rgba(144, 147, 153, 0.7); border-radius: 0; }
+        .pgbr-key.is-outage { background: rgba(229, 165, 75, 0.35); }
+        .pgbr-key.is-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--danger); }
+        .pgbr-key.is-lostline { width: 2px; border-radius: 0; background: var(--danger); }
+        .pgbr-key.is-pgtick { width: 2px; height: 8px; border-radius: 0; background: var(--purple); }
+        .pgbr-key.pgbr-line { height: 2px; border-radius: 0; vertical-align: 3px; }
+        .pgbr-line.s0 { background: var(--chart-bar); }
+        .pgbr-line.s1 { background: var(--accent); }
+        .pgbr-line.s2 { background: var(--purple); }
+        .pgbr-line.s3 { background: var(--success); }
+        .pgbr-center { text-align: center; }
+        .pgbr-yes { color: var(--success); font-weight: 700; }
+        .pgbr-no { color: var(--danger); font-weight: 700; }
+        .pgbr-na { color: var(--text-muted); }
+        .pgbr-note { color: var(--text-muted); font-size: 0.75rem; text-align: center; margin-top: 0.4rem; }
+        .pgbr-none { padding: 2rem; text-align: center; color: var(--text-muted); font-style: italic; }
+        .pgbr-empty { color: var(--text-muted); font-size: 0.75rem; }
+        .pgbr-muted { color: var(--text-muted); }
+        .pgbr-codename { font-size: 0.6rem; font-weight: 600; color: var(--text-muted); margin-bottom: 2px; }
+        .pgbr-op-time { width: 70px; white-space: nowrap; vertical-align: top; padding: 0.25rem 0.5rem; }
+        .pgbr-op-detail { font-size: 0.72rem; color: var(--text-muted); }
+        .pgbr-op-detail.bad { color: var(--danger); }
+        .pgbr-facts { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 0 0 8px; font-size: 0.78rem; color: var(--text-muted); }
+        .pgbr-facts b { color: var(--text); font-weight: 600; }
+        .pgbr-facts .bad, .pgbr-facts .bad b { color: var(--danger); }
+        .pgbr-wal-tabs > ql-panel { padding-top: 0.5rem; }
+        .pgbr-op-dur { width: 60px; vertical-align: top; padding: 0.25rem 0.5rem; white-space: nowrap; }
+        .pgbr-op-result { width: 60px; vertical-align: top; padding: 0.25rem 0.5rem; white-space: nowrap; color: var(--text-muted); }
+        .pgbr-op-result.bad, #pgbackrest-backups td.bad, #pgbackrest-wal td.bad { color: var(--danger); }
+        #pgbackrest-wal td.warn { color: var(--warning-text); }
+        .pgbr-nowrap { white-space: nowrap; }
+        .pgbr-segment { font-family: 'SF Mono', Monaco, Consolas, monospace; font-size: 0.72rem; }
         .stat-pct {
             font-weight: 400;
             opacity: 0.7;
@@ -2218,3 +2318,36 @@
 
 /* The split control reuses the shared .filter-dropdown markup/styles, so it
    matches the other filter pills and their open menus with no extra CSS. */
+
+/* Patroni: leader lock strip, change kinds */
+.pt-strip { display: flex; flex-direction: column; gap: 4px; }
+.pt-row { display: flex; align-items: center; gap: 0.5rem; }
+.pt-name { flex: 0 0 4.5rem; font-size: 0.7rem; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; }
+.pt-track { position: relative; flex: 1; height: 12px; background: var(--bg-alt); }
+.pt-term { position: absolute; top: 0; bottom: 0; background: var(--primary-light); }
+.pt-term--dcs { background: var(--warning); }
+.pt-tick { position: absolute; top: -2px; bottom: -2px; width: 2px; margin-left: -1px; }
+.pt-tick[data-kind="failover"] { background: var(--danger); }
+.pt-tick[data-kind="switchover"], .pt-tick[data-kind="retaken"] { background: var(--text-muted); }
+.pt-meta { flex: 0 0 15rem; font-size: 0.7rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pt-meta b { color: var(--text); font-weight: 600; }
+.pt-axis { position: relative; flex: 1; height: 1rem; font-size: 0.65rem; color: var(--text-muted); }
+.pt-axis span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
+.pt-axis span:first-child { transform: none; }
+.pt-axis span:last-child { transform: translateX(-100%); }
+.pt-kind { font-size: 0.65rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.02em; }
+.pt-kind[data-kind="failover"] { color: var(--danger); }
+.pt-kind[data-kind="switchover"], .pt-kind[data-kind="retaken"] { color: var(--text-muted); }
+.pt-msg { word-break: break-word; }
+.pt-nowrap { white-space: nowrap; }
+.pt-pg td { padding-top: 0; }
+.pt-pgl { display: grid; grid-template-columns: max-content 1fr; column-gap: 0.75rem; row-gap: 1px; font-size: 0.72rem; color: var(--text-muted); padding: 0 0 0.25rem 0.5rem; }
+.pt-pgl .t { font-variant-numeric: tabular-nums; }
+.pt-sub { font-size: 0.75rem; color: var(--text-muted); margin: -0.25rem 0 0.5rem; }
+.pt-when { vertical-align: top; padding: 0.25rem 0.5rem; white-space: nowrap; color: var(--text-muted); font-size: 0.75rem; }
+.pt-none { color: var(--text-muted); text-align: center; padding: 1rem; font-size: 0.85rem; }
+@media (max-width: 700px) {
+    .pt-meta { display: none; }
+    .pt-axis span:nth-child(2), .pt-axis span:nth-child(4) { display: none; }
+}
+.pt-note { margin-top: 0.5rem; font-size: 0.7rem; color: var(--text-muted); font-style: italic; }

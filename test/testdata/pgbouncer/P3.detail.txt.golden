@@ -1,0 +1,70 @@
+[1m
+PGBOUNCER
+[0m
+  Pooler                    : 127.0.0.1:6434, PgBouncer 1.18.0
+  Files                     : p3-old.pgbouncer.log
+  Start date                : 2026-09-25 09:23:02 UTC
+  End date                  : 2026-09-25 09:25:46 UTC
+  Duration                  : 2m43.986s
+  Log lines                 : 238 read
+  Stats snapshots           : 16
+  Throughput                : 1349.9 transactions/s, 9443.5 queries/s
+  Network                   : 561.53 KB/s in, 245.56 KB/s out
+  Avg time                  : transaction 6.1 ms, query 874 µs
+  Avg clients queued        : 5.5 clients
+  Wait stretches            : 1, longest 50s from 09:24:02
+  Clients                   : 98 login attempts, 96 sessions of 14s on average
+  Sessions ended by         : the client 79, the pooler 17
+  Server connections        : 4 opened, 1 reserve pool activation
+
+  Max snapshot averages
+    Throughput              : 2188 transactions/s, 15322 queries/s at 09:25:22
+    Network                 : 911.53 KB/s in, 398.25 KB/s out at 09:25:22
+    Time                    : transaction 3.09 s at 09:24:32
+                              query 772.5 ms at 09:24:12
+    Clients queued          : 22.9 clients at 09:24:22
+
+  Messages: 0 errors, 18 warnings
+    [3;38;5;243mwa-2Xo6[0m  query_wait_timeout                   17  09:24:06
+    [3;38;5;243mwa-JC9n[0m  taking connection from reserve_pool   1  09:24:05
+
+  Activity per snapshot (10s) | ■ = 1k queries/s
+
+                                 queries  query      queued        events
+  09:23:02  ■■■■■■■■■■■■■■       13.8k/s  182 µs                   start
+  09:23:12  ■■■■■■■■■■■■         12.3k/s  182 µs
+  09:23:22  ■■■■■■■■■■■■         12.2k/s  183 µs
+  09:23:32  ■■■■■■■■■■■■         12.2k/s  183 µs
+  09:23:42  ■■■■■■■■■■■■         12.3k/s  182 µs
+  09:23:52  ■■■■■■■■■■■■■■       14.0k/s  182 µs
+  09:24:02  ■                     31.0/s  600.2 ms   15.6 clients  reload
+  09:24:12  ■                     32.0/s  772.5 ms   20.9 clients
+  09:24:22  ■                     38.0/s  697.3 ms   22.9 clients
+  09:24:32  ■                     34.0/s  751.4 ms   21.6 clients
+  09:24:42  ■■■■■■■■■             9.3k/s  1.2 ms     7.5 clients   reload
+  09:24:52  ■■■■■■■■■■■■         12.3k/s  182 µs
+  09:25:02  ■■■■■■■■■■■■         12.3k/s  181 µs
+  09:25:12  ■■■■■■■■■■■■         12.3k/s  182 µs
+  09:25:22  ■■■■■■■■■■■■■■■      15.3k/s  182 µs
+  09:25:32  ■■■■■■■■■■■■         12.5k/s  181 µs
+  09:25:46                                                         shutdown
+  [3;38;5;243mquery: query time, queued: clients queued, worst snapshot of each row[0m
+
+  Session time | ■ = 2 
+
+  < 1s           ■■■■■■■■■■ 20 
+  1s - 1min      ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ 76 
+
+  Sessions per close reason:
+    client close request      79   82.3%  avg 17s
+    query_wait_timeout        17   17.7%  avg 3s
+
+  Connections per database:
+    bench          87   88.8%
+    pgbouncer      11   11.2%
+
+  Connections per user:
+    bench      98  100.0%
+
+  Connections per host:
+    127.0.0.1      98  100.0%

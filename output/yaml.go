@@ -28,13 +28,15 @@ func jsonToYAML(w io.Writer, jsonBytes []byte) {
 
 // ExportYAML writes the full analysis results as YAML.
 func ExportYAML(w io.Writer, m analysis.AggregatedMetrics, sections []string, full bool) {
-	data := buildJSONData(m, sections, full)
-	jsonBytes, err := json.Marshal(data)
-	if err != nil {
-		fmt.Fprintf(w, "# ERROR: Failed to marshal data: %v\n", err)
-		return
-	}
-	jsonToYAML(w, jsonBytes)
+	ExportYAMLCombined(w, m, nil, nil, sections, full, false)
+}
+
+// ExportYAMLCombined writes the YAML report for the documents
+// ExportJSONCombined produces, reusing it as the source document.
+func ExportYAMLCombined(w io.Writer, m analysis.AggregatedMetrics, pbr []analysis.PgBackRestMetrics, pgb []analysis.PgBouncerMetrics, sections []string, full, pgbOnly bool) {
+	var buf bytes.Buffer
+	ExportJSONCombined(&buf, m, pbr, pgb, sections, full, true, pgbOnly)
+	jsonToYAML(w, buf.Bytes())
 }
 
 // ExportSQLPerformanceYAML writes SQL performance metrics as YAML.

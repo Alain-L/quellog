@@ -1,0 +1,106 @@
+=== patronictl list @ 2026-09-24T13:44:30Z (after bootstrap) ===
++ Cluster: main (7689097115364270107) +----+-------------+-----+------------+-----+
+| Member | Host | Role    | State     | TL | Receive LSN | Lag | Replay LSN | Lag |
++--------+------+---------+-----------+----+-------------+-----+------------+-----+
+| pg1    | pg1  | Leader  | running   |  1 |             |     |            |     |
+| pg2    | pg2  | Replica | streaming |  1 |   0/4000060 |   0 |  0/4000060 |   0 |
+| pg3    | pg3  | Replica | streaming |  1 |   0/4000060 |   0 |  0/4000060 |   0 |
++--------+------+---------+-----------+----+-------------+-----+------------+-----+
+
+=== patronictl list @ 2026-09-24T13:45:50Z (after switchover) ===
++ Cluster: main (7689097115364270107) +----+-------------+-----+------------+-----+
+| Member | Host | Role    | State     | TL | Receive LSN | Lag | Replay LSN | Lag |
++--------+------+---------+-----------+----+-------------+-----+------------+-----+
+| pg1    | pg1  | Replica | streaming |  2 |   0/40002E8 |   0 |  0/40002E8 |   0 |
+| pg2    | pg2  | Leader  | running   |  2 |             |     |            |     |
+| pg3    | pg3  | Replica | streaming |  2 |   0/40002E8 |   0 |  0/40002E8 |   0 |
++--------+------+---------+-----------+----+-------------+-----+------------+-----+
+
+=== patronictl list @ 2026-09-24T13:47:12Z (after pause/resume) ===
++ Cluster: main (7689097115364270107) +----+-------------+-----+------------+-----+
+| Member | Host | Role    | State     | TL | Receive LSN | Lag | Replay LSN | Lag |
++--------+------+---------+-----------+----+-------------+-----+------------+-----+
+| pg1    | pg1  | Replica | streaming |  2 |   0/40002E8 |   0 |  0/40002E8 |   0 |
+| pg2    | pg2  | Leader  | running   |  2 |             |     |            |     |
+| pg3    | pg3  | Replica | streaming |  2 |   0/40002E8 |   0 |  0/40002E8 |   0 |
++--------+------+---------+-----------+----+-------------+-----+------------+-----+
+
+=== patronictl list @ 2026-09-24T13:48:07Z (after failover kill of pg2) ===
++ Cluster: main (7689097115364270107) +----+-------------+-----+------------+-----+
+| Member | Host | Role    | State     | TL | Receive LSN | Lag | Replay LSN | Lag |
++--------+------+---------+-----------+----+-------------+-----+------------+-----+
+| pg1    | pg1  | Leader  | running   |  3 |             |     |            |     |
+| pg3    | pg3  | Replica | streaming |  3 |   0/4000428 |   0 |  0/4000428 |   0 |
++--------+------+---------+-----------+----+-------------+-----+------------+-----+
+
+=== patronictl list @ 2026-09-24T13:49:38Z (after old leader restart / rewind window) ===
++ Cluster: main (7689097115364270107) ---+----+-------------+-----+------------+-----+
+| Member | Host | Role    | State        | TL | Receive LSN | Lag | Replay LSN | Lag |
++--------+------+---------+--------------+----+-------------+-----+------------+-----+
+| pg1    | pg1  | Leader  | running      |  3 |             |     |            |     |
+| pg2    | pg2  | Replica | start failed |    |     unknown |     |    unknown |     |
+| pg3    | pg3  | Replica | streaming    |  3 |   0/404A4F0 |   0 |  0/404A4F0 |   0 |
++--------+------+---------+--------------+----+-------------+-----+------------+-----+
+
+=== patronictl list @ 2026-09-24T13:50:55Z (after reinit of pg2) ===
++ Cluster: main (7689097115364270107) +----+-------------+-----+------------+-----+
+| Member | Host | Role    | State     | TL | Receive LSN | Lag | Replay LSN | Lag |
++--------+------+---------+-----------+----+-------------+-----+------------+-----+
+| pg1    | pg1  | Leader  | running   |  3 |             |     |            |     |
+| pg2    | pg2  | Replica | streaming |  3 |   0/60336C0 |   0 |  0/60336C0 |   0 |
+| pg3    | pg3  | Replica | streaming |  3 |   0/60336C0 |   0 |  0/60336C0 |   0 |
++--------+------+---------+-----------+----+-------------+-----+------------+-----+
+
+=== patronictl list @ 2026-09-24T13:53:49Z (after DCS isolation episode) ===
++ Cluster: main (7689097115364270107) +----+-------------+-----+------------+-----+
+| Member | Host | Role    | State     | TL | Receive LSN | Lag | Replay LSN | Lag |
++--------+------+---------+-----------+----+-------------+-----+------------+-----+
+| pg1    | pg1  | Leader  | running   |  3 |             |     |            |     |
+| pg2    | pg2  | Replica | streaming |  3 |   0/60336C0 |   0 |  0/60336C0 |   0 |
+| pg3    | pg3  | Replica | streaming |  3 |   0/60336C0 |   0 |  0/60336C0 |   0 |
++--------+------+---------+-----------+----+-------------+-----+------------+-----+
+
+=== patronictl list @ 2026-09-24T13:56:28Z (after DCS outage/recovery) ===
++ Cluster: main (7689097115364270107) +----+-------------+-----+------------+-----+
+| Member | Host | Role    | State     | TL | Receive LSN | Lag | Replay LSN | Lag |
++--------+------+---------+-----------+----+-------------+-----+------------+-----+
+| pg1    | pg1  | Leader  | running   |  4 |             |     |            |     |
+| pg2    | pg2  | Replica | streaming |  4 |   0/60338B0 |   0 |  0/60338B0 |   0 |
+| pg3    | pg3  | Replica | streaming |  4 |   0/60338B0 |   0 |  0/60338B0 |   0 |
++--------+------+---------+-----------+----+-------------+-----+------------+-----+
+
+=== patronictl list @ 2026-09-24T13:57:15Z (during lag-blocked failover attempt (replicas paused)) ===
++ Cluster: main (7689097115364270107) +----+-------------+-----+------------+-----+
+| Member | Host | Role    | State     | TL | Receive LSN | Lag | Replay LSN | Lag |
++--------+------+---------+-----------+----+-------------+-----+------------+-----+
+| pg2    | pg2  | Leader  | running   |  5 |             |     |            |     |
+| pg3    | pg3  | Replica | streaming |  5 |   0/60339F0 |   0 |  0/60339F0 |   0 |
++--------+------+---------+-----------+----+-------------+-----+------------+-----+
+
+=== patronictl list @ 2026-09-24T13:58:47Z (after lag scenario recovery) ===
++ Cluster: main (7689097115364270107) ---+----+-------------+-----+------------+-----+
+| Member | Host | Role    | State        | TL | Receive LSN | Lag | Replay LSN | Lag |
++--------+------+---------+--------------+----+-------------+-----+------------+-----+
+| pg1    | pg1  | Replica | start failed |    |     unknown |     |    unknown |     |
+| pg2    | pg2  | Leader  | running      |  5 |             |     |            |     |
+| pg3    | pg3  | Replica | streaming    |  5 |   0/60339F0 |   0 |  0/60339F0 |   0 |
++--------+------+---------+--------------+----+-------------+-----+------------+-----+
+
+=== patronictl list @ 2026-09-24T14:01:17Z (final steady state) ===
++ Cluster: main (7689097115364270107) ---+----+-------------+-----+------------+-----+
+| Member | Host | Role    | State        | TL | Receive LSN | Lag | Replay LSN | Lag |
++--------+------+---------+--------------+----+-------------+-----+------------+-----+
+| pg1    | pg1  | Replica | start failed |    |     unknown |     |    unknown |     |
+| pg2    | pg2  | Leader  | running      |  5 |             |     |            |     |
+| pg3    | pg3  | Replica | streaming    |  5 |   0/60339F0 |   0 |  0/60339F0 |   0 |
++--------+------+---------+--------------+----+-------------+-----+------------+-----+
+
+=== patronictl list @ 2026-09-24T14:08:41Z (post-hoc recovery final state) ===
++ Cluster: main (7689097115364270107) +----+-------------+-----+------------+-----+
+| Member | Host | Role    | State     | TL | Receive LSN | Lag | Replay LSN | Lag |
++--------+------+---------+-----------+----+-------------+-----+------------+-----+
+| pg1    | pg1  | Replica | streaming |  5 |   0/8000060 |   0 |  0/8000060 |   0 |
+| pg2    | pg2  | Leader  | running   |  5 |             |     |            |     |
+| pg3    | pg3  | Replica | streaming |  5 |   0/8000060 |   0 |  0/8000060 |   0 |
++--------+------+---------+-----------+----+-------------+-----+------------+-----+
+

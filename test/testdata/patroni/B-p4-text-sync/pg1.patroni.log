@@ -1,0 +1,97 @@
+2026-09-24 14:09:26,922 INFO: Using default value thread_stack_size = 524288
+2026-09-24 14:09:26,931 INFO: Patroni global thread_pool_size = 5
+2026-09-24 14:09:26,964 ERROR: Failed to get list of machines from http://etcd1:2379/v3beta: ValueError("invalid literal for int() with base 10: 'not_decided'")
+2026-09-24 14:09:26,965 ERROR: Failed to get list of machines from http://etcd3:2379/v3beta: ValueError("invalid literal for int() with base 10: 'not_decided'")
+2026-09-24 14:09:26,966 ERROR: Failed to get list of machines from http://etcd2:2379/v3beta: ValueError("invalid literal for int() with base 10: 'not_decided'")
+2026-09-24 14:09:26,966 INFO: waiting on etcd
+2026-09-24 14:09:32,014 INFO: Selected new etcd server http://etcd3:2379
+2026-09-24 14:09:32,020 INFO: No PostgreSQL configuration items changed, nothing to reload.
+2026-09-24 14:09:32,022 INFO: REST API thread_pool_size = 5
+2026-09-24 14:09:32,071 INFO: Lock owner: None; I am pg1
+2026-09-24 14:09:32,163 INFO: trying to bootstrap a new cluster
+2026-09-24 14:09:35,205 INFO: postmaster pid=36
+2026-09-24 14:09:35,220 INFO: establishing a new patroni heartbeat connection to postgres
+2026-09-24 14:09:35,336 INFO: running post_bootstrap
+2026-09-24 14:09:35,604 INFO: initialized a new cluster
+2026-09-24 14:09:45,354 INFO: Lock owner: pg1; I am pg1
+2026-09-24 14:09:45,497 INFO: Enabled synchronous replication
+2026-09-24 14:09:45,559 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 14:09:55,354 INFO: Lock owner: pg1; I am pg1
+2026-09-24 14:09:55,454 INFO: Assigning synchronous standby status to ['pg2']
+2026-09-24 14:09:57,611 INFO: Synchronous standby status assigned to ['pg2']
+2026-09-24 14:09:57,660 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 14:10:05,500 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 14:10:15,403 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 14:10:25,399 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 14:10:35,508 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 14:10:45,502 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 14:10:55,399 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 14:11:00,467 INFO: received switchover request with leader=pg1 candidate=pg2 scheduled_at=None
+2026-09-24 14:11:00,473 INFO: Got response from pg2 http://pg2:8008/patroni: {"state": "running", "postmaster_start_time": "2026-09-24 14:09:38.715913+00:00", "role": "replica", "server_version": 170009, "xlog": {"received_location": 67587112, "replayed_location": 67587112, "replayed_timestamp": "2026-09-24 14:10:27.420992+00:00", "paused": false}, "sync_standby": true, "timeline": 1, "replication_state": "streaming", "dcs_last_seen": 1790259055, "database_system_identifier": "7689103736969015323", "patroni": {"version": "4.1.5", "scope": "main", "name": "pg2"}}
+2026-09-24 14:11:00,575 INFO: Got response from pg2 http://pg2:8008/patroni: {"state": "running", "postmaster_start_time": "2026-09-24 14:09:38.715913+00:00", "role": "replica", "server_version": 170009, "xlog": {"received_location": 67587112, "replayed_location": 67587112, "replayed_timestamp": "2026-09-24 14:10:27.420992+00:00", "paused": false}, "sync_standby": true, "timeline": 1, "replication_state": "streaming", "dcs_last_seen": 1790259055, "database_system_identifier": "7689103736969015323", "patroni": {"version": "4.1.5", "scope": "main", "name": "pg2"}}
+2026-09-24 14:11:00,527 INFO: Lock owner: pg1; I am pg1
+2026-09-24 14:11:00,622 INFO: switchover: demoting myself
+2026-09-24 14:11:00,622 INFO: Demoting self (graceful)
+2026-09-24 14:11:01,874 INFO: Leader key released
+2026-09-24 14:11:01,875 INFO: Lock owner: None; I am pg1
+2026-09-24 14:11:01,875 INFO: not healthy enough for leader race
+2026-09-24 14:11:01,875 INFO: switchover: demote in progress
+2026-09-24 14:11:01,931 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:11:01,979 INFO: switchover: demote in progress
+2026-09-24 14:11:03,164 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:11:03,210 INFO: switchover: demote in progress
+2026-09-24 14:11:03,356 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:11:03,404 INFO: switchover: demote in progress
+2026-09-24 14:11:03,875 INFO: Local timeline=1 lsn=0/4074CF8
+2026-09-24 14:11:03,888 INFO: primary_timeline=2
+2026-09-24 14:11:03,889 INFO: primary: history=1	0/4074D70	no recovery target specified
+2026-09-24 14:11:03,889 INFO: closed patroni connections to postgres
+2026-09-24 14:11:04,181 INFO: postmaster pid=82
+2026-09-24 14:11:04,195 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:11:04,195 INFO: establishing a new patroni heartbeat connection to postgres
+2026-09-24 14:11:04,296 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 14:11:13,458 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 14:11:23,450 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 14:11:33,906 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 14:11:43,903 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 14:11:53,901 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 14:12:03,903 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 14:12:13,906 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 14:12:23,958 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 14:12:33,897 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 14:12:43,666 INFO: following a different leader because i am not the healthiest node
+2026-09-24 14:12:43,715 INFO: Lock owner: pg3; I am pg1
+2026-09-24 14:12:43,717 INFO: Local timeline=2 lsn=0/407CA18
+2026-09-24 14:12:43,765 INFO: no action. I am (pg1), a secondary, and following a leader (pg3)
+2026-09-24 14:12:44,910 INFO: Lock owner: pg3; I am pg1
+2026-09-24 14:12:44,913 INFO: Local timeline=3 lsn=0/407CAA8
+2026-09-24 14:12:44,920 INFO: Local timeline=3 lsn=0/407CAA8
+2026-09-24 14:12:45,011 INFO: no action. I am (pg1), a secondary, and following a leader (pg3)
+2026-09-24 14:12:47,263 INFO: Lock owner: pg3; I am pg1
+2026-09-24 14:12:47,266 INFO: Local timeline=3 lsn=0/407CC50
+2026-09-24 14:12:47,275 INFO: primary_timeline=3
+2026-09-24 14:12:47,367 INFO: no action. I am (pg1), a secondary, and following a leader (pg3)
+2026-09-24 14:12:57,810 INFO: no action. I am (pg1), a secondary, and following a leader (pg3)
+2026-09-24 14:13:07,361 INFO: no action. I am (pg1), a secondary, and following a leader (pg3)
+2026-09-24 14:13:17,814 INFO: no action. I am (pg1), a secondary, and following a leader (pg3)
+2026-09-24 14:13:27,310 INFO: no action. I am (pg1), a secondary, and following a leader (pg3)
+2026-09-24 14:13:37,815 INFO: no action. I am (pg1), a secondary, and following a leader (pg3)
+2026-09-24 14:13:47,806 INFO: no action. I am (pg1), a secondary, and following a leader (pg3)
+2026-09-24 14:13:57,810 INFO: no action. I am (pg1), a secondary, and following a leader (pg3)
+2026-09-24 14:14:07,806 INFO: no action. I am (pg1), a secondary, and following a leader (pg3)
+2026-09-24 14:14:17,810 INFO: no action. I am (pg1), a secondary, and following a leader (pg3)
+2026-09-24 14:14:27,810 INFO: no action. I am (pg1), a secondary, and following a leader (pg3)
+2026-09-24 14:14:37,854 INFO: no action. I am (pg1), a secondary, and following a leader (pg3)
+2026-09-24 14:14:47,810 INFO: no action. I am (pg1), a secondary, and following a leader (pg3)
+2026-09-24 14:14:57,806 INFO: no action. I am (pg1), a secondary, and following a leader (pg3)
+2026-09-24 14:15:07,806 INFO: no action. I am (pg1), a secondary, and following a leader (pg3)
+2026-09-24 14:15:17,810 INFO: no action. I am (pg1), a secondary, and following a leader (pg3)
+2026-09-24 14:15:27,810 INFO: no action. I am (pg1), a secondary, and following a leader (pg3)
+2026-09-24 14:15:37,809 INFO: no action. I am (pg1), a secondary, and following a leader (pg3)
+2026-09-24 14:15:47,810 INFO: no action. I am (pg1), a secondary, and following a leader (pg3)
+2026-09-24 14:15:57,806 INFO: no action. I am (pg1), a secondary, and following a leader (pg3)
+2026-09-24 14:16:07,811 INFO: no action. I am (pg1), a secondary, and following a leader (pg3)
+2026-09-24 14:16:17,810 INFO: no action. I am (pg1), a secondary, and following a leader (pg3)
+2026-09-24 14:16:27,807 INFO: no action. I am (pg1), a secondary, and following a leader (pg3)
+2026-09-24 14:16:37,807 INFO: no action. I am (pg1), a secondary, and following a leader (pg3)
+2026-09-24 14:16:47,805 INFO: no action. I am (pg1), a secondary, and following a leader (pg3)

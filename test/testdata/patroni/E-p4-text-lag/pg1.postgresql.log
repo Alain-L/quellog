@@ -1,0 +1,39 @@
+2026-09-24 14:09:32.059 UTC [36] LOG:  starting PostgreSQL 17.9 (Debian 17.9-1.pgdg13+1) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+2026-09-24 14:09:32.059 UTC [36] LOG:  listening on IPv4 address "0.0.0.0", port 5432
+2026-09-24 14:09:32.061 UTC [36] LOG:  listening on Unix socket "/tmp/.s.PGSQL.5432"
+2026-09-24 14:09:32.065 UTC [40] LOG:  database system was shut down at 2026-09-24 14:09:29 UTC
+2026-09-24 14:09:32.070 UTC [36] LOG:  database system is ready to accept connections
+2026-09-24 14:09:32.440 UTC [38] LOG:  checkpoint starting: force wait
+2026-09-24 14:09:32.926 UTC [38] LOG:  checkpoint complete: wrote 7 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.406 s, sync=0.007 s, total=0.486 s; sync files=6, longest=0.002 s, average=0.002 s; distance=9000 kB, estimate=9000 kB; lsn=0/2000080, redo lsn=0/2000028
+2026-09-24 14:09:32.926 UTC [38] LOG:  checkpoint starting: force wait
+2026-09-24 14:09:32.957 UTC [38] LOG:  checkpoint complete: wrote 0 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.017 s, sync=0.001 s, total=0.032 s; sync files=0, longest=0.000 s, average=0.000 s; distance=0 kB, estimate=8100 kB; lsn=0/2000150, redo lsn=0/20000F8
+2026-09-24 14:09:36.465 UTC [55] replicator@[unknown] ERROR:  replication slot "pg2" does not exist
+2026-09-24 14:09:36.465 UTC [55] replicator@[unknown] STATEMENT:  START_REPLICATION SLOT "pg2" 0/3000000 TIMELINE 1
+2026-09-24 14:09:36.471 UTC [56] replicator@[unknown] ERROR:  replication slot "pg2" does not exist
+2026-09-24 14:09:36.471 UTC [56] replicator@[unknown] STATEMENT:  START_REPLICATION SLOT "pg2" 0/3000000 TIMELINE 1
+2026-09-24 14:09:36.541 UTC [57] replicator@[unknown] ERROR:  replication slot "pg3" does not exist
+2026-09-24 14:09:36.541 UTC [57] replicator@[unknown] STATEMENT:  START_REPLICATION SLOT "pg3" 0/4000000 TIMELINE 1
+2026-09-24 14:09:36.548 UTC [58] replicator@[unknown] ERROR:  replication slot "pg3" does not exist
+2026-09-24 14:09:36.548 UTC [58] replicator@[unknown] STATEMENT:  START_REPLICATION SLOT "pg3" 0/4000000 TIMELINE 1
+2026-09-24 14:09:41.482 UTC [59] replicator@[unknown] ERROR:  replication slot "pg2" does not exist
+2026-09-24 14:09:41.482 UTC [59] replicator@[unknown] STATEMENT:  START_REPLICATION SLOT "pg2" 0/3000000 TIMELINE 1
+2026-09-24 14:09:41.562 UTC [60] replicator@[unknown] ERROR:  replication slot "pg3" does not exist
+2026-09-24 14:09:41.562 UTC [60] replicator@[unknown] STATEMENT:  START_REPLICATION SLOT "pg3" 0/4000000 TIMELINE 1
+2026-09-24 14:11:31.329 UTC [32] LOG:  starting PostgreSQL 17.9 (Debian 17.9-1.pgdg13+1) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+2026-09-24 14:11:31.329 UTC [32] LOG:  listening on IPv4 address "0.0.0.0", port 5432
+2026-09-24 14:11:31.332 UTC [32] LOG:  listening on Unix socket "/tmp/.s.PGSQL.5432"
+2026-09-24 14:11:31.335 UTC [36] LOG:  database system was shut down at 2026-09-24 14:11:31 UTC
+2026-09-24 14:11:31.335 UTC [36] WARNING:  specified neither "primary_conninfo" nor "restore_command"
+2026-09-24 14:11:31.335 UTC [36] HINT:  The database server will regularly poll the pg_wal subdirectory to check for files placed there.
+2026-09-24 14:11:31.335 UTC [36] LOG:  entering standby mode
+2026-09-24 14:11:31.339 UTC [36] LOG:  consistent recovery state reached at 0/70000A0
+2026-09-24 14:11:31.339 UTC [36] LOG:  invalid record length at 0/70000A0: expected at least 24, got 0
+2026-09-24 14:11:31.339 UTC [32] LOG:  database system is ready to accept read-only connections
+2026-09-24 14:11:31.339 UTC [36] LOG:  waiting for WAL to become available at 0/70000B8
+2026-09-24 14:11:31.565 UTC [36] LOG:  received promote request
+2026-09-24 14:11:31.565 UTC [36] LOG:  redo is not required
+2026-09-24 14:11:31.577 UTC [36] LOG:  selected new timeline ID: 2
+2026-09-24 14:11:31.655 UTC [36] LOG:  archive recovery complete
+2026-09-24 14:11:31.658 UTC [34] LOG:  checkpoint starting: force
+2026-09-24 14:11:31.661 UTC [32] LOG:  database system is ready to accept connections
+2026-09-24 14:11:31.742 UTC [34] LOG:  checkpoint complete: wrote 3 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.005 s, sync=0.001 s, total=0.084 s; sync files=2, longest=0.001 s, average=0.001 s; distance=0 kB, estimate=0 kB; lsn=0/7000130, redo lsn=0/70000D8

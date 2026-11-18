@@ -1,0 +1,31 @@
+pgbench (17.10 (Debian 17.10-1.pgdg13+1), server 17.9 (Debian 17.9-1.pgdg13+1))
+starting vacuum...end.
+pgbench: error: pgbench: pgbench: error: pgbench: error: client 38 script 0 aborted in command 1 query 0: FATAL:  query_wait_timeout
+client 33 script 0 aborted in command 1 query 0: FATAL:  query_wait_timeout
+error: client 13 script 0 aborted in command 1 query 0: FATAL:  query_wait_timeout
+client 28 script 0 aborted in command 1 query 0: FATAL:  query_wait_timeout
+pgbench: pgbench:pgbench: error: client 18 script 0 aborted in command 1 query 0: FATAL:  query_wait_timeout
+pgbench: pgbench:pgbench:pgbench: error: client 39 script 0 aborted in command 1 query 0: FATAL:  query_wait_timeout
+pgbench:pgbench: error: client 23 script 0 aborted in command 1 query 0: FATAL:  query_wait_timeout
+error: client 8 script 0 aborted in command 1 query 0: FATAL:  query_wait_timeout
+ error: client 29 script 0 aborted in command 1 query 0: FATAL:  query_wait_timeout
+pgbench:  error: error:  error: client 34 script 0 aborted in command 1 query 0: FATAL:  query_wait_timeout
+client 19 script 0 aborted in command 1 query 0: FATAL:  query_wait_timeout
+ error: pgbench: error: client 9 script 0 aborted in command 1 query 0: FATAL:  query_wait_timeout
+client 3 script 0 aborted in command 1 query 0: FATAL:  query_wait_timeout
+client 14 script 0 aborted in command 1 query 0: FATAL:  query_wait_timeout
+error: client 24 script 0 aborted in command 1 query 0: FATAL:  query_wait_timeout
+pgbench: error: client 4 script 0 aborted in command 1 query 0: FATAL:  query_wait_timeout
+transaction type: /home/alain/pgb-lab/p3/sleep.sql
+scaling factor: 1
+query mode: simple
+number of clients: 40
+number of threads: 8
+maximum number of tries: 1
+duration: 40 s
+number of transactions actually processed: 336
+number of failed transactions: 0 (0.000%)
+latency average = 5097.871 ms
+initial connection time = 5.372 ms
+tps = 7.846412 (without initial connection time)
+pgbench: error: Run was aborted; the above results are incomplete.

@@ -1,0 +1,28 @@
+## PATRONI
+
+| Metric              |                                                  Value |
+|---------------------|-------------------------------------------------------:|
+| Start date          |                                    2026-09-24 13:43:45 |
+| End date            |                                    2026-09-24 14:10:12 |
+| Members             |                                                    pg1 |
+| No log from         | pg2, pg3, seen only by the members whose log was given |
+| Leader at end       |              pg2 since 13:57:17, as seen by the others |
+| Leader changes      |                3, 1 switchover, 2 failovers, 1 retaken |
+| Time without leader |                                                2m1.86s |
+| DCS incidents       |                                     1, longest 38.808s |
+| Errors              |                                                    247 |
+| Warnings            |                                                    245 |
+
+### Top errors
+
+| Error                                                                | Count | When                |
+|----------------------------------------------------------------------|------:|---------------------|
+| Failed to get list of machines from http://etcd1:?/v3: MaxRetryError |    54 | 13:53:54 → 13:54:57 |
+| Failed to get list of machines from http://etcd2:?/v3: MaxRetryError |    54 | 13:53:54 → 13:54:57 |
+| Failed to get list of machines from http://etcd3:?/v3: MaxRetryError |    54 | 13:53:54 → 13:54:57 |
+| KVCache.run EtcdConnectionFailed                                     |    51 | 13:54:00 → 13:54:57 |
+| Error communicating with DCS                                         |     5 | 13:54:08 → 13:54:49 |
+
+_Details: --patroni-detail_
+
+

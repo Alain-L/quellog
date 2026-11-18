@@ -1,0 +1,2680 @@
+2026-09-24 13:43:45,214 INFO: Using default value thread_stack_size = 524288
+2026-09-24 13:43:45,222 INFO: Patroni global thread_pool_size = 5
+2026-09-24 13:43:45,252 ERROR: Failed to get list of machines from http://etcd1:2379/v3beta: ValueError("invalid literal for int() with base 10: 'not_decided'")
+2026-09-24 13:43:45,253 ERROR: Failed to get list of machines from http://etcd3:2379/v3beta: ValueError("invalid literal for int() with base 10: 'not_decided'")
+2026-09-24 13:43:45,254 ERROR: Failed to get list of machines from http://etcd2:2379/v3beta: ValueError("invalid literal for int() with base 10: 'not_decided'")
+2026-09-24 13:43:45,254 INFO: waiting on etcd
+2026-09-24 13:43:50,307 INFO: Selected new etcd server http://etcd2:2379
+2026-09-24 13:43:50,313 INFO: No PostgreSQL configuration items changed, nothing to reload.
+2026-09-24 13:43:50,314 INFO: REST API thread_pool_size = 5
+2026-09-24 13:43:50,360 INFO: Lock owner: None; I am pg1
+2026-09-24 13:43:50,452 INFO: trying to bootstrap a new cluster
+2026-09-24 13:43:52,251 INFO: postmaster pid=36
+2026-09-24 13:43:52,263 INFO: establishing a new patroni heartbeat connection to postgres
+2026-09-24 13:43:52,356 INFO: running post_bootstrap
+2026-09-24 13:43:52,615 INFO: initialized a new cluster
+2026-09-24 13:43:52,779 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 13:44:02,760 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 13:44:12,760 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 13:44:22,663 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 13:44:32,663 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 13:44:33,205 INFO: received switchover request with leader=pg1 candidate=pg2 scheduled_at=None
+2026-09-24 13:44:33,213 INFO: Got response from pg2 http://pg2:8008/patroni: {"state": "running", "postmaster_start_time": "2026-09-24 13:43:55.614843+00:00", "role": "replica", "server_version": 170009, "xlog": {"received_location": 67108960, "replayed_location": 67108960, "replayed_timestamp": null, "paused": false}, "timeline": 1, "replication_state": "streaming", "dcs_last_seen": 1790257463, "database_system_identifier": "7689097115364270107", "patroni": {"version": "4.1.5", "scope": "main", "name": "pg2"}}
+2026-09-24 13:44:33,326 INFO: Got response from pg2 http://pg2:8008/patroni: {"state": "running", "postmaster_start_time": "2026-09-24 13:43:55.614843+00:00", "role": "replica", "server_version": 170009, "xlog": {"received_location": 67108960, "replayed_location": 67108960, "replayed_timestamp": null, "paused": false}, "timeline": 1, "replication_state": "streaming", "dcs_last_seen": 1790257473, "database_system_identifier": "7689097115364270107", "patroni": {"version": "4.1.5", "scope": "main", "name": "pg2"}}
+2026-09-24 13:44:33,277 INFO: Lock owner: pg1; I am pg1
+2026-09-24 13:44:33,372 INFO: switchover: demoting myself
+2026-09-24 13:44:33,372 INFO: Demoting self (graceful)
+2026-09-24 13:44:34,628 INFO: Leader key released
+2026-09-24 13:44:34,629 INFO: Lock owner: None; I am pg1
+2026-09-24 13:44:34,629 INFO: not healthy enough for leader race
+2026-09-24 13:44:34,629 INFO: switchover: demote in progress
+2026-09-24 13:44:34,677 INFO: Lock owner: pg2; I am pg1
+2026-09-24 13:44:34,722 INFO: switchover: demote in progress
+2026-09-24 13:44:35,877 INFO: Lock owner: pg2; I am pg1
+2026-09-24 13:44:35,922 INFO: switchover: demote in progress
+2026-09-24 13:44:36,629 INFO: Local timeline=1 lsn=0/4000130
+2026-09-24 13:44:36,642 INFO: primary_timeline=2
+2026-09-24 13:44:36,644 INFO: primary: history=1	0/40001A8	no recovery target specified
+2026-09-24 13:44:36,644 INFO: closed patroni connections to postgres
+2026-09-24 13:44:36,919 INFO: postmaster pid=72
+2026-09-24 13:44:36,933 INFO: Lock owner: pg2; I am pg1
+2026-09-24 13:44:36,933 INFO: establishing a new patroni heartbeat connection to postgres
+2026-09-24 13:44:37,032 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 13:44:45,968 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 13:44:56,422 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 13:45:06,422 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 13:45:16,422 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 13:45:26,422 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 13:45:36,422 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 13:45:46,422 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 13:45:52,339 INFO: PAUSE: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 13:45:52,343 INFO: No PostgreSQL configuration items changed, nothing to reload.
+2026-09-24 13:46:02,790 INFO: PAUSE: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 13:46:12,790 INFO: PAUSE: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 13:46:12,972 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 13:46:12,976 INFO: No PostgreSQL configuration items changed, nothing to reload.
+2026-09-24 13:46:23,426 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 13:46:33,426 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 13:46:43,426 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 13:46:53,426 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 13:47:03,426 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 13:47:13,426 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 13:47:23,487 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 13:47:33,426 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 13:47:42,964 INFO: establishing a new patroni restapi connection to postgres
+2026-09-24 13:47:42,970 INFO: Got response from pg3 http://pg3:8008/patroni: {"state": "running", "postmaster_start_time": "2026-09-24 13:43:55.832659+00:00", "role": "replica", "server_version": 170009, "xlog": {"received_location": 67109608, "replayed_location": 67109608, "replayed_timestamp": null, "paused": false}, "timeline": 2, "cluster_unlocked": true, "dcs_last_seen": 1790257662, "database_system_identifier": "7689097115364270107", "patroni": {"version": "4.1.5", "scope": "main", "name": "pg3"}}
+2026-09-24 13:47:46,968 WARNING: Request failed to pg2: GET http://pg2:8008/patroni (HTTPConnectionPool(host='pg2', port=8008): Max retries exceeded with url: /patroni (Caused by ConnectTimeoutError(<HTTPConnection(host='pg2', port=8008) at 0x7fe47c6b07c0>, 'Connection to pg2 timed out. (connect timeout=2)')))
+2026-09-24 13:47:47,124 INFO: promoted self to leader by acquiring session lock
+2026-09-24 13:47:47,125 INFO: Lock owner: pg1; I am pg1
+2026-09-24 13:47:47,215 INFO: updated leader lock during promote
+2026-09-24 13:47:48,327 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 13:47:58,271 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 13:48:08,174 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 13:48:18,175 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 13:48:28,175 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 13:48:38,175 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 13:48:48,272 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 13:48:58,219 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 13:49:08,179 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 13:49:18,175 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 13:49:28,174 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 13:49:38,175 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 13:49:48,271 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 13:49:58,175 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 13:50:08,273 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 13:50:18,175 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 13:50:28,178 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 13:50:38,178 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 13:50:48,174 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 13:50:58,129 INFO: Lock owner: pg1; I am pg1
+2026-09-24 13:51:01,469 ERROR: Request to server http://etcd2:2379 failed: ReadTimeoutError("HTTPConnectionPool(host='etcd2', port=2379): Read timed out. (read timeout=3.3331982623397685)")
+2026-09-24 13:51:01,470 INFO: Reconnection allowed, looking for another server.
+2026-09-24 13:51:01,470 INFO: Retrying on http://etcd1:2379
+2026-09-24 13:51:01,473 INFO: Selected new etcd server http://etcd1:2379
+2026-09-24 13:51:01,473 ERROR: watchprefix failed: ProtocolError('Response ended prematurely')
+2026-09-24 13:51:01,476 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 13:51:01,482 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 13:51:02,490 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 13:51:03,500 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 13:51:04,508 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 13:51:05,515 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 13:51:06,523 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 13:51:07,531 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 13:51:08,133 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 13:51:08,537 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 13:51:09,544 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 13:51:10,551 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 13:51:11,557 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 13:51:12,564 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 13:51:13,571 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 13:51:14,577 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 13:51:15,584 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 13:51:16,593 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 13:51:17,600 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 13:51:18,176 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 13:51:18,607 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 13:51:19,614 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 13:51:20,621 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 13:51:21,630 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 13:51:22,638 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 13:51:23,645 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 13:51:24,653 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 13:51:25,659 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 13:51:26,665 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 13:51:27,675 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 13:51:28,175 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 13:51:28,682 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 13:51:29,689 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 13:51:30,695 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 13:51:31,701 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 13:51:31,706 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 13:51:31,710 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 13:51:38,175 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 13:51:48,175 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 13:51:58,175 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 13:52:08,175 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 13:52:18,175 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 13:52:28,175 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 13:52:38,175 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 13:52:48,180 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 13:52:58,129 INFO: Lock owner: pg1; I am pg1
+2026-09-24 13:53:01,469 ERROR: Request to server http://etcd1:2379 failed: ReadTimeoutError("HTTPConnectionPool(host='etcd1', port=2379): Read timed out. (read timeout=3.333099891334617)")
+2026-09-24 13:53:01,469 INFO: Reconnection allowed, looking for another server.
+2026-09-24 13:53:01,469 INFO: Retrying on http://etcd2:2379
+2026-09-24 13:53:01,471 INFO: Selected new etcd server http://etcd2:2379
+2026-09-24 13:53:01,472 ERROR: watchprefix failed: ProtocolError('Response ended prematurely')
+2026-09-24 13:53:01,515 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 13:53:08,175 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 13:53:18,175 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 13:53:28,174 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 13:53:38,175 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 13:53:48,175 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 13:53:51,260 ERROR: watchprefix failed: <Unavailable error: 'error reading from server: EOF', code: 14>
+2026-09-24 13:53:51,261 ERROR: Request to server http://etcd2:2379 failed: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/kv/range (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: [Errno 111] Connection refused"))')
+2026-09-24 13:53:51,262 INFO: Reconnection allowed, looking for another server.
+2026-09-24 13:53:51,262 INFO: Retrying on http://etcd1:2379
+2026-09-24 13:53:52,931 ERROR: Request to server http://etcd1:2379 failed: MaxRetryError("HTTPConnectionPool(host='etcd1', port=2379): Max retries exceeded with url: /v3/kv/range (Caused by ConnectTimeoutError(<HTTPConnection(host='etcd1', port=2379) at 0x7fe47c6b1bf0>, 'Connection to etcd1 timed out. (connect timeout=1.6666666666666667)'))")
+2026-09-24 13:53:52,932 INFO: Reconnection allowed, looking for another server.
+2026-09-24 13:53:52,932 INFO: Retrying on http://etcd3:2379
+2026-09-24 13:53:54,602 ERROR: Request to server http://etcd3:2379 failed: MaxRetryError("HTTPConnectionPool(host='etcd3', port=2379): Max retries exceeded with url: /v3/kv/range (Caused by ConnectTimeoutError(<HTTPConnection(host='etcd3', port=2379) at 0x7fe47c6b1f20>, 'Connection to etcd3 timed out. (connect timeout=1.6666666666666667)'))")
+2026-09-24 13:53:54,602 INFO: Reconnection allowed, looking for another server.
+2026-09-24 13:53:54,610 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 13:53:54,610 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:53:54,615 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 13:53:54,616 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:53:54,621 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 13:53:54,622 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:53:55,040 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 13:53:55,040 ERROR: Request to server http://etcd2:2379 failed: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/kv/range (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:53:55,040 INFO: Reconnection allowed, looking for another server.
+2026-09-24 13:53:55,040 INFO: Retrying on http://etcd1:2379
+2026-09-24 13:53:55,046 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 13:53:55,047 ERROR: Request to server http://etcd1:2379 failed: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/kv/range (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:53:55,047 INFO: Reconnection allowed, looking for another server.
+2026-09-24 13:53:55,047 INFO: Retrying on http://etcd3:2379
+2026-09-24 13:53:55,052 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 13:53:55,052 ERROR: Request to server http://etcd3:2379 failed: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/kv/range (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:53:55,052 INFO: Reconnection allowed, looking for another server.
+2026-09-24 13:53:55,058 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 13:53:55,058 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:53:55,063 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 13:53:55,063 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:53:55,068 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 13:53:55,069 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:53:57,058 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 13:53:57,058 ERROR: Request to server http://etcd2:2379 failed: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/kv/range (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:53:57,058 INFO: Reconnection allowed, looking for another server.
+2026-09-24 13:53:57,058 INFO: Retrying on http://etcd1:2379
+2026-09-24 13:53:57,064 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 13:53:57,064 ERROR: Request to server http://etcd1:2379 failed: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/kv/range (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:53:57,064 INFO: Reconnection allowed, looking for another server.
+2026-09-24 13:53:57,064 INFO: Retrying on http://etcd3:2379
+2026-09-24 13:53:57,071 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 13:53:57,071 ERROR: Request to server http://etcd3:2379 failed: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/kv/range (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:53:57,071 INFO: Reconnection allowed, looking for another server.
+2026-09-24 13:53:57,076 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 13:53:57,077 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:53:57,082 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 13:53:57,082 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:53:57,087 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 13:53:57,087 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:53:59,182 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 13:53:59,182 ERROR: Request to server http://etcd2:2379 failed: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/kv/range (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:53:59,182 INFO: Reconnection allowed, looking for another server.
+2026-09-24 13:53:59,182 INFO: Retrying on http://etcd1:2379
+2026-09-24 13:53:59,187 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 13:53:59,188 ERROR: Request to server http://etcd1:2379 failed: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/kv/range (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:53:59,188 INFO: Reconnection allowed, looking for another server.
+2026-09-24 13:53:59,188 INFO: Retrying on http://etcd3:2379
+2026-09-24 13:53:59,193 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 13:53:59,193 ERROR: Request to server http://etcd3:2379 failed: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/kv/range (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:53:59,193 INFO: Reconnection allowed, looking for another server.
+2026-09-24 13:53:59,202 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 13:53:59,202 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:53:59,212 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 13:53:59,214 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:00,890 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 13:54:00,890 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:00,890 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 13:54:03,563 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 13:54:03,563 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:03,569 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 13:54:03,569 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:03,574 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 13:54:03,575 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:03,575 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 13:54:04,581 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 13:54:04,581 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:04,586 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 13:54:04,586 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:04,591 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 13:54:04,591 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:04,591 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 13:54:05,598 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 13:54:05,598 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:05,605 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 13:54:05,605 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:05,611 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 13:54:05,611 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:05,611 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 13:54:06,617 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 13:54:06,618 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:06,624 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 13:54:06,624 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:06,630 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 13:54:06,630 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:06,630 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 13:54:07,636 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 13:54:07,636 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:07,641 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 13:54:07,641 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:07,646 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 13:54:07,646 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:07,646 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 13:54:08,129 ERROR: get_cluster
+Traceback (most recent call last):
+  File "/opt/patroni-venv/lib/python3.13/site-packages/patroni/dcs/etcd3.py", line 938, in _load_cluster
+    cluster = loader(path)
+  File "/opt/patroni-venv/lib/python3.13/site-packages/patroni/dcs/etcd3.py", line 914, in _postgresql_cluster_loader
+    for node in self._client.get_cluster(path)
+                ~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/opt/patroni-venv/lib/python3.13/site-packages/patroni/dcs/etcd3.py", line 736, in get_cluster
+    self._wait_cache(self.read_timeout)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
+  File "/opt/patroni-venv/lib/python3.13/site-packages/patroni/dcs/etcd3.py", line 730, in _wait_cache
+    raise RetryFailedError('Exceeded retry deadline')
+patroni.utils.RetryFailedError: Exceeded retry deadline
+2026-09-24 13:54:08,132 ERROR: Error communicating with DCS
+2026-09-24 13:54:08,133 INFO: demoting self because DCS is not accessible and I was a leader
+2026-09-24 13:54:08,133 INFO: Demoting self (offline)
+2026-09-24 13:54:08,658 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 13:54:08,658 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:08,663 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 13:54:08,663 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:08,672 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 13:54:08,672 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:08,672 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 13:54:09,162 INFO: closed patroni connections to postgres
+2026-09-24 13:54:09,435 INFO: postmaster pid=154
+2026-09-24 13:54:09,447 INFO: demoted self because DCS is not accessible and I was a leader
+2026-09-24 13:54:09,448 WARNING: Loop time exceeded, rescheduling immediately.
+2026-09-24 13:54:09,679 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 13:54:09,679 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:09,684 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 13:54:09,684 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:09,690 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 13:54:09,690 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:09,691 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 13:54:10,706 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 13:54:10,706 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:10,726 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 13:54:10,727 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:10,735 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 13:54:10,735 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:10,735 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 13:54:11,742 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 13:54:11,742 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:11,748 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 13:54:11,748 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:11,754 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 13:54:11,754 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:11,754 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 13:54:12,760 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 13:54:12,761 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:12,766 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 13:54:12,766 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:12,771 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 13:54:12,772 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:12,772 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 13:54:13,782 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 13:54:13,782 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:13,787 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 13:54:13,787 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:13,793 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 13:54:13,794 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:13,794 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 13:54:14,803 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 13:54:14,803 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:14,808 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 13:54:14,809 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:14,815 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 13:54:14,816 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:14,816 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 13:54:15,822 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 13:54:15,823 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:15,827 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 13:54:15,828 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:15,833 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 13:54:15,833 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:15,833 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 13:54:16,842 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 13:54:16,842 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:16,848 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 13:54:16,848 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:16,854 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 13:54:16,854 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:16,854 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 13:54:17,859 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 13:54:17,860 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:17,865 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 13:54:17,865 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:17,870 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 13:54:17,871 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:17,871 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 13:54:18,876 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 13:54:18,876 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:18,881 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 13:54:18,881 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:18,887 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 13:54:18,887 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:18,887 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 13:54:19,450 ERROR: Exceeded retry deadline
+2026-09-24 13:54:19,450 ERROR: Error communicating with DCS
+2026-09-24 13:54:19,450 INFO: establishing a new patroni heartbeat connection to postgres
+2026-09-24 13:54:19,458 INFO: DCS is not accessible
+2026-09-24 13:54:19,459 WARNING: Loop time exceeded, rescheduling immediately.
+2026-09-24 13:54:19,894 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 13:54:19,894 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:19,902 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 13:54:19,902 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:19,908 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 13:54:19,908 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:19,908 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 13:54:20,915 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 13:54:20,915 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:20,920 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 13:54:20,921 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:20,929 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 13:54:20,929 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:20,929 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 13:54:21,935 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 13:54:21,936 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:21,940 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 13:54:21,941 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:21,946 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 13:54:21,947 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:21,947 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 13:54:22,952 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 13:54:22,953 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:22,959 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 13:54:22,959 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:22,964 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 13:54:22,964 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:22,965 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 13:54:23,971 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 13:54:23,971 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:23,976 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 13:54:23,976 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:23,981 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 13:54:23,982 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:23,982 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 13:54:24,987 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 13:54:24,988 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:24,992 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 13:54:24,993 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:25,005 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 13:54:25,005 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:25,005 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 13:54:26,017 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 13:54:26,017 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:26,029 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 13:54:26,030 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:26,035 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 13:54:26,035 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:26,035 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 13:54:27,042 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 13:54:27,042 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:27,047 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 13:54:27,048 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:27,053 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 13:54:27,054 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:27,055 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 13:54:28,061 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 13:54:28,061 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:28,067 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 13:54:28,068 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:28,077 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 13:54:28,077 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:28,077 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 13:54:29,092 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 13:54:29,092 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:29,101 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 13:54:29,102 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:29,108 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 13:54:29,108 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:29,108 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 13:54:29,459 ERROR: Exceeded retry deadline
+2026-09-24 13:54:29,459 ERROR: Error communicating with DCS
+2026-09-24 13:54:29,462 INFO: DCS is not accessible
+2026-09-24 13:54:29,463 WARNING: Loop time exceeded, rescheduling immediately.
+2026-09-24 13:54:30,117 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 13:54:30,117 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:31,794 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 13:54:31,794 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:31,799 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 13:54:31,800 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:31,800 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 13:54:32,807 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 13:54:32,807 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:32,812 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 13:54:32,812 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:34,489 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 13:54:34,489 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:34,489 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 13:54:35,506 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 13:54:35,506 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:35,511 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 13:54:35,512 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:35,521 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 13:54:35,521 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:35,521 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 13:54:36,542 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 13:54:36,542 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:36,550 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 13:54:36,551 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:36,556 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 13:54:36,556 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:36,556 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 13:54:37,570 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 13:54:37,571 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:37,575 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 13:54:37,575 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:37,581 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 13:54:37,581 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:37,581 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 13:54:38,587 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 13:54:38,587 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:38,592 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 13:54:38,593 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:38,600 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 13:54:38,600 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:38,600 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 13:54:39,464 ERROR: Exceeded retry deadline
+2026-09-24 13:54:39,464 ERROR: Error communicating with DCS
+2026-09-24 13:54:39,466 INFO: DCS is not accessible
+2026-09-24 13:54:39,467 WARNING: Loop time exceeded, rescheduling immediately.
+2026-09-24 13:54:39,604 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 13:54:39,607 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:39,611 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 13:54:39,611 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:39,616 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 13:54:39,616 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:39,616 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 13:54:40,626 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 13:54:40,626 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:40,632 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 13:54:40,632 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:40,640 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 13:54:40,640 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:40,640 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 13:54:41,648 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 13:54:41,648 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:41,655 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 13:54:41,655 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:41,663 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 13:54:41,664 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:41,664 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 13:54:42,674 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 13:54:42,674 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:42,679 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 13:54:42,679 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:42,685 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 13:54:42,686 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:42,686 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 13:54:43,694 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 13:54:43,694 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:43,699 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 13:54:43,699 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:43,704 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 13:54:43,704 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:43,704 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 13:54:44,713 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 13:54:44,714 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:44,720 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 13:54:44,721 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:44,726 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 13:54:44,727 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:44,727 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 13:54:45,738 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 13:54:45,738 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:45,745 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 13:54:45,746 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:45,751 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 13:54:45,751 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:45,751 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 13:54:46,760 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 13:54:46,761 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:46,766 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 13:54:46,766 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:46,771 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 13:54:46,772 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:46,772 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 13:54:47,780 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 13:54:47,781 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:47,787 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 13:54:47,787 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:47,796 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 13:54:47,796 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:47,796 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 13:54:48,806 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 13:54:48,806 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:48,816 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 13:54:48,817 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:48,823 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 13:54:48,823 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:48,823 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 13:54:49,468 ERROR: Exceeded retry deadline
+2026-09-24 13:54:49,468 ERROR: Error communicating with DCS
+2026-09-24 13:54:49,470 INFO: DCS is not accessible
+2026-09-24 13:54:49,471 WARNING: Loop time exceeded, rescheduling immediately.
+2026-09-24 13:54:49,832 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 13:54:49,832 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:49,837 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 13:54:49,838 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:49,842 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 13:54:49,843 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:49,843 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 13:54:50,853 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 13:54:50,853 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:50,859 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 13:54:50,859 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:50,868 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 13:54:50,868 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:50,868 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 13:54:51,876 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 13:54:51,876 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:51,882 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 13:54:51,882 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:51,887 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 13:54:51,887 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:51,887 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 13:54:52,916 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 13:54:52,916 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:52,924 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 13:54:52,924 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:52,929 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 13:54:52,929 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:52,929 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 13:54:53,937 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 13:54:53,937 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:53,942 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 13:54:53,943 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:53,947 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 13:54:53,948 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:53,948 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 13:54:54,959 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 13:54:54,959 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:54,971 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 13:54:54,971 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:54,983 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 13:54:54,983 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:54,983 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 13:54:55,992 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 13:54:55,992 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:55,998 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 13:54:55,999 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:56,003 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 13:54:56,003 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:56,003 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 13:54:57,013 WARNING: failed to resolve host etcd1: [Errno -2] Name or service not known
+2026-09-24 13:54:57,015 ERROR: Failed to get list of machines from http://etcd1:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd1\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd1\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:57,019 WARNING: failed to resolve host etcd3: [Errno -2] Name or service not known
+2026-09-24 13:54:57,019 ERROR: Failed to get list of machines from http://etcd3:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd3\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd3\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:57,023 WARNING: failed to resolve host etcd2: [Errno -2] Name or service not known
+2026-09-24 13:54:57,024 ERROR: Failed to get list of machines from http://etcd2:2379/v3: MaxRetryError('HTTPConnectionPool(host=\'etcd2\', port=2379): Max retries exceeded with url: /v3/cluster/member/list (Caused by NewConnectionError("HTTPConnection(host=\'etcd2\', port=2379): Failed to establish a new connection: getaddrinfo returns an empty list"))')
+2026-09-24 13:54:57,024 ERROR: KVCache.run EtcdConnectionFailed('No more machines in the cluster')
+2026-09-24 13:54:58,266 INFO: Lock owner: pg1; I am pg1
+2026-09-24 13:54:59,751 INFO: promoted self to leader because I had the session lock
+2026-09-24 13:54:59,752 WARNING: Loop time exceeded, rescheduling immediately.
+2026-09-24 13:54:59,753 INFO: Lock owner: pg1; I am pg1
+2026-09-24 13:54:59,847 INFO: updated leader lock during promote
+2026-09-24 13:55:00,963 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 13:55:10,803 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 13:55:20,900 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 13:55:30,803 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 13:55:40,808 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 13:55:50,804 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 13:56:00,803 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 13:56:10,803 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 13:56:20,803 INFO: no action. I am (pg1), the leader with the lock
+2026-09-24 13:57:17,371 INFO: Using default value thread_stack_size = 524288
+2026-09-24 13:57:17,378 INFO: Patroni global thread_pool_size = 5
+2026-09-24 13:57:17,447 INFO: Selected new etcd server http://etcd3:2379
+2026-09-24 13:57:17,472 INFO: No PostgreSQL configuration items changed, nothing to reload.
+2026-09-24 13:57:17,474 INFO: REST API thread_pool_size = 5
+2026-09-24 13:57:17,526 WARNING: Postgresql is not running.
+2026-09-24 13:57:17,526 INFO: Lock owner: pg2; I am pg1
+2026-09-24 13:57:17,528 INFO: pg_controldata:
+  pg_control version number: 1700
+  Catalog version number: 202406281
+  Database system identifier: 7689097115364270107
+  Database cluster state: in production
+  pg_control last modified: Thu Sep 24 13:54:59 2026
+  Latest checkpoint location: 0/6033800
+  Latest checkpoint's REDO location: 0/6033770
+  Latest checkpoint's REDO WAL file: 000000040000000000000006
+  Latest checkpoint's TimeLineID: 4
+  Latest checkpoint's PrevTimeLineID: 4
+  Latest checkpoint's full_page_writes: on
+  Latest checkpoint's NextXID: 0:752
+  Latest checkpoint's NextOID: 16389
+  Latest checkpoint's NextMultiXactId: 1
+  Latest checkpoint's NextMultiOffset: 0
+  Latest checkpoint's oldestXID: 731
+  Latest checkpoint's oldestXID's DB: 1
+  Latest checkpoint's oldestActiveXID: 752
+  Latest checkpoint's oldestMultiXid: 1
+  Latest checkpoint's oldestMulti's DB: 1
+  Latest checkpoint's oldestCommitTsXid: 0
+  Latest checkpoint's newestCommitTsXid: 0
+  Time of latest checkpoint: Thu Sep 24 13:54:59 2026
+  Fake LSN counter for unlogged rels: 0/3E8
+  Minimum recovery ending location: 0/0
+  Min recovery ending loc's timeline: 0
+  Backup start location: 0/0
+  Backup end location: 0/0
+  End-of-backup record required: no
+  wal_level setting: replica
+  wal_log_hints setting: on
+  max_connections setting: 100
+  max_worker_processes setting: 8
+  max_wal_senders setting: 10
+  max_prepared_xacts setting: 0
+  max_locks_per_xact setting: 64
+  track_commit_timestamp setting: off
+  Maximum data alignment: 8
+  Database block size: 8192
+  Blocks per segment of large relation: 131072
+  WAL block size: 8192
+  Bytes per WAL segment: 16777216
+  Maximum length of identifiers: 64
+  Maximum columns in an index: 32
+  Maximum size of a TOAST chunk: 1996
+  Size of a large-object chunk: 2048
+  Date/time type storage: 64-bit integers
+  Float8 argument passing: by value
+  Data page checksum version: 1
+  Mock authentication nonce: 118cde6aba019b7de4893fa39aabf73aae9c1f7f396dd9233e6a660b5d03a83b
+
+2026-09-24 13:57:17,580 INFO: doing crash recovery in a single user mode
+2026-09-24 13:57:17,740 WARNING: Postgresql is not running.
+2026-09-24 13:57:17,740 INFO: Lock owner: pg2; I am pg1
+2026-09-24 13:57:17,740 INFO: pg_controldata:
+  pg_control version number: 1700
+  Catalog version number: 202406281
+  Database system identifier: 7689097115364270107
+  Database cluster state: shut down
+  pg_control last modified: Thu Sep 24 13:57:17 2026
+  Latest checkpoint location: 0/7000028
+  Latest checkpoint's REDO location: 0/7000028
+  Latest checkpoint's REDO WAL file: 000000040000000000000007
+  Latest checkpoint's TimeLineID: 4
+  Latest checkpoint's PrevTimeLineID: 4
+  Latest checkpoint's full_page_writes: on
+  Latest checkpoint's NextXID: 0:752
+  Latest checkpoint's NextOID: 16389
+  Latest checkpoint's NextMultiXactId: 1
+  Latest checkpoint's NextMultiOffset: 0
+  Latest checkpoint's oldestXID: 731
+  Latest checkpoint's oldestXID's DB: 1
+  Latest checkpoint's oldestActiveXID: 0
+  Latest checkpoint's oldestMultiXid: 1
+  Latest checkpoint's oldestMulti's DB: 1
+  Latest checkpoint's oldestCommitTsXid: 0
+  Latest checkpoint's newestCommitTsXid: 0
+  Time of latest checkpoint: Thu Sep 24 13:57:17 2026
+  Fake LSN counter for unlogged rels: 0/3E8
+  Minimum recovery ending location: 0/0
+  Min recovery ending loc's timeline: 0
+  Backup start location: 0/0
+  Backup end location: 0/0
+  End-of-backup record required: no
+  wal_level setting: replica
+  wal_log_hints setting: on
+  max_connections setting: 100
+  max_worker_processes setting: 8
+  max_wal_senders setting: 10
+  max_prepared_xacts setting: 0
+  max_locks_per_xact setting: 64
+  track_commit_timestamp setting: off
+  Maximum data alignment: 8
+  Database block size: 8192
+  Blocks per segment of large relation: 131072
+  WAL block size: 8192
+  Bytes per WAL segment: 16777216
+  Maximum length of identifiers: 64
+  Maximum columns in an index: 32
+  Maximum size of a TOAST chunk: 1996
+  Size of a large-object chunk: 2048
+  Date/time type storage: 64-bit integers
+  Float8 argument passing: by value
+  Data page checksum version: 1
+  Mock authentication nonce: 118cde6aba019b7de4893fa39aabf73aae9c1f7f396dd9233e6a660b5d03a83b
+
+2026-09-24 13:57:17,741 INFO: Lock owner: pg2; I am pg1
+2026-09-24 13:57:17,744 INFO: Local timeline=4 lsn=0/7000028
+2026-09-24 13:57:17,765 INFO: primary_timeline=5
+2026-09-24 13:57:17,765 INFO: primary: history=1	0/40001A8	no recovery target specified
+2	0/40002E8	no recovery target specified
+3	0/6033738	no recovery target specified
+4	0/60338B0	no recovery target specified
+2026-09-24 13:57:17,819 INFO: running pg_rewind from pg2
+2026-09-24 13:57:17,864 INFO: running pg_rewind from dbname=postgres user=postgres host=pg2 port=5432 target_session_attrs=read-write
+2026-09-24 13:57:18,067 INFO: pg_rewind exit code=1
+2026-09-24 13:57:18,067 INFO:  stdout=
+2026-09-24 13:57:18,067 INFO:  stderr=pg_rewind: servers diverged at WAL location 0/60338B0 on timeline 4
+pg_rewind: rewinding from last common checkpoint at 0/6033800 on timeline 4
+pg_rewind: error: could not open target file "/home/postgres/data/.s.PGSQL.5432": No such device or address
+
+2026-09-24 13:57:18,073 ERROR: Failed to rewind from healthy primary: pg2
+2026-09-24 13:57:18,073 WARNING: Postgresql is not running.
+2026-09-24 13:57:18,073 INFO: Lock owner: pg2; I am pg1
+2026-09-24 13:57:18,074 INFO: pg_controldata:
+  pg_control version number: 1700
+  Catalog version number: 202406281
+  Database system identifier: 7689097115364270107
+  Database cluster state: shut down
+  pg_control last modified: Thu Sep 24 13:57:17 2026
+  Latest checkpoint location: 0/7000028
+  Latest checkpoint's REDO location: 0/7000028
+  Latest checkpoint's REDO WAL file: 000000040000000000000007
+  Latest checkpoint's TimeLineID: 4
+  Latest checkpoint's PrevTimeLineID: 4
+  Latest checkpoint's full_page_writes: on
+  Latest checkpoint's NextXID: 0:752
+  Latest checkpoint's NextOID: 16389
+  Latest checkpoint's NextMultiXactId: 1
+  Latest checkpoint's NextMultiOffset: 0
+  Latest checkpoint's oldestXID: 731
+  Latest checkpoint's oldestXID's DB: 1
+  Latest checkpoint's oldestActiveXID: 0
+  Latest checkpoint's oldestMultiXid: 1
+  Latest checkpoint's oldestMulti's DB: 1
+  Latest checkpoint's oldestCommitTsXid: 0
+  Latest checkpoint's newestCommitTsXid: 0
+  Time of latest checkpoint: Thu Sep 24 13:57:17 2026
+  Fake LSN counter for unlogged rels: 0/3E8
+  Minimum recovery ending location: 0/0
+  Min recovery ending loc's timeline: 0
+  Backup start location: 0/0
+  Backup end location: 0/0
+  End-of-backup record required: no
+  wal_level setting: replica
+  wal_log_hints setting: on
+  max_connections setting: 100
+  max_worker_processes setting: 8
+  max_wal_senders setting: 10
+  max_prepared_xacts setting: 0
+  max_locks_per_xact setting: 64
+  track_commit_timestamp setting: off
+  Maximum data alignment: 8
+  Database block size: 8192
+  Blocks per segment of large relation: 131072
+  WAL block size: 8192
+  Bytes per WAL segment: 16777216
+  Maximum length of identifiers: 64
+  Maximum columns in an index: 32
+  Maximum size of a TOAST chunk: 1996
+  Size of a large-object chunk: 2048
+  Date/time type storage: 64-bit integers
+  Float8 argument passing: by value
+  Data page checksum version: 1
+  Mock authentication nonce: 118cde6aba019b7de4893fa39aabf73aae9c1f7f396dd9233e6a660b5d03a83b
+
+2026-09-24 13:57:18,074 INFO: Lock owner: pg2; I am pg1
+2026-09-24 13:57:18,118 INFO: starting as a secondary
+2026-09-24 13:57:18,411 INFO: postmaster pid=43
+2026-09-24 13:57:18,423 INFO: Lock owner: pg2; I am pg1
+2026-09-24 13:57:18,423 INFO: establishing a new patroni heartbeat connection to postgres
+2026-09-24 13:57:18,520 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 13:57:28,924 INFO: Lock owner: pg2; I am pg1
+2026-09-24 13:57:28,937 INFO: Local timeline=4 lsn=0/70000A0
+2026-09-24 13:57:28,959 INFO: primary_timeline=5
+2026-09-24 13:57:28,960 INFO: primary: history=1	0/40001A8	no recovery target specified
+2	0/40002E8	no recovery target specified
+3	0/6033738	no recovery target specified
+4	0/60338B0	no recovery target specified
+2026-09-24 13:57:29,062 INFO: running pg_rewind from pg2
+2026-09-24 13:57:30,091 INFO: running pg_rewind from dbname=postgres user=postgres host=pg2 port=5432 target_session_attrs=read-write
+2026-09-24 13:57:30,299 INFO: pg_rewind exit code=1
+2026-09-24 13:57:30,299 INFO:  stdout=
+2026-09-24 13:57:30,299 INFO:  stderr=pg_rewind: servers diverged at WAL location 0/60338B0 on timeline 4
+pg_rewind: rewinding from last common checkpoint at 0/6033800 on timeline 4
+pg_rewind: error: unexpected result while fetching remote files: ERROR:  could not open file ".s.PGSQL.5432" for reading: No such device or address
+
+2026-09-24 13:57:30,305 ERROR: Failed to rewind from healthy primary: pg2
+2026-09-24 13:57:30,305 WARNING: Postgresql is not running.
+2026-09-24 13:57:30,305 INFO: Lock owner: pg2; I am pg1
+2026-09-24 13:57:30,306 INFO: pg_controldata:
+  pg_control version number: 1700
+  Catalog version number: 202406281
+  Database system identifier: 7689097115364270107
+  Database cluster state: shut down in recovery
+  pg_control last modified: Thu Sep 24 13:57:29 2026
+  Latest checkpoint location: 0/7000028
+  Latest checkpoint's REDO location: 0/7000028
+  Latest checkpoint's REDO WAL file: 000000040000000000000007
+  Latest checkpoint's TimeLineID: 4
+  Latest checkpoint's PrevTimeLineID: 4
+  Latest checkpoint's full_page_writes: on
+  Latest checkpoint's NextXID: 0:752
+  Latest checkpoint's NextOID: 16389
+  Latest checkpoint's NextMultiXactId: 1
+  Latest checkpoint's NextMultiOffset: 0
+  Latest checkpoint's oldestXID: 731
+  Latest checkpoint's oldestXID's DB: 1
+  Latest checkpoint's oldestActiveXID: 0
+  Latest checkpoint's oldestMultiXid: 1
+  Latest checkpoint's oldestMulti's DB: 1
+  Latest checkpoint's oldestCommitTsXid: 0
+  Latest checkpoint's newestCommitTsXid: 0
+  Time of latest checkpoint: Thu Sep 24 13:57:17 2026
+  Fake LSN counter for unlogged rels: 0/3E8
+  Minimum recovery ending location: 0/70000A0
+  Min recovery ending loc's timeline: 4
+  Backup start location: 0/0
+  Backup end location: 0/0
+  End-of-backup record required: no
+  wal_level setting: replica
+  wal_log_hints setting: on
+  max_connections setting: 100
+  max_worker_processes setting: 8
+  max_wal_senders setting: 10
+  max_prepared_xacts setting: 0
+  max_locks_per_xact setting: 64
+  track_commit_timestamp setting: off
+  Maximum data alignment: 8
+  Database block size: 8192
+  Blocks per segment of large relation: 131072
+  WAL block size: 8192
+  Bytes per WAL segment: 16777216
+  Maximum length of identifiers: 64
+  Maximum columns in an index: 32
+  Maximum size of a TOAST chunk: 1996
+  Size of a large-object chunk: 2048
+  Date/time type storage: 64-bit integers
+  Float8 argument passing: by value
+  Data page checksum version: 1
+  Mock authentication nonce: 118cde6aba019b7de4893fa39aabf73aae9c1f7f396dd9233e6a660b5d03a83b
+
+2026-09-24 13:57:30,306 INFO: Lock owner: pg2; I am pg1
+2026-09-24 13:57:30,403 INFO: starting as a secondary
+2026-09-24 13:57:30,403 INFO: closed patroni connections to postgres
+2026-09-24 13:57:30,683 INFO: postmaster pid=72
+2026-09-24 13:57:40,313 INFO: Lock owner: pg2; I am pg1
+2026-09-24 13:57:40,409 INFO: failed to start postgres
+2026-09-24 13:57:50,806 WARNING: Postgresql is not running.
+2026-09-24 13:57:50,806 INFO: Lock owner: pg2; I am pg1
+2026-09-24 13:57:50,808 INFO: pg_controldata:
+  pg_control version number: 1700
+  Catalog version number: 202406281
+  Database system identifier: 7689097115364270107
+  Database cluster state: shut down in recovery
+  pg_control last modified: Thu Sep 24 13:57:29 2026
+  Latest checkpoint location: 0/7000028
+  Latest checkpoint's REDO location: 0/7000028
+  Latest checkpoint's REDO WAL file: 000000040000000000000007
+  Latest checkpoint's TimeLineID: 4
+  Latest checkpoint's PrevTimeLineID: 4
+  Latest checkpoint's full_page_writes: on
+  Latest checkpoint's NextXID: 0:752
+  Latest checkpoint's NextOID: 16389
+  Latest checkpoint's NextMultiXactId: 1
+  Latest checkpoint's NextMultiOffset: 0
+  Latest checkpoint's oldestXID: 731
+  Latest checkpoint's oldestXID's DB: 1
+  Latest checkpoint's oldestActiveXID: 0
+  Latest checkpoint's oldestMultiXid: 1
+  Latest checkpoint's oldestMulti's DB: 1
+  Latest checkpoint's oldestCommitTsXid: 0
+  Latest checkpoint's newestCommitTsXid: 0
+  Time of latest checkpoint: Thu Sep 24 13:57:17 2026
+  Fake LSN counter for unlogged rels: 0/3E8
+  Minimum recovery ending location: 0/70000A0
+  Min recovery ending loc's timeline: 4
+  Backup start location: 0/0
+  Backup end location: 0/0
+  End-of-backup record required: no
+  wal_level setting: replica
+  wal_log_hints setting: on
+  max_connections setting: 100
+  max_worker_processes setting: 8
+  max_wal_senders setting: 10
+  max_prepared_xacts setting: 0
+  max_locks_per_xact setting: 64
+  track_commit_timestamp setting: off
+  Maximum data alignment: 8
+  Database block size: 8192
+  Blocks per segment of large relation: 131072
+  WAL block size: 8192
+  Bytes per WAL segment: 16777216
+  Maximum length of identifiers: 64
+  Maximum columns in an index: 32
+  Maximum size of a TOAST chunk: 1996
+  Size of a large-object chunk: 2048
+  Date/time type storage: 64-bit integers
+  Float8 argument passing: by value
+  Data page checksum version: 1
+  Mock authentication nonce: 118cde6aba019b7de4893fa39aabf73aae9c1f7f396dd9233e6a660b5d03a83b
+
+2026-09-24 13:57:50,808 INFO: Lock owner: pg2; I am pg1
+2026-09-24 13:57:50,850 INFO: starting as a secondary
+2026-09-24 13:57:51,118 INFO: postmaster pid=79
+2026-09-24 13:58:00,312 INFO: Lock owner: pg2; I am pg1
+2026-09-24 13:58:00,354 INFO: failed to start postgres
+2026-09-24 13:58:10,806 WARNING: Postgresql is not running.
+2026-09-24 13:58:10,806 INFO: Lock owner: pg2; I am pg1
+2026-09-24 13:58:10,808 INFO: pg_controldata:
+  pg_control version number: 1700
+  Catalog version number: 202406281
+  Database system identifier: 7689097115364270107
+  Database cluster state: shut down in recovery
+  pg_control last modified: Thu Sep 24 13:57:29 2026
+  Latest checkpoint location: 0/7000028
+  Latest checkpoint's REDO location: 0/7000028
+  Latest checkpoint's REDO WAL file: 000000040000000000000007
+  Latest checkpoint's TimeLineID: 4
+  Latest checkpoint's PrevTimeLineID: 4
+  Latest checkpoint's full_page_writes: on
+  Latest checkpoint's NextXID: 0:752
+  Latest checkpoint's NextOID: 16389
+  Latest checkpoint's NextMultiXactId: 1
+  Latest checkpoint's NextMultiOffset: 0
+  Latest checkpoint's oldestXID: 731
+  Latest checkpoint's oldestXID's DB: 1
+  Latest checkpoint's oldestActiveXID: 0
+  Latest checkpoint's oldestMultiXid: 1
+  Latest checkpoint's oldestMulti's DB: 1
+  Latest checkpoint's oldestCommitTsXid: 0
+  Latest checkpoint's newestCommitTsXid: 0
+  Time of latest checkpoint: Thu Sep 24 13:57:17 2026
+  Fake LSN counter for unlogged rels: 0/3E8
+  Minimum recovery ending location: 0/70000A0
+  Min recovery ending loc's timeline: 4
+  Backup start location: 0/0
+  Backup end location: 0/0
+  End-of-backup record required: no
+  wal_level setting: replica
+  wal_log_hints setting: on
+  max_connections setting: 100
+  max_worker_processes setting: 8
+  max_wal_senders setting: 10
+  max_prepared_xacts setting: 0
+  max_locks_per_xact setting: 64
+  track_commit_timestamp setting: off
+  Maximum data alignment: 8
+  Database block size: 8192
+  Blocks per segment of large relation: 131072
+  WAL block size: 8192
+  Bytes per WAL segment: 16777216
+  Maximum length of identifiers: 64
+  Maximum columns in an index: 32
+  Maximum size of a TOAST chunk: 1996
+  Size of a large-object chunk: 2048
+  Date/time type storage: 64-bit integers
+  Float8 argument passing: by value
+  Data page checksum version: 1
+  Mock authentication nonce: 118cde6aba019b7de4893fa39aabf73aae9c1f7f396dd9233e6a660b5d03a83b
+
+2026-09-24 13:58:10,808 INFO: Lock owner: pg2; I am pg1
+2026-09-24 13:58:10,850 INFO: starting as a secondary
+2026-09-24 13:58:11,120 INFO: postmaster pid=87
+2026-09-24 13:58:20,312 INFO: Lock owner: pg2; I am pg1
+2026-09-24 13:58:20,354 INFO: failed to start postgres
+2026-09-24 13:58:30,806 WARNING: Postgresql is not running.
+2026-09-24 13:58:30,806 INFO: Lock owner: pg2; I am pg1
+2026-09-24 13:58:30,808 INFO: pg_controldata:
+  pg_control version number: 1700
+  Catalog version number: 202406281
+  Database system identifier: 7689097115364270107
+  Database cluster state: shut down in recovery
+  pg_control last modified: Thu Sep 24 13:57:29 2026
+  Latest checkpoint location: 0/7000028
+  Latest checkpoint's REDO location: 0/7000028
+  Latest checkpoint's REDO WAL file: 000000040000000000000007
+  Latest checkpoint's TimeLineID: 4
+  Latest checkpoint's PrevTimeLineID: 4
+  Latest checkpoint's full_page_writes: on
+  Latest checkpoint's NextXID: 0:752
+  Latest checkpoint's NextOID: 16389
+  Latest checkpoint's NextMultiXactId: 1
+  Latest checkpoint's NextMultiOffset: 0
+  Latest checkpoint's oldestXID: 731
+  Latest checkpoint's oldestXID's DB: 1
+  Latest checkpoint's oldestActiveXID: 0
+  Latest checkpoint's oldestMultiXid: 1
+  Latest checkpoint's oldestMulti's DB: 1
+  Latest checkpoint's oldestCommitTsXid: 0
+  Latest checkpoint's newestCommitTsXid: 0
+  Time of latest checkpoint: Thu Sep 24 13:57:17 2026
+  Fake LSN counter for unlogged rels: 0/3E8
+  Minimum recovery ending location: 0/70000A0
+  Min recovery ending loc's timeline: 4
+  Backup start location: 0/0
+  Backup end location: 0/0
+  End-of-backup record required: no
+  wal_level setting: replica
+  wal_log_hints setting: on
+  max_connections setting: 100
+  max_worker_processes setting: 8
+  max_wal_senders setting: 10
+  max_prepared_xacts setting: 0
+  max_locks_per_xact setting: 64
+  track_commit_timestamp setting: off
+  Maximum data alignment: 8
+  Database block size: 8192
+  Blocks per segment of large relation: 131072
+  WAL block size: 8192
+  Bytes per WAL segment: 16777216
+  Maximum length of identifiers: 64
+  Maximum columns in an index: 32
+  Maximum size of a TOAST chunk: 1996
+  Size of a large-object chunk: 2048
+  Date/time type storage: 64-bit integers
+  Float8 argument passing: by value
+  Data page checksum version: 1
+  Mock authentication nonce: 118cde6aba019b7de4893fa39aabf73aae9c1f7f396dd9233e6a660b5d03a83b
+
+2026-09-24 13:58:30,808 INFO: Lock owner: pg2; I am pg1
+2026-09-24 13:58:30,854 INFO: starting as a secondary
+2026-09-24 13:58:31,121 INFO: postmaster pid=94
+2026-09-24 13:58:40,312 INFO: Lock owner: pg2; I am pg1
+2026-09-24 13:58:40,354 INFO: failed to start postgres
+2026-09-24 13:58:50,806 WARNING: Postgresql is not running.
+2026-09-24 13:58:50,806 INFO: Lock owner: pg2; I am pg1
+2026-09-24 13:58:50,807 INFO: pg_controldata:
+  pg_control version number: 1700
+  Catalog version number: 202406281
+  Database system identifier: 7689097115364270107
+  Database cluster state: shut down in recovery
+  pg_control last modified: Thu Sep 24 13:57:29 2026
+  Latest checkpoint location: 0/7000028
+  Latest checkpoint's REDO location: 0/7000028
+  Latest checkpoint's REDO WAL file: 000000040000000000000007
+  Latest checkpoint's TimeLineID: 4
+  Latest checkpoint's PrevTimeLineID: 4
+  Latest checkpoint's full_page_writes: on
+  Latest checkpoint's NextXID: 0:752
+  Latest checkpoint's NextOID: 16389
+  Latest checkpoint's NextMultiXactId: 1
+  Latest checkpoint's NextMultiOffset: 0
+  Latest checkpoint's oldestXID: 731
+  Latest checkpoint's oldestXID's DB: 1
+  Latest checkpoint's oldestActiveXID: 0
+  Latest checkpoint's oldestMultiXid: 1
+  Latest checkpoint's oldestMulti's DB: 1
+  Latest checkpoint's oldestCommitTsXid: 0
+  Latest checkpoint's newestCommitTsXid: 0
+  Time of latest checkpoint: Thu Sep 24 13:57:17 2026
+  Fake LSN counter for unlogged rels: 0/3E8
+  Minimum recovery ending location: 0/70000A0
+  Min recovery ending loc's timeline: 4
+  Backup start location: 0/0
+  Backup end location: 0/0
+  End-of-backup record required: no
+  wal_level setting: replica
+  wal_log_hints setting: on
+  max_connections setting: 100
+  max_worker_processes setting: 8
+  max_wal_senders setting: 10
+  max_prepared_xacts setting: 0
+  max_locks_per_xact setting: 64
+  track_commit_timestamp setting: off
+  Maximum data alignment: 8
+  Database block size: 8192
+  Blocks per segment of large relation: 131072
+  WAL block size: 8192
+  Bytes per WAL segment: 16777216
+  Maximum length of identifiers: 64
+  Maximum columns in an index: 32
+  Maximum size of a TOAST chunk: 1996
+  Size of a large-object chunk: 2048
+  Date/time type storage: 64-bit integers
+  Float8 argument passing: by value
+  Data page checksum version: 1
+  Mock authentication nonce: 118cde6aba019b7de4893fa39aabf73aae9c1f7f396dd9233e6a660b5d03a83b
+
+2026-09-24 13:58:50,808 INFO: Lock owner: pg2; I am pg1
+2026-09-24 13:58:50,850 INFO: starting as a secondary
+2026-09-24 13:58:51,118 INFO: postmaster pid=101
+2026-09-24 13:59:00,313 INFO: Lock owner: pg2; I am pg1
+2026-09-24 13:59:00,358 INFO: failed to start postgres
+2026-09-24 13:59:10,806 WARNING: Postgresql is not running.
+2026-09-24 13:59:10,806 INFO: Lock owner: pg2; I am pg1
+2026-09-24 13:59:10,808 INFO: pg_controldata:
+  pg_control version number: 1700
+  Catalog version number: 202406281
+  Database system identifier: 7689097115364270107
+  Database cluster state: shut down in recovery
+  pg_control last modified: Thu Sep 24 13:57:29 2026
+  Latest checkpoint location: 0/7000028
+  Latest checkpoint's REDO location: 0/7000028
+  Latest checkpoint's REDO WAL file: 000000040000000000000007
+  Latest checkpoint's TimeLineID: 4
+  Latest checkpoint's PrevTimeLineID: 4
+  Latest checkpoint's full_page_writes: on
+  Latest checkpoint's NextXID: 0:752
+  Latest checkpoint's NextOID: 16389
+  Latest checkpoint's NextMultiXactId: 1
+  Latest checkpoint's NextMultiOffset: 0
+  Latest checkpoint's oldestXID: 731
+  Latest checkpoint's oldestXID's DB: 1
+  Latest checkpoint's oldestActiveXID: 0
+  Latest checkpoint's oldestMultiXid: 1
+  Latest checkpoint's oldestMulti's DB: 1
+  Latest checkpoint's oldestCommitTsXid: 0
+  Latest checkpoint's newestCommitTsXid: 0
+  Time of latest checkpoint: Thu Sep 24 13:57:17 2026
+  Fake LSN counter for unlogged rels: 0/3E8
+  Minimum recovery ending location: 0/70000A0
+  Min recovery ending loc's timeline: 4
+  Backup start location: 0/0
+  Backup end location: 0/0
+  End-of-backup record required: no
+  wal_level setting: replica
+  wal_log_hints setting: on
+  max_connections setting: 100
+  max_worker_processes setting: 8
+  max_wal_senders setting: 10
+  max_prepared_xacts setting: 0
+  max_locks_per_xact setting: 64
+  track_commit_timestamp setting: off
+  Maximum data alignment: 8
+  Database block size: 8192
+  Blocks per segment of large relation: 131072
+  WAL block size: 8192
+  Bytes per WAL segment: 16777216
+  Maximum length of identifiers: 64
+  Maximum columns in an index: 32
+  Maximum size of a TOAST chunk: 1996
+  Size of a large-object chunk: 2048
+  Date/time type storage: 64-bit integers
+  Float8 argument passing: by value
+  Data page checksum version: 1
+  Mock authentication nonce: 118cde6aba019b7de4893fa39aabf73aae9c1f7f396dd9233e6a660b5d03a83b
+
+2026-09-24 13:59:10,808 INFO: Lock owner: pg2; I am pg1
+2026-09-24 13:59:10,850 INFO: starting as a secondary
+2026-09-24 13:59:11,119 INFO: postmaster pid=108
+2026-09-24 13:59:20,313 INFO: Lock owner: pg2; I am pg1
+2026-09-24 13:59:20,358 INFO: failed to start postgres
+2026-09-24 13:59:30,806 WARNING: Postgresql is not running.
+2026-09-24 13:59:30,806 INFO: Lock owner: pg2; I am pg1
+2026-09-24 13:59:30,808 INFO: pg_controldata:
+  pg_control version number: 1700
+  Catalog version number: 202406281
+  Database system identifier: 7689097115364270107
+  Database cluster state: shut down in recovery
+  pg_control last modified: Thu Sep 24 13:57:29 2026
+  Latest checkpoint location: 0/7000028
+  Latest checkpoint's REDO location: 0/7000028
+  Latest checkpoint's REDO WAL file: 000000040000000000000007
+  Latest checkpoint's TimeLineID: 4
+  Latest checkpoint's PrevTimeLineID: 4
+  Latest checkpoint's full_page_writes: on
+  Latest checkpoint's NextXID: 0:752
+  Latest checkpoint's NextOID: 16389
+  Latest checkpoint's NextMultiXactId: 1
+  Latest checkpoint's NextMultiOffset: 0
+  Latest checkpoint's oldestXID: 731
+  Latest checkpoint's oldestXID's DB: 1
+  Latest checkpoint's oldestActiveXID: 0
+  Latest checkpoint's oldestMultiXid: 1
+  Latest checkpoint's oldestMulti's DB: 1
+  Latest checkpoint's oldestCommitTsXid: 0
+  Latest checkpoint's newestCommitTsXid: 0
+  Time of latest checkpoint: Thu Sep 24 13:57:17 2026
+  Fake LSN counter for unlogged rels: 0/3E8
+  Minimum recovery ending location: 0/70000A0
+  Min recovery ending loc's timeline: 4
+  Backup start location: 0/0
+  Backup end location: 0/0
+  End-of-backup record required: no
+  wal_level setting: replica
+  wal_log_hints setting: on
+  max_connections setting: 100
+  max_worker_processes setting: 8
+  max_wal_senders setting: 10
+  max_prepared_xacts setting: 0
+  max_locks_per_xact setting: 64
+  track_commit_timestamp setting: off
+  Maximum data alignment: 8
+  Database block size: 8192
+  Blocks per segment of large relation: 131072
+  WAL block size: 8192
+  Bytes per WAL segment: 16777216
+  Maximum length of identifiers: 64
+  Maximum columns in an index: 32
+  Maximum size of a TOAST chunk: 1996
+  Size of a large-object chunk: 2048
+  Date/time type storage: 64-bit integers
+  Float8 argument passing: by value
+  Data page checksum version: 1
+  Mock authentication nonce: 118cde6aba019b7de4893fa39aabf73aae9c1f7f396dd9233e6a660b5d03a83b
+
+2026-09-24 13:59:30,808 INFO: Lock owner: pg2; I am pg1
+2026-09-24 13:59:30,850 INFO: starting as a secondary
+2026-09-24 13:59:31,118 INFO: postmaster pid=115
+2026-09-24 13:59:40,313 INFO: Lock owner: pg2; I am pg1
+2026-09-24 13:59:40,358 INFO: failed to start postgres
+2026-09-24 13:59:50,806 WARNING: Postgresql is not running.
+2026-09-24 13:59:50,806 INFO: Lock owner: pg2; I am pg1
+2026-09-24 13:59:50,808 INFO: pg_controldata:
+  pg_control version number: 1700
+  Catalog version number: 202406281
+  Database system identifier: 7689097115364270107
+  Database cluster state: shut down in recovery
+  pg_control last modified: Thu Sep 24 13:57:29 2026
+  Latest checkpoint location: 0/7000028
+  Latest checkpoint's REDO location: 0/7000028
+  Latest checkpoint's REDO WAL file: 000000040000000000000007
+  Latest checkpoint's TimeLineID: 4
+  Latest checkpoint's PrevTimeLineID: 4
+  Latest checkpoint's full_page_writes: on
+  Latest checkpoint's NextXID: 0:752
+  Latest checkpoint's NextOID: 16389
+  Latest checkpoint's NextMultiXactId: 1
+  Latest checkpoint's NextMultiOffset: 0
+  Latest checkpoint's oldestXID: 731
+  Latest checkpoint's oldestXID's DB: 1
+  Latest checkpoint's oldestActiveXID: 0
+  Latest checkpoint's oldestMultiXid: 1
+  Latest checkpoint's oldestMulti's DB: 1
+  Latest checkpoint's oldestCommitTsXid: 0
+  Latest checkpoint's newestCommitTsXid: 0
+  Time of latest checkpoint: Thu Sep 24 13:57:17 2026
+  Fake LSN counter for unlogged rels: 0/3E8
+  Minimum recovery ending location: 0/70000A0
+  Min recovery ending loc's timeline: 4
+  Backup start location: 0/0
+  Backup end location: 0/0
+  End-of-backup record required: no
+  wal_level setting: replica
+  wal_log_hints setting: on
+  max_connections setting: 100
+  max_worker_processes setting: 8
+  max_wal_senders setting: 10
+  max_prepared_xacts setting: 0
+  max_locks_per_xact setting: 64
+  track_commit_timestamp setting: off
+  Maximum data alignment: 8
+  Database block size: 8192
+  Blocks per segment of large relation: 131072
+  WAL block size: 8192
+  Bytes per WAL segment: 16777216
+  Maximum length of identifiers: 64
+  Maximum columns in an index: 32
+  Maximum size of a TOAST chunk: 1996
+  Size of a large-object chunk: 2048
+  Date/time type storage: 64-bit integers
+  Float8 argument passing: by value
+  Data page checksum version: 1
+  Mock authentication nonce: 118cde6aba019b7de4893fa39aabf73aae9c1f7f396dd9233e6a660b5d03a83b
+
+2026-09-24 13:59:50,808 INFO: Lock owner: pg2; I am pg1
+2026-09-24 13:59:50,850 INFO: starting as a secondary
+2026-09-24 13:59:51,121 INFO: postmaster pid=122
+2026-09-24 14:00:00,312 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:00:00,354 INFO: failed to start postgres
+2026-09-24 14:00:10,806 WARNING: Postgresql is not running.
+2026-09-24 14:00:10,806 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:00:10,808 INFO: pg_controldata:
+  pg_control version number: 1700
+  Catalog version number: 202406281
+  Database system identifier: 7689097115364270107
+  Database cluster state: shut down in recovery
+  pg_control last modified: Thu Sep 24 13:57:29 2026
+  Latest checkpoint location: 0/7000028
+  Latest checkpoint's REDO location: 0/7000028
+  Latest checkpoint's REDO WAL file: 000000040000000000000007
+  Latest checkpoint's TimeLineID: 4
+  Latest checkpoint's PrevTimeLineID: 4
+  Latest checkpoint's full_page_writes: on
+  Latest checkpoint's NextXID: 0:752
+  Latest checkpoint's NextOID: 16389
+  Latest checkpoint's NextMultiXactId: 1
+  Latest checkpoint's NextMultiOffset: 0
+  Latest checkpoint's oldestXID: 731
+  Latest checkpoint's oldestXID's DB: 1
+  Latest checkpoint's oldestActiveXID: 0
+  Latest checkpoint's oldestMultiXid: 1
+  Latest checkpoint's oldestMulti's DB: 1
+  Latest checkpoint's oldestCommitTsXid: 0
+  Latest checkpoint's newestCommitTsXid: 0
+  Time of latest checkpoint: Thu Sep 24 13:57:17 2026
+  Fake LSN counter for unlogged rels: 0/3E8
+  Minimum recovery ending location: 0/70000A0
+  Min recovery ending loc's timeline: 4
+  Backup start location: 0/0
+  Backup end location: 0/0
+  End-of-backup record required: no
+  wal_level setting: replica
+  wal_log_hints setting: on
+  max_connections setting: 100
+  max_worker_processes setting: 8
+  max_wal_senders setting: 10
+  max_prepared_xacts setting: 0
+  max_locks_per_xact setting: 64
+  track_commit_timestamp setting: off
+  Maximum data alignment: 8
+  Database block size: 8192
+  Blocks per segment of large relation: 131072
+  WAL block size: 8192
+  Bytes per WAL segment: 16777216
+  Maximum length of identifiers: 64
+  Maximum columns in an index: 32
+  Maximum size of a TOAST chunk: 1996
+  Size of a large-object chunk: 2048
+  Date/time type storage: 64-bit integers
+  Float8 argument passing: by value
+  Data page checksum version: 1
+  Mock authentication nonce: 118cde6aba019b7de4893fa39aabf73aae9c1f7f396dd9233e6a660b5d03a83b
+
+2026-09-24 14:00:10,808 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:00:10,854 INFO: starting as a secondary
+2026-09-24 14:00:11,126 INFO: postmaster pid=129
+2026-09-24 14:00:20,313 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:00:20,358 INFO: failed to start postgres
+2026-09-24 14:00:30,806 WARNING: Postgresql is not running.
+2026-09-24 14:00:30,806 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:00:30,808 INFO: pg_controldata:
+  pg_control version number: 1700
+  Catalog version number: 202406281
+  Database system identifier: 7689097115364270107
+  Database cluster state: shut down in recovery
+  pg_control last modified: Thu Sep 24 13:57:29 2026
+  Latest checkpoint location: 0/7000028
+  Latest checkpoint's REDO location: 0/7000028
+  Latest checkpoint's REDO WAL file: 000000040000000000000007
+  Latest checkpoint's TimeLineID: 4
+  Latest checkpoint's PrevTimeLineID: 4
+  Latest checkpoint's full_page_writes: on
+  Latest checkpoint's NextXID: 0:752
+  Latest checkpoint's NextOID: 16389
+  Latest checkpoint's NextMultiXactId: 1
+  Latest checkpoint's NextMultiOffset: 0
+  Latest checkpoint's oldestXID: 731
+  Latest checkpoint's oldestXID's DB: 1
+  Latest checkpoint's oldestActiveXID: 0
+  Latest checkpoint's oldestMultiXid: 1
+  Latest checkpoint's oldestMulti's DB: 1
+  Latest checkpoint's oldestCommitTsXid: 0
+  Latest checkpoint's newestCommitTsXid: 0
+  Time of latest checkpoint: Thu Sep 24 13:57:17 2026
+  Fake LSN counter for unlogged rels: 0/3E8
+  Minimum recovery ending location: 0/70000A0
+  Min recovery ending loc's timeline: 4
+  Backup start location: 0/0
+  Backup end location: 0/0
+  End-of-backup record required: no
+  wal_level setting: replica
+  wal_log_hints setting: on
+  max_connections setting: 100
+  max_worker_processes setting: 8
+  max_wal_senders setting: 10
+  max_prepared_xacts setting: 0
+  max_locks_per_xact setting: 64
+  track_commit_timestamp setting: off
+  Maximum data alignment: 8
+  Database block size: 8192
+  Blocks per segment of large relation: 131072
+  WAL block size: 8192
+  Bytes per WAL segment: 16777216
+  Maximum length of identifiers: 64
+  Maximum columns in an index: 32
+  Maximum size of a TOAST chunk: 1996
+  Size of a large-object chunk: 2048
+  Date/time type storage: 64-bit integers
+  Float8 argument passing: by value
+  Data page checksum version: 1
+  Mock authentication nonce: 118cde6aba019b7de4893fa39aabf73aae9c1f7f396dd9233e6a660b5d03a83b
+
+2026-09-24 14:00:30,808 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:00:30,854 INFO: starting as a secondary
+2026-09-24 14:00:31,125 INFO: postmaster pid=136
+2026-09-24 14:00:40,313 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:00:40,358 INFO: failed to start postgres
+2026-09-24 14:00:50,806 WARNING: Postgresql is not running.
+2026-09-24 14:00:50,806 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:00:50,808 INFO: pg_controldata:
+  pg_control version number: 1700
+  Catalog version number: 202406281
+  Database system identifier: 7689097115364270107
+  Database cluster state: shut down in recovery
+  pg_control last modified: Thu Sep 24 13:57:29 2026
+  Latest checkpoint location: 0/7000028
+  Latest checkpoint's REDO location: 0/7000028
+  Latest checkpoint's REDO WAL file: 000000040000000000000007
+  Latest checkpoint's TimeLineID: 4
+  Latest checkpoint's PrevTimeLineID: 4
+  Latest checkpoint's full_page_writes: on
+  Latest checkpoint's NextXID: 0:752
+  Latest checkpoint's NextOID: 16389
+  Latest checkpoint's NextMultiXactId: 1
+  Latest checkpoint's NextMultiOffset: 0
+  Latest checkpoint's oldestXID: 731
+  Latest checkpoint's oldestXID's DB: 1
+  Latest checkpoint's oldestActiveXID: 0
+  Latest checkpoint's oldestMultiXid: 1
+  Latest checkpoint's oldestMulti's DB: 1
+  Latest checkpoint's oldestCommitTsXid: 0
+  Latest checkpoint's newestCommitTsXid: 0
+  Time of latest checkpoint: Thu Sep 24 13:57:17 2026
+  Fake LSN counter for unlogged rels: 0/3E8
+  Minimum recovery ending location: 0/70000A0
+  Min recovery ending loc's timeline: 4
+  Backup start location: 0/0
+  Backup end location: 0/0
+  End-of-backup record required: no
+  wal_level setting: replica
+  wal_log_hints setting: on
+  max_connections setting: 100
+  max_worker_processes setting: 8
+  max_wal_senders setting: 10
+  max_prepared_xacts setting: 0
+  max_locks_per_xact setting: 64
+  track_commit_timestamp setting: off
+  Maximum data alignment: 8
+  Database block size: 8192
+  Blocks per segment of large relation: 131072
+  WAL block size: 8192
+  Bytes per WAL segment: 16777216
+  Maximum length of identifiers: 64
+  Maximum columns in an index: 32
+  Maximum size of a TOAST chunk: 1996
+  Size of a large-object chunk: 2048
+  Date/time type storage: 64-bit integers
+  Float8 argument passing: by value
+  Data page checksum version: 1
+  Mock authentication nonce: 118cde6aba019b7de4893fa39aabf73aae9c1f7f396dd9233e6a660b5d03a83b
+
+2026-09-24 14:00:50,808 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:00:50,850 INFO: starting as a secondary
+2026-09-24 14:00:51,120 INFO: postmaster pid=143
+2026-09-24 14:01:00,313 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:01:00,358 INFO: failed to start postgres
+2026-09-24 14:01:10,806 WARNING: Postgresql is not running.
+2026-09-24 14:01:10,806 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:01:10,808 INFO: pg_controldata:
+  pg_control version number: 1700
+  Catalog version number: 202406281
+  Database system identifier: 7689097115364270107
+  Database cluster state: shut down in recovery
+  pg_control last modified: Thu Sep 24 13:57:29 2026
+  Latest checkpoint location: 0/7000028
+  Latest checkpoint's REDO location: 0/7000028
+  Latest checkpoint's REDO WAL file: 000000040000000000000007
+  Latest checkpoint's TimeLineID: 4
+  Latest checkpoint's PrevTimeLineID: 4
+  Latest checkpoint's full_page_writes: on
+  Latest checkpoint's NextXID: 0:752
+  Latest checkpoint's NextOID: 16389
+  Latest checkpoint's NextMultiXactId: 1
+  Latest checkpoint's NextMultiOffset: 0
+  Latest checkpoint's oldestXID: 731
+  Latest checkpoint's oldestXID's DB: 1
+  Latest checkpoint's oldestActiveXID: 0
+  Latest checkpoint's oldestMultiXid: 1
+  Latest checkpoint's oldestMulti's DB: 1
+  Latest checkpoint's oldestCommitTsXid: 0
+  Latest checkpoint's newestCommitTsXid: 0
+  Time of latest checkpoint: Thu Sep 24 13:57:17 2026
+  Fake LSN counter for unlogged rels: 0/3E8
+  Minimum recovery ending location: 0/70000A0
+  Min recovery ending loc's timeline: 4
+  Backup start location: 0/0
+  Backup end location: 0/0
+  End-of-backup record required: no
+  wal_level setting: replica
+  wal_log_hints setting: on
+  max_connections setting: 100
+  max_worker_processes setting: 8
+  max_wal_senders setting: 10
+  max_prepared_xacts setting: 0
+  max_locks_per_xact setting: 64
+  track_commit_timestamp setting: off
+  Maximum data alignment: 8
+  Database block size: 8192
+  Blocks per segment of large relation: 131072
+  WAL block size: 8192
+  Bytes per WAL segment: 16777216
+  Maximum length of identifiers: 64
+  Maximum columns in an index: 32
+  Maximum size of a TOAST chunk: 1996
+  Size of a large-object chunk: 2048
+  Date/time type storage: 64-bit integers
+  Float8 argument passing: by value
+  Data page checksum version: 1
+  Mock authentication nonce: 118cde6aba019b7de4893fa39aabf73aae9c1f7f396dd9233e6a660b5d03a83b
+
+2026-09-24 14:01:10,808 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:01:10,854 INFO: starting as a secondary
+2026-09-24 14:01:11,127 INFO: postmaster pid=150
+2026-09-24 14:01:20,312 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:01:20,354 INFO: failed to start postgres
+2026-09-24 14:01:30,806 WARNING: Postgresql is not running.
+2026-09-24 14:01:30,806 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:01:30,808 INFO: pg_controldata:
+  pg_control version number: 1700
+  Catalog version number: 202406281
+  Database system identifier: 7689097115364270107
+  Database cluster state: shut down in recovery
+  pg_control last modified: Thu Sep 24 13:57:29 2026
+  Latest checkpoint location: 0/7000028
+  Latest checkpoint's REDO location: 0/7000028
+  Latest checkpoint's REDO WAL file: 000000040000000000000007
+  Latest checkpoint's TimeLineID: 4
+  Latest checkpoint's PrevTimeLineID: 4
+  Latest checkpoint's full_page_writes: on
+  Latest checkpoint's NextXID: 0:752
+  Latest checkpoint's NextOID: 16389
+  Latest checkpoint's NextMultiXactId: 1
+  Latest checkpoint's NextMultiOffset: 0
+  Latest checkpoint's oldestXID: 731
+  Latest checkpoint's oldestXID's DB: 1
+  Latest checkpoint's oldestActiveXID: 0
+  Latest checkpoint's oldestMultiXid: 1
+  Latest checkpoint's oldestMulti's DB: 1
+  Latest checkpoint's oldestCommitTsXid: 0
+  Latest checkpoint's newestCommitTsXid: 0
+  Time of latest checkpoint: Thu Sep 24 13:57:17 2026
+  Fake LSN counter for unlogged rels: 0/3E8
+  Minimum recovery ending location: 0/70000A0
+  Min recovery ending loc's timeline: 4
+  Backup start location: 0/0
+  Backup end location: 0/0
+  End-of-backup record required: no
+  wal_level setting: replica
+  wal_log_hints setting: on
+  max_connections setting: 100
+  max_worker_processes setting: 8
+  max_wal_senders setting: 10
+  max_prepared_xacts setting: 0
+  max_locks_per_xact setting: 64
+  track_commit_timestamp setting: off
+  Maximum data alignment: 8
+  Database block size: 8192
+  Blocks per segment of large relation: 131072
+  WAL block size: 8192
+  Bytes per WAL segment: 16777216
+  Maximum length of identifiers: 64
+  Maximum columns in an index: 32
+  Maximum size of a TOAST chunk: 1996
+  Size of a large-object chunk: 2048
+  Date/time type storage: 64-bit integers
+  Float8 argument passing: by value
+  Data page checksum version: 1
+  Mock authentication nonce: 118cde6aba019b7de4893fa39aabf73aae9c1f7f396dd9233e6a660b5d03a83b
+
+2026-09-24 14:01:30,808 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:01:30,850 INFO: starting as a secondary
+2026-09-24 14:01:31,117 INFO: postmaster pid=157
+2026-09-24 14:01:31,118 ERROR: postmaster is not running
+2026-09-24 14:01:40,306 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:01:40,350 INFO: failed to start postgres
+2026-09-24 14:01:50,806 WARNING: Postgresql is not running.
+2026-09-24 14:01:50,806 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:01:50,808 INFO: pg_controldata:
+  pg_control version number: 1700
+  Catalog version number: 202406281
+  Database system identifier: 7689097115364270107
+  Database cluster state: shut down in recovery
+  pg_control last modified: Thu Sep 24 13:57:29 2026
+  Latest checkpoint location: 0/7000028
+  Latest checkpoint's REDO location: 0/7000028
+  Latest checkpoint's REDO WAL file: 000000040000000000000007
+  Latest checkpoint's TimeLineID: 4
+  Latest checkpoint's PrevTimeLineID: 4
+  Latest checkpoint's full_page_writes: on
+  Latest checkpoint's NextXID: 0:752
+  Latest checkpoint's NextOID: 16389
+  Latest checkpoint's NextMultiXactId: 1
+  Latest checkpoint's NextMultiOffset: 0
+  Latest checkpoint's oldestXID: 731
+  Latest checkpoint's oldestXID's DB: 1
+  Latest checkpoint's oldestActiveXID: 0
+  Latest checkpoint's oldestMultiXid: 1
+  Latest checkpoint's oldestMulti's DB: 1
+  Latest checkpoint's oldestCommitTsXid: 0
+  Latest checkpoint's newestCommitTsXid: 0
+  Time of latest checkpoint: Thu Sep 24 13:57:17 2026
+  Fake LSN counter for unlogged rels: 0/3E8
+  Minimum recovery ending location: 0/70000A0
+  Min recovery ending loc's timeline: 4
+  Backup start location: 0/0
+  Backup end location: 0/0
+  End-of-backup record required: no
+  wal_level setting: replica
+  wal_log_hints setting: on
+  max_connections setting: 100
+  max_worker_processes setting: 8
+  max_wal_senders setting: 10
+  max_prepared_xacts setting: 0
+  max_locks_per_xact setting: 64
+  track_commit_timestamp setting: off
+  Maximum data alignment: 8
+  Database block size: 8192
+  Blocks per segment of large relation: 131072
+  WAL block size: 8192
+  Bytes per WAL segment: 16777216
+  Maximum length of identifiers: 64
+  Maximum columns in an index: 32
+  Maximum size of a TOAST chunk: 1996
+  Size of a large-object chunk: 2048
+  Date/time type storage: 64-bit integers
+  Float8 argument passing: by value
+  Data page checksum version: 1
+  Mock authentication nonce: 118cde6aba019b7de4893fa39aabf73aae9c1f7f396dd9233e6a660b5d03a83b
+
+2026-09-24 14:01:50,808 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:01:50,850 INFO: starting as a secondary
+2026-09-24 14:01:51,126 INFO: postmaster pid=164
+2026-09-24 14:02:00,313 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:02:00,358 INFO: failed to start postgres
+2026-09-24 14:02:10,806 WARNING: Postgresql is not running.
+2026-09-24 14:02:10,806 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:02:10,808 INFO: pg_controldata:
+  pg_control version number: 1700
+  Catalog version number: 202406281
+  Database system identifier: 7689097115364270107
+  Database cluster state: shut down in recovery
+  pg_control last modified: Thu Sep 24 13:57:29 2026
+  Latest checkpoint location: 0/7000028
+  Latest checkpoint's REDO location: 0/7000028
+  Latest checkpoint's REDO WAL file: 000000040000000000000007
+  Latest checkpoint's TimeLineID: 4
+  Latest checkpoint's PrevTimeLineID: 4
+  Latest checkpoint's full_page_writes: on
+  Latest checkpoint's NextXID: 0:752
+  Latest checkpoint's NextOID: 16389
+  Latest checkpoint's NextMultiXactId: 1
+  Latest checkpoint's NextMultiOffset: 0
+  Latest checkpoint's oldestXID: 731
+  Latest checkpoint's oldestXID's DB: 1
+  Latest checkpoint's oldestActiveXID: 0
+  Latest checkpoint's oldestMultiXid: 1
+  Latest checkpoint's oldestMulti's DB: 1
+  Latest checkpoint's oldestCommitTsXid: 0
+  Latest checkpoint's newestCommitTsXid: 0
+  Time of latest checkpoint: Thu Sep 24 13:57:17 2026
+  Fake LSN counter for unlogged rels: 0/3E8
+  Minimum recovery ending location: 0/70000A0
+  Min recovery ending loc's timeline: 4
+  Backup start location: 0/0
+  Backup end location: 0/0
+  End-of-backup record required: no
+  wal_level setting: replica
+  wal_log_hints setting: on
+  max_connections setting: 100
+  max_worker_processes setting: 8
+  max_wal_senders setting: 10
+  max_prepared_xacts setting: 0
+  max_locks_per_xact setting: 64
+  track_commit_timestamp setting: off
+  Maximum data alignment: 8
+  Database block size: 8192
+  Blocks per segment of large relation: 131072
+  WAL block size: 8192
+  Bytes per WAL segment: 16777216
+  Maximum length of identifiers: 64
+  Maximum columns in an index: 32
+  Maximum size of a TOAST chunk: 1996
+  Size of a large-object chunk: 2048
+  Date/time type storage: 64-bit integers
+  Float8 argument passing: by value
+  Data page checksum version: 1
+  Mock authentication nonce: 118cde6aba019b7de4893fa39aabf73aae9c1f7f396dd9233e6a660b5d03a83b
+
+2026-09-24 14:02:10,808 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:02:10,850 INFO: starting as a secondary
+2026-09-24 14:02:11,118 INFO: postmaster pid=171
+2026-09-24 14:02:20,312 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:02:20,398 INFO: failed to start postgres
+2026-09-24 14:02:30,806 WARNING: Postgresql is not running.
+2026-09-24 14:02:30,806 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:02:30,808 INFO: pg_controldata:
+  pg_control version number: 1700
+  Catalog version number: 202406281
+  Database system identifier: 7689097115364270107
+  Database cluster state: shut down in recovery
+  pg_control last modified: Thu Sep 24 13:57:29 2026
+  Latest checkpoint location: 0/7000028
+  Latest checkpoint's REDO location: 0/7000028
+  Latest checkpoint's REDO WAL file: 000000040000000000000007
+  Latest checkpoint's TimeLineID: 4
+  Latest checkpoint's PrevTimeLineID: 4
+  Latest checkpoint's full_page_writes: on
+  Latest checkpoint's NextXID: 0:752
+  Latest checkpoint's NextOID: 16389
+  Latest checkpoint's NextMultiXactId: 1
+  Latest checkpoint's NextMultiOffset: 0
+  Latest checkpoint's oldestXID: 731
+  Latest checkpoint's oldestXID's DB: 1
+  Latest checkpoint's oldestActiveXID: 0
+  Latest checkpoint's oldestMultiXid: 1
+  Latest checkpoint's oldestMulti's DB: 1
+  Latest checkpoint's oldestCommitTsXid: 0
+  Latest checkpoint's newestCommitTsXid: 0
+  Time of latest checkpoint: Thu Sep 24 13:57:17 2026
+  Fake LSN counter for unlogged rels: 0/3E8
+  Minimum recovery ending location: 0/70000A0
+  Min recovery ending loc's timeline: 4
+  Backup start location: 0/0
+  Backup end location: 0/0
+  End-of-backup record required: no
+  wal_level setting: replica
+  wal_log_hints setting: on
+  max_connections setting: 100
+  max_worker_processes setting: 8
+  max_wal_senders setting: 10
+  max_prepared_xacts setting: 0
+  max_locks_per_xact setting: 64
+  track_commit_timestamp setting: off
+  Maximum data alignment: 8
+  Database block size: 8192
+  Blocks per segment of large relation: 131072
+  WAL block size: 8192
+  Bytes per WAL segment: 16777216
+  Maximum length of identifiers: 64
+  Maximum columns in an index: 32
+  Maximum size of a TOAST chunk: 1996
+  Size of a large-object chunk: 2048
+  Date/time type storage: 64-bit integers
+  Float8 argument passing: by value
+  Data page checksum version: 1
+  Mock authentication nonce: 118cde6aba019b7de4893fa39aabf73aae9c1f7f396dd9233e6a660b5d03a83b
+
+2026-09-24 14:02:30,808 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:02:30,854 INFO: starting as a secondary
+2026-09-24 14:02:31,127 INFO: postmaster pid=178
+2026-09-24 14:02:40,313 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:02:40,358 INFO: failed to start postgres
+2026-09-24 14:02:50,806 WARNING: Postgresql is not running.
+2026-09-24 14:02:50,806 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:02:50,808 INFO: pg_controldata:
+  pg_control version number: 1700
+  Catalog version number: 202406281
+  Database system identifier: 7689097115364270107
+  Database cluster state: shut down in recovery
+  pg_control last modified: Thu Sep 24 13:57:29 2026
+  Latest checkpoint location: 0/7000028
+  Latest checkpoint's REDO location: 0/7000028
+  Latest checkpoint's REDO WAL file: 000000040000000000000007
+  Latest checkpoint's TimeLineID: 4
+  Latest checkpoint's PrevTimeLineID: 4
+  Latest checkpoint's full_page_writes: on
+  Latest checkpoint's NextXID: 0:752
+  Latest checkpoint's NextOID: 16389
+  Latest checkpoint's NextMultiXactId: 1
+  Latest checkpoint's NextMultiOffset: 0
+  Latest checkpoint's oldestXID: 731
+  Latest checkpoint's oldestXID's DB: 1
+  Latest checkpoint's oldestActiveXID: 0
+  Latest checkpoint's oldestMultiXid: 1
+  Latest checkpoint's oldestMulti's DB: 1
+  Latest checkpoint's oldestCommitTsXid: 0
+  Latest checkpoint's newestCommitTsXid: 0
+  Time of latest checkpoint: Thu Sep 24 13:57:17 2026
+  Fake LSN counter for unlogged rels: 0/3E8
+  Minimum recovery ending location: 0/70000A0
+  Min recovery ending loc's timeline: 4
+  Backup start location: 0/0
+  Backup end location: 0/0
+  End-of-backup record required: no
+  wal_level setting: replica
+  wal_log_hints setting: on
+  max_connections setting: 100
+  max_worker_processes setting: 8
+  max_wal_senders setting: 10
+  max_prepared_xacts setting: 0
+  max_locks_per_xact setting: 64
+  track_commit_timestamp setting: off
+  Maximum data alignment: 8
+  Database block size: 8192
+  Blocks per segment of large relation: 131072
+  WAL block size: 8192
+  Bytes per WAL segment: 16777216
+  Maximum length of identifiers: 64
+  Maximum columns in an index: 32
+  Maximum size of a TOAST chunk: 1996
+  Size of a large-object chunk: 2048
+  Date/time type storage: 64-bit integers
+  Float8 argument passing: by value
+  Data page checksum version: 1
+  Mock authentication nonce: 118cde6aba019b7de4893fa39aabf73aae9c1f7f396dd9233e6a660b5d03a83b
+
+2026-09-24 14:02:50,808 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:02:50,850 INFO: starting as a secondary
+2026-09-24 14:02:51,119 INFO: postmaster pid=189
+2026-09-24 14:03:00,314 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:03:00,362 INFO: failed to start postgres
+2026-09-24 14:03:10,806 WARNING: Postgresql is not running.
+2026-09-24 14:03:10,806 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:03:10,808 INFO: pg_controldata:
+  pg_control version number: 1700
+  Catalog version number: 202406281
+  Database system identifier: 7689097115364270107
+  Database cluster state: shut down in recovery
+  pg_control last modified: Thu Sep 24 13:57:29 2026
+  Latest checkpoint location: 0/7000028
+  Latest checkpoint's REDO location: 0/7000028
+  Latest checkpoint's REDO WAL file: 000000040000000000000007
+  Latest checkpoint's TimeLineID: 4
+  Latest checkpoint's PrevTimeLineID: 4
+  Latest checkpoint's full_page_writes: on
+  Latest checkpoint's NextXID: 0:752
+  Latest checkpoint's NextOID: 16389
+  Latest checkpoint's NextMultiXactId: 1
+  Latest checkpoint's NextMultiOffset: 0
+  Latest checkpoint's oldestXID: 731
+  Latest checkpoint's oldestXID's DB: 1
+  Latest checkpoint's oldestActiveXID: 0
+  Latest checkpoint's oldestMultiXid: 1
+  Latest checkpoint's oldestMulti's DB: 1
+  Latest checkpoint's oldestCommitTsXid: 0
+  Latest checkpoint's newestCommitTsXid: 0
+  Time of latest checkpoint: Thu Sep 24 13:57:17 2026
+  Fake LSN counter for unlogged rels: 0/3E8
+  Minimum recovery ending location: 0/70000A0
+  Min recovery ending loc's timeline: 4
+  Backup start location: 0/0
+  Backup end location: 0/0
+  End-of-backup record required: no
+  wal_level setting: replica
+  wal_log_hints setting: on
+  max_connections setting: 100
+  max_worker_processes setting: 8
+  max_wal_senders setting: 10
+  max_prepared_xacts setting: 0
+  max_locks_per_xact setting: 64
+  track_commit_timestamp setting: off
+  Maximum data alignment: 8
+  Database block size: 8192
+  Blocks per segment of large relation: 131072
+  WAL block size: 8192
+  Bytes per WAL segment: 16777216
+  Maximum length of identifiers: 64
+  Maximum columns in an index: 32
+  Maximum size of a TOAST chunk: 1996
+  Size of a large-object chunk: 2048
+  Date/time type storage: 64-bit integers
+  Float8 argument passing: by value
+  Data page checksum version: 1
+  Mock authentication nonce: 118cde6aba019b7de4893fa39aabf73aae9c1f7f396dd9233e6a660b5d03a83b
+
+2026-09-24 14:03:10,808 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:03:10,850 INFO: starting as a secondary
+2026-09-24 14:03:11,120 INFO: postmaster pid=198
+2026-09-24 14:03:20,313 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:03:20,358 INFO: failed to start postgres
+2026-09-24 14:03:30,806 WARNING: Postgresql is not running.
+2026-09-24 14:03:30,806 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:03:30,808 INFO: pg_controldata:
+  pg_control version number: 1700
+  Catalog version number: 202406281
+  Database system identifier: 7689097115364270107
+  Database cluster state: shut down in recovery
+  pg_control last modified: Thu Sep 24 13:57:29 2026
+  Latest checkpoint location: 0/7000028
+  Latest checkpoint's REDO location: 0/7000028
+  Latest checkpoint's REDO WAL file: 000000040000000000000007
+  Latest checkpoint's TimeLineID: 4
+  Latest checkpoint's PrevTimeLineID: 4
+  Latest checkpoint's full_page_writes: on
+  Latest checkpoint's NextXID: 0:752
+  Latest checkpoint's NextOID: 16389
+  Latest checkpoint's NextMultiXactId: 1
+  Latest checkpoint's NextMultiOffset: 0
+  Latest checkpoint's oldestXID: 731
+  Latest checkpoint's oldestXID's DB: 1
+  Latest checkpoint's oldestActiveXID: 0
+  Latest checkpoint's oldestMultiXid: 1
+  Latest checkpoint's oldestMulti's DB: 1
+  Latest checkpoint's oldestCommitTsXid: 0
+  Latest checkpoint's newestCommitTsXid: 0
+  Time of latest checkpoint: Thu Sep 24 13:57:17 2026
+  Fake LSN counter for unlogged rels: 0/3E8
+  Minimum recovery ending location: 0/70000A0
+  Min recovery ending loc's timeline: 4
+  Backup start location: 0/0
+  Backup end location: 0/0
+  End-of-backup record required: no
+  wal_level setting: replica
+  wal_log_hints setting: on
+  max_connections setting: 100
+  max_worker_processes setting: 8
+  max_wal_senders setting: 10
+  max_prepared_xacts setting: 0
+  max_locks_per_xact setting: 64
+  track_commit_timestamp setting: off
+  Maximum data alignment: 8
+  Database block size: 8192
+  Blocks per segment of large relation: 131072
+  WAL block size: 8192
+  Bytes per WAL segment: 16777216
+  Maximum length of identifiers: 64
+  Maximum columns in an index: 32
+  Maximum size of a TOAST chunk: 1996
+  Size of a large-object chunk: 2048
+  Date/time type storage: 64-bit integers
+  Float8 argument passing: by value
+  Data page checksum version: 1
+  Mock authentication nonce: 118cde6aba019b7de4893fa39aabf73aae9c1f7f396dd9233e6a660b5d03a83b
+
+2026-09-24 14:03:30,808 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:03:30,854 INFO: starting as a secondary
+2026-09-24 14:03:31,124 INFO: postmaster pid=205
+2026-09-24 14:03:40,312 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:03:40,354 INFO: failed to start postgres
+2026-09-24 14:03:50,806 WARNING: Postgresql is not running.
+2026-09-24 14:03:50,806 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:03:50,808 INFO: pg_controldata:
+  pg_control version number: 1700
+  Catalog version number: 202406281
+  Database system identifier: 7689097115364270107
+  Database cluster state: shut down in recovery
+  pg_control last modified: Thu Sep 24 13:57:29 2026
+  Latest checkpoint location: 0/7000028
+  Latest checkpoint's REDO location: 0/7000028
+  Latest checkpoint's REDO WAL file: 000000040000000000000007
+  Latest checkpoint's TimeLineID: 4
+  Latest checkpoint's PrevTimeLineID: 4
+  Latest checkpoint's full_page_writes: on
+  Latest checkpoint's NextXID: 0:752
+  Latest checkpoint's NextOID: 16389
+  Latest checkpoint's NextMultiXactId: 1
+  Latest checkpoint's NextMultiOffset: 0
+  Latest checkpoint's oldestXID: 731
+  Latest checkpoint's oldestXID's DB: 1
+  Latest checkpoint's oldestActiveXID: 0
+  Latest checkpoint's oldestMultiXid: 1
+  Latest checkpoint's oldestMulti's DB: 1
+  Latest checkpoint's oldestCommitTsXid: 0
+  Latest checkpoint's newestCommitTsXid: 0
+  Time of latest checkpoint: Thu Sep 24 13:57:17 2026
+  Fake LSN counter for unlogged rels: 0/3E8
+  Minimum recovery ending location: 0/70000A0
+  Min recovery ending loc's timeline: 4
+  Backup start location: 0/0
+  Backup end location: 0/0
+  End-of-backup record required: no
+  wal_level setting: replica
+  wal_log_hints setting: on
+  max_connections setting: 100
+  max_worker_processes setting: 8
+  max_wal_senders setting: 10
+  max_prepared_xacts setting: 0
+  max_locks_per_xact setting: 64
+  track_commit_timestamp setting: off
+  Maximum data alignment: 8
+  Database block size: 8192
+  Blocks per segment of large relation: 131072
+  WAL block size: 8192
+  Bytes per WAL segment: 16777216
+  Maximum length of identifiers: 64
+  Maximum columns in an index: 32
+  Maximum size of a TOAST chunk: 1996
+  Size of a large-object chunk: 2048
+  Date/time type storage: 64-bit integers
+  Float8 argument passing: by value
+  Data page checksum version: 1
+  Mock authentication nonce: 118cde6aba019b7de4893fa39aabf73aae9c1f7f396dd9233e6a660b5d03a83b
+
+2026-09-24 14:03:50,808 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:03:50,850 INFO: starting as a secondary
+2026-09-24 14:03:51,118 INFO: postmaster pid=212
+2026-09-24 14:04:00,313 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:04:00,358 INFO: failed to start postgres
+2026-09-24 14:04:10,805 WARNING: Postgresql is not running.
+2026-09-24 14:04:10,805 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:04:10,806 INFO: pg_controldata:
+  pg_control version number: 1700
+  Catalog version number: 202406281
+  Database system identifier: 7689097115364270107
+  Database cluster state: shut down in recovery
+  pg_control last modified: Thu Sep 24 13:57:29 2026
+  Latest checkpoint location: 0/7000028
+  Latest checkpoint's REDO location: 0/7000028
+  Latest checkpoint's REDO WAL file: 000000040000000000000007
+  Latest checkpoint's TimeLineID: 4
+  Latest checkpoint's PrevTimeLineID: 4
+  Latest checkpoint's full_page_writes: on
+  Latest checkpoint's NextXID: 0:752
+  Latest checkpoint's NextOID: 16389
+  Latest checkpoint's NextMultiXactId: 1
+  Latest checkpoint's NextMultiOffset: 0
+  Latest checkpoint's oldestXID: 731
+  Latest checkpoint's oldestXID's DB: 1
+  Latest checkpoint's oldestActiveXID: 0
+  Latest checkpoint's oldestMultiXid: 1
+  Latest checkpoint's oldestMulti's DB: 1
+  Latest checkpoint's oldestCommitTsXid: 0
+  Latest checkpoint's newestCommitTsXid: 0
+  Time of latest checkpoint: Thu Sep 24 13:57:17 2026
+  Fake LSN counter for unlogged rels: 0/3E8
+  Minimum recovery ending location: 0/70000A0
+  Min recovery ending loc's timeline: 4
+  Backup start location: 0/0
+  Backup end location: 0/0
+  End-of-backup record required: no
+  wal_level setting: replica
+  wal_log_hints setting: on
+  max_connections setting: 100
+  max_worker_processes setting: 8
+  max_wal_senders setting: 10
+  max_prepared_xacts setting: 0
+  max_locks_per_xact setting: 64
+  track_commit_timestamp setting: off
+  Maximum data alignment: 8
+  Database block size: 8192
+  Blocks per segment of large relation: 131072
+  WAL block size: 8192
+  Bytes per WAL segment: 16777216
+  Maximum length of identifiers: 64
+  Maximum columns in an index: 32
+  Maximum size of a TOAST chunk: 1996
+  Size of a large-object chunk: 2048
+  Date/time type storage: 64-bit integers
+  Float8 argument passing: by value
+  Data page checksum version: 1
+  Mock authentication nonce: 118cde6aba019b7de4893fa39aabf73aae9c1f7f396dd9233e6a660b5d03a83b
+
+2026-09-24 14:04:10,806 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:04:10,849 INFO: starting as a secondary
+2026-09-24 14:04:11,138 INFO: postmaster pid=219
+2026-09-24 14:04:20,312 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:04:20,354 INFO: failed to start postgres
+2026-09-24 14:04:30,806 WARNING: Postgresql is not running.
+2026-09-24 14:04:30,806 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:04:30,808 INFO: pg_controldata:
+  pg_control version number: 1700
+  Catalog version number: 202406281
+  Database system identifier: 7689097115364270107
+  Database cluster state: shut down in recovery
+  pg_control last modified: Thu Sep 24 13:57:29 2026
+  Latest checkpoint location: 0/7000028
+  Latest checkpoint's REDO location: 0/7000028
+  Latest checkpoint's REDO WAL file: 000000040000000000000007
+  Latest checkpoint's TimeLineID: 4
+  Latest checkpoint's PrevTimeLineID: 4
+  Latest checkpoint's full_page_writes: on
+  Latest checkpoint's NextXID: 0:752
+  Latest checkpoint's NextOID: 16389
+  Latest checkpoint's NextMultiXactId: 1
+  Latest checkpoint's NextMultiOffset: 0
+  Latest checkpoint's oldestXID: 731
+  Latest checkpoint's oldestXID's DB: 1
+  Latest checkpoint's oldestActiveXID: 0
+  Latest checkpoint's oldestMultiXid: 1
+  Latest checkpoint's oldestMulti's DB: 1
+  Latest checkpoint's oldestCommitTsXid: 0
+  Latest checkpoint's newestCommitTsXid: 0
+  Time of latest checkpoint: Thu Sep 24 13:57:17 2026
+  Fake LSN counter for unlogged rels: 0/3E8
+  Minimum recovery ending location: 0/70000A0
+  Min recovery ending loc's timeline: 4
+  Backup start location: 0/0
+  Backup end location: 0/0
+  End-of-backup record required: no
+  wal_level setting: replica
+  wal_log_hints setting: on
+  max_connections setting: 100
+  max_worker_processes setting: 8
+  max_wal_senders setting: 10
+  max_prepared_xacts setting: 0
+  max_locks_per_xact setting: 64
+  track_commit_timestamp setting: off
+  Maximum data alignment: 8
+  Database block size: 8192
+  Blocks per segment of large relation: 131072
+  WAL block size: 8192
+  Bytes per WAL segment: 16777216
+  Maximum length of identifiers: 64
+  Maximum columns in an index: 32
+  Maximum size of a TOAST chunk: 1996
+  Size of a large-object chunk: 2048
+  Date/time type storage: 64-bit integers
+  Float8 argument passing: by value
+  Data page checksum version: 1
+  Mock authentication nonce: 118cde6aba019b7de4893fa39aabf73aae9c1f7f396dd9233e6a660b5d03a83b
+
+2026-09-24 14:04:30,808 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:04:30,850 INFO: starting as a secondary
+2026-09-24 14:04:31,120 INFO: postmaster pid=226
+2026-09-24 14:04:40,312 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:04:40,358 INFO: failed to start postgres
+2026-09-24 14:04:50,806 WARNING: Postgresql is not running.
+2026-09-24 14:04:50,806 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:04:50,808 INFO: pg_controldata:
+  pg_control version number: 1700
+  Catalog version number: 202406281
+  Database system identifier: 7689097115364270107
+  Database cluster state: shut down in recovery
+  pg_control last modified: Thu Sep 24 13:57:29 2026
+  Latest checkpoint location: 0/7000028
+  Latest checkpoint's REDO location: 0/7000028
+  Latest checkpoint's REDO WAL file: 000000040000000000000007
+  Latest checkpoint's TimeLineID: 4
+  Latest checkpoint's PrevTimeLineID: 4
+  Latest checkpoint's full_page_writes: on
+  Latest checkpoint's NextXID: 0:752
+  Latest checkpoint's NextOID: 16389
+  Latest checkpoint's NextMultiXactId: 1
+  Latest checkpoint's NextMultiOffset: 0
+  Latest checkpoint's oldestXID: 731
+  Latest checkpoint's oldestXID's DB: 1
+  Latest checkpoint's oldestActiveXID: 0
+  Latest checkpoint's oldestMultiXid: 1
+  Latest checkpoint's oldestMulti's DB: 1
+  Latest checkpoint's oldestCommitTsXid: 0
+  Latest checkpoint's newestCommitTsXid: 0
+  Time of latest checkpoint: Thu Sep 24 13:57:17 2026
+  Fake LSN counter for unlogged rels: 0/3E8
+  Minimum recovery ending location: 0/70000A0
+  Min recovery ending loc's timeline: 4
+  Backup start location: 0/0
+  Backup end location: 0/0
+  End-of-backup record required: no
+  wal_level setting: replica
+  wal_log_hints setting: on
+  max_connections setting: 100
+  max_worker_processes setting: 8
+  max_wal_senders setting: 10
+  max_prepared_xacts setting: 0
+  max_locks_per_xact setting: 64
+  track_commit_timestamp setting: off
+  Maximum data alignment: 8
+  Database block size: 8192
+  Blocks per segment of large relation: 131072
+  WAL block size: 8192
+  Bytes per WAL segment: 16777216
+  Maximum length of identifiers: 64
+  Maximum columns in an index: 32
+  Maximum size of a TOAST chunk: 1996
+  Size of a large-object chunk: 2048
+  Date/time type storage: 64-bit integers
+  Float8 argument passing: by value
+  Data page checksum version: 1
+  Mock authentication nonce: 118cde6aba019b7de4893fa39aabf73aae9c1f7f396dd9233e6a660b5d03a83b
+
+2026-09-24 14:04:50,808 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:04:50,854 INFO: starting as a secondary
+2026-09-24 14:04:51,141 INFO: postmaster pid=233
+2026-09-24 14:05:00,313 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:05:00,358 INFO: failed to start postgres
+2026-09-24 14:05:10,806 WARNING: Postgresql is not running.
+2026-09-24 14:05:10,806 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:05:10,808 INFO: pg_controldata:
+  pg_control version number: 1700
+  Catalog version number: 202406281
+  Database system identifier: 7689097115364270107
+  Database cluster state: shut down in recovery
+  pg_control last modified: Thu Sep 24 13:57:29 2026
+  Latest checkpoint location: 0/7000028
+  Latest checkpoint's REDO location: 0/7000028
+  Latest checkpoint's REDO WAL file: 000000040000000000000007
+  Latest checkpoint's TimeLineID: 4
+  Latest checkpoint's PrevTimeLineID: 4
+  Latest checkpoint's full_page_writes: on
+  Latest checkpoint's NextXID: 0:752
+  Latest checkpoint's NextOID: 16389
+  Latest checkpoint's NextMultiXactId: 1
+  Latest checkpoint's NextMultiOffset: 0
+  Latest checkpoint's oldestXID: 731
+  Latest checkpoint's oldestXID's DB: 1
+  Latest checkpoint's oldestActiveXID: 0
+  Latest checkpoint's oldestMultiXid: 1
+  Latest checkpoint's oldestMulti's DB: 1
+  Latest checkpoint's oldestCommitTsXid: 0
+  Latest checkpoint's newestCommitTsXid: 0
+  Time of latest checkpoint: Thu Sep 24 13:57:17 2026
+  Fake LSN counter for unlogged rels: 0/3E8
+  Minimum recovery ending location: 0/70000A0
+  Min recovery ending loc's timeline: 4
+  Backup start location: 0/0
+  Backup end location: 0/0
+  End-of-backup record required: no
+  wal_level setting: replica
+  wal_log_hints setting: on
+  max_connections setting: 100
+  max_worker_processes setting: 8
+  max_wal_senders setting: 10
+  max_prepared_xacts setting: 0
+  max_locks_per_xact setting: 64
+  track_commit_timestamp setting: off
+  Maximum data alignment: 8
+  Database block size: 8192
+  Blocks per segment of large relation: 131072
+  WAL block size: 8192
+  Bytes per WAL segment: 16777216
+  Maximum length of identifiers: 64
+  Maximum columns in an index: 32
+  Maximum size of a TOAST chunk: 1996
+  Size of a large-object chunk: 2048
+  Date/time type storage: 64-bit integers
+  Float8 argument passing: by value
+  Data page checksum version: 1
+  Mock authentication nonce: 118cde6aba019b7de4893fa39aabf73aae9c1f7f396dd9233e6a660b5d03a83b
+
+2026-09-24 14:05:10,808 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:05:10,850 INFO: starting as a secondary
+2026-09-24 14:05:11,122 INFO: postmaster pid=240
+2026-09-24 14:05:12,125 ERROR: postmaster is not running
+2026-09-24 14:05:20,306 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:05:20,350 INFO: failed to start postgres
+2026-09-24 14:05:30,806 WARNING: Postgresql is not running.
+2026-09-24 14:05:30,806 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:05:30,808 INFO: pg_controldata:
+  pg_control version number: 1700
+  Catalog version number: 202406281
+  Database system identifier: 7689097115364270107
+  Database cluster state: shut down in recovery
+  pg_control last modified: Thu Sep 24 13:57:29 2026
+  Latest checkpoint location: 0/7000028
+  Latest checkpoint's REDO location: 0/7000028
+  Latest checkpoint's REDO WAL file: 000000040000000000000007
+  Latest checkpoint's TimeLineID: 4
+  Latest checkpoint's PrevTimeLineID: 4
+  Latest checkpoint's full_page_writes: on
+  Latest checkpoint's NextXID: 0:752
+  Latest checkpoint's NextOID: 16389
+  Latest checkpoint's NextMultiXactId: 1
+  Latest checkpoint's NextMultiOffset: 0
+  Latest checkpoint's oldestXID: 731
+  Latest checkpoint's oldestXID's DB: 1
+  Latest checkpoint's oldestActiveXID: 0
+  Latest checkpoint's oldestMultiXid: 1
+  Latest checkpoint's oldestMulti's DB: 1
+  Latest checkpoint's oldestCommitTsXid: 0
+  Latest checkpoint's newestCommitTsXid: 0
+  Time of latest checkpoint: Thu Sep 24 13:57:17 2026
+  Fake LSN counter for unlogged rels: 0/3E8
+  Minimum recovery ending location: 0/70000A0
+  Min recovery ending loc's timeline: 4
+  Backup start location: 0/0
+  Backup end location: 0/0
+  End-of-backup record required: no
+  wal_level setting: replica
+  wal_log_hints setting: on
+  max_connections setting: 100
+  max_worker_processes setting: 8
+  max_wal_senders setting: 10
+  max_prepared_xacts setting: 0
+  max_locks_per_xact setting: 64
+  track_commit_timestamp setting: off
+  Maximum data alignment: 8
+  Database block size: 8192
+  Blocks per segment of large relation: 131072
+  WAL block size: 8192
+  Bytes per WAL segment: 16777216
+  Maximum length of identifiers: 64
+  Maximum columns in an index: 32
+  Maximum size of a TOAST chunk: 1996
+  Size of a large-object chunk: 2048
+  Date/time type storage: 64-bit integers
+  Float8 argument passing: by value
+  Data page checksum version: 1
+  Mock authentication nonce: 118cde6aba019b7de4893fa39aabf73aae9c1f7f396dd9233e6a660b5d03a83b
+
+2026-09-24 14:05:30,808 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:05:30,854 INFO: starting as a secondary
+2026-09-24 14:05:31,137 INFO: postmaster pid=248
+2026-09-24 14:05:40,313 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:05:40,358 INFO: failed to start postgres
+2026-09-24 14:05:50,806 WARNING: Postgresql is not running.
+2026-09-24 14:05:50,806 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:05:50,808 INFO: pg_controldata:
+  pg_control version number: 1700
+  Catalog version number: 202406281
+  Database system identifier: 7689097115364270107
+  Database cluster state: shut down in recovery
+  pg_control last modified: Thu Sep 24 13:57:29 2026
+  Latest checkpoint location: 0/7000028
+  Latest checkpoint's REDO location: 0/7000028
+  Latest checkpoint's REDO WAL file: 000000040000000000000007
+  Latest checkpoint's TimeLineID: 4
+  Latest checkpoint's PrevTimeLineID: 4
+  Latest checkpoint's full_page_writes: on
+  Latest checkpoint's NextXID: 0:752
+  Latest checkpoint's NextOID: 16389
+  Latest checkpoint's NextMultiXactId: 1
+  Latest checkpoint's NextMultiOffset: 0
+  Latest checkpoint's oldestXID: 731
+  Latest checkpoint's oldestXID's DB: 1
+  Latest checkpoint's oldestActiveXID: 0
+  Latest checkpoint's oldestMultiXid: 1
+  Latest checkpoint's oldestMulti's DB: 1
+  Latest checkpoint's oldestCommitTsXid: 0
+  Latest checkpoint's newestCommitTsXid: 0
+  Time of latest checkpoint: Thu Sep 24 13:57:17 2026
+  Fake LSN counter for unlogged rels: 0/3E8
+  Minimum recovery ending location: 0/70000A0
+  Min recovery ending loc's timeline: 4
+  Backup start location: 0/0
+  Backup end location: 0/0
+  End-of-backup record required: no
+  wal_level setting: replica
+  wal_log_hints setting: on
+  max_connections setting: 100
+  max_worker_processes setting: 8
+  max_wal_senders setting: 10
+  max_prepared_xacts setting: 0
+  max_locks_per_xact setting: 64
+  track_commit_timestamp setting: off
+  Maximum data alignment: 8
+  Database block size: 8192
+  Blocks per segment of large relation: 131072
+  WAL block size: 8192
+  Bytes per WAL segment: 16777216
+  Maximum length of identifiers: 64
+  Maximum columns in an index: 32
+  Maximum size of a TOAST chunk: 1996
+  Size of a large-object chunk: 2048
+  Date/time type storage: 64-bit integers
+  Float8 argument passing: by value
+  Data page checksum version: 1
+  Mock authentication nonce: 118cde6aba019b7de4893fa39aabf73aae9c1f7f396dd9233e6a660b5d03a83b
+
+2026-09-24 14:05:50,808 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:05:50,850 INFO: starting as a secondary
+2026-09-24 14:05:51,119 INFO: postmaster pid=262
+2026-09-24 14:06:00,311 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:06:00,354 INFO: failed to start postgres
+2026-09-24 14:06:10,806 WARNING: Postgresql is not running.
+2026-09-24 14:06:10,806 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:06:10,808 INFO: pg_controldata:
+  pg_control version number: 1700
+  Catalog version number: 202406281
+  Database system identifier: 7689097115364270107
+  Database cluster state: shut down in recovery
+  pg_control last modified: Thu Sep 24 13:57:29 2026
+  Latest checkpoint location: 0/7000028
+  Latest checkpoint's REDO location: 0/7000028
+  Latest checkpoint's REDO WAL file: 000000040000000000000007
+  Latest checkpoint's TimeLineID: 4
+  Latest checkpoint's PrevTimeLineID: 4
+  Latest checkpoint's full_page_writes: on
+  Latest checkpoint's NextXID: 0:752
+  Latest checkpoint's NextOID: 16389
+  Latest checkpoint's NextMultiXactId: 1
+  Latest checkpoint's NextMultiOffset: 0
+  Latest checkpoint's oldestXID: 731
+  Latest checkpoint's oldestXID's DB: 1
+  Latest checkpoint's oldestActiveXID: 0
+  Latest checkpoint's oldestMultiXid: 1
+  Latest checkpoint's oldestMulti's DB: 1
+  Latest checkpoint's oldestCommitTsXid: 0
+  Latest checkpoint's newestCommitTsXid: 0
+  Time of latest checkpoint: Thu Sep 24 13:57:17 2026
+  Fake LSN counter for unlogged rels: 0/3E8
+  Minimum recovery ending location: 0/70000A0
+  Min recovery ending loc's timeline: 4
+  Backup start location: 0/0
+  Backup end location: 0/0
+  End-of-backup record required: no
+  wal_level setting: replica
+  wal_log_hints setting: on
+  max_connections setting: 100
+  max_worker_processes setting: 8
+  max_wal_senders setting: 10
+  max_prepared_xacts setting: 0
+  max_locks_per_xact setting: 64
+  track_commit_timestamp setting: off
+  Maximum data alignment: 8
+  Database block size: 8192
+  Blocks per segment of large relation: 131072
+  WAL block size: 8192
+  Bytes per WAL segment: 16777216
+  Maximum length of identifiers: 64
+  Maximum columns in an index: 32
+  Maximum size of a TOAST chunk: 1996
+  Size of a large-object chunk: 2048
+  Date/time type storage: 64-bit integers
+  Float8 argument passing: by value
+  Data page checksum version: 1
+  Mock authentication nonce: 118cde6aba019b7de4893fa39aabf73aae9c1f7f396dd9233e6a660b5d03a83b
+
+2026-09-24 14:06:10,808 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:06:10,850 INFO: starting as a secondary
+2026-09-24 14:06:11,125 INFO: postmaster pid=272
+2026-09-24 14:06:20,312 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:06:20,358 INFO: failed to start postgres
+2026-09-24 14:06:30,806 WARNING: Postgresql is not running.
+2026-09-24 14:06:30,806 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:06:30,808 INFO: pg_controldata:
+  pg_control version number: 1700
+  Catalog version number: 202406281
+  Database system identifier: 7689097115364270107
+  Database cluster state: shut down in recovery
+  pg_control last modified: Thu Sep 24 13:57:29 2026
+  Latest checkpoint location: 0/7000028
+  Latest checkpoint's REDO location: 0/7000028
+  Latest checkpoint's REDO WAL file: 000000040000000000000007
+  Latest checkpoint's TimeLineID: 4
+  Latest checkpoint's PrevTimeLineID: 4
+  Latest checkpoint's full_page_writes: on
+  Latest checkpoint's NextXID: 0:752
+  Latest checkpoint's NextOID: 16389
+  Latest checkpoint's NextMultiXactId: 1
+  Latest checkpoint's NextMultiOffset: 0
+  Latest checkpoint's oldestXID: 731
+  Latest checkpoint's oldestXID's DB: 1
+  Latest checkpoint's oldestActiveXID: 0
+  Latest checkpoint's oldestMultiXid: 1
+  Latest checkpoint's oldestMulti's DB: 1
+  Latest checkpoint's oldestCommitTsXid: 0
+  Latest checkpoint's newestCommitTsXid: 0
+  Time of latest checkpoint: Thu Sep 24 13:57:17 2026
+  Fake LSN counter for unlogged rels: 0/3E8
+  Minimum recovery ending location: 0/70000A0
+  Min recovery ending loc's timeline: 4
+  Backup start location: 0/0
+  Backup end location: 0/0
+  End-of-backup record required: no
+  wal_level setting: replica
+  wal_log_hints setting: on
+  max_connections setting: 100
+  max_worker_processes setting: 8
+  max_wal_senders setting: 10
+  max_prepared_xacts setting: 0
+  max_locks_per_xact setting: 64
+  track_commit_timestamp setting: off
+  Maximum data alignment: 8
+  Database block size: 8192
+  Blocks per segment of large relation: 131072
+  WAL block size: 8192
+  Bytes per WAL segment: 16777216
+  Maximum length of identifiers: 64
+  Maximum columns in an index: 32
+  Maximum size of a TOAST chunk: 1996
+  Size of a large-object chunk: 2048
+  Date/time type storage: 64-bit integers
+  Float8 argument passing: by value
+  Data page checksum version: 1
+  Mock authentication nonce: 118cde6aba019b7de4893fa39aabf73aae9c1f7f396dd9233e6a660b5d03a83b
+
+2026-09-24 14:06:30,808 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:06:30,850 INFO: starting as a secondary
+2026-09-24 14:06:31,121 INFO: postmaster pid=290
+2026-09-24 14:06:40,313 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:06:40,358 INFO: failed to start postgres
+2026-09-24 14:06:50,806 WARNING: Postgresql is not running.
+2026-09-24 14:06:50,806 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:06:50,808 INFO: pg_controldata:
+  pg_control version number: 1700
+  Catalog version number: 202406281
+  Database system identifier: 7689097115364270107
+  Database cluster state: shut down in recovery
+  pg_control last modified: Thu Sep 24 13:57:29 2026
+  Latest checkpoint location: 0/7000028
+  Latest checkpoint's REDO location: 0/7000028
+  Latest checkpoint's REDO WAL file: 000000040000000000000007
+  Latest checkpoint's TimeLineID: 4
+  Latest checkpoint's PrevTimeLineID: 4
+  Latest checkpoint's full_page_writes: on
+  Latest checkpoint's NextXID: 0:752
+  Latest checkpoint's NextOID: 16389
+  Latest checkpoint's NextMultiXactId: 1
+  Latest checkpoint's NextMultiOffset: 0
+  Latest checkpoint's oldestXID: 731
+  Latest checkpoint's oldestXID's DB: 1
+  Latest checkpoint's oldestActiveXID: 0
+  Latest checkpoint's oldestMultiXid: 1
+  Latest checkpoint's oldestMulti's DB: 1
+  Latest checkpoint's oldestCommitTsXid: 0
+  Latest checkpoint's newestCommitTsXid: 0
+  Time of latest checkpoint: Thu Sep 24 13:57:17 2026
+  Fake LSN counter for unlogged rels: 0/3E8
+  Minimum recovery ending location: 0/70000A0
+  Min recovery ending loc's timeline: 4
+  Backup start location: 0/0
+  Backup end location: 0/0
+  End-of-backup record required: no
+  wal_level setting: replica
+  wal_log_hints setting: on
+  max_connections setting: 100
+  max_worker_processes setting: 8
+  max_wal_senders setting: 10
+  max_prepared_xacts setting: 0
+  max_locks_per_xact setting: 64
+  track_commit_timestamp setting: off
+  Maximum data alignment: 8
+  Database block size: 8192
+  Blocks per segment of large relation: 131072
+  WAL block size: 8192
+  Bytes per WAL segment: 16777216
+  Maximum length of identifiers: 64
+  Maximum columns in an index: 32
+  Maximum size of a TOAST chunk: 1996
+  Size of a large-object chunk: 2048
+  Date/time type storage: 64-bit integers
+  Float8 argument passing: by value
+  Data page checksum version: 1
+  Mock authentication nonce: 118cde6aba019b7de4893fa39aabf73aae9c1f7f396dd9233e6a660b5d03a83b
+
+2026-09-24 14:06:50,808 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:06:50,850 INFO: starting as a secondary
+2026-09-24 14:06:51,120 INFO: postmaster pid=301
+2026-09-24 14:07:00,312 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:07:00,354 INFO: failed to start postgres
+2026-09-24 14:07:10,806 WARNING: Postgresql is not running.
+2026-09-24 14:07:10,806 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:07:10,808 INFO: pg_controldata:
+  pg_control version number: 1700
+  Catalog version number: 202406281
+  Database system identifier: 7689097115364270107
+  Database cluster state: shut down in recovery
+  pg_control last modified: Thu Sep 24 13:57:29 2026
+  Latest checkpoint location: 0/7000028
+  Latest checkpoint's REDO location: 0/7000028
+  Latest checkpoint's REDO WAL file: 000000040000000000000007
+  Latest checkpoint's TimeLineID: 4
+  Latest checkpoint's PrevTimeLineID: 4
+  Latest checkpoint's full_page_writes: on
+  Latest checkpoint's NextXID: 0:752
+  Latest checkpoint's NextOID: 16389
+  Latest checkpoint's NextMultiXactId: 1
+  Latest checkpoint's NextMultiOffset: 0
+  Latest checkpoint's oldestXID: 731
+  Latest checkpoint's oldestXID's DB: 1
+  Latest checkpoint's oldestActiveXID: 0
+  Latest checkpoint's oldestMultiXid: 1
+  Latest checkpoint's oldestMulti's DB: 1
+  Latest checkpoint's oldestCommitTsXid: 0
+  Latest checkpoint's newestCommitTsXid: 0
+  Time of latest checkpoint: Thu Sep 24 13:57:17 2026
+  Fake LSN counter for unlogged rels: 0/3E8
+  Minimum recovery ending location: 0/70000A0
+  Min recovery ending loc's timeline: 4
+  Backup start location: 0/0
+  Backup end location: 0/0
+  End-of-backup record required: no
+  wal_level setting: replica
+  wal_log_hints setting: on
+  max_connections setting: 100
+  max_worker_processes setting: 8
+  max_wal_senders setting: 10
+  max_prepared_xacts setting: 0
+  max_locks_per_xact setting: 64
+  track_commit_timestamp setting: off
+  Maximum data alignment: 8
+  Database block size: 8192
+  Blocks per segment of large relation: 131072
+  WAL block size: 8192
+  Bytes per WAL segment: 16777216
+  Maximum length of identifiers: 64
+  Maximum columns in an index: 32
+  Maximum size of a TOAST chunk: 1996
+  Size of a large-object chunk: 2048
+  Date/time type storage: 64-bit integers
+  Float8 argument passing: by value
+  Data page checksum version: 1
+  Mock authentication nonce: 118cde6aba019b7de4893fa39aabf73aae9c1f7f396dd9233e6a660b5d03a83b
+
+2026-09-24 14:07:10,808 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:07:10,854 INFO: starting as a secondary
+2026-09-24 14:07:11,124 INFO: postmaster pid=308
+2026-09-24 14:07:20,313 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:07:20,358 INFO: failed to start postgres
+2026-09-24 14:07:30,806 WARNING: Postgresql is not running.
+2026-09-24 14:07:30,806 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:07:30,807 INFO: pg_controldata:
+  pg_control version number: 1700
+  Catalog version number: 202406281
+  Database system identifier: 7689097115364270107
+  Database cluster state: shut down in recovery
+  pg_control last modified: Thu Sep 24 13:57:29 2026
+  Latest checkpoint location: 0/7000028
+  Latest checkpoint's REDO location: 0/7000028
+  Latest checkpoint's REDO WAL file: 000000040000000000000007
+  Latest checkpoint's TimeLineID: 4
+  Latest checkpoint's PrevTimeLineID: 4
+  Latest checkpoint's full_page_writes: on
+  Latest checkpoint's NextXID: 0:752
+  Latest checkpoint's NextOID: 16389
+  Latest checkpoint's NextMultiXactId: 1
+  Latest checkpoint's NextMultiOffset: 0
+  Latest checkpoint's oldestXID: 731
+  Latest checkpoint's oldestXID's DB: 1
+  Latest checkpoint's oldestActiveXID: 0
+  Latest checkpoint's oldestMultiXid: 1
+  Latest checkpoint's oldestMulti's DB: 1
+  Latest checkpoint's oldestCommitTsXid: 0
+  Latest checkpoint's newestCommitTsXid: 0
+  Time of latest checkpoint: Thu Sep 24 13:57:17 2026
+  Fake LSN counter for unlogged rels: 0/3E8
+  Minimum recovery ending location: 0/70000A0
+  Min recovery ending loc's timeline: 4
+  Backup start location: 0/0
+  Backup end location: 0/0
+  End-of-backup record required: no
+  wal_level setting: replica
+  wal_log_hints setting: on
+  max_connections setting: 100
+  max_worker_processes setting: 8
+  max_wal_senders setting: 10
+  max_prepared_xacts setting: 0
+  max_locks_per_xact setting: 64
+  track_commit_timestamp setting: off
+  Maximum data alignment: 8
+  Database block size: 8192
+  Blocks per segment of large relation: 131072
+  WAL block size: 8192
+  Bytes per WAL segment: 16777216
+  Maximum length of identifiers: 64
+  Maximum columns in an index: 32
+  Maximum size of a TOAST chunk: 1996
+  Size of a large-object chunk: 2048
+  Date/time type storage: 64-bit integers
+  Float8 argument passing: by value
+  Data page checksum version: 1
+  Mock authentication nonce: 118cde6aba019b7de4893fa39aabf73aae9c1f7f396dd9233e6a660b5d03a83b
+
+2026-09-24 14:07:30,808 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:07:30,894 INFO: starting as a secondary
+2026-09-24 14:07:31,161 INFO: postmaster pid=315
+2026-09-24 14:07:34,623 INFO: Removing data directory: /home/postgres/data
+2026-09-24 14:07:35,947 INFO: replica has been created using basebackup
+2026-09-24 14:07:35,948 INFO: bootstrapped from leader 'pg2'
+2026-09-24 14:07:36,216 INFO: postmaster pid=323
+2026-09-24 14:07:37,238 INFO: Lock owner: pg2; I am pg1
+2026-09-24 14:07:37,238 INFO: establishing a new patroni heartbeat connection to postgres
+2026-09-24 14:07:37,264 INFO: Local timeline=5 lsn=0/8000000
+2026-09-24 14:07:37,284 INFO: primary_timeline=5
+2026-09-24 14:07:37,400 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 14:07:42,498 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 14:07:52,544 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 14:08:03,002 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 14:08:12,998 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 14:08:22,998 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 14:08:32,998 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 14:08:42,998 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 14:08:52,997 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 14:09:02,998 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 14:09:12,998 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 14:09:22,998 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 14:09:32,996 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 14:09:43,002 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 14:09:52,998 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 14:10:02,998 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)
+2026-09-24 14:10:12,993 INFO: no action. I am (pg1), a secondary, and following a leader (pg2)

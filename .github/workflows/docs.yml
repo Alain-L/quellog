@@ -36,7 +36,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.24'
+          go-version: '1.25'
 
       - name: Install TinyGo
         run: |
@@ -70,7 +70,7 @@ jobs:
           VERSION="v${VERSION:-0.0.0}"
           go generate ./web/...
           sed -i "s/var version = \".*\"/var version = \"$VERSION\"/" web/wasm/main.go
-          tinygo build -o web/quellog_tiny.wasm -target wasm -gc=leaking -no-debug ./web/wasm/main.go
+          tinygo build -o web/quellog_tiny.wasm -target wasm -gc=leaking -opt=2 -no-debug ./web/wasm/main.go
           git checkout web/wasm/main.go
           ls -la web/quellog_tiny.wasm
 

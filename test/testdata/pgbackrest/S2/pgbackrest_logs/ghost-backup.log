@@ -1,0 +1,10 @@
+-------------------PROCESS START-------------------
+2026-10-10 13:31:54.905 P00   INFO: backup command begin 2.59.3: --exec-id=201-4ae50f22 --log-level-file=info --pg1-path=/var/lib/pg/main --pg1-port=5432 --repo1-path=/var/lib/pgbackrest/repo1 --stanza=ghost --start-fast
+2026-10-10 13:31:54.905 P00   WARN: option 'repo1-retention-full' is not set for 'repo1-retention-full-type=count', the repository may run out of space
+                                    HINT: to retain full backups indefinitely (without warning), set option 'repo1-retention-full' to the maximum.
+2026-10-10 13:31:54.908 P00  ERROR: [055]: unable to load info file '/var/lib/pgbackrest/repo1/backup/ghost/backup.info' or '/var/lib/pgbackrest/repo1/backup/ghost/backup.info.copy':
+                                    FileMissingError: unable to open missing file '/var/lib/pgbackrest/repo1/backup/ghost/backup.info' for read
+                                    FileMissingError: unable to open missing file '/var/lib/pgbackrest/repo1/backup/ghost/backup.info.copy' for read
+                                    HINT: backup.info cannot be opened and is required to perform a backup.
+                                    HINT: has a stanza-create been performed?
+2026-10-10 13:31:54.908 P00   INFO: backup command end: aborted with exception [055]

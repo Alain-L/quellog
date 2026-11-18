@@ -390,3 +390,42 @@ export function buildNoDataMessage(hint) {
         </div>
     `;
 }
+
+// TOP_N is how many rows a ranked bar list shows before collapsing the
+// rest into the report's "… and N more" line: ten rows adding up to 12%
+// read as the whole truth unless the cut is stated.
+const TOP_N = 10;
+
+// barList renders name→count rows as the report's shared bar list
+// (.scroll-list / .list-item / .bar-fill). `rows` is an array of
+// [name, count]; zero counts are dropped. With `ordered` the rows keep
+// their order and are all shown; otherwise they are ranked by count,
+// clipped to TOP_N, and the clipped tail is declared under the list.
+export function barList(title, rows, total, ordered) {
+    let hidden = 0;
+    rows = rows.filter(([, c]) => c > 0);
+    if (!ordered) {
+        const ranked = rows.slice().sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+        hidden = Math.max(0, ranked.length - TOP_N);
+        rows = ranked.slice(0, TOP_N);
+    }
+    if (rows.length === 0) return '';
+    const max = Math.max(1, ...rows.map(([, c]) => c));
+    return `
+        <div>
+            ${title ? `<div class="subsection-title">${esc(title)}</div>` : ''}
+            <div class="scroll-list">
+                ${rows.map(([name, count]) => {
+                    const pct = total > 0 ? (count / total * 100).toFixed(1) : '0.0';
+                    return `
+                    <div class="list-item">
+                        <span class="name">${esc(name)}</span>
+                        <div class="bar-container"><div class="bar"><div class="bar-fill" style="width: ${count / max * 100}%"></div></div></div>
+                        <span class="value">${fmt(count)} <small style="color: var(--text-muted)">(${pct}%)</small></span>
+                    </div>`;
+                }).join('')}
+                ${hidden > 0 ? `<div class="list-item" style="color: var(--text-muted); font-size: 11px;">… and ${fmt(hidden)} more</div>` : ''}
+            </div>
+        </div>
+    `;
+}

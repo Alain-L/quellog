@@ -7,7 +7,7 @@ import (
 )
 
 // ParseFromReader parses log content from an io.Reader using the specified format.
-// Supported formats: "csv", "json", "stderr"
+// Supported formats: "csv", "json", "stderr", "patroni"
 // Returns error if format is unknown.
 func ParseFromReader(r io.Reader, format string, out chan<- []LogEntry) error {
 	switch format {
@@ -20,19 +20,29 @@ func ParseFromReader(r io.Reader, format string, out chan<- []LogEntry) error {
 	case "stderr", "log":
 		p := &StderrParser{}
 		return p.parseReader(r, out)
+	case "patroni":
+		skipped, err := (&PatroniParser{}).parseReader(r, out)
+		warnSkippedPatroni("", skipped)
+		return err
 	default:
 		return ErrUnknownFormat
 	}
 }
 
 // DetectFormatFromContent detects the log format from content sample.
-// Returns "csv", "json", "stderr", or empty string if unknown.
+// Returns "patroni", "csv", "json", "pgbouncer", "stderr", or empty string
+// if unknown. pgBouncer is tested before stderr: its records share the
+// timestamp and PID shape, so isLogContent would claim them.
 func DetectFormatFromContent(sample string) string {
 	switch {
+	case looksLikePatroni(sample):
+		return "patroni"
 	case isCSVContent(sample):
 		return "csv"
 	case isJSONContent(sample):
 		return "json"
+	case looksLikePgBouncer(sample):
+		return "pgbouncer"
 	case isLogContent(sample):
 		return "stderr"
 	default:

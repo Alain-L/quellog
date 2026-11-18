@@ -1,0 +1,372 @@
+2026-09-20 13:39:27.855 CEST [13942] LOG kernel file descriptor limit: 1024 (hard: 524288); max_client_conn: 200, max expected fd use: 292
+2026-09-20 13:39:27.855 CEST [13942] LOG listening on 127.0.0.1:6432
+2026-09-20 13:39:27.855 CEST [13942] LOG process up: PgBouncer 1.18.0, libevent 2.1.13-stable (epoll), adns: evdns2, tls: OpenSSL 3.5.7 9 Jun 2026
+2026-09-20 13:39:47.855 CEST [13942] LOG stats: 0 xacts/s, 0 queries/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-20 13:40:03.346 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:36842 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.348 CEST [13942] LOG S-0x55db1adeb3b0: benchdb/bench@127.0.0.1:5544 new connection to server (from 127.0.0.1:53670)
+2026-09-20 13:40:03.358 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:36842 closing because: client close request (age=0s)
+2026-09-20 13:40:03.358 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:36858 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.358 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:36868 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.358 CEST [13942] LOG S-0x55db1adeb610: benchdb/bench@127.0.0.1:5544 new connection to server (from 127.0.0.1:53682)
+2026-09-20 13:40:03.358 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:36878 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.358 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:36888 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.364 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:36858 closing because: client close request (age=0s)
+2026-09-20 13:40:03.364 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:36892 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.365 CEST [13942] LOG S-0x55db1adeb870: benchdb/bench@127.0.0.1:5544 new connection to server (from 127.0.0.1:53696)
+2026-09-20 13:40:03.365 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:36868 closing because: client close request (age=0s)
+2026-09-20 13:40:03.365 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:36904 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.371 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:36888 closing because: client close request (age=0s)
+2026-09-20 13:40:03.371 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:36918 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.371 CEST [13942] LOG S-0x55db1adebad0: benchdb/bench@127.0.0.1:5544 new connection to server (from 127.0.0.1:53706)
+2026-09-20 13:40:03.372 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:36878 closing because: client close request (age=0s)
+2026-09-20 13:40:03.372 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:36920 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.372 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:36892 closing because: client close request (age=0s)
+2026-09-20 13:40:03.377 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:36934 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.377 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:36918 closing because: client close request (age=0s)
+2026-09-20 13:40:03.377 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:36946 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.378 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:36904 closing because: client close request (age=0s)
+2026-09-20 13:40:03.378 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:36962 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.378 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:36920 closing because: client close request (age=0s)
+2026-09-20 13:40:03.378 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:36966 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.379 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:36934 closing because: client close request (age=0s)
+2026-09-20 13:40:03.379 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:36982 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.379 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:36946 closing because: client close request (age=0s)
+2026-09-20 13:40:03.379 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:36994 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.380 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:36966 closing because: client close request (age=0s)
+2026-09-20 13:40:03.380 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:36998 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.380 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:36962 closing because: client close request (age=0s)
+2026-09-20 13:40:03.380 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:37004 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.381 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:36998 closing because: client close request (age=0s)
+2026-09-20 13:40:03.381 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:37010 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.381 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:36982 closing because: client close request (age=0s)
+2026-09-20 13:40:03.381 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:37018 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.382 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:37004 closing because: client close request (age=0s)
+2026-09-20 13:40:03.382 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:37026 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.382 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:36994 closing because: client close request (age=0s)
+2026-09-20 13:40:03.382 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:37010 closing because: client close request (age=0s)
+2026-09-20 13:40:03.382 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:37038 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.382 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:37052 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.383 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:37026 closing because: client close request (age=0s)
+2026-09-20 13:40:03.383 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:37062 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.383 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:37038 closing because: client close request (age=0s)
+2026-09-20 13:40:03.383 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:37076 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.384 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:37018 closing because: client close request (age=0s)
+2026-09-20 13:40:03.384 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:37082 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.384 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:37062 closing because: client close request (age=0s)
+2026-09-20 13:40:03.384 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:37096 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.385 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:37052 closing because: client close request (age=0s)
+2026-09-20 13:40:03.385 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:37076 closing because: client close request (age=0s)
+2026-09-20 13:40:03.385 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:37104 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.385 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:37120 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.385 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:37096 closing because: client close request (age=0s)
+2026-09-20 13:40:03.386 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:37128 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.386 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:37104 closing because: client close request (age=0s)
+2026-09-20 13:40:03.386 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:37082 closing because: client close request (age=0s)
+2026-09-20 13:40:03.386 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:37120 closing because: client close request (age=0s)
+2026-09-20 13:40:03.386 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:37144 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.386 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:37152 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.386 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:37164 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.387 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:37128 closing because: client close request (age=0s)
+2026-09-20 13:40:03.387 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:37174 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.387 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:37164 closing because: client close request (age=0s)
+2026-09-20 13:40:03.388 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:37184 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.388 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:37152 closing because: client close request (age=0s)
+2026-09-20 13:40:03.388 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:37144 closing because: client close request (age=0s)
+2026-09-20 13:40:03.388 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:37186 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.388 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:37196 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.389 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:37174 closing because: client close request (age=0s)
+2026-09-20 13:40:03.389 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:37206 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.389 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:37186 closing because: client close request (age=0s)
+2026-09-20 13:40:03.389 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:37208 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.389 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:37184 closing because: client close request (age=0s)
+2026-09-20 13:40:03.390 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:37216 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.390 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:37206 closing because: client close request (age=0s)
+2026-09-20 13:40:03.390 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:37226 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.390 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:37196 closing because: client close request (age=0s)
+2026-09-20 13:40:03.391 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:37230 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.391 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:37216 closing because: client close request (age=0s)
+2026-09-20 13:40:03.391 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:37236 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.391 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:37226 closing because: client close request (age=0s)
+2026-09-20 13:40:03.391 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:37208 closing because: client close request (age=0s)
+2026-09-20 13:40:03.392 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:37244 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.392 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:37242 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.392 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:37236 closing because: client close request (age=0s)
+2026-09-20 13:40:03.392 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:37262 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.393 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:37244 closing because: client close request (age=0s)
+2026-09-20 13:40:03.393 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:37230 closing because: client close request (age=0s)
+2026-09-20 13:40:03.393 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:37274 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.393 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:37284 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.394 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:37242 closing because: client close request (age=0s)
+2026-09-20 13:40:03.394 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:37296 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.395 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:37284 closing because: client close request (age=0s)
+2026-09-20 13:40:03.395 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:37274 closing because: client close request (age=0s)
+2026-09-20 13:40:03.395 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:37312 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.395 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:37316 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.396 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:37296 closing because: client close request (age=0s)
+2026-09-20 13:40:03.396 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:37262 closing because: client close request (age=0s)
+2026-09-20 13:40:03.396 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:37326 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.396 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:37330 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.397 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:37312 closing because: client close request (age=0s)
+2026-09-20 13:40:03.397 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:37338 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.397 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:37316 closing because: client close request (age=0s)
+2026-09-20 13:40:03.397 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:37326 closing because: client close request (age=0s)
+2026-09-20 13:40:03.398 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:37354 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.398 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:37352 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.398 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:37330 closing because: client close request (age=0s)
+2026-09-20 13:40:03.398 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:37378 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.398 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:37338 closing because: client close request (age=0s)
+2026-09-20 13:40:03.398 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:37380 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.399 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:37352 closing because: client close request (age=0s)
+2026-09-20 13:40:03.399 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:37386 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.400 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:37354 closing because: client close request (age=0s)
+2026-09-20 13:40:03.400 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:37390 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.400 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:37380 closing because: client close request (age=0s)
+2026-09-20 13:40:03.400 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:37404 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.401 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:37378 closing because: client close request (age=0s)
+2026-09-20 13:40:03.401 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:37406 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.401 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:37386 closing because: client close request (age=0s)
+2026-09-20 13:40:03.401 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:37390 closing because: client close request (age=0s)
+2026-09-20 13:40:03.401 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:37418 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.401 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:37420 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.402 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:37404 closing because: client close request (age=0s)
+2026-09-20 13:40:03.402 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:37434 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.403 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:37406 closing because: client close request (age=0s)
+2026-09-20 13:40:03.403 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:37440 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.403 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:37420 closing because: client close request (age=0s)
+2026-09-20 13:40:03.403 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:37418 closing because: client close request (age=0s)
+2026-09-20 13:40:03.403 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:37456 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.403 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:37466 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.404 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:37434 closing because: client close request (age=0s)
+2026-09-20 13:40:03.404 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:37468 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.405 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:37440 closing because: client close request (age=0s)
+2026-09-20 13:40:03.405 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:37466 closing because: client close request (age=0s)
+2026-09-20 13:40:03.405 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:37474 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.405 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:37480 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.405 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:37456 closing because: client close request (age=0s)
+2026-09-20 13:40:03.405 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:37490 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.406 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:37480 closing because: client close request (age=0s)
+2026-09-20 13:40:03.406 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:37504 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.407 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:37474 closing because: client close request (age=0s)
+2026-09-20 13:40:03.407 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:37468 closing because: client close request (age=0s)
+2026-09-20 13:40:03.407 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:37512 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.407 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:37528 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.407 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:37490 closing because: client close request (age=0s)
+2026-09-20 13:40:03.407 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:37532 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.408 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:37504 closing because: client close request (age=0s)
+2026-09-20 13:40:03.408 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:37548 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.408 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:37528 closing because: client close request (age=0s)
+2026-09-20 13:40:03.408 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:37554 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.409 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:37512 closing because: client close request (age=0s)
+2026-09-20 13:40:03.409 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:37564 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.409 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:37532 closing because: client close request (age=0s)
+2026-09-20 13:40:03.409 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:37566 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.409 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:37548 closing because: client close request (age=0s)
+2026-09-20 13:40:03.409 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:37574 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.411 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:37554 closing because: client close request (age=0s)
+2026-09-20 13:40:03.411 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:37590 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.411 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:37564 closing because: client close request (age=0s)
+2026-09-20 13:40:03.411 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:37574 closing because: client close request (age=0s)
+2026-09-20 13:40:03.412 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:37594 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.412 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:37606 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.412 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:37566 closing because: client close request (age=0s)
+2026-09-20 13:40:03.412 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:37612 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.412 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:37590 closing because: client close request (age=0s)
+2026-09-20 13:40:03.412 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:37624 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.413 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:37606 closing because: client close request (age=0s)
+2026-09-20 13:40:03.413 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:37636 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.413 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:37594 closing because: client close request (age=0s)
+2026-09-20 13:40:03.413 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:37648 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.414 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:37612 closing because: client close request (age=0s)
+2026-09-20 13:40:03.414 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:37624 closing because: client close request (age=0s)
+2026-09-20 13:40:03.414 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:37656 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.414 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:37668 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.415 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:37636 closing because: client close request (age=0s)
+2026-09-20 13:40:03.415 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:37684 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.415 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:37668 closing because: client close request (age=0s)
+2026-09-20 13:40:03.415 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:37686 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.415 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:37648 closing because: client close request (age=0s)
+2026-09-20 13:40:03.416 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:37700 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.416 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:37684 closing because: client close request (age=0s)
+2026-09-20 13:40:03.416 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:37716 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.416 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:37686 closing because: client close request (age=0s)
+2026-09-20 13:40:03.416 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:37656 closing because: client close request (age=0s)
+2026-09-20 13:40:03.417 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:37720 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.417 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:37728 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.417 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:37700 closing because: client close request (age=0s)
+2026-09-20 13:40:03.417 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:37740 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.417 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:37716 closing because: client close request (age=0s)
+2026-09-20 13:40:03.417 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:37756 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.418 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:37720 closing because: client close request (age=0s)
+2026-09-20 13:40:03.418 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:37760 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.418 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:37728 closing because: client close request (age=0s)
+2026-09-20 13:40:03.418 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:37740 closing because: client close request (age=0s)
+2026-09-20 13:40:03.419 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:37764 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.419 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:37770 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.419 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:37756 closing because: client close request (age=0s)
+2026-09-20 13:40:03.419 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:37774 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.419 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:37760 closing because: client close request (age=0s)
+2026-09-20 13:40:03.419 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:37782 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.420 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:37764 closing because: client close request (age=0s)
+2026-09-20 13:40:03.420 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:37798 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.420 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:37774 closing because: client close request (age=0s)
+2026-09-20 13:40:03.420 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:37770 closing because: client close request (age=0s)
+2026-09-20 13:40:03.420 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:37810 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.420 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:37818 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.421 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:37782 closing because: client close request (age=0s)
+2026-09-20 13:40:03.421 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:37824 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.421 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:37798 closing because: client close request (age=0s)
+2026-09-20 13:40:03.422 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:37834 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.422 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:37810 closing because: client close request (age=0s)
+2026-09-20 13:40:03.422 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:37836 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.422 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:37824 closing because: client close request (age=0s)
+2026-09-20 13:40:03.422 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:37850 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.423 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:37834 closing because: client close request (age=0s)
+2026-09-20 13:40:03.423 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:37818 closing because: client close request (age=0s)
+2026-09-20 13:40:03.423 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:37852 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.423 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:37862 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.423 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:37836 closing because: client close request (age=0s)
+2026-09-20 13:40:03.423 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:37866 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.424 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:37850 closing because: client close request (age=0s)
+2026-09-20 13:40:03.424 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:37880 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.424 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:37862 closing because: client close request (age=0s)
+2026-09-20 13:40:03.424 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:37894 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.425 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:37866 closing because: client close request (age=0s)
+2026-09-20 13:40:03.425 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:37852 closing because: client close request (age=0s)
+2026-09-20 13:40:03.425 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:37898 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.425 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:37902 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.425 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:37880 closing because: client close request (age=0s)
+2026-09-20 13:40:03.425 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:37912 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.426 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:37894 closing because: client close request (age=0s)
+2026-09-20 13:40:03.426 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:37914 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.426 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:37898 closing because: client close request (age=0s)
+2026-09-20 13:40:03.426 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:37902 closing because: client close request (age=0s)
+2026-09-20 13:40:03.426 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:37918 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.426 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:37928 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.427 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:37912 closing because: client close request (age=0s)
+2026-09-20 13:40:03.427 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:37936 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.427 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:37914 closing because: client close request (age=0s)
+2026-09-20 13:40:03.427 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:37940 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.428 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:37928 closing because: client close request (age=0s)
+2026-09-20 13:40:03.428 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:37918 closing because: client close request (age=0s)
+2026-09-20 13:40:03.428 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:37954 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.428 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:37970 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.428 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:37936 closing because: client close request (age=0s)
+2026-09-20 13:40:03.428 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:37976 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.429 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:37940 closing because: client close request (age=0s)
+2026-09-20 13:40:03.429 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:37992 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.429 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:37954 closing because: client close request (age=0s)
+2026-09-20 13:40:03.429 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:37970 closing because: client close request (age=0s)
+2026-09-20 13:40:03.429 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:38010 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.429 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:38000 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.429 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:37976 closing because: client close request (age=0s)
+2026-09-20 13:40:03.430 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:38018 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.430 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:37992 closing because: client close request (age=0s)
+2026-09-20 13:40:03.430 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:38034 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.430 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:38000 closing because: client close request (age=0s)
+2026-09-20 13:40:03.431 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:38048 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.431 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:38010 closing because: client close request (age=0s)
+2026-09-20 13:40:03.431 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:38052 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.431 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:38034 closing because: client close request (age=0s)
+2026-09-20 13:40:03.431 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:38060 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.432 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:38018 closing because: client close request (age=0s)
+2026-09-20 13:40:03.432 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:38070 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.432 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:38048 closing because: client close request (age=0s)
+2026-09-20 13:40:03.432 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:38052 closing because: client close request (age=0s)
+2026-09-20 13:40:03.432 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:38074 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.432 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:38084 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.433 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:38060 closing because: client close request (age=0s)
+2026-09-20 13:40:03.433 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:38094 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.434 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:38084 closing because: client close request (age=0s)
+2026-09-20 13:40:03.434 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:38074 closing because: client close request (age=0s)
+2026-09-20 13:40:03.434 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:38110 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.434 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:38114 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.434 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:38070 closing because: client close request (age=0s)
+2026-09-20 13:40:03.434 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:38128 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.434 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:38094 closing because: client close request (age=0s)
+2026-09-20 13:40:03.435 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:38136 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.435 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:38110 closing because: client close request (age=0s)
+2026-09-20 13:40:03.435 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:38138 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.435 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:38128 closing because: client close request (age=0s)
+2026-09-20 13:40:03.435 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:38152 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.436 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:38114 closing because: client close request (age=0s)
+2026-09-20 13:40:03.436 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:38164 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.436 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:38136 closing because: client close request (age=0s)
+2026-09-20 13:40:03.436 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:38170 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.437 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:38152 closing because: client close request (age=0s)
+2026-09-20 13:40:03.437 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:38176 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.437 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:38164 closing because: client close request (age=0s)
+2026-09-20 13:40:03.437 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:38138 closing because: client close request (age=0s)
+2026-09-20 13:40:03.437 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:38180 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.437 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:38184 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.438 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:38176 closing because: client close request (age=0s)
+2026-09-20 13:40:03.438 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:38200 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.439 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:38180 closing because: client close request (age=0s)
+2026-09-20 13:40:03.439 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:38170 closing because: client close request (age=0s)
+2026-09-20 13:40:03.439 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:38204 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.439 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:38218 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.439 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:38184 closing because: client close request (age=0s)
+2026-09-20 13:40:03.439 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:38228 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.439 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:38200 closing because: client close request (age=0s)
+2026-09-20 13:40:03.440 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:38234 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.440 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:38218 closing because: client close request (age=0s)
+2026-09-20 13:40:03.440 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:38204 closing because: client close request (age=0s)
+2026-09-20 13:40:03.440 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:38252 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.440 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:38242 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.444 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:38228 closing because: client close request (age=0s)
+2026-09-20 13:40:03.444 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:38260 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.445 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:38234 closing because: client close request (age=0s)
+2026-09-20 13:40:03.445 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:38242 closing because: client close request (age=0s)
+2026-09-20 13:40:03.445 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:38270 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.445 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:38280 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.445 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:38252 closing because: client close request (age=0s)
+2026-09-20 13:40:03.446 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:38294 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.446 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:38280 closing because: client close request (age=0s)
+2026-09-20 13:40:03.446 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:38308 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.446 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:38260 closing because: client close request (age=0s)
+2026-09-20 13:40:03.447 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:38320 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.447 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:38270 closing because: client close request (age=0s)
+2026-09-20 13:40:03.447 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:38330 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.448 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:38320 closing because: client close request (age=0s)
+2026-09-20 13:40:03.448 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:38342 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.448 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:38294 closing because: client close request (age=0s)
+2026-09-20 13:40:03.448 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:38344 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.449 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:38330 closing because: client close request (age=0s)
+2026-09-20 13:40:03.449 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:38354 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.449 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:38342 closing because: client close request (age=0s)
+2026-09-20 13:40:03.449 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:38308 closing because: client close request (age=0s)
+2026-09-20 13:40:03.449 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:38368 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.449 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:38382 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.450 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:38344 closing because: client close request (age=0s)
+2026-09-20 13:40:03.450 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:38392 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.450 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:38354 closing because: client close request (age=0s)
+2026-09-20 13:40:03.450 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:38396 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.451 CEST [13942] LOG C-0x55db1ade4330: benchdb/bench@127.0.0.1:38368 closing because: client close request (age=0s)
+2026-09-20 13:40:03.451 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:38382 closing because: client close request (age=0s)
+2026-09-20 13:40:03.451 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:38410 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.452 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:38396 closing because: client close request (age=0s)
+2026-09-20 13:40:03.452 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:38392 closing because: client close request (age=0s)
+2026-09-20 13:40:03.452 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:38416 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.452 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:38422 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.453 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:38410 closing because: client close request (age=0s)
+2026-09-20 13:40:03.453 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:38436 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.453 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:38422 closing because: client close request (age=0s)
+2026-09-20 13:40:03.453 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:38446 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.454 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:38416 closing because: client close request (age=0s)
+2026-09-20 13:40:03.454 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:38462 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.454 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:38436 closing because: client close request (age=0s)
+2026-09-20 13:40:03.454 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:38478 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.455 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:38462 closing because: client close request (age=0s)
+2026-09-20 13:40:03.455 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:38492 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.455 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:38478 closing because: client close request (age=0s)
+2026-09-20 13:40:03.455 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:38502 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.455 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:38446 closing because: client close request (age=0s)
+2026-09-20 13:40:03.456 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:38516 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.456 CEST [13942] LOG C-0x55db1ade3e70: benchdb/bench@127.0.0.1:38492 closing because: client close request (age=0s)
+2026-09-20 13:40:03.457 CEST [13942] LOG C-0x55db1ade40d0: benchdb/bench@127.0.0.1:38502 closing because: client close request (age=0s)
+2026-09-20 13:40:03.457 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:38516 closing because: client close request (age=0s)
+2026-09-20 13:40:03.457 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:38528 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.458 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:38528 closing because: client close request (age=0s)
+2026-09-20 13:40:03.458 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:38538 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.459 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:38538 closing because: client close request (age=0s)
+2026-09-20 13:40:04.480 CEST [13942] LOG C-0x55db1ade3c10: pgbouncer/admin@127.0.0.1:38550 login attempt: db=pgbouncer user=admin tls=no
+2026-09-20 13:40:04.481 CEST [13942] LOG SHUTDOWN command issued

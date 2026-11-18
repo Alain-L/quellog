@@ -42,6 +42,11 @@ var (
 	sqlDetailFlag      []string // --sql-detail: Show details for specific SQL IDs
 	eventDetailFlag    []string // --event-detail: Show details for specific event pattern IDs (e.g. wa-aBc1)
 
+	// pgBackRest report flag
+	pgbackrestDetailFlag string // --pgbackrest-detail: detailed pgBackRest report, of every stanza ("*") or of one
+	patroniDetailFlag    bool   // --patroni-detail: detailed Patroni report
+	pgbouncerDetailFlag  bool   // --pgbouncer-detail: detailed pgBouncer report
+
 	// Section selection flags (print only specific sections)
 	summaryFlag     bool // --summary: Print only summary section
 	eventsFlag      bool // --events: Print only events section
@@ -199,6 +204,17 @@ func init() {
 		"Show details for specific SQL ID(s). Can be specified multiple times")
 	rootCmd.PersistentFlags().StringSliceVarP(&eventDetailFlag, "event-detail", "E", nil,
 		"Show details for specific event pattern ID(s) (e.g. wa-aBc1, er-Qr5p). Can be specified multiple times")
+
+	// pgBackRest report flag. Without a value it covers every stanza; a
+	// stanza is given with "=" (--pgbackrest-detail=main), since a
+	// separate word would be read as an input file.
+	rootCmd.PersistentFlags().StringVar(&pgbackrestDetailFlag, "pgbackrest-detail", "",
+		"Show the detailed pgBackRest report, of every stanza or of one (--pgbackrest-detail=main)")
+	rootCmd.PersistentFlags().Lookup("pgbackrest-detail").NoOptDefVal = pgbrAllStanzas
+	rootCmd.PersistentFlags().BoolVar(&patroniDetailFlag, "patroni-detail", false,
+		"Show the detailed Patroni report")
+	rootCmd.PersistentFlags().BoolVar(&pgbouncerDetailFlag, "pgbouncer-detail", false,
+		"Show the detailed pgBouncer report")
 
 	// Section selection flags
 	rootCmd.Flags().BoolVar(&summaryFlag, "summary", false,

@@ -2,8 +2,8 @@
 
 quellog's HTML report is a single, self-contained file: open it in any browser, no server, fully offline. Everything — filtering, zooming, drilling into a query — happens client-side in the page.
 
-!!! tip "Try it now"
-    **[Open the interactive demo →](https://alain-l.github.io/quellog/demo.html)** — drop a PostgreSQL log file and explore. All processing runs locally in your browser.
+!!! tip "Demo"
+    **[Open the interactive demo →](https://alain-l.github.io/quellog/demo.html)** — drop PostgreSQL, Patroni or pgBackRest log files and explore. All processing runs locally in your browser.
 
 ## Generating the report
 
@@ -20,7 +20,7 @@ The default name is `<stem>.html` for a single input, `quellog_report.html` for 
 
 ![HTML report overview](img/report-top.png){ width="820" }
 
-A header (file name, theme toggle), a client-side filter bar, then the **Summary** tile and the analysis sections — Events, SQL Performance, Connections, Maintenance, and the rest. These are the same sections as the text report ([Report Sections](default-report.md)), rendered interactively.
+A header (file name, theme toggle), a client-side filter bar, then the **Summary** tile and the analysis sections — Events, SQL Performance, Connections, Maintenance, and the rest. These are the same sections as the text report ([Report Sections](default-report.md)), rendered interactively, followed by the [pgBackRest](pgbackrest.md), [Patroni](patroni.md) and [pgBouncer](pgbouncer.md) sections when the input holds such logs.
 
 ## Summary tile
 

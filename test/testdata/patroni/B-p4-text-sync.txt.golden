@@ -1,0 +1,20 @@
+quellog dev – 274 entries processed in X s (28.54 KB)
+[1m
+PATRONI
+[0m
+  Start date                : 2026-09-24 14:09:26
+  End date                  : 2026-09-24 14:16:47
+  Members                   : pg1, pg2, pg3
+  Leader at end             : pg3 since 14:12:43
+  Leader changes            : 2, 1 switchover, 1 failover
+  Time without leader       : 31.717s
+  DCS incidents             : 0
+  Errors                    : 9
+  Warnings                  : 5
+
+  Top errors:
+    Failed to get list of machines from http://etcd1:?/v3beta: ValueError     3  14:09:26 → 14:09:27
+    Failed to get list of machines from http://etcd2:?/v3beta: ValueError     3  14:09:26 → 14:09:27
+    Failed to get list of machines from http://etcd3:?/v3beta: ValueError     3  14:09:26 → 14:09:27
+
+  [3;38;5;243mDetails: --patroni-detail[0m

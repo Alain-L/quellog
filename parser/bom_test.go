@@ -43,6 +43,7 @@ func TestParseFileBOM(t *testing.T) {
 		"../test/testdata/stderr.log",
 		"../test/testdata/csvlog.csv",
 		"../test/testdata/jsonlog.json",
+		"../test/testdata/regressions/pgbouncer/pgbouncer.log",
 	}
 	for _, src := range fixtures {
 		src := src
@@ -80,7 +81,9 @@ func count(t *testing.T, filename string) int {
 		n := 0
 		for batch := range out {
 			for _, e := range batch {
-				if !e.IsContinuation {
+				// PostgreSQL entries only: the pgBackRest markers an
+				// archive member is announced with are not entries.
+				if !e.IsContinuation && !e.FromPgBackRest {
 					n++
 				}
 			}

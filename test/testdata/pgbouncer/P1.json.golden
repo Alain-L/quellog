@@ -1,0 +1,1290 @@
+{
+  "apps": [
+    {
+      "name": "psql",
+      "count": 5
+    },
+    {
+      "name": "pgbench",
+      "count": 1
+    }
+  ],
+  "checkpoints": {
+    "total_checkpoints": 4,
+    "avg_checkpoint_time": "7.65 s",
+    "max_checkpoint_time": "30.16 s",
+    "events": [
+      "2026-09-25 09:05:27",
+      "2026-09-25 09:10:59",
+      "2026-09-25 09:10:59",
+      "2026-09-25 09:14:30"
+    ],
+    "types": {
+      "shutdown immediate": {
+        "count": 3,
+        "percentage": 75,
+        "rate_per_hour": 19.881703862020974,
+        "events": [
+          "2026-09-25 09:05:27",
+          "2026-09-25 09:10:59",
+          "2026-09-25 09:14:30"
+        ]
+      },
+      "time": {
+        "count": 1,
+        "percentage": 25,
+        "rate_per_hour": 6.627234620673658,
+        "events": [
+          "2026-09-25 09:10:59"
+        ]
+      }
+    },
+    "avg_wal_distance": "146.29 MB",
+    "max_wal_distance": "259.73 MB",
+    "total_buffers_written": 22807,
+    "wal_rate": "1.08 MB/s",
+    "flush_rate": "5.82 MB/s",
+    "wal_distances": [
+      {
+        "timestamp": "2026-09-25 09:05:27",
+        "distance_kb": 4256,
+        "estimate_kb": 4256
+      },
+      {
+        "timestamp": "2026-09-25 09:10:59",
+        "distance_kb": 265965,
+        "estimate_kb": 265965
+      },
+      {
+        "timestamp": "2026-09-25 09:10:59",
+        "distance_kb": 95043,
+        "estimate_kb": 248873
+      },
+      {
+        "timestamp": "2026-09-25 09:14:30",
+        "distance_kb": 233928,
+        "estimate_kb": 233928
+      }
+    ]
+  },
+  "clients": {
+    "unique_databases": 2,
+    "unique_users": 1,
+    "unique_apps": 2,
+    "unique_hosts": 1
+  },
+  "connections": {
+    "connection_count": 21,
+    "avg_connections_per_hour": "139.17",
+    "disconnection_count": 20,
+    "avg_session_time": "1m26.813949999s",
+    "session_stats": {
+      "count": 20,
+      "min_duration": "3ms",
+      "max_duration": "4m8.077s",
+      "avg_duration": "1m26.813949999s",
+      "median_duration": "44.113065448s",
+      "cumulated_duration": "28m56.278999999s"
+    },
+    "session_distribution": {
+      "1min - 30min": 11,
+      "1s - 1min": 3,
+      "2h - 5h": 0,
+      "30min - 2h": 0,
+      "\u003c 1s": 6,
+      "\u003e 5h": 0
+    },
+    "sessions_by_user": {
+      "bench": {
+        "count": 20,
+        "min_duration": "3ms",
+        "max_duration": "4m8.077s",
+        "avg_duration": "1m26.813949999s",
+        "median_duration": "44.113065448s",
+        "cumulated_duration": "28m56.278999999s"
+      }
+    },
+    "sessions_by_database": {
+      "bench": {
+        "count": 18,
+        "min_duration": "10ms",
+        "max_duration": "4m8.077s",
+        "avg_duration": "1m36.457111111s",
+        "median_duration": "57.224903867s",
+        "cumulated_duration": "28m56.227999999s"
+      },
+      "postgres": {
+        "count": 2,
+        "min_duration": "3ms",
+        "max_duration": "48ms",
+        "avg_duration": "25.5ms",
+        "median_duration": "25.5ms",
+        "cumulated_duration": "51ms"
+      }
+    },
+    "sessions_by_host": {
+      "192.168.1.18": {
+        "count": 18,
+        "min_duration": "10ms",
+        "max_duration": "4m8.077s",
+        "avg_duration": "1m36.457111111s",
+        "median_duration": "57.224903867s",
+        "cumulated_duration": "28m56.227999999s"
+      }
+    },
+    "peak_concurrent_sessions": 5,
+    "peak_concurrent_timestamp": "2026-09-25 09:12:04",
+    "connections": [
+      "2026-09-25 09:05:27",
+      "2026-09-25 09:05:27",
+      "2026-09-25 09:05:28",
+      "2026-09-25 09:05:28",
+      "2026-09-25 09:05:30",
+      "2026-09-25 09:05:30",
+      "2026-09-25 09:05:30",
+      "2026-09-25 09:05:30",
+      "2026-09-25 09:08:07",
+      "2026-09-25 09:09:59",
+      "2026-09-25 09:09:59",
+      "2026-09-25 09:09:59",
+      "2026-09-25 09:10:59",
+      "2026-09-25 09:11:02",
+      "2026-09-25 09:11:14",
+      "2026-09-25 09:11:16",
+      "2026-09-25 09:11:16",
+      "2026-09-25 09:11:34",
+      "2026-09-25 09:11:34",
+      "2026-09-25 09:11:34",
+      "2026-09-25 09:12:04"
+    ],
+    "session_events": [
+      {
+        "s": "2026-09-25T09:05:27",
+        "e": "2026-09-25T09:05:27",
+        "d": 3,
+        "u": 1,
+        "db": 1,
+        "h": 0
+      },
+      {
+        "s": "2026-09-25T09:05:27",
+        "e": "2026-09-25T09:05:27",
+        "d": 48,
+        "u": 1,
+        "db": 1,
+        "h": 0
+      },
+      {
+        "s": "2026-09-25T09:05:28",
+        "e": "2026-09-25T09:05:28",
+        "d": 20,
+        "u": 1,
+        "db": 2,
+        "h": 1
+      },
+      {
+        "s": "2026-09-25T09:05:28",
+        "e": "2026-09-25T09:05:28",
+        "d": 14,
+        "u": 1,
+        "db": 2,
+        "h": 1
+      },
+      {
+        "s": "2026-09-25T09:05:30",
+        "e": "2026-09-25T09:05:30",
+        "d": 514,
+        "u": 1,
+        "db": 2,
+        "h": 1
+      },
+      {
+        "s": "2026-09-25T09:08:07",
+        "e": "2026-09-25T09:09:38",
+        "d": 91006,
+        "u": 1,
+        "db": 2,
+        "h": 1
+      },
+      {
+        "s": "2026-09-25T09:05:30",
+        "e": "2026-09-25T09:09:38",
+        "d": 248069,
+        "u": 1,
+        "db": 2,
+        "h": 1
+      },
+      {
+        "s": "2026-09-25T09:05:30",
+        "e": "2026-09-25T09:09:38",
+        "d": 248077,
+        "u": 1,
+        "db": 2,
+        "h": 1
+      },
+      {
+        "s": "2026-09-25T09:05:30",
+        "e": "2026-09-25T09:09:38",
+        "d": 248072,
+        "u": 1,
+        "db": 2,
+        "h": 1
+      },
+      {
+        "s": "2026-09-25T09:09:59",
+        "e": "2026-09-25T09:10:59",
+        "d": 60086,
+        "u": 1,
+        "db": 2,
+        "h": 1
+      },
+      {
+        "s": "2026-09-25T09:09:59",
+        "e": "2026-09-25T09:10:59",
+        "d": 60082,
+        "u": 1,
+        "db": 2,
+        "h": 1
+      },
+      {
+        "s": "2026-09-25T09:09:59",
+        "e": "2026-09-25T09:10:59",
+        "d": 60079,
+        "u": 1,
+        "db": 2,
+        "h": 1
+      },
+      {
+        "s": "2026-09-25T09:11:02",
+        "e": "2026-09-25T09:11:02",
+        "d": 10,
+        "u": 1,
+        "db": 2,
+        "h": 1
+      },
+      {
+        "s": "2026-09-25T09:11:16",
+        "e": "2026-09-25T09:11:32",
+        "d": 15998,
+        "u": 1,
+        "db": 2,
+        "h": 1
+      },
+      {
+        "s": "2026-09-25T09:11:14",
+        "e": "2026-09-25T09:11:32",
+        "d": 18058,
+        "u": 1,
+        "db": 2,
+        "h": 1
+      },
+      {
+        "s": "2026-09-25T09:11:16",
+        "e": "2026-09-25T09:11:32",
+        "d": 16003,
+        "u": 1,
+        "db": 2,
+        "h": 1
+      },
+      {
+        "s": "2026-09-25T09:12:04",
+        "e": "2026-09-25T09:14:29",
+        "d": 145036,
+        "u": 1,
+        "db": 2,
+        "h": 1
+      },
+      {
+        "s": "2026-09-25T09:11:34",
+        "e": "2026-09-25T09:14:29",
+        "d": 175024,
+        "u": 1,
+        "db": 2,
+        "h": 1
+      },
+      {
+        "s": "2026-09-25T09:11:34",
+        "e": "2026-09-25T09:14:29",
+        "d": 175045,
+        "u": 1,
+        "db": 2,
+        "h": 1
+      },
+      {
+        "s": "2026-09-25T09:11:34",
+        "e": "2026-09-25T09:14:29",
+        "d": 175035,
+        "u": 1,
+        "db": 2,
+        "h": 1
+      },
+      {
+        "s": "2026-09-25T09:10:59",
+        "e": "2026-09-25T09:14:29",
+        "d": 210408,
+        "u": 0,
+        "db": 0,
+        "h": 0,
+        "orphan": true
+      }
+    ],
+    "session_users": [
+      "",
+      "bench"
+    ],
+    "session_databases": [
+      "",
+      "postgres",
+      "bench"
+    ],
+    "session_hosts": [
+      "",
+      "192.168.1.18"
+    ]
+  },
+  "databases": [
+    {
+      "name": "bench",
+      "count": 36
+    },
+    {
+      "name": "postgres",
+      "count": 4
+    }
+  ],
+  "events": [
+    {
+      "type": "LOG",
+      "count": 120,
+      "percentage": 96.7741935483871
+    },
+    {
+      "type": "FATAL",
+      "count": 4,
+      "percentage": 3.225806451612903
+    }
+  ],
+  "hosts": [
+    {
+      "name": "192.168.1.18",
+      "count": 37
+    }
+  ],
+  "pgbouncer": [
+    {
+      "name": "127.0.0.1:6432",
+      "files": [
+        "testdata/pgbouncer/P1/p1.pgbouncer.log"
+      ],
+      "listen": [
+        "127.0.0.1:6432"
+      ],
+      "version": "1.25.2",
+      "start_date": "2026-09-25 09:05:29",
+      "end_date": "2026-09-25 09:14:29",
+      "events": [
+        {
+          "timestamp": "2026-09-25 09:05:29",
+          "kind": "start",
+          "detail": "PgBouncer 1.25.2"
+        },
+        {
+          "timestamp": "2026-09-25 09:07:30",
+          "kind": "reload",
+          "detail": "RELOAD"
+        },
+        {
+          "timestamp": "2026-09-25 09:08:05",
+          "kind": "reload",
+          "detail": "RELOAD"
+        },
+        {
+          "timestamp": "2026-09-25 09:09:08",
+          "kind": "reload",
+          "detail": "RELOAD"
+        },
+        {
+          "timestamp": "2026-09-25 09:09:38",
+          "kind": "pause",
+          "detail": "PAUSE 'bench'"
+        },
+        {
+          "timestamp": "2026-09-25 09:09:59",
+          "kind": "resume",
+          "detail": "RESUME 'bench'"
+        },
+        {
+          "timestamp": "2026-09-25 09:11:32",
+          "kind": "shutdown",
+          "detail": "SIGINT"
+        },
+        {
+          "timestamp": "2026-09-25 09:11:33",
+          "kind": "start",
+          "detail": "PgBouncer 1.25.2"
+        },
+        {
+          "timestamp": "2026-09-25 09:12:04",
+          "kind": "reload",
+          "detail": "RELOAD"
+        },
+        {
+          "timestamp": "2026-09-25 09:14:29",
+          "kind": "shutdown",
+          "detail": "SHUTDOWN"
+        }
+      ],
+      "lines": 513,
+      "lines_read": 513,
+      "lines_unrecognized": 0,
+      "debug_lines": 0,
+      "stats_sample_count": 53,
+      "avg_xacts_per_sec": 1738.0188679245282,
+      "max_xacts_per_sec": 2520,
+      "avg_queries_per_sec": 12164.33962264151,
+      "max_queries_per_sec": 17642,
+      "avg_in_bytes_per_sec": 742092.0943396227,
+      "max_in_bytes_per_sec": 1076384,
+      "avg_out_bytes_per_sec": 323845.8679245283,
+      "max_out_bytes_per_sec": 469631,
+      "avg_xact_us": 3545.7432693560295,
+      "max_xact_us": 60122307,
+      "avg_query_us": 414.8903817220145,
+      "max_query_us": 3164268,
+      "avg_wait_us": 1641.7532893308437,
+      "max_wait_us": 20037072,
+      "stats_series": [
+        {
+          "time": "2026-09-25 09:05:39",
+          "period_start": "2026-09-25 09:05:29",
+          "xacts_per_sec": 2116,
+          "queries_per_sec": 14814,
+          "in_bytes_per_sec": 903931,
+          "out_bytes_per_sec": 394261,
+          "xact_us": 1184,
+          "query_us": 159,
+          "wait_us": 0
+        },
+        {
+          "time": "2026-09-25 09:05:49",
+          "period_start": "2026-09-25 09:05:39",
+          "xacts_per_sec": 2000,
+          "queries_per_sec": 13999,
+          "in_bytes_per_sec": 854090,
+          "out_bytes_per_sec": 372540,
+          "xact_us": 1183,
+          "query_us": 158,
+          "wait_us": 0
+        },
+        {
+          "time": "2026-09-25 09:05:59",
+          "period_start": "2026-09-25 09:05:49",
+          "xacts_per_sec": 2500,
+          "queries_per_sec": 17504,
+          "in_bytes_per_sec": 1067913,
+          "out_bytes_per_sec": 465810,
+          "xact_us": 1186,
+          "query_us": 159,
+          "wait_us": 0
+        },
+        {
+          "time": "2026-09-25 09:06:09",
+          "period_start": "2026-09-25 09:05:59",
+          "xacts_per_sec": 2003,
+          "queries_per_sec": 14023,
+          "in_bytes_per_sec": 855680,
+          "out_bytes_per_sec": 373210,
+          "xact_us": 1181,
+          "query_us": 158,
+          "wait_us": 0
+        },
+        {
+          "time": "2026-09-25 09:06:19",
+          "period_start": "2026-09-25 09:06:09",
+          "xacts_per_sec": 2501,
+          "queries_per_sec": 17511,
+          "in_bytes_per_sec": 1068320,
+          "out_bytes_per_sec": 465993,
+          "xact_us": 1185,
+          "query_us": 159,
+          "wait_us": 0
+        },
+        {
+          "time": "2026-09-25 09:06:29",
+          "period_start": "2026-09-25 09:06:19",
+          "xacts_per_sec": 2002,
+          "queries_per_sec": 14012,
+          "in_bytes_per_sec": 855054,
+          "out_bytes_per_sec": 372919,
+          "xact_us": 1182,
+          "query_us": 158,
+          "wait_us": 0
+        },
+        {
+          "time": "2026-09-25 09:06:39",
+          "period_start": "2026-09-25 09:06:29",
+          "xacts_per_sec": 1991,
+          "queries_per_sec": 13940,
+          "in_bytes_per_sec": 850498,
+          "out_bytes_per_sec": 370988,
+          "xact_us": 1188,
+          "query_us": 159,
+          "wait_us": 0
+        },
+        {
+          "time": "2026-09-25 09:06:49",
+          "period_start": "2026-09-25 09:06:39",
+          "xacts_per_sec": 2491,
+          "queries_per_sec": 17442,
+          "in_bytes_per_sec": 1064270,
+          "out_bytes_per_sec": 464207,
+          "xact_us": 1190,
+          "query_us": 159,
+          "wait_us": 0
+        },
+        {
+          "time": "2026-09-25 09:06:59",
+          "period_start": "2026-09-25 09:06:49",
+          "xacts_per_sec": 1993,
+          "queries_per_sec": 13953,
+          "in_bytes_per_sec": 851455,
+          "out_bytes_per_sec": 371347,
+          "xact_us": 1187,
+          "query_us": 159,
+          "wait_us": 0
+        },
+        {
+          "time": "2026-09-25 09:07:09",
+          "period_start": "2026-09-25 09:06:59",
+          "xacts_per_sec": 2504,
+          "queries_per_sec": 17533,
+          "in_bytes_per_sec": 1069703,
+          "out_bytes_per_sec": 466612,
+          "xact_us": 1183,
+          "query_us": 158,
+          "wait_us": 0
+        },
+        {
+          "time": "2026-09-25 09:07:19",
+          "period_start": "2026-09-25 09:07:09",
+          "xacts_per_sec": 1995,
+          "queries_per_sec": 13967,
+          "in_bytes_per_sec": 852218,
+          "out_bytes_per_sec": 371733,
+          "xact_us": 1186,
+          "query_us": 159,
+          "wait_us": 0
+        },
+        {
+          "time": "2026-09-25 09:07:29",
+          "period_start": "2026-09-25 09:07:19",
+          "xacts_per_sec": 2152,
+          "queries_per_sec": 15070,
+          "in_bytes_per_sec": 919594,
+          "out_bytes_per_sec": 401108,
+          "xact_us": 1191,
+          "query_us": 159,
+          "wait_us": 0
+        },
+        {
+          "time": "2026-09-25 09:07:39",
+          "period_start": "2026-09-25 09:07:29",
+          "xacts_per_sec": 2340,
+          "queries_per_sec": 16378,
+          "in_bytes_per_sec": 999393,
+          "out_bytes_per_sec": 435915,
+          "xact_us": 1182,
+          "query_us": 158,
+          "wait_us": 0
+        },
+        {
+          "time": "2026-09-25 09:07:49",
+          "period_start": "2026-09-25 09:07:39",
+          "xacts_per_sec": 1986,
+          "queries_per_sec": 13899,
+          "in_bytes_per_sec": 848033,
+          "out_bytes_per_sec": 369922,
+          "xact_us": 1192,
+          "query_us": 160,
+          "wait_us": 0
+        },
+        {
+          "time": "2026-09-25 09:07:59",
+          "period_start": "2026-09-25 09:07:49",
+          "xacts_per_sec": 2516,
+          "queries_per_sec": 17612,
+          "in_bytes_per_sec": 1074602,
+          "out_bytes_per_sec": 468745,
+          "xact_us": 1178,
+          "query_us": 158,
+          "wait_us": 0
+        },
+        {
+          "time": "2026-09-25 09:08:09",
+          "period_start": "2026-09-25 09:07:59",
+          "xacts_per_sec": 1158,
+          "queries_per_sec": 8073,
+          "in_bytes_per_sec": 492040,
+          "out_bytes_per_sec": 214897,
+          "xact_us": 4385,
+          "query_us": 768,
+          "wait_us": 3400
+        },
+        {
+          "time": "2026-09-25 09:08:19",
+          "period_start": "2026-09-25 09:08:09",
+          "xacts_per_sec": 8,
+          "queries_per_sec": 32,
+          "in_bytes_per_sec": 963,
+          "out_bytes_per_sec": 1359,
+          "xact_us": 3041619,
+          "query_us": 775190,
+          "wait_us": 2563345
+        },
+        {
+          "time": "2026-09-25 09:08:29",
+          "period_start": "2026-09-25 09:08:19",
+          "xacts_per_sec": 9,
+          "queries_per_sec": 38,
+          "in_bytes_per_sec": 1296,
+          "out_bytes_per_sec": 1509,
+          "xact_us": 2909914,
+          "query_us": 693523,
+          "wait_us": 2555030
+        },
+        {
+          "time": "2026-09-25 09:08:39",
+          "period_start": "2026-09-25 09:08:29",
+          "xacts_per_sec": 8,
+          "queries_per_sec": 37,
+          "in_bytes_per_sec": 1296,
+          "out_bytes_per_sec": 1506,
+          "xact_us": 3130139,
+          "query_us": 708214,
+          "wait_us": 2571490
+        },
+        {
+          "time": "2026-09-25 09:08:49",
+          "period_start": "2026-09-25 09:08:39",
+          "xacts_per_sec": 8,
+          "queries_per_sec": 32,
+          "in_bytes_per_sec": 967,
+          "out_bytes_per_sec": 1360,
+          "xact_us": 2982358,
+          "query_us": 773001,
+          "wait_us": 2533261
+        },
+        {
+          "time": "2026-09-25 09:08:59",
+          "period_start": "2026-09-25 09:08:49",
+          "xacts_per_sec": 8,
+          "queries_per_sec": 34,
+          "in_bytes_per_sec": 1046,
+          "out_bytes_per_sec": 1402,
+          "xact_us": 2951730,
+          "query_us": 744403,
+          "wait_us": 2547646
+        },
+        {
+          "time": "2026-09-25 09:09:09",
+          "period_start": "2026-09-25 09:08:59",
+          "xacts_per_sec": 109,
+          "queries_per_sec": 758,
+          "in_bytes_per_sec": 45418,
+          "out_bytes_per_sec": 20684,
+          "xact_us": 241419,
+          "query_us": 33584,
+          "wait_us": 192721
+        },
+        {
+          "time": "2026-09-25 09:09:19",
+          "period_start": "2026-09-25 09:09:09",
+          "xacts_per_sec": 1993,
+          "queries_per_sec": 13953,
+          "in_bytes_per_sec": 851371,
+          "out_bytes_per_sec": 371370,
+          "xact_us": 1186,
+          "query_us": 159,
+          "wait_us": 0
+        },
+        {
+          "time": "2026-09-25 09:09:29",
+          "period_start": "2026-09-25 09:09:19",
+          "xacts_per_sec": 1998,
+          "queries_per_sec": 13990,
+          "in_bytes_per_sec": 853608,
+          "out_bytes_per_sec": 372363,
+          "xact_us": 1184,
+          "query_us": 158,
+          "wait_us": 0
+        },
+        {
+          "time": "2026-09-25 09:09:39",
+          "period_start": "2026-09-25 09:09:29",
+          "xacts_per_sec": 2411,
+          "queries_per_sec": 16877,
+          "in_bytes_per_sec": 1029689,
+          "out_bytes_per_sec": 449171,
+          "xact_us": 1182,
+          "query_us": 158,
+          "wait_us": 0
+        },
+        {
+          "time": "2026-09-25 09:09:49",
+          "period_start": "2026-09-25 09:09:39",
+          "xacts_per_sec": 0,
+          "queries_per_sec": 0,
+          "in_bytes_per_sec": 0,
+          "out_bytes_per_sec": 0,
+          "xact_us": 0,
+          "query_us": 0,
+          "wait_us": 0
+        },
+        {
+          "time": "2026-09-25 09:09:59",
+          "period_start": "2026-09-25 09:09:49",
+          "xacts_per_sec": 0,
+          "queries_per_sec": 1,
+          "in_bytes_per_sec": 127,
+          "out_bytes_per_sec": 64,
+          "xact_us": 60122307,
+          "query_us": 3164268,
+          "wait_us": 20037072
+        },
+        {
+          "time": "2026-09-25 09:10:09",
+          "period_start": "2026-09-25 09:09:59",
+          "xacts_per_sec": 2100,
+          "queries_per_sec": 14702,
+          "in_bytes_per_sec": 897146,
+          "out_bytes_per_sec": 391327,
+          "xact_us": 1173,
+          "query_us": 157,
+          "wait_us": 0
+        },
+        {
+          "time": "2026-09-25 09:10:19",
+          "period_start": "2026-09-25 09:10:09",
+          "xacts_per_sec": 2002,
+          "queries_per_sec": 14013,
+          "in_bytes_per_sec": 854978,
+          "out_bytes_per_sec": 372975,
+          "xact_us": 1182,
+          "query_us": 158,
+          "wait_us": 0
+        },
+        {
+          "time": "2026-09-25 09:10:29",
+          "period_start": "2026-09-25 09:10:19",
+          "xacts_per_sec": 2501,
+          "queries_per_sec": 17510,
+          "in_bytes_per_sec": 1068283,
+          "out_bytes_per_sec": 466067,
+          "xact_us": 1185,
+          "query_us": 159,
+          "wait_us": 0
+        },
+        {
+          "time": "2026-09-25 09:10:39",
+          "period_start": "2026-09-25 09:10:29",
+          "xacts_per_sec": 1916,
+          "queries_per_sec": 13410,
+          "in_bytes_per_sec": 818218,
+          "out_bytes_per_sec": 356937,
+          "xact_us": 1235,
+          "query_us": 166,
+          "wait_us": 0
+        },
+        {
+          "time": "2026-09-25 09:10:49",
+          "period_start": "2026-09-25 09:10:39",
+          "xacts_per_sec": 2495,
+          "queries_per_sec": 17465,
+          "in_bytes_per_sec": 1065603,
+          "out_bytes_per_sec": 464866,
+          "xact_us": 1188,
+          "query_us": 159,
+          "wait_us": 0
+        },
+        {
+          "time": "2026-09-25 09:10:59",
+          "period_start": "2026-09-25 09:10:49",
+          "xacts_per_sec": 1938,
+          "queries_per_sec": 13562,
+          "in_bytes_per_sec": 827472,
+          "out_bytes_per_sec": 361044,
+          "xact_us": 1181,
+          "query_us": 158,
+          "wait_us": 0
+        },
+        {
+          "time": "2026-09-25 09:11:09",
+          "period_start": "2026-09-25 09:10:59",
+          "xacts_per_sec": 0,
+          "queries_per_sec": 0,
+          "in_bytes_per_sec": 0,
+          "out_bytes_per_sec": 0,
+          "xact_us": 0,
+          "query_us": 0,
+          "wait_us": 0
+        },
+        {
+          "time": "2026-09-25 09:11:19",
+          "period_start": "2026-09-25 09:11:09",
+          "xacts_per_sec": 688,
+          "queries_per_sec": 4813,
+          "in_bytes_per_sec": 293743,
+          "out_bytes_per_sec": 128157,
+          "xact_us": 3493,
+          "query_us": 488,
+          "wait_us": 2221
+        },
+        {
+          "time": "2026-09-25 09:11:29",
+          "period_start": "2026-09-25 09:11:19",
+          "xacts_per_sec": 2097,
+          "queries_per_sec": 14680,
+          "in_bytes_per_sec": 895696,
+          "out_bytes_per_sec": 390759,
+          "xact_us": 1415,
+          "query_us": 191,
+          "wait_us": 0
+        },
+        {
+          "time": "2026-09-25 09:11:43",
+          "period_start": "2026-09-25 09:11:33",
+          "xacts_per_sec": 1631,
+          "queries_per_sec": 11416,
+          "in_bytes_per_sec": 696602,
+          "out_bytes_per_sec": 303911,
+          "xact_us": 1633,
+          "query_us": 222,
+          "wait_us": 1
+        },
+        {
+          "time": "2026-09-25 09:11:53",
+          "period_start": "2026-09-25 09:11:43",
+          "xacts_per_sec": 1564,
+          "queries_per_sec": 10946,
+          "in_bytes_per_sec": 667869,
+          "out_bytes_per_sec": 291381,
+          "xact_us": 1509,
+          "query_us": 205,
+          "wait_us": 0
+        },
+        {
+          "time": "2026-09-25 09:12:03",
+          "period_start": "2026-09-25 09:11:53",
+          "xacts_per_sec": 2519,
+          "queries_per_sec": 17636,
+          "in_bytes_per_sec": 1076042,
+          "out_bytes_per_sec": 469467,
+          "xact_us": 1177,
+          "query_us": 157,
+          "wait_us": 0
+        },
+        {
+          "time": "2026-09-25 09:12:13",
+          "period_start": "2026-09-25 09:12:03",
+          "xacts_per_sec": 2000,
+          "queries_per_sec": 14001,
+          "in_bytes_per_sec": 854336,
+          "out_bytes_per_sec": 372719,
+          "xact_us": 1183,
+          "query_us": 158,
+          "wait_us": 0
+        },
+        {
+          "time": "2026-09-25 09:12:23",
+          "period_start": "2026-09-25 09:12:13",
+          "xacts_per_sec": 2507,
+          "queries_per_sec": 17552,
+          "in_bytes_per_sec": 1070846,
+          "out_bytes_per_sec": 467212,
+          "xact_us": 1182,
+          "query_us": 158,
+          "wait_us": 0
+        },
+        {
+          "time": "2026-09-25 09:12:33",
+          "period_start": "2026-09-25 09:12:23",
+          "xacts_per_sec": 1998,
+          "queries_per_sec": 13984,
+          "in_bytes_per_sec": 853204,
+          "out_bytes_per_sec": 372252,
+          "xact_us": 1185,
+          "query_us": 158,
+          "wait_us": 0
+        },
+        {
+          "time": "2026-09-25 09:12:43",
+          "period_start": "2026-09-25 09:12:33",
+          "xacts_per_sec": 2013,
+          "queries_per_sec": 14091,
+          "in_bytes_per_sec": 859707,
+          "out_bytes_per_sec": 375109,
+          "xact_us": 1176,
+          "query_us": 157,
+          "wait_us": 0
+        },
+        {
+          "time": "2026-09-25 09:12:53",
+          "period_start": "2026-09-25 09:12:43",
+          "xacts_per_sec": 2520,
+          "queries_per_sec": 17642,
+          "in_bytes_per_sec": 1076384,
+          "out_bytes_per_sec": 469631,
+          "xact_us": 1176,
+          "query_us": 157,
+          "wait_us": 0
+        },
+        {
+          "time": "2026-09-25 09:13:03",
+          "period_start": "2026-09-25 09:12:53",
+          "xacts_per_sec": 2008,
+          "queries_per_sec": 14058,
+          "in_bytes_per_sec": 857805,
+          "out_bytes_per_sec": 374262,
+          "xact_us": 1178,
+          "query_us": 158,
+          "wait_us": 0
+        },
+        {
+          "time": "2026-09-25 09:13:13",
+          "period_start": "2026-09-25 09:13:03",
+          "xacts_per_sec": 2506,
+          "queries_per_sec": 17545,
+          "in_bytes_per_sec": 1070506,
+          "out_bytes_per_sec": 467078,
+          "xact_us": 1183,
+          "query_us": 158,
+          "wait_us": 0
+        },
+        {
+          "time": "2026-09-25 09:13:23",
+          "period_start": "2026-09-25 09:13:13",
+          "xacts_per_sec": 2004,
+          "queries_per_sec": 14028,
+          "in_bytes_per_sec": 855964,
+          "out_bytes_per_sec": 373468,
+          "xact_us": 1181,
+          "query_us": 158,
+          "wait_us": 0
+        },
+        {
+          "time": "2026-09-25 09:13:33",
+          "period_start": "2026-09-25 09:13:23",
+          "xacts_per_sec": 2068,
+          "queries_per_sec": 14481,
+          "in_bytes_per_sec": 883530,
+          "out_bytes_per_sec": 385525,
+          "xact_us": 1177,
+          "query_us": 157,
+          "wait_us": 0
+        },
+        {
+          "time": "2026-09-25 09:13:43",
+          "period_start": "2026-09-25 09:13:33",
+          "xacts_per_sec": 2450,
+          "queries_per_sec": 17152,
+          "in_bytes_per_sec": 1046556,
+          "out_bytes_per_sec": 456613,
+          "xact_us": 1182,
+          "query_us": 158,
+          "wait_us": 0
+        },
+        {
+          "time": "2026-09-25 09:13:53",
+          "period_start": "2026-09-25 09:13:43",
+          "xacts_per_sec": 2007,
+          "queries_per_sec": 14050,
+          "in_bytes_per_sec": 857279,
+          "out_bytes_per_sec": 374052,
+          "xact_us": 1179,
+          "query_us": 158,
+          "wait_us": 0
+        },
+        {
+          "time": "2026-09-25 09:14:03",
+          "period_start": "2026-09-25 09:13:53",
+          "xacts_per_sec": 2513,
+          "queries_per_sec": 17594,
+          "in_bytes_per_sec": 1073400,
+          "out_bytes_per_sec": 468395,
+          "xact_us": 1179,
+          "query_us": 158,
+          "wait_us": 0
+        },
+        {
+          "time": "2026-09-25 09:14:13",
+          "period_start": "2026-09-25 09:14:03",
+          "xacts_per_sec": 1543,
+          "queries_per_sec": 10802,
+          "in_bytes_per_sec": 659144,
+          "out_bytes_per_sec": 287603,
+          "xact_us": 1536,
+          "query_us": 209,
+          "wait_us": 0
+        },
+        {
+          "time": "2026-09-25 09:14:23",
+          "period_start": "2026-09-25 09:14:13",
+          "xacts_per_sec": 1727,
+          "queries_per_sec": 12095,
+          "in_bytes_per_sec": 737993,
+          "out_bytes_per_sec": 322026,
+          "xact_us": 1592,
+          "query_us": 217,
+          "wait_us": 0
+        }
+      ],
+      "max_xacts_per_sec_timestamp": "2026-09-25 09:12:53",
+      "max_queries_per_sec_timestamp": "2026-09-25 09:12:53",
+      "max_in_bytes_per_sec_timestamp": "2026-09-25 09:12:53",
+      "max_out_bytes_per_sec_timestamp": "2026-09-25 09:12:53",
+      "max_xact_us_timestamp": "2026-09-25 09:09:59",
+      "max_query_us_timestamp": "2026-09-25 09:09:59",
+      "max_wait_us_timestamp": "2026-09-25 09:09:59",
+      "wait_episodes": [
+        {
+          "start": "2026-09-25 09:08:09",
+          "end": "2026-09-25 09:09:09",
+          "peak_wait_us": 2571490,
+          "peak_timestamp": "2026-09-25 09:08:39"
+        },
+        {
+          "start": "2026-09-25 09:09:49",
+          "end": "2026-09-25 09:09:59",
+          "peak_wait_us": 20037072,
+          "peak_timestamp": "2026-09-25 09:09:59"
+        }
+      ],
+      "login_attempts": 191,
+      "server_connections": 15,
+      "sessions": 190,
+      "total_session_seconds": 2843,
+      "session_distribution": {
+        "1min - 30min": 24,
+        "1s - 1min": 111,
+        "\u003c 1s": 55
+      },
+      "session_reasons": [
+        {
+          "reason": "client close request",
+          "count": 157,
+          "total_seconds": 2725
+        },
+        {
+          "reason": "query_wait_timeout",
+          "count": 22,
+          "total_seconds": 74
+        },
+        {
+          "reason": "password authentication failed",
+          "count": 4,
+          "total_seconds": 0
+        },
+        {
+          "reason": "client unexpected eof",
+          "count": 3,
+          "total_seconds": 12
+        },
+        {
+          "reason": "server conn crashed?",
+          "count": 2,
+          "total_seconds": 12
+        },
+        {
+          "reason": "client_idle_timeout",
+          "count": 1,
+          "total_seconds": 20
+        },
+        {
+          "reason": "no such database: nosuchdb",
+          "count": 1,
+          "total_seconds": 0
+        }
+      ],
+      "connections_per_database": {
+        "bench": 168,
+        "nosuchdb": 1,
+        "pgbouncer": 22
+      },
+      "connections_per_user": {
+        "bench": 190,
+        "ghostuser": 1
+      },
+      "connections_per_host": {
+        "127.0.0.1": 191
+      },
+      "sessions_per_database": {
+        "(nodb)": 2,
+        "bench": 167,
+        "pgbouncer": 21
+      },
+      "sessions_per_user": {
+        "bench": 189,
+        "ghostuser": 1
+      },
+      "sessions_per_host": {
+        "127.0.0.1": 190
+      },
+      "reserve_pool_activations": 1,
+      "errors": [
+        {
+          "id": "wa-2Xo6",
+          "level": "WARNING",
+          "message": "query_wait_timeout",
+          "count": 22,
+          "first": "2026-09-25 09:08:09",
+          "last": "2026-09-25 09:08:20"
+        },
+        {
+          "id": "wa-zZfu",
+          "level": "WARNING",
+          "message": "password authentication failed",
+          "count": 4,
+          "first": "2026-09-25 09:10:29",
+          "last": "2026-09-25 09:10:29"
+        },
+        {
+          "id": "wa-S1AV",
+          "level": "WARNING",
+          "message": "server conn crashed?",
+          "count": 2,
+          "first": "2026-09-25 09:10:59",
+          "last": "2026-09-25 09:10:59"
+        },
+        {
+          "id": "wa-7RKL",
+          "level": "WARNING",
+          "message": "client_idle_timeout",
+          "count": 1,
+          "first": "2026-09-25 09:12:24",
+          "last": "2026-09-25 09:12:24"
+        },
+        {
+          "id": "wa-ELGU",
+          "level": "WARNING",
+          "message": "got packet 'E' from server when not linked",
+          "count": 1,
+          "first": "2026-09-25 09:10:59",
+          "last": "2026-09-25 09:10:59"
+        },
+        {
+          "id": "wa-lWMX",
+          "level": "WARNING",
+          "message": "no such database: nosuchdb",
+          "count": 1,
+          "first": "2026-09-25 09:10:29",
+          "last": "2026-09-25 09:10:29"
+        },
+        {
+          "id": "wa-r4MI",
+          "level": "WARNING",
+          "message": "server login failed: FATAL the database system is shutting down",
+          "count": 1,
+          "first": "2026-09-25 09:10:59",
+          "last": "2026-09-25 09:10:59"
+        },
+        {
+          "id": "wa-JC9n",
+          "level": "WARNING",
+          "message": "taking connection from reserve_pool",
+          "count": 1,
+          "first": "2026-09-25 09:08:07",
+          "last": "2026-09-25 09:08:07"
+        }
+      ],
+      "total_errors": 33
+    }
+  ],
+  "server": {
+    "starts": 3,
+    "start_times": [
+      "2026-09-25 09:05:27",
+      "2026-09-25 09:05:28",
+      "2026-09-25 09:11:01"
+    ],
+    "reloads": 0,
+    "shutdowns_fast": 3,
+    "shutdowns_immediate": 0,
+    "shutdowns_smart": 0,
+    "shutdown_completed": 3,
+    "timeline": [
+      {
+        "timestamp": "2026-09-25 09:05:27",
+        "kind": "start",
+        "detail": "database system is ready to accept connections"
+      },
+      {
+        "timestamp": "2026-09-25 09:05:27",
+        "kind": "shutdown",
+        "detail": "fast shutdown request"
+      },
+      {
+        "timestamp": "2026-09-25 09:05:28",
+        "kind": "start",
+        "detail": "database system is ready to accept connections"
+      },
+      {
+        "timestamp": "2026-09-25 09:10:59",
+        "kind": "shutdown",
+        "detail": "fast shutdown request"
+      },
+      {
+        "timestamp": "2026-09-25 09:11:01",
+        "kind": "start",
+        "detail": "database system is ready to accept connections"
+      },
+      {
+        "timestamp": "2026-09-25 09:14:30",
+        "kind": "shutdown",
+        "detail": "fast shutdown request"
+      }
+    ]
+  },
+  "summary": {
+    "start_date": "2026-09-25 09:05:27",
+    "end_date": "2026-09-25 09:14:30",
+    "duration": "9m3.213s",
+    "total_logs": 124,
+    "throughput": "0.23 entries/s",
+    "error_count": 0,
+    "fatal_count": 4,
+    "panic_count": 0,
+    "warning_count": 0,
+    "log_count": 120,
+    "utc_offset_minutes": 0
+  },
+  "top_events": [
+    {
+      "id": "fa-LkLy",
+      "message": "terminating connection due to administrator command",
+      "count": 3,
+      "severity": "FATAL",
+      "example": "[84] bench@bench FATAL:  terminating connection due to administrator command",
+      "timestamps": [
+        1790327459099,
+        1790327459100,
+        1790327459100
+      ]
+    },
+    {
+      "id": "fa-RaU1",
+      "message": "the database system is shutting down",
+      "count": 1,
+      "severity": "FATAL",
+      "example": "[90] bench@bench FATAL:  the database system is shutting down",
+      "timestamps": [
+        1790327459103
+      ]
+    }
+  ],
+  "users": [
+    {
+      "name": "bench",
+      "count": 40
+    }
+  ]
+}

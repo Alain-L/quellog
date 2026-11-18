@@ -1,0 +1,238 @@
+2026-09-25 09:23:02.550 UTC [641353] LOG kernel file descriptor limit: 1024 (hard: 524288); max_client_conn: 200, max expected fd use: 232
+2026-09-25 09:23:02.550 UTC [641353] LOG listening on 127.0.0.1:6434
+2026-09-25 09:23:02.550 UTC [641353] LOG process up: PgBouncer 1.18.0, libevent 2.1.13-stable (epoll), adns: evdns2, tls: OpenSSL 3.5.7 9 Jun 2026
+2026-09-25 09:23:03.572 UTC [641353] LOG C-0x557d56e4d490: bench/bench@127.0.0.1:53698 login attempt: db=bench user=bench tls=no
+2026-09-25 09:23:03.573 UTC [641353] LOG S-0x557d56e54c10: bench/bench@127.0.0.1:15434 new connection to server (from 127.0.0.1:45628)
+2026-09-25 09:23:03.591 UTC [641353] LOG C-0x557d56e4d490: bench/bench@127.0.0.1:53698 closing because: client close request (age=0s)
+2026-09-25 09:23:03.592 UTC [641353] LOG C-0x557d56e4d490: bench/bench@127.0.0.1:53700 login attempt: db=bench user=bench tls=no
+2026-09-25 09:23:03.592 UTC [641353] LOG C-0x557d56e4d6f0: bench/bench@127.0.0.1:53714 login attempt: db=bench user=bench tls=no
+2026-09-25 09:23:03.592 UTC [641353] LOG C-0x557d56e4d950: bench/bench@127.0.0.1:53716 login attempt: db=bench user=bench tls=no
+2026-09-25 09:23:03.593 UTC [641353] LOG S-0x557d56e54e70: bench/bench@127.0.0.1:15434 new connection to server (from 127.0.0.1:45636)
+2026-09-25 09:23:03.597 UTC [641353] LOG S-0x557d56e550d0: bench/bench@127.0.0.1:15434 new connection to server (from 127.0.0.1:45642)
+2026-09-25 09:23:12.549 UTC [641353] LOG stats: 1975 xacts/s, 13828 queries/s, in 842325 B/s, out 368004 B/s, xact 1346 us, query 182 us, wait 1539 us
+2026-09-25 09:23:13.591 UTC [641353] LOG C-0x557d56e4d490: bench/bench@127.0.0.1:53700 closing because: client close request (age=9s)
+2026-09-25 09:23:13.592 UTC [641353] LOG C-0x557d56e4d6f0: bench/bench@127.0.0.1:53714 closing because: client close request (age=10s)
+2026-09-25 09:23:13.593 UTC [641353] LOG C-0x557d56e4d950: bench/bench@127.0.0.1:53716 closing because: client close request (age=10s)
+2026-09-25 09:23:15.601 UTC [641353] LOG C-0x557d56e4d950: bench/bench@127.0.0.1:55592 login attempt: db=bench user=bench tls=no
+2026-09-25 09:23:15.611 UTC [641353] LOG C-0x557d56e4d950: bench/bench@127.0.0.1:55592 closing because: client close request (age=0s)
+2026-09-25 09:23:15.611 UTC [641353] LOG C-0x557d56e4d950: bench/bench@127.0.0.1:55596 login attempt: db=bench user=bench tls=no
+2026-09-25 09:23:15.612 UTC [641353] LOG C-0x557d56e4d6f0: bench/bench@127.0.0.1:55610 login attempt: db=bench user=bench tls=no
+2026-09-25 09:23:15.612 UTC [641353] LOG C-0x557d56e4d490: bench/bench@127.0.0.1:55622 login attempt: db=bench user=bench tls=no
+2026-09-25 09:23:22.549 UTC [641353] LOG stats: 1756 xacts/s, 12295 queries/s, in 749012 B/s, out 327212 B/s, xact 1348 us, query 182 us, wait 0 us
+2026-09-25 09:23:25.611 UTC [641353] LOG C-0x557d56e4d6f0: bench/bench@127.0.0.1:55610 closing because: client close request (age=9s)
+2026-09-25 09:23:25.611 UTC [641353] LOG C-0x557d56e4d950: bench/bench@127.0.0.1:55596 closing because: client close request (age=10s)
+2026-09-25 09:23:25.612 UTC [641353] LOG C-0x557d56e4d490: bench/bench@127.0.0.1:55622 closing because: client close request (age=10s)
+2026-09-25 09:23:27.620 UTC [641353] LOG C-0x557d56e4d490: bench/bench@127.0.0.1:44792 login attempt: db=bench user=bench tls=no
+2026-09-25 09:23:27.626 UTC [641353] LOG C-0x557d56e4d490: bench/bench@127.0.0.1:44792 closing because: client close request (age=0s)
+2026-09-25 09:23:27.626 UTC [641353] LOG C-0x557d56e4d490: bench/bench@127.0.0.1:44798 login attempt: db=bench user=bench tls=no
+2026-09-25 09:23:27.627 UTC [641353] LOG C-0x557d56e4d950: bench/bench@127.0.0.1:44806 login attempt: db=bench user=bench tls=no
+2026-09-25 09:23:27.627 UTC [641353] LOG C-0x557d56e4d6f0: bench/bench@127.0.0.1:44822 login attempt: db=bench user=bench tls=no
+2026-09-25 09:23:32.549 UTC [641353] LOG stats: 1743 xacts/s, 12203 queries/s, in 743435 B/s, out 324763 B/s, xact 1359 us, query 183 us, wait 0 us
+2026-09-25 09:23:37.626 UTC [641353] LOG C-0x557d56e4d950: bench/bench@127.0.0.1:44806 closing because: client close request (age=9s)
+2026-09-25 09:23:37.627 UTC [641353] LOG C-0x557d56e4d490: bench/bench@127.0.0.1:44798 closing because: client close request (age=10s)
+2026-09-25 09:23:37.627 UTC [641353] LOG C-0x557d56e4d6f0: bench/bench@127.0.0.1:44822 closing because: client close request (age=10s)
+2026-09-25 09:23:39.635 UTC [641353] LOG C-0x557d56e4d6f0: bench/bench@127.0.0.1:42868 login attempt: db=bench user=bench tls=no
+2026-09-25 09:23:39.643 UTC [641353] LOG C-0x557d56e4d6f0: bench/bench@127.0.0.1:42868 closing because: client close request (age=0s)
+2026-09-25 09:23:39.644 UTC [641353] LOG C-0x557d56e4d6f0: bench/bench@127.0.0.1:42876 login attempt: db=bench user=bench tls=no
+2026-09-25 09:23:39.644 UTC [641353] LOG C-0x557d56e4d490: bench/bench@127.0.0.1:42886 login attempt: db=bench user=bench tls=no
+2026-09-25 09:23:39.644 UTC [641353] LOG C-0x557d56e4d950: bench/bench@127.0.0.1:42898 login attempt: db=bench user=bench tls=no
+2026-09-25 09:23:42.549 UTC [641353] LOG stats: 1749 xacts/s, 12243 queries/s, in 745804 B/s, out 325807 B/s, xact 1354 us, query 183 us, wait 0 us
+2026-09-25 09:23:48.575 UTC [641353] LOG C-0x557d56e4dbb0: pgbouncer/bench@127.0.0.1:35530 login attempt: db=pgbouncer user=bench tls=no
+2026-09-25 09:23:48.576 UTC [641353] LOG C-0x557d56e4dbb0: pgbouncer/bench@127.0.0.1:35530 closing because: client close request (age=0s)
+2026-09-25 09:23:48.579 UTC [641353] LOG C-0x557d56e4dbb0: pgbouncer/bench@127.0.0.1:35536 login attempt: db=pgbouncer user=bench tls=no
+2026-09-25 09:23:48.580 UTC [641353] LOG C-0x557d56e4dbb0: pgbouncer/bench@127.0.0.1:35536 closing because: client close request (age=0s)
+2026-09-25 09:23:49.644 UTC [641353] LOG C-0x557d56e4d6f0: bench/bench@127.0.0.1:42876 closing because: client close request (age=9s)
+2026-09-25 09:23:49.644 UTC [641353] LOG C-0x557d56e4d490: bench/bench@127.0.0.1:42886 closing because: client close request (age=10s)
+2026-09-25 09:23:49.644 UTC [641353] LOG C-0x557d56e4d950: bench/bench@127.0.0.1:42898 closing because: client close request (age=9s)
+2026-09-25 09:23:51.652 UTC [641353] LOG C-0x557d56e4d950: bench/bench@127.0.0.1:35538 login attempt: db=bench user=bench tls=no
+2026-09-25 09:23:51.661 UTC [641353] LOG C-0x557d56e4d950: bench/bench@127.0.0.1:35538 closing because: client close request (age=0s)
+2026-09-25 09:23:51.661 UTC [641353] LOG C-0x557d56e4d950: bench/bench@127.0.0.1:35550 login attempt: db=bench user=bench tls=no
+2026-09-25 09:23:51.662 UTC [641353] LOG C-0x557d56e4d490: bench/bench@127.0.0.1:35560 login attempt: db=bench user=bench tls=no
+2026-09-25 09:23:51.663 UTC [641353] LOG C-0x557d56e4d6f0: bench/bench@127.0.0.1:35570 login attempt: db=bench user=bench tls=no
+2026-09-25 09:23:52.548 UTC [641353] LOG stats: 1755 xacts/s, 12284 queries/s, in 748293 B/s, out 326922 B/s, xact 1350 us, query 182 us, wait 0 us
+2026-09-25 09:24:01.661 UTC [641353] LOG C-0x557d56e4d6f0: bench/bench@127.0.0.1:35570 closing because: client close request (age=9s)
+2026-09-25 09:24:01.661 UTC [641353] LOG C-0x557d56e4d950: bench/bench@127.0.0.1:35550 closing because: client close request (age=10s)
+2026-09-25 09:24:01.662 UTC [641353] LOG C-0x557d56e4d490: bench/bench@127.0.0.1:35560 closing because: client close request (age=10s)
+2026-09-25 09:24:02.551 UTC [641353] LOG stats: 2006 xacts/s, 14045 queries/s, in 855587 B/s, out 373776 B/s, xact 1347 us, query 182 us, wait 0 us
+2026-09-25 09:24:03.606 UTC [641353] LOG C-0x557d56e4d490: pgbouncer/bench@127.0.0.1:48868 login attempt: db=pgbouncer user=bench tls=no
+2026-09-25 09:24:03.607 UTC [641353] LOG RELOAD command issued
+2026-09-25 09:24:03.607 UTC [641353] LOG C-0x557d56e4d490: pgbouncer/bench@127.0.0.1:48868 closing because: client close request (age=0s)
+2026-09-25 09:24:03.616 UTC [641353] LOG C-0x557d56e4d490: pgbouncer/bench@127.0.0.1:48882 login attempt: db=pgbouncer user=bench tls=no
+2026-09-25 09:24:03.618 UTC [641353] LOG C-0x557d56e4d490: pgbouncer/bench@127.0.0.1:48882 closing because: client close request (age=0s)
+2026-09-25 09:24:03.626 UTC [641353] LOG C-0x557d56e4d490: pgbouncer/bench@127.0.0.1:48890 login attempt: db=pgbouncer user=bench tls=no
+2026-09-25 09:24:03.628 UTC [641353] LOG C-0x557d56e4d490: pgbouncer/bench@127.0.0.1:48890 closing because: client close request (age=0s)
+2026-09-25 09:24:03.634 UTC [641353] LOG C-0x557d56e4d490: bench/bench@127.0.0.1:48902 login attempt: db=bench user=bench tls=no
+2026-09-25 09:24:03.641 UTC [641353] LOG C-0x557d56e4d490: bench/bench@127.0.0.1:48902 closing because: client close request (age=0s)
+2026-09-25 09:24:03.643 UTC [641353] LOG C-0x557d56e4d490: bench/bench@127.0.0.1:48906 login attempt: db=bench user=bench tls=no
+2026-09-25 09:24:03.643 UTC [641353] LOG C-0x557d56e4d950: bench/bench@127.0.0.1:48918 login attempt: db=bench user=bench tls=no
+2026-09-25 09:24:03.643 UTC [641353] LOG C-0x557d56e4d6f0: bench/bench@127.0.0.1:48934 login attempt: db=bench user=bench tls=no
+2026-09-25 09:24:03.643 UTC [641353] LOG C-0x557d56e4dbb0: bench/bench@127.0.0.1:48936 login attempt: db=bench user=bench tls=no
+2026-09-25 09:24:03.643 UTC [641353] LOG C-0x557d56e4de10: bench/bench@127.0.0.1:48968 login attempt: db=bench user=bench tls=no
+2026-09-25 09:24:03.643 UTC [641353] LOG C-0x557d56e4e070: bench/bench@127.0.0.1:48966 login attempt: db=bench user=bench tls=no
+2026-09-25 09:24:03.643 UTC [641353] LOG C-0x557d56e4e2d0: bench/bench@127.0.0.1:48978 login attempt: db=bench user=bench tls=no
+2026-09-25 09:24:03.643 UTC [641353] LOG C-0x557d56e4e530: bench/bench@127.0.0.1:48980 login attempt: db=bench user=bench tls=no
+2026-09-25 09:24:03.644 UTC [641353] LOG C-0x557d56e4e790: bench/bench@127.0.0.1:49004 login attempt: db=bench user=bench tls=no
+2026-09-25 09:24:03.644 UTC [641353] LOG C-0x557d56e4e9f0: bench/bench@127.0.0.1:49006 login attempt: db=bench user=bench tls=no
+2026-09-25 09:24:03.644 UTC [641353] LOG C-0x557d56e4ec50: bench/bench@127.0.0.1:49018 login attempt: db=bench user=bench tls=no
+2026-09-25 09:24:03.644 UTC [641353] LOG C-0x557d56e4eeb0: bench/bench@127.0.0.1:49036 login attempt: db=bench user=bench tls=no
+2026-09-25 09:24:03.644 UTC [641353] LOG C-0x557d56e4f110: bench/bench@127.0.0.1:49026 login attempt: db=bench user=bench tls=no
+2026-09-25 09:24:03.644 UTC [641353] LOG C-0x557d56e4f370: bench/bench@127.0.0.1:49060 login attempt: db=bench user=bench tls=no
+2026-09-25 09:24:03.644 UTC [641353] LOG C-0x557d56e4f5d0: bench/bench@127.0.0.1:49052 login attempt: db=bench user=bench tls=no
+2026-09-25 09:24:03.644 UTC [641353] LOG C-0x557d56e4f830: bench/bench@127.0.0.1:49074 login attempt: db=bench user=bench tls=no
+2026-09-25 09:24:03.645 UTC [641353] LOG C-0x557d56e4fa90: bench/bench@127.0.0.1:49084 login attempt: db=bench user=bench tls=no
+2026-09-25 09:24:03.645 UTC [641353] LOG C-0x557d56e4fcf0: bench/bench@127.0.0.1:49090 login attempt: db=bench user=bench tls=no
+2026-09-25 09:24:03.645 UTC [641353] LOG C-0x557d56e4ff50: bench/bench@127.0.0.1:49094 login attempt: db=bench user=bench tls=no
+2026-09-25 09:24:03.645 UTC [641353] LOG C-0x557d56e501b0: bench/bench@127.0.0.1:49098 login attempt: db=bench user=bench tls=no
+2026-09-25 09:24:03.645 UTC [641353] LOG C-0x557d56e50670: bench/bench@127.0.0.1:49124 login attempt: db=bench user=bench tls=no
+2026-09-25 09:24:03.645 UTC [641353] LOG C-0x557d56e508d0: bench/bench@127.0.0.1:49132 login attempt: db=bench user=bench tls=no
+2026-09-25 09:24:03.645 UTC [641353] LOG C-0x557d56e50410: bench/bench@127.0.0.1:49108 login attempt: db=bench user=bench tls=no
+2026-09-25 09:24:03.645 UTC [641353] LOG C-0x557d56e50b30: bench/bench@127.0.0.1:49148 login attempt: db=bench user=bench tls=no
+2026-09-25 09:24:03.645 UTC [641353] LOG C-0x557d56e50d90: bench/bench@127.0.0.1:49164 login attempt: db=bench user=bench tls=no
+2026-09-25 09:24:03.645 UTC [641353] LOG C-0x557d56e50ff0: bench/bench@127.0.0.1:49172 login attempt: db=bench user=bench tls=no
+2026-09-25 09:24:03.646 UTC [641353] LOG C-0x557d56e51250: bench/bench@127.0.0.1:49180 login attempt: db=bench user=bench tls=no
+2026-09-25 09:24:03.646 UTC [641353] LOG C-0x557d56e514b0: bench/bench@127.0.0.1:49190 login attempt: db=bench user=bench tls=no
+2026-09-25 09:24:03.646 UTC [641353] LOG C-0x557d56e51710: bench/bench@127.0.0.1:49200 login attempt: db=bench user=bench tls=no
+2026-09-25 09:24:03.646 UTC [641353] LOG C-0x557d56e51970: bench/bench@127.0.0.1:49204 login attempt: db=bench user=bench tls=no
+2026-09-25 09:24:03.646 UTC [641353] LOG C-0x557d56e51bd0: bench/bench@127.0.0.1:49206 login attempt: db=bench user=bench tls=no
+2026-09-25 09:24:03.646 UTC [641353] LOG C-0x557d56e51e30: bench/bench@127.0.0.1:49222 login attempt: db=bench user=bench tls=no
+2026-09-25 09:24:03.646 UTC [641353] LOG C-0x557d56e52090: bench/bench@127.0.0.1:49234 login attempt: db=bench user=bench tls=no
+2026-09-25 09:24:03.646 UTC [641353] LOG C-0x557d56e522f0: bench/bench@127.0.0.1:49236 login attempt: db=bench user=bench tls=no
+2026-09-25 09:24:03.646 UTC [641353] LOG C-0x557d56e52550: bench/bench@127.0.0.1:49252 login attempt: db=bench user=bench tls=no
+2026-09-25 09:24:03.646 UTC [641353] LOG C-0x557d56e527b0: bench/bench@127.0.0.1:49256 login attempt: db=bench user=bench tls=no
+2026-09-25 09:24:03.646 UTC [641353] LOG C-0x557d56e52a10: bench/bench@127.0.0.1:49262 login attempt: db=bench user=bench tls=no
+2026-09-25 09:24:03.647 UTC [641353] LOG C-0x557d56e52c70: bench/bench@127.0.0.1:49270 login attempt: db=bench user=bench tls=no
+2026-09-25 09:24:03.647 UTC [641353] LOG C-0x557d56e52ed0: bench/bench@127.0.0.1:49280 login attempt: db=bench user=bench tls=no
+2026-09-25 09:24:03.647 UTC [641353] LOG C-0x557d56e53130: bench/bench@127.0.0.1:49290 login attempt: db=bench user=bench tls=no
+2026-09-25 09:24:03.670 UTC [641353] LOG C-0x557d56e53390: bench/bench@127.0.0.1:49298 login attempt: db=bench user=bench tls=no
+2026-09-25 09:24:05.657 UTC [641353] WARNING C-0x557d56e4f830: bench/bench@127.0.0.1:49074 taking connection from reserve_pool
+2026-09-25 09:24:05.658 UTC [641353] LOG S-0x557d56e55330: bench/bench@127.0.0.1:15434 new connection to server (from 127.0.0.1:44146)
+2026-09-25 09:24:06.889 UTC [641353] LOG C-0x557d56e51710: bench/bench@127.0.0.1:49200 closing because: query_wait_timeout (age=3s)
+2026-09-25 09:24:06.889 UTC [641353] WARNING C-0x557d56e51710: bench/bench@127.0.0.1:49200 pooler error: query_wait_timeout
+2026-09-25 09:24:06.889 UTC [641353] LOG C-0x557d56e52090: bench/bench@127.0.0.1:49234 closing because: query_wait_timeout (age=3s)
+2026-09-25 09:24:06.889 UTC [641353] WARNING C-0x557d56e52090: bench/bench@127.0.0.1:49234 pooler error: query_wait_timeout
+2026-09-25 09:24:06.889 UTC [641353] LOG C-0x557d56e51250: bench/bench@127.0.0.1:49180 closing because: query_wait_timeout (age=3s)
+2026-09-25 09:24:06.889 UTC [641353] WARNING C-0x557d56e51250: bench/bench@127.0.0.1:49180 pooler error: query_wait_timeout
+2026-09-25 09:24:06.889 UTC [641353] LOG C-0x557d56e50ff0: bench/bench@127.0.0.1:49172 closing because: query_wait_timeout (age=3s)
+2026-09-25 09:24:06.889 UTC [641353] WARNING C-0x557d56e50ff0: bench/bench@127.0.0.1:49172 pooler error: query_wait_timeout
+2026-09-25 09:24:06.889 UTC [641353] LOG C-0x557d56e51bd0: bench/bench@127.0.0.1:49206 closing because: query_wait_timeout (age=3s)
+2026-09-25 09:24:06.889 UTC [641353] WARNING C-0x557d56e51bd0: bench/bench@127.0.0.1:49206 pooler error: query_wait_timeout
+2026-09-25 09:24:06.889 UTC [641353] LOG C-0x557d56e51970: bench/bench@127.0.0.1:49204 closing because: query_wait_timeout (age=3s)
+2026-09-25 09:24:06.889 UTC [641353] WARNING C-0x557d56e51970: bench/bench@127.0.0.1:49204 pooler error: query_wait_timeout
+2026-09-25 09:24:06.889 UTC [641353] LOG C-0x557d56e514b0: bench/bench@127.0.0.1:49190 closing because: query_wait_timeout (age=3s)
+2026-09-25 09:24:06.889 UTC [641353] WARNING C-0x557d56e514b0: bench/bench@127.0.0.1:49190 pooler error: query_wait_timeout
+2026-09-25 09:24:06.889 UTC [641353] LOG C-0x557d56e50d90: bench/bench@127.0.0.1:49164 closing because: query_wait_timeout (age=3s)
+2026-09-25 09:24:06.889 UTC [641353] WARNING C-0x557d56e50d90: bench/bench@127.0.0.1:49164 pooler error: query_wait_timeout
+2026-09-25 09:24:06.889 UTC [641353] LOG C-0x557d56e52a10: bench/bench@127.0.0.1:49262 closing because: query_wait_timeout (age=3s)
+2026-09-25 09:24:06.889 UTC [641353] WARNING C-0x557d56e52a10: bench/bench@127.0.0.1:49262 pooler error: query_wait_timeout
+2026-09-25 09:24:06.889 UTC [641353] LOG C-0x557d56e53130: bench/bench@127.0.0.1:49290 closing because: query_wait_timeout (age=3s)
+2026-09-25 09:24:06.889 UTC [641353] WARNING C-0x557d56e53130: bench/bench@127.0.0.1:49290 pooler error: query_wait_timeout
+2026-09-25 09:24:06.890 UTC [641353] LOG C-0x557d56e522f0: bench/bench@127.0.0.1:49236 closing because: query_wait_timeout (age=3s)
+2026-09-25 09:24:06.890 UTC [641353] WARNING C-0x557d56e522f0: bench/bench@127.0.0.1:49236 pooler error: query_wait_timeout
+2026-09-25 09:24:06.890 UTC [641353] LOG C-0x557d56e51e30: bench/bench@127.0.0.1:49222 closing because: query_wait_timeout (age=3s)
+2026-09-25 09:24:06.890 UTC [641353] WARNING C-0x557d56e51e30: bench/bench@127.0.0.1:49222 pooler error: query_wait_timeout
+2026-09-25 09:24:06.890 UTC [641353] LOG C-0x557d56e52ed0: bench/bench@127.0.0.1:49280 closing because: query_wait_timeout (age=3s)
+2026-09-25 09:24:06.890 UTC [641353] WARNING C-0x557d56e52ed0: bench/bench@127.0.0.1:49280 pooler error: query_wait_timeout
+2026-09-25 09:24:06.890 UTC [641353] LOG C-0x557d56e52c70: bench/bench@127.0.0.1:49270 closing because: query_wait_timeout (age=3s)
+2026-09-25 09:24:06.890 UTC [641353] WARNING C-0x557d56e52c70: bench/bench@127.0.0.1:49270 pooler error: query_wait_timeout
+2026-09-25 09:24:06.890 UTC [641353] LOG C-0x557d56e52550: bench/bench@127.0.0.1:49252 closing because: query_wait_timeout (age=3s)
+2026-09-25 09:24:06.890 UTC [641353] WARNING C-0x557d56e52550: bench/bench@127.0.0.1:49252 pooler error: query_wait_timeout
+2026-09-25 09:24:06.890 UTC [641353] LOG C-0x557d56e527b0: bench/bench@127.0.0.1:49256 closing because: query_wait_timeout (age=3s)
+2026-09-25 09:24:06.890 UTC [641353] WARNING C-0x557d56e527b0: bench/bench@127.0.0.1:49256 pooler error: query_wait_timeout
+2026-09-25 09:24:06.890 UTC [641353] LOG C-0x557d56e53390: bench/bench@127.0.0.1:49298 closing because: query_wait_timeout (age=3s)
+2026-09-25 09:24:06.890 UTC [641353] WARNING C-0x557d56e53390: bench/bench@127.0.0.1:49298 pooler error: query_wait_timeout
+2026-09-25 09:24:08.900 UTC [641353] LOG C-0x557d56e53390: bench/bench@127.0.0.1:49310 login attempt: db=bench user=bench tls=no
+2026-09-25 09:24:12.552 UTC [641353] LOG stats: 11 xacts/s, 31 queries/s, in 782 B/s, out 1119 B/s, xact 1573608 us, query 600155 us, wait 15566902 us
+2026-09-25 09:24:22.553 UTC [641353] LOG stats: 8 xacts/s, 32 queries/s, in 965 B/s, out 1350 B/s, xact 3006818 us, query 772500 us, wait 20930428 us
+2026-09-25 09:24:22.768 UTC [641353] LOG C-0x557d56e53390: bench/bench@127.0.0.1:49310 closing because: client close request (age=13s)
+2026-09-25 09:24:22.768 UTC [641353] LOG C-0x557d56e53390: bench/bench@127.0.0.1:48908 login attempt: db=bench user=bench tls=no
+2026-09-25 09:24:22.769 UTC [641353] LOG C-0x557d56e527b0: bench/bench@127.0.0.1:48914 login attempt: db=bench user=bench tls=no
+2026-09-25 09:24:22.770 UTC [641353] LOG C-0x557d56e52550: bench/bench@127.0.0.1:48920 login attempt: db=bench user=bench tls=no
+2026-09-25 09:24:32.553 UTC [641353] LOG stats: 9 xacts/s, 38 queries/s, in 1298 B/s, out 1506 B/s, xact 2925929 us, query 697272 us, wait 22887863 us
+2026-09-25 09:24:33.855 UTC [641353] LOG C-0x557d56e53390: bench/bench@127.0.0.1:48908 closing because: client close request (age=11s)
+2026-09-25 09:24:33.856 UTC [641353] LOG C-0x557d56e527b0: bench/bench@127.0.0.1:48914 closing because: client close request (age=11s)
+2026-09-25 09:24:33.856 UTC [641353] LOG C-0x557d56e52550: bench/bench@127.0.0.1:48920 closing because: client close request (age=11s)
+2026-09-25 09:24:35.867 UTC [641353] LOG C-0x557d56e52550: bench/bench@127.0.0.1:51640 login attempt: db=bench user=bench tls=no
+2026-09-25 09:24:42.554 UTC [641353] LOG stats: 8 xacts/s, 34 queries/s, in 1092 B/s, out 1411 B/s, xact 3087961 us, query 751420 us, wait 21596506 us
+2026-09-25 09:24:43.915 UTC [641353] LOG C-0x557d56e4de10: bench/bench@127.0.0.1:48968 closing because: client close request (age=40s)
+2026-09-25 09:24:43.916 UTC [641353] LOG C-0x557d56e4dbb0: bench/bench@127.0.0.1:48936 closing because: client close request (age=40s)
+2026-09-25 09:24:43.916 UTC [641353] LOG C-0x557d56e4e070: bench/bench@127.0.0.1:48966 closing because: client close request (age=40s)
+2026-09-25 09:24:43.954 UTC [641353] LOG C-0x557d56e4e530: bench/bench@127.0.0.1:48980 closing because: client close request (age=40s)
+2026-09-25 09:24:44.418 UTC [641353] LOG C-0x557d56e4d6f0: bench/bench@127.0.0.1:48934 closing because: client close request (age=40s)
+2026-09-25 09:24:44.418 UTC [641353] LOG C-0x557d56e4d490: bench/bench@127.0.0.1:48906 closing because: client close request (age=40s)
+2026-09-25 09:24:44.418 UTC [641353] LOG C-0x557d56e4e2d0: bench/bench@127.0.0.1:48978 closing because: client close request (age=40s)
+2026-09-25 09:24:44.458 UTC [641353] LOG C-0x557d56e4eeb0: bench/bench@127.0.0.1:49036 closing because: client close request (age=40s)
+2026-09-25 09:24:44.920 UTC [641353] LOG C-0x557d56e4d950: bench/bench@127.0.0.1:48918 closing because: client close request (age=41s)
+2026-09-25 09:24:44.920 UTC [641353] LOG C-0x557d56e4e9f0: bench/bench@127.0.0.1:49006 closing because: client close request (age=41s)
+2026-09-25 09:24:44.921 UTC [641353] LOG C-0x557d56e4f5d0: bench/bench@127.0.0.1:49052 closing because: client close request (age=41s)
+2026-09-25 09:24:44.961 UTC [641353] LOG C-0x557d56e4ec50: bench/bench@127.0.0.1:49018 closing because: client close request (age=41s)
+2026-09-25 09:24:45.423 UTC [641353] LOG C-0x557d56e4f830: bench/bench@127.0.0.1:49074 closing because: client close request (age=41s)
+2026-09-25 09:24:45.423 UTC [641353] LOG C-0x557d56e4f110: bench/bench@127.0.0.1:49026 closing because: client close request (age=41s)
+2026-09-25 09:24:45.423 UTC [641353] LOG C-0x557d56e4f370: bench/bench@127.0.0.1:49060 closing because: client close request (age=41s)
+2026-09-25 09:24:45.464 UTC [641353] LOG C-0x557d56e4e790: bench/bench@127.0.0.1:49004 closing because: client close request (age=41s)
+2026-09-25 09:24:45.926 UTC [641353] LOG C-0x557d56e501b0: bench/bench@127.0.0.1:49098 closing because: client close request (age=42s)
+2026-09-25 09:24:45.926 UTC [641353] LOG C-0x557d56e50670: bench/bench@127.0.0.1:49124 closing because: client close request (age=42s)
+2026-09-25 09:24:45.926 UTC [641353] LOG C-0x557d56e50b30: bench/bench@127.0.0.1:49148 closing because: client close request (age=42s)
+2026-09-25 09:24:45.968 UTC [641353] LOG C-0x557d56e508d0: bench/bench@127.0.0.1:49132 closing because: client close request (age=42s)
+2026-09-25 09:24:46.429 UTC [641353] LOG C-0x557d56e50410: bench/bench@127.0.0.1:49108 closing because: client close request (age=42s)
+2026-09-25 09:24:46.429 UTC [641353] LOG C-0x557d56e4fa90: bench/bench@127.0.0.1:49084 closing because: client close request (age=42s)
+2026-09-25 09:24:46.429 UTC [641353] LOG C-0x557d56e4ff50: bench/bench@127.0.0.1:49094 closing because: client close request (age=42s)
+2026-09-25 09:24:46.440 UTC [641353] LOG C-0x557d56e52550: bench/bench@127.0.0.1:51640 closing because: client close request (age=10s)
+2026-09-25 09:24:46.440 UTC [641353] LOG C-0x557d56e52550: bench/bench@127.0.0.1:32784 login attempt: db=bench user=bench tls=no
+2026-09-25 09:24:46.441 UTC [641353] LOG C-0x557d56e4ff50: bench/bench@127.0.0.1:32798 login attempt: db=bench user=bench tls=no
+2026-09-25 09:24:46.442 UTC [641353] LOG C-0x557d56e4fa90: bench/bench@127.0.0.1:32806 login attempt: db=bench user=bench tls=no
+2026-09-25 09:24:46.469 UTC [641353] LOG C-0x557d56e4fcf0: bench/bench@127.0.0.1:49090 closing because: client close request (age=42s)
+2026-09-25 09:24:46.474 UTC [641353] LOG C-0x557d56e4fcf0: pgbouncer/bench@127.0.0.1:32818 login attempt: db=pgbouncer user=bench tls=no
+2026-09-25 09:24:46.475 UTC [641353] LOG C-0x557d56e4fcf0: pgbouncer/bench@127.0.0.1:32818 closing because: client close request (age=0s)
+2026-09-25 09:24:46.478 UTC [641353] LOG C-0x557d56e4fcf0: pgbouncer/bench@127.0.0.1:32828 login attempt: db=pgbouncer user=bench tls=no
+2026-09-25 09:24:46.479 UTC [641353] LOG C-0x557d56e4fcf0: pgbouncer/bench@127.0.0.1:32828 closing because: client close request (age=0s)
+2026-09-25 09:24:46.487 UTC [641353] LOG C-0x557d56e4fcf0: pgbouncer/bench@127.0.0.1:32838 login attempt: db=pgbouncer user=bench tls=no
+2026-09-25 09:24:46.488 UTC [641353] LOG RELOAD command issued
+2026-09-25 09:24:46.488 UTC [641353] LOG C-0x557d56e4fcf0: pgbouncer/bench@127.0.0.1:32838 closing because: client close request (age=0s)
+2026-09-25 09:24:52.552 UTC [641353] LOG stats: 1334 xacts/s, 9339 queries/s, in 568544 B/s, out 248768 B/s, xact 8976 us, query 1164 us, wait 7544806 us
+2026-09-25 09:24:56.440 UTC [641353] LOG C-0x557d56e52550: bench/bench@127.0.0.1:32784 closing because: client close request (age=9s)
+2026-09-25 09:24:56.441 UTC [641353] LOG C-0x557d56e4ff50: bench/bench@127.0.0.1:32798 closing because: client close request (age=9s)
+2026-09-25 09:24:56.441 UTC [641353] LOG C-0x557d56e4fa90: bench/bench@127.0.0.1:32806 closing because: client close request (age=9s)
+2026-09-25 09:24:58.450 UTC [641353] LOG C-0x557d56e4fa90: bench/bench@127.0.0.1:48176 login attempt: db=bench user=bench tls=no
+2026-09-25 09:24:58.463 UTC [641353] LOG C-0x557d56e4fa90: bench/bench@127.0.0.1:48176 closing because: client close request (age=0s)
+2026-09-25 09:24:58.464 UTC [641353] LOG C-0x557d56e4fa90: bench/bench@127.0.0.1:48186 login attempt: db=bench user=bench tls=no
+2026-09-25 09:24:58.464 UTC [641353] LOG C-0x557d56e4ff50: bench/bench@127.0.0.1:48190 login attempt: db=bench user=bench tls=no
+2026-09-25 09:24:58.464 UTC [641353] LOG C-0x557d56e52550: bench/bench@127.0.0.1:48196 login attempt: db=bench user=bench tls=no
+2026-09-25 09:25:02.552 UTC [641353] LOG stats: 1758 xacts/s, 12307 queries/s, in 749788 B/s, out 327553 B/s, xact 1347 us, query 182 us, wait 0 us
+2026-09-25 09:25:08.463 UTC [641353] LOG C-0x557d56e52550: bench/bench@127.0.0.1:48196 closing because: client close request (age=9s)
+2026-09-25 09:25:08.464 UTC [641353] LOG C-0x557d56e4ff50: bench/bench@127.0.0.1:48190 closing because: client close request (age=9s)
+2026-09-25 09:25:08.464 UTC [641353] LOG C-0x557d56e4fa90: bench/bench@127.0.0.1:48186 closing because: client close request (age=10s)
+2026-09-25 09:25:10.472 UTC [641353] LOG C-0x557d56e4fa90: bench/bench@127.0.0.1:49786 login attempt: db=bench user=bench tls=no
+2026-09-25 09:25:10.477 UTC [641353] LOG C-0x557d56e4fa90: bench/bench@127.0.0.1:49786 closing because: client close request (age=0s)
+2026-09-25 09:25:10.478 UTC [641353] LOG C-0x557d56e4fa90: bench/bench@127.0.0.1:49788 login attempt: db=bench user=bench tls=no
+2026-09-25 09:25:10.478 UTC [641353] LOG C-0x557d56e4ff50: bench/bench@127.0.0.1:49800 login attempt: db=bench user=bench tls=no
+2026-09-25 09:25:10.479 UTC [641353] LOG C-0x557d56e52550: bench/bench@127.0.0.1:49804 login attempt: db=bench user=bench tls=no
+2026-09-25 09:25:12.552 UTC [641353] LOG stats: 1764 xacts/s, 12350 queries/s, in 752320 B/s, out 328692 B/s, xact 1343 us, query 181 us, wait 0 us
+2026-09-25 09:25:20.477 UTC [641353] LOG C-0x557d56e4fa90: bench/bench@127.0.0.1:49788 closing because: client close request (age=9s)
+2026-09-25 09:25:20.478 UTC [641353] LOG C-0x557d56e4ff50: bench/bench@127.0.0.1:49800 closing because: client close request (age=9s)
+2026-09-25 09:25:20.479 UTC [641353] LOG C-0x557d56e52550: bench/bench@127.0.0.1:49804 closing because: client close request (age=9s)
+2026-09-25 09:25:22.487 UTC [641353] LOG C-0x557d56e52550: bench/bench@127.0.0.1:52500 login attempt: db=bench user=bench tls=no
+2026-09-25 09:25:22.499 UTC [641353] LOG C-0x557d56e52550: bench/bench@127.0.0.1:52500 closing because: client close request (age=0s)
+2026-09-25 09:25:22.500 UTC [641353] LOG C-0x557d56e52550: bench/bench@127.0.0.1:52504 login attempt: db=bench user=bench tls=no
+2026-09-25 09:25:22.500 UTC [641353] LOG C-0x557d56e4ff50: bench/bench@127.0.0.1:52508 login attempt: db=bench user=bench tls=no
+2026-09-25 09:25:22.501 UTC [641353] LOG C-0x557d56e4fa90: bench/bench@127.0.0.1:52522 login attempt: db=bench user=bench tls=no
+2026-09-25 09:25:22.552 UTC [641353] LOG stats: 1756 xacts/s, 12292 queries/s, in 748802 B/s, out 327158 B/s, xact 1348 us, query 182 us, wait 0 us
+2026-09-25 09:25:32.500 UTC [641353] LOG C-0x557d56e4fa90: bench/bench@127.0.0.1:52522 closing because: client close request (age=9s)
+2026-09-25 09:25:32.500 UTC [641353] LOG C-0x557d56e52550: bench/bench@127.0.0.1:52504 closing because: client close request (age=10s)
+2026-09-25 09:25:32.500 UTC [641353] LOG C-0x557d56e4ff50: bench/bench@127.0.0.1:52508 closing because: client close request (age=9s)
+2026-09-25 09:25:32.556 UTC [641353] LOG stats: 2188 xacts/s, 15322 queries/s, in 933411 B/s, out 407811 B/s, xact 1348 us, query 182 us, wait 0 us
+2026-09-25 09:25:34.509 UTC [641353] LOG C-0x557d56e4ff50: bench/bench@127.0.0.1:55398 login attempt: db=bench user=bench tls=no
+2026-09-25 09:25:34.522 UTC [641353] LOG C-0x557d56e4ff50: bench/bench@127.0.0.1:55398 closing because: client close request (age=0s)
+2026-09-25 09:25:34.522 UTC [641353] LOG C-0x557d56e4ff50: bench/bench@127.0.0.1:55410 login attempt: db=bench user=bench tls=no
+2026-09-25 09:25:34.523 UTC [641353] LOG C-0x557d56e52550: bench/bench@127.0.0.1:55416 login attempt: db=bench user=bench tls=no
+2026-09-25 09:25:34.523 UTC [641353] LOG C-0x557d56e4fa90: bench/bench@127.0.0.1:55428 login attempt: db=bench user=bench tls=no
+2026-09-25 09:25:42.552 UTC [641353] LOG stats: 1779 xacts/s, 12453 queries/s, in 758659 B/s, out 331462 B/s, xact 1340 us, query 181 us, wait 0 us
+2026-09-25 09:25:44.522 UTC [641353] LOG C-0x557d56e4ff50: bench/bench@127.0.0.1:55410 closing because: client close request (age=9s)
+2026-09-25 09:25:44.523 UTC [641353] LOG C-0x557d56e4fa90: bench/bench@127.0.0.1:55428 closing because: client close request (age=9s)
+2026-09-25 09:25:44.523 UTC [641353] LOG C-0x557d56e52550: bench/bench@127.0.0.1:55416 closing because: client close request (age=10s)
+2026-09-25 09:25:46.503 UTC [641353] LOG C-0x557d56e52550: pgbouncer/bench@127.0.0.1:47126 login attempt: db=pgbouncer user=bench tls=no
+2026-09-25 09:25:46.504 UTC [641353] LOG C-0x557d56e52550: pgbouncer/bench@127.0.0.1:47126 closing because: client close request (age=0s)
+2026-09-25 09:25:46.510 UTC [641353] LOG C-0x557d56e52550: pgbouncer/bench@127.0.0.1:47142 login attempt: db=pgbouncer user=bench tls=no
+2026-09-25 09:25:46.511 UTC [641353] LOG C-0x557d56e52550: pgbouncer/bench@127.0.0.1:47142 closing because: client close request (age=0s)
+2026-09-25 09:25:46.528 UTC [641353] LOG C-0x557d56e52550: bench/bench@127.0.0.1:47154 login attempt: db=bench user=bench tls=no
+2026-09-25 09:25:46.535 UTC [641353] LOG C-0x557d56e4fa90: pgbouncer/bench@127.0.0.1:47160 login attempt: db=pgbouncer user=bench tls=no
+2026-09-25 09:25:46.536 UTC [641353] LOG SHUTDOWN command issued

@@ -62,6 +62,8 @@ type AggregatedMetrics struct {
 	TopEvents      []EventStat
 	SQL            SQLMetrics
 	Server         ServerMetrics
+	Patroni        *PatroniMetrics    // set by the caller when Patroni logs were given
+	PgBouncer      []PgBouncerMetrics // set by the caller for --event-detail when pgBouncer logs were given
 }
 
 // StreamingAnalyzer orchestrates the ten specialized analyzers in
@@ -115,6 +117,11 @@ type StreamingAnalyzer struct {
 	// all of them and the last consumer to release recycles it.
 	consumers []chan *sharedBatch
 	wg        sync.WaitGroup
+
+	// pgbr, when non-nil, receives the pgBackRest side of the stream: every
+	// FromPgBackRest entry, and the ordinary entries that may be
+	// archive_command or restore_command failures.
+	pgbr *PgBackRestAnalyzer
 }
 
 // NewStreamingAnalyzer returns a function-parallel analyzer (workers == 1),
@@ -213,9 +220,35 @@ func NewStreamingAnalyzerWithWorkers(workers int) *StreamingAnalyzer {
 // goroutine. Ownership of the batch transfers to the sharedBatch; the last
 // consumer returns it to the parser pool, so the caller must NOT touch or
 // recycle it after this returns.
+//
+// FromPgBackRest entries go to the pgBackRest observer only and are
+// removed from the batch before fan-out: their messages could false-match
+// the PostgreSQL analyzers' patterns. With an observer, an ordinary entry
+// costs a projection of its time onto the wall clock and a byte test, plus
+// a call that projects it again and compares five prefixes when its body
+// starts with 'a' or 'c' (connections, checkpoints, autovacuum...).
 func (sa *StreamingAnalyzer) ProcessBatch(batch []parser.LogEntry) {
+	obs := sa.pgbr
+	n := 0
 	for i := range batch {
 		entry := &batch[i]
+		// Stamp the body offset first (depends only on Message), like PID
+		// at construction, so the full-stream analyzers and the observer
+		// can anchor their pattern gates in O(1).
+		entry.BodyOffset = messageBodyOffset(entry.Message)
+		if obs != nil {
+			if entry.FromPgBackRest {
+				obs.Process(entry)
+				continue
+			}
+			obs.noteInputTime(entry.Timestamp)
+			// A failure's DETAIL line does not pass the byte gate.
+			if obs.pendingFail != nil || mayBeArchiverLine(entry) {
+				obs.observePGArchiveFailure(entry)
+			}
+		} else if entry.FromPgBackRest {
+			continue
+		}
 		// Stamp the global stream position before fan-out so each shard's
 		// ordered events carry it and the merge can restore stream order.
 		entry.Seq = sa.nextSeq
@@ -229,11 +262,12 @@ func (sa *StreamingAnalyzer) ProcessBatch(batch []parser.LogEntry) {
 		if sa.global.MaxTimestamp.IsZero() || entry.Timestamp.After(sa.global.MaxTimestamp) {
 			sa.global.MaxTimestamp = entry.Timestamp
 		}
-		// Stamp the body offset once, like PID at construction, so the
-		// full-stream analyzers can anchor their pattern gates in O(1)
-		// instead of each scanning the whole message.
-		entry.BodyOffset = messageBodyOffset(entry.Message)
+		if n != i {
+			batch[n] = *entry
+		}
+		n++
 	}
+	batch = batch[:n]
 
 	sb := &sharedBatch{entries: batch}
 	sb.refs.Store(int32(len(sa.consumers)))
@@ -380,7 +414,15 @@ func AggregateMetrics(ctx context.Context, in <-chan []parser.LogEntry) Aggregat
 // function-parallel, the correct default for every other format. Both produce
 // identical output (see StreamingAnalyzer).
 func AggregateMetricsWithWorkers(ctx context.Context, in <-chan []parser.LogEntry, workers int) AggregatedMetrics {
+	return AggregateMetricsObserved(ctx, in, workers, nil)
+}
+
+// AggregateMetricsObserved is AggregateMetricsWithWorkers with a
+// pgBackRest observer, nil for none, that receives the pgBackRest side of
+// the stream (see ProcessBatch).
+func AggregateMetricsObserved(ctx context.Context, in <-chan []parser.LogEntry, workers int, pgbr *PgBackRestAnalyzer) AggregatedMetrics {
 	analyzer := NewStreamingAnalyzerWithWorkers(workers)
+	analyzer.pgbr = pgbr
 
 	// Process batches in streaming mode. ctx checked once per batch so a
 	// cancelled run (CTRL+C, follow-mode shutdown) doesn't wait for full drain.

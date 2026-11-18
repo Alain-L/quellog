@@ -2,7 +2,7 @@
 // Uses uPlot library for interactive time-series charts
 
 import { safeMax, safeMin, fmt } from './utils.js';
-import { fmtBytesPrecise, fmtBytesShort, parseSizeToBytes } from './format.js';
+import { fmtBytesFull, fmtBytesPrecise, fmtBytesShort, parseSizeToBytes } from './format.js';
 import {
     binTimestamps, binDurations, binCombinedData, binTempFilesData,
     binConcurrentSessions, binCheckpointsByType
@@ -27,11 +27,26 @@ function timeAxisMultiDay(u) {
     const xs = u && u.scales && u.scales.x;
     return !!(xs && xs.max != null && xs.min != null && (xs.max - xs.min) > 86400);
 }
+// axisTimeOpts adds seconds to the tick format only when two ticks would
+// otherwise read alike. A pooler series steps by stats_period -- often
+// one second -- so hour:minute repeats itself and dates nothing, while a
+// series spread over minutes keeps the shorter format it already had.
+function axisTimeOpts(vals) {
+    const base = { hour: '2-digit', minute: '2-digit', hour12: false };
+    for (let i = 1; i < vals.length; i++) {
+        if (Math.floor(vals[i] / 60) === Math.floor(vals[i - 1] / 60)) {
+            return { ...base, second: '2-digit' };
+        }
+    }
+    return base;
+}
+
 function timeAxisValues(u, vals) {
     const multiDay = timeAxisMultiDay(u);
+    const opts = axisTimeOpts(vals);
     return vals.map((v, i) => {
         const d = new Date(v * 1000);
-        const time = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+        const time = d.toLocaleTimeString('en-US', opts);
         if (!multiDay) return time;
         const prevDay = i > 0 ? new Date(vals[i - 1] * 1000).getDate() : -1;
         if (i === 0 || d.getDate() !== prevDay) {
@@ -1524,6 +1539,8 @@ export function updateChartInterval(chartId, intervalValue) {
             createCheckpointChart(chartId, data, { interval });
         } else if (data?.type === 'combined-tempfiles') {
             createCombinedTempFilesChart(chartId, data.events, { interval });
+        } else if (data?.type === 'pgb-bars') {
+            createPgBouncerBarsChart(chartId, data, { interval });
         } else {
             createTimeChart(chartId, data, { color: null, interval });
         }
@@ -1564,7 +1581,7 @@ export function openChartModal(chartId, title) {
 
     // Hide interval select for charts that have no time bucketing
     const intervalSelect = document.getElementById('modalBucketSelect');
-    intervalSelect.style.display = data?.type === 'wal-distance' ? 'none' : '';
+    intervalSelect.style.display = ['wal-distance', 'pgbr-backups', 'pgbr-wal'].includes(data?.type) ? 'none' : '';
 
     // Create expanded chart
     setTimeout(() => renderModalChart(), 50);
@@ -1612,6 +1629,12 @@ export function renderModalChart() {
             interval: modalInterval,
             height: 500
         });
+    } else if (data?.type === 'pgb-bars') {
+        modalChart = createPgBouncerBarsChart('modal-chart-container', data, { height: 500, interval: modalInterval });
+    } else if (data?.type === 'pgbr-backups') {
+        modalChart = createPgbrBackupChart(container, data, { height: 500 });
+    } else if (data?.type === 'pgbr-wal') {
+        modalChart = createPgbrWalChart(container, data, { height: 500 });
     } else {
         modalChart = createTimeChartLarge(container, data, {
             color: null,
@@ -1640,7 +1663,440 @@ export function renderModalChart() {
         'combined-tempfiles': `<span>${dot('var(--chart-bar)')}Count</span><span>${dot('var(--accent)')}Size</span><span>${dash('var(--text-muted)')}Median</span>`,
     };
     const defaultLegend = `<span>${dot('var(--chart-bar)')}Connections</span><span>${dash('var(--text-muted)')}Median</span>`;
-    legendEl.innerHTML = legends[data?.type] || defaultLegend;
+    legendEl.innerHTML = data?.legend || legends[data?.type] || defaultLegend;
+}
+
+// resolvePgbColor turns a "var(--x)" token into a concrete color, since
+// the canvas cannot resolve CSS custom properties in stroke/fill.
+function resolvePgbColor(c) {
+    const m = /^var\((--[\w-]+)\)$/.exec(c || '');
+    if (!m) return c;
+    return getComputedStyle(document.documentElement).getPropertyValue(m[1]).trim() || '#888';
+}
+
+// pgbValueFmt formats a y value for the pgBouncer series charts by unit.
+export function pgbValueFmt(kind) {
+    // Mirrors output.FormatBytes: two decimals above the byte, and the
+    // same unit spelling. A rate read on a tile, in a tooltip and in the
+    // text report has to be the same string, and one decimal collapsed
+    // 1837 and 1814 B/s onto the same "1.8 kB/s".
+    // Rounded to the byte before the unit is picked, as FormatBytes does
+    // on int64(v+0.5): choosing it on the float puts 1023.5 in bytes where
+    // the text report already reads 1.00 KB/s.
+    if (kind === 'bytes') return (v) => (v == null ? '' : fmtBytesFull(Math.round(v)) + '/s');
+    if (kind === 'micros') return (v) => {
+        if (v == null) return '';
+        if (v < 1000) return Math.round(v) + ' µs';
+        if (v < 1e6) return (v / 1000).toFixed(1) + ' ms';
+        return (v / 1e6).toFixed(2) + ' s';
+    };
+    if (kind === 'rate') return (v) => (v == null ? '' : v.toFixed(1) + '/s');
+    return (v) => (v == null ? '' : String(v));
+}
+
+// pgbAxisFmt formats a y-axis tick. It shares pgbValueFmt's units so a
+// chart reads in the same scale as its tooltip, but keeps one decimal:
+// an axis carries round numbers, a measurement carries the text report's
+// precision, and the two are not the same job.
+export function pgbAxisFmt(kind) {
+    if (kind === 'bytes') return (v) => {
+        if (v == null) return '';
+        const u = ['B', 'KB', 'MB', 'GB', 'TB']; let i = 0;
+        while (v >= 1024 && i < u.length - 1) { v /= 1024; i++; }
+        return (i === 0 ? Math.round(v) : v.toFixed(1).replace(/\.0$/, '')) + ' ' + u[i] + '/s';
+    };
+    if (kind === 'rate') return (v) => {
+        if (v == null) return '';
+        // A tick between two integers keeps its decimal: 2.5/s, not 3/s.
+        return v >= 1000 ? (v / 1000).toFixed(v >= 10000 ? 0 : 1) + 'k/s' : (Number.isInteger(v) ? v : +v.toFixed(1)) + '/s';
+    };
+    return pgbValueFmt(kind);
+}
+
+// pgbXSpace is the minimum distance between two time ticks of a pooler
+// chart, in pixels. When 80 px apart the ticks would still fall under a
+// minute, they carry seconds, and an "HH:MM:SS" label is about 50 px wide;
+// otherwise they fall on minutes, and the default 50 px keeps a tick per
+// minute where 80 would jump to one every five, uPlot having no two-minute
+// step. PGB_X_GAP is the distance between the plot and those labels.
+const pgbXSpace = (u, axis, min, max, dim) => ((max - min) * 80 / dim < 60 ? 80 : 50);
+const PGB_X_GAP = 8;
+
+// chartLegend renders the external legend drawn under a chart (uPlot's own
+// is hidden). `items` are [label, colour] pairs, with a third element true
+// for a dashed line (a median) instead of a swatch.
+export function chartLegend(items) {
+    const mark = (c, dashed) => dashed
+        ? `<span style="display:inline-block;width:16px;height:0;border-top:2px dashed ${c};vertical-align:middle;margin-right:4px;"></span>`
+        : `<span style="display:inline-block;width:12px;height:12px;background:${c};border-radius:2px;vertical-align:middle;margin-right:4px;"></span>`;
+    return `<div class="chart-legend" style="display:flex;gap:16px;justify-content:center;margin-top:4px;font-size:12px;">`
+        + items.map(([label, c, dashed]) => `<span>${mark(c, dashed)}${label}</span>`).join('')
+        + `</div>`;
+}
+
+// pgbAxisWidth sizes a y axis to its longest tick label, which uPlot hands
+// over once formatted: "176.6 KB/s" does not fit the fixed width the
+// count axes use, and a clipped label reads as another number.
+function pgbAxisWidth(u, values) {
+    const longest = Math.max(0, ...(values || []).map(v => String(v).length));
+    return Math.max(40, Math.ceil(longest * 6.5) + 14);
+}
+
+// ---- pgBouncer bar charts -------------------------------------------
+//
+// A "stats:" line is an average over the stats_period that ends at its
+// timestamp, so each snapshot is drawn as a bar spanning that period, not
+// as a point: a line between two snapshots would invent the values in
+// between. Two series sit side by side, as on the combined SQL and temp
+// file charts, the second on its own right-hand axis when its scale
+// differs (throughput, timing); the network chart mirrors out below in.
+// The pooler's own events (restarts, pauses, reloads, console commands)
+// are drawn over the bars, so a queue that a PAUSE explains is read as
+// one.
+
+// pgbPeriod is the stats_period as the series lets it be inferred: the
+// median gap between snapshots, as analysis.PgBouncerMetrics.StatsPeriod
+// computes it.
+export function pgbPeriod(ts) {
+    const gaps = [];
+    for (let i = 1; i < ts.length; i++) if (ts[i] > ts[i - 1]) gaps.push(ts[i] - ts[i - 1]);
+    if (!gaps.length) return 0;
+    gaps.sort((a, b) => a - b);
+    return gaps[Math.floor(gaps.length / 2)];
+}
+
+// pgbMarkers turns the pooler's events into chart markers: a PAUSE or a
+// SUSPEND until the next RESUME, and a shutdown until the next start, are
+// spans; anything else (a reload, a console command) is a line named by
+// its kind. A start that ends no shutdown (the first one) is not drawn.
+export function pgbMarkers(events) {
+    const ev = (events || []).map(e => ({ ...e, t: new Date(e.timestamp).getTime() / 1000 })).filter(e => Number.isFinite(e.t));
+    const out = [], used = new Set();
+    ev.forEach((e, i) => {
+        if (used.has(i)) return;
+        const end = { pause: 'resume', suspend: 'resume', shutdown: 'start' }[e.kind];
+        if (end) {
+            const j = ev.findIndex((f, k) => k > i && f.kind === end);
+            if (j >= 0) used.add(j);
+            out.push({
+                a: e.t, b: j >= 0 ? ev[j].t : Infinity,
+                kind: e.kind === 'shutdown' ? 'restart' : 'paused',
+                label: e.kind === 'shutdown' ? (j >= 0 ? 'restart' : 'shutdown') : 'paused',
+                tone: e.kind === 'shutdown' ? '--danger' : '--warning',
+                detail: [e.detail, j >= 0 ? ev[j].detail : ''].filter(Boolean).join(' → '),
+            });
+        } else if (e.kind !== 'start' && e.kind !== 'resume') {
+            out.push({ a: e.t, b: e.t, kind: 'command', label: e.kind, tone: '--text-muted',
+                detail: (e.detail || '').toLowerCase() === e.kind ? '' : e.detail || '' });
+        }
+    });
+    return out;
+}
+
+// pgbBucketize groups the snapshots into buckets of `size` seconds, each
+// in the bucket it was logged in, 0 keeping one bar per snapshot over
+// the period it averages, [a, t] (the payload's period_start), or
+// [t - period, t]. Rates are a plain mean of the snapshots; times are the
+// worst snapshot, with their mean weighted by operation count as the report's
+// averages are, a zero being "nothing timed" only when nothing ran
+// (analysis.accumulateWeighted).
+export function pgbBucketize(points, period, size) {
+    const start = p => p.a ?? p.t - period;
+    if (!size) return points.map(p => ({ ...p, a: start(p), b: p.t, n: 1 }));
+    const out = new Map();
+    const rates = ['xacts_per_sec', 'queries_per_sec', 'in_bytes_per_sec', 'out_bytes_per_sec'];
+    for (const p of points) {
+        // Buckets fall on the viewer's clock, the one the axis shows: a
+        // day runs from its midnight.
+        const off = -new Date(p.t * 1000).getTimezoneOffset() * 60;
+        const k = Math.floor((p.t - 1 + off) / size) * size - off;
+        if (!out.has(k)) out.set(k, { a: k, b: k + size, n: 0, xact_us: 0, wx: 0, query_us: 0, wq: 0, wait_us: 0, ww: 0, xact_max: 0, query_max: 0, wait_max: 0, ...Object.fromEntries(rates.map(r => [r, 0])) });
+        const g = out.get(k);
+        g.n++;
+        g.xact_max = Math.max(g.xact_max, p.xact_us || 0);
+        g.query_max = Math.max(g.query_max, p.query_us || 0);
+        g.wait_max = Math.max(g.wait_max, p.wait_us || 0);
+        for (const r of rates) g[r] += p[r] || 0;
+        const wX = Math.max(1, p.xacts_per_sec || 0), wQ = Math.max(1, p.queries_per_sec || 0);
+        if (p.xact_us > 0 || p.xacts_per_sec > 0) { g.xact_us += (p.xact_us || 0) * wX; g.wx += wX; }
+        if (p.wait_us > 0 || p.xacts_per_sec > 0) { g.wait_us += (p.wait_us || 0) * wX; g.ww += wX; }
+        if (p.query_us > 0 || p.queries_per_sec > 0) { g.query_us += (p.query_us || 0) * wQ; g.wq += wQ; }
+    }
+    // A bar that groups snapshots shows the worst of them for the times,
+    // as the text report's activity table does: a mean would flatten the
+    // one snapshot a queue or a pause put at 20 s. The mean stays in the
+    // tooltip.
+    return [...out.values()].sort((x, y) => x.a - y.a).map(g => ({
+        ...g, ...Object.fromEntries(rates.map(r => [r, g[r] / g.n])),
+        xact_us: g.xact_max, query_us: g.query_max, wait_us: g.wait_max,
+        xact_us_avg: g.wx ? g.xact_us / g.wx : 0, wait_us_avg: g.ww ? g.wait_us / g.ww : 0, query_us_avg: g.wq ? g.query_us / g.wq : 0,
+    }));
+}
+
+// pgbBucketSize resolves the bucket control: Auto keeps one bar per
+// snapshot up to 60 of them, else the smallest round bucket that brings
+// them to 60 or fewer; a bucket no wider than the period is per snapshot.
+const PGB_MAX_BARS = 60;
+export function pgbBucketSize(points, period, interval) {
+    if (interval) return interval <= period ? 0 : interval;
+    if (points.length <= PGB_MAX_BARS) return 0;
+    const span = points[points.length - 1].t - points[0].t + period;
+    return [10, 30, 60, 300, 900, 3600, 21600, 86400].find(s => s > period && span / s <= PGB_MAX_BARS)
+        || Math.ceil(span / PGB_MAX_BARS / 86400) * 86400;
+}
+
+// Log scale for the timing chart, when a series spans more than two
+// orders of magnitude (its max over the median of its non-zero
+// snapshots): plotted as log10(1 + µs) on a linear scale, as the
+// pgBackRest backup chart does, so a zero stays on the baseline.
+const PGB_DECADES = { 0: '0', 2: '100 µs', 3: '1 ms', 4: '10 ms', 5: '100 ms', 6: '1 s', 7: '10 s', 8: '100 s', 9: '1000 s' };
+function pgbNeedsLog(points, keys) {
+    return keys.some(k => {
+        const v = points.map(p => p[k]).filter(n => n > 0).sort((a, b) => a - b);
+        return v.length > 1 && v[v.length - 1] / v[Math.floor(v.length / 2)] > 100;
+    });
+}
+function pgbLogAxis(max) {
+    return {
+        // At most five labelled decades, one in two from the top beyond.
+        splits: () => {
+            const d = Object.keys(PGB_DECADES).map(Number).filter(n => n > 0 && n <= max * 1.05);
+            return [0, ...(d.length > 5 ? d.filter((n, i) => (d.length - 1 - i) % 2 === 0) : d)];
+        },
+        values: (u, vals) => vals.map(v => PGB_DECADES[v] ?? ''),
+    };
+}
+
+// pgbDrawMarkers paints the events: in phase 'under' the shaded spans and
+// their lines, before the bars; in phase 'over' the labels, after them so
+// no bar hides one. A label starts at its own line and moves a row down
+// when the next line or another label leaves no room.
+function pgbDrawMarkers(u, phase) {
+    const marks = u._pgbMarks || [];
+    if (!marks.length) return;
+    const r = devicePixelRatio, ctx = u.ctx, top = u.bbox.top, h = u.bbox.height;
+    const lo = u.scales.x.min, hi = u.scales.x.max;
+    const shown = marks.filter(m => m.b >= lo && m.a <= hi);
+    const color = m => resolvePgbColor(`var(${m.tone})`);
+    ctx.save();
+    if (phase === 'under') {
+        for (const m of shown) {
+            const x1 = u.valToPos(Math.max(m.a, lo), 'x', true), x2 = u.valToPos(Math.min(m.b, hi), 'x', true);
+            if (x2 - x1 >= 3) { ctx.globalAlpha = 0.14; ctx.fillStyle = color(m); ctx.fillRect(x1, top, x2 - x1, h); }
+            ctx.globalAlpha = 0.8; ctx.strokeStyle = color(m); ctx.lineWidth = r;
+            ctx.setLineDash(m.kind === 'command' ? [3 * r, 3 * r] : []);
+            for (const x of [m.a >= lo ? x1 : null, x2 - x1 >= 3 && m.b <= hi ? x2 : null]) {
+                if (x == null) continue;
+                ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x, top + h); ctx.stroke();
+            }
+        }
+        ctx.restore();
+        return;
+    }
+    ctx.font = `${10 * r}px system-ui, sans-serif`; ctx.textBaseline = 'top'; ctx.textAlign = 'left';
+    const spots = pgbPlaceLabels(
+        shown.map(m => ({ x: u.valToPos(Math.max(m.a, lo), 'x', true), w: ctx.measureText(m.label).width })),
+        u.bbox.left + u.bbox.width, 3 * r);
+    // A halo of the card's colour keeps a label readable over the bars.
+    ctx.lineWidth = 3 * r; ctx.lineJoin = 'round';
+    ctx.strokeStyle = resolvePgbColor('var(--card-bg)');
+    shown.forEach((m, i) => {
+        const spot = spots[i];
+        if (!spot) return; // no room: the tooltip still names it
+        const y = top + 2 * r + spot.row * 12 * r;
+        ctx.strokeText(m.label, spot.l, y);
+        ctx.fillStyle = color(m);
+        ctx.fillText(m.label, spot.l, y);
+    });
+    ctx.restore();
+}
+
+// pgbPlaceLabels lays out the marker labels, in the order of their lines
+// ({x, w}: the line's position, the label's width): each starts at its
+// own line, right of it or left where the plot ends first (edge), and
+// moves down a row while it would cross the next line or another label,
+// three rows at most. A label with no room is left out (null).
+export function pgbPlaceLabels(items, edge, gap) {
+    const placed = [];
+    return items.map((it, i) => {
+        const next = items.slice(i + 1).map(n => n.x).find(n => n > it.x + 1) ?? Infinity;
+        const right = it.x + gap + it.w <= edge;
+        const l = right ? it.x + gap : it.x - gap - it.w, rt = l + it.w;
+        for (let row = 0; row < 3; row++) {
+            const crossesNext = right && rt >= next - gap;
+            const free = placed.every(p => p.row !== row || rt < p.l - gap || l > p.rt + gap);
+            if (free && (!crossesNext || row > 0)) {
+                const spot = { l, rt, row };
+                placed.push(spot);
+                return spot;
+            }
+        }
+        return null;
+    });
+}
+
+// pgbBarsTooltip states the bucket under the cursor: its bounds, each
+// shown series, the snapshots it groups and the events that fall in it.
+function pgbBarsTooltip() {
+    let tip = null;
+    const hms = s => new Date(s * 1000).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+    // A bucket's bounds carry their date when the chart spans several days.
+    const stamp = (s, dated) => (dated ? new Date(s * 1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) + ' ' : '') + hms(s);
+    return {
+        hooks: {
+            init: u => { tip = document.createElement('div'); tip.className = 'chart-tooltip'; tip.style.display = 'none'; u.over.appendChild(tip); },
+            setCursor: u => {
+                const i = u.cursor.idx, g = u._pgbBuckets;
+                if (i == null || !g || !g[i]) { tip.style.display = 'none'; return; }
+                const p = g[i];
+                const dated = new Date(g[0].a * 1000).toDateString() !== new Date(g[g.length - 1].b * 1000).toDateString();
+                let rows = `<div style="font-weight:600;margin-bottom:2px;">${stamp(p.a, dated)} → ${stamp(p.b, dated)}</div>`;
+                u._pgbSeries.forEach((s, k) => {
+                    if (!u._vis[k]) return;
+                    const avg = p.n > 1 && p[s.key + '_avg'] !== undefined ? ` worst, ${s.tip(p[s.key + '_avg'])} avg` : '';
+                    rows += `<div><span style="display:inline-block;width:8px;height:8px;background:${s.c};border-radius:2px;margin-right:5px;"></span>${s.label}: ${s.tip(p[s.key])}${avg}</div>`;
+                });
+                if (p.n > 1) rows += `<div style="opacity:.75">${p.n} snapshots</div>`;
+                for (const m of u._pgbMarks || []) {
+                    if (m.a > p.a && m.a <= p.b) rows += `<div>${m.label}${m.detail ? ': ' + m.detail.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c])) : ''}</div>`;
+                }
+                tip.innerHTML = rows;
+                tip.style.display = 'block';
+                tip.style.left = Math.max(0, Math.min(u.valToPos((p.a + p.b) / 2, 'x'), u.over.clientWidth - 170)) + 'px';
+                tip.style.top = '4px';
+            },
+        },
+    };
+}
+
+// createPgBouncerBarsChart draws one pgBouncer chart from its spec:
+// { points: [{t, ...stats}], period, events, series: [{key, label, color,
+// fmt}] (one or two), ownAxis (second series on a right-hand axis),
+// mirror (second series below the axis), logAuto (timing) }. Used inline
+// (buildAllCharts) and in the expand modal.
+export function createPgBouncerBarsChart(containerId, spec, options = {}) {
+    const container = document.getElementById(containerId);
+    if (!container || !spec || !spec.points || spec.points.length === 0) return null;
+    clearPreviousChart(containerId, container);
+
+    const height = options.height || 200;
+    const interval = options.interval !== undefined ? options.interval : (chartIntervalMap.get(containerId) ?? defaultInterval);
+    const g = pgbBucketize(spec.points, spec.period, pgbBucketSize(spec.points, spec.period, interval));
+    const ser = spec.series.map(s => ({ ...s, c: resolvePgbColor(s.color), tip: pgbValueFmt(s.fmt), axis: pgbAxisFmt(s.fmt) }));
+    const two = ser.length === 2, twoAxes = two && !!spec.ownAxis, mirror = two && !!spec.mirror;
+    const lg = !!spec.logAuto && pgbNeedsLog(spec.points, ser.map(s => s.key));
+    const V = (p, k) => (lg ? Math.log10(1 + (p[k] || 0)) : (p[k] || 0));
+    // The title says when the scale is logarithmic, in the card and in the
+    // expanded view.
+    const title = containerId === 'modal-chart-container'
+        ? document.getElementById('modalChartTitle')
+        : container.closest('.chart-container')?.querySelector('.subsection-title');
+    if (title && spec.logAuto && title.firstChild?.nodeType === 3) {
+        const base = title.firstChild.textContent.replace(/ \(log scale\)$/, '');
+        title.firstChild.textContent = base + (lg ? ' (log scale)' : '');
+    }
+    const maxOf = k => Math.max(lg ? 0.5 : 1e-9, ...g.map(p => V(p, k)));
+    const shared = Math.max(...ser.map(s => maxOf(s.key)));
+    const scaleOf = i => (twoAxes && i === 1 ? 'b' : 'y');
+    // Byte axes step in powers of two, so their ticks read 512 KB/s, 1 MB/s.
+    const binary = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512];
+    const byteIncrs = [0, 1, 2, 3].flatMap(e => binary.map(x => x * Math.pow(1024, e)));
+    const yAxis = (s, scale, side) => ({
+        ...(s.fmt === 'bytes' ? { incrs: byteIncrs } : {}),
+        scale, side, stroke: twoAxes ? s.c : '#888', grid: scale === 'y' ? { stroke: '#8881' } : { show: false }, ticks: { show: false }, gap: 2,
+        size: pgbAxisWidth, values: (u, vals) => vals.map(v => s.axis(Math.abs(v))),
+        ...(lg ? pgbLogAxis(maxOf(s.key)) : {}),
+    });
+
+    const opts = {
+        width: container.clientWidth || 300,
+        height,
+        cursor: { drag: { x: true, y: false, setScale: true }, bind: { dblclick: () => null }, points: { show: false } },
+        legend: { show: false },
+        scales: {
+            x: { time: true, range: (u, min, max) => [min, max] },
+            y: { range: () => mirror ? [-shared * 1.1, shared * 1.1] : [0, (twoAxes ? maxOf(ser[0].key) : shared) * 1.1] },
+            ...(twoAxes ? { b: { range: () => [0, maxOf(ser[1].key) * 1.1] } } : {}),
+        },
+        axes: [
+            { stroke: '#888', grid: { stroke: '#8881' }, ticks: { show: false }, gap: PGB_X_GAP, space: pgbXSpace, size: (u) => timeAxisSize(u) + PGB_X_GAP, values: timeAxisValues },
+            yAxis(ser[0], 'y', 3),
+            ...(twoAxes ? [yAxis(ser[1], 'b', 1)] : []),
+        ],
+        series: [{}, ...ser.map((s, i) => ({ label: s.label, scale: scaleOf(i), stroke: 'transparent', points: { show: false }, paths: () => null }))],
+        plugins: [pgbBarsTooltip()],
+        hooks: {
+            // Set before the first draw, which the constructor runs.
+            init: [u => {
+                u._pgbBuckets = g; u._pgbSeries = ser; u._pgbMarks = pgbMarkers(spec.events);
+                // A redraw (a bucket change) keeps what the legend hides.
+                u._vis = ser.map((s, i) => !document.querySelector(`[data-chart="${containerId}"][data-series="${i}"]`)?.classList.contains('disabled'));
+            }],
+            draw: [u => {
+                const ctx = u.ctx;
+                ctx.save();
+                pgbDrawMarkers(u, 'under');
+                const shown = ser.map((s, i) => i).filter(i => u._vis[i]);
+                for (const p of g) {
+                    const x1 = u.valToPos(p.a, 'x', true), x2 = u.valToPos(p.b, 'x', true);
+                    const total = Math.max(2, (x2 - x1) * 0.8), mid = (x1 + x2) / 2;
+                    if (mirror) {
+                        const y0 = u.valToPos(0, 'y', true), r = Math.min(2, total / 4);
+                        if (u._vis[0] && p[ser[0].key] > 0) drawRoundedTopBar(ctx, mid, total, y0, Math.min(u.valToPos(p[ser[0].key], 'y', true), y0 - 1), r, ser[0].c);
+                        if (u._vis[1] && p[ser[1].key] > 0) {
+                            // Below the axis: the same bar, flipped.
+                            const y1 = Math.max(u.valToPos(-p[ser[1].key], 'y', true), y0 + 1);
+                            ctx.save(); ctx.translate(0, 2 * y0); ctx.scale(1, -1);
+                            drawRoundedTopBar(ctx, mid, total, y0, 2 * y0 - y1, r, ser[1].c);
+                            ctx.restore();
+                        }
+                        continue;
+                    }
+                    const w = shown.length === 2 ? Math.max(1, total / 2 - 1) : total, r = Math.min(2, w / 4);
+                    shown.forEach((i, k) => {
+                        const v = V(p, ser[i].key);
+                        if (!(v > 0)) return;
+                        const y0 = u.valToPos(0, scaleOf(i), true), y1 = u.valToPos(v, scaleOf(i), true);
+                        const cx = shown.length === 2 ? (k === 0 ? mid - w / 2 - 1 : mid + w / 2 + 1) : mid;
+                        drawRoundedTopBar(ctx, cx, w, y0, Math.min(y1, y0 - 1), r, ser[i].c);
+                    });
+                }
+                if (mirror) {
+                    const y0 = u.valToPos(0, 'y', true);
+                    ctx.strokeStyle = '#888'; ctx.lineWidth = 1;
+                    ctx.beginPath(); ctx.moveTo(u.bbox.left, y0); ctx.lineTo(u.bbox.left + u.bbox.width, y0); ctx.stroke();
+                }
+                pgbDrawMarkers(u, 'over');
+                ctx.restore();
+            }],
+        },
+    };
+
+    const xs = g.map(p => (p.a + p.b) / 2);
+    const chart = new uPlot(opts, [xs, ...ser.map(s => g.map(p => V(p, s.key)))], container);
+    // The window takes in the events drawn, so a shutdown logged after the
+    // last snapshot still shows.
+    const marks = pgbMarkers(spec.events);
+    const x0 = Math.min(g[0].a, ...marks.map(m => m.a));
+    const x1 = Math.max(g[g.length - 1].b, ...marks.map(m => (Number.isFinite(m.b) ? m.b : m.a)));
+    chart._originalXRange = [x0, x1];
+    chart.setScale('x', { min: x0, max: x1 });
+    const ro = new ResizeObserver(() => chart.setSize({ width: container.clientWidth || 300, height }));
+    ro.observe(container);
+    chart._ro = ro;
+    charts.set(containerId, chart);
+    if (containerId !== 'modal-chart-container') bindDblclickReset(chart, () => resetChartZoom(containerId));
+    return chart;
+}
+
+// togglePgbSeries hides or shows one series of a two-series pgBouncer
+// chart from its legend; the other then takes the bucket's whole width.
+export function togglePgbSeries(chartId, i) {
+    const chart = charts.get(chartId);
+    if (!chart || !chart._vis) return;
+    chart._vis[i] = !chart._vis[i];
+    document.querySelector(`[data-chart="${chartId}"][data-series="${i}"]`)?.classList.toggle('disabled', !chart._vis[i]);
+    chart.redraw();
 }
 
 // Cost map (uPlot port): log-log scatter of queries (count × avg duration).
@@ -2705,5 +3161,226 @@ if (typeof document !== 'undefined') {
         if (e.key === 'Escape' && document.getElementById('chartModal').classList.contains('active')) {
             closeChartModal();
         }
+    });
+}
+
+// ---- pgBackRest charts ------------------------------------------------------
+// Both read wall-clock dates ("2026-10-10 13:25:00", no zone) as local times,
+// as the checkpoint chart does, so the axis shows the clock pgBackRest wrote.
+// Marks a series cannot draw (bands, dots, ticks) are painted in hooks, and
+// one tooltip names whatever is under the cursor.
+
+const pgbrSec = d => (d ? new Date(d.replace(' ', 'T')).getTime() / 1000 : NaN);
+const cssVar = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+
+function pgbrDur(sec) {
+    const s = Math.round(sec);
+    if (s < 60) return `${s}s`;
+    if (s < 3600) return `${Math.floor(s / 60)}m${String(s % 60).padStart(2, '0')}s`;
+    return `${Math.floor(s / 3600)}h${String(Math.floor((s % 3600) / 60)).padStart(2, '0')}m`;
+}
+
+function pgbrTooltip(find) {
+    let tip = null;
+    return {
+        hooks: {
+            init: u => {
+                tip = document.createElement('div');
+                tip.className = 'chart-tooltip';
+                tip.style.cssText = 'position:absolute;display:none;pointer-events:none;z-index:100;max-width:28rem;white-space:normal;';
+                u.over.appendChild(tip);
+            },
+            setCursor: u => {
+                const { left, top } = u.cursor;
+                const text = left == null || left < 0 ? null : find(u, left, top);
+                if (!text) { tip.style.display = 'none'; return; }
+                tip.textContent = text;
+                tip.style.display = 'block';
+                const w = tip.offsetWidth;
+                tip.style.left = Math.max(0, Math.min(left + 12, u.over.clientWidth - w)) + 'px';
+                tip.style.top = Math.max(0, top - tip.offsetHeight - 8) + 'px';
+            },
+        },
+    };
+}
+
+// pgbrAxisValues adds the seconds when the window is under ten minutes,
+// where minute labels would repeat.
+function pgbrAxisValues(u, vals) {
+    const xs = u.scales.x;
+    if (xs.max - xs.min >= 600) return timeAxisValues(u, vals);
+    return vals.map(v => new Date(v * 1000).toLocaleTimeString('en-GB', { hour12: false }));
+}
+
+function pgbrChartBase(container, containerId, data, options, extra) {
+    clearPreviousChart(containerId, container);
+    const text = cssVar('--text');
+    const opts = {
+        width: container.clientWidth || 300,
+        height: options.height || 150,
+        cursor: { drag: { x: true, y: false, setScale: true }, bind: { dblclick: () => null }, points: { show: false }, y: false },
+        select: { show: true },
+        legend: { show: false },
+        scales: { x: { time: true, range: () => [data.t0, data.t1] }, ...extra.scales },
+        axes: [
+            { stroke: text, grid: { show: false }, ticks: { show: false }, values: pgbrAxisValues, size: timeAxisSize, font: '10px system-ui' },
+            ...extra.axes,
+        ],
+        series: extra.series,
+        plugins: [pgbrTooltip(extra.find)],
+        hooks: extra.hooks,
+    };
+    const chart = new uPlot(opts, extra.data, container);
+    charts.set(containerId, chart);
+    bindDblclickReset(chart, () => resetChartZoom(containerId));
+    chart._originalXRange = [data.t0, data.t1];
+    chart.setScale('x', { min: data.t0, max: data.t1 });
+    const ro = new ResizeObserver(() => {
+        if (container.clientWidth > 0) chart.setSize({ width: container.clientWidth, height: opts.height });
+    });
+    ro.observe(container);
+    chart._ro = ro;
+    return chart;
+}
+
+// createPgbrBackupChart draws each backup that succeeded as two bars, its
+// duration (log scale, left axis) and its size (linear, right axis, as Temp
+// File Activity's size), and each failed or killed one as a translucent band
+// over the time it ran. data: { t0, t1, backups: [{ start, end, durMs, size,
+// kind: 'ok' | 'failed' | 'killed', tip }] } with wall-clock dates.
+export function createPgbrBackupChart(containerId, data, options = {}) {
+    const container = typeof containerId === 'string' ? document.getElementById(containerId) : containerId;
+    if (!container || !data?.backups?.length) return null;
+    const id = typeof containerId === 'string' ? containerId : container.id;
+    const all = data.backups.map(b => ({ ...b, t: pgbrSec(b.start), e: pgbrSec(b.end) })).filter(b => !isNaN(b.t));
+    const ok = all.filter(b => b.kind === 'ok').sort((a, b) => a.t - b.t);
+    const bad = all.filter(b => b.kind !== 'ok');
+    const log = s => Math.log10(1 + s);
+    const maxDur = Math.max(1, ...ok.map(b => b.durMs / 1000));
+    const maxSize = Math.max(0, ...ok.map(b => b.size || 0));
+    const durColor = cssVar('--chart-bar'), sizeColor = cssVar('--accent');
+    const BAR = 6;
+    const durTicks = [0, 1, 10, 60, 600, 3600, 36000].filter(s => s <= maxDur * 1.05);
+    return pgbrChartBase(container, id, { t0: pgbrSec(data.t0), t1: pgbrSec(data.t1) }, options, {
+        data: [ok.map(b => b.t), ok.map(b => log(b.durMs / 1000)), ok.map(b => b.size || 0)],
+        scales: {
+            y: { range: () => [0, log(maxDur) * 1.05] },
+            size: { range: () => [0, (maxSize || 1) * 1.05] },
+        },
+        axes: [
+            { stroke: cssVar('--text'), grid: { show: false }, ticks: { show: false }, size: 40, font: '10px system-ui',
+              splits: () => durTicks.map(log), values: (u, vals) => vals.map(v => pgbrDur(Math.pow(10, v) - 1)) },
+            { scale: 'size', side: 1, stroke: sizeColor, grid: { show: false }, ticks: { show: false }, size: 56, font: '10px system-ui',
+              values: (u, vals) => vals.map(v => (maxSize ? fmtBytesShort(v) : '')) },
+        ],
+        series: [
+            {},
+            { paths: () => null, points: { show: false }, stroke: 'transparent' },
+            { scale: 'size', paths: () => null, points: { show: false }, stroke: 'transparent' },
+        ],
+        hooks: {
+            drawClear: [u => {
+                // Failed and killed runs: bands over the time they ran, under the bars.
+                const ctx = u.ctx, top = u.bbox.top, h = u.bbox.height;
+                for (const b of bad) {
+                    const x1 = u.valToPos(b.t, 'x', true);
+                    const x2 = isNaN(b.e) ? x1 : u.valToPos(b.e, 'x', true);
+                    const red = b.kind !== 'killed';
+                    ctx.fillStyle = red ? 'rgba(220, 53, 69, 0.22)' : 'rgba(144, 147, 153, 0.22)';
+                    ctx.fillRect(x1, top, Math.max(2 * devicePixelRatio, x2 - x1), h);
+                    ctx.fillStyle = red ? 'rgba(220, 53, 69, 0.6)' : 'rgba(144, 147, 153, 0.7)';
+                    ctx.fillRect(x1, top, devicePixelRatio, h);
+                }
+            }],
+            draw: [u => {
+                const ctx = u.ctx, y0 = u.valToPos(0, 'y', true), w = BAR * devicePixelRatio;
+                for (let i = 0; i < u.data[0].length; i++) {
+                    const x = u.valToPos(u.data[0][i], 'x', true);
+                    const yd = u.valToPos(u.data[1][i], 'y', true);
+                    ctx.fillStyle = durColor;
+                    ctx.fillRect(x - w - devicePixelRatio, yd, w, Math.max(3 * devicePixelRatio, y0 - yd));
+                    if (u.data[2][i]) {
+                        const ys = u.valToPos(u.data[2][i], 'size', true);
+                        ctx.fillStyle = sizeColor;
+                        ctx.fillRect(x + devicePixelRatio, ys, w, Math.max(2 * devicePixelRatio, y0 - ys));
+                    }
+                }
+            }],
+        },
+        find: (u, left) => {
+            const near = ok.map(b => ({ b, d: Math.abs(u.valToPos(b.t, 'x') - left) })).filter(x => x.d <= BAR + 2).sort((a, b) => a.d - b.d)[0];
+            if (near) return near.b.tip;
+            const t = u.posToVal(left, 'x');
+            const band = bad.find(b => t >= b.t - 1 && t <= (isNaN(b.e) ? b.t : b.e) + 1 || Math.abs(u.valToPos(b.t, 'x') - left) <= 3);
+            return band ? band.tip : null;
+        },
+    });
+}
+
+// createPgbrWalChart draws the segments pushed, cumulated per stanza as
+// stepped lines, over the archiving outages (amber bands, red when still
+// failing at the end), the WAL lost (red lines), the failed pushes (red dots
+// on the baseline) and PostgreSQL's archive_command failures (violet ticks
+// on the top edge). data: { t0, t1, series: [{ name, dates }], outages:
+// [{ start, end, open, tip }], lost, failedPushes, pgFailures: [{ date, tip }] }.
+export function createPgbrWalChart(containerId, data, options = {}) {
+    const container = typeof containerId === 'string' ? document.getElementById(containerId) : containerId;
+    if (!container || !data?.series?.length) return null;
+    const id = typeof containerId === 'string' ? containerId : container.id;
+    const t0 = pgbrSec(data.t0), t1 = pgbrSec(data.t1);
+    const series = data.series.map(s => ({ name: s.name, times: s.dates.map(pgbrSec).filter(t => !isNaN(t)).sort((a, b) => a - b) }));
+    const xs = [...new Set([t0, ...series.flatMap(s => s.times), t1])].sort((a, b) => a - b);
+    const cols = series.map(s => {
+        let i = 0;
+        return xs.map(x => { while (i < s.times.length && s.times[i] <= x) i++; return i; });
+    });
+    const max = Math.max(1, ...cols.map(c => c[c.length - 1]));
+    const palette = ['--chart-bar', '--accent', '--purple', '--success'].map(cssVar);
+    const marks = list => (list || []).map(m => ({ ...m, t: pgbrSec(m.date) })).filter(m => !isNaN(m.t));
+    const outages = (data.outages || []).map(o => ({ ...o, t: pgbrSec(o.start), e: pgbrSec(o.end) })).filter(o => !isNaN(o.t));
+    const lost = marks(data.lost), failed = marks(data.failedPushes), pg = marks(data.pgFailures);
+    const danger = cssVar('--danger'), purple = cssVar('--purple');
+    const dpr = devicePixelRatio;
+    return pgbrChartBase(container, id, { t0, t1 }, options, {
+        data: [xs, ...cols],
+        scales: { y: { range: () => [0, max * 1.08] } },
+        axes: [{ stroke: cssVar('--text'), grid: { show: false }, ticks: { show: false }, size: 34, font: '10px system-ui',
+                 values: (u, vals) => vals.map(v => (Number.isInteger(v) ? v : '')) }],
+        series: [{}, ...series.map((s, i) => ({ stroke: palette[i % palette.length], width: 1.8, paths: uPlot.paths.stepped({ align: 1 }), points: { show: false } }))],
+        hooks: {
+            drawClear: [u => {
+                const ctx = u.ctx, top = u.bbox.top, h = u.bbox.height;
+                for (const o of outages) {
+                    const x1 = u.valToPos(o.t, 'x', true), x2 = u.valToPos(isNaN(o.e) ? o.t : o.e, 'x', true);
+                    ctx.fillStyle = o.open ? 'rgba(220, 53, 69, 0.14)' : 'rgba(229, 165, 75, 0.2)';
+                    ctx.fillRect(x1, top, Math.max(2 * dpr, x2 - x1), h);
+                }
+            }],
+            draw: [u => {
+                const ctx = u.ctx, top = u.bbox.top, h = u.bbox.height, y0 = top + h;
+                ctx.fillStyle = danger;
+                for (const m of lost) ctx.fillRect(u.valToPos(m.t, 'x', true) - dpr, top, 2 * dpr, h);
+                for (const m of failed) {
+                    ctx.beginPath();
+                    ctx.arc(u.valToPos(m.t, 'x', true), y0 - 4 * dpr, 3 * dpr, 0, 2 * Math.PI);
+                    ctx.fill();
+                }
+                ctx.fillStyle = purple;
+                for (const m of pg) ctx.fillRect(u.valToPos(m.t, 'x', true) - dpr, top, 2 * dpr, 9 * dpr);
+            }],
+        },
+        find: (u, left, top) => {
+            const near = list => list.map(m => ({ m, d: Math.abs(u.valToPos(m.t, 'x') - left) })).filter(x => x.d <= 4).sort((a, b) => a.d - b.d)[0]?.m;
+            const h = u.bbox.height / dpr;
+            const hit = near(lost) || (top > h - 14 && near(failed)) || (top < 14 && near(pg));
+            if (hit) return hit.tip;
+            const t = u.posToVal(left, 'x');
+            const band = outages.find(o => t >= o.t && t <= (isNaN(o.e) ? o.t : o.e));
+            if (band) return band.tip;
+            const idx = u.cursor.idx;
+            if (idx == null) return null;
+            const when = new Date(xs[idx] * 1000).toLocaleTimeString('en-US', { hour12: false });
+            return `${when} · ` + series.map((s, i) => `${s.name} ${cols[i][idx]}`).join(' · ') + ' ' + (data.verb || 'pushed');
+        },
     });
 }

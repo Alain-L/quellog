@@ -3,6 +3,9 @@
 package parser
 
 import (
+	"archive/tar"
+	"bytes"
+	"compress/gzip"
 	"os"
 	"path/filepath"
 	"testing"
@@ -57,5 +60,59 @@ func TestParseMislabeledCompressed(t *testing.T) {
 				t.Errorf("%s as .log parsed %d entries, want %d", src, got, plain)
 			}
 		})
+	}
+}
+
+// An archive holding a Patroni log is still an archive: routing it to the
+// Patroni track would drop its PostgreSQL members.
+func TestIsPatroniLog(t *testing.T) {
+	dir := t.TempDir()
+	patroni := []byte(patroniSample)
+	write := func(name string, data []byte) string {
+		p := filepath.Join(dir, name)
+		if err := os.WriteFile(p, data, 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return p
+	}
+	gz := func(data []byte) []byte {
+		var b bytes.Buffer
+		w := gzip.NewWriter(&b)
+		w.Write(data)
+		w.Close()
+		return b.Bytes()
+	}
+	var tb bytes.Buffer
+	tw := tar.NewWriter(&tb)
+	tw.WriteHeader(&tar.Header{Name: "patroni.log", Mode: 0o644, Size: int64(len(patroni))})
+	tw.Write(patroni)
+	tw.Close()
+	for name, c := range map[string]struct {
+		path string
+		want bool
+	}{
+		"plain":  {write("patroni.log", patroni), true},
+		"gzip":   {write("patroni.log.gz", gz(patroni)), true},
+		"tar":    {write("mixed.tar", tb.Bytes()), false},
+		"tar.gz": {write("mixed.tgz", gz(tb.Bytes())), false},
+	} {
+		if got := IsPatroniLog(c.path); got != c.want {
+			t.Errorf("%s: IsPatroniLog = %v, want %v", name, got, c.want)
+		}
+	}
+	// A compressed Patroni log parses like the plain one.
+	for _, name := range []string{"patroni.log", "patroni.log.gz"} {
+		out := make(chan []LogEntry, 8)
+		if err := ParseFile(filepath.Join(dir, name), out); err != nil {
+			t.Fatal(err)
+		}
+		close(out)
+		var n int
+		for b := range out {
+			n += len(b)
+		}
+		if n != 5 {
+			t.Errorf("%s: %d entries, want 5", name, n)
+		}
 	}
 }

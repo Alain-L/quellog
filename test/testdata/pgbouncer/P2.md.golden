@@ -1,0 +1,254 @@
+## SUMMARY
+
+This _quellog_ report summarizes **74** log entries collected between 25 Sep 2026, 09:15 (UTC) — 25 Sep 2026, 09:21 (UTC), spanning 5m 51s of activity.
+
+## SERVER
+
+- **Starts**: 2
+- **Shutdowns**: 2 fast, 0 immediate, 0 smart
+
+### Timeline
+
+| Time                | Event    | Detail                                         |
+|---------------------|----------|------------------------------------------------|
+| 2026-09-25 09:15:42 | start    | database system is ready to accept connections |
+| 2026-09-25 09:15:42 | shutdown | fast shutdown request                          |
+| 2026-09-25 09:15:42 | start    | database system is ready to accept connections |
+| 2026-09-25 09:21:33 | shutdown | fast shutdown request                          |
+
+## EVENTS
+
+- **LOG**: 74 (100.0%)
+
+## CHECKPOINTS
+
+### Checkpoint distribution
+
+```
+00:00 - 04:00 |  -
+04:00 - 08:00 |  -
+08:00 - 12:00 | ■■■ 3 
+12:00 - 16:00 |  -
+16:00 - 20:00 |  -
+20:00 - 00:00 |  -
+```
+
+- **Checkpoint count**: 3
+- **Avg checkpoint write time**: 17s
+- **Max checkpoint write time**: 51s
+- **WAL per checkpoint (avg)**: 141.4 MB
+- **WAL per checkpoint (max)**: 312.0 MB
+
+### Checkpoint types
+
+|  |  |  |  |
+|------|------:|--:|-----:|
+| shutdown immediate | 2 | 66.7% | 20.49/h |
+| time | 1 | 33.3% | 10.24/h |
+
+### WAL per checkpoint (avg)
+
+■ = 4 MB, □ = estimate margin
+
+```
+00:00 - 04:00  -
+04:00 - 08:00  -
+08:00 - 12:00 ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■□□□□□□□□□□□□□□□□  141 MB
+12:00 - 16:00  -
+16:00 - 20:00  -
+20:00 - 00:00  -
+```
+
+## CONNECTIONS & SESSIONS
+
+### Concurrent sessions
+
+```
+09:15 - 09:16 | ■■■ 3 (09:15)
+09:16 - 09:16 | ■■■ 3 (09:16)
+09:16 - 09:17 | ■■■ 3 (09:16)
+09:17 - 09:17 | ■■■ 3 (09:17)
+09:17 - 09:18 | ■■■ 3 (09:17)
+09:18 - 09:18 | ■■■ 3 (09:18)
+09:18 - 09:19 | ■■■■■■■ 7 (09:18)
+09:19 - 09:19 | ■■■■■■■ 7 (09:19)
+09:19 - 09:20 | ■■■■■■■ 7 (09:19)
+09:20 - 09:20 | ■■■■■■■ 7 (09:20)
+09:20 - 09:21 | ■■■■■■■ 7 (09:20)
+09:21 - 09:21 | ■■■■■■■ 7 (09:21)
+```
+
+### Connection distribution
+
+```
+09:15 - 09:16 | ■■■■■■■■ 8 
+09:16 - 09:17 |  -
+09:17 - 09:18 |  -
+09:18 - 09:19 | ■■■■ 4 
+09:19 - 09:20 |  -
+09:20 - 09:21 |  -
+```
+
+- **Connection count**: 12
+- **Avg connections per hour**: 122.94
+- **Disconnection count**: 12
+- **Avg session time**: 2m21s
+- **Median session time**: 1m29s
+- **Peak concurrent sessions**: 7 (at 09:18:49)
+
+### Session Duration Statistics
+
+- **Count**: 12
+- **Min**: 0s
+- **Max**: 5m47s
+- **Avg**: 2m21s
+- **Median**: 1m29s
+- **Cumulated**: 28m15s
+
+### Session duration distribution
+
+```
+< 1s         | ■■■■■ 5 sessions
+1s - 1min    |  -
+1min - 30min | ■■■■■■■ 7 sessions
+30min - 2h   |  -
+2h - 5h      |  -
+> 5h         |  -
+```
+
+### Session Duration by User
+
+| User  | Sessions | Min |   Max |   Avg | Median | Cumulated |
+|-------|---------:|----:|------:|------:|-------:|----------:|
+| bench |       12 |  0s | 5m47s | 2m21s |  1m29s |    28m15s |
+
+### Session Duration by Database
+
+| Database | Sessions | Min |   Max |   Avg | Median | Cumulated |
+|----------|---------:|----:|------:|------:|-------:|----------:|
+| bench    |       10 |  0s | 5m47s | 2m50s |  1m51s |    28m15s |
+| postgres |        2 |  0s |    0s |    0s |     0s |        0s |
+
+### Session Duration by Host
+
+| Host         | Sessions | Min |   Max |   Avg | Median | Cumulated |
+|--------------|---------:|----:|------:|------:|-------:|----------:|
+| 192.168.1.18 |       10 |  0s | 5m47s | 2m50s |  1m51s |    28m15s |
+
+## CLIENTS
+
+- **Unique DBs**: 2
+- **Unique Users**: 1
+- **Unique Apps**: 2
+- **Unique Hosts**: 1
+
+### USERS
+
+| User  | Count |     % |
+|-------|------:|------:|
+| bench |    24 | 32.4% |
+
+### APPS
+
+| App     | Count |    % |
+|---------|------:|-----:|
+| psql    |     4 | 5.4% |
+| pgbench |     1 | 1.4% |
+
+### DATABASES
+
+| Database | Count |     % |
+|----------|------:|------:|
+| bench    |    20 | 27.0% |
+| postgres |     4 |  5.4% |
+
+### HOSTS
+
+| Host         | Count |     % |
+|--------------|------:|------:|
+| 192.168.1.18 |    20 | 27.0% |
+
+### USER × DATABASE
+
+| User  | Database | Count |     % |
+|-------|----------|------:|------:|
+| bench | bench    |    20 | 27.0% |
+| bench | postgres |     4 |  5.4% |
+
+### USER × HOST
+
+| User  | Host         | Count |     % |
+|-------|--------------|------:|------:|
+| bench | 192.168.1.18 |    10 | 13.5% |
+
+
+
+## PGBOUNCER 127.0.0.1:6432
+
+| Metric             | Value                                            |
+|--------------------|--------------------------------------------------|
+| Pooler             | 127.0.0.1:6432, PgBouncer 1.25.2                 |
+| Start date         | 2026-09-25 09:15:44 UTC                          |
+| End date           | 2026-09-25 09:21:32 UTC                          |
+| Throughput         | 1982.4 transactions/s, 13877.9 queries/s         |
+| Avg time           | transaction 1.3 ms, query 178 µs                 |
+| Avg pool wait time | 132 µs                                           |
+| Clients            | 93 login attempts, 92 sessions of 10s on average |
+| Server connections | 3 opened                                         |
+
+### Messages: 0 errors, 0 warnings
+
+
+### Activity by minute
+
+| Time  | Queries | Query time | Pool wait | Events   |
+|-------|--------:|-----------:|----------:|----------|
+| 09:15 | 15.6k/s |     159 µs |    4.0 ms | start    |
+| 09:16 | 15.2k/s |     159 µs |           |          |
+| 09:17 | 12.3k/s |     293 µs |           | reload   |
+| 09:18 | 14.8k/s |     193 µs |           |          |
+| 09:19 | 12.9k/s |     224 µs |           |          |
+| 09:20 | 15.1k/s |     163 µs |           |          |
+| 09:21 | 11.6k/s |     249 µs |           | shutdown |
+
+_Query time and pool wait: worst snapshot of each row._
+
+_Details: --pgbouncer-detail_
+
+## PGBOUNCER 127.0.0.1:6433
+
+| Metric             | Value                                            |
+|--------------------|--------------------------------------------------|
+| Pooler             | 127.0.0.1:6433, PgBouncer 1.25.2                 |
+| Start date         | 2026-09-25 09:15:44 UTC                          |
+| End date           | 2026-09-25 09:21:32 UTC                          |
+| Throughput         | 1.7 transactions/s, 7.1 queries/s                |
+| Avg time           | transaction 4.00 s, query 1.04 s                 |
+| Avg pool wait time | 3.54 s                                           |
+| Clients            | 95 login attempts, 94 sessions of 28s on average |
+| Server connections | 4 opened, 2 reserve pool activations             |
+
+### Messages: 0 errors, 14 warnings
+
+| Message                             | Count | When     |
+|-------------------------------------|------:|----------|
+| query_wait_timeout                  |    12 | 09:20:50 |
+| taking connection from reserve_pool |     2 | 09:18:49 |
+
+### Activity per 30s
+
+| Time     | Queries | Query time | Pool wait | Events                    |
+|----------|--------:|-----------:|----------:|---------------------------|
+| 09:15:30 |     0/s |            |           | start                     |
+| 09:16:00 |     0/s |            |           | no traffic until 09:18:30 |
+| 09:18:30 |   7.3/s |   819.9 ms |    3.27 s | reload                    |
+| 09:19:00 |  31.3/s |     1.25 s |    4.51 s |                           |
+| 09:19:30 |   7.0/s |     1.44 s |    4.51 s | reload                    |
+| 09:20:00 |     0/s |            |           |                           |
+| 09:20:30 |   9.0/s |   603.4 ms |    2.20 s | reload                    |
+| 09:21:00 |  26.0/s |   995.4 ms |    3.01 s | reload                    |
+| 09:21:32 |         |            |           | shutdown                  |
+
+_Query time and pool wait: worst snapshot of each row._
+
+_Details: --pgbouncer-detail_

@@ -230,3 +230,139 @@ func TestFindEntryBoundary_Predicates(t *testing.T) {
 		t.Errorf("boundary from tail = %d, want size %d", got, st.Size())
 	}
 }
+
+// bareLinesAcross builds a stderr stream whose bare pgBackRest lines
+// straddle offset at, followed by the archiver's failure and a DETAIL
+// naming another program: the sequential parse gives them back to
+// PostgreSQL, which a segment cut between them and the DETAIL breaks.
+func bareLinesAcross(at, total int) string {
+	const (
+		filler = "2026-10-10 13:05:16.739 UTC [4242] LOG:  checkpoint starting: time\n"
+		bare   = "ERROR: [055]: unable to load info file '/var/lib/pgbackrest/archive/main/archive.info'\n"
+		fail   = "2026-10-10 13:05:17.000 UTC [999] LOG:  archive command failed with exit code 1\n"
+		detail = "2026-10-10 13:05:17.000 UTC [999] DETAIL:  The failed archive command was: cp pg_wal/000000010000000000000001 /mnt/arch/000000010000000000000001\n"
+	)
+	var b strings.Builder
+	for b.Len()+len(filler) < at-2*len(bare) {
+		b.WriteString(filler)
+	}
+	for range 4 {
+		b.WriteString(bare)
+	}
+	b.WriteString(fail + detail)
+	for b.Len() < total {
+		b.WriteString(filler)
+	}
+	return b.String()
+}
+
+// sameEntries fails when two parses differ, pgBackRest markers included.
+func sameEntries(t *testing.T, what string, want, got []LogEntry) {
+	t.Helper()
+	if len(got) != len(want) {
+		t.Fatalf("%s: %d entries, sequential had %d", what, len(got), len(want))
+	}
+	for i := range want {
+		w, g := want[i], got[i]
+		if !w.Timestamp.Equal(g.Timestamp) || w.Message != g.Message || w.PID != g.PID ||
+			w.IsContinuation != g.IsContinuation || w.FromPgBackRest != g.FromPgBackRest ||
+			(w.PgBackRest == nil) != (g.PgBackRest == nil) || (w.PgBackRest != nil && *w.PgBackRest != *g.PgBackRest) {
+			t.Fatalf("%s: entry %d differs\nseq: %+v\ngot: %+v", what, i, w, g)
+		}
+	}
+}
+
+// TestStderrParallel_BareLinesAcrossSegmentBoundary pins that bare lines
+// held across a segment or chunk boundary parse as sequentially.
+func TestStderrParallel_BareLinesAcrossSegmentBoundary(t *testing.T) {
+	seqOf := func(data string) []LogEntry {
+		return collectEntries(t, func(out chan<- []LogEntry) error {
+			return (&StderrParser{}).parseReader(strings.NewReader(data), out)
+		})
+	}
+
+	data := bareLinesAcross(stderrSegmentSize, stderrSegmentSize+1<<20)
+	seq := seqOf(data)
+	for _, e := range seq {
+		if e.FromPgBackRest {
+			t.Fatalf("sequential parse carved %+v; the DETAIL names another program", e)
+		}
+	}
+	path := filepath.Join(t.TempDir(), "bare.log")
+	if err := os.WriteFile(path, []byte(data), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	sameEntries(t, "segments", seq, parallelStderrForTest(t, path, 2))
+
+	data = bareLinesAcross(streamChunkSize, streamChunkSize+1<<20)
+	par := collectEntries(t, func(out chan<- []LogEntry) error {
+		return (&StderrParser{}).parseStreamParallel(readOnly{strings.NewReader(data)}, 2, out)
+	})
+	sameEntries(t, "stream chunks", seqOf(data), par)
+}
+
+// TestSegmentCut_SplitParsesLikeWhole pins that no carve-out state crosses
+// a cut segmentCut allows: both halves parse as the whole stream, which
+// holds every kind of held, carved and look-alike line.
+func TestSegmentCut_SplitParsesLikeWhole(t *testing.T) {
+	lines := []string{
+		"2026-10-10 13:00:00.000 UTC [100] LOG:  checkpoint starting: time",
+		"2026-10-10 13:00:00.100 P00   INFO: archive-push command begin 2.55.1: [pg_wal/000000010000000000000001] --stanza=main",
+		"2026-10-10 13:00:00.200 P00   INFO: pushed WAL file '000000010000000000000001' to the archive",
+		"",
+		"2026-10-10 13:00:01.000 UTC [100] LOG:  checkpoint complete",
+		"ERROR: [042]: custom archive script could not reach NFS share",
+		"       HINT: check the mount",
+		"2026-10-10 13:00:02.000 UTC [90] LOG:  archive command failed with exit code 42",
+		"2026-10-10 13:00:02.000 UTC [90] DETAIL:  The failed archive command was: /usr/local/bin/my-archiver pg_wal/000000010000000000000002",
+		"2026-10-10 13:00:03.000 UTC [100] LOG:  checkpoint starting: time",
+		"ERROR: [103]: unable to find a valid repository",
+		"2026-10-10 13:00:04.000 UTC [90] LOG:  archive command failed with exit code 103",
+		"2026-10-10 13:00:04.000 UTC [90] DETAIL:  The failed archive command was: pgbackrest --stanza=main archive-push pg_wal/000000010000000000000003",
+		"2026-10-10 13:00:05.000 UTC [100] LOG:  checkpoint complete",
+		"2026-10-10 13:00:06.000 UTC [100] LOG:  checkpoint starting: time",
+		"2026-10-10 13:00:07.000 UTC [101] LOG:  duration: 1.000 ms  statement: SELECT $$",
+		"P00   WARN: hello",
+		pgBackRestBanner,
+		"$$",
+		"2026-10-10 13:00:08.000 UTC [100] LOG:  checkpoint complete",
+		pgBackRestBanner,
+		"P00   INFO: archive-get command begin 2.55.1: [000000010000000000000004, pg_wal/RECOVERYXLOG] --stanza=main",
+		"2026-10-10 13:00:09.000 UTC [100] LOG:  checkpoint starting: time",
+		"2026-10-10 13:00:10.000 UTC [101] LOG:  duration: 1.000 ms  statement: SELECT 1 -- note",
+		"P00   WARN: unable to reach repo2",
+		"2026-10-10 13:00:11.000 UTC [90] LOG:  archive command failed with exit code 104",
+		"2026-10-10 13:00:11.000 UTC [90] DETAIL:  The failed archive command was: pgbackrest --stanza=main archive-push pg_wal/000000010000000000000005",
+		"2026-10-10 13:00:12.000 UTC [101] LOG:  duration: 1.000 ms  statement: SELECT 2",
+		pgBackRestBanner,
+		"2026-10-10 13:00:13.000 P00   INFO: archive-push command begin 2.55.1: [pg_wal/000000010000000000000006] --stanza=main",
+		"2026-10-10 13:00:14.000 UTC [100] LOG:  checkpoint complete",
+	}
+	whole := strings.Join(lines, "\n") + "\n"
+	for _, path := range []string{"reader", "bytes"} {
+		want := parseBothWays(t, path, whole)
+		var cut segmentCut
+		cuts := 0
+		for k := 1; k < len(lines); k++ {
+			cut.observe([]byte(lines[k-1]), true)
+			if !cut.canCut([]byte(lines[k])) {
+				continue
+			}
+			cuts++
+			head := strings.Join(lines[:k], "\n") + "\n"
+			tail := strings.Join(lines[k:], "\n") + "\n"
+			got := append(parseBothWays(t, path, head), parseBothWays(t, path, tail)...)
+			sameEntries(t, fmt.Sprintf("%s, cut before line %d", path, k), want, got)
+		}
+		if cuts < 5 {
+			t.Errorf("%s: only %d cuts allowed", path, cuts)
+		}
+	}
+	var cut segmentCut
+	for k, l := range lines[:8] {
+		cut.observe([]byte(l), true)
+		if k >= 4 && cut.canCut([]byte(lines[k+1])) {
+			t.Errorf("cut allowed before line %d, inside held bare lines or right after the failure", k+1)
+		}
+	}
+}

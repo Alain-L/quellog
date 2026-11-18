@@ -1,0 +1,144 @@
+{"asctime": "2026-09-24 14:09:26,581", "levelname": "INFO", "message": "Using default value thread_stack_size = 524288"}
+{"asctime": "2026-09-24 14:09:26,588", "levelname": "INFO", "message": "Patroni global thread_pool_size = 5"}
+{"asctime": "2026-09-24 14:09:26,620", "levelname": "ERROR", "message": "Failed to get list of machines from http://etcd1:2379/v3beta: ValueError(\"invalid literal for int() with base 10: 'not_decided'\")"}
+{"asctime": "2026-09-24 14:09:26,621", "levelname": "ERROR", "message": "Failed to get list of machines from http://etcd3:2379/v3beta: ValueError(\"invalid literal for int() with base 10: 'not_decided'\")"}
+{"asctime": "2026-09-24 14:09:26,622", "levelname": "ERROR", "message": "Failed to get list of machines from http://etcd2:2379/v3beta: ValueError(\"invalid literal for int() with base 10: 'not_decided'\")"}
+{"asctime": "2026-09-24 14:09:26,622", "levelname": "INFO", "message": "waiting on etcd"}
+{"asctime": "2026-09-24 14:09:31,665", "levelname": "INFO", "message": "Selected new etcd server http://etcd3:2379"}
+{"asctime": "2026-09-24 14:09:31,671", "levelname": "INFO", "message": "No PostgreSQL configuration items changed, nothing to reload."}
+{"asctime": "2026-09-24 14:09:31,676", "levelname": "INFO", "message": "REST API thread_pool_size = 5"}
+{"asctime": "2026-09-24 14:09:31,727", "levelname": "INFO", "message": "Lock owner: None; I am pg1"}
+{"asctime": "2026-09-24 14:09:31,815", "levelname": "INFO", "message": "trying to bootstrap a new cluster"}
+{"asctime": "2026-09-24 14:09:34,653", "levelname": "INFO", "message": "postmaster pid=36"}
+{"asctime": "2026-09-24 14:09:34,665", "levelname": "INFO", "message": "establishing a new patroni heartbeat connection to postgres"}
+{"asctime": "2026-09-24 14:09:34,759", "levelname": "INFO", "message": "running post_bootstrap"}
+{"asctime": "2026-09-24 14:09:34,999", "levelname": "INFO", "message": "initialized a new cluster"}
+{"asctime": "2026-09-24 14:09:44,926", "levelname": "INFO", "message": "no action. I am (pg1), the leader with the lock"}
+{"asctime": "2026-09-24 14:09:54,916", "levelname": "INFO", "message": "no action. I am (pg1), the leader with the lock"}
+{"asctime": "2026-09-24 14:10:04,815", "levelname": "INFO", "message": "no action. I am (pg1), the leader with the lock"}
+{"asctime": "2026-09-24 14:10:14,397", "levelname": "INFO", "message": "received switchover request with leader=pg1 candidate=pg2 scheduled_at=None"}
+{"asctime": "2026-09-24 14:10:14,401", "levelname": "INFO", "message": "Got response from pg2 http://pg2:8008/patroni: {\"state\": \"running\", \"postmaster_start_time\": \"2026-09-24 14:09:38.311620+00:00\", \"role\": \"replica\", \"server_version\": 170009, \"xlog\": {\"received_location\": 67283744, \"replayed_location\": 67283744, \"replayed_timestamp\": \"2026-09-24 14:10:12.067012+00:00\", \"paused\": false}, \"timeline\": 1, \"replication_state\": \"streaming\", \"dcs_last_seen\": 1790259005, \"database_system_identifier\": \"7689103735349272603\", \"patroni\": {\"version\": \"4.1.5\", \"scope\": \"main\", \"name\": \"pg2\"}}"}
+{"asctime": "2026-09-24 14:10:14,557", "levelname": "INFO", "message": "Got response from pg2 http://pg2:8008/patroni: {\"state\": \"running\", \"postmaster_start_time\": \"2026-09-24 14:09:38.311620+00:00\", \"role\": \"replica\", \"server_version\": 170009, \"xlog\": {\"received_location\": 67283744, \"replayed_location\": 67283744, \"replayed_timestamp\": \"2026-09-24 14:10:12.067012+00:00\", \"paused\": false}, \"timeline\": 1, \"replication_state\": \"streaming\", \"dcs_last_seen\": 1790259014, \"database_system_identifier\": \"7689103735349272603\", \"patroni\": {\"version\": \"4.1.5\", \"scope\": \"main\", \"name\": \"pg2\"}}"}
+{"asctime": "2026-09-24 14:10:14,460", "levelname": "INFO", "message": "Lock owner: pg1; I am pg1"}
+{"asctime": "2026-09-24 14:10:14,603", "levelname": "INFO", "message": "switchover: demoting myself"}
+{"asctime": "2026-09-24 14:10:14,603", "levelname": "INFO", "message": "Demoting self (graceful)"}
+{"asctime": "2026-09-24 14:10:15,867", "levelname": "INFO", "message": "Leader key released"}
+{"asctime": "2026-09-24 14:10:15,867", "levelname": "INFO", "message": "Lock owner: None; I am pg1"}
+{"asctime": "2026-09-24 14:10:15,867", "levelname": "INFO", "message": "not healthy enough for leader race"}
+{"asctime": "2026-09-24 14:10:15,867", "levelname": "INFO", "message": "switchover: demote in progress"}
+{"asctime": "2026-09-24 14:10:15,916", "levelname": "INFO", "message": "Lock owner: pg2; I am pg1"}
+{"asctime": "2026-09-24 14:10:15,962", "levelname": "INFO", "message": "switchover: demote in progress"}
+{"asctime": "2026-09-24 14:10:17,103", "levelname": "INFO", "message": "Lock owner: pg2; I am pg1"}
+{"asctime": "2026-09-24 14:10:17,146", "levelname": "INFO", "message": "switchover: demote in progress"}
+{"asctime": "2026-09-24 14:10:17,287", "levelname": "INFO", "message": "Lock owner: pg2; I am pg1"}
+{"asctime": "2026-09-24 14:10:17,330", "levelname": "INFO", "message": "switchover: demote in progress"}
+{"asctime": "2026-09-24 14:10:17,868", "levelname": "INFO", "message": "Local timeline=1 lsn=0/402ABF0"}
+{"asctime": "2026-09-24 14:10:17,882", "levelname": "INFO", "message": "primary_timeline=2"}
+{"asctime": "2026-09-24 14:10:17,883", "levelname": "INFO", "message": "primary: history=1\t0/402AC68\tno recovery target specified"}
+{"asctime": "2026-09-24 14:10:17,884", "levelname": "INFO", "message": "closed patroni connections to postgres"}
+{"asctime": "2026-09-24 14:10:18,191", "levelname": "INFO", "message": "postmaster pid=79"}
+{"asctime": "2026-09-24 14:10:18,205", "levelname": "INFO", "message": "Lock owner: pg2; I am pg1"}
+{"asctime": "2026-09-24 14:10:18,205", "levelname": "INFO", "message": "establishing a new patroni heartbeat connection to postgres"}
+{"asctime": "2026-09-24 14:10:18,304", "levelname": "INFO", "message": "no action. I am (pg1), a secondary, and following a leader (pg2)"}
+{"asctime": "2026-09-24 14:10:27,387", "levelname": "INFO", "message": "no action. I am (pg1), a secondary, and following a leader (pg2)"}
+{"asctime": "2026-09-24 14:10:37,386", "levelname": "INFO", "message": "no action. I am (pg1), a secondary, and following a leader (pg2)"}
+{"asctime": "2026-09-24 14:10:47,839", "levelname": "INFO", "message": "no action. I am (pg1), a secondary, and following a leader (pg2)"}
+{"asctime": "2026-09-24 14:10:57,847", "levelname": "INFO", "message": "no action. I am (pg1), a secondary, and following a leader (pg2)"}
+{"asctime": "2026-09-24 14:11:07,842", "levelname": "INFO", "message": "no action. I am (pg1), a secondary, and following a leader (pg2)"}
+{"asctime": "2026-09-24 14:11:17,838", "levelname": "INFO", "message": "no action. I am (pg1), a secondary, and following a leader (pg2)"}
+{"asctime": "2026-09-24 14:11:27,841", "levelname": "INFO", "message": "no action. I am (pg1), a secondary, and following a leader (pg2)"}
+{"asctime": "2026-09-24 14:11:37,903", "levelname": "INFO", "message": "no action. I am (pg1), a secondary, and following a leader (pg2)"}
+{"asctime": "2026-09-24 14:11:47,841", "levelname": "INFO", "message": "no action. I am (pg1), a secondary, and following a leader (pg2)"}
+{"asctime": "2026-09-24 14:11:57,558", "levelname": "INFO", "message": "establishing a new patroni restapi connection to postgres"}
+{"asctime": "2026-09-24 14:11:57,564", "levelname": "INFO", "message": "Got response from pg3 http://pg3:8008/patroni: {\"state\": \"running\", \"postmaster_start_time\": \"2026-09-24 14:09:38.184125+00:00\", \"role\": \"replica\", \"server_version\": 170009, \"xlog\": {\"received_location\": 67315944, \"replayed_location\": 67315944, \"replayed_timestamp\": \"2026-09-24 14:11:32.921892+00:00\", \"paused\": false}, \"timeline\": 2, \"cluster_unlocked\": true, \"dcs_last_seen\": 1790259117, \"database_system_identifier\": \"7689103735349272603\", \"patroni\": {\"version\": \"4.1.5\", \"scope\": \"main\", \"name\": \"pg3\"}}"}
+{"asctime": "2026-09-24 14:12:01,561", "levelname": "WARNING", "message": "Request failed to pg2: GET http://pg2:8008/patroni (HTTPConnectionPool(host='pg2', port=8008): Max retries exceeded with url: /patroni (Caused by ConnectTimeoutError(<HTTPConnection(host='pg2', port=8008) at 0x7f2660f40af0>, 'Connection to pg2 timed out. (connect timeout=2)')))"}
+{"asctime": "2026-09-24 14:12:01,706", "levelname": "INFO", "message": "promoted self to leader by acquiring session lock"}
+{"asctime": "2026-09-24 14:12:01,707", "levelname": "INFO", "message": "Lock owner: pg1; I am pg1"}
+{"asctime": "2026-09-24 14:12:01,796", "levelname": "INFO", "message": "updated leader lock during promote"}
+{"asctime": "2026-09-24 14:12:02,891", "levelname": "INFO", "message": "no action. I am (pg1), the leader with the lock"}
+{"asctime": "2026-09-24 14:12:12,850", "levelname": "INFO", "message": "no action. I am (pg1), the leader with the lock"}
+{"asctime": "2026-09-24 14:12:22,851", "levelname": "INFO", "message": "no action. I am (pg1), the leader with the lock"}
+{"asctime": "2026-09-24 14:12:32,754", "levelname": "INFO", "message": "no action. I am (pg1), the leader with the lock"}
+{"asctime": "2026-09-24 14:12:42,810", "levelname": "INFO", "message": "no action. I am (pg1), the leader with the lock"}
+{"asctime": "2026-09-24 14:12:52,755", "levelname": "INFO", "message": "no action. I am (pg1), the leader with the lock"}
+{"asctime": "2026-09-24 14:13:02,851", "levelname": "INFO", "message": "no action. I am (pg1), the leader with the lock"}
+{"asctime": "2026-09-24 14:13:12,759", "levelname": "INFO", "message": "no action. I am (pg1), the leader with the lock"}
+{"asctime": "2026-09-24 14:13:22,759", "levelname": "INFO", "message": "no action. I am (pg1), the leader with the lock"}
+{"asctime": "2026-09-24 14:13:32,756", "levelname": "INFO", "message": "no action. I am (pg1), the leader with the lock"}
+{"asctime": "2026-09-24 14:13:42,755", "levelname": "INFO", "message": "no action. I am (pg1), the leader with the lock"}
+{"asctime": "2026-09-24 14:13:52,710", "levelname": "INFO", "message": "Lock owner: pg1; I am pg1"}
+{"asctime": "2026-09-24 14:13:56,046", "levelname": "ERROR", "message": "Request to server http://etcd3:2379 failed: ReadTimeoutError(\"HTTPConnectionPool(host='etcd3', port=2379): Read timed out. (read timeout=3.3332502663154933)\")"}
+{"asctime": "2026-09-24 14:13:56,046", "levelname": "INFO", "message": "Reconnection allowed, looking for another server."}
+{"asctime": "2026-09-24 14:13:56,046", "levelname": "INFO", "message": "Retrying on http://etcd1:2379"}
+{"asctime": "2026-09-24 14:13:56,048", "levelname": "INFO", "message": "Selected new etcd server http://etcd1:2379"}
+{"asctime": "2026-09-24 14:13:56,048", "levelname": "ERROR", "message": "watchprefix failed: ProtocolError('Response ended prematurely')"}
+{"asctime": "2026-09-24 14:13:56,090", "levelname": "INFO", "message": "no action. I am (pg1), the leader with the lock"}
+{"asctime": "2026-09-24 14:13:56,095", "levelname": "WARNING", "message": "failed to resolve host etcd3: [Errno -2] Name or service not known"}
+{"asctime": "2026-09-24 14:13:57,103", "levelname": "WARNING", "message": "failed to resolve host etcd2: [Errno -2] Name or service not known"}
+{"asctime": "2026-09-24 14:13:58,109", "levelname": "WARNING", "message": "failed to resolve host etcd1: [Errno -2] Name or service not known"}
+{"asctime": "2026-09-24 14:13:59,137", "levelname": "WARNING", "message": "failed to resolve host etcd3: [Errno -2] Name or service not known"}
+{"asctime": "2026-09-24 14:14:00,144", "levelname": "WARNING", "message": "failed to resolve host etcd2: [Errno -2] Name or service not known"}
+{"asctime": "2026-09-24 14:14:01,150", "levelname": "WARNING", "message": "failed to resolve host etcd1: [Errno -2] Name or service not known"}
+{"asctime": "2026-09-24 14:14:02,156", "levelname": "WARNING", "message": "failed to resolve host etcd3: [Errno -2] Name or service not known"}
+{"asctime": "2026-09-24 14:14:02,854", "levelname": "INFO", "message": "no action. I am (pg1), the leader with the lock"}
+{"asctime": "2026-09-24 14:14:03,162", "levelname": "WARNING", "message": "failed to resolve host etcd2: [Errno -2] Name or service not known"}
+{"asctime": "2026-09-24 14:14:04,168", "levelname": "WARNING", "message": "failed to resolve host etcd1: [Errno -2] Name or service not known"}
+{"asctime": "2026-09-24 14:14:05,175", "levelname": "WARNING", "message": "failed to resolve host etcd3: [Errno -2] Name or service not known"}
+{"asctime": "2026-09-24 14:14:06,183", "levelname": "WARNING", "message": "failed to resolve host etcd2: [Errno -2] Name or service not known"}
+{"asctime": "2026-09-24 14:14:07,189", "levelname": "WARNING", "message": "failed to resolve host etcd1: [Errno -2] Name or service not known"}
+{"asctime": "2026-09-24 14:14:08,195", "levelname": "WARNING", "message": "failed to resolve host etcd3: [Errno -2] Name or service not known"}
+{"asctime": "2026-09-24 14:14:09,204", "levelname": "WARNING", "message": "failed to resolve host etcd2: [Errno -2] Name or service not known"}
+{"asctime": "2026-09-24 14:14:10,224", "levelname": "WARNING", "message": "failed to resolve host etcd1: [Errno -2] Name or service not known"}
+{"asctime": "2026-09-24 14:14:11,236", "levelname": "WARNING", "message": "failed to resolve host etcd3: [Errno -2] Name or service not known"}
+{"asctime": "2026-09-24 14:14:12,245", "levelname": "WARNING", "message": "failed to resolve host etcd2: [Errno -2] Name or service not known"}
+{"asctime": "2026-09-24 14:14:12,759", "levelname": "INFO", "message": "no action. I am (pg1), the leader with the lock"}
+{"asctime": "2026-09-24 14:14:13,257", "levelname": "WARNING", "message": "failed to resolve host etcd1: [Errno -2] Name or service not known"}
+{"asctime": "2026-09-24 14:14:14,266", "levelname": "WARNING", "message": "failed to resolve host etcd3: [Errno -2] Name or service not known"}
+{"asctime": "2026-09-24 14:14:15,281", "levelname": "WARNING", "message": "failed to resolve host etcd2: [Errno -2] Name or service not known"}
+{"asctime": "2026-09-24 14:14:16,289", "levelname": "WARNING", "message": "failed to resolve host etcd1: [Errno -2] Name or service not known"}
+{"asctime": "2026-09-24 14:14:17,296", "levelname": "WARNING", "message": "failed to resolve host etcd3: [Errno -2] Name or service not known"}
+{"asctime": "2026-09-24 14:14:18,303", "levelname": "WARNING", "message": "failed to resolve host etcd2: [Errno -2] Name or service not known"}
+{"asctime": "2026-09-24 14:14:19,309", "levelname": "WARNING", "message": "failed to resolve host etcd1: [Errno -2] Name or service not known"}
+{"asctime": "2026-09-24 14:14:20,315", "levelname": "WARNING", "message": "failed to resolve host etcd3: [Errno -2] Name or service not known"}
+{"asctime": "2026-09-24 14:14:21,322", "levelname": "WARNING", "message": "failed to resolve host etcd2: [Errno -2] Name or service not known"}
+{"asctime": "2026-09-24 14:14:22,328", "levelname": "WARNING", "message": "failed to resolve host etcd1: [Errno -2] Name or service not known"}
+{"asctime": "2026-09-24 14:14:22,850", "levelname": "INFO", "message": "no action. I am (pg1), the leader with the lock"}
+{"asctime": "2026-09-24 14:14:23,335", "levelname": "WARNING", "message": "failed to resolve host etcd3: [Errno -2] Name or service not known"}
+{"asctime": "2026-09-24 14:14:24,343", "levelname": "WARNING", "message": "failed to resolve host etcd2: [Errno -2] Name or service not known"}
+{"asctime": "2026-09-24 14:14:25,350", "levelname": "WARNING", "message": "failed to resolve host etcd1: [Errno -2] Name or service not known"}
+{"asctime": "2026-09-24 14:14:26,357", "levelname": "WARNING", "message": "failed to resolve host etcd3: [Errno -2] Name or service not known"}
+{"asctime": "2026-09-24 14:14:26,361", "levelname": "WARNING", "message": "failed to resolve host etcd2: [Errno -2] Name or service not known"}
+{"asctime": "2026-09-24 14:14:26,365", "levelname": "WARNING", "message": "failed to resolve host etcd1: [Errno -2] Name or service not known"}
+{"asctime": "2026-09-24 14:14:32,758", "levelname": "INFO", "message": "no action. I am (pg1), the leader with the lock"}
+{"asctime": "2026-09-24 14:14:42,759", "levelname": "INFO", "message": "no action. I am (pg1), the leader with the lock"}
+{"asctime": "2026-09-24 14:14:52,808", "levelname": "INFO", "message": "no action. I am (pg1), the leader with the lock"}
+{"asctime": "2026-09-24 14:15:02,754", "levelname": "INFO", "message": "no action. I am (pg1), the leader with the lock"}
+{"asctime": "2026-09-24 14:15:12,755", "levelname": "INFO", "message": "no action. I am (pg1), the leader with the lock"}
+{"asctime": "2026-09-24 14:15:22,754", "levelname": "INFO", "message": "no action. I am (pg1), the leader with the lock"}
+{"asctime": "2026-09-24 14:15:32,755", "levelname": "INFO", "message": "no action. I am (pg1), the leader with the lock"}
+{"asctime": "2026-09-24 14:15:42,754", "levelname": "INFO", "message": "no action. I am (pg1), the leader with the lock"}
+{"asctime": "2026-09-24 14:15:52,709", "levelname": "INFO", "message": "Lock owner: pg1; I am pg1"}
+{"asctime": "2026-09-24 14:15:56,045", "levelname": "ERROR", "message": "Request to server http://etcd1:2379 failed: ReadTimeoutError(\"HTTPConnectionPool(host='etcd1', port=2379): Read timed out. (read timeout=3.3332117553412295)\")"}
+{"asctime": "2026-09-24 14:15:56,045", "levelname": "INFO", "message": "Reconnection allowed, looking for another server."}
+{"asctime": "2026-09-24 14:15:56,045", "levelname": "INFO", "message": "Retrying on http://etcd3:2379"}
+{"asctime": "2026-09-24 14:15:56,048", "levelname": "INFO", "message": "Selected new etcd server http://etcd3:2379"}
+{"asctime": "2026-09-24 14:15:56,049", "levelname": "ERROR", "message": "watchprefix failed: ProtocolError('Response ended prematurely')"}
+{"asctime": "2026-09-24 14:15:56,050", "levelname": "INFO", "message": "no action. I am (pg1), the leader with the lock"}
+{"asctime": "2026-09-24 14:16:02,712", "levelname": "INFO", "message": "no action. I am (pg1), the leader with the lock"}
+{"asctime": "2026-09-24 14:16:12,754", "levelname": "INFO", "message": "no action. I am (pg1), the leader with the lock"}
+{"asctime": "2026-09-24 14:16:22,755", "levelname": "INFO", "message": "no action. I am (pg1), the leader with the lock"}
+{"asctime": "2026-09-24 14:16:32,754", "levelname": "INFO", "message": "no action. I am (pg1), the leader with the lock"}
+{"asctime": "2026-09-24 14:16:42,755", "levelname": "INFO", "message": "no action. I am (pg1), the leader with the lock"}
+{"asctime": "2026-09-24 14:16:52,756", "levelname": "INFO", "message": "no action. I am (pg1), the leader with the lock"}
+{"asctime": "2026-09-24 14:17:02,755", "levelname": "INFO", "message": "no action. I am (pg1), the leader with the lock"}
+{"asctime": "2026-09-24 14:17:12,850", "levelname": "INFO", "message": "no action. I am (pg1), the leader with the lock"}
+{"asctime": "2026-09-24 14:17:22,756", "levelname": "INFO", "message": "no action. I am (pg1), the leader with the lock"}
+{"asctime": "2026-09-24 14:17:32,862", "levelname": "INFO", "message": "no action. I am (pg1), the leader with the lock"}
+{"asctime": "2026-09-24 14:17:42,754", "levelname": "INFO", "message": "no action. I am (pg1), the leader with the lock"}
+{"asctime": "2026-09-24 14:17:52,756", "levelname": "INFO", "message": "no action. I am (pg1), the leader with the lock"}
+{"asctime": "2026-09-24 14:18:02,756", "levelname": "INFO", "message": "no action. I am (pg1), the leader with the lock"}
+{"asctime": "2026-09-24 14:18:12,755", "levelname": "INFO", "message": "no action. I am (pg1), the leader with the lock"}
+{"asctime": "2026-09-24 14:18:22,758", "levelname": "INFO", "message": "no action. I am (pg1), the leader with the lock"}
+{"asctime": "2026-09-24 14:18:32,759", "levelname": "INFO", "message": "no action. I am (pg1), the leader with the lock"}
+{"asctime": "2026-09-24 14:18:42,754", "levelname": "INFO", "message": "no action. I am (pg1), the leader with the lock"}
+{"asctime": "2026-09-24 14:18:52,758", "levelname": "INFO", "message": "no action. I am (pg1), the leader with the lock"}

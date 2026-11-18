@@ -107,9 +107,6 @@ func runAnalysisCycle(ctx context.Context, args []string) error {
 		return err
 	}
 
-	// Calculate total file size for throughput reporting
-	totalFileSize := calculateTotalFileSize(allFiles)
-
 	// Step 2: Validate and parse time filter options
 	if err := validateTimeFilters(); err != nil {
 		return err
@@ -136,13 +133,102 @@ func runAnalysisCycle(ctx context.Context, args []string) error {
 		beginT, endT = applyTimeWindow(beginT, endT, windowDur)
 	}
 
+	// Partition inputs by detected format. pgBouncer logs (always their
+	// own files — a separate daemon) are analyzed on a separate track so a
+	// mixed batch produces the PostgreSQL report plus a pgBouncer section,
+	// instead of silently feeding one analyzer the other's lines.
+	allFiles, pgbFiles := partitionInputsByFormat(allFiles)
+
+	// Track whether at least one input parsed successfully, across every
+	// track. The async parsers are fire-and-forget: errors get logged
+	// inside, and if nothing comes out we surface a single clean error
+	// here at the end.
+	var parsedAny atomic.Bool
+
+	// --split partitions PostgreSQL logs by time into per-period reports;
+	// it has no meaning for pgBouncer telemetry. Reject the combination
+	// rather than silently dropping the pgBouncer data — on a pure
+	// pgBouncer run too, where there is nothing left to split.
+	if len(pgbFiles) > 0 && splitFlag != "" {
+		return fmt.Errorf("--split is not supported with pgBouncer logs; analyze the pgBouncer logs separately")
+	}
+
+	// --pgbouncer-detail: the detailed pooler report alone; the pooler
+	// track needs nothing from the others. The PostgreSQL track does not
+	// run, so the pooler track reports every message of the archives they
+	// share, and an input it cannot open is still said.
+	var pgb []analysis.PgBouncerMetrics
+	if pgbouncerDetailFlag {
+		for _, f := range allFiles {
+			if f == "-" {
+				continue
+			}
+			if fh, err := os.Open(f); err != nil {
+				slog.Error("cannot open file", "file", f, "err", err)
+			} else {
+				fh.Close()
+			}
+		}
+		pgb = computePgBouncerMetrics(ctx, pgbFiles, nil, beginT, endT, &parsedAny)
+		return renderPgBouncerDetail(pgb, startTime, calculateTotalFileSize(pgbFiles))
+	}
+	// pgBouncer metrics, when any pgBouncer file is present. Its own parse
+	// pass (pgBouncer logs are small; no progress bar needed).
+	if len(pgbFiles) > 0 {
+		pgb = computePgBouncerMetrics(ctx, pgbFiles, allFiles, beginT, endT, &parsedAny)
+	}
+
+	// Pure pgBouncer run: no other file at all. The pooler report goes
+	// through the shared renderer with an empty PostgreSQL payload, so -o,
+	// multi-format export and every export format behave exactly as they
+	// do for PostgreSQL. The query-oriented flags (--sql-detail,
+	// --event-detail, …) have nothing to report on pooler telemetry and are
+	// ignored in favour of the pooler report.
+	if len(allFiles) == 0 {
+		if len(pgb) == 0 {
+			return errNoPgBouncerEntries
+		}
+		if len(eventDetailFlag) > 0 {
+			return writeEventDetails(analysis.AggregatedMetrics{PgBouncer: pgb}, nil, poolerEntries(pgb), time.Since(startTime), calculateTotalFileSize(pgbFiles))
+		}
+		return renderReport(analysis.AggregatedMetrics{}, nil, pgb, true, nil, args, calculateTotalFileSize(pgbFiles), time.Since(startTime))
+	}
+
+	// With pooler files in the run, an archive may hold both kinds of log:
+	// the PostgreSQL track reads its PostgreSQL members only.
+	track := parser.AllMembers
+	if len(pgbFiles) > 0 {
+		track = parser.PostgresMembers
+	}
+
+	// Calculate total file size for throughput reporting: every input once,
+	// an archive read by both tracks included.
+	totalFileSize := calculateTotalFileSize(distinctFiles(allFiles, pgbFiles))
+
+	// The pgBackRest observer receives the lines the stderr parser carves
+	// out of every input, and the PostgreSQL archiving failures (see
+	// analysis.AggregateMetricsObserved). Only the full report shows it;
+	// --split periods are PostgreSQL's alone.
+	var pgbr *analysis.PgBackRestAnalyzer
+	if splitFlag == "" {
+		pgbr = analysis.NewPgBackRestAnalyzer()
+		pgbr.SetTimeWindow(beginT, endT)
+	}
+
+	// Patroni logs take their own track; the PostgreSQL pipeline below gets
+	// the rest, possibly nothing.
+	pgFiles, patroniFiles := splitPatroniInputs(allFiles)
+	var patroniReport *analysis.PatroniMetrics
+	if len(patroniFiles) > 0 {
+		if splitFlag != "" {
+			return fmt.Errorf("--split does not apply to Patroni logs")
+		}
+		patroniReport = computePatroniMetrics(ctx, patroniFiles, beginT, endT)
+		allFiles = pgFiles
+	}
+
 	// Step 3: Set up streaming pipeline
 	rawLogs := make(chan []parser.LogEntry, 64)
-
-	// Track whether at least one input parsed successfully. The async
-	// parsers are fire-and-forget: errors get logged inside, and if
-	// nothing comes out we surface a single clean error here at the end.
-	var parsedAny atomic.Bool
 
 	// Optional progress indicator on stderr (large input + TTY + text
 	// output). nil here is a no-op for all bar methods. Reset the
@@ -150,12 +236,12 @@ func runAnalysisCycle(ctx context.Context, args []string) error {
 	// cumulative numbers from a previous run.
 	parser.ResetParsedEntries()
 	parser.ResetCurrentFileProgress()
-	pb := newProgressBar(totalFileSize)
+	pb := newProgressBar(calculateTotalFileSize(allFiles)) // PostgreSQL files only
 	pb.Start()
 	defer pb.Finish()
 
-	// Launch parallel file parsing
-	go parseFilesAsync(ctx, allFiles, rawLogs, &parsedAny, pb)
+	// Launch parallel file parsing (PostgreSQL track).
+	go parseFilesAsync(ctx, allFiles, rawLogs, &parsedAny, pb, track)
 
 	// Step 4: Apply filters (skip channel hop when no filters are active)
 	filters := buildLogFilters(beginT, endT)
@@ -177,8 +263,10 @@ func runAnalysisCycle(ctx context.Context, args []string) error {
 	// every metrics build below.
 	workers := shardWorkers(allFiles)
 
-	// Step 5: Process and output results based on flags
-	if err := processAndOutput(ctx, analyzeInput, startTime, totalFileSize, args, workers, pb); err != nil {
+	// Step 5: Process and output results based on flags. pgb carries the
+	// optional pgBouncer section appended to the report (nil for a pure
+	// PostgreSQL run).
+	if err := processAndOutput(ctx, analyzeInput, startTime, totalFileSize, args, workers, pb, pgbr, patroniReport, pgb); err != nil {
 		return err
 	}
 
@@ -186,7 +274,7 @@ func runAnalysisCycle(ctx context.Context, args []string) error {
 	// stream) still produced usable entries; ParsedEntries() catches that case
 	// so we don't claim "no files could be parsed" after already emitting an
 	// analysis for the recovered data.
-	if !parsedAny.Load() && parser.ParsedEntries() == 0 {
+	if !parsedAny.Load() && parser.ParsedEntries() == 0 && patroniReport == nil {
 		return fmt.Errorf("no files could be parsed: check that files exist, are readable, and in a supported format")
 	}
 	return nil
@@ -228,11 +316,12 @@ func validateStdinUsage(files []string) error {
 // Special handling: if "-" is in the files list, it reads from stdin. The
 // caller must ensure stdin is not mixed with regular files (see
 // validateStdinUsage).
-func parseFilesAsync(ctx context.Context, files []string, out chan<- []parser.LogEntry, parsedAny *atomic.Bool, pb *progressBar) {
+func parseFilesAsync(ctx context.Context, files []string, out chan<- []parser.LogEntry, parsedAny *atomic.Bool, pb *progressBar, track parser.ArchiveTrack) {
 	defer close(out)
 
 	// Special case: stdin (caller has validated it is not mixed)
 	if len(files) == 1 && files[0] == "-" {
+		out <- []parser.LogEntry{parser.PgBackRestSourceMarker("-", false)}
 		if err := parser.ParseStdin(out); err != nil {
 			slog.Error("failed to parse from stdin", "err", err)
 			return
@@ -262,7 +351,8 @@ func parseFilesAsync(ctx context.Context, files []string, out chan<- []parser.Lo
 				return
 			}
 			parser.ResetCurrentFileProgress()
-			if err := parser.ParseFile(file, out); err != nil {
+			out <- []parser.LogEntry{parser.PgBackRestSourceMarker(file, false)}
+			if err := parser.ParseFileTrack(file, out, track); err != nil {
 				// Detection failures are already logged with specifics; surface
 				// parse-stage failures (e.g. a stream that truncated mid-file)
 				// since those leave partial output.
@@ -347,7 +437,7 @@ func parseFilesAsync(ctx context.Context, files []string, out chan<- []parser.Lo
 				// or the ordered drain would block forever on this index.
 				if ctx.Err() == nil {
 					file := files[i]
-					if err := parser.ParseFile(file, queues[i]); err != nil {
+					if err := parser.ParseFileTrack(file, queues[i], track); err != nil {
 						// Detection failures are already logged; surface
 						// parse-stage failures (partial output) as a warning.
 						if !isDetectionError(err) {
@@ -368,6 +458,7 @@ func parseFilesAsync(ctx context.Context, files []string, out chan<- []parser.Lo
 	// flight (the one now draining plus window-1 ahead), matching the
 	// pre-signalled permits above. This is what releases the window.
 	for i := range queues {
+		out <- []parser.LogEntry{parser.PgBackRestSourceMarker(files[i], false)}
 		for batch := range queues[i] {
 			out <- batch
 		}
@@ -474,8 +565,17 @@ func validateFlagCombinations() error {
 	if formatCount > 1 && outputFlag != "" {
 		return fmt.Errorf("-o/--output is not compatible with multiple export formats (each format writes to its own default file)")
 	}
-	if formatCount > 1 && (len(sqlDetailFlag) > 0 || len(eventDetailFlag) > 0 || sqlPerformanceFlag || sqlOverviewFlag) {
-		return fmt.Errorf("multiple export formats are only supported for the full report (not with --sql-detail, --event-detail, --sql-performance, --sql-overview)")
+	if formatCount > 1 && (len(sqlDetailFlag) > 0 || len(eventDetailFlag) > 0 || sqlPerformanceFlag || sqlOverviewFlag || pgbackrestDetailFlag != "") {
+		return fmt.Errorf("multiple export formats are only supported for the full report (not with --sql-detail, --event-detail, --sql-performance, --sql-overview, --pgbackrest-detail)")
+	}
+	if patroniDetailFlag && (jsonFlag || jsonCompactFlag || yamlFlag || htmlFlag) {
+		return fmt.Errorf("--patroni-detail applies to the text and Markdown reports: --json, --yaml and --html already hold every detail")
+	}
+	if pgbouncerDetailFlag && (jsonFlag || jsonCompactFlag || yamlFlag || htmlFlag) {
+		return fmt.Errorf("--pgbouncer-detail applies to the text and Markdown reports: --json, --yaml and --html already hold every detail")
+	}
+	if pgbackrestDetailFlag != "" && htmlFlag {
+		return fmt.Errorf("--pgbackrest-detail is not supported with --html (the HTML report already holds every stanza's details)")
 	}
 	if openFlag && !htmlFlag {
 		return fmt.Errorf("--open requires --html (nothing to open without an HTML report)")
@@ -508,11 +608,10 @@ func validateFlagCombinations() error {
 // the expanded file list (see runAnalysisCycle) and threaded into every metrics
 // build; inputArgs stays the raw arguments, used only for display (filenames,
 // input description, first-file format detection).
-func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry, startTime time.Time, totalFileSize int64, inputArgs []string, workers int, pb *progressBar) error {
+func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry, startTime time.Time, totalFileSize int64, inputArgs []string, workers int, pb *progressBar, pgbr *analysis.PgBackRestAnalyzer, patroniReport *analysis.PatroniMetrics, pgb []analysis.PgBouncerMetrics) error {
 	// Flag-combination constraints are validated once up front (see
-	// validateFlagCombinations, called from executeParsing). Here we only need
-	// the format count for dispatch and the --split short-circuit.
-	formatCount := exportFormatCount()
+	// validateFlagCombinations, called from executeParsing); only the
+	// --split short-circuit is left to handle here.
 	if splitFlag != "" {
 		return runSplitHTML(ctx, filteredLogs, startTime, totalFileSize, inputArgs, pb)
 	}
@@ -542,29 +641,32 @@ func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry
 		return closer()
 	}
 
-	// Special case: event pattern details (lookup by ID like wa-aBc1)
-	if len(eventDetailFlag) > 0 {
-		metrics, processingDuration, err := requireMetrics(ctx, filteredLogs, totalFileSize, startTime, pb, workers)
-		if err != nil {
-			return err
-		}
-		w, closer, err := createOutputWriter(outputFlag)
-		if err != nil {
-			return err
-		}
-		defer closer()
+	// Special case: the detailed pgBackRest report
+	if pgbackrestDetailFlag != "" {
+		return renderPgBackRestDetail(ctx, filteredLogs, startTime, totalFileSize, workers, pb, pgbr)
+	}
 
-		if jsonFlag {
-			output.ExportEventDetailJSON(w, metrics, eventDetailFlag)
-		} else if yamlFlag {
-			output.ExportEventDetailYAML(w, metrics, eventDetailFlag)
-		} else if mdFlag {
-			output.ExportEventDetailMarkdown(w, metrics, eventDetailFlag)
-		} else {
-			PrintProcessingSummary(metrics.SQL.TotalQueries, processingDuration, totalFileSize)
-			output.PrintEventDetails(metrics, eventDetailFlag)
+	// Special case: the detailed Patroni report
+	if patroniDetailFlag {
+		return renderPatroniDetail(ctx, filteredLogs, startTime, totalFileSize, workers, pb, pgbr, patroniReport)
+	}
+
+	// Special case: event pattern details (lookup by ID like wa-aBc1),
+	// pgBackRest's errors and warnings included
+	if len(eventDetailFlag) > 0 {
+		metrics := analysis.AggregateMetricsObserved(ctx, filteredLogs, workers, pgbr)
+		pb.Finish()
+		processingDuration := time.Since(startTime)
+		var pbr []analysis.PgBackRestMetrics
+		if pgbr != nil && pgBackRestInScope() {
+			pbr = pgbr.Finalize()
 		}
-		return closer()
+		metrics.Patroni = patroniReport
+		metrics.PgBouncer = pgb
+		if metrics.Global.Count == 0 && len(pbr) == 0 && patroniReport == nil && len(pgb) == 0 {
+			return errNoEntries
+		}
+		return writeEventDetails(metrics, pbr, metrics.SQL.TotalQueries, processingDuration, totalFileSize)
 	}
 
 	// Special case: SQL performance (detailed aggregated query statistics)
@@ -620,7 +722,7 @@ func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry
 	}
 
 	// Default: full analysis with all metrics
-	metrics := analysis.AggregateMetricsWithWorkers(ctx, filteredLogs, workers)
+	metrics := analysis.AggregateMetricsObserved(ctx, filteredLogs, workers, pgbr)
 	// Aggregation drained the input — parse is done. Clear the bar
 	// before any subsequent stderr/stdout write (PrintProcessingSummary
 	// and the section renderers below). The defer in runAnalysisCycle
@@ -629,18 +731,55 @@ func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry
 	pb.Finish()
 	processingDuration := time.Since(startTime)
 
-	// Check if any log entries were successfully parsed
-	if metrics.Global.Count == 0 {
-		return errNoEntries
+	// The pipeline is drained: the observer has seen every entry.
+	var pbr []analysis.PgBackRestMetrics
+	if pgbr != nil {
+		pbr = pgbr.Finalize()
+	}
+
+	// Check if any log entries were successfully parsed. A run with no
+	// PostgreSQL entry still prints its pgBackRest report, or its Patroni
+	// one, or its pgBouncer one: a pooler report that did parse is not the
+	// PostgreSQL track's to lose, and a filter that matches no backend --
+	// or an input the detector rejected -- must not turn a complete
+	// pgBouncer report into an empty run.
+	inScope := pgBackRestInScope()
+	if metrics.Global.Count == 0 && patroniReport == nil {
+		switch {
+		case len(pgb) > 0:
+			if !inScope {
+				pbr = nil
+			}
+			return renderReport(analysis.AggregatedMetrics{}, pbr, pgb, true, nil, inputArgs, totalFileSize, processingDuration)
+		case len(pbr) == 0:
+			return errNoEntries
+		case !inScope:
+			return errPgBackRestOutOfScope
+		}
+		return renderPgBackRestOnlyReport(pbr, inputArgs, totalFileSize, processingDuration)
+	}
+	if !inScope {
+		pbr = nil
 	}
 
 	// Validate that we have a valid time range
 	// Note: MaxTimestamp can be equal to MinTimestamp if there's only one log entry
-	if metrics.Global.MaxTimestamp.IsZero() || metrics.Global.MaxTimestamp.Before(metrics.Global.MinTimestamp) {
+	if metrics.Global.Count > 0 && (metrics.Global.MaxTimestamp.IsZero() || metrics.Global.MaxTimestamp.Before(metrics.Global.MinTimestamp)) {
 		return fmt.Errorf("invalid time range: MinTimestamp=%v, MaxTimestamp=%v",
 			metrics.Global.MinTimestamp, metrics.Global.MaxTimestamp)
 	}
 
+	return renderReport(metrics, pbr, pgb, false, patroniReport, inputArgs, totalFileSize, processingDuration)
+}
+
+// renderReport writes the full report in the requested format(s). It is the
+// single output dispatcher: the PostgreSQL report with its pgBackRest,
+// Patroni and pgBouncer sections, and the pure pgBouncer report, all go
+// through it, so -o, multi-format export, --open and the "Report saved to"
+// notice behave identically everywhere. pgbOnly marks a pure pgBouncer
+// run: metrics is then the zero value and the renderers emit the pooler
+// report alone.
+func renderReport(metrics analysis.AggregatedMetrics, pbr []analysis.PgBackRestMetrics, pgb []analysis.PgBouncerMetrics, pgbOnly bool, patroniReport *analysis.PatroniMetrics, inputArgs []string, totalFileSize int64, processingDuration time.Duration) error {
 	// Determine which sections to display
 	// --full forces all sections and ignores individual section flags
 	var sections []string
@@ -650,94 +789,166 @@ func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry
 		sections = buildSectionList()
 	}
 
+	// Beside a PostgreSQL report, the pooler section is part of the full
+	// report only, as the pgBackRest and Patroni ones are: a section option
+	// leaves it out of text, Markdown, JSON and YAML. HTML, which shows
+	// every PostgreSQL section whatever the options, keeps it, as it keeps
+	// Patroni's; so does a pooler-only run. Its entries stay in the header
+	// count either way, as Patroni's do.
+	pgbShown := pgb
+	if !pgbOnly && !(len(sections) == 1 && sections[0] == "all") {
+		pgbShown = nil
+	}
+
+	// Patroni is a section of the full report, and the whole report when no
+	// PostgreSQL log was given, whatever the section flags.
+	if patroniReport != nil {
+		patroniReport.CorrelatePostgres(metrics.Server.Timeline)
+		metrics.Patroni = patroniReport
+		if metrics.Global.Count == 0 {
+			sections = append(sections, "patroni")
+		}
+	}
+
+	// A PGBACKREST section and a pgBouncer one follow the PostgreSQL report
+	// in every format when there are any (for --html, the web app's own
+	// sections).
+	rw := reportWriters{
+		json: func(w io.Writer) {
+			output.ExportJSONCombined(w, metrics, pbr, pgbShown, sections, fullFlag, jsonCompactFlag, pgbOnly)
+		},
+		yaml: func(w io.Writer) { output.ExportYAMLCombined(w, metrics, pbr, pgbShown, sections, fullFlag, pgbOnly) },
+		markdown: func(w io.Writer) {
+			output.ExportMarkdownCombined(w, metrics, pgbShown, sections, fullFlag, pgbOnly)
+			output.ExportPgBackRestMarkdown(w, pbr, fullFlag)
+		},
+		html: func(w io.Writer, info output.HTMLReportInfo) error {
+			return output.ExportHTMLCombined(w, metrics, pbr, pgb, info, sections, false, pgbOnly)
+		},
+		text: func() {
+			// The header counts the PostgreSQL entries and the pooler
+			// records alike.
+			entries := metrics.Global.Count + patroniEntries(metrics) + poolerEntries(pgb)
+			PrintProcessingSummary(entries, processingDuration, totalFileSize)
+			output.PrintMetricsCombined(metrics, pgbShown, sections, fullFlag, pgbOnly)
+			output.PrintPgBackRestReport(pbr, fullFlag)
+		},
+	}
+
 	// Multi-format export: render each selected format to its default file
-	if formatCount > 1 {
-		return renderMultipleFormats(metrics, sections, inputArgs, totalFileSize, processingDuration)
+	if exportFormatCount() > 1 {
+		return renderMultipleFormats(rw, inputArgs, totalFileSize, processingDuration)
 	}
+	return dispatchFormattedOutput(rw, inputArgs, totalFileSize, processingDuration)
+}
 
-	// Output in requested format
+// writeEventDetails writes --event-detail's patterns, PostgreSQL's events
+// and the pgBackRest, Patroni and pgBouncer warnings and errors alike.
+func writeEventDetails(metrics analysis.AggregatedMetrics, pbr []analysis.PgBackRestMetrics, entries int, processingDuration time.Duration, totalFileSize int64) error {
+	w, closer, err := createOutputWriter(outputFlag)
+	if err != nil {
+		return err
+	}
+	defer closer()
+
+	if jsonFlag {
+		output.ExportEventDetailJSON(w, metrics, pbr, eventDetailFlag)
+	} else if yamlFlag {
+		output.ExportEventDetailYAML(w, metrics, pbr, eventDetailFlag)
+	} else if mdFlag {
+		output.ExportEventDetailMarkdown(w, metrics, pbr, eventDetailFlag)
+	} else {
+		PrintProcessingSummary(entries, processingDuration, totalFileSize)
+		output.PrintEventDetails(metrics, pbr, eventDetailFlag)
+	}
+	return closer()
+}
+
+// reportWriters renders one report in each output format.
+type reportWriters struct {
+	json, yaml, markdown func(io.Writer)
+	html                 func(io.Writer, output.HTMLReportInfo) error
+	text                 func()
+}
+
+// dispatchFormattedOutput picks an output format from the --json/--yaml/
+// --md/--html flags (falling back to the default text report) and
+// renders through the matching writer. Shared by the full report and the
+// pgBackRest-only report (renderPgBackRestOnlyReport).
+func dispatchFormattedOutput(rw reportWriters, inputArgs []string, totalFileSize int64, processingDuration time.Duration) error {
 	if jsonFlag || jsonCompactFlag {
-		w, closer, err := createOutputWriter(outputFlag)
-		if err != nil {
-			return err
-		}
-		defer closer()
-		output.ExportJSON(w, metrics, sections, fullFlag, jsonCompactFlag)
-		return closer()
+		return writeSimpleReport(outputFlag, rw.json)
 	}
-
 	if yamlFlag {
-		w, closer, err := createOutputWriter(outputFlag)
-		if err != nil {
-			return err
-		}
-		defer closer()
-		output.ExportYAML(w, metrics, sections, fullFlag)
-		return closer()
+		return writeSimpleReport(outputFlag, rw.yaml)
 	}
-
 	if mdFlag {
-		w, closer, err := createOutputWriter(outputFlag)
-		if err != nil {
-			return err
-		}
-		defer closer()
-		output.ExportMarkdown(w, metrics, sections, fullFlag)
-		return closer()
+		return writeSimpleReport(outputFlag, rw.markdown)
 	}
-
 	if htmlFlag {
-		// Generate output filename based on input or flag
-		outputName := outputFlag
-		if outputName == "" {
-			outputName = generateHTMLFilename(inputArgs)
-		}
+		return writeHTMLReport(inputArgs, totalFileSize, processingDuration, rw.html)
+	}
+	rw.text()
+	return nil
+}
 
-		w, closer, err := createOutputWriter(outputName)
-		if err != nil {
-			return err
-		}
-		defer closer()
+// writeSimpleReport opens the --output writer (or stdout), lets write
+// render into it, and closes it — the shared skeleton behind
+// --json/--yaml/--md.
+func writeSimpleReport(path string, write func(io.Writer)) error {
+	w, closer, err := createOutputWriter(path)
+	if err != nil {
+		return err
+	}
+	defer closer()
+	write(w)
+	return closer()
+}
 
-		// Detect format from first input file
-		detectedFormat := ""
-		if len(inputArgs) > 0 {
-			detectedFormat = parser.DetectFileFormat(inputArgs[0])
-		}
-
-		// Build report info with filename and processing stats
-		reportInfo := output.HTMLReportInfo{
-			Filename:    generateInputDescription(inputArgs),
-			FileSize:    totalFileSize,
-			ProcessTime: float64(processingDuration.Milliseconds()),
-			Format:      detectedFormat,
-			Version:     version,
-		}
-
-		if err := output.ExportHTML(w, metrics, reportInfo, sections); err != nil {
-			return fmt.Errorf("failed to write HTML report: %w", err)
-		}
-
-		// Flush and close before announcing or opening the file so the
-		// browser never reads a truncated report (and disk-full errors
-		// surface instead of a silent partial write).
-		if err := closer(); err != nil {
-			return err
-		}
-
-		// In follow mode, be less verbose about saved files
-		if !followFlag {
-			fmt.Printf("Report saved to %s\n", outputName)
-		}
-		if openFlag {
-			openInBrowser(outputName)
-		}
-		return nil
+// writeHTMLReport opens the HTML output file (named from --output or
+// derived from the input), builds the shared HTMLReportInfo, lets write
+// render the report, then announces and optionally opens the saved
+// file — the shared skeleton behind --html.
+func writeHTMLReport(inputArgs []string, totalFileSize int64, processingDuration time.Duration, write func(io.Writer, output.HTMLReportInfo) error) error {
+	outputName := outputFlag
+	if outputName == "" {
+		outputName = generateHTMLFilename(inputArgs)
 	}
 
-	// Default: text output
-	PrintProcessingSummary(metrics.Global.Count, processingDuration, totalFileSize)
-	output.PrintMetrics(metrics, sections, fullFlag)
+	w, closer, err := createOutputWriter(outputName)
+	if err != nil {
+		return err
+	}
+	defer closer()
+
+	detectedFormat := reportFormat(inputArgs)
+
+	reportInfo := output.HTMLReportInfo{
+		Filename:    generateInputDescription(inputArgs),
+		FileSize:    totalFileSize,
+		ProcessTime: float64(processingDuration.Milliseconds()),
+		Format:      detectedFormat,
+		Version:     version,
+	}
+
+	if err := write(w, reportInfo); err != nil {
+		return fmt.Errorf("failed to write HTML report: %w", err)
+	}
+
+	// Flush and close before announcing or opening the file so the
+	// browser never reads a truncated report (and disk-full errors
+	// surface instead of a silent partial write).
+	if err := closer(); err != nil {
+		return err
+	}
+
+	// In follow mode, be less verbose about saved files
+	if !followFlag {
+		fmt.Printf("Report saved to %s\n", outputName)
+	}
+	if openFlag {
+		openInBrowser(outputName)
+	}
 	return nil
 }
 
@@ -769,10 +980,7 @@ func runSplitHTML(ctx context.Context, filteredLogs <-chan []parser.LogEntry, st
 	}
 	defer closer()
 
-	detectedFormat := ""
-	if len(inputArgs) > 0 {
-		detectedFormat = parser.DetectFileFormat(inputArgs[0])
-	}
+	detectedFormat := reportFormat(inputArgs)
 	reportInfo := output.HTMLReportInfo{
 		Filename:    generateInputDescription(inputArgs),
 		FileSize:    totalFileSize,
@@ -846,7 +1054,7 @@ func defaultExportName(ext string, inputArgs []string) string {
 
 // renderMultipleFormats writes the full report to one file per selected format,
 // using default filenames. Called only when 2+ format flags are set.
-func renderMultipleFormats(metrics analysis.AggregatedMetrics, sections []string, inputArgs []string, totalFileSize int64, processingDuration time.Duration) error {
+func renderMultipleFormats(rw reportWriters, inputArgs []string, totalFileSize int64, processingDuration time.Duration) error {
 	write := func(ext string, render func(io.Writer) error) error {
 		name := defaultExportName(ext, inputArgs)
 		w, closer, err := createOutputWriter(name)
@@ -865,36 +1073,27 @@ func renderMultipleFormats(metrics analysis.AggregatedMetrics, sections []string
 		}
 		return nil
 	}
+	simple := func(render func(io.Writer)) func(io.Writer) error {
+		return func(w io.Writer) error { render(w); return nil }
+	}
 
 	if jsonFlag || jsonCompactFlag {
-		if err := write("json", func(w io.Writer) error {
-			output.ExportJSON(w, metrics, sections, fullFlag, jsonCompactFlag)
-			return nil
-		}); err != nil {
+		if err := write("json", simple(rw.json)); err != nil {
 			return err
 		}
 	}
 	if yamlFlag {
-		if err := write("yaml", func(w io.Writer) error {
-			output.ExportYAML(w, metrics, sections, fullFlag)
-			return nil
-		}); err != nil {
+		if err := write("yaml", simple(rw.yaml)); err != nil {
 			return err
 		}
 	}
 	if mdFlag {
-		if err := write("md", func(w io.Writer) error {
-			output.ExportMarkdown(w, metrics, sections, fullFlag)
-			return nil
-		}); err != nil {
+		if err := write("md", simple(rw.markdown)); err != nil {
 			return err
 		}
 	}
 	if htmlFlag {
-		detectedFormat := ""
-		if len(inputArgs) > 0 {
-			detectedFormat = parser.DetectFileFormat(inputArgs[0])
-		}
+		detectedFormat := reportFormat(inputArgs)
 		reportInfo := output.HTMLReportInfo{
 			Filename:    generateInputDescription(inputArgs),
 			FileSize:    totalFileSize,
@@ -903,7 +1102,7 @@ func renderMultipleFormats(metrics analysis.AggregatedMetrics, sections []string
 			Version:     version,
 		}
 		if err := write("html", func(w io.Writer) error {
-			return output.ExportHTML(w, metrics, reportInfo, sections)
+			return rw.html(w, reportInfo)
 		}); err != nil {
 			return err
 		}
@@ -1132,6 +1331,10 @@ func isCompressedInput(name string) bool {
 // filtering are done. A quiet time window ends here as well as an unreadable
 // file, so the message points at both.
 var errNoEntries = errors.New("no log entries to analyze: check that the files are readable and in a supported format, and that the filters match some entries")
+
+// errPgBackRestOutOfScope replaces errNoEntries when pgBackRest lines were
+// read but the options leave the pgBackRest report out.
+var errPgBackRestOutOfScope = errors.New("no PostgreSQL log entries to analyze (check that the filters match some entries); the pgBackRest lines read are reported only without --dbname, --dbuser, --exclude-user, --appname or a section option")
 
 // requireMetrics aggregates metrics and returns an error if no log entries
 // were parsed.

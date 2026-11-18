@@ -1,0 +1,554 @@
+{
+  "pgbackrest": [
+    {
+      "stanza": "main",
+      "files": [
+        "testdata/pgbackrest/S7/pgbackrest_logs/main-archive-get-async.log",
+        "testdata/pgbackrest/S7/pgbackrest_logs/main-archive-get.log",
+        "testdata/pgbackrest/S7/pgbackrest_logs/main-archive-push.log",
+        "testdata/pgbackrest/S7/pgbackrest_logs/main-backup.log",
+        "testdata/pgbackrest/S7/pgbackrest_logs/main-expire.log",
+        "testdata/pgbackrest/S7/pgbackrest_logs/main-restore.log",
+        "testdata/pgbackrest/S7/pgbackrest_logs/main-stanza-create.log"
+      ],
+      "lines_read": 1100,
+      "versions": [
+        "2.59.3"
+      ],
+      "start_date": "2026-10-24 20:38:32",
+      "end_date": "2026-10-24 20:40:28",
+      "has_timestamps": true,
+      "saw_begin_end": true,
+      "backups_logged": true,
+      "backups": [
+        {
+          "label": "20261024-203832F",
+          "type": "full",
+          "repo": "repo1",
+          "start_date": "2026-10-24 20:38:32",
+          "end_date": "2026-10-24 20:38:37",
+          "duration_ms": 5216,
+          "size": "22.1MB",
+          "size_bytes": 23173530,
+          "file_total": 968,
+          "succeeded": true,
+          "exec_id": "178-0f8f0699"
+        },
+        {
+          "label": "20261024-203832F_20261024-203846D",
+          "type": "diff",
+          "repo": "repo1",
+          "start_date": "2026-10-24 20:38:46",
+          "end_date": "2026-10-24 20:38:48",
+          "duration_ms": 1392,
+          "size": "1.6MB",
+          "size_bytes": 1677722,
+          "file_total": 970,
+          "succeeded": true,
+          "exec_id": "249-a6987ad6"
+        }
+      ],
+      "last_full": {
+        "label": "20261024-203832F",
+        "repo": "repo1",
+        "end_date": "2026-10-24 20:38:37",
+        "age_seconds": 111
+      },
+      "last_diff": {
+        "label": "20261024-203832F_20261024-203846D",
+        "repo": "repo1",
+        "end_date": "2026-10-24 20:38:48",
+        "age_seconds": 100
+      },
+      "commands": [
+        {
+          "command": "archive-get",
+          "runs": 99,
+          "succeeded": 89,
+          "failed": 10,
+          "total_duration_ms": 7598,
+          "max_duration_ms": 488
+        },
+        {
+          "command": "archive-get:async",
+          "runs": 27,
+          "succeeded": 27,
+          "failed": 0,
+          "total_duration_ms": 1610,
+          "max_duration_ms": 331
+        },
+        {
+          "command": "archive-push",
+          "runs": 45,
+          "succeeded": 35,
+          "failed": 10,
+          "total_duration_ms": 2011,
+          "max_duration_ms": 190
+        },
+        {
+          "command": "backup",
+          "runs": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "total_duration_ms": 6608,
+          "max_duration_ms": 5216
+        },
+        {
+          "command": "expire",
+          "runs": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "total_duration_ms": 0,
+          "max_duration_ms": 0
+        },
+        {
+          "command": "restore",
+          "runs": 6,
+          "succeeded": 6,
+          "failed": 0,
+          "total_duration_ms": 10501,
+          "max_duration_ms": 2037
+        },
+        {
+          "command": "stanza-create",
+          "runs": 1,
+          "succeeded": 1,
+          "failed": 0,
+          "total_duration_ms": 13,
+          "max_duration_ms": 13
+        }
+      ],
+      "archive_push": {
+        "logged": true,
+        "async_logged": false,
+        "pushed": 35,
+        "pushed_async": 0,
+        "found": 0,
+        "found_async": 0,
+        "not_found": 0,
+        "not_found_async": 0,
+        "dropped": 0,
+        "failed": 10,
+        "failed_async": 0,
+        "timeouts": 0,
+        "failures": [
+          {
+            "segment": "000000010000000000000001",
+            "code": 103,
+            "first_line": "unable to find a valid repository:",
+            "first_date": "2026-10-24 20:38:32",
+            "last_date": "2026-10-24 20:38:32",
+            "attempts": 1,
+            "recovery": "recovered",
+            "recovered_by": {
+              "segment": "000000010000000000000001",
+              "date": "2026-10-24 20:38:33",
+              "mode": "sync"
+            },
+            "cause": "archive.info missing"
+          },
+          {
+            "segment": "000000010000000000000017",
+            "code": 103,
+            "first_line": "unable to find a valid repository:",
+            "first_date": "2026-10-24 20:39:25",
+            "last_date": "2026-10-24 20:39:31",
+            "attempts": 9,
+            "recovery": "recovered",
+            "recovered_by": {
+              "segment": "000000010000000000000017",
+              "date": "2026-10-24 20:39:48",
+              "mode": "sync"
+            },
+            "cause": "archive.info permission denied"
+          }
+        ],
+        "last_push": {
+          "segment": "000000010000000000000021",
+          "date": "2026-10-24 20:40:15",
+          "mode": "sync"
+        }
+      },
+      "archive_get": {
+        "logged": true,
+        "async_logged": true,
+        "pushed": 0,
+        "pushed_async": 0,
+        "found": 39,
+        "found_async": 15,
+        "not_found": 21,
+        "not_found_async": 14,
+        "dropped": 0,
+        "failed": 10,
+        "failed_async": 0,
+        "timeouts": 0,
+        "failures": [
+          {
+            "segment": "000000010000000000000003",
+            "code": 32,
+            "first_line": "PostgreSQL working directory '/var/lib/pg/restorebad' is not the same as option pg1-path '/var/lib/postgresql/data'",
+            "first_date": "2026-10-24 20:39:00",
+            "last_date": "2026-10-24 20:39:00",
+            "attempts": 2,
+            "recovery": "still_failing",
+            "cause": "pg1-path is not the data directory",
+            "path": "/var/lib/pg/restorebad"
+          },
+          {
+            "segment": "000000010000000000000017",
+            "code": 103,
+            "first_line": "unable to find a valid repository",
+            "first_date": "2026-10-24 20:39:29",
+            "last_date": "2026-10-24 20:39:44",
+            "attempts": 8,
+            "recovery": "recovered",
+            "cause": "archive.info permission denied",
+            "path": "/var/lib/pg/standby"
+          }
+        ],
+        "last_found": "2026-10-24 20:40:28"
+      },
+      "expire_runs": [
+        {
+          "date": "2026-10-24 20:38:37",
+          "repo": "repo1",
+          "archive_removed": 0,
+          "succeeded": true
+        },
+        {
+          "date": "2026-10-24 20:38:48",
+          "repo": "repo1",
+          "archive_removed": 0,
+          "succeeded": true
+        }
+      ],
+      "operations": [
+        {
+          "command": "stanza-create",
+          "date": "2026-10-24 20:38:32",
+          "summary": "stanza-create for stanza 'main' on repo1",
+          "succeeded": true,
+          "has_outcome": true,
+          "duration_ms": 13,
+          "detail": "on repo1"
+        },
+        {
+          "command": "restore",
+          "date": "2026-10-24 20:38:56",
+          "summary": "repo1: restore backup set 20261024-203832F_20261024-203846D, recovery will start at 2026-10-24 20:38:46; destination: /var/lib/pg/restore1, target: default",
+          "succeeded": true,
+          "has_outcome": true,
+          "duration_ms": 1827,
+          "detail": "20261024-203832F_20261024-203846D into /var/lib/pg/restore1, latest",
+          "path": "/var/lib/pg/restore1"
+        },
+        {
+          "command": "restore",
+          "date": "2026-10-24 20:39:00",
+          "summary": "repo1: restore backup set 20261024-203832F, recovery will start at 2026-10-24 20:38:32; destination: /var/lib/pg/restorebad, target: time=2026-10-24 20:38:41.568456+00",
+          "succeeded": true,
+          "has_outcome": true,
+          "duration_ms": 1549,
+          "detail": "20261024-203832F into /var/lib/pg/restorebad, to 20:38:41",
+          "path": "/var/lib/pg/restorebad",
+          "recovery": "archive-get failed [032]"
+        },
+        {
+          "command": "restore",
+          "date": "2026-10-24 20:39:03",
+          "summary": "repo1: restore backup set 20261024-203832F, recovery will start at 2026-10-24 20:38:32; destination: /var/lib/pg/restore2, target: time=2026-10-24 20:38:41.568456+00",
+          "succeeded": true,
+          "has_outcome": true,
+          "duration_ms": 1337,
+          "detail": "20261024-203832F into /var/lib/pg/restore2, to 20:38:41",
+          "path": "/var/lib/pg/restore2"
+        },
+        {
+          "command": "restore",
+          "date": "2026-10-24 20:39:08",
+          "summary": "repo1: restore backup set 20261024-203832F_20261024-203846D, recovery will start at 2026-10-24 20:38:46; destination: /var/lib/pg/standby, target: standby",
+          "succeeded": true,
+          "has_outcome": true,
+          "duration_ms": 2003,
+          "detail": "20261024-203832F_20261024-203846D into /var/lib/pg/standby, standby",
+          "path": "/var/lib/pg/standby"
+        },
+        {
+          "command": "restore",
+          "date": "2026-10-24 20:40:21",
+          "summary": "repo1: restore backup set 20261024-203832F_20261024-203846D, recovery will start at 2026-10-24 20:38:46; destination: /var/lib/pg/restore3, target: time=2026-10-24 20:40:14.482043+00",
+          "succeeded": true,
+          "has_outcome": true,
+          "duration_ms": 2037,
+          "detail": "20261024-203832F_20261024-203846D into /var/lib/pg/restore3, to 20:40:14",
+          "path": "/var/lib/pg/restore3",
+          "recovery": "WAL 00000001000000000000001C missing"
+        },
+        {
+          "command": "restore",
+          "date": "2026-10-24 20:40:25",
+          "summary": "repo1: restore backup set 20261024-203832F_20261024-203846D, recovery will start at 2026-10-24 20:38:46; destination: /var/lib/pg/restore4, target: default",
+          "succeeded": true,
+          "has_outcome": true,
+          "duration_ms": 1748,
+          "detail": "20261024-203832F_20261024-203846D into /var/lib/pg/restore4, latest",
+          "path": "/var/lib/pg/restore4",
+          "recovery": "WAL 00000001000000000000001C missing"
+        }
+      ],
+      "errors": [
+        {
+          "id": "er-FOWl",
+          "label": "archive.info permission denied, push",
+          "code": 103,
+          "message": "unable to find a valid repository:",
+          "example": "unable to find a valid repository:\nrepo1: [FileOpenError] unable to load info file '/var/lib/pgbackrest/archive/main/archive.info' or '/var/lib/pgbackrest/archive/main/archive.info.copy':",
+          "repo_line": "repo1: [FileOpenError] unable to load info file '/var/lib/pgbackrest/archive/main/archive.info' or '/var/lib/pgbackrest/archive/main/archive.info.copy':",
+          "detail": [
+            "repo1: [FileOpenError] unable to load info file '/var/lib/pgbackrest/archive/main/archive.info' or '/var/lib/pgbackrest/archive/main/archive.info.copy':",
+            "FileOpenError: unable to open file '/var/lib/pgbackrest/archive/main/archive.info' for read: [13] Permission denied",
+            "FileOpenError: unable to open file '/var/lib/pgbackrest/archive/main/archive.info.copy' for read: [13] Permission denied"
+          ],
+          "count": 9,
+          "first_date": "2026-10-24 20:39:25",
+          "last_date": "2026-10-24 20:39:31",
+          "commands": [
+            "archive-push"
+          ],
+          "dates": [
+            "2026-10-24 20:39:25",
+            "2026-10-24 20:39:26",
+            "2026-10-24 20:39:27",
+            "2026-10-24 20:39:27",
+            "2026-10-24 20:39:28",
+            "2026-10-24 20:39:29",
+            "2026-10-24 20:39:29",
+            "2026-10-24 20:39:30",
+            "2026-10-24 20:39:31"
+          ]
+        },
+        {
+          "id": "er-QjJd",
+          "label": "archive.info permission denied, get",
+          "code": 103,
+          "message": "unable to find a valid repository",
+          "example": "unable to find a valid repository\nrepo1: [FileOpenError] unable to load info file '/var/lib/pgbackrest/archive/main/archive.info' or '/var/lib/pgbackrest/archive/main/archive.info.copy':",
+          "repo_line": "repo1: [FileOpenError] unable to load info file '/var/lib/pgbackrest/archive/main/archive.info' or '/var/lib/pgbackrest/archive/main/archive.info.copy':",
+          "detail": [
+            "repo1: [FileOpenError] unable to load info file '/var/lib/pgbackrest/archive/main/archive.info' or '/var/lib/pgbackrest/archive/main/archive.info.copy':",
+            "FileOpenError: unable to open file '/var/lib/pgbackrest/archive/main/archive.info' for read: [13] Permission denied",
+            "FileOpenError: unable to open file '/var/lib/pgbackrest/archive/main/archive.info.copy' for read: [13] Permission denied"
+          ],
+          "count": 8,
+          "first_date": "2026-10-24 20:39:29",
+          "last_date": "2026-10-24 20:39:44",
+          "commands": [
+            "archive-get"
+          ],
+          "dates": [
+            "2026-10-24 20:39:29",
+            "2026-10-24 20:39:29",
+            "2026-10-24 20:39:34",
+            "2026-10-24 20:39:34",
+            "2026-10-24 20:39:39",
+            "2026-10-24 20:39:39",
+            "2026-10-24 20:39:44",
+            "2026-10-24 20:39:44"
+          ]
+        },
+        {
+          "id": "er-OTk3",
+          "label": "pg1-path is not the data directory, get",
+          "code": 32,
+          "message": "PostgreSQL working directory '.../pg/restorebad' is not the same as option pg1-path '.../postgresql/data'",
+          "example": "PostgreSQL working directory '/var/lib/pg/restorebad' is not the same as option pg1-path '/var/lib/postgresql/data'",
+          "count": 2,
+          "first_date": "2026-10-24 20:39:00",
+          "last_date": "2026-10-24 20:39:00",
+          "commands": [
+            "archive-get"
+          ],
+          "dates": [
+            "2026-10-24 20:39:00",
+            "2026-10-24 20:39:00"
+          ]
+        },
+        {
+          "id": "er-ie1w",
+          "label": "archive.info missing, push",
+          "code": 103,
+          "message": "unable to find a valid repository:",
+          "example": "unable to find a valid repository:\nrepo1: [FileMissingError] unable to load info file '/var/lib/pgbackrest/archive/main/archive.info' or '/var/lib/pgbackrest/archive/main/archive.info.copy':",
+          "repo_line": "repo1: [FileMissingError] unable to load info file '/var/lib/pgbackrest/archive/main/archive.info' or '/var/lib/pgbackrest/archive/main/archive.info.copy':",
+          "detail": [
+            "repo1: [FileMissingError] unable to load info file '/var/lib/pgbackrest/archive/main/archive.info' or '/var/lib/pgbackrest/archive/main/archive.info.copy':",
+            "FileMissingError: unable to open missing file '/var/lib/pgbackrest/archive/main/archive.info' for read",
+            "FileMissingError: unable to open missing file '/var/lib/pgbackrest/archive/main/archive.info.copy' for read"
+          ],
+          "count": 1,
+          "first_date": "2026-10-24 20:38:32",
+          "last_date": "2026-10-24 20:38:32",
+          "commands": [
+            "archive-push"
+          ],
+          "dates": [
+            "2026-10-24 20:38:32"
+          ]
+        }
+      ],
+      "warnings": [
+        {
+          "id": "wa-7IsV",
+          "label": "archive.info permission denied, async get",
+          "message": "repo1: [FileOpenError] unable to load info file '.../main/archive.info' or '.../main/archive.info.copy':",
+          "example": "repo1: [FileOpenError] unable to load info file '/var/lib/pgbackrest/archive/main/archive.info' or '/var/lib/pgbackrest/archive/main/archive.info.copy':",
+          "detail": [
+            "FileOpenError: unable to open file '/var/lib/pgbackrest/archive/main/archive.info' for read: [13] Permission denied",
+            "FileOpenError: unable to open file '/var/lib/pgbackrest/archive/main/archive.info.copy' for read: [13] Permission denied"
+          ],
+          "count": 4,
+          "first_date": "2026-10-24 20:39:29",
+          "last_date": "2026-10-24 20:39:44",
+          "commands": [
+            "archive-get:async"
+          ],
+          "dates": [
+            "2026-10-24 20:39:29",
+            "2026-10-24 20:39:34",
+            "2026-10-24 20:39:39",
+            "2026-10-24 20:39:44"
+          ]
+        }
+      ],
+      "pg_retry_warnings": 0,
+      "pg_restore_failures": 0,
+      "missing_wal": [
+        {
+          "segment": "00000001000000000000001C",
+          "path": "/var/lib/pg/restore3",
+          "date": "2026-10-24 20:40:24",
+          "pushed_date": "2026-10-24 20:40:06"
+        },
+        {
+          "segment": "00000001000000000000001C",
+          "path": "/var/lib/pg/restore4",
+          "date": "2026-10-24 20:40:28",
+          "pushed_date": "2026-10-24 20:40:06"
+        }
+      ],
+      "restore_dates": [
+        {
+          "path": "/var/lib/pg/restore2",
+          "dates": [
+            "2026-10-24 20:39:04",
+            "2026-10-24 20:39:04",
+            "2026-10-24 20:39:04",
+            "2026-10-24 20:39:04",
+            "2026-10-24 20:39:04",
+            "2026-10-24 20:39:04",
+            "2026-10-24 20:39:04",
+            "2026-10-24 20:39:04"
+          ]
+        },
+        {
+          "path": "/var/lib/pg/standby",
+          "dates": [
+            "2026-10-24 20:39:08",
+            "2026-10-24 20:39:08",
+            "2026-10-24 20:39:08",
+            "2026-10-24 20:39:08",
+            "2026-10-24 20:39:14",
+            "2026-10-24 20:39:14",
+            "2026-10-24 20:39:14",
+            "2026-10-24 20:39:14",
+            "2026-10-24 20:39:19",
+            "2026-10-24 20:39:19",
+            "2026-10-24 20:39:49",
+            "2026-10-24 20:39:49",
+            "2026-10-24 20:39:49",
+            "2026-10-24 20:39:49",
+            "2026-10-24 20:39:50"
+          ]
+        },
+        {
+          "path": "/var/lib/pg/restore3",
+          "dates": [
+            "2026-10-24 20:40:21",
+            "2026-10-24 20:40:21",
+            "2026-10-24 20:40:21",
+            "2026-10-24 20:40:22",
+            "2026-10-24 20:40:22",
+            "2026-10-24 20:40:23",
+            "2026-10-24 20:40:23",
+            "2026-10-24 20:40:23",
+            "2026-10-24 20:40:23",
+            "2026-10-24 20:40:23",
+            "2026-10-24 20:40:23",
+            "2026-10-24 20:40:23",
+            "2026-10-24 20:40:23",
+            "2026-10-24 20:40:23",
+            "2026-10-24 20:40:24"
+          ]
+        },
+        {
+          "path": "/var/lib/pg/restore4",
+          "dates": [
+            "2026-10-24 20:40:26",
+            "2026-10-24 20:40:26",
+            "2026-10-24 20:40:26",
+            "2026-10-24 20:40:26",
+            "2026-10-24 20:40:26",
+            "2026-10-24 20:40:26",
+            "2026-10-24 20:40:27",
+            "2026-10-24 20:40:27",
+            "2026-10-24 20:40:27",
+            "2026-10-24 20:40:27",
+            "2026-10-24 20:40:27",
+            "2026-10-24 20:40:27",
+            "2026-10-24 20:40:27",
+            "2026-10-24 20:40:27",
+            "2026-10-24 20:40:28",
+            "2026-10-24 20:40:28"
+          ]
+        }
+      ],
+      "push_dates": [
+        "2026-10-24 20:38:33",
+        "2026-10-24 20:38:33",
+        "2026-10-24 20:38:37",
+        "2026-10-24 20:38:37",
+        "2026-10-24 20:38:37",
+        "2026-10-24 20:38:38",
+        "2026-10-24 20:38:39",
+        "2026-10-24 20:38:40",
+        "2026-10-24 20:38:42",
+        "2026-10-24 20:38:43",
+        "2026-10-24 20:38:44",
+        "2026-10-24 20:38:45",
+        "2026-10-24 20:38:47",
+        "2026-10-24 20:38:48",
+        "2026-10-24 20:38:48",
+        "2026-10-24 20:38:48",
+        "2026-10-24 20:38:49",
+        "2026-10-24 20:38:50",
+        "2026-10-24 20:39:10",
+        "2026-10-24 20:39:11",
+        "2026-10-24 20:39:13",
+        "2026-10-24 20:39:14",
+        "2026-10-24 20:39:15",
+        "2026-10-24 20:39:16",
+        "2026-10-24 20:39:48",
+        "2026-10-24 20:39:48",
+        "2026-10-24 20:39:48",
+        "2026-10-24 20:39:48",
+        "2026-10-24 20:39:49",
+        "2026-10-24 20:40:06",
+        "2026-10-24 20:40:07",
+        "2026-10-24 20:40:08",
+        "2026-10-24 20:40:12",
+        "2026-10-24 20:40:13",
+        "2026-10-24 20:40:15"
+      ]
+    }
+  ]
+}

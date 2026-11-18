@@ -1,0 +1,422 @@
+{
+  "patroni": {
+    "start_date": "2026-09-24 13:43:45",
+    "end_date": "2026-09-24 14:10:12",
+    "duration": "26m27.779s",
+    "total_logs": 922,
+    "error_count": 247,
+    "warning_count": 245,
+    "leader": "pg2",
+    "leader_since": "2026-09-24 13:57:17",
+    "leader_changes": 3,
+    "switchovers": 1,
+    "failovers": 2,
+    "lock_retaken": 1,
+    "leaderless_time": "2m1.86s",
+    "dcs_incidents": [
+      {
+        "start": "2026-09-24 13:54:19",
+        "end": "2026-09-24 13:54:58",
+        "duration": "38.808s",
+        "members": [
+          "pg1"
+        ]
+      }
+    ],
+    "members": [
+      {
+        "name": "pg1",
+        "role": "replica",
+        "first_seen": "2026-09-24 13:43:45",
+        "last_seen": "2026-09-24 14:10:12",
+        "leader_time": "8m24.138s",
+        "total_logs": 922
+      }
+    ],
+    "members_without_log": [
+      "pg2",
+      "pg3"
+    ],
+    "leadership": [
+      {
+        "member": "pg1",
+        "start": "2026-09-24 13:43:52",
+        "end": "2026-09-24 13:44:33",
+        "duration": "40.593s"
+      },
+      {
+        "member": "pg2",
+        "start": "2026-09-24 13:44:34",
+        "end": "2026-09-24 13:47:33",
+        "duration": "2m58.749s"
+      },
+      {
+        "member": "pg1",
+        "start": "2026-09-24 13:47:47",
+        "end": "2026-09-24 13:54:08",
+        "duration": "6m21.008s"
+      },
+      {
+        "member": "pg1",
+        "start": "2026-09-24 13:54:58",
+        "end": "2026-09-24 13:56:20",
+        "duration": "1m22.537s"
+      },
+      {
+        "member": "pg2",
+        "start": "2026-09-24 13:57:17",
+        "end": "2026-09-24 14:10:12",
+        "duration": "12m55.467s"
+      }
+    ],
+    "changes": [
+      {
+        "timestamp": "2026-09-24 13:44:34",
+        "kind": "switchover",
+        "from": "pg1",
+        "to": "pg2",
+        "leaderless": "1.305s"
+      },
+      {
+        "timestamp": "2026-09-24 13:47:47",
+        "kind": "failover",
+        "from": "pg2",
+        "to": "pg1",
+        "leaderless": "13.699s"
+      },
+      {
+        "timestamp": "2026-09-24 13:54:58",
+        "kind": "retaken",
+        "from": "pg1",
+        "to": "pg1",
+        "leaderless": "50.133s"
+      },
+      {
+        "timestamp": "2026-09-24 13:57:17",
+        "kind": "failover",
+        "from": "pg1",
+        "to": "pg2",
+        "leaderless": "56.723s"
+      }
+    ],
+    "event_counts": {
+      "bootstrap": 1,
+      "crash_recovery": 1,
+      "dcs_lost": 1,
+      "dcs_restored": 1,
+      "demote": 2,
+      "pause": 1,
+      "promote": 2,
+      "reinit": 1,
+      "replica_created": 1,
+      "resume": 1,
+      "rewind": 2,
+      "rewind_failed": 2,
+      "switchover_request": 1
+    },
+    "events": [
+      {
+        "timestamp": "2026-09-24 13:43:52",
+        "member": "pg1",
+        "kind": "bootstrap",
+        "detail": "initialized a new cluster"
+      },
+      {
+        "timestamp": "2026-09-24 13:44:33",
+        "member": "pg1",
+        "kind": "switchover_request",
+        "detail": "received switchover request with leader=pg1 candidate=pg2 scheduled_at=None"
+      },
+      {
+        "timestamp": "2026-09-24 13:44:33",
+        "member": "pg1",
+        "kind": "demote",
+        "detail": "Demoting self (graceful)"
+      },
+      {
+        "timestamp": "2026-09-24 13:45:52",
+        "member": "pg1",
+        "kind": "pause"
+      },
+      {
+        "timestamp": "2026-09-24 13:46:12",
+        "member": "pg1",
+        "kind": "resume"
+      },
+      {
+        "timestamp": "2026-09-24 13:47:47",
+        "member": "pg1",
+        "kind": "promote",
+        "detail": "promoted self to leader by acquiring session lock"
+      },
+      {
+        "timestamp": "2026-09-24 13:54:08",
+        "member": "pg1",
+        "kind": "demote",
+        "detail": "demoting self because DCS is not accessible and I was a leader"
+      },
+      {
+        "timestamp": "2026-09-24 13:54:19",
+        "member": "pg1",
+        "kind": "dcs_lost",
+        "detail": "DCS is not accessible"
+      },
+      {
+        "timestamp": "2026-09-24 13:54:58",
+        "member": "pg1",
+        "kind": "dcs_restored",
+        "detail": "after 39s"
+      },
+      {
+        "timestamp": "2026-09-24 13:54:59",
+        "member": "pg1",
+        "kind": "promote",
+        "detail": "promoted self to leader because I had the session lock"
+      },
+      {
+        "timestamp": "2026-09-24 13:57:17",
+        "member": "pg1",
+        "kind": "crash_recovery",
+        "detail": "doing crash recovery in a single user mode"
+      },
+      {
+        "timestamp": "2026-09-24 13:57:17",
+        "member": "pg1",
+        "kind": "rewind",
+        "detail": "running pg_rewind from pg2"
+      },
+      {
+        "timestamp": "2026-09-24 13:57:18",
+        "member": "pg1",
+        "kind": "rewind_failed",
+        "detail": "Failed to rewind from healthy primary: pg2"
+      },
+      {
+        "timestamp": "2026-09-24 13:57:29",
+        "member": "pg1",
+        "kind": "rewind",
+        "detail": "running pg_rewind from pg2"
+      },
+      {
+        "timestamp": "2026-09-24 13:57:30",
+        "member": "pg1",
+        "kind": "rewind_failed",
+        "detail": "Failed to rewind from healthy primary: pg2"
+      },
+      {
+        "timestamp": "2026-09-24 14:07:34",
+        "member": "pg1",
+        "kind": "reinit",
+        "detail": "Removing data directory: /home/postgres/data"
+      },
+      {
+        "timestamp": "2026-09-24 14:07:35",
+        "member": "pg1",
+        "kind": "replica_created",
+        "detail": "replica has been created using basebackup"
+      }
+    ],
+    "messages": [
+      {
+        "id": "wa-FZfE",
+        "level": "WARNING",
+        "message": "failed to resolve host etcd1: [Errno -?] Name or service not known",
+        "count": 68,
+        "first_date": "2026-09-24 13:51:02",
+        "last_date": "2026-09-24 13:54:57"
+      },
+      {
+        "id": "wa-kgZP",
+        "level": "WARNING",
+        "message": "failed to resolve host etcd2: [Errno -?] Name or service not known",
+        "count": 68,
+        "first_date": "2026-09-24 13:51:01",
+        "last_date": "2026-09-24 13:54:57"
+      },
+      {
+        "id": "wa-bYfk",
+        "level": "WARNING",
+        "message": "failed to resolve host etcd3: [Errno -?] Name or service not known",
+        "count": 68,
+        "first_date": "2026-09-24 13:51:03",
+        "last_date": "2026-09-24 13:54:57"
+      },
+      {
+        "id": "er-4HFh",
+        "level": "ERROR",
+        "message": "Failed to get list of machines from http://etcd1:?/v3: MaxRetryError",
+        "count": 54,
+        "first_date": "2026-09-24 13:53:54",
+        "last_date": "2026-09-24 13:54:57"
+      },
+      {
+        "id": "er-Vywt",
+        "level": "ERROR",
+        "message": "Failed to get list of machines from http://etcd2:?/v3: MaxRetryError",
+        "count": 54,
+        "first_date": "2026-09-24 13:53:54",
+        "last_date": "2026-09-24 13:54:57"
+      },
+      {
+        "id": "er-OQ5I",
+        "level": "ERROR",
+        "message": "Failed to get list of machines from http://etcd3:?/v3: MaxRetryError",
+        "count": 54,
+        "first_date": "2026-09-24 13:53:54",
+        "last_date": "2026-09-24 13:54:57"
+      },
+      {
+        "id": "er-rR5F",
+        "level": "ERROR",
+        "message": "KVCache.run EtcdConnectionFailed",
+        "count": 51,
+        "first_date": "2026-09-24 13:54:00",
+        "last_date": "2026-09-24 13:54:57"
+      },
+      {
+        "id": "wa-kSV3",
+        "level": "WARNING",
+        "message": "Postgresql is not running.",
+        "count": 34,
+        "first_date": "2026-09-24 13:57:17",
+        "last_date": "2026-09-24 14:07:30"
+      },
+      {
+        "id": "wa-DFJK",
+        "level": "WARNING",
+        "message": "Loop time exceeded, rescheduling immediately.",
+        "count": 6,
+        "first_date": "2026-09-24 13:54:09",
+        "last_date": "2026-09-24 13:54:59"
+      },
+      {
+        "id": "er-r32e",
+        "level": "ERROR",
+        "message": "Error communicating with DCS",
+        "count": 5,
+        "first_date": "2026-09-24 13:54:08",
+        "last_date": "2026-09-24 13:54:49"
+      },
+      {
+        "id": "er-FlFr",
+        "level": "ERROR",
+        "message": "Exceeded retry deadline",
+        "count": 4,
+        "first_date": "2026-09-24 13:54:19",
+        "last_date": "2026-09-24 13:54:49"
+      },
+      {
+        "id": "er-hWDI",
+        "level": "ERROR",
+        "message": "Request to server http://etcd1:? failed: MaxRetryError",
+        "count": 4,
+        "first_date": "2026-09-24 13:53:52",
+        "last_date": "2026-09-24 13:53:59"
+      },
+      {
+        "id": "er-TGDH",
+        "level": "ERROR",
+        "message": "Request to server http://etcd2:? failed: MaxRetryError",
+        "count": 4,
+        "first_date": "2026-09-24 13:53:51",
+        "last_date": "2026-09-24 13:53:59"
+      },
+      {
+        "id": "er-3ceq",
+        "level": "ERROR",
+        "message": "Request to server http://etcd3:? failed: MaxRetryError",
+        "count": 4,
+        "first_date": "2026-09-24 13:53:54",
+        "last_date": "2026-09-24 13:53:59"
+      },
+      {
+        "id": "er-AsHW",
+        "level": "ERROR",
+        "message": "Failed to rewind from healthy primary: pg2",
+        "count": 2,
+        "first_date": "2026-09-24 13:57:18",
+        "last_date": "2026-09-24 13:57:30"
+      },
+      {
+        "id": "er-sYtj",
+        "level": "ERROR",
+        "message": "postmaster is not running",
+        "count": 2,
+        "first_date": "2026-09-24 14:01:31",
+        "last_date": "2026-09-24 14:05:12"
+      },
+      {
+        "id": "er-HY4b",
+        "level": "ERROR",
+        "message": "watchprefix failed: ProtocolError",
+        "count": 2,
+        "first_date": "2026-09-24 13:51:01",
+        "last_date": "2026-09-24 13:53:01"
+      },
+      {
+        "id": "er-KNB1",
+        "level": "ERROR",
+        "message": "Failed to get list of machines from http://etcd1:?/v3beta: ValueError",
+        "count": 1,
+        "first_date": "2026-09-24 13:43:45",
+        "last_date": "2026-09-24 13:43:45"
+      },
+      {
+        "id": "er-zqFU",
+        "level": "ERROR",
+        "message": "Failed to get list of machines from http://etcd2:?/v3beta: ValueError",
+        "count": 1,
+        "first_date": "2026-09-24 13:43:45",
+        "last_date": "2026-09-24 13:43:45"
+      },
+      {
+        "id": "er-X6QI",
+        "level": "ERROR",
+        "message": "Failed to get list of machines from http://etcd3:?/v3beta: ValueError",
+        "count": 1,
+        "first_date": "2026-09-24 13:43:45",
+        "last_date": "2026-09-24 13:43:45"
+      },
+      {
+        "id": "wa-j2XC",
+        "level": "WARNING",
+        "message": "Request failed to pg2: GET http://pg2:?/patroni (HTTPConnectionPool(host=?, port=?): Max retries exceeded with url: /patroni (Caused by ConnectTimeoutError",
+        "count": 1,
+        "first_date": "2026-09-24 13:47:46",
+        "last_date": "2026-09-24 13:47:46"
+      },
+      {
+        "id": "er-dtX9",
+        "level": "ERROR",
+        "message": "Request to server http://etcd1:? failed: ReadTimeoutError",
+        "count": 1,
+        "first_date": "2026-09-24 13:53:01",
+        "last_date": "2026-09-24 13:53:01"
+      },
+      {
+        "id": "er-yfaq",
+        "level": "ERROR",
+        "message": "Request to server http://etcd2:? failed: ReadTimeoutError",
+        "count": 1,
+        "first_date": "2026-09-24 13:51:01",
+        "last_date": "2026-09-24 13:51:01"
+      },
+      {
+        "id": "er-aZxs",
+        "level": "ERROR",
+        "message": "get_cluster",
+        "count": 1,
+        "first_date": "2026-09-24 13:54:08",
+        "last_date": "2026-09-24 13:54:08"
+      },
+      {
+        "id": "er-6gdI",
+        "level": "ERROR",
+        "message": "watchprefix failed: \u003cUnavailable error: ?, code: ?\u003e",
+        "count": 1,
+        "first_date": "2026-09-24 13:53:51",
+        "last_date": "2026-09-24 13:53:51"
+      }
+    ]
+  }
+}

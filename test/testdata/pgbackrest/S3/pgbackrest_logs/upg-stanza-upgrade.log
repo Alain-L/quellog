@@ -1,0 +1,4 @@
+-------------------PROCESS START-------------------
+2026-10-10 13:35:11.472 P00   INFO: stanza-upgrade command begin 2.59.3: --exec-id=384-f46ec862 --log-level-file=info --pg1-path=/var/lib/pg/upg17 --pg1-port=5441 --repo1-path=/var/lib/pgbackrest/repo1 --stanza=upg
+2026-10-10 13:35:11.486 P00   INFO: stanza-upgrade for stanza 'upg' on repo1
+2026-10-10 13:35:11.526 P00   INFO: stanza-upgrade command end: completed successfully (57ms)

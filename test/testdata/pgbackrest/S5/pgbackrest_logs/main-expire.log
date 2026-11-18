@@ -1,0 +1,17 @@
+-------------------PROCESS START-------------------
+2026-10-10 13:58:37.012 P00   INFO: expire command begin 2.59.3: --exec-id=70-4dac2da8 --log-level-file=info --repo1-path=/var/lib/pgbackrest/repo1 --repo2-path=/var/lib/pgbackrest/repo2 --repo1-retention-full=2 --repo2-retention-full=2 --stanza=main
+2026-10-10 13:58:37.013 P00   INFO: expire command end: completed successfully (1ms)
+
+-------------------PROCESS START-------------------
+2026-10-10 13:59:33.116 P00   INFO: expire command begin 2.59.3: --exec-id=91-1f1e5e55 --log-level-console=info --log-level-file=info --repo1-path=/var/lib/pgbackrest/repo1 --repo2-path=/var/lib/pgbackrest/repo2 --repo1-retention-full=2 --repo2-retention-full=2 --stanza=main
+2026-10-10 13:59:33.117 P00   INFO: repo1: 16-1 remove archive, start = 000000010000000000000001, stop = 000000010000000000000001
+2026-10-10 13:59:33.117 P00   INFO: expire command end: completed successfully (1ms)
+
+-------------------PROCESS START-------------------
+2026-10-10 13:59:52.847 P00   INFO: expire command begin 2.59.3: --exec-id=103-e71cdf74 --log-level-console=info --log-level-file=info --repo=2 --repo1-path=/var/lib/pgbackrest/repo1 --repo2-path=/var/lib/pgbackrest/repo2 --repo1-retention-full=2 --repo2-retention-full=2 --stanza=main
+2026-10-10 13:59:52.848 P00   INFO: expire command end: completed successfully (1ms)
+
+-------------------PROCESS START-------------------
+2026-10-10 14:04:30.551 P00   INFO: expire command begin 2.59.3: --exec-id=269-3fe9e7e0 --log-level-file=info --repo=1 --repo1-path=/var/lib/pgbackrest/repo1 --repo2-path=/var/lib/pgbackrest/repo2 --repo1-retention-full=2 --repo2-retention-full=2 --stanza=main
+2026-10-10 14:04:30.553 P00   INFO: repo1: 16-1 no archive to remove
+2026-10-10 14:04:30.553 P00   INFO: expire command end: completed successfully (2ms)

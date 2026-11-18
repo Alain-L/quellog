@@ -1,0 +1,196 @@
+package quellog_test
+
+import (
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+)
+
+// Three pgBouncer settings decide how much of a pooler report can exist
+// at all: log_connections / log_disconnections gate the client lines,
+// stats_period gates the telemetry lines, and pool_mode -- logged
+// nowhere -- decides what the wait figure is averaged over. A report
+// that drops a section, or publishes a rate computed from one startup
+// snapshot, without saying which of the three is responsible leaves the
+// reader unable to tell "nothing happened" from "your pooler does not
+// log it". These tests freeze that distinction.
+//
+// Every probe below is built from lines copied verbatim out of real
+// pgbouncer captures (03-material of the pooler audit, and the fixtures
+// under testdata/regressions/pgbouncer/); only the selection is ours.
+
+// singleStatsProbe is pgb-07-oldversion-transaction.log reduced to its
+// shape: a pooler started at 13:39:27, one startup "stats:" line twenty
+// seconds later reporting zeros because no client had connected yet,
+// and then the real traffic -- which no later snapshot ever summarises,
+// the capture ending before the next period elapsed. The traffic
+// figures are therefore a measurement of the idle period, published as
+// if they measured the log.
+const singleStatsProbe = `2026-09-20 13:39:27.855 CEST [13942] LOG listening on 127.0.0.1:6432
+2026-09-20 13:39:27.855 CEST [13942] LOG process up: PgBouncer 1.18.0, libevent 2.1.13-stable (epoll), adns: evdns2, tls: OpenSSL 3.5.7 9 Jun 2026
+2026-09-20 13:39:47.855 CEST [13942] LOG stats: 0 xacts/s, 0 queries/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-20 13:40:03.346 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:36842 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.348 CEST [13942] LOG S-0x55db1adeb3b0: benchdb/bench@127.0.0.1:5544 new connection to server (from 127.0.0.1:53670)
+2026-09-20 13:40:03.458 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:38528 closing because: client close request (age=0s)
+2026-09-20 13:40:03.458 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:38538 login attempt: db=benchdb user=bench tls=no
+2026-09-20 13:40:03.459 CEST [13942] LOG C-0x55db1ade3c10: benchdb/bench@127.0.0.1:38538 closing because: client close request (age=0s)
+2026-09-20 13:40:04.480 CEST [13942] LOG C-0x55db1ade3c10: pgbouncer/admin@127.0.0.1:38550 login attempt: db=pgbouncer user=admin tls=no
+2026-09-20 13:40:04.481 CEST [13942] LOG SHUTDOWN command issued
+`
+
+// idleProbe is the false positive to avoid: a pooler configured exactly
+// as the setup page prescribes -- connections logged, a one-second
+// stats_period covering the window end to end -- that simply had no
+// client. Lines copied from testdata/regressions/pgbouncer/pgbouncer.log,
+// whose opening snapshots are all zeros for that same reason. Nothing
+// here may be reported as a configuration gap.
+const idleProbe = `2026-09-09 20:58:58.651 UTC [1] LOG listening on 0.0.0.0:6432
+2026-09-09 20:58:59.655 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 20:59:00.655 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 20:59:01.655 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 20:59:02.655 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+2026-09-09 20:59:03.655 UTC [1] LOG stats: 0 xacts/s, 0 queries/s, 0 client parses/s, 0 server parses/s, 0 binds/s, in 0 B/s, out 0 B/s, xact 0 us, query 0 us, wait 0 us
+`
+
+// writeProbe drops a probe in a temp dir and returns its path.
+func writeProbe(t *testing.T, name, body string) string {
+	t.Helper()
+	p := filepath.Join(t.TempDir(), name)
+	if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
+		t.Fatalf("write probe: %v", err)
+	}
+	return p
+}
+
+// TestPgBouncerKeepsTheMissingConnectionLines freezes COR-39: with
+// log_connections = 0 the Sessions and Connections sections used to
+// vanish without a word, on a page that went on reporting 48 queries/s
+// and 45 errors. Both counts must now show, at 0. The text and Markdown
+// reports state it and give no advice; the HTML one names the setting.
+func TestPgBouncerKeepsTheMissingConnectionLines(t *testing.T) {
+	fixture := filepath.Join("testdata", "regressions", "pgbouncer", "pgbouncer_no_conn_log.log")
+
+	for _, tc := range []struct {
+		format string
+		args   []string
+		// sessions and connections are how the format spells the rows.
+		sessions, connections string
+	}{
+		{"text", nil, "Completed sessions        : 0", "Login attempts            : 0"},
+		{"markdown", []string{"--md"}, "| Completed sessions | 0", "| Login attempts | 0"},
+	} {
+		t.Run(tc.format, func(t *testing.T) {
+			out := string(runHarness(t, false, append([]string{fixture}, tc.args...)...))
+			out = ansiEscapeRe.ReplaceAllString(out, "")
+			if tc.format == "markdown" {
+				out = mdUnpadded([]byte(out))
+			}
+
+			if !strings.Contains(out, tc.sessions) {
+				t.Errorf("no Sessions section: with log_connections = 0 it disappears silently\n%s", out)
+			}
+			if !strings.Contains(out, tc.connections) {
+				t.Errorf("no Connections section: with log_connections = 0 it disappears silently\n%s", out)
+			}
+			if strings.Contains(out, "pgbouncer.ini") {
+				t.Errorf("the report gives advice instead of stating the zero\n%s", out)
+			}
+		})
+	}
+}
+
+// TestPgBouncerSaysTrafficIsNotMissing is the other half of COR-39: the
+// sentence that names log_connections must state that the pooler did
+// report traffic over the same window, which is what distinguishes a
+// silenced log from an idle one.
+func TestPgBouncerSaysTrafficIsNotMissing(t *testing.T) {
+	fixture := filepath.Join("testdata", "regressions", "pgbouncer", "pgbouncer_no_conn_log.log")
+	out := ansiEscapeRe.ReplaceAllString(string(runHarness(t, false, fixture)), "")
+
+	if !strings.Contains(out, "0 although traffic shows") {
+		t.Errorf("the empty counts do not say the traffic itself was reported\n%s", out)
+	}
+}
+
+// TestPgBouncerFlagsSingleSnapshotCoverage freezes COR-40: one startup
+// snapshot must not be published as a measurement of the whole capture
+// without saying so.
+func TestPgBouncerFlagsSingleSnapshotCoverage(t *testing.T) {
+	probe := writeProbe(t, "single-stats.log", singleStatsProbe)
+	out := ansiEscapeRe.ReplaceAllString(string(runHarness(t, false, probe)), "")
+
+	if !strings.Contains(out, "Stats coverage            : a single snapshot") {
+		t.Errorf("the report publishes 0.0/s from a single startup snapshot without qualifying it\n%s", out)
+	}
+}
+
+// TestPgBouncerFlagsAbsentTelemetry covers the other end of the same
+// setting: a capture shorter than one stats_period holds no "stats:"
+// line at all, and the three sections fed by those lines used to vanish
+// without a word.
+func TestPgBouncerFlagsAbsentTelemetry(t *testing.T) {
+	fixture := filepath.Join("testdata", "regressions", "pgbouncer", "pgbouncer_verbose.log")
+	out := ansiEscapeRe.ReplaceAllString(string(runHarness(t, false, fixture)), "")
+
+	if !strings.Contains(out, `Traffic                   : no "stats:" line`) {
+		t.Errorf("the throughput figures vanish instead of saying why there are none\n%s", out)
+	}
+	// A short capture is not a misconfiguration; the note must not read
+	// as an accusation.
+	if strings.Contains(out, "although traffic shows") {
+		t.Errorf("an absent-telemetry note borrowed the unlogged-connections wording\n%s", out)
+	}
+}
+
+// TestPgBouncerDoesNotAccuseAnIdlePooler is the calibration test: a
+// correctly configured pooler that simply had no client must get no
+// configuration warning at all. A false positive here would be worse
+// than no warning.
+func TestPgBouncerDoesNotAccuseAnIdlePooler(t *testing.T) {
+	probe := writeProbe(t, "idle.log", idleProbe)
+	out := ansiEscapeRe.ReplaceAllString(string(runHarness(t, false, probe)), "")
+
+	if strings.Contains(out, "although traffic shows") {
+		t.Errorf("an idle pooler is told traffic went unlogged\n%s", out)
+	}
+	if strings.Contains(out, "Stats coverage") {
+		t.Errorf("an idle pooler with end-to-end telemetry is told its coverage is short\n%s", out)
+	}
+	// It still gets the zero.
+	if !strings.Contains(out, "Login attempts            : 0\n") {
+		t.Errorf("the idle report drops the login count instead of showing it at 0\n%s", out)
+	}
+}
+
+// TestPgBouncerDoesNotAssertWhatItCannotKnow is a refutation test for the
+// wording of the empty-section note. The predicate behind it cannot tell
+// a silenced log from a steady-state one: an application with its own
+// client pool connects once at startup and works, so every later window
+// carries traffic and no client line while log_connections is perfectly
+// on. That is the common case in production, not the edge one.
+//
+// The note may therefore state the absence, but it must not assert that the connections happened or that
+// the sessions ended -- neither is knowable from the window.
+func TestPgBouncerDoesNotAssertWhatItCannotKnow(t *testing.T) {
+	// A window inside a capture whose own .ini has log_connections = 1
+	// and log_disconnections = 1: traffic, no client line, correct config.
+	out := runHarness(t, false,
+		"testdata/regressions/pgbouncer/pgbouncer_saturation.log",
+		"--begin", "2026-09-20 13:58:20", "--end", "2026-09-20 13:58:40")
+	text := string(out)
+
+	for _, claim := range []string{
+		"the connections happened",
+		"the sessions ended",
+		"the log does not record them",
+	} {
+		if strings.Contains(text, claim) {
+			t.Errorf("the report asserts %q, which it cannot know: the clients may simply predate the window", claim)
+		}
+	}
+	// It must still be useful: the absence is stated.
+	if !strings.Contains(text, "0 although traffic shows") {
+		t.Error("the note no longer states the absence")
+	}
+}

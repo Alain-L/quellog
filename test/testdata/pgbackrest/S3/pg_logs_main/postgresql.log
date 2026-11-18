@@ -1,0 +1,144 @@
+2026-10-10 13:31:39.157 UTC [82] LOG:  starting PostgreSQL 17.11 (Debian 17.11-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+2026-10-10 13:31:39.157 UTC [82] LOG:  listening on IPv4 address "0.0.0.0", port 5432
+2026-10-10 13:31:39.157 UTC [82] LOG:  listening on IPv6 address "::", port 5432
+2026-10-10 13:31:39.173 UTC [82] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+2026-10-10 13:31:39.186 UTC [86] LOG:  database system was shut down at 2026-10-10 13:25:05 UTC
+2026-10-10 13:31:39.196 UTC [82] LOG:  database system is ready to accept connections
+2026-10-10 13:31:42.072 UTC [108] LOG:  restore point "pgBackRest Archive Check" created at 0/1B5FE68
+2026-10-10 13:31:42.072 UTC [108] STATEMENT:  select pg_catalog.pg_create_restore_point('pgBackRest Archive Check')::text
+2026-10-10 13:31:42.106 P00   INFO: archive-push command begin 2.59.3: [pg_wal/000000010000000000000001] --exec-id=110-2faf0fbe --log-level-console=info --log-level-file=info --pg1-path=/var/lib/pg/main --repo1-path=/var/lib/pgbackrest/repo1 --stanza=main
+2026-10-10 13:31:42.398 P00   INFO: pushed WAL file '000000010000000000000001' to the archive
+2026-10-10 13:31:42.398 P00   INFO: archive-push command end: completed successfully (295ms)
+2026-10-10 13:31:48.451 UTC [115] ERROR:  database "bench" already exists
+2026-10-10 13:31:48.451 UTC [115] STATEMENT:  CREATE DATABASE bench;
+2026-10-10 13:31:48.894 UTC [125] LOG:  restore point "pgBackRest Archive Check" created at 0/2000090
+2026-10-10 13:31:48.894 UTC [125] STATEMENT:  select pg_catalog.pg_create_restore_point('pgBackRest Archive Check')::text
+2026-10-10 13:31:49.053 P00   INFO: archive-push command begin 2.59.3: [pg_wal/000000010000000000000002] --exec-id=127-b77216ef --log-level-console=info --log-level-file=info --pg1-path=/var/lib/pg/main --repo1-path=/var/lib/pgbackrest/repo1 --stanza=main
+2026-10-10 13:31:49.134 P00   INFO: pushed WAL file '000000010000000000000002' to the archive
+2026-10-10 13:31:49.134 P00   INFO: archive-push command end: completed successfully (85ms)
+2026-10-10 13:32:08.008 P00   INFO: archive-push command begin 2.59.3: [pg_wal/000000010000000000000003] --exec-id=141-b82b871a --log-level-console=info --log-level-file=info --pg1-path=/var/lib/pg/main --repo1-path=/var/lib/pgbackrest/repo1 --stanza=main
+2026-10-10 13:32:08.177 P00   INFO: pushed WAL file '000000010000000000000003' to the archive
+2026-10-10 13:32:08.177 P00   INFO: archive-push command end: completed successfully (170ms)
+2026-10-10 13:32:08.321 P00   INFO: archive-push command begin 2.59.3: [pg_wal/000000010000000000000004] --exec-id=144-4ec4160b --log-level-console=info --log-level-file=info --pg1-path=/var/lib/pg/main --repo1-path=/var/lib/pgbackrest/repo1 --stanza=main
+2026-10-10 13:32:08.472 P00   INFO: pushed WAL file '000000010000000000000004' to the archive
+2026-10-10 13:32:08.472 P00   INFO: archive-push command end: completed successfully (152ms)
+2026-10-10 13:32:24.406 UTC [84] LOG:  checkpoint starting: immediate force wait
+2026-10-10 13:32:24.416 P00   INFO: archive-push command begin 2.59.3: [pg_wal/000000010000000000000005] --exec-id=151-e8758129 --log-level-console=info --log-level-file=info --pg1-path=/var/lib/pg/main --repo1-path=/var/lib/pgbackrest/repo1 --stanza=main
+2026-10-10 13:32:24.702 P00   INFO: pushed WAL file '000000010000000000000005' to the archive
+2026-10-10 13:32:24.702 P00   INFO: archive-push command end: completed successfully (289ms)
+2026-10-10 13:32:25.747 UTC [84] LOG:  checkpoint complete: wrote 2975 buffers (18.2%); 0 WAL file(s) added, 0 removed, 5 recycled; write=0.021 s, sync=1.270 s, total=1.342 s; sync files=318, longest=0.172 s, average=0.004 s; distance=74529 kB, estimate=74529 kB; lsn=0/60000B8, redo lsn=0/6000028
+2026-10-10 13:32:43.072 P00   INFO: archive-push command begin 2.59.3: [pg_wal/000000010000000000000006] --exec-id=171-f7db983e --log-level-console=info --log-level-file=info --pg1-path=/var/lib/pg/main --repo1-path=/var/lib/pgbackrest/repo1 --stanza=main
+2026-10-10 13:32:43.161 P00   INFO: pushed WAL file '000000010000000000000006' to the archive
+2026-10-10 13:32:43.161 P00   INFO: archive-push command end: completed successfully (90ms)
+2026-10-10 13:32:43.170 P00   INFO: archive-push command begin 2.59.3: [pg_wal/000000010000000000000006.00000028.backup] --exec-id=173-d24bc86a --log-level-console=info --log-level-file=info --pg1-path=/var/lib/pg/main --repo1-path=/var/lib/pgbackrest/repo1 --stanza=main
+2026-10-10 13:32:43.190 P00   INFO: pushed WAL file '000000010000000000000006.00000028.backup' to the archive
+2026-10-10 13:32:43.190 P00   INFO: archive-push command end: completed successfully (23ms)
+2026-10-10 13:32:55.961 UTC [84] LOG:  checkpoint starting: immediate force wait
+2026-10-10 13:32:55.986 UTC [84] LOG:  checkpoint complete: wrote 0 buffers (0.0%); 0 WAL file(s) added, 0 removed, 1 recycled; write=0.001 s, sync=0.001 s, total=0.026 s; sync files=0, longest=0.000 s, average=0.000 s; distance=16384 kB, estimate=68714 kB; lsn=0/7000080, redo lsn=0/7000028
+2026-10-10 13:32:55.987 UTC [193] LOG:  restore point "pgBackRest Archive Check" created at 0/7000160
+2026-10-10 13:32:55.987 UTC [193] STATEMENT:  select pg_catalog.pg_create_restore_point('pgBackRest Archive Check')::text
+2026-10-10 13:32:56.083 P00   INFO: archive-push command begin 2.59.3: [pg_wal/000000010000000000000007] --exec-id=195-c3d35448 --log-level-console=info --log-level-file=info --pg1-path=/var/lib/pg/main --repo1-path=/var/lib/pgbackrest/repo1 --stanza=main
+2026-10-10 13:32:56.159 P00   INFO: pushed WAL file '000000010000000000000007' to the archive
+2026-10-10 13:32:56.159 P00   INFO: archive-push command end: completed successfully (79ms)
+2026-10-10 13:33:17.943 P00   INFO: archive-push command begin 2.59.3: [pg_wal/000000010000000000000008] --exec-id=217-c43ce78e --log-level-console=info --log-level-file=info --pg1-path=/var/lib/pg/main --repo1-path=/var/lib/pgbackrest/repo1 --stanza=main
+2026-10-10 13:33:18.065 P00   INFO: pushed WAL file '000000010000000000000008' to the archive
+2026-10-10 13:33:18.065 P00   INFO: archive-push command end: completed successfully (123ms)
+2026-10-10 13:33:18.073 P00   INFO: archive-push command begin 2.59.3: [pg_wal/000000010000000000000007.00000028.backup] --exec-id=219-968328c2 --log-level-console=info --log-level-file=info --pg1-path=/var/lib/pg/main --repo1-path=/var/lib/pgbackrest/repo1 --stanza=main
+2026-10-10 13:33:18.113 P00   INFO: pushed WAL file '000000010000000000000007.00000028.backup' to the archive
+2026-10-10 13:33:18.113 P00   INFO: archive-push command end: completed successfully (41ms)
+2026-10-10 13:33:33.400 UTC [84] LOG:  checkpoint starting: immediate force wait
+2026-10-10 13:33:33.413 P00   INFO: archive-push command begin 2.59.3: [pg_wal/000000010000000000000009] --exec-id=237-3bbf9948 --log-level-console=info --log-level-file=info --pg1-path=/var/lib/pg/main --repo1-path=/var/lib/pgbackrest/repo1 --stanza=main
+2026-10-10 13:33:33.487 UTC [84] LOG:  checkpoint complete: wrote 54 buffers (0.3%); 0 WAL file(s) added, 0 removed, 2 recycled; write=0.006 s, sync=0.046 s, total=0.088 s; sync files=17, longest=0.005 s, average=0.003 s; distance=49152 kB, estimate=66758 kB; lsn=0/A000080, redo lsn=0/A000028
+2026-10-10 13:33:33.500 P00   INFO: pushed WAL file '000000010000000000000009' to the archive
+2026-10-10 13:33:33.500 P00   INFO: archive-push command end: completed successfully (91ms)
+2026-10-10 13:33:34.370 P00   INFO: archive-push command begin 2.59.3: [pg_wal/00000001000000000000000A] --exec-id=240-b60abd34 --log-level-console=info --log-level-file=info --pg1-path=/var/lib/pg/main --repo1-path=/var/lib/pgbackrest/repo1 --stanza=main
+2026-10-10 13:33:34.444 P00   INFO: pushed WAL file '00000001000000000000000A' to the archive
+2026-10-10 13:33:34.444 P00   INFO: archive-push command end: completed successfully (76ms)
+2026-10-10 13:33:34.449 P00   INFO: archive-push command begin 2.59.3: [pg_wal/00000001000000000000000A.00000028.backup] --exec-id=242-f8e11245 --log-level-console=info --log-level-file=info --pg1-path=/var/lib/pg/main --repo1-path=/var/lib/pgbackrest/repo1 --stanza=main
+2026-10-10 13:33:34.459 P00   INFO: pushed WAL file '00000001000000000000000A.00000028.backup' to the archive
+2026-10-10 13:33:34.459 P00   INFO: archive-push command end: completed successfully (11ms)
+2026-10-10 13:35:50.297 UTC [84] LOG:  checkpoint starting: immediate force wait
+2026-10-10 13:35:50.431 UTC [84] LOG:  checkpoint complete: wrote 406 buffers (2.5%); 0 WAL file(s) added, 0 removed, 2 recycled; write=0.009 s, sync=0.094 s, total=0.134 s; sync files=29, longest=0.020 s, average=0.004 s; distance=19885 kB, estimate=62071 kB; lsn=0/B36B818, redo lsn=0/B36B7C0
+2026-10-10 13:35:50.615 UTC [425] ERROR:  syntax error at or near "\" at character 29
+2026-10-10 13:35:50.615 UTC [425] STATEMENT:  select pg_relation_filepath(\x27corrupt_me\x27);
+2026-10-10 13:36:05.505 UTC [82] LOG:  received fast shutdown request
+2026-10-10 13:36:05.510 UTC [82] LOG:  aborting any active transactions
+2026-10-10 13:36:05.511 UTC [82] LOG:  background worker "logical replication launcher" (PID 90) exited with exit code 1
+2026-10-10 13:36:05.511 UTC [84] LOG:  shutting down
+2026-10-10 13:36:05.561 UTC [84] LOG:  checkpoint starting: shutdown immediate
+2026-10-10 13:36:05.563 P00   INFO: archive-push command begin 2.59.3: [pg_wal/00000001000000000000000B] --exec-id=434-4b182971 --log-level-console=info --log-level-file=info --pg1-path=/var/lib/pg/main --repo1-path=/var/lib/pgbackrest/repo1 --stanza=main
+2026-10-10 13:36:05.637 UTC [84] LOG:  checkpoint complete: wrote 354 buffers (2.2%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.015 s, sync=0.042 s, total=0.086 s; sync files=8, longest=0.014 s, average=0.006 s; distance=12882 kB, estimate=57152 kB; lsn=0/C000028, redo lsn=0/C000028
+2026-10-10 13:36:05.694 P00   INFO: pushed WAL file '00000001000000000000000B' to the archive
+2026-10-10 13:36:05.694 P00   INFO: archive-push command end: completed successfully (135ms)
+2026-10-10 13:36:05.699 UTC [82] LOG:  database system is shut down
+2026-10-10 13:36:28.611 UTC [456] LOG:  starting PostgreSQL 17.11 (Debian 17.11-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+2026-10-10 13:36:28.611 UTC [456] LOG:  listening on IPv4 address "0.0.0.0", port 5432
+2026-10-10 13:36:28.611 UTC [456] LOG:  listening on IPv6 address "::", port 5432
+2026-10-10 13:36:28.621 UTC [456] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+2026-10-10 13:36:28.633 UTC [460] LOG:  database system was shut down at 2026-10-10 13:36:05 UTC
+2026-10-10 13:36:28.645 UTC [456] LOG:  database system is ready to accept connections
+2026-10-10 13:36:31.008 UTC [458] LOG:  checkpoint starting: immediate force wait
+2026-10-10 13:36:31.021 P00   INFO: archive-push command begin 2.59.3: [pg_wal/00000001000000000000000C] --exec-id=471-5ffa59c0 --log-level-console=info --log-level-file=info --pg1-path=/var/lib/pg/main --repo1-path=/var/lib/pgbackrest/repo1 --stanza=main
+2026-10-10 13:36:31.052 UTC [458] LOG:  checkpoint complete: wrote 3 buffers (0.0%); 0 WAL file(s) added, 0 removed, 1 recycled; write=0.009 s, sync=0.005 s, total=0.044 s; sync files=2, longest=0.003 s, average=0.003 s; distance=16384 kB, estimate=16384 kB; lsn=0/D000080, redo lsn=0/D000028
+2026-10-10 13:36:31.098 P00   INFO: pushed WAL file '00000001000000000000000C' to the archive
+2026-10-10 13:36:31.098 P00   INFO: archive-push command end: completed successfully (81ms)
+2026-10-10 13:36:32.521 P00   INFO: archive-push command begin 2.59.3: [pg_wal/00000001000000000000000D] --exec-id=475-08698db8 --log-level-console=info --log-level-file=info --pg1-path=/var/lib/pg/main --repo1-path=/var/lib/pgbackrest/repo1 --stanza=main
+2026-10-10 13:36:32.596 P00   INFO: pushed WAL file '00000001000000000000000D' to the archive
+2026-10-10 13:36:32.596 P00   INFO: archive-push command end: completed successfully (80ms)
+2026-10-10 13:36:32.601 P00   INFO: archive-push command begin 2.59.3: [pg_wal/00000001000000000000000D.00000028.backup] --exec-id=477-d90bd563 --log-level-console=info --log-level-file=info --pg1-path=/var/lib/pg/main --repo1-path=/var/lib/pgbackrest/repo1 --stanza=main
+2026-10-10 13:36:32.611 P00   INFO: pushed WAL file '00000001000000000000000D.00000028.backup' to the archive
+2026-10-10 13:36:32.611 P00   INFO: archive-push command end: completed successfully (11ms)
+2026-10-10 13:37:17.305 P00   INFO: archive-push command begin 2.59.3: [pg_wal/00000001000000000000000E] --exec-id=496-700c7fb7 --log-level-console=info --log-level-file=info --pg1-path=/var/lib/pg/main --repo1-path=/var/lib/pgbackrest/repo1 --stanza=main
+2026-10-10 13:37:17.443 P00   INFO: pushed WAL file '00000001000000000000000E' to the archive
+2026-10-10 13:37:17.443 P00   INFO: archive-push command end: completed successfully (139ms)
+2026-10-10 13:37:17.448 P00   INFO: archive-push command begin 2.59.3: [pg_wal/00000001000000000000000F] --exec-id=498-800ef5d1 --log-level-console=info --log-level-file=info --pg1-path=/var/lib/pg/main --repo1-path=/var/lib/pgbackrest/repo1 --stanza=main
+2026-10-10 13:37:17.589 P00   INFO: pushed WAL file '00000001000000000000000F' to the archive
+2026-10-10 13:37:17.589 P00   INFO: archive-push command end: completed successfully (143ms)
+2026-10-10 13:37:17.600 P00   INFO: archive-push command begin 2.59.3: [pg_wal/000000010000000000000010] --exec-id=500-80639757 --log-level-console=info --log-level-file=info --pg1-path=/var/lib/pg/main --repo1-path=/var/lib/pgbackrest/repo1 --stanza=main
+2026-10-10 13:37:17.718 P00   INFO: pushed WAL file '000000010000000000000010' to the archive
+2026-10-10 13:37:17.718 P00   INFO: archive-push command end: completed successfully (119ms)
+2026-10-10 13:37:27.544 UTC [458] LOG:  checkpoint starting: immediate force wait
+2026-10-10 13:37:27.552 P00   INFO: archive-push command begin 2.59.3: [pg_wal/000000010000000000000011] --exec-id=513-07db8213 --log-level-console=info --log-level-file=info --pg1-path=/var/lib/pg/main --repo1-path=/var/lib/pgbackrest/repo1 --stanza=main
+2026-10-10 13:37:28.095 P00   INFO: pushed WAL file '000000010000000000000011' to the archive
+2026-10-10 13:37:28.096 P00   INFO: archive-push command end: completed successfully (547ms)
+2026-10-10 13:37:28.163 UTC [458] LOG:  checkpoint complete: wrote 2039 buffers (12.4%); 0 WAL file(s) added, 0 removed, 6 recycled; write=0.013 s, sync=0.428 s, total=0.619 s; sync files=44, longest=0.271 s, average=0.010 s; distance=81920 kB, estimate=81920 kB; lsn=0/12000080, redo lsn=0/12000028
+2026-10-10 13:37:54.995 UTC [511] WARNING:  aborting backup due to backend exiting before pg_backup_stop was called
+2026-10-10 13:38:40.293 UTC [458] LOG:  checkpoint starting: immediate force wait
+2026-10-10 13:38:40.305 P00   INFO: archive-push command begin 2.59.3: [pg_wal/000000010000000000000012] --exec-id=590-55837b14 --log-level-console=info --log-level-file=info --pg1-path=/var/lib/pg/main --repo1-path=/var/lib/pgbackrest/repo1 --stanza=main
+2026-10-10 13:38:40.342 UTC [458] LOG:  checkpoint complete: wrote 8 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.009 s, sync=0.016 s, total=0.050 s; sync files=6, longest=0.005 s, average=0.003 s; distance=16384 kB, estimate=75366 kB; lsn=0/13000080, redo lsn=0/13000028
+2026-10-10 13:38:40.384 P00   INFO: pushed WAL file '000000010000000000000012' to the archive
+2026-10-10 13:38:40.384 P00   INFO: archive-push command end: completed successfully (83ms)
+2026-10-10 13:38:51.860 P00   INFO: archive-push command begin 2.59.3: [pg_wal/000000010000000000000013] --exec-id=595-c517e597 --log-level-console=info --log-level-file=info --pg1-path=/var/lib/pg/main --repo1-path=/var/lib/pgbackrest/repo1 --stanza=main
+2026-10-10 13:38:51.937 P00   INFO: pushed WAL file '000000010000000000000013' to the archive
+2026-10-10 13:38:51.937 P00   INFO: archive-push command end: completed successfully (78ms)
+2026-10-10 13:38:51.942 P00   INFO: archive-push command begin 2.59.3: [pg_wal/000000010000000000000013.00000028.backup] --exec-id=597-e07cb26c --log-level-console=info --log-level-file=info --pg1-path=/var/lib/pg/main --repo1-path=/var/lib/pgbackrest/repo1 --stanza=main
+2026-10-10 13:38:51.961 P00   INFO: pushed WAL file '000000010000000000000013.00000028.backup' to the archive
+2026-10-10 13:38:51.961 P00   INFO: archive-push command end: completed successfully (20ms)
+2026-10-10 13:39:12.514 UTC [458] LOG:  checkpoint starting: immediate force wait
+2026-10-10 13:39:12.526 P00   INFO: archive-push command begin 2.59.3: [pg_wal/000000010000000000000014] --exec-id=612-8ad1cddb --log-level-console=info --log-level-file=info --pg1-path=/var/lib/pg/main --repo1-path=/var/lib/pgbackrest/repo1 --stanza=main
+2026-10-10 13:39:12.554 UTC [458] LOG:  checkpoint complete: wrote 0 buffers (0.0%); 0 WAL file(s) added, 0 removed, 2 recycled; write=0.001 s, sync=0.001 s, total=0.041 s; sync files=0, longest=0.000 s, average=0.000 s; distance=32768 kB, estimate=71106 kB; lsn=0/15000080, redo lsn=0/15000028
+2026-10-10 13:39:12.605 P00   INFO: pushed WAL file '000000010000000000000014' to the archive
+2026-10-10 13:39:12.606 P00   INFO: archive-push command end: completed successfully (84ms)
+2026-10-10 13:39:30.318 UTC [610] WARNING:  aborting backup due to backend exiting before pg_backup_stop was called
+2026-10-10 13:39:46.533 UTC [458] LOG:  checkpoint starting: immediate force wait
+2026-10-10 13:39:46.546 P00   INFO: archive-push command begin 2.59.3: [pg_wal/000000010000000000000015] --exec-id=651-7c442b9a --log-level-console=info --log-level-file=info --pg1-path=/var/lib/pg/main --repo1-path=/var/lib/pgbackrest/repo1 --stanza=main
+2026-10-10 13:39:46.571 UTC [458] LOG:  checkpoint complete: wrote 0 buffers (0.0%); 0 WAL file(s) added, 0 removed, 1 recycled; write=0.005 s, sync=0.001 s, total=0.038 s; sync files=0, longest=0.000 s, average=0.000 s; distance=16384 kB, estimate=65634 kB; lsn=0/16000080, redo lsn=0/16000028
+2026-10-10 13:39:46.625 P00   INFO: pushed WAL file '000000010000000000000015' to the archive
+2026-10-10 13:39:46.625 P00   INFO: archive-push command end: completed successfully (83ms)
+2026-10-10 13:41:13.535 P00   INFO: archive-push command begin 2.59.3: [pg_wal/000000010000000000000016] --exec-id=680-02106bc8 --log-level-console=info --log-level-file=info --pg1-path=/var/lib/pg/main --repo1-path=/var/lib/pgbackrest/repo1 --stanza=main
+2026-10-10 13:41:13.665 P00   INFO: pushed WAL file '000000010000000000000016' to the archive
+2026-10-10 13:41:13.665 P00   INFO: archive-push command end: completed successfully (132ms)
+2026-10-10 13:41:13.680 P00   INFO: archive-push command begin 2.59.3: [pg_wal/000000010000000000000016.00000028.backup] --exec-id=682-77b9d4b2 --log-level-console=info --log-level-file=info --pg1-path=/var/lib/pg/main --repo1-path=/var/lib/pgbackrest/repo1 --stanza=main
+2026-10-10 13:41:13.751 P00   INFO: pushed WAL file '000000010000000000000016.00000028.backup' to the archive
+2026-10-10 13:41:13.751 P00   INFO: archive-push command end: completed successfully (75ms)
+2026-10-10 13:44:07.547 UTC [458] LOG:  checkpoint starting: immediate force wait
+2026-10-10 13:44:07.560 P00   INFO: archive-push command begin 2.59.3: [pg_wal/000000010000000000000017] --exec-id=934-c5da284c --log-level-console=info --log-level-file=info --pg1-path=/var/lib/pg/main --repo1-path=/var/lib/pgbackrest/repo1 --stanza=main
+2026-10-10 13:44:07.588 UTC [458] LOG:  checkpoint complete: wrote 0 buffers (0.0%); 0 WAL file(s) added, 0 removed, 2 recycled; write=0.005 s, sync=0.001 s, total=0.041 s; sync files=0, longest=0.000 s, average=0.000 s; distance=32768 kB, estimate=62347 kB; lsn=0/18000080, redo lsn=0/18000028
+2026-10-10 13:44:07.638 P00   INFO: pushed WAL file '000000010000000000000017' to the archive
+2026-10-10 13:44:07.638 P00   INFO: archive-push command end: completed successfully (82ms)
+2026-10-10 13:44:08.257 P00   INFO: archive-push command begin 2.59.3: [pg_wal/000000010000000000000018] --exec-id=937-4aeee43b --log-level-console=info --log-level-file=info --pg1-path=/var/lib/pg/main --repo1-path=/var/lib/pgbackrest/repo1 --stanza=main
+2026-10-10 13:44:08.331 P00   INFO: pushed WAL file '000000010000000000000018' to the archive
+2026-10-10 13:44:08.331 P00   INFO: archive-push command end: completed successfully (76ms)
+2026-10-10 13:44:08.337 P00   INFO: archive-push command begin 2.59.3: [pg_wal/000000010000000000000018.00000028.backup] --exec-id=939-24f8327b --log-level-console=info --log-level-file=info --pg1-path=/var/lib/pg/main --repo1-path=/var/lib/pgbackrest/repo1 --stanza=main
+2026-10-10 13:44:08.347 P00   INFO: pushed WAL file '000000010000000000000018.00000028.backup' to the archive
+2026-10-10 13:44:08.347 P00   INFO: archive-push command end: completed successfully (12ms)

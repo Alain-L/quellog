@@ -61,6 +61,8 @@ func TestAggregateMetricsBySplit(t *testing.T) {
 		mk(9, 0), mk(9, 30), mk(9, 59), // 09:00 -> 3
 		mk(11, 10), // 11:00 -> 1 (10:00 has none -> no bucket)
 		parser.NewLogEntry(time.Time{}, "LOG:  no ts", false), // zero timestamp -> skipped
+		// A pgBackRest entry has no PostgreSQL period: no 10:00 bucket.
+		{Timestamp: time.Date(2026, 2, 4, 10, 15, 0, 0, testCET), Message: "INFO: backup command begin 2.55.1: --stanza=main", PID: "P00", FromPgBackRest: true},
 	}
 	in := make(chan []parser.LogEntry, 1)
 	in <- entries

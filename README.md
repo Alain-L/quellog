@@ -1,6 +1,6 @@
 # quellog
 
-A high-performance PostgreSQL log analyzer. Processes gigabytes of logs in seconds, producing synthetic overviews, SQL performance analysis, and operational insights.
+A high-performance log analyzer for PostgreSQL, pgBackRest, Patroni and pgBouncer. Processes gigabytes of logs in seconds, producing synthetic overviews, SQL performance analysis, and operational insights.
 
 **[Documentation](https://alain-l.github.io/quellog/)** | **[Try the demo](https://alain-l.github.io/quellog/demo.html)** (runs entirely in your browser)
 
@@ -11,7 +11,7 @@ quellog /var/log/postgresql/*.log
 ```
 
 ```
-quellog 0.12.0 – 155281 entries processed in 0.22 s (52.98 MB)
+quellog 0.14.0 – 155281 entries processed in 0.22 s (52.98 MB)
 
 SUMMARY
 
@@ -25,6 +25,9 @@ SUMMARY
 ## Features
 
 - **Multi-format** -- stderr, CSV, JSON, syslog + cloud providers (AWS RDS, Cloud SQL, Azure, CNPG)
+- **pgBackRest** -- reads pgBackRest's own logs and its lines in the PostgreSQL log, and adds a backup and WAL archiving report, synthetic by default and detailed with `--pgbackrest-detail`
+- **Patroni** -- reads one Patroni log per member and adds a report on the leader lock, leader changes and DCS incidents, synthetic by default and detailed with `--patroni-detail`
+- **pgBouncer** -- auto-detects connection-pooler logs and adds a pooler report, synthetic by default and detailed with `--pgbouncer-detail`
 - **Archives** -- gzip, zstd, tar, zip, 7z decompressed on the fly
 - **SQL analysis** -- per-query performance, execution plans (auto_explain), TCL separation
 - **Events & errors** -- per-pattern drill-down via stable IDs (`fa-XXXX`, `er-XXXX`), SQLSTATE class grouping, occurrences-over-time chart

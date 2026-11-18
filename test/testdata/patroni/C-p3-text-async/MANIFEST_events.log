@@ -1,0 +1,38 @@
+2026-09-24T14:09:25Z === RUN C START (Patroni 3.3.11, pg17, text logs, async) ===
+2026-09-24T14:09:25Z STEP: 1. bootstrap: create networks, etcd cluster, 3 patroni nodes
+2026-09-24T14:10:15Z bootstrap complete, leader=pg1
+2026-09-24T14:10:15Z STEP: 2. planned switchover pg1 -> other node
+2026-09-24T14:10:16Z cmd: patronictl switchover --leader pg1 --candidate pg2 --force
+2026-09-24T14:11:35Z post-switchover leader=pg2
+2026-09-24T14:11:35Z STEP: 3. pause then resume
+2026-09-24T14:11:35Z cmd: patronictl pause main
+2026-09-24T14:11:56Z cmd: patronictl resume main
+2026-09-24T14:12:57Z STEP: 4. failover by leader death (SIGKILL on leader, after a burst write)
+2026-09-24T14:12:58Z current leader before kill: pg2
+2026-09-24T14:12:58Z cmd: docker kill -s KILL ptlab-c-pg2
+2026-09-24T14:13:31Z new leader after kill: pg1
+2026-09-24T14:13:52Z STEP: 5. old leader (pg2) restarted, expect pg_rewind
+2026-09-24T14:13:52Z cmd: docker start ptlab-c-pg2
+2026-09-24T14:15:23Z STEP: 6. reinit of a replica
+2026-09-24T14:15:23Z cmd: patronictl reinit main pg2 --force
+2026-09-24T14:16:39Z STEP: 7. leader loses DCS lock (isolate leader from etcd network > ttl)
+2026-09-24T14:16:40Z cmd: docker network disconnect ptlab-c-dcs ptlab-c-pg1
+2026-09-24T14:18:32Z new leader after DCS isolation of pg1: NONE
+2026-09-24T14:18:32Z cmd: docker network connect --alias pg1 ptlab-c-dcs ptlab-c-pg1
+2026-09-24T14:19:33Z STEP: 8. DCS totally unreachable (stop all etcd ~60s)
+2026-09-24T14:19:33Z cmd: docker stop ptlab-c-etcd1 ptlab-c-etcd2 ptlab-c-etcd3
+2026-09-24T14:20:41Z cmd: docker start ptlab-c-etcd1 ptlab-c-etcd2 ptlab-c-etcd3
+2026-09-24T14:22:12Z STEP: 9. lag blocking failover
+2026-09-24T14:22:13Z leader=pg1 replicas=[pg2
+pg3]
+2026-09-24T14:22:13Z cmd: SELECT pg_wal_replay_pause(); on pg2
+2026-09-24T14:22:13Z cmd: SELECT pg_wal_replay_pause(); on pg3
+2026-09-24T14:22:13Z cmd: bulk insert ~3MB WAL on pg1
+2026-09-24T14:22:13Z cmd: docker kill -s KILL ptlab-c-pg1
+2026-09-24T14:22:59Z cmd: SELECT pg_wal_replay_resume(); on pg2
+2026-09-24T14:22:59Z cmd: SELECT pg_wal_replay_resume(); on pg3
+2026-09-24T14:23:00Z leader after lag resolved: pg2
+2026-09-24T14:23:00Z cmd: docker start ptlab-c-pg1 (bring old leader back)
+2026-09-24T14:24:31Z STEP: 10. final steady state
+2026-09-24T14:27:01Z cmd: patronictl history
+2026-09-24T14:27:02Z === RUN C END ===

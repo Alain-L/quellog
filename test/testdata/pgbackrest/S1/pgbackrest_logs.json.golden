@@ -1,0 +1,578 @@
+{
+  "pgbackrest": [
+    {
+      "stanza": "main",
+      "files": [
+        "testdata/pgbackrest/S1/pgbackrest_logs/main-backup.log",
+        "testdata/pgbackrest/S1/pgbackrest_logs/main-expire.log",
+        "testdata/pgbackrest/S1/pgbackrest_logs/main-restore.log",
+        "testdata/pgbackrest/S1/pgbackrest_logs/main-stanza-create.log",
+        "testdata/pgbackrest/S1/pgbackrest_logs/main-verify.log"
+      ],
+      "lines_read": 154,
+      "versions": [
+        "2.59.3"
+      ],
+      "start_date": "2026-10-10 13:04:55",
+      "end_date": "2026-10-10 13:14:11",
+      "has_timestamps": true,
+      "saw_begin_end": true,
+      "backups_logged": true,
+      "backups": [
+        {
+          "label": "20261010-130516F",
+          "type": "full",
+          "repo": "repo1",
+          "start_date": "2026-10-10 13:05:16",
+          "end_date": "2026-10-10 13:05:38",
+          "duration_ms": 21610,
+          "size": "29.4MB",
+          "size_bytes": 30828134,
+          "file_total": 1265,
+          "succeeded": true,
+          "exec_id": "435-71aab1b2"
+        },
+        {
+          "type": "diff",
+          "repo": "repo1",
+          "start_date": "2026-10-10 13:05:53",
+          "succeeded": false,
+          "crashed": true,
+          "last_line_date": "2026-10-10 13:05:53",
+          "waiting_for": "next regular checkpoint",
+          "signal": "SIGTERM",
+          "exec_id": "484-e3bb804e"
+        },
+        {
+          "type": "incr",
+          "repo": "repo1",
+          "start_date": "2026-10-10 13:07:59",
+          "succeeded": false,
+          "crashed": true,
+          "last_line_date": "2026-10-10 13:07:59",
+          "waiting_for": "next regular checkpoint",
+          "signal": "SIGTERM",
+          "exec_id": "520-71655aa8"
+        },
+        {
+          "label": "20261010-130516F_20261010-130825D",
+          "type": "diff",
+          "repo": "repo1",
+          "start_date": "2026-10-10 13:08:25",
+          "end_date": "2026-10-10 13:08:28",
+          "duration_ms": 2742,
+          "size": "77.2MB",
+          "size_bytes": 80950067,
+          "file_total": 1280,
+          "succeeded": true,
+          "exec_id": "551-b4689c1c"
+        },
+        {
+          "label": "20261010-130516F_20261010-130828I",
+          "type": "incr",
+          "repo": "repo1",
+          "start_date": "2026-10-10 13:08:28",
+          "end_date": "2026-10-10 13:08:30",
+          "duration_ms": 1575,
+          "size": "8.3KB",
+          "size_bytes": 8499,
+          "file_total": 1280,
+          "succeeded": true,
+          "exec_id": "564-94026786"
+        },
+        {
+          "label": "20261010-131023F",
+          "type": "full",
+          "repo": "repo1",
+          "start_date": "2026-10-10 13:10:23",
+          "end_date": "2026-10-10 13:10:40",
+          "duration_ms": 16314,
+          "size": "104.9MB",
+          "size_bytes": 109995622,
+          "file_total": 1279,
+          "succeeded": true,
+          "exec_id": "608-a3da2bf3"
+        },
+        {
+          "label": "20261010-131050F",
+          "type": "full",
+          "repo": "repo1",
+          "start_date": "2026-10-10 13:10:50",
+          "end_date": "2026-10-10 13:11:03",
+          "duration_ms": 12621,
+          "size": "105MB",
+          "size_bytes": 110100480,
+          "file_total": 1279,
+          "succeeded": true,
+          "exec_id": "629-e0c227b4"
+        },
+        {
+          "type": "incr",
+          "repo": "repo1",
+          "start_date": "2026-10-10 13:11:41",
+          "end_date": "2026-10-10 13:11:41",
+          "duration_ms": 3,
+          "succeeded": false,
+          "error_code": 56,
+          "error_line": "unable to find primary cluster - cannot proceed",
+          "error_label": "unable to find primary cluster",
+          "exec_id": "682-6f7fb7df"
+        }
+      ],
+      "last_full": {
+        "label": "20261010-131050F",
+        "repo": "repo1",
+        "end_date": "2026-10-10 13:11:03",
+        "age_seconds": 188
+      },
+      "last_diff_expired": "20261010-130516F_20261010-130825D",
+      "last_incr_expired": "20261010-130516F_20261010-130828I",
+      "commands": [
+        {
+          "command": "backup",
+          "runs": 8,
+          "succeeded": 5,
+          "failed": 3,
+          "total_duration_ms": 54865,
+          "max_duration_ms": 21610
+        },
+        {
+          "command": "expire",
+          "runs": 6,
+          "succeeded": 6,
+          "failed": 0,
+          "total_duration_ms": 113,
+          "max_duration_ms": 108
+        },
+        {
+          "command": "restore",
+          "runs": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "total_duration_ms": 18285,
+          "max_duration_ms": 9615
+        },
+        {
+          "command": "stanza-create",
+          "runs": 1,
+          "succeeded": 1,
+          "failed": 0,
+          "total_duration_ms": 50,
+          "max_duration_ms": 50
+        },
+        {
+          "command": "verify",
+          "runs": 1,
+          "succeeded": 1,
+          "failed": 0,
+          "total_duration_ms": 311,
+          "max_duration_ms": 311
+        }
+      ],
+      "archive_push": {
+        "logged": false,
+        "async_logged": false,
+        "pushed": 0,
+        "pushed_async": 0,
+        "found": 0,
+        "found_async": 0,
+        "not_found": 0,
+        "not_found_async": 0,
+        "dropped": 0,
+        "failed": 0,
+        "failed_async": 0,
+        "timeouts": 0
+      },
+      "archive_get": {
+        "logged": false,
+        "async_logged": false,
+        "pushed": 0,
+        "pushed_async": 0,
+        "found": 0,
+        "found_async": 0,
+        "not_found": 0,
+        "not_found_async": 0,
+        "dropped": 0,
+        "failed": 0,
+        "failed_async": 0,
+        "timeouts": 0
+      },
+      "expire_runs": [
+        {
+          "date": "2026-10-10 13:05:38",
+          "repo": "repo1",
+          "archive_removed": 0,
+          "warnings": [
+            "option 'repo1-retention-archive' is not set - archive logs will not be expired"
+          ],
+          "succeeded": true
+        },
+        {
+          "date": "2026-10-10 13:08:28",
+          "repo": "repo1",
+          "archive_removed": 0,
+          "warnings": [
+            "option 'repo1-retention-archive' is not set - archive logs will not be expired"
+          ],
+          "succeeded": true
+        },
+        {
+          "date": "2026-10-10 13:08:30",
+          "repo": "repo1",
+          "archive_removed": 0,
+          "warnings": [
+            "option 'repo1-retention-archive' is not set - archive logs will not be expired"
+          ],
+          "succeeded": true
+        },
+        {
+          "date": "2026-10-10 13:10:40",
+          "repo": "repo1",
+          "archive_removed": 0,
+          "warnings": [
+            "option 'repo1-retention-archive' is not set - archive logs will not be expired"
+          ],
+          "succeeded": true
+        },
+        {
+          "date": "2026-10-10 13:11:03",
+          "repo": "repo1",
+          "archive_removed": 0,
+          "warnings": [
+            "option 'repo1-retention-archive' is not set - archive logs will not be expired"
+          ],
+          "succeeded": true
+        },
+        {
+          "date": "2026-10-10 13:11:20",
+          "repo": "repo1",
+          "expired": [
+            "20261010-130516F_20261010-130828I",
+            "20261010-130516F_20261010-130825D",
+            "20261010-130516F"
+          ],
+          "archive_removed": 1,
+          "succeeded": true
+        }
+      ],
+      "retention_warnings": [
+        {
+          "text": "option 'repo1-retention-archive' is not set - archive logs will not be expired",
+          "count": 5,
+          "repos": [
+            "repo1"
+          ],
+          "first_date": "2026-10-10 13:05:38",
+          "last_date": "2026-10-10 13:11:03"
+        }
+      ],
+      "operations": [
+        {
+          "command": "stanza-create",
+          "date": "2026-10-10 13:04:55",
+          "summary": "stanza-create for stanza 'main' on repo1",
+          "succeeded": true,
+          "has_outcome": true,
+          "duration_ms": 50,
+          "detail": "on repo1"
+        },
+        {
+          "command": "verify",
+          "date": "2026-10-10 13:11:32",
+          "succeeded": true,
+          "has_outcome": true,
+          "duration_ms": 311
+        },
+        {
+          "command": "restore",
+          "date": "2026-10-10 13:12:42",
+          "summary": "repo1: restore backup set 20261010-131050F, recovery will start at 2026-10-10 13:10:50; destination: /var/lib/pg/restore1, target: default",
+          "succeeded": true,
+          "has_outcome": true,
+          "duration_ms": 8670,
+          "detail": "20261010-131050F into /var/lib/pg/restore1, latest",
+          "path": "/var/lib/pg/restore1"
+        },
+        {
+          "command": "restore",
+          "date": "2026-10-10 13:14:11",
+          "summary": "repo1: restore backup set 20261010-131050F, recovery will start at 2026-10-10 13:10:50; destination: /var/lib/pg/restore2, target: time=2026-10-10 13:11:10.200293",
+          "succeeded": true,
+          "has_outcome": true,
+          "duration_ms": 9615,
+          "detail": "20261010-131050F into /var/lib/pg/restore2, to 13:11:10",
+          "path": "/var/lib/pg/restore2"
+        }
+      ],
+      "errors": [
+        {
+          "id": "er-UzQg",
+          "label": "unable to find primary cluster",
+          "code": 56,
+          "message": "unable to find primary cluster - cannot proceed",
+          "example": "unable to find primary cluster - cannot proceed",
+          "count": 1,
+          "first_date": "2026-10-10 13:11:41",
+          "last_date": "2026-10-10 13:11:41",
+          "commands": [
+            "backup"
+          ],
+          "dates": [
+            "2026-10-10 13:11:41"
+          ]
+        }
+      ],
+      "warnings": [
+        {
+          "id": "wa-438P",
+          "label": "repo1-retention-full not set",
+          "message": "option 'repo1-retention-full' is not set for 'repo1-retention-full-type=count', the repository may run out of space",
+          "example": "option 'repo1-retention-full' is not set for 'repo1-retention-full-type=count', the repository may run out of space",
+          "count": 8,
+          "first_date": "2026-10-10 13:05:16",
+          "last_date": "2026-10-10 13:11:41",
+          "commands": [
+            "backup"
+          ],
+          "dates": [
+            "2026-10-10 13:05:16",
+            "2026-10-10 13:05:53",
+            "2026-10-10 13:07:59",
+            "2026-10-10 13:08:25",
+            "2026-10-10 13:08:28",
+            "2026-10-10 13:10:23",
+            "2026-10-10 13:10:50",
+            "2026-10-10 13:11:41"
+          ]
+        },
+        {
+          "id": "wa-ZkVw",
+          "label": "pg1 unreachable during check",
+          "message": "unable to check pg1: [DbConnectError] unable to connect to 'dbname='postgres' port=5432': connection to server on socket \"/var/run/postgresql/.s.PGSQL.5432\" failed: No such file or directory",
+          "example": "unable to check pg1: [DbConnectError] unable to connect to 'dbname='postgres' port=5432': connection to server on socket \"/var/run/postgresql/.s.PGSQL.5432\" failed: No such file or directory",
+          "detail": [
+            "Is the server running locally and accepting connections on that socket?"
+          ],
+          "count": 1,
+          "first_date": "2026-10-10 13:11:41",
+          "last_date": "2026-10-10 13:11:41",
+          "commands": [
+            "backup"
+          ],
+          "dates": [
+            "2026-10-10 13:11:41"
+          ]
+        }
+      ],
+      "pg_retry_warnings": 0,
+      "pg_restore_failures": 0
+    },
+    {
+      "stanza": "main2",
+      "files": [
+        "testdata/pgbackrest/S1/pgbackrest_logs/main2-backup.log",
+        "testdata/pgbackrest/S1/pgbackrest_logs/main2-stanza-create.log"
+      ],
+      "lines_read": 17,
+      "versions": [
+        "2.59.3"
+      ],
+      "start_date": "2026-10-10 13:08:36",
+      "end_date": "2026-10-10 13:09:36",
+      "has_timestamps": true,
+      "saw_begin_end": true,
+      "backups_logged": true,
+      "backups": [
+        {
+          "type": "full",
+          "changed_to_full": true,
+          "requested_type": "incr",
+          "repo": "repo1",
+          "start_date": "2026-10-10 13:08:36",
+          "end_date": "2026-10-10 13:09:36",
+          "duration_ms": 60128,
+          "succeeded": false,
+          "error_code": 82,
+          "error_line": "WAL segment 00000001000000000000001E was not archived before the 60000ms timeout",
+          "error_label": "WAL not archived in time",
+          "exec_id": "584-1d5c70d6"
+        }
+      ],
+      "commands": [
+        {
+          "command": "backup",
+          "runs": 1,
+          "succeeded": 0,
+          "failed": 1,
+          "total_duration_ms": 60128,
+          "max_duration_ms": 60128
+        },
+        {
+          "command": "stanza-create",
+          "runs": 1,
+          "succeeded": 1,
+          "failed": 0,
+          "total_duration_ms": 56,
+          "max_duration_ms": 56
+        }
+      ],
+      "archive_push": {
+        "logged": false,
+        "async_logged": false,
+        "pushed": 0,
+        "pushed_async": 0,
+        "found": 0,
+        "found_async": 0,
+        "not_found": 0,
+        "not_found_async": 0,
+        "dropped": 0,
+        "failed": 0,
+        "failed_async": 0,
+        "timeouts": 1
+      },
+      "archive_get": {
+        "logged": false,
+        "async_logged": false,
+        "pushed": 0,
+        "pushed_async": 0,
+        "found": 0,
+        "found_async": 0,
+        "not_found": 0,
+        "not_found_async": 0,
+        "dropped": 0,
+        "failed": 0,
+        "failed_async": 0,
+        "timeouts": 0
+      },
+      "operations": [
+        {
+          "command": "stanza-create",
+          "date": "2026-10-10 13:08:36",
+          "summary": "stanza-create for stanza 'main2' on repo1",
+          "succeeded": true,
+          "has_outcome": true,
+          "duration_ms": 56,
+          "detail": "on repo1"
+        }
+      ],
+      "errors": [
+        {
+          "id": "er-djxJ",
+          "label": "WAL not archived in time",
+          "code": 82,
+          "message": "WAL segment ... was not archived before the 60000ms timeout",
+          "example": "WAL segment 00000001000000000000001E was not archived before the 60000ms timeout",
+          "count": 1,
+          "first_date": "2026-10-10 13:09:36",
+          "last_date": "2026-10-10 13:09:36",
+          "commands": [
+            "backup"
+          ],
+          "dates": [
+            "2026-10-10 13:09:36"
+          ]
+        }
+      ],
+      "warnings": [
+        {
+          "id": "wa-dJJV",
+          "label": "repo1-retention-full not set",
+          "message": "option 'repo1-retention-full' is not set for 'repo1-retention-full-type=count', the repository may run out of space",
+          "example": "option 'repo1-retention-full' is not set for 'repo1-retention-full-type=count', the repository may run out of space",
+          "count": 1,
+          "first_date": "2026-10-10 13:08:36",
+          "last_date": "2026-10-10 13:08:36",
+          "commands": [
+            "backup"
+          ],
+          "dates": [
+            "2026-10-10 13:08:36"
+          ]
+        },
+        {
+          "id": "wa-MbpQ",
+          "label": "incr changed to full",
+          "message": "no prior backup exists, incr backup has been changed to full",
+          "example": "no prior backup exists, incr backup has been changed to full",
+          "count": 1,
+          "first_date": "2026-10-10 13:08:36",
+          "last_date": "2026-10-10 13:08:36",
+          "commands": [
+            "backup"
+          ],
+          "dates": [
+            "2026-10-10 13:08:36"
+          ]
+        }
+      ],
+      "pg_retry_warnings": 0,
+      "pg_restore_failures": 0
+    },
+    {
+      "stanza": "restored",
+      "files": [
+        "testdata/pgbackrest/S1/pgbackrest_logs/restored-stanza-create.log"
+      ],
+      "lines_read": 4,
+      "versions": [
+        "2.59.3"
+      ],
+      "start_date": "2026-10-10 13:12:46",
+      "end_date": "2026-10-10 13:12:46",
+      "has_timestamps": true,
+      "saw_begin_end": true,
+      "backups_logged": true,
+      "commands": [
+        {
+          "command": "stanza-create",
+          "runs": 1,
+          "succeeded": 1,
+          "failed": 0,
+          "total_duration_ms": 94,
+          "max_duration_ms": 94
+        }
+      ],
+      "archive_push": {
+        "logged": false,
+        "async_logged": false,
+        "pushed": 0,
+        "pushed_async": 0,
+        "found": 0,
+        "found_async": 0,
+        "not_found": 0,
+        "not_found_async": 0,
+        "dropped": 0,
+        "failed": 0,
+        "failed_async": 0,
+        "timeouts": 0
+      },
+      "archive_get": {
+        "logged": false,
+        "async_logged": false,
+        "pushed": 0,
+        "pushed_async": 0,
+        "found": 0,
+        "found_async": 0,
+        "not_found": 0,
+        "not_found_async": 0,
+        "dropped": 0,
+        "failed": 0,
+        "failed_async": 0,
+        "timeouts": 0
+      },
+      "operations": [
+        {
+          "command": "stanza-create",
+          "date": "2026-10-10 13:12:46",
+          "summary": "stanza-create for stanza 'restored' on repo1",
+          "succeeded": true,
+          "has_outcome": true,
+          "duration_ms": 94,
+          "detail": "on repo1"
+        }
+      ],
+      "pg_retry_warnings": 0,
+      "pg_restore_failures": 0
+    }
+  ]
+}

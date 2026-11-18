@@ -1,0 +1,24 @@
+-------------------PROCESS START-------------------
+2026-10-20 11:51:06.268 P00   INFO: backup command begin 2.59.3: --exec-id=178-8f384587 --log-level-console=warn --log-level-file=info --pg1-path=/var/lib/postgresql/data --repo1-path=/var/lib/pgbackrest --repo1-retention-full=2 --stanza=main --start-fast --type=full
+2026-10-20 11:51:06.273 P00   INFO: execute backup start: backup begins after the requested immediate checkpoint completes
+2026-10-20 11:51:06.310 P00   INFO: backup start archive = 000000010000000000000003, lsn = 0/3000028
+2026-10-20 11:51:06.310 P00   INFO: check archive for prior segment 000000010000000000000002
+2026-10-20 11:51:31.901 P00   INFO: execute backup stop and wait for all WAL segments to archive
+2026-10-20 11:51:31.914 P00   INFO: backup stop archive = 000000010000000000000003, lsn = 0/3042178
+2026-10-20 11:51:31.921 P00   INFO: check archive for segment(s) 000000010000000000000003:000000010000000000000003
+2026-10-20 11:51:32.032 P00   INFO: new backup label = 20261020-115106F
+2026-10-20 11:51:32.051 P00   INFO: full backup size = 22.2MB, file total = 967
+2026-10-20 11:51:32.051 P00   INFO: backup command end: completed successfully (25784ms)
+
+-------------------PROCESS START-------------------
+2026-10-20 11:54:13.435 P00   INFO: backup command begin 2.59.3: --exec-id=335-2fa10da9 --log-level-console=info --log-level-file=info --pg1-path=/var/lib/postgresql/data --repo1-path=/var/lib/pgbackrest --repo1-retention-full=2 --stanza=main --start-fast --type=incr
+2026-10-20 11:54:13.456 P00   INFO: last backup label = 20261020-115106F, version = 2.59.3
+2026-10-20 11:54:13.456 P00   INFO: execute backup start: backup begins after the requested immediate checkpoint completes
+2026-10-20 11:54:13.536 P00   INFO: backup start archive = 000000010000000000000013, lsn = 0/13000028
+2026-10-20 11:54:13.536 P00   INFO: check archive for prior segment 000000010000000000000012
+2026-10-20 11:54:14.224 P00   INFO: execute backup stop and wait for all WAL segments to archive
+2026-10-20 11:54:14.244 P00   INFO: backup stop archive = 000000010000000000000013, lsn = 0/13000120
+2026-10-20 11:54:14.248 P00   INFO: check archive for segment(s) 000000010000000000000013:000000010000000000000013
+2026-10-20 11:54:14.359 P00   INFO: new backup label = 20261020-115106F_20261020-115413I
+2026-10-20 11:54:14.386 P00   INFO: incr backup size = 1.8MB, file total = 968
+2026-10-20 11:54:14.386 P00   INFO: backup command end: completed successfully (954ms)

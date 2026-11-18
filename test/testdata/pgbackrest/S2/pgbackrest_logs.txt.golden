@@ -1,0 +1,30 @@
+quellog dev – 165 entries processed in X s (19.32 KB)
+
+[1mPGBACKREST[0m
+
+  Stanzas                   : 2 (ghost, main)
+  pgBackRest version        : 2.59.3
+
+  [1mghost[0m
+    Last full               : none
+    Backups                 : 1 failed
+    Last failure            : incr at 13:31:54
+    WAL archiving           : not logged
+
+  [1mmain[0m
+    Last full               : 20261010-133258F
+    Last diff               : 20261010-133258F_20261010-133426D
+    Backups                 : 2 ok, 2 failed
+    Last failure            : diff at 13:34:20
+    WAL archiving           : 4 pushed, 0 failed, last at 13:37:51
+    Archiving outages       : 1 (11s), recovered
+    WAL lost                : 1, dropped at 13:35:24 (queue full)
+
+  Top errors:
+    [103] archive.info permission denied    main      6  13:37:19 → 13:37:29
+    [055] backup.info missing               ghost     1  13:31:54
+    [068] archive_command lacks pgbackrest  main      1  13:32:52
+    [082] WAL not archived in time          main      1  13:34:20
+
+  [3;38;5;243mDetails: --pgbackrest-detail[=stanza][0m
+

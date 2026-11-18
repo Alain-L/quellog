@@ -1,0 +1,135 @@
+[1m
+SUMMARY
+[0m
+  Start date                : 2026-09-25 09:23:00 UTC
+  End date                  : 2026-09-25 09:25:47 UTC
+  Duration                  : 2m47.148s
+  Total entries             : 60
+  Throughput                : 0.36 entries/s
+[1m
+SERVER
+[0m
+  Starts                    : 2   [3;38;5;243m(first: 2026-09-25 09:23:00)[0m
+  Shutdowns                 : 2 fast, 0 immediate, 0 smart
+
+  Timeline:
+    09:23:00  start       database system is ready to accept connections
+    09:23:00  shutdown    fast shutdown request
+    09:23:00  start       database system is ready to accept connections
+    09:25:47  shutdown    fast shutdown request
+[1m
+EVENTS
+[0m
+  LOG                       : 60 (100.0%)
+
+[1m
+CHECKPOINTS
+[0m
+  Checkpoints | ■ = 1 
+
+  00:00 - 04:00   -
+  04:00 - 08:00   -
+  08:00 - 12:00  ■■ 2  [3;38;5;243m30.0/m[0m
+  12:00 - 16:00   -
+  16:00 - 20:00   -
+  20:00 - 00:00   -
+
+  Checkpoint count          : 2
+  Avg checkpoint write time : 0s
+  Max checkpoint write time : 0s
+  WAL per checkpoint (avg)  : 68.1 MB
+  WAL per checkpoint (max)  : 132.1 MB
+
+  Checkpoint types:
+    shutdown immediate    2  100.0%   [3;38;5;243m43.08/h[0m
+
+  WAL per checkpoint (avg) | ■ = 2 MB  [38;5;243m□[0m = estimate margin
+
+  00:00 - 04:00   -
+  04:00 - 08:00   -
+  08:00 - 12:00  ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■  68 MB
+  12:00 - 16:00   -
+  16:00 - 20:00   -
+  20:00 - 00:00   -
+
+[1m
+CONNECTIONS & SESSIONS
+[0m
+  Concurrent sessions | ■ = 1 
+
+  09:23 - 09:23  ■■■ 3  [3;38;5;243m09:23[0m
+  09:23 - 09:23  ■■■ 3  [3;38;5;243m09:23[0m
+  09:23 - 09:24  ■■■■ 4  [3;38;5;243m09:24[0m
+  09:24 - 09:24  ■■■■ 4  [3;38;5;243m09:24[0m
+  09:24 - 09:25  ■■■■ 4  [3;38;5;243m09:24[0m
+  09:25 - 09:25  ■■■■ 4  [3;38;5;243m09:25[0m
+
+  Connection count          : 9
+  Disconnection count       : 9
+  Avg connections per hour  : 193.84
+  Avg session time          : 1m5s
+  Median session time       : 28s
+  Maximum simultaneous      : 4     (at 2026-09-25 09:24:05)
+[1m
+CLIENTS
+[0m
+  Unique DBs                : 2
+  Unique Users              : 1
+  Unique Apps               : 2
+  Unique Hosts              : 1
+[1m
+TOP USERS
+[0m
+  bench                         18   30.0%
+[1m
+TOP APPS
+[0m
+  psql                           4    6.7%
+  pgbench                        1    1.7%
+[1m
+TOP DATABASES
+[0m
+  bench                         14   23.3%
+  postgres                       4    6.7%
+[1m
+TOP HOSTS
+[0m
+  192.168.1.18                  14   23.3%
+[1m
+TOP USER × DATABASE
+[0m
+  bench                     × bench                         14   23.3%
+  bench                     × postgres                       4    6.7%
+[1m
+TOP USER × HOST
+[0m
+  bench                     × 192.168.1.18                   7   11.7%
+
+[1m
+PGBOUNCER
+[0m
+  Pooler                    : 127.0.0.1:6434, PgBouncer 1.18.0
+  Start date                : 2026-09-25 09:23:02 UTC
+  End date                  : 2026-09-25 09:25:46 UTC
+  Throughput                : 1349.9 transactions/s, 9443.5 queries/s
+  Avg time                  : transaction 6.1 ms, query 874 µs
+  Avg clients queued        : 5.5 clients
+  Clients                   : 98 login attempts, 96 sessions of 14s on average
+  Server connections        : 4 opened, 1 reserve pool activation
+
+  Messages: 0 errors, 18 warnings
+    query_wait_timeout                   17  09:24:06
+    taking connection from reserve_pool   1  09:24:05
+
+  Activity per 30s | ■ = 1k queries/s
+
+                                 queries  query      queued        events
+  09:23:00  ■■■■■■■■■■■■■        13.1k/s  182 µs                   start
+  09:23:30  ■■■■■■■■■■■■         12.2k/s  183 µs
+  09:24:00  ■■■■■                 4.7k/s  772.5 ms   20.9 clients  reload
+  09:24:30  ■■■                   3.1k/s  751.4 ms   22.9 clients  reload
+  09:25:00  ■■■■■■■■■■■■         12.3k/s  182 µs
+  09:25:30  ■■■■■■■■■■■■■■       13.9k/s  182 µs                   shutdown
+  [3;38;5;243mquery: query time, queued: clients queued, worst snapshot of each row[0m
+
+  [3;38;5;243mDetails: --pgbouncer-detail[0m

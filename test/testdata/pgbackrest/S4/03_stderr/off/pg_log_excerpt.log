@@ -1,0 +1,14 @@
+2026-10-10 13:58:11.881 UTC [45] LOG:  archive command failed with exit code 103
+2026-10-10 13:58:11.881 UTC [45] DETAIL:  The failed archive command was: pgbackrest --stanza=main archive-push pg_wal/00000001000000000000000F
+2026-10-10 13:58:12.893 UTC [45] LOG:  archive command failed with exit code 103
+2026-10-10 13:58:12.893 UTC [45] DETAIL:  The failed archive command was: pgbackrest --stanza=main archive-push pg_wal/00000001000000000000000F
+2026-10-10 13:58:13.907 UTC [45] LOG:  archive command failed with exit code 103
+2026-10-10 13:58:13.907 UTC [45] DETAIL:  The failed archive command was: pgbackrest --stanza=main archive-push pg_wal/00000001000000000000000F
+2026-10-10 13:58:13.907 UTC [45] WARNING:  archiving write-ahead log file "00000001000000000000000F" failed too many times, will try again later
+2026-10-10 13:58:20.640 UTC [45] LOG:  archive command failed with exit code 103
+2026-10-10 13:58:20.640 UTC [45] DETAIL:  The failed archive command was: pgbackrest --stanza=main archive-push pg_wal/00000001000000000000000F
+2026-10-10 13:58:21.653 UTC [45] LOG:  archive command failed with exit code 103
+2026-10-10 13:58:21.653 UTC [45] DETAIL:  The failed archive command was: pgbackrest --stanza=main archive-push pg_wal/00000001000000000000000F
+2026-10-10 13:58:22.662 UTC [45] LOG:  archive command failed with exit code 103
+2026-10-10 13:58:22.662 UTC [45] DETAIL:  The failed archive command was: pgbackrest --stanza=main archive-push pg_wal/00000001000000000000000F
+2026-10-10 13:58:22.662 UTC [45] WARNING:  archiving write-ahead log file "00000001000000000000000F" failed too many times, will try again later

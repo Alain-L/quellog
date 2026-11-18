@@ -21,10 +21,12 @@ import {
 } from './js/file-handler.js';
 import {
     chartData, clearChartData, createTimeChart, createDurationChart, createCombinedSQLChart,
+    createPgbrBackupChart, createPgbrWalChart,
     createConcurrentChart, createCheckpointChart, createWALDistanceChart, createCombinedTempFilesChart,
     closeChartModal, updateModalInterval, resetModalZoom, exportChartPNG,
     resetChartZoom, openChartModal, updateChartInterval, toggleCombinedSeries, exportChartById,
-    createCostMapChart, resetCostMapZoom, openCostMapModal
+    createCostMapChart, resetCostMapZoom, openCostMapModal,
+    createPgBouncerBarsChart, togglePgbSeries
 } from './js/charts.js';
 import {
     setOriginalReportData, getOriginalReportData, applyReportTimeFilter, resetReportTimeFilter
@@ -39,6 +41,7 @@ import './js/components/ql-dropdown.js';
 // Section builders — each module owns its render* functions and any
 // section-private state (see the module doc-comments for details).
 import { buildSummarySection } from './js/sections/summary.js';
+import { buildPgBouncerSection } from './js/sections/pgbouncer.js';
 import { buildEventsSection } from './js/sections/events.js';
 import { buildConnectionsSection, buildClientsSection, toggleClientIO } from './js/sections/connections.js';
 import { buildCheckpointsSection } from './js/sections/checkpoints.js';
@@ -48,6 +51,8 @@ import {
 } from './js/sections/maintenance.js';
 import { buildLocksSection } from './js/sections/locks.js';
 import { buildTempFilesSection } from './js/sections/tempfiles.js';
+import { buildPatroniSection } from './js/sections/patroni.js';
+import { buildPgBackRestSection } from './js/sections/pgbackrest.js';
 import {
     buildSQLOverviewSection, buildSQLPerformanceSection, showSqlOvView,
     setSqlOverviewData, highlightQuery
@@ -74,29 +79,55 @@ setupDragDrop(dropZone, fileInput, processFile);
 // log is injected by web/standalone.go into window.DEMO_LOG_ZST_B64; when
 // it is absent (unbundled dev page) the button stays hidden. The ?demo
 // URL param auto-loads the example once the wasm is ready, for shareable
-// links.
+// links; ?demo=pgbackrest loads the pgBackRest example, ?demo=patroni the
+// Patroni one.
 const demoBtn = document.getElementById('demoBtn');
 if (demoBtn && window.DEMO_LOG_ZST_B64) {
     demoBtn.style.display = '';
-    if (/[?&]demo\b/.test(location.search)) {
+    const pgbr = document.getElementById('demoPgbr');
+    if (pgbr && window.DEMO_PGBR_ZST_B64) pgbr.style.display = '';
+    const patroni = document.getElementById('demoPatroni');
+    if (patroni && window.DEMO_PATRONI?.length) patroni.style.display = '';
+    const m = location.search.match(/[?&]demo(?:=(\w+))?\b/);
+    if (m) {
         (async function () {
             while (!window.wasmReady) await new Promise(r => setTimeout(r, 50));
-            loadDemo();
+            loadDemo(m[1]);
         })();
     }
 }
 
-async function processFile(file) {
+// processFile analyzes the files dropped or selected: one file as before,
+// several as the CLI's arguments, each read on its own (a Patroni log is
+// one member). The size cap applies to their total.
+async function processFile(files) {
     // Check both module state and window (standalone mode uses window.wasmReady)
     if (!wasmReady && !window.wasmReady) { alert('WASM not ready'); return; }
 
     // Check file size limit
-    if (file.size > MAX_FILE_SIZE) {
-        alert(`File too large (${fmtBytes(file.size)}). Maximum size: ${fmtBytes(MAX_FILE_SIZE)}.\n\nFor larger files, use the command-line version:\n  quellog ${file.name}`);
+    const size = files.reduce((n, f) => n + f.size, 0);
+    if (size > MAX_FILE_SIZE) {
+        alert(`Files too large (${fmtBytes(size)}). Maximum size: ${fmtBytes(MAX_FILE_SIZE)}.\n\nFor larger files, use the command-line version:\n  quellog ${files.map(f => f.name).join(' ')}`);
         return;
     }
 
-    await runAnalysis(() => prepareContent(file), file.name, file.size);
+    if (files.length === 1) {
+        await runAnalysis(() => prepareContent(files[0]), files[0].name, size);
+        return;
+    }
+    await runAnalysis(() => Promise.all(files.map(async f => asBytes(await prepareContent(f)))),
+        `${files.length} files`, size);
+}
+
+// asBytes gives an archive's joined text the Uint8Array form of a plain log.
+function asBytes(content) {
+    return content instanceof Uint8Array ? content : new TextEncoder().encode(content);
+}
+
+// byteContent says the content goes to quellogParseBytes: one file's bytes,
+// or a list of files.
+function byteContent(content) {
+    return content instanceof Uint8Array || Array.isArray(content);
 }
 
 // Load the bundled example log — the standalone "See example report"
@@ -105,15 +136,37 @@ async function processFile(file) {
 // decompress it with the same fzstd path used for the wasm payload, then
 // run the normal analysis pipeline so the demo behaves exactly like a
 // dropped file. Absent in the unbundled dev page → the button stays hidden.
-async function loadDemo() {
+async function loadDemo(kind) {
     if (!wasmReady && !window.wasmReady) { alert('WASM not ready'); return; }
-    const b64 = window.DEMO_LOG_ZST_B64;
+    if (kind === 'patroni') {
+        // Several files, as given to the CLI: a Patroni log per member.
+        const files = window.DEMO_PATRONI || [];
+        if (!files.length) { alert('No example log is bundled in this build.'); return; }
+        await runAnalysis(() => files.map(f => unzstd(Uint8Array.from(atob(f.b64), c => c.charCodeAt(0)).buffer)),
+            `${files.length} files`, 0);
+        scrollToSection('patroni');
+        return;
+    }
+    const pgbr = kind === 'pgbackrest';
+    const b64 = pgbr ? window.DEMO_PGBR_ZST_B64 : window.DEMO_LOG_ZST_B64;
     if (!b64) { alert('No example log is bundled in this build.'); return; }
-    const name = window.DEMO_LOG_NAME || 'demo.log';
+    const name = (pgbr ? window.DEMO_PGBR_NAME : window.DEMO_LOG_NAME) || 'demo.log';
     await runAnalysis(() => {
         const zst = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
         return unzstd(zst.buffer);
     }, name, 0);
+    // The pgBackRest example opens on its section.
+    if (pgbr) scrollToSection('pgbackrest');
+}
+
+// scrollToSection brings a section to the top, below the sticky header.
+function scrollToSection(id) {
+    const section = document.getElementById(id);
+    if (!section) return;
+    requestAnimationFrame(() => {
+        const header = document.querySelector('header')?.offsetHeight || 0;
+        window.scrollTo({ top: section.getBoundingClientRect().top + window.scrollY - header - 8 });
+    });
 }
 
 // Shared analysis pipeline for both a dropped/selected File and the
@@ -146,7 +199,8 @@ async function runAnalysis(getContent, name, size) {
         // Store for re-filtering
         setCurrentFileContent(content);
         setCurrentFileName(name);
-        setCurrentFileSize(size || (content instanceof Uint8Array ? content.byteLength : content.length));
+        setCurrentFileSize(size || (Array.isArray(content) ? content.reduce((n, c) => n + c.byteLength, 0)
+            : content instanceof Uint8Array ? content.byteLength : content.length));
         setOriginalDimensions(null);  // Reset for new file
 
         console.log(`[quellog] Parsing: ${name} (${fmtBytes(currentFileSize)})`);
@@ -161,7 +215,7 @@ async function runAnalysis(getContent, name, size) {
         // that was eating ~700 MB of wasm linear memory on big
         // logs. Archive paths still pass a string.
         const parseStart = performance.now();
-        const resultJson = (content instanceof Uint8Array)
+        const resultJson = byteContent(content)
             ? quellogParseBytes(content)
             : quellogParse(content);
         const parseEnd = performance.now();
@@ -230,11 +284,38 @@ function renderResults(data, fileName, fileSize, isInitial = true) {
         entries: data.meta.entries,
         parseTimeMs: data._parseTimeMs || 0
     };
+    // A Patroni-only report has no PostgreSQL section to lay out.
+    if (!data.summary && data.patroni) {
+        results.innerHTML = buildPatroniSection(data);
+        return;
+    }
+
     // Initialize filter bar
     initFilterBar(data, isInitial);
 
+    // pgBackRest-only report: no PostgreSQL data at all (a pure pgBackRest
+    // input). Render just the pgBackRest section(s) so the page isn't a
+    // wall of "no data" placeholders for every PostgreSQL section.
+    if (data.pgbackrest_only) {
+        results.innerHTML = buildPgBackRestSection(data);
+        harmonizeSummary();
+        requestAnimationFrame(buildAllCharts);
+        return;
+    }
+
     // Build sections with new layout
     let html = '';
+
+    // pgBouncer-only report: no PostgreSQL data at all (a pure pgBouncer
+    // input). Render just the pooler section so the page isn't a wall of
+    // "no data" placeholders for every PostgreSQL section.
+    if (data.pgbouncer_only) {
+        html += buildPgBouncerSection(data);
+        results.innerHTML = html;
+        harmonizeSummary();
+        requestAnimationFrame(buildAllCharts);
+        return;
+    }
 
     // Row 1: Summary | Events | Error Classes | Clients (4 cols)
     // Server lifecycle is folded into the Events section as a
@@ -268,6 +349,20 @@ function renderResults(data, fileName, fileSize, isInitial = true) {
     html += buildMaintenanceSection(data);
     html += '</div>';
 
+    // Patroni (full width), after the PostgreSQL sections.
+    html += buildPatroniSection(data);
+
+    // pgBouncer section (only when the run included pgBouncer logs).
+    if (data.pgbouncer) {
+        html += buildPgBouncerSection(data);
+    }
+
+    // pgBackRest section (only when the run included pgBackRest logs, or
+    // a PostgreSQL log whose archive_command/restore_command runs it).
+    if (data.pgbackrest) {
+        html += buildPgBackRestSection(data);
+    }
+
     results.innerHTML = html;
 
     harmonizeSummary();
@@ -300,8 +395,14 @@ function buildAllCharts() {
             createCombinedSQLChart(chartId, data.data);
         } else if (data?.type === 'combined-tempfiles') {
             createCombinedTempFilesChart(chartId, data.events);
+        } else if (data?.type === 'pgbr-backups') {
+            createPgbrBackupChart(chartId, data);
+        } else if (data?.type === 'pgbr-wal') {
+            createPgbrWalChart(chartId, data);
         } else if (data?.type === 'costmap') {
             createCostMapChart(chartId, data.queries, { crossHighlight: true });
+        } else if (data?.type === 'pgb-bars') {
+            createPgBouncerBarsChart(chartId, data);
         } else {
             createTimeChart(chartId, data, { color: null });
         }
@@ -416,7 +517,7 @@ window.applyFilters = async function() {
         // Time the parsing — same Uint8Array fast-path as the
         // initial drop, see processFile.
         const parseStart = performance.now();
-        const resultJson = (currentFileContent instanceof Uint8Array)
+        const resultJson = byteContent(currentFileContent)
             ? quellogParseBytes(currentFileContent, filtersJson)
             : quellogParse(currentFileContent, filtersJson);
         const parseEnd = performance.now();
@@ -468,8 +569,10 @@ window.applySplit = async function(intervalSec) {
         if (typeof reinitWasm === 'function') await reinitWasm();
         const filters = buildFiltersObject();
         const filtersJson = JSON.stringify(filters);
-        const bytes = (currentFileContent instanceof Uint8Array)
-            ? currentFileContent : new TextEncoder().encode(currentFileContent);
+        // Several files are split as one stream, as an archive's members.
+        const bytes = Array.isArray(currentFileContent)
+            ? asBytes(currentFileContent.map(c => new TextDecoder().decode(c)).join('\n'))
+            : asBytes(currentFileContent);
         const resultJson = quellogSplitBytes(bytes, intervalSec, currentFileName, filtersJson);
         const r = JSON.parse(resultJson);
         if (r.error) throw new Error(r.error);
@@ -564,6 +667,7 @@ window.resetChartZoom = resetChartZoom;
 window.openChartModal = openChartModal;
 window.updateChartInterval = updateChartInterval;
 window.toggleCombinedSeries = toggleCombinedSeries;
+window.togglePgbSeries = togglePgbSeries;
 window.resetCostMapZoom = resetCostMapZoom;
 window.openCostMapModal = openCostMapModal;
 window.loadDemo = loadDemo;

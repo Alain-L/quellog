@@ -1,0 +1,84 @@
+-------------------PROCESS START-------------------
+2026-10-10 13:58:18.637 P00   INFO: backup command begin 2.59.3: --exec-id=70-4dac2da8 --log-level-file=info --pg1-path=/var/lib/pg/main --pg1-port=5432 --repo1-path=/var/lib/pgbackrest/repo1 --repo2-path=/var/lib/pgbackrest/repo2 --repo1-retention-full=2 --repo2-retention-full=2 --stanza=main --start-fast --type=full
+2026-10-10 13:58:18.637 P00   INFO: repo option not specified, defaulting to repo1
+2026-10-10 13:58:18.644 P00   INFO: execute backup start: backup begins after the requested immediate checkpoint completes
+2026-10-10 13:58:22.598 P00   INFO: backup start archive = 000000010000000000000002, lsn = 0/2000028
+2026-10-10 13:58:22.598 P00   INFO: check archive for segment 000000010000000000000002
+2026-10-10 13:58:36.552 P00   INFO: execute backup stop and wait for all WAL segments to archive
+2026-10-10 13:58:36.733 P00   INFO: backup stop archive = 000000010000000000000003, lsn = 0/3000088
+2026-10-10 13:58:36.753 P00   INFO: check archive for segment(s) 000000010000000000000002:000000010000000000000003
+2026-10-10 13:58:36.873 P00   INFO: new backup label = 20261010-135818F
+2026-10-10 13:58:37.012 P00   INFO: full backup size = 29.3MB, file total = 1265
+2026-10-10 13:58:37.012 P00   INFO: backup command end: completed successfully (18377ms)
+
+-------------------PROCESS START-------------------
+2026-10-10 13:59:22.697 P00   INFO: backup command begin 2.59.3: --exec-id=91-1f1e5e55 --log-level-console=info --log-level-file=info --pg1-path=/var/lib/pg/main --pg1-port=5432 --repo1-path=/var/lib/pgbackrest/repo1 --repo2-path=/var/lib/pgbackrest/repo2 --repo1-retention-full=2 --repo2-retention-full=2 --stanza=main --start-fast --type=full
+2026-10-10 13:59:22.697 P00   INFO: repo option not specified, defaulting to repo1
+2026-10-10 13:59:22.711 P00   INFO: execute backup start: backup begins after the requested immediate checkpoint completes
+2026-10-10 13:59:22.918 P00   INFO: backup start archive = 000000010000000000000005, lsn = 0/5000028
+2026-10-10 13:59:22.918 P00   INFO: check archive for prior segment 000000010000000000000004
+2026-10-10 13:59:32.225 P00   INFO: execute backup stop and wait for all WAL segments to archive
+2026-10-10 13:59:32.606 P00   INFO: backup stop archive = 000000010000000000000005, lsn = 0/5000138
+2026-10-10 13:59:32.679 P00   INFO: check archive for segment(s) 000000010000000000000005:000000010000000000000005
+2026-10-10 13:59:32.766 P00   INFO: new backup label = 20261010-135922F
+2026-10-10 13:59:33.116 P00   INFO: full backup size = 29.3MB, file total = 1265
+2026-10-10 13:59:33.116 P00   INFO: backup command end: completed successfully (10423ms)
+
+-------------------PROCESS START-------------------
+2026-10-10 13:59:41.115 P00   INFO: backup command begin 2.59.3: --exec-id=103-e71cdf74 --log-level-console=info --log-level-file=info --pg1-path=/var/lib/pg/main --pg1-port=5432 --repo=2 --repo1-path=/var/lib/pgbackrest/repo1 --repo2-path=/var/lib/pgbackrest/repo2 --repo1-retention-full=2 --repo2-retention-full=2 --stanza=main --start-fast --type=full
+2026-10-10 13:59:41.121 P00   INFO: execute backup start: backup begins after the requested immediate checkpoint completes
+2026-10-10 13:59:41.222 P00   INFO: backup start archive = 000000010000000000000006, lsn = 0/6000028
+2026-10-10 13:59:41.222 P00   INFO: check archive for segment 000000010000000000000006
+2026-10-10 13:59:52.207 P00   INFO: execute backup stop and wait for all WAL segments to archive
+2026-10-10 13:59:52.521 P00   INFO: backup stop archive = 000000010000000000000007, lsn = 0/703BAB0
+2026-10-10 13:59:52.538 P00   INFO: check archive for segment(s) 000000010000000000000006:000000010000000000000007
+2026-10-10 13:59:52.657 P00   INFO: new backup label = 20261010-135941F
+2026-10-10 13:59:52.847 P00   INFO: full backup size = 29.3MB, file total = 1265
+2026-10-10 13:59:52.847 P00   INFO: backup command end: completed successfully (11733ms)
+
+-------------------PROCESS START-------------------
+2026-10-10 14:01:43.959 P00   INFO: backup command begin 2.59.3: --exec-id=196-a8055ebc --log-level-file=info --pg1-path=/var/lib/pg/main --pg1-port=5432 --repo1-path=/var/lib/pgbackrest/repo1 --repo2-path=/var/lib/pgbackrest/repo2 --repo1-retention-full=2 --repo2-retention-full=2 --stanza=main --start-fast --type=diff
+2026-10-10 14:01:43.959 P00   INFO: repo option not specified, defaulting to repo1
+2026-10-10 14:01:43.975 P00   INFO: last backup label = 20261010-135922F, version = 2.59.3
+2026-10-10 14:01:43.975 P00   INFO: execute backup start: backup begins after the requested immediate checkpoint completes
+2026-10-10 14:01:44.194 P00   INFO: backup start archive = 00000001000000000000000C, lsn = 0/C000028
+2026-10-10 14:01:44.194 P00   INFO: check archive for prior segment 00000001000000000000000B
+2026-10-10 14:02:44.201 P00  ERROR: [082]: WAL segment 00000001000000000000000B was not archived before the 60000ms timeout
+                                    HINT: check the archive_command to ensure that all options are correct (especially --stanza).
+                                    HINT: check the PostgreSQL server log for errors.
+                                    HINT: run the 'start' command if the stanza was previously stopped.
+2026-10-10 14:02:44.202 P00   INFO: backup command end: aborted with exception [082]
+
+-------------------PROCESS START-------------------
+2026-10-10 14:03:06.620 P00   INFO: backup command begin 2.59.3: --exec-id=225-fd1857fd --log-level-file=info --pg1-path=/var/lib/pg/main --pg1-port=5432 --repo=2 --repo1-path=/var/lib/pgbackrest/repo1 --repo2-path=/var/lib/pgbackrest/repo2 --repo1-retention-full=2 --repo2-retention-full=2 --stanza=main --start-fast --type=diff
+2026-10-10 14:03:06.624 P00  ERROR: [041]: unable to load info file '/var/lib/pgbackrest/repo2/backup/main/backup.info' or '/var/lib/pgbackrest/repo2/backup/main/backup.info.copy':
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/repo2/backup/main/backup.info' for read: [13] Permission denied
+                                    FileOpenError: unable to open file '/var/lib/pgbackrest/repo2/backup/main/backup.info.copy' for read: [13] Permission denied
+                                    HINT: backup.info cannot be opened and is required to perform a backup.
+                                    HINT: has a stanza-create been performed?
+2026-10-10 14:03:06.624 P00   INFO: backup command end: aborted with exception [041]
+
+-------------------PROCESS START-------------------
+2026-10-10 14:03:06.934 P00   INFO: backup command begin 2.59.3: --exec-id=229-02db7e53 --log-level-file=info --pg1-path=/var/lib/pg/main --pg1-port=5432 --repo=1 --repo1-path=/var/lib/pgbackrest/repo1 --repo2-path=/var/lib/pgbackrest/repo2 --repo1-retention-full=2 --repo2-retention-full=2 --stanza=main --start-fast --type=diff
+2026-10-10 14:03:06.957 P00   INFO: last backup label = 20261010-135922F, version = 2.59.3
+2026-10-10 14:03:06.957 P00   INFO: execute backup start: backup begins after the requested immediate checkpoint completes
+2026-10-10 14:03:07.102 P00   INFO: backup start archive = 00000001000000000000000D, lsn = 0/D000028
+2026-10-10 14:03:07.102 P00   INFO: check archive for prior segment 00000001000000000000000C
+2026-10-10 14:04:07.108 P00  ERROR: [082]: WAL segment 00000001000000000000000C was not archived before the 60000ms timeout
+                                    HINT: check the archive_command to ensure that all options are correct (especially --stanza).
+                                    HINT: check the PostgreSQL server log for errors.
+                                    HINT: run the 'start' command if the stanza was previously stopped.
+2026-10-10 14:04:07.108 P00   INFO: backup command end: aborted with exception [082]
+
+-------------------PROCESS START-------------------
+2026-10-10 14:04:28.866 P00   INFO: backup command begin 2.59.3: --exec-id=269-3fe9e7e0 --log-level-file=info --pg1-path=/var/lib/pg/main --pg1-port=5432 --repo=1 --repo1-path=/var/lib/pgbackrest/repo1 --repo2-path=/var/lib/pgbackrest/repo2 --repo1-retention-full=2 --repo2-retention-full=2 --stanza=main --start-fast --type=diff
+2026-10-10 14:04:28.888 P00   INFO: last backup label = 20261010-135922F, version = 2.59.3
+2026-10-10 14:04:28.888 P00   INFO: execute backup start: backup begins after the requested immediate checkpoint completes
+2026-10-10 14:04:29.026 P00   INFO: backup start archive = 00000001000000000000000E, lsn = 0/E000028
+2026-10-10 14:04:29.026 P00   INFO: check archive for segment 00000001000000000000000E
+2026-10-10 14:04:30.243 P00   INFO: execute backup stop and wait for all WAL segments to archive
+2026-10-10 14:04:30.316 P00   INFO: backup stop archive = 00000001000000000000000F, lsn = 0/F000050
+2026-10-10 14:04:30.326 P00   INFO: check archive for segment(s) 00000001000000000000000E:00000001000000000000000F
+2026-10-10 14:04:30.440 P00   INFO: new backup label = 20261010-135922F_20261010-140428D
+2026-10-10 14:04:30.551 P00   INFO: diff backup size = 480.3KB, file total = 1265
+2026-10-10 14:04:30.551 P00   INFO: backup command end: completed successfully (1689ms)

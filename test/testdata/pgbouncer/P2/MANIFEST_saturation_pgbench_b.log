@@ -1,0 +1,14 @@
+pgbench (17.10 (Debian 17.10-1.pgdg13+1), server 17.9 (Debian 17.9-1.pgdg13+1))
+starting vacuum...end.
+transaction type: /home/alain/pgb-lab/p2/sleep.sql
+scaling factor: 1
+query mode: simple
+number of clients: 40
+number of threads: 8
+maximum number of tries: 1
+duration: 40 s
+number of transactions actually processed: 348
+number of failed transactions: 0 (0.000%)
+latency average = 5126.438 ms
+initial connection time = 2.307 ms
+tps = 7.802689 (without initial connection time)

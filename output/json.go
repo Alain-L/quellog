@@ -1972,6 +1972,30 @@ func ExportJSON(w io.Writer, m analysis.AggregatedMetrics, sections []string, fu
 	}
 }
 
+// ExportJSONCombined writes the PostgreSQL JSON payload with an added
+// top-level "pgbackrest" key, one entry per stanza, when pgBackRest lines
+// were read, and "pgbouncer", one entry per pooler, when pgBouncer files
+// were part of the same run. With both empty (a pure PostgreSQL run) it is
+// identical to ExportJSON. pgbOnly marks a pure pgBouncer run: the
+// document then holds the "pgbouncer" key alone, the same key a mixed
+// run carries, so a filter emptying the PostgreSQL side of a mixed run
+// does not change where the pooler figures are.
+func ExportJSONCombined(w io.Writer, m analysis.AggregatedMetrics, pbr []analysis.PgBackRestMetrics, pgb []analysis.PgBouncerMetrics, sections []string, full bool, compact bool, pgbOnly bool) {
+	data := map[string]interface{}{}
+	if !pgbOnly {
+		data = buildJSONData(m, sections, full)
+	}
+	if len(pbr) > 0 {
+		data["pgbackrest"] = pgBackRestJSONList(pbr)
+	}
+	if len(pgb) > 0 {
+		data["pgbouncer"] = pgbouncerJSON(pgb)
+	}
+	if err := encodeMapStreaming(w, data, compact); err != nil {
+		fmt.Fprintf(w, "[ERROR] Failed to export JSON: %v\n", err)
+	}
+}
+
 // encodeMapStreaming writes a map[string]interface{} as a JSON object
 // **section by section** to w, instead of letting json.Encoder buffer
 // the entire output internally before flushing. The encoder's hidden
@@ -2063,7 +2087,7 @@ type sectionStreamer interface {
 // ExportJSONString returns the JSON export as a string instead of printing.
 // This is useful for WASM and other contexts where stdout is not available.
 func ExportJSONString(m analysis.AggregatedMetrics, sections []string) (string, error) {
-	return ExportJSONStringWithMeta(m, sections, false, nil, false)
+	return ExportJSONStringWithMeta(m, nil, sections, false, nil, false)
 }
 
 // MetaInfo contains optional metadata about the parsing process.
@@ -2075,16 +2099,20 @@ type MetaInfo struct {
 	ProcessingMs int64  `json:"processing_ms,omitempty"`
 }
 
-// ExportJSONStringWithMeta returns the JSON export with optional metadata.
+// ExportJSONStringWithMeta returns the JSON export with optional metadata,
+// and the "pgbackrest" key when pbr is non-empty.
 // Uses streaming encoder to avoid triple buffering (map + []byte + string).
 // When compact is true, outputs JSON without indentation (smaller, lower memory).
-func ExportJSONStringWithMeta(m analysis.AggregatedMetrics, sections []string, full bool, meta *MetaInfo, compact bool) (string, error) {
+func ExportJSONStringWithMeta(m analysis.AggregatedMetrics, pbr []analysis.PgBackRestMetrics, sections []string, full bool, meta *MetaInfo, compact bool) (string, error) {
 	data := buildJSONData(m, sections, full)
 	if meta != nil {
 		data["meta"] = meta
 	}
+	if len(pbr) > 0 {
+		data["pgbackrest"] = pgBackRestJSONList(pbr)
+	}
 
-	// Section-by-section streaming into a buffer (same path as ExportJSON).
+	// Section-by-section streaming into a buffer (same path as ExportJSONCombined).
 	var buf bytes.Buffer
 	if err := encodeMapStreaming(&buf, data, compact); err != nil {
 		return "", err
@@ -2093,7 +2121,8 @@ func ExportJSONStringWithMeta(m analysis.AggregatedMetrics, sections []string, f
 }
 
 // buildJSONData constructs the JSON data structure from metrics.
-// This is the shared implementation used by both ExportJSON and ExportJSONString.
+// This is the shared implementation used by ExportJSONStringWithMeta,
+// ExportJSONCombined and the HTML report's own JSON payload.
 // When full is true, sql_overview and enriched sql_performance are added at the end.
 func buildJSONData(m analysis.AggregatedMetrics, sections []string, full bool) map[string]interface{} {
 	data := make(map[string]interface{})
@@ -2105,6 +2134,13 @@ func buildJSONData(m analysis.AggregatedMetrics, sections []string, full bool) m
 			}
 		}
 		return false
+	}
+
+	if m.Patroni != nil && has("patroni") {
+		data["patroni"] = buildPatroniJSON(m.Patroni)
+		if m.Global.Count == 0 {
+			return data
+		}
 	}
 
 	if has("summary") {

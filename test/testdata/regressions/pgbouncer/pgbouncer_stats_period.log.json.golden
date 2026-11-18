@@ -1,0 +1,114 @@
+{
+  "pgbouncer": [
+    {
+      "name": "127.0.0.1:6432",
+      "files": [
+        "testdata/regressions/pgbouncer/pgbouncer_stats_period.log"
+      ],
+      "listen": [
+        "127.0.0.1:6432"
+      ],
+      "version": "1.25.2",
+      "start_date": "2026-09-20 13:40:13",
+      "end_date": "2026-09-20 13:42:26",
+      "events": [
+        {
+          "timestamp": "2026-09-20 13:40:13",
+          "kind": "start",
+          "detail": "PgBouncer 1.25.2"
+        },
+        {
+          "timestamp": "2026-09-20 13:42:26",
+          "kind": "shutdown",
+          "detail": "SHUTDOWN"
+        }
+      ],
+      "lines": 373,
+      "lines_read": 373,
+      "lines_unrecognized": 0,
+      "debug_lines": 0,
+      "stats_sample_count": 2,
+      "avg_xacts_per_sec": 1.5,
+      "max_xacts_per_sec": 3,
+      "avg_queries_per_sec": 10.5,
+      "max_queries_per_sec": 21,
+      "avg_in_bytes_per_sec": 645.5,
+      "max_in_bytes_per_sec": 1291,
+      "avg_out_bytes_per_sec": 282.5,
+      "max_out_bytes_per_sec": 565,
+      "avg_xact_us": 1990,
+      "max_xact_us": 1990,
+      "avg_query_us": 261,
+      "max_query_us": 261,
+      "avg_wait_us": 331,
+      "max_wait_us": 331,
+      "stats_series": [
+        {
+          "time": "2026-09-20 13:41:13",
+          "period_start": "2026-09-20 13:40:13",
+          "xacts_per_sec": 3,
+          "queries_per_sec": 21,
+          "in_bytes_per_sec": 1291,
+          "out_bytes_per_sec": 565,
+          "xact_us": 1990,
+          "query_us": 261,
+          "wait_us": 331
+        },
+        {
+          "time": "2026-09-20 13:42:13",
+          "period_start": "2026-09-20 13:41:13",
+          "xacts_per_sec": 0,
+          "queries_per_sec": 0,
+          "in_bytes_per_sec": 0,
+          "out_bytes_per_sec": 0,
+          "xact_us": 0,
+          "query_us": 0,
+          "wait_us": 0
+        }
+      ],
+      "max_xacts_per_sec_timestamp": "2026-09-20 13:41:13",
+      "max_queries_per_sec_timestamp": "2026-09-20 13:41:13",
+      "max_in_bytes_per_sec_timestamp": "2026-09-20 13:41:13",
+      "max_out_bytes_per_sec_timestamp": "2026-09-20 13:41:13",
+      "max_xact_us_timestamp": "2026-09-20 13:41:13",
+      "max_query_us_timestamp": "2026-09-20 13:41:13",
+      "max_wait_us_timestamp": "2026-09-20 13:41:13",
+      "login_attempts": 182,
+      "server_connections": 4,
+      "sessions": 181,
+      "total_session_seconds": 0,
+      "session_distribution": {
+        "\u003c 1s": 181
+      },
+      "session_reasons": [
+        {
+          "reason": "client close request",
+          "count": 181,
+          "total_seconds": 0
+        }
+      ],
+      "connections_per_database": {
+        "benchdb": 181,
+        "pgbouncer": 1
+      },
+      "connections_per_user": {
+        "admin": 1,
+        "bench": 181
+      },
+      "connections_per_host": {
+        "127.0.0.1": 182
+      },
+      "sessions_per_database": {
+        "benchdb": 181
+      },
+      "sessions_per_user": {
+        "bench": 181
+      },
+      "sessions_per_host": {
+        "127.0.0.1": 181
+      },
+      "reserve_pool_activations": 0,
+      "total_errors": 0
+    }
+  ]
+}

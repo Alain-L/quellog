@@ -1,0 +1,31 @@
+quellog dev – 175 entries processed in X s (17.70 KB)
+
+[1mPGBACKREST[0m
+
+  Stanzas                   : 3 (main, main2, restored)
+  pgBackRest version        : 2.59.3
+
+  [1mmain[0m
+    Last full               : 20261010-131050F
+    Last diff, incr         : none (expired at 13:11:20)
+    Backups                 : 5 ok, 1 failed, 2 killed
+    Last failure            : incr at 13:11:41
+    WAL archiving           : not logged
+    Restores                : 2, last at 13:14:11 (to 13:11:10)
+
+  [1mmain2[0m
+    Last full               : none
+    Backups                 : 1 failed
+    Last failure            : full at 13:09:36
+    WAL archiving           : not logged
+
+  [1mrestored[0m
+    Last full               : none
+    WAL archiving           : not logged
+
+  Top errors:
+    [056] unable to find primary cluster  main      1  13:11:41
+    [082] WAL not archived in time        main2     1  13:09:36
+
+  [3;38;5;243mDetails: --pgbackrest-detail[=stanza][0m
+
