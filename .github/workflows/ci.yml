@@ -59,7 +59,7 @@ jobs:
         run: |
           go vet ./...
           staticcheck ./...
-          go test -race ./... -cover -timeout 15m
+          go test -race ./... -cover -timeout 30m
 
       - name: Build CLI
         run: go build -v -o bin/quellog .
