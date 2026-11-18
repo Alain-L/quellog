@@ -68,6 +68,10 @@ func runHarness(t *testing.T, allowFailure bool, args ...string) []byte {
 	}
 
 	cmd := exec.Command(harnessBinary, args...)
+	// A zone abbreviation the machine does not know reads as UTC, so the
+	// goldens of logs stamped CEST depend on the machine's zone: pin the one
+	// they were recorded in.
+	cmd.Env = append(os.Environ(), "TZ=Europe/Paris")
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
