@@ -1076,7 +1076,10 @@
         .summary-server-line {
             display: grid;
             grid-auto-flow: column;
-            grid-template-columns: 1fr 1fr;
+            /* minmax(0, 1fr): the two halves stay equal, and a fragment
+               longer than its half wraps instead of widening it and
+               pushing the other column out of the card. */
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
             column-gap: 1.2rem;
             row-gap: 0.1rem;
             justify-items: start;
@@ -1091,9 +1094,10 @@
 
         .summary-server-row {
             display: flex;
+            flex-wrap: wrap;
             align-items: baseline;
-            gap: 0.45rem;
-            white-space: nowrap;
+            column-gap: 0.45rem;
+            max-width: 100%;
         }
 
         .summary-server-detail {
@@ -1103,7 +1107,7 @@
         }
 
         .summary-server-frag {
-            white-space: nowrap;
+            overflow-wrap: anywhere;
         }
 
         /* Fragments carrying a diagnostic tooltip get a subtle dotted

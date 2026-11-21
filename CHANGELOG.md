@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 - **The header line of `-E`, `-Q`, `--sql-performance` and `--sql-overview`** gave the number of timed SQL queries as the entries processed: 485 for a 35 394-entry log, 0 for a pgBackRest or Patroni log. It now counts the entries as the full report does.
+- **Text cut off in the Summary card of the HTML report**: when a server fragment and its detail were longer than half the card (`1 replication termination last 16:20:02`), the other column was pushed out of the card and clipped (`1 stream reconr`). A long fragment now wraps in its half.
 
 ### Security
 - **A log value could run code from a Copy button of the HTML report**: in the event and query detail windows, a backslash before a quote in a message or a query closed the button's JavaScript string, and the rest of the value ran when Copy was clicked (stored XSS). Backslashes and carriage returns are now escaped. Reported and fixed by NagamoTeur (#10).
