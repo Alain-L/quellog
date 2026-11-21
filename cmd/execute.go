@@ -635,7 +635,7 @@ func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry
 		} else if mdFlag {
 			output.ExportSQLDetailMarkdown(w, metrics, sqlDetailFlag)
 		} else {
-			PrintProcessingSummary(metrics.SQL.TotalQueries, processingDuration, totalFileSize)
+			PrintProcessingSummary(metrics.Global.Count, processingDuration, totalFileSize)
 			output.PrintSQLDetails(metrics, sqlDetailFlag)
 		}
 		return closer()
@@ -666,7 +666,7 @@ func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry
 		if metrics.Global.Count == 0 && len(pbr) == 0 && patroniReport == nil && len(pgb) == 0 {
 			return errNoEntries
 		}
-		return writeEventDetails(metrics, pbr, metrics.SQL.TotalQueries, processingDuration, totalFileSize)
+		return writeEventDetails(metrics, pbr, reportEntries(metrics, pgb, pbr), processingDuration, totalFileSize)
 	}
 
 	// Special case: SQL performance (detailed aggregated query statistics)
@@ -689,7 +689,7 @@ func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry
 		} else if mdFlag {
 			output.ExportSQLSummaryMarkdown(w, metrics.SQL, metrics.TempFiles, metrics.Locks)
 		} else {
-			PrintProcessingSummary(metrics.SQL.TotalQueries, processingDuration, totalFileSize)
+			PrintProcessingSummary(metrics.Global.Count, processingDuration, totalFileSize)
 			output.PrintSQLSummaryWithContext(metrics.SQL, metrics.TempFiles, metrics.Locks, false)
 		}
 		return closer()
@@ -715,7 +715,7 @@ func processAndOutput(ctx context.Context, filteredLogs <-chan []parser.LogEntry
 		} else if mdFlag {
 			output.ExportSQLOverviewMarkdown(w, metrics.SQL)
 		} else {
-			PrintProcessingSummary(metrics.SQL.TotalQueries, processingDuration, totalFileSize)
+			PrintProcessingSummary(metrics.Global.Count, processingDuration, totalFileSize)
 			output.PrintSQLOverview(metrics.SQL)
 		}
 		return closer()
@@ -1206,6 +1206,16 @@ func calculateTotalFileSize(files []string) int64 {
 		}
 	}
 	return total
+}
+
+// reportEntries is the count the header line gives: the PostgreSQL entries
+// and the Patroni and pooler records alike, as the full report counts them,
+// or the pgBackRest lines read when there is nothing else.
+func reportEntries(m analysis.AggregatedMetrics, pgb []analysis.PgBouncerMetrics, pbr []analysis.PgBackRestMetrics) int {
+	if n := m.Global.Count + patroniEntries(m) + poolerEntries(pgb); n > 0 {
+		return n
+	}
+	return analysis.PgBackRestLinesRead(pbr)
 }
 
 // PrintProcessingSummary displays a summary line showing processing statistics.
