@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [0.14.1] - 2026-11-21
 
 ### Fixed
 - **The header line of `-E`, `-Q`, `--sql-performance` and `--sql-overview`** gave the number of timed SQL queries as the entries processed: 485 for a 35 394-entry log, 0 for a pgBackRest or Patroni log. It now counts the entries as the full report does.
