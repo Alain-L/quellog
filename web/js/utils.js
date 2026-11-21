@@ -334,14 +334,19 @@ export function escAttr(s) {
 //   2. " → &quot; so a quote in the text doesn't close the attribute
 //      (the bug that makes the leftover JS appear as button text when a
 //      message contains a double quote)
-//   3. ' → \' so the JS single-quoted string literal stays valid
-//   4. \n → \\n so newlines in messages don't break the JS line
+//   3. \ → \\ first, so a backslash in the text cannot escape the quote
+//      added next (a log line holding \' would otherwise close the JS
+//      string and run the rest as code)
+//   4. ' → \' so the JS single-quoted string literal stays valid
+//   5. \n and \r → \\n and \\r so newlines don't break the JS line
 export function escForJsAttr(s) {
     if (!s) return '';
     return esc(s)
         .replace(/"/g, '&quot;')
+        .replace(/\\/g, '\\\\')
         .replace(/'/g, "\\'")
-        .replace(/\n/g, '\\n');
+        .replace(/\n/g, '\\n')
+        .replace(/\r/g, '\\r');
 }
 
 /**
