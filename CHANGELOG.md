@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Security
+- **A log value could run code from a Copy button of the HTML report**: in the event and query detail windows, a backslash before a quote in a message or a query closed the button's JavaScript string, and the rest of the value ran when Copy was clicked (stored XSS). Backslashes and carriage returns are now escaped. Reported and fixed by NagamoTeur (#10).
+- **`golang.org/x/text` v0.41.0 and `golang.org/x/sys` v0.44.0**: they fix GO-2026-6629, GO-2026-5970 and GO-2026-5024, present in the binary although quellog does not call the affected functions.
+
 ## [0.14.0] - 2026-11-18
 
 ### Added
