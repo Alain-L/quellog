@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Fixed
+- **Misleading "No data available" in the HTML report**: an empty section only said "Check: `log_checkpoints = on`", even when the setting was on and a filter had left the section empty (`--dbname` also drops instance-level entries such as checkpoints). It now adds "The filters can leave it empty." (#7).
+
 ## [0.14.1] - 2026-11-21
 
 ### Fixed
