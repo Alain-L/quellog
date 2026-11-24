@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Fixed
+- **No connection count with `--dbname`, `--dbuser` or `--appname`**: PostgreSQL logs `connection received` before it knows the database, user or application (`db=[unknown]`), so the filter dropped it and the connection report was missing (no CONNECTIONS & SESSIONS section in text, "No data available" in HTML). The line is now kept when a later line of the same session passes the filter (#7).
+
 ## [0.14.1] - 2026-11-21
 
 ### Fixed
