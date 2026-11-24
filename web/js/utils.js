@@ -383,14 +383,16 @@ export function fmtMsLong(ms) {
 
 /**
  * Build the shared "No data available" placeholder for a section whose
- * source data is absent (e.g. the relevant log_* setting is off).
+ * source data is absent (e.g. the relevant log_* setting is off, or the
+ * filters dropped its entries: an attribute filter also drops instance-level
+ * entries such as checkpoints).
  * @param {string} hint - HTML hint fragment naming the setting to check
  * @returns {string}
  */
 export function buildNoDataMessage(hint) {
     return `
         <div class="no-data-message">
-            <div class="no-data-text">No data available</div>
+            <div class="no-data-text">No data available. The filters can leave it empty.</div>
             <div class="no-data-hint">Check: ${hint}</div>
         </div>
     `;
