@@ -8,6 +8,9 @@ All notable changes to this project will be documented in this file.
 - **Misleading "No data available" in the HTML report**: an empty section only said "Check: `log_checkpoints = on`", even when the setting was on and a filter had left the section empty (`--dbname` also drops instance-level entries such as checkpoints). It now adds "The filters can leave it empty." (#7).
 - **No connection count with `--dbname`, `--dbuser` or `--appname`**: PostgreSQL logs `connection received` before it knows the database, user or application (`db=[unknown]`), so the filter dropped it and the connection report was missing (no CONNECTIONS & SESSIONS section in text, "No data available" in HTML). The line is now kept when a later line of the same session passes the filter (#7).
 
+### Performance
+- **Database, user and application filters are faster in the browser demo**: 3 to 10% on the logs measured.
+
 ## [0.14.1] - 2026-11-21
 
 ### Fixed
