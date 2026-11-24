@@ -220,15 +220,15 @@ func extractValue(line, key string) string {
 	// Extract text after the key
 	rest := line[idx+len(key):]
 
-	// When fields are comma-separated (comma before key), skip space as separator
+	// When fields are comma-separated (comma before key), skip space as separator.
+	// One pass to the first separator: a search per separator would scan the
+	// rest of the message for each one that does not occur.
 	commaSep := idx > 0 && line[idx-1] == ','
 	endPos := len(rest)
-	for _, sep := range []rune{' ', ',', '[', ']', '(', ')'} {
-		if sep == ' ' && commaSep {
-			continue
-		}
-		if pos := strings.IndexRune(rest, sep); pos != -1 && pos < endPos {
-			endPos = pos
+	for i := 0; i < len(rest); i++ {
+		if c := rest[i]; valueSeparator[c] && !(c == ' ' && commaSep) {
+			endPos = i
+			break
 		}
 	}
 	if commaSep {
@@ -244,6 +244,9 @@ func extractValue(line, key string) string {
 	value = strings.Trim(value, `"'`)
 	return value
 }
+
+// valueSeparator marks the bytes that end a value in extractValue.
+var valueSeparator = [256]bool{' ': true, ',': true, '[': true, ']': true, '(': true, ')': true}
 
 // findSeverityMarker returns the position of the first PostgreSQL severity
 // marker (" LOG:", " ERROR:", etc.) in s, or -1 if not found.
