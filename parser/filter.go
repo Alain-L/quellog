@@ -52,6 +52,16 @@ func (f LogFilters) IsEmpty() bool {
 func FilterStream(ctx context.Context, in <-chan []LogEntry, out chan<- []LogEntry, filters LogFilters) {
 	defer close(out)
 
+	// held keeps, per PID, a "connection received" line dropped by an
+	// attribute filter: that line is logged before PostgreSQL knows the
+	// database, user or application (db=[unknown]), so it is judged by the
+	// session's first later line whose attribute is known. Nil when no
+	// attribute filter is set, which keeps the common path unchanged.
+	var held map[string]LogEntry
+	if len(filters.DbFilter) > 0 || len(filters.UserFilter) > 0 || len(filters.AppFilter) > 0 {
+		held = make(map[string]LogEntry)
+	}
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -66,10 +76,42 @@ func FilterStream(ctx context.Context, in <-chan []LogEntry, out chan<- []LogEnt
 			// Filter in place to avoid allocating a new slice when nothing
 			// is dropped. Most batches pass filters intact in the common case.
 			kept := batch[:0]
-			for _, e := range batch {
-				if PassesFilters(e, filters) {
+			copied := false
+			for i, e := range batch {
+				pass, unknown := filterVerdict(e, filters)
+				if pass {
+					if held == nil || e.PID == "" {
+						kept = append(kept, e)
+						continue
+					}
+					if h, ok := held[e.PID]; ok {
+						// The session passes: release its connection
+						// line ahead of it. Two writes at one read would
+						// overrun the unread entries, so move kept out
+						// of the batch first if it has caught up.
+						delete(held, e.PID)
+						if !copied && len(kept) >= i {
+							kept = append(getBatch(), kept...)
+							copied = true
+						}
+						kept = append(kept, h)
+					}
 					kept = append(kept, e)
+				} else if held != nil && e.PID != "" {
+					if unknown {
+						// Hold the connection line; other lines of a
+						// session not yet identified leave it waiting.
+						if strings.Contains(e.Message, "connection received") {
+							held[e.PID] = e
+						}
+					} else if len(held) > 0 {
+						// The session is known and filtered out.
+						delete(held, e.PID)
+					}
 				}
+			}
+			if copied {
+				PutBatch(batch)
 			}
 			if len(kept) == 0 {
 				// Whole batch filtered out — return its backing storage to
@@ -91,11 +133,20 @@ func FilterStream(ctx context.Context, in <-chan []LogEntry, out chan<- []LogEnt
 // PassesFilters checks if a log entry matches all filter criteria.
 // Returns true if the entry should be included in the output.
 func PassesFilters(entry LogEntry, filters LogFilters) bool {
+	pass, _ := filterVerdict(entry, filters)
+	return pass
+}
+
+// filterVerdict is PassesFilters, also telling whether a dropped entry
+// failed only for lack of a database, user or application value
+// ("[unknown]" before authentication, or empty): a later line of the same
+// session may still match.
+func filterVerdict(entry LogEntry, filters LogFilters) (pass, unknown bool) {
 	if entry.FromPgBackRest {
 		// The pgBackRest observer applies the time window itself, to
 		// record that it cut the history; the other filters mean nothing
 		// for pgBackRest.
-		return true
+		return true, false
 	}
 	// Time range filters. --begin/--end are wall-clock bounds: "09:00" means
 	// the instant the log clock reads 09:00, independent of the log's or the
@@ -105,10 +156,10 @@ func PassesFilters(entry LogEntry, filters LogFilters) bool {
 	if !filters.BeginT.IsZero() || !filters.EndT.IsZero() {
 		wall := WallClock(entry.Timestamp)
 		if !filters.BeginT.IsZero() && wall.Before(filters.BeginT) {
-			return false
+			return false, false
 		}
 		if !filters.EndT.IsZero() && wall.After(filters.EndT) {
-			return false
+			return false, false
 		}
 	}
 
@@ -116,7 +167,7 @@ func PassesFilters(entry LogEntry, filters LogFilters) bool {
 	if len(filters.DbFilter) > 0 {
 		dbName := extractValue(entry.Message, "db=")
 		if dbName == "" || !contains(filters.DbFilter, dbName) {
-			return false
+			return false, dbName == ""
 		}
 	}
 
@@ -124,7 +175,7 @@ func PassesFilters(entry LogEntry, filters LogFilters) bool {
 	if len(filters.ExcludeUser) > 0 {
 		userName := extractValue(entry.Message, "user=")
 		if contains(filters.ExcludeUser, userName) {
-			return false
+			return false, false
 		}
 	}
 
@@ -132,7 +183,7 @@ func PassesFilters(entry LogEntry, filters LogFilters) bool {
 	if len(filters.UserFilter) > 0 {
 		userName := extractValue(entry.Message, "user=")
 		if userName == "" || !contains(filters.UserFilter, userName) {
-			return false
+			return false, userName == ""
 		}
 	}
 
@@ -140,11 +191,11 @@ func PassesFilters(entry LogEntry, filters LogFilters) bool {
 	if len(filters.AppFilter) > 0 {
 		appName := extractValue(entry.Message, "app=")
 		if appName == "" || !contains(filters.AppFilter, appName) {
-			return false
+			return false, appName == ""
 		}
 	}
 
-	return true
+	return true, false
 }
 
 // extractValue extracts the value following a key in the format "key=value".
